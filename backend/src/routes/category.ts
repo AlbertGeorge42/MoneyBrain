@@ -53,12 +53,12 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { name, type, icon, parentId } = req.body
+    const { name, type, icon, parentId, cashFlowType } = req.body
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
     const category = await prisma.category.create({
-      data: { name, type, icon, parentId },
+      data: { name, type, icon, parentId, cashFlowType },
     })
     return success(res, category, 201)
   } catch (err) {
@@ -69,13 +69,13 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    const { name, type, icon, parentId } = req.body
+    const { name, type, icon, parentId, cashFlowType } = req.body
     if (parentId === id) {
       return error(res, '父分类不能是自己', 'BAD_REQUEST', 400)
     }
     const category = await prisma.category.update({
       where: { id },
-      data: { name, type, icon, parentId },
+      data: { name, type, icon, parentId, cashFlowType },
     })
     return success(res, category)
   } catch (err) {

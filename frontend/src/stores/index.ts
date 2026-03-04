@@ -17,7 +17,7 @@ interface AppState {
   
   addAccount: (data: Partial<Account>) => Promise<void>
   updateAccount: (id: string, data: Partial<Account>) => Promise<void>
-  deleteAccount: (id: string) => Promise<void>
+  deleteAccount: (id: string, force?: boolean) => Promise<void>
   
   addAccountCategory: (data: Partial<AccountCategory>) => Promise<void>
   updateAccountCategory: (id: string, data: Partial<AccountCategory>) => Promise<void>
@@ -117,8 +117,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  deleteAccount: async (id) => {
-    const res = await accountApi.delete(id)
+  deleteAccount: async (id: string, force?: boolean) => {
+    const res = await accountApi.delete(id, force)
     if (res.data.success) {
       await get().fetchAccounts()
     }

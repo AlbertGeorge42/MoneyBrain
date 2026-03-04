@@ -1,323 +1,514 @@
-import React, { useEffect, useState } from 'react'
-import { Card, Tabs, DatePicker, Row, Col, Statistic, Table, Spin, message } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Card, Tabs, DatePicker, Button, Table, Row, Col, Statistic, Modal, InputNumber, message, Space, Tag, Divider } from 'antd'
+import { SettingOutlined, SaveOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import * as api from '../services/api'
+import { reportApi, balanceSnapshotApi, Account } from '../services/api'
+import AccountCategoryModal from '../components/AccountCategoryModal'
+import TransactionCategoryModal from '../components/TransactionCategoryModal'
+import CashFlowConfigModal from '../components/CashFlowConfigModal'
 
 const { RangePicker } = DatePicker
+const { MonthPicker } = DatePicker
 
 const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState('balance-sheet')
   const [loading, setLoading] = useState(false)
+  
+  // 资产负债表状态
+  const [selectedMonth, setSelectedMonth] = useState(dayjs())
   const [balanceSheetData, setBalanceSheetData] = useState<any>(null)
-  const [incomeExpenseData, setIncomeExpenseData] = useState<any>(null)
-  const [cashFlowData, setCashFlowData] = useState<any>(null)
+  const [calibrateVisible, setCalibrateVisible] = useState(false)
+  const [calibrateData, setCalibrateData] = useState<Record<string, number>>({})
+  const [accountCategoryModalVisible, setAccountCategoryModalVisible] = useState(false)
+  
+  // 收入支出表状态
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
     dayjs().startOf('month'),
     dayjs().endOf('month'),
   ])
+  const [incomeExpenseData, setIncomeExpenseData] = useState<any>(null)
+  const [transactionCategoryModalVisible, setTransactionCategoryModalVisible] = useState(false)
+  
+  // 现金流量表状态
+  const [cashFlowDateRange, setCashFlowDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
+    dayjs().startOf('month'),
+    dayjs().endOf('month'),
+  ])
+  const [cashFlowData, setCashFlowData] = useState<any>(null)
+  const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
 
   useEffect(() => {
-    fetchBalanceSheet()
-  }, [])
+    if (activeTab === 'balance-sheet') {
+      fetchBalanceSheet()
+    } else if (activeTab === 'income-expense') {
+      fetchIncomeExpense()
+    } else if (activeTab === 'cash-flow') {
+      fetchCashFlow()
+    }
+  }, [activeTab, selectedMonth, dateRange, cashFlowDateRange])
 
   const fetchBalanceSheet = async () => {
     setLoading(true)
     try {
-      const res = await api.reportApi.getBalanceSheet()
-      if (res.data.success && res.data.data) {
-        setBalanceSheetData(res.data.data)
-      }
+      const monthStr = selectedMonth.format('YYYY-MM')
+      const res = await reportApi.getBalanceSheet(monthStr)
+      setBalanceSheetData(res.data.data)
+      
+      // 初始化校准数据
+      const initialCalibrate: Record<string, number> = {}
+      res.data.data?.accounts?.forEach((a: any) => {
+        initialCalibrate[a.id] = a.balance
+      })
+      setCalibrateData(initialCalibrate)
     } catch (error) {
       message.error('获取资产负债表失败')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const fetchIncomeExpense = async () => {
     setLoading(true)
     try {
-      const res = await api.reportApi.getIncomeExpense(
+      const res = await reportApi.getIncomeExpense(
         dateRange[0].format('YYYY-MM-DD'),
         dateRange[1].format('YYYY-MM-DD')
       )
-      if (res.data.success && res.data.data) {
-        setIncomeExpenseData(res.data.data)
-      }
+      setIncomeExpenseData(res.data.data)
     } catch (error) {
       message.error('获取收入支出表失败')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const fetchCashFlow = async () => {
     setLoading(true)
     try {
-      const res = await api.reportApi.getCashFlow(
-        dateRange[0].format('YYYY-MM-DD'),
-        dateRange[1].format('YYYY-MM-DD')
+      const res = await reportApi.getCashFlow(
+        cashFlowDateRange[0].format('YYYY-MM-DD'),
+        cashFlowDateRange[1].format('YYYY-MM-DD')
       )
-      if (res.data.success && res.data.data) {
-        setCashFlowData(res.data.data)
-      }
+      setCashFlowData(res.data.data)
     } catch (error) {
       message.error('获取现金流量表失败')
-    }
-    setLoading(false)
-  }
-
-  const handleTabChange = (key: string) => {
-    setActiveTab(key)
-    if (key === 'balance-sheet' && !balanceSheetData) {
-      fetchBalanceSheet()
-    } else if (key === 'income-expense') {
-      fetchIncomeExpense()
-    } else if (key === 'cash-flow') {
-      fetchCashFlow()
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleDateChange = (dates: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null) => {
-    if (dates && dates[0] && dates[1]) {
-      setDateRange([dates[0], dates[1]])
-      if (activeTab === 'income-expense') {
-        fetchIncomeExpense()
-      } else if (activeTab === 'cash-flow') {
-        fetchCashFlow()
+  const handleSaveCalibration = async () => {
+    try {
+      const monthStr = selectedMonth.format('YYYY-MM')
+      const adjustments = Object.entries(calibrateData).map(([accountId, targetBalance]) => ({
+        accountId,
+        targetBalance,
+      }))
+      
+      const res = await balanceSnapshotApi.adjust({ month: monthStr, adjustments })
+      
+      // 显示平账结果
+      const results = res.data.data?.adjustments || []
+      const adjustedCount = results.filter((r: any) => r.transaction).length
+      
+      if (adjustedCount > 0) {
+        message.success(`校准成功，已生成 ${adjustedCount} 条平账记录`)
+      } else {
+        message.success('校准数据保存成功')
       }
+      
+      setCalibrateVisible(false)
+      fetchBalanceSheet()
+    } catch (error) {
+      message.error('保存失败')
     }
   }
-
-  const balanceSheetColumns = [
-    { title: '账户', dataIndex: 'name', key: 'name' },
-    { title: '分类', dataIndex: 'category', key: 'category' },
-    { 
-      title: '余额', 
-      dataIndex: 'balance', 
-      key: 'balance',
-      render: (balance: number, record: any) => (
-        <span style={{ color: record.type === 'asset' ? '#3f8600' : '#cf1322' }}>
-          ¥{balance.toFixed(2)}
-        </span>
-      ),
-    },
-  ]
-
-  const accountColumns = [
-    { title: '账户', dataIndex: 'name', key: 'name' },
-    { 
-      title: '流入', 
-      dataIndex: 'inflow', 
-      key: 'inflow',
-      render: (v: number) => <span style={{ color: '#3f8600' }}>¥{v.toFixed(2)}</span>,
-    },
-    { 
-      title: '流出', 
-      dataIndex: 'outflow', 
-      key: 'outflow',
-      render: (v: number) => <span style={{ color: '#cf1322' }}>¥{v.toFixed(2)}</span>,
-    },
-  ]
 
   const renderBalanceSheet = () => (
-    <Spin spinning={loading}>
-      {balanceSheetData && (
-        <>
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="总资产"
-                  value={balanceSheetData.assets}
-                  precision={2}
-                  valueStyle={{ color: '#3f8600' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="总负债"
-                  value={balanceSheetData.liabilities}
-                  precision={2}
-                  valueStyle={{ color: '#cf1322' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="净资产"
-                  value={balanceSheetData.netWorth}
-                  precision={2}
-                  valueStyle={{ color: '#1890ff' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-          </Row>
-          <Card title="资产账户" style={{ marginBottom: 16 }}>
+    <div>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Space>
+          <MonthPicker 
+            value={selectedMonth} 
+            onChange={(date) => date && setSelectedMonth(date)}
+            allowClear={false}
+          />
+          <span style={{ color: '#666' }}>
+            显示 {selectedMonth.format('YYYY年MM月')} 月初（1日）资产负债状况
+          </span>
+        </Space>
+        <Space>
+          <Button icon={<SettingOutlined />} onClick={() => setAccountCategoryModalVisible(true)}>
+            设置
+          </Button>
+          <Button icon={<SaveOutlined />} onClick={() => setCalibrateVisible(true)}>
+            校准
+          </Button>
+        </Space>
+      </div>
+
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Statistic
+              title="总资产"
+              value={balanceSheetData?.assets || 0}
+              precision={2}
+              valueStyle={{ color: '#3f8600' }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="总负债"
+              value={balanceSheetData?.liabilities || 0}
+              precision={2}
+              valueStyle={{ color: '#cf1322' }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="净资产"
+              value={balanceSheetData?.netWorth || 0}
+              precision={2}
+              valueStyle={{ color: '#1890ff' }}
+              prefix="¥"
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Card title="资产明细" size="small">
             <Table
-              dataSource={balanceSheetData.accounts.filter((a: any) => a.type === 'asset')}
-              columns={balanceSheetColumns}
-              rowKey="id"
-              pagination={false}
+              dataSource={Object.entries(balanceSheetData?.assetsByCategory || {}).map(([name, value]) => ({
+                name,
+                value,
+              }))}
+              columns={[
+                { title: '分类', dataIndex: 'name', key: 'name' },
+                { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
+              ]}
+              rowKey="name"
               size="small"
+              pagination={false}
             />
           </Card>
-          <Card title="负债账户">
+        </Col>
+        <Col span={12}>
+          <Card title="负债明细" size="small">
             <Table
-              dataSource={balanceSheetData.accounts.filter((a: any) => a.type === 'liability')}
-              columns={balanceSheetColumns}
-              rowKey="id"
-              pagination={false}
+              dataSource={Object.entries(balanceSheetData?.liabilitiesByCategory || {}).map(([name, value]) => ({
+                name,
+                value,
+              }))}
+              columns={[
+                { title: '分类', dataIndex: 'name', key: 'name' },
+                { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
+              ]}
+              rowKey="name"
               size="small"
+              pagination={false}
             />
           </Card>
-        </>
-      )}
-    </Spin>
+        </Col>
+      </Row>
+    </div>
   )
 
   const renderIncomeExpense = () => (
-    <Spin spinning={loading}>
-      <div style={{ marginBottom: 16 }}>
+    <div>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <RangePicker
           value={dateRange}
-          onChange={handleDateChange}
-          allowClear={false}
+          onChange={(dates) => dates && setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
         />
+        <Button icon={<SettingOutlined />} onClick={() => setTransactionCategoryModalVisible(true)}>
+          设置
+        </Button>
       </div>
-      {incomeExpenseData && (
-        <>
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="总收入"
-                  value={incomeExpenseData.income}
-                  precision={2}
-                  valueStyle={{ color: '#3f8600' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="总支出"
-                  value={incomeExpenseData.expense}
-                  precision={2}
-                  valueStyle={{ color: '#cf1322' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="结余"
-                  value={incomeExpenseData.balance}
-                  precision={2}
-                  valueStyle={{ color: incomeExpenseData.balance >= 0 ? '#3f8600' : '#cf1322' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Card title="收入分类">
-                {Object.entries(incomeExpenseData.incomeByCategory).map(([name, value]) => (
-                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
-                    <span>{name}</span>
-                    <span style={{ color: '#3f8600' }}>¥{(value as number).toFixed(2)}</span>
-                  </div>
-                ))}
-              </Card>
-            </Col>
-            <Col span={12}>
-              <Card title="支出分类">
-                {Object.entries(incomeExpenseData.expenseByCategory).map(([name, value]) => (
-                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
-                    <span>{name}</span>
-                    <span style={{ color: '#cf1322' }}>¥{(value as number).toFixed(2)}</span>
-                  </div>
-                ))}
-              </Card>
-            </Col>
-          </Row>
-        </>
-      )}
-    </Spin>
+
+      {/* 期初/期末资产 */}
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col span={6}>
+            <Statistic
+              title="期初资产"
+              value={incomeExpenseData?.startAssets || 0}
+              precision={2}
+              valueStyle={{ color: '#1890ff', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={6}>
+            <Statistic
+              title="期初负债"
+              value={incomeExpenseData?.startLiabilities || 0}
+              precision={2}
+              valueStyle={{ color: '#cf1322', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={6}>
+            <Statistic
+              title="期初净资产"
+              value={incomeExpenseData?.startNetWorth || 0}
+              precision={2}
+              valueStyle={{ color: '#52c41a', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={6}>
+            <Statistic
+              title="资产变动"
+              value={incomeExpenseData?.assetChange || 0}
+              precision={2}
+              valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      <Divider style={{ margin: '12px 0' }} />
+
+      {/* 收支汇总 */}
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Statistic
+              title="总收入"
+              value={incomeExpenseData?.income || 0}
+              precision={2}
+              valueStyle={{ color: '#3f8600' }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="总支出"
+              value={incomeExpenseData?.expense || 0}
+              precision={2}
+              valueStyle={{ color: '#cf1322' }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="结余"
+              value={incomeExpenseData?.balance || 0}
+              precision={2}
+              valueStyle={{ color: incomeExpenseData?.balance >= 0 ? '#3f8600' : '#cf1322' }}
+              prefix="¥"
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      <Divider style={{ margin: '12px 0' }} />
+
+      {/* 期末资产 */}
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Statistic
+              title="期末资产"
+              value={incomeExpenseData?.endAssets || 0}
+              precision={2}
+              valueStyle={{ color: '#1890ff', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="期末负债"
+              value={incomeExpenseData?.endLiabilities || 0}
+              precision={2}
+              valueStyle={{ color: '#cf1322', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="期末净资产"
+              value={incomeExpenseData?.endNetWorth || 0}
+              precision={2}
+              valueStyle={{ color: '#52c41a', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Card title="收入明细" size="small">
+            <Table
+              dataSource={Object.entries(incomeExpenseData?.incomeByCategory || {}).map(([name, value]) => ({
+                name,
+                value,
+              }))}
+              columns={[
+                { title: '分类', dataIndex: 'name', key: 'name' },
+                { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
+              ]}
+              rowKey="name"
+              size="small"
+              pagination={false}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="支出明细" size="small">
+            <Table
+              dataSource={Object.entries(incomeExpenseData?.expenseByCategory || {}).map(([name, value]) => ({
+                name,
+                value,
+              }))}
+              columns={[
+                { title: '分类', dataIndex: 'name', key: 'name' },
+                { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
+              ]}
+              rowKey="name"
+              size="small"
+              pagination={false}
+            />
+          </Card>
+        </Col>
+      </Row>
+    </div>
   )
 
   const renderCashFlow = () => (
-    <Spin spinning={loading}>
-      <div style={{ marginBottom: 16 }}>
+    <div>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <RangePicker
-          value={dateRange}
-          onChange={handleDateChange}
-          allowClear={false}
+          value={cashFlowDateRange}
+          onChange={(dates) => dates && setCashFlowDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
         />
+        <Button icon={<SettingOutlined />} onClick={() => setCashFlowConfigModalVisible(true)}>
+          设置
+        </Button>
       </div>
-      {cashFlowData && (
-        <>
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="现金流入"
-                  value={cashFlowData.cashInflow}
-                  precision={2}
-                  valueStyle={{ color: '#3f8600' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="现金流出"
-                  value={cashFlowData.cashOutflow}
-                  precision={2}
-                  valueStyle={{ color: '#cf1322' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card>
-                <Statistic
-                  title="净现金流"
-                  value={cashFlowData.netCashFlow}
-                  precision={2}
-                  valueStyle={{ color: cashFlowData.netCashFlow >= 0 ? '#3f8600' : '#cf1322' }}
-                  prefix="¥"
-                />
-              </Card>
-            </Col>
-          </Row>
-          <Card title="账户现金流">
-            <Table
-              dataSource={Object.entries(cashFlowData.flowByAccount).map(([name, data]) => ({
-                name,
-                inflow: (data as any).inflow,
-                outflow: (data as any).outflow,
-              }))}
-              columns={accountColumns}
-              rowKey="name"
-              pagination={false}
-              size="small"
+
+      {/* 期初/期末现金 */}
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Statistic
+              title="期初现金"
+              value={cashFlowData?.startCash || 0}
+              precision={2}
+              valueStyle={{ color: '#1890ff', fontSize: 16 }}
+              prefix="¥"
             />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="期末现金"
+              value={cashFlowData?.endCash || 0}
+              precision={2}
+              valueStyle={{ color: '#52c41a', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="现金变动"
+              value={cashFlowData?.cashChange || 0}
+              precision={2}
+              valueStyle={{ color: (cashFlowData?.cashChange || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              prefix="¥"
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      <Divider style={{ margin: '12px 0' }} />
+
+      {/* 现金流汇总 */}
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Statistic
+              title="现金流入"
+              value={cashFlowData?.cashInflow || 0}
+              precision={2}
+              valueStyle={{ color: '#3f8600' }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="现金流出"
+              value={cashFlowData?.cashOutflow || 0}
+              precision={2}
+              valueStyle={{ color: '#cf1322' }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={8}>
+            <Statistic
+              title="净现金流"
+              value={cashFlowData?.netCashFlow || 0}
+              precision={2}
+              valueStyle={{ color: cashFlowData?.netCashFlow >= 0 ? '#3f8600' : '#cf1322' }}
+              prefix="¥"
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Card 
+            title={<><Tag color="green">经营</Tag> 经营活动</>} 
+            size="small"
+            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.operating?.net || 0) >= 0 ? '#3f8600' : '#cf1322' }}>
+              ¥{(cashFlowData?.byActivity?.operating?.net || 0).toFixed(2)}
+            </span>}
+          >
+            <div>流入: ¥{(cashFlowData?.byActivity?.operating?.inflow || 0).toFixed(2)}</div>
+            <div>流出: ¥{(cashFlowData?.byActivity?.operating?.outflow || 0).toFixed(2)}</div>
           </Card>
-        </>
+        </Col>
+        <Col span={8}>
+          <Card 
+            title={<><Tag color="blue">投资</Tag> 投资活动</>} 
+            size="small"
+            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.investing?.net || 0) >= 0 ? '#3f8600' : '#cf1322' }}>
+              ¥{(cashFlowData?.byActivity?.investing?.net || 0).toFixed(2)}
+            </span>}
+          >
+            <div>流入: ¥{(cashFlowData?.byActivity?.investing?.inflow || 0).toFixed(2)}</div>
+            <div>流出: ¥{(cashFlowData?.byActivity?.investing?.outflow || 0).toFixed(2)}</div>
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card 
+            title={<><Tag color="orange">筹资</Tag> 筹资活动</>} 
+            size="small"
+            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.financing?.net || 0) >= 0 ? '#3f8600' : '#cf1322' }}>
+              ¥{(cashFlowData?.byActivity?.financing?.net || 0).toFixed(2)}
+            </span>}
+          >
+            <div>流入: ¥{(cashFlowData?.byActivity?.financing?.inflow || 0).toFixed(2)}</div>
+            <div>流出: ¥{(cashFlowData?.byActivity?.financing?.outflow || 0).toFixed(2)}</div>
+          </Card>
+        </Col>
+      </Row>
+
+      {cashFlowData?.cashAccounts && (
+        <Card title="现金账户" size="small" style={{ marginTop: 16 }}>
+          <div>{cashFlowData.cashAccounts.join('、')}</div>
+        </Card>
       )}
-    </Spin>
+    </div>
   )
 
-  const items = [
+  const tabItems = [
     { key: 'balance-sheet', label: '资产负债表', children: renderBalanceSheet() },
     { key: 'income-expense', label: '收入支出表', children: renderIncomeExpense() },
     { key: 'cash-flow', label: '现金流量表', children: renderCashFlow() },
@@ -327,8 +518,57 @@ const Reports: React.FC = () => {
     <div>
       <h2 style={{ marginBottom: 16 }}>财务报表</h2>
       <Card>
-        <Tabs activeKey={activeTab} items={items} onChange={handleTabChange} />
+        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
       </Card>
+
+      <AccountCategoryModal
+        visible={accountCategoryModalVisible}
+        onClose={() => setAccountCategoryModalVisible(false)}
+      />
+
+      <TransactionCategoryModal
+        visible={transactionCategoryModalVisible}
+        onClose={() => setTransactionCategoryModalVisible(false)}
+      />
+
+      <CashFlowConfigModal
+        visible={cashFlowConfigModalVisible}
+        onClose={() => setCashFlowConfigModalVisible(false)}
+      />
+
+      <Modal
+        title={`校准 ${selectedMonth.format('YYYY年MM月')} 月初资产负债`}
+        open={calibrateVisible}
+        onOk={handleSaveCalibration}
+        onCancel={() => setCalibrateVisible(false)}
+        okText="保存并生成平账记录"
+        cancelText="取消"
+        width={700}
+      >
+        <p style={{ color: '#666', marginBottom: 16 }}>
+          请输入各账户在月初（1日）的准确余额。系统将自动计算差额并生成平账收支记录。
+        </p>
+        {balanceSheetData?.accounts?.map((account: any) => (
+          <div key={account.id} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ width: 150 }}>
+              {account.icon || '💰'} {account.name}
+            </span>
+            <Space>
+              <span style={{ color: '#999', fontSize: 12 }}>
+                计算值: ¥{account.calculatedBalance?.toFixed(2) || '0.00'}
+              </span>
+              <InputNumber
+                value={calibrateData[account.id]}
+                onChange={(value) => setCalibrateData({ ...calibrateData, [account.id]: value || 0 })}
+                precision={2}
+                style={{ width: 150 }}
+                prefix="¥"
+                placeholder="矫正值"
+              />
+            </Space>
+          </div>
+        ))}
+      </Modal>
     </div>
   )
 }

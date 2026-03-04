@@ -3,7 +3,6 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Layout, Menu } from 'antd'
 import {
   DashboardOutlined,
-  WalletOutlined,
   TransactionOutlined,
   BarChartOutlined,
   ControlOutlined,
@@ -14,8 +13,7 @@ const { Sider, Content, Header } = Layout
 
 const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '首页' },
-  { key: '/accounts', icon: <WalletOutlined />, label: '账户管理' },
-  { key: '/transactions', icon: <TransactionOutlined />, label: '收支记录' },
+  { key: '/transactions', icon: <TransactionOutlined />, label: '交易记录' },
   { key: '/reports', icon: <BarChartOutlined />, label: '财务报表' },
   { key: '/budgets', icon: <ControlOutlined />, label: '预算管理' },
   { key: '/settings', icon: <SettingOutlined />, label: '设置' },

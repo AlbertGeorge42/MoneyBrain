@@ -8,31 +8,37 @@ datasource db {
 }
 
 model AccountCategory {
-  id        String    @id @default(uuid())
-  name      String
-  type      String
-  icon      String?
-  parentId  String?
-  parent    AccountCategory?  @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children   AccountCategory[] @relation("AccountCategoryTree")
-  accounts  Account[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id               String             @id @default(uuid())
+  name             String
+  type             String
+  icon             String?
+  parentId         String?
+  parent           AccountCategory?   @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children         AccountCategory[]  @relation("AccountCategoryTree")
+  isCashEquivalent Boolean            @default(false)
+  accounts         Account[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@map("account_categories")
 }
 
 model Account {
-  id          String          @id @default(uuid())
-  name        String
-  type        String
-  balance     Decimal         @default(0)
-  icon        String?
-  categoryId  String?
-  category    AccountCategory? @relation(fields: [categoryId], references: [id])
-  transactions Transaction[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id                  String            @id @default(uuid())
+  name                String
+  type                String
+  balance             Decimal           @default(0)  // 当前余额（实时更新）
+  initialBalance      Decimal           @default(0)  // 初始余额
+  initialBalanceDate  DateTime?         // 初始余额日期
+  icon                String?
+  cashFlowType        String?
+  categoryId          String?
+  category            AccountCategory?  @relation(fields: [categoryId], references: [id])
+  fromTransactions    Transaction[]     @relation("TransactionFrom")
+  toTransactions      Transaction[]     @relation("TransactionTo")
+  snapshots           BalanceSnapshot[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@map("accounts")
 }
@@ -42,6 +48,7 @@ model Category {
   name         String
   type         String
   icon         String?
+  cashFlowType String?
   parentId     String?
   parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children     Category[]    @relation("CategoryTree")
@@ -54,16 +61,19 @@ model Category {
 }
 
 model Transaction {
-  id         String    @id @default(uuid())
-  type       String
-  amount     Decimal
-  date       DateTime
-  note       String?
-  accountId  String
-  account    Account   @relation(fields: [accountId], references: [id])
-  categoryId String
-  category   Category  @relation(fields: [categoryId], references: [id])
-  createdAt  DateTime  @default(now())
+  id           String    @id @default(uuid())
+  type         String    // 'income' | 'expense' | 'transfer'
+  amount       Decimal
+  date         DateTime
+  note         String?
+  isAdjustment Boolean   @default(false)
+  accountId    String    // 转出账户/收入账户/支出账户
+  account      Account   @relation("TransactionFrom", fields: [accountId], references: [id])
+  toAccountId  String?   // 转账目标账户
+  toAccount    Account?  @relation("TransactionTo", fields: [toAccountId], references: [id])
+  categoryId   String?   // 转账时可为空
+  category     Category? @relation(fields: [categoryId], references: [id])
+  createdAt    DateTime  @default(now())
 
   @@map("transactions")
 }
@@ -93,4 +103,18 @@ model BudgetAlert {
   createdAt  DateTime @default(now())
 
   @@map("budget_alerts")
+}
+
+model BalanceSnapshot {
+  id        String   @id @default(uuid())
+  month     String
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id])
+  balance   Decimal
+  isManual  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([month, accountId])
+  @@map("balance_snapshots")
 }

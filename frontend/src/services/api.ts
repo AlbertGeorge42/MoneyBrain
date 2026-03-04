@@ -26,6 +26,7 @@ export interface AccountCategory {
   parentId: string | null
   parent: AccountCategory | null
   children: AccountCategory[]
+  isCashEquivalent: boolean
   createdAt: string
   updatedAt: string
 }
@@ -35,9 +36,12 @@ export interface Account {
   name: string
   type: string
   balance: number
+  initialBalance: number
+  initialBalanceDate: string | null
   icon: string | null
   categoryId: string | null
   category: AccountCategory | null
+  cashFlowType: 'operating' | 'investing' | 'financing' | null
   createdAt: string
   updatedAt: string
 }
@@ -50,20 +54,24 @@ export interface Category {
   parentId: string | null
   parent: Category | null
   children: Category[]
+  cashFlowType: 'operating' | 'investing' | 'financing' | null
   createdAt: string
   updatedAt: string
 }
 
 export interface Transaction {
   id: string
-  type: string
+  type: string // 'income' | 'expense' | 'transfer'
   amount: number
   date: string
   note: string | null
+  isAdjustment: boolean
   accountId: string
-  categoryId: string
+  categoryId: string | null
+  toAccountId: string | null
   account: Account
-  category: Category
+  category: Category | null
+  toAccount: Account | null
   createdAt: string
 }
 
@@ -76,6 +84,17 @@ export interface Budget {
   endDate: string | null
   categoryId: string | null
   category: Category | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BalanceSnapshot {
+  id: string
+  month: string
+  accountId: string
+  account: Account
+  balance: number
+  isManual: boolean
   createdAt: string
   updatedAt: string
 }
@@ -99,9 +118,17 @@ export const accountCategoryApi = {
 export const accountApi = {
   getAll: () => api.get<ApiResponse<Account[]>>('/accounts'),
   getById: (id: string) => api.get<ApiResponse<Account>>(`/accounts/${id}`),
+  getStats: (id: string) => api.get<ApiResponse<{
+    transactionCount: number
+    totalIncome: number
+    totalExpense: number
+  }>>(`/accounts/${id}/stats`),
   create: (data: Partial<Account>) => api.post<ApiResponse<Account>>('/accounts', data),
   update: (id: string, data: Partial<Account>) => api.put<ApiResponse<Account>>(`/accounts/${id}`, data),
-  delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/accounts/${id}`),
+  delete: (id: string, force?: boolean) => api.delete<ApiResponse<{ 
+    message: string
+    deletedTransactions?: number 
+  }>>(`/accounts/${id}`, { params: { force } }),
 }
 
 export const categoryApi = {
@@ -137,7 +164,8 @@ export const budgetApi = {
 }
 
 export const reportApi = {
-  getBalanceSheet: (date?: string) => api.get<ApiResponse<{
+  getBalanceSheet: (month: string) => api.get<ApiResponse<{
+    month: string
     date: string
     assets: number
     liabilities: number
@@ -149,9 +177,11 @@ export const reportApi = {
       name: string
       type: string
       balance: number
+      calculatedBalance: number
       category: string
+      isManual: boolean
     }>
-  }>>('/reports/balance-sheet', { params: { date } }),
+  }>>('/reports/balance-sheet', { params: { month } }),
   getIncomeExpense: (startDate: string, endDate: string) => api.get<ApiResponse<{
     startDate: string
     endDate: string
@@ -160,6 +190,13 @@ export const reportApi = {
     balance: number
     incomeByCategory: Record<string, number>
     expenseByCategory: Record<string, number>
+    startAssets: number
+    startLiabilities: number
+    startNetWorth: number
+    endAssets: number
+    endLiabilities: number
+    endNetWorth: number
+    assetChange: number
   }>>('/reports/income-expense', { params: { startDate, endDate } }),
   getCashFlow: (startDate: string, endDate: string) => api.get<ApiResponse<{
     startDate: string
@@ -168,6 +205,16 @@ export const reportApi = {
     cashOutflow: number
     netCashFlow: number
     flowByAccount: Record<string, { inflow: number; outflow: number }>
+    cashAccounts: string[]
+    startCash: number
+    endCash: number
+    cashChange: number
+    byActivity: {
+      operating: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
+      investing: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
+      financing: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
+      uncategorized: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
+    }
   }>>('/reports/cash-flow', { params: { startDate, endDate } }),
 }
 
@@ -186,6 +233,25 @@ export const analyticsApi = {
     liabilities: number
     netWorth: number
   }>>>('/analytics/asset-trend'),
+}
+
+export const balanceSnapshotApi = {
+  getAll: (month?: string) => api.get<ApiResponse<BalanceSnapshot[]>>('/balance-snapshots', { params: { month } }),
+  create: (data: { month: string; accountId: string; balance: number; isManual?: boolean }) => 
+    api.post<ApiResponse<BalanceSnapshot>>('/balance-snapshots', data),
+  batchCreate: (data: { month: string; snapshots: Array<{ accountId: string; balance: number }> }) => 
+    api.post<ApiResponse<BalanceSnapshot[]>>('/balance-snapshots/batch', data),
+  adjust: (data: { month: string; adjustments: Array<{ accountId: string; targetBalance: number }> }) =>
+    api.post<ApiResponse<{ month: string; adjustments: Array<{
+      accountId: string
+      accountName: string
+      calculatedBalance: number
+      targetBalance: number
+      difference: number
+      transaction: string | null
+    }> }>>('/balance-snapshots/adjust', data),
+  delete: (month: string, accountId: string) => 
+    api.delete<ApiResponse<{ message: string }>>(`/balance-snapshots/${month}/${accountId}`),
 }
 
 export default api

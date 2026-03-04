@@ -54,7 +54,7 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { name, type, icon, parentId } = req.body
+    const { name, type, icon, parentId, isCashEquivalent } = req.body
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
@@ -70,7 +70,7 @@ router.post('/', async (req, res, next) => {
       }
     }
     const category = await prisma.accountCategory.create({
-      data: { name, type, icon, parentId },
+      data: { name, type, icon, parentId, isCashEquivalent: isCashEquivalent ?? false },
     })
     return success(res, category, 201)
   } catch (err) {
@@ -81,7 +81,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    const { name, type, icon, parentId } = req.body
+    const { name, type, icon, parentId, isCashEquivalent } = req.body
     if (parentId === id) {
       return error(res, '父分类不能是自己', 'BAD_REQUEST', 400)
     }
@@ -99,7 +99,7 @@ router.put('/:id', async (req, res, next) => {
     }
     const category = await prisma.accountCategory.update({
       where: { id },
-      data: { name, type, icon, parentId },
+      data: { name, type, icon, parentId, isCashEquivalent },
     })
     return success(res, category)
   } catch (err) {

@@ -60,57 +60,60 @@ MoneyBrain/
 │   │   └── schema.prisma     # 数据库模型
 │   └── package.json
 └── docs/                     # 文档
-    └── api.md
 ```
 
 ### 3.2 核心功能模块
 
-#### 模块1: 资产负债管理 (Assets & Liabilities)
+#### 模块1: 分类管理 (Categories)
+- **功能描述**: 统一管理资产/负债分类和收入/支出分类
+- **详细规格**: 参见 `.trae/specs/unified-categories-management/spec.md`
+- **数据实体**:
+  - AccountCategory (账户分类): id, name, type, icon, parentId, isCashEquivalent
+  - Category (收支分类): id, name, type, icon, parentId
+
+#### 模块2: 账户管理 (Accounts)
 - **功能描述**: 管理个人资产和负债账户
 - **数据实体**:
-  - Account (账户): id, name, type(资产/负债), balance, icon, createdAt, updatedAt
-  - AccountCategory (账户分类): id, name, type, icon
+  - Account (账户): id, name, type(资产/负债), balance, icon, categoryId
 - **API端点**:
   - GET /api/accounts - 获取所有账户
   - POST /api/accounts - 创建账户
   - PUT /api/accounts/:id - 更新账户
   - DELETE /api/accounts/:id - 删除账户
 
-#### 模块2: 收支记录 (Transactions)
+#### 模块3: 收支记录 (Transactions)
 - **功能描述**: 记录收入和支出
 - **数据实体**:
-  - Transaction (交易): id, type(收入/支出), amount, accountId, categoryId, date, note, createdAt
-  - Category (分类): id, name, type(收入/支出), icon, parentId
+  - Transaction (交易): id, type(收入/支出), amount, accountId, categoryId, date, note
 - **API端点**:
   - GET /api/transactions - 获取交易列表(支持筛选)
   - POST /api/transactions - 创建交易
   - PUT /api/transactions/:id - 更新交易
   - DELETE /api/transactions/:id - 删除交易
 
-#### 模块3: 财务报表 (Reports)
+#### 模块4: 财务报表 (Reports)
 - **功能描述**: 自动生成三大财务报表
 - **报表类型**:
   1. **资产负债表**: 某一时点的资产、负债、净资产
   2. **收入支出表**: 某一时期的收入、支出、结余
-  3. **现金流量表**: 某一时期的现金流入流出
+  3. **现金流量表**: 某一时期的现金流入流出（基于现金等价物配置）
 - **API端点**:
   - GET /api/reports/balance-sheet?date=YYYY-MM-DD
   - GET /api/reports/income-expense?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
   - GET /api/reports/cash-flow?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
 
-#### 模块4: 统计分析 (Analytics)
+#### 模块5: 统计分析 (Analytics)
 - **功能描述**: 对财务数据进行可视化分析
 - **分析维度**:
   - 收支趋势图(按月/季/年)
   - 分类占比饼图
   - 资产负债变化趋势
-  - 预算执行情况
 - **API端点**:
   - GET /api/analytics/trends?type=income|expense&period=month|quarter|year
   - GET /api/analytics/category-breakdown?type=income|expense
   - GET /api/analytics/asset-trend
 
-#### 模块5: 预算管理 (Budget)
+#### 模块6: 预算管理 (Budget)
 - **功能描述**: 设置预算并跟踪执行情况
 - **数据实体**:
   - Budget (预算): id, name, amount, period(月度/年度), categoryId, startDate, endDate
@@ -126,74 +129,38 @@ MoneyBrain/
 
 ## 4. 数据库设计
 
-### 4.1 ER图概念
-
-```
-┌─────────────┐     ┌─────────────────┐
-│   Account   │     │ AccountCategory │
-├─────────────┤     ├─────────────────┤
-│ id          │────▶│ id              │
-│ name        │     │ name            │
-│ type        │     │ type            │
-│ balance     │     │ icon            │
-│ categoryId  │     └─────────────────┘
-│ icon        │
-│ createdAt   │
-│ updatedAt   │
-└─────────────┘
-       │
-       │ 1:N
-       ▼
-┌─────────────┐     ┌─────────────────┐
-│ Transaction │     │    Category     │
-├─────────────┤     ├─────────────────┤
-│ id          │────▶│ id              │
-│ type        │     │ name            │
-│ amount      │     │ type            │
-│ accountId   │     │ icon            │
-│ categoryId  │────▶│ parentId        │
-│ date        │     └─────────────────┘
-│ note        │
-│ createdAt   │
-└─────────────┘
-
-┌─────────────┐     ┌─────────────────┐
-│   Budget    │     │  BudgetAlert    │
-├─────────────┤     ├─────────────────┤
-│ id          │────▶│ id              │
-│ name        │     │ budgetId        │
-│ amount      │     │ threshold       │
-│ period      │     │ isNotified      │
-│ categoryId  │     └─────────────────┘
-│ startDate   │
-│ endDate     │
-└─────────────┘
-```
-
-### 4.2 Prisma Schema
+### 4.1 Prisma Schema
 
 ```prisma
 model AccountCategory {
-  id        String   @id @default(uuid())
-  name      String
-  type      String   // 'asset' | 'liability'
-  icon      String?
-  accounts  Account[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(uuid())
+  name             String
+  type             String   // 'asset' | 'liability'
+  icon             String?
+  parentId         String?
+  parent           AccountCategory?  @relation("AccountCategoryTree", fields: [parentId], references: [id])
+  children         AccountCategory[] @relation("AccountCategoryTree")
+  isCashEquivalent Boolean  @default(false)  // 是否为现金等价物
+  accounts         Account[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("account_categories")
 }
 
 model Account {
-  id         String          @id @default(uuid())
-  name       String
-  type       String          // 'asset' | 'liability'
-  balance    Decimal         @default(0)
-  icon       String?
-  categoryId String?
-  category   AccountCategory? @relation(fields: [categoryId], references: [id])
+  id          String          @id @default(uuid())
+  name        String
+  type        String          // 'asset' | 'liability'
+  balance     Decimal         @default(0)
+  icon        String?
+  categoryId  String?
+  category    AccountCategory? @relation(fields: [categoryId], references: [id])
   transactions Transaction[]
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("accounts")
 }
 
 model Category {
@@ -208,6 +175,8 @@ model Category {
   budgets      Budget[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  @@map("categories")
 }
 
 model Transaction {
@@ -217,10 +186,12 @@ model Transaction {
   date       DateTime
   note       String?
   accountId  String
-  account    Account   @relation(fields: [accountId], references: [id])
   categoryId String
+  account    Account   @relation(fields: [accountId], references: [id])
   category   Category  @relation(fields: [categoryId], references: [id])
   createdAt  DateTime  @default(now())
+
+  @@map("transactions")
 }
 
 model Budget {
@@ -235,6 +206,8 @@ model Budget {
   alerts     BudgetAlert[]
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+
+  @@map("budgets")
 }
 
 model BudgetAlert {
@@ -244,6 +217,8 @@ model BudgetAlert {
   threshold  Int     // 0-100 percentage
   isNotified Boolean @default(false)
   createdAt  DateTime @default(now())
+
+  @@map("budget_alerts")
 }
 ```
 
@@ -297,29 +272,13 @@ interface PaginationParams {
 
 ---
 
-## 7. 项目里程碑
+## 7. 变更规格索引
 
-### 阶段1: 基础架构 (Phase 1)
-- 项目初始化
-- 数据库设计与迁移
-- 基础API框架
+| 变更ID | 描述 | 状态 |
+|--------|------|------|
+| unified-categories-management | 统一分类管理与现金流量表优化 | 待实施 |
 
-### 阶段2: 核心功能 (Phase 2)
-- 资产负债管理模块
-- 收支记录模块
-
-### 阶段3: 报表与分析 (Phase 3)
-- 财务报表生成
-- 统计分析功能
-
-### 阶段4: 预算管理 (Phase 4)
-- 预算设置
-- 预算提醒
-
-### 阶段5: 优化完善 (Phase 5)
-- 性能优化
-- 用户体验改进
-- 数据导入导出
+详细变更规格请查看 `.trae/specs/` 目录下的对应文档。
 
 ---
 
