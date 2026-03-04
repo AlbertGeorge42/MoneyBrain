@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model AccountCategory {
+  id        String    @id @default(uuid())
+  name      String
+  type      String
+  icon      String?
+  parentId  String?
+  parent    AccountCategory?  @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children   AccountCategory[] @relation("AccountCategoryTree")
+  accounts  Account[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("account_categories")
+}
+
+model Account {
+  id          String          @id @default(uuid())
+  name        String
+  type        String
+  balance     Decimal         @default(0)
+  icon        String?
+  categoryId  String?
+  category    AccountCategory? @relation(fields: [categoryId], references: [id])
+  transactions Transaction[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("accounts")
+}
+
+model Category {
+  id           String        @id @default(uuid())
+  name         String
+  type         String
+  icon         String?
+  parentId     String?
+  parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     Category[]    @relation("CategoryTree")
+  transactions Transaction[]
+  budgets      Budget[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("categories")
+}
+
+model Transaction {
+  id         String    @id @default(uuid())
+  type       String
+  amount     Decimal
+  date       DateTime
+  note       String?
+  accountId  String
+  account    Account   @relation(fields: [accountId], references: [id])
+  categoryId String
+  category   Category  @relation(fields: [categoryId], references: [id])
+  createdAt  DateTime  @default(now())
+
+  @@map("transactions")
+}
+
+model Budget {
+  id         String        @id @default(uuid())
+  name       String
+  amount     Decimal
+  period     String
+  startDate  DateTime
+  endDate    DateTime?
+  categoryId String?
+  category   Category?     @relation(fields: [categoryId], references: [id])
+  alerts     BudgetAlert[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@map("budgets")
+}
+
+model BudgetAlert {
+  id         String  @id @default(uuid())
+  budgetId   String
+  budget     Budget  @relation(fields: [budgetId], references: [id])
+  threshold  Int
+  isNotified Boolean @default(false)
+  createdAt  DateTime @default(now())
+
+  @@map("budget_alerts")
+}
