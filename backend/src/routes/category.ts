@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../index.js'
 import { success, error, notFound } from '../utils/response.js'
+import { buildTree } from '../utils/tree.js'
 
 const router = Router()
 
@@ -20,14 +21,6 @@ router.get('/tree', async (_req, res, next) => {
     const categories = await prisma.category.findMany({
       orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
     })
-    const buildTree = (items: typeof categories, parentId: string | null = null): any[] => {
-      return items
-        .filter(item => item.parentId === parentId)
-        .map(item => ({
-          ...item,
-          children: buildTree(items, item.id),
-        }))
-    }
     const tree = buildTree(categories)
     return success(res, tree)
   } catch (err) {
@@ -66,23 +59,6 @@ router.post('/', async (req, res, next) => {
   }
 })
 
-router.put('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const { name, type, icon, parentId, cashFlowType, sort } = req.body
-    if (parentId === id) {
-      return error(res, '父分类不能是自己', 'BAD_REQUEST', 400)
-    }
-    const category = await prisma.category.update({
-      where: { id },
-      data: { name, type, icon, parentId, cashFlowType, sort },
-    })
-    return success(res, category)
-  } catch (err) {
-    return next(err)
-  }
-})
-
 // 批量更新排序
 router.put('/sort/batch', async (req, res, next) => {
   try {
@@ -101,6 +77,23 @@ router.put('/sort/batch', async (req, res, next) => {
     )
 
     return success(res, { message: '排序更新成功' })
+  } catch (err) {
+    return next(err)
+  }
+})
+
+router.put('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { name, type, icon, parentId, cashFlowType, sort } = req.body
+    if (parentId === id) {
+      return error(res, '父分类不能是自己', 'BAD_REQUEST', 400)
+    }
+    const category = await prisma.category.update({
+      where: { id },
+      data: { name, type, icon, parentId, cashFlowType, sort },
+    })
+    return success(res, category)
   } catch (err) {
     return next(err)
   }

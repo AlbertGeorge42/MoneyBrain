@@ -6,6 +6,8 @@ import { reportApi, balanceSnapshotApi } from '../services/api'
 import AccountCategoryModal from '../components/AccountCategoryModal'
 import TransactionCategoryModal from '../components/TransactionCategoryModal'
 import CashFlowConfigModal from '../components/CashFlowConfigModal'
+import DynamicIcon from '../components/DynamicIcon'
+import { PieChart, BarChart, SankeyChart } from '../components/charts'
 
 const { RangePicker } = DatePicker
 const { MonthPicker } = DatePicker
@@ -227,6 +229,36 @@ const Reports: React.FC = () => {
         </Row>
       </Card>
 
+      {/* 图表区域 */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={12}>
+          <Card size="small">
+            <PieChart 
+              title="资产结构" 
+              data={buildBalanceSheetTreeData.assetNodes
+                .filter((n: any) => n.type === 'category')
+                .map((n: any) => ({ name: n.name, value: Math.abs(n.balance) }))
+                .filter((d: any) => d.value > 0)
+              }
+              height={280}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card size="small">
+            <PieChart 
+              title="负债结构" 
+              data={buildBalanceSheetTreeData.liabilityNodes
+                .filter((n: any) => n.type === 'category')
+                .map((n: any) => ({ name: n.name, value: Math.abs(n.balance) }))
+                .filter((d: any) => d.value > 0)
+              }
+              height={280}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       <Row gutter={16}>
         <Col span={12}>
           <Card title="资产明细" size="small">
@@ -239,7 +271,7 @@ const Reports: React.FC = () => {
                   key: 'name',
                   render: (text: string, record: any) => (
                     <span>
-                      {record.type === 'category' ? '📁' : '💰'} {text}
+                      <DynamicIcon name={record.icon || (record.type === 'category' ? 'folder' : 'wallet')} size={16} /> {text}
                       {record.isManual && <Tag color="orange" style={{ marginLeft: 8 }}>已校准</Tag>}
                     </span>
                   ),
@@ -276,7 +308,7 @@ const Reports: React.FC = () => {
                   key: 'name',
                   render: (text: string, record: any) => (
                     <span>
-                      {record.type === 'category' ? '📁' : '💳'} {text}
+                      <DynamicIcon name={record.icon || (record.type === 'category' ? 'folder' : 'credit-card')} size={16} /> {text}
                       {record.isManual && <Tag color="orange" style={{ marginLeft: 8 }}>已校准</Tag>}
                     </span>
                   ),
@@ -394,6 +426,46 @@ const Reports: React.FC = () => {
           </Col>
         </Row>
       </Card>
+
+      {/* 图表区域 */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <Card size="small">
+            <BarChart 
+              title="收支对比" 
+              xAxisData={['收入', '支出']}
+              seriesData={[
+                { name: '金额', data: [incomeExpenseData?.income || 0, incomeExpenseData?.expense || 0] }
+              ]}
+              height={250}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card size="small">
+            <PieChart 
+              title="收入分类" 
+              data={Object.entries(incomeExpenseData?.incomeByCategory || {})
+                .map(([name, value]) => ({ name, value: value as number }))
+                .filter(d => d.value > 0)
+              }
+              height={250}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card size="small">
+            <PieChart 
+              title="支出分类" 
+              data={Object.entries(incomeExpenseData?.expenseByCategory || {})
+                .map(([name, value]) => ({ name, value: Math.abs(value as number) }))
+                .filter(d => d.value > 0)
+              }
+              height={250}
+            />
+          </Card>
+        </Col>
+      </Row>
 
       <Divider style={{ margin: '12px 0' }} />
 
@@ -549,6 +621,61 @@ const Reports: React.FC = () => {
         </Row>
       </Card>
 
+      {/* 图表区域 */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={12}>
+          <Card size="small">
+            <BarChart 
+              title="三类现金流对比" 
+              xAxisData={['经营', '投资', '筹资']}
+              seriesData={[
+                { name: '流入', data: [
+                  cashFlowData?.byActivity?.operating?.inflow || 0,
+                  cashFlowData?.byActivity?.investing?.inflow || 0,
+                  cashFlowData?.byActivity?.financing?.inflow || 0
+                ], color: '#52c41a' },
+                { name: '流出', data: [
+                  Math.abs(cashFlowData?.byActivity?.operating?.outflow || 0),
+                  Math.abs(cashFlowData?.byActivity?.investing?.outflow || 0),
+                  Math.abs(cashFlowData?.byActivity?.financing?.outflow || 0)
+                ], color: '#ff4d4f' }
+              ]}
+              height={280}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card size="small">
+            <SankeyChart 
+              title="现金流量流向" 
+              nodes={[
+                // 流入节点
+                { name: '经营流入' },
+                { name: '投资流入' },
+                { name: '筹资流入' },
+                // 中心节点
+                { name: '现金池' },
+                // 流出节点
+                { name: '经营流出' },
+                { name: '投资流出' },
+                { name: '筹资流出' },
+              ]}
+              links={[
+                // 流入链接
+                { source: '经营流入', target: '现金池', value: cashFlowData?.byActivity?.operating?.inflow || 0 },
+                { source: '投资流入', target: '现金池', value: cashFlowData?.byActivity?.investing?.inflow || 0 },
+                { source: '筹资流入', target: '现金池', value: cashFlowData?.byActivity?.financing?.inflow || 0 },
+                // 流出链接
+                { source: '现金池', target: '经营流出', value: Math.abs(cashFlowData?.byActivity?.operating?.outflow || 0) },
+                { source: '现金池', target: '投资流出', value: Math.abs(cashFlowData?.byActivity?.investing?.outflow || 0) },
+                { source: '现金池', target: '筹资流出', value: Math.abs(cashFlowData?.byActivity?.financing?.outflow || 0) },
+              ].filter(l => l.value > 0)}
+              height={280}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       <Row gutter={16}>
         <Col span={8}>
           <Card 
@@ -639,7 +766,7 @@ const Reports: React.FC = () => {
         {balanceSheetData?.accounts?.map((account: any) => (
           <div key={account.id} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ width: 150 }}>
-              {account.icon || '💰'} {account.name}
+              <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
             </span>
             <Space>
               <span style={{ color: '#999', fontSize: 12 }}>

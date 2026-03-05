@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 import { useStore } from '../stores'
 import { Transaction } from '../services/api'
 import { buildTreeData } from '../utils/treeUtils'
+import DynamicIcon from '../components/DynamicIcon'
 
 const { RangePicker } = DatePicker
 
@@ -195,12 +196,12 @@ const Transactions: React.FC = () => {
       render: (_: unknown, record: Transaction) => {
         if (record.type === 'transfer') {
           return record.category ? (
-            <span>{record.category.icon} {record.category.name}</span>
+            <span><DynamicIcon name={record.category.icon} size={16} /> {record.category.name}</span>
           ) : (
             <span style={{ color: '#999' }}>内部转账</span>
           )
         }
-        return <span>{record.category?.icon} {record.category?.name || '未分类'}</span>
+        return <span><DynamicIcon name={record.category?.icon} size={16} /> {record.category?.name || '未分类'}</span>
       },
     },
     {
@@ -210,11 +211,11 @@ const Transactions: React.FC = () => {
         if (record.type === 'transfer') {
           return (
             <span>
-              {record.account?.icon} {record.account?.name} → {record.toAccount?.icon} {record.toAccount?.name}
+              <DynamicIcon name={record.account?.icon} size={16} /> {record.account?.name} → <DynamicIcon name={record.toAccount?.icon} size={16} /> {record.toAccount?.name}
             </span>
           )
         }
-        return <span>{record.account?.icon} {record.account?.name || '-'}</span>
+        return <span><DynamicIcon name={record.account?.icon} size={16} /> {record.account?.name || '-'}</span>
       },
     },
     {
@@ -303,7 +304,7 @@ const Transactions: React.FC = () => {
               onChange={accountId => setFilters({ ...filters, accountId })}
             >
               {accounts.map(a => (
-                <Select.Option key={a.id} value={a.id}>{a.icon} {a.name}</Select.Option>
+                <Select.Option key={a.id} value={a.id}><DynamicIcon name={a.icon} size={16} /> {a.name}</Select.Option>
               ))}
             </Select>
           </Col>
@@ -438,7 +439,7 @@ const Transactions: React.FC = () => {
             <Select placeholder="请选择账户">
               {accounts.map(a => (
                 <Select.Option key={a.id} value={a.id}>
-                  {a.icon} {a.name}
+                  <DynamicIcon name={a.icon} size={16} /> {a.name}
                 </Select.Option>
               ))}
             </Select>
@@ -470,7 +471,7 @@ const Transactions: React.FC = () => {
             <Select placeholder="请选择转出账户">
               {accounts.map(a => (
                 <Select.Option key={a.id} value={a.id}>
-                  {a.icon} {a.name} (¥{a.balance.toFixed(2)})
+                  <DynamicIcon name={a.icon} size={16} /> {a.name} (¥{a.balance.toFixed(2)})
                 </Select.Option>
               ))}
             </Select>
@@ -483,7 +484,7 @@ const Transactions: React.FC = () => {
             <Select placeholder="请选择转入账户">
               {accounts.map(a => (
                 <Select.Option key={a.id} value={a.id}>
-                  {a.icon} {a.name}
+                  <DynamicIcon name={a.icon} size={16} /> {a.name}
                 </Select.Option>
               ))}
             </Select>

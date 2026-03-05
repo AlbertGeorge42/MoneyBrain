@@ -9,6 +9,7 @@ import budgetRoutes from './routes/budget.js'
 import reportRoutes from './routes/report.js'
 import analyticsRoutes from './routes/analytics.js'
 import balanceSnapshotRoutes from './routes/balance-snapshot.js'
+import dataRoutes from './routes/data.js'
 import { errorHandler } from './middleware/error.js'
 
 export const prisma = new PrismaClient()
@@ -31,6 +32,7 @@ app.use('/api/budgets', budgetRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/balance-snapshots', balanceSnapshotRoutes)
+app.use('/api/data', dataRoutes)
 
 app.use(errorHandler)
 

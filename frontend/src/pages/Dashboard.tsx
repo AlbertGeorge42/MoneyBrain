@@ -5,6 +5,7 @@ import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
 import { useStore } from '../stores'
 import * as api from '../services/api'
+import DynamicIcon from '../components/DynamicIcon'
 
 const Dashboard: React.FC = () => {
   const { accounts, transactions, fetchAccounts, fetchTransactions } = useStore()
@@ -179,7 +180,7 @@ const Dashboard: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                       <div>
                         <Tag color={item.type === 'income' ? 'green' : 'red'}>
-                          {item.category?.icon} {item.category?.name || '未分类'}
+                          <DynamicIcon name={item.category?.icon} size={14} /> {item.category?.name || '未分类'}
                         </Tag>
                         <span style={{ marginLeft: 8, color: '#666' }}>
                           {dayjs(item.date).format('MM-DD')}

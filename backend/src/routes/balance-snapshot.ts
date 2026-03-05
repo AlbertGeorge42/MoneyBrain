@@ -79,6 +79,30 @@ router.post('/', async (req, res, next) => {
   }
 })
 
+// 批量创建或更新余额快照
+router.post('/batch', async (req, res, next) => {
+  try {
+    const { month, snapshots } = req.body
+    if (!month || !snapshots || !Array.isArray(snapshots) || snapshots.length === 0) {
+      return error(res, '月份和快照数据不能为空', 'BAD_REQUEST', 400)
+    }
+
+    const results = await prisma.$transaction(
+      snapshots.map((snapshot: { accountId: string; balance: number }) =>
+        prisma.balanceSnapshot.upsert({
+          where: { month_accountId: { month, accountId: snapshot.accountId } },
+          update: { balance: snapshot.balance, isManual: true },
+          create: { month, accountId: snapshot.accountId, balance: snapshot.balance, isManual: true },
+        })
+      )
+    )
+
+    return success(res, { month, count: results.length, snapshots: results }, 201)
+  } catch (err) {
+    return next(err)
+  }
+})
+
 // 平账接口：矫正余额并自动生成平账记录
 router.post('/adjust', async (req, res, next) => {
   try {

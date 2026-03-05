@@ -4,6 +4,8 @@ import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { Category, categoryApi } from '../services/api'
 import { buildTreeData } from '../utils/treeUtils'
+import DynamicIcon from './DynamicIcon'
+import IconPicker from './IconPicker'
 
 interface Props {
   visible: boolean
@@ -79,7 +81,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '图标',
       dataIndex: 'icon',
       width: 50,
-      render: (icon: string) => <span style={{ fontSize: 16 }}>{icon || '📝'}</span>,
+      render: (icon: string) => <DynamicIcon name={icon} size={16} fallback="file-text" />,
     },
     { title: '名称', dataIndex: 'name', key: 'name' },
     {
@@ -212,7 +214,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
             <Input placeholder="请输入分类名称" />
           </Form.Item>
           <Form.Item name="icon" label="图标">
-            <Input placeholder="请输入图标(如💰)" />
+            <IconPicker placeholder="请选择图标" />
           </Form.Item>
           <Form.Item 
             name="cashFlowType" 

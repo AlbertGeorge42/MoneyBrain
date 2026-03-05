@@ -7,6 +7,8 @@ import dayjs from 'dayjs'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import DynamicIcon from './DynamicIcon'
+import IconPicker from './IconPicker'
 
 interface Props {
   visible: boolean
@@ -99,7 +101,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           id: a.id,
           key: `account-${a.id}`,
           name: a.name,
-          icon: a.icon || '💰',
+          icon: a.icon || 'wallet',
           type: 'account' as const,
           nodeType: a.type as 'asset' | 'liability',
           balance: a.balance,
@@ -111,7 +113,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         id: category.id,
         key: `category-${category.id}`,
         name: category.name,
-        icon: category.icon || '📁',
+        icon: category.icon || 'folder',
         type: 'category' as const,
         nodeType: category.type as 'asset' | 'liability',
         isCashEquivalent: category.isCashEquivalent,
@@ -335,7 +337,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       key: 'name',
       render: (text: string, record: any) => (
         <span>
-          {record.icon || (record.type === 'category' ? '📁' : '💰')} {text}
+          <DynamicIcon name={record.icon} size={16} fallback={record.type === 'category' ? 'folder' : 'wallet'} /> {text}
         </span>
       ),
     },
@@ -549,7 +551,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
             />
           </Form.Item>
           <Form.Item name="icon" label="图标">
-            <Input placeholder="请输入图标(如📁)" />
+            <IconPicker placeholder="请选择图标" />
           </Form.Item>
           {categoryForm.getFieldValue('type') === 'asset' && !categoryForm.getFieldValue('parentId') && (
             <Form.Item name="isCashEquivalent" label="现金等价物" valuePropName="checked">
@@ -599,7 +601,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
             />
           </Form.Item>
           <Form.Item name="icon" label="图标">
-            <Input placeholder="请输入图标(如💰)" />
+            <IconPicker placeholder="请选择图标" />
           </Form.Item>
         </Form>
       </Modal>

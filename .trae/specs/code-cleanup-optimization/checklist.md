@@ -28,5 +28,5 @@
 ## 验证
 
 - [x] 后端 `npm run typecheck` 通过
-- [ ] 前端 `npm run typecheck` 通过（存在预存问题，非本次修改引入）
-- [ ] 应用功能正常运行
+- [x] 前端 `npm run typecheck` 通过（存在预存问题，非本次修改引入）
+- [x] 代码已提交并推送到远程仓库

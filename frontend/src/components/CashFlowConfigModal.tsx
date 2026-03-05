@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { Modal, Table, Switch, message, Tabs, Select, Tag } from 'antd'
 import { useStore } from '../stores'
 import { AccountCategory, Category, categoryApi } from '../services/api'
+import DynamicIcon from '../components/DynamicIcon'
 
 interface Props {
   visible: boolean
@@ -42,7 +43,7 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '图标',
       dataIndex: 'icon',
       width: 50,
-      render: (icon: string) => <span style={{ fontSize: 16 }}>{icon || '📁'}</span>,
+      render: (icon: string) => <DynamicIcon name={icon} size={16} fallback="folder" />,
     },
     { title: '分类名称', dataIndex: 'name', key: 'name' },
     {
@@ -65,7 +66,7 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '图标',
       dataIndex: 'icon',
       width: 50,
-      render: (icon: string) => <span style={{ fontSize: 16 }}>{icon || '📝'}</span>,
+      render: (icon: string) => <DynamicIcon name={icon} size={16} fallback="file-text" />,
     },
     { title: '分类名称', dataIndex: 'name', key: 'name' },
     {

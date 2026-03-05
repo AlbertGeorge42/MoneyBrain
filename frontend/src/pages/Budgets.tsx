@@ -7,6 +7,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined } from '@an
 import { useStore } from '../stores'
 import { Budget } from '../services/api'
 import * as api from '../services/api'
+import DynamicIcon from '../components/DynamicIcon'
 
 const Budgets: React.FC = () => {
   const { 
@@ -275,7 +276,7 @@ const Budgets: React.FC = () => {
             <Select placeholder="请选择支出分类" allowClear>
               {expenseCategories.map(c => (
                 <Select.Option key={c.id} value={c.id}>
-                  {c.icon} {c.name}
+                  <DynamicIcon name={c.icon} size={16} /> {c.name}
                 </Select.Option>
               ))}
             </Select>

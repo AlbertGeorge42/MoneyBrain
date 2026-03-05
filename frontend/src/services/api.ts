@@ -250,4 +250,8 @@ export const balanceSnapshotApi = {
     api.delete<ApiResponse<{ message: string }>>(`/balance-snapshots/${month}/${accountId}`),
 }
 
+export const dataApi = {
+  clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
+}
+
 export default api

@@ -1,17 +1,9 @@
 import { Router } from 'express'
 import { prisma } from '../index.js'
 import { success, error, notFound } from '../utils/response.js'
+import { buildTree } from '../utils/tree.js'
 
 const router = Router()
-
-const buildTree = (items: any[], parentId: string | null = null): any[] => {
-  return items
-    .filter(item => item.parentId === parentId)
-    .map(item => ({
-      ...item,
-      children: buildTree(items, item.id),
-    }))
-}
 
 router.get('/', async (_req, res, next) => {
   try {
@@ -78,6 +70,29 @@ router.post('/', async (req, res, next) => {
   }
 })
 
+// 批量更新排序
+router.put('/sort/batch', async (req, res, next) => {
+  try {
+    const { items } = req.body
+    if (!Array.isArray(items)) {
+      return error(res, '参数格式错误', 'BAD_REQUEST', 400)
+    }
+
+    await prisma.$transaction(
+      items.map(item => 
+        prisma.accountCategory.update({
+          where: { id: item.id },
+          data: { sort: item.sort, parentId: item.parentId },
+        })
+      )
+    )
+
+    return success(res, { message: '排序更新成功' })
+  } catch (err) {
+    return next(err)
+  }
+})
+
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
@@ -102,29 +117,6 @@ router.put('/:id', async (req, res, next) => {
       data: { name, type, icon, parentId, isCashEquivalent, sort },
     })
     return success(res, category)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-// 批量更新排序
-router.put('/sort/batch', async (req, res, next) => {
-  try {
-    const { items } = req.body
-    if (!Array.isArray(items)) {
-      return error(res, '参数格式错误', 'BAD_REQUEST', 400)
-    }
-
-    await prisma.$transaction(
-      items.map(item => 
-        prisma.accountCategory.update({
-          where: { id: item.id },
-          data: { sort: item.sort, parentId: item.parentId },
-        })
-      )
-    )
-
-    return success(res, { message: '排序更新成功' })
   } catch (err) {
     return next(err)
   }
