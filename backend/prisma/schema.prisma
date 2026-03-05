@@ -13,6 +13,7 @@ model AccountCategory {
   type             String
   icon             String?
   parentId         String?
+  sort             Int                @default(0)
   parent           AccountCategory?   @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children         AccountCategory[]  @relation("AccountCategoryTree")
   isCashEquivalent Boolean            @default(false)
@@ -27,11 +28,10 @@ model Account {
   id                  String            @id @default(uuid())
   name                String
   type                String
-  balance             Decimal           @default(0)  // 当前余额（实时更新）
-  initialBalance      Decimal           @default(0)  // 初始余额
-  initialBalanceDate  DateTime?         // 初始余额日期
+  balance             Decimal           @default(0)
+  initialBalance      Decimal           @default(0)
+  initialBalanceDate  DateTime?
   icon                String?
-  cashFlowType        String?
   categoryId          String?
   category            AccountCategory?  @relation(fields: [categoryId], references: [id])
   fromTransactions    Transaction[]     @relation("TransactionFrom")
@@ -46,10 +46,11 @@ model Account {
 model Category {
   id           String        @id @default(uuid())
   name         String
-  type         String
+  type         String        // 'income' | 'expense' | 'transfer'
   icon         String?
   cashFlowType String?
   parentId     String?
+  sort         Int           @default(0)
   parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children     Category[]    @relation("CategoryTree")
   transactions Transaction[]
@@ -67,11 +68,11 @@ model Transaction {
   date         DateTime
   note         String?
   isAdjustment Boolean   @default(false)
-  accountId    String    // 转出账户/收入账户/支出账户
+  accountId    String
   account      Account   @relation("TransactionFrom", fields: [accountId], references: [id])
-  toAccountId  String?   // 转账目标账户
+  toAccountId  String?
   toAccount    Account?  @relation("TransactionTo", fields: [toAccountId], references: [id])
-  categoryId   String?   // 转账时可为空
+  categoryId   String?
   category     Category? @relation(fields: [categoryId], references: [id])
   createdAt    DateTime  @default(now())
 

@@ -1,26 +1,57 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Modal, Table, Button, Form, Input, Space, Popconfirm, message, Switch, TreeSelect, InputNumber, Select, Row, Col, Statistic, Divider, Tag, DatePicker } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, WalletOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { Modal, Table, Button, Form, Input, Space, Popconfirm, message, Switch, TreeSelect, InputNumber, Select, Row, Col, Statistic, Divider, Tag, DatePicker, Card } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, ExclamationCircleOutlined, HolderOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { AccountCategory, Account, accountCategoryApi, accountApi } from '../services/api'
 import dayjs from 'dayjs'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface Props {
   visible: boolean
   onClose: () => void
 }
 
-interface TreeNode {
-  id: string
-  key: string
-  name: string
-  icon: string
-  type: 'category' | 'account'
-  nodeType: 'asset' | 'liability'
-  balance?: number
-  isCashEquivalent?: boolean
-  parentId: string | null
-  children?: TreeNode[]
+// 可排序行组件 - 只在第一列响应拖拽
+const SortableRow = (props: any) => {
+  const id = props['data-row-key']
+  const isCategoryRow = id?.startsWith('category-')
+  
+  // 只有分类行才启用拖拽
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: id,
+    disabled: !isCategoryRow,
+  })
+
+  const style: React.CSSProperties = {
+    ...props.style,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? { position: 'relative', zIndex: 9999, background: '#fafafa' } : {}),
+  }
+
+  // 将 listeners 只应用到第一列的拖拽手柄
+  // 通过 data-drag-handle 属性标记
+  return (
+    <tr 
+      {...props} 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes}
+    />
+  )
+}
+
+// 拖拽手柄组件
+const DragHandle = ({ id }: { id: string }) => {
+  const { listeners, setNodeRef } = useSortable({ id })
+  
+  return (
+    <div ref={setNodeRef} {...listeners} style={{ cursor: 'grab', display: 'inline-flex' }}>
+      <HolderOutlined style={{ color: '#999' }} />
+    </div>
+  )
 }
 
 const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
@@ -32,6 +63,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     addAccount,
     updateAccount,
     deleteAccount,
+    updateAccountCategoryCashEquivalent,
   } = useStore()
 
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null)
@@ -40,6 +72,13 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const [accountFormVisible, setAccountFormVisible] = useState(false)
   const [categoryForm] = Form.useForm()
   const [accountForm] = Form.useForm()
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   useEffect(() => {
     if (visible) {
@@ -50,11 +89,11 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   // 构建树形数据
   const buildTreeData = useMemo(() => {
-    const buildCategoryNode = (category: AccountCategory, allCategories: AccountCategory[], allAccounts: Account[]): TreeNode => {
-      const childCategories = allCategories.filter(c => c.parentId === category.id)
+    const buildCategoryNode = (category: AccountCategory, allCategories: AccountCategory[], allAccounts: Account[]) => {
+      const childCategories = allCategories.filter(c => c.parentId === category.id).sort((a, b) => a.sort - b.sort)
       const categoryAccounts = allAccounts.filter(a => a.categoryId === category.id)
       
-      const children: TreeNode[] = [
+      const children = [
         ...childCategories.map(c => buildCategoryNode(c, allCategories, allAccounts)),
         ...categoryAccounts.map(a => ({
           id: a.id,
@@ -77,15 +116,16 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         nodeType: category.type as 'asset' | 'liability',
         isCashEquivalent: category.isCashEquivalent,
         parentId: category.parentId,
+        sort: category.sort,
         children: children.length > 0 ? children : undefined,
       }
     }
 
-    const assetCategories = accountCategories.filter(c => c.type === 'asset' && !c.parentId)
-    const liabilityCategories = accountCategories.filter(c => c.type === 'liability' && !c.parentId)
+    const assetCategories = accountCategories.filter(c => c.type === 'asset' && !c.parentId).sort((a, b) => a.sort - b.sort)
+    const liabilityCategories = accountCategories.filter(c => c.type === 'liability' && !c.parentId).sort((a, b) => a.sort - b.sort)
 
-    const assetNodes: TreeNode[] = assetCategories.map(c => buildCategoryNode(c, accountCategories, accounts))
-    const liabilityNodes: TreeNode[] = liabilityCategories.map(c => buildCategoryNode(c, accountCategories, accounts))
+    const assetNodes = assetCategories.map(c => buildCategoryNode(c, accountCategories, accounts))
+    const liabilityNodes = liabilityCategories.map(c => buildCategoryNode(c, accountCategories, accounts))
 
     return { assetNodes, liabilityNodes }
   }, [accountCategories, accounts])
@@ -94,7 +134,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const assetAccounts = accounts.filter(a => a.type === 'asset')
   const liabilityAccounts = accounts.filter(a => a.type === 'liability')
   const totalAssets = assetAccounts.reduce((sum, a) => sum + a.balance, 0)
-  const totalLiabilities = liabilityAccounts.reduce((sum, a) => sum + a.balance, 0)
+  const totalLiabilities = Math.abs(liabilityAccounts.reduce((sum, a) => sum + a.balance, 0))
   const netWorth = totalAssets - totalLiabilities
 
   // ========== 分类操作 ==========
@@ -151,8 +191,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleCashEquivalentChange = async (id: string, checked: boolean) => {
     try {
-      await accountCategoryApi.update(id, { isCashEquivalent: checked })
-      fetchAccountCategories()
+      await updateAccountCategoryCashEquivalent(id, checked)
       message.success('更新成功')
     } catch (error) {
       message.error('更新失败')
@@ -181,7 +220,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       initialBalance: record.initialBalance,
       initialBalanceDate: record.initialBalanceDate ? dayjs(record.initialBalanceDate) : dayjs(),
       categoryId: record.categoryId,
-      cashFlowType: record.cashFlowType,
       icon: record.icon,
     })
     setAccountFormVisible(true)
@@ -189,12 +227,10 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleDeleteAccount = async (id: string) => {
     try {
-      // 先查询账户统计信息
       const statsRes = await accountApi.getStats(id)
       const { transactionCount } = statsRes.data.data || {}
       
       if (transactionCount > 0) {
-        // 有交易记录，显示二次确认弹窗
         Modal.confirm({
           title: '确认删除账户',
           icon: <ExclamationCircleOutlined />,
@@ -217,7 +253,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           },
         })
       } else {
-        // 没有交易记录，直接删除
         await deleteAccount(id)
         message.success('删除成功')
       }
@@ -247,203 +282,243 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }
 
-  // ========== 工具函数 ==========
-  const buildTreeSelectData = (items: AccountCategory[], parentId: string | null = null): any[] => {
-    return items
-      .filter(c => c.parentId === parentId)
-      .map(c => ({
-        id: c.id,
-        name: c.name,
-        icon: c.icon,
-        parentId: c.parentId,
-        children: buildTreeSelectData(items, c.id),
-      }))
+  // 拖拽排序
+  const handleDragEnd = async (event: DragEndEvent, type: 'asset' | 'liability') => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    // 从 key 中提取真正的 id
+    const activeId = String(active.id).replace('category-', '')
+    const overId = String(over.id).replace('category-', '')
+
+    const categories = accountCategories.filter(c => c.type === type && !c.parentId).sort((a, b) => a.sort - b.sort)
+    const oldIndex = categories.findIndex(c => c.id === activeId)
+    const newIndex = categories.findIndex(c => c.id === overId)
+
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const newCategories = [...categories]
+    const [removed] = newCategories.splice(oldIndex, 1)
+    newCategories.splice(newIndex, 0, removed)
+
+    const items = newCategories.map((c, index) => ({
+      id: c.id,
+      sort: index,
+      parentId: null,
+    }))
+
+    try {
+      await accountCategoryApi.updateSort(items)
+      fetchAccountCategories()
+      message.success('排序更新成功')
+    } catch (error) {
+      message.error('排序更新失败')
+    }
   }
 
-  const getCategoryTree = (type: string) => {
-    const filtered = accountCategories.filter(c => c.type === type)
-    return buildTreeSelectData(filtered)
-  }
-
-  // ========== 表格列定义 ==========
-  const getColumns = (nodeType: 'asset' | 'liability') => [
+  // 表格列定义
+  const getCategoryColumns = (type: 'asset' | 'liability') => [
     {
-      title: '图标',
-      dataIndex: 'icon',
-      width: 50,
-      render: (icon: string, record: TreeNode) => (
-        <span style={{ fontSize: 16 }}>
-          {record.type === 'category' ? <FolderOutlined /> : <WalletOutlined />}
-        </span>
-      ),
+      title: '',
+      width: 40,
+      render: (_: unknown, record: any) => {
+        // 只有分类行才显示拖拽手柄
+        if (record.type === 'category') {
+          return <DragHandle id={record.key} />
+        }
+        return null
+      },
     },
-    { 
-      title: '名称', 
-      dataIndex: 'name', 
+    {
+      title: '名称',
+      dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: TreeNode) => (
+      render: (text: string, record: any) => (
         <span>
-          {record.type === 'category' ? (
-            <Tag color="blue">{name}</Tag>
-          ) : (
-            name
-          )}
+          {record.icon || (record.type === 'category' ? '📁' : '💰')} {text}
         </span>
       ),
     },
-    { 
-      title: '余额', 
+    {
+      title: '类型',
+      dataIndex: 'type',
+      key: 'type',
+      width: 80,
+      render: (type: string) => type === 'category' ? <Tag color="blue">分类</Tag> : <Tag color="green">账户</Tag>,
+    },
+    {
+      title: '余额',
       dataIndex: 'balance',
-      width: 150,
-      render: (balance: number, record: TreeNode) => 
-        record.type === 'account' ? (
-          <span style={{ color: nodeType === 'asset' ? '#3f8600' : '#cf1322' }}>
-            ¥{balance.toFixed(2)}
-          </span>
-        ) : null,
+      key: 'balance',
+      width: 120,
+      render: (balance: number, record: any) => {
+        if (record.type === 'category') return '-'
+        return <span style={{ color: balance >= 0 ? '#3f8600' : '#cf1322' }}>¥{balance.toFixed(2)}</span>
+      },
     },
     {
       title: '现金等价物',
       dataIndex: 'isCashEquivalent',
+      key: 'isCashEquivalent',
       width: 100,
-      render: (value: boolean, record: TreeNode) => 
-        record.type === 'category' && !record.parentId && nodeType === 'asset' ? (
-          <Switch 
-            checked={value} 
+      render: (value: boolean, record: any) => {
+        if (record.type !== 'category') return '-'
+        return (
+          <Switch
+            checked={value}
             onChange={(checked) => handleCashEquivalentChange(record.id, checked)}
             size="small"
           />
-        ) : null,
+        )
+      },
     },
     {
       title: '操作',
       key: 'action',
-      width: 200,
-      render: (_: unknown, record: TreeNode) => {
-        if (record.type === 'category') {
-          const hasChildren = record.children && record.children.length > 0
-          return (
-            <Space size="small">
-              {!record.parentId && (
-                <Button type="link" size="small" onClick={() => handleAddCategory(record.id)}>
-                  添加子分类
-                </Button>
-              )}
-              <Button type="link" size="small" onClick={() => handleAddAccount(record.id)}>
-                添加账户
+      width: 150,
+      render: (_: unknown, record: any) => (
+        <Space size="small">
+          {record.type === 'category' ? (
+            <>
+              <Button type="link" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(record.id)}>
+                子分类
               </Button>
-              <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEditCategory(record as any)} />
+              <Button type="link" size="small" icon={<PlusOutlined />} onClick={() => handleAddAccount(record.id)}>
+                账户
+              </Button>
+              <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEditCategory(record)}>
+                编辑
+              </Button>
               <Popconfirm
-                title={hasChildren ? "该分类下有子项，无法删除" : "确定要删除此分类吗？"}
+                title="确定要删除此分类吗？"
                 onConfirm={() => handleDeleteCategory(record.id)}
                 okText="确定"
                 cancelText="取消"
-                disabled={hasChildren}
               >
-                <Button type="link" size="small" danger icon={<DeleteOutlined />} disabled={hasChildren} />
+                <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+                  删除
+                </Button>
               </Popconfirm>
-            </Space>
-          )
-        } else {
-          return (
-            <Space size="small">
-              <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEditAccount(record as any)} />
+            </>
+          ) : (
+            <>
+              <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEditAccount(record)}>
+                编辑
+              </Button>
               <Popconfirm
                 title="确定要删除此账户吗？"
                 onConfirm={() => handleDeleteAccount(record.id)}
                 okText="确定"
                 cancelText="取消"
               >
-                <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+                <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+                  删除
+                </Button>
               </Popconfirm>
-            </Space>
-          )
-        }
-      },
+            </>
+          )}
+        </Space>
+      ),
     },
   ]
+
+  const getCategoryTree = (type: 'asset' | 'liability') => {
+    return accountCategories
+      .filter(c => c.type === type)
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        icon: c.icon,
+        parentId: c.parentId,
+        children: accountCategories.filter(cc => cc.parentId === c.id),
+      }))
+  }
+
+  // 获取所有可排序的 key（只包含一级分类）
+  const getSortableKeys = (nodes: any[]) => {
+    return nodes.filter(n => n.type === 'category').map(n => n.key)
+  }
 
   return (
     <>
       <Modal
-        title="资产负债管理"
+        title="账户分类管理"
         open={visible}
         onCancel={onClose}
         footer={null}
-        width={900}
+        width={1000}
       >
-        {/* 汇总统计 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={8}>
-            <Statistic
-              title="总资产"
-              value={totalAssets}
-              precision={2}
-              valueStyle={{ color: '#3f8600', fontSize: 18 }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="总负债"
-              value={totalLiabilities}
-              precision={2}
-              valueStyle={{ color: '#cf1322', fontSize: 18 }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="净资产"
-              value={netWorth}
-              precision={2}
-              valueStyle={{ color: '#1890ff', fontSize: 18 }}
-              prefix="¥"
-            />
-          </Col>
-        </Row>
+        <Card style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Statistic title="总资产" value={totalAssets} precision={2} prefix="¥" valueStyle={{ color: '#3f8600' }} />
+            </Col>
+            <Col span={8}>
+              <Statistic title="总负债" value={totalLiabilities} precision={2} prefix="¥" valueStyle={{ color: '#cf1322' }} />
+            </Col>
+            <Col span={8}>
+              <Statistic title="净资产" value={netWorth} precision={2} prefix="¥" valueStyle={{ color: netWorth >= 0 ? '#3f8600' : '#cf1322' }} />
+            </Col>
+          </Row>
+        </Card>
 
-        <Divider style={{ margin: '12px 0' }} />
-
-        {/* 资产分类和账户 */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h4 style={{ margin: 0, color: '#3f8600' }}>资产分类</h4>
+        <Divider orientation="left">
+          <Space>
+            <FolderOutlined />
+            资产分类
             <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(undefined, 'asset')}>
-              新增资产分类
+              添加分类
             </Button>
-          </div>
-          <Table
-            dataSource={buildTreeData.assetNodes}
-            columns={getColumns('asset')}
-            rowKey="key"
-            size="small"
-            pagination={false}
-            expandable={{ childrenColumnName: 'children', defaultExpandAllRows: true }}
-            locale={{ emptyText: '暂无资产分类，点击上方按钮新增' }}
-          />
-        </div>
+          </Space>
+        </Divider>
 
-        <Divider style={{ margin: '16px 0' }} />
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, 'asset')}>
+          <SortableContext items={getSortableKeys(buildTreeData.assetNodes)} strategy={verticalListSortingStrategy}>
+            <Table
+              dataSource={buildTreeData.assetNodes}
+              columns={getCategoryColumns('asset')}
+              rowKey="key"
+              pagination={false}
+              size="small"
+              indentSize={20}
+              defaultExpandAllRows
+              components={{
+                body: {
+                  row: SortableRow,
+                },
+              }}
+            />
+          </SortableContext>
+        </DndContext>
 
-        {/* 负债分类和账户 */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h4 style={{ margin: 0, color: '#cf1322' }}>负债分类</h4>
+        <Divider orientation="left">
+          <Space>
+            <FolderOutlined />
+            负债分类
             <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(undefined, 'liability')}>
-              新增负债分类
+              添加分类
             </Button>
-          </div>
-          <Table
-            dataSource={buildTreeData.liabilityNodes}
-            columns={getColumns('liability')}
-            rowKey="key"
-            size="small"
-            pagination={false}
-            expandable={{ childrenColumnName: 'children', defaultExpandAllRows: true }}
-            locale={{ emptyText: '暂无负债分类，点击上方按钮新增' }}
-          />
-        </div>
+          </Space>
+        </Divider>
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, 'liability')}>
+          <SortableContext items={getSortableKeys(buildTreeData.liabilityNodes)} strategy={verticalListSortingStrategy}>
+            <Table
+              dataSource={buildTreeData.liabilityNodes}
+              columns={getCategoryColumns('liability')}
+              rowKey="key"
+              pagination={false}
+              size="small"
+              indentSize={20}
+              defaultExpandAllRows
+              components={{
+                body: {
+                  row: SortableRow,
+                },
+              }}
+            />
+          </SortableContext>
+        </DndContext>
       </Modal>
 
       {/* 分类表单弹窗 */}
@@ -456,21 +531,25 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         cancelText="取消"
       >
         <Form form={categoryForm} layout="vertical">
-          <Form.Item name="type" hidden>
-            <Input />
-          </Form.Item>
-          <Form.Item name="parentId" hidden>
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="name"
-            label="分类名称"
-            rules={[{ required: true, message: '请输入分类名称' }]}
-          >
+          <Form.Item name="name" label="分类名称" rules={[{ required: true, message: '请输入分类名称' }]}>
             <Input placeholder="请输入分类名称" />
           </Form.Item>
+          <Form.Item name="type" label="分类类型" rules={[{ required: true, message: '请选择分类类型' }]}>
+            <Select placeholder="请选择分类类型" disabled>
+              <Select.Option value="asset">资产</Select.Option>
+              <Select.Option value="liability">负债</Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="parentId" label="父分类">
+            <TreeSelect
+              placeholder="请选择父分类"
+              allowClear
+              treeData={getCategoryTree(categoryForm.getFieldValue('type'))}
+              fieldNames={{ label: 'name', value: 'id', children: 'children' }}
+            />
+          </Form.Item>
           <Form.Item name="icon" label="图标">
-            <Input placeholder="请输入图标(如💰)" />
+            <Input placeholder="请输入图标(如📁)" />
           </Form.Item>
           {categoryForm.getFieldValue('type') === 'asset' && !categoryForm.getFieldValue('parentId') && (
             <Form.Item name="isCashEquivalent" label="现金等价物" valuePropName="checked">
@@ -490,18 +569,10 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         cancelText="取消"
       >
         <Form form={accountForm} layout="vertical">
-          <Form.Item
-            name="name"
-            label="账户名称"
-            rules={[{ required: true, message: '请输入账户名称' }]}
-          >
+          <Form.Item name="name" label="账户名称" rules={[{ required: true, message: '请输入账户名称' }]}>
             <Input placeholder="请输入账户名称" />
           </Form.Item>
-          <Form.Item
-            name="type"
-            label="账户类型"
-            rules={[{ required: true, message: '请选择账户类型' }]}
-          >
+          <Form.Item name="type" label="账户类型" rules={[{ required: true, message: '请选择账户类型' }]}>
             <Select placeholder="请选择账户类型" disabled>
               <Select.Option value="asset">资产</Select.Option>
               <Select.Option value="liability">负债</Select.Option>
@@ -514,17 +585,9 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
             rules={[{ required: true, message: '请输入初始余额' }]}
             extra="负债账户请填写负值（如信用卡欠款5000元填写-5000）"
           >
-            <InputNumber
-              style={{ width: '100%' }}
-              precision={2}
-              placeholder="请输入初始余额"
-            />
+            <InputNumber style={{ width: '100%' }} precision={2} placeholder="请输入初始余额" />
           </Form.Item>
-          <Form.Item
-            name="initialBalanceDate"
-            label="初始余额日期"
-            rules={[{ required: true, message: '请选择初始余额日期' }]}
-          >
+          <Form.Item name="initialBalanceDate" label="初始余额日期" rules={[{ required: true, message: '请选择初始余额日期' }]}>
             <DatePicker style={{ width: '100%' }} placeholder="选择初始余额对应的日期" />
           </Form.Item>
           <Form.Item name="categoryId" label="所属分类">
@@ -534,13 +597,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
               treeData={getCategoryTree(accountForm.getFieldValue('type'))}
               fieldNames={{ label: 'name', value: 'id', children: 'children' }}
             />
-          </Form.Item>
-          <Form.Item name="cashFlowType" label="现金流量活动类型">
-            <Select placeholder="请选择活动类型" allowClear>
-              <Select.Option value="operating">经营活动</Select.Option>
-              <Select.Option value="investing">投资活动</Select.Option>
-              <Select.Option value="financing">筹资活动</Select.Option>
-            </Select>
           </Form.Item>
           <Form.Item name="icon" label="图标">
             <Input placeholder="请输入图标(如💰)" />

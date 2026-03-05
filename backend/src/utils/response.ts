@@ -64,7 +64,3 @@ export const error = (
 export const notFound = (res: Response, message = '资源不存在') => {
   return error(res, message, 'NOT_FOUND', 404)
 }
-
-export const badRequest = (res: Response, message: string) => {
-  return error(res, message, 'BAD_REQUEST', 400)
-}

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Card, Tabs, DatePicker, Button, Table, Row, Col, Statistic, Modal, InputNumber, message, Space, Tag, Divider } from 'antd'
 import { SettingOutlined, SaveOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { reportApi, balanceSnapshotApi, Account } from '../services/api'
+import { reportApi, balanceSnapshotApi } from '../services/api'
 import AccountCategoryModal from '../components/AccountCategoryModal'
 import TransactionCategoryModal from '../components/TransactionCategoryModal'
 import CashFlowConfigModal from '../components/CashFlowConfigModal'
@@ -124,6 +124,54 @@ const Reports: React.FC = () => {
     }
   }
 
+  // 构建资产负债表树形数据
+  const buildBalanceSheetTreeData = useMemo(() => {
+    if (!balanceSheetData?.accounts) return { assetNodes: [], liabilityNodes: [] }
+
+    const accounts = balanceSheetData.accounts
+
+    // 按分类分组
+    const groupedByCategory: Record<string, any[]> = {}
+    accounts.forEach((a: any) => {
+      const cat = a.category || '未分类'
+      if (!groupedByCategory[cat]) {
+        groupedByCategory[cat] = []
+      }
+      groupedByCategory[cat].push(a)
+    })
+
+    // 构建树形数据
+    const buildTree = (type: string) => {
+      const typeAccounts = accounts.filter((a: any) => a.type === type)
+      const typeCategories = [...new Set(typeAccounts.map((a: any) => a.category || '未分类'))]
+
+      return typeCategories.map(cat => {
+        const catAccounts = groupedByCategory[cat] || []
+        const typeCatAccounts = catAccounts.filter((a: any) => a.type === type)
+        const total = typeCatAccounts.reduce((sum: number, a: any) => sum + a.balance, 0)
+
+        return {
+          key: `category-${cat}-${type}`,
+          name: cat,
+          balance: type === 'liability' ? Math.abs(total) : total,
+          type: 'category',
+          children: typeCatAccounts.map((a: any) => ({
+            key: `account-${a.id}`,
+            name: a.name,
+            balance: type === 'liability' ? Math.abs(a.balance) : a.balance,
+            type: 'account',
+            isManual: a.isManual,
+          })),
+        }
+      })
+    }
+
+    return {
+      assetNodes: buildTree('asset'),
+      liabilityNodes: buildTree('liability'),
+    }
+  }, [balanceSheetData])
+
   const renderBalanceSheet = () => (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -183,34 +231,74 @@ const Reports: React.FC = () => {
         <Col span={12}>
           <Card title="资产明细" size="small">
             <Table
-              dataSource={Object.entries(balanceSheetData?.assetsByCategory || {}).map(([name, value]) => ({
-                name,
-                value,
-              }))}
+              dataSource={buildBalanceSheetTreeData.assetNodes}
               columns={[
-                { title: '分类', dataIndex: 'name', key: 'name' },
-                { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
+                {
+                  title: '名称',
+                  dataIndex: 'name',
+                  key: 'name',
+                  render: (text: string, record: any) => (
+                    <span>
+                      {record.type === 'category' ? '📁' : '💰'} {text}
+                      {record.isManual && <Tag color="orange" style={{ marginLeft: 8 }}>已校准</Tag>}
+                    </span>
+                  ),
+                },
+                {
+                  title: '金额',
+                  dataIndex: 'balance',
+                  key: 'balance',
+                  width: 120,
+                  align: 'right',
+                  render: (v: number) => (
+                    <span style={{ color: v >= 0 ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}>
+                      ¥{v.toFixed(2)}
+                    </span>
+                  ),
+                },
               ]}
-              rowKey="name"
+              rowKey="key"
               size="small"
               pagination={false}
+              defaultExpandAllRows
+              indentSize={16}
             />
           </Card>
         </Col>
         <Col span={12}>
           <Card title="负债明细" size="small">
             <Table
-              dataSource={Object.entries(balanceSheetData?.liabilitiesByCategory || {}).map(([name, value]) => ({
-                name,
-                value,
-              }))}
+              dataSource={buildBalanceSheetTreeData.liabilityNodes}
               columns={[
-                { title: '分类', dataIndex: 'name', key: 'name' },
-                { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
+                {
+                  title: '名称',
+                  dataIndex: 'name',
+                  key: 'name',
+                  render: (text: string, record: any) => (
+                    <span>
+                      {record.type === 'category' ? '📁' : '💳'} {text}
+                      {record.isManual && <Tag color="orange" style={{ marginLeft: 8 }}>已校准</Tag>}
+                    </span>
+                  ),
+                },
+                {
+                  title: '金额',
+                  dataIndex: 'balance',
+                  key: 'balance',
+                  width: 120,
+                  align: 'right',
+                  render: (v: number) => (
+                    <span style={{ color: '#cf1322', fontWeight: 'bold' }}>
+                      ¥{v.toFixed(2)}
+                    </span>
+                  ),
+                },
               ]}
-              rowKey="name"
+              rowKey="key"
               size="small"
               pagination={false}
+              defaultExpandAllRows
+              indentSize={16}
             />
           </Card>
         </Col>
@@ -417,9 +505,9 @@ const Reports: React.FC = () => {
           <Col span={8}>
             <Statistic
               title="现金变动"
-              value={cashFlowData?.cashChange || 0}
+              value={(cashFlowData?.endCash || 0) - (cashFlowData?.startCash || 0)}
               precision={2}
-              valueStyle={{ color: (cashFlowData?.cashChange || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: ((cashFlowData?.endCash || 0) - (cashFlowData?.startCash || 0)) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
               prefix="¥"
             />
           </Col>

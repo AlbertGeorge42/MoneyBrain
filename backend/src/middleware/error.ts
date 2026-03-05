@@ -20,10 +20,3 @@ export const errorHandler = (
 
   return error(res, message, code, statusCode)
 }
-
-export const createError = (message: string, statusCode = 500, code = 'INTERNAL_ERROR'): AppError => {
-  const err: AppError = new Error(message)
-  err.statusCode = statusCode
-  err.code = code
-  return err
-}

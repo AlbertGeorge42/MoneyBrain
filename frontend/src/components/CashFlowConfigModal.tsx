@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Modal, Table, Switch, message, Tabs, Select, Tag } from 'antd'
 import { useStore } from '../stores'
-import { AccountCategory, Category, accountCategoryApi, categoryApi } from '../services/api'
+import { AccountCategory, Category, categoryApi } from '../services/api'
 
 interface Props {
   visible: boolean
@@ -9,7 +9,7 @@ interface Props {
 }
 
 const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
-  const { accountCategories, categories, fetchAccountCategories, fetchCategories } = useStore()
+  const { accountCategories, categories, fetchAccountCategories, fetchCategories, updateAccountCategoryCashEquivalent } = useStore()
 
   useEffect(() => {
     if (visible) {
@@ -20,8 +20,7 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleCashEquivalentChange = async (id: string, checked: boolean) => {
     try {
-      await accountCategoryApi.update(id, { isCashEquivalent: checked })
-      fetchAccountCategories()
+      await updateAccountCategoryCashEquivalent(id, checked)
       message.success('更新成功')
     } catch (error) {
       message.error('更新失败')

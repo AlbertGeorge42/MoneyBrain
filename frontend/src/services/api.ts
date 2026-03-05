@@ -24,6 +24,7 @@ export interface AccountCategory {
   type: string
   icon: string | null
   parentId: string | null
+  sort: number
   parent: AccountCategory | null
   children: AccountCategory[]
   isCashEquivalent: boolean
@@ -41,7 +42,6 @@ export interface Account {
   icon: string | null
   categoryId: string | null
   category: AccountCategory | null
-  cashFlowType: 'operating' | 'investing' | 'financing' | null
   createdAt: string
   updatedAt: string
 }
@@ -52,6 +52,7 @@ export interface Category {
   type: string
   icon: string | null
   parentId: string | null
+  sort: number
   parent: Category | null
   children: Category[]
   cashFlowType: 'operating' | 'investing' | 'financing' | null
@@ -108,16 +109,15 @@ export interface PaginatedResponse<T> {
 
 export const accountCategoryApi = {
   getAll: () => api.get<ApiResponse<AccountCategory[]>>('/account-categories'),
-  getTree: () => api.get<ApiResponse<AccountCategory[]>>('/account-categories/tree'),
-  getById: (id: string) => api.get<ApiResponse<AccountCategory>>(`/account-categories/${id}`),
   create: (data: Partial<AccountCategory>) => api.post<ApiResponse<AccountCategory>>('/account-categories', data),
   update: (id: string, data: Partial<AccountCategory>) => api.put<ApiResponse<AccountCategory>>(`/account-categories/${id}`, data),
+  updateSort: (items: Array<{ id: string; sort: number; parentId: string | null }>) => 
+    api.put<ApiResponse<{ message: string }>>('/account-categories/sort/batch', { items }),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/account-categories/${id}`),
 }
 
 export const accountApi = {
   getAll: () => api.get<ApiResponse<Account[]>>('/accounts'),
-  getById: (id: string) => api.get<ApiResponse<Account>>(`/accounts/${id}`),
   getStats: (id: string) => api.get<ApiResponse<{
     transactionCount: number
     totalIncome: number
@@ -133,8 +133,6 @@ export const accountApi = {
 
 export const categoryApi = {
   getAll: () => api.get<ApiResponse<Category[]>>('/categories'),
-  getTree: () => api.get<ApiResponse<Category[]>>('/categories/tree'),
-  getById: (id: string) => api.get<ApiResponse<Category>>(`/categories/${id}`),
   create: (data: Partial<Category>) => api.post<ApiResponse<Category>>('/categories', data),
   update: (id: string, data: Partial<Category>) => api.put<ApiResponse<Category>>(`/categories/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/categories/${id}`),
@@ -142,7 +140,6 @@ export const categoryApi = {
 
 export const transactionApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<PaginatedResponse<Transaction>>>('/transactions', { params }),
-  getById: (id: string) => api.get<ApiResponse<Transaction>>(`/transactions/${id}`),
   create: (data: Partial<Transaction>) => api.post<ApiResponse<Transaction>>('/transactions', data),
   update: (id: string, data: Partial<Transaction>) => api.put<ApiResponse<Transaction>>(`/transactions/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/transactions/${id}`),
@@ -150,7 +147,6 @@ export const transactionApi = {
 
 export const budgetApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<Budget[]>>('/budgets', { params }),
-  getById: (id: string) => api.get<ApiResponse<Budget>>(`/budgets/${id}`),
   getStatus: (id: string) => api.get<ApiResponse<{
     budget: Budget
     used: number

@@ -61,23 +61,6 @@ async function calculateBalanceAtDate(accountId: string, targetDate: Date): Prom
   return balance
 }
 
-// 获取或创建平账分类
-async function getOrCreateAdjustmentCategory(type: 'income' | 'expense'): Promise<string> {
-  const existing = await prisma.category.findFirst({
-    where: { name: '平账调整', type },
-  })
-  if (existing) return existing.id
-
-  const category = await prisma.category.create({
-    data: {
-      name: '平账调整',
-      type,
-      icon: '⚙️',
-    },
-  })
-  return category.id
-}
-
 router.get('/balance-sheet', async (req, res, next) => {
   try {
     const { month } = req.query
@@ -294,28 +277,25 @@ router.get('/cash-flow', async (req, res, next) => {
       where: {
         categoryId: { in: cashCategoryIds },
       },
-      select: { id: true, name: true, cashFlowType: true },
+      select: { id: true, name: true },
     })
     const cashAccountIds = cashAccounts.map(a => a.id)
 
-    // 获取现金账户作为转出方的交易（收入、支出、转账转出）
-    const fromTransactions = await prisma.transaction.findMany({
+    // 获取所有相关交易
+    const transactions = await prisma.transaction.findMany({
       where: {
         date: { gte: start, lte: end },
-        accountId: { in: cashAccountIds },
         isAdjustment: false,
+        OR: [
+          { accountId: { in: cashAccountIds } },
+          { toAccountId: { in: cashAccountIds } },
+        ],
       },
-      include: { account: true, category: true },
-    })
-
-    // 获取现金账户作为转入方的交易（转账转入）
-    const toTransactions = await prisma.transaction.findMany({
-      where: {
-        date: { gte: start, lte: end },
-        toAccountId: { in: cashAccountIds },
-        isAdjustment: false,
+      include: { 
+        account: true, 
+        toAccount: true, 
+        category: true,
       },
-      include: { account: true, toAccount: true, category: true },
     })
 
     // 按活动类型分类
@@ -324,45 +304,60 @@ router.get('/cash-flow', async (req, res, next) => {
     const financing = { inflow: 0, outflow: 0, items: [] as any[] }
     const uncategorized = { inflow: 0, outflow: 0, items: [] as any[] }
 
-    // 处理转出方交易
-    fromTransactions.forEach(t => {
-      const cashFlowType = t.category?.cashFlowType || t.account?.cashFlowType || 'operating'
-      const item = {
-        categoryName: t.category?.name || '未分类',
-        amount: t.amount.toNumber(),
-        type: t.type,
-      }
-      
-      const target = cashFlowType === 'investing' ? investing :
-                     cashFlowType === 'financing' ? financing :
-                     cashFlowType === 'operating' ? operating : uncategorized
-      
-      if (t.type === 'income') {
-        target.inflow += t.amount.toNumber()
-      } else if (t.type === 'expense') {
-        target.outflow += t.amount.toNumber()
-      } else if (t.type === 'transfer') {
-        target.outflow += t.amount.toNumber()  // 转出减少现金
-      }
-      target.items.push(item)
-    })
+    const getTargetByType = (cashFlowType: string | null) => {
+      return cashFlowType === 'investing' ? investing :
+             cashFlowType === 'financing' ? financing :
+             cashFlowType === 'operating' ? operating : uncategorized
+    }
 
-    // 处理转入方交易（转账转入现金账户）
-    toTransactions.forEach(t => {
-      if (t.type === 'transfer') {
-        const cashFlowType = t.toAccount?.cashFlowType || 'operating'
-        const item = {
-          categoryName: '转账转入',
+    transactions.forEach(t => {
+      const isFromCash = cashAccountIds.includes(t.accountId)
+      const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
+      const cashFlowType = t.category?.cashFlowType || null
+      
+      if (t.type === 'income' && isFromCash) {
+        // 收入 + 现金账户 → 现金流入
+        const target = getTargetByType(cashFlowType)
+        target.inflow += t.amount.toNumber()
+        target.items.push({
+          categoryName: t.category?.name || '未分类',
           amount: t.amount.toNumber(),
-          type: 'transfer_in',
+          type: 'income',
+          direction: 'inflow',
+        })
+      } else if (t.type === 'expense' && isFromCash) {
+        // 支出 + 现金账户 → 现金流出
+        const target = getTargetByType(cashFlowType)
+        target.outflow += t.amount.toNumber()
+        target.items.push({
+          categoryName: t.category?.name || '未分类',
+          amount: t.amount.toNumber(),
+          type: 'expense',
+          direction: 'outflow',
+        })
+      } else if (t.type === 'transfer') {
+        if (isFromCash && !isToCash) {
+          // 现金 → 非现金：现金流出
+          const target = getTargetByType(cashFlowType)
+          target.outflow += t.amount.toNumber()
+          target.items.push({
+            categoryName: t.category?.name || '转账转出',
+            amount: t.amount.toNumber(),
+            type: 'transfer_out',
+            direction: 'outflow',
+          })
+        } else if (!isFromCash && isToCash) {
+          // 非现金 → 现金：现金流入
+          const target = getTargetByType(cashFlowType)
+          target.inflow += t.amount.toNumber()
+          target.items.push({
+            categoryName: t.category?.name || '转账转入',
+            amount: t.amount.toNumber(),
+            type: 'transfer_in',
+            direction: 'inflow',
+          })
         }
-        
-        const target = cashFlowType === 'investing' ? investing :
-                       cashFlowType === 'financing' ? financing :
-                       cashFlowType === 'operating' ? operating : uncategorized
-        
-        target.inflow += t.amount.toNumber()  // 转入增加现金
-        target.items.push(item)
+        // 现金 → 现金：不影响现金流，不记录
       }
     })
 
@@ -370,29 +365,39 @@ router.get('/cash-flow', async (req, res, next) => {
     const cashOutflow = operating.outflow + investing.outflow + financing.outflow + uncategorized.outflow
     const netCashFlow = cashInflow - cashOutflow
 
+    // 按账户统计现金流
     const flowByAccount: Record<string, { inflow: number; outflow: number }> = {}
     
-    fromTransactions.forEach(t => {
-      const accountName = t.account?.name || '未知账户'
-      if (!flowByAccount[accountName]) {
-        flowByAccount[accountName] = { inflow: 0, outflow: 0 }
-      }
-      if (t.type === 'income') {
-        flowByAccount[accountName].inflow += t.amount.toNumber()
-      } else if (t.type === 'expense') {
-        flowByAccount[accountName].outflow += t.amount.toNumber()
-      } else if (t.type === 'transfer') {
-        flowByAccount[accountName].outflow += t.amount.toNumber()
-      }
-    })
-
-    toTransactions.forEach(t => {
-      if (t.type === 'transfer' && t.toAccount) {
-        const accountName = t.toAccount.name
+    transactions.forEach(t => {
+      const isFromCash = cashAccountIds.includes(t.accountId)
+      const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
+      
+      if (t.type === 'income' && isFromCash) {
+        const accountName = t.account?.name || '未知账户'
         if (!flowByAccount[accountName]) {
           flowByAccount[accountName] = { inflow: 0, outflow: 0 }
         }
         flowByAccount[accountName].inflow += t.amount.toNumber()
+      } else if (t.type === 'expense' && isFromCash) {
+        const accountName = t.account?.name || '未知账户'
+        if (!flowByAccount[accountName]) {
+          flowByAccount[accountName] = { inflow: 0, outflow: 0 }
+        }
+        flowByAccount[accountName].outflow += t.amount.toNumber()
+      } else if (t.type === 'transfer') {
+        if (isFromCash && !isToCash) {
+          const accountName = t.account?.name || '未知账户'
+          if (!flowByAccount[accountName]) {
+            flowByAccount[accountName] = { inflow: 0, outflow: 0 }
+          }
+          flowByAccount[accountName].outflow += t.amount.toNumber()
+        } else if (!isFromCash && isToCash && t.toAccount) {
+          const accountName = t.toAccount.name
+          if (!flowByAccount[accountName]) {
+            flowByAccount[accountName] = { inflow: 0, outflow: 0 }
+          }
+          flowByAccount[accountName].inflow += t.amount.toNumber()
+        }
       }
     })
 

@@ -3,6 +3,7 @@ import { Modal, Tabs, Table, Button, Form, Input, Space, Popconfirm, message, Se
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { Category, categoryApi } from '../services/api'
+import { buildTreeData } from '../utils/treeUtils'
 
 interface Props {
   visible: boolean
@@ -71,15 +72,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     } catch (error) {
       message.error('操作失败')
     }
-  }
-
-  const buildTreeData = (items: Category[], parentId: string | null = null): any[] => {
-    return items
-      .filter(c => c.parentId === parentId)
-      .map(c => ({
-        ...c,
-        children: buildTreeData(items, c.id),
-      }))
   }
 
   const columns = [
@@ -164,6 +156,20 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         />
       ),
     },
+    {
+      key: 'transfer',
+      label: '转账分类',
+      children: (
+        <Table
+          dataSource={buildTreeData(categories.filter(c => c.type === 'transfer'))}
+          columns={columns}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          expandable={{ childrenColumnName: 'children', defaultExpandAllRows: true }}
+        />
+      ),
+    },
   ]
 
   return (
@@ -208,7 +214,11 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           <Form.Item name="icon" label="图标">
             <Input placeholder="请输入图标(如💰)" />
           </Form.Item>
-          <Form.Item name="cashFlowType" label="现金流活动类型">
+          <Form.Item 
+            name="cashFlowType" 
+            label="现金流活动类型"
+            extra={activeTab === 'transfer' ? '转账分类的现金流类型用于现金流量表计算' : undefined}
+          >
             <Select placeholder="请选择现金流活动类型" allowClear>
               <Select.Option value="operating">经营活动</Select.Option>
               <Select.Option value="investing">投资活动</Select.Option>

@@ -19,10 +19,6 @@ interface AppState {
   updateAccount: (id: string, data: Partial<Account>) => Promise<void>
   deleteAccount: (id: string, force?: boolean) => Promise<void>
   
-  addAccountCategory: (data: Partial<AccountCategory>) => Promise<void>
-  updateAccountCategory: (id: string, data: Partial<AccountCategory>) => Promise<void>
-  deleteAccountCategory: (id: string) => Promise<void>
-  
   addCategory: (data: Partial<Category>) => Promise<void>
   updateCategory: (id: string, data: Partial<Category>) => Promise<void>
   deleteCategory: (id: string) => Promise<void>
@@ -34,6 +30,8 @@ interface AppState {
   addBudget: (data: Partial<Budget>) => Promise<void>
   updateBudget: (id: string, data: Partial<Budget>) => Promise<void>
   deleteBudget: (id: string) => Promise<void>
+  
+  updateAccountCategoryCashEquivalent: (id: string, isCashEquivalent: boolean) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -124,27 +122,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  addAccountCategory: async (data) => {
-    const res = await accountCategoryApi.create(data)
-    if (res.data.success) {
-      await get().fetchAccountCategories()
-    }
-  },
-
-  updateAccountCategory: async (id, data) => {
-    const res = await accountCategoryApi.update(id, data)
-    if (res.data.success) {
-      await get().fetchAccountCategories()
-    }
-  },
-
-  deleteAccountCategory: async (id) => {
-    const res = await accountCategoryApi.delete(id)
-    if (res.data.success) {
-      await get().fetchAccountCategories()
-    }
-  },
-
   addCategory: async (data) => {
     const res = await categoryApi.create(data)
     if (res.data.success) {
@@ -208,6 +185,16 @@ export const useStore = create<AppState>((set, get) => ({
     const res = await budgetApi.delete(id)
     if (res.data.success) {
       await get().fetchBudgets()
+    }
+  },
+
+  updateAccountCategoryCashEquivalent: async (id: string, isCashEquivalent: boolean) => {
+    try {
+      await accountCategoryApi.update(id, { isCashEquivalent })
+      const res = await accountCategoryApi.getAll()
+      set({ accountCategories: res.data.data || [] })
+    } catch (error) {
+      throw error
     }
   },
 }))

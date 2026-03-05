@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { 
   Table, Button, Modal, Form, Input, Select, InputNumber, DatePicker, 
-  Space, Card, Tag, Popconfirm, message, Row, Col, Statistic, TreeSelect,
-  Divider
+  Space, Card, Tag, Popconfirm, message, Row, Col, Statistic, TreeSelect
 } from 'antd'
 import { EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, SwapOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useStore } from '../stores'
-import { Transaction, Category } from '../services/api'
+import { Transaction } from '../services/api'
+import { buildTreeData } from '../utils/treeUtils'
 
 const { RangePicker } = DatePicker
 
@@ -43,18 +43,6 @@ const Transactions: React.FC = () => {
     fetchCategories()
   }, [])
 
-  const buildTreeData = (cats: Category[], parentId: string | null = null): any[] => {
-    return cats
-      .filter(c => c.parentId === parentId)
-      .map(c => ({
-        id: c.id,
-        name: c.name,
-        icon: c.icon,
-        parentId: c.parentId,
-        children: buildTreeData(cats, c.id),
-      }))
-  }
-
   const getTypeCategories = (type: string) => {
     const filtered = categories.filter(c => c.type === type)
     return buildTreeData(filtered)
@@ -82,6 +70,7 @@ const Transactions: React.FC = () => {
         date: dayjs(record.date),
         fromAccountId: record.accountId,
         toAccountId: record.toAccountId,
+        categoryId: record.categoryId,
         note: record.note,
       })
       setEditingTransaction(record)
@@ -139,6 +128,7 @@ const Transactions: React.FC = () => {
         date: values.date.format('YYYY-MM-DD'),
         accountId: values.fromAccountId,
         toAccountId: values.toAccountId,
+        categoryId: values.categoryId,
         note: values.note,
       }
       if (editingTransaction) {
@@ -200,8 +190,22 @@ const Transactions: React.FC = () => {
       },
     },
     {
-      title: '分类/账户',
-      key: 'categoryOrAccount',
+      title: '分类',
+      key: 'category',
+      render: (_: unknown, record: Transaction) => {
+        if (record.type === 'transfer') {
+          return record.category ? (
+            <span>{record.category.icon} {record.category.name}</span>
+          ) : (
+            <span style={{ color: '#999' }}>内部转账</span>
+          )
+        }
+        return <span>{record.category?.icon} {record.category?.name || '未分类'}</span>
+      },
+    },
+    {
+      title: '账户',
+      key: 'account',
       render: (_: unknown, record: Transaction) => {
         if (record.type === 'transfer') {
           return (
@@ -210,18 +214,7 @@ const Transactions: React.FC = () => {
             </span>
           )
         }
-        return <span>{record.category?.icon} {record.category?.name || '未分类'}</span>
-      },
-    },
-    {
-      title: '账户',
-      dataIndex: ['account', 'name'],
-      key: 'account',
-      render: (_: unknown, record: Transaction) => {
-        if (record.type === 'transfer') {
-          return '-'
-        }
-        return record.account?.name || '-'
+        return <span>{record.account?.icon} {record.account?.name || '-'}</span>
       },
     },
     {
@@ -515,6 +508,18 @@ const Transactions: React.FC = () => {
             initialValue={dayjs()}
           >
             <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="categoryId"
+            label="转账分类"
+            extra="选择分类可确定现金流量活动类型（经营/投资/筹资）"
+          >
+            <TreeSelect
+              placeholder="请选择转账分类（可选）"
+              allowClear
+              treeData={getTypeCategories('transfer')}
+              fieldNames={{ label: 'name', value: 'id', children: 'children' }}
+            />
           </Form.Item>
           <Form.Item
             name="note"

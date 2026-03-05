@@ -16,7 +16,7 @@ const buildTree = (items: any[], parentId: string | null = null): any[] => {
 router.get('/', async (_req, res, next) => {
   try {
     const categories = await prisma.accountCategory.findMany({
-      orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
     })
     return success(res, categories)
   } catch (err) {
@@ -27,7 +27,7 @@ router.get('/', async (_req, res, next) => {
 router.get('/tree', async (_req, res, next) => {
   try {
     const categories = await prisma.accountCategory.findMany({
-      orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
     })
     const tree = buildTree(categories)
     return success(res, tree)
@@ -54,7 +54,7 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { name, type, icon, parentId, isCashEquivalent } = req.body
+    const { name, type, icon, parentId, isCashEquivalent, sort } = req.body
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
@@ -70,7 +70,7 @@ router.post('/', async (req, res, next) => {
       }
     }
     const category = await prisma.accountCategory.create({
-      data: { name, type, icon, parentId, isCashEquivalent: isCashEquivalent ?? false },
+      data: { name, type, icon, parentId, isCashEquivalent: isCashEquivalent ?? false, sort: sort || 0 },
     })
     return success(res, category, 201)
   } catch (err) {
@@ -81,7 +81,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    const { name, type, icon, parentId, isCashEquivalent } = req.body
+    const { name, type, icon, parentId, isCashEquivalent, sort } = req.body
     if (parentId === id) {
       return error(res, '父分类不能是自己', 'BAD_REQUEST', 400)
     }
@@ -99,9 +99,32 @@ router.put('/:id', async (req, res, next) => {
     }
     const category = await prisma.accountCategory.update({
       where: { id },
-      data: { name, type, icon, parentId, isCashEquivalent },
+      data: { name, type, icon, parentId, isCashEquivalent, sort },
     })
     return success(res, category)
+  } catch (err) {
+    return next(err)
+  }
+})
+
+// 批量更新排序
+router.put('/sort/batch', async (req, res, next) => {
+  try {
+    const { items } = req.body
+    if (!Array.isArray(items)) {
+      return error(res, '参数格式错误', 'BAD_REQUEST', 400)
+    }
+
+    await prisma.$transaction(
+      items.map(item => 
+        prisma.accountCategory.update({
+          where: { id: item.id },
+          data: { sort: item.sort, parentId: item.parentId },
+        })
+      )
+    )
+
+    return success(res, { message: '排序更新成功' })
   } catch (err) {
     return next(err)
   }

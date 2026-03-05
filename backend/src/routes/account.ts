@@ -23,7 +23,7 @@ router.get('/:id', async (req, res, next) => {
       where: { id },
       include: { 
         category: true,
-        transactions: {
+        fromTransactions: {
           take: 10,
           orderBy: { date: 'desc' },
           include: { category: true },
@@ -74,7 +74,7 @@ router.get('/:id/stats', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { name, type, balance, icon, categoryId, cashFlowType, initialBalance, initialBalanceDate } = req.body
+    const { name, type, balance, icon, categoryId, initialBalance, initialBalanceDate } = req.body
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
@@ -87,7 +87,6 @@ router.post('/', async (req, res, next) => {
         initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : new Date(),
         icon,
         categoryId,
-        cashFlowType,
       },
       include: { category: true },
     })
@@ -108,7 +107,6 @@ router.put('/:id', async (req, res, next) => {
         type, 
         icon, 
         categoryId, 
-        cashFlowType,
         initialBalance,
         initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : undefined,
       },

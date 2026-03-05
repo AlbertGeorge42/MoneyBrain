@@ -6,7 +6,7 @@ const router = Router()
 
 router.get('/trends', async (req, res, next) => {
   try {
-    const { type, period = 'month' } = req.query
+    const { type } = req.query
     if (!type) {
       return error(res, '请指定类型(income/expense)', 'BAD_REQUEST', 400)
     }

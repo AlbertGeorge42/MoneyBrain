@@ -155,7 +155,7 @@ router.post('/', async (req, res, next) => {
           data: { balance: { increment: new Decimal(amount) } },
         })
 
-        // 创建转账记录
+        // 创建转账记录（支持分类）
         const transaction = await tx.transaction.create({
           data: { 
             type: 'transfer', 
@@ -164,10 +164,12 @@ router.post('/', async (req, res, next) => {
             note, 
             accountId,
             toAccountId,
+            categoryId,
           },
           include: { 
             account: true, 
             toAccount: true,
+            category: true,
           },
         })
 
@@ -254,10 +256,12 @@ router.put('/:id', async (req, res, next) => {
             note: note !== undefined ? note : oldTransaction.note,
             accountId: accountId || oldTransaction.accountId,
             toAccountId: toAccountId || oldTransaction.toAccountId,
+            categoryId: categoryId !== undefined ? categoryId : oldTransaction.categoryId,
           },
           include: { 
             account: true, 
             toAccount: true,
+            category: true,
           },
         })
 
