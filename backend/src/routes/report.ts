@@ -185,8 +185,35 @@ router.get('/income-expense', async (req, res, next) => {
     const incomeByCategory: Record<string, number> = {}
     const expenseByCategory: Record<string, number> = {}
 
+    // 获取所有二级分类的父分类ID
+    const childCategoryIds = transactions
+      .filter(t => t.category?.parentId)
+      .map(t => t.category!.parentId)
+    
+    const uniqueParentIds = [...new Set(childCategoryIds)] as string[]
+    
+    // 查询父分类名称
+    let parentMap: Record<string, string> = {}
+    if (uniqueParentIds.length > 0) {
+      const parentCategories = await prisma.category.findMany({
+        where: { id: { in: uniqueParentIds } }
+      })
+      parentMap = Object.fromEntries(parentCategories.map(p => [p.id, p.name]))
+    }
+
+    // 统计时将二级分类归入父分类
     transactions.forEach(t => {
-      const categoryName = t.category?.name || '未分类'
+      let categoryName = '未分类'
+      if (t.category) {
+        if (t.category.parentId) {
+          // 二级分类，使用父分类名称
+          categoryName = parentMap[t.category.parentId] || t.category.name
+        } else {
+          // 一级分类
+          categoryName = t.category.name
+        }
+      }
+      
       if (t.type === 'income') {
         incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + t.amount.toNumber()
       } else {
