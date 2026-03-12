@@ -44,7 +44,8 @@ const Dashboard: React.FC = () => {
   const totalLiabilities = accounts
     .filter(a => a.type === 'liability')
     .reduce((sum, a) => sum + Number(a.balance), 0)
-  const netWorth = totalAssets - totalLiabilities
+  // 负债账户余额为负数，所以净资产 = 资产 + 负债
+  const netWorth = totalAssets + totalLiabilities
 
   const thisMonthStart = dayjs().startOf('month')
   const thisMonthTransactions = transactions.filter(t => 
@@ -104,7 +105,7 @@ const Dashboard: React.FC = () => {
                 title="总资产"
                 value={totalAssets}
                 precision={2}
-                valueStyle={{ color: '#3f8600' }}
+                valueStyle={{ color: totalAssets >= 0 ? '#3f8600' : '#cf1322' }}
                 prefix="¥"
               />
             </Card>
@@ -113,9 +114,9 @@ const Dashboard: React.FC = () => {
             <Card>
               <Statistic
                 title="总负债"
-                value={totalLiabilities}
+                value={totalLiabilities <= 0 ? Math.abs(totalLiabilities) : -totalLiabilities}
                 precision={2}
-                valueStyle={{ color: '#cf1322' }}
+                valueStyle={{ color: totalLiabilities <= 0 ? '#cf1322' : '#3f8600' }}
                 prefix="¥"
               />
             </Card>

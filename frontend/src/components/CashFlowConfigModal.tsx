@@ -28,7 +28,7 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }
 
-  const handleCashFlowTypeChange = async (id: string, value: string) => {
+  const handleCashFlowTypeChange = async (id: string, value: 'operating' | 'investing' | 'financing' | null) => {
     try {
       await categoryApi.update(id, { cashFlowType: value })
       fetchCategories()
@@ -75,8 +75,8 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       width: 180,
       render: (value: string, record: Category) => (
         <Select
-          value={value}
-          onChange={(v) => handleCashFlowTypeChange(record.id, v)}
+          value={value as 'operating' | 'investing' | 'financing' | null | undefined}
+          onChange={(v: 'operating' | 'investing' | 'financing' | null) => handleCashFlowTypeChange(record.id, v)}
           size="small"
           style={{ width: '100%' }}
           placeholder="请选择"

@@ -8,13 +8,13 @@ import TransactionCategoryModal from '../components/TransactionCategoryModal'
 import CashFlowConfigModal from '../components/CashFlowConfigModal'
 import DynamicIcon from '../components/DynamicIcon'
 import { PieChart, BarChart, SankeyChart } from '../components/charts'
+import { formatBalance } from '../utils/formatBalance'
 
 const { RangePicker } = DatePicker
 const { MonthPicker } = DatePicker
 
 const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState('balance-sheet')
-  const [loading, setLoading] = useState(false)
   
   // 资产负债表状态
   const [selectedMonth, setSelectedMonth] = useState(dayjs())
@@ -38,6 +38,7 @@ const Reports: React.FC = () => {
   ])
   const [cashFlowData, setCashFlowData] = useState<any>(null)
   const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
+  const [cashFlowLoading, setCashFlowLoading] = useState(false)
 
   useEffect(() => {
     if (activeTab === 'balance-sheet') {
@@ -50,7 +51,6 @@ const Reports: React.FC = () => {
   }, [activeTab, selectedMonth, dateRange, cashFlowDateRange])
 
   const fetchBalanceSheet = async () => {
-    setLoading(true)
     try {
       const monthStr = selectedMonth.format('YYYY-MM')
       const res = await reportApi.getBalanceSheet(monthStr)
@@ -64,13 +64,10 @@ const Reports: React.FC = () => {
       setCalibrateData(initialCalibrate)
     } catch (error) {
       message.error('获取资产负债表失败')
-    } finally {
-      setLoading(false)
     }
   }
 
   const fetchIncomeExpense = async () => {
-    setLoading(true)
     try {
       const res = await reportApi.getIncomeExpense(
         dateRange[0].format('YYYY-MM-DD'),
@@ -79,14 +76,12 @@ const Reports: React.FC = () => {
       setIncomeExpenseData(res.data.data)
     } catch (error) {
       message.error('获取收入支出表失败')
-    } finally {
-      setLoading(false)
     }
   }
 
   const fetchCashFlow = async () => {
-    setLoading(true)
     try {
+      setCashFlowLoading(true)
       const res = await reportApi.getCashFlow(
         cashFlowDateRange[0].format('YYYY-MM-DD'),
         cashFlowDateRange[1].format('YYYY-MM-DD')
@@ -95,7 +90,7 @@ const Reports: React.FC = () => {
     } catch (error) {
       message.error('获取现金流量表失败')
     } finally {
-      setLoading(false)
+      setCashFlowLoading(false)
     }
   }
 
@@ -135,7 +130,7 @@ const Reports: React.FC = () => {
     // 按分类分组
     const groupedByCategory: Record<string, any[]> = {}
     accounts.forEach((a: any) => {
-      const cat = a.category || '未分类'
+      const cat = a.category?.name || '未分类'
       if (!groupedByCategory[cat]) {
         groupedByCategory[cat] = []
       }
@@ -145,9 +140,9 @@ const Reports: React.FC = () => {
     // 构建树形数据
     const buildTree = (type: string) => {
       const typeAccounts = accounts.filter((a: any) => a.type === type)
-      const typeCategories = [...new Set(typeAccounts.map((a: any) => a.category || '未分类'))]
+      const typeCategories = [...new Set(typeAccounts.map((a: any) => a.category?.name || '未分类'))] as string[]
 
-      return typeCategories.map(cat => {
+      return typeCategories.map((cat: string) => {
         const catAccounts = groupedByCategory[cat] || []
         const typeCatAccounts = catAccounts.filter((a: any) => a.type === type)
         const total = typeCatAccounts.reduce((sum: number, a: any) => sum + a.balance, 0)
@@ -155,12 +150,14 @@ const Reports: React.FC = () => {
         return {
           key: `category-${cat}-${type}`,
           name: cat,
-          balance: type === 'liability' ? Math.abs(total) : total,
+          balance: total,
+          nodeType: type,
           type: 'category',
           children: typeCatAccounts.map((a: any) => ({
             key: `account-${a.id}`,
             name: a.name,
-            balance: type === 'liability' ? Math.abs(a.balance) : a.balance,
+            balance: a.balance,
+            nodeType: type,
             type: 'account',
             isManual: a.isManual,
           })),
@@ -204,16 +201,16 @@ const Reports: React.FC = () => {
               title="总资产"
               value={balanceSheetData?.assets || 0}
               precision={2}
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>
           <Col span={8}>
             <Statistic
               title="总负债"
-              value={balanceSheetData?.liabilities || 0}
+              value={(balanceSheetData?.liabilities || 0) <= 0 ? Math.abs(balanceSheetData?.liabilities || 0) : -(balanceSheetData?.liabilities || 0)}
               precision={2}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: (balanceSheetData?.liabilities || 0) <= 0 ? '#cf1322' : '#3f8600' }}
               prefix="¥"
             />
           </Col>
@@ -222,7 +219,7 @@ const Reports: React.FC = () => {
               title="净资产"
               value={balanceSheetData?.netWorth || 0}
               precision={2}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>
@@ -282,11 +279,14 @@ const Reports: React.FC = () => {
                   key: 'balance',
                   width: 120,
                   align: 'right',
-                  render: (v: number) => (
-                    <span style={{ color: v >= 0 ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}>
-                      ¥{v.toFixed(2)}
-                    </span>
-                  ),
+                  render: (v: number, record: any) => {
+                    const result = formatBalance(v, record.nodeType || 'asset')
+                    return (
+                      <span style={{ color: result.color, fontWeight: 'bold' }}>
+                        {result.text}
+                      </span>
+                    )
+                  },
                 },
               ]}
               rowKey="key"
@@ -319,11 +319,14 @@ const Reports: React.FC = () => {
                   key: 'balance',
                   width: 120,
                   align: 'right',
-                  render: (v: number) => (
-                    <span style={{ color: '#cf1322', fontWeight: 'bold' }}>
-                      ¥{v.toFixed(2)}
-                    </span>
-                  ),
+                  render: (v: number, record: any) => {
+                    const result = formatBalance(v, record.nodeType || 'liability')
+                    return (
+                      <span style={{ color: result.color, fontWeight: 'bold' }}>
+                        {result.text}
+                      </span>
+                    )
+                  },
                 },
               ]}
               rowKey="key"
@@ -358,16 +361,16 @@ const Reports: React.FC = () => {
               title="期初资产"
               value={incomeExpenseData?.startAssets || 0}
               precision={2}
-              valueStyle={{ color: '#1890ff', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.startAssets || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
               prefix="¥"
             />
           </Col>
           <Col span={6}>
             <Statistic
               title="期初负债"
-              value={incomeExpenseData?.startLiabilities || 0}
+              value={(incomeExpenseData?.startLiabilities || 0) <= 0 ? Math.abs(incomeExpenseData?.startLiabilities || 0) : -(incomeExpenseData?.startLiabilities || 0)}
               precision={2}
-              valueStyle={{ color: '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.startLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600', fontSize: 16 }}
               prefix="¥"
             />
           </Col>
@@ -376,7 +379,7 @@ const Reports: React.FC = () => {
               title="期初净资产"
               value={incomeExpenseData?.startNetWorth || 0}
               precision={2}
-              valueStyle={{ color: '#52c41a', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.startNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
               prefix="¥"
             />
           </Col>
@@ -477,16 +480,16 @@ const Reports: React.FC = () => {
               title="期末资产"
               value={incomeExpenseData?.endAssets || 0}
               precision={2}
-              valueStyle={{ color: '#1890ff', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.endAssets || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
               prefix="¥"
             />
           </Col>
           <Col span={8}>
             <Statistic
               title="期末负债"
-              value={incomeExpenseData?.endLiabilities || 0}
+              value={(incomeExpenseData?.endLiabilities || 0) <= 0 ? Math.abs(incomeExpenseData?.endLiabilities || 0) : -(incomeExpenseData?.endLiabilities || 0)}
               precision={2}
-              valueStyle={{ color: '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.endLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600', fontSize: 16 }}
               prefix="¥"
             />
           </Col>
@@ -495,7 +498,7 @@ const Reports: React.FC = () => {
               title="期末净资产"
               value={incomeExpenseData?.endNetWorth || 0}
               precision={2}
-              valueStyle={{ color: '#52c41a', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.endNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
               prefix="¥"
             />
           </Col>
@@ -641,6 +644,7 @@ const Reports: React.FC = () => {
                 ], color: '#ff4d4f' }
               ]}
               height={280}
+              loading={cashFlowLoading}
             />
           </Card>
         </Col>
@@ -648,29 +652,10 @@ const Reports: React.FC = () => {
           <Card size="small">
             <SankeyChart 
               title="现金流量流向" 
-              nodes={[
-                // 流入节点
-                { name: '经营流入' },
-                { name: '投资流入' },
-                { name: '筹资流入' },
-                // 中心节点
-                { name: '现金池' },
-                // 流出节点
-                { name: '经营流出' },
-                { name: '投资流出' },
-                { name: '筹资流出' },
-              ]}
-              links={[
-                // 流入链接
-                { source: '经营流入', target: '现金池', value: cashFlowData?.byActivity?.operating?.inflow || 0 },
-                { source: '投资流入', target: '现金池', value: cashFlowData?.byActivity?.investing?.inflow || 0 },
-                { source: '筹资流入', target: '现金池', value: cashFlowData?.byActivity?.financing?.inflow || 0 },
-                // 流出链接
-                { source: '现金池', target: '经营流出', value: Math.abs(cashFlowData?.byActivity?.operating?.outflow || 0) },
-                { source: '现金池', target: '投资流出', value: Math.abs(cashFlowData?.byActivity?.investing?.outflow || 0) },
-                { source: '现金池', target: '筹资流出', value: Math.abs(cashFlowData?.byActivity?.financing?.outflow || 0) },
-              ].filter(l => l.value > 0)}
+              nodes={cashFlowData?.sankey?.nodes || []}
+              links={cashFlowData?.sankey?.links || []}
               height={280}
+              loading={cashFlowLoading}
             />
           </Card>
         </Col>
@@ -681,36 +666,36 @@ const Reports: React.FC = () => {
           <Card 
             title={<><Tag color="green">经营</Tag> 经营活动</>} 
             size="small"
-            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.operating?.net || 0) >= 0 ? '#3f8600' : '#cf1322' }}>
-              ¥{(cashFlowData?.byActivity?.operating?.net || 0).toFixed(2)}
+            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.operating?.net != null && cashFlowData.byActivity.operating.net >= 0) ? '#3f8600' : '#cf1322' }}>
+              ¥{(cashFlowData?.byActivity?.operating?.net != null ? cashFlowData.byActivity.operating.net : 0).toFixed(2)}
             </span>}
           >
-            <div>流入: ¥{(cashFlowData?.byActivity?.operating?.inflow || 0).toFixed(2)}</div>
-            <div>流出: ¥{(cashFlowData?.byActivity?.operating?.outflow || 0).toFixed(2)}</div>
+            <div>流入: ¥{(cashFlowData?.byActivity?.operating?.inflow != null ? cashFlowData.byActivity.operating.inflow : 0).toFixed(2)}</div>
+            <div>流出: ¥{(cashFlowData?.byActivity?.operating?.outflow != null ? cashFlowData.byActivity.operating.outflow : 0).toFixed(2)}</div>
           </Card>
         </Col>
         <Col span={8}>
           <Card 
             title={<><Tag color="blue">投资</Tag> 投资活动</>} 
             size="small"
-            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.investing?.net || 0) >= 0 ? '#3f8600' : '#cf1322' }}>
-              ¥{(cashFlowData?.byActivity?.investing?.net || 0).toFixed(2)}
+            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.investing?.net != null && cashFlowData.byActivity.investing.net >= 0) ? '#3f8600' : '#cf1322' }}>
+              ¥{(cashFlowData?.byActivity?.investing?.net != null ? cashFlowData.byActivity.investing.net : 0).toFixed(2)}
             </span>}
           >
-            <div>流入: ¥{(cashFlowData?.byActivity?.investing?.inflow || 0).toFixed(2)}</div>
-            <div>流出: ¥{(cashFlowData?.byActivity?.investing?.outflow || 0).toFixed(2)}</div>
+            <div>流入: ¥{(cashFlowData?.byActivity?.investing?.inflow != null ? cashFlowData.byActivity.investing.inflow : 0).toFixed(2)}</div>
+            <div>流出: ¥{(cashFlowData?.byActivity?.investing?.outflow != null ? cashFlowData.byActivity.investing.outflow : 0).toFixed(2)}</div>
           </Card>
         </Col>
         <Col span={8}>
           <Card 
             title={<><Tag color="orange">筹资</Tag> 筹资活动</>} 
             size="small"
-            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.financing?.net || 0) >= 0 ? '#3f8600' : '#cf1322' }}>
-              ¥{(cashFlowData?.byActivity?.financing?.net || 0).toFixed(2)}
+            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.financing?.net != null && cashFlowData.byActivity.financing.net >= 0) ? '#3f8600' : '#cf1322' }}>
+              ¥{(cashFlowData?.byActivity?.financing?.net != null ? cashFlowData.byActivity.financing.net : 0).toFixed(2)}
             </span>}
           >
-            <div>流入: ¥{(cashFlowData?.byActivity?.financing?.inflow || 0).toFixed(2)}</div>
-            <div>流出: ¥{(cashFlowData?.byActivity?.financing?.outflow || 0).toFixed(2)}</div>
+            <div>流入: ¥{(cashFlowData?.byActivity?.financing?.inflow != null ? cashFlowData.byActivity.financing.inflow : 0).toFixed(2)}</div>
+            <div>流出: ¥{(cashFlowData?.byActivity?.financing?.outflow != null ? cashFlowData.byActivity.financing.outflow : 0).toFixed(2)}</div>
           </Card>
         </Col>
       </Row>

@@ -3,12 +3,13 @@ import {
   Table, Button, Modal, Form, Input, Select, InputNumber, DatePicker, 
   Space, Card, Tag, Popconfirm, message, Row, Col, Statistic, TreeSelect
 } from 'antd'
-import { EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, SwapOutlined } from '@ant-design/icons'
+import { EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useStore } from '../stores'
-import { Transaction } from '../services/api'
+import { Transaction, transactionApi } from '../services/api'
 import { buildTreeData } from '../utils/treeUtils'
 import DynamicIcon from '../components/DynamicIcon'
+import { formatBalance } from '../utils/formatBalance'
 
 const { RangePicker } = DatePicker
 
@@ -18,6 +19,7 @@ const Transactions: React.FC = () => {
     accounts, 
     categories,
     loading, 
+    pagination,
     fetchTransactions, 
     fetchAccounts,
     fetchCategories,
@@ -28,15 +30,20 @@ const Transactions: React.FC = () => {
 
   const [modalVisible, setModalVisible] = useState(false)
   const [transferModalVisible, setTransferModalVisible] = useState(false)
+  const [refundModalVisible, setRefundModalVisible] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [form] = Form.useForm()
   const [transferForm] = Form.useForm()
+  const [refundForm] = Form.useForm()
   const [filters, setFilters] = useState({
     type: undefined as string | undefined,
     accountId: undefined as string | undefined,
     categoryId: undefined as string | undefined,
     dateRange: null as [dayjs.Dayjs, dayjs.Dayjs] | null,
   })
+  const [refundableTransactions, setRefundableTransactions] = useState<Transaction[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
   useEffect(() => {
     fetchTransactions()
@@ -64,10 +71,25 @@ const Transactions: React.FC = () => {
     setTransferModalVisible(true)
   }
 
+  const handleRefund = async () => {
+    setEditingTransaction(null)
+    refundForm.resetFields()
+    // 获取可退款的交易列表
+    try {
+      const res = await transactionApi.getRefundableList()
+      setRefundableTransactions(res.data.data || [])
+    } catch (error) {
+      message.error('获取可退款交易列表失败')
+    }
+    setRefundModalVisible(true)
+  }
+
   const handleEdit = (record: Transaction) => {
     if (record.type === 'transfer') {
       transferForm.setFieldsValue({
         amount: record.amount,
+        fee: record.fee || 0,
+        coupon: record.coupon || 0,
         date: dayjs(record.date),
         fromAccountId: record.accountId,
         toAccountId: record.toAccountId,
@@ -76,10 +98,28 @@ const Transactions: React.FC = () => {
       })
       setEditingTransaction(record)
       setTransferModalVisible(true)
+    } else if (record.type === 'refund') {
+      refundForm.setFieldsValue({
+        amount: record.amount,
+        fee: record.fee || 0,
+        coupon: record.coupon || 0,
+        date: dayjs(record.date),
+        accountId: record.accountId,
+        relatedTransactionId: record.relatedTransactionId,
+        note: record.note,
+      })
+      setEditingTransaction(record)
+      // 获取可退款的交易列表
+      transactionApi.getRefundableList().then(res => {
+        setRefundableTransactions(res.data.data || [])
+        setRefundModalVisible(true)
+      })
     } else {
       form.setFieldsValue({
         type: record.type,
         amount: record.amount,
+        fee: record.fee || 0,
+        coupon: record.coupon || 0,
         date: dayjs(record.date),
         accountId: record.accountId,
         categoryId: record.categoryId,
@@ -104,6 +144,8 @@ const Transactions: React.FC = () => {
       const values = await form.validateFields()
       const data = {
         ...values,
+        fee: values.fee || 0,
+        coupon: values.coupon || 0,
         date: values.date.format('YYYY-MM-DD'),
       }
       if (editingTransaction) {
@@ -126,6 +168,8 @@ const Transactions: React.FC = () => {
       const data = {
         type: 'transfer',
         amount: values.amount,
+        fee: values.fee || 0,
+        coupon: values.coupon || 0,
         date: values.date.format('YYYY-MM-DD'),
         accountId: values.fromAccountId,
         toAccountId: values.toAccountId,
@@ -146,6 +190,33 @@ const Transactions: React.FC = () => {
     }
   }
 
+  const handleRefundSubmit = async () => {
+    try {
+      const values = await refundForm.validateFields()
+      const data = {
+        type: 'refund',
+        amount: values.amount,
+        fee: values.fee || 0,
+        coupon: values.coupon || 0,
+        date: values.date.format('YYYY-MM-DD'),
+        accountId: values.accountId,
+        relatedTransactionId: values.relatedTransactionId,
+        note: values.note,
+      }
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, data)
+        message.success('更新成功')
+      } else {
+        await addTransaction(data)
+        message.success('退款记录成功')
+      }
+      setRefundModalVisible(false)
+      refundForm.resetFields()
+    } catch (error: any) {
+      message.error(error.response?.data?.error?.message || '操作失败')
+    }
+  }
+
   const handleSearch = () => {
     const params: Record<string, unknown> = {}
     if (filters.type) params.type = filters.type
@@ -155,6 +226,9 @@ const Transactions: React.FC = () => {
       params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
       params.endDate = filters.dateRange[1].format('YYYY-MM-DD')
     }
+    // 重置到第一页
+    params.page = 1
+    params.pageSize = pageSize
     fetchTransactions(params)
   }
 
@@ -164,7 +238,10 @@ const Transactions: React.FC = () => {
   const totalExpense = transactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0)
-  const balance = totalIncome - totalExpense
+  const totalRefund = transactions
+    .filter(t => t.type === 'refund')
+    .reduce((sum, t) => sum + t.amount, 0)
+  const balance = totalIncome - totalExpense + totalRefund
   const transferCount = transactions.filter(t => t.type === 'transfer').length
 
   const columns = [
@@ -185,6 +262,7 @@ const Transactions: React.FC = () => {
           income: { color: 'green', text: '收入' },
           expense: { color: 'red', text: '支出' },
           transfer: { color: 'blue', text: '转账' },
+          refund: { color: 'orange', text: '退款' },
         }
         const config = typeConfig[type] || { color: 'default', text: type }
         return <Tag color={config.color}>{config.text}</Tag>
@@ -199,6 +277,16 @@ const Transactions: React.FC = () => {
             <span><DynamicIcon name={record.category.icon} size={16} /> {record.category.name}</span>
           ) : (
             <span style={{ color: '#999' }}>内部转账</span>
+          )
+        }
+        if (record.type === 'refund') {
+          return (
+            <span>
+              <DynamicIcon name={record.category?.icon} size={16} /> {record.category?.name || '退款'}
+              {record.relatedTransaction && (
+                <span style={{ color: '#999', fontSize: 12 }}> (原: {record.relatedTransaction.category?.name})</span>
+              )}
+            </span>
           )
         }
         return <span><DynamicIcon name={record.category?.icon} size={16} /> {record.category?.name || '未分类'}</span>
@@ -223,12 +311,32 @@ const Transactions: React.FC = () => {
       dataIndex: 'amount',
       key: 'amount',
       render: (amount: number, record: Transaction) => {
+        const fee = record.fee || 0
+        const coupon = record.coupon || 0
+        const hasExtra = fee > 0 || coupon > 0
+        
         if (record.type === 'transfer') {
-          return <span style={{ color: '#1890ff', fontWeight: 'bold' }}>¥{amount.toFixed(2)}</span>
+          return (
+            <span>
+              <span style={{ color: '#1890ff', fontWeight: 'bold' }}>¥{amount.toFixed(2)}</span>
+              {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
+            </span>
+          )
+        }
+        if (record.type === 'refund') {
+          return (
+            <span>
+              <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>+¥{amount.toFixed(2)}</span>
+              {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee})</span>}
+            </span>
+          )
         }
         return (
-          <span style={{ color: record.type === 'income' ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}>
-            {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
+          <span>
+            <span style={{ color: record.type === 'income' ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}>
+              {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
+            </span>
+            {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
           </span>
         )
       },
@@ -277,6 +385,9 @@ const Transactions: React.FC = () => {
           <Button icon={<SwapOutlined />} onClick={handleTransfer}>
             记转账
           </Button>
+          <Button style={{ borderColor: '#fa8c16', color: '#fa8c16' }} icon={<RollbackOutlined />} onClick={handleRefund}>
+            记退款
+          </Button>
         </Space>
       </div>
 
@@ -293,6 +404,7 @@ const Transactions: React.FC = () => {
               <Select.Option value="income">收入</Select.Option>
               <Select.Option value="expense">支出</Select.Option>
               <Select.Option value="transfer">转账</Select.Option>
+              <Select.Option value="refund">退款</Select.Option>
             </Select>
           </Col>
           <Col span={6}>
@@ -323,7 +435,7 @@ const Transactions: React.FC = () => {
 
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={16}>
-          <Col span={6}>
+          <Col span={5}>
             <Statistic
               title="总收入"
               value={totalIncome}
@@ -332,7 +444,7 @@ const Transactions: React.FC = () => {
               prefix="¥"
             />
           </Col>
-          <Col span={6}>
+          <Col span={5}>
             <Statistic
               title="总支出"
               value={totalExpense}
@@ -341,7 +453,16 @@ const Transactions: React.FC = () => {
               prefix="¥"
             />
           </Col>
-          <Col span={6}>
+          <Col span={4}>
+            <Statistic
+              title="退款"
+              value={totalRefund}
+              precision={2}
+              valueStyle={{ color: '#fa8c16' }}
+              prefix="¥"
+            />
+          </Col>
+          <Col span={5}>
             <Statistic
               title="结余"
               value={balance}
@@ -350,7 +471,7 @@ const Transactions: React.FC = () => {
               prefix="¥"
             />
           </Col>
-          <Col span={6}>
+          <Col span={5}>
             <Statistic
               title="转账次数"
               value={transferCount}
@@ -365,7 +486,27 @@ const Transactions: React.FC = () => {
           dataSource={transactions} 
           columns={columns} 
           rowKey="id"
-          pagination={{ pageSize: 20 }}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: pagination.total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 条`,
+            onChange: (newPage, newPageSize) => {
+              setCurrentPage(newPage)
+              setPageSize(newPageSize)
+              const params: Record<string, unknown> = { page: newPage, pageSize: newPageSize }
+              if (filters.type) params.type = filters.type
+              if (filters.accountId) params.accountId = filters.accountId
+              if (filters.categoryId) params.categoryId = filters.categoryId
+              if (filters.dateRange) {
+                params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
+                params.endDate = filters.dateRange[1].format('YYYY-MM-DD')
+              }
+              fetchTransactions(params)
+            }
+          }}
           loading={loading}
         />
       </Card>
@@ -403,6 +544,38 @@ const Transactions: React.FC = () => {
               prefix="¥"
             />
           </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="fee"
+                label="手续费"
+                initialValue={0}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  placeholder="手续费"
+                  prefix="¥"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="coupon"
+                label="优惠券"
+                initialValue={0}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  placeholder="优惠券"
+                  prefix="¥"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item
             name="date"
             label="日期"
@@ -469,11 +642,14 @@ const Transactions: React.FC = () => {
             rules={[{ required: true, message: '请选择转出账户' }]}
           >
             <Select placeholder="请选择转出账户">
-              {accounts.map(a => (
-                <Select.Option key={a.id} value={a.id}>
-                  <DynamicIcon name={a.icon} size={16} /> {a.name} (¥{a.balance.toFixed(2)})
-                </Select.Option>
-              ))}
+              {accounts.map(a => {
+                const balanceDisplay = formatBalance(a.balance, a.type as 'asset' | 'liability')
+                return (
+                  <Select.Option key={a.id} value={a.id}>
+                    <DynamicIcon name={a.icon} size={16} /> {a.name} ({balanceDisplay.text})
+                  </Select.Option>
+                )
+              })}
             </Select>
           </Form.Item>
           <Form.Item
@@ -502,6 +678,38 @@ const Transactions: React.FC = () => {
               prefix="¥"
             />
           </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="fee"
+                label="手续费"
+                initialValue={0}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  placeholder="手续费"
+                  prefix="¥"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="coupon"
+                label="优惠券"
+                initialValue={0}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  placeholder="优惠券"
+                  prefix="¥"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item
             name="date"
             label="转账日期"
@@ -521,6 +729,121 @@ const Transactions: React.FC = () => {
               treeData={getTypeCategories('transfer')}
               fieldNames={{ label: 'name', value: 'id', children: 'children' }}
             />
+          </Form.Item>
+          <Form.Item
+            name="note"
+            label="备注"
+          >
+            <Input.TextArea rows={2} placeholder="请输入备注" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 退款弹窗 */}
+      <Modal
+        title={editingTransaction ? '编辑退款' : '新增退款'}
+        open={refundModalVisible}
+        onOk={handleRefundSubmit}
+        onCancel={() => setRefundModalVisible(false)}
+        okText="确定"
+        cancelText="取消"
+        width={600}
+      >
+        <Form form={refundForm} layout="vertical">
+          <Form.Item
+            name="relatedTransactionId"
+            label="关联原交易"
+            rules={[{ required: true, message: '请选择原交易记录' }]}
+          >
+            <Select 
+              placeholder="请选择要退款的交易记录" 
+              showSearch
+              optionFilterProp="children"
+              filterOption={(input, option) => {
+                const transaction = refundableTransactions.find(t => t.id === option?.value)
+                if (!transaction) return false
+                const searchStr = `${transaction.category?.name || ''} ${transaction.account?.name || ''} ${transaction.note || ''} ${transaction.amount}`.toLowerCase()
+                return searchStr.includes(input.toLowerCase())
+              }}
+            >
+              {refundableTransactions.map(t => (
+                <Select.Option key={t.id} value={t.id}>
+                  <Space>
+                    <Tag color={t.type === 'income' ? 'green' : 'red'}>{t.type === 'income' ? '收入' : '支出'}</Tag>
+                    <DynamicIcon name={t.category?.icon} size={16} />
+                    {t.category?.name} - ¥{t.amount.toFixed(2)}
+                    <span style={{ color: '#999' }}>({dayjs(t.date).format('YYYY-MM-DD')})</span>
+                  </Space>
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="amount"
+            label="退款金额"
+            rules={[{ required: true, message: '请输入退款金额' }]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              precision={2}
+              min={0}
+              placeholder="请输入退款金额"
+              prefix="¥"
+            />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="fee"
+                label="手续费"
+                initialValue={0}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  placeholder="手续费"
+                  prefix="¥"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="coupon"
+                label="优惠券"
+                initialValue={0}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  placeholder="优惠券"
+                  prefix="¥"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item
+            name="accountId"
+            label="退款账户"
+            rules={[{ required: true, message: '请选择退款账户' }]}
+            extra="退款金额将退回到此账户"
+          >
+            <Select placeholder="请选择退款账户">
+              {accounts.map(a => (
+                <Select.Option key={a.id} value={a.id}>
+                  <DynamicIcon name={a.icon} size={16} /> {a.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="date"
+            label="退款日期"
+            rules={[{ required: true, message: '请选择退款日期' }]}
+            initialValue={dayjs()}
+          >
+            <DatePicker style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item
             name="note"

@@ -42,19 +42,34 @@ async function calculateBalanceAtDate(accountId: string, targetDate: Date): Prom
 
   // 统一计算逻辑：收入增加余额，支出减少余额
   fromTransactions.forEach(t => {
+    const amount = t.amount.toNumber()
+    const fee = t.fee?.toNumber() || 0
+    const coupon = t.coupon?.toNumber() || 0
+    
     if (t.type === 'income') {
-      balance += t.amount.toNumber()  // 收入增加余额
+      // 收入：余额 += 金额 - 手续费 + 优惠券
+      balance += amount - fee + coupon
     } else if (t.type === 'expense') {
-      balance -= t.amount.toNumber()  // 支出减少余额
+      // 支出：余额 -= 金额 + 手续费 - 优惠券
+      balance -= amount + fee - coupon
     } else if (t.type === 'transfer') {
-      balance -= t.amount.toNumber()  // 转出减少余额
+      // 转出：余额 -= 金额 + 手续费 - 优惠券
+      balance -= amount + fee - coupon
+    } else if (t.type === 'refund') {
+      // 退款：余额 += 金额 - 手续费
+      balance += amount - fee
     }
   })
 
   // 处理转入方交易
   toTransactions.forEach(t => {
+    const amount = t.amount.toNumber()
+    const fee = t.fee?.toNumber() || 0
+    const coupon = t.coupon?.toNumber() || 0
+    
     if (t.type === 'transfer') {
-      balance += t.amount.toNumber()  // 转入增加余额
+      // 转入：余额 += 金额 - 手续费 + 优惠券
+      balance += amount - fee + coupon
     }
   })
 
@@ -102,7 +117,7 @@ router.get('/balance-sheet', async (req, res, next) => {
       })
     )
 
-    // 资产 = 资产账户余额之和
+    // 资产 = 资产账户余额之和（正数）
     const assets = accountBalances
       .filter(a => a.type === 'asset')
       .reduce((sum, a) => sum + a.balance, 0)
@@ -113,7 +128,7 @@ router.get('/balance-sheet', async (req, res, next) => {
       .reduce((sum, a) => sum + a.balance, 0)
     const liabilities = Math.abs(liabilitiesBalance)
     
-    // 净资产 = 资产 + 负债余额（负债为负数，加法相当于减法）
+    // 净资产 = 资产 + 负债余额（负债余额为负数，加法相当于减法）
     const netWorth = assets + liabilitiesBalance
 
     const assetsByCategory: Record<string, number> = {}
@@ -236,28 +251,28 @@ router.get('/income-expense', async (req, res, next) => {
       })
     )
 
-    // 期初资产 = 资产账户余额之和
+    // 期初资产 = 资产账户余额之和（正数）
     const startAssets = accounts.reduce((sum, account, index) => {
       return account.type === 'asset' ? sum + startBalances[index] : sum
     }, 0)
-    // 期初负债 = 负债账户余额之和的绝对值
+    // 期初负债 = 负债账户余额之和的绝对值（负债账户余额为负数）
     const startLiabilitiesBalance = accounts.reduce((sum, account, index) => {
       return account.type === 'liability' ? sum + startBalances[index] : sum
     }, 0)
     const startLiabilities = Math.abs(startLiabilitiesBalance)
-    // 期初净资产
+    // 期初净资产 = 资产 + 负债余额（负债余额为负数，加法相当于减法）
     const startNetWorth = startAssets + startLiabilitiesBalance
 
-    // 期末资产 = 资产账户余额之和
+    // 期末资产 = 资产账户余额之和（正数）
     const endAssets = accounts.reduce((sum, account, index) => {
       return account.type === 'asset' ? sum + endBalances[index] : sum
     }, 0)
-    // 期末负债 = 负债账户余额之和的绝对值
+    // 期末负债 = 负债账户余额之和的绝对值（负债账户余额为负数）
     const endLiabilitiesBalance = accounts.reduce((sum, account, index) => {
       return account.type === 'liability' ? sum + endBalances[index] : sum
     }, 0)
     const endLiabilities = Math.abs(endLiabilitiesBalance)
-    // 期末净资产
+    // 期末净资产 = 资产 + 负债余额（负债余额为负数，加法相当于减法）
     const endNetWorth = endAssets + endLiabilitiesBalance
 
     return success(res, {
@@ -439,6 +454,121 @@ router.get('/cash-flow', async (req, res, next) => {
     const startCash = startCashBalances.reduce((sum, b) => sum + b, 0)
     const endCash = endCashBalances.reduce((sum, b) => sum + b, 0)
 
+    // 构建桑基图数据
+    // 资金来源：收入分类、转账来源账户
+    // 现金账户：中间节点
+    // 资金用途：支出分类、转账目标账户
+    const sourceNodes: Map<string, number> = new Map()  // 资金来源节点及其总流入
+    const targetNodes: Map<string, number> = new Map()   // 资金用途节点及其总流出
+    const cashNodeNames = cashAccounts.map(a => a.name)
+    
+    // 链接数据：source -> cashAccount -> target
+    const sourceToCashLinks: Map<string, Map<string, number>> = new Map()  // source -> cashAccount -> amount
+    const cashToTargetLinks: Map<string, Map<string, number>> = new Map()  // cashAccount -> target -> amount
+
+    transactions.forEach(t => {
+      const isFromCash = cashAccountIds.includes(t.accountId)
+      const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
+      const amount = t.amount.toNumber()
+      
+      if (t.type === 'income' && isFromCash) {
+        // 收入流入现金账户
+        const categoryName = t.category?.name || '其他收入'
+        const cashAccountName = t.account?.name || '现金账户'
+        
+        sourceNodes.set(categoryName, (sourceNodes.get(categoryName) || 0) + amount)
+        
+        if (!sourceToCashLinks.has(categoryName)) {
+          sourceToCashLinks.set(categoryName, new Map())
+        }
+        sourceToCashLinks.get(categoryName)!.set(
+          cashAccountName, 
+          (sourceToCashLinks.get(categoryName)!.get(cashAccountName) || 0) + amount
+        )
+      } else if (t.type === 'expense' && isFromCash) {
+        // 支出从现金账户流出
+        const categoryName = t.category?.name || '其他支出'
+        const cashAccountName = t.account?.name || '现金账户'
+        
+        targetNodes.set(categoryName, (targetNodes.get(categoryName) || 0) + amount)
+        
+        if (!cashToTargetLinks.has(cashAccountName)) {
+          cashToTargetLinks.set(cashAccountName, new Map())
+        }
+        cashToTargetLinks.get(cashAccountName)!.set(
+          categoryName,
+          (cashToTargetLinks.get(cashAccountName)!.get(categoryName) || 0) + amount
+        )
+      } else if (t.type === 'transfer') {
+        if (!isFromCash && isToCash && t.toAccount && t.account) {
+          // 非现金账户转入现金账户
+          const fromAccountName = t.account.name
+          const toCashAccountName = t.toAccount.name
+          
+          sourceNodes.set(fromAccountName, (sourceNodes.get(fromAccountName) || 0) + amount)
+          
+          if (!sourceToCashLinks.has(fromAccountName)) {
+            sourceToCashLinks.set(fromAccountName, new Map())
+          }
+          sourceToCashLinks.get(fromAccountName)!.set(
+            toCashAccountName,
+            (sourceToCashLinks.get(fromAccountName)!.get(toCashAccountName) || 0) + amount
+          )
+        } else if (isFromCash && !isToCash && t.account && t.toAccount) {
+          // 现金账户转出到非现金账户
+          const fromCashAccountName = t.account.name
+          const toAccountName = t.toAccount.name
+          
+          targetNodes.set(toAccountName, (targetNodes.get(toAccountName) || 0) + amount)
+          
+          if (!cashToTargetLinks.has(fromCashAccountName)) {
+            cashToTargetLinks.set(fromCashAccountName, new Map())
+          }
+          cashToTargetLinks.get(fromCashAccountName)!.set(
+            toAccountName,
+            (cashToTargetLinks.get(fromCashAccountName)!.get(toAccountName) || 0) + amount
+          )
+        }
+      }
+    })
+
+    // 构建桑基图节点和链接数组
+    const sankeyNodes: Array<{ name: string; category: string }> = []
+    const sankeyLinks: Array<{ source: string; target: string; value: number }> = []
+
+    // 添加资金来源节点
+    sourceNodes.forEach((_, name) => {
+      sankeyNodes.push({ name, category: 'source' })
+    })
+
+    // 添加现金账户节点
+    cashNodeNames.forEach(name => {
+      sankeyNodes.push({ name, category: 'cash' })
+    })
+
+    // 添加资金用途节点
+    targetNodes.forEach((_, name) => {
+      sankeyNodes.push({ name, category: 'target' })
+    })
+
+    // 添加资金来源到现金账户的链接
+    sourceToCashLinks.forEach((cashMap, sourceName) => {
+      cashMap.forEach((amount, cashName) => {
+        if (amount > 0) {
+          sankeyLinks.push({ source: sourceName, target: cashName, value: amount })
+        }
+      })
+    })
+
+    // 添加现金账户到资金用途的链接
+    cashToTargetLinks.forEach((targetMap, cashName) => {
+      targetMap.forEach((amount, targetName) => {
+        if (amount > 0) {
+          sankeyLinks.push({ source: cashName, target: targetName, value: amount })
+        }
+      })
+    })
+
     return success(res, {
       startDate,
       endDate,
@@ -455,6 +585,11 @@ router.get('/cash-flow', async (req, res, next) => {
         investing: { ...investing, net: investing.inflow - investing.outflow },
         financing: { ...financing, net: financing.inflow - financing.outflow },
         uncategorized: { ...uncategorized, net: uncategorized.inflow - uncategorized.outflow },
+      },
+      // 桑基图数据
+      sankey: {
+        nodes: sankeyNodes,
+        links: sankeyLinks,
       },
     })
   } catch (err) {

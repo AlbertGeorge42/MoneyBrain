@@ -8,6 +8,12 @@ interface AppState {
   transactions: Transaction[]
   budgets: Budget[]
   loading: boolean
+  // 分页状态
+  pagination: {
+    total: number
+    page: number
+    pageSize: number
+  }
   
   fetchAccountCategories: () => Promise<void>
   fetchAccounts: () => Promise<void>
@@ -41,6 +47,11 @@ export const useStore = create<AppState>((set, get) => ({
   transactions: [],
   budgets: [],
   loading: false,
+  pagination: {
+    total: 0,
+    page: 1,
+    pageSize: 20,
+  },
 
   fetchAccountCategories: async () => {
     try {
@@ -82,7 +93,15 @@ export const useStore = create<AppState>((set, get) => ({
       set({ loading: true })
       const res = await transactionApi.getAll(params)
       if (res.data.success && res.data.data) {
-        set({ transactions: res.data.data.list || [], loading: false })
+        set({ 
+          transactions: res.data.data.list || [], 
+          loading: false,
+          pagination: {
+            total: res.data.data.total || 0,
+            page: res.data.data.page || 1,
+            pageSize: res.data.data.pageSize || 20,
+          }
+        })
       }
     } catch (error) {
       console.error('获取交易记录失败:', error)

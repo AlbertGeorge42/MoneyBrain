@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Modal, Table, Button, Form, Input, Space, Popconfirm, message, Switch, TreeSelect, InputNumber, Select, Row, Col, Statistic, Divider, Tag, DatePicker, Card } from 'antd'
+import { Modal, Table, Button, Form, Input, Space, Popconfirm, message, Switch, TreeSelect, InputNumber, Select, Divider, Tag, DatePicker } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, ExclamationCircleOutlined, HolderOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { AccountCategory, Account, accountCategoryApi, accountApi } from '../services/api'
@@ -9,6 +9,7 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import DynamicIcon from './DynamicIcon'
 import IconPicker from './IconPicker'
+import { formatBalance } from '../utils/formatBalance'
 
 interface Props {
   visible: boolean
@@ -21,7 +22,7 @@ const SortableRow = (props: any) => {
   const isCategoryRow = id?.startsWith('category-')
   
   // 只有分类行才启用拖拽
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
     disabled: !isCategoryRow,
   })
@@ -91,11 +92,27 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   // 构建树形数据
   const buildTreeData = useMemo(() => {
-    const buildCategoryNode = (category: AccountCategory, allCategories: AccountCategory[], allAccounts: Account[]) => {
+    interface TreeNode {
+      id?: string
+      key: string
+      name: string
+      icon: string
+      type: 'category' | 'account'
+      nodeType?: 'asset' | 'liability'
+      isCashEquivalent?: boolean
+      parentId?: string
+      sort?: number
+      balance: number
+      initialBalance?: number
+      initialBalanceDate?: string | null
+      children?: TreeNode[]
+    }
+
+    const buildCategoryNode = (category: AccountCategory, allCategories: AccountCategory[], allAccounts: Account[]): TreeNode => {
       const childCategories = allCategories.filter(c => c.parentId === category.id).sort((a, b) => a.sort - b.sort)
       const categoryAccounts = allAccounts.filter(a => a.categoryId === category.id)
       
-      const children = [
+      const children: TreeNode[] = [
         ...childCategories.map(c => buildCategoryNode(c, allCategories, allAccounts)),
         ...categoryAccounts.map(a => ({
           id: a.id,
@@ -105,6 +122,8 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           type: 'account' as const,
           nodeType: a.type as 'asset' | 'liability',
           balance: a.balance,
+          initialBalance: a.initialBalance,
+          initialBalanceDate: a.initialBalanceDate,
           parentId: category.id,
         })),
       ]
@@ -117,8 +136,9 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         type: 'category' as const,
         nodeType: category.type as 'asset' | 'liability',
         isCashEquivalent: category.isCashEquivalent,
-        parentId: category.parentId,
+        parentId: category.parentId || undefined,
         sort: category.sort,
+        balance: children.reduce((sum: number, child) => sum + (child.balance || 0), 0),
         children: children.length > 0 ? children : undefined,
       }
     }
@@ -131,13 +151,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
     return { assetNodes, liabilityNodes }
   }, [accountCategories, accounts])
-
-  // 计算汇总数据
-  const assetAccounts = accounts.filter(a => a.type === 'asset')
-  const liabilityAccounts = accounts.filter(a => a.type === 'liability')
-  const totalAssets = assetAccounts.reduce((sum, a) => sum + a.balance, 0)
-  const totalLiabilities = Math.abs(liabilityAccounts.reduce((sum, a) => sum + a.balance, 0))
-  const netWorth = totalAssets - totalLiabilities
 
   // ========== 分类操作 ==========
   const handleAddCategory = (parentId?: string, type?: 'asset' | 'liability') => {
@@ -152,11 +165,11 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     setCategoryFormVisible(true)
   }
 
-  const handleEditCategory = (record: AccountCategory) => {
+  const handleEditCategory = (record: any) => {
     setEditingCategory(record)
     categoryForm.setFieldsValue({
       name: record.name,
-      type: record.type,
+      type: record.nodeType,
       icon: record.icon,
       parentId: record.parentId,
       isCashEquivalent: record.isCashEquivalent,
@@ -185,7 +198,8 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         message.success('创建成功')
       }
       setCategoryFormVisible(false)
-      fetchAccountCategories()
+      categoryForm.resetFields()
+      await fetchAccountCategories()
     } catch (error) {
       message.error('操作失败')
     }
@@ -214,14 +228,14 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     setAccountFormVisible(true)
   }
 
-  const handleEditAccount = (record: Account) => {
+  const handleEditAccount = (record: any) => {
     setEditingAccount(record)
     accountForm.setFieldsValue({
       name: record.name,
-      type: record.type,
+      type: record.nodeType,
       initialBalance: record.initialBalance,
       initialBalanceDate: record.initialBalanceDate ? dayjs(record.initialBalanceDate) : dayjs(),
-      categoryId: record.categoryId,
+      categoryId: record.parentId,
       icon: record.icon,
     })
     setAccountFormVisible(true)
@@ -232,7 +246,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       const statsRes = await accountApi.getStats(id)
       const { transactionCount } = statsRes.data.data || {}
       
-      if (transactionCount > 0) {
+      if (transactionCount && transactionCount > 0) {
         Modal.confirm({
           title: '确认删除账户',
           icon: <ExclamationCircleOutlined />,
@@ -319,7 +333,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   }
 
   // 表格列定义
-  const getCategoryColumns = (type: 'asset' | 'liability') => [
+  const getCategoryColumns = (_type: 'asset' | 'liability') => [
     {
       title: '',
       width: 40,
@@ -355,7 +369,8 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       width: 120,
       render: (balance: number, record: any) => {
         if (record.type === 'category') return '-'
-        return <span style={{ color: balance >= 0 ? '#3f8600' : '#cf1322' }}>¥{balance.toFixed(2)}</span>
+        const result = formatBalance(balance, record.nodeType || 'asset')
+        return <span style={{ color: result.color }}>{result.text}</span>
       },
     },
     {
@@ -450,20 +465,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         footer={null}
         width={1000}
       >
-        <Card style={{ marginBottom: 16 }}>
-          <Row gutter={16}>
-            <Col span={8}>
-              <Statistic title="总资产" value={totalAssets} precision={2} prefix="¥" valueStyle={{ color: '#3f8600' }} />
-            </Col>
-            <Col span={8}>
-              <Statistic title="总负债" value={totalLiabilities} precision={2} prefix="¥" valueStyle={{ color: '#cf1322' }} />
-            </Col>
-            <Col span={8}>
-              <Statistic title="净资产" value={netWorth} precision={2} prefix="¥" valueStyle={{ color: netWorth >= 0 ? '#3f8600' : '#cf1322' }} />
-            </Col>
-          </Row>
-        </Card>
-
         <Divider orientation="left">
           <Space>
             <FolderOutlined />
@@ -575,7 +576,13 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
             <Input placeholder="请输入账户名称" />
           </Form.Item>
           <Form.Item name="type" label="账户类型" rules={[{ required: true, message: '请选择账户类型' }]}>
-            <Select placeholder="请选择账户类型" disabled>
+            <Select 
+              placeholder="请选择账户类型"
+              onChange={() => {
+                // 切换账户类型时清空分类选择
+                accountForm.setFieldsValue({ categoryId: undefined })
+              }}
+            >
               <Select.Option value="asset">资产</Select.Option>
               <Select.Option value="liability">负债</Select.Option>
             </Select>
@@ -592,13 +599,17 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           <Form.Item name="initialBalanceDate" label="初始余额日期" rules={[{ required: true, message: '请选择初始余额日期' }]}>
             <DatePicker style={{ width: '100%' }} placeholder="选择初始余额对应的日期" />
           </Form.Item>
-          <Form.Item name="categoryId" label="所属分类">
-            <TreeSelect
-              placeholder="请选择账户分类"
-              allowClear
-              treeData={getCategoryTree(accountForm.getFieldValue('type'))}
-              fieldNames={{ label: 'name', value: 'id', children: 'children' }}
-            />
+          <Form.Item shouldUpdate={(prevValues, currentValues) => prevValues.type !== currentValues.type}>
+            {({ getFieldValue }) => (
+              <Form.Item name="categoryId" label="所属分类">
+                <TreeSelect
+                  placeholder="请选择账户分类"
+                  allowClear
+                  treeData={getCategoryTree(getFieldValue('type'))}
+                  fieldNames={{ label: 'name', value: 'id', children: 'children' }}
+                />
+              </Form.Item>
+            )}
           </Form.Item>
           <Form.Item name="icon" label="图标">
             <IconPicker placeholder="请选择图标" />

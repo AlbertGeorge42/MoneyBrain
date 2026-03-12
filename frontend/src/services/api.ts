@@ -62,17 +62,21 @@ export interface Category {
 
 export interface Transaction {
   id: string
-  type: string // 'income' | 'expense' | 'transfer'
+  type: string // 'income' | 'expense' | 'transfer' | 'refund'
   amount: number
+  fee: number
+  coupon: number
   date: string
   note: string | null
   isAdjustment: boolean
   accountId: string
   categoryId: string | null
   toAccountId: string | null
+  relatedTransactionId: string | null
   account: Account
   category: Category | null
   toAccount: Account | null
+  relatedTransaction: Transaction | null
   createdAt: string
 }
 
@@ -140,6 +144,8 @@ export const categoryApi = {
 
 export const transactionApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<PaginatedResponse<Transaction>>>('/transactions', { params }),
+  getStats: (params?: Record<string, unknown>) => api.get<ApiResponse<{ income: number; expense: number; refund: number; balance: number; transferCount: number }>>('/transactions/stats', { params }),
+  getRefundableList: () => api.get<ApiResponse<Transaction[]>>('/transactions/refundable/list'),
   create: (data: Partial<Transaction>) => api.post<ApiResponse<Transaction>>('/transactions', data),
   update: (id: string, data: Partial<Transaction>) => api.put<ApiResponse<Transaction>>(`/transactions/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/transactions/${id}`),

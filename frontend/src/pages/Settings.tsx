@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
-import { Card, Button, Modal, message, Upload, Progress, Space } from 'antd'
-import { DownloadOutlined, UploadOutlined, DeleteOutlined, ExclamationCircleOutlined, FileTextOutlined } from '@ant-design/icons'
+import { Card, Button, Modal, message, Space } from 'antd'
+import { DownloadOutlined, UploadOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { dataApi } from '../services/api'
 import { useStore } from '../stores'
 

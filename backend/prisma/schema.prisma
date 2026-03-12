@@ -62,19 +62,24 @@ model Category {
 }
 
 model Transaction {
-  id           String    @id @default(uuid())
-  type         String    // 'income' | 'expense' | 'transfer'
-  amount       Decimal
-  date         DateTime
-  note         String?
-  isAdjustment Boolean   @default(false)
-  accountId    String
-  account      Account   @relation("TransactionFrom", fields: [accountId], references: [id])
-  toAccountId  String?
-  toAccount    Account?  @relation("TransactionTo", fields: [toAccountId], references: [id])
-  categoryId   String?
-  category     Category? @relation(fields: [categoryId], references: [id])
-  createdAt    DateTime  @default(now())
+  id                  String      @id @default(uuid())
+  type                String      // 'income' | 'expense' | 'transfer' | 'refund'
+  amount              Decimal
+  fee                 Decimal     @default(0) // 手续费
+  coupon              Decimal     @default(0) // 优惠券
+  date                DateTime
+  note                String?
+  isAdjustment         Boolean     @default(false)
+  accountId            String
+  account              Account     @relation("TransactionFrom", fields: [accountId], references: [id])
+  toAccountId          String?
+  toAccount            Account?    @relation("TransactionTo", fields: [toAccountId], references: [id])
+  categoryId           String?
+  category             Category?   @relation(fields: [categoryId], references: [id])
+  relatedTransactionId  String?    // 关联的原交易ID（退款时使用）
+  relatedTransaction   Transaction? @relation("TransactionRefund", fields: [relatedTransactionId], references: [id], onDelete: SetNull)
+  refunds              Transaction[] @relation("TransactionRefund")
+  createdAt            DateTime    @default(now())
 
   @@map("transactions")
 }

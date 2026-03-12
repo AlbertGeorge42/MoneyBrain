@@ -78,12 +78,17 @@ router.post('/', async (req, res, next) => {
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
+    
+    // 允许用户输入任意正负数，不再自动转换
+    const actualBalance = balance ?? initialBalance ?? 0
+    const actualInitialBalance = initialBalance ?? balance ?? 0
+    
     const account = await prisma.account.create({
       data: { 
         name, 
         type, 
-        balance: balance || initialBalance || 0, 
-        initialBalance: initialBalance || balance || 0,
+        balance: actualBalance, 
+        initialBalance: actualInitialBalance,
         initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : new Date(),
         icon,
         categoryId,
@@ -100,16 +105,34 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
     const { name, type, icon, categoryId, cashFlowType, initialBalance, initialBalanceDate } = req.body
+    
+    // 获取当前账户信息
+    const currentAccount = await prisma.account.findUnique({
+      where: { id },
+    })
+    if (!currentAccount) {
+      return notFound(res, '账户不存在')
+    }
+    
+    // 构建更新数据
+    const updateData: any = { 
+      name, 
+      type, 
+      icon, 
+      categoryId, 
+      cashFlowType,
+      initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : undefined,
+    }
+    
+    // 如果更新了初始余额，允许任意正负数
+    if (initialBalance !== undefined) {
+      updateData.initialBalance = initialBalance
+      updateData.balance = initialBalance
+    }
+    
     const account = await prisma.account.update({
       where: { id },
-      data: { 
-        name, 
-        type, 
-        icon, 
-        categoryId, 
-        initialBalance,
-        initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : undefined,
-      },
+      data: updateData,
       include: { category: true },
     })
     return success(res, account)
