@@ -2,34 +2,13 @@ import { Router } from 'express'
 import { prisma } from '../index.js'
 import { success, error, notFound } from '../utils/response.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
+import { 
+  calculateBalanceChange, 
+  calculateTransferInAmount,
+  type TransactionType 
+} from '../services/balance.service.js'
 
 const router = Router()
-
-// 计算实际余额变化（考虑手续费和优惠券）
-function calculateBalanceChange(type: string, amount: number, fee: number = 0, coupon: number = 0): number {
-  switch (type) {
-    case 'income':
-      // 收入：余额 += 金额 - 手续费 + 优惠券
-      return amount - fee + coupon
-    case 'expense':
-      // 支出：余额 -= 金额 + 手续费 - 优惠券
-      return -(amount + fee - coupon)
-    case 'transfer':
-      // 转账转出：余额 -= 金额 + 手续费 - 优惠券
-      return -(amount + fee - coupon)
-    case 'refund':
-      // 退款：余额 += 金额 - 手续费
-      return amount - fee
-    default:
-      return 0
-  }
-}
-
-// 计算转账转入金额
-function calculateTransferInAmount(amount: number, fee: number = 0, coupon: number = 0): number {
-  // 转入账户余额 += 金额 - 手续费 + 优惠券（转账转入时，优惠券增加余额）
-  return amount - fee + coupon
-}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -144,7 +123,6 @@ router.get('/:id', async (req, res, next) => {
   }
 })
 
-// 获取可退款的交易列表
 router.get('/refundable/list', async (req, res, next) => {
   try {
     const transactions = await prisma.transaction.findMany({
@@ -169,13 +147,11 @@ router.post('/', async (req, res, next) => {
   try {
     const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
 
-    // 退款交易
     if (type === 'refund') {
       if (!amount || !date || !accountId || !relatedTransactionId) {
         return error(res, '退款交易缺少必要参数', 'BAD_REQUEST', 400)
       }
 
-      // 验证原交易存在
       const relatedTransaction = await prisma.transaction.findUnique({
         where: { id: relatedTransactionId },
       })
@@ -184,7 +160,6 @@ router.post('/', async (req, res, next) => {
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // 创建退款记录
         const transaction = await tx.transaction.create({
           data: { 
             type: 'refund', 
@@ -206,7 +181,6 @@ router.post('/', async (req, res, next) => {
           },
         })
 
-        // 更新账户余额（退款增加余额）
         const balanceChange = calculateBalanceChange('refund', amount, fee, coupon)
         await tx.account.update({
           where: { id: accountId },
@@ -219,7 +193,6 @@ router.post('/', async (req, res, next) => {
       return success(res, result, 201)
     }
 
-    // 转账交易
     if (type === 'transfer') {
       if (!accountId || !toAccountId || !amount || !date) {
         return error(res, '缺少必要参数', 'BAD_REQUEST', 400)
@@ -228,7 +201,6 @@ router.post('/', async (req, res, next) => {
         return error(res, '转出账户和转入账户不能相同', 'BAD_REQUEST', 400)
       }
 
-      // 检查转出账户余额（考虑手续费）
       const fromAccount = await prisma.account.findUnique({
         where: { id: accountId },
       })
@@ -240,7 +212,6 @@ router.post('/', async (req, res, next) => {
         return error(res, '转出账户余额不足', 'BAD_REQUEST', 400)
       }
 
-      // 检查转入账户
       const toAccount = await prisma.account.findUnique({
         where: { id: toAccountId },
       })
@@ -248,23 +219,19 @@ router.post('/', async (req, res, next) => {
         return error(res, '转入账户不存在', 'BAD_REQUEST', 400)
       }
 
-      // 执行转账
       const result = await prisma.$transaction(async (tx) => {
-        // 扣减转出账户余额（金额 + 手续费 - 优惠券）
         const outAmount = calculateBalanceChange('transfer', amount, fee, coupon)
         await tx.account.update({
           where: { id: accountId },
           data: { balance: { increment: new Decimal(outAmount) } },
         })
 
-        // 增加转入账户余额（仅金额）
-        const inAmount = calculateTransferInAmount(amount, fee)
+        const inAmount = calculateTransferInAmount(amount, fee, coupon)
         await tx.account.update({
           where: { id: toAccountId },
           data: { balance: { increment: new Decimal(inAmount) } },
         })
 
-        // 创建转账记录
         const transaction = await tx.transaction.create({
           data: { 
             type: 'transfer', 
@@ -290,7 +257,6 @@ router.post('/', async (req, res, next) => {
       return success(res, result, 201)
     }
 
-    // 收支交易
     if (!type || !amount || !date || !accountId || !categoryId) {
       return error(res, '缺少必要参数', 'BAD_REQUEST', 400)
     }
@@ -310,8 +276,7 @@ router.post('/', async (req, res, next) => {
         include: { account: true, category: true },
       })
 
-      // 更新账户余额
-      const balanceChange = calculateBalanceChange(type, amount, fee, coupon)
+      const balanceChange = calculateBalanceChange(type as TransactionType, amount, fee, coupon)
       await tx.account.update({
         where: { id: accountId },
         data: { balance: { increment: new Decimal(balanceChange) } },
@@ -341,26 +306,23 @@ router.put('/:id', async (req, res, next) => {
     const oldFee = oldTransaction.fee?.toNumber() || 0
     const oldCoupon = oldTransaction.coupon?.toNumber() || 0
 
-    // 转账记录修改
     if (oldTransaction.type === 'transfer') {
       if (type && type !== 'transfer') {
         return error(res, '转账记录不能修改为其他类型', 'BAD_REQUEST', 400)
       }
 
       const result = await prisma.$transaction(async (tx) => {
-        // 回滚原转账
         const oldOutAmount = calculateBalanceChange('transfer', oldTransaction.amount.toNumber(), oldFee, oldCoupon)
         await tx.account.update({
           where: { id: oldTransaction.accountId },
-          data: { balance: { decrement: new Decimal(oldOutAmount) } },
+          data: { balance: { decrement: new Decimal(Math.abs(oldOutAmount)) } },
         })
-        const oldInAmount = calculateTransferInAmount(oldTransaction.amount.toNumber(), oldFee)
+        const oldInAmount = calculateTransferInAmount(oldTransaction.amount.toNumber(), oldFee, oldCoupon)
         await tx.account.update({
           where: { id: oldTransaction.toAccountId! },
           data: { balance: { decrement: new Decimal(oldInAmount) } },
         })
 
-        // 更新转账记录
         const newAmount = amount !== undefined ? amount : oldTransaction.amount.toNumber()
         const newFee = fee !== undefined ? fee : oldFee
         const newCoupon = coupon !== undefined ? coupon : oldCoupon
@@ -386,13 +348,12 @@ router.put('/:id', async (req, res, next) => {
           },
         })
 
-        // 应用新转账
         const newOutAmount = calculateBalanceChange('transfer', newAmount, newFee, newCoupon)
         await tx.account.update({
           where: { id: newAccountId },
           data: { balance: { increment: new Decimal(newOutAmount) } },
         })
-        const newInAmount = calculateTransferInAmount(newAmount, newFee)
+        const newInAmount = calculateTransferInAmount(newAmount, newFee, newCoupon)
         await tx.account.update({
           where: { id: newToAccountId },
           data: { balance: { increment: new Decimal(newInAmount) } },
@@ -404,17 +365,14 @@ router.put('/:id', async (req, res, next) => {
       return success(res, result)
     }
 
-    // 退款记录修改
     if (oldTransaction.type === 'refund') {
       const result = await prisma.$transaction(async (tx) => {
-        // 回滚原退款
         const oldBalanceChange = calculateBalanceChange('refund', oldTransaction.amount.toNumber(), oldFee, oldCoupon)
         await tx.account.update({
           where: { id: oldTransaction.accountId },
-          data: { balance: { decrement: new Decimal(oldBalanceChange) } },
+          data: { balance: { decrement: new Decimal(Math.abs(oldBalanceChange)) } },
         })
 
-        // 更新退款记录
         const newAmount = amount !== undefined ? amount : oldTransaction.amount.toNumber()
         const newFee = fee !== undefined ? fee : oldFee
         const newCoupon = coupon !== undefined ? coupon : oldCoupon
@@ -439,7 +397,6 @@ router.put('/:id', async (req, res, next) => {
           },
         })
 
-        // 应用新退款
         const newBalanceChange = calculateBalanceChange('refund', newAmount, newFee, newCoupon)
         await tx.account.update({
           where: { id: newAccountId },
@@ -452,16 +409,13 @@ router.put('/:id', async (req, res, next) => {
       return success(res, result)
     }
 
-    // 收支记录修改
     const result = await prisma.$transaction(async (tx) => {
-      // 回滚原交易
-      const oldBalanceChange = calculateBalanceChange(oldTransaction.type, oldTransaction.amount.toNumber(), oldFee, oldCoupon)
+      const oldBalanceChange = calculateBalanceChange(oldTransaction.type as TransactionType, oldTransaction.amount.toNumber(), oldFee, oldCoupon)
       await tx.account.update({
         where: { id: oldTransaction.accountId },
-        data: { balance: { decrement: new Decimal(oldBalanceChange) } },
+        data: { balance: { decrement: new Decimal(Math.abs(oldBalanceChange)) } },
       })
 
-      // 更新交易记录
       const newType = type || oldTransaction.type
       const newAmount = amount !== undefined ? amount : oldTransaction.amount.toNumber()
       const newFee = fee !== undefined ? fee : oldFee
@@ -483,8 +437,7 @@ router.put('/:id', async (req, res, next) => {
         include: { account: true, category: true },
       })
 
-      // 应用新交易
-      const newBalanceChange = calculateBalanceChange(newType, newAmount, newFee, newCoupon)
+      const newBalanceChange = calculateBalanceChange(newType as TransactionType, newAmount, newFee, newCoupon)
       await tx.account.update({
         where: { id: newAccountId },
         data: { balance: { increment: new Decimal(newBalanceChange) } },
@@ -514,30 +467,27 @@ router.delete('/:id', async (req, res, next) => {
       const fee = transaction.fee?.toNumber() || 0
       const coupon = transaction.coupon?.toNumber() || 0
 
-      // 回滚余额变化
       const balanceChange = calculateBalanceChange(
-        transaction.type, 
+        transaction.type as TransactionType, 
         transaction.amount.toNumber(), 
         fee, 
         coupon
       )
       
       if (transaction.type === 'transfer') {
-        // 转账：回滚转出和转入
         await tx.account.update({
           where: { id: transaction.accountId },
-          data: { balance: { decrement: new Decimal(balanceChange) } },
+          data: { balance: { decrement: new Decimal(Math.abs(balanceChange)) } },
         })
-        const inAmount = calculateTransferInAmount(transaction.amount.toNumber(), fee)
+        const inAmount = calculateTransferInAmount(transaction.amount.toNumber(), fee, coupon)
         await tx.account.update({
           where: { id: transaction.toAccountId! },
           data: { balance: { decrement: new Decimal(inAmount) } },
         })
       } else {
-        // 其他类型：回滚余额变化
         await tx.account.update({
           where: { id: transaction.accountId },
-          data: { balance: { decrement: new Decimal(balanceChange) } },
+          data: { balance: { decrement: new Decimal(Math.abs(balanceChange)) } },
         })
       }
 

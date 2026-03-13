@@ -1,51 +1,10 @@
 import { Router } from 'express'
 import { prisma } from '../index.js'
 import { success, error } from '../utils/response.js'
+import { calculateBalanceAtDate, getOrCreateAdjustmentCategory } from '../services/balance.service.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
 
 const router = Router()
-
-// 获取或创建平账分类
-async function getOrCreateAdjustmentCategory(type: 'income' | 'expense'): Promise<string> {
-  const existing = await prisma.category.findFirst({
-    where: { name: '平账调整', type },
-  })
-  if (existing) return existing.id
-
-  const category = await prisma.category.create({
-    data: {
-      name: '平账调整',
-      type,
-      icon: '⚙️',
-    },
-  })
-  return category.id
-}
-
-// 计算某个日期的账户余额
-async function calculateBalanceAtDate(accountId: string, targetDate: Date): Promise<number> {
-  const account = await prisma.account.findUnique({
-    where: { id: accountId },
-  })
-  if (!account) return 0
-
-  const laterTransactions = await prisma.transaction.findMany({
-    where: {
-      accountId,
-      date: { gte: targetDate },
-    },
-  })
-
-  let balance = account.balance.toNumber()
-  laterTransactions.forEach(t => {
-    if (t.type === 'income') {
-      balance -= t.amount.toNumber()
-    } else {
-      balance += t.amount.toNumber()
-    }
-  })
-
-  return balance
-}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -79,7 +38,6 @@ router.post('/', async (req, res, next) => {
   }
 })
 
-// 批量创建或更新余额快照
 router.post('/batch', async (req, res, next) => {
   try {
     const { month, snapshots } = req.body
@@ -103,7 +61,6 @@ router.post('/batch', async (req, res, next) => {
   }
 })
 
-// 平账接口：矫正余额并自动生成平账记录
 router.post('/adjust', async (req, res, next) => {
   try {
     const { month, adjustments } = req.body
@@ -111,7 +68,6 @@ router.post('/adjust', async (req, res, next) => {
       return error(res, '月份和矫正数据不能为空', 'BAD_REQUEST', 400)
     }
 
-    // 计算月初日期
     const monthStart = new Date(`${month}-01T00:00:00.000Z`)
 
     const results = []
@@ -119,20 +75,16 @@ router.post('/adjust', async (req, res, next) => {
     for (const adj of adjustments) {
       const { accountId, targetBalance } = adj
       
-      // 计算当前月初余额
       const calculatedBalance = await calculateBalanceAtDate(accountId, monthStart)
       
-      // 计算差额
       const difference = targetBalance - calculatedBalance
       
-      // 保存快照
       await prisma.balanceSnapshot.upsert({
         where: { month_accountId: { month, accountId } },
         update: { balance: targetBalance, isManual: true },
         create: { month, accountId, balance: targetBalance, isManual: true },
       })
 
-      // 如果有差额，生成平账记录
       if (Math.abs(difference) > 0.01) {
         const account = await prisma.account.findUnique({
           where: { id: accountId },
@@ -142,7 +94,6 @@ router.post('/adjust', async (req, res, next) => {
           const transactionType = difference > 0 ? 'income' : 'expense'
           const categoryId = await getOrCreateAdjustmentCategory(transactionType)
           
-          // 创建平账记录
           const transaction = await prisma.transaction.create({
             data: {
               type: transactionType,
@@ -155,11 +106,10 @@ router.post('/adjust', async (req, res, next) => {
             },
           })
 
-          // 更新账户余额
           const newBalance = account.balance.toNumber() + difference
           await prisma.account.update({
             where: { id: accountId },
-            data: { balance: newBalance },
+            data: { balance: new Decimal(newBalance) },
           })
 
           results.push({
