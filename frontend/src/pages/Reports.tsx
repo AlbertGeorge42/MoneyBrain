@@ -723,7 +723,12 @@ const Reports: React.FC = () => {
 
       <AccountCategoryModal
         visible={accountCategoryModalVisible}
-        onClose={() => setAccountCategoryModalVisible(false)}
+        onClose={() => {
+          setAccountCategoryModalVisible(false)
+          // 账户设置关闭后刷新报表数据
+          fetchBalanceSheet()
+          fetchIncomeExpense()
+        }}
       />
 
       <TransactionCategoryModal

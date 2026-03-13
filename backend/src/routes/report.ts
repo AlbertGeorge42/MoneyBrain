@@ -122,14 +122,13 @@ router.get('/balance-sheet', async (req, res, next) => {
       .filter(a => a.type === 'asset')
       .reduce((sum, a) => sum + a.balance, 0)
     
-    // 负债 = 负债账户余额之和的绝对值（负债账户余额为负数）
-    const liabilitiesBalance = accountBalances
+    // 负债 = 负债账户余额之和（负数）
+    const liabilities = accountBalances
       .filter(a => a.type === 'liability')
       .reduce((sum, a) => sum + a.balance, 0)
-    const liabilities = Math.abs(liabilitiesBalance)
     
-    // 净资产 = 资产 + 负债余额（负债余额为负数，加法相当于减法）
-    const netWorth = assets + liabilitiesBalance
+    // 净资产 = 资产 + 负债余额
+    const netWorth = assets + liabilities
 
     const assetsByCategory: Record<string, number> = {}
     const liabilitiesByCategory: Record<string, number> = {}

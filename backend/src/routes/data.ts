@@ -315,11 +315,24 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
         // 获取或创建账户2（转账目标）
         let toAccountId: string | null = null
         if (type === 'transfer' && account2) {
+          // 先检查是否需要更新账户类型（无论是否在缓存中）
+          let toAccount = await prisma.account.findFirst({
+            where: { name: account2 }
+          })
+          
+          if (toAccount && typeStr === '还款' && toAccount.type === 'asset') {
+            // 如果是还款且目标账户已存在但类型为资产，更新为负债
+            toAccount = await prisma.account.update({
+              where: { id: toAccount.id },
+              data: { 
+                type: 'liability',
+                categoryId: defaultLiabilityCategory.id,
+              },
+            })
+          }
+          
           toAccountId = accountCache[account2]
           if (!toAccountId) {
-            let toAccount = await prisma.account.findFirst({
-              where: { name: account2 }
-            })
             if (!toAccount) {
               // 还款账户标记为负债，其他为资产
               const isLiability = typeStr === '还款'
@@ -332,15 +345,6 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                   categoryId: isLiability ? defaultLiabilityCategory.id : defaultAssetCategory.id,
                   icon: isLiability ? 'credit-card' : 'wallet',
                 }
-              })
-            } else if (typeStr === '还款' && toAccount.type === 'asset') {
-              // 如果是还款且账户已存在但类型为资产，更新为负债
-              toAccount = await prisma.account.update({
-                where: { id: toAccount.id },
-                data: { 
-                  type: 'liability',
-                  categoryId: defaultLiabilityCategory.id,
-                },
               })
             }
             toAccountId = toAccount.id

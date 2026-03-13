@@ -70,7 +70,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   } = useStore()
 
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null)
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [editingAccount, setEditingAccount] = useState<any>(null)
   const [categoryFormVisible, setCategoryFormVisible] = useState(false)
   const [accountFormVisible, setAccountFormVisible] = useState(false)
   const [categoryForm] = Form.useForm()
@@ -280,10 +280,40 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleAccountSubmit = async () => {
     try {
       const values = await accountForm.validateFields()
-      const submitData = {
-        ...values,
+      
+      // 构建提交数据，只提交修改过的字段
+      const submitData: any = {
+        name: values.name,
+        type: values.type,
+        icon: values.icon,
         initialBalanceDate: values.initialBalanceDate ? values.initialBalanceDate.format('YYYY-MM-DD') : undefined,
       }
+      
+      // 处理分类：如果类型变化且未选择分类，清空分类让后端设置默认值
+      // 统一使用 nodeType，因为 tree data 中定义的是 nodeType
+      if (editingAccount && editingAccount.nodeType !== values.type) {
+        // 类型变化时，如果未选择新分类，不提交 categoryId
+        if (!values.categoryId) {
+          // 不提交 categoryId，后端会设置默认分类
+        } else {
+          submitData.categoryId = values.categoryId
+        }
+      } else {
+        submitData.categoryId = values.categoryId
+      }
+      
+      // 只有当 initialBalance 被修改时才提交
+      if (editingAccount) {
+        const originalInitialBalance = editingAccount.initialBalance
+        const newInitialBalance = values.initialBalance
+        if (newInitialBalance !== originalInitialBalance) {
+          submitData.initialBalance = newInitialBalance
+        }
+      } else {
+        // 新建账户时，提交初始余额
+        submitData.initialBalance = values.initialBalance
+      }
+      
       if (editingAccount) {
         await updateAccount(editingAccount.id, submitData)
         message.success('更新成功')

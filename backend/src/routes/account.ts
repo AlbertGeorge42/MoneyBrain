@@ -117,11 +117,29 @@ router.put('/:id', async (req, res, next) => {
     // 构建更新数据
     const updateData: any = { 
       name, 
-      type, 
       icon, 
-      categoryId, 
       cashFlowType,
       initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : undefined,
+    }
+    
+    // 如果类型发生变化，自动更新分类
+    if (type && type !== currentAccount.type) {
+      updateData.type = type
+      
+      // 如果没有指定分类，获取默认分类
+      if (!categoryId) {
+        const defaultCategory = await prisma.accountCategory.findFirst({
+          where: { type, parentId: null }
+        })
+        if (defaultCategory) {
+          updateData.categoryId = defaultCategory.id
+        }
+      } else {
+        updateData.categoryId = categoryId
+      }
+    } else {
+      updateData.type = type
+      updateData.categoryId = categoryId
     }
     
     // 如果更新了初始余额，允许任意正负数
