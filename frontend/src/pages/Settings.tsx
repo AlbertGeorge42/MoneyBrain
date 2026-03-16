@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { Card, Button, Modal, message, Space } from 'antd'
+import { Card, Button, Modal, message } from 'antd'
 import { DownloadOutlined, UploadOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { dataApi } from '../services/api'
 import { useStore } from '../stores'
@@ -135,7 +135,7 @@ const Settings: React.FC = () => {
       <Card title="数据管理" style={{ marginBottom: 16 }}>
         <div style={{ marginBottom: 24 }}>
           <h3>数据导出</h3>
-          <p style={{ color: '#666', marginBottom: 16 }}>
+          <p style={{ color: '#666', marginBottom: 12 }}>
             导出交易记录为CSV文件，兼容钱迹格式，可用于数据备份或导入其他记账软件。
           </p>
           <Button icon={<DownloadOutlined />} onClick={handleExportCSV}>
@@ -145,10 +145,10 @@ const Settings: React.FC = () => {
         
         <div style={{ marginBottom: 24 }}>
           <h3>数据导入</h3>
-          <p style={{ color: '#666', marginBottom: 16 }}>
+          <p style={{ color: '#666', marginBottom: 12 }}>
             从CSV文件导入交易记录，支持钱迹导出格式。导入时会自动创建不存在的账户和分类。
           </p>
-          <Space>
+          <div>
             <input
               type="file"
               ref={fileInputRef}
@@ -163,9 +163,9 @@ const Settings: React.FC = () => {
             >
               导入CSV
             </Button>
-          </Space>
+          </div>
           {importProgress && (
-            <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+            <div style={{ marginTop: 12, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
               <p style={{ margin: 0 }}>
                 ✅ 成功导入：<strong>{importProgress.imported}</strong> 条
               </p>
@@ -178,7 +178,7 @@ const Settings: React.FC = () => {
         
         <div>
           <h3 style={{ color: '#cf1322' }}>清空数据</h3>
-          <p style={{ color: '#666', marginBottom: 16 }}>
+          <p style={{ color: '#666', marginBottom: 12 }}>
             清空所有数据，包括账户、交易记录、预算和分类信息。此操作不可恢复！
           </p>
           <Button 
