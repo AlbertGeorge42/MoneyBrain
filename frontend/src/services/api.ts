@@ -139,6 +139,8 @@ export const categoryApi = {
   getAll: () => api.get<ApiResponse<Category[]>>('/categories'),
   create: (data: Partial<Category>) => api.post<ApiResponse<Category>>('/categories', data),
   update: (id: string, data: Partial<Category>) => api.put<ApiResponse<Category>>(`/categories/${id}`, data),
+  updateSort: (items: Array<{ id: string; sort: number; parentId: string | null }>) => 
+    api.put<ApiResponse<{ message: string }>>('/categories/sort/batch', { items }),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/categories/${id}`),
 }
 

@@ -221,14 +221,16 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
 
         let categoryId: string
         const cacheKey = category2 ? `${category1}/${category2}` : category1
+        const typedCacheKey = `${categoryType}:${cacheKey}`
         
-        if (categoryCache[cacheKey]) {
-          categoryId = categoryCache[cacheKey]
+        if (categoryCache[typedCacheKey]) {
+          categoryId = categoryCache[typedCacheKey]
         } else {
           let parentId: string | null = null
           if (category2) {
-            if (categoryCache[category1]) {
-              parentId = categoryCache[category1]
+            const parentCacheKey = `${categoryType}:${category1}`
+            if (categoryCache[parentCacheKey]) {
+              parentId = categoryCache[parentCacheKey]
             } else {
               let parentCategory = await prisma.category.findFirst({
                 where: { name: category1, parentId: null, type: categoryType }
@@ -243,7 +245,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                 })
               }
               parentId = parentCategory.id
-              categoryCache[category1] = parentId
+              categoryCache[parentCacheKey] = parentId
             }
           }
 
@@ -266,7 +268,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             })
           }
           categoryId = category.id
-          categoryCache[cacheKey] = categoryId
+          categoryCache[typedCacheKey] = categoryId
         }
 
         let accountId = accountCache[account1]
@@ -371,10 +373,21 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
 
         let categoryId: string | null = null
         const cacheKey = category2 ? `${category1}/${category2}` : category1
-        if (categoryCache[cacheKey]) {
-          categoryId = categoryCache[cacheKey]
-        } else if (categoryCache[category1]) {
-          categoryId = categoryCache[category1]
+        for (const possibleType of ['expense', 'income']) {
+          const typedCacheKey = `${possibleType}:${cacheKey}`
+          if (categoryCache[typedCacheKey]) {
+            categoryId = categoryCache[typedCacheKey]
+            break
+          }
+        }
+        if (!categoryId) {
+          for (const possibleType of ['expense', 'income']) {
+            const parentCacheKey = `${possibleType}:${category1}`
+            if (categoryCache[parentCacheKey]) {
+              categoryId = categoryCache[parentCacheKey]
+              break
+            }
+          }
         }
 
         let accountId = accountCache[account1]

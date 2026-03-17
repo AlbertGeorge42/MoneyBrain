@@ -12,7 +12,8 @@ router.get('/balance-sheet', async (req, res, next) => {
       return error(res, '请提供月份参数', 'BAD_REQUEST', 400)
     }
 
-    const monthStart = new Date(`${month}-01T00:00:00.000Z`)
+    // 使用本地时间解析月份开始日期，避免时区偏移问题
+    const monthStart = new Date(`${month}-01T00:00:00`)
 
     const accounts = await prisma.account.findMany({
       include: { category: true },
@@ -95,9 +96,9 @@ router.get('/income-expense', async (req, res, next) => {
       return error(res, '请提供开始日期和结束日期', 'BAD_REQUEST', 400)
     }
 
-    const start = new Date(startDate as string)
-    const end = new Date(endDate as string)
-    end.setHours(23, 59, 59, 999)
+    // 使用本地时间解析日期，避免时区偏移问题
+    const start = new Date(`${startDate}T00:00:00`)
+    const end = new Date(`${endDate}T23:59:59.999`)
 
     const transactions = await prisma.transaction.findMany({
       where: {
@@ -213,9 +214,9 @@ router.get('/cash-flow', async (req, res, next) => {
       return error(res, '请提供开始日期和结束日期', 'BAD_REQUEST', 400)
     }
 
-    const start = new Date(startDate as string)
-    const end = new Date(endDate as string)
-    end.setHours(23, 59, 59, 999)
+    // 使用本地时间解析日期，确保与数据库中存储的时间戳一致
+    const start = new Date(`${startDate}T00:00:00`)
+    const end = new Date(`${endDate}T23:59:59.999`)
 
     const cashCategories = await prisma.accountCategory.findMany({
       where: { isCashEquivalent: true },
@@ -353,9 +354,14 @@ router.get('/cash-flow', async (req, res, next) => {
     const startCash = startCashBalances.reduce((sum, b) => sum + b, 0)
     const endCash = endCashBalances.reduce((sum, b) => sum + b, 0)
 
-    const sourceNodes: Map<string, number> = new Map()
-    const targetNodes: Map<string, number> = new Map()
-    const cashNodeNames = cashAccounts.map(a => a.name)
+    // 分离收入分类和非现金账户来源
+    const incomeCategoryNodes: Map<string, number> = new Map()
+    const nonCashSourceNodes: Map<string, number> = new Map()
+    // 分离支出分类和非现金账户去向
+    const expenseCategoryNodes: Map<string, number> = new Map()
+    const nonCashTargetNodes: Map<string, number> = new Map()
+    // 现金账户流量统计
+    const cashAccountFlows: Map<string, number> = new Map()
     
     const sourceToCashLinks: Map<string, Map<string, number>> = new Map()
     const cashToTargetLinks: Map<string, Map<string, number>> = new Map()
@@ -366,10 +372,12 @@ router.get('/cash-flow', async (req, res, next) => {
       const amount = t.amount.toNumber()
       
       if (t.type === 'income' && isFromCash) {
+        // 收入分类节点
         const categoryName = t.category?.name || '其他收入'
         const cashAccountName = t.account?.name || '现金账户'
         
-        sourceNodes.set(categoryName, (sourceNodes.get(categoryName) || 0) + amount)
+        incomeCategoryNodes.set(categoryName, (incomeCategoryNodes.get(categoryName) || 0) + amount)
+        cashAccountFlows.set(cashAccountName, (cashAccountFlows.get(cashAccountName) || 0) + amount)
         
         if (!sourceToCashLinks.has(categoryName)) {
           sourceToCashLinks.set(categoryName, new Map())
@@ -379,10 +387,12 @@ router.get('/cash-flow', async (req, res, next) => {
           (sourceToCashLinks.get(categoryName)!.get(cashAccountName) || 0) + amount
         )
       } else if (t.type === 'expense' && isFromCash) {
+        // 支出分类节点
         const categoryName = t.category?.name || '其他支出'
         const cashAccountName = t.account?.name || '现金账户'
         
-        targetNodes.set(categoryName, (targetNodes.get(categoryName) || 0) + amount)
+        expenseCategoryNodes.set(categoryName, (expenseCategoryNodes.get(categoryName) || 0) + amount)
+        cashAccountFlows.set(cashAccountName, (cashAccountFlows.get(cashAccountName) || 0) + amount)
         
         if (!cashToTargetLinks.has(cashAccountName)) {
           cashToTargetLinks.set(cashAccountName, new Map())
@@ -393,10 +403,12 @@ router.get('/cash-flow', async (req, res, next) => {
         )
       } else if (t.type === 'transfer') {
         if (!isFromCash && isToCash && t.toAccount && t.account) {
+          // 非现金账户来源节点（转账转入）
           const fromAccountName = t.account.name
           const toCashAccountName = t.toAccount.name
           
-          sourceNodes.set(fromAccountName, (sourceNodes.get(fromAccountName) || 0) + amount)
+          nonCashSourceNodes.set(fromAccountName, (nonCashSourceNodes.get(fromAccountName) || 0) + amount)
+          cashAccountFlows.set(toCashAccountName, (cashAccountFlows.get(toCashAccountName) || 0) + amount)
           
           if (!sourceToCashLinks.has(fromAccountName)) {
             sourceToCashLinks.set(fromAccountName, new Map())
@@ -406,10 +418,12 @@ router.get('/cash-flow', async (req, res, next) => {
             (sourceToCashLinks.get(fromAccountName)!.get(toCashAccountName) || 0) + amount
           )
         } else if (isFromCash && !isToCash && t.account && t.toAccount) {
+          // 非现金账户去向节点（转账转出）
           const fromCashAccountName = t.account.name
           const toAccountName = t.toAccount.name
           
-          targetNodes.set(toAccountName, (targetNodes.get(toAccountName) || 0) + amount)
+          nonCashTargetNodes.set(toAccountName, (nonCashTargetNodes.get(toAccountName) || 0) + amount)
+          cashAccountFlows.set(fromCashAccountName, (cashAccountFlows.get(fromCashAccountName) || 0) + amount)
           
           if (!cashToTargetLinks.has(fromCashAccountName)) {
             cashToTargetLinks.set(fromCashAccountName, new Map())
@@ -422,25 +436,71 @@ router.get('/cash-flow', async (req, res, next) => {
       }
     })
 
+    // 构建桑基图节点，按金额降序排列
+    // 为避免节点名称冲突，添加分类后缀
     const sankeyNodes: Array<{ name: string; category: string }> = []
     const sankeyLinks: Array<{ source: string; target: string; value: number }> = []
+    
+    // 名称映射：原始名称 -> 带后缀的唯一名称
+    const nodeNameMap: Map<string, string> = new Map()
 
-    sourceNodes.forEach((_, name) => {
-      sankeyNodes.push({ name, category: 'source' })
+    // 收入分类节点（按金额降序）
+    const sortedIncomeCategories = Array.from(incomeCategoryNodes.entries())
+      .sort((a, b) => b[1] - a[1])
+    sortedIncomeCategories.forEach(([name]) => {
+      const uniqueName = `${name}_income`
+      nodeNameMap.set(`income_${name}`, uniqueName)
+      sankeyNodes.push({ name: uniqueName, category: 'income_category' })
     })
 
-    cashNodeNames.forEach(name => {
-      sankeyNodes.push({ name, category: 'cash' })
+    // 非现金账户来源节点（按金额降序）
+    const sortedNonCashSources = Array.from(nonCashSourceNodes.entries())
+      .sort((a, b) => b[1] - a[1])
+    sortedNonCashSources.forEach(([name]) => {
+      const uniqueName = `${name}_ncs`
+      nodeNameMap.set(`ncs_${name}`, uniqueName)
+      sankeyNodes.push({ name: uniqueName, category: 'non_cash_source' })
     })
 
-    targetNodes.forEach((_, name) => {
-      sankeyNodes.push({ name, category: 'target' })
+    // 现金账户节点（按金额降序）
+    const sortedCashAccounts = Array.from(cashAccountFlows.entries())
+      .sort((a, b) => b[1] - a[1])
+    sortedCashAccounts.forEach(([name]) => {
+      const uniqueName = `${name}_cash`
+      nodeNameMap.set(`cash_${name}`, uniqueName)
+      sankeyNodes.push({ name: uniqueName, category: 'cash' })
     })
 
+    // 支出分类节点（按金额降序）
+    const sortedExpenseCategories = Array.from(expenseCategoryNodes.entries())
+      .sort((a, b) => b[1] - a[1])
+    sortedExpenseCategories.forEach(([name]) => {
+      const uniqueName = `${name}_expense`
+      nodeNameMap.set(`expense_${name}`, uniqueName)
+      sankeyNodes.push({ name: uniqueName, category: 'expense_category' })
+    })
+
+    // 非现金账户去向节点（按金额降序）
+    const sortedNonCashTargets = Array.from(nonCashTargetNodes.entries())
+      .sort((a, b) => b[1] - a[1])
+    sortedNonCashTargets.forEach(([name]) => {
+      const uniqueName = `${name}_nct`
+      nodeNameMap.set(`nct_${name}`, uniqueName)
+      sankeyNodes.push({ name: uniqueName, category: 'non_cash_target' })
+    })
+
+    // 构建链接，使用唯一名称
     sourceToCashLinks.forEach((cashMap, sourceName) => {
       cashMap.forEach((amount, cashName) => {
         if (amount > 0) {
-          sankeyLinks.push({ source: sourceName, target: cashName, value: amount })
+          // 判断来源是收入分类还是非现金账户
+          const sourceKey = incomeCategoryNodes.has(sourceName) ? `income_${sourceName}` : `ncs_${sourceName}`
+          const targetKey = `cash_${cashName}`
+          sankeyLinks.push({ 
+            source: nodeNameMap.get(sourceKey) || sourceName, 
+            target: nodeNameMap.get(targetKey) || cashName, 
+            value: amount 
+          })
         }
       })
     })
@@ -448,7 +508,14 @@ router.get('/cash-flow', async (req, res, next) => {
     cashToTargetLinks.forEach((targetMap, cashName) => {
       targetMap.forEach((amount, targetName) => {
         if (amount > 0) {
-          sankeyLinks.push({ source: cashName, target: targetName, value: amount })
+          const sourceKey = `cash_${cashName}`
+          // 判断目标是支出分类还是非现金账户
+          const targetKey = expenseCategoryNodes.has(targetName) ? `expense_${targetName}` : `nct_${targetName}`
+          sankeyLinks.push({ 
+            source: nodeNameMap.get(sourceKey) || cashName, 
+            target: nodeNameMap.get(targetKey) || targetName, 
+            value: amount 
+          })
         }
       })
     })

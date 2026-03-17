@@ -2,9 +2,11 @@ import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
 
+type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
+
 interface SankeyNode { 
   name: string
-  category?: string  // 'source' | 'cash' | 'target'
+  category?: SankeyNodeCategory
 }
 interface SankeyLink { 
   source: string
@@ -22,10 +24,23 @@ interface SankeyChartProps {
 
 const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height = 400, loading = false }) => {
   // 节点分类颜色配置
-  const categoryColors: Record<string, string> = {
-    source: '#52c41a',  // 绿色 - 资金来源
-    cash: '#1890ff',    // 蓝色 - 现金账户
-    target: '#ff4d4f',   // 红色 - 资金用途
+  const categoryColors: Record<SankeyNodeCategory, string> = {
+    income_category: '#52c41a',    // 绿色 - 收入分类
+    non_cash_source: '#13c2c2',    // 青色 - 非现金账户（来源）
+    cash: '#1890ff',               // 蓝色 - 现金账户
+    expense_category: '#ff4d4f',   // 红色 - 支出分类
+    non_cash_target: '#fa8c16',    // 橙色 - 非现金账户（去向）
+  }
+
+  // 从节点名称中提取显示名称（去掉后缀）
+  const getDisplayName = (name: string): string => {
+    const suffixes = ['_income', '_ncs', '_cash', '_expense', '_nct']
+    for (const suffix of suffixes) {
+      if (name.endsWith(suffix)) {
+        return name.slice(0, -suffix.length)
+      }
+    }
+    return name
   }
 
   // 数据验证
@@ -35,11 +50,11 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
   // 检查是否有有效数据
   const hasValidData = validNodes.length > 0 && validLinks.length > 0
 
-  // 为节点添加颜色
+  // 为节点添加颜色和显示名称
   const nodesWithColor = validNodes.map(node => ({
-    ...node,
+    name: node.name,
     itemStyle: {
-      color: categoryColors[node.category || 'cash']
+      color: categoryColors[node.category ?? 'cash']
     }
   }))
 
@@ -54,9 +69,9 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       triggerOn: 'mousemove',
       formatter: (params: any) => {
         if (params.dataType === 'node') {
-          return `${params.name}<br/>金额: ¥${params.value?.toFixed(2) || 0}`
+          return `${getDisplayName(params.name)}<br/>金额: ¥${params.value?.toFixed(2) || 0}`
         } else if (params.dataType === 'edge') {
-          return `${params.data.source} → ${params.data.target}<br/>金额: ¥${params.data.value?.toFixed(2)}`
+          return `${getDisplayName(params.data.source)} → ${getDisplayName(params.data.target)}<br/>金额: ¥${params.data.value?.toFixed(2)}`
         }
         return ''
       }
@@ -74,7 +89,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       },
       label: {
         position: 'right',
-        formatter: '{b}'
+        formatter: (params: any) => getDisplayName(params.name)
       },
     }],
   }
