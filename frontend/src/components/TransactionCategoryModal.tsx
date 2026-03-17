@@ -15,7 +15,7 @@ interface Props {
   onClose: () => void
 }
 
-// 可排序行组件
+// 可排序行组件（支持一级和二级分类）
 const SortableRow = (props: any) => {
   const id = props['data-row-key']
   const isCategoryRow = id?.startsWith('category-')
@@ -140,42 +140,101 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     const activeId = String(active.id).replace('category-', '')
     const overId = String(over.id).replace('category-', '')
 
-    // 获取当前类型的一级分类（已排序）
-    const typeCategories = localCategories
-      .filter(c => c.type === type && !c.parentId)
-      .sort((a, b) => a.sort - b.sort)
+    // 获取拖拽的分类信息
+    const activeCategory = localCategories.find(c => c.id === activeId)
+    const overCategory = localCategories.find(c => c.id === overId)
     
-    const oldIndex = typeCategories.findIndex(c => c.id === activeId)
-    const newIndex = typeCategories.findIndex(c => c.id === overId)
+    if (!activeCategory || !overCategory) return
+    
+    // 判断是一级分类还是二级分类
+    const isTopLevel = !activeCategory.parentId && !overCategory.parentId
+    const isSecondLevel = activeCategory.parentId && overCategory.parentId
+    
+    if (isTopLevel) {
+      // 一级分类排序逻辑
+      const typeCategories = localCategories
+        .filter(c => c.type === type && !c.parentId)
+        .sort((a, b) => a.sort - b.sort)
+      
+      const oldIndex = typeCategories.findIndex(c => c.id === activeId)
+      const newIndex = typeCategories.findIndex(c => c.id === overId)
 
-    if (oldIndex === -1 || newIndex === -1) return
+      if (oldIndex === -1 || newIndex === -1) return
 
-    // 先更新本地状态以显示动画
-    const reorderedCategories = arrayMove(typeCategories, oldIndex, newIndex)
-    const updatedLocalCategories = localCategories.map(cat => {
-      if (cat.type === type && !cat.parentId) {
-        const newIndexInReordered = reorderedCategories.findIndex(c => c.id === cat.id)
-        return { ...cat, sort: newIndexInReordered }
+      // 先更新本地状态以显示动画
+      const reorderedCategories = arrayMove(typeCategories, oldIndex, newIndex)
+      const updatedLocalCategories = localCategories.map(cat => {
+        if (cat.type === type && !cat.parentId) {
+          const newIndexInReordered = reorderedCategories.findIndex(c => c.id === cat.id)
+          return { ...cat, sort: newIndexInReordered }
+        }
+        return cat
+      })
+      setLocalCategories(updatedLocalCategories)
+
+      // 然后调用 API 保存
+      const items = reorderedCategories.map((c, index) => ({
+        id: c.id,
+        sort: index,
+        parentId: null,
+      }))
+
+      try {
+        await categoryApi.updateSort(items)
+        fetchCategories()
+        message.success('排序更新成功')
+      } catch (error) {
+        message.error('排序更新失败')
+        // 失败时恢复原状态
+        setLocalCategories(categories)
       }
-      return cat
-    })
-    setLocalCategories(updatedLocalCategories)
-
-    // 然后调用 API 保存
-    const items = reorderedCategories.map((c, index) => ({
-      id: c.id,
-      sort: index,
-      parentId: null,
-    }))
-
-    try {
-      await categoryApi.updateSort(items)
-      fetchCategories()
-      message.success('排序更新成功')
-    } catch (error) {
-      message.error('排序更新失败')
-      // 失败时恢复原状态
-      setLocalCategories(categories)
+    } else if (isSecondLevel) {
+      // 二级分类排序逻辑
+      // 只允许同一父分类下的二级分类排序
+      if (activeCategory.parentId !== overCategory.parentId) {
+        message.warning('只能在同一父分类下调整子分类顺序')
+        return
+      }
+      
+      const parentId = activeCategory.parentId
+      const siblingCategories = localCategories
+        .filter(c => c.parentId === parentId)
+        .sort((a, b) => a.sort - b.sort)
+      
+      const oldIndex = siblingCategories.findIndex(c => c.id === activeId)
+      const newIndex = siblingCategories.findIndex(c => c.id === overId)
+      
+      if (oldIndex === -1 || newIndex === -1) return
+      
+      // 先更新本地状态以显示动画
+      const reorderedCategories = arrayMove(siblingCategories, oldIndex, newIndex)
+      const updatedLocalCategories = localCategories.map(cat => {
+        if (cat.parentId === parentId) {
+          const newIndexInReordered = reorderedCategories.findIndex(c => c.id === cat.id)
+          return { ...cat, sort: newIndexInReordered }
+        }
+        return cat
+      })
+      setLocalCategories(updatedLocalCategories)
+      
+      // 然后调用 API 保存
+      const items = reorderedCategories.map((c, index) => ({
+        id: c.id,
+        sort: index,
+        parentId: parentId,
+      }))
+      
+      try {
+        await categoryApi.updateSort(items)
+        fetchCategories()
+        message.success('子分类排序更新成功')
+      } catch (error) {
+        message.error('子分类排序更新失败')
+        // 失败时恢复原状态
+        setLocalCategories(categories)
+      }
+    } else {
+      message.warning('只能在同一层级内调整顺序')
     }
   }
 
@@ -256,8 +315,8 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '',
       width: 30,
       render: (_: unknown, record: any) => {
-        // 拖拽手柄列：只有一级分类显示
-        if (record.type === 'category' && !record.parentId) {
+        // 拖拽手柄列：一级和二级分类都显示
+        if (record.type === 'category') {
           return <DragHandle id={record.key} />
         }
         return null
@@ -312,9 +371,21 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     },
   ]
 
-  // 获取所有可排序的 key（只包含一级分类）
+  // 获取所有可排序的 key（包含一级和二级分类）
   const getSortableKeys = (nodes: any[]) => {
-    return nodes.filter(n => n.type === 'category' && !n.parentId).map(n => n.key)
+    const keys: string[] = []
+    const traverse = (items: any[]) => {
+      items.forEach(item => {
+        if (item.type === 'category') {
+          keys.push(item.key)
+        }
+        if (item.children) {
+          traverse(item.children)
+        }
+      })
+    }
+    traverse(nodes)
+    return keys
   }
 
   const renderTable = (type: 'income' | 'expense' | 'transfer') => {
@@ -382,12 +453,21 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         footer={null}
         width={700}
       >
-        <div style={{ marginBottom: 12 }}>
-          <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAdd()}>
-            新增一级分类
-          </Button>
-        </div>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        <Tabs 
+          activeKey={activeTab} 
+          onChange={setActiveTab} 
+          items={tabItems}
+          tabBarExtraContent={
+            <Tooltip title="新增一级分类">
+              <Button 
+                type="primary" 
+                size="small" 
+                icon={<PlusOutlined />} 
+                onClick={() => handleAdd()}
+              />
+            </Tooltip>
+          }
+        />
       </Modal>
 
       <Modal

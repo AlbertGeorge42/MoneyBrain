@@ -8,9 +8,32 @@ router.get('/', async (_req, res, next) => {
   try {
     const accounts = await prisma.account.findMany({
       include: { category: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ sort: 'asc' }, { createdAt: 'desc' }],
     })
     return success(res, accounts)
+  } catch (err) {
+    return next(err)
+  }
+})
+
+// 批量更新账户排序（必须在 /:id 之前）
+router.put('/sort/batch', async (req, res, next) => {
+  try {
+    const { items } = req.body
+    if (!Array.isArray(items)) {
+      return error(res, '参数格式错误', 'BAD_REQUEST', 400)
+    }
+
+    await prisma.$transaction(
+      items.map(item => 
+        prisma.account.update({
+          where: { id: item.id },
+          data: { sort: item.sort, categoryId: item.categoryId },
+        })
+      )
+    )
+
+    return success(res, { message: '排序更新成功' })
   } catch (err) {
     return next(err)
   }

@@ -127,10 +127,10 @@ const Reports: React.FC = () => {
 
     const accounts = balanceSheetData.accounts
 
-    // 按分类分组
+    // 按分类分组（后端返回的 category 是字符串）
     const groupedByCategory: Record<string, any[]> = {}
     accounts.forEach((a: any) => {
-      const cat = a.category?.name || '未分类'
+      const cat = a.category || '未分类'
       if (!groupedByCategory[cat]) {
         groupedByCategory[cat] = []
       }
@@ -140,7 +140,7 @@ const Reports: React.FC = () => {
     // 构建树形数据
     const buildTree = (type: string) => {
       const typeAccounts = accounts.filter((a: any) => a.type === type)
-      const typeCategories = [...new Set(typeAccounts.map((a: any) => a.category?.name || '未分类'))] as string[]
+      const typeCategories = [...new Set(typeAccounts.map((a: any) => a.category || '未分类'))] as string[]
 
       return typeCategories.map((cat: string) => {
         const catAccounts = groupedByCategory[cat] || []

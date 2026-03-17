@@ -20,10 +20,27 @@ const BarChart: React.FC<BarChartProps> = ({ title, xAxisData, seriesData, heigh
 
   const option = {
     title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    tooltip: { 
+      trigger: 'axis', 
+      axisPointer: { type: 'shadow' },
+      formatter: (params: any) => {
+        if (!Array.isArray(params)) return ''
+        const category = params[0]?.axisValue || ''
+        const lines = params.map((p: any) => {
+          const numValue = typeof p.value === 'number' ? p.value : parseFloat(p.value) || 0
+          return `${p.marker} ${p.seriesName}: ¥${numValue.toFixed(2)}`
+        })
+        return [category, ...lines].join('<br/>')
+      }
+    },
     legend: { top: 'bottom' },
     xAxis: { type: 'category', data: validXAxisData },
-    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+    yAxis: { 
+      type: 'value', 
+      axisLabel: { 
+        formatter: (value: number) => `¥${value.toFixed(0)}`
+      } 
+    },
     series: validSeriesData.map(s => ({
       name: s.name,
       type: 'bar',

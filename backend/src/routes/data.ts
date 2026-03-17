@@ -209,11 +209,12 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
         }
 
         let type: 'income' | 'expense' | 'transfer'
-        if (typeStr === '收入') {
+        if (typeStr === '收入' || typeStr === '报销记录') {
           type = 'income'
         } else if (typeStr === '转账' || typeStr === '还款') {
           type = 'transfer'
         } else {
+          // 支出、报销等类型都转为支出
           type = 'expense'
         }
 

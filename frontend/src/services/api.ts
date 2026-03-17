@@ -41,6 +41,7 @@ export interface Account {
   initialBalanceDate: string | null
   icon: string | null
   categoryId: string | null
+  sort: number
   category: AccountCategory | null
   createdAt: string
   updatedAt: string
@@ -129,6 +130,8 @@ export const accountApi = {
   }>>(`/accounts/${id}/stats`),
   create: (data: Partial<Account>) => api.post<ApiResponse<Account>>('/accounts', data),
   update: (id: string, data: Partial<Account>) => api.put<ApiResponse<Account>>(`/accounts/${id}`, data),
+  updateSort: (items: Array<{ id: string; sort: number; categoryId: string | null }>) => 
+    api.put<ApiResponse<{ message: string }>>('/accounts/sort/batch', { items }),
   delete: (id: string, force?: boolean) => api.delete<ApiResponse<{ 
     message: string
     deletedTransactions?: number 

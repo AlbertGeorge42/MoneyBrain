@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, Table, Button, Form, Input, Space, Popconfirm, message, TreeSelect, InputNumber, Select, Tabs, Tooltip, DatePicker } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, ExclamationCircleOutlined, HolderOutlined, FolderAddOutlined, WalletOutlined, RightOutlined, DownOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, HolderOutlined, FolderAddOutlined, WalletOutlined, RightOutlined, DownOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { AccountCategory, Account, accountCategoryApi, accountApi } from '../services/api'
 import dayjs from 'dayjs'
@@ -17,14 +17,14 @@ interface Props {
   onClose: () => void
 }
 
-// 可排序行组件
+// 可排序行组件（支持分类和账户）
 const SortableRow = (props: any) => {
   const id = props['data-row-key']
-  const isCategoryRow = id?.startsWith('category-')
+  const isSortable = id?.startsWith('category-') || id?.startsWith('account-')
   
   const { attributes, setNodeRef, transform, transition, isDragging } = useSortable({
     id: id,
-    disabled: !isCategoryRow,
+    disabled: !isSortable,
   })
 
   const style: React.CSSProperties = {
@@ -77,6 +77,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   
   // 本地排序状态，用于动画
   const [localAccountCategories, setLocalAccountCategories] = useState<AccountCategory[]>([])
+  const [localAccounts, setLocalAccounts] = useState<Account[]>([])
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -96,6 +97,10 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   useEffect(() => {
     setLocalAccountCategories(accountCategories)
   }, [accountCategories])
+  
+  useEffect(() => {
+    setLocalAccounts(accounts)
+  }, [accounts])
 
   // 构建树形数据
   const buildTreeData = useMemo(() => {
@@ -116,7 +121,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
     const buildCategoryNode = (category: AccountCategory, allCategories: AccountCategory[], allAccounts: Account[]): TreeNode => {
       const childCategories = allCategories.filter(c => c.parentId === category.id).sort((a, b) => a.sort - b.sort)
-      const categoryAccounts = allAccounts.filter(a => a.categoryId === category.id)
+      const categoryAccounts = allAccounts.filter(a => a.categoryId === category.id).sort((a, b) => a.sort - b.sort)
       
       const children: TreeNode[] = [
         ...childCategories.map(c => buildCategoryNode(c, allCategories, allAccounts)),
@@ -131,6 +136,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           initialBalance: a.initialBalance,
           initialBalanceDate: a.initialBalanceDate,
           parentId: category.id,
+          sort: a.sort,
         })),
       ]
 
@@ -151,11 +157,11 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     const assetCategories = localAccountCategories.filter(c => c.type === 'asset' && !c.parentId).sort((a, b) => a.sort - b.sort)
     const liabilityCategories = localAccountCategories.filter(c => c.type === 'liability' && !c.parentId).sort((a, b) => a.sort - b.sort)
 
-    const assetNodes = assetCategories.map(c => buildCategoryNode(c, localAccountCategories, accounts))
-    const liabilityNodes = liabilityCategories.map(c => buildCategoryNode(c, localAccountCategories, accounts))
+    const assetNodes = assetCategories.map(c => buildCategoryNode(c, localAccountCategories, localAccounts))
+    const liabilityNodes = liabilityCategories.map(c => buildCategoryNode(c, localAccountCategories, localAccounts))
 
     return { assetNodes, liabilityNodes }
-  }, [localAccountCategories, accounts])
+  }, [localAccountCategories, localAccounts])
 
   // ========== 分类操作 ==========
   const handleAddCategory = (parentId?: string, type?: 'asset' | 'liability') => {
@@ -320,47 +326,123 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    const activeId = String(active.id).replace('category-', '')
-    const overId = String(over.id).replace('category-', '')
+    const activeId = String(active.id)
+    const overId = String(over.id)
+    
+    // 判断是分类还是账户
+    const isCategoryDrag = activeId.startsWith('category-')
+    const isAccountDrag = activeId.startsWith('account-')
+    const isOverCategory = overId.startsWith('category-')
+    const isOverAccount = overId.startsWith('account-')
+    
+    if (isCategoryDrag && isOverCategory) {
+      // 分类排序逻辑
+      const activeCategoryId = activeId.replace('category-', '')
+      const overCategoryId = overId.replace('category-', '')
+      
+      // 只允许一级分类之间排序
+      const categories = localAccountCategories.filter(c => c.type === type && !c.parentId).sort((a, b) => a.sort - b.sort)
+      const oldIndex = categories.findIndex(c => c.id === activeCategoryId)
+      const newIndex = categories.findIndex(c => c.id === overCategoryId)
 
-    const categories = localAccountCategories.filter(c => c.type === type && !c.parentId).sort((a, b) => a.sort - b.sort)
-    const oldIndex = categories.findIndex(c => c.id === activeId)
-    const newIndex = categories.findIndex(c => c.id === overId)
+      if (oldIndex === -1 || newIndex === -1) return
 
-    if (oldIndex === -1 || newIndex === -1) return
+      // 先更新本地状态以显示动画
+      const reorderedCategories = arrayMove(categories, oldIndex, newIndex)
+      const updatedLocalCategories = localAccountCategories.map(cat => {
+        if (cat.type === type && !cat.parentId) {
+          const newIndexInReordered = reorderedCategories.findIndex(c => c.id === cat.id)
+          return { ...cat, sort: newIndexInReordered }
+        }
+        return cat
+      })
+      setLocalAccountCategories(updatedLocalCategories)
 
-    // 先更新本地状态以显示动画
-    const reorderedCategories = arrayMove(categories, oldIndex, newIndex)
-    const updatedLocalCategories = localAccountCategories.map(cat => {
-      if (cat.type === type && !cat.parentId) {
-        const newIndexInReordered = reorderedCategories.findIndex(c => c.id === cat.id)
-        return { ...cat, sort: newIndexInReordered }
+      // 然后调用 API 保存
+      const items = reorderedCategories.map((c, index) => ({
+        id: c.id,
+        sort: index,
+        parentId: null,
+      }))
+
+      try {
+        await accountCategoryApi.updateSort(items)
+        fetchAccountCategories()
+        message.success('排序更新成功')
+      } catch (error) {
+        message.error('排序更新失败')
+        // 失败时恢复原状态
+        setLocalAccountCategories(accountCategories)
       }
-      return cat
-    })
-    setLocalAccountCategories(updatedLocalCategories)
-
-    // 然后调用 API 保存
-    const items = reorderedCategories.map((c, index) => ({
-      id: c.id,
-      sort: index,
-      parentId: null,
-    }))
-
-    try {
-      await accountCategoryApi.updateSort(items)
-      fetchAccountCategories()
-      message.success('排序更新成功')
-    } catch (error) {
-      message.error('排序更新失败')
-      // 失败时恢复原状态
-      setLocalAccountCategories(accountCategories)
+    } else if (isAccountDrag && isOverAccount) {
+      // 账户排序逻辑
+      const activeAccountId = activeId.replace('account-', '')
+      const overAccountId = overId.replace('account-', '')
+      
+      // 获取账户信息
+      const activeAccount = localAccounts.find(a => a.id === activeAccountId)
+      const overAccount = localAccounts.find(a => a.id === overAccountId)
+      
+      if (!activeAccount || !overAccount) return
+      
+      // 只允许同一分类下的账户排序
+      if (activeAccount.categoryId !== overAccount.categoryId) {
+        message.warning('只能在同一分类下调整账户顺序')
+        return
+      }
+      
+      const categoryId = activeAccount.categoryId
+      const categoryAccounts = localAccounts.filter(a => a.categoryId === categoryId).sort((a, b) => a.sort - b.sort)
+      const oldIndex = categoryAccounts.findIndex(a => a.id === activeAccountId)
+      const newIndex = categoryAccounts.findIndex(a => a.id === overAccountId)
+      
+      if (oldIndex === -1 || newIndex === -1) return
+      
+      // 先更新本地状态以显示动画
+      const reorderedAccounts = arrayMove(categoryAccounts, oldIndex, newIndex)
+      const updatedLocalAccounts = localAccounts.map(acc => {
+        if (acc.categoryId === categoryId) {
+          const newIndexInReordered = reorderedAccounts.findIndex(a => a.id === acc.id)
+          return { ...acc, sort: newIndexInReordered }
+        }
+        return acc
+      })
+      setLocalAccounts(updatedLocalAccounts)
+      
+      // 然后调用 API 保存
+      const items = reorderedAccounts.map((a, index) => ({
+        id: a.id,
+        sort: index,
+        categoryId: categoryId,
+      }))
+      
+      try {
+        await accountApi.updateSort(items)
+        fetchAccounts()
+        message.success('账户排序更新成功')
+      } catch (error) {
+        message.error('账户排序更新失败')
+        // 失败时恢复原状态
+        setLocalAccounts(accounts)
+      }
     }
   }
 
-  // 获取所有可排序的 key（只包含一级分类）
+  // 获取所有可排序的 key（包含分类和账户）
   const getSortableKeys = (nodes: any[]) => {
-    return nodes.filter(n => n.type === 'category').map(n => n.key)
+    const keys: string[] = []
+    const traverse = (items: any[]) => {
+      items.forEach(item => {
+        if (item.type === 'category' || item.type === 'account') {
+          keys.push(item.key)
+        }
+        if (item.children) {
+          traverse(item.children)
+        }
+      })
+    }
+    traverse(nodes)
+    return keys
   }
 
   // 切换展开状态
@@ -397,8 +479,8 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '',
       width: 30,
       render: (_: unknown, record: any) => {
-        // 拖拽手柄列：只有一级分类显示
-        if (record.type === 'category') {
+        // 拖拽手柄列：分类和账户都显示
+        if (record.type === 'category' || record.type === 'account') {
           return <DragHandle id={record.key} />
         }
         return null
@@ -516,41 +598,42 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const tabItems = [
     {
       key: 'asset',
-      label: (
-        <span>
-          <FolderOutlined /> 资产分类
-        </span>
-      ),
-      children: (
-        <div>
-          <div style={{ marginBottom: 12 }}>
-            <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(undefined, 'asset')}>
-              添加资产分类
-            </Button>
-          </div>
-          {renderTable('asset')}
-        </div>
-      ),
+      label: '资产分类',
+      children: renderTable('asset'),
     },
     {
       key: 'liability',
-      label: (
-        <span>
-          <FolderOutlined /> 负债分类
-        </span>
-      ),
-      children: (
-        <div>
-          <div style={{ marginBottom: 12 }}>
-            <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(undefined, 'liability')}>
-              添加负债分类
-            </Button>
-          </div>
-          {renderTable('liability')}
-        </div>
-      ),
+      label: '负债分类',
+      children: renderTable('liability'),
     },
   ]
+
+  // 根据当前 tab 获取按钮配置
+  const getAddButton = () => {
+    if (activeTab === 'asset') {
+      return (
+        <Tooltip title="添加资产分类">
+          <Button 
+            type="primary" 
+            size="small" 
+            icon={<PlusOutlined />} 
+            onClick={() => handleAddCategory(undefined, 'asset')}
+          />
+        </Tooltip>
+      )
+    } else {
+      return (
+        <Tooltip title="添加负债分类">
+          <Button 
+            type="primary" 
+            size="small" 
+            icon={<PlusOutlined />} 
+            onClick={() => handleAddCategory(undefined, 'liability')}
+          />
+        </Tooltip>
+      )
+    }
+  }
 
   return (
     <>
@@ -561,7 +644,12 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         footer={null}
         width={700}
       >
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        <Tabs 
+          activeKey={activeTab} 
+          onChange={setActiveTab} 
+          items={tabItems}
+          tabBarExtraContent={getAddButton()}
+        />
       </Modal>
 
       {/* 分类表单弹窗 */}
