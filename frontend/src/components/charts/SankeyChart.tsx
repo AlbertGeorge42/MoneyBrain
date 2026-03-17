@@ -2,9 +2,9 @@ import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
 
-type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
+export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
 
-interface SankeyNode { 
+export interface SankeyNode { 
   name: string
   category?: SankeyNodeCategory
 }
