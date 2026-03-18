@@ -112,7 +112,7 @@ router.post('/', async (req, res, next) => {
         type, 
         balance: actualBalance, 
         initialBalance: actualInitialBalance,
-        initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : new Date(),
+        initialBalanceDate: initialBalanceDate ? new Date(`${initialBalanceDate}T00:00:00`) : new Date(),
         icon,
         categoryId,
       },
@@ -142,7 +142,7 @@ router.put('/:id', async (req, res, next) => {
       name, 
       icon, 
       cashFlowType,
-      initialBalanceDate: initialBalanceDate ? new Date(initialBalanceDate) : undefined,
+      initialBalanceDate: initialBalanceDate ? new Date(`${initialBalanceDate}T00:00:00`) : undefined,
     }
     
     // 如果类型发生变化，自动更新分类

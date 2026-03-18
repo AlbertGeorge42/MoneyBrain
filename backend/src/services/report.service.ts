@@ -29,6 +29,13 @@ export interface BalanceSheetResult {
   accounts: BalanceSheetAccount[]
 }
 
+export interface CategoryBreakdownItem {
+  name: string
+  value: number
+  categoryId: string
+  hasChildren: boolean
+}
+
 export interface IncomeExpenseResult {
   startDate: string
   endDate: string
@@ -37,6 +44,8 @@ export interface IncomeExpenseResult {
   balance: number
   incomeByCategory: Record<string, number>
   expenseByCategory: Record<string, number>
+  incomeCategoryDetails: CategoryBreakdownItem[]
+  expenseCategoryDetails: CategoryBreakdownItem[]
   startAssets: number
   startLiabilities: number
   startNetWorth: number
@@ -197,6 +206,11 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
   const incomeByCategory: Record<string, number> = {}
   const expenseByCategory: Record<string, number> = {}
 
+  // 获取所有父分类
+  const allCategories = await prisma.category.findMany()
+  const parentCategories = allCategories.filter(c => c.parentId === null)
+  const parentCategoryMap = new Map(parentCategories.map(c => [c.id, c.name]))
+
   // 获取子分类的父分类映射
   const childCategoryIds = transactions
     .filter(t => t.category?.parentId)
@@ -206,28 +220,63 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
   
   let parentMap: Record<string, string> = {}
   if (uniqueParentIds.length > 0) {
-    const parentCategories = await prisma.category.findMany({
+    const parentCats = await prisma.category.findMany({
       where: { id: { in: uniqueParentIds } }
     })
-    parentMap = Object.fromEntries(parentCategories.map(p => [p.id, p.name]))
+    parentMap = Object.fromEntries(parentCats.map(p => [p.id, p.name]))
   }
+
+  // 按父分类汇总，同时记录分类ID
+  const incomeCategoryData: Record<string, { value: number; categoryId: string }> = {}
+  const expenseCategoryData: Record<string, { value: number; categoryId: string }> = {}
 
   transactions.forEach(t => {
     let categoryName = '未分类'
+    let parentId = ''
+    
     if (t.category) {
       if (t.category.parentId) {
         categoryName = parentMap[t.category.parentId] || t.category.name
+        parentId = t.category.parentId
       } else {
         categoryName = t.category.name
+        parentId = t.category.id
       }
     }
     
     if (t.type === 'income') {
       incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + t.amount.toNumber()
+      if (!incomeCategoryData[categoryName]) {
+        incomeCategoryData[categoryName] = { value: 0, categoryId: parentId }
+      }
+      incomeCategoryData[categoryName].value += t.amount.toNumber()
     } else {
       expenseByCategory[categoryName] = (expenseByCategory[categoryName] || 0) + t.amount.toNumber()
+      if (!expenseCategoryData[categoryName]) {
+        expenseCategoryData[categoryName] = { value: 0, categoryId: parentId }
+      }
+      expenseCategoryData[categoryName].value += t.amount.toNumber()
     }
   })
+
+  // 构建分类详情列表
+  const incomeCategoryDetails: CategoryBreakdownItem[] = Object.entries(incomeCategoryData)
+    .map(([name, data]) => ({
+      name,
+      value: data.value,
+      categoryId: data.categoryId,
+      hasChildren: allCategories.some(c => c.parentId === data.categoryId)
+    }))
+    .sort((a, b) => b.value - a.value)
+
+  const expenseCategoryDetails: CategoryBreakdownItem[] = Object.entries(expenseCategoryData)
+    .map(([name, data]) => ({
+      name,
+      value: data.value,
+      categoryId: data.categoryId,
+      hasChildren: allCategories.some(c => c.parentId === data.categoryId)
+    }))
+    .sort((a, b) => b.value - a.value)
 
   // 计算期初和期末资产
   const accounts = await prisma.account.findMany()
@@ -270,6 +319,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
     balance,
     incomeByCategory,
     expenseByCategory,
+    incomeCategoryDetails,
+    expenseCategoryDetails,
     startAssets,
     startLiabilities,
     startNetWorth,
@@ -545,7 +596,7 @@ function buildSankeyData(
     }
   })
 
-  // 构建桑基图节点，按金额降序排列
+  // 构建桑基图节点
   // 为避免节点名称冲突，添加分类后缀
   const sankeyNodes: Array<{ name: string; category: string }> = []
   const sankeyLinks: Array<{ source: string; target: string; value: number }> = []
@@ -553,16 +604,7 @@ function buildSankeyData(
   // 名称映射：原始名称 -> 带后缀的唯一名称
   const nodeNameMap: Map<string, string> = new Map()
 
-  // 收入分类节点（按金额降序）
-  const sortedIncomeCategories = Array.from(incomeCategoryNodes.entries())
-    .sort((a, b) => b[1] - a[1])
-  sortedIncomeCategories.forEach(([name]) => {
-    const uniqueName = `${name}_income`
-    nodeNameMap.set(`income_${name}`, uniqueName)
-    sankeyNodes.push({ name: uniqueName, category: 'income_category' })
-  })
-
-  // 非现金账户来源节点（按金额降序）
+  // 左侧节点：先排序所有非现金账户（来源），再排序所有收入分类，内部按金额降序
   const sortedNonCashSources = Array.from(nonCashSourceNodes.entries())
     .sort((a, b) => b[1] - a[1])
   sortedNonCashSources.forEach(([name]) => {
@@ -571,7 +613,15 @@ function buildSankeyData(
     sankeyNodes.push({ name: uniqueName, category: 'non_cash_source' })
   })
 
-  // 现金账户节点（按金额降序）
+  const sortedIncomeCategories = Array.from(incomeCategoryNodes.entries())
+    .sort((a, b) => b[1] - a[1])
+  sortedIncomeCategories.forEach(([name]) => {
+    const uniqueName = `${name}_income`
+    nodeNameMap.set(`income_${name}`, uniqueName)
+    sankeyNodes.push({ name: uniqueName, category: 'income_category' })
+  })
+
+  // 中间节点：现金账户按金额降序排列
   const sortedCashAccounts = Array.from(cashAccountFlows.entries())
     .sort((a, b) => b[1] - a[1])
   sortedCashAccounts.forEach(([name]) => {
@@ -580,22 +630,21 @@ function buildSankeyData(
     sankeyNodes.push({ name: uniqueName, category: 'cash' })
   })
 
-  // 支出分类节点（按金额降序）
-  const sortedExpenseCategories = Array.from(expenseCategoryNodes.entries())
-    .sort((a, b) => b[1] - a[1])
-  sortedExpenseCategories.forEach(([name]) => {
-    const uniqueName = `${name}_expense`
-    nodeNameMap.set(`expense_${name}`, uniqueName)
-    sankeyNodes.push({ name: uniqueName, category: 'expense_category' })
-  })
-
-  // 非现金账户去向节点（按金额降序）
+  // 右侧节点：先排序所有非现金账户（去向），再排序所有支出分类，内部按金额降序
   const sortedNonCashTargets = Array.from(nonCashTargetNodes.entries())
     .sort((a, b) => b[1] - a[1])
   sortedNonCashTargets.forEach(([name]) => {
     const uniqueName = `${name}_nct`
     nodeNameMap.set(`nct_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'non_cash_target' })
+  })
+
+  const sortedExpenseCategories = Array.from(expenseCategoryNodes.entries())
+    .sort((a, b) => b[1] - a[1])
+  sortedExpenseCategories.forEach(([name]) => {
+    const uniqueName = `${name}_expense`
+    nodeNameMap.set(`expense_${name}`, uniqueName)
+    sankeyNodes.push({ name: uniqueName, category: 'expense_category' })
   })
 
   // 构建链接，使用唯一名称

@@ -45,7 +45,7 @@ router.get('/trends', async (req, res, next) => {
 
 router.get('/category-breakdown', async (req, res, next) => {
   try {
-    const { type, startDate, endDate } = req.query
+    const { type, startDate, endDate, parentCategoryId } = req.query
     if (!type) {
       return error(res, '请指定类型(income/expense)', 'BAD_REQUEST', 400)
     }
@@ -63,14 +63,60 @@ router.get('/category-breakdown', async (req, res, next) => {
       include: { category: true },
     })
 
-    const breakdown: Record<string, number> = {}
+    // 如果指定了父分类ID，返回该父分类下的二级分类明细
+    if (parentCategoryId) {
+      const subBreakdown: Record<string, number> = {}
+      transactions.forEach(t => {
+        if (t.category?.parentId === parentCategoryId) {
+          const categoryName = t.category.name
+          subBreakdown[categoryName] = (subBreakdown[categoryName] || 0) + t.amount.toNumber()
+        }
+      })
+      const result = Object.entries(subBreakdown)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+      return success(res, result)
+    }
+
+    // 获取所有父分类
+    const parentCategories = await prisma.category.findMany({
+      where: { type: type as string, parentId: null },
+    })
+    const parentCategoryMap = new Map(parentCategories.map(c => [c.id, c.name]))
+
+    // 按父分类汇总
+    const breakdown: Record<string, { value: number; categoryId: string }> = {}
     transactions.forEach(t => {
-      const categoryName = t.category?.name || '未分类'
-      breakdown[categoryName] = (breakdown[categoryName] || 0) + t.amount.toNumber()
+      let parentName = '未分类'
+      let parentId = ''
+      
+      if (t.category) {
+        if (t.category.parentId && parentCategoryMap.has(t.category.parentId)) {
+          parentName = parentCategoryMap.get(t.category.parentId)!
+          parentId = t.category.parentId
+        } else if (!t.category.parentId) {
+          // 本身就是一级分类
+          parentName = t.category.name
+          parentId = t.category.id
+        }
+      }
+      
+      if (!breakdown[parentName]) {
+        breakdown[parentName] = { value: 0, categoryId: parentId }
+      }
+      breakdown[parentName].value += t.amount.toNumber()
     })
 
     const result = Object.entries(breakdown)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({ 
+        name, 
+        value: data.value,
+        categoryId: data.categoryId,
+        hasChildren: parentCategories.some(c => c.name === name && 
+          parentCategories.filter(p => p.parentId === c.id).length > 0 ||
+          transactions.some(t => t.category?.parentId === data.categoryId)
+        )
+      }))
       .sort((a, b) => b.value - a.value)
 
     return success(res, result)

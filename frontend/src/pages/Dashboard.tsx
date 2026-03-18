@@ -6,12 +6,13 @@ import dayjs from 'dayjs'
 import { useStore } from '../stores'
 import * as api from '../services/api'
 import DynamicIcon from '../components/DynamicIcon'
+import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 
 const Dashboard: React.FC = () => {
   const { accounts, transactions, fetchAccounts, fetchTransactions } = useStore()
   const [loading, setLoading] = useState(false)
   const [trendData, setTrendData] = useState<any[]>([])
-  const [categoryData, setCategoryData] = useState<any[]>([])
+  const [categoryData, setCategoryData] = useState<PieChartDataItem[]>([])
 
   useEffect(() => {
     fetchAccounts()
@@ -38,13 +39,25 @@ const Dashboard: React.FC = () => {
     setLoading(false)
   }
 
+  const handleDrillDown = async (item: PieChartDataItem): Promise<PieChartDataItem[]> => {
+    if (!item.categoryId) return []
+    try {
+      const res = await api.analyticsApi.getCategoryBreakdown('expense', undefined, undefined, item.categoryId)
+      if (res.data.success && res.data.data) {
+        return res.data.data
+      }
+    } catch (error) {
+      console.error('获取二级分类数据失败:', error)
+    }
+    return []
+  }
+
   const totalAssets = accounts
     .filter(a => a.type === 'asset')
     .reduce((sum, a) => sum + Number(a.balance), 0)
   const totalLiabilities = accounts
     .filter(a => a.type === 'liability')
     .reduce((sum, a) => sum + Number(a.balance), 0)
-  // 负债账户余额为负数，所以净资产 = 资产 + 负债
   const netWorth = totalAssets + totalLiabilities
 
   const thisMonthStart = dayjs().startOf('month')
@@ -80,17 +93,6 @@ const Dashboard: React.FC = () => {
       itemStyle: { color: '#1890ff' },
     }],
     grid: { left: '10%', right: '10%', bottom: '20%' },
-  }
-
-  const categoryOption = {
-    title: { text: '支出分类', left: 'center', textStyle: { fontSize: 14 } },
-    tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
-    series: [{
-      type: 'pie',
-      radius: ['40%', '70%'],
-      data: categoryData.slice(0, 6).map(d => ({ name: d.name, value: d.value })),
-      label: { show: true, formatter: '{b}\n{d}%' },
-    }],
   }
 
   return (
@@ -210,7 +212,12 @@ const Dashboard: React.FC = () => {
           </Col>
           <Col span={12}>
             <Card>
-              <ReactECharts option={categoryOption} style={{ height: 300 }} />
+              <PieChart 
+                title="支出分类" 
+                data={categoryData} 
+                height={300}
+                onDrillDown={handleDrillDown}
+              />
             </Card>
           </Col>
         </Row>

@@ -197,6 +197,8 @@ export const reportApi = {
     balance: number
     incomeByCategory: Record<string, number>
     expenseByCategory: Record<string, number>
+    incomeCategoryDetails: Array<{ name: string; value: number; categoryId: string; hasChildren: boolean }>
+    expenseCategoryDetails: Array<{ name: string; value: number; categoryId: string; hasChildren: boolean }>
     startAssets: number
     startLiabilities: number
     startNetWorth: number
@@ -230,9 +232,9 @@ export const analyticsApi = {
     label: string
     amount: number
   }>>>('/analytics/trends', { params: { type, period } }),
-  getCategoryBreakdown: (type: 'income' | 'expense', startDate?: string, endDate?: string) => 
-    api.get<ApiResponse<Array<{ name: string; value: number }>>>('/analytics/category-breakdown', { 
-      params: { type, startDate, endDate } 
+  getCategoryBreakdown: (type: 'income' | 'expense', startDate?: string, endDate?: string, parentCategoryId?: string) => 
+    api.get<ApiResponse<Array<{ name: string; value: number; categoryId?: string; hasChildren?: boolean }>>>('/analytics/category-breakdown', { 
+      params: { type, startDate, endDate, parentCategoryId } 
     }),
   getAssetTrend: () => api.get<ApiResponse<Array<{
     label: string

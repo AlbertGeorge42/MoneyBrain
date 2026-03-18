@@ -3,8 +3,17 @@ import { Card, DatePicker, Button, Table, Row, Col, Statistic, Divider } from 'a
 import { SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { PieChart, BarChart } from '../charts'
+import { PieChartDataItem } from '../charts/PieChart'
+import * as api from '../../services/api'
 
 const { RangePicker } = DatePicker
+
+interface CategoryDetail {
+  name: string
+  value: number
+  categoryId: string
+  hasChildren: boolean
+}
 
 interface IncomeExpenseData {
   startAssets?: number
@@ -16,6 +25,8 @@ interface IncomeExpenseData {
   balance?: number
   incomeByCategory?: Record<string, number>
   expenseByCategory?: Record<string, number>
+  incomeCategoryDetails?: CategoryDetail[]
+  expenseCategoryDetails?: CategoryDetail[]
   endAssets?: number
   endLiabilities?: number
   endNetWorth?: number
@@ -34,6 +45,56 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   onDateRangeChange,
   onOpenSettings,
 }) => {
+  const handleDrillDownIncome = async (item: PieChartDataItem): Promise<PieChartDataItem[]> => {
+    if (!item.categoryId) return []
+    try {
+      const res = await api.analyticsApi.getCategoryBreakdown(
+        'income', 
+        dateRange[0].format('YYYY-MM-DD'), 
+        dateRange[1].format('YYYY-MM-DD'),
+        item.categoryId
+      )
+      if (res.data.success && res.data.data) {
+        return res.data.data
+      }
+    } catch (error) {
+      console.error('获取二级分类数据失败:', error)
+    }
+    return []
+  }
+
+  const handleDrillDownExpense = async (item: PieChartDataItem): Promise<PieChartDataItem[]> => {
+    if (!item.categoryId) return []
+    try {
+      const res = await api.analyticsApi.getCategoryBreakdown(
+        'expense', 
+        dateRange[0].format('YYYY-MM-DD'), 
+        dateRange[1].format('YYYY-MM-DD'),
+        item.categoryId
+      )
+      if (res.data.success && res.data.data) {
+        return res.data.data
+      }
+    } catch (error) {
+      console.error('获取二级分类数据失败:', error)
+    }
+    return []
+  }
+
+  const incomePieData: PieChartDataItem[] = (incomeExpenseData?.incomeCategoryDetails || []).map(d => ({
+    name: d.name,
+    value: d.value,
+    categoryId: d.categoryId,
+    hasChildren: d.hasChildren
+  }))
+
+  const expensePieData: PieChartDataItem[] = (incomeExpenseData?.expenseCategoryDetails || []).map(d => ({
+    name: d.name,
+    value: Math.abs(d.value),
+    categoryId: d.categoryId,
+    hasChildren: d.hasChildren
+  }))
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -53,7 +114,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期初资产"
               value={incomeExpenseData?.startAssets || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.startAssets || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.startAssets || 0) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>
@@ -62,7 +123,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期初负债"
               value={(incomeExpenseData?.startLiabilities || 0) <= 0 ? Math.abs(incomeExpenseData?.startLiabilities || 0) : -(incomeExpenseData?.startLiabilities || 0)}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.startLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.startLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600' }}
               prefix="¥"
             />
           </Col>
@@ -71,7 +132,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期初净资产"
               value={incomeExpenseData?.startNetWorth || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.startNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.startNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>
@@ -80,7 +141,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="资产变动"
               value={incomeExpenseData?.assetChange || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>
@@ -138,11 +199,9 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           <Card size="small">
             <PieChart 
               title="收入分类" 
-              data={Object.entries(incomeExpenseData?.incomeByCategory || {})
-                .map(([name, value]) => ({ name, value: value as number }))
-                .filter(d => d.value > 0)
-              }
+              data={incomePieData}
               height={250}
+              onDrillDown={handleDrillDownIncome}
             />
           </Card>
         </Col>
@@ -150,11 +209,9 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           <Card size="small">
             <PieChart 
               title="支出分类" 
-              data={Object.entries(incomeExpenseData?.expenseByCategory || {})
-                .map(([name, value]) => ({ name, value: Math.abs(value as number) }))
-                .filter(d => d.value > 0)
-              }
+              data={expensePieData}
               height={250}
+              onDrillDown={handleDrillDownExpense}
             />
           </Card>
         </Col>
@@ -169,7 +226,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期末资产"
               value={incomeExpenseData?.endAssets || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.endAssets || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.endAssets || 0) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>
@@ -178,7 +235,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期末负债"
               value={(incomeExpenseData?.endLiabilities || 0) <= 0 ? Math.abs(incomeExpenseData?.endLiabilities || 0) : -(incomeExpenseData?.endLiabilities || 0)}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.endLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.endLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600' }}
               prefix="¥"
             />
           </Col>
@@ -187,7 +244,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期末净资产"
               value={incomeExpenseData?.endNetWorth || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.endNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: (incomeExpenseData?.endNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>

@@ -72,7 +72,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               title="期初现金"
               value={cashFlowData?.startCash || 0}
               precision={2}
-              valueStyle={{ color: '#1890ff', fontSize: 16 }}
+              valueStyle={{ color: '#1890ff' }}
               prefix="¥"
             />
           </Col>
@@ -81,7 +81,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               title="期末现金"
               value={cashFlowData?.endCash || 0}
               precision={2}
-              valueStyle={{ color: '#52c41a', fontSize: 16 }}
+              valueStyle={{ color: '#52c41a' }}
               prefix="¥"
             />
           </Col>
@@ -90,7 +90,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               title="现金变动"
               value={(cashFlowData?.endCash || 0) - (cashFlowData?.startCash || 0)}
               precision={2}
-              valueStyle={{ color: ((cashFlowData?.endCash || 0) - (cashFlowData?.startCash || 0)) >= 0 ? '#3f8600' : '#cf1322', fontSize: 16 }}
+              valueStyle={{ color: ((cashFlowData?.endCash || 0) - (cashFlowData?.startCash || 0)) >= 0 ? '#3f8600' : '#cf1322' }}
               prefix="¥"
             />
           </Col>
