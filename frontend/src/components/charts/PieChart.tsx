@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { Empty, Button, Breadcrumb } from 'antd'
+import { Empty, Button } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 
 export interface PieChartDataItem {
@@ -19,12 +19,13 @@ interface PieChartProps {
 
 const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillDown }) => {
   const validData = Array.isArray(data) ? data : []
-  const hasValidData = validData.some(d => d.value != null && d.value !== 0)
   
   const [currentData, setCurrentData] = useState<PieChartDataItem[]>(validData)
   const [currentTitle, setCurrentTitle] = useState(title)
   const [breadcrumb, setBreadcrumb] = useState<Array<{ title: string; data: PieChartDataItem[] }>>([])
   const [loading, setLoading] = useState(false)
+
+  const hasValidData = currentData.some(d => d.value != null && d.value !== 0)
 
   React.useEffect(() => {
     setCurrentData(validData)
@@ -63,17 +64,6 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
     }
   }
 
-  const handleBreadcrumbClick = (index: number) => {
-    if (index === breadcrumb.length - 1) {
-      handleBack()
-    } else {
-      const targetItem = breadcrumb[index]
-      setCurrentData(targetItem.data)
-      setCurrentTitle(targetItem.title)
-      setBreadcrumb(prev => prev.slice(0, index))
-    }
-  }
-
   const option = {
     title: { text: currentTitle, left: 'center', textStyle: { fontSize: 14 } },
     tooltip: { 
@@ -109,30 +99,21 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
   }
 
   return (
-    <div style={{ height }}>
+    <div style={{ height, position: 'relative' }}>
       {breadcrumb.length > 0 && (
-        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Button 
-            type="text" 
-            size="small" 
-            icon={<ArrowLeftOutlined />} 
-            onClick={handleBack}
-          >
-            返回
-          </Button>
-          <Breadcrumb separator=">" style={{ fontSize: 12 }}>
-            {breadcrumb.map((item, index) => (
-              <Breadcrumb.Item key={index}>
-                <a onClick={() => handleBreadcrumbClick(index)}>{item.title}</a>
-              </Breadcrumb.Item>
-            ))}
-            <Breadcrumb.Item>{currentTitle}</Breadcrumb.Item>
-          </Breadcrumb>
-        </div>
+        <Button 
+          type="text" 
+          size="small" 
+          icon={<ArrowLeftOutlined />} 
+          onClick={handleBack}
+          style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}
+        >
+          返回
+        </Button>
       )}
       <ReactECharts 
         option={option} 
-        style={{ height: breadcrumb.length > 0 ? height - 32 : height }} 
+        style={{ height }} 
         onEvents={{ click: handleItemClick }}
         showLoading={loading}
       />

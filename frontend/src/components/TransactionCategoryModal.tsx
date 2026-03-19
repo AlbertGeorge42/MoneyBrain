@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Modal, Tabs, Table, Button, Form, Input, Space, message, Tooltip, Popconfirm } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, HolderOutlined, FolderAddOutlined, RightOutlined, DownOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { Category, categoryApi } from '../services/api'
 import DynamicIcon from './DynamicIcon'
 import IconPicker from './IconPicker'
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
+import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
@@ -15,7 +15,19 @@ interface Props {
   onClose: () => void
 }
 
-// 可排序行组件（支持一级和二级分类）
+interface TreeNode {
+  id: string
+  key: string
+  name: string
+  icon: string | null
+  type: 'category'
+  categoryType: 'income' | 'expense' | 'transfer'
+  parentId?: string
+  sort: number
+  children?: TreeNode[]
+  depth: number
+}
+
 const SortableRow = (props: any) => {
   const id = props['data-row-key']
   const isCategoryRow = id?.startsWith('category-')
@@ -27,9 +39,12 @@ const SortableRow = (props: any) => {
 
   const style: React.CSSProperties = {
     ...props.style,
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
-    ...(isDragging ? { position: 'relative', zIndex: 9999, background: '#fafafa' } : {}),
+    ...(isDragging ? { 
+      opacity: 0.5,
+      background: '#fafafa',
+    } : {}),
   }
 
   return (
@@ -42,7 +57,6 @@ const SortableRow = (props: any) => {
   )
 }
 
-// 拖拽手柄组件
 const DragHandle = ({ id }: { id: string }) => {
   const { listeners, setNodeRef } = useSortable({ id })
   
@@ -62,11 +76,14 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const [form] = Form.useForm()
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([])
   
-  // 本地排序状态，用于动画
   const [localCategories, setLocalCategories] = useState<Category[]>([])
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -78,7 +95,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }, [visible])
 
-  // 同步本地状态
   useEffect(() => {
     setLocalCategories(categories)
   }, [categories])
@@ -132,26 +148,36 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }
 
-  // 拖拽排序
   const handleDragEnd = async (event: DragEndEvent, type: 'income' | 'expense' | 'transfer') => {
     const { active, over } = event
+    
     if (!over || active.id === over.id) return
 
-    const activeId = String(active.id).replace('category-', '')
-    const overId = String(over.id).replace('category-', '')
+    const activeKey = String(active.id)
+    const overKey = String(over.id)
 
-    // 获取拖拽的分类信息
+    const activeId = activeKey.replace('category-', '')
+    const overId = overKey.replace('category-', '')
+
     const activeCategory = localCategories.find(c => c.id === activeId)
     const overCategory = localCategories.find(c => c.id === overId)
     
     if (!activeCategory || !overCategory) return
     
-    // 判断是一级分类还是二级分类
-    const isTopLevel = !activeCategory.parentId && !overCategory.parentId
-    const isSecondLevel = activeCategory.parentId && overCategory.parentId
+    const isTopLevelDrag = !activeCategory.parentId && !overCategory.parentId
+    const isSecondLevelDrag = activeCategory.parentId && overCategory.parentId
     
-    if (isTopLevel) {
-      // 一级分类排序逻辑
+    if (!isTopLevelDrag && !isSecondLevelDrag) {
+      message.warning('只能在同一层级内调整顺序')
+      return
+    }
+
+    if (isSecondLevelDrag && activeCategory.parentId !== overCategory.parentId) {
+      message.warning('只能在同一父分类下调整子分类顺序')
+      return
+    }
+
+    if (isTopLevelDrag) {
       const typeCategories = localCategories
         .filter(c => c.type === type && !c.parentId)
         .sort((a, b) => a.sort - b.sort)
@@ -161,7 +187,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
       if (oldIndex === -1 || newIndex === -1) return
 
-      // 先更新本地状态以显示动画
       const reorderedCategories = arrayMove(typeCategories, oldIndex, newIndex)
       const updatedLocalCategories = localCategories.map(cat => {
         if (cat.type === type && !cat.parentId) {
@@ -172,7 +197,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       })
       setLocalCategories(updatedLocalCategories)
 
-      // 然后调用 API 保存
       const items = reorderedCategories.map((c, index) => ({
         id: c.id,
         sort: index,
@@ -181,21 +205,12 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
       try {
         await categoryApi.updateSort(items)
-        fetchCategories()
         message.success('排序更新成功')
       } catch (error) {
         message.error('排序更新失败')
-        // 失败时恢复原状态
         setLocalCategories(categories)
       }
-    } else if (isSecondLevel) {
-      // 二级分类排序逻辑
-      // 只允许同一父分类下的二级分类排序
-      if (activeCategory.parentId !== overCategory.parentId) {
-        message.warning('只能在同一父分类下调整子分类顺序')
-        return
-      }
-      
+    } else if (isSecondLevelDrag) {
       const parentId = activeCategory.parentId
       const siblingCategories = localCategories
         .filter(c => c.parentId === parentId)
@@ -206,7 +221,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       
       if (oldIndex === -1 || newIndex === -1) return
       
-      // 先更新本地状态以显示动画
       const reorderedCategories = arrayMove(siblingCategories, oldIndex, newIndex)
       const updatedLocalCategories = localCategories.map(cat => {
         if (cat.parentId === parentId) {
@@ -217,7 +231,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       })
       setLocalCategories(updatedLocalCategories)
       
-      // 然后调用 API 保存
       const items = reorderedCategories.map((c, index) => ({
         id: c.id,
         sort: index,
@@ -226,36 +239,19 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       
       try {
         await categoryApi.updateSort(items)
-        fetchCategories()
         message.success('子分类排序更新成功')
       } catch (error) {
         message.error('子分类排序更新失败')
-        // 失败时恢复原状态
         setLocalCategories(categories)
       }
-    } else {
-      message.warning('只能在同一层级内调整顺序')
     }
   }
 
-  // 构建树形数据（与 AccountCategoryModal 保持一致）
   const buildTreeData = useMemo(() => {
-    interface TreeNode {
-      id: string
-      key: string
-      name: string
-      icon: string | null
-      type: 'category'
-      categoryType: 'income' | 'expense' | 'transfer'
-      parentId?: string
-      sort: number
-      children?: TreeNode[]
-    }
-
-    const buildCategoryNode = (category: Category, allCategories: Category[]): TreeNode => {
+    const buildCategoryNode = (category: Category, allCategories: Category[], depth: number): TreeNode => {
       const childCategories = allCategories.filter(c => c.parentId === category.id).sort((a, b) => a.sort - b.sort)
       
-      const children: TreeNode[] = childCategories.map(c => buildCategoryNode(c, allCategories))
+      const children: TreeNode[] = childCategories.map(c => buildCategoryNode(c, allCategories, depth + 1))
 
       return {
         id: category.id,
@@ -267,6 +263,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         parentId: category.parentId || undefined,
         sort: category.sort,
         children: children.length > 0 ? children : undefined,
+        depth,
       }
     }
 
@@ -274,14 +271,13 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     const expenseCategories = localCategories.filter(c => c.type === 'expense' && !c.parentId).sort((a, b) => a.sort - b.sort)
     const transferCategories = localCategories.filter(c => c.type === 'transfer' && !c.parentId).sort((a, b) => a.sort - b.sort)
 
-    const incomeNodes = incomeCategories.map(c => buildCategoryNode(c, localCategories))
-    const expenseNodes = expenseCategories.map(c => buildCategoryNode(c, localCategories))
-    const transferNodes = transferCategories.map(c => buildCategoryNode(c, localCategories))
+    const incomeNodes = incomeCategories.map(c => buildCategoryNode(c, localCategories, 0))
+    const expenseNodes = expenseCategories.map(c => buildCategoryNode(c, localCategories, 0))
+    const transferNodes = transferCategories.map(c => buildCategoryNode(c, localCategories, 0))
 
     return { incomeNodes, expenseNodes, transferNodes }
   }, [localCategories])
 
-  // 切换展开状态
   const toggleExpand = (recordKey: string) => {
     setExpandedRowKeys(prev => 
       prev.includes(recordKey) 
@@ -290,13 +286,11 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     )
   }
 
-  // 表格列定义
   const getColumns = () => [
     {
       title: '',
       width: 30,
-      render: (_: unknown, record: any) => {
-        // 展开图标列：只有有子分类的行才显示
+      render: (_: unknown, record: TreeNode) => {
         if (record.children && record.children.length > 0) {
           const isExpanded = expandedRowKeys.includes(record.key)
           return (
@@ -314,8 +308,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     {
       title: '',
       width: 30,
-      render: (_: unknown, record: any) => {
-        // 拖拽手柄列：一级和二级分类都显示
+      render: (_: unknown, record: TreeNode) => {
         if (record.type === 'category') {
           return <DragHandle id={record.key} />
         }
@@ -326,7 +319,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: any) => (
+      render: (text: string, record: TreeNode) => (
         <span>
           <DynamicIcon name={record.icon} size={16} fallback="file-text" /> {text}
         </span>
@@ -336,7 +329,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '操作',
       key: 'action',
       width: 100,
-      render: (_: unknown, record: any) => (
+      render: (_: unknown, record: TreeNode) => (
         <Space size={4}>
           {!record.parentId && (
             <Tooltip title="添加子分类">
@@ -353,7 +346,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
               type="text" 
               size="small" 
               icon={<EditOutlined />} 
-              onClick={() => handleEdit(record)}
+              onClick={() => handleEdit(record as any)}
             />
           </Tooltip>
           <Popconfirm
@@ -371,33 +364,30 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     },
   ]
 
-  // 获取所有可排序的 key（包含一级和二级分类）
-  const getSortableKeys = (nodes: any[]) => {
+  const getVisibleSortableKeys = useCallback((nodes: TreeNode[]): string[] => {
     const keys: string[] = []
-    const traverse = (items: any[]) => {
+    const traverse = (items: TreeNode[]) => {
       items.forEach(item => {
-        if (item.type === 'category') {
-          keys.push(item.key)
-        }
-        if (item.children) {
+        keys.push(item.key)
+        if (item.children && expandedRowKeys.includes(item.key)) {
           traverse(item.children)
         }
       })
     }
     traverse(nodes)
     return keys
-  }
+  }, [expandedRowKeys])
 
   const renderTable = (type: 'income' | 'expense' | 'transfer') => {
     const data = type === 'income' ? buildTreeData.incomeNodes 
                : type === 'expense' ? buildTreeData.expenseNodes 
                : buildTreeData.transferNodes
-    const sortableKeys = getSortableKeys(data)
+    const sortableKeys = getVisibleSortableKeys(data)
 
     return (
       <DndContext 
         sensors={sensors} 
-        collisionDetection={closestCenter} 
+        collisionDetection={pointerWithin}
         onDragEnd={(e) => handleDragEnd(e, type)}
         modifiers={[restrictToVerticalAxis]}
       >

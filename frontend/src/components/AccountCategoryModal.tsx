@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Modal, Table, Button, Form, Input, Space, Popconfirm, message, TreeSelect, InputNumber, Select, Tabs, Tooltip, DatePicker } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, HolderOutlined, FolderAddOutlined, WalletOutlined, RightOutlined, DownOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { AccountCategory, Account, accountCategoryApi, accountApi } from '../services/api'
 import dayjs from 'dayjs'
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
+import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
@@ -17,7 +17,22 @@ interface Props {
   onClose: () => void
 }
 
-// 可排序行组件（支持分类和账户）
+interface TreeNode {
+  id?: string
+  key: string
+  name: string
+  icon: string
+  type: 'category' | 'account'
+  nodeType?: 'asset' | 'liability'
+  parentId?: string
+  sort?: number
+  balance: number
+  initialBalance?: number
+  initialBalanceDate?: string | null
+  children?: TreeNode[]
+  depth: number
+}
+
 const SortableRow = (props: any) => {
   const id = props['data-row-key']
   const isSortable = id?.startsWith('category-') || id?.startsWith('account-')
@@ -29,9 +44,12 @@ const SortableRow = (props: any) => {
 
   const style: React.CSSProperties = {
     ...props.style,
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
-    ...(isDragging ? { position: 'relative', zIndex: 9999, background: '#fafafa' } : {}),
+    ...(isDragging ? { 
+      opacity: 0.5,
+      background: '#fafafa',
+    } : {}),
   }
 
   return (
@@ -44,7 +62,6 @@ const SortableRow = (props: any) => {
   )
 }
 
-// 拖拽手柄组件
 const DragHandle = ({ id }: { id: string }) => {
   const { listeners, setNodeRef } = useSortable({ id })
   
@@ -75,12 +92,15 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const [accountForm] = Form.useForm()
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([])
   
-  // 本地排序状态，用于动画
   const [localAccountCategories, setLocalAccountCategories] = useState<AccountCategory[]>([])
   const [localAccounts, setLocalAccounts] = useState<Account[]>([])
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -93,7 +113,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }, [visible])
 
-  // 同步本地状态
   useEffect(() => {
     setLocalAccountCategories(accountCategories)
   }, [accountCategories])
@@ -102,29 +121,13 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     setLocalAccounts(accounts)
   }, [accounts])
 
-  // 构建树形数据
   const buildTreeData = useMemo(() => {
-    interface TreeNode {
-      id?: string
-      key: string
-      name: string
-      icon: string
-      type: 'category' | 'account'
-      nodeType?: 'asset' | 'liability'
-      parentId?: string
-      sort?: number
-      balance: number
-      initialBalance?: number
-      initialBalanceDate?: string | null
-      children?: TreeNode[]
-    }
-
-    const buildCategoryNode = (category: AccountCategory, allCategories: AccountCategory[], allAccounts: Account[]): TreeNode => {
+    const buildCategoryNode = (category: AccountCategory, allCategories: AccountCategory[], allAccounts: Account[], depth: number): TreeNode => {
       const childCategories = allCategories.filter(c => c.parentId === category.id).sort((a, b) => a.sort - b.sort)
       const categoryAccounts = allAccounts.filter(a => a.categoryId === category.id).sort((a, b) => a.sort - b.sort)
       
       const children: TreeNode[] = [
-        ...childCategories.map(c => buildCategoryNode(c, allCategories, allAccounts)),
+        ...childCategories.map(c => buildCategoryNode(c, allCategories, allAccounts, depth + 1)),
         ...categoryAccounts.map(a => ({
           id: a.id,
           key: `account-${a.id}`,
@@ -137,6 +140,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           initialBalanceDate: a.initialBalanceDate,
           parentId: category.id,
           sort: a.sort,
+          depth: depth + 1,
         })),
       ]
 
@@ -151,19 +155,19 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         sort: category.sort,
         balance: children.reduce((sum: number, child) => sum + (child.balance || 0), 0),
         children: children.length > 0 ? children : undefined,
+        depth,
       }
     }
 
     const assetCategories = localAccountCategories.filter(c => c.type === 'asset' && !c.parentId).sort((a, b) => a.sort - b.sort)
     const liabilityCategories = localAccountCategories.filter(c => c.type === 'liability' && !c.parentId).sort((a, b) => a.sort - b.sort)
 
-    const assetNodes = assetCategories.map(c => buildCategoryNode(c, localAccountCategories, localAccounts))
-    const liabilityNodes = liabilityCategories.map(c => buildCategoryNode(c, localAccountCategories, localAccounts))
+    const assetNodes = assetCategories.map(c => buildCategoryNode(c, localAccountCategories, localAccounts, 0))
+    const liabilityNodes = liabilityCategories.map(c => buildCategoryNode(c, localAccountCategories, localAccounts, 0))
 
     return { assetNodes, liabilityNodes }
   }, [localAccountCategories, localAccounts])
 
-  // ========== 分类操作 ==========
   const handleAddCategory = (parentId?: string, type?: 'asset' | 'liability') => {
     setEditingCategory(null)
     categoryForm.resetFields()
@@ -215,7 +219,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }
 
-  // ========== 账户操作 ==========
   const handleAddAccount = (categoryId: string) => {
     setEditingAccount(null)
     accountForm.resetFields()
@@ -321,33 +324,39 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }
 
-  // 拖拽排序
   const handleDragEnd = async (event: DragEndEvent, type: 'asset' | 'liability') => {
     const { active, over } = event
+    
     if (!over || active.id === over.id) return
 
-    const activeId = String(active.id)
-    const overId = String(over.id)
+    const activeKey = String(active.id)
+    const overKey = String(over.id)
     
-    // 判断是分类还是账户
-    const isCategoryDrag = activeId.startsWith('category-')
-    const isAccountDrag = activeId.startsWith('account-')
-    const isOverCategory = overId.startsWith('category-')
-    const isOverAccount = overId.startsWith('account-')
+    const isCategoryDrag = activeKey.startsWith('category-')
+    const isAccountDrag = activeKey.startsWith('account-')
+    const isOverCategory = overKey.startsWith('category-')
+    const isOverAccount = overKey.startsWith('account-')
     
     if (isCategoryDrag && isOverCategory) {
-      // 分类排序逻辑
-      const activeCategoryId = activeId.replace('category-', '')
-      const overCategoryId = overId.replace('category-', '')
+      const activeCategoryId = activeKey.replace('category-', '')
+      const overCategoryId = overKey.replace('category-', '')
       
-      // 只允许一级分类之间排序
+      const activeCategory = localAccountCategories.find(c => c.id === activeCategoryId)
+      const overCategory = localAccountCategories.find(c => c.id === overCategoryId)
+      
+      if (!activeCategory || !overCategory) return
+      
+      if (activeCategory.parentId || overCategory.parentId) {
+        message.warning('只能在一级分类之间调整顺序')
+        return
+      }
+      
       const categories = localAccountCategories.filter(c => c.type === type && !c.parentId).sort((a, b) => a.sort - b.sort)
       const oldIndex = categories.findIndex(c => c.id === activeCategoryId)
       const newIndex = categories.findIndex(c => c.id === overCategoryId)
 
       if (oldIndex === -1 || newIndex === -1) return
 
-      // 先更新本地状态以显示动画
       const reorderedCategories = arrayMove(categories, oldIndex, newIndex)
       const updatedLocalCategories = localAccountCategories.map(cat => {
         if (cat.type === type && !cat.parentId) {
@@ -358,7 +367,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       })
       setLocalAccountCategories(updatedLocalCategories)
 
-      // 然后调用 API 保存
       const items = reorderedCategories.map((c, index) => ({
         id: c.id,
         sort: index,
@@ -367,25 +375,20 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
       try {
         await accountCategoryApi.updateSort(items)
-        fetchAccountCategories()
         message.success('排序更新成功')
       } catch (error) {
         message.error('排序更新失败')
-        // 失败时恢复原状态
         setLocalAccountCategories(accountCategories)
       }
     } else if (isAccountDrag && isOverAccount) {
-      // 账户排序逻辑
-      const activeAccountId = activeId.replace('account-', '')
-      const overAccountId = overId.replace('account-', '')
+      const activeAccountId = activeKey.replace('account-', '')
+      const overAccountId = overKey.replace('account-', '')
       
-      // 获取账户信息
       const activeAccount = localAccounts.find(a => a.id === activeAccountId)
       const overAccount = localAccounts.find(a => a.id === overAccountId)
       
       if (!activeAccount || !overAccount) return
       
-      // 只允许同一分类下的账户排序
       if (activeAccount.categoryId !== overAccount.categoryId) {
         message.warning('只能在同一分类下调整账户顺序')
         return
@@ -398,7 +401,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       
       if (oldIndex === -1 || newIndex === -1) return
       
-      // 先更新本地状态以显示动画
       const reorderedAccounts = arrayMove(categoryAccounts, oldIndex, newIndex)
       const updatedLocalAccounts = localAccounts.map(acc => {
         if (acc.categoryId === categoryId) {
@@ -409,7 +411,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       })
       setLocalAccounts(updatedLocalAccounts)
       
-      // 然后调用 API 保存
       const items = reorderedAccounts.map((a, index) => ({
         id: a.id,
         sort: index,
@@ -418,34 +419,30 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       
       try {
         await accountApi.updateSort(items)
-        fetchAccounts()
         message.success('账户排序更新成功')
       } catch (error) {
         message.error('账户排序更新失败')
-        // 失败时恢复原状态
         setLocalAccounts(accounts)
       }
+    } else {
+      message.warning('只能在同一类型内调整顺序')
     }
   }
 
-  // 获取所有可排序的 key（包含分类和账户）
-  const getSortableKeys = (nodes: any[]) => {
+  const getVisibleSortableKeys = useCallback((nodes: TreeNode[]): string[] => {
     const keys: string[] = []
-    const traverse = (items: any[]) => {
+    const traverse = (items: TreeNode[]) => {
       items.forEach(item => {
-        if (item.type === 'category' || item.type === 'account') {
-          keys.push(item.key)
-        }
-        if (item.children) {
+        keys.push(item.key)
+        if (item.children && expandedRowKeys.includes(item.key)) {
           traverse(item.children)
         }
       })
     }
     traverse(nodes)
     return keys
-  }
+  }, [expandedRowKeys])
 
-  // 切换展开状态
   const toggleExpand = (recordKey: string) => {
     setExpandedRowKeys(prev => 
       prev.includes(recordKey) 
@@ -454,13 +451,11 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     )
   }
 
-  // 表格列定义
   const getCategoryColumns = () => [
     {
       title: '',
       width: 30,
-      render: (_: unknown, record: any) => {
-        // 展开图标列：只有有子项的行才显示
+      render: (_: unknown, record: TreeNode) => {
         if (record.children && record.children.length > 0) {
           const isExpanded = expandedRowKeys.includes(record.key)
           return (
@@ -478,8 +473,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     {
       title: '',
       width: 30,
-      render: (_: unknown, record: any) => {
-        // 拖拽手柄列：分类和账户都显示
+      render: (_: unknown, record: TreeNode) => {
         if (record.type === 'category' || record.type === 'account') {
           return <DragHandle id={record.key} />
         }
@@ -490,7 +484,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: any) => (
+      render: (text: string, record: TreeNode) => (
         <span>
           <DynamicIcon name={record.icon} size={16} fallback={record.type === 'category' ? 'folder' : 'wallet'} /> {text}
         </span>
@@ -501,7 +495,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       dataIndex: 'balance',
       key: 'balance',
       width: 120,
-      render: (balance: number, record: any) => {
+      render: (balance: number, record: TreeNode) => {
         if (record.type === 'category') return '-'
         const result = formatBalance(balance, record.nodeType || 'asset')
         return <span style={{ color: result.color }}>{result.text}</span>
@@ -511,7 +505,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '操作',
       key: 'action',
       width: 120,
-      render: (_: unknown, record: any) => (
+      render: (_: unknown, record: TreeNode) => (
         <Space size={4}>
           {record.type === 'category' ? (
             <>
@@ -519,12 +513,12 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
                 <Button type="text" size="small" icon={<FolderAddOutlined />} onClick={() => handleAddCategory(record.id)} />
               </Tooltip>
               <Tooltip title="添加账户">
-                <Button type="text" size="small" icon={<WalletOutlined />} onClick={() => handleAddAccount(record.id)} />
+                <Button type="text" size="small" icon={<WalletOutlined />} onClick={() => handleAddAccount(record.id!)} />
               </Tooltip>
               <Tooltip title="编辑">
                 <Button type="text" size="small" icon={<EditOutlined />} onClick={() => handleEditCategory(record)} />
               </Tooltip>
-              <Popconfirm title="确定删除此分类？" onConfirm={() => handleDeleteCategory(record.id)} okText="确定" cancelText="取消">
+              <Popconfirm title="确定删除此分类？" onConfirm={() => handleDeleteCategory(record.id!)} okText="确定" cancelText="取消">
                 <Tooltip title="删除">
                   <Button type="text" size="small" danger icon={<DeleteOutlined />} />
                 </Tooltip>
@@ -535,7 +529,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
               <Tooltip title="编辑">
                 <Button type="text" size="small" icon={<EditOutlined />} onClick={() => handleEditAccount(record)} />
               </Tooltip>
-              <Popconfirm title="确定删除此账户？" onConfirm={() => handleDeleteAccount(record.id)} okText="确定" cancelText="取消">
+              <Popconfirm title="确定删除此账户？" onConfirm={() => handleDeleteAccount(record.id!)} okText="确定" cancelText="取消">
                 <Tooltip title="删除">
                   <Button type="text" size="small" danger icon={<DeleteOutlined />} />
                 </Tooltip>
@@ -561,12 +555,12 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const renderTable = (type: 'asset' | 'liability') => {
     const data = type === 'asset' ? buildTreeData.assetNodes : buildTreeData.liabilityNodes
-    const sortableKeys = getSortableKeys(data)
+    const sortableKeys = getVisibleSortableKeys(data)
 
     return (
       <DndContext 
         sensors={sensors} 
-        collisionDetection={closestCenter} 
+        collisionDetection={pointerWithin}
         onDragEnd={(e) => handleDragEnd(e, type)}
         modifiers={[restrictToVerticalAxis]}
       >
@@ -582,7 +576,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
             onExpandedRowsChange={(keys) => setExpandedRowKeys(keys as string[])}
             expandable={{
               rowExpandable: (record) => !!(record.children && record.children.length > 0),
-              expandIcon: () => null, // 禁用默认展开图标
+              expandIcon: () => null,
             }}
             components={{
               body: {
@@ -608,7 +602,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     },
   ]
 
-  // 根据当前 tab 获取按钮配置
   const getAddButton = () => {
     if (activeTab === 'asset') {
       return (
@@ -652,7 +645,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         />
       </Modal>
 
-      {/* 分类表单弹窗 */}
       <Modal
         title={editingCategory ? '编辑分类' : '新增分类'}
         open={categoryFormVisible}
@@ -685,7 +677,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         </Form>
       </Modal>
 
-      {/* 账户表单弹窗 */}
       <Modal
         title={editingAccount ? '编辑账户' : '新增账户'}
         open={accountFormVisible}

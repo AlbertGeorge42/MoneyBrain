@@ -19,6 +19,7 @@
     "antd": "^5.22.0",
     "axios": "^1.7.7",
     "dayjs": "^1.11.13",
+    "dnd-kit-sortable-tree": "^0.1.73",
     "echarts": "^5.5.1",
     "echarts-for-react": "^3.0.2",
     "lucide-react": "^0.577.0",
