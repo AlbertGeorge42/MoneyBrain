@@ -19,9 +19,9 @@ router.get('/', async (req, res, next) => {
     const result = await transactionService.getTransactionList({
       page: Number(page),
       pageSize: Number(pageSize),
-      accountId: accountId as string,
-      categoryId: categoryId as string,
-      type: type as string,
+      accountId: accountId ? (Array.isArray(accountId) ? accountId as string[] : [accountId as string]) : undefined,
+      categoryId: categoryId ? (Array.isArray(categoryId) ? categoryId as string[] : [categoryId as string]) : undefined,
+      type: type ? (Array.isArray(type) ? type as string[] : [type as string]) : undefined,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
     })

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { 
-  Table, Button, Select, DatePicker, 
-  Space, Card, Tag, Popconfirm, message, Row, Col, Statistic
+  Table, Button, Space, Card, Tag, Popconfirm, message, Row, Col, Statistic
 } from 'antd'
 import { EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -12,23 +11,25 @@ import {
   TransactionModal, 
   TransferModal, 
   RefundModal,
+  TransactionFilter,
   TransactionFormValues,
   TransferFormValues,
-  RefundFormValues
+  RefundFormValues,
+  TransactionFilterValues,
 } from '../components/transactions'
-
-const { RangePicker } = DatePicker
 
 const Transactions: React.FC = () => {
   const { 
     transactions, 
     accounts, 
     categories,
+    accountCategories,
     loading, 
     pagination,
     fetchTransactions, 
     fetchAccounts,
     fetchCategories,
+    fetchAccountCategories,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -39,11 +40,12 @@ const Transactions: React.FC = () => {
   const [refundModalVisible, setRefundModalVisible] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [initialType, setInitialType] = useState<'income' | 'expense' | undefined>(undefined)
-  const [filters, setFilters] = useState({
-    type: undefined as string | undefined,
-    accountId: undefined as string | undefined,
-    categoryId: undefined as string | undefined,
-    dateRange: null as [dayjs.Dayjs, dayjs.Dayjs] | null,
+  const [filterExpanded, setFilterExpanded] = useState(false)
+  const [filters, setFilters] = useState<TransactionFilterValues>({
+    type: [],
+    accountId: [],
+    categoryId: [],
+    dateRange: null,
   })
   const [refundableTransactions, setRefundableTransactions] = useState<Transaction[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -53,6 +55,7 @@ const Transactions: React.FC = () => {
     fetchTransactions()
     fetchAccounts()
     fetchCategories()
+    fetchAccountCategories()
   }, [])
 
   const handleAdd = (type?: 'income' | 'expense') => {
@@ -162,9 +165,9 @@ const Transactions: React.FC = () => {
 
   const handleSearch = () => {
     const params: Record<string, unknown> = {}
-    if (filters.type) params.type = filters.type
-    if (filters.accountId) params.accountId = filters.accountId
-    if (filters.categoryId) params.categoryId = filters.categoryId
+    if (filters.type.length > 0) params.type = filters.type
+    if (filters.accountId.length > 0) params.accountId = filters.accountId
+    if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
     if (filters.dateRange) {
       params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
       params.endDate = filters.dateRange[1].format('YYYY-MM-DD')
@@ -172,6 +175,18 @@ const Transactions: React.FC = () => {
     params.page = 1
     params.pageSize = pageSize
     fetchTransactions(params)
+    setCurrentPage(1)
+  }
+
+  const handleReset = () => {
+    setFilters({
+      type: [],
+      accountId: [],
+      categoryId: [],
+      dateRange: null,
+    })
+    fetchTransactions({ page: 1, pageSize })
+    setCurrentPage(1)
   }
 
   const totalIncome = transactions
@@ -334,45 +349,17 @@ const Transactions: React.FC = () => {
       </div>
 
       <Card style={{ marginBottom: 16 }}>
-        <Row gutter={16}>
-          <Col span={6}>
-            <Select
-              placeholder="选择类型"
-              allowClear
-              style={{ width: '100%' }}
-              value={filters.type}
-              onChange={type => setFilters({ ...filters, type })}
-            >
-              <Select.Option value="income">收入</Select.Option>
-              <Select.Option value="expense">支出</Select.Option>
-              <Select.Option value="transfer">转账</Select.Option>
-              <Select.Option value="refund">退款</Select.Option>
-            </Select>
-          </Col>
-          <Col span={6}>
-            <Select
-              placeholder="选择账户"
-              allowClear
-              style={{ width: '100%' }}
-              value={filters.accountId}
-              onChange={accountId => setFilters({ ...filters, accountId })}
-            >
-              {accounts.map(a => (
-                <Select.Option key={a.id} value={a.id}><DynamicIcon name={a.icon} size={16} /> {a.name}</Select.Option>
-              ))}
-            </Select>
-          </Col>
-          <Col span={6}>
-            <RangePicker
-              style={{ width: '100%' }}
-              value={filters.dateRange}
-              onChange={dates => setFilters({ ...filters, dateRange: dates as [dayjs.Dayjs, dayjs.Dayjs] | null })}
-            />
-          </Col>
-          <Col span={6}>
-            <Button type="primary" onClick={handleSearch}>查询</Button>
-          </Col>
-        </Row>
+        <TransactionFilter
+          accounts={accounts}
+          categories={categories}
+          accountCategories={accountCategories}
+          filters={filters}
+          filterExpanded={filterExpanded}
+          onFilterChange={setFilters}
+          onFilterExpandedChange={setFilterExpanded}
+          onSearch={handleSearch}
+          onReset={handleReset}
+        />
       </Card>
 
       <Card style={{ marginBottom: 16 }}>
@@ -439,9 +426,9 @@ const Transactions: React.FC = () => {
               setCurrentPage(newPage)
               setPageSize(newPageSize)
               const params: Record<string, unknown> = { page: newPage, pageSize: newPageSize }
-              if (filters.type) params.type = filters.type
-              if (filters.accountId) params.accountId = filters.accountId
-              if (filters.categoryId) params.categoryId = filters.categoryId
+              if (filters.type.length > 0) params.type = filters.type
+              if (filters.accountId.length > 0) params.accountId = filters.accountId
+              if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
               if (filters.dateRange) {
                 params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
                 params.endDate = filters.dateRange[1].format('YYYY-MM-DD')

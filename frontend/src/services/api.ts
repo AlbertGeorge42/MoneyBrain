@@ -23,6 +23,7 @@ export interface AccountCategory {
   name: string
   type: string
   icon: string | null
+  color: string | null
   parentId: string | null
   sort: number
   parent: AccountCategory | null
@@ -40,6 +41,7 @@ export interface Account {
   initialBalance: number
   initialBalanceDate: string | null
   icon: string | null
+  color: string | null
   categoryId: string | null
   sort: number
   category: AccountCategory | null
@@ -52,6 +54,7 @@ export interface Category {
   name: string
   type: string
   icon: string | null
+  color: string | null
   parentId: string | null
   sort: number
   parent: Category | null

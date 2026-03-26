@@ -96,9 +96,9 @@ export interface UpdateRefundData {
 export interface TransactionListParams {
   page?: number
   pageSize?: number
-  accountId?: string
-  categoryId?: string
-  type?: string
+  accountId?: string | string[]
+  categoryId?: string | string[]
+  type?: string | string[]
   startDate?: Date
   endDate?: Date
 }
@@ -131,14 +131,65 @@ export class TransactionService {
     } = params
 
     const where: any = {}
+    
+    // 账户筛选支持多选，支持按账户分类筛选（以 category_ 开头）
     if (accountId) {
-      where.OR = [
-        { accountId },
-        { toAccountId: accountId },
-      ]
+      const accountIds = Array.isArray(accountId) ? accountId : [accountId]
+      const actualAccountIds: string[] = []
+      
+      for (const id of accountIds) {
+        if (id.startsWith('category_')) {
+          // 按账户分类筛选，查找该分类下的所有账户
+          const categoryAccounts = await prisma.account.findMany({
+            where: { categoryId: id.replace('category_', '') },
+            select: { id: true },
+          })
+          actualAccountIds.push(...categoryAccounts.map(a => a.id))
+        } else {
+          actualAccountIds.push(id)
+        }
+      }
+      
+      if (actualAccountIds.length > 0) {
+        where.OR = actualAccountIds.flatMap(id => [
+          { accountId: id },
+          { toAccountId: id },
+        ])
+      }
     }
-    if (categoryId) where.categoryId = categoryId
-    if (type) where.type = type
+    
+    // 分类筛选支持多选，支持按父分类筛选（包含所有子分类）
+    if (categoryId) {
+      const categoryIds = Array.isArray(categoryId) ? categoryId : [categoryId]
+      const actualCategoryIds: string[] = []
+      
+      // 递归获取所有子分类
+      const getAllChildCategoryIds = async (parentId: string): Promise<string[]> => {
+        const children = await prisma.category.findMany({
+          where: { parentId },
+          select: { id: true },
+        })
+        const childIds = children.map(c => c.id)
+        const grandChildIds = await Promise.all(childIds.map(getAllChildCategoryIds))
+        return [...childIds, ...grandChildIds.flat()]
+      }
+      
+      for (const id of categoryIds) {
+        actualCategoryIds.push(id)
+        // 获取所有子分类
+        const childIds = await getAllChildCategoryIds(id)
+        actualCategoryIds.push(...childIds)
+      }
+      
+      where.categoryId = { in: actualCategoryIds }
+    }
+    
+    // 类型筛选支持多选
+    if (type) {
+      const types = Array.isArray(type) ? type : [type]
+      where.type = { in: types }
+    }
+    
     if (startDate || endDate) {
       where.date = {}
       if (startDate) where.date.gte = startDate

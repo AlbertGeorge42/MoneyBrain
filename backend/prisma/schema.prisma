@@ -12,6 +12,7 @@ model AccountCategory {
   name             String
   type             String
   icon             String?
+  color            String?
   parentId         String?
   sort             Int                @default(0)
   parent           AccountCategory?   @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -32,6 +33,7 @@ model Account {
   initialBalance      Decimal           @default(0)
   initialBalanceDate  DateTime?
   icon                String?
+  color               String?
   categoryId          String?
   sort                Int               @default(0)
   category            AccountCategory?  @relation(fields: [categoryId], references: [id])
@@ -49,6 +51,7 @@ model Category {
   name         String
   type         String        // 'income' | 'expense' | 'transfer'
   icon         String?
+  color        String?
   cashFlowType String?
   parentId     String?
   sort         Int           @default(0)
