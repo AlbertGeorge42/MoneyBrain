@@ -23,13 +23,13 @@ router.delete('/all', async (req, res, next) => {
     }
     await prisma.accountCategory.deleteMany()
     
-    const childCategories2 = await prisma.category.findMany({
+    const childCategories2 = await prisma.transactionCategory.findMany({
       where: { parentId: { not: null } }
     })
     for (const child of childCategories2) {
-      await prisma.category.delete({ where: { id: child.id } })
+      await prisma.transactionCategory.delete({ where: { id: child.id } })
     }
-    await prisma.category.deleteMany()
+    await prisma.transactionCategory.deleteMany()
     
     return success(res, { message: '所有数据已清空' })
   } catch (err) {
@@ -233,11 +233,11 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             if (categoryCache[parentCacheKey]) {
               parentId = categoryCache[parentCacheKey]
             } else {
-              let parentCategory = await prisma.category.findFirst({
+              let parentCategory = await prisma.transactionCategory.findFirst({
                 where: { name: category1, parentId: null, type: categoryType }
               })
               if (!parentCategory) {
-                parentCategory = await prisma.category.create({
+                parentCategory = await prisma.transactionCategory.create({
                   data: {
                     name: category1,
                     type: categoryType,
@@ -251,7 +251,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
           }
 
           const actualCategoryName = category2 || category1
-          let category = await prisma.category.findFirst({
+          let category = await prisma.transactionCategory.findFirst({
             where: { 
               name: actualCategoryName,
               parentId: parentId,
@@ -259,7 +259,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             }
           })
           if (!category) {
-            category = await prisma.category.create({
+            category = await prisma.transactionCategory.create({
               data: {
                 name: actualCategoryName,
                 type: categoryType,

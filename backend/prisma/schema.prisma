@@ -45,23 +45,23 @@ model Account {
   @@map("accounts")
 }
 
-model Category {
-  id           String        @id @default(uuid())
+model TransactionCategory {
+  id           String              @id @default(uuid())
   name         String
-  type         String        // 'income' | 'expense' | 'transfer'
+  type         String              // 'income' | 'expense' | 'transfer'
   icon         String?
   color        String?
   cashFlowType String?
   parentId     String?
-  sort         Int           @default(0)
-  parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children     Category[]    @relation("CategoryTree")
+  sort         Int                 @default(0)
+  parent       TransactionCategory?  @relation("TransactionCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     TransactionCategory[] @relation("TransactionCategoryTree")
   transactions Transaction[]
   budgets      Budget[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
-  @@map("categories")
+  @@map("transaction_categories")
 }
 
 model Transaction {
@@ -78,7 +78,7 @@ model Transaction {
   toAccountId          String?
   toAccount            Account?    @relation("TransactionTo", fields: [toAccountId], references: [id])
   categoryId           String?
-  category             Category?   @relation(fields: [categoryId], references: [id])
+  category             TransactionCategory? @relation(fields: [categoryId], references: [id])
   relatedTransactionId  String?    // 关联的原交易ID（退款时使用）
   relatedTransaction   Transaction? @relation("TransactionRefund", fields: [relatedTransactionId], references: [id], onDelete: SetNull)
   refunds              Transaction[] @relation("TransactionRefund")
@@ -95,7 +95,7 @@ model Budget {
   startDate  DateTime
   endDate    DateTime?
   categoryId String?
-  category   Category?     @relation(fields: [categoryId], references: [id])
+  category   TransactionCategory? @relation(fields: [categoryId], references: [id])
   alerts     BudgetAlert[]
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt

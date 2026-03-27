@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Modal, Tabs, Table, Button, Form, Input, Space, message, Tooltip, Popconfirm } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, HolderOutlined, FolderAddOutlined, RightOutlined, DownOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
-import { Category, categoryApi } from '../services/api'
+import { TransactionCategory, transactionCategoryApi } from '../services/api'
 import DynamicIcon from './DynamicIcon'
 import IconPicker from './IconPicker'
 import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
@@ -68,15 +68,15 @@ const DragHandle = ({ id }: { id: string }) => {
 }
 
 const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
-  const { categories, fetchCategories } = useStore()
+  const { transactionCategories, fetchTransactionCategories } = useStore()
 
   const [activeTab, setActiveTab] = useState('income')
-  const [editingItem, setEditingItem] = useState<Category | null>(null)
+  const [editingItem, setEditingItem] = useState<TransactionCategory | null>(null)
   const [formVisible, setFormVisible] = useState(false)
   const [form] = Form.useForm()
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([])
   
-  const [localCategories, setLocalCategories] = useState<Category[]>([])
+  const [localCategories, setLocalCategories] = useState<TransactionCategory[]>([])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -91,19 +91,19 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   useEffect(() => {
     if (visible) {
-      fetchCategories()
+      fetchTransactionCategories()
     }
   }, [visible])
 
   useEffect(() => {
-    setLocalCategories(categories)
-  }, [categories])
+    setLocalCategories(transactionCategories)
+  }, [transactionCategories])
 
   const handleAdd = (parentId?: string) => {
     setEditingItem(null)
     form.resetFields()
     if (parentId) {
-      const parent = categories.find(c => c.id === parentId)
+      const parent = transactionCategories.find(c => c.id === parentId)
       form.setFieldsValue({ type: parent?.type, parentId })
     } else {
       form.setFieldsValue({ type: activeTab })
@@ -111,7 +111,7 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     setFormVisible(true)
   }
 
-  const handleEdit = (record: Category) => {
+  const handleEdit = (record: TransactionCategory) => {
     setEditingItem(record)
     form.setFieldsValue({
       name: record.name,
@@ -123,9 +123,9 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleDelete = async (id: string) => {
     try {
-      await categoryApi.delete(id)
+      await transactionCategoryApi.delete(id)
       message.success('删除成功')
-      fetchCategories()
+      fetchTransactionCategories()
     } catch (error: any) {
       message.error(error.response?.data?.error?.message || '删除失败')
     }
@@ -135,14 +135,14 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     try {
       const values = await form.validateFields()
       if (editingItem) {
-        await categoryApi.update(editingItem.id, values)
+        await transactionCategoryApi.update(editingItem.id, values)
         message.success('更新成功')
       } else {
-        await categoryApi.create(values)
+        await transactionCategoryApi.create(values)
         message.success('创建成功')
       }
       setFormVisible(false)
-      fetchCategories()
+      fetchTransactionCategories()
     } catch (error) {
       message.error('操作失败')
     }
@@ -204,11 +204,11 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       }))
 
       try {
-        await categoryApi.updateSort(items)
+        await transactionCategoryApi.updateSort(items)
         message.success('排序更新成功')
       } catch (error) {
         message.error('排序更新失败')
-        setLocalCategories(categories)
+        setLocalCategories(transactionCategories)
       }
     } else if (isSecondLevelDrag) {
       const parentId = activeCategory.parentId
@@ -238,17 +238,17 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       }))
       
       try {
-        await categoryApi.updateSort(items)
+        await transactionCategoryApi.updateSort(items)
         message.success('子分类排序更新成功')
       } catch (error) {
         message.error('子分类排序更新失败')
-        setLocalCategories(categories)
+        setLocalCategories(transactionCategories)
       }
     }
   }
 
   const buildTreeData = useMemo(() => {
-    const buildCategoryNode = (category: Category, allCategories: Category[], depth: number): TreeNode => {
+    const buildCategoryNode = (category: TransactionCategory, allCategories: TransactionCategory[], depth: number): TreeNode => {
       const childCategories = allCategories.filter(c => c.parentId === category.id).sort((a, b) => a.sort - b.sort)
       
       const children: TreeNode[] = childCategories.map(c => buildCategoryNode(c, allCategories, depth + 1))

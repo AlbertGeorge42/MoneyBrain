@@ -47,15 +47,15 @@ export interface Account {
   updatedAt: string
 }
 
-export interface Category {
+export interface TransactionCategory {
   id: string
   name: string
   type: string
   icon: string | null
   parentId: string | null
   sort: number
-  parent: Category | null
-  children: Category[]
+  parent: TransactionCategory | null
+  children: TransactionCategory[]
   cashFlowType: 'operating' | 'investing' | 'financing' | null
   createdAt: string
   updatedAt: string
@@ -75,7 +75,7 @@ export interface Transaction {
   toAccountId: string | null
   relatedTransactionId: string | null
   account: Account
-  category: Category | null
+  category: TransactionCategory | null
   toAccount: Account | null
   relatedTransaction: Transaction | null
   createdAt: string
@@ -89,7 +89,7 @@ export interface Budget {
   startDate: string
   endDate: string | null
   categoryId: string | null
-  category: Category | null
+  category: TransactionCategory | null
   createdAt: string
   updatedAt: string
 }
@@ -138,10 +138,10 @@ export const accountApi = {
   }>>(`/accounts/${id}`, { params: { force } }),
 }
 
-export const categoryApi = {
-  getAll: () => api.get<ApiResponse<Category[]>>('/categories'),
-  create: (data: Partial<Category>) => api.post<ApiResponse<Category>>('/categories', data),
-  update: (id: string, data: Partial<Category>) => api.put<ApiResponse<Category>>(`/categories/${id}`, data),
+export const transactionCategoryApi = {
+  getAll: () => api.get<ApiResponse<TransactionCategory[]>>('/categories'),
+  create: (data: Partial<TransactionCategory>) => api.post<ApiResponse<TransactionCategory>>('/categories', data),
+  update: (id: string, data: Partial<TransactionCategory>) => api.put<ApiResponse<TransactionCategory>>(`/categories/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; parentId: string | null }>) => 
     api.put<ApiResponse<{ message: string }>>('/categories/sort/batch', { items }),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/categories/${id}`),

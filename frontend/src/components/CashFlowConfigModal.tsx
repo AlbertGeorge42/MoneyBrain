@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Modal, Table, Switch, message, Tabs, Select, Tag, Spin } from 'antd'
 import { useStore } from '../stores'
-import { AccountCategory, Category, categoryApi } from '../services/api'
+import { AccountCategory, TransactionCategory, transactionCategoryApi } from '../services/api'
 import DynamicIcon from '../components/DynamicIcon'
 
 interface Props {
@@ -10,14 +10,14 @@ interface Props {
 }
 
 const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
-  const { accountCategories, categories, fetchAccountCategories, fetchCategories, updateAccountCategoryCashEquivalent } = useStore()
+  const { accountCategories, transactionCategories, fetchAccountCategories, fetchTransactionCategories, updateAccountCategoryCashEquivalent } = useStore()
   
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (visible) {
       setLoading(true)
-      Promise.all([fetchAccountCategories(), fetchCategories()]).finally(() => setLoading(false))
+      Promise.all([fetchAccountCategories(), fetchTransactionCategories()]).finally(() => setLoading(false))
     }
   }, [visible])
 
@@ -30,22 +30,19 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   }
 
-  // 设置一级分类时，同时更新所有子分类
   const handleCashFlowTypeChange = async (parentId: string, value: 'operating' | 'investing' | 'financing' | null) => {
     try {
-      // 获取该一级分类下的所有子分类
-      const childCategories = categories.filter(c => c.parentId === parentId)
+      const childCategories = transactionCategories.filter(c => c.parentId === parentId)
       
-      // 更新一级分类和所有子分类
       const updatePromises = [
-        categoryApi.update(parentId, { cashFlowType: value }),
+        transactionCategoryApi.update(parentId, { cashFlowType: value }),
         ...childCategories.map(child => 
-          categoryApi.update(child.id, { cashFlowType: value })
+          transactionCategoryApi.update(child.id, { cashFlowType: value })
         )
       ]
       
       await Promise.all(updatePromises)
-      await fetchCategories()
+      await fetchTransactionCategories()
       message.success(`已更新一级分类及其 ${childCategories.length} 个子分类`)
     } catch (error) {
       message.error('更新失败')
@@ -74,7 +71,6 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     },
   ]
 
-  // 只显示一级分类，并显示子分类数量
   const categoryColumns = [
     {
       title: '图标',
@@ -86,8 +82,8 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '分类名称', 
       dataIndex: 'name', 
       key: 'name',
-      render: (name: string, record: Category) => {
-        const childCount = categories.filter(c => c.parentId === record.id).length
+      render: (name: string, record: TransactionCategory) => {
+        const childCount = transactionCategories.filter(c => c.parentId === record.id).length
         return (
           <span>
             {name}
@@ -104,7 +100,7 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       title: '现金流活动类型',
       dataIndex: 'cashFlowType',
       width: 180,
-      render: (value: string, record: Category) => (
+      render: (value: string, record: TransactionCategory) => (
         <Select
           value={value as 'operating' | 'investing' | 'financing' | null | undefined}
           onChange={(v: 'operating' | 'investing' | 'financing' | null) => handleCashFlowTypeChange(record.id, v)}
@@ -127,9 +123,8 @@ const CashFlowConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     },
   ]
 
-  // 只获取一级分类
   const getParentCategories = (type: 'income' | 'expense') => {
-    return categories.filter(c => c.type === type && !c.parentId)
+    return transactionCategories.filter(c => c.type === type && !c.parentId)
   }
 
   const tabItems = [

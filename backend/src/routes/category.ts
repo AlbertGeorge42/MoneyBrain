@@ -7,7 +7,7 @@ const router = Router()
 
 router.get('/', async (_req, res, next) => {
   try {
-    const categories = await prisma.category.findMany({
+    const categories = await prisma.transactionCategory.findMany({
       orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
     })
     return success(res, categories)
@@ -18,7 +18,7 @@ router.get('/', async (_req, res, next) => {
 
 router.get('/tree', async (_req, res, next) => {
   try {
-    const categories = await prisma.category.findMany({
+    const categories = await prisma.transactionCategory.findMany({
       orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
     })
     const tree = buildTree(categories)
@@ -31,7 +31,7 @@ router.get('/tree', async (_req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    const category = await prisma.category.findUnique({
+    const category = await prisma.transactionCategory.findUnique({
       where: { id },
       include: { parent: true, children: true },
     })
@@ -50,7 +50,7 @@ router.post('/', async (req, res, next) => {
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
-    const category = await prisma.category.create({
+    const category = await prisma.transactionCategory.create({
       data: { name, type, icon, parentId, cashFlowType, sort: sort || 0 },
     })
     return success(res, category, 201)
@@ -59,7 +59,6 @@ router.post('/', async (req, res, next) => {
   }
 })
 
-// 批量更新排序
 router.put('/sort/batch', async (req, res, next) => {
   try {
     const { items } = req.body
@@ -69,7 +68,7 @@ router.put('/sort/batch', async (req, res, next) => {
 
     await prisma.$transaction(
       items.map(item => 
-        prisma.category.update({
+        prisma.transactionCategory.update({
           where: { id: item.id },
           data: { sort: item.sort, parentId: item.parentId },
         })
@@ -89,7 +88,7 @@ router.put('/:id', async (req, res, next) => {
     if (parentId === id) {
       return error(res, '父分类不能是自己', 'BAD_REQUEST', 400)
     }
-    const category = await prisma.category.update({
+    const category = await prisma.transactionCategory.update({
       where: { id },
       data: { name, type, icon, parentId, cashFlowType, sort },
     })
@@ -102,7 +101,7 @@ router.put('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    const childrenCount = await prisma.category.count({
+    const childrenCount = await prisma.transactionCategory.count({
       where: { parentId: id },
     })
     if (childrenCount > 0) {
@@ -114,7 +113,7 @@ router.delete('/:id', async (req, res, next) => {
     if (transactionsCount > 0) {
       return error(res, '该分类下存在交易记录，无法删除', 'BAD_REQUEST', 400)
     }
-    await prisma.category.delete({ where: { id } })
+    await prisma.transactionCategory.delete({ where: { id } })
     return success(res, { message: '删除成功' })
   } catch (err) {
     return next(err)

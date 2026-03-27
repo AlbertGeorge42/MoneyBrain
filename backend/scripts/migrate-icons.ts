@@ -129,13 +129,13 @@ async function main() {
   }
 
   // 3. 迁移收支分类
-  const categories = await prisma.category.findMany()
+  const categories = await prisma.transactionCategory.findMany()
   console.log(`找到 ${categories.length} 个收支分类`)
   
   for (const cat of categories) {
     if (cat.icon && isEmoji(cat.icon)) {
       const newIcon = convertEmojiToLucide(cat.icon)
-      await prisma.category.update({
+      await prisma.transactionCategory.update({
         where: { id: cat.id },
         data: { icon: newIcon },
       })

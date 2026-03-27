@@ -21,13 +21,13 @@ const Transactions: React.FC = () => {
   const { 
     transactions, 
     accounts, 
-    categories,
+    transactionCategories,
     accountCategories,
     loading, 
     pagination,
     fetchTransactions, 
     fetchAccounts,
-    fetchCategories,
+    fetchTransactionCategories,
     fetchAccountCategories,
     addTransaction,
     updateTransaction,
@@ -53,7 +53,7 @@ const Transactions: React.FC = () => {
   useEffect(() => {
     fetchTransactions()
     fetchAccounts()
-    fetchCategories()
+    fetchTransactionCategories()
     fetchAccountCategories()
   }, [])
 
@@ -352,7 +352,7 @@ const Transactions: React.FC = () => {
       <Card style={{ marginBottom: 16 }}>
         <TransactionFilter
           accounts={accounts}
-          categories={categories}
+          categories={transactionCategories}
           accountCategories={accountCategories}
           filters={filters}
           filterExpanded={filterExpanded}
@@ -445,7 +445,7 @@ const Transactions: React.FC = () => {
         visible={modalVisible}
         editingTransaction={editingTransaction && editingTransaction.type !== 'transfer' && editingTransaction.type !== 'refund' ? editingTransaction : null}
         accounts={accounts}
-        categories={categories}
+        categories={transactionCategories}
         initialType={initialType}
         onOk={handleTransactionSubmit}
         onCancel={() => setModalVisible(false)}
@@ -455,7 +455,7 @@ const Transactions: React.FC = () => {
         visible={transferModalVisible}
         editingTransaction={editingTransaction && editingTransaction.type === 'transfer' ? editingTransaction : null}
         accounts={accounts}
-        categories={categories}
+        categories={transactionCategories}
         onOk={handleTransferSubmit}
         onCancel={() => setTransferModalVisible(false)}
       />

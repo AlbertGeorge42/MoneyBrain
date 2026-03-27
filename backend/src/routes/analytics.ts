@@ -79,7 +79,7 @@ router.get('/category-breakdown', async (req, res, next) => {
     }
 
     // 获取所有父分类
-    const parentCategories = await prisma.category.findMany({
+    const parentCategories = await prisma.transactionCategory.findMany({
       where: { type: type as string, parentId: null },
     })
     const parentCategoryMap = new Map(parentCategories.map(c => [c.id, c.name]))

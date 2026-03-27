@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { Button, Select, TreeSelect, Space, Tag, Collapse, Row, Col, DatePicker } from 'antd'
 import { FilterOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { Account, AccountCategory, Category } from '../../services/api'
+import { Account, AccountCategory, TransactionCategory } from '../../services/api'
 
 const { RangePicker } = DatePicker
 const { Panel } = Collapse
@@ -23,7 +23,7 @@ export interface TransactionFilterValues {
 
 interface TransactionFilterProps {
   accounts: Account[]
-  categories: Category[]
+  categories: TransactionCategory[]
   accountCategories: AccountCategory[]
   filters: TransactionFilterValues
   filterExpanded: boolean
@@ -169,8 +169,6 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
       })}
       {filters.categoryId.map(id => {
         const category = categories.find(c => c.id === id)
-        // 检查是否有子分类，如果有则显示为父分类
-        const hasChildren = categories.some(c => c.parentId === id)
         return category ? (
           <Tag key={id} closable onClose={() => removeFilter('categoryId', id)}>
             {category.name}
@@ -311,7 +309,6 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                   const valueStr = String(value)
                   const category = categories.find(c => c.id === valueStr)
                   if (category) {
-                    const hasChildren = categories.some(c => c.parentId === valueStr)
                     return (
                       <Tag closable={closable} onClose={onClose}>
                         {category.name}

@@ -207,7 +207,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
   const expenseByCategory: Record<string, number> = {}
 
   // 获取所有父分类
-  const allCategories = await prisma.category.findMany()
+  const allCategories = await prisma.transactionCategory.findMany()
   const parentCategories = allCategories.filter(c => c.parentId === null)
   const parentCategoryMap = new Map(parentCategories.map(c => [c.id, c.name]))
 
@@ -220,7 +220,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
   
   let parentMap: Record<string, string> = {}
   if (uniqueParentIds.length > 0) {
-    const parentCats = await prisma.category.findMany({
+    const parentCats = await prisma.transactionCategory.findMany({
       where: { id: { in: uniqueParentIds } }
     })
     parentMap = Object.fromEntries(parentCats.map(p => [p.id, p.name]))

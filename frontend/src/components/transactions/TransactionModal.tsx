@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { Modal, Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect } from 'antd'
 import dayjs from 'dayjs'
-import { Account, Category, Transaction } from '../../services/api'
+import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildTreeData } from '../../utils/treeUtils'
 import DynamicIcon from '../DynamicIcon'
 
@@ -9,7 +9,7 @@ interface TransactionModalProps {
   visible: boolean
   editingTransaction: Transaction | null
   accounts: Account[]
-  categories: Category[]
+  categories: TransactionCategory[]
   initialType?: 'income' | 'expense'
   onOk: (values: TransactionFormValues) => Promise<void>
   onCancel: () => void

@@ -5,7 +5,7 @@ import { dataApi } from '../services/api'
 import { useStore } from '../stores'
 
 const Settings: React.FC = () => {
-  const { fetchAccounts, fetchCategories, fetchTransactions, fetchBudgets, fetchAccountCategories } = useStore()
+  const { fetchAccounts, fetchTransactionCategories, fetchTransactions, fetchBudgets, fetchAccountCategories } = useStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState<{ imported: number; skipped: number } | null>(null)
@@ -53,7 +53,7 @@ const Settings: React.FC = () => {
         // 刷新数据
         await Promise.all([
           fetchAccounts(),
-          fetchCategories(),
+          fetchTransactionCategories(),
           fetchTransactions(),
           fetchBudgets(),
           fetchAccountCategories(),
@@ -88,7 +88,7 @@ const Settings: React.FC = () => {
       await dataApi.clearAll()
       await Promise.all([
         fetchAccounts(),
-        fetchCategories(),
+        fetchTransactionCategories(),
         fetchTransactions(),
         fetchBudgets(),
         fetchAccountCategories(),

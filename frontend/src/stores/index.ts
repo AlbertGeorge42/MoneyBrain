@@ -1,14 +1,13 @@
 import { create } from 'zustand'
-import { Account, AccountCategory, Category, Transaction, Budget, accountCategoryApi, accountApi, categoryApi, transactionApi, budgetApi } from '../services/api'
+import { Account, AccountCategory, TransactionCategory, Transaction, Budget, accountCategoryApi, accountApi, transactionCategoryApi, transactionApi, budgetApi } from '../services/api'
 
 interface AppState {
   accountCategories: AccountCategory[]
   accounts: Account[]
-  categories: Category[]
+  transactionCategories: TransactionCategory[]
   transactions: Transaction[]
   budgets: Budget[]
   loading: boolean
-  // 分页状态
   pagination: {
     total: number
     page: number
@@ -17,7 +16,7 @@ interface AppState {
   
   fetchAccountCategories: () => Promise<void>
   fetchAccounts: () => Promise<void>
-  fetchCategories: () => Promise<void>
+  fetchTransactionCategories: () => Promise<void>
   fetchTransactions: (params?: Record<string, unknown>) => Promise<void>
   fetchBudgets: () => Promise<void>
   
@@ -25,9 +24,9 @@ interface AppState {
   updateAccount: (id: string, data: Partial<Account>) => Promise<void>
   deleteAccount: (id: string, force?: boolean) => Promise<void>
   
-  addCategory: (data: Partial<Category>) => Promise<void>
-  updateCategory: (id: string, data: Partial<Category>) => Promise<void>
-  deleteCategory: (id: string) => Promise<void>
+  addTransactionCategory: (data: Partial<TransactionCategory>) => Promise<void>
+  updateTransactionCategory: (id: string, data: Partial<TransactionCategory>) => Promise<void>
+  deleteTransactionCategory: (id: string) => Promise<void>
   
   addTransaction: (data: Partial<Transaction>) => Promise<void>
   updateTransaction: (id: string, data: Partial<Transaction>) => Promise<void>
@@ -43,7 +42,7 @@ interface AppState {
 export const useStore = create<AppState>((set, get) => ({
   accountCategories: [],
   accounts: [],
-  categories: [],
+  transactionCategories: [],
   transactions: [],
   budgets: [],
   loading: false,
@@ -77,14 +76,14 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchCategories: async () => {
+  fetchTransactionCategories: async () => {
     try {
-      const res = await categoryApi.getAll()
+      const res = await transactionCategoryApi.getAll()
       if (res.data.success && res.data.data) {
-        set({ categories: res.data.data })
+        set({ transactionCategories: res.data.data })
       }
     } catch (error) {
-      console.error('获取分类失败:', error)
+      console.error('获取收支分类失败:', error)
     }
   },
 
@@ -141,24 +140,24 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  addCategory: async (data) => {
-    const res = await categoryApi.create(data)
+  addTransactionCategory: async (data) => {
+    const res = await transactionCategoryApi.create(data)
     if (res.data.success) {
-      await get().fetchCategories()
+      await get().fetchTransactionCategories()
     }
   },
 
-  updateCategory: async (id, data) => {
-    const res = await categoryApi.update(id, data)
+  updateTransactionCategory: async (id, data) => {
+    const res = await transactionCategoryApi.update(id, data)
     if (res.data.success) {
-      await get().fetchCategories()
+      await get().fetchTransactionCategories()
     }
   },
 
-  deleteCategory: async (id) => {
-    const res = await categoryApi.delete(id)
+  deleteTransactionCategory: async (id) => {
+    const res = await transactionCategoryApi.delete(id)
     if (res.data.success) {
-      await get().fetchCategories()
+      await get().fetchTransactionCategories()
     }
   },
 

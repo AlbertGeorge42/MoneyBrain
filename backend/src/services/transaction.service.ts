@@ -5,7 +5,7 @@ import {
   calculateTransferInAmount,
   type TransactionType
 } from './balance.service.js'
-import type { Transaction, Account, Category } from '@prisma/client'
+import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 
 export interface TransactionWithRelations {
   id: string
@@ -23,9 +23,9 @@ export interface TransactionWithRelations {
   createdAt: Date
   updatedAt: Date
   account: Account
-  category: Category | null
+  category: TransactionCategory | null
   toAccount: Account | null
-  relatedTransaction: (Transaction & { account: Account; category: Category | null }) | null
+  relatedTransaction: (Transaction & { account: Account; category: TransactionCategory | null }) | null
 }
 
 export interface CreateIncomeExpenseData {
@@ -165,7 +165,7 @@ export class TransactionService {
       
       // 递归获取所有子分类
       const getAllChildCategoryIds = async (parentId: string): Promise<string[]> => {
-        const children = await prisma.category.findMany({
+        const children = await prisma.transactionCategory.findMany({
           where: { parentId },
           select: { id: true },
         })

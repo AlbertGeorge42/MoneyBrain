@@ -12,10 +12,10 @@ import DynamicIcon from '../components/DynamicIcon'
 const Budgets: React.FC = () => {
   const { 
     budgets, 
-    categories,
+    transactionCategories,
     loading, 
     fetchBudgets, 
-    fetchCategories,
+    fetchTransactionCategories,
     addBudget,
     updateBudget,
     deleteBudget,
@@ -28,7 +28,7 @@ const Budgets: React.FC = () => {
 
   useEffect(() => {
     fetchBudgets()
-    fetchCategories()
+    fetchTransactionCategories()
   }, [])
 
   useEffect(() => {
@@ -94,7 +94,7 @@ const Budgets: React.FC = () => {
     }
   }
 
-  const expenseCategories = categories.filter(c => c.type === 'expense')
+  const expenseCategories = transactionCategories.filter(c => c.type === 'expense')
 
   const columns = [
     {
