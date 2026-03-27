@@ -199,7 +199,6 @@ router.delete('/:id', async (req, res, next) => {
     // 使用事务删除账户及关联数据
     await prisma.$transaction([
       prisma.transaction.deleteMany({ where: { accountId: id } }),
-      prisma.balanceSnapshot.deleteMany({ where: { accountId: id } }),
       prisma.account.delete({ where: { id } }),
     ])
 
@@ -207,6 +206,99 @@ router.delete('/:id', async (req, res, next) => {
       message: '删除成功',
       deletedTransactions: transactionsCount,
     })
+  } catch (err) {
+    return next(err)
+  }
+})
+
+// 平账接口：创建一笔 adjustment 类型的交易来调整账户余额
+router.post('/:id/adjust', async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { amount, date, note } = req.body
+    
+    if (amount === undefined || amount === null) {
+      return error(res, '调整金额不能为空', 'BAD_REQUEST', 400)
+    }
+    
+    const account = await prisma.account.findUnique({ where: { id } })
+    if (!account) {
+      return notFound(res, '账户不存在')
+    }
+    
+    const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
+    
+    const transaction = await prisma.transaction.create({
+      data: {
+        type: 'adjustment',
+        amount: Math.abs(amount),
+        date: adjustDate,
+        note: note || '平账调整',
+        accountId: id,
+        isAdjustment: true,
+      },
+      include: { account: true },
+    })
+    
+    const newBalance = account.balance.toNumber() + amount
+    await prisma.account.update({
+      where: { id },
+      data: { balance: newBalance },
+    })
+    
+    return success(res, { transaction, newBalance }, 201)
+  } catch (err) {
+    return next(err)
+  }
+})
+
+// 批量平账接口
+router.post('/batch-adjust', async (req, res, next) => {
+  try {
+    const { adjustments, date, note } = req.body
+    
+    if (!Array.isArray(adjustments) || adjustments.length === 0) {
+      return error(res, '调整数据不能为空', 'BAD_REQUEST', 400)
+    }
+    
+    const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
+    const results = []
+    
+    for (const adj of adjustments) {
+      const { accountId, amount } = adj
+      
+      const account = await prisma.account.findUnique({ where: { id: accountId } })
+      if (!account) continue
+      
+      if (amount === 0) continue
+      
+      const transaction = await prisma.transaction.create({
+        data: {
+          type: 'adjustment',
+          amount: Math.abs(amount),
+          date: adjustDate,
+          note: note || '批量平账调整',
+          accountId,
+          isAdjustment: true,
+        },
+      })
+      
+      const newBalance = account.balance.toNumber() + amount
+      await prisma.account.update({
+        where: { id: accountId },
+        data: { balance: newBalance },
+      })
+      
+      results.push({
+        accountId,
+        accountName: account.name,
+        amount,
+        transactionId: transaction.id,
+        newBalance,
+      })
+    }
+    
+    return success(res, { date: adjustDate, count: results.length, adjustments: results }, 201)
   } catch (err) {
     return next(err)
   }

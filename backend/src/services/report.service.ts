@@ -13,9 +13,7 @@ export interface BalanceSheetAccount {
   name: string
   type: string
   balance: number
-  calculatedBalance: number
   category: string
-  isManual: boolean
 }
 
 export interface BalanceSheetResult {
@@ -106,25 +104,11 @@ export async function generateBalanceSheet(month: string): Promise<BalanceSheetR
 
   const accountBalances = await Promise.all(
     accounts.map(async (account) => {
-      const calculatedBalance = await calculateBalanceAtDate(account.id, monthStart)
+      const balance = await calculateBalanceAtDate(account.id, monthStart)
       
-      const snapshot = await prisma.balanceSnapshot.findUnique({
-        where: {
-          month_accountId: {
-            month: month,
-            accountId: account.id,
-          },
-        },
-      })
-
-      const balance = snapshot ? snapshot.balance.toNumber() : calculatedBalance
-      const isManual = snapshot?.isManual || false
-
       return {
         ...account,
-        calculatedBalance,
         balance,
-        isManual,
       }
     })
   )
@@ -164,9 +148,7 @@ export async function generateBalanceSheet(month: string): Promise<BalanceSheetR
       name: a.name,
       type: a.type,
       balance: a.balance,
-      calculatedBalance: a.calculatedBalance,
       category: a.category?.name || '未分类',
-      isManual: a.isManual,
     })),
   }
 }

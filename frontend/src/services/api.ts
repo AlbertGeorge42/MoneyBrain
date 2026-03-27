@@ -63,7 +63,7 @@ export interface TransactionCategory {
 
 export interface Transaction {
   id: string
-  type: string // 'income' | 'expense' | 'transfer' | 'refund'
+  type: string // 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
   amount: number
   fee: number
   coupon: number
@@ -90,17 +90,6 @@ export interface Budget {
   endDate: string | null
   categoryId: string | null
   category: TransactionCategory | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface BalanceSnapshot {
-  id: string
-  month: string
-  accountId: string
-  account: Account
-  balance: number
-  isManual: boolean
   createdAt: string
   updatedAt: string
 }
@@ -136,6 +125,16 @@ export const accountApi = {
     message: string
     deletedTransactions?: number 
   }>>(`/accounts/${id}`, { params: { force } }),
+  adjust: (id: string, data: { amount: number; date?: string; note?: string }) =>
+    api.post<ApiResponse<{ transaction: Transaction; newBalance: number }>>(`/accounts/${id}/adjust`, data),
+  batchAdjust: (data: { adjustments: Array<{ accountId: string; amount: number }>; date?: string; note?: string }) =>
+    api.post<ApiResponse<{ date: string; count: number; adjustments: Array<{
+      accountId: string
+      accountName: string
+      amount: number
+      transactionId: string
+      newBalance: number
+    }> }>>('/accounts/batch-adjust', data),
 }
 
 export const transactionCategoryApi = {
@@ -184,9 +183,7 @@ export const reportApi = {
       name: string
       type: string
       balance: number
-      calculatedBalance: number
       category: string
-      isManual: boolean
     }>
   }>>('/reports/balance-sheet', { params: { month } }),
   getIncomeExpense: (startDate: string, endDate: string) => api.get<ApiResponse<{
@@ -242,25 +239,6 @@ export const analyticsApi = {
     liabilities: number
     netWorth: number
   }>>>('/analytics/asset-trend'),
-}
-
-export const balanceSnapshotApi = {
-  getAll: (month?: string) => api.get<ApiResponse<BalanceSnapshot[]>>('/balance-snapshots', { params: { month } }),
-  create: (data: { month: string; accountId: string; balance: number; isManual?: boolean }) => 
-    api.post<ApiResponse<BalanceSnapshot>>('/balance-snapshots', data),
-  batchCreate: (data: { month: string; snapshots: Array<{ accountId: string; balance: number }> }) => 
-    api.post<ApiResponse<BalanceSnapshot[]>>('/balance-snapshots/batch', data),
-  adjust: (data: { month: string; adjustments: Array<{ accountId: string; targetBalance: number }> }) =>
-    api.post<ApiResponse<{ month: string; adjustments: Array<{
-      accountId: string
-      accountName: string
-      calculatedBalance: number
-      targetBalance: number
-      difference: number
-      transaction: string | null
-    }> }>>('/balance-snapshots/adjust', data),
-  delete: (month: string, accountId: string) => 
-    api.delete<ApiResponse<{ message: string }>>(`/balance-snapshots/${month}/${accountId}`),
 }
 
 export const dataApi = {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Card, Tabs, Modal, InputNumber, message, Space } from 'antd'
 import dayjs from 'dayjs'
-import { reportApi, balanceSnapshotApi } from '../services/api'
+import { reportApi, accountApi } from '../services/api'
 import AccountCategoryModal from '../components/AccountCategoryModal'
 import TransactionCategoryModal from '../components/TransactionCategoryModal'
 import CashFlowConfigModal from '../components/CashFlowConfigModal'
@@ -87,22 +87,29 @@ const Reports: React.FC = () => {
 
   const handleSaveCalibration = async () => {
     try {
-      const monthStr = selectedMonth.format('YYYY-MM')
-      const adjustments = Object.entries(calibrateData).map(([accountId, targetBalance]) => ({
-        accountId,
-        targetBalance,
-      }))
-      
-      const res = await balanceSnapshotApi.adjust({ month: monthStr, adjustments })
-      
-      const results = res.data.data?.adjustments || []
-      const adjustedCount = results.filter((r: any) => r.transaction).length
-      
-      if (adjustedCount > 0) {
-        message.success(`校准成功，已生成 ${adjustedCount} 条平账记录`)
-      } else {
-        message.success('校准数据保存成功')
+      const adjustments = balanceSheetData?.accounts?.map((account: any) => {
+        const targetBalance = calibrateData[account.id] || 0
+        const currentBalance = account.balance || 0
+        return {
+          accountId: account.id,
+          amount: targetBalance - currentBalance,
+        }
+      }).filter((adj: any) => adj.amount !== 0) || []
+
+      if (adjustments.length === 0) {
+        message.info('没有需要调整的账户')
+        setCalibrateVisible(false)
+        return
       }
+
+      const res = await accountApi.batchAdjust({
+        adjustments,
+        date: selectedMonth.startOf('month').format('YYYY-MM-DD'),
+        note: `资产负债表校准 - ${selectedMonth.format('YYYY年MM月')}`,
+      })
+      
+      const count = res.data.data?.count || 0
+      message.success(`校准成功，已生成 ${count} 条平账记录`)
       
       setCalibrateVisible(false)
       fetchBalanceSheet()
@@ -227,7 +234,7 @@ const Reports: React.FC = () => {
       />
 
       <Modal
-        title={`校准 ${selectedMonth.format('YYYY年MM月')} 月初资产负债`}
+        title={`调整账户余额 - ${selectedMonth.format('YYYY年MM月')}`}
         open={calibrateVisible}
         onOk={handleSaveCalibration}
         onCancel={() => setCalibrateVisible(false)}
@@ -236,7 +243,7 @@ const Reports: React.FC = () => {
         width={700}
       >
         <p style={{ color: '#666', marginBottom: 16 }}>
-          请输入各账户在月初（1日）的准确余额。系统将自动计算差额并生成平账收支记录。
+          输入账户的实际余额，系统将自动创建平账交易来调整差额。
         </p>
         {balanceSheetData?.accounts?.map((account: any) => (
           <div key={account.id} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -245,7 +252,7 @@ const Reports: React.FC = () => {
             </span>
             <Space>
               <span style={{ color: '#999', fontSize: 12 }}>
-                计算值: ¥{account.calculatedBalance?.toFixed(2) || '0.00'}
+                当前余额: ¥{account.balance?.toFixed(2) || '0.00'}
               </span>
               <InputNumber
                 value={calibrateData[account.id]}
@@ -253,7 +260,7 @@ const Reports: React.FC = () => {
                 precision={2}
                 style={{ width: 150 }}
                 prefix="¥"
-                placeholder="矫正值"
+                placeholder="实际余额"
               />
             </Space>
           </div>

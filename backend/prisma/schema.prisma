@@ -38,7 +38,6 @@ model Account {
   category            AccountCategory?  @relation(fields: [categoryId], references: [id])
   fromTransactions    Transaction[]     @relation("TransactionFrom")
   toTransactions      Transaction[]     @relation("TransactionTo")
-  snapshots           BalanceSnapshot[]
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -66,7 +65,7 @@ model TransactionCategory {
 
 model Transaction {
   id                  String      @id @default(uuid())
-  type                String      // 'income' | 'expense' | 'transfer' | 'refund'
+  type                String      // 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
   amount              Decimal
   fee                 Decimal     @default(0) // 手续费
   coupon              Decimal     @default(0) // 优惠券
@@ -112,18 +111,4 @@ model BudgetAlert {
   createdAt  DateTime @default(now())
 
   @@map("budget_alerts")
-}
-
-model BalanceSnapshot {
-  id        String   @id @default(uuid())
-  month     String
-  accountId String
-  account   Account  @relation(fields: [accountId], references: [id])
-  balance   Decimal
-  isManual  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([month, accountId])
-  @@map("balance_snapshots")
 }

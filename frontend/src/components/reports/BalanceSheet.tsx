@@ -1,5 +1,5 @@
 import React from 'react'
-import { Card, DatePicker, Button, Table, Row, Col, Statistic, Space, Tag } from 'antd'
+import { Card, DatePicker, Button, Table, Row, Col, Statistic, Space } from 'antd'
 import { SettingOutlined, SaveOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import DynamicIcon from '../DynamicIcon'
@@ -15,7 +15,6 @@ interface BalanceSheetTreeNode {
   nodeType: 'asset' | 'liability'
   type: 'category' | 'account'
   icon?: string
-  isManual?: boolean
   children?: BalanceSheetTreeNode[]
 }
 
@@ -35,8 +34,6 @@ interface BalanceSheetData {
     type: string
     category?: string
     icon?: string
-    isManual?: boolean
-    calculatedBalance?: number
   }>
 }
 
@@ -154,7 +151,6 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                   render: (text: string, record: BalanceSheetTreeNode) => (
                     <span>
                       <DynamicIcon name={record.icon || (record.type === 'category' ? 'folder' : 'wallet')} size={16} /> {text}
-                      {record.isManual && <Tag color="orange" style={{ marginLeft: 8 }}>已校准</Tag>}
                     </span>
                   ),
                 },
@@ -194,7 +190,6 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                   render: (text: string, record: BalanceSheetTreeNode) => (
                     <span>
                       <DynamicIcon name={record.icon || (record.type === 'category' ? 'folder' : 'credit-card')} size={16} /> {text}
-                      {record.isManual && <Tag color="orange" style={{ marginLeft: 8 }}>已校准</Tag>}
                     </span>
                   ),
                 },

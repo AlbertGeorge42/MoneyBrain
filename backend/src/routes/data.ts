@@ -11,7 +11,6 @@ router.delete('/all', async (req, res, next) => {
   try {
     await prisma.budgetAlert.deleteMany()
     await prisma.budget.deleteMany()
-    await prisma.balanceSnapshot.deleteMany()
     await prisma.transaction.deleteMany()
     await prisma.account.deleteMany()
     
