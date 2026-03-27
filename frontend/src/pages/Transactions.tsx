@@ -6,7 +6,6 @@ import { EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, SwapO
 import dayjs from 'dayjs'
 import { useStore } from '../stores'
 import { Transaction, transactionApi } from '../services/api'
-import DynamicIcon from '../components/DynamicIcon'
 import { 
   TransactionModal, 
   TransferModal, 
@@ -231,22 +230,22 @@ const Transactions: React.FC = () => {
       render: (_: unknown, record: Transaction) => {
         if (record.type === 'transfer') {
           return record.category ? (
-            <span><DynamicIcon name={record.category.icon} size={16} /> {record.category.name}</span>
+            <Tag>{record.category.name}</Tag>
           ) : (
-            <span style={{ color: '#999' }}>内部转账</span>
+            <Tag>内部转账</Tag>
           )
         }
         if (record.type === 'refund') {
           return (
             <span>
-              <DynamicIcon name={record.category?.icon} size={16} /> {record.category?.name || '退款'}
+              <Tag>{record.category?.name || '退款'}</Tag>
               {record.relatedTransaction && (
                 <span style={{ color: '#999', fontSize: 12 }}> (原: {record.relatedTransaction.category?.name})</span>
               )}
             </span>
           )
         }
-        return <span><DynamicIcon name={record.category?.icon} size={16} /> {record.category?.name || '未分类'}</span>
+        return <Tag>{record.category?.name || '未分类'}</Tag>
       },
     },
     {
@@ -256,11 +255,13 @@ const Transactions: React.FC = () => {
         if (record.type === 'transfer') {
           return (
             <span>
-              <DynamicIcon name={record.account?.icon} size={16} /> {record.account?.name} → <DynamicIcon name={record.toAccount?.icon} size={16} /> {record.toAccount?.name}
+              <Tag>{record.account?.name}</Tag>
+              <span style={{ margin: '0 4px' }}>→</span>
+              <Tag>{record.toAccount?.name}</Tag>
             </span>
           )
         }
-        return <span><DynamicIcon name={record.account?.icon} size={16} /> {record.account?.name || '-'}</span>
+        return <Tag>{record.account?.name || '-'}</Tag>
       },
     },
     {

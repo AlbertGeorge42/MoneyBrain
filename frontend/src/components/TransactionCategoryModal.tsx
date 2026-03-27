@@ -5,7 +5,6 @@ import { useStore } from '../stores'
 import { Category, categoryApi } from '../services/api'
 import DynamicIcon from './DynamicIcon'
 import IconPicker from './IconPicker'
-import ColorPicker from './ColorPicker'
 import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
@@ -117,7 +116,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     form.setFieldsValue({
       name: record.name,
       icon: record.icon,
-      color: record.color,
       parentId: record.parentId,
     })
     setFormVisible(true)
@@ -486,9 +484,6 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           </Form.Item>
           <Form.Item name="icon" label="图标">
             <IconPicker placeholder="请选择图标" />
-          </Form.Item>
-          <Form.Item name="color" label="颜色">
-            <ColorPicker placeholder="选择分类颜色" />
           </Form.Item>
         </Form>
       </Modal>

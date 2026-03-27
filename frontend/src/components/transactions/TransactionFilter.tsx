@@ -3,7 +3,6 @@ import { Button, Select, TreeSelect, Space, Tag, Collapse, Row, Col, DatePicker 
 import { FilterOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { Account, AccountCategory, Category } from '../../services/api'
-import DynamicIcon from '../DynamicIcon'
 
 const { RangePicker } = DatePicker
 const { Panel } = Collapse
@@ -51,23 +50,17 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
       const topLevelCategories = accountCategories.filter(c => !c.parentId)
       
       return topLevelCategories.map(category => ({
-        title: (
-          <Tag color={category.color || 'default'}>
-            <DynamicIcon name={category.icon} size={14} /> {category.name}
-          </Tag>
-        ),
+        title: <Tag>{category.name}</Tag>,
         value: `category_${category.id}`,
         key: `category_${category.id}`,
+        name: category.name,
         children: accounts
           .filter(a => a.categoryId === category.id)
           .map(account => ({
-            title: (
-              <Tag color={account.color || 'default'}>
-                <DynamicIcon name={account.icon} size={14} /> {account.name}
-              </Tag>
-            ),
+            title: <Tag>{account.name}</Tag>,
             value: account.id,
             key: account.id,
+            name: account.name,
           })),
       }))
     }
@@ -77,17 +70,15 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
     
     if (uncategorizedAccounts.length > 0) {
       tree.push({
-        title: <Tag color="default">未分类账户</Tag>,
+        title: <Tag>未分类账户</Tag>,
         value: 'uncategorized',
         key: 'uncategorized',
+        name: '未分类账户',
         children: uncategorizedAccounts.map(account => ({
-          title: (
-            <Tag color={account.color || 'default'}>
-              <DynamicIcon name={account.icon} size={14} /> {account.name}
-            </Tag>
-          ),
+          title: <Tag>{account.name}</Tag>,
           value: account.id,
           key: account.id,
+          name: account.name,
         })),
       })
     }
@@ -100,30 +91,29 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
     const buildCategoryTree = (parentId: string | null, type: string): any[] => {
       const children = categories.filter(c => c.parentId === parentId && c.type === type)
       return children.map(category => ({
-        title: (
-          <Tag color={category.color || 'default'}>
-            <DynamicIcon name={category.icon} size={14} /> {category.name}
-          </Tag>
-        ),
+        title: <Tag>{category.name}</Tag>,
         value: category.id,
         key: category.id,
+        name: category.name,
         children: buildCategoryTree(category.id, type),
       }))
     }
 
     return [
       {
-        title: <Tag color="red"><span style={{ fontWeight: 'bold' }}>支出分类</span></Tag>,
+        title: <Tag color="red">支出</Tag>,
         value: 'expense_group',
         key: 'expense_group',
         selectable: false,
+        name: '支出',
         children: buildCategoryTree(null, 'expense'),
       },
       {
-        title: <Tag color="green"><span style={{ fontWeight: 'bold' }}>收入分类</span></Tag>,
+        title: <Tag color="green">收入</Tag>,
         value: 'income_group',
         key: 'income_group',
         selectable: false,
+        name: '收入',
         children: buildCategoryTree(null, 'income'),
       },
     ]
@@ -164,16 +154,16 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
           const categoryId = id.replace('category_', '')
           const accountCategory = accountCategories.find(c => c.id === categoryId)
           return accountCategory ? (
-            <Tag key={id} closable onClose={() => removeFilter('accountId', id)} color={accountCategory.color || 'blue'}>
-              <DynamicIcon name={accountCategory.icon} size={14} /> {accountCategory.name} (全部分类)
+            <Tag key={id} closable onClose={() => removeFilter('accountId', id)}>
+              {accountCategory.name}
             </Tag>
           ) : null
         }
         // 处理单个账户选择
         const account = accounts.find(a => a.id === id)
         return account ? (
-          <Tag key={id} closable onClose={() => removeFilter('accountId', id)} color={account.color || 'default'}>
-            <DynamicIcon name={account.icon} size={14} /> {account.name}
+          <Tag key={id} closable onClose={() => removeFilter('accountId', id)}>
+            {account.name}
           </Tag>
         ) : null
       })}
@@ -182,8 +172,8 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
         // 检查是否有子分类，如果有则显示为父分类
         const hasChildren = categories.some(c => c.parentId === id)
         return category ? (
-          <Tag key={id} closable onClose={() => removeFilter('categoryId', id)} color={category.color || (hasChildren ? 'purple' : 'default')}>
-            <DynamicIcon name={category.icon} size={14} /> {category.name}{hasChildren ? ' (含子分类)' : ''}
+          <Tag key={id} closable onClose={() => removeFilter('categoryId', id)}>
+            {category.name}
           </Tag>
         ) : null
       })}
@@ -228,6 +218,20 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                 style={{ width: '100%' }}
                 value={filters.type}
                 onChange={type => onFilterChange({ ...filters, type })}
+                tagRender={(props) => {
+                  const { value, closable, onClose } = props
+                  const colorMap: Record<string, string> = {
+                    income: 'green',
+                    expense: 'red',
+                    transfer: 'blue',
+                    refund: 'orange',
+                  }
+                  return (
+                    <Tag closable={closable} onClose={onClose} color={colorMap[value] || 'default'}>
+                      {typeLabels[value]}
+                    </Tag>
+                  )
+                }}
               >
                 <Select.Option value="income">
                   <Tag color="green">收入</Tag>
@@ -255,10 +259,36 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                 style={{ width: '100%' }}
                 value={filters.accountId}
                 onChange={accountId => onFilterChange({ ...filters, accountId })}
+                tagRender={(props) => {
+                  const { value, closable, onClose } = props
+                  const valueStr = String(value)
+                  // 处理账户分类选择
+                  if (valueStr.startsWith('category_')) {
+                    const categoryId = valueStr.replace('category_', '')
+                    const accountCategory = accountCategories.find(c => c.id === categoryId)
+                    if (accountCategory) {
+                      return (
+                        <Tag closable={closable} onClose={onClose}>
+                          {accountCategory.name}
+                        </Tag>
+                      )
+                    }
+                  }
+                  // 处理单个账户选择
+                  const account = accounts.find(a => a.id === valueStr)
+                  if (account) {
+                    return (
+                      <Tag closable={closable} onClose={onClose}>
+                        {account.name}
+                      </Tag>
+                    )
+                  }
+                  return <Tag>{valueStr}</Tag>
+                }}
                 filterTreeNode={(node: any, searchValue) => {
-                  const title = node.title
-                  if (typeof title === 'string') {
-                    return title.toLowerCase().includes(searchValue.toLowerCase())
+                  const name = node.name
+                  if (typeof name === 'string') {
+                    return name.toLowerCase().includes(searchValue.toLowerCase())
                   }
                   return false
                 }}
@@ -276,10 +306,24 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                 style={{ width: '100%' }}
                 value={filters.categoryId}
                 onChange={categoryId => onFilterChange({ ...filters, categoryId })}
+                tagRender={(props) => {
+                  const { value, closable, onClose } = props
+                  const valueStr = String(value)
+                  const category = categories.find(c => c.id === valueStr)
+                  if (category) {
+                    const hasChildren = categories.some(c => c.parentId === valueStr)
+                    return (
+                      <Tag closable={closable} onClose={onClose}>
+                        {category.name}
+                      </Tag>
+                    )
+                  }
+                  return <Tag>{valueStr}</Tag>
+                }}
                 filterTreeNode={(node: any, searchValue) => {
-                  const title = node.title
-                  if (typeof title === 'string') {
-                    return title.toLowerCase().includes(searchValue.toLowerCase())
+                  const name = node.name
+                  if (typeof name === 'string') {
+                    return name.toLowerCase().includes(searchValue.toLowerCase())
                   }
                   return false
                 }}

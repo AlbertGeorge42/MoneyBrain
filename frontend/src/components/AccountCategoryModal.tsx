@@ -10,7 +10,6 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
 import DynamicIcon from './DynamicIcon'
 import IconPicker from './IconPicker'
-import ColorPicker from './ColorPicker'
 import { formatBalance } from '../utils/formatBalance'
 
 interface Props {
@@ -187,7 +186,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       name: record.name,
       type: record.nodeType,
       icon: record.icon,
-      color: record.color,
       parentId: record.parentId,
     })
     setCategoryFormVisible(true)
@@ -243,7 +241,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
       initialBalanceDate: record.initialBalanceDate ? dayjs(record.initialBalanceDate) : dayjs(),
       categoryId: record.parentId,
       icon: record.icon,
-      color: record.color,
     })
     setAccountFormVisible(true)
   }
@@ -677,9 +674,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           <Form.Item name="icon" label="图标">
             <IconPicker placeholder="请选择图标" />
           </Form.Item>
-          <Form.Item name="color" label="颜色">
-            <ColorPicker placeholder="选择分类颜色" />
-          </Form.Item>
         </Form>
       </Modal>
 
@@ -732,9 +726,6 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
           </Form.Item>
           <Form.Item name="icon" label="图标">
             <IconPicker placeholder="请选择图标" />
-          </Form.Item>
-          <Form.Item name="color" label="颜色">
-            <ColorPicker placeholder="选择账户颜色" />
           </Form.Item>
         </Form>
       </Modal>
