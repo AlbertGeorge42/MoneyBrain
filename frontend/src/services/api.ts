@@ -1,4 +1,8 @@
 import axios from 'axios'
+import { message } from 'antd'
+import type { ApiResponse, PaginatedResponse, AccountCategory, Account, TransactionCategory, Transaction, Budget } from '@shared/types'
+
+export type { ApiResponse, PaginatedResponse, AccountCategory, Account, TransactionCategory, Transaction, Budget }
 
 const api = axios.create({
   baseURL: '/api',
@@ -8,98 +12,14 @@ const api = axios.create({
   },
 })
 
-export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: {
-    code: string
-    message: string
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const msg = error.response?.data?.error?.message || error.message || '请求失败'
+    message.error(msg)
+    return Promise.reject(error)
   }
-  timestamp: string
-}
-
-export interface AccountCategory {
-  id: string
-  name: string
-  type: string
-  icon: string | null
-  parentId: string | null
-  sort: number
-  parent: AccountCategory | null
-  children: AccountCategory[]
-  isCashEquivalent: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Account {
-  id: string
-  name: string
-  type: string
-  balance: number
-  initialBalance: number
-  initialBalanceDate: string | null
-  icon: string | null
-  categoryId: string | null
-  sort: number
-  category: AccountCategory | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface TransactionCategory {
-  id: string
-  name: string
-  type: string
-  icon: string | null
-  parentId: string | null
-  sort: number
-  parent: TransactionCategory | null
-  children: TransactionCategory[]
-  cashFlowType: 'operating' | 'investing' | 'financing' | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Transaction {
-  id: string
-  type: string // 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
-  amount: number
-  fee: number
-  coupon: number
-  date: string
-  note: string | null
-  isAdjustment: boolean
-  accountId: string
-  categoryId: string | null
-  toAccountId: string | null
-  relatedTransactionId: string | null
-  account: Account
-  category: TransactionCategory | null
-  toAccount: Account | null
-  relatedTransaction: Transaction | null
-  createdAt: string
-}
-
-export interface Budget {
-  id: string
-  name: string
-  amount: number
-  period: string
-  startDate: string
-  endDate: string | null
-  categoryId: string | null
-  category: TransactionCategory | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface PaginatedResponse<T> {
-  list: T[]
-  total: number
-  page: number
-  pageSize: number
-}
+)
 
 export const accountCategoryApi = {
   getAll: () => api.get<ApiResponse<AccountCategory[]>>('/account-categories'),

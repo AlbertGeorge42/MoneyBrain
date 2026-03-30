@@ -1,17 +1,35 @@
-export interface TreeNode<T> extends Record<string, any> {
+export interface TreeNode {
   id: string
   parentId: string | null
-  children: TreeNode<T>[]
+  children?: TreeNode[]
+  [key: string]: unknown
 }
 
+/**
+ * 将扁平的 parentId 关联数组构建为树形结构
+ * 使用 Map 索引，时间复杂度 O(n)
+ */
 export const buildTree = <T extends { id: string; parentId: string | null }>(
-  items: T[], 
+  items: T[],
   parentId: string | null = null
-): TreeNode<T>[] => {
-  return items
-    .filter(item => item.parentId === parentId)
-    .map(item => ({
+): (T & { children: (T & { children: any[] })[] })[] => {
+  const childrenMap = new Map<string | null, T[]>()
+
+  for (const item of items) {
+    const key = item.parentId ?? null
+    if (!childrenMap.has(key)) {
+      childrenMap.set(key, [])
+    }
+    childrenMap.get(key)!.push(item)
+  }
+
+  function buildSubtree(pid: string | null): (T & { children: any[] })[] {
+    const children = childrenMap.get(pid) || []
+    return children.map(item => ({
       ...item,
-      children: buildTree(items, item.id),
+      children: buildSubtree(item.id),
     }))
+  }
+
+  return buildSubtree(parentId)
 }

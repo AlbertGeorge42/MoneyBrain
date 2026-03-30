@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Modal, Table, Switch, message, Tabs, Select, Tag, Spin } from 'antd'
-import { useStore } from '../stores'
-import { AccountCategory, TransactionCategory, transactionCategoryApi } from '../services/api'
-import DynamicIcon from '../components/DynamicIcon'
+import { useStore } from '../../stores'
+import { AccountCategory, TransactionCategory, transactionCategoryApi } from '../../services/api'
+import DynamicIcon from '../common/DynamicIcon'
 
 interface Props {
   visible: boolean

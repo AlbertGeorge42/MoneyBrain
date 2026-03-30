@@ -3,7 +3,7 @@ import { Modal, Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSele
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildTreeData } from '../../utils/treeUtils'
-import DynamicIcon from '../DynamicIcon'
+import DynamicIcon from '../common/DynamicIcon'
 
 interface TransactionModalProps {
   visible: boolean
@@ -80,7 +80,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       onCancel={onCancel}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item

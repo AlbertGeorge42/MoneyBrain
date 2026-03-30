@@ -5,7 +5,7 @@ import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
 import { useStore } from '../stores'
 import * as api from '../services/api'
-import DynamicIcon from '../components/DynamicIcon'
+import DynamicIcon from '../components/common/DynamicIcon'
 import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 
 const Dashboard: React.FC = () => {

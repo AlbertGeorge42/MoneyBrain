@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { 
-  Table, Button, Space, Card, Tag, Popconfirm, message, Row, Col, Statistic
-} from 'antd'
-import { EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
+import { Button, Space, Card, message } from 'antd'
+import { ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { Transaction, transactionApi } from '../services/api'
 import { 
@@ -11,6 +8,8 @@ import {
   TransferModal, 
   RefundModal,
   TransactionFilter,
+  TransactionStats,
+  TransactionTable,
   TransactionFormValues,
   TransferFormValues,
   RefundFormValues,
@@ -200,146 +199,19 @@ const Transactions: React.FC = () => {
   const balance = totalIncome - totalExpense + totalRefund
   const transferCount = transactions.filter(t => t.type === 'transfer').length
 
-  const columns = [
-    {
-      title: '日期',
-      dataIndex: 'date',
-      key: 'date',
-      width: 120,
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD'),
-    },
-    {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
-      width: 80,
-      render: (type: string) => {
-        const typeConfig: Record<string, { color: string; text: string }> = {
-          income: { color: 'green', text: '收入' },
-          expense: { color: 'red', text: '支出' },
-          transfer: { color: 'blue', text: '转账' },
-          refund: { color: 'orange', text: '退款' },
-          adjustment: { color: 'purple', text: '平账' },
-        }
-        const config = typeConfig[type] || { color: 'default', text: type }
-        return <Tag color={config.color}>{config.text}</Tag>
-      },
-    },
-    {
-      title: '分类',
-      key: 'category',
-      render: (_: unknown, record: Transaction) => {
-        if (record.type === 'adjustment') {
-          return <Tag color="purple">{record.note || '平账调整'}</Tag>
-        }
-        if (record.type === 'transfer') {
-          return record.category ? (
-            <Tag>{record.category.name}</Tag>
-          ) : (
-            <Tag>内部转账</Tag>
-          )
-        }
-        if (record.type === 'refund') {
-          return (
-            <span>
-              <Tag>{record.category?.name || '退款'}</Tag>
-              {record.relatedTransaction && (
-                <span style={{ color: '#999', fontSize: 12 }}> (原: {record.relatedTransaction.category?.name})</span>
-              )}
-            </span>
-          )
-        }
-        return <Tag>{record.category?.name || '未分类'}</Tag>
-      },
-    },
-    {
-      title: '账户',
-      key: 'account',
-      render: (_: unknown, record: Transaction) => {
-        if (record.type === 'transfer') {
-          return (
-            <span>
-              <Tag>{record.account?.name}</Tag>
-              <span style={{ margin: '0 4px' }}>→</span>
-              <Tag>{record.toAccount?.name}</Tag>
-            </span>
-          )
-        }
-        return <Tag>{record.account?.name || '-'}</Tag>
-      },
-    },
-    {
-      title: '金额',
-      dataIndex: 'amount',
-      key: 'amount',
-      render: (amount: number, record: Transaction) => {
-        const fee = record.fee || 0
-        const coupon = record.coupon || 0
-        const hasExtra = fee > 0 || coupon > 0
-        
-        if (record.type === 'adjustment') {
-          const isPositive = amount >= 0
-          return (
-            <span style={{ color: '#722ed1', fontWeight: 'bold' }}>
-              {isPositive ? '+' : ''}¥{amount.toFixed(2)}
-            </span>
-          )
-        }
-        if (record.type === 'transfer') {
-          return (
-            <span>
-              <span style={{ color: '#1890ff', fontWeight: 'bold' }}>¥{amount.toFixed(2)}</span>
-              {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
-            </span>
-          )
-        }
-        if (record.type === 'refund') {
-          return (
-            <span>
-              <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>+¥{amount.toFixed(2)}</span>
-              {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee})</span>}
-            </span>
-          )
-        }
-        return (
-          <span>
-            <span style={{ color: record.type === 'income' ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}>
-              {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
-            </span>
-            {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
-          </span>
-        )
-      },
-    },
-    {
-      title: '备注',
-      dataIndex: 'note',
-      key: 'note',
-      ellipsis: true,
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 120,
-      render: (_: unknown, record: Transaction) => (
-        <Space>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => handleEdit(record)}
-          />
-          <Popconfirm
-            title="确定要删除此记录吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ]
+  const handlePageChange = (newPage: number, newPageSize: number) => {
+    setCurrentPage(newPage)
+    setPageSize(newPageSize)
+    const params: Record<string, unknown> = { page: newPage, pageSize: newPageSize }
+    if (filters.type.length > 0) params.type = filters.type
+    if (filters.accountId.length > 0) params.accountId = filters.accountId
+    if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
+    if (filters.dateRange) {
+      params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
+      params.endDate = filters.dateRange[1].format('YYYY-MM-DD')
+    }
+    fetchTransactions(params)
+  }
 
   return (
     <div>
@@ -375,83 +247,24 @@ const Transactions: React.FC = () => {
         />
       </Card>
 
-      <Card style={{ marginBottom: 16 }}>
-        <Row gutter={16}>
-          <Col span={5}>
-            <Statistic
-              title="总收入"
-              value={totalIncome}
-              precision={2}
-              valueStyle={{ color: '#3f8600' }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="总支出"
-              value={totalExpense}
-              precision={2}
-              valueStyle={{ color: '#cf1322' }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={4}>
-            <Statistic
-              title="退款"
-              value={totalRefund}
-              precision={2}
-              valueStyle={{ color: '#fa8c16' }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="结余"
-              value={balance}
-              precision={2}
-              valueStyle={{ color: balance >= 0 ? '#3f8600' : '#cf1322' }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="转账次数"
-              value={transferCount}
-              suffix="笔"
-            />
-          </Col>
-        </Row>
-      </Card>
+      <TransactionStats
+        totalIncome={totalIncome}
+        totalExpense={totalExpense}
+        totalRefund={totalRefund}
+        balance={balance}
+        transferCount={transferCount}
+      />
 
-      <Card>
-        <Table 
-          dataSource={transactions} 
-          columns={columns} 
-          rowKey="id"
-          pagination={{
-            current: currentPage,
-            pageSize: pageSize,
-            total: pagination.total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 条`,
-            onChange: (newPage, newPageSize) => {
-              setCurrentPage(newPage)
-              setPageSize(newPageSize)
-              const params: Record<string, unknown> = { page: newPage, pageSize: newPageSize }
-              if (filters.type.length > 0) params.type = filters.type
-              if (filters.accountId.length > 0) params.accountId = filters.accountId
-              if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
-              if (filters.dateRange) {
-                params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
-                params.endDate = filters.dateRange[1].format('YYYY-MM-DD')
-              }
-              fetchTransactions(params)
-            }
-          }}
-          loading={loading}
-        />
-      </Card>
+      <TransactionTable
+        transactions={transactions}
+        loading={loading}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        total={pagination.total}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onPageChange={handlePageChange}
+      />
 
       <TransactionModal
         visible={modalVisible}

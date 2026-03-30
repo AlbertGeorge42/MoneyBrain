@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { success, error } from '../utils/response.js'
-import { generateBalanceSheet, generateIncomeExpense, generateCashFlow } from '../services/report.service.js'
+import { generateBalanceSheet, generateIncomeExpense, generateCashFlow } from '../services/report/index.js'
 
 const router = Router()
 

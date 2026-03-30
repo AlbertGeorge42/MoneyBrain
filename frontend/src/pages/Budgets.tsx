@@ -7,7 +7,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined } from '@an
 import { useStore } from '../stores'
 import { Budget } from '../services/api'
 import * as api from '../services/api'
-import DynamicIcon from '../components/DynamicIcon'
+import DynamicIcon from '../components/common/DynamicIcon'
 
 const Budgets: React.FC = () => {
   const { 

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { success, error, notFound } from '../utils/response.js'
-import { transactionService } from '../services/transaction.service.js'
+import { transactionService, createIncomeExpense, createTransfer, createRefund, updateIncomeExpense, updateTransfer, updateRefund } from '../services/transaction.service.js'
 
 const router = Router()
 
@@ -79,7 +79,7 @@ router.post('/', async (req, res, next) => {
       }
 
       try {
-        const result = await transactionService.createRefund({
+        const result = await createRefund({
           amount,
           fee,
           coupon,
@@ -106,7 +106,7 @@ router.post('/', async (req, res, next) => {
       }
 
       try {
-        const result = await transactionService.createTransfer({
+        const result = await createTransfer({
           amount,
           fee,
           coupon,
@@ -133,7 +133,7 @@ router.post('/', async (req, res, next) => {
       return error(res, '缺少必要参数', 'BAD_REQUEST', 400)
     }
 
-    const result = await transactionService.createIncomeExpense({
+    const result = await createIncomeExpense({
       type,
       amount,
       fee,
@@ -165,7 +165,7 @@ router.put('/:id', async (req, res, next) => {
         return error(res, '转账记录不能修改为其他类型', 'BAD_REQUEST', 400)
       }
 
-      const result = await transactionService.updateTransfer(id, {
+      const result = await updateTransfer(id, {
         amount,
         fee,
         coupon,
@@ -180,7 +180,7 @@ router.put('/:id', async (req, res, next) => {
     }
 
     if (oldTransaction.type === 'refund') {
-      const result = await transactionService.updateRefund(id, {
+      const result = await updateRefund(id, {
         amount,
         fee,
         coupon,
@@ -194,7 +194,7 @@ router.put('/:id', async (req, res, next) => {
       return success(res, result)
     }
 
-    const result = await transactionService.updateIncomeExpense(id, {
+    const result = await updateIncomeExpense(id, {
       type,
       amount,
       fee,

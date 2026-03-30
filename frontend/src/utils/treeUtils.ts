@@ -1,21 +1,3 @@
-export interface TreeNode {
-  id: string
-  name: string
-  icon?: string | null
-  parentId?: string | null
-  sort?: number
-  children?: TreeNode[]
-}
-
-export const buildTreeData = <T extends TreeNode>(
-  items: T[], 
-  parentId: string | null = null
-): (T & { children?: TreeNode[] })[] => {
-  return items
-    .filter(item => item.parentId === parentId)
-    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
-    .map(item => ({
-      ...item,
-      children: buildTreeData(items, item.id),
-    }))
-}
+// Re-export from shared for backward compatibility
+export { buildSortedTree as buildTreeData } from '@shared/utils/tree'
+export type { TreeNode } from '@shared/utils/tree'

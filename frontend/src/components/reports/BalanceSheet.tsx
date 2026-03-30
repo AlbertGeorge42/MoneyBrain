@@ -2,7 +2,7 @@ import React from 'react'
 import { Card, DatePicker, Button, Table, Row, Col, Statistic, Space } from 'antd'
 import { SettingOutlined, SaveOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import DynamicIcon from '../DynamicIcon'
+import DynamicIcon from '../common/DynamicIcon'
 import { PieChart } from '../charts'
 import { formatBalance } from '../../utils/formatBalance'
 

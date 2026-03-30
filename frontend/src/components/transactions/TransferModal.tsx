@@ -3,7 +3,7 @@ import { Modal, Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSele
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildTreeData } from '../../utils/treeUtils'
-import DynamicIcon from '../DynamicIcon'
+import DynamicIcon from '../common/DynamicIcon'
 import { formatBalance } from '../../utils/formatBalance'
 
 interface TransferModalProps {
@@ -76,7 +76,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
       onCancel={onCancel}
       okText="确定"
       cancelText="取消"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item

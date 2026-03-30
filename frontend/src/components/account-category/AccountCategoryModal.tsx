@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Modal, Table, Button, Form, Input, Space, Popconfirm, message, TreeSelect, InputNumber, Select, Tabs, Tooltip, DatePicker } from 'antd'
+import { Modal, Table, Button, Form, Space, Popconfirm, message, Tabs, Tooltip } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, HolderOutlined, FolderAddOutlined, WalletOutlined, RightOutlined, DownOutlined } from '@ant-design/icons'
-import { useStore } from '../stores'
-import { AccountCategory, Account, accountCategoryApi, accountApi } from '../services/api'
+import { useStore } from '../../stores'
+import { AccountCategory, Account, accountCategoryApi, accountApi } from '../../services/api'
 import dayjs from 'dayjs'
 import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
-import DynamicIcon from './DynamicIcon'
-import IconPicker from './IconPicker'
-import { formatBalance } from '../utils/formatBalance'
+import DynamicIcon from '../common/DynamicIcon'
+import CategoryForm from './CategoryForm'
+import AccountForm from './AccountForm'
+import { formatBalance } from '../../utils/formatBalance'
 
 interface Props {
   visible: boolean
@@ -88,6 +89,8 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const [editingAccount, setEditingAccount] = useState<any>(null)
   const [categoryFormVisible, setCategoryFormVisible] = useState(false)
   const [accountFormVisible, setAccountFormVisible] = useState(false)
+  const [categoryFormType, setCategoryFormType] = useState<'asset' | 'liability'>('asset')
+  const [accountFormType, setAccountFormType] = useState<'asset' | 'liability'>('asset')
   const [categoryForm] = Form.useForm()
   const [accountForm] = Form.useForm()
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([])
@@ -171,6 +174,8 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleAddCategory = (parentId?: string, type?: 'asset' | 'liability') => {
     setEditingCategory(null)
     categoryForm.resetFields()
+    const formType = type || 'asset'
+    setCategoryFormType(formType)
     if (parentId) {
       const parent = accountCategories.find(c => c.id === parentId)
       categoryForm.setFieldsValue({ type: parent?.type, parentId })
@@ -182,6 +187,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleEditCategory = (record: any) => {
     setEditingCategory(record)
+    setCategoryFormType(record.nodeType)
     categoryForm.setFieldsValue({
       name: record.name,
       type: record.nodeType,
@@ -223,6 +229,8 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
     setEditingAccount(null)
     accountForm.resetFields()
     const category = accountCategories.find(c => c.id === categoryId)
+    const formType = (category?.type || 'asset') as 'asset' | 'liability'
+    setAccountFormType(formType)
     accountForm.setFieldsValue({ 
       type: category?.type, 
       categoryId, 
@@ -234,6 +242,7 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleEditAccount = (record: any) => {
     setEditingAccount(record)
+    setAccountFormType(record.nodeType)
     accountForm.setFieldsValue({
       name: record.name,
       type: record.nodeType,
@@ -645,90 +654,23 @@ const AccountCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         />
       </Modal>
 
-      <Modal
-        title={editingCategory ? '编辑分类' : '新增分类'}
-        open={categoryFormVisible}
-        onOk={handleCategorySubmit}
+      <CategoryForm
+        visible={categoryFormVisible}
+        editing={!!editingCategory}
+        form={categoryForm}
+        categoryTree={getCategoryTree(categoryFormType)}
+        onSubmit={handleCategorySubmit}
         onCancel={() => setCategoryFormVisible(false)}
-        okText="确定"
-        cancelText="取消"
-      >
-        <Form form={categoryForm} layout="vertical">
-          <Form.Item name="name" label="分类名称" rules={[{ required: true, message: '请输入分类名称' }]}>
-            <Input placeholder="请输入分类名称" />
-          </Form.Item>
-          <Form.Item name="type" label="分类类型" rules={[{ required: true, message: '请选择分类类型' }]}>
-            <Select placeholder="请选择分类类型" disabled>
-              <Select.Option value="asset">资产</Select.Option>
-              <Select.Option value="liability">负债</Select.Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="parentId" label="父分类">
-            <TreeSelect
-              placeholder="请选择父分类"
-              allowClear
-              treeData={getCategoryTree(categoryForm.getFieldValue('type'))}
-              fieldNames={{ label: 'name', value: 'id', children: 'children' }}
-            />
-          </Form.Item>
-          <Form.Item name="icon" label="图标">
-            <IconPicker placeholder="请选择图标" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
 
-      <Modal
-        title={editingAccount ? '编辑账户' : '新增账户'}
-        open={accountFormVisible}
-        onOk={handleAccountSubmit}
+      <AccountForm
+        visible={accountFormVisible}
+        editing={!!editingAccount}
+        form={accountForm}
+        categoryTree={getCategoryTree(accountFormType)}
+        onSubmit={handleAccountSubmit}
         onCancel={() => setAccountFormVisible(false)}
-        okText="确定"
-        cancelText="取消"
-      >
-        <Form form={accountForm} layout="vertical">
-          <Form.Item name="name" label="账户名称" rules={[{ required: true, message: '请输入账户名称' }]}>
-            <Input placeholder="请输入账户名称" />
-          </Form.Item>
-          <Form.Item name="type" label="账户类型" rules={[{ required: true, message: '请选择账户类型' }]}>
-            <Select 
-              placeholder="请选择账户类型"
-              onChange={() => {
-                accountForm.setFieldsValue({ categoryId: undefined })
-              }}
-            >
-              <Select.Option value="asset">资产</Select.Option>
-              <Select.Option value="liability">负债</Select.Option>
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="initialBalance"
-            label="初始余额"
-            initialValue={0}
-            rules={[{ required: true, message: '请输入初始余额' }]}
-            extra="负债账户请填写负值（如信用卡欠款5000元填写-5000）"
-          >
-            <InputNumber style={{ width: '100%' }} precision={2} placeholder="请输入初始余额" />
-          </Form.Item>
-          <Form.Item name="initialBalanceDate" label="初始余额日期" rules={[{ required: true, message: '请选择初始余额日期' }]}>
-            <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" placeholder="选择日期" />
-          </Form.Item>
-          <Form.Item shouldUpdate={(prevValues, currentValues) => prevValues.type !== currentValues.type}>
-            {({ getFieldValue }) => (
-              <Form.Item name="categoryId" label="所属分类">
-                <TreeSelect
-                  placeholder="请选择账户分类"
-                  allowClear
-                  treeData={getCategoryTree(getFieldValue('type'))}
-                  fieldNames={{ label: 'name', value: 'id', children: 'children' }}
-                />
-              </Form.Item>
-            )}
-          </Form.Item>
-          <Form.Item name="icon" label="图标">
-            <IconPicker placeholder="请选择图标" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
     </>
   )
 }

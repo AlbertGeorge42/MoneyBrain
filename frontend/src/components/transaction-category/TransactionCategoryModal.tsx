@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Modal, Tabs, Table, Button, Form, Input, Space, message, Tooltip, Dropdown, Radio, TreeSelect, Alert } from 'antd'
+import { Modal, Tabs, Table, Button, Form, Input, Space, message, Tooltip, Dropdown } from 'antd'
 import { PlusOutlined, EditOutlined, SettingOutlined, FolderAddOutlined, RightOutlined, DownOutlined, ExportOutlined, DeleteOutlined } from '@ant-design/icons'
-import { useStore } from '../stores'
-import { TransactionCategory, transactionCategoryApi } from '../services/api'
-import DynamicIcon from './DynamicIcon'
-import IconPicker from './IconPicker'
+import { useStore } from '../../stores'
+import { TransactionCategory, transactionCategoryApi } from '../../services/api'
+import DynamicIcon from '../common/DynamicIcon'
+import IconPicker from '../common/IconPicker'
+import DeleteConfirmModal from './DeleteConfirmModal'
+import MoveModal from './MoveModal'
 import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
@@ -33,7 +35,6 @@ interface MoveTreeDataNode {
   value: string
   title: string
   disabled?: boolean
-  children?: MoveTreeDataNode[]
 }
 
 const SortableRow = (props: any) => {
@@ -655,93 +656,31 @@ const TransactionCategoryModal: React.FC<Props> = ({ visible, onClose }) => {
         </Form>
       </Modal>
 
-      <Modal
-        title="删除分类确认"
-        open={deleteModalVisible}
+      <DeleteConfirmModal
+        visible={deleteModalVisible}
+        category={deletingCategory}
+        transactionCount={deleteTransactionCount}
+        deleteAction={deleteAction}
+        transferTargetId={transferTargetId}
+        loading={deleteLoading}
+        transferTargetTreeData={deletingCategory ? getTransferTargetTreeData(deletingCategory.categoryType, deletingCategory.id) : []}
+        onDeleteActionChange={setDeleteAction}
+        onTransferTargetChange={setTransferTargetId}
+        onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteModalVisible(false)}
-        onOk={handleDeleteConfirm}
-        okText="确认删除"
-        okButtonProps={{ danger: true, loading: deleteLoading }}
-        cancelText="取消"
-      >
-        {deletingCategory && (
-          <>
-            <p><strong>分类名称：</strong>{deletingCategory.name}</p>
-            <p><strong>分类类型：</strong>{deletingCategory.categoryType === 'income' ? '收入' : deletingCategory.categoryType === 'expense' ? '支出' : '转账'}</p>
-            <p><strong>关联交易：</strong>{deleteTransactionCount} 笔</p>
-            
-            {deleteTransactionCount > 0 && (
-              <>
-                <Alert 
-                  message="请选择交易处理方式" 
-                  type="warning" 
-                  style={{ marginBottom: 16 }} 
-                />
-                <Radio.Group 
-                  value={deleteAction} 
-                  onChange={(e) => setDeleteAction(e.target.value)}
-                  style={{ width: '100%' }}
-                >
-                  <div style={{ marginBottom: 12 }}>
-                    <Radio value="transfer">转移到其他分类</Radio>
-                    {deleteAction === 'transfer' && (
-                      <TreeSelect
-                        style={{ width: '100%', marginTop: 8, marginLeft: 24 }}
-                        placeholder="请选择目标分类"
-                        treeData={getTransferTargetTreeData(deletingCategory.categoryType, deletingCategory.id)}
-                        value={transferTargetId}
-                        onChange={setTransferTargetId}
-                        treeNodeFilterProp="title"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <Radio value="delete">同时删除关联交易</Radio>
-                    {deleteAction === 'delete' && (
-                      <Alert 
-                        message="此操作不可恢复" 
-                        type="error" 
-                        style={{ marginTop: 8, marginLeft: 24 }} 
-                        showIcon
-                      />
-                    )}
-                  </div>
-                </Radio.Group>
-              </>
-            )}
-          </>
-        )}
-      </Modal>
+      />
 
-      <Modal
-        title="移动分类"
-        open={moveModalVisible}
+      <MoveModal
+        visible={moveModalVisible}
+        category={movingCategory}
+        targetId={moveTargetId}
+        loading={moveLoading}
+        targetTreeData={movingCategory ? getMoveTargetTreeData(movingCategory.categoryType, movingCategory.id, movingCategory.parentId) : []}
+        currentPositionLabel={movingCategory ? getCurrentPositionLabel(movingCategory) : ''}
+        onTargetChange={setMoveTargetId}
+        onConfirm={handleMoveConfirm}
         onCancel={() => setMoveModalVisible(false)}
-        onOk={handleMoveConfirm}
-        okText="确认移动"
-        okButtonProps={{ loading: moveLoading }}
-        cancelText="取消"
-      >
-        {movingCategory && (
-          <>
-            <p><strong>当前分类：</strong>{movingCategory.name}</p>
-            <p><strong>当前位置：</strong>{getCurrentPositionLabel(movingCategory)}</p>
-            <Form layout="vertical">
-              <Form.Item label="移动到">
-                <TreeSelect
-                  style={{ width: '100%' }}
-                  placeholder="请选择目标位置"
-                  treeData={getMoveTargetTreeData(movingCategory.categoryType, movingCategory.id, movingCategory.parentId)}
-                  value={moveTargetId === null ? 'null' : moveTargetId}
-                  onChange={(val) => setMoveTargetId(val === 'null' ? null : val)}
-                  treeNodeFilterProp="title"
-                  allowClear
-                />
-              </Form.Item>
-            </Form>
-          </>
-        )}
-      </Modal>
+      />
     </>
   )
 }

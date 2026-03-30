@@ -83,6 +83,9 @@ model Transaction {
   refunds              Transaction[] @relation("TransactionRefund")
   createdAt            DateTime    @default(now())
 
+  @@index([date])
+  @@index([accountId, date])
+  @@index([categoryId, date])
   @@map("transactions")
 }
 

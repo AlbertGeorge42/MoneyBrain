@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../index.js'
 import { success, error, notFound } from '../utils/response.js'
+import { getAccountStats, adjustAccountBalance, batchAdjustAccountBalances } from '../services/account.service.js'
 
 const router = Router()
 
@@ -66,30 +67,12 @@ router.get('/:id', async (req, res, next) => {
 router.get('/:id/stats', async (req, res, next) => {
   try {
     const { id } = req.params
-    const account = await prisma.account.findUnique({
-      where: { id },
-    })
+    const account = await prisma.account.findUnique({ where: { id } })
     if (!account) {
       return notFound(res, '账户不存在')
     }
-
-    const transactions = await prisma.transaction.findMany({
-      where: { accountId: id },
-    })
-
-    const transactionCount = transactions.length
-    const totalIncome = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount.toNumber(), 0)
-    const totalExpense = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount.toNumber(), 0)
-
-    return success(res, {
-      transactionCount,
-      totalIncome,
-      totalExpense,
-    })
+    const stats = await getAccountStats(id)
+    return success(res, stats)
   } catch (err) {
     return next(err)
   }
@@ -211,42 +194,18 @@ router.delete('/:id', async (req, res, next) => {
   }
 })
 
-// 平账接口：创建一笔 adjustment 类型的交易来调整账户余额
+// 平账接口
 router.post('/:id/adjust', async (req, res, next) => {
   try {
     const { id } = req.params
     const { amount, date, note } = req.body
-    
+
     if (amount === undefined || amount === null) {
       return error(res, '调整金额不能为空', 'BAD_REQUEST', 400)
     }
-    
-    const account = await prisma.account.findUnique({ where: { id } })
-    if (!account) {
-      return notFound(res, '账户不存在')
-    }
-    
-    const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
-    
-    const transaction = await prisma.transaction.create({
-      data: {
-        type: 'adjustment',
-        amount: amount,
-        date: adjustDate,
-        note: note || '平账调整',
-        accountId: id,
-        isAdjustment: true,
-      },
-      include: { account: true },
-    })
-    
-    const newBalance = account.balance.toNumber() + amount
-    await prisma.account.update({
-      where: { id },
-      data: { balance: newBalance },
-    })
-    
-    return success(res, { transaction, newBalance }, 201)
+
+    const result = await adjustAccountBalance(id, amount, date, note)
+    return success(res, result, 201)
   } catch (err) {
     return next(err)
   }
@@ -256,49 +215,13 @@ router.post('/:id/adjust', async (req, res, next) => {
 router.post('/batch-adjust', async (req, res, next) => {
   try {
     const { adjustments, date, note } = req.body
-    
+
     if (!Array.isArray(adjustments) || adjustments.length === 0) {
       return error(res, '调整数据不能为空', 'BAD_REQUEST', 400)
     }
-    
-    const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
-    const results = []
-    
-    for (const adj of adjustments) {
-      const { accountId, amount } = adj
-      
-      const account = await prisma.account.findUnique({ where: { id: accountId } })
-      if (!account) continue
-      
-      if (amount === 0) continue
-      
-      const transaction = await prisma.transaction.create({
-        data: {
-          type: 'adjustment',
-          amount: amount,
-          date: adjustDate,
-          note: note || '批量平账调整',
-          accountId,
-          isAdjustment: true,
-        },
-      })
-      
-      const newBalance = account.balance.toNumber() + amount
-      await prisma.account.update({
-        where: { id: accountId },
-        data: { balance: newBalance },
-      })
-      
-      results.push({
-        accountId,
-        accountName: account.name,
-        amount,
-        transactionId: transaction.id,
-        newBalance,
-      })
-    }
-    
-    return success(res, { date: adjustDate, count: results.length, adjustments: results }, 201)
+
+    const result = await batchAdjustAccountBalances(adjustments, date, note)
+    return success(res, result, 201)
   } catch (err) {
     return next(err)
   }

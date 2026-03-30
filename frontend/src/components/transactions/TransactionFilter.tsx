@@ -3,16 +3,27 @@ import { Button, Select, TreeSelect, Space, Tag, Collapse, Row, Col, DatePicker 
 import { FilterOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
+import { TRANSACTION_TYPE_CONFIG } from '../../constants/transaction'
 
 const { RangePicker } = DatePicker
-const { Panel } = Collapse
 
-const typeLabels: Record<string, string> = {
-  income: '收入',
-  expense: '支出',
-  transfer: '转账',
-  refund: '退款',
-  adjustment: '平账',
+const filterTreeNodeByName = (inputValue: string, node: any): boolean => {
+  const name = node.name
+  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
+}
+
+const resolveAccountLabel = (
+  id: string,
+  accounts: Account[],
+  accountCategories: AccountCategory[]
+): string | null => {
+  if (id.startsWith('category_')) {
+    const categoryId = id.replace('category_', '')
+    const cat = accountCategories.find(c => c.id === categoryId)
+    return cat?.name ?? null
+  }
+  const account = accounts.find(a => a.id === id)
+  return account?.name ?? null
 }
 
 export interface TransactionFilterValues {
@@ -144,27 +155,16 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
           key={t} 
           closable 
           onClose={() => removeFilter('type', t)}
-          color={t === 'income' ? 'green' : t === 'expense' ? 'red' : t === 'transfer' ? 'blue' : t === 'refund' ? 'orange' : 'purple'}
+          color={TRANSACTION_TYPE_CONFIG[t]?.color || 'default'}
         >
-          {typeLabels[t]}
+          {TRANSACTION_TYPE_CONFIG[t]?.text || t}
         </Tag>
       ))}
       {filters.accountId.map(id => {
-        // 处理账户分类选择
-        if (id.startsWith('category_')) {
-          const categoryId = id.replace('category_', '')
-          const accountCategory = accountCategories.find(c => c.id === categoryId)
-          return accountCategory ? (
-            <Tag key={id} closable onClose={() => removeFilter('accountId', id)}>
-              {accountCategory.name}
-            </Tag>
-          ) : null
-        }
-        // 处理单个账户选择
-        const account = accounts.find(a => a.id === id)
-        return account ? (
+        const label = resolveAccountLabel(id, accounts, accountCategories)
+        return label ? (
           <Tag key={id} closable onClose={() => removeFilter('accountId', id)}>
-            {account.name}
+            {label}
           </Tag>
         ) : null
       })}
@@ -205,149 +205,107 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
         activeKey={filterExpanded ? 'filter' : undefined} 
         onChange={(keys) => onFilterExpandedChange(keys.includes('filter'))}
         style={{ marginTop: 16 }}
-      >
-        <Panel header="筛选条件" key="filter">
-          <Row gutter={16}>
-            <Col span={6}>
-              <div style={{ marginBottom: 8 }}>类型</div>
-              <Select
-                mode="multiple"
-                placeholder="选择类型"
-                allowClear
-                style={{ width: '100%' }}
-                value={filters.type}
-                onChange={type => onFilterChange({ ...filters, type })}
-                tagRender={(props) => {
-                  const { value, closable, onClose } = props
-                  const colorMap: Record<string, string> = {
-                    income: 'green',
-                    expense: 'red',
-                    transfer: 'blue',
-                    refund: 'orange',
-                    adjustment: 'purple',
-                  }
-                  return (
-                    <Tag closable={closable} onClose={onClose} color={colorMap[value] || 'default'}>
-                      {typeLabels[value]}
-                    </Tag>
-                  )
-                }}
-              >
-                <Select.Option value="income">
-                  <Tag color="green">收入</Tag>
-                </Select.Option>
-                <Select.Option value="expense">
-                  <Tag color="red">支出</Tag>
-                </Select.Option>
-                <Select.Option value="transfer">
-                  <Tag color="blue">转账</Tag>
-                </Select.Option>
-                <Select.Option value="refund">
-                  <Tag color="orange">退款</Tag>
-                </Select.Option>
-                <Select.Option value="adjustment">
-                  <Tag color="purple">平账</Tag>
-                </Select.Option>
-              </Select>
-            </Col>
-            <Col span={6}>
-              <div style={{ marginBottom: 8 }}>账户</div>
-              <TreeSelect
-                treeData={accountTreeData}
-                placeholder="选择账户"
-                allowClear
-                multiple
-                showSearch
-                treeDefaultExpandAll
-                style={{ width: '100%' }}
-                value={filters.accountId}
-                onChange={accountId => onFilterChange({ ...filters, accountId })}
-                tagRender={(props) => {
-                  const { value, closable, onClose } = props
-                  const valueStr = String(value)
-                  // 处理账户分类选择
-                  if (valueStr.startsWith('category_')) {
-                    const categoryId = valueStr.replace('category_', '')
-                    const accountCategory = accountCategories.find(c => c.id === categoryId)
-                    if (accountCategory) {
-                      return (
-                        <Tag closable={closable} onClose={onClose}>
-                          {accountCategory.name}
-                        </Tag>
-                      )
-                    }
-                  }
-                  // 处理单个账户选择
-                  const account = accounts.find(a => a.id === valueStr)
-                  if (account) {
-                    return (
-                      <Tag closable={closable} onClose={onClose}>
-                        {account.name}
-                      </Tag>
-                    )
-                  }
-                  return <Tag>{valueStr}</Tag>
-                }}
-                filterTreeNode={(node: any, searchValue) => {
-                  const name = node.name
-                  if (typeof name === 'string') {
-                    return name.toLowerCase().includes(searchValue.toLowerCase())
-                  }
-                  return false
-                }}
-              />
-            </Col>
-            <Col span={6}>
-              <div style={{ marginBottom: 8 }}>分类</div>
-              <TreeSelect
-                treeData={categoryTreeData}
-                placeholder="选择分类"
-                allowClear
-                multiple
-                showSearch
-                treeDefaultExpandAll
-                style={{ width: '100%' }}
-                value={filters.categoryId}
-                onChange={categoryId => onFilterChange({ ...filters, categoryId })}
-                tagRender={(props) => {
-                  const { value, closable, onClose } = props
-                  const valueStr = String(value)
-                  const category = categories.find(c => c.id === valueStr)
-                  if (category) {
-                    return (
-                      <Tag closable={closable} onClose={onClose}>
-                        {category.name}
-                      </Tag>
-                    )
-                  }
-                  return <Tag>{valueStr}</Tag>
-                }}
-                filterTreeNode={(node: any, searchValue) => {
-                  const name = node.name
-                  if (typeof name === 'string') {
-                    return name.toLowerCase().includes(searchValue.toLowerCase())
-                  }
-                  return false
-                }}
-              />
-            </Col>
-            <Col span={6}>
-              <div style={{ marginBottom: 8 }}>日期范围</div>
-              <RangePicker
-                style={{ width: '100%' }}
-                value={filters.dateRange}
-                onChange={dates => onFilterChange({ ...filters, dateRange: dates as [dayjs.Dayjs, dayjs.Dayjs] | null })}
-              />
-            </Col>
-          </Row>
-          <div style={{ marginTop: 16, textAlign: 'right' }}>
-            <Space>
-              <Button onClick={onReset}>重置</Button>
-              <Button type="primary" onClick={onSearch}>查询</Button>
-            </Space>
-          </div>
-        </Panel>
-      </Collapse>
+        items={[
+          {
+            key: 'filter',
+            label: '筛选条件',
+            children: (
+              <>
+                <Row gutter={16}>
+                  <Col span={6}>
+                    <div style={{ marginBottom: 8 }}>类型</div>
+                    <Select
+                      mode="multiple"
+                      placeholder="选择类型"
+                      allowClear
+                      style={{ width: '100%' }}
+                      value={filters.type}
+                      onChange={type => onFilterChange({ ...filters, type })}
+                      tagRender={(props) => {
+                        const { value, closable, onClose } = props
+                        const config = TRANSACTION_TYPE_CONFIG[value]
+                        return (
+                          <Tag closable={closable} onClose={onClose} color={config?.color || 'default'}>
+                            {config?.text || value}
+                          </Tag>
+                        )
+                      }}
+                    >
+                      {Object.entries(TRANSACTION_TYPE_CONFIG).map(([value, { color, text }]) => (
+                        <Select.Option key={value} value={value}>
+                          <Tag color={color}>{text}</Tag>
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Col>
+                  <Col span={6}>
+                    <div style={{ marginBottom: 8 }}>账户</div>
+                    <TreeSelect
+                      treeData={accountTreeData}
+                      placeholder="选择账户"
+                      allowClear
+                      multiple
+                      showSearch
+                      treeDefaultExpandAll
+                      style={{ width: '100%' }}
+                      value={filters.accountId}
+                      onChange={accountId => onFilterChange({ ...filters, accountId })}
+                      tagRender={(props) => {
+                        const { value, closable, onClose } = props
+                        const label = resolveAccountLabel(String(value), accounts, accountCategories)
+                        return (
+                          <Tag closable={closable} onClose={onClose}>
+                            {label || String(value)}
+                          </Tag>
+                        )
+                      }}
+                      filterTreeNode={filterTreeNodeByName}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <div style={{ marginBottom: 8 }}>分类</div>
+                    <TreeSelect
+                      treeData={categoryTreeData}
+                      placeholder="选择分类"
+                      allowClear
+                      multiple
+                      showSearch
+                      treeDefaultExpandAll
+                      style={{ width: '100%' }}
+                      value={filters.categoryId}
+                      onChange={categoryId => onFilterChange({ ...filters, categoryId })}
+                      tagRender={(props) => {
+                        const { value, closable, onClose } = props
+                        const category = categories.find(c => c.id === String(value))
+                        return (
+                          <Tag closable={closable} onClose={onClose}>
+                            {category?.name || String(value)}
+                          </Tag>
+                        )
+                      }}
+                      filterTreeNode={filterTreeNodeByName}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <div style={{ marginBottom: 8 }}>日期范围</div>
+                    <RangePicker
+                      style={{ width: '100%' }}
+                      value={filters.dateRange}
+                      onChange={dates => onFilterChange({ ...filters, dateRange: dates as [dayjs.Dayjs, dayjs.Dayjs] | null })}
+                    />
+                  </Col>
+                </Row>
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <Space>
+                    <Button onClick={onReset}>重置</Button>
+                    <Button type="primary" onClick={onSearch}>查询</Button>
+                  </Space>
+                </div>
+              </>
+            ),
+          },
+        ]}
+      />
     </>
   )
 }

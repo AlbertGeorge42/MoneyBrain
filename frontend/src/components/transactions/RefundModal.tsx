@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { Modal, Form, Input, Select, InputNumber, DatePicker, Row, Col, Tag, Space } from 'antd'
 import dayjs from 'dayjs'
 import { Account, Transaction } from '../../services/api'
-import DynamicIcon from '../DynamicIcon'
+import DynamicIcon from '../common/DynamicIcon'
 
 interface RefundModalProps {
   visible: boolean
@@ -68,7 +68,7 @@ const RefundModal: React.FC<RefundModalProps> = ({
       okText="确定"
       cancelText="取消"
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item

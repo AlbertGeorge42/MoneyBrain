@@ -53,6 +53,12 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   onDateRangeChange,
   onOpenSettings,
 }) => {
+  const activityConfig = [
+    { key: 'operating' as const, color: 'green', label: '经营', title: '经营活动' },
+    { key: 'investing' as const, color: 'blue', label: '投资', title: '投资活动' },
+    { key: 'financing' as const, color: 'orange', label: '筹资', title: '筹资活动' },
+  ]
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -168,42 +174,26 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
       </Row>
 
       <Row gutter={16}>
-        <Col span={8}>
-          <Card 
-            title={<><Tag color="green">经营</Tag> 经营活动</>} 
-            size="small"
-            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.operating?.net != null && cashFlowData.byActivity.operating.net >= 0) ? '#3f8600' : '#cf1322' }}>
-              ¥{(cashFlowData?.byActivity?.operating?.net != null ? cashFlowData.byActivity.operating.net : 0).toFixed(2)}
-            </span>}
-          >
-            <div>流入: ¥{(cashFlowData?.byActivity?.operating?.inflow != null ? cashFlowData.byActivity.operating.inflow : 0).toFixed(2)}</div>
-            <div>流出: ¥{(cashFlowData?.byActivity?.operating?.outflow != null ? cashFlowData.byActivity.operating.outflow : 0).toFixed(2)}</div>
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card 
-            title={<><Tag color="blue">投资</Tag> 投资活动</>} 
-            size="small"
-            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.investing?.net != null && cashFlowData.byActivity.investing.net >= 0) ? '#3f8600' : '#cf1322' }}>
-              ¥{(cashFlowData?.byActivity?.investing?.net != null ? cashFlowData.byActivity.investing.net : 0).toFixed(2)}
-            </span>}
-          >
-            <div>流入: ¥{(cashFlowData?.byActivity?.investing?.inflow != null ? cashFlowData.byActivity.investing.inflow : 0).toFixed(2)}</div>
-            <div>流出: ¥{(cashFlowData?.byActivity?.investing?.outflow != null ? cashFlowData.byActivity.investing.outflow : 0).toFixed(2)}</div>
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card 
-            title={<><Tag color="orange">筹资</Tag> 筹资活动</>} 
-            size="small"
-            extra={<span style={{ fontWeight: 'bold', color: (cashFlowData?.byActivity?.financing?.net != null && cashFlowData.byActivity.financing.net >= 0) ? '#3f8600' : '#cf1322' }}>
-              ¥{(cashFlowData?.byActivity?.financing?.net != null ? cashFlowData.byActivity.financing.net : 0).toFixed(2)}
-            </span>}
-          >
-            <div>流入: ¥{(cashFlowData?.byActivity?.financing?.inflow != null ? cashFlowData.byActivity.financing.inflow : 0).toFixed(2)}</div>
-            <div>流出: ¥{(cashFlowData?.byActivity?.financing?.outflow != null ? cashFlowData.byActivity.financing.outflow : 0).toFixed(2)}</div>
-          </Card>
-        </Col>
+        {activityConfig.map(({ key, color, label, title }) => {
+          const activity = cashFlowData?.byActivity?.[key]
+          const net = activity?.net ?? 0
+          const inflow = activity?.inflow ?? 0
+          const outflow = activity?.outflow ?? 0
+          return (
+            <Col span={8} key={key}>
+              <Card 
+                title={<><Tag color={color}>{label}</Tag> {title}</>} 
+                size="small"
+                extra={<span style={{ fontWeight: 'bold', color: net >= 0 ? '#3f8600' : '#cf1322' }}>
+                  ¥{net.toFixed(2)}
+                </span>}
+              >
+                <div>流入: ¥{inflow.toFixed(2)}</div>
+                <div>流出: ¥{outflow.toFixed(2)}</div>
+              </Card>
+            </Col>
+          )
+        })}
       </Row>
 
       {cashFlowData?.cashAccounts && (
