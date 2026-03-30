@@ -231,7 +231,7 @@ router.post('/:id/adjust', async (req, res, next) => {
     const transaction = await prisma.transaction.create({
       data: {
         type: 'adjustment',
-        amount: Math.abs(amount),
+        amount: amount,
         date: adjustDate,
         note: note || '平账调整',
         accountId: id,
@@ -275,7 +275,7 @@ router.post('/batch-adjust', async (req, res, next) => {
       const transaction = await prisma.transaction.create({
         data: {
           type: 'adjustment',
-          amount: Math.abs(amount),
+          amount: amount,
           date: adjustDate,
           note: note || '批量平账调整',
           accountId,

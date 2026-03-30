@@ -12,6 +12,7 @@ const typeLabels: Record<string, string> = {
   expense: '支出',
   transfer: '转账',
   refund: '退款',
+  adjustment: '平账',
 }
 
 export interface TransactionFilterValues {
@@ -143,7 +144,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
           key={t} 
           closable 
           onClose={() => removeFilter('type', t)}
-          color={t === 'income' ? 'green' : t === 'expense' ? 'red' : t === 'transfer' ? 'blue' : 'orange'}
+          color={t === 'income' ? 'green' : t === 'expense' ? 'red' : t === 'transfer' ? 'blue' : t === 'refund' ? 'orange' : 'purple'}
         >
           {typeLabels[t]}
         </Tag>
@@ -223,6 +224,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                     expense: 'red',
                     transfer: 'blue',
                     refund: 'orange',
+                    adjustment: 'purple',
                   }
                   return (
                     <Tag closable={closable} onClose={onClose} color={colorMap[value] || 'default'}>
@@ -242,6 +244,9 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                 </Select.Option>
                 <Select.Option value="refund">
                   <Tag color="orange">退款</Tag>
+                </Select.Option>
+                <Select.Option value="adjustment">
+                  <Tag color="purple">平账</Tag>
                 </Select.Option>
               </Select>
             </Col>

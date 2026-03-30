@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Card, Tabs, Modal, InputNumber, message, Space } from 'antd'
 import dayjs from 'dayjs'
 import { reportApi, accountApi } from '../services/api'
+import { useStore } from '../stores'
 import AccountCategoryModal from '../components/AccountCategoryModal'
 import TransactionCategoryModal from '../components/TransactionCategoryModal'
 import CashFlowConfigModal from '../components/CashFlowConfigModal'
@@ -9,6 +10,7 @@ import DynamicIcon from '../components/DynamicIcon'
 import { BalanceSheet, IncomeExpenseReport, CashFlowReport } from '../components/reports'
 
 const Reports: React.FC = () => {
+  const { fetchAccounts } = useStore()
   const [activeTab, setActiveTab] = useState('balance-sheet')
   
   const [selectedMonth, setSelectedMonth] = useState(dayjs())
@@ -104,7 +106,7 @@ const Reports: React.FC = () => {
 
       const res = await accountApi.batchAdjust({
         adjustments,
-        date: selectedMonth.startOf('month').format('YYYY-MM-DD'),
+        date: selectedMonth.startOf('month').subtract(1, 'day').format('YYYY-MM-DD'),
         note: `资产负债表校准 - ${selectedMonth.format('YYYY年MM月')}`,
       })
       
@@ -113,6 +115,7 @@ const Reports: React.FC = () => {
       
       setCalibrateVisible(false)
       fetchBalanceSheet()
+      fetchAccounts()
     } catch (error) {
       message.error('保存失败')
     }

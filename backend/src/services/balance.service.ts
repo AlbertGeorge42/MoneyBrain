@@ -1,6 +1,6 @@
 import { prisma } from '../index.js'
 
-export type TransactionType = 'income' | 'expense' | 'transfer' | 'refund'
+export type TransactionType = 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
 
 export interface BalanceChangeResult {
   mainAccountChange: number
@@ -21,6 +21,7 @@ export interface BalanceChangeResult {
  * - 支出：余额 -= 金额 + 手续费 - 优惠券
  * - 转账转出：余额 -= 金额 + 手续费 - 优惠券
  * - 退款：余额 += 金额 - 手续费
+ * - 平账：余额 += 金额（金额可正可负）
  */
 export function calculateBalanceChange(
   type: TransactionType,
@@ -37,6 +38,8 @@ export function calculateBalanceChange(
       return -(amount + fee - coupon)
     case 'refund':
       return amount - fee
+    case 'adjustment':
+      return amount
     default:
       return 0
   }

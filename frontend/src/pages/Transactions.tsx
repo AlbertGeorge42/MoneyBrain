@@ -219,6 +219,7 @@ const Transactions: React.FC = () => {
           expense: { color: 'red', text: '支出' },
           transfer: { color: 'blue', text: '转账' },
           refund: { color: 'orange', text: '退款' },
+          adjustment: { color: 'purple', text: '平账' },
         }
         const config = typeConfig[type] || { color: 'default', text: type }
         return <Tag color={config.color}>{config.text}</Tag>
@@ -228,6 +229,9 @@ const Transactions: React.FC = () => {
       title: '分类',
       key: 'category',
       render: (_: unknown, record: Transaction) => {
+        if (record.type === 'adjustment') {
+          return <Tag color="purple">{record.note || '平账调整'}</Tag>
+        }
         if (record.type === 'transfer') {
           return record.category ? (
             <Tag>{record.category.name}</Tag>
@@ -273,6 +277,14 @@ const Transactions: React.FC = () => {
         const coupon = record.coupon || 0
         const hasExtra = fee > 0 || coupon > 0
         
+        if (record.type === 'adjustment') {
+          const isPositive = amount >= 0
+          return (
+            <span style={{ color: '#722ed1', fontWeight: 'bold' }}>
+              {isPositive ? '+' : ''}¥{amount.toFixed(2)}
+            </span>
+          )
+        }
         if (record.type === 'transfer') {
           return (
             <span>
