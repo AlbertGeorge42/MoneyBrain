@@ -143,7 +143,20 @@ export const transactionCategoryApi = {
   update: (id: string, data: Partial<TransactionCategory>) => api.put<ApiResponse<TransactionCategory>>(`/categories/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; parentId: string | null }>) => 
     api.put<ApiResponse<{ message: string }>>('/categories/sort/batch', { items }),
-  delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/categories/${id}`),
+  delete: (id: string, params?: { transferToCategoryId?: string; deleteTransactions?: boolean }) => 
+    api.delete<ApiResponse<{ 
+      message: string
+      transferredTransactions?: number
+      deletedTransactions?: number
+      deletedCategory?: string
+    }>>(`/categories/${id}`, { params }),
+  getStats: (id: string) => 
+    api.get<ApiResponse<{ 
+      transactionCount: number
+      childrenCount: number 
+    }>>(`/categories/${id}/stats`),
+  move: (id: string, data: { newParentId: string | null }) => 
+    api.put<ApiResponse<{ message: string; movedCategory: TransactionCategory }>>(`/categories/${id}/move`, data),
 }
 
 export const transactionApi = {
