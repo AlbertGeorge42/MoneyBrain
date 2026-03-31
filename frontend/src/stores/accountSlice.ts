@@ -10,7 +10,7 @@ export interface AccountSlice {
   addAccount: (data: Partial<Account>) => Promise<void>
   updateAccount: (id: string, data: Partial<Account>) => Promise<void>
   deleteAccount: (id: string, force?: boolean) => Promise<void>
-  updateAccountCategoryCashEquivalent: (id: string, isCashEquivalent: boolean) => Promise<void>
+  updateAccountCategoryAssetType: (id: string, assetType: 'cash' | 'investment' | 'other') => Promise<void>
 }
 
 export const createAccountSlice: StateCreator<AppState, [], [], AccountSlice> = (set, get) => ({
@@ -62,13 +62,16 @@ export const createAccountSlice: StateCreator<AppState, [], [], AccountSlice> = 
     }
   },
 
-  updateAccountCategoryCashEquivalent: async (id, isCashEquivalent) => {
+  updateAccountCategoryAssetType: async (id: string, assetType: 'cash' | 'investment' | 'other') => {
     try {
-      await accountCategoryApi.update(id, { isCashEquivalent })
-      const res = await accountCategoryApi.getAll()
-      set({ accountCategories: res.data.data || [] })
+      const updateData = {
+        isCashEquivalent: assetType === 'cash',
+        isInvestment: assetType === 'investment',
+      }
+      await accountCategoryApi.update(id, updateData)
+      await get().fetchAccountCategories()
     } catch (error) {
-      throw error
+      console.error('更新账户分类资产类型失败:', error)
     }
   },
 })

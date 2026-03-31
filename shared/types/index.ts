@@ -29,6 +29,7 @@ export interface AccountCategory {
   parent: AccountCategory | null
   children: AccountCategory[]
   isCashEquivalent: boolean
+  isInvestment: boolean
   createdAt: string
   updatedAt: string
 }

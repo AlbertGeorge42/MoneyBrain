@@ -37,6 +37,55 @@ router.get('/export', async (_req, res, next) => {
   }
 })
 
+const TRANSFER_SUB_CATEGORIES = [
+  { name: '还款', key: 'repayment' },
+  { name: '借贷', key: 'lending' },
+  { name: '买入', key: 'buy' },
+  { name: '卖出', key: 'sell' },
+  { name: '转账', key: 'transfer' },
+]
+
+async function getOrCreateTransferSubCategory(name: string): Promise<string> {
+  let category = await prisma.transactionCategory.findFirst({
+    where: { name, type: 'transfer', parentId: null },
+  })
+  if (!category) {
+    category = await prisma.transactionCategory.create({
+      data: { name, type: 'transfer', icon: 'arrow-right' },
+    })
+  }
+  return category.id
+}
+
+async function classifyTransfer(
+  fromAccount: { id: string; type: string; categoryId: string | null } | null,
+  toAccount: { id: string; type: string; categoryId: string | null } | null
+): Promise<string> {
+  if (toAccount?.type === 'liability') {
+    return getOrCreateTransferSubCategory('还款')
+  }
+  if (fromAccount?.type === 'liability') {
+    return getOrCreateTransferSubCategory('借贷')
+  }
+  if (toAccount?.categoryId) {
+    const toCategory = await prisma.accountCategory.findUnique({
+      where: { id: toAccount.categoryId },
+    })
+    if (toCategory?.isInvestment) {
+      return getOrCreateTransferSubCategory('买入')
+    }
+  }
+  if (fromAccount?.categoryId) {
+    const fromCategory = await prisma.accountCategory.findUnique({
+      where: { id: fromAccount.categoryId },
+    })
+    if (fromCategory?.isInvestment) {
+      return getOrCreateTransferSubCategory('卖出')
+    }
+  }
+  return getOrCreateTransferSubCategory('转账')
+}
+
 router.post('/import', upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
@@ -56,24 +105,24 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     const errors: string[] = []
 
     let defaultAssetCategory = await prisma.accountCategory.findFirst({
-      where: { type: 'asset', parentId: null }
+      where: { type: 'asset', parentId: null },
     })
     if (!defaultAssetCategory) {
       defaultAssetCategory = await prisma.accountCategory.create({
-        data: { name: '资产', type: 'asset', icon: 'wallet' }
+        data: { name: '资产', type: 'asset', icon: 'wallet' },
       })
     }
 
     let defaultLiabilityCategory = await prisma.accountCategory.findFirst({
-      where: { type: 'liability', parentId: null }
+      where: { type: 'liability', parentId: null },
     })
     if (!defaultLiabilityCategory) {
       defaultLiabilityCategory = await prisma.accountCategory.create({
-        data: { name: '负债', type: 'liability', icon: 'credit-card' }
+        data: { name: '负债', type: 'liability', icon: 'credit-card' },
       })
     }
 
-    const accountCache: Record<string, string> = {}
+    const accountCache: Record<string, { id: string; type: string; categoryId: string | null }> = {}
     const categoryCache: Record<string, string> = {}
     const idMapping: Record<string, string> = {}
     
@@ -148,7 +197,6 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
         } else if (typeStr === '转账' || typeStr === '还款') {
           type = 'transfer'
         } else {
-          // 支出、报销等类型都转为支出
           type = 'expense'
         }
 
@@ -168,7 +216,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
               parentId = categoryCache[parentCacheKey]
             } else {
               let parentCategory = await prisma.transactionCategory.findFirst({
-                where: { name: category1, parentId: null, type: categoryType }
+                where: { name: category1, parentId: null, type: categoryType },
               })
               if (!parentCategory) {
                 parentCategory = await prisma.transactionCategory.create({
@@ -176,7 +224,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                     name: category1,
                     type: categoryType,
                     icon: 'folder',
-                  }
+                  },
                 })
               }
               parentId = parentCategory.id
@@ -189,8 +237,8 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             where: { 
               name: actualCategoryName,
               parentId: parentId,
-              type: categoryType
-            }
+              type: categoryType,
+            },
           })
           if (!category) {
             category = await prisma.transactionCategory.create({
@@ -199,17 +247,17 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                 type: categoryType,
                 icon: 'circle',
                 parentId: parentId,
-              }
+              },
             })
           }
           categoryId = category.id
           categoryCache[typedCacheKey] = categoryId
         }
 
-        let accountId = accountCache[account1]
-        if (!accountId && account1) {
+        let accountData = accountCache[account1]
+        if (!accountData && account1) {
           let account = await prisma.account.findFirst({
-            where: { name: account1 }
+            where: { name: account1 },
           })
           if (!account) {
             account = await prisma.account.create({
@@ -220,47 +268,46 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                 initialBalance: 0,
                 categoryId: defaultAssetCategory.id,
                 icon: 'wallet',
-              }
-            })
-          }
-          accountId = account.id
-          accountCache[account1] = accountId
-        }
-
-        let toAccountId: string | null = null
-        if (type === 'transfer' && account2) {
-          let toAccount = await prisma.account.findFirst({
-            where: { name: account2 }
-          })
-          
-          if (toAccount && typeStr === '还款' && toAccount.type === 'asset') {
-            toAccount = await prisma.account.update({
-              where: { id: toAccount.id },
-              data: { 
-                type: 'liability',
-                categoryId: defaultLiabilityCategory.id,
               },
             })
           }
+          accountData = { id: account.id, type: account.type, categoryId: account.categoryId }
+          accountCache[account1] = accountData
+        }
+
+        let toAccountData: { id: string; type: string; categoryId: string | null } | null = null
+        if (type === 'transfer' && account2) {
+          let toAccount = await prisma.account.findFirst({
+            where: { name: account2 },
+          })
           
-          toAccountId = accountCache[account2]
-          if (!toAccountId) {
-            if (!toAccount) {
-              const isLiability = typeStr === '还款'
-              toAccount = await prisma.account.create({
-                data: {
-                  name: account2,
-                  type: isLiability ? 'liability' : 'asset',
-                  balance: 0,
-                  initialBalance: 0,
-                  categoryId: isLiability ? defaultLiabilityCategory.id : defaultAssetCategory.id,
-                  icon: isLiability ? 'credit-card' : 'wallet',
-                }
-              })
-            }
-            toAccountId = toAccount.id
-            accountCache[account2] = toAccountId
+          if (toAccount) {
+            toAccountData = { id: toAccount.id, type: toAccount.type, categoryId: toAccount.categoryId }
+          } else {
+            const isInflowToAccount1 = amount > 0
+            const inferredType = typeStr === '还款' ? 'liability' : 'asset'
+            const inferredCategoryId = inferredType === 'liability' 
+              ? defaultLiabilityCategory.id 
+              : defaultAssetCategory.id
+            
+            toAccount = await prisma.account.create({
+              data: {
+                name: account2,
+                type: inferredType,
+                balance: 0,
+                initialBalance: 0,
+                categoryId: inferredCategoryId,
+                icon: inferredType === 'liability' ? 'credit-card' : 'wallet',
+              },
+            })
+            toAccountData = { id: toAccount.id, type: toAccount.type, categoryId: toAccount.categoryId }
           }
+          accountCache[account2] = toAccountData
+        }
+
+        let finalCategoryId = categoryId
+        if (type === 'transfer') {
+          finalCategoryId = await classifyTransfer(accountData || null, toAccountData)
         }
 
         const transaction = await prisma.transaction.create({
@@ -271,17 +318,17 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             fee: row.fee || 0,
             coupon: row.coupon || 0,
             note: note || null,
-            accountId: accountId!,
-            toAccountId,
-            categoryId,
-          }
+            accountId: accountData!.id,
+            toAccountId: toAccountData?.id || null,
+            categoryId: finalCategoryId,
+          },
         })
         
         idMapping[csvId] = transaction.id
         imported++
       } catch (err) {
         skipped++
-        errors.push(`行解析错误`)
+        errors.push('行解析错误')
       }
     }
     
@@ -325,26 +372,25 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
           }
         }
 
-        let accountId = accountCache[account1]
-        if (!accountId && account1) {
+        let accountData = accountCache[account1]
+        if (!accountData && account1) {
           let account = await prisma.account.findFirst({
-            where: { name: account1 }
+            where: { name: account1 },
           })
           if (!account) {
-            const isLiability = ['花呗', '京东白条', '美团月付', '信用卡'].some(k => account1.includes(k))
             account = await prisma.account.create({
               data: {
                 name: account1,
-                type: isLiability ? 'liability' : 'asset',
+                type: 'asset',
                 balance: 0,
                 initialBalance: 0,
-                categoryId: isLiability ? defaultLiabilityCategory.id : defaultAssetCategory.id,
-                icon: isLiability ? 'credit-card' : 'wallet',
-              }
+                categoryId: defaultAssetCategory.id,
+                icon: 'wallet',
+              },
             })
           }
-          accountId = account.id
-          accountCache[account1] = accountId
+          accountData = { id: account.id, type: account.type, categoryId: account.categoryId }
+          accountCache[account1] = accountData
         }
 
         const transaction = await prisma.transaction.create({
@@ -355,17 +401,17 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             fee: row.fee || 0,
             coupon: row.coupon || 0,
             note: note || null,
-            accountId: accountId!,
+            accountId: accountData!.id,
             categoryId,
             relatedTransactionId,
-          }
+          },
         })
         
         idMapping[csvId] = transaction.id
         imported++
       } catch (err) {
         skipped++
-        errors.push(`退款记录解析错误`)
+        errors.push('退款记录解析错误')
       }
     }
 

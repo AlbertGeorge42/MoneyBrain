@@ -17,6 +17,7 @@ model AccountCategory {
   parent           AccountCategory?   @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children         AccountCategory[]  @relation("AccountCategoryTree")
   isCashEquivalent Boolean            @default(false)
+  isInvestment     Boolean            @default(false)
   accounts         Account[]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt

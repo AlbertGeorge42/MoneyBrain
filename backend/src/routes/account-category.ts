@@ -33,12 +33,12 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { name, type, icon, isCashEquivalent, sort } = req.body
+    const { name, type, icon, isCashEquivalent, isInvestment, sort } = req.body
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
     const category = await prisma.accountCategory.create({
-      data: { name, type, icon, isCashEquivalent: isCashEquivalent ?? false, sort: sort || 0 },
+      data: { name, type, icon, isCashEquivalent: isCashEquivalent ?? false, isInvestment: isInvestment ?? false, sort: sort || 0 },
     })
     return success(res, category, 201)
   } catch (err) {
@@ -71,10 +71,10 @@ router.put('/sort/batch', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params
-    const { name, type, icon, isCashEquivalent, sort } = req.body
+    const { name, type, icon, isCashEquivalent, isInvestment, sort } = req.body
     const category = await prisma.accountCategory.update({
       where: { id },
-      data: { name, type, icon, isCashEquivalent, sort },
+      data: { name, type, icon, isCashEquivalent, isInvestment, sort },
     })
     return success(res, category)
   } catch (err) {
