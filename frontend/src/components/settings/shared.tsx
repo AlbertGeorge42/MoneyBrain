@@ -67,7 +67,7 @@ export interface SettingMenuOptions {
   onAddSub?: () => void
   onAddAccount?: () => void
   onEdit: () => void
-  onMove: () => void
+  onMove?: () => void
   onDelete: () => void
   hasChildren?: boolean
   canMove?: boolean
@@ -214,10 +214,12 @@ export const createSettingMenuItems = (options: SettingMenuOptions): MenuProps['
   
   items.push({ key: 'edit', label: '编辑', icon: <EditOutlined />, onClick: onEdit })
   
-  if (hasChildren) {
-    items.push({ key: 'move', label: '移动到...', icon: <ExportOutlined />, disabled: true, title: '该分类下存在子项，无法移动' })
-  } else if (canMove) {
-    items.push({ key: 'move', label: '移动到...', icon: <ExportOutlined />, onClick: onMove })
+  if (onMove) {
+    if (hasChildren) {
+      items.push({ key: 'move', label: '移动到...', icon: <ExportOutlined />, disabled: true, title: '该分类下存在子项，无法移动' })
+    } else if (canMove) {
+      items.push({ key: 'move', label: '移动到...', icon: <ExportOutlined />, onClick: onMove })
+    }
   }
   
   items.push({ type: 'divider' as const })

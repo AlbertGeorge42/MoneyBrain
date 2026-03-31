@@ -19,8 +19,6 @@ import {
   createSettingMenuItems,
   renderExpandIcon,
   renderDragHandle,
-  buildMoveTargetTreeForCategory,
-  getCurrentPositionLabel,
 } from './shared'
 import type { AccountTreeNode, MoveTreeDataNode, MenuProps } from './shared'
 
@@ -40,8 +38,6 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const [editingAccount, setEditingAccount] = useState<AccountTreeNode | null>(null)
   const [categoryFormVisible, setCategoryFormVisible] = useState(false)
   const [accountFormVisible, setAccountFormVisible] = useState(false)
-  const [categoryFormType, setCategoryFormType] = useState<'asset' | 'liability'>('asset')
-  const [accountFormType, setAccountFormType] = useState<'asset' | 'liability'>('asset')
   const [categoryForm] = Form.useForm()
   const [accountForm] = Form.useForm()
   const [localAccountCategories, setLocalAccountCategories] = useState<AccountCategory[]>([])
@@ -62,48 +58,36 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const buildTreeData = useMemo(() => {
     const buildNode = (cat: AccountCategory, depth: number): AccountTreeNode => {
-      const childCats = localAccountCategories.filter(c => c.parentId === cat.id).sort((a, b) => a.sort - b.sort)
       const catAccounts = localAccounts.filter(a => a.categoryId === cat.id).sort((a, b) => a.sort - b.sort)
-      const children: AccountTreeNode[] = [
-        ...childCats.map(c => buildNode(c, depth + 1)),
-        ...catAccounts.map(a => ({
-          id: a.id, key: `account-${a.id}`, name: a.name, icon: a.icon || 'wallet',
-          type: 'account' as const, nodeType: a.type as 'asset' | 'liability',
-          balance: a.balance, initialBalance: a.initialBalance, initialBalanceDate: a.initialBalanceDate,
-          parentId: cat.id, sort: a.sort, depth: depth + 1,
-        })),
-      ]
+      const children: AccountTreeNode[] = catAccounts.map(a => ({
+        id: a.id, key: `account-${a.id}`, name: a.name, icon: a.icon || 'wallet',
+        type: 'account' as const, nodeType: a.type as 'asset' | 'liability',
+        balance: a.balance, initialBalance: a.initialBalance, initialBalanceDate: a.initialBalanceDate,
+        parentId: cat.id, sort: a.sort, depth: depth + 1,
+      }))
       return {
         id: cat.id, key: `category-${cat.id}`, name: cat.name, icon: cat.icon || 'folder',
         type: 'category' as const, nodeType: cat.type as 'asset' | 'liability',
-        parentId: cat.parentId || undefined, sort: cat.sort,
+        parentId: undefined, sort: cat.sort,
         balance: children.reduce((sum, c) => sum + (c.balance || 0), 0),
         children: children.length > 0 ? children : undefined, depth,
       }
     }
-    const assetNodes = localAccountCategories.filter(c => c.type === 'asset' && !c.parentId).sort((a, b) => a.sort - b.sort).map(c => buildNode(c, 0))
-    const liabilityNodes = localAccountCategories.filter(c => c.type === 'liability' && !c.parentId).sort((a, b) => a.sort - b.sort).map(c => buildNode(c, 0))
+    const assetNodes = localAccountCategories.filter(c => c.type === 'asset').sort((a, b) => a.sort - b.sort).map(c => buildNode(c, 0))
+    const liabilityNodes = localAccountCategories.filter(c => c.type === 'liability').sort((a, b) => a.sort - b.sort).map(c => buildNode(c, 0))
     return { assetNodes, liabilityNodes }
   }, [localAccountCategories, localAccounts])
 
-  const handleAddCategory = (parentId?: string, type?: 'asset' | 'liability') => {
+  const handleAddCategory = (type?: 'asset' | 'liability') => {
     setEditingCategory(null)
     categoryForm.resetFields()
-    const formType = type || 'asset'
-    setCategoryFormType(formType)
-    if (parentId) {
-      const parent = accountCategories.find(c => c.id === parentId)
-      categoryForm.setFieldsValue({ type: parent?.type, parentId })
-    } else if (type) {
-      categoryForm.setFieldsValue({ type })
-    }
+    categoryForm.setFieldsValue({ type: type || 'asset' })
     setCategoryFormVisible(true)
   }
 
   const handleEditCategory = (record: AccountTreeNode) => {
-    setEditingCategory({ id: record.id, name: record.name, type: record.nodeType!, icon: record.icon, parentId: record.parentId || null, sort: record.sort || 0 } as AccountCategory)
-    setCategoryFormType(record.nodeType as 'asset' | 'liability')
-    categoryForm.setFieldsValue({ name: record.name, type: record.nodeType, icon: record.icon, parentId: record.parentId })
+    setEditingCategory({ id: record.id, name: record.name, type: record.nodeType!, icon: record.icon, parentId: null, sort: record.sort || 0 } as AccountCategory)
+    categoryForm.setFieldsValue({ name: record.name, type: record.nodeType, icon: record.icon })
     setCategoryFormVisible(true)
   }
 
@@ -137,15 +121,12 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     setEditingAccount(null)
     accountForm.resetFields()
     const category = accountCategories.find(c => c.id === categoryId)
-    const formType = (category?.type || 'asset') as 'asset' | 'liability'
-    setAccountFormType(formType)
     accountForm.setFieldsValue({ type: category?.type, categoryId, initialBalance: 0, initialBalanceDate: dayjs() })
     setAccountFormVisible(true)
   }
 
   const handleEditAccount = (record: AccountTreeNode) => {
     setEditingAccount(record)
-    setAccountFormType(record.nodeType as 'asset' | 'liability')
     accountForm.setFieldsValue({
       name: record.name, type: record.nodeType, initialBalance: record.initialBalance,
       initialBalanceDate: record.initialBalanceDate ? dayjs(record.initialBalanceDate) : dayjs(), icon: record.icon,
@@ -200,18 +181,15 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleMoveConfirm = async () => {
     if (!moveModal.item) return
-    if (moveModal.targetId === undefined) { message.warning('请选择目标位置'); return }
+    if (moveModal.item.type !== 'account') {
+      message.warning('分类无法移动')
+      return
+    }
+    if (!moveModal.targetId) { message.warning('请选择目标分类'); return }
     moveModal.setLoading(true)
     try {
-      if (moveModal.item.type === 'account') {
-        if (!moveModal.targetId) { message.warning('请选择目标分类'); return }
-        await updateAccount(moveModal.item.id, { categoryId: moveModal.targetId })
-        message.success('移动成功')
-      } else {
-        await accountCategoryApi.update(moveModal.item.id, { parentId: moveModal.targetId === null ? null : moveModal.targetId })
-        message.success('移动成功')
-        await fetchAccountCategories()
-      }
+      await updateAccount(moveModal.item.id, { categoryId: moveModal.targetId })
+      message.success('移动成功')
       moveModal.close()
     } catch (error: any) { message.error(error.response?.data?.error?.message || '移动失败') }
     finally { moveModal.setLoading(false) }
@@ -219,15 +197,10 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const getMoveTargetTreeData = (record: AccountTreeNode): MoveTreeDataNode[] => {
     const type = record.nodeType
-    if (record.type === 'account') {
-      const categories = localAccountCategories.filter(c => c.type === type)
-      const buildNode = (cat: AccountCategory): MoveTreeDataNode => ({
-        value: cat.id, title: cat.name, disabled: cat.id === record.parentId,
-        ...(categories.filter(c => c.parentId === cat.id).length > 0 ? { children: categories.filter(c => c.parentId === cat.id).map(buildNode) } : {}),
-      })
-      return categories.filter(c => !c.parentId).map(buildNode)
-    }
-    return buildMoveTargetTreeForCategory(localAccountCategories.filter(c => c.type === type), record.id, record.parentId)
+    const categories = localAccountCategories.filter(c => c.type === type)
+    return categories.map(cat => ({
+      value: cat.id, title: cat.name, disabled: cat.id === record.parentId,
+    }))
   }
 
   const getCurrentPositionLabelLocal = (record: AccountTreeNode): string => {
@@ -235,7 +208,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       const category = localAccountCategories.find(c => c.id === record.parentId)
       return category ? category.name : '未分类'
     }
-    return getCurrentPositionLabel(record.parentId, new Map(localAccountCategories.map(c => [c.id, { name: c.name }])))
+    return '一级分类'
   }
 
   const handleDragEnd = async (event: DragEndEvent, type: 'asset' | 'liability') => {
@@ -247,13 +220,11 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
     if (isCategoryDrag && isOverCategory) {
       const activeId = activeKey.replace('category-', ''), overId = overKey.replace('category-', '')
-      const activeCat = localAccountCategories.find(c => c.id === activeId), overCat = localAccountCategories.find(c => c.id === overId)
-      if (!activeCat || !overCat || activeCat.parentId || overCat.parentId) { message.warning('只能在一级分类之间调整顺序'); return }
-      const cats = localAccountCategories.filter(c => c.type === type && !c.parentId).sort((a, b) => a.sort - b.sort)
+      const cats = localAccountCategories.filter(c => c.type === type).sort((a, b) => a.sort - b.sort)
       const oldIdx = cats.findIndex(c => c.id === activeId), newIdx = cats.findIndex(c => c.id === overId)
       if (oldIdx === -1 || newIdx === -1) return
       const reordered = arrayMove(cats, oldIdx, newIdx)
-      setLocalAccountCategories(localAccountCategories.map(c => c.type === type && !c.parentId ? { ...c, sort: reordered.findIndex(r => r.id === c.id) } : c))
+      setLocalAccountCategories(localAccountCategories.map(c => c.type === type ? { ...c, sort: reordered.findIndex(r => r.id === c.id) } : c))
       try {
         await accountCategoryApi.updateSort(reordered.map((c, i) => ({ id: c.id, sort: i, parentId: null })))
         message.success('排序更新成功')
@@ -275,10 +246,9 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   }
 
   const getSettingMenuItems = (record: AccountTreeNode): MenuProps['items'] => createSettingMenuItems({
-    onAddSub: record.type === 'category' ? () => handleAddCategory(record.id) : undefined,
     onAddAccount: record.type === 'category' ? () => handleAddAccount(record.id!) : undefined,
     onEdit: () => record.type === 'category' ? handleEditCategory(record) : handleEditAccount(record),
-    onMove: () => moveModal.open(record),
+    onMove: record.type === 'account' ? () => moveModal.open(record) : undefined,
     onDelete: () => record.type === 'category' ? handleDeleteCategory(record.id!) : handleDeleteAccount(record.id!),
     hasChildren: !!(record.children?.length),
     isAccount: record.type === 'account',
@@ -291,8 +261,6 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     { title: '余额', dataIndex: 'balance', key: 'balance', width: 120, render: (balance: number, record: AccountTreeNode) => record.type === 'category' ? '-' : <span style={{ color: formatBalance(balance, record.nodeType || 'asset').color }}>{formatBalance(balance, record.nodeType || 'asset').text}</span> },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: AccountTreeNode) => <Dropdown menu={{ items: getSettingMenuItems(record) }} trigger={['click']}><Button type="text" size="small" icon={<SettingOutlined />} /></Dropdown> },
   ]
-
-  const getCategoryTree = (type: 'asset' | 'liability') => accountCategories.filter(c => c.type === type).map(c => ({ id: c.id, name: c.name, icon: c.icon, parentId: c.parentId, children: accountCategories.filter(cc => cc.parentId === c.id) }))
 
   const renderTable = (type: 'asset' | 'liability') => {
     const data = type === 'asset' ? buildTreeData.assetNodes : buildTreeData.liabilityNodes
@@ -317,10 +285,10 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     <>
       <Modal title="账户分类管理" open={visible} onCancel={onClose} footer={null} width={700}>
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems}
-          tabBarExtraContent={<Tooltip title={activeTab === 'asset' ? '添加资产分类' : '添加负债分类'}><Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(undefined, activeTab as 'asset' | 'liability')} /></Tooltip>} />
+          tabBarExtraContent={<Tooltip title={activeTab === 'asset' ? '添加资产分类' : '添加负债分类'}><Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(activeTab as 'asset' | 'liability')} /></Tooltip>} />
       </Modal>
-      <CategoryForm visible={categoryFormVisible} editing={!!editingCategory} form={categoryForm} categoryTree={getCategoryTree(categoryFormType)} onSubmit={handleCategorySubmit} onCancel={() => setCategoryFormVisible(false)} />
-      <AccountForm visible={accountFormVisible} editing={!!editingAccount} form={accountForm} categoryTree={getCategoryTree(accountFormType)} onSubmit={handleAccountSubmit} onCancel={() => setAccountFormVisible(false)} />
+      <CategoryForm visible={categoryFormVisible} editing={!!editingCategory} form={categoryForm} onSubmit={handleCategorySubmit} onCancel={() => setCategoryFormVisible(false)} />
+      <AccountForm visible={accountFormVisible} editing={!!editingAccount} form={accountForm} onSubmit={handleAccountSubmit} onCancel={() => setAccountFormVisible(false)} />
       <MoveModal visible={moveModal.visible} category={moveModal.item ? { id: moveModal.item.id, name: moveModal.item.name, categoryType: moveModal.item.nodeType as any, parentId: moveModal.item.parentId } : null}
         targetId={moveModal.targetId} loading={moveModal.loading} targetTreeData={moveModal.item ? getMoveTargetTreeData(moveModal.item) : []}
         currentPositionLabel={moveModal.item ? getCurrentPositionLabelLocal(moveModal.item) : ''} onTargetChange={moveModal.setTargetId} onConfirm={handleMoveConfirm} onCancel={moveModal.close} />
