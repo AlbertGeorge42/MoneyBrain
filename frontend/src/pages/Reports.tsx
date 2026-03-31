@@ -3,9 +3,7 @@ import { Card, Tabs, Modal, InputNumber, message, Space } from 'antd'
 import dayjs from 'dayjs'
 import { reportApi, accountApi } from '../services/api'
 import { useStore } from '../stores'
-import AccountCategoryModal from '../components/account-category/AccountCategoryModal'
-import TransactionCategoryModal from '../components/transaction-category/TransactionCategoryModal'
-import CashFlowConfigModal from '../components/reports/CashFlowConfigModal'
+import { AccountConfigModal, TransactionConfigModal, CashFlowConfigModal } from '../components/settings'
 import DynamicIcon from '../components/common/DynamicIcon'
 import { BalanceSheet, IncomeExpenseReport, CashFlowReport } from '../components/reports'
 
@@ -217,7 +215,7 @@ const Reports: React.FC = () => {
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
       </Card>
 
-      <AccountCategoryModal
+      <AccountConfigModal
         visible={accountCategoryModalVisible}
         onClose={() => {
           setAccountCategoryModalVisible(false)
@@ -226,7 +224,7 @@ const Reports: React.FC = () => {
         }}
       />
 
-      <TransactionCategoryModal
+      <TransactionConfigModal
         visible={transactionCategoryModalVisible}
         onClose={() => setTransactionCategoryModalVisible(false)}
       />

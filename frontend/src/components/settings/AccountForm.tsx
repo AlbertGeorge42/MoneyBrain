@@ -35,6 +35,7 @@ const AccountForm: React.FC<AccountFormProps> = ({
       <Form.Item name="type" label="账户类型" rules={[{ required: true, message: '请选择账户类型' }]}>
         <Select 
           placeholder="请选择账户类型"
+          disabled={editing}
           onChange={() => {
             form.setFieldsValue({ categoryId: undefined })
           }}
@@ -55,18 +56,20 @@ const AccountForm: React.FC<AccountFormProps> = ({
       <Form.Item name="initialBalanceDate" label="初始余额日期" rules={[{ required: true, message: '请选择初始余额日期' }]}>
         <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" placeholder="选择日期" />
       </Form.Item>
-      <Form.Item shouldUpdate={(prevValues, currentValues) => prevValues.type !== currentValues.type}>
-        {() => (
-          <Form.Item name="categoryId" label="所属分类">
-            <TreeSelect
-              placeholder="请选择账户分类"
-              allowClear
-              treeData={categoryTree}
-              fieldNames={{ label: 'name', value: 'id', children: 'children' }}
-            />
-          </Form.Item>
-        )}
-      </Form.Item>
+      {!editing && (
+        <Form.Item shouldUpdate={(prevValues, currentValues) => prevValues.type !== currentValues.type}>
+          {() => (
+            <Form.Item name="categoryId" label="所属分类">
+              <TreeSelect
+                placeholder="请选择账户分类"
+                allowClear
+                treeData={categoryTree}
+                fieldNames={{ label: 'name', value: 'id', children: 'children' }}
+              />
+            </Form.Item>
+          )}
+        </Form.Item>
+      )}
       <Form.Item name="icon" label="图标">
         <IconPicker placeholder="请选择图标" />
       </Form.Item>
