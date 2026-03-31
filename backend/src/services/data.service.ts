@@ -86,6 +86,15 @@ export async function clearAllData(): Promise<void> {
 }
 
 /**
+ * 仅清空交易数据
+ */
+export async function clearTransactionsOnly(): Promise<void> {
+  await prisma.budgetAlert.deleteMany()
+  await prisma.budget.deleteMany()
+  await prisma.transaction.deleteMany()
+}
+
+/**
  * 解析 CSV 行（处理引号内的逗号）
  */
 export function parseCSVLine(line: string): string[] {

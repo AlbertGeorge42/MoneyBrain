@@ -125,19 +125,23 @@ const Reports: React.FC = () => {
     const accounts = balanceSheetData.accounts
 
     const groupedByCategory: Record<string, any[]> = {}
+    const categoryOrder: string[] = []
+    
     accounts.forEach((a: any) => {
       const cat = a.category || '未分类'
       if (!groupedByCategory[cat]) {
         groupedByCategory[cat] = []
+        categoryOrder.push(cat)
       }
       groupedByCategory[cat].push(a)
     })
 
     const buildTree = (type: 'asset' | 'liability') => {
-      const typeAccounts = accounts.filter((a: any) => a.type === type)
-      const typeCategories = [...new Set(typeAccounts.map((a: any) => a.category || '未分类'))] as string[]
+      const typeCategoryOrder = categoryOrder.filter(cat => 
+        groupedByCategory[cat]?.some((a: any) => a.type === type)
+      )
 
-      return typeCategories.map((cat: string) => {
+      return typeCategoryOrder.map((cat: string) => {
         const catAccounts = groupedByCategory[cat] || []
         const typeCatAccounts = catAccounts.filter((a: any) => a.type === type)
         const total = typeCatAccounts.reduce((sum: number, a: any) => sum + a.balance, 0)
@@ -148,13 +152,14 @@ const Reports: React.FC = () => {
           balance: total,
           nodeType: type,
           type: 'category' as const,
+          icon: typeCatAccounts[0]?.categoryIcon || undefined,
           children: typeCatAccounts.map((a: any) => ({
             key: `account-${a.id}`,
             name: a.name,
             balance: a.balance,
             nodeType: type,
             type: 'account' as const,
-            isManual: a.isManual,
+            icon: a.icon,
           })),
         }
       })

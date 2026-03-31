@@ -132,11 +132,11 @@ const IconPicker: React.FC<IconPickerProps> = ({
     setSearch('')
   }
 
-  const renderIconGrid = (icons: string[]) => (
+  const renderIconGrid = (icons: string[], keyPrefix?: string) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 8 }}>
       {icons.map(iconName => (
         <div
-          key={iconName}
+          key={keyPrefix ? `${keyPrefix}-${iconName}` : iconName}
           onClick={() => handleSelect(iconName)}
           style={{
             display: 'flex',
@@ -181,7 +181,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
       {search ? (
         <div style={{ maxHeight: 350, overflowY: 'auto' }}>
           {filteredIcons.length > 0 ? (
-            renderIconGrid(filteredIcons)
+            renderIconGrid(filteredIcons, 'search')
           ) : (
             <Empty description="未找到匹配图标" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           )}
@@ -194,7 +194,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
             label: cat.label,
             children: (
               <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-                {renderIconGrid(cat.icons)}
+                {renderIconGrid(cat.icons, key)}
               </div>
             ),
           }))}

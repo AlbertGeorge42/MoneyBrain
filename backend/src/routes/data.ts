@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../index.js'
 import { success, error } from '../utils/response.js'
 import multer from 'multer'
-import { exportTransactionsCSV, clearAllData, parseCSVLine } from '../services/data.service.js'
+import { exportTransactionsCSV, clearAllData, clearTransactionsOnly, parseCSVLine } from '../services/data.service.js'
 
 const router = Router()
 
@@ -12,6 +12,15 @@ router.delete('/all', async (_req, res, next) => {
   try {
     await clearAllData()
     return success(res, { message: '所有数据已清空' })
+  } catch (err) {
+    return next(err)
+  }
+})
+
+router.delete('/transactions', async (_req, res, next) => {
+  try {
+    await clearTransactionsOnly()
+    return success(res, { message: '交易数据已清空' })
   } catch (err) {
     return next(err)
   }

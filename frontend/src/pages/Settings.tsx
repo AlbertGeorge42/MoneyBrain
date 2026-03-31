@@ -99,6 +99,47 @@ const Settings: React.FC = () => {
     }
   }
 
+  const handleClearTransactions = async () => {
+    try {
+      await dataApi.clearTransactions()
+      await Promise.all([
+        fetchTransactions(),
+        fetchBudgets(),
+      ])
+      message.success('交易数据已清空')
+    } catch (error) {
+      message.error('清空交易数据失败')
+    }
+  }
+
+  const showClearTransactionsConfirm = () => {
+    Modal.confirm({
+      title: '确认清空交易数据',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p style={{ color: '#cf1322', fontWeight: 'bold', marginBottom: 12 }}>
+            ⚠️ 此操作将永久删除以下数据：
+          </p>
+          <ul style={{ marginLeft: 20, color: '#666' }}>
+            <li>所有交易记录</li>
+            <li>所有预算设置</li>
+          </ul>
+          <p style={{ color: '#52c41a', marginTop: 12 }}>
+            ✓ 账户和分类信息将保留
+          </p>
+          <p style={{ color: '#cf1322', marginTop: 8 }}>
+            此操作不可恢复！请确保已导出备份。
+          </p>
+        </div>
+      ),
+      okText: '确认清空',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: handleClearTransactions,
+    })
+  }
+
   const showClearConfirm = () => {
     Modal.confirm({
       title: '确认清空所有数据',
@@ -176,8 +217,24 @@ const Settings: React.FC = () => {
           )}
         </div>
         
-        <div>
-          <h3 style={{ color: '#cf1322' }}>清空数据</h3>
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ color: '#fa8c16' }}>清空交易数据</h3>
+          <p style={{ color: '#666', marginBottom: 12 }}>
+            仅清空交易记录和预算，保留账户和分类信息。此操作不可恢复！
+          </p>
+          <Button 
+            type="primary"
+            ghost
+            style={{ borderColor: '#fa8c16', color: '#fa8c16' }}
+            icon={<DeleteOutlined />} 
+            onClick={showClearTransactionsConfirm}
+          >
+            清空交易数据
+          </Button>
+        </div>
+        
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ color: '#cf1322' }}>清空所有数据</h3>
           <p style={{ color: '#666', marginBottom: 12 }}>
             清空所有数据，包括账户、交易记录、预算和分类信息。此操作不可恢复！
           </p>

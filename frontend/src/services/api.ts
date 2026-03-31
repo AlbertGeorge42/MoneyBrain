@@ -176,6 +176,7 @@ export const analyticsApi = {
 
 export const dataApi = {
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
+  clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
 }
 
 export default api

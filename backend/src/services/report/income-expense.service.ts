@@ -6,6 +6,7 @@ export interface CategoryBreakdownItem {
   value: number
   categoryId: string
   hasChildren: boolean
+  sort: number
 }
 
 export interface IncomeExpenseResult {
@@ -51,49 +52,55 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
   const incomeByCategory: Record<string, number> = {}
   const expenseByCategory: Record<string, number> = {}
 
-  const allCategories = await prisma.transactionCategory.findMany()
+  const allCategories = await prisma.transactionCategory.findMany({
+    orderBy: { sort: 'asc' },
+  })
+  const categorySortMap = new Map(allCategories.map(c => [c.id, c.sort]))
 
-  // 获取子分类的父分类映射
   const childCategoryIds = transactions
     .filter(t => t.category?.parentId)
     .map(t => t.category!.parentId)
   const uniqueParentIds = [...new Set(childCategoryIds)] as string[]
 
-  let parentMap: Record<string, string> = {}
+  let parentMap: Record<string, { name: string; sort: number }> = {}
   if (uniqueParentIds.length > 0) {
     const parentCats = await prisma.transactionCategory.findMany({
       where: { id: { in: uniqueParentIds } },
     })
-    parentMap = Object.fromEntries(parentCats.map(p => [p.id, p.name]))
+    parentMap = Object.fromEntries(parentCats.map(p => [p.id, { name: p.name, sort: p.sort }]))
   }
 
-  const incomeCategoryData: Record<string, { value: number; categoryId: string }> = {}
-  const expenseCategoryData: Record<string, { value: number; categoryId: string }> = {}
+  const incomeCategoryData: Record<string, { value: number; categoryId: string; sort: number }> = {}
+  const expenseCategoryData: Record<string, { value: number; categoryId: string; sort: number }> = {}
 
   transactions.forEach(t => {
     let categoryName = '未分类'
     let parentId = ''
+    let categorySort = 0
 
     if (t.category) {
       if (t.category.parentId) {
-        categoryName = parentMap[t.category.parentId] || t.category.name
+        const parentInfo = parentMap[t.category.parentId]
+        categoryName = parentInfo?.name || t.category.name
         parentId = t.category.parentId
+        categorySort = parentInfo?.sort ?? categorySortMap.get(t.category.parentId) ?? 0
       } else {
         categoryName = t.category.name
         parentId = t.category.id
+        categorySort = categorySortMap.get(t.category.id) ?? t.category.sort
       }
     }
 
     if (t.type === 'income') {
       incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + t.amount.toNumber()
       if (!incomeCategoryData[categoryName]) {
-        incomeCategoryData[categoryName] = { value: 0, categoryId: parentId }
+        incomeCategoryData[categoryName] = { value: 0, categoryId: parentId, sort: categorySort }
       }
       incomeCategoryData[categoryName].value += t.amount.toNumber()
     } else {
       expenseByCategory[categoryName] = (expenseByCategory[categoryName] || 0) + t.amount.toNumber()
       if (!expenseCategoryData[categoryName]) {
-        expenseCategoryData[categoryName] = { value: 0, categoryId: parentId }
+        expenseCategoryData[categoryName] = { value: 0, categoryId: parentId, sort: categorySort }
       }
       expenseCategoryData[categoryName].value += t.amount.toNumber()
     }
@@ -105,8 +112,9 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
       value: data.value,
       categoryId: data.categoryId,
       hasChildren: allCategories.some(c => c.parentId === data.categoryId),
+      sort: data.sort,
     }))
-    .sort((a, b) => b.value - a.value)
+    .sort((a, b) => a.sort - b.sort)
 
   const expenseCategoryDetails: CategoryBreakdownItem[] = Object.entries(expenseCategoryData)
     .map(([name, data]) => ({
@@ -114,10 +122,10 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
       value: data.value,
       categoryId: data.categoryId,
       hasChildren: allCategories.some(c => c.parentId === data.categoryId),
+      sort: data.sort,
     }))
-    .sort((a, b) => b.value - a.value)
+    .sort((a, b) => a.sort - b.sort)
 
-  // 计算期初和期末资产
   const accounts = await prisma.account.findMany()
 
   const startBalances = await Promise.all(

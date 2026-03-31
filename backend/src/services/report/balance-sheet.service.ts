@@ -7,6 +7,11 @@ export interface BalanceSheetAccount {
   type: string
   balance: number
   category: string
+  categoryId: string | null
+  icon: string | null
+  categoryIcon: string | null
+  categorySort: number
+  accountSort: number
 }
 
 export interface BalanceSheetResult {
@@ -23,8 +28,13 @@ export interface BalanceSheetResult {
 export async function generateBalanceSheet(month: string): Promise<BalanceSheetResult> {
   const monthStart = new Date(`${month}-01T00:00:00`)
 
+  const categories = await prisma.accountCategory.findMany({
+    orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
+  })
+
   const accounts = await prisma.account.findMany({
     include: { category: true },
+    orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
   })
 
   const accountBalances = await Promise.all(
@@ -56,6 +66,37 @@ export async function generateBalanceSheet(month: string): Promise<BalanceSheetR
     }
   })
 
+  const categoryMap = new Map(categories.map(c => [c.id, c]))
+
+  const sortedAccounts = accountBalances
+    .map(a => {
+      const cat = a.category ? categoryMap.get(a.category.id) : null
+      return {
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        balance: a.balance,
+        category: a.category?.name || '未分类',
+        categoryId: a.categoryId,
+        icon: a.icon,
+        categoryIcon: cat?.icon || null,
+        categorySort: cat?.sort ?? 0,
+        accountSort: a.sort,
+      }
+    })
+    .sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'asset' ? -1 : 1
+      }
+      if (a.categorySort !== b.categorySort) {
+        return a.categorySort - b.categorySort
+      }
+      if (a.category !== b.category) {
+        return a.category.localeCompare(b.category, 'zh-CN')
+      }
+      return a.accountSort - b.accountSort
+    })
+
   return {
     month,
     date: `${month}-01`,
@@ -64,12 +105,6 @@ export async function generateBalanceSheet(month: string): Promise<BalanceSheetR
     netWorth,
     assetsByCategory,
     liabilitiesByCategory,
-    accounts: accountBalances.map(a => ({
-      id: a.id,
-      name: a.name,
-      type: a.type,
-      balance: a.balance,
-      category: a.category?.name || '未分类',
-    })),
+    accounts: sortedAccounts,
   }
 }

@@ -13,6 +13,7 @@ interface CategoryDetail {
   value: number
   categoryId: string
   hasChildren: boolean
+  sort: number
 }
 
 interface IncomeExpenseData {
@@ -255,15 +256,12 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         <Col span={12}>
           <Card title="收入明细" size="small">
             <Table
-              dataSource={Object.entries(incomeExpenseData?.incomeByCategory || {}).map(([name, value]) => ({
-                name,
-                value,
-              }))}
+              dataSource={incomeExpenseData?.incomeCategoryDetails || []}
               columns={[
                 { title: '分类', dataIndex: 'name', key: 'name' },
                 { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
               ]}
-              rowKey="name"
+              rowKey="categoryId"
               size="small"
               pagination={false}
             />
@@ -272,15 +270,12 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         <Col span={12}>
           <Card title="支出明细" size="small">
             <Table
-              dataSource={Object.entries(incomeExpenseData?.expenseByCategory || {}).map(([name, value]) => ({
-                name,
-                value,
-              }))}
+              dataSource={incomeExpenseData?.expenseCategoryDetails || []}
               columns={[
                 { title: '分类', dataIndex: 'name', key: 'name' },
                 { title: '金额', dataIndex: 'value', key: 'value', render: (v: number) => `¥${v.toFixed(2)}` },
               ]}
-              rowKey="name"
+              rowKey="categoryId"
               size="small"
               pagination={false}
             />
