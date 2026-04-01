@@ -45,13 +45,38 @@ const TRANSFER_SUB_CATEGORIES = [
   { name: '转账', key: 'transfer' },
 ]
 
+async function getNextAccountCategorySort(type: string): Promise<number> {
+  const maxSortResult = await prisma.accountCategory.aggregate({
+    where: { type },
+    _max: { sort: true },
+  })
+  return (maxSortResult._max.sort ?? -1) + 1
+}
+
+async function getNextTransactionCategorySort(type: string, parentId: string | null): Promise<number> {
+  const maxSortResult = await prisma.transactionCategory.aggregate({
+    where: { type, parentId: parentId || null },
+    _max: { sort: true },
+  })
+  return (maxSortResult._max.sort ?? -1) + 1
+}
+
+async function getNextAccountSort(categoryId: string | null): Promise<number> {
+  const maxSortResult = await prisma.account.aggregate({
+    where: { categoryId: categoryId || null },
+    _max: { sort: true },
+  })
+  return (maxSortResult._max.sort ?? -1) + 1
+}
+
 async function getOrCreateTransferSubCategory(name: string): Promise<string> {
   let category = await prisma.transactionCategory.findFirst({
     where: { name, type: 'transfer', parentId: null },
   })
   if (!category) {
+    const sort = await getNextTransactionCategorySort('transfer', null)
     category = await prisma.transactionCategory.create({
-      data: { name, type: 'transfer', icon: 'arrow-right' },
+      data: { name, type: 'transfer', icon: 'arrow-right', sort },
     })
   }
   return category.id
@@ -108,8 +133,9 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       where: { type: 'asset', parentId: null },
     })
     if (!defaultAssetCategory) {
+      const sort = await getNextAccountCategorySort('asset')
       defaultAssetCategory = await prisma.accountCategory.create({
-        data: { name: '资产', type: 'asset', icon: 'wallet' },
+        data: { name: '资产', type: 'asset', icon: 'wallet', sort },
       })
     }
 
@@ -117,8 +143,9 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       where: { type: 'liability', parentId: null },
     })
     if (!defaultLiabilityCategory) {
+      const sort = await getNextAccountCategorySort('liability')
       defaultLiabilityCategory = await prisma.accountCategory.create({
-        data: { name: '负债', type: 'liability', icon: 'credit-card' },
+        data: { name: '负债', type: 'liability', icon: 'credit-card', sort },
       })
     }
 
@@ -219,11 +246,13 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                 where: { name: category1, parentId: null, type: categoryType },
               })
               if (!parentCategory) {
+                const sort = await getNextTransactionCategorySort(categoryType, null)
                 parentCategory = await prisma.transactionCategory.create({
                   data: {
                     name: category1,
                     type: categoryType,
                     icon: 'folder',
+                    sort,
                   },
                 })
               }
@@ -241,12 +270,14 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             },
           })
           if (!category) {
+            const sort = await getNextTransactionCategorySort(categoryType, parentId)
             category = await prisma.transactionCategory.create({
               data: {
                 name: actualCategoryName,
                 type: categoryType,
                 icon: 'circle',
                 parentId: parentId,
+                sort,
               },
             })
           }
@@ -260,6 +291,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             where: { name: account1 },
           })
           if (!account) {
+            const sort = await getNextAccountSort(defaultAssetCategory.id)
             account = await prisma.account.create({
               data: {
                 name: account1,
@@ -268,6 +300,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                 initialBalance: 0,
                 categoryId: defaultAssetCategory.id,
                 icon: 'wallet',
+                sort,
               },
             })
           }
@@ -282,14 +315,24 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
           })
           
           if (toAccount) {
+            if (typeStr === '还款' && toAccount.type === 'asset') {
+              toAccount = await prisma.account.update({
+                where: { id: toAccount.id },
+                data: { 
+                  type: 'liability',
+                  categoryId: defaultLiabilityCategory.id 
+                },
+              })
+              accountCache[account2] = { id: toAccount.id, type: toAccount.type, categoryId: toAccount.categoryId }
+            }
             toAccountData = { id: toAccount.id, type: toAccount.type, categoryId: toAccount.categoryId }
           } else {
-            const isInflowToAccount1 = amount > 0
             const inferredType = typeStr === '还款' ? 'liability' : 'asset'
             const inferredCategoryId = inferredType === 'liability' 
               ? defaultLiabilityCategory.id 
               : defaultAssetCategory.id
             
+            const sort = await getNextAccountSort(inferredCategoryId)
             toAccount = await prisma.account.create({
               data: {
                 name: account2,
@@ -298,6 +341,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                 initialBalance: 0,
                 categoryId: inferredCategoryId,
                 icon: inferredType === 'liability' ? 'credit-card' : 'wallet',
+                sort,
               },
             })
             toAccountData = { id: toAccount.id, type: toAccount.type, categoryId: toAccount.categoryId }
@@ -378,6 +422,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
             where: { name: account1 },
           })
           if (!account) {
+            const sort = await getNextAccountSort(defaultAssetCategory.id)
             account = await prisma.account.create({
               data: {
                 name: account1,
@@ -386,6 +431,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
                 initialBalance: 0,
                 categoryId: defaultAssetCategory.id,
                 icon: 'wallet',
+                sort,
               },
             })
           }

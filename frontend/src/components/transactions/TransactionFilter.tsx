@@ -98,7 +98,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
     return tree
   }, [accounts, accountCategories])
 
-  // 构建分类树形数据（按收入/支出分组，支持多级，可选择父分类筛选所有子分类）
+  // 构建分类树形数据（按收入/支出/转账分组，支持多级，可选择父分类筛选所有子分类）
   const categoryTreeData = useMemo(() => {
     const buildCategoryTree = (parentId: string | null, type: string): any[] => {
       const children = categories.filter(c => c.parentId === parentId && c.type === type)
@@ -127,6 +127,14 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
         selectable: false,
         name: '收入',
         children: buildCategoryTree(null, 'income'),
+      },
+      {
+        title: <Tag color="blue">转账</Tag>,
+        value: 'transfer_group',
+        key: 'transfer_group',
+        selectable: false,
+        name: '转账',
+        children: buildCategoryTree(null, 'transfer'),
       },
     ]
   }, [categories])

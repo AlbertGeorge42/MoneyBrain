@@ -63,8 +63,18 @@ router.post('/', async (req, res, next) => {
     if (!name || !type) {
       return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
     }
+
+    let finalSort = sort
+    if (finalSort === undefined || finalSort === null) {
+      const maxSortResult = await prisma.transactionCategory.aggregate({
+        where: { type, parentId: parentId || null },
+        _max: { sort: true },
+      })
+      finalSort = (maxSortResult._max.sort ?? -1) + 1
+    }
+
     const category = await prisma.transactionCategory.create({
-      data: { name, type, icon, parentId, cashFlowType, sort: sort || 0 },
+      data: { name, type, icon, parentId, cashFlowType, sort: finalSort },
     })
     return success(res, category, 201)
   } catch (err) {

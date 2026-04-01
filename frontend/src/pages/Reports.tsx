@@ -125,23 +125,23 @@ const Reports: React.FC = () => {
     const accounts = balanceSheetData.accounts
 
     const groupedByCategory: Record<string, any[]> = {}
-    const categoryOrder: string[] = []
-    
+    const categorySortMap: Record<string, number> = {}
+
     accounts.forEach((a: any) => {
       const cat = a.category || '未分类'
       if (!groupedByCategory[cat]) {
         groupedByCategory[cat] = []
-        categoryOrder.push(cat)
+        categorySortMap[cat] = a.categorySort ?? 0
       }
       groupedByCategory[cat].push(a)
     })
 
     const buildTree = (type: 'asset' | 'liability') => {
-      const typeCategoryOrder = categoryOrder.filter(cat => 
-        groupedByCategory[cat]?.some((a: any) => a.type === type)
-      )
+      const typeCategories = Object.keys(groupedByCategory)
+        .filter(cat => groupedByCategory[cat]?.some((a: any) => a.type === type))
+        .sort((a, b) => categorySortMap[a] - categorySortMap[b])
 
-      return typeCategoryOrder.map((cat: string) => {
+      return typeCategories.map((cat: string) => {
         const catAccounts = groupedByCategory[cat] || []
         const typeCatAccounts = catAccounts.filter((a: any) => a.type === type)
         const total = typeCatAccounts.reduce((sum: number, a: any) => sum + a.balance, 0)
