@@ -1,73 +1,43 @@
-import { Router } from 'express'
+import { Router, type Request } from 'express'
 import { prisma } from '../index.js'
-import { success, error } from '../utils/response.js'
+import { success } from '../utils/response.js'
 import multer from 'multer'
 import { exportTransactionsCSV, clearAllData, clearTransactionsOnly, parseCSVLine } from '../services/data.service.js'
+import {
+  getNextAccountCategorySort,
+  getNextAccountSort,
+  getNextTransactionCategorySort,
+} from '../services/sort.service.js'
+import { ValidationError } from '../errors/index.js'
+import { asyncHandler } from '../utils/async-handler.js'
+import { validateRequest } from '../middleware/validate-request.js'
 
 const router = Router()
 
 const upload = multer({ storage: multer.memoryStorage() })
 
-router.delete('/all', async (_req, res, next) => {
-  try {
-    await clearAllData()
-    return success(res, { message: '所有数据已清空' })
-  } catch (err) {
-    return next(err)
+const validateImportRequest = (req: Request) => {
+  if (!req.file) {
+    throw new ValidationError('请上传CSV文件')
   }
-})
-
-router.delete('/transactions', async (_req, res, next) => {
-  try {
-    await clearTransactionsOnly()
-    return success(res, { message: '交易数据已清空' })
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.get('/export', async (_req, res, next) => {
-  try {
-    const csvContent = await exportTransactionsCSV()
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
-    res.setHeader('Content-Disposition', `attachment; filename=moneybrain-export-${new Date().toISOString().split('T')[0]}.csv`)
-    res.send(csvContent)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-const TRANSFER_SUB_CATEGORIES = [
-  { name: '还款', key: 'repayment' },
-  { name: '借贷', key: 'lending' },
-  { name: '买入', key: 'buy' },
-  { name: '卖出', key: 'sell' },
-  { name: '转账', key: 'transfer' },
-]
-
-async function getNextAccountCategorySort(type: string): Promise<number> {
-  const maxSortResult = await prisma.accountCategory.aggregate({
-    where: { type },
-    _max: { sort: true },
-  })
-  return (maxSortResult._max.sort ?? -1) + 1
 }
 
-async function getNextTransactionCategorySort(type: string, parentId: string | null): Promise<number> {
-  const maxSortResult = await prisma.transactionCategory.aggregate({
-    where: { type, parentId: parentId || null },
-    _max: { sort: true },
-  })
-  return (maxSortResult._max.sort ?? -1) + 1
-}
+router.delete('/all', asyncHandler(async (_req, res) => {
+  await clearAllData()
+  return success(res, { message: '所有数据已清空' })
+}))
 
-async function getNextAccountSort(categoryId: string | null): Promise<number> {
-  const maxSortResult = await prisma.account.aggregate({
-    where: { categoryId: categoryId || null },
-    _max: { sort: true },
-  })
-  return (maxSortResult._max.sort ?? -1) + 1
-}
+router.delete('/transactions', asyncHandler(async (_req, res) => {
+  await clearTransactionsOnly()
+  return success(res, { message: '交易数据已清空' })
+}))
+
+router.get('/export', asyncHandler(async (_req, res) => {
+  const csvContent = await exportTransactionsCSV()
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename=moneybrain-export-${new Date().toISOString().split('T')[0]}.csv`)
+  res.send(csvContent)
+}))
 
 async function getOrCreateTransferSubCategory(name: string): Promise<string> {
   let category = await prisma.transactionCategory.findFirst({
@@ -111,17 +81,12 @@ async function classifyTransfer(
   return getOrCreateTransferSubCategory('转账')
 }
 
-router.post('/import', upload.single('file'), async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return error(res, '请上传CSV文件', 'BAD_REQUEST', 400)
-    }
-
-    const content = req.file.buffer.toString('utf-8')
+router.post('/import', upload.single('file'), validateRequest(validateImportRequest), asyncHandler(async (req, res) => {
+    const content = req.file!.buffer.toString('utf-8')
     const lines = content.split('\n').filter(line => line.trim())
-    
+
     if (lines.length < 2) {
-      return error(res, 'CSV文件为空或格式错误', 'BAD_REQUEST', 400)
+      throw new ValidationError('CSV文件为空或格式错误')
     }
 
     const dataLines = lines.slice(1)
@@ -462,9 +427,6 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     }
 
     return success(res, { imported, skipped, errors: errors.slice(0, 10) })
-  } catch (err) {
-    return next(err)
-  }
-})
+}))
 
 export default router

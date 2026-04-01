@@ -1,235 +1,285 @@
-import { Router } from 'express'
-import { success, error, notFound } from '../utils/response.js'
+import { Router, type Request } from 'express'
+import { success } from '../utils/response.js'
+import { NotFoundError, ValidationError } from '../errors/index.js'
+import { validateRequest } from '../middleware/validate-request.js'
+import { asyncHandler } from '../utils/async-handler.js'
 import { transactionService, createIncomeExpense, createTransfer, createRefund, updateIncomeExpense, updateTransfer, updateRefund } from '../services/transaction.service.js'
 
 const router = Router()
 
-router.get('/', async (req, res, next) => {
-  try {
-    const {
-      page = 1,
-      pageSize = 20,
-      accountId,
-      categoryId,
-      type,
-      startDate,
-      endDate,
-    } = req.query
+type TransactionType = 'income' | 'expense' | 'transfer' | 'refund'
 
-    const result = await transactionService.getTransactionList({
-      page: Number(page),
-      pageSize: Number(pageSize),
-      accountId: accountId ? (Array.isArray(accountId) ? accountId as string[] : [accountId as string]) : undefined,
-      categoryId: categoryId ? (Array.isArray(categoryId) ? categoryId as string[] : [categoryId as string]) : undefined,
-      type: type ? (Array.isArray(type) ? type as string[] : [type as string]) : undefined,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
-    })
+const transactionTypes = new Set<TransactionType>(['income', 'expense', 'transfer', 'refund'])
 
-    return success(res, result)
-  } catch (err) {
-    return next(err)
+const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
+
+const toDate = (value: unknown, fieldName: string): Date => {
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError(`${fieldName}格式错误`)
   }
-})
+  return date
+}
 
-router.get('/stats', async (req, res, next) => {
-  try {
-    const { startDate, endDate } = req.query
-
-    const stats = await transactionService.getTransactionStats(
-      startDate ? new Date(startDate as string) : undefined,
-      endDate ? new Date(endDate as string) : undefined
-    )
-
-    return success(res, stats)
-  } catch (err) {
-    return next(err)
+const toOptionalDate = (value: unknown, fieldName: string): Date | undefined => {
+  if (!hasValue(value)) {
+    return undefined
   }
-})
+  return toDate(value, fieldName)
+}
 
-router.get('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const transaction = await transactionService.getTransactionById(id)
-    if (!transaction) {
-      return notFound(res, '交易记录不存在')
-    }
-    return success(res, transaction)
-  } catch (err) {
-    return next(err)
+const toStringArray = (value: unknown): string[] | undefined => {
+  if (!hasValue(value)) {
+    return undefined
   }
-})
 
-router.get('/refundable/list', async (req, res, next) => {
-  try {
-    const transactions = await transactionService.getRefundableTransactions()
-    return success(res, transactions)
-  } catch (err) {
-    return next(err)
+  if (Array.isArray(value)) {
+    return value.map(item => String(item))
   }
-})
 
-router.post('/', async (req, res, next) => {
-  try {
-    const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
+  return [String(value)]
+}
 
-    if (type === 'refund') {
-      if (!amount || !date || !accountId || !relatedTransactionId) {
-        return error(res, '退款交易缺少必要参数', 'BAD_REQUEST', 400)
-      }
+const parsePositiveInteger = (value: unknown, fieldName: string, defaultValue: number): number => {
+  if (!hasValue(value)) {
+    return defaultValue
+  }
 
-      try {
-        const result = await createRefund({
-          amount,
-          fee,
-          coupon,
-          date: new Date(date),
-          note,
-          accountId,
-          relatedTransactionId,
-        })
-        return success(res, result, 201)
-      } catch (err) {
-        if (err instanceof Error && err.message === '原交易记录不存在') {
-          return error(res, err.message, 'BAD_REQUEST', 400)
-        }
-        throw err
-      }
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ValidationError(`${fieldName}必须是正整数`)
+  }
+
+  return parsed
+}
+
+const validateTransactionType = (value: unknown): TransactionType => {
+  const type = String(value) as TransactionType
+  if (!transactionTypes.has(type)) {
+    throw new ValidationError('交易类型不合法')
+  }
+  return type
+}
+
+const validateListQuery = (req: Request) => {
+  parsePositiveInteger(req.query.page, 'page', 1)
+  parsePositiveInteger(req.query.pageSize, 'pageSize', 20)
+  toOptionalDate(req.query.startDate, 'startDate')
+  toOptionalDate(req.query.endDate, 'endDate')
+}
+
+const validateStatsQuery = (req: Request) => {
+  toOptionalDate(req.query.startDate, 'startDate')
+  toOptionalDate(req.query.endDate, 'endDate')
+}
+
+const validateIdParam = (req: Request) => {
+  if (!hasValue(req.params.id)) {
+    throw new ValidationError('id不能为空')
+  }
+}
+
+const validateCreateTransaction = (req: Request) => {
+  const { type, amount, date, accountId, categoryId, toAccountId, relatedTransactionId } = req.body as Record<string, unknown>
+  const transactionType = validateTransactionType(type)
+
+  if (!hasValue(amount) || !hasValue(date) || !hasValue(accountId)) {
+    throw new ValidationError('缺少必要参数')
+  }
+
+  toDate(date, 'date')
+
+  if (transactionType === 'refund') {
+    if (!hasValue(relatedTransactionId)) {
+      throw new ValidationError('退款交易缺少必要参数')
     }
+    return
+  }
 
-    if (type === 'transfer') {
-      if (!accountId || !toAccountId || !amount || !date) {
-        return error(res, '缺少必要参数', 'BAD_REQUEST', 400)
-      }
-      if (accountId === toAccountId) {
-        return error(res, '转出账户和转入账户不能相同', 'BAD_REQUEST', 400)
-      }
-
-      try {
-        const result = await createTransfer({
-          amount,
-          fee,
-          coupon,
-          date: new Date(date),
-          note,
-          accountId,
-          toAccountId,
-          categoryId,
-        })
-        return success(res, result, 201)
-      } catch (err) {
-        if (err instanceof Error) {
-          if (err.message === '转出账户不存在' ||
-              err.message === '转入账户不存在' ||
-              err.message === '转出账户余额不足') {
-            return error(res, err.message, 'BAD_REQUEST', 400)
-          }
-        }
-        throw err
-      }
+  if (transactionType === 'transfer') {
+    if (!hasValue(toAccountId)) {
+      throw new ValidationError('缺少必要参数')
     }
-
-    if (!type || !amount || !date || !accountId || !categoryId) {
-      return error(res, '缺少必要参数', 'BAD_REQUEST', 400)
+    if (String(accountId) === String(toAccountId)) {
+      throw new ValidationError('转出账户和转入账户不能相同')
     }
+    return
+  }
 
-    const result = await createIncomeExpense({
-      type,
+  if (!hasValue(categoryId)) {
+    throw new ValidationError('缺少必要参数')
+  }
+}
+
+const validateUpdateTransaction = (req: Request) => {
+  validateIdParam(req)
+
+  const { type, date, accountId, toAccountId } = req.body as Record<string, unknown>
+
+  if (hasValue(type)) {
+    validateTransactionType(type)
+  }
+
+  if (hasValue(date)) {
+    toDate(date, 'date')
+  }
+
+  if (hasValue(accountId) && hasValue(toAccountId) && String(accountId) === String(toAccountId)) {
+    throw new ValidationError('转出账户和转入账户不能相同')
+  }
+}
+
+router.get('/', validateRequest(validateListQuery), asyncHandler(async (req, res) => {
+  const result = await transactionService.getTransactionList({
+    page: parsePositiveInteger(req.query.page, 'page', 1),
+    pageSize: parsePositiveInteger(req.query.pageSize, 'pageSize', 20),
+    accountId: toStringArray(req.query.accountId),
+    categoryId: toStringArray(req.query.categoryId),
+    type: toStringArray(req.query.type),
+    startDate: toOptionalDate(req.query.startDate, 'startDate'),
+    endDate: toOptionalDate(req.query.endDate, 'endDate'),
+  })
+
+  return success(res, result)
+}))
+
+router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (req, res) => {
+  const stats = await transactionService.getTransactionStats(
+    toOptionalDate(req.query.startDate, 'startDate'),
+    toOptionalDate(req.query.endDate, 'endDate'),
+  )
+
+  return success(res, stats)
+}))
+
+router.get('/refundable/list', asyncHandler(async (_req, res) => {
+  const transactions = await transactionService.getRefundableTransactions()
+  return success(res, transactions)
+}))
+
+router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const transaction = await transactionService.getTransactionById(req.params.id)
+  if (!transaction) {
+    throw new NotFoundError('交易记录')
+  }
+  return success(res, transaction)
+}))
+
+router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async (req, res) => {
+  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
+  const parsedDate = toDate(date, 'date')
+
+  if (type === 'refund') {
+    const result = await createRefund({
       amount,
       fee,
       coupon,
-      date: new Date(date),
+      date: parsedDate,
       note,
       accountId,
-      categoryId,
+      relatedTransactionId,
     })
-
     return success(res, result, 201)
-  } catch (err) {
-    return next(err)
   }
-})
 
-router.put('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
-
-    const oldTransaction = await transactionService.getTransactionById(id)
-    if (!oldTransaction) {
-      return error(res, '交易记录不存在', 'BAD_REQUEST', 404)
-    }
-
-    if (oldTransaction.type === 'transfer') {
-      if (type && type !== 'transfer') {
-        return error(res, '转账记录不能修改为其他类型', 'BAD_REQUEST', 400)
-      }
-
-      const result = await updateTransfer(id, {
-        amount,
-        fee,
-        coupon,
-        date: date ? new Date(date) : undefined,
-        note,
-        accountId,
-        toAccountId,
-        categoryId,
-      })
-
-      return success(res, result)
-    }
-
-    if (oldTransaction.type === 'refund') {
-      const result = await updateRefund(id, {
-        amount,
-        fee,
-        coupon,
-        date: date ? new Date(date) : undefined,
-        note,
-        accountId,
-        categoryId,
-        relatedTransactionId,
-      })
-
-      return success(res, result)
-    }
-
-    const result = await updateIncomeExpense(id, {
-      type,
+  if (type === 'transfer') {
+    const result = await createTransfer({
       amount,
       fee,
       coupon,
-      date: date ? new Date(date) : undefined,
+      date: parsedDate,
       note,
       accountId,
+      toAccountId,
+      categoryId,
+    })
+    return success(res, result, 201)
+  }
+
+  const result = await createIncomeExpense({
+    type,
+    amount,
+    fee,
+    coupon,
+    date: parsedDate,
+    note,
+    accountId,
+    categoryId,
+  })
+
+  return success(res, result, 201)
+}))
+
+router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
+
+  const oldTransaction = await transactionService.getTransactionById(id)
+  if (!oldTransaction) {
+    throw new NotFoundError('交易记录')
+  }
+
+  const parsedDate = toOptionalDate(date, 'date')
+
+  if (oldTransaction.type === 'transfer') {
+    if (hasValue(type) && type !== 'transfer') {
+      throw new ValidationError('转账记录不能修改为其他类型')
+    }
+
+    const result = await updateTransfer(id, {
+      amount,
+      fee,
+      coupon,
+      date: parsedDate,
+      note,
+      accountId,
+      toAccountId,
       categoryId,
     })
 
     return success(res, result)
-  } catch (err) {
-    if (err instanceof Error && err.message === '交易记录不存在') {
-      return error(res, err.message, 'BAD_REQUEST', 404)
-    }
-    return next(err)
   }
-})
 
-router.delete('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-
-    try {
-      await transactionService.deleteTransaction(id)
-      return success(res, { message: '删除成功' })
-    } catch (err) {
-      if (err instanceof Error && err.message === '交易记录不存在') {
-        return notFound(res, '交易记录不存在')
-      }
-      throw err
+  if (oldTransaction.type === 'refund') {
+    if (hasValue(type) && type !== 'refund') {
+      throw new ValidationError('退款记录不能修改为其他类型')
     }
-  } catch (err) {
-    return next(err)
+
+    const result = await updateRefund(id, {
+      amount,
+      fee,
+      coupon,
+      date: parsedDate,
+      note,
+      accountId,
+      categoryId,
+      relatedTransactionId,
+    })
+
+    return success(res, result)
   }
-})
+
+  if (hasValue(type) && type !== 'income' && type !== 'expense') {
+    throw new ValidationError('普通交易只能修改为收入或支出')
+  }
+
+  const result = await updateIncomeExpense(id, {
+    type,
+    amount,
+    fee,
+    coupon,
+    date: parsedDate,
+    note,
+    accountId,
+    categoryId,
+  })
+
+  return success(res, result)
+}))
+
+router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  await transactionService.deleteTransaction(req.params.id)
+  return success(res, { message: '删除成功' })
+}))
 
 export default router

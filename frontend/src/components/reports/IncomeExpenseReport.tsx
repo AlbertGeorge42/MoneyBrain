@@ -5,37 +5,13 @@ import dayjs from 'dayjs'
 import { PieChart, BarChart } from '../charts'
 import { PieChartDataItem } from '../charts/PieChart'
 import * as api from '../../services/api'
+import type { IncomeExpenseReportData } from '@shared/types'
 
 const { RangePicker } = DatePicker
 
-interface CategoryDetail {
-  name: string
-  value: number
-  categoryId: string
-  hasChildren: boolean
-  sort: number
-}
-
-interface IncomeExpenseData {
-  startAssets?: number
-  startLiabilities?: number
-  startNetWorth?: number
-  assetChange?: number
-  income?: number
-  expense?: number
-  balance?: number
-  incomeByCategory?: Record<string, number>
-  expenseByCategory?: Record<string, number>
-  incomeCategoryDetails?: CategoryDetail[]
-  expenseCategoryDetails?: CategoryDetail[]
-  endAssets?: number
-  endLiabilities?: number
-  endNetWorth?: number
-}
-
 interface IncomeExpenseReportProps {
   dateRange: [dayjs.Dayjs, dayjs.Dayjs]
-  incomeExpenseData: IncomeExpenseData | null
+  incomeExpenseData: IncomeExpenseReportData | null
   onDateRangeChange: (dates: [dayjs.Dayjs, dayjs.Dayjs]) => void
   onOpenSettings: () => void
 }

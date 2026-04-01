@@ -1,145 +1,79 @@
-import { Router } from 'express'
-import { prisma } from '../index.js'
-import { success, error, notFound } from '../utils/response.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
+import { Router, type Request } from 'express'
+import { success } from '../utils/response.js'
+import { ValidationError } from '../errors/index.js'
+import { asyncHandler } from '../utils/async-handler.js'
+import { validateRequest } from '../middleware/validate-request.js'
+import {
+  createBudget,
+  deleteBudget,
+  getBudgetDetail,
+  getBudgets,
+  getBudgetStatus,
+  updateBudget,
+} from '../services/budget.service.js'
 
 const router = Router()
 
-router.get('/', async (req, res, next) => {
-  try {
-    const { period } = req.query
-    const where: any = {}
-    if (period) where.period = period
+const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
 
-    const budgets = await prisma.budget.findMany({
-      where,
-      include: { category: true, alerts: true },
-      orderBy: { createdAt: 'desc' },
-    })
-    return success(res, budgets)
-  } catch (err) {
-    return next(err)
+const validateIdParam = (req: Request) => {
+  if (!hasValue(req.params.id)) {
+    throw new ValidationError('id不能为空')
   }
-})
+}
 
-router.get('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const budget = await prisma.budget.findUnique({
-      where: { id },
-      include: { category: true, alerts: true },
-    })
-    if (!budget) {
-      return notFound(res, '预算不存在')
-    }
-    return success(res, budget)
-  } catch (err) {
-    return next(err)
+const toDate = (value: unknown, fieldName: string): Date => {
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError(`${fieldName}格式错误`)
   }
-})
+  return date
+}
 
-router.get('/:id/status', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const budget = await prisma.budget.findUnique({
-      where: { id },
-      include: { category: true },
-    })
-    if (!budget) {
-      return notFound(res, '预算不存在')
-    }
-
-    const now = new Date()
-    let startDate: Date
-    let endDate: Date
-
-    if (budget.period === 'monthly') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    } else {
-      startDate = new Date(now.getFullYear(), 0, 1)
-      endDate = new Date(now.getFullYear(), 11, 31)
-    }
-
-    const where: any = {
-      type: 'expense',
-      date: { gte: startDate, lte: endDate },
-    }
-    if (budget.categoryId) {
-      where.categoryId = budget.categoryId
-    }
-
-    const transactions = await prisma.transaction.findMany({ where })
-    const used = transactions.reduce((sum, t) => sum + t.amount.toNumber(), 0)
-    const amount = budget.amount.toNumber()
-    const percentage = Math.min(Math.round((used / amount) * 100), 100)
-
-    return success(res, {
-      budget,
-      used,
-      remaining: Math.max(amount - used, 0),
-      percentage,
-      isOverBudget: used > amount,
-    })
-  } catch (err) {
-    return next(err)
+const validateBudgetPayload = (req: Request) => {
+  const { name, amount, period, startDate, endDate } = req.body as Record<string, unknown>
+  if (!hasValue(name) || !hasValue(amount) || !hasValue(period)) {
+    throw new ValidationError('缺少必要参数')
   }
-})
-
-router.post('/', async (req, res, next) => {
-  try {
-    const { name, amount, period, startDate, endDate, categoryId } = req.body
-    if (!name || !amount || !period) {
-      return error(res, '缺少必要参数', 'BAD_REQUEST', 400)
-    }
-    const budget = await prisma.budget.create({
-      data: { 
-        name, 
-        amount: new Decimal(amount), 
-        period, 
-        startDate: startDate ? new Date(startDate) : new Date(),
-        endDate: endDate ? new Date(endDate) : null,
-        categoryId,
-      },
-      include: { category: true },
-    })
-    return success(res, budget, 201)
-  } catch (err) {
-    return next(err)
+  if (hasValue(startDate)) {
+    toDate(startDate, 'startDate')
   }
-})
-
-router.put('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const { name, amount, period, startDate, endDate, categoryId } = req.body
-    const budget = await prisma.budget.update({
-      where: { id },
-      data: { 
-        name, 
-        amount: amount ? new Decimal(amount) : undefined,
-        period, 
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-        categoryId,
-      },
-      include: { category: true },
-    })
-    return success(res, budget)
-  } catch (err) {
-    return next(err)
+  if (hasValue(endDate)) {
+    toDate(endDate, 'endDate')
   }
-})
+}
 
-router.delete('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    await prisma.budgetAlert.deleteMany({ where: { budgetId: id } })
-    await prisma.budget.delete({ where: { id } })
-    return success(res, { message: '删除成功' })
-  } catch (err) {
-    return next(err)
-  }
-})
+router.get('/', asyncHandler(async (req, res) => {
+  const budgets = await getBudgets(typeof req.query.period === 'string' ? req.query.period : undefined)
+  return success(res, budgets)
+}))
+
+router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const budget = await getBudgetDetail(req.params.id)
+  return success(res, budget)
+}))
+
+router.get('/:id/status', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const status = await getBudgetStatus(req.params.id)
+  return success(res, status)
+}))
+
+router.post('/', validateRequest(validateBudgetPayload), asyncHandler(async (req, res) => {
+  const budget = await createBudget(req.body)
+  return success(res, budget, 201)
+}))
+
+router.put('/:id', validateRequest((req) => {
+  validateIdParam(req)
+  validateBudgetPayload(req)
+}), asyncHandler(async (req, res) => {
+  const budget = await updateBudget(req.params.id, req.body)
+  return success(res, budget)
+}))
+
+router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const result = await deleteBudget(req.params.id)
+  return success(res, result)
+}))
 
 export default router

@@ -63,35 +63,27 @@ export async function exportTransactionsCSV(): Promise<string> {
  * 清空所有数据
  */
 export async function clearAllData(): Promise<void> {
-  await prisma.budgetAlert.deleteMany()
-  await prisma.budget.deleteMany()
-  await prisma.transaction.deleteMany()
-  await prisma.account.deleteMany()
-
-  const childCategories = await prisma.accountCategory.findMany({
-    where: { parentId: { not: null } },
+  await prisma.$transaction(async (tx) => {
+    await tx.budgetAlert.deleteMany()
+    await tx.budget.deleteMany()
+    await tx.transaction.deleteMany()
+    await tx.account.deleteMany()
+    await tx.accountCategory.deleteMany({ where: { parentId: { not: null } } })
+    await tx.accountCategory.deleteMany()
+    await tx.transactionCategory.deleteMany({ where: { parentId: { not: null } } })
+    await tx.transactionCategory.deleteMany()
   })
-  for (const child of childCategories) {
-    await prisma.accountCategory.delete({ where: { id: child.id } })
-  }
-  await prisma.accountCategory.deleteMany()
-
-  const childCategories2 = await prisma.transactionCategory.findMany({
-    where: { parentId: { not: null } },
-  })
-  for (const child of childCategories2) {
-    await prisma.transactionCategory.delete({ where: { id: child.id } })
-  }
-  await prisma.transactionCategory.deleteMany()
 }
 
 /**
  * 仅清空交易数据
  */
 export async function clearTransactionsOnly(): Promise<void> {
-  await prisma.budgetAlert.deleteMany()
-  await prisma.budget.deleteMany()
-  await prisma.transaction.deleteMany()
+  await prisma.$transaction(async (tx) => {
+    await tx.budgetAlert.deleteMany()
+    await tx.budget.deleteMany()
+    await tx.transaction.deleteMany()
+  })
 }
 
 /**

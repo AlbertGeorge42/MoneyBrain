@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Card, Tabs, Modal, InputNumber, message, Space } from 'antd'
 import dayjs from 'dayjs'
-import { reportApi, accountApi } from '../services/api'
+import {
+  reportApi,
+  accountApi,
+  type BalanceSheetAccountItem,
+  type BalanceSheetReportData,
+  type CashFlowReportData,
+  type IncomeExpenseReportData,
+} from '../services/api'
 import { useStore } from '../stores'
 import { AccountConfigModal, TransactionConfigModal, CashFlowConfigModal } from '../components/settings'
 import DynamicIcon from '../components/common/DynamicIcon'
@@ -12,7 +19,7 @@ const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState('balance-sheet')
   
   const [selectedMonth, setSelectedMonth] = useState(dayjs())
-  const [balanceSheetData, setBalanceSheetData] = useState<any>(null)
+  const [balanceSheetData, setBalanceSheetData] = useState<BalanceSheetReportData | null>(null)
   const [calibrateVisible, setCalibrateVisible] = useState(false)
   const [calibrateData, setCalibrateData] = useState<Record<string, number>>({})
   const [accountCategoryModalVisible, setAccountCategoryModalVisible] = useState(false)
@@ -21,16 +28,26 @@ const Reports: React.FC = () => {
     dayjs().startOf('month'),
     dayjs().endOf('month'),
   ])
-  const [incomeExpenseData, setIncomeExpenseData] = useState<any>(null)
+  const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseReportData | null>(null)
   const [transactionCategoryModalVisible, setTransactionCategoryModalVisible] = useState(false)
   
   const [cashFlowDateRange, setCashFlowDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
     dayjs().startOf('month'),
     dayjs().endOf('month'),
   ])
-  const [cashFlowData, setCashFlowData] = useState<any>(null)
+  const [cashFlowData, setCashFlowData] = useState<CashFlowReportData | null>(null)
   const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
   const [cashFlowLoading, setCashFlowLoading] = useState(false)
+
+  type BalanceSheetTreeNode = {
+    key: string
+    name: string
+    balance: number
+    nodeType: 'asset' | 'liability'
+    type: 'category' | 'account'
+    icon?: string
+    children?: BalanceSheetTreeNode[]
+  }
 
   useEffect(() => {
     if (activeTab === 'balance-sheet') {
@@ -46,11 +63,11 @@ const Reports: React.FC = () => {
     try {
       const monthStr = selectedMonth.format('YYYY-MM')
       const res = await reportApi.getBalanceSheet(monthStr)
-      setBalanceSheetData(res.data.data)
+      setBalanceSheetData(res.data.data ?? null)
       
       const initialCalibrate: Record<string, number> = {}
-      res.data.data?.accounts?.forEach((a: any) => {
-        initialCalibrate[a.id] = a.balance
+      res.data.data?.accounts?.forEach((account: BalanceSheetAccountItem) => {
+        initialCalibrate[account.id] = account.balance
       })
       setCalibrateData(initialCalibrate)
     } catch (error) {
@@ -64,7 +81,7 @@ const Reports: React.FC = () => {
         dateRange[0].format('YYYY-MM-DD'),
         dateRange[1].format('YYYY-MM-DD')
       )
-      setIncomeExpenseData(res.data.data)
+      setIncomeExpenseData(res.data.data ?? null)
     } catch (error) {
       message.error('获取收入支出表失败')
     }
@@ -77,7 +94,7 @@ const Reports: React.FC = () => {
         cashFlowDateRange[0].format('YYYY-MM-DD'),
         cashFlowDateRange[1].format('YYYY-MM-DD')
       )
-      setCashFlowData(res.data.data)
+      setCashFlowData(res.data.data ?? null)
     } catch (error) {
       message.error('获取现金流量表失败')
     } finally {
@@ -87,14 +104,14 @@ const Reports: React.FC = () => {
 
   const handleSaveCalibration = async () => {
     try {
-      const adjustments = balanceSheetData?.accounts?.map((account: any) => {
+      const adjustments = balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => {
         const targetBalance = calibrateData[account.id] || 0
         const currentBalance = account.balance || 0
         return {
           accountId: account.id,
           amount: targetBalance - currentBalance,
         }
-      }).filter((adj: any) => adj.amount !== 0) || []
+      }).filter((adjustment) => adjustment.amount !== 0) || []
 
       if (adjustments.length === 0) {
         message.info('没有需要调整的账户')
@@ -124,27 +141,27 @@ const Reports: React.FC = () => {
 
     const accounts = balanceSheetData.accounts
 
-    const groupedByCategory: Record<string, any[]> = {}
+    const groupedByCategory: Record<string, BalanceSheetAccountItem[]> = {}
     const categorySortMap: Record<string, number> = {}
 
-    accounts.forEach((a: any) => {
-      const cat = a.category || '未分类'
+    accounts.forEach((account) => {
+      const cat = account.category || '未分类'
       if (!groupedByCategory[cat]) {
         groupedByCategory[cat] = []
-        categorySortMap[cat] = a.categorySort ?? 0
+        categorySortMap[cat] = account.categorySort ?? 0
       }
-      groupedByCategory[cat].push(a)
+      groupedByCategory[cat].push(account)
     })
 
     const buildTree = (type: 'asset' | 'liability') => {
       const typeCategories = Object.keys(groupedByCategory)
-        .filter(cat => groupedByCategory[cat]?.some((a: any) => a.type === type))
+        .filter(cat => groupedByCategory[cat]?.some(account => account.type === type))
         .sort((a, b) => categorySortMap[a] - categorySortMap[b])
 
-      return typeCategories.map((cat: string) => {
+      return typeCategories.map((cat): BalanceSheetTreeNode => {
         const catAccounts = groupedByCategory[cat] || []
-        const typeCatAccounts = catAccounts.filter((a: any) => a.type === type)
-        const total = typeCatAccounts.reduce((sum: number, a: any) => sum + a.balance, 0)
+        const typeCatAccounts = catAccounts.filter(account => account.type === type)
+        const total = typeCatAccounts.reduce((sum, account) => sum + account.balance, 0)
 
         return {
           key: `category-${cat}-${type}`,
@@ -153,13 +170,13 @@ const Reports: React.FC = () => {
           nodeType: type,
           type: 'category' as const,
           icon: typeCatAccounts[0]?.categoryIcon || undefined,
-          children: typeCatAccounts.map((a: any) => ({
-            key: `account-${a.id}`,
-            name: a.name,
-            balance: a.balance,
+          children: typeCatAccounts.map((account): BalanceSheetTreeNode => ({
+            key: `account-${account.id}`,
+            name: account.name,
+            balance: account.balance,
             nodeType: type,
             type: 'account' as const,
-            icon: a.icon,
+            icon: account.icon || undefined,
           })),
         }
       })
@@ -251,7 +268,7 @@ const Reports: React.FC = () => {
         <p style={{ color: '#666', marginBottom: 16 }}>
           输入账户的实际余额，系统将自动创建平账交易来调整差额。
         </p>
-        {balanceSheetData?.accounts?.map((account: any) => (
+        {balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => (
           <div key={account.id} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ width: 150 }}>
               <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}

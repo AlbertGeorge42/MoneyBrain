@@ -5,6 +5,10 @@ import {
   calculateTransferInAmount,
   type TransactionType,
 } from './balance.service.js'
+import {
+  InsufficientBalanceError,
+  NotFoundError,
+} from '../errors/index.js'
 import type {
   TransactionWithRelations,
   CreateIncomeExpenseData,
@@ -49,13 +53,13 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
   const { amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, categoryId } = data
 
   const fromAccount = await prisma.account.findUnique({ where: { id: accountId } })
-  if (!fromAccount) throw new Error('转出账户不存在')
+  if (!fromAccount) throw new NotFoundError('转出账户')
 
   const totalOut = amount + fee - coupon
-  if (fromAccount.balance.toNumber() < totalOut) throw new Error('转出账户余额不足')
+  if (fromAccount.balance.toNumber() < totalOut) throw new InsufficientBalanceError('转出账户')
 
   const toAccount = await prisma.account.findUnique({ where: { id: toAccountId } })
-  if (!toAccount) throw new Error('转入账户不存在')
+  if (!toAccount) throw new NotFoundError('转入账户')
 
   const result = await prisma.$transaction(async (tx) => {
     const outAmount = calculateBalanceChange('transfer', amount, fee, coupon)
@@ -95,7 +99,7 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
   const { amount, fee = 0, coupon = 0, date, note, accountId, relatedTransactionId } = data
 
   const relatedTransaction = await prisma.transaction.findUnique({ where: { id: relatedTransactionId } })
-  if (!relatedTransaction) throw new Error('原交易记录不存在')
+  if (!relatedTransaction) throw new NotFoundError('原交易记录')
 
   const result = await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.create({
@@ -131,7 +135,7 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
 export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseData): Promise<TransactionWithRelations> {
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
-  if (!oldTransaction) throw new Error('交易记录不存在')
+  if (!oldTransaction) throw new NotFoundError('交易记录')
 
   const oldFee = oldTransaction.fee?.toNumber() || 0
   const oldCoupon = oldTransaction.coupon?.toNumber() || 0
@@ -183,7 +187,7 @@ export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseD
 
 export async function updateTransfer(id: string, data: UpdateTransferData): Promise<TransactionWithRelations> {
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
-  if (!oldTransaction) throw new Error('交易记录不存在')
+  if (!oldTransaction) throw new NotFoundError('交易记录')
 
   const oldFee = oldTransaction.fee?.toNumber() || 0
   const oldCoupon = oldTransaction.coupon?.toNumber() || 0
@@ -240,7 +244,7 @@ export async function updateTransfer(id: string, data: UpdateTransferData): Prom
 
 export async function updateRefund(id: string, data: UpdateRefundData): Promise<TransactionWithRelations> {
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
-  if (!oldTransaction) throw new Error('交易记录不存在')
+  if (!oldTransaction) throw new NotFoundError('交易记录')
 
   const oldFee = oldTransaction.fee?.toNumber() || 0
   const oldCoupon = oldTransaction.coupon?.toNumber() || 0

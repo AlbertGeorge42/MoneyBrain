@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import DynamicIcon from '../common/DynamicIcon'
 import { PieChart } from '../charts'
 import { formatBalance } from '../../utils/formatBalance'
+import type { BalanceSheetReportData } from '@shared/types'
 
 const { MonthPicker } = DatePicker
 
@@ -23,23 +24,9 @@ interface BalanceSheetTreeData {
   liabilityNodes: BalanceSheetTreeNode[]
 }
 
-interface BalanceSheetData {
-  assets?: number
-  liabilities?: number
-  netWorth?: number
-  accounts?: Array<{
-    id: string
-    name: string
-    balance: number
-    type: string
-    category?: string
-    icon?: string
-  }>
-}
-
 interface BalanceSheetProps {
   selectedMonth: dayjs.Dayjs
-  balanceSheetData: BalanceSheetData | null
+  balanceSheetData: BalanceSheetReportData | null
   buildBalanceSheetTreeData: BalanceSheetTreeData
   onMonthChange: (date: dayjs.Dayjs) => void
   onOpenSettings: () => void

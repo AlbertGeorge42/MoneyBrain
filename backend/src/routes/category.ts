@@ -1,272 +1,111 @@
-import { Router } from 'express'
-import { prisma } from '../index.js'
-import { success, error, notFound } from '../utils/response.js'
-import { buildTree } from '../utils/tree.js'
+import { Router, type Request } from 'express'
+import { success } from '../utils/response.js'
+import { ValidationError } from '../errors/index.js'
+import { asyncHandler } from '../utils/async-handler.js'
+import { validateRequest } from '../middleware/validate-request.js'
+import {
+  createTransactionCategory,
+  deleteTransactionCategory,
+  getTransactionCategories,
+  getTransactionCategoryStats,
+  moveTransactionCategory,
+  updateTransactionCategory,
+  updateTransactionCategorySorts,
+} from '../services/category.service.js'
 
 const router = Router()
 
-router.get('/', async (_req, res, next) => {
-  try {
-    const categories = await prisma.transactionCategory.findMany({
-      orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
-    })
-    return success(res, categories)
-  } catch (err) {
-    return next(err)
+const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
+
+const validateIdParam = (req: Request) => {
+  if (!hasValue(req.params.id)) {
+    throw new ValidationError('id不能为空')
   }
-})
-
-router.get('/tree', async (_req, res, next) => {
-  try {
-    const categories = await prisma.transactionCategory.findMany({
-      orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
-    })
-    const tree = buildTree(categories)
-    return success(res, tree)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.get('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const category = await prisma.transactionCategory.findUnique({
-      where: { id },
-      include: { parent: true, children: true },
-    })
-    if (!category) {
-      return notFound(res, '分类不存在')
-    }
-    return success(res, category)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.get('/:id/stats', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const [transactionCount, childrenCount] = await Promise.all([
-      prisma.transaction.count({ where: { categoryId: id } }),
-      prisma.transactionCategory.count({ where: { parentId: id } }),
-    ])
-    return success(res, { transactionCount, childrenCount })
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.post('/', async (req, res, next) => {
-  try {
-    const { name, type, icon, parentId, cashFlowType, sort } = req.body
-    if (!name || !type) {
-      return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
-    }
-
-    let finalSort = sort
-    if (finalSort === undefined || finalSort === null) {
-      const maxSortResult = await prisma.transactionCategory.aggregate({
-        where: { type, parentId: parentId || null },
-        _max: { sort: true },
-      })
-      finalSort = (maxSortResult._max.sort ?? -1) + 1
-    }
-
-    const category = await prisma.transactionCategory.create({
-      data: { name, type, icon, parentId, cashFlowType, sort: finalSort },
-    })
-    return success(res, category, 201)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.put('/sort/batch', async (req, res, next) => {
-  try {
-    const { items } = req.body
-    if (!Array.isArray(items)) {
-      return error(res, '参数格式错误', 'BAD_REQUEST', 400)
-    }
-
-    await prisma.$transaction(
-      items.map(item => 
-        prisma.transactionCategory.update({
-          where: { id: item.id },
-          data: { sort: item.sort, parentId: item.parentId },
-        })
-      )
-    )
-
-    return success(res, { message: '排序更新成功' })
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.put('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const { name, type, icon, parentId, cashFlowType, sort } = req.body
-    if (parentId === id) {
-      return error(res, '父分类不能是自己', 'BAD_REQUEST', 400)
-    }
-    const category = await prisma.transactionCategory.update({
-      where: { id },
-      data: { name, type, icon, parentId, cashFlowType, sort },
-    })
-    return success(res, category)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.put('/:id/move', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const { newParentId } = req.body
-
-    const category = await prisma.transactionCategory.findUnique({
-      where: { id },
-      include: { children: true },
-    })
-    if (!category) {
-      return notFound(res, '分类不存在')
-    }
-
-    if (newParentId === id) {
-      return error(res, '不能移动到自己', 'BAD_REQUEST', 400)
-    }
-
-    if (newParentId) {
-      const isChild = await checkIsChildCategory(id, newParentId)
-      if (isChild) {
-        return error(res, '不能移动到自己的子分类下', 'BAD_REQUEST', 400)
-      }
-
-      const newParent = await prisma.transactionCategory.findUnique({
-        where: { id: newParentId },
-      })
-      if (!newParent) {
-        return error(res, '目标父分类不存在', 'BAD_REQUEST', 400)
-      }
-      if (newParent.type !== category.type) {
-        return error(res, '目标父分类类型不匹配', 'BAD_REQUEST', 400)
-      }
-    }
-
-    const siblings = await prisma.transactionCategory.findMany({
-      where: { parentId: newParentId || null, type: category.type },
-      orderBy: { sort: 'desc' },
-      take: 1,
-    })
-    const newSort = siblings.length > 0 ? siblings[0].sort + 1 : 0
-
-    const updatedCategory = await prisma.transactionCategory.update({
-      where: { id },
-      data: { parentId: newParentId || null, sort: newSort },
-    })
-
-    return success(res, { 
-      message: '移动成功', 
-      movedCategory: updatedCategory,
-    })
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.delete('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const { transferToCategoryId, deleteTransactions } = req.query
-
-    const category = await prisma.transactionCategory.findUnique({
-      where: { id },
-      include: { children: true },
-    })
-    if (!category) {
-      return notFound(res, '分类不存在')
-    }
-
-    if (category.children.length > 0) {
-      return error(res, '该分类下存在子分类，无法删除', 'BAD_REQUEST', 400)
-    }
-
-    const transactionsCount = await prisma.transaction.count({
-      where: { categoryId: id },
-    })
-
-    if (transactionsCount === 0) {
-      await prisma.transactionCategory.delete({ where: { id } })
-      return success(res, { message: '删除成功', deletedCategory: category.name })
-    }
-
-    if (deleteTransactions === 'true') {
-      const result = await prisma.$transaction(async (tx) => {
-        const deleted = await tx.transaction.deleteMany({
-          where: { categoryId: id },
-        })
-        await tx.transactionCategory.delete({ where: { id } })
-        return deleted.count
-      })
-
-      return success(res, { 
-        message: '删除成功', 
-        deletedCategory: category.name,
-        deletedTransactions: result,
-      })
-    }
-
-    if (transferToCategoryId && typeof transferToCategoryId === 'string') {
-      if (transferToCategoryId === id) {
-        return error(res, '不能转移到自己', 'BAD_REQUEST', 400)
-      }
-
-      const targetCategory = await prisma.transactionCategory.findUnique({
-        where: { id: transferToCategoryId },
-      })
-      if (!targetCategory) {
-        return error(res, '目标分类不存在', 'BAD_REQUEST', 400)
-      }
-      if (targetCategory.type !== category.type) {
-        return error(res, '目标分类类型不匹配', 'BAD_REQUEST', 400)
-      }
-
-      const result = await prisma.$transaction(async (tx) => {
-        const updated = await tx.transaction.updateMany({
-          where: { categoryId: id },
-          data: { categoryId: transferToCategoryId },
-        })
-        await tx.transactionCategory.delete({ where: { id } })
-        return updated.count
-      })
-
-      return success(res, { 
-        message: '删除成功', 
-        deletedCategory: category.name,
-        transferredTransactions: result,
-      })
-    }
-
-    return error(res, '该分类下存在交易记录，请选择转移或删除交易', 'BAD_REQUEST', 400)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-async function checkIsChildCategory(parentId: string, targetId: string): Promise<boolean> {
-  const target = await prisma.transactionCategory.findUnique({
-    where: { id: targetId },
-    select: { parentId: true },
-  })
-  if (!target || !target.parentId) {
-    return false
-  }
-  if (target.parentId === parentId) {
-    return true
-  }
-  return checkIsChildCategory(parentId, target.parentId)
 }
+
+const validateCategoryPayload = (req: Request) => {
+  const { name, type, parentId } = req.body as Record<string, unknown>
+  if (!hasValue(name) || !hasValue(type)) {
+    throw new ValidationError('名称和类型不能为空')
+  }
+  if (hasValue(parentId) && parentId === req.params.id) {
+    throw new ValidationError('父分类不能是自己')
+  }
+}
+
+const validateCategoryUpdatePayload = (req: Request) => {
+  validateIdParam(req)
+
+  const { name, type, parentId, cashFlowType, icon, sort } = req.body as Record<string, unknown>
+  const hasUpdatableField = [name, type, parentId, cashFlowType, icon, sort].some(value => value !== undefined)
+
+  if (!hasUpdatableField) {
+    throw new ValidationError('至少提供一个需要更新的字段')
+  }
+  if (name !== undefined && !hasValue(name)) {
+    throw new ValidationError('名称不能为空')
+  }
+  if (type !== undefined && !hasValue(type)) {
+    throw new ValidationError('类型不能为空')
+  }
+  if (hasValue(parentId) && parentId === req.params.id) {
+    throw new ValidationError('父分类不能是自己')
+  }
+}
+
+const validateBatchSort = (req: Request) => {
+  if (!Array.isArray(req.body?.items)) {
+    throw new ValidationError('参数格式错误')
+  }
+}
+
+const validateMovePayload = (req: Request) => {
+  validateIdParam(req)
+  if (req.body?.newParentId === req.params.id) {
+    throw new ValidationError('不能移动到自己')
+  }
+}
+
+router.get('/', asyncHandler(async (_req, res) => {
+  const categories = await getTransactionCategories()
+  return success(res, categories)
+}))
+
+router.get('/:id/stats', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const stats = await getTransactionCategoryStats(req.params.id)
+  return success(res, stats)
+}))
+
+router.post('/', validateRequest(validateCategoryPayload), asyncHandler(async (req, res) => {
+  const category = await createTransactionCategory(req.body)
+  return success(res, category, 201)
+}))
+
+router.put('/sort/batch', validateRequest(validateBatchSort), asyncHandler(async (req, res) => {
+  await updateTransactionCategorySorts(req.body.items)
+  return success(res, { message: '排序更新成功' })
+}))
+
+router.put('/:id', validateRequest(validateCategoryUpdatePayload), asyncHandler(async (req, res) => {
+  const category = await updateTransactionCategory(req.params.id, req.body)
+  return success(res, category)
+}))
+
+router.put('/:id/move', validateRequest(validateMovePayload), asyncHandler(async (req, res) => {
+  const result = await moveTransactionCategory(req.params.id, req.body.newParentId || null)
+  return success(res, result)
+}))
+
+router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const transferToCategoryId = typeof req.query.transferToCategoryId === 'string'
+    ? req.query.transferToCategoryId
+    : undefined
+  const deleteTransactions = req.query.deleteTransactions === 'true'
+  const result = await deleteTransactionCategory(req.params.id, {
+    transferToCategoryId,
+    deleteTransactions,
+  })
+  return success(res, result)
+}))
 
 export default router

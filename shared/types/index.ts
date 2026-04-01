@@ -1,14 +1,5 @@
 // ===== 通用响应类型 =====
-
-export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: {
-    code: string
-    message: string
-  }
-  timestamp: string
-}
+export type { ApiResponse } from '../../backend/src/types/api-response.js'
 
 export interface PaginatedResponse<T> {
   list: T[]
@@ -49,6 +40,12 @@ export interface Account {
   category: AccountCategory | null
   createdAt: string
   updatedAt: string
+}
+
+export interface AccountStats {
+  transactionCount: number
+  totalIncome: number
+  totalExpense: number
 }
 
 // ===== 交易分类 =====
@@ -102,4 +99,133 @@ export interface Budget {
   category: TransactionCategory | null
   createdAt: string
   updatedAt: string
+}
+
+export interface TransactionCategoryStats {
+  transactionCount: number
+  childrenCount: number
+}
+
+export interface BudgetStatus {
+  budget: Budget
+  used: number
+  remaining: number
+  percentage: number
+  isOverBudget: boolean
+}
+
+// ===== 分析与报表 =====
+
+export interface AnalyticsTrendItem {
+  label: string
+  amount: number
+}
+
+export interface AnalyticsCategoryBreakdownItem {
+  name: string
+  value: number
+  categoryId?: string
+  hasChildren?: boolean
+}
+
+export interface AnalyticsAssetTrendItem {
+  label: string
+  assets: number
+  liabilities: number
+  netWorth: number
+}
+
+export interface BalanceSheetAccountItem {
+  id: string
+  name: string
+  type: string
+  balance: number
+  category: string
+  categorySort?: number
+  categoryIcon?: string
+  icon?: string
+}
+
+export interface BalanceSheetReportData {
+  month: string
+  date: string
+  assets: number
+  liabilities: number
+  netWorth: number
+  assetsByCategory: Record<string, number>
+  liabilitiesByCategory: Record<string, number>
+  accounts: BalanceSheetAccountItem[]
+}
+
+export interface ReportCategoryDetail {
+  name: string
+  value: number
+  categoryId: string
+  hasChildren: boolean
+  sort: number
+}
+
+export interface IncomeExpenseReportData {
+  startDate: string
+  endDate: string
+  income: number
+  expense: number
+  balance: number
+  incomeByCategory: Record<string, number>
+  expenseByCategory: Record<string, number>
+  incomeCategoryDetails: ReportCategoryDetail[]
+  expenseCategoryDetails: ReportCategoryDetail[]
+  startAssets: number
+  startLiabilities: number
+  startNetWorth: number
+  endAssets: number
+  endLiabilities: number
+  endNetWorth: number
+  assetChange: number
+}
+
+export interface CashFlowActivityItem {
+  categoryName: string
+  amount: number
+  type: string
+  direction: string
+}
+
+export interface CashFlowActivity {
+  inflow: number
+  outflow: number
+  net: number
+  items: CashFlowActivityItem[]
+}
+
+export interface SankeyLink {
+  source: string
+  target: string
+  value: number
+}
+
+export interface CashFlowReportData {
+  startDate: string
+  endDate: string
+  cashInflow: number
+  cashOutflow: number
+  netCashFlow: number
+  flowByAccount: Record<string, { inflow: number; outflow: number }>
+  cashAccounts: string[]
+  startCash: number
+  endCash: number
+  cashChange: number
+  byActivity: {
+    operating: CashFlowActivity
+    investing: CashFlowActivity
+    financing: CashFlowActivity
+    uncategorized: CashFlowActivity
+  }
+  sankey: {
+    nodes: Array<{
+      name: string
+      category?: 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
+    }>
+    links: SankeyLink[]
+  }
 }

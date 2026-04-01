@@ -5,7 +5,7 @@ import {
 } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
-import { Budget } from '../services/api'
+import { Budget, type BudgetStatus } from '../services/api'
 import * as api from '../services/api'
 import DynamicIcon from '../components/common/DynamicIcon'
 
@@ -24,7 +24,7 @@ const Budgets: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false)
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null)
   const [form] = Form.useForm()
-  const [budgetStatuses, setBudgetStatuses] = useState<Record<string, any>>({})
+  const [budgetStatuses, setBudgetStatuses] = useState<Record<string, BudgetStatus>>({})
 
   useEffect(() => {
     fetchBudgets()
@@ -40,10 +40,11 @@ const Budgets: React.FC = () => {
   const fetchBudgetStatus = async (id: string) => {
     try {
       const res = await api.budgetApi.getStatus(id)
-      if (res.data.success && res.data.data) {
+      const status = res.data.data
+      if (res.data.success && status) {
         setBudgetStatuses(prev => ({
           ...prev,
-          [id]: res.data.data,
+          [id]: status,
         }))
       }
     } catch (error) {
@@ -177,7 +178,7 @@ const Budgets: React.FC = () => {
   ]
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0)
-  const totalUsed = Object.values(budgetStatuses).reduce((sum, s: any) => sum + (s?.used || 0), 0)
+  const totalUsed = Object.values(budgetStatuses).reduce((sum, status) => sum + status.used, 0)
 
   return (
     <div>

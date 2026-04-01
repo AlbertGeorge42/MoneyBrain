@@ -3,44 +3,13 @@ import { Card, DatePicker, Button, Row, Col, Statistic, Tag, Divider } from 'ant
 import { SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { BarChart, SankeyChart } from '../charts'
-import type { SankeyNode } from '../charts/SankeyChart'
+import type { CashFlowReportData } from '@shared/types'
 
 const { RangePicker } = DatePicker
 
-interface CashFlowActivity {
-  inflow: number
-  outflow: number
-  net: number
-  items: Array<{
-    categoryName: string
-    amount: number
-    type: string
-    direction: string
-  }>
-}
-
-interface CashFlowData {
-  startCash?: number
-  endCash?: number
-  cashInflow?: number
-  cashOutflow?: number
-  netCashFlow?: number
-  byActivity?: {
-    operating: CashFlowActivity
-    investing: CashFlowActivity
-    financing: CashFlowActivity
-    uncategorized: CashFlowActivity
-  }
-  sankey?: {
-    nodes: SankeyNode[]
-    links: Array<{ source: string; target: string; value: number }>
-  }
-  cashAccounts?: string[]
-}
-
 interface CashFlowReportProps {
   cashFlowDateRange: [dayjs.Dayjs, dayjs.Dayjs]
-  cashFlowData: CashFlowData | null
+  cashFlowData: CashFlowReportData | null
   cashFlowLoading: boolean
   onDateRangeChange: (dates: [dayjs.Dayjs, dayjs.Dayjs]) => void
   onOpenSettings: () => void

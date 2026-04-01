@@ -1,8 +1,44 @@
 import axios from 'axios'
 import { message } from 'antd'
-import type { ApiResponse, PaginatedResponse, AccountCategory, Account, TransactionCategory, Transaction, Budget } from '@shared/types'
+import type {
+  Account,
+  AccountCategory,
+  AccountStats,
+  AnalyticsAssetTrendItem,
+  AnalyticsCategoryBreakdownItem,
+  AnalyticsTrendItem,
+  ApiResponse,
+  BalanceSheetAccountItem,
+  BalanceSheetReportData,
+  Budget,
+  BudgetStatus,
+  CashFlowReportData,
+  IncomeExpenseReportData,
+  PaginatedResponse,
+  Transaction,
+  TransactionCategory,
+  TransactionCategoryStats,
+} from '@shared/types'
 
-export type { ApiResponse, PaginatedResponse, AccountCategory, Account, TransactionCategory, Transaction, Budget }
+export type {
+  Account,
+  AccountCategory,
+  AccountStats,
+  AnalyticsAssetTrendItem,
+  AnalyticsCategoryBreakdownItem,
+  AnalyticsTrendItem,
+  ApiResponse,
+  BalanceSheetAccountItem,
+  BalanceSheetReportData,
+  Budget,
+  BudgetStatus,
+  CashFlowReportData,
+  IncomeExpenseReportData,
+  PaginatedResponse,
+  Transaction,
+  TransactionCategory,
+  TransactionCategoryStats,
+}
 
 const api = axios.create({
   baseURL: '/api',
@@ -32,11 +68,7 @@ export const accountCategoryApi = {
 
 export const accountApi = {
   getAll: () => api.get<ApiResponse<Account[]>>('/accounts'),
-  getStats: (id: string) => api.get<ApiResponse<{
-    transactionCount: number
-    totalIncome: number
-    totalExpense: number
-  }>>(`/accounts/${id}/stats`),
+  getStats: (id: string) => api.get<ApiResponse<AccountStats>>(`/accounts/${id}/stats`),
   create: (data: Partial<Account>) => api.post<ApiResponse<Account>>('/accounts', data),
   update: (id: string, data: Partial<Account>) => api.put<ApiResponse<Account>>(`/accounts/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; categoryId: string | null }>) => 
@@ -70,11 +102,7 @@ export const transactionCategoryApi = {
       deletedTransactions?: number
       deletedCategory?: string
     }>>(`/categories/${id}`, { params }),
-  getStats: (id: string) => 
-    api.get<ApiResponse<{ 
-      transactionCount: number
-      childrenCount: number 
-    }>>(`/categories/${id}/stats`),
+  getStats: (id: string) => api.get<ApiResponse<TransactionCategoryStats>>(`/categories/${id}/stats`),
   move: (id: string, data: { newParentId: string | null }) => 
     api.put<ApiResponse<{ message: string; movedCategory: TransactionCategory }>>(`/categories/${id}/move`, data),
 }
@@ -90,93 +118,42 @@ export const transactionApi = {
 
 export const budgetApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<Budget[]>>('/budgets', { params }),
-  getStatus: (id: string) => api.get<ApiResponse<{
-    budget: Budget
-    used: number
-    remaining: number
-    percentage: number
-    isOverBudget: boolean
-  }>>(`/budgets/${id}/status`),
+  getStatus: (id: string) => api.get<ApiResponse<BudgetStatus>>(`/budgets/${id}/status`),
   create: (data: Partial<Budget>) => api.post<ApiResponse<Budget>>('/budgets', data),
   update: (id: string, data: Partial<Budget>) => api.put<ApiResponse<Budget>>(`/budgets/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/budgets/${id}`),
 }
 
 export const reportApi = {
-  getBalanceSheet: (month: string) => api.get<ApiResponse<{
-    month: string
-    date: string
-    assets: number
-    liabilities: number
-    netWorth: number
-    assetsByCategory: Record<string, number>
-    liabilitiesByCategory: Record<string, number>
-    accounts: Array<{
-      id: string
-      name: string
-      type: string
-      balance: number
-      category: string
-    }>
-  }>>('/reports/balance-sheet', { params: { month } }),
-  getIncomeExpense: (startDate: string, endDate: string) => api.get<ApiResponse<{
-    startDate: string
-    endDate: string
-    income: number
-    expense: number
-    balance: number
-    incomeByCategory: Record<string, number>
-    expenseByCategory: Record<string, number>
-    incomeCategoryDetails: Array<{ name: string; value: number; categoryId: string; hasChildren: boolean }>
-    expenseCategoryDetails: Array<{ name: string; value: number; categoryId: string; hasChildren: boolean }>
-    startAssets: number
-    startLiabilities: number
-    startNetWorth: number
-    endAssets: number
-    endLiabilities: number
-    endNetWorth: number
-    assetChange: number
-  }>>('/reports/income-expense', { params: { startDate, endDate } }),
-  getCashFlow: (startDate: string, endDate: string) => api.get<ApiResponse<{
-    startDate: string
-    endDate: string
-    cashInflow: number
-    cashOutflow: number
-    netCashFlow: number
-    flowByAccount: Record<string, { inflow: number; outflow: number }>
-    cashAccounts: string[]
-    startCash: number
-    endCash: number
-    cashChange: number
-    byActivity: {
-      operating: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
-      investing: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
-      financing: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
-      uncategorized: { inflow: number; outflow: number; net: number; items: Array<{ categoryName: string; amount: number; type: string }> }
-    }
-  }>>('/reports/cash-flow', { params: { startDate, endDate } }),
+  getBalanceSheet: (month: string) => api.get<ApiResponse<BalanceSheetReportData>>('/reports/balance-sheet', { params: { month } }),
+  getIncomeExpense: (startDate: string, endDate: string) => api.get<ApiResponse<IncomeExpenseReportData>>('/reports/income-expense', { params: { startDate, endDate } }),
+  getCashFlow: (startDate: string, endDate: string) => api.get<ApiResponse<CashFlowReportData>>('/reports/cash-flow', { params: { startDate, endDate } }),
 }
 
 export const analyticsApi = {
-  getTrends: (type: 'income' | 'expense', period?: string) => api.get<ApiResponse<Array<{
-    label: string
-    amount: number
-  }>>>('/analytics/trends', { params: { type, period } }),
+  getTrends: (type: 'income' | 'expense', period?: string) => api.get<ApiResponse<AnalyticsTrendItem[]>>('/analytics/trends', { params: { type, period } }),
   getCategoryBreakdown: (type: 'income' | 'expense', startDate?: string, endDate?: string, parentCategoryId?: string) => 
-    api.get<ApiResponse<Array<{ name: string; value: number; categoryId?: string; hasChildren?: boolean }>>>('/analytics/category-breakdown', { 
+    api.get<ApiResponse<AnalyticsCategoryBreakdownItem[]>>('/analytics/category-breakdown', { 
       params: { type, startDate, endDate, parentCategoryId } 
     }),
-  getAssetTrend: () => api.get<ApiResponse<Array<{
-    label: string
-    assets: number
-    liabilities: number
-    netWorth: number
-  }>>>('/analytics/asset-trend'),
+  getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
 }
 
 export const dataApi = {
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
   clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
+  exportCsv: () => api.get<Blob>('/data/export', { responseType: 'blob' }),
+  importCsv: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    return api.post<ApiResponse<{ imported: number; skipped: number; errors: string[] }>>('/data/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000,
+    })
+  },
 }
 
 export default api

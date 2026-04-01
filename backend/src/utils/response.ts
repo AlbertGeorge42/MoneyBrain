@@ -1,15 +1,6 @@
 import { Response } from 'express'
 import { Decimal } from '@prisma/client/runtime/library.js'
-
-export interface ApiResponse<T = unknown> {
-  success: boolean
-  data?: T
-  error?: {
-    code: string
-    message: string
-  }
-  timestamp: string
-}
+import type { ApiResponse } from '../types/api-response.js'
 
 const convertDecimals = (obj: unknown): unknown => {
   if (obj === null || obj === undefined) {

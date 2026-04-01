@@ -1,47 +1,38 @@
-import { Router } from 'express'
-import { success, error } from '../utils/response.js'
+import { Router, type Request } from 'express'
+import { success } from '../utils/response.js'
 import { getTrends, getCategoryBreakdown, getAssetTrend } from '../services/analytics.service.js'
+import { ValidationError } from '../errors/index.js'
+import { asyncHandler } from '../utils/async-handler.js'
+import { validateRequest } from '../middleware/validate-request.js'
 
 const router = Router()
 
-router.get('/trends', async (req, res, next) => {
-  try {
-    const { type } = req.query
-    if (!type) {
-      return error(res, '请指定类型(income/expense)', 'BAD_REQUEST', 400)
-    }
-    const trends = await getTrends(type as string)
-    return success(res, trends)
-  } catch (err) {
-    return next(err)
-  }
-})
+const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
 
-router.get('/category-breakdown', async (req, res, next) => {
-  try {
-    const { type, startDate, endDate, parentCategoryId } = req.query
-    if (!type) {
-      return error(res, '请指定类型(income/expense)', 'BAD_REQUEST', 400)
-    }
-    const result = await getCategoryBreakdown(
-      type as string,
-      startDate as string | undefined,
-      endDate as string | undefined,
-      parentCategoryId as string | undefined,
-    )
-    return success(res, result)
-  } catch (err) {
-    return next(err)
+const validateTypeQuery = (req: Request) => {
+  if (!hasValue(req.query.type)) {
+    throw new ValidationError('请指定类型(income/expense)')
   }
-})
+}
 
-router.get('/asset-trend', async (_req, res, next) => {
-  try {
-    const trends = await getAssetTrend()
-    return success(res, trends)
-  } catch (err) {
-    return next(err)
-  }
-})
+router.get('/trends', validateRequest(validateTypeQuery), asyncHandler(async (req, res) => {
+  const trends = await getTrends(String(req.query.type))
+  return success(res, trends)
+}))
+
+router.get('/category-breakdown', validateRequest(validateTypeQuery), asyncHandler(async (req, res) => {
+  const result = await getCategoryBreakdown(
+    String(req.query.type),
+    req.query.startDate as string | undefined,
+    req.query.endDate as string | undefined,
+    req.query.parentCategoryId as string | undefined,
+  )
+  return success(res, result)
+}))
+
+router.get('/asset-trend', asyncHandler(async (_req, res) => {
+  const trends = await getAssetTrend()
+  return success(res, trends)
+}))
 
 export default router

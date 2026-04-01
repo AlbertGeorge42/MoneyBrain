@@ -1,111 +1,96 @@
-import { Router } from 'express'
+import { Router, type Request } from 'express'
 import { prisma } from '../index.js'
-import { success, error, notFound } from '../utils/response.js'
+import { success } from '../utils/response.js'
+import { getNextAccountCategorySort } from '../services/sort.service.js'
+import { ValidationError } from '../errors/index.js'
+import { asyncHandler } from '../utils/async-handler.js'
+import { validateRequest } from '../middleware/validate-request.js'
 
 const router = Router()
 
-router.get('/', async (_req, res, next) => {
-  try {
-    const categories = await prisma.accountCategory.findMany({
-      orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
-    })
-    return success(res, categories)
-  } catch (err) {
-    return next(err)
+const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
+
+const validateIdParam = (req: Request) => {
+  if (!hasValue(req.params.id)) {
+    throw new ValidationError('id不能为空')
   }
-})
+}
 
-router.get('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const category = await prisma.accountCategory.findUnique({
-      where: { id },
-      include: { accounts: true },
-    })
-    if (!category) {
-      return notFound(res, '账户分类不存在')
-    }
-    return success(res, category)
-  } catch (err) {
-    return next(err)
+const validateCategoryPayload = (req: Request) => {
+  const { name, type } = req.body as Record<string, unknown>
+  if (!hasValue(name) || !hasValue(type)) {
+    throw new ValidationError('名称和类型不能为空')
   }
-})
+}
 
-router.post('/', async (req, res, next) => {
-  try {
-    const { name, type, icon, isCashEquivalent, isInvestment, sort } = req.body
-    if (!name || !type) {
-      return error(res, '名称和类型不能为空', 'BAD_REQUEST', 400)
-    }
+const validateBatchSort = (req: Request) => {
+  if (!Array.isArray(req.body?.items)) {
+    throw new ValidationError('参数格式错误')
+  }
+}
 
-    let finalSort = sort
-    if (finalSort === undefined || finalSort === null) {
-      const maxSortResult = await prisma.accountCategory.aggregate({
-        where: { type },
-        _max: { sort: true },
+router.get('/', asyncHandler(async (_req, res) => {
+  const categories = await prisma.accountCategory.findMany({
+    orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
+  })
+  return success(res, categories)
+}))
+
+router.post('/', validateRequest(validateCategoryPayload), asyncHandler(async (req, res) => {
+  const { name, type, icon, isCashEquivalent, isInvestment, sort } = req.body
+
+  let finalSort = sort
+  if (finalSort === undefined || finalSort === null) {
+    finalSort = await getNextAccountCategorySort(type)
+  }
+
+  const category = await prisma.accountCategory.create({
+    data: {
+      name,
+      type,
+      icon,
+      isCashEquivalent: isCashEquivalent ?? false,
+      isInvestment: isInvestment ?? false,
+      sort: finalSort,
+    },
+  })
+  return success(res, category, 201)
+}))
+
+router.put('/sort/batch', validateRequest(validateBatchSort), asyncHandler(async (req, res) => {
+  await prisma.$transaction(
+    req.body.items.map((item: { id: string; sort: number }) =>
+      prisma.accountCategory.update({
+        where: { id: item.id },
+        data: { sort: item.sort },
       })
-      finalSort = (maxSortResult._max.sort ?? -1) + 1
-    }
-
-    const category = await prisma.accountCategory.create({
-      data: { name, type, icon, isCashEquivalent: isCashEquivalent ?? false, isInvestment: isInvestment ?? false, sort: finalSort },
-    })
-    return success(res, category, 201)
-  } catch (err) {
-    return next(err)
-  }
-})
-
-router.put('/sort/batch', async (req, res, next) => {
-  try {
-    const { items } = req.body
-    if (!Array.isArray(items)) {
-      return error(res, '参数格式错误', 'BAD_REQUEST', 400)
-    }
-
-    await prisma.$transaction(
-      items.map(item => 
-        prisma.accountCategory.update({
-          where: { id: item.id },
-          data: { sort: item.sort },
-        })
-      )
     )
+  )
 
-    return success(res, { message: '排序更新成功' })
-  } catch (err) {
-    return next(err)
-  }
-})
+  return success(res, { message: '排序更新成功' })
+}))
 
-router.put('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const { name, type, icon, isCashEquivalent, isInvestment, sort } = req.body
-    const category = await prisma.accountCategory.update({
-      where: { id },
-      data: { name, type, icon, isCashEquivalent, isInvestment, sort },
-    })
-    return success(res, category)
-  } catch (err) {
-    return next(err)
-  }
-})
+router.put('/:id', validateRequest((req) => {
+  validateIdParam(req)
+  validateCategoryPayload(req)
+}), asyncHandler(async (req, res) => {
+  const { name, type, icon, isCashEquivalent, isInvestment, sort } = req.body
+  const category = await prisma.accountCategory.update({
+    where: { id: req.params.id },
+    data: { name, type, icon, isCashEquivalent, isInvestment, sort },
+  })
+  return success(res, category)
+}))
 
-router.delete('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params
-    const accountsCount = await prisma.account.count({
-      where: { categoryId: id },
-    })
-    if (accountsCount > 0) {
-      return error(res, '该分类下存在账户，无法删除', 'BAD_REQUEST', 400)
-    }
-    await prisma.accountCategory.delete({ where: { id } })
-    return success(res, { message: '删除成功' })
-  } catch (err) {
-    return next(err)
+router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const accountsCount = await prisma.account.count({
+    where: { categoryId: req.params.id },
+  })
+  if (accountsCount > 0) {
+    throw new ValidationError('该分类下存在账户，无法删除')
   }
-})
+  await prisma.accountCategory.delete({ where: { id: req.params.id } })
+  return success(res, { message: '删除成功' })
+}))
 
 export default router

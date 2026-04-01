@@ -7,12 +7,13 @@ import { useStore } from '../stores'
 import * as api from '../services/api'
 import DynamicIcon from '../components/common/DynamicIcon'
 import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
+import type { AnalyticsCategoryBreakdownItem, AnalyticsTrendItem } from '../services/api'
 
 const Dashboard: React.FC = () => {
   const { accounts, transactions, fetchAccounts, fetchTransactions } = useStore()
   const [loading, setLoading] = useState(false)
-  const [trendData, setTrendData] = useState<any[]>([])
-  const [categoryData, setCategoryData] = useState<PieChartDataItem[]>([])
+  const [trendData, setTrendData] = useState<AnalyticsTrendItem[]>([])
+  const [categoryData, setCategoryData] = useState<AnalyticsCategoryBreakdownItem[]>([])
 
   useEffect(() => {
     fetchAccounts()
@@ -39,7 +40,7 @@ const Dashboard: React.FC = () => {
     setLoading(false)
   }
 
-  const handleDrillDown = async (item: PieChartDataItem): Promise<PieChartDataItem[]> => {
+  const handleDrillDown = async (item: PieChartDataItem): Promise<AnalyticsCategoryBreakdownItem[]> => {
     if (!item.categoryId) return []
     try {
       const res = await api.analyticsApi.getCategoryBreakdown('expense', undefined, undefined, item.categoryId)

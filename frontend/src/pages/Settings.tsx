@@ -12,10 +12,8 @@ const Settings: React.FC = () => {
 
   const handleExportCSV = async () => {
     try {
-      const response = await fetch('/api/data/export')
-      if (!response.ok) throw new Error('导出失败')
-      
-      const blob = await response.blob()
+      const response = await dataApi.exportCsv()
+      const blob = response.data
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -33,17 +31,10 @@ const Settings: React.FC = () => {
     setImportProgress(null)
     
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      const response = await fetch('/api/data/import', {
-        method: 'POST',
-        body: formData,
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
+      const response = await dataApi.importCsv(file)
+      const result = response.data
+
+      if (result.success && result.data) {
         setImportProgress({
           imported: result.data.imported,
           skipped: result.data.skipped,

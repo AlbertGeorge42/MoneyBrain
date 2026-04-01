@@ -6,6 +6,8 @@ import {
   type TransactionType
 } from './balance.service.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
+import { NotFoundError } from '../errors/index.js'
+import { buildTransactionListWhere } from './transaction-list.helpers.js'
 
 // Re-export command functions for backward compatibility
 export {
@@ -137,74 +139,9 @@ export class TransactionService {
     const {
       page = 1,
       pageSize = 20,
-      accountId,
-      categoryId,
-      type,
-      startDate,
-      endDate,
     } = params
 
-    const where: any = {}
-    
-    // 账户筛选支持多选，支持按账户分类筛选（以 category_ 开头）
-    if (accountId) {
-      const accountIds = Array.isArray(accountId) ? accountId : [accountId]
-      const actualAccountIds: string[] = []
-      
-      for (const id of accountIds) {
-        if (id.startsWith('category_')) {
-          const categoryAccounts = await prisma.account.findMany({
-            where: { categoryId: id.replace('category_', '') },
-            select: { id: true },
-          })
-          actualAccountIds.push(...categoryAccounts.map(a => a.id))
-        } else {
-          actualAccountIds.push(id)
-        }
-      }
-      
-      if (actualAccountIds.length > 0) {
-        where.OR = actualAccountIds.flatMap(id => [
-          { accountId: id },
-          { toAccountId: id },
-        ])
-      }
-    }
-    
-    // 分类筛选支持多选，支持按父分类筛选（包含所有子分类）
-    if (categoryId) {
-      const categoryIds = Array.isArray(categoryId) ? categoryId : [categoryId]
-      const actualCategoryIds: string[] = []
-      
-      const getAllChildCategoryIds = async (parentId: string): Promise<string[]> => {
-        const children = await prisma.transactionCategory.findMany({
-          where: { parentId },
-          select: { id: true },
-        })
-        const childIds = children.map(c => c.id)
-        const grandChildIds = await Promise.all(childIds.map(getAllChildCategoryIds))
-        return [...childIds, ...grandChildIds.flat()]
-      }
-      
-      for (const id of categoryIds) {
-        actualCategoryIds.push(id)
-        const childIds = await getAllChildCategoryIds(id)
-        actualCategoryIds.push(...childIds)
-      }
-      
-      where.categoryId = { in: actualCategoryIds }
-    }
-    
-    if (type) {
-      const types = Array.isArray(type) ? type : [type]
-      where.type = { in: types }
-    }
-    
-    if (startDate || endDate) {
-      where.date = {}
-      if (startDate) where.date.gte = startDate
-      if (endDate) where.date.lte = endDate
-    }
+    const where = await buildTransactionListWhere(params)
 
     const total = await prisma.transaction.count({ where })
     const transactions = await prisma.transaction.findMany({
@@ -288,7 +225,7 @@ export class TransactionService {
   async deleteTransaction(id: string): Promise<void> {
     await prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.findUnique({ where: { id } })
-      if (!transaction) throw new Error('交易记录不存在')
+      if (!transaction) throw new NotFoundError('交易记录')
 
       const fee = transaction.fee?.toNumber() || 0
       const coupon = transaction.coupon?.toNumber() || 0
