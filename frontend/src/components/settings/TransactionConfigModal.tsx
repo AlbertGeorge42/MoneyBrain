@@ -49,21 +49,38 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleDeleteClick = async (record: TransactionTreeNode) => {
     try {
       const res = await transactionCategoryApi.getStats(record.id)
-      if (res.data.success && res.data.data) { setDeletingCategory(record); setDeleteTransactionCount(res.data.data.transactionCount); setDeleteAction('transfer'); setTransferTargetId(null); setDeleteModalVisible(true) }
+      if (res.data.success && res.data.data) {
+        const { transactionCount, childrenCount } = res.data.data
+        if (childrenCount > 0) {
+          message.warning('该分类下存在子分类，无法删除')
+          return
+        }
+        setDeletingCategory(record)
+        setDeleteTransactionCount(transactionCount)
+        setDeleteAction('transfer')
+        setTransferTargetId(null)
+        setDeleteModalVisible(true)
+      }
     } catch { message.error('获取分类信息失败') }
   }
 
   const handleDeleteConfirm = async () => {
     if (!deletingCategory) return
-    if (deleteAction === 'transfer' && !transferTargetId) { message.warning('请选择转移目标分类'); return }
+    if (deleteTransactionCount > 0 && deleteAction === 'transfer' && !transferTargetId) { message.warning('请选择转移目标分类'); return }
     setDeleteLoading(true)
     try {
       const params: { transferToCategoryId?: string; deleteTransactions?: boolean } = {}
-      if (deleteAction === 'transfer') params.transferToCategoryId = transferTargetId!
-      else params.deleteTransactions = true
+      if (deleteTransactionCount > 0) {
+        if (deleteAction === 'transfer') params.transferToCategoryId = transferTargetId!
+        else params.deleteTransactions = true
+      }
       const res = await transactionCategoryApi.delete(deletingCategory.id, params)
       if (res.data.success && res.data.data) {
-        message.success(deleteAction === 'transfer' ? `删除成功，已转移 ${res.data.data.transferredTransactions || 0} 笔交易` : `删除成功，已删除 ${res.data.data.deletedTransactions || 0} 笔交易`)
+        if (deleteTransactionCount === 0) {
+          message.success('删除成功')
+        } else {
+          message.success(deleteAction === 'transfer' ? `删除成功，已转移 ${res.data.data.transferredTransactions || 0} 笔交易` : `删除成功，已删除 ${res.data.data.deletedTransactions || 0} 笔交易`)
+        }
         setDeleteModalVisible(false); fetchTransactionCategories()
       }
     } catch (error: any) { message.error(error.response?.data?.error?.message || '删除失败') }
