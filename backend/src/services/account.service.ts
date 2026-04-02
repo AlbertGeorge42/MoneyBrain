@@ -1,6 +1,6 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { NotFoundError, ValidationError } from '../errors/index.js'
+import { NotFoundError, ValidationError } from '../common/index.js'
 
 type AccountSortItem = {
   id: string

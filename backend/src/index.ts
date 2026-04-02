@@ -9,7 +9,7 @@ import budgetRoutes from './routes/budget.js'
 import reportRoutes from './routes/report.js'
 import analyticsRoutes from './routes/analytics.js'
 import dataRoutes from './routes/data.js'
-import { errorHandler } from './middleware/error.js'
+import { errorHandler } from './common/index.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001

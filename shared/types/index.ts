@@ -1,5 +1,5 @@
 // ===== 通用响应类型 =====
-export type { ApiResponse } from '../../backend/src/types/api-response.js'
+export type { ApiResponse } from '../../backend/src/common/index.js'
 
 export interface PaginatedResponse<T> {
   list: T[]

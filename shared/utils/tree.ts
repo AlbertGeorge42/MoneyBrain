@@ -1,5 +1,5 @@
-export { buildTree } from '../../backend/src/utils/tree.js'
-export type { TreeNode } from '../../backend/src/utils/tree.js'
+export { buildTree } from '../../backend/src/common/tree.js'
+export type { TreeNode } from '../../backend/src/common/tree.js'
 
 /**
  * 构建排序后的树形结构（前端用，按 sort 字段排序）

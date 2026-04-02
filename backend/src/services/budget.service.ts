@@ -1,6 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { prisma } from '../index.js'
-import { NotFoundError } from '../errors/index.js'
+import { NotFoundError } from '../common/index.js'
 
 type BudgetPayload = {
   name: string

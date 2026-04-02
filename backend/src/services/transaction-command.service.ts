@@ -8,7 +8,7 @@ import {
 import {
   InsufficientBalanceError,
   NotFoundError,
-} from '../errors/index.js'
+} from '../common/index.js'
 import type {
   TransactionWithRelations,
   CreateIncomeExpenseData,

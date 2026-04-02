@@ -6,7 +6,7 @@ import {
   type TransactionType
 } from './balance.service.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
-import { NotFoundError } from '../errors/index.js'
+import { NotFoundError } from '../common/index.js'
 import { buildTransactionListWhere } from './transaction-list.helpers.js'
 
 // Re-export command functions for backward compatibility
