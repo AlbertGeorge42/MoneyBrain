@@ -229,3 +229,71 @@ export interface CashFlowReportData {
     links: SankeyLink[]
   }
 }
+
+// ===== 投资分析 =====
+
+export interface InvestmentCashFlow {
+  date: string
+  amount: number
+  type: 'buy' | 'sell'
+  accountId: string
+  accountName: string
+}
+
+export interface InvestmentAccountDetail {
+  id: string
+  name: string
+  categoryId: string | null
+  categoryName: string
+  categoryIcon: string | null
+  icon: string | null
+  balance: number
+  ratio: number
+  totalInvested: number
+  totalWithdrawn: number
+  simpleReturnRate: number
+}
+
+export interface InvestmentCategorySummary {
+  categoryId: string
+  categoryName: string
+  icon: string | null
+  balance: number
+  ratio: number
+  accounts: InvestmentAccountDetail[]
+}
+
+export interface InvestmentReturnAnalysis {
+  startValue: number
+  endValue: number
+  valueChange: number
+  periodInvested: number
+  periodWithdrawn: number
+  netCashFlow: number
+  periodReturn: number
+  simpleReturnRate: number
+  xirr: number | null
+  twr: number | null
+  annualizedTwr: number | null
+  investmentDays: number
+  cashFlowCount: number
+}
+
+export interface InvestmentTrendItem {
+  month: string
+  investment: number
+  netWorth: number
+  ratio: number
+}
+
+export interface InvestmentAnalysisReportData {
+  startDate: string
+  endDate: string
+  totalInvestment: number
+  totalAssets: number
+  investmentRatio: number
+  accountCount: number
+  returnAnalysis: InvestmentReturnAnalysis
+  byCategory: InvestmentCategorySummary[]
+  trend: InvestmentTrendItem[]
+}

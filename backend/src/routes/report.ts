@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express'
 import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
-import { generateBalanceSheet, generateIncomeExpense, generateCashFlow } from '../services/report/index.js'
+import { generateBalanceSheet, generateIncomeExpense, generateCashFlow, generateInvestmentAnalysis } from '../services/report/index.js'
 
 const router = Router()
 
@@ -33,6 +33,12 @@ router.get('/income-expense', validateRequest(validateDateRangeQuery), asyncHand
 // 现金流量表路由
 router.get('/cash-flow', validateRequest(validateDateRangeQuery), asyncHandler(async (req, res) => {
   const result = await generateCashFlow(String(req.query.startDate), String(req.query.endDate))
+  return success(res, result)
+}))
+
+// 投资分析表路由
+router.get('/investment-analysis', validateRequest(validateDateRangeQuery), asyncHandler(async (req, res) => {
+  const result = await generateInvestmentAnalysis(String(req.query.startDate), String(req.query.endDate))
   return success(res, result)
 }))
 

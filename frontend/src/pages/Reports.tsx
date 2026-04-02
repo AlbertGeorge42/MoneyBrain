@@ -8,11 +8,12 @@ import {
   type BalanceSheetReportData,
   type CashFlowReportData,
   type IncomeExpenseReportData,
+  type InvestmentAnalysisReportData,
 } from '../services/api'
 import { useStore } from '../stores'
 import { AccountConfigModal, TransactionConfigModal, CashFlowConfigModal } from '../components/settings'
 import DynamicIcon from '../components/common/DynamicIcon'
-import { BalanceSheet, IncomeExpenseReport, CashFlowReport } from '../components/reports'
+import { BalanceSheet, IncomeExpenseReport, CashFlowReport, InvestmentAnalysis } from '../components/reports'
 
 const Reports: React.FC = () => {
   const { fetchAccounts } = useStore()
@@ -39,6 +40,12 @@ const Reports: React.FC = () => {
   const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
   const [cashFlowLoading, setCashFlowLoading] = useState(false)
 
+  const [investmentDateRange, setInvestmentDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
+    dayjs().subtract(1, 'year').startOf('month'),
+    dayjs().startOf('month'),
+  ])
+  const [investmentData, setInvestmentData] = useState<InvestmentAnalysisReportData | null>(null)
+
   type BalanceSheetTreeNode = {
     key: string
     name: string
@@ -56,8 +63,10 @@ const Reports: React.FC = () => {
       fetchIncomeExpense()
     } else if (activeTab === 'cash-flow') {
       fetchCashFlow()
+    } else if (activeTab === 'investment-analysis') {
+      fetchInvestmentAnalysis()
     }
-  }, [activeTab, selectedMonth, dateRange, cashFlowDateRange])
+  }, [activeTab, selectedMonth, dateRange, cashFlowDateRange, investmentDateRange])
 
   const fetchBalanceSheet = async () => {
     try {
@@ -99,6 +108,18 @@ const Reports: React.FC = () => {
       message.error('获取现金流量表失败')
     } finally {
       setCashFlowLoading(false)
+    }
+  }
+
+  const fetchInvestmentAnalysis = async () => {
+    try {
+      const res = await reportApi.getInvestmentAnalysis(
+        investmentDateRange[0].format('YYYY-MM-DD'),
+        investmentDateRange[1].format('YYYY-MM-DD')
+      )
+      setInvestmentData(res.data.data ?? null)
+    } catch (error) {
+      message.error('获取投资分析表失败')
     }
   }
 
@@ -225,6 +246,18 @@ const Reports: React.FC = () => {
           cashFlowLoading={cashFlowLoading}
           onDateRangeChange={setCashFlowDateRange}
           onOpenSettings={() => setCashFlowConfigModalVisible(true)}
+        />
+      )
+    },
+    { 
+      key: 'investment-analysis', 
+      label: '投资分析表', 
+      children: (
+        <InvestmentAnalysis
+          dateRange={investmentDateRange}
+          investmentData={investmentData}
+          onDateRangeChange={setInvestmentDateRange}
+          onOpenSettings={() => setAccountCategoryModalVisible(true)}
         />
       )
     },

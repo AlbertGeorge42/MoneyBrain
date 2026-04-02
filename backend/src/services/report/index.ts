@@ -7,3 +7,5 @@ export type { CategoryBreakdownItem, IncomeExpenseResult } from './income-expens
 
 export { generateCashFlow } from './cash-flow.service.js'
 export type { CashFlowActivity, CashFlowResult } from './cash-flow.service.js'
+
+export { generateInvestmentAnalysis } from './investment-analysis.service.js'
