@@ -3,6 +3,7 @@ import { Button, Space, Card, message } from 'antd'
 import { ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { Transaction, transactionApi } from '../services/api'
+import { toDateRangeParams } from '../utils/timePicker'
 import { 
   TransactionModal, 
   TransferModal, 
@@ -167,8 +168,7 @@ const Transactions: React.FC = () => {
     if (filters.accountId.length > 0) params.accountId = filters.accountId
     if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
     if (filters.dateRange) {
-      params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
-      params.endDate = filters.dateRange[1].format('YYYY-MM-DD')
+      Object.assign(params, toDateRangeParams(filters.dateRange))
     }
     params.page = 1
     params.pageSize = pageSize
@@ -207,8 +207,7 @@ const Transactions: React.FC = () => {
     if (filters.accountId.length > 0) params.accountId = filters.accountId
     if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
     if (filters.dateRange) {
-      params.startDate = filters.dateRange[0].format('YYYY-MM-DD')
-      params.endDate = filters.dateRange[1].format('YYYY-MM-DD')
+      Object.assign(params, toDateRangeParams(filters.dateRange))
     }
     fetchTransactions(params)
   }

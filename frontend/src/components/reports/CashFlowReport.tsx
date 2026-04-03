@@ -1,25 +1,25 @@
 import React from 'react'
-import { Card, DatePicker, Button, Row, Col, Statistic, Tag, Divider } from 'antd'
+import { Card, Button, Row, Col, Statistic, Tag, Divider } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { BarChart, SankeyChart } from '../charts'
 import type { CashFlowReportData } from '@shared/types'
 
-const { RangePicker } = DatePicker
-
 interface CashFlowReportProps {
-  cashFlowDateRange: [dayjs.Dayjs, dayjs.Dayjs]
+  timeRange: RangeTimeValue
+  pickerConfig: RangeTimePickerConfig
   cashFlowData: CashFlowReportData | null
   cashFlowLoading: boolean
-  onDateRangeChange: (dates: [dayjs.Dayjs, dayjs.Dayjs]) => void
+  onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
 }
 
 const CashFlowReport: React.FC<CashFlowReportProps> = ({
-  cashFlowDateRange,
+  timeRange,
+  pickerConfig,
   cashFlowData,
   cashFlowLoading,
-  onDateRangeChange,
+  onTimeRangeChange,
   onOpenSettings,
 }) => {
   const activityConfig = [
@@ -31,10 +31,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <RangePicker
-          value={cashFlowDateRange}
-          onChange={(dates) => dates && onDateRangeChange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
-        />
+        <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
           设置
         </Button>

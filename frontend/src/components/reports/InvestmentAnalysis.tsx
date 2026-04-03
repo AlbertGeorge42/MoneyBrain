@@ -1,17 +1,16 @@
 import React from 'react'
-import { Card, DatePicker, Button, Table, Row, Col, Statistic, Space, Empty } from 'antd'
+import { Card, Button, Table, Row, Col, Statistic, Space, Empty } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
 import DynamicIcon from '../common/DynamicIcon'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { PieChart, LineChart } from '../charts'
 import type { InvestmentAnalysisReportData, InvestmentAccountDetail } from '@shared/types'
 
-const { RangePicker } = DatePicker
-
 interface InvestmentAnalysisProps {
-  dateRange: [dayjs.Dayjs, dayjs.Dayjs]
+  timeRange: RangeTimeValue
+  pickerConfig: RangeTimePickerConfig
   investmentData: InvestmentAnalysisReportData | null
-  onDateRangeChange: (dates: [dayjs.Dayjs, dayjs.Dayjs]) => void
+  onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
 }
 
@@ -25,9 +24,10 @@ const formatCurrency = (value: number): string => {
 }
 
 const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
-  dateRange,
+  timeRange,
+  pickerConfig,
   investmentData,
-  onDateRangeChange,
+  onTimeRangeChange,
   onOpenSettings,
 }) => {
   if (!investmentData) {
@@ -35,15 +35,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
       <div>
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Space>
-            <RangePicker 
-              value={dateRange}
-              onChange={(dates) => {
-                if (dates && dates[0] && dates[1]) {
-                  onDateRangeChange([dates[0], dates[1]])
-                }
-              }}
-              allowClear={false}
-            />
+            <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
           </Space>
           <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
             设置
@@ -147,15 +139,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
-          <RangePicker 
-            value={dateRange}
-            onChange={(dates) => {
-              if (dates && dates[0] && dates[1]) {
-                onDateRangeChange([dates[0], dates[1]])
-              }
-            }}
-            allowClear={false}
-          />
+          <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
           <span style={{ color: '#666' }}>
             {investmentData.startDate} 至 {investmentData.endDate}
           </span>

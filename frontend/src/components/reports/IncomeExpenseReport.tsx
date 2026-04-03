@@ -1,34 +1,37 @@
 import React from 'react'
-import { Card, DatePicker, Button, Table, Row, Col, Statistic, Divider } from 'antd'
+import { Card, Button, Table, Row, Col, Statistic, Divider } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { PieChart, BarChart } from '../charts'
 import { PieChartDataItem } from '../charts/PieChart'
 import * as api from '../../services/api'
+import { toDateRangeParams } from '../../utils/timePicker'
 import type { IncomeExpenseReportData } from '@shared/types'
 
-const { RangePicker } = DatePicker
-
 interface IncomeExpenseReportProps {
-  dateRange: [dayjs.Dayjs, dayjs.Dayjs]
+  timeRange: RangeTimeValue
+  pickerConfig: RangeTimePickerConfig
   incomeExpenseData: IncomeExpenseReportData | null
-  onDateRangeChange: (dates: [dayjs.Dayjs, dayjs.Dayjs]) => void
+  onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
 }
 
 const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
-  dateRange,
+  timeRange,
+  pickerConfig,
   incomeExpenseData,
-  onDateRangeChange,
+  onTimeRangeChange,
   onOpenSettings,
 }) => {
+  const dateParams = toDateRangeParams(timeRange)
+
   const handleDrillDownIncome = async (item: PieChartDataItem): Promise<PieChartDataItem[]> => {
     if (!item.categoryId) return []
     try {
       const res = await api.analyticsApi.getCategoryBreakdown(
         'income', 
-        dateRange[0].format('YYYY-MM-DD'), 
-        dateRange[1].format('YYYY-MM-DD'),
+        dateParams.startDate,
+        dateParams.endDate,
         item.categoryId
       )
       if (res.data.success && res.data.data) {
@@ -45,8 +48,8 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     try {
       const res = await api.analyticsApi.getCategoryBreakdown(
         'expense', 
-        dateRange[0].format('YYYY-MM-DD'), 
-        dateRange[1].format('YYYY-MM-DD'),
+        dateParams.startDate,
+        dateParams.endDate,
         item.categoryId
       )
       if (res.data.success && res.data.data) {
@@ -75,10 +78,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <RangePicker
-          value={dateRange}
-          onChange={(dates) => dates && onDateRangeChange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
-        />
+        <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
           设置
         </Button>

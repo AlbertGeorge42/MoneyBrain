@@ -1,11 +1,41 @@
 import React, { useMemo } from 'react'
-import { Button, Select, TreeSelect, Space, Tag, Collapse, Row, Col, DatePicker } from 'antd'
+import { Button, Select, TreeSelect, Space, Tag, Collapse, Row, Col } from 'antd'
 import { FilterOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
 import { TRANSACTION_TYPE_CONFIG } from '../../constants/transaction'
+import {
+  createQuarterRangePreset,
+  createRangePeriodPreset,
+  createTrailingRangePreset,
+  createYearToDatePreset,
+  formatRangeValue,
+} from '../../utils/timePicker'
 
-const { RangePicker } = DatePicker
+const transactionTimePickerConfig: RangeTimePickerConfig = {
+  label: '筛选周期',
+  allowedGranularities: ['day', 'month', 'year'],
+  presets: {
+    day: [
+      createRangePeriodPreset('today', '今天', 'day'),
+      createRangePeriodPreset('yesterday', '昨天', 'day', -1),
+      createTrailingRangePreset('last-7-days', '近7天', 7, 'day'),
+      createTrailingRangePreset('last-30-days', '近30天', 30, 'day'),
+    ],
+    month: [
+      createRangePeriodPreset('current-month', '本月', 'month'),
+      createRangePeriodPreset('previous-month', '上月', 'month', -1),
+      createTrailingRangePreset('last-3-months', '近3个月', 3, 'month'),
+      createQuarterRangePreset('current-quarter', '本季'),
+    ],
+    year: [
+      createRangePeriodPreset('current-year', '今年', 'year'),
+      createRangePeriodPreset('previous-year', '去年', 'year', -1),
+      createTrailingRangePreset('last-3-years', '近3年', 3, 'year'),
+      createYearToDatePreset('year-to-date', '今年至今'),
+    ],
+  },
+}
 
 const filterTreeNodeByName = (inputValue: string, node: any): boolean => {
   const name = node.name
@@ -30,7 +60,7 @@ export interface TransactionFilterValues {
   type: string[]
   accountId: string[]
   categoryId: string[]
-  dateRange: [dayjs.Dayjs, dayjs.Dayjs] | null
+  dateRange: RangeTimeValue | null
 }
 
 interface TransactionFilterProps {
@@ -186,7 +216,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
       })}
       {filters.dateRange && (
         <Tag closable onClose={() => removeFilter('dateRange')}>
-          {filters.dateRange[0].format('YYYY-MM-DD')} ~ {filters.dateRange[1].format('YYYY-MM-DD')}
+          {formatRangeValue(filters.dateRange)}
         </Tag>
       )}
     </Space>
@@ -296,10 +326,12 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                   </Col>
                   <Col span={6}>
                     <div style={{ marginBottom: 8 }}>日期范围</div>
-                    <RangePicker
-                      style={{ width: '100%' }}
+                    <RangeTimePickerField
                       value={filters.dateRange}
-                      onChange={dates => onFilterChange({ ...filters, dateRange: dates as [dayjs.Dayjs, dayjs.Dayjs] | null })}
+                      config={transactionTimePickerConfig}
+                      placeholder="选择时间"
+                      style={{ width: '100%' }}
+                      onChange={(dateRange) => onFilterChange({ ...filters, dateRange })}
                     />
                   </Col>
                 </Row>

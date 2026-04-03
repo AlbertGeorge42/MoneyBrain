@@ -1,13 +1,11 @@
 import React from 'react'
-import { Card, DatePicker, Button, Table, Row, Col, Statistic, Space } from 'antd'
+import { Card, Button, Table, Row, Col, Statistic, Space } from 'antd'
 import { SettingOutlined, SaveOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
 import DynamicIcon from '../common/DynamicIcon'
+import { PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
 import { PieChart } from '../charts'
 import { formatBalance } from '../../utils/formatBalance'
 import type { BalanceSheetReportData } from '@shared/types'
-
-const { MonthPicker } = DatePicker
 
 interface BalanceSheetTreeNode {
   key: string
@@ -25,19 +23,21 @@ interface BalanceSheetTreeData {
 }
 
 interface BalanceSheetProps {
-  selectedMonth: dayjs.Dayjs
+  selectedTime: PointTimeValue
+  pickerConfig: PointTimePickerConfig
   balanceSheetData: BalanceSheetReportData | null
   buildBalanceSheetTreeData: BalanceSheetTreeData
-  onMonthChange: (date: dayjs.Dayjs) => void
+  onTimeChange: (value: PointTimeValue) => void
   onOpenSettings: () => void
   onOpenCalibrate: () => void
 }
 
 const BalanceSheet: React.FC<BalanceSheetProps> = ({
-  selectedMonth,
+  selectedTime,
+  pickerConfig,
   balanceSheetData,
   buildBalanceSheetTreeData,
-  onMonthChange,
+  onTimeChange,
   onOpenSettings,
   onOpenCalibrate,
 }) => {
@@ -45,13 +45,9 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
-          <MonthPicker 
-            value={selectedMonth} 
-            onChange={(date) => date && onMonthChange(date)}
-            allowClear={false}
-          />
+          <PointTimePickerField value={selectedTime} config={pickerConfig} onChange={onTimeChange} />
           <span style={{ color: '#666' }}>
-            显示 {selectedMonth.format('YYYY年MM月')} 月初（1日）资产负债状况
+            显示 {selectedTime.value.format('YYYY年MM月')} 月初（1日）资产负债状况
           </span>
         </Space>
         <Space>

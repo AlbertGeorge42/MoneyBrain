@@ -1,3 +1,5 @@
 export { default as DynamicIcon } from './DynamicIcon'
 export { default as IconPicker } from './IconPicker'
 export { default as ErrorBoundary } from './ErrorBoundary'
+export { PointTimePickerField, RangeTimePickerField } from './TimePickerField'
+export type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue, TimeGranularity } from './TimePickerField'

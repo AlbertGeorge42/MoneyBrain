@@ -14,36 +14,123 @@ import { useStore } from '../stores'
 import { AccountConfigModal, TransactionConfigModal, CashFlowConfigModal } from '../components/settings'
 import DynamicIcon from '../components/common/DynamicIcon'
 import { BalanceSheet, IncomeExpenseReport, CashFlowReport, InvestmentAnalysis } from '../components/reports'
+import type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue } from '../components/common'
+import {
+  createPointPeriodPreset,
+  createPointValue,
+  createQuarterRangePreset,
+  createRangePeriodPreset,
+  createTrailingRangePreset,
+  createYearToDatePreset,
+  toDateRangeParams,
+  toMonthParam,
+} from '../utils/timePicker'
+
+const balanceSheetPickerConfig: PointTimePickerConfig = {
+  label: '月度时点',
+  allowedGranularities: ['month'],
+  presets: {
+    month: [
+      createPointPeriodPreset('current-month', '本月', 'month'),
+      createPointPeriodPreset('previous-month', '上月', 'month', -1),
+      createPointPeriodPreset('year-start', '1月', 'month', -dayjs().month()),
+      createPointPeriodPreset('year-end', '12月', 'month', 11 - dayjs().month()),
+    ],
+  },
+}
+
+const incomeExpensePickerConfig: RangeTimePickerConfig = {
+  label: '财务周期',
+  allowedGranularities: ['day', 'month', 'year'],
+  presets: {
+    day: [
+      createRangePeriodPreset('today', '今天', 'day'),
+      createTrailingRangePreset('last-7-days', '近7天', 7, 'day'),
+      createTrailingRangePreset('last-30-days', '近30天', 30, 'day'),
+      createYearToDatePreset('year-to-date', '今年至今'),
+    ],
+    month: [
+      createRangePeriodPreset('current-month', '本月', 'month'),
+      createRangePeriodPreset('previous-month', '上月', 'month', -1),
+      createQuarterRangePreset('current-quarter', '本季'),
+      createQuarterRangePreset('previous-quarter', '上季', -1),
+    ],
+    year: [
+      createRangePeriodPreset('current-year', '今年', 'year'),
+      createRangePeriodPreset('previous-year', '去年', 'year', -1),
+      createTrailingRangePreset('last-3-years', '近3年', 3, 'year'),
+    ],
+  },
+}
+
+const cashFlowPickerConfig: RangeTimePickerConfig = {
+  label: '现金周期',
+  allowedGranularities: ['day', 'month', 'year'],
+  presets: {
+    day: [
+      createRangePeriodPreset('today', '今天', 'day'),
+      createTrailingRangePreset('last-30-days', '近30天', 30, 'day'),
+      createTrailingRangePreset('last-90-days', '近90天', 90, 'day'),
+      createYearToDatePreset('year-to-date', '今年至今'),
+    ],
+    month: [
+      createRangePeriodPreset('current-month', '本月', 'month'),
+      createRangePeriodPreset('previous-month', '上月', 'month', -1),
+      createTrailingRangePreset('last-6-months', '近6个月', 6, 'month'),
+      createTrailingRangePreset('last-12-months', '近12个月', 12, 'month'),
+    ],
+    year: [
+      createRangePeriodPreset('current-year', '今年', 'year'),
+      createRangePeriodPreset('previous-year', '去年', 'year', -1),
+      createTrailingRangePreset('last-3-years', '近3年', 3, 'year'),
+    ],
+  },
+}
+
+const investmentPickerConfig: RangeTimePickerConfig = {
+  label: '投资周期',
+  allowedGranularities: ['month', 'year'],
+  presets: {
+    month: [
+      createTrailingRangePreset('last-3-months', '近3个月', 3, 'month'),
+      createTrailingRangePreset('last-6-months', '近6个月', 6, 'month'),
+      createTrailingRangePreset('last-12-months', '近1年', 12, 'month'),
+      createTrailingRangePreset('last-36-months', '近3年', 36, 'month'),
+    ],
+    year: [
+      createRangePeriodPreset('current-year', '今年', 'year'),
+      createRangePeriodPreset('previous-year', '去年', 'year', -1),
+      createTrailingRangePreset('last-3-years', '近3年', 3, 'year'),
+    ],
+  },
+}
 
 const Reports: React.FC = () => {
   const { fetchAccounts } = useStore()
   const [activeTab, setActiveTab] = useState('balance-sheet')
   
-  const [selectedMonth, setSelectedMonth] = useState(dayjs())
+  const [selectedBalanceTime, setSelectedBalanceTime] = useState<PointTimeValue>(createPointValue('month', dayjs()))
   const [balanceSheetData, setBalanceSheetData] = useState<BalanceSheetReportData | null>(null)
   const [calibrateVisible, setCalibrateVisible] = useState(false)
   const [calibrateData, setCalibrateData] = useState<Record<string, number>>({})
   const [accountCategoryModalVisible, setAccountCategoryModalVisible] = useState(false)
   
-  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
-    dayjs().startOf('month'),
-    dayjs().endOf('month'),
-  ])
+  const [incomeExpenseTimeRange, setIncomeExpenseTimeRange] = useState<RangeTimeValue>(
+    createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
+  )
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseReportData | null>(null)
   const [transactionCategoryModalVisible, setTransactionCategoryModalVisible] = useState(false)
   
-  const [cashFlowDateRange, setCashFlowDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
-    dayjs().startOf('month'),
-    dayjs().endOf('month'),
-  ])
+  const [cashFlowTimeRange, setCashFlowTimeRange] = useState<RangeTimeValue>(
+    createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
+  )
   const [cashFlowData, setCashFlowData] = useState<CashFlowReportData | null>(null)
   const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
   const [cashFlowLoading, setCashFlowLoading] = useState(false)
 
-  const [investmentDateRange, setInvestmentDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
-    dayjs().subtract(1, 'year').startOf('month'),
-    dayjs().startOf('month'),
-  ])
+  const [investmentTimeRange, setInvestmentTimeRange] = useState<RangeTimeValue>(
+    createTrailingRangePreset('last-12-months', '近1年', 12, 'month').getValue(dayjs())
+  )
   const [investmentData, setInvestmentData] = useState<InvestmentAnalysisReportData | null>(null)
 
   type BalanceSheetTreeNode = {
@@ -66,11 +153,11 @@ const Reports: React.FC = () => {
     } else if (activeTab === 'investment-analysis') {
       fetchInvestmentAnalysis()
     }
-  }, [activeTab, selectedMonth, dateRange, cashFlowDateRange, investmentDateRange])
+  }, [activeTab, selectedBalanceTime, incomeExpenseTimeRange, cashFlowTimeRange, investmentTimeRange])
 
   const fetchBalanceSheet = async () => {
     try {
-      const monthStr = selectedMonth.format('YYYY-MM')
+      const monthStr = toMonthParam(selectedBalanceTime)
       const res = await reportApi.getBalanceSheet(monthStr)
       setBalanceSheetData(res.data.data ?? null)
       
@@ -86,10 +173,8 @@ const Reports: React.FC = () => {
 
   const fetchIncomeExpense = async () => {
     try {
-      const res = await reportApi.getIncomeExpense(
-        dateRange[0].format('YYYY-MM-DD'),
-        dateRange[1].format('YYYY-MM-DD')
-      )
+      const { startDate, endDate } = toDateRangeParams(incomeExpenseTimeRange)
+      const res = await reportApi.getIncomeExpense(startDate, endDate)
       setIncomeExpenseData(res.data.data ?? null)
     } catch (error) {
       message.error('获取收入支出表失败')
@@ -99,10 +184,8 @@ const Reports: React.FC = () => {
   const fetchCashFlow = async () => {
     try {
       setCashFlowLoading(true)
-      const res = await reportApi.getCashFlow(
-        cashFlowDateRange[0].format('YYYY-MM-DD'),
-        cashFlowDateRange[1].format('YYYY-MM-DD')
-      )
+      const { startDate, endDate } = toDateRangeParams(cashFlowTimeRange)
+      const res = await reportApi.getCashFlow(startDate, endDate)
       setCashFlowData(res.data.data ?? null)
     } catch (error) {
       message.error('获取现金流量表失败')
@@ -113,10 +196,8 @@ const Reports: React.FC = () => {
 
   const fetchInvestmentAnalysis = async () => {
     try {
-      const res = await reportApi.getInvestmentAnalysis(
-        investmentDateRange[0].format('YYYY-MM-DD'),
-        investmentDateRange[1].format('YYYY-MM-DD')
-      )
+      const { startDate, endDate } = toDateRangeParams(investmentTimeRange)
+      const res = await reportApi.getInvestmentAnalysis(startDate, endDate)
       setInvestmentData(res.data.data ?? null)
     } catch (error) {
       message.error('获取投资分析表失败')
@@ -142,8 +223,8 @@ const Reports: React.FC = () => {
 
       const res = await accountApi.batchAdjust({
         adjustments,
-        date: selectedMonth.startOf('month').subtract(1, 'day').format('YYYY-MM-DD'),
-        note: `资产负债表校准 - ${selectedMonth.format('YYYY年MM月')}`,
+        date: selectedBalanceTime.value.startOf('month').subtract(1, 'day').format('YYYY-MM-DD'),
+        note: `资产负债表校准 - ${selectedBalanceTime.value.format('YYYY年MM月')}`,
       })
       
       const count = res.data.data?.count || 0
@@ -215,10 +296,11 @@ const Reports: React.FC = () => {
       label: '资产负债表', 
       children: (
         <BalanceSheet
-          selectedMonth={selectedMonth}
+          selectedTime={selectedBalanceTime}
+          pickerConfig={balanceSheetPickerConfig}
           balanceSheetData={balanceSheetData}
           buildBalanceSheetTreeData={buildBalanceSheetTreeData}
-          onMonthChange={setSelectedMonth}
+          onTimeChange={setSelectedBalanceTime}
           onOpenSettings={() => setAccountCategoryModalVisible(true)}
           onOpenCalibrate={() => setCalibrateVisible(true)}
         />
@@ -229,9 +311,10 @@ const Reports: React.FC = () => {
       label: '收入支出表', 
       children: (
         <IncomeExpenseReport
-          dateRange={dateRange}
+          timeRange={incomeExpenseTimeRange}
+          pickerConfig={incomeExpensePickerConfig}
           incomeExpenseData={incomeExpenseData}
-          onDateRangeChange={setDateRange}
+          onTimeRangeChange={setIncomeExpenseTimeRange}
           onOpenSettings={() => setTransactionCategoryModalVisible(true)}
         />
       )
@@ -241,10 +324,11 @@ const Reports: React.FC = () => {
       label: '现金流量表', 
       children: (
         <CashFlowReport
-          cashFlowDateRange={cashFlowDateRange}
+          timeRange={cashFlowTimeRange}
+          pickerConfig={cashFlowPickerConfig}
           cashFlowData={cashFlowData}
           cashFlowLoading={cashFlowLoading}
-          onDateRangeChange={setCashFlowDateRange}
+          onTimeRangeChange={setCashFlowTimeRange}
           onOpenSettings={() => setCashFlowConfigModalVisible(true)}
         />
       )
@@ -254,9 +338,10 @@ const Reports: React.FC = () => {
       label: '投资分析表', 
       children: (
         <InvestmentAnalysis
-          dateRange={investmentDateRange}
+          timeRange={investmentTimeRange}
+          pickerConfig={investmentPickerConfig}
           investmentData={investmentData}
-          onDateRangeChange={setInvestmentDateRange}
+          onTimeRangeChange={setInvestmentTimeRange}
           onOpenSettings={() => setAccountCategoryModalVisible(true)}
         />
       )
@@ -290,7 +375,7 @@ const Reports: React.FC = () => {
       />
 
       <Modal
-        title={`调整账户余额 - ${selectedMonth.format('YYYY年MM月')}`}
+        title={`调整账户余额 - ${selectedBalanceTime.value.format('YYYY年MM月')}`}
         open={calibrateVisible}
         onOk={handleSaveCalibration}
         onCancel={() => setCalibrateVisible(false)}
