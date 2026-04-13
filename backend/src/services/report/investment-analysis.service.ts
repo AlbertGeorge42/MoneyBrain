@@ -146,25 +146,31 @@ async function getCashFlowsInRange(
   })
 
   for (const t of transfers) {
-    const amount = t.amount.toNumber() - (t.fee?.toNumber() || 0) + (t.coupon?.toNumber() || 0)
+    const tAmount = t.amount.toNumber()
+    const fee = t.fee?.toNumber() || 0
+    const coupon = t.coupon?.toNumber() || 0
     const isToInvestment = accountIds.includes(t.toAccountId || '')
     const isFromInvestment = accountIds.includes(t.accountId)
 
     // 只处理投资账户与非投资账户之间的转账
     if (isToInvestment && !isFromInvestment) {
       // 非投资账户 → 投资账户：买入（投入）
+      // 投资账户实际到账 = amount - fee + coupon（与 calculateTransferInAmount 一致）
+      const inAmount = tAmount - fee + coupon
       cashFlows.push({
         date: t.date,
-        amount: -amount,  // 负数表示投入
+        amount: -inAmount,  // 负数表示投入
         type: 'buy',
         accountId: t.toAccountId!,
         accountName: accountMap.get(t.toAccountId!) || '未知账户',
       })
     } else if (isFromInvestment && !isToInvestment) {
       // 投资账户 → 非投资账户：卖出（取出）
+      // 投资账户实际扣款 = amount + fee - coupon（与 calculateBalanceChange('transfer') 一致）
+      const outAmount = tAmount + fee - coupon
       cashFlows.push({
         date: t.date,
-        amount: amount,  // 正数表示取出
+        amount: outAmount,  // 正数表示取出
         type: 'sell',
         accountId: t.accountId,
         accountName: accountMap.get(t.accountId) || '未知账户',
@@ -309,10 +315,11 @@ async function calculateTWR(
 
     if (currentDate.getTime() <= prevDate.getTime()) continue
 
-    // 期末值：当前现金流发生前的余额
-    const balanceAtCurrentDate = await getBalanceCached(currentDate)
-    // 现金流发生前余额 = 当天余额 - 现金流金额
-    const endValue = balanceAtCurrentDate - currentCF.amount
+    // 当天余额（使用 lt: currentDate，即现金流发生前的余额）
+    const balanceBeforeCF = await getBalanceCached(currentDate)
+
+    // 期末值 = 现金流发生前的余额
+    const endValue = balanceBeforeCF
 
     // 计算子期间收益率
     if (prevValue > 0 && endValue >= 0) {
@@ -322,7 +329,9 @@ async function calculateTWR(
     }
 
     // 下一期的期初值 = 现金流发生后的余额
-    prevValue = balanceAtCurrentDate
+    // 买入：CF.amount 为负数，portfolio += |CF.amount|，故 after = before - CF.amount
+    // 卖出：CF.amount 为正数，portfolio -= CF.amount，故 after = before - CF.amount
+    prevValue = balanceBeforeCF - currentCF.amount
     prevDate = currentDate
   }
 
@@ -394,16 +403,18 @@ async function calculateAccountCashFlowsInRange(
   })
 
   for (const t of transfers) {
-    const amount = t.amount.toNumber() - (t.fee?.toNumber() || 0) + (t.coupon?.toNumber() || 0)
+    const tAmount = t.amount.toNumber()
+    const fee = t.fee?.toNumber() || 0
+    const coupon = t.coupon?.toNumber() || 0
     const isToInvestment = allInvestmentAccountIds.includes(t.toAccountId || '')
     const isFromInvestment = allInvestmentAccountIds.includes(t.accountId)
 
     if (t.toAccountId === accountId && !isFromInvestment) {
-      // 买入
-      periodInvested += amount
+      // 买入：投资账户实际到账 = amount - fee + coupon
+      periodInvested += tAmount - fee + coupon
     } else if (t.accountId === accountId && !isToInvestment) {
-      // 卖出
-      periodWithdrawn += amount
+      // 卖出：投资账户实际扣款 = amount + fee - coupon
+      periodWithdrawn += tAmount + fee - coupon
     }
   }
 
@@ -443,7 +454,7 @@ async function generateTrendData(
       .reduce((sum, b) => sum + b, 0)
     const netWorth = assets + liabilities
 
-    const ratio = netWorth !== 0 ? (investment / netWorth) * 100 : 0
+    const ratio = assets !== 0 ? (investment / assets) * 100 : 0
 
     trend.push({
       month: monthStr,
@@ -499,7 +510,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     .reduce((sum, b) => sum + b, 0)
   const totalNetWorth = totalAssets + totalLiabilities
 
-  const investmentRatio = totalNetWorth !== 0 ? (endValue / totalNetWorth) * 100 : 0
+  const investmentRatio = totalAssets !== 0 ? (endValue / totalAssets) * 100 : 0
 
   // 获取期间现金流
   const cashFlows = await getCashFlowsInRange(accountIds, startDate, endDate)
@@ -585,7 +596,9 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
         const accNetCashFlow = accInvested - accWithdrawn
         const accPeriodReturn = accEndBalance - accStartBalance - accNetCashFlow
-        const accReturnRate = accStartBalance !== 0 ? (accPeriodReturn / accStartBalance) * 100 : 0
+        // 分母 = 期初余额 + 期间投入，即全部投入的本金
+        const totalCapital = accStartBalance + accInvested
+        const accReturnRate = totalCapital !== 0 ? (accPeriodReturn / totalCapital) * 100 : 0
 
         return {
           id: account.id,
