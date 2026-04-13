@@ -147,8 +147,8 @@ export interface BalanceSheetAccountItem {
 }
 
 export interface BalanceSheetReportData {
-  month: string
   date: string
+  granularity: 'day' | 'month' | 'year'
   assets: number
   liabilities: number
   netWorth: number

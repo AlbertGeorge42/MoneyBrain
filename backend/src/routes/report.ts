@@ -6,9 +6,9 @@ const router = Router()
 
 const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
 
-const validateMonthQuery = (req: Request) => {
-  if (!hasValue(req.query.month)) {
-    throw new ValidationError('请提供月份参数')
+const validateDateQuery = (req: Request) => {
+  if (!hasValue(req.query.date)) {
+    throw new ValidationError('请提供日期参数')
   }
 }
 
@@ -18,9 +18,8 @@ const validateDateRangeQuery = (req: Request) => {
   }
 }
 
-// 资产负债表路由
-router.get('/balance-sheet', validateRequest(validateMonthQuery), asyncHandler(async (req, res) => {
-  const result = await generateBalanceSheet(String(req.query.month))
+router.get('/balance-sheet', validateRequest(validateDateQuery), asyncHandler(async (req, res) => {
+  const result = await generateBalanceSheet(String(req.query.date))
   return success(res, result)
 }))
 

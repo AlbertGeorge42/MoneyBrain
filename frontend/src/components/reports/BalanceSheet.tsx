@@ -7,6 +7,16 @@ import { PieChart } from '../charts'
 import { formatBalance } from '../../utils/formatBalance'
 import type { BalanceSheetReportData } from '@shared/types'
 
+const getBalanceSheetDescription = (time: PointTimeValue): string => {
+  if (time.granularity === 'day') {
+    return `${time.value.format('YYYY年MM月DD日')} 零点的资产负债状况`
+  }
+  if (time.granularity === 'month') {
+    return `${time.value.format('YYYY年MM月')} 月初（1日）的资产负债状况`
+  }
+  return `${time.value.format('YYYY年')} 年初（1月1日）的资产负债状况`
+}
+
 interface BalanceSheetTreeNode {
   key: string
   name: string
@@ -47,7 +57,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
         <Space>
           <PointTimePickerField value={selectedTime} config={pickerConfig} onChange={onTimeChange} />
           <span style={{ color: '#666' }}>
-            显示 {selectedTime.value.format('YYYY年MM月')} 月初（1日）资产负债状况
+            显示 {getBalanceSheetDescription(selectedTime)}
           </span>
         </Space>
         <Space>

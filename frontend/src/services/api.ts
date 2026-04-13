@@ -127,7 +127,7 @@ export const budgetApi = {
 }
 
 export const reportApi = {
-  getBalanceSheet: (month: string) => api.get<ApiResponse<BalanceSheetReportData>>('/reports/balance-sheet', { params: { month } }),
+  getBalanceSheet: (date: string) => api.get<ApiResponse<BalanceSheetReportData>>('/reports/balance-sheet', { params: { date } }),
   getIncomeExpense: (startDate: string, endDate: string) => api.get<ApiResponse<IncomeExpenseReportData>>('/reports/income-expense', { params: { startDate, endDate } }),
   getCashFlow: (startDate: string, endDate: string) => api.get<ApiResponse<CashFlowReportData>>('/reports/cash-flow', { params: { startDate, endDate } }),
   getInvestmentAnalysis: (startDate: string, endDate: string) => api.get<ApiResponse<InvestmentAnalysisReportData>>('/reports/investment-analysis', { params: { startDate, endDate } }),

@@ -111,6 +111,16 @@ export const formatRangeValue = (value: RangeTimeValue): string => {
 
 export const toMonthParam = (value: PointTimeValue): string => value.value.format('YYYY-MM')
 
+export const toDateParam = (value: PointTimeValue): string => {
+  if (value.granularity === 'day') {
+    return value.value.format('YYYY-MM-DD')
+  }
+  if (value.granularity === 'month') {
+    return value.value.format('YYYY-MM')
+  }
+  return value.value.format('YYYY')
+}
+
 export const toDateRangeParams = (value: RangeTimeValue): { startDate: string; endDate: string } => ({
   startDate: value.start.format('YYYY-MM-DD'),
   endDate: value.end.format('YYYY-MM-DD'),

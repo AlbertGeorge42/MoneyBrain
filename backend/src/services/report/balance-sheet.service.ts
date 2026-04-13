@@ -1,6 +1,8 @@
 import { prisma } from '../../index.js'
 import { calculateBalanceAtDate } from '../balance.service.js'
 
+export type DateGranularity = 'day' | 'month' | 'year'
+
 export interface BalanceSheetAccount {
   id: string
   name: string
@@ -15,8 +17,8 @@ export interface BalanceSheetAccount {
 }
 
 export interface BalanceSheetResult {
-  month: string
   date: string
+  granularity: DateGranularity
   assets: number
   liabilities: number
   netWorth: number
@@ -25,8 +27,30 @@ export interface BalanceSheetResult {
   accounts: BalanceSheetAccount[]
 }
 
-export async function generateBalanceSheet(month: string): Promise<BalanceSheetResult> {
-  const monthStart = new Date(`${month}-01T00:00:00`)
+function parseDateParam(date: string): { targetDate: Date; granularity: DateGranularity } {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return {
+      targetDate: new Date(`${date}T00:00:00`),
+      granularity: 'day',
+    }
+  }
+  if (/^\d{4}-\d{2}$/.test(date)) {
+    return {
+      targetDate: new Date(`${date}-01T00:00:00`),
+      granularity: 'month',
+    }
+  }
+  if (/^\d{4}$/.test(date)) {
+    return {
+      targetDate: new Date(`${date}-01-01T00:00:00`),
+      granularity: 'year',
+    }
+  }
+  throw new Error('无效的日期格式，支持格式：YYYY-MM-DD、YYYY-MM、YYYY')
+}
+
+export async function generateBalanceSheet(date: string): Promise<BalanceSheetResult> {
+  const { targetDate, granularity } = parseDateParam(date)
 
   const categories = await prisma.accountCategory.findMany({
     orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
@@ -39,7 +63,7 @@ export async function generateBalanceSheet(month: string): Promise<BalanceSheetR
 
   const accountBalances = await Promise.all(
     accounts.map(async (account) => {
-      const balance = await calculateBalanceAtDate(account.id, monthStart)
+      const balance = await calculateBalanceAtDate(account.id, targetDate)
       return { ...account, balance }
     })
   )
@@ -97,9 +121,11 @@ export async function generateBalanceSheet(month: string): Promise<BalanceSheetR
       return a.accountSort - b.accountSort
     })
 
+  const dateStr = targetDate.toISOString().split('T')[0]
+
   return {
-    month,
-    date: `${month}-01`,
+    date: dateStr,
+    granularity,
     assets,
     liabilities,
     netWorth,

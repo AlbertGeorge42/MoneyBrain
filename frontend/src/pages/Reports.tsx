@@ -23,18 +23,28 @@ import {
   createTrailingRangePreset,
   createYearToDatePreset,
   toDateRangeParams,
-  toMonthParam,
+  toDateParam,
 } from '../utils/timePicker'
 
 const balanceSheetPickerConfig: PointTimePickerConfig = {
-  label: '月度时点',
-  allowedGranularities: ['month'],
+  label: '时点选择',
+  allowedGranularities: ['day', 'month', 'year'],
   presets: {
+    day: [
+      createPointPeriodPreset('today', '今天', 'day'),
+      createPointPeriodPreset('yesterday', '昨天', 'day', -1),
+      createPointPeriodPreset('month-start', '本月初', 'month'),
+    ],
     month: [
       createPointPeriodPreset('current-month', '本月', 'month'),
       createPointPeriodPreset('previous-month', '上月', 'month', -1),
       createPointPeriodPreset('year-start', '1月', 'month', -dayjs().month()),
       createPointPeriodPreset('year-end', '12月', 'month', 11 - dayjs().month()),
+    ],
+    year: [
+      createPointPeriodPreset('current-year', '今年', 'year'),
+      createPointPeriodPreset('previous-year', '去年', 'year', -1),
+      createPointPeriodPreset('3-years-ago', '3年前', 'year', -3),
     ],
   },
 }
@@ -157,8 +167,8 @@ const Reports: React.FC = () => {
 
   const fetchBalanceSheet = async () => {
     try {
-      const monthStr = toMonthParam(selectedBalanceTime)
-      const res = await reportApi.getBalanceSheet(monthStr)
+      const dateStr = toDateParam(selectedBalanceTime)
+      const res = await reportApi.getBalanceSheet(dateStr)
       setBalanceSheetData(res.data.data ?? null)
       
       const initialCalibrate: Record<string, number> = {}
