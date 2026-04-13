@@ -17,9 +17,12 @@ export interface BalanceChangeResult {
  * @returns 余额变化结果
  * 
  * 计算规则：
- * - 收入：余额 += 金额 - 手续费 + 优惠券
- * - 支出：余额 -= 金额 + 手续费 - 优惠券
- * - 转账转出：余额 -= 金额 + 手续费 - 优惠券
+ * - 收入：余额 += 金额（记录金额即为实际收入）
+ * - 支出：余额 -= 金额（记录金额即为实际支出）
+ * - 转账转出：
+ *   - 有优惠券时：余额 -= 金额（金额为转出金额）
+ *   - 有手续费时：余额 -= 金额 + 手续费（金额为转入金额）
+ *   - 无额外费用：余额 -= 金额
  * - 退款：余额 += 金额 - 手续费
  * - 平账：余额 += 金额（金额可正可负）
  */
@@ -31,11 +34,16 @@ export function calculateBalanceChange(
 ): number {
   switch (type) {
     case 'income':
-      return amount - fee + coupon
+      return amount
     case 'expense':
-      return -(amount + fee - coupon)
+      return -amount
     case 'transfer':
-      return -(amount + fee - coupon)
+      if (coupon > 0) {
+        return -amount
+      } else if (fee > 0) {
+        return -(amount + fee)
+      }
+      return -amount
     case 'refund':
       return amount - fee
     case 'adjustment':
@@ -53,14 +61,20 @@ export function calculateBalanceChange(
  * @param coupon 优惠券
  * @returns 转入账户余额变化
  * 
- * 转入账户余额 += 金额 - 手续费 + 优惠券
+ * 计算规则：
+ * - 有优惠券时：转入金额 = 记录金额 + 优惠券（记录金额为转出金额）
+ * - 有手续费时：转入金额 = 记录金额（记录金额为转入金额）
+ * - 无额外费用：转入金额 = 记录金额
  */
 export function calculateTransferInAmount(
   amount: number,
   fee: number = 0,
   coupon: number = 0
 ): number {
-  return amount - fee + coupon
+  if (coupon > 0) {
+    return amount + coupon
+  }
+  return amount
 }
 
 /**
