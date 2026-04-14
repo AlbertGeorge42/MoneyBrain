@@ -257,6 +257,14 @@ export class TransactionService {
       await tx.transaction.delete({ where: { id } })
     })
   }
+
+  async getEarliestTransactionDate(): Promise<Date | null> {
+    const earliest = await prisma.transaction.findFirst({
+      orderBy: { date: 'asc' },
+      select: { date: true },
+    })
+    return earliest?.date || null
+  }
 }
 
 export const transactionService = new TransactionService()

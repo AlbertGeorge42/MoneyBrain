@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import {
   reportApi,
   accountApi,
+  transactionApi,
   type BalanceSheetAccountItem,
   type BalanceSheetReportData,
   type CashFlowReportData,
@@ -26,7 +27,7 @@ import {
   toDateParam,
 } from '../utils/timePicker'
 
-const balanceSheetPickerConfig: PointTimePickerConfig = {
+const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '时点选择',
   allowedGranularities: ['day', 'month', 'year'],
   presets: {
@@ -49,7 +50,7 @@ const balanceSheetPickerConfig: PointTimePickerConfig = {
   },
 }
 
-const incomeExpensePickerConfig: RangeTimePickerConfig = {
+const baseIncomeExpensePickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '财务周期',
   allowedGranularities: ['day', 'month', 'year'],
   presets: {
@@ -73,7 +74,7 @@ const incomeExpensePickerConfig: RangeTimePickerConfig = {
   },
 }
 
-const cashFlowPickerConfig: RangeTimePickerConfig = {
+const baseCashFlowPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '现金周期',
   allowedGranularities: ['day', 'month', 'year'],
   presets: {
@@ -97,7 +98,7 @@ const cashFlowPickerConfig: RangeTimePickerConfig = {
   },
 }
 
-const investmentPickerConfig: RangeTimePickerConfig = {
+const baseInvestmentPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '投资周期',
   allowedGranularities: ['month', 'year'],
   presets: {
@@ -118,6 +119,8 @@ const investmentPickerConfig: RangeTimePickerConfig = {
 const Reports: React.FC = () => {
   const { fetchAccounts } = useStore()
   const [activeTab, setActiveTab] = useState('balance-sheet')
+  
+  const [earliestTransactionDate, setEarliestTransactionDate] = useState<string | null>(null)
   
   const [selectedBalanceTime, setSelectedBalanceTime] = useState<PointTimeValue>(createPointValue('month', dayjs()))
   const [balanceSheetData, setBalanceSheetData] = useState<BalanceSheetReportData | null>(null)
@@ -152,6 +155,42 @@ const Reports: React.FC = () => {
     icon?: string
     children?: BalanceSheetTreeNode[]
   }
+
+  useEffect(() => {
+    const fetchEarliestDate = async () => {
+      try {
+        const res = await transactionApi.getEarliestDate()
+        setEarliestTransactionDate(res.data.data?.date || null)
+      } catch {
+        // 忽略错误
+      }
+    }
+    fetchEarliestDate()
+  }, [])
+
+  const balanceSheetPickerConfig = useMemo<PointTimePickerConfig>(() => ({
+    ...baseBalanceSheetPickerConfig,
+    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+    maxDate: dayjs(),
+  }), [earliestTransactionDate])
+
+  const incomeExpensePickerConfig = useMemo<RangeTimePickerConfig>(() => ({
+    ...baseIncomeExpensePickerConfig,
+    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+    maxDate: dayjs(),
+  }), [earliestTransactionDate])
+
+  const cashFlowPickerConfig = useMemo<RangeTimePickerConfig>(() => ({
+    ...baseCashFlowPickerConfig,
+    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+    maxDate: dayjs(),
+  }), [earliestTransactionDate])
+
+  const investmentPickerConfig = useMemo<RangeTimePickerConfig>(() => ({
+    ...baseInvestmentPickerConfig,
+    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+    maxDate: dayjs(),
+  }), [earliestTransactionDate])
 
   useEffect(() => {
     if (activeTab === 'balance-sheet') {

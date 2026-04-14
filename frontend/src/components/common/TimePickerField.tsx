@@ -38,6 +38,23 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
   const [open, setOpen] = useState(false)
   const currentPresets = useMemo(() => config.presets[value.granularity] || [], [config.presets, value.granularity])
 
+  const isMinReached = useMemo(() => {
+    if (!config.minDate) return false
+    return value.value.isBefore(config.minDate, value.granularity) || value.value.isSame(config.minDate, value.granularity)
+  }, [value.value, value.granularity, config.minDate])
+
+  const isMaxReached = useMemo(() => {
+    if (!config.maxDate) return false
+    return value.value.isAfter(config.maxDate, value.granularity) || value.value.isSame(config.maxDate, value.granularity)
+  }, [value.value, value.granularity, config.maxDate])
+
+  const disabledDate = (current: Dayjs) => {
+    if (!current) return false
+    if (config.minDate && current.isBefore(config.minDate, 'day')) return true
+    if (config.maxDate && current.isAfter(config.maxDate, 'day')) return true
+    return false
+  }
+
   const handleGranularityChange = (granularity: TimeGranularity) => {
     const nextValue = config.presets[granularity]?.[0]?.getValue(dayjs()) || createPointValue(granularity, value.value)
     onChange(normalizePointValue(nextValue))
@@ -54,6 +71,18 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
     if (date) {
       onChange(normalizePointValue({ granularity: value.granularity, value: date }))
       setOpen(false)
+    }
+  }
+
+  const handlePrevClick = () => {
+    if (!isMinReached) {
+      onChange(movePointValue(value, -1))
+    }
+  }
+
+  const handleNextClick = () => {
+    if (!isMaxReached) {
+      onChange(movePointValue(value, 1))
     }
   }
 
@@ -79,7 +108,8 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
           <Button 
             size="small" 
             icon={<LeftOutlined />} 
-            onClick={() => onChange(movePointValue(value, -1))}
+            onClick={handlePrevClick}
+            disabled={isMinReached}
           />
           <div style={{ 
             fontSize: 15,
@@ -93,7 +123,8 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
           <Button 
             size="small" 
             icon={<RightOutlined />} 
-            onClick={() => onChange(movePointValue(value, 1))}
+            onClick={handleNextClick}
+            disabled={isMaxReached}
           />
         </div>
 
@@ -137,6 +168,7 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
             if (pickerOpen) setOpen(true)
           }}
           placeholder="自定义日期"
+          disabledDate={disabledDate}
         />
       </div>
     </div>
@@ -187,6 +219,23 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
     [config.presets, resolvedValue.granularity]
   )
 
+  const isMinReached = useMemo(() => {
+    if (!config.minDate) return false
+    return resolvedValue.start.isBefore(config.minDate, resolvedValue.granularity) || resolvedValue.start.isSame(config.minDate, resolvedValue.granularity)
+  }, [resolvedValue.start, resolvedValue.granularity, config.minDate])
+
+  const isMaxReached = useMemo(() => {
+    if (!config.maxDate) return false
+    return resolvedValue.end.isAfter(config.maxDate, resolvedValue.granularity) || resolvedValue.end.isSame(config.maxDate, resolvedValue.granularity)
+  }, [resolvedValue.end, resolvedValue.granularity, config.maxDate])
+
+  const disabledDate = (current: Dayjs) => {
+    if (!current) return false
+    if (config.minDate && current.isBefore(config.minDate, 'day')) return true
+    if (config.maxDate && current.isAfter(config.maxDate, 'day')) return true
+    return false
+  }
+
   const handleGranularityChange = (granularity: TimeGranularity) => {
     const nextValue =
       config.presets[granularity]?.[0]?.getValue(dayjs()) ||
@@ -214,6 +263,18 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
     }
   }
 
+  const handlePrevClick = () => {
+    if (!isMinReached) {
+      onChange(moveRangeValue(resolvedValue, -1))
+    }
+  }
+
+  const handleNextClick = () => {
+    if (!isMaxReached) {
+      onChange(moveRangeValue(resolvedValue, 1))
+    }
+  }
+
   const dropdownContent = (
     <div style={{ 
       padding: 16,
@@ -236,7 +297,8 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
           <Button 
             size="small" 
             icon={<LeftOutlined />} 
-            onClick={() => onChange(moveRangeValue(resolvedValue, -1))}
+            onClick={handlePrevClick}
+            disabled={isMinReached}
           />
           <div style={{ 
             fontSize: 14,
@@ -251,7 +313,8 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
           <Button 
             size="small" 
             icon={<RightOutlined />} 
-            onClick={() => onChange(moveRangeValue(resolvedValue, 1))}
+            onClick={handleNextClick}
+            disabled={isMaxReached}
           />
         </div>
 
@@ -295,6 +358,7 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
             if (pickerOpen) setOpen(true)
           }}
           placeholder={['开始日期', '结束日期']}
+          disabledDate={disabledDate}
         />
       </div>
     </div>

@@ -112,6 +112,7 @@ export const transactionCategoryApi = {
 export const transactionApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<PaginatedResponse<Transaction>>>('/transactions', { params }),
   getStats: (params?: Record<string, unknown>) => api.get<ApiResponse<{ income: number; expense: number; refund: number; balance: number; transferCount: number }>>('/transactions/stats', { params }),
+  getEarliestDate: () => api.get<ApiResponse<{ date: string | null }>>('/transactions/earliest'),
   getRefundableList: () => api.get<ApiResponse<Transaction[]>>('/transactions/refundable/list'),
   create: (data: Partial<Transaction>) => api.post<ApiResponse<Transaction>>('/transactions', data),
   update: (id: string, data: Partial<Transaction>) => api.put<ApiResponse<Transaction>>(`/transactions/${id}`, data),

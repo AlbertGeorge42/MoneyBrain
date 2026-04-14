@@ -23,12 +23,16 @@ export interface PointTimePickerConfig {
   label?: string
   allowedGranularities: TimeGranularity[]
   presets: Partial<Record<TimeGranularity, TimePreset<PointTimeValue>[]>>
+  minDate?: Dayjs
+  maxDate?: Dayjs
 }
 
 export interface RangeTimePickerConfig {
   label?: string
   allowedGranularities: TimeGranularity[]
   presets: Partial<Record<TimeGranularity, TimePreset<RangeTimeValue>[]>>
+  minDate?: Dayjs
+  maxDate?: Dayjs
 }
 
 export const normalizePointValue = (value: PointTimeValue): PointTimeValue => ({

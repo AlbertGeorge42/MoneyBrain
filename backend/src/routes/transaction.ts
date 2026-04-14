@@ -149,6 +149,11 @@ router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (re
   return success(res, stats)
 }))
 
+router.get('/earliest', asyncHandler(async (_req, res) => {
+  const date = await transactionService.getEarliestTransactionDate()
+  return success(res, { date: date ? date.toISOString().split('T')[0] : null })
+}))
+
 router.get('/refundable/list', asyncHandler(async (_req, res) => {
   const transactions = await transactionService.getRefundableTransactions()
   return success(res, transactions)
