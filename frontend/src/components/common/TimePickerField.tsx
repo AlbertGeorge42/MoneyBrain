@@ -103,7 +103,7 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center', 
-          gap: 12 
+          gap: 8 
         }}>
           <Button 
             size="small" 
@@ -111,15 +111,16 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
             onClick={handlePrevClick}
             disabled={isMinReached}
           />
-          <div style={{ 
-            fontSize: 15,
-            fontWeight: 500,
-            color: '#262626',
-            minWidth: 100,
-            textAlign: 'center'
-          }}>
-            {formatPointValue(value)}
-          </div>
+          <DatePicker
+            style={{ width: 130 }}
+            value={value.value}
+            picker={value.granularity === 'day' ? undefined : value.granularity}
+            onChange={handleDateChange}
+            disabledDate={disabledDate}
+            allowClear={false}
+            suffixIcon={null}
+            inputReadOnly
+          />
           <Button 
             size="small" 
             icon={<RightOutlined />} 
@@ -158,18 +159,6 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
             ))}
           </div>
         )}
-
-        <DatePicker
-          style={{ width: '100%' }}
-          value={value.value}
-          picker={value.granularity === 'day' ? undefined : value.granularity}
-          onChange={handleDateChange}
-          onOpenChange={(pickerOpen) => {
-            if (pickerOpen) setOpen(true)
-          }}
-          placeholder="自定义日期"
-          disabledDate={disabledDate}
-        />
       </div>
     </div>
   )
@@ -292,7 +281,7 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center', 
-          gap: 12 
+          gap: 8 
         }}>
           <Button 
             size="small" 
@@ -300,16 +289,16 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
             onClick={handlePrevClick}
             disabled={isMinReached}
           />
-          <div style={{ 
-            fontSize: 14,
-            fontWeight: 500,
-            color: '#262626',
-            minWidth: 160,
-            textAlign: 'center',
-            whiteSpace: 'nowrap'
-          }}>
-            {formatRangeValue(resolvedValue)}
-          </div>
+          <DatePicker.RangePicker
+            style={{ width: 200 }}
+            value={[resolvedValue.start, resolvedValue.end]}
+            picker={resolvedValue.granularity === 'day' ? undefined : resolvedValue.granularity}
+            onChange={handleDateChange}
+            disabledDate={disabledDate}
+            allowClear={false}
+            suffixIcon={null}
+            inputReadOnly
+          />
           <Button 
             size="small" 
             icon={<RightOutlined />} 
@@ -348,18 +337,6 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
             ))}
           </div>
         )}
-
-        <DatePicker.RangePicker
-          style={{ width: '100%' }}
-          value={[resolvedValue.start, resolvedValue.end]}
-          picker={resolvedValue.granularity === 'day' ? undefined : resolvedValue.granularity}
-          onChange={handleDateChange}
-          onOpenChange={(pickerOpen) => {
-            if (pickerOpen) setOpen(true)
-          }}
-          placeholder={['开始日期', '结束日期']}
-          disabledDate={disabledDate}
-        />
       </div>
     </div>
   )
