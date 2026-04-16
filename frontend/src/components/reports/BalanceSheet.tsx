@@ -1,9 +1,9 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { Card, Button, Table, Row, Col, Statistic, Space } from 'antd'
 import { SettingOutlined, SaveOutlined } from '@ant-design/icons'
 import DynamicIcon from '../common/DynamicIcon'
 import { PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
-import { PieChart } from '../charts'
+import { PieChart, PieChartDataItem } from '../charts'
 import { formatBalance } from '../../utils/formatBalance'
 import type { BalanceSheetReportData } from '@shared/types'
 
@@ -51,6 +51,60 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
   onOpenSettings,
   onOpenCalibrate,
 }) => {
+  const assetPieData = useMemo(() => 
+    buildBalanceSheetTreeData.assetNodes
+      .filter((n) => n.type === 'category')
+      .map((n) => ({ 
+        name: n.name, 
+        value: Math.abs(n.balance),
+        categoryId: n.key,
+        hasChildren: !!(n.children && n.children.length > 0)
+      }))
+      .filter((d) => d.value > 0),
+    [buildBalanceSheetTreeData.assetNodes]
+  )
+
+  const liabilityPieData = useMemo(() =>
+    buildBalanceSheetTreeData.liabilityNodes
+      .filter((n) => n.type === 'category')
+      .map((n) => ({ 
+        name: n.name, 
+        value: Math.abs(n.balance),
+        categoryId: n.key,
+        hasChildren: !!(n.children && n.children.length > 0)
+      }))
+      .filter((d) => d.value > 0),
+    [buildBalanceSheetTreeData.liabilityNodes]
+  )
+
+  const handleDrillDownAsset = async (item: PieChartDataItem): Promise<PieChartDataItem[]> => {
+    if (!item.categoryId) return []
+    const categoryNode = buildBalanceSheetTreeData.assetNodes.find(
+      n => n.key === item.categoryId && n.type === 'category'
+    )
+    if (!categoryNode || !categoryNode.children) return []
+    return categoryNode.children
+      .filter(acc => acc.balance !== 0)
+      .map(acc => ({
+        name: acc.name,
+        value: Math.abs(acc.balance),
+      }))
+  }
+
+  const handleDrillDownLiability = async (item: PieChartDataItem): Promise<PieChartDataItem[]> => {
+    if (!item.categoryId) return []
+    const categoryNode = buildBalanceSheetTreeData.liabilityNodes.find(
+      n => n.key === item.categoryId && n.type === 'category'
+    )
+    if (!categoryNode || !categoryNode.children) return []
+    return categoryNode.children
+      .filter(acc => acc.balance !== 0)
+      .map(acc => ({
+        name: acc.name,
+        value: Math.abs(acc.balance),
+      }))
+  }
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -107,12 +161,9 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
           <Card size="small">
             <PieChart 
               title="资产结构" 
-              data={buildBalanceSheetTreeData.assetNodes
-                .filter((n) => n.type === 'category')
-                .map((n) => ({ name: n.name, value: Math.abs(n.balance) }))
-                .filter((d) => d.value > 0)
-              }
+              data={assetPieData}
               height={280}
+              onDrillDown={handleDrillDownAsset}
             />
           </Card>
         </Col>
@@ -120,12 +171,9 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
           <Card size="small">
             <PieChart 
               title="负债结构" 
-              data={buildBalanceSheetTreeData.liabilityNodes
-                .filter((n) => n.type === 'category')
-                .map((n) => ({ name: n.name, value: Math.abs(n.balance) }))
-                .filter((d) => d.value > 0)
-              }
+              data={liabilityPieData}
               height={280}
+              onDrillDown={handleDrillDownLiability}
             />
           </Card>
         </Col>
