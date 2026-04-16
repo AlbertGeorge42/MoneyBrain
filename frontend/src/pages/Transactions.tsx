@@ -25,10 +25,12 @@ const Transactions: React.FC = () => {
     accountCategories,
     loading, 
     pagination,
+    stats,
     fetchTransactions, 
     fetchAccounts,
     fetchTransactionCategories,
     fetchAccountCategories,
+    fetchTransactionStats,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -55,6 +57,7 @@ const Transactions: React.FC = () => {
     fetchAccounts()
     fetchTransactionCategories()
     fetchAccountCategories()
+    fetchTransactionStats()
   }, [])
 
   const handleAdd = (type?: 'income' | 'expense') => {
@@ -173,6 +176,7 @@ const Transactions: React.FC = () => {
     params.page = 1
     params.pageSize = pageSize
     fetchTransactions(params)
+    fetchTransactionStats(params)
     setCurrentPage(1)
   }
 
@@ -184,20 +188,9 @@ const Transactions: React.FC = () => {
       dateRange: null,
     })
     fetchTransactions({ page: 1, pageSize })
+    fetchTransactionStats()
     setCurrentPage(1)
   }
-
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0)
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0)
-  const totalRefund = transactions
-    .filter(t => t.type === 'refund')
-    .reduce((sum, t) => sum + t.amount, 0)
-  const balance = totalIncome - totalExpense + totalRefund
-  const transferCount = transactions.filter(t => t.type === 'transfer').length
 
   const handlePageChange = (newPage: number, newPageSize: number) => {
     setCurrentPage(newPage)
@@ -247,11 +240,11 @@ const Transactions: React.FC = () => {
       </Card>
 
       <TransactionStats
-        totalIncome={totalIncome}
-        totalExpense={totalExpense}
-        totalRefund={totalRefund}
-        balance={balance}
-        transferCount={transferCount}
+        totalIncome={stats.income}
+        totalExpense={stats.expense}
+        totalRefund={stats.refund}
+        balance={stats.balance}
+        transferCount={stats.transferCount}
       />
 
       <TransactionTable

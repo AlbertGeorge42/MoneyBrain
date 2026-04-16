@@ -167,13 +167,9 @@ export class TransactionService {
     }
   }
 
-  async getTransactionStats(startDate?: Date, endDate?: Date): Promise<TransactionStats> {
-    const where: any = { isAdjustment: false }
-    if (startDate || endDate) {
-      where.date = {}
-      if (startDate) where.date.gte = startDate
-      if (endDate) where.date.lte = endDate
-    }
+  async getTransactionStats(params: TransactionListParams = {}): Promise<TransactionStats> {
+    const where = await buildTransactionListWhere(params)
+    where.isAdjustment = false
 
     const transactions = await prisma.transaction.findMany({ where })
 

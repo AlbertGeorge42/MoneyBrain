@@ -141,10 +141,13 @@ router.get('/', validateRequest(validateListQuery), asyncHandler(async (req, res
 }))
 
 router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (req, res) => {
-  const stats = await transactionService.getTransactionStats(
-    toOptionalDate(req.query.startDate, 'startDate'),
-    toOptionalDate(req.query.endDate, 'endDate'),
-  )
+  const stats = await transactionService.getTransactionStats({
+    accountId: toStringArray(req.query.accountId),
+    categoryId: toStringArray(req.query.categoryId),
+    type: toStringArray(req.query.type),
+    startDate: toOptionalDate(req.query.startDate, 'startDate'),
+    endDate: toOptionalDate(req.query.endDate, 'endDate'),
+  })
 
   return success(res, stats)
 }))
