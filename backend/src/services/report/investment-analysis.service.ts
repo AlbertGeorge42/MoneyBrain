@@ -1,10 +1,8 @@
 import { prisma } from '../../index.js'
 import { calculateBalanceAtDate } from '../balance.service.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
+import { toDecimal, ZERO } from '../../utils/decimal.js'
 
-/**
- * 现金流记录
- * amount: 负数表示投入（买入），正数表示取出（卖出）
- */
 interface CashFlow {
   date: Date
   amount: number
@@ -82,9 +80,6 @@ interface InvestmentAnalysisResult {
   trend: InvestmentTrendItem[]
 }
 
-/**
- * 获取所有投资账户
- */
 async function getInvestmentAccounts(): Promise<AccountWithCategory[]> {
   const investmentCategories = await prisma.accountCategory.findMany({
     where: { isInvestment: true },
@@ -105,18 +100,6 @@ async function getInvestmentAccounts(): Promise<AccountWithCategory[]> {
   return accounts as AccountWithCategory[]
 }
 
-/**
- * 获取指定日期范围内的现金流
- * 
- * 现金流定义：
- * 1. 买入：非投资账户 → 投资账户的转账
- * 2. 卖出：投资账户 → 非投资账户的转账
- * 
- * 不计入现金流：
- * - 投资账户之间的转账（内部资金移动）
- * - 分红（默认再投资，体现在余额中）
- * - 净值变动记录（市场价值变化）
- */
 async function getCashFlowsInRange(
   accountIds: string[],
   startDate: Date,
@@ -129,7 +112,6 @@ async function getCashFlowsInRange(
   })
   const accountMap = new Map(accounts.map(a => [a.id, a.name]))
 
-  // 处理买入卖出转账（只处理投资账户与非投资账户之间的转账）
   const transfers = await prisma.transaction.findMany({
     where: {
       type: 'transfer',
@@ -146,51 +128,38 @@ async function getCashFlowsInRange(
   })
 
   for (const t of transfers) {
-    const tAmount = t.amount.toNumber()
-    const fee = t.fee?.toNumber() || 0
-    const coupon = t.coupon?.toNumber() || 0
+    const amount = t.amount
+    const fee = toDecimal(t.fee)
+    const coupon = toDecimal(t.coupon)
     const isToInvestment = accountIds.includes(t.toAccountId || '')
     const isFromInvestment = accountIds.includes(t.accountId)
 
-    // 只处理投资账户与非投资账户之间的转账
     if (isToInvestment && !isFromInvestment) {
-      // 非投资账户 → 投资账户：买入（投入）
-      // 投资账户实际到账 = amount - fee + coupon（与 calculateTransferInAmount 一致）
-      const inAmount = tAmount - fee + coupon
+      const inAmount = amount.minus(fee).plus(coupon)
       cashFlows.push({
         date: t.date,
-        amount: -inAmount,  // 负数表示投入
+        amount: inAmount.negated().toNumber(),
         type: 'buy',
         accountId: t.toAccountId!,
         accountName: accountMap.get(t.toAccountId!) || '未知账户',
       })
     } else if (isFromInvestment && !isToInvestment) {
-      // 投资账户 → 非投资账户：卖出（取出）
-      // 投资账户实际扣款 = amount + fee - coupon（与 calculateBalanceChange('transfer') 一致）
-      const outAmount = tAmount + fee - coupon
+      const outAmount = amount.plus(fee).minus(coupon)
       cashFlows.push({
         date: t.date,
-        amount: outAmount,  // 正数表示取出
+        amount: outAmount.toNumber(),
         type: 'sell',
         accountId: t.accountId,
         accountName: accountMap.get(t.accountId) || '未知账户',
       })
     }
-    // 投资账户之间的转账忽略
   }
 
-  // 按日期排序
   cashFlows.sort((a, b) => a.date.getTime() - b.date.getTime())
 
   return cashFlows
 }
 
-/**
- * 计算 XIRR（年化内部收益率）
- * 
- * 使用牛顿迭代法求解 NPV = 0 时的年化收益率
- * NPV = Σ(CF_i / (1 + r)^((d_i - d_0)/365))
- */
 function calculateXIRR(
   startValue: number,
   cashFlows: CashFlow[],
@@ -198,11 +167,10 @@ function calculateXIRR(
   startDate: Date,
   endDate: Date
 ): number | null {
-  // 构建现金流序列：期初值（负）+ 期间现金流 + 期末值（正）
   const allFlows = [
-    { date: startDate, amount: -startValue },  // 期初投入
+    { date: startDate, amount: -startValue },
     ...cashFlows.map(cf => ({ date: cf.date, amount: cf.amount })),
-    { date: endDate, amount: endValue },  // 期末价值
+    { date: endDate, amount: endValue },
   ]
 
   if (allFlows.length < 2) return null
@@ -211,7 +179,6 @@ function calculateXIRR(
   const amounts = allFlows.map(cf => cf.amount)
   const firstDate = dates[0]
 
-  // NPV 函数
   const npv = (rate: number): number => {
     return amounts.reduce((sum, amount, i) => {
       const days = (dates[i].getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
@@ -222,7 +189,6 @@ function calculateXIRR(
     }, 0)
   }
 
-  // NPV 对 rate 的导数
   const npvDerivative = (rate: number): number => {
     return amounts.reduce((sum, amount, i) => {
       const days = (dates[i].getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
@@ -233,7 +199,6 @@ function calculateXIRR(
     }, 0)
   }
 
-  // 尝试多个初始猜测值
   const guesses = [-0.9, -0.5, -0.1, 0.0, 0.05, 0.1, 0.2, 0.5, 1.0]
   let bestResult: number | null = null
   let bestNpv = Infinity
@@ -250,7 +215,6 @@ function calculateXIRR(
 
       const newRate = rate - npvValue / derivative
 
-      // 防止发散
       if (!isFinite(newRate) || Math.abs(newRate) > 50) break
 
       if (Math.abs(newRate - rate) < 1e-8) {
@@ -267,18 +231,11 @@ function calculateXIRR(
   }
 
   if (bestResult === null || !isFinite(bestResult)) return null
-  if (Math.abs(bestResult) > 10) return null  // 年化收益率超过 1000% 视为异常
+  if (Math.abs(bestResult) > 10) return null
 
   return bestResult * 100
 }
 
-/**
- * 计算 TWR（时间加权收益率）
- * 
- * TWR = (1 + r1) × (1 + r2) × ... × (1 + rn) - 1
- * 
- * 期初值作为投资起点，期间现金流作为分割点
- */
 async function calculateTWR(
   accountIds: string[],
   startValue: number,
@@ -288,7 +245,6 @@ async function calculateTWR(
 ): Promise<{ twr: number | null; annualizedTwr: number | null }> {
   const investmentDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
-  // 余额缓存
   const balanceCache = new Map<string, number>()
   
   const getBalanceCached = async (d: Date): Promise<number> => {
@@ -302,40 +258,30 @@ async function calculateTWR(
 
   let twr = 1
 
-  // 期初值作为投资起点
   let prevValue = startValue
   let prevDate = startDate
 
-  // 按日期排序的现金流
   const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime())
 
-  // 现金流作为子期间分割点
   for (const currentCF of sortedFlows) {
     const currentDate = currentCF.date
 
     if (currentDate.getTime() <= prevDate.getTime()) continue
 
-    // 当天余额（使用 lt: currentDate，即现金流发生前的余额）
     const balanceBeforeCF = await getBalanceCached(currentDate)
 
-    // 期末值 = 现金流发生前的余额
     const endValue = balanceBeforeCF
 
-    // 计算子期间收益率
     if (prevValue > 0 && endValue >= 0) {
       const periodReturn = (endValue - prevValue) / prevValue
       const clampedReturn = Math.max(-0.99, Math.min(10, periodReturn))
       twr *= (1 + clampedReturn)
     }
 
-    // 下一期的期初值 = 现金流发生后的余额
-    // 买入：CF.amount 为负数，portfolio += |CF.amount|，故 after = before - CF.amount
-    // 卖出：CF.amount 为正数，portfolio -= CF.amount，故 after = before - CF.amount
     prevValue = balanceBeforeCF - currentCF.amount
     prevDate = currentDate
   }
 
-  // 最后一个子期间：从最后一笔现金流到结束日期
   if (prevDate < endDate) {
     const endValue = await getBalanceCached(endDate)
     if (prevValue > 0 && endValue >= 0) {
@@ -347,12 +293,10 @@ async function calculateTWR(
 
   twr = twr - 1
 
-  // 边界检查
   if (!isFinite(twr) || Math.abs(twr) > 50) {
     return { twr: null, annualizedTwr: null }
   }
 
-  // 年化 TWR
   const annualizedTwr = Math.pow(1 + twr, 365 / investmentDays) - 1
 
   if (!isFinite(annualizedTwr) || Math.abs(annualizedTwr) > 50) {
@@ -365,9 +309,6 @@ async function calculateTWR(
   }
 }
 
-/**
- * 获取指定日期的投资账户总余额
- */
 async function getTotalBalanceAtDate(accountIds: string[], targetDate: Date): Promise<number> {
   const balances = await Promise.all(
     accountIds.map(id => calculateBalanceAtDate(id, targetDate))
@@ -375,19 +316,15 @@ async function getTotalBalanceAtDate(accountIds: string[], targetDate: Date): Pr
   return balances.reduce((sum, b) => sum + b, 0)
 }
 
-/**
- * 计算单个账户的现金流统计
- */
 async function calculateAccountCashFlowsInRange(
   accountId: string,
   startDate: Date,
   endDate: Date,
   allInvestmentAccountIds: string[]
 ): Promise<{ periodInvested: number; periodWithdrawn: number }> {
-  let periodInvested = 0
-  let periodWithdrawn = 0
+  let periodInvested = ZERO
+  let periodWithdrawn = ZERO
 
-  // 处理买入卖出转账
   const transfers = await prisma.transaction.findMany({
     where: {
       type: 'transfer',
@@ -403,27 +340,22 @@ async function calculateAccountCashFlowsInRange(
   })
 
   for (const t of transfers) {
-    const tAmount = t.amount.toNumber()
-    const fee = t.fee?.toNumber() || 0
-    const coupon = t.coupon?.toNumber() || 0
+    const amount = t.amount
+    const fee = toDecimal(t.fee)
+    const coupon = toDecimal(t.coupon)
     const isToInvestment = allInvestmentAccountIds.includes(t.toAccountId || '')
     const isFromInvestment = allInvestmentAccountIds.includes(t.accountId)
 
     if (t.toAccountId === accountId && !isFromInvestment) {
-      // 买入：投资账户实际到账 = amount - fee + coupon
-      periodInvested += tAmount - fee + coupon
+      periodInvested = periodInvested.plus(amount.minus(fee).plus(coupon))
     } else if (t.accountId === accountId && !isToInvestment) {
-      // 卖出：投资账户实际扣款 = amount + fee - coupon
-      periodWithdrawn += tAmount + fee - coupon
+      periodWithdrawn = periodWithdrawn.plus(amount.plus(fee).minus(coupon))
     }
   }
 
-  return { periodInvested, periodWithdrawn }
+  return { periodInvested: periodInvested.toNumber(), periodWithdrawn: periodWithdrawn.toNumber() }
 }
 
-/**
- * 生成趋势数据
- */
 async function generateTrendData(
   accountIds: string[],
   startDate: Date,
@@ -431,7 +363,6 @@ async function generateTrendData(
 ): Promise<InvestmentTrendItem[]> {
   const trend: InvestmentTrendItem[] = []
   
-  // 生成从开始月份到结束月份的趋势
   const startMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
   const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1)
   
@@ -463,16 +394,12 @@ async function generateTrendData(
       ratio,
     })
     
-    // 移动到下个月
     currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
   }
 
   return trend
 }
 
-/**
- * 生成投资分析报告
- */
 export async function generateInvestmentAnalysis(startDateStr: string, endDateStr: string): Promise<InvestmentAnalysisResult | null> {
   const startDate = new Date(`${startDateStr}T00:00:00`)
   const endDate = new Date(`${endDateStr}T00:00:00`)
@@ -485,19 +412,16 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   const accountIds = investmentAccounts.map(a => a.id)
 
-  // 计算期初余额
   const startBalances = await Promise.all(
     accountIds.map(id => calculateBalanceAtDate(id, startDate))
   )
   const startValue = startBalances.reduce((sum, b) => sum + b, 0)
 
-  // 计算期末余额
   const endBalances = await Promise.all(
     accountIds.map(id => calculateBalanceAtDate(id, endDate))
   )
   const endValue = endBalances.reduce((sum, b) => sum + b, 0)
 
-  // 计算总资产和净资产（期末）
   const allAccounts = await prisma.account.findMany()
   const allBalances = await Promise.all(
     allAccounts.map(a => calculateBalanceAtDate(a.id, endDate))
@@ -512,10 +436,8 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   const investmentRatio = totalAssets !== 0 ? (endValue / totalAssets) * 100 : 0
 
-  // 获取期间现金流
   const cashFlows = await getCashFlowsInRange(accountIds, startDate, endDate)
 
-  // 计算期间投入和取出
   const periodInvested = cashFlows
     .filter(cf => cf.type === 'buy')
     .reduce((sum, cf) => sum + Math.abs(cf.amount), 0)
@@ -524,9 +446,8 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     .reduce((sum, cf) => sum + cf.amount, 0)
   const netCashFlow = periodInvested - periodWithdrawn
 
-  // 计算期间收益
   const valueChange = endValue - startValue
-  const periodReturn = valueChange - netCashFlow  // 收益 = 价值变化 - 净现金流
+  const periodReturn = valueChange - netCashFlow
   const simpleReturnRate = startValue !== 0 ? (periodReturn / startValue) * 100 : 0
 
   const investmentDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -555,7 +476,6 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     cashFlowCount: cashFlows.length,
   }
 
-  // 按分类汇总（期末）
   const categoryMap = new Map<string, { category: { id: string; name: string; icon: string | null }; accounts: AccountWithCategory[] }>()
 
   for (const account of investmentAccounts) {
@@ -586,17 +506,14 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
         const balance = idx !== -1 ? endBalances[idx] : 0
         const accountRatio = endValue !== 0 ? (balance / endValue) * 100 : 0
 
-        // 计算该账户的期初和期末余额
         const accStartBalance = idx !== -1 ? startBalances[idx] : 0
         const accEndBalance = balance
         
-        // 计算期间现金流
         const { periodInvested: accInvested, periodWithdrawn: accWithdrawn } =
           await calculateAccountCashFlowsInRange(account.id, startDate, endDate, accountIds)
 
         const accNetCashFlow = accInvested - accWithdrawn
         const accPeriodReturn = accEndBalance - accStartBalance - accNetCashFlow
-        // 分母 = 期初余额 + 期间投入，即全部投入的本金
         const totalCapital = accStartBalance + accInvested
         const accReturnRate = totalCapital !== 0 ? (accPeriodReturn / totalCapital) * 100 : 0
 

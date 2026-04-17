@@ -1,6 +1,7 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { prisma } from '../index.js'
 import { NotFoundError } from '../common/index.js'
+import { ZERO } from '../utils/decimal.js'
 
 type BudgetPayload = {
   name: string
@@ -97,16 +98,20 @@ export async function getBudgetStatus(budgetId: string) {
   }
 
   const transactions = await prisma.transaction.findMany({ where })
-  const used = transactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0)
-  const amount = budget.amount.toNumber()
-  const percentage = amount === 0 ? 0 : Math.min(Math.round((used / amount) * 100), 100)
+  let used = ZERO
+  transactions.forEach(t => {
+    used = used.plus(t.amount)
+  })
+
+  const amount = budget.amount
+  const percentage = amount.isZero() ? 0 : Math.min(used.dividedBy(amount).times(100).toDecimalPlaces(0).toNumber(), 100)
 
   return {
     budget,
-    used,
-    remaining: Math.max(amount - used, 0),
+    used: used.toNumber(),
+    remaining: Decimal.max(amount.minus(used), ZERO).toNumber(),
     percentage,
-    isOverBudget: used > amount,
+    isOverBudget: used.greaterThan(amount),
   }
 }
 

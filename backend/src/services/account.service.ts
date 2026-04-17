@@ -1,6 +1,7 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
+import { ZERO } from '../utils/decimal.js'
 
 type AccountSortItem = {
   id: string
@@ -155,14 +156,22 @@ export async function getAccountStats(accountId: string): Promise<AccountStats> 
   })
 
   const transactionCount = transactions.length
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount.toNumber(), 0)
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount.toNumber(), 0)
+  let totalIncome = ZERO
+  let totalExpense = ZERO
 
-  return { transactionCount, totalIncome, totalExpense }
+  transactions.forEach(t => {
+    if (t.type === 'income') {
+      totalIncome = totalIncome.plus(t.amount)
+    } else if (t.type === 'expense') {
+      totalExpense = totalExpense.plus(t.amount)
+    }
+  })
+
+  return {
+    transactionCount,
+    totalIncome: totalIncome.toNumber(),
+    totalExpense: totalExpense.toNumber(),
+  }
 }
 
 export async function adjustAccountBalance(
@@ -189,13 +198,13 @@ export async function adjustAccountBalance(
       include: { account: true },
     })
 
-    const newBalance = account.balance.toNumber() + amount
+    const newBalance = account.balance.plus(amount)
     await tx.account.update({
       where: { id: accountId },
-      data: { balance: new Decimal(newBalance) },
+      data: { balance: newBalance },
     })
 
-    return { transaction, newBalance }
+    return { transaction, newBalance: newBalance.toNumber() }
   })
 
   return result
@@ -226,13 +235,13 @@ export async function batchAdjustAccountBalances(
         },
       })
 
-      const newBalance = account.balance.toNumber() + amount
+      const newBalance = account.balance.plus(amount)
       await tx.account.update({
         where: { id: accountId },
-        data: { balance: new Decimal(newBalance) },
+        data: { balance: newBalance },
       })
 
-      return { transaction, newBalance }
+      return { transaction, newBalance: newBalance.toNumber() }
     })
 
     results.push({

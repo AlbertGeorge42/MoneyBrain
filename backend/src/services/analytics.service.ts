@@ -1,4 +1,5 @@
 import { prisma } from '../index.js'
+import { ZERO } from '../utils/decimal.js'
 
 export interface TrendItem {
   label: string
@@ -31,8 +32,11 @@ export async function getTrends(type: string): Promise<TrendItem[]> {
       const transactions = await prisma.transaction.findMany({
         where: { type, date: { gte: startDate, lte: endDate } },
       })
-      const amount = transactions.reduce((sum, t) => sum + t.amount.toNumber(), 0)
-      return { label, amount }
+      let amount = ZERO
+      transactions.forEach(t => {
+        amount = amount.plus(t.amount)
+      })
+      return { label, amount: amount.toNumber() }
     })
   )
 }
@@ -56,27 +60,25 @@ export async function getCategoryBreakdown(
     include: { category: true },
   })
 
-  // 子分类明细
   if (parentCategoryId) {
-    const subBreakdown: Record<string, number> = {}
+    const subBreakdown: Record<string, typeof ZERO> = {}
     transactions.forEach(t => {
       if (t.category?.parentId === parentCategoryId) {
         const categoryName = t.category.name
-        subBreakdown[categoryName] = (subBreakdown[categoryName] || 0) + t.amount.toNumber()
+        subBreakdown[categoryName] = (subBreakdown[categoryName] || ZERO).plus(t.amount)
       }
     })
     return Object.entries(subBreakdown)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ name, value: value.toNumber() }))
       .sort((a, b) => b.value - a.value)
   }
 
-  // 按父分类汇总
   const parentCategories = await prisma.transactionCategory.findMany({
     where: { type, parentId: null },
   })
   const parentCategoryMap = new Map(parentCategories.map(c => [c.id, c.name]))
 
-  const breakdown: Record<string, { value: number; categoryId: string }> = {}
+  const breakdown: Record<string, { value: typeof ZERO; categoryId: string }> = {}
   transactions.forEach(t => {
     let parentName = '未分类'
     let parentId = ''
@@ -92,15 +94,15 @@ export async function getCategoryBreakdown(
     }
 
     if (!breakdown[parentName]) {
-      breakdown[parentName] = { value: 0, categoryId: parentId }
+      breakdown[parentName] = { value: ZERO, categoryId: parentId }
     }
-    breakdown[parentName].value += t.amount.toNumber()
+    breakdown[parentName].value = breakdown[parentName].value.plus(t.amount)
   })
 
   return Object.entries(breakdown)
     .map(([name, data]) => ({
       name,
-      value: data.value,
+      value: data.value.toNumber(),
       categoryId: data.categoryId,
       hasChildren: transactions.some(t => t.category?.parentId === data.categoryId),
     }))
@@ -124,20 +126,26 @@ export async function getAssetTrend(): Promise<Array<{
   }
 
   const accounts = await prisma.account.findMany()
-  const currentAssets = accounts
-    .filter(a => a.type === 'asset')
-    .reduce((sum, a) => sum + a.balance.toNumber(), 0)
-  const currentLiabilities = accounts
-    .filter(a => a.type === 'liability')
-    .reduce((sum, a) => sum + a.balance.toNumber(), 0)
+  let currentAssets = ZERO
+  let currentLiabilities = ZERO
+
+  accounts.forEach(a => {
+    if (a.type === 'asset') {
+      currentAssets = currentAssets.plus(a.balance)
+    } else if (a.type === 'liability') {
+      currentLiabilities = currentLiabilities.plus(a.balance)
+    }
+  })
 
   return months.map(({ label }, index) => {
     const factor = (index + 1) / 12
+    const assets = currentAssets.times(factor * 0.8).toDecimalPlaces(0)
+    const liabilities = currentLiabilities.times(factor * 0.9).toDecimalPlaces(0)
     return {
       label,
-      assets: Math.round(currentAssets * factor * 0.8),
-      liabilities: Math.round(currentLiabilities * factor * 0.9),
-      netWorth: Math.round((currentAssets * factor * 0.8) - (currentLiabilities * factor * 0.9)),
+      assets: assets.toNumber(),
+      liabilities: liabilities.toNumber(),
+      netWorth: assets.minus(liabilities).toNumber(),
     }
   })
 }

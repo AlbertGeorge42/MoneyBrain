@@ -1,5 +1,7 @@
 import { prisma } from '../../index.js'
 import { calculateBalanceAtDate } from '../balance.service.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
+import { ZERO } from '../../utils/decimal.js'
 
 export interface CategoryBreakdownItem {
   name: string
@@ -41,16 +43,21 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
     include: { category: true, account: true },
   })
 
-  const income = transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount.toNumber(), 0)
-  const expense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount.toNumber(), 0)
-  const balance = income - expense
+  let income = ZERO
+  let expense = ZERO
 
-  const incomeByCategory: Record<string, number> = {}
-  const expenseByCategory: Record<string, number> = {}
+  transactions.forEach(t => {
+    if (t.type === 'income') {
+      income = income.plus(t.amount)
+    } else if (t.type === 'expense') {
+      expense = expense.plus(t.amount)
+    }
+  })
+
+  const balance = income.minus(expense)
+
+  const incomeByCategory: Record<string, Decimal> = {}
+  const expenseByCategory: Record<string, Decimal> = {}
 
   const allCategories = await prisma.transactionCategory.findMany({
     orderBy: { sort: 'asc' },
@@ -70,8 +77,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
     parentMap = Object.fromEntries(parentCats.map(p => [p.id, { name: p.name, sort: p.sort }]))
   }
 
-  const incomeCategoryData: Record<string, { value: number; categoryId: string; sort: number }> = {}
-  const expenseCategoryData: Record<string, { value: number; categoryId: string; sort: number }> = {}
+  const incomeCategoryData: Record<string, { value: Decimal; categoryId: string; sort: number }> = {}
+  const expenseCategoryData: Record<string, { value: Decimal; categoryId: string; sort: number }> = {}
 
   transactions.forEach(t => {
     let categoryName = '未分类'
@@ -92,24 +99,24 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
     }
 
     if (t.type === 'income') {
-      incomeByCategory[categoryName] = (incomeByCategory[categoryName] || 0) + t.amount.toNumber()
+      incomeByCategory[categoryName] = (incomeByCategory[categoryName] || ZERO).plus(t.amount)
       if (!incomeCategoryData[categoryName]) {
-        incomeCategoryData[categoryName] = { value: 0, categoryId: parentId, sort: categorySort }
+        incomeCategoryData[categoryName] = { value: ZERO, categoryId: parentId, sort: categorySort }
       }
-      incomeCategoryData[categoryName].value += t.amount.toNumber()
+      incomeCategoryData[categoryName].value = incomeCategoryData[categoryName].value.plus(t.amount)
     } else {
-      expenseByCategory[categoryName] = (expenseByCategory[categoryName] || 0) + t.amount.toNumber()
+      expenseByCategory[categoryName] = (expenseByCategory[categoryName] || ZERO).plus(t.amount)
       if (!expenseCategoryData[categoryName]) {
-        expenseCategoryData[categoryName] = { value: 0, categoryId: parentId, sort: categorySort }
+        expenseCategoryData[categoryName] = { value: ZERO, categoryId: parentId, sort: categorySort }
       }
-      expenseCategoryData[categoryName].value += t.amount.toNumber()
+      expenseCategoryData[categoryName].value = expenseCategoryData[categoryName].value.plus(t.amount)
     }
   })
 
   const incomeCategoryDetails: CategoryBreakdownItem[] = Object.entries(incomeCategoryData)
     .map(([name, data]) => ({
       name,
-      value: data.value,
+      value: data.value.toNumber(),
       categoryId: data.categoryId,
       hasChildren: allCategories.some(c => c.parentId === data.categoryId),
       sort: data.sort,
@@ -119,7 +126,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
   const expenseCategoryDetails: CategoryBreakdownItem[] = Object.entries(expenseCategoryData)
     .map(([name, data]) => ({
       name,
-      value: data.value,
+      value: data.value.toNumber(),
       categoryId: data.categoryId,
       hasChildren: allCategories.some(c => c.parentId === data.categoryId),
       sort: data.sort,
@@ -149,14 +156,23 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
   const endLiabilities = Math.abs(endLiabilitiesBalance)
   const endNetWorth = endAssets + endLiabilitiesBalance
 
+  const incomeByCategoryResult: Record<string, number> = {}
+  for (const [k, v] of Object.entries(incomeByCategory)) {
+    incomeByCategoryResult[k] = v.toNumber()
+  }
+  const expenseByCategoryResult: Record<string, number> = {}
+  for (const [k, v] of Object.entries(expenseByCategory)) {
+    expenseByCategoryResult[k] = v.toNumber()
+  }
+
   return {
     startDate,
     endDate,
-    income,
-    expense,
-    balance,
-    incomeByCategory,
-    expenseByCategory,
+    income: income.toNumber(),
+    expense: expense.toNumber(),
+    balance: balance.toNumber(),
+    incomeByCategory: incomeByCategoryResult,
+    expenseByCategory: expenseByCategoryResult,
     incomeCategoryDetails,
     expenseCategoryDetails,
     startAssets,

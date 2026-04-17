@@ -1,10 +1,11 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import {
-  calculateBalanceChange,
-  calculateTransferInAmount,
+  calculateBalanceChangeDecimal,
+  calculateTransferInAmountDecimal,
   type TransactionType
 } from './balance.service.js'
+import { toDecimal, ZERO } from '../utils/decimal.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError } from '../common/index.js'
 import { buildTransactionListWhere } from './transaction-list.helpers.js'
@@ -173,22 +174,29 @@ export class TransactionService {
 
     const transactions = await prisma.transaction.findMany({ where })
 
-    const income = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount.toNumber(), 0)
-    const expense = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount.toNumber(), 0)
-    const refund = transactions
-      .filter(t => t.type === 'refund')
-      .reduce((sum, t) => sum + t.amount.toNumber(), 0)
+    let income = ZERO
+    let expense = ZERO
+    let refund = ZERO
+
+    transactions.forEach(t => {
+      const amount = t.amount
+      if (t.type === 'income') {
+        income = income.plus(amount)
+      } else if (t.type === 'expense') {
+        expense = expense.plus(amount)
+      } else if (t.type === 'refund') {
+        const fee = toDecimal(t.fee)
+        refund = refund.plus(amount.minus(fee))
+      }
+    })
+
     const transferCount = transactions.filter(t => t.type === 'transfer').length
 
     return {
-      income,
-      expense,
-      refund,
-      balance: income - expense + refund,
+      income: income.toNumber(),
+      expense: expense.toNumber(),
+      refund: refund.toNumber(),
+      balance: income.minus(expense).plus(refund).toNumber(),
       transferCount,
     }
   }
@@ -223,12 +231,13 @@ export class TransactionService {
       const transaction = await tx.transaction.findUnique({ where: { id } })
       if (!transaction) throw new NotFoundError('交易记录')
 
-      const fee = transaction.fee?.toNumber() || 0
-      const coupon = transaction.coupon?.toNumber() || 0
+      const amount = transaction.amount
+      const fee = toDecimal(transaction.fee)
+      const coupon = toDecimal(transaction.coupon)
 
-      const balanceChange = calculateBalanceChange(
+      const balanceChange = calculateBalanceChangeDecimal(
         transaction.type as TransactionType,
-        transaction.amount.toNumber(),
+        amount,
         fee,
         coupon,
       )
@@ -236,17 +245,17 @@ export class TransactionService {
       if (transaction.type === 'transfer') {
         await tx.account.update({
           where: { id: transaction.accountId },
-          data: { balance: { decrement: new Decimal(Math.abs(balanceChange)) } },
+          data: { balance: { decrement: balanceChange.abs() } },
         })
-        const inAmount = calculateTransferInAmount(transaction.amount.toNumber(), fee, coupon)
+        const inAmount = calculateTransferInAmountDecimal(amount, fee, coupon)
         await tx.account.update({
           where: { id: transaction.toAccountId! },
-          data: { balance: { decrement: new Decimal(inAmount) } },
+          data: { balance: { decrement: inAmount } },
         })
       } else {
         await tx.account.update({
           where: { id: transaction.accountId },
-          data: { balance: { decrement: new Decimal(Math.abs(balanceChange)) } },
+          data: { balance: { decrement: balanceChange.abs() } },
         })
       }
 

@@ -1,10 +1,23 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate, calculateBalanceChange, calculateTransferInAmount } from '../balance.service.js'
+import { calculateBalanceAtDate, calculateBalanceChangeDecimal, calculateTransferInAmountDecimal } from '../balance.service.js'
 import { Prisma } from '@prisma/client'
+import { Decimal } from '@prisma/client/runtime/library.js'
+import { toDecimal, ZERO } from '../../utils/decimal.js'
 
 type TransactionWithIncludes = Prisma.TransactionGetPayload<{
   include: { account: true; toAccount: true; category: true }
 }>
+
+interface CashFlowActivityDecimal {
+  inflow: Decimal
+  outflow: Decimal
+  items: Array<{
+    categoryName: string
+    amount: number
+    type: string
+    direction: string
+  }>
+}
 
 export interface CashFlowActivity {
   inflow: number
@@ -69,13 +82,12 @@ export async function generateCashFlow(startDate: string, endDate: string): Prom
     include: { account: true, toAccount: true, category: true },
   })
 
-  // 按活动类型分类
-  const operating = { inflow: 0, outflow: 0, items: [] as CashFlowActivity['items'] }
-  const investing = { inflow: 0, outflow: 0, items: [] as CashFlowActivity['items'] }
-  const financing = { inflow: 0, outflow: 0, items: [] as CashFlowActivity['items'] }
-  const uncategorized = { inflow: 0, outflow: 0, items: [] as CashFlowActivity['items'] }
+  const operating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const investing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const financing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const uncategorized: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
 
-  const getTargetByType = (cashFlowType: string | null) => {
+  const getTargetByType = (cashFlowType: string | null): CashFlowActivityDecimal => {
     return cashFlowType === 'investing' ? investing :
            cashFlowType === 'financing' ? financing :
            cashFlowType === 'operating' ? operating : uncategorized
@@ -85,81 +97,69 @@ export async function generateCashFlow(startDate: string, endDate: string): Prom
     const isFromCash = cashAccountIds.includes(t.accountId)
     const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
     const cashFlowType = t.category?.cashFlowType || null
+    const amount = t.amount
+    const fee = toDecimal(t.fee)
+    const coupon = toDecimal(t.coupon)
 
     if (t.type === 'income' && isFromCash) {
       const target = getTargetByType(cashFlowType)
-      target.inflow += t.amount.toNumber()
+      target.inflow = target.inflow.plus(amount)
       target.items.push({
         categoryName: t.category?.name || '未分类',
-        amount: t.amount.toNumber(),
+        amount: amount.toNumber(),
         type: 'income',
         direction: 'inflow',
       })
     } else if (t.type === 'expense' && isFromCash) {
       const target = getTargetByType(cashFlowType)
-      target.outflow += t.amount.toNumber()
+      target.outflow = target.outflow.plus(amount)
       target.items.push({
         categoryName: t.category?.name || '未分类',
-        amount: t.amount.toNumber(),
+        amount: amount.toNumber(),
         type: 'expense',
         direction: 'outflow',
       })
     } else if (t.type === 'transfer') {
-      const amount = t.amount.toNumber()
-      const fee = t.fee?.toNumber() || 0
-      const coupon = t.coupon?.toNumber() || 0
-      
       if (isFromCash && !isToCash) {
-        // 现金转出到非现金账户
-        // 使用与余额计算一致的逻辑：有优惠券时amount是转出金额，有手续费时实际转出是amount+fee
-        const actualOutflow = Math.abs(calculateBalanceChange('transfer', amount, fee, coupon))
+        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
         const target = getTargetByType(cashFlowType)
-        target.outflow += actualOutflow
+        target.outflow = target.outflow.plus(actualOutflow)
         target.items.push({
           categoryName: t.category?.name || '转账转出',
-          amount: actualOutflow,
+          amount: actualOutflow.toNumber(),
           type: 'transfer_out',
           direction: 'outflow',
         })
       } else if (!isFromCash && isToCash) {
-        // 非现金账户转入现金
-        // 使用与余额计算一致的逻辑：有优惠券时实际转入是amount+coupon，有手续费时amount是转入金额
-        const actualInflow = calculateTransferInAmount(amount, fee, coupon)
+        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
         const target = getTargetByType(cashFlowType)
-        target.inflow += actualInflow
+        target.inflow = target.inflow.plus(actualInflow)
         target.items.push({
           categoryName: t.category?.name || '转账转入',
-          amount: actualInflow,
+          amount: actualInflow.toNumber(),
           type: 'transfer_in',
           direction: 'inflow',
         })
       }
     } else if (t.type === 'refund' && isFromCash) {
-      // 退款交易：余额变化 = amount - fee
-      const amount = t.amount.toNumber()
-      const fee = t.fee?.toNumber() || 0
-      const actualInflow = calculateBalanceChange('refund', amount, fee, 0)
+      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
       const target = getTargetByType(cashFlowType)
-      target.inflow += actualInflow
+      target.inflow = target.inflow.plus(actualInflow)
       target.items.push({
         categoryName: t.category?.name || '退款',
-        amount: actualInflow,
+        amount: actualInflow.toNumber(),
         type: 'refund',
         direction: 'inflow',
       })
     }
   })
 
-  const cashInflow = operating.inflow + investing.inflow + financing.inflow + uncategorized.inflow
-  const cashOutflow = operating.outflow + investing.outflow + financing.outflow + uncategorized.outflow
-  const netCashFlow = cashInflow - cashOutflow
+  const cashInflow = operating.inflow.plus(investing.inflow).plus(financing.inflow).plus(uncategorized.inflow)
+  const cashOutflow = operating.outflow.plus(investing.outflow).plus(financing.outflow).plus(uncategorized.outflow)
+  const netCashFlow = cashInflow.minus(cashOutflow)
 
-  // 按账户统计流量
   const flowByAccount = buildFlowByAccount(transactions, cashAccountIds)
 
-  // 计算期初和期末现金余额
-  // 期初：计算到 startDate 开始时的余额（不包含 startDate 当天的交易）
-  // 期末：计算到 endDate 结束时的余额（包含 endDate 当天的交易）
   const nextDayOfEnd = new Date(endDate)
   nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
   
@@ -175,22 +175,29 @@ export async function generateCashFlow(startDate: string, endDate: string): Prom
 
   const sankeyData = buildSankeyData(transactions, cashAccountIds)
 
+  const toActivityResult = (activity: CashFlowActivityDecimal): CashFlowActivity => ({
+    inflow: activity.inflow.toNumber(),
+    outflow: activity.outflow.toNumber(),
+    items: activity.items,
+    net: activity.inflow.minus(activity.outflow).toNumber(),
+  })
+
   return {
     startDate,
     endDate,
-    cashInflow,
-    cashOutflow,
-    netCashFlow,
+    cashInflow: cashInflow.toNumber(),
+    cashOutflow: cashOutflow.toNumber(),
+    netCashFlow: netCashFlow.toNumber(),
     flowByAccount,
     cashAccounts: cashAccounts.map(a => a.name),
     startCash,
     endCash,
     cashChange: endCash - startCash,
     byActivity: {
-      operating: { ...operating, net: operating.inflow - operating.outflow },
-      investing: { ...investing, net: investing.inflow - investing.outflow },
-      financing: { ...financing, net: financing.inflow - financing.outflow },
-      uncategorized: { ...uncategorized, net: uncategorized.inflow - uncategorized.outflow },
+      operating: toActivityResult(operating),
+      investing: toActivityResult(investing),
+      financing: toActivityResult(financing),
+      uncategorized: toActivityResult(uncategorized),
     },
     sankey: sankeyData,
   }
@@ -200,189 +207,174 @@ function buildFlowByAccount(
   transactions: TransactionWithIncludes[],
   cashAccountIds: string[],
 ): Record<string, { inflow: number; outflow: number }> {
-  const flowByAccount: Record<string, { inflow: number; outflow: number }> = {}
+  const flowByAccount: Record<string, { inflow: Decimal; outflow: Decimal }> = {}
+
+  const getOrCreate = (name: string) => {
+    if (!flowByAccount[name]) flowByAccount[name] = { inflow: ZERO, outflow: ZERO }
+    return flowByAccount[name]
+  }
 
   transactions.forEach(t => {
     const isFromCash = cashAccountIds.includes(t.accountId)
     const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
+    const amount = t.amount
+    const fee = toDecimal(t.fee)
+    const coupon = toDecimal(t.coupon)
 
     if (t.type === 'income' && isFromCash) {
       const name = t.account?.name || '未知账户'
-      if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
-      flowByAccount[name].inflow += t.amount.toNumber()
+      getOrCreate(name).inflow = getOrCreate(name).inflow.plus(amount)
     } else if (t.type === 'expense' && isFromCash) {
       const name = t.account?.name || '未知账户'
-      if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
-      flowByAccount[name].outflow += t.amount.toNumber()
+      getOrCreate(name).outflow = getOrCreate(name).outflow.plus(amount)
     } else if (t.type === 'transfer') {
-      const amount = t.amount.toNumber()
-      const fee = t.fee?.toNumber() || 0
-      const coupon = t.coupon?.toNumber() || 0
-      
       if (isFromCash && !isToCash) {
         const name = t.account?.name || '未知账户'
-        if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
-        const actualOutflow = Math.abs(calculateBalanceChange('transfer', amount, fee, coupon))
-        flowByAccount[name].outflow += actualOutflow
+        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
+        getOrCreate(name).outflow = getOrCreate(name).outflow.plus(actualOutflow)
       } else if (!isFromCash && isToCash && t.toAccount) {
         const name = t.toAccount.name
-        if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
-        const actualInflow = calculateTransferInAmount(amount, fee, coupon)
-        flowByAccount[name].inflow += actualInflow
+        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
+        getOrCreate(name).inflow = getOrCreate(name).inflow.plus(actualInflow)
       }
     } else if (t.type === 'refund' && isFromCash) {
       const name = t.account?.name || '未知账户'
-      if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
-      const amount = t.amount.toNumber()
-      const fee = t.fee?.toNumber() || 0
-      const actualInflow = calculateBalanceChange('refund', amount, fee, 0)
-      flowByAccount[name].inflow += actualInflow
+      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
+      getOrCreate(name).inflow = getOrCreate(name).inflow.plus(actualInflow)
     }
   })
 
-  return flowByAccount
+  const result: Record<string, { inflow: number; outflow: number }> = {}
+  for (const [name, flow] of Object.entries(flowByAccount)) {
+    result[name] = {
+      inflow: flow.inflow.toNumber(),
+      outflow: flow.outflow.toNumber(),
+    }
+  }
+  return result
 }
 
 function buildSankeyData(
   transactions: TransactionWithIncludes[],
   cashAccountIds: string[],
 ): { nodes: Array<{ name: string; category: string }>; links: Array<{ source: string; target: string; value: number }> } {
-  const incomeCategoryNodes: Map<string, number> = new Map()
-  const nonCashSourceNodes: Map<string, number> = new Map()
-  const expenseCategoryNodes: Map<string, number> = new Map()
-  const nonCashTargetNodes: Map<string, number> = new Map()
-  const cashAccountFlows: Map<string, number> = new Map()
+  const incomeCategoryNodes: Map<string, Decimal> = new Map()
+  const nonCashSourceNodes: Map<string, Decimal> = new Map()
+  const expenseCategoryNodes: Map<string, Decimal> = new Map()
+  const nonCashTargetNodes: Map<string, Decimal> = new Map()
+  const cashAccountFlows: Map<string, Decimal> = new Map()
 
-  const sourceToCashLinks: Map<string, Map<string, number>> = new Map()
-  const cashToTargetLinks: Map<string, Map<string, number>> = new Map()
+  const sourceToCashLinks: Map<string, Map<string, Decimal>> = new Map()
+  const cashToTargetLinks: Map<string, Map<string, Decimal>> = new Map()
+
+  const addToMap = (map: Map<string, Decimal>, key: string, value: Decimal) => {
+    map.set(key, (map.get(key) || ZERO).plus(value))
+  }
 
   transactions.forEach(t => {
     const isFromCash = cashAccountIds.includes(t.accountId)
     const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
-    const amount = t.amount.toNumber()
+    const amount = t.amount
+    const fee = toDecimal(t.fee)
+    const coupon = toDecimal(t.coupon)
 
     if (t.type === 'income' && isFromCash) {
       const categoryName = t.category?.name || '其他收入'
       const cashAccountName = t.account?.name || '现金账户'
 
-      incomeCategoryNodes.set(categoryName, (incomeCategoryNodes.get(categoryName) || 0) + amount)
-      cashAccountFlows.set(cashAccountName, (cashAccountFlows.get(cashAccountName) || 0) + amount)
+      addToMap(incomeCategoryNodes, categoryName, amount)
+      addToMap(cashAccountFlows, cashAccountName, amount)
 
       if (!sourceToCashLinks.has(categoryName)) sourceToCashLinks.set(categoryName, new Map())
-      sourceToCashLinks.get(categoryName)!.set(
-        cashAccountName,
-        (sourceToCashLinks.get(categoryName)!.get(cashAccountName) || 0) + amount,
-      )
+      addToMap(sourceToCashLinks.get(categoryName)!, cashAccountName, amount)
     } else if (t.type === 'expense' && isFromCash) {
       const categoryName = t.category?.name || '其他支出'
       const cashAccountName = t.account?.name || '现金账户'
 
-      expenseCategoryNodes.set(categoryName, (expenseCategoryNodes.get(categoryName) || 0) + amount)
-      cashAccountFlows.set(cashAccountName, (cashAccountFlows.get(cashAccountName) || 0) + amount)
+      addToMap(expenseCategoryNodes, categoryName, amount)
+      addToMap(cashAccountFlows, cashAccountName, amount)
 
       if (!cashToTargetLinks.has(cashAccountName)) cashToTargetLinks.set(cashAccountName, new Map())
-      cashToTargetLinks.get(cashAccountName)!.set(
-        categoryName,
-        (cashToTargetLinks.get(cashAccountName)!.get(categoryName) || 0) + amount,
-      )
+      addToMap(cashToTargetLinks.get(cashAccountName)!, categoryName, amount)
     } else if (t.type === 'transfer') {
-      const amount = t.amount.toNumber()
-      const fee = t.fee?.toNumber() || 0
-      const coupon = t.coupon?.toNumber() || 0
-      
       if (!isFromCash && isToCash && t.toAccount && t.account) {
-        // 非现金账户转入现金
         const fromAccountName = t.account.name
         const toCashAccountName = t.toAccount.name
-        const actualInflow = calculateTransferInAmount(amount, fee, coupon)
+        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
 
-        nonCashSourceNodes.set(fromAccountName, (nonCashSourceNodes.get(fromAccountName) || 0) + actualInflow)
-        cashAccountFlows.set(toCashAccountName, (cashAccountFlows.get(toCashAccountName) || 0) + actualInflow)
+        addToMap(nonCashSourceNodes, fromAccountName, actualInflow)
+        addToMap(cashAccountFlows, toCashAccountName, actualInflow)
 
         if (!sourceToCashLinks.has(fromAccountName)) sourceToCashLinks.set(fromAccountName, new Map())
-        sourceToCashLinks.get(fromAccountName)!.set(
-          toCashAccountName,
-          (sourceToCashLinks.get(fromAccountName)!.get(toCashAccountName) || 0) + actualInflow,
-        )
+        addToMap(sourceToCashLinks.get(fromAccountName)!, toCashAccountName, actualInflow)
       } else if (isFromCash && !isToCash && t.account && t.toAccount) {
-        // 现金转出到非现金账户
         const fromCashAccountName = t.account.name
         const toAccountName = t.toAccount.name
-        const actualOutflow = Math.abs(calculateBalanceChange('transfer', amount, fee, coupon))
+        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
 
-        nonCashTargetNodes.set(toAccountName, (nonCashTargetNodes.get(toAccountName) || 0) + actualOutflow)
-        cashAccountFlows.set(fromCashAccountName, (cashAccountFlows.get(fromCashAccountName) || 0) + actualOutflow)
+        addToMap(nonCashTargetNodes, toAccountName, actualOutflow)
+        addToMap(cashAccountFlows, fromCashAccountName, actualOutflow)
 
         if (!cashToTargetLinks.has(fromCashAccountName)) cashToTargetLinks.set(fromCashAccountName, new Map())
-        cashToTargetLinks.get(fromCashAccountName)!.set(
-          toAccountName,
-          (cashToTargetLinks.get(fromCashAccountName)!.get(toAccountName) || 0) + actualOutflow,
-        )
+        addToMap(cashToTargetLinks.get(fromCashAccountName)!, toAccountName, actualOutflow)
       }
     } else if (t.type === 'refund' && isFromCash) {
-      // 退款交易：作为流入处理
       const categoryName = t.category?.name || '退款'
       const cashAccountName = t.account?.name || '现金账户'
-      const fee = t.fee?.toNumber() || 0
-      const actualInflow = calculateBalanceChange('refund', amount, fee, 0)
+      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
 
-      incomeCategoryNodes.set(categoryName, (incomeCategoryNodes.get(categoryName) || 0) + actualInflow)
-      cashAccountFlows.set(cashAccountName, (cashAccountFlows.get(cashAccountName) || 0) + actualInflow)
+      addToMap(incomeCategoryNodes, categoryName, actualInflow)
+      addToMap(cashAccountFlows, cashAccountName, actualInflow)
 
       if (!sourceToCashLinks.has(categoryName)) sourceToCashLinks.set(categoryName, new Map())
-      sourceToCashLinks.get(categoryName)!.set(
-        cashAccountName,
-        (sourceToCashLinks.get(categoryName)!.get(cashAccountName) || 0) + actualInflow,
-      )
+      addToMap(sourceToCashLinks.get(categoryName)!, cashAccountName, actualInflow)
     }
   })
 
-  // 构建桑基图节点（使用唯一后缀避免名称冲突）
   const sankeyNodes: Array<{ name: string; category: string }> = []
   const sankeyLinks: Array<{ source: string; target: string; value: number }> = []
   const nodeNameMap: Map<string, string> = new Map()
 
-  // 左侧：非现金来源 + 收入分类
-  for (const [name] of Array.from(nonCashSourceNodes.entries()).sort((a, b) => b[1] - a[1])) {
+  const sortedEntries = (map: Map<string, Decimal>) => 
+    Array.from(map.entries()).sort((a, b) => b[1].minus(a[1]).toNumber())
+
+  for (const [name] of sortedEntries(nonCashSourceNodes)) {
     const uniqueName = `${name}_ncs`
     nodeNameMap.set(`ncs_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'non_cash_source' })
   }
-  for (const [name] of Array.from(incomeCategoryNodes.entries()).sort((a, b) => b[1] - a[1])) {
+  for (const [name] of sortedEntries(incomeCategoryNodes)) {
     const uniqueName = `${name}_income`
     nodeNameMap.set(`income_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'income_category' })
   }
 
-  // 中间：现金账户
-  for (const [name] of Array.from(cashAccountFlows.entries()).sort((a, b) => b[1] - a[1])) {
+  for (const [name] of sortedEntries(cashAccountFlows)) {
     const uniqueName = `${name}_cash`
     nodeNameMap.set(`cash_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'cash' })
   }
 
-  // 右侧：非现金去向 + 支出分类
-  for (const [name] of Array.from(nonCashTargetNodes.entries()).sort((a, b) => b[1] - a[1])) {
+  for (const [name] of sortedEntries(nonCashTargetNodes)) {
     const uniqueName = `${name}_nct`
     nodeNameMap.set(`nct_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'non_cash_target' })
   }
-  for (const [name] of Array.from(expenseCategoryNodes.entries()).sort((a, b) => b[1] - a[1])) {
+  for (const [name] of sortedEntries(expenseCategoryNodes)) {
     const uniqueName = `${name}_expense`
     nodeNameMap.set(`expense_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'expense_category' })
   }
 
-  // 构建链接
   sourceToCashLinks.forEach((cashMap, sourceName) => {
     cashMap.forEach((amount, cashName) => {
-      if (amount > 0) {
+      if (amount.greaterThan(ZERO)) {
         const sourceKey = incomeCategoryNodes.has(sourceName) ? `income_${sourceName}` : `ncs_${sourceName}`
         const targetKey = `cash_${cashName}`
         sankeyLinks.push({
           source: nodeNameMap.get(sourceKey) || sourceName,
           target: nodeNameMap.get(targetKey) || cashName,
-          value: amount,
+          value: amount.toNumber(),
         })
       }
     })
@@ -390,13 +382,13 @@ function buildSankeyData(
 
   cashToTargetLinks.forEach((targetMap, cashName) => {
     targetMap.forEach((amount, targetName) => {
-      if (amount > 0) {
+      if (amount.greaterThan(ZERO)) {
         const sourceKey = `cash_${cashName}`
         const targetKey = expenseCategoryNodes.has(targetName) ? `expense_${targetName}` : `nct_${targetName}`
         sankeyLinks.push({
           source: nodeNameMap.get(sourceKey) || cashName,
           target: nodeNameMap.get(targetKey) || targetName,
-          value: amount,
+          value: amount.toNumber(),
         })
       }
     })
