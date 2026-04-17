@@ -117,7 +117,7 @@ async function getCashFlowsInRange(
       type: 'transfer',
       date: {
         gte: startDate,
-        lt: endDate,
+        lte: endDate,
       },
       OR: [
         { accountId: { in: accountIds } },
@@ -330,7 +330,7 @@ async function calculateAccountCashFlowsInRange(
       type: 'transfer',
       date: {
         gte: startDate,
-        lt: endDate,
+        lte: endDate,
       },
       OR: [
         { accountId: accountId },
@@ -402,7 +402,7 @@ async function generateTrendData(
 
 export async function generateInvestmentAnalysis(startDateStr: string, endDateStr: string): Promise<InvestmentAnalysisResult | null> {
   const startDate = new Date(`${startDateStr}T00:00:00`)
-  const endDate = new Date(`${endDateStr}T00:00:00`)
+  const endDate = new Date(`${endDateStr}T23:59:59.999`)
 
   const investmentAccounts = await getInvestmentAccounts()
 
@@ -417,14 +417,17 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   )
   const startValue = startBalances.reduce((sum, b) => sum + b, 0)
 
+  // 期末余额计算：使用下一天，因为 calculateBalanceAtDate 使用 lt: targetDate
+  const nextDayOfEnd = new Date(endDateStr)
+  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
   const endBalances = await Promise.all(
-    accountIds.map(id => calculateBalanceAtDate(id, endDate))
+    accountIds.map(id => calculateBalanceAtDate(id, nextDayOfEnd))
   )
   const endValue = endBalances.reduce((sum, b) => sum + b, 0)
 
   const allAccounts = await prisma.account.findMany()
   const allBalances = await Promise.all(
-    allAccounts.map(a => calculateBalanceAtDate(a.id, endDate))
+    allAccounts.map(a => calculateBalanceAtDate(a.id, nextDayOfEnd))
   )
   const totalAssets = allBalances
     .filter((_, idx) => allAccounts[idx].type === 'asset')
