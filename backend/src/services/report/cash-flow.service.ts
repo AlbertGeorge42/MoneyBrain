@@ -1,5 +1,5 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate } from '../balance.service.js'
+import { calculateBalanceAtDate, calculateBalanceChange, calculateTransferInAmount } from '../balance.service.js'
 import { Prisma } from '@prisma/client'
 
 type TransactionWithIncludes = Prisma.TransactionGetPayload<{
@@ -105,25 +105,48 @@ export async function generateCashFlow(startDate: string, endDate: string): Prom
         direction: 'outflow',
       })
     } else if (t.type === 'transfer') {
+      const amount = t.amount.toNumber()
+      const fee = t.fee?.toNumber() || 0
+      const coupon = t.coupon?.toNumber() || 0
+      
       if (isFromCash && !isToCash) {
+        // 现金转出到非现金账户
+        // 使用与余额计算一致的逻辑：有优惠券时amount是转出金额，有手续费时实际转出是amount+fee
+        const actualOutflow = Math.abs(calculateBalanceChange('transfer', amount, fee, coupon))
         const target = getTargetByType(cashFlowType)
-        target.outflow += t.amount.toNumber()
+        target.outflow += actualOutflow
         target.items.push({
           categoryName: t.category?.name || '转账转出',
-          amount: t.amount.toNumber(),
+          amount: actualOutflow,
           type: 'transfer_out',
           direction: 'outflow',
         })
       } else if (!isFromCash && isToCash) {
+        // 非现金账户转入现金
+        // 使用与余额计算一致的逻辑：有优惠券时实际转入是amount+coupon，有手续费时amount是转入金额
+        const actualInflow = calculateTransferInAmount(amount, fee, coupon)
         const target = getTargetByType(cashFlowType)
-        target.inflow += t.amount.toNumber()
+        target.inflow += actualInflow
         target.items.push({
           categoryName: t.category?.name || '转账转入',
-          amount: t.amount.toNumber(),
+          amount: actualInflow,
           type: 'transfer_in',
           direction: 'inflow',
         })
       }
+    } else if (t.type === 'refund' && isFromCash) {
+      // 退款交易：余额变化 = amount - fee
+      const amount = t.amount.toNumber()
+      const fee = t.fee?.toNumber() || 0
+      const actualInflow = calculateBalanceChange('refund', amount, fee, 0)
+      const target = getTargetByType(cashFlowType)
+      target.inflow += actualInflow
+      target.items.push({
+        categoryName: t.category?.name || '退款',
+        amount: actualInflow,
+        type: 'refund',
+        direction: 'inflow',
+      })
     }
   })
 
@@ -135,11 +158,16 @@ export async function generateCashFlow(startDate: string, endDate: string): Prom
   const flowByAccount = buildFlowByAccount(transactions, cashAccountIds)
 
   // 计算期初和期末现金余额
+  // 期初：计算到 startDate 开始时的余额（不包含 startDate 当天的交易）
+  // 期末：计算到 endDate 结束时的余额（包含 endDate 当天的交易）
+  const nextDayOfEnd = new Date(endDate)
+  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
+  
   const startCashBalances = await Promise.all(
     cashAccountIds.map(id => calculateBalanceAtDate(id, start))
   )
   const endCashBalances = await Promise.all(
-    cashAccountIds.map(id => calculateBalanceAtDate(id, new Date(end.getTime() + 86400000)))
+    cashAccountIds.map(id => calculateBalanceAtDate(id, nextDayOfEnd))
   )
 
   const startCash = startCashBalances.reduce((sum, b) => sum + b, 0)
@@ -187,15 +215,28 @@ function buildFlowByAccount(
       if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
       flowByAccount[name].outflow += t.amount.toNumber()
     } else if (t.type === 'transfer') {
+      const amount = t.amount.toNumber()
+      const fee = t.fee?.toNumber() || 0
+      const coupon = t.coupon?.toNumber() || 0
+      
       if (isFromCash && !isToCash) {
         const name = t.account?.name || '未知账户'
         if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
-        flowByAccount[name].outflow += t.amount.toNumber()
+        const actualOutflow = Math.abs(calculateBalanceChange('transfer', amount, fee, coupon))
+        flowByAccount[name].outflow += actualOutflow
       } else if (!isFromCash && isToCash && t.toAccount) {
         const name = t.toAccount.name
         if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
-        flowByAccount[name].inflow += t.amount.toNumber()
+        const actualInflow = calculateTransferInAmount(amount, fee, coupon)
+        flowByAccount[name].inflow += actualInflow
       }
+    } else if (t.type === 'refund' && isFromCash) {
+      const name = t.account?.name || '未知账户'
+      if (!flowByAccount[name]) flowByAccount[name] = { inflow: 0, outflow: 0 }
+      const amount = t.amount.toNumber()
+      const fee = t.fee?.toNumber() || 0
+      const actualInflow = calculateBalanceChange('refund', amount, fee, 0)
+      flowByAccount[name].inflow += actualInflow
     }
   })
 
@@ -245,31 +286,54 @@ function buildSankeyData(
         (cashToTargetLinks.get(cashAccountName)!.get(categoryName) || 0) + amount,
       )
     } else if (t.type === 'transfer') {
+      const amount = t.amount.toNumber()
+      const fee = t.fee?.toNumber() || 0
+      const coupon = t.coupon?.toNumber() || 0
+      
       if (!isFromCash && isToCash && t.toAccount && t.account) {
+        // 非现金账户转入现金
         const fromAccountName = t.account.name
         const toCashAccountName = t.toAccount.name
+        const actualInflow = calculateTransferInAmount(amount, fee, coupon)
 
-        nonCashSourceNodes.set(fromAccountName, (nonCashSourceNodes.get(fromAccountName) || 0) + amount)
-        cashAccountFlows.set(toCashAccountName, (cashAccountFlows.get(toCashAccountName) || 0) + amount)
+        nonCashSourceNodes.set(fromAccountName, (nonCashSourceNodes.get(fromAccountName) || 0) + actualInflow)
+        cashAccountFlows.set(toCashAccountName, (cashAccountFlows.get(toCashAccountName) || 0) + actualInflow)
 
         if (!sourceToCashLinks.has(fromAccountName)) sourceToCashLinks.set(fromAccountName, new Map())
         sourceToCashLinks.get(fromAccountName)!.set(
           toCashAccountName,
-          (sourceToCashLinks.get(fromAccountName)!.get(toCashAccountName) || 0) + amount,
+          (sourceToCashLinks.get(fromAccountName)!.get(toCashAccountName) || 0) + actualInflow,
         )
       } else if (isFromCash && !isToCash && t.account && t.toAccount) {
+        // 现金转出到非现金账户
         const fromCashAccountName = t.account.name
         const toAccountName = t.toAccount.name
+        const actualOutflow = Math.abs(calculateBalanceChange('transfer', amount, fee, coupon))
 
-        nonCashTargetNodes.set(toAccountName, (nonCashTargetNodes.get(toAccountName) || 0) + amount)
-        cashAccountFlows.set(fromCashAccountName, (cashAccountFlows.get(fromCashAccountName) || 0) + amount)
+        nonCashTargetNodes.set(toAccountName, (nonCashTargetNodes.get(toAccountName) || 0) + actualOutflow)
+        cashAccountFlows.set(fromCashAccountName, (cashAccountFlows.get(fromCashAccountName) || 0) + actualOutflow)
 
         if (!cashToTargetLinks.has(fromCashAccountName)) cashToTargetLinks.set(fromCashAccountName, new Map())
         cashToTargetLinks.get(fromCashAccountName)!.set(
           toAccountName,
-          (cashToTargetLinks.get(fromCashAccountName)!.get(toAccountName) || 0) + amount,
+          (cashToTargetLinks.get(fromCashAccountName)!.get(toAccountName) || 0) + actualOutflow,
         )
       }
+    } else if (t.type === 'refund' && isFromCash) {
+      // 退款交易：作为流入处理
+      const categoryName = t.category?.name || '退款'
+      const cashAccountName = t.account?.name || '现金账户'
+      const fee = t.fee?.toNumber() || 0
+      const actualInflow = calculateBalanceChange('refund', amount, fee, 0)
+
+      incomeCategoryNodes.set(categoryName, (incomeCategoryNodes.get(categoryName) || 0) + actualInflow)
+      cashAccountFlows.set(cashAccountName, (cashAccountFlows.get(cashAccountName) || 0) + actualInflow)
+
+      if (!sourceToCashLinks.has(categoryName)) sourceToCashLinks.set(categoryName, new Map())
+      sourceToCashLinks.get(categoryName)!.set(
+        cashAccountName,
+        (sourceToCashLinks.get(categoryName)!.get(cashAccountName) || 0) + actualInflow,
+      )
     }
   })
 
