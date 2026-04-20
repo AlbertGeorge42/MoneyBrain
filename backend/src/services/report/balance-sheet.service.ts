@@ -27,30 +27,33 @@ export interface BalanceSheetResult {
   accounts: BalanceSheetAccount[]
 }
 
-function parseDateParam(date: string): { targetDate: Date; granularity: DateGranularity } {
+function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granularity: DateGranularity } {
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return {
-      targetDate: new Date(`${date}T00:00:00`),
-      granularity: 'day',
-    }
+    // 日：当天结束
+    const targetDate = new Date(`${date}T23:59:59.999`)
+    const nextDay = new Date(date)
+    nextDay.setDate(nextDay.getDate() + 1)
+    return { targetDate, nextDay, granularity: 'day' }
   }
   if (/^\d{4}-\d{2}$/.test(date)) {
-    return {
-      targetDate: new Date(`${date}-01T00:00:00`),
-      granularity: 'month',
-    }
+    // 月：月末
+    const [year, month] = date.split('-').map(Number)
+    const lastDay = new Date(year, month, 0).getDate()
+    const targetDate = new Date(year, month - 1, lastDay, 23, 59, 59, 999)
+    const nextDay = new Date(year, month, 1)
+    return { targetDate, nextDay, granularity: 'month' }
   }
   if (/^\d{4}$/.test(date)) {
-    return {
-      targetDate: new Date(`${date}-01-01T00:00:00`),
-      granularity: 'year',
-    }
+    // 年：年末
+    const targetDate = new Date(`${date}-12-31T23:59:59.999`)
+    const nextDay = new Date(`${Number(date) + 1}-01-01`)
+    return { targetDate, nextDay, granularity: 'year' }
   }
   throw new Error('无效的日期格式，支持格式：YYYY-MM-DD、YYYY-MM、YYYY')
 }
 
 export async function generateBalanceSheet(date: string): Promise<BalanceSheetResult> {
-  const { targetDate, granularity } = parseDateParam(date)
+  const { targetDate, nextDay, granularity } = parseDateParam(date)
 
   const categories = await prisma.accountCategory.findMany({
     orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
@@ -63,7 +66,7 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
 
   const accountBalances = await Promise.all(
     accounts.map(async (account) => {
-      const balance = await calculateBalanceAtDate(account.id, targetDate)
+      const balance = await calculateBalanceAtDate(account.id, nextDay)
       return { ...account, balance }
     })
   )

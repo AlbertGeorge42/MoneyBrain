@@ -8,13 +8,34 @@ import { formatBalance } from '../../utils/formatBalance'
 import type { BalanceSheetReportData } from '@shared/types'
 
 const getBalanceSheetDescription = (time: PointTimeValue): string => {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const selectedDate = time.value.toDate()
+  
   if (time.granularity === 'day') {
-    return `${time.value.format('YYYY年MM月DD日')} 零点的资产负债状况`
+    const isTodayOrFuture = selectedDate >= today
+    if (isTodayOrFuture) {
+      return `至今的资产负债状况`
+    }
+    return `${time.value.format('YYYY年MM月DD日')} 的资产负债状况`
   }
   if (time.granularity === 'month') {
-    return `${time.value.format('YYYY年MM月')} 月初（1日）的资产负债状况`
+    const selectedMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const isCurrentOrFuture = selectedMonth >= currentMonth
+    if (isCurrentOrFuture) {
+      return `至今的资产负债状况`
+    }
+    return `${time.value.format('YYYY年MM月')} 月末的资产负债状况`
   }
-  return `${time.value.format('YYYY年')} 年初（1月1日）的资产负债状况`
+  // year
+  const selectedYear = selectedDate.getFullYear()
+  const currentYear = now.getFullYear()
+  const isCurrentOrFuture = selectedYear >= currentYear
+  if (isCurrentOrFuture) {
+    return `至今的资产负债状况`
+  }
+  return `${time.value.format('YYYY年')} 年末的资产负债状况`
 }
 
 interface BalanceSheetTreeNode {

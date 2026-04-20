@@ -371,11 +371,13 @@ async function generateTrendData(
   while (currentMonth <= endMonth) {
     const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`
 
-    const investment = await getTotalBalanceAtDate(accountIds, currentMonth)
+    // 计算月末余额：使用下月初，因为 calculateBalanceAtDate 使用 lt: targetDate
+    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    const investment = await getTotalBalanceAtDate(accountIds, nextMonthStart)
 
     const allAccounts = await prisma.account.findMany()
     const allBalances = await Promise.all(
-      allAccounts.map(a => calculateBalanceAtDate(a.id, currentMonth))
+      allAccounts.map(a => calculateBalanceAtDate(a.id, nextMonthStart))
     )
     const assets = allBalances
       .filter((_, idx) => allAccounts[idx].type === 'asset')

@@ -1,4 +1,5 @@
 import { prisma } from '../index.js'
+import { calculateBalanceAtDate } from './balance.service.js'
 import { ZERO } from '../utils/decimal.js'
 
 export interface TrendItem {
@@ -116,36 +117,36 @@ export async function getAssetTrend(): Promise<Array<{
   netWorth: number
 }>> {
   const now = new Date()
-  const months: { label: string }[] = []
+  const months: { label: string; targetDate: Date }[] = []
 
   for (let i = 11; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() - i + 1, 1)
     months.push({
-      label: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+      label: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
+      targetDate: nextMonthStart,
     })
   }
 
   const accounts = await prisma.account.findMany()
-  let currentAssets = ZERO
-  let currentLiabilities = ZERO
 
-  accounts.forEach(a => {
-    if (a.type === 'asset') {
-      currentAssets = currentAssets.plus(a.balance)
-    } else if (a.type === 'liability') {
-      currentLiabilities = currentLiabilities.plus(a.balance)
-    }
-  })
-
-  return months.map(({ label }, index) => {
-    const factor = (index + 1) / 12
-    const assets = currentAssets.times(factor * 0.8).toDecimalPlaces(0)
-    const liabilities = currentLiabilities.times(factor * 0.9).toDecimalPlaces(0)
-    return {
-      label,
-      assets: assets.toNumber(),
-      liabilities: liabilities.toNumber(),
-      netWorth: assets.minus(liabilities).toNumber(),
-    }
-  })
+  return Promise.all(
+    months.map(async ({ label, targetDate }) => {
+      const balances = await Promise.all(
+        accounts.map(a => calculateBalanceAtDate(a.id, targetDate))
+      )
+      const assets = balances
+        .filter((_, idx) => accounts[idx].type === 'asset')
+        .reduce((sum, b) => sum + b, 0)
+      const liabilities = balances
+        .filter((_, idx) => accounts[idx].type === 'liability')
+        .reduce((sum, b) => sum + b, 0)
+      return {
+        label,
+        assets,
+        liabilities: Math.abs(liabilities),
+        netWorth: assets + liabilities,
+      }
+    })
+  )
 }
