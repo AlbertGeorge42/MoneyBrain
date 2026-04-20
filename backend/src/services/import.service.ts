@@ -270,7 +270,7 @@ async function importRefundRow(row: ParsedRow, ctx: ImportContext): Promise<bool
   return true
 }
 
-export async function importTransactionsFromRows(rows: ParsedRow[]): Promise<{ imported: number; skipped: number }> {
+export async function importTransactionsFromRows(rows: ParsedRow[], startDate?: Date, endDate?: Date): Promise<{ imported: number; skipped: number }> {
   let imported = 0
   let skipped = 0
 
@@ -302,8 +302,21 @@ export async function importTransactionsFromRows(rows: ParsedRow[]): Promise<{ i
     idMapping: {},
   }
 
-  const refundRows = rows.filter(r => r.typeStr === '退款')
-  const normalRows = rows.filter(r => r.typeStr !== '退款')
+  const isInRange = (row: ParsedRow): boolean => {
+    if (!startDate && !endDate) return true
+    
+    const rowDate = new Date(row.time)
+    if (isNaN(rowDate.getTime())) return false
+    
+    if (startDate && rowDate < startDate) return false
+    if (endDate && rowDate > endDate) return false
+    
+    return true
+  }
+
+  const refundRows = rows.filter(r => r.typeStr === '退款' && isInRange(r))
+  const normalRows = rows.filter(r => r.typeStr !== '退款' && isInRange(r))
+  const outOfRangeCount = rows.filter(r => !isInRange(r)).length
 
   for (const row of normalRows) {
     try {
@@ -325,7 +338,7 @@ export async function importTransactionsFromRows(rows: ParsedRow[]): Promise<{ i
     }
   }
 
-  return { imported, skipped }
+  return { imported, skipped: skipped + outOfRangeCount }
 }
 
 export type { ParsedRow }

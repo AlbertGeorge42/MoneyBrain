@@ -146,12 +146,21 @@ export const analyticsApi = {
 export const dataApi = {
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
   clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
-  exportCsv: () => api.get<Blob>('/data/export', { responseType: 'blob' }),
-  importCsv: (file: File) => {
+  exportCsv: (params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = params 
+      ? `?startDate=${params.startDate}&endDate=${params.endDate}`
+      : ''
+    return api.get<Blob>(`/data/export${queryParams}`, { responseType: 'blob' })
+  },
+  importCsv: (file: File, params?: { startDate?: string; endDate?: string }) => {
     const formData = new FormData()
     formData.append('file', file)
+    
+    const queryParams = params 
+      ? `?startDate=${params.startDate}&endDate=${params.endDate}`
+      : ''
 
-    return api.post<ApiResponse<{ imported: number; skipped: number; errors: string[] }>>('/data/import', formData, {
+    return api.post<ApiResponse<{ imported: number; skipped: number; errors: string[] }>>(`/data/import${queryParams}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

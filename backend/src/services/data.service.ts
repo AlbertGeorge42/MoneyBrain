@@ -3,8 +3,16 @@ import { prisma } from '../index.js'
 /**
  * 导出所有交易记录为钱迹格式 CSV
  */
-export async function exportTransactionsCSV(): Promise<string> {
+export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): Promise<string> {
   const transactions = await prisma.transaction.findMany({
+    where: {
+      ...(startDate || endDate ? {
+        date: {
+          ...(startDate ? { gte: startDate } : {}),
+          ...(endDate ? { lte: endDate } : {}),
+        },
+      } : {}),
+    },
     include: {
       account: true,
       toAccount: true,

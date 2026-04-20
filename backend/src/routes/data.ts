@@ -24,14 +24,38 @@ router.delete('/transactions', asyncHandler(async (_req, res) => {
   return success(res, { message: '交易数据已清空' })
 }))
 
-router.get('/export', asyncHandler(async (_req, res) => {
-  const csvContent = await exportTransactionsCSV()
+router.get('/export', asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query
+  
+  let start: Date | undefined
+  let end: Date | undefined
+  
+  if (startDate && typeof startDate === 'string') {
+    start = new Date(startDate)
+  }
+  if (endDate && typeof endDate === 'string') {
+    end = new Date(endDate)
+  }
+  
+  const csvContent = await exportTransactionsCSV(start, end)
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', `attachment; filename=moneybrain-export-${new Date().toISOString().split('T')[0]}.csv`)
   res.send(csvContent)
 }))
 
 router.post('/import', upload.single('file'), validateRequest(validateImportRequest), asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query
+  
+  let start: Date | undefined
+  let end: Date | undefined
+  
+  if (startDate && typeof startDate === 'string') {
+    start = new Date(startDate)
+  }
+  if (endDate && typeof endDate === 'string') {
+    end = new Date(endDate)
+  }
+  
   const content = req.file!.buffer.toString('utf-8')
   const lines = content.split('\n').filter(line => line.trim())
 
@@ -68,7 +92,7 @@ router.post('/import', upload.single('file'), validateRequest(validateImportRequ
     }
   }
 
-  const { imported, skipped } = await importTransactionsFromRows(parsedRows)
+  const { imported, skipped } = await importTransactionsFromRows(parsedRows, start, end)
 
   return success(res, { imported, skipped, errors: [] })
 }))
