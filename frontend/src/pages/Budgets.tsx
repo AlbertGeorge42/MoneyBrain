@@ -8,6 +8,15 @@ import { useStore } from '../stores'
 import { Budget, type BudgetStatus } from '../services/api'
 import * as api from '../services/api'
 import DynamicIcon from '../components/common/DynamicIcon'
+import {
+  colorDanger,
+  colorWarning,
+  colorInfo,
+  colorPositive,
+  colorNegative,
+  fontSizeXs,
+  spaceMd,
+} from '../styles/tokens'
 
 const Budgets: React.FC = () => {
   const { 
@@ -142,10 +151,10 @@ const Budgets: React.FC = () => {
               percent={percentage} 
               size="small" 
               status={isOverBudget ? 'exception' : (percentage >= 80 ? 'normal' : 'active')}
-              strokeColor={isOverBudget ? '#cf1322' : (percentage >= 80 ? '#faad14' : '#1890ff')}
+              strokeColor={isOverBudget ? colorDanger : (percentage >= 80 ? colorWarning : colorInfo)}
             />
             {isOverBudget && (
-              <div style={{ color: '#cf1322', fontSize: 12, marginTop: 4 }}>
+              <div style={{ color: colorDanger, fontSize: fontSizeXs, marginTop: 4 }}>
                 <WarningOutlined /> 已超支
               </div>
             )}
@@ -182,14 +191,14 @@ const Budgets: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>预算管理</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增预算
         </Button>
       </div>
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={8}>
             <Statistic
@@ -204,7 +213,7 @@ const Budgets: React.FC = () => {
               title="已使用"
               value={totalUsed}
               precision={2}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -213,7 +222,7 @@ const Budgets: React.FC = () => {
               title="剩余"
               value={totalBudget - totalUsed}
               precision={2}
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: colorPositive }}
               prefix="¥"
             />
           </Col>

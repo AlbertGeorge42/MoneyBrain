@@ -8,6 +8,16 @@ import * as api from '../services/api'
 import DynamicIcon from '../components/common/DynamicIcon'
 import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 import type { AnalyticsCategoryBreakdownItem, AnalyticsTrendItem } from '../services/api'
+import {
+  colorInfo,
+  colorPositive,
+  colorNegative,
+  colorNeutral,
+  spaceLg,
+  spaceMd,
+  fontWeightBold,
+} from '../styles/tokens'
+import { getTokenValue } from '../styles/utils'
 
 const Dashboard: React.FC = () => {
   const { accounts, transactions, fetchAccounts, fetchTransactions } = useStore()
@@ -62,7 +72,7 @@ const Dashboard: React.FC = () => {
   const netWorth = totalAssets + totalLiabilities
 
   const thisMonthStart = dayjs().startOf('month')
-  const thisMonthTransactions = transactions.filter(t => 
+  const thisMonthTransactions = transactions.filter(t =>
     dayjs(t.date).isAfter(thisMonthStart) || dayjs(t.date).isSame(thisMonthStart)
   )
   const thisMonthIncome = thisMonthTransactions
@@ -80,8 +90,8 @@ const Dashboard: React.FC = () => {
   const trendOption = {
     title: { text: '支出趋势', left: 'center', textStyle: { fontSize: 14 } },
     tooltip: { trigger: 'axis' },
-    xAxis: { 
-      type: 'category', 
+    xAxis: {
+      type: 'category',
       data: trendData.map(d => d.label),
       axisLabel: { rotate: 45 }
     },
@@ -91,7 +101,7 @@ const Dashboard: React.FC = () => {
       type: 'line',
       smooth: true,
       areaStyle: { opacity: 0.3 },
-      itemStyle: { color: '#1890ff' },
+      itemStyle: { color: getTokenValue('--mb-chart-color-primary') },
     }],
     grid: { left: '10%', right: '10%', bottom: '20%' },
   }
@@ -99,7 +109,7 @@ const Dashboard: React.FC = () => {
   return (
     <Spin spinning={loading}>
       <div>
-        <h2 style={{ marginBottom: 24 }}>首页概览</h2>
+        <h2 style={{ marginBottom: spaceLg }}>首页概览</h2>
         
         <Row gutter={16}>
           <Col span={6}>
@@ -108,7 +118,7 @@ const Dashboard: React.FC = () => {
                 title="总资产"
                 value={totalAssets}
                 precision={2}
-                valueStyle={{ color: totalAssets >= 0 ? '#3f8600' : '#cf1322' }}
+                valueStyle={{ color: totalAssets >= 0 ? colorPositive : colorNegative }}
                 prefix="¥"
               />
             </Card>
@@ -119,7 +129,7 @@ const Dashboard: React.FC = () => {
                 title="总负债"
                 value={totalLiabilities <= 0 ? Math.abs(totalLiabilities) : -totalLiabilities}
                 precision={2}
-                valueStyle={{ color: totalLiabilities <= 0 ? '#cf1322' : '#3f8600' }}
+                valueStyle={{ color: totalLiabilities <= 0 ? colorNegative : colorPositive }}
                 prefix="¥"
               />
             </Card>
@@ -130,7 +140,7 @@ const Dashboard: React.FC = () => {
                 title="净资产"
                 value={netWorth}
                 precision={2}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: colorInfo }}
                 prefix="¥"
               />
             </Card>
@@ -141,14 +151,14 @@ const Dashboard: React.FC = () => {
                 title="本月结余"
                 value={thisMonthBalance}
                 precision={2}
-                valueStyle={{ color: thisMonthBalance >= 0 ? '#3f8600' : '#cf1322' }}
+                valueStyle={{ color: thisMonthBalance >= 0 ? colorPositive : colorNegative }}
                 prefix="¥"
               />
             </Card>
           </Col>
         </Row>
 
-        <Row gutter={16} style={{ marginTop: 16 }}>
+        <Row gutter={16} style={{ marginTop: spaceMd }}>
           <Col span={12}>
             <Card title="本月收支">
               <Row gutter={16}>
@@ -157,7 +167,7 @@ const Dashboard: React.FC = () => {
                     title="收入"
                     value={thisMonthIncome}
                     precision={2}
-                    valueStyle={{ color: '#3f8600' }}
+                    valueStyle={{ color: colorPositive }}
                     prefix={<ArrowUpOutlined />}
                     suffix="元"
                   />
@@ -167,7 +177,7 @@ const Dashboard: React.FC = () => {
                     title="支出"
                     value={thisMonthExpense}
                     precision={2}
-                    valueStyle={{ color: '#cf1322' }}
+                    valueStyle={{ color: colorNegative }}
                     prefix={<ArrowDownOutlined />}
                     suffix="元"
                   />
@@ -186,13 +196,13 @@ const Dashboard: React.FC = () => {
                         <Tag color={item.type === 'income' ? 'green' : 'red'}>
                           <DynamicIcon name={item.category?.icon} size={14} /> {item.category?.name || '未分类'}
                         </Tag>
-                        <span style={{ marginLeft: 8, color: '#666' }}>
+                        <span style={{ marginLeft: 8, color: colorNeutral }}>
                           {dayjs(item.date).format('MM-DD')}
                         </span>
                       </div>
-                      <span style={{ 
-                        color: item.type === 'income' ? '#3f8600' : '#cf1322',
-                        fontWeight: 'bold'
+                      <span style={{
+                        color: item.type === 'income' ? colorPositive : colorNegative,
+                        fontWeight: fontWeightBold,
                       }}>
                         {item.type === 'income' ? '+' : '-'}¥{Number(item.amount).toFixed(2)}
                       </span>
@@ -205,7 +215,7 @@ const Dashboard: React.FC = () => {
           </Col>
         </Row>
 
-        <Row gutter={16} style={{ marginTop: 16 }}>
+        <Row gutter={16} style={{ marginTop: spaceMd }}>
           <Col span={12}>
             <Card>
               <ReactECharts option={trendOption} style={{ height: 300 }} />
@@ -213,9 +223,9 @@ const Dashboard: React.FC = () => {
           </Col>
           <Col span={12}>
             <Card>
-              <PieChart 
-                title="支出分类" 
-                data={categoryData} 
+              <PieChart
+                title="支出分类"
+                data={categoryData}
                 height={300}
                 onDrillDown={handleDrillDown}
               />

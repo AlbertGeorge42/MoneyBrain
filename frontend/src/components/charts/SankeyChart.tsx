@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
+import { getTokenValue } from '../../styles/utils'
 
 export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
 
@@ -23,13 +24,13 @@ interface SankeyChartProps {
 }
 
 const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height = 400, loading = false }) => {
-  // 节点分类颜色配置
+  // 节点分类颜色配置 - 使用设计令牌
   const categoryColors: Record<SankeyNodeCategory, string> = {
-    income_category: '#52c41a',    // 绿色 - 收入分类
-    non_cash_source: '#13c2c2',    // 青色 - 非现金账户（来源）
-    cash: '#1890ff',               // 蓝色 - 现金账户
-    expense_category: '#ff4d4f',   // 红色 - 支出分类
-    non_cash_target: '#fa8c16',    // 橙色 - 非现金账户（去向）
+    income_category: getTokenValue('--mb-chart-color-income'),
+    non_cash_source: getTokenValue('--mb-chart-color-non-cash'),
+    cash: getTokenValue('--mb-chart-color-cash'),
+    expense_category: getTokenValue('--mb-chart-color-expense'),
+    non_cash_target: getTokenValue('--mb-chart-color-refund'),
   }
 
   // 从节点名称中提取显示名称（去掉后缀）

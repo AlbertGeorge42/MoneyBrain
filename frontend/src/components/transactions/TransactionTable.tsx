@@ -4,6 +4,17 @@ import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { Transaction } from '../../services/api'
 import { TRANSACTION_TYPE_CONFIG } from '../../constants/transaction'
+import {
+  colorInfo,
+  colorWarning,
+  colorInvestment,
+  colorPositive,
+  colorNegative,
+  colorMuted,
+  fontWeightBold,
+  fontSizeXs,
+  spaceSm,
+} from '../../styles/tokens'
 
 interface TransactionTableProps {
   transactions: Transaction[]
@@ -53,7 +64,7 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
           <span>
             <Tag>{record.category?.name || '退款'}</Tag>
             {record.relatedTransaction && (
-              <span style={{ color: '#999', fontSize: 12 }}> (原: {record.relatedTransaction.category?.name})</span>
+              <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (原: {record.relatedTransaction.category?.name})</span>
             )}
           </span>
         )
@@ -69,7 +80,7 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
         return (
           <span>
             <Tag>{record.account?.name}</Tag>
-            <span style={{ margin: '0 4px' }}>→</span>
+            <span style={{ margin: `0 ${spaceSm}` }}>→</span>
             <Tag>{record.toAccount?.name}</Tag>
           </span>
         )
@@ -89,7 +100,7 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
       if (record.type === 'adjustment') {
         const isPositive = amount >= 0
         return (
-          <span style={{ color: '#722ed1', fontWeight: 'bold' }}>
+          <span style={{ color: colorInvestment, fontWeight: fontWeightBold }}>
             {isPositive ? '+' : ''}¥{amount.toFixed(2)}
           </span>
         )
@@ -97,25 +108,25 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
       if (record.type === 'transfer') {
         return (
           <span>
-            <span style={{ color: '#1890ff', fontWeight: 'bold' }}>¥{amount.toFixed(2)}</span>
-            {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
+            <span style={{ color: colorInfo, fontWeight: fontWeightBold }}>¥{amount.toFixed(2)}</span>
+            {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
           </span>
         )
       }
       if (record.type === 'refund') {
         return (
           <span>
-            <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>+¥{amount.toFixed(2)}</span>
-            {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee})</span>}
+            <span style={{ color: colorWarning, fontWeight: fontWeightBold }}>+¥{amount.toFixed(2)}</span>
+            {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (手续费:¥{fee})</span>}
           </span>
         )
       }
       return (
         <span>
-          <span style={{ color: record.type === 'income' ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}>
+          <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontWeight: fontWeightBold }}>
             {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
           </span>
-          {hasExtra && <span style={{ color: '#999', fontSize: 12 }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
+          {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
         </span>
       )
     },

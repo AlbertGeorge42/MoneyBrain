@@ -5,6 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { colorNeutral, colorMuted } from '../../styles/tokens'
 
 export interface MoveTreeDataNode {
   value: string
@@ -154,7 +155,7 @@ export const SortableRow = ({ isSortable = defaultIsSortable, ...props }: Sortab
     ...props.style,
     transform: CSS.Translate.toString(transform),
     transition,
-    ...(isDragging ? { opacity: 0.5, background: '#fafafa' } : {}),
+    ...(isDragging ? { opacity: 0.5, background: 'var(--mb-color-surface-hover)' } : {}),
   }
 
   return <tr {...props} ref={setNodeRef} style={style} {...attributes} />
@@ -164,7 +165,7 @@ export const DragHandle = ({ id }: { id: string }) => {
   const { listeners, setNodeRef } = useSortable({ id })
   return (
     <div ref={setNodeRef} {...listeners} style={{ cursor: 'grab', display: 'inline-flex' }}>
-      <HolderOutlined style={{ color: '#999' }} />
+      <HolderOutlined style={{ color: colorMuted }} />
     </div>
   )
 }
@@ -181,7 +182,7 @@ export const renderExpandIcon = (
         onClick={() => onToggle(record.key)}
         style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
       >
-        {isExpanded ? <DownOutlined style={{ fontSize: 10, color: '#666' }} /> : <RightOutlined style={{ fontSize: 10, color: '#666' }} />}
+        {isExpanded ? <DownOutlined style={{ fontSize: 10, color: colorNeutral }} /> : <RightOutlined style={{ fontSize: 10, color: colorNeutral }} />}
       </span>
     )
   }

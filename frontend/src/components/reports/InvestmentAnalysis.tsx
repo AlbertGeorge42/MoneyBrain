@@ -5,6 +5,17 @@ import DynamicIcon from '../common/DynamicIcon'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { PieChart, LineChart } from '../charts'
 import type { InvestmentAnalysisReportData, InvestmentAccountDetail } from '@shared/types'
+import {
+  colorInvestment,
+  colorInfo,
+  colorPositive,
+  colorNegative,
+  colorNeutral,
+  colorMuted,
+  fontWeightBold,
+  fontSizeXs,
+  spaceMd,
+} from '../../styles/tokens'
 
 interface InvestmentAnalysisProps {
   timeRange: RangeTimeValue
@@ -33,7 +44,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
   if (!investmentData) {
     return (
       <div>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Space>
             <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
           </Space>
@@ -64,7 +75,6 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
       {
         name: '投资总额',
         data: trend.map(t => t.investment),
-        color: '#722ed1',
       },
     ],
   }
@@ -128,7 +138,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
       align: 'right' as const,
       width: 100,
       render: (v: number) => (
-        <span style={{ color: v >= 0 ? '#3f8600' : '#cf1322', fontWeight: 'bold' }}>
+        <span style={{ color: v >= 0 ? colorPositive : colorNegative, fontWeight: fontWeightBold }}>
           {formatPercent(v)}
         </span>
       ),
@@ -137,10 +147,10 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
-          <span style={{ color: '#666' }}>
+          <span style={{ color: colorNeutral }}>
             {investmentData.startDate} 至 {investmentData.endDate}
           </span>
         </Space>
@@ -149,14 +159,14 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
         </Button>
       </div>
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={6}>
             <Statistic
               title="期初价值"
               value={returnAnalysis.startValue}
               precision={2}
-              valueStyle={{ color: '#666' }}
+              valueStyle={{ color: colorNeutral }}
               prefix="¥"
             />
           </Col>
@@ -165,7 +175,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="期末价值"
               value={returnAnalysis.endValue}
               precision={2}
-              valueStyle={{ color: '#722ed1' }}
+              valueStyle={{ color: colorInvestment }}
               prefix="¥"
             />
           </Col>
@@ -174,7 +184,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="价值变化"
               value={returnAnalysis.valueChange}
               precision={2}
-              valueStyle={{ color: returnAnalysis.valueChange >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: returnAnalysis.valueChange >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -183,21 +193,21 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="投资占比"
               value={investmentData.investmentRatio}
               precision={2}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: colorInfo }}
               suffix="%"
             />
           </Col>
         </Row>
       </Card>
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={6}>
             <Statistic
               title="期间投入"
               value={returnAnalysis.periodInvested}
               precision={2}
-              valueStyle={{ color: '#666' }}
+              valueStyle={{ color: colorNeutral }}
               prefix="¥"
             />
           </Col>
@@ -206,7 +216,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="期间取出"
               value={returnAnalysis.periodWithdrawn}
               precision={2}
-              valueStyle={{ color: '#666' }}
+              valueStyle={{ color: colorNeutral }}
               prefix="¥"
             />
           </Col>
@@ -215,7 +225,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="净现金流"
               value={returnAnalysis.netCashFlow}
               precision={2}
-              valueStyle={{ color: '#666' }}
+              valueStyle={{ color: colorNeutral }}
               prefix="¥"
             />
           </Col>
@@ -224,21 +234,21 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="期间收益"
               value={returnAnalysis.periodReturn}
               precision={2}
-              valueStyle={{ color: returnAnalysis.periodReturn >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: returnAnalysis.periodReturn >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
         </Row>
       </Card>
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={8}>
             <Statistic
               title="简单收益率"
               value={returnAnalysis.simpleReturnRate}
               precision={2}
-              valueStyle={{ color: returnAnalysis.simpleReturnRate >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: returnAnalysis.simpleReturnRate >= 0 ? colorPositive : colorNegative }}
               suffix="%"
             />
           </Col>
@@ -247,7 +257,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="XIRR (年化)"
               value={returnAnalysis.xirr !== null ? returnAnalysis.xirr : '--'}
               precision={returnAnalysis.xirr !== null ? 2 : 0}
-              valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? colorPositive : colorNegative }}
               suffix={returnAnalysis.xirr !== null ? '%' : ''}
             />
           </Col>
@@ -256,17 +266,17 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               title="TWR (年化)"
               value={returnAnalysis.annualizedTwr !== null ? returnAnalysis.annualizedTwr : '--'}
               precision={returnAnalysis.annualizedTwr !== null ? 2 : 0}
-              valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? colorPositive : colorNegative }}
               suffix={returnAnalysis.annualizedTwr !== null ? '%' : ''}
             />
           </Col>
         </Row>
-        <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
+        <div style={{ marginTop: 8, color: colorMuted, fontSize: fontSizeXs }}>
           投资天数: {returnAnalysis.investmentDays} 天 | 现金流笔数: {returnAnalysis.cashFlowCount} 笔 | 账户数量: {investmentData.accountCount} 个
         </div>
       </Card>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: spaceMd }}>
         <Col span={12}>
           <Card size="small">
             <PieChart 

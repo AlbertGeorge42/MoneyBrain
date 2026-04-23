@@ -21,6 +21,7 @@ import {
   renderDragHandle,
 } from './shared'
 import type { AccountTreeNode, MoveTreeDataNode, MenuProps } from './shared'
+import { colorDanger } from '../../styles/tokens'
 
 interface Props {
   visible: boolean
@@ -141,7 +142,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       if (transactionCount && transactionCount > 0) {
         Modal.confirm({
           title: '确认删除账户', icon: <ExclamationCircleOutlined />,
-          content: <div><p>该账户下有 <strong style={{ color: '#cf1322' }}>{transactionCount}</strong> 条交易记录</p><p>删除账户将同时删除这些交易记录，此操作不可恢复！</p></div>,
+          content: <div><p>该账户下有 <strong style={{ color: colorDanger }}>{transactionCount}</strong> 条交易记录</p><p>删除账户将同时删除这些交易记录，此操作不可恢复！</p></div>,
           okText: '确认删除', okType: 'danger', cancelText: '取消',
           onOk: async () => {
             try {

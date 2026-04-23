@@ -8,6 +8,17 @@ import {
   ControlOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
+import { useTheme } from '../styles/ThemeContext'
+import {
+  colorBorder,
+  colorSurface,
+  colorText,
+  fontSizeLg,
+  spaceLg,
+  radiusLg,
+  borderWidth,
+  borderStyle,
+} from '../styles/tokens'
 
 const { Sider, Content, Header } = Layout
 
@@ -22,6 +33,8 @@ const menuItems = [
 const MainLayout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
 
   const handleMenuClick = ({ key }: { key: string }) => {
     navigate(key)
@@ -29,33 +42,44 @@ const MainLayout: React.FC = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider width={200} theme="light">
-        <div style={{ 
-          height: 64, 
-          display: 'flex', 
-          alignItems: 'center', 
+      <Sider
+        width={200}
+        theme={isDark ? 'dark' : 'light'}
+        style={{ background: colorSurface }}
+      >
+        <div style={{
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 18,
+          fontSize: fontSizeLg,
           fontWeight: 'bold',
-          borderBottom: '1px solid #f0f0f0'
+          color: colorText,
+          borderBottom: `${borderWidth} ${borderStyle} ${colorBorder}`,
         }}>
           MoneyBrain
         </div>
         <Menu
           mode="inline"
+          theme={isDark ? 'dark' : 'light'}
           selectedKeys={[location.pathname]}
           items={menuItems}
           onClick={handleMenuClick}
-          style={{ borderRight: 0 }}
+          style={{ borderRight: 0, background: colorSurface }}
         />
       </Sider>
       <Layout>
-        <Header style={{ 
-          background: '#fff', 
-          padding: '0 24px',
-          borderBottom: '1px solid #f0f0f0'
+        <Header style={{
+          background: colorSurface,
+          padding: `0 ${spaceLg}`,
+          borderBottom: `${borderWidth} ${borderStyle} ${colorBorder}`,
         }} />
-        <Content style={{ margin: 24, background: '#fff', padding: 24, borderRadius: 8 }}>
+        <Content style={{
+          margin: spaceLg,
+          background: colorSurface,
+          padding: spaceLg,
+          borderRadius: radiusLg,
+        }}>
           <Outlet />
         </Content>
       </Layout>

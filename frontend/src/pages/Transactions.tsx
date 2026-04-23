@@ -16,6 +16,10 @@ import {
   RefundFormValues,
   TransactionFilterValues,
 } from '../components/transactions'
+import {
+  colorWarning,
+  spaceMd,
+} from '../styles/tokens'
 
 const Transactions: React.FC = () => {
   const { 
@@ -207,7 +211,7 @@ const Transactions: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>交易记录</h2>
         <Space>
           <Button type="primary" icon={<ArrowUpOutlined />} onClick={() => handleAdd('income')}>
@@ -219,13 +223,13 @@ const Transactions: React.FC = () => {
           <Button icon={<SwapOutlined />} onClick={handleTransfer}>
             记转账
           </Button>
-          <Button style={{ borderColor: '#fa8c16', color: '#fa8c16' }} icon={<RollbackOutlined />} onClick={handleRefund}>
+          <Button style={{ borderColor: colorWarning, color: colorWarning }} icon={<RollbackOutlined />} onClick={handleRefund}>
             记退款
           </Button>
         </Space>
       </div>
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <TransactionFilter
           accounts={accounts}
           categories={transactionCategories}

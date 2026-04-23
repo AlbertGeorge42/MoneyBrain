@@ -6,6 +6,8 @@
  * - 负债账户：余额 <= 0 显示红色绝对值（正常欠款），余额 > 0 显示绿色负数（多还款）
  */
 
+import { colorPositive, colorNegative } from '../styles/tokens'
+
 interface BalanceDisplayResult {
   text: string
   color: string
@@ -31,13 +33,13 @@ export function formatBalance(
     if (balance >= 0) {
       return {
         text: `${prefix}${balance.toFixed(2)}`,
-        color: '#3f8600',  // 绿色
+        color: colorPositive,
         displayValue: balance,
       }
     } else {
       return {
         text: `${prefix}${balance.toFixed(2)}`,
-        color: '#cf1322',  // 红色（透支）
+        color: colorNegative,
         displayValue: balance,
       }
     }
@@ -47,14 +49,14 @@ export function formatBalance(
       // 正常欠款：显示绝对值，红色
       return {
         text: `${prefix}${Math.abs(balance).toFixed(2)}`,
-        color: '#cf1322',  // 红色
+        color: colorNegative,
         displayValue: Math.abs(balance),
       }
     } else {
       // 多还款：显示负数，绿色
       return {
         text: `${prefix}${(-balance).toFixed(2)}`,
-        color: '#3f8600',  // 绿色
+        color: colorPositive,
         displayValue: -balance,
       }
     }
@@ -76,13 +78,13 @@ export function formatNetWorth(
   if (netWorth >= 0) {
     return {
       text: `${prefix}${netWorth.toFixed(2)}`,
-      color: '#3f8600',
+      color: colorPositive,
       displayValue: netWorth,
     }
   } else {
     return {
       text: `${prefix}${netWorth.toFixed(2)}`,
-      color: '#cf1322',
+      color: colorNegative,
       displayValue: netWorth,
     }
   }

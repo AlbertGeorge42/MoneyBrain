@@ -1,10 +1,36 @@
 import React, { useRef, useState } from 'react'
-import { Card, Button, Modal, message, Space } from 'antd'
-import { DownloadOutlined, UploadOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { Card, Button, Modal, message, Space, Radio, Tag } from 'antd'
+import {
+  DownloadOutlined,
+  UploadOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined,
+  SunOutlined,
+  MoonOutlined,
+  DesktopOutlined,
+  CheckCircleOutlined,
+} from '@ant-design/icons'
 import { dataApi } from '../services/api'
 import { useStore } from '../stores'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../components/common'
 import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
+import { useTheme } from '../styles/ThemeContext'
+import {
+  colorDanger,
+  colorWarning,
+  colorSuccess,
+  colorNeutral,
+  colorMuted,
+  colorPrimary,
+  colorSurface,
+  colorBorder,
+  spaceMd,
+  spaceSm,
+  spaceXs,
+  fontSizeXs,
+  fontWeightBold,
+  radiusMd,
+} from '../styles/tokens'
 
 const exportTimePickerConfig: RangeTimePickerConfig = {
   label: '导出时间范围',
@@ -27,14 +53,37 @@ const exportTimePickerConfig: RangeTimePickerConfig = {
   },
 }
 
+type ThemeMode = 'light' | 'dark' | 'system'
+
+const THEME_STORAGE_KEY = 'moneybrain-theme'
+
 const Settings: React.FC = () => {
   const { fetchAccounts, fetchTransactionCategories, fetchTransactions, fetchBudgets, fetchAccountCategories } = useStore()
+  const { theme: currentTheme, setTheme } = useTheme()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState<{ imported: number; skipped: number } | null>(null)
   const [exportDateRange, setExportDateRange] = useState<RangeTimeValue | null>(null)
   const [exporting, setExporting] = useState(false)
   const [importDateRange, setImportDateRange] = useState<RangeTimeValue | null>(null)
+
+  // 读取用户保存的主题模式偏好（light/dark/system）
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null
+    return saved || 'light'
+  })
+
+  const handleThemeChange = (mode: ThemeMode) => {
+    setThemeMode(mode)
+    localStorage.setItem(THEME_STORAGE_KEY, mode)
+
+    if (mode === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      setTheme(prefersDark ? 'dark' : 'light')
+    } else {
+      setTheme(mode)
+    }
+  }
 
   const handleExportCSV = async () => {
     setExporting(true)
@@ -44,7 +93,7 @@ const Settings: React.FC = () => {
         params.startDate = exportDateRange.start.toISOString()
         params.endDate = exportDateRange.end.toISOString()
       }
-      
+
       const response = await dataApi.exportCsv(Object.keys(params).length > 0 ? params : undefined)
       const blob = response.data
       const url = URL.createObjectURL(blob)
@@ -64,14 +113,14 @@ const Settings: React.FC = () => {
   const handleImportCSV = async (file: File) => {
     setImporting(true)
     setImportProgress(null)
-    
+
     try {
       const params: { startDate?: string; endDate?: string } = {}
       if (importDateRange) {
         params.startDate = importDateRange.start.toISOString()
         params.endDate = importDateRange.end.toISOString()
       }
-      
+
       const response = await dataApi.importCsv(file, Object.keys(params).length > 0 ? params : undefined)
       const result = response.data
 
@@ -81,8 +130,7 @@ const Settings: React.FC = () => {
           skipped: result.data.skipped,
         })
         message.success(`导入完成：成功 ${result.data.imported} 条，跳过 ${result.data.skipped} 条`)
-        
-        // 刷新数据
+
         await Promise.all([
           fetchAccounts(),
           fetchTransactionCategories(),
@@ -109,7 +157,6 @@ const Settings: React.FC = () => {
       }
       handleImportCSV(file)
     }
-    // 重置input以便可以重复选择同一文件
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -150,17 +197,17 @@ const Settings: React.FC = () => {
       icon: <ExclamationCircleOutlined />,
       content: (
         <div>
-          <p style={{ color: '#cf1322', fontWeight: 'bold', marginBottom: 12 }}>
-            ⚠️ 此操作将永久删除以下数据：
+          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceSm }}>
+            此操作将永久删除以下数据：
           </p>
-          <ul style={{ marginLeft: 20, color: '#666' }}>
+          <ul style={{ marginLeft: 20, color: colorNeutral }}>
             <li>所有交易记录</li>
             <li>所有预算设置</li>
           </ul>
-          <p style={{ color: '#52c41a', marginTop: 12 }}>
-            ✓ 账户和分类信息将保留
+          <p style={{ color: colorSuccess, marginTop: spaceSm }}>
+            账户和分类信息将保留
           </p>
-          <p style={{ color: '#cf1322', marginTop: 8 }}>
+          <p style={{ color: colorDanger, marginTop: spaceSm }}>
             此操作不可恢复！请确保已导出备份。
           </p>
         </div>
@@ -178,10 +225,10 @@ const Settings: React.FC = () => {
       icon: <ExclamationCircleOutlined />,
       content: (
         <div>
-          <p style={{ color: '#cf1322', fontWeight: 'bold', marginBottom: 12 }}>
-            ⚠️ 此操作将永久删除以下数据：
+          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceSm }}>
+            此操作将永久删除以下数据：
           </p>
-          <ul style={{ marginLeft: 20, color: '#666' }}>
+          <ul style={{ marginLeft: 20, color: colorNeutral }}>
             <li>所有账户分类</li>
             <li>所有账户</li>
             <li>所有收支分类</li>
@@ -189,7 +236,7 @@ const Settings: React.FC = () => {
             <li>所有预算设置</li>
             <li>所有余额快照</li>
           </ul>
-          <p style={{ color: '#cf1322', marginTop: 12 }}>
+          <p style={{ color: colorDanger, marginTop: spaceSm }}>
             此操作不可恢复！请确保已导出备份。
           </p>
         </div>
@@ -201,14 +248,61 @@ const Settings: React.FC = () => {
     })
   }
 
+  const themeOptions = [
+    { value: 'light' as ThemeMode, label: '浅色', icon: <SunOutlined /> },
+    { value: 'dark' as ThemeMode, label: '暗色', icon: <MoonOutlined /> },
+    { value: 'system' as ThemeMode, label: '跟随系统', icon: <DesktopOutlined /> },
+  ]
+
   return (
     <div>
-      <h2 style={{ marginBottom: 16 }}>设置</h2>
+      <h2 style={{ marginBottom: spaceMd }}>设置</h2>
 
-      <Card title="数据管理" style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 24 }}>
+      {/* 外观设置 */}
+      <Card title="外观设置" style={{ marginBottom: spaceMd }}>
+        <div>
+          <h3>主题模式</h3>
+          <p style={{ color: colorNeutral, marginBottom: spaceSm }}>
+            选择您喜欢的界面主题，切换后立即生效。
+          </p>
+          <Radio.Group
+            value={themeMode}
+            onChange={(e) => handleThemeChange(e.target.value)}
+          >
+            <Space>
+              {themeOptions.map((option) => (
+                <Radio.Button
+                  key={option.value}
+                  value={option.value}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spaceXs,
+                    padding: `0 ${spaceMd}`,
+                    height: 36,
+                  }}
+                >
+                  {option.icon}
+                  <span>{option.label}</span>
+                  {themeMode === option.value && (
+                    <CheckCircleOutlined style={{ color: colorPrimary, marginLeft: spaceXs }} />
+                  )}
+                </Radio.Button>
+              ))}
+            </Space>
+          </Radio.Group>
+          <div style={{ marginTop: spaceSm }}>
+            <Tag color={currentTheme === 'dark' ? 'blue' : 'default'}>
+              当前主题: {currentTheme === 'dark' ? '暗色' : '浅色'}
+            </Tag>
+          </div>
+        </div>
+      </Card>
+
+      <Card title="数据管理" style={{ marginBottom: spaceMd }}>
+        <div style={{ marginBottom: spaceMd }}>
           <h3>数据导出</h3>
-          <p style={{ color: '#666', marginBottom: 12 }}>
+          <p style={{ color: colorNeutral, marginBottom: spaceSm }}>
             导出交易记录为CSV文件，兼容钱迹格式，可用于数据备份或导入其他记账软件。
           </p>
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -220,8 +314,8 @@ const Settings: React.FC = () => {
                   onChange={setExportDateRange}
                   placeholder="全部数据"
                 />
-                <Button 
-                  icon={<DownloadOutlined />} 
+                <Button
+                  icon={<DownloadOutlined />}
                   onClick={handleExportCSV}
                   loading={exporting}
                   style={{ width: 140 }}
@@ -230,15 +324,15 @@ const Settings: React.FC = () => {
                 </Button>
               </Space>
             </div>
-            <p style={{ color: '#999', fontSize: 12, margin: 0 }}>
+            <p style={{ color: colorMuted, fontSize: fontSizeXs, margin: 0 }}>
               提示：不选择时间范围则导出全部数据
             </p>
           </Space>
         </div>
-        
-        <div style={{ marginBottom: 24 }}>
+
+        <div style={{ marginBottom: spaceMd }}>
           <h3>数据导入</h3>
-          <p style={{ color: '#666', marginBottom: 12 }}>
+          <p style={{ color: colorNeutral, marginBottom: spaceSm }}>
             从CSV文件导入交易记录，支持钱迹导出格式。导入时会自动创建不存在的账户和分类。
           </p>
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -257,8 +351,8 @@ const Settings: React.FC = () => {
                   style={{ display: 'none' }}
                   onChange={handleFileChange}
                 />
-                <Button 
-                  icon={<UploadOutlined />} 
+                <Button
+                  icon={<UploadOutlined />}
                   onClick={() => fileInputRef.current?.click()}
                   loading={importing}
                   style={{ width: 140 }}
@@ -267,46 +361,52 @@ const Settings: React.FC = () => {
                 </Button>
               </Space>
             </div>
-            <p style={{ color: '#999', fontSize: 12, margin: 0 }}>
+            <p style={{ color: colorMuted, fontSize: fontSizeXs, margin: 0 }}>
               提示：不选择时间范围则导入文件中的全部数据
             </p>
           </Space>
           {importProgress && (
-            <div style={{ marginTop: 12, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+            <div style={{
+              marginTop: spaceSm,
+              padding: spaceSm,
+              background: colorSurface,
+              border: `1px solid ${colorBorder}`,
+              borderRadius: radiusMd,
+            }}>
               <p style={{ margin: 0 }}>
-                ✅ 成功导入：<strong>{importProgress.imported}</strong> 条
+                成功导入：{importProgress.imported} 条
               </p>
-              <p style={{ margin: 0, color: '#999' }}>
+              <p style={{ margin: 0, color: colorMuted }}>
                 跳过：{importProgress.skipped} 条（格式错误、数据不完整或不在时间范围内）
               </p>
             </div>
           )}
         </div>
-        
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ color: '#fa8c16' }}>清空交易数据</h3>
-          <p style={{ color: '#666', marginBottom: 12 }}>
+
+        <div style={{ marginBottom: spaceMd }}>
+          <h3 style={{ color: colorWarning }}>清空交易数据</h3>
+          <p style={{ color: colorNeutral, marginBottom: spaceSm }}>
             仅清空交易记录和预算，保留账户和分类信息。此操作不可恢复！
           </p>
-          <Button 
+          <Button
             type="primary"
             ghost
-            style={{ borderColor: '#fa8c16', color: '#fa8c16', width: 140 }}
-            icon={<DeleteOutlined />} 
+            style={{ borderColor: colorWarning, color: colorWarning, width: 140 }}
+            icon={<DeleteOutlined />}
             onClick={showClearTransactionsConfirm}
           >
             清空交易数据
           </Button>
         </div>
-        
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ color: '#cf1322' }}>清空所有数据</h3>
-          <p style={{ color: '#666', marginBottom: 12 }}>
+
+        <div style={{ marginBottom: spaceMd }}>
+          <h3 style={{ color: colorDanger }}>清空所有数据</h3>
+          <p style={{ color: colorNeutral, marginBottom: spaceSm }}>
             清空所有数据，包括账户、交易记录、预算和分类信息。此操作不可恢复！
           </p>
-          <Button 
-            danger 
-            icon={<DeleteOutlined />} 
+          <Button
+            danger
+            icon={<DeleteOutlined />}
             onClick={showClearConfirm}
             style={{ width: 140 }}
           >
@@ -318,7 +418,7 @@ const Settings: React.FC = () => {
       <Card title="关于">
         <h3>MoneyBrain 个人记账软件</h3>
         <p>版本: 1.0.0</p>
-        <p style={{ color: '#666' }}>
+        <p style={{ color: colorNeutral }}>
           一款简洁高效的个人记账软件，支持资产负债管理、收支记录、财务报表生成与分析。
         </p>
       </Card>

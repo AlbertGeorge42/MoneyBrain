@@ -26,6 +26,11 @@ import {
   toDateRangeParams,
   toDateParam,
 } from '../utils/timePicker'
+import {
+  colorNeutral,
+  colorMuted,
+  spaceMd,
+} from '../styles/tokens'
 
 const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '时点选择',
@@ -399,7 +404,7 @@ const Reports: React.FC = () => {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 16 }}>财务报表</h2>
+      <h2 style={{ marginBottom: spaceMd }}>财务报表</h2>
       <Card>
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
       </Card>
@@ -432,7 +437,7 @@ const Reports: React.FC = () => {
         cancelText="取消"
         width={700}
       >
-        <p style={{ color: '#666', marginBottom: 16 }}>
+        <p style={{ color: colorNeutral, marginBottom: spaceMd }}>
           输入账户的实际余额，系统将自动创建平账交易来调整差额。
         </p>
         {balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => (
@@ -441,7 +446,7 @@ const Reports: React.FC = () => {
               <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
             </span>
             <Space>
-              <span style={{ color: '#999', fontSize: 12 }}>
+              <span style={{ color: colorMuted, fontSize: 12 }}>
                 当前余额: ¥{account.balance?.toFixed(2) || '0.00'}
               </span>
               <InputNumber

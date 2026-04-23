@@ -6,6 +6,13 @@ import { PointTimePickerField, type PointTimePickerConfig, type PointTimeValue }
 import { PieChart, PieChartDataItem } from '../charts'
 import { formatBalance } from '../../utils/formatBalance'
 import type { BalanceSheetReportData } from '@shared/types'
+import {
+  colorPositive,
+  colorNegative,
+  colorNeutral,
+  fontWeightBold,
+  spaceMd,
+} from '../../styles/tokens'
 
 const getBalanceSheetDescription = (time: PointTimeValue): string => {
   const now = new Date()
@@ -128,10 +135,10 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
           <PointTimePickerField value={selectedTime} config={pickerConfig} onChange={onTimeChange} />
-          <span style={{ color: '#666' }}>
+          <span style={{ color: colorNeutral }}>
             显示 {getBalanceSheetDescription(selectedTime)}
           </span>
         </Space>
@@ -145,14 +152,14 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
         </Space>
       </div>
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={8}>
             <Statistic
               title="总资产"
               value={balanceSheetData?.assets || 0}
               precision={2}
-              valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -161,7 +168,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
               title="总负债"
               value={(balanceSheetData?.liabilities || 0) <= 0 ? Math.abs(balanceSheetData?.liabilities || 0) : -(balanceSheetData?.liabilities || 0)}
               precision={2}
-              valueStyle={{ color: (balanceSheetData?.liabilities || 0) <= 0 ? '#cf1322' : '#3f8600' }}
+              valueStyle={{ color: (balanceSheetData?.liabilities || 0) <= 0 ? colorNegative : colorPositive }}
               prefix="¥"
             />
           </Col>
@@ -170,14 +177,14 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
               title="净资产"
               value={balanceSheetData?.netWorth || 0}
               precision={2}
-              valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
         </Row>
       </Card>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: spaceMd }}>
         <Col span={12}>
           <Card size="small">
             <PieChart 
@@ -225,7 +232,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                   render: (v: number, record: BalanceSheetTreeNode) => {
                     const result = formatBalance(v, record.nodeType || 'asset')
                     return (
-                      <span style={{ color: result.color, fontWeight: 'bold' }}>
+                      <span style={{ color: result.color, fontWeight: fontWeightBold }}>
                         {result.text}
                       </span>
                     )
@@ -264,7 +271,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                   render: (v: number, record: BalanceSheetTreeNode) => {
                     const result = formatBalance(v, record.nodeType || 'liability')
                     return (
-                      <span style={{ color: result.color, fontWeight: 'bold' }}>
+                      <span style={{ color: result.color, fontWeight: fontWeightBold }}>
                         {result.text}
                       </span>
                     )

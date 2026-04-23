@@ -4,6 +4,14 @@ import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {
+  colorSurface,
+  colorText,
+  spaceMd,
+  spaceSm,
+  radiusLg,
+  shadowMd,
+} from '../../styles/tokens'
+import {
   createPointValue,
   createRangeValue,
   formatPointValue,
@@ -87,27 +95,28 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
   }
 
   const dropdownContent = (
-    <div style={{ 
-      padding: 16,
-      backgroundColor: '#fff',
-      borderRadius: 8,
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-      maxWidth: 'calc(100vw - 32px)'
+    <div style={{
+      padding: spaceMd,
+      backgroundColor: colorSurface,
+      borderRadius: radiusLg,
+      boxShadow: shadowMd,
+      maxWidth: 'calc(100vw - 32px)',
+      color: colorText,
     }}>
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: 16 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spaceMd,
       }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          gap: 8 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: spaceSm,
         }}>
-          <Button 
-            size="small" 
-            icon={<LeftOutlined />} 
+          <Button
+            size="small"
+            icon={<LeftOutlined />}
             onClick={handlePrevClick}
             disabled={isMinReached}
           />
@@ -121,9 +130,9 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
             suffixIcon={null}
             inputReadOnly
           />
-          <Button 
-            size="small" 
-            icon={<RightOutlined />} 
+          <Button
+            size="small"
+            icon={<RightOutlined />}
             onClick={handleNextClick}
             disabled={isMaxReached}
           />
@@ -135,18 +144,18 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
             size="small"
             value={value.granularity}
             onChange={(val) => handleGranularityChange(val as TimeGranularity)}
-            options={config.allowedGranularities.map((item) => ({ 
-              label: getGranularityText(item), 
-              value: item 
+            options={config.allowedGranularities.map((item) => ({
+              label: getGranularityText(item),
+              value: item,
             }))}
           />
         )}
 
         {currentPresets.length > 0 && (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(2, 1fr)', 
-            gap: 8 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: spaceSm,
           }}>
             {currentPresets.map((preset) => (
               <Button
@@ -265,27 +274,28 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
   }
 
   const dropdownContent = (
-    <div style={{ 
-      padding: 16,
-      backgroundColor: '#fff',
-      borderRadius: 8,
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-      maxWidth: 'calc(100vw - 32px)'
+    <div style={{
+      padding: spaceMd,
+      backgroundColor: colorSurface,
+      borderRadius: radiusLg,
+      boxShadow: shadowMd,
+      maxWidth: 'calc(100vw - 32px)',
+      color: colorText,
     }}>
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: 16 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spaceMd,
       }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          gap: 8 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: spaceSm,
         }}>
-          <Button 
-            size="small" 
-            icon={<LeftOutlined />} 
+          <Button
+            size="small"
+            icon={<LeftOutlined />}
             onClick={handlePrevClick}
             disabled={isMinReached}
           />
@@ -299,9 +309,9 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
             suffixIcon={null}
             inputReadOnly
           />
-          <Button 
-            size="small" 
-            icon={<RightOutlined />} 
+          <Button
+            size="small"
+            icon={<RightOutlined />}
             onClick={handleNextClick}
             disabled={isMaxReached}
           />
@@ -313,18 +323,18 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
             size="small"
             value={resolvedValue.granularity}
             onChange={(val) => handleGranularityChange(val as TimeGranularity)}
-            options={config.allowedGranularities.map((item) => ({ 
-              label: getGranularityText(item), 
-              value: item 
+            options={config.allowedGranularities.map((item) => ({
+              label: getGranularityText(item),
+              value: item,
             }))}
           />
         )}
 
         {currentPresets.length > 0 && (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(2, 1fr)', 
-            gap: 8 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: spaceSm,
           }}>
             {currentPresets.map((preset) => (
               <Button

@@ -11,6 +11,13 @@ import {
   createYearToDatePreset,
   formatRangeValue,
 } from '../../utils/timePicker'
+import {
+  colorDanger,
+  colorSuccess,
+  colorInfo,
+  spaceSm,
+  spaceMd,
+} from '../../styles/tokens'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',
@@ -75,7 +82,7 @@ interface TransactionFilterProps {
   onReset: () => void
 }
 
-const TransactionFilter: React.FC<TransactionFilterProps> = ({
+const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   accounts,
   categories,
   accountCategories,
@@ -143,7 +150,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
 
     return [
       {
-        title: <Tag color="red">支出</Tag>,
+        title: <Tag color={colorDanger}>支出</Tag>,
         value: 'expense_group',
         key: 'expense_group',
         selectable: false,
@@ -151,7 +158,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'expense'),
       },
       {
-        title: <Tag color="green">收入</Tag>,
+        title: <Tag color={colorSuccess}>收入</Tag>,
         value: 'income_group',
         key: 'income_group',
         selectable: false,
@@ -159,7 +166,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'income'),
       },
       {
-        title: <Tag color="blue">转账</Tag>,
+        title: <Tag color={colorInfo}>转账</Tag>,
         value: 'transfer_group',
         key: 'transfer_group',
         selectable: false,
@@ -242,7 +249,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
       <Collapse 
         activeKey={filterExpanded ? 'filter' : undefined} 
         onChange={(keys) => onFilterExpandedChange(keys.includes('filter'))}
-        style={{ marginTop: 16 }}
+        style={{ marginTop: spaceMd }}
         items={[
           {
             key: 'filter',
@@ -251,7 +258,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
               <>
                 <Row gutter={16}>
                   <Col span={6}>
-                    <div style={{ marginBottom: 8 }}>类型</div>
+                    <div style={{ marginBottom: spaceSm }}>类型</div>
                     <Select
                       mode="multiple"
                       placeholder="选择类型"
@@ -277,7 +284,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                     </Select>
                   </Col>
                   <Col span={6}>
-                    <div style={{ marginBottom: 8 }}>账户</div>
+                    <div style={{ marginBottom: spaceSm }}>账户</div>
                     <TreeSelect
                       treeData={accountTreeData}
                       placeholder="选择账户"
@@ -301,7 +308,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                     />
                   </Col>
                   <Col span={6}>
-                    <div style={{ marginBottom: 8 }}>分类</div>
+                    <div style={{ marginBottom: spaceSm }}>分类</div>
                     <TreeSelect
                       treeData={categoryTreeData}
                       placeholder="选择分类"
@@ -325,7 +332,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                     />
                   </Col>
                   <Col span={6}>
-                    <div style={{ marginBottom: 8 }}>日期范围</div>
+                    <div style={{ marginBottom: spaceSm }}>日期范围</div>
                     <RangeTimePickerField
                       value={filters.dateRange}
                       config={transactionTimePickerConfig}
@@ -335,7 +342,7 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
                     />
                   </Col>
                 </Row>
-                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                <div style={{ marginTop: spaceMd, textAlign: 'right' }}>
                   <Space>
                     <Button onClick={onReset}>重置</Button>
                     <Button type="primary" onClick={onSearch}>查询</Button>
@@ -350,4 +357,4 @@ const TransactionFilter: React.FC<TransactionFilterProps> = ({
   )
 }
 
-export default TransactionFilter
+export default TransactionFilterComponent

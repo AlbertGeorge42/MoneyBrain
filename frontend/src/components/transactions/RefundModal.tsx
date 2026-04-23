@@ -3,6 +3,9 @@ import { Modal, Form, Input, Select, InputNumber, DatePicker, Row, Col, Tag, Spa
 import dayjs from 'dayjs'
 import { Account, Transaction } from '../../services/api'
 import DynamicIcon from '../common/DynamicIcon'
+import {
+  colorMuted,
+} from '../../styles/tokens'
 
 interface RefundModalProps {
   visible: boolean
@@ -93,7 +96,7 @@ const RefundModal: React.FC<RefundModalProps> = ({
                   <Tag color={t.type === 'income' ? 'green' : 'red'}>{t.type === 'income' ? '收入' : '支出'}</Tag>
                   <DynamicIcon name={t.category?.icon} size={16} />
                   {t.category?.name} - ¥{t.amount.toFixed(2)}
-                  <span style={{ color: '#999' }}>({dayjs(t.date).format('YYYY-MM-DD')})</span>
+                  <span style={{ color: colorMuted }}>({dayjs(t.date).format('YYYY-MM-DD')})</span>
                 </Space>
               </Select.Option>
             ))}

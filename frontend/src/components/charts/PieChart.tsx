@@ -19,7 +19,7 @@ interface PieChartProps {
 
 const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillDown }) => {
   const validData = Array.isArray(data) ? data : []
-  
+
   const [currentData, setCurrentData] = useState<PieChartDataItem[]>(validData)
   const [currentTitle, setCurrentTitle] = useState(title)
   const [breadcrumb, setBreadcrumb] = useState<Array<{ title: string; data: PieChartDataItem[] }>>([])
@@ -34,9 +34,9 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
   }, [data, title])
 
   const handleItemClick = async (params: any) => {
-    const clickedItem = validData.find(d => d.name === params.name) || 
+    const clickedItem = validData.find(d => d.name === params.name) ||
                         currentData.find(d => d.name === params.name)
-    
+
     if (!clickedItem || !clickedItem.hasChildren || !onDrillDown) {
       return
     }
@@ -66,8 +66,8 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
 
   const option = {
     title: { text: currentTitle, left: 'center', textStyle: { fontSize: 14 } },
-    tooltip: { 
-      trigger: 'item', 
+    tooltip: {
+      trigger: 'item',
       formatter: (params: any) => {
         const numValue = typeof params.value === 'number' ? params.value : parseFloat(params.value) || 0
         const value = numValue.toFixed(2)
@@ -83,12 +83,12 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
       radius: ['40%', '70%'],
       center: ['60%', '50%'],
       data: currentData,
-      emphasis: { 
-        itemStyle: { 
-          shadowBlur: 10, 
-          shadowOffsetX: 0, 
-          shadowColor: 'rgba(0, 0, 0, 0.5)' 
-        } 
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(128, 128, 128, 0.5)'
+        }
       },
       label: { show: false },
     }],
@@ -101,19 +101,19 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
   return (
     <div style={{ height, position: 'relative' }}>
       {breadcrumb.length > 0 && (
-        <Button 
-          type="text" 
-          size="small" 
-          icon={<ArrowLeftOutlined />} 
+        <Button
+          type="text"
+          size="small"
+          icon={<ArrowLeftOutlined />}
           onClick={handleBack}
           style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}
         >
           返回
         </Button>
       )}
-      <ReactECharts 
-        option={option} 
-        style={{ height }} 
+      <ReactECharts
+        option={option}
+        style={{ height }}
         onEvents={{ click: handleItemClick }}
         showLoading={loading}
       />

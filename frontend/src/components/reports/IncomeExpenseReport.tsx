@@ -7,6 +7,11 @@ import { PieChartDataItem } from '../charts/PieChart'
 import * as api from '../../services/api'
 import { toDateRangeParams } from '../../utils/timePicker'
 import type { IncomeExpenseReportData } from '@shared/types'
+import {
+  colorPositive,
+  colorNegative,
+  spaceMd,
+} from '../../styles/tokens'
 
 interface IncomeExpenseReportProps {
   timeRange: RangeTimeValue
@@ -77,21 +82,21 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
           设置
         </Button>
       </div>
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={6}>
             <Statistic
               title="期初资产"
               value={incomeExpenseData?.startAssets || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.startAssets || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (incomeExpenseData?.startAssets || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -100,7 +105,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期初负债"
               value={(incomeExpenseData?.startLiabilities || 0) <= 0 ? Math.abs(incomeExpenseData?.startLiabilities || 0) : -(incomeExpenseData?.startLiabilities || 0)}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.startLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600' }}
+              valueStyle={{ color: (incomeExpenseData?.startLiabilities || 0) <= 0 ? colorNegative : colorPositive }}
               prefix="¥"
             />
           </Col>
@@ -109,7 +114,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期初净资产"
               value={incomeExpenseData?.startNetWorth || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.startNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (incomeExpenseData?.startNetWorth || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -118,7 +123,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="资产变动"
               value={incomeExpenseData?.assetChange || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -127,14 +132,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 
       <Divider style={{ margin: '12px 0' }} />
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={8}>
             <Statistic
               title="总收入"
               value={incomeExpenseData?.income || 0}
               precision={2}
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: colorPositive }}
               prefix="¥"
             />
           </Col>
@@ -143,7 +148,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="总支出"
               value={incomeExpenseData?.expense || 0}
               precision={2}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -152,14 +157,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="结余"
               value={incomeExpenseData?.balance || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.balance || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (incomeExpenseData?.balance || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
         </Row>
       </Card>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: spaceMd }}>
         <Col span={8}>
           <Card size="small">
             <BarChart 
@@ -196,14 +201,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 
       <Divider style={{ margin: '12px 0' }} />
 
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: spaceMd }}>
         <Row gutter={16}>
           <Col span={8}>
             <Statistic
               title="期末资产"
               value={incomeExpenseData?.endAssets || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.endAssets || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (incomeExpenseData?.endAssets || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
@@ -212,7 +217,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期末负债"
               value={(incomeExpenseData?.endLiabilities || 0) <= 0 ? Math.abs(incomeExpenseData?.endLiabilities || 0) : -(incomeExpenseData?.endLiabilities || 0)}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.endLiabilities || 0) <= 0 ? '#cf1322' : '#3f8600' }}
+              valueStyle={{ color: (incomeExpenseData?.endLiabilities || 0) <= 0 ? colorNegative : colorPositive }}
               prefix="¥"
             />
           </Col>
@@ -221,7 +226,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="期末净资产"
               value={incomeExpenseData?.endNetWorth || 0}
               precision={2}
-              valueStyle={{ color: (incomeExpenseData?.endNetWorth || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (incomeExpenseData?.endNetWorth || 0) >= 0 ? colorPositive : colorNegative }}
               prefix="¥"
             />
           </Col>
