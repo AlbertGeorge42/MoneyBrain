@@ -1,27 +1,73 @@
-/**
- * 主题生成器与切换逻辑
- * 负责生成 CSS 变量字符串和主题切换功能
- */
-
-import { lightThemeValues } from './light'
 import { darkThemeValues } from './dark'
+import { lightThemeValues } from './light'
 
 export type Theme = 'light' | 'dark'
+export type ThemeMode = Theme | 'system'
 
-const THEME_STORAGE_KEY = 'moneybrain-theme'
+const THEME_MODE_STORAGE_KEY = 'moneybrain-theme-mode'
+const LEGACY_THEME_STORAGE_KEY = 'moneybrain-theme'
 
-/**
- * 生成 CSS 变量声明字符串
- */
+function resolveSystemTheme(): Theme {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+export function getStoredThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') return 'system'
+
+  const storedMode = localStorage.getItem(THEME_MODE_STORAGE_KEY)
+  if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'system') {
+    return storedMode
+  }
+
+  const legacyMode = localStorage.getItem(LEGACY_THEME_STORAGE_KEY)
+  if (legacyMode === 'light' || legacyMode === 'dark') {
+    return legacyMode
+  }
+
+  return 'system'
+}
+
+function resolveTheme(mode: ThemeMode): Theme {
+  return mode === 'system' ? resolveSystemTheme() : mode
+}
+
+export function getCurrentTheme(): Theme {
+  const attr = document.documentElement.getAttribute('data-theme')
+  return attr === 'dark' ? 'dark' : 'light'
+}
+
+export function applyTheme(theme: Theme): Theme {
+  document.documentElement.setAttribute('data-theme', theme)
+  return theme
+}
+
+export function setThemeMode(mode: ThemeMode): Theme {
+  const resolvedTheme = resolveTheme(mode)
+  localStorage.setItem(THEME_MODE_STORAGE_KEY, mode)
+  localStorage.setItem(LEGACY_THEME_STORAGE_KEY, resolvedTheme)
+  return applyTheme(resolvedTheme)
+}
+
+export function initTheme(mode = getStoredThemeMode()): Theme {
+  return setThemeMode(mode)
+}
+
+export function listenSystemThemeChange(callback: (theme: Theme) => void): () => void {
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  const handler = (event: MediaQueryListEvent) => {
+    callback(event.matches ? 'dark' : 'light')
+  }
+
+  mediaQuery.addEventListener('change', handler)
+  return () => mediaQuery.removeEventListener('change', handler)
+}
+
 function generateCssVariables(values: Record<string, string>): string {
   return Object.entries(values)
     .map(([key, value]) => `${key}: ${value};`)
     .join('\n  ')
 }
 
-/**
- * 生成完整主题 CSS
- */
 export function generateThemeCss(): string {
   const lightVars = generateCssVariables(lightThemeValues)
   const darkVars = generateCssVariables(darkThemeValues)
@@ -36,62 +82,6 @@ export function generateThemeCss(): string {
   ${darkVars}
 }
 `
-}
-
-/**
- * 获取当前主题
- */
-export function getCurrentTheme(): Theme {
-  const attr = document.documentElement.getAttribute('data-theme')
-  return attr === 'dark' ? 'dark' : 'light'
-}
-
-/**
- * 设置主题
- */
-export function setTheme(theme: Theme): void {
-  document.documentElement.setAttribute('data-theme', theme)
-  localStorage.setItem(THEME_STORAGE_KEY, theme)
-}
-
-/**
- * 切换主题
- */
-export function toggleTheme(): Theme {
-  const current = getCurrentTheme()
-  const next = current === 'dark' ? 'light' : 'dark'
-  setTheme(next)
-  return next
-}
-
-/**
- * 初始化主题
- * 优先使用本地存储，其次跟随系统偏好
- */
-export function initTheme(): Theme {
-  const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
-  if (saved && (saved === 'light' || saved === 'dark')) {
-    document.documentElement.setAttribute('data-theme', saved)
-    return saved
-  }
-
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  const theme = prefersDark ? 'dark' : 'light'
-  document.documentElement.setAttribute('data-theme', theme)
-  return theme
-}
-
-/**
- * 监听系统主题变化
- */
-export function listenSystemThemeChange(callback: (theme: Theme) => void): () => void {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  const handler = (e: MediaQueryListEvent) => {
-    const theme = e.matches ? 'dark' : 'light'
-    callback(theme)
-  }
-  mediaQuery.addEventListener('change', handler)
-  return () => mediaQuery.removeEventListener('change', handler)
 }
 
 export { lightThemeValues, darkThemeValues }

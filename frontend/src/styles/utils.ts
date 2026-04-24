@@ -3,10 +3,19 @@
  * 提供令牌值读取、主题切换等实用功能
  */
 
-import { initTheme, toggleTheme, setTheme, getCurrentTheme, listenSystemThemeChange, type Theme } from './themes'
+import {
+  applyTheme,
+  getCurrentTheme,
+  getStoredThemeMode,
+  initTheme,
+  listenSystemThemeChange,
+  setThemeMode,
+  type Theme,
+  type ThemeMode,
+} from './themes'
 
-export { initTheme, toggleTheme, setTheme, getCurrentTheme, listenSystemThemeChange }
-export type { Theme }
+export { applyTheme, getCurrentTheme, getStoredThemeMode, initTheme, listenSystemThemeChange, setThemeMode }
+export type { Theme, ThemeMode }
 
 /**
  * 获取 CSS 变量的当前计算值

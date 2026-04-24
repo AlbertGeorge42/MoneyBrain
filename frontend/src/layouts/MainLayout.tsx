@@ -1,26 +1,41 @@
 import React from 'react'
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Layout, Menu } from 'antd'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Button, Layout, Menu, Segmented, Tag } from 'antd'
 import {
-  DashboardOutlined,
-  TransactionOutlined,
   BarChartOutlined,
   ControlOutlined,
+  DashboardOutlined,
+  MoonOutlined,
   SettingOutlined,
+  SunOutlined,
+  TransactionOutlined,
 } from '@ant-design/icons'
 import { useTheme } from '../styles/ThemeContext'
-import {
-  colorBorder,
-  colorSurface,
-  colorText,
-  fontSizeLg,
-  spaceLg,
-  radiusLg,
-  borderWidth,
-  borderStyle,
-} from '../styles/tokens'
 
-const { Sider, Content, Header } = Layout
+const { Sider, Header, Content } = Layout
+
+const pageMeta: Record<string, { title: string; description: string }> = {
+  '/dashboard': {
+    title: '财务总览',
+    description: '聚焦净资产、现金流和近期资金变化，先看到最关键的数字。',
+  },
+  '/transactions': {
+    title: '交易记录',
+    description: '把录入、筛选、复盘放在一个工作台里，日常记账更顺手。',
+  },
+  '/reports': {
+    title: '财务报表',
+    description: '围绕资产、收支和现金流建立统一的分析视图。',
+  },
+  '/budgets': {
+    title: '预算管理',
+    description: '预算模块后续会重做，本轮先保持可访问。',
+  },
+  '/settings': {
+    title: '设置与数据',
+    description: '管理主题、备份、导入导出和高风险操作。',
+  },
+}
 
 const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '首页' },
@@ -33,54 +48,82 @@ const menuItems = [
 const MainLayout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { mode, theme, setThemeMode } = useTheme()
 
-  const handleMenuClick = ({ key }: { key: string }) => {
-    navigate(key)
-  }
+  const currentPage = pageMeta[location.pathname] ?? pageMeta['/dashboard']
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        width={200}
-        theme={isDark ? 'dark' : 'light'}
-        style={{ background: colorSurface }}
-      >
-        <div style={{
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: fontSizeLg,
-          fontWeight: 'bold',
-          color: colorText,
-          borderBottom: `${borderWidth} ${borderStyle} ${colorBorder}`,
-        }}>
-          MoneyBrain
+    <Layout className="app-shell">
+      <Sider className="app-shell__sider" width={244}>
+        <div className="app-shell__brand">
+          <span className="app-shell__brand-mark">M</span>
+          <div className="app-shell__brand-copy">
+            <h1 className="app-shell__brand-title">MoneyBrain</h1>
+            <p className="app-shell__brand-subtitle">
+              Personal finance cockpit for accounts, cash flow and reports.
+            </p>
+          </div>
+          <Tag className="status-chip" bordered={false}>
+            当前主题 {mode === 'system' ? `系统 / ${theme === 'dark' ? '深色' : '浅色'}` : theme === 'dark' ? '深色' : '浅色'}
+          </Tag>
         </div>
+
         <Menu
+          className="app-shell__menu"
           mode="inline"
-          theme={isDark ? 'dark' : 'light'}
           selectedKeys={[location.pathname]}
           items={menuItems}
-          onClick={handleMenuClick}
-          style={{ borderRight: 0, background: colorSurface }}
+          onClick={({ key }) => navigate(key)}
         />
       </Sider>
-      <Layout>
-        <Header style={{
-          background: colorSurface,
-          padding: `0 ${spaceLg}`,
-          borderBottom: `${borderWidth} ${borderStyle} ${colorBorder}`,
-        }} />
-        <Content style={{
-          margin: spaceLg,
-          background: colorSurface,
-          padding: spaceLg,
-          borderRadius: radiusLg,
-        }}>
-          <Outlet />
+
+      <Layout className="app-shell__body">
+        <Header className="app-shell__header">
+          <div className="app-shell__toolbar">
+            <div className="app-shell__toolbar-copy">
+              <span className="app-shell__toolbar-label">Workspace</span>
+              <h2 className="app-shell__toolbar-title">{currentPage.title}</h2>
+              <p className="app-shell__toolbar-meta">{currentPage.description}</p>
+            </div>
+
+            <div className="app-shell__toolbar-actions">
+              <Segmented
+                value={mode}
+                options={[
+                  {
+                    label: (
+                      <span>
+                        <SunOutlined /> 浅色
+                      </span>
+                    ),
+                    value: 'light',
+                  },
+                  {
+                    label: (
+                      <span>
+                        <MoonOutlined /> 深色
+                      </span>
+                    ),
+                    value: 'dark',
+                  },
+                  {
+                    label: '系统',
+                    value: 'system',
+                  },
+                ]}
+                onChange={(value) => setThemeMode(value as 'light' | 'dark' | 'system')}
+              />
+              <Button onClick={() => navigate('/transactions')} type="primary">
+                快速记一笔
+              </Button>
+            </div>
+          </div>
+        </Header>
+
+        <Content className="app-shell__content">
+          <div className="page-shell">
+            <Outlet />
+          </div>
         </Content>
       </Layout>
     </Layout>
