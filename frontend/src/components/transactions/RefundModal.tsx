@@ -5,6 +5,8 @@ import { Account, Transaction } from '../../services/api'
 import DynamicIcon from '../common/DynamicIcon'
 import {
   colorMuted,
+  colorIncome,
+  colorExpense,
 } from '../../styles/tokens'
 
 interface RefundModalProps {
@@ -93,7 +95,7 @@ const RefundModal: React.FC<RefundModalProps> = ({
             {refundableTransactions.map(t => (
               <Select.Option key={t.id} value={t.id}>
                 <Space>
-                  <Tag color={t.type === 'income' ? 'green' : 'red'}>{t.type === 'income' ? '收入' : '支出'}</Tag>
+                  <Tag style={{ color: t.type === 'income' ? colorIncome : colorExpense, borderColor: t.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>{t.type === 'income' ? '收入' : '支出'}</Tag>
                   <DynamicIcon name={t.category?.icon} size={16} />
                   {t.category?.name} - ¥{t.amount.toFixed(2)}
                   <span style={{ color: colorMuted }}>({dayjs(t.date).format('YYYY-MM-DD')})</span>

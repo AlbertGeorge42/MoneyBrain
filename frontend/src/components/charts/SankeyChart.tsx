@@ -26,11 +26,11 @@ interface SankeyChartProps {
 const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height = 400, loading = false }) => {
   // 节点分类颜色配置 - 使用设计令牌
   const categoryColors: Record<SankeyNodeCategory, string> = {
-    income_category: getTokenValue('--mb-chart-color-income'),
-    non_cash_source: getTokenValue('--mb-chart-color-non-cash'),
-    cash: getTokenValue('--mb-chart-color-cash'),
-    expense_category: getTokenValue('--mb-chart-color-expense'),
-    non_cash_target: getTokenValue('--mb-chart-color-refund'),
+    income_category: getTokenValue('--mb-color-income'),
+    non_cash_source: getTokenValue('--mb-color-non-cash'),
+    cash: getTokenValue('--mb-color-cash'),
+    expense_category: getTokenValue('--mb-color-expense'),
+    non_cash_target: getTokenValue('--mb-color-refund'),
   }
 
   // 从节点名称中提取显示名称（去掉后缀）

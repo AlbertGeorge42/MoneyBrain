@@ -21,6 +21,7 @@ import {
   colorPrimary,
   colorSuccess,
   colorWarning,
+  colorTransfer,
   fontWeightBold,
   radiusMd,
   spaceSm,
@@ -222,7 +223,7 @@ const Settings: React.FC = () => {
               </Radio.Button>
             </Space>
           </Radio.Group>
-          <Tag color={theme === 'dark' ? 'blue' : 'default'} icon={<CheckCircleOutlined />} bordered={false}>
+          <Tag style={{ color: theme === 'dark' ? colorTransfer : undefined, borderColor: theme === 'dark' ? colorTransfer : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} bordered={false}>
             当前生效：{mode === 'system' ? `跟随系统 / ${theme === 'dark' ? '深色' : '浅色'}` : theme === 'dark' ? '深色' : '浅色'}
           </Tag>
         </Space>

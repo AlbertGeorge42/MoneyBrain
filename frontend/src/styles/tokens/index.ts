@@ -9,7 +9,6 @@ export * from './typography'
 export * from './borders'
 export * from './shadows'
 export * from './radius'
-export * from './charts'
 
 // 令牌变量名集合，用于主题生成器
 import { colorVars } from './colors'
@@ -18,7 +17,6 @@ import { typographyVars } from './typography'
 import { borderVars } from './borders'
 import { shadowVars } from './shadows'
 import { radiusVars } from './radius'
-import { chartVars } from './charts'
 
 export const allTokenVars = {
   ...colorVars,
@@ -27,7 +25,6 @@ export const allTokenVars = {
   ...borderVars,
   ...shadowVars,
   ...radiusVars,
-  ...chartVars,
 } as const
 
 export type TokenVarName = keyof typeof allTokenVars

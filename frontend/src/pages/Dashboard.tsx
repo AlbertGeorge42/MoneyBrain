@@ -8,7 +8,7 @@ import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 import * as api from '../services/api'
 import { useStore } from '../stores'
 import type { AnalyticsCategoryBreakdownItem, AnalyticsTrendItem } from '../services/api'
-import { colorInfo, colorNegative, colorNeutral, colorPositive, fontWeightBold } from '../styles/tokens'
+import { colorInfo, colorNegative, colorNeutral, colorPositive, colorIncome, colorExpense, fontWeightBold } from '../styles/tokens'
 import { getTokenValue } from '../styles/utils'
 
 const Dashboard: React.FC = () => {
@@ -190,7 +190,7 @@ const Dashboard: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, width: '100%' }}>
                   <div style={{ display: 'grid', gap: 6 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <Tag color={item.type === 'income' ? 'success' : 'error'}>
+                      <Tag style={{ color: item.type === 'income' ? colorIncome : colorExpense, borderColor: item.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
                         <DynamicIcon name={item.category?.icon} size={14} /> {item.category?.name || '未分类'}
                       </Tag>
                       <span style={{ color: colorNeutral }}>{dayjs(item.date).format('MM-DD')}</span>

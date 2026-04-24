@@ -14,10 +14,24 @@ export const darkThemeValues = {
   '--mb-color-negative': '#d84a4a',
   '--mb-color-investment': '#9254de',
 
+  // 交易类型颜色
+  '--mb-color-income': '#5fd05f',
+  '--mb-color-expense': '#ff7875',
+  '--mb-color-transfer': '#40a9ff',
+  '--mb-color-refund': '#ffc069',
+  '--mb-color-adjustment': '#b37feb',
+
+  // 现金流类型
+  '--mb-color-cash': '#177ddc',
+  '--mb-color-non-cash': '#36cfc9',
+  '--mb-color-operating': '#49aa19',
+  '--mb-color-investing': '#177ddc',
+  '--mb-color-financing': '#d89614',
+
   // 文本颜色
   '--mb-color-text': 'rgba(255, 255, 255, 0.88)',
-  '--mb-color-neutral': '#b3b3b3',
-  '--mb-color-muted': '#8c8c8c',
+  '--mb-color-neutral': '#bfbfbf',
+  '--mb-color-muted': '#a6a6a6',
   '--mb-color-disabled': 'rgba(255, 255, 255, 0.35)',
 
   // 背景颜色
@@ -63,22 +77,6 @@ export const darkThemeValues = {
   '--mb-radius-md': '6px',
   '--mb-radius-lg': '8px',
   '--mb-radius-xl': '12px',
-
-  // 图表颜色
-  '--mb-chart-color-income': '#49aa19',
-  '--mb-chart-color-expense': '#d84a4a',
-  '--mb-chart-color-transfer': '#177ddc',
-  '--mb-chart-color-investment': '#9254de',
-  '--mb-chart-color-refund': '#d89614',
-  '--mb-chart-color-cash': '#177ddc',
-  '--mb-chart-color-non-cash': '#36cfc9',
-  '--mb-chart-color-operating': '#49aa19',
-  '--mb-chart-color-investing': '#177ddc',
-  '--mb-chart-color-financing': '#d89614',
-  '--mb-chart-color-primary': '#177ddc',
-  '--mb-chart-color-secondary': '#49aa19',
-  '--mb-chart-color-tertiary': '#d89614',
-  '--mb-chart-color-quaternary': '#9254de',
 } as const
 
 export type DarkThemeValues = typeof darkThemeValues

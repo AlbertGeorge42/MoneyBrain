@@ -14,6 +14,8 @@ import {
   colorInfo,
   colorPositive,
   colorNegative,
+  colorTransfer,
+  colorIncome,
   fontSizeXs,
   spaceMd,
 } from '../styles/tokens'
@@ -117,7 +119,7 @@ const Budgets: React.FC = () => {
       dataIndex: 'period',
       key: 'period',
       render: (period: string) => (
-        <Tag color={period === 'monthly' ? 'blue' : 'green'}>
+        <Tag style={{ color: period === 'monthly' ? colorTransfer : colorIncome, borderColor: period === 'monthly' ? colorTransfer : colorIncome, backgroundColor: 'transparent' }}>
           {period === 'monthly' ? '月度' : '年度'}
         </Tag>
       ),

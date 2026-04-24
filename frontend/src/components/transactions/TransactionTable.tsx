@@ -3,7 +3,6 @@ import { Table, Card, Tag, Space, Button, Popconfirm } from 'antd'
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { Transaction } from '../../services/api'
-import { TRANSACTION_TYPE_CONFIG } from '../../constants/transaction'
 import {
   colorInfo,
   colorWarning,
@@ -11,6 +10,11 @@ import {
   colorPositive,
   colorNegative,
   colorMuted,
+  colorIncome,
+  colorExpense,
+  colorTransfer,
+  colorRefund,
+  colorAdjustment,
   fontWeightBold,
   fontSizeXs,
   spaceSm,
@@ -27,6 +31,14 @@ interface TransactionTableProps {
   onPageChange: (page: number, pageSize: number) => void
 }
 
+const TRANSACTION_TYPE_CONFIG = {
+  income: { color: colorIncome, text: '收入' },
+  expense: { color: colorExpense, text: '支出' },
+  transfer: { color: colorTransfer, text: '转账' },
+  refund: { color: colorRefund, text: '退款' },
+  adjustment: { color: colorAdjustment, text: '平账' },
+} as const
+
 const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => void) => [
   {
     title: '日期',
@@ -41,8 +53,8 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
     key: 'type',
     width: 80,
     render: (type: string) => {
-      const config = TRANSACTION_TYPE_CONFIG[type] || { color: 'default', text: type }
-      return <Tag color={config.color}>{config.text}</Tag>
+      const config = TRANSACTION_TYPE_CONFIG[type as keyof typeof TRANSACTION_TYPE_CONFIG] || { color: 'default', text: type }
+      return <Tag style={{ color: config.color, borderColor: config.color, backgroundColor: 'transparent' }}>{config.text}</Tag>
     },
   },
   {
@@ -50,7 +62,7 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
     key: 'category',
     render: (_: unknown, record: Transaction) => {
       if (record.type === 'adjustment') {
-        return <Tag color="purple">{record.note || '平账调整'}</Tag>
+        return <Tag style={{ color: colorAdjustment, borderColor: colorAdjustment, backgroundColor: 'transparent' }}>{record.note || '平账调整'}</Tag>
       }
       if (record.type === 'transfer') {
         return record.category ? (

@@ -3,7 +3,6 @@ import { Button, Select, TreeSelect, Space, Tag, Collapse, Row, Col } from 'antd
 import { FilterOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
-import { TRANSACTION_TYPE_CONFIG } from '../../constants/transaction'
 import {
   createQuarterRangePreset,
   createRangePeriodPreset,
@@ -12,9 +11,11 @@ import {
   formatRangeValue,
 } from '../../utils/timePicker'
 import {
-  colorDanger,
-  colorSuccess,
-  colorInfo,
+  colorIncome,
+  colorExpense,
+  colorTransfer,
+  colorWarning,
+  colorInvestment,
   spaceSm,
   spaceMd,
 } from '../../styles/tokens'
@@ -150,7 +151,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
 
     return [
       {
-        title: <Tag color={colorDanger}>支出</Tag>,
+        title: <Tag style={{ color: colorExpense, borderColor: colorExpense, backgroundColor: 'transparent' }}>支出</Tag>,
         value: 'expense_group',
         key: 'expense_group',
         selectable: false,
@@ -158,7 +159,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'expense'),
       },
       {
-        title: <Tag color={colorSuccess}>收入</Tag>,
+        title: <Tag style={{ color: colorIncome, borderColor: colorIncome, backgroundColor: 'transparent' }}>收入</Tag>,
         value: 'income_group',
         key: 'income_group',
         selectable: false,
@@ -166,7 +167,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'income'),
       },
       {
-        title: <Tag color={colorInfo}>转账</Tag>,
+        title: <Tag style={{ color: colorTransfer, borderColor: colorTransfer, backgroundColor: 'transparent' }}>转账</Tag>,
         value: 'transfer_group',
         key: 'transfer_group',
         selectable: false,
@@ -175,6 +176,14 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
       },
     ]
   }, [categories])
+
+  const TRANSACTION_TYPE_CONFIG = {
+income: { color: colorIncome, text: '收入' },
+  expense: { color: colorExpense, text: '支出' },
+  transfer: { color: colorTransfer, text: '转账' },
+    refund: { color: colorWarning, text: '退款' },
+    adjustment: { color: colorInvestment, text: '平账' },
+  } as const
 
   // 移除单个筛选条件
   const removeFilter = (key: keyof TransactionFilterValues, value?: string) => {
@@ -195,16 +204,19 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   // 渲染已选筛选条件标签
   const renderFilterTags = () => (
     <Space wrap>
-      {filters.type.map(t => (
-        <Tag 
-          key={t} 
-          closable 
-          onClose={() => removeFilter('type', t)}
-          color={TRANSACTION_TYPE_CONFIG[t]?.color || 'default'}
-        >
-          {TRANSACTION_TYPE_CONFIG[t]?.text || t}
-        </Tag>
-      ))}
+      {filters.type.map(t => {
+        const config = TRANSACTION_TYPE_CONFIG[t as keyof typeof TRANSACTION_TYPE_CONFIG]
+        return (
+          <Tag 
+            key={t} 
+            closable 
+            onClose={() => removeFilter('type', t)}
+            style={{ color: config?.color, borderColor: config?.color, backgroundColor: 'transparent' }}
+          >
+            {config?.text || t}
+          </Tag>
+        )
+      })}
       {filters.accountId.map(id => {
         const label = resolveAccountLabel(id, accounts, accountCategories)
         return label ? (
@@ -268,9 +280,9 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                       onChange={type => onFilterChange({ ...filters, type })}
                       tagRender={(props) => {
                         const { value, closable, onClose } = props
-                        const config = TRANSACTION_TYPE_CONFIG[value]
+                        const config = TRANSACTION_TYPE_CONFIG[value as keyof typeof TRANSACTION_TYPE_CONFIG]
                         return (
-                          <Tag closable={closable} onClose={onClose} color={config?.color || 'default'}>
+                          <Tag closable={closable} onClose={onClose} style={{ color: config?.color, borderColor: config?.color, backgroundColor: 'transparent' }}>
                             {config?.text || value}
                           </Tag>
                         )
@@ -278,7 +290,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                     >
                       {Object.entries(TRANSACTION_TYPE_CONFIG).map(([value, { color, text }]) => (
                         <Select.Option key={value} value={value}>
-                          <Tag color={color}>{text}</Tag>
+                          <Tag style={{ color, borderColor: color, backgroundColor: 'transparent' }}>{text}</Tag>
                         </Select.Option>
                       ))}
                     </Select>
