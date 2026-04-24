@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty, Button } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
+import { getTokenValue } from '../../styles/utils'
 
 export interface PieChartDataItem {
   name: string
@@ -65,7 +66,11 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
   }
 
   const option = {
-    title: { text: currentTitle, left: 'center', textStyle: { fontSize: 14 } },
+    title: {
+      text: currentTitle,
+      left: 'center',
+      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text') },
+    },
     tooltip: {
       trigger: 'item',
       formatter: (params: any) => {
@@ -77,7 +82,12 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
         return `${params.name}: ¥${value} (${percent}%)${drillDownHint}`
       }
     },
-    legend: { orient: 'vertical', left: 'left', top: 'middle' },
+    legend: {
+      orient: 'vertical',
+      left: 'left',
+      top: 'middle',
+      textStyle: { color: getTokenValue('--mb-color-neutral') },
+    },
     series: [{
       type: 'pie',
       radius: ['40%', '70%'],
@@ -106,7 +116,13 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
           size="small"
           icon={<ArrowLeftOutlined />}
           onClick={handleBack}
-          style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 10,
+            color: getTokenValue('--mb-color-text'),
+          }}
         >
           返回
         </Button>

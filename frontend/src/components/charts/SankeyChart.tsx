@@ -109,7 +109,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
     title: { 
       text: title, 
       left: 'center', 
-      textStyle: { fontSize: 14 } 
+      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text') } 
     },
     tooltip: { 
       trigger: 'item', 
@@ -140,6 +140,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       },
       label: {
         position: 'right',
+        color: getTokenValue('--mb-color-text'),
         formatter: (params: any) => getDisplayName(params.name)
       },
     }],

@@ -17,23 +17,23 @@ const { Sider, Header, Content } = Layout
 const pageMeta: Record<string, { title: string; description: string }> = {
   '/dashboard': {
     title: '财务总览',
-    description: '聚焦净资产、现金流和近期资金变化，先看到最关键的数字。',
+    description: '净资产、收支与近期变化。',
   },
   '/transactions': {
     title: '交易记录',
-    description: '把录入、筛选、复盘放在一个工作台里，日常记账更顺手。',
+    description: '录入、筛选与修正。',
   },
   '/reports': {
     title: '财务报表',
-    description: '围绕资产、收支和现金流建立统一的分析视图。',
+    description: '资产、收支、现金流与投资。',
   },
   '/budgets': {
     title: '预算管理',
-    description: '预算模块后续会重做，本轮先保持可访问。',
+    description: '预算模块待重做。',
   },
   '/settings': {
     title: '设置与数据',
-    description: '管理主题、备份、导入导出和高风险操作。',
+    description: '主题、备份与高风险操作。',
   },
 }
 
@@ -60,7 +60,7 @@ const MainLayout: React.FC = () => {
           <div className="app-shell__brand-copy">
             <h1 className="app-shell__brand-title">MoneyBrain</h1>
             <p className="app-shell__brand-subtitle">
-              Personal finance cockpit for accounts, cash flow and reports.
+              Accounts, cash flow, reports.
             </p>
           </div>
           <Tag className="status-chip" bordered={false}>

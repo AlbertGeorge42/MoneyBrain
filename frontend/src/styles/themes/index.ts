@@ -52,6 +52,18 @@ export function initTheme(mode = getStoredThemeMode()): Theme {
   return setThemeMode(mode)
 }
 
+export function setTheme(theme: Theme): Theme {
+  localStorage.setItem(THEME_MODE_STORAGE_KEY, theme)
+  localStorage.setItem(LEGACY_THEME_STORAGE_KEY, theme)
+  return applyTheme(theme)
+}
+
+export function toggleTheme(): Theme {
+  const currentTheme = getCurrentTheme()
+  const nextTheme: Theme = currentTheme === 'light' ? 'dark' : 'light'
+  return setTheme(nextTheme)
+}
+
 export function listenSystemThemeChange(callback: (theme: Theme) => void): () => void {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   const handler = (event: MediaQueryListEvent) => {

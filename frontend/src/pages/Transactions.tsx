@@ -1,34 +1,36 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Card, message } from 'antd'
-import { ArrowDownOutlined, ArrowUpOutlined, RollbackOutlined, SwapOutlined } from '@ant-design/icons'
-import { PageHeader } from '../components/common'
-import {
-  RefundFormValues,
+import { Button, Space, Card, message } from 'antd'
+import { ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } from '@ant-design/icons'
+import { useStore } from '../stores'
+import { Transaction, transactionApi } from '../services/api'
+import { toDateRangeParams } from '../utils/timePicker'
+import { 
+  TransactionModal, 
+  TransferModal, 
   RefundModal,
   TransactionFilter,
-  TransactionFilterValues,
-  TransactionFormValues,
-  TransactionModal,
   TransactionStats,
   TransactionTable,
+  TransactionFormValues,
   TransferFormValues,
-  TransferModal,
+  RefundFormValues,
+  TransactionFilterValues,
 } from '../components/transactions'
-import { Transaction, transactionApi } from '../services/api'
-import { useStore } from '../stores'
-import { colorWarning } from '../styles/tokens'
-import { toDateRangeParams } from '../utils/timePicker'
+import {
+  colorWarning,
+  spaceMd,
+} from '../styles/tokens'
 
 const Transactions: React.FC = () => {
-  const {
-    transactions,
-    accounts,
+  const { 
+    transactions, 
+    accounts, 
     transactionCategories,
     accountCategories,
-    loading,
+    loading, 
     pagination,
     stats,
-    fetchTransactions,
+    fetchTransactions, 
     fetchAccounts,
     fetchTransactionCategories,
     fetchAccountCategories,
@@ -60,13 +62,7 @@ const Transactions: React.FC = () => {
     fetchTransactionCategories()
     fetchAccountCategories()
     fetchTransactionStats()
-  }, [
-    fetchAccountCategories,
-    fetchAccounts,
-    fetchTransactionCategories,
-    fetchTransactionStats,
-    fetchTransactions,
-  ])
+  }, [])
 
   const handleAdd = (type?: 'income' | 'expense') => {
     setEditingTransaction(null)
@@ -84,28 +80,24 @@ const Transactions: React.FC = () => {
     try {
       const res = await transactionApi.getRefundableList()
       setRefundableTransactions(res.data.data || [])
-      setRefundModalVisible(true)
     } catch (error) {
       message.error('获取可退款交易列表失败')
     }
+    setRefundModalVisible(true)
   }
 
   const handleEdit = (record: Transaction) => {
     setEditingTransaction(record)
     if (record.type === 'transfer') {
       setTransferModalVisible(true)
-      return
-    }
-
-    if (record.type === 'refund') {
-      void transactionApi.getRefundableList().then((res) => {
+    } else if (record.type === 'refund') {
+      transactionApi.getRefundableList().then(res => {
         setRefundableTransactions(res.data.data || [])
         setRefundModalVisible(true)
       })
-      return
+    } else {
+      setModalVisible(true)
     }
-
-    setModalVisible(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -118,27 +110,25 @@ const Transactions: React.FC = () => {
   }
 
   const handleTransactionSubmit = async (values: TransactionFormValues) => {
-    const payload = {
+    const data = {
       ...values,
       fee: values.fee || 0,
       coupon: values.coupon || 0,
       date: values.date.format('YYYY-MM-DD'),
     }
-
     if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, payload)
+      await updateTransaction(editingTransaction.id, data)
       message.success('更新成功')
     } else {
-      await addTransaction(payload)
+      await addTransaction(data)
       message.success('创建成功')
     }
-
     setModalVisible(false)
   }
 
   const handleTransferSubmit = async (values: TransferFormValues) => {
-    const payload = {
-      type: 'transfer' as const,
+    const data = {
+      type: 'transfer',
       amount: values.amount,
       fee: values.fee || 0,
       coupon: values.coupon || 0,
@@ -148,21 +138,19 @@ const Transactions: React.FC = () => {
       categoryId: values.categoryId,
       note: values.note,
     }
-
     if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, payload)
+      await updateTransaction(editingTransaction.id, data)
       message.success('更新成功')
     } else {
-      await addTransaction(payload)
+      await addTransaction(data)
       message.success('转账成功')
     }
-
     setTransferModalVisible(false)
   }
 
   const handleRefundSubmit = async (values: RefundFormValues) => {
-    const payload = {
-      type: 'refund' as const,
+    const data = {
+      type: 'refund',
       amount: values.amount,
       fee: values.fee || 0,
       coupon: values.coupon || 0,
@@ -171,15 +159,13 @@ const Transactions: React.FC = () => {
       relatedTransactionId: values.relatedTransactionId,
       note: values.note,
     }
-
     if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, payload)
+      await updateTransaction(editingTransaction.id, data)
       message.success('更新成功')
     } else {
-      await addTransaction(payload)
-      message.success('退款记录已创建')
+      await addTransaction(data)
+      message.success('退款记录成功')
     }
-
     setRefundModalVisible(false)
   }
 
@@ -188,8 +174,9 @@ const Transactions: React.FC = () => {
     if (filters.type.length > 0) params.type = filters.type
     if (filters.accountId.length > 0) params.accountId = filters.accountId
     if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
-    if (filters.dateRange) Object.assign(params, toDateRangeParams(filters.dateRange))
-
+    if (filters.dateRange) {
+      Object.assign(params, toDateRangeParams(filters.dateRange))
+    }
     params.page = 1
     params.pageSize = pageSize
     fetchTransactions(params)
@@ -209,44 +196,40 @@ const Transactions: React.FC = () => {
     setCurrentPage(1)
   }
 
-  const handlePageChange = (nextPage: number, nextPageSize: number) => {
-    setCurrentPage(nextPage)
-    setPageSize(nextPageSize)
-
-    const params: Record<string, unknown> = { page: nextPage, pageSize: nextPageSize }
+  const handlePageChange = (newPage: number, newPageSize: number) => {
+    setCurrentPage(newPage)
+    setPageSize(newPageSize)
+    const params: Record<string, unknown> = { page: newPage, pageSize: newPageSize }
     if (filters.type.length > 0) params.type = filters.type
     if (filters.accountId.length > 0) params.accountId = filters.accountId
     if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
-    if (filters.dateRange) Object.assign(params, toDateRangeParams(filters.dateRange))
-
+    if (filters.dateRange) {
+      Object.assign(params, toDateRangeParams(filters.dateRange))
+    }
     fetchTransactions(params)
   }
 
   return (
-    <>
-      <PageHeader
-        eyebrow="Ledger"
-        title="交易记录"
-        description="把日常记账、筛选复盘和交易修正放在同一个工作台里。"
-        actions={
-          <div className="action-cluster">
-            <Button type="primary" icon={<ArrowUpOutlined />} onClick={() => handleAdd('income')}>
-              记收入
-            </Button>
-            <Button danger icon={<ArrowDownOutlined />} onClick={() => handleAdd('expense')}>
-              记支出
-            </Button>
-            <Button icon={<SwapOutlined />} onClick={handleTransfer}>
-              记转账
-            </Button>
-            <Button icon={<RollbackOutlined />} onClick={handleRefund} style={{ borderColor: colorWarning, color: colorWarning }}>
-              记退款
-            </Button>
-          </div>
-        }
-      />
+    <div>
+      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0 }}>交易记录</h2>
+        <Space>
+          <Button type="primary" icon={<ArrowUpOutlined />} onClick={() => handleAdd('income')}>
+            记收入
+          </Button>
+          <Button danger icon={<ArrowDownOutlined />} onClick={() => handleAdd('expense')}>
+            记支出
+          </Button>
+          <Button icon={<SwapOutlined />} onClick={handleTransfer}>
+            记转账
+          </Button>
+          <Button style={{ borderColor: colorWarning, color: colorWarning }} icon={<RollbackOutlined />} onClick={handleRefund}>
+            记退款
+          </Button>
+        </Space>
+      </div>
 
-      <Card className="surface-card">
+      <Card style={{ marginBottom: spaceMd }}>
         <TransactionFilter
           accounts={accounts}
           categories={transactionCategories}
@@ -268,26 +251,20 @@ const Transactions: React.FC = () => {
         transferCount={stats.transferCount}
       />
 
-      <Card className="surface-card">
-        <TransactionTable
-          transactions={transactions}
-          loading={loading}
-          currentPage={currentPage}
-          pageSize={pageSize}
-          total={pagination.total}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onPageChange={handlePageChange}
-        />
-      </Card>
+      <TransactionTable
+        transactions={transactions}
+        loading={loading}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        total={pagination.total}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onPageChange={handlePageChange}
+      />
 
       <TransactionModal
         visible={modalVisible}
-        editingTransaction={
-          editingTransaction && editingTransaction.type !== 'transfer' && editingTransaction.type !== 'refund'
-            ? editingTransaction
-            : null
-        }
+        editingTransaction={editingTransaction && editingTransaction.type !== 'transfer' && editingTransaction.type !== 'refund' ? editingTransaction : null}
         accounts={accounts}
         categories={transactionCategories}
         initialType={initialType}
@@ -312,7 +289,7 @@ const Transactions: React.FC = () => {
         onOk={handleRefundSubmit}
         onCancel={() => setRefundModalVisible(false)}
       />
-    </>
+    </div>
   )
 }
 

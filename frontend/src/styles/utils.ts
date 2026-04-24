@@ -4,17 +4,18 @@
  */
 
 import {
-  applyTheme,
+  initTheme,
+  toggleTheme,
+  setTheme,
+  setThemeMode,
   getCurrentTheme,
   getStoredThemeMode,
-  initTheme,
   listenSystemThemeChange,
-  setThemeMode,
   type Theme,
   type ThemeMode,
 } from './themes'
 
-export { applyTheme, getCurrentTheme, getStoredThemeMode, initTheme, listenSystemThemeChange, setThemeMode }
+export { initTheme, toggleTheme, setTheme, setThemeMode, getCurrentTheme, getStoredThemeMode, listenSystemThemeChange }
 export type { Theme, ThemeMode }
 
 /**

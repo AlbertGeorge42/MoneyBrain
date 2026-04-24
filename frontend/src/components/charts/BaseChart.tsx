@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
 import { currencyTooltipFormatter, currencyAxisFormatter } from '../../utils/format'
 import { useTheme } from '../../styles/ThemeContext'
+import { getTokenValue } from '../../styles/utils'
 
 export interface BaseChartProps {
   title: string
@@ -23,17 +24,30 @@ const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, hei
   const hasValidData = validXAxisData.length > 0 && validSeriesData.some(s => s.data && s.data.some(d => d != null && d !== 0))
 
   const option = {
-    title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
+    title: {
+      text: title,
+      left: 'center',
+      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text') },
+    },
     tooltip: {
       trigger: 'axis' as const,
       ...(chartType === 'bar' ? { axisPointer: { type: 'shadow' as const } } : {}),
       formatter: currencyTooltipFormatter,
     },
-    legend: { top: 'bottom' },
-    xAxis: { type: 'category' as const, data: validXAxisData },
+    legend: {
+      top: 'bottom',
+      textStyle: { color: getTokenValue('--mb-color-neutral') },
+    },
+    xAxis: {
+      type: 'category' as const,
+      data: validXAxisData,
+      axisLine: { lineStyle: { color: getTokenValue('--mb-color-border') } },
+      axisLabel: { color: getTokenValue('--mb-color-neutral') },
+    },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { formatter: currencyAxisFormatter }
+      axisLabel: { formatter: currencyAxisFormatter, color: getTokenValue('--mb-color-neutral') },
+      splitLine: { lineStyle: { color: getTokenValue('--mb-color-border') } },
     },
     series: validSeriesData.map(s => ({
       name: s.name,

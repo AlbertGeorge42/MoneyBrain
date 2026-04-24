@@ -122,7 +122,7 @@ const Dashboard: React.FC = () => {
       <PageHeader
         eyebrow="Overview"
         title="财务总览"
-        description="先看净资产、本月收支和近期交易，再下钻到图表里定位波动来源。"
+        description="先看净资产、本月收支和近期变动。"
       />
 
       <div className="kpi-grid">
@@ -131,7 +131,6 @@ const Dashboard: React.FC = () => {
           <div className="metric-card__value" style={{ color: totalAssets >= 0 ? colorPositive : colorNegative }}>
             ¥{totalAssets.toFixed(2)}
           </div>
-          <div className="metric-card__hint">所有资产账户余额之和</div>
         </Card>
 
         <Card className="surface-card metric-card">
@@ -139,7 +138,6 @@ const Dashboard: React.FC = () => {
           <div className="metric-card__value" style={{ color: totalLiabilities <= 0 ? colorNegative : colorPositive }}>
             ¥{Math.abs(totalLiabilities).toFixed(2)}
           </div>
-          <div className="metric-card__hint">负债以绝对值展示，更便于快速判断压力</div>
         </Card>
 
         <Card className="surface-card metric-card">
@@ -147,7 +145,6 @@ const Dashboard: React.FC = () => {
           <div className="metric-card__value" style={{ color: colorInfo }}>
             ¥{netWorth.toFixed(2)}
           </div>
-          <div className="metric-card__hint">资产减去负债后的整体状态</div>
         </Card>
 
         <Card className="surface-card metric-card">
@@ -155,7 +152,6 @@ const Dashboard: React.FC = () => {
           <div className="metric-card__value" style={{ color: thisMonthBalance >= 0 ? colorPositive : colorNegative }}>
             ¥{thisMonthBalance.toFixed(2)}
           </div>
-          <div className="metric-card__hint">按自然月统计收入减支出</div>
         </Card>
       </div>
 

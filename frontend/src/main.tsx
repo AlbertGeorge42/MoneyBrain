@@ -11,7 +11,8 @@ import { getAntdTheme } from './styles/antd-theme'
  * 内部组件，用于获取主题状态并配置 Ant Design
  */
 const ThemedApp: React.FC = () => {
-  const { isDark } = useTheme()
+  const { theme: currentTheme } = useTheme()
+  const isDark = currentTheme === 'dark'
 
   return (
     <ConfigProvider

@@ -21,7 +21,6 @@ import {
   colorPrimary,
   colorSuccess,
   colorWarning,
-  fontSizeXs,
   fontWeightBold,
   radiusMd,
   spaceSm,
@@ -205,12 +204,11 @@ const Settings: React.FC = () => {
       <PageHeader
         eyebrow="Settings"
         title="设置与数据"
-        description="把主题、数据迁移和高风险操作集中管理，避免分散在各个页面。"
+        description="管理主题、备份和高风险操作。"
       />
 
       <Card className="surface-card" title="外观主题">
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <p style={{ color: colorNeutral, margin: 0 }}>主题模式由全局统一管理，切换后会立即影响整站配色。</p>
           <Radio.Group value={mode} onChange={(event) => setThemeMode(event.target.value)}>
             <Space wrap>
               <Radio.Button value="light">
@@ -234,7 +232,6 @@ const Settings: React.FC = () => {
         <div className="section-grid">
           <div>
             <h3>导出 CSV</h3>
-            <p style={{ color: colorNeutral }}>导出交易记录用于备份或迁移，不选时间范围时导出全部数据。</p>
             <Space wrap>
               <RangeTimePickerField
                 value={exportDateRange}
@@ -250,7 +247,6 @@ const Settings: React.FC = () => {
 
           <div>
             <h3>导入 CSV</h3>
-            <p style={{ color: colorNeutral }}>支持导入现有 CSV 数据，系统会尽量复用已有账户和分类。</p>
             <Space wrap>
               <RangeTimePickerField
                 value={importDateRange}
@@ -263,9 +259,6 @@ const Settings: React.FC = () => {
                 导入 CSV
               </Button>
             </Space>
-            <p style={{ color: colorMuted, fontSize: fontSizeXs, marginTop: spaceSm }}>
-              超出时间范围、格式错误或缺少关键字段的数据会被自动跳过。
-            </p>
             {importProgress ? (
               <div
                 style={{
@@ -288,7 +281,6 @@ const Settings: React.FC = () => {
         <div className="section-grid">
           <div>
             <h3 style={{ color: colorWarning }}>清空交易数据</h3>
-            <p style={{ color: colorNeutral }}>只删除交易和预算，保留账户与分类，适合重置账本但保留基础结构。</p>
             <Button ghost icon={<DeleteOutlined />} onClick={showClearTransactionsConfirm} style={{ borderColor: colorWarning, color: colorWarning }}>
               清空交易数据
             </Button>
@@ -296,7 +288,6 @@ const Settings: React.FC = () => {
 
           <div>
             <h3 style={{ color: colorDanger }}>清空全部数据</h3>
-            <p style={{ color: colorNeutral }}>删除所有财务数据与配置。这个操作不可撤销，只适合完全重置工作区。</p>
             <Button danger icon={<DeleteOutlined />} onClick={showClearConfirm}>
               清空全部数据
             </Button>

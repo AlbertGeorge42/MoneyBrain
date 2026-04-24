@@ -1,20 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { Card, Tabs, Modal, InputNumber, message, Space } from 'antd'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Card, InputNumber, Modal, Space, Tabs, message } from 'antd'
 import dayjs from 'dayjs'
-import {
-  reportApi,
-  accountApi,
-  transactionApi,
-  type BalanceSheetAccountItem,
-  type BalanceSheetReportData,
-  type CashFlowReportData,
-  type IncomeExpenseReportData,
-  type InvestmentAnalysisReportData,
-} from '../services/api'
-import { useStore } from '../stores'
-import { AccountConfigModal, TransactionConfigModal, CashFlowConfigModal } from '../components/settings'
+import { PageHeader } from '../components/common'
+import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
 import DynamicIcon from '../components/common/DynamicIcon'
-import { BalanceSheet, IncomeExpenseReport, CashFlowReport, InvestmentAnalysis } from '../components/reports'
+import { BalanceSheet, CashFlowReport, IncomeExpenseReport, InvestmentAnalysis } from '../components/reports'
 import type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue } from '../components/common'
 import {
   createPointPeriodPreset,
@@ -23,23 +13,30 @@ import {
   createRangePeriodPreset,
   createTrailingRangePreset,
   createYearToDatePreset,
-  toDateRangeParams,
   toDateParam,
+  toDateRangeParams,
 } from '../utils/timePicker'
 import {
-  colorNeutral,
-  colorMuted,
-  spaceMd,
-} from '../styles/tokens'
+  accountApi,
+  reportApi,
+  transactionApi,
+  type BalanceSheetAccountItem,
+  type BalanceSheetReportData,
+  type CashFlowReportData,
+  type IncomeExpenseReportData,
+  type InvestmentAnalysisReportData,
+} from '../services/api'
+import { useStore } from '../stores'
+import { colorMuted, colorNeutral } from '../styles/tokens'
 
 const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'maxDate'> = {
-  label: '时点选择',
+  label: '时点',
   allowedGranularities: ['day', 'month', 'year'],
   presets: {
     day: [
       createPointPeriodPreset('today', '今天', 'day'),
       createPointPeriodPreset('yesterday', '昨天', 'day', -1),
-      createPointPeriodPreset('month-start', '本月初', 'month'),
+      createPointPeriodPreset('month-start', '月初', 'month'),
     ],
     month: [
       createPointPeriodPreset('current-month', '本月', 'month'),
@@ -56,14 +53,14 @@ const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'max
 }
 
 const baseIncomeExpensePickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDate'> = {
-  label: '财务周期',
+  label: '周期',
   allowedGranularities: ['day', 'month', 'year'],
   presets: {
     day: [
       createRangePeriodPreset('today', '今天', 'day'),
       createTrailingRangePreset('last-7-days', '近7天', 7, 'day'),
       createTrailingRangePreset('last-30-days', '近30天', 30, 'day'),
-      createYearToDatePreset('year-to-date', '今年至今'),
+      createYearToDatePreset('year-to-date', '年初至今'),
     ],
     month: [
       createRangePeriodPreset('current-month', '本月', 'month'),
@@ -80,14 +77,14 @@ const baseIncomeExpensePickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'ma
 }
 
 const baseCashFlowPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDate'> = {
-  label: '现金周期',
+  label: '周期',
   allowedGranularities: ['day', 'month', 'year'],
   presets: {
     day: [
       createRangePeriodPreset('today', '今天', 'day'),
       createTrailingRangePreset('last-30-days', '近30天', 30, 'day'),
       createTrailingRangePreset('last-90-days', '近90天', 90, 'day'),
-      createYearToDatePreset('year-to-date', '今年至今'),
+      createYearToDatePreset('year-to-date', '年初至今'),
     ],
     month: [
       createRangePeriodPreset('current-month', '本月', 'month'),
@@ -104,14 +101,14 @@ const baseCashFlowPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDate
 }
 
 const baseInvestmentPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDate'> = {
-  label: '投资周期',
+  label: '周期',
   allowedGranularities: ['month', 'year'],
   presets: {
     month: [
       createTrailingRangePreset('last-3-months', '近3个月', 3, 'month'),
       createTrailingRangePreset('last-6-months', '近6个月', 6, 'month'),
-      createTrailingRangePreset('last-12-months', '近1年', 12, 'month'),
-      createTrailingRangePreset('last-36-months', '近3年', 36, 'month'),
+      createTrailingRangePreset('last-12-months', '近12个月', 12, 'month'),
+      createTrailingRangePreset('last-36-months', '近36个月', 36, 'month'),
     ],
     year: [
       createRangePeriodPreset('current-year', '今年', 'year'),
@@ -121,105 +118,112 @@ const baseInvestmentPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDa
   },
 }
 
+type BalanceSheetTreeNode = {
+  key: string
+  name: string
+  balance: number
+  nodeType: 'asset' | 'liability'
+  type: 'category' | 'account'
+  icon?: string
+  children?: BalanceSheetTreeNode[]
+}
+
 const Reports: React.FC = () => {
   const { fetchAccounts } = useStore()
   const [activeTab, setActiveTab] = useState('balance-sheet')
-  
   const [earliestTransactionDate, setEarliestTransactionDate] = useState<string | null>(null)
-  
   const [selectedBalanceTime, setSelectedBalanceTime] = useState<PointTimeValue>(createPointValue('month', dayjs()))
   const [balanceSheetData, setBalanceSheetData] = useState<BalanceSheetReportData | null>(null)
   const [calibrateVisible, setCalibrateVisible] = useState(false)
   const [calibrateData, setCalibrateData] = useState<Record<string, number>>({})
   const [accountCategoryModalVisible, setAccountCategoryModalVisible] = useState(false)
-  
   const [incomeExpenseTimeRange, setIncomeExpenseTimeRange] = useState<RangeTimeValue>(
     createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
   )
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseReportData | null>(null)
   const [transactionCategoryModalVisible, setTransactionCategoryModalVisible] = useState(false)
-  
   const [cashFlowTimeRange, setCashFlowTimeRange] = useState<RangeTimeValue>(
     createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
   )
   const [cashFlowData, setCashFlowData] = useState<CashFlowReportData | null>(null)
   const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
   const [cashFlowLoading, setCashFlowLoading] = useState(false)
-
   const [investmentTimeRange, setInvestmentTimeRange] = useState<RangeTimeValue>(
-    createTrailingRangePreset('last-12-months', '近1年', 12, 'month').getValue(dayjs())
+    createTrailingRangePreset('last-12-months', '近12个月', 12, 'month').getValue(dayjs())
   )
   const [investmentData, setInvestmentData] = useState<InvestmentAnalysisReportData | null>(null)
-
-  type BalanceSheetTreeNode = {
-    key: string
-    name: string
-    balance: number
-    nodeType: 'asset' | 'liability'
-    type: 'category' | 'account'
-    icon?: string
-    children?: BalanceSheetTreeNode[]
-  }
 
   useEffect(() => {
     const fetchEarliestDate = async () => {
       try {
-        const res = await transactionApi.getEarliestDate()
-        setEarliestTransactionDate(res.data.data?.date || null)
+        const response = await transactionApi.getEarliestDate()
+        setEarliestTransactionDate(response.data.data?.date || null)
       } catch {
-        // 忽略错误
+        setEarliestTransactionDate(null)
       }
     }
-    fetchEarliestDate()
+
+    void fetchEarliestDate()
   }, [])
 
-  const balanceSheetPickerConfig = useMemo<PointTimePickerConfig>(() => ({
-    ...baseBalanceSheetPickerConfig,
-    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-    maxDate: dayjs(),
-  }), [earliestTransactionDate])
+  const balanceSheetPickerConfig = useMemo<PointTimePickerConfig>(
+    () => ({
+      ...baseBalanceSheetPickerConfig,
+      minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+      maxDate: dayjs(),
+    }),
+    [earliestTransactionDate]
+  )
 
-  const incomeExpensePickerConfig = useMemo<RangeTimePickerConfig>(() => ({
-    ...baseIncomeExpensePickerConfig,
-    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-    maxDate: dayjs(),
-  }), [earliestTransactionDate])
+  const incomeExpensePickerConfig = useMemo<RangeTimePickerConfig>(
+    () => ({
+      ...baseIncomeExpensePickerConfig,
+      minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+      maxDate: dayjs(),
+    }),
+    [earliestTransactionDate]
+  )
 
-  const cashFlowPickerConfig = useMemo<RangeTimePickerConfig>(() => ({
-    ...baseCashFlowPickerConfig,
-    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-    maxDate: dayjs(),
-  }), [earliestTransactionDate])
+  const cashFlowPickerConfig = useMemo<RangeTimePickerConfig>(
+    () => ({
+      ...baseCashFlowPickerConfig,
+      minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+      maxDate: dayjs(),
+    }),
+    [earliestTransactionDate]
+  )
 
-  const investmentPickerConfig = useMemo<RangeTimePickerConfig>(() => ({
-    ...baseInvestmentPickerConfig,
-    minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-    maxDate: dayjs(),
-  }), [earliestTransactionDate])
+  const investmentPickerConfig = useMemo<RangeTimePickerConfig>(
+    () => ({
+      ...baseInvestmentPickerConfig,
+      minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
+      maxDate: dayjs(),
+    }),
+    [earliestTransactionDate]
+  )
 
   useEffect(() => {
     if (activeTab === 'balance-sheet') {
-      fetchBalanceSheet()
+      void fetchBalanceSheet()
     } else if (activeTab === 'income-expense') {
-      fetchIncomeExpense()
+      void fetchIncomeExpense()
     } else if (activeTab === 'cash-flow') {
-      fetchCashFlow()
+      void fetchCashFlow()
     } else if (activeTab === 'investment-analysis') {
-      fetchInvestmentAnalysis()
+      void fetchInvestmentAnalysis()
     }
   }, [activeTab, selectedBalanceTime, incomeExpenseTimeRange, cashFlowTimeRange, investmentTimeRange])
 
   const fetchBalanceSheet = async () => {
     try {
-      const dateStr = toDateParam(selectedBalanceTime)
-      const res = await reportApi.getBalanceSheet(dateStr)
-      setBalanceSheetData(res.data.data ?? null)
-      
-      const initialCalibrate: Record<string, number> = {}
-      res.data.data?.accounts?.forEach((account: BalanceSheetAccountItem) => {
-        initialCalibrate[account.id] = account.balance
+      const response = await reportApi.getBalanceSheet(toDateParam(selectedBalanceTime))
+      setBalanceSheetData(response.data.data ?? null)
+
+      const nextCalibration: Record<string, number> = {}
+      response.data.data?.accounts?.forEach((account: BalanceSheetAccountItem) => {
+        nextCalibration[account.id] = account.balance
       })
-      setCalibrateData(initialCalibrate)
+      setCalibrateData(nextCalibration)
     } catch (error) {
       message.error('获取资产负债表失败')
     }
@@ -228,8 +232,8 @@ const Reports: React.FC = () => {
   const fetchIncomeExpense = async () => {
     try {
       const { startDate, endDate } = toDateRangeParams(incomeExpenseTimeRange)
-      const res = await reportApi.getIncomeExpense(startDate, endDate)
-      setIncomeExpenseData(res.data.data ?? null)
+      const response = await reportApi.getIncomeExpense(startDate, endDate)
+      setIncomeExpenseData(response.data.data ?? null)
     } catch (error) {
       message.error('获取收入支出表失败')
     }
@@ -239,8 +243,8 @@ const Reports: React.FC = () => {
     try {
       setCashFlowLoading(true)
       const { startDate, endDate } = toDateRangeParams(cashFlowTimeRange)
-      const res = await reportApi.getCashFlow(startDate, endDate)
-      setCashFlowData(res.data.data ?? null)
+      const response = await reportApi.getCashFlow(startDate, endDate)
+      setCashFlowData(response.data.data ?? null)
     } catch (error) {
       message.error('获取现金流量表失败')
     } finally {
@@ -251,8 +255,8 @@ const Reports: React.FC = () => {
   const fetchInvestmentAnalysis = async () => {
     try {
       const { startDate, endDate } = toDateRangeParams(investmentTimeRange)
-      const res = await reportApi.getInvestmentAnalysis(startDate, endDate)
-      setInvestmentData(res.data.data ?? null)
+      const response = await reportApi.getInvestmentAnalysis(startDate, endDate)
+      setInvestmentData(response.data.data ?? null)
     } catch (error) {
       message.error('获取投资分析表失败')
     }
@@ -260,32 +264,29 @@ const Reports: React.FC = () => {
 
   const handleSaveCalibration = async () => {
     try {
-      const adjustments = balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => {
-        const targetBalance = calibrateData[account.id] || 0
-        const currentBalance = account.balance || 0
-        return {
-          accountId: account.id,
-          amount: targetBalance - currentBalance,
-        }
-      }).filter((adjustment) => adjustment.amount !== 0) || []
+      const adjustments =
+        balanceSheetData?.accounts
+          ?.map((account: BalanceSheetAccountItem) => ({
+            accountId: account.id,
+            amount: (calibrateData[account.id] || 0) - (account.balance || 0),
+          }))
+          .filter((item) => item.amount !== 0) || []
 
       if (adjustments.length === 0) {
-        message.info('没有需要调整的账户')
+        message.info('没有需要校准的账户')
         setCalibrateVisible(false)
         return
       }
 
-      const res = await accountApi.batchAdjust({
+      const response = await accountApi.batchAdjust({
         adjustments,
         date: selectedBalanceTime.value.startOf('month').subtract(1, 'day').format('YYYY-MM-DD'),
-        note: `资产负债表校准 - ${selectedBalanceTime.value.format('YYYY年MM月')}`,
+        note: `报表校准 ${selectedBalanceTime.value.format('YYYY-MM')}`,
       })
-      
-      const count = res.data.data?.count || 0
-      message.success(`校准成功，已生成 ${count} 条平账记录`)
-      
+
+      message.success(`已生成 ${response.data.data?.count || 0} 条平账记录`)
       setCalibrateVisible(false)
-      fetchBalanceSheet()
+      void fetchBalanceSheet()
       fetchAccounts()
     } catch (error) {
       message.error('保存失败')
@@ -293,50 +294,50 @@ const Reports: React.FC = () => {
   }
 
   const buildBalanceSheetTreeData = useMemo(() => {
-    if (!balanceSheetData?.accounts) return { assetNodes: [], liabilityNodes: [] }
-
-    const accounts = balanceSheetData.accounts
+    if (!balanceSheetData?.accounts) {
+      return { assetNodes: [], liabilityNodes: [] }
+    }
 
     const groupedByCategory: Record<string, BalanceSheetAccountItem[]> = {}
     const categorySortMap: Record<string, number> = {}
 
-    accounts.forEach((account) => {
-      const cat = account.category || '未分类'
-      if (!groupedByCategory[cat]) {
-        groupedByCategory[cat] = []
-        categorySortMap[cat] = account.categorySort ?? 0
+    balanceSheetData.accounts.forEach((account) => {
+      const category = account.category || '未分类'
+      if (!groupedByCategory[category]) {
+        groupedByCategory[category] = []
+        categorySortMap[category] = account.categorySort ?? 0
       }
-      groupedByCategory[cat].push(account)
+      groupedByCategory[category].push(account)
     })
 
-    const buildTree = (type: 'asset' | 'liability') => {
-      const typeCategories = Object.keys(groupedByCategory)
-        .filter(cat => groupedByCategory[cat]?.some(account => account.type === type))
-        .sort((a, b) => categorySortMap[a] - categorySortMap[b])
-
-      return typeCategories.map((cat): BalanceSheetTreeNode => {
-        const catAccounts = groupedByCategory[cat] || []
-        const typeCatAccounts = catAccounts.filter(account => account.type === type)
-        const total = typeCatAccounts.reduce((sum, account) => sum + account.balance, 0)
-
-        return {
-          key: `category-${cat}-${type}`,
-          name: cat,
-          balance: total,
-          nodeType: type,
-          type: 'category' as const,
-          icon: typeCatAccounts[0]?.categoryIcon || undefined,
-          children: typeCatAccounts.map((account): BalanceSheetTreeNode => ({
-            key: `account-${account.id}`,
-            name: account.name,
-            balance: account.balance,
+    const buildTree = (type: 'asset' | 'liability') =>
+      Object.keys(groupedByCategory)
+        .filter((category) => groupedByCategory[category]?.some((account) => account.type === type))
+        .sort((left, right) => categorySortMap[left] - categorySortMap[right])
+        .map(
+          (category): BalanceSheetTreeNode => ({
+            key: `category-${category}-${type}`,
+            name: category,
+            balance: groupedByCategory[category]
+              .filter((account) => account.type === type)
+              .reduce((sum, account) => sum + account.balance, 0),
             nodeType: type,
-            type: 'account' as const,
-            icon: account.icon || undefined,
-          })),
-        }
-      })
-    }
+            type: 'category',
+            icon: groupedByCategory[category][0]?.categoryIcon || undefined,
+            children: groupedByCategory[category]
+              .filter((account) => account.type === type)
+              .map(
+                (account): BalanceSheetTreeNode => ({
+                  key: `account-${account.id}`,
+                  name: account.name,
+                  balance: account.balance,
+                  nodeType: type,
+                  type: 'account',
+                  icon: account.icon || undefined,
+                })
+              ),
+          })
+        )
 
     return {
       assetNodes: buildTree('asset'),
@@ -345,9 +346,9 @@ const Reports: React.FC = () => {
   }, [balanceSheetData])
 
   const tabItems = [
-    { 
-      key: 'balance-sheet', 
-      label: '资产负债表', 
+    {
+      key: 'balance-sheet',
+      label: '资产负债表',
       children: (
         <BalanceSheet
           selectedTime={selectedBalanceTime}
@@ -358,11 +359,11 @@ const Reports: React.FC = () => {
           onOpenSettings={() => setAccountCategoryModalVisible(true)}
           onOpenCalibrate={() => setCalibrateVisible(true)}
         />
-      )
+      ),
     },
-    { 
-      key: 'income-expense', 
-      label: '收入支出表', 
+    {
+      key: 'income-expense',
+      label: '收入支出表',
       children: (
         <IncomeExpenseReport
           timeRange={incomeExpenseTimeRange}
@@ -371,11 +372,11 @@ const Reports: React.FC = () => {
           onTimeRangeChange={setIncomeExpenseTimeRange}
           onOpenSettings={() => setTransactionCategoryModalVisible(true)}
         />
-      )
+      ),
     },
-    { 
-      key: 'cash-flow', 
-      label: '现金流量表', 
+    {
+      key: 'cash-flow',
+      label: '现金流量表',
       children: (
         <CashFlowReport
           timeRange={cashFlowTimeRange}
@@ -385,11 +386,11 @@ const Reports: React.FC = () => {
           onTimeRangeChange={setCashFlowTimeRange}
           onOpenSettings={() => setCashFlowConfigModalVisible(true)}
         />
-      )
+      ),
     },
-    { 
-      key: 'investment-analysis', 
-      label: '投资分析表', 
+    {
+      key: 'investment-analysis',
+      label: '投资分析表',
       children: (
         <InvestmentAnalysis
           timeRange={investmentTimeRange}
@@ -398,14 +399,15 @@ const Reports: React.FC = () => {
           onTimeRangeChange={setInvestmentTimeRange}
           onOpenSettings={() => setAccountCategoryModalVisible(true)}
         />
-      )
+      ),
     },
   ]
 
   return (
-    <div>
-      <h2 style={{ marginBottom: spaceMd }}>财务报表</h2>
-      <Card>
+    <>
+      <PageHeader eyebrow="Reports" title="财务报表" description="集中查看资产、收支、现金流和投资表现。" />
+
+      <Card className="surface-card">
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
       </Card>
 
@@ -413,8 +415,8 @@ const Reports: React.FC = () => {
         visible={accountCategoryModalVisible}
         onClose={() => {
           setAccountCategoryModalVisible(false)
-          fetchBalanceSheet()
-          fetchIncomeExpense()
+          void fetchBalanceSheet()
+          void fetchIncomeExpense()
         }}
       />
 
@@ -429,31 +431,30 @@ const Reports: React.FC = () => {
       />
 
       <Modal
-        title={`调整账户余额 - ${selectedBalanceTime.value.format('YYYY年MM月')}`}
+        title={`校准余额 ${selectedBalanceTime.value.format('YYYY-MM')}`}
         open={calibrateVisible}
         onOk={handleSaveCalibration}
         onCancel={() => setCalibrateVisible(false)}
-        okText="保存并生成平账记录"
+        okText="保存"
         cancelText="取消"
         width={700}
       >
-        <p style={{ color: colorNeutral, marginBottom: spaceMd }}>
-          输入账户的实际余额，系统将自动创建平账交易来调整差额。
-        </p>
+        <p style={{ color: colorNeutral, marginBottom: 16 }}>输入实际余额。</p>
         {balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => (
-          <div key={account.id} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ width: 150 }}>
+          <div
+            key={account.id}
+            style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <span style={{ width: 160 }}>
               <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
             </span>
             <Space>
-              <span style={{ color: colorMuted, fontSize: 12 }}>
-                当前余额: ¥{account.balance?.toFixed(2) || '0.00'}
-              </span>
+              <span style={{ color: colorMuted, fontSize: 12 }}>当前 ¥{account.balance?.toFixed(2) || '0.00'}</span>
               <InputNumber
                 value={calibrateData[account.id]}
                 onChange={(value) => setCalibrateData({ ...calibrateData, [account.id]: value || 0 })}
                 precision={2}
-                style={{ width: 150 }}
+                style={{ width: 160 }}
                 prefix="¥"
                 placeholder="实际余额"
               />
@@ -461,7 +462,7 @@ const Reports: React.FC = () => {
           </div>
         ))}
       </Modal>
-    </div>
+    </>
   )
 }
 

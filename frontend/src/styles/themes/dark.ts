@@ -1,32 +1,44 @@
+/**
+ * 暗色主题值映射
+ * 对应 CSS 变量的实际色值
+ */
+
 export const darkThemeValues = {
-  '--mb-color-success': '#55b56a',
-  '--mb-color-danger': '#f26b5b',
-  '--mb-color-warning': '#f0b24d',
-  '--mb-color-info': '#66a4ff',
-  '--mb-color-primary': '#6ea4ff',
-  '--mb-color-positive': '#55b56a',
-  '--mb-color-negative': '#f26b5b',
-  '--mb-color-investment': '#b18cff',
-  '--mb-color-text': '#f3f7fd',
-  '--mb-color-neutral': '#b4c1d1',
-  '--mb-color-muted': '#8d9aab',
-  '--mb-color-disabled': '#647182',
-  '--mb-color-background': '#07111f',
-  '--mb-color-panel': 'rgba(13, 25, 41, 0.88)',
-  '--mb-color-surface': '#101d2d',
-  '--mb-color-surface-elevated': '#162538',
-  '--mb-color-surface-muted': '#0f1a2a',
-  '--mb-color-surface-hover': '#1a2c42',
-  '--mb-color-surface-selected': '#1c3860',
-  '--mb-color-border': 'rgba(151, 177, 210, 0.16)',
-  '--mb-color-border-strong': 'rgba(162, 189, 223, 0.3)',
-  '--mb-color-border-input': 'rgba(154, 180, 212, 0.24)',
+  // 语义化颜色
+  '--mb-color-success': '#49aa19',
+  '--mb-color-danger': '#d84a4a',
+  '--mb-color-warning': '#d89614',
+  '--mb-color-info': '#177ddc',
+  '--mb-color-primary': '#177ddc',
+  '--mb-color-positive': '#49aa19',
+  '--mb-color-negative': '#d84a4a',
+  '--mb-color-investment': '#9254de',
+
+  // 文本颜色
+  '--mb-color-text': 'rgba(255, 255, 255, 0.88)',
+  '--mb-color-neutral': '#b3b3b3',
+  '--mb-color-muted': '#8c8c8c',
+  '--mb-color-disabled': 'rgba(255, 255, 255, 0.35)',
+
+  // 背景颜色
+  '--mb-color-background': '#141414',
+  '--mb-color-surface': '#1f1f1f',
+  '--mb-color-surface-hover': '#2c2c2c',
+  '--mb-color-surface-selected': '#111b26',
+
+  // 边框颜色
+  '--mb-color-border': '#424242',
+  '--mb-color-border-input': '#434343',
+
+  // 间距
   '--mb-space-xs': '4px',
   '--mb-space-sm': '8px',
   '--mb-space-md': '16px',
   '--mb-space-lg': '24px',
   '--mb-space-xl': '32px',
   '--mb-space-xxl': '48px',
+
+  // 字体
   '--mb-font-size-xs': '12px',
   '--mb-font-size-sm': '14px',
   '--mb-font-size-md': '16px',
@@ -35,30 +47,38 @@ export const darkThemeValues = {
   '--mb-font-weight-normal': '400',
   '--mb-font-weight-medium': '500',
   '--mb-font-weight-bold': '700',
+
+  // 边框
   '--mb-border-width': '1px',
   '--mb-border-width-thick': '2px',
   '--mb-border-style': 'solid',
-  '--mb-shadow-sm': '0 12px 30px rgba(1, 7, 16, 0.28)',
-  '--mb-shadow-md': '0 20px 56px rgba(1, 7, 16, 0.4)',
-  '--mb-shadow-lg': '0 36px 80px rgba(1, 7, 16, 0.52)',
+
+  // 阴影
+  '--mb-shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.25)',
+  '--mb-shadow-md': '0 2px 8px rgba(0, 0, 0, 0.35)',
+  '--mb-shadow-lg': '0 4px 16px rgba(0, 0, 0, 0.4)',
+
+  // 圆角
   '--mb-radius-sm': '4px',
-  '--mb-radius-md': '10px',
-  '--mb-radius-lg': '16px',
-  '--mb-radius-xl': '22px',
-  '--mb-chart-color-income': '#55b56a',
-  '--mb-chart-color-expense': '#f26b5b',
-  '--mb-chart-color-transfer': '#6ea4ff',
-  '--mb-chart-color-investment': '#b18cff',
-  '--mb-chart-color-refund': '#f0b24d',
-  '--mb-chart-color-cash': '#6ea4ff',
-  '--mb-chart-color-non-cash': '#4ab9af',
-  '--mb-chart-color-operating': '#55b56a',
-  '--mb-chart-color-investing': '#6ea4ff',
-  '--mb-chart-color-financing': '#f0b24d',
-  '--mb-chart-color-primary': '#6ea4ff',
-  '--mb-chart-color-secondary': '#55b56a',
-  '--mb-chart-color-tertiary': '#f0b24d',
-  '--mb-chart-color-quaternary': '#b18cff',
+  '--mb-radius-md': '6px',
+  '--mb-radius-lg': '8px',
+  '--mb-radius-xl': '12px',
+
+  // 图表颜色
+  '--mb-chart-color-income': '#49aa19',
+  '--mb-chart-color-expense': '#d84a4a',
+  '--mb-chart-color-transfer': '#177ddc',
+  '--mb-chart-color-investment': '#9254de',
+  '--mb-chart-color-refund': '#d89614',
+  '--mb-chart-color-cash': '#177ddc',
+  '--mb-chart-color-non-cash': '#36cfc9',
+  '--mb-chart-color-operating': '#49aa19',
+  '--mb-chart-color-investing': '#177ddc',
+  '--mb-chart-color-financing': '#d89614',
+  '--mb-chart-color-primary': '#177ddc',
+  '--mb-chart-color-secondary': '#49aa19',
+  '--mb-chart-color-tertiary': '#d89614',
+  '--mb-chart-color-quaternary': '#9254de',
 } as const
 
 export type DarkThemeValues = typeof darkThemeValues
