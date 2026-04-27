@@ -74,26 +74,4 @@ export function listenSystemThemeChange(callback: (theme: Theme) => void): () =>
   return () => mediaQuery.removeEventListener('change', handler)
 }
 
-function generateCssVariables(values: Record<string, string>): string {
-  return Object.entries(values)
-    .map(([key, value]) => `${key}: ${value};`)
-    .join('\n  ')
-}
-
-export function generateThemeCss(): string {
-  const lightVars = generateCssVariables(lightThemeValues)
-  const darkVars = generateCssVariables(darkThemeValues)
-
-  return `
-/* MoneyBrain Design Tokens - Auto-generated */
-:root {
-  ${lightVars}
-}
-
-[data-theme="dark"] {
-  ${darkVars}
-}
-`
-}
-
 export { lightThemeValues, darkThemeValues }

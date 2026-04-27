@@ -36,12 +36,16 @@ export const lightThemeValues = {
 
   // 背景颜色
   '--mb-color-background': '#f0f2f5',
+  '--mb-color-panel': '#ffffff',
   '--mb-color-surface': '#ffffff',
+  '--mb-color-surface-elevated': '#ffffff',
+  '--mb-color-surface-muted': '#fafafa',
   '--mb-color-surface-hover': '#f5f5f5',
   '--mb-color-surface-selected': '#e6f7ff',
 
   // 边框颜色
   '--mb-color-border': '#f0f0f0',
+  '--mb-color-border-strong': '#d9d9d9',
   '--mb-color-border-input': '#d9d9d9',
 
   // 间距

@@ -20,12 +20,3 @@ export const spaceXl = 'var(--mb-space-xl)'
 
 /** 巨大间距 48px */
 export const spaceXxl = 'var(--mb-space-xxl)'
-
-export const spacingVars = {
-  spaceXs: '--mb-space-xs',
-  spaceSm: '--mb-space-sm',
-  spaceMd: '--mb-space-md',
-  spaceLg: '--mb-space-lg',
-  spaceXl: '--mb-space-xl',
-  spaceXxl: '--mb-space-xxl',
-} as const

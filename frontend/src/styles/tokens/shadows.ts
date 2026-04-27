@@ -11,9 +11,3 @@ export const shadowMd = 'var(--mb-shadow-md)'
 
 /** 大阴影 - 模态框、抽屉 */
 export const shadowLg = 'var(--mb-shadow-lg)'
-
-export const shadowVars = {
-  shadowSm: '--mb-shadow-sm',
-  shadowMd: '--mb-shadow-md',
-  shadowLg: '--mb-shadow-lg',
-} as const

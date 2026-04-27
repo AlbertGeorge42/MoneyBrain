@@ -1,10 +1,10 @@
 /**
  * MoneyBrain 设计令牌 CSS 变量
- * 独立财务含义颜色，统一命名规范
+ * 由 scripts/generate-theme-css.ts 自动生成
+ * 请勿手动修改此文件
  */
 
 :root {
-  /** 语义化颜色 */
   --mb-color-success: #3f8600;
   --mb-color-danger: #cf1322;
   --mb-color-warning: #faad14;
@@ -13,45 +13,36 @@
   --mb-color-positive: #3f8600;
   --mb-color-negative: #cf1322;
   --mb-color-investment: #722ed1;
-
-  /** 交易类型颜色 */
   --mb-color-income: #52c41a;
   --mb-color-expense: #ff4d4f;
   --mb-color-transfer: #1890ff;
   --mb-color-refund: #fa8c16;
   --mb-color-adjustment: #722ed1;
-
-  /** 现金流类型 */
   --mb-color-cash: #1890ff;
   --mb-color-non-cash: #13c2c2;
   --mb-color-operating: #52c41a;
   --mb-color-investing: #1890ff;
   --mb-color-financing: #fa8c16;
-
-  /** 文本颜色 */
   --mb-color-text: rgba(0, 0, 0, 0.88);
   --mb-color-neutral: #595959;
   --mb-color-muted: #6b6b6b;
   --mb-color-disabled: rgba(0, 0, 0, 0.25);
-
-  /** 背景颜色 */
   --mb-color-background: #f0f2f5;
+  --mb-color-panel: #ffffff;
   --mb-color-surface: #ffffff;
   --mb-color-surface-elevated: #ffffff;
+  --mb-color-surface-muted: #fafafa;
   --mb-color-surface-hover: #f5f5f5;
   --mb-color-surface-selected: #e6f7ff;
   --mb-color-border: #f0f0f0;
+  --mb-color-border-strong: #d9d9d9;
   --mb-color-border-input: #d9d9d9;
-
-  /** 间距 */
   --mb-space-xs: 4px;
   --mb-space-sm: 8px;
   --mb-space-md: 16px;
   --mb-space-lg: 24px;
   --mb-space-xl: 32px;
   --mb-space-xxl: 48px;
-
-  /** 字体 */
   --mb-font-size-xs: 12px;
   --mb-font-size-sm: 14px;
   --mb-font-size-md: 16px;
@@ -60,18 +51,12 @@
   --mb-font-weight-normal: 400;
   --mb-font-weight-medium: 500;
   --mb-font-weight-bold: 700;
-
-  /** 边框 */
   --mb-border-width: 1px;
   --mb-border-width-thick: 2px;
   --mb-border-style: solid;
-
-  /** 阴影 */
   --mb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --mb-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.15);
   --mb-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.2);
-
-  /** 圆角 */
   --mb-radius-sm: 4px;
   --mb-radius-md: 6px;
   --mb-radius-lg: 8px;
@@ -79,7 +64,6 @@
 }
 
 [data-theme="dark"] {
-  /** 语义化颜色 */
   --mb-color-success: #49aa19;
   --mb-color-danger: #d84a4a;
   --mb-color-warning: #d89614;
@@ -88,45 +72,36 @@
   --mb-color-positive: #49aa19;
   --mb-color-negative: #d84a4a;
   --mb-color-investment: #9254de;
-
-  /** 交易类型颜色 */
   --mb-color-income: #5fd05f;
   --mb-color-expense: #ff7875;
   --mb-color-transfer: #40a9ff;
   --mb-color-refund: #ffc069;
   --mb-color-adjustment: #b37feb;
-
-  /** 现金流类型 */
   --mb-color-cash: #177ddc;
   --mb-color-non-cash: #36cfc9;
   --mb-color-operating: #49aa19;
   --mb-color-investing: #177ddc;
   --mb-color-financing: #d89614;
-
-  /** 文本颜色 */
   --mb-color-text: rgba(255, 255, 255, 0.88);
   --mb-color-neutral: #bfbfbf;
   --mb-color-muted: #a6a6a6;
   --mb-color-disabled: rgba(255, 255, 255, 0.35);
-
-  /** 背景颜色 */
   --mb-color-background: #141414;
+  --mb-color-panel: #1f1f1f;
   --mb-color-surface: #1f1f1f;
   --mb-color-surface-elevated: #262626;
+  --mb-color-surface-muted: #2a2a2a;
   --mb-color-surface-hover: #2c2c2c;
   --mb-color-surface-selected: #111b26;
   --mb-color-border: #424242;
+  --mb-color-border-strong: #5a5a5a;
   --mb-color-border-input: #434343;
-
-  /** 间距 */
   --mb-space-xs: 4px;
   --mb-space-sm: 8px;
   --mb-space-md: 16px;
   --mb-space-lg: 24px;
   --mb-space-xl: 32px;
   --mb-space-xxl: 48px;
-
-  /** 字体 */
   --mb-font-size-xs: 12px;
   --mb-font-size-sm: 14px;
   --mb-font-size-md: 16px;
@@ -135,18 +110,12 @@
   --mb-font-weight-normal: 400;
   --mb-font-weight-medium: 500;
   --mb-font-weight-bold: 700;
-
-  /** 边框 */
   --mb-border-width: 1px;
   --mb-border-width-thick: 2px;
   --mb-border-style: solid;
-
-  /** 阴影 */
   --mb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
   --mb-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35);
   --mb-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
-
-  /** 圆角 */
   --mb-radius-sm: 4px;
   --mb-radius-md: 6px;
   --mb-radius-lg: 8px;

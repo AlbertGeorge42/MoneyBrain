@@ -49,19 +49,19 @@ export function getTokenValues(varNames: string[]): Record<string, string> {
  */
 export function getChartColors(): Record<string, string> {
   return {
-    income: getTokenValue('--mb-chart-color-income'),
-    expense: getTokenValue('--mb-chart-color-expense'),
-    transfer: getTokenValue('--mb-chart-color-transfer'),
-    investment: getTokenValue('--mb-chart-color-investment'),
-    refund: getTokenValue('--mb-chart-color-refund'),
-    cash: getTokenValue('--mb-chart-color-cash'),
-    nonCash: getTokenValue('--mb-chart-color-non-cash'),
-    operating: getTokenValue('--mb-chart-color-operating'),
-    investing: getTokenValue('--mb-chart-color-investing'),
-    financing: getTokenValue('--mb-chart-color-financing'),
-    primary: getTokenValue('--mb-chart-color-primary'),
-    secondary: getTokenValue('--mb-chart-color-secondary'),
-    tertiary: getTokenValue('--mb-chart-color-tertiary'),
-    quaternary: getTokenValue('--mb-chart-color-quaternary'),
+    income: getTokenValue('--mb-color-income'),
+    expense: getTokenValue('--mb-color-expense'),
+    transfer: getTokenValue('--mb-color-transfer'),
+    investment: getTokenValue('--mb-color-investment'),
+    refund: getTokenValue('--mb-color-refund'),
+    cash: getTokenValue('--mb-color-cash'),
+    nonCash: getTokenValue('--mb-color-non-cash'),
+    operating: getTokenValue('--mb-color-operating'),
+    investing: getTokenValue('--mb-color-investing'),
+    financing: getTokenValue('--mb-color-financing'),
+    primary: getTokenValue('--mb-color-primary'),
+    success: getTokenValue('--mb-color-success'),
+    warning: getTokenValue('--mb-color-warning'),
+    danger: getTokenValue('--mb-color-danger'),
   }
 }

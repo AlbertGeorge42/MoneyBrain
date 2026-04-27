@@ -36,12 +36,16 @@ export const darkThemeValues = {
 
   // 背景颜色
   '--mb-color-background': '#141414',
+  '--mb-color-panel': '#1f1f1f',
   '--mb-color-surface': '#1f1f1f',
+  '--mb-color-surface-elevated': '#262626',
+  '--mb-color-surface-muted': '#2a2a2a',
   '--mb-color-surface-hover': '#2c2c2c',
   '--mb-color-surface-selected': '#111b26',
 
   // 边框颜色
   '--mb-color-border': '#424242',
+  '--mb-color-border-strong': '#5a5a5a',
   '--mb-color-border-input': '#434343',
 
   // 间距

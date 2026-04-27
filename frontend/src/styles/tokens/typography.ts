@@ -26,14 +26,3 @@ export const fontWeightMedium = 'var(--mb-font-weight-medium)'
 
 /** 粗体字重 700 - 强调、金额 */
 export const fontWeightBold = 'var(--mb-font-weight-bold)'
-
-export const typographyVars = {
-  fontSizeXs: '--mb-font-size-xs',
-  fontSizeSm: '--mb-font-size-sm',
-  fontSizeMd: '--mb-font-size-md',
-  fontSizeLg: '--mb-font-size-lg',
-  fontSizeXl: '--mb-font-size-xl',
-  fontWeightNormal: '--mb-font-weight-normal',
-  fontWeightMedium: '--mb-font-weight-medium',
-  fontWeightBold: '--mb-font-weight-bold',
-} as const

@@ -14,10 +14,3 @@ export const radiusLg = 'var(--mb-radius-lg)'
 
 /** 超大圆角 12px - 大卡片、模态框 */
 export const radiusXl = 'var(--mb-radius-xl)'
-
-export const radiusVars = {
-  radiusSm: '--mb-radius-sm',
-  radiusMd: '--mb-radius-md',
-  radiusLg: '--mb-radius-lg',
-  radiusXl: '--mb-radius-xl',
-} as const

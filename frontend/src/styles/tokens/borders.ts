@@ -11,9 +11,3 @@ export const borderWidthThick = 'var(--mb-border-width-thick)'
 
 /** 边框样式 solid */
 export const borderStyle = 'var(--mb-border-style)'
-
-export const borderVars = {
-  borderWidth: '--mb-border-width',
-  borderWidthThick: '--mb-border-width-thick',
-  borderStyle: '--mb-border-style',
-} as const
