@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Button, Card, Col, Row, Space, Statistic, Table } from 'antd'
+import { Button, Card, Space, Statistic, Table } from 'antd'
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetReportData } from '@shared/types'
 import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
@@ -125,35 +125,29 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
       </div>
 
       <Card className="surface-card">
-        <Row gutter={16}>
-          <Col span={8}>
-            <Statistic
-              title="总资产"
-              value={balanceSheetData?.assets || 0}
-              precision={2}
-              valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? colorPositive : colorNegative }}
-              formatter={(value) => `¥${Number(value).toFixed(2)}`}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="总负债"
-              value={Math.abs(balanceSheetData?.liabilities || 0)}
-              precision={2}
-              valueStyle={{ color: colorNegative }}
-              formatter={(value) => `¥${Number(value).toFixed(2)}`}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="净资产"
-              value={balanceSheetData?.netWorth || 0}
-              precision={2}
-              valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? colorPositive : colorNegative }}
-              formatter={(value) => `¥${Number(value).toFixed(2)}`}
-            />
-          </Col>
-        </Row>
+        <div className="stats-grid">
+          <Statistic
+            title="总资产"
+            value={balanceSheetData?.assets || 0}
+            precision={2}
+            valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? colorPositive : colorNegative }}
+            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+          />
+          <Statistic
+            title="总负债"
+            value={Math.abs(balanceSheetData?.liabilities || 0)}
+            precision={2}
+            valueStyle={{ color: colorNegative }}
+            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+          />
+          <Statistic
+            title="净资产"
+            value={balanceSheetData?.netWorth || 0}
+            precision={2}
+            valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? colorPositive : colorNegative }}
+            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+          />
+        </div>
       </Card>
 
       <div className="split-grid">

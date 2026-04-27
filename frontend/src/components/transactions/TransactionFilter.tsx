@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Button, Select, TreeSelect, Space, Tag, Collapse, Row, Col } from 'antd'
+import { Button, Select, TreeSelect, Space, Tag, Collapse } from 'antd'
 import { FilterOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
@@ -268,8 +268,8 @@ income: { color: colorIncome, text: '收入' },
             label: '筛选条件',
             children: (
               <>
-                <Row gutter={16}>
-                  <Col span={6}>
+                <div className="filter-grid">
+                  <div>
                     <div style={{ marginBottom: spaceSm }}>类型</div>
                     <Select
                       mode="multiple"
@@ -294,8 +294,8 @@ income: { color: colorIncome, text: '收入' },
                         </Select.Option>
                       ))}
                     </Select>
-                  </Col>
-                  <Col span={6}>
+                  </div>
+                  <div>
                     <div style={{ marginBottom: spaceSm }}>账户</div>
                     <TreeSelect
                       treeData={accountTreeData}
@@ -318,8 +318,8 @@ income: { color: colorIncome, text: '收入' },
                       }}
                       filterTreeNode={filterTreeNodeByName}
                     />
-                  </Col>
-                  <Col span={6}>
+                  </div>
+                  <div>
                     <div style={{ marginBottom: spaceSm }}>分类</div>
                     <TreeSelect
                       treeData={categoryTreeData}
@@ -342,8 +342,8 @@ income: { color: colorIncome, text: '收入' },
                       }}
                       filterTreeNode={filterTreeNodeByName}
                     />
-                  </Col>
-                  <Col span={6}>
+                  </div>
+                  <div>
                     <div style={{ marginBottom: spaceSm }}>日期范围</div>
                     <RangeTimePickerField
                       value={filters.dateRange}
@@ -352,8 +352,8 @@ income: { color: colorIncome, text: '收入' },
                       style={{ width: '100%' }}
                       onChange={(dateRange) => onFilterChange({ ...filters, dateRange })}
                     />
-                  </Col>
-                </Row>
+                  </div>
+                </div>
                 <div style={{ marginTop: spaceMd, textAlign: 'right' }}>
                   <Space>
                     <Button onClick={onReset}>重置</Button>

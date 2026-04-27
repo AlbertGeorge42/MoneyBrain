@@ -1,59 +1,46 @@
-import React, { useEffect, useState } from 'react'
-import { 
-  Table, Button, Modal, Form, Input, Select, InputNumber, 
-  Space, Card, Tag, Popconfirm, message, Row, Col, Progress, Statistic 
-} from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, WarningOutlined } from '@ant-design/icons'
-import { useStore } from '../stores'
-import { Budget, type BudgetStatus } from '../services/api'
-import * as api from '../services/api'
-import DynamicIcon from '../components/common/DynamicIcon'
-import {
-  colorDanger,
-  colorWarning,
-  colorInfo,
-  colorPositive,
-  colorNegative,
-  colorTransfer,
-  colorIncome,
-  fontSizeXs,
-  spaceMd,
-} from '../styles/tokens'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Button, Card, Progress, Space, Statistic, Tag, Empty, Spin } from 'antd'
+import { ReloadOutlined, SettingOutlined } from '@ant-design/icons'
+import { PageHeader } from '../components/common'
+import { budgetApi } from '../services/api'
+import type { Budget, BudgetStatus } from '@shared/types'
+import { colorDanger, colorPrimary, colorSuccess, colorWarning, spaceMd } from '../styles/tokens'
 
 const Budgets: React.FC = () => {
-  const { 
-    budgets, 
-    transactionCategories,
-    loading, 
-    fetchBudgets, 
-    fetchTransactionCategories,
-    addBudget,
-    updateBudget,
-    deleteBudget,
-  } = useStore()
-
-  const [modalVisible, setModalVisible] = useState(false)
-  const [editingBudget, setEditingBudget] = useState<Budget | null>(null)
-  const [form] = Form.useForm()
+  const [budgets, setBudgets] = useState<Budget[]>([])
   const [budgetStatuses, setBudgetStatuses] = useState<Record<string, BudgetStatus>>({})
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchBudgets()
-    fetchTransactionCategories()
+    fetchData()
   }, [])
 
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const budgetsRes = await budgetApi.getAll()
+      if (budgetsRes.data.success) {
+        setBudgets(budgetsRes.data.data || [])
+      }
+    } catch (error) {
+      console.error('获取数据失败:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    budgets.forEach(budget => {
+    budgets.forEach((budget) => {
       fetchBudgetStatus(budget.id)
     })
   }, [budgets])
 
   const fetchBudgetStatus = async (id: string) => {
     try {
-      const res = await api.budgetApi.getStatus(id)
+      const res = await budgetApi.getStatus(id)
       const status = res.data.data
       if (res.data.success && status) {
-        setBudgetStatuses(prev => ({
+        setBudgetStatuses((prev) => ({
           ...prev,
           [id]: status,
         }))
@@ -63,238 +50,99 @@ const Budgets: React.FC = () => {
     }
   }
 
-  const handleAdd = () => {
-    setEditingBudget(null)
-    form.resetFields()
-    setModalVisible(true)
+  const totalBudget = useMemo(() => budgets.reduce((sum, b) => sum + b.amount, 0), [budgets])
+  const totalUsed = useMemo(
+    () => Object.values(budgetStatuses).reduce((sum, status) => sum + status.used, 0),
+    [budgetStatuses]
+  )
+
+  const getProgressColor = (percentage: number, isOverBudget: boolean) => {
+    if (isOverBudget) return colorDanger
+    if (percentage >= 80) return colorWarning
+    return colorSuccess
   }
 
-  const handleEdit = (record: Budget) => {
-    setEditingBudget(record)
-    form.setFieldsValue({
-      name: record.name,
-      amount: record.amount,
-      period: record.period,
-      categoryId: record.categoryId,
-    })
-    setModalVisible(true)
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+        <Spin size="large" />
+      </div>
+    )
   }
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteBudget(id)
-      message.success('删除成功')
-    } catch (error) {
-      message.error('删除失败')
-    }
-  }
-
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields()
-      if (editingBudget) {
-        await updateBudget(editingBudget.id, values)
-        message.success('更新成功')
-      } else {
-        await addBudget(values)
-        message.success('创建成功')
-      }
-      setModalVisible(false)
-      form.resetFields()
-    } catch (error) {
-      message.error('操作失败')
-    }
-  }
-
-  const expenseCategories = transactionCategories.filter(c => c.type === 'expense')
-
-  const columns = [
-    {
-      title: '预算名称',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: '周期',
-      dataIndex: 'period',
-      key: 'period',
-      render: (period: string) => (
-        <Tag style={{ color: period === 'monthly' ? colorTransfer : colorIncome, borderColor: period === 'monthly' ? colorTransfer : colorIncome, backgroundColor: 'transparent' }}>
-          {period === 'monthly' ? '月度' : '年度'}
-        </Tag>
-      ),
-    },
-    {
-      title: '分类',
-      dataIndex: ['category', 'name'],
-      key: 'category',
-      render: (name: string) => name || '全部',
-    },
-    {
-      title: '预算金额',
-      dataIndex: 'amount',
-      key: 'amount',
-      render: (amount: number) => `¥${amount.toFixed(2)}`,
-    },
-    {
-      title: '执行进度',
-      key: 'progress',
-      render: (_: unknown, record: Budget) => {
-        const status = budgetStatuses[record.id]
-        if (!status) return <span>加载中...</span>
-        const { used, percentage, isOverBudget } = status
-        return (
-          <div style={{ width: 200 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>¥{used.toFixed(2)}</span>
-              <span>{percentage}%</span>
-            </div>
-            <Progress 
-              percent={percentage} 
-              size="small" 
-              status={isOverBudget ? 'exception' : (percentage >= 80 ? 'normal' : 'active')}
-              strokeColor={isOverBudget ? colorDanger : (percentage >= 80 ? colorWarning : colorInfo)}
-            />
-            {isOverBudget && (
-              <div style={{ color: colorDanger, fontSize: fontSizeXs, marginTop: 4 }}>
-                <WarningOutlined /> 已超支
-              </div>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 120,
-      render: (_: unknown, record: Budget) => (
-        <Space>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => handleEdit(record)}
-          />
-          <Popconfirm
-            title="确定要删除此预算吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ]
-
-  const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0)
-  const totalUsed = Object.values(budgetStatuses).reduce((sum, status) => sum + status.used, 0)
 
   return (
     <div>
-      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>预算管理</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          新增预算
-        </Button>
-      </div>
+      <PageHeader
+        title="预算管理"
+        description="预算模块待重做。"
+        actions={
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={fetchData}>
+              刷新
+            </Button>
+            <Button icon={<SettingOutlined />}>设置</Button>
+          </Space>
+        }
+      />
 
       <Card style={{ marginBottom: spaceMd }}>
-        <Row gutter={16}>
-          <Col span={8}>
-            <Statistic
-              title="总预算"
-              value={totalBudget}
-              precision={2}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="已使用"
-              value={totalUsed}
-              precision={2}
-              valueStyle={{ color: colorNegative }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="剩余"
-              value={totalBudget - totalUsed}
-              precision={2}
-              valueStyle={{ color: colorPositive }}
-              prefix="¥"
-            />
-          </Col>
-        </Row>
+        <div className="stats-grid">
+          <Statistic title="总预算" value={totalBudget} precision={2} prefix="¥" />
+          <Statistic
+            title="已使用"
+            value={totalUsed}
+            precision={2}
+            valueStyle={{ color: colorDanger }}
+            prefix="¥"
+          />
+          <Statistic
+            title="剩余"
+            value={totalBudget - totalUsed}
+            precision={2}
+            valueStyle={{ color: colorSuccess }}
+            prefix="¥"
+          />
+        </div>
       </Card>
 
-      <Card>
-        <Table 
-          dataSource={budgets} 
-          columns={columns} 
-          rowKey="id"
-          pagination={false}
-          loading={loading}
-        />
-      </Card>
+      {budgets.length === 0 ? (
+        <Card>
+          <Empty description="暂无预算数据" />
+        </Card>
+      ) : (
+        <div style={{ display: 'grid', gap: spaceMd }}>
+          {budgets.map((budget) => {
+            const status = budgetStatuses[budget.id]
+            const percentage = status?.percentage ?? 0
+            const isOverBudget = status?.isOverBudget ?? false
+            const used = status?.used ?? 0
 
-      <Modal
-        title={editingBudget ? '编辑预算' : '新增预算'}
-        open={modalVisible}
-        onOk={handleSubmit}
-        onCancel={() => setModalVisible(false)}
-        okText="确定"
-        cancelText="取消"
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="name"
-            label="预算名称"
-            rules={[{ required: true, message: '请输入预算名称' }]}
-          >
-            <Input placeholder="请输入预算名称" />
-          </Form.Item>
-          <Form.Item
-            name="amount"
-            label="预算金额"
-            rules={[{ required: true, message: '请输入预算金额' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              precision={2}
-              min={0}
-              placeholder="请输入预算金额"
-              prefix="¥"
-            />
-          </Form.Item>
-          <Form.Item
-            name="period"
-            label="预算周期"
-            rules={[{ required: true, message: '请选择预算周期' }]}
-          >
-            <Select placeholder="请选择预算周期">
-              <Select.Option value="monthly">月度</Select.Option>
-              <Select.Option value="yearly">年度</Select.Option>
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="categoryId"
-            label="支出分类"
-            extra="不选择则为总预算"
-          >
-            <Select placeholder="请选择支出分类" allowClear>
-              {expenseCategories.map(c => (
-                <Select.Option key={c.id} value={c.id}>
-                  <DynamicIcon name={c.icon} size={16} /> {c.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
+            return (
+              <Card key={budget.id} size="small">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spaceMd }}>
+                  <div>
+                    <span style={{ fontWeight: 500 }}>{budget.name}</span>
+                    <Tag style={{ marginLeft: 8 }} color={budget.period === 'monthly' ? 'blue' : 'green'}>
+                      {budget.period === 'monthly' ? '月度' : '年度'}
+                    </Tag>
+                    {budget.category && <Tag>{budget.category.name}</Tag>}
+                  </div>
+                  <span style={{ color: colorPrimary, fontWeight: 500 }}>¥{budget.amount.toFixed(2)}</span>
+                </div>
+                <Progress
+                  percent={Math.min(percentage, 100)}
+                  status={isOverBudget ? 'exception' : undefined}
+                  strokeColor={getProgressColor(percentage, isOverBudget)}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, color: colorDanger }}>
+                  <span>已使用: ¥{used.toFixed(2)}</span>
+                  <span>{percentage.toFixed(1)}%</span>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

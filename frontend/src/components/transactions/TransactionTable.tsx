@@ -44,14 +44,14 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
     title: '日期',
     dataIndex: 'date',
     key: 'date',
-    width: 120,
-    render: (date: string) => dayjs(date).format('YYYY-MM-DD'),
+    width: 110,
+    render: (date: string) => dayjs(date).format('MM-DD'),
   },
   {
     title: '类型',
     dataIndex: 'type',
     key: 'type',
-    width: 80,
+    width: 70,
     render: (type: string) => {
       const config = TRANSACTION_TYPE_CONFIG[type as keyof typeof TRANSACTION_TYPE_CONFIG] || { color: 'default', text: type }
       return <Tag style={{ color: config.color, borderColor: config.color, backgroundColor: 'transparent' }}>{config.text}</Tag>
@@ -87,6 +87,7 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
   {
     title: '账户',
     key: 'account',
+    className: 'table-column-hide-mobile',
     render: (_: unknown, record: Transaction) => {
       if (record.type === 'transfer') {
         return (
@@ -104,6 +105,7 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
     title: '金额',
     dataIndex: 'amount',
     key: 'amount',
+    width: 120,
     render: (amount: number, record: Transaction) => {
       const fee = record.fee || 0
       const coupon = record.coupon || 0
@@ -121,24 +123,20 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
         return (
           <span>
             <span style={{ color: colorInfo, fontWeight: fontWeightBold }}>¥{amount.toFixed(2)}</span>
-            {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
+            {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> +费</span>}
           </span>
         )
       }
       if (record.type === 'refund') {
         return (
-          <span>
-            <span style={{ color: colorWarning, fontWeight: fontWeightBold }}>+¥{amount.toFixed(2)}</span>
-            {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (手续费:¥{fee})</span>}
+          <span style={{ color: colorWarning, fontWeight: fontWeightBold }}>
+            +¥{amount.toFixed(2)}
           </span>
         )
       }
       return (
-        <span>
-          <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontWeight: fontWeightBold }}>
-            {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
-          </span>
-          {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (手续费:¥{fee}, 优惠:¥{coupon})</span>}
+        <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontWeight: fontWeightBold }}>
+          {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
         </span>
       )
     },
@@ -147,12 +145,13 @@ const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => voi
     title: '备注',
     dataIndex: 'note',
     key: 'note',
+    className: 'table-column-hide-mobile',
     ellipsis: true,
   },
   {
     title: '操作',
     key: 'action',
-    width: 120,
+    width: 90,
     render: (_: unknown, record: Transaction) => (
       <Space>
         <Button 
@@ -188,6 +187,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
       dataSource={transactions} 
       columns={columns(onEdit, onDelete)} 
       rowKey="id"
+      scroll={{ x: 'max-content' }}
       pagination={{
         current: currentPage,
         pageSize: pageSize,

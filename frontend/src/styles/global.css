@@ -12,13 +12,12 @@
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
-  min-height: 100%;
+html {
+  height: 100%;
 }
 
 body {
+  min-height: 100%;
   margin: 0;
   font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
   background:
@@ -30,6 +29,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.24s ease, color 0.24s ease;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 a {
@@ -112,6 +116,8 @@ a {
 }
 
 .app-shell__body.ant-layout {
+  flex: 1;
+  min-height: 0;
   background: transparent;
 }
 
@@ -220,6 +226,18 @@ a {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+@media (max-width: 680px) {
+  .page-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .page-header__actions .ant-btn {
+    flex: 1;
+    min-width: 80px;
+  }
 }
 
 .surface-card.ant-card,
@@ -541,6 +559,10 @@ a {
     padding-left: 16px;
     padding-right: 16px;
   }
+
+  .app-shell__content.ant-layout-content {
+    padding-bottom: 80px;
+  }
 }
 
 @media (max-width: 680px) {
@@ -551,10 +573,139 @@ a {
 
   .page-header {
     align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .app-shell__toolbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .page-header__description {
+    display: none;
+  }
+}
+
+/* ========== 移动端底部导航栏 ========== */
+.mobile-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 56px;
+  background: var(--mb-color-surface);
+  border-top: 1px solid var(--mb-color-border);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.mobile-tab-bar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--mb-color-neutral);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.mobile-tab-bar__item:hover {
+  color: var(--mb-color-text);
+}
+
+.mobile-tab-bar__item--active {
+  color: var(--mb-color-primary);
+}
+
+.mobile-tab-bar__icon {
+  font-size: 20px;
+}
+
+.mobile-tab-bar__label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ========== 响应式统计网格 ========== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ========== 响应式筛选网格 ========== */
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 680px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========== 响应式表格隐藏列 ========== */
+.table-column-hide-mobile {
+  display: table-cell;
+}
+
+@media (max-width: 860px) {
+  .table-column-hide-mobile {
+    display: none;
+  }
+}
+
+/* ========== 桌面端专用元素 ========== */
+.app-shell__toolbar-label--desktop-only,
+.app-shell__toolbar-meta--desktop-only {
+  display: block;
+}
+
+@media (max-width: 860px) {
+  .app-shell__toolbar-label--desktop-only,
+  .app-shell__toolbar-meta--desktop-only {
+    display: none;
+  }
+}
+
+/* ========== 响应式按钮组 ========== */
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 680px) {
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .ant-btn {
+    width: 100%;
+  }
+}
+
+/* ========== 响应式 Tabs ========== */
+@media (max-width: 680px) {
+  .ant-tabs-tab {
+    padding: 8px 12px;
+    font-size: 13px;
   }
 }

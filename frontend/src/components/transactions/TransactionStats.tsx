@@ -1,5 +1,5 @@
 import React from 'react'
-import { Card, Row, Col, Statistic } from 'antd'
+import { Card, Statistic } from 'antd'
 import {
   colorSuccess,
   colorDanger,
@@ -25,51 +25,41 @@ const TransactionStats: React.FC<TransactionStatsProps> = ({
   transferCount,
 }) => (
   <Card style={{ marginBottom: spaceMd }}>
-    <Row gutter={16}>
-      <Col span={5}>
-        <Statistic
-          title="总收入"
-          value={totalIncome}
-          precision={2}
-          valueStyle={{ color: colorSuccess }}
-          prefix="¥"
-        />
-      </Col>
-      <Col span={5}>
-        <Statistic
-          title="总支出"
-          value={totalExpense}
-          precision={2}
-          valueStyle={{ color: colorDanger }}
-          prefix="¥"
-        />
-      </Col>
-      <Col span={4}>
-        <Statistic
-          title="退款"
-          value={totalRefund}
-          precision={2}
-          valueStyle={{ color: colorWarning }}
-          prefix="¥"
-        />
-      </Col>
-      <Col span={5}>
-        <Statistic
-          title="结余"
-          value={balance}
-          precision={2}
-          valueStyle={{ color: balance >= 0 ? colorPositive : colorNegative }}
-          prefix="¥"
-        />
-      </Col>
-      <Col span={5}>
-        <Statistic
-          title="转账次数"
-          value={transferCount}
-          suffix="笔"
-        />
-      </Col>
-    </Row>
+    <div className="stats-grid">
+      <Statistic
+        title="总收入"
+        value={totalIncome}
+        precision={2}
+        valueStyle={{ color: colorSuccess }}
+        prefix="¥"
+      />
+      <Statistic
+        title="总支出"
+        value={totalExpense}
+        precision={2}
+        valueStyle={{ color: colorDanger }}
+        prefix="¥"
+      />
+      <Statistic
+        title="退款"
+        value={totalRefund}
+        precision={2}
+        valueStyle={{ color: colorWarning }}
+        prefix="¥"
+      />
+      <Statistic
+        title="结余"
+        value={balance}
+        precision={2}
+        valueStyle={{ color: balance >= 0 ? colorPositive : colorNegative }}
+        prefix="¥"
+      />
+      <Statistic
+        title="转账次数"
+        value={transferCount}
+        suffix="笔"
+      />
+    </div>
   </Card>
 )
 
