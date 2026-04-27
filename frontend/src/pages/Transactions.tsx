@@ -4,6 +4,7 @@ import { ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } fr
 import { useStore } from '../stores'
 import { Transaction, transactionApi } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
+import { PageHeader } from '../components/common'
 import { 
   TransactionModal, 
   TransferModal, 
@@ -208,25 +209,27 @@ const Transactions: React.FC = () => {
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-header__copy">
-          <h1 className="page-header__title">交易记录</h1>
-        </div>
-        <div className="page-header__actions">
-          <Button type="primary" icon={<ArrowUpOutlined />} onClick={() => handleAdd('income')}>
-            记收入
-          </Button>
-          <Button danger icon={<ArrowDownOutlined />} onClick={() => handleAdd('expense')}>
-            记支出
-          </Button>
-          <Button icon={<SwapOutlined />} onClick={handleTransfer}>
-            记转账
-          </Button>
-          <Button style={{ borderColor: colorWarning, color: colorWarning }} icon={<RollbackOutlined />} onClick={handleRefund}>
-            记退款
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Transactions"
+        title="交易记录"
+        description="录入、筛选与修正。"
+        actions={
+          <>
+            <Button type="primary" icon={<ArrowUpOutlined />} onClick={() => handleAdd('income')}>
+              记收入
+            </Button>
+            <Button danger icon={<ArrowDownOutlined />} onClick={() => handleAdd('expense')}>
+              记支出
+            </Button>
+            <Button icon={<SwapOutlined />} onClick={handleTransfer}>
+              记转账
+            </Button>
+            <Button style={{ borderColor: colorWarning, color: colorWarning }} icon={<RollbackOutlined />} onClick={handleRefund}>
+              记退款
+            </Button>
+          </>
+        }
+      />
 
       <Card style={{ marginBottom: spaceMd }}>
         <TransactionFilter

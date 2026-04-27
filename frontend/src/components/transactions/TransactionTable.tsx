@@ -1,5 +1,5 @@
 import React from 'react'
-import { Table, Card, Tag, Space, Button, Popconfirm } from 'antd'
+import { Table, Card, Tag, Popconfirm } from 'antd'
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { Transaction } from '../../services/api'
@@ -16,8 +16,6 @@ import {
   colorRefund,
   colorAdjustment,
   fontWeightBold,
-  fontSizeXs,
-  spaceSm,
 } from '../../styles/tokens'
 
 interface TransactionTableProps {
@@ -39,138 +37,117 @@ const TRANSACTION_TYPE_CONFIG = {
   adjustment: { color: colorAdjustment, text: '平账' },
 } as const
 
-const columns = (onEdit: (r: Transaction) => void, onDelete: (id: string) => void) => [
-  {
-    title: '日期',
-    dataIndex: 'date',
-    key: 'date',
-    width: 110,
-    render: (date: string) => dayjs(date).format('MM-DD'),
-  },
-  {
-    title: '类型',
-    dataIndex: 'type',
-    key: 'type',
-    width: 70,
-    render: (type: string) => {
-      const config = TRANSACTION_TYPE_CONFIG[type as keyof typeof TRANSACTION_TYPE_CONFIG] || { color: 'default', text: type }
-      return <Tag style={{ color: config.color, borderColor: config.color, backgroundColor: 'transparent' }}>{config.text}</Tag>
-    },
-  },
-  {
-    title: '分类',
-    key: 'category',
-    render: (_: unknown, record: Transaction) => {
-      if (record.type === 'adjustment') {
-        return <Tag style={{ color: colorAdjustment, borderColor: colorAdjustment, backgroundColor: 'transparent' }}>{record.note || '平账调整'}</Tag>
-      }
-      if (record.type === 'transfer') {
-        return record.category ? (
-          <Tag>{record.category.name}</Tag>
-        ) : (
-          <Tag>内部转账</Tag>
-        )
-      }
-      if (record.type === 'refund') {
-        return (
-          <span>
-            <Tag>{record.category?.name || '退款'}</Tag>
-            {record.relatedTransaction && (
-              <span style={{ color: colorMuted, fontSize: fontSizeXs }}> (原: {record.relatedTransaction.category?.name})</span>
-            )}
-          </span>
-        )
-      }
-      return <Tag>{record.category?.name || '未分类'}</Tag>
-    },
-  },
-  {
-    title: '账户',
-    key: 'account',
-    className: 'table-column-hide-mobile',
-    render: (_: unknown, record: Transaction) => {
-      if (record.type === 'transfer') {
-        return (
-          <span>
-            <Tag>{record.account?.name}</Tag>
-            <span style={{ margin: `0 ${spaceSm}` }}>→</span>
-            <Tag>{record.toAccount?.name}</Tag>
-          </span>
-        )
-      }
-      return <Tag>{record.account?.name || '-'}</Tag>
-    },
-  },
-  {
-    title: '金额',
-    dataIndex: 'amount',
-    key: 'amount',
-    width: 120,
-    render: (amount: number, record: Transaction) => {
-      const fee = record.fee || 0
-      const coupon = record.coupon || 0
-      const hasExtra = fee > 0 || coupon > 0
-      
-      if (record.type === 'adjustment') {
-        const isPositive = amount >= 0
-        return (
-          <span style={{ color: colorInvestment, fontWeight: fontWeightBold }}>
-            {isPositive ? '+' : ''}¥{amount.toFixed(2)}
-          </span>
-        )
-      }
-      if (record.type === 'transfer') {
-        return (
-          <span>
-            <span style={{ color: colorInfo, fontWeight: fontWeightBold }}>¥{amount.toFixed(2)}</span>
-            {hasExtra && <span style={{ color: colorMuted, fontSize: fontSizeXs }}> +费</span>}
-          </span>
-        )
-      }
-      if (record.type === 'refund') {
-        return (
-          <span style={{ color: colorWarning, fontWeight: fontWeightBold }}>
-            +¥{amount.toFixed(2)}
-          </span>
-        )
-      }
+const getCategoryName = (record: Transaction): string => {
+  if (record.type === 'adjustment') return record.note || '平账调整'
+  if (record.type === 'transfer') return record.category?.name || '内部转账'
+  return record.category?.name || '未分类'
+}
+
+const getSubtitle = (record: Transaction): string => {
+  if (record.type === 'transfer') {
+    const from = record.account?.name || ''
+    const to = record.toAccount?.name || ''
+    return `${from} → ${to}`
+  }
+  if (record.type === 'refund') {
+    const original = record.relatedTransaction?.category?.name || ''
+    const account = record.account?.name || ''
+    return original ? `${original} · 退至${account}` : `退至${account}`
+  }
+  if (record.type === 'adjustment') {
+    return record.account?.name || ''
+  }
+  const account = record.account?.name || ''
+  const note = record.note || ''
+  if (account && note) return `${account} · ${note}`
+  return account || note
+}
+
+const CategoryCell: React.FC<{ record: Transaction }> = ({ record }) => {
+  const config = TRANSACTION_TYPE_CONFIG[record.type as keyof typeof TRANSACTION_TYPE_CONFIG]
+  const categoryName = getCategoryName(record)
+
+  return (
+    <Tag style={{ color: config?.color, borderColor: config?.color, backgroundColor: 'transparent' }}>
+      {categoryName}
+    </Tag>
+  )
+}
+
+const AmountCell: React.FC<{ record: Transaction }> = ({ record }) => {
+  const amount = record.amount
+  const subtitle = getSubtitle(record)
+
+  const renderAmount = () => {
+    if (record.type === 'adjustment') {
+      const isPositive = amount >= 0
       return (
-        <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontWeight: fontWeightBold }}>
-          {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
+        <span style={{ color: colorInvestment, fontWeight: fontWeightBold, fontSize: '13px' }}>
+          {isPositive ? '+' : ''}¥{amount.toFixed(2)}
         </span>
       )
-    },
-  },
-  {
-    title: '备注',
-    dataIndex: 'note',
-    key: 'note',
-    className: 'table-column-hide-mobile',
-    ellipsis: true,
-  },
-  {
-    title: '操作',
-    key: 'action',
-    width: 90,
-    render: (_: unknown, record: Transaction) => (
-      <Space>
-        <Button 
-          type="link" 
-          icon={<EditOutlined />} 
-          onClick={() => onEdit(record)}
-        />
-        <Popconfirm
-          title="确定要删除此记录吗？"
-          onConfirm={() => onDelete(record.id)}
-          okText="确定"
-          cancelText="取消"
-        >
-          <Button type="link" danger icon={<DeleteOutlined />} />
-        </Popconfirm>
-      </Space>
-    ),
-  },
-]
+    }
+    if (record.type === 'transfer') {
+      const hasExtra = (record.fee || 0) > 0 || (record.coupon || 0) > 0
+      return (
+        <span>
+          <span style={{ color: colorInfo, fontWeight: fontWeightBold, fontSize: '13px' }}>¥{amount.toFixed(2)}</span>
+          {hasExtra && <span style={{ color: colorMuted, fontSize: '10px' }}> +费</span>}
+        </span>
+      )
+    }
+    if (record.type === 'refund') {
+      return (
+        <span style={{ color: colorWarning, fontWeight: fontWeightBold, fontSize: '13px' }}>
+          +¥{amount.toFixed(2)}
+        </span>
+      )
+    }
+    return (
+      <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontWeight: fontWeightBold, fontSize: '13px' }}>
+        {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
+      </span>
+    )
+  }
+
+  return (
+    <div className="tx-amount">
+      <div className="tx-amount__value">{renderAmount()}</div>
+      {subtitle && <div className="tx-amount__subtitle">{subtitle}</div>}
+    </div>
+  )
+}
+
+const ActionCell: React.FC<{
+  record: Transaction
+  onEdit: (r: Transaction) => void
+  onDelete: (id: string) => void
+}> = ({ record, onEdit, onDelete }) => (
+  <div className="tx-actions">
+    <button
+      className="tx-actions__btn"
+      onClick={(e) => { e.stopPropagation(); onEdit(record) }}
+      title="编辑"
+    >
+      <EditOutlined />
+    </button>
+    <Popconfirm
+      title="确定要删除此记录吗？"
+      onConfirm={(e) => { e?.stopPropagation(); onDelete(record.id) }}
+      onCancel={(e) => e?.stopPropagation()}
+      okText="确定"
+      cancelText="取消"
+    >
+      <button
+        className="tx-actions__btn tx-actions__btn--danger"
+        onClick={(e) => e.stopPropagation()}
+        title="删除"
+      >
+        <DeleteOutlined />
+      </button>
+    </Popconfirm>
+  </div>
+)
 
 const TransactionTable: React.FC<TransactionTableProps> = ({
   transactions,
@@ -181,25 +158,65 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   onEdit,
   onDelete,
   onPageChange,
-}) => (
-  <Card>
-    <Table 
-      dataSource={transactions} 
-      columns={columns(onEdit, onDelete)} 
-      rowKey="id"
-      scroll={{ x: 'max-content' }}
-      pagination={{
-        current: currentPage,
-        pageSize: pageSize,
-        total,
-        showSizeChanger: true,
-        showQuickJumper: true,
-        showTotal: (t) => `共 ${t} 条`,
-        onChange: onPageChange,
-      }}
-      loading={loading}
-    />
-  </Card>
-)
+}) => {
+  const columns = [
+    {
+      title: '分类',
+      key: 'category',
+      render: (_: unknown, record: Transaction) => <CategoryCell record={record} />,
+    },
+    {
+      title: '日期',
+      dataIndex: 'date',
+      key: 'date',
+      width: 64,
+      align: 'right' as const,
+      render: (date: string) => (
+        <span style={{ color: colorMuted, fontSize: '12px' }}>{dayjs(date).format('MM-DD')}</span>
+      ),
+    },
+    {
+      title: '金额',
+      key: 'amount',
+      width: 120,
+      align: 'right' as const,
+      render: (_: unknown, record: Transaction) => <AmountCell record={record} />,
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 52,
+      align: 'right' as const,
+      render: (_: unknown, record: Transaction) => (
+        <ActionCell record={record} onEdit={onEdit} onDelete={onDelete} />
+      ),
+    },
+  ]
+
+  return (
+    <Card className="tx-table" style={{ overflow: 'hidden' }}>
+      <Table
+        dataSource={transactions}
+        columns={columns}
+        rowKey="id"
+        scroll={{ x: 360 }}
+        pagination={{
+          current: currentPage,
+          pageSize: pageSize,
+          total,
+          size: 'small',
+          showSizeChanger: false,
+          showTotal: (t) => `共 ${t} 条`,
+          onChange: onPageChange,
+        }}
+        loading={loading}
+        onRow={(record) => ({
+          onClick: () => onEdit(record),
+          className: 'tx-row',
+        })}
+      />
+    </Card>
+  )
+}
 
 export default TransactionTable
