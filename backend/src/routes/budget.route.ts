@@ -1,5 +1,13 @@
 import { Router, type Request } from 'express'
-import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
+import {
+  asyncHandler,
+  success,
+  validateRequest,
+  ValidationError,
+  validateIdParam,
+  hasValue,
+  toDate,
+} from '../common/index.js'
 import {
   createBudget,
   deleteBudget,
@@ -10,22 +18,6 @@ import {
 } from '../services/budget.service.js'
 
 const router = Router()
-
-const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
-
-const validateIdParam = (req: Request) => {
-  if (!hasValue(req.params.id)) {
-    throw new ValidationError('id不能为空')
-  }
-}
-
-const toDate = (value: unknown, fieldName: string): Date => {
-  const date = new Date(String(value))
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError(`${fieldName}格式错误`)
-  }
-  return date
-}
 
 const validateBudgetPayload = (req: Request) => {
   const { name, amount, period, startDate, endDate } = req.body as Record<string, unknown>

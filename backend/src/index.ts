@@ -1,14 +1,14 @@
 import express from 'express'
 import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
-import accountCategoryRoutes from './routes/account-category.js'
-import accountRoutes from './routes/account.js'
-import categoryRoutes from './routes/category.js'
-import transactionRoutes from './routes/transaction.js'
-import budgetRoutes from './routes/budget.js'
-import reportRoutes from './routes/report.js'
-import analyticsRoutes from './routes/analytics.js'
-import dataRoutes from './routes/data.js'
+import accountCategoryRoutes from './routes/account-category.route.js'
+import accountRoutes from './routes/account.route.js'
+import transactionCategoryRoutes from './routes/transaction-category.route.js'
+import transactionRoutes from './routes/transaction.route.js'
+import budgetRoutes from './routes/budget.route.js'
+import reportRoutes from './routes/report.route.js'
+import analyticsRoutes from './routes/analytics.route.js'
+import dataRoutes from './routes/data.route.js'
 import { errorHandler } from './common/index.js'
 
 const app = express()
@@ -23,7 +23,7 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
 app.use('/api/account-categories', accountCategoryRoutes)
 app.use('/api/accounts', accountRoutes)
-app.use('/api/categories', categoryRoutes)
+app.use('/api/transaction-categories', transactionCategoryRoutes)
 app.use('/api/transactions', transactionRoutes)
 app.use('/api/budgets', budgetRoutes)
 app.use('/api/reports', reportRoutes)

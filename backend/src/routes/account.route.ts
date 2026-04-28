@@ -1,6 +1,15 @@
 import { Router, type Request } from 'express'
 import { prisma } from '../index.js'
-import { asyncHandler, NotFoundError, success, validateRequest, ValidationError } from '../common/index.js'
+import {
+  asyncHandler,
+  NotFoundError,
+  success,
+  validateRequest,
+  ValidationError,
+  validateIdParam,
+  validateBatchSort,
+  hasValue,
+} from '../common/index.js'
 import {
   adjustAccountBalance,
   batchAdjustAccountBalances,
@@ -15,24 +24,10 @@ import {
 
 const router = Router()
 
-const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
-
-const validateIdParam = (req: Request) => {
-  if (!hasValue(req.params.id)) {
-    throw new ValidationError('id不能为空')
-  }
-}
-
 const validateCreateAccount = (req: Request) => {
   const { name, type } = req.body as Record<string, unknown>
   if (!hasValue(name) || !hasValue(type)) {
     throw new ValidationError('名称和类型不能为空')
-  }
-}
-
-const validateBatchSort = (req: Request) => {
-  if (!Array.isArray(req.body?.items)) {
-    throw new ValidationError('参数格式错误')
   }
 }
 
@@ -54,7 +49,6 @@ router.get('/', asyncHandler(async (_req, res) => {
   return success(res, accounts)
 }))
 
-// 批量更新账户排序（必须在 /:id 之前）
 router.put('/sort/batch', validateRequest(validateBatchSort), asyncHandler(async (req, res) => {
   await updateAccountSorts(req.body.items)
   return success(res, { message: '排序更新成功' })
@@ -68,7 +62,6 @@ router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, re
   return success(res, account)
 }))
 
-// 获取账户统计信息
 router.get('/:id/stats', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
   const account = await getAccountDetail(req.params.id)
   if (!account) {
@@ -93,13 +86,11 @@ router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req,
   return success(res, result)
 }))
 
-// 平账接口
 router.post('/:id/adjust', validateRequest(validateAdjustRequest), asyncHandler(async (req, res) => {
   const result = await adjustAccountBalance(req.params.id, req.body.amount, req.body.date, req.body.note)
   return success(res, result, 201)
 }))
 
-// 批量平账接口
 router.post('/batch-adjust', validateRequest(validateBatchAdjust), asyncHandler(async (req, res) => {
   const result = await batchAdjustAccountBalances(req.body.adjustments, req.body.date, req.body.note)
   return success(res, result, 201)

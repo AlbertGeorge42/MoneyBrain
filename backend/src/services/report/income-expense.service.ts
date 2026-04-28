@@ -1,7 +1,7 @@
 import { prisma } from '../../index.js'
 import { calculateBalanceAtDate } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { ZERO } from '../../utils/decimal.js'
+import { ZERO } from '../../common/index.js'
 
 export interface CategoryBreakdownItem {
   name: string

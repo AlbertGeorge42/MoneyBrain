@@ -1,7 +1,7 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { prisma } from '../index.js'
 import { NotFoundError } from '../common/index.js'
-import { ZERO } from '../utils/decimal.js'
+import { toDecimal, ZERO } from '../common/index.js'
 
 type BudgetPayload = {
   name: string
@@ -40,7 +40,7 @@ export async function createBudget(data: BudgetPayload) {
   return prisma.budget.create({
     data: {
       name: data.name,
-      amount: new Decimal(data.amount),
+      amount: toDecimal(data.amount),
       period: data.period,
       startDate: data.startDate ? toDateValue(data.startDate) : new Date(),
       endDate: data.endDate ? toDateValue(data.endDate) : null,
@@ -55,7 +55,7 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
     where: { id: budgetId },
     data: {
       name: data.name,
-      amount: new Decimal(data.amount),
+      amount: toDecimal(data.amount),
       period: data.period,
       startDate: data.startDate ? toDateValue(data.startDate) : undefined,
       endDate: data.endDate ? toDateValue(data.endDate) : data.endDate === null ? null : undefined,

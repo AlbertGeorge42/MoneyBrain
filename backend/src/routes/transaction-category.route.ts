@@ -1,5 +1,13 @@
 import { Router, type Request } from 'express'
-import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
+import {
+  asyncHandler,
+  success,
+  validateRequest,
+  ValidationError,
+  validateIdParam,
+  validateBatchSort,
+  hasValue,
+} from '../common/index.js'
 import {
   createTransactionCategory,
   deleteTransactionCategory,
@@ -8,17 +16,9 @@ import {
   moveTransactionCategory,
   updateTransactionCategory,
   updateTransactionCategorySorts,
-} from '../services/category.service.js'
+} from '../services/transaction-category.service.js'
 
 const router = Router()
-
-const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
-
-const validateIdParam = (req: Request) => {
-  if (!hasValue(req.params.id)) {
-    throw new ValidationError('id不能为空')
-  }
-}
 
 const validateCategoryPayload = (req: Request) => {
   const { name, type, parentId } = req.body as Record<string, unknown>
@@ -47,12 +47,6 @@ const validateCategoryUpdatePayload = (req: Request) => {
   }
   if (hasValue(parentId) && parentId === req.params.id) {
     throw new ValidationError('父分类不能是自己')
-  }
-}
-
-const validateBatchSort = (req: Request) => {
-  if (!Array.isArray(req.body?.items)) {
-    throw new ValidationError('参数格式错误')
   }
 }
 

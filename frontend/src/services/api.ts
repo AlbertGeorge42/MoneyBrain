@@ -92,21 +92,21 @@ export const accountApi = {
 }
 
 export const transactionCategoryApi = {
-  getAll: () => api.get<ApiResponse<TransactionCategory[]>>('/categories'),
-  create: (data: Partial<TransactionCategory>) => api.post<ApiResponse<TransactionCategory>>('/categories', data),
-  update: (id: string, data: Partial<TransactionCategory>) => api.put<ApiResponse<TransactionCategory>>(`/categories/${id}`, data),
+  getAll: () => api.get<ApiResponse<TransactionCategory[]>>('/transaction-categories'),
+  create: (data: Partial<TransactionCategory>) => api.post<ApiResponse<TransactionCategory>>('/transaction-categories', data),
+  update: (id: string, data: Partial<TransactionCategory>) => api.put<ApiResponse<TransactionCategory>>(`/transaction-categories/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; parentId: string | null }>) => 
-    api.put<ApiResponse<{ message: string }>>('/categories/sort/batch', { items }),
+    api.put<ApiResponse<{ message: string }>>('/transaction-categories/sort/batch', { items }),
   delete: (id: string, params?: { transferToCategoryId?: string; deleteTransactions?: boolean }) => 
     api.delete<ApiResponse<{ 
       message: string
       transferredTransactions?: number
       deletedTransactions?: number
       deletedCategory?: string
-    }>>(`/categories/${id}`, { params }),
-  getStats: (id: string) => api.get<ApiResponse<TransactionCategoryStats>>(`/categories/${id}/stats`),
+    }>>(`/transaction-categories/${id}`, { params }),
+  getStats: (id: string) => api.get<ApiResponse<TransactionCategoryStats>>(`/transaction-categories/${id}/stats`),
   move: (id: string, data: { newParentId: string | null }) => 
-    api.put<ApiResponse<{ message: string; movedCategory: TransactionCategory }>>(`/categories/${id}/move`, data),
+    api.put<ApiResponse<{ message: string; movedCategory: TransactionCategory }>>(`/transaction-categories/${id}/move`, data),
 }
 
 export const transactionApi = {

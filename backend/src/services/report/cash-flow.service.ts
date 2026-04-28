@@ -2,7 +2,7 @@ import { prisma } from '../../index.js'
 import { calculateBalanceAtDate, calculateBalanceChangeDecimal, calculateTransferInAmountDecimal } from '../balance.service.js'
 import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO } from '../../utils/decimal.js'
+import { toDecimal, ZERO } from '../../common/index.js'
 
 type TransactionWithIncludes = Prisma.TransactionGetPayload<{
   include: { account: true; toAccount: true; category: true }

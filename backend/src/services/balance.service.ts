@@ -1,6 +1,6 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO } from '../utils/decimal.js'
+import { toDecimal, ZERO } from '../common/index.js'
 
 export type TransactionType = 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
 

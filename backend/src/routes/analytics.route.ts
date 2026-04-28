@@ -1,16 +1,8 @@
-import { Router, type Request } from 'express'
-import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
+import { Router } from 'express'
+import { asyncHandler, success, validateRequest, validateTypeQuery } from '../common/index.js'
 import { getTrends, getCategoryBreakdown, getAssetTrend } from '../services/analytics.service.js'
 
 const router = Router()
-
-const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
-
-const validateTypeQuery = (req: Request) => {
-  if (!hasValue(req.query.type)) {
-    throw new ValidationError('请指定类型(income/expense)')
-  }
-}
 
 router.get('/trends', validateRequest(validateTypeQuery), asyncHandler(async (req, res) => {
   const trends = await getTrends(String(req.query.type))

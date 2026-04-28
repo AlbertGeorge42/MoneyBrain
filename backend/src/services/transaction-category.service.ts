@@ -1,6 +1,17 @@
 import { prisma } from '../index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
-import { getNextTransactionCategorySort } from './sort.service.js'
+
+export async function getNextTransactionCategorySort(
+  type: string,
+  parentId: string | null,
+): Promise<number> {
+  const maxSortResult = await prisma.transactionCategory.aggregate({
+    where: { type, parentId: parentId || null },
+    _max: { sort: true },
+  })
+
+  return (maxSortResult._max.sort ?? -1) + 1
+}
 
 type TransactionCategoryCreatePayload = {
   name: string

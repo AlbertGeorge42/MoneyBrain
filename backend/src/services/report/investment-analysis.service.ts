@@ -1,7 +1,7 @@
 import { prisma } from '../../index.js'
 import { calculateBalanceAtDate } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO } from '../../utils/decimal.js'
+import { toDecimal, ZERO } from '../../common/index.js'
 
 interface CashFlow {
   date: Date

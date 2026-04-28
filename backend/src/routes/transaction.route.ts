@@ -1,54 +1,37 @@
 import { Router, type Request } from 'express'
-import { asyncHandler, NotFoundError, success, validateRequest, ValidationError } from '../common/index.js'
-import { transactionService, createIncomeExpense, createTransfer, createRefund, updateIncomeExpense, updateTransfer, updateRefund } from '../services/transaction.service.js'
+import {
+  asyncHandler,
+  NotFoundError,
+  success,
+  validateRequest,
+  ValidationError,
+  validateIdParam,
+  hasValue,
+  toStringArray,
+  parsePositiveInteger,
+  toOptionalDate,
+  toDate,
+} from '../common/index.js'
+import {
+  getTransactionList,
+  getTransactionStats,
+  getTransactionById,
+  getRefundableTransactions,
+  deleteTransaction,
+  getEarliestTransactionDate,
+  createIncomeExpense,
+  createTransfer,
+  createRefund,
+  updateIncomeExpense,
+  updateTransfer,
+  updateRefund
+} from '../services/transaction.service.js'
 
 const router = Router()
 
 type TransactionType = 'income' | 'expense' | 'transfer' | 'refund'
 
 const transactionTypes = new Set<TransactionType>(['income', 'expense', 'transfer', 'refund'])
-
-const hasValue = (value: unknown) => value !== undefined && value !== null && value !== ''
-
-const toDate = (value: unknown, fieldName: string): Date => {
-  const date = new Date(String(value))
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError(`${fieldName}格式错误`)
-  }
-  return date
-}
-
-const toOptionalDate = (value: unknown, fieldName: string): Date | undefined => {
-  if (!hasValue(value)) {
-    return undefined
-  }
-  return toDate(value, fieldName)
-}
-
-const toStringArray = (value: unknown): string[] | undefined => {
-  if (!hasValue(value)) {
-    return undefined
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(item => String(item))
-  }
-
-  return [String(value)]
-}
-
-const parsePositiveInteger = (value: unknown, fieldName: string, defaultValue: number): number => {
-  if (!hasValue(value)) {
-    return defaultValue
-  }
-
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new ValidationError(`${fieldName}必须是正整数`)
-  }
-
-  return parsed
-}
 
 const validateTransactionType = (value: unknown): TransactionType => {
   const type = String(value) as TransactionType
@@ -68,12 +51,6 @@ const validateListQuery = (req: Request) => {
 const validateStatsQuery = (req: Request) => {
   toOptionalDate(req.query.startDate, 'startDate')
   toOptionalDate(req.query.endDate, 'endDate')
-}
-
-const validateIdParam = (req: Request) => {
-  if (!hasValue(req.params.id)) {
-    throw new ValidationError('id不能为空')
-  }
 }
 
 const validateCreateTransaction = (req: Request) => {
@@ -127,7 +104,7 @@ const validateUpdateTransaction = (req: Request) => {
 }
 
 router.get('/', validateRequest(validateListQuery), asyncHandler(async (req, res) => {
-  const result = await transactionService.getTransactionList({
+  const result = await getTransactionList({
     page: parsePositiveInteger(req.query.page, 'page', 1),
     pageSize: parsePositiveInteger(req.query.pageSize, 'pageSize', 20),
     accountId: toStringArray(req.query.accountId),
@@ -141,7 +118,7 @@ router.get('/', validateRequest(validateListQuery), asyncHandler(async (req, res
 }))
 
 router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (req, res) => {
-  const stats = await transactionService.getTransactionStats({
+  const stats = await getTransactionStats({
     accountId: toStringArray(req.query.accountId),
     categoryId: toStringArray(req.query.categoryId),
     type: toStringArray(req.query.type),
@@ -153,17 +130,17 @@ router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (re
 }))
 
 router.get('/earliest', asyncHandler(async (_req, res) => {
-  const date = await transactionService.getEarliestTransactionDate()
+  const date = await getEarliestTransactionDate()
   return success(res, { date: date ? date.toISOString().split('T')[0] : null })
 }))
 
 router.get('/refundable/list', asyncHandler(async (_req, res) => {
-  const transactions = await transactionService.getRefundableTransactions()
+  const transactions = await getRefundableTransactions()
   return success(res, transactions)
 }))
 
 router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  const transaction = await transactionService.getTransactionById(req.params.id)
+  const transaction = await getTransactionById(req.params.id)
   if (!transaction) {
     throw new NotFoundError('交易记录')
   }
@@ -219,7 +196,7 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
   const { id } = req.params
   const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
 
-  const oldTransaction = await transactionService.getTransactionById(id)
+  const oldTransaction = await getTransactionById(id)
   if (!oldTransaction) {
     throw new NotFoundError('交易记录')
   }
@@ -283,7 +260,7 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
 }))
 
 router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  await transactionService.deleteTransaction(req.params.id)
+  await deleteTransaction(req.params.id)
   return success(res, { message: '删除成功' })
 }))
 

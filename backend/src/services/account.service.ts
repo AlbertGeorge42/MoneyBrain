@@ -1,7 +1,15 @@
 import { prisma } from '../index.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
-import { ZERO } from '../utils/decimal.js'
+import { toDecimal, ZERO } from '../common/index.js'
+
+export async function getNextAccountSort(categoryId: string | null): Promise<number> {
+  const maxSortResult = await prisma.account.aggregate({
+    where: { categoryId: categoryId || null },
+    _max: { sort: true },
+  })
+
+  return (maxSortResult._max.sort ?? -1) + 1
+}
 
 type AccountSortItem = {
   id: string
@@ -189,7 +197,7 @@ export async function adjustAccountBalance(
     const transaction = await tx.transaction.create({
       data: {
         type: 'adjustment',
-        amount: new Decimal(amount),
+        amount: toDecimal(amount),
         date: adjustDate,
         note: note || '平账调整',
         accountId,
@@ -227,7 +235,7 @@ export async function batchAdjustAccountBalances(
       const transaction = await tx.transaction.create({
         data: {
           type: 'adjustment',
-          amount: new Decimal(amount),
+          amount: toDecimal(amount),
           date: adjustDate,
           note: note || '批量平账调整',
           accountId,

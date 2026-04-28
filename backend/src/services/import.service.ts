@@ -1,5 +1,7 @@
 import { prisma } from '../index.js'
-import { getNextAccountCategorySort, getNextAccountSort, getNextTransactionCategorySort } from './sort.service.js'
+import { getNextAccountCategorySort } from './account-category.service.js'
+import { getNextAccountSort } from './account.service.js'
+import { getNextTransactionCategorySort } from './transaction-category.service.js'
 
 interface AccountCache {
   id: string
