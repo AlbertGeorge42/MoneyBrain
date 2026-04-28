@@ -1,3 +1,6 @@
+# Hidden Folder
+.*/
+
 # Dependencies
 node_modules/
 .pnp
@@ -5,6 +8,9 @@ node_modules/
 
 # Testing
 coverage/
+playwright-report/
+test-results/
+*.test.ts.snap
 
 # Production
 dist/
