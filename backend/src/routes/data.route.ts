@@ -3,6 +3,8 @@ import { asyncHandler, success, validateRequest, ValidationError } from '../comm
 import multer from 'multer'
 import { exportTransactionsCSV, clearAllData, clearTransactionsOnly, parseCSVLine } from '../services/data.service.js'
 import { importTransactionsFromRows, type ParsedRow } from '../services/import.service.js'
+import { exportConfig } from '../services/config-export.service.js'
+import { importConfig } from '../services/config-import.service.js'
 
 const router = Router()
 
@@ -95,6 +97,34 @@ router.post('/import', upload.single('file'), validateRequest(validateImportRequ
   const { imported, skipped } = await importTransactionsFromRows(parsedRows, start, end)
 
   return success(res, { imported, skipped, errors: [] })
+}))
+
+router.get('/export-config', asyncHandler(async (_req, res) => {
+  const jsonContent = await exportConfig()
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename=moneybrain-config-${new Date().toISOString().split('T')[0]}.json`)
+  res.send(jsonContent)
+}))
+
+router.post('/import-config', upload.single('file'), validateRequest((req: Request) => {
+  if (!req.file) {
+    throw new ValidationError('请上传JSON文件')
+  }
+}), asyncHandler(async (req, res) => {
+  const content = req.file!.buffer.toString('utf-8')
+  let configData
+  try {
+    configData = JSON.parse(content)
+  } catch {
+    throw new ValidationError('JSON文件格式错误')
+  }
+
+  if (!configData.data) {
+    throw new ValidationError('配置文件格式不正确，缺少data字段')
+  }
+
+  const result = await importConfig(configData, 'merge')
+  return success(res, result)
 }))
 
 export default router

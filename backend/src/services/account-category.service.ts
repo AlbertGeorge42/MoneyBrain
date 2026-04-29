@@ -40,8 +40,8 @@ export async function createAccountCategory(data: {
 export async function updateAccountCategory(
   categoryId: string,
   data: {
-    name: string
-    type: string
+    name?: string
+    type?: string
     icon?: string | null
     isCashEquivalent?: boolean
     isInvestment?: boolean
@@ -51,12 +51,12 @@ export async function updateAccountCategory(
   return prisma.accountCategory.update({
     where: { id: categoryId },
     data: {
-      name: data.name,
-      type: data.type,
-      icon: data.icon,
-      isCashEquivalent: data.isCashEquivalent,
-      isInvestment: data.isInvestment,
-      sort: data.sort,
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.type !== undefined && { type: data.type }),
+      ...(data.icon !== undefined && { icon: data.icon }),
+      ...(data.isCashEquivalent !== undefined && { isCashEquivalent: data.isCashEquivalent }),
+      ...(data.isInvestment !== undefined && { isInvestment: data.isInvestment }),
+      ...(data.sort !== undefined && { sort: data.sort }),
     },
   })
 }

@@ -326,6 +326,102 @@ a {
   color: var(--mb-color-danger);
 }
 
+/* ========== 设置页面专用样式 ========== */
+
+/* 设置页面数据标签始终四列 */
+.settings-kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+/* 主题选择卡片 */
+.theme-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.theme-option-card {
+  cursor: pointer;
+  transition: all 0.24s ease;
+  border: 2px solid transparent;
+  padding: 20px;
+  border-radius: var(--mb-radius-lg);
+  text-align: center;
+  background: var(--mb-color-surface-muted);
+}
+
+.theme-option-card:hover {
+  border-color: var(--mb-color-border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--mb-shadow-md);
+}
+
+.theme-option-card--active {
+  border-color: var(--mb-color-primary);
+  background: var(--mb-color-surface-selected);
+}
+
+/* 文件拖拽上传区 */
+.file-drop-zone {
+  border: 2px dashed var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-lg);
+  padding: 32px 24px;
+  text-align: center;
+  transition: all 0.24s ease;
+  cursor: pointer;
+  background: var(--mb-color-surface-muted);
+}
+
+.file-drop-zone:hover,
+.file-drop-zone--dragover {
+  border-color: var(--mb-color-primary);
+  background: var(--mb-color-surface-hover);
+}
+
+/* 设置页面网格 */
+.settings-grid {
+  display: grid;
+  gap: 16px;
+}
+
+/* 危险区增强 */
+.danger-zone {
+  border-left: 4px solid var(--mb-color-danger);
+}
+
+@media (max-width: 680px) {
+  /* 设置页面概览卡片改为 2列 */
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  
+  /* metric-card 移动端紧凑 */
+  .metric-card .ant-card-body {
+    padding: 12px;
+  }
+  
+  .metric-card__value {
+    font-size: 22px;
+    margin-top: 4px;
+  }
+  
+  /* 主题选择卡片保持 3列紧凑 */
+  .theme-options-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  
+  .theme-option-card {
+    padding: 12px;
+  }
+  
+  /* 文件拖拽区域紧凑 */
+  .file-drop-zone {
+    padding: 20px 16px;
+  }
+}
+
 .ant-layout,
 .ant-card,
 .ant-modal-content,

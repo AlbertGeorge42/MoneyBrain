@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Modal, Table, Tabs, Tag, Spin, Dropdown, Button, message } from 'antd'
 import { SettingOutlined, ExportOutlined } from '@ant-design/icons'
 import { useStore } from '../../stores'
@@ -33,6 +33,13 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
   const [expandedActivityKeys, setExpandedActivityKeys] = useState<string[]>([])
   const cashMoveModal = useMoveModal<CashTreeNode>()
   const activityMoveModal = useMoveModal<ActivityTreeNode>()
+
+  useEffect(() => {
+    if (visible) {
+      void fetchAccountCategories()
+      void fetchTransactionCategories()
+    }
+  }, [visible, fetchAccountCategories, fetchTransactionCategories])
 
   const cashTreeData = useMemo(() => {
     const groupMap: Record<string, CashTreeNode[]> = { cash: [], investment: [], other: [] }

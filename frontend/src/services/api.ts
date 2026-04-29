@@ -143,6 +143,25 @@ export const analyticsApi = {
   getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
 }
 
+export interface ImportConfigResult {
+  imported: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+  }
+  updated: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+  }
+  skipped: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+  }
+  errors: string[]
+}
+
 export const dataApi = {
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
   clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
@@ -165,6 +184,21 @@ export const dataApi = {
         'Content-Type': 'multipart/form-data',
       },
       timeout: 120000,
+    })
+  },
+  exportConfig: () => {
+    return api.get<Blob>('/data/export-config', {
+      responseType: 'blob',
+    })
+  },
+  importConfig: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post<ApiResponse<ImportConfigResult>>('/data/import-config', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000,
     })
   },
 }

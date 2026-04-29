@@ -103,6 +103,16 @@ export function getAntdTheme(): ThemeConfig {
         headerBg: colorToken('--mb-color-surface-muted'),
         rowHoverBg: colorToken('--mb-color-surface-hover'),
       },
+      Alert: {
+        colorWarningBg: 'rgba(250, 173, 20, 0.1)',
+        colorWarningBorder: colorToken('--mb-color-warning'),
+        colorErrorBg: 'rgba(255, 77, 79, 0.1)',
+        colorErrorBorder: colorToken('--mb-color-danger'),
+        colorSuccessBg: 'rgba(82, 196, 26, 0.1)',
+        colorSuccessBorder: colorToken('--mb-color-success'),
+        colorInfoBg: 'rgba(24, 144, 255, 0.1)',
+        colorInfoBorder: colorToken('--mb-color-info'),
+      },
     },
   }
 }

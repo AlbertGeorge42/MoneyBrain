@@ -40,10 +40,7 @@ router.put('/sort/batch', validateRequest(validateBatchSort), asyncHandler(async
   return success(res, { message: '排序更新成功' })
 }))
 
-router.put('/:id', validateRequest((req) => {
-  validateIdParam(req)
-  validateCategoryPayload(req)
-}), asyncHandler(async (req, res) => {
+router.put('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
   const { name, type, icon, isCashEquivalent, isInvestment, sort } = req.body
   const category = await updateAccountCategory(req.params.id, {
     name,
