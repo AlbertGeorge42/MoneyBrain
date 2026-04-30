@@ -509,24 +509,32 @@ const Settings: React.FC = () => {
 
       <div className="kpi-grid settings-kpi-grid">
         <Card className="surface-card metric-card">
-          <BankOutlined style={{ fontSize: 24, color: colorPrimary, marginBottom: spaceSm }} />
+          <div className="metric-card__header">
+            <BankOutlined style={{ fontSize: 18, color: colorPrimary }} />
+            <span className="metric-card__label">账户</span>
+          </div>
           <div className="metric-card__value">{accounts.length}</div>
-          <div className="metric-card__label">账户</div>
         </Card>
         <Card className="surface-card metric-card">
-          <FileTextOutlined style={{ fontSize: 24, color: colorInfo, marginBottom: spaceSm }} />
+          <div className="metric-card__header">
+            <FileTextOutlined style={{ fontSize: 20, color: colorInfo }} />
+            <span className="metric-card__label">交易记录</span>
+          </div>
           <div className="metric-card__value">{pagination.total}</div>
-          <div className="metric-card__label">交易记录</div>
         </Card>
         <Card className="surface-card metric-card">
-          <TagsOutlined style={{ fontSize: 24, color: colorSuccess, marginBottom: spaceSm }} />
+          <div className="metric-card__header">
+            <TagsOutlined style={{ fontSize: 20, color: colorSuccess }} />
+            <span className="metric-card__label">收支分类</span>
+          </div>
           <div className="metric-card__value">{transactionCategories.length}</div>
-          <div className="metric-card__label">收支分类</div>
         </Card>
         <Card className="surface-card metric-card">
-          <SettingOutlined style={{ fontSize: 24, color: colorWarning, marginBottom: spaceSm }} />
+          <div className="metric-card__header">
+            <SettingOutlined style={{ fontSize: 20, color: colorPrimary }} />
+            <span className="metric-card__label">账户分类</span>
+          </div>
           <div className="metric-card__value">{accountCategories.length}</div>
-          <div className="metric-card__label">账户分类</div>
         </Card>
       </div>
 
