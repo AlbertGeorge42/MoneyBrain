@@ -87,6 +87,7 @@ model Transaction {
   @@index([date])
   @@index([accountId, date])
   @@index([categoryId, date])
+  @@index([type, date])
   @@map("transactions")
 }
 

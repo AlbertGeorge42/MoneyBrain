@@ -434,25 +434,28 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
   const where = await buildTransactionListWhere(params)
   where.isAdjustment = false
 
-  const transactions = await prisma.transaction.findMany({ where })
+  // 使用数据库聚合查询，避免加载全表数据到内存
+  const [incomeResult, expenseResult, refundResult, transferCount] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { ...where, type: 'income' },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { ...where, type: 'expense' },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { ...where, type: 'refund' },
+      _sum: { amount: true, fee: true },
+    }),
+    prisma.transaction.count({ where: { ...where, type: 'transfer' } }),
+  ])
 
-  let income = ZERO
-  let expense = ZERO
-  let refund = ZERO
-
-  transactions.forEach(t => {
-    const amount = t.amount
-    if (t.type === 'income') {
-      income = income.plus(amount)
-    } else if (t.type === 'expense') {
-      expense = expense.plus(amount)
-    } else if (t.type === 'refund') {
-      const fee = toDecimal(t.fee)
-      refund = refund.plus(amount.minus(fee))
-    }
-  })
-
-  const transferCount = transactions.filter(t => t.type === 'transfer').length
+  const income = toDecimal(incomeResult._sum.amount || 0)
+  const expense = toDecimal(expenseResult._sum.amount || 0)
+  const refundAmount = toDecimal(refundResult._sum.amount || 0)
+  const refundFee = toDecimal(refundResult._sum.fee || 0)
+  const refund = refundAmount.minus(refundFee)
 
   return {
     income: income.toNumber(),

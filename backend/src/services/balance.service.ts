@@ -1,6 +1,6 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO } from '../common/index.js'
+import { ZERO } from '../common/index.js'
 
 export type TransactionType = 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
 
@@ -42,6 +42,31 @@ export function calculateTransferInAmountDecimal(
   return amount
 }
 
+/**
+ * 根据交易列表计算余额变动
+ * @param transactions 从账户转出的交易列表
+ * @param toTransactions 转入账户的交易列表
+ * @param multiplier 1 为前向计算，-1 为后向计算
+ */
+function applyTransactionsToBalance(
+  balance: Decimal,
+  transactions: { type: string; amount: Decimal; fee: Decimal; coupon: Decimal }[],
+  toTransactions: { type: string; amount: Decimal; fee: Decimal; coupon: Decimal }[],
+  multiplier: 1 | -1 = 1
+): Decimal {
+  transactions.forEach(t => {
+    const change = calculateBalanceChangeDecimal(t.type as TransactionType, t.amount, t.fee, t.coupon)
+    balance = balance.plus(change.times(multiplier))
+  })
+  toTransactions.forEach(t => {
+    if (t.type === 'transfer') {
+      const inAmount = calculateTransferInAmountDecimal(t.amount, t.fee, t.coupon)
+      balance = balance.plus(inAmount.times(multiplier))
+    }
+  })
+  return balance
+}
+
 export async function calculateBalanceAtDate(
   accountId: string,
   targetDate: Date
@@ -55,97 +80,35 @@ export async function calculateBalanceAtDate(
   let balance = account.initialBalance
   
   if (!account.initialBalanceDate) {
+    // 无初始余额日期，从最早交易开始计算
     const fromTransactions = await prisma.transaction.findMany({
-      where: {
-        accountId,
-        date: { lt: targetDate },
-      },
+      where: { accountId, date: { lt: targetDate } },
     })
     const toTransactions = await prisma.transaction.findMany({
-      where: {
-        toAccountId: accountId,
-        date: { lt: targetDate },
-      },
+      where: { toAccountId: accountId, date: { lt: targetDate } },
     })
-    
-    fromTransactions.forEach(t => {
-      const amount = t.amount
-      const fee = toDecimal(t.fee)
-      const coupon = toDecimal(t.coupon)
-      balance = balance.plus(calculateBalanceChangeDecimal(t.type as TransactionType, amount, fee, coupon))
-    })
-    toTransactions.forEach(t => {
-      const amount = t.amount
-      const fee = toDecimal(t.fee)
-      const coupon = toDecimal(t.coupon)
-      if (t.type === 'transfer') {
-        balance = balance.plus(calculateTransferInAmountDecimal(amount, fee, coupon))
-      }
-    })
+    balance = applyTransactionsToBalance(balance, fromTransactions, toTransactions)
     return balance.toNumber()
   }
 
   const initialDate = account.initialBalanceDate
   const isForwardCalculation = targetDate >= initialDate
 
-  if (isForwardCalculation) {
-    const fromTransactions = await prisma.transaction.findMany({
-      where: {
-        accountId,
-        date: { gte: initialDate, lt: targetDate },
-      },
-    })
-    const toTransactions = await prisma.transaction.findMany({
-      where: {
-        toAccountId: accountId,
-        date: { gte: initialDate, lt: targetDate },
-      },
-    })
+  const dateRange = isForwardCalculation
+    ? { gte: initialDate, lt: targetDate }
+    : { gte: targetDate, lt: initialDate }
+  const multiplier: 1 | -1 = isForwardCalculation ? 1 : -1
 
-    fromTransactions.forEach(t => {
-      const amount = t.amount
-      const fee = toDecimal(t.fee)
-      const coupon = toDecimal(t.coupon)
-      balance = balance.plus(calculateBalanceChangeDecimal(t.type as TransactionType, amount, fee, coupon))
-    })
-    toTransactions.forEach(t => {
-      const amount = t.amount
-      const fee = toDecimal(t.fee)
-      const coupon = toDecimal(t.coupon)
-      if (t.type === 'transfer') {
-        balance = balance.plus(calculateTransferInAmountDecimal(amount, fee, coupon))
-      }
-    })
-  } else {
-    const fromTransactions = await prisma.transaction.findMany({
-      where: {
-        accountId,
-        date: { gte: targetDate, lt: initialDate },
-      },
-    })
-    const toTransactions = await prisma.transaction.findMany({
-      where: {
-        toAccountId: accountId,
-        date: { gte: targetDate, lt: initialDate },
-      },
-    })
+  const [fromTransactions, toTransactions] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { accountId, date: dateRange },
+    }),
+    prisma.transaction.findMany({
+      where: { toAccountId: accountId, date: dateRange },
+    }),
+  ])
 
-    fromTransactions.forEach(t => {
-      const amount = t.amount
-      const fee = toDecimal(t.fee)
-      const coupon = toDecimal(t.coupon)
-      balance = balance.minus(calculateBalanceChangeDecimal(t.type as TransactionType, amount, fee, coupon))
-    })
-    toTransactions.forEach(t => {
-      const amount = t.amount
-      const fee = toDecimal(t.fee)
-      const coupon = toDecimal(t.coupon)
-      if (t.type === 'transfer') {
-        balance = balance.minus(calculateTransferInAmountDecimal(amount, fee, coupon))
-      }
-    })
-  }
-
+  balance = applyTransactionsToBalance(balance, fromTransactions, toTransactions, multiplier)
   return balance.toNumber()
 }
 

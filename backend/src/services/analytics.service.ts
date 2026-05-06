@@ -1,4 +1,6 @@
 import { prisma } from '../index.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
+import type { Prisma } from '@prisma/client'
 import { calculateBalanceAtDate } from './balance.service.js'
 import { ZERO } from '../common/index.js'
 
@@ -16,30 +18,35 @@ export interface CategoryBreakdownItem {
 
 export async function getTrends(type: string): Promise<TrendItem[]> {
   const now = new Date()
-  const months: { label: string; startDate: Date; endDate: Date }[] = []
+  const startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
+  // 单次查询获取12个月全部数据，避免12次数据库往返
+  const transactions = await prisma.transaction.findMany({
+    where: { type, date: { gte: startDate, lte: endDate } },
+    select: { amount: true, date: true },
+  })
+
+  // 按月份分组统计
+  const monthlyMap = new Map<string, Decimal>()
+  transactions.forEach(t => {
+    const key = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`
+    const current = monthlyMap.get(key) || ZERO
+    monthlyMap.set(key, current.plus(t.amount))
+  })
+
+  // 按月份顺序输出结果
+  const result: TrendItem[] = []
   for (let i = 11; i >= 0; i--) {
-    const startDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const endDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
-    months.push({
-      label: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`,
-      startDate,
-      endDate,
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    result.push({
+      label,
+      amount: (monthlyMap.get(label) || ZERO).toNumber(),
     })
   }
 
-  return Promise.all(
-    months.map(async ({ label, startDate, endDate }) => {
-      const transactions = await prisma.transaction.findMany({
-        where: { type, date: { gte: startDate, lte: endDate } },
-      })
-      let amount = ZERO
-      transactions.forEach(t => {
-        amount = amount.plus(t.amount)
-      })
-      return { label, amount: amount.toNumber() }
-    })
-  )
+  return result
 }
 
 export async function getCategoryBreakdown(
@@ -48,7 +55,7 @@ export async function getCategoryBreakdown(
   endDate?: string,
   parentCategoryId?: string,
 ): Promise<CategoryBreakdownItem[]> {
-  const where: any = { type }
+  const where: Prisma.TransactionWhereInput = { type }
   if (startDate && endDate) {
     where.date = {
       gte: new Date(startDate),
