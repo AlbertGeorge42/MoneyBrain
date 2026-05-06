@@ -32,6 +32,27 @@ interface ImportContext {
   idMapping: Record<string, string>
 }
 
+export function parseCSVLine(line: string): string[] {
+  const result: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (char === '"') {
+      inQuotes = !inQuotes
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim())
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  result.push(current.trim())
+
+  return result
+}
+
 async function getOrCreateTransferSubCategory(name: string): Promise<string> {
   let category = await prisma.transactionCategory.findFirst({
     where: { name, type: 'transfer', parentId: null },
@@ -127,7 +148,24 @@ async function getOrCreateAccount(
   forceType?: 'asset' | 'liability'
 ): Promise<AccountCache> {
   if (ctx.accountCache[accountName]) {
-    return ctx.accountCache[accountName]
+    const cached = ctx.accountCache[accountName]
+    if (forceType && cached.type !== forceType) {
+      await prisma.account.update({
+        where: { id: cached.id },
+        data: {
+          type: forceType,
+          categoryId: forceType === 'liability'
+            ? ctx.defaultLiabilityCategory.id
+            : ctx.defaultAssetCategory.id,
+          icon: forceType === 'liability' ? 'credit-card' : 'wallet',
+        },
+      })
+      cached.type = forceType
+      cached.categoryId = forceType === 'liability'
+        ? ctx.defaultLiabilityCategory.id
+        : ctx.defaultAssetCategory.id
+    }
+    return cached
   }
 
   let account = await prisma.account.findFirst({ where: { name: accountName } })
@@ -141,6 +179,7 @@ async function getOrCreateAccount(
           categoryId: forceType === 'liability'
             ? ctx.defaultLiabilityCategory.id
             : ctx.defaultAssetCategory.id,
+          icon: forceType === 'liability' ? 'credit-card' : 'wallet',
         },
       })
     }

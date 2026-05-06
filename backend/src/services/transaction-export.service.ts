@@ -1,8 +1,5 @@
 import { prisma } from '../index.js'
 
-/**
- * 导出所有交易记录为钱迹格式 CSV
- */
 export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): Promise<string> {
   const transactions = await prisma.transaction.findMany({
     where: {
@@ -67,9 +64,6 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
   return '\uFEFF' + csvRows.join('\n')
 }
 
-/**
- * 清空所有数据
- */
 export async function clearAllData(): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.budgetAlert.deleteMany()
@@ -83,37 +77,10 @@ export async function clearAllData(): Promise<void> {
   })
 }
 
-/**
- * 仅清空交易数据
- */
 export async function clearTransactionsOnly(): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.budgetAlert.deleteMany()
     await tx.budget.deleteMany()
     await tx.transaction.deleteMany()
   })
-}
-
-/**
- * 解析 CSV 行（处理引号内的逗号）
- */
-export function parseCSVLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuotes = false
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    if (char === '"') {
-      inQuotes = !inQuotes
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim())
-      current = ''
-    } else {
-      current += char
-    }
-  }
-  result.push(current.trim())
-
-  return result
 }
