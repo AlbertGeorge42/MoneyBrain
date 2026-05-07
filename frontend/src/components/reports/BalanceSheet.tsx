@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react'
-import { Button, Card, Space, Statistic, Table } from 'antd'
+import { Button, Card, Grid, Space, Statistic } from 'antd'
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetReportData } from '@shared/types'
 import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
 import { PieChart, type PieChartDataItem } from '../charts'
+import ReportViewSwitcher from './ReportViewSwitcher'
 import { formatBalance } from '../../utils/formatBalance'
-import { colorNegative, colorPositive, fontWeightBold, spaceMd } from '../../styles/tokens'
+import { colorInfo, colorNegative, colorPositive, fontWeightBold, spaceMd } from '../../styles/tokens'
 
 interface BalanceSheetTreeNode {
   key: string
@@ -41,6 +42,9 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
   onOpenSettings,
   onOpenCalibrate,
 }) => {
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
+
   const assetPieData = useMemo(
     () =>
       buildBalanceSheetTreeData.assetNodes
@@ -86,35 +90,153 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
       }))
   }
 
-  const assetColumns = [
-    {
-      title: '名称',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: BalanceSheetTreeNode) => (
-        <span>
-          <DynamicIcon name={record.icon || (record.type === 'category' ? 'folder' : 'wallet')} size={16} /> {text}
-        </span>
-      ),
-    },
-    {
-      title: '金额',
-      dataIndex: 'balance',
-      key: 'balance',
-      width: 140,
-      align: 'right' as const,
-      render: (value: number, record: BalanceSheetTreeNode) => {
-        const result = formatBalance(value, record.nodeType)
-        return <span style={{ color: result.color, fontWeight: fontWeightBold }}>{result.text}</span>
-      },
-    },
-  ]
+  const summarySection = (
+    <>
+      <div className="report-hero-section">
+        <Card className="surface-card report-section-card report-hero-card">
+          <Statistic
+            title="净资产"
+            value={balanceSheetData?.netWorth || 0}
+            precision={2}
+            valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? colorPositive : colorNegative }}
+            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+          />
+          <div className="report-hero-card__sub">
+            <Statistic
+              title="资产负债率"
+              value={balanceSheetData?.assets ? (Math.abs(balanceSheetData?.liabilities || 0) / balanceSheetData.assets) * 100 : 0}
+              precision={1}
+              valueStyle={{ color: colorInfo }}
+              suffix="%"
+            />
+          </div>
+        </Card>
+      </div>
+
+      <div className="report-secondary-section report-secondary-section--2">
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic
+            title="总资产"
+            value={balanceSheetData?.assets || 0}
+            precision={2}
+            valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? colorPositive : colorNegative }}
+            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+          />
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic
+            title="总负债"
+            value={Math.abs(balanceSheetData?.liabilities || 0)}
+            precision={2}
+            valueStyle={{ color: colorNegative }}
+            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+          />
+        </Card>
+      </div>
+    </>
+  )
+  
+  const chartSection = (
+    <div className="report-chart-grid report-chart-grid--2">
+      <Card className="surface-card report-section-card" size="small">
+        <PieChart
+          title="资产结构"
+          data={assetPieData}
+          height={isMobile ? 240 : 280}
+          onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.assetNodes, item)}
+        />
+      </Card>
+      <Card className="surface-card report-section-card" size="small">
+        <PieChart
+          title="负债结构"
+          data={liabilityPieData}
+          height={isMobile ? 240 : 280}
+          onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.liabilityNodes, item)}
+        />
+      </Card>
+    </div>
+  )
+
+  const assetDetailCard = (
+    <Card className="surface-card report-section-card" title="资产明细" size="small">
+      <div className="report-detail-list">
+        {buildBalanceSheetTreeData.assetNodes.map((node) => {
+          const result = formatBalance(node.balance, node.nodeType)
+          return (
+            <div key={node.key} className="report-detail-list__item">
+              <div className="report-detail-list__header">
+                <span className="report-detail-list__title">
+                  <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
+                </span>
+                <span style={{ color: result.color, fontWeight: fontWeightBold }}>{result.text}</span>
+              </div>
+              {node.children?.length ? (
+                <div className="report-detail-list__subitems">
+                  {node.children.map((child) => {
+                    const childResult = formatBalance(child.balance, child.nodeType)
+                    return (
+                      <div key={child.key} className="report-detail-list__subitem">
+                        <span>{child.name}</span>
+                        <span style={{ color: childResult.color }}>{childResult.text}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+
+  const liabilityDetailCard = (
+    <Card className="surface-card report-section-card" title="负债明细" size="small">
+      <div className="report-detail-list">
+        {buildBalanceSheetTreeData.liabilityNodes.map((node) => {
+          const result = formatBalance(node.balance, node.nodeType)
+          return (
+            <div key={node.key} className="report-detail-list__item">
+              <div className="report-detail-list__header">
+                <span className="report-detail-list__title">
+                  <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
+                </span>
+                <span style={{ color: result.color, fontWeight: fontWeightBold }}>{result.text}</span>
+              </div>
+              {node.children?.length ? (
+                <div className="report-detail-list__subitems">
+                  {node.children.map((child) => {
+                    const childResult = formatBalance(child.balance, child.nodeType)
+                    return (
+                      <div key={child.key} className="report-detail-list__subitem">
+                        <span>{child.name}</span>
+                        <span style={{ color: childResult.color }}>{childResult.text}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+
+  const detailTables = (
+    <div className="report-chart-grid report-chart-grid--2">
+      {assetDetailCard}
+      {liabilityDetailCard}
+    </div>
+  )
 
   return (
     <div className="section-grid">
-      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PointTimePickerField value={selectedTime} config={pickerConfig} onChange={onTimeChange} />
-        <Space>
+      <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+        <div className="report-toolbar__filters">
+          <PointTimePickerField value={selectedTime} config={pickerConfig} onChange={onTimeChange} />
+        </div>
+        <Space className="report-toolbar__actions">
           <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
             设置
           </Button>
@@ -124,75 +246,54 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
         </Space>
       </div>
 
-      <Card className="surface-card">
-        <div className="stats-grid">
-          <Statistic
-            title="总资产"
-            value={balanceSheetData?.assets || 0}
-            precision={2}
-            valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? colorPositive : colorNegative }}
-            formatter={(value) => `¥${Number(value).toFixed(2)}`}
-          />
-          <Statistic
-            title="总负债"
-            value={Math.abs(balanceSheetData?.liabilities || 0)}
-            precision={2}
-            valueStyle={{ color: colorNegative }}
-            formatter={(value) => `¥${Number(value).toFixed(2)}`}
-          />
-          <Statistic
-            title="净资产"
-            value={balanceSheetData?.netWorth || 0}
-            precision={2}
-            valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? colorPositive : colorNegative }}
-            formatter={(value) => `¥${Number(value).toFixed(2)}`}
-          />
-        </div>
-      </Card>
+      {summarySection}
 
-      <div className="split-grid">
-        <Card className="surface-card" size="small">
-          <PieChart
-            title="资产结构"
-            data={assetPieData}
-            height={280}
-            onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.assetNodes, item)}
-          />
-        </Card>
-        <Card className="surface-card" size="small">
-          <PieChart
-            title="负债结构"
-            data={liabilityPieData}
-            height={280}
-            onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.liabilityNodes, item)}
-          />
-        </Card>
-      </div>
-
-      <div className="split-grid">
-        <Card className="surface-card" title="资产明细" size="small">
-          <Table
-            dataSource={buildBalanceSheetTreeData.assetNodes}
-            columns={assetColumns}
-            rowKey="key"
-            size="small"
-            pagination={false}
-            defaultExpandAllRows
-            indentSize={16}
-          />
-        </Card>
-        <Card className="surface-card" title="负债明细" size="small">
-          <Table
-            dataSource={buildBalanceSheetTreeData.liabilityNodes}
-            columns={assetColumns}
-            rowKey="key"
-            size="small"
-            pagination={false}
-            defaultExpandAllRows
-            indentSize={16}
-          />
-        </Card>
-      </div>
+      {isMobile ? (
+        <ReportViewSwitcher
+          className="report-view-switcher"
+          items={[
+            {
+              key: 'assets',
+              label: '资产',
+              content: (
+                <div className="report-detail-stack">
+                  <Card className="surface-card report-section-card" size="small">
+                    <PieChart
+                      title="资产结构"
+                      data={assetPieData}
+                      height={240}
+                      onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.assetNodes, item)}
+                    />
+                  </Card>
+                  {assetDetailCard}
+                </div>
+              ),
+            },
+            {
+              key: 'liabilities',
+              label: '负债',
+              content: (
+                <div className="report-detail-stack">
+                  <Card className="surface-card report-section-card" size="small">
+                    <PieChart
+                      title="负债结构"
+                      data={liabilityPieData}
+                      height={240}
+                      onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.liabilityNodes, item)}
+                    />
+                  </Card>
+                  {liabilityDetailCard}
+                </div>
+              ),
+            },
+          ]}
+        />
+      ) : (
+        <>
+          {chartSection}
+          {detailTables}
+        </>
+      )}
     </div>
   )
 }

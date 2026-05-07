@@ -407,8 +407,8 @@ const Reports: React.FC = () => {
     <>
       <PageHeader eyebrow="Reports" title="财务报表" description="集中查看资产、收支、现金流和投资表现。" />
 
-      <Card className="surface-card">
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="small" />
+      <Card className="surface-card report-shell-card">
+        <Tabs className="report-tabs" activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="small" />
       </Card>
 
       <AccountConfigModal

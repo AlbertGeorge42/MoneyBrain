@@ -1,13 +1,13 @@
 import React from 'react'
-import { Card, Button, Table, Row, Col, Statistic, Space, Empty } from 'antd'
+import { Button, Card, Empty, Grid, Space, Statistic } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import DynamicIcon from '../common/DynamicIcon'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
-import { PieChart, LineChart } from '../charts'
-import type { InvestmentAnalysisReportData, InvestmentAccountDetail } from '@shared/types'
+import { LineChart, PieChart } from '../charts'
+import ReportViewSwitcher from './ReportViewSwitcher'
+import type { InvestmentAccountDetail, InvestmentAnalysisReportData } from '@shared/types'
 import {
   colorInvestment,
-  colorInfo,
   colorPositive,
   colorNegative,
   colorNeutral,
@@ -30,9 +30,7 @@ const formatPercent = (value: number | null): string => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-const formatCurrency = (value: number): string => {
-  return `¥${value.toFixed(2)}`
-}
+const formatCurrency = (value: number): string => `¥${value.toFixed(2)}`
 
 const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
   timeRange,
@@ -41,22 +39,25 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
   onTimeRangeChange,
   onOpenSettings,
 }) => {
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
+
   if (!investmentData) {
     return (
-      <div>
-        <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Space>
+      <div className="section-grid">
+        <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+          <div className="report-toolbar__filters">
             <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
-          </Space>
-          <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
-            设置
-          </Button>
+          </div>
+          <div className="report-toolbar__actions">
+            <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
+              设置
+            </Button>
+          </div>
         </div>
-        <Card>
-          <Empty
-            description="暂无投资账户，请在账户分类设置中标记投资类账户"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
+
+        <Card className="surface-card report-section-card">
+          <Empty description="暂无投资账户，请先在账户分类设置中标记投资类账户。" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         </Card>
       </div>
     )
@@ -64,249 +65,183 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 
   const { returnAnalysis, byCategory, trend } = investmentData
 
-  const pieData = byCategory.map(cat => ({
-    name: cat.categoryName,
-    value: Math.abs(cat.balance),
-  })).filter(d => d.value > 0)
+  const pieData = byCategory
+    .map((category) => ({
+      name: category.categoryName,
+      value: Math.abs(category.balance),
+    }))
+    .filter((item) => item.value > 0)
 
-  const lineChartData = {
-    xAxisData: trend.map(t => t.month),
-    seriesData: [
-      {
-        name: '投资总额',
-        data: trend.map(t => t.investment),
-      },
-    ],
-  }
+  const allAccounts: InvestmentAccountDetail[] = byCategory.flatMap((category) => category.accounts)
 
-  const allAccounts: InvestmentAccountDetail[] = byCategory.flatMap(cat => cat.accounts)
-
-  const columns = [
-    {
-      title: '账户名称',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: InvestmentAccountDetail) => (
-        <span>
-          <DynamicIcon name={record.icon} size={16} fallback="wallet" /> {text}
-        </span>
-      ),
-    },
-    {
-      title: '分类',
-      dataIndex: 'categoryName',
-      key: 'categoryName',
-      render: (text: string, record: InvestmentAccountDetail) => (
-        <span>
-          <DynamicIcon name={record.categoryIcon} size={14} fallback="folder" /> {text}
-        </span>
-      ),
-    },
-    {
-      title: '期末余额',
-      dataIndex: 'balance',
-      key: 'balance',
-      align: 'right' as const,
-      render: (v: number) => formatCurrency(v),
-    },
-    {
-      title: '占比',
-      dataIndex: 'ratio',
-      key: 'ratio',
-      align: 'right' as const,
-      width: 80,
-      render: (v: number) => `${v.toFixed(1)}%`,
-    },
-    {
-      title: '期间投入',
-      dataIndex: 'totalInvested',
-      key: 'totalInvested',
-      align: 'right' as const,
-      render: (v: number) => formatCurrency(v),
-    },
-    {
-      title: '期间取出',
-      dataIndex: 'totalWithdrawn',
-      key: 'totalWithdrawn',
-      align: 'right' as const,
-      render: (v: number) => formatCurrency(v),
-    },
-    {
-      title: '期间收益率',
-      dataIndex: 'simpleReturnRate',
-      key: 'simpleReturnRate',
-      align: 'right' as const,
-      width: 100,
-      render: (v: number) => (
-        <span style={{ color: v >= 0 ? colorPositive : colorNegative, fontWeight: fontWeightBold }}>
-          {formatPercent(v)}
-        </span>
-      ),
-    },
-  ]
-
-  return (
-    <div>
-      <div style={{ marginBottom: spaceMd, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Space>
-          <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
-          <span style={{ color: colorNeutral }}>
-            {investmentData.startDate} 至 {investmentData.endDate}
-          </span>
-        </Space>
-        <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
-          设置
-        </Button>
+  const summarySection = (
+    <>
+      <div className="report-hero-section">
+        <Card className="surface-card report-section-card report-hero-card">
+          <Statistic
+            title="期间收益"
+            value={returnAnalysis.periodReturn}
+            precision={2}
+            valueStyle={{ color: returnAnalysis.periodReturn >= 0 ? colorPositive : colorNegative }}
+            prefix="¥"
+            suffix={` (${returnAnalysis.simpleReturnRate >= 0 ? '+' : ''}${returnAnalysis.simpleReturnRate.toFixed(2)}%)`}
+          />
+        </Card>
       </div>
 
-      <Card style={{ marginBottom: spaceMd }}>
-        <Row gutter={16}>
-          <Col span={6}>
-            <Statistic
-              title="期初价值"
-              value={returnAnalysis.startValue}
-              precision={2}
-              valueStyle={{ color: colorNeutral }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="期末价值"
-              value={returnAnalysis.endValue}
-              precision={2}
-              valueStyle={{ color: colorInvestment }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="价值变化"
-              value={returnAnalysis.valueChange}
-              precision={2}
-              valueStyle={{ color: returnAnalysis.valueChange >= 0 ? colorPositive : colorNegative }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="投资占比"
-              value={investmentData.investmentRatio}
-              precision={2}
-              valueStyle={{ color: colorInfo }}
-              suffix="%"
-            />
-          </Col>
-        </Row>
-      </Card>
+      <div className="report-secondary-section report-secondary-section--2">
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic title="期初市值" value={returnAnalysis.startValue} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: colorInvestment }} prefix="¥" />
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic
+            title="XIRR (年化)"
+            value={returnAnalysis.xirr !== null ? returnAnalysis.xirr : '--'}
+            precision={returnAnalysis.xirr !== null ? 2 : 0}
+            valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? colorPositive : colorNegative }}
+            suffix={returnAnalysis.xirr !== null ? '%' : ''}
+          />
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic
+            title="TWR (年化)"
+            value={returnAnalysis.annualizedTwr !== null ? returnAnalysis.annualizedTwr : '--'}
+            precision={returnAnalysis.annualizedTwr !== null ? 2 : 0}
+            valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? colorPositive : colorNegative }}
+            suffix={returnAnalysis.annualizedTwr !== null ? '%' : ''}
+          />
+        </Card>
+      </div>
 
-      <Card style={{ marginBottom: spaceMd }}>
-        <Row gutter={16}>
-          <Col span={6}>
-            <Statistic
-              title="期间投入"
-              value={returnAnalysis.periodInvested}
-              precision={2}
-              valueStyle={{ color: colorNeutral }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="期间取出"
-              value={returnAnalysis.periodWithdrawn}
-              precision={2}
-              valueStyle={{ color: colorNeutral }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="净现金流"
-              value={returnAnalysis.netCashFlow}
-              precision={2}
-              valueStyle={{ color: colorNeutral }}
-              prefix="¥"
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="期间收益"
-              value={returnAnalysis.periodReturn}
-              precision={2}
-              valueStyle={{ color: returnAnalysis.periodReturn >= 0 ? colorPositive : colorNegative }}
-              prefix="¥"
-            />
-          </Col>
-        </Row>
-      </Card>
-
-      <Card style={{ marginBottom: spaceMd }}>
-        <Row gutter={16}>
-          <Col span={8}>
-            <Statistic
-              title="简单收益率"
-              value={returnAnalysis.simpleReturnRate}
-              precision={2}
-              valueStyle={{ color: returnAnalysis.simpleReturnRate >= 0 ? colorPositive : colorNegative }}
-              suffix="%"
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="XIRR (年化)"
-              value={returnAnalysis.xirr !== null ? returnAnalysis.xirr : '--'}
-              precision={returnAnalysis.xirr !== null ? 2 : 0}
-              valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? colorPositive : colorNegative }}
-              suffix={returnAnalysis.xirr !== null ? '%' : ''}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="TWR (年化)"
-              value={returnAnalysis.annualizedTwr !== null ? returnAnalysis.annualizedTwr : '--'}
-              precision={returnAnalysis.annualizedTwr !== null ? 2 : 0}
-              valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? colorPositive : colorNegative }}
-              suffix={returnAnalysis.annualizedTwr !== null ? '%' : ''}
-            />
-          </Col>
-        </Row>
-        <div style={{ marginTop: 8, color: colorMuted, fontSize: fontSizeXs }}>
+      <Card className="surface-card report-section-card">
+        <div className="report-summary-note" style={{ color: colorMuted, fontSize: fontSizeXs }}>
           投资天数: {returnAnalysis.investmentDays} 天 | 现金流笔数: {returnAnalysis.cashFlowCount} 笔 | 账户数量: {investmentData.accountCount} 个
         </div>
       </Card>
+    </>
+  )
 
-      <Row gutter={16} style={{ marginBottom: spaceMd }}>
-        <Col span={12}>
-          <Card size="small">
-            <PieChart 
-              title="投资分布" 
-              data={pieData}
-              height={280}
-            />
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card size="small">
-            <LineChart 
-              title="投资趋势" 
-              xAxisData={lineChartData.xAxisData}
-              seriesData={lineChartData.seriesData}
-              height={280}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <Card title="投资账户明细" size="small">
-        <Table
-          dataSource={allAccounts}
-          columns={columns}
-          rowKey="id"
-          size="small"
-          pagination={false}
+  const chartSection = (
+    <div className="report-chart-grid report-chart-grid--2">
+      <Card className="surface-card report-section-card" size="small">
+        <PieChart title="投资分布" data={pieData} height={isMobile ? 240 : 280} />
+      </Card>
+      <Card className="surface-card report-section-card" size="small">
+        <LineChart
+          title="投资趋势"
+          xAxisData={trend.map((item) => item.month)}
+          seriesData={[
+            {
+              name: '投资总额',
+              data: trend.map((item) => item.investment),
+            },
+          ]}
+          height={isMobile ? 240 : 280}
         />
       </Card>
+    </div>
+  )
+
+  const detailCards = (
+    <Card title="投资账户明细" size="small" className="surface-card report-section-card">
+      <div className="report-detail-list">
+        {allAccounts.map((account) => (
+          <div key={account.id} className="report-detail-list__item">
+            <div className="report-detail-list__header">
+              <span className="report-detail-list__title">
+                <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
+              </span>
+              <span style={{ fontWeight: fontWeightBold }}>{formatCurrency(account.balance)}</span>
+            </div>
+            <div className="report-detail-list__meta">
+              <span>{account.categoryName}</span>
+              <span>{account.ratio.toFixed(1)}%</span>
+            </div>
+            <div className="report-detail-list__meta">
+              <span>投入 {formatCurrency(account.totalInvested)}</span>
+              <span>取出 {formatCurrency(account.totalWithdrawn)}</span>
+            </div>
+            <div className="report-detail-list__meta">
+              <span>期间收益率</span>
+              <span style={{ color: account.simpleReturnRate >= 0 ? colorPositive : colorNegative }}>
+                {formatPercent(account.simpleReturnRate)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+
+  const detailTable = detailCards
+
+  return (
+    <div className="section-grid">
+      <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+        <div className="report-toolbar__filters">
+          <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
+        </div>
+        <div className="report-toolbar__actions">
+          <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
+            设置
+          </Button>
+        </div>
+      </div>
+
+      {summarySection}
+
+      {isMobile ? (
+        <>
+          <ReportViewSwitcher
+            className="report-view-switcher"
+            items={[
+              {
+                key: 'trend',
+                label: '趋势',
+                content: (
+                  <Card className="surface-card report-section-card" size="small">
+                    <LineChart
+                      title="投资趋势"
+                      xAxisData={trend.map((item) => item.month)}
+                      seriesData={[
+                        {
+                          name: '投资总额',
+                          data: trend.map((item) => item.investment),
+                        },
+                      ]}
+                      height={240}
+                    />
+                  </Card>
+                ),
+              },
+              {
+                key: 'distribution',
+                label: '分布',
+                content: (
+                  <Card className="surface-card report-section-card" size="small">
+                    <PieChart title="投资分布" data={pieData} height={240} />
+                  </Card>
+                ),
+              },
+            ]}
+          />
+          {detailCards}
+        </>
+      ) : (
+        <>
+          {chartSection}
+          {detailTable}
+        </>
+      )}
     </div>
   )
 }
