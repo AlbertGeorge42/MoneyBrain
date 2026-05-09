@@ -1,15 +1,15 @@
 import React, { useMemo, useState } from 'react'
-import { Button, DatePicker, Dropdown, Segmented } from 'antd'
+import { Button, DatePicker, Dropdown, Grid, Segmented } from 'antd'
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {
   colorSurface,
   colorText,
-  spaceMd,
-  spaceSm,
   radiusLg,
   shadowMd,
+  spaceMd,
+  spaceSm,
 } from '../../styles/tokens'
 import {
   createPointValue,
@@ -27,6 +27,10 @@ import {
   type RangeTimeValue,
   type TimeGranularity,
 } from '../../utils/timePicker'
+import {
+  PointTimePickerMobile,
+  RangeTimePickerMobile,
+} from './TimePickerMobile'
 
 interface PointTimePickerFieldProps {
   value: PointTimeValue
@@ -44,6 +48,9 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
   style,
 }) => {
   const [open, setOpen] = useState(false)
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
+
   const currentPresets = useMemo(() => config.presets[value.granularity] || [], [config.presets, value.granularity])
 
   const isMinReached = useMemo(() => {
@@ -83,15 +90,23 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
   }
 
   const handlePrevClick = () => {
-    if (!isMinReached) {
-      onChange(movePointValue(value, -1))
-    }
+    if (!isMinReached) onChange(movePointValue(value, -1))
   }
 
   const handleNextClick = () => {
-    if (!isMaxReached) {
-      onChange(movePointValue(value, 1))
-    }
+    if (!isMaxReached) onChange(movePointValue(value, 1))
+  }
+
+  if (isMobile) {
+    return (
+      <PointTimePickerMobile
+        value={value}
+        config={config}
+        onChange={onChange}
+        disabled={disabled}
+        style={style}
+      />
+    )
   }
 
   const dropdownContent = (
@@ -103,11 +118,7 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
       maxWidth: 'calc(100vw - 32px)',
       color: colorText,
     }}>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: spaceMd,
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spaceMd }}>
         <div style={{
           display: 'flex',
           justifyContent: 'center',
@@ -204,6 +215,8 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
   placeholder,
 }) => {
   const [open, setOpen] = useState(false)
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
 
   const resolvedValue = useMemo(() => {
     if (value) return value
@@ -262,15 +275,24 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
   }
 
   const handlePrevClick = () => {
-    if (!isMinReached) {
-      onChange(moveRangeValue(resolvedValue, -1))
-    }
+    if (!isMinReached) onChange(moveRangeValue(resolvedValue, -1))
   }
 
   const handleNextClick = () => {
-    if (!isMaxReached) {
-      onChange(moveRangeValue(resolvedValue, 1))
-    }
+    if (!isMaxReached) onChange(moveRangeValue(resolvedValue, 1))
+  }
+
+  if (isMobile) {
+    return (
+      <RangeTimePickerMobile
+        value={value}
+        config={config}
+        onChange={onChange}
+        disabled={disabled}
+        style={style}
+        placeholder={placeholder}
+      />
+    )
   }
 
   const dropdownContent = (
@@ -282,11 +304,7 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
       maxWidth: 'calc(100vw - 32px)',
       color: colorText,
     }}>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: spaceMd,
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spaceMd }}>
         <div style={{
           display: 'flex',
           justifyContent: 'center',

@@ -18,7 +18,7 @@ const ThemedApp: React.FC = () => {
     <ConfigProvider
       locale={zhCN}
       theme={{
-        ...getAntdTheme(),
+        ...getAntdTheme(isDark),
         algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
       }}
     >

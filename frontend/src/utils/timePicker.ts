@@ -153,6 +153,24 @@ export const createPointPeriodPreset = (
   getValue: (reference) => createPointValue(granularity, reference.add(offset, granularity)),
 })
 
+export const createPointMonthStartPreset = (
+  key: string,
+  label: string,
+): TimePreset<PointTimeValue> => ({
+  key,
+  label,
+  getValue: (reference) => createPointValue('day', reference.startOf('month')),
+})
+
+export const createPointMonthEndPreset = (
+  key: string,
+  label: string,
+): TimePreset<PointTimeValue> => ({
+  key,
+  label,
+  getValue: (reference) => createPointValue('day', reference.endOf('month')),
+})
+
 export const createRangePeriodPreset = (
   key: string,
   label: string,

@@ -231,18 +231,6 @@ a {
   flex-wrap: wrap;
 }
 
-@media (max-width: 680px) {
-  .page-header__actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .page-header__actions .ant-btn {
-    flex: 1;
-    min-width: 80px;
-  }
-}
-
 .surface-card.ant-card,
 .surface-card.ant-card .ant-card-head,
 .surface-card.ant-card .ant-card-body {
@@ -298,12 +286,7 @@ a {
 }
 
 .report-kpi-grid,
-.report-chart-grid {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-
+.report-chart-grid,
 .report-summary-grid {
   display: grid;
   gap: 16px;
@@ -314,7 +297,6 @@ a {
   grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
 }
 
-/* 报表概览区域 - 新布局结构 */
 .report-hero-section {
   display: grid;
   gap: 16px;
@@ -377,12 +359,12 @@ a {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.report-kpi-grid--3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .report-kpi-grid--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.report-kpi-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .report-kpi-grid--4 {
@@ -424,33 +406,8 @@ a {
   flex: 0 0 auto;
 }
 
-.report-metric-card--hero.ant-card .ant-card-body {
-  padding: 20px;
-}
-
-.report-metric-card--hero {
-  grid-column: 1 / span 1;
-}
-
-.report-metric-card--hero .ant-statistic-title {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.report-metric-card--hero .ant-statistic-content {
-  font-size: clamp(28px, 5vw, 40px);
-}
-
 .report-metric-card--compact.ant-card .ant-card-body {
   padding: 14px 16px;
-}
-
-.report-table-card.ant-card .ant-card-body {
-  overflow-x: auto;
-}
-
-.report-table .ant-table {
-  min-width: 0;
 }
 
 .report-summary-note {
@@ -520,11 +477,15 @@ a {
   grid-column: 1 / -1;
 }
 
-
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+}
+
+.dashboard-kpi-grid,
+.settings-kpi-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 
 .split-grid {
@@ -586,6 +547,7 @@ a {
 
 .danger-zone {
   border: 1px solid rgba(196, 61, 47, 0.22);
+  border-left: 4px solid var(--mb-color-danger);
   background: linear-gradient(180deg, rgba(196, 61, 47, 0.08), rgba(196, 61, 47, 0.03));
 }
 
@@ -593,19 +555,6 @@ a {
   color: var(--mb-color-danger);
 }
 
-/* ========== Dashboard 页面专用样式 ========== */
-
-/* Dashboard 数据标签始终两行显示（2x2） */
-.dashboard-kpi-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-}
-
-/* Settings 数据标签始终两行显示（2x2） */
-.settings-kpi-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-}
-
-/* 收支对比网格 */
 .income-expense-grid {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -623,7 +572,6 @@ a {
   background: var(--mb-color-border);
 }
 
-/* 交易列表项 */
 .transaction-list-item {
   padding: 12px 0 !important;
   border-bottom: 1px solid var(--mb-color-border) !important;
@@ -675,7 +623,6 @@ a {
   white-space: nowrap;
 }
 
-/* 卡片扩展链接 */
 .card-extra-link {
   color: var(--mb-color-primary);
   cursor: pointer;
@@ -687,7 +634,6 @@ a {
   opacity: 0.8;
 }
 
-/* 图表面板标题 */
 .chart-panel__header {
   margin-bottom: 16px;
 }
@@ -699,14 +645,6 @@ a {
   color: var(--mb-color-text);
 }
 
-/* ========== 设置页面专用样式 ========== */
-
-/* 设置页面数据标签始终两行显示（2x2） */
-.settings-kpi-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-}
-
-/* 主题选择卡片 */
 .theme-options-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -734,7 +672,6 @@ a {
   background: var(--mb-color-surface-selected);
 }
 
-/* 文件拖拽上传区 */
 .file-drop-zone {
   border: 2px dashed var(--mb-color-border-strong);
   border-radius: var(--mb-radius-lg);
@@ -751,48 +688,9 @@ a {
   background: var(--mb-color-surface-hover);
 }
 
-/* 设置页面网格 */
 .settings-grid {
   display: grid;
   gap: 16px;
-}
-
-/* 危险区增强 */
-.danger-zone {
-  border-left: 4px solid var(--mb-color-danger);
-}
-
-@media (max-width: 680px) {
-  /* 设置页面概览卡片改为 2列 */
-  .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-  
-  /* metric-card 移动端紧凑 */
-  .metric-card .ant-card-body {
-    padding: 12px;
-  }
-  
-  .metric-card__value {
-    font-size: 22px;
-    margin-top: 4px;
-  }
-  
-  /* 主题选择卡片保持 3列紧凑 */
-  .theme-options-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-  
-  .theme-option-card {
-    padding: 12px;
-  }
-  
-  /* 文件拖拽区域紧凑 */
-  .file-drop-zone {
-    padding: 20px 16px;
-  }
 }
 
 .ant-layout,
@@ -1014,141 +912,6 @@ a {
   color: var(--mb-color-text);
 }
 
-@media (max-width: 1100px) {
-  .kpi-grid,
-  .split-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .report-kpi-grid--4,
-  .report-chart-grid--3,
-  .report-summary-grid--feature {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .report-secondary-section--4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .report-metric-card--hero {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 860px) {
-  .app-shell__sider.ant-layout-sider {
-    display: none;
-  }
-
-  .app-shell__header.ant-layout-header,
-  .app-shell__content.ant-layout-content {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .app-shell__content.ant-layout-content {
-    padding-bottom: 80px;
-  }
-
-  .report-toolbar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .report-toolbar__actions {
-    justify-content: flex-start;
-  }
-
-  .report-chart-grid--2,
-  .report-kpi-grid--2,
-  .report-kpi-grid--3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 680px) {
-  .kpi-grid,
-  .split-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .page-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .app-shell__toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .page-header__description {
-    display: none;
-  }
-
-  .report-kpi-grid--2,
-  .report-kpi-grid--3,
-  .report-kpi-grid--4,
-  .report-chart-grid--2,
-  .report-chart-grid--3,
-  .report-summary-grid--feature,
-  .report-primary-section {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .report-secondary-section--3,
-  .report-secondary-section--4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .report-hero-section,
-  .report-primary-section,
-  .report-secondary-section {
-    gap: 12px;
-  }
-
-  .report-hero-card {
-    padding: 16px;
-  }
-
-  .report-hero-card .ant-statistic-content {
-    font-size: clamp(24px, 5vw, 32px);
-  }
-
-  .report-hero-card__sub {
-    margin-top: 8px;
-    padding-top: 8px;
-  }
-
-  .report-hero-card__sub .ant-statistic-content {
-    font-size: clamp(18px, 2.5vw, 22px);
-  }
-
-  .report-metric-card--compact.ant-card .ant-card-body {
-    padding: 10px 12px;
-  }
-
-  .report-toolbar__filters,
-  .report-toolbar__actions {
-    width: 100%;
-  }
-
-  .report-toolbar__actions .ant-btn,
-  .report-toolbar__actions .ant-space,
-  .report-toolbar__actions .ant-space-item {
-    width: 100%;
-  }
-
-  .report-toolbar__actions .ant-btn {
-    justify-content: center;
-  }
-
-  .report-tabs .ant-tabs-nav {
-    margin-bottom: 12px;
-  }
-}
-
-/* ========== 移动端底部导航栏 ========== */
 .mobile-tab-bar {
   position: fixed;
   bottom: 0;
@@ -1196,82 +959,33 @@ a {
   font-weight: 500;
 }
 
-/* ========== 响应式统计网格 ========== */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 16px;
 }
 
-@media (max-width: 480px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* ========== 响应式筛选网格 ========== */
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 }
 
-@media (max-width: 680px) {
-  .filter-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ========== 响应式表格隐藏列 ========== */
 .table-column-hide-mobile {
   display: table-cell;
 }
 
-@media (max-width: 860px) {
-  .table-column-hide-mobile {
-    display: none;
-  }
-}
-
-/* ========== 桌面端专用元素 ========== */
 .app-shell__toolbar-label--desktop-only,
 .app-shell__toolbar-meta--desktop-only {
   display: block;
 }
 
-@media (max-width: 860px) {
-  .app-shell__toolbar-label--desktop-only,
-  .app-shell__toolbar-meta--desktop-only {
-    display: none;
-  }
-}
-
-/* ========== 响应式按钮组 ========== */
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-@media (max-width: 680px) {
-  .action-buttons {
-    flex-direction: column;
-  }
-
-  .action-buttons .ant-btn {
-    width: 100%;
-  }
-}
-
-/* ========== 响应式 Tabs ========== */
-@media (max-width: 680px) {
-  .ant-tabs-tab {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-}
-
-/* ========== 交易表格行样式 ========== */
 .tx-row {
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -1339,7 +1053,6 @@ a {
   color: var(--mb-color-danger);
 }
 
-/* 交易表格整体样式 */
 .tx-table .ant-table {
   font-size: 13px;
 }
@@ -1360,7 +1073,61 @@ a {
   border-bottom: none;
 }
 
+@media (max-width: 1100px) {
+  .kpi-grid,
+  .split-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-kpi-grid--4,
+  .report-chart-grid--3,
+  .report-summary-grid--feature {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-secondary-section--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 860px) {
+  .app-shell__sider.ant-layout-sider {
+    display: none;
+  }
+
+  .app-shell__header.ant-layout-header,
+  .app-shell__content.ant-layout-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .app-shell__content.ant-layout-content {
+    padding-bottom: 80px;
+  }
+
+  .report-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-toolbar__actions {
+    justify-content: flex-start;
+  }
+
+  .report-chart-grid--2,
+  .report-kpi-grid--2,
+  .report-kpi-grid--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .table-column-hide-mobile {
+    display: none;
+  }
+
+  .app-shell__toolbar-label--desktop-only,
+  .app-shell__toolbar-meta--desktop-only {
+    display: none;
+  }
+
   .tx-actions {
     opacity: 1;
   }
@@ -1368,5 +1135,143 @@ a {
   .tx-amount__subtitle {
     font-size: 10px;
     max-width: 100px;
+  }
+}
+
+@media (max-width: 680px) {
+  .kpi-grid,
+  .split-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .page-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .page-header__actions .ant-btn {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  .page-header__description {
+    display: none;
+  }
+
+  .app-shell__toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .report-kpi-grid--2,
+  .report-kpi-grid--3,
+  .report-kpi-grid--4,
+  .report-chart-grid--2,
+  .report-chart-grid--3,
+  .report-summary-grid--feature,
+  .report-primary-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-secondary-section--3,
+  .report-secondary-section--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-hero-section,
+  .report-primary-section,
+  .report-secondary-section {
+    gap: 12px;
+  }
+
+  .report-hero-card {
+    padding: 16px;
+  }
+
+  .report-hero-card .ant-statistic-content {
+    font-size: clamp(24px, 5vw, 32px);
+  }
+
+  .report-hero-card__sub {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .report-hero-card__sub .ant-statistic-content {
+    font-size: clamp(18px, 2.5vw, 22px);
+  }
+
+  .report-metric-card--compact.ant-card .ant-card-body {
+    padding: 10px 12px;
+  }
+
+  .report-toolbar__filters,
+  .report-toolbar__actions {
+    width: 100%;
+  }
+
+  .report-toolbar__actions .ant-btn,
+  .report-toolbar__actions .ant-space,
+  .report-toolbar__actions .ant-space-item {
+    width: 100%;
+  }
+
+  .report-toolbar__actions .ant-btn {
+    justify-content: center;
+  }
+
+  .report-tabs .ant-tabs-nav {
+    margin-bottom: 12px;
+  }
+
+  .metric-card .ant-card-body {
+    padding: 12px;
+  }
+
+  .metric-card__value {
+    font-size: 22px;
+    margin-top: 4px;
+  }
+
+  .theme-options-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .theme-option-card {
+    padding: 12px;
+  }
+
+  .file-drop-zone {
+    padding: 20px 16px;
+  }
+
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .ant-btn {
+    width: 100%;
+  }
+
+  .ant-tabs-tab {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

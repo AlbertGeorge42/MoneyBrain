@@ -1,4 +1,6 @@
 import type { ThemeConfig } from 'antd'
+import { lightThemeValues } from './themes/light'
+import { darkThemeValues } from './themes/dark'
 
 function colorToken(name: string): string {
   return `var(${name})`
@@ -26,15 +28,17 @@ const baseTheme: ThemeConfig['token'] = {
   motionDurationSlow: '0.32s',
 }
 
-export function getAntdTheme(): ThemeConfig {
+export function getAntdTheme(isDark: boolean): ThemeConfig {
+  const theme = isDark ? darkThemeValues : lightThemeValues
+
   return {
     token: {
       ...baseTheme,
-      colorPrimary: colorToken('--mb-color-primary'),
-      colorSuccess: colorToken('--mb-color-success'),
-      colorWarning: colorToken('--mb-color-warning'),
-      colorError: colorToken('--mb-color-danger'),
-      colorInfo: colorToken('--mb-color-info'),
+      colorPrimary: theme['--mb-color-primary'],
+      colorSuccess: theme['--mb-color-success'],
+      colorWarning: theme['--mb-color-warning'],
+      colorError: theme['--mb-color-danger'],
+      colorInfo: theme['--mb-color-info'],
       colorText: colorToken('--mb-color-text'),
       colorTextSecondary: colorToken('--mb-color-neutral'),
       colorTextTertiary: colorToken('--mb-color-muted'),

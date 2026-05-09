@@ -7,6 +7,8 @@ import DynamicIcon from '../components/common/DynamicIcon'
 import { BalanceSheet, CashFlowReport, IncomeExpenseReport, InvestmentAnalysis } from '../components/reports'
 import type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue } from '../components/common'
 import {
+  createPointMonthEndPreset,
+  createPointMonthStartPreset,
   createPointPeriodPreset,
   createPointValue,
   createQuarterRangePreset,
@@ -36,7 +38,8 @@ const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'max
     day: [
       createPointPeriodPreset('today', '今天', 'day'),
       createPointPeriodPreset('yesterday', '昨天', 'day', -1),
-      createPointPeriodPreset('month-start', '月初', 'month'),
+      createPointMonthStartPreset('month-start', '月初'),
+      createPointMonthEndPreset('month-end', '月末'),
     ],
     month: [
       createPointPeriodPreset('current-month', '本月', 'month'),
