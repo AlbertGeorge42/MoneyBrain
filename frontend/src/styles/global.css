@@ -122,69 +122,15 @@ a {
   overflow-x: hidden;
   background: transparent;
 }
-
-.app-shell__header.ant-layout-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  height: auto;
-  padding: 18px 28px 10px;
-  line-height: normal;
-  background: transparent;
-}
-
-.app-shell__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
-  border: 1px solid var(--mb-color-border);
-  border-radius: var(--mb-radius-lg);
-  background: var(--mb-color-panel);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--mb-shadow-sm);
-}
-
-.app-shell__toolbar-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.app-shell__toolbar-label {
-  color: var(--mb-color-muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.app-shell__toolbar-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.app-shell__toolbar-meta {
-  margin: 0;
-  color: var(--mb-color-neutral);
-  font-size: 13px;
-}
-
-.app-shell__toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
+ 
 .app-shell__content.ant-layout-content {
-  padding: 8px 28px 32px;
+  padding: 24px 28px 32px;
   background: transparent;
 }
 
 .page-shell {
   display: grid;
-  gap: 24px;
+  gap: var(--mb-space-md);
   min-width: 0;
 }
 
@@ -194,6 +140,7 @@ a {
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
+  margin-bottom: var(--mb-space-md);
 }
 
 .page-header__copy {
@@ -975,11 +922,6 @@ a {
   display: table-cell;
 }
 
-.app-shell__toolbar-label--desktop-only,
-.app-shell__toolbar-meta--desktop-only {
-  display: block;
-}
-
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -1095,7 +1037,6 @@ a {
     display: none;
   }
 
-  .app-shell__header.ant-layout-header,
   .app-shell__content.ant-layout-content {
     padding-left: 16px;
     padding-right: 16px;
@@ -1120,11 +1061,6 @@ a {
   }
 
   .table-column-hide-mobile {
-    display: none;
-  }
-
-  .app-shell__toolbar-label--desktop-only,
-  .app-shell__toolbar-meta--desktop-only {
     display: none;
   }
 
@@ -1162,11 +1098,6 @@ a {
 
   .page-header__description {
     display: none;
-  }
-
-  .app-shell__toolbar {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .report-kpi-grid--2,

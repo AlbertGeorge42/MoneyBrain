@@ -5,16 +5,7 @@ import { useStore } from '../stores'
 import { Transaction } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
-import {
-  TransactionDrawer,
-  TransactionFilter,
-  TransactionStats,
-  TransactionTable,
-  RefundModal,
-  FloatingActionButton,
-  TransactionFilterValues,
-} from '../components/transactions'
-import { spaceMd } from '../styles/tokens'
+import { TransactionDrawer, TransactionFilter, TransactionStats, TransactionTable, RefundModal, FloatingActionButton, TransactionFilterValues } from '../components/transactions'
 import { TransactionFormType } from '../components/transactions/TransactionForm'
 
 const MOBILE_BREAKPOINT = 860
@@ -197,7 +188,7 @@ const Transactions: React.FC = () => {
         actions={<>{renderAddButton()}</>}
       />
 
-      <Card style={{ marginBottom: spaceMd }}>
+      <Card>
         <TransactionFilter
           accounts={accounts}
           categories={transactionCategories}

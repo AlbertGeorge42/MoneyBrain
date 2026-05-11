@@ -85,7 +85,7 @@ const Budgets: React.FC = () => {
         }
       />
 
-      <Card style={{ marginBottom: spaceMd }}>
+      <Card>
         <div className="stats-grid">
           <Statistic title="总预算" value={totalBudget} precision={2} prefix="¥" />
           <Statistic
