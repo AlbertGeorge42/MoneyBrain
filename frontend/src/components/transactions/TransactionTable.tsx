@@ -1,6 +1,6 @@
 import React from 'react'
 import { Table, Card, Tag, Popconfirm } from 'antd'
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { EditOutlined, DeleteOutlined, RollbackOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { Transaction } from '../../services/api'
 import {
@@ -27,6 +27,7 @@ interface TransactionTableProps {
   onEdit: (record: Transaction) => void
   onDelete: (id: string) => void
   onPageChange: (page: number, pageSize: number) => void
+  onRefund: (record: Transaction) => void
 }
 
 const TRANSACTION_TYPE_CONFIG = {
@@ -122,32 +123,46 @@ const ActionCell: React.FC<{
   record: Transaction
   onEdit: (r: Transaction) => void
   onDelete: (id: string) => void
-}> = ({ record, onEdit, onDelete }) => (
-  <div className="tx-actions">
-    <button
-      className="tx-actions__btn"
-      onClick={(e) => { e.stopPropagation(); onEdit(record) }}
-      title="编辑"
-    >
-      <EditOutlined />
-    </button>
-    <Popconfirm
-      title="确定要删除此记录吗？"
-      onConfirm={(e) => { e?.stopPropagation(); onDelete(record.id) }}
-      onCancel={(e) => e?.stopPropagation()}
-      okText="确定"
-      cancelText="取消"
-    >
+  onRefund: (r: Transaction) => void
+}> = ({ record, onEdit, onDelete, onRefund }) => {
+  const canRefund = record.type === 'income' || record.type === 'expense'
+
+  return (
+    <div className="tx-actions">
+      {canRefund && (
+        <button
+          className="tx-actions__btn tx-actions__btn--refund"
+          onClick={(e) => { e.stopPropagation(); onRefund(record) }}
+          title="退款"
+        >
+          <RollbackOutlined />
+        </button>
+      )}
       <button
-        className="tx-actions__btn tx-actions__btn--danger"
-        onClick={(e) => e.stopPropagation()}
-        title="删除"
+        className="tx-actions__btn"
+        onClick={(e) => { e.stopPropagation(); onEdit(record) }}
+        title="编辑"
       >
-        <DeleteOutlined />
+        <EditOutlined />
       </button>
-    </Popconfirm>
-  </div>
-)
+      <Popconfirm
+        title="确定要删除此记录吗？"
+        onConfirm={(e) => { e?.stopPropagation(); onDelete(record.id) }}
+        onCancel={(e) => e?.stopPropagation()}
+        okText="确定"
+        cancelText="取消"
+      >
+        <button
+          className="tx-actions__btn tx-actions__btn--danger"
+          onClick={(e) => e.stopPropagation()}
+          title="删除"
+        >
+          <DeleteOutlined />
+        </button>
+      </Popconfirm>
+    </div>
+  )
+}
 
 const TransactionTable: React.FC<TransactionTableProps> = ({
   transactions,
@@ -158,6 +173,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   onEdit,
   onDelete,
   onPageChange,
+  onRefund,
 }) => {
   const columns = [
     {
@@ -169,7 +185,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
       title: '日期',
       dataIndex: 'date',
       key: 'date',
-      width: 64,
+      width: 56,
       align: 'right' as const,
       render: (date: string) => (
         <span style={{ color: colorMuted, fontSize: '12px' }}>{dayjs(date).format('MM-DD')}</span>
@@ -178,28 +194,28 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
     {
       title: '金额',
       key: 'amount',
-      width: 120,
+      width: 110,
       align: 'right' as const,
       render: (_: unknown, record: Transaction) => <AmountCell record={record} />,
     },
     {
       title: '',
       key: 'actions',
-      width: 52,
+      width: 72,
       align: 'right' as const,
       render: (_: unknown, record: Transaction) => (
-        <ActionCell record={record} onEdit={onEdit} onDelete={onDelete} />
+        <ActionCell record={record} onEdit={onEdit} onDelete={onDelete} onRefund={onRefund} />
       ),
     },
   ]
 
   return (
-    <Card className="tx-table" style={{ overflow: 'hidden' }}>
+    <Card className="tx-table" style={{ margin: '0 -1px', overflow: 'hidden' }}>
       <Table
         dataSource={transactions}
         columns={columns}
         rowKey="id"
-        scroll={{ x: 360 }}
+        scroll={{ x: 320 }}
         pagination={{
           current: currentPage,
           pageSize: pageSize,
@@ -214,6 +230,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
           onClick: () => onEdit(record),
           className: 'tx-row',
         })}
+        style={{ overflowX: 'auto' }}
       />
     </Card>
   )

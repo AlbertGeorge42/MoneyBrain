@@ -1,34 +1,34 @@
 import React, { useEffect, useState } from 'react'
 import { Button, Card, message } from 'antd'
-import { ArrowUpOutlined, ArrowDownOutlined, SwapOutlined, RollbackOutlined } from '@ant-design/icons'
+import { PlusOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
-import { Transaction, transactionApi } from '../services/api'
+import { Transaction } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
-import { 
-  TransactionModal, 
-  TransferModal, 
-  RefundModal,
+import {
+  TransactionDrawer,
   TransactionFilter,
   TransactionStats,
   TransactionTable,
-  TransactionFormValues,
-  TransferFormValues,
-  RefundFormValues,
+  RefundModal,
+  FloatingActionButton,
   TransactionFilterValues,
 } from '../components/transactions'
-import { colorWarning, spaceMd } from '../styles/tokens'
+import { spaceMd } from '../styles/tokens'
+import { TransactionFormType } from '../components/transactions/TransactionForm'
+
+const MOBILE_BREAKPOINT = 860
 
 const Transactions: React.FC = () => {
-  const { 
-    transactions, 
-    accounts, 
+  const {
+    transactions,
+    accounts,
     transactionCategories,
     accountCategories,
-    loading, 
+    loading,
     pagination,
     stats,
-    fetchTransactions, 
+    fetchTransactions,
     fetchAccounts,
     fetchTransactionCategories,
     fetchAccountCategories,
@@ -38,11 +38,10 @@ const Transactions: React.FC = () => {
     deleteTransaction,
   } = useStore()
 
-  const [modalVisible, setModalVisible] = useState(false)
-  const [transferModalVisible, setTransferModalVisible] = useState(false)
+  const [drawerVisible, setDrawerVisible] = useState(false)
   const [refundModalVisible, setRefundModalVisible] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
-  const [initialType, setInitialType] = useState<'income' | 'expense' | undefined>(undefined)
+  const [initialType, setInitialType] = useState<TransactionFormType>('expense')
   const [filterExpanded, setFilterExpanded] = useState(false)
   const [filters, setFilters] = useState<TransactionFilterValues>({
     type: [],
@@ -50,9 +49,19 @@ const Transactions: React.FC = () => {
     categoryId: [],
     dateRange: null,
   })
-  const [refundableTransactions, setRefundableTransactions] = useState<Transaction[]>([])
+  const [refundSourceTransaction, setRefundSourceTransaction] = useState<Transaction | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     fetchTransactions()
@@ -62,39 +71,27 @@ const Transactions: React.FC = () => {
     fetchTransactionStats()
   }, [])
 
-  const handleAdd = (type?: 'income' | 'expense') => {
+  const handleAdd = (type?: TransactionFormType) => {
     setEditingTransaction(null)
-    setInitialType(type)
-    setModalVisible(true)
+    setInitialType(type || 'expense')
+    setDrawerVisible(true)
   }
 
-  const handleTransfer = () => {
-    setEditingTransaction(null)
-    setTransferModalVisible(true)
-  }
-
-  const handleRefund = async () => {
-    setEditingTransaction(null)
-    try {
-      const res = await transactionApi.getRefundableList()
-      setRefundableTransactions(res.data.data || [])
-    } catch (error) {
-      message.error('获取可退款交易列表失败')
-    }
+  const handleRefundFromTable = (record: Transaction) => {
+    setRefundSourceTransaction(record)
     setRefundModalVisible(true)
   }
 
   const handleEdit = (record: Transaction) => {
     setEditingTransaction(record)
-    if (record.type === 'transfer') {
-      setTransferModalVisible(true)
-    } else if (record.type === 'refund') {
-      transactionApi.getRefundableList().then(res => {
-        setRefundableTransactions(res.data.data || [])
+    if (record.type === 'transfer' || record.type === 'refund' || record.type === 'adjustment') {
+      if (record.type === 'refund') {
+        setRefundSourceTransaction(record)
         setRefundModalVisible(true)
-      })
+      }
     } else {
-      setModalVisible(true)
+      setInitialType(record.type as TransactionFormType)
+      setDrawerVisible(true)
     }
   }
 
@@ -102,60 +99,32 @@ const Transactions: React.FC = () => {
     try {
       await deleteTransaction(id)
       message.success('删除成功')
-    } catch (error) {
+    } catch {
       message.error('删除失败')
     }
   }
 
-  const handleTransactionSubmit = async (values: TransactionFormValues) => {
-    const data = {
-      ...values,
-      fee: values.fee || 0,
-      coupon: values.coupon || 0,
-      date: values.date.format('YYYY-MM-DD'),
-    }
+  const handleDrawerSubmit = async (values: unknown) => {
     if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, data)
+      await updateTransaction(editingTransaction.id, values as Partial<Transaction>)
       message.success('更新成功')
     } else {
-      await addTransaction(data)
+      await addTransaction(values as Record<string, unknown>)
       message.success('创建成功')
     }
-    setModalVisible(false)
+    setDrawerVisible(false)
   }
 
-  const handleTransferSubmit = async (values: TransferFormValues) => {
-    const data = {
-      type: 'transfer',
-      amount: values.amount,
-      fee: values.fee || 0,
-      coupon: values.coupon || 0,
-      date: values.date.format('YYYY-MM-DD'),
-      accountId: values.fromAccountId,
-      toAccountId: values.toAccountId,
-      categoryId: values.categoryId,
-      note: values.note,
-    }
-    if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, data)
-      message.success('更新成功')
-    } else {
-      await addTransaction(data)
-      message.success('转账成功')
-    }
-    setTransferModalVisible(false)
-  }
-
-  const handleRefundSubmit = async (values: RefundFormValues) => {
+  const handleRefundSubmit = async (values: unknown) => {
     const data = {
       type: 'refund',
-      amount: values.amount,
-      fee: values.fee || 0,
-      coupon: values.coupon || 0,
-      date: values.date.format('YYYY-MM-DD'),
-      accountId: values.accountId,
-      relatedTransactionId: values.relatedTransactionId,
-      note: values.note,
+      amount: (values as { amount: number }).amount,
+      fee: (values as { fee?: number }).fee || 0,
+      coupon: (values as { coupon?: number }).coupon || 0,
+      date: (values as { date: { format: (fmt: string) => string } }).date.format('YYYY-MM-DD'),
+      accountId: (values as { accountId: string }).accountId,
+      relatedTransactionId: refundSourceTransaction?.id,
+      note: (values as { note?: string }).note,
     }
     if (editingTransaction) {
       await updateTransaction(editingTransaction.id, data)
@@ -165,6 +134,7 @@ const Transactions: React.FC = () => {
       message.success('退款记录成功')
     }
     setRefundModalVisible(false)
+    setRefundSourceTransaction(null)
   }
 
   const handleSearch = () => {
@@ -207,28 +177,24 @@ const Transactions: React.FC = () => {
     fetchTransactions(params)
   }
 
+  const renderAddButton = () => {
+    if (isMobile) {
+      return null
+    }
+    return (
+      <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd()}>
+        记一笔
+      </Button>
+    )
+  }
+
   return (
     <div>
       <PageHeader
         eyebrow="Transactions"
         title="交易记录"
         description="录入、筛选与修正。"
-        actions={
-          <>
-            <Button type="primary" icon={<ArrowUpOutlined />} onClick={() => handleAdd('income')}>
-              记收入
-            </Button>
-            <Button danger icon={<ArrowDownOutlined />} onClick={() => handleAdd('expense')}>
-              记支出
-            </Button>
-            <Button icon={<SwapOutlined />} onClick={handleTransfer}>
-              记转账
-            </Button>
-            <Button style={{ borderColor: colorWarning, color: colorWarning }} icon={<RollbackOutlined />} onClick={handleRefund}>
-              记退款
-            </Button>
-          </>
-        }
+        actions={<>{renderAddButton()}</>}
       />
 
       <Card style={{ marginBottom: spaceMd }}>
@@ -262,34 +228,32 @@ const Transactions: React.FC = () => {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onPageChange={handlePageChange}
+        onRefund={handleRefundFromTable}
       />
 
-      <TransactionModal
-        visible={modalVisible}
-        editingTransaction={editingTransaction && editingTransaction.type !== 'transfer' && editingTransaction.type !== 'refund' ? editingTransaction : null}
+      {isMobile && <FloatingActionButton onClick={() => handleAdd()} />}
+
+      <TransactionDrawer
+        visible={drawerVisible}
+        title={editingTransaction ? '编辑记录' : '新增记录'}
+        editingTransaction={editingTransaction}
         accounts={accounts}
         categories={transactionCategories}
         initialType={initialType}
-        onOk={handleTransactionSubmit}
-        onCancel={() => setModalVisible(false)}
-      />
-
-      <TransferModal
-        visible={transferModalVisible}
-        editingTransaction={editingTransaction && editingTransaction.type === 'transfer' ? editingTransaction : null}
-        accounts={accounts}
-        categories={transactionCategories}
-        onOk={handleTransferSubmit}
-        onCancel={() => setTransferModalVisible(false)}
+        onOk={handleDrawerSubmit}
+        onCancel={() => setDrawerVisible(false)}
       />
 
       <RefundModal
         visible={refundModalVisible}
-        editingTransaction={editingTransaction && editingTransaction.type === 'refund' ? editingTransaction : null}
+        editingTransaction={editingTransaction}
         accounts={accounts}
-        refundableTransactions={refundableTransactions}
+        sourceTransaction={refundSourceTransaction}
         onOk={handleRefundSubmit}
-        onCancel={() => setRefundModalVisible(false)}
+        onCancel={() => {
+          setRefundModalVisible(false)
+          setRefundSourceTransaction(null)
+        }}
       />
     </div>
   )

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react'
-import { Modal, Form, Input, Select, InputNumber, DatePicker, Row, Col, Tag, Space } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Modal, Drawer, Form, Input, Select, InputNumber, DatePicker, Row, Col, Tag, Space } from 'antd'
 import dayjs from 'dayjs'
 import { Account, Transaction } from '../../services/api'
 import DynamicIcon from '../common/DynamicIcon'
@@ -9,17 +9,18 @@ import {
   colorExpense,
 } from '../../styles/tokens'
 
+const MOBILE_BREAKPOINT = 860
+
 interface RefundModalProps {
   visible: boolean
   editingTransaction: Transaction | null
   accounts: Account[]
-  refundableTransactions: Transaction[]
+  sourceTransaction: Transaction | null
   onOk: (values: RefundFormValues) => Promise<void>
   onCancel: () => void
 }
 
 export interface RefundFormValues {
-  relatedTransactionId: string
   amount: number
   fee: number
   coupon: number
@@ -32,11 +33,21 @@ const RefundModal: React.FC<RefundModalProps> = ({
   visible,
   editingTransaction,
   accounts,
-  refundableTransactions,
+  sourceTransaction,
   onOk,
   onCancel,
 }) => {
   const [form] = Form.useForm()
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     if (visible && editingTransaction) {
@@ -46,64 +57,70 @@ const RefundModal: React.FC<RefundModalProps> = ({
         coupon: editingTransaction.coupon || 0,
         date: dayjs(editingTransaction.date),
         accountId: editingTransaction.accountId,
-        relatedTransactionId: editingTransaction.relatedTransactionId,
         note: editingTransaction.note,
+      })
+    } else if (visible && sourceTransaction) {
+      form.resetFields()
+      form.setFieldsValue({
+        amount: sourceTransaction.amount,
+        accountId: sourceTransaction.accountId,
+        date: dayjs(),
       })
     } else if (!visible) {
       form.resetFields()
     }
-  }, [visible, editingTransaction, form])
+  }, [visible, editingTransaction, sourceTransaction, form])
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
       await onOk(values)
       form.resetFields()
-    } catch (error) {
-      // 错误由父组件处理
+    } catch {
+      // 错误由 Form 处理
     }
   }
 
-  return (
-    <Modal
-      title={editingTransaction ? '编辑退款' : '新增退款'}
-      open={visible}
-      onOk={handleSubmit}
-      onCancel={onCancel}
-      okText="确定"
-      cancelText="取消"
-      width={600}
-      destroyOnHidden
-    >
+  const renderSourceInfo = () => {
+    if (editingTransaction) {
+      return (
+        <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 }}>
+          <div style={{ color: colorMuted, fontSize: 12, marginBottom: 8 }}>关联交易</div>
+          <Space>
+            <Tag style={{ color: editingTransaction.relatedTransaction?.type === 'income' ? colorIncome : colorExpense, borderColor: editingTransaction.relatedTransaction?.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
+              {editingTransaction.relatedTransaction?.type === 'income' ? '收入' : '支出'}
+            </Tag>
+            <DynamicIcon name={editingTransaction.relatedTransaction?.category?.icon} size={16} />
+            {editingTransaction.relatedTransaction?.category?.name} - ¥{editingTransaction.relatedTransaction?.amount.toFixed(2)}
+            <span style={{ color: colorMuted }}>({dayjs(editingTransaction.relatedTransaction?.date).format('YYYY-MM-DD')})</span>
+          </Space>
+        </div>
+      )
+    }
+
+    if (sourceTransaction) {
+      return (
+        <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 }}>
+          <div style={{ color: colorMuted, fontSize: 12, marginBottom: 8 }}>原交易</div>
+          <Space>
+            <Tag style={{ color: sourceTransaction.type === 'income' ? colorIncome : colorExpense, borderColor: sourceTransaction.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
+              {sourceTransaction.type === 'income' ? '收入' : '支出'}
+            </Tag>
+            <DynamicIcon name={sourceTransaction.category?.icon} size={16} />
+            {sourceTransaction.category?.name} - ¥{sourceTransaction.amount.toFixed(2)}
+            <span style={{ color: colorMuted }}>({dayjs(sourceTransaction.date).format('YYYY-MM-DD')})</span>
+          </Space>
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  const modalContent = (
+    <>
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="relatedTransactionId"
-          label="关联原交易"
-          rules={[{ required: true, message: '请选择原交易记录' }]}
-        >
-          <Select 
-            placeholder="请选择要退款的交易记录" 
-            showSearch
-            optionFilterProp="children"
-            filterOption={(input, option) => {
-              const transaction = refundableTransactions.find(t => t.id === option?.value)
-              if (!transaction) return false
-              const searchStr = `${transaction.category?.name || ''} ${transaction.account?.name || ''} ${transaction.note || ''} ${transaction.amount}`.toLowerCase()
-              return searchStr.includes(input.toLowerCase())
-            }}
-          >
-            {refundableTransactions.map(t => (
-              <Select.Option key={t.id} value={t.id}>
-                <Space>
-                  <Tag style={{ color: t.type === 'income' ? colorIncome : colorExpense, borderColor: t.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>{t.type === 'income' ? '收入' : '支出'}</Tag>
-                  <DynamicIcon name={t.category?.icon} size={16} />
-                  {t.category?.name} - ¥{t.amount.toFixed(2)}
-                  <span style={{ color: colorMuted }}>({dayjs(t.date).format('YYYY-MM-DD')})</span>
-                </Space>
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
+        {renderSourceInfo()}
         <Form.Item
           name="amount"
           label="退款金额"
@@ -112,7 +129,7 @@ const RefundModal: React.FC<RefundModalProps> = ({
           <InputNumber
             style={{ width: '100%' }}
             precision={2}
-            min={0}
+            min={0.01}
             placeholder="请输入退款金额"
             prefix="¥"
           />
@@ -178,6 +195,84 @@ const RefundModal: React.FC<RefundModalProps> = ({
           <Input.TextArea rows={2} placeholder="请输入备注" />
         </Form.Item>
       </Form>
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer
+        title={editingTransaction ? '编辑退款' : '新增退款'}
+        placement="bottom"
+        height="70vh"
+        open={visible}
+        onClose={onCancel}
+        destroyOnClose
+        styles={{
+          body: {
+            paddingBottom: 80,
+          },
+        }}
+      >
+        {modalContent}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '16px',
+            borderTop: '1px solid #f0f0f0',
+            background: '#fff',
+          }}
+        >
+          <button
+            onClick={handleSubmit}
+            style={{
+              width: '100%',
+              padding: '12px 24px',
+              backgroundColor: '#1677ff',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              cursor: 'pointer',
+            }}
+          >
+            确定
+          </button>
+          <button
+            onClick={onCancel}
+            style={{
+              width: '100%',
+              padding: '12px 24px',
+              marginTop: '8px',
+              backgroundColor: '#fff',
+              color: '#333',
+              border: '1px solid #d9d9d9',
+              borderRadius: '8px',
+              fontSize: '16px',
+              cursor: 'pointer',
+            }}
+          >
+            取消
+          </button>
+        </div>
+      </Drawer>
+    )
+  }
+
+  return (
+    <Modal
+      title={editingTransaction ? '编辑退款' : '新增退款'}
+      open={visible}
+      onOk={handleSubmit}
+      onCancel={onCancel}
+      okText="确定"
+      cancelText="取消"
+      width={440}
+      destroyOnClose
+    >
+      {modalContent}
     </Modal>
   )
 }
