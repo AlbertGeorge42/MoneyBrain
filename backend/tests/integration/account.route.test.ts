@@ -126,7 +126,7 @@ describe('Account API Integration Tests', () => {
     // 尝试连接数据库，如果失败则跳过集成测试
     try {
       await prisma.$connect()
-      // 清理数据库
+      // 完整清理数据库（包含可能来自其他测试文件的数据）
       await prisma.budgetAlert.deleteMany().catch(() => {})
       await prisma.budget.deleteMany().catch(() => {})
       await prisma.transaction.deleteMany().catch(() => {})
@@ -139,10 +139,9 @@ describe('Account API Integration Tests', () => {
           { id: 'cat-cash', name: '现金', type: 'asset', sort: 0 },
           { id: 'cat-liability', name: '负债', type: 'liability', sort: 1 },
         ],
-      })
+      }).catch(() => {})
     } catch (error) {
       console.warn('测试数据库连接失败，跳过集成测试:', error)
-      // 标记为跳过
     }
 
     app = createTestApp(prisma)

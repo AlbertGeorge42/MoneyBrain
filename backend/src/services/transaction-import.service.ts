@@ -272,10 +272,41 @@ async function importRefundRow(row: ParsedRow, ctx: ImportContext): Promise<bool
     ? ctx.idMapping[relatedCsvId]
     : null
 
+  let relatedType: 'income' | 'expense' | null = null
+  if (relatedTransactionId) {
+    const relatedTransaction = await prisma.transaction.findUnique({
+      where: { id: relatedTransactionId },
+      select: { type: true },
+    })
+    if (relatedTransaction) {
+      relatedType = relatedTransaction.type as 'income' | 'expense'
+    }
+  }
+
+  if (!relatedType) {
+    const cacheKey = category2 ? `${category1}/${category2}` : category1
+    for (const possibleType of ['expense', 'income'] as const) {
+      const typedCacheKey = `${possibleType}:${cacheKey}`
+      if (ctx.categoryCache[typedCacheKey]) {
+        relatedType = possibleType
+        break
+      }
+    }
+    if (!relatedType) {
+      for (const possibleType of ['expense', 'income'] as const) {
+        const parentCacheKey = `${possibleType}:${category1}`
+        if (ctx.categoryCache[parentCacheKey]) {
+          relatedType = possibleType
+          break
+        }
+      }
+    }
+  }
+
   let categoryId: string | null = null
-  const cacheKey = category2 ? `${category1}/${category2}` : category1
+  const categoryCacheKey = category2 ? `${category1}/${category2}` : category1
   for (const possibleType of ['expense', 'income'] as const) {
-    const typedCacheKey = `${possibleType}:${cacheKey}`
+    const typedCacheKey = `${possibleType}:${categoryCacheKey}`
     if (ctx.categoryCache[typedCacheKey]) {
       categoryId = ctx.categoryCache[typedCacheKey]
       break
@@ -304,6 +335,7 @@ async function importRefundRow(row: ParsedRow, ctx: ImportContext): Promise<bool
       accountId: accountData.id,
       categoryId,
       relatedTransactionId,
+      relatedType,
     },
   })
 

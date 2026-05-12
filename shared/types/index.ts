@@ -79,6 +79,7 @@ export interface Transaction {
   categoryId: string | null
   toAccountId: string | null
   relatedTransactionId: string | null
+  relatedType: string | null // 'income' | 'expense'（退款时记录原交易类型）
   account: Account
   category: TransactionCategory | null
   toAccount: Account | null

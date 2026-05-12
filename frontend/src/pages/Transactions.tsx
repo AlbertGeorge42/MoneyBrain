@@ -69,6 +69,7 @@ const Transactions: React.FC = () => {
   }
 
   const handleRefundFromTable = (record: Transaction) => {
+    setEditingTransaction(null)
     setRefundSourceTransaction(record)
     setRefundModalVisible(true)
   }
@@ -108,7 +109,7 @@ const Transactions: React.FC = () => {
 
   const handleRefundSubmit = async (values: unknown) => {
     const data = {
-      type: 'refund',
+      type: 'refund' as const,
       amount: (values as { amount: number }).amount,
       fee: (values as { fee?: number }).fee || 0,
       coupon: (values as { coupon?: number }).coupon || 0,
@@ -117,13 +118,8 @@ const Transactions: React.FC = () => {
       relatedTransactionId: refundSourceTransaction?.id,
       note: (values as { note?: string }).note,
     }
-    if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, data)
-      message.success('更新成功')
-    } else {
-      await addTransaction(data)
-      message.success('退款记录成功')
-    }
+    await addTransaction(data)
+    message.success('退款记录成功')
     setRefundModalVisible(false)
     setRefundSourceTransaction(null)
   }

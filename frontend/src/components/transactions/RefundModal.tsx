@@ -50,7 +50,18 @@ const RefundModal: React.FC<RefundModalProps> = ({
   }, [])
 
   useEffect(() => {
-    if (visible && editingTransaction) {
+    if (!visible) {
+      form.resetFields()
+      return
+    }
+    if (sourceTransaction) {
+      form.resetFields()
+      form.setFieldsValue({
+        amount: sourceTransaction.amount,
+        accountId: sourceTransaction.accountId,
+        date: dayjs(),
+      })
+    } else if (editingTransaction) {
       form.setFieldsValue({
         amount: editingTransaction.amount,
         fee: editingTransaction.fee || 0,
@@ -59,14 +70,7 @@ const RefundModal: React.FC<RefundModalProps> = ({
         accountId: editingTransaction.accountId,
         note: editingTransaction.note,
       })
-    } else if (visible && sourceTransaction) {
-      form.resetFields()
-      form.setFieldsValue({
-        amount: sourceTransaction.amount,
-        accountId: sourceTransaction.accountId,
-        date: dayjs(),
-      })
-    } else if (!visible) {
+    } else {
       form.resetFields()
     }
   }, [visible, editingTransaction, sourceTransaction, form])
@@ -82,17 +86,17 @@ const RefundModal: React.FC<RefundModalProps> = ({
   }
 
   const renderSourceInfo = () => {
-    if (editingTransaction) {
+    if (editingTransaction?.relatedTransaction) {
       return (
         <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 }}>
           <div style={{ color: colorMuted, fontSize: 12, marginBottom: 8 }}>关联交易</div>
           <Space>
-            <Tag style={{ color: editingTransaction.relatedTransaction?.type === 'income' ? colorIncome : colorExpense, borderColor: editingTransaction.relatedTransaction?.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
-              {editingTransaction.relatedTransaction?.type === 'income' ? '收入' : '支出'}
+            <Tag style={{ color: editingTransaction.relatedTransaction.type === 'income' ? colorIncome : colorExpense, borderColor: editingTransaction.relatedTransaction.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
+              {editingTransaction.relatedTransaction.type === 'income' ? '收入' : '支出'}
             </Tag>
-            <DynamicIcon name={editingTransaction.relatedTransaction?.category?.icon} size={16} />
-            {editingTransaction.relatedTransaction?.category?.name} - ¥{editingTransaction.relatedTransaction?.amount.toFixed(2)}
-            <span style={{ color: colorMuted }}>({dayjs(editingTransaction.relatedTransaction?.date).format('YYYY-MM-DD')})</span>
+            {editingTransaction.relatedTransaction.category?.icon && <DynamicIcon name={editingTransaction.relatedTransaction.category.icon} size={16} />}
+            {(editingTransaction.relatedTransaction.category?.name || '未分类')} - ¥{editingTransaction.relatedTransaction.amount.toFixed(2)}
+            <span style={{ color: colorMuted }}>({dayjs(editingTransaction.relatedTransaction.date).format('YYYY-MM-DD')})</span>
           </Space>
         </div>
       )
@@ -106,8 +110,8 @@ const RefundModal: React.FC<RefundModalProps> = ({
             <Tag style={{ color: sourceTransaction.type === 'income' ? colorIncome : colorExpense, borderColor: sourceTransaction.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
               {sourceTransaction.type === 'income' ? '收入' : '支出'}
             </Tag>
-            <DynamicIcon name={sourceTransaction.category?.icon} size={16} />
-            {sourceTransaction.category?.name} - ¥{sourceTransaction.amount.toFixed(2)}
+            {sourceTransaction.category?.icon && <DynamicIcon name={sourceTransaction.category.icon} size={16} />}
+            {sourceTransaction.category?.name || '未分类'} - ¥{sourceTransaction.amount.toFixed(2)}
             <span style={{ color: colorMuted }}>({dayjs(sourceTransaction.date).format('YYYY-MM-DD')})</span>
           </Space>
         </div>

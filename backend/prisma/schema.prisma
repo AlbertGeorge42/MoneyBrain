@@ -80,6 +80,7 @@ model Transaction {
   categoryId           String?
   category             TransactionCategory? @relation(fields: [categoryId], references: [id])
   relatedTransactionId  String?    // 关联的原交易ID（退款时使用）
+  relatedType          String?    // 原交易类型：'income' | 'expense'（退款时记录）
   relatedTransaction   Transaction? @relation("TransactionRefund", fields: [relatedTransactionId], references: [id], onDelete: SetNull)
   refunds              Transaction[] @relation("TransactionRefund")
   createdAt            DateTime    @default(now())

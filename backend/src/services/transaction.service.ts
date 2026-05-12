@@ -24,6 +24,7 @@ export interface TransactionWithRelations {
   toAccountId: string | null
   categoryId: string | null
   relatedTransactionId: string | null
+  relatedType: string | null
   isAdjustment: boolean
   createdAt: Date
   updatedAt: Date
@@ -219,6 +220,7 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
         accountId,
         categoryId: relatedTransaction.categoryId,
         relatedTransactionId,
+        relatedType: relatedTransaction.type,
       },
       include: {
         account: true,
@@ -434,8 +436,8 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
   const where = await buildTransactionListWhere(params)
   where.isAdjustment = false
 
-  // 使用数据库聚合查询，避免加载全表数据到内存
-  const [incomeResult, expenseResult, refundResult, transferCount] = await Promise.all([
+  // 分别统计收入退款和支出退款
+  const [incomeResult, expenseResult, incomeRefundResult, expenseRefundResult, transferCount] = await Promise.all([
     prisma.transaction.aggregate({
       where: { ...where, type: 'income' },
       _sum: { amount: true },
@@ -445,7 +447,11 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { ...where, type: 'refund' },
+      where: { ...where, type: 'refund', relatedType: 'income' },
+      _sum: { amount: true, fee: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { ...where, type: 'refund', relatedType: 'expense' },
       _sum: { amount: true, fee: true },
     }),
     prisma.transaction.count({ where: { ...where, type: 'transfer' } }),
@@ -453,15 +459,15 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
 
   const income = toDecimal(incomeResult._sum.amount || 0)
   const expense = toDecimal(expenseResult._sum.amount || 0)
-  const refundAmount = toDecimal(refundResult._sum.amount || 0)
-  const refundFee = toDecimal(refundResult._sum.fee || 0)
-  const refund = refundAmount.minus(refundFee)
+  const incomeRefund = toDecimal(incomeRefundResult._sum.amount || 0).minus(toDecimal(incomeRefundResult._sum.fee || 0))
+  const expenseRefund = toDecimal(expenseRefundResult._sum.amount || 0).minus(toDecimal(expenseRefundResult._sum.fee || 0))
+  const totalRefund = incomeRefund.plus(expenseRefund)
 
   return {
-    income: income.toNumber(),
-    expense: expense.toNumber(),
-    refund: refund.toNumber(),
-    balance: income.minus(expense).plus(refund).toNumber(),
+    income: income.minus(incomeRefund).toNumber(),
+    expense: expense.minus(expenseRefund).toNumber(),
+    refund: totalRefund.toNumber(),
+    balance: income.minus(incomeRefund).minus(expense).plus(expenseRefund).toNumber(),
     transferCount,
   }
 }

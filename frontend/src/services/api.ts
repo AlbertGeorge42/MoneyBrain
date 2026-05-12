@@ -50,8 +50,60 @@ const api = axios.create({
   },
 })
 
+function isTransaction(obj: unknown): obj is Record<string, unknown> {
+  if (!obj || typeof obj !== 'object') return false
+  return 'type' in obj && 'amount' in obj
+}
+
+function isTransactionList(obj: unknown): obj is { list?: unknown[] } {
+  if (!obj || typeof obj !== 'object') return false
+  return 'list' in obj
+}
+
+function transformTransactionFields(data: unknown): unknown {
+  if (Array.isArray(data)) {
+    return data.map(transformTransactionFields)
+  }
+  if (isTransaction(data)) {
+    const result: Record<string, unknown> = { ...data }
+    if (typeof result.amount === 'string') result.amount = parseFloat(result.amount)
+    if (typeof result.fee === 'string') result.fee = parseFloat(result.fee)
+    if (typeof result.coupon === 'string') result.coupon = parseFloat(result.coupon)
+    if (result.relatedTransaction) {
+      result.relatedTransaction = transformTransactionFields(result.relatedTransaction)
+    }
+    if (result.account) {
+      const acc: Record<string, unknown> = { ...(result.account as Record<string, unknown>) }
+      if (typeof acc.balance === 'string') acc.balance = parseFloat(acc.balance)
+      result.account = acc
+    }
+    if (result.toAccount) {
+      const toAcc: Record<string, unknown> = { ...(result.toAccount as Record<string, unknown>) }
+      if (typeof toAcc.balance === 'string') toAcc.balance = parseFloat(toAcc.balance)
+      result.toAccount = toAcc
+    }
+    return result
+  }
+  if (isTransactionList(data)) {
+    return { ...data, list: (data.list || []).map(transformTransactionFields) }
+  }
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const result: Record<string, unknown> = {}
+    for (const key of Object.keys(data as object)) {
+      result[key] = transformTransactionFields((data as Record<string, unknown>)[key])
+    }
+    return result
+  }
+  return data
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data?.data) {
+      response.data.data = transformTransactionFields(response.data.data)
+    }
+    return response
+  },
   (error) => {
     const msg = error.response?.data?.error?.message || error.message || '请求失败'
     message.error(msg)
