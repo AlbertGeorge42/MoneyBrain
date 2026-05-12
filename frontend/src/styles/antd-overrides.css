@@ -1,0 +1,229 @@
+/* Ant Design 全局覆盖 */
+
+.ant-layout,
+.ant-card,
+.ant-modal-content,
+.ant-table-wrapper,
+.ant-input,
+.ant-input-number,
+.ant-select-selector,
+.ant-picker,
+.ant-btn,
+.ant-segmented,
+.ant-tabs-tab,
+.ant-tag {
+  transition:
+    background-color 0.24s ease,
+    color 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
+}
+
+.ant-card .ant-card-head {
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
+.ant-card .ant-card-head-title {
+  font-weight: 700;
+}
+
+.ant-table-wrapper .ant-table {
+  background: transparent;
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: var(--mb-color-surface-muted);
+  color: var(--mb-color-neutral);
+  border-bottom-color: var(--mb-color-border);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom-color: var(--mb-color-border);
+}
+
+.ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: var(--mb-color-surface-hover);
+}
+
+.ant-modal .ant-modal-content,
+.ant-modal .ant-modal-header,
+.ant-modal .ant-modal-footer {
+  background: var(--mb-color-surface-elevated);
+  border-color: var(--mb-color-border);
+}
+
+.ant-modal .ant-modal-title,
+.ant-modal .ant-modal-close,
+.ant-modal .ant-modal-body,
+.ant-tabs .ant-tabs-tab,
+.ant-collapse > .ant-collapse-item > .ant-collapse-header,
+.ant-form-item .ant-form-item-label > label,
+.ant-select-selection-item,
+.ant-picker-input > input,
+.ant-input,
+.ant-input-number-input {
+  color: var(--mb-color-text);
+}
+
+.ant-tabs .ant-tabs-tab {
+  color: var(--mb-color-neutral);
+}
+
+.ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn,
+.ant-tabs .ant-tabs-tab:hover {
+  color: var(--mb-color-text);
+}
+
+.ant-tabs .ant-tabs-ink-bar {
+  background: var(--mb-color-primary);
+}
+
+.ant-collapse {
+  background: var(--mb-color-surface);
+  border-color: var(--mb-color-border);
+}
+
+.ant-collapse > .ant-collapse-item {
+  border-bottom-color: var(--mb-color-border);
+}
+
+.ant-input,
+.ant-input-number,
+.ant-picker,
+.ant-select-selector {
+  border-radius: var(--mb-radius-md) !important;
+  color: var(--mb-color-text);
+  background: var(--mb-color-surface);
+  border-color: var(--mb-color-border-input);
+}
+
+.ant-btn {
+  border-radius: var(--mb-radius-md);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.ant-btn:not(:disabled):not(.ant-btn-disabled).ant-btn-default,
+.ant-btn:not(:disabled):not(.ant-btn-disabled).ant-btn-dashed {
+  background: var(--mb-color-surface);
+  border-color: var(--mb-color-border-input);
+  color: var(--mb-color-text);
+}
+
+.ant-btn:not(:disabled):not(.ant-btn-disabled).ant-btn-default:hover,
+.ant-btn:not(:disabled):not(.ant-btn-disabled).ant-btn-dashed:hover,
+.ant-btn:not(:disabled):not(.ant-btn-disabled).ant-btn-default:focus,
+.ant-btn:not(:disabled):not(.ant-btn-disabled).ant-btn-dashed:focus {
+  background: var(--mb-color-surface-hover);
+  border-color: var(--mb-color-primary);
+  color: var(--mb-color-primary);
+}
+
+.ant-btn.ant-btn-text,
+.ant-btn.ant-btn-link {
+  color: var(--mb-color-text);
+}
+
+.ant-btn.ant-btn-text:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text);
+}
+
+.ant-btn.ant-btn-link:hover {
+  color: var(--mb-color-primary);
+}
+
+.ant-btn-primary {
+  color: #fff;
+}
+
+.ant-tag {
+  border-radius: 999px;
+  border-color: var(--mb-color-border);
+  background: var(--mb-color-surface-muted);
+  color: var(--mb-color-text);
+}
+
+.ant-tag .anticon,
+.ant-tag-close-icon {
+  color: inherit;
+}
+
+.ant-radio-button-wrapper {
+  color: var(--mb-color-text);
+  background: var(--mb-color-surface);
+  border-color: var(--mb-color-border-input);
+}
+
+.ant-radio-button-wrapper:hover {
+  color: var(--mb-color-primary);
+}
+
+.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+  background: var(--mb-color-surface-selected);
+  border-color: var(--mb-color-primary);
+  color: var(--mb-color-text);
+}
+
+.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)::before {
+  background: var(--mb-color-primary);
+}
+
+.ant-segmented {
+  background: var(--mb-color-surface-muted);
+}
+
+.ant-segmented .ant-segmented-item {
+  color: var(--mb-color-neutral);
+}
+
+.ant-segmented .ant-segmented-item-selected {
+  color: var(--mb-color-text);
+  box-shadow: inset 0 0 0 1px var(--mb-color-border);
+}
+
+.ant-select-dropdown,
+.ant-dropdown .ant-dropdown-menu,
+.ant-picker-dropdown .ant-picker-panel-container {
+  background: var(--mb-color-surface-elevated);
+  border: 1px solid var(--mb-color-border);
+  box-shadow: var(--mb-shadow-sm);
+}
+
+.ant-select-item,
+.ant-dropdown-menu-item,
+.ant-picker-content th,
+.ant-picker-cell {
+  color: var(--mb-color-text);
+}
+
+.ant-select-selection-placeholder,
+.ant-picker .ant-picker-input > input::placeholder,
+.ant-input::placeholder,
+.ant-input-number-input::placeholder {
+  color: var(--mb-color-muted);
+}
+
+.ant-select-item-option-active:not(.ant-select-item-option-disabled),
+.ant-dropdown-menu-item:hover,
+.ant-picker-cell:hover .ant-picker-cell-inner {
+  background: var(--mb-color-surface-hover);
+}
+
+.ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: var(--mb-color-surface-selected);
+  color: var(--mb-color-text);
+}
+
+/* Ant Design 响应式覆盖 */
+
+@media (max-width: 680px) {
+  .ant-tabs-tab {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
