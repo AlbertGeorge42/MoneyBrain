@@ -14,6 +14,7 @@ import {
   TransactionCreate,
   TransactionEdit,
 } from '../components/transactions'
+import { spaceMd } from '../styles/tokens'
 
 const MOBILE_BREAKPOINT = 860
 
@@ -170,7 +171,7 @@ const Transactions: React.FC = () => {
         actions={<>{renderAddButton()}</>}
       />
 
-      <Card>
+      <Card style={{ marginBottom: spaceMd }}>
         <TransactionFilter
           accounts={accounts}
           categories={transactionCategories}

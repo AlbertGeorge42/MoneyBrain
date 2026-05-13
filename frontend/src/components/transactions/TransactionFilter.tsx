@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react'
-import { Button, Select, TreeSelect, Space, Tag, Collapse } from 'antd'
-import { FilterOutlined } from '@ant-design/icons'
+import { Button, Select, TreeSelect, Tag, Collapse } from 'antd'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
 import {
@@ -203,7 +202,7 @@ income: { color: colorIncome, text: '收入' },
 
   // 渲染已选筛选条件标签
   const renderFilterTags = () => (
-    <Space wrap>
+    <>
       {filters.type.map(t => {
         const config = TRANSACTION_TYPE_CONFIG[t as keyof typeof TRANSACTION_TYPE_CONFIG]
         return (
@@ -238,34 +237,27 @@ income: { color: colorIncome, text: '收入' },
           {formatRangeValue(filters.dateRange)}
         </Tag>
       )}
-    </Space>
+    </>
   )
 
   return (
     <>
-      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-        <Space wrap>
-          <Button 
-            icon={<FilterOutlined />} 
-            onClick={() => onFilterExpandedChange(!filterExpanded)}
-          >
-            筛选 {filterExpanded ? '收起' : '展开'}
-          </Button>
-          {hasActiveFilters && (
-            <Button onClick={onReset}>重置</Button>
-          )}
-        </Space>
-        {renderFilterTags()}
-      </Space>
-
-      <Collapse 
-        activeKey={filterExpanded ? 'filter' : undefined} 
-        onChange={(keys) => onFilterExpandedChange(keys.includes('filter'))}
-        style={{ marginTop: spaceMd }}
+      <Collapse
+        activeKey={filterExpanded ? ['1'] : []}
+        onChange={(keys) => onFilterExpandedChange(keys.length > 0)}
         items={[
           {
-            key: 'filter',
-            label: '筛选条件',
+            key: '1',
+            label: (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span>筛选条件</span>
+                {hasActiveFilters && (
+                  <div className="filter-tags-inline">
+                    {renderFilterTags()}
+                  </div>
+                )}
+              </div>
+            ),
             children: (
               <>
                 <div className="filter-grid">
@@ -354,11 +346,9 @@ income: { color: colorIncome, text: '收入' },
                     />
                   </div>
                 </div>
-                <div style={{ marginTop: spaceMd, textAlign: 'right' }}>
-                  <Space>
-                    <Button onClick={onReset}>重置</Button>
-                    <Button type="primary" onClick={onSearch}>查询</Button>
-                  </Space>
+                <div style={{ marginTop: spaceMd, textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <Button onClick={onReset}>重置</Button>
+                  <Button type="primary" onClick={onSearch}>查询</Button>
                 </div>
               </>
             ),

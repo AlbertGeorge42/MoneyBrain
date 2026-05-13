@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
-import { Table, Card, Tag } from 'antd'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Card, Tag, Empty } from 'antd'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
 import { Transaction } from '../../services/api'
+import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
 import {
   colorInfo,
   colorWarning,
@@ -15,7 +15,7 @@ import {
   colorTransfer,
   colorRefund,
   colorAdjustment,
-  fontWeightBold,
+  spaceMd,
 } from '../../styles/tokens'
 
 interface TransactionTableProps {
@@ -76,30 +76,39 @@ const TRANSACTION_TYPE_CONFIG = {
 const getCategoryName = (record: Transaction): string => {
   if (record.type === 'adjustment') return record.note || '平账调整'
   if (record.type === 'transfer') return record.category?.name || '内部转账'
+  if (record.type === 'refund') {
+    const original = record.relatedTransaction?.category?.name || ''
+    return original || '退款'
+  }
   return record.category?.name || '未分类'
 }
 
-const getSubtitle = (record: Transaction): string => {
+const getAccountName = (record: Transaction): string => {
   if (record.type === 'transfer') {
     const from = record.account?.name || ''
     const to = record.toAccount?.name || ''
     return `${from} → ${to}`
   }
   if (record.type === 'refund') {
-    const original = record.relatedTransaction?.category?.name || ''
-    const account = record.account?.name || ''
-    return original ? `${original} · 退至${account}` : `退至${account}`
-  }
-  if (record.type === 'adjustment') {
     return record.account?.name || ''
   }
-  const account = record.account?.name || ''
-  const note = record.note || ''
-  if (account && note) return `${account} · ${note}`
-  return account || note
+  return record.account?.name || ''
 }
 
-const CategoryCell: React.FC<{ record: Transaction }> = ({ record }) => {
+const getNote = (record: Transaction): string | null => {
+  if (record.type === 'transfer') {
+    return record.note || null
+  }
+  if (record.type === 'refund') {
+    return record.note || null
+  }
+  if (record.type === 'adjustment') {
+    return record.note || null
+  }
+  return record.note || null
+}
+
+const CategoryTag: React.FC<{ record: Transaction }> = ({ record }) => {
   const config = TRANSACTION_TYPE_CONFIG[record.type as keyof typeof TRANSACTION_TYPE_CONFIG]
   const categoryName = getCategoryName(record)
 
@@ -110,15 +119,14 @@ const CategoryCell: React.FC<{ record: Transaction }> = ({ record }) => {
   )
 }
 
-const AmountCell: React.FC<{ record: Transaction }> = ({ record }) => {
+const AmountDisplay: React.FC<{ record: Transaction }> = ({ record }) => {
   const amount = record.amount
-  const subtitle = getSubtitle(record)
 
   const renderAmount = () => {
     if (record.type === 'adjustment') {
       const isPositive = amount >= 0
       return (
-        <span style={{ color: colorInvestment, fontWeight: fontWeightBold, fontSize: '13px' }}>
+        <span style={{ color: colorInvestment, fontSize: '14px' }}>
           {isPositive ? '+' : ''}¥{amount.toFixed(2)}
         </span>
       )
@@ -127,29 +135,64 @@ const AmountCell: React.FC<{ record: Transaction }> = ({ record }) => {
       const hasExtra = (record.fee || 0) > 0 || (record.coupon || 0) > 0
       return (
         <span>
-          <span style={{ color: colorInfo, fontWeight: fontWeightBold, fontSize: '13px' }}>¥{amount.toFixed(2)}</span>
+          <span style={{ color: colorInfo, fontSize: '14px' }}>¥{amount.toFixed(2)}</span>
           {hasExtra && <span style={{ color: colorMuted, fontSize: '10px' }}> +费</span>}
         </span>
       )
     }
     if (record.type === 'refund') {
       return (
-        <span style={{ color: colorWarning, fontWeight: fontWeightBold, fontSize: '13px' }}>
+        <span style={{ color: colorWarning, fontSize: '14px' }}>
           +¥{amount.toFixed(2)}
         </span>
       )
     }
     return (
-      <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontWeight: fontWeightBold, fontSize: '13px' }}>
+      <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontSize: '14px' }}>
         {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
       </span>
     )
   }
 
+  return <div className="tx-group-item__amount">{renderAmount()}</div>
+}
+
+const TransactionRow: React.FC<{
+  record: Transaction
+  onClick: () => void
+}> = ({ record, onClick }) => {
+  const accountName = getAccountName(record)
+  const note = getNote(record)
+
   return (
-    <div className="tx-amount">
-      <div className="tx-amount__value">{renderAmount()}</div>
-      {subtitle && <div className="tx-amount__subtitle">{subtitle}</div>}
+    <div className="tx-group-item" onClick={onClick}>
+      <div className="tx-group-item__left">
+        <CategoryTag record={record} />
+        {note && <span className="tx-group-item__subtitle">{note}</span>}
+      </div>
+      <div className="tx-group-item__right">
+        <AmountDisplay record={record} />
+        <span className="tx-group-item__account">{accountName}</span>
+      </div>
+    </div>
+  )
+}
+
+const GroupHeader: React.FC<{ group: TransactionGroup }> = ({ group }) => {
+  return (
+    <div className="tx-group-header">
+      <div className="tx-group-header__date">
+        <span className="tx-group-header__day">{group.dayLabel}</span>
+        <span className="tx-group-header__weekday">{group.weekDay}</span>
+      </div>
+      <div className="tx-group-header__summary">
+        {group.income > 0 && (
+          <span className="tx-group-header__summary-item" style={{ color: colorPositive }}>收 ¥{group.income.toFixed(2)}</span>
+        )}
+        {group.expense > 0 && (
+          <span className="tx-group-header__summary-item" style={{ color: colorNegative }}>支 ¥{group.expense.toFixed(2)}</span>
+        )}
+      </div>
     </div>
   )
 }
@@ -174,56 +217,63 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const columns = [
-    {
-      title: '分类',
-      key: 'category',
-      render: (_: unknown, record: Transaction) => <CategoryCell record={record} />,
-    },
-    {
-      title: '日期',
-      dataIndex: 'date',
-      key: 'date',
-      width: 64,
-      align: 'right' as const,
-      render: (date: string) => {
-        const d = dayjs(date)
-        const format = d.year() === dayjs().year() ? 'MM-DD' : 'YYYY-MM-DD'
-        return <span style={{ color: colorMuted, fontSize: '12px' }}>{d.format(format)}</span>
-      },
-    },
-    {
-      title: '金额',
-      key: 'amount',
-      width: 110,
-      align: 'right' as const,
-      render: (_: unknown, record: Transaction) => <AmountCell record={record} />,
-    },
-  ]
+  const grouped = useMemo(() => {
+    return groupTransactionsByDate(transactions)
+  }, [transactions])
+
+  const renderDesktopPagination = () => {
+    if (isMobile) return null
+    const totalPages = Math.ceil(total / pageSize)
+    if (totalPages <= 1) return null
+
+    return (
+      <div className="tx-group-pagination">
+        <button
+          className="tx-group-pagination__btn"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1, pageSize)}
+        >
+          上一页
+        </button>
+        <span className="tx-group-pagination__info">
+          第 {currentPage} / {totalPages} 页
+        </span>
+        <button
+          className="tx-group-pagination__btn"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1, pageSize)}
+        >
+          下一页
+        </button>
+      </div>
+    )
+  }
 
   return (
-    <Card className="tx-table" style={{ margin: '0 -1px', overflow: 'hidden' }}>
-      <Table
-        dataSource={transactions}
-        columns={columns}
-        rowKey="id"
-        scroll={{ x: 320 }}
-        pagination={isMobile ? false : {
-          current: currentPage,
-          pageSize: pageSize,
-          total,
-          size: 'small',
-          showSizeChanger: false,
-          showTotal: (t) => `共 ${t} 条`,
-          onChange: onPageChange,
-        }}
-        loading={loading}
-        onRow={(record) => ({
-        onClick: () => onRowClick(record),
-        className: 'tx-row',
-      })}
-        style={{ overflowX: 'auto' }}
-      />
+    <Card className="tx-table" style={{ margin: '0 -1px', overflow: 'hidden', marginBottom: spaceMd }}>
+      {transactions.length === 0 && !loading ? (
+        <Empty description="暂无交易记录" style={{ padding: '40px 0' }} />
+      ) : (
+        <div className="tx-group-list">
+          {grouped.map((group) => (
+            <div key={group.date} className="tx-group">
+              <GroupHeader group={group} />
+              <div className="tx-group-body">
+                {group.transactions.map((record) => (
+                  <TransactionRow
+                    key={record.id}
+                    record={record}
+                    onClick={() => onRowClick(record)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {renderDesktopPagination()}
+
       {isMobile && (
         <MobilePagination
           current={currentPage}
