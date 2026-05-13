@@ -1,6 +1,6 @@
-import React from 'react'
-import { Table, Card, Tag, Popconfirm } from 'antd'
-import { EditOutlined, DeleteOutlined, RollbackOutlined } from '@ant-design/icons'
+import React, { useState, useEffect } from 'react'
+import { Table, Card, Tag } from 'antd'
+import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { Transaction } from '../../services/api'
 import {
@@ -24,10 +24,45 @@ interface TransactionTableProps {
   currentPage: number
   pageSize: number
   total: number
-  onEdit: (record: Transaction) => void
-  onDelete: (id: string) => void
   onPageChange: (page: number, pageSize: number) => void
-  onRefund: (record: Transaction) => void
+  onRowClick: (record: Transaction) => void
+}
+
+const MOBILE_BREAKPOINT = 860
+
+const MobilePagination: React.FC<{
+  current: number
+  pageSize: number
+  total: number
+  onChange: (page: number) => void
+}> = ({ current, pageSize, total, onChange }) => {
+  const totalPages = Math.ceil(total / pageSize)
+  const hasPrev = current > 1
+  const hasNext = current < totalPages
+
+  return (
+    <div className="mobile-pagination">
+      <div className="mobile-pagination__info">
+        共 {total} 条 · 第 {current}/{totalPages} 页
+      </div>
+      <div className="mobile-pagination__controls">
+        <button
+          className="mobile-pagination__btn"
+          disabled={!hasPrev}
+          onClick={() => hasPrev && onChange(current - 1)}
+        >
+          <LeftOutlined />
+        </button>
+        <button
+          className="mobile-pagination__btn"
+          disabled={!hasNext}
+          onClick={() => hasNext && onChange(current + 1)}
+        >
+          <RightOutlined />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const TRANSACTION_TYPE_CONFIG = {
@@ -119,62 +154,26 @@ const AmountCell: React.FC<{ record: Transaction }> = ({ record }) => {
   )
 }
 
-const ActionCell: React.FC<{
-  record: Transaction
-  onEdit: (r: Transaction) => void
-  onDelete: (id: string) => void
-  onRefund: (r: Transaction) => void
-}> = ({ record, onEdit, onDelete, onRefund }) => {
-  const canRefund = record.type === 'income' || record.type === 'expense'
-
-  return (
-    <div className="tx-actions">
-      {canRefund && (
-        <button
-          className="tx-actions__btn tx-actions__btn--refund"
-          onClick={(e) => { e.stopPropagation(); onRefund(record) }}
-          title="退款"
-        >
-          <RollbackOutlined />
-        </button>
-      )}
-      <button
-        className="tx-actions__btn"
-        onClick={(e) => { e.stopPropagation(); onEdit(record) }}
-        title="编辑"
-      >
-        <EditOutlined />
-      </button>
-      <Popconfirm
-        title="确定要删除此记录吗？"
-        onConfirm={(e) => { e?.stopPropagation(); onDelete(record.id) }}
-        onCancel={(e) => e?.stopPropagation()}
-        okText="确定"
-        cancelText="取消"
-      >
-        <button
-          className="tx-actions__btn tx-actions__btn--danger"
-          onClick={(e) => e.stopPropagation()}
-          title="删除"
-        >
-          <DeleteOutlined />
-        </button>
-      </Popconfirm>
-    </div>
-  )
-}
-
 const TransactionTable: React.FC<TransactionTableProps> = ({
   transactions,
   loading,
   currentPage,
   pageSize,
   total,
-  onEdit,
-  onDelete,
   onPageChange,
-  onRefund,
+  onRowClick,
 }) => {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const columns = [
     {
       title: '分类',
@@ -185,11 +184,13 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
       title: '日期',
       dataIndex: 'date',
       key: 'date',
-      width: 56,
+      width: 64,
       align: 'right' as const,
-      render: (date: string) => (
-        <span style={{ color: colorMuted, fontSize: '12px' }}>{dayjs(date).format('MM-DD')}</span>
-      ),
+      render: (date: string) => {
+        const d = dayjs(date)
+        const format = d.year() === dayjs().year() ? 'MM-DD' : 'YYYY-MM-DD'
+        return <span style={{ color: colorMuted, fontSize: '12px' }}>{d.format(format)}</span>
+      },
     },
     {
       title: '金额',
@@ -197,15 +198,6 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
       width: 110,
       align: 'right' as const,
       render: (_: unknown, record: Transaction) => <AmountCell record={record} />,
-    },
-    {
-      title: '',
-      key: 'actions',
-      width: 72,
-      align: 'right' as const,
-      render: (_: unknown, record: Transaction) => (
-        <ActionCell record={record} onEdit={onEdit} onDelete={onDelete} onRefund={onRefund} />
-      ),
     },
   ]
 
@@ -216,7 +208,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         columns={columns}
         rowKey="id"
         scroll={{ x: 320 }}
-        pagination={{
+        pagination={isMobile ? false : {
           current: currentPage,
           pageSize: pageSize,
           total,
@@ -227,11 +219,19 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         }}
         loading={loading}
         onRow={(record) => ({
-          onClick: () => onEdit(record),
-          className: 'tx-row',
-        })}
+        onClick: () => onRowClick(record),
+        className: 'tx-row',
+      })}
         style={{ overflowX: 'auto' }}
       />
+      {isMobile && (
+        <MobilePagination
+          current={currentPage}
+          pageSize={pageSize}
+          total={total}
+          onChange={(page) => onPageChange(page, pageSize)}
+        />
+      )}
     </Card>
   )
 }

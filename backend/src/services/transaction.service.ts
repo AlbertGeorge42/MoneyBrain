@@ -7,7 +7,7 @@ import {
 } from './balance.service.js'
 import { toDecimal, ZERO } from '../common/index.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
-import { NotFoundError, InsufficientBalanceError } from '../common/index.js'
+import { NotFoundError, InsufficientBalanceError, ValidationError } from '../common/index.js'
 import { buildTransactionListWhere } from './transaction-list.service.js'
 
 // ===== 接口定义 =====
@@ -207,6 +207,17 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
   const relatedTransaction = await prisma.transaction.findUnique({ where: { id: relatedTransactionId } })
   if (!relatedTransaction) throw new NotFoundError('原交易记录')
+
+  // 检查是否已有退款记录
+  const existingRefund = await prisma.transaction.findFirst({
+    where: {
+      type: 'refund',
+      relatedTransactionId: relatedTransactionId,
+    },
+  })
+  if (existingRefund) {
+    throw new ValidationError('该交易已有退款记录，无法再次退款')
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.create({

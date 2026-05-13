@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react'
-import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect } from 'antd'
+import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Tag, Space } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildTreeData } from '../../utils/treeUtils'
 import DynamicIcon from '../common/DynamicIcon'
 import { formatBalance } from '../../utils/formatBalance'
+import { colorMuted, colorIncome, colorExpense } from '../../styles/tokens'
 
-export type TransactionFormType = 'expense' | 'income' | 'transfer'
+export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund'
 
 interface TransactionFormProps {
   type: TransactionFormType
@@ -14,6 +15,10 @@ interface TransactionFormProps {
   accounts: Account[]
   categories: TransactionCategory[]
   form: ReturnType<typeof Form.useForm>[0]
+  /** 当从普通交易创建退款时，需要显示原交易信息 */
+  showRefundSourceInfo?: boolean
+  /** 原交易信息（仅在创建退款时使用） */
+  sourceTransaction?: Transaction | null
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -22,6 +27,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   accounts,
   categories,
   form,
+  showRefundSourceInfo = false,
+  sourceTransaction = null,
 }) => {
   useEffect(() => {
     if (editingTransaction) {
@@ -40,6 +47,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           toAccountId: editingTransaction.toAccountId,
           categoryId: editingTransaction.categoryId,
         })
+      } else if (type === 'refund') {
+        form.setFieldsValue({
+          ...baseValues,
+          accountId: editingTransaction.accountId,
+        })
       } else {
         form.setFieldsValue({
           ...baseValues,
@@ -50,7 +62,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       }
     } else {
       form.resetFields()
-      if (type !== 'transfer') {
+      if (type !== 'transfer' && type !== 'refund') {
         form.setFieldsValue({ type })
       }
     }
@@ -59,6 +71,24 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const getTypeCategories = (formType: string) => {
     const filtered = categories.filter(c => c.type === formType)
     return buildTreeData(filtered)
+  }
+
+  const renderRefundSourceInfo = () => {
+    if (!showRefundSourceInfo || !sourceTransaction) return null
+
+    return (
+      <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 }}>
+        <div style={{ color: colorMuted, fontSize: 12, marginBottom: 8 }}>原交易</div>
+        <Space>
+          <Tag style={{ color: sourceTransaction.type === 'income' ? colorIncome : colorExpense, borderColor: sourceTransaction.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
+            {sourceTransaction.type === 'income' ? '收入' : '支出'}
+          </Tag>
+          {sourceTransaction.category?.icon && <DynamicIcon name={sourceTransaction.category.icon} size={16} />}
+          {sourceTransaction.category?.name || '未分类'} - ¥{sourceTransaction.amount.toFixed(2)}
+          <span style={{ color: colorMuted }}>({dayjs(sourceTransaction.date).format('YYYY-MM-DD')})</span>
+        </Space>
+      </div>
+    )
   }
 
   const renderAccountSelector = () => {
@@ -105,7 +135,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     return (
       <Form.Item
         name="accountId"
-        label="账户"
+        label={type === 'refund' ? '退款账户' : '账户'}
         rules={[{ required: true, message: '请选择账户' }]}
       >
         <Select placeholder="请选择账户">
@@ -122,7 +152,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const renderCategorySelector = () => {
     if (type === 'transfer') {
       return (
-        <Form.Item
+       <Form.Item
           name="categoryId"
           label="转账分类"
           extra="选择分类可确定现金流量活动类型（经营/投资/筹资）"
@@ -135,6 +165,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           />
         </Form.Item>
       )
+    }
+    if (type === 'refund') {
+      return null
     }
 
     return (
@@ -164,9 +197,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   return (
     <>
+      {renderRefundSourceInfo()}
+      
       <Form.Item
         name="amount"
-        label={type === 'transfer' ? '转账金额' : '金额'}
+        label="金额"
         rules={[{ required: true, message: '请输入金额' }]}
       >
         <InputNumber

@@ -5,8 +5,15 @@ import { useStore } from '../stores'
 import { Transaction } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
-import { TransactionDrawer, TransactionFilter, TransactionStats, TransactionTable, RefundModal, FloatingActionButton, TransactionFilterValues } from '../components/transactions'
-import { TransactionFormType } from '../components/transactions/TransactionForm'
+import {
+  TransactionFilter,
+  TransactionStats,
+  TransactionTable,
+  FloatingActionButton,
+  TransactionFilterValues,
+  TransactionCreate,
+  TransactionEdit,
+} from '../components/transactions'
 
 const MOBILE_BREAKPOINT = 860
 
@@ -29,10 +36,9 @@ const Transactions: React.FC = () => {
     deleteTransaction,
   } = useStore()
 
-  const [drawerVisible, setDrawerVisible] = useState(false)
-  const [refundModalVisible, setRefundModalVisible] = useState(false)
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
-  const [initialType, setInitialType] = useState<TransactionFormType>('expense')
+  const [createModalVisible, setCreateModalVisible] = useState(false)
+  const [editModalVisible, setEditModalVisible] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [filterExpanded, setFilterExpanded] = useState(false)
   const [filters, setFilters] = useState<TransactionFilterValues>({
     type: [],
@@ -40,10 +46,17 @@ const Transactions: React.FC = () => {
     categoryId: [],
     dateRange: null,
   })
-  const [refundSourceTransaction, setRefundSourceTransaction] = useState<Transaction | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    fetchTransactions()
+    fetchAccounts()
+    fetchTransactionCategories()
+    fetchAccountCategories()
+    fetchTransactionStats()
+  }, [])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -54,74 +67,47 @@ const Transactions: React.FC = () => {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  useEffect(() => {
-    fetchTransactions()
-    fetchAccounts()
-    fetchTransactionCategories()
-    fetchAccountCategories()
-    fetchTransactionStats()
-  }, [])
-
-  const handleAdd = (type?: TransactionFormType) => {
-    setEditingTransaction(null)
-    setInitialType(type || 'expense')
-    setDrawerVisible(true)
+  const handleAdd = () => {
+    setCreateModalVisible(true)
   }
 
-  const handleRefundFromTable = (record: Transaction) => {
-    setEditingTransaction(null)
-    setRefundSourceTransaction(record)
-    setRefundModalVisible(true)
+  const handleRowClick = (record: Transaction) => {
+    setSelectedTransaction(record)
+    setEditModalVisible(true)
   }
 
-  const handleEdit = (record: Transaction) => {
-    setEditingTransaction(record)
-    if (record.type === 'transfer' || record.type === 'refund' || record.type === 'adjustment') {
-      if (record.type === 'refund') {
-        setRefundSourceTransaction(record)
-        setRefundModalVisible(true)
-      }
-    } else {
-      setInitialType(record.type as TransactionFormType)
-      setDrawerVisible(true)
-    }
+  const handleCreateSubmit = async (values: unknown) => {
+    await addTransaction(values as Record<string, unknown>)
+    message.success('创建成功')
+    setCreateModalVisible(false)
   }
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteTransaction(id)
-      message.success('删除成功')
-    } catch {
-      message.error('删除失败')
-    }
-  }
-
-  const handleDrawerSubmit = async (values: unknown) => {
-    if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, values as Partial<Transaction>)
-      message.success('更新成功')
-    } else {
-      await addTransaction(values as Record<string, unknown>)
-      message.success('创建成功')
-    }
-    setDrawerVisible(false)
+  const handleEditSubmit = async (values: unknown) => {
+    if (!selectedTransaction) return
+    await updateTransaction(selectedTransaction.id, values as Partial<Transaction>)
+    message.success('更新成功')
   }
 
   const handleRefundSubmit = async (values: unknown) => {
+    if (!selectedTransaction) return
     const data = {
       type: 'refund' as const,
       amount: (values as { amount: number }).amount,
       fee: (values as { fee?: number }).fee || 0,
       coupon: (values as { coupon?: number }).coupon || 0,
-      date: (values as { date: { format: (fmt: string) => string } }).date.format('YYYY-MM-DD'),
+      date: (values as { date: string }).date,
       accountId: (values as { accountId: string }).accountId,
-      relatedTransactionId: refundSourceTransaction?.id,
+      relatedTransactionId: selectedTransaction.id,
       note: (values as { note?: string }).note,
     }
     await addTransaction(data)
     message.success('退款记录成功')
-    setRefundModalVisible(false)
-    setRefundSourceTransaction(null)
+  }
+
+  const handleDelete = async () => {
+    if (!selectedTransaction) return
+    await deleteTransaction(selectedTransaction.id)
+    message.success('删除成功')
   }
 
   const handleSearch = () => {
@@ -169,7 +155,7 @@ const Transactions: React.FC = () => {
       return null
     }
     return (
-      <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd()}>
+      <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
         记一笔
       </Button>
     )
@@ -212,35 +198,30 @@ const Transactions: React.FC = () => {
         currentPage={currentPage}
         pageSize={pageSize}
         total={pagination.total}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
         onPageChange={handlePageChange}
-        onRefund={handleRefundFromTable}
+        onRowClick={handleRowClick}
       />
 
-      {isMobile && <FloatingActionButton onClick={() => handleAdd()} />}
+      {isMobile && <FloatingActionButton onClick={handleAdd} />}
 
-      <TransactionDrawer
-        visible={drawerVisible}
-        title={editingTransaction ? '编辑记录' : '新增记录'}
-        editingTransaction={editingTransaction}
+      <TransactionCreate
+        visible={createModalVisible}
         accounts={accounts}
         categories={transactionCategories}
-        initialType={initialType}
-        onOk={handleDrawerSubmit}
-        onCancel={() => setDrawerVisible(false)}
+        initialType="expense"
+        onOk={handleCreateSubmit}
+        onCancel={() => setCreateModalVisible(false)}
       />
 
-      <RefundModal
-        visible={refundModalVisible}
-        editingTransaction={editingTransaction}
+      <TransactionEdit
+        visible={editModalVisible}
+        transaction={selectedTransaction}
         accounts={accounts}
-        sourceTransaction={refundSourceTransaction}
-        onOk={handleRefundSubmit}
-        onCancel={() => {
-          setRefundModalVisible(false)
-          setRefundSourceTransaction(null)
-        }}
+        categories={transactionCategories}
+        onEdit={handleEditSubmit}
+        onRefund={handleRefundSubmit}
+        onDelete={handleDelete}
+        onCancel={() => setEditModalVisible(false)}
       />
     </div>
   )
