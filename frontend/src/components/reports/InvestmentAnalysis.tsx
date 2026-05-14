@@ -7,7 +7,7 @@ import { LineChart, PieChart } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import type { InvestmentAccountDetail, InvestmentAnalysisReportData } from '@shared/types'
 import {
-  colorInvestment,
+  colorInvesting,
   colorPositive,
   colorNegative,
   colorNeutral,
@@ -94,7 +94,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
           <Statistic title="期初市值" value={returnAnalysis.startValue} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: colorInvestment }} prefix="¥" />
+          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: colorInvesting }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />

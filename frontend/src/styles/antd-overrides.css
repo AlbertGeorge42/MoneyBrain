@@ -13,10 +13,10 @@
 .ant-tabs-tab,
 .ant-tag {
   transition:
-    background-color 0.24s ease,
-    color 0.24s ease,
-    border-color 0.24s ease,
-    box-shadow 0.24s ease;
+    background-color var(--mb-motion-mid) var(--mb-ease-standard),
+    color var(--mb-motion-mid) var(--mb-ease-standard),
+    border-color var(--mb-motion-mid) var(--mb-ease-standard),
+    box-shadow var(--mb-motion-mid) var(--mb-ease-standard);
 }
 
 .ant-card .ant-card-head {
@@ -35,8 +35,8 @@
   background: var(--mb-color-surface-muted);
   color: var(--mb-color-neutral);
   border-bottom-color: var(--mb-color-border);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--mb-font-size-xs);
+  font-weight: var(--mb-font-weight-bold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -95,7 +95,7 @@
 .ant-input-number,
 .ant-picker,
 .ant-select-selector {
-  border-radius: var(--mb-radius-md) !important;
+  border-radius: var(--mb-radius-control) !important;
   color: var(--mb-color-text);
   background: var(--mb-color-surface);
   border-color: var(--mb-color-border-input);
@@ -138,7 +138,7 @@
 }
 
 .ant-btn-primary {
-  color: #fff;
+  color: var(--mb-color-on-primary);
 }
 
 .ant-tag {
@@ -224,6 +224,6 @@
 @media (max-width: 680px) {
   .ant-tabs-tab {
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: var(--mb-font-size-caption);
   }
 }

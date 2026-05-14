@@ -6,7 +6,6 @@ export const colorInfo = 'var(--mb-color-info)'
 export const colorPrimary = 'var(--mb-color-primary)'
 export const colorPositive = 'var(--mb-color-positive)'
 export const colorNegative = 'var(--mb-color-negative)'
-export const colorInvestment = 'var(--mb-color-investment)'
 
 // ========== 交易类型颜色 ==========
 export const colorIncome = 'var(--mb-color-income)'
@@ -34,6 +33,9 @@ export const colorSurfaceSelected = 'var(--mb-color-surface-selected)'
 export const colorBorder = 'var(--mb-color-border)'
 export const colorBorderStrong = 'var(--mb-color-border-strong)'
 export const colorBorderInput = 'var(--mb-color-border-input)'
+
+// ========== 主色上的文字颜色 ==========
+export const colorOnPrimary = 'var(--mb-color-on-primary)'
 
 // ========== 现金流类型颜色 ==========
 export const colorCash = 'var(--mb-color-cash)'

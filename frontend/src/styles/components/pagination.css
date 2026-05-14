@@ -1,0 +1,52 @@
+/* 移动端分页 */
+.mobile-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--mb-color-border);
+  background: var(--mb-color-surface);
+}
+
+.mobile-pagination__info {
+  color: var(--mb-color-muted);
+  font-size: var(--mb-font-size-caption);
+  font-weight: 500;
+}
+
+.mobile-pagination__controls {
+  display: flex;
+  gap: 8px;
+}
+
+.mobile-pagination__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--mb-color-border-input);
+  border-radius: var(--mb-radius-control);
+  background: var(--mb-color-surface);
+  color: var(--mb-color-text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all var(--mb-motion-fast) ease;
+}
+
+.mobile-pagination__btn:hover:not(:disabled) {
+  background: var(--mb-color-surface-hover);
+  border-color: var(--mb-color-primary);
+  color: var(--mb-color-primary);
+}
+
+.mobile-pagination__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (min-width: 860px) {
+  .mobile-pagination {
+    display: none;
+  }
+}

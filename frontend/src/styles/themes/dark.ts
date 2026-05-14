@@ -12,7 +12,6 @@ export const darkThemeValues = {
   '--mb-color-primary': '#177ddc',
   '--mb-color-positive': '#49aa19',
   '--mb-color-negative': '#d84a4a',
-  '--mb-color-investment': '#9254de',
 
   // 交易类型颜色
   '--mb-color-income': '#5fd05f',
@@ -81,6 +80,31 @@ export const darkThemeValues = {
   '--mb-radius-md': '6px',
   '--mb-radius-lg': '8px',
   '--mb-radius-xl': '12px',
+  // 语义化圆角
+  '--mb-radius-control': '6px',
+  '--mb-radius-card': '8px',
+  '--mb-radius-brand': '14px',
+
+  // 动效
+  '--mb-motion-fast': '0.15s',
+  '--mb-motion-mid': '0.24s',
+  '--mb-motion-slow': '0.32s',
+  '--mb-ease-standard': 'cubic-bezier(0.2, 0, 0, 1)',
+
+  // 布局
+  '--mb-layout-sider-width': '248px',
+  '--mb-layout-mobile-breakpoint': '860px',
+  '--mb-page-max-width': '1440px',
+  '--mb-mobile-tab-height': '64px',
+
+  // Z-index
+  '--mb-z-mobile-tab': '100',
+  '--mb-z-dropdown': '1000',
+  '--mb-z-modal': '1100',
+
+  // 语义化颜色补充
+  '--mb-color-on-primary': '#ffffff',
+  '--mb-font-size-caption': '13px',
 } as const
 
 export type DarkThemeValues = typeof darkThemeValues

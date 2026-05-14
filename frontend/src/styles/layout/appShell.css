@@ -1,0 +1,99 @@
+.app-shell.ant-layout {
+  min-height: 100vh;
+  background: transparent;
+}
+
+.app-shell__sider.ant-layout-sider {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: var(--mb-color-panel);
+  border-right: 1px solid var(--mb-color-border);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--mb-shadow-sm);
+}
+
+.app-shell__brand {
+  display: grid;
+  gap: 8px;
+  padding: 28px 20px 20px;
+}
+
+.app-shell__brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--mb-radius-brand);
+  background: linear-gradient(135deg, var(--mb-color-primary), color-mix(in srgb, var(--mb-color-primary), white 20%) 70%);
+  color: var(--mb-color-on-primary);
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: var(--mb-shadow-sm);
+}
+
+.app-shell__brand-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.app-shell__brand-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.app-shell__brand-subtitle {
+  margin: 0;
+  color: var(--mb-color-neutral);
+  font-size: var(--mb-font-size-caption);
+  line-height: 1.5;
+}
+
+.app-shell__menu.ant-menu {
+  padding: 12px;
+  background: transparent;
+  border-inline-end: 0;
+}
+
+.app-shell__menu.ant-menu .ant-menu-item {
+  height: 48px;
+  margin: 4px 0;
+  border-radius: var(--mb-radius-brand);
+  font-weight: 500;
+}
+
+.app-shell__menu.ant-menu .ant-menu-item-selected {
+  box-shadow: inset 0 0 0 1px var(--mb-color-border);
+}
+
+.app-shell__menu.ant-menu .ant-menu-item .ant-menu-title-content {
+  font-size: 14px;
+}
+
+.app-shell__body.ant-layout {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  background: transparent;
+}
+
+.app-shell__content.ant-layout-content {
+  padding: 24px 28px 32px;
+  background: transparent;
+}
+
+@media (max-width: 860px) {
+  .app-shell__sider.ant-layout-sider {
+    display: none;
+  }
+
+  .app-shell__content.ant-layout-content {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 80px;
+  }
+}

@@ -14,7 +14,7 @@ import {
   colorExpense,
   colorTransfer,
   colorWarning,
-  colorInvestment,
+  colorInvesting,
   spaceSm,
   spaceMd,
 } from '../../styles/tokens'
@@ -181,7 +181,7 @@ income: { color: colorIncome, text: '收入' },
   expense: { color: colorExpense, text: '支出' },
   transfer: { color: colorTransfer, text: '转账' },
     refund: { color: colorWarning, text: '退款' },
-    adjustment: { color: colorInvestment, text: '平账' },
+    adjustment: { color: colorInvesting, text: '平账' },
   } as const
 
   // 移除单个筛选条件

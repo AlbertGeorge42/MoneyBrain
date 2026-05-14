@@ -26,3 +26,6 @@ export const fontWeightMedium = 'var(--mb-font-weight-medium)'
 
 /** 粗体字重 700 - 强调、金额 */
 export const fontWeightBold = 'var(--mb-font-weight-bold)'
+
+/** 标题字体大小 13px - 小标题、卡片标题 */
+export const fontSizeCaption = 'var(--mb-font-size-caption)'

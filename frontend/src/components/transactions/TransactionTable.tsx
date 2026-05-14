@@ -6,7 +6,7 @@ import { groupTransactionsByDate, TransactionGroup } from '../../utils/transacti
 import {
   colorInfo,
   colorWarning,
-  colorInvestment,
+  colorInvesting,
   colorPositive,
   colorNegative,
   colorMuted,
@@ -126,7 +126,7 @@ const AmountDisplay: React.FC<{ record: Transaction }> = ({ record }) => {
     if (record.type === 'adjustment') {
       const isPositive = amount >= 0
       return (
-        <span style={{ color: colorInvestment, fontSize: '14px' }}>
+        <span style={{ color: colorInvesting, fontSize: '14px' }}>
           {isPositive ? '+' : ''}¥{amount.toFixed(2)}
         </span>
       )

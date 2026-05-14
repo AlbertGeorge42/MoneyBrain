@@ -1,0 +1,39 @@
+:root {
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(51, 119, 238, 0.12), transparent 24%),
+    radial-gradient(circle at 85% 10%, rgba(205, 138, 45, 0.1), transparent 20%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), transparent 18%),
+    var(--mb-color-background);
+  color: var(--mb-color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--mb-motion-mid) ease, color var(--mb-motion-mid) ease;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}

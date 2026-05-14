@@ -1,0 +1,62 @@
+.theme-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.theme-option-card {
+  cursor: pointer;
+  transition: all var(--mb-motion-mid) ease;
+  border: 2px solid transparent;
+  padding: 20px;
+  border-radius: var(--mb-radius-card);
+  text-align: center;
+  background: var(--mb-color-surface-muted);
+}
+
+.theme-option-card:hover {
+  border-color: var(--mb-color-border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--mb-shadow-md);
+}
+
+.theme-option-card--active {
+  border-color: var(--mb-color-primary);
+  background: var(--mb-color-surface-selected);
+}
+
+.file-drop-zone {
+  border: 2px dashed var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-card);
+  padding: 32px 24px;
+  text-align: center;
+  transition: all var(--mb-motion-mid) ease;
+  cursor: pointer;
+  background: var(--mb-color-surface-muted);
+}
+
+.file-drop-zone:hover,
+.file-drop-zone--dragover {
+  border-color: var(--mb-color-primary);
+  background: var(--mb-color-surface-hover);
+}
+
+.settings-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (max-width: 680px) {
+  .theme-options-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .theme-option-card {
+    padding: 12px;
+  }
+
+  .file-drop-zone {
+    padding: 20px 16px;
+  }
+}
