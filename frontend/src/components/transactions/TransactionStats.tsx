@@ -6,7 +6,7 @@ import {
   colorWarning,
   colorPositive,
   colorNegative,
-  spaceMd,
+  spaceCardPadding,
 } from '../../styles/tokens'
 
 interface TransactionStatsProps {
@@ -24,7 +24,7 @@ const TransactionStats: React.FC<TransactionStatsProps> = ({
   balance,
   transferCount,
 }) => (
-  <Card style={{ marginBottom: spaceMd }}>
+  <Card style={{ marginBottom: spaceCardPadding }}>
     <div className="stats-grid">
       <Statistic
         title="总收入"

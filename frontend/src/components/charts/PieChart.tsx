@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react'
 import { Empty, Button } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { getTokenValue } from '../../styles/utils'
+import { colorTextMuted } from '../../styles/tokens'
 
 export interface PieChartDataItem {
   name: string
@@ -69,7 +70,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
     title: {
       text: currentTitle,
       left: 'center',
-      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text') },
+      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text-primary') },
     },
     tooltip: {
       trigger: 'item',
@@ -86,7 +87,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
       orient: 'vertical',
       left: 'left',
       top: 'middle',
-      textStyle: { color: getTokenValue('--mb-color-neutral') },
+      textStyle: { color: getTokenValue(colorTextMuted) },
     },
     series: [{
       type: 'pie',
@@ -121,7 +122,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
             top: 0,
             left: 0,
             zIndex: 10,
-            color: getTokenValue('--mb-color-text'),
+            color: getTokenValue('--mb-color-text-primary'),
           }}
         >
           返回

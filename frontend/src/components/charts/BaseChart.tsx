@@ -27,7 +27,7 @@ const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, hei
     title: {
       text: title,
       left: 'center',
-      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text') },
+      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text-primary') },
     },
     tooltip: {
       trigger: 'axis' as const,
@@ -41,13 +41,13 @@ const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, hei
     xAxis: {
       type: 'category' as const,
       data: validXAxisData,
-      axisLine: { lineStyle: { color: getTokenValue('--mb-color-border') } },
+      axisLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle') } },
       axisLabel: { color: getTokenValue('--mb-color-neutral') },
     },
     yAxis: {
       type: 'value' as const,
       axisLabel: { formatter: currencyAxisFormatter, color: getTokenValue('--mb-color-neutral') },
-      splitLine: { lineStyle: { color: getTokenValue('--mb-color-border') } },
+      splitLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle') } },
     },
     series: validSeriesData.map(s => ({
       name: s.name,

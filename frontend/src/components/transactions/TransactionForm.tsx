@@ -5,7 +5,7 @@ import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildTreeData } from '../../utils/treeUtils'
 import DynamicIcon from '../common/DynamicIcon'
 import { formatBalance } from '../../utils/formatBalance'
-import { colorMuted, colorIncome, colorExpense } from '../../styles/tokens'
+import { colorTextMuted, colorIncome, colorExpense, colorBgHover, fontSizeCaption, radiusControl, spaceCardPadding } from '../../styles/tokens'
 
 export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund'
 
@@ -77,15 +77,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     if (!showRefundSourceInfo || !sourceTransaction) return null
 
     return (
-      <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 6 }}>
-        <div style={{ color: colorMuted, fontSize: 12, marginBottom: 8 }}>原交易</div>
+      <div style={{ marginBottom: spaceCardPadding, padding: 12, backgroundColor: colorBgHover, borderRadius: radiusControl }}>
+        <div style={{ color: colorTextMuted, fontSize: fontSizeCaption, marginBottom: spaceCardPadding }}>原交易</div>
         <Space>
           <Tag style={{ color: sourceTransaction.type === 'income' ? colorIncome : colorExpense, borderColor: sourceTransaction.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
             {sourceTransaction.type === 'income' ? '收入' : '支出'}
           </Tag>
           {sourceTransaction.category?.icon && <DynamicIcon name={sourceTransaction.category.icon} size={16} />}
           {sourceTransaction.category?.name || '未分类'} - ¥{sourceTransaction.amount.toFixed(2)}
-          <span style={{ color: colorMuted }}>({dayjs(sourceTransaction.date).format('YYYY-MM-DD')})</span>
+          <span style={{ color: colorTextMuted }}>({dayjs(sourceTransaction.date).format('YYYY-MM-DD')})</span>
         </Space>
       </div>
     )

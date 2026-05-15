@@ -1,5 +1,6 @@
 import React from 'react'
 import { PlusOutlined } from '@ant-design/icons'
+import { colorActionPrimary, colorOnActionPrimary, shadowPanel } from '../../styles/tokens'
 
 interface FloatingActionButtonProps {
   onClick: () => void
@@ -16,10 +17,10 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onClick }) 
         width: 56,
         height: 56,
         borderRadius: '50%',
-        backgroundColor: '#1677ff',
-        color: '#fff',
+        backgroundColor: colorActionPrimary,
+        color: colorOnActionPrimary,
         border: 'none',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        boxShadow: shadowPanel,
         fontSize: 24,
         cursor: 'pointer',
         zIndex: 1000,

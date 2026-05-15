@@ -4,7 +4,7 @@ import { DeleteOutlined } from '@ant-design/icons'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import TransactionForm, { TransactionFormType } from './TransactionForm'
 import TransactionModal from './TransactionModal'
-import { colorMuted } from '../../styles/tokens'
+import { colorTextMuted, fontSizeBodyLarge, spaceCardPadding } from '../../styles/tokens'
 import { formatTransactionSubmitValues } from '../../utils/transaction'
 
 type DetailTab = 'edit' | 'refund' | 'delete'
@@ -146,10 +146,10 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
     return (
       <div style={{ textAlign: 'center', padding: '40px 20px 0 20px' }}>
         <DeleteOutlined style={{ fontSize: 48, color: '#ff4d4f', marginBottom: 16 }} />
-        <div style={{ fontSize: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: fontSizeBodyLarge, marginBottom: spaceCardPadding }}>
           确定要删除此交易记录吗？
         </div>
-        <div style={{ color: colorMuted, marginBottom: 32 }}>
+        <div style={{ color: colorTextMuted, marginBottom: 32 }}>
           此操作不可撤销
         </div>
       </div>

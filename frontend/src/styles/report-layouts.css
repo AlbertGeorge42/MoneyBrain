@@ -66,7 +66,7 @@
 .report-hero-card__sub {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--mb-color-border);
+  border-top: 1px solid var(--mb-color-border-subtle);
 }
 
 .report-hero-card__sub .ant-statistic-title {
@@ -126,14 +126,14 @@
 }
 
 .report-summary-note {
-  color: var(--mb-color-neutral);
+  color: var(--mb-color-text-secondary);
   line-height: 1.6;
 }
 
 .report-summary-stack {
   display: grid;
   gap: 8px;
-  color: var(--mb-color-neutral);
+  color: var(--mb-color-text-secondary);
 }
 
 .report-view-switcher {
@@ -160,9 +160,9 @@
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--mb-color-border);
-  border-radius: var(--mb-radius-md);
-  background: var(--mb-color-surface-muted);
+  border: 1px solid var(--mb-color-border-subtle);
+  border-radius: var(--mb-radius-card);
+  background: var(--mb-color-bg-app);
 }
 
 .report-detail-list__header,

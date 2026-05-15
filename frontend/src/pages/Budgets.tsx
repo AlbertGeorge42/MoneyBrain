@@ -4,7 +4,7 @@ import { ReloadOutlined, SettingOutlined } from '@ant-design/icons'
 import { PageHeader } from '../components/common'
 import { budgetApi } from '../services/api'
 import type { Budget, BudgetStatus } from '@shared/types'
-import { colorDanger, colorPrimary, colorSuccess, colorWarning, spaceMd } from '../styles/tokens'
+import { colorDanger, colorActionPrimary, colorSuccess, colorWarning, spaceCardPadding, spaceStackDefault } from '../styles/tokens'
 
 const Budgets: React.FC = () => {
   const [budgets, setBudgets] = useState<Budget[]>([])
@@ -110,7 +110,7 @@ const Budgets: React.FC = () => {
           <Empty description="暂无预算数据" />
         </Card>
       ) : (
-        <div style={{ display: 'grid', gap: spaceMd }}>
+        <div style={{ display: 'grid', gap: spaceCardPadding }}>
           {budgets.map((budget) => {
             const status = budgetStatuses[budget.id]
             const percentage = status?.percentage ?? 0
@@ -119,7 +119,7 @@ const Budgets: React.FC = () => {
 
             return (
               <Card key={budget.id} size="small">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spaceMd }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spaceCardPadding }}>
                   <div>
                     <span style={{ fontWeight: 500 }}>{budget.name}</span>
                     <Tag style={{ marginLeft: 8 }} color={budget.period === 'monthly' ? 'blue' : 'green'}>
@@ -127,14 +127,14 @@ const Budgets: React.FC = () => {
                     </Tag>
                     {budget.category && <Tag>{budget.category.name}</Tag>}
                   </div>
-                  <span style={{ color: colorPrimary, fontWeight: 500 }}>¥{budget.amount.toFixed(2)}</span>
+                  <span style={{ color: colorActionPrimary, fontWeight: 500 }}>¥{budget.amount.toFixed(2)}</span>
                 </div>
                 <Progress
                   percent={Math.min(percentage, 100)}
                   status={isOverBudget ? 'exception' : undefined}
                   strokeColor={getProgressColor(percentage, isOverBudget)}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, color: colorDanger }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: spaceStackDefault, color: colorDanger }}>
                   <span>已使用: ¥{used.toFixed(2)}</span>
                   <span>{percentage.toFixed(1)}%</span>
                 </div>

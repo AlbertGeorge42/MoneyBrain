@@ -29,7 +29,7 @@ import {
   type InvestmentAnalysisReportData,
 } from '../services/api'
 import { useStore } from '../stores'
-import { colorMuted, colorNeutral } from '../styles/tokens'
+import { colorTextMuted, fontSizeCaption } from '../styles/tokens'
 
 const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '时点',
@@ -442,7 +442,7 @@ const Reports: React.FC = () => {
         cancelText="取消"
         width={700}
       >
-        <p style={{ color: colorNeutral, marginBottom: 16 }}>输入实际余额。</p>
+        <p style={{ color: colorTextMuted, marginBottom: 16 }}>输入实际余额。</p>
         {balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => (
           <div
             key={account.id}
@@ -452,7 +452,7 @@ const Reports: React.FC = () => {
               <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
             </span>
             <Space>
-              <span style={{ color: colorMuted, fontSize: 12 }}>当前 ¥{account.balance?.toFixed(2) || '0.00'}</span>
+              <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}>当前 ¥{account.balance?.toFixed(2) || '0.00'}</span>
               <InputNumber
                 value={calibrateData[account.id]}
                 onChange={(value) => setCalibrateData({ ...calibrateData, [account.id]: value || 0 })}

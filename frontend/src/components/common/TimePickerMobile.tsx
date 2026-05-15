@@ -4,14 +4,15 @@ import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {
-  colorBorder,
-  colorPrimary,
-  colorSurfaceHover,
-  colorSurfaceMuted,
-  colorSurfaceSelected,
-  colorText,
-  spaceMd,
-  spaceSm,
+  colorBorderSubtle,
+  colorActionPrimary,
+  colorOnActionPrimary,
+  colorBgHover,
+  colorBgApp,
+  colorBgSelected,
+  colorTextPrimary,
+  spaceCardPadding,
+  spaceInlineDefault,
 } from '../../styles/tokens'
 import {
   createPointValue,
@@ -54,8 +55,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({ title, onPrev, onNext }
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: `${spaceSm} ${spaceMd}`,
-    borderBottom: `1px solid ${colorBorder}`,
+    padding: `${spaceInlineDefault} ${spaceCardPadding}`,
+    borderBottom: `1px solid ${colorBorderSubtle}`,
   }}>
     <button
       type="button"
@@ -64,7 +65,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({ title, onPrev, onNext }
     >
       <LeftOutlined style={{ fontSize: 12 }} />
     </button>
-    <span style={{ fontSize: 16, fontWeight: 500, color: colorText }}>{title}</span>
+    <span style={{ fontSize: 16, fontWeight: 500, color: colorTextPrimary }}>{title}</span>
     <button
       type="button"
       onClick={onNext}
@@ -81,7 +82,7 @@ const navBtnStyle: React.CSSProperties = {
   borderRadius: 16,
   border: 'none',
   background: 'transparent',
-  color: colorText,
+  color: colorTextPrimary,
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -94,16 +95,16 @@ const getCellStyle = (cell: GridCell): React.CSSProperties => {
 
   let background = 'transparent'
   if (isEdge) {
-    background = colorPrimary
+    background = colorActionPrimary
   } else if (cell.isInRange) {
-    background = colorSurfaceSelected
+    background = colorBgSelected
   }
 
   let color: string | undefined
   if (isEdge) {
-    color = '#fff'
+    color = colorOnActionPrimary
   } else if (cell.isDisabled) {
-    color = colorText
+    color = colorTextPrimary
   }
 
   let borderRadius: string | undefined
@@ -134,7 +135,7 @@ const renderGrid = (cells: GridCell[], onSelect: (value: Dayjs) => void, columns
       display: 'grid',
       gridTemplateColumns: `repeat(${columns}, 1fr)`,
       gap: 2,
-      padding: spaceSm,
+      padding: 4,
     }}>
       {cells.map((cell, index) => (
         <div
@@ -142,7 +143,7 @@ const renderGrid = (cells: GridCell[], onSelect: (value: Dayjs) => void, columns
           style={getCellStyle(cell)}
           onMouseEnter={(e) => {
             if (!cell.isDisabled && !cell.isSelected) {
-              (e.target as HTMLElement).style.background = colorSurfaceHover
+              (e.target as HTMLElement).style.background = colorBgHover
             }
           }}
           onMouseLeave={(e) => {
@@ -205,21 +206,21 @@ const renderDayGrid = (
   for (let i = 0; i < remaining; i++) cells.push(null)
 
   return (
-    <div style={{ padding: `0 ${spaceSm}` }}>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        borderBottom: `1px solid ${colorBorder}`,
-      }}>
-        {WEEKDAYS.map((day) => (
-          <div key={day} style={{
-            textAlign: 'center',
-            fontSize: 12,
-            color: colorText,
-            opacity: 0.45,
-            padding: '4px 0',
-            background: colorSurfaceMuted,
-          }}>
+    <div style={{ padding: '0 4px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              borderBottom: `1px solid ${colorBorderSubtle}`,
+            }}>
+              {WEEKDAYS.map((day) => (
+                <div key={day} style={{
+                  textAlign: 'center',
+                  fontSize: 12,
+                  color: colorTextPrimary,
+                  opacity: 0.45,
+                  padding: '4px 0',
+                  background: colorBgApp,
+                }}>
             {day}
           </div>
         ))}
@@ -228,7 +229,7 @@ const renderDayGrid = (
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
         gap: 2,
-        padding: `${spaceSm} 0`,
+        padding: '4px 0',
       }}>
         {cells.map((cell, i) => {
           if (!cell) return <div key={`e-${i}`} style={{ height: CELL_HEIGHT }} />
@@ -238,12 +239,12 @@ const renderDayGrid = (
               style={getCellStyle(cell)}
               onMouseEnter={(e) => {
                 if (!cell.isDisabled && !cell.isSelected && !cell.isStart && !cell.isEnd) {
-                  (e.target as HTMLElement).style.background = colorSurfaceHover
+                  (e.target as HTMLElement).style.background = colorBgHover
                 }
               }}
               onMouseLeave={(e) => {
                 if (!cell.isDisabled && !cell.isSelected && !cell.isStart && !cell.isEnd) {
-                  (e.target as HTMLElement).style.background = cell.isInRange ? colorSurfaceSelected : 'transparent'
+                  (e.target as HTMLElement).style.background = cell.isInRange ? colorBgSelected : 'transparent'
                 }
               }}
               onClick={() => {
@@ -418,10 +419,10 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
         height="auto"
         styles={{
           body: { padding: 0 },
-          header: { borderBottom: `1px solid ${colorBorder}` },
+          header: { borderBottom: `1px solid ${colorBorderSubtle}` },
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spaceMd }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
           <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext} />
 
           {tempGranularity === 'day' && renderDayGrid(
@@ -440,7 +441,7 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
           )}
 
           {config.allowedGranularities.length > 1 && (
-            <div style={{ padding: `0 ${spaceMd}` }}>
+            <div style={{ padding: `0 ${spaceCardPadding}` }}>
               <Segmented
                 block
                 size="small"
@@ -458,8 +459,8 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: spaceSm,
-              padding: `0 ${spaceMd}`,
+              gap: spaceInlineDefault,
+              padding: `0 ${spaceCardPadding}`,
             }}>
               {mobilePresets.map((preset) => (
                 <Button
@@ -475,9 +476,9 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
 
           <div style={{
             display: 'flex',
-            gap: spaceSm,
-            padding: spaceMd,
-            borderTop: `1px solid ${colorBorder}`,
+            gap: spaceInlineDefault,
+            padding: spaceCardPadding,
+            borderTop: `1px solid ${colorBorderSubtle}`,
           }}>
             <Button block onClick={() => setOpen(false)}>取消</Button>
             <Button block type="primary" onClick={handleConfirm}>确定</Button>
@@ -610,10 +611,10 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
         height="auto"
         styles={{
           body: { padding: 0 },
-          header: { borderBottom: `1px solid ${colorBorder}` },
+          header: { borderBottom: `1px solid ${colorBorderSubtle}` },
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spaceMd }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
           <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext} />
 
           {tempGranularity === 'day' && renderDayGrid(
@@ -633,7 +634,7 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
           )}
 
           {config.allowedGranularities.length > 1 && (
-            <div style={{ padding: `0 ${spaceMd}` }}>
+            <div style={{ padding: `0 ${spaceCardPadding}` }}>
               <Segmented
                 block
                 size="small"
@@ -651,8 +652,8 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: spaceSm,
-              padding: `0 ${spaceMd}`,
+              gap: spaceInlineDefault,
+              padding: `0 ${spaceCardPadding}`,
             }}>
               {mobilePresets.map((preset) => (
                 <Button
@@ -668,9 +669,9 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
 
           <div style={{
             display: 'flex',
-            gap: spaceSm,
-            padding: spaceMd,
-            borderTop: `1px solid ${colorBorder}`,
+            gap: spaceInlineDefault,
+            padding: spaceCardPadding,
+            borderTop: `1px solid ${colorBorderSubtle}`,
           }}>
             <Button block onClick={() => setOpen(false)}>取消</Button>
             <Button block type="primary" onClick={handleConfirm}>确定</Button>

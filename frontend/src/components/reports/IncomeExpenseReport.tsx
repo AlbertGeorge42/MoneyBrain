@@ -6,7 +6,7 @@ import { BarChart, PieChart, type PieChartDataItem } from '../charts'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import * as api from '../../services/api'
-import { colorInfo, colorNegative, colorPositive, spaceMd } from '../../styles/tokens'
+import { colorNeutral, colorNegative, colorPositive, spaceCardPadding } from '../../styles/tokens'
 import { toDateRangeParams } from '../../utils/timePicker'
 
 interface IncomeExpenseReportProps {
@@ -108,7 +108,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="储蓄率"
             value={incomeExpenseData?.income ? ((incomeExpenseData?.balance || 0) / incomeExpenseData.income) * 100 : 0}
             precision={1}
-            valueStyle={{ color: colorInfo }}
+            valueStyle={{ color: colorNeutral }}
             suffix="%"
           />
         </Card>
@@ -174,7 +174,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
         <div className="report-toolbar__filters">
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>

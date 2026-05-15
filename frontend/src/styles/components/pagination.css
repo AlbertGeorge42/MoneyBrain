@@ -3,20 +3,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-top: 1px solid var(--mb-color-border);
-  background: var(--mb-color-surface);
+  padding: 12px var(--mb-space-card-padding);
+  border-top: 1px solid var(--mb-color-border-subtle);
+  background: var(--mb-color-bg-surface);
 }
 
 .mobile-pagination__info {
-  color: var(--mb-color-muted);
+  color: var(--mb-color-text-muted);
   font-size: var(--mb-font-size-caption);
   font-weight: 500;
 }
 
 .mobile-pagination__controls {
   display: flex;
-  gap: 8px;
+  gap: var(--mb-space-inline-sm);
 }
 
 .mobile-pagination__btn {
@@ -27,17 +27,17 @@
   height: 44px;
   border: 1px solid var(--mb-color-border-input);
   border-radius: var(--mb-radius-control);
-  background: var(--mb-color-surface);
-  color: var(--mb-color-text);
+  background: var(--mb-color-bg-surface);
+  color: var(--mb-color-text-primary);
   cursor: pointer;
-  font-size: 14px;
-  transition: all var(--mb-motion-fast) ease;
+  font-size: var(--mb-font-size-body);
+  transition: all var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
 .mobile-pagination__btn:hover:not(:disabled) {
-  background: var(--mb-color-surface-hover);
-  border-color: var(--mb-color-primary);
-  color: var(--mb-color-primary);
+  background: var(--mb-color-bg-hover);
+  border-color: var(--mb-color-action-primary);
+  color: var(--mb-color-action-primary);
 }
 
 .mobile-pagination__btn:disabled {

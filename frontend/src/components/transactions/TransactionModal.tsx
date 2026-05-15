@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Modal, Drawer, Button, Tabs } from 'antd'
+import { colorBgSurface, colorBorderSubtle, borderWidth, borderStyle, spaceCardPadding } from '../../styles/tokens'
 
 const MOBILE_BREAKPOINT = 860
 
@@ -94,9 +95,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               bottom: 0,
               left: 0,
               right: 0,
-              padding: '16px',
-              borderTop: '1px solid #f0f0f0',
-              background: '#fff',
+              padding: spaceCardPadding,
+              borderTop: `${borderWidth} ${borderStyle} ${colorBorderSubtle}`,
+              background: colorBgSurface,
             }}
           >
             {extraFooterContent && React.cloneElement(extraFooterContent as React.ReactElement, {

@@ -22,7 +22,8 @@ import {
   colorPositive,
   colorIncome,
   colorExpense,
-  colorPrimary,
+  colorActionPrimary,
+  colorTextMuted,
 } from '../styles/tokens'
 import { getTokenValue } from '../styles/utils'
 
@@ -109,14 +110,14 @@ const Dashboard: React.FC = () => {
     xAxis: {
       type: 'category',
       data: trendData.map((item) => item.label),
-      axisLabel: { rotate: 40, color: getTokenValue('--mb-color-neutral'), fontSize: 11 },
-      axisLine: { lineStyle: { color: getTokenValue('--mb-color-border') } },
+      axisLabel: { rotate: 40, color: getTokenValue(colorTextMuted), fontSize: 11 },
+      axisLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle') } },
       axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
       axisLabel: { formatter: '¥{value}', color: getTokenValue('--mb-color-neutral'), fontSize: 11 },
-      splitLine: { lineStyle: { color: getTokenValue('--mb-color-border'), type: 'dashed' } },
+      splitLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle'), type: 'dashed' } },
       axisLine: { show: false },
       axisTick: { show: false },
     },
@@ -131,13 +132,13 @@ const Dashboard: React.FC = () => {
             type: 'linear',
             x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: getTokenValue('--mb-color-primary') },
+              { offset: 0, color: getTokenValue('--mb-color-action-primary') },
               { offset: 1, color: 'rgba(30, 99, 218, 0.05)' },
             ],
           },
         },
-        itemStyle: { color: getTokenValue('--mb-color-primary') },
-        lineStyle: { width: 2.5, color: getTokenValue('--mb-color-primary') },
+        itemStyle: { color: getTokenValue('--mb-color-action-primary') },
+        lineStyle: { width: 2.5, color: getTokenValue('--mb-color-action-primary') },
         symbol: 'circle',
         symbolSize: 6,
       },
@@ -156,7 +157,7 @@ const Dashboard: React.FC = () => {
       <div className="kpi-grid dashboard-kpi-grid">
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <AccountBookOutlined style={{ fontSize: 20, color: colorPrimary }} />
+            <AccountBookOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">总资产</span>
           </div>
           <div className="metric-card__value" style={{ color: totalAssets >= 0 ? colorPositive : colorNegative }}>

@@ -1,41 +1,52 @@
-// ========== 通用语义颜色 ==========
+/**
+ * 颜色设计令牌
+ * 业务代码优先使用语义化 token，避免直接使用 primitive（加 @deprecated 标记
+ */
+
+// ========== 文本颜色 ==========
+export const colorTextPrimary = 'var(--mb-color-text-primary)'
+export const colorTextSecondary = 'var(--mb-color-text-secondary)'
+export const colorTextMuted = 'var(--mb-color-text-muted)'
+export const colorTextDisabled = 'var(--mb-color-text-disabled)'
+
+// ========== 背景颜色 ==========
+export const colorBgApp = 'var(--mb-color-bg-app)'
+export const colorBgPanel = 'var(--mb-color-bg-panel)'
+export const colorBgSurface = 'var(--mb-color-bg-surface)'
+export const colorBgElevated = 'var(--mb-color-bg-elevated)'
+export const colorBgHover = 'var(--mb-color-bg-hover)'
+export const colorBgSelected = 'var(--mb-color-bg-selected)'
+
+// ========== 边框颜色 ==========
+export const colorBorderSubtle = 'var(--mb-color-border-subtle)'
+export const colorBorderDefault = 'var(--mb-color-border-default)'
+export const colorBorderStrong = 'var(--mb-color-border-strong)'
+export const colorBorderInput = 'var(--mb-color-border-input)'
+
+// ========== 操作/动作颜色 ==========
+export const colorActionPrimary = 'var(--mb-color-action-primary)'
+export const colorActionPrimaryHover = 'var(--mb-color-action-primary-hover)'
+export const colorOnActionPrimary = 'var(--mb-color-on-action-primary)'
+
+// ========== 状态颜色 ==========
 export const colorSuccess = 'var(--mb-color-success)'
 export const colorDanger = 'var(--mb-color-danger)'
 export const colorWarning = 'var(--mb-color-warning)'
 export const colorInfo = 'var(--mb-color-info)'
-export const colorPrimary = 'var(--mb-color-primary)'
-export const colorPositive = 'var(--mb-color-positive)'
-export const colorNegative = 'var(--mb-color-negative)'
+export const colorSuccessBg = 'var(--mb-color-success-bg)'
+export const colorDangerBg = 'var(--mb-color-danger-bg)'
+export const colorWarningBg = 'var(--mb-color-warning-bg)'
+export const colorInfoBg = 'var(--mb-color-info-bg)'
 
-// ========== 交易类型颜色 ==========
+// ========== 财务颜色 ==========
 export const colorIncome = 'var(--mb-color-income)'
 export const colorExpense = 'var(--mb-color-expense)'
 export const colorTransfer = 'var(--mb-color-transfer)'
 export const colorRefund = 'var(--mb-color-refund)'
 export const colorAdjustment = 'var(--mb-color-adjustment)'
-
-// ========== 文本颜色 ==========
-export const colorText = 'var(--mb-color-text)'
+export const colorPositive = 'var(--mb-color-positive)'
+export const colorNegative = 'var(--mb-color-negative)'
 export const colorNeutral = 'var(--mb-color-neutral)'
-export const colorMuted = 'var(--mb-color-muted)'
-export const colorDisabled = 'var(--mb-color-disabled)'
-
-// ========== 表面颜色 ==========
-export const colorBackground = 'var(--mb-color-background)'
-export const colorPanel = 'var(--mb-color-panel)'
-export const colorSurface = 'var(--mb-color-surface)'
-export const colorSurfaceElevated = 'var(--mb-color-surface-elevated)'
-export const colorSurfaceMuted = 'var(--mb-color-surface-muted)'
-export const colorSurfaceHover = 'var(--mb-color-surface-hover)'
-export const colorSurfaceSelected = 'var(--mb-color-surface-selected)'
-
-// ========== 边框颜色 ==========
-export const colorBorder = 'var(--mb-color-border)'
-export const colorBorderStrong = 'var(--mb-color-border-strong)'
-export const colorBorderInput = 'var(--mb-color-border-input)'
-
-// ========== 主色上的文字颜色 ==========
-export const colorOnPrimary = 'var(--mb-color-on-primary)'
 
 // ========== 现金流类型颜色 ==========
 export const colorCash = 'var(--mb-color-cash)'

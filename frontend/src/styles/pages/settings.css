@@ -1,49 +1,49 @@
 .theme-options-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--mb-space-card-padding);
 }
 
 .theme-option-card {
   cursor: pointer;
-  transition: all var(--mb-motion-mid) ease;
+  transition: all var(--mb-motion-mid) var(--mb-ease-standard);
   border: 2px solid transparent;
   padding: 20px;
   border-radius: var(--mb-radius-card);
   text-align: center;
-  background: var(--mb-color-surface-muted);
+  background: var(--mb-color-bg-app);
 }
 
 .theme-option-card:hover {
   border-color: var(--mb-color-border-strong);
   transform: translateY(-2px);
-  box-shadow: var(--mb-shadow-md);
+  box-shadow: var(--mb-shadow-panel);
 }
 
 .theme-option-card--active {
-  border-color: var(--mb-color-primary);
-  background: var(--mb-color-surface-selected);
+  border-color: var(--mb-color-action-primary);
+  background: var(--mb-color-bg-selected);
 }
 
 .file-drop-zone {
   border: 2px dashed var(--mb-color-border-strong);
   border-radius: var(--mb-radius-card);
-  padding: 32px 24px;
+  padding: var(--mb-space-page-gap) var(--mb-space-card-padding);
   text-align: center;
-  transition: all var(--mb-motion-mid) ease;
+  transition: all var(--mb-motion-mid) var(--mb-ease-standard);
   cursor: pointer;
-  background: var(--mb-color-surface-muted);
+  background: var(--mb-color-bg-app);
 }
 
 .file-drop-zone:hover,
 .file-drop-zone--dragover {
-  border-color: var(--mb-color-primary);
-  background: var(--mb-color-surface-hover);
+  border-color: var(--mb-color-action-primary);
+  background: var(--mb-color-bg-hover);
 }
 
 .settings-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-card-padding);
 }
 
 @media (max-width: 680px) {

@@ -10,11 +10,11 @@ import {
   colorInvesting,
   colorPositive,
   colorNegative,
-  colorNeutral,
-  colorMuted,
+  colorTextSecondary,
+  colorTextMuted,
   fontWeightBold,
-  fontSizeXs,
-  spaceMd,
+  fontSizeCaption,
+  spaceCardPadding,
 } from '../../styles/tokens'
 
 interface InvestmentAnalysisProps {
@@ -45,7 +45,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
   if (!investmentData) {
     return (
       <div className="section-grid">
-        <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+        <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
           <div className="report-toolbar__filters">
             <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
           </div>
@@ -91,16 +91,16 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期初市值" value={returnAnalysis.startValue} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+          <Statistic title="期初市值" value={returnAnalysis.startValue} precision={2} valueStyle={{ color: colorTextSecondary }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: colorInvesting }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: colorTextSecondary }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: colorTextSecondary }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
@@ -123,7 +123,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
       </div>
 
       <Card className="surface-card report-section-card">
-        <div className="report-summary-note" style={{ color: colorMuted, fontSize: fontSizeXs }}>
+        <div className="report-summary-note" style={{ color: colorTextMuted, fontSize: fontSizeCaption }}>
           投资天数: {returnAnalysis.investmentDays} 天 | 现金流笔数: {returnAnalysis.cashFlowCount} 笔 | 账户数量: {investmentData.accountCount} 个
         </div>
       </Card>
@@ -186,7 +186,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
         <div className="report-toolbar__filters">
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>

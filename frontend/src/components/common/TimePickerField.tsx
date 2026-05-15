@@ -4,12 +4,12 @@ import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {
-  colorSurface,
-  colorText,
-  radiusLg,
-  shadowMd,
-  spaceMd,
-  spaceSm,
+  colorBgSurface,
+  colorTextPrimary,
+  radiusCard,
+  shadowPanel,
+  spaceCardPadding,
+  spaceInlineDefault,
 } from '../../styles/tokens'
 import {
   createPointValue,
@@ -111,19 +111,19 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
 
   const dropdownContent = (
     <div style={{
-      padding: spaceMd,
-      backgroundColor: colorSurface,
-      borderRadius: radiusLg,
-      boxShadow: shadowMd,
+      padding: spaceCardPadding,
+      backgroundColor: colorBgSurface,
+      borderRadius: radiusCard,
+      boxShadow: shadowPanel,
       maxWidth: 'calc(100vw - 32px)',
-      color: colorText,
+      color: colorTextPrimary,
     }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spaceMd }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
         <div style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: spaceSm,
+          gap: spaceInlineDefault,
         }}>
           <Button
             size="small"
@@ -166,7 +166,7 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: spaceSm,
+            gap: spaceInlineDefault,
           }}>
             {currentPresets.map((preset) => (
               <Button
@@ -297,19 +297,19 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
 
   const dropdownContent = (
     <div style={{
-      padding: spaceMd,
-      backgroundColor: colorSurface,
-      borderRadius: radiusLg,
-      boxShadow: shadowMd,
+      padding: spaceCardPadding,
+      backgroundColor: colorBgSurface,
+      borderRadius: radiusCard,
+      boxShadow: shadowPanel,
       maxWidth: 'calc(100vw - 32px)',
-      color: colorText,
+      color: colorTextPrimary,
     }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spaceMd }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
         <div style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: spaceSm,
+          gap: spaceInlineDefault,
         }}>
           <Button
             size="small"
@@ -352,7 +352,7 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: spaceSm,
+            gap: spaceInlineDefault,
           }}>
             {currentPresets.map((preset) => (
               <Button

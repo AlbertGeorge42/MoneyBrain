@@ -1,22 +1,18 @@
 /**
  * 间距设计令牌
- * 用于 margin, padding, gap 等间距属性
+ * 只有跨页面重复的布局节奏才 token 化，组件内部偶发的值不 token 化
  */
 
-/** 极小间距 4px - 紧凑内联 */
-export const spaceXs = 'var(--mb-space-xs)'
+// ========== 语义化间距 ==========
+export const spaceStackTight = 'var(--mb-space-stack-tight)'
+export const spaceStackDefault = 'var(--mb-space-stack-default)'
+export const spaceStackLoose = 'var(--mb-space-stack-loose)'
 
-/** 小间距 8px - 图标间隙 */
-export const spaceSm = 'var(--mb-space-sm)'
+export const spaceInlineTight = 'var(--mb-space-inline-tight)'
+export const spaceInlineDefault = 'var(--mb-space-inline-default)'
 
-/** 标准间距 16px - 表单行间距 */
-export const spaceMd = 'var(--mb-space-md)'
-
-/** 大间距 24px - 页面边距、卡片内边距 */
-export const spaceLg = 'var(--mb-space-lg)'
-
-/** 超大间距 32px - 区块分隔 */
-export const spaceXl = 'var(--mb-space-xl)'
-
-/** 巨大间距 48px */
-export const spaceXxl = 'var(--mb-space-xxl)'
+export const spaceControlGap = 'var(--mb-space-control-gap)'
+export const spaceCardPadding = 'var(--mb-space-card-padding)'
+export const spaceSectionGap = 'var(--mb-space-section-gap)'
+export const spacePagePadding = 'var(--mb-space-page-padding)'
+export const spacePageGap = 'var(--mb-space-page-gap)'

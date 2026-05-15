@@ -1,7 +1,7 @@
 .transaction-list-item {
   padding: 12px 0 !important;
-  border-bottom: 1px solid var(--mb-color-border) !important;
-  transition: background-color var(--mb-motion-fast) ease;
+  border-bottom: 1px solid var(--mb-color-border-subtle) !important;
+  transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
 .transaction-list-item:last-child {
@@ -9,7 +9,7 @@
 }
 
 .transaction-list-item:hover {
-  background: var(--mb-color-surface-hover);
+  background: var(--mb-color-bg-hover);
   margin: 0 -24px;
   padding: 12px 24px !important;
 }
@@ -34,13 +34,13 @@
 }
 
 .transaction-list-item__date {
-  color: var(--mb-color-muted);
-  font-size: 12px;
+  color: var(--mb-color-text-muted);
+  font-size: var(--mb-font-size-caption);
 }
 
 .transaction-list-item__account {
-  color: var(--mb-color-neutral);
-  font-size: 12px;
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-font-size-caption);
 }
 
 .transaction-list-item__amount {
@@ -50,10 +50,10 @@
 }
 
 .card-extra-link {
-  color: var(--mb-color-primary);
+  color: var(--mb-color-action-primary);
   cursor: pointer;
   font-size: var(--mb-font-size-caption);
-  transition: opacity var(--mb-motion-fast) ease;
+  transition: opacity var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
 .card-extra-link:hover {
@@ -89,11 +89,11 @@
 /* 交易表格 */
 .tx-row {
   cursor: pointer;
-  transition: background-color var(--mb-motion-fast) ease;
+  transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
 .tx-row:hover {
-  background: var(--mb-color-surface-hover);
+  background: var(--mb-color-bg-hover);
 }
 
 .tx-amount {
@@ -110,8 +110,8 @@
 }
 
 .tx-amount__subtitle {
-  color: var(--mb-color-muted);
-  font-size: 11px;
+  color: var(--mb-color-text-muted);
+  font-size: var(--mb-font-size-mobile-label);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -123,7 +123,7 @@
   display: flex;
   gap: 2px;
   opacity: 0;
-  transition: opacity var(--mb-motion-fast) ease;
+  transition: opacity var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
 .tx-row:hover .tx-actions {
@@ -138,16 +138,16 @@
   height: 24px;
   border: none;
   background: transparent;
-  color: var(--mb-color-muted);
-  border-radius: var(--mb-radius-sm);
+  color: var(--mb-color-text-muted);
+  border-radius: var(--mb-radius-control);
   cursor: pointer;
   font-size: 12px;
-  transition: all var(--mb-motion-fast) ease;
+  transition: all var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
 .tx-actions__btn:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text);
+  background: var(--mb-color-bg-hover);
+  color: var(--mb-color-text-primary);
 }
 
 .tx-actions__btn--danger:hover {
@@ -160,9 +160,9 @@
 
 .tx-table .ant-table-thead > tr > th {
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--mb-font-size-caption);
   font-weight: 500;
-  color: var(--mb-color-muted);
+  color: var(--mb-color-text-muted);
   background: transparent;
 }
 
@@ -192,7 +192,7 @@
 }
 
 .tx-group {
-  border-bottom: 1px solid var(--mb-color-border);
+  border-bottom: 1px solid var(--mb-color-border-subtle);
 }
 
 .tx-group:last-child {
@@ -203,9 +203,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  background: var(--mb-color-surface-muted);
-  border-bottom: 1px solid var(--mb-color-border);
+  padding: 10px var(--mb-space-card-padding);
+  background: var(--mb-color-bg-app);
+  border-bottom: 1px solid var(--mb-color-border-subtle);
 }
 
 .tx-group-header__date {
@@ -217,18 +217,18 @@
 .tx-group-header__day {
   font-size: 15px;
   font-weight: 600;
-  color: var(--mb-color-text);
+  color: var(--mb-color-text-primary);
 }
 
 .tx-group-header__weekday {
-  font-size: 12px;
-  color: var(--mb-color-muted);
+  font-size: var(--mb-font-size-caption);
+  color: var(--mb-color-text-muted);
 }
 
 .tx-group-header__summary {
   display: flex;
   gap: 12px;
-  font-size: 12px;
+  font-size: var(--mb-font-size-caption);
 }
 
 .tx-group-header__summary-item {
@@ -244,10 +244,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--mb-color-border);
+  padding: 12px var(--mb-space-card-padding);
+  border-bottom: 1px solid var(--mb-color-border-subtle);
   cursor: pointer;
-  transition: background-color var(--mb-motion-fast) ease;
+  transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
   gap: 12px;
 }
 
@@ -256,7 +256,7 @@
 }
 
 .tx-group-item:hover {
-  background: var(--mb-color-surface-hover);
+  background: var(--mb-color-bg-hover);
 }
 
 .tx-group-item__left {
@@ -268,8 +268,8 @@
 }
 
 .tx-group-item__subtitle {
-  color: var(--mb-color-muted);
-  font-size: 12px;
+  color: var(--mb-color-text-muted);
+  font-size: var(--mb-font-size-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -289,8 +289,8 @@
 }
 
 .tx-group-item__account {
-  font-size: 11px;
-  color: var(--mb-color-muted);
+  font-size: var(--mb-font-size-mobile-label);
+  color: var(--mb-color-text-muted);
   white-space: nowrap;
 }
 
@@ -299,33 +299,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 16px;
-  border-top: 1px solid var(--mb-color-border);
+  gap: var(--mb-space-card-padding);
+  padding: var(--mb-space-card-padding);
+  border-top: 1px solid var(--mb-color-border-subtle);
 }
 
 .tx-group-pagination__info {
-  color: var(--mb-color-muted);
+  color: var(--mb-color-text-muted);
   font-size: var(--mb-font-size-caption);
   font-weight: 500;
 }
 
 .tx-group-pagination__btn {
-  padding: 6px 16px;
+  padding: 6px var(--mb-space-card-padding);
   border: 1px solid var(--mb-color-border-input);
   border-radius: var(--mb-radius-control);
-  background: var(--mb-color-surface);
-  color: var(--mb-color-text);
+  background: var(--mb-color-bg-surface);
+  color: var(--mb-color-text-primary);
   cursor: pointer;
   font-size: var(--mb-font-size-caption);
   font-weight: 500;
-  transition: all var(--mb-motion-fast) ease;
+  transition: all var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
 .tx-group-pagination__btn:hover:not(:disabled) {
-  background: var(--mb-color-surface-hover);
-  border-color: var(--mb-color-primary);
-  color: var(--mb-color-primary);
+  background: var(--mb-color-bg-hover);
+  border-color: var(--mb-color-action-primary);
+  color: var(--mb-color-action-primary);
 }
 
 .tx-group-pagination__btn:disabled {

@@ -6,11 +6,10 @@ import { BarChart, SankeyChart } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import type { CashFlowReportData } from '@shared/types'
 import {
-  colorInfo,
-  colorSuccess,
+  colorNeutral,
   colorPositive,
   colorNegative,
-  spaceMd,
+  spaceCardPadding,
   fontWeightBold,
 } from '../../styles/tokens'
 
@@ -64,10 +63,10 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
           <Statistic title="现金流出" value={cashFlowData?.cashOutflow || 0} precision={2} valueStyle={{ color: colorNegative }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期初现金" value={cashFlowData?.startCash || 0} precision={2} valueStyle={{ color: colorInfo }} prefix="¥" />
+          <Statistic title="期初现金" value={cashFlowData?.startCash || 0} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末现金" value={cashFlowData?.endCash || 0} precision={2} valueStyle={{ color: colorSuccess }} prefix="¥" />
+          <Statistic title="期末现金" value={cashFlowData?.endCash || 0} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
         </Card>
       </div>
     </>
@@ -155,7 +154,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
         <div className="report-toolbar__filters">
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>

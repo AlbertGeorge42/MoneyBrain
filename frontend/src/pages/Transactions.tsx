@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useState } from 'react'
 import { Button, Card, message } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
@@ -14,7 +14,7 @@ import {
   TransactionCreate,
   TransactionEdit,
 } from '../components/transactions'
-import { spaceMd } from '../styles/tokens'
+import { spaceCardPadding } from '../styles/tokens'
 
 const MOBILE_BREAKPOINT = 860
 
@@ -171,7 +171,7 @@ const Transactions: React.FC = () => {
         actions={<>{renderAddButton()}</>}
       />
 
-      <Card style={{ marginBottom: spaceMd }}>
+      <Card style={{ marginBottom: spaceCardPadding }}>
         <TransactionFilter
           accounts={accounts}
           categories={transactionCategories}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+﻿﻿import React, { useEffect, useRef, useState } from 'react'
 import {
   Button,
   Card,
@@ -32,18 +32,19 @@ import { useStore } from '../stores'
 import { useTheme } from '../styles/ThemeContext'
 import {
   colorDanger,
-  colorMuted,
-  colorNeutral,
-  colorPrimary,
+  colorTextMuted,
+  colorActionPrimary,
   colorSuccess,
   colorWarning,
   colorTransfer,
-  colorInfo,
   fontWeightBold,
-  radiusMd,
-  spaceXs,
-  spaceSm,
-  spaceMd,
+  radiusCard,
+  spaceInlineDefault,
+  spaceStackDefault,
+  spaceCardPadding,
+  fontSizeBodyLarge,
+  fontSizeBody,
+  fontSizeCaption,
 } from '../styles/tokens'
 import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
 
@@ -332,11 +333,11 @@ const Settings: React.FC = () => {
       onOk: handleClearTransactions,
       content: (
         <div>
-          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceSm }}>
+          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceStackDefault }}>
             这会永久删除所有交易记录与预算数据。
           </p>
-          <p style={{ color: colorSuccess, marginBottom: spaceSm }}>账户和分类会保留。</p>
-          <p style={{ color: colorNeutral, margin: 0 }}>建议先导出备份，再执行该操作。</p>
+          <p style={{ color: colorSuccess, marginBottom: spaceStackDefault }}>账户和分类会保留。</p>
+          <p style={{ color: colorTextMuted, margin: 0 }}>建议先导出备份，再执行该操作。</p>
         </div>
       ),
     })
@@ -352,10 +353,10 @@ const Settings: React.FC = () => {
       onOk: handleClearData,
       content: (
         <div>
-          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceSm }}>
+          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceStackDefault }}>
             这会删除账户、分类、交易、预算和余额快照，且不可恢复。
           </p>
-          <p style={{ color: colorNeutral, margin: 0 }}>只有在确认已完成备份后再继续。</p>
+          <p style={{ color: colorTextMuted, margin: 0 }}>只有在确认已完成备份后再继续。</p>
         </div>
       ),
     })
@@ -368,8 +369,8 @@ const Settings: React.FC = () => {
       children: (
         <div className="settings-grid">
           <div>
-            <h3 style={{ marginTop: 0, fontSize: 16, fontWeight: fontWeightBold }}>导出 CSV</h3>
-            <p style={{ color: colorNeutral, fontSize: 13, marginBottom: spaceMd }}>
+            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导出 CSV</h3>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
               导出为钱迹兼容格式，包含交易时间、分类、金额、账户等信息。
             </p>
             <Space wrap>
@@ -385,11 +386,11 @@ const Settings: React.FC = () => {
             </Space>
           </div>
 
-          <Divider style={{ margin: `${spaceMd} 0`, borderColor: 'var(--mb-color-border)' }} />
+          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border)' }} />
 
           <div>
-            <h3 style={{ marginTop: 0, fontSize: 16, fontWeight: fontWeightBold }}>导入 CSV</h3>
-            <p style={{ color: colorNeutral, fontSize: 13, marginBottom: spaceMd }}>
+            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入 CSV</h3>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
               支持钱迹格式的 CSV 文件导入，自动创建不存在的账户和分类。
             </p>
             <Space wrap>
@@ -400,31 +401,39 @@ const Settings: React.FC = () => {
                 placeholder="全部数据"
               />
             </Space>
+            <Space wrap>
+              <RangeTimePickerField
+                value={importDateRange}
+                config={exportTimePickerConfig}
+                onChange={setImportDateRange}
+                placeholder="全部数据"
+              />
+            </Space>
             <div
               className={`file-drop-zone ${isDragOver ? 'file-drop-zone--dragover' : ''}`}
-              style={{ marginTop: spaceMd }}
+              style={{ marginTop: spaceCardPadding }}
               onClick={() => fileInputRef.current?.click()}
               onDrop={(e) => handleDrop(e, 'csv')}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
             >
               <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileChange} />
-              <InboxOutlined style={{ fontSize: 32, color: colorPrimary, marginBottom: spaceSm }} />
+              <InboxOutlined style={{ fontSize: 32, color: colorActionPrimary, marginBottom: spaceStackDefault }} />
               <p style={{ margin: 0, fontWeight: fontWeightBold }}>点击或拖拽 CSV 文件到此处</p>
-              <p style={{ margin: 0, color: colorMuted, fontSize: 12 }}>{importing ? '正在导入...' : '支持钱迹格式的交易记录'}</p>
+              <p style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>{importing ? '正在导入...' : '支持钱迹格式的交易记录'}</p>
             </div>
             {importProgress ? (
               <div
                 style={{
-                  marginTop: spaceSm,
+                  marginTop: spaceStackDefault,
                   padding: 12,
-                  borderRadius: radiusMd,
-                  border: `1px solid ${colorPrimary}`,
+                  borderRadius: radiusCard,
+                  border: `1px solid ${colorActionPrimary}`,
                   background: 'rgba(30, 99, 218, 0.06)',
                 }}
               >
                 <p style={{ margin: 0 }}>成功导入：{importProgress.imported} 条</p>
-                <p style={{ margin: 0, color: colorMuted }}>已跳过：{importProgress.skipped} 条</p>
+                <p style={{ margin: 0, color: colorTextMuted }}>已跳过：{importProgress.skipped} 条</p>
               </div>
             ) : null}
           </div>
@@ -437,8 +446,8 @@ const Settings: React.FC = () => {
       children: (
         <div className="settings-grid">
           <div>
-            <h3 style={{ marginTop: 0, fontSize: 16, fontWeight: fontWeightBold }}>导出配置</h3>
-            <p style={{ color: colorNeutral, fontSize: 13, marginBottom: spaceMd }}>
+            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导出配置</h3>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
               导出账户、账户分类、收支分类等配置信息，以 JSON 格式保存。
             </p>
             <Button icon={<CloudDownloadOutlined />} onClick={handleExportConfig} loading={configExporting} type="primary">
@@ -446,11 +455,11 @@ const Settings: React.FC = () => {
             </Button>
           </div>
 
-          <Divider style={{ margin: `${spaceMd} 0`, borderColor: 'var(--mb-color-border)' }} />
+          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border)' }} />
 
           <div>
-            <h3 style={{ marginTop: 0, fontSize: 16, fontWeight: fontWeightBold }}>导入配置</h3>
-            <p style={{ color: colorNeutral, fontSize: 13, marginBottom: spaceMd }}>
+            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入配置</h3>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
               从 JSON 文件恢复账户、分类等配置信息。存在则更新，不存在则新增。
             </p>
             <div
@@ -461,33 +470,33 @@ const Settings: React.FC = () => {
               onDragLeave={handleDragLeave}
             >
               <input ref={configFileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleConfigFileChange} />
-              <InboxOutlined style={{ fontSize: 32, color: colorPrimary, marginBottom: spaceSm }} />
+              <InboxOutlined style={{ fontSize: 32, color: colorActionPrimary, marginBottom: spaceStackDefault }} />
               <p style={{ margin: 0, fontWeight: fontWeightBold }}>点击或拖拽 JSON 文件到此处</p>
-              <p style={{ margin: 0, color: colorMuted, fontSize: 12 }}>
+              <p style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>
                 {configImporting ? '正在导入...' : '支持导入账户、分类等配置信息'}
               </p>
             </div>
             {configImportResult ? (
               <div
                 style={{
-                  marginTop: spaceSm,
+                  marginTop: spaceStackDefault,
                   padding: 12,
-                  borderRadius: radiusMd,
+                  borderRadius: radiusCard,
                   border: `1px solid ${colorSuccess}`,
                   background: 'rgba(82, 196, 26, 0.06)',
                 }}
               >
                 <p style={{ margin: 0, fontWeight: fontWeightBold }}>导入结果</p>
-                <div style={{ marginTop: spaceSm, display: 'grid', gap: spaceXs, fontSize: 13 }}>
+                <div style={{ marginTop: spaceStackDefault, display: 'grid', gap: spaceInlineDefault, fontSize: fontSizeBody }}>
                   <p style={{ margin: 0 }}>账户分类：新增 {configImportResult.imported.accountCategories} / 更新 {configImportResult.updated.accountCategories} / 跳过 {configImportResult.skipped.accountCategories}</p>
                   <p style={{ margin: 0 }}>账户：新增 {configImportResult.imported.accounts} / 更新 {configImportResult.updated.accounts} / 跳过 {configImportResult.skipped.accounts}</p>
                   <p style={{ margin: 0 }}>收支分类：新增 {configImportResult.imported.transactionCategories} / 更新 {configImportResult.updated.transactionCategories} / 跳过 {configImportResult.skipped.transactionCategories}</p>
                 </div>
                 {configImportResult.errors.length > 0 && (
-                  <div style={{ marginTop: spaceSm }}>
+                  <div style={{ marginTop: spaceStackDefault }}>
                     <p style={{ margin: 0, color: colorDanger }}>错误 ({configImportResult.errors.length} 条)：</p>
                     {configImportResult.errors.slice(0, 3).map((err, idx) => (
-                      <p key={idx} style={{ margin: 0, color: colorMuted, fontSize: 12 }}>{err}</p>
+                      <p key={idx} style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>{err}</p>
                     ))}
                   </div>
                 )}
@@ -510,14 +519,14 @@ const Settings: React.FC = () => {
       <div className="kpi-grid settings-kpi-grid">
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <BankOutlined style={{ fontSize: 18, color: colorPrimary }} />
+            <BankOutlined style={{ fontSize: 18, color: colorActionPrimary }} />
             <span className="metric-card__label">账户</span>
           </div>
           <div className="metric-card__value">{accounts.length}</div>
         </Card>
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <FileTextOutlined style={{ fontSize: 20, color: colorInfo }} />
+            <FileTextOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">交易记录</span>
           </div>
           <div className="metric-card__value">{pagination.total}</div>
@@ -531,7 +540,7 @@ const Settings: React.FC = () => {
         </Card>
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <SettingOutlined style={{ fontSize: 20, color: colorPrimary }} />
+            <SettingOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">账户分类</span>
           </div>
           <div className="metric-card__value">{accountCategories.length}</div>
@@ -546,13 +555,13 @@ const Settings: React.FC = () => {
               className={`theme-option-card ${mode === option.value ? 'theme-option-card--active' : ''}`}
               onClick={() => setThemeMode(option.value)}
             >
-              <div style={{ fontSize: 24, marginBottom: 8, color: colorPrimary }}>{option.icon}</div>
+              <div style={{ fontSize: 24, marginBottom: 8, color: colorActionPrimary }}>{option.icon}</div>
               <div style={{ fontWeight: fontWeightBold, marginBottom: 4 }}>{option.label}</div>
-              <div style={{ fontSize: 12, color: colorMuted }}>{option.desc}</div>
+              <div style={{ fontSize: fontSizeCaption, color: colorTextMuted }}>{option.desc}</div>
             </div>
           ))}
         </div>
-        <Tag style={{ marginTop: spaceMd, color: theme === 'dark' ? colorTransfer : undefined, borderColor: theme === 'dark' ? colorTransfer : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
+        <Tag style={{ marginTop: spaceCardPadding, color: theme === 'dark' ? colorTransfer : undefined, borderColor: theme === 'dark' ? colorTransfer : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
           当前生效：{mode === 'system' ? `跟随系统 / ${theme === 'dark' ? '深色' : '浅色'}` : theme === 'dark' ? '深色' : '浅色'}
         </Tag>
       </Card>
@@ -566,12 +575,12 @@ const Settings: React.FC = () => {
           message="执行前建议先导出配置备份"
           type="warning"
           showIcon
-          style={{ marginBottom: spaceMd }}
+          style={{ marginBottom: spaceCardPadding }}
         />
         <div className="section-grid">
           <div>
             <h3 style={{ color: colorWarning, marginTop: 0 }}>清空交易数据</h3>
-            <p style={{ color: colorNeutral, fontSize: 13, marginBottom: spaceMd }}>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
               永久删除所有交易记录与预算数据，账户和分类会保留。
             </p>
             <Button ghost icon={<DeleteOutlined />} onClick={showClearTransactionsConfirm} style={{ borderColor: colorWarning, color: colorWarning }}>
@@ -581,7 +590,7 @@ const Settings: React.FC = () => {
 
           <div>
             <h3 style={{ color: colorDanger, marginTop: 0 }}>清空全部数据</h3>
-            <p style={{ color: colorNeutral, fontSize: 13, marginBottom: spaceMd }}>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
               删除账户、分类、交易、预算等所有数据，且不可恢复。
             </p>
             <Button danger icon={<DeleteOutlined />} onClick={showClearConfirm}  style={{ borderColor: colorDanger, color: colorDanger }}>
@@ -592,7 +601,7 @@ const Settings: React.FC = () => {
       </Card>
 
       <Card className="surface-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: spaceMd, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: spaceCardPadding, flexWrap: 'wrap' }}>
           <div
             style={{
               width: 42,
@@ -612,7 +621,7 @@ const Settings: React.FC = () => {
           </div>
           <div>
             <p style={{ margin: 0, fontWeight: fontWeightBold }}>MoneyBrain 1.0.0</p>
-            <p style={{ color: colorNeutral, margin: 0, fontSize: 13 }}>
+            <p style={{ color: colorTextMuted, margin: 0, fontSize: fontSizeBody }}>
               一款面向个人资产管理的记账应用，数据存储在本地。
             </p>
           </div>

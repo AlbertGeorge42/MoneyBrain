@@ -13,10 +13,10 @@ import {
   colorIncome,
   colorExpense,
   colorTransfer,
-  colorWarning,
-  colorInvesting,
-  spaceSm,
-  spaceMd,
+  colorRefund,
+  colorAdjustment,
+  spaceStackDefault,
+  spaceCardPadding,
 } from '../../styles/tokens'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
@@ -177,11 +177,11 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   }, [categories])
 
   const TRANSACTION_TYPE_CONFIG = {
-income: { color: colorIncome, text: '收入' },
-  expense: { color: colorExpense, text: '支出' },
-  transfer: { color: colorTransfer, text: '转账' },
-    refund: { color: colorWarning, text: '退款' },
-    adjustment: { color: colorInvesting, text: '平账' },
+    income: { color: colorIncome, text: '收入' },
+    expense: { color: colorExpense, text: '支出' },
+    transfer: { color: colorTransfer, text: '转账' },
+    refund: { color: colorRefund, text: '退款' },
+    adjustment: { color: colorAdjustment, text: '平账' },
   } as const
 
   // 移除单个筛选条件
@@ -262,7 +262,7 @@ income: { color: colorIncome, text: '收入' },
               <>
                 <div className="filter-grid">
                   <div>
-                    <div style={{ marginBottom: spaceSm }}>类型</div>
+                    <div style={{ marginBottom: spaceStackDefault }}>类型</div>
                     <Select
                       mode="multiple"
                       placeholder="选择类型"
@@ -288,7 +288,7 @@ income: { color: colorIncome, text: '收入' },
                     </Select>
                   </div>
                   <div>
-                    <div style={{ marginBottom: spaceSm }}>账户</div>
+                    <div style={{ marginBottom: spaceStackDefault }}>账户</div>
                     <TreeSelect
                       treeData={accountTreeData}
                       placeholder="选择账户"
@@ -312,7 +312,7 @@ income: { color: colorIncome, text: '收入' },
                     />
                   </div>
                   <div>
-                    <div style={{ marginBottom: spaceSm }}>分类</div>
+                    <div style={{ marginBottom: spaceStackDefault }}>分类</div>
                     <TreeSelect
                       treeData={categoryTreeData}
                       placeholder="选择分类"
@@ -336,7 +336,7 @@ income: { color: colorIncome, text: '收入' },
                     />
                   </div>
                   <div>
-                    <div style={{ marginBottom: spaceSm }}>日期范围</div>
+                    <div style={{ marginBottom: spaceStackDefault }}>日期范围</div>
                     <RangeTimePickerField
                       value={filters.dateRange}
                       config={transactionTimePickerConfig}
@@ -346,7 +346,7 @@ income: { color: colorIncome, text: '收入' },
                     />
                   </div>
                 </div>
-                <div style={{ marginTop: spaceMd, textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <div style={{ marginTop: spaceCardPadding, textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                   <Button onClick={onReset}>重置</Button>
                   <Button type="primary" onClick={onSearch}>查询</Button>
                 </div>

@@ -6,7 +6,7 @@ import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type Poi
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { formatBalance } from '../../utils/formatBalance'
-import { colorInfo, colorNegative, colorPositive, fontWeightBold, spaceMd } from '../../styles/tokens'
+import { colorNeutral, colorNegative, colorPositive, fontWeightBold, spaceCardPadding } from '../../styles/tokens'
 
 interface BalanceSheetTreeNode {
   key: string
@@ -106,7 +106,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
               title="资产负债率"
               value={balanceSheetData?.assets ? (Math.abs(balanceSheetData?.liabilities || 0) / balanceSheetData.assets) * 100 : 0}
               precision={1}
-              valueStyle={{ color: colorInfo }}
+              valueStyle={{ color: colorNeutral }}
               suffix="%"
             />
           </div>
@@ -232,7 +232,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceMd }}>
+      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
         <div className="report-toolbar__filters">
           <PointTimePickerField value={selectedTime} config={pickerConfig} onChange={onTimeChange} />
         </div>

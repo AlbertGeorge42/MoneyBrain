@@ -2,22 +2,20 @@ import React, { useState, useMemo } from 'react'
 import { Popover, Input, Tabs, Empty } from 'antd'
 import DynamicIcon from './DynamicIcon'
 import {
-  colorPrimary,
-  colorBorder,
+  colorActionPrimary,
+  colorBorderSubtle,
   colorBorderInput,
-  colorSurface,
-  colorSurfaceHover,
-  colorSurfaceSelected,
-  colorNeutral,
-  colorMuted,
-  spaceSm,
-  spaceMd,
-  radiusMd,
-  radiusLg,
+  colorBgSurface,
+  colorBgHover,
+  colorBgSelected,
+  colorTextMuted,
+  spaceInlineDefault,
+  spaceCardPadding,
+  radiusCard,
   borderWidth,
   borderWidthThick,
   borderStyle,
-  fontSizeXs,
+  fontSizeCaption,
 } from '../../styles/tokens'
 
 interface IconPickerProps {
@@ -151,7 +149,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
   }
 
   const renderIconGrid = (icons: string[], keyPrefix?: string) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: spaceSm }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: spaceInlineDefault }}>
       {icons.map(iconName => (
         <div
           key={keyPrefix ? `${keyPrefix}-${iconName}` : iconName}
@@ -163,19 +161,19 @@ const IconPicker: React.FC<IconPickerProps> = ({
             width: 36,
             height: 36,
             cursor: 'pointer',
-            borderRadius: radiusLg,
-            border: value === iconName ? `${borderWidthThick} ${borderStyle} ${colorPrimary}` : `${borderWidth} ${borderStyle} ${colorBorder}`,
-            background: value === iconName ? colorSurfaceSelected : colorSurface,
+            borderRadius: radiusCard,
+            border: value === iconName ? `${borderWidthThick} ${borderStyle} ${colorActionPrimary}` : `${borderWidth} ${borderStyle} ${colorBorderSubtle}`,
+            background: value === iconName ? colorBgSelected : colorBgSurface,
             transition: 'all 0.2s',
           }}
           onMouseEnter={e => {
             if (value !== iconName) {
-              e.currentTarget.style.background = colorSurfaceHover
+              e.currentTarget.style.background = colorBgHover
             }
           }}
           onMouseLeave={e => {
             if (value !== iconName) {
-              e.currentTarget.style.background = colorSurface
+              e.currentTarget.style.background = colorBgSurface
             }
           }}
           title={iconName}
@@ -192,7 +190,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
         placeholder="搜索图标..."
         value={search}
         onChange={e => setSearch(e.target.value)}
-        style={{ marginBottom: spaceMd }}
+        style={{ marginBottom: spaceCardPadding }}
         allowClear
       />
       
@@ -235,22 +233,22 @@ const IconPicker: React.FC<IconPickerProps> = ({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: spaceSm,
+          gap: 4,
           padding: '4px 11px',
           border: `${borderWidth} ${borderStyle} ${colorBorderInput}`,
-          borderRadius: radiusMd,
+          borderRadius: radiusCard,
           cursor: 'pointer',
           minWidth: 120,
-          background: colorSurface,
+          background: colorBgSurface,
         }}
       >
         {value ? (
           <>
             <DynamicIcon name={value} size={size} />
-            <span style={{ color: colorNeutral, fontSize: fontSizeXs }}>{value}</span>
+            <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}>{value}</span>
           </>
         ) : (
-          <span style={{ color: colorMuted }}>{placeholder}</span>
+          <span style={{ color: colorTextMuted }}>{placeholder}</span>
         )}
       </div>
     </Popover>

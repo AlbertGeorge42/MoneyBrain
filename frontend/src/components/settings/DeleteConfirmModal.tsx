@@ -1,5 +1,6 @@
 import React from 'react'
 import { Modal, Radio, TreeSelect, Alert } from 'antd'
+import { spaceStackDefault, spaceCardPadding } from '../../styles/tokens'
 
 interface TreeNode {
   id: string
@@ -80,7 +81,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
                   <Alert 
                     message="此操作不可恢复" 
                     type="error" 
-                    style={{ marginTop: 8, marginLeft: 24 }} 
+                    style={{ marginTop: spaceStackDefault, marginLeft: spaceCardPadding }} 
                     showIcon
                   />
                 )}

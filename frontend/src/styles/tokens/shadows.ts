@@ -1,13 +1,10 @@
 /**
  * 阴影设计令牌
- * 用于 boxShadow 属性
+ * 业务代码优先使用语义化 token，避免直接使用 primitive（加 @deprecated 标记
  */
 
-/** 轻微阴影 - 卡片默认 */
-export const shadowSm = 'var(--mb-shadow-sm)'
-
-/** 中等阴影 - 下拉面板、浮层 */
-export const shadowMd = 'var(--mb-shadow-md)'
-
-/** 大阴影 - 模态框、抽屉 */
-export const shadowLg = 'var(--mb-shadow-lg)'
+// ========== 语义化阴影 ==========
+export const shadowCard = 'var(--mb-shadow-card)'
+export const shadowPanel = 'var(--mb-shadow-panel)'
+export const shadowPopover = 'var(--mb-shadow-popover)'
+export const shadowFocus = 'var(--mb-shadow-focus)'

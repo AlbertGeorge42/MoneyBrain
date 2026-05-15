@@ -4,18 +4,17 @@ import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { Transaction } from '../../services/api'
 import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
 import {
-  colorInfo,
-  colorWarning,
-  colorInvesting,
   colorPositive,
   colorNegative,
-  colorMuted,
+  colorTextMuted,
   colorIncome,
   colorExpense,
   colorTransfer,
   colorRefund,
   colorAdjustment,
-  spaceMd,
+  spaceCardPadding,
+  fontSizeBody,
+  fontSizeCaption,
 } from '../../styles/tokens'
 
 interface TransactionTableProps {
@@ -126,7 +125,7 @@ const AmountDisplay: React.FC<{ record: Transaction }> = ({ record }) => {
     if (record.type === 'adjustment') {
       const isPositive = amount >= 0
       return (
-        <span style={{ color: colorInvesting, fontSize: '14px' }}>
+        <span style={{ color: colorAdjustment, fontSize: fontSizeBody }}>
           {isPositive ? '+' : ''}¥{amount.toFixed(2)}
         </span>
       )
@@ -135,20 +134,20 @@ const AmountDisplay: React.FC<{ record: Transaction }> = ({ record }) => {
       const hasExtra = (record.fee || 0) > 0 || (record.coupon || 0) > 0
       return (
         <span>
-          <span style={{ color: colorInfo, fontSize: '14px' }}>¥{amount.toFixed(2)}</span>
-          {hasExtra && <span style={{ color: colorMuted, fontSize: '10px' }}> +费</span>}
+          <span style={{ color: colorTransfer, fontSize: fontSizeBody }}>¥{amount.toFixed(2)}</span>
+          {hasExtra && <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}> +费</span>}
         </span>
       )
     }
     if (record.type === 'refund') {
       return (
-        <span style={{ color: colorWarning, fontSize: '14px' }}>
+        <span style={{ color: colorRefund, fontSize: fontSizeBody }}>
           +¥{amount.toFixed(2)}
         </span>
       )
     }
     return (
-      <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontSize: '14px' }}>
+      <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontSize: fontSizeBody }}>
         {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
       </span>
     )
@@ -250,7 +249,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   }
 
   return (
-    <Card className="tx-table" style={{ margin: '0 -1px', overflow: 'hidden', marginBottom: spaceMd }}>
+    <Card className="tx-table" style={{ margin: '0 -1px', overflow: 'hidden', marginBottom: spaceCardPadding }}>
       {transactions.length === 0 && !loading ? (
         <Empty description="暂无交易记录" style={{ padding: '40px 0' }} />
       ) : (
