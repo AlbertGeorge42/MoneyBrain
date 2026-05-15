@@ -4,7 +4,7 @@ test.describe('用户入门流程', () => {
   test('创建账户分类 -> 创建账户 -> 验证显示', async ({ page }) => {
     // 访问首页
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 检查是否是移动端（通过检查侧边栏是否隐藏）
     const sider = page.locator('.app-shell__sider')
@@ -25,7 +25,7 @@ test.describe('用户入门流程', () => {
       await page.click('text=设置')
     }
     await expect(page).toHaveURL(/.*settings/)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 验证设置页面内容 - 使用 page-header__title 类选择器定位页面标题
     await expect(page.locator('h1.page-header__title')).toContainText('设置与数据')

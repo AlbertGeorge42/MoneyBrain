@@ -89,13 +89,13 @@ export default defineConfig({
     {
       command: 'cd backend && npm run dev',
       url: 'http://localhost:3001/api/accounts',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       timeout: 120000,
     },
     {
       command: 'cd frontend && npm run dev',
       url: 'http://localhost:3002',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       timeout: 120000,
     },
   ],
