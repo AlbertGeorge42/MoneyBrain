@@ -57,7 +57,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
     )
   }
 
-  const { returnAnalysis, byCategory, trend } = investmentData
+  const { returnAnalysis, byCategory, trend, totalAssets, investmentRatio } = investmentData
 
   const pieData = byCategory
     .map((category) => ({
@@ -73,20 +73,19 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
       <div className="report-hero-section">
         <Card className="surface-card report-section-card report-hero-card">
           <Statistic
-            title="期间收益"
-            value={returnAnalysis.periodReturn}
+            title="累计收益率（雪球）"
+            value={returnAnalysis.cumulativeReturnRate}
             precision={2}
-            valueStyle={{ color: returnAnalysis.periodReturn >= 0 ? colorPositive : colorNegative }}
-            prefix="¥"
-            suffix={` (${returnAnalysis.simpleReturnRate >= 0 ? '+' : ''}${returnAnalysis.simpleReturnRate.toFixed(2)}%)`}
+            valueStyle={{ color: returnAnalysis.cumulativeReturnRate >= 0 ? colorPositive : colorNegative }}
+            suffix="%"
           />
+          <div style={{ fontSize: fontSizeCaption, color: colorTextMuted, marginTop: 8 }}>
+            累计收益 ¥{returnAnalysis.periodReturn.toFixed(2)} | 最高本金 ¥{returnAnalysis.maxCapitalEmployed.toFixed(2)}
+          </div>
         </Card>
       </div>
 
       <div className="report-secondary-section report-secondary-section--2">
-        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期初市值" value={returnAnalysis.startValue} precision={2} valueStyle={{ color: colorTextSecondary }} prefix="¥" />
-        </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: colorInvesting }} prefix="¥" />
         </Card>
@@ -114,11 +113,14 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
             suffix={returnAnalysis.annualizedTwr !== null ? '%' : ''}
           />
         </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic title="投资占比" value={investmentRatio} precision={2} valueStyle={{ color: colorTextSecondary }} suffix="%" />
+        </Card>
       </div>
 
       <Card className="surface-card report-section-card">
         <div className="report-summary-note" style={{ color: colorTextMuted, fontSize: fontSizeCaption }}>
-          投资天数: {returnAnalysis.investmentDays} 天 | 现金流笔数: {returnAnalysis.cashFlowCount} 笔 | 账户数量: {investmentData.accountCount} 个
+          投资天数: {returnAnalysis.investmentDays} 天 | 现金流笔数: {returnAnalysis.cashFlowCount} 笔 | 账户数量: {investmentData.accountCount} 个 | 总资产 ¥{totalAssets.toFixed(2)}
         </div>
       </Card>
     </>
@@ -165,9 +167,9 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               <span>取出 {formatCurrency(account.totalWithdrawn)}</span>
             </div>
             <div className="report-detail-list__meta">
-              <span>期间收益率</span>
-              <span style={{ color: account.simpleReturnRate >= 0 ? colorPositive : colorNegative }}>
-                {formatPercent(account.simpleReturnRate)}
+              <span>最高本金 {formatCurrency(account.maxCapitalEmployed)}</span>
+              <span style={{ color: account.cumulativeReturnRate >= 0 ? colorPositive : colorNegative }}>
+                累计收益率 {formatPercent(account.cumulativeReturnRate)}
               </span>
             </div>
           </div>

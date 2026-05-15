@@ -252,7 +252,9 @@ export interface InvestmentAccountDetail {
   ratio: number
   totalInvested: number
   totalWithdrawn: number
+  maxCapitalEmployed: number
   simpleReturnRate: number
+  cumulativeReturnRate: number
 }
 
 export interface InvestmentCategorySummary {
@@ -272,7 +274,9 @@ export interface InvestmentReturnAnalysis {
   periodWithdrawn: number
   netCashFlow: number
   periodReturn: number
+  maxCapitalEmployed: number
   simpleReturnRate: number
+  cumulativeReturnRate: number
   xirr: number | null
   twr: number | null
   annualizedTwr: number | null

@@ -33,7 +33,9 @@ interface InvestmentAccountDetail {
   ratio: number
   totalInvested: number
   totalWithdrawn: number
+  maxCapitalEmployed: number
   simpleReturnRate: number
+  cumulativeReturnRate: number
 }
 
 interface InvestmentCategorySummary {
@@ -53,7 +55,9 @@ interface InvestmentReturnAnalysis {
   periodWithdrawn: number
   netCashFlow: number
   periodReturn: number
+  maxCapitalEmployed: number
   simpleReturnRate: number
+  cumulativeReturnRate: number
   xirr: number | null
   twr: number | null
   annualizedTwr: number | null
@@ -80,6 +84,19 @@ interface InvestmentAnalysisResult {
   trend: InvestmentTrendItem[]
 }
 
+async function getDescendantCategoryIds(parentIds: string[]): Promise<string[]> {
+  const children = await prisma.accountCategory.findMany({
+    where: { parentId: { in: parentIds } },
+    select: { id: true },
+  })
+
+  if (children.length === 0) return parentIds
+
+  const childIds = children.map(c => c.id)
+  const grandChildIds = await getDescendantCategoryIds(childIds)
+  return [...parentIds, ...childIds, ...grandChildIds]
+}
+
 async function getInvestmentAccounts(): Promise<AccountWithCategory[]> {
   const investmentCategories = await prisma.accountCategory.findMany({
     where: { isInvestment: true },
@@ -89,10 +106,12 @@ async function getInvestmentAccounts(): Promise<AccountWithCategory[]> {
     return []
   }
 
-  const categoryIds = investmentCategories.map(c => c.id)
+  const allCategoryIds = await getDescendantCategoryIds(
+    investmentCategories.map(c => c.id)
+  )
 
   const accounts = await prisma.account.findMany({
-    where: { categoryId: { in: categoryIds } },
+    where: { categoryId: { in: allCategoryIds } },
     include: { category: true },
     orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
   })
@@ -135,19 +154,19 @@ async function getCashFlowsInRange(
     const isFromInvestment = accountIds.includes(t.accountId)
 
     if (isToInvestment && !isFromInvestment) {
-      const inAmount = amount.minus(fee).plus(coupon)
+      const investedAmount = amount.plus(fee)
       cashFlows.push({
         date: t.date,
-        amount: inAmount.negated().toNumber(),
+        amount: investedAmount.negated().toNumber(),
         type: 'buy',
         accountId: t.toAccountId!,
         accountName: accountMap.get(t.toAccountId!) || '未知账户',
       })
     } else if (isFromInvestment && !isToInvestment) {
-      const outAmount = amount.plus(fee).minus(coupon)
+      const withdrawnAmount = amount.minus(coupon)
       cashFlows.push({
         date: t.date,
-        amount: outAmount.toNumber(),
+        amount: withdrawnAmount.toNumber(),
         type: 'sell',
         accountId: t.accountId,
         accountName: accountMap.get(t.accountId) || '未知账户',
@@ -243,12 +262,15 @@ async function calculateTWR(
   startDate: Date,
   endDate: Date
 ): Promise<{ twr: number | null; annualizedTwr: number | null }> {
-  const investmentDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  const nextDayOfEnd = new Date(endDate)
+  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
+
+  const investmentDays = Math.max(1, (nextDayOfEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
   const balanceCache = new Map<string, number>()
-  
+
   const getBalanceCached = async (d: Date): Promise<number> => {
-    const key = d.toISOString()
+    const key = d.toISOString().split('T')[0]
     if (!balanceCache.has(key)) {
       const bal = await getTotalBalanceAtDate(accountIds, d)
       balanceCache.set(key, bal)
@@ -258,32 +280,41 @@ async function calculateTWR(
 
   let twr = 1
 
-  let prevValue = startValue
-  let prevDate = startDate
-
   const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime())
 
-  for (const currentCF of sortedFlows) {
-    const currentDate = currentCF.date
+  const cashFlowsByDate = new Map<string, number>()
+  for (const cf of sortedFlows) {
+    const dateKey = cf.date.toISOString().split('T')[0]
+    cashFlowsByDate.set(dateKey, (cashFlowsByDate.get(dateKey) || 0) + cf.amount)
+  }
 
+  const startDateKey = startDate.toISOString().split('T')[0]
+  const firstDayBalance = startValue + (cashFlowsByDate.get(startDateKey) || 0)
+
+  let prevValue = firstDayBalance
+  let prevDate = startDate
+
+  for (const [dateKey, totalAmount] of cashFlowsByDate) {
+    if (dateKey === startDateKey) continue
+
+    const currentDate = new Date(dateKey)
     if (currentDate.getTime() <= prevDate.getTime()) continue
 
-    const balanceBeforeCF = await getBalanceCached(currentDate)
+    const balanceBeforeCF = await getBalanceCached(new Date(dateKey))
 
-    const endValue = balanceBeforeCF
-
-    if (prevValue > 0 && endValue >= 0) {
-      const periodReturn = (endValue - prevValue) / prevValue
+    if (prevValue > 0 && balanceBeforeCF >= 0) {
+      const periodReturn = (balanceBeforeCF - prevValue) / prevValue
       const clampedReturn = Math.max(-0.99, Math.min(10, periodReturn))
       twr *= (1 + clampedReturn)
     }
 
-    prevValue = balanceBeforeCF - currentCF.amount
+    prevValue = balanceBeforeCF - totalAmount
     prevDate = currentDate
   }
 
-  if (prevDate < endDate) {
-    const endValue = await getBalanceCached(endDate)
+  const endDateKey = nextDayOfEnd.toISOString().split('T')[0]
+  if (prevDate < nextDayOfEnd) {
+    const endValue = await getBalanceCached(nextDayOfEnd)
     if (prevValue > 0 && endValue >= 0) {
       const periodReturn = (endValue - prevValue) / prevValue
       const clampedReturn = Math.max(-0.99, Math.min(10, periodReturn))
@@ -314,6 +345,27 @@ async function getTotalBalanceAtDate(accountIds: string[], targetDate: Date): Pr
     accountIds.map(id => calculateBalanceAtDate(id, targetDate))
   )
   return balances.reduce((sum, b) => sum + b, 0)
+}
+
+function calculateMaxCapitalEmployed(cashFlows: CashFlow[]): number {
+  let maxCapital = 0
+  let currentCapital = 0
+
+  const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime())
+
+  for (const cf of sortedFlows) {
+    if (cf.type === 'buy') {
+      currentCapital += Math.abs(cf.amount)
+    } else {
+      currentCapital -= cf.amount
+    }
+    if (currentCapital < 0) {
+      currentCapital = 0
+    }
+    maxCapital = Math.max(maxCapital, currentCapital)
+  }
+
+  return maxCapital
 }
 
 async function calculateAccountCashFlowsInRange(
@@ -347,9 +399,9 @@ async function calculateAccountCashFlowsInRange(
     const isFromInvestment = allInvestmentAccountIds.includes(t.accountId)
 
     if (t.toAccountId === accountId && !isFromInvestment) {
-      periodInvested = periodInvested.plus(amount.minus(fee).plus(coupon))
+      periodInvested = periodInvested.plus(amount.plus(fee))
     } else if (t.accountId === accountId && !isToInvestment) {
-      periodWithdrawn = periodWithdrawn.plus(amount.plus(fee).minus(coupon))
+      periodWithdrawn = periodWithdrawn.plus(amount.minus(coupon))
     }
   }
 
@@ -362,29 +414,42 @@ async function generateTrendData(
   endDate: Date
 ): Promise<InvestmentTrendItem[]> {
   const trend: InvestmentTrendItem[] = []
-  
+
   const startMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
   const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1)
-  
+
+  const monthDates: Date[] = []
   let currentMonth = startMonth
-  
   while (currentMonth <= endMonth) {
-    const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`
+    monthDates.push(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+  }
 
-    // 计算月末余额：使用下月初，因为 calculateBalanceAtDate 使用 lt: targetDate
-    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-    const investment = await getTotalBalanceAtDate(accountIds, nextMonthStart)
+  const allAccounts = await prisma.account.findMany()
+  const balanceCache = new Map<string, Map<string, number>>()
 
-    const allAccounts = await prisma.account.findMany()
-    const allBalances = await Promise.all(
-      allAccounts.map(a => calculateBalanceAtDate(a.id, nextMonthStart))
+  for (const date of monthDates) {
+    const dateKey = date.toISOString().split('T')[0]
+    const balances = await Promise.all(
+      allAccounts.map(a => calculateBalanceAtDate(a.id, date))
     )
-    const assets = allBalances
-      .filter((_, idx) => allAccounts[idx].type === 'asset')
-      .reduce((sum, b) => sum + b, 0)
-    const liabilities = allBalances
-      .filter((_, idx) => allAccounts[idx].type === 'liability')
-      .reduce((sum, b) => sum + b, 0)
+    const balanceMap = new Map(allAccounts.map((a, i) => [a.id, balances[i]]))
+    balanceCache.set(dateKey, balanceMap)
+  }
+
+  for (let i = 0; i < monthDates.length; i++) {
+    const nextMonthStart = monthDates[i]
+    const monthStr = `${nextMonthStart.getFullYear()}-${String(nextMonthStart.getMonth() + 1).padStart(2, '0')}`
+
+    const investmentBalanceMap = balanceCache.get(nextMonthStart.toISOString().split('T')[0]) || new Map()
+    const investment = accountIds.reduce((sum, id) => sum + (investmentBalanceMap.get(id) || 0), 0)
+
+    const assets = allAccounts
+      .filter(a => a.type === 'asset')
+      .reduce((sum, a) => sum + (investmentBalanceMap.get(a.id) || 0), 0)
+    const liabilities = allAccounts
+      .filter(a => a.type === 'liability')
+      .reduce((sum, a) => sum + (investmentBalanceMap.get(a.id) || 0), 0)
     const netWorth = assets + liabilities
 
     const ratio = assets !== 0 ? (investment / assets) * 100 : 0
@@ -395,8 +460,6 @@ async function generateTrendData(
       netWorth,
       ratio,
     })
-    
-    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
   }
 
   return trend
@@ -455,6 +518,10 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const periodReturn = valueChange - netCashFlow
   const simpleReturnRate = startValue !== 0 ? (periodReturn / startValue) * 100 : 0
 
+  const maxCapitalEmployed = calculateMaxCapitalEmployed(cashFlows)
+  const cumulativeReturn = endValue + periodWithdrawn - periodInvested
+  const cumulativeReturnRate = maxCapitalEmployed !== 0 ? (cumulativeReturn / maxCapitalEmployed) * 100 : 0
+
   const investmentDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
   let xirr: number | null = null
@@ -473,7 +540,9 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     periodWithdrawn,
     netCashFlow,
     periodReturn,
+    maxCapitalEmployed,
     simpleReturnRate,
+    cumulativeReturnRate,
     xirr,
     twr: twrResult.twr,
     annualizedTwr: twrResult.annualizedTwr,
@@ -522,6 +591,11 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
         const totalCapital = accStartBalance + accInvested
         const accReturnRate = totalCapital !== 0 ? (accPeriodReturn / totalCapital) * 100 : 0
 
+        const accountCashFlows = cashFlows.filter(cf => cf.accountId === account.id)
+        const accMaxCapital = calculateMaxCapitalEmployed(accountCashFlows)
+        const accCumulativeReturn = accEndBalance + accWithdrawn - accInvested
+        const accCumulativeReturnRate = accMaxCapital !== 0 ? (accCumulativeReturn / accMaxCapital) * 100 : 0
+
         return {
           id: account.id,
           name: account.name,
@@ -533,7 +607,9 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
           ratio: accountRatio,
           totalInvested: accInvested,
           totalWithdrawn: accWithdrawn,
+          maxCapitalEmployed: accMaxCapital,
           simpleReturnRate: accReturnRate,
+          cumulativeReturnRate: accCumulativeReturnRate,
         }
       })
     )
