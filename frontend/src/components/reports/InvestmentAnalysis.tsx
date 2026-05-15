@@ -16,6 +16,7 @@ import {
   fontSizeCaption,
   spaceCardPadding,
 } from '../../styles/tokens'
+import { formatCurrency, formatPercent } from '../../utils/format'
 
 interface InvestmentAnalysisProps {
   timeRange: RangeTimeValue
@@ -24,13 +25,6 @@ interface InvestmentAnalysisProps {
   onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
 }
-
-const formatPercent = (value: number | null): string => {
-  if (value === null) return '--'
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
-}
-
-const formatCurrency = (value: number): string => `¥${value.toFixed(2)}`
 
 const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
   timeRange,

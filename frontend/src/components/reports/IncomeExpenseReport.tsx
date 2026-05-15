@@ -8,6 +8,7 @@ import ReportViewSwitcher from './ReportViewSwitcher'
 import * as api from '../../services/api'
 import { colorNeutral, colorNegative, colorPositive, spaceCardPadding } from '../../styles/tokens'
 import { toDateRangeParams } from '../../utils/timePicker'
+import { formatCurrency, createStatisticFormatter } from '../../utils/format'
 
 interface IncomeExpenseReportProps {
   timeRange: RangeTimeValue
@@ -17,8 +18,7 @@ interface IncomeExpenseReportProps {
   onOpenSettings: () => void
 }
 
-const formatCurrency = (value: number) => `¥${Number(value).toFixed(2)}`
-const statisticFormatter = (value: string | number) => formatCurrency(Number(value || 0))
+const statisticFormatter = createStatisticFormatter()
 
 const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   timeRange,
