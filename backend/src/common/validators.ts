@@ -29,12 +29,6 @@ export const validateDateRange = (req: Request): void => {
     throw new ValidationError('日期格式无效，请使用 YYYY-MM-DD 格式')
   }
 
-  const today = new Date()
-  today.setHours(23, 59, 59, 999)
-  if (startDate > today || endDate > today) {
-    throw new ValidationError('日期不能晚于今天')
-  }
-
   if (startDate > endDate) {
     throw new ValidationError('开始日期必须早于或等于结束日期')
   }

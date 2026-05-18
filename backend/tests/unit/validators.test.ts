@@ -72,6 +72,25 @@ describe('validators', () => {
       const req = { query: { startDate: '', endDate: '' } } as any
       expect(() => validateDateRange(req)).toThrow(ValidationError)
     })
+
+    it('无效的日期格式应该抛出 ValidationError', () => {
+      const req = { query: { startDate: 'invalid', endDate: '2024-01-31' } } as any
+      expect(() => validateDateRange(req)).toThrow(ValidationError)
+    })
+
+    it('startDate 晚于 endDate 应该抛出 ValidationError', () => {
+      const req = { query: { startDate: '2024-02-01', endDate: '2024-01-31' } } as any
+      expect(() => validateDateRange(req)).toThrow(ValidationError)
+    })
+
+    it('未来日期应该被允许（不会抛出错误）', () => {
+      const futureDate = new Date()
+      futureDate.setFullYear(futureDate.getFullYear() + 1)
+      const futureDateStr = futureDate.toISOString().split('T')[0]
+      
+      const req = { query: { startDate: '2024-01-01', endDate: futureDateStr } } as any
+      expect(() => validateDateRange(req)).not.toThrow()
+    })
   })
 
   describe('validateDateQuery', () => {
