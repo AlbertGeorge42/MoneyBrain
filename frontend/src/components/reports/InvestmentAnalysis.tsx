@@ -1,21 +1,11 @@
 import React from 'react'
-import { Button, Card, Empty, Grid, Statistic } from 'antd'
+import { Button, Card, Empty, Grid, Statistic, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import DynamicIcon from '../common/DynamicIcon'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { LineChart, PieChart } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import type { InvestmentAccountDetail, InvestmentAnalysisReportData } from '@shared/types'
-import {
-  colorInvesting,
-  colorPositive,
-  colorNegative,
-  colorTextSecondary,
-  colorTextMuted,
-  fontWeightBold,
-  fontSizeCaption,
-  spaceCardPadding,
-} from '../../styles/tokens'
 import { formatCurrency, formatPercent } from '../../utils/format'
 
 interface InvestmentAnalysisProps {
@@ -35,11 +25,12 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+  const { token } = theme.useToken()
 
   if (!investmentData) {
     return (
       <div className="section-grid">
-        <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
+        <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
           <div className="report-toolbar__filters">
             <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
           </div>
@@ -76,10 +67,10 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
             title="累计收益率（雪球）"
             value={returnAnalysis.cumulativeReturnRate}
             precision={2}
-            valueStyle={{ color: returnAnalysis.cumulativeReturnRate >= 0 ? colorPositive : colorNegative }}
+            valueStyle={{ color: returnAnalysis.cumulativeReturnRate >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             suffix="%"
           />
-          <div style={{ fontSize: fontSizeCaption, color: colorTextMuted, marginTop: 8 }}>
+          <div style={{ fontSize: `${token.fontSizeSM}px`, color: token.colorTextTertiary, marginTop: 8 }}>
             累计收益 ¥{returnAnalysis.periodReturn.toFixed(2)} | 最高本金 ¥{returnAnalysis.maxCapitalEmployed.toFixed(2)}
           </div>
         </Card>
@@ -87,20 +78,20 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: colorInvesting }} prefix="¥" />
+          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: 'var(--mb-color-investing)' }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: colorTextSecondary }} prefix="¥" />
+          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: token.colorTextSecondary }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: colorTextSecondary }} prefix="¥" />
+          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: token.colorTextSecondary }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
             title="XIRR (年化)"
             value={returnAnalysis.xirr !== null ? returnAnalysis.xirr : '--'}
             precision={returnAnalysis.xirr !== null ? 2 : 0}
-            valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? colorPositive : colorNegative }}
+            valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             suffix={returnAnalysis.xirr !== null ? '%' : ''}
           />
         </Card>
@@ -109,17 +100,17 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
             title="TWR (年化)"
             value={returnAnalysis.annualizedTwr !== null ? returnAnalysis.annualizedTwr : '--'}
             precision={returnAnalysis.annualizedTwr !== null ? 2 : 0}
-            valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? colorPositive : colorNegative }}
+            valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             suffix={returnAnalysis.annualizedTwr !== null ? '%' : ''}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="投资占比" value={investmentRatio} precision={2} valueStyle={{ color: colorTextSecondary }} suffix="%" />
+          <Statistic title="投资占比" value={investmentRatio} precision={2} valueStyle={{ color: token.colorTextSecondary }} suffix="%" />
         </Card>
       </div>
 
       <Card className="surface-card report-section-card">
-        <div className="report-summary-note" style={{ color: colorTextMuted, fontSize: fontSizeCaption }}>
+        <div className="report-summary-note" style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>
           投资天数: {returnAnalysis.investmentDays} 天 | 现金流笔数: {returnAnalysis.cashFlowCount} 笔 | 账户数量: {investmentData.accountCount} 个 | 总资产 ¥{totalAssets.toFixed(2)}
         </div>
       </Card>
@@ -156,7 +147,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
               <span className="report-detail-list__title">
                 <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
               </span>
-              <span style={{ fontWeight: fontWeightBold }}>{formatCurrency(account.balance)}</span>
+              <span style={{ fontWeight: 700 }}>{formatCurrency(account.balance)}</span>
             </div>
             <div className="report-detail-list__meta">
               <span>{account.categoryName}</span>
@@ -168,7 +159,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
             </div>
             <div className="report-detail-list__meta">
               <span>最高本金 {formatCurrency(account.maxCapitalEmployed)}</span>
-              <span style={{ color: account.cumulativeReturnRate >= 0 ? colorPositive : colorNegative }}>
+              <span style={{ color: account.cumulativeReturnRate >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}>
                 累计收益率 {formatPercent(account.cumulativeReturnRate)}
               </span>
             </div>
@@ -182,7 +173,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
+      <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
         <div className="report-toolbar__filters">
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>

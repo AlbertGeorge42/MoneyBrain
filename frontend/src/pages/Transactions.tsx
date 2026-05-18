@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useState } from 'react'
-import { Button, Card, message } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Button, Card, message, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { useStore } from '../stores'
 import { Transaction } from '../services/api'
@@ -14,7 +14,6 @@ import {
   TransactionCreate,
   TransactionEdit,
 } from '../components/transactions'
-import { spaceCardPadding } from '../styles/tokens'
 
 const MOBILE_BREAKPOINT = 860
 
@@ -50,6 +49,7 @@ const Transactions: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [isMobile, setIsMobile] = useState(false)
+  const { token } = theme.useToken()
 
   useEffect(() => {
     fetchTransactions()
@@ -171,7 +171,7 @@ const Transactions: React.FC = () => {
         actions={<>{renderAddButton()}</>}
       />
 
-      <Card style={{ marginBottom: spaceCardPadding }}>
+      <Card style={{ marginBottom: `${token.padding}px` }}>
         <TransactionFilter
           accounts={accounts}
           categories={transactionCategories}

@@ -1,22 +1,6 @@
 import React, { useState, useMemo } from 'react'
-import { Popover, Input, Tabs, Empty } from 'antd'
+import { Popover, Input, Tabs, Empty, theme } from 'antd'
 import DynamicIcon from './DynamicIcon'
-import {
-  colorActionPrimary,
-  colorBorderSubtle,
-  colorBorderInput,
-  colorBgSurface,
-  colorBgHover,
-  colorBgSelected,
-  colorTextMuted,
-  spaceInlineDefault,
-  spaceCardPadding,
-  radiusCard,
-  borderWidth,
-  borderWidthThick,
-  borderStyle,
-  fontSizeCaption,
-} from '../../styles/tokens'
 
 interface IconPickerProps {
   value?: string | null
@@ -133,6 +117,22 @@ const IconPicker: React.FC<IconPickerProps> = ({
   placeholder = '选择图标',
   size = 16,
 }) => {
+  const { token } = theme.useToken()
+  const colorActionPrimary = token.colorPrimary
+  const colorBorderSubtle = token.colorBorderSecondary
+  const colorBorderInput = token.colorBorder
+  const colorBgSurface = token.colorBgContainer
+  const colorBgHover = token.controlItemBgHover || token.colorBgTextHover
+  const colorBgSelected = token.controlItemBgActive || token.colorPrimaryBg
+  const colorTextMuted = token.colorTextTertiary
+  const spaceInlineDefault = `${token.paddingXS}px`
+  const spaceCardPadding = `${token.padding}px`
+  const radiusCard = `${token.borderRadius}px`
+  const borderWidth = 'var(--mb-border-width)'
+  const borderWidthThick = 'var(--mb-border-width-thick)'
+  const borderStyle = 'var(--mb-border-style)'
+  const fontSizeCaption = `${token.fontSizeSM}px`
+
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 

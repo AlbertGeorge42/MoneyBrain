@@ -1,12 +1,11 @@
 import React from 'react'
-import { Button, Card, Grid, Statistic } from 'antd'
+import { Button, Card, Grid, Statistic, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import type { IncomeExpenseReportData } from '@shared/types'
 import { BarChart, PieChart, type PieChartDataItem } from '../charts'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import * as api from '../../services/api'
-import { colorNeutral, colorNegative, colorPositive, spaceCardPadding } from '../../styles/tokens'
 import { toDateRangeParams } from '../../utils/timePicker'
 import { formatCurrency, createStatisticFormatter } from '../../utils/format'
 
@@ -29,6 +28,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+  const { token } = theme.useToken()
 
   const dateParams = toDateRangeParams(timeRange)
 
@@ -75,7 +75,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="结余"
             value={incomeExpenseData?.balance || 0}
             precision={2}
-            valueStyle={{ color: (incomeExpenseData?.balance || 0) >= 0 ? colorPositive : colorNegative }}
+            valueStyle={{ color: (incomeExpenseData?.balance || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             formatter={statisticFormatter}
           />
         </Card>
@@ -83,10 +83,10 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="收入" value={incomeExpenseData?.income || 0} precision={2} valueStyle={{ color: colorPositive }} formatter={statisticFormatter} />
+          <Statistic title="收入" value={incomeExpenseData?.income || 0} precision={2} valueStyle={{ color: 'var(--mb-color-positive)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="支出" value={incomeExpenseData?.expense || 0} precision={2} valueStyle={{ color: colorNegative }} formatter={statisticFormatter} />
+          <Statistic title="支出" value={incomeExpenseData?.expense || 0} precision={2} valueStyle={{ color: 'var(--mb-color-negative)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic title="期初净值" value={incomeExpenseData?.startNetWorth || 0} precision={2} formatter={statisticFormatter} />
@@ -99,7 +99,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="资产变动"
             value={incomeExpenseData?.assetChange || 0}
             precision={2}
-            valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? colorPositive : colorNegative }}
+            valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             formatter={statisticFormatter}
           />
         </Card>
@@ -108,7 +108,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="储蓄率"
             value={incomeExpenseData?.income ? ((incomeExpenseData?.balance || 0) / incomeExpenseData.income) * 100 : 0}
             precision={1}
-            valueStyle={{ color: colorNeutral }}
+            valueStyle={{ color: 'var(--mb-color-neutral)' }}
             suffix="%"
           />
         </Card>
@@ -142,7 +142,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           <div key={item.categoryId} className="report-detail-list__item">
             <div className="report-detail-list__header">
               <span className="report-detail-list__title">{item.name}</span>
-              <span style={{ color: colorPositive }}>{formatCurrency(item.value)}</span>
+              <span style={{ color: 'var(--mb-color-positive)' }}>{formatCurrency(item.value)}</span>
             </div>
           </div>
         ))}
@@ -157,7 +157,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           <div key={item.categoryId} className="report-detail-list__item">
             <div className="report-detail-list__header">
               <span className="report-detail-list__title">{item.name}</span>
-              <span style={{ color: colorNegative }}>{formatCurrency(Math.abs(item.value))}</span>
+              <span style={{ color: 'var(--mb-color-negative)' }}>{formatCurrency(Math.abs(item.value))}</span>
             </div>
           </div>
         ))}
@@ -174,7 +174,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
+      <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
         <div className="report-toolbar__filters">
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>

@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react'
-import { Button, Card, Grid, Space, Statistic } from 'antd'
+import { Button, Card, Grid, Space, Statistic, theme } from 'antd'
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetReportData } from '@shared/types'
 import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { formatBalance } from '../../utils/formatBalance'
-import { colorNeutral, colorNegative, colorPositive, fontWeightBold, spaceCardPadding } from '../../styles/tokens'
 
 interface BalanceSheetTreeNode {
   key: string
@@ -44,6 +43,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+  const { token } = theme.useToken()
 
   const assetPieData = useMemo(
     () =>
@@ -98,7 +98,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             title="净资产"
             value={balanceSheetData?.netWorth || 0}
             precision={2}
-            valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? colorPositive : colorNegative }}
+            valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             formatter={(value) => `¥${Number(value).toFixed(2)}`}
           />
           <div className="report-hero-card__sub">
@@ -106,7 +106,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
               title="资产负债率"
               value={balanceSheetData?.assets ? (Math.abs(balanceSheetData?.liabilities || 0) / balanceSheetData.assets) * 100 : 0}
               precision={1}
-              valueStyle={{ color: colorNeutral }}
+              valueStyle={{ color: 'var(--mb-color-neutral)' }}
               suffix="%"
             />
           </div>
@@ -119,7 +119,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             title="总资产"
             value={balanceSheetData?.assets || 0}
             precision={2}
-            valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? colorPositive : colorNegative }}
+            valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             formatter={(value) => `¥${Number(value).toFixed(2)}`}
           />
         </Card>
@@ -128,7 +128,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             title="总负债"
             value={Math.abs(balanceSheetData?.liabilities || 0)}
             precision={2}
-            valueStyle={{ color: colorNegative }}
+            valueStyle={{ color: 'var(--mb-color-negative)' }}
             formatter={(value) => `¥${Number(value).toFixed(2)}`}
           />
         </Card>
@@ -168,7 +168,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                 <span className="report-detail-list__title">
                   <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
                 </span>
-                <span style={{ color: result.color, fontWeight: fontWeightBold }}>{result.text}</span>
+                <span style={{ color: result.color, fontWeight: 700 }}>{result.text}</span>
               </div>
               {node.children?.length ? (
                 <div className="report-detail-list__subitems">
@@ -201,7 +201,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                 <span className="report-detail-list__title">
                   <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
                 </span>
-                <span style={{ color: result.color, fontWeight: fontWeightBold }}>{result.text}</span>
+                <span style={{ color: result.color, fontWeight: 700 }}>{result.text}</span>
               </div>
               {node.children?.length ? (
                 <div className="report-detail-list__subitems">
@@ -232,7 +232,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
+      <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
         <div className="report-toolbar__filters">
           <PointTimePickerField value={selectedTime} config={pickerConfig} onChange={onTimeChange} />
         </div>

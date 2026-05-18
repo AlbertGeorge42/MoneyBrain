@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Card, List, Statistic, Tag, Empty, Skeleton } from 'antd'
+import { Card, List, Statistic, Tag, Empty, Skeleton, theme } from 'antd'
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
@@ -17,18 +17,18 @@ import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 import * as api from '../services/api'
 import { useStore } from '../stores'
 import type { AnalyticsCategoryBreakdownItem, AnalyticsTrendItem } from '../services/api'
-import {
-  colorNegative,
-  colorPositive,
-  colorIncome,
-  colorExpense,
-  colorActionPrimary,
-  colorTextMuted,
-} from '../styles/tokens'
-import { getTokenValue } from '../styles/utils'
+import { getTokenValue } from '../styles/theme/cssVars'
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate()
+  const { token } = theme.useToken()
+  const colorNegative = 'var(--mb-color-negative)'
+  const colorPositive = 'var(--mb-color-positive)'
+  const colorIncome = 'var(--mb-color-income)'
+  const colorExpense = 'var(--mb-color-expense)'
+  const colorActionPrimary = token.colorPrimary
+  const colorTextMuted = token.colorTextTertiary
+
   const { accounts, transactions, fetchAccounts, fetchTransactions } = useStore()
   const [chartLoading, setChartLoading] = useState(false)
   const [trendData, setTrendData] = useState<AnalyticsTrendItem[]>([])
@@ -110,7 +110,7 @@ const Dashboard: React.FC = () => {
     xAxis: {
       type: 'category',
       data: trendData.map((item) => item.label),
-      axisLabel: { rotate: 40, color: getTokenValue(colorTextMuted), fontSize: 11 },
+      axisLabel: { rotate: 40, color: colorTextMuted, fontSize: 11 },
       axisLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle') } },
       axisTick: { show: false },
     },

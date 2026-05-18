@@ -6,7 +6,8 @@
  * - 负债账户：余额 <= 0 显示红色绝对值（正常欠款），余额 > 0 显示绿色负数（多还款）
  */
 
-import { colorPositive, colorNegative } from '../styles/tokens'
+const colorPositive = 'var(--mb-color-positive)'
+const colorNegative = 'var(--mb-color-negative)'
 
 interface BalanceDisplayResult {
   text: string

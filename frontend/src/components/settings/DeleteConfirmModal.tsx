@@ -1,6 +1,5 @@
 import React from 'react'
-import { Modal, Radio, TreeSelect, Alert } from 'antd'
-import { spaceStackDefault, spaceCardPadding } from '../../styles/tokens'
+import { Modal, Radio, TreeSelect, Alert, theme } from 'antd'
 
 interface TreeNode {
   id: string
@@ -34,7 +33,9 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onTransferTargetChange,
   onConfirm,
   onCancel,
-}) => (
+}) => {
+  const { token } = theme.useToken()
+  return (
   <Modal
     title="删除分类确认"
     open={visible}
@@ -52,10 +53,10 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         
         {transactionCount > 0 && (
           <>
-            <Alert 
-              message="请选择交易处理方式" 
-              type="warning" 
-              style={{ marginBottom: 16 }} 
+            <Alert
+              message="请选择交易处理方式"
+              type="warning"
+              style={{ marginBottom: 16 }}
             />
             <Radio.Group 
               value={deleteAction} 
@@ -78,10 +79,10 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
               <div>
                 <Radio value="delete">同时删除关联交易</Radio>
                 {deleteAction === 'delete' && (
-                  <Alert 
-                    message="此操作不可恢复" 
-                    type="error" 
-                    style={{ marginTop: spaceStackDefault, marginLeft: spaceCardPadding }} 
+                  <Alert
+                    message="此操作不可恢复"
+                    type="error"
+                    style={{ marginTop: `${token.paddingXS}px`, marginLeft: `${token.padding}px` }}
                     showIcon
                   />
                 )}
@@ -92,6 +93,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
       </>
     )}
   </Modal>
-)
+  )
+}
 
 export default DeleteConfirmModal

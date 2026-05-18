@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Button, Card, Progress, Space, Statistic, Tag, Empty, Spin } from 'antd'
+import { Button, Card, Progress, Space, Statistic, Tag, Empty, Spin, theme } from 'antd'
 import { ReloadOutlined, SettingOutlined } from '@ant-design/icons'
 import { PageHeader } from '../components/common'
 import { budgetApi } from '../services/api'
 import type { Budget, BudgetStatus } from '@shared/types'
-import { colorDanger, colorActionPrimary, colorSuccess, colorWarning, spaceCardPadding, spaceStackDefault } from '../styles/tokens'
 
 const Budgets: React.FC = () => {
+  const { token } = theme.useToken()
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [budgetStatuses, setBudgetStatuses] = useState<Record<string, BudgetStatus>>({})
   const [loading, setLoading] = useState(true)
@@ -57,9 +57,9 @@ const Budgets: React.FC = () => {
   )
 
   const getProgressColor = (percentage: number, isOverBudget: boolean) => {
-    if (isOverBudget) return colorDanger
-    if (percentage >= 80) return colorWarning
-    return colorSuccess
+    if (isOverBudget) return token.colorError
+    if (percentage >= 80) return token.colorWarning
+    return token.colorSuccess
   }
 
   if (loading) {
@@ -92,14 +92,14 @@ const Budgets: React.FC = () => {
             title="已使用"
             value={totalUsed}
             precision={2}
-            valueStyle={{ color: colorDanger }}
+            valueStyle={{ color: token.colorError }}
             prefix="¥"
           />
           <Statistic
             title="剩余"
             value={totalBudget - totalUsed}
             precision={2}
-            valueStyle={{ color: colorSuccess }}
+            valueStyle={{ color: token.colorSuccess }}
             prefix="¥"
           />
         </div>
@@ -110,7 +110,7 @@ const Budgets: React.FC = () => {
           <Empty description="暂无预算数据" />
         </Card>
       ) : (
-        <div style={{ display: 'grid', gap: spaceCardPadding }}>
+        <div style={{ display: 'grid', gap: `${token.padding}px` }}>
           {budgets.map((budget) => {
             const status = budgetStatuses[budget.id]
             const percentage = status?.percentage ?? 0
@@ -119,7 +119,7 @@ const Budgets: React.FC = () => {
 
             return (
               <Card key={budget.id} size="small">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spaceCardPadding }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: `${token.padding}px` }}>
                   <div>
                     <span style={{ fontWeight: 500 }}>{budget.name}</span>
                     <Tag style={{ marginLeft: 8 }} color={budget.period === 'monthly' ? 'blue' : 'green'}>
@@ -127,14 +127,14 @@ const Budgets: React.FC = () => {
                     </Tag>
                     {budget.category && <Tag>{budget.category.name}</Tag>}
                   </div>
-                  <span style={{ color: colorActionPrimary, fontWeight: 500 }}>¥{budget.amount.toFixed(2)}</span>
+                  <span style={{ color: token.colorPrimary, fontWeight: 500 }}>¥{budget.amount.toFixed(2)}</span>
                 </div>
                 <Progress
                   percent={Math.min(percentage, 100)}
                   status={isOverBudget ? 'exception' : undefined}
                   strokeColor={getProgressColor(percentage, isOverBudget)}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: spaceStackDefault, color: colorDanger }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: `${token.paddingXS}px`, color: token.colorError }}>
                   <span>已使用: ¥{used.toFixed(2)}</span>
                   <span>{percentage.toFixed(1)}%</span>
                 </div>

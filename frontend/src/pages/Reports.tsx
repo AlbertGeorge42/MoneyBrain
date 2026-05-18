@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Card, InputNumber, Modal, Space, Tabs, message } from 'antd'
+import { Card, InputNumber, Modal, Space, Tabs, message, theme } from 'antd'
 import dayjs from 'dayjs'
 import { PageHeader } from '../components/common'
 import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
@@ -29,7 +29,6 @@ import {
   type InvestmentAnalysisReportData,
 } from '../services/api'
 import { useStore } from '../stores'
-import { colorTextMuted, fontSizeCaption } from '../styles/tokens'
 
 const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '时点',
@@ -132,6 +131,7 @@ type BalanceSheetTreeNode = {
 }
 
 const Reports: React.FC = () => {
+  const { token } = theme.useToken()
   const { fetchAccounts } = useStore()
   const [activeTab, setActiveTab] = useState('balance-sheet')
   const [earliestTransactionDate, setEarliestTransactionDate] = useState<string | null>(null)
@@ -442,7 +442,7 @@ const Reports: React.FC = () => {
         cancelText="取消"
         width={700}
       >
-        <p style={{ color: colorTextMuted, marginBottom: 16 }}>输入实际余额。</p>
+        <p style={{ color: token.colorTextTertiary, marginBottom: 16 }}>输入实际余额。</p>
         {balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => (
           <div
             key={account.id}
@@ -452,7 +452,7 @@ const Reports: React.FC = () => {
               <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
             </span>
             <Space>
-              <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}>当前 ¥{account.balance?.toFixed(2) || '0.00'}</span>
+              <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>当前 ¥{account.balance?.toFixed(2) || '0.00'}</span>
               <InputNumber
                 value={calibrateData[account.id]}
                 onChange={(value) => setCalibrateData({ ...calibrateData, [account.id]: value || 0 })}

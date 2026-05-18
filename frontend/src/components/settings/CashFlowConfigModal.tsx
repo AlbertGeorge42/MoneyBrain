@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Modal, Table, Tabs, Tag, Spin, Dropdown, Button, message } from 'antd'
+import { Modal, Table, Tabs, Tag, Spin, Dropdown, Button, message, theme } from 'antd'
 import { SettingOutlined, ExportOutlined } from '@ant-design/icons'
 import { useStore } from '../../stores'
 import { accountCategoryApi, transactionCategoryApi } from '../../services/api'
@@ -7,7 +7,6 @@ import DynamicIcon from '../common/DynamicIcon'
 import MoveModal from './MoveModal'
 import { renderExpandIcon, type CashTreeNode, type ActivityTreeNode, type MenuProps, type MoveTreeDataNode } from './shared'
 import { useMoveModal } from './shared'
-import { colorTextMuted, fontSizeCaption, spaceInlineDefault, spaceInlineTight } from '../../styles/tokens'
 
 interface CashFlowConfigModalProps {
   visible: boolean
@@ -28,6 +27,7 @@ const ACTIVITY_GROUPS: Record<string, { label: string; color: string }> = {
 }
 
 const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onClose }) => {
+  const { token } = theme.useToken()
   const { accountCategories, transactionCategories, loading, fetchAccountCategories, fetchTransactionCategories } = useStore()
   const [expandedCashKeys, setExpandedCashKeys] = useState<string[]>([])
   const [expandedActivityKeys, setExpandedActivityKeys] = useState<string[]>([])
@@ -78,8 +78,8 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
   const toggleCashExpand = (key: string) => setExpandedCashKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
 
   const cashColumns = [
-    { title: '', width: 30, render: (_: unknown, record: CashTreeNode) => renderExpandIcon(record, expandedCashKeys, toggleCashExpand) },
-    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: CashTreeNode) => record.isGroup ? <strong><Tag color={ASSET_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: colorTextMuted, fontWeight: 'normal', fontSize: fontSizeCaption, marginLeft: spaceInlineTight }}>({record.children?.length || 0} 个分类)</span></strong> : <span><DynamicIcon name={record.icon} size={16} fallback="folder" /> {name}</span> },
+    { title: '', width: 30, render: (_: unknown, record: CashTreeNode) => renderExpandIcon(record, expandedCashKeys, toggleCashExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
+    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: CashTreeNode) => record.isGroup ? <strong><Tag color={ASSET_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span><DynamicIcon name={record.icon} size={16} fallback="folder" /> {name}</span> },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: CashTreeNode) => record.isGroup ? null : <Dropdown menu={{ items: getCashSettingMenuItems(record) }} trigger={['click']}><Button type="text" size="small" icon={<SettingOutlined />} /></Dropdown> },
   ]
 
@@ -119,8 +119,8 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
   const toggleActivityExpand = (key: string) => setExpandedActivityKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
 
   const activityColumns = [
-    { title: '', width: 30, render: (_: unknown, record: ActivityTreeNode) => renderExpandIcon(record, expandedActivityKeys, toggleActivityExpand) },
-    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: ActivityTreeNode) => record.isGroup ? <strong><Tag color={ACTIVITY_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: colorTextMuted, fontWeight: 'normal', fontSize: fontSizeCaption, marginLeft: spaceInlineTight }}>({record.children?.length || 0} 个分类)</span></strong> : <span><DynamicIcon name={record.icon} size={16} fallback="file-text" /> {name}{record.childCount && record.childCount > 0 ? <span style={{ color: colorTextMuted, fontSize: fontSizeCaption, marginLeft: spaceInlineDefault }}>({record.childCount} 个子分类)</span> : null}</span> },
+    { title: '', width: 30, render: (_: unknown, record: ActivityTreeNode) => renderExpandIcon(record, expandedActivityKeys, toggleActivityExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
+    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: ActivityTreeNode) => record.isGroup ? <strong><Tag color={ACTIVITY_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span><DynamicIcon name={record.icon} size={16} fallback="file-text" /> {name}{record.childCount && record.childCount > 0 ? <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px`, marginLeft: `${token.paddingXS}px` }}>({record.childCount} 个子分类)</span> : null}</span> },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: ActivityTreeNode) => record.isGroup || record.depth > 1 ? null : <Dropdown menu={{ items: getActivitySettingMenuItems(record) }} trigger={['click']}><Button type="text" size="small" icon={<SettingOutlined />} /></Dropdown> },
   ]
 
@@ -130,8 +130,8 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
   )
 
   const tabItems = [
-    { key: 'asset-category', label: '资产分类管理', children: <div><p style={{ color: colorTextMuted, marginBottom: 12 }}>将资产分类划分为现金及等价物、投资资产、其他资产三类，用于现金流量表计算。</p><Table dataSource={cashTreeData} columns={cashColumns} rowKey="key" size="small" pagination={false} indentSize={20} expandedRowKeys={expandedCashKeys} onExpandedRowsChange={(keys) => setExpandedCashKeys(keys as string[])} expandable={{ rowExpandable: (r) => !!(r.children?.length), expandIcon: () => null }} /></div> },
-    { key: 'activity-type', label: '交易活动管理', children: <div><p style={{ color: colorTextMuted, marginBottom: 12 }}>为一级收支分类配置现金流活动类型，移动后自动应用到所有子分类</p><Tabs items={[{ key: 'income', label: '收入分类', children: renderActivityTable('income') }, { key: 'expense', label: '支出分类', children: renderActivityTable('expense') }, { key: 'transfer', label: '转账分类', children: renderActivityTable('transfer') }]} /></div> },
+    { key: 'asset-category', label: '资产分类管理', children: <div><p style={{ color: token.colorTextTertiary, marginBottom: 12 }}>将资产分类划分为现金及等价物、投资资产、其他资产三类，用于现金流量表计算。</p><Table dataSource={cashTreeData} columns={cashColumns} rowKey="key" size="small" pagination={false} indentSize={20} expandedRowKeys={expandedCashKeys} onExpandedRowsChange={(keys) => setExpandedCashKeys(keys as string[])} expandable={{ rowExpandable: (r) => !!(r.children?.length), expandIcon: () => null }} /></div> },
+    { key: 'activity-type', label: '交易活动管理', children: <div><p style={{ color: token.colorTextTertiary, marginBottom: 12 }}>为一级收支分类配置现金流活动类型，移动后自动应用到所有子分类</p><Tabs items={[{ key: 'income', label: '收入分类', children: renderActivityTable('income') }, { key: 'expense', label: '支出分类', children: renderActivityTable('expense') }, { key: 'transfer', label: '转账分类', children: renderActivityTable('transfer') }]} /></div> },
   ]
 
   return (

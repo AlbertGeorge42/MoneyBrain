@@ -1,6 +1,3 @@
-import { darkThemeValues } from './dark'
-import { lightThemeValues } from './light'
-
 export type Theme = 'light' | 'dark'
 export type ThemeMode = Theme | 'system'
 
@@ -73,5 +70,3 @@ export function listenSystemThemeChange(callback: (theme: Theme) => void): () =>
   mediaQuery.addEventListener('change', handler)
   return () => mediaQuery.removeEventListener('change', handler)
 }
-
-export { lightThemeValues, darkThemeValues }

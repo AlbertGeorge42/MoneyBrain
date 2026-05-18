@@ -1,16 +1,8 @@
 import React, { useMemo, useState } from 'react'
-import { Button, DatePicker, Dropdown, Grid, Segmented } from 'antd'
+import { Button, DatePicker, Dropdown, Grid, Segmented, theme } from 'antd'
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
-import {
-  colorBgSurface,
-  colorTextPrimary,
-  radiusCard,
-  shadowPanel,
-  spaceCardPadding,
-  spaceInlineDefault,
-} from '../../styles/tokens'
 import {
   createPointValue,
   createRangeValue,
@@ -47,6 +39,14 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
   disabled,
   style,
 }) => {
+  const { token } = theme.useToken()
+  const colorBgSurface = token.colorBgContainer
+  const colorTextPrimary = token.colorText
+  const radiusCard = `${token.borderRadius}px`
+  const shadowPanel = 'var(--mb-shadow-panel)'
+  const spaceCardPadding = `${token.padding}px`
+  const spaceInlineDefault = `${token.paddingXS}px`
+
   const [open, setOpen] = useState(false)
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
@@ -214,6 +214,14 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
   style,
   placeholder,
 }) => {
+  const { token } = theme.useToken()
+  const colorBgSurface = token.colorBgContainer
+  const colorTextPrimary = token.colorText
+  const radiusCard = `${token.borderRadius}px`
+  const shadowPanel = 'var(--mb-shadow-panel)'
+  const spaceCardPadding = `${token.padding}px`
+  const spaceInlineDefault = `${token.paddingXS}px`
+
   const [open, setOpen] = useState(false)
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md

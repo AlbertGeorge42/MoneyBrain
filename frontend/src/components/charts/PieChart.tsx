@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { Empty, Button } from 'antd'
+import { Empty, Button, theme } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { getTokenValue } from '../../styles/utils'
-import { colorTextMuted } from '../../styles/tokens'
+import { getTokenValue } from '../../styles/theme/cssVars'
 
 export interface PieChartDataItem {
   name: string
@@ -20,6 +19,7 @@ interface PieChartProps {
 }
 
 const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillDown }) => {
+  const { token } = theme.useToken()
   const validData = Array.isArray(data) ? data : []
 
   const [currentData, setCurrentData] = useState<PieChartDataItem[]>(validData)
@@ -87,7 +87,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
       orient: 'vertical',
       left: 'left',
       top: 'middle',
-      textStyle: { color: getTokenValue(colorTextMuted) },
+      textStyle: { color: token.colorTextTertiary },
     },
     series: [{
       type: 'pie',

@@ -1,26 +1,30 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import { ConfigProvider, theme } from 'antd'
+import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import App from './App'
 import './styles/global.css'
 import { ThemeProvider, useTheme } from './styles/ThemeContext'
-import { getAntdTheme } from './styles/antd-theme'
+import { createThemeConfig } from './styles/theme/config'
+import { initTheme } from './styles/theme/mode'
+import { syncLegacyCssVars } from './styles/theme/cssVars'
 
-/**
- * 内部组件，用于获取主题状态并配置 Ant Design
- */
+// 首屏渲染前同步 legacy CSS 变量，避免 useEffect 时序导致的闪烁
+const initialTheme = initTheme()
+syncLegacyCssVars(initialTheme === 'dark')
+
 const ThemedApp: React.FC = () => {
   const { theme: currentTheme } = useTheme()
   const isDark = currentTheme === 'dark'
 
+  useEffect(() => {
+    syncLegacyCssVars(isDark)
+  }, [isDark])
+
   return (
     <ConfigProvider
       locale={zhCN}
-      theme={{
-        ...getAntdTheme(isDark),
-        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
-      }}
+      theme={createThemeConfig(isDark)}
     >
       <App />
     </ConfigProvider>

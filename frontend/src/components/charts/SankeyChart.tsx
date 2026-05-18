@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
-import { getTokenValue } from '../../styles/utils'
+import { getTokenValue } from '../../styles/theme/cssVars'
 
 export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
 

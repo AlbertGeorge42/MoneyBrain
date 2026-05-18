@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react'
-import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Tag, Space } from 'antd'
+import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Tag, Space, theme } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildTreeData } from '../../utils/treeUtils'
 import DynamicIcon from '../common/DynamicIcon'
 import { formatBalance } from '../../utils/formatBalance'
-import { colorTextMuted, colorIncome, colorExpense, colorBgHover, fontSizeCaption, radiusControl, spaceCardPadding } from '../../styles/tokens'
 
 export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund'
 
@@ -30,6 +29,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   showRefundSourceInfo = false,
   sourceTransaction = null,
 }) => {
+  const { token } = theme.useToken()
+  const colorTextMuted = token.colorTextTertiary
+  const colorIncome = 'var(--mb-color-income)'
+  const colorExpense = 'var(--mb-color-expense)'
+  const colorBgHover = token.controlItemBgHover || token.colorBgTextHover
+  const fontSizeCaption = `${token.fontSizeSM}px`
+  const radiusControl = `${token.borderRadiusSM}px`
+  const spaceCardPadding = `${token.padding}px`
+
   useEffect(() => {
     if (editingTransaction) {
       const baseValues = {

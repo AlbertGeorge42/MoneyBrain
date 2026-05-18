@@ -1,13 +1,5 @@
 import React from 'react'
-import { Card, Statistic } from 'antd'
-import {
-  colorSuccess,
-  colorDanger,
-  colorWarning,
-  colorPositive,
-  colorNegative,
-  spaceCardPadding,
-} from '../../styles/tokens'
+import { Card, Statistic, theme } from 'antd'
 
 interface TransactionStatsProps {
   totalIncome: number
@@ -23,8 +15,17 @@ const TransactionStats: React.FC<TransactionStatsProps> = ({
   totalRefund,
   balance,
   transferCount,
-}) => (
-  <Card style={{ marginBottom: spaceCardPadding }}>
+}) => {
+  const { token } = theme.useToken()
+  const colorSuccess = token.colorSuccess
+  const colorDanger = token.colorError
+  const colorWarning = token.colorWarning
+  const colorPositive = 'var(--mb-color-positive)'
+  const colorNegative = 'var(--mb-color-negative)'
+  const spaceCardPadding = `${token.padding}px`
+
+  return (
+    <Card style={{ marginBottom: spaceCardPadding }}>
     <div className="stats-grid">
       <Statistic
         title="总收入"
@@ -61,6 +62,7 @@ const TransactionStats: React.FC<TransactionStatsProps> = ({
       />
     </div>
   </Card>
-)
+  )
+}
 
 export default TransactionStats

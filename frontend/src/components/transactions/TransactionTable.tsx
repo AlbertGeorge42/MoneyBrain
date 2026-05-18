@@ -1,21 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Card, Tag, Empty } from 'antd'
+import { Card, Tag, Empty, theme } from 'antd'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { Transaction } from '../../services/api'
 import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
-import {
-  colorPositive,
-  colorNegative,
-  colorTextMuted,
-  colorIncome,
-  colorExpense,
-  colorTransfer,
-  colorRefund,
-  colorAdjustment,
-  spaceCardPadding,
-  fontSizeBody,
-  fontSizeCaption,
-} from '../../styles/tokens'
+
+const colorIncome = 'var(--mb-color-income)'
+const colorExpense = 'var(--mb-color-expense)'
+const colorTransfer = 'var(--mb-color-transfer)'
+const colorRefund = 'var(--mb-color-refund)'
+const colorAdjustment = 'var(--mb-color-adjustment)'
+const colorPositive = 'var(--mb-color-positive)'
+const colorNegative = 'var(--mb-color-negative)'
 
 interface TransactionTableProps {
   transactions: Transaction[]
@@ -118,7 +113,12 @@ const CategoryTag: React.FC<{ record: Transaction }> = ({ record }) => {
   )
 }
 
-const AmountDisplay: React.FC<{ record: Transaction }> = ({ record }) => {
+const AmountDisplay: React.FC<{
+  record: Transaction
+  colorTextMuted: string
+  fontSizeBody: string
+  fontSizeCaption: string
+}> = ({ record, colorTextMuted, fontSizeBody, fontSizeCaption }) => {
   const amount = record.amount
 
   const renderAmount = () => {
@@ -159,7 +159,10 @@ const AmountDisplay: React.FC<{ record: Transaction }> = ({ record }) => {
 const TransactionRow: React.FC<{
   record: Transaction
   onClick: () => void
-}> = ({ record, onClick }) => {
+  colorTextMuted: string
+  fontSizeBody: string
+  fontSizeCaption: string
+}> = ({ record, onClick, colorTextMuted, fontSizeBody, fontSizeCaption }) => {
   const accountName = getAccountName(record)
   const note = getNote(record)
 
@@ -170,7 +173,7 @@ const TransactionRow: React.FC<{
         {note && <span className="tx-group-item__subtitle">{note}</span>}
       </div>
       <div className="tx-group-item__right">
-        <AmountDisplay record={record} />
+        <AmountDisplay record={record} colorTextMuted={colorTextMuted} fontSizeBody={fontSizeBody} fontSizeCaption={fontSizeCaption} />
         <span className="tx-group-item__account">{accountName}</span>
       </div>
     </div>
@@ -205,6 +208,12 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   onPageChange,
   onRowClick,
 }) => {
+  const { token } = theme.useToken()
+  const colorTextMuted = token.colorTextTertiary
+  const spaceCardPadding = `${token.padding}px`
+  const fontSizeBody = `${token.fontSize}px`
+  const fontSizeCaption = `${token.fontSizeSM}px`
+
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -263,6 +272,9 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     key={record.id}
                     record={record}
                     onClick={() => onRowClick(record)}
+                    colorTextMuted={colorTextMuted}
+                    fontSizeBody={fontSizeBody}
+                    fontSizeCaption={fontSizeCaption}
                   />
                 ))}
               </div>

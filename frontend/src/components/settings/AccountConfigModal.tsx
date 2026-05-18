@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Modal, Table, Button, Form, message, Tabs, Tooltip, Dropdown } from 'antd'
+import { Modal, Table, Button, Form, message, Tabs, Tooltip, Dropdown, theme } from 'antd'
 import { PlusOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons'
 import { useStore } from '../../stores'
 import { AccountCategory, Account, accountCategoryApi, accountApi } from '../../services/api'
@@ -21,7 +21,6 @@ import {
   renderDragHandle,
 } from './shared'
 import type { AccountTreeNode, MoveTreeDataNode, MenuProps } from './shared'
-import { colorDanger } from '../../styles/tokens'
 
 interface Props {
   visible: boolean
@@ -32,6 +31,7 @@ const isSortable = (id: string) => id?.startsWith('category-') || id?.startsWith
 const AccountSortableRow = (props: any) => <SortableRow isSortable={isSortable} {...props} />
 
 const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
+  const { token } = theme.useToken()
   const { accountCategories, accounts, fetchAccountCategories, fetchAccounts, addAccount, updateAccount, deleteAccount } = useStore()
 
   const [activeTab, setActiveTab] = useState('asset')
@@ -142,7 +142,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       if (transactionCount && transactionCount > 0) {
         Modal.confirm({
           title: '确认删除账户', icon: <ExclamationCircleOutlined />,
-          content: <div><p>该账户下有 <strong style={{ color: colorDanger }}>{transactionCount}</strong> 条交易记录</p><p>删除账户将同时删除这些交易记录，此操作不可恢复！</p></div>,
+          content: <div><p>该账户下有 <strong style={{ color: token.colorError }}>{transactionCount}</strong> 条交易记录</p><p>删除账户将同时删除这些交易记录，此操作不可恢复！</p></div>,
           okText: '确认删除', okType: 'danger', cancelText: '取消',
           onOk: async () => {
             try {
@@ -256,7 +256,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   })
 
   const getCategoryColumns = () => [
-    { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderExpandIcon(record, expandedRowKeys, toggleExpand) },
+    { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderExpandIcon(record, expandedRowKeys, toggleExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
     { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderDragHandle(record, isSortable) },
     { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: AccountTreeNode) => <span><DynamicIcon name={record.icon} size={16} fallback={record.type === 'category' ? 'folder' : 'wallet'} /> {text}</span> },
     { title: '余额', dataIndex: 'balance', key: 'balance', width: 120, render: (balance: number, record: AccountTreeNode) => record.type === 'category' ? '-' : <span style={{ color: formatBalance(balance, record.nodeType || 'asset').color }}>{formatBalance(balance, record.nodeType || 'asset').text}</span> },

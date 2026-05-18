@@ -1,4 +1,4 @@
-﻿﻿import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   Button,
   Card,
@@ -9,6 +9,7 @@ import {
   Tabs,
   Alert,
   Divider,
+  theme,
 } from 'antd'
 
 import {
@@ -30,22 +31,6 @@ import { PageHeader, RangeTimePickerField, type RangeTimePickerConfig, type Rang
 import { dataApi, type ImportConfigResult } from '../services/api'
 import { useStore } from '../stores'
 import { useTheme } from '../styles/ThemeContext'
-import {
-  colorDanger,
-  colorTextMuted,
-  colorActionPrimary,
-  colorSuccess,
-  colorWarning,
-  colorTransfer,
-  fontWeightBold,
-  radiusCard,
-  spaceInlineDefault,
-  spaceStackDefault,
-  spaceCardPadding,
-  fontSizeBodyLarge,
-  fontSizeBody,
-  fontSizeCaption,
-} from '../styles/tokens'
 import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
 
 const exportTimePickerConfig: RangeTimePickerConfig = {
@@ -76,9 +61,25 @@ const themeOptions = [
 ] as const
 
 const Settings: React.FC = () => {
+  const { token } = theme.useToken()
   const { accounts, transactionCategories, accountCategories, pagination, fetchAccounts, fetchTransactionCategories, fetchTransactions, fetchBudgets, fetchAccountCategories } = useStore()
-  const { mode, theme, setThemeMode } = useTheme()
+  const { mode, theme: currentTheme, setThemeMode } = useTheme()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const colorDanger = token.colorError
+  const colorTextMuted = token.colorTextTertiary
+  const colorActionPrimary = token.colorPrimary
+  const colorSuccess = token.colorSuccess
+  const colorWarning = token.colorWarning
+  const colorTransfer = 'var(--mb-color-transfer)'
+  const fontWeightBold = 700
+  const radiusCard = `${token.borderRadius}px`
+  const spaceInlineDefault = `${token.paddingXS}px`
+  const spaceStackDefault = `${token.paddingXS}px`
+  const spaceCardPadding = `${token.padding}px`
+  const fontSizeBodyLarge = `${token.fontSizeLG}px`
+  const fontSizeBody = `${token.fontSize}px`
+  const fontSizeCaption = `${token.fontSizeSM}px`
   const configFileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState<{ imported: number; skipped: number } | null>(null)
@@ -386,21 +387,13 @@ const Settings: React.FC = () => {
             </Space>
           </div>
 
-          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border)' }} />
+          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border-subtle)' }} />
 
           <div>
             <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入 CSV</h3>
             <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
               支持钱迹格式的 CSV 文件导入，自动创建不存在的账户和分类。
             </p>
-            <Space wrap>
-              <RangeTimePickerField
-                value={importDateRange}
-                config={exportTimePickerConfig}
-                onChange={setImportDateRange}
-                placeholder="全部数据"
-              />
-            </Space>
             <Space wrap>
               <RangeTimePickerField
                 value={importDateRange}
@@ -455,7 +448,7 @@ const Settings: React.FC = () => {
             </Button>
           </div>
 
-          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border)' }} />
+          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border-subtle)' }} />
 
           <div>
             <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入配置</h3>
@@ -561,8 +554,8 @@ const Settings: React.FC = () => {
             </div>
           ))}
         </div>
-        <Tag style={{ marginTop: spaceCardPadding, color: theme === 'dark' ? colorTransfer : undefined, borderColor: theme === 'dark' ? colorTransfer : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
-          当前生效：{mode === 'system' ? `跟随系统 / ${theme === 'dark' ? '深色' : '浅色'}` : theme === 'dark' ? '深色' : '浅色'}
+        <Tag style={{ marginTop: spaceCardPadding, color: currentTheme === 'dark' ? colorTransfer : undefined, borderColor: currentTheme === 'dark' ? colorTransfer : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
+          当前生效：{mode === 'system' ? `跟随系统 / ${currentTheme === 'dark' ? '深色' : '浅色'}` : currentTheme === 'dark' ? '深色' : '浅色'}
         </Tag>
       </Card>
 
@@ -607,7 +600,7 @@ const Settings: React.FC = () => {
               width: 42,
               height: 42,
               borderRadius: 14,
-              background: 'linear-gradient(135deg, var(--mb-color-primary), #3b86ff 70%)',
+              background: 'linear-gradient(135deg, var(--mb-color-action-primary), #3b86ff 70%)',
               color: '#fff',
               display: 'flex',
               alignItems: 'center',

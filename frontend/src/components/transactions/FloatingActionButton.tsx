@@ -1,12 +1,13 @@
 import React from 'react'
+import { theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
-import { colorActionPrimary, colorOnActionPrimary, shadowPanel } from '../../styles/tokens'
 
 interface FloatingActionButtonProps {
   onClick: () => void
 }
 
 const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onClick }) => {
+  const { token } = theme.useToken()
   return (
     <button
       onClick={onClick}
@@ -17,10 +18,10 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onClick }) 
         width: 56,
         height: 56,
         borderRadius: '50%',
-        backgroundColor: colorActionPrimary,
-        color: colorOnActionPrimary,
+        backgroundColor: token.colorPrimary,
+        color: token.colorWhite,
         border: 'none',
-        boxShadow: shadowPanel,
+        boxShadow: 'var(--mb-shadow-panel)',
         fontSize: 24,
         cursor: 'pointer',
         zIndex: 1000,

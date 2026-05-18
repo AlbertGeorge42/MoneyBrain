@@ -7,7 +7,7 @@ import {
   setThemeMode as setThemeModeUtil,
   type Theme,
   type ThemeMode,
-} from './utils'
+} from './theme/mode'
 
 interface ThemeContextType {
   mode: ThemeMode

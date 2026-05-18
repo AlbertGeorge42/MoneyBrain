@@ -1,19 +1,8 @@
 import React, { useMemo, useState } from 'react'
-import { Button, Drawer, Segmented } from 'antd'
+import { Button, Drawer, Segmented, theme } from 'antd'
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
-import {
-  colorBorderSubtle,
-  colorActionPrimary,
-  colorOnActionPrimary,
-  colorBgHover,
-  colorBgApp,
-  colorBgSelected,
-  colorTextPrimary,
-  spaceCardPadding,
-  spaceInlineDefault,
-} from '../../styles/tokens'
 import {
   createPointValue,
   createRangeValue,
@@ -44,67 +33,88 @@ interface GridCell {
   isDisabled: boolean
 }
 
+interface CellStyleColors {
+  colorActionPrimary: string
+  colorBgSelected: string
+  colorOnActionPrimary: string
+  colorTextPrimary: string
+}
+
 interface CalendarHeaderProps {
   title: string
   onPrev?: () => void
   onNext?: () => void
+  colorTextPrimary: string
+  colorBorderSubtle: string
+  spaceCardPadding: string
+  spaceInlineDefault: string
 }
 
-const CalendarHeader: React.FC<CalendarHeaderProps> = ({ title, onPrev, onNext }) => (
-  <div style={{
+const CalendarHeader: React.FC<CalendarHeaderProps> = ({
+  title,
+  onPrev,
+  onNext,
+  colorTextPrimary,
+  colorBorderSubtle,
+  spaceCardPadding,
+  spaceInlineDefault,
+}) => {
+  const navBtnStyle: React.CSSProperties = {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    border: 'none',
+    background: 'transparent',
+    color: colorTextPrimary,
+    cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: `${spaceInlineDefault} ${spaceCardPadding}`,
-    borderBottom: `1px solid ${colorBorderSubtle}`,
-  }}>
-    <button
-      type="button"
-      onClick={onPrev}
-      style={navBtnStyle}
-    >
-      <LeftOutlined style={{ fontSize: 12 }} />
-    </button>
-    <span style={{ fontSize: 16, fontWeight: 500, color: colorTextPrimary }}>{title}</span>
-    <button
-      type="button"
-      onClick={onNext}
-      style={navBtnStyle}
-    >
-      <RightOutlined style={{ fontSize: 12 }} />
-    </button>
-  </div>
-)
+    justifyContent: 'center',
+    transition: 'background 0.2s',
+  }
 
-const navBtnStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: 16,
-  border: 'none',
-  background: 'transparent',
-  color: colorTextPrimary,
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  transition: 'background 0.2s',
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: `${spaceInlineDefault} ${spaceCardPadding}`,
+      borderBottom: `1px solid ${colorBorderSubtle}`,
+    }}>
+      <button
+        type="button"
+        onClick={onPrev}
+        style={navBtnStyle}
+      >
+        <LeftOutlined style={{ fontSize: 12 }} />
+      </button>
+      <span style={{ fontSize: 16, fontWeight: 500, color: colorTextPrimary }}>{title}</span>
+      <button
+        type="button"
+        onClick={onNext}
+        style={navBtnStyle}
+      >
+        <RightOutlined style={{ fontSize: 12 }} />
+      </button>
+    </div>
+  )
 }
 
-const getCellStyle = (cell: GridCell): React.CSSProperties => {
+const getCellStyle = (cell: GridCell, c: CellStyleColors): React.CSSProperties => {
   const isEdge = cell.isStart || cell.isEnd
 
   let background = 'transparent'
   if (isEdge) {
-    background = colorActionPrimary
+    background = c.colorActionPrimary
   } else if (cell.isInRange) {
-    background = colorBgSelected
+    background = c.colorBgSelected
   }
 
   let color: string | undefined
   if (isEdge) {
-    color = colorOnActionPrimary
+    color = c.colorOnActionPrimary
   } else if (cell.isDisabled) {
-    color = colorTextPrimary
+    color = c.colorTextPrimary
   }
 
   let borderRadius: string | undefined
@@ -129,7 +139,13 @@ const getCellStyle = (cell: GridCell): React.CSSProperties => {
   }
 }
 
-const renderGrid = (cells: GridCell[], onSelect: (value: Dayjs) => void, columns = 3) => {
+interface GridColors extends CellStyleColors {
+  colorBgHover: string
+  colorBorderSubtle: string
+  colorBgApp: string
+}
+
+const renderGrid = (cells: GridCell[], onSelect: (value: Dayjs) => void, c: GridColors, columns = 3) => {
   return (
     <div style={{
       display: 'grid',
@@ -140,10 +156,10 @@ const renderGrid = (cells: GridCell[], onSelect: (value: Dayjs) => void, columns
       {cells.map((cell, index) => (
         <div
           key={cell.label + index}
-          style={getCellStyle(cell)}
+          style={getCellStyle(cell, c)}
           onMouseEnter={(e) => {
             if (!cell.isDisabled && !cell.isSelected) {
-              (e.target as HTMLElement).style.background = colorBgHover
+              (e.target as HTMLElement).style.background = c.colorBgHover
             }
           }}
           onMouseLeave={(e) => {
@@ -170,6 +186,7 @@ const renderDayGrid = (
   maxDate: Dayjs | undefined,
   isRange: boolean,
   onSelect: (value: Dayjs) => void,
+  c: GridColors,
 ) => {
   const monthStart = currentMonth.startOf('month')
   const daysInMonth = currentMonth.daysInMonth()
@@ -210,16 +227,16 @@ const renderDayGrid = (
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(7, 1fr)',
-              borderBottom: `1px solid ${colorBorderSubtle}`,
+              borderBottom: `1px solid ${c.colorBorderSubtle}`,
             }}>
               {WEEKDAYS.map((day) => (
                 <div key={day} style={{
                   textAlign: 'center',
                   fontSize: 12,
-                  color: colorTextPrimary,
+                  color: c.colorTextPrimary,
                   opacity: 0.45,
                   padding: '4px 0',
-                  background: colorBgApp,
+                  background: c.colorBgApp,
                 }}>
             {day}
           </div>
@@ -236,15 +253,15 @@ const renderDayGrid = (
           return (
             <div
               key={cell.value.format('YYYY-MM-DD')}
-              style={getCellStyle(cell)}
+              style={getCellStyle(cell, c)}
               onMouseEnter={(e) => {
                 if (!cell.isDisabled && !cell.isSelected && !cell.isStart && !cell.isEnd) {
-                  (e.target as HTMLElement).style.background = colorBgHover
+                  (e.target as HTMLElement).style.background = c.colorBgHover
                 }
               }}
               onMouseLeave={(e) => {
                 if (!cell.isDisabled && !cell.isSelected && !cell.isStart && !cell.isEnd) {
-                  (e.target as HTMLElement).style.background = cell.isInRange ? colorBgSelected : 'transparent'
+                  (e.target as HTMLElement).style.background = cell.isInRange ? c.colorBgSelected : 'transparent'
                 }
               }}
               onClick={() => {
@@ -344,6 +361,27 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
   disabled,
   style,
 }) => {
+  const { token } = theme.useToken()
+  const colorBorderSubtle = token.colorBorderSecondary
+  const colorActionPrimary = token.colorPrimary
+  const colorOnActionPrimary = token.colorWhite
+  const colorBgHover = token.controlItemBgHover || token.colorBgTextHover
+  const colorBgApp = token.colorBgLayout
+  const colorBgSelected = token.controlItemBgActive || token.colorPrimaryBg
+  const colorTextPrimary = token.colorText
+  const spaceCardPadding = `${token.padding}px`
+  const spaceInlineDefault = `${token.paddingXS}px`
+
+  const gridColors: GridColors = {
+    colorActionPrimary,
+    colorBgSelected,
+    colorOnActionPrimary,
+    colorTextPrimary,
+    colorBgHover,
+    colorBorderSubtle,
+    colorBgApp,
+  }
+
   const [open, setOpen] = useState(false)
   const [tempDate, setTempDate] = useState<Dayjs>(value.value)
   const [tempGranularity, setTempGranularity] = useState<TimeGranularity>(value.granularity)
@@ -423,21 +461,29 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
-          <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext} />
+          <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext}
+            colorTextPrimary={colorTextPrimary}
+            colorBorderSubtle={colorBorderSubtle}
+            spaceCardPadding={spaceCardPadding}
+            spaceInlineDefault={spaceInlineDefault}
+          />
 
           {tempGranularity === 'day' && renderDayGrid(
             currentMonth, tempDate, null,
             config.minDate, config.maxDate, false, handleCellSelect,
+            gridColors,
           )}
 
           {tempGranularity === 'month' && renderGrid(
             getMonthGridCells(currentMonth, tempDate, null, config.minDate, config.maxDate, false),
             handleCellSelect,
+            gridColors,
           )}
 
           {tempGranularity === 'year' && renderGrid(
             getYearGridCells(tempDate, null, config.minDate, config.maxDate, false),
             handleCellSelect,
+            gridColors,
           )}
 
           {config.allowedGranularities.length > 1 && (
@@ -512,6 +558,27 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
     const fallback = config.presets[firstGranularity]?.[0]?.getValue(dayjs())
     return fallback || createRangeValue('day', dayjs().startOf('day'), dayjs().endOf('day'))
   }, [config.allowedGranularities, config.presets, value])
+
+  const { token } = theme.useToken()
+  const colorBorderSubtle = token.colorBorderSecondary
+  const colorActionPrimary = token.colorPrimary
+  const colorOnActionPrimary = token.colorWhite
+  const colorBgHover = token.controlItemBgHover || token.colorBgTextHover
+  const colorBgApp = token.colorBgLayout
+  const colorBgSelected = token.controlItemBgActive || token.colorPrimaryBg
+  const colorTextPrimary = token.colorText
+  const spaceCardPadding = `${token.padding}px`
+  const spaceInlineDefault = `${token.paddingXS}px`
+
+  const gridColors: GridColors = {
+    colorActionPrimary,
+    colorBgSelected,
+    colorOnActionPrimary,
+    colorTextPrimary,
+    colorBgHover,
+    colorBorderSubtle,
+    colorBgApp,
+  }
 
   const [open, setOpen] = useState(false)
   const [tempStart, setTempStart] = useState<Dayjs>(resolvedValue.start)
@@ -615,22 +682,30 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
-          <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext} />
+          <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext}
+            colorTextPrimary={colorTextPrimary}
+            colorBorderSubtle={colorBorderSubtle}
+            spaceCardPadding={spaceCardPadding}
+            spaceInlineDefault={spaceInlineDefault}
+          />
 
           {tempGranularity === 'day' && renderDayGrid(
             currentMonth, tempStart, tempEnd,
             config.minDate, config.maxDate, true,
             (cellValue) => handleCellSelect(cellValue, 'day'),
+            gridColors,
           )}
 
           {tempGranularity === 'month' && renderGrid(
             getMonthGridCells(currentMonth, tempStart, tempEnd, config.minDate, config.maxDate, true),
             (cellValue) => handleCellSelect(cellValue, 'month'),
+            gridColors,
           )}
 
           {tempGranularity === 'year' && renderGrid(
             getYearGridCells(tempStart, tempEnd, config.minDate, config.maxDate, true),
             (cellValue) => handleCellSelect(cellValue, 'year'),
+            gridColors,
           )}
 
           {config.allowedGranularities.length > 1 && (

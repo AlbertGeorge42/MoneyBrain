@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { Form, Button, message } from 'antd'
+import { Form, Button, message, theme } from 'antd'
 import { DeleteOutlined } from '@ant-design/icons'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import TransactionForm, { TransactionFormType } from './TransactionForm'
 import TransactionModal from './TransactionModal'
-import { colorTextMuted, fontSizeBodyLarge, spaceCardPadding } from '../../styles/tokens'
 import { formatTransactionSubmitValues } from '../../utils/transaction'
 
 type DetailTab = 'edit' | 'refund' | 'delete'
@@ -30,6 +29,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
   onDelete,
   onCancel,
 }) => {
+  const { token } = theme.useToken()
   const [form] = Form.useForm()
   const [refundForm] = Form.useForm()
   const [activeTab, setActiveTab] = useState<DetailTab>('edit')
@@ -146,10 +146,10 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
     return (
       <div style={{ textAlign: 'center', padding: '40px 20px 0 20px' }}>
         <DeleteOutlined style={{ fontSize: 48, color: '#ff4d4f', marginBottom: 16 }} />
-        <div style={{ fontSize: fontSizeBodyLarge, marginBottom: spaceCardPadding }}>
+        <div style={{ fontSize: `${token.fontSizeLG}px`, marginBottom: `${token.padding}px` }}>
           确定要删除此交易记录吗？
         </div>
-        <div style={{ color: colorTextMuted, marginBottom: 32 }}>
+        <div style={{ color: token.colorTextTertiary, marginBottom: 32 }}>
           此操作不可撤销
         </div>
       </div>

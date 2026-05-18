@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react'
 import { RightOutlined, DownOutlined, EditOutlined, DeleteOutlined, ExportOutlined, FolderAddOutlined, WalletOutlined, HolderOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
+import { theme } from 'antd'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { colorTextSecondary, colorBgHover, fontSizeCaption } from '../../styles/tokens'
 
 export interface MoveTreeDataNode {
   value: string
@@ -143,6 +143,7 @@ interface SortableRowProps {
 const defaultIsSortable = (id: string) => id?.startsWith('category-')
 
 export const SortableRow = ({ isSortable = defaultIsSortable, ...props }: SortableRowProps) => {
+  const { token } = theme.useToken()
   const id = props['data-row-key']
   const sortable = isSortable(id)
 
@@ -155,17 +156,18 @@ export const SortableRow = ({ isSortable = defaultIsSortable, ...props }: Sortab
     ...props.style,
     transform: CSS.Translate.toString(transform),
     transition,
-    ...(isDragging ? { opacity: 0.5, background: colorBgHover } : {}),
+    ...(isDragging ? { opacity: 0.5, background: token.controlItemBgHover || token.colorBgTextHover } : {}),
   }
 
   return <tr {...props} ref={setNodeRef} style={style} {...attributes} />
 }
 
 export const DragHandle = ({ id }: { id: string }) => {
+  const { token } = theme.useToken()
   const { listeners, setNodeRef } = useSortable({ id })
   return (
     <div ref={setNodeRef} {...listeners} style={{ cursor: 'grab', display: 'inline-flex' }}>
-      <HolderOutlined style={{ color: colorTextSecondary }} />
+      <HolderOutlined style={{ color: token.colorTextSecondary }} />
     </div>
   )
 }
@@ -173,8 +175,12 @@ export const DragHandle = ({ id }: { id: string }) => {
 export const renderExpandIcon = (
   record: { key: string; children?: unknown[] },
   expandedRowKeys: string[],
-  onToggle: (key: string) => void
+  onToggle: (key: string) => void,
+  colorSecondary?: string,
+  fontSizeSm?: string
 ) => {
+  const cs = colorSecondary ?? 'var(--mb-color-text-secondary)'
+  const fs = fontSizeSm ?? 'var(--mb-font-size-caption)'
   if (record.children && record.children.length > 0) {
     const isExpanded = expandedRowKeys.includes(record.key)
     return (
@@ -182,7 +188,7 @@ export const renderExpandIcon = (
         onClick={() => onToggle(record.key)}
         style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
       >
-        {isExpanded ? <DownOutlined style={{ fontSize: fontSizeCaption, color: colorTextSecondary }} /> : <RightOutlined style={{ fontSize: fontSizeCaption, color: colorTextSecondary }} />}
+        {isExpanded ? <DownOutlined style={{ fontSize: fs, color: cs }} /> : <RightOutlined style={{ fontSize: fs, color: cs }} />}
       </span>
     )
   }

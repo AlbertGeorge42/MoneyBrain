@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Button, Select, TreeSelect, Tag, Collapse } from 'antd'
+import { Button, Select, TreeSelect, Tag, Collapse, theme } from 'antd'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
 import {
@@ -9,15 +9,6 @@ import {
   createYearToDatePreset,
   formatRangeValue,
 } from '../../utils/timePicker'
-import {
-  colorIncome,
-  colorExpense,
-  colorTransfer,
-  colorRefund,
-  colorAdjustment,
-  spaceStackDefault,
-  spaceCardPadding,
-} from '../../styles/tokens'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',
@@ -93,6 +84,15 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   onSearch,
   onReset,
 }) => {
+  const { token } = theme.useToken()
+  const colorIncome = 'var(--mb-color-income)'
+  const colorExpense = 'var(--mb-color-expense)'
+  const colorTransfer = 'var(--mb-color-transfer)'
+  const colorRefund = 'var(--mb-color-refund)'
+  const colorAdjustment = 'var(--mb-color-adjustment)'
+  const spaceStackDefault = `${token.paddingXS}px`
+  const spaceCardPadding = `${token.padding}px`
+
   // 构建账户树形数据（按账户分类分组，支持选择分类筛选所有下属账户）
   const accountTreeData = useMemo(() => {
     const buildAccountTree = () => {

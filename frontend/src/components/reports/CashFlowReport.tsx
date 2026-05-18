@@ -1,17 +1,10 @@
 import React from 'react'
-import { Button, Card, Grid, Statistic, Tag } from 'antd'
+import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import { BarChart, SankeyChart } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import type { CashFlowReportData } from '@shared/types'
-import {
-  colorNeutral,
-  colorPositive,
-  colorNegative,
-  spaceCardPadding,
-  fontWeightBold,
-} from '../../styles/tokens'
 
 interface CashFlowReportProps {
   timeRange: RangeTimeValue
@@ -32,6 +25,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+  const { token } = theme.useToken()
 
   const activityConfig = [
     { key: 'operating' as const, color: 'green', label: '经营', title: '经营活动' },
@@ -48,7 +42,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             value={cashFlowData?.netCashFlow || 0}
             precision={2}
             valueStyle={{
-              color: (cashFlowData?.netCashFlow || 0) >= 0 ? colorPositive : colorNegative,
+              color: (cashFlowData?.netCashFlow || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
             }}
             prefix="¥"
           />
@@ -57,16 +51,16 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="现金流入" value={cashFlowData?.cashInflow || 0} precision={2} valueStyle={{ color: colorPositive }} prefix="¥" />
+          <Statistic title="现金流入" value={cashFlowData?.cashInflow || 0} precision={2} valueStyle={{ color: 'var(--mb-color-positive)' }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="现金流出" value={cashFlowData?.cashOutflow || 0} precision={2} valueStyle={{ color: colorNegative }} prefix="¥" />
+          <Statistic title="现金流出" value={cashFlowData?.cashOutflow || 0} precision={2} valueStyle={{ color: 'var(--mb-color-negative)' }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期初现金" value={cashFlowData?.startCash || 0} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+          <Statistic title="期初现金" value={cashFlowData?.startCash || 0} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} prefix="¥" />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末现金" value={cashFlowData?.endCash || 0} precision={2} valueStyle={{ color: colorNeutral }} prefix="¥" />
+          <Statistic title="期末现金" value={cashFlowData?.endCash || 0} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} prefix="¥" />
         </Card>
       </div>
     </>
@@ -131,7 +125,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             }
             size="small"
             extra={
-              <span style={{ fontWeight: fontWeightBold, color: net >= 0 ? colorPositive : colorNegative }}>
+              <span style={{ fontWeight: 700, color: net >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}>
                 ¥{net.toFixed(2)}
               </span>
             }
@@ -154,7 +148,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
 
   return (
     <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: spaceCardPadding }}>
+      <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
         <div className="report-toolbar__filters">
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>

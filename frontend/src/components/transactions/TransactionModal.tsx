@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Modal, Drawer, Button, Tabs } from 'antd'
-import { colorBgSurface, colorBorderSubtle, borderWidth, borderStyle, spaceCardPadding } from '../../styles/tokens'
+import { Modal, Drawer, Button, Tabs, theme } from 'antd'
 
 const MOBILE_BREAKPOINT = 860
 
@@ -43,6 +42,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   onTabChange,
 }) => {
   const [isMobile, setIsMobile] = useState(false)
+  const { token } = theme.useToken()
 
   useEffect(() => {
     const checkMobile = () => {
@@ -95,9 +95,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               bottom: 0,
               left: 0,
               right: 0,
-              padding: spaceCardPadding,
-              borderTop: `${borderWidth} ${borderStyle} ${colorBorderSubtle}`,
-              background: colorBgSurface,
+              padding: `${token.padding}px`,
+              borderTop: `var(--mb-border-width) var(--mb-border-style) ${token.colorBorderSecondary}`,
+              background: token.colorBgContainer,
             }}
           >
             {extraFooterContent && React.cloneElement(extraFooterContent as React.ReactElement, {
