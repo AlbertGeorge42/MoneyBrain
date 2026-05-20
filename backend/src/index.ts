@@ -10,6 +10,7 @@ import budgetRoutes from './routes/budget.route.js'
 import reportRoutes from './routes/report.route.js'
 import analyticsRoutes from './routes/analytics.route.js'
 import dataRoutes from './routes/data.route.js'
+import investmentRoutes from './routes/investment.route.js'
 import { errorHandler } from './common/index.js'
 
 const debug = debuglog('moneybrain')
@@ -32,6 +33,7 @@ app.use('/api/budgets', budgetRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/data', dataRoutes)
+app.use('/api', investmentRoutes)
 
 app.use(errorHandler)
 

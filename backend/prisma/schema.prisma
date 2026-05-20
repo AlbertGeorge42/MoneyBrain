@@ -42,6 +42,9 @@ model Account {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
+  investmentAssetClasses     InvestmentAssetClass[]
+  investmentAllocationSnapshots InvestmentAllocationSnapshot[]
+
   @@map("accounts")
 }
 
@@ -117,4 +120,56 @@ model BudgetAlert {
   createdAt  DateTime @default(now())
 
   @@map("budget_alerts")
+}
+
+model InvestmentAssetClass {
+  id          String   @id @default(uuid())
+  accountId   String
+  name        String
+  icon        String?
+  targetRatio Float?
+  sort        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account         Account                    @relation(fields: [accountId], references: [id])
+  allocationItems InvestmentAllocationItem[]
+
+  @@index([accountId])
+  @@map("investment_asset_classes")
+}
+
+model InvestmentAllocationSnapshot {
+  id                  String   @id @default(uuid())
+  accountId           String
+  date                DateTime
+  accountBalance      Float
+  previousSnapshotId  String?
+  note                String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  account          Account                     @relation(fields: [accountId], references: [id])
+  items            InvestmentAllocationItem[]
+  previousSnapshot InvestmentAllocationSnapshot? @relation("SnapshotChain", fields: [previousSnapshotId], references: [id])
+  nextSnapshots    InvestmentAllocationSnapshot[] @relation("SnapshotChain")
+
+  @@index([accountId, date])
+  @@map("investment_allocation_snapshots")
+}
+
+model InvestmentAllocationItem {
+  id              String   @id @default(uuid())
+  snapshotId      String
+  assetClassId    String
+  marketValue     Float
+  periodInvested  Float    @default(0)
+  periodWithdrawn Float    @default(0)
+  sort            Int      @default(0)
+
+  snapshot   InvestmentAllocationSnapshot @relation(fields: [snapshotId], references: [id])
+  assetClass InvestmentAssetClass         @relation(fields: [assetClassId], references: [id])
+
+  @@unique([snapshotId, assetClassId])
+  @@map("investment_allocation_items")
 }

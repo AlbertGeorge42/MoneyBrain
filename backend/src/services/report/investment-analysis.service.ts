@@ -72,6 +72,52 @@ interface InvestmentTrendItem {
   ratio: number
 }
 
+// 资产细分相关类型（调整后）
+interface AccountAllocationItem {
+  assetClassId: string
+  name: string
+  icon: string | null
+  marketValue: number
+  ratio: number
+  targetRatio: number | null
+  deviation: number | null
+  rebalanceAmount: number | null
+  periodInvested: number
+  periodWithdrawn: number
+  periodReturn: number | null
+  returnRate: number | null
+  sort: number
+}
+
+interface SnapshotHistoryItem {
+  id: string
+  date: string
+  accountBalance: number
+  items: Array<{
+    assetClassId: string
+    name: string
+    marketValue: number
+    ratio: number
+  }>
+}
+
+interface AccountAllocationDetail {
+  accountId: string
+  accountName: string
+  balance: number
+  hasAssetClasses: boolean
+  latestSnapshotDate: string | null
+  items: AccountAllocationItem[]
+  snapshots: SnapshotHistoryItem[]
+}
+
+interface StaleAccountInfo {
+  accountId: string
+  accountName: string
+  daysSinceLastSnapshot: number
+  balance: number
+}
+
 interface InvestmentAnalysisResult {
   startDate: string
   endDate: string
@@ -82,6 +128,10 @@ interface InvestmentAnalysisResult {
   returnAnalysis: InvestmentReturnAnalysis
   byCategory: InvestmentCategorySummary[]
   trend: InvestmentTrendItem[]
+  // 按账户的资产细分
+  byAccountAllocation: AccountAllocationDetail[]
+  // 超期未录入快照的账户
+  staleAccounts: StaleAccountInfo[]
 }
 
 async function getDescendantCategoryIds(parentIds: string[]): Promise<string[]> {
@@ -347,9 +397,9 @@ async function getTotalBalanceAtDate(accountIds: string[], targetDate: Date): Pr
   return balances.reduce((sum, b) => sum + b, 0)
 }
 
-function calculateMaxCapitalEmployed(cashFlows: CashFlow[]): number {
-  let maxCapital = 0
-  let currentCapital = 0
+function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: number = 0): number {
+  let maxCapital = startValue
+  let currentCapital = startValue
 
   const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime())
 
@@ -465,6 +515,190 @@ async function generateTrendData(
   return trend
 }
 
+// 构建单个投资账户的资产细分数据（调整后）
+async function buildAccountAllocationDetail(
+  account: { id: string; name: string; balance: number },
+  endDate: Date
+): Promise<AccountAllocationDetail> {
+  // 检查账户是否有资产类型
+  const assetClasses = await prisma.investmentAssetClass.findMany({
+    where: { accountId: account.id },
+    orderBy: { sort: 'asc' },
+  })
+
+  const hasAssetClasses = assetClasses.length > 0
+
+  if (!hasAssetClasses) {
+    // 没有资产类型，不返回明细项
+    return {
+      accountId: account.id,
+      accountName: account.name,
+      balance: account.balance,
+      hasAssetClasses: false,
+      latestSnapshotDate: null,
+      items: [],
+      snapshots: [],
+    }
+  }
+
+  // 获取该账户的所有快照
+  const snapshots = await prisma.investmentAllocationSnapshot.findMany({
+    where: {
+      accountId: account.id,
+      date: { lte: endDate },
+    },
+    include: {
+      items: {
+        include: { assetClass: true },
+        orderBy: { sort: 'asc' },
+      },
+    },
+    orderBy: { date: 'asc' },
+  })
+
+  if (snapshots.length === 0) {
+    // 有资产类型但没有快照
+    return {
+      accountId: account.id,
+      accountName: account.name,
+      balance: account.balance,
+      hasAssetClasses: true,
+      latestSnapshotDate: null,
+      items: [],
+      snapshots: [],
+    }
+  }
+
+  const latestSnapshot = snapshots[snapshots.length - 1]
+
+  // 获取上一快照（用于计算收益率）
+  const previousSnapshot = latestSnapshot.previousSnapshotId
+    ? snapshots.find(s => s.id === latestSnapshot.previousSnapshotId)
+    : null
+
+  // 计算期间收益和收益率
+  const items: AccountAllocationItem[] = latestSnapshot.items.map(item => {
+    const ratio = account.balance > 0 ? (item.marketValue / account.balance) * 100 : 0
+    const targetRatio = item.assetClass.targetRatio
+    const deviation = targetRatio !== null ? ratio - targetRatio : null
+    const rebalanceAmount = targetRatio !== null
+      ? (targetRatio / 100 * account.balance) - item.marketValue
+      : null
+
+    // 计算期间收益
+    let periodReturn: number | null = null
+    let returnRate: number | null = null
+
+    if (previousSnapshot) {
+      const prevItem = previousSnapshot.items.find(i => i.assetClassId === item.assetClassId)
+      if (prevItem) {
+        const prevValue = prevItem.marketValue
+        const netContribution = item.periodInvested - item.periodWithdrawn
+        periodReturn = item.marketValue - prevValue - netContribution
+        const denominator = prevValue + item.periodInvested
+        returnRate = denominator > 0 ? (periodReturn / denominator) * 100 : null
+      }
+    }
+
+    return {
+      assetClassId: item.assetClassId,
+      name: item.assetClass.name,
+      icon: item.assetClass.icon,
+      marketValue: item.marketValue,
+      ratio,
+      targetRatio,
+      deviation,
+      rebalanceAmount,
+      periodInvested: item.periodInvested,
+      periodWithdrawn: item.periodWithdrawn,
+      periodReturn,
+      returnRate,
+      sort: item.sort,
+    }
+  })
+
+  // 构建历史快照摘要（用于趋势图）
+  const historySnapshots: SnapshotHistoryItem[] = snapshots.map(s => ({
+    id: s.id,
+    date: s.date.toISOString().split('T')[0],
+    accountBalance: s.accountBalance,
+    items: s.items.map(item => ({
+      assetClassId: item.assetClassId,
+      name: item.assetClass.name,
+      marketValue: item.marketValue,
+      ratio: s.accountBalance > 0 ? (item.marketValue / s.accountBalance) * 100 : 0,
+    })),
+  }))
+
+  return {
+    accountId: account.id,
+    accountName: account.name,
+    balance: account.balance,
+    hasAssetClasses: true,
+    latestSnapshotDate: latestSnapshot.date.toISOString().split('T')[0],
+    items,
+    snapshots: historySnapshots,
+  }
+}
+
+// 构建超期未录入快照的账户列表
+async function buildStaleAccounts(
+  accounts: Array<{ id: string; name: string; balance: number }>,
+  endDate: Date,
+  staleDays: number = 30
+): Promise<StaleAccountInfo[]> {
+  const cutoffDate = new Date(endDate)
+  cutoffDate.setDate(cutoffDate.getDate() - staleDays)
+
+  const latestSnapshots = await prisma.investmentAllocationSnapshot.findMany({
+    where: {
+      accountId: { in: accounts.map(a => a.id) },
+    },
+    orderBy: { date: 'desc' },
+  })
+
+  const staleAccountMap = new Map<string, StaleAccountInfo>()
+  const latestSnapshotMap = new Map<string, Date>()
+
+  for (const snap of latestSnapshots) {
+    if (!latestSnapshotMap.has(snap.accountId)) {
+      latestSnapshotMap.set(snap.accountId, snap.date)
+    }
+  }
+
+  for (const account of accounts) {
+    const latestDate = latestSnapshotMap.get(account.id)
+    if (!latestDate) {
+      // 完全没有快照
+      const daysSince = Math.floor(
+        (endDate.getTime() - new Date(0).getTime()) / (1000 * 60 * 60 * 24)
+      )
+      if (daysSince > staleDays) {
+        staleAccountMap.set(account.id, {
+          accountId: account.id,
+          accountName: account.name,
+          daysSinceLastSnapshot: daysSince,
+          balance: account.balance,
+        })
+      }
+    } else {
+      const daysSince = Math.floor(
+        (endDate.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24)
+      )
+      if (daysSince > staleDays) {
+        staleAccountMap.set(account.id, {
+          accountId: account.id,
+          accountName: account.name,
+          daysSinceLastSnapshot: daysSince,
+          balance: account.balance,
+        })
+      }
+    }
+  }
+
+  return Array.from(staleAccountMap.values())
+}
+
 export async function generateInvestmentAnalysis(startDateStr: string, endDateStr: string): Promise<InvestmentAnalysisResult | null> {
   const startDate = new Date(`${startDateStr}T00:00:00`)
   const endDate = new Date(`${endDateStr}T23:59:59.999`)
@@ -518,8 +752,8 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const periodReturn = valueChange - netCashFlow
   const simpleReturnRate = startValue !== 0 ? (periodReturn / startValue) * 100 : 0
 
-  const maxCapitalEmployed = calculateMaxCapitalEmployed(cashFlows)
-  const cumulativeReturn = endValue + periodWithdrawn - periodInvested
+  const maxCapitalEmployed = calculateMaxCapitalEmployed(cashFlows, startValue)
+  const cumulativeReturn = endValue + periodWithdrawn - startValue - periodInvested
   const cumulativeReturnRate = maxCapitalEmployed !== 0 ? (cumulativeReturn / maxCapitalEmployed) * 100 : 0
 
   const investmentDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -592,8 +826,8 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
         const accReturnRate = totalCapital !== 0 ? (accPeriodReturn / totalCapital) * 100 : 0
 
         const accountCashFlows = cashFlows.filter(cf => cf.accountId === account.id)
-        const accMaxCapital = calculateMaxCapitalEmployed(accountCashFlows)
-        const accCumulativeReturn = accEndBalance + accWithdrawn - accInvested
+        const accMaxCapital = calculateMaxCapitalEmployed(accountCashFlows, accStartBalance)
+        const accCumulativeReturn = accEndBalance + accWithdrawn - accStartBalance - accInvested
         const accCumulativeReturnRate = accMaxCapital !== 0 ? (accCumulativeReturn / accMaxCapital) * 100 : 0
 
         return {
@@ -628,6 +862,21 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   const trend = await generateTrendData(accountIds, startDate, endDate)
 
+  // 构建每个投资账户的资产细分数据
+  const accountBalanceMap = new Map(accountIds.map((id, idx) => [id, endBalances[idx]]))
+  const accountDetails = investmentAccounts.map(a => ({
+    id: a.id,
+    name: a.name,
+    balance: accountBalanceMap.get(a.id) || 0,
+  }))
+
+  const [byAccountAllocation, staleAccounts] = await Promise.all([
+    Promise.all(accountDetails.map(account =>
+      buildAccountAllocationDetail(account, endDate)
+    )),
+    buildStaleAccounts(accountDetails, endDate, 30),
+  ])
+
   return {
     startDate: startDateStr,
     endDate: endDateStr,
@@ -638,5 +887,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     returnAnalysis,
     byCategory,
     trend,
+    byAccountAllocation,
+    staleAccounts,
   }
 }
