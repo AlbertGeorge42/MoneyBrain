@@ -291,6 +291,90 @@ export interface InvestmentTrendItem {
   ratio: number
 }
 
+// ===== 投资资产类型 =====
+
+export interface InvestmentAssetClass {
+  id: string
+  accountId: string
+  name: string
+  icon: string | null
+  targetRatio: number | null
+  sort: number
+  createdAt: string
+  updatedAt: string
+}
+
+// ===== 投资快照 =====
+
+export interface InvestmentAllocationItem {
+  id: string
+  snapshotId: string
+  assetClassId: string
+  marketValue: number
+  periodNetFlow: number
+  sort: number
+  assetClass: InvestmentAssetClass
+}
+
+export interface InvestmentAllocationSnapshot {
+  id: string
+  accountId: string
+  date: string
+  accountBalance: number
+  previousSnapshotId: string | null
+  note: string | null
+  items: InvestmentAllocationItem[]
+  createdAt: string
+  updatedAt: string
+}
+
+// ===== 投资分析报表扩展 =====
+
+export interface AccountAllocationItem {
+  assetClassId: string
+  name: string
+  icon: string | null
+  marketValue: number
+  ratio: number
+  targetRatio: number | null
+  deviation: number | null
+  rebalanceAmount: number | null
+  periodInvested: number
+  periodWithdrawn: number
+  periodReturn: number | null
+  returnRate: number | null
+  sort: number
+}
+
+export interface SnapshotHistoryItem {
+  id: string
+  date: string
+  accountBalance: number
+  items: Array<{
+    assetClassId: string
+    name: string
+    marketValue: number
+    ratio: number
+  }>
+}
+
+export interface AccountAllocationDetail {
+  accountId: string
+  accountName: string
+  balance: number
+  hasAssetClasses: boolean
+  latestSnapshotDate: string | null
+  items: AccountAllocationItem[]
+  snapshots: SnapshotHistoryItem[]
+}
+
+export interface StaleAccountInfo {
+  accountId: string
+  accountName: string
+  daysSinceLastSnapshot: number
+  balance: number
+}
+
 export interface InvestmentAnalysisReportData {
   startDate: string
   endDate: string
@@ -301,4 +385,6 @@ export interface InvestmentAnalysisReportData {
   returnAnalysis: InvestmentReturnAnalysis
   byCategory: InvestmentCategorySummary[]
   trend: InvestmentTrendItem[]
+  byAccountAllocation: AccountAllocationDetail[]
+  staleAccounts: StaleAccountInfo[]
 }

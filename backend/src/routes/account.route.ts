@@ -21,6 +21,7 @@ import {
   updateAccountProfile,
   updateAccountSorts,
 } from '../services/account.service.js'
+import { calculateBalanceAtDate } from '../services/balance.service.js'
 
 const router = Router()
 
@@ -69,6 +70,31 @@ router.get('/:id/stats', validateRequest(validateIdParam), asyncHandler(async (r
   }
   const stats = await getAccountStats(req.params.id)
   return success(res, stats)
+}))
+
+router.get('/:id/balance-at', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const account = await getAccountDetail(req.params.id)
+  if (!account) {
+    throw new NotFoundError('账户')
+  }
+
+  const dateStr = req.query.date as string | undefined
+  if (!dateStr) {
+    throw new ValidationError('缺少 date 参数')
+  }
+
+  // 计算下一天的余额，因为 calculateBalanceAtDate 使用 lt: targetDate
+  const targetDate = new Date(dateStr + 'T00:00:00')
+  const nextDay = new Date(targetDate)
+  nextDay.setDate(nextDay.getDate() + 1)
+
+  const balance = await calculateBalanceAtDate(req.params.id, nextDay)
+
+  return success(res, {
+    accountId: req.params.id,
+    date: dateStr,
+    balance,
+  })
 }))
 
 router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req, res) => {

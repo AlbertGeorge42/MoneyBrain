@@ -1,7 +1,14 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate } from '../balance.service.js'
+import { calculateBalancesBatch, BalanceCache } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { toDecimal, ZERO } from '../../common/index.js'
+
+function formatDateLocal(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 interface CashFlow {
   date: Date
@@ -72,7 +79,6 @@ interface InvestmentTrendItem {
   ratio: number
 }
 
-// 资产细分相关类型（调整后）
 interface AccountAllocationItem {
   assetClassId: string
   name: string
@@ -128,9 +134,7 @@ interface InvestmentAnalysisResult {
   returnAnalysis: InvestmentReturnAnalysis
   byCategory: InvestmentCategorySummary[]
   trend: InvestmentTrendItem[]
-  // 按账户的资产细分
   byAccountAllocation: AccountAllocationDetail[]
-  // 超期未录入快照的账户
   staleAccounts: StaleAccountInfo[]
 }
 
@@ -305,98 +309,6 @@ function calculateXIRR(
   return bestResult * 100
 }
 
-async function calculateTWR(
-  accountIds: string[],
-  startValue: number,
-  cashFlows: CashFlow[],
-  startDate: Date,
-  endDate: Date
-): Promise<{ twr: number | null; annualizedTwr: number | null }> {
-  const nextDayOfEnd = new Date(endDate)
-  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
-
-  const investmentDays = Math.max(1, (nextDayOfEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-
-  const balanceCache = new Map<string, number>()
-
-  const getBalanceCached = async (d: Date): Promise<number> => {
-    const key = d.toISOString().split('T')[0]
-    if (!balanceCache.has(key)) {
-      const bal = await getTotalBalanceAtDate(accountIds, d)
-      balanceCache.set(key, bal)
-    }
-    return balanceCache.get(key) || 0
-  }
-
-  let twr = 1
-
-  const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime())
-
-  const cashFlowsByDate = new Map<string, number>()
-  for (const cf of sortedFlows) {
-    const dateKey = cf.date.toISOString().split('T')[0]
-    cashFlowsByDate.set(dateKey, (cashFlowsByDate.get(dateKey) || 0) + cf.amount)
-  }
-
-  const startDateKey = startDate.toISOString().split('T')[0]
-  const firstDayBalance = startValue + (cashFlowsByDate.get(startDateKey) || 0)
-
-  let prevValue = firstDayBalance
-  let prevDate = startDate
-
-  for (const [dateKey, totalAmount] of cashFlowsByDate) {
-    if (dateKey === startDateKey) continue
-
-    const currentDate = new Date(dateKey)
-    if (currentDate.getTime() <= prevDate.getTime()) continue
-
-    const balanceBeforeCF = await getBalanceCached(new Date(dateKey))
-
-    if (prevValue > 0 && balanceBeforeCF >= 0) {
-      const periodReturn = (balanceBeforeCF - prevValue) / prevValue
-      const clampedReturn = Math.max(-0.99, Math.min(10, periodReturn))
-      twr *= (1 + clampedReturn)
-    }
-
-    prevValue = balanceBeforeCF - totalAmount
-    prevDate = currentDate
-  }
-
-  const endDateKey = nextDayOfEnd.toISOString().split('T')[0]
-  if (prevDate < nextDayOfEnd) {
-    const endValue = await getBalanceCached(nextDayOfEnd)
-    if (prevValue > 0 && endValue >= 0) {
-      const periodReturn = (endValue - prevValue) / prevValue
-      const clampedReturn = Math.max(-0.99, Math.min(10, periodReturn))
-      twr *= (1 + clampedReturn)
-    }
-  }
-
-  twr = twr - 1
-
-  if (!isFinite(twr) || Math.abs(twr) > 50) {
-    return { twr: null, annualizedTwr: null }
-  }
-
-  const annualizedTwr = Math.pow(1 + twr, 365 / investmentDays) - 1
-
-  if (!isFinite(annualizedTwr) || Math.abs(annualizedTwr) > 50) {
-    return { twr: twr * 100, annualizedTwr: null }
-  }
-
-  return {
-    twr: twr * 100,
-    annualizedTwr: annualizedTwr * 100,
-  }
-}
-
-async function getTotalBalanceAtDate(accountIds: string[], targetDate: Date): Promise<number> {
-  const balances = await Promise.all(
-    accountIds.map(id => calculateBalanceAtDate(id, targetDate))
-  )
-  return balances.reduce((sum, b) => sum + b, 0)
-}
-
 function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: number = 0): number {
   let maxCapital = startValue
   let currentCapital = startValue
@@ -458,69 +370,10 @@ async function calculateAccountCashFlowsInRange(
   return { periodInvested: periodInvested.toNumber(), periodWithdrawn: periodWithdrawn.toNumber() }
 }
 
-async function generateTrendData(
-  accountIds: string[],
-  startDate: Date,
-  endDate: Date
-): Promise<InvestmentTrendItem[]> {
-  const trend: InvestmentTrendItem[] = []
-
-  const startMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-  const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1)
-
-  const monthDates: Date[] = []
-  let currentMonth = startMonth
-  while (currentMonth <= endMonth) {
-    monthDates.push(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
-    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-  }
-
-  const allAccounts = await prisma.account.findMany()
-  const balanceCache = new Map<string, Map<string, number>>()
-
-  for (const date of monthDates) {
-    const dateKey = date.toISOString().split('T')[0]
-    const balances = await Promise.all(
-      allAccounts.map(a => calculateBalanceAtDate(a.id, date))
-    )
-    const balanceMap = new Map(allAccounts.map((a, i) => [a.id, balances[i]]))
-    balanceCache.set(dateKey, balanceMap)
-  }
-
-  for (let i = 0; i < monthDates.length; i++) {
-    const nextMonthStart = monthDates[i]
-    const monthStr = `${nextMonthStart.getFullYear()}-${String(nextMonthStart.getMonth() + 1).padStart(2, '0')}`
-
-    const investmentBalanceMap = balanceCache.get(nextMonthStart.toISOString().split('T')[0]) || new Map()
-    const investment = accountIds.reduce((sum, id) => sum + (investmentBalanceMap.get(id) || 0), 0)
-
-    const assets = allAccounts
-      .filter(a => a.type === 'asset')
-      .reduce((sum, a) => sum + (investmentBalanceMap.get(a.id) || 0), 0)
-    const liabilities = allAccounts
-      .filter(a => a.type === 'liability')
-      .reduce((sum, a) => sum + (investmentBalanceMap.get(a.id) || 0), 0)
-    const netWorth = assets + liabilities
-
-    const ratio = assets !== 0 ? (investment / assets) * 100 : 0
-
-    trend.push({
-      month: monthStr,
-      investment,
-      netWorth,
-      ratio,
-    })
-  }
-
-  return trend
-}
-
-// 构建单个投资账户的资产细分数据（调整后）
 async function buildAccountAllocationDetail(
   account: { id: string; name: string; balance: number },
   endDate: Date
 ): Promise<AccountAllocationDetail> {
-  // 检查账户是否有资产类型
   const assetClasses = await prisma.investmentAssetClass.findMany({
     where: { accountId: account.id },
     orderBy: { sort: 'asc' },
@@ -529,7 +382,6 @@ async function buildAccountAllocationDetail(
   const hasAssetClasses = assetClasses.length > 0
 
   if (!hasAssetClasses) {
-    // 没有资产类型，不返回明细项
     return {
       accountId: account.id,
       accountName: account.name,
@@ -541,7 +393,6 @@ async function buildAccountAllocationDetail(
     }
   }
 
-  // 获取该账户的所有快照
   const snapshots = await prisma.investmentAllocationSnapshot.findMany({
     where: {
       accountId: account.id,
@@ -557,7 +408,6 @@ async function buildAccountAllocationDetail(
   })
 
   if (snapshots.length === 0) {
-    // 有资产类型但没有快照
     return {
       accountId: account.id,
       accountName: account.name,
@@ -571,21 +421,23 @@ async function buildAccountAllocationDetail(
 
   const latestSnapshot = snapshots[snapshots.length - 1]
 
-  // 获取上一快照（用于计算收益率）
   const previousSnapshot = latestSnapshot.previousSnapshotId
     ? snapshots.find(s => s.id === latestSnapshot.previousSnapshotId)
     : null
 
-  // 计算期间收益和收益率
+  // 先计算已分类市值总和
+  const totalMarketValue = latestSnapshot.items.reduce((sum, item) => sum + item.marketValue, 0)
+
   const items: AccountAllocationItem[] = latestSnapshot.items.map(item => {
-    const ratio = account.balance > 0 ? (item.marketValue / account.balance) * 100 : 0
+    // ratio 基于已分类市值总和，不包含未分类
+    const ratio = totalMarketValue > 0 ? (item.marketValue / totalMarketValue) * 100 : 0
     const targetRatio = item.assetClass.targetRatio
     const deviation = targetRatio !== null ? ratio - targetRatio : null
+    // rebalanceAmount 基于已分类市值总和
     const rebalanceAmount = targetRatio !== null
-      ? (targetRatio / 100 * account.balance) - item.marketValue
+      ? (targetRatio / 100 * totalMarketValue) - item.marketValue
       : null
 
-    // 计算期间收益
     let periodReturn: number | null = null
     let returnRate: number | null = null
 
@@ -593,9 +445,9 @@ async function buildAccountAllocationDetail(
       const prevItem = previousSnapshot.items.find(i => i.assetClassId === item.assetClassId)
       if (prevItem) {
         const prevValue = prevItem.marketValue
-        const netContribution = item.periodInvested - item.periodWithdrawn
+        const netContribution = item.periodNetFlow
         periodReturn = item.marketValue - prevValue - netContribution
-        const denominator = prevValue + item.periodInvested
+        const denominator = prevValue + Math.max(0, item.periodNetFlow)
         returnRate = denominator > 0 ? (periodReturn / denominator) * 100 : null
       }
     }
@@ -609,39 +461,73 @@ async function buildAccountAllocationDetail(
       targetRatio,
       deviation,
       rebalanceAmount,
-      periodInvested: item.periodInvested,
-      periodWithdrawn: item.periodWithdrawn,
+      periodInvested: Math.max(0, item.periodNetFlow),
+      periodWithdrawn: Math.max(0, -item.periodNetFlow),
       periodReturn,
       returnRate,
       sort: item.sort,
     }
   })
 
-  // 构建历史快照摘要（用于趋势图）
-  const historySnapshots: SnapshotHistoryItem[] = snapshots.map(s => ({
-    id: s.id,
-    date: s.date.toISOString().split('T')[0],
-    accountBalance: s.accountBalance,
-    items: s.items.map(item => ({
+  // 计算差额并添加"未分类"项
+  const unclassifiedValue = account.balance - totalMarketValue
+  if (Math.abs(unclassifiedValue) > 0.01 && items.length > 0) {
+    items.push({
+      assetClassId: '__unclassified__',
+      name: '未分类',
+      icon: null,
+      marketValue: unclassifiedValue,
+      ratio: 0, // 未分类不参与比例计算
+      targetRatio: null,
+      deviation: null,
+      rebalanceAmount: null,
+      periodInvested: 0,
+      periodWithdrawn: 0,
+      periodReturn: null,
+      returnRate: null,
+      sort: 999,
+    })
+  }
+
+  const historySnapshots: SnapshotHistoryItem[] = snapshots.map(s => {
+    const sTotalMarketValue = s.items.reduce((sum, item) => sum + item.marketValue, 0)
+    const sUnclassifiedValue = s.accountBalance - sTotalMarketValue
+    const sItems = s.items.map(item => ({
       assetClassId: item.assetClassId,
       name: item.assetClass.name,
       marketValue: item.marketValue,
       ratio: s.accountBalance > 0 ? (item.marketValue / s.accountBalance) * 100 : 0,
-    })),
-  }))
+    }))
+
+    // 添加"未分类"项（如果有差额且已有其他项）
+    if (Math.abs(sUnclassifiedValue) > 0.01 && sItems.length > 0) {
+      sItems.push({
+        assetClassId: '__unclassified__',
+        name: '未分类',
+        marketValue: sUnclassifiedValue,
+        ratio: s.accountBalance > 0 ? (sUnclassifiedValue / s.accountBalance) * 100 : 0,
+      })
+    }
+
+    return {
+      id: s.id,
+      date: formatDateLocal(s.date),
+      accountBalance: s.accountBalance,
+      items: sItems,
+    }
+  })
 
   return {
     accountId: account.id,
     accountName: account.name,
     balance: account.balance,
     hasAssetClasses: true,
-    latestSnapshotDate: latestSnapshot.date.toISOString().split('T')[0],
+    latestSnapshotDate: formatDateLocal(latestSnapshot.date),
     items,
     snapshots: historySnapshots,
   }
 }
 
-// 构建超期未录入快照的账户列表
 async function buildStaleAccounts(
   accounts: Array<{ id: string; name: string; balance: number }>,
   endDate: Date,
@@ -669,7 +555,6 @@ async function buildStaleAccounts(
   for (const account of accounts) {
     const latestDate = latestSnapshotMap.get(account.id)
     if (!latestDate) {
-      // 完全没有快照
       const daysSince = Math.floor(
         (endDate.getTime() - new Date(0).getTime()) / (1000 * 60 * 60 * 24)
       )
@@ -709,36 +594,54 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     return null
   }
 
-  const accountIds = investmentAccounts.map(a => a.id)
+  const investmentAccountIds = investmentAccounts.map(a => a.id)
 
-  const startBalances = await Promise.all(
-    accountIds.map(id => calculateBalanceAtDate(id, startDate))
-  )
-  const startValue = startBalances.reduce((sum, b) => sum + b, 0)
+  // 获取所有账户（用于计算总资产）
+  const allAccounts = await prisma.account.findMany()
+  const allAccountIds = allAccounts.map(a => a.id)
 
-  // 期末余额计算：使用下一天，因为 calculateBalanceAtDate 使用 lt: targetDate
+  // 获取现金流数据
+  const cashFlows = await getCashFlowsInRange(investmentAccountIds, startDate, endDate)
+
+  // 计算趋势数据需要的月份日期
+  const startMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+  const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1)
+  const monthDates: Date[] = []
+  let currentMonth = startMonth
+  while (currentMonth <= endMonth) {
+    monthDates.push(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+  }
+
+  // 期末日期（下一天）
   const nextDayOfEnd = new Date(endDateStr)
   nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
-  const endBalances = await Promise.all(
-    accountIds.map(id => calculateBalanceAtDate(id, nextDayOfEnd))
-  )
-  const endValue = endBalances.reduce((sum, b) => sum + b, 0)
 
-  const allAccounts = await prisma.account.findMany()
-  const allBalances = await Promise.all(
-    allAccounts.map(a => calculateBalanceAtDate(a.id, nextDayOfEnd))
-  )
-  const totalAssets = allBalances
-    .filter((_, idx) => allAccounts[idx].type === 'asset')
-    .reduce((sum, b) => sum + b, 0)
-  const totalLiabilities = allBalances
-    .filter((_, idx) => allAccounts[idx].type === 'liability')
-    .reduce((sum, b) => sum + b, 0)
+  // 收集所有需要计算余额的日期
+  const requiredDates: Date[] = [
+    startDate,
+    nextDayOfEnd,
+    ...monthDates,
+    ...cashFlows.map(cf => cf.date),
+  ]
+
+  // 批量计算所有账户在所有日期的余额
+  const balanceCache = await calculateBalancesBatch(allAccountIds, requiredDates)
+
+  // 计算投资账户的期初和期末余额
+  const startValue = balanceCache.getMany(investmentAccountIds, startDate)
+  const endValue = balanceCache.getMany(investmentAccountIds, nextDayOfEnd)
+
+  // 计算总资产和总负债
+  const totalAssets = allAccounts
+    .filter(a => a.type === 'asset')
+    .reduce((sum, a) => sum + balanceCache.get(a.id, nextDayOfEnd), 0)
+  const totalLiabilities = allAccounts
+    .filter(a => a.type === 'liability')
+    .reduce((sum, a) => sum + balanceCache.get(a.id, nextDayOfEnd), 0)
   const totalNetWorth = totalAssets + totalLiabilities
 
   const investmentRatio = totalAssets !== 0 ? (endValue / totalAssets) * 100 : 0
-
-  const cashFlows = await getCashFlowsInRange(accountIds, startDate, endDate)
 
   const periodInvested = cashFlows
     .filter(cf => cf.type === 'buy')
@@ -763,7 +666,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   if (investmentDays >= 1) {
     xirr = calculateXIRR(startValue, cashFlows, endValue, startDate, endDate)
-    twrResult = await calculateTWR(accountIds, startValue, cashFlows, startDate, endDate)
+    twrResult = calculateTWRWithCache(investmentAccountIds, startValue, cashFlows, startDate, nextDayOfEnd, balanceCache)
   }
 
   const returnAnalysis: InvestmentReturnAnalysis = {
@@ -784,6 +687,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     cashFlowCount: cashFlows.length,
   }
 
+  // 按分类汇总
   const categoryMap = new Map<string, { category: { id: string; name: string; icon: string | null }; accounts: AccountWithCategory[] }>()
 
   for (const account of investmentAccounts) {
@@ -802,51 +706,52 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   for (const [categoryId, data] of categoryMap) {
     const categoryBalance = data.accounts.reduce((sum, a) => {
-      const idx = investmentAccounts.findIndex(ia => ia.id === a.id)
-      return sum + (idx !== -1 ? endBalances[idx] : 0)
+      return sum + balanceCache.get(a.id, nextDayOfEnd)
     }, 0)
 
     const ratio = endValue !== 0 ? (categoryBalance / endValue) * 100 : 0
 
-    const accountDetails: InvestmentAccountDetail[] = await Promise.all(
-      data.accounts.map(async (account) => {
-        const idx = investmentAccounts.findIndex(ia => ia.id === account.id)
-        const balance = idx !== -1 ? endBalances[idx] : 0
-        const accountRatio = endValue !== 0 ? (balance / endValue) * 100 : 0
+    const accountDetails: InvestmentAccountDetail[] = data.accounts.map((account) => {
+      const balance = balanceCache.get(account.id, nextDayOfEnd)
+      const accountRatio = endValue !== 0 ? (balance / endValue) * 100 : 0
 
-        const accStartBalance = idx !== -1 ? startBalances[idx] : 0
-        const accEndBalance = balance
-        
-        const { periodInvested: accInvested, periodWithdrawn: accWithdrawn } =
-          await calculateAccountCashFlowsInRange(account.id, startDate, endDate, accountIds)
+      const accStartBalance = balanceCache.get(account.id, startDate)
+      const accEndBalance = balance
 
-        const accNetCashFlow = accInvested - accWithdrawn
-        const accPeriodReturn = accEndBalance - accStartBalance - accNetCashFlow
-        const totalCapital = accStartBalance + accInvested
-        const accReturnRate = totalCapital !== 0 ? (accPeriodReturn / totalCapital) * 100 : 0
+      // 计算单个账户的现金流（简化版，不额外查询）
+      const accountCashFlows = cashFlows.filter(cf => cf.accountId === account.id)
+      const accInvested = accountCashFlows
+        .filter(cf => cf.type === 'buy')
+        .reduce((sum, cf) => sum + Math.abs(cf.amount), 0)
+      const accWithdrawn = accountCashFlows
+        .filter(cf => cf.type === 'sell')
+        .reduce((sum, cf) => sum + cf.amount, 0)
 
-        const accountCashFlows = cashFlows.filter(cf => cf.accountId === account.id)
-        const accMaxCapital = calculateMaxCapitalEmployed(accountCashFlows, accStartBalance)
-        const accCumulativeReturn = accEndBalance + accWithdrawn - accStartBalance - accInvested
-        const accCumulativeReturnRate = accMaxCapital !== 0 ? (accCumulativeReturn / accMaxCapital) * 100 : 0
+      const accNetCashFlow = accInvested - accWithdrawn
+      const accPeriodReturn = accEndBalance - accStartBalance - accNetCashFlow
+      const totalCapital = accStartBalance + accInvested
+      const accReturnRate = totalCapital !== 0 ? (accPeriodReturn / totalCapital) * 100 : 0
 
-        return {
-          id: account.id,
-          name: account.name,
-          categoryId: account.categoryId,
-          categoryName: account.category?.name || '未分类',
-          categoryIcon: account.category?.icon || null,
-          icon: account.icon,
-          balance,
-          ratio: accountRatio,
-          totalInvested: accInvested,
-          totalWithdrawn: accWithdrawn,
-          maxCapitalEmployed: accMaxCapital,
-          simpleReturnRate: accReturnRate,
-          cumulativeReturnRate: accCumulativeReturnRate,
-        }
-      })
-    )
+      const accMaxCapital = calculateMaxCapitalEmployed(accountCashFlows, accStartBalance)
+      const accCumulativeReturn = accEndBalance + accWithdrawn - accStartBalance - accInvested
+      const accCumulativeReturnRate = accMaxCapital !== 0 ? (accCumulativeReturn / accMaxCapital) * 100 : 0
+
+      return {
+        id: account.id,
+        name: account.name,
+        categoryId: account.categoryId,
+        categoryName: account.category?.name || '未分类',
+        categoryIcon: account.category?.icon || null,
+        icon: account.icon,
+        balance,
+        ratio: accountRatio,
+        totalInvested: accInvested,
+        totalWithdrawn: accWithdrawn,
+        maxCapitalEmployed: accMaxCapital,
+        simpleReturnRate: accReturnRate,
+        cumulativeReturnRate: accCumulativeReturnRate,
+      }
+    })
 
     byCategory.push({
       categoryId,
@@ -860,14 +765,37 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   byCategory.sort((a, b) => b.balance - a.balance)
 
-  const trend = await generateTrendData(accountIds, startDate, endDate)
+  // 生成趋势数据（使用缓存）
+  const trend: InvestmentTrendItem[] = []
+  for (let i = 0; i < monthDates.length; i++) {
+    const nextMonthStart = monthDates[i]
+    const monthStr = `${nextMonthStart.getFullYear()}-${String(nextMonthStart.getMonth() + 1).padStart(2, '0')}`
+
+    const investment = balanceCache.getMany(investmentAccountIds, nextMonthStart)
+
+    const assets = allAccounts
+      .filter(a => a.type === 'asset')
+      .reduce((sum, a) => sum + balanceCache.get(a.id, nextMonthStart), 0)
+    const liabilities = allAccounts
+      .filter(a => a.type === 'liability')
+      .reduce((sum, a) => sum + balanceCache.get(a.id, nextMonthStart), 0)
+    const netWorth = assets + liabilities
+
+    const ratio = assets !== 0 ? (investment / assets) * 100 : 0
+
+    trend.push({
+      month: monthStr,
+      investment,
+      netWorth,
+      ratio,
+    })
+  }
 
   // 构建每个投资账户的资产细分数据
-  const accountBalanceMap = new Map(accountIds.map((id, idx) => [id, endBalances[idx]]))
   const accountDetails = investmentAccounts.map(a => ({
     id: a.id,
     name: a.name,
-    balance: accountBalanceMap.get(a.id) || 0,
+    balance: balanceCache.get(a.id, nextDayOfEnd),
   }))
 
   const [byAccountAllocation, staleAccounts] = await Promise.all([
@@ -889,5 +817,77 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     trend,
     byAccountAllocation,
     staleAccounts,
+  }
+}
+
+function calculateTWRWithCache(
+  accountIds: string[],
+  startValue: number,
+  cashFlows: CashFlow[],
+  startDate: Date,
+  endDate: Date,
+  balanceCache: BalanceCache
+): { twr: number | null; annualizedTwr: number | null } {
+  const investmentDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+
+  let twr = 1
+
+  const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime())
+
+  const cashFlowsByDate = new Map<string, number>()
+  for (const cf of sortedFlows) {
+    const dateKey = formatDateLocal(cf.date)
+    cashFlowsByDate.set(dateKey, (cashFlowsByDate.get(dateKey) || 0) + cf.amount)
+  }
+
+  const startDateKey = formatDateLocal(startDate)
+  const firstDayBalance = startValue + (cashFlowsByDate.get(startDateKey) || 0)
+
+  let prevValue = firstDayBalance
+  let prevDate = startDate
+
+  for (const [dateKey, totalAmount] of cashFlowsByDate) {
+    if (dateKey === startDateKey) continue
+
+    const currentDate = new Date(dateKey)
+    if (currentDate.getTime() <= prevDate.getTime()) continue
+
+    const balanceBeforeCF = balanceCache.getMany(accountIds, new Date(dateKey))
+
+    if (prevValue > 0 && balanceBeforeCF >= 0) {
+      const periodReturn = (balanceBeforeCF - prevValue) / prevValue
+      const clampedReturn = Math.max(-0.99, Math.min(10, periodReturn))
+      twr *= (1 + clampedReturn)
+    }
+
+    prevValue = balanceBeforeCF - totalAmount
+    prevDate = currentDate
+  }
+
+  const endDateKey = formatDateLocal(endDate)
+  if (prevDate < endDate) {
+    const endValue = balanceCache.getMany(accountIds, endDate)
+    if (prevValue > 0 && endValue >= 0) {
+      const periodReturn = (endValue - prevValue) / prevValue
+      const clampedReturn = Math.max(-0.99, Math.min(10, periodReturn))
+      twr *= (1 + clampedReturn)
+    }
+  }
+
+  twr = twr - 1
+
+  if (!isFinite(twr) || Math.abs(twr) > 50) {
+    return { twr: null, annualizedTwr: null }
+  }
+
+  const annualizedTwr = Math.pow(1 + twr, 365 / investmentDays) - 1
+
+  if (!isFinite(annualizedTwr) || Math.abs(annualizedTwr) > 50) {
+    return { twr: twr * 100, annualizedTwr: null }
+  }
+
+  return {
+    twr: twr * 100,
+    annualizedTwr: annualizedTwr * 100,
   }
 }

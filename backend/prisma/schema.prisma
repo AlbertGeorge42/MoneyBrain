@@ -159,13 +159,12 @@ model InvestmentAllocationSnapshot {
 }
 
 model InvestmentAllocationItem {
-  id              String   @id @default(uuid())
-  snapshotId      String
-  assetClassId    String
-  marketValue     Float
-  periodInvested  Float    @default(0)
-  periodWithdrawn Float    @default(0)
-  sort            Int      @default(0)
+  id            String   @id @default(uuid())
+  snapshotId    String
+  assetClassId  String
+  marketValue   Float
+  periodNetFlow Float    @default(0)
+  sort          Int      @default(0)
 
   snapshot   InvestmentAllocationSnapshot @relation(fields: [snapshotId], references: [id])
   assetClass InvestmentAssetClass         @relation(fields: [assetClassId], references: [id])

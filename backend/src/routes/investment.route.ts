@@ -13,6 +13,7 @@ import {
   getSnapshots,
   getLatestSnapshot,
   deleteSnapshot,
+  updateSnapshot,
 } from '../services/investment/allocation.service.js'
 
 const router = Router()
@@ -118,6 +119,23 @@ router.delete(
     validateIdParam(req)
     await deleteSnapshot(req.params.id)
     return success(res, { message: '删除成功' })
+  })
+)
+
+// PUT /api/investment-allocations/:id
+router.put(
+  '/investment-allocations/:id',
+  asyncHandler(async (req, res) => {
+    validateIdParam(req)
+    const { date, items, note } = req.body
+    if (!date || !Array.isArray(items)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: '缺少必要参数 date、items' },
+      })
+    }
+    const snapshot = await updateSnapshot(req.params.id, { date, items, note })
+    return success(res, snapshot)
   })
 )
 

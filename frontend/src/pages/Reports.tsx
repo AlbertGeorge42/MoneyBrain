@@ -400,7 +400,7 @@ const Reports: React.FC = () => {
           pickerConfig={investmentPickerConfig}
           investmentData={investmentData}
           onTimeRangeChange={setInvestmentTimeRange}
-          onOpenSettings={() => setAccountCategoryModalVisible(true)}
+          onRefresh={() => void fetchInvestmentAnalysis()}
         />
       ),
     },

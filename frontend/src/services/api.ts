@@ -15,6 +15,8 @@ import type {
   CashFlowReportData,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
+  InvestmentAssetClass,
+  InvestmentAllocationSnapshot,
   PaginatedResponse,
   Transaction,
   TransactionCategory,
@@ -36,6 +38,8 @@ export type {
   CashFlowReportData,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
+  InvestmentAssetClass,
+  InvestmentAllocationSnapshot,
   PaginatedResponse,
   Transaction,
   TransactionCategory,
@@ -123,6 +127,11 @@ export const accountCategoryApi = {
 export const accountApi = {
   getAll: () => api.get<ApiResponse<Account[]>>('/accounts'),
   getStats: (id: string) => api.get<ApiResponse<AccountStats>>(`/accounts/${id}/stats`),
+  getBalanceAt: (id: string, date: string) =>
+    api.get<ApiResponse<{ accountId: string; date: string; balance: number }>>(
+      `/accounts/${id}/balance-at`,
+      { params: { date } }
+    ),
   create: (data: Partial<Account>) => api.post<ApiResponse<Account>>('/accounts', data),
   update: (id: string, data: Partial<Account>) => api.put<ApiResponse<Account>>(`/accounts/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; categoryId: string | null }>) => 
@@ -253,6 +262,53 @@ export const dataApi = {
       timeout: 60000,
     })
   },
+}
+
+export const investmentApi = {
+  getAssetClasses: (accountId: string) =>
+    api.get<ApiResponse<InvestmentAssetClass[]>>(`/accounts/${accountId}/investment-asset-classes`),
+
+  createAssetClass: (accountId: string, data: Partial<InvestmentAssetClass>) =>
+    api.post<ApiResponse<InvestmentAssetClass>>(`/accounts/${accountId}/investment-asset-classes`, data),
+
+  updateAssetClass: (id: string, data: Partial<InvestmentAssetClass>) =>
+    api.put<ApiResponse<InvestmentAssetClass>>(`/investment-asset-classes/${id}`, data),
+
+  deleteAssetClass: (id: string) =>
+    api.delete<ApiResponse<{ message: string }>>(`/investment-asset-classes/${id}`),
+
+  reorderAssetClasses: (accountId: string, orderedIds: string[]) =>
+    api.put<ApiResponse<{ message: string }>>(`/accounts/${accountId}/investment-asset-classes/reorder`, { orderedIds }),
+
+  getSnapshots: (accountId: string, startDate?: string, endDate?: string) =>
+    api.get<ApiResponse<InvestmentAllocationSnapshot[]>>('/investment-allocations', { params: { accountId, startDate, endDate } }),
+
+  getLatestSnapshot: (accountId: string, beforeDate?: string) =>
+    api.get<ApiResponse<InvestmentAllocationSnapshot | null>>('/investment-allocations/latest', { params: { accountId, beforeDate } }),
+
+  saveSnapshot: (data: {
+    accountId: string
+    date: string
+    items: Array<{
+      assetClassId: string
+      marketValue: number
+      periodNetFlow?: number
+    }>
+    note?: string
+  }) => api.post<ApiResponse<InvestmentAllocationSnapshot>>('/investment-allocations', data),
+
+  updateSnapshot: (id: string, data: {
+    date: string
+    items: Array<{
+      assetClassId: string
+      marketValue: number
+      periodNetFlow?: number
+    }>
+    note?: string
+  }) => api.put<ApiResponse<InvestmentAllocationSnapshot>>(`/investment-allocations/${id}`, data),
+
+  deleteSnapshot: (id: string) =>
+    api.delete<ApiResponse<{ message: string }>>(`/investment-allocations/${id}`),
 }
 
 export default api

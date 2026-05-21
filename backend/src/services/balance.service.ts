@@ -67,6 +67,136 @@ function applyTransactionsToBalance(
   return balance
 }
 
+/**
+ * 批量余额缓存类
+ * 提供高效的余额查询接口
+ */
+export class BalanceCache {
+  private cache: Map<string, Map<string, number>>
+
+  constructor(cache: Map<string, Map<string, number>>) {
+    this.cache = cache
+  }
+
+  private dateToKey(date: Date): string {
+    return date.toISOString().split('T')[0]
+  }
+
+  get(accountId: string, date: Date): number {
+    const accountCache = this.cache.get(accountId)
+    if (!accountCache) return 0
+    return accountCache.get(this.dateToKey(date)) ?? 0
+  }
+
+  getMany(accountIds: string[], date: Date): number {
+    const dateKey = this.dateToKey(date)
+    return accountIds.reduce((sum, accountId) => {
+      const accountCache = this.cache.get(accountId)
+      if (!accountCache) return sum
+      return sum + (accountCache.get(dateKey) ?? 0)
+    }, 0)
+  }
+
+  getAccountCache(accountId: string): Map<string, number> | undefined {
+    return this.cache.get(accountId)
+  }
+}
+
+/**
+ * 批量计算多个账户在多个日期的余额
+ * 通过一次查询所有相关交易，大幅减少数据库访问次数
+ * 
+ * @param accountIds 要计算余额的账户ID列表
+ * @param dates 要计算的日期列表
+ * @returns BalanceCache 缓存对象，可通过 get() 方法快速查询
+ */
+export async function calculateBalancesBatch(
+  accountIds: string[],
+  dates: Date[]
+): Promise<BalanceCache> {
+  if (accountIds.length === 0 || dates.length === 0) {
+    return new BalanceCache(new Map())
+  }
+
+  // 1. 一次性查询所有账户
+  const accounts = await prisma.account.findMany({
+    where: { id: { in: accountIds } }
+  })
+  const accountMap = new Map(accounts.map(a => [a.id, a]))
+
+  // 2. 对日期排序并确定查询范围
+  const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime())
+  const minDate = sortedDates[0]
+  const maxTargetDate = sortedDates[sortedDates.length - 1]
+  // 需要查询到最大日期的下一天（因为计算使用 lt: targetDate）
+  const maxDate = new Date(maxTargetDate.getTime() + 86400000)
+
+  // 3. 一次性查询所有相关交易
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      OR: [
+        { accountId: { in: accountIds }, date: { gte: minDate, lt: maxDate } },
+        { toAccountId: { in: accountIds }, date: { gte: minDate, lt: maxDate } }
+      ]
+    },
+    orderBy: { date: 'asc' }
+  })
+
+  // 4. 为每个账户计算每个日期的余额
+  const result = new Map<string, Map<string, number>>()
+
+  for (const accountId of accountIds) {
+    const account = accountMap.get(accountId)
+    if (!account) {
+      result.set(accountId, new Map())
+      continue
+    }
+
+    // 筛选该账户相关的交易
+    const accountFromTransactions = transactions.filter(t => t.accountId === accountId)
+    const accountToTransactions = transactions.filter(t => t.toAccountId === accountId)
+
+    const dateBalanceMap = new Map<string, number>()
+    const initialBalance = account.initialBalance
+    const initialDate = account.initialBalanceDate
+
+    for (const targetDate of sortedDates) {
+      const dateKey = targetDate.toISOString().split('T')[0]
+
+      if (!initialDate) {
+        // 无初始余额日期，计算所有早于目标日期的交易
+        const relevantFrom = accountFromTransactions.filter(t => t.date < targetDate)
+        const relevantTo = accountToTransactions.filter(t => t.date < targetDate)
+        const balance = applyTransactionsToBalance(initialBalance, relevantFrom, relevantTo)
+        dateBalanceMap.set(dateKey, balance.toNumber())
+      } else {
+        // 有初始余额日期，根据方向计算
+        const isForward = targetDate >= initialDate
+        const dateRange = isForward
+          ? { gte: initialDate, lt: targetDate }
+          : { gte: targetDate, lt: initialDate }
+        const multiplier: 1 | -1 = isForward ? 1 : -1
+
+        const relevantFrom = accountFromTransactions.filter(t => {
+          const tDate = t.date
+          return tDate >= dateRange.gte && tDate < dateRange.lt
+        })
+        const relevantTo = accountToTransactions.filter(t => {
+          const tDate = t.date
+          return tDate >= dateRange.gte && tDate < dateRange.lt
+        })
+
+        const balance = applyTransactionsToBalance(initialBalance, relevantFrom, relevantTo, multiplier)
+        dateBalanceMap.set(dateKey, balance.toNumber())
+      }
+    }
+
+    result.set(accountId, dateBalanceMap)
+  }
+
+  return new BalanceCache(result)
+}
+
 export async function calculateBalanceAtDate(
   accountId: string,
   targetDate: Date
