@@ -4,6 +4,9 @@ import { ReloadOutlined, SettingOutlined } from '@ant-design/icons'
 import { PageHeader } from '../components/common'
 import { budgetApi } from '../services/api'
 import type { Budget, BudgetStatus } from '@shared/types'
+import { createStatisticFormatter } from '../utils/format'
+
+const statisticFormatter = createStatisticFormatter()
 
 const Budgets: React.FC = () => {
   const { token } = theme.useToken()
@@ -87,20 +90,20 @@ const Budgets: React.FC = () => {
 
       <Card>
         <div className="stats-grid">
-          <Statistic title="总预算" value={totalBudget} precision={2} prefix="¥" />
+          <Statistic title="总预算" value={totalBudget} precision={2} formatter={statisticFormatter} />
           <Statistic
             title="已使用"
             value={totalUsed}
             precision={2}
             valueStyle={{ color: token.colorError }}
-            prefix="¥"
+            formatter={statisticFormatter}
           />
           <Statistic
             title="剩余"
             value={totalBudget - totalUsed}
             precision={2}
             valueStyle={{ color: token.colorSuccess }}
-            prefix="¥"
+            formatter={statisticFormatter}
           />
         </div>
       </Card>

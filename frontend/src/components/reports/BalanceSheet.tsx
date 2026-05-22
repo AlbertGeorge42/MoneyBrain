@@ -6,6 +6,9 @@ import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type Poi
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { formatBalance } from '../../utils/formatBalance'
+import { createStatisticFormatter } from '../../utils/format'
+
+const statisticFormatter = createStatisticFormatter()
 
 interface BalanceSheetTreeNode {
   key: string
@@ -99,7 +102,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             value={balanceSheetData?.netWorth || 0}
             precision={2}
             valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+            formatter={statisticFormatter}
           />
           <div className="report-hero-card__sub">
             <Statistic
@@ -120,7 +123,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             value={balanceSheetData?.assets || 0}
             precision={2}
             valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+            formatter={statisticFormatter}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -129,7 +132,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             value={Math.abs(balanceSheetData?.liabilities || 0)}
             precision={2}
             valueStyle={{ color: 'var(--mb-color-negative)' }}
-            formatter={(value) => `¥${Number(value).toFixed(2)}`}
+            formatter={statisticFormatter}
           />
         </Card>
       </div>

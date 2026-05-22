@@ -14,7 +14,9 @@ import type {
   InvestmentAccountDetail,
   InvestmentAnalysisReportData,
 } from '@shared/types'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, createStatisticFormatter } from '../../utils/format'
+
+const statisticFormatter = createStatisticFormatter()
 
 const { Text } = Typography
 
@@ -336,13 +338,13 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: 'var(--mb-color-investing)' }} prefix="¥" />
+          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: 'var(--mb-color-investing)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: token.colorTextSecondary }} prefix="¥" />
+          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: token.colorTextSecondary }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: token.colorTextSecondary }} prefix="¥" />
+          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: token.colorTextSecondary }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic

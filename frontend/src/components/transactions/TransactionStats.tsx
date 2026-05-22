@@ -1,5 +1,8 @@
 import React from 'react'
 import { Card, Statistic, theme } from 'antd'
+import { createStatisticFormatter } from '../../utils/format'
+
+const statisticFormatter = createStatisticFormatter()
 
 interface TransactionStatsProps {
   totalIncome: number
@@ -32,28 +35,28 @@ const TransactionStats: React.FC<TransactionStatsProps> = ({
         value={totalIncome}
         precision={2}
         valueStyle={{ color: colorSuccess }}
-        prefix="¥"
+        formatter={statisticFormatter}
       />
       <Statistic
         title="总支出"
         value={totalExpense}
         precision={2}
         valueStyle={{ color: colorDanger }}
-        prefix="¥"
+        formatter={statisticFormatter}
       />
       <Statistic
         title="退款"
         value={totalRefund}
         precision={2}
         valueStyle={{ color: colorWarning }}
-        prefix="¥"
+        formatter={statisticFormatter}
       />
       <Statistic
         title="结余"
         value={balance}
         precision={2}
         valueStyle={{ color: balance >= 0 ? colorPositive : colorNegative }}
-        prefix="¥"
+        formatter={statisticFormatter}
       />
       <Statistic
         title="转账次数"

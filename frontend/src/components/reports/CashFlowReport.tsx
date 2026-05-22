@@ -5,6 +5,9 @@ import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue }
 import { BarChart, SankeyChart } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import type { CashFlowReportData } from '@shared/types'
+import { createStatisticFormatter } from '../../utils/format'
+
+const statisticFormatter = createStatisticFormatter()
 
 interface CashFlowReportProps {
   timeRange: RangeTimeValue
@@ -44,23 +47,23 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             valueStyle={{
               color: (cashFlowData?.netCashFlow || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
             }}
-            prefix="¥"
+            formatter={statisticFormatter}
           />
         </Card>
       </div>
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="现金流入" value={cashFlowData?.cashInflow || 0} precision={2} valueStyle={{ color: 'var(--mb-color-positive)' }} prefix="¥" />
+          <Statistic title="现金流入" value={cashFlowData?.cashInflow || 0} precision={2} valueStyle={{ color: 'var(--mb-color-positive)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="现金流出" value={cashFlowData?.cashOutflow || 0} precision={2} valueStyle={{ color: 'var(--mb-color-negative)' }} prefix="¥" />
+          <Statistic title="现金流出" value={cashFlowData?.cashOutflow || 0} precision={2} valueStyle={{ color: 'var(--mb-color-negative)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期初现金" value={cashFlowData?.startCash || 0} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} prefix="¥" />
+          <Statistic title="期初现金" value={cashFlowData?.startCash || 0} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末现金" value={cashFlowData?.endCash || 0} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} prefix="¥" />
+          <Statistic title="期末现金" value={cashFlowData?.endCash || 0} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} formatter={statisticFormatter} />
         </Card>
       </div>
     </>

@@ -18,6 +18,9 @@ import * as api from '../services/api'
 import { useStore } from '../stores'
 import type { AnalyticsCategoryBreakdownItem, AnalyticsTrendItem } from '../services/api'
 import { getTokenValue } from '../styles/theme/cssVars'
+import { createStatisticFormatter } from '../utils/format'
+
+const statisticFormatter = createStatisticFormatter()
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate()
@@ -201,24 +204,24 @@ const Dashboard: React.FC = () => {
           <div className="income-expense-grid">
             <div className="income-expense-item">
               <Statistic
-                title="收入"
-                value={thisMonthIncome}
-                precision={2}
-                valueStyle={{ color: colorPositive, fontSize: 24 }}
-                prefix={<ArrowUpOutlined />}
-                formatter={(value) => `¥${Number(value).toFixed(2)}`}
-              />
+              title="收入"
+              value={thisMonthIncome}
+              precision={2}
+              valueStyle={{ color: colorPositive, fontSize: 24 }}
+              prefix={<ArrowUpOutlined />}
+              formatter={statisticFormatter}
+            />
             </div>
             <div className="income-expense-divider" />
             <div className="income-expense-item">
               <Statistic
-                title="支出"
-                value={thisMonthExpense}
-                precision={2}
-                valueStyle={{ color: colorNegative, fontSize: 24 }}
-                prefix={<ArrowDownOutlined />}
-                formatter={(value) => `¥${Number(value).toFixed(2)}`}
-              />
+              title="支出"
+              value={thisMonthExpense}
+              precision={2}
+              valueStyle={{ color: colorNegative, fontSize: 24 }}
+              prefix={<ArrowDownOutlined />}
+              formatter={statisticFormatter}
+            />
             </div>
           </div>
         </Card>
