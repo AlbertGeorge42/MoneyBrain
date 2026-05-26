@@ -1,6 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { prisma } from '../index.js'
-import { NotFoundError } from '../common/index.js'
+import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
 
 type BudgetPayload = {
@@ -37,6 +37,18 @@ export async function getBudgetDetail(budgetId: string) {
 }
 
 export async function createBudget(data: BudgetPayload) {
+  if (data.categoryId) {
+    const category = await prisma.transactionCategory.findUnique({
+      where: { id: data.categoryId },
+    })
+    if (!category) {
+      throw new NotFoundError('交易分类')
+    }
+    if (category.type !== 'expense') {
+      throw new ValidationError('预算只能关联支出类型分类')
+    }
+  }
+
   return prisma.budget.create({
     data: {
       name: data.name,
@@ -51,6 +63,18 @@ export async function createBudget(data: BudgetPayload) {
 }
 
 export async function updateBudget(budgetId: string, data: BudgetPayload) {
+  if (data.categoryId) {
+    const category = await prisma.transactionCategory.findUnique({
+      where: { id: data.categoryId },
+    })
+    if (!category) {
+      throw new NotFoundError('交易分类')
+    }
+    if (category.type !== 'expense') {
+      throw new ValidationError('预算只能关联支出类型分类')
+    }
+  }
+
   return prisma.budget.update({
     where: { id: budgetId },
     data: {

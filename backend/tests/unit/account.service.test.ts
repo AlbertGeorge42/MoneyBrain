@@ -69,6 +69,31 @@ vi.mock('../../src/index.js', () => {
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
+    investmentAssetClass: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      count: vi.fn(),
+    },
+    investmentAllocationSnapshot: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      count: vi.fn(),
+    },
+    investmentAllocationItem: {
+      findMany: vi.fn(),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     $transaction: vi.fn((callbackOrArray) => {
       if (Array.isArray(callbackOrArray)) {
         return Promise.all(callbackOrArray)
@@ -251,6 +276,8 @@ describe('account.service', () => {
         id: '1',
         name: '账户',
         type: 'asset',
+        balance: new Decimal(1000),
+        initialBalance: new Decimal(1000),
       })
       mockPrisma.account.update.mockResolvedValue({ id: '1', balance: new Decimal(2000) })
 
@@ -260,7 +287,7 @@ describe('account.service', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             initialBalance: 2000,
-            balance: 2000,
+            balance: new Decimal(2000),
           }),
         })
       )
@@ -268,27 +295,61 @@ describe('account.service', () => {
   })
 
   describe('deleteAccount', () => {
-    it('无交易记录时应该直接删除', async () => {
+    it('无关联数据时应该直接删除', async () => {
       mockPrisma.transaction.count.mockResolvedValue(0)
-      mockPrisma.transaction.deleteMany.mockResolvedValue({ count: 0 })
+      mockPrisma.investmentAssetClass.count.mockResolvedValue(0)
+      mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(0)
       mockPrisma.account.delete.mockResolvedValue({ id: '1' })
 
       const result = await deleteAccount('1')
 
       expect(result.message).toBe('删除成功')
       expect(result.deletedTransactions).toBe(0)
+      expect(result.deletedAssetClasses).toBe(0)
+      expect(result.deletedSnapshots).toBe(0)
     })
 
     it('有交易记录且非 force 删除时应该抛出 ValidationError', async () => {
       mockPrisma.transaction.count.mockResolvedValue(5)
+      mockPrisma.investmentAssetClass.count.mockResolvedValue(0)
+      mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(0)
 
       await expect(deleteAccount('1')).rejects.toThrow(ValidationError)
       expect(mockPrisma.account.delete).not.toHaveBeenCalled()
     })
 
-    it('force 删除时应该级联删除交易', async () => {
+    it('有投资大类且非 force 删除时应该抛出 ValidationError', async () => {
+      mockPrisma.transaction.count.mockResolvedValue(0)
+      mockPrisma.investmentAssetClass.count.mockResolvedValue(2)
+      mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(0)
+
+      await expect(deleteAccount('1')).rejects.toThrow(ValidationError)
+      expect(mockPrisma.account.delete).not.toHaveBeenCalled()
+    })
+
+    it('有投资快照且非 force 删除时应该抛出 ValidationError', async () => {
+      mockPrisma.transaction.count.mockResolvedValue(0)
+      mockPrisma.investmentAssetClass.count.mockResolvedValue(0)
+      mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(3)
+
+      await expect(deleteAccount('1')).rejects.toThrow(ValidationError)
+      expect(mockPrisma.account.delete).not.toHaveBeenCalled()
+    })
+
+    it('force 删除时应该级联删除交易和投资数据', async () => {
       mockPrisma.transaction.count.mockResolvedValue(3)
+      mockPrisma.investmentAssetClass.count.mockResolvedValue(2)
+      mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(3)
+      mockPrisma.transaction.findMany.mockResolvedValue([
+        { id: 't1', type: 'income', amount: new Decimal(1000), fee: new Decimal(0), coupon: new Decimal(0), accountId: '1' },
+        { id: 't2', type: 'expense', amount: new Decimal(500), fee: new Decimal(0), coupon: new Decimal(0), accountId: '1' },
+        { id: 't3', type: 'transfer', amount: new Decimal(300), fee: new Decimal(0), coupon: new Decimal(0), accountId: '1', toAccountId: '2' },
+      ])
+      mockPrisma.account.update.mockResolvedValue({ id: '1' })
       mockPrisma.transaction.deleteMany.mockResolvedValue({ count: 3 })
+      mockPrisma.investmentAllocationItem.deleteMany.mockResolvedValue({ count: 5 })
+      mockPrisma.investmentAllocationSnapshot.deleteMany.mockResolvedValue({ count: 3 })
+      mockPrisma.investmentAssetClass.deleteMany.mockResolvedValue({ count: 2 })
       mockPrisma.account.delete.mockResolvedValue({ id: '1' })
 
       const result = await deleteAccount('1', true)
@@ -296,10 +357,18 @@ describe('account.service', () => {
       expect(mockPrisma.transaction.deleteMany).toHaveBeenCalledWith({
         where: { accountId: '1' },
       })
+      expect(mockPrisma.investmentAllocationSnapshot.deleteMany).toHaveBeenCalledWith({
+        where: { accountId: '1' },
+      })
+      expect(mockPrisma.investmentAssetClass.deleteMany).toHaveBeenCalledWith({
+        where: { accountId: '1' },
+      })
       expect(mockPrisma.account.delete).toHaveBeenCalledWith({
         where: { id: '1' },
       })
       expect(result.deletedTransactions).toBe(3)
+      expect(result.deletedAssetClasses).toBe(2)
+      expect(result.deletedSnapshots).toBe(3)
     })
   })
 

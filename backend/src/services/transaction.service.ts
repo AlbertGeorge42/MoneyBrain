@@ -317,7 +317,7 @@ export async function updateTransfer(id: string, data: UpdateTransferData): Prom
     const oldOutAmount = calculateBalanceChangeDecimal('transfer', oldTransaction.amount, oldFee, oldCoupon)
     await tx.account.update({
       where: { id: oldTransaction.accountId },
-      data: { balance: { decrement: oldOutAmount.abs() } },
+      data: { balance: { increment: oldOutAmount.negated() } },
     })
     const oldInAmount = calculateTransferInAmountDecimal(oldTransaction.amount, oldFee, oldCoupon)
     await tx.account.update({
@@ -517,17 +517,11 @@ export async function deleteTransaction(id: string): Promise<void> {
     const fee = toDecimal(transaction.fee)
     const coupon = toDecimal(transaction.coupon)
 
-    const balanceChange = calculateBalanceChangeDecimal(
-      transaction.type as TransactionType,
-      amount,
-      fee,
-      coupon,
-    )
-
     if (transaction.type === 'transfer') {
+      const outAmount = calculateBalanceChangeDecimal('transfer', amount, fee, coupon)
       await tx.account.update({
         where: { id: transaction.accountId },
-        data: { balance: { decrement: balanceChange.abs() } },
+        data: { balance: { increment: outAmount.negated() } },
       })
       const inAmount = calculateTransferInAmountDecimal(amount, fee, coupon)
       await tx.account.update({
@@ -535,9 +529,15 @@ export async function deleteTransaction(id: string): Promise<void> {
         data: { balance: { decrement: inAmount } },
       })
     } else {
+      const balanceChange = calculateBalanceChangeDecimal(
+        transaction.type as TransactionType,
+        amount,
+        fee,
+        coupon,
+      )
       await tx.account.update({
         where: { id: transaction.accountId },
-        data: { balance: { decrement: balanceChange.abs() } },
+        data: { balance: { decrement: balanceChange } },
       })
     }
 

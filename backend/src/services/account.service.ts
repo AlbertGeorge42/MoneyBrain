@@ -1,6 +1,11 @@
 import { prisma } from '../index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
+import {
+  calculateBalanceChangeDecimal,
+  calculateTransferInAmountDecimal,
+  type TransactionType
+} from './balance.service.js'
 
 export async function getNextAccountSort(categoryId: string | null): Promise<number> {
   const maxSortResult = await prisma.account.aggregate({
@@ -121,8 +126,11 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
   }
 
   if (data.initialBalance !== undefined) {
+    const oldInitialBalance = toDecimal(currentAccount.initialBalance)
+    const newInitialBalance = toDecimal(data.initialBalance)
+    const balanceDiff = newInitialBalance.minus(oldInitialBalance)
     updateData.initialBalance = data.initialBalance
-    updateData.balance = data.initialBalance
+    updateData.balance = currentAccount.balance.plus(balanceDiff)
   }
 
   return prisma.account.update({
@@ -137,18 +145,88 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
     where: { accountId },
   })
 
-  if (!forceDelete && transactionsCount > 0) {
-    throw new ValidationError(`该账户下存在 ${transactionsCount} 条交易记录，无法删除`)
+  const assetClassesCount = await prisma.investmentAssetClass.count({
+    where: { accountId },
+  })
+
+  const snapshotsCount = await prisma.investmentAllocationSnapshot.count({
+    where: { accountId },
+  })
+
+  const hasRelatedData = transactionsCount > 0 || assetClassesCount > 0 || snapshotsCount > 0
+
+  if (!forceDelete && hasRelatedData) {
+    const messages: string[] = []
+    if (transactionsCount > 0) messages.push(`${transactionsCount} 条交易记录`)
+    if (assetClassesCount > 0) messages.push(`${assetClassesCount} 个投资大类`)
+    if (snapshotsCount > 0) messages.push(`${snapshotsCount} 个投资快照`)
+    throw new ValidationError(`该账户下存在 ${messages.join('、')}，无法删除`)
   }
 
-  await prisma.$transaction([
-    prisma.transaction.deleteMany({ where: { accountId } }),
-    prisma.account.delete({ where: { id: accountId } }),
-  ])
+  if (forceDelete && hasRelatedData) {
+    await prisma.$transaction(async (tx) => {
+      if (transactionsCount > 0) {
+        const transactions = await tx.transaction.findMany({
+          where: { accountId },
+        })
+
+        for (const transaction of transactions) {
+          const fee = toDecimal(transaction.fee)
+          const coupon = toDecimal(transaction.coupon)
+
+          if (transaction.type === 'transfer') {
+            const outAmount = calculateBalanceChangeDecimal('transfer', transaction.amount, fee, coupon)
+            await tx.account.update({
+              where: { id: transaction.accountId },
+              data: { balance: { increment: outAmount.abs() } },
+            })
+
+            if (transaction.toAccountId) {
+              const inAmount = calculateTransferInAmountDecimal(transaction.amount, fee, coupon)
+              await tx.account.update({
+                where: { id: transaction.toAccountId },
+                data: { balance: { decrement: inAmount } },
+              })
+            }
+          } else {
+            const balanceChange = calculateBalanceChangeDecimal(
+              transaction.type as TransactionType,
+              transaction.amount,
+              fee,
+              coupon,
+            )
+            await tx.account.update({
+              where: { id: transaction.accountId },
+              data: { balance: { decrement: balanceChange } },
+            })
+          }
+        }
+
+        await tx.transaction.deleteMany({ where: { accountId } })
+      }
+
+      if (snapshotsCount > 0) {
+        await tx.investmentAllocationItem.deleteMany({
+          where: { snapshot: { accountId } },
+        })
+        await tx.investmentAllocationSnapshot.deleteMany({ where: { accountId } })
+      }
+
+      if (assetClassesCount > 0) {
+        await tx.investmentAssetClass.deleteMany({ where: { accountId } })
+      }
+
+      await tx.account.delete({ where: { id: accountId } })
+    })
+  } else {
+    await prisma.account.delete({ where: { id: accountId } })
+  }
 
   return {
     message: '删除成功',
     deletedTransactions: transactionsCount,
+    deletedAssetClasses: assetClassesCount,
+    deletedSnapshots: snapshotsCount,
   }
 }
 

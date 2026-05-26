@@ -4,6 +4,7 @@ import {
   getSnapshots,
   getLatestSnapshot,
   deleteSnapshot,
+  updateSnapshot,
 } from '../../../src/services/investment/allocation.service.js'
 import * as balanceService from '../../../src/services/balance.service.js'
 import { NotFoundError, ValidationError } from '../../../src/common/error.js'
@@ -135,26 +136,24 @@ describe('allocation.service', () => {
       })).rejects.toThrow(ValidationError)
     })
 
-    it('最早一条快照应该强制写入 periodInvested=0, periodWithdrawn=0', async () => {
+    it('最早一条快照应该强制写入 periodNetFlow=0', async () => {
       const mockAccount = { id: 'acc1', name: '测试账户' }
       const mockAssetClasses = [{ id: 'class1', name: '股票' }]
       
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount)
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
       mockCalculateBalanceAtDate.mockResolvedValue(10000)
-      mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null) // 无之前快照
+      mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null)
       mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
 
       await createSnapshot({
         accountId: 'acc1',
         date: '2024-01-01',
-        items: [{ assetClassId: 'class1', marketValue: 10000, periodInvested: 5000 }], // 即使提供了 periodInvested
+        items: [{ assetClassId: 'class1', marketValue: 10000, periodNetFlow: 5000 }],
       })
 
-      // 验证 create 被调用，且 periodInvested 被强制设为 0
       const createCall = mockPrisma.investmentAllocationSnapshot.create.mock.calls[0][0]
-      expect(createCall.data.items.create[0].periodInvested).toBe(0)
-      expect(createCall.data.items.create[0].periodWithdrawn).toBe(0)
+      expect(createCall.data.items.create[0].periodNetFlow).toBe(0)
     })
 
     it('同一天已存在快照时应该执行更新（upsert）', async () => {
@@ -241,7 +240,7 @@ describe('allocation.service', () => {
   describe('deleteSnapshot', () => {
     it('应该删除快照并修复前后快照的链接', async () => {
       const previous = { id: 'prev1' }
-      const next = { id: 'next1' }
+      const next = { id: 'next1', date: new Date('2024-02-01') }
       const snapshotToDelete = {
         id: 'snap1',
         previousSnapshot: previous,
@@ -252,8 +251,7 @@ describe('allocation.service', () => {
 
       await deleteSnapshot('snap1')
 
-      // 更新测试，只检查调用了 updateMany，不检查具体参数（因为 previous 可能是 null）
-      expect(mockPrisma.investmentAllocationSnapshot.updateMany).toHaveBeenCalled()
+      expect(mockPrisma.investmentAllocationSnapshot.update).toHaveBeenCalled()
       expect(mockPrisma.investmentAllocationSnapshot.delete).toHaveBeenCalledWith({
         where: { id: 'snap1' },
       })
@@ -263,6 +261,165 @@ describe('allocation.service', () => {
       mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(null)
 
       await expect(deleteSnapshot('nonexistent')).rejects.toThrow(NotFoundError)
+    })
+
+    it('存在多个后继快照时应该抛出 ValidationError（链表异常）', async () => {
+      const snapshotWithMultipleNext = {
+        id: 'snap1',
+        previousSnapshot: { id: 'prev1' },
+        nextSnapshots: [
+          { id: 'next1', date: new Date('2024-02-01') },
+          { id: 'next2', date: new Date('2024-02-02') },
+        ],
+      }
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(snapshotWithMultipleNext)
+
+      await expect(deleteSnapshot('snap1')).rejects.toThrow(ValidationError)
+      expect(mockPrisma.investmentAllocationSnapshot.delete).not.toHaveBeenCalled()
+    })
+
+    it('无后继快照时应该直接删除', async () => {
+      const snapshotWithoutNext = {
+        id: 'snap1',
+        previousSnapshot: { id: 'prev1' },
+        nextSnapshots: [],
+      }
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(snapshotWithoutNext)
+      mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
+
+      await deleteSnapshot('snap1')
+
+      expect(mockPrisma.investmentAllocationSnapshot.update).not.toHaveBeenCalled()
+      expect(mockPrisma.investmentAllocationSnapshot.delete).toHaveBeenCalledWith({
+        where: { id: 'snap1' },
+      })
+    })
+  })
+
+  describe('updateSnapshot', () => {
+    it('应该成功更新快照', async () => {
+      const existingSnapshot = {
+        id: 'snap1',
+        accountId: 'acc1',
+        date: new Date('2024-01-01'),
+        items: [],
+        nextSnapshots: [],
+      }
+      const mockAssetClasses = [{ id: 'class1', name: '股票' }]
+
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
+      mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
+      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+      mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
+
+      await updateSnapshot('snap1', {
+        date: '2024-01-01',
+        items: [{ assetClassId: 'class1', marketValue: 10000 }],
+      })
+
+      expect(mockPrisma.investmentAllocationSnapshot.update).toHaveBeenCalled()
+    })
+
+    it('快照不存在时应该抛出 NotFoundError', async () => {
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(null)
+
+      await expect(updateSnapshot('nonexistent', {
+        date: '2024-01-01',
+        items: [{ assetClassId: 'class1', marketValue: 10000 }],
+      })).rejects.toThrow(NotFoundError)
+    })
+
+    it('新日期晚于后继快照时应该抛出 ValidationError', async () => {
+      const existingSnapshot = {
+        id: 'snap1',
+        accountId: 'acc1',
+        date: new Date('2024-01-01'),
+        items: [],
+        nextSnapshots: [{ id: 'next1', date: new Date('2024-02-01') }],
+      }
+
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
+
+      await expect(updateSnapshot('snap1', {
+        date: '2024-02-15',
+        items: [{ assetClassId: 'class1', marketValue: 10000 }],
+      })).rejects.toThrow(ValidationError)
+    })
+
+    it('新日期等于后继快照时应该抛出 ValidationError', async () => {
+      const existingSnapshot = {
+        id: 'snap1',
+        accountId: 'acc1',
+        date: new Date('2024-01-01'),
+        items: [],
+        nextSnapshots: [{ id: 'next1', date: new Date('2024-02-01T00:00:00') }],
+      }
+
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
+
+      await expect(updateSnapshot('snap1', {
+        date: '2024-02-01',
+        items: [{ assetClassId: 'class1', marketValue: 10000 }],
+      })).rejects.toThrow(ValidationError)
+    })
+
+    it('市值总和与账户余额不一致时应该抛出 ValidationError', async () => {
+      const existingSnapshot = {
+        id: 'snap1',
+        accountId: 'acc1',
+        date: new Date('2024-01-01'),
+        items: [],
+        nextSnapshots: [],
+      }
+      const mockAssetClasses = [{ id: 'class1', name: '股票' }]
+
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
+      mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
+      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+
+      await expect(updateSnapshot('snap1', {
+        date: '2024-01-01',
+        items: [{ assetClassId: 'class1', marketValue: 5000 }],
+      })).rejects.toThrow(ValidationError)
+    })
+
+    it('items 引用不属于该账户的资产类型时应该抛出 ValidationError', async () => {
+      const existingSnapshot = {
+        id: 'snap1',
+        accountId: 'acc1',
+        date: new Date('2024-01-01'),
+        items: [],
+        nextSnapshots: [],
+      }
+
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
+      mockPrisma.investmentAssetClass.findMany.mockResolvedValue([{ id: 'class1' }])
+
+      await expect(updateSnapshot('snap1', {
+        date: '2024-01-01',
+        items: [{ assetClassId: 'class2', marketValue: 10000 }],
+      })).rejects.toThrow(ValidationError)
+    })
+
+    it('assetClassId 重复时应该抛出 ValidationError', async () => {
+      const existingSnapshot = {
+        id: 'snap1',
+        accountId: 'acc1',
+        date: new Date('2024-01-01'),
+        items: [],
+        nextSnapshots: [],
+      }
+
+      mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
+      mockPrisma.investmentAssetClass.findMany.mockResolvedValue([{ id: 'class1' }, { id: 'class2' }])
+
+      await expect(updateSnapshot('snap1', {
+        date: '2024-01-01',
+        items: [
+          { assetClassId: 'class1', marketValue: 5000 },
+          { assetClassId: 'class1', marketValue: 5000 },
+        ],
+      })).rejects.toThrow(ValidationError)
     })
   })
 })

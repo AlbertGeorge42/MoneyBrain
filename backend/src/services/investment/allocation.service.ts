@@ -51,9 +51,14 @@ export async function createSnapshot(data: {
   nextDay.setDate(nextDay.getDate() + 1)
   const accountBalance = await calculateBalanceAtDate(data.accountId, nextDay)
 
-  // 6. 计算差额（允许差额存在，差额部分作为"未分类"）
+  // 6. 校验市值总和与账户余额一致（允许浮点误差）
   const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
-  // 差额 = 账户余额 - 已录入市值，将在展示时作为"未分类"处理
+  const diff = Math.abs(accountBalance - totalMarketValue)
+  if (diff > BALANCE_TOLERANCE) {
+    throw new ValidationError(
+      `市值总和（${totalMarketValue.toFixed(2)}）与账户余额（${accountBalance.toFixed(2)}）不一致`
+    )
+  }
 
   // 7. 找到该账户在当前日期之前（或同日）的最新快照
   const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
@@ -198,16 +203,20 @@ export async function deleteSnapshot(id: string) {
 
   if (!snapshot) throw new NotFoundError('快照不存在')
 
+  if (snapshot.nextSnapshots.length > 1) {
+    throw new ValidationError(
+      `该快照存在 ${snapshot.nextSnapshots.length} 个后继快照，链表数据异常，请联系管理员处理`
+    )
+  }
+
   return prisma.$transaction(async (tx) => {
-    // 先删除关联的 items
     await tx.investmentAllocationItem.deleteMany({
       where: { snapshotId: id },
     })
 
-    // 将下一个快照的 previousSnapshotId 指向当前快照的上一个
-    if (snapshot.nextSnapshots.length > 0) {
-      await tx.investmentAllocationSnapshot.updateMany({
-        where: { id: { in: snapshot.nextSnapshots.map((s) => s.id) } },
+    if (snapshot.nextSnapshots.length === 1) {
+      await tx.investmentAllocationSnapshot.update({
+        where: { id: snapshot.nextSnapshots[0].id },
         data: { previousSnapshotId: snapshot.previousSnapshotId },
       })
     }
@@ -229,7 +238,8 @@ export async function updateSnapshot(
     note?: string
   }
 ) {
-  // 1. 获取现有快照
+  const newDate = new Date(data.date + 'T00:00:00')
+
   const existingSnapshot = await prisma.investmentAllocationSnapshot.findUnique({
     where: { id },
     include: {
@@ -237,6 +247,7 @@ export async function updateSnapshot(
         include: { assetClass: true },
         orderBy: { sort: 'asc' },
       },
+      nextSnapshots: true,
     },
   })
 
@@ -244,7 +255,17 @@ export async function updateSnapshot(
 
   const accountId = existingSnapshot.accountId
 
-  // 2. 校验账户有资产类型
+  if (existingSnapshot.nextSnapshots.length > 0) {
+    const earliestNext = existingSnapshot.nextSnapshots.reduce((earliest, s) =>
+      s.date < earliest.date ? s : earliest
+    )
+    if (newDate >= earliestNext.date) {
+      throw new ValidationError(
+        `新日期不能晚于或等于后继快照日期（${earliestNext.date.toISOString().split('T')[0]}）`
+      )
+    }
+  }
+
   const assetClasses = await prisma.investmentAssetClass.findMany({
     where: { accountId },
   })
@@ -252,7 +273,6 @@ export async function updateSnapshot(
     throw new ValidationError('请先配置资产类型')
   }
 
-  // 3. 校验 items 只能引用该账户下的资产类型
   const assetClassIds = new Set(assetClasses.map((ac) => ac.id))
   for (const item of data.items) {
     if (!assetClassIds.has(item.assetClassId)) {
@@ -260,7 +280,6 @@ export async function updateSnapshot(
     }
   }
 
-  // 4. 校验同一个 assetClassId 不能重复
   const seenAssetClassIds = new Set<string>()
   for (const item of data.items) {
     if (seenAssetClassIds.has(item.assetClassId)) {
@@ -275,9 +294,14 @@ export async function updateSnapshot(
   nextDay.setDate(nextDay.getDate() + 1)
   const accountBalance = await calculateBalanceAtDate(accountId, nextDay)
 
-  // 6. 计算差额（允许差额存在，差额部分作为"未分类"）
+  // 6. 校验市值总和与账户余额一致（允许浮点误差）
   const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
-  // 差额 = 账户余额 - 已录入市值，将在展示时作为"未分类"处理
+  const diff = Math.abs(accountBalance - totalMarketValue)
+  if (diff > BALANCE_TOLERANCE) {
+    throw new ValidationError(
+      `市值总和（${totalMarketValue.toFixed(2)}）与账户余额（${accountBalance.toFixed(2)}）不一致`
+    )
+  }
 
   // 7. 找到该账户在当前日期之前的最新快照（排除自身）
   const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({

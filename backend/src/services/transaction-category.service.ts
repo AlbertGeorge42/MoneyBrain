@@ -58,6 +58,18 @@ export async function getTransactionCategoryStats(categoryId: string) {
 }
 
 export async function createTransactionCategory(data: TransactionCategoryCreatePayload) {
+  if (data.parentId) {
+    const parent = await prisma.transactionCategory.findUnique({
+      where: { id: data.parentId },
+    })
+    if (!parent) {
+      throw new NotFoundError('父分类')
+    }
+    if (parent.type !== data.type) {
+      throw new ValidationError('父分类类型不匹配')
+    }
+  }
+
   const finalSort = data.sort ?? await getNextTransactionCategorySort(data.type, data.parentId || null)
 
   return prisma.transactionCategory.create({
@@ -84,6 +96,31 @@ export async function updateTransactionCategorySorts(items: TransactionCategoryS
 }
 
 export async function updateTransactionCategory(categoryId: string, data: TransactionCategoryUpdatePayload) {
+  if (data.parentId !== undefined && data.parentId !== null) {
+    if (data.parentId === categoryId) {
+      throw new ValidationError('父分类不能是自己')
+    }
+
+    const parent = await prisma.transactionCategory.findUnique({
+      where: { id: data.parentId },
+    })
+    if (!parent) {
+      throw new NotFoundError('父分类')
+    }
+
+    const currentCategory = await prisma.transactionCategory.findUnique({
+      where: { id: categoryId },
+    })
+    if (!currentCategory) {
+      throw new NotFoundError('分类')
+    }
+
+    const targetType = data.type ?? currentCategory.type
+    if (parent.type !== targetType) {
+      throw new ValidationError('父分类类型不匹配')
+    }
+  }
+
   const updateData: {
     name?: string
     type?: string
