@@ -29,7 +29,6 @@ model Account {
   id                  String            @id @default(uuid())
   name                String
   type                String
-  balance             Decimal           @default(0)
   initialBalance      Decimal           @default(0)
   initialBalanceDate  DateTime?
   icon                String?

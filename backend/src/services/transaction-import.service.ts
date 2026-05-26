@@ -193,7 +193,6 @@ async function getOrCreateAccount(
       data: {
         name: accountName,
         type,
-        balance: 0,
         initialBalance: 0,
         categoryId,
         icon: type === 'liability' ? 'credit-card' : 'wallet',

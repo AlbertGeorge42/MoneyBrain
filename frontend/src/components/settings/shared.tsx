@@ -33,7 +33,6 @@ export interface AccountTreeNode extends BaseTreeNode {
   nodeType?: 'asset' | 'liability'
   parentId?: string
   sort?: number
-  balance: number
   initialBalance?: number
   initialBalanceDate?: string | null
 }

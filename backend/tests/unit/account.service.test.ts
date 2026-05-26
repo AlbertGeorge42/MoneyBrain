@@ -163,45 +163,25 @@ describe('account.service', () => {
   })
 
   describe('createAccount', () => {
-    it('应该使用 balance 创建账户', async () => {
-      const mockAccount = { id: '1', name: '新账户', balance: new Decimal(1000) }
+    it('应该使用 initialBalance 创建账户', async () => {
+      const mockAccount = { id: '1', name: '新账户', initialBalance: new Decimal(1000) }
       mockPrisma.account.create.mockResolvedValue(mockAccount)
 
       const result = await createAccount({
         name: '新账户',
         type: 'asset',
-        balance: 1000,
+        initialBalance: 1000,
       })
 
       expect(mockPrisma.account.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           name: '新账户',
           type: 'asset',
-          balance: 1000,
           initialBalance: 1000,
         }),
         include: { category: true },
       })
       expect(result).toEqual(mockAccount)
-    })
-
-    it('应该使用 initialBalance 作为默认值', async () => {
-      mockPrisma.account.create.mockResolvedValue({ id: '1' })
-
-      await createAccount({
-        name: '新账户',
-        type: 'asset',
-        initialBalance: 500,
-      })
-
-      expect(mockPrisma.account.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            balance: 500,
-            initialBalance: 500,
-          }),
-        })
-      )
     })
 
     it('无余额时应该默认 0', async () => {
@@ -215,7 +195,6 @@ describe('account.service', () => {
       expect(mockPrisma.account.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            balance: 0,
             initialBalance: 0,
           }),
         })
@@ -271,15 +250,14 @@ describe('account.service', () => {
       await expect(updateAccountProfile('999', { name: '新名称' })).rejects.toThrow(NotFoundError)
     })
 
-    it('修改 initialBalance 时应该同步更新 balance', async () => {
+    it('修改 initialBalance 时应该更新 initialBalance', async () => {
       mockPrisma.account.findUnique.mockResolvedValue({
         id: '1',
         name: '账户',
         type: 'asset',
-        balance: new Decimal(1000),
         initialBalance: new Decimal(1000),
       })
-      mockPrisma.account.update.mockResolvedValue({ id: '1', balance: new Decimal(2000) })
+      mockPrisma.account.update.mockResolvedValue({ id: '1', initialBalance: new Decimal(2000) })
 
       await updateAccountProfile('1', { initialBalance: 2000 })
 
@@ -287,7 +265,6 @@ describe('account.service', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             initialBalance: 2000,
-            balance: new Decimal(2000),
           }),
         })
       )
@@ -400,35 +377,22 @@ describe('account.service', () => {
   })
 
   describe('adjustAccountBalance', () => {
-    it('应该创建调整交易并更新余额', async () => {
+    it('应该创建调整交易', async () => {
       mockPrisma.account.findUnique.mockResolvedValue({
         id: '1',
         name: '账户',
-        balance: new Decimal(1000),
+        initialBalance: new Decimal(1000),
       })
-      mockPrisma.$transaction.mockImplementation(async (callback: any) => {
-        const txMock = {
-          transaction: {
-            create: vi.fn().mockResolvedValue({
-              id: 'adj1',
-              type: 'adjustment',
-              amount: new Decimal(500),
-            }),
-          },
-          account: {
-            update: vi.fn().mockResolvedValue({
-              id: '1',
-              balance: new Decimal(1500),
-            }),
-          },
-        }
-        return callback(txMock)
+      mockPrisma.transaction.create.mockResolvedValue({
+        id: 'adj1',
+        type: 'adjustment',
+        amount: new Decimal(500),
       })
 
       const result = await adjustAccountBalance('1', 500)
 
-      expect(result.newBalance).toBe(1500)
       expect(result.transaction).toBeDefined()
+      expect(result.transaction.type).toBe('adjustment')
     })
 
     it('账户不存在时应该抛出 NotFoundError', async () => {

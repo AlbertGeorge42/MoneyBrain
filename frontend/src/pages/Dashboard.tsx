@@ -32,16 +32,38 @@ const Dashboard: React.FC = () => {
   const colorActionPrimary = token.colorPrimary
   const colorTextMuted = token.colorTextTertiary
 
-  const { accounts, transactions, fetchAccounts, fetchTransactions } = useStore()
+  const { transactions, fetchAccounts, fetchTransactions } = useStore()
   const [chartLoading, setChartLoading] = useState(false)
   const [trendData, setTrendData] = useState<AnalyticsTrendItem[]>([])
   const [categoryData, setCategoryData] = useState<AnalyticsCategoryBreakdownItem[]>([])
+  const [balanceData, setBalanceData] = useState<{ totalAssets: number; totalLiabilities: number; netWorth: number }>({
+    totalAssets: 0,
+    totalLiabilities: 0,
+    netWorth: 0,
+  })
 
   useEffect(() => {
     fetchAccounts()
     fetchTransactions()
     void fetchAnalytics()
+    void fetchBalanceData()
   }, [fetchAccounts, fetchTransactions])
+
+  const fetchBalanceData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const res = await api.reportApi.getBalanceSheet(today)
+      if (res.data.success && res.data.data) {
+        setBalanceData({
+          totalAssets: res.data.data.assets,
+          totalLiabilities: res.data.data.liabilities,
+          netWorth: res.data.data.netWorth,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to fetch balance data:', error)
+    }
+  }
 
   const fetchAnalytics = async () => {
     setChartLoading(true)
@@ -80,11 +102,7 @@ const Dashboard: React.FC = () => {
     return []
   }
 
-  const totalAssets = accounts.filter((account) => account.type === 'asset').reduce((sum, account) => sum + Number(account.balance), 0)
-  const totalLiabilities = accounts
-    .filter((account) => account.type === 'liability')
-    .reduce((sum, account) => sum + Number(account.balance), 0)
-  const netWorth = totalAssets + totalLiabilities
+  const { totalAssets, totalLiabilities, netWorth } = balanceData
 
   const thisMonthStart = dayjs().startOf('month')
   const thisMonthTransactions = transactions.filter((transaction) =>

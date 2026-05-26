@@ -1,13 +1,8 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import {
-  calculateBalanceChangeDecimal,
-  calculateTransferInAmountDecimal,
-  type TransactionType
-} from './balance.service.js'
 import { toDecimal, ZERO } from '../common/index.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
-import { NotFoundError, InsufficientBalanceError, ValidationError } from '../common/index.js'
+import { NotFoundError, ValidationError } from '../common/index.js'
 import { buildTransactionListWhere } from './transaction-list.service.js'
 
 // ===== 接口定义 =====
@@ -129,31 +124,21 @@ export interface TransactionStats {
 export async function createIncomeExpense(data: CreateIncomeExpenseData): Promise<TransactionWithRelations> {
   const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId } = data
 
-  const result = await prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.create({
-      data: {
-        type,
-        amount: toDecimal(amount),
-        fee: toDecimal(fee),
-        coupon: toDecimal(coupon),
-        date,
-        note,
-        accountId,
-        categoryId,
-      },
-      include: { account: true, category: true },
-    })
-
-    const balanceChange = calculateBalanceChangeDecimal(type, toDecimal(amount), toDecimal(fee), toDecimal(coupon))
-    await tx.account.update({
-      where: { id: accountId },
-      data: { balance: { increment: balanceChange } },
-    })
-
-    return transaction
+  const transaction = await prisma.transaction.create({
+    data: {
+      type,
+      amount: toDecimal(amount),
+      fee: toDecimal(fee),
+      coupon: toDecimal(coupon),
+      date,
+      note,
+      accountId,
+      categoryId,
+    },
+    include: { account: true, category: true },
   })
 
-  return result as TransactionWithRelations
+  return transaction as TransactionWithRelations
 }
 
 export async function createTransfer(data: CreateTransferData): Promise<TransactionWithRelations> {
@@ -162,44 +147,25 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
   const fromAccount = await prisma.account.findUnique({ where: { id: accountId } })
   if (!fromAccount) throw new NotFoundError('转出账户')
 
-  const totalOut = toDecimal(amount).plus(fee).minus(coupon)
-  if (fromAccount.balance.lessThan(totalOut)) throw new InsufficientBalanceError('转出账户')
-
   const toAccount = await prisma.account.findUnique({ where: { id: toAccountId } })
   if (!toAccount) throw new NotFoundError('转入账户')
 
-  const result = await prisma.$transaction(async (tx) => {
-    const outAmount = calculateBalanceChangeDecimal('transfer', toDecimal(amount), toDecimal(fee), toDecimal(coupon))
-    await tx.account.update({
-      where: { id: accountId },
-      data: { balance: { increment: outAmount } },
-    })
-
-    const inAmount = calculateTransferInAmountDecimal(toDecimal(amount), toDecimal(fee), toDecimal(coupon))
-    await tx.account.update({
-      where: { id: toAccountId },
-      data: { balance: { increment: inAmount } },
-    })
-
-    const transaction = await tx.transaction.create({
-      data: {
-        type: 'transfer',
-        amount: toDecimal(amount),
-        fee: toDecimal(fee),
-        coupon: toDecimal(coupon),
-        date,
-        note,
-        accountId,
-        toAccountId,
-        categoryId,
-      },
-      include: { account: true, toAccount: true, category: true },
-    })
-
-    return transaction
+  const transaction = await prisma.transaction.create({
+    data: {
+      type: 'transfer',
+      amount: toDecimal(amount),
+      fee: toDecimal(fee),
+      coupon: toDecimal(coupon),
+      date,
+      note,
+      accountId,
+      toAccountId,
+      categoryId,
+    },
+    include: { account: true, toAccount: true, category: true },
   })
 
-  return result as TransactionWithRelations
+  return transaction as TransactionWithRelations
 }
 
 export async function createRefund(data: CreateRefundData): Promise<TransactionWithRelations> {
@@ -208,7 +174,6 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
   const relatedTransaction = await prisma.transaction.findUnique({ where: { id: relatedTransactionId } })
   if (!relatedTransaction) throw new NotFoundError('原交易记录')
 
-  // 检查是否已有退款记录
   const existingRefund = await prisma.transaction.findFirst({
     where: {
       type: 'refund',
@@ -219,37 +184,27 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
     throw new ValidationError('该交易已有退款记录，无法再次退款')
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.create({
-      data: {
-        type: 'refund',
-        amount: toDecimal(amount),
-        fee: toDecimal(fee),
-        coupon: toDecimal(coupon),
-        date,
-        note,
-        accountId,
-        categoryId: relatedTransaction.categoryId,
-        relatedTransactionId,
-        relatedType: relatedTransaction.type,
-      },
-      include: {
-        account: true,
-        category: true,
-        relatedTransaction: { include: { account: true, category: true } },
-      },
-    })
-
-    const balanceChange = calculateBalanceChangeDecimal('refund', toDecimal(amount), toDecimal(fee), toDecimal(coupon))
-    await tx.account.update({
-      where: { id: accountId },
-      data: { balance: { increment: balanceChange } },
-    })
-
-    return transaction
+  const transaction = await prisma.transaction.create({
+    data: {
+      type: 'refund',
+      amount: toDecimal(amount),
+      fee: toDecimal(fee),
+      coupon: toDecimal(coupon),
+      date,
+      note,
+      accountId,
+      categoryId: relatedTransaction.categoryId,
+      relatedTransactionId,
+      relatedType: relatedTransaction.type,
+    },
+    include: {
+      account: true,
+      category: true,
+      relatedTransaction: { include: { account: true, category: true } },
+    },
   })
 
-  return result as TransactionWithRelations
+  return transaction as TransactionWithRelations
 }
 
 // ===== 更新交易 =====
@@ -258,155 +213,83 @@ export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseD
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
-  const oldFee = toDecimal(oldTransaction.fee)
-  const oldCoupon = toDecimal(oldTransaction.coupon)
+  const newType = data.type || oldTransaction.type
+  const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
+  const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldTransaction.fee
+  const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldTransaction.coupon
+  const newAccountId = data.accountId || oldTransaction.accountId
 
-  const result = await prisma.$transaction(async (tx) => {
-    const oldBalanceChange = calculateBalanceChangeDecimal(
-      oldTransaction.type as TransactionType,
-      oldTransaction.amount,
-      oldFee,
-      oldCoupon,
-    )
-    await tx.account.update({
-      where: { id: oldTransaction.accountId },
-      data: { balance: { decrement: oldBalanceChange.abs() } },
-    })
-
-    const newType = data.type || oldTransaction.type
-    const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
-    const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldFee
-    const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldCoupon
-    const newAccountId = data.accountId || oldTransaction.accountId
-
-    const transaction = await tx.transaction.update({
-      where: { id },
-      data: {
-        type: newType,
-        amount: newAmount,
-        fee: newFee,
-        coupon: newCoupon,
-        date: data.date || oldTransaction.date,
-        note: data.note !== undefined ? data.note : oldTransaction.note,
-        accountId: newAccountId,
-        categoryId: data.categoryId || oldTransaction.categoryId,
-      },
-      include: { account: true, category: true },
-    })
-
-    const newBalanceChange = calculateBalanceChangeDecimal(newType as TransactionType, newAmount, newFee, newCoupon)
-    await tx.account.update({
-      where: { id: newAccountId },
-      data: { balance: { increment: newBalanceChange } },
-    })
-
-    return transaction
+  const transaction = await prisma.transaction.update({
+    where: { id },
+    data: {
+      type: newType,
+      amount: newAmount,
+      fee: newFee,
+      coupon: newCoupon,
+      date: data.date || oldTransaction.date,
+      note: data.note !== undefined ? data.note : oldTransaction.note,
+      accountId: newAccountId,
+      categoryId: data.categoryId || oldTransaction.categoryId,
+    },
+    include: { account: true, category: true },
   })
 
-  return result as TransactionWithRelations
+  return transaction as TransactionWithRelations
 }
 
 export async function updateTransfer(id: string, data: UpdateTransferData): Promise<TransactionWithRelations> {
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
-  const oldFee = toDecimal(oldTransaction.fee)
-  const oldCoupon = toDecimal(oldTransaction.coupon)
+  const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
+  const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldTransaction.fee
+  const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldTransaction.coupon
+  const newAccountId = data.accountId || oldTransaction.accountId
+  const newToAccountId = data.toAccountId || oldTransaction.toAccountId!
 
-  const result = await prisma.$transaction(async (tx) => {
-    const oldOutAmount = calculateBalanceChangeDecimal('transfer', oldTransaction.amount, oldFee, oldCoupon)
-    await tx.account.update({
-      where: { id: oldTransaction.accountId },
-      data: { balance: { increment: oldOutAmount.negated() } },
-    })
-    const oldInAmount = calculateTransferInAmountDecimal(oldTransaction.amount, oldFee, oldCoupon)
-    await tx.account.update({
-      where: { id: oldTransaction.toAccountId! },
-      data: { balance: { decrement: oldInAmount } },
-    })
-
-    const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
-    const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldFee
-    const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldCoupon
-    const newAccountId = data.accountId || oldTransaction.accountId
-    const newToAccountId = data.toAccountId || oldTransaction.toAccountId!
-
-    const transaction = await tx.transaction.update({
-      where: { id },
-      data: {
-        amount: newAmount,
-        fee: newFee,
-        coupon: newCoupon,
-        date: data.date || oldTransaction.date,
-        note: data.note !== undefined ? data.note : oldTransaction.note,
-        accountId: newAccountId,
-        toAccountId: newToAccountId,
-        categoryId: data.categoryId !== undefined ? data.categoryId : oldTransaction.categoryId,
-      },
-      include: { account: true, toAccount: true, category: true },
-    })
-
-    const newOutAmount = calculateBalanceChangeDecimal('transfer', newAmount, newFee, newCoupon)
-    await tx.account.update({
-      where: { id: newAccountId },
-      data: { balance: { increment: newOutAmount } },
-    })
-    const newInAmount = calculateTransferInAmountDecimal(newAmount, newFee, newCoupon)
-    await tx.account.update({
-      where: { id: newToAccountId },
-      data: { balance: { increment: newInAmount } },
-    })
-
-    return transaction
+  const transaction = await prisma.transaction.update({
+    where: { id },
+    data: {
+      amount: newAmount,
+      fee: newFee,
+      coupon: newCoupon,
+      date: data.date || oldTransaction.date,
+      note: data.note !== undefined ? data.note : oldTransaction.note,
+      accountId: newAccountId,
+      toAccountId: newToAccountId,
+      categoryId: data.categoryId !== undefined ? data.categoryId : oldTransaction.categoryId,
+    },
+    include: { account: true, toAccount: true, category: true },
   })
 
-  return result as TransactionWithRelations
+  return transaction as TransactionWithRelations
 }
 
 export async function updateRefund(id: string, data: UpdateRefundData): Promise<TransactionWithRelations> {
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
-  const oldFee = toDecimal(oldTransaction.fee)
-  const oldCoupon = toDecimal(oldTransaction.coupon)
+  const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
+  const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldTransaction.fee
+  const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldTransaction.coupon
+  const newAccountId = data.accountId || oldTransaction.accountId
 
-  const result = await prisma.$transaction(async (tx) => {
-    const oldBalanceChange = calculateBalanceChangeDecimal('refund', oldTransaction.amount, oldFee, oldCoupon)
-    await tx.account.update({
-      where: { id: oldTransaction.accountId },
-      data: { balance: { decrement: oldBalanceChange.abs() } },
-    })
-
-    const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
-    const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldFee
-    const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldCoupon
-    const newAccountId = data.accountId || oldTransaction.accountId
-
-    const transaction = await tx.transaction.update({
-      where: { id },
-      data: {
-        amount: newAmount,
-        fee: newFee,
-        coupon: newCoupon,
-        date: data.date || oldTransaction.date,
-        note: data.note !== undefined ? data.note : oldTransaction.note,
-        accountId: newAccountId,
-        categoryId: data.categoryId !== undefined ? data.categoryId : oldTransaction.categoryId,
-        relatedTransactionId: data.relatedTransactionId !== undefined ? data.relatedTransactionId : oldTransaction.relatedTransactionId,
-      },
-      include: { account: true, category: true, relatedTransaction: true },
-    })
-
-    const newBalanceChange = calculateBalanceChangeDecimal('refund', newAmount, newFee, newCoupon)
-    await tx.account.update({
-      where: { id: newAccountId },
-      data: { balance: { increment: newBalanceChange } },
-    })
-
-    return transaction
+  const transaction = await prisma.transaction.update({
+    where: { id },
+    data: {
+      amount: newAmount,
+      fee: newFee,
+      coupon: newCoupon,
+      date: data.date || oldTransaction.date,
+      note: data.note !== undefined ? data.note : oldTransaction.note,
+      accountId: newAccountId,
+      categoryId: data.categoryId !== undefined ? data.categoryId : oldTransaction.categoryId,
+      relatedTransactionId: data.relatedTransactionId !== undefined ? data.relatedTransactionId : oldTransaction.relatedTransactionId,
+    },
+    include: { account: true, category: true, relatedTransaction: true },
   })
 
-  return result as TransactionWithRelations
+  return transaction as TransactionWithRelations
 }
 
 // ===== 查询与删除 =====
@@ -509,40 +392,10 @@ export async function getRefundableTransactions(): Promise<TransactionWithRelati
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.findUnique({ where: { id } })
-    if (!transaction) throw new NotFoundError('交易记录')
+  const transaction = await prisma.transaction.findUnique({ where: { id } })
+  if (!transaction) throw new NotFoundError('交易记录')
 
-    const amount = transaction.amount
-    const fee = toDecimal(transaction.fee)
-    const coupon = toDecimal(transaction.coupon)
-
-    if (transaction.type === 'transfer') {
-      const outAmount = calculateBalanceChangeDecimal('transfer', amount, fee, coupon)
-      await tx.account.update({
-        where: { id: transaction.accountId },
-        data: { balance: { increment: outAmount.negated() } },
-      })
-      const inAmount = calculateTransferInAmountDecimal(amount, fee, coupon)
-      await tx.account.update({
-        where: { id: transaction.toAccountId! },
-        data: { balance: { decrement: inAmount } },
-      })
-    } else {
-      const balanceChange = calculateBalanceChangeDecimal(
-        transaction.type as TransactionType,
-        amount,
-        fee,
-        coupon,
-      )
-      await tx.account.update({
-        where: { id: transaction.accountId },
-        data: { balance: { decrement: balanceChange } },
-      })
-    }
-
-    await tx.transaction.delete({ where: { id } })
-  })
+  await prisma.transaction.delete({ where: { id } })
 }
 
 export async function getEarliestTransactionDate(): Promise<Date | null> {

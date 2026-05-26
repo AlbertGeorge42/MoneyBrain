@@ -83,10 +83,10 @@ describe('退款对统计数据的影响', () => {
     await prisma.transaction.deleteMany()
     const account = await prisma.account.update({
       where: { id: testAccountId },
-      data: { balance: 0 },
+      data: { initialBalance: 0 },
     }).catch(async () => {
       const a = await prisma.account.create({
-        data: { name: '测试账户', type: 'asset', balance: 0 },
+        data: { name: '测试账户', type: 'asset', initialBalance: 0 },
       })
       return a
     })

@@ -4,7 +4,6 @@ import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildTreeData } from '../../utils/treeUtils'
 import DynamicIcon from '../common/DynamicIcon'
-import { formatBalance } from '../../utils/formatBalance'
 
 export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund'
 
@@ -110,14 +109,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               rules={[{ required: true, message: '请选择转出账户' }]}
             >
               <Select placeholder="请选择转出账户">
-                {accounts.map(a => {
-                  const balanceDisplay = formatBalance(a.balance, a.type as 'asset' | 'liability')
-                  return (
-                    <Select.Option key={a.id} value={a.id}>
-                      <DynamicIcon name={a.icon} size={16} /> {a.name} ({balanceDisplay.text})
-                    </Select.Option>
-                  )
-                })}
+                {accounts.map(a => (
+                  <Select.Option key={a.id} value={a.id}>
+                    <DynamicIcon name={a.icon} size={16} /> {a.name}
+                  </Select.Option>
+                ))}
               </Select>
             </Form.Item>
           </Col>

@@ -76,16 +76,6 @@ function transformTransactionFields(data: unknown): unknown {
     if (result.relatedTransaction) {
       result.relatedTransaction = transformTransactionFields(result.relatedTransaction)
     }
-    if (result.account) {
-      const acc: Record<string, unknown> = { ...(result.account as Record<string, unknown>) }
-      if (typeof acc.balance === 'string') acc.balance = parseFloat(acc.balance)
-      result.account = acc
-    }
-    if (result.toAccount) {
-      const toAcc: Record<string, unknown> = { ...(result.toAccount as Record<string, unknown>) }
-      if (typeof toAcc.balance === 'string') toAcc.balance = parseFloat(toAcc.balance)
-      result.toAccount = toAcc
-    }
     return result
   }
   if (isTransactionList(data)) {

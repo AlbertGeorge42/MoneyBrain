@@ -11,7 +11,6 @@ import DynamicIcon from '../common/DynamicIcon'
 import CategoryForm from './CategoryForm'
 import AccountForm from './AccountForm'
 import MoveModal from './MoveModal'
-import { formatBalance } from '../../utils/formatBalance'
 import {
   useMoveModal,
   useSortableTable,
@@ -63,14 +62,13 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       const children: AccountTreeNode[] = catAccounts.map(a => ({
         id: a.id, key: `account-${a.id}`, name: a.name, icon: a.icon || 'wallet',
         type: 'account' as const, nodeType: a.type as 'asset' | 'liability',
-        balance: a.balance, initialBalance: a.initialBalance, initialBalanceDate: a.initialBalanceDate,
+        initialBalance: a.initialBalance, initialBalanceDate: a.initialBalanceDate,
         parentId: cat.id, sort: a.sort, depth: depth + 1,
       }))
       return {
         id: cat.id, key: `category-${cat.id}`, name: cat.name, icon: cat.icon || 'folder',
         type: 'category' as const, nodeType: cat.type as 'asset' | 'liability',
         parentId: undefined, sort: cat.sort,
-        balance: children.reduce((sum, c) => sum + (c.balance || 0), 0),
         children: children.length > 0 ? children : undefined, depth,
       }
     }
@@ -259,7 +257,6 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderExpandIcon(record, expandedRowKeys, toggleExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
     { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderDragHandle(record, isSortable) },
     { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: AccountTreeNode) => <span><DynamicIcon name={record.icon} size={16} fallback={record.type === 'category' ? 'folder' : 'wallet'} /> {text}</span> },
-    { title: '余额', dataIndex: 'balance', key: 'balance', width: 120, render: (balance: number, record: AccountTreeNode) => record.type === 'category' ? '-' : <span style={{ color: formatBalance(balance, record.nodeType || 'asset').color }}>{formatBalance(balance, record.nodeType || 'asset').text}</span> },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: AccountTreeNode) => <Dropdown menu={{ items: getSettingMenuItems(record) }} trigger={['click']}><Button type="text" size="small" icon={<SettingOutlined />} /></Dropdown> },
   ]
 

@@ -1,11 +1,6 @@
 import { prisma } from '../index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
-import {
-  calculateBalanceChangeDecimal,
-  calculateTransferInAmountDecimal,
-  type TransactionType
-} from './balance.service.js'
 
 export async function getNextAccountSort(categoryId: string | null): Promise<number> {
   const maxSortResult = await prisma.account.aggregate({
@@ -67,21 +62,16 @@ export async function getAccountDetail(accountId: string) {
 export async function createAccount(data: {
   name: string
   type: string
-  balance?: number
   icon?: string | null
   categoryId?: string | null
   initialBalance?: number
   initialBalanceDate?: string
 }) {
-  const actualBalance = data.balance ?? data.initialBalance ?? 0
-  const actualInitialBalance = data.initialBalance ?? data.balance ?? 0
-
   return prisma.account.create({
     data: {
       name: data.name,
       type: data.type,
-      balance: actualBalance,
-      initialBalance: actualInitialBalance,
+      initialBalance: data.initialBalance ?? 0,
       initialBalanceDate: data.initialBalanceDate
         ? new Date(`${data.initialBalanceDate}T00:00:00`)
         : new Date(),
@@ -126,11 +116,7 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
   }
 
   if (data.initialBalance !== undefined) {
-    const oldInitialBalance = toDecimal(currentAccount.initialBalance)
-    const newInitialBalance = toDecimal(data.initialBalance)
-    const balanceDiff = newInitialBalance.minus(oldInitialBalance)
     updateData.initialBalance = data.initialBalance
-    updateData.balance = currentAccount.balance.plus(balanceDiff)
   }
 
   return prisma.account.update({
@@ -166,42 +152,6 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
   if (forceDelete && hasRelatedData) {
     await prisma.$transaction(async (tx) => {
       if (transactionsCount > 0) {
-        const transactions = await tx.transaction.findMany({
-          where: { accountId },
-        })
-
-        for (const transaction of transactions) {
-          const fee = toDecimal(transaction.fee)
-          const coupon = toDecimal(transaction.coupon)
-
-          if (transaction.type === 'transfer') {
-            const outAmount = calculateBalanceChangeDecimal('transfer', transaction.amount, fee, coupon)
-            await tx.account.update({
-              where: { id: transaction.accountId },
-              data: { balance: { increment: outAmount.abs() } },
-            })
-
-            if (transaction.toAccountId) {
-              const inAmount = calculateTransferInAmountDecimal(transaction.amount, fee, coupon)
-              await tx.account.update({
-                where: { id: transaction.toAccountId },
-                data: { balance: { decrement: inAmount } },
-              })
-            }
-          } else {
-            const balanceChange = calculateBalanceChangeDecimal(
-              transaction.type as TransactionType,
-              transaction.amount,
-              fee,
-              coupon,
-            )
-            await tx.account.update({
-              where: { id: transaction.accountId },
-              data: { balance: { decrement: balanceChange } },
-            })
-          }
-        }
-
         await tx.transaction.deleteMany({ where: { accountId } })
       }
 
@@ -265,35 +215,25 @@ export async function adjustAccountBalance(
   amount: number,
   date?: string,
   note?: string,
-): Promise<{ transaction: any; newBalance: number }> {
+): Promise<{ transaction: any }> {
   const account = await prisma.account.findUnique({ where: { id: accountId } })
   if (!account) throw new NotFoundError('账户')
 
   const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
 
-  const result = await prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.create({
-      data: {
-        type: 'adjustment',
-        amount: toDecimal(amount),
-        date: adjustDate,
-        note: note || '平账调整',
-        accountId,
-        isAdjustment: true,
-      },
-      include: { account: true },
-    })
-
-    const newBalance = account.balance.plus(amount)
-    await tx.account.update({
-      where: { id: accountId },
-      data: { balance: newBalance },
-    })
-
-    return { transaction, newBalance: newBalance.toNumber() }
+  const transaction = await prisma.transaction.create({
+    data: {
+      type: 'adjustment',
+      amount: toDecimal(amount),
+      date: adjustDate,
+      note: note || '平账调整',
+      accountId,
+      isAdjustment: true,
+    },
+    include: { account: true },
   })
 
-  return result
+  return { transaction }
 }
 
 export async function batchAdjustAccountBalances(
@@ -309,25 +249,15 @@ export async function batchAdjustAccountBalances(
     const account = await prisma.account.findUnique({ where: { id: accountId } })
     if (!account || amount === 0) continue
 
-    const { transaction, newBalance } = await prisma.$transaction(async (tx) => {
-      const transaction = await tx.transaction.create({
-        data: {
-          type: 'adjustment',
-          amount: toDecimal(amount),
-          date: adjustDate,
-          note: note || '批量平账调整',
-          accountId,
-          isAdjustment: true,
-        },
-      })
-
-      const newBalance = account.balance.plus(amount)
-      await tx.account.update({
-        where: { id: accountId },
-        data: { balance: newBalance },
-      })
-
-      return { transaction, newBalance: newBalance.toNumber() }
+    const transaction = await prisma.transaction.create({
+      data: {
+        type: 'adjustment',
+        amount: toDecimal(amount),
+        date: adjustDate,
+        note: note || '批量平账调整',
+        accountId,
+        isAdjustment: true,
+      },
     })
 
     results.push({
@@ -335,7 +265,6 @@ export async function batchAdjustAccountBalances(
       accountName: account.name,
       amount,
       transactionId: transaction.id,
-      newBalance,
     })
   }
 

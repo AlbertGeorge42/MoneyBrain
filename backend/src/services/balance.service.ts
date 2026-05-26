@@ -171,11 +171,28 @@ export async function calculateBalancesBatch(
         dateBalanceMap.set(dateKey, balance.toNumber())
       } else {
         // 有初始余额日期，根据方向计算
-        const isForward = targetDate >= initialDate
-        const dateRange = isForward
-          ? { gte: initialDate, lt: targetDate }
-          : { gte: targetDate, lt: initialDate }
-        const multiplier: 1 | -1 = isForward ? 1 : -1
+        // 初始余额日期代表当天结束，所以初始日期的下一天是计算的起点
+        const initialDateNextDay = new Date(initialDate)
+        initialDateNextDay.setDate(initialDateNextDay.getDate() + 1)
+        
+        const isForward = targetDate >= initialDateNextDay
+        
+        let dateRange: { gte: Date; lt: Date }
+        let multiplier: 1 | -1
+        
+        if (isForward) {
+          // 向前计算：从初始日期下一天到目标日期
+          dateRange = { gte: initialDateNextDay, lt: targetDate }
+          multiplier = 1
+        } else if (targetDate <= initialDate) {
+          // 向后计算：从目标日期到初始日期（不含初始日期当天）
+          dateRange = { gte: targetDate, lt: initialDate }
+          multiplier = -1
+        } else {
+          // targetDate 在初始日期当天，返回初始余额
+          dateBalanceMap.set(dateKey, initialBalance.toNumber())
+          continue
+        }
 
         const relevantFrom = accountFromTransactions.filter(t => {
           const tDate = t.date
@@ -222,12 +239,27 @@ export async function calculateBalanceAtDate(
   }
 
   const initialDate = account.initialBalanceDate
-  const isForwardCalculation = targetDate >= initialDate
+  // 初始余额日期代表当天结束，所以初始日期的下一天是计算的起点
+  const initialDateNextDay = new Date(initialDate)
+  initialDateNextDay.setDate(initialDateNextDay.getDate() + 1)
+  
+  const isForwardCalculation = targetDate >= initialDateNextDay
 
-  const dateRange = isForwardCalculation
-    ? { gte: initialDate, lt: targetDate }
-    : { gte: targetDate, lt: initialDate }
-  const multiplier: 1 | -1 = isForwardCalculation ? 1 : -1
+  let dateRange: { gte: Date; lt: Date }
+  let multiplier: 1 | -1
+
+  if (isForwardCalculation) {
+    // 向前计算：从初始日期下一天到目标日期
+    dateRange = { gte: initialDateNextDay, lt: targetDate }
+    multiplier = 1
+  } else if (targetDate <= initialDate) {
+    // 向后计算：从目标日期到初始日期（不含初始日期当天）
+    dateRange = { gte: targetDate, lt: initialDate }
+    multiplier = -1
+  } else {
+    // targetDate 在初始日期当天，返回初始余额
+    return balance.toNumber()
+  }
 
   const [fromTransactions, toTransactions] = await Promise.all([
     prisma.transaction.findMany({
