@@ -41,7 +41,9 @@ export const createBudgetSlice: StateCreator<AppState, [], [], BudgetSlice> = (s
   deleteBudget: async (id) => {
     const res = await budgetApi.delete(id)
     if (res.data.success) {
-      await get().fetchBudgets()
+      set((state) => ({
+        budgets: state.budgets.filter((b) => b.id !== id),
+      }))
     }
   },
 })

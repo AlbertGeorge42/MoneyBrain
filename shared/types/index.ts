@@ -91,19 +91,33 @@ export interface Transaction {
 export interface Budget {
   id: string
   name: string
+  type: 'income' | 'expense' | 'transfer'
   amount: number
-  period: string
+  period: 'monthly' | 'quarterly' | 'yearly'
   startDate: string
   endDate: string | null
-  categoryId: string | null
-  category: TransactionCategory | null
+  note: string | null
+  isActive: boolean
+  accountId: string
+  toAccountId: string | null
+  categoryId: string
+  account: Account
+  toAccount: Account | null
+  category: TransactionCategory
   createdAt: string
   updatedAt: string
 }
 
-export interface TransactionCategoryStats {
-  transactionCount: number
-  childrenCount: number
+export interface BudgetPrediction {
+  date: string
+  type: 'income' | 'expense' | 'transfer'
+  amount: number
+  note: string | null
+  accountId: string
+  toAccountId: string | null
+  categoryId: string
+  budgetId: string
+  budgetName: string
 }
 
 export interface BudgetStatus {
@@ -112,6 +126,11 @@ export interface BudgetStatus {
   remaining: number
   percentage: number
   isOverBudget: boolean
+}
+
+export interface TransactionCategoryStats {
+  transactionCount: number
+  childrenCount: number
 }
 
 // ===== 分析与报表 =====
@@ -182,6 +201,8 @@ export interface IncomeExpenseReportData {
   endLiabilities: number
   endNetWorth: number
   assetChange: number
+  predictedIncome?: number
+  predictedExpense?: number
 }
 
 export interface CashFlowActivityItem {

@@ -2,6 +2,7 @@ import { prisma } from '../../index.js'
 import { calculateBalanceAtDate } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO } from '../../common/index.js'
+import { generatePredictions } from '../budget.service.js'
 
 export interface CategoryBreakdownItem {
   name: string
@@ -28,9 +29,12 @@ export interface IncomeExpenseResult {
   endLiabilities: number
   endNetWorth: number
   assetChange: number
+  // 预测数据（仅当 includePredictions=true 时）
+  predictedIncome?: number
+  predictedExpense?: number
 }
 
-export async function generateIncomeExpense(startDate: string, endDate: string): Promise<IncomeExpenseResult> {
+export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseResult> {
   const start = new Date(`${startDate}T00:00:00`)
   const end = new Date(`${endDate}T23:59:59.999`)
 
@@ -53,6 +57,32 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
       expense = expense.plus(t.amount)
     }
   })
+
+  // 预算预测融合
+  let predictedIncome: number | undefined
+  let predictedExpense: number | undefined
+
+  if (includePredictions) {
+    const now = new Date()
+    // 仅对未来时间范围生成预测
+    if (end > now) {
+      const predictionsStart = start > now ? startDate : now.toISOString().split('T')[0]
+      const predictions = await generatePredictions(predictionsStart, endDate)
+      let pIncome = ZERO
+      let pExpense = ZERO
+
+      predictions.forEach(p => {
+        if (p.type === 'income') {
+          pIncome = pIncome.plus(p.amount)
+        } else if (p.type === 'expense') {
+          pExpense = pExpense.plus(p.amount)
+        }
+      })
+
+      predictedIncome = pIncome.toNumber()
+      predictedExpense = pExpense.toNumber()
+    }
+  }
 
   const balance = income.minus(expense)
 
@@ -182,5 +212,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string):
     endLiabilities,
     endNetWorth,
     assetChange: endNetWorth - startNetWorth,
+    predictedIncome,
+    predictedExpense,
   }
 }

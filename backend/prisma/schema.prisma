@@ -38,6 +38,8 @@ model Account {
   category            AccountCategory?  @relation(fields: [categoryId], references: [id])
   fromTransactions    Transaction[]     @relation("TransactionFrom")
   toTransactions      Transaction[]     @relation("TransactionTo")
+  fromBudgets         Budget[]          @relation("BudgetFrom")
+  toBudgets           Budget[]          @relation("BudgetTo")
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -95,30 +97,33 @@ model Transaction {
 }
 
 model Budget {
-  id         String        @id @default(uuid())
-  name       String
-  amount     Decimal
-  period     String
-  startDate  DateTime
-  endDate    DateTime?
-  categoryId String?
-  category   TransactionCategory? @relation(fields: [categoryId], references: [id])
-  alerts     BudgetAlert[]
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id          String   @id @default(uuid())
+  name        String                     // 预算名称，如 "每月工资"、"ETF定投"
+  type        String                     // 'income' | 'expense' | 'transfer'
+  amount      Decimal
+  period      String                     // 'monthly' | 'quarterly' | 'yearly'
+  startDate   DateTime
+  endDate     DateTime?                  // null = 无限期
+  note        String?                    // 备注
+  isActive    Boolean   @default(true)   // 是否活跃
 
+  // 账户关联（与交易对齐）
+  accountId   String
+  account     Account   @relation("BudgetFrom", fields: [accountId], references: [id])
+
+  toAccountId String?
+  toAccount   Account?  @relation("BudgetTo", fields: [toAccountId], references: [id])
+
+  // 分类关联
+  categoryId  String
+  category    TransactionCategory  @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([accountId])
   @@map("budgets")
-}
-
-model BudgetAlert {
-  id         String  @id @default(uuid())
-  budgetId   String
-  budget     Budget  @relation(fields: [budgetId], references: [id])
-  threshold  Int
-  isNotified Boolean @default(false)
-  createdAt  DateTime @default(now())
-
-  @@map("budget_alerts")
 }
 
 model InvestmentAssetClass {

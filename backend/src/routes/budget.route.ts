@@ -14,15 +14,16 @@ import {
   getBudgetDetail,
   getBudgets,
   getBudgetStatus,
+  generatePredictions,
   updateBudget,
 } from '../services/budget.service.js'
 
 const router = Router()
 
 const validateBudgetPayload = (req: Request) => {
-  const { name, amount, period, startDate, endDate } = req.body as Record<string, unknown>
-  if (!hasValue(name) || !hasValue(amount) || !hasValue(period)) {
-    throw new ValidationError('缺少必要参数')
+  const { name, amount, type, period, accountId, startDate, endDate } = req.body as Record<string, unknown>
+  if (!hasValue(name) || !hasValue(amount) || !hasValue(type) || !hasValue(period) || !hasValue(accountId)) {
+    throw new ValidationError('缺少必要参数(name, amount, type, period, accountId)')
   }
   if (hasValue(startDate)) {
     toDate(startDate, 'startDate')
@@ -33,8 +34,19 @@ const validateBudgetPayload = (req: Request) => {
 }
 
 router.get('/', asyncHandler(async (req, res) => {
-  const budgets = await getBudgets(typeof req.query.period === 'string' ? req.query.period : undefined)
+  const type = typeof req.query.type === 'string' ? req.query.type : undefined
+  const period = typeof req.query.period === 'string' ? req.query.period : undefined
+  const budgets = await getBudgets({ type, period })
   return success(res, budgets)
+}))
+
+router.get('/predictions', asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query
+  if (!startDate || !endDate) {
+    throw new ValidationError('缺少 startDate 或 endDate 参数')
+  }
+  const predictions = await generatePredictions(String(startDate), String(endDate))
+  return success(res, predictions)
 }))
 
 router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {

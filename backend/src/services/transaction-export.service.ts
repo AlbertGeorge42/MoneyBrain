@@ -66,7 +66,6 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
 
 export async function clearAllData(): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await tx.budgetAlert.deleteMany()
     await tx.budget.deleteMany()
     await tx.transaction.deleteMany()
     await tx.account.deleteMany()
@@ -79,7 +78,6 @@ export async function clearAllData(): Promise<void> {
 
 export async function clearTransactionsOnly(): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await tx.budgetAlert.deleteMany()
     await tx.budget.deleteMany()
     await tx.transaction.deleteMany()
   })
