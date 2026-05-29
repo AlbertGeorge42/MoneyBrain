@@ -16,7 +16,8 @@ router.get('/income-expense', validateRequest(validateDateRange), asyncHandler(a
 }))
 
 router.get('/cash-flow', validateRequest(validateDateRange), asyncHandler(async (req, res) => {
-  const result = await generateCashFlow(String(req.query.startDate), String(req.query.endDate))
+  const includePredictions = req.query.includePredictions === 'true'
+  const result = await generateCashFlow(String(req.query.startDate), String(req.query.endDate), includePredictions)
   return success(res, result)
 }))
 

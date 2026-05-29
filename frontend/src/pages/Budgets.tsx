@@ -22,6 +22,8 @@ const BUDGET_TYPE_META = {
 } as const
 
 const PERIOD_LABELS: Record<string, string> = {
+  daily: '每日',
+  weekly: '每周',
   monthly: '月度',
   quarterly: '季度',
   yearly: '年度',
@@ -114,6 +116,7 @@ const Budgets: React.FC = () => {
         period: values.period,
         startDate: values.startDate?.toISOString(),
         endDate: values.endDate?.toISOString() ?? null,
+        transactionTime: values.transactionTime ?? null,
         note: values.note,
         isActive: values.isActive,
         accountId: values.accountId,
@@ -270,6 +273,14 @@ const Budgets: React.FC = () => {
                           <Space wrap>
                             <Text strong style={{ fontSize: 16 }}>{budget.name}</Text>
                             <Tag>{PERIOD_LABELS[budget.period] ?? budget.period}</Tag>
+                            {budget.transactionTime !== null && budget.period !== 'daily' && (
+                              <Tag color="blue">
+                                {budget.period === 'weekly'
+                                  ? ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][budget.transactionTime]
+                                  : `第${budget.transactionTime + 1}天`
+                                }
+                              </Tag>
+                            )}
                             {!budget.isActive && <Tag color="default">已停用</Tag>}
                           </Space>
                           <div style={{ marginTop: 4 }}>

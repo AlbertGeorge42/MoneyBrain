@@ -6,7 +6,7 @@ import { toDecimal, ZERO } from '../common/index.js'
 // 预算类型
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
 // 预算周期
-const BUDGET_PERIODS = ['monthly', 'quarterly', 'yearly'] as const
+const BUDGET_PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const
 
 type BudgetPayload = {
   name: string
@@ -15,6 +15,7 @@ type BudgetPayload = {
   period: string
   startDate?: string
   endDate?: string | null
+  transactionTime?: number | null
   note?: string | null
   isActive?: boolean
   accountId: string
@@ -52,6 +53,22 @@ function getPeriodRange(period: string, referenceDate: Date = new Date()): { sta
   const d = referenceDate.getDate()
 
   switch (period) {
+    case 'daily':
+      return {
+        startDate: new Date(y, m, d),
+        endDate: new Date(y, m, d, 23, 59, 59, 999),
+      }
+    case 'weekly': {
+      // 周一 = 本周开始，周日 = 本周结束
+      const dayOfWeek = referenceDate.getDay() // 0=Sun
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      const weekStart = new Date(y, m, d + mondayOffset)
+      weekStart.setHours(0, 0, 0, 0)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 6)
+      weekEnd.setHours(23, 59, 59, 999)
+      return { startDate: weekStart, endDate: weekEnd }
+    }
     case 'monthly':
       return {
         startDate: new Date(y, m, 1),
@@ -142,6 +159,7 @@ export async function createBudget(data: BudgetPayload) {
       period: data.period,
       startDate: data.startDate ? toDateValue(data.startDate) : new Date(),
       endDate: data.endDate ? toDateValue(data.endDate) : null,
+      transactionTime: data.transactionTime ?? null,
       note: data.note ?? null,
       isActive: data.isActive ?? true,
       accountId: data.accountId,
@@ -193,6 +211,7 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
       period: data.period,
       startDate: data.startDate ? toDateValue(data.startDate) : undefined,
       endDate: data.endDate !== undefined ? (data.endDate ? toDateValue(data.endDate) : null) : undefined,
+      transactionTime: data.transactionTime !== undefined ? data.transactionTime : undefined,
       note: data.note !== undefined ? data.note : undefined,
       isActive: data.isActive,
       accountId: data.accountId,
@@ -296,8 +315,8 @@ export async function generatePredictions(startDate: string, endDate: string) {
 
     if (effectiveStart > effectiveEnd) continue
 
-    // 根据周期生成时间点
-    const timePoints = generateTimePoints(effectiveStart, effectiveEnd, budget.period)
+    // 根据周期和交易时间生成时间点
+    const timePoints = generateTimePoints(effectiveStart, effectiveEnd, budget.period, budget.transactionTime)
 
     for (const tp of timePoints) {
       predictions.push({
@@ -321,35 +340,111 @@ export async function generatePredictions(startDate: string, endDate: string) {
 }
 
 /**
- * 根据周期生成时间点序列
+ * 根据周期和交易时间生成时间点序列
  */
-function generateTimePoints(start: Date, end: Date, period: string): Date[] {
+function generateTimePoints(start: Date, end: Date, period: string, transactionTime: number | null): Date[] {
   const points: Date[] = []
-  const current = new Date(start)
 
   switch (period) {
-    case 'monthly':
-      // 每月同一天
-      current.setDate(start.getDate())
+    case 'daily': {
+      const current = new Date(start)
+      current.setHours(0, 0, 0, 0)
       while (current <= end) {
         points.push(new Date(current))
+        current.setDate(current.getDate() + 1)
+      }
+      break
+    }
+    case 'weekly': {
+      const current = new Date(start)
+      current.setHours(0, 0, 0, 0)
+      if (transactionTime !== null && transactionTime >= 0 && transactionTime <= 6) {
+        // 跳到指定的周几（0=Mon, 6=Sun → JS: 1=Mon, 0=Sun）
+        const targetDay = transactionTime === 6 ? 0 : transactionTime + 1
+        while (current.getDay() !== targetDay) {
+          current.setDate(current.getDate() + 1)
+        }
+      }
+      while (current <= end) {
+        points.push(new Date(current))
+        current.setDate(current.getDate() + 7)
+      }
+      break
+    }
+    case 'monthly': {
+      const current = new Date(start)
+      current.setDate(1)
+      current.setHours(0, 0, 0, 0)
+
+      while (current <= end) {
+        if (transactionTime !== null) {
+          const pointDate = new Date(current)
+          // 当月第一天 + 偏移天数 = 目标日期
+          // 注意：JS Date 自动处理月份溢出（如 1月32日 → 2月1日）
+          pointDate.setDate(1 + transactionTime)
+          // 确保不超出当月
+          if (pointDate.getMonth() === current.getMonth() && pointDate <= end) {
+            points.push(pointDate)
+          }
+        } else {
+          // 默认：当月最后一天
+          const lastDay = new Date(current.getFullYear(), current.getMonth() + 1, 0)
+          if (lastDay <= end) {
+            points.push(lastDay)
+          }
+        }
         current.setMonth(current.getMonth() + 1)
       }
       break
-    case 'quarterly':
-      current.setDate(start.getDate())
+    }
+    case 'quarterly': {
+      const current = new Date(start)
+      const q = Math.floor(current.getMonth() / 3)
+      current.setMonth(q * 3, 1)
+      current.setHours(0, 0, 0, 0)
+
       while (current <= end) {
-        points.push(new Date(current))
+        if (transactionTime !== null) {
+          const pointDate = new Date(current)
+          pointDate.setDate(pointDate.getDate() + transactionTime)
+          if (pointDate <= end) {
+            points.push(pointDate)
+          }
+        } else {
+          // 默认：季度最后一天
+          const currentQ = Math.floor(current.getMonth() / 3)
+          const lastDay = new Date(current.getFullYear(), (currentQ + 1) * 3, 0)
+          if (lastDay <= end) {
+            points.push(lastDay)
+          }
+        }
         current.setMonth(current.getMonth() + 3)
       }
       break
-    case 'yearly':
-      current.setDate(start.getDate())
+    }
+    case 'yearly': {
+      const current = new Date(start)
+      current.setMonth(0, 1)
+      current.setHours(0, 0, 0, 0)
+
       while (current <= end) {
-        points.push(new Date(current))
+        if (transactionTime !== null) {
+          const pointDate = new Date(current)
+          pointDate.setDate(pointDate.getDate() + transactionTime)
+          if (pointDate <= end) {
+            points.push(pointDate)
+          }
+        } else {
+          // 默认：12月31日
+          const lastDay = new Date(current.getFullYear(), 11, 31)
+          if (lastDay <= end) {
+            points.push(lastDay)
+          }
+        }
         current.setFullYear(current.getFullYear() + 1)
       }
       break
+    }
   }
 
   return points

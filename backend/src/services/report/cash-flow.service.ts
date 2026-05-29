@@ -1,8 +1,9 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate, calculateBalanceChangeDecimal, calculateTransferInAmountDecimal } from '../balance.service.js'
+import { calculateBalanceAtDate } from '../balance.service.js'
 import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { toDecimal, ZERO } from '../../common/index.js'
+import { generatePredictions } from '../budget.service.js'
 
 type TransactionWithIncludes = Prisma.TransactionGetPayload<{
   include: { account: true; toAccount: true; category: true }
@@ -19,29 +20,34 @@ interface CashFlowActivityDecimal {
   }>
 }
 
+interface ReportValue {
+  actual: number
+  predicted: number
+}
+
 export interface CashFlowActivity {
-  inflow: number
-  outflow: number
+  inflow: ReportValue
+  outflow: ReportValue
+  net: ReportValue
   items: Array<{
     categoryName: string
     amount: number
     type: string
     direction: string
   }>
-  net: number
 }
 
 export interface CashFlowResult {
   startDate: string
   endDate: string
-  cashInflow: number
-  cashOutflow: number
-  netCashFlow: number
-  flowByAccount: Record<string, { inflow: number; outflow: number }>
+  cashInflow: ReportValue
+  cashOutflow: ReportValue
+  netCashFlow: ReportValue
+  flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
   cashAccounts: string[]
   startCash: number
   endCash: number
-  cashChange: number
+  cashChange: ReportValue
   byActivity: {
     operating: CashFlowActivity
     investing: CashFlowActivity
@@ -52,11 +58,90 @@ export interface CashFlowResult {
     nodes: Array<{ name: string; category: string }>
     links: Array<{ source: string; target: string; value: number }>
   }
+  predictionNote?: string
 }
 
-export async function generateCashFlow(startDate: string, endDate: string): Promise<CashFlowResult> {
+function calculateBalanceChangeDecimal(type: string, amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
+  if (type === 'expense' || type === 'transfer') {
+    return amount.plus(fee).minus(coupon)
+  }
+  if (type === 'refund') {
+    return amount.minus(fee).plus(coupon)
+  }
+  return amount
+}
+
+function calculateTransferInAmountDecimal(amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
+  return amount.minus(fee).plus(coupon)
+}
+
+function addTransaction(
+  activity: CashFlowActivityDecimal,
+  categoryName: string,
+  amount: Decimal,
+  type: string,
+  direction: 'inflow' | 'outflow'
+) {
+  if (direction === 'inflow') {
+    activity.inflow = activity.inflow.plus(amount)
+  } else {
+    activity.outflow = activity.outflow.plus(amount)
+  }
+  activity.items.push({
+    categoryName,
+    amount: amount.toNumber(),
+    type,
+    direction,
+  })
+}
+
+function addTransferFlow(
+  activity: CashFlowActivityDecimal,
+  fromName: string,
+  toName: string,
+  amount: Decimal,
+  fee: Decimal,
+  coupon: Decimal,
+  isOutflow: boolean
+) {
+  if (isOutflow) {
+    const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
+    activity.outflow = activity.outflow.plus(actualOutflow)
+    activity.items.push({
+      categoryName: fromName,
+      amount: actualOutflow.toNumber(),
+      type: 'transfer_out',
+      direction: 'outflow',
+    })
+  } else {
+    const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
+    activity.inflow = activity.inflow.plus(actualInflow)
+    activity.items.push({
+      categoryName: toName,
+      amount: actualInflow.toNumber(),
+      type: 'transfer_in',
+      direction: 'inflow',
+    })
+  }
+}
+
+function addToMap(map: Map<string, Decimal>, key: string, value: Decimal) {
+  map.set(key, (map.get(key) || ZERO).plus(value))
+}
+
+function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowActivityDecimal): CashFlowActivity {
+  return {
+    inflow: { actual: actual.inflow.toNumber(), predicted: predicted.inflow.toNumber() },
+    outflow: { actual: actual.outflow.toNumber(), predicted: predicted.outflow.toNumber() },
+    net: { actual: actual.inflow.minus(actual.outflow).toNumber(), predicted: predicted.inflow.minus(predicted.outflow).toNumber() },
+    items: actual.items,
+  }
+}
+
+export async function generateCashFlow(startDate: string, endDate: string, includePredictions?: boolean): Promise<CashFlowResult> {
   const start = new Date(`${startDate}T00:00:00`)
   const end = new Date(`${endDate}T23:59:59.999`)
+  const now = new Date()
 
   const cashCategories = await prisma.accountCategory.findMany({
     where: { isCashEquivalent: true },
@@ -82,87 +167,158 @@ export async function generateCashFlow(startDate: string, endDate: string): Prom
     include: { account: true, toAccount: true, category: true },
   })
 
-  const operating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const investing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const financing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const uncategorized: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const actualOperating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const actualInvesting: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const actualFinancing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const actualUncategorized: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
 
-  const getTargetByType = (cashFlowType: string | null): CashFlowActivityDecimal => {
-    return cashFlowType === 'investing' ? investing :
-           cashFlowType === 'financing' ? financing :
-           cashFlowType === 'operating' ? operating : uncategorized
+  const predictedOperating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const predictedInvesting: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const predictedFinancing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const predictedUncategorized: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+
+  const flowByAccountActual: Record<string, { inflow: Decimal; outflow: Decimal }> = {}
+  const flowByAccountPredicted: Record<string, { inflow: Decimal; outflow: Decimal }> = {}
+
+  const getActualTargetByType = (cashFlowType: string | null): CashFlowActivityDecimal => {
+    return cashFlowType === 'investing' ? actualInvesting :
+           cashFlowType === 'financing' ? actualFinancing :
+           cashFlowType === 'operating' ? actualOperating : actualUncategorized
+  }
+
+  const getPredictedTargetByType = (cashFlowType: string | null): CashFlowActivityDecimal => {
+    return cashFlowType === 'investing' ? predictedInvesting :
+           cashFlowType === 'financing' ? predictedFinancing :
+           cashFlowType === 'operating' ? predictedOperating : predictedUncategorized
+  }
+
+  const getOrCreateAccountFlow = (
+    flowMap: Record<string, { inflow: Decimal; outflow: Decimal }>,
+    name: string
+  ) => {
+    if (!flowMap[name]) flowMap[name] = { inflow: ZERO, outflow: ZERO }
+    return flowMap[name]
   }
 
   transactions.forEach(t => {
     const isFromCash = cashAccountIds.includes(t.accountId)
     const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
-    const cashFlowType = t.category?.cashFlowType || null
     const amount = t.amount
     const fee = toDecimal(t.fee)
     const coupon = toDecimal(t.coupon)
+    const cashFlowType = t.category?.cashFlowType || null
+    const target = getActualTargetByType(cashFlowType)
 
     if (t.type === 'income' && isFromCash) {
-      const target = getTargetByType(cashFlowType)
-      target.inflow = target.inflow.plus(amount)
-      target.items.push({
-        categoryName: t.category?.name || '未分类',
-        amount: amount.toNumber(),
-        type: 'income',
-        direction: 'inflow',
-      })
+      addTransaction(target, t.category?.name || '未分类', amount, 'income', 'inflow')
+      const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
+      accountFlow.inflow = accountFlow.inflow.plus(amount)
     } else if (t.type === 'expense' && isFromCash) {
-      const target = getTargetByType(cashFlowType)
-      target.outflow = target.outflow.plus(amount)
-      target.items.push({
-        categoryName: t.category?.name || '未分类',
-        amount: amount.toNumber(),
-        type: 'expense',
-        direction: 'outflow',
-      })
+      addTransaction(target, t.category?.name || '未分类', amount, 'expense', 'outflow')
+      const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
+      accountFlow.outflow = accountFlow.outflow.plus(amount)
     } else if (t.type === 'transfer') {
       if (isFromCash && !isToCash) {
+        addTransferFlow(target, t.category?.name || '转账转出', '', amount, fee, coupon, true)
+        const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
         const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
-        const target = getTargetByType(cashFlowType)
-        target.outflow = target.outflow.plus(actualOutflow)
-        target.items.push({
-          categoryName: t.category?.name || '转账转出',
-          amount: actualOutflow.toNumber(),
-          type: 'transfer_out',
-          direction: 'outflow',
-        })
-      } else if (!isFromCash && isToCash) {
+        accountFlow.outflow = accountFlow.outflow.plus(actualOutflow)
+      } else if (!isFromCash && isToCash && t.toAccount) {
+        addTransferFlow(target, '', t.category?.name || '转账转入', amount, fee, coupon, false)
+        const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.toAccount.name)
         const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
-        const target = getTargetByType(cashFlowType)
-        target.inflow = target.inflow.plus(actualInflow)
-        target.items.push({
-          categoryName: t.category?.name || '转账转入',
-          amount: actualInflow.toNumber(),
-          type: 'transfer_in',
-          direction: 'inflow',
-        })
+        accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
       }
     } else if (t.type === 'refund' && isFromCash) {
       const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
-      const target = getTargetByType(cashFlowType)
-      target.inflow = target.inflow.plus(actualInflow)
-      target.items.push({
-        categoryName: t.category?.name || '退款',
-        amount: actualInflow.toNumber(),
-        type: 'refund',
-        direction: 'inflow',
-      })
+      addTransaction(target, t.category?.name || '退款', actualInflow, 'refund', 'inflow')
+      const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
+      accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
     }
   })
 
-  const cashInflow = operating.inflow.plus(investing.inflow).plus(financing.inflow).plus(uncategorized.inflow)
-  const cashOutflow = operating.outflow.plus(investing.outflow).plus(financing.outflow).plus(uncategorized.outflow)
-  const netCashFlow = cashInflow.minus(cashOutflow)
+  let predictionNote: string | undefined
 
-  const flowByAccount = buildFlowByAccount(transactions, cashAccountIds)
+  if (includePredictions && end > now) {
+    const predictions = await generatePredictions(
+      start > now ? startDate : now.toISOString().split('T')[0],
+      endDate
+    )
+
+    const allCategories = await prisma.transactionCategory.findMany()
+    const categoryMap = new Map(allCategories.map(c => [c.id, { cashFlowType: c.cashFlowType, name: c.name }]))
+    const allAccounts = await prisma.account.findMany()
+    const accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
+
+    predictions.forEach(p => {
+      const isFromCash = cashAccountIds.includes(p.accountId)
+      const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
+
+      if (!isFromCash && !isToCash) return
+
+      const amount = toDecimal(p.amount)
+      const fee = ZERO
+      const coupon = ZERO
+      const category = p.categoryId ? categoryMap.get(p.categoryId) : null
+      const cashFlowType = category?.cashFlowType || null
+      const target = getPredictedTargetByType(cashFlowType)
+      const account = accountMap.get(p.accountId)
+
+      if (p.type === 'income' && isFromCash) {
+        addTransaction(target, category?.name || '未分类', amount, 'income', 'inflow')
+        const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
+        accountFlow.inflow = accountFlow.inflow.plus(amount)
+      } else if (p.type === 'expense' && isFromCash) {
+        addTransaction(target, category?.name || '未分类', amount, 'expense', 'outflow')
+        const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
+        accountFlow.outflow = accountFlow.outflow.plus(amount)
+      } else if (p.type === 'transfer') {
+        const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
+        if (isFromCash && !isToCash) {
+          addTransferFlow(target, category?.name || '转账转出', '', amount, fee, coupon, true)
+          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
+          accountFlow.outflow = accountFlow.outflow.plus(amount.abs())
+        } else if (!isFromCash && isToCash && toAccount) {
+          addTransferFlow(target, '', category?.name || '转账转入', amount, fee, coupon, false)
+          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, toAccount.name)
+          accountFlow.inflow = accountFlow.inflow.plus(amount)
+        }
+      }
+    })
+
+    if (predictions.length > 0) {
+      predictionNote = '含预算预测数据'
+    }
+  }
+
+  const actualCashInflow = actualOperating.inflow.plus(actualInvesting.inflow).plus(actualFinancing.inflow).plus(actualUncategorized.inflow)
+  const actualCashOutflow = actualOperating.outflow.plus(actualInvesting.outflow).plus(actualFinancing.outflow).plus(actualUncategorized.outflow)
+  const actualNetCashFlow = actualCashInflow.minus(actualCashOutflow)
+
+  const predictedCashInflow = predictedOperating.inflow.plus(predictedInvesting.inflow).plus(predictedFinancing.inflow).plus(predictedUncategorized.inflow)
+  const predictedCashOutflow = predictedOperating.outflow.plus(predictedInvesting.outflow).plus(predictedFinancing.outflow).plus(predictedUncategorized.outflow)
+  const predictedNetCashFlow = predictedCashInflow.minus(predictedCashOutflow)
+
+  const flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }> = {}
+  for (const [name, flow] of Object.entries(flowByAccountActual)) {
+    const predicted = flowByAccountPredicted[name] || { inflow: ZERO, outflow: ZERO }
+    flowByAccount[name] = {
+      inflow: { actual: flow.inflow.toNumber(), predicted: predicted.inflow.toNumber() },
+      outflow: { actual: flow.outflow.toNumber(), predicted: predicted.outflow.toNumber() },
+    }
+  }
+  for (const [name, flow] of Object.entries(flowByAccountPredicted)) {
+    if (!flowByAccount[name]) {
+      flowByAccount[name] = {
+        inflow: { actual: 0, predicted: flow.inflow.toNumber() },
+        outflow: { actual: 0, predicted: flow.outflow.toNumber() },
+      }
+    }
+  }
 
   const nextDayOfEnd = new Date(endDate)
   nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
-  
+
   const startCashBalances = await Promise.all(
     cashAccountIds.map(id => calculateBalanceAtDate(id, start))
   )
@@ -172,86 +328,30 @@ export async function generateCashFlow(startDate: string, endDate: string): Prom
 
   const startCash = startCashBalances.reduce((sum, b) => sum + b, 0)
   const endCash = endCashBalances.reduce((sum, b) => sum + b, 0)
+  const actualCashChange = endCash - startCash
 
   const sankeyData = buildSankeyData(transactions, cashAccountIds)
-
-  const toActivityResult = (activity: CashFlowActivityDecimal): CashFlowActivity => ({
-    inflow: activity.inflow.toNumber(),
-    outflow: activity.outflow.toNumber(),
-    items: activity.items,
-    net: activity.inflow.minus(activity.outflow).toNumber(),
-  })
 
   return {
     startDate,
     endDate,
-    cashInflow: cashInflow.toNumber(),
-    cashOutflow: cashOutflow.toNumber(),
-    netCashFlow: netCashFlow.toNumber(),
+    cashInflow: { actual: actualCashInflow.toNumber(), predicted: predictedCashInflow.toNumber() },
+    cashOutflow: { actual: actualCashOutflow.toNumber(), predicted: predictedCashOutflow.toNumber() },
+    netCashFlow: { actual: actualNetCashFlow.toNumber(), predicted: predictedNetCashFlow.toNumber() },
     flowByAccount,
     cashAccounts: cashAccounts.map(a => a.name),
     startCash,
     endCash,
-    cashChange: endCash - startCash,
+    cashChange: { actual: actualCashChange, predicted: predictedNetCashFlow.toNumber() },
     byActivity: {
-      operating: toActivityResult(operating),
-      investing: toActivityResult(investing),
-      financing: toActivityResult(financing),
-      uncategorized: toActivityResult(uncategorized),
+      operating: toActivityResult(actualOperating, predictedOperating),
+      investing: toActivityResult(actualInvesting, predictedInvesting),
+      financing: toActivityResult(actualFinancing, predictedFinancing),
+      uncategorized: toActivityResult(actualUncategorized, predictedUncategorized),
     },
     sankey: sankeyData,
+    predictionNote,
   }
-}
-
-function buildFlowByAccount(
-  transactions: TransactionWithIncludes[],
-  cashAccountIds: string[],
-): Record<string, { inflow: number; outflow: number }> {
-  const flowByAccount: Record<string, { inflow: Decimal; outflow: Decimal }> = {}
-
-  const getOrCreate = (name: string) => {
-    if (!flowByAccount[name]) flowByAccount[name] = { inflow: ZERO, outflow: ZERO }
-    return flowByAccount[name]
-  }
-
-  transactions.forEach(t => {
-    const isFromCash = cashAccountIds.includes(t.accountId)
-    const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
-    const amount = t.amount
-    const fee = toDecimal(t.fee)
-    const coupon = toDecimal(t.coupon)
-
-    if (t.type === 'income' && isFromCash) {
-      const name = t.account?.name || '未知账户'
-      getOrCreate(name).inflow = getOrCreate(name).inflow.plus(amount)
-    } else if (t.type === 'expense' && isFromCash) {
-      const name = t.account?.name || '未知账户'
-      getOrCreate(name).outflow = getOrCreate(name).outflow.plus(amount)
-    } else if (t.type === 'transfer') {
-      if (isFromCash && !isToCash) {
-        const name = t.account?.name || '未知账户'
-        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
-        getOrCreate(name).outflow = getOrCreate(name).outflow.plus(actualOutflow)
-      } else if (!isFromCash && isToCash && t.toAccount) {
-        const name = t.toAccount.name
-        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
-        getOrCreate(name).inflow = getOrCreate(name).inflow.plus(actualInflow)
-      }
-    } else if (t.type === 'refund' && isFromCash) {
-      const name = t.account?.name || '未知账户'
-      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
-      getOrCreate(name).inflow = getOrCreate(name).inflow.plus(actualInflow)
-    }
-  })
-
-  const result: Record<string, { inflow: number; outflow: number }> = {}
-  for (const [name, flow] of Object.entries(flowByAccount)) {
-    result[name] = {
-      inflow: flow.inflow.toNumber(),
-      outflow: flow.outflow.toNumber(),
-    }
-  }
-  return result
 }
 
 function buildSankeyData(
@@ -335,7 +435,7 @@ function buildSankeyData(
   const sankeyLinks: Array<{ source: string; target: string; value: number }> = []
   const nodeNameMap: Map<string, string> = new Map()
 
-  const sortedEntries = (map: Map<string, Decimal>) => 
+  const sortedEntries = (map: Map<string, Decimal>) =>
     Array.from(map.entries()).sort((a, b) => b[1].minus(a[1]).toNumber())
 
   for (const [name] of sortedEntries(nonCashSourceNodes)) {

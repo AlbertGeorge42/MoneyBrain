@@ -1,4 +1,4 @@
-import { type Dayjs } from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 
 export type TimeGranularity = 'day' | 'month' | 'year'
 
@@ -224,3 +224,21 @@ export const createYearToDatePreset = (key: string, label: string): TimePreset<R
 
 export const createCurrentQuarterRange = (reference: Dayjs): RangeTimeValue =>
   createRangeValue('month', getQuarterStart(reference), getQuarterEnd(reference))
+
+export function getRangeTimeSemantics(start: Dayjs, end: Dayjs): { isPast: boolean; isFuture: boolean; isMixed: boolean } {
+  const today = dayjs().startOf('day')
+  const e = end.startOf('day')
+  const s = start.startOf('day')
+  const isPast = e.isBefore(today) || e.isSame(today)
+  const isFuture = s.isAfter(today)
+  const isMixed = !isPast && !isFuture
+  return { isPast, isFuture, isMixed }
+}
+
+export function getPointTimeSemantics(value: Dayjs): { isPastOrToday: boolean; isFuture: boolean } {
+  const today = dayjs().startOf('day')
+  const v = value.startOf('day')
+  const isPastOrToday = v.isBefore(today) || v.isSame(today)
+  const isFuture = v.isAfter(today)
+  return { isPastOrToday, isFuture }
+}

@@ -21,7 +21,7 @@ import {
 const router = Router()
 
 const validateBudgetPayload = (req: Request) => {
-  const { name, amount, type, period, accountId, startDate, endDate } = req.body as Record<string, unknown>
+  const { name, amount, type, period, accountId, startDate, endDate, transactionTime } = req.body as Record<string, unknown>
   if (!hasValue(name) || !hasValue(amount) || !hasValue(type) || !hasValue(period) || !hasValue(accountId)) {
     throw new ValidationError('缺少必要参数(name, amount, type, period, accountId)')
   }
@@ -30,6 +30,12 @@ const validateBudgetPayload = (req: Request) => {
   }
   if (hasValue(endDate)) {
     toDate(endDate, 'endDate')
+  }
+  if (hasValue(transactionTime)) {
+    const tt = Number(transactionTime)
+    if (isNaN(tt) || tt < 0) {
+      throw new ValidationError('transactionTime 必须是非负整数')
+    }
   }
 }
 

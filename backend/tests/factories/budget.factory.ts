@@ -11,11 +11,12 @@ export function createBudgetFactory(overrides: Partial<{
   period: string
   startDate: Date
   endDate: Date | null
+  transactionTime: number | null
   note: string | null
   isActive: boolean
   accountId: string
   toAccountId: string | null
-  categoryId: string | null
+  categoryId: string
 }> = {}) {
   return {
     id: overrides.id || `bdg-${Math.random().toString(36).substring(2, 9)}`,
@@ -25,11 +26,12 @@ export function createBudgetFactory(overrides: Partial<{
     period: overrides.period || 'monthly',
     startDate: overrides.startDate || new Date(),
     endDate: overrides.endDate ?? null,
+    transactionTime: overrides.transactionTime ?? null,
     note: overrides.note ?? null,
     isActive: overrides.isActive ?? true,
     accountId: overrides.accountId || 'test-account-id',
     toAccountId: overrides.toAccountId ?? null,
-    categoryId: overrides.categoryId ?? null,
+    categoryId: overrides.categoryId || 'test-category-id',
     createdAt: new Date(),
     updatedAt: new Date(),
   }

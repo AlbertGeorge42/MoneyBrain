@@ -6,18 +6,24 @@ import { generatePredictions } from '../budget.service.js'
 
 export interface CategoryBreakdownItem {
   name: string
-  value: number
+  actual: number
+  predicted: number
   categoryId: string
   hasChildren: boolean
   sort: number
 }
 
+export interface ReportValue {
+  actual: number
+  predicted: number
+}
+
 export interface IncomeExpenseResult {
   startDate: string
   endDate: string
-  income: number
-  expense: number
-  balance: number
+  income: ReportValue
+  expense: ReportValue
+  balance: ReportValue
   incomeByCategory: Record<string, number>
   expenseByCategory: Record<string, number>
   incomeCategoryDetails: CategoryBreakdownItem[]
@@ -28,15 +34,18 @@ export interface IncomeExpenseResult {
   endAssets: number
   endLiabilities: number
   endNetWorth: number
-  assetChange: number
-  // 预测数据（仅当 includePredictions=true 时）
-  predictedIncome?: number
-  predictedExpense?: number
+  assetChange: ReportValue
+  predictionNote?: string
+}
+
+function sum(v: ReportValue): number {
+  return v.actual + v.predicted
 }
 
 export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseResult> {
   const start = new Date(`${startDate}T00:00:00`)
   const end = new Date(`${endDate}T23:59:59.999`)
+  const now = new Date()
 
   const transactions = await prisma.transaction.findMany({
     where: {
@@ -47,44 +56,69 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     include: { category: true, account: true },
   })
 
-  let income = ZERO
-  let expense = ZERO
+  let aIncome = ZERO
+  let aExpense = ZERO
 
   transactions.forEach(t => {
     if (t.type === 'income') {
-      income = income.plus(t.amount)
+      aIncome = aIncome.plus(t.amount)
     } else if (t.type === 'expense') {
-      expense = expense.plus(t.amount)
+      aExpense = aExpense.plus(t.amount)
     }
   })
 
-  // 预算预测融合
-  let predictedIncome: number | undefined
-  let predictedExpense: number | undefined
+  let pIncome = ZERO
+  let pExpense = ZERO
+  let predictionNote: string | undefined
 
-  if (includePredictions) {
-    const now = new Date()
-    // 仅对未来时间范围生成预测
-    if (end > now) {
-      const predictionsStart = start > now ? startDate : now.toISOString().split('T')[0]
-      const predictions = await generatePredictions(predictionsStart, endDate)
-      let pIncome = ZERO
-      let pExpense = ZERO
+  const predictedByCategory: Record<string, Decimal> = {}
 
-      predictions.forEach(p => {
-        if (p.type === 'income') {
-          pIncome = pIncome.plus(p.amount)
-        } else if (p.type === 'expense') {
-          pExpense = pExpense.plus(p.amount)
-        }
-      })
+  if (includePredictions && end > now) {
+    const predictionsStart = start > now ? startDate : now.toISOString().split('T')[0]
+    const predictions = await generatePredictions(predictionsStart, endDate)
 
-      predictedIncome = pIncome.toNumber()
-      predictedExpense = pExpense.toNumber()
+    predictions.forEach(p => {
+      if (p.type === 'income') {
+        pIncome = pIncome.plus(p.amount)
+      } else if (p.type === 'expense') {
+        pExpense = pExpense.plus(p.amount)
+      }
+    })
+
+    if (predictions.length > 0) {
+      predictionNote = '含预算预测数据'
     }
   }
 
-  const balance = income.minus(expense)
+  // 汇总预测交易的分类
+  if (includePredictions && end > now) {
+    const allCategories = await prisma.transactionCategory.findMany()
+    const categoryMap = new Map(allCategories.map(c => [c.id, c]))
+
+    const predictions = await generatePredictions(
+      start > now ? startDate : now.toISOString().split('T')[0],
+      endDate
+    )
+
+    predictions.forEach(p => {
+      if (!p.categoryId) return
+      const cat = categoryMap.get(p.categoryId)
+      if (!cat) return
+
+      let categoryName = cat.name
+      if (cat.parentId) {
+        const parent = cat.parentId ? categoryMap.get(cat.parentId) : undefined
+        if (parent) {
+          categoryName = parent.name
+        }
+      }
+
+      predictedByCategory[categoryName] = (predictedByCategory[categoryName] || ZERO).plus(p.amount)
+    })
+  }
+
+  const actualBalance = aIncome.minus(aExpense)
+  const predictedBalance = pIncome.minus(pExpense)
 
   const incomeByCategory: Record<string, Decimal> = {}
   const expenseByCategory: Record<string, Decimal> = {}
@@ -107,8 +141,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     parentMap = Object.fromEntries(parentCats.map(p => [p.id, { name: p.name, sort: p.sort }]))
   }
 
-  const incomeCategoryData: Record<string, { value: Decimal; categoryId: string; sort: number }> = {}
-  const expenseCategoryData: Record<string, { value: Decimal; categoryId: string; sort: number }> = {}
+  const incomeCategoryData: Record<string, { actual: Decimal; predicted: Decimal; categoryId: string; sort: number }> = {}
+  const expenseCategoryData: Record<string, { actual: Decimal; predicted: Decimal; categoryId: string; sort: number }> = {}
 
   transactions.forEach(t => {
     let categoryName = '未分类'
@@ -131,22 +165,50 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     if (t.type === 'income') {
       incomeByCategory[categoryName] = (incomeByCategory[categoryName] || ZERO).plus(t.amount)
       if (!incomeCategoryData[categoryName]) {
-        incomeCategoryData[categoryName] = { value: ZERO, categoryId: parentId, sort: categorySort }
+        incomeCategoryData[categoryName] = { actual: ZERO, predicted: ZERO, categoryId: parentId, sort: categorySort }
       }
-      incomeCategoryData[categoryName].value = incomeCategoryData[categoryName].value.plus(t.amount)
+      incomeCategoryData[categoryName].actual = incomeCategoryData[categoryName].actual.plus(t.amount)
     } else {
       expenseByCategory[categoryName] = (expenseByCategory[categoryName] || ZERO).plus(t.amount)
       if (!expenseCategoryData[categoryName]) {
-        expenseCategoryData[categoryName] = { value: ZERO, categoryId: parentId, sort: categorySort }
+        expenseCategoryData[categoryName] = { actual: ZERO, predicted: ZERO, categoryId: parentId, sort: categorySort }
       }
-      expenseCategoryData[categoryName].value = expenseCategoryData[categoryName].value.plus(t.amount)
+      expenseCategoryData[categoryName].actual = expenseCategoryData[categoryName].actual.plus(t.amount)
     }
   })
+
+  // 合并预测分类数据
+  for (const [catName, pAmount] of Object.entries(predictedByCategory)) {
+    // 判断收入还是支出分类
+    const cat = allCategories.find(c => {
+      let name = c.name
+      if (c.parentId) {
+        const parent = allCategories.find(p => p.id === c.parentId)
+        if (parent) name = parent.name
+      }
+      return name === catName
+    })
+
+    if (cat?.type === 'income') {
+      if (!incomeCategoryData[catName]) {
+        const sort = categorySortMap.get(cat.id) ?? cat.sort
+        incomeCategoryData[catName] = { actual: ZERO, predicted: ZERO, categoryId: cat.id, sort }
+      }
+      incomeCategoryData[catName].predicted = incomeCategoryData[catName].predicted.plus(pAmount)
+    } else if (cat?.type === 'expense') {
+      if (!expenseCategoryData[catName]) {
+        const sort = categorySortMap.get(cat.id) ?? cat.sort
+        expenseCategoryData[catName] = { actual: ZERO, predicted: ZERO, categoryId: cat.id, sort }
+      }
+      expenseCategoryData[catName].predicted = expenseCategoryData[catName].predicted.plus(pAmount)
+    }
+  }
 
   const incomeCategoryDetails: CategoryBreakdownItem[] = Object.entries(incomeCategoryData)
     .map(([name, data]) => ({
       name,
-      value: data.value.toNumber(),
+      actual: data.actual.toNumber(),
+      predicted: data.predicted.toNumber(),
       categoryId: data.categoryId,
       hasChildren: allCategories.some(c => c.parentId === data.categoryId),
       sort: data.sort,
@@ -156,7 +218,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const expenseCategoryDetails: CategoryBreakdownItem[] = Object.entries(expenseCategoryData)
     .map(([name, data]) => ({
       name,
-      value: data.value.toNumber(),
+      actual: data.actual.toNumber(),
+      predicted: data.predicted.toNumber(),
       categoryId: data.categoryId,
       hasChildren: allCategories.some(c => c.parentId === data.categoryId),
       sort: data.sort,
@@ -186,6 +249,10 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const endLiabilities = Math.abs(endLiabilitiesBalance)
   const endNetWorth = endAssets + endLiabilitiesBalance
 
+  // 预测净资产变化 = 预测收入 - 预测支出
+  const predictedNetWorthChange = predictedBalance.toNumber()
+  const actualAssetChange = endNetWorth - startNetWorth
+
   const incomeByCategoryResult: Record<string, number> = {}
   for (const [k, v] of Object.entries(incomeByCategory)) {
     incomeByCategoryResult[k] = v.toNumber()
@@ -198,9 +265,9 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   return {
     startDate,
     endDate,
-    income: income.toNumber(),
-    expense: expense.toNumber(),
-    balance: balance.toNumber(),
+    income: { actual: aIncome.toNumber(), predicted: pIncome.toNumber() },
+    expense: { actual: aExpense.toNumber(), predicted: pExpense.toNumber() },
+    balance: { actual: actualBalance.toNumber(), predicted: predictedBalance.toNumber() },
     incomeByCategory: incomeByCategoryResult,
     expenseByCategory: expenseByCategoryResult,
     incomeCategoryDetails,
@@ -211,8 +278,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     endAssets,
     endLiabilities,
     endNetWorth,
-    assetChange: endNetWorth - startNetWorth,
-    predictedIncome,
-    predictedExpense,
+    assetChange: { actual: actualAssetChange, predicted: predictedNetWorthChange },
+    predictionNote,
   }
 }

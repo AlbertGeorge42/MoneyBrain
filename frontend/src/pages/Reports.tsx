@@ -124,6 +124,7 @@ type BalanceSheetTreeNode = {
   key: string
   name: string
   balance: number
+  predicted: number
   nodeType: 'asset' | 'liability'
   type: 'category' | 'account'
   icon?: string
@@ -173,7 +174,6 @@ const Reports: React.FC = () => {
     () => ({
       ...baseBalanceSheetPickerConfig,
       minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-      maxDate: dayjs(),
     }),
     [earliestTransactionDate]
   )
@@ -182,7 +182,6 @@ const Reports: React.FC = () => {
     () => ({
       ...baseIncomeExpensePickerConfig,
       minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-      maxDate: dayjs(),
     }),
     [earliestTransactionDate]
   )
@@ -191,7 +190,6 @@ const Reports: React.FC = () => {
     () => ({
       ...baseCashFlowPickerConfig,
       minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-      maxDate: dayjs(),
     }),
     [earliestTransactionDate]
   )
@@ -200,7 +198,6 @@ const Reports: React.FC = () => {
     () => ({
       ...baseInvestmentPickerConfig,
       minDate: earliestTransactionDate ? dayjs(earliestTransactionDate) : undefined,
-      maxDate: dayjs(),
     }),
     [earliestTransactionDate]
   )
@@ -224,7 +221,7 @@ const Reports: React.FC = () => {
 
       const nextCalibration: Record<string, number> = {}
       response.data.data?.accounts?.forEach((account: BalanceSheetAccountItem) => {
-        nextCalibration[account.id] = account.balance
+        nextCalibration[account.id] = account.actual
       })
       setCalibrateData(nextCalibration)
     } catch (error) {
@@ -235,7 +232,7 @@ const Reports: React.FC = () => {
   const fetchIncomeExpense = async () => {
     try {
       const { startDate, endDate } = toDateRangeParams(incomeExpenseTimeRange)
-      const response = await reportApi.getIncomeExpense(startDate, endDate)
+      const response = await reportApi.getIncomeExpense(startDate, endDate, true)
       setIncomeExpenseData(response.data.data ?? null)
     } catch (error) {
       message.error('获取收入支出表失败')
@@ -246,7 +243,7 @@ const Reports: React.FC = () => {
     try {
       setCashFlowLoading(true)
       const { startDate, endDate } = toDateRangeParams(cashFlowTimeRange)
-      const response = await reportApi.getCashFlow(startDate, endDate)
+      const response = await reportApi.getCashFlow(startDate, endDate, true)
       setCashFlowData(response.data.data ?? null)
     } catch (error) {
       message.error('获取现金流量表失败')
@@ -271,7 +268,7 @@ const Reports: React.FC = () => {
         balanceSheetData?.accounts
           ?.map((account: BalanceSheetAccountItem) => ({
             accountId: account.id,
-            amount: (calibrateData[account.id] || 0) - (account.balance || 0),
+            amount: (calibrateData[account.id] || 0) - (account.actual || 0),
           }))
           .filter((item) => item.amount !== 0) || []
 
@@ -318,28 +315,30 @@ const Reports: React.FC = () => {
         .filter((category) => groupedByCategory[category]?.some((account) => account.type === type))
         .sort((left, right) => categorySortMap[left] - categorySortMap[right])
         .map(
-          (category): BalanceSheetTreeNode => ({
-            key: `category-${category}-${type}`,
-            name: category,
-            balance: groupedByCategory[category]
-              .filter((account) => account.type === type)
-              .reduce((sum, account) => sum + account.balance, 0),
-            nodeType: type,
-            type: 'category',
-            icon: groupedByCategory[category][0]?.categoryIcon || undefined,
-            children: groupedByCategory[category]
-              .filter((account) => account.type === type)
-              .map(
-                (account): BalanceSheetTreeNode => ({
-                  key: `account-${account.id}`,
-                  name: account.name,
-                  balance: account.balance,
-                  nodeType: type,
-                  type: 'account',
-                  icon: account.icon || undefined,
-                })
-              ),
-          })
+          (category): BalanceSheetTreeNode => {
+            const filteredAccounts = groupedByCategory[category].filter((account) => account.type === type)
+            const children: BalanceSheetTreeNode[] = filteredAccounts.map(
+              (account): BalanceSheetTreeNode => ({
+                key: `account-${account.id}`,
+                name: account.name,
+                balance: account.actual,
+                predicted: account.predicted || 0,
+                nodeType: type,
+                type: 'account',
+                icon: account.icon || undefined,
+              })
+            )
+            return {
+              key: `category-${category}-${type}`,
+              name: category,
+              balance: filteredAccounts.reduce((sum, account) => sum + account.actual, 0),
+              predicted: children.reduce((sum, child) => sum + child.predicted, 0),
+              nodeType: type,
+              type: 'category',
+              icon: groupedByCategory[category][0]?.categoryIcon || undefined,
+              children,
+            }
+          }
         )
 
     return {
@@ -452,7 +451,7 @@ const Reports: React.FC = () => {
               <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
             </span>
             <Space>
-              <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>当前 ¥{account.balance?.toFixed(2) || '0.00'}</span>
+              <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>当前 ¥{account.actual?.toFixed(2) || '0.00'}</span>
               <InputNumber
                 value={calibrateData[account.id]}
                 onChange={(value) => setCalibrateData({ ...calibrateData, [account.id]: value || 0 })}

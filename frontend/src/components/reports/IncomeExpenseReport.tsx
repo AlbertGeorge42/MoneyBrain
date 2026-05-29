@@ -1,13 +1,14 @@
-import React from 'react'
-import { Button, Card, Grid, Statistic, theme } from 'antd'
+import React, { useMemo } from 'react'
+import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import type { IncomeExpenseReportData } from '@shared/types'
 import { BarChart, PieChart, type PieChartDataItem } from '../charts'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
 import ReportViewSwitcher from './ReportViewSwitcher'
+import PredictionStatistic from './PredictionStatistic'
+import ReportValueDisplay from './ReportValueDisplay'
 import * as api from '../../services/api'
-import { toDateRangeParams } from '../../utils/timePicker'
-import { formatCurrency, createStatisticFormatter } from '../../utils/format'
+import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
 
 interface IncomeExpenseReportProps {
   timeRange: RangeTimeValue
@@ -16,8 +17,6 @@ interface IncomeExpenseReportProps {
   onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
 }
-
-const statisticFormatter = createStatisticFormatter()
 
 const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   timeRange,
@@ -31,6 +30,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const { token } = theme.useToken()
 
   const dateParams = toDateRangeParams(timeRange)
+  const { isPast, isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
   const handleDrillDown = async (type: 'income' | 'expense', item: PieChartDataItem): Promise<PieChartDataItem[]> => {
     if (!item.categoryId) return []
@@ -53,67 +53,132 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     return []
   }
 
-  const incomePieData: PieChartDataItem[] = (incomeExpenseData?.incomeCategoryDetails || []).map((item) => ({
-    name: item.name,
-    value: item.value,
-    categoryId: item.categoryId,
-    hasChildren: item.hasChildren,
-  }))
+  const incomeData = incomeExpenseData?.income || { actual: 0, predicted: 0 }
+  const expenseData = incomeExpenseData?.expense || { actual: 0, predicted: 0 }
+  const balanceData = incomeExpenseData?.balance || { actual: 0, predicted: 0 }
+  const assetChangeData = incomeExpenseData?.assetChange || { actual: 0, predicted: 0 }
+  const hasPrediction = incomeData.predicted !== 0 || expenseData.predicted !== 0
 
-  const expensePieData: PieChartDataItem[] = (incomeExpenseData?.expenseCategoryDetails || []).map((item) => ({
-    name: item.name,
-    value: Math.abs(item.value),
-    categoryId: item.categoryId,
-    hasChildren: item.hasChildren,
-  }))
+  const incomeTotal = isPast ? incomeData.actual : isFuture ? incomeData.predicted : incomeData.actual + incomeData.predicted
+  const expenseTotal = isPast ? expenseData.actual : isFuture ? expenseData.predicted : expenseData.actual + expenseData.predicted
+  const balanceTotal = isPast ? balanceData.actual : isFuture ? balanceData.predicted : balanceData.actual + balanceData.predicted
+
+  const incomePieData: PieChartDataItem[] = useMemo(() =>
+    (incomeExpenseData?.incomeCategoryDetails || []).map((item) => ({
+      name: item.name,
+      value: isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted,
+      predictedValue: isMixed && item.predicted !== 0 ? item.predicted : undefined,
+      categoryId: item.categoryId,
+      hasChildren: item.hasChildren,
+    })),
+    [incomeExpenseData?.incomeCategoryDetails, isPast, isFuture, isMixed]
+  )
+
+  const expensePieData: PieChartDataItem[] = useMemo(() =>
+    (incomeExpenseData?.expenseCategoryDetails || []).map((item) => ({
+      name: item.name,
+      value: Math.abs(isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted),
+      predictedValue: isMixed && item.predicted !== 0 ? Math.abs(item.predicted) : undefined,
+      categoryId: item.categoryId,
+      hasChildren: item.hasChildren,
+    })),
+    [incomeExpenseData?.expenseCategoryDetails, isPast, isFuture, isMixed]
+  )
+
+  const formatStatValue = (v: number) => `¥${v.toFixed(2)}`
 
   const summarySection = (
     <>
       <div className="report-hero-section">
         <Card className="surface-card report-section-card report-hero-card">
-          <Statistic
-            title="结余"
-            value={incomeExpenseData?.balance || 0}
-            precision={2}
-            valueStyle={{ color: (incomeExpenseData?.balance || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            formatter={statisticFormatter}
-          />
+          {isMixed && hasPrediction ? (
+            <PredictionStatistic
+              title="结余"
+              value={balanceData}
+              valueStyle={{ color: balanceTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            />
+          ) : (
+            <Statistic
+              title={isFuture ? <>结余 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '结余'}
+              value={balanceTotal}
+              formatter={(v) => formatStatValue(Number(v))}
+              valueStyle={{ color: balanceTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            />
+          )}
         </Card>
       </div>
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="收入" value={incomeExpenseData?.income || 0} precision={2} valueStyle={{ color: 'var(--mb-color-positive)' }} formatter={statisticFormatter} />
+          {isMixed && hasPrediction ? (
+            <PredictionStatistic title="收入" value={incomeData} valueStyle={{ color: 'var(--mb-color-positive)' }} />
+          ) : (
+            <Statistic
+              title={isFuture ? <>收入 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入'}
+              value={incomeTotal}
+              formatter={(v) => formatStatValue(Number(v))}
+              valueStyle={{ color: 'var(--mb-color-positive)' }}
+            />
+          )}
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="支出" value={incomeExpenseData?.expense || 0} precision={2} valueStyle={{ color: 'var(--mb-color-negative)' }} formatter={statisticFormatter} />
-        </Card>
-        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期初净值" value={incomeExpenseData?.startNetWorth || 0} precision={2} formatter={statisticFormatter} />
-        </Card>
-        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末净值" value={incomeExpenseData?.endNetWorth || 0} precision={2} formatter={statisticFormatter} />
+          {isMixed && hasPrediction ? (
+            <PredictionStatistic title="支出" value={expenseData} valueStyle={{ color: 'var(--mb-color-negative)' }} />
+          ) : (
+            <Statistic
+              title={isFuture ? <>支出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出'}
+              value={expenseTotal}
+              formatter={(v) => formatStatValue(Number(v))}
+              valueStyle={{ color: 'var(--mb-color-negative)' }}
+            />
+          )}
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
-            title="资产变动"
-            value={incomeExpenseData?.assetChange || 0}
-            precision={2}
-            valueStyle={{ color: (incomeExpenseData?.assetChange || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            formatter={statisticFormatter}
+            title="期初净值"
+            value={incomeExpenseData?.startNetWorth || 0}
+            formatter={(v) => formatStatValue(Number(v))}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
-            title="储蓄率"
-            value={incomeExpenseData?.income ? ((incomeExpenseData?.balance || 0) / incomeExpenseData.income) * 100 : 0}
-            precision={1}
+            title="期末净值"
+            value={incomeExpenseData?.endNetWorth || 0}
+            formatter={(v) => formatStatValue(Number(v))}
+          />
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          {isMixed && hasPrediction ? (
+            <PredictionStatistic
+              title="资产变动"
+              value={assetChangeData}
+              valueStyle={{ color: (assetChangeData.actual + assetChangeData.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            />
+          ) : (
+            <Statistic
+              title={isFuture ? <>资产变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产变动'}
+              value={isPast ? assetChangeData.actual : isFuture ? assetChangeData.predicted : assetChangeData.actual + assetChangeData.predicted}
+              formatter={(v) => formatStatValue(Number(v))}
+              valueStyle={{ color: (isPast ? assetChangeData.actual : isFuture ? assetChangeData.predicted : assetChangeData.actual + assetChangeData.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            />
+          )}
+        </Card>
+        <Card className="surface-card metric-card report-section-card report-metric-card--compact">
+          <Statistic
+            title={isFuture ? <>储蓄率 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '储蓄率'}
+            value={incomeTotal ? ((isPast ? balanceData.actual : isFuture ? balanceData.predicted : balanceData.actual) / incomeTotal) * 100 : 0}
+            formatter={(v) => `${Number(v).toFixed(1)}%`}
             valueStyle={{ color: 'var(--mb-color-neutral)' }}
-            suffix="%"
           />
         </Card>
       </div>
-</>
+
+      {((isMixed && hasPrediction) || isFuture) && incomeExpenseData?.predictionNote && (
+        <div style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM, textAlign: 'center', marginTop: -8 }}>
+          {incomeExpenseData.predictionNote}
+        </div>
+      )}
+    </>
   )
 
   const chartSection = (
@@ -122,8 +187,13 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         <BarChart
           title="收支对比"
           xAxisData={['收入', '支出']}
-          seriesData={[{ name: '金额', data: [incomeExpenseData?.income || 0, incomeExpenseData?.expense || 0] }]}
+          seriesData={[{
+            name: '金额',
+            data: isPast ? [incomeData.actual, expenseData.actual] : (isFuture ? [incomeData.predicted, expenseData.predicted] : [incomeData.actual, expenseData.actual]),
+            predictedData: isMixed && hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
+          }]}
           height={isMobile ? 220 : 250}
+          isPurePrediction={isFuture}
         />
       </Card>
       <Card className="surface-card report-section-card" size="small">
@@ -136,31 +206,49 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   )
 
   const incomeDetailCard = (
-    <Card className="surface-card report-section-card" title="收入明细" size="small">
+    <Card className="surface-card report-section-card" title={isFuture ? <>收入明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入明细'} size="small">
       <div className="report-detail-list">
-        {(incomeExpenseData?.incomeCategoryDetails || []).map((item) => (
-          <div key={item.categoryId} className="report-detail-list__item">
-            <div className="report-detail-list__header">
-              <span className="report-detail-list__title">{item.name}</span>
-              <span style={{ color: 'var(--mb-color-positive)' }}>{formatCurrency(item.value)}</span>
+        {(incomeExpenseData?.incomeCategoryDetails || []).map((item) => {
+          const showValue = isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted
+          return (
+            <div key={item.categoryId} className="report-detail-list__item">
+              <div className="report-detail-list__header">
+                <span className="report-detail-list__title">{item.name}</span>
+                <span style={{ color: 'var(--mb-color-positive)' }}>
+                  {isMixed && item.predicted !== 0 ? (
+                    <ReportValueDisplay value={{ actual: item.actual, predicted: item.predicted }} showBreakdown={false} />
+                  ) : (
+                    formatStatValue(showValue)
+                  )}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </Card>
   )
 
   const expenseDetailCard = (
-    <Card className="surface-card report-section-card" title="支出明细" size="small">
+    <Card className="surface-card report-section-card" title={isFuture ? <>支出明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出明细'} size="small">
       <div className="report-detail-list">
-        {(incomeExpenseData?.expenseCategoryDetails || []).map((item) => (
-          <div key={item.categoryId} className="report-detail-list__item">
-            <div className="report-detail-list__header">
-              <span className="report-detail-list__title">{item.name}</span>
-              <span style={{ color: 'var(--mb-color-negative)' }}>{formatCurrency(Math.abs(item.value))}</span>
+        {(incomeExpenseData?.expenseCategoryDetails || []).map((item) => {
+          const showValue = Math.abs(isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted)
+          return (
+            <div key={item.categoryId} className="report-detail-list__item">
+              <div className="report-detail-list__header">
+                <span className="report-detail-list__title">{item.name}</span>
+                <span style={{ color: 'var(--mb-color-negative)' }}>
+                  {isMixed && item.predicted !== 0 ? (
+                    <ReportValueDisplay value={{ actual: Math.abs(item.actual), predicted: Math.abs(item.predicted) }} showBreakdown={false} />
+                  ) : (
+                    formatStatValue(showValue)
+                  )}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </Card>
   )
@@ -193,8 +281,13 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             <BarChart
               title="收支对比"
               xAxisData={['收入', '支出']}
-              seriesData={[{ name: '金额', data: [incomeExpenseData?.income || 0, incomeExpenseData?.expense || 0] }]}
+              seriesData={[{
+                name: '金额',
+                data: isPast ? [incomeData.actual, expenseData.actual] : (isFuture ? [incomeData.predicted, expenseData.predicted] : [incomeData.actual, expenseData.actual]),
+                predictedData: isMixed && hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
+              }]}
               height={220}
+              isPurePrediction={isFuture}
             />
           </Card>
           <ReportViewSwitcher

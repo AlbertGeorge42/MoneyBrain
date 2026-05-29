@@ -1,5 +1,6 @@
 import { prisma } from '../../index.js'
 import { calculateBalanceAtDate } from '../balance.service.js'
+import { generatePredictions } from '../budget.service.js'
 
 export type DateGranularity = 'day' | 'month' | 'year'
 
@@ -7,7 +8,8 @@ export interface BalanceSheetAccount {
   id: string
   name: string
   type: string
-  balance: number
+  actual: number
+  predicted: number
   category: string
   categoryId: string | null
   icon: string | null
@@ -16,15 +18,21 @@ export interface BalanceSheetAccount {
   accountSort: number
 }
 
+export interface ReportValue {
+  actual: number
+  predicted: number
+}
+
 export interface BalanceSheetResult {
   date: string
   granularity: DateGranularity
-  assets: number
-  liabilities: number
-  netWorth: number
+  assets: ReportValue
+  liabilities: ReportValue
+  netWorth: ReportValue
   assetsByCategory: Record<string, number>
   liabilitiesByCategory: Record<string, number>
   accounts: BalanceSheetAccount[]
+  predictionNote?: string
 }
 
 function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granularity: DateGranularity } {
@@ -54,6 +62,7 @@ function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granul
 
 export async function generateBalanceSheet(date: string): Promise<BalanceSheetResult> {
   const { targetDate, nextDay, granularity } = parseDateParam(date)
+  const now = new Date()
 
   const categories = await prisma.accountCategory.findMany({
     orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
@@ -79,7 +88,57 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     .filter(a => a.type === 'liability')
     .reduce((sum, a) => sum + a.balance, 0)
 
+  // 预测数据：当目标日期在未来时，计算预测变化
+  let predictedChanges: Map<string, number> = new Map()
+  let predictionNote: string | undefined
+
+  if (targetDate > now) {
+    const predictions = await generatePredictions(
+      now.toISOString().split('T')[0],
+      targetDate.toISOString().split('T')[0]
+    )
+
+    predictions.forEach(p => {
+      if (p.type === 'income') {
+        predictedChanges.set(p.accountId,
+          (predictedChanges.get(p.accountId) || 0) + p.amount)
+      }
+      if (p.type === 'expense') {
+        predictedChanges.set(p.accountId,
+          (predictedChanges.get(p.accountId) || 0) - p.amount)
+      }
+      if (p.type === 'transfer') {
+        predictedChanges.set(p.accountId,
+          (predictedChanges.get(p.accountId) || 0) - p.amount)
+        if (p.toAccountId) {
+          predictedChanges.set(p.toAccountId,
+            (predictedChanges.get(p.toAccountId) || 0) + p.amount)
+        }
+      }
+    })
+
+    if (predictions.length > 0) {
+      predictionNote = '预算影响后的预测值，不含投资收益、资产增值等'
+    }
+  }
+
   const netWorth = assets + liabilities
+
+  const predictedAssets = Array.from(predictedChanges.entries())
+    .reduce((sum, [accountId, change]) => {
+      const account = accounts.find(a => a.id === accountId)
+      if (account?.type === 'asset') return sum + change
+      return sum
+    }, 0)
+
+  const predictedLiabilities = Array.from(predictedChanges.entries())
+    .reduce((sum, [accountId, change]) => {
+      const account = accounts.find(a => a.id === accountId)
+      if (account?.type === 'liability') return sum + change
+      return sum
+    }, 0)
+
+  const predictedNetWorth = predictedAssets + predictedLiabilities
 
   const assetsByCategory: Record<string, number> = {}
   const liabilitiesByCategory: Record<string, number> = {}
@@ -98,11 +157,13 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   const sortedAccounts = accountBalances
     .map(a => {
       const cat = a.category ? categoryMap.get(a.category.id) : null
+      const predicted = predictedChanges.get(a.id) || 0
       return {
         id: a.id,
         name: a.name,
         type: a.type,
-        balance: a.balance,
+        actual: a.balance,
+        predicted,
         category: a.category?.name || '未分类',
         categoryId: a.categoryId,
         icon: a.icon,
@@ -129,11 +190,12 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   return {
     date: dateStr,
     granularity,
-    assets,
-    liabilities,
-    netWorth,
+    assets: { actual: assets, predicted: predictedAssets },
+    liabilities: { actual: liabilities, predicted: predictedLiabilities },
+    netWorth: { actual: netWorth, predicted: predictedNetWorth },
     assetsByCategory,
     liabilitiesByCategory,
     accounts: sortedAccounts,
+    predictionNote,
   }
 }

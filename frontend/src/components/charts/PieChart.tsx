@@ -7,8 +7,10 @@ import { getTokenValue } from '../../styles/theme/cssVars'
 export interface PieChartDataItem {
   name: string
   value: number
+  predictedValue?: number
   categoryId?: string
   hasChildren?: boolean
+  isLiability?: boolean
 }
 
 interface PieChartProps {
@@ -80,6 +82,20 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
         const percent = params.percent?.toFixed(1) || '0.0'
         const item = currentData.find(d => d.name === params.name)
         const drillDownHint = item?.hasChildren && onDrillDown ? ' (点击查看明细)' : ''
+
+        if (item?.predictedValue && item.predictedValue !== 0) {
+          const predictedSign = item.predictedValue >= 0 ? '+' : '-'
+          const predictedAbs = Math.abs(item.predictedValue).toFixed(2)
+
+          if (item.isLiability) {
+            const currentDebt = numValue.toFixed(2)
+            return `${params.name}: ¥${currentDebt} (${percent}%)${drillDownHint}<br/>当前欠款: ¥${currentDebt} &nbsp; 预测: ${predictedSign}¥${predictedAbs}`
+          }
+
+          const actual = (numValue - item.predictedValue).toFixed(2)
+          return `${params.name}: ¥${value} (${percent}%)${drillDownHint}<br/>实际: ¥${actual} &nbsp; 预测: ${predictedSign}¥${predictedAbs}`
+        }
+
         return `${params.name}: ¥${value} (${percent}%)${drillDownHint}`
       }
     },

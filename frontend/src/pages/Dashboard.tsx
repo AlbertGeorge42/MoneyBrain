@@ -55,9 +55,9 @@ const Dashboard: React.FC = () => {
       const res = await api.reportApi.getBalanceSheet(today)
       if (res.data.success && res.data.data) {
         setBalanceData({
-          totalAssets: res.data.data.assets,
-          totalLiabilities: res.data.data.liabilities,
-          netWorth: res.data.data.netWorth,
+          totalAssets: res.data.data.assets.actual,
+          totalLiabilities: Math.abs(res.data.data.liabilities.actual),
+          netWorth: res.data.data.netWorth.actual,
         })
       }
     } catch (error) {

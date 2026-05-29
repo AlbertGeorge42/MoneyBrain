@@ -1,19 +1,21 @@
 import React, { useMemo } from 'react'
-import { Button, Card, Grid, Space, Statistic, theme } from 'antd'
+import { Button, Card, Grid, Space, Statistic, Tag, Typography, theme } from 'antd'
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetReportData } from '@shared/types'
 import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { formatBalance } from '../../utils/formatBalance'
-import { createStatisticFormatter } from '../../utils/format'
+import { formatCurrency } from '../../utils/format'
+import { getPointTimeSemantics } from '../../utils/timePicker'
 
-const statisticFormatter = createStatisticFormatter()
+import { PredictionStatistic } from '.'
 
 interface BalanceSheetTreeNode {
   key: string
   name: string
   balance: number
+  predicted: number
   nodeType: 'asset' | 'liability'
   type: 'category' | 'account'
   icon?: string
@@ -47,33 +49,47 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const { token } = theme.useToken()
+  const { Text } = Typography
+
+  const { isFuture } = getPointTimeSemantics(selectedTime.value)
 
   const assetPieData = useMemo(
     () =>
       buildBalanceSheetTreeData.assetNodes
         .filter((node) => node.type === 'category')
-        .map((node) => ({
-          name: node.name,
-          value: Math.abs(node.balance),
-          categoryId: node.key,
-          hasChildren: Boolean(node.children?.length),
-        }))
+        .map((node) => {
+          const showPredicted = isFuture ? node.predicted : 0
+          const total = node.balance + showPredicted
+          return {
+            name: node.name,
+            value: Math.abs(total),
+            predictedValue: isFuture && node.predicted !== 0 ? node.predicted : undefined,
+            categoryId: node.key,
+            hasChildren: Boolean(node.children?.length),
+          }
+        })
         .filter((item) => item.value > 0),
-    [buildBalanceSheetTreeData.assetNodes]
+    [buildBalanceSheetTreeData.assetNodes, isFuture]
   )
 
   const liabilityPieData = useMemo(
     () =>
       buildBalanceSheetTreeData.liabilityNodes
         .filter((node) => node.type === 'category')
-        .map((node) => ({
-          name: node.name,
-          value: Math.abs(node.balance),
-          categoryId: node.key,
-          hasChildren: Boolean(node.children?.length),
-        }))
+        .map((node) => {
+          const showPredicted = isFuture ? node.predicted : 0
+          const total = node.balance + showPredicted
+          return {
+            name: node.name,
+            value: Math.abs(total),
+            predictedValue: isFuture && node.predicted !== 0 ? node.predicted : undefined,
+            categoryId: node.key,
+            hasChildren: Boolean(node.children?.length),
+            isLiability: true,
+          }
+        })
         .filter((item) => item.value > 0),
-    [buildBalanceSheetTreeData.liabilityNodes]
+    [buildBalanceSheetTreeData.liabilityNodes, isFuture]
   )
 
   const handleDrillDown = async (
@@ -84,30 +100,58 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
 
     const categoryNode = nodes.find((node) => node.key === item.categoryId && node.type === 'category')
     if (!categoryNode?.children) return []
+    const isLiability = item.isLiability
 
     return categoryNode.children
-      .filter((account) => account.balance !== 0)
-      .map((account) => ({
-        name: account.name,
-        value: Math.abs(account.balance),
-      }))
+      .filter((account) => {
+        const total = account.balance + (isFuture ? account.predicted : 0)
+        return total !== 0
+      })
+      .map((account) => {
+        const showPredicted = isFuture ? account.predicted : 0
+        const total = account.balance + showPredicted
+        return {
+          name: account.name,
+          value: Math.abs(total),
+          predictedValue: isFuture && account.predicted !== 0 ? account.predicted : undefined,
+          isLiability,
+        }
+      })
   }
+
+  const netWorthValue = balanceSheetData?.netWorth || { actual: 0, predicted: 0 }
+  const assetsValue = balanceSheetData?.assets || { actual: 0, predicted: 0 }
+  const liabilitiesValue = balanceSheetData?.liabilities || { actual: 0, predicted: 0 }
+  const hasPrediction = assetsValue.predicted !== 0 || liabilitiesValue.predicted !== 0
+  const showPred = isFuture && hasPrediction
+  const netWorthTotal = showPred ? netWorthValue.actual + netWorthValue.predicted : netWorthValue.actual
+  const assetsTotal = showPred ? assetsValue.actual + assetsValue.predicted : assetsValue.actual
+  const liabilitiesTotal = showPred ? liabilitiesValue.actual + liabilitiesValue.predicted : liabilitiesValue.actual
+
+  const formatStatValue = (v: number) => `¥${v.toFixed(2)}`
 
   const summarySection = (
     <>
       <div className="report-hero-section">
         <Card className="surface-card report-section-card report-hero-card">
-          <Statistic
-            title="净资产"
-            value={balanceSheetData?.netWorth || 0}
-            precision={2}
-            valueStyle={{ color: (balanceSheetData?.netWorth || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            formatter={statisticFormatter}
-          />
+          {showPred ? (
+            <PredictionStatistic
+              title="净资产"
+              value={netWorthValue}
+              valueStyle={{ color: netWorthTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            />
+          ) : (
+            <Statistic
+              title="净资产"
+              value={netWorthTotal}
+              formatter={(v) => formatStatValue(Number(v))}
+              valueStyle={{ color: netWorthTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            />
+          )}
           <div className="report-hero-card__sub">
             <Statistic
               title="资产负债率"
-              value={balanceSheetData?.assets ? (Math.abs(balanceSheetData?.liabilities || 0) / balanceSheetData.assets) * 100 : 0}
+              value={assetsTotal > 0 ? (Math.abs(liabilitiesTotal) / assetsTotal) * 100 : 0}
               precision={1}
               valueStyle={{ color: 'var(--mb-color-neutral)' }}
               suffix="%"
@@ -118,24 +162,43 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic
-            title="总资产"
-            value={balanceSheetData?.assets || 0}
-            precision={2}
-            valueStyle={{ color: (balanceSheetData?.assets || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            formatter={statisticFormatter}
-          />
+          {showPred ? (
+            <PredictionStatistic
+              title="总资产"
+              value={assetsValue}
+              valueStyle={{ color: 'var(--mb-color-positive)' }}
+            />
+          ) : (
+            <Statistic
+              title="总资产"
+              value={assetsTotal}
+              formatter={(v) => formatStatValue(Number(v))}
+              valueStyle={{ color: 'var(--mb-color-positive)' }}
+            />
+          )}
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic
-            title="总负债"
-            value={Math.abs(balanceSheetData?.liabilities || 0)}
-            precision={2}
-            valueStyle={{ color: 'var(--mb-color-negative)' }}
-            formatter={statisticFormatter}
-          />
+          {showPred ? (
+            <PredictionStatistic
+              title="总负债"
+              value={liabilitiesValue}
+              valueStyle={{ color: 'var(--mb-color-negative)' }}
+            />
+          ) : (
+            <Statistic
+              title="总负债"
+              value={liabilitiesTotal}
+              formatter={(v) => formatStatValue(Number(v))}
+              valueStyle={{ color: 'var(--mb-color-negative)' }}
+            />
+          )}
         </Card>
       </div>
+      {showPred && balanceSheetData?.predictionNote && (
+        <div style={{ color: 'var(--mb-color-text-tertiary)', fontSize: 'var(--mb-font-size-sm)', textAlign: 'center', marginTop: -8, marginBottom: token.margin }}>
+          {balanceSheetData.predictionNote}
+        </div>
+      )}
     </>
   )
   
@@ -161,26 +224,44 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
   )
 
   const assetDetailCard = (
-    <Card className="surface-card report-section-card" title="资产明细" size="small">
+    <Card className="surface-card report-section-card" title={isFuture ? <>资产明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产明细'} size="small">
       <div className="report-detail-list">
         {buildBalanceSheetTreeData.assetNodes.map((node) => {
-          const result = formatBalance(node.balance, node.nodeType)
+          const showPredicted = showPred ? node.predicted : 0
+          const total = node.balance + showPredicted
+          const result = formatBalance(total, node.nodeType)
           return (
             <div key={node.key} className="report-detail-list__item">
               <div className="report-detail-list__header">
                 <span className="report-detail-list__title">
                   <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
                 </span>
-                <span style={{ color: result.color, fontWeight: 700 }}>{result.text}</span>
+                <span style={{ color: result.color, fontWeight: 700 }}>
+                  {result.text}
+                  {showPred && node.predicted !== 0 && (
+                    <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 8 }}>
+                      （含预测 {formatCurrency(node.predicted)}）
+                    </Text>
+                  )}
+                </span>
               </div>
               {node.children?.length ? (
                 <div className="report-detail-list__subitems">
                   {node.children.map((child) => {
-                    const childResult = formatBalance(child.balance, child.nodeType)
+                    const childShowPredicted = showPred ? child.predicted : 0
+                    const childTotal = child.balance + childShowPredicted
+                    const childResult = formatBalance(childTotal, child.nodeType)
                     return (
                       <div key={child.key} className="report-detail-list__subitem">
                         <span>{child.name}</span>
-                        <span style={{ color: childResult.color }}>{childResult.text}</span>
+                        <span>
+                          <span style={{ color: childResult.color }}>{childResult.text}</span>
+                          {showPred && child.predicted !== 0 && (
+                            <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 6 }}>
+                              （含预测 {formatCurrency(child.predicted)}）
+                            </Text>
+                          )}
+                        </span>
                       </div>
                     )
                   })}
@@ -194,26 +275,44 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
   )
 
   const liabilityDetailCard = (
-    <Card className="surface-card report-section-card" title="负债明细" size="small">
+    <Card className="surface-card report-section-card" title={isFuture ? <>负债明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '负债明细'} size="small">
       <div className="report-detail-list">
         {buildBalanceSheetTreeData.liabilityNodes.map((node) => {
-          const result = formatBalance(node.balance, node.nodeType)
+          const showPredicted = showPred ? node.predicted : 0
+          const total = node.balance + showPredicted
+          const result = formatBalance(total, node.nodeType)
           return (
             <div key={node.key} className="report-detail-list__item">
               <div className="report-detail-list__header">
                 <span className="report-detail-list__title">
                   <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
                 </span>
-                <span style={{ color: result.color, fontWeight: 700 }}>{result.text}</span>
+                <span style={{ color: result.color, fontWeight: 700 }}>
+                  {result.text}
+                  {showPred && node.predicted !== 0 && (
+                    <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 8 }}>
+                      （含预测 {formatCurrency(node.predicted)}）
+                    </Text>
+                  )}
+                </span>
               </div>
               {node.children?.length ? (
                 <div className="report-detail-list__subitems">
                   {node.children.map((child) => {
-                    const childResult = formatBalance(child.balance, child.nodeType)
+                    const childShowPredicted = showPred ? child.predicted : 0
+                    const childTotal = child.balance + childShowPredicted
+                    const childResult = formatBalance(childTotal, child.nodeType)
                     return (
                       <div key={child.key} className="report-detail-list__subitem">
                         <span>{child.name}</span>
-                        <span style={{ color: childResult.color }}>{childResult.text}</span>
+                        <span>
+                          <span style={{ color: childResult.color }}>{childResult.text}</span>
+                          {showPred && child.predicted !== 0 && (
+                            <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 6 }}>
+                              （含预测 {formatCurrency(child.predicted)}）
+                            </Text>
+                          )}
+                        </span>
                       </div>
                     )
                   })}

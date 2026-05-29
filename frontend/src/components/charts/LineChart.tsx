@@ -6,6 +6,7 @@ interface LineChartProps {
   xAxisData: string[]
   seriesData: Array<{ name: string; data: number[]; color?: string }>
   height?: number
+  boundaryIndex?: number
 }
 
 const LineChart: React.FC<LineChartProps> = (props) => <BaseChart {...props} chartType="line" />

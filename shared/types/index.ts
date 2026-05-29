@@ -93,9 +93,10 @@ export interface Budget {
   name: string
   type: 'income' | 'expense' | 'transfer'
   amount: number
-  period: 'monthly' | 'quarterly' | 'yearly'
+  period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
   startDate: string
   endDate: string | null
+  transactionTime: number | null
   note: string | null
   isActive: boolean
   accountId: string
@@ -135,6 +136,11 @@ export interface TransactionCategoryStats {
 
 // ===== 分析与报表 =====
 
+export interface ReportValue {
+  actual: number
+  predicted: number
+}
+
 export interface AnalyticsTrendItem {
   label: string
   amount: number
@@ -157,8 +163,9 @@ export interface AnalyticsAssetTrendItem {
 export interface BalanceSheetAccountItem {
   id: string
   name: string
-  type: string
-  balance: number
+  type: 'asset' | 'liability'
+  actual: number
+  predicted: number
   category: string
   categorySort?: number
   categoryIcon?: string
@@ -168,17 +175,19 @@ export interface BalanceSheetAccountItem {
 export interface BalanceSheetReportData {
   date: string
   granularity: 'day' | 'month' | 'year'
-  assets: number
-  liabilities: number
-  netWorth: number
+  assets: ReportValue
+  liabilities: ReportValue
+  netWorth: ReportValue
   assetsByCategory: Record<string, number>
   liabilitiesByCategory: Record<string, number>
   accounts: BalanceSheetAccountItem[]
+  predictionNote?: string
 }
 
 export interface ReportCategoryDetail {
   name: string
-  value: number
+  actual: number
+  predicted: number
   categoryId: string
   hasChildren: boolean
   sort: number
@@ -187,9 +196,9 @@ export interface ReportCategoryDetail {
 export interface IncomeExpenseReportData {
   startDate: string
   endDate: string
-  income: number
-  expense: number
-  balance: number
+  income: ReportValue
+  expense: ReportValue
+  balance: ReportValue
   incomeByCategory: Record<string, number>
   expenseByCategory: Record<string, number>
   incomeCategoryDetails: ReportCategoryDetail[]
@@ -200,9 +209,8 @@ export interface IncomeExpenseReportData {
   endAssets: number
   endLiabilities: number
   endNetWorth: number
-  assetChange: number
-  predictedIncome?: number
-  predictedExpense?: number
+  assetChange: ReportValue
+  predictionNote?: string
 }
 
 export interface CashFlowActivityItem {
@@ -213,9 +221,9 @@ export interface CashFlowActivityItem {
 }
 
 export interface CashFlowActivity {
-  inflow: number
-  outflow: number
-  net: number
+  inflow: ReportValue
+  outflow: ReportValue
+  net: ReportValue
   items: CashFlowActivityItem[]
 }
 
@@ -228,14 +236,14 @@ export interface SankeyLink {
 export interface CashFlowReportData {
   startDate: string
   endDate: string
-  cashInflow: number
-  cashOutflow: number
-  netCashFlow: number
-  flowByAccount: Record<string, { inflow: number; outflow: number }>
+  cashInflow: ReportValue
+  cashOutflow: ReportValue
+  netCashFlow: ReportValue
+  flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
   cashAccounts: string[]
   startCash: number
   endCash: number
-  cashChange: number
+  cashChange: ReportValue
   byActivity: {
     operating: CashFlowActivity
     investing: CashFlowActivity
@@ -249,6 +257,7 @@ export interface CashFlowReportData {
     }>
     links: SankeyLink[]
   }
+  predictionNote?: string
 }
 
 // ===== 投资分析 =====

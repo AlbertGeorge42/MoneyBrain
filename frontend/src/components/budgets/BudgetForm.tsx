@@ -16,9 +16,21 @@ interface BudgetFormProps {
 }
 
 const PERIOD_OPTIONS = [
+  { value: 'daily', label: '每日' },
+  { value: 'weekly', label: '每周' },
   { value: 'monthly', label: '月度' },
   { value: 'quarterly', label: '季度' },
   { value: 'yearly', label: '年度' },
+]
+
+const WEEK_DAY_OPTIONS = [
+  { value: 0, label: '周一' },
+  { value: 1, label: '周二' },
+  { value: 2, label: '周三' },
+  { value: 3, label: '周四' },
+  { value: 4, label: '周五' },
+  { value: 5, label: '周六' },
+  { value: 6, label: '周日' },
 ]
 
 const BudgetForm: React.FC<BudgetFormProps> = ({
@@ -36,6 +48,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         period: editingBudget.period,
         startDate: dayjs(editingBudget.startDate),
         endDate: editingBudget.endDate ? dayjs(editingBudget.endDate) : null,
+        transactionTime: editingBudget.transactionTime ?? null,
         note: editingBudget.note,
         isActive: editingBudget.isActive,
         accountId: editingBudget.accountId,
@@ -131,6 +144,51 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     )
   }
 
+  // 根据周期类型动态显示交易时间输入
+  const renderTransactionTimeInput = () => {
+    const currentPeriod: string | undefined = Form.useWatch('period', form)
+
+    if (!currentPeriod || currentPeriod === 'daily') return null
+
+    if (currentPeriod === 'weekly') {
+      return (
+        <Form.Item name="transactionTime" label="交易日" extra="默认为周期末（周日）">
+          <Select
+            allowClear
+            placeholder="默认周日"
+            options={WEEK_DAY_OPTIONS}
+          />
+        </Form.Item>
+      )
+    }
+
+    if (currentPeriod === 'monthly') {
+      return (
+        <Form.Item name="transactionTime" label="交易日" extra="0=1日，默认月末">
+          <InputNumber
+            min={0}
+            max={27}
+            placeholder="0=1日，27=28日"
+            style={{ width: '100%' }}
+          />
+        </Form.Item>
+      )
+    }
+
+    // quarterly / yearly
+    const maxVal = currentPeriod === 'yearly' ? 364 : 89
+    return (
+      <Form.Item name="transactionTime" label="天偏移" extra="距周期起始的天数，默认为周期末">
+        <InputNumber
+          min={0}
+          max={maxVal}
+          placeholder={`0~${maxVal}`}
+          style={{ width: '100%' }}
+        />
+      </Form.Item>
+    )
+  }
+
   return (
     <Form form={form} layout="vertical">
       <Form.Item
@@ -187,6 +245,8 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           </Form.Item>
         </Col>
       </Row>
+
+      {renderTransactionTimeInput()}
 
       {renderAccountSelector()}
 

@@ -97,15 +97,16 @@ model Transaction {
 }
 
 model Budget {
-  id          String   @id @default(uuid())
-  name        String                     // 预算名称，如 "每月工资"、"ETF定投"
-  type        String                     // 'income' | 'expense' | 'transfer'
-  amount      Decimal
-  period      String                     // 'monthly' | 'quarterly' | 'yearly'
-  startDate   DateTime
-  endDate     DateTime?                  // null = 无限期
-  note        String?                    // 备注
-  isActive    Boolean   @default(true)   // 是否活跃
+  id              String    @id @default(uuid())
+  name            String                     // 预算名称，如 "每月工资"、"ETF定投"
+  type            String                     // 'income' | 'expense' | 'transfer'
+  amount          Decimal
+  period          String                     // 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+  startDate       DateTime
+  endDate         DateTime?                  // null = 无限期
+  transactionTime Int?                       // 周期内天偏移，null=周期末
+  note            String?                    // 备注
+  isActive        Boolean   @default(true)   // 是否活跃
 
   // 账户关联（与交易对齐）
   accountId   String
