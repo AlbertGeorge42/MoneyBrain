@@ -18,9 +18,10 @@ interface PieChartProps {
   data: PieChartDataItem[]
   height?: number
   onDrillDown?: (item: PieChartDataItem) => Promise<PieChartDataItem[]>
+  isPurePrediction?: boolean
 }
 
-const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillDown }) => {
+const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillDown, isPurePrediction }) => {
   const { token } = theme.useToken()
   const validData = Array.isArray(data) ? data : []
 
@@ -82,6 +83,10 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
         const percent = params.percent?.toFixed(1) || '0.0'
         const item = currentData.find(d => d.name === params.name)
         const drillDownHint = item?.hasChildren && onDrillDown ? ' (点击查看明细)' : ''
+
+        if (isPurePrediction) {
+          return `${params.name}: ¥${value} (${percent}%)${drillDownHint}<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
+        }
 
         if (item?.predictedValue && item.predictedValue !== 0) {
           const predictedSign = item.predictedValue >= 0 ? '+' : '-'

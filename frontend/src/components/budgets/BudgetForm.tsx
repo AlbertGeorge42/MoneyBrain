@@ -152,7 +152,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
     if (currentPeriod === 'weekly') {
       return (
-        <Form.Item name="transactionTime" label="交易日" extra="默认为周期末（周日）">
+        <Form.Item name="transactionTime" label="交易日">
           <Select
             allowClear
             placeholder="默认周日"
@@ -164,11 +164,11 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
     if (currentPeriod === 'monthly') {
       return (
-        <Form.Item name="transactionTime" label="交易日" extra="0=1日，默认月末">
+        <Form.Item name="transactionTime" label="交易日">
           <InputNumber
-            min={0}
-            max={27}
-            placeholder="0=1日，27=28日"
+            min={1}
+            max={28}
+            placeholder="默认月末"
             style={{ width: '100%' }}
           />
         </Form.Item>
@@ -178,11 +178,11 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     // quarterly / yearly
     const maxVal = currentPeriod === 'yearly' ? 364 : 89
     return (
-      <Form.Item name="transactionTime" label="天偏移" extra="距周期起始的天数，默认为周期末">
+      <Form.Item name="transactionTime" label="天偏移">
         <InputNumber
           min={0}
           max={maxVal}
-          placeholder={`0~${maxVal}`}
+          placeholder="默认周期末"
           style={{ width: '100%' }}
         />
       </Form.Item>

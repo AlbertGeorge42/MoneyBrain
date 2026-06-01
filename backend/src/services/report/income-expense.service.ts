@@ -28,12 +28,12 @@ export interface IncomeExpenseResult {
   expenseByCategory: Record<string, number>
   incomeCategoryDetails: CategoryBreakdownItem[]
   expenseCategoryDetails: CategoryBreakdownItem[]
-  startAssets: number
-  startLiabilities: number
-  startNetWorth: number
-  endAssets: number
-  endLiabilities: number
-  endNetWorth: number
+  startAssets: ReportValue
+  startLiabilities: ReportValue
+  startNetWorth: ReportValue
+  endAssets: ReportValue
+  endLiabilities: ReportValue
+  endNetWorth: ReportValue
   assetChange: ReportValue
   predictionNote?: string
 }
@@ -90,7 +90,6 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     }
   }
 
-  // 汇总预测交易的分类
   if (includePredictions && end > now) {
     const allCategories = await prisma.transactionCategory.findMany()
     const categoryMap = new Map(allCategories.map(c => [c.id, c]))
@@ -177,9 +176,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     }
   })
 
-  // 合并预测分类数据
   for (const [catName, pAmount] of Object.entries(predictedByCategory)) {
-    // 判断收入还是支出分类
     const cat = allCategories.find(c => {
       let name = c.name
       if (c.parentId) {
@@ -235,23 +232,81 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     accounts.map(account => calculateBalanceAtDate(account.id, new Date(end.getTime() + 86400000)))
   )
 
-  const startAssets = accounts.reduce((sum, account, i) =>
+  const actualStartAssets = accounts.reduce((sum, account, i) =>
     account.type === 'asset' ? sum + startBalances[i] : sum, 0)
-  const startLiabilitiesBalance = accounts.reduce((sum, account, i) =>
+  const actualStartLiabilitiesBalance = accounts.reduce((sum, account, i) =>
     account.type === 'liability' ? sum + startBalances[i] : sum, 0)
-  const startLiabilities = Math.abs(startLiabilitiesBalance)
-  const startNetWorth = startAssets + startLiabilitiesBalance
+  const actualStartLiabilities = Math.abs(actualStartLiabilitiesBalance)
+  const actualStartNetWorth = actualStartAssets + actualStartLiabilitiesBalance
 
-  const endAssets = accounts.reduce((sum, account, i) =>
+  const actualEndAssets = accounts.reduce((sum, account, i) =>
     account.type === 'asset' ? sum + endBalances[i] : sum, 0)
-  const endLiabilitiesBalance = accounts.reduce((sum, account, i) =>
+  const actualEndLiabilitiesBalance = accounts.reduce((sum, account, i) =>
     account.type === 'liability' ? sum + endBalances[i] : sum, 0)
-  const endLiabilities = Math.abs(endLiabilitiesBalance)
-  const endNetWorth = endAssets + endLiabilitiesBalance
+  const actualEndLiabilities = Math.abs(actualEndLiabilitiesBalance)
+  const actualEndNetWorth = actualEndAssets + actualEndLiabilitiesBalance
 
-  // 预测净资产变化 = 预测收入 - 预测支出
+  let predictedStartNetWorth = 0
+  let predictedEndNetWorth = 0
+  let predictedStartAssets = 0
+  let predictedEndAssets = 0
+  let predictedStartLiabilities = 0
+  let predictedEndLiabilities = 0
+
+  if (includePredictions && end > now) {
+    const nowStr = now.toISOString().split('T')[0]
+    
+    if (start > now) {
+      const startPredictions = await generatePredictions(nowStr, startDate)
+      let pAssetChange = 0
+      let pLiabilityChange = 0
+      for (const p of startPredictions) {
+        const account = accounts.find(a => a.id === p.accountId)
+        const toAccount = p.toAccountId ? accounts.find(a => a.id === p.toAccountId) : null
+        if (p.type === 'income') {
+          if (account?.type === 'asset') pAssetChange += p.amount
+          else if (account?.type === 'liability') pLiabilityChange -= p.amount
+        } else if (p.type === 'expense') {
+          if (account?.type === 'asset') pAssetChange -= p.amount
+          else if (account?.type === 'liability') pLiabilityChange -= p.amount
+        } else if (p.type === 'transfer') {
+          if (account?.type === 'asset') pAssetChange -= p.amount
+          else if (account?.type === 'liability') pLiabilityChange -= p.amount
+          if (toAccount?.type === 'asset') pAssetChange += p.amount
+          else if (toAccount?.type === 'liability') pLiabilityChange += p.amount
+        }
+      }
+      predictedStartAssets = pAssetChange
+      predictedStartLiabilities = Math.abs(actualStartLiabilitiesBalance + pLiabilityChange) - actualStartLiabilities
+      predictedStartNetWorth = pAssetChange + pLiabilityChange
+    }
+
+    const endPredictions = await generatePredictions(nowStr, endDate)
+    let pAssetChange = 0
+    let pLiabilityChange = 0
+    for (const p of endPredictions) {
+      const account = accounts.find(a => a.id === p.accountId)
+      const toAccount = p.toAccountId ? accounts.find(a => a.id === p.toAccountId) : null
+      if (p.type === 'income') {
+        if (account?.type === 'asset') pAssetChange += p.amount
+        else if (account?.type === 'liability') pLiabilityChange -= p.amount
+      } else if (p.type === 'expense') {
+        if (account?.type === 'asset') pAssetChange -= p.amount
+        else if (account?.type === 'liability') pLiabilityChange -= p.amount
+      } else if (p.type === 'transfer') {
+        if (account?.type === 'asset') pAssetChange -= p.amount
+        else if (account?.type === 'liability') pLiabilityChange -= p.amount
+        if (toAccount?.type === 'asset') pAssetChange += p.amount
+        else if (toAccount?.type === 'liability') pLiabilityChange += p.amount
+      }
+    }
+    predictedEndAssets = pAssetChange
+    predictedEndLiabilities = Math.abs(actualEndLiabilitiesBalance + pLiabilityChange) - actualEndLiabilities
+    predictedEndNetWorth = pAssetChange + pLiabilityChange
+  }
+
   const predictedNetWorthChange = predictedBalance.toNumber()
-  const actualAssetChange = endNetWorth - startNetWorth
+  const actualAssetChange = actualEndNetWorth - actualStartNetWorth
 
   const incomeByCategoryResult: Record<string, number> = {}
   for (const [k, v] of Object.entries(incomeByCategory)) {
@@ -272,12 +327,12 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     expenseByCategory: expenseByCategoryResult,
     incomeCategoryDetails,
     expenseCategoryDetails,
-    startAssets,
-    startLiabilities,
-    startNetWorth,
-    endAssets,
-    endLiabilities,
-    endNetWorth,
+    startAssets: { actual: actualStartAssets, predicted: predictedStartAssets },
+    startLiabilities: { actual: actualStartLiabilities, predicted: predictedStartLiabilities },
+    startNetWorth: { actual: actualStartNetWorth, predicted: predictedStartNetWorth },
+    endAssets: { actual: actualEndAssets, predicted: predictedEndAssets },
+    endLiabilities: { actual: actualEndLiabilities, predicted: predictedEndLiabilities },
+    endNetWorth: { actual: actualEndNetWorth, predicted: predictedEndNetWorth },
     assetChange: { actual: actualAssetChange, predicted: predictedNetWorthChange },
     predictionNote,
   }

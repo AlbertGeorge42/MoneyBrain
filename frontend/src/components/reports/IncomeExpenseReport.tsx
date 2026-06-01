@@ -27,10 +27,11 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+  const useClickTrigger = !screens.lg
   const { token } = theme.useToken()
 
   const dateParams = toDateRangeParams(timeRange)
-  const { isPast, isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
+  const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
   const handleDrillDown = async (type: 'income' | 'expense', item: PieChartDataItem): Promise<PieChartDataItem[]> => {
     if (!item.categoryId) return []
@@ -59,30 +60,30 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const assetChangeData = incomeExpenseData?.assetChange || { actual: 0, predicted: 0 }
   const hasPrediction = incomeData.predicted !== 0 || expenseData.predicted !== 0
 
-  const incomeTotal = isPast ? incomeData.actual : isFuture ? incomeData.predicted : incomeData.actual + incomeData.predicted
-  const expenseTotal = isPast ? expenseData.actual : isFuture ? expenseData.predicted : expenseData.actual + expenseData.predicted
-  const balanceTotal = isPast ? balanceData.actual : isFuture ? balanceData.predicted : balanceData.actual + balanceData.predicted
+  const incomeTotal = incomeData.actual + incomeData.predicted
+  const expenseTotal = expenseData.actual + expenseData.predicted
+  const balanceTotal = balanceData.actual + balanceData.predicted
 
   const incomePieData: PieChartDataItem[] = useMemo(() =>
     (incomeExpenseData?.incomeCategoryDetails || []).map((item) => ({
       name: item.name,
-      value: isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted,
-      predictedValue: isMixed && item.predicted !== 0 ? item.predicted : undefined,
+      value: item.actual + item.predicted,
+      predictedValue: item.predicted !== 0 ? item.predicted : undefined,
       categoryId: item.categoryId,
       hasChildren: item.hasChildren,
     })),
-    [incomeExpenseData?.incomeCategoryDetails, isPast, isFuture, isMixed]
+    [incomeExpenseData?.incomeCategoryDetails]
   )
 
   const expensePieData: PieChartDataItem[] = useMemo(() =>
     (incomeExpenseData?.expenseCategoryDetails || []).map((item) => ({
       name: item.name,
-      value: Math.abs(isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted),
-      predictedValue: isMixed && item.predicted !== 0 ? Math.abs(item.predicted) : undefined,
+      value: Math.abs(item.actual + item.predicted),
+      predictedValue: item.predicted !== 0 ? Math.abs(item.predicted) : undefined,
       categoryId: item.categoryId,
       hasChildren: item.hasChildren,
     })),
-    [incomeExpenseData?.expenseCategoryDetails, isPast, isFuture, isMixed]
+    [incomeExpenseData?.expenseCategoryDetails]
   )
 
   const formatStatValue = (v: number) => `¥${v.toFixed(2)}`
@@ -95,6 +96,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             <PredictionStatistic
               title="结余"
               value={balanceData}
+              useClickTrigger={useClickTrigger}
               valueStyle={{ color: balanceTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             />
           ) : (
@@ -111,7 +113,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="收入" value={incomeData} valueStyle={{ color: 'var(--mb-color-positive)' }} />
+            <PredictionStatistic title="收入" value={incomeData} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-positive)' }} />
           ) : (
             <Statistic
               title={isFuture ? <>收入 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入'}
@@ -123,7 +125,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="支出" value={expenseData} valueStyle={{ color: 'var(--mb-color-negative)' }} />
+            <PredictionStatistic title="支出" value={expenseData} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-negative)' }} />
           ) : (
             <Statistic
               title={isFuture ? <>支出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出'}
@@ -134,17 +136,17 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           )}
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic
+          <PredictionStatistic
             title="期初净值"
-            value={incomeExpenseData?.startNetWorth || 0}
-            formatter={(v) => formatStatValue(Number(v))}
+            value={incomeExpenseData?.startNetWorth || { actual: 0, predicted: 0 }}
+            useClickTrigger={useClickTrigger}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic
+          <PredictionStatistic
             title="期末净值"
-            value={incomeExpenseData?.endNetWorth || 0}
-            formatter={(v) => formatStatValue(Number(v))}
+            value={incomeExpenseData?.endNetWorth || { actual: 0, predicted: 0 }}
+            useClickTrigger={useClickTrigger}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -152,21 +154,22 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             <PredictionStatistic
               title="资产变动"
               value={assetChangeData}
+              useClickTrigger={useClickTrigger}
               valueStyle={{ color: (assetChangeData.actual + assetChangeData.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>资产变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产变动'}
-              value={isPast ? assetChangeData.actual : isFuture ? assetChangeData.predicted : assetChangeData.actual + assetChangeData.predicted}
+              value={assetChangeData.actual + assetChangeData.predicted}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: (isPast ? assetChangeData.actual : isFuture ? assetChangeData.predicted : assetChangeData.actual + assetChangeData.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: (assetChangeData.actual + assetChangeData.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             />
           )}
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
             title={isFuture ? <>储蓄率 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '储蓄率'}
-            value={incomeTotal ? ((isPast ? balanceData.actual : isFuture ? balanceData.predicted : balanceData.actual) / incomeTotal) * 100 : 0}
+            value={incomeTotal ? (balanceTotal / incomeTotal) * 100 : 0}
             formatter={(v) => `${Number(v).toFixed(1)}%`}
             valueStyle={{ color: 'var(--mb-color-neutral)' }}
           />
@@ -189,18 +192,18 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           xAxisData={['收入', '支出']}
           seriesData={[{
             name: '金额',
-            data: isPast ? [incomeData.actual, expenseData.actual] : (isFuture ? [incomeData.predicted, expenseData.predicted] : [incomeData.actual, expenseData.actual]),
-            predictedData: isMixed && hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
+            data: [incomeData.actual, expenseData.actual],
+            predictedData: hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
           }]}
           height={isMobile ? 220 : 250}
           isPurePrediction={isFuture}
         />
       </Card>
       <Card className="surface-card report-section-card" size="small">
-        <PieChart title="收入分类" data={incomePieData} height={isMobile ? 220 : 250} onDrillDown={(item) => handleDrillDown('income', item)} />
+        <PieChart title="收入分类" data={incomePieData} height={isMobile ? 220 : 250} onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
       </Card>
       <Card className="surface-card report-section-card" size="small">
-        <PieChart title="支出分类" data={expensePieData} height={isMobile ? 220 : 250} onDrillDown={(item) => handleDrillDown('expense', item)} />
+        <PieChart title="支出分类" data={expensePieData} height={isMobile ? 220 : 250} onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
       </Card>
     </div>
   )
@@ -209,14 +212,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     <Card className="surface-card report-section-card" title={isFuture ? <>收入明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入明细'} size="small">
       <div className="report-detail-list">
         {(incomeExpenseData?.incomeCategoryDetails || []).map((item) => {
-          const showValue = isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted
+          const showValue = item.actual + item.predicted
           return (
             <div key={item.categoryId} className="report-detail-list__item">
               <div className="report-detail-list__header">
                 <span className="report-detail-list__title">{item.name}</span>
                 <span style={{ color: 'var(--mb-color-positive)' }}>
                   {isMixed && item.predicted !== 0 ? (
-                    <ReportValueDisplay value={{ actual: item.actual, predicted: item.predicted }} showBreakdown={false} />
+                    <ReportValueDisplay value={{ actual: item.actual, predicted: item.predicted }} useClickTrigger={useClickTrigger} />
                   ) : (
                     formatStatValue(showValue)
                   )}
@@ -233,14 +236,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     <Card className="surface-card report-section-card" title={isFuture ? <>支出明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出明细'} size="small">
       <div className="report-detail-list">
         {(incomeExpenseData?.expenseCategoryDetails || []).map((item) => {
-          const showValue = Math.abs(isPast ? item.actual : isFuture ? item.predicted : item.actual + item.predicted)
+          const showValue = Math.abs(item.actual + item.predicted)
           return (
             <div key={item.categoryId} className="report-detail-list__item">
               <div className="report-detail-list__header">
                 <span className="report-detail-list__title">{item.name}</span>
                 <span style={{ color: 'var(--mb-color-negative)' }}>
-                  {isMixed && item.predicted !== 0 ? (
-                    <ReportValueDisplay value={{ actual: Math.abs(item.actual), predicted: Math.abs(item.predicted) }} showBreakdown={false} />
+                  {item.predicted !== 0 ? (
+                    <ReportValueDisplay value={{ actual: Math.abs(item.actual), predicted: Math.abs(item.predicted) }} useClickTrigger={useClickTrigger} />
                   ) : (
                     formatStatValue(showValue)
                   )}
@@ -283,8 +286,8 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               xAxisData={['收入', '支出']}
               seriesData={[{
                 name: '金额',
-                data: isPast ? [incomeData.actual, expenseData.actual] : (isFuture ? [incomeData.predicted, expenseData.predicted] : [incomeData.actual, expenseData.actual]),
-                predictedData: isMixed && hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
+                data: [incomeData.actual, expenseData.actual],
+                predictedData: hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
               }]}
               height={220}
               isPurePrediction={isFuture}
@@ -299,7 +302,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
                 content: (
                   <div className="report-detail-stack">
                     <Card className="surface-card report-section-card" size="small">
-                      <PieChart title="收入分类" data={incomePieData} height={220} onDrillDown={(item) => handleDrillDown('income', item)} />
+                      <PieChart title="收入分类" data={incomePieData} height={220} onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
                     </Card>
                     {incomeDetailCard}
                   </div>
@@ -311,7 +314,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
                 content: (
                   <div className="report-detail-stack">
                     <Card className="surface-card report-section-card" size="small">
-                      <PieChart title="支出分类" data={expensePieData} height={220} onDrillDown={(item) => handleDrillDown('expense', item)} />
+                      <PieChart title="支出分类" data={expensePieData} height={220} onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
                     </Card>
                     {expenseDetailCard}
                   </div>

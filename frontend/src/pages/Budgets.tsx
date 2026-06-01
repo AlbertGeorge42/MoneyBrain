@@ -277,7 +277,9 @@ const Budgets: React.FC = () => {
                               <Tag color="blue">
                                 {budget.period === 'weekly'
                                   ? ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][budget.transactionTime]
-                                  : `第${budget.transactionTime + 1}天`
+                                  : budget.period === 'monthly'
+                                    ? `每月${budget.transactionTime}日`
+                                    : `第${budget.transactionTime}天`
                                 }
                               </Tag>
                             )}

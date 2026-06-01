@@ -2,6 +2,7 @@ import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
 import { getTokenValue } from '../../styles/theme/cssVars'
+import { formatCurrency } from '../../utils/format'
 
 export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
 
@@ -12,7 +13,9 @@ export interface SankeyNode {
 interface SankeyLink { 
   source: string
   target: string
-  value: number 
+  value: number
+  actualValue?: number
+  predictedValue?: number
 }
 
 interface SankeyChartProps {
@@ -21,10 +24,10 @@ interface SankeyChartProps {
   links: SankeyLink[]
   height?: number
   loading?: boolean
+  isPurePrediction?: boolean
 }
 
-const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height = 400, loading = false }) => {
-  // 节点分类颜色配置 - 使用设计令牌
+const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height = 400, loading = false, isPurePrediction = false }) => {
   const categoryColors: Record<SankeyNodeCategory, string> = {
     income_category: getTokenValue('--mb-color-income'),
     non_cash_source: getTokenValue('--mb-color-non-cash'),
@@ -33,7 +36,6 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
     non_cash_target: getTokenValue('--mb-color-refund'),
   }
 
-  // 从节点名称中提取显示名称（去掉后缀）
   const getDisplayName = (name: string): string => {
     const suffixes = ['_income', '_ncs', '_cash', '_expense', '_nct']
     for (const suffix of suffixes) {
@@ -44,32 +46,24 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
     return name
   }
 
-  // 数据验证
   const validNodes = Array.isArray(nodes) ? nodes : []
   const validLinks = Array.isArray(links) ? links : []
 
-  // 检查是否有有效数据
   const hasValidData = validNodes.length > 0 && validLinks.length > 0
 
-  // 计算总流量（所有链接的value之和）
   const totalFlow = validLinks.reduce((sum, link) => sum + link.value, 0)
 
-  // 计算每个节点的流量（流入或流出的较大值）
   const nodeFlows: Map<string, number> = new Map()
   validLinks.forEach(link => {
-    // 流入
     nodeFlows.set(link.target, (nodeFlows.get(link.target) || 0) + link.value)
-    // 流出
     nodeFlows.set(link.source, (nodeFlows.get(link.source) || 0) + link.value)
   })
 
-  // 统计每列的节点数量
   const leftCount = validNodes.filter(n => n.category === 'non_cash_source' || n.category === 'income_category').length
   const middleCount = validNodes.filter(n => n.category === 'cash').length
   const rightCount = validNodes.filter(n => n.category === 'non_cash_target' || n.category === 'expense_category').length
   const maxCount = Math.max(leftCount, middleCount, rightCount, 1)
 
-  // 为节点添加颜色和固定坐标，保持后端传来的排序顺序
   let leftIndex = 0
   let middleIndex = 0
   let rightIndex = 0
@@ -79,17 +73,14 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
     let y: number
     
     if (node.category === 'non_cash_source' || node.category === 'income_category') {
-      // 左侧列
       x = 0
       y = (leftIndex + 0.5) / maxCount
       leftIndex++
     } else if (node.category === 'cash') {
-      // 中间列
       x = 0.5
       y = (middleIndex + 0.5) / maxCount
       middleIndex++
     } else {
-      // 右侧列
       x = 1
       y = (rightIndex + 0.5) / maxCount
       rightIndex++
@@ -118,10 +109,23 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
         if (params.dataType === 'node') {
           const nodeFlow = nodeFlows.get(params.name) || 0
           const percentage = totalFlow > 0 ? ((nodeFlow / totalFlow) * 100).toFixed(1) : '0.0'
-          return `${getDisplayName(params.name)}<br/>金额: ¥${params.value?.toFixed(2) || 0}<br/>占比: ${percentage}%`
+          return `${getDisplayName(params.name)}<br/>金额: ${formatCurrency(params.value || 0)}<br/>占比: ${percentage}%`
         } else if (params.dataType === 'edge') {
-          const percentage = totalFlow > 0 ? ((params.data.value / totalFlow) * 100).toFixed(1) : '0.0'
-          return `${getDisplayName(params.data.source)} → ${getDisplayName(params.data.target)}<br/>金额: ¥${params.data.value?.toFixed(2)}<br/>占比: ${percentage}%`
+          const link = params.data
+          const percentage = totalFlow > 0 ? ((link.value / totalFlow) * 100).toFixed(1) : '0.0'
+          const sourceName = getDisplayName(link.source)
+          const targetName = getDisplayName(link.target)
+          
+          if (isPurePrediction) {
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage}%)<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
+          }
+          
+          if (link.predictedValue && link.predictedValue !== 0) {
+            const predictedSign = link.predictedValue >= 0 ? '+' : ''
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage}%)<br/>实际 ${formatCurrency(link.actualValue || 0)} &nbsp; 预测 ${predictedSign}${formatCurrency(link.predictedValue)}`
+          }
+          
+          return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage}%)`
         }
         return ''
       }
@@ -129,14 +133,14 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
     series: [{
       type: 'sankey',
       layout: 'none',
-      layoutIterations: 0,  // 禁用自动布局调整，保持我们指定的顺序
+      layoutIterations: 0,
       emphasis: { focus: 'adjacency' },
       data: nodesWithConfig,
       links: validLinks,
       lineStyle: { 
         color: 'gradient', 
         curveness: 0.5,
-        opacity: 0.6
+        opacity: isPurePrediction ? 0.4 : 0.6
       },
       label: {
         position: 'right',

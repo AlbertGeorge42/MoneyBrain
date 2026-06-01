@@ -29,9 +29,10 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+  const useClickTrigger = !screens.lg
   const { token } = theme.useToken()
 
-  const { isPast, isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
+  const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
   const formatStatValue = (v: number) => formatCurrency(v)
 
@@ -46,7 +47,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const cashOutflowValue = cashFlowData?.cashOutflow || { actual: 0, predicted: 0 }
   const cashChangeValue = cashFlowData?.cashChange || { actual: 0, predicted: 0 }
   const hasPrediction = cashInflowValue.predicted !== 0 || cashOutflowValue.predicted !== 0
-  const netCashFlowTotal = isPast ? netCashFlowValue.actual : isFuture ? netCashFlowValue.predicted : netCashFlowValue.actual + netCashFlowValue.predicted
+  const netCashFlowTotal = netCashFlowValue.actual + netCashFlowValue.predicted
 
   const summarySection = (
     <>
@@ -56,6 +57,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             <PredictionStatistic
               title="净现金流"
               value={netCashFlowValue}
+              useClickTrigger={useClickTrigger}
               valueStyle={{
                 color: netCashFlowTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
               }}
@@ -76,11 +78,11 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="现金流入" value={cashInflowValue} valueStyle={{ color: 'var(--mb-color-positive)' }} />
+            <PredictionStatistic title="现金流入" value={cashInflowValue} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-positive)' }} />
           ) : (
             <Statistic
               title={isFuture ? <>现金流入 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金流入'}
-              value={isPast ? cashInflowValue.actual : isFuture ? cashInflowValue.predicted : cashInflowValue.actual + cashInflowValue.predicted}
+              value={cashInflowValue.actual + cashInflowValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: 'var(--mb-color-positive)' }}
             />
@@ -88,28 +90,28 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="现金流出" value={cashOutflowValue} valueStyle={{ color: 'var(--mb-color-negative)' }} />
+            <PredictionStatistic title="现金流出" value={cashOutflowValue} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-negative)' }} />
           ) : (
             <Statistic
               title={isFuture ? <>现金流出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金流出'}
-              value={isPast ? cashOutflowValue.actual : isFuture ? cashOutflowValue.predicted : cashOutflowValue.actual + cashOutflowValue.predicted}
+              value={cashOutflowValue.actual + cashOutflowValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: 'var(--mb-color-negative)' }}
             />
           )}
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic
+          <PredictionStatistic
             title="期初现金"
-            value={cashFlowData?.startCash || 0}
-            formatter={(v) => formatStatValue(Number(v))}
+            value={cashFlowData?.startCash || { actual: 0, predicted: 0 }}
+            useClickTrigger={useClickTrigger}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic
+          <PredictionStatistic
             title="期末现金"
-            value={cashFlowData?.endCash || 0}
-            formatter={(v) => formatStatValue(Number(v))}
+            value={cashFlowData?.endCash || { actual: 0, predicted: 0 }}
+            useClickTrigger={useClickTrigger}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -117,14 +119,15 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             <PredictionStatistic
               title="现金变动"
               value={cashChangeValue}
+              useClickTrigger={useClickTrigger}
               valueStyle={{ color: (cashChangeValue.actual + cashChangeValue.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>现金变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金变动'}
-              value={isPast ? cashChangeValue.actual : isFuture ? cashChangeValue.predicted : cashChangeValue.actual + cashChangeValue.predicted}
+              value={cashChangeValue.actual + cashChangeValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: (isPast ? cashChangeValue.actual : isFuture ? cashChangeValue.predicted : cashChangeValue.actual + cashChangeValue.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: (cashChangeValue.actual + cashChangeValue.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             />
           )}
         </Card>
@@ -149,9 +152,9 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   }
 
   const chartInflowData = [
-    isPast ? getChartData('operating').inflowActual : (isFuture ? getChartData('operating').inflowPredicted : getChartData('operating').inflowActual),
-    isPast ? getChartData('investing').inflowActual : (isFuture ? getChartData('investing').inflowPredicted : getChartData('investing').inflowActual),
-    isPast ? getChartData('financing').inflowActual : (isFuture ? getChartData('financing').inflowPredicted : getChartData('financing').inflowActual),
+    getChartData('operating').inflowActual,
+    getChartData('investing').inflowActual,
+    getChartData('financing').inflowActual,
   ]
   const chartInflowPredicted = [
     getChartData('operating').inflowPredicted,
@@ -159,9 +162,9 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
     getChartData('financing').inflowPredicted,
   ]
   const chartOutflowData = [
-    isPast ? getChartData('operating').outflowActual : (isFuture ? getChartData('operating').outflowPredicted : getChartData('operating').outflowActual),
-    isPast ? getChartData('investing').outflowActual : (isFuture ? getChartData('investing').outflowPredicted : getChartData('investing').outflowActual),
-    isPast ? getChartData('financing').outflowActual : (isFuture ? getChartData('financing').outflowPredicted : getChartData('financing').outflowActual),
+    getChartData('operating').outflowActual,
+    getChartData('investing').outflowActual,
+    getChartData('financing').outflowActual,
   ]
   const chartOutflowPredicted = [
     getChartData('operating').outflowPredicted,
@@ -199,6 +202,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
           links={cashFlowData?.sankey?.links || []}
           height={isMobile ? 240 : 280}
           loading={cashFlowLoading}
+          isPurePrediction={isFuture}
         />
       </Card>
     </div>
@@ -211,10 +215,10 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
         const net = activity?.net || { actual: 0, predicted: 0 }
         const inflow = activity?.inflow || { actual: 0, predicted: 0 }
         const outflow = activity?.outflow || { actual: 0, predicted: 0 }
-        const netTotal = isPast ? net.actual : isFuture ? net.predicted : net.actual + net.predicted
-        const showInflowValue = isPast ? inflow.actual : isFuture ? inflow.predicted : inflow.actual + inflow.predicted
-        const showOutflowValue = isPast ? Math.abs(outflow.actual) : isFuture ? Math.abs(outflow.predicted) : Math.abs(outflow.actual + outflow.predicted)
-        const showPred = isMixed && (inflow.predicted !== 0 || outflow.predicted !== 0)
+        const netTotal = net.actual + net.predicted
+        const showInflowValue = inflow.actual + inflow.predicted
+        const showOutflowValue = Math.abs(outflow.actual + outflow.predicted)
+        const showPred = inflow.predicted !== 0 || outflow.predicted !== 0
 
         return (
           <Card
@@ -234,10 +238,10 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
           >
             <div className="report-summary-stack">
               <span>
-                流入: {showPred ? <ReportValueDisplay value={inflow} showBreakdown={false} /> : formatStatValue(showInflowValue)}
+                流入: {showPred ? <ReportValueDisplay value={inflow} useClickTrigger={useClickTrigger} /> : formatStatValue(showInflowValue)}
               </span>
               <span>
-                流出: {showPred ? <ReportValueDisplay value={{ actual: Math.abs(outflow.actual), predicted: Math.abs(outflow.predicted) }} showBreakdown={false} /> : formatStatValue(showOutflowValue)}
+                流出: {showPred ? <ReportValueDisplay value={{ actual: Math.abs(outflow.actual), predicted: Math.abs(outflow.predicted) }} useClickTrigger={useClickTrigger} /> : formatStatValue(showOutflowValue)}
               </span>
             </div>
           </Card>
@@ -310,6 +314,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
                       links={cashFlowData?.sankey?.links || []}
                       height={240}
                       loading={cashFlowLoading}
+                      isPurePrediction={isFuture}
                     />
                   </Card>
                 ),

@@ -9,6 +9,18 @@ type TransactionWithIncludes = Prisma.TransactionGetPayload<{
   include: { account: true; toAccount: true; category: true }
 }>
 
+interface PredictionTransaction {
+  date: Date
+  type: string
+  amount: number
+  note: string | null
+  accountId: string
+  toAccountId: string | null
+  categoryId: string | null
+  budgetId: string
+  budgetName: string
+}
+
 interface CashFlowActivityDecimal {
   inflow: Decimal
   outflow: Decimal
@@ -45,8 +57,8 @@ export interface CashFlowResult {
   netCashFlow: ReportValue
   flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
   cashAccounts: string[]
-  startCash: number
-  endCash: number
+  startCash: ReportValue
+  endCash: ReportValue
   cashChange: ReportValue
   byActivity: {
     operating: CashFlowActivity
@@ -56,7 +68,7 @@ export interface CashFlowResult {
   }
   sankey: {
     nodes: Array<{ name: string; category: string }>
-    links: Array<{ source: string; target: string; value: number }>
+    links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }>
   }
   predictionNote?: string
 }
@@ -238,17 +250,20 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   })
 
   let predictionNote: string | undefined
+  let predictions: PredictionTransaction[] = []
+  let categoryMap: Map<string, { cashFlowType: string | null; name: string }> = new Map()
+  let accountMap: Map<string, { name: string }> = new Map()
 
   if (includePredictions && end > now) {
-    const predictions = await generatePredictions(
+    predictions = await generatePredictions(
       start > now ? startDate : now.toISOString().split('T')[0],
       endDate
     )
 
     const allCategories = await prisma.transactionCategory.findMany()
-    const categoryMap = new Map(allCategories.map(c => [c.id, { cashFlowType: c.cashFlowType, name: c.name }]))
+    categoryMap = new Map(allCategories.map(c => [c.id, { cashFlowType: c.cashFlowType, name: c.name }]))
     const allAccounts = await prisma.account.findMany()
-    const accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
+    accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
 
     predictions.forEach(p => {
       const isFromCash = cashAccountIds.includes(p.accountId)
@@ -326,11 +341,48 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     cashAccountIds.map(id => calculateBalanceAtDate(id, nextDayOfEnd))
   )
 
-  const startCash = startCashBalances.reduce((sum, b) => sum + b, 0)
-  const endCash = endCashBalances.reduce((sum, b) => sum + b, 0)
-  const actualCashChange = endCash - startCash
+  const actualStartCash = startCashBalances.reduce((sum, b) => sum + b, 0)
+  const actualEndCash = endCashBalances.reduce((sum, b) => sum + b, 0)
+  const actualCashChange = actualEndCash - actualStartCash
 
-  const sankeyData = buildSankeyData(transactions, cashAccountIds)
+  let predictedStartCash = 0
+  let predictedEndCash = 0
+
+  if (includePredictions && end > now) {
+    const nowStr = now.toISOString().split('T')[0]
+    
+    if (start > now) {
+      const startPredictions = await generatePredictions(nowStr, startDate)
+      for (const p of startPredictions) {
+        const isFromCash = cashAccountIds.includes(p.accountId)
+        const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
+        if (p.type === 'income' && isFromCash) {
+          predictedStartCash += p.amount
+        } else if (p.type === 'expense' && isFromCash) {
+          predictedStartCash -= p.amount
+        } else if (p.type === 'transfer') {
+          if (isFromCash) predictedStartCash -= p.amount
+          if (isToCash) predictedStartCash += p.amount
+        }
+      }
+    }
+
+    const endPredictions = await generatePredictions(nowStr, endDate)
+    for (const p of endPredictions) {
+      const isFromCash = cashAccountIds.includes(p.accountId)
+      const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
+      if (p.type === 'income' && isFromCash) {
+        predictedEndCash += p.amount
+      } else if (p.type === 'expense' && isFromCash) {
+        predictedEndCash -= p.amount
+      } else if (p.type === 'transfer') {
+        if (isFromCash) predictedEndCash -= p.amount
+        if (isToCash) predictedEndCash += p.amount
+      }
+    }
+  }
+
+  const sankeyData = buildSankeyData(transactions, predictions, cashAccountIds, categoryMap, accountMap)
 
   return {
     startDate,
@@ -340,8 +392,8 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     netCashFlow: { actual: actualNetCashFlow.toNumber(), predicted: predictedNetCashFlow.toNumber() },
     flowByAccount,
     cashAccounts: cashAccounts.map(a => a.name),
-    startCash,
-    endCash,
+    startCash: { actual: actualStartCash, predicted: predictedStartCash },
+    endCash: { actual: actualEndCash, predicted: predictedEndCash },
     cashChange: { actual: actualCashChange, predicted: predictedNetCashFlow.toNumber() },
     byActivity: {
       operating: toActivityResult(actualOperating, predictedOperating),
@@ -356,143 +408,226 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
 
 function buildSankeyData(
   transactions: TransactionWithIncludes[],
+  predictions: PredictionTransaction[],
   cashAccountIds: string[],
-): { nodes: Array<{ name: string; category: string }>; links: Array<{ source: string; target: string; value: number }> } {
-  const incomeCategoryNodes: Map<string, Decimal> = new Map()
-  const nonCashSourceNodes: Map<string, Decimal> = new Map()
-  const expenseCategoryNodes: Map<string, Decimal> = new Map()
-  const nonCashTargetNodes: Map<string, Decimal> = new Map()
-  const cashAccountFlows: Map<string, Decimal> = new Map()
+  categoryMap: Map<string, { cashFlowType: string | null; name: string }>,
+  accountMap: Map<string, { name: string }>,
+): { 
+  nodes: Array<{ name: string; category: string }>; 
+  links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }> 
+} {
+  const incomeCategoryNodesActual: Map<string, Decimal> = new Map()
+  const incomeCategoryNodesPredicted: Map<string, Decimal> = new Map()
+  const nonCashSourceNodesActual: Map<string, Decimal> = new Map()
+  const nonCashSourceNodesPredicted: Map<string, Decimal> = new Map()
+  const expenseCategoryNodesActual: Map<string, Decimal> = new Map()
+  const expenseCategoryNodesPredicted: Map<string, Decimal> = new Map()
+  const nonCashTargetNodesActual: Map<string, Decimal> = new Map()
+  const nonCashTargetNodesPredicted: Map<string, Decimal> = new Map()
+  const cashAccountFlowsActual: Map<string, Decimal> = new Map()
+  const cashAccountFlowsPredicted: Map<string, Decimal> = new Map()
 
-  const sourceToCashLinks: Map<string, Map<string, Decimal>> = new Map()
-  const cashToTargetLinks: Map<string, Map<string, Decimal>> = new Map()
+  const sourceToCashLinksActual: Map<string, Map<string, Decimal>> = new Map()
+  const sourceToCashLinksPredicted: Map<string, Map<string, Decimal>> = new Map()
+  const cashToTargetLinksActual: Map<string, Map<string, Decimal>> = new Map()
+  const cashToTargetLinksPredicted: Map<string, Map<string, Decimal>> = new Map()
 
-  const addToMap = (map: Map<string, Decimal>, key: string, value: Decimal) => {
-    map.set(key, (map.get(key) || ZERO).plus(value))
+  const processTransaction = (
+    type: string,
+    isFromCash: boolean,
+    isToCash: boolean,
+    amount: Decimal,
+    fee: Decimal,
+    coupon: Decimal,
+    categoryName: string | undefined,
+    accountName: string | undefined,
+    toAccountName: string | undefined,
+    isActual: boolean
+  ) => {
+    const incomeCategoryNodes = isActual ? incomeCategoryNodesActual : incomeCategoryNodesPredicted
+    const nonCashSourceNodes = isActual ? nonCashSourceNodesActual : nonCashSourceNodesPredicted
+    const expenseCategoryNodes = isActual ? expenseCategoryNodesActual : expenseCategoryNodesPredicted
+    const nonCashTargetNodes = isActual ? nonCashTargetNodesActual : nonCashTargetNodesPredicted
+    const cashAccountFlows = isActual ? cashAccountFlowsActual : cashAccountFlowsPredicted
+    const sourceToCashLinks = isActual ? sourceToCashLinksActual : sourceToCashLinksPredicted
+    const cashToTargetLinks = isActual ? cashToTargetLinksActual : cashToTargetLinksPredicted
+
+    if (type === 'income' && isFromCash) {
+      const catName = categoryName || '其他收入'
+      const cashName = accountName || '现金账户'
+      addToMap(incomeCategoryNodes, catName, amount)
+      addToMap(cashAccountFlows, cashName, amount)
+      if (!sourceToCashLinks.has(catName)) sourceToCashLinks.set(catName, new Map())
+      addToMap(sourceToCashLinks.get(catName)!, cashName, amount)
+    } else if (type === 'expense' && isFromCash) {
+      const catName = categoryName || '其他支出'
+      const cashName = accountName || '现金账户'
+      addToMap(expenseCategoryNodes, catName, amount)
+      addToMap(cashAccountFlows, cashName, amount)
+      if (!cashToTargetLinks.has(cashName)) cashToTargetLinks.set(cashName, new Map())
+      addToMap(cashToTargetLinks.get(cashName)!, catName, amount)
+    } else if (type === 'transfer') {
+      if (!isFromCash && isToCash && toAccountName) {
+        const fromName = accountName || '非现金账户'
+        const toCashName = toAccountName
+        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
+        addToMap(nonCashSourceNodes, fromName, actualInflow)
+        addToMap(cashAccountFlows, toCashName, actualInflow)
+        if (!sourceToCashLinks.has(fromName)) sourceToCashLinks.set(fromName, new Map())
+        addToMap(sourceToCashLinks.get(fromName)!, toCashName, actualInflow)
+      } else if (isFromCash && !isToCash && accountName) {
+        const fromCashName = accountName
+        const toName = toAccountName || '非现金账户'
+        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
+        addToMap(nonCashTargetNodes, toName, actualOutflow)
+        addToMap(cashAccountFlows, fromCashName, actualOutflow)
+        if (!cashToTargetLinks.has(fromCashName)) cashToTargetLinks.set(fromCashName, new Map())
+        addToMap(cashToTargetLinks.get(fromCashName)!, toName, actualOutflow)
+      }
+    } else if (type === 'refund' && isFromCash) {
+      const catName = categoryName || '退款'
+      const cashName = accountName || '现金账户'
+      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
+      addToMap(incomeCategoryNodes, catName, actualInflow)
+      addToMap(cashAccountFlows, cashName, actualInflow)
+      if (!sourceToCashLinks.has(catName)) sourceToCashLinks.set(catName, new Map())
+      addToMap(sourceToCashLinks.get(catName)!, cashName, actualInflow)
+    }
   }
 
   transactions.forEach(t => {
     const isFromCash = cashAccountIds.includes(t.accountId)
-    const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
-    const amount = t.amount
-    const fee = toDecimal(t.fee)
-    const coupon = toDecimal(t.coupon)
-
-    if (t.type === 'income' && isFromCash) {
-      const categoryName = t.category?.name || '其他收入'
-      const cashAccountName = t.account?.name || '现金账户'
-
-      addToMap(incomeCategoryNodes, categoryName, amount)
-      addToMap(cashAccountFlows, cashAccountName, amount)
-
-      if (!sourceToCashLinks.has(categoryName)) sourceToCashLinks.set(categoryName, new Map())
-      addToMap(sourceToCashLinks.get(categoryName)!, cashAccountName, amount)
-    } else if (t.type === 'expense' && isFromCash) {
-      const categoryName = t.category?.name || '其他支出'
-      const cashAccountName = t.account?.name || '现金账户'
-
-      addToMap(expenseCategoryNodes, categoryName, amount)
-      addToMap(cashAccountFlows, cashAccountName, amount)
-
-      if (!cashToTargetLinks.has(cashAccountName)) cashToTargetLinks.set(cashAccountName, new Map())
-      addToMap(cashToTargetLinks.get(cashAccountName)!, categoryName, amount)
-    } else if (t.type === 'transfer') {
-      if (!isFromCash && isToCash && t.toAccount && t.account) {
-        const fromAccountName = t.account.name
-        const toCashAccountName = t.toAccount.name
-        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
-
-        addToMap(nonCashSourceNodes, fromAccountName, actualInflow)
-        addToMap(cashAccountFlows, toCashAccountName, actualInflow)
-
-        if (!sourceToCashLinks.has(fromAccountName)) sourceToCashLinks.set(fromAccountName, new Map())
-        addToMap(sourceToCashLinks.get(fromAccountName)!, toCashAccountName, actualInflow)
-      } else if (isFromCash && !isToCash && t.account && t.toAccount) {
-        const fromCashAccountName = t.account.name
-        const toAccountName = t.toAccount.name
-        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
-
-        addToMap(nonCashTargetNodes, toAccountName, actualOutflow)
-        addToMap(cashAccountFlows, fromCashAccountName, actualOutflow)
-
-        if (!cashToTargetLinks.has(fromCashAccountName)) cashToTargetLinks.set(fromCashAccountName, new Map())
-        addToMap(cashToTargetLinks.get(fromCashAccountName)!, toAccountName, actualOutflow)
-      }
-    } else if (t.type === 'refund' && isFromCash) {
-      const categoryName = t.category?.name || '退款'
-      const cashAccountName = t.account?.name || '现金账户'
-      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
-
-      addToMap(incomeCategoryNodes, categoryName, actualInflow)
-      addToMap(cashAccountFlows, cashAccountName, actualInflow)
-
-      if (!sourceToCashLinks.has(categoryName)) sourceToCashLinks.set(categoryName, new Map())
-      addToMap(sourceToCashLinks.get(categoryName)!, cashAccountName, actualInflow)
-    }
+    const isToCash = !!t.toAccountId && cashAccountIds.includes(t.toAccountId)
+    processTransaction(
+      t.type,
+      isFromCash,
+      isToCash,
+      t.amount,
+      toDecimal(t.fee),
+      toDecimal(t.coupon),
+      t.category?.name,
+      t.account?.name,
+      t.toAccount?.name,
+      true
+    )
   })
 
+  predictions.forEach(p => {
+    const isFromCash = cashAccountIds.includes(p.accountId)
+    const isToCash = !!p.toAccountId && cashAccountIds.includes(p.toAccountId)
+    if (!isFromCash && !isToCash) return
+    const category = p.categoryId ? categoryMap.get(p.categoryId) : null
+    const account = accountMap.get(p.accountId)
+    const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
+    processTransaction(
+      p.type,
+      isFromCash,
+      isToCash,
+      toDecimal(p.amount),
+      ZERO,
+      ZERO,
+      category?.name,
+      account?.name,
+      toAccount?.name,
+      false
+    )
+  })
+
+  const mergeNodes = (actual: Map<string, Decimal>, predicted: Map<string, Decimal>): Set<string> => {
+    const result = new Set<string>()
+    actual.forEach((_, key) => result.add(key))
+    predicted.forEach((_, key) => result.add(key))
+    return result
+  }
+
+  const allIncomeCategoryNodes = mergeNodes(incomeCategoryNodesActual, incomeCategoryNodesPredicted)
+  const allNonCashSourceNodes = mergeNodes(nonCashSourceNodesActual, nonCashSourceNodesPredicted)
+  const allExpenseCategoryNodes = mergeNodes(expenseCategoryNodesActual, expenseCategoryNodesPredicted)
+  const allNonCashTargetNodes = mergeNodes(nonCashTargetNodesActual, nonCashTargetNodesPredicted)
+  const allCashAccountFlows = mergeNodes(cashAccountFlowsActual, cashAccountFlowsPredicted)
+
   const sankeyNodes: Array<{ name: string; category: string }> = []
-  const sankeyLinks: Array<{ source: string; target: string; value: number }> = []
   const nodeNameMap: Map<string, string> = new Map()
 
-  const sortedEntries = (map: Map<string, Decimal>) =>
-    Array.from(map.entries()).sort((a, b) => b[1].minus(a[1]).toNumber())
+  const sortedNodeNames = (nodeSet: Set<string>, actualMap: Map<string, Decimal>, predictedMap: Map<string, Decimal>) => {
+    return Array.from(nodeSet).sort((a, b) => {
+      const aVal = (actualMap.get(a) || ZERO).plus(predictedMap.get(a) || ZERO)
+      const bVal = (actualMap.get(b) || ZERO).plus(predictedMap.get(b) || ZERO)
+      return bVal.minus(aVal).toNumber()
+    })
+  }
 
-  for (const [name] of sortedEntries(nonCashSourceNodes)) {
+  for (const name of sortedNodeNames(allNonCashSourceNodes, nonCashSourceNodesActual, nonCashSourceNodesPredicted)) {
     const uniqueName = `${name}_ncs`
     nodeNameMap.set(`ncs_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'non_cash_source' })
   }
-  for (const [name] of sortedEntries(incomeCategoryNodes)) {
+  for (const name of sortedNodeNames(allIncomeCategoryNodes, incomeCategoryNodesActual, incomeCategoryNodesPredicted)) {
     const uniqueName = `${name}_income`
     nodeNameMap.set(`income_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'income_category' })
   }
-
-  for (const [name] of sortedEntries(cashAccountFlows)) {
+  for (const name of sortedNodeNames(allCashAccountFlows, cashAccountFlowsActual, cashAccountFlowsPredicted)) {
     const uniqueName = `${name}_cash`
     nodeNameMap.set(`cash_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'cash' })
   }
-
-  for (const [name] of sortedEntries(nonCashTargetNodes)) {
+  for (const name of sortedNodeNames(allNonCashTargetNodes, nonCashTargetNodesActual, nonCashTargetNodesPredicted)) {
     const uniqueName = `${name}_nct`
     nodeNameMap.set(`nct_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'non_cash_target' })
   }
-  for (const [name] of sortedEntries(expenseCategoryNodes)) {
+  for (const name of sortedNodeNames(allExpenseCategoryNodes, expenseCategoryNodesActual, expenseCategoryNodesPredicted)) {
     const uniqueName = `${name}_expense`
     nodeNameMap.set(`expense_${name}`, uniqueName)
     sankeyNodes.push({ name: uniqueName, category: 'expense_category' })
   }
 
-  sourceToCashLinks.forEach((cashMap, sourceName) => {
-    cashMap.forEach((amount, cashName) => {
-      if (amount.greaterThan(ZERO)) {
-        const sourceKey = incomeCategoryNodes.has(sourceName) ? `income_${sourceName}` : `ncs_${sourceName}`
-        const targetKey = `cash_${cashName}`
-        sankeyLinks.push({
-          source: nodeNameMap.get(sourceKey) || sourceName,
-          target: nodeNameMap.get(targetKey) || cashName,
-          value: amount.toNumber(),
-        })
-      }
-    })
-  })
+  const sankeyLinks: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }> = []
 
-  cashToTargetLinks.forEach((targetMap, cashName) => {
-    targetMap.forEach((amount, targetName) => {
-      if (amount.greaterThan(ZERO)) {
-        const sourceKey = `cash_${cashName}`
-        const targetKey = expenseCategoryNodes.has(targetName) ? `expense_${targetName}` : `nct_${targetName}`
-        sankeyLinks.push({
-          source: nodeNameMap.get(sourceKey) || cashName,
-          target: nodeNameMap.get(targetKey) || targetName,
-          value: amount.toNumber(),
-        })
+  const mergeLinks = (
+    actualLinks: Map<string, Map<string, Decimal>>,
+    predictedLinks: Map<string, Map<string, Decimal>>,
+    isSourceToCash: boolean
+  ) => {
+    const allSources = new Set<string>()
+    actualLinks.forEach((_, source) => allSources.add(source))
+    predictedLinks.forEach((_, source) => allSources.add(source))
+
+    for (const sourceName of allSources) {
+      const actualTargets = actualLinks.get(sourceName) || new Map()
+      const predictedTargets = predictedLinks.get(sourceName) || new Map()
+      const allTargets = new Set<string>()
+      actualTargets.forEach((_, target) => allTargets.add(target))
+      predictedTargets.forEach((_, target) => allTargets.add(target))
+
+      for (const targetName of allTargets) {
+        const actualAmount = actualTargets.get(targetName) || ZERO
+        const predictedAmount = predictedTargets.get(targetName) || ZERO
+        const totalAmount = actualAmount.plus(predictedAmount)
+
+        if (totalAmount.greaterThan(ZERO)) {
+          const sourceKey = isSourceToCash
+            ? (incomeCategoryNodesActual.has(sourceName) || incomeCategoryNodesPredicted.has(sourceName) ? `income_${sourceName}` : `ncs_${sourceName}`)
+            : `cash_${sourceName}`
+          const targetKey = isSourceToCash
+            ? `cash_${targetName}`
+            : (expenseCategoryNodesActual.has(targetName) || expenseCategoryNodesPredicted.has(targetName) ? `expense_${targetName}` : `nct_${targetName}`)
+
+          sankeyLinks.push({
+            source: nodeNameMap.get(sourceKey) || sourceName,
+            target: nodeNameMap.get(targetKey) || targetName,
+            value: totalAmount.toNumber(),
+            actualValue: actualAmount.greaterThan(ZERO) ? actualAmount.toNumber() : undefined,
+            predictedValue: predictedAmount.greaterThan(ZERO) ? predictedAmount.toNumber() : undefined,
+          })
+        }
       }
-    })
-  })
+    }
+  }
+
+  mergeLinks(sourceToCashLinksActual, sourceToCashLinksPredicted, true)
+  mergeLinks(cashToTargetLinksActual, cashToTargetLinksPredicted, false)
 
   return { nodes: sankeyNodes, links: sankeyLinks }
 }

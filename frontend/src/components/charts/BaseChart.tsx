@@ -41,7 +41,7 @@ const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, hei
     const hasPredicted = predictedData.some(v => v !== 0)
 
     if (chartType === 'bar') {
-      if (hasActual && hasPredicted) {
+      if (hasPredicted) {
         const predictedColor = hexToRgba(s.color || primaryColor, 0.4)
         flatSeries.push({
           name: `${s.name}（实际）`,
@@ -74,13 +74,6 @@ const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, hei
             itemStyle: s.color ? { color: s.color } : undefined,
           })
         }
-      } else if (hasPredicted) {
-        flatSeries.push({
-          name: s.name,
-          type: 'bar',
-          data: predictedData,
-          itemStyle: s.color ? { color: s.color } : undefined,
-        })
       }
     } else if (chartType === 'line') {
       const dataLen = data.length

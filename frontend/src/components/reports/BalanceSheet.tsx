@@ -1,15 +1,15 @@
 import React, { useMemo } from 'react'
-import { Button, Card, Grid, Space, Statistic, Tag, Typography, theme } from 'antd'
+import { Button, Card, Grid, Space, Statistic, Tag, theme } from 'antd'
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetReportData } from '@shared/types'
 import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { formatBalance } from '../../utils/formatBalance'
-import { formatCurrency } from '../../utils/format'
 import { getPointTimeSemantics } from '../../utils/timePicker'
 
 import { PredictionStatistic } from '.'
+import PredictionPopover from './PredictionPopover'
 
 interface BalanceSheetTreeNode {
   key: string
@@ -48,10 +48,20 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+  const useClickTrigger = !screens.lg
   const { token } = theme.useToken()
-  const { Text } = Typography
 
-  const { isFuture } = getPointTimeSemantics(selectedTime.value)
+  const targetDate = useMemo(() => {
+    if (selectedTime.granularity === 'day') {
+      return selectedTime.value
+    }
+    if (selectedTime.granularity === 'month') {
+      return selectedTime.value.endOf('month')
+    }
+    return selectedTime.value.endOf('year')
+  }, [selectedTime])
+
+  const { isFuture } = getPointTimeSemantics(targetDate)
 
   const assetPieData = useMemo(
     () =>
@@ -138,6 +148,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             <PredictionStatistic
               title="净资产"
               value={netWorthValue}
+              useClickTrigger={useClickTrigger}
               valueStyle={{ color: netWorthTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
             />
           ) : (
@@ -166,6 +177,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             <PredictionStatistic
               title="总资产"
               value={assetsValue}
+              useClickTrigger={useClickTrigger}
               valueStyle={{ color: 'var(--mb-color-positive)' }}
             />
           ) : (
@@ -182,6 +194,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
             <PredictionStatistic
               title="总负债"
               value={liabilitiesValue}
+              useClickTrigger={useClickTrigger}
               valueStyle={{ color: 'var(--mb-color-negative)' }}
             />
           ) : (
@@ -210,6 +223,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
           data={assetPieData}
           height={isMobile ? 240 : 280}
           onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.assetNodes, item)}
+          isPurePrediction={isFuture}
         />
       </Card>
       <Card className="surface-card report-section-card" size="small">
@@ -218,6 +232,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
           data={liabilityPieData}
           height={isMobile ? 240 : 280}
           onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.liabilityNodes, item)}
+          isPurePrediction={isFuture}
         />
       </Card>
     </div>
@@ -237,11 +252,12 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                   <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
                 </span>
                 <span style={{ color: result.color, fontWeight: 700 }}>
-                  {result.text}
-                  {showPred && node.predicted !== 0 && (
-                    <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 8 }}>
-                      （含预测 {formatCurrency(node.predicted)}）
-                    </Text>
+                  {showPred && node.predicted !== 0 ? (
+                    <PredictionPopover actual={node.balance} predicted={node.predicted} useClickTrigger={useClickTrigger}>
+                      {result.text}
+                    </PredictionPopover>
+                  ) : (
+                    result.text
                   )}
                 </span>
               </div>
@@ -255,11 +271,12 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                       <div key={child.key} className="report-detail-list__subitem">
                         <span>{child.name}</span>
                         <span>
-                          <span style={{ color: childResult.color }}>{childResult.text}</span>
-                          {showPred && child.predicted !== 0 && (
-                            <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 6 }}>
-                              （含预测 {formatCurrency(child.predicted)}）
-                            </Text>
+                          {showPred && child.predicted !== 0 ? (
+                            <PredictionPopover actual={child.balance} predicted={child.predicted} useClickTrigger={useClickTrigger}>
+                              <span style={{ color: childResult.color }}>{childResult.text}</span>
+                            </PredictionPopover>
+                          ) : (
+                            <span style={{ color: childResult.color }}>{childResult.text}</span>
                           )}
                         </span>
                       </div>
@@ -288,11 +305,12 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                   <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
                 </span>
                 <span style={{ color: result.color, fontWeight: 700 }}>
-                  {result.text}
-                  {showPred && node.predicted !== 0 && (
-                    <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 8 }}>
-                      （含预测 {formatCurrency(node.predicted)}）
-                    </Text>
+                  {showPred && node.predicted !== 0 ? (
+                    <PredictionPopover actual={node.balance} predicted={node.predicted} useClickTrigger={useClickTrigger}>
+                      {result.text}
+                    </PredictionPopover>
+                  ) : (
+                    result.text
                   )}
                 </span>
               </div>
@@ -306,11 +324,12 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                       <div key={child.key} className="report-detail-list__subitem">
                         <span>{child.name}</span>
                         <span>
-                          <span style={{ color: childResult.color }}>{childResult.text}</span>
-                          {showPred && child.predicted !== 0 && (
-                            <Text type="secondary" style={{ fontSize: '0.85em', marginLeft: 6 }}>
-                              （含预测 {formatCurrency(child.predicted)}）
-                            </Text>
+                          {showPred && child.predicted !== 0 ? (
+                            <PredictionPopover actual={child.balance} predicted={child.predicted} useClickTrigger={useClickTrigger}>
+                              <span style={{ color: childResult.color }}>{childResult.text}</span>
+                            </PredictionPopover>
+                          ) : (
+                            <span style={{ color: childResult.color }}>{childResult.text}</span>
                           )}
                         </span>
                       </div>
@@ -365,6 +384,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                       data={assetPieData}
                       height={240}
                       onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.assetNodes, item)}
+                      isPurePrediction={isFuture}
                     />
                   </Card>
                   {assetDetailCard}
@@ -382,6 +402,7 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
                       data={liabilityPieData}
                       height={240}
                       onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.liabilityNodes, item)}
+                      isPurePrediction={isFuture}
                     />
                   </Card>
                   {liabilityDetailCard}

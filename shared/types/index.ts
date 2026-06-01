@@ -203,12 +203,12 @@ export interface IncomeExpenseReportData {
   expenseByCategory: Record<string, number>
   incomeCategoryDetails: ReportCategoryDetail[]
   expenseCategoryDetails: ReportCategoryDetail[]
-  startAssets: number
-  startLiabilities: number
-  startNetWorth: number
-  endAssets: number
-  endLiabilities: number
-  endNetWorth: number
+  startAssets: ReportValue
+  startLiabilities: ReportValue
+  startNetWorth: ReportValue
+  endAssets: ReportValue
+  endLiabilities: ReportValue
+  endNetWorth: ReportValue
   assetChange: ReportValue
   predictionNote?: string
 }
@@ -231,6 +231,8 @@ export interface SankeyLink {
   source: string
   target: string
   value: number
+  actualValue?: number
+  predictedValue?: number
 }
 
 export interface CashFlowReportData {
@@ -241,8 +243,8 @@ export interface CashFlowReportData {
   netCashFlow: ReportValue
   flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
   cashAccounts: string[]
-  startCash: number
-  endCash: number
+  startCash: ReportValue
+  endCash: ReportValue
   cashChange: ReportValue
   byActivity: {
     operating: CashFlowActivity

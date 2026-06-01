@@ -379,15 +379,11 @@ function generateTimePoints(start: Date, end: Date, period: string, transactionT
       while (current <= end) {
         if (transactionTime !== null) {
           const pointDate = new Date(current)
-          // 当月第一天 + 偏移天数 = 目标日期
-          // 注意：JS Date 自动处理月份溢出（如 1月32日 → 2月1日）
-          pointDate.setDate(1 + transactionTime)
-          // 确保不超出当月
+          pointDate.setDate(transactionTime)
           if (pointDate.getMonth() === current.getMonth() && pointDate <= end) {
             points.push(pointDate)
           }
         } else {
-          // 默认：当月最后一天
           const lastDay = new Date(current.getFullYear(), current.getMonth() + 1, 0)
           if (lastDay <= end) {
             points.push(lastDay)

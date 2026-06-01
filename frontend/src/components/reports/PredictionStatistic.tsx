@@ -1,23 +1,32 @@
 import React from 'react'
 import { Statistic, Tag } from 'antd'
 import type { ReportValue } from '@shared/types'
-import ReportValueDisplay from './ReportValueDisplay'
+import { formatCurrency } from '../../utils/format'
+import PredictionPopover from './PredictionPopover'
 
 interface PredictionStatisticProps {
   title: string
   value: ReportValue
   valueStyle?: React.CSSProperties
-  showBreakdown?: boolean
+  useClickTrigger?: boolean
 }
 
 const PredictionStatistic: React.FC<PredictionStatisticProps> = ({
   title,
   value,
   valueStyle,
-  showBreakdown = true,
+  useClickTrigger = false,
 }) => {
   const total = value.actual + value.predicted
   const hasPrediction = value.predicted !== 0
+
+  const valueNode = hasPrediction ? (
+    <PredictionPopover actual={value.actual} predicted={value.predicted} useClickTrigger={useClickTrigger}>
+      {formatCurrency(total)}
+    </PredictionPopover>
+  ) : (
+    formatCurrency(total)
+  )
 
   return (
     <Statistic
@@ -32,12 +41,7 @@ const PredictionStatistic: React.FC<PredictionStatisticProps> = ({
       value={total}
       precision={2}
       valueStyle={valueStyle}
-      formatter={() => (
-        <ReportValueDisplay
-          value={value}
-          showBreakdown={showBreakdown}
-        />
-      )}
+      formatter={() => valueNode}
     />
   )
 }
