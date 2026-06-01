@@ -5,6 +5,8 @@ import { exportTransactionsCSV, clearAllData, clearTransactionsOnly } from '../s
 import { importTransactionsFromRows, parseCSVLine, type ParsedRow } from '../services/transaction-import.service.js'
 import { exportConfig } from '../services/config-export.service.js'
 import { importConfig } from '../services/config-import.service.js'
+import { exportBudgets } from '../services/budget-export.service.js'
+import { importBudgets } from '../services/budget-import.service.js'
 
 const router = Router()
 
@@ -124,6 +126,34 @@ router.post('/import-config', upload.single('file'), validateRequest((req: Reque
   }
 
   const result = await importConfig(configData, 'merge')
+  return success(res, result)
+}))
+
+router.get('/export-budgets', asyncHandler(async (_req, res) => {
+  const jsonContent = await exportBudgets()
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename=moneybrain-budgets-${new Date().toISOString().split('T')[0]}.json`)
+  res.send(jsonContent)
+}))
+
+router.post('/import-budgets', upload.single('file'), validateRequest((req: Request) => {
+  if (!req.file) {
+    throw new ValidationError('请上传JSON文件')
+  }
+}), asyncHandler(async (req, res) => {
+  const content = req.file!.buffer.toString('utf-8')
+  let budgetData
+  try {
+    budgetData = JSON.parse(content)
+  } catch {
+    throw new ValidationError('JSON文件格式错误')
+  }
+
+  if (!budgetData.data || !budgetData.data.budgets) {
+    throw new ValidationError('预算文件格式不正确，缺少data.budgets字段')
+  }
+
+  const result = await importBudgets(budgetData, 'merge')
   return success(res, result)
 }))
 

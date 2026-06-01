@@ -222,6 +222,13 @@ export interface ImportConfigResult {
   errors: string[]
 }
 
+export interface ImportBudgetResult {
+  imported: number
+  updated: number
+  skipped: number
+  errors: string[]
+}
+
 export const dataApi = {
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
   clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
@@ -255,6 +262,21 @@ export const dataApi = {
     const formData = new FormData()
     formData.append('file', file)
     return api.post<ApiResponse<ImportConfigResult>>('/data/import-config', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000,
+    })
+  },
+  exportBudgets: () => {
+    return api.get<Blob>('/data/export-budgets', {
+      responseType: 'blob',
+    })
+  },
+  importBudgets: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post<ApiResponse<ImportBudgetResult>>('/data/import-budgets', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

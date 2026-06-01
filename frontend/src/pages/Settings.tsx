@@ -28,7 +28,7 @@ import {
   InboxOutlined,
 } from '@ant-design/icons'
 import { PageHeader, RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../components/common'
-import { dataApi, type ImportConfigResult } from '../services/api'
+import { dataApi, type ImportConfigResult, type ImportBudgetResult } from '../services/api'
 import { useStore } from '../stores'
 import { useTheme } from '../styles/ThemeContext'
 import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
@@ -91,6 +91,10 @@ const Settings: React.FC = () => {
   const [configImporting, setConfigImporting] = useState(false)
   const [configImportResult, setConfigImportResult] = useState<ImportConfigResult | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [budgetExporting, setBudgetExporting] = useState(false)
+  const [budgetImporting, setBudgetImporting] = useState(false)
+  const [budgetImportResult, setBudgetImportResult] = useState<ImportBudgetResult | null>(null)
+  const budgetFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     void Promise.all([
@@ -304,6 +308,78 @@ const Settings: React.FC = () => {
     setIsDragOver(false)
   }
 
+  const handleExportBudgets = async () => {
+    setBudgetExporting(true)
+    const hide = message.loading('正在导出预算配置，请稍候...', 0)
+
+    try {
+      const response = await dataApi.exportBudgets()
+      const blob = response.data
+
+      if (!blob || blob.size === 0) {
+        throw new Error('导出的文件为空')
+      }
+
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `moneybrain-budgets-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+      }, 100)
+
+      hide()
+      message.success('预算配置导出成功，文件已开始下载')
+    } catch (error) {
+      hide()
+      message.error('预算配置导出失败，请重试')
+      console.error('Export budgets error:', error)
+    } finally {
+      setBudgetExporting(false)
+    }
+  }
+
+  const handleImportBudgets = async (file: File) => {
+    if (!file.name.endsWith('.json')) {
+      message.error('请选择 JSON 文件')
+      return
+    }
+    setBudgetImporting(true)
+    setBudgetImportResult(null)
+
+    try {
+      const response = await dataApi.importBudgets(file)
+      const result = response.data
+
+      if (!result.success || !result.data) {
+        message.error(result.error?.message || '导入失败')
+        return
+      }
+
+      setBudgetImportResult(result.data)
+      message.success('预算配置导入完成')
+      await refreshData()
+    } catch {
+      message.error('预算配置导入失败，请检查 JSON 格式')
+    } finally {
+      setBudgetImporting(false)
+    }
+  }
+
+  const handleBudgetFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      void handleImportBudgets(file)
+    }
+    if (budgetFileInputRef.current) {
+      budgetFileInputRef.current.value = ''
+    }
+  }
+
   const handleClearTransactions = async () => {
     try {
       await dataApi.clearTransactions()
@@ -489,6 +565,70 @@ const Settings: React.FC = () => {
                   <div style={{ marginTop: spaceStackDefault }}>
                     <p style={{ margin: 0, color: colorDanger }}>错误 ({configImportResult.errors.length} 条)：</p>
                     {configImportResult.errors.slice(0, 3).map((err, idx) => (
+                      <p key={idx} style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>{err}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'budgets',
+      label: '预算配置',
+      children: (
+        <div className="settings-grid">
+          <div>
+            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导出预算</h3>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
+              导出预算配置信息，包含预算名称、金额、周期、关联账户和分类等。
+            </p>
+            <Button icon={<CloudDownloadOutlined />} onClick={handleExportBudgets} loading={budgetExporting} type="primary">
+              导出预算
+            </Button>
+          </div>
+
+          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border-subtle)' }} />
+
+          <div>
+            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入预算</h3>
+            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
+              从 JSON 文件恢复预算配置。存在则更新，不存在则新增。
+            </p>
+            <div
+              className={`file-drop-zone ${isDragOver ? 'file-drop-zone--dragover' : ''}`}
+              onClick={() => budgetFileInputRef.current?.click()}
+              onDrop={(e) => handleDrop(e, 'json')}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              <input ref={budgetFileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleBudgetFileChange} />
+              <InboxOutlined style={{ fontSize: 32, color: colorActionPrimary, marginBottom: spaceStackDefault }} />
+              <p style={{ margin: 0, fontWeight: fontWeightBold }}>点击或拖拽 JSON 文件到此处</p>
+              <p style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>
+                {budgetImporting ? '正在导入...' : '支持导入预算配置信息'}
+              </p>
+            </div>
+            {budgetImportResult ? (
+              <div
+                style={{
+                  marginTop: spaceStackDefault,
+                  padding: 12,
+                  borderRadius: radiusCard,
+                  border: `1px solid ${colorSuccess}`,
+                  background: 'rgba(82, 196, 26, 0.06)',
+                }}
+              >
+                <p style={{ margin: 0, fontWeight: fontWeightBold }}>导入结果</p>
+                <div style={{ marginTop: spaceStackDefault, display: 'grid', gap: spaceInlineDefault, fontSize: fontSizeBody }}>
+                  <p style={{ margin: 0 }}>预算：新增 {budgetImportResult.imported} / 更新 {budgetImportResult.updated} / 跳过 {budgetImportResult.skipped}</p>
+                </div>
+                {budgetImportResult.errors.length > 0 && (
+                  <div style={{ marginTop: spaceStackDefault }}>
+                    <p style={{ margin: 0, color: colorDanger }}>错误 ({budgetImportResult.errors.length} 条)：</p>
+                    {budgetImportResult.errors.slice(0, 3).map((err, idx) => (
                       <p key={idx} style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>{err}</p>
                     ))}
                   </div>
