@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, Select, Button, Space, message, theme, Grid, Spin, Tooltip } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
-import { useStore } from '../../stores'
+import { useAccounts } from '../../queries'
 import { investmentApi, InvestmentAllocationSnapshot } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
 import InvestmentSnapshotTimeline from './InvestmentSnapshotTimeline'
@@ -23,19 +23,13 @@ const InvestmentSnapshotHistoryModal: React.FC<Props> = ({
   const { token } = theme.useToken()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
-  const { accounts, fetchAccounts } = useStore()
+  const { data: accounts = [] } = useAccounts()
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(initialAccountId)
   const [snapshots, setSnapshots] = useState<InvestmentAllocationSnapshot[]>([])
   const [loading, setLoading] = useState(false)
   const [snapshotModalVisible, setSnapshotModalVisible] = useState(false)
   const [editingSnapshot, setEditingSnapshot] = useState<InvestmentAllocationSnapshot | null>(null)
-
-  useEffect(() => {
-    if (visible) {
-      fetchAccounts()
-    }
-  }, [visible])
 
   useEffect(() => {
     if (initialAccountId) {

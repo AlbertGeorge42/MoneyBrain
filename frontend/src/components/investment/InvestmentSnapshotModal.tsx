@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, Select, DatePicker, Table, InputNumber, Space, message, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
-import { useStore } from '../../stores'
+import { useAccounts } from '../../queries'
 import { investmentApi, accountApi, InvestmentAssetClass, InvestmentAllocationSnapshot } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
 import dayjs from 'dayjs'
@@ -19,7 +19,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
   const { token } = theme.useToken()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
-  const { accounts, fetchAccounts } = useStore()
+  const { data: accounts = [] } = useAccounts()
 
   const isEditMode = !!editingSnapshot
 
@@ -43,7 +43,6 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
 
   useEffect(() => {
     if (visible) {
-      fetchAccounts()
       if (editingSnapshot) {
         setSelectedAccountId(editingSnapshot.accountId)
         setSelectedDate(dayjs(editingSnapshot.date))

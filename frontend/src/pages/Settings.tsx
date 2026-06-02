@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   Button,
   Card,
@@ -29,7 +29,14 @@ import {
 } from '@ant-design/icons'
 import { PageHeader, RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../components/common'
 import { dataApi, type ImportConfigResult, type ImportBudgetResult } from '../services/api'
-import { useStore } from '../stores'
+import {
+  useAccounts,
+  useTransactionCategories,
+  useAccountCategories,
+  useTransactions,
+  useClearTransactions,
+  useClearAll,
+} from '../queries'
 import { useTheme } from '../styles/ThemeContext'
 import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
 import { downloadBlob, todayFilename } from '../utils/download'
@@ -63,9 +70,19 @@ const themeOptions = [
 
 const Settings: React.FC = () => {
   const { token } = theme.useToken()
-  const { accounts, transactionCategories, accountCategories, pagination, fetchAccounts, fetchTransactionCategories, fetchTransactions, fetchBudgets, fetchAccountCategories } = useStore()
   const { mode, theme: currentTheme, setThemeMode } = useTheme()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const configFileInputRef = useRef<HTMLInputElement>(null)
+  const budgetFileInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: accounts = [] } = useAccounts()
+  const { data: transactionCategories = [] } = useTransactionCategories()
+  const { data: accountCategories = [] } = useAccountCategories()
+  const { data: transactionsData } = useTransactions({ pageSize: 1 })
+  const clearTransactionsMutation = useClearTransactions()
+  const clearAllMutation = useClearAll()
+
+  const paginationTotal = transactionsData?.total ?? 0
 
   const colorDanger = token.colorError
   const colorTextMuted = token.colorTextTertiary
@@ -81,7 +98,7 @@ const Settings: React.FC = () => {
   const fontSizeBodyLarge = `${token.fontSizeLG}px`
   const fontSizeBody = `${token.fontSize}px`
   const fontSizeCaption = `${token.fontSizeSM}px`
-  const configFileInputRef = useRef<HTMLInputElement>(null)
+
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState<{ imported: number; skipped: number } | null>(null)
   const [exportDateRange, setExportDateRange] = useState<RangeTimeValue | null>(null)
@@ -95,26 +112,6 @@ const Settings: React.FC = () => {
   const [budgetExporting, setBudgetExporting] = useState(false)
   const [budgetImporting, setBudgetImporting] = useState(false)
   const [budgetImportResult, setBudgetImportResult] = useState<ImportBudgetResult | null>(null)
-  const budgetFileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    void Promise.all([
-      fetchTransactions({ pageSize: 1 }),
-      fetchAccounts(),
-      fetchTransactionCategories(),
-      fetchAccountCategories(),
-    ])
-  }, [fetchTransactions, fetchAccounts, fetchTransactionCategories, fetchAccountCategories])
-
-  const refreshData = async () => {
-    await Promise.all([
-      fetchAccounts(),
-      fetchTransactionCategories(),
-      fetchTransactions(),
-      fetchBudgets(),
-      fetchAccountCategories(),
-    ])
-  }
 
   const handleExportCSV = async () => {
     setExporting(true)
@@ -165,7 +162,6 @@ const Settings: React.FC = () => {
         skipped: result.data.skipped,
       })
       message.success(`导入完成：成功 ${result.data.imported} 条，跳过 ${result.data.skipped} 条`)
-      await refreshData()
     } catch {
       message.error('导入失败，请检查 CSV 格式')
     } finally {
@@ -226,7 +222,6 @@ const Settings: React.FC = () => {
 
       setConfigImportResult(result.data)
       message.success('配置导入完成')
-      await refreshData()
     } catch {
       message.error('配置导入失败，请检查 JSON 格式')
     } finally {
@@ -315,7 +310,6 @@ const Settings: React.FC = () => {
 
       setBudgetImportResult(result.data)
       message.success('预算配置导入完成')
-      await refreshData()
     } catch {
       message.error('预算配置导入失败，请检查 JSON 格式')
     } finally {
@@ -335,8 +329,7 @@ const Settings: React.FC = () => {
 
   const handleClearTransactions = async () => {
     try {
-      await dataApi.clearTransactions()
-      await Promise.all([fetchTransactions(), fetchBudgets()])
+      await clearTransactionsMutation.mutateAsync()
       message.success('交易数据已清空')
     } catch {
       message.error('清空交易数据失败')
@@ -345,8 +338,7 @@ const Settings: React.FC = () => {
 
   const handleClearData = async () => {
     try {
-      await dataApi.clearAll()
-      await refreshData()
+      await clearAllMutation.mutateAsync()
       message.success('所有数据已清空')
     } catch {
       message.error('清空数据失败')
@@ -615,7 +607,7 @@ const Settings: React.FC = () => {
             <FileTextOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">交易记录</span>
           </div>
-          <div className="metric-card__value">{pagination.total}</div>
+          <div className="metric-card__value">{paginationTotal}</div>
         </Card>
         <Card className="surface-card metric-card">
           <div className="metric-card__header">

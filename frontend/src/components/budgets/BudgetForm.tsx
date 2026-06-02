@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { Form, Input, Select, InputNumber, DatePicker, Row, Col, Switch, TreeSelect } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Budget } from '../../services/api'
-import { buildTreeData } from '../../utils/treeUtils'
+import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
 import DynamicIcon from '../common/DynamicIcon'
 
 export type BudgetFormType = 'income' | 'expense' | 'transfer'

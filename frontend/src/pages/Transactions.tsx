@@ -1,14 +1,23 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Button, Card, message, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
-import { useStore } from '../stores'
 import { Transaction } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
 import { useIsMobile } from '../hooks/useIsMobile'
 import {
+  useTransactions,
+  useTransactionStats,
+  useAccounts,
+  useTransactionCategories,
+  useAccountCategories,
+  useCreateTransaction,
+  useUpdateTransaction,
+  useDeleteTransaction,
+} from '../queries'
+import {
   TransactionFilter,
-  TransactionStats,
+  TransactionStats as TransactionStatsComponent,
   TransactionTable,
   FloatingActionButton,
   TransactionFilterValues,
@@ -17,24 +26,6 @@ import {
 } from '../components/transactions'
 
 const Transactions: React.FC = () => {
-  const {
-    transactions,
-    accounts,
-    transactionCategories,
-    accountCategories,
-    loading,
-    pagination,
-    stats,
-    fetchTransactions,
-    fetchAccounts,
-    fetchTransactionCategories,
-    fetchAccountCategories,
-    fetchTransactionStats,
-    addTransaction,
-    updateTransaction,
-    deleteTransaction,
-  } = useStore()
-
   const [createModalVisible, setCreateModalVisible] = useState(false)
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -50,13 +41,27 @@ const Transactions: React.FC = () => {
   const { token } = theme.useToken()
   const isMobile = useIsMobile()
 
-  useEffect(() => {
-    fetchTransactions()
-    fetchAccounts()
-    fetchTransactionCategories()
-    fetchAccountCategories()
-    fetchTransactionStats()
-  }, [])
+  const [queryParams, setQueryParams] = useState<Record<string, unknown>>({
+    page: 1,
+    pageSize: 20,
+  })
+
+  const { data: transactionsData, isLoading: loading } = useTransactions(queryParams)
+  const transactions = transactionsData?.list ?? []
+  const pagination = {
+    total: transactionsData?.total ?? 0,
+    page: transactionsData?.page ?? 1,
+    pageSize: transactionsData?.pageSize ?? 20,
+  }
+
+  const { data: stats = { income: 0, expense: 0, refund: 0, balance: 0, transferCount: 0 } } = useTransactionStats(queryParams)
+  const { data: accounts = [] } = useAccounts()
+  const { data: transactionCategories = [] } = useTransactionCategories()
+  const { data: accountCategories = [] } = useAccountCategories()
+
+  const createTransaction = useCreateTransaction()
+  const updateTransaction = useUpdateTransaction()
+  const deleteTransaction = useDeleteTransaction()
 
   const handleAdd = () => {
     setCreateModalVisible(true)
@@ -68,14 +73,14 @@ const Transactions: React.FC = () => {
   }
 
   const handleCreateSubmit = async (values: unknown) => {
-    await addTransaction(values as Record<string, unknown>)
+    await createTransaction.mutateAsync(values as Record<string, unknown>)
     message.success('创建成功')
     setCreateModalVisible(false)
   }
 
   const handleEditSubmit = async (values: unknown) => {
     if (!selectedTransaction) return
-    await updateTransaction(selectedTransaction.id, values as Partial<Transaction>)
+    await updateTransaction.mutateAsync({ id: selectedTransaction.id, data: values as Partial<Transaction> })
     message.success('更新成功')
   }
 
@@ -91,13 +96,13 @@ const Transactions: React.FC = () => {
       relatedTransactionId: selectedTransaction.id,
       note: (values as { note?: string }).note,
     }
-    await addTransaction(data)
+    await createTransaction.mutateAsync(data)
     message.success('退款记录成功')
   }
 
   const handleDelete = async () => {
     if (!selectedTransaction) return
-    await deleteTransaction(selectedTransaction.id)
+    await deleteTransaction.mutateAsync(selectedTransaction.id)
     message.success('删除成功')
   }
 
@@ -111,8 +116,7 @@ const Transactions: React.FC = () => {
     }
     params.page = 1
     params.pageSize = pageSize
-    fetchTransactions(params)
-    fetchTransactionStats(params)
+    setQueryParams(params)
     setCurrentPage(1)
   }
 
@@ -123,8 +127,7 @@ const Transactions: React.FC = () => {
       categoryId: [],
       dateRange: null,
     })
-    fetchTransactions({ page: 1, pageSize })
-    fetchTransactionStats()
+    setQueryParams({ page: 1, pageSize })
     setCurrentPage(1)
   }
 
@@ -138,7 +141,7 @@ const Transactions: React.FC = () => {
     if (filters.dateRange) {
       Object.assign(params, toDateRangeParams(filters.dateRange))
     }
-    fetchTransactions(params)
+    setQueryParams(params)
   }
 
   const renderAddButton = () => {
@@ -175,7 +178,7 @@ const Transactions: React.FC = () => {
         />
       </Card>
 
-      <TransactionStats
+      <TransactionStatsComponent
         totalIncome={stats.income}
         totalExpense={stats.expense}
         totalRefund={stats.refund}

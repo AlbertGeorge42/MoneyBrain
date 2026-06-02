@@ -64,29 +64,4 @@ export function formatBalance(
   }
 }
 
-/**
- * 格式化净资产显示
- * @param netWorth 净资产
- * @param showSymbol 是否显示货币符号
- * @returns 格式化结果
- */
-export function formatNetWorth(
-  netWorth: number,
-  showSymbol: boolean = true
-): BalanceDisplayResult {
-  const prefix = showSymbol ? '¥' : ''
-  
-  if (netWorth >= 0) {
-    return {
-      text: `${prefix}${netWorth.toFixed(2)}`,
-      color: colorPositive,
-      displayValue: netWorth,
-    }
-  } else {
-    return {
-      text: `${prefix}${netWorth.toFixed(2)}`,
-      color: colorNegative,
-      displayValue: netWorth,
-    }
-  }
-}
+

@@ -840,15 +840,12 @@ function calculateTWRWithCache(
     cashFlowsByDate.set(dateKey, (cashFlowsByDate.get(dateKey) || 0) + cf.amount)
   }
 
-  const startDateKey = formatDateLocal(startDate)
-  const firstDayBalance = startValue + (cashFlowsByDate.get(startDateKey) || 0)
+  const firstDayBalance = startValue
 
   let prevValue = firstDayBalance
   let prevDate = startDate
 
   for (const [dateKey, totalAmount] of cashFlowsByDate) {
-    if (dateKey === startDateKey) continue
-
     const currentDate = new Date(dateKey)
     if (currentDate.getTime() <= prevDate.getTime()) continue
 
@@ -864,7 +861,6 @@ function calculateTWRWithCache(
     prevDate = currentDate
   }
 
-  const endDateKey = formatDateLocal(endDate)
   if (prevDate < endDate) {
     const endValue = balanceCache.getMany(accountIds, endDate)
     if (prevValue > 0 && endValue >= 0) {

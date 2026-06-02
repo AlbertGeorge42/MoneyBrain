@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, Tabs, Table, Button, Form, Input, message, Tooltip, Dropdown } from 'antd'
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons'
-import { useStore } from '../../stores'
+import { useQueryClient } from '@tanstack/react-query'
+import { useTransactionCategories } from '../../queries'
+import { queryKeys } from '../../queries/keys'
 import { TransactionCategory, transactionCategoryApi } from '../../services/api'
 import DynamicIcon from '../common/DynamicIcon'
 import IconPicker from '../common/IconPicker'
@@ -16,7 +18,8 @@ import type { TransactionTreeNode, MoveTreeDataNode, MenuProps } from './shared'
 interface Props { visible: boolean; onClose: () => void }
 
 const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
-  const { transactionCategories, fetchTransactionCategories } = useStore()
+  const queryClient = useQueryClient()
+  const { data: transactionCategories = [] } = useTransactionCategories()
   const [activeTab, setActiveTab] = useState('income')
   const [editingItem, setEditingItem] = useState<TransactionCategory | null>(null)
   const [formVisible, setFormVisible] = useState(false)
@@ -31,7 +34,6 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const moveModal = useMoveModal<TransactionTreeNode>()
   const { sensors, expandedRowKeys, setExpandedRowKeys, toggleExpand, getVisibleSortableKeys } = useSortableTable()
 
-  useEffect(() => { if (visible) fetchTransactionCategories() }, [visible])
   useEffect(() => { setLocalCategories(transactionCategories) }, [transactionCategories])
 
   const handleAdd = (parentId?: string) => {
@@ -81,7 +83,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
         } else {
           message.success(deleteAction === 'transfer' ? `删除成功，已转移 ${res.data.data.transferredTransactions || 0} 笔交易` : `删除成功，已删除 ${res.data.data.deletedTransactions || 0} 笔交易`)
         }
-        setDeleteModalVisible(false); fetchTransactionCategories()
+        setDeleteModalVisible(false); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all })
       }
     } catch (error: any) { message.error(error.response?.data?.error?.message || '删除失败') }
     finally { setDeleteLoading(false) }
@@ -93,7 +95,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     moveModal.setLoading(true)
     try {
       const res = await transactionCategoryApi.move(moveModal.item.id, { newParentId: moveModal.targetId })
-      if (res.data.success) { message.success('移动成功'); moveModal.close(); fetchTransactionCategories() }
+      if (res.data.success) { message.success('移动成功'); moveModal.close(); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all }) }
     } catch (error: any) { message.error(error.response?.data?.error?.message || '移动失败') }
     finally { moveModal.setLoading(false) }
   }
@@ -103,7 +105,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       const values = await form.validateFields()
       if (editingItem) { await transactionCategoryApi.update(editingItem.id, values); message.success('更新成功') }
       else { await transactionCategoryApi.create(values); message.success('创建成功') }
-      setFormVisible(false); fetchTransactionCategories()
+      setFormVisible(false); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all })
     } catch { message.error('操作失败') }
   }
 

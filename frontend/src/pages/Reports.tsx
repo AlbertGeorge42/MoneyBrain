@@ -20,15 +20,15 @@ import {
 } from '../utils/timePicker'
 import {
   accountApi,
-  reportApi,
-  transactionApi,
   type BalanceSheetAccountItem,
-  type BalanceSheetReportData,
-  type CashFlowReportData,
-  type IncomeExpenseReportData,
-  type InvestmentAnalysisReportData,
 } from '../services/api'
-import { useStore } from '../stores'
+import {
+  useTransactionEarliestDate,
+  useBalanceSheet,
+  useIncomeExpense,
+  useCashFlow,
+  useInvestmentAnalysis,
+} from '../queries'
 
 const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '时点',
@@ -133,42 +133,38 @@ type BalanceSheetTreeNode = {
 
 const Reports: React.FC = () => {
   const { token } = theme.useToken()
-  const { fetchAccounts } = useStore()
   const [activeTab, setActiveTab] = useState('balance-sheet')
-  const [earliestTransactionDate, setEarliestTransactionDate] = useState<string | null>(null)
   const [selectedBalanceTime, setSelectedBalanceTime] = useState<PointTimeValue>(createPointValue('month', dayjs()))
-  const [balanceSheetData, setBalanceSheetData] = useState<BalanceSheetReportData | null>(null)
   const [calibrateVisible, setCalibrateVisible] = useState(false)
   const [calibrateData, setCalibrateData] = useState<Record<string, number>>({})
   const [accountCategoryModalVisible, setAccountCategoryModalVisible] = useState(false)
   const [incomeExpenseTimeRange, setIncomeExpenseTimeRange] = useState<RangeTimeValue>(
     createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
   )
-  const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseReportData | null>(null)
   const [transactionCategoryModalVisible, setTransactionCategoryModalVisible] = useState(false)
   const [cashFlowTimeRange, setCashFlowTimeRange] = useState<RangeTimeValue>(
     createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
   )
-  const [cashFlowData, setCashFlowData] = useState<CashFlowReportData | null>(null)
   const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
-  const [cashFlowLoading, setCashFlowLoading] = useState(false)
   const [investmentTimeRange, setInvestmentTimeRange] = useState<RangeTimeValue>(
     createTrailingRangePreset('last-12-months', '近12个月', 12, 'month').getValue(dayjs())
   )
-  const [investmentData, setInvestmentData] = useState<InvestmentAnalysisReportData | null>(null)
 
-  useEffect(() => {
-    const fetchEarliestDate = async () => {
-      try {
-        const response = await transactionApi.getEarliestDate()
-        setEarliestTransactionDate(response.data.data?.date || null)
-      } catch {
-        setEarliestTransactionDate(null)
-      }
-    }
+  const { data: earliestDateData } = useTransactionEarliestDate()
+  const earliestTransactionDate = earliestDateData?.date || null
 
-    void fetchEarliestDate()
-  }, [])
+  const balanceSheetDate = useMemo(() => toDateParam(selectedBalanceTime), [selectedBalanceTime])
+  const { data: balanceSheetData } = useBalanceSheet(balanceSheetDate)
+  const { refetch: refetchBalanceSheet } = useBalanceSheet(balanceSheetDate)
+
+  const incomeExpenseParams = useMemo(() => toDateRangeParams(incomeExpenseTimeRange), [incomeExpenseTimeRange])
+  const { data: incomeExpenseData } = useIncomeExpense(incomeExpenseParams.startDate, incomeExpenseParams.endDate, true)
+
+  const cashFlowParams = useMemo(() => toDateRangeParams(cashFlowTimeRange), [cashFlowTimeRange])
+  const { data: cashFlowData, isLoading: cashFlowLoading } = useCashFlow(cashFlowParams.startDate, cashFlowParams.endDate, true)
+
+  const investmentParams = useMemo(() => toDateRangeParams(investmentTimeRange), [investmentTimeRange])
+  const { data: investmentData, refetch: refetchInvestment } = useInvestmentAnalysis(investmentParams.startDate, investmentParams.endDate)
 
   const balanceSheetPickerConfig = useMemo<PointTimePickerConfig>(
     () => ({
@@ -203,64 +199,14 @@ const Reports: React.FC = () => {
   )
 
   useEffect(() => {
-    if (activeTab === 'balance-sheet') {
-      void fetchBalanceSheet()
-    } else if (activeTab === 'income-expense') {
-      void fetchIncomeExpense()
-    } else if (activeTab === 'cash-flow') {
-      void fetchCashFlow()
-    } else if (activeTab === 'investment-analysis') {
-      void fetchInvestmentAnalysis()
-    }
-  }, [activeTab, selectedBalanceTime, incomeExpenseTimeRange, cashFlowTimeRange, investmentTimeRange])
-
-  const fetchBalanceSheet = async () => {
-    try {
-      const response = await reportApi.getBalanceSheet(toDateParam(selectedBalanceTime))
-      setBalanceSheetData(response.data.data ?? null)
-
+    if (balanceSheetData?.accounts) {
       const nextCalibration: Record<string, number> = {}
-      response.data.data?.accounts?.forEach((account: BalanceSheetAccountItem) => {
+      balanceSheetData.accounts.forEach((account: BalanceSheetAccountItem) => {
         nextCalibration[account.id] = account.actual
       })
       setCalibrateData(nextCalibration)
-    } catch (error) {
-      message.error('获取资产负债表失败')
     }
-  }
-
-  const fetchIncomeExpense = async () => {
-    try {
-      const { startDate, endDate } = toDateRangeParams(incomeExpenseTimeRange)
-      const response = await reportApi.getIncomeExpense(startDate, endDate, true)
-      setIncomeExpenseData(response.data.data ?? null)
-    } catch (error) {
-      message.error('获取收入支出表失败')
-    }
-  }
-
-  const fetchCashFlow = async () => {
-    try {
-      setCashFlowLoading(true)
-      const { startDate, endDate } = toDateRangeParams(cashFlowTimeRange)
-      const response = await reportApi.getCashFlow(startDate, endDate, true)
-      setCashFlowData(response.data.data ?? null)
-    } catch (error) {
-      message.error('获取现金流量表失败')
-    } finally {
-      setCashFlowLoading(false)
-    }
-  }
-
-  const fetchInvestmentAnalysis = async () => {
-    try {
-      const { startDate, endDate } = toDateRangeParams(investmentTimeRange)
-      const response = await reportApi.getInvestmentAnalysis(startDate, endDate)
-      setInvestmentData(response.data.data ?? null)
-    } catch (error) {
-      message.error('获取投资分析表失败')
-    }
-  }
+  }, [balanceSheetData])
 
   const handleSaveCalibration = async () => {
     try {
@@ -286,8 +232,7 @@ const Reports: React.FC = () => {
 
       message.success(`已生成 ${response.data.data?.count || 0} 条平账记录`)
       setCalibrateVisible(false)
-      void fetchBalanceSheet()
-      fetchAccounts()
+      void refetchBalanceSheet()
     } catch (error) {
       message.error('保存失败')
     }
@@ -355,7 +300,7 @@ const Reports: React.FC = () => {
         <BalanceSheetReport
           selectedTime={selectedBalanceTime}
           pickerConfig={balanceSheetPickerConfig}
-          balanceSheetData={balanceSheetData}
+          balanceSheetData={balanceSheetData ?? null}
           buildBalanceSheetTreeData={buildBalanceSheetTreeData}
           onTimeChange={setSelectedBalanceTime}
           onOpenSettings={() => setAccountCategoryModalVisible(true)}
@@ -370,7 +315,7 @@ const Reports: React.FC = () => {
         <IncomeExpenseReport
           timeRange={incomeExpenseTimeRange}
           pickerConfig={incomeExpensePickerConfig}
-          incomeExpenseData={incomeExpenseData}
+          incomeExpenseData={incomeExpenseData ?? null}
           onTimeRangeChange={setIncomeExpenseTimeRange}
           onOpenSettings={() => setTransactionCategoryModalVisible(true)}
         />
@@ -383,7 +328,7 @@ const Reports: React.FC = () => {
         <CashFlowReport
           timeRange={cashFlowTimeRange}
           pickerConfig={cashFlowPickerConfig}
-          cashFlowData={cashFlowData}
+          cashFlowData={cashFlowData ?? null}
           cashFlowLoading={cashFlowLoading}
           onTimeRangeChange={setCashFlowTimeRange}
           onOpenSettings={() => setCashFlowConfigModalVisible(true)}
@@ -397,9 +342,9 @@ const Reports: React.FC = () => {
         <InvestmentAnalysisReport
           timeRange={investmentTimeRange}
           pickerConfig={investmentPickerConfig}
-          investmentData={investmentData}
+          investmentData={investmentData ?? null}
           onTimeRangeChange={setInvestmentTimeRange}
-          onRefresh={() => void fetchInvestmentAnalysis()}
+          onRefresh={() => void refetchInvestment()}
         />
       ),
     },
@@ -417,8 +362,7 @@ const Reports: React.FC = () => {
         visible={accountCategoryModalVisible}
         onClose={() => {
           setAccountCategoryModalVisible(false)
-          void fetchBalanceSheet()
-          void fetchIncomeExpense()
+          void refetchBalanceSheet()
         }}
       />
 

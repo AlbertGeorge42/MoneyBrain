@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { formatCurrency, currencyAxisFormatter } from '../../src/utils/format'
-import { formatBalance, formatNetWorth } from '../../src/utils/formatBalance'
+import { formatBalance } from '../../src/utils/formatBalance'
 
 describe('format utils', () => {
   describe('formatCurrency', () => {
@@ -55,20 +55,6 @@ describe('format utils', () => {
     it('应该支持隐藏货币符号', () => {
       const result = formatBalance(100, 'asset', false)
       expect(result.text).toBe('100.00')
-    })
-  })
-
-  describe('formatNetWorth', () => {
-    it('正净资产应该显示绿色', () => {
-      const result = formatNetWorth(10000)
-      expect(result.text).toBe('¥10000.00')
-      expect(result.displayValue).toBe(10000)
-    })
-
-    it('负净资产应该显示红色', () => {
-      const result = formatNetWorth(-5000)
-      expect(result.text).toBe('¥-5000.00')
-      expect(result.displayValue).toBe(-5000)
     })
   })
 })

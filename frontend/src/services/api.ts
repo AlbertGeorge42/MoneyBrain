@@ -175,6 +175,7 @@ export const transactionApi = {
 export const budgetApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<Budget[]>>('/budgets', { params }),
   getStatus: (id: string) => api.get<ApiResponse<BudgetStatus>>(`/budgets/${id}/status`),
+  getStatuses: (ids: string[]) => api.get<ApiResponse<BudgetStatus[]>>('/budgets/statuses', { params: { ids } }),
   getPredictions: (startDate: string, endDate: string) => api.get<ApiResponse<BudgetPrediction[]>>('/budgets/predictions', { params: { startDate, endDate } }),
   create: (data: Partial<Budget>) => api.post<ApiResponse<Budget>>('/budgets', data),
   update: (id: string, data: Partial<Budget>) => api.put<ApiResponse<Budget>>(`/budgets/${id}`, data),

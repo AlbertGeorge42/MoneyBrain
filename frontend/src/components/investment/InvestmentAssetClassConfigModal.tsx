@@ -5,7 +5,7 @@ import type { MenuProps } from 'antd'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
-import { useStore } from '../../stores'
+import { useAccounts } from '../../queries'
 import { investmentApi, InvestmentAssetClass } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
 import { SortableRow, renderDragHandle } from '../../components/settings/shared'
@@ -24,7 +24,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
   const { token } = theme.useToken()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
-  const { accounts, fetchAccounts } = useStore()
+  const { data: accounts = [] } = useAccounts()
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(initialAccountId)
   const [assetClasses, setAssetClasses] = useState<InvestmentAssetClass[]>([])
@@ -32,12 +32,6 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
   const [editingItem, setEditingItem] = useState<InvestmentAssetClass | null>(null)
   const [formVisible, setFormVisible] = useState(false)
   const [form] = Form.useForm()
-
-  useEffect(() => {
-    if (visible) {
-      fetchAccounts()
-    }
-  }, [visible])
 
   useEffect(() => {
     if (visible && selectedAccountId) {

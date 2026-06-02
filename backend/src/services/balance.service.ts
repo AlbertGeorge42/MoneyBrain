@@ -79,7 +79,10 @@ export class BalanceCache {
   }
 
   private dateToKey(date: Date): string {
-    return date.toISOString().split('T')[0]
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   get(accountId: string, date: Date): number {
@@ -161,7 +164,10 @@ export async function calculateBalancesBatch(
     const initialDate = account.initialBalanceDate
 
     for (const targetDate of sortedDates) {
-      const dateKey = targetDate.toISOString().split('T')[0]
+      const year = targetDate.getFullYear()
+      const month = String(targetDate.getMonth() + 1).padStart(2, '0')
+      const day = String(targetDate.getDate()).padStart(2, '0')
+      const dateKey = `${year}-${month}-${day}`
 
       if (!initialDate) {
         // 无初始余额日期，计算所有早于目标日期的交易

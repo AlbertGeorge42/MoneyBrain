@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, Table, Button, Form, message, Tabs, Tooltip, Dropdown, theme } from 'antd'
 import { PlusOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons'
-import { useStore } from '../../stores'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAccounts, useAccountCategories, useCreateAccount, useUpdateAccount, useDeleteAccount } from '../../queries'
+import { queryKeys } from '../../queries/keys'
 import { AccountCategory, Account, accountCategoryApi, accountApi } from '../../services/api'
 import dayjs from 'dayjs'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
@@ -31,7 +33,12 @@ const AccountSortableRow = (props: any) => <SortableRow isSortable={isSortable} 
 
 const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const { token } = theme.useToken()
-  const { accountCategories, accounts, fetchAccountCategories, fetchAccounts, addAccount, updateAccount, deleteAccount } = useStore()
+  const queryClient = useQueryClient()
+  const { data: accountCategories = [] } = useAccountCategories()
+  const { data: accounts = [] } = useAccounts()
+  const createAccountMutation = useCreateAccount()
+  const updateAccountMutation = useUpdateAccount()
+  const deleteAccountMutation = useDeleteAccount()
 
   const [activeTab, setActiveTab] = useState('asset')
   const [editingCategory, setEditingCategory] = useState<AccountCategory | null>(null)
@@ -45,13 +52,6 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const moveModal = useMoveModal<AccountTreeNode>()
   const { sensors, expandedRowKeys, setExpandedRowKeys, toggleExpand, getVisibleSortableKeys } = useSortableTable()
-
-  useEffect(() => {
-    if (visible) {
-      fetchAccountCategories()
-      fetchAccounts()
-    }
-  }, [visible])
 
   useEffect(() => { setLocalAccountCategories(accountCategories) }, [accountCategories])
   useEffect(() => { setLocalAccounts(accounts) }, [accounts])
@@ -94,7 +94,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     try {
       await accountCategoryApi.delete(id)
       message.success('删除成功')
-      fetchAccountCategories()
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
     } catch (error: any) {
       message.error(error.response?.data?.error?.message || '删除失败')
     }
@@ -112,7 +112,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       }
       setCategoryFormVisible(false)
       categoryForm.resetFields()
-      await fetchAccountCategories()
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
     } catch { message.error('操作失败') }
   }
 
@@ -144,13 +144,13 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
           okText: '确认删除', okType: 'danger', cancelText: '取消',
           onOk: async () => {
             try {
-              await deleteAccount(id, true)
+              await deleteAccountMutation.mutateAsync({ id, force: true })
               message.success(`删除成功，已删除 ${transactionCount} 条交易记录`)
             } catch (error: any) { message.error(error.response?.data?.error?.message || '删除失败') }
           },
         })
       } else {
-        await deleteAccount(id)
+        await deleteAccountMutation.mutateAsync({ id })
         message.success('删除成功')
       }
     } catch (error: any) { message.error(error.response?.data?.error?.message || '删除失败') }
@@ -167,10 +167,10 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
         submitData.initialBalance = values.initialBalance
       }
       if (editingAccount) {
-        await updateAccount(editingAccount.id, submitData)
+        await updateAccountMutation.mutateAsync({ id: editingAccount.id, data: submitData })
         message.success('更新成功')
       } else {
-        await addAccount(submitData)
+        await createAccountMutation.mutateAsync(submitData)
         message.success('创建成功')
       }
       setAccountFormVisible(false)
@@ -187,7 +187,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     if (!moveModal.targetId) { message.warning('请选择目标分类'); return }
     moveModal.setLoading(true)
     try {
-      await updateAccount(moveModal.item.id, { categoryId: moveModal.targetId })
+      await updateAccountMutation.mutateAsync({ id: moveModal.item.id, data: { categoryId: moveModal.targetId } })
       message.success('移动成功')
       moveModal.close()
     } catch (error: any) { message.error(error.response?.data?.error?.message || '移动失败') }

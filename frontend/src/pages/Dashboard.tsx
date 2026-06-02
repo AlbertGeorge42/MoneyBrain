@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useMemo } from 'react'
 import { Card, List, Statistic, Tag, Empty, Skeleton, theme } from 'antd'
 import {
   ArrowDownOutlined,
@@ -14,9 +14,9 @@ import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
 import { DynamicIcon, PageHeader } from '../components/common'
 import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
-import * as api from '../services/api'
-import { useStore } from '../stores'
-import type { AnalyticsCategoryBreakdownItem, AnalyticsTrendItem } from '../services/api'
+import { useTransactions, useBalanceSheet, useTrends, useCategoryBreakdown } from '../queries'
+import type { AnalyticsCategoryBreakdownItem } from '../services/api'
+import { analyticsApi } from '../services/api'
 import { getTokenValue } from '../styles/theme/cssVars'
 import { createStatisticFormatter } from '../utils/format'
 
@@ -32,66 +32,52 @@ const Dashboard: React.FC = () => {
   const colorActionPrimary = token.colorPrimary
   const colorTextMuted = token.colorTextTertiary
 
-  const { transactions, fetchAccounts, fetchTransactions } = useStore()
-  const [chartLoading, setChartLoading] = useState(false)
-  const [trendData, setTrendData] = useState<AnalyticsTrendItem[]>([])
-  const [categoryData, setCategoryData] = useState<AnalyticsCategoryBreakdownItem[]>([])
-  const [balanceData, setBalanceData] = useState<{ totalAssets: number; totalLiabilities: number; netWorth: number }>({
-    totalAssets: 0,
-    totalLiabilities: 0,
-    netWorth: 0,
-  })
+  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const thisMonthStart = useMemo(() => dayjs().startOf('month'), [])
 
-  useEffect(() => {
-    fetchAccounts()
-    fetchTransactions()
-    void fetchAnalytics()
-    void fetchBalanceData()
-  }, [fetchAccounts, fetchTransactions])
+  const { data: transactionsData } = useTransactions()
+  const transactions = useMemo(() => transactionsData?.list ?? [], [transactionsData])
+  const { data: balanceSheetData } = useBalanceSheet(today)
+  const { data: trendData = [], isLoading: trendLoading } = useTrends('expense')
+  const { data: categoryData = [], isLoading: categoryLoading } = useCategoryBreakdown('expense')
 
-  const fetchBalanceData = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0]
-      const res = await api.reportApi.getBalanceSheet(today)
-      if (res.data.success && res.data.data) {
-        setBalanceData({
-          totalAssets: res.data.data.assets.actual,
-          totalLiabilities: Math.abs(res.data.data.liabilities.actual),
-          netWorth: res.data.data.netWorth.actual,
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch balance data:', error)
+  const chartLoading = trendLoading || categoryLoading
+
+  const balanceData = useMemo(() => {
+    if (!balanceSheetData) return { totalAssets: 0, totalLiabilities: 0, netWorth: 0 }
+    return {
+      totalAssets: balanceSheetData.assets.actual,
+      totalLiabilities: Math.abs(balanceSheetData.liabilities.actual),
+      netWorth: balanceSheetData.netWorth.actual,
     }
-  }
+  }, [balanceSheetData])
 
-  const fetchAnalytics = async () => {
-    setChartLoading(true)
-    try {
-      const [trendRes, categoryRes] = await Promise.all([
-        api.analyticsApi.getTrends('expense'),
-        api.analyticsApi.getCategoryBreakdown('expense'),
-      ])
+  const thisMonthTransactions = useMemo(() =>
+    transactions.filter((transaction) =>
+      dayjs(transaction.date).isAfter(thisMonthStart) || dayjs(transaction.date).isSame(thisMonthStart)
+    ), [transactions, thisMonthStart])
 
-      if (trendRes.data.success && trendRes.data.data) {
-        setTrendData(trendRes.data.data)
-      }
+  const thisMonthIncome = useMemo(() =>
+    thisMonthTransactions
+      .filter((transaction) => transaction.type === 'income')
+      .reduce((sum, transaction) => sum + Number(transaction.amount), 0), [thisMonthTransactions])
 
-      if (categoryRes.data.success && categoryRes.data.data) {
-        setCategoryData(categoryRes.data.data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch dashboard analytics:', error)
-    } finally {
-      setChartLoading(false)
-    }
-  }
+  const thisMonthExpense = useMemo(() =>
+    thisMonthTransactions
+      .filter((transaction) => transaction.type === 'expense')
+      .reduce((sum, transaction) => sum + Number(transaction.amount), 0), [thisMonthTransactions])
+
+  const thisMonthBalance = thisMonthIncome - thisMonthExpense
+
+  const recentTransactions = useMemo(() => [...transactions]
+    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
+    .slice(0, 5), [transactions])
 
   const handleDrillDown = async (item: PieChartDataItem): Promise<AnalyticsCategoryBreakdownItem[]> => {
     if (!item.categoryId) return []
 
     try {
-      const res = await api.analyticsApi.getCategoryBreakdown('expense', undefined, undefined, item.categoryId)
+      const res = await analyticsApi.getCategoryBreakdown('expense', undefined, undefined, item.categoryId)
       if (res.data.success && res.data.data) {
         return res.data.data
       }
@@ -103,22 +89,6 @@ const Dashboard: React.FC = () => {
   }
 
   const { totalAssets, totalLiabilities, netWorth } = balanceData
-
-  const thisMonthStart = dayjs().startOf('month')
-  const thisMonthTransactions = transactions.filter((transaction) =>
-    dayjs(transaction.date).isAfter(thisMonthStart) || dayjs(transaction.date).isSame(thisMonthStart)
-  )
-  const thisMonthIncome = thisMonthTransactions
-    .filter((transaction) => transaction.type === 'income')
-    .reduce((sum, transaction) => sum + Number(transaction.amount), 0)
-  const thisMonthExpense = thisMonthTransactions
-    .filter((transaction) => transaction.type === 'expense')
-    .reduce((sum, transaction) => sum + Number(transaction.amount), 0)
-  const thisMonthBalance = thisMonthIncome - thisMonthExpense
-
-  const recentTransactions = [...transactions]
-    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
-    .slice(0, 5)
 
   const trendOption = {
     tooltip: {

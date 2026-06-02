@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Modal, Table, Tabs, Tag, Spin, Dropdown, Button, message, theme } from 'antd'
+import React, { useMemo, useState } from 'react'
+import { Modal, Table, Tabs, Tag, Dropdown, Button, message, theme } from 'antd'
 import { SettingOutlined, ExportOutlined } from '@ant-design/icons'
-import { useStore } from '../../stores'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAccountCategories, useTransactionCategories } from '../../queries'
+import { queryKeys } from '../../queries/keys'
 import { accountCategoryApi, transactionCategoryApi } from '../../services/api'
 import DynamicIcon from '../common/DynamicIcon'
 import MoveModal from './MoveModal'
@@ -28,18 +30,13 @@ const ACTIVITY_GROUPS: Record<string, { label: string; color: string }> = {
 
 const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onClose }) => {
   const { token } = theme.useToken()
-  const { accountCategories, transactionCategories, loading, fetchAccountCategories, fetchTransactionCategories } = useStore()
+  const queryClient = useQueryClient()
+  const { data: accountCategories = [] } = useAccountCategories()
+  const { data: transactionCategories = [] } = useTransactionCategories()
   const [expandedCashKeys, setExpandedCashKeys] = useState<string[]>([])
   const [expandedActivityKeys, setExpandedActivityKeys] = useState<string[]>([])
   const cashMoveModal = useMoveModal<CashTreeNode>()
   const activityMoveModal = useMoveModal<ActivityTreeNode>()
-
-  useEffect(() => {
-    if (visible) {
-      void fetchAccountCategories()
-      void fetchTransactionCategories()
-    }
-  }, [visible, fetchAccountCategories, fetchTransactionCategories])
 
   const cashTreeData = useMemo(() => {
     const groupMap: Record<string, CashTreeNode[]> = { cash: [], investment: [], other: [] }
@@ -58,7 +55,7 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
       if (cashMoveModal.targetId === 'cash') updates.cash = true
       else if (cashMoveModal.targetId === 'investment') updates.investment = true
       await accountCategoryApi.update(cashMoveModal.item.id, { isCashEquivalent: updates.cash, isInvestment: updates.investment })
-      await fetchAccountCategories()
+      queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
       message.success('移动成功')
       cashMoveModal.close()
     } catch { message.error('移动失败') } finally { cashMoveModal.setLoading(false) }
@@ -104,7 +101,7 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
       const newType = activityMoveModal.targetId === 'unassigned' ? null : activityMoveModal.targetId as 'operating' | 'investing' | 'financing'
       const children = transactionCategories.filter(c => c.parentId === activityMoveModal.item?.id)
       await Promise.all([transactionCategoryApi.update(activityMoveModal.item.id, { cashFlowType: newType }), ...children.map(c => transactionCategoryApi.update(c.id, { cashFlowType: newType }))])
-      await fetchTransactionCategories()
+      await queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all })
       message.success(children.length > 0 ? `移动成功，已同时更新 ${children.length} 个子分类` : '移动成功')
       activityMoveModal.close()
     } catch { message.error('移动失败') } finally { activityMoveModal.setLoading(false) }
@@ -136,7 +133,7 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
 
   return (
     <>
-      <Modal title="现金流量表设置" open={visible} onCancel={onClose} footer={null} width={700}><Spin spinning={loading}><Tabs items={tabItems} /></Spin></Modal>
+      <Modal title="现金流量表设置" open={visible} onCancel={onClose} footer={null} width={700}><Tabs items={tabItems} /></Modal>
       <MoveModal visible={cashMoveModal.visible} category={cashMoveModal.item ? { id: cashMoveModal.item.id, name: cashMoveModal.item.name, categoryType: 'income' as any, parentId: undefined } : null} targetId={cashMoveModal.targetId} loading={cashMoveModal.loading} targetTreeData={cashMoveModal.item ? getCashMoveTargetTreeData(cashMoveModal.item) : []} currentPositionLabel={cashMoveModal.item ? getCashCurrentPosition(cashMoveModal.item) : ''} onTargetChange={cashMoveModal.setTargetId} onConfirm={handleCashMoveConfirm} onCancel={cashMoveModal.close} />
       <MoveModal visible={activityMoveModal.visible} category={activityMoveModal.item ? { id: activityMoveModal.item.id, name: activityMoveModal.item.name, categoryType: 'income' as any, parentId: undefined } : null} targetId={activityMoveModal.targetId} loading={activityMoveModal.loading} targetTreeData={activityMoveModal.item ? getActivityMoveTargetTreeData(activityMoveModal.item) : []} currentPositionLabel={activityMoveModal.item ? getActivityCurrentPosition(activityMoveModal.item) : ''} onTargetChange={activityMoveModal.setTargetId} onConfirm={handleActivityMoveConfirm} onCancel={activityMoveModal.close} />
     </>
