@@ -405,3 +405,8 @@ export async function getEarliestTransactionDate(): Promise<Date | null> {
   })
   return earliest?.date || null
 }
+
+export async function getTransactionCount(params: TransactionListParams = {}): Promise<number> {
+  const where = await buildTransactionListWhere(params)
+  return prisma.transaction.count({ where })
+}

@@ -10,8 +10,12 @@ export async function getNextAccountCategorySort(type: string): Promise<number> 
   return (maxSortResult._max.sort ?? -1) + 1
 }
 
-export async function getAccountCategories() {
+export async function getAccountCategories(params?: { type?: string }) {
+  const where: Record<string, unknown> = {}
+  if (params?.type) where.type = params.type
+
   return prisma.accountCategory.findMany({
+    where,
     orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
   })
 }

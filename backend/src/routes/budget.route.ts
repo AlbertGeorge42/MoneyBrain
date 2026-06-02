@@ -14,6 +14,7 @@ import {
   getBudgetDetail,
   getBudgets,
   getBudgetStatus,
+  getBudgetStatusesByIds,
   generatePredictions,
   updateBudget,
 } from '../services/budget.service.js'
@@ -42,8 +43,22 @@ const validateBudgetPayload = (req: Request) => {
 router.get('/', asyncHandler(async (req, res) => {
   const type = typeof req.query.type === 'string' ? req.query.type : undefined
   const period = typeof req.query.period === 'string' ? req.query.period : undefined
-  const budgets = await getBudgets({ type, period })
+  const accountId = typeof req.query.accountId === 'string' ? req.query.accountId : undefined
+  const categoryId = typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined
+  const isActive = req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined
+  const budgets = await getBudgets({ type, period, accountId, categoryId, isActive })
   return success(res, budgets)
+}))
+
+router.get('/statuses', asyncHandler(async (req, res) => {
+  const ids = Array.isArray(req.query.ids) ? req.query.ids as string[]
+    : typeof req.query.ids === 'string' ? [req.query.ids]
+    : []
+  if (ids.length === 0) {
+    return success(res, [])
+  }
+  const statuses = await getBudgetStatusesByIds(ids)
+  return success(res, statuses)
 }))
 
 router.get('/predictions', asyncHandler(async (req, res) => {

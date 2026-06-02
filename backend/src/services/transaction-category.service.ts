@@ -42,8 +42,12 @@ type DeleteTransactionCategoryOptions = {
   deleteTransactions?: boolean
 }
 
-export async function getTransactionCategories() {
+export async function getTransactionCategories(params?: { type?: string }) {
+  const where: Record<string, unknown> = {}
+  if (params?.type) where.type = params.type
+
   return prisma.transactionCategory.findMany({
+    where,
     orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
   })
 }

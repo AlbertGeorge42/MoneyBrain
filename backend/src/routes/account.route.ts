@@ -45,8 +45,10 @@ const validateBatchAdjust = (req: Request) => {
   }
 }
 
-router.get('/', asyncHandler(async (_req, res) => {
-  const accounts = await getAccounts()
+router.get('/', asyncHandler(async (req, res) => {
+  const type = typeof req.query.type === 'string' ? req.query.type : undefined
+  const categoryId = typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined
+  const accounts = await getAccounts({ type, categoryId })
   return success(res, accounts)
 }))
 

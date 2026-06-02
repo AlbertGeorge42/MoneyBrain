@@ -1,7 +1,7 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import type { Prisma } from '@prisma/client'
-import { calculateBalanceAtDate } from './balance.service.js'
+import { calculateBalancesBatch } from './balance.service.js'
 import { ZERO } from '../common/index.js'
 
 export interface TrendItem {
@@ -137,23 +137,23 @@ export async function getAssetTrend(): Promise<Array<{
 
   const accounts = await prisma.account.findMany()
 
-  return Promise.all(
-    months.map(async ({ label, targetDate }) => {
-      const balances = await Promise.all(
-        accounts.map(a => calculateBalanceAtDate(a.id, targetDate))
-      )
-      const assets = balances
-        .filter((_, idx) => accounts[idx].type === 'asset')
-        .reduce((sum, b) => sum + b, 0)
-      const liabilities = balances
-        .filter((_, idx) => accounts[idx].type === 'liability')
-        .reduce((sum, b) => sum + b, 0)
-      return {
-        label,
-        assets,
-        liabilities: Math.abs(liabilities),
-        netWorth: assets + liabilities,
-      }
-    })
-  )
+  const allAccountIds = accounts.map(a => a.id)
+  const monthDates = months.map(m => m.targetDate)
+  const balanceCache = await calculateBalancesBatch(allAccountIds, monthDates)
+
+  return months.map(({ label, targetDate }) => {
+    const balances = allAccountIds.map(id => balanceCache.get(id, targetDate))
+    const assets = balances
+      .filter((_, idx) => accounts[idx].type === 'asset')
+      .reduce((sum, b) => sum + b, 0)
+    const liabilities = balances
+      .filter((_, idx) => accounts[idx].type === 'liability')
+      .reduce((sum, b) => sum + b, 0)
+    return {
+      label,
+      assets,
+      liabilities: Math.abs(liabilities),
+      netWorth: assets + liabilities,
+    }
+  })
 }

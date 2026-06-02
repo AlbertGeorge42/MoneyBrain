@@ -47,6 +47,7 @@ vi.mock('../../src/index.js', () => {
       delete: vi.fn(),
       deleteMany: vi.fn(),
       count: vi.fn(),
+      aggregate: vi.fn(),
     },
     transactionCategory: {
       findMany: vi.fn(),
@@ -128,6 +129,7 @@ describe('account.service', () => {
       const result = await getAccounts()
 
       expect(mockPrisma.account.findMany).toHaveBeenCalledWith({
+        where: {},
         include: { category: true },
         orderBy: [{ sort: 'asc' }, { createdAt: 'desc' }],
       })
@@ -351,12 +353,10 @@ describe('account.service', () => {
 
   describe('getAccountStats', () => {
     it('应该正确统计收入和支出', async () => {
-      mockPrisma.transaction.findMany.mockResolvedValue([
-        { id: 't1', type: 'income', amount: new Decimal(5000) },
-        { id: 't2', type: 'expense', amount: new Decimal(2000) },
-        { id: 't3', type: 'expense', amount: new Decimal(1000) },
-        { id: 't4', type: 'transfer', amount: new Decimal(3000) },
-      ])
+      mockPrisma.transaction.count.mockResolvedValue(4)
+      mockPrisma.transaction.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: new Decimal(5000) } }) // income
+        .mockResolvedValueOnce({ _sum: { amount: new Decimal(3000) } }) // expense
 
       const result = await getAccountStats('1')
 
@@ -366,7 +366,10 @@ describe('account.service', () => {
     })
 
     it('无交易记录时应该返回 0', async () => {
-      mockPrisma.transaction.findMany.mockResolvedValue([])
+      mockPrisma.transaction.count.mockResolvedValue(0)
+      mockPrisma.transaction.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } })
 
       const result = await getAccountStats('1')
 

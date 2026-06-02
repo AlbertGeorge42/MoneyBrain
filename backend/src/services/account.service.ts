@@ -27,8 +27,13 @@ type AccountUpdateData = {
   initialBalanceDate?: string
 }
 
-export async function getAccounts() {
+export async function getAccounts(params?: { type?: string; categoryId?: string }) {
+  const where: Record<string, unknown> = {}
+  if (params?.type) where.type = params.type
+  if (params?.categoryId) where.categoryId = params.categoryId
+
   return prisma.account.findMany({
+    where,
     include: { category: true },
     orderBy: [{ sort: 'asc' }, { createdAt: 'desc' }],
   })
@@ -187,26 +192,24 @@ export interface AccountStats {
 }
 
 export async function getAccountStats(accountId: string): Promise<AccountStats> {
-  const transactions = await prisma.transaction.findMany({
-    where: { accountId },
-  })
-
-  const transactionCount = transactions.length
-  let totalIncome = ZERO
-  let totalExpense = ZERO
-
-  transactions.forEach(t => {
-    if (t.type === 'income') {
-      totalIncome = totalIncome.plus(t.amount)
-    } else if (t.type === 'expense') {
-      totalExpense = totalExpense.plus(t.amount)
-    }
-  })
+  const [countResult, incomeResult, expenseResult] = await Promise.all([
+    prisma.transaction.count({
+      where: { accountId, isAdjustment: false },
+    }),
+    prisma.transaction.aggregate({
+      where: { accountId, type: 'income', isAdjustment: false },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { accountId, type: 'expense', isAdjustment: false },
+      _sum: { amount: true },
+    }),
+  ])
 
   return {
-    transactionCount,
-    totalIncome: totalIncome.toNumber(),
-    totalExpense: totalExpense.toNumber(),
+    transactionCount: countResult,
+    totalIncome: (incomeResult._sum.amount || ZERO).toNumber(),
+    totalExpense: (expenseResult._sum.amount || ZERO).toNumber(),
   }
 }
 

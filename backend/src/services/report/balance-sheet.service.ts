@@ -1,5 +1,5 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate } from '../balance.service.js'
+import { calculateBalancesBatch } from '../balance.service.js'
 import { generatePredictions } from '../budget.service.js'
 
 export type DateGranularity = 'day' | 'month' | 'year'
@@ -73,12 +73,13 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
   })
 
-  const accountBalances = await Promise.all(
-    accounts.map(async (account) => {
-      const balance = await calculateBalanceAtDate(account.id, nextDay)
-      return { ...account, balance }
-    })
-  )
+  const allAccountIds = accounts.map(a => a.id)
+  const balanceCache = await calculateBalancesBatch(allAccountIds, [nextDay])
+
+  const accountBalances = accounts.map(account => ({
+    ...account,
+    balance: balanceCache.get(account.id, nextDay),
+  }))
 
   const assets = accountBalances
     .filter(a => a.type === 'asset')

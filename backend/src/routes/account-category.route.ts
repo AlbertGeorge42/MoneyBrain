@@ -17,8 +17,9 @@ const validateCategoryPayload = (req: Request) => {
   }
 }
 
-router.get('/', asyncHandler(async (_req, res) => {
-  const categories = await getAccountCategories()
+router.get('/', asyncHandler(async (req, res) => {
+  const type = typeof req.query.type === 'string' ? req.query.type : undefined
+  const categories = await getAccountCategories({ type })
   return success(res, categories)
 }))
 

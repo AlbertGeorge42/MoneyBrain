@@ -1,5 +1,5 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate } from '../balance.service.js'
+import { calculateBalancesBatch } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO } from '../../common/index.js'
 import { generatePredictions } from '../budget.service.js'
@@ -225,12 +225,13 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   const accounts = await prisma.account.findMany()
 
-  const startBalances = await Promise.all(
-    accounts.map(account => calculateBalanceAtDate(account.id, start))
-  )
-  const endBalances = await Promise.all(
-    accounts.map(account => calculateBalanceAtDate(account.id, new Date(end.getTime() + 86400000)))
-  )
+  const startDay = new Date(start)
+  const endDayNext = new Date(end.getTime() + 86400000)
+  const allAccountIds = accounts.map(a => a.id)
+  const balanceCache = await calculateBalancesBatch(allAccountIds, [startDay, endDayNext])
+
+  const startBalances = accounts.map(account => balanceCache.get(account.id, startDay))
+  const endBalances = accounts.map(account => balanceCache.get(account.id, endDayNext))
 
   const actualStartAssets = accounts.reduce((sum, account, i) =>
     account.type === 'asset' ? sum + startBalances[i] : sum, 0)

@@ -94,10 +94,13 @@ function getPeriodRange(period: string, referenceDate: Date = new Date()): { sta
   }
 }
 
-export async function getBudgets(params?: { type?: string; period?: string }) {
+export async function getBudgets(params?: { type?: string; period?: string; accountId?: string; categoryId?: string; isActive?: boolean }) {
   const where: Record<string, unknown> = {}
   if (params?.type) where.type = params.type
   if (params?.period) where.period = params.period
+  if (params?.accountId) where.accountId = params.accountId
+  if (params?.categoryId) where.categoryId = params.categoryId
+  if (params?.isActive !== undefined) where.isActive = params.isActive
 
   return prisma.budget.findMany({
     where,
@@ -223,24 +226,71 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
 }
 
 /**
- * 获取分类及其所有子孙分类的 ID 列表
+ * 获取分类及其所有子孙分类的 ID 列表（单次查询）
  */
 async function getCategoryWithDescendants(categoryId: string): Promise<string[]> {
-  const ids: string[] = [categoryId]
+  const allCategories = await prisma.transactionCategory.findMany({
+    select: { id: true, parentId: true },
+  })
 
-  async function collectChildren(parentId: string) {
-    const children = await prisma.transactionCategory.findMany({
-      where: { parentId },
-      select: { id: true },
-    })
-    for (const child of children) {
-      ids.push(child.id)
-      await collectChildren(child.id)
+  const childrenMap = new Map<string, string[]>()
+  for (const cat of allCategories) {
+    if (cat.parentId) {
+      const siblings = childrenMap.get(cat.parentId) || []
+      siblings.push(cat.id)
+      childrenMap.set(cat.parentId, siblings)
     }
   }
 
-  await collectChildren(categoryId)
+  const ids: string[] = [categoryId]
+  const queue = [categoryId]
+  while (queue.length > 0) {
+    const parentId = queue.shift()!
+    const children = childrenMap.get(parentId) || []
+    ids.push(...children)
+    queue.push(...children)
+  }
   return ids
+}
+
+export async function getBudgetStatusesByIds(budgetIds: string[]) {
+  if (budgetIds.length === 0) return []
+
+  const budgets = await prisma.budget.findMany({
+    where: { id: { in: budgetIds } },
+    include: { account: true, toAccount: true, category: true },
+  })
+
+  const results = await Promise.all(
+    budgets.map(async (budget) => {
+      const now = new Date()
+      const dateRange = getPeriodRange(budget.period, now)
+      const categoryIds = await getCategoryWithDescendants(budget.categoryId)
+
+      const usedResult = await prisma.transaction.aggregate({
+        where: {
+          type: budget.type as string,
+          date: { gte: dateRange.startDate, lte: dateRange.endDate },
+          categoryId: { in: categoryIds },
+        },
+        _sum: { amount: true },
+      })
+
+      const used = usedResult._sum.amount || ZERO
+      const amount = budget.amount
+      const percentage = amount.isZero() ? 0 : Math.min(used.dividedBy(amount).times(100).toDecimalPlaces(0).toNumber(), 100)
+
+      return {
+        budget,
+        used: used.toNumber(),
+        remaining: Decimal.max(amount.minus(used), ZERO).toNumber(),
+        percentage,
+        isOverBudget: used.greaterThan(amount),
+      }
+    })
+  )
+
+  return results
 }
 
 export async function getBudgetStatus(budgetId: string) {
@@ -258,18 +308,17 @@ export async function getBudgetStatus(budgetId: string) {
   // 获取分类及其所有子孙分类的 ID
   const categoryIds = await getCategoryWithDescendants(budget.categoryId)
 
-  // 统一按分类匹配交易（包含子分类）
-  const transactionWhere = {
-    type: budget.type as string,
-    date: { gte: dateRange.startDate, lte: dateRange.endDate },
-    categoryId: { in: categoryIds },
-  }
-
-  const transactions = await prisma.transaction.findMany({ where: transactionWhere as any })
-  let used = ZERO
-  transactions.forEach(t => {
-    used = used.plus(t.amount)
+  // 使用聚合查询替代全量加载
+  const usedResult = await prisma.transaction.aggregate({
+    where: {
+      type: budget.type as string,
+      date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      categoryId: { in: categoryIds },
+    },
+    _sum: { amount: true },
   })
+
+  const used = usedResult._sum.amount || ZERO
 
   const amount = budget.amount
   const percentage = amount.isZero() ? 0 : Math.min(used.dividedBy(amount).times(100).toDecimalPlaces(0).toNumber(), 100)

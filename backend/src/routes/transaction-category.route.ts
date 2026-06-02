@@ -57,8 +57,9 @@ const validateMovePayload = (req: Request) => {
   }
 }
 
-router.get('/', asyncHandler(async (_req, res) => {
-  const categories = await getTransactionCategories()
+router.get('/', asyncHandler(async (req, res) => {
+  const type = typeof req.query.type === 'string' ? req.query.type : undefined
+  const categories = await getTransactionCategories({ type })
   return success(res, categories)
 }))
 

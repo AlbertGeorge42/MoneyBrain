@@ -22,6 +22,7 @@ model AccountCategory {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
+  @@index([parentId])
   @@map("account_categories")
 }
 
@@ -46,6 +47,8 @@ model Account {
   investmentAssetClasses     InvestmentAssetClass[]
   investmentAllocationSnapshots InvestmentAllocationSnapshot[]
 
+  @@index([categoryId])
+  @@index([type])
   @@map("accounts")
 }
 
@@ -65,6 +68,7 @@ model TransactionCategory {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
+  @@index([parentId])
   @@map("transaction_categories")
 }
 
@@ -93,6 +97,7 @@ model Transaction {
   @@index([accountId, date])
   @@index([categoryId, date])
   @@index([type, date])
+  @@index([relatedTransactionId])
   @@map("transactions")
 }
 
@@ -124,6 +129,8 @@ model Budget {
 
   @@index([type])
   @@index([accountId])
+  @@index([categoryId])
+  @@index([categoryId, isActive])
   @@map("budgets")
 }
 

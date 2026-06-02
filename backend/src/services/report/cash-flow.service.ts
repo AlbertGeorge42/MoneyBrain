@@ -1,5 +1,5 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate } from '../balance.service.js'
+import { calculateBalancesBatch } from '../balance.service.js'
 import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { toDecimal, ZERO } from '../../common/index.js'
@@ -334,15 +334,10 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   const nextDayOfEnd = new Date(endDate)
   nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
 
-  const startCashBalances = await Promise.all(
-    cashAccountIds.map(id => calculateBalanceAtDate(id, start))
-  )
-  const endCashBalances = await Promise.all(
-    cashAccountIds.map(id => calculateBalanceAtDate(id, nextDayOfEnd))
-  )
+  const balanceCache = await calculateBalancesBatch(cashAccountIds, [start, nextDayOfEnd])
 
-  const actualStartCash = startCashBalances.reduce((sum, b) => sum + b, 0)
-  const actualEndCash = endCashBalances.reduce((sum, b) => sum + b, 0)
+  const actualStartCash = cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, start), 0)
+  const actualEndCash = cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, nextDayOfEnd), 0)
   const actualCashChange = actualEndCash - actualStartCash
 
   let predictedStartCash = 0
