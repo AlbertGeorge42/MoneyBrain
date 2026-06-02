@@ -27,7 +27,7 @@ interface BalanceSheetTreeData {
   liabilityNodes: BalanceSheetTreeNode[]
 }
 
-interface BalanceSheetProps {
+interface BalanceSheetReportProps {
   selectedTime: PointTimeValue
   pickerConfig: PointTimePickerConfig
   balanceSheetData: BalanceSheetReportData | null
@@ -37,7 +37,7 @@ interface BalanceSheetProps {
   onOpenCalibrate: () => void
 }
 
-const BalanceSheet: React.FC<BalanceSheetProps> = ({
+const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
   selectedTime,
   pickerConfig,
   balanceSheetData,
@@ -421,4 +421,4 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({
   )
 }
 
-export default BalanceSheet
+export default BalanceSheetReport

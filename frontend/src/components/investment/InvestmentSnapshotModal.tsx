@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Modal, Select, DatePicker, Table, InputNumber, Space, message, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
 import { useStore } from '../../stores'
 import { investmentApi, accountApi, InvestmentAssetClass, InvestmentAllocationSnapshot } from '../../services/api'
-import DynamicIcon from '../common/DynamicIcon'
+import DynamicIcon from '../../components/common/DynamicIcon'
 import dayjs from 'dayjs'
 
 interface Props {

@@ -7,9 +7,9 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { useStore } from '../../stores'
 import { investmentApi, InvestmentAssetClass } from '../../services/api'
-import DynamicIcon from '../common/DynamicIcon'
-import { SortableRow, renderDragHandle } from '../settings/shared'
-import IconPicker from '../common/IconPicker'
+import DynamicIcon from '../../components/common/DynamicIcon'
+import { SortableRow, renderDragHandle } from '../../components/settings/shared'
+import IconPicker from '../../components/common/IconPicker'
 
 interface Props {
   visible: boolean

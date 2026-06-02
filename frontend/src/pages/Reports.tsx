@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { PageHeader } from '../components/common'
 import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
 import DynamicIcon from '../components/common/DynamicIcon'
-import { BalanceSheet, CashFlowReport, IncomeExpenseReport, InvestmentAnalysis } from '../components/reports'
+import { BalanceSheetReport, CashFlowReport, IncomeExpenseReport, InvestmentAnalysisReport } from '../components/reports'
 import type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue } from '../components/common'
 import {
   createPointMonthEndPreset,
@@ -352,7 +352,7 @@ const Reports: React.FC = () => {
       key: 'balance-sheet',
       label: '资产负债表',
       children: (
-        <BalanceSheet
+        <BalanceSheetReport
           selectedTime={selectedBalanceTime}
           pickerConfig={balanceSheetPickerConfig}
           balanceSheetData={balanceSheetData}
@@ -394,7 +394,7 @@ const Reports: React.FC = () => {
       key: 'investment-analysis',
       label: '投资分析表',
       children: (
-        <InvestmentAnalysis
+        <InvestmentAnalysisReport
           timeRange={investmentTimeRange}
           pickerConfig={investmentPickerConfig}
           investmentData={investmentData}

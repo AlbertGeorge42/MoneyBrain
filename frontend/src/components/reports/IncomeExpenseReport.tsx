@@ -9,6 +9,7 @@ import PredictionStatistic from './PredictionStatistic'
 import ReportValueDisplay from './ReportValueDisplay'
 import * as api from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
+import { formatCurrency } from '../../utils/format'
 
 interface IncomeExpenseReportProps {
   timeRange: RangeTimeValue
@@ -86,7 +87,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     [incomeExpenseData?.expenseCategoryDetails]
   )
 
-  const formatStatValue = (v: number) => `¥${v.toFixed(2)}`
+  const formatStatValue = (v: number) => formatCurrency(Number(v))
 
   const summarySection = (
     <>

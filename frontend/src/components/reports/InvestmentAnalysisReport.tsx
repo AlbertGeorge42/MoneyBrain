@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import { Button, Card, Empty, Grid, Popover, Statistic, Tag, Typography, theme } from 'antd'
 import { CameraOutlined, SettingOutlined } from '@ant-design/icons'
-import DynamicIcon from '../common/DynamicIcon'
-import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
-import { LineChart, PieChart } from '../charts'
+import DynamicIcon from '../../components/common/DynamicIcon'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../../components/common'
+import { LineChart, PieChart } from '../../components/charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
-import InvestmentAssetClassConfigModal from './InvestmentAssetClassConfigModal'
-import InvestmentSnapshotHistoryModal from './InvestmentSnapshotHistoryModal'
-import RebalanceModal from './RebalanceModal'
+import InvestmentAssetClassConfigModal from '../investment/InvestmentAssetClassConfigModal'
+import InvestmentSnapshotHistoryModal from '../investment/InvestmentSnapshotHistoryModal'
+import RebalanceModal from '../investment/RebalanceModal'
 import type {
   AccountAllocationDetail,
   AccountAllocationItem,
@@ -24,7 +24,7 @@ const EMPTY_BY_CATEGORY: InvestmentAnalysisReportData['byCategory'] = []
 const EMPTY_ALLOCATIONS: InvestmentAnalysisReportData['byAccountAllocation'] = []
 const EMPTY_STALE_ACCOUNTS: InvestmentAnalysisReportData['staleAccounts'] = []
 
-interface InvestmentAnalysisProps {
+interface InvestmentAnalysisReportProps {
   timeRange: RangeTimeValue
   pickerConfig: RangeTimePickerConfig
   investmentData: InvestmentAnalysisReportData | null
@@ -39,7 +39,7 @@ interface AccountBoardItem {
   assets: AccountAllocationItem[]
 }
 
-const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
+const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   timeRange,
   pickerConfig,
   investmentData,
@@ -278,7 +278,7 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
         </div>
 
         {allocation && allocation.latestSnapshotDate && (
-          <div style={{ 
+          <div style={{
             fontSize: token.fontSizeSM,
             color: token.colorTextTertiary,
           }}>
@@ -488,4 +488,4 @@ const InvestmentAnalysis: React.FC<InvestmentAnalysisProps> = ({
   )
 }
 
-export default InvestmentAnalysis
+export default InvestmentAnalysisReport

@@ -1,16 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { Card, Tag, Empty, theme } from 'antd'
+import React, { useMemo } from 'react'
+import { Card, Empty, theme } from 'antd'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { Transaction } from '../../services/api'
 import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
-
-const colorIncome = 'var(--mb-color-income)'
-const colorExpense = 'var(--mb-color-expense)'
-const colorTransfer = 'var(--mb-color-transfer)'
-const colorRefund = 'var(--mb-color-refund)'
-const colorAdjustment = 'var(--mb-color-adjustment)'
-const colorPositive = 'var(--mb-color-positive)'
-const colorNegative = 'var(--mb-color-negative)'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import { TRANSACTION_TYPE_CONFIG, TRANSACTION_COLORS, TransactionType } from '../../constants/transactionType'
+import BorderedTag from '../common/BorderedTag'
 
 interface TransactionTableProps {
   transactions: Transaction[]
@@ -21,8 +16,6 @@ interface TransactionTableProps {
   onPageChange: (page: number, pageSize: number) => void
   onRowClick: (record: Transaction) => void
 }
-
-const MOBILE_BREAKPOINT = 860
 
 const MobilePagination: React.FC<{
   current: number
@@ -59,14 +52,6 @@ const MobilePagination: React.FC<{
   )
 }
 
-const TRANSACTION_TYPE_CONFIG = {
-  income: { color: colorIncome, text: '收入' },
-  expense: { color: colorExpense, text: '支出' },
-  transfer: { color: colorTransfer, text: '转账' },
-  refund: { color: colorRefund, text: '退款' },
-  adjustment: { color: colorAdjustment, text: '平账' },
-} as const
-
 const getCategoryName = (record: Transaction): string => {
   if (record.type === 'adjustment') return record.note || '平账调整'
   if (record.type === 'transfer') return record.category?.name || '内部转账'
@@ -83,33 +68,17 @@ const getAccountName = (record: Transaction): string => {
     const to = record.toAccount?.name || ''
     return `${from} → ${to}`
   }
-  if (record.type === 'refund') {
-    return record.account?.name || ''
-  }
   return record.account?.name || ''
 }
 
-const getNote = (record: Transaction): string | null => {
-  if (record.type === 'transfer') {
-    return record.note || null
-  }
-  if (record.type === 'refund') {
-    return record.note || null
-  }
-  if (record.type === 'adjustment') {
-    return record.note || null
-  }
-  return record.note || null
-}
-
 const CategoryTag: React.FC<{ record: Transaction }> = ({ record }) => {
-  const config = TRANSACTION_TYPE_CONFIG[record.type as keyof typeof TRANSACTION_TYPE_CONFIG]
+  const config = TRANSACTION_TYPE_CONFIG[record.type as TransactionType]
   const categoryName = getCategoryName(record)
 
   return (
-    <Tag style={{ color: config?.color, borderColor: config?.color, backgroundColor: 'transparent' }}>
+    <BorderedTag color={config.color}>
       {categoryName}
-    </Tag>
+    </BorderedTag>
   )
 }
 
@@ -125,7 +94,7 @@ const AmountDisplay: React.FC<{
     if (record.type === 'adjustment') {
       const isPositive = amount >= 0
       return (
-        <span style={{ color: colorAdjustment, fontSize: fontSizeBody }}>
+        <span style={{ color: TRANSACTION_COLORS.adjustment, fontSize: fontSizeBody }}>
           {isPositive ? '+' : ''}¥{amount.toFixed(2)}
         </span>
       )
@@ -134,20 +103,20 @@ const AmountDisplay: React.FC<{
       const hasExtra = (record.fee || 0) > 0 || (record.coupon || 0) > 0
       return (
         <span>
-          <span style={{ color: colorTransfer, fontSize: fontSizeBody }}>¥{amount.toFixed(2)}</span>
+          <span style={{ color: TRANSACTION_COLORS.transfer, fontSize: fontSizeBody }}>¥{amount.toFixed(2)}</span>
           {hasExtra && <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}> +费</span>}
         </span>
       )
     }
     if (record.type === 'refund') {
       return (
-        <span style={{ color: colorRefund, fontSize: fontSizeBody }}>
+        <span style={{ color: TRANSACTION_COLORS.refund, fontSize: fontSizeBody }}>
           +¥{amount.toFixed(2)}
         </span>
       )
     }
     return (
-      <span style={{ color: record.type === 'income' ? colorPositive : colorNegative, fontSize: fontSizeBody }}>
+      <span style={{ color: record.type === 'income' ? TRANSACTION_COLORS.positive : TRANSACTION_COLORS.negative, fontSize: fontSizeBody }}>
         {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
       </span>
     )
@@ -164,7 +133,7 @@ const TransactionRow: React.FC<{
   fontSizeCaption: string
 }> = ({ record, onClick, colorTextMuted, fontSizeBody, fontSizeCaption }) => {
   const accountName = getAccountName(record)
-  const note = getNote(record)
+  const note = record.note || null
 
   return (
     <div className="tx-group-item" onClick={onClick}>
@@ -189,10 +158,10 @@ const GroupHeader: React.FC<{ group: TransactionGroup }> = ({ group }) => {
       </div>
       <div className="tx-group-header__summary">
         {group.income > 0 && (
-          <span className="tx-group-header__summary-item" style={{ color: colorPositive }}>收 ¥{group.income.toFixed(2)}</span>
+          <span className="tx-group-header__summary-item" style={{ color: TRANSACTION_COLORS.positive }}>收 ¥{group.income.toFixed(2)}</span>
         )}
         {group.expense > 0 && (
-          <span className="tx-group-header__summary-item" style={{ color: colorNegative }}>支 ¥{group.expense.toFixed(2)}</span>
+          <span className="tx-group-header__summary-item" style={{ color: TRANSACTION_COLORS.negative }}>支 ¥{group.expense.toFixed(2)}</span>
         )}
       </div>
     </div>
@@ -214,16 +183,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   const fontSizeBody = `${token.fontSize}px`
   const fontSizeCaption = `${token.fontSizeSM}px`
 
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  const isMobile = useIsMobile()
 
   const grouped = useMemo(() => {
     return groupTransactionsByDate(transactions)

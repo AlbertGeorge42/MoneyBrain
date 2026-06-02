@@ -32,6 +32,7 @@ import { dataApi, type ImportConfigResult, type ImportBudgetResult } from '../se
 import { useStore } from '../stores'
 import { useTheme } from '../styles/ThemeContext'
 import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
+import { downloadBlob, todayFilename } from '../utils/download'
 
 const exportTimePickerConfig: RangeTimePickerConfig = {
   label: '时间范围',
@@ -127,23 +128,7 @@ const Settings: React.FC = () => {
       }
 
       const response = await dataApi.exportCsv(Object.keys(params).length ? params : undefined)
-      const blob = response.data
-
-      if (!blob || blob.size === 0) {
-        throw new Error('导出的文件为空')
-      }
-
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = `moneybrain-export-${new Date().toISOString().split('T')[0]}.csv`
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-
-      setTimeout(() => {
-        URL.revokeObjectURL(url)
-      }, 100)
+      await downloadBlob(response.data, todayFilename('moneybrain-export', 'csv'))
 
       hide()
       message.success('数据导出成功，文件已开始下载')
@@ -209,23 +194,7 @@ const Settings: React.FC = () => {
 
     try {
       const response = await dataApi.exportConfig()
-      const blob = response.data
-
-      if (!blob || blob.size === 0) {
-        throw new Error('导出的文件为空')
-      }
-
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = `moneybrain-config-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-
-      setTimeout(() => {
-        URL.revokeObjectURL(url)
-      }, 100)
+      await downloadBlob(response.data, todayFilename('moneybrain-config', 'json'))
 
       hide()
       message.success('配置导出成功，文件已开始下载')
@@ -314,23 +283,7 @@ const Settings: React.FC = () => {
 
     try {
       const response = await dataApi.exportBudgets()
-      const blob = response.data
-
-      if (!blob || blob.size === 0) {
-        throw new Error('导出的文件为空')
-      }
-
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = `moneybrain-budgets-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-
-      setTimeout(() => {
-        URL.revokeObjectURL(url)
-      }, 100)
+      await downloadBlob(response.data, todayFilename('moneybrain-budgets', 'json'))
 
       hide()
       message.success('预算配置导出成功，文件已开始下载')

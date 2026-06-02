@@ -5,6 +5,7 @@ import { useStore } from '../stores'
 import { Transaction } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
+import { useIsMobile } from '../hooks/useIsMobile'
 import {
   TransactionFilter,
   TransactionStats,
@@ -14,8 +15,6 @@ import {
   TransactionCreate,
   TransactionEdit,
 } from '../components/transactions'
-
-const MOBILE_BREAKPOINT = 860
 
 const Transactions: React.FC = () => {
   const {
@@ -48,8 +47,8 @@ const Transactions: React.FC = () => {
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [isMobile, setIsMobile] = useState(false)
   const { token } = theme.useToken()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchTransactions()
@@ -57,15 +56,6 @@ const Transactions: React.FC = () => {
     fetchTransactionCategories()
     fetchAccountCategories()
     fetchTransactionStats()
-  }, [])
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   const handleAdd = () => {

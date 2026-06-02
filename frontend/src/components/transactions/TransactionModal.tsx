@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Modal, Drawer, Button, Tabs, theme } from 'antd'
-
-const MOBILE_BREAKPOINT = 860
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface TabItem {
   key: string
@@ -41,17 +40,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   activeTab,
   onTabChange,
 }) => {
-  const [isMobile, setIsMobile] = useState(false)
+  const isMobile = useIsMobile()
   const { token } = theme.useToken()
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
 
   const renderContent = () => {
     if (!tabItems || !onTabChange || activeTab === undefined) {

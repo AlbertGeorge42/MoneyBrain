@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Button, Select, TreeSelect, Tag, Collapse, theme } from 'antd'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
+import { BorderedTag } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
 import {
   createQuarterRangePreset,
@@ -9,6 +10,7 @@ import {
   createYearToDatePreset,
   formatRangeValue,
 } from '../../utils/timePicker'
+import { TRANSACTION_TYPE_CONFIG, TRANSACTION_COLORS } from '../../constants/transactionType'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',
@@ -85,11 +87,6 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   onReset,
 }) => {
   const { token } = theme.useToken()
-  const colorIncome = 'var(--mb-color-income)'
-  const colorExpense = 'var(--mb-color-expense)'
-  const colorTransfer = 'var(--mb-color-transfer)'
-  const colorRefund = 'var(--mb-color-refund)'
-  const colorAdjustment = 'var(--mb-color-adjustment)'
   const spaceStackDefault = `${token.paddingXS}px`
   const spaceCardPadding = `${token.padding}px`
 
@@ -97,7 +94,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   const accountTreeData = useMemo(() => {
     const buildAccountTree = () => {
       const topLevelCategories = accountCategories.filter(c => !c.parentId)
-      
+
       return topLevelCategories.map(category => ({
         title: <Tag>{category.name}</Tag>,
         value: `category_${category.id}`,
@@ -113,10 +110,10 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
           })),
       }))
     }
-    
+
     const uncategorizedAccounts = accounts.filter(a => !a.categoryId)
     const tree = buildAccountTree()
-    
+
     if (uncategorizedAccounts.length > 0) {
       tree.push({
         title: <Tag>未分类账户</Tag>,
@@ -131,7 +128,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         })),
       })
     }
-    
+
     return tree
   }, [accounts, accountCategories])
 
@@ -150,7 +147,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
 
     return [
       {
-        title: <Tag style={{ color: colorExpense, borderColor: colorExpense, backgroundColor: 'transparent' }}>支出</Tag>,
+        title: <BorderedTag color={TRANSACTION_COLORS.expense}>支出</BorderedTag>,
         value: 'expense_group',
         key: 'expense_group',
         selectable: false,
@@ -158,7 +155,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'expense'),
       },
       {
-        title: <Tag style={{ color: colorIncome, borderColor: colorIncome, backgroundColor: 'transparent' }}>收入</Tag>,
+        title: <BorderedTag color={TRANSACTION_COLORS.income}>收入</BorderedTag>,
         value: 'income_group',
         key: 'income_group',
         selectable: false,
@@ -166,7 +163,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'income'),
       },
       {
-        title: <Tag style={{ color: colorTransfer, borderColor: colorTransfer, backgroundColor: 'transparent' }}>转账</Tag>,
+        title: <BorderedTag color={TRANSACTION_COLORS.transfer}>转账</BorderedTag>,
         value: 'transfer_group',
         key: 'transfer_group',
         selectable: false,
@@ -176,22 +173,14 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
     ]
   }, [categories])
 
-  const TRANSACTION_TYPE_CONFIG = {
-    income: { color: colorIncome, text: '收入' },
-    expense: { color: colorExpense, text: '支出' },
-    transfer: { color: colorTransfer, text: '转账' },
-    refund: { color: colorRefund, text: '退款' },
-    adjustment: { color: colorAdjustment, text: '平账' },
-  } as const
-
   // 移除单个筛选条件
   const removeFilter = (key: keyof TransactionFilterValues, value?: string) => {
     if (key === 'dateRange') {
       onFilterChange({ ...filters, [key]: null })
     } else if (value) {
-      onFilterChange({ 
-        ...filters, 
-        [key]: filters[key].filter((v: string) => v !== value) 
+      onFilterChange({
+        ...filters,
+        [key]: filters[key].filter((v: string) => v !== value)
       })
     } else {
       onFilterChange({ ...filters, [key]: [] })
@@ -206,14 +195,14 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
       {filters.type.map(t => {
         const config = TRANSACTION_TYPE_CONFIG[t as keyof typeof TRANSACTION_TYPE_CONFIG]
         return (
-          <Tag 
-            key={t} 
-            closable 
+          <BorderedTag
+            key={t}
+            closable
             onClose={() => removeFilter('type', t)}
-            style={{ color: config?.color, borderColor: config?.color, backgroundColor: 'transparent' }}
+            color={config.color}
           >
-            {config?.text || t}
-          </Tag>
+            {config.text}
+          </BorderedTag>
         )
       })}
       {filters.accountId.map(id => {
@@ -274,15 +263,15 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                         const { value, closable, onClose } = props
                         const config = TRANSACTION_TYPE_CONFIG[value as keyof typeof TRANSACTION_TYPE_CONFIG]
                         return (
-                          <Tag closable={closable} onClose={onClose} style={{ color: config?.color, borderColor: config?.color, backgroundColor: 'transparent' }}>
-                            {config?.text || value}
-                          </Tag>
+                          <BorderedTag closable={closable} onClose={onClose} color={config.color}>
+                            {config.text}
+                          </BorderedTag>
                         )
                       }}
                     >
                       {Object.entries(TRANSACTION_TYPE_CONFIG).map(([value, { color, text }]) => (
                         <Select.Option key={value} value={value}>
-                          <Tag style={{ color, borderColor: color, backgroundColor: 'transparent' }}>{text}</Tag>
+                          <BorderedTag color={color}>{text}</BorderedTag>
                         </Select.Option>
                       ))}
                     </Select>

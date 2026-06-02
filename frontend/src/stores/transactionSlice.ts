@@ -31,8 +31,8 @@ export const createTransactionSlice: StateCreator<AppState, [], [], TransactionS
       set({ loading: true })
       const res = await transactionApi.getAll(params)
       if (res.data.success && res.data.data) {
-        set({ 
-          transactions: res.data.data.list || [], 
+        set({
+          transactions: res.data.data.list || [],
           loading: false,
           pagination: {
             total: res.data.data.total || 0,
@@ -61,27 +61,33 @@ export const createTransactionSlice: StateCreator<AppState, [], [], TransactionS
   addTransaction: async (data) => {
     const res = await transactionApi.create(data)
     if (res.data.success) {
-      await get().fetchTransactions()
-      await get().fetchAccounts()
-      await get().fetchTransactionStats()
+      await Promise.all([
+        get().fetchTransactions(),
+        get().fetchAccounts(),
+        get().fetchTransactionStats(),
+      ])
     }
   },
 
   updateTransaction: async (id, data) => {
     const res = await transactionApi.update(id, data)
     if (res.data.success) {
-      await get().fetchTransactions()
-      await get().fetchAccounts()
-      await get().fetchTransactionStats()
+      await Promise.all([
+        get().fetchTransactions(),
+        get().fetchAccounts(),
+        get().fetchTransactionStats(),
+      ])
     }
   },
 
   deleteTransaction: async (id) => {
     const res = await transactionApi.delete(id)
     if (res.data.success) {
-      await get().fetchTransactions()
-      await get().fetchAccounts()
-      await get().fetchTransactionStats()
+      await Promise.all([
+        get().fetchTransactions(),
+        get().fetchAccounts(),
+        get().fetchTransactionStats(),
+      ])
     }
   },
 })

@@ -3,7 +3,7 @@ import { Modal, Select, Button, Space, message, theme, Grid, Spin, Tooltip } fro
 import { PlusOutlined } from '@ant-design/icons'
 import { useStore } from '../../stores'
 import { investmentApi, InvestmentAllocationSnapshot } from '../../services/api'
-import DynamicIcon from '../common/DynamicIcon'
+import DynamicIcon from '../../components/common/DynamicIcon'
 import InvestmentSnapshotTimeline from './InvestmentSnapshotTimeline'
 import InvestmentSnapshotModal from './InvestmentSnapshotModal'
 
