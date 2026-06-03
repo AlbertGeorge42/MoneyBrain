@@ -120,17 +120,6 @@ const baseInvestmentPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDa
   },
 }
 
-type BalanceSheetTreeNode = {
-  key: string
-  name: string
-  balance: number
-  predicted: number
-  nodeType: 'asset' | 'liability'
-  type: 'category' | 'account'
-  icon?: string
-  children?: BalanceSheetTreeNode[]
-}
-
 const Reports: React.FC = () => {
   const { token } = theme.useToken()
   const [activeTab, setActiveTab] = useState('balance-sheet')
@@ -154,17 +143,33 @@ const Reports: React.FC = () => {
   const earliestTransactionDate = earliestDateData?.date || null
 
   const balanceSheetDate = useMemo(() => toDateParam(selectedBalanceTime), [selectedBalanceTime])
-  const { data: balanceSheetData } = useBalanceSheet(balanceSheetDate)
-  const { refetch: refetchBalanceSheet } = useBalanceSheet(balanceSheetDate)
+  const { data: balanceSheetData, isLoading: balanceSheetLoading, refetch: refetchBalanceSheet } = useBalanceSheet(
+    balanceSheetDate,
+    activeTab === 'balance-sheet'
+  )
 
   const incomeExpenseParams = useMemo(() => toDateRangeParams(incomeExpenseTimeRange), [incomeExpenseTimeRange])
-  const { data: incomeExpenseData } = useIncomeExpense(incomeExpenseParams.startDate, incomeExpenseParams.endDate, true)
+  const { data: incomeExpenseData, isLoading: incomeExpenseLoading, refetch: refetchIncomeExpense } = useIncomeExpense(
+    incomeExpenseParams.startDate,
+    incomeExpenseParams.endDate,
+    true,
+    activeTab === 'income-expense'
+  )
 
   const cashFlowParams = useMemo(() => toDateRangeParams(cashFlowTimeRange), [cashFlowTimeRange])
-  const { data: cashFlowData, isLoading: cashFlowLoading } = useCashFlow(cashFlowParams.startDate, cashFlowParams.endDate, true)
+  const { data: cashFlowData, isLoading: cashFlowLoading, refetch: refetchCashFlow } = useCashFlow(
+    cashFlowParams.startDate,
+    cashFlowParams.endDate,
+    true,
+    activeTab === 'cash-flow'
+  )
 
   const investmentParams = useMemo(() => toDateRangeParams(investmentTimeRange), [investmentTimeRange])
-  const { data: investmentData, refetch: refetchInvestment } = useInvestmentAnalysis(investmentParams.startDate, investmentParams.endDate)
+  const { data: investmentData, isLoading: investmentLoading, refetch: refetchInvestment } = useInvestmentAnalysis(
+    investmentParams.startDate,
+    investmentParams.endDate,
+    activeTab === 'investment-analysis'
+  )
 
   const balanceSheetPickerConfig = useMemo<PointTimePickerConfig>(
     () => ({
@@ -238,60 +243,6 @@ const Reports: React.FC = () => {
     }
   }
 
-  const buildBalanceSheetTreeData = useMemo(() => {
-    if (!balanceSheetData?.accounts) {
-      return { assetNodes: [], liabilityNodes: [] }
-    }
-
-    const groupedByCategory: Record<string, BalanceSheetAccountItem[]> = {}
-    const categorySortMap: Record<string, number> = {}
-
-    balanceSheetData.accounts.forEach((account) => {
-      const category = account.category || '未分类'
-      if (!groupedByCategory[category]) {
-        groupedByCategory[category] = []
-        categorySortMap[category] = account.categorySort ?? 0
-      }
-      groupedByCategory[category].push(account)
-    })
-
-    const buildTree = (type: 'asset' | 'liability') =>
-      Object.keys(groupedByCategory)
-        .filter((category) => groupedByCategory[category]?.some((account) => account.type === type))
-        .sort((left, right) => categorySortMap[left] - categorySortMap[right])
-        .map(
-          (category): BalanceSheetTreeNode => {
-            const filteredAccounts = groupedByCategory[category].filter((account) => account.type === type)
-            const children: BalanceSheetTreeNode[] = filteredAccounts.map(
-              (account): BalanceSheetTreeNode => ({
-                key: `account-${account.id}`,
-                name: account.name,
-                balance: account.actual,
-                predicted: account.predicted || 0,
-                nodeType: type,
-                type: 'account',
-                icon: account.icon || undefined,
-              })
-            )
-            return {
-              key: `category-${category}-${type}`,
-              name: category,
-              balance: filteredAccounts.reduce((sum, account) => sum + account.actual, 0),
-              predicted: children.reduce((sum, child) => sum + child.predicted, 0),
-              nodeType: type,
-              type: 'category',
-              icon: groupedByCategory[category][0]?.categoryIcon || undefined,
-              children,
-            }
-          }
-        )
-
-    return {
-      assetNodes: buildTree('asset'),
-      liabilityNodes: buildTree('liability'),
-    }
-  }, [balanceSheetData])
-
   const tabItems = [
     {
       key: 'balance-sheet',
@@ -301,7 +252,7 @@ const Reports: React.FC = () => {
           selectedTime={selectedBalanceTime}
           pickerConfig={balanceSheetPickerConfig}
           balanceSheetData={balanceSheetData ?? null}
-          buildBalanceSheetTreeData={buildBalanceSheetTreeData}
+          loading={balanceSheetLoading}
           onTimeChange={setSelectedBalanceTime}
           onOpenSettings={() => setAccountCategoryModalVisible(true)}
           onOpenCalibrate={() => setCalibrateVisible(true)}
@@ -316,6 +267,7 @@ const Reports: React.FC = () => {
           timeRange={incomeExpenseTimeRange}
           pickerConfig={incomeExpensePickerConfig}
           incomeExpenseData={incomeExpenseData ?? null}
+          loading={incomeExpenseLoading}
           onTimeRangeChange={setIncomeExpenseTimeRange}
           onOpenSettings={() => setTransactionCategoryModalVisible(true)}
         />
@@ -329,7 +281,7 @@ const Reports: React.FC = () => {
           timeRange={cashFlowTimeRange}
           pickerConfig={cashFlowPickerConfig}
           cashFlowData={cashFlowData ?? null}
-          cashFlowLoading={cashFlowLoading}
+          loading={cashFlowLoading}
           onTimeRangeChange={setCashFlowTimeRange}
           onOpenSettings={() => setCashFlowConfigModalVisible(true)}
         />
@@ -343,8 +295,9 @@ const Reports: React.FC = () => {
           timeRange={investmentTimeRange}
           pickerConfig={investmentPickerConfig}
           investmentData={investmentData ?? null}
+          loading={investmentLoading}
+          refetch={refetchInvestment}
           onTimeRangeChange={setInvestmentTimeRange}
-          onRefresh={() => void refetchInvestment()}
         />
       ),
     },
@@ -368,12 +321,18 @@ const Reports: React.FC = () => {
 
       <TransactionConfigModal
         visible={transactionCategoryModalVisible}
-        onClose={() => setTransactionCategoryModalVisible(false)}
+        onClose={() => {
+          setTransactionCategoryModalVisible(false)
+          void refetchIncomeExpense()
+        }}
       />
 
       <CashFlowConfigModal
         visible={cashFlowConfigModalVisible}
-        onClose={() => setCashFlowConfigModalVisible(false)}
+        onClose={() => {
+          setCashFlowConfigModalVisible(false)
+          void refetchCashFlow()
+        }}
       />
 
       <Modal

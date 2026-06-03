@@ -1,20 +1,69 @@
 import React, { useMemo } from 'react'
 import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import type { IncomeExpenseReportData } from '@shared/types'
+import type { IncomeExpenseReportData, ReportCategoryDetail } from '@shared/types'
 import { BarChart, PieChart, type PieChartDataItem } from '../charts'
-import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue, ReportDetailList } from '../common'
+import type { ReportTreeNode, ReportDetailColumn } from '../common'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import PredictionStatistic from './PredictionStatistic'
-import ReportValueDisplay from './ReportValueDisplay'
 import * as api from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
 import { formatCurrency } from '../../utils/format'
+
+// ---- 本报表专属：metrics 类型 ----
+interface IncomeExpenseMetrics {
+  actual: number
+  predicted: number
+}
+
+// ---- 本报表专属：列配置 ----
+const incomeColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
+  {
+    key: 'amount',
+    metric: 'actual',
+    width: 140,
+    align: 'right',
+    prediction: { displayMetric: 'actual', actualMetric: 'actual', predictedMetric: 'predicted' },
+    format: (v) => formatCurrency(v as number),
+    color: 'var(--mb-color-positive)',
+  },
+]
+
+const expenseColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
+  {
+    key: 'amount',
+    metric: 'actual',
+    width: 140,
+    align: 'right',
+    prediction: { displayMetric: 'actual', actualMetric: 'actual', predictedMetric: 'predicted' },
+    format: (v) => formatCurrency(Math.abs(v as number)),
+    color: 'var(--mb-color-negative)',
+  },
+]
+
+// ---- 本报表专属：数据适配 ----
+function adaptIncomeExpenseTree(
+  details: ReportCategoryDetail[],
+  reportType: 'income' | 'expense'
+): ReportTreeNode<IncomeExpenseMetrics>[] {
+  return details.map(item => ({
+    key: `${reportType}-${item.categoryId}`,
+    name: item.name,
+    icon: item.icon,
+    children: item.children ? adaptIncomeExpenseTree(item.children, reportType) : undefined,
+    metrics: {
+      actual: reportType === 'expense' ? Math.abs(item.actual + item.predicted) : item.actual + item.predicted,
+      predicted: item.predicted,
+    },
+  }))
+}
 
 interface IncomeExpenseReportProps {
   timeRange: RangeTimeValue
   pickerConfig: RangeTimePickerConfig
   incomeExpenseData: IncomeExpenseReportData | null
+  loading?: boolean
   onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
 }
@@ -23,6 +72,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   timeRange,
   pickerConfig,
   incomeExpenseData,
+  loading,
   onTimeRangeChange,
   onOpenSettings,
 }) => {
@@ -209,52 +259,28 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     </div>
   )
 
+  const showPred = isFuture || isMixed
+
   const incomeDetailCard = (
-    <Card className="surface-card report-section-card" title={isFuture ? <>收入明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入明细'} size="small">
-      <div className="report-detail-list">
-        {(incomeExpenseData?.incomeCategoryDetails || []).map((item) => {
-          const showValue = item.actual + item.predicted
-          return (
-            <div key={item.categoryId} className="report-detail-list__item">
-              <div className="report-detail-list__header">
-                <span className="report-detail-list__title">{item.name}</span>
-                <span style={{ color: 'var(--mb-color-positive)' }}>
-                  {isMixed && item.predicted !== 0 ? (
-                    <ReportValueDisplay value={{ actual: item.actual, predicted: item.predicted }} useClickTrigger={useClickTrigger} />
-                  ) : (
-                    formatStatValue(showValue)
-                  )}
-                </span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </Card>
+    <ReportDetailList
+      data={adaptIncomeExpenseTree(incomeExpenseData?.incomeCategoryDetails || [], 'income')}
+      config={{ columns: incomeColumns, parentIcon: 'folder', leafIcon: 'circle', expandable: true, defaultExpandDepth: 1 }}
+      loading={loading}
+      isFuture={showPred}
+      useClickTrigger={useClickTrigger}
+      title={isFuture ? <>收入明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入明细'}
+    />
   )
 
   const expenseDetailCard = (
-    <Card className="surface-card report-section-card" title={isFuture ? <>支出明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出明细'} size="small">
-      <div className="report-detail-list">
-        {(incomeExpenseData?.expenseCategoryDetails || []).map((item) => {
-          const showValue = Math.abs(item.actual + item.predicted)
-          return (
-            <div key={item.categoryId} className="report-detail-list__item">
-              <div className="report-detail-list__header">
-                <span className="report-detail-list__title">{item.name}</span>
-                <span style={{ color: 'var(--mb-color-negative)' }}>
-                  {item.predicted !== 0 ? (
-                    <ReportValueDisplay value={{ actual: Math.abs(item.actual), predicted: Math.abs(item.predicted) }} useClickTrigger={useClickTrigger} />
-                  ) : (
-                    formatStatValue(showValue)
-                  )}
-                </span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </Card>
+    <ReportDetailList
+      data={adaptIncomeExpenseTree(incomeExpenseData?.expenseCategoryDetails || [], 'expense')}
+      config={{ columns: expenseColumns, parentIcon: 'folder', leafIcon: 'circle', expandable: true, defaultExpandDepth: 1 }}
+      loading={loading}
+      isFuture={showPred}
+      useClickTrigger={useClickTrigger}
+      title={isFuture ? <>支出明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出明细'}
+    />
   )
 
   const detailTables = (

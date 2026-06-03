@@ -1,20 +1,99 @@
 import React from 'react'
 import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
+import { RangeTimePickerField, ReportDetailList, type RangeTimePickerConfig, type RangeTimeValue, type ReportTreeNode, type ReportDetailColumn } from '../common'
 import { BarChart, SankeyChart } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import PredictionStatistic from './PredictionStatistic'
-import ReportValueDisplay from './ReportValueDisplay'
 import type { CashFlowReportData } from '@shared/types'
 import { formatCurrency } from '../../utils/format'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
+
+interface CashFlowDetailMetrics {
+  inflow: number
+  outflow: number
+  net: number
+  actual: number
+  predicted: number
+}
+
+const cashFlowColumns: ReportDetailColumn<CashFlowDetailMetrics>[] = [
+  {
+    key: 'amount',
+    metric: 'inflow',
+    width: 140,
+    align: 'right',
+    prediction: { displayMetric: 'inflow', actualMetric: 'actual', predictedMetric: 'predicted' },
+    format: (_v, node) => {
+      const m = node.metrics
+      const value = (m?.inflow ?? 0) > 0 ? m!.inflow : (m?.outflow ?? 0) > 0 ? m!.outflow : m?.net ?? 0
+      return formatCurrency(value)
+    },
+    color: (_v, node) => {
+      const m = node.metrics
+      return (m?.inflow ?? 0) > 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)'
+    },
+  },
+]
+
+const activityEntries: Array<{ key: 'operating' | 'investing' | 'financing'; title: string }> = [
+  { key: 'operating', title: '经营活动' },
+  { key: 'investing', title: '投资活动' },
+  { key: 'financing', title: '筹资活动' },
+]
+
+function adaptCashFlowActivity(
+  activity: CashFlowReportData['byActivity']['operating'],
+  activityKey: string
+): ReportTreeNode<CashFlowDetailMetrics>[] {
+  const inflowItems: ReportTreeNode<CashFlowDetailMetrics>[] = []
+  const outflowItems: ReportTreeNode<CashFlowDetailMetrics>[] = []
+
+  activity.items.forEach((item) => {
+    const node: ReportTreeNode<CashFlowDetailMetrics> = {
+      key: `item-${activityKey}-${item.categoryName}`,
+      name: item.categoryName,
+      metrics: {
+        inflow: item.direction === 'inflow' ? item.amount : 0,
+        outflow: item.direction === 'outflow' ? Math.abs(item.amount) : 0,
+        net: item.direction === 'inflow' ? item.amount : -Math.abs(item.amount),
+        actual: item.actual,
+        predicted: item.predicted,
+      },
+    }
+    if (item.direction === 'inflow') {
+      inflowItems.push(node)
+    } else {
+      outflowItems.push(node)
+    }
+  })
+
+  const totalInflow = activity.inflow.actual + activity.inflow.predicted
+  const totalOutflow = Math.abs(activity.outflow.actual + activity.outflow.predicted)
+
+  return [
+    {
+      key: `inflow-${activityKey}`,
+      name: '流入',
+      icon: 'arrow-up',
+      metrics: { inflow: totalInflow, outflow: 0, net: totalInflow, actual: activity.inflow.actual, predicted: activity.inflow.predicted },
+      children: inflowItems,
+    },
+    {
+      key: `outflow-${activityKey}`,
+      name: '流出',
+      icon: 'arrow-down',
+      metrics: { inflow: 0, outflow: totalOutflow, net: -totalOutflow, actual: Math.abs(activity.outflow.actual), predicted: Math.abs(activity.outflow.predicted) },
+      children: outflowItems,
+    },
+  ]
+}
 
 interface CashFlowReportProps {
   timeRange: RangeTimeValue
   pickerConfig: RangeTimePickerConfig
   cashFlowData: CashFlowReportData | null
-  cashFlowLoading: boolean
+  loading?: boolean
   onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
 }
@@ -23,7 +102,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   timeRange,
   pickerConfig,
   cashFlowData,
-  cashFlowLoading,
+  loading,
   onTimeRangeChange,
   onOpenSettings,
 }) => {
@@ -35,12 +114,6 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
   const formatStatValue = (v: number) => formatCurrency(v)
-
-  const activityConfig = [
-    { key: 'operating' as const, color: 'green', label: '经营', title: '经营活动' },
-    { key: 'investing' as const, color: 'blue', label: '投资', title: '投资活动' },
-    { key: 'financing' as const, color: 'orange', label: '筹资', title: '筹资活动' },
-  ]
 
   const netCashFlowValue = cashFlowData?.netCashFlow || { actual: 0, predicted: 0 }
   const cashInflowValue = cashFlowData?.cashInflow || { actual: 0, predicted: 0 }
@@ -191,7 +264,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             },
           ]}
           height={isMobile ? 240 : 280}
-          loading={cashFlowLoading}
+          loading={loading}
           isPurePrediction={isFuture}
         />
       </Card>
@@ -201,59 +274,50 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
           nodes={cashFlowData?.sankey?.nodes || []}
           links={cashFlowData?.sankey?.links || []}
           height={isMobile ? 240 : 280}
-          loading={cashFlowLoading}
+          loading={loading}
           isPurePrediction={isFuture}
         />
       </Card>
     </div>
   )
 
+  const showPred = (isFuture || isMixed) && hasPrediction
+
+  const defaultByActivity = {
+    operating: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
+    investing: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
+    financing: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
+    uncategorized: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
+  }
+  const byActivity = cashFlowData?.byActivity || defaultByActivity
+
   const detailSection = (
-    <div className="report-chart-grid report-chart-grid--3">
-      {activityConfig.map(({ key, color, label, title }) => {
-        const activity = cashFlowData?.byActivity?.[key]
-        const net = activity?.net || { actual: 0, predicted: 0 }
-        const inflow = activity?.inflow || { actual: 0, predicted: 0 }
-        const outflow = activity?.outflow || { actual: 0, predicted: 0 }
-        const netTotal = net.actual + net.predicted
-        const showInflowValue = inflow.actual + inflow.predicted
-        const showOutflowValue = Math.abs(outflow.actual + outflow.predicted)
-        const showPred = inflow.predicted !== 0 || outflow.predicted !== 0
-
-        return (
-          <Card
+    <>
+      <div className="report-chart-grid report-chart-grid--3">
+        {activityEntries.map(({ key, title }) => (
+          <ReportDetailList
             key={key}
-            className="surface-card report-section-card"
-            title={
-              <>
-                <Tag color={color}>{label}</Tag> {isFuture ? <>{title} <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : title}
-              </>
-            }
-            size="small"
-            extra={
-              <span style={{ fontWeight: 700, color: netTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}>
-                {formatCurrency(netTotal)}
-              </span>
-            }
-          >
-            <div className="report-summary-stack">
-              <span>
-                流入: {showPred ? <ReportValueDisplay value={inflow} useClickTrigger={useClickTrigger} /> : formatStatValue(showInflowValue)}
-              </span>
-              <span>
-                流出: {showPred ? <ReportValueDisplay value={{ actual: Math.abs(outflow.actual), predicted: Math.abs(outflow.predicted) }} useClickTrigger={useClickTrigger} /> : formatStatValue(showOutflowValue)}
-              </span>
-            </div>
-          </Card>
-        )
-      })}
-
-      {cashFlowData?.cashAccounts && (
+            data={adaptCashFlowActivity(byActivity[key], key)}
+            config={{
+              columns: cashFlowColumns,
+              parentIcon: 'swap',
+              leafIcon: 'transaction',
+              expandable: true,
+              defaultExpandDepth: 1,
+            }}
+            loading={loading}
+            isFuture={showPred}
+            useClickTrigger={useClickTrigger}
+            title={isFuture ? <>{title} <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : title}
+          />
+        ))}
+      </div>
+      {cashFlowData?.cashAccounts && cashFlowData.cashAccounts.length > 0 && (
         <Card title="现金账户" size="small" className="surface-card report-section-card">
           <div className="report-summary-note">{cashFlowData.cashAccounts.join('、')}</div>
         </Card>
       )}
-    </div>
+    </>
   )
 
   return (
@@ -297,7 +361,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
                         },
                       ]}
                       height={240}
-                      loading={cashFlowLoading}
+                      loading={loading}
                       isPurePrediction={isFuture}
                     />
                   </Card>
@@ -313,7 +377,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
                       nodes={cashFlowData?.sankey?.nodes || []}
                       links={cashFlowData?.sankey?.links || []}
                       height={240}
-                      loading={cashFlowLoading}
+                      loading={loading}
                       isPurePrediction={isFuture}
                     />
                   </Card>

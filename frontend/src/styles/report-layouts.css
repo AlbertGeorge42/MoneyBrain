@@ -156,98 +156,92 @@
   gap: 12px;
 }
 
-.report-detail-list__item {
+/* ===== 统一明细列表 ===== */
+
+.report-detail-list {
   display: grid;
   gap: 8px;
-  padding: 12px;
+}
+
+.report-detail-node {
   border: 1px solid var(--mb-color-border-subtle);
   border-radius: var(--mb-radius-card);
   background: var(--mb-color-bg-app);
 }
 
-.report-detail-list__header,
-.report-detail-list__subitem,
-.report-detail-list__meta {
+.report-detail-node__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 12px;
 }
 
-.report-detail-list__title {
+.report-detail-node__name-area {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex-shrink: 1;
+}
+
+.report-detail-node__name {
   font-weight: 600;
-}
-
-.report-detail-list__subitems {
-  display: grid;
-  gap: 6px;
-  padding-top: 4px;
-}
-
-.investment-board__item {
-  min-width: 0;
-}
-
-.investment-board__account-row,
-.investment-board__account-meta {
-  min-width: 0;
-}
-
-.investment-board__account-value {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  min-width: 180px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.investment-board__asset-list {
-  border-top: 1px solid var(--mb-color-border-subtle);
-  padding-top: 4px;
-}
-
-.investment-board__asset-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 4px 0;
-}
-
-.investment-board__asset-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.investment-board__asset-metrics {
-  display: grid;
-  grid-template-columns: 64px 120px 72px;
+.report-detail-node__name--expandable {
+  text-decoration: underline;
+  text-decoration-color: var(--mb-color-text-tertiary);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.report-detail-node__values {
+  display: inline-flex;
   align-items: center;
-  justify-items: end;
-  gap: 12px;
+  gap: 16px;
+  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-/* 报表响应式断点 */
-
-@media (max-width: 1100px) {
-  .report-chart-grid--3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.report-detail-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
+
+.report-detail-cell__main {
+  font-weight: 700;
+}
+
+.report-detail-node__children {
+  padding: 0 0 0 28px;
+  border-top: 1px solid var(--mb-color-border-subtle);
+}
+
+.report-detail-node__children .report-detail-node {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--mb-color-border-subtle);
+}
+
+.report-detail-node__children .report-detail-node:last-child {
+  border-bottom: none;
+}
+
+.report-detail-node__children .report-detail-node__header {
+  padding: 10px 12px;
+}
+
+.report-detail-node__children .report-detail-node__children {
+  padding-left: 24px;
+}
+
+/* 报表响应式断点 */
 
 @media (max-width: 860px) {
   .report-toolbar {
@@ -314,30 +308,15 @@
     margin-bottom: 12px;
   }
 
-  .investment-board__account-row,
-  .investment-board__account-meta {
-    align-items: flex-start;
-  }
-
-  .investment-board__account-row {
-    display: grid;
+  .report-detail-node__values {
     gap: 8px;
   }
 
-  .investment-board__account-value {
-    justify-content: space-between;
-    min-width: 0;
-    width: 100%;
+  .report-detail-node__children {
+    padding-left: 16px;
   }
 
-  .investment-board__asset-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-
-  .investment-board__asset-metrics {
-    grid-template-columns: 56px minmax(96px, 1fr) 64px;
-    width: 100%;
-    gap: 8px;
+  .report-detail-node__children .report-detail-node__children {
+    padding-left: 12px;
   }
 }

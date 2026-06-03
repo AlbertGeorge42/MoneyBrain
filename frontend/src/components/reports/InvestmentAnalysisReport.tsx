@@ -1,61 +1,108 @@
 import React, { useMemo, useState } from 'react'
-import { Button, Card, Empty, Grid, Popover, Statistic, Tag, Typography, theme } from 'antd'
+import { Button, Card, Empty, Grid, Statistic, theme } from 'antd'
 import { CameraOutlined, SettingOutlined } from '@ant-design/icons'
-import DynamicIcon from '../../components/common/DynamicIcon'
-import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../../components/common'
+import { RangeTimePickerField, ReportDetailList, type RangeTimePickerConfig, type RangeTimeValue, type ReportTreeNode, type ReportDetailColumn } from '../../components/common'
 import { LineChart, PieChart } from '../../components/charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import InvestmentAssetClassConfigModal from '../investment/InvestmentAssetClassConfigModal'
 import InvestmentSnapshotHistoryModal from '../investment/InvestmentSnapshotHistoryModal'
-import RebalanceModal from '../investment/RebalanceModal'
 import type {
   AccountAllocationDetail,
-  AccountAllocationItem,
-  InvestmentAccountDetail,
   InvestmentAnalysisReportData,
 } from '@shared/types'
 import { formatCurrency, createStatisticFormatter } from '../../utils/format'
 
 const statisticFormatter = createStatisticFormatter()
 
-const { Text } = Typography
-
 const EMPTY_BY_CATEGORY: InvestmentAnalysisReportData['byCategory'] = []
 const EMPTY_ALLOCATIONS: InvestmentAnalysisReportData['byAccountAllocation'] = []
-const EMPTY_STALE_ACCOUNTS: InvestmentAnalysisReportData['staleAccounts'] = []
+
+interface InvestmentDetailMetrics {
+  balance: number
+  marketValue: number
+  ratio: number
+  returnRate: number | null
+}
+
+const investmentColumns: ReportDetailColumn<InvestmentDetailMetrics>[] = [
+  {
+    key: 'value',
+    metric: 'marketValue',
+    title: '市值',
+    width: 140,
+    align: 'right',
+    format: (v) => formatCurrency(v as number),
+  },
+  {
+    key: 'ratio',
+    metric: 'ratio',
+    title: '占比',
+    width: 80,
+    align: 'right',
+    format: (v) => (v as number) > 0 ? `${(v as number).toFixed(1)}%` : '--',
+  },
+  {
+    key: 'returnRate',
+    metric: 'returnRate',
+    title: '收益率',
+    width: 80,
+    align: 'right',
+    format: (v) => v != null ? `${(v as number) >= 0 ? '+' : ''}${(v as number).toFixed(1)}%` : '--',
+    color: (v) => v != null && (v as number) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
+  },
+]
+
+function buildInvestmentTreeData(
+  allocations: AccountAllocationDetail[]
+): ReportTreeNode<InvestmentDetailMetrics>[] {
+  return allocations.map((allocation) => ({
+    key: `account-${allocation.accountId}`,
+    name: allocation.accountName,
+    icon: 'wallet',
+    metrics: {
+      balance: allocation.balance,
+      marketValue: allocation.balance,
+      ratio: 0,
+      returnRate: null,
+    },
+    children: allocation.items.map((item) => ({
+      key: `asset-${allocation.accountId}-${item.assetClassId}`,
+      name: item.name,
+      icon: item.icon,
+      metrics: {
+        balance: 0,
+        marketValue: item.marketValue,
+        ratio: item.ratio,
+        returnRate: item.returnRate,
+      },
+    })),
+  }))
+}
 
 interface InvestmentAnalysisReportProps {
   timeRange: RangeTimeValue
   pickerConfig: RangeTimePickerConfig
   investmentData: InvestmentAnalysisReportData | null
+  loading?: boolean
+  refetch: () => void
   onTimeRangeChange: (value: RangeTimeValue) => void
-  onRefresh: () => void
-}
-
-interface AccountBoardItem {
-  key: string
-  account: InvestmentAccountDetail
-  allocation?: AccountAllocationDetail
-  assets: AccountAllocationItem[]
 }
 
 const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   timeRange,
   pickerConfig,
   investmentData,
+  loading,
+  refetch,
   onTimeRangeChange,
-  onRefresh,
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
-  const isDesktop = screens.md
   const { token } = theme.useToken()
 
   const [configModalVisible, setConfigModalVisible] = useState(false)
   const [snapshotHistoryModalVisible, setSnapshotHistoryModalVisible] = useState(false)
-  const [rebalanceModalVisible, setRebalanceModalVisible] = useState(false)
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(undefined)
-  const [selectedAllocation, setSelectedAllocation] = useState<AccountAllocationDetail | null>(null)
 
   const handleOpenConfig = (accountId?: string) => {
     setSelectedAccountId(accountId)
@@ -65,11 +112,6 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   const handleOpenSnapshotHistory = (accountId?: string) => {
     setSelectedAccountId(accountId)
     setSnapshotHistoryModalVisible(true)
-  }
-
-  const handleOpenRebalance = (allocation: AccountAllocationDetail) => {
-    setSelectedAllocation(allocation)
-    setRebalanceModalVisible(true)
   }
 
   const renderEmptyState = () => (
@@ -100,7 +142,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
       <InvestmentSnapshotHistoryModal
         visible={snapshotHistoryModalVisible}
         onClose={() => setSnapshotHistoryModalVisible(false)}
-        onRefresh={onRefresh}
+        onRefresh={refetch}
         initialAccountId={selectedAccountId}
       />
     </div>
@@ -108,12 +150,6 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
 
   const reportByCategory = investmentData?.byCategory ?? EMPTY_BY_CATEGORY
   const reportAllocations = investmentData?.byAccountAllocation ?? EMPTY_ALLOCATIONS
-  const reportStaleAccounts = investmentData?.staleAccounts ?? EMPTY_STALE_ACCOUNTS
-
-  const allAccounts: InvestmentAccountDetail[] = useMemo(
-    () => reportByCategory.flatMap((category) => category.accounts),
-    [reportByCategory]
-  )
 
   const pieData = useMemo(
     () =>
@@ -126,198 +162,9 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
     [reportByCategory]
   )
 
-  const allocationMap = useMemo(
-    () => new Map(reportAllocations.map((allocation) => [allocation.accountId, allocation])),
-    [reportAllocations]
-  )
-
-  const staleAccountSet = useMemo(
-    () => new Set(reportStaleAccounts.map((account) => account.accountId)),
-    [reportStaleAccounts]
-  )
-
-  const accountBoardItems: AccountBoardItem[] = useMemo(
-    () =>
-      allAccounts.map((account) => {
-        const allocation = allocationMap.get(account.id)
-        return {
-          key: account.id,
-          account,
-          allocation,
-          assets: allocation?.items ?? [],
-        }
-      }),
-    [allAccounts, allocationMap]
-  )
-
   if (!investmentData) return renderEmptyState()
 
   const { returnAnalysis, trend, totalAssets, investmentRatio } = investmentData
-
-  const getAccountStatus = (allocation?: AccountAllocationDetail) => {
-    if (!allocation) return null
-    if (!allocation.hasAssetClasses) return { color: 'warning', text: '未配置资产类型', type: 'no-config' }
-    if (allocation.items.length === 0) return { color: 'processing', text: '未录入快照', type: 'no-snapshot' }
-    if (staleAccountSet.has(allocation.accountId)) return { color: 'warning', text: '快照超期', type: 'stale' }
-
-    const hasTargetRatio = allocation.items.some(item => item.targetRatio !== null)
-    if (!hasTargetRatio) return { color: 'default', text: '目标未配置', type: 'no-target' }
-
-    const maxDeviation = Math.max(
-      ...allocation.items
-        .filter((item) => item.deviation !== null)
-        .map((item) => Math.abs(item.deviation as number)),
-      0
-    )
-
-    if (maxDeviation <= 2) return { color: 'success', text: '配置均衡', type: 'balanced', maxDeviation }
-    if (maxDeviation <= 5) return { color: 'warning', text: `偏离 ${maxDeviation.toFixed(1)}%`, type: 'deviation', maxDeviation }
-    return { color: 'error', text: `偏离 ${maxDeviation.toFixed(1)}%`, type: 'deviation', maxDeviation }
-  }
-
-  const getRebalanceSummary = (allocation: AccountAllocationDetail) => {
-    const maxDeviationItem = allocation.items
-      .filter(item => item.deviation !== null)
-      .reduce((max, item) => {
-        if (!max) return item
-        return Math.abs(item.deviation as number) > Math.abs(max.deviation as number) ? item : max
-      }, null as AccountAllocationItem | null)
-
-    if (!maxDeviationItem || maxDeviationItem.deviation === null) return null
-
-    const maxDeviation = maxDeviationItem.deviation
-    const sign = maxDeviation > 0 ? '+' : ''
-
-    const suggestionParts: string[] = []
-    allocation.items.forEach(item => {
-      if (item.rebalanceAmount !== null && Math.abs(item.rebalanceAmount) > 0.01) {
-        if (item.rebalanceAmount > 0) {
-          suggestionParts.push(`买入${item.name} ${formatCurrency(item.rebalanceAmount)}`)
-        } else {
-          suggestionParts.push(`卖出${item.name} ${formatCurrency(Math.abs(item.rebalanceAmount))}`)
-        }
-      }
-    })
-
-    return {
-      maxDeviationText: `最大偏离：${maxDeviationItem.name} ${sign}${maxDeviation.toFixed(1)}%`,
-      suggestion: suggestionParts.length > 0 ? `建议：${suggestionParts.join('，')}` : null,
-    }
-  }
-
-  const renderReturnRate = (rate: number | null, precision = 2) => {
-    if (rate === null) return <Text type="secondary">--</Text>
-    const color = rate >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)'
-    return <Text style={{ color }}>{rate >= 0 ? '+' : ''}{rate.toFixed(precision)}%</Text>
-  }
-
-  const renderStatusTag = (allocation?: AccountAllocationDetail) => {
-    const status = getAccountStatus(allocation)
-    if (!status) return null
-
-    const tagElement = (
-      <Tag
-        color={status.color}
-        style={{ cursor: 'pointer' }}
-        onClick={() => {
-          if (!allocation) return
-          if (status.type === 'no-config') {
-            handleOpenConfig(allocation.accountId)
-          } else {
-            handleOpenRebalance(allocation)
-          }
-        }}
-      >
-        {status.text}
-      </Tag>
-    )
-
-    if (isDesktop && allocation && (status.type === 'deviation' || status.type === 'balanced' || status.type === 'no-target')) {
-      const summary = status.type !== 'no-target' ? getRebalanceSummary(allocation) : null
-
-      const popoverContent = status.type === 'no-target' ? (
-        <div style={{ maxWidth: 200 }}>
-          <Text type="secondary">尚未配置目标比例，点击设置目标比例</Text>
-        </div>
-      ) : summary ? (
-        <div style={{ maxWidth: 280 }}>
-          <Text>{summary.maxDeviationText}</Text>
-          {summary.suggestion && (
-            <div style={{ marginTop: 4 }}>
-              <Text type="secondary">{summary.suggestion}</Text>
-            </div>
-          )}
-        </div>
-      ) : null
-
-      if (popoverContent) {
-        return (
-          <Popover content={popoverContent} trigger="hover">
-            {tagElement}
-          </Popover>
-        )
-      }
-    }
-
-    return tagElement
-  }
-
-  const renderAccountBoardItem = ({ account, allocation, assets }: AccountBoardItem) => {
-    return (
-      <div key={account.id} className="report-detail-list__item investment-board__item">
-        <div className="report-detail-list__header investment-board__account-row">
-          <span className="report-detail-list__title">
-            <DynamicIcon name={account.icon} size={16} fallback="wallet" />
-            <span>{account.name}</span>
-            {renderStatusTag(allocation)}
-          </span>
-          <span className="investment-board__account-value">
-            <Text strong>{formatCurrency(account.balance)}</Text>
-            {renderReturnRate(account.cumulativeReturnRate)}
-          </span>
-        </div>
-
-        {allocation && allocation.latestSnapshotDate && (
-          <div style={{
-            fontSize: token.fontSizeSM,
-            color: token.colorTextTertiary,
-          }}>
-            快照日期：{allocation.latestSnapshotDate}
-          </div>
-        )}
-
-        {allocation && allocation.hasAssetClasses && assets.length > 0 ? (
-          <div className="report-detail-list__subitems investment-board__asset-list">
-            {assets.map((asset) => (
-              <div key={asset.assetClassId} className="investment-board__asset-row">
-                <span className="investment-board__asset-name">
-                  <DynamicIcon name={asset.icon} size={14} fallback="investment" />
-                  {asset.name}
-                </span>
-                <span className="investment-board__asset-metrics">
-                  <Text type="secondary">{asset.ratio.toFixed(1)}%</Text>
-                  <Text>{formatCurrency(asset.marketValue)}</Text>
-                  {renderReturnRate(asset.returnRate, 1)}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {allocation && !allocation.hasAssetClasses ? (
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-            未配置资产类型，当前按未分类处理。
-          </Text>
-        ) : null}
-
-        {allocation && allocation.hasAssetClasses && assets.length === 0 ? (
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-            尚未录入资产分类快照。
-          </Text>
-        ) : null}
-      </div>
-    )
-  }
 
   const summarySection = (
     <>
@@ -398,12 +245,21 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
     </div>
   )
 
+  const investmentTreeData = buildInvestmentTreeData(reportAllocations)
+
   const detailSection = (
-    <Card title="投资账户明细" className="surface-card report-section-card" size="small">
-      <div className="report-detail-list investment-board">
-        {accountBoardItems.map(renderAccountBoardItem)}
-      </div>
-    </Card>
+    <ReportDetailList
+      data={investmentTreeData}
+      config={{
+        columns: investmentColumns,
+        parentIcon: 'wallet',
+        leafIcon: 'investment',
+        expandable: true,
+        defaultExpandDepth: 1,
+      }}
+      loading={loading}
+      title="投资账户明细"
+    />
   )
 
   return (
@@ -476,13 +332,8 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
       <InvestmentSnapshotHistoryModal
         visible={snapshotHistoryModalVisible}
         onClose={() => setSnapshotHistoryModalVisible(false)}
-        onRefresh={onRefresh}
+        onRefresh={refetch}
         initialAccountId={selectedAccountId}
-      />
-      <RebalanceModal
-        visible={rebalanceModalVisible}
-        onClose={() => setRebalanceModalVisible(false)}
-        allocation={selectedAllocation}
       />
     </div>
   )

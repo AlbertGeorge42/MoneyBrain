@@ -191,6 +191,8 @@ export interface ReportCategoryDetail {
   categoryId: string
   hasChildren: boolean
   sort: number
+  icon?: string | null
+  children?: ReportCategoryDetail[]
 }
 
 export interface IncomeExpenseReportData {
@@ -216,6 +218,8 @@ export interface IncomeExpenseReportData {
 export interface CashFlowActivityItem {
   categoryName: string
   amount: number
+  actual: number
+  predicted: number
   type: string
   direction: string
 }

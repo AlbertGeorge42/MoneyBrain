@@ -44,6 +44,8 @@ export interface CashFlowActivity {
   items: Array<{
     categoryName: string
     amount: number
+    actual: number
+    predicted: number
     type: string
     direction: string
   }>
@@ -99,12 +101,18 @@ function addTransaction(
   } else {
     activity.outflow = activity.outflow.plus(amount)
   }
-  activity.items.push({
-    categoryName,
-    amount: amount.toNumber(),
-    type,
-    direction,
-  })
+  // 查找是否已存在相同类别名称的 item，如果存在则累加金额
+  const existingItem = activity.items.find(item => item.categoryName === categoryName && item.direction === direction)
+  if (existingItem) {
+    existingItem.amount += amount.toNumber()
+  } else {
+    activity.items.push({
+      categoryName,
+      amount: amount.toNumber(),
+      type,
+      direction,
+    })
+  }
 }
 
 function addTransferFlow(
@@ -119,21 +127,33 @@ function addTransferFlow(
   if (isOutflow) {
     const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
     activity.outflow = activity.outflow.plus(actualOutflow)
-    activity.items.push({
-      categoryName: fromName,
-      amount: actualOutflow.toNumber(),
-      type: 'transfer_out',
-      direction: 'outflow',
-    })
+    const categoryName = fromName || '转账转出'
+    const existingItem = activity.items.find(item => item.categoryName === categoryName && item.direction === 'outflow')
+    if (existingItem) {
+      existingItem.amount += actualOutflow.toNumber()
+    } else {
+      activity.items.push({
+        categoryName,
+        amount: actualOutflow.toNumber(),
+        type: 'transfer_out',
+        direction: 'outflow',
+      })
+    }
   } else {
     const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
     activity.inflow = activity.inflow.plus(actualInflow)
-    activity.items.push({
-      categoryName: toName,
-      amount: actualInflow.toNumber(),
-      type: 'transfer_in',
-      direction: 'inflow',
-    })
+    const categoryName = toName || '转账转入'
+    const existingItem = activity.items.find(item => item.categoryName === categoryName && item.direction === 'inflow')
+    if (existingItem) {
+      existingItem.amount += actualInflow.toNumber()
+    } else {
+      activity.items.push({
+        categoryName,
+        amount: actualInflow.toNumber(),
+        type: 'transfer_in',
+        direction: 'inflow',
+      })
+    }
   }
 }
 
@@ -142,11 +162,51 @@ function addToMap(map: Map<string, Decimal>, key: string, value: Decimal) {
 }
 
 function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowActivityDecimal): CashFlowActivity {
+  // 合并实际和预测的 items
+  const itemMap = new Map<string, { actual: number; predicted: number; type: string; direction: string }>()
+  
+  for (const item of actual.items) {
+    const key = `${item.categoryName}|${item.type}|${item.direction}`
+    itemMap.set(key, {
+      actual: item.amount,
+      predicted: 0,
+      type: item.type,
+      direction: item.direction,
+    })
+  }
+  
+  for (const item of predicted.items) {
+    const key = `${item.categoryName}|${item.type}|${item.direction}`
+    const existing = itemMap.get(key)
+    if (existing) {
+      existing.predicted = item.amount
+    } else {
+      itemMap.set(key, {
+        actual: 0,
+        predicted: item.amount,
+        type: item.type,
+        direction: item.direction,
+      })
+    }
+  }
+  
+  const mergedItems = Array.from(itemMap.entries()).map(([key, value]) => {
+    const categoryName = key.split('|')[0]
+    return {
+      categoryName,
+      amount: value.actual + value.predicted,
+      actual: value.actual,
+      predicted: value.predicted,
+      type: value.type,
+      direction: value.direction,
+    }
+  })
+  
   return {
     inflow: { actual: actual.inflow.toNumber(), predicted: predicted.inflow.toNumber() },
     outflow: { actual: actual.outflow.toNumber(), predicted: predicted.outflow.toNumber() },
     net: { actual: actual.inflow.minus(actual.outflow).toNumber(), predicted: predicted.inflow.minus(predicted.outflow).toNumber() },
-    items: actual.items,
+    items: mergedItems,
   }
 }
 
@@ -176,7 +236,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
         { toAccountId: { in: cashAccountIds } },
       ],
     },
-    include: { account: true, toAccount: true, category: true },
+    include: { account: true, toAccount: true, category: { include: { parent: true } } },
   })
 
   const actualOperating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
@@ -212,6 +272,12 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     return flowMap[name]
   }
 
+  // 获取一级类别名称（如果有父类别则使用父类别名称）
+  const getTopLevelCategoryName = (category: { name: string; parent: { name: string } | null } | null): string => {
+    if (!category) return '未分类'
+    return category.parent?.name || category.name
+  }
+
   transactions.forEach(t => {
     const isFromCash = cashAccountIds.includes(t.accountId)
     const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
@@ -222,28 +288,28 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     const target = getActualTargetByType(cashFlowType)
 
     if (t.type === 'income' && isFromCash) {
-      addTransaction(target, t.category?.name || '未分类', amount, 'income', 'inflow')
+      addTransaction(target, getTopLevelCategoryName(t.category), amount, 'income', 'inflow')
       const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
       accountFlow.inflow = accountFlow.inflow.plus(amount)
     } else if (t.type === 'expense' && isFromCash) {
-      addTransaction(target, t.category?.name || '未分类', amount, 'expense', 'outflow')
+      addTransaction(target, getTopLevelCategoryName(t.category), amount, 'expense', 'outflow')
       const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
       accountFlow.outflow = accountFlow.outflow.plus(amount)
     } else if (t.type === 'transfer') {
       if (isFromCash && !isToCash) {
-        addTransferFlow(target, t.category?.name || '转账转出', '', amount, fee, coupon, true)
+        addTransferFlow(target, getTopLevelCategoryName(t.category), '', amount, fee, coupon, true)
         const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
         const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
         accountFlow.outflow = accountFlow.outflow.plus(actualOutflow)
       } else if (!isFromCash && isToCash && t.toAccount) {
-        addTransferFlow(target, '', t.category?.name || '转账转入', amount, fee, coupon, false)
+        addTransferFlow(target, '', getTopLevelCategoryName(t.category), amount, fee, coupon, false)
         const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.toAccount.name)
         const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
         accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
       }
     } else if (t.type === 'refund' && isFromCash) {
       const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
-      addTransaction(target, t.category?.name || '退款', actualInflow, 'refund', 'inflow')
+      addTransaction(target, getTopLevelCategoryName(t.category), actualInflow, 'refund', 'inflow')
       const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
       accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
     }
@@ -260,8 +326,11 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
       endDate
     )
 
-    const allCategories = await prisma.transactionCategory.findMany()
-    categoryMap = new Map(allCategories.map(c => [c.id, { cashFlowType: c.cashFlowType, name: c.name }]))
+    const allCategories = await prisma.transactionCategory.findMany({ include: { parent: true } })
+    categoryMap = new Map(allCategories.map(c => [c.id, { 
+      cashFlowType: c.cashFlowType, 
+      name: c.parent?.name || c.name // 使用一级类别名称
+    }]))
     const allAccounts = await prisma.account.findMany()
     accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
 

@@ -11,6 +11,8 @@ export interface CategoryBreakdownItem {
   categoryId: string
   hasChildren: boolean
   sort: number
+  icon?: string | null
+  children?: CategoryBreakdownItem[]
 }
 
 export interface ReportValue {
@@ -68,7 +70,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   let pExpense = ZERO
   let predictionNote: string | undefined
 
-  const predictedByCategory: Record<string, Decimal> = {}
+  const predictedById: Record<string, Decimal> = {}
 
   if (includePredictions && end > now) {
     const predictionsStart = start > now ? startDate : now.toISOString().split('T')[0]
@@ -80,37 +82,14 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       } else if (p.type === 'expense') {
         pExpense = pExpense.plus(p.amount)
       }
+      if (p.categoryId) {
+        predictedById[p.categoryId] = (predictedById[p.categoryId] || ZERO).plus(p.amount)
+      }
     })
 
     if (predictions.length > 0) {
       predictionNote = '含预算预测数据'
     }
-  }
-
-  if (includePredictions && end > now) {
-    const allCategories = await prisma.transactionCategory.findMany()
-    const categoryMap = new Map(allCategories.map(c => [c.id, c]))
-
-    const predictions = await generatePredictions(
-      start > now ? startDate : now.toISOString().split('T')[0],
-      endDate
-    )
-
-    predictions.forEach(p => {
-      if (!p.categoryId) return
-      const cat = categoryMap.get(p.categoryId)
-      if (!cat) return
-
-      let categoryName = cat.name
-      if (cat.parentId) {
-        const parent = cat.parentId ? categoryMap.get(cat.parentId) : undefined
-        if (parent) {
-          categoryName = parent.name
-        }
-      }
-
-      predictedByCategory[categoryName] = (predictedByCategory[categoryName] || ZERO).plus(p.amount)
-    })
   }
 
   const actualBalance = aIncome.minus(aExpense)
@@ -122,103 +101,77 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const allCategories = await prisma.transactionCategory.findMany({
     orderBy: { sort: 'asc' },
   })
-  const categorySortMap = new Map(allCategories.map(c => [c.id, c.sort]))
 
-  const childCategoryIds = transactions
-    .filter(t => t.category?.parentId)
-    .map(t => t.category!.parentId)
-  const uniqueParentIds = [...new Set(childCategoryIds)] as string[]
-
-  let parentMap: Record<string, { name: string; sort: number }> = {}
-  if (uniqueParentIds.length > 0) {
-    const parentCats = await prisma.transactionCategory.findMany({
-      where: { id: { in: uniqueParentIds } },
-    })
-    parentMap = Object.fromEntries(parentCats.map(p => [p.id, { name: p.name, sort: p.sort }]))
+  const categoryMap = new Map(allCategories.map(c => [c.id, c]))
+  const childrenOf = new Map<string | null, typeof allCategories>()
+  for (const cat of allCategories) {
+    const key = cat.parentId ?? null
+    if (!childrenOf.has(key)) childrenOf.set(key, [])
+    childrenOf.get(key)!.push(cat)
   }
 
-  const incomeCategoryData: Record<string, { actual: Decimal; predicted: Decimal; categoryId: string; sort: number }> = {}
-  const expenseCategoryData: Record<string, { actual: Decimal; predicted: Decimal; categoryId: string; sort: number }> = {}
+  const leafActualIncome: Record<string, Decimal> = {}
+  const leafActualExpense: Record<string, Decimal> = {}
+  const leafPredictedIncome: Record<string, Decimal> = {}
+  const leafPredictedExpense: Record<string, Decimal> = {}
 
   transactions.forEach(t => {
-    let categoryName = '未分类'
-    let parentId = ''
-    let categorySort = 0
-
-    if (t.category) {
-      if (t.category.parentId) {
-        const parentInfo = parentMap[t.category.parentId]
-        categoryName = parentInfo?.name || t.category.name
-        parentId = t.category.parentId
-        categorySort = parentInfo?.sort ?? categorySortMap.get(t.category.parentId) ?? 0
-      } else {
-        categoryName = t.category.name
-        parentId = t.category.id
-        categorySort = categorySortMap.get(t.category.id) ?? t.category.sort
-      }
-    }
-
-    if (t.type === 'income') {
-      incomeByCategory[categoryName] = (incomeByCategory[categoryName] || ZERO).plus(t.amount)
-      if (!incomeCategoryData[categoryName]) {
-        incomeCategoryData[categoryName] = { actual: ZERO, predicted: ZERO, categoryId: parentId, sort: categorySort }
-      }
-      incomeCategoryData[categoryName].actual = incomeCategoryData[categoryName].actual.plus(t.amount)
-    } else {
-      expenseByCategory[categoryName] = (expenseByCategory[categoryName] || ZERO).plus(t.amount)
-      if (!expenseCategoryData[categoryName]) {
-        expenseCategoryData[categoryName] = { actual: ZERO, predicted: ZERO, categoryId: parentId, sort: categorySort }
-      }
-      expenseCategoryData[categoryName].actual = expenseCategoryData[categoryName].actual.plus(t.amount)
-    }
+    if (t.type !== 'income' && t.type !== 'expense') return
+    const catId = t.categoryId ?? 'uncategorized'
+    const target = t.type === 'income' ? leafActualIncome : leafActualExpense
+    target[catId] = (target[catId] || ZERO).plus(t.amount)
   })
 
-  for (const [catName, pAmount] of Object.entries(predictedByCategory)) {
-    const cat = allCategories.find(c => {
-      let name = c.name
-      if (c.parentId) {
-        const parent = allCategories.find(p => p.id === c.parentId)
-        if (parent) name = parent.name
-      }
-      return name === catName
-    })
-
-    if (cat?.type === 'income') {
-      if (!incomeCategoryData[catName]) {
-        const sort = categorySortMap.get(cat.id) ?? cat.sort
-        incomeCategoryData[catName] = { actual: ZERO, predicted: ZERO, categoryId: cat.id, sort }
-      }
-      incomeCategoryData[catName].predicted = incomeCategoryData[catName].predicted.plus(pAmount)
-    } else if (cat?.type === 'expense') {
-      if (!expenseCategoryData[catName]) {
-        const sort = categorySortMap.get(cat.id) ?? cat.sort
-        expenseCategoryData[catName] = { actual: ZERO, predicted: ZERO, categoryId: cat.id, sort }
-      }
-      expenseCategoryData[catName].predicted = expenseCategoryData[catName].predicted.plus(pAmount)
-    }
+  for (const [catId, pAmount] of Object.entries(predictedById)) {
+    const cat = categoryMap.get(catId)
+    if (!cat) continue
+    const target = cat.type === 'income' ? leafPredictedIncome : leafPredictedExpense
+    target[catId] = (target[catId] || ZERO).plus(pAmount)
   }
 
-  const incomeCategoryDetails: CategoryBreakdownItem[] = Object.entries(incomeCategoryData)
-    .map(([name, data]) => ({
-      name,
-      actual: data.actual.toNumber(),
-      predicted: data.predicted.toNumber(),
-      categoryId: data.categoryId,
-      hasChildren: allCategories.some(c => c.parentId === data.categoryId),
-      sort: data.sort,
-    }))
-    .sort((a, b) => a.sort - b.sort)
+  function buildTree(type: 'income' | 'expense', parentId: string | null): CategoryBreakdownItem[] {
+    const kids = childrenOf.get(parentId) ?? []
+    const result: CategoryBreakdownItem[] = []
 
-  const expenseCategoryDetails: CategoryBreakdownItem[] = Object.entries(expenseCategoryData)
-    .map(([name, data]) => ({
-      name,
-      actual: data.actual.toNumber(),
-      predicted: data.predicted.toNumber(),
-      categoryId: data.categoryId,
-      hasChildren: allCategories.some(c => c.parentId === data.categoryId),
-      sort: data.sort,
-    }))
-    .sort((a, b) => a.sort - b.sort)
+    for (const cat of kids) {
+      const childLeaves = buildTree(type, cat.id)
+      const hasTransactionChildren = childLeaves.length > 0
+
+      const catActual = (type === 'income' ? leafActualIncome : leafActualExpense)[cat.id] ?? ZERO
+      const catPredicted = (type === 'income' ? leafPredictedIncome : leafPredictedExpense)[cat.id] ?? ZERO
+      const hasOwnData = !catActual.isZero() || !catPredicted.isZero()
+
+      if (!hasOwnData && !hasTransactionChildren) continue
+
+      const childrenActual = childLeaves.reduce((s, c) => s + c.actual, 0)
+      const childrenPredicted = childLeaves.reduce((s, c) => s + c.predicted, 0)
+
+      result.push({
+        name: cat.name,
+        actual: catActual.toNumber() + childrenActual,
+        predicted: catPredicted.toNumber() + childrenPredicted,
+        categoryId: cat.id,
+        hasChildren: hasTransactionChildren,
+        sort: cat.sort,
+        icon: cat.icon,
+        children: childLeaves.length > 0 ? childLeaves : undefined,
+      })
+    }
+
+    return result.sort((a, b) => a.sort - b.sort)
+  }
+
+  const incomeCategoryDetails: CategoryBreakdownItem[] = buildTree('income', null)
+  const expenseCategoryDetails: CategoryBreakdownItem[] = buildTree('expense', null)
+
+  for (const [catId, amount] of Object.entries(leafActualIncome)) {
+    const cat = categoryMap.get(catId)
+    incomeByCategory[cat?.name ?? '未分类'] = (incomeByCategory[cat?.name ?? '未分类'] || ZERO).plus(amount)
+  }
+  for (const [catId, amount] of Object.entries(leafActualExpense)) {
+    const cat = categoryMap.get(catId)
+    expenseByCategory[cat?.name ?? '未分类'] = (expenseByCategory[cat?.name ?? '未分类'] || ZERO).plus(amount)
+  }
 
   const accounts = await prisma.account.findMany()
 

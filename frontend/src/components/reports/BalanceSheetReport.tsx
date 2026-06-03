@@ -1,37 +1,111 @@
 import React, { useMemo } from 'react'
 import { Button, Card, Grid, Space, Statistic, Tag, theme } from 'antd'
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons'
-import type { BalanceSheetReportData } from '@shared/types'
-import { DynamicIcon, PointTimePickerField, type PointTimePickerConfig, type PointTimeValue } from '../common'
+import type { BalanceSheetAccountItem, BalanceSheetReportData } from '@shared/types'
+import { PointTimePickerField, ReportDetailList } from '../common'
+import type { PointTimePickerConfig, PointTimeValue, ReportTreeNode, ReportDetailColumn } from '../common'
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
-import { formatBalance } from '../../utils/formatBalance'
 import { getPointTimeSemantics } from '../../utils/timePicker'
-
+import { formatBalance } from '../../utils/formatBalance'
 import { PredictionStatistic } from '.'
-import PredictionPopover from './PredictionPopover'
 
-interface BalanceSheetTreeNode {
-  key: string
-  name: string
+// ---- 本报表专属：metrics 类型 ----
+export interface BalanceSheetMetrics {
   balance: number
+  actual: number
   predicted: number
   nodeType: 'asset' | 'liability'
-  type: 'category' | 'account'
-  icon?: string
-  children?: BalanceSheetTreeNode[]
 }
 
-interface BalanceSheetTreeData {
-  assetNodes: BalanceSheetTreeNode[]
-  liabilityNodes: BalanceSheetTreeNode[]
+export type BalanceSheetNode = ReportTreeNode<BalanceSheetMetrics>
+
+// ---- 本报表专属：列配置 ----
+const balanceSheetColumns: ReportDetailColumn<BalanceSheetMetrics>[] = [
+  {
+    key: 'amount',
+    metric: 'balance',
+    width: 140,
+    align: 'right',
+    prediction: { displayMetric: 'balance', actualMetric: 'actual', predictedMetric: 'predicted' },
+    format: (v, node) => {
+      const type = node.metrics?.nodeType ?? 'asset'
+      return formatBalance(v as number, type).text
+    },
+    color: (_v, node) => {
+      const type = node.metrics?.nodeType ?? 'asset'
+      const val = _v as number
+      return type === 'asset'
+        ? (val >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)')
+        : (val <= 0 ? 'var(--mb-color-negative)' : 'var(--mb-color-positive)')
+    },
+  },
+]
+
+function buildBalanceSheetTreeData(accounts: BalanceSheetAccountItem[] | undefined): {
+  assetNodes: BalanceSheetNode[]
+  liabilityNodes: BalanceSheetNode[]
+} {
+  if (!accounts || accounts.length === 0) {
+    return { assetNodes: [], liabilityNodes: [] }
+  }
+
+  const groupedByCategory: Record<string, BalanceSheetAccountItem[]> = {}
+  const categorySortMap: Record<string, number> = {}
+
+  accounts.forEach((account) => {
+    const category = account.category || '未分类'
+    if (!groupedByCategory[category]) {
+      groupedByCategory[category] = []
+      categorySortMap[category] = account.categorySort ?? 0
+    }
+    groupedByCategory[category].push(account)
+  })
+
+  const buildTree = (type: 'asset' | 'liability'): BalanceSheetNode[] =>
+    Object.keys(groupedByCategory)
+      .filter((category) => groupedByCategory[category]?.some((account) => account.type === type))
+      .sort((left, right) => categorySortMap[left] - categorySortMap[right])
+      .map((category): BalanceSheetNode => {
+        const filteredAccounts = groupedByCategory[category].filter((account) => account.type === type)
+        const children: BalanceSheetNode[] = filteredAccounts.map(
+          (account): BalanceSheetNode => ({
+            key: `account-${account.id}`,
+            name: account.name,
+            icon: account.icon || undefined,
+            metrics: {
+              balance: account.actual + (account.predicted || 0),
+              actual: account.actual,
+              predicted: account.predicted || 0,
+              nodeType: type,
+            },
+          })
+        )
+        return {
+          key: `category-${category}-${type}`,
+          name: category,
+          icon: groupedByCategory[category][0]?.categoryIcon || undefined,
+          metrics: {
+            balance: filteredAccounts.reduce((sum, account) => sum + account.actual + (account.predicted || 0), 0),
+            actual: filteredAccounts.reduce((sum, account) => sum + account.actual, 0),
+            predicted: children.reduce((sum, child) => sum + (child.metrics?.predicted ?? 0), 0),
+            nodeType: type,
+          },
+          children,
+        }
+      })
+
+  return {
+    assetNodes: buildTree('asset'),
+    liabilityNodes: buildTree('liability'),
+  }
 }
 
 interface BalanceSheetReportProps {
   selectedTime: PointTimeValue
   pickerConfig: PointTimePickerConfig
   balanceSheetData: BalanceSheetReportData | null
-  buildBalanceSheetTreeData: BalanceSheetTreeData
+  loading?: boolean
   onTimeChange: (value: PointTimeValue) => void
   onOpenSettings: () => void
   onOpenCalibrate: () => void
@@ -41,7 +115,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
   selectedTime,
   pickerConfig,
   balanceSheetData,
-  buildBalanceSheetTreeData,
+  loading,
   onTimeChange,
   onOpenSettings,
   onOpenCalibrate,
@@ -63,67 +137,68 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
 
   const { isFuture } = getPointTimeSemantics(targetDate)
 
+  const treeData = useMemo(
+    () => buildBalanceSheetTreeData(balanceSheetData?.accounts),
+    [balanceSheetData?.accounts]
+  )
+
   const assetPieData = useMemo(
     () =>
-      buildBalanceSheetTreeData.assetNodes
-        .filter((node) => node.type === 'category')
+      treeData.assetNodes
         .map((node) => {
-          const showPredicted = isFuture ? node.predicted : 0
-          const total = node.balance + showPredicted
+          const total = node.metrics?.balance ?? 0
           return {
             name: node.name,
             value: Math.abs(total),
-            predictedValue: isFuture && node.predicted !== 0 ? node.predicted : undefined,
+            predictedValue: isFuture && (node.metrics?.predicted ?? 0) !== 0 ? node.metrics?.predicted : undefined,
             categoryId: node.key,
             hasChildren: Boolean(node.children?.length),
           }
         })
         .filter((item) => item.value > 0),
-    [buildBalanceSheetTreeData.assetNodes, isFuture]
+    [treeData.assetNodes, isFuture]
   )
 
   const liabilityPieData = useMemo(
     () =>
-      buildBalanceSheetTreeData.liabilityNodes
-        .filter((node) => node.type === 'category')
+      treeData.liabilityNodes
         .map((node) => {
-          const showPredicted = isFuture ? node.predicted : 0
-          const total = node.balance + showPredicted
+          const total = node.metrics?.balance ?? 0
           return {
             name: node.name,
             value: Math.abs(total),
-            predictedValue: isFuture && node.predicted !== 0 ? node.predicted : undefined,
+            predictedValue: isFuture && (node.metrics?.predicted ?? 0) !== 0 ? node.metrics?.predicted : undefined,
             categoryId: node.key,
             hasChildren: Boolean(node.children?.length),
             isLiability: true,
           }
         })
         .filter((item) => item.value > 0),
-    [buildBalanceSheetTreeData.liabilityNodes, isFuture]
+    [treeData.liabilityNodes, isFuture]
   )
 
   const handleDrillDown = async (
-    nodes: BalanceSheetTreeNode[],
+    nodes: BalanceSheetNode[],
     item: PieChartDataItem
   ): Promise<PieChartDataItem[]> => {
     if (!item.categoryId) return []
 
-    const categoryNode = nodes.find((node) => node.key === item.categoryId && node.type === 'category')
+    const categoryNode = nodes.find((node) => node.key === item.categoryId)
     if (!categoryNode?.children) return []
     const isLiability = item.isLiability
 
     return categoryNode.children
       .filter((account) => {
-        const total = account.balance + (isFuture ? account.predicted : 0)
+        const total = (account.metrics?.balance ?? 0) + (isFuture ? (account.metrics?.predicted ?? 0) : 0)
         return total !== 0
       })
       .map((account) => {
-        const showPredicted = isFuture ? account.predicted : 0
-        const total = account.balance + showPredicted
+        const predicted = isFuture ? (account.metrics?.predicted ?? 0) : 0
+        const total = (account.metrics?.balance ?? 0) + predicted
         return {
           name: account.name,
           value: Math.abs(total),
-          predictedValue: isFuture && account.predicted !== 0 ? account.predicted : undefined,
+          predictedValue: isFuture && predicted !== 0 ? predicted : undefined,
           isLiability,
         }
       })
@@ -222,7 +297,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
           title="资产结构"
           data={assetPieData}
           height={isMobile ? 240 : 280}
-          onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.assetNodes, item)}
+          onDrillDown={(item) => handleDrillDown(treeData.assetNodes, item)}
           isPurePrediction={isFuture}
         />
       </Card>
@@ -231,7 +306,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
           title="负债结构"
           data={liabilityPieData}
           height={isMobile ? 240 : 280}
-          onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.liabilityNodes, item)}
+          onDrillDown={(item) => handleDrillDown(treeData.liabilityNodes, item)}
           isPurePrediction={isFuture}
         />
       </Card>
@@ -239,109 +314,37 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
   )
 
   const assetDetailCard = (
-    <Card className="surface-card report-section-card" title={isFuture ? <>资产明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产明细'} size="small">
-      <div className="report-detail-list">
-        {buildBalanceSheetTreeData.assetNodes.map((node) => {
-          const showPredicted = showPred ? node.predicted : 0
-          const total = node.balance + showPredicted
-          const result = formatBalance(total, node.nodeType)
-          return (
-            <div key={node.key} className="report-detail-list__item">
-              <div className="report-detail-list__header">
-                <span className="report-detail-list__title">
-                  <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
-                </span>
-                <span style={{ color: result.color, fontWeight: 700 }}>
-                  {showPred && node.predicted !== 0 ? (
-                    <PredictionPopover actual={node.balance} predicted={node.predicted} useClickTrigger={useClickTrigger}>
-                      {result.text}
-                    </PredictionPopover>
-                  ) : (
-                    result.text
-                  )}
-                </span>
-              </div>
-              {node.children?.length ? (
-                <div className="report-detail-list__subitems">
-                  {node.children.map((child) => {
-                    const childShowPredicted = showPred ? child.predicted : 0
-                    const childTotal = child.balance + childShowPredicted
-                    const childResult = formatBalance(childTotal, child.nodeType)
-                    return (
-                      <div key={child.key} className="report-detail-list__subitem">
-                        <span>{child.name}</span>
-                        <span>
-                          {showPred && child.predicted !== 0 ? (
-                            <PredictionPopover actual={child.balance} predicted={child.predicted} useClickTrigger={useClickTrigger}>
-                              <span style={{ color: childResult.color }}>{childResult.text}</span>
-                            </PredictionPopover>
-                          ) : (
-                            <span style={{ color: childResult.color }}>{childResult.text}</span>
-                          )}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
-    </Card>
+    <ReportDetailList
+      data={treeData.assetNodes}
+      config={{
+        columns: balanceSheetColumns,
+        parentIcon: 'folder',
+        leafIcon: 'wallet',
+        expandable: true,
+        defaultExpandDepth: 1,
+      }}
+      loading={loading}
+      isFuture={showPred}
+      useClickTrigger={useClickTrigger}
+      title={isFuture ? <>资产明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产明细'}
+    />
   )
 
   const liabilityDetailCard = (
-    <Card className="surface-card report-section-card" title={isFuture ? <>负债明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '负债明细'} size="small">
-      <div className="report-detail-list">
-        {buildBalanceSheetTreeData.liabilityNodes.map((node) => {
-          const showPredicted = showPred ? node.predicted : 0
-          const total = node.balance + showPredicted
-          const result = formatBalance(total, node.nodeType)
-          return (
-            <div key={node.key} className="report-detail-list__item">
-              <div className="report-detail-list__header">
-                <span className="report-detail-list__title">
-                  <DynamicIcon name={node.icon || (node.type === 'category' ? 'folder' : 'wallet')} size={16} /> {node.name}
-                </span>
-                <span style={{ color: result.color, fontWeight: 700 }}>
-                  {showPred && node.predicted !== 0 ? (
-                    <PredictionPopover actual={node.balance} predicted={node.predicted} useClickTrigger={useClickTrigger}>
-                      {result.text}
-                    </PredictionPopover>
-                  ) : (
-                    result.text
-                  )}
-                </span>
-              </div>
-              {node.children?.length ? (
-                <div className="report-detail-list__subitems">
-                  {node.children.map((child) => {
-                    const childShowPredicted = showPred ? child.predicted : 0
-                    const childTotal = child.balance + childShowPredicted
-                    const childResult = formatBalance(childTotal, child.nodeType)
-                    return (
-                      <div key={child.key} className="report-detail-list__subitem">
-                        <span>{child.name}</span>
-                        <span>
-                          {showPred && child.predicted !== 0 ? (
-                            <PredictionPopover actual={child.balance} predicted={child.predicted} useClickTrigger={useClickTrigger}>
-                              <span style={{ color: childResult.color }}>{childResult.text}</span>
-                            </PredictionPopover>
-                          ) : (
-                            <span style={{ color: childResult.color }}>{childResult.text}</span>
-                          )}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
-    </Card>
+    <ReportDetailList
+      data={treeData.liabilityNodes}
+      config={{
+        columns: balanceSheetColumns,
+        parentIcon: 'folder',
+        leafIcon: 'wallet',
+        expandable: true,
+        defaultExpandDepth: 1,
+      }}
+      loading={loading}
+      isFuture={showPred}
+      useClickTrigger={useClickTrigger}
+      title={isFuture ? <>负债明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '负债明细'}
+    />
   )
 
   const detailTables = (
@@ -383,7 +386,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
                       title="资产结构"
                       data={assetPieData}
                       height={240}
-                      onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.assetNodes, item)}
+                      onDrillDown={(item) => handleDrillDown(treeData.assetNodes, item)}
                       isPurePrediction={isFuture}
                     />
                   </Card>
@@ -401,7 +404,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
                       title="负债结构"
                       data={liabilityPieData}
                       height={240}
-                      onDrillDown={(item) => handleDrillDown(buildBalanceSheetTreeData.liabilityNodes, item)}
+                      onDrillDown={(item) => handleDrillDown(treeData.liabilityNodes, item)}
                       isPurePrediction={isFuture}
                     />
                   </Card>
