@@ -90,7 +90,7 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     .reduce((sum, a) => sum + a.balance, 0)
 
   // 预测数据：当目标日期在未来时，计算预测变化
-  let predictedChanges: Map<string, number> = new Map()
+  const predictedChanges: Map<string, number> = new Map()
   let predictionNote: string | undefined
 
   if (targetDate > now) {

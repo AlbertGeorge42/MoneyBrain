@@ -85,7 +85,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
         }
         setDeleteModalVisible(false); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all })
       }
-    } catch (error: any) { message.error(error.response?.data?.error?.message || '删除失败') }
+    } catch { message.error('删除失败') }
     finally { setDeleteLoading(false) }
   }
 
@@ -96,7 +96,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     try {
       const res = await transactionCategoryApi.move(moveModal.item.id, { newParentId: moveModal.targetId })
       if (res.data.success) { message.success('移动成功'); moveModal.close(); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all }) }
-    } catch (error: any) { message.error(error.response?.data?.error?.message || '移动失败') }
+    } catch { message.error('移动失败') }
     finally { moveModal.setLoading(false) }
   }
 
@@ -167,7 +167,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const getTransferTargetTreeData = (type: string, excludeId: string) => {
     const cats = localCategories.filter(c => c.type === type && c.id !== excludeId)
-    const buildNode = (cat: TransactionCategory): { value: string; title: string; children?: any[] } => ({
+    const buildNode = (cat: TransactionCategory): { value: string; title: string; children?: ReturnType<typeof buildNode>[] } => ({
       value: cat.id, title: cat.name, children: cats.filter(c => c.parentId === cat.id).length > 0 ? cats.filter(c => c.parentId === cat.id).map(buildNode) : undefined,
     })
     return cats.filter(c => !c.parentId).map(buildNode)

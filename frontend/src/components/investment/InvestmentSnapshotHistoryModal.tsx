@@ -41,6 +41,7 @@ const InvestmentSnapshotHistoryModal: React.FC<Props> = ({
     if (visible && selectedAccountId) {
       loadSnapshots()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, selectedAccountId])
 
   const investmentAccounts = accounts.filter(a => a.category?.isInvestment === true)
@@ -51,8 +52,8 @@ const InvestmentSnapshotHistoryModal: React.FC<Props> = ({
     try {
       const res = await investmentApi.getSnapshots(selectedAccountId)
       setSnapshots(res.data.data || [])
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '加载快照失败')
+    } catch {
+      message.error('加载快照失败')
     } finally {
       setLoading(false)
     }
@@ -74,8 +75,8 @@ const InvestmentSnapshotHistoryModal: React.FC<Props> = ({
       message.success('删除成功')
       loadSnapshots()
       onRefresh()
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '删除失败')
+    } catch {
+      message.error('删除失败')
     }
   }
 

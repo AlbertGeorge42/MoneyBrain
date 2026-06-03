@@ -37,7 +37,7 @@ const transactionTimePickerConfig: RangeTimePickerConfig = {
   },
 }
 
-const filterTreeNodeByName = (inputValue: string, node: any): boolean => {
+const filterTreeNodeByName = (inputValue: string, node: { name?: string }): boolean => {
   const name = node.name
   return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
 }
@@ -134,7 +134,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
 
   // 构建分类树形数据（按收入/支出/转账分组，支持多级，可选择父分类筛选所有子分类）
   const categoryTreeData = useMemo(() => {
-    const buildCategoryTree = (parentId: string | null, type: string): any[] => {
+    const buildCategoryTree = (parentId: string | null, type: string): { key: string; title: string; name: string; children?: ReturnType<typeof buildCategoryTree> }[] => {
       const children = categories.filter(c => c.parentId === parentId && c.type === type)
       return children.map(category => ({
         title: <Tag>{category.name}</Tag>,

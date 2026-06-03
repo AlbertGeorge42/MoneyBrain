@@ -1,6 +1,6 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO } from '../common/index.js'
+import { toDecimal } from '../common/index.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { buildTransactionListWhere } from './transaction-list.service.js'

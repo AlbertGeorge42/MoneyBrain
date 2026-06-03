@@ -33,7 +33,7 @@ export function calculateBalanceChangeDecimal(
 
 export function calculateTransferInAmountDecimal(
   amount: Decimal,
-  fee: Decimal = ZERO,
+  _fee: Decimal = ZERO,
   coupon: Decimal = ZERO
 ): Decimal {
   if (coupon.greaterThan(ZERO)) {

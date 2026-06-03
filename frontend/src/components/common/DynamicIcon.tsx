@@ -31,6 +31,7 @@ export const DynamicIcon: React.FC<DynamicIconProps> = ({
   // 如果是 emoji，使用 fallback 或默认图标
   if (!name || isEmoji(name)) {
     const fallbackName = fallback || 'circle'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const FallbackIcon = (LucideIcons as any)[toPascalCase(fallbackName)]
     if (FallbackIcon) {
       return <FallbackIcon size={size} className={className} style={style} />
@@ -38,11 +39,13 @@ export const DynamicIcon: React.FC<DynamicIconProps> = ({
     return null
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const IconComponent = (LucideIcons as any)[toPascalCase(name)]
 
   if (!IconComponent) {
     // 如果找不到图标，使用 fallback 或默认图标
     const fallbackName = fallback || 'circle'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const FallbackIcon = (LucideIcons as any)[toPascalCase(fallbackName)]
     if (FallbackIcon) {
       return <FallbackIcon size={size} className={className} style={style} />

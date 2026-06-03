@@ -165,6 +165,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
     }
     items.push({ key: 'delete' as DetailTab, label: '删除', children: renderDeleteTab() })
     return items
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transaction, form, refundForm, accounts, categories, isRefundTransaction])
 
   const getActiveSubmitHandler = () => {

@@ -40,6 +40,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   categories,
   form,
 }) => {
+  const currentPeriod: string | undefined = Form.useWatch('period', form)
   useEffect(() => {
     if (editingBudget) {
       form.setFieldsValue({
@@ -146,8 +147,6 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
   // 根据周期类型动态显示交易时间输入
   const renderTransactionTimeInput = () => {
-    const currentPeriod: string | undefined = Form.useWatch('period', form)
-
     if (!currentPeriod || currentPeriod === 'daily') return null
 
     if (currentPeriod === 'weekly') {

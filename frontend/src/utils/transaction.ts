@@ -49,8 +49,20 @@ export function groupTransactionsByDate(transactions: Transaction[]): Transactio
   })
 }
 
+interface TransactionFormValues {
+  amount: number
+  fee?: number
+  coupon?: number
+  date: { format: (fmt: string) => string }
+  accountId?: string
+  fromAccountId?: string
+  toAccountId?: string
+  categoryId?: string
+  note?: string
+}
+
 export const formatTransactionSubmitValues = (
-  values: any,
+  values: TransactionFormValues,
   type: TransactionFormType
 ) => {
   if (type === 'transfer') {

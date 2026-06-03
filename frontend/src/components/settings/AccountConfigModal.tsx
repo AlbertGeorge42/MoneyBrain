@@ -29,7 +29,7 @@ interface Props {
 }
 
 const isSortable = (id: string) => id?.startsWith('category-') || id?.startsWith('account-')
-const AccountSortableRow = (props: any) => <SortableRow isSortable={isSortable} {...props} />
+const AccountSortableRow = (props: React.ComponentProps<typeof SortableRow>) => <SortableRow isSortable={isSortable} {...props} />
 
 const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const { token } = theme.useToken()
@@ -95,8 +95,8 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       await accountCategoryApi.delete(id)
       message.success('删除成功')
       queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '删除失败')
+    } catch {
+      message.error('删除失败')
     }
   }
 
@@ -146,20 +146,20 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
             try {
               await deleteAccountMutation.mutateAsync({ id, force: true })
               message.success(`删除成功，已删除 ${transactionCount} 条交易记录`)
-            } catch (error: any) { message.error(error.response?.data?.error?.message || '删除失败') }
+            } catch { message.error('删除失败') }
           },
         })
       } else {
         await deleteAccountMutation.mutateAsync({ id })
         message.success('删除成功')
       }
-    } catch (error: any) { message.error(error.response?.data?.error?.message || '删除失败') }
+    } catch { message.error('删除失败') }
   }
 
   const handleAccountSubmit = async () => {
     try {
       const values = await accountForm.validateFields()
-      const submitData: any = { name: values.name, type: values.type, icon: values.icon, initialBalanceDate: values.initialBalanceDate?.format('YYYY-MM-DD') }
+      const submitData: Record<string, unknown> = { name: values.name, type: values.type, icon: values.icon, initialBalanceDate: values.initialBalanceDate?.format('YYYY-MM-DD') }
       if (!editingAccount) submitData.categoryId = values.categoryId
       if (editingAccount) {
         if (values.initialBalance !== editingAccount.initialBalance) submitData.initialBalance = values.initialBalance
@@ -175,7 +175,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       }
       setAccountFormVisible(false)
       accountForm.resetFields()
-    } catch (error: any) { message.error(error.response?.data?.error?.message || '操作失败') }
+    } catch { message.error('操作失败') }
   }
 
   const handleMoveConfirm = async () => {
@@ -190,7 +190,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       await updateAccountMutation.mutateAsync({ id: moveModal.item.id, data: { categoryId: moveModal.targetId } })
       message.success('移动成功')
       moveModal.close()
-    } catch (error: any) { message.error(error.response?.data?.error?.message || '移动失败') }
+    } catch { message.error('移动失败') }
     finally { moveModal.setLoading(false) }
   }
 
@@ -287,7 +287,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       </Modal>
       <CategoryForm visible={categoryFormVisible} editing={!!editingCategory} form={categoryForm} onSubmit={handleCategorySubmit} onCancel={() => setCategoryFormVisible(false)} />
       <AccountForm visible={accountFormVisible} editing={!!editingAccount} form={accountForm} onSubmit={handleAccountSubmit} onCancel={() => setAccountFormVisible(false)} />
-      <MoveModal visible={moveModal.visible} category={moveModal.item ? { id: moveModal.item.id, name: moveModal.item.name, categoryType: moveModal.item.nodeType as any, parentId: moveModal.item.parentId } : null}
+      <MoveModal visible={moveModal.visible} category={moveModal.item ? { id: moveModal.item.id, name: moveModal.item.name, categoryType: moveModal.item.nodeType as 'income' | 'expense' | 'transfer', parentId: moveModal.item.parentId } : null}
         targetId={moveModal.targetId} loading={moveModal.loading} targetTreeData={moveModal.item ? getMoveTargetTreeData(moveModal.item) : []}
         currentPositionLabel={moveModal.item ? getCurrentPositionLabelLocal(moveModal.item) : ''} onTargetChange={moveModal.setTargetId} onConfirm={handleMoveConfirm} onCancel={moveModal.close} />
     </>

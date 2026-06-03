@@ -38,9 +38,6 @@ export interface IncomeExpenseResult {
   predictionNote?: string
 }
 
-function sum(v: ReportValue): number {
-  return v.actual + v.predicted
-}
 
 export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseResult> {
   const start = new Date(`${startDate}T00:00:00`)

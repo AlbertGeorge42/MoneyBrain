@@ -18,7 +18,7 @@ interface Props {
 }
 
 const isSortable = (id: string) => id?.startsWith('asset-class-')
-const AssetClassSortableRow = (props: any) => <SortableRow isSortable={isSortable} {...props} />
+const AssetClassSortableRow = (props: React.ComponentProps<typeof SortableRow>) => <SortableRow isSortable={isSortable} {...props} />
 
 const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, initialAccountId }) => {
   const { token } = theme.useToken()
@@ -37,6 +37,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
     if (visible && selectedAccountId) {
       loadAssetClasses()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, selectedAccountId])
 
   useEffect(() => {
@@ -53,8 +54,10 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
     try {
       const res = await investmentApi.getAssetClasses(selectedAccountId)
       setAssetClasses(res.data.data || [])
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '加载资产类型失败')
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errMsg = (err as any)?.response?.data?.error?.message || '加载资产类型失败'
+      message.error(errMsg)
     } finally {
       setLoading(false)
     }
@@ -81,8 +84,8 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
       await investmentApi.deleteAssetClass(id)
       message.success('删除成功')
       loadAssetClasses()
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '删除失败')
+    } catch {
+      message.error('删除失败')
     }
   }
 
@@ -103,8 +106,8 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
       setFormVisible(false)
       form.resetFields()
       loadAssetClasses()
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '操作失败')
+    } catch {
+      message.error('操作失败')
     }
   }
 
@@ -126,8 +129,8 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
     try {
       await investmentApi.reorderAssetClasses(selectedAccountId, reordered.map(a => a.id))
       message.success('排序更新成功')
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '排序更新失败')
+    } catch {
+      message.error('排序更新失败')
       setAssetClasses(assetClasses)
     }
   }

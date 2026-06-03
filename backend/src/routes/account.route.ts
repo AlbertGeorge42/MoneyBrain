@@ -1,5 +1,4 @@
 import { Router, type Request } from 'express'
-import { prisma } from '../index.js'
 import {
   asyncHandler,
   NotFoundError,

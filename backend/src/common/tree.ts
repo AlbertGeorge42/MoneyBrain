@@ -12,7 +12,7 @@ export interface TreeNode {
 export const buildTree = <T extends { id: string; parentId: string | null }>(
   items: T[],
   parentId: string | null = null
-): (T & { children: (T & { children: any[] })[] })[] => {
+): (T & { children: (T & { children: unknown[] })[] })[] => {
   const childrenMap = new Map<string | null, T[]>()
 
   for (const item of items) {
@@ -23,7 +23,7 @@ export const buildTree = <T extends { id: string; parentId: string | null }>(
     childrenMap.get(key)!.push(item)
   }
 
-  function buildSubtree(pid: string | null): (T & { children: any[] })[] {
+  function buildSubtree(pid: string | null): (T & { children: unknown[] })[] {
     const children = childrenMap.get(pid) || []
     return children.map(item => ({
       ...item,

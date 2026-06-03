@@ -152,7 +152,7 @@ export async function getSnapshots(
   startDate?: string,
   endDate?: string
 ) {
-  const where: any = { accountId }
+  const where: { accountId: string; date?: { gte?: Date; lte?: Date; lt?: Date } } = { accountId }
   if (startDate) {
     where.date = { ...where.date, gte: new Date(startDate + 'T00:00:00') }
   }
@@ -174,9 +174,9 @@ export async function getSnapshots(
 
 // 获取某账户最近快照
 export async function getLatestSnapshot(accountId: string, beforeDate?: string) {
-  const where: any = { accountId }
+  const where: { accountId: string; date?: { lt: Date } } = { accountId }
   if (beforeDate) {
-    where.date = { ...where.date, lt: new Date(beforeDate + 'T00:00:00') }
+    where.date = { lt: new Date(beforeDate + 'T00:00:00') }
   }
 
   return prisma.investmentAllocationSnapshot.findFirst({

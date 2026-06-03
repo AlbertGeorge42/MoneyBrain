@@ -55,6 +55,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
       setSelectedAccountId(initialAccountId)
       setSelectedDate(dayjs())
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, editingSnapshot])
 
   useEffect(() => {
@@ -65,6 +66,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
     if (visible && selectedAccountId) {
       loadAssetClasses()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, selectedAccountId])
 
   useEffect(() => {
@@ -72,6 +74,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
       loadPreviousSnapshot()
       loadAccountBalance()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, selectedAccountId, selectedDate])
 
   useEffect(() => {
@@ -112,8 +115,8 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           periodNetFlow: 0,
         })))
       }
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '加载资产类型失败')
+    } catch {
+      message.error('加载资产类型失败')
     } finally {
       setLoading(false)
     }
@@ -137,8 +140,8 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           } : item
         }))
       }
-    } catch (error: any) {
-      console.error('加载上一条快照失败', error)
+    } catch {
+      console.error('加载上一条快照失败')
     }
   }
 
@@ -148,8 +151,8 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
     try {
       const res = await accountApi.getBalanceAt(selectedAccountId, selectedDate.format('YYYY-MM-DD'))
       setAccountBalance(res.data.data?.balance ?? null)
-    } catch (error: any) {
-      console.error('加载账户余额失败', error)
+    } catch {
+      console.error('加载账户余额失败')
       setAccountBalance(null)
     } finally {
       setBalanceLoading(false)
@@ -204,8 +207,8 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
       
       onSuccess()
       onClose()
-    } catch (error: any) {
-      message.error(error.response?.data?.error?.message || '保存失败')
+    } catch {
+      message.error('保存失败')
     } finally {
       setSaving(false)
     }

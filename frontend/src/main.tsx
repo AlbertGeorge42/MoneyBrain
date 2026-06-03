@@ -25,6 +25,7 @@ const queryClient = new QueryClient({
   },
 })
 
+// eslint-disable-next-line react-refresh/only-export-components
 const ThemedApp: React.FC = () => {
   const { theme: currentTheme } = useTheme()
   const isDark = currentTheme === 'dark'

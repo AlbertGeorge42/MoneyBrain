@@ -13,7 +13,7 @@ describe('format utils', () => {
     })
 
     it('应该处理字符串数字', () => {
-      expect(formatCurrency('50.5' as any)).toBe('¥50.50')
+      expect(formatCurrency('50.5' as unknown as number)).toBe('¥50.50')
     })
 
     it('应该处理无效值', () => {

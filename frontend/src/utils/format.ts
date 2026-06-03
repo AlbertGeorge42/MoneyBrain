@@ -3,11 +3,18 @@ export function formatCurrency(value: number, decimals = 2): string {
   return `¥${num.toFixed(decimals)}`
 }
 
-export function currencyTooltipFormatter(params: any): string {
+interface TooltipParams {
+  axisValue?: string
+  marker?: string
+  seriesName?: string
+  value?: number | string
+}
+
+export function currencyTooltipFormatter(params: TooltipParams | TooltipParams[]): string {
   if (!Array.isArray(params)) return ''
   const label = params[0]?.axisValue || ''
-  const lines = params.map((p: any) => {
-    const numValue = typeof p.value === 'number' ? p.value : parseFloat(p.value) || 0
+  const lines = params.map((p) => {
+    const numValue = typeof p.value === 'number' ? p.value : parseFloat(String(p.value)) || 0
     return `${p.marker} ${p.seriesName}: ${formatCurrency(numValue)}`
   })
   return [label, ...lines].join('<br/>')

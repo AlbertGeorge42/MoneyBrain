@@ -1,7 +1,6 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch, BalanceCache } from '../balance.service.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO } from '../../common/index.js'
+import { toDecimal } from '../../common/index.js'
 
 function formatDateLocal(date: Date): string {
   const year = date.getFullYear()
@@ -330,46 +329,6 @@ function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: number =
   return maxCapital
 }
 
-async function calculateAccountCashFlowsInRange(
-  accountId: string,
-  startDate: Date,
-  endDate: Date,
-  allInvestmentAccountIds: string[]
-): Promise<{ periodInvested: number; periodWithdrawn: number }> {
-  let periodInvested = ZERO
-  let periodWithdrawn = ZERO
-
-  const transfers = await prisma.transaction.findMany({
-    where: {
-      type: 'transfer',
-      date: {
-        gte: startDate,
-        lte: endDate,
-      },
-      OR: [
-        { accountId: accountId },
-        { toAccountId: accountId },
-      ],
-    },
-  })
-
-  for (const t of transfers) {
-    const amount = t.amount
-    const fee = toDecimal(t.fee)
-    const coupon = toDecimal(t.coupon)
-    const isToInvestment = allInvestmentAccountIds.includes(t.toAccountId || '')
-    const isFromInvestment = allInvestmentAccountIds.includes(t.accountId)
-
-    if (t.toAccountId === accountId && !isFromInvestment) {
-      periodInvested = periodInvested.plus(amount.plus(fee))
-    } else if (t.accountId === accountId && !isToInvestment) {
-      periodWithdrawn = periodWithdrawn.plus(amount.minus(coupon))
-    }
-  }
-
-  return { periodInvested: periodInvested.toNumber(), periodWithdrawn: periodWithdrawn.toNumber() }
-}
-
 async function buildAccountAllocationDetail(
   account: { id: string; name: string; balance: number },
   endDate: Date
@@ -636,10 +595,6 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const totalAssets = allAccounts
     .filter(a => a.type === 'asset')
     .reduce((sum, a) => sum + balanceCache.get(a.id, nextDayOfEnd), 0)
-  const totalLiabilities = allAccounts
-    .filter(a => a.type === 'liability')
-    .reduce((sum, a) => sum + balanceCache.get(a.id, nextDayOfEnd), 0)
-  const totalNetWorth = totalAssets + totalLiabilities
 
   const investmentRatio = totalAssets !== 0 ? (endValue / totalAssets) * 100 : 0
 

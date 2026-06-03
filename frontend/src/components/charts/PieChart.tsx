@@ -36,9 +36,10 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
     setCurrentData(validData)
     setCurrentTitle(title)
     setBreadcrumb([])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, title])
 
-  const handleItemClick = async (params: any) => {
+  const handleItemClick = async (params: { name?: string }) => {
     const clickedItem = validData.find(d => d.name === params.name) ||
                         currentData.find(d => d.name === params.name)
 
@@ -77,7 +78,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
     },
     tooltip: {
       trigger: 'item',
-      formatter: (params: any) => {
+      formatter: (params: { name?: string; value?: number | string; percent?: number }) => {
         const numValue = typeof params.value === 'number' ? params.value : parseFloat(params.value) || 0
         const value = numValue.toFixed(2)
         const percent = params.percent?.toFixed(1) || '0.0'

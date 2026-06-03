@@ -105,7 +105,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
     tooltip: { 
       trigger: 'item', 
       triggerOn: 'mousemove',
-      formatter: (params: any) => {
+      formatter: (params: { dataType?: string; name?: string; value?: number; data?: { source?: string; target?: string; value?: number; predictedValue?: number; actualValue?: number } }) => {
         if (params.dataType === 'node') {
           const nodeFlow = nodeFlows.get(params.name) || 0
           const percentage = totalFlow > 0 ? ((nodeFlow / totalFlow) * 100).toFixed(1) : '0.0'
@@ -145,7 +145,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       label: {
         position: 'right',
         color: getTokenValue('--mb-color-text-primary'),
-        formatter: (params: any) => getDisplayName(params.name)
+        formatter: (params: { name?: string }) => getDisplayName(params.name)
       },
     }],
   }

@@ -14,7 +14,7 @@ interface DeleteConfirmModalProps {
   deleteAction: 'transfer' | 'delete'
   transferTargetId: string | null
   loading: boolean
-  transferTargetTreeData: { value: string; title: string; children?: any[] }[]
+  transferTargetTreeData: { value: string; title: string; children?: { value: string; title: string }[] }[]
   onDeleteActionChange: (action: 'transfer' | 'delete') => void
   onTransferTargetChange: (id: string | null) => void
   onConfirm: () => void

@@ -25,6 +25,7 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, height = 300, loading = false, chartType, boundaryIndex, isPurePrediction }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null)
   const { theme } = useTheme()
   const primaryColor = getTokenValue('--mb-color-action-primary') || '#1677ff'

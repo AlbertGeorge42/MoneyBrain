@@ -218,7 +218,7 @@ export async function adjustAccountBalance(
   amount: number,
   date?: string,
   note?: string,
-): Promise<{ transaction: any }> {
+): Promise<{ transaction: { id: string; amount: import('@prisma/client').Prisma.Decimal; date: Date; note: string; accountId: string; isAdjustment: boolean; account: { id: string; name: string; type: string } } }> {
   const account = await prisma.account.findUnique({ where: { id: accountId } })
   if (!account) throw new NotFoundError('账户')
 
@@ -243,7 +243,7 @@ export async function batchAdjustAccountBalances(
   adjustments: Array<{ accountId: string; amount: number }>,
   date?: string,
   note?: string,
-): Promise<{ date: Date; count: number; adjustments: any[] }> {
+): Promise<{ date: Date; count: number; adjustments: Array<{ accountId: string; accountName: string; amount: number; transactionId: string }> }> {
   const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
   const results = []
 

@@ -233,7 +233,7 @@ const Reports: React.FC = () => {
       message.success(`已生成 ${response.data.data?.count || 0} 条平账记录`)
       setCalibrateVisible(false)
       void refetchBalanceSheet()
-    } catch (error) {
+    } catch {
       message.error('保存失败')
     }
   }

@@ -106,7 +106,7 @@ const Budgets: React.FC = () => {
     try {
       await deleteBudgetMutation.mutateAsync(id)
       message.success('删除成功')
-    } catch (error) {
+    } catch {
       message.error('删除失败')
     }
   }
