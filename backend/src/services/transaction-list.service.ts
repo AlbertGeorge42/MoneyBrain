@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../index.js'
+import { buildChildrenMap, collectDescendantIds } from '../common/tree.js'
 import type { TransactionListParams } from './transaction.service.js'
 
 const EMPTY_FILTER_ID = '__no_match__'
@@ -41,52 +42,30 @@ const resolveAccountIds = async (accountId?: string | string[]): Promise<string[
   return resolvedIds.length > 0 ? resolvedIds : [EMPTY_FILTER_ID]
 }
 
-const buildCategoryChildrenMap = async (): Promise<Map<string | null, string[]>> => {
-  const categories = await prisma.transactionCategory.findMany({
-    select: { id: true, parentId: true },
-  })
-
-  const childrenMap = new Map<string | null, string[]>()
-
-  for (const category of categories) {
-    const key = category.parentId ?? null
-    const siblings = childrenMap.get(key) ?? []
-    siblings.push(category.id)
-    childrenMap.set(key, siblings)
-  }
-
-  return childrenMap
-}
-
-const collectDescendantCategoryIds = (
-  parentId: string,
-  childrenMap: Map<string | null, string[]>,
-): string[] => {
-  const directChildren = childrenMap.get(parentId) ?? []
-  const descendants: string[] = []
-
-  for (const childId of directChildren) {
-    descendants.push(childId, ...collectDescendantCategoryIds(childId, childrenMap))
-  }
-
-  return descendants
-}
-
-const resolveCategoryIds = async (categoryId?: string | string[]): Promise<string[] | undefined> => {
+const resolveCategoryIds = async (
+  categoryId?: string | string[],
+  prebuiltChildrenMap?: Map<string, string[]>
+): Promise<string[] | undefined> => {
   const categoryIds = normalizeStringArray(categoryId)
   if (categoryIds.length === 0) {
     return undefined
   }
 
-  const childrenMap = await buildCategoryChildrenMap()
+  const childrenMap = prebuiltChildrenMap ?? await buildCategoryChildrenMapFromDb()
   const resolvedIds = new Set<string>()
 
   for (const id of categoryIds) {
-    resolvedIds.add(id)
-    collectDescendantCategoryIds(id, childrenMap).forEach(childId => resolvedIds.add(childId))
+    collectDescendantIds(id, childrenMap).forEach(childId => resolvedIds.add(childId))
   }
 
   return resolvedIds.size > 0 ? Array.from(resolvedIds) : [EMPTY_FILTER_ID]
+}
+
+async function buildCategoryChildrenMapFromDb(): Promise<Map<string, string[]>> {
+  const allCategories = await prisma.transactionCategory.findMany({
+    select: { id: true, parentId: true },
+  })
+  return buildChildrenMap(allCategories)
 }
 
 const applyDateRange = (

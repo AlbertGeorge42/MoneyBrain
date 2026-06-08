@@ -2,6 +2,7 @@ import { Decimal } from '@prisma/client/runtime/library.js'
 import { prisma } from '../index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
+import { buildChildrenMap, collectDescendantIds } from '../common/tree.js'
 
 // 预算类型
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
@@ -226,31 +227,22 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
 }
 
 /**
- * 获取分类及其所有子孙分类的 ID 列表（单次查询）
+ * 获取分类及其所有子孙分类的 ID 列表
+ * 可传入预构建的 childrenMap 避免重复查询
  */
-async function getCategoryWithDescendants(categoryId: string): Promise<string[]> {
+async function getCategoryWithDescendants(
+  categoryId: string,
+  prebuiltChildrenMap?: Map<string, string[]>
+): Promise<string[]> {
+  const childrenMap = prebuiltChildrenMap ?? await buildCategoryChildrenMap()
+  return collectDescendantIds(categoryId, childrenMap)
+}
+
+async function buildCategoryChildrenMap(): Promise<Map<string, string[]>> {
   const allCategories = await prisma.transactionCategory.findMany({
     select: { id: true, parentId: true },
   })
-
-  const childrenMap = new Map<string, string[]>()
-  for (const cat of allCategories) {
-    if (cat.parentId) {
-      const siblings = childrenMap.get(cat.parentId) || []
-      siblings.push(cat.id)
-      childrenMap.set(cat.parentId, siblings)
-    }
-  }
-
-  const ids: string[] = [categoryId]
-  const queue = [categoryId]
-  while (queue.length > 0) {
-    const parentId = queue.shift()!
-    const children = childrenMap.get(parentId) || []
-    ids.push(...children)
-    queue.push(...children)
-  }
-  return ids
+  return buildChildrenMap(allCategories)
 }
 
 export async function getBudgetStatusesByIds(budgetIds: string[]) {
@@ -261,11 +253,13 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
     include: { account: true, toAccount: true, category: true },
   })
 
+  const childrenMap = await buildCategoryChildrenMap()
+
   const results = await Promise.all(
     budgets.map(async (budget) => {
       const now = new Date()
       const dateRange = getPeriodRange(budget.period, now)
-      const categoryIds = await getCategoryWithDescendants(budget.categoryId)
+      const categoryIds = await getCategoryWithDescendants(budget.categoryId, childrenMap)
 
       const usedResult = await prisma.transaction.aggregate({
         where: {

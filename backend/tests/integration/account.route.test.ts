@@ -126,7 +126,9 @@ describe('Account API Integration Tests', () => {
     try {
       await prisma.$connect()
       // 完整清理数据库（包含可能来自其他测试文件的数据）
-      await prisma.budgetAlert.deleteMany().catch(() => {})
+      await prisma.investmentAllocationItem.deleteMany().catch(() => {})
+      await prisma.investmentAllocationSnapshot.deleteMany().catch(() => {})
+      await prisma.investmentAssetClass.deleteMany().catch(() => {})
       await prisma.budget.deleteMany().catch(() => {})
       await prisma.transaction.deleteMany().catch(() => {})
       await prisma.account.deleteMany().catch(() => {})

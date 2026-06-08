@@ -55,9 +55,31 @@ export function createMockPrisma() {
       update: vi.fn(),
       delete: vi.fn(),
     },
-    budgetAlert: {
+    investmentAssetClass: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      count: vi.fn(),
+    },
+    investmentAllocationSnapshot: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      count: vi.fn(),
+    },
+    investmentAllocationItem: {
       findMany: vi.fn(),
       create: vi.fn(),
+      delete: vi.fn(),
       deleteMany: vi.fn(),
     },
     $transaction: vi.fn((callbackOrArray) => {

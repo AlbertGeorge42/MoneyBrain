@@ -8,6 +8,7 @@ import PredictionStatistic from './PredictionStatistic'
 import type { CashFlowReportData } from '@shared/types'
 import { formatCurrency } from '../../utils/format'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
+import { getTokenValue } from '../../styles/theme/cssVars'
 
 interface CashFlowDetailMetrics {
   inflow: number
@@ -245,6 +246,10 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
     getChartData('financing').outflowPredicted,
   ]
 
+  const showChartPred = (isMixed || isFuture) && hasPrediction
+  const inflowColor = getTokenValue('--mb-color-positive') || '#3f8600'
+  const outflowColor = getTokenValue('--mb-color-negative') || '#cf1322'
+
   const chartSection = (
     <div className="report-chart-grid report-chart-grid--2">
       <Card className="surface-card report-section-card" size="small">
@@ -255,12 +260,14 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             {
               name: '流入',
               data: chartInflowData,
-              predictedData: isMixed && hasPrediction ? chartInflowPredicted : undefined,
+              predictedData: showChartPred ? chartInflowPredicted : undefined,
+              color: inflowColor,
             },
             {
               name: '流出',
               data: chartOutflowData,
-              predictedData: isMixed && hasPrediction ? chartOutflowPredicted : undefined,
+              predictedData: showChartPred ? chartOutflowPredicted : undefined,
+              color: outflowColor,
             },
           ]}
           height={isMobile ? 240 : 280}
@@ -352,12 +359,14 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
                         {
                           name: '流入',
                           data: chartInflowData,
-                          predictedData: isMixed && hasPrediction ? chartInflowPredicted : undefined,
+                          predictedData: showChartPred ? chartInflowPredicted : undefined,
+                          color: inflowColor,
                         },
                         {
                           name: '流出',
                           data: chartOutflowData,
-                          predictedData: isMixed && hasPrediction ? chartOutflowPredicted : undefined,
+                          predictedData: showChartPred ? chartOutflowPredicted : undefined,
+                          color: outflowColor,
                         },
                       ]}
                       height={240}

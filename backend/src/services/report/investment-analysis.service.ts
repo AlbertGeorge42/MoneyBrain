@@ -1,13 +1,7 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch, BalanceCache } from '../balance.service.js'
 import { toDecimal } from '../../common/index.js'
-
-function formatDateLocal(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+import { formatDateLocal, sumAssetsLiabilities } from './report.utils.js'
 
 interface CashFlow {
   date: Date
@@ -592,9 +586,10 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const endValue = balanceCache.getMany(investmentAccountIds, nextDayOfEnd)
 
   // 计算总资产和总负债
-  const totalAssets = allAccounts
-    .filter(a => a.type === 'asset')
-    .reduce((sum, a) => sum + balanceCache.get(a.id, nextDayOfEnd), 0)
+  const { assets: totalAssets } = sumAssetsLiabilities(
+    allAccounts.map(a => ({ type: a.type, id: a.id })),
+    (a) => balanceCache.get(a.id, nextDayOfEnd)
+  )
 
   const investmentRatio = totalAssets !== 0 ? (endValue / totalAssets) * 100 : 0
 
@@ -728,13 +723,10 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
     const investment = balanceCache.getMany(investmentAccountIds, nextMonthStart)
 
-    const assets = allAccounts
-      .filter(a => a.type === 'asset')
-      .reduce((sum, a) => sum + balanceCache.get(a.id, nextMonthStart), 0)
-    const liabilities = allAccounts
-      .filter(a => a.type === 'liability')
-      .reduce((sum, a) => sum + balanceCache.get(a.id, nextMonthStart), 0)
-    const netWorth = assets + liabilities
+    const { assets, netWorth } = sumAssetsLiabilities(
+      allAccounts.map(a => ({ type: a.type, id: a.id })),
+      (a) => balanceCache.get(a.id, nextMonthStart)
+    )
 
     const ratio = assets !== 0 ? (investment / assets) * 100 : 0
 

@@ -65,11 +65,6 @@ vi.mock('../../src/index.js', () => {
       update: vi.fn(),
       delete: vi.fn(),
     },
-    budgetAlert: {
-      findMany: vi.fn(),
-      create: vi.fn(),
-      deleteMany: vi.fn(),
-    },
     investmentAssetClass: {
       findMany: vi.fn(),
       findUnique: vi.fn(),

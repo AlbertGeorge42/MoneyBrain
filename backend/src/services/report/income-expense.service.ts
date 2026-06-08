@@ -2,7 +2,15 @@ import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO } from '../../common/index.js'
-import { generatePredictions } from '../budget.service.js'
+import {
+  dayStart,
+  dayEnd,
+  nextDay,
+  getPredictionsIfFuture,
+  computePredictedAssetsLiabilities,
+  sumAssetsLiabilities,
+  PREDICTION_NOTE_DEFAULT,
+} from './report.utils.js'
 
 export interface CategoryBreakdownItem {
   name: string
@@ -42,29 +50,45 @@ export interface IncomeExpenseResult {
 
 
 export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseResult> {
-  const start = new Date(`${startDate}T00:00:00`)
-  const end = new Date(`${endDate}T23:59:59.999`)
-  const now = new Date()
+  const start = dayStart(startDate)
+  const end = dayEnd(endDate)
+  const startDay = new Date(start)
+  const endDayNext = nextDay(endDate)
 
   const transactions = await prisma.transaction.findMany({
     where: {
       date: { gte: start, lte: end },
       isAdjustment: false,
-      type: { in: ['income', 'expense'] },
+      type: { in: ['income', 'expense', 'refund'] },
     },
     include: { category: true, account: true },
   })
 
+  // 收入/支出按交易类型分别累加；退款按 relatedType 单独累加，最后在汇总时从对应侧扣减。
+  // 退款金额 = amount - fee，与 transaction.service.ts 的 getTransactionStats 保持一致。
   let aIncome = ZERO
   let aExpense = ZERO
+  let aIncomeRefund = ZERO
+  let aExpenseRefund = ZERO
 
   transactions.forEach(t => {
     if (t.type === 'income') {
       aIncome = aIncome.plus(t.amount)
     } else if (t.type === 'expense') {
       aExpense = aExpense.plus(t.amount)
+    } else if (t.type === 'refund') {
+      const refundAmount = t.amount.minus(t.fee)
+      if (t.relatedType === 'income') {
+        aIncomeRefund = aIncomeRefund.plus(refundAmount)
+      } else if (t.relatedType === 'expense') {
+        aExpenseRefund = aExpenseRefund.plus(refundAmount)
+      }
     }
   })
+
+  // 净收入/净支出：扣除对应侧的退款
+  const netIncome = aIncome.minus(aIncomeRefund)
+  const netExpense = aExpense.minus(aExpenseRefund)
 
   let pIncome = ZERO
   let pExpense = ZERO
@@ -72,11 +96,19 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   const predictedById: Record<string, Decimal> = {}
 
-  if (includePredictions && end > now) {
-    const predictionsStart = start > now ? startDate : now.toISOString().split('T')[0]
-    const predictions = await generatePredictions(predictionsStart, endDate)
+  // 合并获取预测数据（一次查询替代原来的两次）
+  const predictions = await getPredictionsIfFuture(startDate, endDate, !!includePredictions)
 
+  if (predictions.length > 0) {
+    // 注意：predictions 来自 getPredictionsIfFuture，覆盖范围是 [now, endDate]，
+    // 并不是 [startDate, endDate]。这里必须按 [startDay, endDayNext) 过滤，
+    // 否则跨月查询（如 7月→8月）会把前面月份的预测再次累加，
+    // 导致 income/expense/balance 表现为"累加值"而非"期内值"。
+    const rangeStart = start.getTime()
+    const rangeEnd = endDayNext.getTime()
     predictions.forEach(p => {
+      const t = p.date.getTime()
+      if (t < rangeStart || t >= rangeEnd) return
       if (p.type === 'income') {
         pIncome = pIncome.plus(p.amount)
       } else if (p.type === 'expense') {
@@ -86,13 +118,10 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
         predictedById[p.categoryId] = (predictedById[p.categoryId] || ZERO).plus(p.amount)
       }
     })
-
-    if (predictions.length > 0) {
-      predictionNote = '含预算预测数据'
-    }
+    predictionNote = PREDICTION_NOTE_DEFAULT
   }
 
-  const actualBalance = aIncome.minus(aExpense)
+  const actualBalance = netIncome.minus(netExpense)
   const predictedBalance = pIncome.minus(pExpense)
 
   const incomeByCategory: Record<string, Decimal> = {}
@@ -112,14 +141,27 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   const leafActualIncome: Record<string, Decimal> = {}
   const leafActualExpense: Record<string, Decimal> = {}
+  // 退款按原交易类型分桶：在 buildTree 时从对应侧扣减
+  const leafActualIncomeRefund: Record<string, Decimal> = {}
+  const leafActualExpenseRefund: Record<string, Decimal> = {}
   const leafPredictedIncome: Record<string, Decimal> = {}
   const leafPredictedExpense: Record<string, Decimal> = {}
 
   transactions.forEach(t => {
-    if (t.type !== 'income' && t.type !== 'expense') return
     const catId = t.categoryId ?? 'uncategorized'
-    const target = t.type === 'income' ? leafActualIncome : leafActualExpense
-    target[catId] = (target[catId] || ZERO).plus(t.amount)
+    if (t.type === 'income') {
+      leafActualIncome[catId] = (leafActualIncome[catId] || ZERO).plus(t.amount)
+    } else if (t.type === 'expense') {
+      leafActualExpense[catId] = (leafActualExpense[catId] || ZERO).plus(t.amount)
+    } else if (t.type === 'refund') {
+      // 退款继承原交易分类；按 relatedType 计入对应侧的退款桶
+      const refundAmount = t.amount.minus(t.fee)
+      if (t.relatedType === 'income') {
+        leafActualIncomeRefund[catId] = (leafActualIncomeRefund[catId] || ZERO).plus(refundAmount)
+      } else if (t.relatedType === 'expense') {
+        leafActualExpenseRefund[catId] = (leafActualExpenseRefund[catId] || ZERO).plus(refundAmount)
+      }
+    }
   })
 
   for (const [catId, pAmount] of Object.entries(predictedById)) {
@@ -137,7 +179,10 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       const childLeaves = buildTree(type, cat.id)
       const hasTransactionChildren = childLeaves.length > 0
 
-      const catActual = (type === 'income' ? leafActualIncome : leafActualExpense)[cat.id] ?? ZERO
+      // 自身实际 = 自身收入/支出 - 对应侧退款；预测侧无退款
+      const ownActual = (type === 'income' ? leafActualIncome : leafActualExpense)[cat.id] ?? ZERO
+      const ownRefund = (type === 'income' ? leafActualIncomeRefund : leafActualExpenseRefund)[cat.id] ?? ZERO
+      const catActual = ownActual.minus(ownRefund)
       const catPredicted = (type === 'income' ? leafPredictedIncome : leafPredictedExpense)[cat.id] ?? ZERO
       const hasOwnData = !catActual.isZero() || !catPredicted.isZero()
 
@@ -168,95 +213,66 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     const cat = categoryMap.get(catId)
     incomeByCategory[cat?.name ?? '未分类'] = (incomeByCategory[cat?.name ?? '未分类'] || ZERO).plus(amount)
   }
+  // 收入侧退款需要从同分类的收入中扣减
+  for (const [catId, refund] of Object.entries(leafActualIncomeRefund)) {
+    const cat = categoryMap.get(catId)
+    incomeByCategory[cat?.name ?? '未分类'] = (incomeByCategory[cat?.name ?? '未分类'] || ZERO).minus(refund)
+  }
   for (const [catId, amount] of Object.entries(leafActualExpense)) {
     const cat = categoryMap.get(catId)
     expenseByCategory[cat?.name ?? '未分类'] = (expenseByCategory[cat?.name ?? '未分类'] || ZERO).plus(amount)
   }
+  // 支出侧退款需要从同分类的支出中扣减
+  for (const [catId, refund] of Object.entries(leafActualExpenseRefund)) {
+    const cat = categoryMap.get(catId)
+    expenseByCategory[cat?.name ?? '未分类'] = (expenseByCategory[cat?.name ?? '未分类'] || ZERO).minus(refund)
+  }
 
   const accounts = await prisma.account.findMany()
 
-  const startDay = new Date(start)
-  const endDayNext = new Date(end.getTime() + 86400000)
+  // 期初/期末余额查询
   const allAccountIds = accounts.map(a => a.id)
   const balanceCache = await calculateBalancesBatch(allAccountIds, [startDay, endDayNext])
 
-  const startBalances = accounts.map(account => balanceCache.get(account.id, startDay))
-  const endBalances = accounts.map(account => balanceCache.get(account.id, endDayNext))
+  // 期初期末资产/负债/净资产
+  const accountGetValue = (account: { id: string; type: string }, date: Date) =>
+    balanceCache.get(account.id, date)
 
-  const actualStartAssets = accounts.reduce((sum, account, i) =>
-    account.type === 'asset' ? sum + startBalances[i] : sum, 0)
-  const actualStartLiabilitiesBalance = accounts.reduce((sum, account, i) =>
-    account.type === 'liability' ? sum + startBalances[i] : sum, 0)
+  const startResult = sumAssetsLiabilities(
+    accounts.map(a => ({ id: a.id, type: a.type })),
+    (a) => accountGetValue(a, startDay)
+  )
+  const endResult = sumAssetsLiabilities(
+    accounts.map(a => ({ id: a.id, type: a.type })),
+    (a) => accountGetValue(a, endDayNext)
+  )
+
+  const actualStartAssets = startResult.assets
+  const actualStartLiabilitiesBalance = startResult.liabilities
   const actualStartLiabilities = Math.abs(actualStartLiabilitiesBalance)
-  const actualStartNetWorth = actualStartAssets + actualStartLiabilitiesBalance
+  const actualStartNetWorth = startResult.netWorth
 
-  const actualEndAssets = accounts.reduce((sum, account, i) =>
-    account.type === 'asset' ? sum + endBalances[i] : sum, 0)
-  const actualEndLiabilitiesBalance = accounts.reduce((sum, account, i) =>
-    account.type === 'liability' ? sum + endBalances[i] : sum, 0)
+  const actualEndAssets = endResult.assets
+  const actualEndLiabilitiesBalance = endResult.liabilities
   const actualEndLiabilities = Math.abs(actualEndLiabilitiesBalance)
-  const actualEndNetWorth = actualEndAssets + actualEndLiabilitiesBalance
+  const actualEndNetWorth = endResult.netWorth
 
-  let predictedStartNetWorth = 0
-  let predictedEndNetWorth = 0
-  let predictedStartAssets = 0
-  let predictedEndAssets = 0
-  let predictedStartLiabilities = 0
-  let predictedEndLiabilities = 0
+  // 预测资产/负债变动（统一调用 computePredictedAssetsLiabilities，
+  // 历史/当前/未来场景共用同一份逻辑）
+  // timePoint 减 1ms：filterPredictionsUpTo 用 <=，而 calculateBalancesBatch 用 <，
+  // 减 1ms 使两者语义对齐，避免期初/期末当天的预测被重复计算或遗漏。
+  const accountLookup = new Map(accounts.map(a => [a.id, a]))
+  const startPredicted = computePredictedAssetsLiabilities(predictions, new Date(start.getTime() - 1), accountLookup)
+  const endPredicted = computePredictedAssetsLiabilities(predictions, new Date(endDayNext.getTime() - 1), accountLookup)
 
-  if (includePredictions && end > now) {
-    const nowStr = now.toISOString().split('T')[0]
-    
-    if (start > now) {
-      const startPredictions = await generatePredictions(nowStr, startDate)
-      let pAssetChange = 0
-      let pLiabilityChange = 0
-      for (const p of startPredictions) {
-        const account = accounts.find(a => a.id === p.accountId)
-        const toAccount = p.toAccountId ? accounts.find(a => a.id === p.toAccountId) : null
-        if (p.type === 'income') {
-          if (account?.type === 'asset') pAssetChange += p.amount
-          else if (account?.type === 'liability') pLiabilityChange -= p.amount
-        } else if (p.type === 'expense') {
-          if (account?.type === 'asset') pAssetChange -= p.amount
-          else if (account?.type === 'liability') pLiabilityChange -= p.amount
-        } else if (p.type === 'transfer') {
-          if (account?.type === 'asset') pAssetChange -= p.amount
-          else if (account?.type === 'liability') pLiabilityChange -= p.amount
-          if (toAccount?.type === 'asset') pAssetChange += p.amount
-          else if (toAccount?.type === 'liability') pLiabilityChange += p.amount
-        }
-      }
-      predictedStartAssets = pAssetChange
-      predictedStartLiabilities = Math.abs(actualStartLiabilitiesBalance + pLiabilityChange) - actualStartLiabilities
-      predictedStartNetWorth = pAssetChange + pLiabilityChange
-    }
+  const predictedStartAssets = startPredicted.assets
+  const predictedStartLiabilities = startPredicted.liabilities
+  const predictedStartNetWorth = startPredicted.netWorth
+  const predictedEndAssets = endPredicted.assets
+  const predictedEndLiabilities = endPredicted.liabilities
+  const predictedEndNetWorth = endPredicted.netWorth
 
-    const endPredictions = await generatePredictions(nowStr, endDate)
-    let pAssetChange = 0
-    let pLiabilityChange = 0
-    for (const p of endPredictions) {
-      const account = accounts.find(a => a.id === p.accountId)
-      const toAccount = p.toAccountId ? accounts.find(a => a.id === p.toAccountId) : null
-      if (p.type === 'income') {
-        if (account?.type === 'asset') pAssetChange += p.amount
-        else if (account?.type === 'liability') pLiabilityChange -= p.amount
-      } else if (p.type === 'expense') {
-        if (account?.type === 'asset') pAssetChange -= p.amount
-        else if (account?.type === 'liability') pLiabilityChange -= p.amount
-      } else if (p.type === 'transfer') {
-        if (account?.type === 'asset') pAssetChange -= p.amount
-        else if (account?.type === 'liability') pLiabilityChange -= p.amount
-        if (toAccount?.type === 'asset') pAssetChange += p.amount
-        else if (toAccount?.type === 'liability') pLiabilityChange += p.amount
-      }
-    }
-    predictedEndAssets = pAssetChange
-    predictedEndLiabilities = Math.abs(actualEndLiabilitiesBalance + pLiabilityChange) - actualEndLiabilities
-    predictedEndNetWorth = pAssetChange + pLiabilityChange
-  }
-
-  const predictedNetWorthChange = predictedBalance.toNumber()
+  const predictedNetWorthChange = predictedEndNetWorth - predictedStartNetWorth
   const actualAssetChange = actualEndNetWorth - actualStartNetWorth
 
   const incomeByCategoryResult: Record<string, number> = {}
@@ -271,8 +287,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   return {
     startDate,
     endDate,
-    income: { actual: aIncome.toNumber(), predicted: pIncome.toNumber() },
-    expense: { actual: aExpense.toNumber(), predicted: pExpense.toNumber() },
+    income: { actual: netIncome.toNumber(), predicted: pIncome.toNumber() },
+    expense: { actual: netExpense.toNumber(), predicted: pExpense.toNumber() },
     balance: { actual: actualBalance.toNumber(), predicted: predictedBalance.toNumber() },
     incomeByCategory: incomeByCategoryResult,
     expenseByCategory: expenseByCategoryResult,

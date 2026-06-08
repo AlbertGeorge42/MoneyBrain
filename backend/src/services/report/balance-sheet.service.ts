@@ -1,5 +1,13 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
+import {
+  dayEnd,
+  nextDay,
+  accumulatePredictionChanges,
+  sumPredictionByType,
+  sumAssetsLiabilities,
+  PREDICTION_NOTE_BALANCE_SHEET,
+} from './report.utils.js'
 import { generatePredictions } from '../budget.service.js'
 
 export type DateGranularity = 'day' | 'month' | 'year'
@@ -37,31 +45,27 @@ export interface BalanceSheetResult {
 
 function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granularity: DateGranularity } {
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    // 日：当天结束
-    const targetDate = new Date(`${date}T23:59:59.999`)
-    const nextDay = new Date(date)
-    nextDay.setDate(nextDay.getDate() + 1)
-    return { targetDate, nextDay, granularity: 'day' }
+    const targetDate = dayEnd(date)
+    const next = nextDay(date)
+    return { targetDate, nextDay: next, granularity: 'day' }
   }
   if (/^\d{4}-\d{2}$/.test(date)) {
-    // 月：月末
     const [year, month] = date.split('-').map(Number)
     const lastDay = new Date(year, month, 0).getDate()
     const targetDate = new Date(year, month - 1, lastDay, 23, 59, 59, 999)
-    const nextDay = new Date(year, month, 1)
-    return { targetDate, nextDay, granularity: 'month' }
+    const next = new Date(year, month, 1)
+    return { targetDate, nextDay: next, granularity: 'month' }
   }
   if (/^\d{4}$/.test(date)) {
-    // 年：年末
-    const targetDate = new Date(`${date}-12-31T23:59:59.999`)
-    const nextDay = new Date(`${Number(date) + 1}-01-01`)
-    return { targetDate, nextDay, granularity: 'year' }
+    const targetDate = dayEnd(`${date}-12-31`)
+    const next = nextDay(`${date}-12-31`)
+    return { targetDate, nextDay: next, granularity: 'year' }
   }
   throw new Error('无效的日期格式，支持格式：YYYY-MM-DD、YYYY-MM、YYYY')
 }
 
 export async function generateBalanceSheet(date: string): Promise<BalanceSheetResult> {
-  const { targetDate, nextDay, granularity } = parseDateParam(date)
+  const { targetDate, nextDay: nextDayDate, granularity } = parseDateParam(date)
   const now = new Date()
 
   const categories = await prisma.accountCategory.findMany({
@@ -74,24 +78,24 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   })
 
   const allAccountIds = accounts.map(a => a.id)
-  const balanceCache = await calculateBalancesBatch(allAccountIds, [nextDay])
+  const balanceCache = await calculateBalancesBatch(allAccountIds, [nextDayDate])
 
   const accountBalances = accounts.map(account => ({
     ...account,
-    balance: balanceCache.get(account.id, nextDay),
+    balance: balanceCache.get(account.id, nextDayDate),
   }))
 
-  const assets = accountBalances
-    .filter(a => a.type === 'asset')
-    .reduce((sum, a) => sum + a.balance, 0)
+  // 资产/负债/净资产汇总
+  const { assets, liabilities, netWorth } = sumAssetsLiabilities(
+    accountBalances.map(a => ({ type: a.type, id: a.id })),
+    (a) => accountBalances.find(ab => ab.id === a.id)?.balance ?? 0
+  )
 
-  const liabilities = accountBalances
-    .filter(a => a.type === 'liability')
-    .reduce((sum, a) => sum + a.balance, 0)
-
-  // 预测数据：当目标日期在未来时，计算预测变化
-  const predictedChanges: Map<string, number> = new Map()
+  // 预测数据
+  let predictedAssets = 0
+  let predictedLiabilities = 0
   let predictionNote: string | undefined
+  let predictedChanges: Map<string, number> = new Map()
 
   if (targetDate > now) {
     const predictions = await generatePredictions(
@@ -99,45 +103,15 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
       targetDate.toISOString().split('T')[0]
     )
 
-    predictions.forEach(p => {
-      if (p.type === 'income') {
-        predictedChanges.set(p.accountId,
-          (predictedChanges.get(p.accountId) || 0) + p.amount)
-      }
-      if (p.type === 'expense') {
-        predictedChanges.set(p.accountId,
-          (predictedChanges.get(p.accountId) || 0) - p.amount)
-      }
-      if (p.type === 'transfer') {
-        predictedChanges.set(p.accountId,
-          (predictedChanges.get(p.accountId) || 0) - p.amount)
-        if (p.toAccountId) {
-          predictedChanges.set(p.toAccountId,
-            (predictedChanges.get(p.toAccountId) || 0) + p.amount)
-        }
-      }
-    })
-
     if (predictions.length > 0) {
-      predictionNote = '预算影响后的预测值，不含投资收益、资产增值等'
+      const accountLookup = new Map(accounts.map(a => [a.id, a]))
+      predictedChanges = accumulatePredictionChanges(predictions)
+      const predicted = sumPredictionByType(predictedChanges, accountLookup)
+      predictedAssets = predicted.assetChange
+      predictedLiabilities = predicted.liabilityChange
+      predictionNote = PREDICTION_NOTE_BALANCE_SHEET
     }
   }
-
-  const netWorth = assets + liabilities
-
-  const predictedAssets = Array.from(predictedChanges.entries())
-    .reduce((sum, [accountId, change]) => {
-      const account = accounts.find(a => a.id === accountId)
-      if (account?.type === 'asset') return sum + change
-      return sum
-    }, 0)
-
-  const predictedLiabilities = Array.from(predictedChanges.entries())
-    .reduce((sum, [accountId, change]) => {
-      const account = accounts.find(a => a.id === accountId)
-      if (account?.type === 'liability') return sum + change
-      return sum
-    }, 0)
 
   const predictedNetWorth = predictedAssets + predictedLiabilities
 
@@ -158,13 +132,12 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   const sortedAccounts = accountBalances
     .map(a => {
       const cat = a.category ? categoryMap.get(a.category.id) : null
-      const predicted = predictedChanges.get(a.id) || 0
       return {
         id: a.id,
         name: a.name,
         type: a.type,
         actual: a.balance,
-        predicted,
+        predicted: predictedChanges.get(a.id) || 0,
         category: a.category?.name || '未分类',
         categoryId: a.categoryId,
         icon: a.icon,

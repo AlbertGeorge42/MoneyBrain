@@ -1,13 +1,9 @@
 import { prisma } from '../index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
+import { getNextSort } from '../common/db.js'
 
 export async function getNextAccountCategorySort(type: string): Promise<number> {
-  const maxSortResult = await prisma.accountCategory.aggregate({
-    where: { type },
-    _max: { sort: true },
-  })
-
-  return (maxSortResult._max.sort ?? -1) + 1
+  return getNextSort('accountCategory', { type })
 }
 
 export async function getAccountCategories(params?: { type?: string }) {

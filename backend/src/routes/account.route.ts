@@ -8,6 +8,7 @@ import {
   validateIdParam,
   validateBatchSort,
   hasValue,
+  nextDay,
 } from '../common/index.js'
 import {
   adjustAccountBalance,
@@ -85,11 +86,9 @@ router.get('/:id/balance-at', validateRequest(validateIdParam), asyncHandler(asy
   }
 
   // 计算下一天的余额，因为 calculateBalanceAtDate 使用 lt: targetDate
-  const targetDate = new Date(dateStr + 'T00:00:00')
-  const nextDay = new Date(targetDate)
-  nextDay.setDate(nextDay.getDate() + 1)
+  const nextDayDate = nextDay(dateStr)
 
-  const balance = await calculateBalanceAtDate(req.params.id, nextDay)
+  const balance = await calculateBalanceAtDate(req.params.id, nextDayDate)
 
   return success(res, {
     accountId: req.params.id,

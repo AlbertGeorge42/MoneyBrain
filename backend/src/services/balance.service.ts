@@ -129,10 +129,23 @@ export async function calculateBalancesBatch(
 
   // 2. 对日期排序并确定查询范围
   const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime())
-  const minDate = sortedDates[0]
   const maxTargetDate = sortedDates[sortedDates.length - 1]
   // 需要查询到最大日期的下一天（因为计算使用 lt: targetDate）
   const maxDate = new Date(maxTargetDate.getTime() + 86400000)
+
+  // 修复历史余额计算：不能直接用 sortedDates[0] 作为查询起点，
+  // 否则 minDate 之前的所有交易都被吞掉，导致历史余额永远等于 initialBalance。
+  // 改用所有账户的 initialBalanceDate / createdAt 中最早的一个作为查询起点。
+  const earliestAccountDate = accounts.reduce<Date | null>((acc, a) => {
+    const candidates: Date[] = []
+    if (a.initialBalanceDate) candidates.push(a.initialBalanceDate)
+    if (a.createdAt) candidates.push(a.createdAt)
+    for (const d of candidates) {
+      if (!acc || d.getTime() < acc.getTime()) acc = d
+    }
+    return acc
+  }, null)
+  const minDate = earliestAccountDate ?? sortedDates[0]
 
   // 3. 一次性查询所有相关交易
   const transactions = await prisma.transaction.findMany({

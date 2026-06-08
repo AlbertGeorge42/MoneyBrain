@@ -22,3 +22,6 @@ export { ZERO, toDecimal, hasValue, toStringArray, parsePositiveInteger, toDate,
 
 // Validators
 export { validateIdParam, validateBatchSort, validateDateRange, validateDateQuery, validateTypeQuery } from './validators.js'
+
+// Date utilities
+export { dayStart, dayEnd, nextDay, formatDateLocal } from './date.js'

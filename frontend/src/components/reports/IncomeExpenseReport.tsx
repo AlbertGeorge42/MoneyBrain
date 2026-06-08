@@ -13,6 +13,7 @@ import { formatCurrency } from '../../utils/format'
 
 // ---- 本报表专属：metrics 类型 ----
 interface IncomeExpenseMetrics {
+  total: number
   actual: number
   predicted: number
 }
@@ -21,10 +22,10 @@ interface IncomeExpenseMetrics {
 const incomeColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
   {
     key: 'amount',
-    metric: 'actual',
+    metric: 'total',
     width: 140,
     align: 'right',
-    prediction: { displayMetric: 'actual', actualMetric: 'actual', predictedMetric: 'predicted' },
+    prediction: { displayMetric: 'total', actualMetric: 'actual', predictedMetric: 'predicted' },
     format: (v) => formatCurrency(v as number),
     color: 'var(--mb-color-positive)',
   },
@@ -33,10 +34,10 @@ const incomeColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
 const expenseColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
   {
     key: 'amount',
-    metric: 'actual',
+    metric: 'total',
     width: 140,
     align: 'right',
-    prediction: { displayMetric: 'actual', actualMetric: 'actual', predictedMetric: 'predicted' },
+    prediction: { displayMetric: 'total', actualMetric: 'actual', predictedMetric: 'predicted' },
     format: (v) => formatCurrency(Math.abs(v as number)),
     color: 'var(--mb-color-negative)',
   },
@@ -53,7 +54,8 @@ function adaptIncomeExpenseTree(
     icon: item.icon,
     children: item.children ? adaptIncomeExpenseTree(item.children, reportType) : undefined,
     metrics: {
-      actual: reportType === 'expense' ? Math.abs(item.actual + item.predicted) : item.actual + item.predicted,
+      total: reportType === 'expense' ? Math.abs(item.actual + item.predicted) : item.actual + item.predicted,
+      actual: item.actual,
       predicted: item.predicted,
     },
   }))

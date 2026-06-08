@@ -132,8 +132,6 @@ export const accountApi = {
     message: string
     deletedTransactions?: number 
   }>>(`/accounts/${id}`, { params: { force } }),
-  adjust: (id: string, data: { amount: number; date?: string; note?: string }) =>
-    api.post<ApiResponse<{ transaction: Transaction; newBalance: number }>>(`/accounts/${id}/adjust`, data),
   batchAdjust: (data: { adjustments: Array<{ accountId: string; amount: number }>; date?: string; note?: string }) =>
     api.post<ApiResponse<{ date: string; count: number; adjustments: Array<{
       accountId: string
@@ -288,25 +286,25 @@ export const dataApi = {
 
 export const investmentApi = {
   getAssetClasses: (accountId: string) =>
-    api.get<ApiResponse<InvestmentAssetClass[]>>(`/accounts/${accountId}/investment-asset-classes`),
+    api.get<ApiResponse<InvestmentAssetClass[]>>(`/investments/${accountId}/asset-classes`),
 
   createAssetClass: (accountId: string, data: Partial<InvestmentAssetClass>) =>
-    api.post<ApiResponse<InvestmentAssetClass>>(`/accounts/${accountId}/investment-asset-classes`, data),
+    api.post<ApiResponse<InvestmentAssetClass>>(`/investments/${accountId}/asset-classes`, data),
 
   updateAssetClass: (id: string, data: Partial<InvestmentAssetClass>) =>
-    api.put<ApiResponse<InvestmentAssetClass>>(`/investment-asset-classes/${id}`, data),
+    api.put<ApiResponse<InvestmentAssetClass>>(`/investments/asset-classes/${id}`, data),
 
   deleteAssetClass: (id: string) =>
-    api.delete<ApiResponse<{ message: string }>>(`/investment-asset-classes/${id}`),
+    api.delete<ApiResponse<{ message: string }>>(`/investments/asset-classes/${id}`),
 
   reorderAssetClasses: (accountId: string, orderedIds: string[]) =>
-    api.put<ApiResponse<{ message: string }>>(`/accounts/${accountId}/investment-asset-classes/reorder`, { orderedIds }),
+    api.put<ApiResponse<{ message: string }>>(`/investments/${accountId}/asset-classes/reorder`, { orderedIds }),
 
   getSnapshots: (accountId: string, startDate?: string, endDate?: string) =>
-    api.get<ApiResponse<InvestmentAllocationSnapshot[]>>('/investment-allocations', { params: { accountId, startDate, endDate } }),
+    api.get<ApiResponse<InvestmentAllocationSnapshot[]>>('/investments/allocations', { params: { accountId, startDate, endDate } }),
 
   getLatestSnapshot: (accountId: string, beforeDate?: string) =>
-    api.get<ApiResponse<InvestmentAllocationSnapshot | null>>('/investment-allocations/latest', { params: { accountId, beforeDate } }),
+    api.get<ApiResponse<InvestmentAllocationSnapshot | null>>('/investments/allocations/latest', { params: { accountId, beforeDate } }),
 
   saveSnapshot: (data: {
     accountId: string
@@ -317,7 +315,7 @@ export const investmentApi = {
       periodNetFlow?: number
     }>
     note?: string
-  }) => api.post<ApiResponse<InvestmentAllocationSnapshot>>('/investment-allocations', data),
+  }) => api.post<ApiResponse<InvestmentAllocationSnapshot>>('/investments/allocations', data),
 
   updateSnapshot: (id: string, data: {
     date: string
@@ -327,10 +325,10 @@ export const investmentApi = {
       periodNetFlow?: number
     }>
     note?: string
-  }) => api.put<ApiResponse<InvestmentAllocationSnapshot>>(`/investment-allocations/${id}`, data),
+  }) => api.put<ApiResponse<InvestmentAllocationSnapshot>>(`/investments/allocations/${id}`, data),
 
   deleteSnapshot: (id: string) =>
-    api.delete<ApiResponse<{ message: string }>>(`/investment-allocations/${id}`),
+    api.delete<ApiResponse<{ message: string }>>(`/investments/allocations/${id}`),
 }
 
 export default api

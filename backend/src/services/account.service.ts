@@ -1,14 +1,10 @@
 import { prisma } from '../index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
+import { getNextSort } from '../common/db.js'
 
 export async function getNextAccountSort(categoryId: string | null): Promise<number> {
-  const maxSortResult = await prisma.account.aggregate({
-    where: { categoryId: categoryId || null },
-    _max: { sort: true },
-  })
-
-  return (maxSortResult._max.sort ?? -1) + 1
+  return getNextSort('account', { categoryId: categoryId || null })
 }
 
 type AccountSortItem = {
@@ -22,7 +18,6 @@ type AccountUpdateData = {
   type?: string
   icon?: string | null
   categoryId?: string | null
-  cashFlowType?: string | null
   initialBalance?: number
   initialBalanceDate?: string
 }
@@ -96,7 +91,6 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
   const updateData: Record<string, unknown> = {
     name: data.name,
     icon: data.icon,
-    cashFlowType: data.cashFlowType,
     initialBalanceDate: data.initialBalanceDate
       ? new Date(`${data.initialBalanceDate}T00:00:00`)
       : undefined,
@@ -245,31 +239,50 @@ export async function batchAdjustAccountBalances(
   note?: string,
 ): Promise<{ date: Date; count: number; adjustments: Array<{ accountId: string; accountName: string; amount: number; transactionId: string }> }> {
   const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
-  const results = []
 
-  for (const adj of adjustments) {
-    const { accountId, amount } = adj
-    const account = await prisma.account.findUnique({ where: { id: accountId } })
-    if (!account || amount === 0) continue
-
-    const transaction = await prisma.transaction.create({
-      data: {
-        type: 'adjustment',
-        amount: toDecimal(amount),
-        date: adjustDate,
-        note: note || '批量平账调整',
-        accountId,
-        isAdjustment: true,
-      },
-    })
-
-    results.push({
-      accountId,
-      accountName: account.name,
-      amount,
-      transactionId: transaction.id,
-    })
+  const validAdjustments = adjustments.filter(adj => adj.amount !== 0)
+  if (validAdjustments.length === 0) {
+    return { date: adjustDate, count: 0, adjustments: [] }
   }
 
-  return { date: adjustDate, count: results.length, adjustments: results }
+  const accountIds = validAdjustments.map(adj => adj.accountId)
+  const accounts = await prisma.account.findMany({
+    where: { id: { in: accountIds } },
+  })
+  const accountMap = new Map(accounts.map(a => [a.id, a]))
+
+  const transactionCreates = validAdjustments
+    .filter(adj => accountMap.has(adj.accountId))
+    .map(adj => ({
+      type: 'adjustment' as const,
+      amount: toDecimal(adj.amount),
+      date: adjustDate,
+      note: note || '批量平账调整',
+      accountId: adj.accountId,
+      isAdjustment: true,
+    }))
+
+  if (transactionCreates.length === 0) {
+    return { date: adjustDate, count: 0, adjustments: [] }
+  }
+
+  // 用 $transaction 包裹单条 create，保证 ID 顺序与 transactionCreates 完全对齐
+  // 任何一条失败整体回滚；同时省掉 createMany 之后再 findMany 找回 ID 的脆弱查询
+  const createdTxList = await prisma.$transaction(
+    transactionCreates.map(data =>
+      prisma.transaction.create({ data, include: { account: true } })
+    )
+  )
+
+  const results = transactionCreates.map((txData, i) => {
+    const account = accountMap.get(txData.accountId)!
+    return {
+      accountId: txData.accountId,
+      accountName: account.name,
+      amount: txData.amount.toNumber(),
+      transactionId: createdTxList[i]?.id ?? '',
+    }
+  })
+
+  return { date: adjustDate, count: createdTxList.length, adjustments: results }
 }

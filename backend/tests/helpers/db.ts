@@ -15,7 +15,9 @@ const testPrisma = new PrismaClient({
  */
 export async function cleanDatabase(): Promise<void> {
   await testPrisma.$transaction([
-    testPrisma.budgetAlert.deleteMany(),
+    testPrisma.investmentAllocationItem.deleteMany(),
+    testPrisma.investmentAllocationSnapshot.deleteMany(),
+    testPrisma.investmentAssetClass.deleteMany(),
     testPrisma.budget.deleteMany(),
     testPrisma.transaction.deleteMany(),
     testPrisma.account.deleteMany(),

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { asyncHandler, success } from '../common/index.js'
+import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
 import { validateIdParam } from '../common/validators.js'
 import {
   getAssetClassesByAccount,
@@ -20,73 +20,69 @@ const router = Router()
 
 // === 资产类型路由 ===
 
-// GET /api/accounts/:accountId/investment-asset-classes
+// GET /api/investments/:accountId/asset-classes
 router.get(
-  '/accounts/:accountId/investment-asset-classes',
+  '/:accountId/asset-classes',
   asyncHandler(async (req, res) => {
     const assetClasses = await getAssetClassesByAccount(req.params.accountId)
     return success(res, assetClasses)
   })
 )
 
-// POST /api/accounts/:accountId/investment-asset-classes
+// POST /api/investments/:accountId/asset-classes
 router.post(
-  '/accounts/:accountId/investment-asset-classes',
+  '/:accountId/asset-classes',
+  validateRequest((req) => {
+    if (!req.body.name) throw new ValidationError('缺少资产类型名称')
+  }),
   asyncHandler(async (req, res) => {
     const assetClass = await createAssetClass(req.params.accountId, req.body)
     return success(res, assetClass)
   })
 )
 
-// PUT /api/investment-asset-classes/:id
+// PUT /api/investments/asset-classes/:id
 router.put(
-  '/investment-asset-classes/:id',
+  '/asset-classes/:id',
+  validateRequest(validateIdParam),
   asyncHandler(async (req, res) => {
-    validateIdParam(req)
     const assetClass = await updateAssetClass(req.params.id, req.body)
     return success(res, assetClass)
   })
 )
 
-// DELETE /api/investment-asset-classes/:id
+// DELETE /api/investments/asset-classes/:id
 router.delete(
-  '/investment-asset-classes/:id',
+  '/asset-classes/:id',
+  validateRequest(validateIdParam),
   asyncHandler(async (req, res) => {
-    validateIdParam(req)
     const result = await deleteAssetClass(req.params.id)
     return success(res, result)
   })
 )
 
-// PUT /api/accounts/:accountId/investment-asset-classes/reorder
+// PUT /api/investments/:accountId/asset-classes/reorder
 router.put(
-  '/accounts/:accountId/investment-asset-classes/reorder',
+  '/:accountId/asset-classes/reorder',
+  validateRequest((req) => {
+    if (!Array.isArray(req.body.orderedIds)) throw new ValidationError('orderedIds 必须是数组')
+  }),
   asyncHandler(async (req, res) => {
-    const { orderedIds } = req.body
-    if (!Array.isArray(orderedIds)) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'orderedIds 必须是数组' },
-      })
-    }
-    const result = await reorderAssetClasses(req.params.accountId, orderedIds)
+    const result = await reorderAssetClasses(req.params.accountId, req.body.orderedIds)
     return success(res, result)
   })
 )
 
 // === 快照路由 ===
 
-// GET /api/investment-allocations?accountId=&startDate=&endDate=
+// GET /api/investments/allocations?accountId=&startDate=&endDate=
 router.get(
-  '/investment-allocations',
+  '/allocations',
+  validateRequest((req) => {
+    if (!req.query.accountId) throw new ValidationError('缺少 accountId 参数')
+  }),
   asyncHandler(async (req, res) => {
     const { accountId, startDate, endDate } = req.query
-    if (!accountId) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: '缺少 accountId 参数' },
-      })
-    }
     const snapshots = await getSnapshots(
       String(accountId),
       startDate ? String(startDate) : undefined,
@@ -96,60 +92,54 @@ router.get(
   })
 )
 
-// POST /api/investment-allocations
+// POST /api/investments/allocations
 router.post(
-  '/investment-allocations',
+  '/allocations',
+  validateRequest((req) => {
+    const { accountId, date, items } = req.body
+    if (!accountId || !date || !Array.isArray(items)) {
+      throw new ValidationError('缺少必要参数 accountId、date、items')
+    }
+  }),
   asyncHandler(async (req, res) => {
     const { accountId, date, items, note } = req.body
-    if (!accountId || !date || !Array.isArray(items)) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: '缺少必要参数 accountId、date、items' },
-      })
-    }
     const snapshot = await createSnapshot({ accountId, date, items, note })
     return success(res, snapshot)
   })
 )
 
-// DELETE /api/investment-allocations/:id
+// DELETE /api/investments/allocations/:id
 router.delete(
-  '/investment-allocations/:id',
+  '/allocations/:id',
+  validateRequest(validateIdParam),
   asyncHandler(async (req, res) => {
-    validateIdParam(req)
     await deleteSnapshot(req.params.id)
     return success(res, { message: '删除成功' })
   })
 )
 
-// PUT /api/investment-allocations/:id
+// PUT /api/investments/allocations/:id
 router.put(
-  '/investment-allocations/:id',
+  '/allocations/:id',
+  validateRequest(validateIdParam),
   asyncHandler(async (req, res) => {
-    validateIdParam(req)
     const { date, items, note } = req.body
     if (!date || !Array.isArray(items)) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: '缺少必要参数 date、items' },
-      })
+      throw new ValidationError('缺少必要参数 date、items')
     }
     const snapshot = await updateSnapshot(req.params.id, { date, items, note })
     return success(res, snapshot)
   })
 )
 
-// GET /api/investment-allocations/latest?accountId=&beforeDate=
+// GET /api/investments/allocations/latest?accountId=&beforeDate=
 router.get(
-  '/investment-allocations/latest',
+  '/allocations/latest',
+  validateRequest((req) => {
+    if (!req.query.accountId) throw new ValidationError('缺少 accountId 参数')
+  }),
   asyncHandler(async (req, res) => {
     const { accountId, beforeDate } = req.query
-    if (!accountId) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: '缺少 accountId 参数' },
-      })
-    }
     const snapshot = await getLatestSnapshot(
       String(accountId),
       beforeDate ? String(beforeDate) : undefined

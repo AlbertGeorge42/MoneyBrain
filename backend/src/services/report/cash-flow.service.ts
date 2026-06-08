@@ -3,7 +3,14 @@ import { calculateBalancesBatch } from '../balance.service.js'
 import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { toDecimal, ZERO } from '../../common/index.js'
-import { generatePredictions } from '../budget.service.js'
+import {
+  dayStart,
+  dayEnd,
+  nextDay,
+  getPredictionsIfFuture,
+  computePredictedAccountTotal,
+  PREDICTION_NOTE_DEFAULT,
+} from './report.utils.js'
 
 type TransactionWithIncludes = Prisma.TransactionGetPayload<{
   include: { account: true; toAccount: true; category: true }
@@ -75,7 +82,7 @@ export interface CashFlowResult {
   predictionNote?: string
 }
 
-function calculateBalanceChangeDecimal(type: string, amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
+function calculateCashFlowAmount(type: string, amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
   if (type === 'expense' || type === 'transfer') {
     return amount.plus(fee).minus(coupon)
   }
@@ -85,7 +92,7 @@ function calculateBalanceChangeDecimal(type: string, amount: Decimal, fee: Decim
   return amount
 }
 
-function calculateTransferInAmountDecimal(amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
+function calculateCashTransferInAmount(amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
   return amount.minus(fee).plus(coupon)
 }
 
@@ -125,7 +132,7 @@ function addTransferFlow(
   isOutflow: boolean
 ) {
   if (isOutflow) {
-    const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
+    const actualOutflow = calculateCashFlowAmount('transfer', amount, fee, coupon).abs()
     activity.outflow = activity.outflow.plus(actualOutflow)
     const categoryName = fromName || '转账转出'
     const existingItem = activity.items.find(item => item.categoryName === categoryName && item.direction === 'outflow')
@@ -140,7 +147,7 @@ function addTransferFlow(
       })
     }
   } else {
-    const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
+    const actualInflow = calculateCashTransferInAmount(amount, fee, coupon)
     activity.inflow = activity.inflow.plus(actualInflow)
     const categoryName = toName || '转账转入'
     const existingItem = activity.items.find(item => item.categoryName === categoryName && item.direction === 'inflow')
@@ -211,9 +218,8 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
 }
 
 export async function generateCashFlow(startDate: string, endDate: string, includePredictions?: boolean): Promise<CashFlowResult> {
-  const start = new Date(`${startDate}T00:00:00`)
-  const end = new Date(`${endDate}T23:59:59.999`)
-  const now = new Date()
+  const start = dayStart(startDate)
+  const end = dayEnd(endDate)
 
   const cashCategories = await prisma.accountCategory.findMany({
     where: { isCashEquivalent: true },
@@ -299,16 +305,16 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
       if (isFromCash && !isToCash) {
         addTransferFlow(target, getTopLevelCategoryName(t.category), '', amount, fee, coupon, true)
         const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
-        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
+        const actualOutflow = calculateCashFlowAmount('transfer', amount, fee, coupon).abs()
         accountFlow.outflow = accountFlow.outflow.plus(actualOutflow)
       } else if (!isFromCash && isToCash && t.toAccount) {
         addTransferFlow(target, '', getTopLevelCategoryName(t.category), amount, fee, coupon, false)
         const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.toAccount.name)
-        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
+        const actualInflow = calculateCashTransferInAmount(amount, fee, coupon)
         accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
       }
     } else if (t.type === 'refund' && isFromCash) {
-      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
+      const actualInflow = calculateCashFlowAmount('refund', amount, fee, ZERO)
       addTransaction(target, getTopLevelCategoryName(t.category), actualInflow, 'refund', 'inflow')
       const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
       accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
@@ -320,58 +326,78 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   let categoryMap: Map<string, { cashFlowType: string | null; name: string }> = new Map()
   let accountMap: Map<string, { name: string }> = new Map()
 
-  if (includePredictions && end > now) {
-    predictions = await generatePredictions(
-      start > now ? startDate : now.toISOString().split('T')[0],
-      endDate
-    )
+  if (includePredictions) {
+    const allPredictions = await getPredictionsIfFuture(startDate, endDate, true)
 
-    const allCategories = await prisma.transactionCategory.findMany({ include: { parent: true } })
-    categoryMap = new Map(allCategories.map(c => [c.id, { 
-      cashFlowType: c.cashFlowType, 
-      name: c.parent?.name || c.name // 使用一级类别名称
-    }]))
-    const allAccounts = await prisma.account.findMany()
-    accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
-
-    predictions.forEach(p => {
-      const isFromCash = cashAccountIds.includes(p.accountId)
-      const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
-
-      if (!isFromCash && !isToCash) return
-
-      const amount = toDecimal(p.amount)
-      const fee = ZERO
-      const coupon = ZERO
-      const category = p.categoryId ? categoryMap.get(p.categoryId) : null
-      const cashFlowType = category?.cashFlowType || null
-      const target = getPredictedTargetByType(cashFlowType)
-      const account = accountMap.get(p.accountId)
-
-      if (p.type === 'income' && isFromCash) {
-        addTransaction(target, category?.name || '未分类', amount, 'income', 'inflow')
-        const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-        accountFlow.inflow = accountFlow.inflow.plus(amount)
-      } else if (p.type === 'expense' && isFromCash) {
-        addTransaction(target, category?.name || '未分类', amount, 'expense', 'outflow')
-        const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-        accountFlow.outflow = accountFlow.outflow.plus(amount)
-      } else if (p.type === 'transfer') {
-        const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
-        if (isFromCash && !isToCash) {
-          addTransferFlow(target, category?.name || '转账转出', '', amount, fee, coupon, true)
-          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-          accountFlow.outflow = accountFlow.outflow.plus(amount.abs())
-        } else if (!isFromCash && isToCash && toAccount) {
-          addTransferFlow(target, '', category?.name || '转账转入', amount, fee, coupon, false)
-          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, toAccount.name)
-          accountFlow.inflow = accountFlow.inflow.plus(amount)
-        }
-      }
-    })
+    // 转换为内部格式
+    predictions = allPredictions.map(p => ({
+      date: p.date,
+      type: p.type,
+      amount: p.amount,
+      note: p.note,
+      accountId: p.accountId,
+      toAccountId: p.toAccountId,
+      categoryId: p.categoryId,
+      budgetId: p.budgetId,
+      budgetName: p.budgetName,
+    }))
 
     if (predictions.length > 0) {
-      predictionNote = '含预算预测数据'
+      const allCategories = await prisma.transactionCategory.findMany({ include: { parent: true } })
+      categoryMap = new Map(allCategories.map(c => [c.id, {
+        cashFlowType: c.cashFlowType,
+        name: c.parent?.name || c.name
+      }]))
+      const allAccounts = await prisma.account.findMany()
+      accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
+
+      // 注意：predictions 来自 getPredictionsIfFuture，覆盖范围是 [now, endDate]，
+      // 并不是 [startDate, endDate]。这里必须按 [start, end] 过滤，
+      // 否则跨月查询会把前面月份的预测再次累加，
+      // 导致 cashInflow/Outflow/netCashFlow 表现为"累加值"而非"期内值"。
+      const rangeStart = start.getTime()
+      const rangeEnd = end.getTime()
+
+      predictions.forEach(p => {
+        const t = p.date.getTime()
+        if (t < rangeStart || t > rangeEnd) return
+
+        const isFromCash = cashAccountIds.includes(p.accountId)
+        const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
+
+        if (!isFromCash && !isToCash) return
+
+        const amount = toDecimal(p.amount)
+        const fee = ZERO
+        const coupon = ZERO
+        const category = p.categoryId ? categoryMap.get(p.categoryId) : null
+        const cashFlowType = category?.cashFlowType || null
+        const target = getPredictedTargetByType(cashFlowType)
+        const account = accountMap.get(p.accountId)
+
+        if (p.type === 'income' && isFromCash) {
+          addTransaction(target, category?.name || '未分类', amount, 'income', 'inflow')
+          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
+          accountFlow.inflow = accountFlow.inflow.plus(amount)
+        } else if (p.type === 'expense' && isFromCash) {
+          addTransaction(target, category?.name || '未分类', amount, 'expense', 'outflow')
+          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
+          accountFlow.outflow = accountFlow.outflow.plus(amount)
+        } else if (p.type === 'transfer') {
+          const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
+          if (isFromCash && !isToCash) {
+            addTransferFlow(target, category?.name || '转账转出', '', amount, fee, coupon, true)
+            const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
+            accountFlow.outflow = accountFlow.outflow.plus(amount.abs())
+          } else if (!isFromCash && isToCash && toAccount) {
+            addTransferFlow(target, '', category?.name || '转账转入', amount, fee, coupon, false)
+            const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, toAccount.name)
+            accountFlow.inflow = accountFlow.inflow.plus(amount)
+          }
+        }
+      })
+
+      predictionNote = PREDICTION_NOTE_DEFAULT
     }
   }
 
@@ -400,8 +426,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     }
   }
 
-  const nextDayOfEnd = new Date(endDate)
-  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
+  const nextDayOfEnd = nextDay(endDate)
 
   const balanceCache = await calculateBalancesBatch(cashAccountIds, [start, nextDayOfEnd])
 
@@ -409,44 +434,15 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   const actualEndCash = cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, nextDayOfEnd), 0)
   const actualCashChange = actualEndCash - actualStartCash
 
-  let predictedStartCash = 0
-  let predictedEndCash = 0
+  // 期初/期末现金预测：统一调用 computePredictedAccountTotal，
+  // 不再依赖隐式排序、也不重复 income/expense/transfer 分支。
+  // timePoint 减 1ms：filterPredictionsUpTo 用 <=，而 calculateBalancesBatch 用 <，
+  // 减 1ms 使两者语义对齐，避免期初/期末当天的预测被重复计算或遗漏。
+  const cashAccountIdSet = new Set(cashAccountIds)
+  const predictedStartCash = computePredictedAccountTotal(predictions, new Date(start.getTime() - 1), cashAccountIdSet)
+  const predictedEndCash = computePredictedAccountTotal(predictions, new Date(nextDayOfEnd.getTime() - 1), cashAccountIdSet)
 
-  if (includePredictions && end > now) {
-    const nowStr = now.toISOString().split('T')[0]
-    
-    if (start > now) {
-      const startPredictions = await generatePredictions(nowStr, startDate)
-      for (const p of startPredictions) {
-        const isFromCash = cashAccountIds.includes(p.accountId)
-        const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
-        if (p.type === 'income' && isFromCash) {
-          predictedStartCash += p.amount
-        } else if (p.type === 'expense' && isFromCash) {
-          predictedStartCash -= p.amount
-        } else if (p.type === 'transfer') {
-          if (isFromCash) predictedStartCash -= p.amount
-          if (isToCash) predictedStartCash += p.amount
-        }
-      }
-    }
-
-    const endPredictions = await generatePredictions(nowStr, endDate)
-    for (const p of endPredictions) {
-      const isFromCash = cashAccountIds.includes(p.accountId)
-      const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
-      if (p.type === 'income' && isFromCash) {
-        predictedEndCash += p.amount
-      } else if (p.type === 'expense' && isFromCash) {
-        predictedEndCash -= p.amount
-      } else if (p.type === 'transfer') {
-        if (isFromCash) predictedEndCash -= p.amount
-        if (isToCash) predictedEndCash += p.amount
-      }
-    }
-  }
-
-  const sankeyData = buildSankeyData(transactions, predictions, cashAccountIds, categoryMap, accountMap)
+  const sankeyData = buildSankeyData(transactions, predictions, cashAccountIds, categoryMap, accountMap, start, end)
 
   return {
     startDate,
@@ -458,7 +454,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     cashAccounts: cashAccounts.map(a => a.name),
     startCash: { actual: actualStartCash, predicted: predictedStartCash },
     endCash: { actual: actualEndCash, predicted: predictedEndCash },
-    cashChange: { actual: actualCashChange, predicted: predictedNetCashFlow.toNumber() },
+    cashChange: { actual: actualCashChange, predicted: predictedEndCash - predictedStartCash },
     byActivity: {
       operating: toActivityResult(actualOperating, predictedOperating),
       investing: toActivityResult(actualInvesting, predictedInvesting),
@@ -476,7 +472,9 @@ function buildSankeyData(
   cashAccountIds: string[],
   categoryMap: Map<string, { cashFlowType: string | null; name: string }>,
   accountMap: Map<string, { name: string }>,
-): { 
+  start: Date,
+  end: Date,
+): {
   nodes: Array<{ name: string; category: string }>; 
   links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }> 
 } {
@@ -534,7 +532,7 @@ function buildSankeyData(
       if (!isFromCash && isToCash && toAccountName) {
         const fromName = accountName || '非现金账户'
         const toCashName = toAccountName
-        const actualInflow = calculateTransferInAmountDecimal(amount, fee, coupon)
+        const actualInflow = calculateCashTransferInAmount(amount, fee, coupon)
         addToMap(nonCashSourceNodes, fromName, actualInflow)
         addToMap(cashAccountFlows, toCashName, actualInflow)
         if (!sourceToCashLinks.has(fromName)) sourceToCashLinks.set(fromName, new Map())
@@ -542,7 +540,7 @@ function buildSankeyData(
       } else if (isFromCash && !isToCash && accountName) {
         const fromCashName = accountName
         const toName = toAccountName || '非现金账户'
-        const actualOutflow = calculateBalanceChangeDecimal('transfer', amount, fee, coupon).abs()
+        const actualOutflow = calculateCashFlowAmount('transfer', amount, fee, coupon).abs()
         addToMap(nonCashTargetNodes, toName, actualOutflow)
         addToMap(cashAccountFlows, fromCashName, actualOutflow)
         if (!cashToTargetLinks.has(fromCashName)) cashToTargetLinks.set(fromCashName, new Map())
@@ -551,7 +549,7 @@ function buildSankeyData(
     } else if (type === 'refund' && isFromCash) {
       const catName = categoryName || '退款'
       const cashName = accountName || '现金账户'
-      const actualInflow = calculateBalanceChangeDecimal('refund', amount, fee, ZERO)
+      const actualInflow = calculateCashFlowAmount('refund', amount, fee, ZERO)
       addToMap(incomeCategoryNodes, catName, actualInflow)
       addToMap(cashAccountFlows, cashName, actualInflow)
       if (!sourceToCashLinks.has(catName)) sourceToCashLinks.set(catName, new Map())
@@ -577,6 +575,9 @@ function buildSankeyData(
   })
 
   predictions.forEach(p => {
+    // 同样按 [start, end] 过滤，避免跨月时累计
+    const t = p.date.getTime()
+    if (t < start.getTime() || t > end.getTime()) return
     const isFromCash = cashAccountIds.includes(p.accountId)
     const isToCash = !!p.toAccountId && cashAccountIds.includes(p.toAccountId)
     if (!isFromCash && !isToCash) return

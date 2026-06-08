@@ -18,5 +18,4 @@ export {
 // 预算相关工厂
 export {
   createBudgetFactory,
-  createBudgetAlertFactory,
 } from './budget.factory.js'

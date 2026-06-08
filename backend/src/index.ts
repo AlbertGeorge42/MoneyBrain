@@ -33,7 +33,7 @@ app.use('/api/budgets', budgetRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/data', dataRoutes)
-app.use('/api', investmentRoutes)
+app.use('/api/investments', investmentRoutes)
 
 app.use(errorHandler)
 

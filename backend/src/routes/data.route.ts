@@ -1,22 +1,12 @@
 import { Router, type Request } from 'express'
 import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
 import multer from 'multer'
-import { exportTransactionsCSV, clearAllData, clearTransactionsOnly } from '../services/transaction-export.service.js'
-import { importTransactionsFromRows, parseCSVLine, type ParsedRow } from '../services/transaction-import.service.js'
-import { exportConfig } from '../services/config-export.service.js'
-import { importConfig } from '../services/config-import.service.js'
-import { exportBudgets } from '../services/budget-export.service.js'
-import { importBudgets } from '../services/budget-import.service.js'
+import { exportTransactionsCSV, clearAllData, clearTransactionsOnly, exportConfig, exportBudgets } from '../services/export.service.js'
+import { importTransactionsFromCsv, importConfig, importBudgets } from '../services/import.service.js'
 
 const router = Router()
 
 const upload = multer({ storage: multer.memoryStorage() })
-
-const validateImportRequest = (req: Request) => {
-  if (!req.file) {
-    throw new ValidationError('请上传CSV文件')
-  }
-}
 
 router.delete('/all', asyncHandler(async (_req, res) => {
   await clearAllData()
@@ -47,7 +37,11 @@ router.get('/export', asyncHandler(async (req, res) => {
   res.send(csvContent)
 }))
 
-router.post('/import', upload.single('file'), validateRequest(validateImportRequest), asyncHandler(async (req, res) => {
+router.post('/import', upload.single('file'), validateRequest((req: Request) => {
+  if (!req.file) {
+    throw new ValidationError('请上传CSV文件')
+  }
+}), asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query
   
   let start: Date | undefined
@@ -60,44 +54,7 @@ router.post('/import', upload.single('file'), validateRequest(validateImportRequ
     end = new Date(endDate)
   }
   
-  const content = req.file!.buffer.toString('utf-8')
-  const lines = content.split('\n').filter(line => line.trim())
-
-  if (lines.length < 2) {
-    throw new ValidationError('CSV文件为空或格式错误')
-  }
-
-  const dataLines = lines.slice(1)
-  const parsedRows: ParsedRow[] = []
-
-  for (const line of dataLines) {
-    try {
-      const cols = parseCSVLine(line)
-      if (cols.length < 9) continue
-
-      const [csvId, time, category1, category2, typeStr, amountStr, , account1, account2, note, , feeStr, couponStr, , , , , relatedCsvId] = cols
-
-      parsedRows.push({
-        csvId,
-        time,
-        category1,
-        category2,
-        typeStr,
-        amountStr,
-        account1,
-        account2,
-        note,
-        fee: feeStr ? parseFloat(feeStr) || 0 : 0,
-        coupon: couponStr ? parseFloat(couponStr) || 0 : 0,
-        relatedCsvId,
-      })
-    } catch {
-      // skip invalid lines
-    }
-  }
-
-  const { imported, skipped } = await importTransactionsFromRows(parsedRows, start, end)
-
+  const { imported, skipped } = await importTransactionsFromCsv(req.file!.buffer, start, end)
   return success(res, { imported, skipped, errors: [] })
 }))
 

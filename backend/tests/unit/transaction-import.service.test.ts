@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { importTransactionsFromRows, type ParsedRow } from '../../src/services/transaction-import.service.js'
+import { importTransactionsFromCsv } from '../../src/services/import.service.js'
 
 vi.mock('../../src/index.js', () => {
   const mockPrisma = {
@@ -43,30 +43,22 @@ import { prisma } from '../../src/index.js'
 
 const mockPrisma = prisma as any
 
-function makeRow(overrides: Partial<ParsedRow> = {}): ParsedRow {
-  return {
-    csvId: 'csv1',
-    time: '2025/1/15 10:00:00',
-    category1: '餐饮',
-    category2: '',
-    typeStr: '支出',
-    amountStr: '100',
-    account1: '现金',
-    account2: '',
-    note: '',
-    fee: 0,
-    coupon: 0,
-    relatedCsvId: '',
-    ...overrides,
-  }
+function makeCsvRow(fields: string[]): string {
+  return fields.join(',')
 }
 
-describe('transaction-import.service', () => {
+function makeCsvBuffer(rows: string[][]): Buffer {
+  const header = ['ID', '时间', '分类', '二级分类', '类型', '金额', '币种', '账户1', '账户2', '备注', '已报销', '手续费', '优惠券', '记账者', '账单标记', '标签', '账单图片', '关联账单']
+  const lines = [header.join(','), ...rows.map(r => makeCsvRow(r))]
+  return Buffer.from(lines.join('\n'), 'utf-8')
+}
+
+describe('import.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  describe('importTransactionsFromRows', () => {
+  describe('importTransactionsFromCsv', () => {
     it('负债账户先出普通交易后出还款交易时应该修正账户类型', async () => {
       let accountIdCounter = 0
       mockPrisma.account.findFirst.mockResolvedValue(null)
@@ -108,23 +100,12 @@ describe('transaction-import.service', () => {
         return Promise.resolve({ id: `tx-${Date.now()}`, ...data })
       })
 
-      const expenseRow = makeRow({
-        csvId: 'csv1',
-        typeStr: '支出',
-        account1: '信用卡A',
-        amountStr: '200',
-      })
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '200', 'CNY', '信用卡A', '', '', '', '0', '0', '', '', '', '', ''],
+        ['csv2', '2025/1/16 10:00:00', '还款', '', '还款', '500', 'CNY', '储蓄卡', '信用卡A', '', '', '0', '0', '', '', '', '', ''],
+      ])
 
-      const transferRow = makeRow({
-        csvId: 'csv2',
-        time: '2025/1/16 10:00:00',
-        typeStr: '还款',
-        account1: '储蓄卡',
-        account2: '信用卡A',
-        amountStr: '500',
-      })
-
-      const result = await importTransactionsFromRows([expenseRow, transferRow])
+      const result = await importTransactionsFromCsv(csv)
 
       expect(result.imported).toBe(2)
 
@@ -174,23 +155,12 @@ describe('transaction-import.service', () => {
         return Promise.resolve({ id: `tx-${Date.now()}`, ...data })
       })
 
-      const transferRow = makeRow({
-        csvId: 'csv1',
-        typeStr: '还款',
-        account1: '储蓄卡',
-        account2: '信用卡A',
-        amountStr: '500',
-      })
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '还款', '', '还款', '500', 'CNY', '储蓄卡', '信用卡A', '', '', '0', '0', '', '', '', '', ''],
+        ['csv2', '2025/1/16 10:00:00', '餐饮', '', '支出', '200', 'CNY', '信用卡A', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
 
-      const expenseRow = makeRow({
-        csvId: 'csv2',
-        time: '2025/1/16 10:00:00',
-        typeStr: '支出',
-        account1: '信用卡A',
-        amountStr: '200',
-      })
-
-      const result = await importTransactionsFromRows([transferRow, expenseRow])
+      const result = await importTransactionsFromCsv(csv)
 
       expect(result.imported).toBe(2)
       expect(mockPrisma.account.update).not.toHaveBeenCalled()
@@ -232,12 +202,12 @@ describe('transaction-import.service', () => {
         return Promise.resolve({ id: `tx-${Date.now()}`, ...data })
       })
 
-      const rows = [
-        makeRow({ csvId: 'csv1', account1: '现金', amountStr: '50' }),
-        makeRow({ csvId: 'csv2', account1: '现金', amountStr: '100' }),
-      ]
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '50', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
+        ['csv2', '2025/1/15 11:00:00', '餐饮', '', '支出', '100', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
 
-      const result = await importTransactionsFromRows(rows)
+      const result = await importTransactionsFromCsv(csv)
 
       expect(result.imported).toBe(2)
       expect(mockPrisma.account.update).not.toHaveBeenCalled()
@@ -280,15 +250,11 @@ describe('transaction-import.service', () => {
         return Promise.resolve({ id: `tx-${Date.now()}`, ...data })
       })
 
-      const transferRow = makeRow({
-        csvId: 'csv1',
-        typeStr: '还款',
-        account1: '储蓄卡',
-        account2: '信用卡A',
-        amountStr: '500',
-      })
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '还款', '', '还款', '500', 'CNY', '储蓄卡', '信用卡A', '', '', '0', '0', '', '', '', '', ''],
+      ])
 
-      const result = await importTransactionsFromRows([transferRow])
+      const result = await importTransactionsFromCsv(csv)
 
       expect(result.imported).toBe(1)
       expect(mockPrisma.account.update).toHaveBeenCalledTimes(1)
