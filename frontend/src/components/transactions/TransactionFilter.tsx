@@ -10,7 +10,7 @@ import {
   createYearToDatePreset,
   formatRangeValue,
 } from '../../utils/timePicker'
-import { TRANSACTION_TYPE_CONFIG, TRANSACTION_COLORS } from '../../constants/transactionType'
+import { TRANSACTION_TYPE_CONFIG, TRANSACTION_COLORS, TransactionType } from '../../constants/transactionType'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',
@@ -57,7 +57,7 @@ const resolveAccountLabel = (
 }
 
 export interface TransactionFilterValues {
-  type: string[]
+  type: TransactionType[]
   accountId: string[]
   categoryId: string[]
   dateRange: RangeTimeValue | null
@@ -193,7 +193,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   const renderFilterTags = () => (
     <>
       {filters.type.map(t => {
-        const config = TRANSACTION_TYPE_CONFIG[t as keyof typeof TRANSACTION_TYPE_CONFIG]
+        const config = TRANSACTION_TYPE_CONFIG[t]
         return (
           <BorderedTag
             key={t}
@@ -258,10 +258,20 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                       allowClear
                       style={{ width: '100%' }}
                       value={filters.type}
-                      onChange={type => onFilterChange({ ...filters, type })}
+                      onChange={type => {
+                        // 过滤确保只保留有效的 TransactionType
+                        const validTypes = (type as string[]).filter(
+                          (t): t is TransactionType => t in TRANSACTION_TYPE_CONFIG
+                        )
+                        onFilterChange({ ...filters, type: validTypes })
+                      }}
                       tagRender={(props) => {
                         const { value, closable, onClose } = props
-                        const config = TRANSACTION_TYPE_CONFIG[value as keyof typeof TRANSACTION_TYPE_CONFIG]
+                        // 类型守卫：确保 value 是有效的 TransactionType
+                        if (!(value in TRANSACTION_TYPE_CONFIG)) {
+                          return null
+                        }
+                        const config = TRANSACTION_TYPE_CONFIG[value as TransactionType]
                         return (
                           <BorderedTag closable={closable} onClose={onClose} color={config.color}>
                             {config.text}
