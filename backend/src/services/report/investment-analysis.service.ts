@@ -178,6 +178,7 @@ async function getCashFlowsInRange(
   })
   const accountMap = new Map(accounts.map(a => [a.id, a.name]))
 
+  // 仅查询 transfer 类型：本金投入/取出。income/expense 已通过 balanceCache 反映在余额中，不应重复计入现金流
   const transfers = await prisma.transaction.findMany({
     where: {
       type: 'transfer',
@@ -679,8 +680,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
       const accNetCashFlow = accInvested - accWithdrawn
       const accPeriodReturn = accEndBalance - accStartBalance - accNetCashFlow
-      const totalCapital = accStartBalance + accInvested
-      const accReturnRate = totalCapital !== 0 ? (accPeriodReturn / totalCapital) * 100 : 0
+      const accReturnRate = accStartBalance !== 0 ? (accPeriodReturn / accStartBalance) * 100 : 0
 
       const accMaxCapital = calculateMaxCapitalEmployed(accountCashFlows, accStartBalance)
       const accCumulativeReturn = accEndBalance + accWithdrawn - accStartBalance - accInvested
