@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Modal, Table, Button, Form, Input, InputNumber, Select, Space, message, theme, Grid, Dropdown, Tooltip, Empty } from 'antd'
+import { Modal, Table, Button, Form, Input, InputNumber, Select, Space, theme, Grid, Dropdown, Tooltip, Empty } from 'antd'
 import { PlusOutlined, DeleteOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
@@ -10,6 +10,7 @@ import { investmentApi, InvestmentAssetClass } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
 import { SortableRow, renderDragHandle } from '../../components/settings/shared'
 import IconPicker from '../../components/common/IconPicker'
+import { useNotify } from '../../hooks/useNotify'
 
 interface Props {
   visible: boolean
@@ -25,6 +26,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const { data: accounts = [] } = useAccounts()
+  const notify = useNotify()
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(initialAccountId)
   const [assetClasses, setAssetClasses] = useState<InvestmentAssetClass[]>([])
@@ -57,7 +59,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const errMsg = (err as any)?.response?.data?.error?.message || '加载资产类型失败'
-      message.error(errMsg)
+      notify.error(errMsg)
     } finally {
       setLoading(false)
     }
@@ -82,10 +84,10 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
   const handleDelete = async (id: string) => {
     try {
       await investmentApi.deleteAssetClass(id)
-      message.success('删除成功')
+      notify.success('删除成功')
       loadAssetClasses()
     } catch {
-      message.error('删除失败')
+      notify.error('删除失败')
     }
   }
 
@@ -94,20 +96,20 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
       const values = await form.validateFields()
       if (editingItem) {
         await investmentApi.updateAssetClass(editingItem.id, values)
-        message.success('更新成功')
+        notify.success('更新成功')
       } else {
         if (!selectedAccountId) {
-          message.error('请先选择投资账户')
+          notify.error('请先选择投资账户')
           return
         }
         await investmentApi.createAssetClass(selectedAccountId, values)
-        message.success('创建成功')
+        notify.success('创建成功')
       }
       setFormVisible(false)
       form.resetFields()
       loadAssetClasses()
     } catch {
-      message.error('操作失败')
+      notify.error('操作失败')
     }
   }
 
@@ -128,9 +130,9 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
 
     try {
       await investmentApi.reorderAssetClasses(selectedAccountId, reordered.map(a => a.id))
-      message.success('排序更新成功')
+      notify.success('排序更新成功')
     } catch {
-      message.error('排序更新失败')
+      notify.error('排序更新失败')
       setAssetClasses(assetClasses)
     }
   }

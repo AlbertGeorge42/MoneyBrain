@@ -5,7 +5,6 @@ import {
   Modal,
   Space,
   Tag,
-  message,
   Tabs,
   Alert,
   Divider,
@@ -37,6 +36,7 @@ import {
   useClearTransactions,
   useClearAll,
 } from '../queries'
+import { useNotify } from '../hooks/useNotify'
 import { useTheme } from '../styles/ThemeContext'
 import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
 import { downloadBlob, todayFilename } from '../utils/download'
@@ -71,6 +71,7 @@ const themeOptions = [
 const Settings: React.FC = () => {
   const { token } = theme.useToken()
   const { mode, theme: currentTheme, setThemeMode } = useTheme()
+  const notify = useNotify()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const configFileInputRef = useRef<HTMLInputElement>(null)
   const budgetFileInputRef = useRef<HTMLInputElement>(null)
@@ -115,7 +116,7 @@ const Settings: React.FC = () => {
 
   const handleExportCSV = async () => {
     setExporting(true)
-    const hide = message.loading('正在导出数据，请稍候...', 0)
+    const hide = notify.loading('正在导出数据，请稍候...', 0)
 
     try {
       const params: { startDate?: string; endDate?: string } = {}
@@ -128,10 +129,10 @@ const Settings: React.FC = () => {
       await downloadBlob(response.data, todayFilename('moneybrain-export', 'csv'))
 
       hide()
-      message.success('数据导出成功，文件已开始下载')
+      notify.success('数据导出成功，文件已开始下载')
     } catch (error) {
       hide()
-      message.error('数据导出失败，请重试')
+      notify.error('数据导出失败，请重试')
       console.error('Export CSV error:', error)
     } finally {
       setExporting(false)
@@ -153,7 +154,7 @@ const Settings: React.FC = () => {
       const result = response.data
 
       if (!result.success || !result.data) {
-        message.error(result.error?.message || '导入失败')
+        notify.error(result.error?.message || '导入失败')
         return
       }
 
@@ -161,9 +162,9 @@ const Settings: React.FC = () => {
         imported: result.data.imported,
         skipped: result.data.skipped,
       })
-      message.success(`导入完成：成功 ${result.data.imported} 条，跳过 ${result.data.skipped} 条`)
+      notify.success(`导入完成：成功 ${result.data.imported} 条，跳过 ${result.data.skipped} 条`)
     } catch {
-      message.error('导入失败，请检查 CSV 格式')
+      notify.error('导入失败，请检查 CSV 格式')
     } finally {
       setImporting(false)
     }
@@ -173,7 +174,7 @@ const Settings: React.FC = () => {
     const file = event.target.files?.[0]
     if (file) {
       if (!file.name.endsWith('.csv')) {
-        message.error('请选择 CSV 文件')
+        notify.error('请选择 CSV 文件')
       } else {
         void handleImportCSV(file)
       }
@@ -186,17 +187,17 @@ const Settings: React.FC = () => {
 
   const handleExportConfig = async () => {
     setConfigExporting(true)
-    const hide = message.loading('正在导出配置，请稍候...', 0)
+    const hide = notify.loading('正在导出配置，请稍候...', 0)
 
     try {
       const response = await dataApi.exportConfig()
       await downloadBlob(response.data, todayFilename('moneybrain-config', 'json'))
 
       hide()
-      message.success('配置导出成功，文件已开始下载')
+      notify.success('配置导出成功，文件已开始下载')
     } catch (error) {
       hide()
-      message.error('配置导出失败，请重试')
+      notify.error('配置导出失败，请重试')
       console.error('Export config error:', error)
     } finally {
       setConfigExporting(false)
@@ -205,7 +206,7 @@ const Settings: React.FC = () => {
 
   const handleImportConfig = async (file: File) => {
     if (!file.name.endsWith('.json')) {
-      message.error('请选择 JSON 文件')
+      notify.error('请选择 JSON 文件')
       return
     }
     setConfigImporting(true)
@@ -216,14 +217,14 @@ const Settings: React.FC = () => {
       const result = response.data
 
       if (!result.success || !result.data) {
-        message.error(result.error?.message || '导入失败')
+        notify.error(result.error?.message || '导入失败')
         return
       }
 
       setConfigImportResult(result.data)
-      message.success('配置导入完成')
+      notify.success('配置导入完成')
     } catch {
-      message.error('配置导入失败，请检查 JSON 格式')
+      notify.error('配置导入失败，请检查 JSON 格式')
     } finally {
       setConfigImporting(false)
     }
@@ -247,13 +248,13 @@ const Settings: React.FC = () => {
     if (!file) return
     if (type === 'csv') {
       if (!file.name.endsWith('.csv')) {
-        message.error('请拖拽 CSV 文件')
+        notify.error('请拖拽 CSV 文件')
         return
       }
       void handleImportCSV(file)
     } else {
       if (!file.name.endsWith('.json')) {
-        message.error('请拖拽 JSON 文件')
+        notify.error('请拖拽 JSON 文件')
         return
       }
       void handleImportConfig(file)
@@ -274,17 +275,17 @@ const Settings: React.FC = () => {
 
   const handleExportBudgets = async () => {
     setBudgetExporting(true)
-    const hide = message.loading('正在导出预算配置，请稍候...', 0)
+    const hide = notify.loading('正在导出预算配置，请稍候...', 0)
 
     try {
       const response = await dataApi.exportBudgets()
       await downloadBlob(response.data, todayFilename('moneybrain-budgets', 'json'))
 
       hide()
-      message.success('预算配置导出成功，文件已开始下载')
+      notify.success('预算配置导出成功，文件已开始下载')
     } catch (error) {
       hide()
-      message.error('预算配置导出失败，请重试')
+      notify.error('预算配置导出失败，请重试')
       console.error('Export budgets error:', error)
     } finally {
       setBudgetExporting(false)
@@ -293,7 +294,7 @@ const Settings: React.FC = () => {
 
   const handleImportBudgets = async (file: File) => {
     if (!file.name.endsWith('.json')) {
-      message.error('请选择 JSON 文件')
+      notify.error('请选择 JSON 文件')
       return
     }
     setBudgetImporting(true)
@@ -304,14 +305,14 @@ const Settings: React.FC = () => {
       const result = response.data
 
       if (!result.success || !result.data) {
-        message.error(result.error?.message || '导入失败')
+        notify.error(result.error?.message || '导入失败')
         return
       }
 
       setBudgetImportResult(result.data)
-      message.success('预算配置导入完成')
+      notify.success('预算配置导入完成')
     } catch {
-      message.error('预算配置导入失败，请检查 JSON 格式')
+      notify.error('预算配置导入失败，请检查 JSON 格式')
     } finally {
       setBudgetImporting(false)
     }
@@ -330,18 +331,18 @@ const Settings: React.FC = () => {
   const handleClearTransactions = async () => {
     try {
       await clearTransactionsMutation.mutateAsync()
-      message.success('交易数据已清空')
+      notify.success('交易数据已清空')
     } catch {
-      message.error('清空交易数据失败')
+      notify.error('清空交易数据失败')
     }
   }
 
   const handleClearData = async () => {
     try {
       await clearAllMutation.mutateAsync()
-      message.success('所有数据已清空')
+      notify.success('所有数据已清空')
     } catch {
-      message.error('清空数据失败')
+      notify.error('清空数据失败')
     }
   }
 

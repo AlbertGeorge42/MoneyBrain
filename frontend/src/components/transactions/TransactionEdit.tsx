@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { Form, Button, message, theme } from 'antd'
+import { Form, Button, theme } from 'antd'
 import { DeleteOutlined } from '@ant-design/icons'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import TransactionForm, { TransactionFormType } from './TransactionForm'
 import TransactionModal from './TransactionModal'
 import { formatTransactionSubmitValues } from '../../utils/transaction'
+import { useNotify } from '../../hooks/useNotify'
 
 type DetailTab = 'edit' | 'refund' | 'delete'
 
@@ -30,6 +31,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
   onCancel,
 }) => {
   const { token } = theme.useToken()
+  const notify = useNotify()
   const [form] = Form.useForm()
   const [refundForm] = Form.useForm()
   const [activeTab, setActiveTab] = useState<DetailTab>('edit')
@@ -72,7 +74,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
         const submitValues = formatTransactionSubmitValues(values, getEditType(transaction))
         await onEdit(submitValues)
       }
-      message.success('更新成功')
+      // 业务提示由父组件 Transactions 负责（避免双弹）
       onCancel()
     } catch {
       // 错误由 Form 处理
@@ -88,7 +90,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
         date: values.date.format('YYYY-MM-DD'),
       }
       await onRefund(refundData)
-      message.success('退款记录成功')
+      // 业务提示由父组件 Transactions 负责（避免双弹）
       onCancel()
     } catch {
       // 错误由 Form 处理，不再显示重复错误消息
@@ -99,10 +101,11 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
     if (!transaction) return
     try {
       await onDelete()
-      message.success('删除成功')
+      // 业务提示由父组件 Transactions 负责（避免双弹）
       onCancel()
-    } catch {
-      message.error('删除失败')
+    } catch (error) {
+      // 删除失败时仅在此处显式提示
+      notify.error((error as Error)?.message || '删除失败')
     }
   }
 

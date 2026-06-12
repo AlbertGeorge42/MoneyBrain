@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Modal, Table, Button, Form, message, Tabs, Tooltip, Dropdown, theme } from 'antd'
+import { Modal, Table, Button, Form, Tabs, Tooltip, Dropdown, theme } from 'antd'
 import { PlusOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAccounts, useAccountCategories, useCreateAccount, useUpdateAccount, useDeleteAccount } from '../../queries'
@@ -13,6 +13,7 @@ import DynamicIcon from '../common/DynamicIcon'
 import CategoryForm from './CategoryForm'
 import AccountForm from './AccountForm'
 import MoveModal from './MoveModal'
+import { useNotify } from '../../hooks/useNotify'
 import {
   useMoveModal,
   useSortableTable,
@@ -33,6 +34,7 @@ const AccountSortableRow = (props: React.ComponentProps<typeof SortableRow>) => 
 
 const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const { token } = theme.useToken()
+  const notify = useNotify()
   const queryClient = useQueryClient()
   const { data: accountCategories = [] } = useAccountCategories()
   const { data: accounts = [] } = useAccounts()
@@ -93,10 +95,10 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleDeleteCategory = async (id: string) => {
     try {
       await accountCategoryApi.delete(id)
-      message.success('删除成功')
+      notify.success('删除成功')
       queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
     } catch {
-      message.error('删除失败')
+      notify.error('删除失败')
     }
   }
 
@@ -105,15 +107,15 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       const values = await categoryForm.validateFields()
       if (editingCategory) {
         await accountCategoryApi.update(editingCategory.id, values)
-        message.success('更新成功')
+        notify.success('更新成功')
       } else {
         await accountCategoryApi.create(values)
-        message.success('创建成功')
+        notify.success('创建成功')
       }
       setCategoryFormVisible(false)
       categoryForm.resetFields()
       queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
-    } catch { message.error('操作失败') }
+    } catch { notify.error('操作失败') }
   }
 
   const handleAddAccount = (categoryId: string) => {
@@ -145,15 +147,15 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
           onOk: async () => {
             try {
               await deleteAccountMutation.mutateAsync({ id, force: true })
-              message.success(`删除成功，已删除 ${transactionCount} 条交易记录`)
-            } catch { message.error('删除失败') }
+              notify.success(`删除成功，已删除 ${transactionCount} 条交易记录`)
+            } catch { notify.error('删除失败') }
           },
         })
       } else {
         await deleteAccountMutation.mutateAsync({ id })
-        message.success('删除成功')
+        notify.success('删除成功')
       }
-    } catch { message.error('删除失败') }
+    } catch { notify.error('删除失败') }
   }
 
   const handleAccountSubmit = async () => {
@@ -168,29 +170,29 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       }
       if (editingAccount) {
         await updateAccountMutation.mutateAsync({ id: editingAccount.id, data: submitData })
-        message.success('更新成功')
+        notify.success('更新成功')
       } else {
         await createAccountMutation.mutateAsync(submitData)
-        message.success('创建成功')
+        notify.success('创建成功')
       }
       setAccountFormVisible(false)
       accountForm.resetFields()
-    } catch { message.error('操作失败') }
+    } catch { notify.error('操作失败') }
   }
 
   const handleMoveConfirm = async () => {
     if (!moveModal.item) return
     if (moveModal.item.type !== 'account') {
-      message.warning('分类无法移动')
+      notify.warning('分类无法移动')
       return
     }
-    if (!moveModal.targetId) { message.warning('请选择目标分类'); return }
+    if (!moveModal.targetId) { notify.warning('请选择目标分类'); return }
     moveModal.setLoading(true)
     try {
       await updateAccountMutation.mutateAsync({ id: moveModal.item.id, data: { categoryId: moveModal.targetId } })
-      message.success('移动成功')
+      notify.success('移动成功')
       moveModal.close()
-    } catch { message.error('移动失败') }
+    } catch { notify.error('移动失败') }
     finally { moveModal.setLoading(false) }
   }
 
@@ -226,12 +228,12 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       setLocalAccountCategories(localAccountCategories.map(c => c.type === type ? { ...c, sort: reordered.findIndex(r => r.id === c.id) } : c))
       try {
         await accountCategoryApi.updateSort(reordered.map((c, i) => ({ id: c.id, sort: i, parentId: null })))
-        message.success('排序更新成功')
-      } catch { message.error('排序更新失败'); setLocalAccountCategories(accountCategories) }
+        notify.success('排序更新成功')
+      } catch { notify.error('排序更新失败'); setLocalAccountCategories(accountCategories) }
     } else if (isAccountDrag && isOverAccount) {
       const activeId = activeKey.replace('account-', ''), overId = overKey.replace('account-', '')
       const activeAcc = localAccounts.find(a => a.id === activeId), overAcc = localAccounts.find(a => a.id === overId)
-      if (!activeAcc || !overAcc || activeAcc.categoryId !== overAcc.categoryId) { message.warning('只能在同一分类下调整账户顺序'); return }
+      if (!activeAcc || !overAcc || activeAcc.categoryId !== overAcc.categoryId) { notify.warning('只能在同一分类下调整账户顺序'); return }
       const catAccs = localAccounts.filter(a => a.categoryId === activeAcc.categoryId).sort((a, b) => a.sort - b.sort)
       const oldIdx = catAccs.findIndex(a => a.id === activeId), newIdx = catAccs.findIndex(a => a.id === overId)
       if (oldIdx === -1 || newIdx === -1) return
@@ -239,9 +241,9 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       setLocalAccounts(localAccounts.map(a => a.categoryId === activeAcc.categoryId ? { ...a, sort: reordered.findIndex(r => r.id === a.id) } : a))
       try {
         await accountApi.updateSort(reordered.map((a, i) => ({ id: a.id, sort: i, categoryId: activeAcc.categoryId })))
-        message.success('账户排序更新成功')
-      } catch { message.error('账户排序更新失败'); setLocalAccounts(accounts) }
-    } else { message.warning('只能在同一类型内调整顺序') }
+        notify.success('账户排序更新成功')
+      } catch { notify.error('账户排序更新失败'); setLocalAccounts(accounts) }
+    } else { notify.warning('只能在同一类型内调整顺序') }
   }
 
   const getSettingMenuItems = (record: AccountTreeNode): MenuProps['items'] => createSettingMenuItems({

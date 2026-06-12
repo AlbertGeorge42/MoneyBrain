@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Modal, Select, DatePicker, Table, InputNumber, Space, message, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
+import { Modal, Select, DatePicker, Table, InputNumber, Space, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
 import { useAccounts } from '../../queries'
 import { investmentApi, accountApi, InvestmentAssetClass, InvestmentAllocationSnapshot } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
+import { useNotify } from '../../hooks/useNotify'
 import dayjs from 'dayjs'
 
 interface Props {
@@ -20,6 +21,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const { data: accounts = [] } = useAccounts()
+  const notify = useNotify()
 
   const isEditMode = !!editingSnapshot
 
@@ -116,7 +118,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
         })))
       }
     } catch {
-      message.error('加载资产类型失败')
+      notify.error('加载资产类型失败')
     } finally {
       setLoading(false)
     }
@@ -174,12 +176,12 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
 
   const handleSave = async () => {
     if (!selectedAccountId || !selectedDate) {
-      message.error('请选择账户和日期')
+      notify.error('请选择账户和日期')
       return
     }
 
     if (assetClasses.length === 0) {
-      message.error('请先在设置中添加资产类型')
+      notify.error('请先在设置中添加资产类型')
       return
     }
 
@@ -196,19 +198,19 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
 
       if (isEditMode && editingSnapshot) {
         await investmentApi.updateSnapshot(editingSnapshot.id, snapshotData)
-        message.success('快照更新成功')
+        notify.success('快照更新成功')
       } else {
         await investmentApi.saveSnapshot({
           accountId: selectedAccountId,
           ...snapshotData,
         })
-        message.success('快照保存成功')
+        notify.success('快照保存成功')
       }
       
       onSuccess()
       onClose()
     } catch {
-      message.error('保存失败')
+      notify.error('保存失败')
     } finally {
       setSaving(false)
     }

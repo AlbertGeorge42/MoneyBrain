@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ConfigProvider } from 'antd'
+import { App as AntApp, ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import App from './App'
 import './styles/global.css'
@@ -39,7 +39,10 @@ const ThemedApp: React.FC = () => {
       locale={zhCN}
       theme={createThemeConfig(isDark)}
     >
-      <App />
+      {/* antd <App> 必须在 ConfigProvider 内、Router 外，让 useApp() 能取到主题感知的 message/notification/modal 实例 */}
+      <AntApp>
+        <App />
+      </AntApp>
     </ConfigProvider>
   )
 }

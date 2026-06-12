@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Modal, Tabs, Table, Button, Form, Input, message, Tooltip, Dropdown } from 'antd'
+import { Modal, Tabs, Table, Button, Form, Input, Tooltip, Dropdown } from 'antd'
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTransactionCategories } from '../../queries'
@@ -12,12 +12,14 @@ import MoveModal from './MoveModal'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import { useNotify } from '../../hooks/useNotify'
 import { useMoveModal, useSortableTable, SortableRow, createSettingMenuItems, renderExpandIcon, renderDragHandle, buildMoveTargetTreeForCategory, getCurrentPositionLabel } from './shared'
 import type { TransactionTreeNode, MoveTreeDataNode, MenuProps } from './shared'
 
 interface Props { visible: boolean; onClose: () => void }
 
 const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
+  const notify = useNotify()
   const queryClient = useQueryClient()
   const { data: transactionCategories = [] } = useTransactionCategories()
   const [activeTab, setActiveTab] = useState('income')
@@ -54,7 +56,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       if (res.data.success && res.data.data) {
         const { transactionCount, childrenCount } = res.data.data
         if (childrenCount > 0) {
-          message.warning('该分类下存在子分类，无法删除')
+          notify.warning('该分类下存在子分类，无法删除')
           return
         }
         setDeletingCategory(record)
@@ -63,12 +65,12 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
         setTransferTargetId(null)
         setDeleteModalVisible(true)
       }
-    } catch { message.error('获取分类信息失败') }
+    } catch { notify.error('获取分类信息失败') }
   }
 
   const handleDeleteConfirm = async () => {
     if (!deletingCategory) return
-    if (deleteTransactionCount > 0 && deleteAction === 'transfer' && !transferTargetId) { message.warning('请选择转移目标分类'); return }
+    if (deleteTransactionCount > 0 && deleteAction === 'transfer' && !transferTargetId) { notify.warning('请选择转移目标分类'); return }
     setDeleteLoading(true)
     try {
       const params: { transferToCategoryId?: string; deleteTransactions?: boolean } = {}
@@ -79,34 +81,34 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       const res = await transactionCategoryApi.delete(deletingCategory.id, params)
       if (res.data.success && res.data.data) {
         if (deleteTransactionCount === 0) {
-          message.success('删除成功')
+          notify.success('删除成功')
         } else {
-          message.success(deleteAction === 'transfer' ? `删除成功，已转移 ${res.data.data.transferredTransactions || 0} 笔交易` : `删除成功，已删除 ${res.data.data.deletedTransactions || 0} 笔交易`)
+          notify.success(deleteAction === 'transfer' ? `删除成功，已转移 ${res.data.data.transferredTransactions || 0} 笔交易` : `删除成功，已删除 ${res.data.data.deletedTransactions || 0} 笔交易`)
         }
         setDeleteModalVisible(false); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all })
       }
-    } catch { message.error('删除失败') }
+    } catch { notify.error('删除失败') }
     finally { setDeleteLoading(false) }
   }
 
   const handleMoveConfirm = async () => {
     if (!moveModal.item) return
-    if (moveModal.targetId === undefined) { message.warning('请选择目标位置'); return }
+    if (moveModal.targetId === undefined) { notify.warning('请选择目标位置'); return }
     moveModal.setLoading(true)
     try {
       const res = await transactionCategoryApi.move(moveModal.item.id, { newParentId: moveModal.targetId })
-      if (res.data.success) { message.success('移动成功'); moveModal.close(); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all }) }
-    } catch { message.error('移动失败') }
+      if (res.data.success) { notify.success('移动成功'); moveModal.close(); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all }) }
+    } catch { notify.error('移动失败') }
     finally { moveModal.setLoading(false) }
   }
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
-      if (editingItem) { await transactionCategoryApi.update(editingItem.id, values); message.success('更新成功') }
-      else { await transactionCategoryApi.create(values); message.success('创建成功') }
+      if (editingItem) { await transactionCategoryApi.update(editingItem.id, values); notify.success('更新成功') }
+      else { await transactionCategoryApi.create(values); notify.success('创建成功') }
       setFormVisible(false); queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all })
-    } catch { message.error('操作失败') }
+    } catch { notify.error('操作失败') }
   }
 
   const handleDragEnd = async (event: DragEndEvent, type: 'income' | 'expense' | 'transfer') => {
@@ -116,24 +118,24 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     const activeCat = localCategories.find(c => c.id === activeId), overCat = localCategories.find(c => c.id === overId)
     if (!activeCat || !overCat) return
     const isTopLevel = !activeCat.parentId && !overCat.parentId, isSecondLevel = activeCat.parentId && overCat.parentId
-    if (!isTopLevel && !isSecondLevel) { message.warning('只能在同一层级内调整顺序'); return }
-    if (isSecondLevel && activeCat.parentId !== overCat.parentId) { message.warning('只能在同一父分类下调整子分类顺序'); return }
+    if (!isTopLevel && !isSecondLevel) { notify.warning('只能在同一层级内调整顺序'); return }
+    if (isSecondLevel && activeCat.parentId !== overCat.parentId) { notify.warning('只能在同一父分类下调整子分类顺序'); return }
     if (isTopLevel) {
       const cats = localCategories.filter(c => c.type === type && !c.parentId).sort((a, b) => a.sort - b.sort)
       const oldIdx = cats.findIndex(c => c.id === activeId), newIdx = cats.findIndex(c => c.id === overId)
       if (oldIdx === -1 || newIdx === -1) return
       const reordered = arrayMove(cats, oldIdx, newIdx)
       setLocalCategories(localCategories.map(c => c.type === type && !c.parentId ? { ...c, sort: reordered.findIndex(r => r.id === c.id) } : c))
-      try { await transactionCategoryApi.updateSort(reordered.map((c, i) => ({ id: c.id, sort: i, parentId: null }))); message.success('排序更新成功') }
-      catch { message.error('排序更新失败'); setLocalCategories(transactionCategories) }
+      try { await transactionCategoryApi.updateSort(reordered.map((c, i) => ({ id: c.id, sort: i, parentId: null }))); notify.success('排序更新成功') }
+      catch { notify.error('排序更新失败'); setLocalCategories(transactionCategories) }
     } else {
       const sibs = localCategories.filter(c => c.parentId === activeCat.parentId).sort((a, b) => a.sort - b.sort)
       const oldIdx = sibs.findIndex(c => c.id === activeId), newIdx = sibs.findIndex(c => c.id === overId)
       if (oldIdx === -1 || newIdx === -1) return
       const reordered = arrayMove(sibs, oldIdx, newIdx)
       setLocalCategories(localCategories.map(c => c.parentId === activeCat.parentId ? { ...c, sort: reordered.findIndex(r => r.id === c.id) } : c))
-      try { await transactionCategoryApi.updateSort(reordered.map((c, i) => ({ id: c.id, sort: i, parentId: activeCat.parentId }))); message.success('子分类排序更新成功') }
-      catch { message.error('子分类排序更新失败'); setLocalCategories(transactionCategories) }
+      try { await transactionCategoryApi.updateSort(reordered.map((c, i) => ({ id: c.id, sort: i, parentId: activeCat.parentId }))); notify.success('子分类排序更新成功') }
+      catch { notify.error('子分类排序更新失败'); setLocalCategories(transactionCategories) }
     }
   }
 

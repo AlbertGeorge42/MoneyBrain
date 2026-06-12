@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Card, InputNumber, Modal, Space, Tabs, message, theme } from 'antd'
+import { Card, InputNumber, Modal, Space, Tabs, theme } from 'antd'
 import dayjs from 'dayjs'
 import { PageHeader } from '../components/common'
 import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
@@ -22,6 +22,7 @@ import {
   accountApi,
   type BalanceSheetAccountItem,
 } from '../services/api'
+import { useNotify } from '../hooks/useNotify'
 import {
   useTransactionEarliestDate,
   useBalanceSheet,
@@ -122,6 +123,7 @@ const baseInvestmentPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDa
 
 const Reports: React.FC = () => {
   const { token } = theme.useToken()
+  const notify = useNotify()
   const [activeTab, setActiveTab] = useState('balance-sheet')
   const [selectedBalanceTime, setSelectedBalanceTime] = useState<PointTimeValue>(createPointValue('month', dayjs()))
   const [calibrateVisible, setCalibrateVisible] = useState(false)
@@ -224,7 +226,7 @@ const Reports: React.FC = () => {
           .filter((item) => item.amount !== 0) || []
 
       if (adjustments.length === 0) {
-        message.info('没有需要校准的账户')
+        notify.info('没有需要校准的账户')
         setCalibrateVisible(false)
         return
       }
@@ -235,11 +237,11 @@ const Reports: React.FC = () => {
         note: `报表校准 ${selectedBalanceTime.value.format('YYYY-MM')}`,
       })
 
-      message.success(`已生成 ${response.data.data?.count || 0} 条平账记录`)
+      notify.success(`已生成 ${response.data.data?.count || 0} 条平账记录`)
       setCalibrateVisible(false)
       void refetchBalanceSheet()
     } catch {
-      message.error('保存失败')
+      notify.error('保存失败')
     }
   }
 

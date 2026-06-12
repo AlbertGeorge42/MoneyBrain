@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import {
   Button, Card, Progress, Space, Tag, Empty, theme,
-  Typography, Popconfirm, message, Form,
+  Typography, Popconfirm, Form,
 } from 'antd'
 import {
   PlusOutlined, DeleteOutlined, EditOutlined,
@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons'
 import { PageHeader } from '../components/common'
 import { BudgetModal, BudgetForm, BudgetFormType } from '../components/budgets'
+import { useNotify } from '../hooks/useNotify'
 import {
   useBudgets,
   useBudgetStatuses,
@@ -39,6 +40,7 @@ const PERIOD_LABELS: Record<string, string> = {
 
 const Budgets: React.FC = () => {
   const { token } = theme.useToken()
+  const notify = useNotify()
 
   const { data: budgets = [] } = useBudgets()
   const { data: accounts = [] } = useAccounts()
@@ -89,25 +91,25 @@ const Budgets: React.FC = () => {
 
       if (editingBudget) {
         await updateBudget.mutateAsync({ id: editingBudget.id, data: payload })
-        message.success('更新成功')
+        notify.success('更新成功')
       } else {
         await createBudget.mutateAsync(payload)
-        message.success('创建成功')
+        notify.success('创建成功')
       }
 
       setModalVisible(false)
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
-      message.error(editingBudget ? '更新失败' : '创建失败')
+      notify.error(editingBudget ? '更新失败' : '创建失败')
     }
   }
 
   const handleDelete = async (id: string) => {
     try {
       await deleteBudgetMutation.mutateAsync(id)
-      message.success('删除成功')
+      notify.success('删除成功')
     } catch {
-      message.error('删除失败')
+      notify.error('删除失败')
     }
   }
 

@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
-import { Button, Card, message, theme } from 'antd'
+import { Button, Card, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { Transaction } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useNotify } from '../hooks/useNotify'
 import {
   useTransactions,
   useTransactionStats,
@@ -40,6 +41,7 @@ const Transactions: React.FC = () => {
   const [pageSize, setPageSize] = useState(20)
   const { token } = theme.useToken()
   const isMobile = useIsMobile()
+  const notify = useNotify()
 
   const [queryParams, setQueryParams] = useState<Record<string, unknown>>({
     page: 1,
@@ -74,14 +76,14 @@ const Transactions: React.FC = () => {
 
   const handleCreateSubmit = async (values: unknown) => {
     await createTransaction.mutateAsync(values as Record<string, unknown>)
-    message.success('创建成功')
+    notify.success('创建成功')
     setCreateModalVisible(false)
   }
 
   const handleEditSubmit = async (values: unknown) => {
     if (!selectedTransaction) return
     await updateTransaction.mutateAsync({ id: selectedTransaction.id, data: values as Partial<Transaction> })
-    message.success('更新成功')
+    notify.success('更新成功')
   }
 
   const handleRefundSubmit = async (values: unknown) => {
@@ -97,13 +99,13 @@ const Transactions: React.FC = () => {
       note: (values as { note?: string }).note,
     }
     await createTransaction.mutateAsync(data)
-    message.success('退款记录成功')
+    notify.success('退款记录成功')
   }
 
   const handleDelete = async () => {
     if (!selectedTransaction) return
     await deleteTransaction.mutateAsync(selectedTransaction.id)
-    message.success('删除成功')
+    notify.success('删除成功')
   }
 
   const handleSearch = () => {

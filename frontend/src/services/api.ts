@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { message } from 'antd'
 import type {
   Account,
   AccountCategory,
@@ -101,10 +100,14 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    const msg = error.response?.data?.error?.message || error.message || '请求失败'
-    message.error(msg)
+    // 仅做错误归一化：把后端业务消息提取到 error.message，
+    // 不在此处弹错。UI 提示由 useNotify() 在组件层显式触发。
+    const apiMessage = error.response?.data?.error?.message
+    if (apiMessage) {
+      error.message = apiMessage
+    }
     return Promise.reject(error)
-  }
+  },
 )
 
 export const accountCategoryApi = {

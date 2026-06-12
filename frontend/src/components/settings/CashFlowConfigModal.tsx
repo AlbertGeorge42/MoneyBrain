@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Modal, Table, Tabs, Tag, Dropdown, Button, message, theme } from 'antd'
+import { Modal, Table, Tabs, Tag, Dropdown, Button, theme } from 'antd'
 import { SettingOutlined, ExportOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAccountCategories, useTransactionCategories } from '../../queries'
@@ -9,6 +9,7 @@ import DynamicIcon from '../common/DynamicIcon'
 import MoveModal from './MoveModal'
 import { renderExpandIcon, type CashTreeNode, type ActivityTreeNode, type MenuProps, type MoveTreeDataNode } from './shared'
 import { useMoveModal } from './shared'
+import { useNotify } from '../../hooks/useNotify'
 
 interface CashFlowConfigModalProps {
   visible: boolean
@@ -30,6 +31,7 @@ const ACTIVITY_GROUPS: Record<string, { label: string; color: string }> = {
 
 const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onClose }) => {
   const { token } = theme.useToken()
+  const notify = useNotify()
   const queryClient = useQueryClient()
   const { data: accountCategories = [] } = useAccountCategories()
   const { data: transactionCategories = [] } = useTransactionCategories()
@@ -48,7 +50,7 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
   }, [accountCategories])
 
   const handleCashMoveConfirm = async () => {
-    if (!cashMoveModal.item || cashMoveModal.targetId === undefined) { message.warning('请选择目标资产类型'); return }
+    if (!cashMoveModal.item || cashMoveModal.targetId === undefined) { notify.warning('请选择目标资产类型'); return }
     cashMoveModal.setLoading(true)
     try {
       const updates: Record<string, boolean> = { cash: false, investment: false }
@@ -56,9 +58,9 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
       else if (cashMoveModal.targetId === 'investment') updates.investment = true
       await accountCategoryApi.update(cashMoveModal.item.id, { isCashEquivalent: updates.cash, isInvestment: updates.investment })
       queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
-      message.success('移动成功')
+      notify.success('移动成功')
       cashMoveModal.close()
-    } catch { message.error('移动失败') } finally { cashMoveModal.setLoading(false) }
+    } catch { notify.error('移动失败') } finally { cashMoveModal.setLoading(false) }
   }
 
   const getCashMoveTargetTreeData = (record: CashTreeNode): MoveTreeDataNode[] => {
@@ -95,16 +97,16 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
   }, [transactionCategories])
 
   const handleActivityMoveConfirm = async () => {
-    if (!activityMoveModal.item || activityMoveModal.targetId === undefined) { message.warning('请选择目标活动类型'); return }
+    if (!activityMoveModal.item || activityMoveModal.targetId === undefined) { notify.warning('请选择目标活动类型'); return }
     activityMoveModal.setLoading(true)
     try {
       const newType = activityMoveModal.targetId === 'unassigned' ? null : activityMoveModal.targetId as 'operating' | 'investing' | 'financing'
       const children = transactionCategories.filter(c => c.parentId === activityMoveModal.item?.id)
       await Promise.all([transactionCategoryApi.update(activityMoveModal.item.id, { cashFlowType: newType }), ...children.map(c => transactionCategoryApi.update(c.id, { cashFlowType: newType }))])
       await queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all })
-      message.success(children.length > 0 ? `移动成功，已同时更新 ${children.length} 个子分类` : '移动成功')
+      notify.success(children.length > 0 ? `移动成功，已同时更新 ${children.length} 个子分类` : '移动成功')
       activityMoveModal.close()
-    } catch { message.error('移动失败') } finally { activityMoveModal.setLoading(false) }
+    } catch { notify.error('移动失败') } finally { activityMoveModal.setLoading(false) }
   }
 
   const getActivityMoveTargetTreeData = (record: ActivityTreeNode): MoveTreeDataNode[] => {

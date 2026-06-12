@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { Modal, Select, Button, Space, message, theme, Grid, Spin, Tooltip } from 'antd'
+import { Modal, Select, Button, Space, theme, Grid, Spin, Tooltip } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { useAccounts } from '../../queries'
 import { investmentApi, InvestmentAllocationSnapshot } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
 import InvestmentSnapshotTimeline from './InvestmentSnapshotTimeline'
 import InvestmentSnapshotModal from './InvestmentSnapshotModal'
+import { useNotify } from '../../hooks/useNotify'
 
 interface Props {
   visible: boolean
@@ -24,6 +25,7 @@ const InvestmentSnapshotHistoryModal: React.FC<Props> = ({
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const { data: accounts = [] } = useAccounts()
+  const notify = useNotify()
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(initialAccountId)
   const [snapshots, setSnapshots] = useState<InvestmentAllocationSnapshot[]>([])
@@ -53,7 +55,7 @@ const InvestmentSnapshotHistoryModal: React.FC<Props> = ({
       const res = await investmentApi.getSnapshots(selectedAccountId)
       setSnapshots(res.data.data || [])
     } catch {
-      message.error('加载快照失败')
+      notify.error('加载快照失败')
     } finally {
       setLoading(false)
     }
@@ -72,11 +74,11 @@ const InvestmentSnapshotHistoryModal: React.FC<Props> = ({
   const handleDelete = async (id: string) => {
     try {
       await investmentApi.deleteSnapshot(id)
-      message.success('删除成功')
+      notify.success('删除成功')
       loadSnapshots()
       onRefresh()
     } catch {
-      message.error('删除失败')
+      notify.error('删除失败')
     }
   }
 
