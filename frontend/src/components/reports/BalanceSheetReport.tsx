@@ -7,6 +7,7 @@ import type { PointTimePickerConfig, PointTimeValue, ReportTreeNode, ReportDetai
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { getPointTimeSemantics } from '../../utils/timePicker'
+import { formatCurrency } from '../../utils/format'
 import { formatBalance } from '../../utils/formatBalance'
 import { PredictionStatistic } from '.'
 
@@ -213,7 +214,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
   const assetsTotal = showPred ? assetsValue.actual + assetsValue.predicted : assetsValue.actual
   const liabilitiesTotal = showPred ? liabilitiesValue.actual + liabilitiesValue.predicted : liabilitiesValue.actual
 
-  const formatStatValue = (v: number) => `¥${v.toFixed(2)}`
+  const formatStatValue = (v: number) => formatCurrency(v)
 
   const summarySection = (
     <>

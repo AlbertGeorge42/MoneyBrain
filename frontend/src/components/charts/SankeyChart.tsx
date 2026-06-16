@@ -2,7 +2,7 @@ import React from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
 import { getTokenValue } from '../../styles/theme/css-utils'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, formatPercent } from '../../utils/format'
 
 export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
 
@@ -108,24 +108,24 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       formatter: (params: { dataType?: string; name?: string; value?: number; data?: { source?: string; target?: string; value?: number; predictedValue?: number; actualValue?: number } }) => {
         if (params.dataType === 'node') {
           const nodeFlow = nodeFlows.get(params.name) || 0
-          const percentage = totalFlow > 0 ? ((nodeFlow / totalFlow) * 100).toFixed(1) : '0.0'
-          return `${getDisplayName(params.name)}<br/>金额: ${formatCurrency(params.value || 0)}<br/>占比: ${percentage}%`
+          const percentage = totalFlow > 0 ? formatPercent((nodeFlow / totalFlow) * 100, 1, false) : '0.0%'
+          return `${getDisplayName(params.name)}<br/>金额: ${formatCurrency(params.value || 0)}<br/>占比: ${percentage}`
         } else if (params.dataType === 'edge') {
           const link = params.data
-          const percentage = totalFlow > 0 ? ((link.value / totalFlow) * 100).toFixed(1) : '0.0'
+          const percentage = totalFlow > 0 ? formatPercent((link.value / totalFlow) * 100, 1, false) : '0.0%'
           const sourceName = getDisplayName(link.source)
           const targetName = getDisplayName(link.target)
           
           if (isPurePrediction) {
-            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage}%)<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage})<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
           }
           
           if (link.predictedValue && link.predictedValue !== 0) {
             const predictedSign = link.predictedValue >= 0 ? '+' : ''
-            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage}%)<br/>实际 ${formatCurrency(link.actualValue || 0)} &nbsp; 预测 ${predictedSign}${formatCurrency(link.predictedValue)}`
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage})<br/>实际 ${formatCurrency(link.actualValue || 0)} &nbsp; 预测 ${predictedSign}${formatCurrency(link.predictedValue)}`
           }
           
-          return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage}%)`
+          return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage})`
         }
         return ''
       }

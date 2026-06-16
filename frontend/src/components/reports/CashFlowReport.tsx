@@ -179,6 +179,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             title="期初现金"
             value={cashFlowData?.startCash || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
+            valueStyle={{ color: 'var(--mb-color-neutral)' }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -186,6 +187,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             title="期末现金"
             value={cashFlowData?.endCash || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
+            valueStyle={{ color: 'var(--mb-color-neutral)' }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">

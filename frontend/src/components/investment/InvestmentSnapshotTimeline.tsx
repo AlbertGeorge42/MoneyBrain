@@ -4,7 +4,7 @@ import { EditOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons
 import type { MenuProps } from 'antd'
 import DynamicIcon from '../../components/common/DynamicIcon'
 import type { InvestmentAllocationSnapshot } from '../../services/api'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, formatPercent } from '../../utils/format'
 import dayjs from 'dayjs'
 
 const { Text } = Typography
@@ -197,7 +197,7 @@ const InvestmentSnapshotTimeline: React.FC<InvestmentSnapshotTimelineProps> = ({
                     <DynamicIcon name={item.assetClass.icon} size={14} fallback="investment" />
                     <Text>{item.assetClass.name}</Text>
                     <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-                      {ratio.toFixed(1)}%
+                      {formatPercent(ratio, 1, false)}
                     </Text>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: token.marginMD }}>

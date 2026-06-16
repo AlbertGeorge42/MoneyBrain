@@ -2,6 +2,14 @@
  * 交易类型与视觉配置的集中映射
  * 任何需要按交易类型显示颜色或文案的组件，都应从此处导入，避免在多个文件重复维护。
  */
+
+// 金额语义颜色 — 用于所有金额数字显示
+export const AMOUNT_COLORS = {
+  positive: 'var(--mb-color-positive)',
+  negative: 'var(--mb-color-negative)',
+  neutral: 'var(--mb-color-neutral)',
+} as const
+
 export const TRANSACTION_TYPE_CONFIG = {
   income: { color: 'var(--mb-color-income)', text: '收入' },
   expense: { color: 'var(--mb-color-expense)', text: '支出' },
@@ -18,8 +26,6 @@ export const TRANSACTION_COLORS = {
   transfer: 'var(--mb-color-transfer)',
   refund: 'var(--mb-color-refund)',
   adjustment: 'var(--mb-color-adjustment)',
-  positive: 'var(--mb-color-positive)',
-  negative: 'var(--mb-color-negative)',
 } as const
 
 export type TransactionColorKey = keyof typeof TRANSACTION_COLORS

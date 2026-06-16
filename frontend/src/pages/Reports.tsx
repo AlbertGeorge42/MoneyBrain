@@ -23,6 +23,7 @@ import {
   type BalanceSheetAccountItem,
 } from '../services/api'
 import { useNotify } from '../hooks/useNotify'
+import { formatCurrency } from '../utils/format'
 import {
   useTransactionEarliestDate,
   useBalanceSheet,
@@ -356,7 +357,7 @@ const Reports: React.FC = () => {
               <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
             </span>
             <Space>
-              <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>当前 ¥{account.actual?.toFixed(2) || '0.00'}</span>
+              <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>当前 {formatCurrency(account.actual ?? 0)}</span>
               <InputNumber
                 value={calibrateData[account.id]}
                 onChange={(value) => setCalibrateData({ ...calibrateData, [account.id]: value || 0 })}

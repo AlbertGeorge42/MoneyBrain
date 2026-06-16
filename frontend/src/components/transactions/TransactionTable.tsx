@@ -4,7 +4,8 @@ import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { Transaction } from '../../services/api'
 import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { TRANSACTION_TYPE_CONFIG, TRANSACTION_COLORS, TransactionType } from '../../constants/transactionType'
+import { TRANSACTION_TYPE_CONFIG, TransactionType, AMOUNT_COLORS } from '../../constants/transactionType'
+import { formatCurrency } from '../../utils/format'
 import BorderedTag from '../common/BorderedTag'
 
 interface TransactionTableProps {
@@ -82,6 +83,7 @@ const CategoryTag: React.FC<{ record: Transaction }> = ({ record }) => {
   )
 }
 
+
 const AmountDisplay: React.FC<{
   record: Transaction
   colorTextMuted: string
@@ -94,8 +96,8 @@ const AmountDisplay: React.FC<{
     if (record.type === 'adjustment') {
       const isPositive = amount >= 0
       return (
-        <span style={{ color: TRANSACTION_COLORS.adjustment, fontSize: fontSizeBody }}>
-          {isPositive ? '+' : ''}¥{amount.toFixed(2)}
+        <span style={{ color: isPositive ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative, fontSize: fontSizeBody }}>
+          {formatCurrency(amount, { showSign: true })}
         </span>
       )
     }
@@ -103,21 +105,21 @@ const AmountDisplay: React.FC<{
       const hasExtra = (record.fee || 0) > 0 || (record.coupon || 0) > 0
       return (
         <span>
-          <span style={{ color: TRANSACTION_COLORS.transfer, fontSize: fontSizeBody }}>¥{amount.toFixed(2)}</span>
+          <span style={{ color: AMOUNT_COLORS.neutral, fontSize: fontSizeBody }}>{formatCurrency(amount)}</span>
           {hasExtra && <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}> +费</span>}
         </span>
       )
     }
     if (record.type === 'refund') {
       return (
-        <span style={{ color: TRANSACTION_COLORS.refund, fontSize: fontSizeBody }}>
-          +¥{amount.toFixed(2)}
+        <span style={{ color: AMOUNT_COLORS.positive, fontSize: fontSizeBody }}>
+          {formatCurrency(amount, { showSign: true })}
         </span>
       )
     }
     return (
-      <span style={{ color: record.type === 'income' ? TRANSACTION_COLORS.positive : TRANSACTION_COLORS.negative, fontSize: fontSizeBody }}>
-        {record.type === 'income' ? '+' : '-'}¥{amount.toFixed(2)}
+      <span style={{ color: record.type === 'income' ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative, fontSize: fontSizeBody }}>
+        {formatCurrency(record.type === 'income' ? amount : -amount, { showSign: true })}
       </span>
     )
   }
@@ -158,10 +160,10 @@ const GroupHeader: React.FC<{ group: TransactionGroup }> = ({ group }) => {
       </div>
       <div className="tx-group-header__summary">
         {group.income > 0 && (
-          <span className="tx-group-header__summary-item" style={{ color: TRANSACTION_COLORS.positive }}>收 ¥{group.income.toFixed(2)}</span>
+          <span className="tx-group-header__summary-item" style={{ color: AMOUNT_COLORS.positive }}>收 {formatCurrency(group.income)}</span>
         )}
         {group.expense > 0 && (
-          <span className="tx-group-header__summary-item" style={{ color: TRANSACTION_COLORS.negative }}>支 ¥{group.expense.toFixed(2)}</span>
+          <span className="tx-group-header__summary-item" style={{ color: AMOUNT_COLORS.negative }}>支 {formatCurrency(group.expense)}</span>
         )}
       </div>
     </div>

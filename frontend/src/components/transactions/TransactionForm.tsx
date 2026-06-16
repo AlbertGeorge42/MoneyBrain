@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
 import DynamicIcon from '../common/DynamicIcon'
+import { formatCurrency } from '../../utils/format'
 
 export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund'
 
@@ -91,7 +92,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {sourceTransaction.type === 'income' ? '收入' : '支出'}
           </Tag>
           {sourceTransaction.category?.icon && <DynamicIcon name={sourceTransaction.category.icon} size={16} />}
-          {sourceTransaction.category?.name || '未分类'} - ¥{sourceTransaction.amount.toFixed(2)}
+          {sourceTransaction.category?.name || '未分类'} - {formatCurrency(sourceTransaction.amount)}
           <span style={{ color: colorTextMuted }}>({dayjs(sourceTransaction.date).format('YYYY-MM-DD')})</span>
         </Space>
       </div>

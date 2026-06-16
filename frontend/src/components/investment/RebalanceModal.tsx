@@ -1,7 +1,7 @@
 import React from 'react'
 import { Modal, Table, Typography, theme, Empty, Space, Tag, Grid } from 'antd'
 import type { AccountAllocationDetail } from '@shared/types'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, formatPercent } from '../../utils/format'
 
 interface Props {
   visible: boolean
@@ -55,7 +55,7 @@ const RebalanceModal: React.FC<Props> = ({ visible, onClose, allocation }) => {
       dataIndex: 'ratio',
       key: 'ratio',
       width: 80,
-      render: (v: number) => `${v.toFixed(1)}%`,
+      render: (v: number) => formatPercent(v, 1, false),
     },
     {
       title: '目标比例',
@@ -72,7 +72,7 @@ const RebalanceModal: React.FC<Props> = ({ visible, onClose, allocation }) => {
       render: (v: number | null) => {
         if (v === null) return <Text type="secondary">-</Text>
         const color = Math.abs(v) > 5 ? token.colorError : Math.abs(v) > 2 ? token.colorWarning : token.colorSuccess
-        return <Text style={{ color }}>{v >= 0 ? '+' : ''}{v.toFixed(1)}%</Text>
+        return <Text style={{ color }}>{formatPercent(v, 1, true)}</Text>
       },
     },
     {

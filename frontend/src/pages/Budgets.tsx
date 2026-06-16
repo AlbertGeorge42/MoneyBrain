@@ -21,6 +21,8 @@ import {
 } from '../queries'
 import type { Budget, BudgetStatus } from '@shared/types'
 import dayjs from 'dayjs'
+import { formatCurrency, formatPercent } from '../utils/format'
+import { AMOUNT_COLORS } from '../constants/transactionType'
 
 const { Text } = Typography
 
@@ -113,16 +115,26 @@ const Budgets: React.FC = () => {
     }
   }
 
-  const getProgressColor = (percentage: number, isOverBudget: boolean) => {
+  const getProgressColor = (type: string, percentage: number, isOverBudget: boolean) => {
+    // 收入预算超额完成是好事，用绿色
+    if (type === 'income' && isOverBudget) return token.colorSuccess
+    // 支出/转账预算超预算是坏事，用红色
     if (isOverBudget) return token.colorError
     if (percentage >= 80) return token.colorWarning
     return token.colorSuccess
   }
 
   const getStatusLabel = (type: string, percentage: number, isOverBudget: boolean) => {
-    if (type === 'income') return `达成率: ${percentage.toFixed(1)}%`
-    if (isOverBudget) return `超预算: ${percentage.toFixed(1)}%`
-    return `使用率: ${percentage.toFixed(1)}%`
+    if (type === 'income') {
+      // 收入预算：达成率，超额完成显示"超额完成"
+      return isOverBudget ? `超额完成: ${formatPercent(percentage, 1, false)}` : `达成率: ${formatPercent(percentage, 1, false)}`
+    }
+    if (type === 'transfer') {
+      // 转账预算：流转率
+      return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `流转率: ${formatPercent(percentage, 1, false)}`
+    }
+    // 支出预算：使用率
+    return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `使用率: ${formatPercent(percentage, 1, false)}`
   }
 
   const tabItems = [
@@ -285,6 +297,20 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
   const isOverBudget = status?.isOverBudget ?? false
   const used = status?.used ?? 0
 
+  // 根据预算类型获取金额颜色
+  const getBudgetAmountColor = () => {
+    switch (budget.type) {
+      case 'income':
+        return AMOUNT_COLORS.positive
+      case 'expense':
+        return AMOUNT_COLORS.negative
+      case 'transfer':
+        return AMOUNT_COLORS.neutral
+      default:
+        return AMOUNT_COLORS.neutral
+    }
+  }
+
   return (
     <Card size="small" style={{ background: token.colorBgLayout }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: token.paddingSM }}>
@@ -316,8 +342,8 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
           )}
         </div>
         <Space size="small">
-          <Text strong style={{ color: token.colorPrimary, fontSize: 16 }}>
-            ¥{budget.amount.toFixed(2)}
+          <Text strong style={{ color: getBudgetAmountColor(), fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>
+            {formatCurrency(budget.amount)}
           </Text>
           <Button
             size="small"
@@ -337,17 +363,17 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
 
       <Progress
         percent={Math.min(percentage, 100)}
-        status={isOverBudget ? 'exception' : undefined}
-        strokeColor={getProgressColor(percentage, isOverBudget)}
+        status={isOverBudget && budget.type !== 'income' ? 'exception' : undefined}
+        strokeColor={getProgressColor(budget.type, percentage, isOverBudget)}
         format={() => getStatusLabel(budget.type, percentage, isOverBudget)}
       />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: token.paddingXS, color: token.colorTextSecondary }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: token.paddingXS, color: token.colorTextSecondary, fontVariantNumeric: 'tabular-nums' }}>
         <span>
-          已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: ¥{used.toFixed(2)}
+          已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {formatCurrency(used)}
         </span>
         <span>
-          剩余: ¥{Math.max(budget.amount - used, 0).toFixed(2)}
+          剩余: {formatCurrency(Math.max(budget.amount - used, 0))}
         </span>
       </div>
     </Card>

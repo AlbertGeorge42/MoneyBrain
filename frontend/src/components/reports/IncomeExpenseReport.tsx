@@ -9,7 +9,7 @@ import ReportViewSwitcher from './ReportViewSwitcher'
 import PredictionStatistic from './PredictionStatistic'
 import * as api from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, formatPercent } from '../../utils/format'
 
 // ---- 本报表专属：metrics 类型 ----
 interface IncomeExpenseMetrics {
@@ -193,6 +193,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="期初净值"
             value={incomeExpenseData?.startNetWorth || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
+            valueStyle={{ color: 'var(--mb-color-neutral)' }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -200,6 +201,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="期末净值"
             value={incomeExpenseData?.endNetWorth || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
+            valueStyle={{ color: 'var(--mb-color-neutral)' }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -223,7 +225,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           <Statistic
             title={isFuture ? <>储蓄率 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '储蓄率'}
             value={incomeTotal ? (balanceTotal / incomeTotal) * 100 : 0}
-            formatter={(v) => `${Number(v).toFixed(1)}%`}
+            formatter={(v) => formatPercent(Number(v), 1, false)}
             valueStyle={{ color: 'var(--mb-color-neutral)' }}
           />
         </Card>

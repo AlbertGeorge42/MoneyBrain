@@ -10,7 +10,7 @@ import type {
   AccountAllocationDetail,
   InvestmentAnalysisReportData,
 } from '@shared/types'
-import { formatCurrency, createStatisticFormatter } from '../../utils/format'
+import { formatCurrency, formatPercent, createStatisticFormatter } from '../../utils/format'
 
 const statisticFormatter = createStatisticFormatter()
 
@@ -39,7 +39,7 @@ const investmentColumns: ReportDetailColumn<InvestmentDetailMetrics>[] = [
     title: '占比',
     width: 80,
     align: 'right',
-    format: (v) => (v as number) > 0 ? `${(v as number).toFixed(1)}%` : '--',
+    format: (v) => (v as number) > 0 ? formatPercent(v as number, 1, false) : '--',
   },
   {
     key: 'returnRate',
@@ -47,7 +47,7 @@ const investmentColumns: ReportDetailColumn<InvestmentDetailMetrics>[] = [
     title: '收益率',
     width: 80,
     align: 'right',
-    format: (v) => v != null ? `${(v as number) >= 0 ? '+' : ''}${(v as number).toFixed(1)}%` : '--',
+    format: (v) => v != null ? formatPercent(v as number) : '--',
     color: (v) => v != null && (v as number) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
   },
 ]
@@ -173,9 +173,8 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
           <Statistic
             title="累计收益率"
             value={returnAnalysis.cumulativeReturnRate}
-            precision={2}
+            formatter={(v) => formatPercent(Number(v), 2)}
             valueStyle={{ color: returnAnalysis.cumulativeReturnRate >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            suffix="%"
           />
           <div style={{ fontSize: `${token.fontSizeSM}px`, color: token.colorTextTertiary, marginTop: 8 }}>
             累计收益 {formatCurrency(returnAnalysis.periodReturn)} | 最高本金 {formatCurrency(returnAnalysis.maxCapitalEmployed)}
@@ -185,34 +184,32 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: 'var(--mb-color-investing)' }} formatter={statisticFormatter} />
+          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: token.colorTextSecondary }} formatter={statisticFormatter} />
+          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: 'var(--mb-color-positive)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: token.colorTextSecondary }} formatter={statisticFormatter} />
+          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: 'var(--mb-color-negative)' }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
             title="XIRR 年化"
             value={returnAnalysis.xirr !== null ? returnAnalysis.xirr : '--'}
-            precision={returnAnalysis.xirr !== null ? 2 : 0}
+            formatter={(v) => returnAnalysis.xirr !== null ? formatPercent(Number(v), 2) : '--'}
             valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            suffix={returnAnalysis.xirr !== null ? '%' : ''}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
             title="TWR 年化"
             value={returnAnalysis.annualizedTwr !== null ? returnAnalysis.annualizedTwr : '--'}
-            precision={returnAnalysis.annualizedTwr !== null ? 2 : 0}
+            formatter={(v) => returnAnalysis.annualizedTwr !== null ? formatPercent(Number(v), 2) : '--'}
             valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
-            suffix={returnAnalysis.annualizedTwr !== null ? '%' : ''}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="投资占比" value={investmentRatio} precision={2} valueStyle={{ color: token.colorTextSecondary }} suffix="%" />
+          <Statistic title="投资占比" value={investmentRatio} formatter={(v) => formatPercent(Number(v), 2, false)} valueStyle={{ color: token.colorTextSecondary }} />
         </Card>
       </div>
 

@@ -1,6 +1,7 @@
 import React from 'react'
-import { Card, Statistic, theme } from 'antd'
+import { Card, Statistic } from 'antd'
 import { createStatisticFormatter } from '../../utils/format'
+import { AMOUNT_COLORS } from '../../constants/transactionType'
 
 const statisticFormatter = createStatisticFormatter()
 
@@ -19,43 +20,35 @@ const TransactionStats: React.FC<TransactionStatsProps> = ({
   balance,
   transferCount,
 }) => {
-  const { token } = theme.useToken()
-  const colorSuccess = token.colorSuccess
-  const colorDanger = token.colorError
-  const colorWarning = token.colorWarning
-  const colorPositive = 'var(--mb-color-positive)'
-  const colorNegative = 'var(--mb-color-negative)'
-  const spaceCardPadding = `${token.padding}px`
-
   return (
-    <Card style={{ marginBottom: spaceCardPadding }}>
+    <Card style={{ marginBottom: 'var(--mb-space-xl)' }}>
     <div className="stats-grid">
       <Statistic
         title="总收入"
         value={totalIncome}
         precision={2}
-        valueStyle={{ color: colorSuccess }}
+        valueStyle={{ color: AMOUNT_COLORS.positive }}
         formatter={statisticFormatter}
       />
       <Statistic
         title="总支出"
         value={totalExpense}
         precision={2}
-        valueStyle={{ color: colorDanger }}
+        valueStyle={{ color: AMOUNT_COLORS.negative }}
         formatter={statisticFormatter}
       />
       <Statistic
         title="退款"
         value={totalRefund}
         precision={2}
-        valueStyle={{ color: colorWarning }}
+        valueStyle={{ color: AMOUNT_COLORS.positive }}
         formatter={statisticFormatter}
       />
       <Statistic
         title="结余"
         value={balance}
         precision={2}
-        valueStyle={{ color: balance >= 0 ? colorPositive : colorNegative }}
+        valueStyle={{ color: balance >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}
         formatter={statisticFormatter}
       />
       <Statistic

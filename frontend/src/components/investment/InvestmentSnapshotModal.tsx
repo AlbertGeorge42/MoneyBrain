@@ -4,6 +4,7 @@ import { useAccounts } from '../../queries'
 import { investmentApi, accountApi, InvestmentAssetClass, InvestmentAllocationSnapshot } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
 import { useNotify } from '../../hooks/useNotify'
+import { formatCurrency, formatPercent } from '../../utils/format'
 import dayjs from 'dayjs'
 
 interface Props {
@@ -264,7 +265,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
       width: 70,
       render: (_: unknown, record: typeof items[0]) => {
         const ratio = totalMarketValue > 0 ? (record.marketValue / totalMarketValue) * 100 : 0
-        return <Text>{ratio.toFixed(1)}%</Text>
+        return <Text>{formatPercent(ratio, 1, false)}</Text>
       },
     },
     {
@@ -277,7 +278,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
         const deviation = ratio - record.targetRatio
         return (
           <Text style={{ color: Math.abs(deviation) > 5 ? token.colorError : token.colorSuccess }}>
-            {deviation >= 0 ? '+' : ''}{deviation.toFixed(1)}%
+            {formatPercent(deviation, 1, true)}
           </Text>
         )
       },
@@ -311,7 +312,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           </div>
           <div>
             <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>占比</Text>
-            <div style={{ marginTop: 4 }}><Text>{ratio.toFixed(1)}%</Text></div>
+            <div style={{ marginTop: 4 }}><Text>{formatPercent(ratio, 1, false)}</Text></div>
           </div>
           <div style={{ gridColumn: 'span 2' }}>
             <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>期间净流入（正数投入，负数转出）</Text>
@@ -331,7 +332,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
             <Text style={{
               color: deviation !== null && Math.abs(deviation) > 5 ? token.colorError : token.colorSuccess
             }}>
-              {deviation !== null ? `${deviation >= 0 ? '+' : ''}${deviation.toFixed(1)}%` : '-'}
+              {deviation !== null ? formatPercent(deviation, 1, true) : '-'}
             </Text>
           </div>
         )}
@@ -351,19 +352,19 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>账户余额</Text>
           <div style={{ marginTop: 4 }}>
             {balanceLoading ? <Spin size="small" /> : (
-              <Text strong>{accountBalance !== null ? accountBalance.toFixed(2) : '--'}</Text>
+              <Text strong>{accountBalance !== null ? formatCurrency(accountBalance) : '--'}</Text>
             )}
           </div>
         </div>
         <div>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>已录入金额</Text>
-          <div style={{ marginTop: 4 }}><Text strong>{totalMarketValue.toFixed(2)}</Text></div>
+          <div style={{ marginTop: 4 }}><Text strong>{formatCurrency(totalMarketValue)}</Text></div>
         </div>
         <div>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>差额</Text>
           <div style={{ marginTop: 4 }}>
             <Text strong style={{ color: isValidBalance ? token.colorSuccess : token.colorWarning }}>
-              {difference !== null ? difference.toFixed(2) : '-'}
+              {difference !== null ? formatCurrency(difference) : '-'}
             </Text>
             {!isValidBalance && difference !== null && (
               <Text type="warning" style={{ fontSize: token.fontSizeSM, marginLeft: 8 }}>
@@ -465,10 +466,10 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
                           <Text strong>合计</Text>
                         </Table.Summary.Cell>
                         <Table.Summary.Cell index={1}>
-                          <Text strong>{totalMarketValue.toFixed(2)}</Text>
+                          <Text strong>{formatCurrency(totalMarketValue)}</Text>
                         </Table.Summary.Cell>
                         <Table.Summary.Cell index={2}>
-                          <Text strong>{totalNetFlow.toFixed(2)}</Text>
+                          <Text strong>{formatCurrency(totalNetFlow)}</Text>
                         </Table.Summary.Cell>
                         <Table.Summary.Cell index={3}>
                           <Text strong>100%</Text>
@@ -485,17 +486,17 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
                   <Space>
                     <Text type="secondary">账户余额：</Text>
                     {balanceLoading ? <Spin size="small" /> : (
-                      <Text strong>{accountBalance !== null ? accountBalance.toFixed(2) : '--'}</Text>
+                      <Text strong>{accountBalance !== null ? formatCurrency(accountBalance) : '--'}</Text>
                     )}
                   </Space>
                   <Space>
                     <Text type="secondary">已录入：</Text>
-                    <Text strong>{totalMarketValue.toFixed(2)}</Text>
+                    <Text strong>{formatCurrency(totalMarketValue)}</Text>
                   </Space>
                   <Space>
                     <Text type="secondary">差额：</Text>
                     <Text strong style={{ color: isValidBalance ? token.colorSuccess : token.colorWarning }}>
-                      {difference !== null ? difference.toFixed(2) : '-'}
+                      {difference !== null ? formatCurrency(difference) : '-'}
                     </Text>
                     {!isValidBalance && difference !== null && (
                       <Text type="warning" style={{ fontSize: token.fontSizeSM }}>

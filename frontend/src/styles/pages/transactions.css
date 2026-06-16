@@ -47,6 +47,7 @@
   font-weight: 700;
   font-size: 15px;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .card-extra-link {
@@ -286,6 +287,7 @@
 
 .tx-group-item__amount {
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .tx-group-item__account {

@@ -18,17 +18,14 @@ import { useTransactions, useBalanceSheet, useTrends, useCategoryBreakdown } fro
 import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
 import { getTokenValue } from '../styles/theme/css-utils'
-import { createStatisticFormatter } from '../utils/format'
+import { createStatisticFormatter, formatCurrency } from '../utils/format'
+import { AMOUNT_COLORS } from '../constants/transactionType'
 
 const statisticFormatter = createStatisticFormatter()
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate()
   const { token } = theme.useToken()
-  const colorNegative = 'var(--mb-color-negative)'
-  const colorPositive = 'var(--mb-color-positive)'
-  const colorIncome = 'var(--mb-color-income)'
-  const colorExpense = 'var(--mb-color-expense)'
   const colorActionPrimary = token.colorPrimary
   const colorTextMuted = token.colorTextTertiary
 
@@ -95,7 +92,7 @@ const Dashboard: React.FC = () => {
       trigger: 'axis',
       formatter: (params: Array<{ name: string; value: number }>) => {
         const item = params[0]
-        return `${item.name}<br/>支出: ¥${item.value.toFixed(2)}`
+        return `${item.name}<br/>支出: ${formatCurrency(item.value)}`
       },
     },
     xAxis: {
@@ -151,38 +148,38 @@ const Dashboard: React.FC = () => {
             <AccountBookOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">总资产</span>
           </div>
-          <div className="metric-card__value" style={{ color: totalAssets >= 0 ? colorPositive : colorNegative }}>
-            {totalAssets.toFixed(2)}
+          <div className="metric-card__value" style={{ color: totalAssets >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}>
+            {formatCurrency(totalAssets)}
           </div>
         </Card>
 
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <CreditCardOutlined style={{ fontSize: 20, color: colorNegative }} />
+            <CreditCardOutlined style={{ fontSize: 20, color: AMOUNT_COLORS.negative }} />
             <span className="metric-card__label">总负债</span>
           </div>
-          <div className="metric-card__value" style={{ color: colorNegative }}>
-            {Math.abs(totalLiabilities).toFixed(2)}
+          <div className="metric-card__value" style={{ color: AMOUNT_COLORS.negative }}>
+            {formatCurrency(totalLiabilities)}
           </div>
         </Card>
 
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <StockOutlined style={{ fontSize: 20, color: colorPositive }} />
+            <StockOutlined style={{ fontSize: 20, color: AMOUNT_COLORS.positive }} />
             <span className="metric-card__label">净资产</span>
           </div>
-          <div className="metric-card__value" style={{ color: netWorth >= 0 ? colorPositive : colorNegative }}>
-            {netWorth.toFixed(2)}
+          <div className="metric-card__value" style={{ color: netWorth >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}>
+            {formatCurrency(netWorth)}
           </div>
         </Card>
 
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <TransactionOutlined style={{ fontSize: 20, color: thisMonthBalance >= 0 ? colorPositive : colorNegative }} />
+            <TransactionOutlined style={{ fontSize: 20, color: thisMonthBalance >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }} />
             <span className="metric-card__label">本月结余</span>
           </div>
-          <div className="metric-card__value" style={{ color: thisMonthBalance >= 0 ? colorPositive : colorNegative }}>
-            {thisMonthBalance.toFixed(2)}
+          <div className="metric-card__value" style={{ color: thisMonthBalance >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}>
+            {formatCurrency(thisMonthBalance)}
           </div>
         </Card>
       </div>
@@ -195,7 +192,7 @@ const Dashboard: React.FC = () => {
               title="收入"
               value={thisMonthIncome}
               precision={2}
-              valueStyle={{ color: colorPositive, fontSize: 24 }}
+              valueStyle={{ color: AMOUNT_COLORS.positive, fontSize: 24 }}
               prefix={<ArrowUpOutlined />}
               formatter={statisticFormatter}
             />
@@ -206,7 +203,7 @@ const Dashboard: React.FC = () => {
               title="支出"
               value={thisMonthExpense}
               precision={2}
-              valueStyle={{ color: colorNegative, fontSize: 24 }}
+              valueStyle={{ color: AMOUNT_COLORS.negative, fontSize: 24 }}
               prefix={<ArrowDownOutlined />}
               formatter={statisticFormatter}
             />
@@ -238,8 +235,8 @@ const Dashboard: React.FC = () => {
                       <Tag
                         className="transaction-list-item__tag"
                         style={{
-                          color: item.type === 'income' ? colorIncome : colorExpense,
-                          borderColor: item.type === 'income' ? colorIncome : colorExpense,
+                          color: item.type === 'income' ? 'var(--mb-color-income)' : 'var(--mb-color-expense)',
+                          borderColor: item.type === 'income' ? 'var(--mb-color-income)' : 'var(--mb-color-expense)',
                         }}
                       >
                         <DynamicIcon name={item.category?.icon} size={14} /> {item.category?.name || '未分类'}
@@ -254,9 +251,9 @@ const Dashboard: React.FC = () => {
                   </div>
                   <span
                     className="transaction-list-item__amount"
-                    style={{ color: item.type === 'income' ? colorPositive : colorNegative }}
+                    style={{ color: item.type === 'income' ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}
                   >
-                    {item.type === 'income' ? '+' : '-'}¥{Number(item.amount).toFixed(2)}
+                    {formatCurrency(item.type === 'income' ? Number(item.amount) : -Number(item.amount), { showSign: true })}
                   </span>
                 </List.Item>
               )}

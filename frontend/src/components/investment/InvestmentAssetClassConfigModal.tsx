@@ -11,6 +11,7 @@ import DynamicIcon from '../../components/common/DynamicIcon'
 import { SortableRow, renderDragHandle } from '../../components/settings/shared'
 import IconPicker from '../../components/common/IconPicker'
 import { useNotify } from '../../hooks/useNotify'
+import { formatPercent } from '../../utils/format'
 
 interface Props {
   visible: boolean
@@ -262,11 +263,11 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
                           targetRatioSum < 100 ? token.colorWarning : token.colorSuccess,
                     fontWeight: 500,
                   }}>
-                    {targetRatioSum.toFixed(1)}%
+                    {formatPercent(targetRatioSum, 1, false)}
                   </span>
                   {targetRatioSum < 100 && (
                     <span style={{ color: token.colorTextSecondary, fontSize: token.fontSizeSM }}>
-                      （剩余 {(100 - targetRatioSum).toFixed(1)}% 视作未配置目标）
+                      （剩余 {formatPercent(100 - targetRatioSum, 1, false)} 视作未配置目标）
                     </span>
                   )}
                   {targetRatioSum > 100 && (
