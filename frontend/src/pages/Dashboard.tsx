@@ -17,7 +17,7 @@ import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 import { useTransactions, useBalanceSheet, useTrends, useCategoryBreakdown } from '../queries'
 import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
-import { getTokenValue } from '../styles/theme/cssVars'
+import { getTokenValue } from '../styles/theme/css-utils'
 import { createStatisticFormatter } from '../utils/format'
 
 const statisticFormatter = createStatisticFormatter()

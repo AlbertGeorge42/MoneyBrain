@@ -1,7 +1,7 @@
 .theme-options-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--mb-space-card-padding);
+  gap: var(--mb-space-xl);
 }
 
 .theme-option-card {
@@ -15,7 +15,7 @@
 }
 
 .theme-option-card:hover {
-  border-color: var(--mb-color-border-strong);
+  border-color: var(--mb-color-border-default);
   transform: translateY(-2px);
   box-shadow: var(--mb-shadow-panel);
 }
@@ -26,9 +26,9 @@
 }
 
 .file-drop-zone {
-  border: 2px dashed var(--mb-color-border-strong);
+  border: 2px dashed var(--mb-color-border-default);
   border-radius: var(--mb-radius-card);
-  padding: var(--mb-space-page-gap) var(--mb-space-card-padding);
+  padding: var(--mb-space-3xl) var(--mb-space-xl);
   text-align: center;
   transition: all var(--mb-motion-mid) var(--mb-ease-standard);
   cursor: pointer;
@@ -43,7 +43,7 @@
 
 .settings-grid {
   display: grid;
-  gap: var(--mb-space-card-padding);
+  gap: var(--mb-space-xl);
 }
 
 @media (max-width: 680px) {

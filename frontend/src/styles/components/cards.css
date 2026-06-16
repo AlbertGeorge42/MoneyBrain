@@ -1,7 +1,7 @@
 .surface-card.ant-card,
 .surface-card.ant-card .ant-card-head,
 .surface-card.ant-card .ant-card-body {
-  background: var(--mb-color-bg-surface);
+  background: var(--mb-color-bg-panel);
 }
 
 .surface-card.ant-card {
@@ -15,14 +15,14 @@
 }
 
 .metric-card .ant-card-body {
-  padding: var(--mb-space-card-padding);
+  padding: var(--mb-space-xl);
 }
 
 .metric-card__header {
   display: flex;
   align-items: center;
-  gap: var(--mb-space-inline-sm);
-  margin-bottom: var(--mb-space-inline-sm);
+  gap: var(--mb-space-sm);
+  margin-bottom: var(--mb-space-sm);
 }
 
 .metric-card__label {
@@ -32,7 +32,7 @@
 }
 
 .metric-card__value {
-  font-size: var(--mb-font-size-metric);
+  font-size: var(--mb-font-size-heading);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.03em;
@@ -43,12 +43,12 @@
 }
 
 .chart-panel__header {
-  margin-bottom: var(--mb-space-card-padding);
+  margin-bottom: var(--mb-space-xl);
 }
 
 .chart-panel__title {
   margin: 0;
-  font-size: var(--mb-font-size-body-large);
+  font-size: var(--mb-font-size-body-lg);
   font-weight: 700;
   color: var(--mb-color-text-primary);
 }
@@ -67,7 +67,7 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: var(--mb-space-card-padding);
+  gap: var(--mb-space-xl);
 }
 
 .income-expense-item {

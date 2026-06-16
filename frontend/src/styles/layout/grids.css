@@ -1,12 +1,12 @@
 .section-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .dashboard-kpi-grid,
@@ -17,19 +17,19 @@
 .split-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 @media (max-width: 1100px) {

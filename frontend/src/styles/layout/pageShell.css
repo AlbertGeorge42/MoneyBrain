@@ -1,6 +1,6 @@
 .page-shell {
   display: grid;
-  gap: var(--mb-space-card-padding);
+  gap: var(--mb-space-xl);
   min-width: 0;
 }
 
@@ -10,7 +10,7 @@
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
-  margin-bottom: var(--mb-space-card-padding);
+  margin-bottom: var(--mb-space-xl);
 }
 
 .page-header__copy {
@@ -28,7 +28,7 @@
 
 .page-header__title {
   margin: 0;
-  font-size: var(--mb-font-size-page-title);
+  font-size: var(--mb-font-size-heading);
   line-height: 1.04;
   letter-spacing: -0.03em;
 }

@@ -3,9 +3,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px var(--mb-space-card-padding);
+  padding: var(--mb-space-lg) var(--mb-space-xl);
   border-top: 1px solid var(--mb-color-border-subtle);
-  background: var(--mb-color-bg-surface);
+  background: var(--mb-color-bg-panel);
 }
 
 .mobile-pagination__info {
@@ -16,7 +16,7 @@
 
 .mobile-pagination__controls {
   display: flex;
-  gap: var(--mb-space-inline-sm);
+  gap: var(--mb-space-sm);
 }
 
 .mobile-pagination__btn {
@@ -25,9 +25,9 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  border: 1px solid var(--mb-color-border-input);
+  border: 1px solid var(--mb-color-border-default);
   border-radius: var(--mb-radius-control);
-  background: var(--mb-color-bg-surface);
+  background: var(--mb-color-bg-panel);
   color: var(--mb-color-text-primary);
   cursor: pointer;
   font-size: var(--mb-font-size-body);

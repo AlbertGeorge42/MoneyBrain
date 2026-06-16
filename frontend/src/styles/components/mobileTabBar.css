@@ -7,7 +7,7 @@
   justify-content: space-around;
   align-items: center;
   height: 56px;
-  background: var(--mb-color-bg-surface);
+  background: var(--mb-color-bg-panel);
   border-top: 1px solid var(--mb-color-border-subtle);
   z-index: var(--mb-z-mobile-tab);
   padding-bottom: env(safe-area-inset-bottom, 0);

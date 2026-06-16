@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty, Button, theme } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { getTokenValue } from '../../styles/theme/cssVars'
+import { getTokenValue } from '../../styles/theme/css-utils'
 
 export interface PieChartDataItem {
   name: string

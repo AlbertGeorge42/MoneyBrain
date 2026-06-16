@@ -1,11 +1,11 @@
 /* 报表布局与组件 */
 
 .report-shell-card .ant-card-body {
-  padding: 12px 16px;
+  padding: var(--mb-space-lg) var(--mb-space-xl);
 }
 
 .report-tabs .ant-tabs-nav {
-  margin-bottom: 16px;
+  margin-bottom: var(--mb-space-xl);
 }
 
 .report-tabs .ant-tabs-tab {
@@ -16,7 +16,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .report-toolbar__filters,
@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--mb-space-lg);
   min-width: 0;
 }
 
@@ -34,24 +34,24 @@
 
 .report-chart-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-xl);
   min-width: 0;
 }
 
 .report-hero-section {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .report-hero-card {
-  padding: 24px;
+  padding: var(--mb-space-2xl);
   text-align: center;
 }
 
 .report-hero-card .ant-statistic-title {
-  font-size: 14px;
+  font-size: var(--mb-font-size-body);
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: var(--mb-space-md);
 }
 
 .report-hero-card .ant-statistic-content {
@@ -64,13 +64,13 @@
 }
 
 .report-hero-card__sub {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: var(--mb-space-lg);
+  padding-top: var(--mb-space-lg);
   border-top: 1px solid var(--mb-color-border-subtle);
 }
 
 .report-hero-card__sub .ant-statistic-title {
-  font-size: 12px;
+  font-size: var(--mb-font-size-caption);
 }
 
 .report-hero-card__sub .ant-statistic-content {
@@ -79,7 +79,7 @@
 
 .report-secondary-section {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .report-secondary-section--2 {
@@ -122,7 +122,7 @@
 }
 
 .report-metric-card--compact.ant-card .ant-card-body {
-  padding: 14px 16px;
+  padding: 14px var(--mb-space-xl);
 }
 
 .report-summary-note {
@@ -132,35 +132,35 @@
 
 .report-summary-stack {
   display: grid;
-  gap: 8px;
+  gap: var(--mb-space-md);
   color: var(--mb-color-text-secondary);
 }
 
 .report-view-switcher {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .report-view-switcher__panel {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .report-detail-stack {
   display: grid;
-  gap: 16px;
+  gap: var(--mb-space-xl);
 }
 
 .report-detail-list {
   display: grid;
-  gap: 12px;
+  gap: var(--mb-space-lg);
 }
 
 /* ===== 统一明细列表 ===== */
 
 .report-detail-list {
   display: grid;
-  gap: 8px;
+  gap: var(--mb-space-md);
 }
 
 .report-detail-node {
@@ -173,14 +173,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
+  gap: var(--mb-space-lg);
+  padding: var(--mb-space-lg);
 }
 
 .report-detail-node__name-area {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--mb-space-md);
   min-width: 0;
   flex-shrink: 1;
 }
@@ -202,7 +202,7 @@
 .report-detail-node__values {
   display: inline-flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--mb-space-xl);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -219,7 +219,7 @@
 }
 
 .report-detail-node__children {
-  padding: 0 0 0 28px;
+  padding: 0 0 0 var(--mb-space-2xl);
   border-top: 1px solid var(--mb-color-border-subtle);
 }
 
@@ -234,11 +234,11 @@
 }
 
 .report-detail-node__children .report-detail-node__header {
-  padding: 10px 12px;
+  padding: var(--mb-space-lg) var(--mb-space-lg);
 }
 
 .report-detail-node__children .report-detail-node__children {
-  padding-left: 24px;
+  padding-left: var(--mb-space-xl);
 }
 
 /* 报表响应式断点 */
@@ -265,11 +265,11 @@
 
   .report-hero-section,
   .report-secondary-section {
-    gap: 12px;
+    gap: var(--mb-space-lg);
   }
 
   .report-hero-card {
-    padding: 16px;
+    padding: var(--mb-space-xl);
   }
 
   .report-hero-card .ant-statistic-content {
@@ -277,8 +277,8 @@
   }
 
   .report-hero-card__sub {
-    margin-top: 8px;
-    padding-top: 8px;
+    margin-top: var(--mb-space-md);
+    padding-top: var(--mb-space-md);
   }
 
   .report-hero-card__sub .ant-statistic-content {
@@ -305,18 +305,18 @@
   }
 
   .report-tabs .ant-tabs-nav {
-    margin-bottom: 12px;
+    margin-bottom: var(--mb-space-lg);
   }
 
   .report-detail-node__values {
-    gap: 8px;
+    gap: var(--mb-space-md);
   }
 
   .report-detail-node__children {
-    padding-left: 16px;
+    padding-left: var(--mb-space-xl);
   }
 
   .report-detail-node__children .report-detail-node__children {
-    padding-left: 12px;
+    padding-left: var(--mb-space-lg);
   }
 }

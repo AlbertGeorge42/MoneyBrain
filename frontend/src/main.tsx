@@ -6,13 +6,12 @@ import zhCN from 'antd/locale/zh_CN'
 import App from './App'
 import './styles/global.css'
 import { ThemeProvider, useTheme } from './styles/ThemeContext'
-import { createThemeConfig } from './styles/theme/config'
+import { createThemeConfig, syncCssVars } from './styles/theme/config'
 import { initTheme } from './styles/theme/mode'
-import { syncLegacyCssVars } from './styles/theme/cssVars'
 
-// 首屏渲染前同步 legacy CSS 变量，避免 useEffect 时序导致的闪烁
+// 首屏渲染前同步 CSS 变量，避免 useEffect 时序导致的闪烁
 const initialTheme = initTheme()
-syncLegacyCssVars(initialTheme === 'dark')
+syncCssVars(initialTheme === 'dark')
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,7 +30,7 @@ const ThemedApp: React.FC = () => {
   const isDark = currentTheme === 'dark'
 
   useEffect(() => {
-    syncLegacyCssVars(isDark)
+    syncCssVars(isDark)
   }, [isDark])
 
   return (

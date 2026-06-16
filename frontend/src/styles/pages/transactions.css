@@ -1,5 +1,5 @@
 .transaction-list-item {
-  padding: 12px 0 !important;
+  padding: var(--mb-space-lg) 0 !important;
   border-bottom: 1px solid var(--mb-color-border-subtle) !important;
   transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
 }
@@ -11,7 +11,7 @@
 .transaction-list-item:hover {
   background: var(--mb-color-bg-hover);
   margin: 0 -24px;
-  padding: 12px 24px !important;
+  padding: var(--mb-space-lg) var(--mb-space-2xl) !important;
 }
 
 .transaction-list-item__main {
@@ -25,7 +25,7 @@
 .transaction-list-item__info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--mb-space-md);
   flex-wrap: wrap;
 }
 
@@ -64,7 +64,7 @@
 .filter-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--mb-space-md);
 }
 
 .filter-tags-inline {
@@ -159,7 +159,7 @@
 }
 
 .tx-table .ant-table-thead > tr > th {
-  padding: 8px 12px;
+  padding: var(--mb-space-md) var(--mb-space-lg);
   font-size: var(--mb-font-size-caption);
   font-weight: 500;
   color: var(--mb-color-text-muted);
@@ -167,7 +167,7 @@
 }
 
 .tx-table .ant-table-tbody > tr > td {
-  padding: 10px 12px;
+  padding: 10px var(--mb-space-lg);
 }
 
 .tx-table .ant-table-tbody > tr:last-child > td {
@@ -203,7 +203,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px var(--mb-space-card-padding);
+  padding: var(--mb-space-lg) var(--mb-space-xl);
   background: var(--mb-color-bg-app);
   border-bottom: 1px solid var(--mb-color-border-subtle);
 }
@@ -211,7 +211,7 @@
 .tx-group-header__date {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--mb-space-md);
 }
 
 .tx-group-header__day {
@@ -227,7 +227,7 @@
 
 .tx-group-header__summary {
   display: flex;
-  gap: 12px;
+  gap: var(--mb-space-lg);
   font-size: var(--mb-font-size-caption);
 }
 
@@ -244,11 +244,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px var(--mb-space-card-padding);
+  padding: var(--mb-space-lg) var(--mb-space-xl);
   border-bottom: 1px solid var(--mb-color-border-subtle);
   cursor: pointer;
   transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
-  gap: 12px;
+  gap: var(--mb-space-lg);
 }
 
 .tx-group-item:last-child {
@@ -299,8 +299,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--mb-space-card-padding);
-  padding: var(--mb-space-card-padding);
+  gap: var(--mb-space-xl);
+  padding: var(--mb-space-xl);
   border-top: 1px solid var(--mb-color-border-subtle);
 }
 
@@ -311,10 +311,10 @@
 }
 
 .tx-group-pagination__btn {
-  padding: 6px var(--mb-space-card-padding);
-  border: 1px solid var(--mb-color-border-input);
+  padding: 6px var(--mb-space-xl);
+  border: 1px solid var(--mb-color-border-default);
   border-radius: var(--mb-radius-control);
-  background: var(--mb-color-bg-surface);
+  background: var(--mb-color-bg-panel);
   color: var(--mb-color-text-primary);
   cursor: pointer;
   font-size: var(--mb-font-size-caption);
@@ -335,11 +335,11 @@
 
 @media (max-width: 860px) {
   .tx-group-header {
-    padding: 8px 12px;
+    padding: var(--mb-space-md) var(--mb-space-lg);
   }
 
   .tx-group-item {
-    padding: 10px 12px;
+    padding: var(--mb-space-lg) var(--mb-space-lg);
   }
 
   .tx-group-item__subtitle {

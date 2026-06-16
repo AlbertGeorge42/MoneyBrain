@@ -15,8 +15,8 @@
 
 .app-shell__brand {
   display: grid;
-  gap: var(--mb-space-inline-sm);
-  padding: 28px 20px 20px;
+  gap: var(--mb-space-sm);
+  padding: var(--mb-space-2xl) var(--mb-space-xl) var(--mb-space-xl);
 }
 
 .app-shell__brand-mark {
@@ -28,19 +28,19 @@
   border-radius: var(--mb-radius-brand);
   background: linear-gradient(135deg, var(--mb-color-action-primary), color-mix(in srgb, var(--mb-color-action-primary), white 20%) 70%);
   color: var(--mb-color-on-action-primary);
-  font-size: 18px;
+  font-size: var(--mb-font-size-title);
   font-weight: 700;
   box-shadow: var(--mb-shadow-card);
 }
 
 .app-shell__brand-copy {
   display: grid;
-  gap: var(--mb-space-inline-xs);
+  gap: var(--mb-space-xs);
 }
 
 .app-shell__brand-title {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--mb-font-size-heading);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -53,14 +53,14 @@
 }
 
 .app-shell__menu.ant-menu {
-  padding: 12px;
+  padding: var(--mb-space-lg);
   background: transparent;
   border-inline-end: 0;
 }
 
 .app-shell__menu.ant-menu .ant-menu-item {
   height: 48px;
-  margin: var(--mb-space-inline-xs) 0;
+  margin: var(--mb-space-xs) 0;
   border-radius: var(--mb-radius-brand);
   font-weight: 500;
 }
@@ -89,7 +89,7 @@
 }
 
 .app-shell__content.ant-layout-content {
-  padding: var(--mb-space-page-padding) 28px var(--mb-space-page-gap);
+  padding: var(--mb-space-2xl) var(--mb-space-2xl) var(--mb-space-3xl);
   background: transparent;
 }
 
@@ -99,8 +99,8 @@
   }
 
   .app-shell__content.ant-layout-content {
-    padding-left: var(--mb-space-card-padding);
-    padding-right: var(--mb-space-card-padding);
+    padding-left: var(--mb-space-xl);
+    padding-right: var(--mb-space-xl);
     padding-bottom: 80px;
   }
 }

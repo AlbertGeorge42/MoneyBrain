@@ -8,7 +8,7 @@ import PredictionStatistic from './PredictionStatistic'
 import type { CashFlowReportData } from '@shared/types'
 import { formatCurrency } from '../../utils/format'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
-import { getTokenValue } from '../../styles/theme/cssVars'
+import { getTokenValue } from '../../styles/theme/css-utils'
 
 interface CashFlowDetailMetrics {
   inflow: number

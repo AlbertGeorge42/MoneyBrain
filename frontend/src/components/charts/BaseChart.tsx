@@ -3,7 +3,7 @@ import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
 import { currencyTooltipFormatter, currencyAxisFormatter } from '../../utils/format'
 import { useTheme } from '../../styles/ThemeContext'
-import { getTokenValue } from '../../styles/theme/cssVars'
+import { getTokenValue } from '../../styles/theme/css-utils'
 
 export interface BaseChartProps {
   title: string
