@@ -1,5 +1,5 @@
 import { prisma } from '../../index.js'
-import { calculateBalanceAtDate } from '../balance.service.js'
+import { calculateBalancesBatch } from '../balance.service.js'
 import { NotFoundError, ValidationError } from '../../common/index.js'
 
 // 浮点误差容许值
@@ -45,11 +45,12 @@ export async function createSnapshot(data: {
     seenAssetClassIds.add(item.assetClassId)
   }
 
-  // 5. 获取快照日的账户余额（下一天，因为 calculateBalanceAtDate 使用 lt）
+  // 5. 获取快照日的账户余额（下一天，因为 calculateBalancesBatch 使用 lt: targetDate）
   const snapshotDate = new Date(data.date)
   const nextDay = new Date(snapshotDate)
   nextDay.setDate(nextDay.getDate() + 1)
-  const accountBalance = await calculateBalanceAtDate(data.accountId, nextDay)
+  const balanceCache = await calculateBalancesBatch([data.accountId], [nextDay])
+  const accountBalance = balanceCache.get(data.accountId, nextDay)
 
   // 6. 校验市值总和与账户余额一致（允许浮点误差）
   const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
@@ -292,7 +293,8 @@ export async function updateSnapshot(
   const snapshotDate = new Date(data.date)
   const nextDay = new Date(snapshotDate)
   nextDay.setDate(nextDay.getDate() + 1)
-  const accountBalance = await calculateBalanceAtDate(accountId, nextDay)
+  const balanceCache = await calculateBalancesBatch([accountId], [nextDay])
+  const accountBalance = balanceCache.get(accountId, nextDay)
 
   // 6. 校验市值总和与账户余额一致（允许浮点误差）
   const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)

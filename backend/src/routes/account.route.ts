@@ -12,7 +12,6 @@ import {
 } from '../common/index.js'
 import {
   adjustAccountBalance,
-  batchAdjustAccountBalances,
   createAccount,
   deleteAccount,
   getAccountDetail,
@@ -21,7 +20,7 @@ import {
   updateAccountProfile,
   updateAccountSorts,
 } from '../services/account.service.js'
-import { calculateBalanceAtDate } from '../services/balance.service.js'
+import { calculateBalancesBatch } from '../services/balance.service.js'
 
 const router = Router()
 
@@ -36,12 +35,6 @@ const validateAdjustRequest = (req: Request) => {
   validateIdParam(req)
   if (!hasValue(req.body?.amount)) {
     throw new ValidationError('调整金额不能为空')
-  }
-}
-
-const validateBatchAdjust = (req: Request) => {
-  if (!Array.isArray(req.body?.adjustments) || req.body.adjustments.length === 0) {
-    throw new ValidationError('调整数据不能为空')
   }
 }
 
@@ -85,10 +78,11 @@ router.get('/:id/balance-at', validateRequest(validateIdParam), asyncHandler(asy
     throw new ValidationError('缺少 date 参数')
   }
 
-  // 计算下一天的余额，因为 calculateBalanceAtDate 使用 lt: targetDate
+  // 计算下一天的余额，因为 calculateBalancesBatch 使用 lt: targetDate
   const nextDayDate = nextDay(dateStr)
 
-  const balance = await calculateBalanceAtDate(req.params.id, nextDayDate)
+  const balanceCache = await calculateBalancesBatch([req.params.id], [nextDayDate])
+  const balance = balanceCache.get(req.params.id, nextDayDate)
 
   return success(res, {
     accountId: req.params.id,
@@ -122,11 +116,6 @@ router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req,
 
 router.post('/:id/adjust', validateRequest(validateAdjustRequest), asyncHandler(async (req, res) => {
   const result = await adjustAccountBalance(req.params.id, req.body.amount, req.body.date, req.body.note)
-  return success(res, result, 201)
-}))
-
-router.post('/batch-adjust', validateRequest(validateBatchAdjust), asyncHandler(async (req, res) => {
-  const result = await batchAdjustAccountBalances(req.body.adjustments, req.body.date, req.body.note)
   return success(res, result, 201)
 }))
 

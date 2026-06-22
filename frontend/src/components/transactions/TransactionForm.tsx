@@ -1,12 +1,12 @@
-import React, { useEffect } from 'react'
-import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Tag, Space, theme } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Tag, Space, theme, Spin } from 'antd'
 import dayjs from 'dayjs'
-import { Account, TransactionCategory, Transaction } from '../../services/api'
+import { Account, TransactionCategory, Transaction, accountApi } from '../../services/api'
 import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
 import DynamicIcon from '../common/DynamicIcon'
 import { formatCurrency } from '../../utils/format'
 
-export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund'
+export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
 
 interface TransactionFormProps {
   type: TransactionFormType
@@ -18,6 +18,8 @@ interface TransactionFormProps {
   showRefundSourceInfo?: boolean
   /** 原交易信息（仅在创建退款时使用） */
   sourceTransaction?: Transaction | null
+  /** 账户余额变化回调（仅在 adjustment 类型使用） */
+  onAccountBalanceChange?: (balance: number | null) => void
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -28,6 +30,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   form,
   showRefundSourceInfo = false,
   sourceTransaction = null,
+  onAccountBalanceChange,
 }) => {
   const { token } = theme.useToken()
   const colorTextMuted = token.colorTextTertiary
@@ -37,6 +40,43 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const fontSizeCaption = `${token.fontSizeSM}px`
   const radiusControl = `${token.borderRadiusSM}px`
   const spaceCardPadding = `${token.padding}px`
+
+  // adjustment 类型：账户余额相关状态
+  const [accountBalance, setAccountBalance] = useState<number | null>(null)
+  const [loadingBalance, setLoadingBalance] = useState(false)
+
+  // 监听账户选择变化（用于 adjustment 类型）
+  const watchedAccountId = Form.useWatch('accountId', form)
+
+  // 获取账户当前余额（用于 adjustment 类型）
+  useEffect(() => {
+    if (type === 'adjustment' && watchedAccountId) {
+      setLoadingBalance(true)
+      accountApi.getBalanceAt(watchedAccountId, dayjs().format('YYYY-MM-DD'))
+        .then(res => {
+          const balance = res.data.data?.balance ?? null
+          setAccountBalance(balance)
+          onAccountBalanceChange?.(balance)
+
+          // 编辑 adjustment 类型时，反向计算"当前金额"
+          // 当前金额 = 当前余额 + 原始平账值
+          if (editingTransaction && balance !== null) {
+            const currentAmount = balance + editingTransaction.amount
+            form.setFieldValue('amount', currentAmount)
+          }
+        })
+        .catch(() => {
+          setAccountBalance(null)
+          onAccountBalanceChange?.(null)
+        })
+        .finally(() => {
+          setLoadingBalance(false)
+        })
+    } else if (type === 'adjustment' && !watchedAccountId) {
+      setAccountBalance(null)
+      onAccountBalanceChange?.(null)
+    }
+  }, [type, watchedAccountId, onAccountBalanceChange, editingTransaction, form])
 
   useEffect(() => {
     if (editingTransaction) {
@@ -142,6 +182,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         name="accountId"
         label={type === 'refund' ? '退款账户' : '账户'}
         rules={[{ required: true, message: '请选择账户' }]}
+        extra={type === 'adjustment' && (
+          loadingBalance ? <Spin size="small" /> :
+          accountBalance !== null ? `当前余额: ${formatCurrency(accountBalance)}` : null
+        )}
       >
         <Select placeholder="请选择账户">
           {accounts.map(a => (
@@ -171,7 +215,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         </Form.Item>
       )
     }
-    if (type === 'refund') {
+    // refund 和 adjustment 不需要分类选择
+    if (type === 'refund' || type === 'adjustment') {
       return null
     }
 
@@ -203,22 +248,46 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   return (
     <>
       {renderRefundSourceInfo()}
-      
+
+      {/* adjustment 类型：先选择账户，再输入金额 */}
+      {type === 'adjustment' && renderAccountSelector()}
+
       <Form.Item
         name="amount"
-        label="金额"
-        rules={[{ required: true, message: '请输入金额' }]}
+        label={type === 'adjustment' ? '当前金额' : '金额'}
+        rules={[{ required: true, message: type === 'adjustment' ? '请输入当前金额' : '请输入金额' }]}
+        extra={type === 'adjustment' && accountBalance !== null && (
+          <Form.Item noStyle shouldUpdate>
+            {({ getFieldValue }) => {
+              const currentAmount = getFieldValue('amount')
+              if (currentAmount !== undefined && currentAmount !== null) {
+                const adjustmentValue = currentAmount - accountBalance
+                const color = adjustmentValue >= 0 ? colorIncome : colorExpense
+                return (
+                  <div style={{ marginTop: 8 }}>
+                    平账值: <span style={{ color, fontWeight: 500 }}>{formatCurrency(adjustmentValue)}</span>
+                    <span style={{ color: colorTextMuted, marginLeft: 8 }}>
+                      ({adjustmentValue >= 0 ? '增加' : '减少'}账户余额)
+                    </span>
+                  </div>
+                )
+              }
+              return null
+            }}
+          </Form.Item>
+        )}
       >
         <InputNumber
           style={{ width: '100%' }}
           precision={2}
-          min={0.01}
-          placeholder="请输入金额"
+          min={type === 'adjustment' ? undefined : 0.01}
+          placeholder={type === 'adjustment' ? '请输入账户当前实际金额（负债账户可为负数）' : '请输入金额'}
           prefix="¥"
         />
       </Form.Item>
 
-      {renderAccountSelector()}
+      {/* 其他类型：先输入金额，再选择账户 */}
+      {type !== 'adjustment' && renderAccountSelector()}
 
       <Form.Item
         name="date"
@@ -231,38 +300,41 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
       {renderCategorySelector()}
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="fee"
-            label="手续费"
-            initialValue={0}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              precision={2}
-              min={0}
-              placeholder="手续费"
-              prefix="¥"
-            />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="coupon"
-            label="优惠券"
-            initialValue={0}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              precision={2}
-              min={0}
-              placeholder="优惠券"
-              prefix="¥"
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+      {/* adjustment 类型不需要手续费和优惠券 */}
+      {type !== 'adjustment' && (
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="fee"
+              label="手续费"
+              initialValue={0}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                precision={2}
+                min={0}
+                placeholder="手续费"
+                prefix="¥"
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="coupon"
+              label="优惠券"
+              initialValue={0}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                precision={2}
+                min={0}
+                placeholder="优惠券"
+                prefix="¥"
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+      )}
 
       <Form.Item
         name="note"

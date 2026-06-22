@@ -24,20 +24,30 @@ const TransactionCreate: React.FC<TransactionCreateProps> = ({
 }) => {
   const [form] = Form.useForm()
   const [currentType, setCurrentType] = useState<TransactionFormType>(initialType)
+  const [accountBalance, setAccountBalance] = useState<number | null>(null)
 
   useEffect(() => {
     if (visible) {
       setCurrentType(initialType)
       form.resetFields()
+      setAccountBalance(null)
     }
   }, [visible, initialType, form])
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
+
+      // adjustment 类型：计算平账值
+      if (currentType === 'adjustment' && accountBalance !== null) {
+        const adjustmentValue = values.amount - accountBalance
+        values.amount = adjustmentValue
+      }
+
       const submitValues = formatTransactionSubmitValues(values, currentType)
       await onOk(submitValues)
       form.resetFields()
+      setAccountBalance(null)
     } catch {
       // 错误由 Form 处理
     }
@@ -47,6 +57,7 @@ const TransactionCreate: React.FC<TransactionCreateProps> = ({
     setCurrentType(key as TransactionFormType)
     form.resetFields()
     form.setFieldsValue({ type: key })
+    setAccountBalance(null)
   }
 
   const tabItems = useMemo(() => [
@@ -80,7 +91,18 @@ const TransactionCreate: React.FC<TransactionCreateProps> = ({
         />
       </Form>
     )},
-  ], [form, accounts, categories])
+    { key: 'adjustment', label: '平账', children: (
+      <Form form={form} layout="vertical">
+        <TransactionForm
+          type="adjustment"
+          accounts={accounts}
+          categories={categories}
+          form={form}
+          onAccountBalanceChange={setAccountBalance}
+        />
+      </Form>
+    )},
+  ], [form, accounts, categories, setAccountBalance])
 
   return (
     <TransactionModal

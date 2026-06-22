@@ -35,6 +35,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
   const [form] = Form.useForm()
   const [refundForm] = Form.useForm()
   const [activeTab, setActiveTab] = useState<DetailTab>('edit')
+  const [accountBalance, setAccountBalance] = useState<number | null>(null)
 
   useEffect(() => {
     if (visible && transaction) {
@@ -49,11 +50,13 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
     if (tx.type === 'transfer') return 'transfer'
     if (tx.type === 'income') return 'income'
     if (tx.type === 'expense') return 'expense'
+    if (tx.type === 'adjustment') return 'adjustment'
     return 'refund'
   }
 
   const handleEditSubmit = async () => {
     if (!transaction) return
+    const editType = getEditType(transaction)
     try {
       if (isRefundTransaction) {
         const values = await form.validateFields()
@@ -69,9 +72,28 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
           relatedType: transaction.relatedType,
         }
         await onEdit(submitValues)
+      } else if (editType === 'adjustment') {
+        // adjustment 类型：计算平账值（当前金额 - 当前余额）
+        const values = await form.validateFields()
+        if (accountBalance === null) {
+          notify.error('无法获取账户余额')
+          return
+        }
+        const adjustmentValue = values.amount - accountBalance
+        const submitValues = {
+          type: 'adjustment' as const,
+          amount: adjustmentValue,
+          fee: 0,
+          coupon: 0,
+          date: values.date.format('YYYY-MM-DD'),
+          accountId: values.accountId,
+          categoryId: null,
+          note: values.note,
+        }
+        await onEdit(submitValues)
       } else {
         const values = await form.validateFields()
-        const submitValues = formatTransactionSubmitValues(values, getEditType(transaction))
+        const submitValues = formatTransactionSubmitValues(values, editType)
         await onEdit(submitValues)
       }
       // 业务提示由父组件 Transactions 负责（避免双弹）
@@ -121,6 +143,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
           accounts={accounts}
           categories={categories}
           form={form}
+          onAccountBalanceChange={type === 'adjustment' ? setAccountBalance : undefined}
         />
       </Form>
     )

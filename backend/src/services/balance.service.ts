@@ -229,66 +229,6 @@ export async function calculateBalancesBatch(
   return new BalanceCache(result)
 }
 
-export async function calculateBalanceAtDate(
-  accountId: string,
-  targetDate: Date
-): Promise<number> {
-  const account = await prisma.account.findUnique({
-    where: { id: accountId },
-  })
-  
-  if (!account) return 0
-
-  let balance = account.initialBalance
-  
-  if (!account.initialBalanceDate) {
-    // 无初始余额日期，从最早交易开始计算
-    const fromTransactions = await prisma.transaction.findMany({
-      where: { accountId, date: { lt: targetDate } },
-    })
-    const toTransactions = await prisma.transaction.findMany({
-      where: { toAccountId: accountId, date: { lt: targetDate } },
-    })
-    balance = applyTransactionsToBalance(balance, fromTransactions, toTransactions)
-    return balance.toNumber()
-  }
-
-  const initialDate = account.initialBalanceDate
-  // 初始余额日期代表当天结束，所以初始日期的下一天是计算的起点
-  const initialDateNextDay = new Date(initialDate)
-  initialDateNextDay.setDate(initialDateNextDay.getDate() + 1)
-  
-  const isForwardCalculation = targetDate >= initialDateNextDay
-
-  let dateRange: { gte: Date; lt: Date }
-  let multiplier: 1 | -1
-
-  if (isForwardCalculation) {
-    // 向前计算：从初始日期下一天到目标日期
-    dateRange = { gte: initialDateNextDay, lt: targetDate }
-    multiplier = 1
-  } else if (targetDate <= initialDate) {
-    // 向后计算：从目标日期到初始日期（不含初始日期当天）
-    dateRange = { gte: targetDate, lt: initialDate }
-    multiplier = -1
-  } else {
-    // targetDate 在初始日期当天，返回初始余额
-    return balance.toNumber()
-  }
-
-  const [fromTransactions, toTransactions] = await Promise.all([
-    prisma.transaction.findMany({
-      where: { accountId, date: dateRange },
-    }),
-    prisma.transaction.findMany({
-      where: { toAccountId: accountId, date: dateRange },
-    }),
-  ])
-
-  balance = applyTransactionsToBalance(balance, fromTransactions, toTransactions, multiplier)
-  return balance.toNumber()
-}
-
 export async function getOrCreateAdjustmentCategory(type: 'income' | 'expense'): Promise<string> {
   const existing = await prisma.transactionCategory.findFirst({
     where: { name: '平账调整', type }

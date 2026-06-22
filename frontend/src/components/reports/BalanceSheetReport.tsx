@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Button, Card, Grid, Space, Statistic, Tag, theme } from 'antd'
-import { SaveOutlined, SettingOutlined } from '@ant-design/icons'
+import { SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetAccountItem, BalanceSheetReportData } from '@shared/types'
 import { PointTimePickerField, ReportDetailList } from '../common'
 import type { PointTimePickerConfig, PointTimeValue, ReportTreeNode, ReportDetailColumn } from '../common'
@@ -109,7 +109,6 @@ interface BalanceSheetReportProps {
   loading?: boolean
   onTimeChange: (value: PointTimeValue) => void
   onOpenSettings: () => void
-  onOpenCalibrate: () => void
 }
 
 const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
@@ -119,7 +118,6 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
   loading,
   onTimeChange,
   onOpenSettings,
-  onOpenCalibrate,
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
@@ -364,9 +362,6 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
         <Space className="report-toolbar__actions">
           <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
             设置
-          </Button>
-          <Button icon={<SaveOutlined />} onClick={onOpenCalibrate}>
-            校准
           </Button>
         </Space>
       </div>

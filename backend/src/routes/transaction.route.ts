@@ -30,9 +30,9 @@ import {
 
 const router = Router()
 
-type TransactionType = 'income' | 'expense' | 'transfer' | 'refund'
+type TransactionType = 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
 
-const transactionTypes = new Set<TransactionType>(['income', 'expense', 'transfer', 'refund'])
+const transactionTypes = new Set<TransactionType>(['income', 'expense', 'transfer', 'refund', 'adjustment'])
 
 const validateTransactionType = (value: unknown): TransactionType => {
   const type = String(value) as TransactionType
@@ -78,6 +78,11 @@ const validateCreateTransaction = (req: Request) => {
     if (String(accountId) === String(toAccountId)) {
       throw new ValidationError('转出账户和转入账户不能相同')
     }
+    return
+  }
+
+  // adjustment 类型不需要 categoryId
+  if (transactionType === 'adjustment') {
     return
   }
 
@@ -199,7 +204,7 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
     date: parsedDate,
     note,
     accountId,
-    categoryId,
+    categoryId: type === 'adjustment' ? null : categoryId,
   })
 
   return success(res, result, 201)
@@ -249,6 +254,25 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
       accountId,
       categoryId,
       relatedTransactionId,
+    })
+
+    return success(res, result)
+  }
+
+  if (oldTransaction.type === 'adjustment') {
+    if (hasValue(type) && type !== 'adjustment') {
+      throw new ValidationError('平账记录不能修改为其他类型')
+    }
+
+    const result = await updateIncomeExpense(id, {
+      type: 'adjustment',
+      amount,
+      fee: 0,
+      coupon: 0,
+      date: parsedDate,
+      note,
+      accountId,
+      categoryId: null,
     })
 
     return success(res, result)

@@ -129,20 +129,12 @@ export const accountApi = {
     ),
   create: (data: Partial<Account>) => api.post<ApiResponse<Account>>('/accounts', data),
   update: (id: string, data: Partial<Account>) => api.put<ApiResponse<Account>>(`/accounts/${id}`, data),
-  updateSort: (items: Array<{ id: string; sort: number; categoryId: string | null }>) => 
+  updateSort: (items: Array<{ id: string; sort: number; categoryId: string | null }>) =>
     api.put<ApiResponse<{ message: string }>>('/accounts/sort/batch', { items }),
-  delete: (id: string, force?: boolean) => api.delete<ApiResponse<{ 
+  delete: (id: string, force?: boolean) => api.delete<ApiResponse<{
     message: string
-    deletedTransactions?: number 
+    deletedTransactions?: number
   }>>(`/accounts/${id}`, { params: { force } }),
-  batchAdjust: (data: { adjustments: Array<{ accountId: string; amount: number }>; date?: string; note?: string }) =>
-    api.post<ApiResponse<{ date: string; count: number; adjustments: Array<{
-      accountId: string
-      accountName: string
-      amount: number
-      transactionId: string
-      newBalance: number
-    }> }>>('/accounts/batch-adjust', data),
 }
 
 export const transactionCategoryApi = {

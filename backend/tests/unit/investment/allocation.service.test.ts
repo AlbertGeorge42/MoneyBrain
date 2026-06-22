@@ -11,7 +11,7 @@ import { NotFoundError, ValidationError } from '../../../src/common/error.js'
 
 // Mock balance service
 vi.mock('../../../src/services/balance.service.js', () => ({
-  calculateBalanceAtDate: vi.fn(),
+  calculateBalancesBatch: vi.fn(),
 }))
 
 // Mock prisma - 工厂函数内部不能引用外部变量
@@ -55,7 +55,14 @@ import { prisma } from '../../../src/index.js'
 
 describe('allocation.service', () => {
   const mockPrisma = prisma as any
-  const mockCalculateBalanceAtDate = balanceService.calculateBalanceAtDate as any
+  const mockCalculateBalancesBatch = balanceService.calculateBalancesBatch as any
+
+  // 创建 mock BalanceCache
+  const createMockBalanceCache = (accountId: string, balance: number) => ({
+    get: vi.fn((id: string, _date: Date) => id === accountId ? balance : 0),
+    getMany: vi.fn(),
+    getAccountCache: vi.fn(),
+  })
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -70,7 +77,7 @@ describe('allocation.service', () => {
       
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount)
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
-      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+      mockCalculateBalancesBatch.mockResolvedValue(createMockBalanceCache('acc1', 10000))
       mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null) // 无之前快照
       mockPrisma.investmentAllocationSnapshot.create.mockResolvedValue({
         ...mockSnapshot,
@@ -127,7 +134,7 @@ describe('allocation.service', () => {
     it('市值总和与账户余额不一致时应该抛出 ValidationError', async () => {
       mockPrisma.account.findUnique.mockResolvedValue({ id: 'acc1' })
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue([{ id: 'class1' }])
-      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+      mockCalculateBalancesBatch.mockResolvedValue(createMockBalanceCache('acc1', 10000))
 
       await expect(createSnapshot({
         accountId: 'acc1',
@@ -142,7 +149,7 @@ describe('allocation.service', () => {
       
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount)
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
-      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+      mockCalculateBalancesBatch.mockResolvedValue(createMockBalanceCache('acc1', 10000))
       mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null)
       mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
 
@@ -162,7 +169,7 @@ describe('allocation.service', () => {
       
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount)
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
-      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+      mockCalculateBalancesBatch.mockResolvedValue(createMockBalanceCache('acc1', 10000))
       
       // 直接返回 null，模拟没有相同日期的快照，让测试更稳定
       mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null) 
@@ -309,7 +316,7 @@ describe('allocation.service', () => {
 
       mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
-      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+      mockCalculateBalancesBatch.mockResolvedValue(createMockBalanceCache('acc1', 10000))
       mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
 
       await updateSnapshot('snap1', {
@@ -375,7 +382,7 @@ describe('allocation.service', () => {
 
       mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue(mockAssetClasses)
-      mockCalculateBalanceAtDate.mockResolvedValue(10000)
+      mockCalculateBalancesBatch.mockResolvedValue(createMockBalanceCache('acc1', 10000))
 
       await expect(updateSnapshot('snap1', {
         date: '2024-01-01',

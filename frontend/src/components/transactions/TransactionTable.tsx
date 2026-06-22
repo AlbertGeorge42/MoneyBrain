@@ -54,7 +54,7 @@ const MobilePagination: React.FC<{
 }
 
 const getCategoryName = (record: Transaction): string => {
-  if (record.type === 'adjustment') return record.note || '平账调整'
+  if (record.type === 'adjustment') return record.note || '平账'
   if (record.type === 'transfer') return record.category?.name || '内部转账'
   if (record.type === 'refund') {
     const original = record.relatedTransaction?.category?.name || ''

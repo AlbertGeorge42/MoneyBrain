@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Card, InputNumber, Modal, Space, Tabs, theme } from 'antd'
+import React, { useMemo, useState } from 'react'
+import { Card, Tabs } from 'antd'
 import dayjs from 'dayjs'
 import { PageHeader } from '../components/common'
 import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
-import DynamicIcon from '../components/common/DynamicIcon'
 import { BalanceSheetReport, CashFlowReport, IncomeExpenseReport, InvestmentAnalysisReport } from '../components/reports'
 import InvestmentAssetClassConfigModal from '../components/investment/InvestmentAssetClassConfigModal'
 import InvestmentSnapshotHistoryModal from '../components/investment/InvestmentSnapshotHistoryModal'
@@ -20,12 +19,6 @@ import {
   toDateParam,
   toDateRangeParams,
 } from '../utils/timePicker'
-import {
-  accountApi,
-  type BalanceSheetAccountItem,
-} from '../services/api'
-import { useNotify } from '../hooks/useNotify'
-import { formatCurrency } from '../utils/format'
 import {
   useTransactionEarliestDate,
   useBalanceSheet,
@@ -125,12 +118,8 @@ const baseInvestmentPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDa
 }
 
 const Reports: React.FC = () => {
-  const { token } = theme.useToken()
-  const notify = useNotify()
   const [activeTab, setActiveTab] = useState('balance-sheet')
   const [selectedBalanceTime, setSelectedBalanceTime] = useState<PointTimeValue>(createPointValue('month', dayjs()))
-  const [calibrateVisible, setCalibrateVisible] = useState(false)
-  const [calibrateData, setCalibrateData] = useState<Record<string, number>>({})
   const [accountCategoryModalVisible, setAccountCategoryModalVisible] = useState(false)
   const [incomeExpenseTimeRange, setIncomeExpenseTimeRange] = useState<RangeTimeValue>(
     createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
@@ -210,46 +199,6 @@ const Reports: React.FC = () => {
     [earliestTransactionDate]
   )
 
-  useEffect(() => {
-    if (balanceSheetData?.accounts) {
-      const nextCalibration: Record<string, number> = {}
-      balanceSheetData.accounts.forEach((account: BalanceSheetAccountItem) => {
-        nextCalibration[account.id] = account.actual
-      })
-      setCalibrateData(nextCalibration)
-    }
-  }, [balanceSheetData])
-
-  const handleSaveCalibration = async () => {
-    try {
-      const adjustments =
-        balanceSheetData?.accounts
-          ?.map((account: BalanceSheetAccountItem) => ({
-            accountId: account.id,
-            amount: (calibrateData[account.id] || 0) - (account.actual || 0),
-          }))
-          .filter((item) => item.amount !== 0) || []
-
-      if (adjustments.length === 0) {
-        notify.info('没有需要校准的账户')
-        setCalibrateVisible(false)
-        return
-      }
-
-      const response = await accountApi.batchAdjust({
-        adjustments,
-        date: selectedBalanceTime.value.startOf('month').subtract(1, 'day').format('YYYY-MM-DD'),
-        note: `报表校准 ${selectedBalanceTime.value.format('YYYY-MM')}`,
-      })
-
-      notify.success(`已生成 ${response.data.data?.count || 0} 条平账记录`)
-      setCalibrateVisible(false)
-      void refetchBalanceSheet()
-    } catch {
-      notify.error('保存失败')
-    }
-  }
-
   const tabItems = [
     {
       key: 'balance-sheet',
@@ -262,7 +211,6 @@ const Reports: React.FC = () => {
           loading={balanceSheetLoading}
           onTimeChange={setSelectedBalanceTime}
           onOpenSettings={() => setAccountCategoryModalVisible(true)}
-          onOpenCalibrate={() => setCalibrateVisible(true)}
         />
       ),
     },
@@ -358,39 +306,6 @@ const Reports: React.FC = () => {
         }}
         onRefresh={refetchInvestment}
       />
-
-      <Modal
-        title={`校准余额 ${selectedBalanceTime.value.format('YYYY-MM')}`}
-        open={calibrateVisible}
-        onOk={handleSaveCalibration}
-        onCancel={() => setCalibrateVisible(false)}
-        okText="保存"
-        cancelText="取消"
-        width={700}
-      >
-        <p style={{ color: token.colorTextTertiary, marginBottom: 16 }}>输入实际余额。</p>
-        {balanceSheetData?.accounts?.map((account: BalanceSheetAccountItem) => (
-          <div
-            key={account.id}
-            style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-          >
-            <span style={{ width: 160 }}>
-              <DynamicIcon name={account.icon} size={16} fallback="wallet" /> {account.name}
-            </span>
-            <Space>
-              <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>当前 {formatCurrency(account.actual ?? 0)}</span>
-              <InputNumber
-                value={calibrateData[account.id]}
-                onChange={(value) => setCalibrateData({ ...calibrateData, [account.id]: value || 0 })}
-                precision={2}
-                style={{ width: 160 }}
-                prefix="¥"
-                placeholder="实际余额"
-              />
-            </Space>
-          </div>
-        ))}
-      </Modal>
     </>
   )
 }

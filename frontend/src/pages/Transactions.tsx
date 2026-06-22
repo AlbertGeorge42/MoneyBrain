@@ -24,6 +24,7 @@ import {
   TransactionFilterValues,
   TransactionCreate,
   TransactionEdit,
+  TransactionFormType,
 } from '../components/transactions'
 
 const Transactions: React.FC = () => {
@@ -31,6 +32,7 @@ const Transactions: React.FC = () => {
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [filterExpanded, setFilterExpanded] = useState(false)
+  const [initialType, setInitialType] = useState<TransactionFormType>('expense')
   const [filters, setFilters] = useState<TransactionFilterValues>({
     type: [],
     accountId: [],
@@ -65,7 +67,8 @@ const Transactions: React.FC = () => {
   const updateTransaction = useUpdateTransaction()
   const deleteTransaction = useDeleteTransaction()
 
-  const handleAdd = () => {
+  const handleAdd = (type: TransactionFormType = 'expense') => {
+    setInitialType(type)
     setCreateModalVisible(true)
   }
 
@@ -150,8 +153,9 @@ const Transactions: React.FC = () => {
     if (isMobile) {
       return null
     }
+
     return (
-      <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+      <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd('expense')}>
         记一笔
       </Button>
     )
@@ -198,13 +202,13 @@ const Transactions: React.FC = () => {
         onRowClick={handleRowClick}
       />
 
-      {isMobile && <FloatingActionButton onClick={handleAdd} />}
+      {isMobile && <FloatingActionButton onClick={() => handleAdd('expense')} />}
 
       <TransactionCreate
         visible={createModalVisible}
         accounts={accounts}
         categories={transactionCategories}
-        initialType="expense"
+        initialType={initialType}
         onOk={handleCreateSubmit}
         onCancel={() => setCreateModalVisible(false)}
       />
