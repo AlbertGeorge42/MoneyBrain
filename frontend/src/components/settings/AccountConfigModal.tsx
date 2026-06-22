@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Modal, Table, Button, Form, Tabs, Tooltip, Dropdown, theme } from 'antd'
-import { PlusOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons'
+import { Modal, Table, Button, Form, Tooltip, theme } from 'antd'
+import { PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAccounts, useAccountCategories, useCreateAccount, useUpdateAccount, useDeleteAccount } from '../../queries'
 import { queryKeys } from '../../queries/keys'
@@ -13,11 +13,13 @@ import DynamicIcon from '../common/DynamicIcon'
 import CategoryForm from './CategoryForm'
 import AccountForm from './AccountForm'
 import MoveModal from './MoveModal'
+import ConfigModalLayout from './ConfigModalLayout'
 import { useNotify } from '../../hooks/useNotify'
 import {
   useMoveModal,
   useSortableTable,
   SortableRow,
+  SettingDropdown,
   createSettingMenuItems,
   renderExpandIcon,
   renderDragHandle,
@@ -259,7 +261,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderExpandIcon(record, expandedRowKeys, toggleExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
     { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderDragHandle(record, isSortable) },
     { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: AccountTreeNode) => <span><DynamicIcon name={record.icon} size={16} fallback={record.type === 'category' ? 'folder' : 'wallet'} /> {text}</span> },
-    { title: '操作', key: 'action', width: 80, render: (_: unknown, record: AccountTreeNode) => <Dropdown menu={{ items: getSettingMenuItems(record) }} trigger={['click']}><Button type="text" size="small" icon={<SettingOutlined />} /></Dropdown> },
+    { title: '操作', key: 'action', width: 80, render: (_: unknown, record: AccountTreeNode) => <SettingDropdown items={getSettingMenuItems(record)} /> },
   ]
 
   const renderTable = (type: 'asset' | 'liability') => {
@@ -283,10 +285,9 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   return (
     <>
-      <Modal title="账户分类管理" open={visible} onCancel={onClose} footer={null} width={700}>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems}
-          tabBarExtraContent={<Tooltip title={activeTab === 'asset' ? '添加资产分类' : '添加负债分类'}><Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(activeTab as 'asset' | 'liability')} /></Tooltip>} />
-      </Modal>
+      <ConfigModalLayout title="账户分类管理" visible={visible} onClose={onClose}
+        tabs={{ items: tabItems, activeKey: activeTab, onChange: setActiveTab,
+          tabBarExtraContent: <Tooltip title={activeTab === 'asset' ? '添加资产分类' : '添加负债分类'}><Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAddCategory(activeTab as 'asset' | 'liability')} /></Tooltip> }} />
       <CategoryForm visible={categoryFormVisible} editing={!!editingCategory} form={categoryForm} onSubmit={handleCategorySubmit} onCancel={() => setCategoryFormVisible(false)} />
       <AccountForm visible={accountFormVisible} editing={!!editingAccount} form={accountForm} onSubmit={handleAccountSubmit} onCancel={() => setAccountFormVisible(false)} />
       <MoveModal visible={moveModal.visible} category={moveModal.item ? { id: moveModal.item.id, name: moveModal.item.name, categoryType: moveModal.item.nodeType as 'income' | 'expense' | 'transfer', parentId: moveModal.item.parentId } : null}

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
-import { RightOutlined, DownOutlined, EditOutlined, DeleteOutlined, ExportOutlined, FolderAddOutlined, WalletOutlined, HolderOutlined } from '@ant-design/icons'
+import { RightOutlined, DownOutlined, EditOutlined, DeleteOutlined, ExportOutlined, FolderAddOutlined, WalletOutlined, HolderOutlined, SettingOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
-import { theme } from 'antd'
+import { Button, Dropdown, theme } from 'antd'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -271,3 +271,14 @@ export const getCurrentPositionLabel = (
   const parent = parentMap.get(parentId)
   return parent ? `${parent.name}（二级分类）` : '二级分类'
 }
+
+interface SettingDropdownProps {
+  items: MenuProps['items']
+}
+
+/** 统一的表格行操作设置按钮 */
+export const SettingDropdown: React.FC<SettingDropdownProps> = ({ items }) => (
+  <Dropdown menu={{ items }} trigger={['click']}>
+    <Button type="text" size="small" icon={<SettingOutlined />} />
+  </Dropdown>
+)

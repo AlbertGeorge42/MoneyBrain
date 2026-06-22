@@ -5,6 +5,8 @@ import { PageHeader } from '../components/common'
 import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
 import DynamicIcon from '../components/common/DynamicIcon'
 import { BalanceSheetReport, CashFlowReport, IncomeExpenseReport, InvestmentAnalysisReport } from '../components/reports'
+import InvestmentAssetClassConfigModal from '../components/investment/InvestmentAssetClassConfigModal'
+import InvestmentSnapshotHistoryModal from '../components/investment/InvestmentSnapshotHistoryModal'
 import type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue } from '../components/common'
 import {
   createPointMonthEndPreset,
@@ -141,6 +143,8 @@ const Reports: React.FC = () => {
   const [investmentTimeRange, setInvestmentTimeRange] = useState<RangeTimeValue>(
     createTrailingRangePreset('last-12-months', '近12个月', 12, 'month').getValue(dayjs())
   )
+  const [investmentConfigModalVisible, setInvestmentConfigModalVisible] = useState(false)
+  const [investmentSnapshotModalVisible, setInvestmentSnapshotModalVisible] = useState(false)
 
   const { data: earliestDateData } = useTransactionEarliestDate()
   const earliestTransactionDate = earliestDateData?.date || null
@@ -299,8 +303,9 @@ const Reports: React.FC = () => {
           pickerConfig={investmentPickerConfig}
           investmentData={investmentData ?? null}
           loading={investmentLoading}
-          refetch={refetchInvestment}
           onTimeRangeChange={setInvestmentTimeRange}
+          onOpenSettings={() => setInvestmentConfigModalVisible(true)}
+          onOpenSnapshotHistory={() => setInvestmentSnapshotModalVisible(true)}
         />
       ),
     },
@@ -336,6 +341,22 @@ const Reports: React.FC = () => {
           setCashFlowConfigModalVisible(false)
           void refetchCashFlow()
         }}
+      />
+
+      <InvestmentAssetClassConfigModal
+        visible={investmentConfigModalVisible}
+        onClose={() => {
+          setInvestmentConfigModalVisible(false)
+          void refetchInvestment()
+        }}
+      />
+
+      <InvestmentSnapshotHistoryModal
+        visible={investmentSnapshotModalVisible}
+        onClose={() => {
+          setInvestmentSnapshotModalVisible(false)
+        }}
+        onRefresh={refetchInvestment}
       />
 
       <Modal

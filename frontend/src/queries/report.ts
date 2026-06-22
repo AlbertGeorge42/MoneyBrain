@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import { reportApi, investmentApi } from '../services/api'
+import { reportApi } from '../services/api'
 import { queryKeys } from './keys'
 
 export function useBalanceSheet(date: string, enabled = true) {
@@ -39,29 +39,5 @@ export function useInvestmentAnalysis(startDate: string, endDate: string, enable
     enabled: !!startDate && !!endDate && enabled,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
-  })
-}
-
-export function useInvestmentAssetClasses(accountId: string) {
-  return useQuery({
-    queryKey: queryKeys.investment.assetClasses(accountId),
-    queryFn: () => investmentApi.getAssetClasses(accountId).then((res) => res.data.data ?? []),
-    enabled: !!accountId,
-  })
-}
-
-export function useInvestmentSnapshots(accountId: string, startDate?: string, endDate?: string) {
-  return useQuery({
-    queryKey: queryKeys.investment.snapshots(accountId, startDate, endDate),
-    queryFn: () => investmentApi.getSnapshots(accountId, startDate, endDate).then((res) => res.data.data ?? []),
-    enabled: !!accountId,
-  })
-}
-
-export function useInvestmentLatestSnapshot(accountId: string, beforeDate?: string) {
-  return useQuery({
-    queryKey: queryKeys.investment.latestSnapshot(accountId, beforeDate),
-    queryFn: () => investmentApi.getLatestSnapshot(accountId, beforeDate).then((res) => res.data.data),
-    enabled: !!accountId,
   })
 }

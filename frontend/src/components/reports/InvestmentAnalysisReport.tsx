@@ -1,11 +1,9 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import { Button, Card, Empty, Grid, Statistic, theme } from 'antd'
 import { CameraOutlined, SettingOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, ReportDetailList, type RangeTimePickerConfig, type RangeTimeValue, type ReportTreeNode, type ReportDetailColumn } from '../../components/common'
 import { LineChart, PieChart } from '../../components/charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
-import InvestmentAssetClassConfigModal from '../investment/InvestmentAssetClassConfigModal'
-import InvestmentSnapshotHistoryModal from '../investment/InvestmentSnapshotHistoryModal'
 import type {
   AccountAllocationDetail,
   InvestmentAnalysisReportData,
@@ -84,8 +82,9 @@ interface InvestmentAnalysisReportProps {
   pickerConfig: RangeTimePickerConfig
   investmentData: InvestmentAnalysisReportData | null
   loading?: boolean
-  refetch: () => void
   onTimeRangeChange: (value: RangeTimeValue) => void
+  onOpenSettings: () => void
+  onOpenSnapshotHistory: () => void
 }
 
 const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
@@ -93,26 +92,13 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   pickerConfig,
   investmentData,
   loading,
-  refetch,
   onTimeRangeChange,
+  onOpenSettings,
+  onOpenSnapshotHistory,
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const { token } = theme.useToken()
-
-  const [configModalVisible, setConfigModalVisible] = useState(false)
-  const [snapshotHistoryModalVisible, setSnapshotHistoryModalVisible] = useState(false)
-  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(undefined)
-
-  const handleOpenConfig = (accountId?: string) => {
-    setSelectedAccountId(accountId)
-    setConfigModalVisible(true)
-  }
-
-  const handleOpenSnapshotHistory = (accountId?: string) => {
-    setSelectedAccountId(accountId)
-    setSnapshotHistoryModalVisible(true)
-  }
 
   const renderEmptyState = () => (
     <div className="section-grid">
@@ -121,10 +107,10 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>
         <div className="report-toolbar__actions">
-          <Button icon={<CameraOutlined />} onClick={() => handleOpenSnapshotHistory()}>
+          <Button icon={<CameraOutlined />} onClick={onOpenSnapshotHistory}>
             快照
           </Button>
-          <Button icon={<SettingOutlined />} onClick={() => handleOpenConfig()}>
+          <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
             设置
           </Button>
         </div>
@@ -133,18 +119,6 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
       <Card className="surface-card report-section-card">
         <Empty description="暂无投资账户，请先在账户分类设置中标记投资类账户。" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       </Card>
-
-      <InvestmentAssetClassConfigModal
-        visible={configModalVisible}
-        onClose={() => setConfigModalVisible(false)}
-        initialAccountId={selectedAccountId}
-      />
-      <InvestmentSnapshotHistoryModal
-        visible={snapshotHistoryModalVisible}
-        onClose={() => setSnapshotHistoryModalVisible(false)}
-        onRefresh={refetch}
-        initialAccountId={selectedAccountId}
-      />
     </div>
   )
 
@@ -162,7 +136,12 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
     [reportByCategory]
   )
 
-  if (!investmentData) return renderEmptyState()
+  const isEmpty = !investmentData
+
+  // 空状态时提前返回，弹窗在最外层渲染
+  if (isEmpty) {
+    return renderEmptyState()
+  }
 
   const { returnAnalysis, trend, totalAssets, investmentRatio } = investmentData
 
@@ -260,79 +239,69 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   )
 
   return (
-    <div className="section-grid">
-      <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
-        <div className="report-toolbar__filters">
-          <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
+    <>
+      <div className="section-grid">
+        <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
+          <div className="report-toolbar__filters">
+            <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
+          </div>
+          <div className="report-toolbar__actions">
+            <Button icon={<CameraOutlined />} onClick={onOpenSnapshotHistory}>
+              快照
+            </Button>
+            <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
+              设置
+            </Button>
+          </div>
         </div>
-        <div className="report-toolbar__actions">
-          <Button icon={<CameraOutlined />} onClick={() => handleOpenSnapshotHistory()}>
-            快照
-          </Button>
-          <Button icon={<SettingOutlined />} onClick={() => handleOpenConfig()}>
-            设置
-          </Button>
-        </div>
+
+        {summarySection}
+
+        {isMobile ? (
+          <>
+            <ReportViewSwitcher
+              className="report-view-switcher"
+              items={[
+                {
+                  key: 'trend',
+                  label: '趋势',
+                  content: (
+                    <Card className="surface-card report-section-card" size="small">
+                      <LineChart
+                        title="投资趋势"
+                        xAxisData={trend.map((item) => item.month)}
+                        seriesData={[
+                          {
+                            name: '投资总额',
+                            data: trend.map((item) => item.investment),
+                          },
+                        ]}
+                        height={240}
+                      />
+                    </Card>
+                  ),
+                },
+                {
+                  key: 'distribution',
+                  label: '分布',
+                  content: (
+                    <Card className="surface-card report-section-card" size="small">
+                      <PieChart title="投资分布" data={pieData} height={240} />
+                    </Card>
+                  ),
+                },
+              ]}
+            />
+            {detailSection}
+          </>
+        ) : (
+          <>
+            {chartSection}
+            {detailSection}
+          </>
+        )}
       </div>
-
-      {summarySection}
-
-      {isMobile ? (
-        <>
-          <ReportViewSwitcher
-            className="report-view-switcher"
-            items={[
-              {
-                key: 'trend',
-                label: '趋势',
-                content: (
-                  <Card className="surface-card report-section-card" size="small">
-                    <LineChart
-                      title="投资趋势"
-                      xAxisData={trend.map((item) => item.month)}
-                      seriesData={[
-                        {
-                          name: '投资总额',
-                          data: trend.map((item) => item.investment),
-                        },
-                      ]}
-                      height={240}
-                    />
-                  </Card>
-                ),
-              },
-              {
-                key: 'distribution',
-                label: '分布',
-                content: (
-                  <Card className="surface-card report-section-card" size="small">
-                    <PieChart title="投资分布" data={pieData} height={240} />
-                  </Card>
-                ),
-              },
-            ]}
-          />
-          {detailSection}
-        </>
-      ) : (
-        <>
-          {chartSection}
-          {detailSection}
-        </>
-      )}
-
-      <InvestmentAssetClassConfigModal
-        visible={configModalVisible}
-        onClose={() => setConfigModalVisible(false)}
-        initialAccountId={selectedAccountId}
-      />
-      <InvestmentSnapshotHistoryModal
-        visible={snapshotHistoryModalVisible}
-        onClose={() => setSnapshotHistoryModalVisible(false)}
-        onRefresh={refetch}
-        initialAccountId={selectedAccountId}
-      />
-    </div>
+    </>
   )
 }
 

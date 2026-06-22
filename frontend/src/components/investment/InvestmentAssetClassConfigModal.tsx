@@ -1,79 +1,143 @@
-import React, { useState, useEffect } from 'react'
-import { Modal, Table, Button, Form, Input, InputNumber, Select, Space, theme, Grid, Dropdown, Tooltip, Empty } from 'antd'
-import { PlusOutlined, DeleteOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { Modal, Table, Form, Input, InputNumber, Empty, theme } from 'antd'
+import { PlusOutlined, DeleteOutlined, EditOutlined, WalletOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { useAccounts } from '../../queries'
-import { investmentApi, InvestmentAssetClass } from '../../services/api'
+import { investmentApi } from '../../services/api'
 import DynamicIcon from '../../components/common/DynamicIcon'
-import { SortableRow, renderDragHandle } from '../../components/settings/shared'
+import { SortableRow, SettingDropdown, renderExpandIcon, renderDragHandle, useSortableTable } from '../../components/settings/shared'
+import ConfigModalLayout from '../../components/settings/ConfigModalLayout'
 import IconPicker from '../../components/common/IconPicker'
 import { useNotify } from '../../hooks/useNotify'
-import { formatPercent } from '../../utils/format'
 
 interface Props {
   visible: boolean
   onClose: () => void
-  initialAccountId?: string
 }
 
-const isSortable = (id: string) => id?.startsWith('asset-class-')
-const AssetClassSortableRow = (props: React.ComponentProps<typeof SortableRow>) => <SortableRow isSortable={isSortable} {...props} />
+// 树形节点类型
+interface InvestmentTreeNode {
+  id: string
+  key: string
+  name: string
+  icon: string | null
+  type: 'account' | 'assetClass'
+  accountId?: string // 资产类型所属的账户ID
+  targetRatio?: number | null // 资产类型的预期比例
+  sort: number
+  children?: InvestmentTreeNode[]
+  depth: number
+}
 
-const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, initialAccountId }) => {
+// 只有资产类型行可排序
+const isSortable = (id: string) => id?.startsWith('assetClass-')
+const InvestmentSortableRow = (props: React.ComponentProps<typeof SortableRow>) => <SortableRow isSortable={isSortable} {...props} />
+
+const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const { token } = theme.useToken()
-  const screens = Grid.useBreakpoint()
-  const isMobile = !screens.md
-  const { data: accounts = [] } = useAccounts()
   const notify = useNotify()
+  const { data: accounts = [] } = useAccounts()
 
-  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(initialAccountId)
-  const [assetClasses, setAssetClasses] = useState<InvestmentAssetClass[]>([])
+  const [treeData, setTreeData] = useState<InvestmentTreeNode[]>([])
   const [loading, setLoading] = useState(false)
-  const [editingItem, setEditingItem] = useState<InvestmentAssetClass | null>(null)
+  const [editingItem, setEditingItem] = useState<InvestmentTreeNode | null>(null)
+  const [addingAccountId, setAddingAccountId] = useState<string | null>(null)
   const [formVisible, setFormVisible] = useState(false)
   const [form] = Form.useForm()
 
-  useEffect(() => {
-    if (visible && selectedAccountId) {
-      loadAssetClasses()
+  const { sensors, expandedRowKeys, setExpandedRowKeys, toggleExpand, getVisibleSortableKeys } = useSortableTable()
+
+  // 获取投资账户列表
+  const investmentAccounts = useMemo(() => {
+    return accounts.filter(a => a.category?.isInvestment === true).sort((a, b) => a.sort - b.sort)
+  }, [accounts])
+
+  // 加载所有投资账户的资产类型数据
+  const loadAllAssetClasses = useCallback(async () => {
+    if (investmentAccounts.length === 0) {
+      setTreeData([])
+      return
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, selectedAccountId])
 
-  useEffect(() => {
-    if (initialAccountId) {
-      setSelectedAccountId(initialAccountId)
-    }
-  }, [initialAccountId])
-
-  const investmentAccounts = accounts.filter(a => a.category?.isInvestment === true)
-
-  const loadAssetClasses = async () => {
-    if (!selectedAccountId) return
     setLoading(true)
     try {
-      const res = await investmentApi.getAssetClasses(selectedAccountId)
-      setAssetClasses(res.data.data || [])
-    } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const errMsg = (err as any)?.response?.data?.error?.message || '加载资产类型失败'
-      notify.error(errMsg)
+      // 并行获取所有投资账户的资产类型
+      const results = await Promise.all(
+        investmentAccounts.map(async (account) => {
+          try {
+            const res = await investmentApi.getAssetClasses(account.id)
+            const assetClasses = res.data.data || []
+            return { accountId: account.id, assetClasses }
+          } catch {
+            return { accountId: account.id, assetClasses: [] }
+          }
+        })
+      )
+
+      // 构建树形数据
+      const tree: InvestmentTreeNode[] = investmentAccounts.map((account) => {
+        const accountResult = results.find(r => r.accountId === account.id)
+        const assetClasses = accountResult?.assetClasses || []
+
+        const children: InvestmentTreeNode[] = assetClasses
+          .sort((a, b) => a.sort - b.sort)
+          .map((ac) => ({
+            id: ac.id,
+            key: `assetClass-${ac.id}`,
+            name: ac.name,
+            icon: ac.icon,
+            type: 'assetClass' as const,
+            accountId: account.id,
+            targetRatio: ac.targetRatio,
+            sort: ac.sort,
+            depth: 1,
+          }))
+
+        return {
+          id: account.id,
+          key: `account-${account.id}`,
+          name: account.name,
+          icon: account.icon,
+          type: 'account' as const,
+          sort: account.sort,
+          children: children.length > 0 ? children : undefined,
+          depth: 0,
+        }
+      })
+
+      setTreeData(tree)
+      // 默认展开所有账户
+      setExpandedRowKeys(tree.map(t => t.key))
+    } catch {
+      notify.error('加载资产类型失败')
     } finally {
       setLoading(false)
     }
-  }
+  }, [investmentAccounts, notify, setExpandedRowKeys])
 
-  const handleAdd = () => {
+  useEffect(() => {
+    if (visible) {
+      loadAllAssetClasses()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
+
+  // 添加资产类型
+  const handleAdd = (accountId: string) => {
     setEditingItem(null)
+    setAddingAccountId(accountId)
     form.resetFields()
     setFormVisible(true)
   }
 
-  const handleEdit = (record: InvestmentAssetClass) => {
+  // 编辑资产类型
+  const handleEdit = (record: InvestmentTreeNode) => {
+    if (record.type !== 'assetClass') return
     setEditingItem(record)
+    setAddingAccountId(null)
     form.setFieldsValue({
       name: record.name,
       icon: record.icon,
@@ -82,227 +146,267 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
     setFormVisible(true)
   }
 
-  const handleDelete = async (id: string) => {
+  // 删除资产类型
+  const handleDelete = async (record: InvestmentTreeNode) => {
+    if (record.type !== 'assetClass') return
     try {
-      await investmentApi.deleteAssetClass(id)
+      await investmentApi.deleteAssetClass(record.id)
       notify.success('删除成功')
-      loadAssetClasses()
+      loadAllAssetClasses()
     } catch {
       notify.error('删除失败')
     }
   }
 
+  // 提交表单
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
       if (editingItem) {
         await investmentApi.updateAssetClass(editingItem.id, values)
         notify.success('更新成功')
-      } else {
-        if (!selectedAccountId) {
-          notify.error('请先选择投资账户')
-          return
-        }
-        await investmentApi.createAssetClass(selectedAccountId, values)
+      } else if (addingAccountId) {
+        await investmentApi.createAssetClass(addingAccountId, values)
         notify.success('创建成功')
       }
       setFormVisible(false)
       form.resetFields()
-      loadAssetClasses()
+      loadAllAssetClasses()
     } catch {
       notify.error('操作失败')
     }
   }
 
+  // 拖拽排序（只支持同一账户下的资产类型排序）
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    if (!selectedAccountId) return
 
-    const activeId = String(active.id).replace('asset-class-', '')
-    const overId = String(over.id).replace('asset-class-', '')
+    const activeKey = String(active.id)
+    const overKey = String(over.id)
 
+    // 只有资产类型行可排序
+    if (!activeKey.startsWith('assetClass-') || !overKey.startsWith('assetClass-')) {
+      notify.warning('只能调整同一账户下的资产类型顺序')
+      return
+    }
+
+    const activeId = activeKey.replace('assetClass-', '')
+    const overId = overKey.replace('assetClass-', '')
+
+    // 找到所属账户
+    const findAccountForAssetClass = (assetClassId: string): string | null => {
+      for (const node of treeData) {
+        if (node.children?.some(c => c.id === assetClassId)) {
+          return node.id
+        }
+      }
+      return null
+    }
+
+    const activeAccountId = findAccountForAssetClass(activeId)
+    const overAccountId = findAccountForAssetClass(overId)
+
+    if (!activeAccountId || !overAccountId || activeAccountId !== overAccountId) {
+      notify.warning('只能在同一账户下调整资产类型顺序')
+      return
+    }
+
+    // 找到该账户下的资产类型列表
+    const accountNode = treeData.find(t => t.id === activeAccountId)
+    if (!accountNode?.children) return
+
+    const assetClasses = accountNode.children
     const oldIdx = assetClasses.findIndex(a => a.id === activeId)
     const newIdx = assetClasses.findIndex(a => a.id === overId)
     if (oldIdx === -1 || newIdx === -1) return
 
     const reordered = arrayMove(assetClasses, oldIdx, newIdx)
-    setAssetClasses(reordered)
+
+    // 更新本地状态
+    setTreeData(prev => prev.map(t => {
+      if (t.id === activeAccountId) {
+        return {
+          ...t,
+          children: reordered.map((a, i) => ({ ...a, sort: i })),
+        }
+      }
+      return t
+    }))
 
     try {
-      await investmentApi.reorderAssetClasses(selectedAccountId, reordered.map(a => a.id))
+      await investmentApi.reorderAssetClasses(activeAccountId, reordered.map(a => a.id))
       notify.success('排序更新成功')
     } catch {
       notify.error('排序更新失败')
-      setAssetClasses(assetClasses)
+      loadAllAssetClasses()
     }
   }
 
-  const targetRatioSum = assetClasses
-    .filter(a => a.targetRatio !== null)
-    .reduce((sum, a) => sum + (a.targetRatio as number), 0)
+  // 计算每个账户的目标比例合计
+  const getAccountRatioSum = (accountId: string): number => {
+    const accountNode = treeData.find(t => t.id === accountId)
+    if (!accountNode?.children) return 0
+    return accountNode.children
+      .filter(a => a.targetRatio !== null)
+      .reduce((sum, a) => sum + (a.targetRatio as number), 0)
+  }
 
-  const getSettingMenuItems = (record: InvestmentAssetClass): MenuProps['items'] => [
-    { key: 'edit', label: '编辑', icon: <EditOutlined />, onClick: () => handleEdit(record) },
-    { type: 'divider' },
-    { key: 'delete', label: '删除', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record.id) },
-  ]
+  // 获取行菜单项
+  const getSettingMenuItems = (record: InvestmentTreeNode): MenuProps['items'] => {
+    if (record.type === 'account') {
+      // 账户行：只显示"添加资产类型"
+      return [
+        {
+          key: 'add-asset-class',
+          label: '添加资产类型',
+          icon: <PlusOutlined />,
+          onClick: () => handleAdd(record.id),
+        },
+      ]
+    } else {
+      // 资产类型行：编辑、删除
+      return [
+        { key: 'edit', label: '编辑', icon: <EditOutlined />, onClick: () => handleEdit(record) },
+        { type: 'divider' },
+        { key: 'delete', label: '删除', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record) },
+      ]
+    }
+  }
 
+  // 表格列定义
   const columns = [
     {
       title: '',
       width: 30,
-      render: (_: unknown, record: InvestmentAssetClass) => renderDragHandle({ key: `asset-class-${record.id}` }, isSortable),
+      render: (_: unknown, record: InvestmentTreeNode) =>
+        renderExpandIcon(record, expandedRowKeys, toggleExpand, token.colorTextSecondary, `${token.fontSizeSM}px`),
     },
     {
-      title: '图标',
-      width: 60,
-      render: (_: unknown, record: InvestmentAssetClass) => (
-        <DynamicIcon name={record.icon} size={16} fallback="investment" />
-      ),
+      title: '',
+      width: 30,
+      render: (_: unknown, record: InvestmentTreeNode) =>
+        renderDragHandle(record, isSortable),
     },
     {
-      title: '资产类型名称',
+      title: '名称',
       dataIndex: 'name',
       key: 'name',
+      render: (text: string, record: InvestmentTreeNode) => (
+        <span>
+          <DynamicIcon
+            name={record.icon}
+            size={16}
+            fallback={record.type === 'account' ? 'wallet' : 'investment'}
+          />
+          {' '}{text}
+          {record.type === 'account' && (
+            <span style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM, marginLeft: 8 }}>
+              ({record.children?.length || 0} 个资产类型)
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       title: '预期比例',
       dataIndex: 'targetRatio',
       key: 'targetRatio',
       width: 100,
-      render: (value: number | null) => value !== null ? `${value.toFixed(1)}%` : '-',
+      render: (value: number | null, record: InvestmentTreeNode) => {
+        if (record.type === 'account') {
+          // 账户行显示合计
+          const sum = getAccountRatioSum(record.id)
+          return (
+            <span style={{
+              color: sum > 100 ? token.colorError :
+                    sum < 100 && record.children?.length ? token.colorWarning :
+                    sum === 100 && record.children?.length ? token.colorSuccess :
+                    token.colorTextTertiary,
+              fontWeight: 500,
+            }}>
+              {record.children?.length ? `${sum.toFixed(1)}%` : '-'}
+            </span>
+          )
+        }
+        return value !== null ? `${value.toFixed(1)}%` : '-'
+      },
     },
     {
       title: '操作',
       key: 'action',
       width: 80,
-      render: (_: unknown, record: InvestmentAssetClass) => (
-        <Dropdown menu={{ items: getSettingMenuItems(record) }} trigger={['click']}>
-          <Button type="text" size="small" icon={<SettingOutlined />} />
-        </Dropdown>
+      render: (_: unknown, record: InvestmentTreeNode) => (
+        <SettingDropdown items={getSettingMenuItems(record)} />
       ),
     },
   ]
 
+  // 空状态
+  const emptyContent = investmentAccounts.length === 0 ? (
+    <Empty
+      description="暂无投资账户，请先在账户管理中添加投资账户"
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+    />
+  ) : null
+
+  // 表格内容
+  const tableContent = treeData.length > 0 ? (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragEnd={handleDragEnd}
+      modifiers={[restrictToVerticalAxis]}
+    >
+      <SortableContext
+        items={getVisibleSortableKeys(treeData)}
+        strategy={verticalListSortingStrategy}
+      >
+        <Table
+          dataSource={treeData}
+          columns={columns}
+          rowKey="key"
+          pagination={false}
+          size="small"
+          loading={loading}
+          indentSize={20}
+          expandedRowKeys={expandedRowKeys}
+          onExpandedRowsChange={(keys) => setExpandedRowKeys(keys as string[])}
+          expandable={{
+            rowExpandable: (r) => r.type === 'account' && !!r.children?.length,
+            expandIcon: () => null,
+          }}
+          components={{ body: { row: InvestmentSortableRow } }}
+        />
+      </SortableContext>
+    </DndContext>
+  ) : emptyContent
+
+  const tabItems = [
+    { key: 'asset-classes', label: '资产类型', children: tableContent },
+  ]
+
+  // 计算当前编辑/添加的账户的比例合计（用于表单验证）
+  const currentAccountId = editingItem?.accountId || addingAccountId
+  const currentRatioSum = currentAccountId ? getAccountRatioSum(currentAccountId) : 0
+
   return (
     <>
-      <Modal
+      <ConfigModalLayout
         title="投资资产类型配置"
-        open={visible}
-        onCancel={onClose}
-        footer={null}
-        width={isMobile ? 'calc(100vw - 24px)' : 720}
-        styles={{
-          body: {
-            maxHeight: '70vh',
-            overflowY: 'auto',
-          },
-        }}
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: token.marginSM,
-              flexWrap: 'wrap',
-            }}
-          >
-            <Select
-              style={{ width: isMobile ? '100%' : 240 }}
-              placeholder="选择投资账户"
-              value={selectedAccountId}
-              onChange={setSelectedAccountId}
-              options={investmentAccounts.map(a => ({
-                value: a.id,
-                label: (
-                  <span>
-                    <DynamicIcon name={a.icon} size={16} fallback="wallet" />
-                    {' '}{a.name}
-                  </span>
-                ),
-              }))}
-            />
-            <Tooltip title="添加资产类型">
-              <Button type="primary" size="small" icon={<PlusOutlined />} onClick={handleAdd} disabled={!selectedAccountId} />
-            </Tooltip>
-          </div>
-
-          {selectedAccountId && (
-            <>
-              <DndContext
-                collisionDetection={pointerWithin}
-                onDragEnd={handleDragEnd}
-                modifiers={[restrictToVerticalAxis]}
-              >
-                <SortableContext
-                  items={assetClasses.map(a => `asset-class-${a.id}`)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <Table
-                    dataSource={assetClasses}
-                    columns={columns}
-                    rowKey={(record) => `asset-class-${record.id}`}
-                    pagination={false}
-                    size="small"
-                    loading={loading}
-                    components={{ body: { row: AssetClassSortableRow } }}
-                  />
-                </SortableContext>
-              </DndContext>
-
-              <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-                <Space>
-                  <span style={{ color: token.colorTextSecondary }}>
-                    目标比例合计：
-                  </span>
-                  <span style={{
-                    color: targetRatioSum > 100 ? token.colorError :
-                          targetRatioSum < 100 ? token.colorWarning : token.colorSuccess,
-                    fontWeight: 500,
-                  }}>
-                    {formatPercent(targetRatioSum, 1, false)}
-                  </span>
-                  {targetRatioSum < 100 && (
-                    <span style={{ color: token.colorTextSecondary, fontSize: token.fontSizeSM }}>
-                      （剩余 {formatPercent(100 - targetRatioSum, 1, false)} 视作未配置目标）
-                    </span>
-                  )}
-                  {targetRatioSum > 100 && (
-                    <span style={{ color: token.colorError, fontSize: token.fontSizeSM }}>
-                      超过100%，无法保存
-                    </span>
-                  )}
-                </Space>
-              </Space>
-            </>
-          )}
-
-          {!selectedAccountId && investmentAccounts.length === 0 && (
-            <Empty
-              description="暂无投资账户，请先在账户管理中添加投资账户"
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
-          )}
-
-          {!selectedAccountId && investmentAccounts.length > 0 && (
-            <Empty
-              description="请先选择一个投资账户"
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
-          )}
-        </Space>
-      </Modal>
-
+        visible={visible}
+        onClose={onClose}
+        tabs={{ items: tabItems }}
+      />
       <Modal
         title={editingItem ? '编辑资产类型' : '新增资产类型'}
         open={formVisible}
         onCancel={() => setFormVisible(false)}
         onOk={handleSubmit}
-        width={isMobile ? 'calc(100vw - 24px)' : 480}
-        okButtonProps={{ disabled: targetRatioSum > 100 && !editingItem }}
+        width={480}
+        okButtonProps={{
+          disabled: !editingItem && currentRatioSum >= 100,
+        }}
       >
         <Form form={form} layout="vertical">
           <Form.Item
@@ -334,6 +438,18 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose, in
             />
           </Form.Item>
         </Form>
+        {!editingItem && currentRatioSum >= 100 && (
+          <div style={{ color: token.colorError, marginBottom: 16 }}>
+            该账户的预期比例已达到 100%，无法继续添加
+          </div>
+        )}
+        {currentAccountId && (
+          <div style={{ color: token.colorTextTertiary, marginBottom: 16 }}>
+            <WalletOutlined style={{ marginRight: 8 }} />
+            当前账户：{investmentAccounts.find(a => a.id === currentAccountId)?.name}
+            {' '}(目标比例合计：{currentRatioSum.toFixed(1)}%)
+          </div>
+        )}
       </Modal>
     </>
   )

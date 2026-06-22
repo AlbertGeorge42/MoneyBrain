@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Modal, Tabs, Table, Button, Form, Input, Tooltip, Dropdown } from 'antd'
-import { PlusOutlined, SettingOutlined } from '@ant-design/icons'
+import { Modal, Table, Button, Form, Input, Tooltip } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTransactionCategories } from '../../queries'
 import { queryKeys } from '../../queries/keys'
@@ -9,11 +9,12 @@ import DynamicIcon from '../common/DynamicIcon'
 import IconPicker from '../common/IconPicker'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import MoveModal from './MoveModal'
+import ConfigModalLayout from './ConfigModalLayout'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { useNotify } from '../../hooks/useNotify'
-import { useMoveModal, useSortableTable, SortableRow, createSettingMenuItems, renderExpandIcon, renderDragHandle, buildMoveTargetTreeForCategory, getCurrentPositionLabel } from './shared'
+import { useMoveModal, useSortableTable, SortableRow, SettingDropdown, createSettingMenuItems, renderExpandIcon, renderDragHandle, buildMoveTargetTreeForCategory, getCurrentPositionLabel } from './shared'
 import type { TransactionTreeNode, MoveTreeDataNode, MenuProps } from './shared'
 
 interface Props { visible: boolean; onClose: () => void }
@@ -164,7 +165,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     { title: '', width: 30, render: (_: unknown, record: TransactionTreeNode) => renderExpandIcon(record, expandedRowKeys, toggleExpand) },
     { title: '', width: 30, render: (_: unknown, record: TransactionTreeNode) => renderDragHandle(record, (id: string) => id?.startsWith('category-')) },
     { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: TransactionTreeNode) => <span><DynamicIcon name={record.icon} size={16} fallback="file-text" /> {text}</span> },
-    { title: '操作', key: 'action', width: 80, render: (_: unknown, record: TransactionTreeNode) => <Dropdown menu={{ items: getSettingMenuItems(record) }} trigger={['click']}><Button type="text" size="small" icon={<SettingOutlined />} /></Dropdown> },
+    { title: '操作', key: 'action', width: 80, render: (_: unknown, record: TransactionTreeNode) => <SettingDropdown items={getSettingMenuItems(record)} /> },
   ]
 
   const getTransferTargetTreeData = (type: string, excludeId: string) => {
@@ -200,10 +201,9 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   return (
     <>
-      <Modal title="收支分类设置" open={visible} onCancel={onClose} footer={null} width={700}>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems}
-          tabBarExtraContent={<Tooltip title="新增一级分类"><Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAdd()} /></Tooltip>} />
-      </Modal>
+      <ConfigModalLayout title="收支分类设置" visible={visible} onClose={onClose}
+        tabs={{ items: tabItems, activeKey: activeTab, onChange: setActiveTab,
+          tabBarExtraContent: <Tooltip title="新增一级分类"><Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => handleAdd()} /></Tooltip> }} />
       <Modal title={editingItem ? '编辑分类' : '新增分类'} open={formVisible} onOk={handleSubmit} onCancel={() => setFormVisible(false)} okText="确定" cancelText="取消">
         <Form form={form} layout="vertical">
           <Form.Item name="type" hidden><Input /></Form.Item>

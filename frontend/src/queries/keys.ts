@@ -41,11 +41,4 @@ export const queryKeys = {
       ['analytics', 'category-breakdown', type, startDate, endDate, parentCategoryId] as const,
     assetTrend: ['analytics', 'asset-trend'] as const,
   },
-  investment: {
-    assetClasses: (accountId: string) => ['investment', accountId, 'asset-classes'] as const,
-    snapshots: (accountId: string, startDate?: string, endDate?: string) =>
-      ['investment', accountId, 'snapshots', startDate, endDate] as const,
-    latestSnapshot: (accountId: string, beforeDate?: string) =>
-      ['investment', accountId, 'latest-snapshot', beforeDate] as const,
-  },
 }
