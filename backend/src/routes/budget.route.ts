@@ -11,7 +11,6 @@ import {
 import {
   createBudget,
   deleteBudget,
-  getBudgetDetail,
   getBudgets,
   getBudgetStatus,
   getBudgetStatusesByIds,
@@ -68,11 +67,6 @@ router.get('/predictions', asyncHandler(async (req, res) => {
   }
   const predictions = await generatePredictions(String(startDate), String(endDate))
   return success(res, predictions)
-}))
-
-router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  const budget = await getBudgetDetail(req.params.id)
-  return success(res, budget)
 }))
 
 router.get('/:id/status', validateRequest(validateIdParam), asyncHandler(async (req, res) => {

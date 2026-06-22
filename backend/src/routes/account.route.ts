@@ -11,7 +11,6 @@ import {
   nextDay,
 } from '../common/index.js'
 import {
-  adjustAccountBalance,
   createAccount,
   deleteAccount,
   getAccountDetail,
@@ -28,13 +27,6 @@ const validateCreateAccount = (req: Request) => {
   const { name, type } = req.body as Record<string, unknown>
   if (!hasValue(name) || !hasValue(type)) {
     throw new ValidationError('名称和类型不能为空')
-  }
-}
-
-const validateAdjustRequest = (req: Request) => {
-  validateIdParam(req)
-  if (!hasValue(req.body?.amount)) {
-    throw new ValidationError('调整金额不能为空')
   }
 }
 
@@ -112,11 +104,6 @@ router.put('/:id', validateRequest(validateIdParam), asyncHandler(async (req, re
 router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
   const result = await deleteAccount(req.params.id, req.query.force === 'true')
   return success(res, result)
-}))
-
-router.post('/:id/adjust', validateRequest(validateAdjustRequest), asyncHandler(async (req, res) => {
-  const result = await adjustAccountBalance(req.params.id, req.body.amount, req.body.date, req.body.note)
-  return success(res, result, 201)
 }))
 
 export default router

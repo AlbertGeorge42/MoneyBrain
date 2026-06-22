@@ -6,7 +6,6 @@ import {
   updateAccountProfile,
   deleteAccount,
   getAccountStats,
-  adjustAccountBalance,
   getAccountDetail,
   updateAccountSorts,
 } from '../../src/services/account.service.js'
@@ -371,32 +370,6 @@ describe('account.service', () => {
       expect(result.transactionCount).toBe(0)
       expect(result.totalIncome).toBe(0)
       expect(result.totalExpense).toBe(0)
-    })
-  })
-
-  describe('adjustAccountBalance', () => {
-    it('应该创建调整交易', async () => {
-      mockPrisma.account.findUnique.mockResolvedValue({
-        id: '1',
-        name: '账户',
-        initialBalance: new Decimal(1000),
-      })
-      mockPrisma.transaction.create.mockResolvedValue({
-        id: 'adj1',
-        type: 'adjustment',
-        amount: new Decimal(500),
-      })
-
-      const result = await adjustAccountBalance('1', 500)
-
-      expect(result.transaction).toBeDefined()
-      expect(result.transaction.type).toBe('adjustment')
-    })
-
-    it('账户不存在时应该抛出 NotFoundError', async () => {
-      mockPrisma.account.findUnique.mockResolvedValue(null)
-
-      await expect(adjustAccountBalance('999', 100)).rejects.toThrow(NotFoundError)
     })
   })
 

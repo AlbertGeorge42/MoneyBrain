@@ -16,7 +16,6 @@ import {
   getTransactionList,
   getTransactionStats,
   getTransactionById,
-  getTransactionCount,
   getRefundableTransactions,
   deleteTransaction,
   getEarliestTransactionDate,
@@ -133,18 +132,6 @@ router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (re
   })
 
   return success(res, stats)
-}))
-
-router.get('/count', validateRequest(validateStatsQuery), asyncHandler(async (req, res) => {
-  const count = await getTransactionCount({
-    accountId: toStringArray(req.query.accountId),
-    categoryId: toStringArray(req.query.categoryId),
-    type: toStringArray(req.query.type),
-    startDate: toOptionalDate(req.query.startDate, 'startDate'),
-    endDate: toOptionalDate(req.query.endDate, 'endDate'),
-  })
-
-  return success(res, { count })
 }))
 
 router.get('/earliest', asyncHandler(async (_req, res) => {

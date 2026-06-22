@@ -110,17 +110,6 @@ export async function getBudgets(params?: { type?: string; period?: string; acco
   })
 }
 
-export async function getBudgetDetail(budgetId: string) {
-  const budget = await prisma.budget.findUnique({
-    where: { id: budgetId },
-    include: { account: true, toAccount: true, category: true },
-  })
-  if (!budget) {
-    throw new NotFoundError('预算')
-  }
-  return budget
-}
-
 export async function createBudget(data: BudgetPayload) {
   // 校验必要字段
   if (!data.name || data.amount == null || !data.type || !data.period || !data.accountId || !data.categoryId) {

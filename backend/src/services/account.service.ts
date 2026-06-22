@@ -1,6 +1,6 @@
 import { prisma } from '../index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
-import { toDecimal, ZERO } from '../common/index.js'
+import { ZERO } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 
 export async function getNextAccountSort(categoryId: string | null): Promise<number> {
@@ -205,30 +205,4 @@ export async function getAccountStats(accountId: string): Promise<AccountStats> 
     totalIncome: (incomeResult._sum.amount || ZERO).toNumber(),
     totalExpense: (expenseResult._sum.amount || ZERO).toNumber(),
   }
-}
-
-export async function adjustAccountBalance(
-  accountId: string,
-  amount: number,
-  date?: string,
-  note?: string,
-): Promise<{ transaction: { id: string; amount: import('@prisma/client').Prisma.Decimal; date: Date; note: string; accountId: string; isAdjustment: boolean; account: { id: string; name: string; type: string } } }> {
-  const account = await prisma.account.findUnique({ where: { id: accountId } })
-  if (!account) throw new NotFoundError('账户')
-
-  const adjustDate = date ? new Date(`${date}T00:00:00`) : new Date()
-
-  const transaction = await prisma.transaction.create({
-    data: {
-      type: 'adjustment',
-      amount: toDecimal(amount),
-      date: adjustDate,
-      note: note || '平账调整',
-      accountId,
-      isAdjustment: true,
-    },
-    include: { account: true },
-  })
-
-  return { transaction }
 }
