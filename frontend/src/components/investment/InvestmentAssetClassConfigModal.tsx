@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Modal, Table, Form, Input, InputNumber, Empty, theme } from 'antd'
-import { PlusOutlined, DeleteOutlined, EditOutlined, WalletOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, EditOutlined, WalletOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
@@ -149,12 +149,49 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
   // 删除资产类型
   const handleDelete = async (record: InvestmentTreeNode) => {
     if (record.type !== 'assetClass') return
+
     try {
-      await investmentApi.deleteAssetClass(record.id)
-      notify.success('删除成功')
-      loadAllAssetClasses()
-    } catch {
-      notify.error('删除失败')
+      const result = await investmentApi.deleteAssetClass(record.id)
+
+      // 如果需要二次确认，显示确认弹窗
+      if (result.data.data?.needConfirm && result.data.data.snapshotsCount) {
+        Modal.confirm({
+          title: '确认删除',
+          icon: <ExclamationCircleOutlined />,
+          content: (
+            <div>
+              <p>该资产类型已被 {result.data.data.snapshotsCount} 条快照引用</p>
+              <p style={{ marginTop: 8, color: 'var(--ant-color-warning)' }}>
+                强制删除将同时删除相关的快照记录，此操作不可恢复。
+              </p>
+            </div>
+          ),
+          okText: '强制删除',
+          okType: 'danger',
+          cancelText: '取消',
+          onOk: async () => {
+            try {
+              const forceResult = await investmentApi.deleteAssetClass(record.id, true)
+              if (forceResult.data.data?.deletedSnapshots) {
+                notify.success(`删除成功，已删除 ${forceResult.data.data.deletedSnapshots} 条快照记录`)
+              } else {
+                notify.success('删除成功')
+              }
+              loadAllAssetClasses()
+            } catch (forceError: unknown) {
+              const forceMessage = forceError instanceof Error ? forceError.message : '删除失败'
+              notify.error(forceMessage)
+            }
+          },
+        })
+      } else {
+        // 直接删除成功
+        notify.success('删除成功')
+        loadAllAssetClasses()
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '删除失败'
+      notify.error(message)
     }
   }
 
@@ -172,8 +209,9 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
       setFormVisible(false)
       form.resetFields()
       loadAllAssetClasses()
-    } catch {
-      notify.error('操作失败')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '操作失败'
+      notify.error(message)
     }
   }
 

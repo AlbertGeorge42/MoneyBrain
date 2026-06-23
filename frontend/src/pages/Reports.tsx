@@ -5,7 +5,6 @@ import { PageHeader } from '../components/common'
 import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
 import { BalanceSheetReport, CashFlowReport, IncomeExpenseReport, InvestmentAnalysisReport } from '../components/reports'
 import InvestmentAssetClassConfigModal from '../components/investment/InvestmentAssetClassConfigModal'
-import InvestmentSnapshotHistoryModal from '../components/investment/InvestmentSnapshotHistoryModal'
 import type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue } from '../components/common'
 import {
   createPointMonthEndPreset,
@@ -133,7 +132,6 @@ const Reports: React.FC = () => {
     createTrailingRangePreset('last-12-months', '近12个月', 12, 'month').getValue(dayjs())
   )
   const [investmentConfigModalVisible, setInvestmentConfigModalVisible] = useState(false)
-  const [investmentSnapshotModalVisible, setInvestmentSnapshotModalVisible] = useState(false)
 
   const { data: earliestDateData } = useTransactionEarliestDate()
   const earliestTransactionDate = earliestDateData?.date || null
@@ -253,7 +251,7 @@ const Reports: React.FC = () => {
           loading={investmentLoading}
           onTimeRangeChange={setInvestmentTimeRange}
           onOpenSettings={() => setInvestmentConfigModalVisible(true)}
-          onOpenSnapshotHistory={() => setInvestmentSnapshotModalVisible(true)}
+          onRefresh={refetchInvestment}
         />
       ),
     },
@@ -297,14 +295,6 @@ const Reports: React.FC = () => {
           setInvestmentConfigModalVisible(false)
           void refetchInvestment()
         }}
-      />
-
-      <InvestmentSnapshotHistoryModal
-        visible={investmentSnapshotModalVisible}
-        onClose={() => {
-          setInvestmentSnapshotModalVisible(false)
-        }}
-        onRefresh={refetchInvestment}
       />
     </>
   )

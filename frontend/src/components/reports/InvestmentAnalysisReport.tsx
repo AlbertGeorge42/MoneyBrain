@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react'
 import { Button, Card, Empty, Grid, Statistic, theme } from 'antd'
-import { CameraOutlined, SettingOutlined } from '@ant-design/icons'
+import { SettingOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, ReportDetailList, type RangeTimePickerConfig, type RangeTimeValue, type ReportTreeNode, type ReportDetailColumn } from '../../components/common'
 import { LineChart, PieChart } from '../../components/charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
+import InvestmentSnapshotHistorySection from '../investment/InvestmentSnapshotHistorySection'
 import type {
   AccountAllocationDetail,
   InvestmentAnalysisReportData,
@@ -84,7 +85,7 @@ interface InvestmentAnalysisReportProps {
   loading?: boolean
   onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
-  onOpenSnapshotHistory: () => void
+  onRefresh: () => void
 }
 
 const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
@@ -94,7 +95,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   loading,
   onTimeRangeChange,
   onOpenSettings,
-  onOpenSnapshotHistory,
+  onRefresh,
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
@@ -107,9 +108,6 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>
         <div className="report-toolbar__actions">
-          <Button icon={<CameraOutlined />} onClick={onOpenSnapshotHistory}>
-            快照
-          </Button>
           <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
             设置
           </Button>
@@ -246,9 +244,6 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
             <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
           </div>
           <div className="report-toolbar__actions">
-            <Button icon={<CameraOutlined />} onClick={onOpenSnapshotHistory}>
-              快照
-            </Button>
             <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
               设置
             </Button>
@@ -301,6 +296,12 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
           </>
         )}
       </div>
+
+      {/* 快照历史区域 */}
+      <InvestmentSnapshotHistorySection
+        investmentData={investmentData}
+        onRefresh={onRefresh}
+      />
     </>
   )
 }

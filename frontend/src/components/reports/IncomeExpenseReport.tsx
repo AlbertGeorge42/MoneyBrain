@@ -10,6 +10,7 @@ import PredictionStatistic from './PredictionStatistic'
 import * as api from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { getTokenValue } from '../../styles/theme/css-utils'
 
 // ---- 本报表专属：metrics 类型 ----
 interface IncomeExpenseMetrics {
@@ -141,6 +142,10 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
 
   const formatStatValue = (v: number) => formatCurrency(Number(v))
 
+  // 柱状图配色：参考现金流量表
+  const incomeColor = getTokenValue('--mb-color-positive') || '#3f8600'
+  const expenseColor = getTokenValue('--mb-color-negative') || '#cf1322'
+
   const summarySection = (
     <>
       <div className="report-hero-section">
@@ -245,11 +250,20 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         <BarChart
           title="收支对比"
           xAxisData={['收入', '支出']}
-          seriesData={[{
-            name: '金额',
-            data: [incomeData.actual, expenseData.actual],
-            predictedData: hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
-          }]}
+          seriesData={[
+            {
+              name: '收入',
+              data: [incomeData.actual, 0],
+              predictedData: hasPrediction ? [incomeData.predicted, 0] : undefined,
+              color: incomeColor,
+            },
+            {
+              name: '支出',
+              data: [0, expenseData.actual],
+              predictedData: hasPrediction ? [0, expenseData.predicted] : undefined,
+              color: expenseColor,
+            },
+          ]}
           height={isMobile ? 220 : 250}
           isPurePrediction={isFuture}
         />
@@ -315,11 +329,20 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             <BarChart
               title="收支对比"
               xAxisData={['收入', '支出']}
-              seriesData={[{
-                name: '金额',
-                data: [incomeData.actual, expenseData.actual],
-                predictedData: hasPrediction ? [incomeData.predicted, expenseData.predicted] : undefined,
-              }]}
+              seriesData={[
+                {
+                  name: '收入',
+                  data: [incomeData.actual, 0],
+                  predictedData: hasPrediction ? [incomeData.predicted, 0] : undefined,
+                  color: incomeColor,
+                },
+                {
+                  name: '支出',
+                  data: [0, expenseData.actual],
+                  predictedData: hasPrediction ? [0, expenseData.predicted] : undefined,
+                  color: expenseColor,
+                },
+              ]}
               height={220}
               isPurePrediction={isFuture}
             />

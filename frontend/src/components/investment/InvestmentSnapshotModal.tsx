@@ -167,7 +167,6 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
   const totalMarketValue = items.reduce((sum, item) => sum + item.marketValue, 0)
   const totalNetFlow = items.reduce((sum, item) => sum + item.periodNetFlow, 0)
   const difference = accountBalance !== null ? accountBalance - totalMarketValue : null
-  const isValidBalance = difference !== null && Math.abs(difference) <= 0.01
 
   const handleItemChange = (assetClassId: string, field: string, value: number) => {
     setItems(prev => prev.map(item =>
@@ -210,8 +209,9 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
       
       onSuccess()
       onClose()
-    } catch {
-      notify.error('保存失败')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '保存失败'
+      notify.error(message)
     } finally {
       setSaving(false)
     }
@@ -361,16 +361,11 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           <div style={{ marginTop: 4 }}><Text strong>{formatCurrency(totalMarketValue)}</Text></div>
         </div>
         <div>
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>差额</Text>
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>差额（未分类）</Text>
           <div style={{ marginTop: 4 }}>
-            <Text strong style={{ color: isValidBalance ? token.colorSuccess : token.colorWarning }}>
+            <Text strong style={{ color: difference !== null && difference !== 0 ? token.colorWarning : token.colorSuccess }}>
               {difference !== null ? formatCurrency(difference) : '-'}
             </Text>
-            {!isValidBalance && difference !== null && (
-              <Text type="warning" style={{ fontSize: token.fontSizeSM, marginLeft: 8 }}>
-                (未分类)
-              </Text>
-            )}
           </div>
         </div>
       </div>
@@ -494,15 +489,10 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
                     <Text strong>{formatCurrency(totalMarketValue)}</Text>
                   </Space>
                   <Space>
-                    <Text type="secondary">差额：</Text>
-                    <Text strong style={{ color: isValidBalance ? token.colorSuccess : token.colorWarning }}>
+                    <Text type="secondary">差额（未分类）：</Text>
+                    <Text strong style={{ color: difference !== null && difference !== 0 ? token.colorWarning : token.colorSuccess }}>
                       {difference !== null ? formatCurrency(difference) : '-'}
                     </Text>
-                    {!isValidBalance && difference !== null && (
-                      <Text type="warning" style={{ fontSize: token.fontSizeSM }}>
-                        （将作为"未分类"）
-                      </Text>
-                    )}
                   </Space>
                 </Space>
               </>

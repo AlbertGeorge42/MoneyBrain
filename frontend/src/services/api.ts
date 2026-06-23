@@ -289,8 +289,10 @@ export const investmentApi = {
   updateAssetClass: (id: string, data: Partial<InvestmentAssetClass>) =>
     api.put<ApiResponse<InvestmentAssetClass>>(`/investments/asset-classes/${id}`, data),
 
-  deleteAssetClass: (id: string) =>
-    api.delete<ApiResponse<{ message: string }>>(`/investments/asset-classes/${id}`),
+  deleteAssetClass: (id: string, forceDelete = false) =>
+    api.delete<ApiResponse<{ message: string; needConfirm?: boolean; snapshotsCount?: number; deletedSnapshots?: number }>>(`/investments/asset-classes/${id}`, {
+      params: { forceDelete },
+    }),
 
   reorderAssetClasses: (accountId: string, orderedIds: string[]) =>
     api.put<ApiResponse<{ message: string }>>(`/investments/${accountId}/asset-classes/reorder`, { orderedIds }),

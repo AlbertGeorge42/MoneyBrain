@@ -51,12 +51,13 @@ router.put(
   })
 )
 
-// DELETE /api/investments/asset-classes/:id
+// DELETE /api/investments/asset-classes/:id?forceDelete=true
 router.delete(
   '/asset-classes/:id',
   validateRequest(validateIdParam),
   asyncHandler(async (req, res) => {
-    const result = await deleteAssetClass(req.params.id)
+    const forceDelete = req.query.forceDelete === 'true'
+    const result = await deleteAssetClass(req.params.id, forceDelete)
     return success(res, result)
   })
 )

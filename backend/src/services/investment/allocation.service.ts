@@ -2,9 +2,6 @@ import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { NotFoundError, ValidationError } from '../../common/index.js'
 
-// 浮点误差容许值
-const BALANCE_TOLERANCE = 0.01
-
 // 创建/更新快照（含校验）
 export async function createSnapshot(data: {
   accountId: string
@@ -51,15 +48,6 @@ export async function createSnapshot(data: {
   nextDay.setDate(nextDay.getDate() + 1)
   const balanceCache = await calculateBalancesBatch([data.accountId], [nextDay])
   const accountBalance = balanceCache.get(data.accountId, nextDay)
-
-  // 6. 校验市值总和与账户余额一致（允许浮点误差）
-  const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
-  const diff = Math.abs(accountBalance - totalMarketValue)
-  if (diff > BALANCE_TOLERANCE) {
-    throw new ValidationError(
-      `市值总和（${totalMarketValue.toFixed(2)}）与账户余额（${accountBalance.toFixed(2)}）不一致`
-    )
-  }
 
   // 7. 找到该账户在当前日期之前（或同日）的最新快照
   const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
@@ -296,16 +284,7 @@ export async function updateSnapshot(
   const balanceCache = await calculateBalancesBatch([accountId], [nextDay])
   const accountBalance = balanceCache.get(accountId, nextDay)
 
-  // 6. 校验市值总和与账户余额一致（允许浮点误差）
-  const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
-  const diff = Math.abs(accountBalance - totalMarketValue)
-  if (diff > BALANCE_TOLERANCE) {
-    throw new ValidationError(
-      `市值总和（${totalMarketValue.toFixed(2)}）与账户余额（${accountBalance.toFixed(2)}）不一致`
-    )
-  }
-
-  // 7. 找到该账户在当前日期之前的最新快照（排除自身）
+  // 6. 找到该账户在当前日期之前的最新快照（排除自身）
   const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
     where: {
       accountId,
@@ -315,7 +294,7 @@ export async function updateSnapshot(
     orderBy: { date: 'desc' },
   })
 
-  // 8. 更新数据库
+  // 7. 更新数据库
   return prisma.$transaction(async (tx) => {
     // 删除旧 items
     await tx.investmentAllocationItem.deleteMany({

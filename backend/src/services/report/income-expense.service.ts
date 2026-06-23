@@ -109,6 +109,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     predictions.forEach(p => {
       const t = p.date.getTime()
       if (t < rangeStart || t >= rangeEnd) return
+      // 转账不是收入或支出，不应该计入收入支出报表
+      if (p.type === 'transfer') return
       if (p.type === 'income') {
         pIncome = pIncome.plus(p.amount)
       } else if (p.type === 'expense') {
@@ -167,6 +169,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   for (const [catId, pAmount] of Object.entries(predictedById)) {
     const cat = categoryMap.get(catId)
     if (!cat) continue
+    // 转账分类不应该出现在收入支出报表中
+    if (cat.type === 'transfer') continue
     const target = cat.type === 'income' ? leafPredictedIncome : leafPredictedExpense
     target[catId] = (target[catId] || ZERO).plus(pAmount)
   }
