@@ -43,6 +43,75 @@ export function calculateTransferInAmountDecimal(
 }
 
 /**
+ * 计算方向类型
+ */
+type CalculationDirection = 'forward' | 'backward' | 'same'
+
+/**
+ * 日期范围类型
+ */
+interface DateRange {
+  gte: Date
+  lt: Date
+}
+
+/**
+ * 根据查询日期和初始余额日期，确定计算方向、日期范围和 multiplier
+ * 
+ * @param targetDate 查询日期（实际是查询截止日期的下一天）
+ * @param initialDate 初始余额日期
+ * @returns 计算方向、日期范围和 multiplier，或 null 表示返回初始余额
+ */
+function getDateRangeAndMultiplier(
+  targetDate: Date,
+  initialDate: Date
+): { direction: CalculationDirection; dateRange: DateRange; multiplier: 1 | -1 } | null {
+  // 初始余额日期的下一天
+  const initialDateNextDay = new Date(initialDate)
+  initialDateNextDay.setDate(initialDateNextDay.getDate() + 1)
+  
+  // 确定计算方向
+  if (targetDate >= initialDateNextDay) {
+    // Forward：查询日期在初始余额日期之后
+    // 范围：从 initialDate + 1 到 targetDate（不含 targetDate）
+    // 不包含 initialDate 当天的交易（因为余额是期末余额）
+    return {
+      direction: 'forward',
+      dateRange: { gte: initialDateNextDay, lt: targetDate },
+      multiplier: 1
+    }
+  } else if (targetDate < initialDate) {
+    // Backward：查询日期在初始余额日期之前
+    // 范围：从 targetDate 到 initialDate + 1（含 initialDate 当天）
+    // 包含 initialDate 当天的交易（需要从期末余额倒推）
+    // 不包含查询截止日期当天的交易（已反映在当天余额中）
+    const initialDateNextDayForBackward = new Date(initialDate)
+    initialDateNextDayForBackward.setDate(initialDateNextDayForBackward.getDate() + 1)
+    return {
+      direction: 'backward',
+      dateRange: { gte: targetDate, lt: initialDateNextDayForBackward },
+      multiplier: -1
+    }
+  } else {
+    // Same：查询日期等于初始余额日期，返回初始余额
+    return null
+  }
+}
+
+/**
+ * 根据日期范围筛选交易
+ */
+function filterTransactionsByRange<T extends { date: Date }>(
+  transactions: T[],
+  dateRange: DateRange
+): T[] {
+  return transactions.filter(t => {
+    const tDate = t.date
+    return tDate >= dateRange.gte && tDate < dateRange.lt
+  })
+}
+
+/**
  * 根据交易列表计算余额变动
  * @param transactions 从账户转出的交易列表
  * @param toTransactions 转入账户的交易列表
@@ -131,17 +200,34 @@ export async function calculateBalancesBatch(
   const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime())
   const maxTargetDate = sortedDates[sortedDates.length - 1]
   // 需要查询到最大日期的下一天（因为计算使用 lt: targetDate）
-  const maxDate = new Date(maxTargetDate.getTime() + 86400000)
+  let maxDate = new Date(maxTargetDate.getTime() + 86400000)
 
-  // 修复历史余额计算：查询起点取用户请求的最早计算日期和账户创建时间的较早者，
+  // backward 计算需要覆盖到 initialBalanceDate，所以 maxDate 要至少覆盖到最晚的 initialBalanceDate + 1 day
+  const latestInitialBalanceDate = accounts.reduce<Date | null>((acc, a) => {
+    if (a.initialBalanceDate && (!acc || a.initialBalanceDate.getTime() > acc.getTime())) {
+      return a.initialBalanceDate
+    }
+    return acc
+  }, null)
+  if (latestInitialBalanceDate) {
+    const initialDateNextDay = new Date(latestInitialBalanceDate.getTime() + 86400000)
+    if (initialDateNextDay.getTime() > maxDate.getTime()) {
+      maxDate = initialDateNextDay
+    }
+  }
+
+  // 修复历史余额计算：查询起点取用户请求的最早计算日期前一天和账户创建时间的较早者。
+  // 因为 backward 计算需要覆盖到查询截止日期前一天，所以起点要再往前推一天。
   // initialBalanceDate 可能是期末日期，不应作为查询起点。
   const earliestCreatedAt = accounts.reduce<Date | null>((acc, a) => {
     if (a.createdAt && (!acc || a.createdAt.getTime() < acc.getTime())) return a.createdAt
     return acc
   }, null)
-  const minDate = earliestCreatedAt && earliestCreatedAt.getTime() < sortedDates[0].getTime()
+  const earliestQueryDate = new Date(sortedDates[0])
+  earliestQueryDate.setDate(earliestQueryDate.getDate() - 1)
+  const minDate = earliestCreatedAt && earliestCreatedAt.getTime() < earliestQueryDate.getTime()
     ? earliestCreatedAt
-    : sortedDates[0]
+    : earliestQueryDate
 
   // 3. 一次性查询所有相关交易
   const transactions = await prisma.transaction.findMany({
@@ -185,40 +271,21 @@ export async function calculateBalancesBatch(
         const balance = applyTransactionsToBalance(initialBalance, relevantFrom, relevantTo)
         dateBalanceMap.set(dateKey, balance.toNumber())
       } else {
-        // 有初始余额日期，根据方向计算
-        // 初始余额日期代表当天结束，所以初始日期的下一天是计算的起点
-        const initialDateNextDay = new Date(initialDate)
-        initialDateNextDay.setDate(initialDateNextDay.getDate() + 1)
+        // 有初始余额日期，使用统一的计算框架
+        const result = getDateRangeAndMultiplier(targetDate, initialDate)
         
-        const isForward = targetDate >= initialDateNextDay
-        
-        let dateRange: { gte: Date; lt: Date }
-        let multiplier: 1 | -1
-        
-        if (isForward) {
-          // 向前计算：从初始日期下一天到目标日期
-          dateRange = { gte: initialDateNextDay, lt: targetDate }
-          multiplier = 1
-        } else if (targetDate <= initialDate) {
-          // 向后计算：从目标日期到初始日期（不含初始日期当天）
-          dateRange = { gte: targetDate, lt: initialDate }
-          multiplier = -1
-        } else {
-          // targetDate 在初始日期当天，返回初始余额
+        if (result === null) {
+          // targetDate 等于 initialDate，返回初始余额
           dateBalanceMap.set(dateKey, initialBalance.toNumber())
           continue
         }
-
-        const relevantFrom = accountFromTransactions.filter(t => {
-          const tDate = t.date
-          return tDate >= dateRange.gte && tDate < dateRange.lt
-        })
-        const relevantTo = accountToTransactions.filter(t => {
-          const tDate = t.date
-          return tDate >= dateRange.gte && tDate < dateRange.lt
-        })
-
-        const balance = applyTransactionsToBalance(initialBalance, relevantFrom, relevantTo, multiplier)
+        
+        // 使用统一的筛选函数
+        const relevantFrom = filterTransactionsByRange(accountFromTransactions, result.dateRange)
+        const relevantTo = filterTransactionsByRange(accountToTransactions, result.dateRange)
+        
+        // 应用交易变动
+        const balance = applyTransactionsToBalance(initialBalance, relevantFrom, relevantTo, result.multiplier)
         dateBalanceMap.set(dateKey, balance.toNumber())
       }
     }
