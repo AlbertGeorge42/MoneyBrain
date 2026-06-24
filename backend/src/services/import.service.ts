@@ -1,4 +1,4 @@
-import { prisma } from '../index.js'
+﻿﻿﻿﻿﻿import { prisma } from '../index.js'
 import { toDecimal } from '../common/index.js'
 import { getNextAccountCategorySort } from './account-category.service.js'
 import { getNextAccountSort } from './account.service.js'
@@ -35,25 +35,47 @@ interface ImportContext {
   idMapping: Record<string, string>
 }
 
-function parseCSVLine(line: string): string[] {
-  const result: string[] = []
+/**
+ * 统一的 CSV 行解析器
+ * - 支持 `""` 转义为 `"`
+ * - 支持引号包裹字段
+ * - `trim=true` 时去除每个字段两侧空白（默认 false）
+ */
+function parseCsvLine(line: string, trim = false): string[] {
+  const fields: string[] = []
   let current = ''
   let inQuotes = false
+  let i = 0
 
-  for (let i = 0; i < line.length; i++) {
+  while (i < line.length) {
     const char = line[i]
-    if (char === '"') {
-      inQuotes = !inQuotes
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim())
-      current = ''
+    if (inQuotes) {
+      if (char === '"' && line[i + 1] === '"') {
+        current += '"'
+        i += 2
+      } else if (char === '"') {
+        inQuotes = false
+        i++
+      } else {
+        current += char
+        i++
+      }
     } else {
-      current += char
+      if (char === '"') {
+        inQuotes = true
+        i++
+      } else if (char === ',') {
+        fields.push(trim ? current.trim() : current)
+        current = ''
+        i++
+      } else {
+        current += char
+        i++
+      }
     }
   }
-  result.push(current.trim())
-
-  return result
+  fields.push(trim ? current.trim() : current)
+  return fields
 }
 
 async function getOrCreateTransferSubCategory(name: string): Promise<string> {
@@ -369,7 +391,7 @@ function parseCsvFile(buffer: Buffer, startDate?: Date, endDate?: Date): { rows:
 
   for (const line of dataLines) {
     try {
-      const cols = parseCSVLine(line)
+      const cols = parseCsvLine(line, true)
       if (cols.length < 9) continue
 
       const [csvId, time, category1, category2, typeStr, amountStr, , account1, account2, note, , feeStr, couponStr, , , , , relatedCsvId] = cols
@@ -403,26 +425,31 @@ function parseCsvFile(buffer: Buffer, startDate?: Date, endDate?: Date): { rows:
   return { rows, outOfRangeCount }
 }
 
-async function importTransactionsFromRows(rows: ParsedRow[], outOfRangeCount: number): Promise<{ imported: number; skipped: number }> {
+async function importTransactionsFromRows(
+  rows: ParsedRow[],
+  outOfRangeCount: number,
+  tx?: TransactionClient
+): Promise<{ imported: number; skipped: number }> {
+  const client = tx || prisma
   let imported = 0
   let skipped = 0
 
-  let defaultAssetCategory = await prisma.accountCategory.findFirst({
+  let defaultAssetCategory = await client.accountCategory.findFirst({
     where: { type: 'asset', parentId: null },
   })
   if (!defaultAssetCategory) {
     const sort = await getNextAccountCategorySort('asset')
-    defaultAssetCategory = await prisma.accountCategory.create({
+    defaultAssetCategory = await client.accountCategory.create({
       data: { name: '资产', type: 'asset', icon: 'wallet', sort },
     })
   }
 
-  let defaultLiabilityCategory = await prisma.accountCategory.findFirst({
+  let defaultLiabilityCategory = await client.accountCategory.findFirst({
     where: { type: 'liability', parentId: null },
   })
   if (!defaultLiabilityCategory) {
     const sort = await getNextAccountCategorySort('liability')
-    defaultLiabilityCategory = await prisma.accountCategory.create({
+    defaultLiabilityCategory = await client.accountCategory.create({
       data: { name: '负债', type: 'liability', icon: 'credit-card', sort },
     })
   }
@@ -461,9 +488,14 @@ async function importTransactionsFromRows(rows: ParsedRow[], outOfRangeCount: nu
   return { imported, skipped: skipped + outOfRangeCount }
 }
 
-export async function importTransactionsFromCsv(buffer: Buffer, startDate?: Date, endDate?: Date): Promise<{ imported: number; skipped: number }> {
+export async function importTransactionsFromCsv(
+  buffer: Buffer,
+  startDate?: Date,
+  endDate?: Date,
+  tx?: TransactionClient
+): Promise<{ imported: number; skipped: number }> {
   const { rows, outOfRangeCount } = parseCsvFile(buffer, startDate, endDate)
-  return importTransactionsFromRows(rows, outOfRangeCount)
+  return importTransactionsFromRows(rows, outOfRangeCount, tx)
 }
 
 // ─── 配置导入 ───
@@ -506,6 +538,7 @@ interface ConfigImportData {
     accounts?: ImportAccount[]
     accountCategories?: ImportAccountCategory[]
     transactionCategories?: ImportTransactionCategory[]
+    investmentAssetClasses?: ImportInvestmentAssetClass[]
   }
 }
 
@@ -514,16 +547,19 @@ export interface ImportConfigResult {
     accountCategories: number
     accounts: number
     transactionCategories: number
+    investmentAssetClasses: number
   }
   updated: {
     accountCategories: number
     accounts: number
     transactionCategories: number
+    investmentAssetClasses: number
   }
   skipped: {
     accountCategories: number
     accounts: number
     transactionCategories: number
+    investmentAssetClasses: number
   }
   errors: string[]
 }
@@ -617,11 +653,19 @@ async function importAccounts(
       if (account.categoryName && categoryNameMap.has(account.categoryName)) {
         categoryId = categoryNameMap.get(account.categoryName)!
       } else {
-        const defaultCategory = await tx.accountCategory.findFirst({
-          where: { type: account.type, parentId: null },
+        // 优先匹配子分类（parentId 不为 null），再匹配父分类
+        const subCategory = await tx.accountCategory.findFirst({
+          where: { name: account.categoryName ?? '', parentId: { not: null } },
         })
-        if (defaultCategory) {
-          categoryId = defaultCategory.id
+        if (subCategory) {
+          categoryId = subCategory.id
+        } else {
+          const defaultCategory = await tx.accountCategory.findFirst({
+            where: { type: account.type, parentId: null },
+          })
+          if (defaultCategory) {
+            categoryId = defaultCategory.id
+          }
         }
       }
 
@@ -734,24 +778,18 @@ async function importTransactionCategories(
 
 export async function importConfig(
   configData: ConfigImportData,
-  mode: 'merge' | 'overwrite'
+  mode: 'merge' | 'overwrite',
+  tx?: TransactionClient
 ): Promise<ImportConfigResult> {
+  const client = tx || prisma
   const result: ImportConfigResult = {
-    imported: { accountCategories: 0, accounts: 0, transactionCategories: 0 },
-    updated: { accountCategories: 0, accounts: 0, transactionCategories: 0 },
-    skipped: { accountCategories: 0, accounts: 0, transactionCategories: 0 },
+    imported: { accountCategories: 0, accounts: 0, transactionCategories: 0, investmentAssetClasses: 0 },
+    updated: { accountCategories: 0, accounts: 0, transactionCategories: 0, investmentAssetClasses: 0 },
+    skipped: { accountCategories: 0, accounts: 0, transactionCategories: 0, investmentAssetClasses: 0 },
     errors: [],
   }
 
-  await prisma.$transaction(async (tx) => {
-    if (mode === 'overwrite') {
-      await tx.account.deleteMany()
-      await tx.accountCategory.deleteMany({ where: { parentId: { not: null } } })
-      await tx.accountCategory.deleteMany()
-      await tx.transactionCategory.deleteMany({ where: { parentId: { not: null } } })
-      await tx.transactionCategory.deleteMany()
-    }
-
+  const executeImport = async (tx: TransactionClient) => {
     const accountCategoryNameMap = new Map<string, string>()
     const accountCategoryTypeMap = new Map<string, string>()
 
@@ -787,9 +825,90 @@ export async function importConfig(
         mode
       )
     }
-  })
+
+    // 投资资产类别（依赖账户）
+    if (configData.data.investmentAssetClasses) {
+      await importInvestmentAssetClasses(
+        configData.data.investmentAssetClasses,
+        tx,
+        result,
+        mode
+      )
+    }
+  }
+
+  if (tx) {
+    await executeImport(tx)
+  } else {
+    await prisma.$transaction(async (tx) => {
+      // 独立调用时（如单独导入 config.json），需要处理覆盖模式的清空
+      if (mode === 'overwrite') {
+        await tx.investmentAssetClass.deleteMany()
+        await tx.account.deleteMany()
+        await tx.accountCategory.deleteMany()
+        await tx.transactionCategory.deleteMany()
+      }
+      await executeImport(tx)
+    })
+  }
 
   return result
+}
+
+/**
+ * 导入投资资产类别
+ */
+async function importInvestmentAssetClasses(
+  assetClasses: ImportInvestmentAssetClass[],
+  tx: TransactionClient,
+  result: ImportConfigResult,
+  mode: 'merge' | 'overwrite'
+): Promise<void> {
+  for (const ac of assetClasses) {
+    try {
+      const account = await tx.account.findFirst({
+        where: { name: ac.accountName }
+      })
+      if (!account) {
+        result.errors.push(`投资资产类别关联账户不存在: ${ac.accountName}`)
+        result.skipped.investmentAssetClasses++
+        continue
+      }
+
+      const existing = await tx.investmentAssetClass.findFirst({
+        where: { accountId: account.id, name: ac.name }
+      })
+
+      if (existing) {
+        if (mode === 'merge') {
+          await tx.investmentAssetClass.update({
+            where: { id: existing.id },
+            data: {
+              icon: ac.icon ?? existing.icon,
+              targetRatio: ac.targetRatio ?? existing.targetRatio,
+              sort: ac.sort ?? existing.sort
+            }
+          })
+          result.updated.investmentAssetClasses++
+        } else {
+          result.skipped.investmentAssetClasses++
+        }
+      } else {
+        await tx.investmentAssetClass.create({
+          data: {
+            accountId: account.id,
+            name: ac.name,
+            icon: ac.icon,
+            targetRatio: ac.targetRatio,
+            sort: ac.sort
+          }
+        })
+        result.imported.investmentAssetClasses++
+      }
+    } catch (error) {
+      result.errors.push(`投资资产类别 "${ac.name}" 导入失败: ${(error as Error).message}`)
+    }
+  }
 }
 
 // ─── 预算导入 ───
@@ -829,8 +948,10 @@ const BUDGET_PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as 
 
 export async function importBudgets(
   budgetData: BudgetImportData,
-  mode: 'merge' | 'overwrite'
+  mode: 'merge' | 'overwrite',
+  tx?: TransactionClient
 ): Promise<ImportBudgetResult> {
+  const client = tx || prisma
   const result: ImportBudgetResult = {
     imported: 0,
     updated: 0,
@@ -838,7 +959,7 @@ export async function importBudgets(
     errors: [],
   }
 
-  await prisma.$transaction(async (tx) => {
+  const executeImport = async (tx: TransactionClient) => {
     if (mode === 'overwrite') {
       await tx.budget.deleteMany()
     }
@@ -949,7 +1070,420 @@ export async function importBudgets(
         result.skipped++
       }
     }
+  }
+
+  if (tx) {
+    await executeImport(tx)
+  } else {
+    await prisma.$transaction(async (tx) => {
+      await executeImport(tx)
+    })
+  }
+
+  return result
+}
+
+
+// ─── 投资快照导入（CSV 格式） ───
+
+interface ImportInvestmentAssetClass {
+  accountName: string
+  name: string
+  icon: string | null
+  targetRatio: number | null
+  sort: number
+}
+
+/**
+ * 统一的 CSV 解析器已在文件顶部声明，此处不再重复定义
+ */
+
+interface ImportSnapshotCsvRow {
+  accountName: string
+  date: string
+  accountBalance: string
+  previousSnapshotDate: string
+  note: string
+  assetClassName: string
+  marketValue: string
+  periodNetFlow: string
+  sort: string
+}
+
+export interface ImportSnapshotsResult {
+  imported: { snapshots: number; items: number }
+  updated: { snapshots: number }
+  skipped: { snapshots: number }
+  errors: string[]
+}
+
+/**
+ * 从 CSV 导入投资快照
+ * 资产类别已移至 config 导入，本函数只处理快照和分配项
+ */
+export async function importSnapshotsFromCsv(
+  csvBuffer: Buffer | string,
+  mode: 'merge' | 'overwrite',
+  tx?: TransactionClient
+): Promise<ImportSnapshotsResult> {
+  const client = tx || prisma
+  const result: ImportSnapshotsResult = {
+    imported: { snapshots: 0, items: 0 },
+    updated: { snapshots: 0 },
+    skipped: { snapshots: 0 },
+    errors: []
+  }
+
+  // 去除 UTF-8 BOM
+  let csvText = typeof csvBuffer === 'string' ? csvBuffer : csvBuffer.toString('utf-8')
+  if (csvText.charCodeAt(0) === 0xfeff) {
+    csvText = csvText.slice(1)
+  }
+
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0)
+  if (lines.length === 0) {
+    return result
+  }
+
+  // 跳过表头
+  const dataLines = lines.slice(1)
+  if (dataLines.length === 0) {
+    return result
+  }
+
+  // 解析所有行
+  const rows: ImportSnapshotCsvRow[] = dataLines.map(line => {
+    const fields = parseCsvLine(line)
+    return {
+      accountName: fields[0] || '',
+      date: fields[1] || '',
+      accountBalance: fields[2] || '',
+      previousSnapshotDate: fields[3] || '',
+      note: fields[4] || '',
+      assetClassName: fields[5] || '',
+      marketValue: fields[6] || '',
+      periodNetFlow: fields[7] || '',
+      sort: fields[8] || '0'
+    }
   })
+
+  // 按 (accountName, date) 分组，一个快照可能有多行（多个分配项）
+  const snapshotMap = new Map<string, ImportSnapshotCsvRow[]>()
+  for (const row of rows) {
+    if (!row.accountName || !row.date) continue
+    const key = `${row.accountName}|${row.date}`
+    if (!snapshotMap.has(key)) {
+      snapshotMap.set(key, [])
+    }
+    snapshotMap.get(key)!.push(row)
+  }
+
+  if (mode === 'overwrite') {
+    await client.investmentAllocationItem.deleteMany()
+    await client.investmentAllocationSnapshot.deleteMany()
+  }
+
+  // 按日期升序排序快照
+  const sortedKeys = Array.from(snapshotMap.keys()).sort((a, b) => {
+    const dateA = snapshotMap.get(a)![0].date
+    const dateB = snapshotMap.get(b)![0].date
+    return new Date(dateA).getTime() - new Date(dateB).getTime()
+  })
+
+  // 记录每个账户的快照链表
+  const snapshotChainMap = new Map<string, Map<string, string>>()
+
+  for (const key of sortedKeys) {
+    const snapshotRows = snapshotMap.get(key)!
+    const firstRow = snapshotRows[0]
+    try {
+      const account = await client.account.findFirst({
+        where: { name: firstRow.accountName }
+      })
+      if (!account) {
+        result.errors.push(`投资快照关联账户不存在: ${firstRow.accountName}`)
+        result.skipped.snapshots++
+        continue
+      }
+
+      // 验证所有资产类别
+      const items: { assetClassId: string; marketValue: number; periodNetFlow: number; sort: number }[] = []
+      let allAssetClassesValid = true
+      for (const row of snapshotRows) {
+        if (!row.assetClassName) continue
+
+        const assetClass = await client.investmentAssetClass.findFirst({
+          where: { accountId: account.id, name: row.assetClassName }
+        })
+        if (!assetClass) {
+          result.errors.push(`投资资产类别不存在: ${row.assetClassName} (账户: ${firstRow.accountName})`)
+          allAssetClassesValid = false
+          break
+        }
+        items.push({
+          assetClassId: assetClass.id,
+          marketValue: parseFloat(row.marketValue) || 0,
+          periodNetFlow: parseFloat(row.periodNetFlow) || 0,
+          sort: parseInt(row.sort, 10) || 0
+        })
+      }
+      if (!allAssetClassesValid) {
+        result.skipped.snapshots++
+        continue
+      }
+
+      const snapshotDate = new Date(firstRow.date)
+      if (isNaN(snapshotDate.getTime())) {
+        result.errors.push(`投资快照日期格式错误: ${firstRow.date}`)
+        result.skipped.snapshots++
+        continue
+      }
+
+      // 确定 previousSnapshotId
+      let previousSnapshotId: string | null = null
+      const accountChain = snapshotChainMap.get(account.id)
+      if (firstRow.previousSnapshotDate && accountChain?.has(firstRow.previousSnapshotDate)) {
+        previousSnapshotId = accountChain.get(firstRow.previousSnapshotDate)!
+      } else {
+        if (accountChain) {
+          const sortedDates = Array.from(accountChain.keys()).sort(
+            (a, b) => new Date(b).getTime() - new Date(a).getTime()
+          )
+          for (const d of sortedDates) {
+            if (new Date(d) < snapshotDate) {
+              previousSnapshotId = accountChain.get(d)!
+              break
+            }
+          }
+        }
+      }
+
+      const existing = await client.investmentAllocationSnapshot.findFirst({
+        where: { accountId: account.id, date: snapshotDate }
+      })
+
+      const accountBalance = parseFloat(firstRow.accountBalance) || 0
+      const note = firstRow.note || null
+
+      if (existing) {
+        if (mode === 'merge') {
+          await client.investmentAllocationSnapshot.update({
+            where: { id: existing.id },
+            data: {
+              accountBalance,
+              previousSnapshotId,
+              note
+            }
+          })
+
+          await client.investmentAllocationItem.deleteMany({
+            where: { snapshotId: existing.id }
+          })
+
+          for (const item of items) {
+            await client.investmentAllocationItem.create({
+              data: { snapshotId: existing.id, ...item }
+            })
+            result.imported.items++
+          }
+
+          if (!accountChain) snapshotChainMap.set(account.id, new Map())
+          snapshotChainMap.get(account.id)!.set(firstRow.date, existing.id)
+
+          result.updated.snapshots++
+        } else {
+          result.skipped.snapshots++
+        }
+      } else {
+        const newSnapshot = await client.investmentAllocationSnapshot.create({
+          data: {
+            accountId: account.id,
+            date: snapshotDate,
+            accountBalance,
+            previousSnapshotId,
+            note
+          }
+        })
+
+        for (const item of items) {
+          await client.investmentAllocationItem.create({
+            data: { snapshotId: newSnapshot.id, ...item }
+          })
+          result.imported.items++
+        }
+
+        if (!accountChain) snapshotChainMap.set(account.id, new Map())
+        snapshotChainMap.get(account.id)!.set(firstRow.date, newSnapshot.id)
+
+        result.imported.snapshots++
+      }
+    } catch (error) {
+      result.errors.push(`投资快照导入失败: ${(error as Error).message}`)
+    }
+  }
+
+  return result
+}
+
+// ─── 智能导入 ───
+
+import { parseBackupZip, detectFileType, detectFileIncludes, type BackupFiles } from './backup.service.js'
+
+export interface ImportFullResult {
+  imported: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+    transactions: number
+    budgets: number
+    investmentSnapshots: number
+    investmentItems: number
+  }
+  updated: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+    budgets: number
+    investmentSnapshots: number
+  }
+  skipped: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+    transactions: number
+    budgets: number
+    investmentSnapshots: number
+  }
+  errors: string[]
+}
+
+export async function importBackup(
+  file: Buffer,
+  filename: string,
+  mode: 'merge' | 'overwrite'
+): Promise<ImportFullResult> {
+  const result: ImportFullResult = {
+    imported: {
+      accountCategories: 0,
+      accounts: 0,
+      transactionCategories: 0,
+      transactions: 0,
+      budgets: 0,
+      investmentSnapshots: 0,
+      investmentItems: 0
+    },
+    updated: {
+      accountCategories: 0,
+      accounts: 0,
+      transactionCategories: 0,
+      budgets: 0,
+      investmentSnapshots: 0
+    },
+    skipped: {
+      accountCategories: 0,
+      accounts: 0,
+      transactionCategories: 0,
+      transactions: 0,
+      budgets: 0,
+      investmentSnapshots: 0
+    },
+    errors: []
+  }
+
+  const fileType = detectFileType(filename)
+  const includes = await detectFileIncludes(file, fileType)
+
+  if (fileType === 'zip') {
+    const files = await parseBackupZip(file)
+
+    // 覆盖模式下，先清空所有数据，避免外键约束
+    if (mode === 'overwrite') {
+      await prisma.investmentAllocationItem.deleteMany()
+      await prisma.investmentAllocationSnapshot.deleteMany()
+      await prisma.investmentAssetClass.deleteMany()
+      await prisma.budget.deleteMany()
+      await prisma.transaction.deleteMany()
+      await prisma.account.deleteMany()
+      await prisma.accountCategory.deleteMany()
+      await prisma.transactionCategory.deleteMany()
+    }
+
+    // 按依赖顺序导入：先 config，再 transactions，最后 budgets/snapshots
+    if (includes.includes('config') && files.config) {
+      const configResult = await importConfig(JSON.parse(files.config), mode)
+      result.imported.accountCategories = configResult.imported.accountCategories
+      result.imported.accounts = configResult.imported.accounts
+      result.imported.transactionCategories = configResult.imported.transactionCategories
+      result.updated.accountCategories = configResult.updated.accountCategories
+      result.updated.accounts = configResult.updated.accounts
+      result.updated.transactionCategories = configResult.updated.transactionCategories
+      result.skipped.accountCategories = configResult.skipped.accountCategories
+      result.skipped.accounts = configResult.skipped.accounts
+      result.skipped.transactionCategories = configResult.skipped.transactionCategories
+      result.errors.push(...configResult.errors)
+    }
+
+    if (includes.includes('transactions') && files.transactions) {
+      const transactionResult = await importTransactionsFromCsv(files.transactions)
+      result.imported.transactions = transactionResult.imported
+      result.skipped.transactions = transactionResult.skipped
+    }
+
+    if (includes.includes('budgets') && files.budgets) {
+      const budgetResult = await importBudgets(JSON.parse(files.budgets), mode)
+      result.imported.budgets = budgetResult.imported
+      result.updated.budgets = budgetResult.updated
+      result.skipped.budgets = budgetResult.skipped
+      result.errors.push(...budgetResult.errors)
+    }
+
+    if (includes.includes('snapshots') && files.snapshots) {
+      const snapshotResult = await importSnapshotsFromCsv(files.snapshots, mode)
+      result.imported.investmentSnapshots = snapshotResult.imported.snapshots
+      result.imported.investmentItems = snapshotResult.imported.items
+      result.updated.investmentSnapshots = snapshotResult.updated.snapshots
+      result.skipped.investmentSnapshots = snapshotResult.skipped.snapshots
+      result.errors.push(...snapshotResult.errors)
+    }
+  } else if (fileType === 'csv') {
+    // 单文件 CSV 导入：区分交易记录和投资快照
+    const csvText = file.toString('utf-8').replace(/^\ufeff/, '')
+    const firstLine = csvText.split(/\r?\n/)[0] || ''
+    if (firstLine.includes('投资快照') || firstLine.includes('快照日期')) {
+      const snapshotResult = await importSnapshotsFromCsv(file, mode)
+      result.imported.investmentSnapshots = snapshotResult.imported.snapshots
+      result.imported.investmentItems = snapshotResult.imported.items
+      result.updated.investmentSnapshots = snapshotResult.updated.snapshots
+      result.skipped.investmentSnapshots = snapshotResult.skipped.snapshots
+      result.errors.push(...snapshotResult.errors)
+    } else {
+      const transactionResult = await importTransactionsFromCsv(file, undefined, undefined)
+      result.imported.transactions = transactionResult.imported
+      result.skipped.transactions = transactionResult.skipped
+    }
+  } else if (fileType === 'json') {
+    // 单文件 JSON 导入（配置/预算）
+    const data = JSON.parse(file.toString())
+    if (data.type === 'config') {
+      const configResult = await importConfig(data, mode)
+      result.imported.accountCategories = configResult.imported.accountCategories
+      result.imported.accounts = configResult.imported.accounts
+      result.imported.transactionCategories = configResult.imported.transactionCategories
+      result.updated.accountCategories = configResult.updated.accountCategories
+      result.updated.accounts = configResult.updated.accounts
+      result.updated.transactionCategories = configResult.updated.transactionCategories
+      result.skipped.accountCategories = configResult.skipped.accountCategories
+      result.skipped.accounts = configResult.skipped.accounts
+      result.skipped.transactionCategories = configResult.skipped.transactionCategories
+      result.errors.push(...configResult.errors)
+    } else if (data.type === 'budgets') {
+      const budgetResult = await importBudgets(data, mode)
+      result.imported.budgets = budgetResult.imported
+      result.updated.budgets = budgetResult.updated
+      result.skipped.budgets = budgetResult.skipped
+      result.errors.push(...budgetResult.errors)
+    }
+  }
 
   return result
 }

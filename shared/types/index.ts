@@ -399,6 +399,7 @@ export interface AccountAllocationDetail {
   balance: number
   hasAssetClasses: boolean
   latestSnapshotDate: string | null
+  returnRate: number | null
   items: AccountAllocationItem[]
   snapshots: SnapshotHistoryItem[]
 }

@@ -1,14 +1,17 @@
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import {
   Button,
   Card,
   Modal,
   Space,
   Tag,
-  Tabs,
   Alert,
   Divider,
   theme,
+  Checkbox,
+  Radio,
+  Upload,
+  Collapse,
 } from 'antd'
 
 import {
@@ -23,11 +26,10 @@ import {
   DeleteOutlined,
   ExclamationCircleOutlined,
   CheckCircleOutlined,
-  CloudDownloadOutlined,
   InboxOutlined,
 } from '@ant-design/icons'
-import { PageHeader, RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../components/common'
-import { dataApi, type ImportConfigResult, type ImportBudgetResult } from '../services/api'
+import { PageHeader } from '../components/common'
+import { dataApi, type ImportFullResult } from '../services/api'
 import {
   useAccounts,
   useTransactionCategories,
@@ -38,29 +40,7 @@ import {
 } from '../queries'
 import { useNotify } from '../hooks/useNotify'
 import { useTheme } from '../styles/ThemeContext'
-import { createRangePeriodPreset, createTrailingRangePreset } from '../utils/timePicker'
 import { downloadBlob, todayFilename } from '../utils/download'
-
-const exportTimePickerConfig: RangeTimePickerConfig = {
-  label: '时间范围',
-  allowedGranularities: ['day', 'month', 'year'],
-  presets: {
-    day: [
-      createRangePeriodPreset('today', '今天', 'day'),
-      createTrailingRangePreset('last-7-days', '近 7 天', 7, 'day'),
-      createTrailingRangePreset('last-30-days', '近 30 天', 30, 'day'),
-    ],
-    month: [
-      createRangePeriodPreset('current-month', '本月', 'month'),
-      createRangePeriodPreset('previous-month', '上月', 'month', -1),
-      createTrailingRangePreset('last-3-months', '近 3 个月', 3, 'month'),
-    ],
-    year: [
-      createRangePeriodPreset('current-year', '今年', 'year'),
-      createRangePeriodPreset('previous-year', '去年', 'year', -1),
-    ],
-  },
-}
 
 const themeOptions = [
   { value: 'light', label: '浅色', icon: <SunOutlined />, desc: '明亮的界面风格' },
@@ -72,9 +52,6 @@ const Settings: React.FC = () => {
   const { token } = theme.useToken()
   const { mode, theme: currentTheme, setThemeMode } = useTheme()
   const notify = useNotify()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const configFileInputRef = useRef<HTMLInputElement>(null)
-  const budgetFileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: accounts = [] } = useAccounts()
   const { data: transactionCategories = [] } = useTransactionCategories()
@@ -90,218 +67,119 @@ const Settings: React.FC = () => {
   const colorActionPrimary = token.colorPrimary
   const colorSuccess = token.colorSuccess
   const colorWarning = token.colorWarning
-  const colorTransfer = 'var(--mb-color-transfer)'
   const fontWeightBold = 700
-  const radiusCard = `${token.borderRadius}px`
-  const spaceInlineDefault = `${token.paddingXS}px`
-  const spaceStackDefault = `${token.paddingXS}px`
   const spaceCardPadding = `${token.padding}px`
-  const fontSizeBodyLarge = `${token.fontSizeLG}px`
-  const fontSizeBody = `${token.fontSize}px`
-  const fontSizeCaption = `${token.fontSizeSM}px`
 
-  const [importing, setImporting] = useState(false)
-  const [importProgress, setImportProgress] = useState<{ imported: number; skipped: number } | null>(null)
-  const [exportDateRange, setExportDateRange] = useState<RangeTimeValue | null>(null)
+  // 导出状态
   const [exporting, setExporting] = useState(false)
-  const [importDateRange, setImportDateRange] = useState<RangeTimeValue | null>(null)
-  const [activeBackupTab, setActiveBackupTab] = useState('transactions')
-  const [configExporting, setConfigExporting] = useState(false)
-  const [configImporting, setConfigImporting] = useState(false)
-  const [configImportResult, setConfigImportResult] = useState<ImportConfigResult | null>(null)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [budgetExporting, setBudgetExporting] = useState(false)
-  const [budgetImporting, setBudgetImporting] = useState(false)
-  const [budgetImportResult, setBudgetImportResult] = useState<ImportBudgetResult | null>(null)
 
-  const handleExportCSV = async () => {
+  // 自定义导出选项
+  const [exportIncludes, setExportIncludes] = useState<string[]>(['transactions', 'config', 'budgets', 'snapshots'])
+
+  // 导入备份状态
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importIncludes, setImportIncludes] = useState<string[]>([])
+  const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge')
+  const [importingBackup, setImportingBackup] = useState(false)
+  const [importBackupResult, setImportBackupResult] = useState<ImportFullResult | null>(null)
+
+  // ─── 导出 ───
+
+  const handleExport = async () => {
+    if (exportIncludes.length === 0) {
+      notify.error('请至少选择一项数据')
+      return
+    }
+
     setExporting(true)
-    const hide = notify.loading('正在导出数据，请稍候...', 0)
+    const hide = notify.loading('正在导出，请稍候...', 0)
 
     try {
-      const params: { startDate?: string; endDate?: string } = {}
-      if (exportDateRange) {
-        params.startDate = exportDateRange.start.toISOString()
-        params.endDate = exportDateRange.end.toISOString()
+      let buffer: Blob | ArrayBuffer
+      let prefix: string
+      let ext: string
+
+      if (exportIncludes.length === 4) {
+        // 全部勾选 → 完整备份
+        const response = await dataApi.exportFull()
+        buffer = response.data
+        prefix = 'moneybrain-full-backup'
+        ext = 'zip'
+      } else {
+        // 自定义导出
+        const response = await dataApi.exportCustom({ includes: exportIncludes })
+        buffer = response.data
+        const contentType = (response.headers['content-type'] as string) || ''
+        ext = contentType.includes('zip') ? 'zip'
+          : contentType.includes('csv') ? 'csv'
+          : 'json'
+        prefix = `moneybrain-${exportIncludes[0]}`
       }
 
-      const response = await dataApi.exportCsv(Object.keys(params).length ? params : undefined)
-      await downloadBlob(response.data, todayFilename('moneybrain-export', 'csv'))
+      await downloadBlob(buffer as Blob, todayFilename(prefix, ext))
 
       hide()
-      notify.success('数据导出成功，文件已开始下载')
+      notify.success('导出成功，文件已开始下载')
     } catch (error) {
       hide()
-      notify.error('数据导出失败，请重试')
-      console.error('Export CSV error:', error)
+      notify.error('导出失败，请重试')
+      console.error('Export error:', error)
     } finally {
       setExporting(false)
     }
   }
 
-  const handleImportCSV = async (file: File) => {
-    setImporting(true)
-    setImportProgress(null)
-
-    try {
-      const params: { startDate?: string; endDate?: string } = {}
-      if (importDateRange) {
-        params.startDate = importDateRange.start.toISOString()
-        params.endDate = importDateRange.end.toISOString()
-      }
-
-      const response = await dataApi.importCsv(file, Object.keys(params).length ? params : undefined)
-      const result = response.data
-
-      if (!result.success || !result.data) {
-        notify.error(result.error?.message || '导入失败')
-        return
-      }
-
-      setImportProgress({
-        imported: result.data.imported,
-        skipped: result.data.skipped,
-      })
-      notify.success(`导入完成：成功 ${result.data.imported} 条，跳过 ${result.data.skipped} 条`)
-    } catch {
-      notify.error('导入失败，请检查 CSV 格式')
-    } finally {
-      setImporting(false)
-    }
+  const handleExportIncludesChange = (checkedValue: string) => {
+    setExportIncludes(prev =>
+      prev.includes(checkedValue)
+        ? prev.filter(v => v !== checkedValue)
+        : [...prev, checkedValue]
+    )
   }
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      if (!file.name.endsWith('.csv')) {
-        notify.error('请选择 CSV 文件')
-      } else {
-        void handleImportCSV(file)
-      }
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
-
-  const handleExportConfig = async () => {
-    setConfigExporting(true)
-    const hide = notify.loading('正在导出配置，请稍候...', 0)
-
-    try {
-      const response = await dataApi.exportConfig()
-      await downloadBlob(response.data, todayFilename('moneybrain-config', 'json'))
-
-      hide()
-      notify.success('配置导出成功，文件已开始下载')
-    } catch (error) {
-      hide()
-      notify.error('配置导出失败，请重试')
-      console.error('Export config error:', error)
-    } finally {
-      setConfigExporting(false)
-    }
-  }
-
-  const handleImportConfig = async (file: File) => {
-    if (!file.name.endsWith('.json')) {
-      notify.error('请选择 JSON 文件')
-      return
-    }
-    setConfigImporting(true)
-    setConfigImportResult(null)
-
-    try {
-      const response = await dataApi.importConfig(file)
-      const result = response.data
-
-      if (!result.success || !result.data) {
-        notify.error(result.error?.message || '导入失败')
-        return
-      }
-
-      setConfigImportResult(result.data)
-      notify.success('配置导入完成')
-    } catch {
-      notify.error('配置导入失败，请检查 JSON 格式')
-    } finally {
-      setConfigImporting(false)
-    }
-  }
-
-  const handleConfigFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      void handleImportConfig(file)
-    }
-    if (configFileInputRef.current) {
-      configFileInputRef.current.value = ''
-    }
-  }
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>, type: 'csv' | 'json') => {
-    event.preventDefault()
-    event.stopPropagation()
-    setIsDragOver(false)
-    const file = event.dataTransfer.files?.[0]
-    if (!file) return
-    if (type === 'csv') {
-      if (!file.name.endsWith('.csv')) {
-        notify.error('请拖拽 CSV 文件')
-        return
-      }
-      void handleImportCSV(file)
+  const handleQuickSelect = (type: 'all' | 'config' | 'business' | 'clear') => {
+    if (type === 'all') {
+      setExportIncludes(['transactions', 'config', 'budgets', 'snapshots'])
+    } else if (type === 'config') {
+      setExportIncludes(['config', 'budgets'])
+    } else if (type === 'business') {
+      setExportIncludes(['transactions', 'snapshots'])
     } else {
-      if (!file.name.endsWith('.json')) {
-        notify.error('请拖拽 JSON 文件')
-        return
-      }
-      void handleImportConfig(file)
+      setExportIncludes([])
     }
   }
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setIsDragOver(true)
-  }
+  // ─── 导入备份 ───
 
-  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setIsDragOver(false)
-  }
+  const handleFileSelect = async (file: File) => {
+    setImportFile(file)
+    setImportBackupResult(null)
 
-  const handleExportBudgets = async () => {
-    setBudgetExporting(true)
-    const hide = notify.loading('正在导出预算配置，请稍候...', 0)
-
+    // 自动识别文件内容
     try {
-      const response = await dataApi.exportBudgets()
-      await downloadBlob(response.data, todayFilename('moneybrain-budgets', 'json'))
+      const response = await dataApi.detectFileIncludes(file)
+      const result = response.data
 
-      hide()
-      notify.success('预算配置导出成功，文件已开始下载')
-    } catch (error) {
-      hide()
-      notify.error('预算配置导出失败，请重试')
-      console.error('Export budgets error:', error)
-    } finally {
-      setBudgetExporting(false)
+      if (result.success && result.data) {
+        setImportIncludes(result.data.includes)
+      }
+    } catch {
+      // 如果识别失败，默认全选
+      setImportIncludes(['transactions', 'config', 'budgets', 'snapshots'])
     }
   }
 
-  const handleImportBudgets = async (file: File) => {
-    if (!file.name.endsWith('.json')) {
-      notify.error('请选择 JSON 文件')
+  const handleImportBackup = async () => {
+    if (!importFile) {
+      notify.error('请选择文件')
       return
     }
-    setBudgetImporting(true)
-    setBudgetImportResult(null)
+
+    setImportingBackup(true)
+    setImportBackupResult(null)
 
     try {
-      const response = await dataApi.importBudgets(file)
+      const response = await dataApi.importBackup(importFile, { mode: importMode })
       const result = response.data
 
       if (!result.success || !result.data) {
@@ -309,24 +187,24 @@ const Settings: React.FC = () => {
         return
       }
 
-      setBudgetImportResult(result.data)
-      notify.success('预算配置导入完成')
+      setImportBackupResult(result.data)
+      notify.success('备份导入成功')
     } catch {
-      notify.error('预算配置导入失败，请检查 JSON 格式')
+      notify.error('备份导入失败，请检查文件格式')
     } finally {
-      setBudgetImporting(false)
+      setImportingBackup(false)
     }
   }
 
-  const handleBudgetFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      void handleImportBudgets(file)
-    }
-    if (budgetFileInputRef.current) {
-      budgetFileInputRef.current.value = ''
-    }
+  const handleImportIncludesChange = (checkedValue: string) => {
+    setImportIncludes(prev =>
+      prev.includes(checkedValue)
+        ? prev.filter(v => v !== checkedValue)
+        : [...prev, checkedValue]
+    )
   }
+
+  // ─── 危险操作 ───
 
   const handleClearTransactions = async () => {
     try {
@@ -356,10 +234,10 @@ const Settings: React.FC = () => {
       onOk: handleClearTransactions,
       content: (
         <div>
-          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceStackDefault }}>
+          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: '8px' }}>
             这会永久删除所有交易记录与预算数据。
           </p>
-          <p style={{ color: colorSuccess, marginBottom: spaceStackDefault }}>账户和分类会保留。</p>
+          <p style={{ color: colorSuccess, marginBottom: '8px' }}>账户和分类会保留。</p>
           <p style={{ color: colorTextMuted, margin: 0 }}>建议先导出备份，再执行该操作。</p>
         </div>
       ),
@@ -376,7 +254,7 @@ const Settings: React.FC = () => {
       onOk: handleClearData,
       content: (
         <div>
-          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: spaceStackDefault }}>
+          <p style={{ color: colorDanger, fontWeight: fontWeightBold, marginBottom: '8px' }}>
             这会删除账户、分类、交易、预算和余额快照，且不可恢复。
           </p>
           <p style={{ color: colorTextMuted, margin: 0 }}>只有在确认已完成备份后再继续。</p>
@@ -385,207 +263,68 @@ const Settings: React.FC = () => {
     })
   }
 
-  const tabItems = [
-    {
-      key: 'transactions',
-      label: '交易记录',
-      children: (
-        <div className="settings-grid">
-          <div>
-            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导出 CSV</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
-              导出为钱迹兼容格式，包含交易时间、分类、金额、账户等信息。
-            </p>
-            <Space wrap>
-              <RangeTimePickerField
-                value={exportDateRange}
-                config={exportTimePickerConfig}
-                onChange={setExportDateRange}
-                placeholder="全部数据"
-              />
-              <Button icon={<DownloadOutlined />} onClick={handleExportCSV} loading={exporting} type="primary">
-                导出 CSV
-              </Button>
-            </Space>
-          </div>
+  // ─── 渲染导入结果 ───
 
-          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border-subtle)' }} />
+  const renderImportResult = (result: ImportFullResult | null) => {
+    if (!result) return null
 
-          <div>
-            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入 CSV</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
-              支持钱迹格式的 CSV 文件导入，自动创建不存在的账户和分类。
-            </p>
-            <Space wrap>
-              <RangeTimePickerField
-                value={importDateRange}
-                config={exportTimePickerConfig}
-                onChange={setImportDateRange}
-                placeholder="全部数据"
-              />
-            </Space>
-            <div
-              className={`file-drop-zone ${isDragOver ? 'file-drop-zone--dragover' : ''}`}
-              style={{ marginTop: spaceCardPadding }}
-              onClick={() => fileInputRef.current?.click()}
-              onDrop={(e) => handleDrop(e, 'csv')}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <input ref={fileInputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileChange} />
-              <InboxOutlined style={{ fontSize: 32, color: colorActionPrimary, marginBottom: spaceStackDefault }} />
-              <p style={{ margin: 0, fontWeight: fontWeightBold }}>点击或拖拽 CSV 文件到此处</p>
-              <p style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>{importing ? '正在导入...' : '支持钱迹格式的交易记录'}</p>
-            </div>
-            {importProgress ? (
-              <div
-                style={{
-                  marginTop: spaceStackDefault,
-                  padding: 12,
-                  borderRadius: radiusCard,
-                  border: `1px solid ${colorActionPrimary}`,
-                  background: 'rgba(30, 99, 218, 0.06)',
-                }}
-              >
-                <p style={{ margin: 0 }}>成功导入：{importProgress.imported} 条</p>
-                <p style={{ margin: 0, color: colorTextMuted }}>已跳过：{importProgress.skipped} 条</p>
-              </div>
-            ) : null}
-          </div>
+    return (
+      <div
+        style={{
+          marginTop: '8px',
+          padding: 12,
+          borderRadius: `${token.borderRadius}px`,
+          border: `1px solid ${colorSuccess}`,
+          background: 'rgba(82, 196, 26, 0.06)',
+        }}
+      >
+        <p style={{ margin: 0, fontWeight: fontWeightBold }}>导入结果</p>
+        <div style={{ marginTop: '8px', display: 'grid', gap: '4px', fontSize: `${token.fontSize}px` }}>
+          {result.imported.transactions > 0 && (
+            <p style={{ margin: 0 }}>交易记录：新增 {result.imported.transactions} 条</p>
+          )}
+          {result.imported.accountCategories > 0 && (
+            <p style={{ margin: 0 }}>账户分类：新增 {result.imported.accountCategories} 项</p>
+          )}
+          {result.imported.accounts > 0 && (
+            <p style={{ margin: 0 }}>账户：新增 {result.imported.accounts} 项</p>
+          )}
+          {result.imported.transactionCategories > 0 && (
+            <p style={{ margin: 0 }}>收支分类：新增 {result.imported.transactionCategories} 项</p>
+          )}
+          {result.imported.budgets > 0 && (
+            <p style={{ margin: 0 }}>预算：新增 {result.imported.budgets} 项</p>
+          )}
+          {result.imported.investmentSnapshots > 0 && (
+            <p style={{ margin: 0 }}>投资快照：新增 {result.imported.investmentSnapshots} 条</p>
+          )}
+          {result.updated.accountCategories > 0 && (
+            <p style={{ margin: 0 }}>账户分类：更新 {result.updated.accountCategories} 项</p>
+          )}
+          {result.updated.accounts > 0 && (
+            <p style={{ margin: 0 }}>账户：更新 {result.updated.accounts} 项</p>
+          )}
+          {result.updated.transactionCategories > 0 && (
+            <p style={{ margin: 0 }}>收支分类：更新 {result.updated.transactionCategories} 项</p>
+          )}
+          {result.updated.budgets > 0 && (
+            <p style={{ margin: 0 }}>预算：更新 {result.updated.budgets} 项</p>
+          )}
+          {result.updated.investmentSnapshots > 0 && (
+            <p style={{ margin: 0 }}>投资快照：更新 {result.updated.investmentSnapshots} 条</p>
+          )}
         </div>
-      ),
-    },
-    {
-      key: 'config',
-      label: '配置信息',
-      children: (
-        <div className="settings-grid">
-          <div>
-            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导出配置</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
-              导出账户、账户分类、收支分类等配置信息，以 JSON 格式保存。
-            </p>
-            <Button icon={<CloudDownloadOutlined />} onClick={handleExportConfig} loading={configExporting} type="primary">
-              导出配置
-            </Button>
+        {result.errors.length > 0 && (
+          <div style={{ marginTop: '8px' }}>
+            <p style={{ margin: 0, color: colorDanger }}>错误 ({result.errors.length} 条)：</p>
+            {result.errors.slice(0, 3).map((err, idx) => (
+              <p key={idx} style={{ margin: 0, color: colorTextMuted, fontSize: `${token.fontSizeSM}px` }}>{err}</p>
+            ))}
           </div>
-
-          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border-subtle)' }} />
-
-          <div>
-            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入配置</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
-              从 JSON 文件恢复账户、分类等配置信息。存在则更新，不存在则新增。
-            </p>
-            <div
-              className={`file-drop-zone ${isDragOver ? 'file-drop-zone--dragover' : ''}`}
-              onClick={() => configFileInputRef.current?.click()}
-              onDrop={(e) => handleDrop(e, 'json')}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <input ref={configFileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleConfigFileChange} />
-              <InboxOutlined style={{ fontSize: 32, color: colorActionPrimary, marginBottom: spaceStackDefault }} />
-              <p style={{ margin: 0, fontWeight: fontWeightBold }}>点击或拖拽 JSON 文件到此处</p>
-              <p style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>
-                {configImporting ? '正在导入...' : '支持导入账户、分类等配置信息'}
-              </p>
-            </div>
-            {configImportResult ? (
-              <div
-                style={{
-                  marginTop: spaceStackDefault,
-                  padding: 12,
-                  borderRadius: radiusCard,
-                  border: `1px solid ${colorSuccess}`,
-                  background: 'rgba(82, 196, 26, 0.06)',
-                }}
-              >
-                <p style={{ margin: 0, fontWeight: fontWeightBold }}>导入结果</p>
-                <div style={{ marginTop: spaceStackDefault, display: 'grid', gap: spaceInlineDefault, fontSize: fontSizeBody }}>
-                  <p style={{ margin: 0 }}>账户分类：新增 {configImportResult.imported.accountCategories} / 更新 {configImportResult.updated.accountCategories} / 跳过 {configImportResult.skipped.accountCategories}</p>
-                  <p style={{ margin: 0 }}>账户：新增 {configImportResult.imported.accounts} / 更新 {configImportResult.updated.accounts} / 跳过 {configImportResult.skipped.accounts}</p>
-                  <p style={{ margin: 0 }}>收支分类：新增 {configImportResult.imported.transactionCategories} / 更新 {configImportResult.updated.transactionCategories} / 跳过 {configImportResult.skipped.transactionCategories}</p>
-                </div>
-                {configImportResult.errors.length > 0 && (
-                  <div style={{ marginTop: spaceStackDefault }}>
-                    <p style={{ margin: 0, color: colorDanger }}>错误 ({configImportResult.errors.length} 条)：</p>
-                    {configImportResult.errors.slice(0, 3).map((err, idx) => (
-                      <p key={idx} style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>{err}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'budgets',
-      label: '预算配置',
-      children: (
-        <div className="settings-grid">
-          <div>
-            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导出预算</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
-              导出预算配置信息，包含预算名称、金额、周期、关联账户和分类等。
-            </p>
-            <Button icon={<CloudDownloadOutlined />} onClick={handleExportBudgets} loading={budgetExporting} type="primary">
-              导出预算
-            </Button>
-          </div>
-
-          <Divider style={{ margin: `${spaceCardPadding} 0`, borderColor: 'var(--mb-color-border-subtle)' }} />
-
-          <div>
-            <h3 style={{ marginTop: 0, fontSize: fontSizeBodyLarge, fontWeight: fontWeightBold }}>导入预算</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
-              从 JSON 文件恢复预算配置。存在则更新，不存在则新增。
-            </p>
-            <div
-              className={`file-drop-zone ${isDragOver ? 'file-drop-zone--dragover' : ''}`}
-              onClick={() => budgetFileInputRef.current?.click()}
-              onDrop={(e) => handleDrop(e, 'json')}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <input ref={budgetFileInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleBudgetFileChange} />
-              <InboxOutlined style={{ fontSize: 32, color: colorActionPrimary, marginBottom: spaceStackDefault }} />
-              <p style={{ margin: 0, fontWeight: fontWeightBold }}>点击或拖拽 JSON 文件到此处</p>
-              <p style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>
-                {budgetImporting ? '正在导入...' : '支持导入预算配置信息'}
-              </p>
-            </div>
-            {budgetImportResult ? (
-              <div
-                style={{
-                  marginTop: spaceStackDefault,
-                  padding: 12,
-                  borderRadius: radiusCard,
-                  border: `1px solid ${colorSuccess}`,
-                  background: 'rgba(82, 196, 26, 0.06)',
-                }}
-              >
-                <p style={{ margin: 0, fontWeight: fontWeightBold }}>导入结果</p>
-                <div style={{ marginTop: spaceStackDefault, display: 'grid', gap: spaceInlineDefault, fontSize: fontSizeBody }}>
-                  <p style={{ margin: 0 }}>预算：新增 {budgetImportResult.imported} / 更新 {budgetImportResult.updated} / 跳过 {budgetImportResult.skipped}</p>
-                </div>
-                {budgetImportResult.errors.length > 0 && (
-                  <div style={{ marginTop: spaceStackDefault }}>
-                    <p style={{ margin: 0, color: colorDanger }}>错误 ({budgetImportResult.errors.length} 条)：</p>
-                    {budgetImportResult.errors.slice(0, 3).map((err, idx) => (
-                      <p key={idx} style={{ margin: 0, color: colorTextMuted, fontSize: fontSizeCaption }}>{err}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ),
-    },
-  ]
+        )}
+      </div>
+    )
+  }
 
   return (
     <>
@@ -595,6 +334,7 @@ const Settings: React.FC = () => {
         description="管理主题、备份和高风险操作。"
       />
 
+      {/* 数据统计卡片 */}
       <div className="kpi-grid settings-kpi-grid">
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
@@ -626,6 +366,7 @@ const Settings: React.FC = () => {
         </Card>
       </div>
 
+      {/* 外观主题 */}
       <Card className="surface-card" title="外观主题">
         <div className="theme-options-grid">
           {themeOptions.map((option) => (
@@ -636,22 +377,178 @@ const Settings: React.FC = () => {
             >
               <div style={{ fontSize: 24, marginBottom: 8, color: colorActionPrimary }}>{option.icon}</div>
               <div style={{ fontWeight: fontWeightBold, marginBottom: 4 }}>{option.label}</div>
-              <div style={{ fontSize: fontSizeCaption, color: colorTextMuted }}>{option.desc}</div>
+              <div style={{ fontSize: `${token.fontSizeSM}px`, color: colorTextMuted }}>{option.desc}</div>
             </div>
           ))}
         </div>
-        <Tag style={{ marginTop: spaceCardPadding, color: currentTheme === 'dark' ? colorTransfer : undefined, borderColor: currentTheme === 'dark' ? colorTransfer : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
+        <Tag style={{ marginTop: spaceCardPadding, color: currentTheme === 'dark' ? 'var(--mb-color-transfer)' : undefined, borderColor: currentTheme === 'dark' ? 'var(--mb-color-transfer)' : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
           当前生效：{mode === 'system' ? `跟随系统 / ${currentTheme === 'dark' ? '深色' : '浅色'}` : currentTheme === 'dark' ? '深色' : '浅色'}
         </Tag>
       </Card>
 
+      {/* 数据备份 */}
       <Card className="surface-card" title="数据备份">
-        <Tabs activeKey={activeBackupTab} onChange={setActiveBackupTab} items={tabItems} />
+        {/* 数据导出 分区 */}
+        <div style={{ marginBottom: '24px' }}>
+          <h3 style={{ marginTop: 0, fontSize: `${token.fontSizeLG}px`, fontWeight: fontWeightBold }}>数据导出</h3>
+          <p style={{ color: colorTextMuted, fontSize: `${token.fontSize}px`, marginBottom: spaceCardPadding }}>
+            默认导出全部数据（交易、配置、预算、投资快照）；可展开下方"高级选项"自定义导出内容
+          </p>
+
+          <Collapse
+            ghost
+            defaultActiveKey={['advanced']}
+            items={[
+              {
+                key: 'advanced',
+                label: (
+                  <div style={{ textAlign: 'left', fontSize: `${token.fontSize}px` }}>高级选项</div>
+                ),
+                children: (
+                  <div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '8px' }}>
+                      <Checkbox
+                        checked={exportIncludes.includes('config')}
+                        onChange={() => handleExportIncludesChange('config')}
+                      >
+                        配置信息（账户、分类）
+                      </Checkbox>
+                      <Checkbox
+                        checked={exportIncludes.includes('budgets')}
+                        onChange={() => handleExportIncludesChange('budgets')}
+                      >
+                        预算配置
+                      </Checkbox>
+                      <Checkbox
+                        checked={exportIncludes.includes('transactions')}
+                        onChange={() => handleExportIncludesChange('transactions')}
+                      >
+                        交易记录
+                      </Checkbox>
+                      <Checkbox
+                        checked={exportIncludes.includes('snapshots')}
+                        onChange={() => handleExportIncludesChange('snapshots')}
+                      >
+                        投资快照
+                      </Checkbox>
+                    </div>
+
+                    <Divider style={{ margin: '12px 0' }} />
+
+                    <Space size="small" wrap>
+                      <Button size="small" onClick={() => handleQuickSelect('all')}>全选</Button>
+                      <Button size="small" onClick={() => handleQuickSelect('config')}>仅配置</Button>
+                      <Button size="small" onClick={() => handleQuickSelect('business')}>仅数据</Button>
+                      <Button size="small" onClick={() => handleQuickSelect('clear')}>清空</Button>
+                    </Space>
+                  </div>
+                ),
+              },
+            ]}
+          />
+
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            loading={exporting}
+            style={{ marginTop: '12px' }}
+          >
+            导出
+          </Button>
+        </div>
+
+        <Divider style={{ margin: '24px 0', borderColor: 'var(--mb-color-border-subtle)' }} />
+
+        {/* 数据导入 分区 */}
+        <div>
+          <h3 style={{ marginTop: 0, fontSize: `${token.fontSizeLG}px`, fontWeight: fontWeightBold }}>数据导入</h3>
+          <p style={{ color: colorTextMuted, fontSize: `${token.fontSize}px`, marginBottom: spaceCardPadding }}>
+            支持 .zip、.csv、.json 格式的备份文件
+          </p>
+
+          <Upload.Dragger
+            accept=".zip,.csv,.json"
+            showUploadList={false}
+            multiple={false}
+            beforeUpload={(file) => {
+              handleFileSelect(file)
+              return false
+            }}
+            style={{ marginBottom: importFile ? '16px' : 0 }}
+          >
+            <p className="ant-upload-drag-icon" style={{ marginBottom: 0 }}>
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text" style={{ margin: 0 }}>点击或拖拽文件到此处</p>
+            <p className="ant-upload-hint" style={{ margin: 0, color: colorTextMuted, fontSize: `${token.fontSizeSM}px` }}>
+              支持单个 .zip / .csv / .json 备份文件
+            </p>
+          </Upload.Dragger>
+
+          {importFile && (
+            <>
+              <Divider style={{ margin: '12px 0' }} />
+              <p style={{ margin: 0, fontWeight: fontWeightBold }}>检测到文件内容：</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '8px' }}>
+                <Checkbox
+                  checked={importIncludes.includes('transactions')}
+                  onChange={() => handleImportIncludesChange('transactions')}
+                >
+                  交易记录
+                </Checkbox>
+                <Checkbox
+                  checked={importIncludes.includes('config')}
+                  onChange={() => handleImportIncludesChange('config')}
+                >
+                  配置信息
+                </Checkbox>
+                <Checkbox
+                  checked={importIncludes.includes('budgets')}
+                  onChange={() => handleImportIncludesChange('budgets')}
+                >
+                  预算配置
+                </Checkbox>
+                <Checkbox
+                  checked={importIncludes.includes('snapshots')}
+                  onChange={() => handleImportIncludesChange('snapshots')}
+                >
+                  投资快照
+                </Checkbox>
+              </div>
+
+              <Divider style={{ margin: '12px 0' }} />
+              <p style={{ margin: 0, fontWeight: fontWeightBold }}>导入模式：</p>
+              <Radio.Group
+                value={importMode}
+                onChange={(e) => setImportMode(e.target.value)}
+                style={{ marginTop: '8px' }}
+              >
+                <Space direction="vertical">
+                  <Radio value="merge">合并（存在则更新，不存在则新增）</Radio>
+                  <Radio value="overwrite">覆盖（清空后导入）</Radio>
+                </Space>
+              </Radio.Group>
+
+              <Button
+                type="primary"
+                onClick={handleImportBackup}
+                loading={importingBackup}
+                style={{ marginTop: '12px' }}
+              >
+                导入
+              </Button>
+
+              {renderImportResult(importBackupResult)}
+            </>
+          )}
+        </div>
       </Card>
 
+      {/* 危险操作 */}
       <Card className="surface-card danger-zone" title="危险操作">
         <Alert
-          message="执行前建议先导出配置备份"
+          message="执行前建议先导出备份"
           type="warning"
           showIcon
           style={{ marginBottom: spaceCardPadding }}
@@ -659,7 +556,7 @@ const Settings: React.FC = () => {
         <div className="section-grid">
           <div>
             <h3 style={{ color: colorWarning, marginTop: 0 }}>清空交易数据</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
+            <p style={{ color: colorTextMuted, fontSize: `${token.fontSize}px`, marginBottom: spaceCardPadding }}>
               永久删除所有交易记录与预算数据，账户和分类会保留。
             </p>
             <Button ghost icon={<DeleteOutlined />} onClick={showClearTransactionsConfirm} style={{ borderColor: colorWarning, color: colorWarning }}>
@@ -669,16 +566,17 @@ const Settings: React.FC = () => {
 
           <div>
             <h3 style={{ color: colorDanger, marginTop: 0 }}>清空全部数据</h3>
-            <p style={{ color: colorTextMuted, fontSize: fontSizeBody, marginBottom: spaceCardPadding }}>
+            <p style={{ color: colorTextMuted, fontSize: `${token.fontSize}px`, marginBottom: spaceCardPadding }}>
               删除账户、分类、交易、预算等所有数据，且不可恢复。
             </p>
-            <Button danger icon={<DeleteOutlined />} onClick={showClearConfirm}  style={{ borderColor: colorDanger, color: colorDanger }}>
+            <Button danger icon={<DeleteOutlined />} onClick={showClearConfirm} style={{ borderColor: colorDanger, color: colorDanger }}>
               清空全部数据
             </Button>
           </div>
         </div>
       </Card>
 
+      {/* 版本信息 */}
       <Card className="surface-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: spaceCardPadding, flexWrap: 'wrap' }}>
           <div
@@ -700,7 +598,7 @@ const Settings: React.FC = () => {
           </div>
           <div>
             <p style={{ margin: 0, fontWeight: fontWeightBold }}>MoneyBrain 1.0.0</p>
-            <p style={{ color: colorTextMuted, margin: 0, fontSize: fontSizeBody }}>
+            <p style={{ color: colorTextMuted, margin: 0, fontSize: `${token.fontSize}px` }}>
               一款面向个人资产管理的记账应用，数据存储在本地。
             </p>
           </div>

@@ -21,10 +21,13 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/archiver": "^8.0.0",
     "@types/multer": "^2.0.0",
+    "archiver": "^8.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "multer": "^2.1.1",
+    "unzipper": "^0.12.5",
     "uuid": "^10.0.0"
   },
   "devDependencies": {

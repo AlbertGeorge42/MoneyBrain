@@ -106,6 +106,7 @@ interface AccountAllocationDetail {
   balance: number
   hasAssetClasses: boolean
   latestSnapshotDate: string | null
+  returnRate: number | null
   items: AccountAllocationItem[]
   snapshots: SnapshotHistoryItem[]
 }
@@ -326,7 +327,9 @@ function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: number =
 
 async function buildAccountAllocationDetail(
   account: { id: string; name: string; balance: number },
-  endDate: Date
+  endDate: Date,
+  startDate: Date,
+  balanceCache: BalanceCache
 ): Promise<AccountAllocationDetail> {
   const assetClasses = await prisma.investmentAssetClass.findMany({
     where: { accountId: account.id },
@@ -335,6 +338,25 @@ async function buildAccountAllocationDetail(
 
   const hasAssetClasses = assetClasses.length > 0
 
+  // 计算账户收益率（使用累计收益率计算方式）
+  const accountCashFlows = await getCashFlowsInRange([account.id], startDate, endDate)
+  const nextDayOfEnd = new Date(endDate)
+  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
+
+  const startValue = balanceCache.getMany([account.id], startDate)
+  const endValue = balanceCache.getMany([account.id], nextDayOfEnd)
+
+  const periodInvested = accountCashFlows
+    .filter(cf => cf.type === 'buy')
+    .reduce((sum, cf) => sum + Math.abs(cf.amount), 0)
+  const periodWithdrawn = accountCashFlows
+    .filter(cf => cf.type === 'sell')
+    .reduce((sum, cf) => sum + cf.amount, 0)
+
+  const maxCapitalEmployed = calculateMaxCapitalEmployed(accountCashFlows, startValue)
+  const cumulativeReturn = endValue + periodWithdrawn - startValue - periodInvested
+  const cumulativeReturnRate = maxCapitalEmployed !== 0 ? (cumulativeReturn / maxCapitalEmployed) * 100 : 0
+
   if (!hasAssetClasses) {
     return {
       accountId: account.id,
@@ -342,6 +364,7 @@ async function buildAccountAllocationDetail(
       balance: account.balance,
       hasAssetClasses: false,
       latestSnapshotDate: null,
+      returnRate: cumulativeReturnRate,
       items: [],
       snapshots: [],
     }
@@ -368,6 +391,7 @@ async function buildAccountAllocationDetail(
       balance: account.balance,
       hasAssetClasses: true,
       latestSnapshotDate: null,
+      returnRate: cumulativeReturnRate,
       items: [],
       snapshots: [],
     }
@@ -477,6 +501,7 @@ async function buildAccountAllocationDetail(
     balance: account.balance,
     hasAssetClasses: true,
     latestSnapshotDate: formatDateLocal(latestSnapshot.date),
+    returnRate: cumulativeReturnRate,
     items,
     snapshots: historySnapshots,
   }
@@ -747,7 +772,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   const [byAccountAllocation, staleAccounts] = await Promise.all([
     Promise.all(accountDetails.map(account =>
-      buildAccountAllocationDetail(account, endDate)
+      buildAccountAllocationDetail(account, endDate, startDate, balanceCache)
     )),
     buildStaleAccounts(accountDetails, endDate, 30),
   ])

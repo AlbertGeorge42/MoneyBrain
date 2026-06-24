@@ -71,6 +71,12 @@ describe('Settings Page', () => {
     expect(screen.getByText('数据备份')).toBeInTheDocument()
   })
 
+  it('应该显示数据导出与数据导入分区', () => {
+    renderWithQueryClient(<Settings />)
+    expect(screen.getByText('数据导出')).toBeInTheDocument()
+    expect(screen.getByText('数据导入')).toBeInTheDocument()
+  })
+
   it('应该显示危险操作区域', () => {
     renderWithQueryClient(<Settings />)
     expect(screen.getByText('危险操作')).toBeInTheDocument()
@@ -83,10 +89,26 @@ describe('Settings Page', () => {
     expect(screen.getByText('跟随系统')).toBeInTheDocument()
   })
 
-  it('应该显示数据备份 Tabs', () => {
+  it('应该显示导出选项 checkboxes', () => {
     renderWithQueryClient(<Settings />)
-    const tabs = screen.getAllByText('交易记录')
-    expect(tabs.length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('配置信息')).toBeInTheDocument()
+    // 4 个 Checkbox 标签：交易记录、配置信息、预算配置、投资快照
+    const transactions = screen.getAllByText('交易记录')
+    expect(transactions.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('配置信息（账户、分类）')).toBeInTheDocument()
+    expect(screen.getByText('预算配置')).toBeInTheDocument()
+    expect(screen.getByText('投资快照')).toBeInTheDocument()
+  })
+
+  it('应该只显示一个导出按钮', () => {
+    renderWithQueryClient(<Settings />)
+    const exportButtons = screen.getAllByRole('button', { name: /导出/ })
+    expect(exportButtons.length).toBe(1)
+  })
+
+  it('应该显示高级选项快速选择按钮', () => {
+    renderWithQueryClient(<Settings />)
+    expect(screen.getByText('全选')).toBeInTheDocument()
+    expect(screen.getByText('仅配置')).toBeInTheDocument()
+    expect(screen.getByText('仅数据')).toBeInTheDocument()
   })
 })

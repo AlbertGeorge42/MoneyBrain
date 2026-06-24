@@ -19,7 +19,7 @@ const EMPTY_ALLOCATIONS: InvestmentAnalysisReportData['byAccountAllocation'] = [
 interface InvestmentDetailMetrics {
   balance: number
   marketValue: number
-  ratio: number
+  ratio: number | null
   returnRate: number | null
 }
 
@@ -38,7 +38,7 @@ const investmentColumns: ReportDetailColumn<InvestmentDetailMetrics>[] = [
     title: '占比',
     width: 80,
     align: 'right',
-    format: (v) => (v as number) > 0 ? formatPercent(v as number, 1, false) : '--',
+    format: (v) => v != null ? formatPercent(v as number, 1, false) : '', // 账户行不显示任何值
   },
   {
     key: 'returnRate',
@@ -61,8 +61,8 @@ function buildInvestmentTreeData(
     metrics: {
       balance: allocation.balance,
       marketValue: allocation.balance,
-      ratio: 0,
-      returnRate: null,
+      ratio: null, // 账户行不显示占比
+      returnRate: allocation.returnRate, // 显示账户收益率
     },
     children: allocation.items.map((item) => ({
       key: `asset-${allocation.accountId}-${item.assetClassId}`,

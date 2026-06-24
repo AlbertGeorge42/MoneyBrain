@@ -223,6 +223,34 @@ export interface ImportBudgetResult {
   errors: string[]
 }
 
+export interface ImportFullResult {
+  imported: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+    transactions: number
+    budgets: number
+    investmentSnapshots: number
+    investmentItems: number
+  }
+  updated: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+    budgets: number
+    investmentSnapshots: number
+  }
+  skipped: {
+    accountCategories: number
+    accounts: number
+    transactionCategories: number
+    transactions: number
+    budgets: number
+    investmentSnapshots: number
+  }
+  errors: string[]
+}
+
 export const dataApi = {
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
   clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
@@ -275,6 +303,40 @@ export const dataApi = {
         'Content-Type': 'multipart/form-data',
       },
       timeout: 60000,
+    })
+  },
+  // 新的备份API
+  exportFull: () => {
+    return api.get<Blob>('/data/export-full', {
+      responseType: 'blob',
+    })
+  },
+  exportCustom: (params: { includes: string[] }) => {
+    return api.post<Blob>('/data/export-custom', params, {
+      responseType: 'blob',
+    })
+  },
+  importBackup: (file: File, params: { mode: 'merge' | 'overwrite' }) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('mode', params.mode)
+    return api.post<ApiResponse<ImportFullResult>>('/data/import-backup', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000,
+    })
+  },
+  detectFileIncludes: (file: File) => {
+    // 这个API需要后端支持，暂时返回默认值
+    // 实际实现需要在后端添加对应的API路由
+    return Promise.resolve({
+      data: {
+        success: true,
+        data: {
+          includes: ['transactions', 'config', 'budgets', 'snapshots']
+        }
+      }
     })
   },
 }

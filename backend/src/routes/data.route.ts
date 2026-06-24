@@ -1,8 +1,8 @@
 import { Router, type Request } from 'express'
 import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
 import multer from 'multer'
-import { exportTransactionsCSV, clearAllData, clearTransactionsOnly, exportConfig, exportBudgets } from '../services/export.service.js'
-import { importTransactionsFromCsv, importConfig, importBudgets } from '../services/import.service.js'
+import { exportTransactionsCSV, clearAllData, clearTransactionsOnly, exportConfig, exportBudgets, exportFullBackup, exportCustomBackup } from '../services/export.service.js'
+import { importTransactionsFromCsv, importConfig, importBudgets, importBackup, type ImportFullResult } from '../services/import.service.js'
 
 const router = Router()
 
@@ -111,6 +111,41 @@ router.post('/import-budgets', upload.single('file'), validateRequest((req: Requ
   }
 
   const result = await importBudgets(budgetData, 'merge')
+  return success(res, result)
+}))
+
+// ─── 新的备份API路由 ───
+
+// 完整备份导出
+router.get('/export-full', asyncHandler(async (_req, res) => {
+  const zipBuffer = await exportFullBackup()
+  const date = new Date().toISOString().split('T')[0]
+  res.setHeader('Content-Type', 'application/zip')
+  res.setHeader('Content-Disposition', `attachment; filename=moneybrain-full-backup-${date}.zip`)
+  res.send(zipBuffer)
+}))
+
+// 自定义导出
+router.post('/export-custom', validateRequest((req: Request) => {
+  if (!req.body.includes || !Array.isArray(req.body.includes)) {
+    throw new ValidationError('缺少includes参数或格式错误')
+  }
+}), asyncHandler(async (req, res) => {
+  const { includes } = req.body
+  const result = await exportCustomBackup(includes)
+  res.setHeader('Content-Type', result.contentType)
+  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`)
+  res.send(result.buffer)
+}))
+
+// 智能导入（支持ZIP、CSV、JSON）
+router.post('/import-backup', upload.single('file'), validateRequest((req: Request) => {
+  if (!req.file) {
+    throw new ValidationError('请上传文件')
+  }
+}), asyncHandler(async (req, res) => {
+  const mode = (req.body.mode as 'merge' | 'overwrite') || 'merge'
+  const result = await importBackup(req.file!.buffer, req.file!.originalname, mode)
   return success(res, result)
 }))
 
