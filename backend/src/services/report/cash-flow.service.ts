@@ -106,16 +106,21 @@ function addTransaction(
   if (direction === 'inflow') {
     activity.inflow = activity.inflow.plus(amount)
   } else {
-    activity.outflow = activity.outflow.plus(amount)
+    // 符号约定：outflow 累加为负，使 net = inflow + outflow 直接成立
+    activity.outflow = activity.outflow.minus(amount)
   }
   // 查找是否已存在相同类别名称的 item，如果存在则累加金额
   const existingItem = activity.items.find(item => item.categoryName === categoryName && item.direction === direction)
   if (existingItem) {
-    existingItem.amount += amount.toNumber()
+    if (direction === 'inflow') {
+      existingItem.amount += amount.toNumber()
+    } else {
+      existingItem.amount -= amount.toNumber()
+    }
   } else {
     activity.items.push({
       categoryName,
-      amount: amount.toNumber(),
+      amount: direction === 'inflow' ? amount.toNumber() : -amount.toNumber(),
       type,
       direction,
     })
@@ -133,15 +138,16 @@ function addTransferFlow(
 ) {
   if (isOutflow) {
     const actualOutflow = calculateCashFlowAmount('transfer', amount, fee, coupon).abs()
-    activity.outflow = activity.outflow.plus(actualOutflow)
+    // 符号约定：outflow 累加为负
+    activity.outflow = activity.outflow.minus(actualOutflow)
     const categoryName = fromName || '转账转出'
     const existingItem = activity.items.find(item => item.categoryName === categoryName && item.direction === 'outflow')
     if (existingItem) {
-      existingItem.amount += actualOutflow.toNumber()
+      existingItem.amount -= actualOutflow.toNumber()
     } else {
       activity.items.push({
         categoryName,
-        amount: actualOutflow.toNumber(),
+        amount: -actualOutflow.toNumber(),
         type: 'transfer_out',
         direction: 'outflow',
       })
@@ -212,7 +218,8 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
   return {
     inflow: { actual: actual.inflow.toNumber(), predicted: predicted.inflow.toNumber() },
     outflow: { actual: actual.outflow.toNumber(), predicted: predicted.outflow.toNumber() },
-    net: { actual: actual.inflow.minus(actual.outflow).toNumber(), predicted: predicted.inflow.minus(predicted.outflow).toNumber() },
+    // outflow 已是负数，net = inflow + outflow 直接相加
+    net: { actual: actual.inflow.plus(actual.outflow).toNumber(), predicted: predicted.inflow.plus(predicted.outflow).toNumber() },
     items: mergedItems,
   }
 }
@@ -300,13 +307,15 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     } else if (t.type === 'expense' && isFromCash) {
       addTransaction(target, getTopLevelCategoryName(t.category), amount, 'expense', 'outflow')
       const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
-      accountFlow.outflow = accountFlow.outflow.plus(amount)
+      // 符号约定：outflow 累加为负
+      accountFlow.outflow = accountFlow.outflow.minus(amount)
     } else if (t.type === 'transfer') {
       if (isFromCash && !isToCash) {
         addTransferFlow(target, getTopLevelCategoryName(t.category), '', amount, fee, coupon, true)
         const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
         const actualOutflow = calculateCashFlowAmount('transfer', amount, fee, coupon).abs()
-        accountFlow.outflow = accountFlow.outflow.plus(actualOutflow)
+        // 符号约定：outflow 累加为负
+        accountFlow.outflow = accountFlow.outflow.minus(actualOutflow)
       } else if (!isFromCash && isToCash && t.toAccount) {
         addTransferFlow(target, '', getTopLevelCategoryName(t.category), amount, fee, coupon, false)
         const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.toAccount.name)
@@ -382,13 +391,15 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
         } else if (p.type === 'expense' && isFromCash) {
           addTransaction(target, category?.name || '未分类', amount, 'expense', 'outflow')
           const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-          accountFlow.outflow = accountFlow.outflow.plus(amount)
+          // 符号约定：outflow 累加为负
+          accountFlow.outflow = accountFlow.outflow.minus(amount)
         } else if (p.type === 'transfer') {
           const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
           if (isFromCash && !isToCash) {
             addTransferFlow(target, category?.name || '转账转出', '', amount, fee, coupon, true)
             const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-            accountFlow.outflow = accountFlow.outflow.plus(amount.abs())
+            // 符号约定：outflow 累加为负
+            accountFlow.outflow = accountFlow.outflow.minus(amount.abs())
           } else if (!isFromCash && isToCash && toAccount) {
             addTransferFlow(target, '', category?.name || '转账转入', amount, fee, coupon, false)
             const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, toAccount.name)
@@ -403,11 +414,12 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
 
   const actualCashInflow = actualOperating.inflow.plus(actualInvesting.inflow).plus(actualFinancing.inflow).plus(actualUncategorized.inflow)
   const actualCashOutflow = actualOperating.outflow.plus(actualInvesting.outflow).plus(actualFinancing.outflow).plus(actualUncategorized.outflow)
-  const actualNetCashFlow = actualCashInflow.minus(actualCashOutflow)
+  // outflow 已是负数，net = inflow + outflow 直接相加
+  const actualNetCashFlow = actualCashInflow.plus(actualCashOutflow)
 
   const predictedCashInflow = predictedOperating.inflow.plus(predictedInvesting.inflow).plus(predictedFinancing.inflow).plus(predictedUncategorized.inflow)
   const predictedCashOutflow = predictedOperating.outflow.plus(predictedInvesting.outflow).plus(predictedFinancing.outflow).plus(predictedUncategorized.outflow)
-  const predictedNetCashFlow = predictedCashInflow.minus(predictedCashOutflow)
+  const predictedNetCashFlow = predictedCashInflow.plus(predictedCashOutflow)
 
   const flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }> = {}
   for (const [name, flow] of Object.entries(flowByAccountActual)) {

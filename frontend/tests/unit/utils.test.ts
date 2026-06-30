@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { formatCurrency, formatPercent, currencyAxisFormatter } from '../../src/utils/format'
-import { formatBalance } from '../../src/utils/formatBalance'
+import { formatAmount, getAmountColor } from '../../src/utils/formatAmount'
 
 describe('format utils', () => {
   describe('formatCurrency', () => {
@@ -60,39 +60,101 @@ describe('format utils', () => {
       expect(currencyAxisFormatter(1000)).toBe('¥1,000')
     })
   })
+})
 
-  describe('formatBalance', () => {
-    it('资产账户正余额应该显示绿色', () => {
-      const result = formatBalance(1000, 'asset')
-      expect(result.text).toBe('¥1,000.00')
-      expect(result.displayValue).toBe(1000)
-      expect(result.sign).toBe('positive')
+describe('formatAmount', () => {
+  describe('资产 asset', () => {
+    it('正数: 绿色 +¥1,000.00', () => {
+      const r = formatAmount(1000, 'asset')
+      expect(r.text).toBe('¥1,000.00')
+      expect(r.color).toBe('var(--mb-color-positive)')
     })
 
-    it('资产账户负余额应该显示红色', () => {
-      const result = formatBalance(-500, 'asset')
-      expect(result.text).toBe('-¥500.00')
-      expect(result.displayValue).toBe(-500)
-      expect(result.sign).toBe('negative')
+    it('负数: 红色 -¥500.00', () => {
+      const r = formatAmount(-500, 'asset')
+      expect(r.text).toBe('-¥500.00')
+      expect(r.color).toBe('var(--mb-color-negative)')
     })
 
-    it('负债账户负余额应该显示绝对值', () => {
-      const result = formatBalance(-2000, 'liability')
-      expect(result.text).toBe('¥2,000.00')
-      expect(result.displayValue).toBe(2000)
-      expect(result.sign).toBe('negative')
+    it('零: 绿色（正向）', () => {
+      const r = formatAmount(0, 'asset')
+      expect(r.color).toBe('var(--mb-color-positive)')
+    })
+  })
+
+  describe('负债 liability', () => {
+    it('正数（欠款）: 红色', () => {
+      const r = formatAmount(2000, 'liability')
+      expect(r.text).toBe('¥2,000.00')
+      expect(r.color).toBe('var(--mb-color-negative)')
     })
 
-    it('负债账户正余额应该显示负数', () => {
-      const result = formatBalance(500, 'liability')
-      expect(result.text).toBe('-¥500.00')
-      expect(result.displayValue).toBe(-500)
-      expect(result.sign).toBe('positive')
+    it('负数（多还款）: 绿色', () => {
+      const r = formatAmount(-500, 'liability')
+      expect(r.text).toBe('-¥500.00')
+      expect(r.color).toBe('var(--mb-color-positive)')
+    })
+  })
+
+  describe('现金流 flow', () => {
+    it('正数: 绿色', () => {
+      expect(formatAmount(1000, 'flow').color).toBe('var(--mb-color-positive)')
     })
 
-    it('应该支持隐藏货币符号', () => {
-      const result = formatBalance(100, 'asset', false)
-      expect(result.text).toBe('100.00')
+    it('负数: 红色', () => {
+      expect(formatAmount(-1000, 'flow').color).toBe('var(--mb-color-negative)')
     })
+  })
+
+  describe('displayAbs 选项', () => {
+    it('正值 displayAbs: 文本不变', () => {
+      const r = formatAmount(1000, 'flow', { displayAbs: true })
+      expect(r.text).toBe('¥1,000.00')
+      expect(r.color).toBe('var(--mb-color-positive)')
+    })
+
+    it('负值 displayAbs: 文本取绝对值（红色正数），颜色仍按原值', () => {
+      const r = formatAmount(-1500, 'flow', { displayAbs: true })
+      expect(r.text).toBe('¥1,500.00')
+      expect(r.color).toBe('var(--mb-color-negative)')
+    })
+
+    it('零值 displayAbs: 文本零，颜色正向', () => {
+      const r = formatAmount(0, 'flow', { displayAbs: true })
+      expect(r.text).toBe('¥0.00')
+      expect(r.color).toBe('var(--mb-color-positive)')
+    })
+  })
+
+  describe('options', () => {
+    it('支持 showSymbol=false', () => {
+      expect(formatAmount(1000, 'asset', { showSymbol: false }).text).toBe('1,000.00')
+    })
+
+    it('支持 showSign=true', () => {
+      expect(formatAmount(1000, 'asset', { showSign: true }).text).toBe('+¥1,000.00')
+    })
+
+    it('支持自定义 decimals', () => {
+      expect(formatAmount(1234.5, 'asset', { decimals: 0 }).text).toBe('¥1,235')
+    })
+  })
+
+  it('默认 type 为 asset', () => {
+    expect(formatAmount(100).color).toBe(formatAmount(100, 'asset').color)
+  })
+})
+
+describe('getAmountColor', () => {
+  it('资产 0 → 绿色', () => {
+    expect(getAmountColor(0, 'asset')).toBe('var(--mb-color-positive)')
+  })
+
+  it('负债 0 → 红色', () => {
+    expect(getAmountColor(0, 'liability')).toBe('var(--mb-color-negative)')
+  })
+
+  it('flow 0 → 绿色', () => {
+    expect(getAmountColor(0, 'flow')).toBe('var(--mb-color-positive)')
   })
 })

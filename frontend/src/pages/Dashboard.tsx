@@ -19,6 +19,7 @@ import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
 import { getTokenValue } from '../styles/theme/css-utils'
 import { createStatisticFormatter, formatCurrency } from '../utils/format'
+import { formatAmount, getAmountColor } from '../utils/formatAmount'
 import { AMOUNT_COLORS } from '../constants/transactionType'
 
 const statisticFormatter = createStatisticFormatter()
@@ -44,7 +45,7 @@ const Dashboard: React.FC = () => {
     if (!balanceSheetData) return { totalAssets: 0, totalLiabilities: 0, netWorth: 0 }
     return {
       totalAssets: balanceSheetData.assets.actual,
-      totalLiabilities: Math.abs(balanceSheetData.liabilities.actual),
+      totalLiabilities: balanceSheetData.liabilities.actual,
       netWorth: balanceSheetData.netWorth.actual,
     }
   }, [balanceSheetData])
@@ -148,8 +149,8 @@ const Dashboard: React.FC = () => {
             <AccountBookOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">总资产</span>
           </div>
-          <div className="metric-card__value" style={{ color: totalAssets >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}>
-            {formatCurrency(totalAssets)}
+          <div className="metric-card__value" style={{ color: getAmountColor(totalAssets, 'asset') }}>
+            {formatAmount(totalAssets, 'asset').text}
           </div>
         </Card>
 
@@ -158,8 +159,8 @@ const Dashboard: React.FC = () => {
             <CreditCardOutlined style={{ fontSize: 20, color: AMOUNT_COLORS.negative }} />
             <span className="metric-card__label">总负债</span>
           </div>
-          <div className="metric-card__value" style={{ color: AMOUNT_COLORS.negative }}>
-            {formatCurrency(totalLiabilities)}
+          <div className="metric-card__value" style={{ color: getAmountColor(totalLiabilities, 'liability') }}>
+            {formatAmount(totalLiabilities, 'liability').text}
           </div>
         </Card>
 
@@ -168,18 +169,18 @@ const Dashboard: React.FC = () => {
             <StockOutlined style={{ fontSize: 20, color: AMOUNT_COLORS.positive }} />
             <span className="metric-card__label">净资产</span>
           </div>
-          <div className="metric-card__value" style={{ color: netWorth >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}>
-            {formatCurrency(netWorth)}
+          <div className="metric-card__value" style={{ color: getAmountColor(netWorth, 'flow') }}>
+            {formatAmount(netWorth, 'flow').text}
           </div>
         </Card>
 
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <TransactionOutlined style={{ fontSize: 20, color: thisMonthBalance >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }} />
+            <TransactionOutlined style={{ fontSize: 20, color: getAmountColor(thisMonthBalance, 'flow') }} />
             <span className="metric-card__label">本月结余</span>
           </div>
-          <div className="metric-card__value" style={{ color: thisMonthBalance >= 0 ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative }}>
-            {formatCurrency(thisMonthBalance)}
+          <div className="metric-card__value" style={{ color: getAmountColor(thisMonthBalance, 'flow') }}>
+            {formatAmount(thisMonthBalance, 'flow').text}
           </div>
         </Card>
       </div>

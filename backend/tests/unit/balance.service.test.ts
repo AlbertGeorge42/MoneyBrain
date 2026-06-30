@@ -79,7 +79,8 @@ describe('balance.service - calculateBalancesBatch', () => {
       //   2024-12-20 交易 -100（不会被计入，因为早于 initialBalanceDate 之后的下一天）
       //   2025-01-15 交易 -50（应被计入）
       // 查询 2025-01-31 的余额 -> 应该是 450
-      // 同时验证 gte 至少在 createdAt 之前，数据库查询范围能拉到历史交易
+      // 验证：gte 为 initialBalanceDate + 1 day（2025-01-02），早于 createdAt，
+      // 这样不仅能拉到此后的所有交易，也覆盖了"导入数据时 initialBalanceDate 早于 createdAt"的历史场景。
       const createdAt = new Date('2024-12-01T00:00:00')
       const initialBalanceDate = new Date('2025-01-01T00:00:00')
       const nextDay = new Date('2025-02-01T00:00:00')
@@ -98,8 +99,9 @@ describe('balance.service - calculateBalancesBatch', () => {
       mockPrisma.transaction.findMany.mockImplementation(async (args: Prisma.TransactionFindManyArgs) => {
         const orItem = args.where?.OR?.[0]
         const range = orItem && 'date' in orItem ? orItem.date : undefined
-        // 验证 gte 至少在 createdAt 之前（即包含历史交易）
-        expect(range?.gte?.getTime()).toBeLessThanOrEqual(createdAt.getTime())
+        // 验证 gte = initialBalanceDate + 1 day（2025-01-02），从而覆盖 1/15 的交易
+        const expectedGte = new Date(initialBalanceDate.getTime() + 86400000)
+        expect(range?.gte?.getTime()).toBe(expectedGte.getTime())
         return [
           { id: 't1', date: new Date('2024-12-20T10:00:00'), accountId: 'B', toAccountId: null, type: 'expense', amount: new Decimal(100), fee: new Decimal(0), coupon: new Decimal(0) },
           { id: 't2', date: new Date('2025-01-15T10:00:00'), accountId: 'B', toAccountId: null, type: 'expense', amount: new Decimal(50), fee: new Decimal(0), coupon: new Decimal(0) },
@@ -109,6 +111,46 @@ describe('balance.service - calculateBalancesBatch', () => {
       const cache = await calculateBalancesBatch(['B'], [nextDay])
       const balance = cache.get('B', nextDay)
       expect(balance).toBe(450) // 500 - 50（12-20 的交易按 initialBalanceDate 语义不计入）
+    })
+
+    it('当 initialBalanceDate 早于 createdAt 时不能漏算中间的交易', async () => {
+      // 关键回归场景：用户导入历史数据时，createdAt 是导入时间，但 initialBalanceDate 是历史时点。
+      // 之前用 earliestCreatedAt 作为 minDate，会漏掉 initialBalanceDate+1 day 与 createdAt 之间的交易。
+      // 场景：账户 K 初始余额 1000，initialBalanceDate = 2025-01-01，createdAt = 2025-06-01
+      //   2025-03-10 收入 +500（在 initialBalanceDate+1 day 之后、createdAt 之前）
+      //   2025-07-10 收入 +200（正常区间）
+      // 查询 2025-08-01 的余额 -> 应该是 1700
+      // 若 minDate 错误地取 2025-05-31 (createdAt - 1 day)，则 3/10 的 +500 会被漏掉，结果为 1200。
+      const initialBalanceDate = new Date('2025-01-01T00:00:00')
+      const createdAt = new Date('2025-06-01T00:00:00')
+      const nextDay = new Date('2025-08-01T00:00:00')
+
+      mockPrisma.account.findMany.mockResolvedValue([
+        {
+          id: 'K',
+          name: '账户K',
+          type: 'asset',
+          initialBalance: new Decimal(1000),
+          initialBalanceDate,
+          createdAt,
+        },
+      ])
+
+      mockPrisma.transaction.findMany.mockImplementation(async (args: Prisma.TransactionFindManyArgs) => {
+        const orItem = args.where?.OR?.[0]
+        const range = orItem && 'date' in orItem ? orItem.date : undefined
+        // 验证 gte = initialBalanceDate + 1 day（2025-01-02），早于 createdAt
+        const expectedGte = new Date(initialBalanceDate.getTime() + 86400000)
+        expect(range?.gte?.getTime()).toBe(expectedGte.getTime())
+        return [
+          { id: 'k1', date: new Date('2025-03-10T10:00:00'), accountId: 'K', toAccountId: null, type: 'income', amount: new Decimal(500), fee: new Decimal(0), coupon: new Decimal(0) },
+          { id: 'k2', date: new Date('2025-07-10T10:00:00'), accountId: 'K', toAccountId: null, type: 'income', amount: new Decimal(200), fee: new Decimal(0), coupon: new Decimal(0) },
+        ] as never
+      })
+
+      const cache = await calculateBalancesBatch(['K'], [nextDay])
+      const balance = cache.get('K', nextDay)
+      expect(balance).toBe(1700) // 1000 + 500 + 200
     })
 
     it('多账户时应取所有账户中最早的 createdAt 作为 minDate', async () => {

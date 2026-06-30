@@ -92,6 +92,12 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   )
 
   // 预测数据
+  // 数据约定：predictedAssets / predictedLiabilities / predictedNetWorth 均为"变化量"
+  //   predictedLiabilities > 0 → 未来负债金额增加
+  //   predictedLiabilities < 0 → 未来负债金额减少（还债等）
+  // sumPredictionByType 返回的 liabilityChange 是"负债账户余额的变化"，
+  // 由于负债账户余额在数据库中以负数存储，余额变正意味着负债金额减少，
+  // 因此需要取负再写入"负债金额变化"这一语义。
   let predictedAssets = 0
   let predictedLiabilities = 0
   let predictionNote: string | undefined
@@ -108,12 +114,12 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
       predictedChanges = accumulatePredictionChanges(predictions)
       const predicted = sumPredictionByType(predictedChanges, accountLookup)
       predictedAssets = predicted.assetChange
-      predictedLiabilities = predicted.liabilityChange
+      predictedLiabilities = -predicted.liabilityChange
       predictionNote = PREDICTION_NOTE_BALANCE_SHEET
     }
   }
 
-  const predictedNetWorth = predictedAssets + predictedLiabilities
+  const predictedNetWorth = predictedAssets - predictedLiabilities
 
   const assetsByCategory: Record<string, number> = {}
   const liabilitiesByCategory: Record<string, number> = {}
@@ -132,12 +138,17 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   const sortedAccounts = accountBalances
     .map(a => {
       const cat = a.category ? categoryMap.get(a.category.id) : null
+      // 符号约定：负债账户的 actual/predicted 取反，与 liabilities.actual 正数约定一致
+      // 数据库中负债账户余额为负（-2500 表示欠 2500），API 统一为正数表示欠款金额
+      const isLiability = a.type === 'liability'
+      const rawActual = a.balance
+      const rawPredicted = predictedChanges.get(a.id) || 0
       return {
         id: a.id,
         name: a.name,
         type: a.type,
-        actual: a.balance,
-        predicted: predictedChanges.get(a.id) || 0,
+        actual: isLiability ? -rawActual : rawActual,
+        predicted: isLiability ? -rawPredicted : rawPredicted,
         category: a.category?.name || '未分类',
         categoryId: a.categoryId,
         icon: a.icon,

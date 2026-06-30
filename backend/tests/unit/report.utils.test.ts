@@ -3,6 +3,7 @@ import {
   filterPredictionsUpTo,
   computePredictedAssetsLiabilities,
   computePredictedAccountTotal,
+  sumAssetsLiabilities,
 } from '../../src/services/report/report.utils.js'
 
 interface MockPrediction {
@@ -160,6 +161,65 @@ describe('report.utils - 时点预测快照', () => {
       expect(result.assets).toBe(-500)
       expect(result.liabilities).toBe(-500)
       expect(result.netWorth).toBe(-500 + 500) // 0
+    })
+  })
+
+  describe('sumAssetsLiabilities', () => {
+    // 约定：assets / liabilities 均为正数，netWorth = assets - liabilities
+    // 这是 API 层契约，修复"总负债在 UI 上显示为负数"的关键。
+    it('应将负债账户负余额转换为正数负债金额', () => {
+      const result = sumAssetsLiabilities(
+        [
+          { id: 'a1', type: 'asset' },
+          { id: 'l1', type: 'liability' },
+        ],
+        (a) => (a.id === 'a1' ? 1000 : -300)
+      )
+      expect(result.assets).toBe(1000)
+      expect(result.liabilities).toBe(300) // -300 → 300
+      expect(result.netWorth).toBe(700)    // 1000 - 300
+    })
+
+    it('多个负债账户累加后再取绝对值（总负债金额）', () => {
+      const result = sumAssetsLiabilities(
+        [
+          { id: 'a1', type: 'asset' },
+          { id: 'l1', type: 'liability' },
+          { id: 'l2', type: 'liability' },
+        ],
+        (a) => {
+          if (a.id === 'a1') return 5000
+          if (a.id === 'l1') return -2000
+          if (a.id === 'l2') return -800
+          return 0
+        }
+      )
+      expect(result.assets).toBe(5000)
+      expect(result.liabilities).toBe(2800) // |-2000| + |-800|
+      expect(result.netWorth).toBe(2200)
+    })
+
+    it('净负债场景：负债超过资产时 netWorth 应为负数', () => {
+      const result = sumAssetsLiabilities(
+        [
+          { id: 'a1', type: 'asset' },
+          { id: 'l1', type: 'liability' },
+        ],
+        (a) => (a.id === 'a1' ? 1000 : -5000)
+      )
+      expect(result.assets).toBe(1000)
+      expect(result.liabilities).toBe(5000)
+      expect(result.netWorth).toBe(-4000)
+    })
+
+    it('无负债账户时 liabilities 为 0，netWorth = assets', () => {
+      const result = sumAssetsLiabilities(
+        [{ id: 'a1', type: 'asset' }],
+        () => 1234.56
+      )
+      expect(result.assets).toBe(1234.56)
+      expect(result.liabilities).toBe(0)
+      expect(result.netWorth).toBe(1234.56)
     })
   })
 

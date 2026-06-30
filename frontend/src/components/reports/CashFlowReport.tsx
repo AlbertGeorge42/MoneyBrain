@@ -7,6 +7,7 @@ import ReportViewSwitcher from './ReportViewSwitcher'
 import PredictionStatistic from './PredictionStatistic'
 import type { CashFlowReportData } from '@shared/types'
 import { formatCurrency } from '../../utils/format'
+import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
 import { getTokenValue } from '../../styles/theme/css-utils'
 
@@ -18,6 +19,20 @@ interface CashFlowDetailMetrics {
   predicted: number
 }
 
+// 详情列表中要显示的"代表值"：inflow 节点为正、outflow 节点为负
+const getDisplayValue = (m: CashFlowDetailMetrics): number => {
+  if ((m.inflow ?? 0) !== 0) return m.inflow
+  if ((m.outflow ?? 0) !== 0) return m.outflow
+  return m.net
+}
+
+// 现金流场景下流入显示绿色正数、流出显示红色正数（与资产负债表一致）
+const formatCashFlowValue = (m: CashFlowDetailMetrics) => {
+  const value = getDisplayValue(m)
+  // outflow 存储为负数 → displayAbs 让文本为正、颜色按原值判定为红
+  return formatAmount(value, 'flow', { displayAbs: value < 0 })
+}
+
 const cashFlowColumns: ReportDetailColumn<CashFlowDetailMetrics>[] = [
   {
     key: 'amount',
@@ -25,15 +40,8 @@ const cashFlowColumns: ReportDetailColumn<CashFlowDetailMetrics>[] = [
     width: 140,
     align: 'right',
     prediction: { displayMetric: 'inflow', actualMetric: 'actual', predictedMetric: 'predicted' },
-    format: (_v, node) => {
-      const m = node.metrics
-      const value = (m?.inflow ?? 0) > 0 ? m!.inflow : (m?.outflow ?? 0) > 0 ? m!.outflow : m?.net ?? 0
-      return formatCurrency(value)
-    },
-    color: (_v, node) => {
-      const m = node.metrics
-      return (m?.inflow ?? 0) > 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)'
-    },
+    format: (_v, node) => formatCashFlowValue(node.metrics!).text,
+    color: (_v, node) => formatCashFlowValue(node.metrics!).color,
   },
 ]
 
@@ -51,13 +59,14 @@ function adaptCashFlowActivity(
   const outflowItems: ReportTreeNode<CashFlowDetailMetrics>[] = []
 
   activity.items.forEach((item) => {
+    // 符号约定：item.amount 已是带符号（inflow>0, outflow<0）
     const node: ReportTreeNode<CashFlowDetailMetrics> = {
       key: `item-${activityKey}-${item.categoryName}`,
       name: item.categoryName,
       metrics: {
         inflow: item.direction === 'inflow' ? item.amount : 0,
-        outflow: item.direction === 'outflow' ? Math.abs(item.amount) : 0,
-        net: item.direction === 'inflow' ? item.amount : -Math.abs(item.amount),
+        outflow: item.direction === 'outflow' ? item.amount : 0,
+        net: item.amount,
         actual: item.actual,
         predicted: item.predicted,
       },
@@ -70,7 +79,7 @@ function adaptCashFlowActivity(
   })
 
   const totalInflow = activity.inflow.actual + activity.inflow.predicted
-  const totalOutflow = Math.abs(activity.outflow.actual + activity.outflow.predicted)
+  const totalOutflow = activity.outflow.actual + activity.outflow.predicted
 
   return [
     {
@@ -84,7 +93,8 @@ function adaptCashFlowActivity(
       key: `outflow-${activityKey}`,
       name: '流出',
       icon: 'arrow-down',
-      metrics: { inflow: 0, outflow: totalOutflow, net: -totalOutflow, actual: Math.abs(activity.outflow.actual), predicted: Math.abs(activity.outflow.predicted) },
+      // outflow 已是负数
+      metrics: { inflow: 0, outflow: totalOutflow, net: totalOutflow, actual: activity.outflow.actual, predicted: activity.outflow.predicted },
       children: outflowItems,
     },
   ]
@@ -122,6 +132,8 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const cashChangeValue = cashFlowData?.cashChange || { actual: 0, predicted: 0 }
   const hasPrediction = cashInflowValue.predicted !== 0 || cashOutflowValue.predicted !== 0
   const netCashFlowTotal = netCashFlowValue.actual + netCashFlowValue.predicted
+  // 现金流出本身是负数；汇总展示时按"红色正数"显示，与资产负债表一致
+  const cashOutflowTotal = Math.abs(cashOutflowValue.actual + cashOutflowValue.predicted)
 
   const summarySection = (
     <>
@@ -133,7 +145,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               value={netCashFlowValue}
               useClickTrigger={useClickTrigger}
               valueStyle={{
-                color: netCashFlowTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
+                color: getAmountColor(netCashFlowTotal, 'flow'),
               }}
             />
           ) : (
@@ -142,7 +154,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               value={netCashFlowTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{
-                color: netCashFlowTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
+                color: getAmountColor(netCashFlowTotal, 'flow'),
               }}
             />
           )}
@@ -164,11 +176,20 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="现金流出" value={cashOutflowValue} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-negative)' }} />
+            <PredictionStatistic
+              title="现金流出"
+              // outflow 本身为负，预测明细展示用绝对值；汇总仍然只显示"红色正数"
+              value={{
+                actual: Math.abs(cashOutflowValue.actual),
+                predicted: Math.abs(cashOutflowValue.predicted),
+              }}
+              useClickTrigger={useClickTrigger}
+              valueStyle={{ color: 'var(--mb-color-negative)' }}
+            />
           ) : (
             <Statistic
               title={isFuture ? <>现金流出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金流出'}
-              value={cashOutflowValue.actual + cashOutflowValue.predicted}
+              value={cashOutflowTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: 'var(--mb-color-negative)' }}
             />
@@ -196,14 +217,14 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               title="现金变动"
               value={cashChangeValue}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: (cashChangeValue.actual + cashChangeValue.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(cashChangeValue.actual + cashChangeValue.predicted, 'flow') }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>现金变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金变动'}
               value={cashChangeValue.actual + cashChangeValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: (cashChangeValue.actual + cashChangeValue.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(cashChangeValue.actual + cashChangeValue.predicted, 'flow') }}
             />
           )}
         </Card>
@@ -220,10 +241,11 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const getChartData = (activityKey: 'operating' | 'investing' | 'financing') => {
     const activity = cashFlowData?.byActivity?.[activityKey]
     if (!activity) return { inflowActual: 0, inflowPredicted: 0, outflowActual: 0, outflowPredicted: 0 }
+    // outflow 已是负数，柱状图显示时取反以使柱子向下延伸为负向
     const iActual = activity.inflow.actual
     const iPredicted = activity.inflow.predicted
-    const oActual = Math.abs(activity.outflow.actual)
-    const oPredicted = Math.abs(activity.outflow.predicted)
+    const oActual = -activity.outflow.actual
+    const oPredicted = -activity.outflow.predicted
     return { inflowActual: iActual, inflowPredicted: iPredicted, outflowActual: oActual, outflowPredicted: oPredicted }
   }
 

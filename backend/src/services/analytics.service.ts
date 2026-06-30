@@ -63,30 +63,57 @@ export async function getCategoryBreakdown(
     }
   }
 
+  // 先加载全量分类：用于构建层级结构、判断 hasChildren
+  const allCategories = await prisma.transactionCategory.findMany({
+    where: { type },
+  })
+  const categoryMap = new Map(allCategories.map(c => [c.id, c]))
+  const childrenOf = new Map<string | null, typeof allCategories>()
+  for (const cat of allCategories) {
+    const key = cat.parentId ?? null
+    if (!childrenOf.has(key)) childrenOf.set(key, [])
+    childrenOf.get(key)!.push(cat)
+  }
+
+  if (parentCategoryId) {
+    // 下钻：返回 parentCategoryId 的所有子分类（按分类层级，不只看交易）
+    // 这样即使子分类暂无交易，UI 也能展示层级结构
+    const kids = childrenOf.get(parentCategoryId) ?? []
+    if (kids.length === 0) return []
+
+    const transactions = await prisma.transaction.findMany({
+      where: { ...where, categoryId: { in: kids.map(k => k.id) } },
+      include: { category: true },
+    })
+
+    const subBreakdown: Record<string, { value: number; categoryId: string; hasChildren: boolean }> = {}
+    for (const cat of kids) {
+      subBreakdown[cat.id] = {
+        value: 0,
+        categoryId: cat.id,
+        hasChildren: (childrenOf.get(cat.id) ?? []).length > 0,
+      }
+    }
+    for (const t of transactions) {
+      if (!t.categoryId) continue
+      const bucket = subBreakdown[t.categoryId]
+      if (!bucket) continue
+      bucket.value += t.amount.toNumber()
+    }
+    return Object.values(subBreakdown)
+      .map(b => ({ name: categoryMap.get(b.categoryId)!.name, value: b.value, categoryId: b.categoryId, hasChildren: b.hasChildren }))
+      .sort((a, b) => b.value - a.value)
+  }
+
   const transactions = await prisma.transaction.findMany({
     where,
     include: { category: true },
   })
 
-  if (parentCategoryId) {
-    const subBreakdown: Record<string, typeof ZERO> = {}
-    transactions.forEach(t => {
-      if (t.category?.parentId === parentCategoryId) {
-        const categoryName = t.category.name
-        subBreakdown[categoryName] = (subBreakdown[categoryName] || ZERO).plus(t.amount)
-      }
-    })
-    return Object.entries(subBreakdown)
-      .map(([name, value]) => ({ name, value: value.toNumber() }))
-      .sort((a, b) => b.value - a.value)
-  }
-
-  const parentCategories = await prisma.transactionCategory.findMany({
-    where: { type, parentId: null },
-  })
+  const parentCategories = allCategories.filter(c => c.parentId === null)
   const parentCategoryMap = new Map(parentCategories.map(c => [c.id, c.name]))
 
-  const breakdown: Record<string, { value: typeof ZERO; categoryId: string }> = {}
+  const breakdown: Record<string, { value: typeof ZERO; categoryId: string; hasChildren: boolean }> = {}
   transactions.forEach(t => {
     let parentName = '未分类'
     let parentId = ''
@@ -102,7 +129,11 @@ export async function getCategoryBreakdown(
     }
 
     if (!breakdown[parentName]) {
-      breakdown[parentName] = { value: ZERO, categoryId: parentId }
+      breakdown[parentName] = {
+        value: ZERO,
+        categoryId: parentId,
+        hasChildren: (childrenOf.get(parentId) ?? []).length > 0,
+      }
     }
     breakdown[parentName].value = breakdown[parentName].value.plus(t.amount)
   })
@@ -112,7 +143,7 @@ export async function getCategoryBreakdown(
       name,
       value: data.value.toNumber(),
       categoryId: data.categoryId,
-      hasChildren: transactions.some(t => t.category?.parentId === data.categoryId),
+      hasChildren: data.hasChildren,
     }))
     .sort((a, b) => b.value - a.value)
 }

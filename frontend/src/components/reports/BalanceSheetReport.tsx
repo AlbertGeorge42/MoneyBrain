@@ -8,7 +8,7 @@ import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { getPointTimeSemantics } from '../../utils/timePicker'
 import { formatCurrency } from '../../utils/format'
-import { formatBalance } from '../../utils/formatBalance'
+import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { PredictionStatistic } from '.'
 
 // ---- 本报表专属：metrics 类型 ----
@@ -29,17 +29,8 @@ const balanceSheetColumns: ReportDetailColumn<BalanceSheetMetrics>[] = [
     width: 140,
     align: 'right',
     prediction: { displayMetric: 'balance', actualMetric: 'actual', predictedMetric: 'predicted' },
-    format: (v, node) => {
-      const type = node.metrics?.nodeType ?? 'asset'
-      return formatBalance(v as number, type).text
-    },
-    color: (_v, node) => {
-      const type = node.metrics?.nodeType ?? 'asset'
-      const val = _v as number
-      return type === 'asset'
-        ? (val >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)')
-        : (val <= 0 ? 'var(--mb-color-negative)' : 'var(--mb-color-positive)')
-    },
+    format: (v, node) => formatAmount(v as number, node.metrics?.nodeType ?? 'asset').text,
+    color: (_v, node) => formatAmount(_v as number, node.metrics?.nodeType ?? 'asset').color,
   },
 ]
 
@@ -148,7 +139,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
           const total = node.metrics?.balance ?? 0
           return {
             name: node.name,
-            value: Math.abs(total),
+            value: total,
             predictedValue: isFuture && (node.metrics?.predicted ?? 0) !== 0 ? node.metrics?.predicted : undefined,
             categoryId: node.key,
             hasChildren: Boolean(node.children?.length),
@@ -165,7 +156,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
           const total = node.metrics?.balance ?? 0
           return {
             name: node.name,
-            value: Math.abs(total),
+            value: total,
             predictedValue: isFuture && (node.metrics?.predicted ?? 0) !== 0 ? node.metrics?.predicted : undefined,
             categoryId: node.key,
             hasChildren: Boolean(node.children?.length),
@@ -196,7 +187,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
         const total = (account.metrics?.balance ?? 0) + predicted
         return {
           name: account.name,
-          value: Math.abs(total),
+          value: total,
           predictedValue: isFuture && predicted !== 0 ? predicted : undefined,
           isLiability,
         }
@@ -223,20 +214,20 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
               title="净资产"
               value={netWorthValue}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: netWorthTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(netWorthTotal, 'flow') }}
             />
           ) : (
             <Statistic
               title="净资产"
               value={netWorthTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: netWorthTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(netWorthTotal, 'flow') }}
             />
           )}
           <div className="report-hero-card__sub">
             <Statistic
               title="资产负债率"
-              value={assetsTotal > 0 ? (Math.abs(liabilitiesTotal) / assetsTotal) * 100 : 0}
+              value={assetsTotal > 0 ? (liabilitiesTotal / assetsTotal) * 100 : 0}
               precision={1}
               valueStyle={{ color: 'var(--mb-color-neutral)' }}
               suffix="%"
@@ -252,14 +243,14 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
               title="总资产"
               value={assetsValue}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: 'var(--mb-color-positive)' }}
+              valueStyle={{ color: getAmountColor(assetsTotal, 'asset') }}
             />
           ) : (
             <Statistic
               title="总资产"
               value={assetsTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: 'var(--mb-color-positive)' }}
+              valueStyle={{ color: getAmountColor(assetsTotal, 'asset') }}
             />
           )}
         </Card>
@@ -269,14 +260,14 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
               title="总负债"
               value={liabilitiesValue}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(liabilitiesTotal, 'liability') }}
             />
           ) : (
             <Statistic
               title="总负债"
               value={liabilitiesTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(liabilitiesTotal, 'liability') }}
             />
           )}
         </Card>

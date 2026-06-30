@@ -216,17 +216,28 @@ export async function calculateBalancesBatch(
     }
   }
 
-  // 修复历史余额计算：查询起点取用户请求的最早计算日期前一天和账户创建时间的较早者。
+  // 修复历史余额计算：查询起点取所有账户"相关交易最早可能出现的日期"的最小值。
+  // - 有 initialBalanceDate 的账户：起点为 initialBalanceDate + 1 day
+  //   （因为 backward/forward 计算都基于此日期向后/向前推，之前的交易已被 initialBalance 反映）
+  // - 无 initialBalanceDate 的账户：起点为 createdAt
   // 因为 backward 计算需要覆盖到查询截止日期前一天，所以起点要再往前推一天。
-  // initialBalanceDate 可能是期末日期，不应作为查询起点。
-  const earliestCreatedAt = accounts.reduce<Date | null>((acc, a) => {
-    if (a.createdAt && (!acc || a.createdAt.getTime() < acc.getTime())) return a.createdAt
+  // 关键场景：用户导入历史数据时，createdAt 是导入时间（较晚），但 initialBalanceDate 是历史时点（较早），
+  // 若用 earliestCreatedAt 作为起点会漏掉 initialBalanceDate+1 day 与 createdAt 之间的交易，
+  // 导致资产负债表 / 现金流量表 / 收支表的"实际"余额严重偏离。
+  const earliestRelevantDate = accounts.reduce<Date | null>((acc, a) => {
+    let candidate: Date | null = null
+    if (a.initialBalanceDate) {
+      candidate = new Date(a.initialBalanceDate.getTime() + 86400000)
+    } else if (a.createdAt) {
+      candidate = a.createdAt
+    }
+    if (candidate && (!acc || candidate.getTime() < acc.getTime())) return candidate
     return acc
   }, null)
   const earliestQueryDate = new Date(sortedDates[0])
   earliestQueryDate.setDate(earliestQueryDate.getDate() - 1)
-  const minDate = earliestCreatedAt && earliestCreatedAt.getTime() < earliestQueryDate.getTime()
-    ? earliestCreatedAt
+  const minDate = earliestRelevantDate && earliestRelevantDate.getTime() < earliestQueryDate.getTime()
+    ? earliestRelevantDate
     : earliestQueryDate
 
   // 3. 一次性查询所有相关交易

@@ -181,7 +181,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
     for (const cat of kids) {
       const childLeaves = buildTree(type, cat.id)
-      const hasTransactionChildren = childLeaves.length > 0
+      // hasChildren 基于真实分类层级：分类表里只要有子分类就视为可下钻
+      const hasChildren = (childrenOf.get(cat.id) ?? []).length > 0
 
       // 自身实际 = 自身收入/支出 - 对应侧退款；预测侧无退款
       const ownActual = (type === 'income' ? leafActualIncome : leafActualExpense)[cat.id] ?? ZERO
@@ -190,7 +191,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       const catPredicted = (type === 'income' ? leafPredictedIncome : leafPredictedExpense)[cat.id] ?? ZERO
       const hasOwnData = !catActual.isZero() || !catPredicted.isZero()
 
-      if (!hasOwnData && !hasTransactionChildren) continue
+      // 既无自身数据、又无子分类、又无子树交易数据 → 完全空节点，跳过
+      if (!hasOwnData && !hasChildren && childLeaves.length === 0) continue
 
       const childrenActual = childLeaves.reduce((s, c) => s + c.actual, 0)
       const childrenPredicted = childLeaves.reduce((s, c) => s + c.predicted, 0)
@@ -200,7 +202,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
         actual: catActual.toNumber() + childrenActual,
         predicted: catPredicted.toNumber() + childrenPredicted,
         categoryId: cat.id,
-        hasChildren: hasTransactionChildren,
+        hasChildren,
         sort: cat.sort,
         icon: cat.icon,
         children: childLeaves.length > 0 ? childLeaves : undefined,

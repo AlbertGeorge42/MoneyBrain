@@ -10,6 +10,7 @@ import type {
   InvestmentAnalysisReportData,
 } from '@shared/types'
 import { formatCurrency, formatPercent, createStatisticFormatter } from '../../utils/format'
+import { getAmountColor } from '../../utils/formatAmount'
 
 const statisticFormatter = createStatisticFormatter()
 
@@ -182,7 +183,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
             title="TWR 年化"
             value={returnAnalysis.annualizedTwr !== null ? returnAnalysis.annualizedTwr : '--'}
             formatter={(v) => returnAnalysis.annualizedTwr !== null ? formatPercent(Number(v), 2) : '--'}
-            valueStyle={{ color: (returnAnalysis.annualizedTwr || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            valueStyle={{ color: getAmountColor(returnAnalysis.annualizedTwr ?? 0, 'flow') }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">

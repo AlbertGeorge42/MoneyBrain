@@ -10,6 +10,7 @@ import PredictionStatistic from './PredictionStatistic'
 import * as api from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { getAmountColor } from '../../utils/formatAmount'
 import { getTokenValue } from '../../styles/theme/css-utils'
 
 // ---- 本报表专属：metrics 类型 ----
@@ -155,14 +156,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="结余"
               value={balanceData}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: balanceTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(balanceTotal, 'flow') }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>结余 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '结余'}
               value={balanceTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: balanceTotal >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(balanceTotal, 'flow') }}
             />
           )}
         </Card>
@@ -215,14 +216,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="资产变动"
               value={assetChangeData}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: (assetChangeData.actual + assetChangeData.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(assetChangeData.actual + assetChangeData.predicted, 'flow') }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>资产变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产变动'}
               value={assetChangeData.actual + assetChangeData.predicted}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: (assetChangeData.actual + assetChangeData.predicted) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+              valueStyle={{ color: getAmountColor(assetChangeData.actual + assetChangeData.predicted, 'flow') }}
             />
           )}
         </Card>

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿import { prisma } from '../index.js'
+﻿﻿﻿﻿﻿﻿﻿import { prisma } from '../index.js'
 import { toDecimal } from '../common/index.js'
 import { getNextAccountCategorySort } from './account-category.service.js'
 import { getNextAccountSort } from './account.service.js'

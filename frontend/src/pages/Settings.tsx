@@ -397,7 +397,6 @@ const Settings: React.FC = () => {
 
           <Collapse
             ghost
-            defaultActiveKey={['advanced']}
             items={[
               {
                 key: 'advanced',
