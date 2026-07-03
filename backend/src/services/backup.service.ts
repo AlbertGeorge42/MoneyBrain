@@ -1,10 +1,22 @@
 // archiver 导出的是类，ZipArchive 是专门用于 ZIP 格式的类
 import { ZipArchive } from 'archiver'
-// @ts-ignore - unzipper没有类型定义
+// @ts-expect-error - unzipper没有类型定义
 import unzipper from 'unzipper'
 import { prisma } from '../index.js'
+import { stripBom } from './import/shared.js'
 
-// ─── 类型定义 ───
+// ─── 备份文件格式常量与类型 ───
+
+export type DataType = 'transactions' | 'config' | 'budgets' | 'snapshots'
+
+export const DATA_TYPE_LABELS: Record<DataType, string> = {
+  transactions: '交易记录',
+  config: '配置',
+  budgets: '预算',
+  snapshots: '投资快照',
+}
+
+export const ALL_DATA_TYPES: DataType[] = ['transactions', 'config', 'budgets', 'snapshots']
 
 export interface BackupFiles {
   manifest?: ManifestData
@@ -15,10 +27,8 @@ export interface BackupFiles {
 }
 
 export interface ManifestData {
-  version: string
   exportedAt: string
-  appVersion: string
-  includes: string[]
+  includes: DataType[]
   stats: {
     transactions?: number
     accounts?: number
@@ -26,6 +36,22 @@ export interface ManifestData {
     budgets?: number
     investmentSnapshots?: number
   }
+}
+
+/**
+ * 生成单个导出文件名
+ */
+export function generateExportFilename(type: DataType, ext: string): string {
+  const date = new Date().toISOString().split('T')[0]
+  return `moneybrain-${type}-${date}.${ext}`
+}
+
+/**
+ * 生成完整备份 ZIP 文件名
+ */
+export function generateBackupFilename(): string {
+  const date = new Date().toISOString().split('T')[0]
+  return `moneybrain-backup-${date}.zip`
 }
 
 // ─── ZIP打包服务 ───
@@ -86,7 +112,7 @@ export async function parseBackupZip(zipBuffer: Buffer): Promise<BackupFiles> {
 
 // ─── Manifest生成 ───
 
-export async function createManifest(includes: string[]): Promise<ManifestData> {
+export async function createManifest(includes: DataType[]): Promise<ManifestData> {
   const stats: ManifestData['stats'] = {}
 
   if (includes.includes('transactions')) {
@@ -104,9 +130,7 @@ export async function createManifest(includes: string[]): Promise<ManifestData> 
   }
 
   return {
-    version: '1.0',
     exportedAt: new Date().toISOString(),
-    appVersion: '1.0.0',
     includes,
     stats
   }
@@ -115,23 +139,31 @@ export async function createManifest(includes: string[]): Promise<ManifestData> 
 // ─── 文件类型检测 ───
 
 export function detectFileType(filename: string): 'zip' | 'csv' | 'json' {
-  if (filename.endsWith('.zip')) return 'zip'
-  if (filename.endsWith('.csv')) return 'csv'
-  if (filename.endsWith('.json')) return 'json'
+  const lower = filename.toLowerCase()
+  if (lower.endsWith('.zip')) return 'zip'
+  if (lower.endsWith('.csv')) return 'csv'
+  if (lower.endsWith('.json')) return 'json'
   throw new Error('不支持的文件格式')
 }
 
 // ─── 文件内容识别 ───
 
-export async function detectFileIncludes(file: Buffer, fileType: 'zip' | 'csv' | 'json'): Promise<string[]> {
+const SNAPSHOT_CSV_FIELDS = new Set(['账户名称', '快照日期', '账户余额'])
+const TRANSACTION_CSV_FIELDS = new Set(['ID', '时间', '分类', '类型', '金额'])
+
+export async function detectFileIncludes(file: Buffer, fileType: 'zip' | 'csv' | 'json'): Promise<DataType[]> {
   if (fileType === 'csv') {
     // 区分交易记录和投资快照
-    const text = file.toString('utf-8').replace(/^\ufeff/, '')
+    const text = stripBom(file.toString('utf-8'))
     const firstLine = text.split(/\r?\n/)[0] || ''
-    if (firstLine.includes('投资快照') || firstLine.includes('快照日期')) {
+    const headerSet = new Set(firstLine.split(',').map(h => h.trim()))
+    if (ALL_DATA_TYPES.includes('snapshots') && Array.from(SNAPSHOT_CSV_FIELDS).every(f => headerSet.has(f))) {
       return ['snapshots']
     }
-    return ['transactions']
+    if (Array.from(TRANSACTION_CSV_FIELDS).every(f => headerSet.has(f))) {
+      return ['transactions']
+    }
+    return []
   }
 
   if (fileType === 'json') {

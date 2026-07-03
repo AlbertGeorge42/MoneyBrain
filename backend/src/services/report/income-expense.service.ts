@@ -180,6 +180,9 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     const result: CategoryBreakdownItem[] = []
 
     for (const cat of kids) {
+      // 过滤：只处理匹配类型的分类
+      if (cat.type !== type) continue
+
       const childLeaves = buildTree(type, cat.id)
       // hasChildren 基于真实分类层级：分类表里只要有子分类就视为可下钻
       const hasChildren = (childrenOf.get(cat.id) ?? []).length > 0

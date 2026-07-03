@@ -1,6 +1,22 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ValidationError } from './error.js'
 
+// ─── CSV ───
+
+/**
+ * 转义 CSV 字段值
+ */
+export function escapeCsvField(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return ''
+  const str = String(value)
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+// ─── Decimal ───
+
 export const ZERO = new Decimal(0)
 
 export function toDecimal(value: Decimal | number | string | null | undefined): Decimal {

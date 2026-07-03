@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Button,
   Card,
@@ -37,6 +38,7 @@ import {
   useTransactions,
   useClearTransactions,
   useClearAll,
+  queryKeys,
 } from '../queries'
 import { useNotify } from '../hooks/useNotify'
 import { useTheme } from '../styles/ThemeContext'
@@ -52,6 +54,7 @@ const Settings: React.FC = () => {
   const { token } = theme.useToken()
   const { mode, theme: currentTheme, setThemeMode } = useTheme()
   const notify = useNotify()
+  const queryClient = useQueryClient()
 
   const { data: accounts = [] } = useAccounts()
   const { data: transactionCategories = [] } = useTransactionCategories()
@@ -188,6 +191,17 @@ const Settings: React.FC = () => {
       }
 
       setImportBackupResult(result.data)
+
+      // 导入成功后立即失效相关查询缓存，页面无需刷新即可更新
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.transactionCategories.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.budgets.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.assetTrend }),
+      ])
+
       notify.success('备份导入成功')
     } catch {
       notify.error('备份导入失败，请检查文件格式')

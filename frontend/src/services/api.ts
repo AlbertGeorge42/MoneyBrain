@@ -197,32 +197,6 @@ export const analyticsApi = {
   getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
 }
 
-export interface ImportConfigResult {
-  imported: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-  }
-  updated: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-  }
-  skipped: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-  }
-  errors: string[]
-}
-
-export interface ImportBudgetResult {
-  imported: number
-  updated: number
-  skipped: number
-  errors: string[]
-}
-
 export interface ImportFullResult {
   imported: {
     accountCategories: number
@@ -254,57 +228,6 @@ export interface ImportFullResult {
 export const dataApi = {
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
   clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
-  exportCsv: (params?: { startDate?: string; endDate?: string }) => {
-    const queryParams = params 
-      ? `?startDate=${params.startDate}&endDate=${params.endDate}`
-      : ''
-    return api.get<Blob>(`/data/export${queryParams}`, { responseType: 'blob' })
-  },
-  importCsv: (file: File, params?: { startDate?: string; endDate?: string }) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    const queryParams = params 
-      ? `?startDate=${params.startDate}&endDate=${params.endDate}`
-      : ''
-
-    return api.post<ApiResponse<{ imported: number; skipped: number; errors: string[] }>>(`/data/import${queryParams}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 120000,
-    })
-  },
-  exportConfig: () => {
-    return api.get<Blob>('/data/export-config', {
-      responseType: 'blob',
-    })
-  },
-  importConfig: (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return api.post<ApiResponse<ImportConfigResult>>('/data/import-config', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 60000,
-    })
-  },
-  exportBudgets: () => {
-    return api.get<Blob>('/data/export-budgets', {
-      responseType: 'blob',
-    })
-  },
-  importBudgets: (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return api.post<ApiResponse<ImportBudgetResult>>('/data/import-budgets', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 60000,
-    })
-  },
   // 新的备份API
   exportFull: () => {
     return api.get<Blob>('/data/export-full', {
@@ -328,15 +251,12 @@ export const dataApi = {
     })
   },
   detectFileIncludes: (file: File) => {
-    // 这个API需要后端支持，暂时返回默认值
-    // 实际实现需要在后端添加对应的API路由
-    return Promise.resolve({
-      data: {
-        success: true,
-        data: {
-          includes: ['transactions', 'config', 'budgets', 'snapshots']
-        }
-      }
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post<ApiResponse<{ includes: string[] }>>('/data/detect-file', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     })
   },
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { importSnapshotsFromCsv } from '../../src/services/import.service.js'
-import { exportConfig } from '../../src/services/export.service.js'
+import { importSnapshotsFromCsv } from '../../src/services/import/snapshot-import.service.js'
+import { exportConfig } from '../../src/services/export/config-export.service.js'
 
 vi.mock('../../src/index.js', () => {
   const mockPrisma = {
