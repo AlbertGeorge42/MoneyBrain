@@ -49,6 +49,12 @@ export async function createSnapshot(data: {
   const balanceCache = await calculateBalancesBatch([data.accountId], [nextDay])
   const accountBalance = balanceCache.get(data.accountId, nextDay)
 
+  // 6. 校验市值总和与账户余额一致
+  const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
+  if (Math.abs(totalMarketValue - accountBalance) > 0.01) {
+    throw new ValidationError(`市值总和（${totalMarketValue}）与账户余额（${accountBalance}）不一致`)
+  }
+
   // 7. 找到该账户在当前日期之前（或同日）的最新快照
   const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
     where: {
@@ -284,7 +290,13 @@ export async function updateSnapshot(
   const balanceCache = await calculateBalancesBatch([accountId], [nextDay])
   const accountBalance = balanceCache.get(accountId, nextDay)
 
-  // 6. 找到该账户在当前日期之前的最新快照（排除自身）
+  // 6. 校验市值总和与账户余额一致
+  const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
+  if (Math.abs(totalMarketValue - accountBalance) > 0.01) {
+    throw new ValidationError(`市值总和（${totalMarketValue}）与账户余额（${accountBalance}）不一致`)
+  }
+
+  // 7. 找到该账户在当前日期之前的最新快照（排除自身）
   const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
     where: {
       accountId,
@@ -294,7 +306,7 @@ export async function updateSnapshot(
     orderBy: { date: 'desc' },
   })
 
-  // 7. 更新数据库
+  // 8. 更新数据库
   return prisma.$transaction(async (tx) => {
     // 删除旧 items
     await tx.investmentAllocationItem.deleteMany({

@@ -211,13 +211,18 @@ describe('asset-class.service', () => {
       expect(result.message).toBe('删除成功')
     })
 
-    it('有快照引用时应该抛出 ValidationError', async () => {
+    it('有快照引用时应该返回二次确认信息', async () => {
       mockPrisma.investmentAssetClass.findUnique.mockResolvedValue({
         id: 'class1',
         allocationItems: [{ id: 'item1' }],
       })
 
-      await expect(deleteAssetClass('class1')).rejects.toThrow(ValidationError)
+      const result = await deleteAssetClass('class1')
+      expect(result).toEqual({
+        message: '需要二次确认',
+        snapshotsCount: 1,
+        needConfirm: true,
+      })
       expect(mockPrisma.investmentAssetClass.delete).not.toHaveBeenCalled()
     })
 

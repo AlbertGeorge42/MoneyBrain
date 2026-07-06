@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Settings from '../../../src/pages/Settings'
 
@@ -37,6 +37,9 @@ const renderWithQueryClient = (ui: React.ReactElement) => {
 }
 
 describe('Settings Page', () => {
+  afterEach(() => {
+    cleanup()
+  })
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -89,26 +92,30 @@ describe('Settings Page', () => {
     expect(screen.getByText('跟随系统')).toBeInTheDocument()
   })
 
-  it('应该显示导出选项 checkboxes', () => {
-    renderWithQueryClient(<Settings />)
+  it('应该显示导出选项 checkboxes 和快速选择按钮', async () => {
+    const view = renderWithQueryClient(<Settings />)
+    // 展开 Collapse 面板以显示内部内容
+    const collapseHeader = view.container.querySelector('.ant-collapse-header')
+    expect(collapseHeader).not.toBeNull()
+    fireEvent.click(collapseHeader!)
     // 4 个 Checkbox 标签：交易记录、配置信息、预算配置、投资快照
-    const transactions = screen.getAllByText('交易记录')
-    expect(transactions.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('配置信息（账户、分类）')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('配置信息（账户、分类）')).toBeInTheDocument()
+    })
     expect(screen.getByText('预算配置')).toBeInTheDocument()
     expect(screen.getByText('投资快照')).toBeInTheDocument()
+    // 快速选择按钮
+    const quickButtons = view.container.querySelectorAll('.ant-btn-sm')
+    expect(quickButtons.length).toBeGreaterThanOrEqual(3)
+    const quickTexts = Array.from(quickButtons).map(b => b.textContent?.replace(/\s/g, ''))
+    expect(quickTexts).toContain('全选')
+    expect(quickTexts).toContain('仅配置')
+    expect(quickTexts).toContain('仅数据')
   })
 
   it('应该只显示一个导出按钮', () => {
     renderWithQueryClient(<Settings />)
     const exportButtons = screen.getAllByRole('button', { name: /导出/ })
     expect(exportButtons.length).toBe(1)
-  })
-
-  it('应该显示高级选项快速选择按钮', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('全选')).toBeInTheDocument()
-    expect(screen.getByText('仅配置')).toBeInTheDocument()
-    expect(screen.getByText('仅数据')).toBeInTheDocument()
   })
 })

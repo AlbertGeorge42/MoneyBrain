@@ -37,10 +37,13 @@ app.use('/api/investments', investmentRoutes)
 
 app.use(errorHandler)
 
-app.listen(PORT, () => {
-  debug('Server is running on http://localhost:%d', PORT)
-  console.log(`Server is running on http://localhost:${PORT}`)
-})
+// 仅在非测试环境下启动 HTTP 服务
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    debug('Server is running on http://localhost:%d', PORT)
+    console.log(`Server is running on http://localhost:${PORT}`)
+  })
+}
 
 process.on('beforeExit', async () => {
   await prisma.$disconnect()
