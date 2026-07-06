@@ -54,6 +54,16 @@ export function useUpdateBudget() {
   })
 }
 
+export function usePatchBudget() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Budget> }) => budgetApi.patch(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.budgets.all })
+    },
+  })
+}
+
 export function useDeleteBudget() {
   const queryClient = useQueryClient()
   return useMutation({

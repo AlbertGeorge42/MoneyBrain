@@ -34,10 +34,42 @@ export async function importBudgets(
       accountNameMap.set(a.name, a.id)
     }
 
-    const categoryNameMap = new Map<string, string>()
+    // 复合键 `${type}:${name}` 避免同名不同类别的分类互相覆盖
+    const categoryMap = new Map<string, string>()
     const categories = await tx.transactionCategory.findMany()
     for (const c of categories) {
-      categoryNameMap.set(c.name, c.id)
+      categoryMap.set(`${c.type}:${c.name}`, c.id)
+    }
+
+    /**
+     * 查找或创建交易分类。
+     * 先按类型+名称精确匹配；再兜底按名称匹配（兼容无类型前缀的旧数据）；
+     * 若都不存在则自动创建分类。
+     */
+    async function resolveCategoryId(
+      type: string,
+      name: string
+    ): Promise<string> {
+      // 1. 精确匹配：type:name
+      const exactKey = `${type}:${name}`
+      const exact = categoryMap.get(exactKey)
+      if (exact) return exact
+
+      // 2. 宽松匹配：仅 name（兼容旧格式导出数据）
+      const legacy = categoryMap.get(name)
+      if (legacy) return legacy
+
+      // 3. 自动创建缺失的分类
+      const maxResult = await tx.transactionCategory.aggregate({
+        where: { type },
+        _max: { sort: true },
+      })
+      const nextSort = (maxResult._max.sort ?? 0) + 1
+      const created = await tx.transactionCategory.create({
+        data: { name, type, sort: nextSort },
+      })
+      categoryMap.set(`${type}:${name}`, created.id)
+      return created.id
     }
 
     for (const budget of budgetData.data.budgets) {
@@ -61,12 +93,7 @@ export async function importBudgets(
           continue
         }
 
-        const categoryId = categoryNameMap.get(budget.categoryName)
-        if (!categoryId) {
-          result.errors.push(`预算 "${budget.name}" 关联分类不存在: ${budget.categoryName}`)
-          result.skipped++
-          continue
-        }
+        const categoryId = await resolveCategoryId(budget.type, budget.categoryName)
 
         let toAccountId: string | null = null
         if (budget.toAccountName) {

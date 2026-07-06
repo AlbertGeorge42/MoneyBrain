@@ -38,3 +38,8 @@
     font-size: var(--mb-font-size-caption);
   }
 }
+
+/* 预算进度条文字颜色固定，不随进度条变色 */
+.budget-progress .ant-progress-indicator {
+  color: var(--mb-color-text-primary) !important;
+}

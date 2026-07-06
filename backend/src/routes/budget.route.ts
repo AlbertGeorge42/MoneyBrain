@@ -87,6 +87,12 @@ router.put('/:id', validateRequest((req) => {
   return success(res, budget)
 }))
 
+// PATCH 部分更新（如只更新 isActive）
+router.patch('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const budget = await updateBudget(req.params.id, req.body)
+  return success(res, budget)
+}))
+
 router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
   const result = await deleteBudget(req.params.id)
   return success(res, result)

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
-import { Form, Input, Select, InputNumber, DatePicker, Row, Col, Switch, TreeSelect } from 'antd'
+import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect } from 'antd'
+const { RangePicker } = DatePicker
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Budget } from '../../services/api'
 import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
@@ -13,6 +14,7 @@ interface BudgetFormProps {
   accounts: Account[]
   categories: TransactionCategory[]
   form: ReturnType<typeof Form.useForm>[0]
+  disableTypeSwitch?: boolean // 编辑模式下禁止切换类型（由父组件控制 tabs）
 }
 
 const PERIOD_OPTIONS = [
@@ -47,11 +49,12 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         name: editingBudget.name,
         amount: editingBudget.amount,
         period: editingBudget.period,
-        startDate: dayjs(editingBudget.startDate),
-        endDate: editingBudget.endDate ? dayjs(editingBudget.endDate) : null,
+        dateRange: [
+          dayjs(editingBudget.startDate),
+          editingBudget.endDate ? dayjs(editingBudget.endDate) : null,
+        ],
         transactionTime: editingBudget.transactionTime ?? null,
         note: editingBudget.note,
-        isActive: editingBudget.isActive,
         accountId: editingBudget.accountId,
         toAccountId: editingBudget.toAccountId,
         categoryId: editingBudget.categoryId,
@@ -60,8 +63,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       form.resetFields()
       form.setFieldsValue({
         period: 'monthly',
-        isActive: true,
-        startDate: dayjs(),
+        dateRange: [dayjs(), null],
       })
     }
   }, [editingBudget, form])
@@ -225,25 +227,16 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         </Col>
       </Row>
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="startDate"
-            label="开始日期"
-            rules={[{ required: true, message: '请选择开始日期' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="endDate"
-            label="结束日期"
-          >
-            <DatePicker style={{ width: '100%' }} placeholder="无限制" />
-          </Form.Item>
-        </Col>
-      </Row>
+      <Form.Item
+        name="dateRange"
+        label="日期范围"
+        rules={[{ required: true, message: '请选择开始日期' }]}
+      >
+        <RangePicker
+          style={{ width: '100%' }}
+          placeholder={['开始日期', '结束日期（可选）']}
+        />
+      </Form.Item>
 
       {renderTransactionTimeInput()}
 
@@ -256,14 +249,6 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         label="备注"
       >
         <Input.TextArea rows={2} placeholder="可选备注" />
-      </Form.Item>
-
-      <Form.Item
-        name="isActive"
-        label="启用"
-        valuePropName="checked"
-      >
-        <Switch />
       </Form.Item>
     </Form>
   )

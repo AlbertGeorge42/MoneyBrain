@@ -172,6 +172,7 @@ export const budgetApi = {
   getPredictions: (startDate: string, endDate: string) => api.get<ApiResponse<BudgetPrediction[]>>('/budgets/predictions', { params: { startDate, endDate } }),
   create: (data: Partial<Budget>) => api.post<ApiResponse<Budget>>('/budgets', data),
   update: (id: string, data: Partial<Budget>) => api.put<ApiResponse<Budget>>(`/budgets/${id}`, data),
+  patch: (id: string, data: Partial<Budget>) => api.patch<ApiResponse<Budget>>(`/budgets/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/budgets/${id}`),
 }
 
