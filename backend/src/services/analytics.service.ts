@@ -55,7 +55,7 @@ export async function getCategoryBreakdown(
   endDate?: string,
   parentCategoryId?: string,
 ): Promise<CategoryBreakdownItem[]> {
-  const where: Prisma.TransactionWhereInput = { type }
+  const where: Prisma.TransactionWhereInput = { type, amount: { not: 0 } }
   if (startDate && endDate) {
     where.date = {
       gte: new Date(startDate),

@@ -60,6 +60,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       date: { gte: start, lte: end },
       isAdjustment: false,
       type: { in: ['income', 'expense', 'refund'] },
+      amount: { not: 0 },
     },
     include: { category: true, account: true },
   })
@@ -194,8 +195,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       const catPredicted = (type === 'income' ? leafPredictedIncome : leafPredictedExpense)[cat.id] ?? ZERO
       const hasOwnData = !catActual.isZero() || !catPredicted.isZero()
 
-      // 既无自身数据、又无子分类、又无子树交易数据 → 完全空节点，跳过
-      if (!hasOwnData && !hasChildren && childLeaves.length === 0) continue
+      // 无自身数据且子树无产出 → 完全空节点，跳过
+      if (!hasOwnData && childLeaves.length === 0) continue
 
       const childrenActual = childLeaves.reduce((s, c) => s + c.actual, 0)
       const childrenPredicted = childLeaves.reduce((s, c) => s + c.predicted, 0)
