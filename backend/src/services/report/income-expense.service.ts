@@ -1,7 +1,7 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { ZERO } from '../../common/index.js'
+import { ZERO, rootLogger } from '../../common/index.js'
 import {
   dayStart,
   dayEnd,
@@ -11,6 +11,8 @@ import {
   sumAssetsLiabilities,
   PREDICTION_NOTE_DEFAULT,
 } from './report.utils.js'
+
+const logger = rootLogger.child({ module: 'report' })
 
 export interface CategoryBreakdownItem {
   name: string
@@ -50,6 +52,7 @@ export interface IncomeExpenseResult {
 
 
 export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseResult> {
+  const startTime = Date.now()
   const start = dayStart(startDate)
   const end = dayEnd(endDate)
   const startDay = new Date(start)
@@ -313,4 +316,5 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     assetChange: { actual: actualAssetChange, predicted: predictedNetWorthChange },
     predictionNote,
   }
+  logger.info({ action: 'generate', report: 'income-expense', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')
 }

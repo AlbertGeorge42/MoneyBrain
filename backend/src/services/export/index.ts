@@ -12,6 +12,9 @@ import {
   generateExportFilename,
   generateBackupFilename,
 } from '../backup.service.js'
+import { rootLogger } from '../../common/index.js'
+
+const logger = rootLogger.child({ module: 'export' })
 
 export interface ExportResult {
   buffer: Buffer
@@ -23,6 +26,7 @@ export interface ExportResult {
  * 完整备份导出（始终为 ZIP）
  */
 export async function exportFullBackup(): Promise<Buffer> {
+  const start = Date.now()
   const files: BackupFiles = {}
 
   files.transactions = Buffer.from(await exportTransactionsCSV(), 'utf-8')
@@ -31,7 +35,9 @@ export async function exportFullBackup(): Promise<Buffer> {
   files.snapshots = Buffer.from(await exportInvestmentSnapshotsCSV(), 'utf-8')
   files.manifest = await createManifest(ALL_DATA_TYPES)
 
-  return createBackupZip(files)
+  const result = createBackupZip(files)
+  logger.info({ action: 'finish', includes: ALL_DATA_TYPES, durationMs: Date.now() - start }, 'backup exported')
+  return result
 }
 
 /**
@@ -40,6 +46,7 @@ export async function exportFullBackup(): Promise<Buffer> {
  * - 选择多种数据类型时，打包为 ZIP
  */
 export async function exportCustomBackup(includes: DataType[]): Promise<ExportResult> {
+  const start = Date.now()
   // 单文件导出场景
   if (includes.length === 1) {
     const type = includes[0]
@@ -96,6 +103,7 @@ export async function exportCustomBackup(includes: DataType[]): Promise<ExportRe
   files.manifest = await createManifest(includes)
 
   const zipBuffer = await createBackupZip(files)
+  logger.info({ action: 'finish', includes, durationMs: Date.now() - start }, 'custom backup exported')
   return {
     buffer: zipBuffer,
     filename: generateBackupFilename(),

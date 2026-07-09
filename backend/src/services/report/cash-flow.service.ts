@@ -2,7 +2,7 @@ import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO } from '../../common/index.js'
+import { toDecimal, ZERO, rootLogger } from '../../common/index.js'
 import {
   dayStart,
   dayEnd,
@@ -11,6 +11,8 @@ import {
   computePredictedAccountTotal,
   PREDICTION_NOTE_DEFAULT,
 } from './report.utils.js'
+
+const logger = rootLogger.child({ module: 'report' })
 
 type TransactionWithIncludes = Prisma.TransactionGetPayload<{
   include: { account: true; toAccount: true; category: true }
@@ -225,6 +227,7 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
 }
 
 export async function generateCashFlow(startDate: string, endDate: string, includePredictions?: boolean): Promise<CashFlowResult> {
+  const startTime = Date.now()
   const start = dayStart(startDate)
   const end = dayEnd(endDate)
 
@@ -476,6 +479,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     sankey: sankeyData,
     predictionNote,
   }
+  logger.info({ action: 'generate', report: 'cash-flow', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')
 }
 
 function buildSankeyData(

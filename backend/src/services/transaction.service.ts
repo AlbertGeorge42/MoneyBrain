@@ -1,9 +1,11 @@
 import { prisma } from '../index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal } from '../common/index.js'
+import { toDecimal, rootLogger } from '../common/index.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError } from '../common/index.js'
 import { buildTransactionListWhere } from './transaction-list.service.js'
+
+const logger = rootLogger.child({ module: 'transaction' })
 
 // ===== 接口定义 =====
 
@@ -138,6 +140,7 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
     include: { account: true, category: true },
   })
 
+  logger.debug({ type }, '交易创建')
   return transaction as TransactionWithRelations
 }
 
@@ -165,6 +168,7 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
     include: { account: true, toAccount: true, category: true },
   })
 
+  logger.debug({ type: 'transfer' }, '交易创建')
   return transaction as TransactionWithRelations
 }
 
@@ -194,6 +198,7 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
     },
   })
 
+  logger.debug({ type: 'refund' }, '交易创建')
   return transaction as TransactionWithRelations
 }
 
@@ -386,6 +391,7 @@ export async function deleteTransaction(id: string): Promise<void> {
   if (!transaction) throw new NotFoundError('交易记录')
 
   await prisma.transaction.delete({ where: { id } })
+  logger.debug({ type: transaction.type }, 'transaction deleted')
 }
 
 export async function getEarliestTransactionDate(): Promise<Date | null> {

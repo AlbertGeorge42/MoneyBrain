@@ -1,5 +1,6 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
+import { rootLogger } from '../../common/index.js'
 import {
   dayEnd,
   nextDay,
@@ -9,6 +10,8 @@ import {
   PREDICTION_NOTE_BALANCE_SHEET,
 } from './report.utils.js'
 import { generatePredictions } from '../budget.service.js'
+
+const logger = rootLogger.child({ module: 'report' })
 
 export type DateGranularity = 'day' | 'month' | 'year'
 
@@ -65,6 +68,7 @@ function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granul
 }
 
 export async function generateBalanceSheet(date: string): Promise<BalanceSheetResult> {
+  const startTime = Date.now()
   const { targetDate, nextDay: nextDayDate, granularity } = parseDateParam(date)
   const now = new Date()
 
@@ -183,4 +187,5 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     accounts: sortedAccounts,
     predictionNote,
   }
+  logger.info({ action: 'generate', report: 'balance-sheet', period: date, durationMs: Date.now() - startTime }, 'report generated')
 }

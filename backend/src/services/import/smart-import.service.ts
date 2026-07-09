@@ -14,6 +14,7 @@ import {
   type ImportBudgetResult,
   createEmptyImportFullResult,
   stripBom,
+  logger,
 } from './shared.js'
 
 // ─── ZIP 备份导入 ───
@@ -135,16 +136,27 @@ export async function importBackup(
   filename: string,
   mode: 'merge' | 'overwrite'
 ): Promise<ImportFullResult> {
+  const start = Date.now()
+  logger.info({ action: 'start', mode }, 'import started')
   const result = createEmptyImportFullResult()
   const fileType = detectFileType(filename)
 
   switch (fileType) {
-    case 'zip':
-      return importZipBackup(file, mode, result)
-    case 'csv':
-      return importCsvBackup(file, mode, result)
-    case 'json':
-      return importJsonBackup(file, mode, result)
+    case 'zip': {
+      const r = await importZipBackup(file, mode, result)
+      logger.info({ action: 'finish', mode, durationMs: Date.now() - start }, 'import completed')
+      return r
+    }
+    case 'csv': {
+      const r = await importCsvBackup(file, mode, result)
+      logger.info({ action: 'finish', mode, durationMs: Date.now() - start }, 'import completed')
+      return r
+    }
+    case 'json': {
+      const r = await importJsonBackup(file, mode, result)
+      logger.info({ action: 'finish', mode, durationMs: Date.now() - start }, 'import completed')
+      return r
+    }
     default:
       return result
   }

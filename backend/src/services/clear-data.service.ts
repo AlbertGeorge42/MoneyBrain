@@ -1,5 +1,8 @@
 import { prisma } from '../index.js'
 import { type TransactionClient } from './import/shared.js'
+import { rootLogger } from '../common/index.js'
+
+const logger = rootLogger.child({ module: 'clear-data' })
 
 /**
  * 清空配置相关数据（账户、账户分类、交易分类、投资资产类别）
@@ -32,6 +35,7 @@ export async function clearAllDataForImport(tx: TransactionClient): Promise<void
  * 仅清空交易相关数据（预算、投资快照/分配项、交易记录）
  */
 export async function clearTransactionsOnly(): Promise<void> {
+  logger.warn({ action: 'clear-transactions' }, '清空交易数据')
   await prisma.$transaction(async (tx) => {
     await tx.investmentAllocationItem.deleteMany()
     await tx.investmentAllocationSnapshot.deleteMany()
@@ -44,6 +48,7 @@ export async function clearTransactionsOnly(): Promise<void> {
  * 清空所有数据（公开 API，用于路由层）
  */
 export async function clearAllData(): Promise<void> {
+  logger.warn({ action: 'clear-all' }, 'all data cleared')
   await prisma.$transaction(async (tx) => {
     await clearAllDataForImport(tx)
   })

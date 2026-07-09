@@ -1,6 +1,9 @@
 // ─── 通用类型定义 ───
 
 import { prisma } from '../../index.js'
+import { rootLogger } from '../../common/index.js'
+
+export const logger = rootLogger.child({ module: 'import' })
 
 // Prisma 事务客户端类型
 export type TransactionClient = Parameters<Parameters<typeof prisma['$transaction']>[0]>[0]

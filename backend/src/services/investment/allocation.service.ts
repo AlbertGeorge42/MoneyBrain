@@ -1,6 +1,8 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
-import { NotFoundError, ValidationError } from '../../common/index.js'
+import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
+
+const logger = rootLogger.child({ module: 'snapshot' })
 
 // 创建/更新快照（含校验）
 export async function createSnapshot(data: {
@@ -85,7 +87,7 @@ export async function createSnapshot(data: {
   })
 
   // 10. 写入数据库（事务中执行）
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 如果是最早一条快照，强制写入 periodNetFlow=0
     const itemsData = data.items.map((item, index) => ({
       assetClassId: item.assetClassId,
@@ -139,6 +141,8 @@ export async function createSnapshot(data: {
       })
     }
   })
+  logger.info({ action: 'save', date: data.date, itemCount: data.items.length }, 'snapshot saved')
+  return result
 }
 
 // 获取某账户的快照列表
@@ -218,6 +222,7 @@ export async function deleteSnapshot(id: string) {
 
     return tx.investmentAllocationSnapshot.delete({ where: { id } })
   })
+  logger.info({ action: 'delete' }, 'snapshot deleted')
 }
 
 // 更新快照

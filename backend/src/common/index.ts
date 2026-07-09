@@ -25,3 +25,6 @@ export { validateIdParam, validateBatchSort, validateDateRange, validateDateQuer
 
 // Date utilities
 export { dayStart, dayEnd, nextDay, formatDateLocal } from './date.js'
+
+// Logger
+export { rootLogger } from './logger/index.js'

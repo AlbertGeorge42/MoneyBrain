@@ -1,7 +1,9 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch, BalanceCache } from '../balance.service.js'
-import { toDecimal } from '../../common/index.js'
+import { toDecimal, rootLogger } from '../../common/index.js'
 import { formatDateLocal, sumAssetsLiabilities } from './report.utils.js'
+
+const logger = rootLogger.child({ module: 'report' })
 
 interface CashFlow {
   date: Date
@@ -564,6 +566,7 @@ async function buildStaleAccounts(
 }
 
 export async function generateInvestmentAnalysis(startDateStr: string, endDateStr: string): Promise<InvestmentAnalysisResult | null> {
+  const startTime = Date.now()
   const startDate = new Date(`${startDateStr}T00:00:00`)
   const endDate = new Date(`${endDateStr}T23:59:59.999`)
 
@@ -790,6 +793,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     byAccountAllocation,
     staleAccounts,
   }
+  logger.info({ action: 'generate', report: 'investment-analysis', period: `${startDateStr}~${endDateStr}`, durationMs: Date.now() - startTime }, 'report generated')
 }
 
 function calculateTWRWithCache(

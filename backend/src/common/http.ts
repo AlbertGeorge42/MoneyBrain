@@ -1,6 +1,9 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import { AppError } from './error'
+import { rootLogger } from './logger/index.js'
+
+const logger = rootLogger.child({ module: 'errorHandler' })
 
 export interface ApiResponse<T = unknown> {
   success: boolean
@@ -118,11 +121,21 @@ const mapPrismaError = (err: Error): ErrorResponse | null => {
 
 export const errorHandler = (
   err: Error | AppError,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ) => {
-  console.error('Error:', err)
+  // Pino 自动展开 Error 对象，同时记录请求信息便于定位
+  const statusCode = err instanceof AppError ? err.statusCode : 500
+  logger.error({
+    err,
+    req: {
+      method: req.method,
+      path: req.originalUrl,
+      ip: req.ip,
+    },
+    statusCode,
+  }, 'request failed')
 
   if (err instanceof AppError) {
     return error(res, err.message, err.code, err.statusCode)
@@ -133,9 +146,9 @@ export const errorHandler = (
     return error(res, prismaError.message, prismaError.code, prismaError.statusCode)
   }
 
-  const statusCode = (err as Error & { statusCode?: number }).statusCode || 500
+  const resStatusCode = (err as Error & { statusCode?: number }).statusCode || 500
   const code = (err as Error & { code?: string }).code || 'INTERNAL_ERROR'
   const message = err.message || '服务器内部错误'
 
-  return error(res, message, code, statusCode)
+  return error(res, message, code, resStatusCode)
 }

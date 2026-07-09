@@ -1,7 +1,6 @@
 import express from 'express'
 import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
-import { debuglog } from 'util'
 import accountCategoryRoutes from './routes/account-category.route.js'
 import accountRoutes from './routes/account.route.js'
 import transactionCategoryRoutes from './routes/transaction-category.route.js'
@@ -11,10 +10,12 @@ import reportRoutes from './routes/report.route.js'
 import analyticsRoutes from './routes/analytics.route.js'
 import dataRoutes from './routes/data.route.js'
 import investmentRoutes from './routes/investment.route.js'
-import { errorHandler } from './common/index.js'
+import { errorHandler, rootLogger } from './common/index.js'
+import { httpLogger } from './common/logger/http.js'
+import { LOG_CONFIG } from './common/logger/config.js'
 
-const debug = debuglog('moneybrain')
-const PORT = process.env.PORT || 3001
+const logger = rootLogger.child({ module: 'app' })
+const PORT = parseInt(process.env.PORT || '3001', 10)
 
 export const prisma = new PrismaClient()
 
@@ -22,6 +23,7 @@ const app = express()
 
 app.use(cors())
 app.use(express.json())
+app.use(httpLogger)
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
@@ -40,8 +42,14 @@ app.use(errorHandler)
 // 仅在非测试环境下启动 HTTP 服务
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    debug('Server is running on http://localhost:%d', PORT)
-    console.log(`Server is running on http://localhost:${PORT}`)
+    logger.info({
+      action: 'boot',
+      environment: process.env.NODE_ENV || 'development',
+      port: PORT,
+      logLevel: LOG_CONFIG.level,
+      node: process.version,
+      pid: process.pid,
+    }, 'application started')
   })
 }
 
