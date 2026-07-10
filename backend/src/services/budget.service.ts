@@ -221,13 +221,13 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
  */
 async function getCategoryWithDescendants(
   categoryId: string,
-  prebuiltChildrenMap?: Map<string, string[]>
+  prebuiltChildrenMap?: Map<string | null, { id: string; parentId: string | null }[]>
 ): Promise<string[]> {
   const childrenMap = prebuiltChildrenMap ?? await buildCategoryChildrenMap()
   return collectDescendantIds(categoryId, childrenMap)
 }
 
-async function buildCategoryChildrenMap(): Promise<Map<string, string[]>> {
+async function buildCategoryChildrenMap(): Promise<Map<string | null, { id: string; parentId: string | null }[]>> {
   const allCategories = await prisma.transactionCategory.findMany({
     select: { id: true, parentId: true },
   })

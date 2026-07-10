@@ -170,7 +170,8 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const getTransferTargetTreeData = (type: string, excludeId: string) => {
     const cats = localCategories.filter(c => c.type === type && c.id !== excludeId)
-    const buildNode = (cat: TransactionCategory): { value: string; title: string; children?: ReturnType<typeof buildNode>[] } => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 递归树形结构类型定义复杂，使用 any 简化
+    const buildNode = (cat: TransactionCategory): any => ({
       value: cat.id, title: cat.name, children: cats.filter(c => c.parentId === cat.id).length > 0 ? cats.filter(c => c.parentId === cat.id).map(buildNode) : undefined,
     })
     return cats.filter(c => !c.parentId).map(buildNode)

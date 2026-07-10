@@ -58,5 +58,5 @@ export const buildTree = <T extends { id: string; parentId: string | null }>(
     }))
   }
 
-  return buildSubtree(parentId)
+  return buildSubtree(parentId) as (T & { children: (T & { children: unknown[] })[] })[]
 }

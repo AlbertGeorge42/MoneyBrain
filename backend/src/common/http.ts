@@ -1,6 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
-import { AppError } from './error'
+import { AppError } from './error.js'
 import { rootLogger } from './logger/index.js'
 
 const logger = rootLogger.child({ module: 'errorHandler' })

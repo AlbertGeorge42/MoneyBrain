@@ -1,5 +1,5 @@
 import { generatePredictions } from '../budget.service.js'
-import { dayStart, dayEnd } from '../../common/date.js'
+import { dayEnd } from '../../common/date.js'
 
 // 重导出日期工具，保持原有 import 路径可用
 export { dayStart, dayEnd, nextDay, formatDateLocal } from '../../common/date.js'

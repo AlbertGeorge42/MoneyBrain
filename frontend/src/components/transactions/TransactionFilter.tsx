@@ -37,11 +37,6 @@ const transactionTimePickerConfig: RangeTimePickerConfig = {
   },
 }
 
-const filterTreeNodeByName = (inputValue: string, node: { name?: string }): boolean => {
-  const name = node.name
-  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-}
-
 const resolveAccountLabel = (
   id: string,
   accounts: Account[],
@@ -134,7 +129,8 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
 
   // 构建分类树形数据（按收入/支出/转账分组，支持多级，可选择父分类筛选所有子分类）
   const categoryTreeData = useMemo(() => {
-    const buildCategoryTree = (parentId: string | null, type: string): { key: string; title: string; name: string; children?: ReturnType<typeof buildCategoryTree> }[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 递归树形结构类型定义复杂，使用 any 简化
+    const buildCategoryTree = (parentId: string | null, type: string): any[] => {
       const children = categories.filter(c => c.parentId === parentId && c.type === type)
       return children.map(category => ({
         title: <Tag>{category.name}</Tag>,
@@ -269,7 +265,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                         const { value, closable, onClose } = props
                         // 类型守卫：确保 value 是有效的 TransactionType
                         if (!(value in TRANSACTION_TYPE_CONFIG)) {
-                          return null
+                          return <span />
                         }
                         const config = TRANSACTION_TYPE_CONFIG[value as TransactionType]
                         return (
@@ -307,7 +303,11 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                           </Tag>
                         )
                       }}
-                      filterTreeNode={filterTreeNodeByName}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
+                      filterTreeNode={(inputValue: string, node: any) => {
+                        const name = node.name
+                        return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
+                      }}
                     />
                   </div>
                   <div>
@@ -331,7 +331,11 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                           </Tag>
                         )
                       }}
-                      filterTreeNode={filterTreeNodeByName}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
+                      filterTreeNode={(inputValue: string, node: any) => {
+                        const name = node.name
+                        return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
+                      }}
                     />
                   </div>
                   <div>

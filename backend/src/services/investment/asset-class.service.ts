@@ -209,20 +209,3 @@ export async function reorderAssetClasses(accountId: string, orderedIds: string[
   )
   return { message: '排序已更新' }
 }
-
-// 校验该账户下所有资产类型 targetRatio 总和不超过 100
-async function validateTargetRatioSum(accountId: string) {
-  const assetClasses = await prisma.investmentAssetClass.findMany({
-    where: { accountId },
-    select: { targetRatio: true },
-  })
-
-  const sum = assetClasses
-    .filter((ac) => ac.targetRatio !== null)
-    .reduce((acc, ac) => acc + (ac.targetRatio as number), 0)
-
-  // 允许小数误差 0.01
-  if (sum > 100.01) {
-    throw new ValidationError(`目标比例总和（${sum.toFixed(2)}%）超过 100%`)
-  }
-}

@@ -107,25 +107,25 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       triggerOn: 'mousemove',
       formatter: (params: { dataType?: string; name?: string; value?: number; data?: { source?: string; target?: string; value?: number; predictedValue?: number; actualValue?: number } }) => {
         if (params.dataType === 'node') {
-          const nodeFlow = nodeFlows.get(params.name) || 0
+          const nodeFlow = nodeFlows.get(params.name!) || 0
           const percentage = totalFlow > 0 ? formatPercent((nodeFlow / totalFlow) * 100, 1, false) : '0.0%'
-          return `${getDisplayName(params.name)}<br/>金额: ${formatCurrency(params.value || 0)}<br/>占比: ${percentage}`
+          return `${getDisplayName(params.name!)}<br/>金额: ${formatCurrency(params.value || 0)}<br/>占比: ${percentage}`
         } else if (params.dataType === 'edge') {
-          const link = params.data
-          const percentage = totalFlow > 0 ? formatPercent((link.value / totalFlow) * 100, 1, false) : '0.0%'
-          const sourceName = getDisplayName(link.source)
-          const targetName = getDisplayName(link.target)
+          const link = params.data!
+          const percentage = totalFlow > 0 ? formatPercent((link.value! / totalFlow) * 100, 1, false) : '0.0%'
+          const sourceName = getDisplayName(link.source!)
+          const targetName = getDisplayName(link.target!)
           
           if (isPurePrediction) {
-            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage})<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
           }
           
           if (link.predictedValue && link.predictedValue !== 0) {
             const predictedSign = link.predictedValue >= 0 ? '+' : ''
-            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage})<br/>实际 ${formatCurrency(link.actualValue || 0)} &nbsp; 预测 ${predictedSign}${formatCurrency(link.predictedValue)}`
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})<br/>实际 ${formatCurrency(link.actualValue || 0)} &nbsp; 预测 ${predictedSign}${formatCurrency(link.predictedValue)}`
           }
           
-          return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value)} (${percentage})`
+          return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})`
         }
         return ''
       }
@@ -145,7 +145,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       label: {
         position: 'right',
         color: getTokenValue('--mb-color-text-primary'),
-        formatter: (params: { name?: string }) => getDisplayName(params.name)
+        formatter: (params: { name?: string }) => getDisplayName(params.name!)
       },
     }],
   }

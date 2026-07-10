@@ -4,6 +4,7 @@ import type { MenuProps } from 'antd'
 import { Button, Dropdown, theme } from 'antd'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import type { UniqueIdentifier } from '@dnd-kit/core'
 import { KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
@@ -145,16 +146,16 @@ const defaultIsSortable = (id: string) => id?.startsWith('category-')
 
 export const SortableRow = ({ isSortable = defaultIsSortable, ...props }: SortableRowProps) => {
   const { token } = theme.useToken()
-  const id = props['data-row-key']
+  const id = props['data-row-key'] as string
   const sortable = isSortable(id)
 
   const { attributes, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: id,
+    id: id as UniqueIdentifier,
     disabled: !sortable,
   })
 
   const style: React.CSSProperties = {
-    ...props.style,
+    ...(props.style as React.CSSProperties),
     transform: CSS.Translate.toString(transform),
     transition,
     ...(isDragging ? { opacity: 0.5, background: token.controlItemBgHover || token.colorBgTextHover } : {}),

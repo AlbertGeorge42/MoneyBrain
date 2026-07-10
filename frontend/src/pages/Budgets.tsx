@@ -380,7 +380,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
               e.stopPropagation()
               onToggleActive(checked)
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(_checked, e) => e.stopPropagation()}
           />
         </Space>
       </div>

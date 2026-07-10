@@ -64,14 +64,14 @@ export interface CreateRefundData {
 }
 
 export interface UpdateIncomeExpenseData {
-  type?: 'income' | 'expense'
+  type?: 'income' | 'expense' | 'adjustment'
   amount?: number
   fee?: number
   coupon?: number
   date?: Date
   note?: string
   accountId?: string
-  categoryId?: string
+  categoryId?: string | null
 }
 
 export interface UpdateTransferData {

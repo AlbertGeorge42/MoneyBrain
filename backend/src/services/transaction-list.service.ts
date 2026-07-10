@@ -44,7 +44,7 @@ const resolveAccountIds = async (accountId?: string | string[]): Promise<string[
 
 const resolveCategoryIds = async (
   categoryId?: string | string[],
-  prebuiltChildrenMap?: Map<string, string[]>
+  prebuiltChildrenMap?: Map<string | null, { id: string; parentId: string | null }[]>
 ): Promise<string[] | undefined> => {
   const categoryIds = normalizeStringArray(categoryId)
   if (categoryIds.length === 0) {
@@ -61,7 +61,7 @@ const resolveCategoryIds = async (
   return resolvedIds.size > 0 ? Array.from(resolvedIds) : [EMPTY_FILTER_ID]
 }
 
-async function buildCategoryChildrenMapFromDb(): Promise<Map<string, string[]>> {
+async function buildCategoryChildrenMapFromDb(): Promise<Map<string | null, { id: string; parentId: string | null }[]>> {
   const allCategories = await prisma.transactionCategory.findMany({
     select: { id: true, parentId: true },
   })

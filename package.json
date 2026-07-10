@@ -8,6 +8,9 @@
     "dev:backend": "cd backend && npm run dev",
     "install:all": "cd frontend && npm install && cd ../backend && npm install",
     "build": "cd frontend && npm run build && cd ../backend && npm run build",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:frontend": "cd frontend && npx vite preview --port 4173",
+    "start:backend": "cd backend && npm run start:prod",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
     "lint:frontend": "cd frontend && npm run lint",
@@ -23,6 +26,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
     "tsx": "^4.21.0"
   },
   "dependencies": {
