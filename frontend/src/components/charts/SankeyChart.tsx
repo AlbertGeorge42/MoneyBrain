@@ -27,6 +27,10 @@ interface SankeyChartProps {
   isPurePrediction?: boolean
 }
 
+const truncateText = (text: string, maxLen: number): string => {
+  return text.length > maxLen ? text.slice(0, maxLen) + '...' : text
+}
+
 const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height = 400, loading = false, isPurePrediction = false }) => {
   const categoryColors: Record<SankeyNodeCategory, string> = {
     income_category: getTokenValue('--mb-color-income'),
@@ -145,7 +149,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       label: {
         position: 'right',
         color: getTokenValue('--mb-color-text-primary'),
-        formatter: (params: { name?: string }) => getDisplayName(params.name!)
+        formatter: (params: { name?: string }) => truncateText(getDisplayName(params.name!), 12)
       },
     }],
   }

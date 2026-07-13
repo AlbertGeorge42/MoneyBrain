@@ -287,6 +287,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
           title="资产结构"
           data={assetPieData}
           height={isMobile ? 240 : 280}
+          layout={isMobile ? 'compact' : 'normal'}
           onDrillDown={(item) => handleDrillDown(treeData.assetNodes, item)}
           isPurePrediction={isFuture}
         />
@@ -296,6 +297,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
           title="负债结构"
           data={liabilityPieData}
           height={isMobile ? 240 : 280}
+          layout={isMobile ? 'compact' : 'normal'}
           onDrillDown={(item) => handleDrillDown(treeData.liabilityNodes, item)}
           isPurePrediction={isFuture}
         />
@@ -373,6 +375,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
                       title="资产结构"
                       data={assetPieData}
                       height={240}
+                      layout="compact"
                       onDrillDown={(item) => handleDrillDown(treeData.assetNodes, item)}
                       isPurePrediction={isFuture}
                     />
@@ -391,6 +394,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
                       title="负债结构"
                       data={liabilityPieData}
                       height={240}
+                      layout="compact"
                       onDrillDown={(item) => handleDrillDown(treeData.liabilityNodes, item)}
                       isPurePrediction={isFuture}
                     />

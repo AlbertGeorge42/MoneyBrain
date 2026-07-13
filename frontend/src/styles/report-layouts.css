@@ -255,6 +255,10 @@
   .report-chart-grid--2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .report-chart-grid--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {

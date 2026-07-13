@@ -14,6 +14,7 @@ export interface BaseChartProps {
   chartType: 'bar' | 'line'
   boundaryIndex?: number
   isPurePrediction?: boolean
+  grid?: Record<string, unknown>
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -24,7 +25,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, height = 300, loading = false, chartType, boundaryIndex, isPurePrediction }) => {
+const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, height = 300, loading = false, chartType, boundaryIndex, isPurePrediction, grid: gridOverride }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null)
   const { theme } = useTheme()
@@ -133,15 +134,25 @@ const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, hei
       ...(chartType === 'bar' ? { axisPointer: { type: 'shadow' as const } } : {}),
       formatter: currencyTooltipFormatter,
     },
+    grid: {
+      containLabel: true,
+      top: title ? 48 : 16,
+      bottom: 40,
+      ...gridOverride,
+    },
     legend: {
-      top: 'bottom',
+      bottom: 8,
       textStyle: { color: getTokenValue('--mb-color-neutral') },
     },
     xAxis: {
       type: 'category' as const,
       data: validXAxisData,
       axisLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle') } },
-      axisLabel: { color: getTokenValue('--mb-color-neutral') },
+      axisLabel: {
+        color: getTokenValue('--mb-color-neutral'),
+        hideOverlap: true,
+        interval: 'auto',
+      },
     },
     yAxis: {
       type: 'value' as const,

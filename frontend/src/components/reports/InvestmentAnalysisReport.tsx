@@ -202,7 +202,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   const chartSection = (
     <div className="report-chart-grid report-chart-grid--2">
       <Card className="surface-card report-section-card" size="small">
-        <PieChart title="投资分布" data={pieData} height={isMobile ? 240 : 280} />
+        <PieChart title="投资分布" data={pieData} height={isMobile ? 240 : 280} layout={isMobile ? 'compact' : 'normal'} />
       </Card>
       <Card className="surface-card report-section-card" size="small">
         <LineChart
@@ -282,7 +282,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
                   label: '分布',
                   content: (
                     <Card className="surface-card report-section-card" size="small">
-                      <PieChart title="投资分布" data={pieData} height={240} />
+                      <PieChart title="投资分布" data={pieData} height={240} layout="compact" />
                     </Card>
                   ),
                 },

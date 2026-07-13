@@ -15,7 +15,7 @@ import {
 const logger = rootLogger.child({ module: 'report' })
 
 type TransactionWithIncludes = Prisma.TransactionGetPayload<{
-  include: { account: true; toAccount: true; category: true }
+  include: { account: true; toAccount: true; category: { include: { parent: true } } }
 }>
 
 interface PredictionTransaction {
@@ -82,6 +82,12 @@ export interface CashFlowResult {
     links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }>
   }
   predictionNote?: string
+}
+
+// 获取一级类别名称（如果有父类别则使用父类别名称）
+function getTopLevelCategoryName(category: { name: string; parent: { name: string } | null } | null): string {
+  if (!category) return '未分类'
+  return category.parent?.name || category.name
 }
 
 function calculateCashFlowAmount(type: string, amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
@@ -286,12 +292,6 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   ) => {
     if (!flowMap[name]) flowMap[name] = { inflow: ZERO, outflow: ZERO }
     return flowMap[name]
-  }
-
-  // 获取一级类别名称（如果有父类别则使用父类别名称）
-  const getTopLevelCategoryName = (category: { name: string; parent: { name: string } | null } | null): string => {
-    if (!category) return '未分类'
-    return category.parent?.name || category.name
   }
 
   transactions.forEach(t => {
@@ -546,7 +546,10 @@ function buildSankeyData(
       addToMap(cashToTargetLinks.get(cashName)!, catName, amount)
     } else if (type === 'transfer') {
       if (!isFromCash && isToCash && toAccountName) {
-        const fromName = accountName || '非现金账户'
+        // 非现金转入现金：节点名改为"分类-账户"形式
+        const catName = categoryName || '转账转入'
+        const accName = accountName || '非现金账户'
+        const fromName = `${catName}-${accName}`
         const toCashName = toAccountName
         const actualInflow = calculateCashTransferInAmount(amount, fee, coupon)
         addToMap(nonCashSourceNodes, fromName, actualInflow)
@@ -554,8 +557,11 @@ function buildSankeyData(
         if (!sourceToCashLinks.has(fromName)) sourceToCashLinks.set(fromName, new Map())
         addToMap(sourceToCashLinks.get(fromName)!, toCashName, actualInflow)
       } else if (isFromCash && !isToCash && accountName) {
+        // 现金转出非现金：节点名改为"分类-账户"形式
+        const catName = categoryName || '转账转出'
+        const accName = toAccountName || '非现金账户'
         const fromCashName = accountName
-        const toName = toAccountName || '非现金账户'
+        const toName = `${catName}-${accName}`
         const actualOutflow = calculateCashFlowAmount('transfer', amount, fee, coupon).abs()
         addToMap(nonCashTargetNodes, toName, actualOutflow)
         addToMap(cashAccountFlows, fromCashName, actualOutflow)
@@ -583,7 +589,7 @@ function buildSankeyData(
       t.amount,
       toDecimal(t.fee),
       toDecimal(t.coupon),
-      t.category?.name,
+      getTopLevelCategoryName(t.category),
       t.account?.name,
       t.toAccount?.name,
       true

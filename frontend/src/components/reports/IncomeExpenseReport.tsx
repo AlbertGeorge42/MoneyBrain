@@ -270,10 +270,10 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         />
       </Card>
       <Card className="surface-card report-section-card" size="small">
-        <PieChart title="收入分类" data={incomePieData} height={isMobile ? 220 : 250} onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
+        <PieChart title="收入分类" data={incomePieData} height={isMobile ? 220 : 250} layout={isMobile ? 'compact' : 'compact'} onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
       </Card>
       <Card className="surface-card report-section-card" size="small">
-        <PieChart title="支出分类" data={expensePieData} height={isMobile ? 220 : 250} onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
+        <PieChart title="支出分类" data={expensePieData} height={isMobile ? 220 : 250} layout={isMobile ? 'compact' : 'compact'} onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
       </Card>
     </div>
   )
@@ -357,7 +357,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
                 content: (
                   <div className="report-detail-stack">
                     <Card className="surface-card report-section-card" size="small">
-                      <PieChart title="收入分类" data={incomePieData} height={220} onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
+                      <PieChart title="收入分类" data={incomePieData} height={220} layout="compact" onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
                     </Card>
                     {incomeDetailCard}
                   </div>
@@ -369,7 +369,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
                 content: (
                   <div className="report-detail-stack">
                     <Card className="surface-card report-section-card" size="small">
-                      <PieChart title="支出分类" data={expensePieData} height={220} onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
+                      <PieChart title="支出分类" data={expensePieData} height={220} layout="compact" onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
                     </Card>
                     {expenseDetailCard}
                   </div>

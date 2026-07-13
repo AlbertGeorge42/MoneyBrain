@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty, Button, theme } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
@@ -15,15 +15,18 @@ export interface PieChartDataItem {
   isLiability?: boolean
 }
 
+export type PieChartLayout = 'normal' | 'compact'
+
 interface PieChartProps {
   title: string
   data: PieChartDataItem[]
   height?: number
+  layout?: PieChartLayout
   onDrillDown?: (item: PieChartDataItem) => Promise<PieChartDataItem[]>
   isPurePrediction?: boolean
 }
 
-const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillDown, isPurePrediction }) => {
+const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout = 'normal', onDrillDown, isPurePrediction }) => {
   const { token } = theme.useToken()
   const validData = Array.isArray(data) ? data : []
 
@@ -72,7 +75,9 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
     }
   }
 
-  const option = {
+  const isCompact = layout === 'compact'
+
+  const option = useMemo(() => ({
     title: {
       text: currentTitle,
       left: 'center',
@@ -108,15 +113,15 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
       }
     },
     legend: {
-      orient: 'vertical',
-      left: 'left',
-      top: 'middle',
+      orient: isCompact ? 'horizontal' : 'vertical',
+      left: isCompact ? 'center' : 'left',
+      top: isCompact ? 'bottom' : 'middle',
       textStyle: { color: token.colorTextTertiary },
     },
     series: [{
       type: 'pie',
-      radius: ['40%', '70%'],
-      center: ['60%', '50%'],
+      radius: isCompact ? ['35%', '60%'] : ['40%', '70%'],
+      center: isCompact ? ['50%', '42%'] : ['60%', '50%'],
       data: currentData,
       emphasis: {
         itemStyle: {
@@ -127,7 +132,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, onDrillD
       },
       label: { show: false },
     }],
-  }
+  }), [currentTitle, currentData, isCompact, isPurePrediction, token, onDrillDown])
 
   if (!hasValidData) {
     return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Empty description="暂无数据" /></div>

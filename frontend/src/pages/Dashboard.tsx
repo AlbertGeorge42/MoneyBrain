@@ -9,15 +9,14 @@ import {
   TransactionOutlined,
   RightOutlined,
 } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
 import { DynamicIcon, PageHeader } from '../components/common'
 import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
+import LineChart from '../components/charts/LineChart'
 import { useTransactions, useBalanceSheet, useTrends, useCategoryBreakdown } from '../queries'
 import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
-import { getTokenValue } from '../styles/theme/css-utils'
 import { createStatisticFormatter, formatCurrency } from '../utils/format'
 import { formatAmount, getAmountColor } from '../utils/formatAmount'
 import { AMOUNT_COLORS } from '../constants/transactionType'
@@ -28,7 +27,6 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate()
   const { token } = theme.useToken()
   const colorActionPrimary = token.colorPrimary
-  const colorTextMuted = token.colorTextTertiary
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], [])
   const thisMonthStart = useMemo(() => dayjs().startOf('month'), [])
@@ -87,53 +85,6 @@ const Dashboard: React.FC = () => {
   }
 
   const { totalAssets, totalLiabilities, netWorth } = balanceData
-
-  const trendOption = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: Array<{ name: string; value: number }>) => {
-        const item = params[0]
-        return `${item.name}<br/>支出: ${formatCurrency(item.value)}`
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: trendData.map((item) => item.label),
-      axisLabel: { rotate: 40, color: colorTextMuted, fontSize: 11 },
-      axisLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle') } },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { formatter: '¥{value}', color: getTokenValue('--mb-color-neutral'), fontSize: 11 },
-      splitLine: { lineStyle: { color: getTokenValue('--mb-color-border-subtle'), type: 'dashed' } },
-      axisLine: { show: false },
-      axisTick: { show: false },
-    },
-    series: [
-      {
-        data: trendData.map((item) => item.amount),
-        type: 'line',
-        smooth: true,
-        areaStyle: {
-          opacity: 0.15,
-          color: {
-            type: 'linear',
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: getTokenValue('--mb-color-action-primary') },
-              { offset: 1, color: 'rgba(30, 99, 218, 0.05)' },
-            ],
-          },
-        },
-        itemStyle: { color: getTokenValue('--mb-color-action-primary') },
-        lineStyle: { width: 2.5, color: getTokenValue('--mb-color-action-primary') },
-        symbol: 'circle',
-        symbolSize: 6,
-      },
-    ],
-    grid: { left: '10%', right: '4%', bottom: '20%', top: '8%' },
-  }
 
   return (
     <>
@@ -273,7 +224,16 @@ const Dashboard: React.FC = () => {
           ) : trendData.length === 0 ? (
             <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ marginTop: 80 }} />
           ) : (
-            <ReactECharts option={trendOption} style={{ height: 300 }} />
+            <LineChart
+              title=""
+              xAxisData={trendData.map((item) => item.label)}
+              seriesData={[{
+                name: '支出',
+                data: trendData.map((item) => item.amount),
+                color: colorActionPrimary,
+              }]}
+              height={300}
+            />
           )}
         </Card>
         <Card className="surface-card chart-panel">
