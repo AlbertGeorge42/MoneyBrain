@@ -29,7 +29,7 @@ const BaseChart: React.FC<BaseChartProps> = ({ title, xAxisData, seriesData, hei
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null)
   const { theme } = useTheme()
-  const primaryColor = getTokenValue('--mb-color-action-primary') || '#1677ff'
+  const primaryColor = getTokenValue('--mb-color-action-primary')
 
   const validXAxisData = Array.isArray(xAxisData) ? xAxisData : []
   const validSeriesData = Array.isArray(seriesData) ? seriesData : []

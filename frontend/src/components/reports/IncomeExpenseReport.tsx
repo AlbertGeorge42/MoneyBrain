@@ -144,8 +144,8 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const formatStatValue = (v: number) => formatCurrency(Number(v))
 
   // 柱状图配色：参考现金流量表
-  const incomeColor = getTokenValue('--mb-color-positive') || '#3f8600'
-  const expenseColor = getTokenValue('--mb-color-negative') || '#cf1322'
+  const incomeColor = getTokenValue('--mb-color-positive')
+  const expenseColor = getTokenValue('--mb-color-negative')
 
   const summarySection = (
     <>

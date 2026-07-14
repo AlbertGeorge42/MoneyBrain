@@ -395,7 +395,7 @@ const Settings: React.FC = () => {
             </div>
           ))}
         </div>
-        <Tag style={{ marginTop: spaceCardPadding, color: currentTheme === 'dark' ? 'var(--mb-color-transfer)' : undefined, borderColor: currentTheme === 'dark' ? 'var(--mb-color-transfer)' : undefined, backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
+        <Tag style={{ marginTop: spaceCardPadding, color: 'var(--mb-color-transfer)', borderColor: 'var(--mb-color-transfer)', backgroundColor: 'transparent' }} icon={<CheckCircleOutlined />} variant="filled">
           当前生效：{mode === 'system' ? `跟随系统 / ${currentTheme === 'dark' ? '深色' : '浅色'}` : currentTheme === 'dark' ? '深色' : '浅色'}
         </Tag>
       </Card>

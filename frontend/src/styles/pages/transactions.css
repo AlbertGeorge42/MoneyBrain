@@ -34,7 +34,7 @@
 }
 
 .transaction-list-item__date {
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
   font-size: var(--mb-font-size-caption);
 }
 
@@ -111,7 +111,7 @@
 }
 
 .tx-amount__subtitle {
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
   font-size: var(--mb-font-size-mobile-label);
   white-space: nowrap;
   overflow: hidden;
@@ -139,7 +139,7 @@
   height: 24px;
   border: none;
   background: transparent;
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
   border-radius: var(--mb-radius-control);
   cursor: pointer;
   font-size: 12px;
@@ -163,7 +163,7 @@
   padding: var(--mb-space-md) var(--mb-space-lg);
   font-size: var(--mb-font-size-caption);
   font-weight: 500;
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
   background: transparent;
 }
 
@@ -223,7 +223,7 @@
 
 .tx-group-header__weekday {
   font-size: var(--mb-font-size-caption);
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
 }
 
 .tx-group-header__summary {
@@ -269,7 +269,7 @@
 }
 
 .tx-group-item__subtitle {
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
   font-size: var(--mb-font-size-caption);
   white-space: nowrap;
   overflow: hidden;
@@ -292,7 +292,7 @@
 
 .tx-group-item__account {
   font-size: var(--mb-font-size-mobile-label);
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
   white-space: nowrap;
 }
 
@@ -307,14 +307,14 @@
 }
 
 .tx-group-pagination__info {
-  color: var(--mb-color-text-muted);
+  color: var(--mb-color-text-tertiary);
   font-size: var(--mb-font-size-caption);
   font-weight: 500;
 }
 
 .tx-group-pagination__btn {
   padding: 6px var(--mb-space-xl);
-  border: 1px solid var(--mb-color-border-default);
+  border: 1px solid var(--mb-color-border);
   border-radius: var(--mb-radius-control);
   background: var(--mb-color-bg-panel);
   color: var(--mb-color-text-primary);

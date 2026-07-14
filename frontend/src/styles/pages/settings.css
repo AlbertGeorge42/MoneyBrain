@@ -15,7 +15,7 @@
 }
 
 .theme-option-card:hover {
-  border-color: var(--mb-color-border-default);
+  border-color: var(--mb-color-border);
   transform: translateY(-2px);
   box-shadow: var(--mb-shadow-panel);
 }
@@ -26,7 +26,7 @@
 }
 
 .file-drop-zone {
-  border: 2px dashed var(--mb-color-border-default);
+  border: 2px dashed var(--mb-color-border);
   border-radius: var(--mb-radius-card);
   padding: var(--mb-space-3xl) var(--mb-space-xl);
   text-align: center;

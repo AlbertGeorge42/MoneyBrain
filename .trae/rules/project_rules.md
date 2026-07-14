@@ -31,8 +31,7 @@ MoneyBrain/
 │   │   │   ├── layout/    # 布局样式
 │   │   │   ├── components/ # 组件样式
 │   │   │   ├── pages/     # 页面样式
-│   │   │   ├── themes/    # 主题配置
-│   │   │   └── tokens/    # 设计令牌
+│   │   │   └── theme/     # 主题配置 + CSS 变量
 │   │   └── utils/         # 工具函数
 │   ├── tests/             # 前端测试
 │   └── scripts/           # 构建脚本
@@ -78,7 +77,6 @@ npm run dev              # 启动开发服务器
 npm run build            # 构建生产版本
 npm run lint             # 运行 ESLint
 npm run typecheck        # TypeScript 类型检查
-npm run generate:theme   # 生成主题变量 CSS
 npm run test             # 运行所有前端测试
 npm run test:coverage    # 运行测试并生成覆盖率报告
 npm run test:watch       # 监听模式运行测试
@@ -149,28 +147,19 @@ export default Component;
 ```
 styles/
 ├── base/              # 全局基础样式
-│   ├── reset.css      # 重置样式
-│   └── typography.css # 基础文本样式
+│   └── reset.css      # 重置样式
 ├── layout/            # 页面布局样式
 │   ├── appShell.css   # 应用壳布局
 │   ├── pageShell.css  # 页面壳布局
 │   └── grids.css      # 网格布局
 ├── components/        # 可复用 UI 组件样式
 ├── pages/             # 页面专属样式
-├── themes/            # 主题定义
-│   ├── light.ts       # 浅色主题
-│   └── dark.ts        # 深色主题
-├── tokens/            # 设计令牌
-│   ├── colors.ts
-│   ├── spacing.ts
-│   ├── typography.ts
-│   ├── borders.ts
-│   ├── shadows.ts
-│   ├── radius.ts
-│   ├── motion.ts      # 动画
-│   ├── zIndex.ts      # 层级
-│   └── layout.ts      # 布局
-├── antd-theme.ts      # Ant Design 主题配置
+├── theme/             # 主题配置
+│   ├── config.ts      # Seed Token + 组件 Token + 财务色 Seed + syncCssVars
+│   ├── variables.css  # 静态结构 token（间距/字体/圆角等，主题无关）
+│   ├── mode.ts        # 主题模式管理（light/dark/system）
+│   └── css-utils.ts   # CSS 变量读取工具（ECharts 用）
+├── ThemeContext.tsx    # React 主题上下文
 ├── antd-overrides.css # Ant Design 覆盖样式
 └── global.css         # 样式入口（仅导入）
 ```
@@ -185,6 +174,20 @@ styles/
 - **所有样式属性值优先使用 token，不直接硬编码**
 
 ### 设计令牌使用
+
+**Token 分层**：
+- **结构 token**（间距/字体/圆角/动效/布局/Z-index）：在 `variables.css` 中静态定义，主题无关
+- **颜色 token**（信息色 + 财务色 + 阴影）：由 `syncCssVars()` 从 AntD 算法 + `generate()` 统一派生，自动适配浅色/深色模式
+
+**信息色与财务色独立**：
+- 信息色（success/danger/warning）：走 AntD Seed Token → Algorithm 派生
+- 财务色（income/expense/transfer/refund/adjustment/positive/negative/neutral 等）：走 Seed → `@ant-design/colors` `generate()` 派生
+- 两者语义不同，即使值偶然相同也是独立维度
+
+**消费方式**：
+- CSS 文件：使用 `var(--mb-xxx)` CSS 变量
+- React 组件内联样式：使用 `theme.useToken()` 获取 AntD token
+- ECharts 等非 CSS 场景：使用 `getTokenValue()` 从 DOM 读取 CSS 变量值
 
 所有样式属性值必须使用设计令牌：
 - 颜色: `var(--mb-color-*)`

@@ -271,8 +271,8 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   ]
 
   const showChartPred = (isMixed || isFuture) && hasPrediction
-  const inflowColor = getTokenValue('--mb-color-positive') || '#3f8600'
-  const outflowColor = getTokenValue('--mb-color-negative') || '#cf1322'
+  const inflowColor = getTokenValue('--mb-color-positive')
+  const outflowColor = getTokenValue('--mb-color-negative')
 
   const chartSection = (
     <div className="report-chart-grid report-chart-grid--2">
