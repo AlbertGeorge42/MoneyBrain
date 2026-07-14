@@ -1,6 +1,5 @@
 import React from 'react'
 import { Tabs, Select, Tag, Typography, Grid } from 'antd'
-import DynamicIcon from '../common/DynamicIcon'
 import type { AccountAllocationDetail } from '@shared/types'
 import dayjs from 'dayjs'
 
@@ -34,8 +33,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
           key: account.accountId,
           label: (
             <span>
-              <DynamicIcon name="wallet" size={16} />
-              {' '}{account.accountName}
+              {account.accountName}
               {account.latestSnapshotDate && (
                 <Tag color="green" style={{ marginLeft: 8 }}>
                   {formatDate(account.latestSnapshotDate)}
@@ -60,8 +58,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
         value: account.accountId,
         label: (
           <span>
-            <DynamicIcon name="wallet" size={16} />
-            {' '}{account.accountName}
+            {account.accountName}
             {account.latestSnapshotDate && (
               <Text type="secondary" style={{ marginLeft: 8 }}>
                 ({formatDate(account.latestSnapshotDate)})

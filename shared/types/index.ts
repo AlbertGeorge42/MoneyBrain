@@ -15,6 +15,7 @@ export interface AccountCategory {
   name: string
   type: string
   icon: string | null
+  color: string | null
   parentId: string | null
   sort: number
   parent: AccountCategory | null
@@ -34,6 +35,7 @@ export interface Account {
   initialBalance: number
   initialBalanceDate: string | null
   icon: string | null
+  color: string | null
   categoryId: string | null
   sort: number
   category: AccountCategory | null
@@ -54,6 +56,7 @@ export interface TransactionCategory {
   name: string
   type: string
   icon: string | null
+  color: string | null
   parentId: string | null
   sort: number
   parent: TransactionCategory | null
@@ -169,7 +172,9 @@ export interface BalanceSheetAccountItem {
   category: string
   categorySort?: number
   categoryIcon?: string
+  categoryColor?: string | null
   icon?: string
+  color?: string | null
 }
 
 export interface BalanceSheetReportData {
@@ -192,6 +197,7 @@ export interface ReportCategoryDetail {
   hasChildren: boolean
   sort: number
   icon?: string | null
+  color?: string | null
   children?: ReportCategoryDetail[]
 }
 

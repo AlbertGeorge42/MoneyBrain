@@ -16,6 +16,7 @@ import {
   incImported,
   incUpdated,
   incSkipped,
+  isAntDPresetColor,
 } from './shared.js'
 
 // ─── importAccountCategories ───
@@ -43,6 +44,7 @@ async function importAccountCategories(
             where: { id: existing.id },
             data: {
               icon: item.icon ?? existing.icon,
+              color: isAntDPresetColor(item.color) ? item.color : existing.color,
               sort: item.sort ?? existing.sort,
               isCashEquivalent: item.isCashEquivalent ?? existing.isCashEquivalent,
               isInvestment: item.isInvestment ?? existing.isInvestment,
@@ -59,6 +61,7 @@ async function importAccountCategories(
             type: item.type,
             parentId,
             icon: item.icon,
+            color: isAntDPresetColor(item.color) ? item.color : undefined,
             isCashEquivalent: item.isCashEquivalent ?? false,
             isInvestment: item.isInvestment ?? false,
             sort,
@@ -218,7 +221,7 @@ async function importTransactionCategories(
             type: item.type,
             parentId,
             icon: item.icon,
-            color: item.color,
+            color: isAntDPresetColor(item.color) ? item.color : undefined,
             cashFlowType: item.cashFlowType,
             sort,
           },

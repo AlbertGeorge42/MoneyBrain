@@ -24,11 +24,12 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 router.post('/', validateRequest(validateCategoryPayload), asyncHandler(async (req, res) => {
-  const { name, type, icon, parentId, isCashEquivalent, isInvestment, sort } = req.body
+  const { name, type, icon, color, parentId, isCashEquivalent, isInvestment, sort } = req.body
   const category = await createAccountCategory({
     name,
     type,
     icon,
+    color,
     parentId,
     isCashEquivalent,
     isInvestment,
@@ -43,11 +44,12 @@ router.put('/sort/batch', validateRequest(validateBatchSort), asyncHandler(async
 }))
 
 router.put('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  const { name, type, icon, parentId, isCashEquivalent, isInvestment, sort } = req.body
+  const { name, type, icon, color, parentId, isCashEquivalent, isInvestment, sort } = req.body
   const category = await updateAccountCategory(req.params.id, {
     name,
     type,
     icon,
+    color,
     parentId,
     isCashEquivalent,
     isInvestment,

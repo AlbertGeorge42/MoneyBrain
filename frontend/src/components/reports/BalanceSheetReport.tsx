@@ -65,6 +65,7 @@ function buildBalanceSheetTreeData(accounts: BalanceSheetAccountItem[] | undefin
             key: `account-${account.id}`,
             name: account.name,
             icon: account.icon || undefined,
+            iconColor: account.color ?? null,
             metrics: {
               balance: account.actual + (account.predicted || 0),
               actual: account.actual,
@@ -77,6 +78,7 @@ function buildBalanceSheetTreeData(accounts: BalanceSheetAccountItem[] | undefin
           key: `category-${category}-${type}`,
           name: category,
           icon: groupedByCategory[category][0]?.categoryIcon || undefined,
+          iconColor: groupedByCategory[category][0]?.categoryColor ?? null,
           metrics: {
             balance: filteredAccounts.reduce((sum, account) => sum + account.actual + (account.predicted || 0), 0),
             actual: filteredAccounts.reduce((sum, account) => sum + account.actual, 0),

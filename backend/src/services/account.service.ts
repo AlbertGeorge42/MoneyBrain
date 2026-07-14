@@ -17,6 +17,7 @@ type AccountUpdateData = {
   name?: string
   type?: string
   icon?: string | null
+  color?: string | null
   categoryId?: string | null
   initialBalance?: number
   initialBalanceDate?: string
@@ -63,6 +64,7 @@ export async function createAccount(data: {
   name: string
   type: string
   icon?: string | null
+  color?: string | null
   categoryId?: string | null
   initialBalance?: number
   initialBalanceDate?: string
@@ -76,6 +78,7 @@ export async function createAccount(data: {
         ? new Date(`${data.initialBalanceDate}T00:00:00`)
         : new Date(),
       icon: data.icon,
+      color: data.color,
       categoryId: data.categoryId,
     },
     include: { category: true },
@@ -91,6 +94,7 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
   const updateData: Record<string, unknown> = {
     name: data.name,
     icon: data.icon,
+    color: data.color,
     initialBalanceDate: data.initialBalanceDate
       ? new Date(`${data.initialBalanceDate}T00:00:00`)
       : undefined,

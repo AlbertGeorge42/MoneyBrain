@@ -22,6 +22,7 @@ export interface CategoryBreakdownItem {
   hasChildren: boolean
   sort: number
   icon?: string | null
+  color?: string | null
   children?: CategoryBreakdownItem[]
 }
 

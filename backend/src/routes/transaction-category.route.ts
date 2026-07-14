@@ -33,8 +33,8 @@ const validateCategoryPayload = (req: Request) => {
 const validateCategoryUpdatePayload = (req: Request) => {
   validateIdParam(req)
 
-  const { name, type, parentId, cashFlowType, icon, sort } = req.body as Record<string, unknown>
-  const hasUpdatableField = [name, type, parentId, cashFlowType, icon, sort].some(value => value !== undefined)
+  const { name, type, parentId, cashFlowType, icon, color, sort } = req.body as Record<string, unknown>
+  const hasUpdatableField = [name, type, parentId, cashFlowType, icon, color, sort].some(value => value !== undefined)
 
   if (!hasUpdatableField) {
     throw new ValidationError('至少提供一个需要更新的字段')

@@ -5,6 +5,32 @@ import { rootLogger } from '../../common/index.js'
 
 export const logger = rootLogger.child({ module: 'import' })
 
+// AntD 13 个官方预设色（与前端 colorPalette.ts 保持一致）
+const ANTD_PRESET_COLORS = new Set([
+  'red',
+  'volcano',
+  'orange',
+  'gold',
+  'yellow',
+  'lime',
+  'green',
+  'cyan',
+  'blue',
+  'geekblue',
+  'purple',
+  'magenta',
+  'pink',
+])
+
+/**
+ * 校验颜色字符串是否是 AntD 13 官方预设色之一。
+ * 用于导入时拒绝非预设色，避免前端 CategoryIcon 落回中性态。
+ */
+export function isAntDPresetColor(value: string | null | undefined): value is string {
+  if (!value) return false
+  return ANTD_PRESET_COLORS.has(value)
+}
+
 // Prisma 事务客户端类型
 export type TransactionClient = Parameters<Parameters<typeof prisma['$transaction']>[0]>[0]
 
@@ -123,6 +149,7 @@ export interface ImportAccountCategory {
   name: string
   type: string
   icon?: string
+  color?: string
   sort: number
   isCashEquivalent?: boolean
   isInvestment?: boolean

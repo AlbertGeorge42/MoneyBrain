@@ -5,8 +5,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTransactionCategories } from '../../queries'
 import { queryKeys } from '../../queries/keys'
 import { TransactionCategory, transactionCategoryApi } from '../../services/api'
-import DynamicIcon from '../common/DynamicIcon'
+import CategoryIcon from '../common/CategoryIcon'
 import IconPicker from '../common/IconPicker'
+import ColorSwatchPicker from '../common/ColorSwatchPicker'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import MoveModal from './MoveModal'
 import ConfigModalLayout from './ConfigModalLayout'
@@ -143,7 +144,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const buildTreeData = useMemo(() => {
     const buildNode = (cat: TransactionCategory, depth: number): TransactionTreeNode => {
       const children = localCategories.filter(c => c.parentId === cat.id).sort((a, b) => a.sort - b.sort).map(c => buildNode(c, depth + 1))
-      return { id: cat.id, key: `category-${cat.id}`, name: cat.name, icon: cat.icon, type: 'category' as const, categoryType: cat.type as 'income' | 'expense' | 'transfer', parentId: cat.parentId || undefined, sort: cat.sort, children: children.length > 0 ? children : undefined, depth }
+      return { id: cat.id, key: `category-${cat.id}`, name: cat.name, icon: cat.icon, color: cat.color ?? null, type: 'category' as const, categoryType: cat.type as 'income' | 'expense' | 'transfer', parentId: cat.parentId || undefined, sort: cat.sort, children: children.length > 0 ? children : undefined, depth }
     }
     return {
       incomeNodes: localCategories.filter(c => c.type === 'income' && !c.parentId).sort((a, b) => a.sort - b.sort).map(c => buildNode(c, 0)),
@@ -164,7 +165,16 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const getColumns = () => [
     { title: '', width: 30, render: (_: unknown, record: TransactionTreeNode) => renderExpandIcon(record, expandedRowKeys, toggleExpand) },
     { title: '', width: 30, render: (_: unknown, record: TransactionTreeNode) => renderDragHandle(record, (id: string) => id?.startsWith('category-')) },
-    { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: TransactionTreeNode) => <span><DynamicIcon name={record.icon} size={16} fallback="file-text" /> {text}</span> },
+    { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: TransactionTreeNode) => {
+      const isTopLevel = record.depth === 0
+      // 设置页面始终使用统一小图标，层级感通过字重/颜色表达
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', minHeight: 36, height: '100%' }}>
+          <CategoryIcon name={record.icon} fallback="file-text" color={record.color} size={22} iconSize={13} />
+          <span style={{ marginLeft: 10, fontWeight: isTopLevel ? 600 : 500, color: isTopLevel ? 'var(--mb-color-text-primary)' : 'var(--mb-color-text-secondary)' }}>{text}</span>
+        </div>
+      )
+    } },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: TransactionTreeNode) => <SettingDropdown items={getSettingMenuItems(record)} /> },
   ]
 
@@ -211,6 +221,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
           <Form.Item name="parentId" hidden><Input /></Form.Item>
           <Form.Item name="name" label="分类名称" rules={[{ required: true, message: '请输入分类名称' }]}><Input placeholder="请输入分类名称" /></Form.Item>
           <Form.Item name="icon" label="图标"><IconPicker placeholder="请选择图标" /></Form.Item>
+          <Form.Item name="color" label="颜色" extra="用于报表中分类图标的背景色（不选则使用中性色）"><ColorSwatchPicker allowClear /></Form.Item>
         </Form>
       </Modal>
       <DeleteConfirmModal visible={deleteModalVisible} category={deletingCategory} transactionCount={deleteTransactionCount} deleteAction={deleteAction}

@@ -7,7 +7,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { useAccounts } from '../../queries'
 import { investmentApi } from '../../services/api'
-import DynamicIcon from '../../components/common/DynamicIcon'
+import CategoryIcon from '../../components/common/CategoryIcon'
 import { SortableRow, SettingDropdown, renderExpandIcon, renderDragHandle, useSortableTable } from '../../components/settings/shared'
 import ConfigModalLayout from '../../components/settings/ConfigModalLayout'
 import IconPicker from '../../components/common/IconPicker'
@@ -24,6 +24,7 @@ interface InvestmentTreeNode {
   key: string
   name: string
   icon: string | null
+  color?: string | null
   type: 'account' | 'assetClass'
   accountId?: string // 资产类型所属的账户ID
   targetRatio?: number | null // 资产类型的预期比例
@@ -89,6 +90,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
             key: `assetClass-${ac.id}`,
             name: ac.name,
             icon: ac.icon,
+            color: null,
             type: 'assetClass' as const,
             accountId: account.id,
             targetRatio: ac.targetRatio,
@@ -101,6 +103,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
           key: `account-${account.id}`,
           name: account.name,
           icon: account.icon,
+          color: account.color ?? null,
           type: 'account' as const,
           sort: account.sort,
           children: children.length > 0 ? children : undefined,
@@ -331,10 +334,12 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
       dataIndex: 'name',
       key: 'name',
       render: (text: string, record: InvestmentTreeNode) => (
-        <span>
-          <DynamicIcon
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <CategoryIcon
             name={record.icon}
-            size={16}
+            color={record.color ?? null}
+            size={22}
+            iconSize={12}
             fallback={record.type === 'account' ? 'wallet' : 'investment'}
           />
           {' '}{text}

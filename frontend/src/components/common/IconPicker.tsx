@@ -131,7 +131,6 @@ const IconPicker: React.FC<IconPickerProps> = ({
   const borderWidth = 'var(--mb-border-width)'
   const borderWidthThick = 'var(--mb-border-width-thick)'
   const borderStyle = 'var(--mb-border-style)'
-  const fontSizeCaption = `${token.fontSizeSM}px`
 
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -233,20 +232,18 @@ const IconPicker: React.FC<IconPickerProps> = ({
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: value ? 'center' : 'flex-start',
           gap: 4,
           padding: '4px 11px',
           border: `${borderWidth} ${borderStyle} ${colorBorderInput}`,
           borderRadius: radiusCard,
           cursor: 'pointer',
-          minWidth: 120,
+          minWidth: value ? 40 : 120,
           background: colorBgSurface,
         }}
       >
         {value ? (
-          <>
-            <DynamicIcon name={value} size={size} />
-            <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}>{value}</span>
-          </>
+          <DynamicIcon name={value} size={size} />
         ) : (
           <span style={{ color: colorTextMuted }}>{placeholder}</span>
         )}

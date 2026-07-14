@@ -20,6 +20,7 @@ export async function createAccountCategory(data: {
   name: string
   type: string
   icon?: string | null
+  color?: string | null
   parentId?: string | null
   isCashEquivalent?: boolean
   isInvestment?: boolean
@@ -44,6 +45,7 @@ export async function createAccountCategory(data: {
       name: data.name,
       type: data.type,
       icon: data.icon,
+      color: data.color,
       parentId: data.parentId || null,
       isCashEquivalent: data.isCashEquivalent ?? false,
       isInvestment: data.isInvestment ?? false,
@@ -58,6 +60,7 @@ export async function updateAccountCategory(
     name?: string
     type?: string
     icon?: string | null
+    color?: string | null
     parentId?: string | null
     isCashEquivalent?: boolean
     isInvestment?: boolean
@@ -95,6 +98,7 @@ export async function updateAccountCategory(
       ...(data.name !== undefined && { name: data.name }),
       ...(data.type !== undefined && { type: data.type }),
       ...(data.icon !== undefined && { icon: data.icon }),
+      ...(data.color !== undefined && { color: data.color }),
       ...(data.parentId !== undefined && { parentId: data.parentId }),
       ...(data.isCashEquivalent !== undefined && { isCashEquivalent: data.isCashEquivalent }),
       ...(data.isInvestment !== undefined && { isInvestment: data.isInvestment }),

@@ -1,8 +1,9 @@
  import React, { useState } from 'react'
 import { Card, Empty, Skeleton } from 'antd'
-import { DynamicIcon } from './DynamicIcon'
+import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
+import CategoryIcon from './CategoryIcon'
 import PredictionPopover from './PredictionPopover'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, formatPercent } from '../../utils/format'
 
 // ===== Types =====
 
@@ -10,6 +11,8 @@ export interface ReportTreeNode<M = Record<string, number | string | null>> {
   key: string
   name: string
   icon?: string | null
+  /** AntD 13 个官方色名（pink/red/.../gold），由用户为账户/分类设置 */
+  iconColor?: string | null
   children?: ReportTreeNode<M>[]
   metrics?: M
 }
@@ -18,6 +21,17 @@ export interface PredictionConfig {
   displayMetric: string
   actualMetric: string
   predictedMetric: string
+}
+
+export interface TrendConfig<M = Record<string, number | string | null>> {
+  /** 环比数值的 metric key（数值单位为百分比，如 5.2 表示 +5.2%） */
+  metric: keyof M & string
+  /** 自定义格式化函数，默认使用 formatPercent(value, 1, false) */
+  format?: (value: number) => string
+  /** 正值是否"有利"（默认 true）。
+   *  - true：正值显示绿色，负值显示红色（适用于资产/收入等）
+   *  - false：正值显示红色，负值显示绿色（适用于支出等"越少越好"） */
+  positiveIsGood?: boolean
 }
 
 export interface ReportDetailColumn<M = Record<string, number | string | null>> {
@@ -29,6 +43,7 @@ export interface ReportDetailColumn<M = Record<string, number | string | null>> 
   format?: (value: M[keyof M], node: ReportTreeNode<M>) => React.ReactNode
   color?: string | ((value: M[keyof M], node: ReportTreeNode<M>) => string)
   prediction?: PredictionConfig
+  trend?: TrendConfig<M>
   render?: (value: M[keyof M], node: ReportTreeNode<M>) => React.ReactNode
 }
 
@@ -64,6 +79,27 @@ function resolveColor<M>(
   return typeof column.color === 'function' ? column.color(value as M[keyof M], node) : column.color
 }
 
+function resolveTrend<M>(column: ReportDetailColumn<M>, node: ReportTreeNode<M>): {
+  value: number
+  formatted: string
+  isPositive: boolean
+  isGood: boolean
+} | null {
+  if (!column.trend) return null
+  const raw = (node.metrics as Record<string, unknown> | undefined)?.[column.trend.metric]
+  if (raw == null || raw === 0) return null
+  const value = Number(raw)
+  if (Number.isNaN(value)) return null
+  const positiveIsGood = column.trend.positiveIsGood ?? true
+  const formatted = column.trend.format ? column.trend.format(value) : formatPercent(value, 1, false)
+  return {
+    value,
+    formatted,
+    isPositive: value > 0,
+    isGood: positiveIsGood ? value > 0 : value < 0,
+  }
+}
+
 // ===== ValueCell =====
 
 function DetailValueCell<M>({
@@ -91,9 +127,16 @@ function DetailValueCell<M>({
       const displayRaw = (node.metrics as Record<string, unknown>)?.[pred.displayMetric] ?? actual + predicted
       const formatted = column.format ? column.format(displayRaw as M[keyof M], node) : formatCurrency(Number(displayRaw))
       const color = resolveColor(column, raw, node)
+      const trend = resolveTrend(column, node)
 
       return (
         <span className="report-detail-cell">
+          {trend && (
+            <span className={`report-detail-trend${trend.isGood ? ' report-detail-trend--good' : ' report-detail-trend--bad'}`}>
+              {trend.isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+              <span className="report-detail-trend__value">{trend.formatted}</span>
+            </span>
+          )}
           <PredictionPopover actual={actual} predicted={predicted} useClickTrigger={!!useClickTrigger}>
             <span className="report-detail-cell__main" style={color ? { color } : undefined}>
               {formatted}
@@ -106,9 +149,16 @@ function DetailValueCell<M>({
 
   const formatted = column.format ? column.format(raw as M[keyof M], node) : (raw != null ? formatCurrency(Number(raw)) : '--')
   const color = resolveColor(column, raw, node)
+  const trend = resolveTrend(column, node)
 
   return (
     <span className="report-detail-cell">
+      {trend && (
+        <span className={`report-detail-trend${trend.isGood ? ' report-detail-trend--good' : ' report-detail-trend--bad'}`}>
+          {trend.isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+          <span className="report-detail-trend__value">{trend.formatted}</span>
+        </span>
+      )}
       <span className="report-detail-cell__main" style={color ? { color } : undefined}>
         {formatted}
       </span>
@@ -136,22 +186,68 @@ function DetailNode<M>({
   onToggle: (key: string) => void
 }) {
   const hasChildren = node.children && node.children.length > 0
+  const isTopLevel = depth === 0
   const icon = node.icon ?? (hasChildren ? config.parentIcon : config.leafIcon)
   const isExpanded = expandedKeys.has(node.key)
+  // 一级（顶层）类别统一使用大图标；二级（子级）缩小以建立视觉层级
+  const iconSize = isTopLevel ? 32 : 22
+  const innerIconSize = isTopLevel ? 18 : 13
+  // 行级 class 始终按"是否一级"判定，确保一级类别字体加粗/颜色变深不依赖是否有子级数据
+  const rowClass = [
+    'report-detail-row',
+    isTopLevel ? 'report-detail-row--parent' : 'report-detail-row--leaf',
+    isExpanded ? 'report-detail-row--expanded' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const handleToggle = () => {
+    if (hasChildren) onToggle(node.key)
+  }
 
   return (
-    <div className="report-detail-node">
-      <div className="report-detail-node__header">
-        <span className="report-detail-node__name-area">
-          {icon && <DynamicIcon name={icon} size={16} />}
+    <>
+      <div
+        className={rowClass}
+        // 子级 paddingLeft：13px = 5px图标半径补偿 + 8px行自身padding，使一二级图标圆心对齐；之后每层缩进 16px
+        style={depth > 0 ? { paddingLeft: `${13 + (depth - 1) * 16}px` } : undefined}
+      >
+        <span className="report-detail-row__name-area">
+          {hasChildren ? (
+            <span
+              className="report-detail-row__chevron"
+              role="button"
+              tabIndex={0}
+              aria-label={isExpanded ? '折叠' : '展开'}
+              onClick={handleToggle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleToggle()
+                }
+              }}
+            >
+              <ChevronRight size={14} />
+            </span>
+          ) : (
+            <span className="report-detail-row__chevron-spacer" aria-hidden />
+          )}
+          {icon && (
+            <CategoryIcon
+              name={icon}
+              color={node.iconColor ?? undefined}
+              size={iconSize}
+              iconSize={innerIconSize}
+            />
+          )}
           <span
-            className={`report-detail-node__name${hasChildren ? ' report-detail-node__name--expandable' : ''}`}
-            onClick={hasChildren ? () => onToggle(node.key) : undefined}
+            className={`report-detail-row__name${hasChildren ? ' report-detail-row__name--expandable' : ''}`}
+            onClick={hasChildren ? handleToggle : undefined}
           >
             {node.name}
           </span>
         </span>
-        <span className="report-detail-node__values">
+        <span className="report-detail-row__values">
           {config.columns.map(col => (
             <DetailValueCell
               key={col.key}
@@ -163,23 +259,19 @@ function DetailNode<M>({
           ))}
         </span>
       </div>
-      {hasChildren && isExpanded && (
-        <div className="report-detail-node__children">
-          {node.children!.map(child => (
-            <DetailNode
-              key={child.key}
-              node={child}
-              config={config}
-              depth={depth + 1}
-              isFuture={isFuture}
-              useClickTrigger={useClickTrigger}
-              expandedKeys={expandedKeys}
-              onToggle={onToggle}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+      {hasChildren && isExpanded && node.children!.map(child => (
+        <DetailNode
+          key={child.key}
+          node={child}
+          config={config}
+          depth={depth + 1}
+          isFuture={isFuture}
+          useClickTrigger={useClickTrigger}
+          expandedKeys={expandedKeys}
+          onToggle={onToggle}
+        />
+      ))}
+    </>
   )
 }
 
@@ -231,11 +323,13 @@ export function ReportDetailList<M>({
       return (
         <div className="report-detail-list">
           {[1, 2, 3].map(i => (
-            <div key={i} className="report-detail-node">
-              <div className="report-detail-node__header">
+            <div key={i} className="report-detail-row report-detail-row--skeleton">
+              <span className="report-detail-row__name-area">
                 <Skeleton.Input active size="small" style={{ width: 120 }} />
+              </span>
+              <span className="report-detail-row__values">
                 <Skeleton.Input active size="small" style={{ width: 80 }} />
-              </div>
+              </span>
             </div>
           ))}
         </div>

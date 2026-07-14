@@ -156,7 +156,9 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
         category: a.category?.name || '未分类',
         categoryId: a.categoryId,
         icon: a.icon,
+        color: a.color,
         categoryIcon: cat?.icon || null,
+        categoryColor: cat?.color || null,
         categorySort: cat?.sort ?? 0,
         accountSort: a.sort,
       }

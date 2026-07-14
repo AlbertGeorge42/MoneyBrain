@@ -9,7 +9,7 @@ import dayjs from 'dayjs'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
-import DynamicIcon from '../common/DynamicIcon'
+import CategoryIcon from '../common/CategoryIcon'
 import CategoryForm from './CategoryForm'
 import AccountForm from './AccountForm'
 import MoveModal from './MoveModal'
@@ -65,12 +65,14 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
       const catAccounts = localAccounts.filter(a => a.categoryId === cat.id).sort((a, b) => a.sort - b.sort)
       const children: AccountTreeNode[] = catAccounts.map(a => ({
         id: a.id, key: `account-${a.id}`, name: a.name, icon: a.icon || 'wallet',
+        color: a.color ?? null,
         type: 'account' as const, nodeType: a.type as 'asset' | 'liability',
         initialBalance: a.initialBalance, initialBalanceDate: a.initialBalanceDate,
         parentId: cat.id, sort: a.sort, depth: depth + 1,
       }))
       return {
         id: cat.id, key: `category-${cat.id}`, name: cat.name, icon: cat.icon || 'folder',
+        color: cat.color ?? null,
         type: 'category' as const, nodeType: cat.type as 'asset' | 'liability',
         parentId: undefined, sort: cat.sort,
         children: children.length > 0 ? children : undefined, depth,
@@ -89,8 +91,14 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   }
 
   const handleEditCategory = (record: AccountTreeNode) => {
-    setEditingCategory({ id: record.id, name: record.name, type: record.nodeType!, icon: record.icon, parentId: null, sort: record.sort || 0 } as AccountCategory)
-    categoryForm.setFieldsValue({ name: record.name, type: record.nodeType, icon: record.icon })
+    const category = localAccountCategories.find(c => c.id === record.id)
+    setEditingCategory(category ?? { id: record.id, name: record.name, type: record.nodeType!, icon: record.icon, parentId: null, sort: record.sort || 0, color: null } as AccountCategory)
+    categoryForm.setFieldsValue({
+      name: record.name,
+      type: record.nodeType,
+      icon: record.icon,
+      color: category?.color ?? null,
+    })
     setCategoryFormVisible(true)
   }
 
@@ -163,7 +171,13 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleAccountSubmit = async () => {
     try {
       const values = await accountForm.validateFields()
-      const submitData: Record<string, unknown> = { name: values.name, type: values.type, icon: values.icon, initialBalanceDate: values.initialBalanceDate?.format('YYYY-MM-DD') }
+      const submitData: Record<string, unknown> = {
+        name: values.name,
+        type: values.type,
+        icon: values.icon,
+        color: values.color ?? null,
+        initialBalanceDate: values.initialBalanceDate?.format('YYYY-MM-DD'),
+      }
       if (!editingAccount) submitData.categoryId = values.categoryId
       if (editingAccount) {
         if (values.initialBalance !== editingAccount.initialBalance) submitData.initialBalance = values.initialBalance
@@ -260,7 +274,16 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const getCategoryColumns = () => [
     { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderExpandIcon(record, expandedRowKeys, toggleExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
     { title: '', width: 30, render: (_: unknown, record: AccountTreeNode) => renderDragHandle(record, isSortable) },
-    { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: AccountTreeNode) => <span><DynamicIcon name={record.icon} size={16} fallback={record.type === 'category' ? 'folder' : 'wallet'} /> {text}</span> },
+    { title: '名称', dataIndex: 'name', key: 'name', render: (text: string, record: AccountTreeNode) => {
+      const isTopLevel = record.depth === 0
+      // 设置页面始终使用统一小图标，层级感通过字重/颜色表达
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', minHeight: 36, height: '100%' }}>
+          <CategoryIcon name={record.icon} fallback={record.type === 'category' ? 'folder' : 'wallet'} color={record.color} size={22} iconSize={13} />
+          <span style={{ marginLeft: 10, fontWeight: isTopLevel ? 600 : 500, color: isTopLevel ? 'var(--mb-color-text-primary)' : 'var(--mb-color-text-secondary)' }}>{text}</span>
+        </div>
+      )
+    } },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: AccountTreeNode) => <SettingDropdown items={getSettingMenuItems(record)} /> },
   ]
 

@@ -66,6 +66,7 @@ export async function exportConfig(): Promise<string> {
       type: c.type,
       sort: c.sort,
       icon: c.icon ?? undefined,
+      color: c.color ?? undefined,
       isCashEquivalent: c.isCashEquivalent,
       isInvestment: c.isInvestment,
     }))

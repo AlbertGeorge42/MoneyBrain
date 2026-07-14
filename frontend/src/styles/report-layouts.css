@@ -151,58 +151,120 @@
   gap: var(--mb-space-xl);
 }
 
-.report-detail-list {
-  display: grid;
-  gap: var(--mb-space-lg);
-}
-
-/* ===== 统一明细列表 ===== */
+/* ===== 统一明细列表（参考 Coinbase 风格的扁平无边框布局） ===== */
 
 .report-detail-list {
-  display: grid;
-  gap: var(--mb-space-md);
+  display: flex;
+  flex-direction: column;
 }
 
-.report-detail-node {
-  border: 1px solid var(--mb-color-border-subtle);
-  border-radius: var(--mb-radius-card);
-  background: var(--mb-color-bg-app);
-}
-
-.report-detail-node__header {
+.report-detail-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-space-lg);
-  padding: var(--mb-space-lg);
+  border-bottom: 1px solid var(--mb-color-border-subtle);
+  transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
+  font-variant-numeric: tabular-nums;
+  /* 统一 padding：行高由 name-area 的 min-height 决定，保证一二级图标 Y 中心对齐 */
+  padding: var(--mb-space-md) var(--mb-space-md);
 }
 
-.report-detail-node__name-area {
-  display: inline-flex;
+.report-detail-row--parent {
+  padding-top: var(--mb-space-md);
+  padding-bottom: var(--mb-space-md);
+}
+
+.report-detail-row--leaf {
+  padding-top: var(--mb-space-md);
+  padding-bottom: var(--mb-space-md);
+}
+
+.report-detail-row:hover {
+  background: var(--mb-color-bg-hover);
+}
+
+.report-detail-row:last-child {
+  border-bottom: none;
+}
+
+.report-detail-row--skeleton {
+  padding: var(--mb-space-lg) var(--mb-space-md);
+}
+
+.report-detail-row__name-area {
+  display: flex;
   align-items: center;
   gap: var(--mb-space-md);
   min-width: 0;
-  flex-shrink: 1;
+  flex: 1;
+  /* 固定 32px 高度：一级 32px 图标正好填满，二级 22px 图标垂直居中 → 跨行 Y 中心严格对齐 */
+  height: 32px;
 }
 
-.report-detail-node__name {
-  font-weight: 600;
+.report-detail-row__chevron,
+.report-detail-row__chevron-spacer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: var(--mb-radius-control);
+}
+
+.report-detail-row__chevron {
+  color: var(--mb-color-text-tertiary);
+  cursor: pointer;
+  transition: transform var(--mb-motion-fast) var(--mb-ease-standard), color var(--mb-motion-fast) var(--mb-ease-standard), background-color var(--mb-motion-fast) var(--mb-ease-standard);
+}
+
+.report-detail-row__chevron:hover {
+  color: var(--mb-color-text-secondary);
+  background: var(--mb-color-bg-selected);
+}
+
+.report-detail-row__chevron:focus-visible {
+  outline: 2px solid var(--mb-color-action-primary);
+  outline-offset: 1px;
+}
+
+.report-detail-row--expanded > .report-detail-row__name-area > .report-detail-row__chevron {
+  transform: rotate(90deg);
+}
+
+.report-detail-row__name {
+  font-size: var(--mb-font-size-body);
+  color: var(--mb-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  letter-spacing: -0.005em;
 }
 
-.report-detail-node__name--expandable {
-  text-decoration: underline;
-  text-decoration-color: var(--mb-color-text-tertiary);
-  text-underline-offset: 3px;
+.report-detail-row--parent > .report-detail-row__name-area > .report-detail-row__name {
+  font-weight: 600;
+}
+
+.report-detail-row--leaf > .report-detail-row__name-area > .report-detail-row__name {
+  font-weight: 500;
+  color: var(--mb-color-text-secondary);
+}
+
+.report-detail-row__name--expandable {
   cursor: pointer;
+  transition: color var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
-.report-detail-node__values {
+.report-detail-row__name--expandable:hover {
+  color: var(--mb-color-action-primary);
+}
+
+.report-detail-row__values {
   display: inline-flex;
   align-items: center;
-  gap: var(--mb-space-xl);
+  gap: var(--mb-space-md);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -210,35 +272,48 @@
 
 .report-detail-cell {
   display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
+  gap: var(--mb-space-sm);
 }
 
 .report-detail-cell__main {
   font-weight: 700;
+  font-size: var(--mb-font-size-body);
+  color: var(--mb-color-text-primary);
+  letter-spacing: -0.01em;
 }
 
-.report-detail-node__children {
-  padding: 0 0 0 var(--mb-space-2xl);
-  border-top: 1px solid var(--mb-color-border-subtle);
+.report-detail-row--leaf > .report-detail-row__values > .report-detail-cell > .report-detail-cell__main {
+  font-weight: 600;
+  color: var(--mb-color-text-secondary);
 }
 
-.report-detail-node__children .report-detail-node {
-  border: none;
-  border-radius: 0;
-  border-bottom: 1px solid var(--mb-color-border-subtle);
+/* 红/绿 pill 徽标：环比增减 */
+.report-detail-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: var(--mb-font-size-caption);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
-.report-detail-node__children .report-detail-node:last-child {
-  border-bottom: none;
+.report-detail-trend--good {
+  color: var(--mb-color-positive);
+  background: color-mix(in srgb, var(--mb-color-positive) 12%, transparent);
 }
 
-.report-detail-node__children .report-detail-node__header {
-  padding: var(--mb-space-lg) var(--mb-space-lg);
+.report-detail-trend--bad {
+  color: var(--mb-color-negative);
+  background: color-mix(in srgb, var(--mb-color-negative) 12%, transparent);
 }
 
-.report-detail-node__children .report-detail-node__children {
-  padding-left: var(--mb-space-xl);
+.report-detail-trend__value {
+  letter-spacing: -0.01em;
 }
 
 /* 报表响应式断点 */
@@ -312,15 +387,11 @@
     margin-bottom: var(--mb-space-lg);
   }
 
-  .report-detail-node__values {
-    gap: var(--mb-space-md);
+  .report-detail-row__values {
+    gap: var(--mb-space-sm);
   }
 
-  .report-detail-node__children {
-    padding-left: var(--mb-space-xl);
-  }
-
-  .report-detail-node__children .report-detail-node__children {
-    padding-left: var(--mb-space-lg);
+  .report-detail-row {
+    padding: var(--mb-space-md);
   }
 }

@@ -152,7 +152,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <Select placeholder="请选择转出账户">
                 {accounts.map(a => (
                   <Select.Option key={a.id} value={a.id}>
-                    <DynamicIcon name={a.icon} size={16} /> {a.name}
+                    {a.name}
                   </Select.Option>
                 ))}
               </Select>
@@ -167,7 +167,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <Select placeholder="请选择转入账户">
                 {accounts.map(a => (
                   <Select.Option key={a.id} value={a.id}>
-                    <DynamicIcon name={a.icon} size={16} /> {a.name}
+                    {a.name}
                   </Select.Option>
                 ))}
               </Select>
@@ -190,7 +190,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         <Select placeholder="请选择账户">
           {accounts.map(a => (
             <Select.Option key={a.id} value={a.id}>
-              <DynamicIcon name={a.icon} size={16} /> {a.name}
+              {a.name}
             </Select.Option>
           ))}
         </Select>

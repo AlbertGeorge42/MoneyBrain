@@ -2,6 +2,7 @@ import React from 'react'
 import { Modal, Form, Input, InputNumber, DatePicker } from 'antd'
 import type { FormInstance } from 'antd'
 import IconPicker from '../common/IconPicker'
+import ColorSwatchPicker from '../common/ColorSwatchPicker'
 
 interface AccountFormProps {
   visible: boolean
@@ -44,6 +45,9 @@ const AccountForm: React.FC<AccountFormProps> = ({
       </Form.Item>
       <Form.Item name="icon" label="图标">
         <IconPicker placeholder="请选择图标" />
+      </Form.Item>
+      <Form.Item name="color" label="颜色" extra="用于报表中账户图标的背景色（不选则使用中性色）">
+        <ColorSwatchPicker allowClear />
       </Form.Item>
     </Form>
   </Modal>

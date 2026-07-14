@@ -4,7 +4,6 @@ const { RangePicker } = DatePicker
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Budget } from '../../services/api'
 import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
-import DynamicIcon from '../common/DynamicIcon'
 
 export type BudgetFormType = 'income' | 'expense' | 'transfer'
 
@@ -86,7 +85,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               <Select placeholder="请选择转出账户" showSearch optionFilterProp="children">
                 {accounts.map(a => (
                   <Select.Option key={a.id} value={a.id}>
-                    {a.icon && <DynamicIcon name={a.icon} size={16} />} {a.name}
+                    {a.name}
                   </Select.Option>
                 ))}
               </Select>
@@ -101,7 +100,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               <Select placeholder="请选择转入账户" showSearch optionFilterProp="children">
                 {accounts.map(a => (
                   <Select.Option key={a.id} value={a.id}>
-                    {a.icon && <DynamicIcon name={a.icon} size={16} />} {a.name}
+                    {a.name}
                   </Select.Option>
                 ))}
               </Select>
@@ -120,7 +119,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         <Select placeholder="请选择账户" showSearch optionFilterProp="children">
           {accounts.map(a => (
             <Select.Option key={a.id} value={a.id}>
-              {a.icon && <DynamicIcon name={a.icon} size={16} />} {a.name}
+              {a.name}
             </Select.Option>
           ))}
         </Select>

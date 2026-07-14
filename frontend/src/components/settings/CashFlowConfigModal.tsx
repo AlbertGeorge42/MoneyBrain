@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAccountCategories, useTransactionCategories } from '../../queries'
 import { queryKeys } from '../../queries/keys'
 import { accountCategoryApi, transactionCategoryApi } from '../../services/api'
-import DynamicIcon from '../common/DynamicIcon'
+import CategoryIcon from '../common/CategoryIcon'
 import MoveModal from './MoveModal'
 import ConfigModalLayout from './ConfigModalLayout'
 import { renderExpandIcon, SettingDropdown, type CashTreeNode, type ActivityTreeNode, type MenuProps, type MoveTreeDataNode } from './shared'
@@ -79,7 +79,7 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
 
   const cashColumns = [
     { title: '', width: 30, render: (_: unknown, record: CashTreeNode) => renderExpandIcon(record, expandedCashKeys, toggleCashExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
-    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: CashTreeNode) => record.isGroup ? <strong><Tag color={ASSET_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span><DynamicIcon name={record.icon} size={16} fallback="folder" /> {name}</span> },
+    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: CashTreeNode) => record.isGroup ? <strong><Tag color={ASSET_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><CategoryIcon name={record.icon} color={record.color ?? null} size={22} iconSize={12} fallback="folder" /> {name}</span> },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: CashTreeNode) => record.isGroup ? null : <SettingDropdown items={getCashSettingMenuItems(record)} /> },
   ]
 
@@ -120,7 +120,7 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
 
   const activityColumns = [
     { title: '', width: 30, render: (_: unknown, record: ActivityTreeNode) => renderExpandIcon(record, expandedActivityKeys, toggleActivityExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
-    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: ActivityTreeNode) => record.isGroup ? <strong><Tag color={ACTIVITY_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span><DynamicIcon name={record.icon} size={16} fallback="file-text" /> {name}{record.childCount && record.childCount > 0 ? <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px`, marginLeft: `${token.paddingXS}px` }}>({record.childCount} 个子分类)</span> : null}</span> },
+    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: ActivityTreeNode) => record.isGroup ? <strong><Tag color={ACTIVITY_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><CategoryIcon name={record.icon} color={record.color ?? null} size={22} iconSize={12} fallback="file-text" /> {name}{record.childCount && record.childCount > 0 ? <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px`, marginLeft: `${token.paddingXS}px` }}>({record.childCount} 个子分类)</span> : null}</span> },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: ActivityTreeNode) => record.isGroup || record.depth > 1 ? null : <SettingDropdown items={getActivitySettingMenuItems(record)} /> },
   ]
 

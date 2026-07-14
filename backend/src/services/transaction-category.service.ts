@@ -13,6 +13,7 @@ type TransactionCategoryCreatePayload = {
   name: string
   type: string
   icon?: string | null
+  color?: string | null
   parentId?: string | null
   cashFlowType?: string | null
   sort?: number | null
@@ -22,6 +23,7 @@ type TransactionCategoryUpdatePayload = {
   name?: string
   type?: string
   icon?: string | null
+  color?: string | null
   parentId?: string | null
   cashFlowType?: string | null
   sort?: number | null
@@ -77,6 +79,7 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
       name: data.name,
       type: data.type,
       icon: data.icon,
+      color: data.color,
       parentId: data.parentId || null,
       cashFlowType: data.cashFlowType,
       sort: finalSort,
@@ -125,6 +128,7 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
     name?: string
     type?: string
     icon?: string | null
+    color?: string | null
     parentId?: string | null
     cashFlowType?: string | null
     sort?: number
@@ -138,6 +142,9 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
   }
   if (data.icon !== undefined) {
     updateData.icon = data.icon
+  }
+  if (data.color !== undefined) {
+    updateData.color = data.color
   }
   if (data.parentId !== undefined) {
     updateData.parentId = data.parentId

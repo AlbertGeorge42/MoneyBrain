@@ -25,6 +25,7 @@ export interface BaseTreeNode {
   key: string
   name: string
   icon: string | null
+  color?: string | null
   children?: BaseTreeNode[]
   depth: number
 }

@@ -113,6 +113,13 @@ export function syncCssVars(isDark: boolean): void {
     '--mb-color-bg-panel': token.colorBgContainer,
     '--mb-color-bg-hover': token.controlItemBgHover || token.colorBgTextHover,
     '--mb-color-bg-selected': token.controlItemBgActive || token.colorPrimaryBg,
+    // 中性背景（图标默认容器，无颜色时使用）
+    // - bold 组：浅色模式使用，与彩色实心色块视觉一致
+    // - pale 组：深色模式使用，与彩色淡色色块视觉一致
+    '--mb-color-bg-neutral-bold': token.colorTextSecondary,
+    '--mb-color-fg-neutral-bold': token.colorBgContainer,
+    '--mb-color-bg-neutral-pale': token.colorFillSecondary,
+    '--mb-color-fg-neutral-pale': token.colorTextSecondary,
     // 边框色
     '--mb-color-border-subtle': token.colorBorderSecondary,
     '--mb-color-border': token.colorBorder,

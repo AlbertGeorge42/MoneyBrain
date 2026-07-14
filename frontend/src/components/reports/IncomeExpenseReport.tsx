@@ -54,6 +54,7 @@ function adaptIncomeExpenseTree(
     key: `${reportType}-${item.categoryId}`,
     name: item.name,
     icon: item.icon,
+    iconColor: item.color ?? null,
     children: item.children ? adaptIncomeExpenseTree(item.children, reportType) : undefined,
     metrics: {
       total: reportType === 'expense' ? Math.abs(item.actual + item.predicted) : item.actual + item.predicted,
