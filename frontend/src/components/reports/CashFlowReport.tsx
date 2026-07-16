@@ -11,6 +11,17 @@ import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
 import { getTokenValue } from '../../styles/theme/css-utils'
 
+/** 默认分类的固定图标和颜色映射 */
+const ACTIVITY_META: Record<string, { icon: string; iconColor: string }> = {
+  operating: { icon: 'briefcase', iconColor: 'blue' },
+  investing: { icon: 'trending-up', iconColor: 'purple' },
+  financing: { icon: 'landmark', iconColor: 'orange' },
+}
+
+/** 流入/流出父节点的固定颜色 */
+const INFLOW_COLOR = 'green'
+const OUTFLOW_COLOR = 'red'
+
 interface CashFlowDetailMetrics {
   inflow: number
   outflow: number
@@ -53,16 +64,18 @@ const activityEntries: Array<{ key: 'operating' | 'investing' | 'financing'; tit
 
 function adaptCashFlowActivity(
   activity: CashFlowReportData['byActivity']['operating'],
-  activityKey: string
+  activityKey: string,
 ): ReportTreeNode<CashFlowDetailMetrics>[] {
   const inflowItems: ReportTreeNode<CashFlowDetailMetrics>[] = []
   const outflowItems: ReportTreeNode<CashFlowDetailMetrics>[] = []
 
+  // 后端已返回树形结构，直接适配
   activity.items.forEach((item) => {
-    // 符号约定：item.amount 已是带符号（inflow>0, outflow<0）
     const node: ReportTreeNode<CashFlowDetailMetrics> = {
-      key: `item-${activityKey}-${item.categoryName}`,
+      key: `item-${activityKey}-${item.categoryId || item.categoryName}`,
       name: item.categoryName,
+      icon: item.icon ?? undefined,
+      iconColor: item.color ?? null,
       metrics: {
         inflow: item.direction === 'inflow' ? item.amount : 0,
         outflow: item.direction === 'outflow' ? item.amount : 0,
@@ -70,6 +83,19 @@ function adaptCashFlowActivity(
         actual: item.actual,
         predicted: item.predicted,
       },
+      children: item.children?.map(child => ({
+        key: `item-${activityKey}-${child.categoryId || child.categoryName}`,
+        name: child.categoryName,
+        icon: child.icon ?? undefined,
+        iconColor: child.color ?? null,
+        metrics: {
+          inflow: child.direction === 'inflow' ? child.amount : 0,
+          outflow: child.direction === 'outflow' ? child.amount : 0,
+          net: child.amount,
+          actual: child.actual,
+          predicted: child.predicted,
+        },
+      })),
     }
     if (item.direction === 'inflow') {
       inflowItems.push(node)
@@ -86,6 +112,7 @@ function adaptCashFlowActivity(
       key: `inflow-${activityKey}`,
       name: '流入',
       icon: 'arrow-up',
+      iconColor: INFLOW_COLOR,
       metrics: { inflow: totalInflow, outflow: 0, net: totalInflow, actual: activity.inflow.actual, predicted: activity.inflow.predicted },
       children: inflowItems,
     },
@@ -93,6 +120,7 @@ function adaptCashFlowActivity(
       key: `outflow-${activityKey}`,
       name: '流出',
       icon: 'arrow-down',
+      iconColor: OUTFLOW_COLOR,
       // outflow 已是负数
       metrics: { inflow: 0, outflow: totalOutflow, net: totalOutflow, actual: activity.outflow.actual, predicted: activity.outflow.predicted },
       children: outflowItems,
@@ -325,23 +353,26 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const detailSection = (
     <>
       <div className="report-chart-grid report-chart-grid--3">
-        {activityEntries.map(({ key, title }) => (
-          <ReportDetailList
-            key={key}
-            data={adaptCashFlowActivity(byActivity[key], key)}
-            config={{
-              columns: cashFlowColumns,
-              parentIcon: 'swap',
-              leafIcon: 'transaction',
-              expandable: true,
-              defaultExpandDepth: 1,
-            }}
-            loading={loading}
-            isFuture={showPred}
-            useClickTrigger={useClickTrigger}
-            title={isFuture ? <>{title} <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : title}
-          />
-        ))}
+        {activityEntries.map(({ key, title }) => {
+          const meta = ACTIVITY_META[key]
+          return (
+            <ReportDetailList
+              key={key}
+              data={adaptCashFlowActivity(byActivity[key], key)}
+              config={{
+                columns: cashFlowColumns,
+                parentIcon: meta?.icon ?? 'swap',
+                leafIcon: 'transaction',
+                expandable: true,
+                defaultExpandDepth: 1,
+              }}
+              loading={loading}
+              isFuture={showPred}
+              useClickTrigger={useClickTrigger}
+              title={isFuture ? <>{title} <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : title}
+            />
+          )
+        })}
       </div>
       {cashFlowData?.cashAccounts && cashFlowData.cashAccounts.length > 0 && (
         <Card title="现金账户" size="small" className="surface-card report-section-card">

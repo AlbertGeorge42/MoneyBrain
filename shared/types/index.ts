@@ -163,18 +163,29 @@ export interface AnalyticsAssetTrendItem {
   netWorth: number
 }
 
-export interface BalanceSheetAccountItem {
-  id: string
+// 资产负债表 - 分类节点
+export interface BalanceSheetCategoryNode {
+  id: string  // categoryId
   name: string
   type: 'asset' | 'liability'
+  sort: number
+  icon?: string | null
+  color?: string | null
   actual: number
   predicted: number
-  category: string
-  categorySort?: number
-  categoryIcon?: string
-  categoryColor?: string | null
-  icon?: string
+  children: BalanceSheetAccountNode[]
+}
+
+// 资产负债表 - 账户节点
+export interface BalanceSheetAccountNode {
+  id: string  // accountId
+  name: string
+  categoryId: string
+  type: 'asset' | 'liability'
+  icon?: string | null
   color?: string | null
+  actual: number
+  predicted: number
 }
 
 export interface BalanceSheetReportData {
@@ -185,7 +196,8 @@ export interface BalanceSheetReportData {
   netWorth: ReportValue
   assetsByCategory: Record<string, number>
   liabilitiesByCategory: Record<string, number>
-  accounts: BalanceSheetAccountItem[]
+  assetNodes: BalanceSheetCategoryNode[]
+  liabilityNodes: BalanceSheetCategoryNode[]
   predictionNote?: string
 }
 
@@ -223,11 +235,17 @@ export interface IncomeExpenseReportData {
 
 export interface CashFlowActivityItem {
   categoryName: string
+  categoryId: string | null
+  parentId: string | null
+  level: number
   amount: number
   actual: number
   predicted: number
   type: string
   direction: string
+  icon?: string | null
+  color?: string | null
+  children?: CashFlowActivityItem[]
 }
 
 export interface CashFlowActivity {
@@ -287,8 +305,10 @@ export interface InvestmentAccountDetail {
   name: string
   categoryId: string | null
   categoryName: string
-  categoryIcon: string | null
-  icon: string | null
+  icon?: string | null
+  color?: string | null
+  categoryIcon?: string | null
+  categoryColor?: string | null
   balance: number
   ratio: number
   totalInvested: number
@@ -301,7 +321,8 @@ export interface InvestmentAccountDetail {
 export interface InvestmentCategorySummary {
   categoryId: string
   categoryName: string
-  icon: string | null
+  icon?: string | null
+  color?: string | null
   balance: number
   ratio: number
   accounts: InvestmentAccountDetail[]
@@ -375,6 +396,7 @@ export interface AccountAllocationItem {
   assetClassId: string
   name: string
   icon: string | null
+  color: string | null
   marketValue: number
   ratio: number
   targetRatio: number | null
@@ -402,6 +424,8 @@ export interface SnapshotHistoryItem {
 export interface AccountAllocationDetail {
   accountId: string
   accountName: string
+  accountIcon: string | null
+  accountColor: string | null
   balance: number
   hasAssetClasses: boolean
   latestSnapshotDate: string | null

@@ -17,8 +17,9 @@ interface AccountWithCategory {
   id: string
   name: string
   categoryId: string | null
-  category: { id: string; name: string; icon: string | null } | null
+  category: { id: string; name: string; icon: string | null; color: string | null } | null
   icon: string | null
+  color: string | null
   initialBalance: { toNumber: () => number }
   initialBalanceDate: Date | null
   createdAt: Date
@@ -29,8 +30,10 @@ interface InvestmentAccountDetail {
   name: string
   categoryId: string | null
   categoryName: string
-  categoryIcon: string | null
   icon: string | null
+  color: string | null
+  categoryIcon: string | null
+  categoryColor: string | null
   balance: number
   ratio: number
   totalInvested: number
@@ -44,6 +47,7 @@ interface InvestmentCategorySummary {
   categoryId: string
   categoryName: string
   icon: string | null
+  color: string | null
   balance: number
   ratio: number
   accounts: InvestmentAccountDetail[]
@@ -78,6 +82,7 @@ interface AccountAllocationItem {
   assetClassId: string
   name: string
   icon: string | null
+  color: string | null
   marketValue: number
   ratio: number
   targetRatio: number | null
@@ -105,6 +110,8 @@ interface SnapshotHistoryItem {
 interface AccountAllocationDetail {
   accountId: string
   accountName: string
+  accountIcon: string | null
+  accountColor: string | null
   balance: number
   hasAssetClasses: boolean
   latestSnapshotDate: string | null
@@ -328,7 +335,7 @@ function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: number =
 }
 
 async function buildAccountAllocationDetail(
-  account: { id: string; name: string; balance: number },
+  account: { id: string; name: string; balance: number; icon: string | null; color: string | null },
   endDate: Date,
   startDate: Date,
   balanceCache: BalanceCache
@@ -363,6 +370,8 @@ async function buildAccountAllocationDetail(
     return {
       accountId: account.id,
       accountName: account.name,
+      accountIcon: account.icon,
+      accountColor: account.color,
       balance: account.balance,
       hasAssetClasses: false,
       latestSnapshotDate: null,
@@ -390,6 +399,8 @@ async function buildAccountAllocationDetail(
     return {
       accountId: account.id,
       accountName: account.name,
+      accountIcon: account.icon,
+      accountColor: account.color,
       balance: account.balance,
       hasAssetClasses: true,
       latestSnapshotDate: null,
@@ -436,6 +447,7 @@ async function buildAccountAllocationDetail(
       assetClassId: item.assetClassId,
       name: item.assetClass.name,
       icon: item.assetClass.icon,
+      color: item.assetClass.color,
       marketValue: item.marketValue,
       ratio,
       targetRatio,
@@ -456,6 +468,7 @@ async function buildAccountAllocationDetail(
       assetClassId: '__unclassified__',
       name: '未分类',
       icon: null,
+      color: null,
       marketValue: unclassifiedValue,
       ratio: 0, // 未分类不参与比例计算
       targetRatio: null,
@@ -500,6 +513,8 @@ async function buildAccountAllocationDetail(
   return {
     accountId: account.id,
     accountName: account.name,
+    accountIcon: account.icon,
+    accountColor: account.color,
     balance: account.balance,
     hasAssetClasses: true,
     latestSnapshotDate: formatDateLocal(latestSnapshot.date),
@@ -667,7 +682,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   }
 
   // 按分类汇总
-  const categoryMap = new Map<string, { category: { id: string; name: string; icon: string | null }; accounts: AccountWithCategory[] }>()
+  const categoryMap = new Map<string, { category: { id: string; name: string; icon: string | null; color: string | null }; accounts: AccountWithCategory[] }>()
 
   for (const account of investmentAccounts) {
     if (account.category) {
@@ -719,8 +734,10 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
         name: account.name,
         categoryId: account.categoryId,
         categoryName: account.category?.name || '未分类',
+        icon: account.icon || null,
+        color: account.color || null,
         categoryIcon: account.category?.icon || null,
-        icon: account.icon,
+        categoryColor: account.category?.color || null,
         balance,
         ratio: accountRatio,
         totalInvested: accInvested,
@@ -735,6 +752,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
       categoryId,
       categoryName: data.category.name,
       icon: data.category.icon,
+      color: data.category.color,
       balance: categoryBalance,
       ratio,
       accounts: accountDetails,
@@ -770,6 +788,8 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const accountDetails = investmentAccounts.map(a => ({
     id: a.id,
     name: a.name,
+    icon: a.icon,
+    color: a.color,
     balance: balanceCache.get(a.id, nextDayOfEnd),
   }))
 

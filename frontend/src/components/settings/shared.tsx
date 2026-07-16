@@ -55,7 +55,6 @@ export interface ActivityTreeNode extends BaseTreeNode {
   isGroup: boolean
   groupKey?: string
   cashFlowType?: string | null
-  childCount?: number
 }
 
 export interface MoveModalState<T> {

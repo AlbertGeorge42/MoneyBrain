@@ -58,7 +58,8 @@ function buildInvestmentTreeData(
   return allocations.map((allocation) => ({
     key: `account-${allocation.accountId}`,
     name: allocation.accountName,
-    icon: 'wallet',
+    icon: allocation.accountIcon || 'wallet',
+    iconColor: allocation.accountColor ?? null,
     metrics: {
       balance: allocation.balance,
       marketValue: allocation.balance,
@@ -68,7 +69,8 @@ function buildInvestmentTreeData(
     children: allocation.items.map((item) => ({
       key: `asset-${allocation.accountId}-${item.assetClassId}`,
       name: item.name,
-      icon: item.icon,
+      icon: item.icon || undefined,
+      iconColor: item.color ?? null,
       metrics: {
         balance: 0,
         marketValue: item.marketValue,

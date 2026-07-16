@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Table, Tabs, Tag, theme } from 'antd'
+import { Table, theme } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAccountCategories, useTransactionCategories } from '../../queries'
@@ -17,18 +17,29 @@ interface CashFlowConfigModalProps {
   onClose: () => void
 }
 
-const ASSET_GROUPS: Record<string, { label: string; color: string }> = {
-  cash: { label: '现金及等价物', color: 'green' },
-  investment: { label: '投资资产', color: 'blue' },
-  other: { label: '其他资产', color: 'default' },
+/** 资产分类分组的固定图标和颜色 */
+const ASSET_GROUPS: Record<string, { label: string; icon: string; color: string }> = {
+  cash: { label: '现金及等价物', icon: 'banknote', color: 'green' },
+  investment: { label: '投资资产', icon: 'trending-up', color: 'blue' },
+  other: { label: '其他资产', icon: 'archive', color: 'default' },
 }
 
-const ACTIVITY_GROUPS: Record<string, { label: string; color: string }> = {
-  operating: { label: '经营活动', color: 'green' },
-  investing: { label: '投资活动', color: 'blue' },
-  financing: { label: '筹资活动', color: 'orange' },
-  unassigned: { label: '未分配', color: 'default' },
+/** 交易活动分组的固定图标和颜色（与报表 CashFlowReport 的 ACTIVITY_META 保持一致） */
+const ACTIVITY_GROUPS: Record<string, { label: string; icon: string; color: string }> = {
+  operating: { label: '经营活动', icon: 'briefcase', color: 'blue' },
+  investing: { label: '投资活动', icon: 'trending-up', color: 'purple' },
+  financing: { label: '筹资活动', icon: 'landmark', color: 'orange' },
+  unassigned: { label: '未分配', icon: 'help-circle', color: 'default' },
 }
+
+/** 与 AccountConfigModal / TransactionConfigModal 统一的名称列样式 */
+const renderNameCell = (name: string, icon: string | null, color: string | null | undefined, isTopLevel: boolean, extra?: React.ReactNode) => (
+  <div style={{ display: 'flex', alignItems: 'center', minHeight: 36, height: '100%' }}>
+    <CategoryIcon name={icon} fallback="file-text" color={color} size={22} iconSize={13} />
+    <span style={{ marginLeft: 10, fontWeight: isTopLevel ? 600 : 500, color: isTopLevel ? 'var(--mb-color-text-primary)' : 'var(--mb-color-text-secondary)' }}>{name}</span>
+    {extra}
+  </div>
+)
 
 const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onClose }) => {
   const { token } = theme.useToken()
@@ -43,11 +54,12 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
 
   const cashTreeData = useMemo(() => {
     const groupMap: Record<string, CashTreeNode[]> = { cash: [], investment: [], other: [] }
-    accountCategories.forEach(cat => {
+    // 只包含资产类型的账户分类，过滤掉负债类型
+    accountCategories.filter(cat => cat.type === 'asset').forEach(cat => {
       const type = cat.isCashEquivalent ? 'cash' : cat.isInvestment ? 'investment' : 'other'
-      groupMap[type].push({ id: cat.id, key: `cash-${cat.id}`, name: cat.name, icon: cat.icon, isGroup: false, depth: 1 })
+      groupMap[type].push({ id: cat.id, key: `cash-${cat.id}`, name: cat.name, icon: cat.icon, color: cat.color ?? null, isGroup: false, depth: 1 })
     })
-    return Object.entries(ASSET_GROUPS).map(([key, config]) => ({ id: key, key: `group-${key}`, name: config.label, icon: null, isGroup: true, groupKey: key, children: groupMap[key].length > 0 ? groupMap[key] : undefined, depth: 0 }))
+    return Object.entries(ASSET_GROUPS).map(([key, config]) => ({ id: key, key: `group-${key}`, name: config.label, icon: config.icon, color: config.color, isGroup: true, groupKey: key, children: groupMap[key].length > 0 ? groupMap[key] : undefined, depth: 0 }))
   }, [accountCategories])
 
   const handleCashMoveConfirm = async () => {
@@ -79,20 +91,20 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
 
   const cashColumns = [
     { title: '', width: 30, render: (_: unknown, record: CashTreeNode) => renderExpandIcon(record, expandedCashKeys, toggleCashExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
-    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: CashTreeNode) => record.isGroup ? <strong><Tag color={ASSET_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><CategoryIcon name={record.icon} color={record.color ?? null} size={22} iconSize={12} fallback="folder" /> {name}</span> },
+    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: CashTreeNode) => record.isGroup ? renderNameCell(name, record.icon, record.color, true, <span style={{ color: 'var(--mb-color-text-tertiary)', fontWeight: 400, fontSize: 'var(--mb-font-size-sm)', marginLeft: 4 }}>({record.children?.length || 0} 个分类)</span>) : renderNameCell(name, record.icon, record.color, false) },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: CashTreeNode) => record.isGroup ? null : <SettingDropdown items={getCashSettingMenuItems(record)} /> },
   ]
 
   const buildActivityTreeData = useMemo(() => {
     const buildForType = (type: 'income' | 'expense' | 'transfer'): ActivityTreeNode[] => {
+      // 只获取一级分类（parentId 为 null）
       const parentCats = transactionCategories.filter(c => c.type === type && !c.parentId)
       const buildNode = (cat: typeof transactionCategories[0], depth: number): ActivityTreeNode => ({
-        id: cat.id, key: `activity-cat-${cat.id}`, name: cat.name, icon: cat.icon, isGroup: false, cashFlowType: cat.cashFlowType, depth, childCount: transactionCategories.filter(c => c.parentId === cat.id).length,
-        ...(transactionCategories.filter(c => c.parentId === cat.id).length > 0 ? { children: transactionCategories.filter(c => c.parentId === cat.id).map(c => buildNode(c, depth + 1)) } : {}),
+        id: cat.id, key: `activity-cat-${cat.id}`, name: cat.name, icon: cat.icon, color: cat.color ?? null, isGroup: false, cashFlowType: cat.cashFlowType, depth,
       })
       const groupMap: Record<string, ActivityTreeNode[]> = { operating: [], investing: [], financing: [], unassigned: [] }
       parentCats.forEach(cat => { const group = cat.cashFlowType || 'unassigned'; groupMap[group].push(buildNode(cat, 1)) })
-      return Object.entries(ACTIVITY_GROUPS).map(([key, config]) => ({ id: key, key: `group-${key}-${type}`, name: config.label, icon: null, isGroup: true, groupKey: key, children: groupMap[key].length > 0 ? groupMap[key] : undefined, depth: 0 }))
+      return Object.entries(ACTIVITY_GROUPS).map(([key, config]) => ({ id: key, key: `group-${key}-${type}`, name: config.label, icon: config.icon, color: config.color, isGroup: true, groupKey: key, children: groupMap[key].length > 0 ? groupMap[key] : undefined, depth: 0 }))
     }
     return { income: buildForType('income'), expense: buildForType('expense'), transfer: buildForType('transfer') }
   }, [transactionCategories])
@@ -120,7 +132,7 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
 
   const activityColumns = [
     { title: '', width: 30, render: (_: unknown, record: ActivityTreeNode) => renderExpandIcon(record, expandedActivityKeys, toggleActivityExpand, token.colorTextSecondary, `${token.fontSizeSM}px`) },
-    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: ActivityTreeNode) => record.isGroup ? <strong><Tag color={ACTIVITY_GROUPS[record.groupKey!]?.color}>{name}</Tag><span style={{ color: token.colorTextTertiary, fontWeight: 'normal', fontSize: `${token.fontSizeSM}px`, marginLeft: '4px' }}>({record.children?.length || 0} 个分类)</span></strong> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><CategoryIcon name={record.icon} color={record.color ?? null} size={22} iconSize={12} fallback="file-text" /> {name}{record.childCount && record.childCount > 0 ? <span style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px`, marginLeft: `${token.paddingXS}px` }}>({record.childCount} 个子分类)</span> : null}</span> },
+    { title: '分类名称', dataIndex: 'name', key: 'name', render: (name: string, record: ActivityTreeNode) => record.isGroup ? renderNameCell(name, record.icon, record.color, true, <span style={{ color: 'var(--mb-color-text-tertiary)', fontWeight: 400, fontSize: 'var(--mb-font-size-sm)', marginLeft: 4 }}>({record.children?.length || 0} 个分类)</span>) : renderNameCell(name, record.icon, record.color, false) },
     { title: '操作', key: 'action', width: 80, render: (_: unknown, record: ActivityTreeNode) => record.isGroup || record.depth > 1 ? null : <SettingDropdown items={getActivitySettingMenuItems(record)} /> },
   ]
 
@@ -130,8 +142,10 @@ const CashFlowConfigModal: React.FC<CashFlowConfigModalProps> = ({ visible, onCl
   )
 
   const tabItems = [
-    { key: 'asset-category', label: '资产分类管理', children: <div><p style={{ color: token.colorTextTertiary, marginBottom: 12 }}>将资产分类划分为现金及等价物、投资资产、其他资产三类，用于现金流量表计算。</p><Table dataSource={cashTreeData} columns={cashColumns} rowKey="key" size="small" pagination={false} indentSize={20} expandedRowKeys={expandedCashKeys} onExpandedRowsChange={(keys) => setExpandedCashKeys(keys as string[])} expandable={{ rowExpandable: (r) => !!(r.children?.length), expandIcon: () => null }} /></div> },
-    { key: 'activity-type', label: '交易活动管理', children: <div><p style={{ color: token.colorTextTertiary, marginBottom: 12 }}>为一级收支分类配置现金流活动类型，移动后自动应用到所有子分类</p><Tabs items={[{ key: 'income', label: '收入分类', children: renderActivityTable('income') }, { key: 'expense', label: '支出分类', children: renderActivityTable('expense') }, { key: 'transfer', label: '转账分类', children: renderActivityTable('transfer') }]} /></div> },
+    { key: 'asset-category', label: '资产分类', children: <Table dataSource={cashTreeData} columns={cashColumns} rowKey="key" size="small" pagination={false} indentSize={20} expandedRowKeys={expandedCashKeys} onExpandedRowsChange={(keys) => setExpandedCashKeys(keys as string[])} expandable={{ rowExpandable: (r) => !!(r.children?.length), expandIcon: () => null }} /> },
+    { key: 'income-category', label: '收入分类', children: renderActivityTable('income') },
+    { key: 'expense-category', label: '支出分类', children: renderActivityTable('expense') },
+    { key: 'transfer-category', label: '转账分类', children: renderActivityTable('transfer') },
   ]
 
   return (

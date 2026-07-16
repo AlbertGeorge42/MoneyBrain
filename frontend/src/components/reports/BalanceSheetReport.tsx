@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { Button, Card, Grid, Space, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import type { BalanceSheetAccountItem, BalanceSheetReportData } from '@shared/types'
+import type { BalanceSheetCategoryNode, BalanceSheetReportData } from '@shared/types'
 import { PointTimePickerField, ReportDetailList } from '../common'
 import type { PointTimePickerConfig, PointTimeValue, ReportTreeNode, ReportDetailColumn } from '../common'
 import { PieChart, type PieChartDataItem } from '../charts'
@@ -34,64 +34,34 @@ const balanceSheetColumns: ReportDetailColumn<BalanceSheetMetrics>[] = [
   },
 ]
 
-function buildBalanceSheetTreeData(accounts: BalanceSheetAccountItem[] | undefined): {
-  assetNodes: BalanceSheetNode[]
-  liabilityNodes: BalanceSheetNode[]
-} {
-  if (!accounts || accounts.length === 0) {
-    return { assetNodes: [], liabilityNodes: [] }
-  }
-
-  const groupedByCategory: Record<string, BalanceSheetAccountItem[]> = {}
-  const categorySortMap: Record<string, number> = {}
-
-  accounts.forEach((account) => {
-    const category = account.category || '未分类'
-    if (!groupedByCategory[category]) {
-      groupedByCategory[category] = []
-      categorySortMap[category] = account.categorySort ?? 0
-    }
-    groupedByCategory[category].push(account)
-  })
-
-  const buildTree = (type: 'asset' | 'liability'): BalanceSheetNode[] =>
-    Object.keys(groupedByCategory)
-      .filter((category) => groupedByCategory[category]?.some((account) => account.type === type))
-      .sort((left, right) => categorySortMap[left] - categorySortMap[right])
-      .map((category): BalanceSheetNode => {
-        const filteredAccounts = groupedByCategory[category].filter((account) => account.type === type)
-        const children: BalanceSheetNode[] = filteredAccounts.map(
-          (account): BalanceSheetNode => ({
-            key: `account-${account.id}`,
-            name: account.name,
-            icon: account.icon || undefined,
-            iconColor: account.color ?? null,
-            metrics: {
-              balance: account.actual + (account.predicted || 0),
-              actual: account.actual,
-              predicted: account.predicted || 0,
-              nodeType: type,
-            },
-          })
-        )
-        return {
-          key: `category-${category}-${type}`,
-          name: category,
-          icon: groupedByCategory[category][0]?.categoryIcon || undefined,
-          iconColor: groupedByCategory[category][0]?.categoryColor ?? null,
-          metrics: {
-            balance: filteredAccounts.reduce((sum, account) => sum + account.actual + (account.predicted || 0), 0),
-            actual: filteredAccounts.reduce((sum, account) => sum + account.actual, 0),
-            predicted: children.reduce((sum, child) => sum + (child.metrics?.predicted ?? 0), 0),
-            nodeType: type,
-          },
-          children,
-        }
-      })
-
+// 适配后端返回的树形数据为前端 ReportTreeNode 格式
+function adaptBalanceSheetNode(
+  node: BalanceSheetCategoryNode,
+  nodeType: 'asset' | 'liability'
+): ReportTreeNode<BalanceSheetMetrics> {
   return {
-    assetNodes: buildTree('asset'),
-    liabilityNodes: buildTree('liability'),
+    key: `category-${node.id}`,
+    name: node.name,
+    icon: node.icon || undefined,
+    iconColor: node.color ?? null,
+    metrics: {
+      balance: node.actual + node.predicted,
+      actual: node.actual,
+      predicted: node.predicted,
+      nodeType,
+    },
+    children: node.children?.map(child => ({
+      key: `account-${child.id}`,
+      name: child.name,
+      icon: child.icon || undefined,
+      iconColor: child.color ?? null,
+      metrics: {
+        balance: child.actual + child.predicted,
+        actual: child.actual,
+        predicted: child.predicted,
+        nodeType,
+      },
+    })),
   }
 }
 
@@ -129,9 +99,13 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
 
   const { isFuture } = getPointTimeSemantics(targetDate)
 
+  // 直接使用后端返回的树形数据
   const treeData = useMemo(
-    () => buildBalanceSheetTreeData(balanceSheetData?.accounts),
-    [balanceSheetData?.accounts]
+    () => ({
+      assetNodes: (balanceSheetData?.assetNodes || []).map(node => adaptBalanceSheetNode(node, 'asset')),
+      liabilityNodes: (balanceSheetData?.liabilityNodes || []).map(node => adaptBalanceSheetNode(node, 'liability')),
+    }),
+    [balanceSheetData?.assetNodes, balanceSheetData?.liabilityNodes]
   )
 
   const assetPieData = useMemo(

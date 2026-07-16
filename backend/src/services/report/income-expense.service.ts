@@ -213,6 +213,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
         hasChildren,
         sort: cat.sort,
         icon: cat.icon,
+        color: cat.color,
         children: childLeaves.length > 0 ? childLeaves : undefined,
       })
     }

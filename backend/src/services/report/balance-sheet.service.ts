@@ -15,18 +15,29 @@ const logger = rootLogger.child({ module: 'report' })
 
 export type DateGranularity = 'day' | 'month' | 'year'
 
-export interface BalanceSheetAccount {
-  id: string
+// 资产负债表 - 分类节点
+export interface BalanceSheetCategoryNode {
+  id: string  // categoryId
   name: string
-  type: string
+  type: 'asset' | 'liability'
+  sort: number
+  icon: string | null
+  color: string | null
   actual: number
   predicted: number
-  category: string
-  categoryId: string | null
+  children: BalanceSheetAccountNode[]
+}
+
+// 资产负债表 - 账户节点
+export interface BalanceSheetAccountNode {
+  id: string  // accountId
+  name: string
+  categoryId: string
+  type: 'asset' | 'liability'
   icon: string | null
-  categoryIcon: string | null
-  categorySort: number
-  accountSort: number
+  color: string | null
+  actual: number
+  predicted: number
 }
 
 export interface ReportValue {
@@ -42,7 +53,8 @@ export interface BalanceSheetResult {
   netWorth: ReportValue
   assetsByCategory: Record<string, number>
   liabilitiesByCategory: Record<string, number>
-  accounts: BalanceSheetAccount[]
+  assetNodes: BalanceSheetCategoryNode[]
+  liabilityNodes: BalanceSheetCategoryNode[]
   predictionNote?: string
 }
 
@@ -139,42 +151,60 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
 
   const categoryMap = new Map(categories.map(c => [c.id, c]))
 
-  const sortedAccounts = accountBalances
-    .map(a => {
-      const cat = a.category ? categoryMap.get(a.category.id) : null
-      // 符号约定：负债账户的 actual/predicted 取反，与 liabilities.actual 正数约定一致
-      // 数据库中负债账户余额为负（-2500 表示欠 2500），API 统一为正数表示欠款金额
-      const isLiability = a.type === 'liability'
-      const rawActual = a.balance
-      const rawPredicted = predictedChanges.get(a.id) || 0
-      return {
-        id: a.id,
-        name: a.name,
-        type: a.type,
-        actual: isLiability ? -rawActual : rawActual,
-        predicted: isLiability ? -rawPredicted : rawPredicted,
-        category: a.category?.name || '未分类',
-        categoryId: a.categoryId,
-        icon: a.icon,
-        color: a.color,
-        categoryIcon: cat?.icon || null,
-        categoryColor: cat?.color || null,
-        categorySort: cat?.sort ?? 0,
-        accountSort: a.sort,
-      }
-    })
-    .sort((a, b) => {
-      if (a.type !== b.type) {
-        return a.type === 'asset' ? -1 : 1
-      }
-      if (a.categorySort !== b.categorySort) {
-        return a.categorySort - b.categorySort
-      }
-      if (a.category !== b.category) {
-        return a.category.localeCompare(b.category, 'zh-CN')
-      }
-      return a.accountSort - b.accountSort
-    })
+  // 构建树形结构：按分类分组
+  const categoryNodeMap = new Map<string, BalanceSheetCategoryNode>()
+
+  accountBalances.forEach(account => {
+    const categoryId = account.category?.id || 'uncategorized'
+    const categoryName = account.category?.name || '未分类'
+    const categorySort = account.category?.sort ?? 0
+
+    // 创建分类节点（如果不存在）
+    if (!categoryNodeMap.has(categoryId)) {
+      categoryNodeMap.set(categoryId, {
+        id: categoryId,
+        name: categoryName,
+        type: account.type as 'asset' | 'liability',
+        sort: categorySort,
+        icon: account.category?.icon || null,
+        color: account.category?.color || null,
+        actual: 0,
+        predicted: 0,
+        children: [],
+      })
+    }
+
+    const categoryNode = categoryNodeMap.get(categoryId)!
+
+    // 创建账户节点
+    const isLiability = account.type === 'liability'
+    const accountNode: BalanceSheetAccountNode = {
+      id: account.id,
+      name: account.name,
+      categoryId: categoryId,
+      type: account.type as 'asset' | 'liability',
+      icon: account.icon || null,
+      color: account.color || null,
+      actual: isLiability ? -account.balance : account.balance,
+      predicted: isLiability ? -(predictedChanges.get(account.id) || 0) : predictedChanges.get(account.id) || 0,
+    }
+
+    // 添加到分类节点的children中
+    categoryNode.children.push(accountNode)
+
+    // 累加分类节点的值
+    categoryNode.actual += accountNode.actual
+    categoryNode.predicted += accountNode.predicted
+  })
+
+  // 排序并分离资产和负债节点
+  const assetNodes = Array.from(categoryNodeMap.values())
+    .filter(c => c.type === 'asset')
+    .sort((a, b) => a.sort - b.sort)
+
+  const liabilityNodes = Array.from(categoryNodeMap.values())
+    .filter(c => c.type === 'liability')
+    .sort((a, b) => a.sort - b.sort)
 
   const dateStr = targetDate.toISOString().split('T')[0]
 
@@ -186,7 +216,8 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     netWorth: { actual: netWorth, predicted: predictedNetWorth },
     assetsByCategory,
     liabilitiesByCategory,
-    accounts: sortedAccounts,
+    assetNodes,
+    liabilityNodes,
     predictionNote,
   }
   logger.info({ action: 'generate', report: 'balance-sheet', period: date, durationMs: Date.now() - startTime }, 'report generated')
