@@ -241,59 +241,97 @@
   flex-direction: column;
 }
 
-.tx-group-item {
+/* ===== 统一交易行（TransactionItemRow） ===== */
+.tx-item-row-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.tx-item-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--mb-space-lg);
   padding: var(--mb-space-lg) var(--mb-space-xl);
   border-bottom: 1px solid var(--mb-color-border-subtle);
   cursor: pointer;
   transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
-  gap: var(--mb-space-lg);
 }
 
-.tx-group-item:last-child {
+.tx-item-row:last-child {
   border-bottom: none;
 }
 
-.tx-group-item:hover {
+.tx-item-row:hover {
   background: var(--mb-color-bg-hover);
 }
 
-.tx-group-item__left {
+/* 左侧包裹：色带 + 图标 */
+.tx-item-row__left {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
-}
-
-.tx-group-item__subtitle {
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-font-size-caption);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tx-group-item__right {
-  text-align: right;
-  min-width: 0;
+  gap: var(--mb-space-md);
   flex-shrink: 0;
+}
+
+/* 类型色带 */
+.tx-item-row__bar {
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.tx-item-row__icon {
+  flex-shrink: 0;
+}
+
+.tx-item-row__body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.tx-group-item__amount {
+.tx-item-row__category {
+  font-size: var(--mb-font-size-body);
+  font-weight: 600;
+  color: var(--mb-color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-item-row__note {
+  font-size: var(--mb-font-size-caption);
+  color: var(--mb-color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-item-row__right {
+  flex-shrink: 0;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tx-item-row__amount {
+  font-weight: 700;
+  font-size: 15px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-.tx-group-item__account {
+.tx-item-row__account {
   font-size: var(--mb-font-size-mobile-label);
   color: var(--mb-color-text-tertiary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 /* 桌面端分页 */
@@ -340,12 +378,12 @@
     padding: var(--mb-space-md) var(--mb-space-lg);
   }
 
-  .tx-group-item {
+  .tx-item-row {
     padding: var(--mb-space-lg) var(--mb-space-lg);
   }
 
-  .tx-group-item__subtitle {
-    max-width: 120px;
+  .tx-item-row__account {
+    max-width: 100px;
   }
 
   .tx-group-pagination {

@@ -4,9 +4,9 @@ import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { Transaction } from '../../services/api'
 import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { TRANSACTION_TYPE_CONFIG, TransactionType, AMOUNT_COLORS } from '../../constants/transactionType'
+import { AMOUNT_COLORS } from '../../constants/transactionType'
 import { formatCurrency } from '../../utils/format'
-import BorderedTag from '../common/BorderedTag'
+import TransactionItemRow from './TransactionItemRow'
 
 interface TransactionTableProps {
   transactions: Transaction[]
@@ -53,104 +53,6 @@ const MobilePagination: React.FC<{
   )
 }
 
-const getCategoryName = (record: Transaction): string => {
-  if (record.type === 'adjustment') return record.note || '平账'
-  if (record.type === 'transfer') return record.category?.name || '内部转账'
-  if (record.type === 'refund') {
-    const original = record.relatedTransaction?.category?.name || ''
-    return original || '退款'
-  }
-  return record.category?.name || '未分类'
-}
-
-const getAccountName = (record: Transaction): string => {
-  if (record.type === 'transfer') {
-    const from = record.account?.name || ''
-    const to = record.toAccount?.name || ''
-    return `${from} → ${to}`
-  }
-  return record.account?.name || ''
-}
-
-const CategoryTag: React.FC<{ record: Transaction }> = ({ record }) => {
-  const config = TRANSACTION_TYPE_CONFIG[record.type as TransactionType]
-  const categoryName = getCategoryName(record)
-
-  return (
-    <BorderedTag color={config.color}>
-      {categoryName}
-    </BorderedTag>
-  )
-}
-
-
-const AmountDisplay: React.FC<{
-  record: Transaction
-  colorTextMuted: string
-  fontSizeBody: string
-  fontSizeCaption: string
-}> = ({ record, colorTextMuted, fontSizeBody, fontSizeCaption }) => {
-  const amount = record.amount
-
-  const renderAmount = () => {
-    if (record.type === 'adjustment') {
-      const isPositive = amount >= 0
-      return (
-        <span style={{ color: isPositive ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative, fontSize: fontSizeBody }}>
-          {formatCurrency(amount, { showSign: true })}
-        </span>
-      )
-    }
-    if (record.type === 'transfer') {
-      const hasExtra = (record.fee || 0) > 0 || (record.coupon || 0) > 0
-      return (
-        <span>
-          <span style={{ color: AMOUNT_COLORS.neutral, fontSize: fontSizeBody }}>{formatCurrency(amount)}</span>
-          {hasExtra && <span style={{ color: colorTextMuted, fontSize: fontSizeCaption }}> +费</span>}
-        </span>
-      )
-    }
-    if (record.type === 'refund') {
-      return (
-        <span style={{ color: AMOUNT_COLORS.positive, fontSize: fontSizeBody }}>
-          {formatCurrency(amount, { showSign: true })}
-        </span>
-      )
-    }
-    return (
-      <span style={{ color: record.type === 'income' ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative, fontSize: fontSizeBody }}>
-        {formatCurrency(record.type === 'income' ? amount : -amount, { showSign: true })}
-      </span>
-    )
-  }
-
-  return <div className="tx-group-item__amount">{renderAmount()}</div>
-}
-
-const TransactionRow: React.FC<{
-  record: Transaction
-  onClick: () => void
-  colorTextMuted: string
-  fontSizeBody: string
-  fontSizeCaption: string
-}> = ({ record, onClick, colorTextMuted, fontSizeBody, fontSizeCaption }) => {
-  const accountName = getAccountName(record)
-  const note = record.note || null
-
-  return (
-    <div className="tx-group-item" onClick={onClick}>
-      <div className="tx-group-item__left">
-        <CategoryTag record={record} />
-        {note && <span className="tx-group-item__subtitle">{note}</span>}
-      </div>
-      <div className="tx-group-item__right">
-        <AmountDisplay record={record} colorTextMuted={colorTextMuted} fontSizeBody={fontSizeBody} fontSizeCaption={fontSizeCaption} />
-        <span className="tx-group-item__account">{accountName}</span>
-      </div>
-    </div>
-  )
-}
-
 const GroupHeader: React.FC<{ group: TransactionGroup }> = ({ group }) => {
   return (
     <div className="tx-group-header">
@@ -180,10 +82,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
   onRowClick,
 }) => {
   const { token } = theme.useToken()
-  const colorTextMuted = token.colorTextTertiary
   const spaceCardPadding = `${token.padding}px`
-  const fontSizeBody = `${token.fontSize}px`
-  const fontSizeCaption = `${token.fontSizeSM}px`
 
   const isMobile = useIsMobile()
 
@@ -230,13 +129,10 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
               <GroupHeader group={group} />
               <div className="tx-group-body">
                 {group.transactions.map((record) => (
-                  <TransactionRow
+                  <TransactionItemRow
                     key={record.id}
-                    record={record}
+                    transaction={record}
                     onClick={() => onRowClick(record)}
-                    colorTextMuted={colorTextMuted}
-                    fontSizeBody={fontSizeBody}
-                    fontSizeCaption={fontSizeCaption}
                   />
                 ))}
               </div>

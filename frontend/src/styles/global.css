@@ -13,5 +13,7 @@
 @import './pages/settings.css';
 @import './pages/transactions.css';
 
+@import './pages/dashboard.css';
+
 @import './report-layouts.css';
 @import './antd-overrides.css';

@@ -1,0 +1,158 @@
+/* ===== Dashboard 页面专属样式 ===== */
+
+/* ===== 净资产 Hero 卡片 ===== */
+.dashboard-hero {
+  text-align: center;
+}
+
+.dashboard-hero__body {
+  padding: var(--mb-space-3xl);
+}
+
+.dashboard-hero__label {
+  font-size: var(--mb-font-size-body-lg);
+  color: var(--mb-color-text-secondary);
+  font-weight: 600;
+  margin-bottom: var(--mb-space-sm);
+}
+
+.dashboard-hero__value {
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.dashboard-hero__change {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-space-sm);
+  margin-top: var(--mb-space-md);
+  font-size: var(--mb-font-size-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-hero__change--up {
+  color: var(--mb-color-positive);
+}
+
+.dashboard-hero__change--down {
+  color: var(--mb-color-negative);
+}
+
+.dashboard-hero__change--flat {
+  color: var(--mb-color-text-tertiary);
+}
+
+/* ===== 本月收支快览 ===== */
+.dashboard-income-expense {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mb-space-2xl);
+}
+
+.dashboard-income-expense__item {
+  text-align: center;
+}
+
+.dashboard-income-expense__label {
+  font-size: var(--mb-font-size-caption);
+  color: var(--mb-color-text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--mb-space-sm);
+}
+
+.dashboard-income-expense__value {
+  font-size: var(--mb-font-size-heading);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.dashboard-income-expense__trend {
+  font-size: var(--mb-font-size-caption);
+  margin-top: var(--mb-space-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.dashboard-income-expense__trend--up {
+  color: var(--mb-color-positive);
+}
+
+.dashboard-income-expense__trend--down {
+  color: var(--mb-color-negative);
+}
+
+/* ===== 预算进度摘要 ===== */
+.dashboard-budget-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--mb-space-xl);
+}
+
+.dashboard-budget-item {
+  cursor: pointer;
+  transition: background-color var(--mb-motion-fast) var(--mb-ease-standard);
+}
+
+.dashboard-budget-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-space-md);
+  margin-bottom: var(--mb-space-sm);
+}
+
+.dashboard-budget-item__name {
+  font-size: var(--mb-font-size-body);
+  font-weight: 600;
+  color: var(--mb-color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dashboard-budget-item__ratio {
+  font-size: var(--mb-font-size-caption);
+  color: var(--mb-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dashboard-budget-item__footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--mb-space-xs);
+  font-size: var(--mb-font-size-mobile-label);
+  color: var(--mb-color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 680px) {
+  .dashboard-hero__body {
+    padding: var(--mb-space-xl);
+  }
+
+  .dashboard-budget-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-income-expense {
+    grid-template-columns: 1fr;
+    gap: var(--mb-space-xl);
+  }
+
+  .dashboard-income-expense__item + .dashboard-income-expense__item {
+    padding-top: var(--mb-space-xl);
+    border-top: 1px solid var(--mb-color-border-subtle);
+  }
+}
