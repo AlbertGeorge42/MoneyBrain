@@ -360,6 +360,7 @@ export interface InvestmentAssetClass {
   accountId: string
   name: string
   icon: string | null
+  color: string | null
   targetRatio: number | null
   sort: number
   createdAt: string

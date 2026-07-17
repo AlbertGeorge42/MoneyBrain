@@ -9,6 +9,7 @@
 @import './components/cards.css';
 @import './components/mobileTabBar.css';
 @import './components/pagination.css';
+@import './components/picker.css';
 
 @import './pages/settings.css';
 @import './pages/transactions.css';

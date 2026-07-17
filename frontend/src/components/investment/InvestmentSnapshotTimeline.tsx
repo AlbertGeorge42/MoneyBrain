@@ -2,7 +2,7 @@ import React from 'react'
 import { Typography, Space, Button, theme, Empty, Grid, Dropdown, Modal } from 'antd'
 import { EditOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
-import DynamicIcon from '../../components/common/DynamicIcon'
+import CategoryIcon from '../../components/common/CategoryIcon'
 import type { InvestmentAllocationSnapshot } from '../../services/api'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import dayjs from 'dayjs'
@@ -194,7 +194,7 @@ const InvestmentSnapshotTimeline: React.FC<InvestmentSnapshotTimelineProps> = ({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: token.marginXS }}>
-                    <DynamicIcon name={item.assetClass.icon} size={14} fallback="investment" />
+                    <CategoryIcon name={item.assetClass.icon} color={item.assetClass.color} size={18} iconSize={10} fallback="investment" />
                     <Text>{item.assetClass.name}</Text>
                     <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
                       {formatPercent(ratio, 1, false)}

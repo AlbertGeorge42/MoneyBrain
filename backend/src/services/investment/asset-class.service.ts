@@ -15,7 +15,7 @@ export async function getAssetClassesByAccount(accountId: string) {
 // 为某账户创建资产类型
 export async function createAssetClass(
   accountId: string,
-  data: { name: string; icon?: string; targetRatio?: number }
+  data: { name: string; icon?: string; color?: string; targetRatio?: number }
 ) {
   const account = await prisma.account.findUnique({ where: { id: accountId } })
   if (!account) throw new NotFoundError('账户不存在')
@@ -64,7 +64,8 @@ export async function createAssetClass(
     data: {
       accountId,
       name: data.name.trim(),
-      icon: data.icon ?? null,
+      icon: data.icon ?? 'chart-pie',
+      color: data.color ?? null,
       targetRatio: data.targetRatio ?? null,
       sort: (maxSort?.sort ?? -1) + 1,
     },
@@ -76,7 +77,7 @@ export async function createAssetClass(
 // 更新资产类型
 export async function updateAssetClass(
   id: string,
-  data: { name?: string; icon?: string; targetRatio?: number }
+  data: { name?: string; icon?: string; color?: string; targetRatio?: number }
 ) {
   const existing = await prisma.investmentAssetClass.findUnique({ where: { id } })
   if (!existing) throw new NotFoundError('资产类型不存在')
@@ -121,6 +122,7 @@ export async function updateAssetClass(
     data: {
       name: data.name?.trim() ?? existing.name,
       icon: data.icon !== undefined ? data.icon : existing.icon,
+      color: data.color !== undefined ? data.color : existing.color,
       targetRatio: data.targetRatio !== undefined ? data.targetRatio : existing.targetRatio,
     },
   })

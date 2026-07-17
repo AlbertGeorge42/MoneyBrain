@@ -6,8 +6,7 @@ import { useTransactionCategories } from '../../queries'
 import { queryKeys } from '../../queries/keys'
 import { TransactionCategory, transactionCategoryApi } from '../../services/api'
 import CategoryIcon from '../common/CategoryIcon'
-import IconPicker from '../common/IconPicker'
-import ColorSwatchPicker from '../common/ColorSwatchPicker'
+import IconColorField from '../common/Picker'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import MoveModal from './MoveModal'
 import ConfigModalLayout from './ConfigModalLayout'
@@ -49,7 +48,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleEdit = (record: TransactionTreeNode) => {
     const category = transactionCategories.find(c => c.id === record.id)
-    if (category) { setEditingItem(category); form.setFieldsValue({ name: category.name, icon: category.icon, parentId: category.parentId }); setFormVisible(true) }
+    if (category) { setEditingItem(category); form.setFieldsValue({ name: category.name, icon: category.icon, color: category.color ?? null, parentId: category.parentId }); setFormVisible(true) }
   }
 
   const handleDeleteClick = async (record: TransactionTreeNode) => {
@@ -220,8 +219,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
           <Form.Item name="type" hidden><Input /></Form.Item>
           <Form.Item name="parentId" hidden><Input /></Form.Item>
           <Form.Item name="name" label="分类名称" rules={[{ required: true, message: '请输入分类名称' }]}><Input placeholder="请输入分类名称" /></Form.Item>
-          <Form.Item name="icon" label="图标"><IconPicker placeholder="请选择图标" /></Form.Item>
-          <Form.Item name="color" label="颜色" extra="用于报表中分类图标的背景色（不选则使用中性色）"><ColorSwatchPicker allowClear /></Form.Item>
+          <Form.Item label="图标与颜色"><IconColorField form={form} /></Form.Item>
         </Form>
       </Modal>
       <DeleteConfirmModal visible={deleteModalVisible} category={deletingCategory} transactionCount={deleteTransactionCount} deleteAction={deleteAction}

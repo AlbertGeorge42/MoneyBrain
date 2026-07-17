@@ -277,6 +277,7 @@ async function importInvestmentAssetClasses(
             where: { id: existing.id },
             data: {
               icon: ac.icon ?? existing.icon,
+              color: isAntDPresetColor(ac.color) ? ac.color : existing.color,
               targetRatio: ac.targetRatio ?? existing.targetRatio,
               sort: ac.sort ?? existing.sort,
             },
@@ -291,6 +292,7 @@ async function importInvestmentAssetClasses(
             accountId: account.id,
             name: ac.name,
             icon: ac.icon,
+            color: isAntDPresetColor(ac.color) ? ac.color : undefined,
             targetRatio: ac.targetRatio,
             sort: ac.sort,
           },

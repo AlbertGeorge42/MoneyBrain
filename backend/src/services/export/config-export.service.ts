@@ -116,6 +116,7 @@ export async function exportConfig(): Promise<string> {
     accountName: ac.account.name,
     name: ac.name,
     icon: ac.icon,
+    color: ac.color,
     targetRatio: ac.targetRatio,
     sort: ac.sort
   }))

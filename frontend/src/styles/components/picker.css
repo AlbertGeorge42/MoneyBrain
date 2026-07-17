@@ -1,0 +1,278 @@
+/*
+ * 图标选择器 + 颜色选择器 + 复合字段
+ */
+
+/* ---------- IconPicker 触发器 ---------- */
+
+.ip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--mb-radius-control);
+  cursor: pointer;
+  border: 1.5px dashed var(--mb-color-border-subtle);
+  background: transparent;
+  flex-shrink: 0;
+  padding: 0;
+  outline: none;
+  transition: transform var(--mb-motion-fast) var(--mb-ease-standard),
+              box-shadow var(--mb-motion-fast) var(--mb-ease-standard),
+              border-color var(--mb-motion-fast) var(--mb-ease-standard),
+              background var(--mb-motion-fast) var(--mb-ease-standard);
+}
+
+.ip-trigger:hover {
+  transform: scale(1.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-color: var(--mb-color-border);
+}
+
+.ip-trigger:active { transform: scale(0.98); }
+.ip-trigger:focus-visible { box-shadow: 0 0 0 2px var(--mb-color-action-primary); }
+
+.ip-trigger.has-value {
+  border-style: solid;
+  border-color: transparent;
+}
+
+.ip-trigger.has-value:hover {
+  background: var(--mb-color-bg-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ip-trigger__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}
+
+.ip-trigger__placeholder-text { display: none; }
+
+/* ---------- IconPicker 面板 ---------- */
+
+.ip-popover .ant-popover-inner {
+  border-radius: var(--mb-radius-card);
+  overflow: hidden;
+}
+
+.ip-search {
+  padding: 8px 8px 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  animation: ip-fade-in 200ms ease-out forwards;
+}
+
+@keyframes ip-fade-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ip-content { padding: 4px 8px 8px; }
+
+.ip-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.ip-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--mb-radius-control);
+  cursor: pointer;
+  border: 1px solid var(--mb-color-border-secondary);
+  background: var(--mb-color-bg-container);
+  transition: background var(--mb-motion-fast) var(--mb-ease-standard),
+              transform var(--mb-motion-fast) var(--mb-ease-standard),
+              box-shadow var(--mb-motion-fast) var(--mb-ease-standard);
+}
+
+.ip-cell:hover {
+  background: var(--mb-color-bg-hover);
+  transform: scale(1.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ip-cell.is-selected {
+  background: var(--mb-color-action-primary);
+  border-color: var(--mb-color-action-primary);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.ip-cell.is-selected:hover {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ip-cell.is-selected svg { color: #fff; }
+
+@keyframes ip-cell-bounce {
+  0% { transform: scale(0.92); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.ip-cell.is-just-selected {
+  animation: ip-cell-bounce 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ip-subcategory-label {
+  font-size: var(--mb-font-size-caption);
+  font-weight: 600;
+  color: var(--mb-color-text-tertiary);
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+
+.ip-scroll-area {
+  height: 320px;
+  overflow-y: auto;
+}
+
+.ip-panel .ant-tabs-nav { margin-bottom: 4px; }
+.ip-panel .ant-tabs-tab { padding: 4px 0; font-size: var(--mb-font-size-sm); }
+
+/* ---------- ColorSwatchPicker ---------- */
+
+.color-swatch-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px;
+  border-radius: var(--mb-radius-control);
+  background: var(--mb-color-bg-panel);
+  border: 1px solid var(--mb-color-border-subtle);
+  height: 40px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.color-swatch-picker.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@keyframes csp-bounce {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1.15); }
+}
+
+/* 色块 */
+.csp-swatch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  background: none;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.csp-swatch:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.csp-swatch.is-selected {
+  box-shadow: 0 0 0 2px var(--mb-color-bg-panel), 0 0 0 4px var(--mb-color-action-primary);
+}
+
+.csp-swatch.is-just-selected {
+  animation: csp-bounce 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.csp-dot {
+  border-radius: 50%;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.csp-swatch.is-selected .csp-dot { opacity: 0; transform: scale(0.5); }
+
+.csp-check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity 0.15s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.csp-swatch.is-selected .csp-check {
+  opacity: 1;
+  transform: scale(1);
+  transition-delay: 50ms;
+}
+
+/* 无色按钮 */
+.csp-clear {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--mb-color-border-subtle);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  background: var(--mb-color-bg-container);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 0.15s ease;
+}
+
+.csp-clear:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.csp-clear.is-selected {
+  border-color: var(--mb-color-action-primary);
+  box-shadow: 0 0 0 2px var(--mb-color-bg-panel), 0 0 0 4px var(--mb-color-action-primary);
+}
+
+.csp-clear.is-just-selected {
+  animation: csp-bounce 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.csp-clear__line {
+  position: absolute;
+  width: 55%;
+  height: 1.5px;
+  background: var(--mb-color-text-tertiary);
+  border-radius: 1px;
+  transform: rotate(-45deg);
+  pointer-events: none;
+}
+
+/* ---------- IconColorField 复合字段 ---------- */
+
+.icon-color-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.icon-color-field__color-area {
+  flex: 1;
+  min-width: 0;
+}

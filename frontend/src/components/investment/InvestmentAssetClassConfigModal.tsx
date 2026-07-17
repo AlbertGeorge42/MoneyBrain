@@ -10,7 +10,7 @@ import { investmentApi } from '../../services/api'
 import CategoryIcon from '../../components/common/CategoryIcon'
 import { SortableRow, SettingDropdown, renderExpandIcon, renderDragHandle, useSortableTable } from '../../components/settings/shared'
 import ConfigModalLayout from '../../components/settings/ConfigModalLayout'
-import IconPicker from '../../components/common/IconPicker'
+import { default as IconColorField } from '../../components/common/Picker'
 import { useNotify } from '../../hooks/useNotify'
 
 interface Props {
@@ -90,7 +90,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
             key: `assetClass-${ac.id}`,
             name: ac.name,
             icon: ac.icon,
-            color: null,
+            color: ac.color ?? null,
             type: 'assetClass' as const,
             accountId: account.id,
             targetRatio: ac.targetRatio,
@@ -144,6 +144,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
     form.setFieldsValue({
       name: record.name,
       icon: record.icon,
+      color: record.color,
       targetRatio: record.targetRatio,
     })
     setFormVisible(true)
@@ -459,11 +460,8 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
           >
             <Input placeholder="如：股票、债券、货币基金" />
           </Form.Item>
-          <Form.Item
-            name="icon"
-            label="图标"
-          >
-            <IconPicker />
+          <Form.Item label="图标与颜色" style={{ marginBottom: 0 }}>
+            <IconColorField form={form} />
           </Form.Item>
           <Form.Item
             name="targetRatio"

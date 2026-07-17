@@ -1,8 +1,7 @@
 import React from 'react'
 import { Modal, Form, Input, Select } from 'antd'
 import type { FormInstance } from 'antd'
-import IconPicker from '../common/IconPicker'
-import ColorSwatchPicker from '../common/ColorSwatchPicker'
+import IconColorField from '../common/Picker'
 
 interface CategoryFormProps {
   visible: boolean
@@ -37,11 +36,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
           <Select.Option value="liability">负债</Select.Option>
         </Select>
       </Form.Item>
-      <Form.Item name="icon" label="图标">
-        <IconPicker placeholder="请选择图标" />
-      </Form.Item>
-      <Form.Item name="color" label="颜色" extra="用于报表中分类图标的背景色（不选则使用中性色）">
-        <ColorSwatchPicker allowClear />
+      <Form.Item label="图标与颜色">
+        <IconColorField form={form} />
       </Form.Item>
     </Form>
   </Modal>

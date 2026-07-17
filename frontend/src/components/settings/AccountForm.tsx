@@ -1,8 +1,7 @@
 import React from 'react'
 import { Modal, Form, Input, InputNumber, DatePicker } from 'antd'
 import type { FormInstance } from 'antd'
-import IconPicker from '../common/IconPicker'
-import ColorSwatchPicker from '../common/ColorSwatchPicker'
+import IconColorField from '../common/Picker'
 
 interface AccountFormProps {
   visible: boolean
@@ -43,11 +42,8 @@ const AccountForm: React.FC<AccountFormProps> = ({
       <Form.Item name="initialBalanceDate" label="初始余额日期" rules={[{ required: true, message: '请选择初始余额日期' }]}>
         <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" placeholder="选择日期" />
       </Form.Item>
-      <Form.Item name="icon" label="图标">
-        <IconPicker placeholder="请选择图标" />
-      </Form.Item>
-      <Form.Item name="color" label="颜色" extra="用于报表中账户图标的背景色（不选则使用中性色）">
-        <ColorSwatchPicker allowClear />
+      <Form.Item label="图标与颜色">
+        <IconColorField form={form} />
       </Form.Item>
     </Form>
   </Modal>

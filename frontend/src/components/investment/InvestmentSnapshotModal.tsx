@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Modal, Select, DatePicker, Table, InputNumber, Space, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
 import { useAccounts } from '../../queries'
 import { investmentApi, accountApi, InvestmentAssetClass, InvestmentAllocationSnapshot } from '../../services/api'
-import DynamicIcon from '../../components/common/DynamicIcon'
+import CategoryIcon from '../../components/common/CategoryIcon'
 import { useNotify } from '../../hooks/useNotify'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import dayjs from 'dayjs'
@@ -39,6 +39,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
     assetClassId: string
     name: string
     icon: string | null
+    color: string | null
     targetRatio: number | null
     marketValue: number
     periodNetFlow: number
@@ -103,6 +104,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
             assetClassId: c.id,
             name: c.name,
             icon: c.icon,
+            color: c.color ?? null,
             targetRatio: c.targetRatio,
             marketValue: existingItem?.marketValue ?? 0,
             periodNetFlow: existingItem?.periodNetFlow ?? 0,
@@ -113,6 +115,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           assetClassId: c.id,
           name: c.name,
           icon: c.icon,
+          color: c.color ?? null,
           targetRatio: c.targetRatio,
           marketValue: 0,
           periodNetFlow: 0,
@@ -224,9 +227,9 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
       key: 'name',
       width: 120,
       render: (name: string, record: typeof items[0]) => (
-        <span>
-          <DynamicIcon name={record.icon} size={16} fallback="investment" />
-          {' '}{name}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <CategoryIcon name={record.icon} color={record.color} size={20} iconSize={12} fallback="investment" />
+          {name}
         </span>
       ),
     },
@@ -296,7 +299,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
         style={{ marginBottom: token.marginSM }}
       >
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: token.marginSM }}>
-          <DynamicIcon name={item.icon} size={16} fallback="investment" />
+          <CategoryIcon name={item.icon} color={item.color} size={20} iconSize={12} fallback="investment" />
           <Text strong style={{ marginLeft: 8 }}>{item.name}</Text>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: token.marginSM }}>
@@ -405,9 +408,9 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
             options={investmentAccounts.map(a => ({
               value: a.id,
               label: (
-                <span>
-                  <DynamicIcon name={a.icon} size={16} fallback="wallet" />
-                  {' '}{a.name}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <CategoryIcon name={a.icon} color={a.color ?? null} size={20} iconSize={12} fallback="wallet" />
+                  {a.name}
                 </span>
               ),
             }))}

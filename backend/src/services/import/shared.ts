@@ -181,6 +181,7 @@ export interface ImportInvestmentAssetClass {
   accountName: string
   name: string
   icon: string | null
+  color: string | null
   targetRatio: number | null
   sort: number
 }
