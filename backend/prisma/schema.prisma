@@ -81,7 +81,6 @@ model Transaction {
   coupon              Decimal     @default(0) // 优惠券
   date                DateTime
   note                String?
-  isAdjustment         Boolean     @default(false)
   accountId            String
   account              Account     @relation("TransactionFrom", fields: [accountId], references: [id])
   toAccountId          String?
@@ -141,7 +140,7 @@ model InvestmentAssetClass {
   name        String
   icon        String?
   color       String?
-  targetRatio Float?
+  targetRatio Decimal?
   sort        Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -157,7 +156,7 @@ model InvestmentAllocationSnapshot {
   id                  String   @id @default(uuid())
   accountId           String
   date                DateTime
-  accountBalance      Float
+  accountBalance      Decimal
   previousSnapshotId  String?
   note                String?
   createdAt           DateTime @default(now())
@@ -176,8 +175,8 @@ model InvestmentAllocationItem {
   id            String   @id @default(uuid())
   snapshotId    String
   assetClassId  String
-  marketValue   Float
-  periodNetFlow Float    @default(0)
+  marketValue   Decimal
+  periodNetFlow Decimal  @default(0)
   sort          Int      @default(0)
 
   snapshot   InvestmentAllocationSnapshot @relation(fields: [snapshotId], references: [id])

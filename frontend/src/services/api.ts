@@ -53,50 +53,8 @@ const api = axios.create({
   },
 })
 
-function isTransaction(obj: unknown): obj is Record<string, unknown> {
-  if (!obj || typeof obj !== 'object') return false
-  return 'type' in obj && 'amount' in obj
-}
-
-function isTransactionList(obj: unknown): obj is { list?: unknown[] } {
-  if (!obj || typeof obj !== 'object') return false
-  return 'list' in obj
-}
-
-function transformTransactionFields(data: unknown): unknown {
-  if (Array.isArray(data)) {
-    return data.map(transformTransactionFields)
-  }
-  if (isTransaction(data)) {
-    const result: Record<string, unknown> = { ...data }
-    if (typeof result.amount === 'string') result.amount = parseFloat(result.amount)
-    if (typeof result.fee === 'string') result.fee = parseFloat(result.fee)
-    if (typeof result.coupon === 'string') result.coupon = parseFloat(result.coupon)
-    if (result.relatedTransaction) {
-      result.relatedTransaction = transformTransactionFields(result.relatedTransaction)
-    }
-    return result
-  }
-  if (isTransactionList(data)) {
-    return { ...data, list: (data.list || []).map(transformTransactionFields) }
-  }
-  if (data && typeof data === 'object' && !Array.isArray(data)) {
-    const result: Record<string, unknown> = {}
-    for (const key of Object.keys(data as object)) {
-      result[key] = transformTransactionFields((data as Record<string, unknown>)[key])
-    }
-    return result
-  }
-  return data
-}
-
 api.interceptors.response.use(
-  (response) => {
-    if (response.data?.data) {
-      response.data.data = transformTransactionFields(response.data.data)
-    }
-    return response
-  },
+  (response) => response,
   (error) => {
     // 仅做错误归一化：把后端业务消息提取到 error.message，
     // 不在此处弹错。UI 提示由 useNotify() 在组件层显式触发。
@@ -188,6 +146,11 @@ export const reportApi = {
 }
 
 export const analyticsApi = {
+  getDashboardSummary: () => api.get<ApiResponse<{
+    thisMonth: { income: number; expense: number; balance: number }
+    lastMonth: { income: number; expense: number }
+    recentTransactions: Transaction[]
+  }>>('/analytics/dashboard'),
   getTrends: (type: 'income' | 'expense', period?: string) => api.get<ApiResponse<AnalyticsTrendItem[]>>('/analytics/trends', { params: { type, period } }),
   getCategoryBreakdown: (type: 'income' | 'expense', startDate?: string, endDate?: string, parentCategoryId?: string) => 
     api.get<ApiResponse<AnalyticsCategoryBreakdownItem[]>>('/analytics/category-breakdown', { 

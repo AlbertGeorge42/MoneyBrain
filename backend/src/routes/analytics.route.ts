@@ -1,8 +1,13 @@
 import { Router } from 'express'
 import { asyncHandler, success, validateRequest, validateTypeQuery } from '../common/index.js'
-import { getTrends, getCategoryBreakdown, getAssetTrend } from '../services/analytics.service.js'
+import { getTrends, getCategoryBreakdown, getAssetTrend, getDashboardSummary } from '../services/analytics.service.js'
 
 const router = Router()
+
+router.get('/dashboard', asyncHandler(async (_req, res) => {
+  const summary = await getDashboardSummary()
+  return success(res, summary)
+}))
 
 router.get('/trends', validateRequest(validateTypeQuery), asyncHandler(async (req, res) => {
   const trends = await getTrends(String(req.query.type))

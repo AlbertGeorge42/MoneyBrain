@@ -117,7 +117,8 @@ export async function exportConfig(): Promise<string> {
     name: ac.name,
     icon: ac.icon,
     color: ac.color,
-    targetRatio: ac.targetRatio,
+    // Prisma 返回 Decimal | null；JSON 序列化前转 number（Decimal 会被序列化为字符串，破坏向后兼容）
+    targetRatio: ac.targetRatio == null ? null : Number(ac.targetRatio),
     sort: ac.sort
   }))
 

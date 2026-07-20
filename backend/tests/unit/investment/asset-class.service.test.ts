@@ -7,6 +7,7 @@ import {
   reorderAssetClasses,
 } from '../../../src/services/investment/asset-class.service.js'
 import { NotFoundError, ValidationError } from '../../../src/common/error.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
 
 // Mock prisma - 工厂函数内部不能引用外部变量
 vi.mock('../../../src/index.js', () => {
@@ -94,7 +95,7 @@ describe('asset-class.service', () => {
         data: expect.objectContaining({
           accountId: 'acc1',
           name: '股票',
-          targetRatio: 60,
+          targetRatio: new Decimal(60),
           sort: 0,
         }),
       })
@@ -177,7 +178,7 @@ describe('asset-class.service', () => {
         data: {
           name: '新名称',
           icon: 'icon',
-          targetRatio: 50,
+          targetRatio: new Decimal(50),
         },
       })
       expect(result).toEqual(updated)

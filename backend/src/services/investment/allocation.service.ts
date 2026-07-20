@@ -1,6 +1,7 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
-import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
+import { NotFoundError, ValidationError, rootLogger, toDecimal, ZERO } from '../../common/index.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
 
 const logger = rootLogger.child({ module: 'snapshot' })
 
@@ -10,8 +11,8 @@ export async function createSnapshot(data: {
   date: string
   items: Array<{
     assetClassId: string
-    marketValue: number
-    periodNetFlow?: number
+    marketValue: number | string | Decimal
+    periodNetFlow?: number | string | Decimal
   }>
   note?: string
 }) {
@@ -52,9 +53,14 @@ export async function createSnapshot(data: {
   const accountBalance = balanceCache.get(data.accountId, nextDay)
 
   // 6. 校验市值总和与账户余额一致
-  const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
-  if (Math.abs(totalMarketValue - accountBalance) > 0.01) {
-    throw new ValidationError(`市值总和（${totalMarketValue}）与账户余额（${accountBalance}）不一致`)
+  const totalMarketValue = data.items.reduce(
+    (sum, item) => sum.plus(toDecimal(item.marketValue)),
+    ZERO,
+  )
+  if (totalMarketValue.minus(accountBalance).abs().greaterThan(new Decimal('0.01'))) {
+    throw new ValidationError(
+      `市值总和（${totalMarketValue.toNumber()}）与账户余额（${accountBalance}）不一致`,
+    )
   }
 
   // 7. 找到该账户在当前日期之前（或同日）的最新快照
@@ -91,8 +97,8 @@ export async function createSnapshot(data: {
     // 如果是最早一条快照，强制写入 periodNetFlow=0
     const itemsData = data.items.map((item, index) => ({
       assetClassId: item.assetClassId,
-      marketValue: item.marketValue,
-      periodNetFlow: isEarliestSnapshot ? 0 : (item.periodNetFlow ?? 0),
+      marketValue: toDecimal(item.marketValue),
+      periodNetFlow: isEarliestSnapshot ? ZERO : toDecimal(item.periodNetFlow ?? 0),
       sort: index,
     }))
 
@@ -232,8 +238,8 @@ export async function updateSnapshot(
     date: string
     items: Array<{
       assetClassId: string
-      marketValue: number
-      periodNetFlow?: number
+      marketValue: number | string | Decimal
+      periodNetFlow?: number | string | Decimal
     }>
     note?: string
   }
@@ -296,9 +302,14 @@ export async function updateSnapshot(
   const accountBalance = balanceCache.get(accountId, nextDay)
 
   // 6. 校验市值总和与账户余额一致
-  const totalMarketValue = data.items.reduce((sum, item) => sum + item.marketValue, 0)
-  if (Math.abs(totalMarketValue - accountBalance) > 0.01) {
-    throw new ValidationError(`市值总和（${totalMarketValue}）与账户余额（${accountBalance}）不一致`)
+  const totalMarketValue = data.items.reduce(
+    (sum, item) => sum.plus(toDecimal(item.marketValue)),
+    ZERO,
+  )
+  if (totalMarketValue.minus(accountBalance).abs().greaterThan(new Decimal('0.01'))) {
+    throw new ValidationError(
+      `市值总和（${totalMarketValue.toNumber()}）与账户余额（${accountBalance}）不一致`,
+    )
   }
 
   // 7. 找到该账户在当前日期之前的最新快照（排除自身）
@@ -321,8 +332,8 @@ export async function updateSnapshot(
     // 准备新 items 数据
     const itemsData = data.items.map((item, index) => ({
       assetClassId: item.assetClassId,
-      marketValue: item.marketValue,
-      periodNetFlow: item.periodNetFlow ?? 0,
+      marketValue: toDecimal(item.marketValue),
+      periodNetFlow: toDecimal(item.periodNetFlow ?? 0),
       sort: index,
     }))
 

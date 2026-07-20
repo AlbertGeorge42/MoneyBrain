@@ -1,5 +1,14 @@
 // ===== 通用响应类型 =====
-export type { ApiResponse } from '../../backend/src/common/index.js'
+
+export interface ApiResponse<T = unknown> {
+  success: boolean
+  data?: T
+  error?: {
+    code: string
+    message: string
+  }
+  timestamp: string
+}
 
 export interface PaginatedResponse<T> {
   list: T[]
@@ -76,7 +85,6 @@ export interface Transaction {
   coupon: number
   date: string
   note: string | null
-  isAdjustment: boolean
   accountId: string
   categoryId: string | null
   toAccountId: string | null

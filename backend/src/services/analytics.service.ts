@@ -3,6 +3,7 @@ import { Decimal } from '@prisma/client/runtime/library.js'
 import type { Prisma } from '@prisma/client'
 import { calculateBalancesBatch } from './balance.service.js'
 import { ZERO } from '../common/index.js'
+import { dayStart, dayEnd, nextDay } from '../common/date.js'
 
 export interface TrendItem {
   label: string
@@ -14,6 +15,70 @@ export interface CategoryBreakdownItem {
   value: number
   categoryId?: string
   hasChildren?: boolean
+}
+
+// ===== Dashboard 聚合数据 =====
+
+export async function getDashboardSummary() {
+  const now = new Date()
+  const currentMonthStart = dayStart(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`)
+  const currentMonthEnd = dayEnd(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`)
+  const currentMonthNext = nextDay(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`)
+
+  // 上月
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastMonthStart = dayStart(`${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`)
+  const lastMonthEnd = dayEnd(`${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-${new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0).getDate()}`)
+
+  // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
+  const txWhereBase = { type: { in: ['income', 'expense'] as const }, amount: { not: 0 } }
+
+  // 本月收支
+  const [thisMonthIncome, thisMonthExpense] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { ...txWhereBase, type: 'income', date: { gte: currentMonthStart, lte: currentMonthEnd } },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { ...txWhereBase, type: 'expense', date: { gte: currentMonthStart, lte: currentMonthEnd } },
+      _sum: { amount: true },
+    }),
+  ])
+
+  // 上月收支
+  const [lastMonthIncome, lastMonthExpense] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { ...txWhereBase, type: 'income', date: { gte: lastMonthStart, lte: lastMonthEnd } },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { ...txWhereBase, type: 'expense', date: { gte: lastMonthStart, lte: lastMonthEnd } },
+      _sum: { amount: true },
+    }),
+  ])
+
+  // 最近交易（含账户和分类信息）
+  const recentTransactions = await prisma.transaction.findMany({
+    include: { account: true, category: true, toAccount: true },
+    orderBy: { date: 'desc' },
+    take: 8,
+  })
+
+  const thisMonthIncomeNum = (thisMonthIncome._sum.amount || ZERO).toNumber()
+  const thisMonthExpenseNum = (thisMonthExpense._sum.amount || ZERO).toNumber()
+
+  return {
+    thisMonth: {
+      income: thisMonthIncomeNum,
+      expense: thisMonthExpenseNum,
+      balance: thisMonthIncomeNum - thisMonthExpenseNum,
+    },
+    lastMonth: {
+      income: (lastMonthIncome._sum.amount || ZERO).toNumber(),
+      expense: (lastMonthExpense._sum.amount || ZERO).toNumber(),
+    },
+    recentTransactions,
+  }
 }
 
 export async function getTrends(type: string): Promise<TrendItem[]> {

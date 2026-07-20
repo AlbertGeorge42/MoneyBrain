@@ -3,17 +3,18 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import { AppError } from './error.js'
 import { rootLogger } from './logger/index.js'
 
-const logger = rootLogger.child({ module: 'errorHandler' })
-
 export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   error?: {
     code: string
     message: string
+    details?: unknown
   }
   timestamp: string
 }
+
+const logger = rootLogger.child({ module: 'errorHandler' })
 
 export const asyncHandler = (handler: RequestHandler): RequestHandler => {
   return (req, res, next) => {

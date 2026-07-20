@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Button, Card, Typography, theme, Space } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import { useQueryClient } from '@tanstack/react-query'
 import InvestmentSnapshotModal from './InvestmentSnapshotModal'
 import InvestmentSnapshotHistoryModal from './InvestmentSnapshotHistoryModal'
 import AccountSelector from './AccountSelector'
 import SnapshotTimeline from './SnapshotTimeline'
 import { investmentApi, type InvestmentAllocationSnapshot } from '../../services/api'
+import { useInvestmentSnapshots } from '../../queries'
+import { queryKeys } from '../../queries/keys'
 import { useNotify } from '../../hooks/useNotify'
 import type { InvestmentAnalysisReportData } from '@shared/types'
 
@@ -22,16 +25,18 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
 }) => {
   const { token } = theme.useToken()
   const notify = useNotify()
+  const queryClient = useQueryClient()
 
   // 状态管理
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
-  const [snapshots, setSnapshots] = useState<InvestmentAllocationSnapshot[]>([])
-  const [loading, setLoading] = useState(false)
 
   // 弹窗状态
   const [snapshotModalVisible, setSnapshotModalVisible] = useState(false)
   const [editingSnapshot, setEditingSnapshot] = useState<InvestmentAllocationSnapshot | null>(null)
   const [historyModalVisible, setHistoryModalVisible] = useState(false)
+
+  // React Query 获取快照数据
+  const { data: snapshots = [], isLoading: loading } = useInvestmentSnapshots(selectedAccountId)
 
   // 获取账户列表
   const accounts = investmentData?.byAccountAllocation || []
@@ -47,24 +52,9 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
     }
   }, [accounts, selectedAccountId])
 
-  // 加载快照数据
-  useEffect(() => {
+  const invalidateSnapshots = () => {
     if (selectedAccountId) {
-      loadSnapshots()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccountId])
-
-  const loadSnapshots = async () => {
-    if (!selectedAccountId) return
-    setLoading(true)
-    try {
-      const res = await investmentApi.getSnapshots(selectedAccountId)
-      setSnapshots(res.data.data || [])
-    } catch {
-      notify.error('加载快照失败')
-    } finally {
-      setLoading(false)
+      queryClient.invalidateQueries({ queryKey: queryKeys.investments.snapshots(selectedAccountId) })
     }
   }
 
@@ -82,7 +72,7 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
     try {
       await investmentApi.deleteSnapshot(id)
       notify.success('删除成功')
-      loadSnapshots()
+      invalidateSnapshots()
       onRefresh()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '删除失败'
@@ -92,7 +82,7 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
 
   const handleSnapshotSuccess = () => {
     setSnapshotModalVisible(false)
-    loadSnapshots()
+    invalidateSnapshots()
     onRefresh()
   }
 

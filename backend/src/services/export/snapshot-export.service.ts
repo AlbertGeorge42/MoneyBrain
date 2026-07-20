@@ -1,5 +1,10 @@
 import { prisma } from '../../index.js'
 import { escapeCsvField } from '../../common/utils.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
+
+// 辅助函数：转义 Decimal 字段为 CSV 字符串
+const escapeDecimal = (v: Decimal | number | string | null | undefined): string =>
+  escapeCsvField(v == null ? null : String(v))
 
 /**
  * 导出投资快照为 CSV 格式
@@ -37,7 +42,7 @@ export async function exportInvestmentSnapshotsCSV(): Promise<string> {
     const commonFields = [
       escapeCsvField(s.account.name),
       escapeCsvField(s.date.toISOString()),
-      escapeCsvField(s.accountBalance),
+      escapeDecimal(s.accountBalance),
       escapeCsvField(s.previousSnapshot?.date.toISOString() ?? ''),
       escapeCsvField(s.note ?? '')
     ]
@@ -50,8 +55,8 @@ export async function exportInvestmentSnapshotsCSV(): Promise<string> {
         rows.push([
           ...commonFields,
           escapeCsvField(item.assetClass.name),
-          escapeCsvField(item.marketValue),
-          escapeCsvField(item.periodNetFlow),
+          escapeDecimal(item.marketValue),
+          escapeDecimal(item.periodNetFlow),
           escapeCsvField(item.sort)
         ].join(','))
       }

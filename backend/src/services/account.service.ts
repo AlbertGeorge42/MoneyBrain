@@ -190,16 +190,17 @@ export interface AccountStats {
 }
 
 export async function getAccountStats(accountId: string): Promise<AccountStats> {
+  // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
   const [countResult, incomeResult, expenseResult] = await Promise.all([
     prisma.transaction.count({
-      where: { accountId, isAdjustment: false },
+      where: { accountId },
     }),
     prisma.transaction.aggregate({
-      where: { accountId, type: 'income', isAdjustment: false },
+      where: { accountId, type: 'income' },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { accountId, type: 'expense', isAdjustment: false },
+      where: { accountId, type: 'expense' },
       _sum: { amount: true },
     }),
   ])

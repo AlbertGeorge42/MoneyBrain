@@ -10,11 +10,11 @@ export {
 } from './error.js'
 
 // HTTP utilities and types
-export type { ApiResponse } from './http.js'
 export { asyncHandler, validateRequest, success, error, notFound, errorHandler } from './http.js'
+export type { ApiResponse } from './http.js'
 
 // Tree utilities
-export { buildTree } from './tree.js'
+export { buildTree, buildChildrenMap, collectDescendantIds } from './tree.js'
 export type { TreeNode } from './tree.js'
 
 // Utils

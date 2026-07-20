@@ -1,10 +1,3 @@
-export interface TreeNode {
-  id: string
-  parentId: string | null
-  children?: TreeNode[]
-  [key: string]: unknown
-}
-
 /**
  * 将扁平的 parentId 关联数组构建为 parent→children 映射
  */
@@ -38,6 +31,13 @@ export function collectDescendantIds(
     }
   }
   return ids
+}
+
+export interface TreeNode {
+  id: string
+  parentId: string | null
+  children?: TreeNode[]
+  [key: string]: unknown
 }
 
 /**

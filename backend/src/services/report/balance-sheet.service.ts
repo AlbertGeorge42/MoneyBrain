@@ -2,18 +2,18 @@ import { prisma } from '../../index.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
 import {
-  dayEnd,
-  nextDay,
   accumulatePredictionChanges,
   sumPredictionByType,
   sumAssetsLiabilities,
+  resolveReportPeriod,
   PREDICTION_NOTE_BALANCE_SHEET,
+  type DateGranularity,
 } from './report.utils.js'
 import { generatePredictions } from '../budget.service.js'
 
 const logger = rootLogger.child({ module: 'report' })
 
-export type DateGranularity = 'day' | 'month' | 'year'
+export type { DateGranularity }
 
 // 资产负债表 - 分类节点
 export interface BalanceSheetCategoryNode {
@@ -59,24 +59,9 @@ export interface BalanceSheetResult {
 }
 
 function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granularity: DateGranularity } {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const targetDate = dayEnd(date)
-    const next = nextDay(date)
-    return { targetDate, nextDay: next, granularity: 'day' }
-  }
-  if (/^\d{4}-\d{2}$/.test(date)) {
-    const [year, month] = date.split('-').map(Number)
-    const lastDay = new Date(year, month, 0).getDate()
-    const targetDate = new Date(year, month - 1, lastDay, 23, 59, 59, 999)
-    const next = new Date(year, month, 1)
-    return { targetDate, nextDay: next, granularity: 'month' }
-  }
-  if (/^\d{4}$/.test(date)) {
-    const targetDate = dayEnd(`${date}-12-31`)
-    const next = nextDay(`${date}-12-31`)
-    return { targetDate, nextDay: next, granularity: 'year' }
-  }
-  throw new Error('无效的日期格式，支持格式：YYYY-MM-DD、YYYY-MM、YYYY')
+  // 统一到 report.utils.ts 的 resolveReportPeriod；保留旧签名以便最小化调用方改动
+  const { endDate, nextDay, granularity } = resolveReportPeriod(date)
+  return { targetDate: endDate, nextDay, granularity }
 }
 
 export async function generateBalanceSheet(date: string): Promise<BalanceSheetResult> {

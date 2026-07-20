@@ -9,14 +9,13 @@ import {
   TransactionOutlined,
   RightOutlined,
 } from '@ant-design/icons'
-import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/common'
 import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 import LineChart from '../components/charts/LineChart'
 import { TransactionItemRow } from '../components/transactions'
 import {
-  useTransactions,
+  useDashboardSummary,
   useBalanceSheet,
   useTrends,
   useCategoryBreakdown,
@@ -45,15 +44,12 @@ const Dashboard: React.FC = () => {
 
   // -- 时间锚点 --
   const today = useMemo(() => new Date().toISOString().split('T')[0], [])
-  const thisMonthStart = useMemo(() => dayjs().startOf('month'), [])
 
   // -- 数据 hooks --
-  const { data: transactionsData } = useTransactions()
-  const transactions = useMemo(() => transactionsData?.list ?? [], [transactionsData])
+  const { data: dashboardSummary, isLoading: dashboardLoading } = useDashboardSummary()
   const { data: balanceSheetData } = useBalanceSheet(today)
 
   const { data: expenseTrend = [], isLoading: expenseTrendLoading } = useTrends('expense')
-  const { data: incomeTrend = [] } = useTrends('income')
   const { data: categoryData = [], isLoading: categoryLoading } = useCategoryBreakdown('expense')
   const { data: assetTrend = [] } = useAssetTrend()
 
@@ -64,9 +60,9 @@ const Dashboard: React.FC = () => {
   )
   const { data: budgetStatuses = [] } = useBudgetStatuses(activeExpenseBudgetIds)
 
-  const chartLoading = expenseTrendLoading || categoryLoading
+  const chartLoading = dashboardLoading || expenseTrendLoading || categoryLoading
 
-  // -- 计算数据 --
+  // -- 计算数据（直接从聚合 API 取，不再全量拉交易列表） --
   const balanceData = useMemo(() => {
     if (!balanceSheetData) return { totalAssets: 0, totalLiabilities: 0, netWorth: 0 }
     return {
@@ -76,31 +72,12 @@ const Dashboard: React.FC = () => {
     }
   }, [balanceSheetData])
 
-  const thisMonthTransactions = useMemo(
-    () =>
-      transactions.filter(
-        (t) => dayjs(t.date).isAfter(thisMonthStart) || dayjs(t.date).isSame(thisMonthStart),
-      ),
-    [transactions, thisMonthStart],
-  )
-
-  const thisMonthIncome = useMemo(
-    () =>
-      thisMonthTransactions
-        .filter((t) => t.type === 'income')
-        .reduce((sum, t) => sum + Number(t.amount), 0),
-    [thisMonthTransactions],
-  )
-
-  const thisMonthExpense = useMemo(
-    () =>
-      thisMonthTransactions
-        .filter((t) => t.type === 'expense')
-        .reduce((sum, t) => sum + Number(t.amount), 0),
-    [thisMonthTransactions],
-  )
-
-  const thisMonthBalance = thisMonthIncome - thisMonthExpense
+  const thisMonthIncome = dashboardSummary?.thisMonth.income ?? 0
+  const thisMonthExpense = dashboardSummary?.thisMonth.expense ?? 0
+  const thisMonthBalance = dashboardSummary?.thisMonth.balance ?? 0
+  const lastMonthIncome = dashboardSummary?.lastMonth.income ?? 0
+  const lastMonthExpense = dashboardSummary?.lastMonth.expense ?? 0
+  const recentTransactions = dashboardSummary?.recentTransactions ?? []
 
   // 净资产变化（从 assetTrend 取最后两个数据点）
   const netWorthChange = useMemo(() => {
@@ -112,16 +89,7 @@ const Dashboard: React.FC = () => {
     return { diff, rate }
   }, [assetTrend])
 
-  // 上月收支（从 trends 取倒数第二个点作为上月数据）
-  const lastMonthIncome = useMemo(() => {
-    if (incomeTrend.length < 2) return 0
-    return incomeTrend[incomeTrend.length - 2].amount
-  }, [incomeTrend])
-
-  const lastMonthExpense = useMemo(() => {
-    if (expenseTrend.length < 2) return 0
-    return expenseTrend[expenseTrend.length - 2].amount
-  }, [expenseTrend])
+  // 上月收支（从聚合 API 取，已在上面赋值 lastMonthIncome / lastMonthExpense）
 
   // 预算进度摘要（按使用率降序，取前 3）
   const topBudgets = useMemo(() => {
@@ -130,15 +98,6 @@ const Dashboard: React.FC = () => {
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 3)
   }, [budgetStatuses])
-
-  // 最近交易
-  const recentTransactions = useMemo(
-    () =>
-      [...transactions]
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 8),
-    [transactions],
-  )
 
   // 饼图下钻
   const handleDrillDown = async (item: PieChartDataItem): Promise<AnalyticsCategoryBreakdownItem[]> => {

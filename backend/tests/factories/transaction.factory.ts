@@ -38,7 +38,6 @@ export function createTransactionFactory(overrides: Partial<{
   coupon: number
   date: Date
   note: string | null
-  isAdjustment: boolean
   accountId: string
   toAccountId: string | null
   categoryId: string | null
@@ -52,7 +51,6 @@ export function createTransactionFactory(overrides: Partial<{
     coupon: new Decimal(overrides.coupon ?? 0),
     date: overrides.date || new Date(),
     note: overrides.note ?? null,
-    isAdjustment: overrides.isAdjustment ?? false,
     accountId: overrides.accountId || 'default-account-id',
     toAccountId: overrides.toAccountId ?? null,
     categoryId: overrides.categoryId ?? null,

@@ -4,11 +4,9 @@ import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { toDecimal, ZERO, rootLogger } from '../../common/index.js'
 import {
-  dayStart,
-  dayEnd,
-  nextDay,
   getPredictionsIfFuture,
   computePredictedAccountTotal,
+  resolveReportPeriod,
   PREDICTION_NOTE_DEFAULT,
 } from './report.utils.js'
 
@@ -105,6 +103,48 @@ export interface CashFlowResult {
     links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }>
   }
   predictionNote?: string
+}
+
+// 内部使用的轻量类型（collectTransactions / aggregate 之间传递）
+interface CategoryInfo {
+  cashFlowType: string | null
+  name: string
+  icon?: string | null
+  color?: string | null
+  parentId: string | null
+  level: number
+}
+
+interface AccountInfo {
+  name: string
+}
+
+// 统一后的交易项：actual + predicted 共用同一处理路径
+interface ProcessedTx {
+  isPredicted: boolean
+  type: string
+  amount: Decimal
+  fee: Decimal
+  coupon: Decimal
+  isFromCash: boolean
+  isToCash: boolean
+  categoryName: string
+  categoryId: string | null
+  parentId: string | null
+  level: number
+  cashFlowType: string | null
+  accountName: string
+  toAccountName: string | null
+  icon: string | null
+  color: string | null
+}
+
+interface AggregatedFlows {
+  operating: CashFlowActivityDecimal
+  investing: CashFlowActivityDecimal
+  financing: CashFlowActivityDecimal
+  uncategorized: CashFlowActivityDecimal
+  flowByAccount: Record<string, { inflow: Decimal; outflow: Decimal }>
 }
 
 function calculateCashFlowAmount(type: string, amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
@@ -322,11 +362,219 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
   }
 }
 
+/**
+ * 将 actual + predicted 原始数据统一规整为 ProcessedTx 列表。
+ * 这样后续 aggregate 不再需要区分 isActual / isPredicted 分支。
+ */
+function collectTransactions(args: {
+  transactions: TransactionWithIncludes[]
+  predictions: PredictionTransaction[]
+  start: Date
+  end: Date
+  cashAccountIds: string[]
+  categoryMap: Map<string, CategoryInfo>
+  accountMap: Map<string, AccountInfo>
+}): { actualItems: ProcessedTx[]; predictedItems: ProcessedTx[] } {
+  const { transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap } = args
+  const rangeStart = start.getTime()
+  const rangeEnd = end.getTime()
+
+  const actualItems: ProcessedTx[] = []
+  for (const t of transactions) {
+    const isFromCash = cashAccountIds.includes(t.accountId)
+    const isToCash = !!t.toAccountId && cashAccountIds.includes(t.toAccountId)
+    actualItems.push({
+      isPredicted: false,
+      type: t.type,
+      amount: t.amount,
+      fee: toDecimal(t.fee),
+      coupon: toDecimal(t.coupon),
+      isFromCash,
+      isToCash,
+      categoryName: t.category?.name || '未分类',
+      categoryId: t.category?.id || null,
+      parentId: t.category?.parentId || null,
+      level: t.category?.parentId ? 2 : 1,
+      cashFlowType: t.category?.cashFlowType || null,
+      accountName: t.account?.name || '未知账户',
+      toAccountName: t.toAccount?.name || null,
+      icon: t.category?.icon ?? null,
+      color: t.category?.color ?? null,
+    })
+  }
+
+  const predictedItems: ProcessedTx[] = []
+  for (const p of predictions) {
+    // predictions 来自 getPredictionsIfFuture，覆盖范围是 [now, endDate]，
+    // 并不是 [startDate, endDate]。这里必须按 [start, end] 过滤，
+    // 否则跨月查询会把前面月份的预测再次累加，
+    // 导致 cashInflow/Outflow/netCashFlow 表现为"累加值"而非"期内值"。
+    const ts = p.date.getTime()
+    if (ts < rangeStart || ts > rangeEnd) continue
+
+    const isFromCash = cashAccountIds.includes(p.accountId)
+    const isToCash = !!p.toAccountId && cashAccountIds.includes(p.toAccountId)
+    if (!isFromCash && !isToCash) continue
+
+    const category = p.categoryId ? categoryMap.get(p.categoryId) : null
+    const account = accountMap.get(p.accountId)
+    const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
+
+    predictedItems.push({
+      isPredicted: true,
+      type: p.type,
+      amount: toDecimal(p.amount),
+      fee: ZERO,
+      coupon: ZERO,
+      isFromCash,
+      isToCash,
+      categoryName: category?.name || '未分类',
+      categoryId: p.categoryId || null,
+      parentId: category?.parentId || null,
+      level: category?.level || 1,
+      cashFlowType: category?.cashFlowType || null,
+      accountName: account?.name || '未知账户',
+      toAccountName: toAccount?.name || null,
+      icon: category?.icon ?? null,
+      color: category?.color ?? null,
+    })
+  }
+
+  return { actualItems, predictedItems }
+}
+
+/**
+ * 将 ProcessedTx 列表聚合到 4 类活动桶 + 按账户现金流。
+ * 同一函数对 actual 和 predicted 通用：通过传入的 buckets 区分目标。
+ */
+function aggregate(items: ProcessedTx[]): AggregatedFlows {
+  const operating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const investing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const financing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const uncategorized: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
+  const flowByAccount: Record<string, { inflow: Decimal; outflow: Decimal }> = {}
+
+  const getTargetByType = (cashFlowType: string | null): CashFlowActivityDecimal =>
+    cashFlowType === 'investing' ? investing :
+    cashFlowType === 'financing' ? financing :
+    cashFlowType === 'operating' ? operating : uncategorized
+
+  const getOrCreateAccountFlow = (name: string) => {
+    if (!flowByAccount[name]) flowByAccount[name] = { inflow: ZERO, outflow: ZERO }
+    return flowByAccount[name]
+  }
+
+  for (const it of items) {
+    const target = getTargetByType(it.cashFlowType)
+
+    if (it.type === 'income' && it.isFromCash) {
+      addTransaction(
+        target, it.categoryName, it.categoryId, it.parentId, it.level,
+        it.amount, 'income', 'inflow', it.icon, it.color,
+      )
+      const accountFlow = getOrCreateAccountFlow(it.accountName)
+      accountFlow.inflow = accountFlow.inflow.plus(it.amount)
+    } else if (it.type === 'expense' && it.isFromCash) {
+      addTransaction(
+        target, it.categoryName, it.categoryId, it.parentId, it.level,
+        it.amount, 'expense', 'outflow', it.icon, it.color,
+      )
+      const accountFlow = getOrCreateAccountFlow(it.accountName)
+      // 符号约定：outflow 累加为负
+      accountFlow.outflow = accountFlow.outflow.minus(it.amount)
+    } else if (it.type === 'transfer') {
+      if (it.isFromCash && !it.isToCash) {
+        // 转出：原行为区分 actual('未分类') / predicted('转账转出') 默认值
+        const fromName = it.categoryName || (it.isPredicted ? '转账转出' : '未分类')
+        addTransferFlow(
+          target, fromName, '', it.categoryId, it.parentId, it.level,
+          it.amount, it.fee, it.coupon, true, it.icon, it.color,
+        )
+        const accountFlow = getOrCreateAccountFlow(it.accountName)
+        const actualOutflow = calculateCashFlowAmount('transfer', it.amount, it.fee, it.coupon).abs()
+        // 符号约定：outflow 累加为负
+        accountFlow.outflow = accountFlow.outflow.minus(actualOutflow)
+      } else if (!it.isFromCash && it.isToCash && it.toAccountName) {
+        // 转入：原行为区分 actual('未分类') / predicted('转账转入') 默认值
+        const toName = it.categoryName || (it.isPredicted ? '转账转入' : '未分类')
+        addTransferFlow(
+          target, '', toName, it.categoryId, it.parentId, it.level,
+          it.amount, it.fee, it.coupon, false, it.icon, it.color,
+        )
+        const accountFlow = getOrCreateAccountFlow(it.toAccountName)
+        const actualInflow = calculateCashTransferInAmount(it.amount, it.fee, it.coupon)
+        accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
+      }
+    } else if (it.type === 'refund' && it.isFromCash) {
+      const actualInflow = calculateCashFlowAmount('refund', it.amount, it.fee, ZERO)
+      addTransaction(
+        target, it.categoryName, it.categoryId, it.parentId, it.level,
+        actualInflow, 'refund', 'inflow', it.icon, it.color,
+      )
+      const accountFlow = getOrCreateAccountFlow(it.accountName)
+      accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
+    }
+  }
+
+  return { operating, investing, financing, uncategorized, flowByAccount }
+}
+
+/**
+ * 合并 actual + predicted 聚合结果，生成 4 类活动 + 现金流汇总 + 按账户流。
+ */
+function buildStatement(actual: AggregatedFlows, predicted: AggregatedFlows): {
+  byActivity: CashFlowResult['byActivity']
+  cashInflow: ReportValue
+  cashOutflow: ReportValue
+  netCashFlow: ReportValue
+  flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
+} {
+  const actualCashInflow = actual.operating.inflow.plus(actual.investing.inflow).plus(actual.financing.inflow).plus(actual.uncategorized.inflow)
+  const actualCashOutflow = actual.operating.outflow.plus(actual.investing.outflow).plus(actual.financing.outflow).plus(actual.uncategorized.outflow)
+  // outflow 已是负数，net = inflow + outflow 直接相加
+  const actualNetCashFlow = actualCashInflow.plus(actualCashOutflow)
+
+  const predictedCashInflow = predicted.operating.inflow.plus(predicted.investing.inflow).plus(predicted.financing.inflow).plus(predicted.uncategorized.inflow)
+  const predictedCashOutflow = predicted.operating.outflow.plus(predicted.investing.outflow).plus(predicted.financing.outflow).plus(predicted.uncategorized.outflow)
+  const predictedNetCashFlow = predictedCashInflow.plus(predictedCashOutflow)
+
+  // 合并按账户的流入流出（actual + predicted 同账户聚合；只有 predicted 的账户 actual 也补 0）
+  const flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }> = {}
+  for (const [name, flow] of Object.entries(actual.flowByAccount)) {
+    const pred = predicted.flowByAccount[name] || { inflow: ZERO, outflow: ZERO }
+    flowByAccount[name] = {
+      inflow: { actual: flow.inflow.toNumber(), predicted: pred.inflow.toNumber() },
+      outflow: { actual: flow.outflow.toNumber(), predicted: pred.outflow.toNumber() },
+    }
+  }
+  for (const [name, flow] of Object.entries(predicted.flowByAccount)) {
+    if (!flowByAccount[name]) {
+      flowByAccount[name] = {
+        inflow: { actual: 0, predicted: flow.inflow.toNumber() },
+        outflow: { actual: 0, predicted: flow.outflow.toNumber() },
+      }
+    }
+  }
+
+  return {
+    byActivity: {
+      operating: toActivityResult(actual.operating, predicted.operating),
+      investing: toActivityResult(actual.investing, predicted.investing),
+      financing: toActivityResult(actual.financing, predicted.financing),
+      uncategorized: toActivityResult(actual.uncategorized, predicted.uncategorized),
+    },
+    cashInflow: { actual: actualCashInflow.toNumber(), predicted: predictedCashInflow.toNumber() },
+    cashOutflow: { actual: actualCashOutflow.toNumber(), predicted: predictedCashOutflow.toNumber() },
+    netCashFlow: { actual: actualNetCashFlow.toNumber(), predicted: predictedNetCashFlow.toNumber() },
+    flowByAccount,
+  }
+}
+
 export async function generateCashFlow(startDate: string, endDate: string, includePredictions?: boolean): Promise<CashFlowResult> {
   const startTime = Date.now()
-  const start = dayStart(startDate)
-  const end = dayEnd(endDate)
+  const { startDate: start, endDate: end, nextDay: nextDayOfEnd } = resolveReportPeriod(startDate, endDate)
 
+  // 1. 准备：现金等价账户
   const cashCategories = await prisma.accountCategory.findMany({
     where: { isCashEquivalent: true },
     select: { id: true },
@@ -339,10 +587,11 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   })
   const cashAccountIds = cashAccounts.map(a => a.id)
 
+  // 2. 拉取 actual 交易（已限定到现金账户 + 日期范围）
+  // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
   const transactions = await prisma.transaction.findMany({
     where: {
       date: { gte: start, lte: end },
-      isAdjustment: false,
       OR: [
         { accountId: { in: cashAccountIds } },
         { toAccountId: { in: cashAccountIds } },
@@ -351,93 +600,14 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     include: { account: true, toAccount: true, category: true },
   })
 
-  const actualOperating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const actualInvesting: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const actualFinancing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const actualUncategorized: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-
-  const predictedOperating: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const predictedInvesting: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const predictedFinancing: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-  const predictedUncategorized: CashFlowActivityDecimal = { inflow: ZERO, outflow: ZERO, items: [] }
-
-  const flowByAccountActual: Record<string, { inflow: Decimal; outflow: Decimal }> = {}
-  const flowByAccountPredicted: Record<string, { inflow: Decimal; outflow: Decimal }> = {}
-
-  const getActualTargetByType = (cashFlowType: string | null): CashFlowActivityDecimal => {
-    return cashFlowType === 'investing' ? actualInvesting :
-           cashFlowType === 'financing' ? actualFinancing :
-           cashFlowType === 'operating' ? actualOperating : actualUncategorized
-  }
-
-  const getPredictedTargetByType = (cashFlowType: string | null): CashFlowActivityDecimal => {
-    return cashFlowType === 'investing' ? predictedInvesting :
-           cashFlowType === 'financing' ? predictedFinancing :
-           cashFlowType === 'operating' ? predictedOperating : predictedUncategorized
-  }
-
-  const getOrCreateAccountFlow = (
-    flowMap: Record<string, { inflow: Decimal; outflow: Decimal }>,
-    name: string
-  ) => {
-    if (!flowMap[name]) flowMap[name] = { inflow: ZERO, outflow: ZERO }
-    return flowMap[name]
-  }
-
-  transactions.forEach(t => {
-    const isFromCash = cashAccountIds.includes(t.accountId)
-    const isToCash = t.toAccountId && cashAccountIds.includes(t.toAccountId)
-    const amount = t.amount
-    const fee = toDecimal(t.fee)
-    const coupon = toDecimal(t.coupon)
-    const cashFlowType = t.category?.cashFlowType || null
-    const target = getActualTargetByType(cashFlowType)
-    const catIcon = t.category?.icon || null
-    const catColor = t.category?.color || null
-
-    if (t.type === 'income' && isFromCash) {
-      const level = t.category?.parentId ? 2 : 1
-      addTransaction(target, t.category?.name || '未分类', t.category?.id || null, t.category?.parentId || null, level, amount, 'income', 'inflow', catIcon, catColor)
-      const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
-      accountFlow.inflow = accountFlow.inflow.plus(amount)
-    } else if (t.type === 'expense' && isFromCash) {
-      const level = t.category?.parentId ? 2 : 1
-      addTransaction(target, t.category?.name || '未分类', t.category?.id || null, t.category?.parentId || null, level, amount, 'expense', 'outflow', catIcon, catColor)
-      const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
-      // 符号约定：outflow 累加为负
-      accountFlow.outflow = accountFlow.outflow.minus(amount)
-    } else if (t.type === 'transfer') {
-      const level = t.category?.parentId ? 2 : 1
-      if (isFromCash && !isToCash) {
-        addTransferFlow(target, t.category?.name || '未分类', '', t.category?.id || null, t.category?.parentId || null, level, amount, fee, coupon, true, catIcon, catColor)
-        const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
-        const actualOutflow = calculateCashFlowAmount('transfer', amount, fee, coupon).abs()
-        // 符号约定：outflow 累加为负
-        accountFlow.outflow = accountFlow.outflow.minus(actualOutflow)
-      } else if (!isFromCash && isToCash && t.toAccount) {
-        addTransferFlow(target, '', t.category?.name || '未分类', t.category?.id || null, t.category?.parentId || null, level, amount, fee, coupon, false, catIcon, catColor)
-        const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.toAccount.name)
-        const actualInflow = calculateCashTransferInAmount(amount, fee, coupon)
-        accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
-      }
-    } else if (t.type === 'refund' && isFromCash) {
-      const level = t.category?.parentId ? 2 : 1
-      const actualInflow = calculateCashFlowAmount('refund', amount, fee, ZERO)
-      addTransaction(target, t.category?.name || '未分类', t.category?.id || null, t.category?.parentId || null, level, actualInflow, 'refund', 'inflow', catIcon, catColor)
-      const accountFlow = getOrCreateAccountFlow(flowByAccountActual, t.account?.name || '未知账户')
-      accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
-    }
-  })
-
+  // 3. 拉取 predicted 交易（含分类 / 账户字典以便名称解析）
   let predictionNote: string | undefined
   let predictions: PredictionTransaction[] = []
-  let categoryMap: Map<string, { cashFlowType: string | null; name: string; icon?: string | null; color?: string | null; parentId: string | null; level: number }> = new Map()
-  let accountMap: Map<string, { name: string }> = new Map()
+  let categoryMap: Map<string, CategoryInfo> = new Map()
+  let accountMap: Map<string, AccountInfo> = new Map()
 
   if (includePredictions) {
     const allPredictions = await getPredictionsIfFuture(startDate, endDate, true)
-
-    // 转换为内部格式
     predictions = allPredictions.map(p => ({
       date: p.date,
       type: p.type,
@@ -462,89 +632,22 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
       }]))
       const allAccounts = await prisma.account.findMany()
       accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
-
-      // 注意：predictions 来自 getPredictionsIfFuture，覆盖范围是 [now, endDate]，
-      // 并不是 [startDate, endDate]。这里必须按 [start, end] 过滤，
-      // 否则跨月查询会把前面月份的预测再次累加，
-      // 导致 cashInflow/Outflow/netCashFlow 表现为"累加值"而非"期内值"。
-      const rangeStart = start.getTime()
-      const rangeEnd = end.getTime()
-
-      predictions.forEach(p => {
-        const t = p.date.getTime()
-        if (t < rangeStart || t > rangeEnd) return
-
-        const isFromCash = cashAccountIds.includes(p.accountId)
-        const isToCash = p.toAccountId && cashAccountIds.includes(p.toAccountId)
-
-        if (!isFromCash && !isToCash) return
-
-        const amount = toDecimal(p.amount)
-        const fee = ZERO
-        const coupon = ZERO
-        const category = p.categoryId ? categoryMap.get(p.categoryId) : null
-        const cashFlowType = category?.cashFlowType || null
-        const target = getPredictedTargetByType(cashFlowType)
-        const account = accountMap.get(p.accountId)
-
-        if (p.type === 'income' && isFromCash) {
-          addTransaction(target, category?.name || '未分类', p.categoryId || null, category?.parentId || null, category?.level || 1, amount, 'income', 'inflow', category?.icon, category?.color)
-          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-          accountFlow.inflow = accountFlow.inflow.plus(amount)
-        } else if (p.type === 'expense' && isFromCash) {
-          addTransaction(target, category?.name || '未分类', p.categoryId || null, category?.parentId || null, category?.level || 1, amount, 'expense', 'outflow', category?.icon, category?.color)
-          const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-          // 符号约定：outflow 累加为负
-          accountFlow.outflow = accountFlow.outflow.minus(amount)
-        } else if (p.type === 'transfer') {
-          const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
-          if (isFromCash && !isToCash) {
-            addTransferFlow(target, category?.name || '转账转出', '', p.categoryId || null, category?.parentId || null, category?.level || 1, amount, fee, coupon, true, category?.icon, category?.color)
-            const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, account?.name || '未知账户')
-            // 符号约定：outflow 累加为负
-            accountFlow.outflow = accountFlow.outflow.minus(amount.abs())
-          } else if (!isFromCash && isToCash && toAccount) {
-            addTransferFlow(target, '', category?.name || '转账转入', p.categoryId || null, category?.parentId || null, category?.level || 1, amount, fee, coupon, false, category?.icon, category?.color)
-            const accountFlow = getOrCreateAccountFlow(flowByAccountPredicted, toAccount.name)
-            accountFlow.inflow = accountFlow.inflow.plus(amount)
-          }
-        }
-      })
-
       predictionNote = PREDICTION_NOTE_DEFAULT
     }
   }
 
-  const actualCashInflow = actualOperating.inflow.plus(actualInvesting.inflow).plus(actualFinancing.inflow).plus(actualUncategorized.inflow)
-  const actualCashOutflow = actualOperating.outflow.plus(actualInvesting.outflow).plus(actualFinancing.outflow).plus(actualUncategorized.outflow)
-  // outflow 已是负数，net = inflow + outflow 直接相加
-  const actualNetCashFlow = actualCashInflow.plus(actualCashOutflow)
+  // 4. 收集 + 聚合 actual / predicted
+  const { actualItems, predictedItems } = collectTransactions({
+    transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap,
+  })
+  const actual = aggregate(actualItems)
+  const predicted = aggregate(predictedItems)
 
-  const predictedCashInflow = predictedOperating.inflow.plus(predictedInvesting.inflow).plus(predictedFinancing.inflow).plus(predictedUncategorized.inflow)
-  const predictedCashOutflow = predictedOperating.outflow.plus(predictedInvesting.outflow).plus(predictedFinancing.outflow).plus(predictedUncategorized.outflow)
-  const predictedNetCashFlow = predictedCashInflow.plus(predictedCashOutflow)
+  // 5. 生成报表主体
+  const statement = buildStatement(actual, predicted)
 
-  const flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }> = {}
-  for (const [name, flow] of Object.entries(flowByAccountActual)) {
-    const predicted = flowByAccountPredicted[name] || { inflow: ZERO, outflow: ZERO }
-    flowByAccount[name] = {
-      inflow: { actual: flow.inflow.toNumber(), predicted: predicted.inflow.toNumber() },
-      outflow: { actual: flow.outflow.toNumber(), predicted: predicted.outflow.toNumber() },
-    }
-  }
-  for (const [name, flow] of Object.entries(flowByAccountPredicted)) {
-    if (!flowByAccount[name]) {
-      flowByAccount[name] = {
-        inflow: { actual: 0, predicted: flow.inflow.toNumber() },
-        outflow: { actual: 0, predicted: flow.outflow.toNumber() },
-      }
-    }
-  }
-
-  const nextDayOfEnd = nextDay(endDate)
-
+  // 6. 期初 / 期末现金余额
   const balanceCache = await calculateBalancesBatch(cashAccountIds, [start, nextDayOfEnd])
-
   const actualStartCash = cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, start), 0)
   const actualEndCash = cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, nextDayOfEnd), 0)
   const actualCashChange = actualEndCash - actualStartCash
@@ -557,43 +660,44 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   const predictedStartCash = computePredictedAccountTotal(predictions, new Date(start.getTime() - 1), cashAccountIdSet)
   const predictedEndCash = computePredictedAccountTotal(predictions, new Date(nextDayOfEnd.getTime() - 1), cashAccountIdSet)
 
-  const sankeyData = buildSankeyData(transactions, predictions, cashAccountIds, categoryMap, accountMap, start, end)
+  // 7. 桑基图
+  const sankey = buildSankey({
+    transactions, predictions, cashAccountIds, categoryMap, accountMap, start, end,
+  })
 
-  return {
+  const result: CashFlowResult = {
     startDate,
     endDate,
-    cashInflow: { actual: actualCashInflow.toNumber(), predicted: predictedCashInflow.toNumber() },
-    cashOutflow: { actual: actualCashOutflow.toNumber(), predicted: predictedCashOutflow.toNumber() },
-    netCashFlow: { actual: actualNetCashFlow.toNumber(), predicted: predictedNetCashFlow.toNumber() },
-    flowByAccount,
+    cashInflow: statement.cashInflow,
+    cashOutflow: statement.cashOutflow,
+    netCashFlow: statement.netCashFlow,
+    flowByAccount: statement.flowByAccount,
     cashAccounts: cashAccounts.map(a => a.name),
     startCash: { actual: actualStartCash, predicted: predictedStartCash },
     endCash: { actual: actualEndCash, predicted: predictedEndCash },
     cashChange: { actual: actualCashChange, predicted: predictedEndCash - predictedStartCash },
-    byActivity: {
-      operating: toActivityResult(actualOperating, predictedOperating),
-      investing: toActivityResult(actualInvesting, predictedInvesting),
-      financing: toActivityResult(actualFinancing, predictedFinancing),
-      uncategorized: toActivityResult(actualUncategorized, predictedUncategorized),
-    },
-    sankey: sankeyData,
+    byActivity: statement.byActivity,
+    sankey,
     predictionNote,
   }
   logger.info({ action: 'generate', report: 'cash-flow', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')
+  return result
 }
 
-function buildSankeyData(
-  transactions: TransactionWithIncludes[],
-  predictions: PredictionTransaction[],
-  cashAccountIds: string[],
-  categoryMap: Map<string, { cashFlowType: string | null; name: string }>,
-  accountMap: Map<string, { name: string }>,
-  start: Date,
-  end: Date,
-): {
-  nodes: Array<{ name: string; category: string }>; 
-  links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }> 
+function buildSankey(args: {
+  transactions: TransactionWithIncludes[]
+  predictions: PredictionTransaction[]
+  cashAccountIds: string[]
+  categoryMap: Map<string, CategoryInfo>
+  accountMap: Map<string, AccountInfo>
+  start: Date
+  end: Date
+}): {
+  nodes: Array<{ name: string; category: string }>
+  links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }>
 } {
+  const { transactions, predictions, cashAccountIds, categoryMap, accountMap, start, end } = args
+
   const incomeCategoryNodesActual: Map<string, Decimal> = new Map()
   const incomeCategoryNodesPredicted: Map<string, Decimal> = new Map()
   const nonCashSourceNodesActual: Map<string, Decimal> = new Map()

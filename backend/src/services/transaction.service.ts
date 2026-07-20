@@ -22,7 +22,6 @@ export interface TransactionWithRelations {
   categoryId: string | null
   relatedTransactionId: string | null
   relatedType: string | null
-  isAdjustment: boolean
   createdAt: Date
   updatedAt: Date
   account: Account
@@ -204,28 +203,31 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
 // ===== 更新交易 =====
 
+// 共享的字段合并逻辑，三个 update 函数复用
+function mergeTransactionData(
+  old: { amount: Decimal; fee: Decimal; coupon: Decimal; date: Date; note: string | null; accountId: string; categoryId: string | null },
+  data: { amount?: number; fee?: number; coupon?: number; date?: Date; note?: string; accountId?: string; categoryId?: string | null }
+) {
+  return {
+    amount: data.amount !== undefined ? toDecimal(data.amount) : old.amount,
+    fee: data.fee !== undefined ? toDecimal(data.fee) : old.fee,
+    coupon: data.coupon !== undefined ? toDecimal(data.coupon) : old.coupon,
+    date: data.date || old.date,
+    note: data.note !== undefined ? data.note : old.note,
+    accountId: data.accountId || old.accountId,
+    categoryId: data.categoryId !== undefined ? data.categoryId : old.categoryId,
+  }
+}
+
 export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseData): Promise<TransactionWithRelations> {
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
-  const newType = data.type || oldTransaction.type
-  const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
-  const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldTransaction.fee
-  const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldTransaction.coupon
-  const newAccountId = data.accountId || oldTransaction.accountId
+  const merged = mergeTransactionData(oldTransaction, data)
 
   const transaction = await prisma.transaction.update({
     where: { id },
-    data: {
-      type: newType,
-      amount: newAmount,
-      fee: newFee,
-      coupon: newCoupon,
-      date: data.date || oldTransaction.date,
-      note: data.note !== undefined ? data.note : oldTransaction.note,
-      accountId: newAccountId,
-      categoryId: data.categoryId || oldTransaction.categoryId,
-    },
+    data: { ...merged, type: data.type || oldTransaction.type },
     include: { account: true, category: true },
   })
 
@@ -236,24 +238,11 @@ export async function updateTransfer(id: string, data: UpdateTransferData): Prom
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
-  const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
-  const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldTransaction.fee
-  const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldTransaction.coupon
-  const newAccountId = data.accountId || oldTransaction.accountId
-  const newToAccountId = data.toAccountId || oldTransaction.toAccountId!
+  const merged = mergeTransactionData(oldTransaction, data)
 
   const transaction = await prisma.transaction.update({
     where: { id },
-    data: {
-      amount: newAmount,
-      fee: newFee,
-      coupon: newCoupon,
-      date: data.date || oldTransaction.date,
-      note: data.note !== undefined ? data.note : oldTransaction.note,
-      accountId: newAccountId,
-      toAccountId: newToAccountId,
-      categoryId: data.categoryId !== undefined ? data.categoryId : oldTransaction.categoryId,
-    },
+    data: { ...merged, toAccountId: data.toAccountId || oldTransaction.toAccountId! },
     include: { account: true, toAccount: true, category: true },
   })
 
@@ -264,21 +253,12 @@ export async function updateRefund(id: string, data: UpdateRefundData): Promise<
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
-  const newAmount = data.amount !== undefined ? toDecimal(data.amount) : oldTransaction.amount
-  const newFee = data.fee !== undefined ? toDecimal(data.fee) : oldTransaction.fee
-  const newCoupon = data.coupon !== undefined ? toDecimal(data.coupon) : oldTransaction.coupon
-  const newAccountId = data.accountId || oldTransaction.accountId
+  const merged = mergeTransactionData(oldTransaction, data)
 
   const transaction = await prisma.transaction.update({
     where: { id },
     data: {
-      amount: newAmount,
-      fee: newFee,
-      coupon: newCoupon,
-      date: data.date || oldTransaction.date,
-      note: data.note !== undefined ? data.note : oldTransaction.note,
-      accountId: newAccountId,
-      categoryId: data.categoryId !== undefined ? data.categoryId : oldTransaction.categoryId,
+      ...merged,
       relatedTransactionId: data.relatedTransactionId !== undefined ? data.relatedTransactionId : oldTransaction.relatedTransactionId,
     },
     include: { account: true, category: true, relatedTransaction: true },
@@ -323,7 +303,6 @@ export async function getTransactionList(params: TransactionListParams): Promise
 
 export async function getTransactionStats(params: TransactionListParams = {}): Promise<TransactionStats> {
   const where = await buildTransactionListWhere(params)
-  where.isAdjustment = false
 
   // 分别统计收入退款和支出退款
   const [incomeResult, expenseResult, incomeRefundResult, expenseRefundResult, transferCount] = await Promise.all([

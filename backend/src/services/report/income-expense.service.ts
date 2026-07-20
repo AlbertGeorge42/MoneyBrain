@@ -3,12 +3,10 @@ import { calculateBalancesBatch } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO, rootLogger } from '../../common/index.js'
 import {
-  dayStart,
-  dayEnd,
-  nextDay,
   getPredictionsIfFuture,
   computePredictedAssetsLiabilities,
   sumAssetsLiabilities,
+  resolveReportPeriod,
   PREDICTION_NOTE_DEFAULT,
 } from './report.utils.js'
 
@@ -54,15 +52,13 @@ export interface IncomeExpenseResult {
 
 export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseResult> {
   const startTime = Date.now()
-  const start = dayStart(startDate)
-  const end = dayEnd(endDate)
+  const { startDate: start, endDate: end, nextDay: endDayNext } = resolveReportPeriod(startDate, endDate)
   const startDay = new Date(start)
-  const endDayNext = nextDay(endDate)
 
+  // isAdjustment 已删除：type='adjustment' 已能区分非业务调整，Prisma schema 仅保留 type
   const transactions = await prisma.transaction.findMany({
     where: {
       date: { gte: start, lte: end },
-      isAdjustment: false,
       type: { in: ['income', 'expense', 'refund'] },
       amount: { not: 0 },
     },

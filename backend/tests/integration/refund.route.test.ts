@@ -16,7 +16,8 @@ const createTestApp = (prisma: PrismaClient) => {
 
   app.get('/api/transactions/stats', async (req, res) => {
     try {
-      const where: any = { isAdjustment: false }
+      // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
+      const where: any = {}
 
       const [incomeResult, expenseResult, incomeRefundResult, expenseRefundResult, transferCount] = await Promise.all([
         prisma.transaction.aggregate({ where: { ...where, type: 'income' }, _sum: { amount: true } }),

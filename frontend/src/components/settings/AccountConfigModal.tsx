@@ -171,14 +171,17 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleAccountSubmit = async () => {
     try {
       const values = await accountForm.validateFields()
+      // type 和 categoryId 没有对应的 Form.Item，需从 form store 直接读取
+      const type = accountForm.getFieldValue('type')
+      const categoryId = accountForm.getFieldValue('categoryId')
       const submitData: Record<string, unknown> = {
         name: values.name,
-        type: values.type,
+        type,
         icon: values.icon,
         color: values.color ?? null,
         initialBalanceDate: values.initialBalanceDate?.format('YYYY-MM-DD'),
       }
-      if (!editingAccount) submitData.categoryId = values.categoryId
+      if (!editingAccount) submitData.categoryId = categoryId
       if (editingAccount) {
         if (values.initialBalance !== editingAccount.initialBalance) submitData.initialBalance = values.initialBalance
       } else {

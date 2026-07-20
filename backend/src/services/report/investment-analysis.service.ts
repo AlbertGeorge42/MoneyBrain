@@ -1,7 +1,8 @@
 import { prisma } from '../../index.js'
 import { calculateBalancesBatch, BalanceCache } from '../balance.service.js'
-import { toDecimal, rootLogger } from '../../common/index.js'
-import { formatDateLocal, sumAssetsLiabilities } from './report.utils.js'
+import { toDecimal, rootLogger, ZERO } from '../../common/index.js'
+import { Decimal } from '@prisma/client/runtime/library.js'
+import { formatDateLocal, sumAssetsLiabilities, resolveReportPeriod } from './report.utils.js'
 
 const logger = rootLogger.child({ module: 'report' })
 
@@ -334,13 +335,56 @@ function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: number =
   return maxCapital
 }
 
+// ===== 批量查询辅助函数（消除 N+1） =====
+
+async function batchGetAssetClasses(accountIds: string[]): Promise<Map<string, Array<{ id: string; accountId: string; name: string; icon: string | null; color: string | null; targetRatio: Decimal | null; sort: number }>>> {
+  const allClasses = await prisma.investmentAssetClass.findMany({
+    where: { accountId: { in: accountIds } },
+    orderBy: { sort: 'asc' },
+  })
+  const map = new Map<string, typeof allClasses>()
+  for (const cls of allClasses) {
+    if (!map.has(cls.accountId)) map.set(cls.accountId, [])
+    map.get(cls.accountId)!.push(cls)
+  }
+  return map
+}
+
+async function batchGetSnapshots(accountIds: string[], endDate: Date) {
+  const allSnapshots = await prisma.investmentAllocationSnapshot.findMany({
+    where: {
+      accountId: { in: accountIds },
+      date: { lte: endDate },
+    },
+    include: {
+      items: {
+        include: { assetClass: true },
+        orderBy: { sort: 'asc' },
+      },
+    },
+    orderBy: { date: 'asc' },
+  })
+  const map = new Map<string, typeof allSnapshots>()
+  for (const snap of allSnapshots) {
+    if (!map.has(snap.accountId)) map.set(snap.accountId, [])
+    map.get(snap.accountId)!.push(snap)
+  }
+  return map
+}
+
 async function buildAccountAllocationDetail(
   account: { id: string; name: string; balance: number; icon: string | null; color: string | null },
   endDate: Date,
   startDate: Date,
-  balanceCache: BalanceCache
+  balanceCache: BalanceCache,
+  // 可选预取数据（批量查询传入以消除 N+1）
+  prefetched?: {
+    assetClasses: Awaited<ReturnType<typeof batchGetAssetClasses>>
+    snapshots: Awaited<ReturnType<typeof batchGetSnapshots>>
+    cashFlows: CashFlow[]  // 全部账户的现金流，函数内按 accountId 过滤
+  }
 ): Promise<AccountAllocationDetail> {
-  const assetClasses = await prisma.investmentAssetClass.findMany({
+  const assetClasses = prefetched?.assetClasses.get(account.id) ?? await prisma.investmentAssetClass.findMany({
     where: { accountId: account.id },
     orderBy: { sort: 'asc' },
   })
@@ -348,7 +392,9 @@ async function buildAccountAllocationDetail(
   const hasAssetClasses = assetClasses.length > 0
 
   // 计算账户收益率（使用累计收益率计算方式）
-  const accountCashFlows = await getCashFlowsInRange([account.id], startDate, endDate)
+  const accountCashFlows = prefetched
+    ? prefetched.cashFlows.filter(cf => cf.accountId === account.id)
+    : await getCashFlowsInRange([account.id], startDate, endDate)
   const nextDayOfEnd = new Date(endDate)
   nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
 
@@ -381,7 +427,7 @@ async function buildAccountAllocationDetail(
     }
   }
 
-  const snapshots = await prisma.investmentAllocationSnapshot.findMany({
+  const snapshots = prefetched?.snapshots.get(account.id) ?? await prisma.investmentAllocationSnapshot.findMany({
     where: {
       accountId: account.id,
       date: { lte: endDate },
@@ -417,16 +463,22 @@ async function buildAccountAllocationDetail(
     : null
 
   // 先计算已分类市值总和
-  const totalMarketValue = latestSnapshot.items.reduce((sum, item) => sum + item.marketValue, 0)
+  const totalMarketValue = latestSnapshot.items.reduce(
+    (sum, item) => sum.plus(toDecimal(item.marketValue)),
+    ZERO,
+  )
 
   const items: AccountAllocationItem[] = latestSnapshot.items.map(item => {
     // ratio 基于已分类市值总和，不包含未分类
-    const ratio = totalMarketValue > 0 ? (item.marketValue / totalMarketValue) * 100 : 0
-    const targetRatio = item.assetClass.targetRatio
-    const deviation = targetRatio !== null ? ratio - targetRatio : null
+    const itemMarketValue = toDecimal(item.marketValue)
+    const ratio = totalMarketValue.greaterThan(ZERO)
+      ? itemMarketValue.dividedBy(totalMarketValue).times(100).toNumber()
+      : 0
+    const targetRatio = item.assetClass.targetRatio == null ? null : toDecimal(item.assetClass.targetRatio)
+    const deviation = targetRatio !== null ? ratio - targetRatio.toNumber() : null
     // rebalanceAmount 基于已分类市值总和
     const rebalanceAmount = targetRatio !== null
-      ? (targetRatio / 100 * totalMarketValue) - item.marketValue
+      ? targetRatio.dividedBy(100).times(totalMarketValue).minus(itemMarketValue).toNumber()
       : null
 
     let periodReturn: number | null = null
@@ -435,11 +487,15 @@ async function buildAccountAllocationDetail(
     if (previousSnapshot) {
       const prevItem = previousSnapshot.items.find(i => i.assetClassId === item.assetClassId)
       if (prevItem) {
-        const prevValue = prevItem.marketValue
-        const netContribution = item.periodNetFlow
-        periodReturn = item.marketValue - prevValue - netContribution
-        const denominator = prevValue + Math.max(0, item.periodNetFlow)
-        returnRate = denominator > 0 ? (periodReturn / denominator) * 100 : null
+        const prevValue = toDecimal(prevItem.marketValue)
+        const netContribution = toDecimal(item.periodNetFlow)
+        const periodReturnDecimal = itemMarketValue.minus(prevValue).minus(netContribution)
+        const positiveNetContribution = netContribution.greaterThan(ZERO) ? netContribution : ZERO
+        const denominator = prevValue.plus(positiveNetContribution)
+        periodReturn = periodReturnDecimal.toNumber()
+        returnRate = denominator.greaterThan(ZERO)
+          ? periodReturnDecimal.dividedBy(denominator).times(100).toNumber()
+          : null
       }
     }
 
@@ -448,13 +504,13 @@ async function buildAccountAllocationDetail(
       name: item.assetClass.name,
       icon: item.assetClass.icon,
       color: item.assetClass.color,
-      marketValue: item.marketValue,
+      marketValue: itemMarketValue.toNumber(),
       ratio,
-      targetRatio,
+      targetRatio: targetRatio?.toNumber() ?? null,
       deviation,
       rebalanceAmount,
-      periodInvested: Math.max(0, item.periodNetFlow),
-      periodWithdrawn: Math.max(0, -item.periodNetFlow),
+      periodInvested: toDecimal(item.periodNetFlow).greaterThan(ZERO) ? toDecimal(item.periodNetFlow).toNumber() : 0,
+      periodWithdrawn: toDecimal(item.periodNetFlow).lessThan(ZERO) ? toDecimal(item.periodNetFlow).abs().toNumber() : 0,
       periodReturn,
       returnRate,
       sort: item.sort,
@@ -462,8 +518,10 @@ async function buildAccountAllocationDetail(
   })
 
   // 计算差额并添加"未分类"项
-  const unclassifiedValue = account.balance - totalMarketValue
-  if (Math.abs(unclassifiedValue) > 0.01 && items.length > 0) {
+  const accountBalance = toDecimal(account.balance)
+  const unclassifiedValueDecimal = accountBalance.minus(totalMarketValue)
+  const unclassifiedValue = unclassifiedValueDecimal.toNumber()
+  if (unclassifiedValueDecimal.abs().greaterThan(new Decimal('0.01')) && items.length > 0) {
     items.push({
       assetClassId: '__unclassified__',
       name: '未分类',
@@ -483,29 +541,37 @@ async function buildAccountAllocationDetail(
   }
 
   const historySnapshots: SnapshotHistoryItem[] = snapshots.map(s => {
-    const sTotalMarketValue = s.items.reduce((sum, item) => sum + item.marketValue, 0)
-    const sUnclassifiedValue = s.accountBalance - sTotalMarketValue
-    const sItems = s.items.map(item => ({
-      assetClassId: item.assetClassId,
-      name: item.assetClass.name,
-      marketValue: item.marketValue,
-      ratio: s.accountBalance > 0 ? (item.marketValue / s.accountBalance) * 100 : 0,
-    }))
+    const sAccountBalance = toDecimal(s.accountBalance)
+    const sTotalMarketValue = s.items.reduce(
+      (sum, item) => sum.plus(toDecimal(item.marketValue)),
+      ZERO,
+    )
+    const sUnclassifiedValueDecimal = sAccountBalance.minus(sTotalMarketValue)
+    const sUnclassifiedValue = sUnclassifiedValueDecimal.toNumber()
+    const sItems = s.items.map(item => {
+      const mv = toDecimal(item.marketValue)
+      return {
+        assetClassId: item.assetClassId,
+        name: item.assetClass.name,
+        marketValue: mv.toNumber(),
+        ratio: sAccountBalance.greaterThan(ZERO) ? mv.dividedBy(sAccountBalance).times(100).toNumber() : 0,
+      }
+    })
 
     // 添加"未分类"项（如果有差额且已有其他项）
-    if (Math.abs(sUnclassifiedValue) > 0.01 && sItems.length > 0) {
+    if (sUnclassifiedValueDecimal.abs().greaterThan(new Decimal('0.01')) && sItems.length > 0) {
       sItems.push({
         assetClassId: '__unclassified__',
         name: '未分类',
         marketValue: sUnclassifiedValue,
-        ratio: s.accountBalance > 0 ? (sUnclassifiedValue / s.accountBalance) * 100 : 0,
+        ratio: sAccountBalance.greaterThan(ZERO) ? sUnclassifiedValueDecimal.dividedBy(sAccountBalance).times(100).toNumber() : 0,
       })
     }
 
     return {
       id: s.id,
       date: formatDateLocal(s.date),
-      accountBalance: s.accountBalance,
+      accountBalance: sAccountBalance.toNumber(),
       items: sItems,
     }
   })
@@ -582,8 +648,7 @@ async function buildStaleAccounts(
 
 export async function generateInvestmentAnalysis(startDateStr: string, endDateStr: string): Promise<InvestmentAnalysisResult | null> {
   const startTime = Date.now()
-  const startDate = new Date(`${startDateStr}T00:00:00`)
-  const endDate = new Date(`${endDateStr}T23:59:59.999`)
+  const { startDate, endDate, nextDay: nextDayOfEnd } = resolveReportPeriod(startDateStr, endDateStr)
 
   const investmentAccounts = await getInvestmentAccounts()
 
@@ -609,10 +674,6 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     monthDates.push(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
     currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
   }
-
-  // 期末日期（下一天）
-  const nextDayOfEnd = new Date(endDateStr)
-  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
 
   // 收集所有需要计算余额的日期
   const requiredDates: Date[] = [
@@ -793,9 +854,22 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     balance: balanceCache.get(a.id, nextDayOfEnd),
   }))
 
+  // 批量预取资产分类、快照和现金流（消除 N+1 查询）
+  const [prefetchedAssetClasses, prefetchedSnapshots, prefetchedCashFlows] = await Promise.all([
+    batchGetAssetClasses(investmentAccountIds),
+    batchGetSnapshots(investmentAccountIds, endDate),
+    getCashFlowsInRange(investmentAccountIds, startDate, endDate),
+  ])
+
+  const prefetched = {
+    assetClasses: prefetchedAssetClasses,
+    snapshots: prefetchedSnapshots,
+    cashFlows: prefetchedCashFlows,
+  }
+
   const [byAccountAllocation, staleAccounts] = await Promise.all([
     Promise.all(accountDetails.map(account =>
-      buildAccountAllocationDetail(account, endDate, startDate, balanceCache)
+      buildAccountAllocationDetail(account, endDate, startDate, balanceCache, prefetched)
     )),
     buildStaleAccounts(accountDetails, endDate, 30),
   ])
