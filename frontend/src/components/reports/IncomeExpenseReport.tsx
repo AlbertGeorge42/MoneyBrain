@@ -11,7 +11,9 @@ import * as api from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { getAmountColor } from '../../utils/formatAmount'
-import { getTokenValue } from '../../styles/theme/css-utils'
+import { getFinancialTokens } from '../../styles/theme/financial-tokens'
+import { useTheme } from '../../styles/ThemeContext'
+import { useAmountColors } from '../../constants/transactionType'
 
 // ---- 本报表专属：metrics 类型 ----
 interface IncomeExpenseMetrics {
@@ -21,7 +23,7 @@ interface IncomeExpenseMetrics {
 }
 
 // ---- 本报表专属：列配置 ----
-const incomeColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
+const createIncomeColumns = (isDark: boolean): ReportDetailColumn<IncomeExpenseMetrics>[] => [
   {
     key: 'amount',
     metric: 'total',
@@ -29,11 +31,11 @@ const incomeColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
     align: 'right',
     prediction: { displayMetric: 'total', actualMetric: 'actual', predictedMetric: 'predicted' },
     format: (v) => formatCurrency(v as number),
-    color: 'var(--mb-color-positive)',
+    color: getAmountColor(1, 'flow', isDark),
   },
 ]
 
-const expenseColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
+const createExpenseColumns = (isDark: boolean): ReportDetailColumn<IncomeExpenseMetrics>[] => [
   {
     key: 'amount',
     metric: 'total',
@@ -41,7 +43,7 @@ const expenseColumns: ReportDetailColumn<IncomeExpenseMetrics>[] = [
     align: 'right',
     prediction: { displayMetric: 'total', actualMetric: 'actual', predictedMetric: 'predicted' },
     format: (v) => formatCurrency(Math.abs(v as number)),
-    color: 'var(--mb-color-negative)',
+    color: getAmountColor(-1, 'flow', isDark),
   },
 ]
 
@@ -85,6 +87,9 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const isMobile = !screens.md
   const useClickTrigger = !screens.lg
   const { token } = theme.useToken()
+  const { isDark } = useTheme()
+  const amountColors = useAmountColors()
+  const financialTokens = useMemo(() => getFinancialTokens(isDark), [isDark])
 
   const dateParams = toDateRangeParams(timeRange)
   const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
@@ -145,8 +150,8 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const formatStatValue = (v: number) => formatCurrency(Number(v))
 
   // 柱状图配色：参考现金流量表
-  const incomeColor = getTokenValue('--mb-color-positive')
-  const expenseColor = getTokenValue('--mb-color-negative')
+  const incomeColor = financialTokens.value.positive
+  const expenseColor = financialTokens.value.negative
 
   const summarySection = (
     <>
@@ -157,14 +162,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="结余"
               value={balanceData}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: getAmountColor(balanceTotal, 'flow') }}
+              valueStyle={{ color: getAmountColor(balanceTotal, 'flow', isDark) }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>结余 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '结余'}
               value={balanceTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: getAmountColor(balanceTotal, 'flow') }}
+              valueStyle={{ color: getAmountColor(balanceTotal, 'flow', isDark) }}
             />
           )}
         </Card>
@@ -173,25 +178,25 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="收入" value={incomeData} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-positive)' }} />
+            <PredictionStatistic title="收入" value={incomeData} useClickTrigger={useClickTrigger} valueStyle={{ color: amountColors.positive }} />
           ) : (
             <Statistic
               title={isFuture ? <>收入 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入'}
               value={incomeTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: 'var(--mb-color-positive)' }}
+              valueStyle={{ color: amountColors.positive }}
             />
           )}
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="支出" value={expenseData} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-negative)' }} />
+            <PredictionStatistic title="支出" value={expenseData} useClickTrigger={useClickTrigger} valueStyle={{ color: amountColors.negative }} />
           ) : (
             <Statistic
               title={isFuture ? <>支出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出'}
               value={expenseTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: 'var(--mb-color-negative)' }}
+              valueStyle={{ color: amountColors.negative }}
             />
           )}
         </Card>
@@ -200,7 +205,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="期初净值"
             value={incomeExpenseData?.startNetWorth || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
-            valueStyle={{ color: 'var(--mb-color-neutral)' }}
+            valueStyle={{ color: amountColors.neutral }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -208,7 +213,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title="期末净值"
             value={incomeExpenseData?.endNetWorth || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
-            valueStyle={{ color: 'var(--mb-color-neutral)' }}
+            valueStyle={{ color: amountColors.neutral }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -217,14 +222,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
               title="资产变动"
               value={assetChangeData}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: getAmountColor(assetChangeData.actual + assetChangeData.predicted, 'flow') }}
+              valueStyle={{ color: getAmountColor(assetChangeData.actual + assetChangeData.predicted, 'flow', isDark) }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>资产变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产变动'}
               value={assetChangeData.actual + assetChangeData.predicted}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: getAmountColor(assetChangeData.actual + assetChangeData.predicted, 'flow') }}
+              valueStyle={{ color: getAmountColor(assetChangeData.actual + assetChangeData.predicted, 'flow', isDark) }}
             />
           )}
         </Card>
@@ -233,7 +238,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             title={isFuture ? <>储蓄率 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '储蓄率'}
             value={incomeTotal ? (balanceTotal / incomeTotal) * 100 : 0}
             formatter={(v) => formatPercent(Number(v), 1, false)}
-            valueStyle={{ color: 'var(--mb-color-neutral)' }}
+            valueStyle={{ color: amountColors.neutral }}
           />
         </Card>
       </div>
@@ -284,7 +289,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const incomeDetailCard = (
     <ReportDetailList
       data={adaptIncomeExpenseTree(incomeExpenseData?.incomeCategoryDetails || [], 'income')}
-      config={{ columns: incomeColumns, parentIcon: 'folder', leafIcon: 'circle', expandable: true, defaultExpandDepth: 1 }}
+      config={{ columns: createIncomeColumns(isDark), parentIcon: 'folder', leafIcon: 'circle', expandable: true, defaultExpandDepth: 1 }}
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
@@ -295,7 +300,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const expenseDetailCard = (
     <ReportDetailList
       data={adaptIncomeExpenseTree(incomeExpenseData?.expenseCategoryDetails || [], 'expense')}
-      config={{ columns: expenseColumns, parentIcon: 'folder', leafIcon: 'circle', expandable: true, defaultExpandDepth: 1 }}
+      config={{ columns: createExpenseColumns(isDark), parentIcon: 'folder', leafIcon: 'circle', expandable: true, defaultExpandDepth: 1 }}
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}

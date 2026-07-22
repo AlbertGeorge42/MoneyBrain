@@ -27,7 +27,8 @@ import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
 import { formatCurrency, formatPercent } from '../utils/format'
 import { formatAmount, getAmountColor } from '../utils/formatAmount'
-import { AMOUNT_COLORS } from '../constants/transactionType'
+import { useAmountColors } from '../constants/transactionType'
+import { useTheme } from '../styles/ThemeContext'
 
 // ===== 预算进度条色相：支出=红 =====
 const getBudgetProgressColor = (percentage: number, isOverBudget: boolean): string => {
@@ -40,6 +41,8 @@ const getBudgetProgressColor = (percentage: number, isOverBudget: boolean): stri
 const Dashboard: React.FC = () => {
   const navigate = useNavigate()
   const { token } = theme.useToken()
+  const { isDark } = useTheme()
+  const amountColors = useAmountColors()
   const colorActionPrimary = token.colorPrimary
 
   // -- 时间锚点 --
@@ -125,7 +128,7 @@ const Dashboard: React.FC = () => {
       <Card className="surface-card dashboard-hero">
         <div className="dashboard-hero__body">
           <div className="dashboard-hero__label">净资产</div>
-          <div className="dashboard-hero__value" style={{ color: getAmountColor(balanceData.netWorth, 'flow') }}>
+          <div className="dashboard-hero__value" style={{ color: getAmountColor(balanceData.netWorth, 'flow', isDark) }}>
             {formatAmount(balanceData.netWorth, 'flow').text}
           </div>
           {netWorthChange && (
@@ -145,27 +148,27 @@ const Dashboard: React.FC = () => {
             <AccountBookOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">总资产</span>
           </div>
-          <div className="metric-card__value" style={{ color: getAmountColor(balanceData.totalAssets, 'asset') }}>
+          <div className="metric-card__value" style={{ color: getAmountColor(balanceData.totalAssets, 'asset', isDark) }}>
             {formatAmount(balanceData.totalAssets, 'asset').text}
           </div>
         </Card>
 
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <CreditCardOutlined style={{ fontSize: 20, color: AMOUNT_COLORS.negative }} />
+            <CreditCardOutlined style={{ fontSize: 20, color: amountColors.negative }} />
             <span className="metric-card__label">总负债</span>
           </div>
-          <div className="metric-card__value" style={{ color: getAmountColor(balanceData.totalLiabilities, 'liability') }}>
+          <div className="metric-card__value" style={{ color: getAmountColor(balanceData.totalLiabilities, 'liability', isDark) }}>
             {formatAmount(balanceData.totalLiabilities, 'liability').text}
           </div>
         </Card>
 
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <TransactionOutlined style={{ fontSize: 20, color: getAmountColor(thisMonthBalance, 'flow') }} />
+            <TransactionOutlined style={{ fontSize: 20, color: getAmountColor(thisMonthBalance, 'flow', isDark) }} />
             <span className="metric-card__label">本月结余</span>
           </div>
-          <div className="metric-card__value" style={{ color: getAmountColor(thisMonthBalance, 'flow') }}>
+          <div className="metric-card__value" style={{ color: getAmountColor(thisMonthBalance, 'flow', isDark) }}>
             {formatAmount(thisMonthBalance, 'flow').text}
           </div>
         </Card>
@@ -176,10 +179,10 @@ const Dashboard: React.FC = () => {
         <div className="dashboard-income-expense">
           <div className="dashboard-income-expense__item">
             <div className="dashboard-income-expense__label">
-              <ArrowUpOutlined style={{ color: AMOUNT_COLORS.positive, marginRight: 4 }} />
+              <ArrowUpOutlined style={{ color: amountColors.positive, marginRight: 4 }} />
               本月收入
             </div>
-            <div className="dashboard-income-expense__value" style={{ color: AMOUNT_COLORS.positive }}>
+            <div className="dashboard-income-expense__value" style={{ color: amountColors.positive }}>
               {formatCurrency(thisMonthIncome)}
             </div>
             {lastMonthIncome > 0 && (
@@ -191,10 +194,10 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="dashboard-income-expense__item">
             <div className="dashboard-income-expense__label">
-              <ArrowDownOutlined style={{ color: AMOUNT_COLORS.negative, marginRight: 4 }} />
+              <ArrowDownOutlined style={{ color: amountColors.negative, marginRight: 4 }} />
               本月支出
             </div>
-            <div className="dashboard-income-expense__value" style={{ color: AMOUNT_COLORS.negative }}>
+            <div className="dashboard-income-expense__value" style={{ color: amountColors.negative }}>
               {formatCurrency(thisMonthExpense)}
             </div>
             {lastMonthExpense > 0 && (

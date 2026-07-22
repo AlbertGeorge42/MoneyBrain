@@ -9,7 +9,9 @@ import type { CashFlowReportData } from '@shared/types'
 import { formatCurrency } from '../../utils/format'
 import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
-import { getTokenValue } from '../../styles/theme/css-utils'
+import { getFinancialTokens } from '../../styles/theme/financial-tokens'
+import { useTheme } from '../../styles/ThemeContext'
+import { useAmountColors } from '../../constants/transactionType'
 
 /** 默认分类的固定图标和颜色映射 */
 const ACTIVITY_META: Record<string, { icon: string; iconColor: string }> = {
@@ -149,6 +151,9 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const isMobile = !screens.md
   const useClickTrigger = !screens.lg
   const { token } = theme.useToken()
+  const { isDark } = useTheme()
+  const amountColors = useAmountColors()
+  const financialTokens = React.useMemo(() => getFinancialTokens(isDark), [isDark])
 
   const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
@@ -173,7 +178,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               value={netCashFlowValue}
               useClickTrigger={useClickTrigger}
               valueStyle={{
-                color: getAmountColor(netCashFlowTotal, 'flow'),
+                color: getAmountColor(netCashFlowTotal, 'flow', isDark),
               }}
             />
           ) : (
@@ -182,7 +187,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               value={netCashFlowTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{
-                color: getAmountColor(netCashFlowTotal, 'flow'),
+                color: getAmountColor(netCashFlowTotal, 'flow', isDark),
               }}
             />
           )}
@@ -192,13 +197,13 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {isMixed && hasPrediction ? (
-            <PredictionStatistic title="现金流入" value={cashInflowValue} useClickTrigger={useClickTrigger} valueStyle={{ color: 'var(--mb-color-positive)' }} />
+            <PredictionStatistic title="现金流入" value={cashInflowValue} useClickTrigger={useClickTrigger} valueStyle={{ color: amountColors.positive }} />
           ) : (
             <Statistic
               title={isFuture ? <>现金流入 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金流入'}
               value={cashInflowValue.actual + cashInflowValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: 'var(--mb-color-positive)' }}
+              valueStyle={{ color: amountColors.positive }}
             />
           )}
         </Card>
@@ -212,14 +217,14 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
                 predicted: Math.abs(cashOutflowValue.predicted),
               }}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: 'var(--mb-color-negative)' }}
+              valueStyle={{ color: amountColors.negative }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>现金流出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金流出'}
               value={cashOutflowTotal}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: 'var(--mb-color-negative)' }}
+              valueStyle={{ color: amountColors.negative }}
             />
           )}
         </Card>
@@ -228,7 +233,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             title="期初现金"
             value={cashFlowData?.startCash || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
-            valueStyle={{ color: 'var(--mb-color-neutral)' }}
+            valueStyle={{ color: amountColors.neutral }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -236,7 +241,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             title="期末现金"
             value={cashFlowData?.endCash || { actual: 0, predicted: 0 }}
             useClickTrigger={useClickTrigger}
-            valueStyle={{ color: 'var(--mb-color-neutral)' }}
+            valueStyle={{ color: amountColors.neutral }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -245,14 +250,14 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               title="现金变动"
               value={cashChangeValue}
               useClickTrigger={useClickTrigger}
-              valueStyle={{ color: getAmountColor(cashChangeValue.actual + cashChangeValue.predicted, 'flow') }}
+              valueStyle={{ color: getAmountColor(cashChangeValue.actual + cashChangeValue.predicted, 'flow', isDark) }}
             />
           ) : (
             <Statistic
               title={isFuture ? <>现金变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金变动'}
               value={cashChangeValue.actual + cashChangeValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
-              valueStyle={{ color: getAmountColor(cashChangeValue.actual + cashChangeValue.predicted, 'flow') }}
+              valueStyle={{ color: getAmountColor(cashChangeValue.actual + cashChangeValue.predicted, 'flow', isDark) }}
             />
           )}
         </Card>
@@ -299,8 +304,8 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   ]
 
   const showChartPred = (isMixed || isFuture) && hasPrediction
-  const inflowColor = getTokenValue('--mb-color-positive')
-  const outflowColor = getTokenValue('--mb-color-negative')
+  const inflowColor = financialTokens.value.positive
+  const outflowColor = financialTokens.value.negative
 
   const chartSection = (
     <div className="report-chart-grid report-chart-grid--2">

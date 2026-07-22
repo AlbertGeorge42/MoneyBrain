@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { formatCurrency, formatPercent, currencyAxisFormatter } from '../../src/utils/format'
 import { formatAmount, getAmountColor } from '../../src/utils/formatAmount'
+import { getFlatFinancialTokens } from '../../src/styles/theme/financial-tokens'
 
 describe('format utils', () => {
   describe('formatCurrency', () => {
@@ -62,23 +63,26 @@ describe('format utils', () => {
   })
 })
 
+const lightTokens = getFlatFinancialTokens(false)
+const darkTokens = getFlatFinancialTokens(true)
+
 describe('formatAmount', () => {
   describe('资产 asset', () => {
     it('正数: 绿色 +¥1,000.00', () => {
       const r = formatAmount(1000, 'asset')
       expect(r.text).toBe('¥1,000.00')
-      expect(r.color).toBe('var(--mb-color-positive)')
+      expect(r.color).toBe(lightTokens.positive)
     })
 
     it('负数: 红色 -¥500.00', () => {
       const r = formatAmount(-500, 'asset')
       expect(r.text).toBe('-¥500.00')
-      expect(r.color).toBe('var(--mb-color-negative)')
+      expect(r.color).toBe(lightTokens.negative)
     })
 
     it('零: 绿色（正向）', () => {
       const r = formatAmount(0, 'asset')
-      expect(r.color).toBe('var(--mb-color-positive)')
+      expect(r.color).toBe(lightTokens.positive)
     })
   })
 
@@ -86,23 +90,23 @@ describe('formatAmount', () => {
     it('正数（欠款）: 红色', () => {
       const r = formatAmount(2000, 'liability')
       expect(r.text).toBe('¥2,000.00')
-      expect(r.color).toBe('var(--mb-color-negative)')
+      expect(r.color).toBe(lightTokens.negative)
     })
 
     it('负数（多还款）: 绿色', () => {
       const r = formatAmount(-500, 'liability')
       expect(r.text).toBe('-¥500.00')
-      expect(r.color).toBe('var(--mb-color-positive)')
+      expect(r.color).toBe(lightTokens.positive)
     })
   })
 
   describe('现金流 flow', () => {
     it('正数: 绿色', () => {
-      expect(formatAmount(1000, 'flow').color).toBe('var(--mb-color-positive)')
+      expect(formatAmount(1000, 'flow').color).toBe(lightTokens.positive)
     })
 
     it('负数: 红色', () => {
-      expect(formatAmount(-1000, 'flow').color).toBe('var(--mb-color-negative)')
+      expect(formatAmount(-1000, 'flow').color).toBe(lightTokens.negative)
     })
   })
 
@@ -110,19 +114,31 @@ describe('formatAmount', () => {
     it('正值 displayAbs: 文本不变', () => {
       const r = formatAmount(1000, 'flow', { displayAbs: true })
       expect(r.text).toBe('¥1,000.00')
-      expect(r.color).toBe('var(--mb-color-positive)')
+      expect(r.color).toBe(lightTokens.positive)
     })
 
     it('负值 displayAbs: 文本取绝对值（红色正数），颜色仍按原值', () => {
       const r = formatAmount(-1500, 'flow', { displayAbs: true })
       expect(r.text).toBe('¥1,500.00')
-      expect(r.color).toBe('var(--mb-color-negative)')
+      expect(r.color).toBe(lightTokens.negative)
     })
 
     it('零值 displayAbs: 文本零，颜色正向', () => {
       const r = formatAmount(0, 'flow', { displayAbs: true })
       expect(r.text).toBe('¥0.00')
-      expect(r.color).toBe('var(--mb-color-positive)')
+      expect(r.color).toBe(lightTokens.positive)
+    })
+  })
+
+  describe('深色模式', () => {
+    it('正数使用深色主题的绿色', () => {
+      const r = formatAmount(1000, 'asset', { isDark: true })
+      expect(r.color).toBe(darkTokens.positive)
+    })
+
+    it('负数使用深色主题的红色', () => {
+      const r = formatAmount(-500, 'asset', { isDark: true })
+      expect(r.color).toBe(darkTokens.negative)
     })
   })
 
@@ -147,14 +163,18 @@ describe('formatAmount', () => {
 
 describe('getAmountColor', () => {
   it('资产 0 → 绿色', () => {
-    expect(getAmountColor(0, 'asset')).toBe('var(--mb-color-positive)')
+    expect(getAmountColor(0, 'asset')).toBe(lightTokens.positive)
   })
 
   it('负债 0 → 红色', () => {
-    expect(getAmountColor(0, 'liability')).toBe('var(--mb-color-negative)')
+    expect(getAmountColor(0, 'liability')).toBe(lightTokens.negative)
   })
 
   it('flow 0 → 绿色', () => {
-    expect(getAmountColor(0, 'flow')).toBe('var(--mb-color-positive)')
+    expect(getAmountColor(0, 'flow')).toBe(lightTokens.positive)
+  })
+
+  it('深色模式资产 0 → 深绿色', () => {
+    expect(getAmountColor(0, 'asset', true)).toBe(darkTokens.positive)
   })
 })

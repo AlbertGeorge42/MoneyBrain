@@ -16,7 +16,7 @@
  */
 
 import { formatCurrency } from './format'
-import { AMOUNT_COLORS } from '@/constants/transactionType'
+import { getFlatFinancialTokens } from '../styles/theme/financial-tokens'
 
 export type AmountType = 'asset' | 'liability' | 'flow'
 
@@ -29,6 +29,8 @@ export interface AmountFormatOptions {
   decimals?: number
   /** 文本基于绝对值显示（颜色仍按原值符号判断），默认 false */
   displayAbs?: boolean
+  /** 是否为深色主题，用于颜色 Token 派生 */
+  isDark?: boolean
 }
 
 export interface AmountDisplay {
@@ -42,14 +44,15 @@ export interface AmountDisplay {
  * 颜色即方向：调用方传入的 value 应已符合"正负符号即方向"约定，
  * 函数不主动取反。
  */
-export function getAmountColor(value: number, type: AmountType): string {
+export function getAmountColor(value: number, type: AmountType, isDark = false): string {
+  const tokens = getFlatFinancialTokens(isDark)
   const isPositive = value >= 0
   if (type === 'liability') {
     // 负债语义：正数=欠款（红），负数=多还款（绿）
-    return isPositive ? AMOUNT_COLORS.negative : AMOUNT_COLORS.positive
+    return isPositive ? tokens.negative : tokens.positive
   }
   // asset / flow 语义相同：正数=正向（绿），负数=负向（红）
-  return isPositive ? AMOUNT_COLORS.positive : AMOUNT_COLORS.negative
+  return isPositive ? tokens.positive : tokens.negative
 }
 
 /**
@@ -60,11 +63,11 @@ export function formatAmount(
   type: AmountType = 'asset',
   options: AmountFormatOptions = {}
 ): AmountDisplay {
-  const { showSymbol = true, showSign = false, decimals = 2, displayAbs = false } = options
+  const { showSymbol = true, showSign = false, decimals = 2, displayAbs = false, isDark = false } = options
   // displayAbs 模式下文本用绝对值，但颜色判断仍使用原始符号
   const textValue = displayAbs ? Math.abs(value) : value
   return {
     text: formatCurrency(textValue, { showSymbol, showSign, decimals }),
-    color: getAmountColor(value, type),
+    color: getAmountColor(value, type, isDark),
   }
 }

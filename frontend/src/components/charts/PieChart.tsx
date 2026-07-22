@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
-import { Empty, Button, theme } from 'antd'
+import { Empty, Button } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { getTokenValue } from '../../styles/theme/css-utils'
+import { useChartTokens } from '../../styles/theme/chart-tokens'
+import { toRgba } from '../../utils/color'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { formatAmount } from '../../utils/formatAmount'
 
@@ -27,7 +28,7 @@ interface PieChartProps {
 }
 
 const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout = 'normal', onDrillDown, isPurePrediction }) => {
-  const { token } = theme.useToken()
+  const tokens = useChartTokens()
   const validData = Array.isArray(data) ? data : []
 
   const [currentData, setCurrentData] = useState<PieChartDataItem[]>(validData)
@@ -77,11 +78,18 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout =
 
   const isCompact = layout === 'compact'
 
+  const dataWithColors = useMemo(() => {
+    return currentData.map((item, index) => ({
+      ...item,
+      itemStyle: { color: tokens.palette[index % tokens.palette.length] },
+    }))
+  }, [currentData, tokens.palette])
+
   const option = useMemo(() => ({
     title: {
       text: currentTitle,
       left: 'center',
-      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text-primary') },
+      textStyle: { fontSize: 14, color: tokens.title },
     },
     tooltip: {
       trigger: 'item',
@@ -93,11 +101,10 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout =
         const drillDownHint = item?.hasChildren && onDrillDown ? ' (点击查看明细)' : ''
 
         if (isPurePrediction) {
-          return `${params.name!}: ¥${value} (${percent})${drillDownHint}<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
+          return `${params.name!}: ¥${value} (${percent})${drillDownHint}<br/><span style="color: ${tokens.textSecondary}">预测</span>`
         }
 
         if (item?.predictedValue && item.predictedValue !== 0) {
-          // 符号约定：predictedValue 已是带符号（inflow 正、outflow 负、变化方向）
           const predictedDisplay = formatAmount(item.predictedValue, 'flow')
 
           if (item.isLiability) {
@@ -110,29 +117,29 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout =
         }
 
         return `${params.name!}: ¥${value} (${percent})${drillDownHint}`
-      }
+      },
     },
     legend: {
       orient: isCompact ? 'horizontal' : 'vertical',
       left: isCompact ? 'center' : 'left',
       top: isCompact ? 'bottom' : 'middle',
-      textStyle: { color: token.colorTextTertiary },
+      textStyle: { color: tokens.legend },
     },
     series: [{
       type: 'pie',
       radius: isCompact ? ['35%', '60%'] : ['40%', '70%'],
       center: isCompact ? ['50%', '42%'] : ['60%', '50%'],
-      data: currentData,
+      data: dataWithColors,
       emphasis: {
         itemStyle: {
           shadowBlur: 10,
           shadowOffsetX: 0,
-          shadowColor: 'rgba(128, 128, 128, 0.5)'
-        }
+          shadowColor: toRgba(tokens.textSecondary, 0.5),
+        },
       },
       label: { show: false },
     }],
-  }), [currentTitle, currentData, isCompact, isPurePrediction, token, onDrillDown])
+  }), [currentTitle, currentData, dataWithColors, isCompact, isPurePrediction, tokens, onDrillDown])
 
   if (!hasValidData) {
     return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Empty description="暂无数据" /></div>
@@ -151,7 +158,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout =
             top: 0,
             left: 0,
             zIndex: 10,
-            color: getTokenValue('--mb-color-text-primary'),
+            color: tokens.title,
           }}
         >
           返回

@@ -5,7 +5,7 @@
  */
 
 import { theme, type ThemeConfig } from 'antd'
-import { generate } from '@ant-design/colors'
+import { getFlatFinancialTokens } from './financial-tokens'
 
 // ===== Seed Token =====
 // AntD 算法式 token 的种子，所有颜色由 algorithm 自动派生
@@ -20,23 +20,6 @@ const baseSeed: Partial<ThemeConfig['token']> = {
   fontSize: 14,
   borderRadius: 8,
   controlHeight: 44,
-}
-
-// ===== 财务色 Seed =====
-// 只需定义浅色 seed 值，深色值通过 generate(seed, {theme:'dark'})[5] 自动派生
-// 与 AntD darkAlgorithm 使用完全一致的派生逻辑
-const FINANCIAL_SEEDS: Record<string, string> = {
-  income: '#52c41a',
-  expense: '#ff4d4f',
-  transfer: '#1890ff',
-  refund: '#fa8c16',
-  adjustment: '#722ed1',
-  positive: '#3f8600',
-  negative: '#cf1322',
-  neutral: '#595959',
-  cash: '#1890ff',
-  'non-cash': '#13c2c2',
-  investing: '#1890ff',
 }
 
 // ===== 组件 Token =====
@@ -140,14 +123,10 @@ export function syncCssVars(isDark: boolean): void {
       : '0 2px 8px rgba(0, 0, 0, 0.15)',
   }
 
-  // 财务色：浅色用 seed，深色用 generate() 派生
-  for (const [name, seed] of Object.entries(FINANCIAL_SEEDS)) {
-    if (isDark) {
-      const palette = generate(seed, { theme: 'dark' })
-      vars[`--mb-color-${name}`] = palette[5]
-    } else {
-      vars[`--mb-color-${name}`] = seed
-    }
+  // 财务色：委托给 financial-tokens.ts 派生（扁平化输出，向后兼容）
+  const financialTokens = getFlatFinancialTokens(isDark)
+  for (const [name, value] of Object.entries(financialTokens)) {
+    vars[`--mb-color-${name}`] = value
   }
 
   const el = document.documentElement

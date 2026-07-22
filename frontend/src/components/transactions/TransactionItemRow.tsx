@@ -1,7 +1,7 @@
 import React from 'react'
 import { CategoryIcon } from '../common'
 import type { Transaction } from '../../services/api'
-import { AMOUNT_COLORS, TRANSACTION_TYPE_CONFIG } from '../../constants/transactionType'
+import { useAmountColors, TRANSACTION_TYPE_CONFIG } from '../../constants/transactionType'
 import { formatCurrency } from '../../utils/format'
 
 /**
@@ -67,17 +67,18 @@ const TransactionItemRow: React.FC<TransactionItemRowProps> = ({
   const categoryName = getCategoryName(transaction)
   const accountName = getAccountName(transaction)
   const note = showNote ? transaction.note : null
+  const amountColors = useAmountColors()
 
-  // 金额颜色
+  // 金额颜色（按交易类型：收入/退款=positive，支出=negative，其他=neutral）
   const amountColor = (() => {
     switch (transaction.type) {
       case 'income':
       case 'refund':
-        return AMOUNT_COLORS.positive
+        return amountColors.positive
       case 'expense':
-        return AMOUNT_COLORS.negative
+        return amountColors.negative
       default:
-        return AMOUNT_COLORS.neutral
+        return amountColors.neutral
     }
   })()
 

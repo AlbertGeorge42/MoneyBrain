@@ -23,7 +23,7 @@ import {
 import type { Budget, BudgetStatus } from '@shared/types'
 import dayjs from 'dayjs'
 import { formatCurrency, formatPercent } from '../utils/format'
-import { AMOUNT_COLORS } from '../constants/transactionType'
+import { useAmountColors } from '../constants/transactionType'
 
 const { Text } = Typography
 
@@ -328,19 +328,20 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
   const percentage = status?.percentage ?? 0
   const isOverBudget = status?.isOverBudget ?? false
   const used = status?.used ?? 0
+  const amountColors = useAmountColors()
 
   // 根据预算类型获取金额颜色
   const getBudgetAmountColor = () => {
     if (!budget.isActive) return token.colorTextSecondary
     switch (budget.type) {
       case 'income':
-        return AMOUNT_COLORS.positive
+        return amountColors.positive
       case 'expense':
-        return AMOUNT_COLORS.negative
+        return amountColors.negative
       case 'transfer':
-        return AMOUNT_COLORS.neutral
+        return amountColors.neutral
       default:
-        return AMOUNT_COLORS.neutral
+        return amountColors.neutral
     }
   }
 

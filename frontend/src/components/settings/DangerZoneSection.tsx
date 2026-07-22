@@ -28,32 +28,29 @@ const DangerZoneSection: React.FC = () => {
     }
   }
 
+  // 清空交易数据 - 中度危险
   const showClearTransactionsConfirm = () => {
     Modal.confirm({
-      title: '确认清空交易数据',
+      title: '清空交易数据',
       icon: <ExclamationCircleOutlined />,
       okText: '确认清空',
       okType: 'danger',
       cancelText: '取消',
       onOk: handleClearTransactions,
       content: (
-        <div>
-          <p className="danger-text-danger">
-            这会永久删除所有交易记录与预算数据。
-          </p>
-          <p className="danger-text-safe">账户和分类会保留。</p>
-          <p className="danger-text-hint">建议先导出备份，再执行该操作。</p>
-        </div>
+        <p style={{ color: token.colorTextSecondary, margin: 0 }}>
+          将删除所有交易记录和预算数据，账户与分类不受影响。
+        </p>
       ),
     })
   }
 
-  // 清空全部数据：要求输入 DELETE 确认
+  // 清空全部数据 - 极度危险，需输入确认
   const showClearAllConfirm = () => {
     let confirmValue = ''
 
     Modal.confirm({
-      title: '确认清空全部数据',
+      title: '清空全部数据',
       icon: <ExclamationCircleOutlined />,
       okText: '确认清空',
       okType: 'danger',
@@ -67,14 +64,14 @@ const DangerZoneSection: React.FC = () => {
       },
       content: (
         <div>
-          <p className="danger-text-danger">
-            这会删除账户、分类、交易、预算和余额快照，且不可恢复。
+          <p style={{ color: token.colorError, fontWeight: 600, margin: `0 0 ${token.paddingSM}px 0` }}>
+            不可恢复：将删除账户、分类、交易、预算等所有数据。
           </p>
-          <p className="danger-text-hint" style={{ marginBottom: token.paddingSM }}>
-            请输入 <strong style={{ color: 'var(--mb-color-danger)' }}>DELETE</strong> 以确认：
+          <p style={{ color: token.colorTextTertiary, margin: `0 0 ${token.paddingXS}px 0` }}>
+            输入 <strong style={{ color: token.colorError }}>DELETE</strong> 以确认：
           </p>
           <Input
-            placeholder="输入 DELETE"
+            placeholder="DELETE"
             onChange={(e) => { confirmValue = e.target.value }}
           />
         </div>
@@ -91,30 +88,29 @@ const DangerZoneSection: React.FC = () => {
         style={{ marginBottom: token.padding }}
       />
 
-      {/* 清空交易数据 - 中度危险 */}
+      {/* 清空交易数据 - 中度危险：danger 默认变体（红框红字） */}
       <div className="danger-action">
         <div>
-          <h3 className="danger-action__title" style={{ color: 'var(--mb-color-warning)' }}>清空交易数据</h3>
+          <h3 className="danger-action__title">清空交易数据</h3>
           <p className="danger-action__desc">
             永久删除所有交易记录与预算数据，账户和分类会保留。
           </p>
         </div>
         <Button
-          ghost
+          danger
           icon={<DeleteOutlined />}
           onClick={showClearTransactionsConfirm}
-          className="danger-btn-warning"
         >
           清空交易数据
         </Button>
       </div>
 
-      <Divider style={{ margin: `${token.paddingLG}px 0`, borderColor: 'var(--mb-color-border-subtle)' }} />
+      <Divider style={{ margin: `${token.paddingLG}px 0`, borderColor: token.colorBorderSecondary }} />
 
-      {/* 清空全部数据 - 极度危险 */}
+      {/* 清空全部数据 - 极度危险：danger primary（实底红） */}
       <div className="danger-action">
         <div>
-          <h3 className="danger-action__title" style={{ color: 'var(--mb-color-danger)' }}>清空全部数据</h3>
+          <h3 className="danger-action__title">清空全部数据</h3>
           <p className="danger-action__desc">
             删除账户、分类、交易、预算等所有数据，且不可恢复。
           </p>

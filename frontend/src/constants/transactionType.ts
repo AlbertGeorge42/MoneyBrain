@@ -3,12 +3,25 @@
  * 任何需要按交易类型显示颜色或文案的组件，都应从此处导入，避免在多个文件重复维护。
  */
 
-// 金额语义颜色 — 用于所有金额数字显示
+import { useMemo } from 'react'
+import { useTheme } from '../styles/ThemeContext'
+import { getFlatFinancialTokens } from '../styles/theme/financial-tokens'
+
+// 金额语义颜色 — 已废弃，请使用 useAmountColors() 或 formatAmount()/getAmountColor()
 export const AMOUNT_COLORS = {
   positive: 'var(--mb-color-positive)',
   negative: 'var(--mb-color-negative)',
   neutral: 'var(--mb-color-neutral)',
 } as const
+
+/**
+ * 主题感知的金额颜色 Hook
+ * 返回当前主题下的 positive（深绿）/ negative（深红）/ neutral（灰）颜色值
+ */
+export function useAmountColors() {
+  const { isDark } = useTheme()
+  return useMemo(() => getFlatFinancialTokens(isDark), [isDark])
+}
 
 export const TRANSACTION_TYPE_CONFIG = {
   income: { color: 'var(--mb-color-income)', text: '收入' },

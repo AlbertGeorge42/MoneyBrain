@@ -200,27 +200,6 @@
   margin: var(--mb-space-xs) 0 0 0;
 }
 
-.danger-btn-warning {
-  border-color: var(--mb-color-warning);
-  color: var(--mb-color-warning);
-}
-
-.danger-text-danger {
-  color: var(--mb-color-danger);
-  font-weight: 700;
-  margin-bottom: var(--mb-space-sm);
-}
-
-.danger-text-safe {
-  color: var(--mb-color-success);
-  margin-bottom: var(--mb-space-sm);
-}
-
-.danger-text-hint {
-  color: var(--mb-color-text-tertiary);
-  margin: 0;
-}
-
 /* ─── 版本 footer ─── */
 .settings-footer {
   text-align: center;

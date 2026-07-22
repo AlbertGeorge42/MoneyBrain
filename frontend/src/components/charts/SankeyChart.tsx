@@ -1,7 +1,7 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
-import { getTokenValue } from '../../styles/theme/css-utils'
+import { useChartTokens } from '../../styles/theme/chart-tokens'
 import { formatCurrency, formatPercent } from '../../utils/format'
 
 export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
@@ -32,13 +32,15 @@ const truncateText = (text: string, maxLen: number): string => {
 }
 
 const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height = 400, loading = false, isPurePrediction = false }) => {
-  const categoryColors: Record<SankeyNodeCategory, string> = {
-    income_category: getTokenValue('--mb-color-income'),
-    non_cash_source: getTokenValue('--mb-color-non-cash'),
-    cash: getTokenValue('--mb-color-cash'),
-    expense_category: getTokenValue('--mb-color-expense'),
-    non_cash_target: getTokenValue('--mb-color-refund'),
-  }
+  const tokens = useChartTokens()
+
+  const categoryColors = useMemo<Record<SankeyNodeCategory, string>>(() => ({
+    income_category: tokens.financial.transaction.income,
+    non_cash_source: tokens.financial.cashFlow['non-cash'],
+    cash: tokens.financial.cashFlow.cash,
+    expense_category: tokens.financial.transaction.expense,
+    non_cash_target: tokens.financial.cashFlow['non-cash'], // 修正：使用现金流色，而非 refund
+  }), [tokens.financial])
 
   const getDisplayName = (name: string): string => {
     const suffixes = ['_income', '_ncs', '_cash', '_expense', '_nct']
@@ -100,11 +102,11 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
     }
   })
 
-  const option = {
+  const option = useMemo(() => ({
     title: { 
       text: title, 
       left: 'center', 
-      textStyle: { fontSize: 14, color: getTokenValue('--mb-color-text-primary') } 
+      textStyle: { fontSize: 14, color: tokens.title } 
     },
     tooltip: { 
       trigger: 'item', 
@@ -121,7 +123,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
           const targetName = getDisplayName(link.target!)
           
           if (isPurePrediction) {
-            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})<br/><span style="color: var(--mb-color-text-secondary)">预测</span>`
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})<br/><span style="color: ${tokens.textSecondary}">预测</span>`
           }
           
           if (link.predictedValue && link.predictedValue !== 0) {
@@ -148,11 +150,11 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
       },
       label: {
         position: 'right',
-        color: getTokenValue('--mb-color-text-primary'),
+        color: tokens.text,
         formatter: (params: { name?: string }) => truncateText(getDisplayName(params.name!), 12)
       },
     }],
-  }
+  }), [title, nodesWithConfig, validLinks, isPurePrediction, totalFlow, nodeFlows, tokens])
 
   if (loading) {
     return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>加载中...</div>

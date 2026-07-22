@@ -4,7 +4,7 @@ import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { Transaction } from '../../services/api'
 import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { AMOUNT_COLORS } from '../../constants/transactionType'
+import { useAmountColors } from '../../constants/transactionType'
 import { formatCurrency } from '../../utils/format'
 import TransactionItemRow from './TransactionItemRow'
 
@@ -54,6 +54,8 @@ const MobilePagination: React.FC<{
 }
 
 const GroupHeader: React.FC<{ group: TransactionGroup }> = ({ group }) => {
+  const amountColors = useAmountColors()
+
   return (
     <div className="tx-group-header">
       <div className="tx-group-header__date">
@@ -62,10 +64,10 @@ const GroupHeader: React.FC<{ group: TransactionGroup }> = ({ group }) => {
       </div>
       <div className="tx-group-header__summary">
         {group.income > 0 && (
-          <span className="tx-group-header__summary-item" style={{ color: AMOUNT_COLORS.positive }}>收 {formatCurrency(group.income)}</span>
+          <span className="tx-group-header__summary-item" style={{ color: amountColors.positive }}>收 {formatCurrency(group.income)}</span>
         )}
         {group.expense > 0 && (
-          <span className="tx-group-header__summary-item" style={{ color: AMOUNT_COLORS.negative }}>支 {formatCurrency(group.expense)}</span>
+          <span className="tx-group-header__summary-item" style={{ color: amountColors.negative }}>支 {formatCurrency(group.expense)}</span>
         )}
       </div>
     </div>

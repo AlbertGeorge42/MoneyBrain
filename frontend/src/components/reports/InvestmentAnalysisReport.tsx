@@ -11,6 +11,8 @@ import type {
 } from '@shared/types'
 import { formatCurrency, formatPercent, createStatisticFormatter } from '../../utils/format'
 import { getAmountColor } from '../../utils/formatAmount'
+import { useAmountColors } from '../../constants/transactionType'
+import { useTheme } from '../../styles/ThemeContext'
 
 const statisticFormatter = createStatisticFormatter()
 
@@ -24,7 +26,7 @@ interface InvestmentDetailMetrics {
   returnRate: number | null
 }
 
-const investmentColumns: ReportDetailColumn<InvestmentDetailMetrics>[] = [
+const createInvestmentColumns = (isDark: boolean): ReportDetailColumn<InvestmentDetailMetrics>[] => [
   {
     key: 'value',
     metric: 'marketValue',
@@ -48,7 +50,7 @@ const investmentColumns: ReportDetailColumn<InvestmentDetailMetrics>[] = [
     width: 80,
     align: 'right',
     format: (v) => v != null ? formatPercent(v as number) : '--',
-    color: (v) => v != null && (v as number) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)',
+    color: (v) => v != null && (v as number) >= 0 ? getAmountColor(1, 'flow', isDark) : getAmountColor(-1, 'flow', isDark),
   },
 ]
 
@@ -103,6 +105,8 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const { token } = theme.useToken()
+  const { isDark } = useTheme()
+  const amountColors = useAmountColors()
 
   const renderEmptyState = () => (
     <div className="section-grid">
@@ -154,7 +158,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
             title="累计收益率"
             value={returnAnalysis.cumulativeReturnRate}
             formatter={(v) => formatPercent(Number(v), 2)}
-            valueStyle={{ color: returnAnalysis.cumulativeReturnRate >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            valueStyle={{ color: getAmountColor(returnAnalysis.cumulativeReturnRate, 'flow', isDark) }}
           />
           <div style={{ fontSize: `${token.fontSizeSM}px`, color: token.colorTextTertiary, marginTop: 8 }}>
             累计收益 {formatCurrency(returnAnalysis.periodReturn)} | 最高本金 {formatCurrency(returnAnalysis.maxCapitalEmployed)}
@@ -164,20 +168,20 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
 
       <div className="report-secondary-section report-secondary-section--2">
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: 'var(--mb-color-neutral)' }} formatter={statisticFormatter} />
+          <Statistic title="期末市值" value={returnAnalysis.endValue} precision={2} valueStyle={{ color: amountColors.neutral }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: 'var(--mb-color-positive)' }} formatter={statisticFormatter} />
+          <Statistic title="期间投入" value={returnAnalysis.periodInvested} precision={2} valueStyle={{ color: amountColors.positive }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
-          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: 'var(--mb-color-negative)' }} formatter={statisticFormatter} />
+          <Statistic title="期间取出" value={returnAnalysis.periodWithdrawn} precision={2} valueStyle={{ color: amountColors.negative }} formatter={statisticFormatter} />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
             title="XIRR 年化"
             value={returnAnalysis.xirr !== null ? returnAnalysis.xirr : '--'}
             formatter={(v) => returnAnalysis.xirr !== null ? formatPercent(Number(v), 2) : '--'}
-            valueStyle={{ color: (returnAnalysis.xirr || 0) >= 0 ? 'var(--mb-color-positive)' : 'var(--mb-color-negative)' }}
+            valueStyle={{ color: getAmountColor(returnAnalysis.xirr ?? 0, 'flow', isDark) }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -185,7 +189,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
             title="TWR 年化"
             value={returnAnalysis.annualizedTwr !== null ? returnAnalysis.annualizedTwr : '--'}
             formatter={(v) => returnAnalysis.annualizedTwr !== null ? formatPercent(Number(v), 2) : '--'}
-            valueStyle={{ color: getAmountColor(returnAnalysis.annualizedTwr ?? 0, 'flow') }}
+            valueStyle={{ color: getAmountColor(returnAnalysis.annualizedTwr ?? 0, 'flow', isDark) }}
           />
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
@@ -228,7 +232,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
     <ReportDetailList
       data={investmentTreeData}
       config={{
-        columns: investmentColumns,
+        columns: createInvestmentColumns(isDark),
         parentIcon: 'wallet',
         leafIcon: 'investment',
         expandable: true,
