@@ -2,8 +2,8 @@
 import { ZipArchive } from 'archiver'
 // @ts-expect-error - unzipper没有类型定义
 import unzipper from 'unzipper'
+import Papa from 'papaparse'
 import { prisma } from '../index.js'
-import { stripBom } from './import/shared.js'
 
 // ─── 备份文件格式常量与类型 ───
 
@@ -153,10 +153,12 @@ const TRANSACTION_CSV_FIELDS = new Set(['ID', '时间', '分类', '类型', '金
 
 export async function detectFileIncludes(file: Buffer, fileType: 'zip' | 'csv' | 'json'): Promise<DataType[]> {
   if (fileType === 'csv') {
-    // 区分交易记录和投资快照
-    const text = stripBom(file.toString('utf-8'))
-    const firstLine = text.split(/\r?\n/)[0] || ''
-    const headerSet = new Set(firstLine.split(',').map(h => h.trim()))
+    // 区分交易记录和投资快照（使用 papaparse 解析 header，自动处理 BOM）
+    const result = Papa.parse(file.toString('utf-8'), {
+      header: true,
+      skipEmptyLines: true,
+    })
+    const headerSet = new Set(result.meta.fields ?? [])
     if (ALL_DATA_TYPES.includes('snapshots') && Array.from(SNAPSHOT_CSV_FIELDS).every(f => headerSet.has(f))) {
       return ['snapshots']
     }

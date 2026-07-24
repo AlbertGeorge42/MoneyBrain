@@ -3,6 +3,7 @@ import { calculateBalancesBatch, BalanceCache } from '../balance.service.js'
 import { toDecimal, rootLogger, ZERO } from '../../common/index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { formatDateLocal, sumAssetsLiabilities, resolveReportPeriod } from './report.utils.js'
+import xirr from 'xirr'
 
 const logger = rootLogger.child({ module: 'report' })
 
@@ -238,6 +239,10 @@ async function getCashFlowsInRange(
   return cashFlows
 }
 
+/**
+ * 使用 xirr 库计算年化内部收益率（XIRR）
+ * 返回百分比值（如 5 表示 5%），无法收敛时返回 null
+ */
 function calculateXIRR(
   startValue: number,
   cashFlows: CashFlow[],
@@ -245,73 +250,19 @@ function calculateXIRR(
   startDate: Date,
   endDate: Date
 ): number | null {
-  const allFlows = [
-    { date: startDate, amount: -startValue },
-    ...cashFlows.map(cf => ({ date: cf.date, amount: cf.amount })),
-    { date: endDate, amount: endValue },
+  const transactions = [
+    { amount: -startValue, when: startDate },
+    ...cashFlows.map(cf => ({ amount: cf.amount, when: cf.date })),
+    { amount: endValue, when: endDate },
   ]
 
-  if (allFlows.length < 2) return null
-
-  const dates = allFlows.map(cf => cf.date)
-  const amounts = allFlows.map(cf => cf.amount)
-  const firstDate = dates[0]
-
-  const npv = (rate: number): number => {
-    return amounts.reduce((sum, amount, i) => {
-      const days = (dates[i].getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
-      const yearFraction = days / 365
-      if (yearFraction < 0) return sum
-      const discountFactor = Math.pow(1 + rate, yearFraction)
-      return sum + amount / discountFactor
-    }, 0)
+  try {
+    const rate = xirr(transactions)
+    if (!isFinite(rate) || Math.abs(rate) > 10) return null
+    return rate * 100
+  } catch {
+    return null
   }
-
-  const npvDerivative = (rate: number): number => {
-    return amounts.reduce((sum, amount, i) => {
-      const days = (dates[i].getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
-      const yearFraction = days / 365
-      if (yearFraction < 0) return sum
-      const discountFactor = Math.pow(1 + rate, yearFraction)
-      return sum - (amount * yearFraction) / (discountFactor * (1 + rate))
-    }, 0)
-  }
-
-  const guesses = [-0.9, -0.5, -0.1, 0.0, 0.05, 0.1, 0.2, 0.5, 1.0]
-  let bestResult: number | null = null
-  let bestNpv = Infinity
-
-  for (const guess of guesses) {
-    let rate = guess
-
-    for (let iter = 0; iter < 200; iter++) {
-      const npvValue = npv(rate)
-      const derivative = npvDerivative(rate)
-
-      if (!isFinite(npvValue) || !isFinite(derivative)) break
-      if (Math.abs(derivative) < 1e-12) break
-
-      const newRate = rate - npvValue / derivative
-
-      if (!isFinite(newRate) || Math.abs(newRate) > 50) break
-
-      if (Math.abs(newRate - rate) < 1e-8) {
-        const finalNpv = Math.abs(npv(newRate))
-        if (finalNpv < bestNpv && finalNpv < 1) {
-          bestNpv = finalNpv
-          bestResult = newRate
-        }
-        break
-      }
-
-      rate = newRate
-    }
-  }
-
-  if (bestResult === null || !isFinite(bestResult)) return null
-  if (Math.abs(bestResult) > 10) return null
-
-  return bestResult * 100
 }
 
 function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: number = 0): number {

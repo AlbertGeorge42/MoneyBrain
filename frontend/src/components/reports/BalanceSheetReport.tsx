@@ -125,7 +125,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
             hasChildren: Boolean(node.children?.length),
           }
         })
-        .filter((item) => item.value > 0),
+        .filter((item) => item.value !== 0),
     [treeData.assetNodes, isFuture]
   )
 

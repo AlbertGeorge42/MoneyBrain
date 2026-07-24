@@ -9,7 +9,6 @@ import type { CashFlowReportData } from '@shared/types'
 import { formatCurrency } from '../../utils/format'
 import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
-import { getFinancialTokens } from '../../styles/theme/financial-tokens'
 import { useTheme } from '../../styles/ThemeContext'
 import { useAmountColors } from '../../constants/transactionType'
 
@@ -153,7 +152,6 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const { token } = theme.useToken()
   const { isDark } = useTheme()
   const amountColors = useAmountColors()
-  const financialTokens = React.useMemo(() => getFinancialTokens(isDark), [isDark])
 
   const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
@@ -304,8 +302,8 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   ]
 
   const showChartPred = (isMixed || isFuture) && hasPrediction
-  const inflowColor = financialTokens.value.positive
-  const outflowColor = financialTokens.value.negative
+  const inflowColor = amountColors.positive
+  const outflowColor = amountColors.negative
 
   const chartSection = (
     <div className="report-chart-grid report-chart-grid--2">

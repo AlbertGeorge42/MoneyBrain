@@ -10,7 +10,7 @@ import {
   createYearToDatePreset,
   formatRangeValue,
 } from '../../utils/timePicker'
-import { TRANSACTION_TYPE_CONFIG, TRANSACTION_COLORS, TransactionType } from '../../constants/transactionType'
+import { TRANSACTION_TYPE_CONFIG, TransactionType } from '../../constants/transactionType'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',
@@ -143,7 +143,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
 
     return [
       {
-        title: <BorderedTag color={TRANSACTION_COLORS.expense}>支出</BorderedTag>,
+        title: <BorderedTag color={TRANSACTION_TYPE_CONFIG.expense.color}>支出</BorderedTag>,
         value: 'expense_group',
         key: 'expense_group',
         selectable: false,
@@ -151,7 +151,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'expense'),
       },
       {
-        title: <BorderedTag color={TRANSACTION_COLORS.income}>收入</BorderedTag>,
+        title: <BorderedTag color={TRANSACTION_TYPE_CONFIG.income.color}>收入</BorderedTag>,
         value: 'income_group',
         key: 'income_group',
         selectable: false,
@@ -159,7 +159,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'income'),
       },
       {
-        title: <BorderedTag color={TRANSACTION_COLORS.transfer}>转账</BorderedTag>,
+        title: <BorderedTag color={TRANSACTION_TYPE_CONFIG.transfer.color}>转账</BorderedTag>,
         value: 'transfer_group',
         key: 'transfer_group',
         selectable: false,

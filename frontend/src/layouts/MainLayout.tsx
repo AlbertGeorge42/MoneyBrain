@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Layout, Menu } from 'antd'
 import {
@@ -9,6 +9,7 @@ import {
   TransactionOutlined,
 } from '@ant-design/icons'
 import { MobileTabBar } from '../components/common'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const { Sider, Content } = Layout
 
@@ -20,21 +21,10 @@ const menuItems = [
   { key: '/settings', icon: <SettingOutlined />, label: '设置' },
 ]
 
-const MOBILE_BREAKPOINT = 860
-
 const MainLayout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  const isMobile = useIsMobile()
 
   return (
     <Layout className="app-shell">

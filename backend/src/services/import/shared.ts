@@ -1,5 +1,6 @@
 // ─── 通用类型定义 ───
 
+import Papa from 'papaparse'
 import { prisma } from '../../index.js'
 import { rootLogger } from '../../common/index.js'
 
@@ -359,76 +360,11 @@ export function incSkipped(
   bucket[key] = (bucket[key] ?? 0) + by
 }
 
-// ─── CSV 通用解析器 ───
-
-/**
- * 统一的 CSV 行解析器
- * - 支持 `""` 转义为 `"`
- * - 支持引号包裹字段
- * - `trim=true` 时去除每个字段两侧空白（默认 false）
- */
-function parseCsvLine(line: string, trim = false): string[] {
-  const fields: string[] = []
-  let current = ''
-  let inQuotes = false
-  let i = 0
-
-  while (i < line.length) {
-    const char = line[i]
-    if (inQuotes) {
-      if (char === '"' && line[i + 1] === '"') {
-        current += '"'
-        i += 2
-      } else if (char === '"') {
-        inQuotes = false
-        i++
-      } else {
-        current += char
-        i++
-      }
-    } else {
-      if (char === '"') {
-        inQuotes = true
-        i++
-      } else if (char === ',') {
-        fields.push(trim ? current.trim() : current)
-        current = ''
-        i++
-      } else {
-        current += char
-        i++
-      }
-    }
-  }
-  fields.push(trim ? current.trim() : current)
-  return fields
-}
-
-// ─── 通用 CSV Header 映射 ───
-
-/**
- * 从 CSV 表头行创建 field→columnIndex 映射。
- * 用法：const map = createHeaderMap(parseCsvLine(headerLine, true), FIELDS)
- */
-function createHeaderMap<T extends string>(
-  header: string[],
-  validFields: readonly T[]
-): Map<T, number> {
-  const map = new Map<T, number>()
-  header.forEach((h, i) => {
-    const key = h.trim() as T
-    if (validFields.includes(key)) {
-      map.set(key, i)
-    }
-  })
-  return map
-}
-
-// ─── 通用 CSV 记录读取 ───
+// ─── 通用 CSV 记录读取（使用 papaparse） ───
 
 /**
  * 读取 CSV 内容并返回按字段名索引的记录数组。
- * - 自动去除 UTF-8 BOM
+ * - papaparse 自动处理 UTF-8 BOM、引号转义、换行符
  * - 默认 trim 字段值
  * - 跳过空行
  */
@@ -438,22 +374,25 @@ export function readCsvRecords<T extends string>(
   options: { trim?: boolean } = {}
 ): Record<T, string>[] {
   const trim = options.trim ?? true
-  const text = stripBom(typeof buffer === 'string' ? buffer : buffer.toString('utf-8'))
-  const lines = text.split('\n').filter(line => line.trim())
+  const text = typeof buffer === 'string' ? buffer : buffer.toString('utf-8')
 
-  if (lines.length < 2) {
+  const result = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+  })
+
+  if (result.errors.length > 0 && result.data.length === 0) {
     return []
   }
 
-  const headerMap = createHeaderMap(parseCsvLine(lines[0], true), headers)
+  const headerSet = new Set(headers as readonly string[])
   const records: Record<T, string>[] = []
 
-  for (const line of lines.slice(1)) {
-    const cols = parseCsvLine(line, trim)
+  for (const row of result.data as Record<string, string>[]) {
     const record = {} as Record<T, string>
     for (const field of headers) {
-      const idx = headerMap.get(field)
-      record[field] = idx !== undefined ? cols[idx] ?? '' : ''
+      const value = row[field] ?? ''
+      record[field] = headerSet.has(field) && trim ? value.trim() : value
     }
     records.push(record)
   }

@@ -7,13 +7,6 @@ import { useMemo } from 'react'
 import { useTheme } from '../styles/ThemeContext'
 import { getFlatFinancialTokens } from '../styles/theme/financial-tokens'
 
-// 金额语义颜色 — 已废弃，请使用 useAmountColors() 或 formatAmount()/getAmountColor()
-export const AMOUNT_COLORS = {
-  positive: 'var(--mb-color-positive)',
-  negative: 'var(--mb-color-negative)',
-  neutral: 'var(--mb-color-neutral)',
-} as const
-
 /**
  * 主题感知的金额颜色 Hook
  * 返回当前主题下的 positive（深绿）/ negative（深红）/ neutral（灰）颜色值
@@ -32,13 +25,3 @@ export const TRANSACTION_TYPE_CONFIG = {
 } as const
 
 export type TransactionType = keyof typeof TRANSACTION_TYPE_CONFIG
-
-export const TRANSACTION_COLORS = {
-  income: 'var(--mb-color-income)',
-  expense: 'var(--mb-color-expense)',
-  transfer: 'var(--mb-color-transfer)',
-  refund: 'var(--mb-color-refund)',
-  adjustment: 'var(--mb-color-adjustment)',
-} as const
-
-export type TransactionColorKey = keyof typeof TRANSACTION_COLORS
