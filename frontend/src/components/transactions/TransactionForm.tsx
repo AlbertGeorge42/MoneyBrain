@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Tag, Space, theme, Spin } from 'antd'
+import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Typography, theme, Spin } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction, accountApi } from '../../services/api'
 import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
-import DynamicIcon from '../common/DynamicIcon'
 import { formatCurrency } from '../../utils/format'
+import { useAmountColors } from '../../constants/transactionType'
 
 export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
 
@@ -33,12 +33,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   onAccountBalanceChange,
 }) => {
   const { token } = theme.useToken()
+  const { Text } = Typography
+  const amountColors = useAmountColors()
   const colorTextMuted = token.colorTextTertiary
   const colorIncome = 'var(--mb-color-income)'
   const colorExpense = 'var(--mb-color-expense)'
-  const colorBgHover = token.controlItemBgHover || token.colorBgTextHover
-  const fontSizeCaption = `${token.fontSizeSM}px`
-  const radiusControl = `${token.borderRadiusSM}px`
   const spaceCardPadding = `${token.padding}px`
 
   // adjustment 类型：账户余额相关状态
@@ -124,17 +123,38 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const renderRefundSourceInfo = () => {
     if (!showRefundSourceInfo || !sourceTransaction) return null
 
+    const sourceAmountColor = sourceTransaction.type === 'income' ? amountColors.positive : amountColors.negative
+
     return (
-      <div style={{ marginBottom: spaceCardPadding, padding: 12, backgroundColor: colorBgHover, borderRadius: radiusControl }}>
-        <div style={{ color: colorTextMuted, fontSize: fontSizeCaption, marginBottom: spaceCardPadding }}>原交易</div>
-        <Space>
-          <Tag style={{ color: sourceTransaction.type === 'income' ? colorIncome : colorExpense, borderColor: sourceTransaction.type === 'income' ? colorIncome : colorExpense, backgroundColor: 'transparent' }}>
-            {sourceTransaction.type === 'income' ? '收入' : '支出'}
-          </Tag>
-          {sourceTransaction.category?.icon && <DynamicIcon name={sourceTransaction.category.icon} size={16} />}
-          {sourceTransaction.category?.name || '未分类'} - {formatCurrency(sourceTransaction.amount)}
-          <span style={{ color: colorTextMuted }}>({dayjs(sourceTransaction.date).format('YYYY-MM-DD')})</span>
-        </Space>
+      <div style={{ marginBottom: spaceCardPadding }}>
+        <Text type="secondary" style={{ display: 'block', marginBottom: token.paddingSM, fontSize: token.fontSizeSM }}>
+          原交易
+        </Text>
+        <div
+          style={{
+            padding: `${token.paddingSM}px ${token.padding}px`,
+            backgroundColor: token.colorFillQuaternary,
+            borderRadius: token.borderRadius,
+            border: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text>{sourceTransaction.category?.name || '未分类'}</Text>
+            <Text style={{ color: sourceAmountColor, fontVariantNumeric: 'tabular-nums' }}>
+              {formatCurrency(Number(sourceTransaction.amount))}
+            </Text>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+              {dayjs(sourceTransaction.date).format('YYYY-MM-DD')}
+            </Text>
+            {sourceTransaction.account && (
+              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                {sourceTransaction.account.name}
+              </Text>
+            )}
+          </div>
+        </div>
       </div>
     )
   }
@@ -252,6 +272,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       {/* adjustment 类型：先选择账户，再输入金额 */}
       {type === 'adjustment' && renderAccountSelector()}
 
+      {/* 分类：放在金额之前（adjustment/refund 类型无分类选择器） */}
+      {renderCategorySelector()}
+
       <Form.Item
         name="amount"
         label={type === 'adjustment' ? '当前金额' : '金额'}
@@ -297,8 +320,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       >
         <DatePicker style={{ width: '100%' }} />
       </Form.Item>
-
-      {renderCategorySelector()}
 
       {/* adjustment 类型不需要手续费和优惠券 */}
       {type !== 'adjustment' && (

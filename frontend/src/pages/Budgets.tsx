@@ -1,14 +1,17 @@
 import React, { useState, useMemo } from 'react'
 import {
   Button, Card, Progress, Space, Tag, Empty, theme,
-  Typography, Form, Switch,
+  Typography, Form, Switch, Segmented,
 } from 'antd'
 import {
   PlusOutlined,
   ArrowUpOutlined, ArrowDownOutlined, SwapOutlined,
 } from '@ant-design/icons'
 import { PageHeader } from '../components/common'
-import { BudgetModal, BudgetForm, BudgetFormType, BudgetEdit } from '../components/budgets'
+import { ResponsiveDrawer } from '../components/common'
+import { BudgetForm, BudgetFormType } from '../components/budgets'
+import BudgetDetail, { BudgetDetailFooter } from '../components/budgets/BudgetDetail'
+import BudgetEdit from '../components/budgets/BudgetEdit'
 import { useNotify } from '../hooks/useNotify'
 import {
   useBudgets,
@@ -63,25 +66,58 @@ const Budgets: React.FC = () => {
   const patchBudget = usePatchBudget()
   const deleteBudgetMutation = useDeleteBudget()
 
-  const [activeTab] = useState<string>('expense')
-  // 新建预算弹窗
-  const [createModalVisible, setCreateModalVisible] = useState(false)
+  // 新建预算状态
+  const [createVisible, setCreateVisible] = useState(false)
   const [createForm] = Form.useForm()
   const [createFormType, setCreateFormType] = useState<BudgetFormType>('expense')
-  // 编辑预算弹窗
-  const [editModalVisible, setEditModalVisible] = useState(false)
+
+  // 详情/编辑状态
+  const [detailVisible, setDetailVisible] = useState(false)
+  const [editVisible, setEditVisible] = useState(false)
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null)
 
+  // 预算状态映射
+  const budgetStatusMap = useMemo(() => {
+    const map: Record<string, BudgetStatus> = {}
+    budgetStatuses.forEach((status) => {
+      map[status.budget.id] = status
+    })
+    return map
+  }, [budgetStatuses])
+
+  // 打开新建弹窗
   const openCreateModal = (type: BudgetFormType) => {
     setCreateFormType(type)
-    setCreateModalVisible(true)
+    setCreateVisible(true)
   }
 
-  const openEditModal = (budget: Budget) => {
+  // 点击预算卡片 → 打开详情抽屉
+  const handleCardClick = (budget: Budget) => {
     setSelectedBudget(budget)
-    setEditModalVisible(true)
+    setDetailVisible(true)
+    setEditVisible(false)
   }
 
+  // 从详情切换到编辑
+  const handleEditFromDetail = () => {
+    setDetailVisible(false)
+    setEditVisible(true)
+  }
+
+  // 从编辑返回详情
+  const handleBackToDetail = () => {
+    setEditVisible(false)
+    setDetailVisible(true)
+  }
+
+  // 关闭所有抽屉
+  const handleCloseAll = () => {
+    setDetailVisible(false)
+    setEditVisible(false)
+    setSelectedBudget(null)
+  }
+
+  // 新建提交
   const handleCreateSubmit = async () => {
     try {
       const values = await createForm.validateFields()
@@ -90,8 +126,8 @@ const Budgets: React.FC = () => {
         type: createFormType,
         amount: values.amount,
         period: values.period,
-        startDate: values.dateRange?.[0]?.toISOString(),
-        endDate: values.dateRange?.[1]?.toISOString() ?? null,
+        startDate: values.startDate?.toISOString(),
+        endDate: values.isLongTerm ? null : (values.endDate?.toISOString() ?? null),
         transactionTime: values.transactionTime ?? null,
         note: values.note,
         accountId: values.accountId,
@@ -100,33 +136,38 @@ const Budgets: React.FC = () => {
       }
       await createBudget.mutateAsync(payload)
       notify.success('创建成功')
-      setCreateModalVisible(false)
+      setCreateVisible(false)
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
       notify.error('创建失败')
     }
   }
 
+  // 编辑提交
   const handleEditSubmit = async (values: unknown) => {
     if (!selectedBudget) return
     try {
       await updateBudget.mutateAsync({ id: selectedBudget.id, data: values as Record<string, unknown> })
       notify.success('更新成功')
+      handleCloseAll()
     } catch {
       notify.error('更新失败')
     }
   }
 
+  // 删除确认
   const handleDelete = async () => {
     if (!selectedBudget) return
     try {
       await deleteBudgetMutation.mutateAsync(selectedBudget.id)
       notify.success('删除成功')
+      handleCloseAll()
     } catch {
       notify.error('删除失败')
     }
   }
 
+  // 切换预算状态
   const handleToggleActive = async (budget: Budget, active: boolean) => {
     try {
       await patchBudget.mutateAsync({ id: budget.id, data: { isActive: active } })
@@ -139,25 +180,20 @@ const Budgets: React.FC = () => {
   const getProgressColor = (type: string, percentage: number, isOverBudget: boolean) => {
     const hue = BUDGET_PROGRESS_HUES[type] ?? 209
     if (isOverBudget) {
-      // 超预算：最高饱和度，深色
       return `hsla(${hue}, 85%, 45%, 1)`
     }
-    // 百分比越高 → 饱和度越高、亮度越低
-    const sat = 55 + percentage * 0.3   // 55% → 85%
-    const light = 72 - percentage * 0.27 // 72% → 45%
+    const sat = 55 + percentage * 0.3
+    const light = 72 - percentage * 0.27
     return `hsla(${hue}, ${Math.round(sat)}%, ${Math.round(light)}%, 1)`
   }
 
   const getStatusLabel = (type: string, percentage: number, isOverBudget: boolean) => {
     if (type === 'income') {
-      // 收入预算：达成率，超额完成显示"超额完成"
       return isOverBudget ? `超额完成: ${formatPercent(percentage, 1, false)}` : `达成率: ${formatPercent(percentage, 1, false)}`
     }
     if (type === 'transfer') {
-      // 转账预算：流转率
       return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `流转率: ${formatPercent(percentage, 1, false)}`
     }
-    // 支出预算：使用率
     return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `使用率: ${formatPercent(percentage, 1, false)}`
   }
 
@@ -167,52 +203,12 @@ const Budgets: React.FC = () => {
     { key: 'transfer', label: '转账预算' },
   ]
 
-  const createModalTabItems = useMemo(() => [
-    {
-      key: 'expense',
-      label: '支出预算',
-      children: (
-        <BudgetForm
-          type="expense"
-          accounts={accounts}
-          categories={categories}
-          form={createForm}
-        />
-      ),
-    },
-    {
-      key: 'income',
-      label: '收入预算',
-      children: (
-        <BudgetForm
-          type="income"
-          accounts={accounts}
-          categories={categories}
-          form={createForm}
-        />
-      ),
-    },
-    {
-      key: 'transfer',
-      label: '转账预算',
-      children: (
-        <BudgetForm
-          type="transfer"
-          accounts={accounts}
-          categories={categories}
-          form={createForm}
-        />
-      ),
-    },
-  ], [accounts, categories, createForm])
-
-  const budgetStatusMap = useMemo(() => {
-    const map: Record<string, BudgetStatus> = {}
-    budgetStatuses.forEach((status) => {
-      map[status.budget.id] = status
-    })
-    return map
-  }, [budgetStatuses])
+  // 新建抽屉的 Segmented 选项
+  const createFormTypeOptions = [
+    { label: '支出', value: 'expense' },
+    { label: '收入', value: 'income' },
+    { label: '转账', value: 'transfer' },
+  ]
 
   return (
     <div>
@@ -224,7 +220,7 @@ const Budgets: React.FC = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => openCreateModal(activeTab as BudgetFormType)}
+            onClick={() => openCreateModal(createFormType)}
           >
             新增预算
           </Button>
@@ -255,7 +251,7 @@ const Budgets: React.FC = () => {
                     budget={budget}
                     status={budgetStatusMap[budget.id]}
                     token={token}
-                    onClick={() => openEditModal(budget)}
+                    onClick={() => handleCardClick(budget)}
                     onToggleActive={(active) => handleToggleActive(budget, active)}
                     getProgressColor={getProgressColor}
                     getStatusLabel={getStatusLabel}
@@ -273,34 +269,82 @@ const Budgets: React.FC = () => {
         )}
       </Space>
 
-      {/* 新建预算弹窗 */}
-      <BudgetModal
-        visible={createModalVisible}
+      {/* 新建预算抽屉 */}
+      <ResponsiveDrawer
+        visible={createVisible}
         title="新增预算"
-        onSubmit={handleCreateSubmit}
-        onCancel={() => setCreateModalVisible(false)}
-        submitButtonDisabled={createBudget.isPending}
-        tabItems={createModalTabItems}
-        activeTab={createFormType}
-        onTabChange={(key) => {
-          setCreateFormType(key as BudgetFormType)
-          createForm.resetFields()
-          createForm.setFieldsValue({
-            period: 'monthly',
-            dateRange: [dayjs(), null],
-          })
-        }}
-      />
+        onCancel={() => setCreateVisible(false)}
+      >
+        <Segmented
+          value={createFormType}
+          onChange={(value) => {
+            setCreateFormType(value as BudgetFormType)
+            createForm.resetFields()
+            createForm.setFieldsValue({
+              period: 'monthly',
+              startDate: dayjs(),
+              endDate: null,
+              isLongTerm: false,
+            })
+          }}
+          options={createFormTypeOptions}
+          style={{ marginBottom: 24 }}
+          block
+        />
 
-      {/* 编辑/删除预算弹窗 */}
+        <BudgetForm
+          type={createFormType}
+          accounts={accounts}
+          categories={categories}
+          form={createForm}
+        />
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+          <Button onClick={() => setCreateVisible(false)} size="large" style={{ flex: 1 }}>
+            取消
+          </Button>
+          <Button
+            type="primary"
+            onClick={handleCreateSubmit}
+            loading={createBudget.isPending}
+            size="large"
+            style={{ flex: 2 }}
+          >
+            确定
+          </Button>
+        </div>
+      </ResponsiveDrawer>
+
+      {/* 详情抽屉 */}
+      {selectedBudget && (
+        <ResponsiveDrawer
+          visible={detailVisible}
+          title="预算详情"
+          onCancel={handleCloseAll}
+          footer={
+            <BudgetDetailFooter
+              onEdit={handleEditFromDetail}
+              onDelete={handleDelete}
+              isDeleting={deleteBudgetMutation.isPending}
+            />
+          }
+        >
+          <BudgetDetail
+            budget={selectedBudget}
+            status={budgetStatusMap[selectedBudget.id]}
+          />
+        </ResponsiveDrawer>
+      )}
+
+      {/* 编辑抽屉 */}
       <BudgetEdit
-        visible={editModalVisible}
+        visible={editVisible}
         budget={selectedBudget}
         accounts={accounts}
         categories={categories}
         onEdit={handleEditSubmit}
-        onDelete={handleDelete}
-        onCancel={() => setEditModalVisible(false)}
+        onCancel={handleCloseAll}
+        onBack={handleBackToDetail}
       />
     </div>
   )
@@ -330,7 +374,6 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
   const used = status?.used ?? 0
   const amountColors = useAmountColors()
 
-  // 根据预算类型获取金额颜色
   const getBudgetAmountColor = () => {
     if (!budget.isActive) return token.colorTextSecondary
     switch (budget.type) {
@@ -345,7 +388,6 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
     }
   }
 
-  // 停用状态下进度条变灰
   const getProgressStrokeColor = () => {
     if (!budget.isActive) return token.colorFillSecondary
     return getProgressColor(budget.type, percentage, isOverBudget)
@@ -361,13 +403,12 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
       }}
       onClick={onClick}
     >
-      {/* 第一行：名称、周期、金额、开关 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.paddingSM }}>
         <Space wrap size={12} align="center">
           <Text strong style={{ fontSize: 15, color: budget.isActive ? token.colorText : token.colorTextSecondary, lineHeight: '22px' }}>
             {budget.name}
           </Text>
-          <Tag style={{ lineHeight: '20px' }}>{PERIOD_LABELS[budget.period] ?? budget.period}</Tag>
+          <Tag>{PERIOD_LABELS[budget.period] ?? budget.period}</Tag>
         </Space>
         <Space size={8} align="center">
           <Text strong style={{ color: getBudgetAmountColor(), fontSize: 15, fontVariantNumeric: 'tabular-nums', lineHeight: '22px' }}>
@@ -386,7 +427,6 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
         </Space>
       </div>
 
-      {/* 进度条 */}
       <Progress
         className="budget-progress"
         percent={Math.min(percentage, 100)}
@@ -394,7 +434,6 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
         format={() => getStatusLabel(budget.type, percentage, isOverBudget)}
       />
 
-      {/* 底部：已使用、剩余 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: token.paddingXS, color: token.colorTextSecondary, fontVariantNumeric: 'tabular-nums' }}>
         <span>
           已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {formatCurrency(used)}

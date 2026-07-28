@@ -1,12 +1,11 @@
 export { default as TransactionForm } from './TransactionForm'
 export type { TransactionFormType } from './TransactionForm'
 
-export { default as TransactionModal } from './TransactionModal'
-
 export { default as TransactionCreate } from './TransactionCreate'
 
 export { default as TransactionEdit } from './TransactionEdit'
 
+export { default as TransactionDetail } from './TransactionDetail'
 
 export { default as TransactionFilter } from './TransactionFilter'
 export type { TransactionFilterValues } from './TransactionFilter'

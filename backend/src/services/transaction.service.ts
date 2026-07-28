@@ -28,6 +28,7 @@ export interface TransactionWithRelations {
   category: TransactionCategory | null
   toAccount: Account | null
   relatedTransaction: (Transaction & { account: Account; category: TransactionCategory | null }) | null
+  refunds: (Transaction & { account: Account; category: TransactionCategory | null })[]
 }
 
 export interface CreateIncomeExpenseData {
@@ -287,6 +288,10 @@ export async function getTransactionList(params: TransactionListParams): Promise
       relatedTransaction: {
         include: { account: true, category: true }
       },
+      refunds: {
+        include: { account: true, category: true },
+        orderBy: { date: 'desc' },
+      },
     },
     orderBy: { date: 'desc' },
     skip: (page - 1) * pageSize,
@@ -349,6 +354,10 @@ export async function getTransactionById(id: string): Promise<TransactionWithRel
       toAccount: true,
       relatedTransaction: {
         include: { account: true, category: true }
+      },
+      refunds: {
+        include: { account: true, category: true },
+        orderBy: { date: 'desc' },
       },
     },
   })

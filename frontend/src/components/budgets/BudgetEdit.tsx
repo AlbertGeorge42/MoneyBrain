@@ -1,12 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react'
-import { Form, Button, theme } from 'antd'
-import { DeleteOutlined } from '@ant-design/icons'
+import React, { useState } from 'react'
+import { Form, Button } from 'antd'
 import { Account, TransactionCategory } from '../../services/api'
 import BudgetForm from './BudgetForm'
-import BudgetModal from './BudgetModal'
+import ResponsiveDrawer from '../common/ResponsiveDrawer'
 import type { Budget } from '@shared/types'
-
-type DetailTab = 'edit' | 'delete'
 
 interface BudgetEditProps {
   visible: boolean
@@ -14,42 +11,46 @@ interface BudgetEditProps {
   accounts: Account[]
   categories: TransactionCategory[]
   onEdit: (values: unknown) => Promise<void>
-  onDelete: () => Promise<void>
   onCancel: () => void
+  /** 返回上一层（详情视图） */
+  onBack: () => void
 }
 
+/**
+ * 预算编辑组件
+ * 在抽屉中展示编辑表单
+ *
+ * 与 BudgetDetail 配合使用：
+ * - 点击预算卡片 → 打开 BudgetDetail
+ * - 点击编辑按钮 → 切换为 BudgetEdit
+ */
 const BudgetEdit: React.FC<BudgetEditProps> = ({
   visible,
   budget,
   accounts,
   categories,
   onEdit,
-  onDelete,
   onCancel,
+  onBack,
 }) => {
-  const { token } = theme.useToken()
   const [form] = Form.useForm()
-  const [activeTab, setActiveTab] = useState<DetailTab>('edit')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (visible && budget) {
-      setActiveTab('edit')
-    }
-  }, [visible, budget])
+  // 表单预填由 BudgetForm 内部的 useEffect 基于 editingBudget 完成
+  // 此处不再重复设置，避免覆盖 BudgetForm 中正确的 dayjs 转换
 
-  const handleEditSubmit = async () => {
+  const handleSubmit = async () => {
     if (!budget) return
     try {
       setIsSubmitting(true)
       const values = await form.validateFields()
       const payload = {
         name: values.name,
-        type: budget.type, // 编辑时类型不可修改
+        type: budget.type,
         amount: values.amount,
         period: values.period,
-        startDate: values.dateRange?.[0]?.toISOString(),
-        endDate: values.dateRange?.[1]?.toISOString() ?? null,
+        startDate: values.startDate?.toISOString(),
+        endDate: values.isLongTerm ? null : (values.endDate?.toISOString() ?? null),
         transactionTime: values.transactionTime ?? null,
         note: values.note,
         accountId: values.accountId,
@@ -65,77 +66,37 @@ const BudgetEdit: React.FC<BudgetEditProps> = ({
     }
   }
 
-  const handleDeleteConfirm = async () => {
-    if (!budget) return
-    try {
-      setIsSubmitting(true)
-      await onDelete()
-      onCancel()
-    } catch {
-      // 错误由父组件处理
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const renderEditTab = () => {
-    if (!budget) return null
-
-    return (
-      <Form form={form} layout="vertical">
-        <BudgetForm
-          type={budget.type as 'income' | 'expense' | 'transfer'}
-          editingBudget={budget}
-          accounts={accounts}
-          categories={categories}
-          form={form}
-          disableTypeSwitch={true} // 编辑模式禁止切换类型
-        />
-      </Form>
-    )
-  }
-
-  const renderDeleteTab = () => {
-    if (!budget) return null
-
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 20px 0 20px' }}>
-        <DeleteOutlined style={{ fontSize: 48, color: '#ff4d4f', marginBottom: 16 }} />
-        <div style={{ fontSize: `${token.fontSizeLG}px`, marginBottom: `${token.padding}px` }}>
-          确定要删除此预算吗？
-        </div>
-        <div style={{ color: token.colorTextTertiary, marginBottom: 32 }}>
-          此操作不可撤销
-        </div>
-      </div>
-    )
-  }
-
-  const tabItems = useMemo(() => [
-    { key: 'edit' as DetailTab, label: '编辑', children: renderEditTab() },
-    { key: 'delete' as DetailTab, label: '删除', children: renderDeleteTab() },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [budget, form, accounts, categories])
-
   return (
-    <BudgetModal
+    <ResponsiveDrawer
       visible={visible}
-      title="预算详情"
-      onSubmit={activeTab === 'edit' ? handleEditSubmit : undefined}
+      title="编辑预算"
       onCancel={onCancel}
-      showFooterButtons={true}
-      submitButtonDisabled={isSubmitting}
-      extraFooterContent={
-        activeTab === 'delete' ? (
-          <Button type="primary" danger onClick={handleDeleteConfirm} loading={isSubmitting} size="large">
-            确认删除
-          </Button>
-        ) : null
-      }
-      tabItems={tabItems}
-      activeTab={activeTab}
-      onTabChange={(key) => setActiveTab(key as DetailTab)}
-    />
+    >
+      <BudgetForm
+        type={budget?.type as 'income' | 'expense' | 'transfer' ?? 'expense'}
+        editingBudget={budget}
+        accounts={accounts}
+        categories={categories}
+        form={form}
+        disableTypeSwitch={true}
+      />
+
+      {/* 底部按钮 */}
+      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+        <Button onClick={onBack} size="large" style={{ flex: 1 }}>
+          取消
+        </Button>
+        <Button
+          type="primary"
+          onClick={handleSubmit}
+          loading={isSubmitting}
+          size="large"
+          style={{ flex: 2 }}
+        >
+          保存
+        </Button>
+      </div>
+    </ResponsiveDrawer>
   )
 }
 

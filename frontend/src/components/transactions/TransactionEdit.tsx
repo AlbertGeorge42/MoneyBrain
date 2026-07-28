@@ -1,13 +1,12 @@
-import React, { useEffect, useState, useMemo } from 'react'
-import { Form, Button, theme } from 'antd'
-import { DeleteOutlined } from '@ant-design/icons'
+import React, { useEffect, useState } from 'react'
+import { Form, Button } from 'antd'
 import { Account, TransactionCategory, Transaction } from '../../services/api'
 import TransactionForm, { TransactionFormType } from './TransactionForm'
-import TransactionModal from './TransactionModal'
+import ResponsiveDrawer from '../common/ResponsiveDrawer'
 import { formatTransactionSubmitValues } from '../../utils/transaction'
 import { useNotify } from '../../hooks/useNotify'
 
-type DetailTab = 'edit' | 'refund' | 'delete'
+export type TransactionEditMode = 'edit' | 'refund'
 
 interface TransactionEditProps {
   visible: boolean
@@ -16,10 +15,22 @@ interface TransactionEditProps {
   categories: TransactionCategory[]
   onEdit: (values: unknown) => Promise<void>
   onRefund: (values: unknown) => Promise<void>
-  onDelete: () => Promise<void>
   onCancel: () => void
+  /** 返回上一层（详情视图） */
+  onBack: () => void
+  /** 编辑模式：由父组件决定是编辑还是退款，无需切换 */
+  mode?: TransactionEditMode
 }
 
+/**
+ * 交易编辑组件
+ * 在抽屉中展示编辑表单
+ *
+ * 与 TransactionDetail 配合使用：
+ * - 点击交易行 → 打开 TransactionDetail
+ * - 点击编辑按钮 → 打开 TransactionEdit (mode='edit')
+ * - 点击退款按钮 → 打开 TransactionEdit (mode='refund')
+ */
 const TransactionEdit: React.FC<TransactionEditProps> = ({
   visible,
   transaction,
@@ -27,23 +38,22 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
   categories,
   onEdit,
   onRefund,
-  onDelete,
   onCancel,
+  onBack,
+  mode = 'edit',
 }) => {
-  const { token } = theme.useToken()
-  const notify = useNotify()
   const [form] = Form.useForm()
   const [refundForm] = Form.useForm()
-  const [activeTab, setActiveTab] = useState<DetailTab>('edit')
   const [accountBalance, setAccountBalance] = useState<number | null>(null)
+  const notify = useNotify()
 
   useEffect(() => {
     if (visible && transaction) {
-      setActiveTab('edit')
+      // 表单会在 TransactionForm 的 useEffect 中被填充
     }
   }, [visible, transaction])
 
-  const canRefund = transaction && (transaction.type === 'income' || transaction.type === 'expense')
+  const isRefundMode = mode === 'refund'
   const isRefundTransaction = transaction?.type === 'refund'
 
   const getEditType = (tx: Transaction): TransactionFormType => {
@@ -73,7 +83,6 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
         }
         await onEdit(submitValues)
       } else if (editType === 'adjustment') {
-        // adjustment 类型：计算平账值（当前金额 - 当前余额）
         const values = await form.validateFields()
         if (accountBalance === null) {
           notify.error('无法获取账户余额')
@@ -96,7 +105,6 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
         const submitValues = formatTransactionSubmitValues(values, editType)
         await onEdit(submitValues)
       }
-      // 业务提示由父组件 Transactions 负责（避免双弹）
       onCancel()
     } catch {
       // 错误由 Form 处理
@@ -112,29 +120,33 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
         date: values.date.format('YYYY-MM-DD'),
       }
       await onRefund(refundData)
-      // 业务提示由父组件 Transactions 负责（避免双弹）
       onCancel()
     } catch {
-      // 错误由 Form 处理，不再显示重复错误消息
+      // 错误由 Form 处理
     }
   }
 
-  const handleDeleteConfirm = async () => {
-    if (!transaction) return
-    try {
-      await onDelete()
-      // 业务提示由父组件 Transactions 负责（避免双弹）
-      onCancel()
-    } catch (error) {
-      // 删除失败时仅在此处显式提示
-      notify.error((error as Error)?.message || '删除失败')
-    }
-  }
-
-  const renderEditTab = () => {
+  const renderForm = () => {
     if (!transaction) return null
-    const type = getEditType(transaction)
 
+    // 退款模式
+    if (isRefundMode && !isRefundTransaction) {
+      return (
+        <Form form={refundForm} layout="vertical">
+          <TransactionForm
+            type="refund"
+            accounts={accounts}
+            categories={categories}
+            form={refundForm}
+            showRefundSourceInfo={true}
+            sourceTransaction={transaction}
+          />
+        </Form>
+      )
+    }
+
+    // 编辑模式
+    const type = getEditType(transaction)
     return (
       <Form form={form} layout="vertical">
         <TransactionForm
@@ -149,82 +161,29 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
     )
   }
 
-  const renderRefundTab = () => {
-    if (!transaction) return null
-
-    return (
-      <Form form={refundForm} layout="vertical">
-        <TransactionForm
-          type="refund"
-          accounts={accounts}
-          categories={categories}
-          form={refundForm}
-          showRefundSourceInfo={true}
-          sourceTransaction={transaction}
-        />
-      </Form>
-    )
-  }
-
-  const renderDeleteTab = () => {
-    if (!transaction) return null
-
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 20px 0 20px' }}>
-        <DeleteOutlined style={{ fontSize: 48, color: '#ff4d4f', marginBottom: 16 }} />
-        <div style={{ fontSize: `${token.fontSizeLG}px`, marginBottom: `${token.padding}px` }}>
-          确定要删除此交易记录吗？
-        </div>
-        <div style={{ color: token.colorTextTertiary, marginBottom: 32 }}>
-          此操作不可撤销
-        </div>
-      </div>
-    )
-  }
-
-  const tabItems = useMemo(() => {
-    const items = [
-      { key: 'edit' as DetailTab, label: '编辑', children: renderEditTab() },
-    ]
-    if (!isRefundTransaction && transaction && (transaction.type === 'income' || transaction.type === 'expense')) {
-      items.push({ key: 'refund' as DetailTab, label: '退款', children: renderRefundTab() })
-    }
-    items.push({ key: 'delete' as DetailTab, label: '删除', children: renderDeleteTab() })
-    return items
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transaction, form, refundForm, accounts, categories, isRefundTransaction])
-
-  const getActiveSubmitHandler = () => {
-    switch (activeTab) {
-      case 'edit':
-        return handleEditSubmit
-      case 'refund':
-        return canRefund ? handleRefundSubmit : undefined
-      case 'delete':
-        return undefined
-      default:
-        return undefined
-    }
-  }
-
   return (
-    <TransactionModal
+    <ResponsiveDrawer
       visible={visible}
-      title="交易详情"
-      onSubmit={getActiveSubmitHandler()}
+      title={isRefundMode && !isRefundTransaction ? '退款' : '编辑交易'}
       onCancel={onCancel}
-      showFooterButtons={true}
-      extraFooterContent={
-        activeTab === 'delete' ? (
-          <Button type="primary" danger onClick={handleDeleteConfirm} size="large">
-            确认删除
-          </Button>
-        ) : null
-      }
-      tabItems={tabItems}
-      activeTab={activeTab}
-      onTabChange={(key) => setActiveTab(key as DetailTab)}
-    />
+    >
+      {renderForm()}
+
+      {/* 底部按钮 */}
+      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+        <Button onClick={onBack} size="large" style={{ flex: 1 }}>
+          取消
+        </Button>
+        <Button
+          type="primary"
+          onClick={isRefundMode ? handleRefundSubmit : handleEditSubmit}
+          size="large"
+          style={{ flex: 2 }}
+        >
+          {isRefundMode ? '确认退款' : '保存'}
+        </Button>
+      </div>
+    </ResponsiveDrawer>
   )
 }
 

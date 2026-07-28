@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react'
-import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect } from 'antd'
-const { RangePicker } = DatePicker
+import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Checkbox, theme } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Budget } from '../../services/api'
 import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
@@ -41,17 +40,21 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   categories,
   form,
 }) => {
+  const { token } = theme.useToken()
   const currentPeriod: string | undefined = Form.useWatch('period', form)
+  // 长期开关：勾选时禁用结束日期、提交时 endDate 传 null
+  const isLongTerm: boolean = Form.useWatch('isLongTerm', form) ?? false
+
   useEffect(() => {
     if (editingBudget) {
+      const hasEndDate = !!editingBudget.endDate
       form.setFieldsValue({
         name: editingBudget.name,
         amount: editingBudget.amount,
         period: editingBudget.period,
-        dateRange: [
-          dayjs(editingBudget.startDate),
-          editingBudget.endDate ? dayjs(editingBudget.endDate) : null,
-        ],
+        startDate: dayjs(editingBudget.startDate),
+        endDate: hasEndDate ? dayjs(editingBudget.endDate) : null,
+        isLongTerm: !hasEndDate,
         transactionTime: editingBudget.transactionTime ?? null,
         note: editingBudget.note,
         accountId: editingBudget.accountId,
@@ -62,7 +65,9 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       form.resetFields()
       form.setFieldsValue({
         period: 'monthly',
-        dateRange: [dayjs(), null],
+        startDate: dayjs(),
+        endDate: null,
+        isLongTerm: false,
       })
     }
   }, [editingBudget, form])
@@ -199,49 +204,67 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         <Input placeholder={type === 'income' ? '如：每月工资' : type === 'expense' ? '如：餐饮预算' : '如：ETF定投'} />
       </Form.Item>
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="amount"
-            label="预算金额"
-            rules={[{ required: true, message: '请输入金额' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              precision={2}
-              prefix="¥"
-              placeholder="0.00"
-            />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="period"
-            label="预算周期"
-            rules={[{ required: true, message: '请选择周期' }]}
-          >
-            <Select options={PERIOD_OPTIONS} />
-          </Form.Item>
-        </Col>
-      </Row>
-
       <Form.Item
-        name="dateRange"
-        label="日期范围"
-        rules={[{ required: true, message: '请选择开始日期' }]}
+        name="amount"
+        label="预算金额"
+        rules={[{ required: true, message: '请输入金额' }]}
       >
-        <RangePicker
+        <InputNumber
           style={{ width: '100%' }}
-          placeholder={['开始日期', '结束日期（可选）']}
+          min={0}
+          precision={2}
+          prefix="¥"
+          placeholder="0.00"
         />
       </Form.Item>
-
-      {renderTransactionTimeInput()}
 
       {renderAccountSelector()}
 
       {renderCategorySelector()}
+
+      <Form.Item
+        name="period"
+        label="预算周期"
+        rules={[{ required: true, message: '请选择周期' }]}
+      >
+        <Select options={PERIOD_OPTIONS} />
+      </Form.Item>
+
+      <Form.Item
+        name="startDate"
+        label="开始日期"
+        rules={[{ required: true, message: '请选择开始日期' }]}
+      >
+        <DatePicker
+          style={{ width: '100%' }}
+          placeholder="请选择开始日期"
+          format="YYYY-MM-DD"
+        />
+      </Form.Item>
+
+      <Form.Item
+        name="isLongTerm"
+        valuePropName="checked"
+        style={{ marginBottom: token.paddingSM }}
+      >
+        <Checkbox>长期有效（不设置结束日期）</Checkbox>
+      </Form.Item>
+
+      {!isLongTerm && (
+        <Form.Item
+          name="endDate"
+          label="结束日期"
+        >
+          <DatePicker
+            style={{ width: '100%' }}
+            placeholder="请选择结束日期（可选）"
+            format="YYYY-MM-DD"
+            allowClear
+          />
+        </Form.Item>
+      )}
+
+      {renderTransactionTimeInput()}
 
       <Form.Item
         name="note"

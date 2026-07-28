@@ -23,16 +23,26 @@ import {
   FloatingActionButton,
   TransactionFilterValues,
   TransactionCreate,
-  TransactionEdit,
   TransactionFormType,
 } from '../components/transactions'
+import TransactionDetail, { TransactionDetailFooter } from '../components/transactions/TransactionDetail'
+import TransactionEdit from '../components/transactions/TransactionEdit'
+import type { TransactionEditMode } from '../components/transactions/TransactionEdit'
+import ResponsiveDrawer from '../components/common/ResponsiveDrawer'
 
 const Transactions: React.FC = () => {
-  const [createModalVisible, setCreateModalVisible] = useState(false)
-  const [editModalVisible, setEditModalVisible] = useState(false)
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-  const [filterExpanded, setFilterExpanded] = useState(false)
+  // 新建状态
+  const [createVisible, setCreateVisible] = useState(false)
   const [initialType, setInitialType] = useState<TransactionFormType>('expense')
+
+  // 详情/编辑状态
+  const [detailVisible, setDetailVisible] = useState(false)
+  const [editVisible, setEditVisible] = useState(false)
+  const [editMode, setEditMode] = useState<TransactionEditMode>('edit')
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+
+  // 筛选状态
+  const [filterExpanded, setFilterExpanded] = useState(false)
   const [filters, setFilters] = useState<TransactionFilterValues>({
     type: [],
     accountId: [],
@@ -41,6 +51,7 @@ const Transactions: React.FC = () => {
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+
   const { token } = theme.useToken()
   const isMobile = useIsMobile()
   const notify = useNotify()
@@ -67,28 +78,62 @@ const Transactions: React.FC = () => {
   const updateTransaction = useUpdateTransaction()
   const deleteTransaction = useDeleteTransaction()
 
+  // 打开新建弹窗
   const handleAdd = (type: TransactionFormType = 'expense') => {
     setInitialType(type)
-    setCreateModalVisible(true)
+    setCreateVisible(true)
   }
 
+  // 点击交易行 → 打开详情抽屉
   const handleRowClick = (record: Transaction) => {
     setSelectedTransaction(record)
-    setEditModalVisible(true)
+    setDetailVisible(true)
+    setEditVisible(false)
   }
 
+  // 从详情切换到编辑
+  const handleEditFromDetail = () => {
+    setDetailVisible(false)
+    setEditVisible(true)
+    setEditMode('edit')
+  }
+
+  // 从详情发起退款
+  const handleRefundFromDetail = () => {
+    setDetailVisible(false)
+    setEditVisible(true)
+    setEditMode('refund')
+  }
+
+  // 从编辑返回详情
+  const handleBackToDetail = () => {
+    setEditVisible(false)
+    setDetailVisible(true)
+  }
+
+  // 关闭所有抽屉
+  const handleCloseAll = () => {
+    setDetailVisible(false)
+    setEditVisible(false)
+    setSelectedTransaction(null)
+  }
+
+  // 新建提交
   const handleCreateSubmit = async (values: unknown) => {
     await createTransaction.mutateAsync(values as Record<string, unknown>)
     notify.success('创建成功')
-    setCreateModalVisible(false)
+    setCreateVisible(false)
   }
 
+  // 编辑提交
   const handleEditSubmit = async (values: unknown) => {
     if (!selectedTransaction) return
     await updateTransaction.mutateAsync({ id: selectedTransaction.id, data: values as Partial<Transaction> })
     notify.success('更新成功')
+    handleCloseAll()
   }
 
+  // 退款提交
   const handleRefundSubmit = async (values: unknown) => {
     if (!selectedTransaction) return
     const data = {
@@ -103,14 +148,18 @@ const Transactions: React.FC = () => {
     }
     await createTransaction.mutateAsync(data)
     notify.success('退款记录成功')
+    handleCloseAll()
   }
 
+  // 删除确认
   const handleDelete = async () => {
     if (!selectedTransaction) return
     await deleteTransaction.mutateAsync(selectedTransaction.id)
     notify.success('删除成功')
+    handleCloseAll()
   }
 
+  // 筛选相关
   const handleSearch = () => {
     const params: Record<string, unknown> = {}
     if (filters.type.length > 0) params.type = filters.type
@@ -149,25 +198,19 @@ const Transactions: React.FC = () => {
     setQueryParams(params)
   }
 
-  const renderAddButton = () => {
-    if (isMobile) {
-      return null
-    }
-
-    return (
-      <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd('expense')}>
-        记一笔
-      </Button>
-    )
-  }
-
   return (
     <div>
       <PageHeader
         eyebrow="Transactions"
         title="交易记录"
         description="录入、筛选与修正。"
-        actions={<>{renderAddButton()}</>}
+        actions={
+          !isMobile ? (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd('expense')}>
+              记一笔
+            </Button>
+          ) : undefined
+        }
       />
 
       <Card style={{ marginBottom: `${token.padding}px` }}>
@@ -204,24 +247,49 @@ const Transactions: React.FC = () => {
 
       {isMobile && <FloatingActionButton onClick={() => handleAdd('expense')} />}
 
+      {/* 新建抽屉 */}
       <TransactionCreate
-        visible={createModalVisible}
+        visible={createVisible}
         accounts={accounts}
         categories={transactionCategories}
         initialType={initialType}
         onOk={handleCreateSubmit}
-        onCancel={() => setCreateModalVisible(false)}
+        onCancel={() => setCreateVisible(false)}
       />
 
+      {/* 详情抽屉 */}
+      {selectedTransaction && (
+        <ResponsiveDrawer
+          visible={detailVisible}
+          title="交易详情"
+          onCancel={handleCloseAll}
+          footer={
+            <TransactionDetailFooter
+              transactionType={selectedTransaction.type}
+              onEdit={handleEditFromDetail}
+              onRefund={handleRefundFromDetail}
+              onDelete={handleDelete}
+              isDeleting={deleteTransaction.isPending}
+            />
+          }
+        >
+          <TransactionDetail
+            transaction={selectedTransaction}
+          />
+        </ResponsiveDrawer>
+      )}
+
+      {/* 编辑抽屉 */}
       <TransactionEdit
-        visible={editModalVisible}
+        visible={editVisible}
         transaction={selectedTransaction}
         accounts={accounts}
         categories={transactionCategories}
         onEdit={handleEditSubmit}
         onRefund={handleRefundSubmit}
-        onDelete={handleDelete}
-        onCancel={() => setEditModalVisible(false)}
+        onCancel={handleCloseAll}
+        onBack={handleBackToDetail}
+        mode={editMode}
       />
     </div>
   )

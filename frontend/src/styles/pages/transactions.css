@@ -334,6 +334,19 @@
   max-width: 120px;
 }
 
+/* 非交互模式（退款源信息等静态展示） */
+.tx-item-row--static {
+  cursor: default;
+}
+
+.tx-item-row--static:hover {
+  background: transparent;
+}
+
+.tx-item-row--static .tx-item-row__bar {
+  width: 3px;
+}
+
 /* 桌面端分页 */
 .tx-group-pagination {
   display: flex;
