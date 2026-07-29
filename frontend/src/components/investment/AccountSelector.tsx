@@ -35,7 +35,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
             <span>
               {account.accountName}
               {account.latestSnapshotDate && (
-                <Tag color="green" style={{ marginLeft: 8 }}>
+                <Tag variant="outlined" color="green" style={{ marginLeft: 8 }}>
                   {formatDate(account.latestSnapshotDate)}
                 </Tag>
               )}

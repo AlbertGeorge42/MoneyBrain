@@ -9,6 +9,17 @@ const TRANSACTION_SEEDS = {
   adjustment: '#722ed1', // 紫色
 }
 
+// ===== 交易类型对应 Ant Design Tag 预设色名 =====
+// 用于 `<Tag color={preset}>` 场景，antd 会根据预设色自动处理 tinted 背景
+// 与 TRANSACTION_SEEDS 语义一一对应，不可单独修改
+export const TRANSACTION_TAG_PRESETS: Record<string, string> = {
+  income: 'green',
+  expense: 'red',
+  transfer: 'blue',
+  refund: 'orange',
+  adjustment: 'purple',
+}
+
 // ===== 现金流色 - 表达资金属性 =====
 const CASH_FLOW_SEEDS = {
   cash: '#1890ff',       // 蓝色 - 现金

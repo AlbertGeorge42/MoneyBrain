@@ -4,7 +4,7 @@ export { default as CategoryIcon } from './CategoryIcon'
 export { default as ErrorBoundary } from './ErrorBoundary'
 export { default as PageHeader } from './PageHeader'
 export { default as MobileTabBar } from './MobileTabBar'
-export { default as BorderedTag } from './BorderedTag'
+
 export { default as PredictionPopover } from './PredictionPopover'
 export { ReportDetailList } from './ReportDetailList'
 export type { ReportTreeNode, ReportDetailColumn, ReportDetailConfig, ReportDetailListProps, PredictionConfig, TrendConfig } from './ReportDetailList'

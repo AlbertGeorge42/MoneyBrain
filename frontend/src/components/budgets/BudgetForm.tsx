@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Checkbox, theme } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Budget } from '../../services/api'
 import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
+import { buildAccountTreeData } from '../../utils/accountTree'
+import { useAccountCategories } from '../../queries'
 
 export type BudgetFormType = 'income' | 'expense' | 'transfer'
 
@@ -72,6 +74,12 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     }
   }, [editingBudget, form])
 
+  const { data: accountCategories = [] } = useAccountCategories()
+  const accountTreeData = useMemo(
+    () => buildAccountTreeData(accounts, accountCategories),
+    [accounts, accountCategories]
+  )
+
   const getTypeCategories = () => {
     const filtered = categories.filter(c => c.type === type)
     return buildTreeData(filtered)
@@ -87,13 +95,17 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               label="转出账户"
               rules={[{ required: true, message: '请选择转出账户' }]}
             >
-              <Select placeholder="请选择转出账户" showSearch optionFilterProp="children">
-                {accounts.map(a => (
-                  <Select.Option key={a.id} value={a.id}>
-                    {a.name}
-                  </Select.Option>
-                ))}
-              </Select>
+              <TreeSelect
+                placeholder="请选择转出账户"
+                showSearch
+                treeData={accountTreeData}
+                fieldNames={{ label: 'title', value: 'value', children: 'children' }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
+                filterTreeNode={(inputValue: string, node: any) => {
+                  const name = node.name
+                  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
+                }}
+              />
             </Form.Item>
           </Col>
           <Col span={12}>
@@ -102,13 +114,17 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               label="转入账户"
               rules={[{ required: true, message: '请选择转入账户' }]}
             >
-              <Select placeholder="请选择转入账户" showSearch optionFilterProp="children">
-                {accounts.map(a => (
-                  <Select.Option key={a.id} value={a.id}>
-                    {a.name}
-                  </Select.Option>
-                ))}
-              </Select>
+              <TreeSelect
+                placeholder="请选择转入账户"
+                showSearch
+                treeData={accountTreeData}
+                fieldNames={{ label: 'title', value: 'value', children: 'children' }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
+                filterTreeNode={(inputValue: string, node: any) => {
+                  const name = node.name
+                  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
+                }}
+              />
             </Form.Item>
           </Col>
         </Row>
@@ -121,13 +137,17 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         label="关联账户"
         rules={[{ required: true, message: '请选择账户' }]}
       >
-        <Select placeholder="请选择账户" showSearch optionFilterProp="children">
-          {accounts.map(a => (
-            <Select.Option key={a.id} value={a.id}>
-              {a.name}
-            </Select.Option>
-          ))}
-        </Select>
+        <TreeSelect
+          placeholder="请选择账户"
+          showSearch
+          treeData={accountTreeData}
+          fieldNames={{ label: 'title', value: 'value', children: 'children' }}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
+          filterTreeNode={(inputValue: string, node: any) => {
+            const name = node.name
+            return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
+          }}
+        />
       </Form.Item>
     )
   }

@@ -34,7 +34,7 @@ const PredictionStatistic: React.FC<PredictionStatisticProps> = ({
         <span>
           {title}
           {hasPrediction && (
-            <Tag color="processing" style={{ marginLeft: 4 }}>含预测</Tag>
+            <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag>
           )}
         </span>
       }

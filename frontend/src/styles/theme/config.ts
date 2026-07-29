@@ -60,6 +60,11 @@ function getComponentTokens(): ThemeConfig['components'] {
     Tag: {
       borderRadiusSM: 999,
       borderRadius: 999,
+      fontSizeSM: 14,
+    },
+    Tree: {
+      indentSize: 12,
+      paddingSM: 4,
     },
     Segmented: {
       borderRadius: 8,

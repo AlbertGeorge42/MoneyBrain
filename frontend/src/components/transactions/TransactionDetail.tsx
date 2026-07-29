@@ -170,7 +170,7 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
           {displayAmount}
         </div>
         <Space size={4} wrap style={{ justifyContent: 'center' }}>
-          <Tag color={typeConfig?.color}>{typeConfig?.text}</Tag>
+          <Tag variant="outlined" color={typeConfig?.tagColor}>{typeConfig?.text}</Tag>
         </Space>
       </div>
 

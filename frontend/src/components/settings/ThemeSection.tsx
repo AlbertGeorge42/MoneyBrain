@@ -35,7 +35,7 @@ const ThemeSection: React.FC = () => {
           options={segmentedOptions}
           onChange={(val) => setThemeMode(val as 'light' | 'dark' | 'system')}
         />
-        <Tag
+<Tag variant="outlined" 
           className="settings-theme-badge"
           icon={<CheckCircleOutlined />}
         >

@@ -166,7 +166,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             />
           ) : (
             <Statistic
-              title={isFuture ? <>结余 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '结余'}
+              title={isFuture ? <>结余 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '结余'}
               value={balanceTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: getAmountColor(balanceTotal, 'flow', isDark) }}
@@ -181,7 +181,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             <PredictionStatistic title="收入" value={incomeData} useClickTrigger={useClickTrigger} valueStyle={{ color: amountColors.positive }} />
           ) : (
             <Statistic
-              title={isFuture ? <>收入 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入'}
+              title={isFuture ? <>收入 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '收入'}
               value={incomeTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: amountColors.positive }}
@@ -193,7 +193,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             <PredictionStatistic title="支出" value={expenseData} useClickTrigger={useClickTrigger} valueStyle={{ color: amountColors.negative }} />
           ) : (
             <Statistic
-              title={isFuture ? <>支出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出'}
+              title={isFuture ? <>支出 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '支出'}
               value={expenseTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: amountColors.negative }}
@@ -226,7 +226,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
             />
           ) : (
             <Statistic
-              title={isFuture ? <>资产变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '资产变动'}
+              title={isFuture ? <>资产变动 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '资产变动'}
               value={assetChangeData.actual + assetChangeData.predicted}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: getAmountColor(assetChangeData.actual + assetChangeData.predicted, 'flow', isDark) }}
@@ -235,7 +235,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         </Card>
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <Statistic
-            title={isFuture ? <>储蓄率 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '储蓄率'}
+            title={isFuture ? <>储蓄率 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '储蓄率'}
             value={incomeTotal ? (balanceTotal / incomeTotal) * 100 : 0}
             formatter={(v) => formatPercent(Number(v), 1, false)}
             valueStyle={{ color: amountColors.neutral }}
@@ -293,7 +293,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
-      title={isFuture ? <>收入明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '收入明细'}
+      title={isFuture ? <>收入明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '收入明细'}
     />
   )
 
@@ -304,7 +304,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
-      title={isFuture ? <>支出明细 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '支出明细'}
+      title={isFuture ? <>支出明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '支出明细'}
     />
   )
 

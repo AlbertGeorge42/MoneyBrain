@@ -239,7 +239,7 @@ const Budgets: React.FC = () => {
                 <Space>
                   {BUDGET_TYPE_META[tab.key as keyof typeof BUDGET_TYPE_META].icon}
                   <span>{tab.label}</span>
-                  <Tag>{tabBudgets.length}</Tag>
+                  <Tag variant="outlined">{tabBudgets.length}</Tag>
                 </Space>
               }
               size="small"
@@ -408,7 +408,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
           <Text strong style={{ fontSize: 15, color: budget.isActive ? token.colorText : token.colorTextSecondary, lineHeight: '22px' }}>
             {budget.name}
           </Text>
-          <Tag>{PERIOD_LABELS[budget.period] ?? budget.period}</Tag>
+          <Tag variant="outlined">{PERIOD_LABELS[budget.period] ?? budget.period}</Tag>
         </Space>
         <Space size={8} align="center">
           <Text strong style={{ color: getBudgetAmountColor(), fontSize: 15, fontVariantNumeric: 'tabular-nums', lineHeight: '22px' }}>

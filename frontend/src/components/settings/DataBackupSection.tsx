@@ -34,7 +34,7 @@ const IncludeTags: React.FC<{
   <div className="backup-tags">
     <span className="backup-tags__label">包含：</span>
     {includes.map((key) => (
-      <Tag key={key} closable onClose={() => onRemove(key)}>
+      <Tag variant="outlined" key={key} closable onClose={() => onRemove(key)}>
         {includeLabels[key]}
       </Tag>
     ))}

@@ -140,8 +140,8 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({
           {formatCurrency(budget.amount)}
         </div>
         <Space size={4} wrap style={{ justifyContent: 'center' }}>
-          <Tag color={TRANSACTION_TYPE_CONFIG[budget.type as keyof typeof TRANSACTION_TYPE_CONFIG]?.color}>{typeMeta?.label}</Tag>
-          {!budget.isActive && <Tag>已停用</Tag>}
+          <Tag variant="outlined" color={TRANSACTION_TYPE_CONFIG[budget.type as keyof typeof TRANSACTION_TYPE_CONFIG]?.tagColor}>{typeMeta?.label}</Tag>
+          {!budget.isActive && <Tag variant="outlined">已停用</Tag>}
         </Space>
       </div>
 

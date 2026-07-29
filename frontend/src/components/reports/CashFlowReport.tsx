@@ -181,7 +181,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             />
           ) : (
             <Statistic
-              title={isFuture ? <>净现金流 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '净现金流'}
+              title={isFuture ? <>净现金流 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '净现金流'}
               value={netCashFlowTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{
@@ -198,7 +198,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             <PredictionStatistic title="现金流入" value={cashInflowValue} useClickTrigger={useClickTrigger} valueStyle={{ color: amountColors.positive }} />
           ) : (
             <Statistic
-              title={isFuture ? <>现金流入 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金流入'}
+              title={isFuture ? <>现金流入 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '现金流入'}
               value={cashInflowValue.actual + cashInflowValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: amountColors.positive }}
@@ -219,7 +219,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             />
           ) : (
             <Statistic
-              title={isFuture ? <>现金流出 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金流出'}
+              title={isFuture ? <>现金流出 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '现金流出'}
               value={cashOutflowTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: amountColors.negative }}
@@ -252,7 +252,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
             />
           ) : (
             <Statistic
-              title={isFuture ? <>现金变动 <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : '现金变动'}
+              title={isFuture ? <>现金变动 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '现金变动'}
               value={cashChangeValue.actual + cashChangeValue.predicted}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: getAmountColor(cashChangeValue.actual + cashChangeValue.predicted, 'flow', isDark) }}
@@ -372,7 +372,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               loading={loading}
               isFuture={showPred}
               useClickTrigger={useClickTrigger}
-              title={isFuture ? <>{title} <Tag color="processing" style={{ fontSize: 10 }}>预测</Tag></> : title}
+              title={isFuture ? <>{title} <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : title}
             />
           )
         })}

@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react'
 import { Button, Select, TreeSelect, Tag, Collapse, theme } from 'antd'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
-import { BorderedTag } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
 import {
   createQuarterRangePreset,
@@ -11,6 +10,7 @@ import {
   formatRangeValue,
 } from '../../utils/timePicker'
 import { TRANSACTION_TYPE_CONFIG, TransactionType } from '../../constants/transactionType'
+import { buildAccountTreeData } from '../../utils/accountTree'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',
@@ -85,47 +85,11 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   const spaceStackDefault = `${token.paddingXS}px`
   const spaceCardPadding = `${token.padding}px`
 
-  // 构建账户树形数据（按账户分类分组，支持选择分类筛选所有下属账户）
-  const accountTreeData = useMemo(() => {
-    const buildAccountTree = () => {
-      const topLevelCategories = accountCategories.filter(c => !c.parentId)
-
-      return topLevelCategories.map(category => ({
-        title: <Tag>{category.name}</Tag>,
-        value: `category_${category.id}`,
-        key: `category_${category.id}`,
-        name: category.name,
-        children: accounts
-          .filter(a => a.categoryId === category.id)
-          .map(account => ({
-            title: <Tag>{account.name}</Tag>,
-            value: account.id,
-            key: account.id,
-            name: account.name,
-          })),
-      }))
-    }
-
-    const uncategorizedAccounts = accounts.filter(a => !a.categoryId)
-    const tree = buildAccountTree()
-
-    if (uncategorizedAccounts.length > 0) {
-      tree.push({
-        title: <Tag>未分类账户</Tag>,
-        value: 'uncategorized',
-        key: 'uncategorized',
-        name: '未分类账户',
-        children: uncategorizedAccounts.map(account => ({
-          title: <Tag>{account.name}</Tag>,
-          value: account.id,
-          key: account.id,
-          name: account.name,
-        })),
-      })
-    }
-
-    return tree
-  }, [accounts, accountCategories])
+  // 构建账户树形数据（资产/负债 → 账户分类 → 账户）
+  const accountTreeData = useMemo(
+    () => buildAccountTreeData(accounts, accountCategories),
+    [accounts, accountCategories]
+  )
 
   // 构建分类树形数据（按收入/支出/转账分组，支持多级，可选择父分类筛选所有子分类）
   const categoryTreeData = useMemo(() => {
@@ -133,7 +97,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
     const buildCategoryTree = (parentId: string | null, type: string): any[] => {
       const children = categories.filter(c => c.parentId === parentId && c.type === type)
       return children.map(category => ({
-        title: <Tag>{category.name}</Tag>,
+        title: category.name,
         value: category.id,
         key: category.id,
         name: category.name,
@@ -143,7 +107,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
 
     return [
       {
-        title: <BorderedTag color={TRANSACTION_TYPE_CONFIG.expense.color}>支出</BorderedTag>,
+        title: '支出',
         value: 'expense_group',
         key: 'expense_group',
         selectable: false,
@@ -151,7 +115,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'expense'),
       },
       {
-        title: <BorderedTag color={TRANSACTION_TYPE_CONFIG.income.color}>收入</BorderedTag>,
+        title: '收入',
         value: 'income_group',
         key: 'income_group',
         selectable: false,
@@ -159,7 +123,7 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
         children: buildCategoryTree(null, 'income'),
       },
       {
-        title: <BorderedTag color={TRANSACTION_TYPE_CONFIG.transfer.color}>转账</BorderedTag>,
+        title: '转账',
         value: 'transfer_group',
         key: 'transfer_group',
         selectable: false,
@@ -191,20 +155,21 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
       {filters.type.map(t => {
         const config = TRANSACTION_TYPE_CONFIG[t]
         return (
-          <BorderedTag
+          <Tag
             key={t}
+            variant="outlined"
             closable
             onClose={() => removeFilter('type', t)}
-            color={config.color}
+            color={config.tagColor}
           >
             {config.text}
-          </BorderedTag>
+          </Tag>
         )
       })}
       {filters.accountId.map(id => {
         const label = resolveAccountLabel(id, accounts, accountCategories)
         return label ? (
-          <Tag key={id} closable onClose={() => removeFilter('accountId', id)}>
+          <Tag variant="outlined" key={id} closable onClose={() => removeFilter('accountId', id)}>
             {label}
           </Tag>
         ) : null
@@ -212,13 +177,13 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
       {filters.categoryId.map(id => {
         const category = categories.find(c => c.id === id)
         return category ? (
-          <Tag key={id} closable onClose={() => removeFilter('categoryId', id)}>
+          <Tag variant="outlined" key={id} closable onClose={() => removeFilter('categoryId', id)}>
             {category.name}
           </Tag>
         ) : null
       })}
       {filters.dateRange && (
-        <Tag closable onClose={() => removeFilter('dateRange')}>
+        <Tag variant="outlined" closable onClose={() => removeFilter('dateRange')}>
           {formatRangeValue(filters.dateRange)}
         </Tag>
       )}
@@ -262,22 +227,18 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                         onFilterChange({ ...filters, type: validTypes })
                       }}
                       tagRender={(props) => {
-                        const { value, closable, onClose } = props
-                        // 类型守卫：确保 value 是有效的 TransactionType
-                        if (!(value in TRANSACTION_TYPE_CONFIG)) {
-                          return <span />
-                        }
-                        const config = TRANSACTION_TYPE_CONFIG[value as TransactionType]
+                        const config = TRANSACTION_TYPE_CONFIG[props.value as TransactionType]
+                        if (!config) return <span />
                         return (
-                          <BorderedTag closable={closable} onClose={onClose} color={config.color}>
+                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose} color={config.tagColor}>
                             {config.text}
-                          </BorderedTag>
+                          </Tag>
                         )
                       }}
                     >
-                      {Object.entries(TRANSACTION_TYPE_CONFIG).map(([value, { color, text }]) => (
+                      {Object.entries(TRANSACTION_TYPE_CONFIG).map(([value, { text }]) => (
                         <Select.Option key={value} value={value}>
-                          <BorderedTag color={color}>{text}</BorderedTag>
+                          {text}
                         </Select.Option>
                       ))}
                     </Select>
@@ -290,18 +251,20 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                       allowClear
                       multiple
                       showSearch
-                      treeDefaultExpandAll
                       style={{ width: '100%' }}
                       value={filters.accountId}
-                      onChange={accountId => onFilterChange({ ...filters, accountId })}
+                      onChange={accountId => {
+                        // 去掉 asset_root / liability_root 代理值，antd 级联已自动加入子节点
+                        const clean = (accountId as string[]).filter(id => id !== 'asset_root' && id !== 'liability_root')
+                        onFilterChange({ ...filters, accountId: clean })
+                      }}
+                      popupMatchSelectWidth={false}
+                      dropdownStyle={{ minWidth: 280 }}
                       tagRender={(props) => {
-                        const { value, closable, onClose } = props
-                        const label = resolveAccountLabel(String(value), accounts, accountCategories)
-                        return (
-                          <Tag closable={closable} onClose={onClose}>
-                            {label || String(value)}
-                          </Tag>
-                        )
+                        const label = props.value ? resolveAccountLabel(props.value, accounts, accountCategories) : null
+                        return label ? (
+                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose}>{label}</Tag>
+                        ) : <span />
                       }}
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
                       filterTreeNode={(inputValue: string, node: any) => {
@@ -318,18 +281,16 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
                       allowClear
                       multiple
                       showSearch
-                      treeDefaultExpandAll
                       style={{ width: '100%' }}
                       value={filters.categoryId}
                       onChange={categoryId => onFilterChange({ ...filters, categoryId })}
+                      popupMatchSelectWidth={false}
+                      dropdownStyle={{ minWidth: 280 }}
                       tagRender={(props) => {
-                        const { value, closable, onClose } = props
-                        const category = categories.find(c => c.id === String(value))
-                        return (
-                          <Tag closable={closable} onClose={onClose}>
-                            {category?.name || String(value)}
-                          </Tag>
-                        )
+                        const category = categories.find(c => c.id === props.value)
+                        return category ? (
+                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose}>{category.name}</Tag>
+                        ) : <span />
                       }}
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
                       filterTreeNode={(inputValue: string, node: any) => {
