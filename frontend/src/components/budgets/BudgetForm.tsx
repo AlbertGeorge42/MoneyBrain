@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo } from 'react'
-import { Form, Input, Select, InputNumber, DatePicker, Row, Col, TreeSelect, Checkbox, theme } from 'antd'
+import React, { useEffect } from 'react'
+import { Form, Input, Select, InputNumber, DatePicker, Row, Col, Checkbox, theme } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Budget } from '../../services/api'
-import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
-import { buildAccountTreeData } from '../../utils/accountTree'
+import { AccountSelect, CategorySelect } from '../../components/common'
 import { useAccountCategories } from '../../queries'
 
 export type BudgetFormType = 'income' | 'expense' | 'transfer'
@@ -75,15 +74,6 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   }, [editingBudget, form])
 
   const { data: accountCategories = [] } = useAccountCategories()
-  const accountTreeData = useMemo(
-    () => buildAccountTreeData(accounts, accountCategories),
-    [accounts, accountCategories]
-  )
-
-  const getTypeCategories = () => {
-    const filtered = categories.filter(c => c.type === type)
-    return buildTreeData(filtered)
-  }
 
   const renderAccountSelector = () => {
     if (type === 'transfer') {
@@ -95,16 +85,11 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               label="转出账户"
               rules={[{ required: true, message: '请选择转出账户' }]}
             >
-              <TreeSelect
+              <AccountSelect
+                accounts={accounts}
+                accountCategories={accountCategories}
+                selectableMode="leaf"
                 placeholder="请选择转出账户"
-                showSearch
-                treeData={accountTreeData}
-                fieldNames={{ label: 'title', value: 'value', children: 'children' }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-                filterTreeNode={(inputValue: string, node: any) => {
-                  const name = node.name
-                  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-                }}
               />
             </Form.Item>
           </Col>
@@ -114,16 +99,11 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               label="转入账户"
               rules={[{ required: true, message: '请选择转入账户' }]}
             >
-              <TreeSelect
+              <AccountSelect
+                accounts={accounts}
+                accountCategories={accountCategories}
+                selectableMode="leaf"
                 placeholder="请选择转入账户"
-                showSearch
-                treeData={accountTreeData}
-                fieldNames={{ label: 'title', value: 'value', children: 'children' }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-                filterTreeNode={(inputValue: string, node: any) => {
-                  const name = node.name
-                  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-                }}
               />
             </Form.Item>
           </Col>
@@ -137,35 +117,28 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         label="关联账户"
         rules={[{ required: true, message: '请选择账户' }]}
       >
-        <TreeSelect
+        <AccountSelect
+          accounts={accounts}
+          accountCategories={accountCategories}
+          selectableMode="leaf"
           placeholder="请选择账户"
-          showSearch
-          treeData={accountTreeData}
-          fieldNames={{ label: 'title', value: 'value', children: 'children' }}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-          filterTreeNode={(inputValue: string, node: any) => {
-            const name = node.name
-            return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-          }}
         />
       </Form.Item>
     )
   }
 
   const renderCategorySelector = () => {
-    const treeData = getTypeCategories()
-    if (treeData.length === 0) return null
-
     return (
       <Form.Item
         name="categoryId"
         label="关联分类"
         rules={[{ required: true, message: '请选择分类' }]}
       >
-        <TreeSelect
+        <CategorySelect
+          categories={categories}
+          type={type}
+          selectableMode="all"
           placeholder="请选择分类"
-          treeData={treeData}
-          fieldNames={{ label: 'name', value: 'id', children: 'children' }}
         />
       </Form.Item>
     )

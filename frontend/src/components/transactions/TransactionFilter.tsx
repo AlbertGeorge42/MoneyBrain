@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react'
-import { Button, Select, TreeSelect, Tag, Collapse, theme } from 'antd'
+import { Button, Tag, Collapse, TreeSelect, theme } from 'antd'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
+import { AccountSelect } from '../common'
 import { Account, AccountCategory, TransactionCategory } from '../../services/api'
+import { buildSortedTree } from '@shared/utils/tree'
 import {
   createQuarterRangePreset,
   createRangePeriodPreset,
@@ -10,7 +12,6 @@ import {
   formatRangeValue,
 } from '../../utils/timePicker'
 import { TRANSACTION_TYPE_CONFIG, TransactionType } from '../../constants/transactionType'
-import { buildAccountTreeData } from '../../utils/accountTree'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',
@@ -42,6 +43,8 @@ const resolveAccountLabel = (
   accounts: Account[],
   accountCategories: AccountCategory[]
 ): string | null => {
+  if (id === 'asset_root') return '资产'
+  if (id === 'liability_root') return '负债'
   if (id.startsWith('category_')) {
     const categoryId = id.replace('category_', '')
     const cat = accountCategories.find(c => c.id === categoryId)
@@ -85,53 +88,57 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
   const spaceStackDefault = `${token.paddingXS}px`
   const spaceCardPadding = `${token.padding}px`
 
-  // 构建账户树形数据（资产/负债 → 账户分类 → 账户）
-  const accountTreeData = useMemo(
-    () => buildAccountTreeData(accounts, accountCategories),
-    [accounts, accountCategories]
+  // 构建分类合并树（类型为顶层节点，子分类递归挂接）
+  const mergedTypeCategoryTree = useMemo(() => {
+    type TreeNode = { title: string; value: string; key: string; children?: TreeNode[] }
+
+    const toNode = (item: TransactionCategory & { children?: (TransactionCategory & { children?: unknown[] })[] }): TreeNode => ({
+      title: item.name,
+      value: item.id,
+      key: item.id,
+      children: item.children?.length ? item.children.map(c => toNode(c as TransactionCategory & { children?: unknown[] })) : undefined,
+    })
+
+    const nodes: TreeNode[] = []
+    for (const [typeKey, config] of Object.entries(TRANSACTION_TYPE_CONFIG)) {
+      const typeValue = `__type:${typeKey}`
+      const typeCategories = categories.filter(c => c.type === typeKey)
+      const catTree = buildSortedTree(typeCategories)
+      nodes.push({
+        title: config.text,
+        value: typeValue,
+        key: typeValue,
+        children: catTree.length > 0 ? catTree.map(toNode) : undefined,
+      })
+    }
+    return nodes
+  }, [categories])
+
+  // 合并类型+分类的选中值
+  const mergedTypeCategoryValue = useMemo(
+    () => [...filters.type.map(t => `__type:${t}`), ...filters.categoryId],
+    [filters.type, filters.categoryId]
   )
 
-  // 构建分类树形数据（按收入/支出/转账分组，支持多级，可选择父分类筛选所有子分类）
-  const categoryTreeData = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 递归树形结构类型定义复杂，使用 any 简化
-    const buildCategoryTree = (parentId: string | null, type: string): any[] => {
-      const children = categories.filter(c => c.parentId === parentId && c.type === type)
-      return children.map(category => ({
-        title: category.name,
-        value: category.id,
-        key: category.id,
-        name: category.name,
-        children: buildCategoryTree(category.id, type),
-      }))
+  // 合并下拉框变化处理
+  const handleTypeCategoryChange = (newValue: unknown) => {
+    const allValues = newValue as string[]
+    const types: TransactionType[] = []
+    const categoryIds: string[] = []
+
+    for (const v of allValues) {
+      if (v.startsWith('__type:')) {
+        const t = v.slice(7) as TransactionType
+        if (t in TRANSACTION_TYPE_CONFIG) {
+          types.push(t)
+        }
+      } else {
+        categoryIds.push(v)
+      }
     }
 
-    return [
-      {
-        title: '支出',
-        value: 'expense_group',
-        key: 'expense_group',
-        selectable: false,
-        name: '支出',
-        children: buildCategoryTree(null, 'expense'),
-      },
-      {
-        title: '收入',
-        value: 'income_group',
-        key: 'income_group',
-        selectable: false,
-        name: '收入',
-        children: buildCategoryTree(null, 'income'),
-      },
-      {
-        title: '转账',
-        value: 'transfer_group',
-        key: 'transfer_group',
-        selectable: false,
-        name: '转账',
-        children: buildCategoryTree(null, 'transfer'),
-      },
-    ]
-  }, [categories])
+    onFilterChange({ ...filters, type: types, categoryId: categoryIds })
+  }
 
   // 移除单个筛选条件
   const removeFilter = (key: keyof TransactionFilterValues, value?: string) => {
@@ -212,90 +219,52 @@ const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
               <>
                 <div className="filter-grid">
                   <div>
-                    <div style={{ marginBottom: spaceStackDefault }}>类型</div>
-                    <Select
-                      mode="multiple"
-                      placeholder="选择类型"
-                      allowClear
-                      style={{ width: '100%' }}
-                      value={filters.type}
-                      onChange={type => {
-                        // 过滤确保只保留有效的 TransactionType
-                        const validTypes = (type as string[]).filter(
-                          (t): t is TransactionType => t in TRANSACTION_TYPE_CONFIG
-                        )
-                        onFilterChange({ ...filters, type: validTypes })
-                      }}
-                      tagRender={(props) => {
-                        const config = TRANSACTION_TYPE_CONFIG[props.value as TransactionType]
-                        if (!config) return <span />
-                        return (
-                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose} color={config.tagColor}>
-                            {config.text}
-                          </Tag>
-                        )
-                      }}
-                    >
-                      {Object.entries(TRANSACTION_TYPE_CONFIG).map(([value, { text }]) => (
-                        <Select.Option key={value} value={value}>
-                          {text}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <div style={{ marginBottom: spaceStackDefault }}>账户</div>
-                    <TreeSelect
-                      treeData={accountTreeData}
-                      placeholder="选择账户"
-                      allowClear
-                      multiple
-                      showSearch
-                      style={{ width: '100%' }}
-                      value={filters.accountId}
-                      onChange={accountId => {
-                        // 去掉 asset_root / liability_root 代理值，antd 级联已自动加入子节点
-                        const clean = (accountId as string[]).filter(id => id !== 'asset_root' && id !== 'liability_root')
-                        onFilterChange({ ...filters, accountId: clean })
-                      }}
-                      popupMatchSelectWidth={false}
-                      dropdownStyle={{ minWidth: 280 }}
-                      tagRender={(props) => {
-                        const label = props.value ? resolveAccountLabel(props.value, accounts, accountCategories) : null
-                        return label ? (
-                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose}>{label}</Tag>
-                        ) : <span />
-                      }}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-                      filterTreeNode={(inputValue: string, node: any) => {
-                        const name = node.name
-                        return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-                      }}
-                    />
-                  </div>
-                  <div>
                     <div style={{ marginBottom: spaceStackDefault }}>分类</div>
                     <TreeSelect
-                      treeData={categoryTreeData}
+                      treeData={mergedTypeCategoryTree}
+                      value={mergedTypeCategoryValue}
+                      onChange={handleTypeCategoryChange}
+                      multiple
                       placeholder="选择分类"
                       allowClear
-                      multiple
                       showSearch
+                      treeNodeFilterProp="title"
                       style={{ width: '100%' }}
-                      value={filters.categoryId}
-                      onChange={categoryId => onFilterChange({ ...filters, categoryId })}
                       popupMatchSelectWidth={false}
                       dropdownStyle={{ minWidth: 280 }}
                       tagRender={(props) => {
+                        if (typeof props.value === 'string' && props.value.startsWith('__type:')) {
+                          const t = props.value.slice(7) as TransactionType
+                          const config = TRANSACTION_TYPE_CONFIG[t]
+                          if (!config) return <span />
+                          return (
+                            <Tag variant="outlined" closable={props.closable} onClose={props.onClose} color={config.tagColor}>
+                              {config.text}
+                            </Tag>
+                          )
+                        }
                         const category = categories.find(c => c.id === props.value)
                         return category ? (
                           <Tag variant="outlined" closable={props.closable} onClose={props.onClose}>{category.name}</Tag>
                         ) : <span />
                       }}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-                      filterTreeNode={(inputValue: string, node: any) => {
-                        const name = node.name
-                        return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
+                    />
+                  </div>
+                  <div>
+                    <div style={{ marginBottom: spaceStackDefault }}>账户</div>
+                    <AccountSelect
+                      accounts={accounts}
+                      accountCategories={accountCategories}
+                      selectableMode="all"
+                      multiple
+                      placeholder="选择账户"
+                      value={filters.accountId}
+                      onChange={accountId => onFilterChange({ ...filters, accountId: accountId as string[] })}
+                      tagRender={(props) => {
+                        const label = props.value ? resolveAccountLabel(props.value, accounts, accountCategories) : null
+                        return label ? (
+                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose}>{label}</Tag>
+                        ) : <span />
                       }}
                     />
                   </div>

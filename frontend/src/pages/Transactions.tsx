@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Button, Card, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { Transaction } from '../services/api'
+import type { Account, AccountCategory } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -160,10 +161,30 @@ const Transactions: React.FC = () => {
   }
 
   // 筛选相关
+  // 将 accountId 中的虚拟根节点展开为具体账户 ID
+  const resolveAccountFilters = (ids: string[], accts: Account[], cats: AccountCategory[]): string[] => {
+    const result: string[] = []
+    for (const id of ids) {
+      if (id === 'asset_root') {
+        const catIds = cats.filter(c => c.type === 'asset').map(c => c.id)
+        result.push(...accts.filter(a => a.categoryId && catIds.includes(a.categoryId)).map(a => a.id))
+      } else if (id === 'liability_root') {
+        const catIds = cats.filter(c => c.type === 'liability').map(c => c.id)
+        result.push(...accts.filter(a => a.categoryId && catIds.includes(a.categoryId)).map(a => a.id))
+      } else {
+        result.push(id)
+      }
+    }
+    // 当前 cascade 行为同时保留了子节点 ID 和根节点值，去重避免重复
+    return [...new Set(result)]
+  }
+
   const handleSearch = () => {
     const params: Record<string, unknown> = {}
     if (filters.type.length > 0) params.type = filters.type
-    if (filters.accountId.length > 0) params.accountId = filters.accountId
+    if (filters.accountId.length > 0) {
+      params.accountId = resolveAccountFilters(filters.accountId, accounts, accountCategories)
+    }
     if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
     if (filters.dateRange) {
       Object.assign(params, toDateRangeParams(filters.dateRange))
@@ -190,7 +211,9 @@ const Transactions: React.FC = () => {
     setPageSize(newPageSize)
     const params: Record<string, unknown> = { page: newPage, pageSize: newPageSize }
     if (filters.type.length > 0) params.type = filters.type
-    if (filters.accountId.length > 0) params.accountId = filters.accountId
+    if (filters.accountId.length > 0) {
+      params.accountId = resolveAccountFilters(filters.accountId, accounts, accountCategories)
+    }
     if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
     if (filters.dateRange) {
       Object.assign(params, toDateRangeParams(filters.dateRange))

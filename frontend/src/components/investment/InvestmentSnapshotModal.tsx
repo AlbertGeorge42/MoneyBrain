@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Modal, Select, DatePicker, Table, InputNumber, Space, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
-import { useAccounts } from '../../queries'
+import { Modal, DatePicker, Table, InputNumber, Space, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
+import { useAccounts, useAccountCategories } from '../../queries'
 import { investmentApi, accountApi, InvestmentAssetClass, InvestmentAllocationSnapshot } from '../../services/api'
 import CategoryIcon from '../../components/common/CategoryIcon'
+import { AccountSelect } from '../../components/common'
 import { useNotify } from '../../hooks/useNotify'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import dayjs from 'dayjs'
@@ -22,6 +23,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const { data: accounts = [] } = useAccounts()
+  const { data: accountCategories = [] } = useAccountCategories()
   const notify = useNotify()
 
   const isEditMode = !!editingSnapshot
@@ -399,21 +401,14 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           gridTemplateColumns: isMobile ? '1fr' : 'minmax(220px, 1fr) 160px',
           gap: token.marginSM,
         }}>
-          <Select
-            style={{ width: '100%' }}
+          <AccountSelect
+            accounts={investmentAccounts}
+            accountCategories={accountCategories}
+            selectableMode="leaf"
             placeholder="选择投资账户"
             value={selectedAccountId}
-            onChange={setSelectedAccountId}
+            onChange={(v) => setSelectedAccountId(v as string)}
             disabled={isEditMode}
-            options={investmentAccounts.map(a => ({
-              value: a.id,
-              label: (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <CategoryIcon name={a.icon} color={a.color ?? null} size={20} iconSize={12} fallback="wallet" />
-                  {a.name}
-                </span>
-              ),
-            }))}
           />
           <DatePicker
             value={selectedDate}

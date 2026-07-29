@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react'
-import { Form, Input, InputNumber, DatePicker, Row, Col, TreeSelect, Typography, theme, Spin } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Form, Input, InputNumber, DatePicker, Row, Col, Typography, theme, Spin } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction, accountApi } from '../../services/api'
-import { buildSortedTree as buildTreeData } from '@shared/utils/tree'
-import { buildAccountTreeData } from '../../utils/accountTree'
+import { AccountSelect, CategorySelect } from '../../components/common'
 import { formatCurrency } from '../../utils/format'
 import { useAmountColors } from '../../constants/transactionType'
 import { useAccountCategories } from '../../queries'
@@ -38,10 +37,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const { Text } = Typography
   const amountColors = useAmountColors()
   const { data: accountCategories = [] } = useAccountCategories()
-  const accountTreeData = useMemo(
-    () => buildAccountTreeData(accounts, accountCategories),
-    [accounts, accountCategories]
-  )
   const colorTextMuted = token.colorTextTertiary
   const colorIncome = 'var(--mb-color-income)'
   const colorExpense = 'var(--mb-color-expense)'
@@ -122,11 +117,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [editingTransaction, type, form])
 
-  const getTypeCategories = (formType: string) => {
-    const filtered = categories.filter(c => c.type === formType)
-    return buildTreeData(filtered)
-  }
-
   const renderRefundSourceInfo = () => {
     if (!showRefundSourceInfo || !sourceTransaction) return null
 
@@ -176,16 +166,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               label="转出账户"
               rules={[{ required: true, message: '请选择转出账户' }]}
             >
-              <TreeSelect
+              <AccountSelect
+                accounts={accounts}
+                accountCategories={accountCategories}
+                selectableMode="leaf"
                 placeholder="请选择转出账户"
-                showSearch
-                treeData={accountTreeData}
-                fieldNames={{ label: 'title', value: 'value', children: 'children' }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-                filterTreeNode={(inputValue: string, node: any) => {
-                  const name = node.name
-                  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-                }}
               />
             </Form.Item>
           </Col>
@@ -195,16 +180,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               label="转入账户"
               rules={[{ required: true, message: '请选择转入账户' }]}
             >
-              <TreeSelect
+              <AccountSelect
+                accounts={accounts}
+                accountCategories={accountCategories}
+                selectableMode="leaf"
                 placeholder="请选择转入账户"
-                showSearch
-                treeData={accountTreeData}
-                fieldNames={{ label: 'title', value: 'value', children: 'children' }}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-                filterTreeNode={(inputValue: string, node: any) => {
-                  const name = node.name
-                  return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-                }}
               />
             </Form.Item>
           </Col>
@@ -222,16 +202,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           accountBalance !== null ? `当前余额: ${formatCurrency(accountBalance)}` : null
         )}
       >
-        <TreeSelect
+        <AccountSelect
+          accounts={accounts}
+          accountCategories={accountCategories}
+          selectableMode="leaf"
           placeholder="请选择账户"
-          showSearch
-          treeData={accountTreeData}
-          fieldNames={{ label: 'title', value: 'value', children: 'children' }}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TreeSelect DataNode 类型不兼容
-          filterTreeNode={(inputValue: string, node: any) => {
-            const name = node.name
-            return typeof name === 'string' && name.toLowerCase().includes(inputValue.toLowerCase())
-          }}
         />
       </Form.Item>
     )
@@ -245,11 +220,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           label="转账分类"
           extra="选择分类可确定现金流量活动类型（经营/投资/筹资）"
         >
-          <TreeSelect
+          <CategorySelect
+            categories={categories}
+            type="transfer"
+            selectableMode="all"
             placeholder="请选择转账分类（可选）"
             allowClear
-            treeData={getTypeCategories('transfer')}
-            fieldNames={{ label: 'name', value: 'id', children: 'children' }}
           />
         </Form.Item>
       )
@@ -272,10 +248,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               label="分类"
               rules={[{ required: true, message: '请选择分类' }]}
             >
-              <TreeSelect
+              <CategorySelect
+                categories={categories}
+                type={currentType}
+                selectableMode="all"
                 placeholder="请选择分类"
-                treeData={getTypeCategories(currentType)}
-                fieldNames={{ label: 'name', value: 'id', children: 'children' }}
               />
             </Form.Item>
           )

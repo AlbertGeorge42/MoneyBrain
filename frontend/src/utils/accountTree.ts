@@ -16,11 +16,11 @@
 
 import type { Account, AccountCategory } from '../services/api'
 
+/** TreeSelect DataNode — 字段名直接匹配 Ant Design 默认映射 */
 export interface AccountTreeDataNode {
-  title: string
+  title: React.ReactNode
   value: string
   key: string
-  name: string
   selectable?: boolean
   children?: AccountTreeDataNode[]
 }
@@ -38,7 +38,6 @@ export function buildAccountTreeData(
     title: top.title,
     value: top.key,
     key: top.key,
-    name: top.title,
     children: categories
       .filter(c => c.type === top.type)
       .sort((a, b) => a.sort - b.sort)
@@ -46,7 +45,6 @@ export function buildAccountTreeData(
         title: cat.name,
         value: `category_${cat.id}`,
         key: `category_${cat.id}`,
-        name: cat.name,
         children: accounts
           .filter(a => a.categoryId === cat.id)
           .sort((a, b) => a.sort - b.sort)
@@ -54,7 +52,6 @@ export function buildAccountTreeData(
             title: acc.name,
             value: acc.id,
             key: acc.id,
-            name: acc.name,
           })),
       })),
   }))
