@@ -1,6 +1,6 @@
 import React from 'react'
 import { Modal, Typography, theme } from 'antd'
-import InvestmentSnapshotTimeline from './InvestmentSnapshotTimeline'
+import SnapshotTimeline from './SnapshotTimeline'
 import type { InvestmentAllocationSnapshot } from '../../services/api'
 
 const { Text } = Typography
@@ -44,7 +44,7 @@ const InvestmentSnapshotHistoryModal: React.FC<InvestmentSnapshotHistoryModalPro
         </Text>
       </div>
 
-      <InvestmentSnapshotTimeline
+      <SnapshotTimeline
         snapshots={snapshots}
         onEdit={onEdit}
         onDelete={onDelete}

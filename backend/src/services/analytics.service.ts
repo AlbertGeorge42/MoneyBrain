@@ -1,9 +1,10 @@
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import type { Prisma } from '@prisma/client'
 import { calculateBalancesBatch } from './balance.service.js'
+import { buildCategoryChildrenMap } from '../common/db.js'
 import { ZERO } from '../common/index.js'
-import { dayStart, dayEnd, nextDay } from '../common/date.js'
+import { dayStart, dayEnd } from '../common/date.js'
 
 export interface TrendItem {
   label: string
@@ -23,7 +24,6 @@ export async function getDashboardSummary() {
   const now = new Date()
   const currentMonthStart = dayStart(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`)
   const currentMonthEnd = dayEnd(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`)
-  const currentMonthNext = nextDay(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`)
 
   // 上月
   const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -133,12 +133,8 @@ export async function getCategoryBreakdown(
     where: { type },
   })
   const categoryMap = new Map(allCategories.map(c => [c.id, c]))
-  const childrenOf = new Map<string | null, typeof allCategories>()
-  for (const cat of allCategories) {
-    const key = cat.parentId ?? null
-    if (!childrenOf.has(key)) childrenOf.set(key, [])
-    childrenOf.get(key)!.push(cat)
-  }
+  // parent→children 映射：复用公共实现（传入已加载的全量分类，避免二次查询）
+  const childrenOf = await buildCategoryChildrenMap(type, allCategories)
 
   if (parentCategoryId) {
     // 下钻：返回 parentCategoryId 的所有子分类（按分类层级，不只看交易）

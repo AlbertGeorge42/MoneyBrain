@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react'
 import { Button, Card, Empty, Grid, Statistic, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import { RangeTimePickerField, ReportDetailList, type RangeTimePickerConfig, type RangeTimeValue, type ReportTreeNode, type ReportDetailColumn } from '../../components/common'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../../components/common'
+import { ReportDetailList, type ReportTreeNode, type ReportDetailColumn } from './ReportDetailList'
 import { LineChart, PieChart } from '../../components/charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import InvestmentSnapshotHistorySection from '../investment/InvestmentSnapshotHistorySection'
@@ -11,7 +12,7 @@ import type {
 } from '@shared/types'
 import { formatCurrency, formatPercent, createStatisticFormatter } from '../../utils/format'
 import { getAmountColor } from '../../utils/formatAmount'
-import { useAmountColors } from '../../constants/transactionType'
+import { useAmountColors } from '../../hooks/useAmountColors'
 import { useTheme } from '../../styles/ThemeContext'
 
 const statisticFormatter = createStatisticFormatter()

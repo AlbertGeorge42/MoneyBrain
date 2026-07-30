@@ -1,5 +1,4 @@
 export { default as TransactionForm } from './TransactionForm'
-export type { TransactionFormType } from './TransactionForm'
 
 export { default as TransactionCreate } from './TransactionCreate'
 

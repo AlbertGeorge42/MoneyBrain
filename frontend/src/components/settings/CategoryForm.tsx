@@ -1,7 +1,7 @@
 import React from 'react'
 import { Modal, Form, Input, Select } from 'antd'
 import type { FormInstance } from 'antd'
-import IconColorField from '../common/Picker'
+import IconColorField from '../common/IconColorField'
 
 interface CategoryFormProps {
   visible: boolean

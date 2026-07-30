@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './prisma.js'
 import accountCategoryRoutes from './routes/account-category.route.js'
 import accountRoutes from './routes/account.route.js'
 import transactionCategoryRoutes from './routes/transaction-category.route.js'
@@ -16,8 +16,6 @@ import { LOG_CONFIG } from './common/logger/config.js'
 
 const logger = rootLogger.child({ module: 'app' })
 const PORT = parseInt(process.env.PORT || '3001', 10)
-
-export const prisma = new PrismaClient()
 
 const app = express()
 

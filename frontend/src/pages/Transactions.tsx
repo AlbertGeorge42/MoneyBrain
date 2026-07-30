@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Button, Card, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
-import { Transaction } from '../services/api'
+import { Transaction, TransactionType } from '../services/api'
 import type { Account, AccountCategory } from '../services/api'
 import { toDateRangeParams } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
@@ -24,7 +24,6 @@ import {
   FloatingActionButton,
   TransactionFilterValues,
   TransactionCreate,
-  TransactionFormType,
 } from '../components/transactions'
 import TransactionDetail, { TransactionDetailFooter } from '../components/transactions/TransactionDetail'
 import TransactionEdit from '../components/transactions/TransactionEdit'
@@ -34,7 +33,7 @@ import ResponsiveDrawer from '../components/common/ResponsiveDrawer'
 const Transactions: React.FC = () => {
   // 新建状态
   const [createVisible, setCreateVisible] = useState(false)
-  const [initialType, setInitialType] = useState<TransactionFormType>('expense')
+  const [initialType, setInitialType] = useState<TransactionType>('expense')
 
   // 详情/编辑状态
   const [detailVisible, setDetailVisible] = useState(false)
@@ -80,7 +79,7 @@ const Transactions: React.FC = () => {
   const deleteTransaction = useDeleteTransaction()
 
   // 打开新建弹窗
-  const handleAdd = (type: TransactionFormType = 'expense') => {
+  const handleAdd = (type: TransactionType = 'expense') => {
     setInitialType(type)
     setCreateVisible(true)
   }

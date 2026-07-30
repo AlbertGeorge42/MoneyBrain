@@ -1,6 +1,6 @@
 // ─── 智能导入（ZIP / CSV / JSON） ───
 
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { parseBackupZip, detectFileType, detectFileIncludes } from '../backup.service.js'
 import { clearAllDataForImport } from '../clear-data.service.js'
 import { importConfig } from './config-import.service.js'

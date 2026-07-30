@@ -1,6 +1,6 @@
 // ─── 预算导入 ───
 
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { toDecimal } from '../../common/index.js'
 import {
   type BudgetImportData,

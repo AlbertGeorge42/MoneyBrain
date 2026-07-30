@@ -3,7 +3,7 @@ import { Decimal } from '@prisma/client/runtime/library.js'
 import type { Prisma } from '@prisma/client'
 
 // Mock prisma - 工厂函数内部不能引用外部变量
-vi.mock('../../src/index.js', () => {
+vi.mock('../../src/prisma.js', () => {
   const mockPrisma = {
     account: {
       findMany: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('../../src/index.js', () => {
   }
 })
 
-import { prisma } from '../../src/index.js'
+import { prisma } from '../../src/prisma.js'
 import { calculateBalancesBatch } from '../../src/services/balance.service.js'
 
 type MockPrisma = {

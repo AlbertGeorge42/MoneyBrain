@@ -42,14 +42,6 @@ router.put('/sort/batch', validateRequest(validateBatchSort), asyncHandler(async
   return success(res, { message: '排序更新成功' })
 }))
 
-router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  const account = await getAccountDetail(req.params.id)
-  if (!account) {
-    throw new NotFoundError('账户')
-  }
-  return success(res, account)
-}))
-
 router.get('/:id/stats', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
   const account = await getAccountDetail(req.params.id)
   if (!account) {

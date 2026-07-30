@@ -1,18 +1,9 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
+import type { ApiResponse } from '../../../shared/types/index.js'
+export type { ApiResponse }
 import { AppError } from './error.js'
 import { rootLogger } from './logger/index.js'
-
-export interface ApiResponse<T = unknown> {
-  success: boolean
-  data?: T
-  error?: {
-    code: string
-    message: string
-    details?: unknown
-  }
-  timestamp: string
-}
 
 const logger = rootLogger.child({ module: 'errorHandler' })
 
@@ -68,7 +59,7 @@ export const success = <T>(res: Response, data: T, statusCode = 200) => {
   return res.status(statusCode).json(response)
 }
 
-export const error = (
+const error = (
   res: Response,
   message: string,
   code = 'INTERNAL_ERROR',
@@ -83,10 +74,6 @@ export const error = (
     timestamp: new Date().toISOString(),
   }
   return res.status(statusCode).json(response)
-}
-
-export const notFound = (res: Response, message = '资源不存在') => {
-  return error(res, message, 'NOT_FOUND', 404)
 }
 
 type ErrorResponse = {

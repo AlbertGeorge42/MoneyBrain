@@ -3,17 +3,13 @@ export {
   AppError,
   NotFoundError,
   ValidationError,
-  BusinessError,
-  InsufficientBalanceError,
-  DuplicateError,
-  ForeignKeyError,
 } from './error.js'
 
 // HTTP utilities and types
-export { asyncHandler, validateRequest, success, error, notFound, errorHandler } from './http.js'
+export { asyncHandler, validateRequest, success, errorHandler } from './http.js'
 export type { ApiResponse } from './http.js'
 
-// Tree utilities
+// Tree utilities (re-exported from shared/utils/tree — single source of truth)
 export { buildTree, buildChildrenMap, collectDescendantIds } from './tree.js'
 export type { TreeNode } from './tree.js'
 

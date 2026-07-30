@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { importSnapshotsFromCsv } from '../../src/services/import/snapshot-import.service.js'
 import { exportConfig } from '../../src/services/export/config-export.service.js'
 
-vi.mock('../../src/index.js', () => {
+vi.mock('../../src/prisma.js', () => {
   const mockPrisma = {
     account: {
       findFirst: vi.fn(),
@@ -35,11 +35,7 @@ vi.mock('../../src/index.js', () => {
   }
 })
 
-vi.mock('../../src/services/account-category.service.js', () => ({
-  getNextAccountCategorySort: vi.fn().mockResolvedValue(1),
-}))
-
-import { prisma } from '../../src/index.js'
+import { prisma } from '../../src/prisma.js'
 const mockPrisma = prisma as any
 
 function makeSnapshotsCsv(rows: string[][]): Buffer {

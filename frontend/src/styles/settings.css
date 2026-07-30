@@ -177,10 +177,6 @@
 }
 
 /* ─── 危险操作 ─── */
-.danger-zone {
-  border-left: 3px solid var(--mb-color-danger);
-}
-
 .danger-action {
   display: flex;
   align-items: flex-start;

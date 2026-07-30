@@ -1,4 +1,4 @@
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { buildTree } from '../../common/tree.js'
 import {
   type ImportAccount,

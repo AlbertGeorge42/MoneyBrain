@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Form, Button } from 'antd'
-import { Account, TransactionCategory, Transaction } from '../../services/api'
-import TransactionForm, { TransactionFormType } from './TransactionForm'
+import { Account, TransactionCategory, Transaction, TransactionType } from '../../services/api'
+import TransactionForm from './TransactionForm'
 import ResponsiveDrawer from '../common/ResponsiveDrawer'
 import { formatTransactionSubmitValues } from '../../utils/transaction'
 import { useNotify } from '../../hooks/useNotify'
@@ -47,16 +47,10 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
   const [accountBalance, setAccountBalance] = useState<number | null>(null)
   const notify = useNotify()
 
-  useEffect(() => {
-    if (visible && transaction) {
-      // 表单会在 TransactionForm 的 useEffect 中被填充
-    }
-  }, [visible, transaction])
-
   const isRefundMode = mode === 'refund'
   const isRefundTransaction = transaction?.type === 'refund'
 
-  const getEditType = (tx: Transaction): TransactionFormType => {
+  const getEditType = (tx: Transaction): TransactionType => {
     if (tx.type === 'transfer') return 'transfer'
     if (tx.type === 'income') return 'income'
     if (tx.type === 'expense') return 'expense'

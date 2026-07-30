@@ -12,7 +12,6 @@ import {
   createBudget,
   deleteBudget,
   getBudgets,
-  getBudgetStatus,
   getBudgetStatusesByIds,
   generatePredictions,
   updateBudget,
@@ -69,11 +68,6 @@ router.get('/predictions', asyncHandler(async (req, res) => {
   return success(res, predictions)
 }))
 
-router.get('/:id/status', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  const status = await getBudgetStatus(req.params.id)
-  return success(res, status)
-}))
-
 router.post('/', validateRequest(validateBudgetPayload), asyncHandler(async (req, res) => {
   const budget = await createBudget(req.body)
   return success(res, budget, 201)
@@ -83,12 +77,6 @@ router.put('/:id', validateRequest((req) => {
   validateIdParam(req)
   validateBudgetPayload(req)
 }), asyncHandler(async (req, res) => {
-  const budget = await updateBudget(req.params.id, req.body)
-  return success(res, budget)
-}))
-
-// PATCH 部分更新（如只更新 isActive）
-router.patch('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
   const budget = await updateBudget(req.params.id, req.body)
   return success(res, budget)
 }))

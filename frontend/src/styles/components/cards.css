@@ -56,7 +56,8 @@
 
 .danger-zone {
   border: 1px solid color-mix(in srgb, var(--mb-color-danger) 22%, transparent);
-  border-left: 4px solid var(--mb-color-danger);
+  /* 3px 为后加载的 settings.css 中 .danger-zone 的最终生效值（合并后保持计算值不变） */
+  border-left: 3px solid var(--mb-color-danger);
   background: linear-gradient(180deg, color-mix(in srgb, var(--mb-color-danger) 8%, transparent), color-mix(in srgb, var(--mb-color-danger) 3%, transparent));
 }
 

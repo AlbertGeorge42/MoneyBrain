@@ -144,14 +144,6 @@ router.get('/refundable/list', asyncHandler(async (_req, res) => {
   return success(res, transactions)
 }))
 
-router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  const transaction = await getTransactionById(req.params.id)
-  if (!transaction) {
-    throw new NotFoundError('交易记录')
-  }
-  return success(res, transaction)
-}))
-
 router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async (req, res) => {
   const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
   const parsedDate = toDate(date, 'date')

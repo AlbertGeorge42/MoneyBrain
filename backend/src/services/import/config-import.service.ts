@@ -1,6 +1,6 @@
 // ─── 配置导入（账户/账户分类/收支分类/投资资产类别） ───
 
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { clearConfigDataForImport } from '../clear-data.service.js'
 import {
   type ConfigImportData,

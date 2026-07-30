@@ -1,7 +1,7 @@
  import React, { useState } from 'react'
 import { Card, Empty, Skeleton } from 'antd'
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
-import CategoryIcon from './CategoryIcon'
+import CategoryIcon from '../common/CategoryIcon'
 import PredictionPopover from './PredictionPopover'
 import { formatCurrency, formatPercent } from '../../utils/format'
 

@@ -1,11 +1,7 @@
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { ZERO } from '../common/index.js'
-import { getNextSort } from '../common/db.js'
-
-export async function getNextAccountSort(categoryId: string | null): Promise<number> {
-  return getNextSort('account', { categoryId: categoryId || null })
-}
+import type { AccountStats } from '../../../shared/types/index.js'
 
 type AccountSortItem = {
   id: string
@@ -181,12 +177,6 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
     deletedAssetClasses: assetClassesCount,
     deletedSnapshots: snapshotsCount,
   }
-}
-
-export interface AccountStats {
-  transactionCount: number
-  totalIncome: number
-  totalExpense: number
 }
 
 export async function getAccountStats(accountId: string): Promise<AccountStats> {

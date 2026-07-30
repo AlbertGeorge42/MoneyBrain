@@ -7,7 +7,7 @@ import InvestmentSnapshotHistoryModal from './InvestmentSnapshotHistoryModal'
 import AccountSelector from './AccountSelector'
 import SnapshotTimeline from './SnapshotTimeline'
 import { investmentApi, type InvestmentAllocationSnapshot } from '../../services/api'
-import { useInvestmentSnapshots } from '../../queries'
+import { useInvestmentSnapshots } from '../../queries/investment'
 import { queryKeys } from '../../queries/keys'
 import { useNotify } from '../../hooks/useNotify'
 import type { InvestmentAnalysisReportData } from '@shared/types'
@@ -92,7 +92,6 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
 
   return (
     <Card
-      className="snapshot-history-section"
       style={{
         marginTop: token.marginLG,
         borderRadius: token.borderRadiusLG,
@@ -101,7 +100,6 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
     >
       {/* 标题栏 */}
       <div
-        className="snapshot-history-section__header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -129,7 +127,6 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
 
       {/* 内容 */}
       <div
-        className="snapshot-history-section__content"
         style={{
           padding: 0,
         }}
@@ -154,7 +151,6 @@ const InvestmentSnapshotHistorySection: React.FC<InvestmentSnapshotHistorySectio
         {/* 查看更多按钮 */}
         {snapshots.length > 3 && (
           <div
-            className="snapshot-history-section__view-more"
             style={{
               display: 'flex',
               justifyContent: 'center',

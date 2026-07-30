@@ -18,24 +18,17 @@ import {
   useBudgetStatuses,
   useCreateBudget,
   useUpdateBudget,
-  usePatchBudget,
   useDeleteBudget,
   useAccounts,
   useTransactionCategories,
 } from '../queries'
 import type { Budget, BudgetStatus } from '@shared/types'
 import dayjs from 'dayjs'
-import { formatCurrency, formatPercent } from '../utils/format'
-import { useAmountColors } from '../constants/transactionType'
+import { formatCurrency } from '../utils/format'
+import { getProgressColor, getStatusLabel } from '../utils/budget'
+import { useAmountColors } from '../hooks/useAmountColors'
 
 const { Text } = Typography
-
-// 预算进度条固定色相：收入=绿、支出=红、转账=蓝
-const BUDGET_PROGRESS_HUES: Record<string, number> = {
-  income: 100,
-  expense: 0,
-  transfer: 209,
-}
 
 const BUDGET_TYPE_META = {
   income: { label: '收入预算', color: 'green', icon: <ArrowUpOutlined /> },
@@ -63,7 +56,6 @@ const Budgets: React.FC = () => {
 
   const createBudget = useCreateBudget()
   const updateBudget = useUpdateBudget()
-  const patchBudget = usePatchBudget()
   const deleteBudgetMutation = useDeleteBudget()
 
   // 新建预算状态
@@ -170,31 +162,11 @@ const Budgets: React.FC = () => {
   // 切换预算状态
   const handleToggleActive = async (budget: Budget, active: boolean) => {
     try {
-      await patchBudget.mutateAsync({ id: budget.id, data: { isActive: active } })
+      await updateBudget.mutateAsync({ id: budget.id, data: { isActive: active } })
       notify.success(active ? '已启用' : '已停用')
     } catch {
       notify.error('操作失败')
     }
-  }
-
-  const getProgressColor = (type: string, percentage: number, isOverBudget: boolean) => {
-    const hue = BUDGET_PROGRESS_HUES[type] ?? 209
-    if (isOverBudget) {
-      return `hsla(${hue}, 85%, 45%, 1)`
-    }
-    const sat = 55 + percentage * 0.3
-    const light = 72 - percentage * 0.27
-    return `hsla(${hue}, ${Math.round(sat)}%, ${Math.round(light)}%, 1)`
-  }
-
-  const getStatusLabel = (type: string, percentage: number, isOverBudget: boolean) => {
-    if (type === 'income') {
-      return isOverBudget ? `超额完成: ${formatPercent(percentage, 1, false)}` : `达成率: ${formatPercent(percentage, 1, false)}`
-    }
-    if (type === 'transfer') {
-      return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `流转率: ${formatPercent(percentage, 1, false)}`
-    }
-    return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `使用率: ${formatPercent(percentage, 1, false)}`
   }
 
   const tabItems = [
@@ -402,6 +374,17 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
         opacity: budget.isActive ? 1 : 0.85,
       }}
       onClick={onClick}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => {
+        // 仅当焦点在卡片自身时处理，避免嵌套控件（如 Switch）按键冒泡导致双重触发
+        if (e.target !== e.currentTarget) return
+        // Enter/Space 触发与点击相同的逻辑；Space 需 preventDefault 防止页面滚动
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.paddingSM }}>
         <Space wrap size={12} align="center">

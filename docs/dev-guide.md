@@ -98,7 +98,7 @@ MoneyBrain/
 | 前端页面文件 | `PascalCase.tsx` | `Transactions.tsx` |
 | 前端 hooks | `useCamelCase.ts` | `useIsMobile.ts` |
 | 后端路由文件 | `kebab-case.route.ts` | `account-category.route.ts` |
-| 后端服务文件 | `kebab-case.service.ts` | `transaction-list.service.ts` |
+| 后端服务文件 | `kebab-case.service.ts` | `transaction-category.service.ts` |
 | API 路径 | kebab-case | `/api/account-categories` |
 | API 对象（前端） | camelCase | `transactionApi`, `reportApi` |
 | React Query hooks | `useXxx()` | `useAccounts()`, `useCreateTransaction()` |

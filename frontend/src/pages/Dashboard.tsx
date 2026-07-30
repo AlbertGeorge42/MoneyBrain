@@ -27,7 +27,7 @@ import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
 import { formatCurrency, formatPercent } from '../utils/format'
 import { formatAmount, getAmountColor } from '../utils/formatAmount'
-import { useAmountColors } from '../constants/transactionType'
+import { useAmountColors } from '../hooks/useAmountColors'
 import { useTheme } from '../styles/ThemeContext'
 
 // ===== 预算进度条色相：支出=红 =====
@@ -216,9 +216,9 @@ const Dashboard: React.FC = () => {
           className="surface-card"
           title="预算执行"
           extra={
-            <span className="card-extra-link" onClick={() => navigate('/budgets')}>
+            <button className="card-extra-link" onClick={() => navigate('/budgets')}>
               查看全部 <RightOutlined style={{ fontSize: 10 }} />
-            </span>
+            </button>
           }
         >
           <div className="dashboard-budget-list">
@@ -291,9 +291,9 @@ const Dashboard: React.FC = () => {
         className="surface-card"
         title="最近交易"
         extra={
-          <span className="card-extra-link" onClick={() => navigate('/transactions')}>
+          <button className="card-extra-link" onClick={() => navigate('/transactions')}>
             查看全部 <RightOutlined style={{ fontSize: 10 }} />
-          </span>
+          </button>
         }
       >
         {recentTransactions.length === 0 ? (

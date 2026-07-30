@@ -1,4 +1,4 @@
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
 import {
@@ -10,53 +10,15 @@ import {
   type DateGranularity,
 } from './report.utils.js'
 import { generatePredictions } from '../budget.service.js'
+import type {
+  BalanceSheetReportData,
+  BalanceSheetCategoryNode,
+  BalanceSheetAccountNode,
+} from '../../../../shared/types/index.js'
 
 const logger = rootLogger.child({ module: 'report' })
 
 export type { DateGranularity }
-
-// 资产负债表 - 分类节点
-export interface BalanceSheetCategoryNode {
-  id: string  // categoryId
-  name: string
-  type: 'asset' | 'liability'
-  sort: number
-  icon: string | null
-  color: string | null
-  actual: number
-  predicted: number
-  children: BalanceSheetAccountNode[]
-}
-
-// 资产负债表 - 账户节点
-export interface BalanceSheetAccountNode {
-  id: string  // accountId
-  name: string
-  categoryId: string
-  type: 'asset' | 'liability'
-  icon: string | null
-  color: string | null
-  actual: number
-  predicted: number
-}
-
-export interface ReportValue {
-  actual: number
-  predicted: number
-}
-
-export interface BalanceSheetResult {
-  date: string
-  granularity: DateGranularity
-  assets: ReportValue
-  liabilities: ReportValue
-  netWorth: ReportValue
-  assetsByCategory: Record<string, number>
-  liabilitiesByCategory: Record<string, number>
-  assetNodes: BalanceSheetCategoryNode[]
-  liabilityNodes: BalanceSheetCategoryNode[]
-  predictionNote?: string
-}
 
 function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granularity: DateGranularity } {
   // 统一到 report.utils.ts 的 resolveReportPeriod；保留旧签名以便最小化调用方改动
@@ -64,14 +26,10 @@ function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granul
   return { targetDate: endDate, nextDay, granularity }
 }
 
-export async function generateBalanceSheet(date: string): Promise<BalanceSheetResult> {
+export async function generateBalanceSheet(date: string): Promise<BalanceSheetReportData> {
   const startTime = Date.now()
   const { targetDate, nextDay: nextDayDate, granularity } = parseDateParam(date)
   const now = new Date()
-
-  const categories = await prisma.accountCategory.findMany({
-    orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
-  })
 
   const accounts = await prisma.account.findMany({
     include: { category: true },
@@ -134,9 +92,6 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     }
   })
 
-  const categoryMap = new Map(categories.map(c => [c.id, c]))
-
-  // 构建树形结构：按分类分组
   const categoryNodeMap = new Map<string, BalanceSheetCategoryNode>()
 
   accountBalances.forEach(account => {

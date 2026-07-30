@@ -1,7 +1,8 @@
 import React from 'react'
 import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
-import { RangeTimePickerField, ReportDetailList, type RangeTimePickerConfig, type RangeTimeValue, type ReportTreeNode, type ReportDetailColumn } from '../common'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
+import { ReportDetailList, type ReportTreeNode, type ReportDetailColumn } from './ReportDetailList'
 import { BarChart, SankeyChart } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import PredictionStatistic from './PredictionStatistic'
@@ -10,7 +11,7 @@ import { formatCurrency } from '../../utils/format'
 import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
 import { useTheme } from '../../styles/ThemeContext'
-import { useAmountColors } from '../../constants/transactionType'
+import { useAmountColors } from '../../hooks/useAmountColors'
 
 /** 默认分类的固定图标和颜色映射 */
 const ACTIVITY_META: Record<string, { icon: string; iconColor: string }> = {

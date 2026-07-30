@@ -34,6 +34,10 @@ const WEEK_DAY_OPTIONS = [
   { value: 6, label: '周日' },
 ]
 
+// 季度/年度周期的交易日最大偏移天数（= 周期总天数 - 1，允许偏移指向周期最后一天）
+const QUARTER_MAX_DAY_OFFSET = 89
+const YEAR_MAX_DAY_OFFSET = 364
+
 const BudgetForm: React.FC<BudgetFormProps> = ({
   type,
   editingBudget,
@@ -174,7 +178,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     }
 
     // quarterly / yearly
-    const maxVal = currentPeriod === 'yearly' ? 364 : 89
+    const maxVal = currentPeriod === 'yearly' ? YEAR_MAX_DAY_OFFSET : QUARTER_MAX_DAY_OFFSET
     return (
       <Form.Item name="transactionTime" label="天偏移">
         <InputNumber

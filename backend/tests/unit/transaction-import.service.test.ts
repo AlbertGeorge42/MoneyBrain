@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { importTransactionsFromCsv } from '../../src/services/import/transaction-import.service.js'
 
-vi.mock('../../src/index.js', () => {
+vi.mock('../../src/prisma.js', () => {
   const mockPrisma = {
     account: {
       findFirst: vi.fn(),
@@ -34,19 +34,7 @@ vi.mock('../../src/index.js', () => {
   }
 })
 
-vi.mock('../../src/services/account.service.js', () => ({
-  getNextAccountSort: vi.fn().mockResolvedValue(1),
-}))
-
-vi.mock('../../src/services/account-category.service.js', () => ({
-  getNextAccountCategorySort: vi.fn().mockResolvedValue(1),
-}))
-
-vi.mock('../../src/services/transaction-category.service.js', () => ({
-  getNextTransactionCategorySort: vi.fn().mockResolvedValue(1),
-}))
-
-import { prisma } from '../../src/index.js'
+import { prisma } from '../../src/prisma.js'
 
 const mockPrisma = prisma as any
 

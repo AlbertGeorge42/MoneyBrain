@@ -1,6 +1,5 @@
 import dayjs from 'dayjs'
-import { Transaction } from '../services/api'
-import { TransactionFormType } from '../components/transactions/TransactionForm'
+import { Transaction, TransactionType } from '../services/api'
 
 export interface TransactionGroup {
   date: string
@@ -63,7 +62,7 @@ interface TransactionFormValues {
 
 export const formatTransactionSubmitValues = (
   values: TransactionFormValues,
-  type: TransactionFormType
+  type: TransactionType
 ) => {
   if (type === 'transfer') {
     return {

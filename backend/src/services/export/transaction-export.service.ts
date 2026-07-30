@@ -1,4 +1,4 @@
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { escapeCsvField } from '../../common/utils.js'
 
 export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): Promise<string> {

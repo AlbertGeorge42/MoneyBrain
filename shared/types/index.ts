@@ -6,6 +6,7 @@ export interface ApiResponse<T = unknown> {
   error?: {
     code: string
     message: string
+    details?: unknown
   }
   timestamp: string
 }
@@ -77,9 +78,12 @@ export interface TransactionCategory {
 
 // ===== 交易 =====
 
+// 交易类型（表单与 API 共用）
+export type TransactionType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
+
 export interface Transaction {
   id: string
-  type: string // 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
+  type: TransactionType
   amount: number
   fee: number
   coupon: number
@@ -94,6 +98,7 @@ export interface Transaction {
   category: TransactionCategory | null
   toAccount: Account | null
   relatedTransaction: Transaction | null
+  refunds: Transaction[]
   createdAt: string
 }
 
@@ -299,14 +304,6 @@ export interface CashFlowReportData {
 }
 
 // ===== 投资分析 =====
-
-export interface InvestmentCashFlow {
-  date: string
-  amount: number
-  type: 'buy' | 'sell'
-  accountId: string
-  accountName: string
-}
 
 export interface InvestmentAccountDetail {
   id: string

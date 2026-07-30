@@ -1,5 +1,6 @@
 import { generatePredictions } from '../budget.service.js'
 import { dayStart, dayEnd, nextDay } from '../../common/date.js'
+import { ValidationError } from '../../common/index.js'
 
 // 重导出日期工具，保持原有 import 路径可用
 export { dayStart, dayEnd, nextDay, formatDateLocal } from '../../common/date.js'
@@ -78,7 +79,7 @@ export function resolveReportPeriod(
       granularity: 'year',
     }
   }
-  throw new Error('无效的日期格式，支持格式：YYYY-MM-DD、YYYY-MM、YYYY')
+  throw new ValidationError('无效的日期格式，支持格式：YYYY-MM-DD、YYYY-MM、YYYY')
 }
 
 // ===== 预测相关 =====
@@ -296,4 +297,44 @@ export async function getPredictionsIfFuture(
   // 期初/期末的过滤由 computePredictedAssetsLiabilities / computePredictedAccountTotal 内部完成。
   const nowStr = now.toISOString().split('T')[0]
   return generatePredictions(nowStr, endDate)
+}
+
+// ===== 报表通用类型 =====
+
+export interface ReportValue {
+  actual: number
+  predicted: number
+}
+
+// ===== 现金账户标记 =====
+
+/**
+ * 判断一笔交易是否涉及现金账户。
+ * 供现金流量表的收集与构建逻辑复用。
+ */
+export function getCashFlags(
+  accountId: string,
+  toAccountId: string | null | undefined,
+  cashAccountIds: string[]
+): { isFromCash: boolean; isToCash: boolean } {
+  const isFromCash = cashAccountIds.includes(accountId)
+  const isToCash = !!toAccountId && cashAccountIds.includes(toAccountId)
+  return { isFromCash, isToCash }
+}
+
+// ===== 月份范围 =====
+
+/**
+ * 生成从 start 到 end 的逐月日期范围（每月1号）。
+ * 包含 start 所在月份和 end 所在月份。
+ */
+export function generateMonthRange(start: Date, end: Date): Date[] {
+  const months: Date[] = []
+  const current = new Date(start.getFullYear(), start.getMonth(), 1)
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1)
+  while (current <= endMonth) {
+    months.push(new Date(current))
+    current.setMonth(current.getMonth() + 1)
+  }
+  return months
 }

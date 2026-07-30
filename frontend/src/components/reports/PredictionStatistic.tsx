@@ -2,7 +2,7 @@ import React from 'react'
 import { Statistic, Tag } from 'antd'
 import type { ReportValue } from '@shared/types'
 import { formatCurrency } from '../../utils/format'
-import { PredictionPopover } from '../common'
+import PredictionPopover from './PredictionPopover'
 
 interface PredictionStatisticProps {
   title: string

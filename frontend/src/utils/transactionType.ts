@@ -3,18 +3,7 @@
  * 任何需要按交易类型显示颜色或文案的组件，都应从此处导入，避免在多个文件重复维护。
  */
 
-import { useMemo } from 'react'
-import { useTheme } from '../styles/ThemeContext'
-import { getFlatFinancialTokens, TRANSACTION_TAG_PRESETS } from '../styles/theme/financial-tokens'
-
-/**
- * 主题感知的金额颜色 Hook
- * 返回当前主题下的 positive（深绿）/ negative（深红）/ neutral（灰）颜色值
- */
-export function useAmountColors() {
-  const { isDark } = useTheme()
-  return useMemo(() => getFlatFinancialTokens(isDark), [isDark])
-}
+import { TRANSACTION_TAG_PRESETS } from '../styles/theme/financial-tokens'
 
 /**
  * 交易类型视觉配置

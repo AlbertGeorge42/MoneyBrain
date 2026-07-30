@@ -29,7 +29,6 @@ const ReportViewSwitcher: React.FC<ReportViewSwitcherProps> = ({ items, classNam
     <div className={className}>
       <Segmented
         block
-        className="report-view-switcher__control"
         value={activeKey}
         onChange={(value) => setActiveKey(String(value))}
         options={items.map((item) => ({

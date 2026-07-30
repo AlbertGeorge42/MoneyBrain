@@ -1,13 +1,6 @@
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
-
-export async function getNextTransactionCategorySort(
-  type: string,
-  parentId: string | null,
-): Promise<number> {
-  return getNextSort('transactionCategory', { type, parentId: parentId || null })
-}
 
 type TransactionCategoryCreatePayload = {
   name: string
@@ -72,7 +65,7 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
     }
   }
 
-  const finalSort = data.sort ?? await getNextTransactionCategorySort(data.type, data.parentId || null)
+  const finalSort = data.sort ?? await getNextSort('transactionCategory', { type: data.type, parentId: data.parentId || null })
 
   return prisma.transactionCategory.create({
     data: {

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Card, Statistic } from 'antd'
 import { createStatisticFormatter } from '../../utils/format'
-import { useAmountColors } from '../../constants/transactionType'
+import { useAmountColors } from '../../hooks/useAmountColors'
 
 const statisticFormatter = createStatisticFormatter()
 

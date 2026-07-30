@@ -10,7 +10,7 @@ import { investmentApi } from '../../services/api'
 import CategoryIcon from '../../components/common/CategoryIcon'
 import { SortableRow, SettingDropdown, renderExpandIcon, renderDragHandle, useSortableTable } from '../../components/settings/shared'
 import ConfigModalLayout from '../../components/settings/ConfigModalLayout'
-import { default as IconColorField } from '../../components/common/Picker'
+import { default as IconColorField } from '../../components/common/IconColorField'
 import { useNotify } from '../../hooks/useNotify'
 
 interface Props {

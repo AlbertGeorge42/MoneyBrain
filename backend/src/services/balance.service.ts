@@ -1,4 +1,4 @@
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO } from '../common/index.js'
 
@@ -54,6 +54,11 @@ interface DateRange {
   gte: Date
   lt: Date
 }
+
+/**
+ * 账户列表类型（与 prisma.account.findMany() 返回值一致）
+ */
+type AccountList = Awaited<ReturnType<typeof prisma.account.findMany>>
 
 /**
  * 根据查询日期和初始余额日期，确定计算方向、日期范围和 multiplier
@@ -180,21 +185,23 @@ export class BalanceCache {
  * 
  * @param accountIds 要计算余额的账户ID列表
  * @param dates 要计算的日期列表
+ * @param accounts 可选：调用方已查询到的账户列表，传入后复用，避免重复查询
  * @returns BalanceCache 缓存对象，可通过 get() 方法快速查询
  */
 export async function calculateBalancesBatch(
   accountIds: string[],
-  dates: Date[]
+  dates: Date[],
+  accounts?: AccountList
 ): Promise<BalanceCache> {
   if (accountIds.length === 0 || dates.length === 0) {
     return new BalanceCache(new Map())
   }
 
-  // 1. 一次性查询所有账户
-  const accounts = await prisma.account.findMany({
+  // 1. 一次性查询所有账户（调用方已传入时直接复用，避免重复查询）
+  const accountList = accounts ?? (await prisma.account.findMany({
     where: { id: { in: accountIds } }
-  })
-  const accountMap = new Map(accounts.map(a => [a.id, a]))
+  }))
+  const accountMap = new Map(accountList.map(a => [a.id, a]))
 
   // 2. 对日期排序并确定查询范围
   const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime())
@@ -203,7 +210,7 @@ export async function calculateBalancesBatch(
   let maxDate = new Date(maxTargetDate.getTime() + 86400000)
 
   // backward 计算需要覆盖到 initialBalanceDate，所以 maxDate 要至少覆盖到最晚的 initialBalanceDate + 1 day
-  const latestInitialBalanceDate = accounts.reduce<Date | null>((acc, a) => {
+  const latestInitialBalanceDate = accountList.reduce<Date | null>((acc, a) => {
     if (a.initialBalanceDate && (!acc || a.initialBalanceDate.getTime() > acc.getTime())) {
       return a.initialBalanceDate
     }
@@ -224,7 +231,7 @@ export async function calculateBalancesBatch(
   // 关键场景：用户导入历史数据时，createdAt 是导入时间（较晚），但 initialBalanceDate 是历史时点（较早），
   // 若用 earliestCreatedAt 作为起点会漏掉 initialBalanceDate+1 day 与 createdAt 之间的交易，
   // 导致资产负债表 / 现金流量表 / 收支表的"实际"余额严重偏离。
-  const earliestRelevantDate = accounts.reduce<Date | null>((acc, a) => {
+  const earliestRelevantDate = accountList.reduce<Date | null>((acc, a) => {
     let candidate: Date | null = null
     if (a.initialBalanceDate) {
       candidate = new Date(a.initialBalanceDate.getTime() + 86400000)

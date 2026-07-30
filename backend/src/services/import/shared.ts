@@ -1,8 +1,8 @@
 // ─── 通用类型定义 ───
 
 import Papa from 'papaparse'
-import { prisma } from '../../index.js'
 import { rootLogger } from '../../common/index.js'
+import { type TransactionClient } from '../../prisma.js'
 
 export const logger = rootLogger.child({ module: 'import' })
 
@@ -32,8 +32,8 @@ export function isAntDPresetColor(value: string | null | undefined): value is st
   return ANTD_PRESET_COLORS.has(value)
 }
 
-// Prisma 事务客户端类型
-export type TransactionClient = Parameters<Parameters<typeof prisma['$transaction']>[0]>[0]
+// Prisma 事务客户端类型（re-export 自 src/prisma.ts，单一来源）
+export type { TransactionClient } from '../../prisma.js'
 
 // ─── Account 缓存 ───
 

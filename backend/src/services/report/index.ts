@@ -1,11 +1,21 @@
 // 聚合导出所有报表服务
+export type { ReportValue } from './report.utils.js'
+export type { DateGranularity } from './report.utils.js'
+
 export { generateBalanceSheet } from './balance-sheet.service.js'
-export type { BalanceSheetCategoryNode, BalanceSheetAccountNode, BalanceSheetResult, DateGranularity } from './balance-sheet.service.js'
+export type {
+  BalanceSheetReportData,
+  BalanceSheetCategoryNode,
+  BalanceSheetAccountNode,
+} from '../../../../shared/types/index.js'
 
 export { generateIncomeExpense } from './income-expense.service.js'
-export type { CategoryBreakdownItem, IncomeExpenseResult } from './income-expense.service.js'
+export type {
+  IncomeExpenseReportData,
+  ReportCategoryDetail,
+} from '../../../../shared/types/index.js'
 
 export { generateCashFlow } from './cash-flow.service.js'
-export type { CashFlowActivity, CashFlowResult } from './cash-flow.service.js'
+export type { CashFlowActivity, CashFlowResult } from './cash-flow-types.js'
 
 export { generateInvestmentAnalysis } from './investment-analysis.service.js'

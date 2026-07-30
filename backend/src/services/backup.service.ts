@@ -3,7 +3,8 @@ import { ZipArchive } from 'archiver'
 // @ts-expect-error - unzipper没有类型定义
 import unzipper from 'unzipper'
 import Papa from 'papaparse'
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
+import { ValidationError } from '../common/index.js'
 
 // ─── 备份文件格式常量与类型 ───
 
@@ -143,7 +144,7 @@ export function detectFileType(filename: string): 'zip' | 'csv' | 'json' {
   if (lower.endsWith('.zip')) return 'zip'
   if (lower.endsWith('.csv')) return 'csv'
   if (lower.endsWith('.json')) return 'json'
-  throw new Error('不支持的文件格式')
+  throw new ValidationError('不支持的文件格式')
 }
 
 // ─── 文件内容识别 ───

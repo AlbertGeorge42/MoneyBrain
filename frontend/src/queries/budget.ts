@@ -10,14 +10,6 @@ export function useBudgets(params?: Record<string, unknown>) {
   })
 }
 
-export function useBudgetStatus(id: string) {
-  return useQuery({
-    queryKey: queryKeys.budgets.status(id),
-    queryFn: () => budgetApi.getStatus(id).then((res) => res.data.data!),
-    enabled: !!id,
-  })
-}
-
 export function useBudgetStatuses(ids: string[]) {
   return useQuery({
     queryKey: queryKeys.budgets.statuses(ids),
@@ -48,16 +40,6 @@ export function useUpdateBudget() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Budget> }) => budgetApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.budgets.all })
-    },
-  })
-}
-
-export function usePatchBudget() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Budget> }) => budgetApi.patch(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.budgets.all })
     },

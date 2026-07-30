@@ -1,8 +1,10 @@
 import React from 'react'
 import { Button, Space, Tag, Divider, Typography, Modal, Progress, theme } from 'antd'
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
-import { formatCurrency, formatPercent } from '../../utils/format'
-import { useAmountColors, TRANSACTION_TYPE_CONFIG } from '../../constants/transactionType'
+import { formatCurrency } from '../../utils/format'
+import { getProgressColor, getStatusLabel } from '../../utils/budget'
+import { useAmountColors } from '../../hooks/useAmountColors'
+import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
 import type { Budget, BudgetStatus } from '@shared/types'
 
 const { Text } = Typography
@@ -112,23 +114,6 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({
     }
   }
 
-  const getProgressColor = () => {
-    if (!budget.isActive) return token.colorFillSecondary
-    if (budget.type === 'income') return 'var(--mb-color-income)'
-    if (budget.type === 'expense') return 'var(--mb-color-expense)'
-    return 'var(--mb-color-neutral)'
-  }
-
-  const getStatusLabel = () => {
-    if (budget.type === 'income') {
-      return isOverBudget ? `超额完成: ${formatPercent(percentage, 1, false)}` : `达成率: ${formatPercent(percentage, 1, false)}`
-    }
-    if (budget.type === 'transfer') {
-      return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `流转率: ${formatPercent(percentage, 1, false)}`
-    }
-    return isOverBudget ? `超预算: ${formatPercent(percentage, 1, false)}` : `使用率: ${formatPercent(percentage, 1, false)}`
-  }
-
   return (
     <div>
       {/* 第1层：核心信息 */}
@@ -149,8 +134,8 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({
       <div style={{ marginBottom: token.paddingLG }}>
         <Progress
           percent={Math.min(percentage, 100)}
-          strokeColor={getProgressColor()}
-          format={() => getStatusLabel()}
+          strokeColor={!budget.isActive ? token.colorFillSecondary : getProgressColor(budget.type, percentage, isOverBudget)}
+          format={() => getStatusLabel(budget.type, percentage, isOverBudget)}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: token.paddingXS, color: token.colorTextSecondary, fontVariantNumeric: 'tabular-nums' }}>
           <span>

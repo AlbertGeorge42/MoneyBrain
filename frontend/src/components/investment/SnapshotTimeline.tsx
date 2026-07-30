@@ -11,7 +11,7 @@ const { Text } = Typography
 
 interface SnapshotTimelineProps {
   snapshots: InvestmentAllocationSnapshot[]
-  loading: boolean
+  loading?: boolean
   onEdit: (snapshot: InvestmentAllocationSnapshot) => void
   onDelete: (id: string) => void
 }
@@ -85,7 +85,7 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
         style={{
           position: 'relative',
           paddingLeft: isMobile ? 0 : 24,
-          paddingBottom: index < snapshots.length - 1 ? token.marginMD : 0,
+          paddingBottom: index < snapshots.length - 1 ? token.marginLG : 0,
         }}
       >
         {!isMobile && (
@@ -95,7 +95,7 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
               position: 'absolute',
               left: 6,
               top: 24,
-              bottom: index < snapshots.length - 1 ? -token.marginMD : 24,
+              bottom: index < snapshots.length - 1 ? -token.marginLG : 24,
               width: 2,
               background: token.colorBorderSecondary,
             }}
@@ -123,7 +123,7 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
           style={{
             background: token.colorBgContainer,
             borderRadius: token.borderRadiusLG,
-            padding: token.paddingSM,
+            padding: token.paddingMD,
             border: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
@@ -133,11 +133,13 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: token.marginXS,
+              marginBottom: token.marginSM,
+              flexWrap: 'wrap',
+              gap: token.marginXS,
             }}
           >
             <div>
-              <Text strong style={{ fontSize: token.fontSize }}>
+              <Text strong style={{ fontSize: token.fontSizeLG }}>
                 {formatDate(snapshot.date)}
               </Text>
               {balanceChange !== null && (
@@ -149,15 +151,15 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
                 </Text>
               )}
             </div>
-            <Space align="center" size="small">
-              <Text strong style={{ color: 'var(--mb-color-investing)', fontSize: token.fontSize }}>
+            <Space align="center">
+              <Text strong style={{ color: 'var(--mb-color-investing)' }}>
                 {formatCurrency(snapshot.accountBalance)}
               </Text>
               <Dropdown
                 menu={{ items: getSettingMenuItems(snapshot) }}
                 trigger={['click']}
               >
-                <Button type="text" size="small" icon={<SettingOutlined />} />
+                <Button type="text" size="small" icon={<SettingOutlined />} aria-label="快照操作" />
               </Dropdown>
             </Space>
           </div>
@@ -166,12 +168,12 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
             <div
               className="snapshot-timeline__period-info"
               style={{
-                marginBottom: token.marginXS,
-                fontSize: token.fontSizeSM,
-                color: token.colorTextSecondary,
-              }}
-            >
-              期间净流入 {formatCurrency(totalNetFlow)}
+              marginBottom: token.marginSM,
+              fontSize: token.fontSizeSM,
+              color: token.colorTextSecondary,
+            }}
+          >
+            期间净流入 {formatCurrency(totalNetFlow)}
               {totalNetFlow > 0 && <span style={{ marginLeft: 4 }}>(投入)</span>}
               {totalNetFlow < 0 && <span style={{ marginLeft: 4 }}>(转出)</span>}
             </div>
@@ -180,7 +182,7 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
           <div
             className="snapshot-timeline__assets"
             style={{
-              marginBottom: 0,
+              marginBottom: token.marginSM,
             }}
           >
             {snapshot.items.map((item) => {
@@ -233,7 +235,7 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
       className="snapshot-timeline"
       style={{ opacity: loading ? 0.5 : 1 }}
     >
-      {snapshots.slice(0, 3).map((snapshot, index) => renderSnapshotCard(snapshot, index))}
+      {snapshots.map((snapshot, index) => renderSnapshotCard(snapshot, index))}
     </div>
   )
 }

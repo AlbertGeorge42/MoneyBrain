@@ -1,5 +1,4 @@
-import { prisma } from '../index.js'
-import { type TransactionClient } from './import/shared.js'
+import { prisma, type TransactionClient } from '../prisma.js'
 import { rootLogger } from '../common/index.js'
 
 const logger = rootLogger.child({ module: 'clear-data' })

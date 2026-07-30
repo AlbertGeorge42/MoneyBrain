@@ -8,7 +8,7 @@ import {
   SettingOutlined,
   TransactionOutlined,
 } from '@ant-design/icons'
-import { MobileTabBar } from '../components/common'
+import MobileTabBar from './MobileTabBar'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 const { Sider, Content } = Layout

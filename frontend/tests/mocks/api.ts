@@ -43,7 +43,6 @@ export function createMockApi() {
     },
     budgetApi: {
       getAll: vi.fn(),
-      getStatus: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),

@@ -3,17 +3,18 @@ import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import type { IncomeExpenseReportData, ReportCategoryDetail } from '@shared/types'
 import { BarChart, PieChart, type PieChartDataItem } from '../charts'
-import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue, ReportDetailList } from '../common'
-import type { ReportTreeNode, ReportDetailColumn } from '../common'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
+import { ReportDetailList } from './ReportDetailList'
+import type { ReportTreeNode, ReportDetailColumn } from './ReportDetailList'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import PredictionStatistic from './PredictionStatistic'
-import * as api from '../../services/api'
+import { analyticsApi } from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { getAmountColor } from '../../utils/formatAmount'
 import { getFinancialTokens } from '../../styles/theme/financial-tokens'
 import { useTheme } from '../../styles/ThemeContext'
-import { useAmountColors } from '../../constants/transactionType'
+import { useAmountColors } from '../../hooks/useAmountColors'
 
 // ---- 本报表专属：metrics 类型 ----
 interface IncomeExpenseMetrics {
@@ -98,7 +99,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     if (!item.categoryId) return []
 
     try {
-      const response = await api.analyticsApi.getCategoryBreakdown(
+      const response = await analyticsApi.getCategoryBreakdown(
         type,
         dateParams.startDate,
         dateParams.endDate,
@@ -276,10 +277,10 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         />
       </Card>
       <Card className="surface-card report-section-card" size="small">
-        <PieChart title="收入分类" data={incomePieData} height={isMobile ? 220 : 250} layout={isMobile ? 'compact' : 'compact'} onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
+        <PieChart title="收入分类" data={incomePieData} height={isMobile ? 220 : 250} layout="compact" onDrillDown={(item) => handleDrillDown('income', item)} isPurePrediction={isFuture} />
       </Card>
       <Card className="surface-card report-section-card" size="small">
-        <PieChart title="支出分类" data={expensePieData} height={isMobile ? 220 : 250} layout={isMobile ? 'compact' : 'compact'} onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
+        <PieChart title="支出分类" data={expensePieData} height={isMobile ? 220 : 250} layout="compact" onDrillDown={(item) => handleDrillDown('expense', item)} isPurePrediction={isFuture} />
       </Card>
     </div>
   )

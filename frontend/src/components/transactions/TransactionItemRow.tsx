@@ -1,7 +1,8 @@
 import React from 'react'
 import { CategoryIcon } from '../common'
 import type { Transaction } from '../../services/api'
-import { useAmountColors, TRANSACTION_TYPE_CONFIG } from '../../constants/transactionType'
+import { useAmountColors } from '../../hooks/useAmountColors'
+import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
 import { formatCurrency } from '../../utils/format'
 
 /**

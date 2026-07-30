@@ -3,7 +3,7 @@ import ReactECharts from 'echarts-for-react'
 import { Empty, Button } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { useChartTokens } from '../../styles/theme/chart-tokens'
-import { toRgba } from '../../utils/color'
+import { toRgba } from '../../utils/colorPalette'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { formatAmount } from '../../utils/formatAmount'
 

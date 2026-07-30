@@ -1,8 +1,9 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
-import { buildChildrenMap, collectDescendantIds } from '../common/tree.js'
+import { collectDescendantIds } from '../common/tree.js'
+import { buildCategoryChildrenMap } from '../common/db.js'
 
 // 预算类型
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
@@ -42,6 +43,32 @@ async function validateBudgetCategory(type: string, categoryId: string) {
   }
   if (category.type !== type) {
     throw new ValidationError(`预算类型"${type}"只能关联"${category.type}"类型分类`)
+  }
+}
+
+/**
+ * 校验预算类型/周期枚举、转账目标账户与分类类型匹配。
+ * create/update 共用：undefined 字段跳过对应校验（兼容 update 部分更新）。
+ */
+async function validateBudgetFields(
+  type?: string,
+  period?: string,
+  categoryId?: string,
+  toAccountId?: string | null
+): Promise<void> {
+  if (type && !BUDGET_TYPES.includes(type as typeof BUDGET_TYPES[number])) {
+    throw new ValidationError(`无效的预算类型: ${type}`)
+  }
+  if (period && !BUDGET_PERIODS.includes(period as typeof BUDGET_PERIODS[number])) {
+    throw new ValidationError(`无效的预算周期: ${period}`)
+  }
+  // 转账预算需要目标账户
+  if (type === 'transfer' && !toAccountId) {
+    throw new ValidationError('转账预算必须指定目标账户')
+  }
+  // 校验分类类型匹配（需同时提供类型与分类ID）
+  if (type && categoryId) {
+    await validateBudgetCategory(type, categoryId)
   }
 }
 
@@ -115,21 +142,11 @@ export async function createBudget(data: BudgetPayload) {
   if (!data.name || data.amount == null || !data.type || !data.period || !data.accountId || !data.categoryId) {
     throw new ValidationError('缺少必要参数')
   }
-  if (!BUDGET_TYPES.includes(data.type as typeof BUDGET_TYPES[number])) {
-    throw new ValidationError(`无效的预算类型: ${data.type}`)
-  }
-  if (!BUDGET_PERIODS.includes(data.period as typeof BUDGET_PERIODS[number])) {
-    throw new ValidationError(`无效的预算周期: ${data.period}`)
-  }
 
   // 校验账户存在
   const account = await prisma.account.findUnique({ where: { id: data.accountId } })
   if (!account) {
     throw new NotFoundError('账户')
-  }
-  // 转账预算需要目标账户
-  if (data.type === 'transfer' && !data.toAccountId) {
-    throw new ValidationError('转账预算必须指定目标账户')
   }
   if (data.toAccountId) {
     const toAccount = await prisma.account.findUnique({ where: { id: data.toAccountId } })
@@ -141,8 +158,8 @@ export async function createBudget(data: BudgetPayload) {
     }
   }
 
-  // 校验分类类型匹配
-  await validateBudgetCategory(data.type, data.categoryId)
+  // 校验预算类型/周期枚举、转账目标账户与分类类型匹配
+  await validateBudgetFields(data.type, data.period, data.categoryId, data.toAccountId)
 
   return prisma.budget.create({
     data: {
@@ -169,24 +186,12 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
     throw new NotFoundError('预算')
   }
 
-  if (data.type && !BUDGET_TYPES.includes(data.type as typeof BUDGET_TYPES[number])) {
-    throw new ValidationError(`无效的预算类型: ${data.type}`)
-  }
-  if (data.period && !BUDGET_PERIODS.includes(data.period as typeof BUDGET_PERIODS[number])) {
-    throw new ValidationError(`无效的预算周期: ${data.period}`)
-  }
-
   const type = data.type ?? existing.type
   const toAccountId = data.toAccountId !== undefined ? data.toAccountId : existing.toAccountId
   const categoryId = data.categoryId ?? existing.categoryId
 
-  // 转账预算需要目标账户
-  if (type === 'transfer' && !toAccountId) {
-    throw new ValidationError('转账预算必须指定目标账户')
-  }
-
-  // 校验分类类型匹配
-  await validateBudgetCategory(type, categoryId)
+  // 校验预算类型/周期枚举、转账目标账户与分类类型匹配（部分更新：undefined 字段跳过校验）
+  await validateBudgetFields(type, data.period, categoryId, toAccountId)
 
   if (data.toAccountId) {
     const toAccount = await prisma.account.findUnique({ where: { id: data.toAccountId } })
@@ -225,13 +230,6 @@ async function getCategoryWithDescendants(
 ): Promise<string[]> {
   const childrenMap = prebuiltChildrenMap ?? await buildCategoryChildrenMap()
   return collectDescendantIds(categoryId, childrenMap)
-}
-
-async function buildCategoryChildrenMap(): Promise<Map<string | null, { id: string; parentId: string | null }[]>> {
-  const allCategories = await prisma.transactionCategory.findMany({
-    select: { id: true, parentId: true },
-  })
-  return buildChildrenMap(allCategories)
 }
 
 export async function getBudgetStatusesByIds(budgetIds: string[]) {
@@ -274,45 +272,6 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
   )
 
   return results
-}
-
-export async function getBudgetStatus(budgetId: string) {
-  const budget = await prisma.budget.findUnique({
-    where: { id: budgetId },
-    include: { account: true, toAccount: true, category: true },
-  })
-  if (!budget) {
-    throw new NotFoundError('预算')
-  }
-
-  const now = new Date()
-  const dateRange = getPeriodRange(budget.period, now)
-
-  // 获取分类及其所有子孙分类的 ID
-  const categoryIds = await getCategoryWithDescendants(budget.categoryId)
-
-  // 使用聚合查询替代全量加载
-  const usedResult = await prisma.transaction.aggregate({
-    where: {
-      type: budget.type as string,
-      date: { gte: dateRange.startDate, lte: dateRange.endDate },
-      categoryId: { in: categoryIds },
-    },
-    _sum: { amount: true },
-  })
-
-  const used = usedResult._sum.amount || ZERO
-
-  const amount = budget.amount
-  const percentage = amount.isZero() ? 0 : Math.min(used.dividedBy(amount).times(100).toDecimalPlaces(0).toNumber(), 100)
-
-  return {
-    budget,
-    used: used.toNumber(),
-    remaining: Decimal.max(amount.minus(used), ZERO).toNumber(),
-    percentage,
-    isOverBudget: used.greaterThan(amount),
-  }
 }
 
 /**

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { Form, Segmented, Button } from 'antd'
-import { Account, TransactionCategory } from '../../services/api'
-import TransactionForm, { TransactionFormType } from './TransactionForm'
+import { Account, TransactionCategory, TransactionType } from '../../services/api'
+import TransactionForm from './TransactionForm'
 import ResponsiveDrawer from '../common/ResponsiveDrawer'
 import { formatTransactionSubmitValues } from '../../utils/transaction'
 
@@ -9,7 +9,7 @@ interface TransactionCreateProps {
   visible: boolean
   accounts: Account[]
   categories: TransactionCategory[]
-  initialType?: TransactionFormType
+  initialType?: TransactionType
   onOk: (values: unknown) => Promise<void>
   onCancel: () => void
 }
@@ -29,7 +29,7 @@ const TransactionCreate: React.FC<TransactionCreateProps> = ({
   onCancel,
 }) => {
   const [form] = Form.useForm()
-  const [currentType, setCurrentType] = useState<TransactionFormType>(initialType)
+  const [currentType, setCurrentType] = useState<TransactionType>(initialType)
   const [accountBalance, setAccountBalance] = useState<number | null>(null)
 
   useEffect(() => {
@@ -60,7 +60,7 @@ const TransactionCreate: React.FC<TransactionCreateProps> = ({
   }
 
   const handleTypeChange = (key: string) => {
-    setCurrentType(key as TransactionFormType)
+    setCurrentType(key as TransactionType)
     form.resetFields()
     form.setFieldsValue({ type: key })
     setAccountBalance(null)

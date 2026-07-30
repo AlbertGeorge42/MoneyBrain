@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { importConfig } from '../../src/services/import/config-import.service.js'
 
-vi.mock('../../src/index.js', () => {
+vi.mock('../../src/prisma.js', () => {
   const mockPrisma = {
     $transaction: vi.fn((callback) => callback(mockPrisma)),
     account: {
@@ -55,7 +55,7 @@ vi.mock('../../src/services/import/shared.js', async (importOriginal) => {
   }
 })
 
-import { prisma } from '../../src/index.js'
+import { prisma } from '../../src/prisma.js'
 
 const mockPrisma = prisma as any
 

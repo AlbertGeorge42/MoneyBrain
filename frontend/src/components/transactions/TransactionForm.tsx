@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { Form, Input, InputNumber, DatePicker, Row, Col, Typography, theme, Spin } from 'antd'
 import dayjs from 'dayjs'
-import { Account, TransactionCategory, Transaction, accountApi } from '../../services/api'
+import { Account, TransactionCategory, Transaction, TransactionType, accountApi } from '../../services/api'
 import { AccountSelect, CategorySelect } from '../../components/common'
 import { formatCurrency } from '../../utils/format'
-import { useAmountColors } from '../../constants/transactionType'
+import { useAmountColors } from '../../hooks/useAmountColors'
 import { useAccountCategories } from '../../queries'
 
-export type TransactionFormType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
-
 interface TransactionFormProps {
-  type: TransactionFormType
+  type: TransactionType
   editingTransaction?: Transaction | null
   accounts: Account[]
   categories: TransactionCategory[]

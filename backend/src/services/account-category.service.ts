@@ -1,10 +1,6 @@
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
-
-export async function getNextAccountCategorySort(type: string): Promise<number> {
-  return getNextSort('accountCategory', { type })
-}
 
 export async function getAccountCategories(params?: { type?: string }) {
   const where: Record<string, unknown> = {}
@@ -38,7 +34,7 @@ export async function createAccountCategory(data: {
     }
   }
 
-  const finalSort = data.sort ?? await getNextAccountCategorySort(data.type)
+  const finalSort = data.sort ?? await getNextSort('accountCategory', { type: data.type })
 
   return prisma.accountCategory.create({
     data: {
@@ -123,7 +119,7 @@ export async function deleteAccountCategory(categoryId: string) {
     where: { categoryId },
   })
   if (accountsCount > 0) {
-    throw new Error('该分类下存在账户，无法删除')
+    throw new ValidationError('该分类下存在账户，无法删除')
   }
   await prisma.accountCategory.delete({ where: { id: categoryId } })
   return { message: '删除成功' }

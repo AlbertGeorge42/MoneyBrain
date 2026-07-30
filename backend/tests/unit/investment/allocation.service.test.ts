@@ -16,7 +16,7 @@ vi.mock('../../../src/services/balance.service.js', () => ({
 }))
 
 // Mock prisma - 工厂函数内部不能引用外部变量
-vi.mock('../../../src/index.js', () => {
+vi.mock('../../../src/prisma.js', () => {
   // 在工厂函数内部定义 mockPrisma
   const mockPrisma = {
     account: {
@@ -52,7 +52,7 @@ vi.mock('../../../src/index.js', () => {
   }
 })
 
-import { prisma } from '../../../src/index.js'
+import { prisma } from '../../../src/prisma.js'
 
 describe('allocation.service', () => {
   const mockPrisma = prisma as any

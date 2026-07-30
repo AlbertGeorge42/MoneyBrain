@@ -33,21 +33,6 @@ const createTestApp = (prisma: PrismaClient) => {
     }
   })
 
-  app.get('/api/accounts/:id', async (req, res) => {
-    try {
-      const account = await prisma.account.findUnique({
-        where: { id: req.params.id },
-        include: { category: true },
-      })
-      if (!account) {
-        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '账户不存在' }, timestamp: new Date().toISOString() })
-      }
-      res.json({ success: true, data: account, timestamp: new Date().toISOString() })
-    } catch (error) {
-      res.status(500).json({ success: false, error: { code: 'ERROR', message: String(error) }, timestamp: new Date().toISOString() })
-    }
-  })
-
   app.post('/api/accounts', async (req, res) => {
     try {
       const { name, type, initialBalance, icon, categoryId } = req.body
@@ -204,28 +189,6 @@ describe('Account API Integration Tests', () => {
 
       expect(response.status).toBe(201)
       expect(Number(response.body.data.initialBalance)).toBe(0)
-    })
-  })
-
-  describe('GET /api/accounts/:id', () => {
-    it('应该返回账户详情', async () => {
-      const account = await prisma.account.create({
-        data: { name: '详情账户', type: 'asset', initialBalance: 2000 },
-      })
-
-      const response = await request(app).get(`/api/accounts/${account.id}`)
-
-      expect(response.status).toBe(200)
-      expect(response.body.success).toBe(true)
-      expect(response.body.data.name).toBe('详情账户')
-    })
-
-    it('不存在的账户应该返回 404', async () => {
-      const response = await request(app).get('/api/accounts/non-existent-id')
-
-      expect(response.status).toBe(404)
-      expect(response.body.success).toBe(false)
-      expect(response.body.error.code).toBe('NOT_FOUND')
     })
   })
 

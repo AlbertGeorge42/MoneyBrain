@@ -1,7 +1,7 @@
 // ─── CSV 事务导入 ───
 
-import { v4 as uuidv4 } from 'uuid'
-import { prisma } from '../../index.js'
+import crypto from 'crypto'
+import { prisma } from '../../prisma.js'
 import {
   type AccountCache,
   type ImportContext,
@@ -486,7 +486,7 @@ async function importTransactionsFromRows(
       const categoryId = basics.type === 'transfer'
         ? await classifyTransfer(fromAccount, toAccount, ctx, client)
         : await getOrCreateCategory(row.category1, row.category2, basics.type, ctx, client)
-      const id = uuidv4()
+      const id = crypto.randomUUID()
       csvIdToUuid.set(row.csvId, id)
       normalData.push({
         id,
@@ -553,7 +553,7 @@ async function importTransactionsFromRows(
       const categoryId = findCategoryFromCache(row.category1, row.category2, ctx.transactionCategoryCache)
 
       const accountData = await getOrCreateAccount(row.account1, ctx, client)
-      const id = uuidv4()
+      const id = crypto.randomUUID()
       csvIdToUuid.set(row.csvId, id)
       refundData.push({
         id,

@@ -1,4 +1,4 @@
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { NotFoundError, ValidationError, rootLogger, ZERO, toDecimal } from '../../common/index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 

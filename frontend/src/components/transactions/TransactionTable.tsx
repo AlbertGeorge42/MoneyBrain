@@ -4,7 +4,7 @@ import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { Transaction } from '../../services/api'
 import { groupTransactionsByDate, TransactionGroup } from '../../utils/transaction'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { useAmountColors } from '../../constants/transactionType'
+import { useAmountColors } from '../../hooks/useAmountColors'
 import { formatCurrency } from '../../utils/format'
 import TransactionItemRow from './TransactionItemRow'
 
@@ -37,6 +37,7 @@ const MobilePagination: React.FC<{
         <button
           className="mobile-pagination__btn"
           disabled={!hasPrev}
+          aria-label="上一页"
           onClick={() => hasPrev && onChange(current - 1)}
         >
           <LeftOutlined />
@@ -44,6 +45,7 @@ const MobilePagination: React.FC<{
         <button
           className="mobile-pagination__btn"
           disabled={!hasNext}
+          aria-label="下一页"
           onClick={() => hasNext && onChange(current + 1)}
         >
           <RightOutlined />

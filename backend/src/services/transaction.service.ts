@@ -1,9 +1,11 @@
-import { prisma } from '../index.js'
+import { prisma } from '../prisma.js'
+import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { toDecimal, rootLogger } from '../common/index.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError } from '../common/index.js'
-import { buildTransactionListWhere } from './transaction-list.service.js'
+import { collectDescendantIds } from '../common/tree.js'
+import { buildCategoryChildrenMap } from '../common/db.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -269,6 +271,109 @@ export async function updateRefund(id: string, data: UpdateRefundData): Promise<
 }
 
 // ===== 查询与删除 =====
+
+// ----- 交易列表查询条件构建 -----
+
+const EMPTY_FILTER_ID = '__no_match__'
+const ACCOUNT_CATEGORY_PREFIX = 'category_'
+
+const normalizeStringArray = (value?: string | string[]): string[] => {
+  if (!value) {
+    return []
+  }
+
+  return Array.from(new Set(Array.isArray(value) ? value : [value]))
+}
+
+const resolveAccountIds = async (accountId?: string | string[]): Promise<string[] | undefined> => {
+  const accountIds = normalizeStringArray(accountId)
+  if (accountIds.length === 0) {
+    return undefined
+  }
+
+  const directAccountIds = accountIds.filter(id => !id.startsWith(ACCOUNT_CATEGORY_PREFIX))
+  const categoryIds = accountIds
+    .filter(id => id.startsWith(ACCOUNT_CATEGORY_PREFIX))
+    .map(id => id.slice(ACCOUNT_CATEGORY_PREFIX.length))
+
+  if (categoryIds.length === 0) {
+    return directAccountIds.length > 0 ? directAccountIds : [EMPTY_FILTER_ID]
+  }
+
+  const categoryAccounts = await prisma.account.findMany({
+    where: { categoryId: { in: categoryIds } },
+    select: { id: true },
+  })
+
+  const resolvedIds = Array.from(new Set([
+    ...directAccountIds,
+    ...categoryAccounts.map(account => account.id),
+  ]))
+
+  return resolvedIds.length > 0 ? resolvedIds : [EMPTY_FILTER_ID]
+}
+
+const resolveCategoryIds = async (
+  categoryId?: string | string[],
+  prebuiltChildrenMap?: Map<string | null, { id: string; parentId: string | null }[]>
+): Promise<string[] | undefined> => {
+  const categoryIds = normalizeStringArray(categoryId)
+  if (categoryIds.length === 0) {
+    return undefined
+  }
+
+  const childrenMap = prebuiltChildrenMap ?? await buildCategoryChildrenMap()
+  const resolvedIds = new Set<string>()
+
+  for (const id of categoryIds) {
+    collectDescendantIds(id, childrenMap).forEach(childId => resolvedIds.add(childId))
+  }
+
+  return resolvedIds.size > 0 ? Array.from(resolvedIds) : [EMPTY_FILTER_ID]
+}
+
+const applyDateRange = (
+  where: Prisma.TransactionWhereInput,
+  startDate?: Date,
+  endDate?: Date,
+) => {
+  if (!startDate && !endDate) {
+    return
+  }
+
+  where.date = {
+    ...(startDate ? { gte: startDate } : {}),
+    ...(endDate ? { lte: endDate } : {}),
+  }
+}
+
+export const buildTransactionListWhere = async (
+  params: TransactionListParams,
+): Promise<Prisma.TransactionWhereInput> => {
+  const where: Prisma.TransactionWhereInput = {}
+
+  const [accountIds, categoryIds] = await Promise.all([
+    resolveAccountIds(params.accountId),
+    resolveCategoryIds(params.categoryId),
+  ])
+
+  if (accountIds) {
+    where.OR = accountIds.flatMap(id => [{ accountId: id }, { toAccountId: id }])
+  }
+
+  if (categoryIds) {
+    where.categoryId = { in: categoryIds }
+  }
+
+  const types = normalizeStringArray(params.type)
+  if (types.length > 0) {
+    where.type = { in: types }
+  }
+
+  applyDateRange(where, params.startDate, params.endDate)
+
+  return where
+}
 
 export async function getTransactionList(params: TransactionListParams): Promise<TransactionListResult> {
   const {

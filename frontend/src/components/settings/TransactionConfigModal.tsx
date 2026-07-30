@@ -6,7 +6,7 @@ import { useTransactionCategories } from '../../queries'
 import { queryKeys } from '../../queries/keys'
 import { TransactionCategory, transactionCategoryApi } from '../../services/api'
 import CategoryIcon from '../common/CategoryIcon'
-import IconColorField from '../common/Picker'
+import IconColorField from '../common/IconColorField'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import MoveModal from './MoveModal'
 import ConfigModalLayout from './ConfigModalLayout'
@@ -179,8 +179,7 @@ const TransactionConfigModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const getTransferTargetTreeData = (type: string, excludeId: string) => {
     const cats = localCategories.filter(c => c.type === type && c.id !== excludeId)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 递归树形结构类型定义复杂，使用 any 简化
-    const buildNode = (cat: TransactionCategory): any => ({
+    const buildNode = (cat: TransactionCategory): MoveTreeDataNode => ({
       value: cat.id, title: cat.name, children: cats.filter(c => c.parentId === cat.id).length > 0 ? cats.filter(c => c.parentId === cat.id).map(buildNode) : undefined,
     })
     return cats.filter(c => !c.parentId).map(buildNode)

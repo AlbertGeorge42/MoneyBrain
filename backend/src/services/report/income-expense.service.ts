@@ -1,4 +1,4 @@
-import { prisma } from '../../index.js'
+import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO, rootLogger } from '../../common/index.js'
@@ -9,48 +9,15 @@ import {
   resolveReportPeriod,
   PREDICTION_NOTE_DEFAULT,
 } from './report.utils.js'
+import type {
+  IncomeExpenseReportData,
+  ReportCategoryDetail,
+} from '../../../../shared/types/index.js'
 
 const logger = rootLogger.child({ module: 'report' })
 
-export interface CategoryBreakdownItem {
-  name: string
-  actual: number
-  predicted: number
-  categoryId: string
-  hasChildren: boolean
-  sort: number
-  icon?: string | null
-  color?: string | null
-  children?: CategoryBreakdownItem[]
-}
 
-export interface ReportValue {
-  actual: number
-  predicted: number
-}
-
-export interface IncomeExpenseResult {
-  startDate: string
-  endDate: string
-  income: ReportValue
-  expense: ReportValue
-  balance: ReportValue
-  incomeByCategory: Record<string, number>
-  expenseByCategory: Record<string, number>
-  incomeCategoryDetails: CategoryBreakdownItem[]
-  expenseCategoryDetails: CategoryBreakdownItem[]
-  startAssets: ReportValue
-  startLiabilities: ReportValue
-  startNetWorth: ReportValue
-  endAssets: ReportValue
-  endLiabilities: ReportValue
-  endNetWorth: ReportValue
-  assetChange: ReportValue
-  predictionNote?: string
-}
-
-
-export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseResult> {
+export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseReportData> {
   const startTime = Date.now()
   const { startDate: start, endDate: end, nextDay: endDayNext } = resolveReportPeriod(startDate, endDate)
   const startDay = new Date(start)
@@ -176,9 +143,9 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     target[catId] = (target[catId] || ZERO).plus(pAmount)
   }
 
-  function buildTree(type: 'income' | 'expense', parentId: string | null): CategoryBreakdownItem[] {
+  function buildTree(type: 'income' | 'expense', parentId: string | null): ReportCategoryDetail[] {
     const kids = childrenOf.get(parentId) ?? []
-    const result: CategoryBreakdownItem[] = []
+    const result: ReportCategoryDetail[] = []
 
     for (const cat of kids) {
       // 过滤：只处理匹配类型的分类
@@ -217,8 +184,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     return result.sort((a, b) => a.sort - b.sort)
   }
 
-  const incomeCategoryDetails: CategoryBreakdownItem[] = buildTree('income', null)
-  const expenseCategoryDetails: CategoryBreakdownItem[] = buildTree('expense', null)
+  const incomeCategoryDetails: ReportCategoryDetail[] = buildTree('income', null)
+  const expenseCategoryDetails: ReportCategoryDetail[] = buildTree('expense', null)
 
   for (const [catId, amount] of Object.entries(leafActualIncome)) {
     const cat = categoryMap.get(catId)
@@ -241,9 +208,9 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   const accounts = await prisma.account.findMany()
 
-  // 期初/期末余额查询
+  // 期初/期末余额查询（传入 accounts 复用，避免 calculateBalancesBatch 内部重复查询）
   const allAccountIds = accounts.map(a => a.id)
-  const balanceCache = await calculateBalancesBatch(allAccountIds, [startDay, endDayNext])
+  const balanceCache = await calculateBalancesBatch(allAccountIds, [startDay, endDayNext], accounts)
 
   // 期初期末资产/负债/净资产
   const accountGetValue = (account: { id: string; type: string }, date: Date) =>

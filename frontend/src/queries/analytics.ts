@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { analyticsApi, investmentApi } from '../services/api'
+import { analyticsApi } from '../services/api'
 import { queryKeys } from './keys'
 
 export function useDashboardSummary() {
@@ -27,13 +27,5 @@ export function useAssetTrend() {
   return useQuery({
     queryKey: queryKeys.analytics.assetTrend,
     queryFn: () => analyticsApi.getAssetTrend().then((res) => res.data.data ?? []),
-  })
-}
-
-export function useInvestmentSnapshots(accountId: string | null) {
-  return useQuery({
-    queryKey: queryKeys.investments.snapshots(accountId!),
-    queryFn: () => investmentApi.getSnapshots(accountId!).then((res) => res.data.data ?? []),
-    enabled: !!accountId,
   })
 }
