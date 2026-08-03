@@ -7,23 +7,19 @@ export type TransactionType = 'income' | 'expense' | 'transfer' | 'refund' | 'ad
 export function calculateBalanceChangeDecimal(
   type: TransactionType,
   amount: Decimal,
-  fee: Decimal = ZERO,
-  coupon: Decimal = ZERO
+  _fee: Decimal = ZERO,
+  _coupon: Decimal = ZERO
 ): Decimal {
+  // fee/coupon 已由前端合并到 amount 中（录入金额 ± fee ∓ coupon）
   switch (type) {
     case 'income':
       return amount
     case 'expense':
       return amount.negated()
     case 'transfer':
-      if (coupon.greaterThan(ZERO)) {
-        return amount.negated()
-      } else if (fee.greaterThan(ZERO)) {
-        return amount.plus(fee).negated()
-      }
       return amount.negated()
     case 'refund':
-      return amount.minus(fee)
+      return amount
     case 'adjustment':
       return amount
     default:
@@ -34,11 +30,9 @@ export function calculateBalanceChangeDecimal(
 export function calculateTransferInAmountDecimal(
   amount: Decimal,
   _fee: Decimal = ZERO,
-  coupon: Decimal = ZERO
+  _coupon: Decimal = ZERO
 ): Decimal {
-  if (coupon.greaterThan(ZERO)) {
-    return amount.plus(coupon)
-  }
+  // fee/coupon 已由前端合并到 amount 中
   return amount
 }
 

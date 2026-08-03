@@ -2,18 +2,20 @@ import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO } from '../../common/index.js'
 import { AggregatedFlows, CashFlowActivityDecimal, ProcessedTx } from './cash-flow-types.js'
 
-export function calculateCashFlowAmount(type: string, amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
+export function calculateCashFlowAmount(type: string, amount: Decimal, _fee: Decimal, _coupon: Decimal): Decimal {
+  // fee/coupon 已由前端合并到 amount 中，直接用 amount
   if (type === 'expense' || type === 'transfer') {
-    return amount.plus(fee).minus(coupon)
+    return amount
   }
   if (type === 'refund') {
-    return amount.minus(fee).plus(coupon)
+    return amount
   }
   return amount
 }
 
-export function calculateCashTransferInAmount(amount: Decimal, fee: Decimal, coupon: Decimal): Decimal {
-  return amount.minus(fee).plus(coupon)
+export function calculateCashTransferInAmount(amount: Decimal, _fee: Decimal, _coupon: Decimal): Decimal {
+  // fee/coupon 已由前端合并到 amount 中
+  return amount
 }
 
 // 查找或新增 activity item：相同 categoryName + direction 累加金额，否则新增

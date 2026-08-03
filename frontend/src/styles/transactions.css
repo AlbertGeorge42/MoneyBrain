@@ -334,9 +334,6 @@
   font-size: var(--mb-font-size-mobile-label);
   color: var(--mb-color-text-tertiary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
 }
 
 /* 非交互模式（退款源信息等静态展示） */
@@ -398,10 +395,6 @@
 
   .tx-item-row {
     padding: var(--mb-space-lg) var(--mb-space-lg);
-  }
-
-  .tx-item-row__account {
-    max-width: 100px;
   }
 
   .tx-group-pagination {

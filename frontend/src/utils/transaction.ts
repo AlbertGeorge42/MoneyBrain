@@ -60,16 +60,56 @@ interface TransactionFormValues {
   note?: string
 }
 
+/**
+ * 计算包含手续费/优惠券的真实金额（存入数据库）
+ * - expense/transfer: 真实支出 = 录入金额 + 手续费 - 优惠券
+ * - income/refund: 真实收入 = 录入金额 - 手续费 + 优惠券
+ */
+function computeRealAmount(
+  amount: number,
+  fee: number,
+  coupon: number,
+  type: TransactionType
+): number {
+  if (type === 'expense' || type === 'transfer') {
+    return amount + (fee || 0) - (coupon || 0)
+  }
+  // income / refund
+  return amount - (fee || 0) + (coupon || 0)
+}
+
+/**
+ * 反向计算原始录入金额（用于编辑时表单显示）
+ * - expense/transfer: 录入金额 = 存储金额 - 手续费 + 优惠券
+ * - income/refund: 录入金额 = 存储金额 + 手续费 - 优惠券
+ */
+export function reverseComputeOriginalAmount(
+  storedAmount: number,
+  fee: number,
+  coupon: number,
+  type: TransactionType
+): number {
+  if (type === 'expense' || type === 'transfer') {
+    return storedAmount - (fee || 0) + (coupon || 0)
+  }
+  // income / refund
+  return storedAmount + (fee || 0) - (coupon || 0)
+}
+
 export const formatTransactionSubmitValues = (
   values: TransactionFormValues,
   type: TransactionType
 ) => {
+  const fee = values.fee || 0
+  const coupon = values.coupon || 0
+  const realAmount = computeRealAmount(values.amount, fee, coupon, type)
+
   if (type === 'transfer') {
     return {
       type: 'transfer',
-      amount: values.amount,
-      fee: values.fee || 0,
-      coupon: values.coupon || 0,
+      amount: realAmount,
+      fee,
+      coupon,
       date: values.date.format('YYYY-MM-DD'),
       accountId: values.fromAccountId,
       toAccountId: values.toAccountId,
@@ -80,9 +120,9 @@ export const formatTransactionSubmitValues = (
 
   return {
     type,
-    amount: values.amount,
-    fee: values.fee || 0,
-    coupon: values.coupon || 0,
+    amount: realAmount,
+    fee,
+    coupon,
     date: values.date.format('YYYY-MM-DD'),
     accountId: values.accountId,
     categoryId: values.categoryId,

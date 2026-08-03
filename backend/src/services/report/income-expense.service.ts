@@ -45,11 +45,11 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     } else if (t.type === 'expense') {
       aExpense = aExpense.plus(t.amount)
     } else if (t.type === 'refund') {
-      const refundAmount = t.amount.minus(t.fee)
+      // fee/coupon 已合并到 amount 中，直接用 amount
       if (t.relatedType === 'income') {
-        aIncomeRefund = aIncomeRefund.plus(refundAmount)
+        aIncomeRefund = aIncomeRefund.plus(t.amount)
       } else if (t.relatedType === 'expense') {
-        aExpenseRefund = aExpenseRefund.plus(refundAmount)
+        aExpenseRefund = aExpenseRefund.plus(t.amount)
       }
     }
   })
@@ -125,11 +125,11 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       leafActualExpense[catId] = (leafActualExpense[catId] || ZERO).plus(t.amount)
     } else if (t.type === 'refund') {
       // 退款继承原交易分类；按 relatedType 计入对应侧的退款桶
-      const refundAmount = t.amount.minus(t.fee)
+      // fee/coupon 已合并到 amount 中，直接用 amount
       if (t.relatedType === 'income') {
-        leafActualIncomeRefund[catId] = (leafActualIncomeRefund[catId] || ZERO).plus(refundAmount)
+        leafActualIncomeRefund[catId] = (leafActualIncomeRefund[catId] || ZERO).plus(t.amount)
       } else if (t.relatedType === 'expense') {
-        leafActualExpenseRefund[catId] = (leafActualExpenseRefund[catId] || ZERO).plus(refundAmount)
+        leafActualExpenseRefund[catId] = (leafActualExpenseRefund[catId] || ZERO).plus(t.amount)
       }
     }
   })

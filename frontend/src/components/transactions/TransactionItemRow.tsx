@@ -92,18 +92,21 @@ const TransactionItemRow: React.FC<TransactionItemRowProps> = ({
         return formatCurrency(-Number(transaction.amount), { showSign: true })
       case 'refund':
         return formatCurrency(Number(transaction.amount), { showSign: true })
-      case 'transfer': {
-        const hasExtra = (transaction.fee || 0) > 0 || (transaction.coupon || 0) > 0
-        return (
-          <span>
-            {formatCurrency(Number(transaction.amount))}
-            {hasExtra && <span style={{ color: 'var(--mb-color-text-tertiary)', fontSize: 'var(--mb-font-size-caption)', marginLeft: 2 }}> +费</span>}
-          </span>
-        )
-      }
+      case 'transfer':
+        return formatCurrency(Number(transaction.amount))
       default:
         return formatCurrency(Number(transaction.amount))
     }
+  })()
+
+  // 手续费/优惠券提示文本
+  const feeCouponText = (() => {
+    const parts: string[] = []
+    const fee = Number(transaction.fee || 0)
+    const coupon = Number(transaction.coupon || 0)
+    if (fee > 0) parts.push(`手续费 ${formatCurrency(fee)}`)
+    if (coupon > 0) parts.push(`优惠券 ${formatCurrency(coupon)}`)
+    return parts.length > 0 ? parts.join(', ') : null
   })()
 
   return (
@@ -140,7 +143,10 @@ const TransactionItemRow: React.FC<TransactionItemRowProps> = ({
           {displayAmount}
         </div>
         {showAccount && accountName && (
-          <div className="tx-item-row__account">{accountName}</div>
+          <div className="tx-item-row__account">
+            {accountName}
+            {feeCouponText && <span style={{ color: 'var(--mb-color-text-tertiary)', fontSize: 'var(--mb-font-size-caption)', marginLeft: 4 }}>({feeCouponText})</span>}
+          </div>
         )}
       </div>
     </div>

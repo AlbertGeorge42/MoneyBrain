@@ -437,8 +437,9 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
 
   const income = toDecimal(incomeResult._sum.amount || 0)
   const expense = toDecimal(expenseResult._sum.amount || 0)
-  const incomeRefund = toDecimal(incomeRefundResult._sum.amount || 0).minus(toDecimal(incomeRefundResult._sum.fee || 0))
-  const expenseRefund = toDecimal(expenseRefundResult._sum.amount || 0).minus(toDecimal(expenseRefundResult._sum.fee || 0))
+  // fee/coupon 已合并到 amount 中，直接用 amount
+  const incomeRefund = toDecimal(incomeRefundResult._sum.amount || 0)
+  const expenseRefund = toDecimal(expenseRefundResult._sum.amount || 0)
   const totalRefund = incomeRefund.plus(expenseRefund)
 
   return {

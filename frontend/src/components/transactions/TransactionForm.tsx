@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction, TransactionType, accountApi } from '../../services/api'
 import { AccountSelect, CategorySelect } from '../../components/common'
 import { formatCurrency } from '../../utils/format'
+import { reverseComputeOriginalAmount } from '../../utils/transaction'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { useAccountCategories } from '../../queries'
 
@@ -79,10 +80,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   useEffect(() => {
     if (editingTransaction) {
+      const fee = editingTransaction.fee || 0
+      const coupon = editingTransaction.coupon || 0
+      const originalAmount = reverseComputeOriginalAmount(
+        Number(editingTransaction.amount),
+        fee,
+        coupon,
+        type
+      )
       const baseValues = {
-        amount: editingTransaction.amount,
-        fee: editingTransaction.fee || 0,
-        coupon: editingTransaction.coupon || 0,
+        amount: originalAmount,
+        fee,
+        coupon,
         date: dayjs(editingTransaction.date),
         note: editingTransaction.note,
       }

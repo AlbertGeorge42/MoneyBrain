@@ -70,25 +70,22 @@ export async function getCashFlowsInRange(
 
   for (const t of transfers) {
     const amount = t.amount
-    const fee = toDecimal(t.fee)
-    const coupon = toDecimal(t.coupon)
     const isToInvestment = accountIds.includes(t.toAccountId || '')
     const isFromInvestment = accountIds.includes(t.accountId)
 
+    // fee/coupon 已合并到 amount 中，直接用 amount
     if (isToInvestment && !isFromInvestment) {
-      const investedAmount = amount.plus(fee)
       cashFlows.push({
         date: t.date,
-        amount: investedAmount.negated().toNumber(),
+        amount: amount.negated().toNumber(),
         type: 'buy',
         accountId: t.toAccountId!,
         accountName: accountMap.get(t.toAccountId!) || '未知账户',
       })
     } else if (isFromInvestment && !isToInvestment) {
-      const withdrawnAmount = amount.minus(coupon)
       cashFlows.push({
         date: t.date,
-        amount: withdrawnAmount.toNumber(),
+        amount: amount.toNumber(),
         type: 'sell',
         accountId: t.accountId,
         accountName: accountMap.get(t.accountId) || '未知账户',
