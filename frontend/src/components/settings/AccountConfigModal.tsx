@@ -140,7 +140,8 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
     setEditingAccount(record)
     accountForm.setFieldsValue({
       name: record.name, type: record.nodeType, initialBalance: record.initialBalance,
-      initialBalanceDate: record.initialBalanceDate ? dayjs(record.initialBalanceDate) : dayjs(), icon: record.icon,
+      initialBalanceDate: record.initialBalanceDate ? dayjs(record.initialBalanceDate) : dayjs(),
+      icon: record.icon, color: record.color,
     })
     setAccountFormVisible(true)
   }

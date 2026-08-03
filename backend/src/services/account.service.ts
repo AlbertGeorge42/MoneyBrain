@@ -89,11 +89,16 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
 
   const updateData: Record<string, unknown> = {
     name: data.name,
-    icon: data.icon,
-    color: data.color,
     initialBalanceDate: data.initialBalanceDate
       ? new Date(`${data.initialBalanceDate}T00:00:00`)
       : undefined,
+  }
+
+  if (data.icon !== undefined) {
+    updateData.icon = data.icon
+  }
+  if (data.color !== undefined) {
+    updateData.color = data.color
   }
 
   if (data.type && data.type !== currentAccount.type) {
