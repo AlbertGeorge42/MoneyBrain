@@ -1,5 +1,4 @@
 import { prisma } from '../../prisma.js'
-import { toDecimal } from '../../common/index.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investment-analysis-types.js'
 

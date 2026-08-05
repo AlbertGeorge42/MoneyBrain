@@ -11,6 +11,8 @@ import {
   parsePositiveInteger,
   toOptionalDate,
   toDate,
+  dayStart,
+  dayEnd,
 } from '../common/index.js'
 import {
   getTransactionList,
@@ -41,16 +43,27 @@ const validateTransactionType = (value: unknown): TransactionType => {
   return type
 }
 
+// 解析筛选范围日期：startDate → 本地当天零点，endDate → 本地当天末刻
+// 修复 date-only 字符串被 new Date(str) 解析为 UTC 零点导致的边界漏单
+const parseRangeDate = (v: unknown, isEnd: boolean): Date | undefined => {
+  if (!hasValue(v)) return undefined
+  const s = String(v)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(new Date(s).getTime())) {
+    throw new ValidationError('日期格式无效，请使用 YYYY-MM-DD 格式')
+  }
+  return isEnd ? dayEnd(s) : dayStart(s)
+}
+
 const validateListQuery = (req: Request) => {
   parsePositiveInteger(req.query.page, 'page', 1)
   parsePositiveInteger(req.query.pageSize, 'pageSize', 20)
-  toOptionalDate(req.query.startDate, 'startDate')
-  toOptionalDate(req.query.endDate, 'endDate')
+  parseRangeDate(req.query.startDate, false)
+  parseRangeDate(req.query.endDate, true)
 }
 
 const validateStatsQuery = (req: Request) => {
-  toOptionalDate(req.query.startDate, 'startDate')
-  toOptionalDate(req.query.endDate, 'endDate')
+  parseRangeDate(req.query.startDate, false)
+  parseRangeDate(req.query.endDate, true)
 }
 
 const validateCreateTransaction = (req: Request) => {
@@ -115,8 +128,8 @@ router.get('/', validateRequest(validateListQuery), asyncHandler(async (req, res
     accountId: toStringArray(req.query.accountId),
     categoryId: toStringArray(req.query.categoryId),
     type: toStringArray(req.query.type),
-    startDate: toOptionalDate(req.query.startDate, 'startDate'),
-    endDate: toOptionalDate(req.query.endDate, 'endDate'),
+    startDate: parseRangeDate(req.query.startDate, false),
+    endDate: parseRangeDate(req.query.endDate, true),
   })
 
   return success(res, result)
@@ -127,8 +140,8 @@ router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (re
     accountId: toStringArray(req.query.accountId),
     categoryId: toStringArray(req.query.categoryId),
     type: toStringArray(req.query.type),
-    startDate: toOptionalDate(req.query.startDate, 'startDate'),
-    endDate: toOptionalDate(req.query.endDate, 'endDate'),
+    startDate: parseRangeDate(req.query.startDate, false),
+    endDate: parseRangeDate(req.query.endDate, true),
   })
 
   return success(res, stats)

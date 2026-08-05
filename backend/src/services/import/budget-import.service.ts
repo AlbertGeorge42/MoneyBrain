@@ -2,6 +2,7 @@
 
 import { prisma } from '../../prisma.js'
 import { toDecimal } from '../../common/index.js'
+import { dayStart } from '../../common/date.js'
 import {
   type BudgetImportData,
   type ImportBudgetResult,
@@ -121,8 +122,8 @@ export async function importBudgets(
                 type: budget.type,
                 amount: toDecimal(budget.amount),
                 period: budget.period,
-                startDate: new Date(budget.startDate),
-                endDate: budget.endDate ? new Date(budget.endDate) : null,
+                startDate: dayStart(budget.startDate),
+                endDate: budget.endDate ? dayStart(budget.endDate) : null,
                 transactionTime: budget.transactionTime ?? null,
                 note: budget.note ?? null,
                 isActive: budget.isActive ?? true,
@@ -142,8 +143,8 @@ export async function importBudgets(
               type: budget.type,
               amount: toDecimal(budget.amount),
               period: budget.period,
-              startDate: new Date(budget.startDate),
-              endDate: budget.endDate ? new Date(budget.endDate) : null,
+              startDate: dayStart(budget.startDate),
+              endDate: budget.endDate ? dayStart(budget.endDate) : null,
               transactionTime: budget.transactionTime ?? null,
               note: budget.note ?? null,
               isActive: budget.isActive ?? true,

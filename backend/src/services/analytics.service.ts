@@ -123,8 +123,8 @@ export async function getCategoryBreakdown(
   const where: Prisma.TransactionWhereInput = { type, amount: { not: 0 } }
   if (startDate && endDate) {
     where.date = {
-      gte: new Date(startDate),
-      lte: new Date(endDate),
+      gte: dayStart(startDate),
+      lte: dayEnd(endDate),
     }
   }
 

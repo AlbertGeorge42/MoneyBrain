@@ -13,11 +13,12 @@ export function dayEnd(dateStr: string): Date {
   return new Date(`${dateStr}T23:59:59.999`)
 }
 
-/** 字符串日期 → 下一天 Date (用于余额计算的 lt 边界) */
+/** 字符串日期 → 下一天本地零点 Date (用于余额计算的 lt 边界)
+ * 按字符串拆分本地日期加一天，避免 new Date(dateStr) 的 UTC 零点偏差
+ */
 export function nextDay(dateStr: string): Date {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + 1)
-  return d
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day + 1)
 }
 
 /** Date → 'YYYY-MM-DD' 本地格式字符串 */

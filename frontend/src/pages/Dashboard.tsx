@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import dayjs from 'dayjs'
 import { Card, Empty, Skeleton, Progress, theme } from 'antd'
 import {
   ArrowUpOutlined,
@@ -46,7 +47,8 @@ const Dashboard: React.FC = () => {
   const colorActionPrimary = token.colorPrimary
 
   // -- 时间锚点 --
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  // 用 dayjs 本地格式取"今天"，避免 toISOString() 在本地 0-8 点取到昨天
+  const today = useMemo(() => dayjs().format('YYYY-MM-DD'), [])
 
   // -- 数据 hooks --
   const { data: dashboardSummary, isLoading: dashboardLoading } = useDashboardSummary()

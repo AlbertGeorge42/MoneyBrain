@@ -249,6 +249,17 @@ errorHandler 额外映射 Prisma 错误：P2002→409, P2003→400, P2011→400,
 - 迁移文件提交到版本控制
 - 所有 Prisma Decimal 在 response 层 `convertDecimals()` 转换为 number
 
+### 6.3 日期处理约定
+
+所有日期工具集中在 `backend/src/common/date.ts`（`dayStart` / `dayEnd` / `nextDay` / `formatDateLocal`），禁止散落 `new Date(str)` 解析。
+
+- **存储语义**：DateTime 字段存 UTC 时刻；交易导入保留真实时分秒；账户初始余额日期、预算起止、投资快照等「日期型」字段统一存本地当天零点
+- **date-only 字符串解析**：`YYYY-MM-DD` 禁止直接 `new Date(str)`（会解析为 UTC 零点，本地时区下偏移 8 小时）；先 `new Date(value)` 再取本地 year/month/date 归一化到本地零点，或使用 `dayStart`
+- **查询边界**：筛选条件 startDate → `dayStart`（本地零点）、endDate → `dayEnd`（本地 23:59:59.999），配合 `lte` 使用，保证截止日全天覆盖；报表统一走 `resolveReportPeriod`
+- **余额计算**：`calculateBalancesBatch` 的 `lt: targetDate` 边界必须传入本地日期（查询日期的下一天）
+- **导出**：日期字符串一律用 `formatDateLocal`（本地组件），禁止 `toISOString().split('T')[0]`（UTC 转换会导出成前一天，破坏备份/恢复回环）
+- **前端**：传给后端的日期参数用 `dayjs().format('YYYY-MM-DD')` 本地格式，禁止 `toISOString()` 取日期
+
 ---
 
 ## 七、测试

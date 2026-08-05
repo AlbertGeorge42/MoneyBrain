@@ -398,7 +398,8 @@ export async function getTransactionList(params: TransactionListParams): Promise
         orderBy: { date: 'desc' },
       },
     },
-    orderBy: { date: 'desc' },
+    // 同日多笔按创建时间倒序，保证分页排序稳定
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     skip: (page - 1) * pageSize,
     take: pageSize,
   })

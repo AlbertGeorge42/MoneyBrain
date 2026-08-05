@@ -25,7 +25,13 @@ type BudgetPayload = {
   categoryId: string
 }
 
-const toDateValue = (value: string) => new Date(String(value))
+// 预算日期：先解析成 Date，再归一化到本地当天零点。
+// 兼容 date-only 字符串（'2025-12-01'）与前端 toISOString() 完整时间戳
+// （如 '2025-12-01T16:00:00.000Z'），避免 dayStart 拼接 'T00:00:00' 产生 Invalid Date。
+const toDateValue = (value: string) => {
+  const d = new Date(value)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
 
 /**
  * 校验预算类型与分类类型匹配

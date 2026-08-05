@@ -131,7 +131,12 @@ export async function importSnapshotsFromCsv(
         continue
       }
 
-      const snapshotDate = new Date(firstRow.date)
+      // 先解析再归一化到本地当天零点（与预算日期处理一致）；
+      // Invalid Date 时保留原值，走下方 isNaN 校验错误分支
+      const parsed = new Date(firstRow.date)
+      const snapshotDate = isNaN(parsed.getTime())
+        ? parsed
+        : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
       if (isNaN(snapshotDate.getTime())) {
         result.errors.push(`投资快照日期格式错误: ${firstRow.date}`)
         incSkipped(result, 'snapshots')
