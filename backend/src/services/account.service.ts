@@ -186,16 +186,17 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
 
 export async function getAccountStats(accountId: string): Promise<AccountStats> {
   // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
+  // 不计收支标记的交易不计入账户收入/支出统计（仍计入账户余额）
   const [countResult, incomeResult, expenseResult] = await Promise.all([
     prisma.transaction.count({
       where: { accountId },
     }),
     prisma.transaction.aggregate({
-      where: { accountId, type: 'income' },
+      where: { accountId, type: 'income', excludeFromIncomeExpense: false },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { accountId, type: 'expense' },
+      where: { accountId, type: 'expense', excludeFromIncomeExpense: false },
       _sum: { amount: true },
     }),
   ])

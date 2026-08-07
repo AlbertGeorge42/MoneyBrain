@@ -477,5 +477,135 @@ describe('import.service', () => {
       expect(expenseCreates[0].name).toBe('餐饮')
       expect(expenseCreates[0].sort).toBe(1)
     })
+
+    it('账单标记为「不计收支」的行解析为 excludeFromIncomeExpense=true，普通行为 false', async () => {
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) => {
+        if (where.type === 'asset' && where.parentId === null) {
+          return Promise.resolve({ id: 'acat-1', name: '资产', type: 'asset', parentId: null })
+        }
+        if (where.type === 'liability' && where.parentId === null) {
+          return Promise.resolve({ id: 'lcat-1', name: '负债', type: 'liability', parentId: null })
+        }
+        return Promise.resolve(null)
+      })
+
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) => ({
+        id: `acc-${data.name}`,
+        name: data.name,
+        type: data.type,
+        categoryId: data.categoryId,
+      }))
+
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) => ({
+        id: `tcat-${data.name}`,
+        ...data,
+      }))
+
+      const csv = makeCsvBuffer([
+        // 带首尾空格的「不计收支」也应识别（trim 容错）
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '200', 'CNY', '现金', '', '', '', '0', '0', '', ' 不计收支 ', '', '', ''],
+        // 普通行：无标记 → false
+        ['csv2', '2025/1/16 10:00:00', '交通', '', '支出', '50', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv)
+      expect(result.imported).toBe(2)
+
+      const createManyCalls = mockPrisma.transaction.createMany.mock.calls as any[]
+      expect(createManyCalls).toHaveLength(1)
+      const data = createManyCalls[0][0].data as any[]
+      expect(data).toHaveLength(2)
+      expect(data[0].excludeFromIncomeExpense).toBe(true)
+      expect(data[1].excludeFromIncomeExpense).toBe(false)
+    })
+
+    it('退款行继承原交易的「不计收支」标记', async () => {
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) => {
+        if (where.type === 'asset' && where.parentId === null) {
+          return Promise.resolve({ id: 'acat-1', name: '资产', type: 'asset', parentId: null })
+        }
+        if (where.type === 'liability' && where.parentId === null) {
+          return Promise.resolve({ id: 'lcat-1', name: '负债', type: 'liability', parentId: null })
+        }
+        return Promise.resolve(null)
+      })
+
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) => ({
+        id: `acc-${data.name}`,
+        name: data.name,
+        type: data.type,
+        categoryId: data.categoryId,
+      }))
+
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) => ({
+        id: `tcat-${data.name}`,
+        ...data,
+      }))
+
+      const csv = makeCsvBuffer([
+        // 原交易：账单标记为「不计收支」
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '200', 'CNY', '现金', '', '', '', '0', '0', '', '不计收支', '', '', ''],
+        // 退款行自身无标记，但应继承原交易的 excludeFromIncomeExpense=true
+        ['csv2', '2025/1/16 10:00:00', '餐饮', '', '退款', '200', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', 'csv1'],
+      ])
+
+      const result = await importTransactionsFromCsv(csv)
+      expect(result.imported).toBe(2)
+
+      const createManyCalls = mockPrisma.transaction.createMany.mock.calls as any[]
+      // 第一次 createMany 是普通交易，第二次是退款交易
+      expect(createManyCalls).toHaveLength(2)
+      const refundData = createManyCalls[1][0].data as any[]
+      expect(refundData).toHaveLength(1)
+      expect(refundData[0].type).toBe('refund')
+      expect(refundData[0].relatedTransactionId).toBeTruthy()
+      expect(refundData[0].excludeFromIncomeExpense).toBe(true)
+    })
+
+    it('退款行找不到原交易时回退到自身解析值', async () => {
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) => {
+        if (where.type === 'asset' && where.parentId === null) {
+          return Promise.resolve({ id: 'acat-1', name: '资产', type: 'asset', parentId: null })
+        }
+        if (where.type === 'liability' && where.parentId === null) {
+          return Promise.resolve({ id: 'lcat-1', name: '负债', type: 'liability', parentId: null })
+        }
+        return Promise.resolve(null)
+      })
+
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) => ({
+        id: `acc-${data.name}`,
+        name: data.name,
+        type: data.type,
+        categoryId: data.categoryId,
+      }))
+
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) => ({
+        id: `tcat-${data.name}`,
+        ...data,
+      }))
+
+      // 关联账单指向不存在的 csv9：原交易不在本次导入中
+      const csv = makeCsvBuffer([
+        ['csv2', '2025/1/16 10:00:00', '餐饮', '', '退款', '200', 'CNY', '现金', '', '', '', '0', '0', '', '不计收支', '', '', 'csv9'],
+      ])
+
+      const result = await importTransactionsFromCsv(csv)
+      expect(result.imported).toBe(1)
+
+      const createManyCalls = mockPrisma.transaction.createMany.mock.calls as any[]
+      expect(createManyCalls).toHaveLength(1)
+      const refundData = createManyCalls[0][0].data as any[]
+      expect(refundData).toHaveLength(1)
+      expect(refundData[0].type).toBe('refund')
+      expect(refundData[0].relatedTransactionId).toBeNull()
+      expect(refundData[0].excludeFromIncomeExpense).toBe(true)
+    })
   })
 })

@@ -89,6 +89,7 @@ model Transaction {
   category             TransactionCategory? @relation(fields: [categoryId], references: [id])
   relatedTransactionId  String?    // 关联的原交易ID（退款时使用）
   relatedType          String?    // 原交易类型：'income' | 'expense'（退款时记录）
+  excludeFromIncomeExpense Boolean @default(false) // 不计收支：不参与收入/支出统计（仍影响账户余额）
   relatedTransaction   Transaction? @relation("TransactionRefund", fields: [relatedTransactionId], references: [id], onDelete: SetNull)
   refunds              Transaction[] @relation("TransactionRefund")
   createdAt            DateTime    @default(now())

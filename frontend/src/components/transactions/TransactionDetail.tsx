@@ -143,6 +143,17 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
     { label: '时间', content: <Text>{dayjs(transaction.date).format('YYYY-MM-DD')}</Text> },
   ]
 
+  if (transaction.excludeFromIncomeExpense) {
+    infoRows.push({
+      label: '标记',
+      content: (
+        <Tag variant="outlined" color="orange">
+          不计收支
+        </Tag>
+      ),
+    })
+  }
+
   if (hasFee) {
     infoRows.push({ label: '手续费', content: <Text>{formatCurrency(Number(transaction.fee))}</Text> })
   }

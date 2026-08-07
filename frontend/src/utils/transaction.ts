@@ -58,6 +58,8 @@ interface TransactionFormValues {
   toAccountId?: string
   categoryId?: string
   note?: string
+  /** 不计收支标记（仅收入/支出可设置） */
+  excludeFromIncomeExpense?: boolean
 }
 
 /**
@@ -115,6 +117,8 @@ export const formatTransactionSubmitValues = (
       toAccountId: values.toAccountId,
       categoryId: values.categoryId,
       note: values.note,
+      // 转账不涉及收支，显式传 false
+      excludeFromIncomeExpense: false,
     }
   }
 
@@ -127,5 +131,6 @@ export const formatTransactionSubmitValues = (
     accountId: values.accountId,
     categoryId: values.categoryId,
     note: values.note,
+    excludeFromIncomeExpense: !!values.excludeFromIncomeExpense,
   }
 }

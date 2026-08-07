@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Form, Input, InputNumber, DatePicker, Row, Col, Typography, theme, Spin } from 'antd'
+import { Form, Input, InputNumber, DatePicker, Row, Col, Typography, theme, Spin, Checkbox } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction, TransactionType, accountApi } from '../../services/api'
 import { AccountSelect, CategorySelect } from '../../components/common'
@@ -114,6 +114,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           type: editingTransaction.type,
           accountId: editingTransaction.accountId,
           categoryId: editingTransaction.categoryId,
+          excludeFromIncomeExpense: !!editingTransaction.excludeFromIncomeExpense,
         })
       }
     } else {
@@ -358,6 +359,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </Form.Item>
           </Col>
         </Row>
+      )}
+
+      {/* 不计收支：仅收入/支出可设置，转账/退款/平账不涉及收支 */}
+      {(type === 'income' || type === 'expense') && (
+        <Form.Item
+          name="excludeFromIncomeExpense"
+          valuePropName="checked"
+          initialValue={false}
+          extra="不计收支的交易不参与收入/支出统计，但仍影响账户余额"
+        >
+          <Checkbox>不计收支</Checkbox>
+        </Form.Item>
       )}
 
       <Form.Item

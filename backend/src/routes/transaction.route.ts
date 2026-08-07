@@ -158,7 +158,7 @@ router.get('/refundable/list', asyncHandler(async (_req, res) => {
 }))
 
 router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async (req, res) => {
-  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
+  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId, excludeFromIncomeExpense } = req.body
   const parsedDate = toDate(date, 'date')
 
   if (type === 'refund') {
@@ -170,6 +170,7 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
       note,
       accountId,
       relatedTransactionId,
+      excludeFromIncomeExpense,
     })
     return success(res, result, 201)
   }
@@ -184,6 +185,7 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
       accountId,
       toAccountId,
       categoryId,
+      excludeFromIncomeExpense,
     })
     return success(res, result, 201)
   }
@@ -197,6 +199,7 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
     note,
     accountId,
     categoryId: type === 'adjustment' ? null : categoryId,
+    excludeFromIncomeExpense,
   })
 
   return success(res, result, 201)
@@ -204,7 +207,7 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
 
 router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(async (req, res) => {
   const { id } = req.params
-  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId } = req.body
+  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId, excludeFromIncomeExpense } = req.body
 
   const oldTransaction = await getTransactionById(id)
   if (!oldTransaction) {
@@ -227,6 +230,7 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
       accountId,
       toAccountId,
       categoryId,
+      excludeFromIncomeExpense,
     })
 
     return success(res, result)
@@ -246,6 +250,7 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
       accountId,
       categoryId,
       relatedTransactionId,
+      excludeFromIncomeExpense,
     })
 
     return success(res, result)
@@ -265,6 +270,7 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
       note,
       accountId,
       categoryId: null,
+      excludeFromIncomeExpense,
     })
 
     return success(res, result)
@@ -283,6 +289,7 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
     note,
     accountId,
     categoryId,
+    excludeFromIncomeExpense,
   })
 
   return success(res, result)

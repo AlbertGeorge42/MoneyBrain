@@ -142,6 +142,7 @@ export interface ParsedRow {
   fee: number
   coupon: number
   relatedCsvId: string
+  excludeFromIncomeExpense?: boolean // 账单标记为「不计收支」时导出为 true
 }
 
 // ─── Config 导入类型 ───

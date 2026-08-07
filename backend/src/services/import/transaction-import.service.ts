@@ -372,6 +372,7 @@ interface NormalTransactionData {
   toAccountId: string | null
   categoryId: string | null
   csvId: string
+  excludeFromIncomeExpense: boolean
 }
 
 interface RefundTransactionData {
@@ -387,6 +388,7 @@ interface RefundTransactionData {
   relatedTransactionId: string | null
   relatedType: 'income' | 'expense' | null
   csvId: string
+  excludeFromIncomeExpense: boolean
 }
 
 // ─── CSV 解析（Header 映射） ───
@@ -427,6 +429,8 @@ function parseCsvFile(
         fee: feeStr ? parseFloat(feeStr) || 0 : 0,
         coupon: couponStr ? parseFloat(couponStr) || 0 : 0,
         relatedCsvId: record.关联账单,
+        // 账单标记列值为「不计收支」（容错首尾空格）
+        excludeFromIncomeExpense: (record['账单标记'] || '').trim() === '不计收支',
       }
 
       if (!isInRange(row)) {
@@ -500,6 +504,7 @@ async function importTransactionsFromRows(
         toAccountId: toAccount?.id || null,
         categoryId,
         csvId: row.csvId,
+        excludeFromIncomeExpense: row.excludeFromIncomeExpense ?? false,
       })
       imported++
     } catch {
@@ -526,10 +531,13 @@ async function importTransactionsFromRows(
       // 通过预生成 UUID 关联普通交易类型
       const relatedUuid = row.relatedCsvId ? csvIdToUuid.get(row.relatedCsvId) : null
       let relatedType: 'income' | 'expense' | null = null
+      // 退款继承原交易的「不计收支」标记；找不到原交易时回退到该行自身解析值
+      let excludeFromIncomeExpense = row.excludeFromIncomeExpense ?? false
       if (relatedUuid) {
         const normalEntry = normalData.find(d => d.id === relatedUuid)
         if (normalEntry) {
           relatedType = normalEntry.type as 'income' | 'expense'
+          excludeFromIncomeExpense = normalEntry.excludeFromIncomeExpense
         }
       }
 
@@ -568,6 +576,7 @@ async function importTransactionsFromRows(
         relatedTransactionId: relatedUuid || null,
         relatedType,
         csvId: row.csvId,
+        excludeFromIncomeExpense,
       })
       imported++
     } catch {

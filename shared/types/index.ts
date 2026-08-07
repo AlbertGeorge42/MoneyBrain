@@ -94,6 +94,7 @@ export interface Transaction {
   toAccountId: string | null
   relatedTransactionId: string | null
   relatedType: string | null // 'income' | 'expense'（退款时记录原交易类型）
+  excludeFromIncomeExpense: boolean // 不计收支：不参与收入/支出统计（仍影响账户余额）
   account: Account
   category: TransactionCategory | null
   toAccount: Account | null

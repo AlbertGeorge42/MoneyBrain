@@ -259,6 +259,7 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
           type: budget.type as string,
           date: { gte: dateRange.startDate, lte: dateRange.endDate },
           categoryId: { in: categoryIds },
+          excludeFromIncomeExpense: false,
         },
         _sum: { amount: true },
       })

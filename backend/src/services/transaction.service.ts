@@ -24,8 +24,8 @@ export interface TransactionWithRelations {
   categoryId: string | null
   relatedTransactionId: string | null
   relatedType: string | null
+  excludeFromIncomeExpense: boolean
   createdAt: Date
-  updatedAt: Date
   account: Account
   category: TransactionCategory | null
   toAccount: Account | null
@@ -42,6 +42,7 @@ export interface CreateIncomeExpenseData {
   note?: string
   accountId: string
   categoryId: string
+  excludeFromIncomeExpense?: boolean // 不计收支：不参与收入/支出统计
 }
 
 export interface CreateTransferData {
@@ -53,6 +54,7 @@ export interface CreateTransferData {
   accountId: string
   toAccountId: string
   categoryId?: string
+  excludeFromIncomeExpense?: boolean // 不计收支：不参与收入/支出统计
 }
 
 export interface CreateRefundData {
@@ -63,6 +65,7 @@ export interface CreateRefundData {
   note?: string
   accountId: string
   relatedTransactionId: string
+  excludeFromIncomeExpense?: boolean // 手动录入时退款跟随原交易标记，该字段仅作传入兼容
 }
 
 export interface UpdateIncomeExpenseData {
@@ -74,6 +77,7 @@ export interface UpdateIncomeExpenseData {
   note?: string
   accountId?: string
   categoryId?: string | null
+  excludeFromIncomeExpense?: boolean // 不计收支：不参与收入/支出统计
 }
 
 export interface UpdateTransferData {
@@ -85,6 +89,7 @@ export interface UpdateTransferData {
   accountId?: string
   toAccountId?: string
   categoryId?: string
+  excludeFromIncomeExpense?: boolean // 不计收支：不参与收入/支出统计
 }
 
 export interface UpdateRefundData {
@@ -96,6 +101,7 @@ export interface UpdateRefundData {
   accountId?: string
   categoryId?: string
   relatedTransactionId?: string
+  excludeFromIncomeExpense?: boolean // 不计收支：不参与收入/支出统计
 }
 
 export interface TransactionListParams {
@@ -126,7 +132,7 @@ export interface TransactionStats {
 // ===== 创建交易 =====
 
 export async function createIncomeExpense(data: CreateIncomeExpenseData): Promise<TransactionWithRelations> {
-  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId } = data
+  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, excludeFromIncomeExpense } = data
 
   const transaction = await prisma.transaction.create({
     data: {
@@ -138,6 +144,7 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
       note,
       accountId,
       categoryId,
+      excludeFromIncomeExpense: excludeFromIncomeExpense ?? false,
     },
     include: { account: true, category: true },
   })
@@ -147,7 +154,7 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
 }
 
 export async function createTransfer(data: CreateTransferData): Promise<TransactionWithRelations> {
-  const { amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, categoryId } = data
+  const { amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, categoryId, excludeFromIncomeExpense } = data
 
   const fromAccount = await prisma.account.findUnique({ where: { id: accountId } })
   if (!fromAccount) throw new NotFoundError('转出账户')
@@ -166,6 +173,7 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
       accountId,
       toAccountId,
       categoryId,
+      excludeFromIncomeExpense: excludeFromIncomeExpense ?? false,
     },
     include: { account: true, toAccount: true, category: true },
   })
@@ -192,6 +200,8 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
       categoryId: relatedTransaction.categoryId,
       relatedTransactionId,
       relatedType: relatedTransaction.type,
+      // 退款继承原交易的「不计收支」标记
+      excludeFromIncomeExpense: relatedTransaction.excludeFromIncomeExpense,
     },
     include: {
       account: true,
@@ -208,8 +218,8 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
 // 共享的字段合并逻辑，三个 update 函数复用
 function mergeTransactionData(
-  old: { amount: Decimal; fee: Decimal; coupon: Decimal; date: Date; note: string | null; accountId: string; categoryId: string | null },
-  data: { amount?: number; fee?: number; coupon?: number; date?: Date; note?: string; accountId?: string; categoryId?: string | null }
+  old: { amount: Decimal; fee: Decimal; coupon: Decimal; date: Date; note: string | null; accountId: string; categoryId: string | null; excludeFromIncomeExpense: boolean },
+  data: { amount?: number; fee?: number; coupon?: number; date?: Date; note?: string; accountId?: string; categoryId?: string | null; excludeFromIncomeExpense?: boolean }
 ) {
   return {
     amount: data.amount !== undefined ? toDecimal(data.amount) : old.amount,
@@ -219,6 +229,7 @@ function mergeTransactionData(
     note: data.note !== undefined ? data.note : old.note,
     accountId: data.accountId || old.accountId,
     categoryId: data.categoryId !== undefined ? data.categoryId : old.categoryId,
+    excludeFromIncomeExpense: data.excludeFromIncomeExpense !== undefined ? data.excludeFromIncomeExpense : old.excludeFromIncomeExpense,
   }
 }
 
@@ -416,24 +427,25 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
   const where = await buildTransactionListWhere(params)
 
   // 分别统计收入退款和支出退款
+  // 不计收支标记（excludeFromIncomeExpense）的交易不参与任何收入/支出/退款/转账统计
   const [incomeResult, expenseResult, incomeRefundResult, expenseRefundResult, transferCount] = await Promise.all([
     prisma.transaction.aggregate({
-      where: { ...where, type: 'income' },
+      where: { ...where, type: 'income', excludeFromIncomeExpense: false },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { ...where, type: 'expense' },
+      where: { ...where, type: 'expense', excludeFromIncomeExpense: false },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { ...where, type: 'refund', relatedType: 'income' },
+      where: { ...where, type: 'refund', relatedType: 'income', excludeFromIncomeExpense: false },
       _sum: { amount: true, fee: true },
     }),
     prisma.transaction.aggregate({
-      where: { ...where, type: 'refund', relatedType: 'expense' },
+      where: { ...where, type: 'refund', relatedType: 'expense', excludeFromIncomeExpense: false },
       _sum: { amount: true, fee: true },
     }),
-    prisma.transaction.count({ where: { ...where, type: 'transfer' } }),
+    prisma.transaction.count({ where: { ...where, type: 'transfer', excludeFromIncomeExpense: false } }),
   ])
 
   const income = toDecimal(incomeResult._sum.amount || 0)

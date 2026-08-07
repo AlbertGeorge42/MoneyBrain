@@ -28,6 +28,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       date: { gte: start, lte: end },
       type: { in: ['income', 'expense', 'refund'] },
       amount: { not: 0 },
+      excludeFromIncomeExpense: false,
     },
     include: { category: true, account: true },
   })

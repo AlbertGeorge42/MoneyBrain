@@ -31,7 +31,8 @@ export async function getDashboardSummary() {
   const lastMonthEnd = dayEnd(`${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-${new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0).getDate()}`)
 
   // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
-  const txWhereBase = { type: { in: ['income', 'expense'] as const }, amount: { not: 0 } }
+  // 不计收支标记的交易不参与 Dashboard 本月/上月收支统计
+  const txWhereBase = { type: { in: ['income', 'expense'] as const }, amount: { not: 0 }, excludeFromIncomeExpense: false }
 
   // 本月收支
   const [thisMonthIncome, thisMonthExpense] = await Promise.all([
@@ -87,8 +88,9 @@ export async function getTrends(type: string): Promise<TrendItem[]> {
   const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
   // 单次查询获取12个月全部数据，避免12次数据库往返
+  // 不计收支标记的交易不计入收支趋势
   const transactions = await prisma.transaction.findMany({
-    where: { type, date: { gte: startDate, lte: endDate } },
+    where: { type, date: { gte: startDate, lte: endDate }, excludeFromIncomeExpense: false },
     select: { amount: true, date: true },
   })
 
@@ -120,7 +122,8 @@ export async function getCategoryBreakdown(
   endDate?: string,
   parentCategoryId?: string,
 ): Promise<CategoryBreakdownItem[]> {
-  const where: Prisma.TransactionWhereInput = { type, amount: { not: 0 } }
+  // 不计收支标记的交易不计入分类占比（该 where 同时用于 parentCategoryId 下钻查询）
+  const where: Prisma.TransactionWhereInput = { type, amount: { not: 0 }, excludeFromIncomeExpense: false }
   if (startDate && endDate) {
     where.date = {
       gte: dayStart(startDate),

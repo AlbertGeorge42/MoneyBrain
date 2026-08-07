@@ -1,4 +1,5 @@
 import React from 'react'
+import { Tag } from 'antd'
 import { CategoryIcon } from '../common'
 import type { Transaction } from '../../services/api'
 import { useAmountColors } from '../../hooks/useAmountColors'
@@ -133,7 +134,19 @@ const TransactionItemRow: React.FC<TransactionItemRowProps> = ({
 
       {/* 内容 */}
       <div className="tx-item-row__body">
-        <div className="tx-item-row__category">{categoryName}</div>
+        <div className="tx-item-row__category-line">
+          <div className="tx-item-row__category">{categoryName}</div>
+          {transaction.excludeFromIncomeExpense && (
+            <Tag
+              className="tx-item-row__exclude-tag"
+              variant="outlined"
+              color="orange"
+              style={{ marginRight: 0, fontSize: 10, lineHeight: '18px', padding: '0 6px' }}
+            >
+              不计收支
+            </Tag>
+          )}
+        </div>
         {note && <div className="tx-item-row__note">{note}</div>}
       </div>
 
