@@ -12,10 +12,10 @@ export function useBalanceSheet(date: string, enabled = true) {
   })
 }
 
-export function useIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean, enabled = true) {
+export function useIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean, includeExcluded?: boolean, enabled = true) {
   return useQuery({
-    queryKey: queryKeys.reports.incomeExpense(startDate, endDate, includePredictions),
-    queryFn: () => reportApi.getIncomeExpense(startDate, endDate, includePredictions).then((res) => res.data.data!),
+    queryKey: queryKeys.reports.incomeExpense(startDate, endDate, includePredictions, includeExcluded),
+    queryFn: () => reportApi.getIncomeExpense(startDate, endDate, includePredictions, includeExcluded).then((res) => res.data.data!),
     enabled: !!startDate && !!endDate && enabled,
     staleTime: 30_000,
     placeholderData: keepPreviousData,

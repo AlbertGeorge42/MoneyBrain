@@ -146,11 +146,7 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
   if (transaction.excludeFromIncomeExpense) {
     infoRows.push({
       label: '标记',
-      content: (
-        <Tag variant="outlined" color="orange">
-          不计收支
-        </Tag>
-      ),
+      content: <Text>不计收支</Text>,
     })
   }
 

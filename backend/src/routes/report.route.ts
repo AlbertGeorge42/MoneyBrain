@@ -11,7 +11,8 @@ router.get('/balance-sheet', validateRequest(validateDateQuery), asyncHandler(as
 
 router.get('/income-expense', validateRequest(validateDateRange), asyncHandler(async (req, res) => {
   const includePredictions = req.query.includePredictions === 'true'
-  const result = await generateIncomeExpense(String(req.query.startDate), String(req.query.endDate), includePredictions)
+  const includeExcluded = req.query.includeExcluded === 'true'
+  const result = await generateIncomeExpense(String(req.query.startDate), String(req.query.endDate), includePredictions, includeExcluded)
   return success(res, result)
 }))
 

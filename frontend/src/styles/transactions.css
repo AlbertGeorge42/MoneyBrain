@@ -307,24 +307,6 @@
   text-overflow: ellipsis;
 }
 
-/* 分类行 + 「不计收支」标记 的横向布局 */
-.tx-item-row__category-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.tx-item-row__category-line .tx-item-row__category {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-.tx-item-row__exclude-tag {
-  flex-shrink: 0;
-  margin: 0;
-}
-
 .tx-item-row__note {
   font-size: var(--mb-font-size-caption);
   color: var(--mb-color-text-tertiary);

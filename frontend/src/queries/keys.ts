@@ -27,8 +27,8 @@ export const queryKeys = {
   },
   reports: {
     balanceSheet: (date: string) => ['reports', 'balance-sheet', date] as const,
-    incomeExpense: (startDate: string, endDate: string, includePredictions?: boolean) =>
-      ['reports', 'income-expense', startDate, endDate, includePredictions] as const,
+    incomeExpense: (startDate: string, endDate: string, includePredictions?: boolean, includeExcluded?: boolean) =>
+      ['reports', 'income-expense', startDate, endDate, includePredictions, includeExcluded] as const,
     cashFlow: (startDate: string, endDate: string, includePredictions?: boolean) =>
       ['reports', 'cash-flow', startDate, endDate, includePredictions] as const,
     investmentAnalysis: (startDate: string, endDate: string) =>

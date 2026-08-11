@@ -32,6 +32,19 @@
   justify-content: flex-end;
 }
 
+.report-toolbar__switch {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-space-sm);
+  white-space: nowrap;
+}
+
+.report-toolbar__switch-label {
+  font-size: var(--mb-font-size-body);
+  color: var(--mb-color-text-secondary);
+  user-select: none;
+}
+
 .report-chart-grid {
   display: grid;
   gap: var(--mb-space-xl);
@@ -377,6 +390,11 @@
   .report-toolbar__actions .ant-space,
   .report-toolbar__actions .ant-space-item {
     width: 100%;
+  }
+
+  .report-toolbar__switch {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .report-toolbar__actions .ant-btn {

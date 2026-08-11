@@ -123,6 +123,7 @@ const Reports: React.FC = () => {
   const [incomeExpenseTimeRange, setIncomeExpenseTimeRange] = useState<RangeTimeValue>(
     createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
   )
+  const [incomeExpenseIncludeExcluded, setIncomeExpenseIncludeExcluded] = useState(false)
   const [transactionCategoryModalVisible, setTransactionCategoryModalVisible] = useState(false)
   const [cashFlowTimeRange, setCashFlowTimeRange] = useState<RangeTimeValue>(
     createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
@@ -147,6 +148,7 @@ const Reports: React.FC = () => {
     incomeExpenseParams.startDate,
     incomeExpenseParams.endDate,
     true,
+    incomeExpenseIncludeExcluded,
     activeTab === 'income-expense'
   )
 
@@ -223,6 +225,8 @@ const Reports: React.FC = () => {
           loading={incomeExpenseLoading}
           onTimeRangeChange={setIncomeExpenseTimeRange}
           onOpenSettings={() => setTransactionCategoryModalVisible(true)}
+          includeExcluded={incomeExpenseIncludeExcluded}
+          onIncludeExcludedChange={setIncomeExpenseIncludeExcluded}
         />
       ),
     },

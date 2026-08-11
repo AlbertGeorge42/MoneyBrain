@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
+import { Button, Card, Grid, Statistic, Switch, Tag, Tooltip, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import type { IncomeExpenseReportData, ReportCategoryDetail } from '@shared/types'
 import { BarChart, PieChart, type PieChartDataItem } from '../charts'
@@ -74,6 +74,8 @@ interface IncomeExpenseReportProps {
   loading?: boolean
   onTimeRangeChange: (value: RangeTimeValue) => void
   onOpenSettings: () => void
+  includeExcluded: boolean
+  onIncludeExcludedChange: (value: boolean) => void
 }
 
 const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
@@ -83,6 +85,8 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   loading,
   onTimeRangeChange,
   onOpenSettings,
+  includeExcluded,
+  onIncludeExcludedChange,
 }) => {
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
@@ -323,6 +327,16 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
         </div>
         <div className="report-toolbar__actions">
+          <Tooltip title="不计收支的交易不参与收入/支出统计">
+            <span className="report-toolbar__switch">
+              <Switch
+                size="small"
+                checked={includeExcluded}
+                onChange={onIncludeExcludedChange}
+              />
+              <span className="report-toolbar__switch-label">计入不计收支</span>
+            </span>
+          </Tooltip>
           <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
             设置
           </Button>

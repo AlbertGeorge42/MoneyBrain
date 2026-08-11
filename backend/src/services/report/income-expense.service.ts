@@ -17,7 +17,7 @@ import type {
 const logger = rootLogger.child({ module: 'report' })
 
 
-export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean): Promise<IncomeExpenseReportData> {
+export async function generateIncomeExpense(startDate: string, endDate: string, includePredictions?: boolean, includeExcluded = false): Promise<IncomeExpenseReportData> {
   const startTime = Date.now()
   const { startDate: start, endDate: end, nextDay: endDayNext } = resolveReportPeriod(startDate, endDate)
   const startDay = new Date(start)
@@ -28,7 +28,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       date: { gte: start, lte: end },
       type: { in: ['income', 'expense', 'refund'] },
       amount: { not: 0 },
-      excludeFromIncomeExpense: false,
+      // includeExcluded 为 true 时不过滤「不计收支」交易，否则排除 excludeFromIncomeExpense=true 的交易
+      ...(includeExcluded ? {} : { excludeFromIncomeExpense: false }),
     },
     include: { category: true, account: true },
   })

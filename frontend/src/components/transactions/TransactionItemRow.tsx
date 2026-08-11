@@ -1,5 +1,4 @@
 import React from 'react'
-import { Tag } from 'antd'
 import { CategoryIcon } from '../common'
 import type { Transaction } from '../../services/api'
 import { useAmountColors } from '../../hooks/useAmountColors'
@@ -8,15 +7,20 @@ import { formatCurrency } from '../../utils/format'
 
 /**
  * 获取交易分类的显示名称
+ * 后缀标记：退款/不计收支 以「分类-退款/不计收支」形式拼入名称
  */
 export const getCategoryName = (record: Transaction): string => {
-  if (record.type === 'adjustment') return record.note || '平账'
-  if (record.type === 'transfer') return record.category?.name || '内部转账'
-  if (record.type === 'refund') {
-    const original = record.relatedTransaction?.category?.name || ''
-    return original || '退款'
-  }
-  return record.category?.name || '未分类'
+  let base: string
+  if (record.type === 'adjustment') base = record.note || '平账'
+  else if (record.type === 'transfer') base = record.category?.name || '内部转账'
+  else if (record.type === 'refund') base = record.relatedTransaction?.category?.name || '退款'
+  else base = record.category?.name || '未分类'
+
+  const suffixes: string[] = []
+  if (record.type === 'refund') suffixes.push('退款')
+  if (record.excludeFromIncomeExpense) suffixes.push('不计收支')
+  if (suffixes.length > 0) return `${base}-${suffixes.join('/')}`
+  return base
 }
 
 /**
@@ -134,19 +138,7 @@ const TransactionItemRow: React.FC<TransactionItemRowProps> = ({
 
       {/* 内容 */}
       <div className="tx-item-row__body">
-        <div className="tx-item-row__category-line">
-          <div className="tx-item-row__category">{categoryName}</div>
-          {transaction.excludeFromIncomeExpense && (
-            <Tag
-              className="tx-item-row__exclude-tag"
-              variant="outlined"
-              color="orange"
-              style={{ marginRight: 0, fontSize: 10, lineHeight: '18px', padding: '0 6px' }}
-            >
-              不计收支
-            </Tag>
-          )}
-        </div>
+        <div className="tx-item-row__category">{categoryName}</div>
         {note && <div className="tx-item-row__note">{note}</div>}
       </div>
 
