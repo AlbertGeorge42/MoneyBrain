@@ -1,12 +1,15 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Button, Card, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { Transaction, TransactionType } from '../services/api'
 import type { Account, AccountCategory } from '../services/api'
-import { toDateRangeParams } from '../utils/timePicker'
+import { toDateRangeParams, fromRangeTimeParam, toRangeTimeParam } from '../utils/timePicker'
 import { PageHeader } from '../components/common'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useNotify } from '../hooks/useNotify'
+import { useSearchParamsState } from '../hooks/useSearchParamsState'
+import { usePersistedState } from '../hooks/usePersistedState'
+import { STORAGE_KEYS } from '../utils/storageKeys'
 import {
   useTransactions,
   useTransactionStats,
@@ -41,25 +44,83 @@ const Transactions: React.FC = () => {
   const [editMode, setEditMode] = useState<TransactionEditMode>('edit')
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
-  // 筛选状态
-  const [filterExpanded, setFilterExpanded] = useState(false)
-  const [filters, setFilters] = useState<TransactionFilterValues>({
-    type: [],
-    accountId: [],
-    categoryId: [],
-    dateRange: null,
+  // ── 持久化状态 ──
+
+  // 筛选条件 → URL + sessionStorage（影响查询结果，可分享；页面切换时从 sessionStorage 恢复）
+  const [filters, setFilters] = useSearchParamsState<TransactionFilterValues>({
+    defaultValue: { type: [], accountId: [], categoryId: [], dateRange: null },
+    storageKey: STORAGE_KEYS.transactions.filters,
+    parse: (params) => ({
+      type: (params.get('type') ?? '').split(',').filter(Boolean) as TransactionType[],
+      accountId: (params.get('accountId') ?? '').split(',').filter(Boolean),
+      categoryId: (params.get('categoryId') ?? '').split(',').filter(Boolean),
+      dateRange: params.get('dateRange') ? fromRangeTimeParam(params.get('dateRange')!) : null,
+    }),
+    serialize: (value) => {
+      const p = new URLSearchParams()
+      if (value.type.length > 0) p.set('type', value.type.join(','))
+      if (value.accountId.length > 0) p.set('accountId', value.accountId.join(','))
+      if (value.categoryId.length > 0) p.set('categoryId', value.categoryId.join(','))
+      if (value.dateRange) {
+        p.set('dateRange', toRangeTimeParam(value.dateRange))
+      }
+      return p
+    },
   })
+
+  // 展开状态 → sessionStorage（纯 UI，仅本 Tab 恢复）
+  const [filterExpanded, setFilterExpanded] = usePersistedState(
+    STORAGE_KEYS.transactions.filterExpanded,
+    false,
+  )
+
+  // 每页条数 → localStorage（长期偏好）
+  const [pageSize, setPageSize] = usePersistedState(
+    STORAGE_KEYS.transactions.pageSize,
+    20,
+    { storage: 'localStorage' },
+  )
+
+  // 页码 → 不持久化（跨周回来停在第37页体验差）
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
 
   const { token } = theme.useToken()
   const isMobile = useIsMobile()
   const notify = useNotify()
 
-  const [queryParams, setQueryParams] = useState<Record<string, unknown>>({
-    page: 1,
-    pageSize: 20,
-  })
+  // 将 accountId 中的虚拟根节点展开为具体账户 ID
+  const resolveAccountFilters = (ids: string[], accts: Account[], cats: AccountCategory[]): string[] => {
+    const result: string[] = []
+    for (const id of ids) {
+      if (id === 'asset_root') {
+        const catIds = cats.filter(c => c.type === 'asset').map(c => c.id)
+        result.push(...accts.filter(a => a.categoryId && catIds.includes(a.categoryId)).map(a => a.id))
+      } else if (id === 'liability_root') {
+        const catIds = cats.filter(c => c.type === 'liability').map(c => c.id)
+        result.push(...accts.filter(a => a.categoryId && catIds.includes(a.categoryId)).map(a => a.id))
+      } else {
+        result.push(id)
+      }
+    }
+    return [...new Set(result)]
+  }
+
+  const { data: accounts = [] } = useAccounts()
+  const { data: accountCategories = [] } = useAccountCategories()
+
+  // 从 URL 筛选条件 + 本地分页状态派生查询参数
+  const queryParams = useMemo<Record<string, unknown>>(() => {
+    const params: Record<string, unknown> = { page: currentPage, pageSize }
+    if (filters.type.length > 0) params.type = filters.type
+    if (filters.accountId.length > 0) {
+      params.accountId = resolveAccountFilters(filters.accountId, accounts, accountCategories)
+    }
+    if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
+    if (filters.dateRange) {
+      Object.assign(params, toDateRangeParams(filters.dateRange))
+    }
+    return params
+  }, [filters, currentPage, pageSize, accounts, accountCategories])
 
   const { data: transactionsData, isLoading: loading } = useTransactions(queryParams)
   const transactions = transactionsData?.list ?? []
@@ -70,9 +131,7 @@ const Transactions: React.FC = () => {
   }
 
   const { data: stats = { income: 0, expense: 0, refund: 0, balance: 0, transferCount: 0 } } = useTransactionStats(queryParams)
-  const { data: accounts = [] } = useAccounts()
   const { data: transactionCategories = [] } = useTransactionCategories()
-  const { data: accountCategories = [] } = useAccountCategories()
 
   const createTransaction = useCreateTransaction()
   const updateTransaction = useUpdateTransaction()
@@ -160,37 +219,8 @@ const Transactions: React.FC = () => {
   }
 
   // 筛选相关
-  // 将 accountId 中的虚拟根节点展开为具体账户 ID
-  const resolveAccountFilters = (ids: string[], accts: Account[], cats: AccountCategory[]): string[] => {
-    const result: string[] = []
-    for (const id of ids) {
-      if (id === 'asset_root') {
-        const catIds = cats.filter(c => c.type === 'asset').map(c => c.id)
-        result.push(...accts.filter(a => a.categoryId && catIds.includes(a.categoryId)).map(a => a.id))
-      } else if (id === 'liability_root') {
-        const catIds = cats.filter(c => c.type === 'liability').map(c => c.id)
-        result.push(...accts.filter(a => a.categoryId && catIds.includes(a.categoryId)).map(a => a.id))
-      } else {
-        result.push(id)
-      }
-    }
-    // 当前 cascade 行为同时保留了子节点 ID 和根节点值，去重避免重复
-    return [...new Set(result)]
-  }
-
   const handleSearch = () => {
-    const params: Record<string, unknown> = {}
-    if (filters.type.length > 0) params.type = filters.type
-    if (filters.accountId.length > 0) {
-      params.accountId = resolveAccountFilters(filters.accountId, accounts, accountCategories)
-    }
-    if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
-    if (filters.dateRange) {
-      Object.assign(params, toDateRangeParams(filters.dateRange))
-    }
-    params.page = 1
-    params.pageSize = pageSize
-    setQueryParams(params)
+    // 筛选条件已通过 URL search params 自动同步，只需重置页码
     setCurrentPage(1)
   }
 
@@ -201,23 +231,12 @@ const Transactions: React.FC = () => {
       categoryId: [],
       dateRange: null,
     })
-    setQueryParams({ page: 1, pageSize })
     setCurrentPage(1)
   }
 
   const handlePageChange = (newPage: number, newPageSize: number) => {
     setCurrentPage(newPage)
     setPageSize(newPageSize)
-    const params: Record<string, unknown> = { page: newPage, pageSize: newPageSize }
-    if (filters.type.length > 0) params.type = filters.type
-    if (filters.accountId.length > 0) {
-      params.accountId = resolveAccountFilters(filters.accountId, accounts, accountCategories)
-    }
-    if (filters.categoryId.length > 0) params.categoryId = filters.categoryId
-    if (filters.dateRange) {
-      Object.assign(params, toDateRangeParams(filters.dateRange))
-    }
-    setQueryParams(params)
   }
 
   return (

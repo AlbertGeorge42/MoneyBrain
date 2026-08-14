@@ -17,6 +17,10 @@ import {
   createYearToDatePreset,
   toDateParam,
   toDateRangeParams,
+  fromPointTimeParam,
+  fromRangeTimeParam,
+  toPointTimeParam,
+  toRangeTimeParam,
 } from '../utils/timePicker'
 import {
   useTransactionEarliestDate,
@@ -25,6 +29,8 @@ import {
   useCashFlow,
   useInvestmentAnalysis,
 } from '../queries'
+import { useSearchParamsState } from '../hooks/useSearchParamsState'
+import { STORAGE_KEYS } from '../utils/storageKeys'
 
 const baseBalanceSheetPickerConfig: Omit<PointTimePickerConfig, 'minDate' | 'maxDate'> = {
   label: '时点',
@@ -117,21 +123,86 @@ const baseInvestmentPickerConfig: Omit<RangeTimePickerConfig, 'minDate' | 'maxDa
 }
 
 const Reports: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('balance-sheet')
-  const [selectedBalanceTime, setSelectedBalanceTime] = useState<PointTimeValue>(createPointValue('month', dayjs()))
+  // ── 查询状态 → URL（影响数据查询，可分享） ──
+
+  // 当前报表的默认值需要基于"当前时间"动态计算
+  const defaultReportState = useMemo(() => ({
+    activeTab: 'balance-sheet',
+    balanceDate: createPointValue('month', dayjs()),
+    incomeExpenseRange: createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs()),
+    incomeExpenseIncludeExcluded: false,
+    cashFlowRange: createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs()),
+    investmentRange: createTrailingRangePreset('last-12-months', '近12个月', 12, 'month').getValue(dayjs()),
+  }), [])
+
+  const [reportState, setReportState] = useSearchParamsState<{
+    activeTab: string
+    balanceDate: PointTimeValue
+    incomeExpenseRange: RangeTimeValue
+    incomeExpenseIncludeExcluded: boolean
+    cashFlowRange: RangeTimeValue
+    investmentRange: RangeTimeValue
+  }>({
+    defaultValue: defaultReportState,
+    storageKey: STORAGE_KEYS.reports.state,
+    parse: (params) => ({
+      activeTab: params.get('tab') ?? defaultReportState.activeTab,
+      balanceDate: params.get('balanceDate')
+        ? fromPointTimeParam(params.get('balanceDate')!)
+        : defaultReportState.balanceDate,
+      incomeExpenseRange: params.get('incomeExpense')
+        ? fromRangeTimeParam(params.get('incomeExpense')!) ?? defaultReportState.incomeExpenseRange
+        : defaultReportState.incomeExpenseRange,
+      incomeExpenseIncludeExcluded: params.get('includeExcluded') === '1',
+      cashFlowRange: params.get('cashFlow')
+        ? fromRangeTimeParam(params.get('cashFlow')!) ?? defaultReportState.cashFlowRange
+        : defaultReportState.cashFlowRange,
+      investmentRange: params.get('investment')
+        ? fromRangeTimeParam(params.get('investment')!) ?? defaultReportState.investmentRange
+        : defaultReportState.investmentRange,
+    }),
+    serialize: (value) => {
+      const p = new URLSearchParams()
+      if (value.activeTab !== defaultReportState.activeTab) p.set('tab', value.activeTab)
+      const balanceStr = toPointTimeParam(value.balanceDate)
+      const defaultBalanceStr = toPointTimeParam(defaultReportState.balanceDate)
+      if (balanceStr !== defaultBalanceStr) p.set('balanceDate', balanceStr)
+      const ieStr = toRangeTimeParam(value.incomeExpenseRange)
+      const defaultIeStr = toRangeTimeParam(defaultReportState.incomeExpenseRange)
+      if (ieStr !== defaultIeStr) p.set('incomeExpense', ieStr)
+      if (value.incomeExpenseIncludeExcluded) p.set('includeExcluded', '1')
+      const cfStr = toRangeTimeParam(value.cashFlowRange)
+      const defaultCfStr = toRangeTimeParam(defaultReportState.cashFlowRange)
+      if (cfStr !== defaultCfStr) p.set('cashFlow', cfStr)
+      const invStr = toRangeTimeParam(value.investmentRange)
+      const defaultInvStr = toRangeTimeParam(defaultReportState.investmentRange)
+      if (invStr !== defaultInvStr) p.set('investment', invStr)
+      return p
+    },
+  })
+
+  // 解构便捷变量
+  const {
+    activeTab,
+    balanceDate: selectedBalanceTime,
+    incomeExpenseRange: incomeExpenseTimeRange,
+    incomeExpenseIncludeExcluded,
+    cashFlowRange: cashFlowTimeRange,
+    investmentRange: investmentTimeRange,
+  } = reportState
+
+  // setter 包装：保持原有回调签名兼容
+  const setActiveTab = (tab: string) => setReportState(prev => ({ ...prev, activeTab: tab }))
+  const setSelectedBalanceTime = (v: PointTimeValue) => setReportState(prev => ({ ...prev, balanceDate: v }))
+  const setIncomeExpenseTimeRange = (v: RangeTimeValue) => setReportState(prev => ({ ...prev, incomeExpenseRange: v }))
+  const setIncomeExpenseIncludeExcluded = (v: boolean) => setReportState(prev => ({ ...prev, incomeExpenseIncludeExcluded: v }))
+  const setCashFlowTimeRange = (v: RangeTimeValue) => setReportState(prev => ({ ...prev, cashFlowRange: v }))
+  const setInvestmentTimeRange = (v: RangeTimeValue) => setReportState(prev => ({ ...prev, investmentRange: v }))
+
+  // ── 临时 UI 状态 → useState（不持久化） ──
   const [accountCategoryModalVisible, setAccountCategoryModalVisible] = useState(false)
-  const [incomeExpenseTimeRange, setIncomeExpenseTimeRange] = useState<RangeTimeValue>(
-    createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
-  )
-  const [incomeExpenseIncludeExcluded, setIncomeExpenseIncludeExcluded] = useState(false)
   const [transactionCategoryModalVisible, setTransactionCategoryModalVisible] = useState(false)
-  const [cashFlowTimeRange, setCashFlowTimeRange] = useState<RangeTimeValue>(
-    createRangePeriodPreset('current-month', '本月', 'month').getValue(dayjs())
-  )
   const [cashFlowConfigModalVisible, setCashFlowConfigModalVisible] = useState(false)
-  const [investmentTimeRange, setInvestmentTimeRange] = useState<RangeTimeValue>(
-    createTrailingRangePreset('last-12-months', '近12个月', 12, 'month').getValue(dayjs())
-  )
   const [investmentConfigModalVisible, setInvestmentConfigModalVisible] = useState(false)
 
   const { data: earliestDateData } = useTransactionEarliestDate()

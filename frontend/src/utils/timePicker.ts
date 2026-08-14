@@ -242,3 +242,44 @@ export function getPointTimeSemantics(value: Dayjs): { isPastOrToday: boolean; i
   const isFuture = v.isAfter(today)
   return { isPastOrToday, isFuture }
 }
+
+// ─── 反序列化：从 URL 参数字符串恢复时间值 ───
+
+/** 根据粒度选择日期格式 */
+const granularityFormat = (g: TimeGranularity): string => {
+  if (g === 'day') return 'YYYY-MM-DD'
+  if (g === 'month') return 'YYYY-MM'
+  return 'YYYY'
+}
+
+/** 推断日期字符串的粒度：4位=year, 7位=month, 10位=day */
+const inferGranularity = (dateStr: string): TimeGranularity => {
+  if (dateStr.length <= 4) return 'year'
+  if (dateStr.length <= 7) return 'month'
+  return 'day'
+}
+
+/** 序列化 PointTimeValue 为 URL 参数字符串，按粒度输出 YYYY / YYYY-MM / YYYY-MM-DD */
+export const toPointTimeParam = (value: PointTimeValue): string =>
+  value.value.format(granularityFormat(value.granularity))
+
+/** 序列化 RangeTimeValue 为 URL 参数字符串，按粒度输出 start,end */
+export const toRangeTimeParam = (value: RangeTimeValue): string => {
+  const fmt = granularityFormat(value.granularity)
+  return `${value.start.format(fmt)},${value.end.format(fmt)}`
+}
+
+/** 从 URL 参数字符串恢复 PointTimeValue，格式：YYYY / YYYY-MM / YYYY-MM-DD */
+export const fromPointTimeParam = (dateStr: string): PointTimeValue => {
+  const granularity = inferGranularity(dateStr)
+  return createPointValue(granularity, dayjs(dateStr))
+}
+
+/** 从 URL 参数字符串恢复 RangeTimeValue，格式按粒度：YYYY,YYYY / YYYY-MM,YYYY-MM / YYYY-MM-DD,YYYY-MM-DD */
+export const fromRangeTimeParam = (rangeStr: string): RangeTimeValue | null => {
+  const parts = rangeStr.split(',')
+  if (parts.length !== 2) return null
+  const [startStr, endStr] = parts
+  const granularity = inferGranularity(startStr)
+  return createRangeValue(granularity, dayjs(startStr), dayjs(endStr))
+}

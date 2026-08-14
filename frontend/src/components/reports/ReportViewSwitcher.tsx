@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { Segmented } from 'antd'
+import { usePersistedState } from '../../hooks/usePersistedState'
 
 export interface ReportViewItem {
   key: string
@@ -10,16 +11,22 @@ export interface ReportViewItem {
 interface ReportViewSwitcherProps {
   items: ReportViewItem[]
   className?: string
+  /** sessionStorage key，用于跨 route 保持切换状态 */
+  storageKey?: string
 }
 
-const ReportViewSwitcher: React.FC<ReportViewSwitcherProps> = ({ items, className }) => {
-  const [activeKey, setActiveKey] = useState(items[0]?.key ?? '')
+const ReportViewSwitcher: React.FC<ReportViewSwitcherProps> = ({ items, className, storageKey }) => {
+  const fallbackKey = items[0]?.key ?? ''
+  const [activeKey, setActiveKey] = usePersistedState(
+    storageKey ?? `moneybrain:reports:view:${fallbackKey}`,
+    fallbackKey,
+  )
 
   useEffect(() => {
     if (!items.some((item) => item.key === activeKey)) {
-      setActiveKey(items[0]?.key ?? '')
+      setActiveKey(fallbackKey)
     }
-  }, [activeKey, items])
+  }, [activeKey, items, fallbackKey, setActiveKey])
 
   const activeItem = items.find((item) => item.key === activeKey) ?? items[0]
 

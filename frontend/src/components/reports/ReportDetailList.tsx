@@ -1,9 +1,10 @@
- import React, { useState } from 'react'
+ import React from 'react'
 import { Card, Empty, Skeleton } from 'antd'
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
 import CategoryIcon from '../common/CategoryIcon'
 import PredictionPopover from './PredictionPopover'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { usePersistedState } from '../../hooks/usePersistedState'
 
 // ===== Types =====
 
@@ -66,6 +67,8 @@ export interface ReportDetailListProps<M = Record<string, number | string | null
   className?: string
   title?: React.ReactNode
   extra?: React.ReactNode
+  /** sessionStorage key，用于跨 route 保持展开状态 */
+  storageKey?: string
 }
 
 // ===== Helpers =====
@@ -299,12 +302,29 @@ export function ReportDetailList<M>({
   className,
   title,
   extra,
+  storageKey,
 }: ReportDetailListProps<M>) {
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => {
+  const defaultExpandedKeys = (() => {
     if (defaultExpanded) return new Set(collectKeys(data, 0, Infinity))
     const depth = config.defaultExpandDepth ?? 0
-    return depth > 0 ? new Set(collectKeys(data, 0, depth)) : new Set()
-  })
+    return depth > 0 ? new Set(collectKeys(data, 0, depth)) : new Set<string>()
+  })()
+
+  const [expandedKeys, setExpandedKeys] = usePersistedState(
+    storageKey ?? 'moneybrain:reports:detail:expandedKeys',
+    defaultExpandedKeys,
+    {
+      serialize: (set) => JSON.stringify([...set]),
+      deserialize: (raw) => {
+        try {
+          const arr = JSON.parse(raw)
+          return Array.isArray(arr) ? new Set(arr) : null
+        } catch {
+          return null
+        }
+      },
+    },
+  )
 
   const handleToggle = (key: string) => {
     setExpandedKeys(prev => {
