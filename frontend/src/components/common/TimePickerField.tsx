@@ -9,6 +9,10 @@ import {
   formatPointValue,
   formatRangeValue,
   getGranularityText,
+  isPointAtMax,
+  isPointAtMin,
+  isRangeAtMax,
+  isRangeAtMin,
   movePointValue,
   moveRangeValue,
   normalizePointValue,
@@ -53,15 +57,8 @@ export const PointTimePickerField: React.FC<PointTimePickerFieldProps> = ({
 
   const currentPresets = useMemo(() => config.presets[value.granularity] || [], [config.presets, value.granularity])
 
-  const isMinReached = useMemo(() => {
-    if (!config.minDate) return false
-    return value.value.isBefore(config.minDate, value.granularity) || value.value.isSame(config.minDate, value.granularity)
-  }, [value.value, value.granularity, config.minDate])
-
-  const isMaxReached = useMemo(() => {
-    if (!config.maxDate) return false
-    return value.value.isAfter(config.maxDate, value.granularity) || value.value.isSame(config.maxDate, value.granularity)
-  }, [value.value, value.granularity, config.maxDate])
+  const isMinReached = useMemo(() => isPointAtMin(value, config.minDate), [value, config.minDate])
+  const isMaxReached = useMemo(() => isPointAtMax(value, config.maxDate), [value, config.maxDate])
 
   const disabledDate = (current: Dayjs) => {
     if (!current) return false
@@ -238,15 +235,8 @@ export const RangeTimePickerField: React.FC<RangeTimePickerFieldProps> = ({
     [config.presets, resolvedValue.granularity]
   )
 
-  const isMinReached = useMemo(() => {
-    if (!config.minDate) return false
-    return resolvedValue.start.isBefore(config.minDate, resolvedValue.granularity) || resolvedValue.start.isSame(config.minDate, resolvedValue.granularity)
-  }, [resolvedValue.start, resolvedValue.granularity, config.minDate])
-
-  const isMaxReached = useMemo(() => {
-    if (!config.maxDate) return false
-    return resolvedValue.end.isAfter(config.maxDate, resolvedValue.granularity) || resolvedValue.end.isSame(config.maxDate, resolvedValue.granularity)
-  }, [resolvedValue.end, resolvedValue.granularity, config.maxDate])
+  const isMinReached = useMemo(() => isRangeAtMin(resolvedValue, config.minDate), [resolvedValue, config.minDate])
+  const isMaxReached = useMemo(() => isRangeAtMax(resolvedValue, config.maxDate), [resolvedValue, config.maxDate])
 
   const disabledDate = (current: Dayjs) => {
     if (!current) return false

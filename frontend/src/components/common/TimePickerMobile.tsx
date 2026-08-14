@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Button, Drawer, Segmented, theme } from 'antd'
-import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
+import { CalendarOutlined, DownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {
@@ -9,6 +9,13 @@ import {
   formatPointValue,
   formatRangeValue,
   getGranularityText,
+  getMinViewLevel,
+  isPointAtMax,
+  isPointAtMin,
+  isRangeAtMax,
+  isRangeAtMin,
+  movePointValue,
+  moveRangeValue,
   normalizePointValue,
   normalizeRangeValue,
   type PointTimePickerConfig,
@@ -16,6 +23,7 @@ import {
   type RangeTimePickerConfig,
   type RangeTimeValue,
   type TimeGranularity,
+  type ViewLevel,
 } from '../../utils/timePicker'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
@@ -44,7 +52,12 @@ interface CalendarHeaderProps {
   title: string
   onPrev?: () => void
   onNext?: () => void
+  onTitleClick?: () => void
+  titleClickable?: boolean
+  prevDisabled?: boolean
+  nextDisabled?: boolean
   colorTextPrimary: string
+  colorBgHover: string
   colorBorderSubtle: string
   spaceCardPadding: string
   spaceInlineDefault: string
@@ -54,11 +67,18 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   title,
   onPrev,
   onNext,
+  onTitleClick,
+  titleClickable,
+  prevDisabled,
+  nextDisabled,
   colorTextPrimary,
+  colorBgHover,
   colorBorderSubtle,
   spaceCardPadding,
   spaceInlineDefault,
 }) => {
+  const [titlePressed, setTitlePressed] = useState(false)
+
   const navBtnStyle: React.CSSProperties = {
     width: 32,
     height: 32,
@@ -66,11 +86,29 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     border: 'none',
     background: 'transparent',
     color: colorTextPrimary,
-    cursor: 'pointer',
+    cursor: prevDisabled || nextDisabled ? 'not-allowed' : 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'background 0.2s',
+    transition: 'background 0.15s',
+    opacity: prevDisabled || nextDisabled ? 0.3 : 1,
+  }
+
+  const titleBtnStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    border: 'none',
+    background: titlePressed ? colorBgHover : 'transparent',
+    cursor: 'pointer',
+    padding: '4px 10px',
+    borderRadius: 6,
+    fontSize: 16,
+    fontWeight: 500,
+    color: colorTextPrimary,
+    transition: 'background 0.15s',
+    userSelect: 'none',
+    WebkitTapHighlightColor: 'transparent',
   }
 
   return (
@@ -84,14 +122,32 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       <button
         type="button"
         onClick={onPrev}
+        disabled={prevDisabled}
         style={navBtnStyle}
       >
         <LeftOutlined style={{ fontSize: 12 }} />
       </button>
-      <span style={{ fontSize: 16, fontWeight: 500, color: colorTextPrimary }}>{title}</span>
+      {titleClickable ? (
+        <button
+          type="button"
+          onClick={onTitleClick}
+          onMouseDown={() => setTitlePressed(true)}
+          onMouseUp={() => setTitlePressed(false)}
+          onMouseLeave={() => setTitlePressed(false)}
+          onTouchStart={() => setTitlePressed(true)}
+          onTouchEnd={() => setTitlePressed(false)}
+          style={titleBtnStyle}
+        >
+          {title}
+          <DownOutlined style={{ fontSize: 10, opacity: 0.6 }} />
+        </button>
+      ) : (
+        <span style={{ fontSize: 16, fontWeight: 500, color: colorTextPrimary, padding: '4px 10px' }}>{title}</span>
+      )}
       <button
         type="button"
         onClick={onNext}
+        disabled={nextDisabled}
         style={navBtnStyle}
       >
         <RightOutlined style={{ fontSize: 12 }} />
@@ -180,7 +236,7 @@ const renderGrid = (cells: GridCell[], onSelect: (value: Dayjs) => void, c: Grid
 
 const renderDayGrid = (
   currentMonth: Dayjs,
-  tempStart: Dayjs,
+  tempStart: Dayjs | null,
   tempEnd: Dayjs | null,
   minDate: Dayjs | undefined,
   maxDate: Dayjs | undefined,
@@ -278,20 +334,20 @@ const renderDayGrid = (
 }
 
 const getMonthGridCells = (
-  currentMonth: Dayjs,
-  tempStart: Dayjs,
-  tempEnd: Dayjs | null,
+  anchor: Dayjs,
+  selectedStart: Dayjs | null,
+  selectedEnd: Dayjs | null,
   minDate: Dayjs | undefined,
   maxDate: Dayjs | undefined,
   isRange: boolean,
 ): GridCell[] => {
   return Array.from({ length: 12 }, (_, i) => {
-    const monthDate = currentMonth.month(i).startOf('month')
-    const isStart = !!(tempStart && monthDate.isSame(tempStart, 'month'))
-    const isEnd = !!(tempEnd && monthDate.isSame(tempEnd, 'month'))
-    const isInRange = !!(isRange && tempStart && tempEnd
-      && monthDate.isAfter(tempStart, 'month')
-      && monthDate.isBefore(tempEnd, 'month'))
+    const monthDate = anchor.month(i).startOf('month')
+    const isStart = !!(selectedStart && monthDate.isSame(selectedStart, 'month'))
+    const isEnd = !!(selectedEnd && monthDate.isSame(selectedEnd, 'month'))
+    const isInRange = !!(isRange && selectedStart && selectedEnd
+      && monthDate.isAfter(selectedStart, 'month')
+      && monthDate.isBefore(selectedEnd, 'month'))
     const isDisabled = !!(minDate && monthDate.isBefore(minDate, 'month'))
       || !!(maxDate && monthDate.isAfter(maxDate, 'month'))
 
@@ -308,22 +364,23 @@ const getMonthGridCells = (
 }
 
 const getYearGridCells = (
-  tempDate: Dayjs,
-  tempEnd: Dayjs | null,
+  anchor: Dayjs,
+  selectedStart: Dayjs | null,
+  selectedEnd: Dayjs | null,
   minDate: Dayjs | undefined,
   maxDate: Dayjs | undefined,
   isRange: boolean,
 ): GridCell[] => {
-  const decadeStart = Math.floor(tempDate.year() / 10) * 10
+  const decadeStart = Math.floor(anchor.year() / 10) * 10
 
   return Array.from({ length: 12 }, (_, i) => {
     const year = decadeStart + i - 1
     const yearDate = dayjs().year(year).startOf('year')
-    const isStart = !!(tempDate && yearDate.isSame(tempDate, 'year'))
-    const isEnd = !!(tempEnd && yearDate.isSame(tempEnd, 'year'))
-    const isInRange = !!(isRange && tempDate && tempEnd
-      && yearDate.isAfter(tempDate, 'year')
-      && yearDate.isBefore(tempEnd, 'year'))
+    const isStart = !!(selectedStart && yearDate.isSame(selectedStart, 'year'))
+    const isEnd = !!(selectedEnd && yearDate.isSame(selectedEnd, 'year'))
+    const isInRange = !!(isRange && selectedStart && selectedEnd
+      && yearDate.isAfter(selectedStart, 'year')
+      && yearDate.isBefore(selectedEnd, 'year'))
     const isDisabled = !!(minDate && yearDate.isBefore(minDate, 'year'))
       || !!(maxDate && yearDate.isAfter(maxDate, 'year'))
 
@@ -339,9 +396,9 @@ const getYearGridCells = (
   })
 }
 
-const getHeaderTitle = (granularity: TimeGranularity, currentMonth: Dayjs): string => {
-  if (granularity === 'day') return currentMonth.format('YYYY年MM月')
-  if (granularity === 'month') return currentMonth.format('YYYY年')
+const getHeaderTitle = (viewLevel: ViewLevel, currentMonth: Dayjs): string => {
+  if (viewLevel === 'month') return currentMonth.format('YYYY年MM月')
+  if (viewLevel === 'year') return currentMonth.format('YYYY年')
   const decadeStart = Math.floor(currentMonth.year() / 10) * 10
   return `${decadeStart} - ${decadeStart + 9}`
 }
@@ -386,11 +443,18 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
   const [tempDate, setTempDate] = useState<Dayjs>(value.value)
   const [tempGranularity, setTempGranularity] = useState<TimeGranularity>(value.granularity)
   const [currentMonth, setCurrentMonth] = useState<Dayjs>(value.value)
+  const [viewLevel, setViewLevel] = useState<ViewLevel>(getMinViewLevel(value.granularity))
+
+  // 派生值：当前粒度对应的最小视图层级
+  const minViewLevel = getMinViewLevel(tempGranularity)
+  const isAtMinLevel = viewLevel === minViewLevel
+  const titleClickable = viewLevel !== 'decade'
 
   const openDrawer = () => {
     setTempDate(value.value)
     setTempGranularity(value.granularity)
     setCurrentMonth(value.value)
+    setViewLevel(getMinViewLevel(value.granularity))
     setOpen(true)
   }
 
@@ -399,8 +463,23 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
     setOpen(false)
   }
 
-  const handleCellSelect = (cellValue: Dayjs) => {
-    setTempDate(cellValue)
+  // 标题点击：向上升级视图层级
+  const handleTitleClick = () => {
+    if (viewLevel === 'decade') return
+    if (viewLevel === 'month') setViewLevel('year')
+    else setViewLevel('decade')
+  }
+
+  // 格子点击分发：最底层走选择逻辑，导航层走下钻逻辑
+  const handleCellClick = (cellValue: Dayjs) => {
+    if (isAtMinLevel) {
+      setTempDate(cellValue)
+    } else {
+      // 导航层：更新 currentMonth，降级 viewLevel 一级
+      setCurrentMonth(cellValue)
+      if (viewLevel === 'decade') setViewLevel('year')
+      else if (viewLevel === 'year') setViewLevel('month')
+    }
   }
 
   const handleGranularityChange = (granularity: TimeGranularity) => {
@@ -408,6 +487,7 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
     setTempGranularity(granularity)
     setTempDate(nextValue.value)
     setCurrentMonth(nextValue.value)
+    setViewLevel(getMinViewLevel(granularity))
   }
 
   const handlePresetClick = (presetKey: string) => {
@@ -418,6 +498,7 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
     setTempDate(nextValue.value)
     setTempGranularity(nextValue.granularity)
     setCurrentMonth(nextValue.value)
+    setViewLevel(getMinViewLevel(nextValue.granularity))
   }
 
   const mobilePresets = useMemo(
@@ -425,19 +506,34 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
     [config.presets, tempGranularity]
   )
 
+  // 箭头：最底层移动值，导航层翻页浏览
   const handlePrev = () => {
-    if (tempGranularity === 'year') setCurrentMonth((prev) => prev.subtract(10, 'year'))
-    else if (tempGranularity === 'month') setCurrentMonth((prev) => prev.subtract(1, 'year'))
-    else setCurrentMonth((prev) => prev.subtract(1, 'month'))
+    if (isAtMinLevel) {
+      const newValue = movePointValue({ granularity: tempGranularity, value: tempDate }, -1)
+      setTempDate(newValue.value)
+      setCurrentMonth(newValue.value)
+    } else {
+      // 导航层：按 viewLevel 翻页，不修改 temp 值
+      setCurrentMonth((prev) => viewLevel === 'year' ? prev.subtract(1, 'year') : prev.subtract(10, 'year'))
+    }
   }
 
   const handleNext = () => {
-    if (tempGranularity === 'year') setCurrentMonth((prev) => prev.add(10, 'year'))
-    else if (tempGranularity === 'month') setCurrentMonth((prev) => prev.add(1, 'year'))
-    else setCurrentMonth((prev) => prev.add(1, 'month'))
+    if (isAtMinLevel) {
+      const newValue = movePointValue({ granularity: tempGranularity, value: tempDate }, 1)
+      setTempDate(newValue.value)
+      setCurrentMonth(newValue.value)
+    } else {
+      // 导航层：按 viewLevel 翻页，不修改 temp 值
+      setCurrentMonth((prev) => viewLevel === 'year' ? prev.add(1, 'year') : prev.add(10, 'year'))
+    }
   }
 
-  const title = getHeaderTitle(tempGranularity, currentMonth)
+  // 箭头禁用判断：导航层始终可用，仅最底层受 min/max 限制
+  const prevDisabled = isAtMinLevel && isPointAtMin({ granularity: tempGranularity, value: tempDate }, config.minDate)
+  const nextDisabled = isAtMinLevel && isPointAtMax({ granularity: tempGranularity, value: tempDate }, config.maxDate)
+
+  const title = getHeaderTitle(viewLevel, currentMonth)
 
   return (
     <>
@@ -461,30 +557,52 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
-          <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext}
+          <CalendarHeader
+            title={title}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            onTitleClick={handleTitleClick}
+            titleClickable={titleClickable}
+            prevDisabled={prevDisabled}
+            nextDisabled={nextDisabled}
             colorTextPrimary={colorTextPrimary}
+            colorBgHover={colorBgHover}
             colorBorderSubtle={colorBorderSubtle}
             spaceCardPadding={spaceCardPadding}
             spaceInlineDefault={spaceInlineDefault}
           />
 
-          {tempGranularity === 'day' && renderDayGrid(
-            currentMonth, tempDate, null,
-            config.minDate, config.maxDate, false, handleCellSelect,
-            gridColors,
-          )}
+          <div key={viewLevel} style={{ animation: 'mb-picker-fade-in 0.18s ease-out' }}>
+            {viewLevel === 'month' && renderDayGrid(
+              currentMonth,
+              isAtMinLevel ? tempDate : null,
+              null,
+              config.minDate, config.maxDate, false, handleCellClick,
+              gridColors,
+            )}
 
-          {tempGranularity === 'month' && renderGrid(
-            getMonthGridCells(currentMonth, tempDate, null, config.minDate, config.maxDate, false),
-            handleCellSelect,
-            gridColors,
-          )}
+            {viewLevel === 'year' && renderGrid(
+              getMonthGridCells(
+                currentMonth,
+                isAtMinLevel ? tempDate : null,
+                null,
+                config.minDate, config.maxDate, false,
+              ),
+              handleCellClick,
+              gridColors,
+            )}
 
-          {tempGranularity === 'year' && renderGrid(
-            getYearGridCells(tempDate, null, config.minDate, config.maxDate, false),
-            handleCellSelect,
-            gridColors,
-          )}
+            {viewLevel === 'decade' && renderGrid(
+              getYearGridCells(
+                currentMonth,
+                isAtMinLevel ? tempDate : null,
+                null,
+                config.minDate, config.maxDate, false,
+              ),
+              handleCellClick,
+              gridColors,
+            )}
+          </div>
 
           {config.allowedGranularities.length > 1 && (
             <div style={{ padding: `0 ${spaceCardPadding}` }}>
@@ -501,7 +619,7 @@ export const PointTimePickerMobile: React.FC<PointMobileProps> = ({
             </div>
           )}
 
-          {mobilePresets.length > 0 && (
+          {isAtMinLevel && mobilePresets.length > 0 && (
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
@@ -586,6 +704,12 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
   const [tempGranularity, setTempGranularity] = useState<TimeGranularity>(resolvedValue.granularity)
   const [selecting, setSelecting] = useState(false)
   const [currentMonth, setCurrentMonth] = useState<Dayjs>(resolvedValue.start)
+  const [viewLevel, setViewLevel] = useState<ViewLevel>(getMinViewLevel(resolvedValue.granularity))
+
+  // 派生值
+  const minViewLevel = getMinViewLevel(tempGranularity)
+  const isAtMinLevel = viewLevel === minViewLevel
+  const titleClickable = viewLevel !== 'decade'
 
   const openDrawer = () => {
     setTempStart(resolvedValue.start)
@@ -593,6 +717,7 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
     setTempGranularity(resolvedValue.granularity)
     setCurrentMonth(resolvedValue.start)
     setSelecting(false)
+    setViewLevel(getMinViewLevel(resolvedValue.granularity))
     setOpen(true)
   }
 
@@ -603,20 +728,36 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
     setOpen(false)
   }
 
-  const handleCellSelect = (cellValue: Dayjs, unit: 'day' | 'month' | 'year') => {
-    if (!selecting) {
-      setTempStart(cellValue.startOf(unit))
-      setTempEnd(cellValue.endOf(unit))
-      setSelecting(true)
-    } else {
-      if (cellValue.isBefore(tempStart, unit)) {
-        setTempStart(cellValue.startOf(unit))
-        setTempEnd(cellValue.endOf(unit))
+  // 标题点击：向上升级视图层级
+  const handleTitleClick = () => {
+    if (viewLevel === 'decade') return
+    if (viewLevel === 'month') setViewLevel('year')
+    else setViewLevel('decade')
+  }
+
+  // 格子点击分发
+  const handleCellClick = (cellValue: Dayjs) => {
+    if (isAtMinLevel) {
+      // 最底层：现有 Range 选择逻辑
+      if (!selecting) {
+        setTempStart(cellValue.startOf(tempGranularity))
+        setTempEnd(cellValue.endOf(tempGranularity))
         setSelecting(true)
       } else {
-        setTempEnd(cellValue.endOf(unit))
-        setSelecting(false)
+        if (cellValue.isBefore(tempStart, tempGranularity)) {
+          setTempStart(cellValue.startOf(tempGranularity))
+          setTempEnd(cellValue.endOf(tempGranularity))
+          setSelecting(true)
+        } else {
+          setTempEnd(cellValue.endOf(tempGranularity))
+          setSelecting(false)
+        }
       }
+    } else {
+      // 导航层：仅更新 currentMonth，降级 viewLevel，不触发 selecting
+      setCurrentMonth(cellValue)
+      if (viewLevel === 'decade') setViewLevel('year')
+      else if (viewLevel === 'year') setViewLevel('month')
     }
   }
 
@@ -628,6 +769,7 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
     setTempEnd(nextValue.end)
     setSelecting(false)
     setCurrentMonth(nextValue.start)
+    setViewLevel(getMinViewLevel(granularity))
   }
 
   const handlePresetClick = (presetKey: string) => {
@@ -639,6 +781,8 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
     setTempEnd(nextValue.end)
     setTempGranularity(nextValue.granularity)
     setSelecting(false)
+    setCurrentMonth(nextValue.start)
+    setViewLevel(getMinViewLevel(nextValue.granularity))
   }
 
   const mobilePresets = useMemo(
@@ -646,19 +790,36 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
     [config.presets, tempGranularity]
   )
 
+  // 箭头：最底层按区间跨度整体平移，导航层翻页浏览
   const handlePrev = () => {
-    if (tempGranularity === 'year') setCurrentMonth((prev) => prev.subtract(10, 'year'))
-    else if (tempGranularity === 'month') setCurrentMonth((prev) => prev.subtract(1, 'year'))
-    else setCurrentMonth((prev) => prev.subtract(1, 'month'))
+    if (isAtMinLevel) {
+      const newValue = moveRangeValue({ granularity: tempGranularity, start: tempStart, end: tempEnd }, -1)
+      setTempStart(newValue.start)
+      setTempEnd(newValue.end)
+      setCurrentMonth(newValue.start)
+    } else {
+      // 导航层：按 viewLevel 翻页，不修改 temp 值，不重置 selecting
+      setCurrentMonth((prev) => viewLevel === 'year' ? prev.subtract(1, 'year') : prev.subtract(10, 'year'))
+    }
   }
 
   const handleNext = () => {
-    if (tempGranularity === 'year') setCurrentMonth((prev) => prev.add(10, 'year'))
-    else if (tempGranularity === 'month') setCurrentMonth((prev) => prev.add(1, 'year'))
-    else setCurrentMonth((prev) => prev.add(1, 'month'))
+    if (isAtMinLevel) {
+      const newValue = moveRangeValue({ granularity: tempGranularity, start: tempStart, end: tempEnd }, 1)
+      setTempStart(newValue.start)
+      setTempEnd(newValue.end)
+      setCurrentMonth(newValue.start)
+    } else {
+      // 导航层：按 viewLevel 翻页，不修改 temp 值，不重置 selecting
+      setCurrentMonth((prev) => viewLevel === 'year' ? prev.add(1, 'year') : prev.add(10, 'year'))
+    }
   }
 
-  const title = getHeaderTitle(tempGranularity, currentMonth)
+  // 箭头禁用判断：导航层始终可用，仅最底层受 min/max 限制
+  const prevDisabled = isAtMinLevel && isRangeAtMin({ granularity: tempGranularity, start: tempStart, end: tempEnd }, config.minDate)
+  const nextDisabled = isAtMinLevel && isRangeAtMax({ granularity: tempGranularity, start: tempStart, end: tempEnd }, config.maxDate)
+
+  const title = getHeaderTitle(viewLevel, currentMonth)
 
   return (
     <>
@@ -682,31 +843,53 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: spaceCardPadding }}>
-          <CalendarHeader title={title} onPrev={handlePrev} onNext={handleNext}
+          <CalendarHeader
+            title={title}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            onTitleClick={handleTitleClick}
+            titleClickable={titleClickable}
+            prevDisabled={prevDisabled}
+            nextDisabled={nextDisabled}
             colorTextPrimary={colorTextPrimary}
+            colorBgHover={colorBgHover}
             colorBorderSubtle={colorBorderSubtle}
             spaceCardPadding={spaceCardPadding}
             spaceInlineDefault={spaceInlineDefault}
           />
 
-          {tempGranularity === 'day' && renderDayGrid(
-            currentMonth, tempStart, tempEnd,
-            config.minDate, config.maxDate, true,
-            (cellValue) => handleCellSelect(cellValue, 'day'),
-            gridColors,
-          )}
+          <div key={viewLevel} style={{ animation: 'mb-picker-fade-in 0.18s ease-out' }}>
+            {viewLevel === 'month' && renderDayGrid(
+              currentMonth,
+              isAtMinLevel ? tempStart : null,
+              isAtMinLevel ? tempEnd : null,
+              config.minDate, config.maxDate, true,
+              handleCellClick,
+              gridColors,
+            )}
 
-          {tempGranularity === 'month' && renderGrid(
-            getMonthGridCells(currentMonth, tempStart, tempEnd, config.minDate, config.maxDate, true),
-            (cellValue) => handleCellSelect(cellValue, 'month'),
-            gridColors,
-          )}
+            {viewLevel === 'year' && renderGrid(
+              getMonthGridCells(
+                currentMonth,
+                isAtMinLevel ? tempStart : null,
+                isAtMinLevel ? tempEnd : null,
+                config.minDate, config.maxDate, true,
+              ),
+              handleCellClick,
+              gridColors,
+            )}
 
-          {tempGranularity === 'year' && renderGrid(
-            getYearGridCells(tempStart, tempEnd, config.minDate, config.maxDate, true),
-            (cellValue) => handleCellSelect(cellValue, 'year'),
-            gridColors,
-          )}
+            {viewLevel === 'decade' && renderGrid(
+              getYearGridCells(
+                currentMonth,
+                isAtMinLevel ? tempStart : null,
+                isAtMinLevel ? tempEnd : null,
+                config.minDate, config.maxDate, true,
+              ),
+              handleCellClick,
+              gridColors,
+            )}
+          </div>
 
           {config.allowedGranularities.length > 1 && (
             <div style={{ padding: `0 ${spaceCardPadding}` }}>
@@ -723,7 +906,7 @@ export const RangeTimePickerMobile: React.FC<RangeMobileProps> = ({
             </div>
           )}
 
-          {mobilePresets.length > 0 && (
+          {isAtMinLevel && mobilePresets.length > 0 && (
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',

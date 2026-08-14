@@ -2,6 +2,40 @@ import dayjs, { type Dayjs } from 'dayjs'
 
 export type TimeGranularity = 'day' | 'month' | 'year'
 
+/** 移动端 Drawer 视图层级，与 tempGranularity 正交 */
+export type ViewLevel = 'month' | 'year' | 'decade'
+
+/** 根据粒度获取最小视图层级 */
+export const getMinViewLevel = (granularity: TimeGranularity): ViewLevel => {
+  if (granularity === 'day') return 'month'
+  if (granularity === 'month') return 'year'
+  return 'decade'
+}
+
+/** Point 值是否到达最小边界 */
+export const isPointAtMin = (value: PointTimeValue, minDate?: Dayjs): boolean => {
+  if (!minDate) return false
+  return value.value.isBefore(minDate, value.granularity) || value.value.isSame(minDate, value.granularity)
+}
+
+/** Point 值是否到达最大边界 */
+export const isPointAtMax = (value: PointTimeValue, maxDate?: Dayjs): boolean => {
+  if (!maxDate) return false
+  return value.value.isAfter(maxDate, value.granularity) || value.value.isSame(maxDate, value.granularity)
+}
+
+/** Range 值起始是否到达最小边界 */
+export const isRangeAtMin = (value: RangeTimeValue, minDate?: Dayjs): boolean => {
+  if (!minDate) return false
+  return value.start.isBefore(minDate, value.granularity) || value.start.isSame(minDate, value.granularity)
+}
+
+/** Range 值结束是否到达最大边界 */
+export const isRangeAtMax = (value: RangeTimeValue, maxDate?: Dayjs): boolean => {
+  if (!maxDate) return false
+  return value.end.isAfter(maxDate, value.granularity) || value.end.isSame(maxDate, value.granularity)
+}
+
 export interface PointTimeValue {
   granularity: TimeGranularity
   value: Dayjs
