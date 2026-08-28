@@ -274,6 +274,16 @@
   color: var(--mb-color-action-primary);
 }
 
+/* 可点击节点（叶子，跳转到相关交易） */
+.report-detail-row__name--clickable {
+  cursor: pointer;
+  transition: color var(--mb-motion-fast) var(--mb-ease-standard);
+}
+.report-detail-row__name--clickable:hover {
+  color: var(--mb-color-action-primary);
+  text-decoration: underline;
+}
+
 .report-detail-row__values {
   display: inline-flex;
   align-items: center;

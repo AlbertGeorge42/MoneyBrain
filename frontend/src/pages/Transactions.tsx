@@ -143,38 +143,45 @@ const Transactions: React.FC = () => {
     setCreateVisible(true)
   }
 
-  // 点击交易行 → 打开详情抽屉
+  // 点击交易行 → 打开详情抽屉（在列表上方）
   const handleRowClick = (record: Transaction) => {
     setSelectedTransaction(record)
     setDetailVisible(true)
-    setEditVisible(false)
   }
 
-  // 从详情切换到编辑
+  // 从详情切换到编辑（在详情上方）
   const handleEditFromDetail = () => {
-    setDetailVisible(false)
     setEditVisible(true)
     setEditMode('edit')
   }
 
-  // 从详情发起退款
+  // 从详情发起退款（在详情上方）
   const handleRefundFromDetail = () => {
-    setDetailVisible(false)
     setEditVisible(true)
     setEditMode('refund')
   }
 
-  // 从编辑返回详情
+  // 从编辑返回详情（关闭编辑，详情仍在）
   const handleBackToDetail = () => {
     setEditVisible(false)
-    setDetailVisible(true)
   }
 
-  // 关闭所有抽屉
-  const handleCloseAll = () => {
+  // 关闭详情抽屉（先播放关闭动画，动画结束后再卸载）
+  const handleCloseDetail = () => {
     setDetailVisible(false)
     setEditVisible(false)
-    setSelectedTransaction(null)
+  }
+
+  // 详情抽屉关闭动画结束后，清除选中数据
+  const handleDetailAfterClose = () => {
+    if (!detailVisible) {
+      setSelectedTransaction(null)
+    }
+  }
+
+  // 关闭编辑抽屉
+  const handleCloseEdit = () => {
+    setEditVisible(false)
   }
 
   // 新建提交
@@ -189,7 +196,7 @@ const Transactions: React.FC = () => {
     if (!selectedTransaction) return
     await updateTransaction.mutateAsync({ id: selectedTransaction.id, data: values as Partial<Transaction> })
     notify.success('更新成功')
-    handleCloseAll()
+    handleCloseDetail()
   }
 
   // 退款提交
@@ -207,7 +214,7 @@ const Transactions: React.FC = () => {
     }
     await createTransaction.mutateAsync(data)
     notify.success('退款记录成功')
-    handleCloseAll()
+    handleCloseDetail()
   }
 
   // 删除确认
@@ -215,7 +222,7 @@ const Transactions: React.FC = () => {
     if (!selectedTransaction) return
     await deleteTransaction.mutateAsync(selectedTransaction.id)
     notify.success('删除成功')
-    handleCloseAll()
+    handleCloseDetail()
   }
 
   // 筛选相关
@@ -303,7 +310,8 @@ const Transactions: React.FC = () => {
         <ResponsiveDrawer
           visible={detailVisible}
           title="交易详情"
-          onCancel={handleCloseAll}
+          onCancel={handleCloseDetail}
+          afterVisibleChange={handleDetailAfterClose}
           footer={
             <TransactionDetailFooter
               transactionType={selectedTransaction.type}
@@ -328,7 +336,7 @@ const Transactions: React.FC = () => {
         categories={transactionCategories}
         onEdit={handleEditSubmit}
         onRefund={handleRefundSubmit}
-        onCancel={handleCloseAll}
+        onCancel={handleCloseEdit}
         onBack={handleBackToDetail}
         mode={editMode}
       />

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Button, Card, Grid, Statistic, Switch, Tag, Tooltip, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import type { IncomeExpenseReportData, ReportCategoryDetail } from '@shared/types'
@@ -15,6 +15,7 @@ import { getAmountColor } from '../../utils/formatAmount'
 import { getFinancialTokens } from '../../styles/theme/financial-tokens'
 import { useTheme } from '../../styles/ThemeContext'
 import { useAmountColors } from '../../hooks/useAmountColors'
+import { TransactionDrawer } from '../transactions'
 
 // ---- 本报表专属：metrics 类型 ----
 interface IncomeExpenseMetrics {
@@ -58,6 +59,8 @@ function adaptIncomeExpenseTree(
     name: item.name,
     icon: item.icon,
     iconColor: item.color ?? null,
+    entityId: item.categoryId,
+    entityType: 'category' as const,
     children: item.children ? adaptIncomeExpenseTree(item.children, reportType) : undefined,
     metrics: {
       total: reportType === 'expense' ? Math.abs(item.actual + item.predicted) : item.actual + item.predicted,
@@ -95,6 +98,36 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const { isDark } = useTheme()
   const amountColors = useAmountColors()
   const financialTokens = useMemo(() => getFinancialTokens(isDark), [isDark])
+
+  // 抽屉状态
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerTitle, setDrawerTitle] = useState('')
+  const [drawerFilters, setDrawerFilters] = useState<{
+    categoryId?: string[]
+    dateRange: RangeTimeValue
+  }>({ categoryId: [], dateRange: timeRange })
+
+  const handleEntityClick = (entityType: string, entityId: string) => {
+    if (entityType !== 'category') return
+    // 获取分类名称作为标题
+    const allItems = [
+      ...(incomeExpenseData?.incomeCategoryDetails || []),
+      ...(incomeExpenseData?.expenseCategoryDetails || []),
+    ]
+    const findName = (items: ReportCategoryDetail[], id: string): string | undefined => {
+      for (const item of items) {
+        if (item.categoryId === id) return item.name
+      }
+      return undefined
+    }
+    const name = findName(allItems, entityId)
+    setDrawerTitle(`交易记录 — ${name || '分类'}`)
+    setDrawerFilters({
+      categoryId: entityId.split(','),
+      dateRange: timeRange,
+    })
+    setDrawerOpen(true)
+  }
 
   const dateParams = toDateRangeParams(timeRange)
   const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
@@ -298,6 +331,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
+      onEntityClick={handleEntityClick}
       title={isFuture ? <>收入明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '收入明细'}
     />
   )
@@ -309,6 +343,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
+      onEntityClick={handleEntityClick}
       title={isFuture ? <>支出明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '支出明细'}
     />
   )
@@ -404,7 +439,14 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           {chartSection}
           {detailTables}
         </>
-      )}      
+      )}
+
+      <TransactionDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={drawerTitle}
+        filters={drawerFilters}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Button, Card, Empty, Grid, Statistic, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../../components/common'
@@ -14,6 +14,7 @@ import { formatCurrency, formatPercent, createStatisticFormatter } from '../../u
 import { getAmountColor } from '../../utils/formatAmount'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { useTheme } from '../../styles/ThemeContext'
+import { TransactionDrawer } from '../transactions'
 
 const statisticFormatter = createStatisticFormatter()
 
@@ -63,6 +64,8 @@ function buildInvestmentTreeData(
     name: allocation.accountName,
     icon: allocation.accountIcon || 'wallet',
     iconColor: allocation.accountColor ?? null,
+    entityId: allocation.accountId,
+    entityType: 'account' as const,
     metrics: {
       balance: allocation.balance,
       marketValue: allocation.balance,
@@ -108,6 +111,33 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   const { token } = theme.useToken()
   const { isDark } = useTheme()
   const amountColors = useAmountColors()
+
+  // 抽屉状态
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerTitle, setDrawerTitle] = useState('')
+  const [drawerFilters, setDrawerFilters] = useState<{
+    accountId?: string[]
+    dateRange: RangeTimeValue
+  }>({ accountId: [], dateRange: timeRange })
+
+  const handleEntityClick = (entityType: string, entityId: string) => {
+    if (entityType !== 'account') return
+    // 获取账户名称作为标题
+    const allAccounts = investmentData?.byAccountAllocation || []
+    const findName = (accounts: AccountAllocationDetail[], id: string): string | undefined => {
+      for (const acc of accounts) {
+        if (acc.accountId === id) return acc.accountName
+      }
+      return undefined
+    }
+    const name = findName(allAccounts, entityId)
+    setDrawerTitle(`交易记录 — ${name || '投资账户'}`)
+    setDrawerFilters({
+      accountId: entityId.split(','),
+      dateRange: timeRange,
+    })
+    setDrawerOpen(true)
+  }
 
   const renderEmptyState = () => (
     <div className="section-grid">
@@ -240,6 +270,7 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
         defaultExpandDepth: 1,
       }}
       loading={loading}
+      onEntityClick={handleEntityClick}
       title="投资账户明细"
     />
   )
@@ -309,6 +340,13 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
       <InvestmentSnapshotHistorySection
         investmentData={investmentData}
         onRefresh={onRefresh}
+      />
+
+      <TransactionDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={drawerTitle}
+        filters={drawerFilters}
       />
     </>
   )

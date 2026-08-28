@@ -104,9 +104,10 @@ const Dashboard: React.FC = () => {
       .slice(0, 3)
   }, [budgetStatuses])
 
-  // 饼图下钻
+  // 饼图下钻：仅用于图表内下钻子分类，不跳转页面
   const handleDrillDown = async (item: PieChartDataItem): Promise<AnalyticsCategoryBreakdownItem[]> => {
-    if (!item.categoryId) return []
+    if (!item.categoryId || !item.hasChildren) return []
+
     try {
       const res = await analyticsApi.getCategoryBreakdown('expense', undefined, undefined, item.categoryId)
       if (res.data.success && res.data.data) {

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Button, Card, Grid, Space, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetCategoryNode, BalanceSheetReportData } from '@shared/types'
@@ -9,11 +9,13 @@ import type { ReportTreeNode, ReportDetailColumn } from './ReportDetailList'
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { getPointTimeSemantics } from '../../utils/timePicker'
+import type { RangeTimeValue } from '../../utils/timePicker'
 import { formatCurrency } from '../../utils/format'
 import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { useTheme } from '../../styles/ThemeContext'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { PredictionStatistic } from '.'
+import { TransactionDrawer } from '../transactions'
 
 // ---- 本报表专属：metrics 类型 ----
 export interface BalanceSheetMetrics {
@@ -43,11 +45,15 @@ function adaptBalanceSheetNode(
   node: BalanceSheetCategoryNode,
   nodeType: 'asset' | 'liability'
 ): ReportTreeNode<BalanceSheetMetrics> {
+  // 收集所有子账户 ID，用逗号分隔作为 entityId，支持按分类筛选关联交易
+  const childAccountIds = node.children?.map(child => child.id) || []
   return {
     key: `category-${node.id}`,
     name: node.name,
     icon: node.icon || undefined,
     iconColor: node.color ?? null,
+    entityId: childAccountIds.length > 0 ? childAccountIds.join(',') : undefined,
+    entityType: childAccountIds.length > 0 ? 'account' as const : undefined,
     metrics: {
       balance: node.actual + node.predicted,
       actual: node.actual,
@@ -59,6 +65,8 @@ function adaptBalanceSheetNode(
       name: child.name,
       icon: child.icon || undefined,
       iconColor: child.color ?? null,
+      entityId: child.id,
+      entityType: 'account' as const,
       metrics: {
         balance: child.actual + child.predicted,
         actual: child.actual,
@@ -92,6 +100,41 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
   const { token } = theme.useToken()
   const { isDark } = useTheme()
   const amountColors = useAmountColors()
+
+  // 抽屉状态
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerTitle, setDrawerTitle] = useState('')
+  const [drawerFilters, setDrawerFilters] = useState<{
+    accountId?: string[]
+    dateRange: RangeTimeValue
+  }>({ accountId: [], dateRange: { granularity: selectedTime.granularity, start: selectedTime.value, end: selectedTime.value } })
+
+  const handleEntityClick = (entityType: string, entityId: string) => {
+    if (entityType !== 'account') return
+    // 构造日期范围（点时间 → 同一天的起止）
+    const dateRange: RangeTimeValue = {
+      granularity: selectedTime.granularity,
+      start: selectedTime.value,
+      end: selectedTime.value,
+    }
+    // 获取节点名称作为标题
+    const allNodes = [...(balanceSheetData?.assetNodes || []), ...(balanceSheetData?.liabilityNodes || [])]
+    const findName = (nodes: BalanceSheetCategoryNode[], id: string): string | undefined => {
+      for (const node of nodes) {
+        for (const child of node.children || []) {
+          if (child.id === id) return child.name
+        }
+      }
+      return undefined
+    }
+    const name = findName(allNodes, entityId)
+    setDrawerTitle(`交易记录 — ${name || '账户'}`)
+    setDrawerFilters({
+      accountId: entityId.split(','),
+      dateRange,
+    })
+    setDrawerOpen(true)
+  }
 
   const targetDate = useMemo(() => {
     if (selectedTime.granularity === 'day') {
@@ -302,6 +345,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
+      onEntityClick={handleEntityClick}
       title={isFuture ? <>资产明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '资产明细'}
     />
   )
@@ -319,6 +363,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
       loading={loading}
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
+      onEntityClick={handleEntityClick}
       title={isFuture ? <>负债明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '负债明细'}
     />
   )
@@ -395,6 +440,13 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
           {detailTables}
         </>
       )}
+
+      <TransactionDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={drawerTitle}
+        filters={drawerFilters}
+      />
     </div>
   )
 }

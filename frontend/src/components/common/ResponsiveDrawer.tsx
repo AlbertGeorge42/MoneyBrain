@@ -17,6 +17,10 @@ interface ResponsiveDrawerProps {
   height?: string
   /** 底部固定区域（如操作按钮），固定在抽屉底部不随内容滚动 */
   footer?: React.ReactNode
+  /** 标题栏右侧额外操作区 */
+  extra?: React.ReactNode
+  /** 抽屉打开/关闭动画结束后回调 */
+  afterVisibleChange?: (visible: boolean) => void
 }
 
 /**
@@ -34,6 +38,8 @@ const ResponsiveDrawer: React.FC<ResponsiveDrawerProps> = ({
   width = 480,
   height = '85vh',
   footer,
+  extra,
+  afterVisibleChange,
 }) => {
   const isMobile = useIsMobile()
   const { token } = theme.useToken()
@@ -46,11 +52,12 @@ const ResponsiveDrawer: React.FC<ResponsiveDrawerProps> = ({
       height={isMobile ? height : '100vh'}
       open={visible}
       onClose={onCancel}
-      destroyOnClose
+      afterOpenChange={afterVisibleChange}
       closable
       closeIcon={
         <span style={{ fontSize: 18, lineHeight: 1, color: token.colorTextSecondary }}>×</span>
       }
+      extra={extra}
       footer={footer}
       styles={{
         header: {

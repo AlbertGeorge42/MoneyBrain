@@ -1,6 +1,6 @@
 import React from 'react'
 import { Button, Space, Tag, Divider, Typography, Modal, Progress, theme } from 'antd'
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { EditOutlined, DeleteOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { formatCurrency } from '../../utils/format'
 import { getProgressColor, getStatusLabel } from '../../utils/budget'
 import { useAmountColors } from '../../hooks/useAmountColors'
@@ -32,12 +32,14 @@ interface BudgetDetailProps {
 export interface BudgetDetailFooterProps {
   onEdit: () => void
   onDelete: () => Promise<void>
+  onViewTransactions?: () => void
   isDeleting?: boolean
 }
 
 export const BudgetDetailFooter: React.FC<BudgetDetailFooterProps> = ({
   onEdit,
   onDelete,
+  onViewTransactions,
   isDeleting = false,
 }) => {
   const { token } = theme.useToken()
@@ -59,6 +61,17 @@ export const BudgetDetailFooter: React.FC<BudgetDetailFooterProps> = ({
 
   return (
     <Space direction="vertical" size={token.padding} style={{ width: '100%' }}>
+      {onViewTransactions && (
+        <Button
+          icon={<UnorderedListOutlined />}
+          onClick={onViewTransactions}
+          block
+          size="large"
+        >
+          查看交易
+        </Button>
+      )}
+
       <Button
         icon={<EditOutlined />}
         onClick={onEdit}

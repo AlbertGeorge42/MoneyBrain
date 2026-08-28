@@ -16,6 +16,10 @@ export interface ReportTreeNode<M = Record<string, number | string | null>> {
   iconColor?: string | null
   children?: ReportTreeNode<M>[]
   metrics?: M
+  /** 原始实体 ID（账户 ID / 分类 ID），有此字段时行可点击跳转到相关交易 */
+  entityId?: string
+  /** 实体类型，决定跳转时用哪个筛选参数 */
+  entityType?: 'account' | 'category'
 }
 
 export interface PredictionConfig {
@@ -69,6 +73,8 @@ export interface ReportDetailListProps<M = Record<string, number | string | null
   extra?: React.ReactNode
   /** sessionStorage key，用于跨 route 保持展开状态 */
   storageKey?: string
+  /** 节点点击时回调，由父组件提供跳转逻辑 */
+  onEntityClick?: (entityType: string, entityId: string) => void
 }
 
 // ===== Helpers =====
@@ -179,6 +185,7 @@ function DetailNode<M>({
   useClickTrigger,
   expandedKeys,
   onToggle,
+  onEntityClick,
 }: {
   node: ReportTreeNode<M>
   config: ReportDetailConfig<M>
@@ -187,6 +194,7 @@ function DetailNode<M>({
   useClickTrigger?: boolean
   expandedKeys: Set<string>
   onToggle: (key: string) => void
+  onEntityClick?: (entityType: string, entityId: string) => void
 }) {
   const hasChildren = node.children && node.children.length > 0
   const isTopLevel = depth === 0
@@ -244,8 +252,12 @@ function DetailNode<M>({
             />
           )}
           <span
-            className={`report-detail-row__name${hasChildren ? ' report-detail-row__name--expandable' : ''}`}
-            onClick={hasChildren ? handleToggle : undefined}
+            className={`report-detail-row__name${node.entityId ? ' report-detail-row__name--clickable' : ''}`}
+            onClick={
+              node.entityId && onEntityClick
+                ? (e) => { e.stopPropagation(); onEntityClick(node.entityType!, node.entityId!) }
+                : undefined
+            }
           >
             {node.name}
           </span>
@@ -272,6 +284,7 @@ function DetailNode<M>({
           useClickTrigger={useClickTrigger}
           expandedKeys={expandedKeys}
           onToggle={onToggle}
+          onEntityClick={onEntityClick}
         />
       ))}
     </>
@@ -303,6 +316,7 @@ export function ReportDetailList<M>({
   title,
   extra,
   storageKey,
+  onEntityClick,
 }: ReportDetailListProps<M>) {
   const defaultExpandedKeys = (() => {
     if (defaultExpanded) return new Set(collectKeys(data, 0, Infinity))
@@ -376,6 +390,7 @@ export function ReportDetailList<M>({
             useClickTrigger={useClickTrigger}
             expandedKeys={expandedKeys}
             onToggle={handleToggle}
+            onEntityClick={onEntityClick}
           />
         ))}
       </div>

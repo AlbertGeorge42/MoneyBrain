@@ -7,6 +7,7 @@ import {
   PlusOutlined,
   ArrowUpOutlined, ArrowDownOutlined, SwapOutlined,
 } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/common'
 import { ResponsiveDrawer } from '../components/common'
 import { BudgetForm, BudgetFormType } from '../components/budgets'
@@ -67,6 +68,7 @@ const Budgets: React.FC = () => {
   const [detailVisible, setDetailVisible] = useState(false)
   const [editVisible, setEditVisible] = useState(false)
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null)
+  const navigate = useNavigate()
 
   // 预算状态映射
   const budgetStatusMap = useMemo(() => {
@@ -297,6 +299,11 @@ const Budgets: React.FC = () => {
             <BudgetDetailFooter
               onEdit={handleEditFromDetail}
               onDelete={handleDelete}
+              onViewTransactions={() => {
+                if (selectedBudget?.categoryId) {
+                  navigate(`/transactions?categoryId=${selectedBudget.categoryId}`)
+                }
+              }}
               isDeleting={deleteBudgetMutation.isPending}
             />
           }

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Button, Card, Grid, Statistic, Tag, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
@@ -12,6 +12,7 @@ import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
 import { useTheme } from '../../styles/ThemeContext'
 import { useAmountColors } from '../../hooks/useAmountColors'
+import { TransactionDrawer } from '../transactions'
 
 /** 默认分类的固定图标和颜色映射 */
 const ACTIVITY_META: Record<string, { icon: string; iconColor: string }> = {
@@ -78,6 +79,8 @@ function adaptCashFlowActivity(
       name: item.categoryName,
       icon: item.icon ?? undefined,
       iconColor: item.color ?? null,
+      entityId: item.categoryId || undefined,
+      entityType: item.categoryId ? ('category' as const) : undefined,
       metrics: {
         inflow: item.direction === 'inflow' ? item.amount : 0,
         outflow: item.direction === 'outflow' ? item.amount : 0,
@@ -90,6 +93,8 @@ function adaptCashFlowActivity(
         name: child.categoryName,
         icon: child.icon ?? undefined,
         iconColor: child.color ?? null,
+        entityId: child.categoryId || undefined,
+        entityType: child.categoryId ? ('category' as const) : undefined,
         metrics: {
           inflow: child.direction === 'inflow' ? child.amount : 0,
           outflow: child.direction === 'outflow' ? child.amount : 0,
@@ -109,12 +114,18 @@ function adaptCashFlowActivity(
   const totalInflow = activity.inflow.actual + activity.inflow.predicted
   const totalOutflow = activity.outflow.actual + activity.outflow.predicted
 
+  // 收集子节点 entityId，用逗号分隔，支持按分类筛选关联交易
+  const inflowCategoryIds = inflowItems.map(item => item.entityId).filter(Boolean).join(',')
+  const outflowCategoryIds = outflowItems.map(item => item.entityId).filter(Boolean).join(',')
+
   return [
     {
       key: `inflow-${activityKey}`,
       name: '流入',
       icon: 'arrow-up',
       iconColor: INFLOW_COLOR,
+      entityId: inflowCategoryIds || undefined,
+      entityType: inflowCategoryIds ? ('category' as const) : undefined,
       metrics: { inflow: totalInflow, outflow: 0, net: totalInflow, actual: activity.inflow.actual, predicted: activity.inflow.predicted },
       children: inflowItems,
     },
@@ -124,6 +135,8 @@ function adaptCashFlowActivity(
       icon: 'arrow-down',
       iconColor: OUTFLOW_COLOR,
       // outflow 已是负数
+      entityId: outflowCategoryIds || undefined,
+      entityType: outflowCategoryIds ? ('category' as const) : undefined,
       metrics: { inflow: 0, outflow: totalOutflow, net: totalOutflow, actual: activity.outflow.actual, predicted: activity.outflow.predicted },
       children: outflowItems,
     },
@@ -153,6 +166,38 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
   const { token } = theme.useToken()
   const { isDark } = useTheme()
   const amountColors = useAmountColors()
+
+  // 抽屉状态
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerTitle, setDrawerTitle] = useState('')
+  const [drawerFilters, setDrawerFilters] = useState<{
+    categoryId?: string[]
+    dateRange: RangeTimeValue
+  }>({ categoryId: [], dateRange: timeRange })
+
+  const handleEntityClick = (entityType: string, entityId: string) => {
+    if (entityType !== 'category') return
+    // 获取分类名称作为标题
+    const allItems = Object.values(byActivity).flatMap(activity =>
+      (activity.items || []).map(item => ({
+        categoryId: item.categoryId,
+        name: item.categoryName,
+      }))
+    )
+    const findName = (items: Array<{ categoryId: string | null; name: string }>, id: string): string | undefined => {
+      for (const item of items) {
+        if (item.categoryId === id) return item.name
+      }
+      return undefined
+    }
+    const name = findName(allItems, entityId)
+    setDrawerTitle(`交易记录 — ${name || '分类'}`)
+    setDrawerFilters({
+      categoryId: entityId.split(','),
+      dateRange: timeRange,
+    })
+    setDrawerOpen(true)
+  }
 
   const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
@@ -373,6 +418,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               loading={loading}
               isFuture={showPred}
               useClickTrigger={useClickTrigger}
+              onEntityClick={handleEntityClick}
               title={isFuture ? <>{title} <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : title}
             />
           )
@@ -461,6 +507,13 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
           {detailSection}
         </>
       )}
+
+      <TransactionDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={drawerTitle}
+        filters={drawerFilters}
+      />
     </div>
   )
 }

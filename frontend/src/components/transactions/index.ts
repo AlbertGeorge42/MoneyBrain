@@ -12,5 +12,6 @@ export type { TransactionFilterValues } from './TransactionFilter'
 export { default as TransactionStats } from './TransactionStats'
 export { default as TransactionTable } from './TransactionTable'
 export { default as TransactionItemRow } from './TransactionItemRow'
+export { default as TransactionDrawer } from './TransactionDrawer'
 
 export { default as FloatingActionButton } from './FloatingActionButton'
