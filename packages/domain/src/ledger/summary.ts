@@ -114,13 +114,17 @@ export function budgetUsage(
 
   for (const transaction of transactions) {
     if (!countable(transaction) || !contains(input.period, transaction.date)) continue
-    if (transaction.categoryId && !input.categoryIds.has(transaction.categoryId)) continue
+    // 未分类的交易不计入任何分类预算
+    if (!transaction.categoryId || !input.categoryIds.has(transaction.categoryId)) continue
 
+    // 转账预算绑定「转出账户 + 转入账户」，只统计这一对账户之间的转账；
+    // 收支预算只认自己的账户
     const accountMatches =
-      transaction.accountId === input.accountId ||
-      (transaction.kind === 'transfer' &&
-        input.toAccountId != null &&
-        transaction.toAccountId === input.toAccountId)
+      input.kind === 'transfer'
+        ? transaction.kind === 'transfer' &&
+          transaction.accountId === input.accountId &&
+          (input.toAccountId == null || transaction.toAccountId === input.toAccountId)
+        : transaction.accountId === input.accountId
 
     if (!accountMatches) continue
 

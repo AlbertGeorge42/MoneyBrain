@@ -116,4 +116,20 @@ describe('analytics.service', () => {
       { name: '午餐', value: 250, categoryId: 'lunch', hasChildren: false },
     ])
   })
+
+  it('分类占比未指定期间时默认近 12 个月', async () => {
+    mockPrisma.transactionCategory.findMany.mockResolvedValue([
+      { id: 'food', name: '餐饮', type: 'expense', parentId: null },
+    ])
+    mockPrisma.transaction.findMany.mockResolvedValue([])
+
+    await getCategoryBreakdown('expense')
+
+    const where = mockPrisma.transaction.findMany.mock.calls[0][0].where
+    expect(where.date).toBeDefined()
+    // 系统时间 2026-10 → 窗口 [2025-10-01, 2026-11-01)
+    expect(where.date.gte.getFullYear()).toBe(2025)
+    expect(where.date.lt.getFullYear()).toBe(2026)
+    expect(where.date.lt.getMonth()).toBe(10)
+  })
 })

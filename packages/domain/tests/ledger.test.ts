@@ -173,8 +173,57 @@ test('预算用量按分类、账户、期间统计并冲减退款', () => {
   )
 })
 
-test('退款金额不能超过原交易净额', () => {
-  const original = tx({ id: 'e1', kind: 'expense', date: d('2026-01-01'), amount: money(100), accountId: 'A', categoryId: 'food' })
+test('转账预算只统计绑定的那一对账户之间的转账', () => {
+  const categoryIds = new Set(['move'])
+  const period = periodOfMonth(d('2026-01-15'))
+  const transactions: LedgerTransaction[] = [
+    tx({ id: '1', kind: 'transfer', date: d('2026-01-03'), amount: money(100), accountId: 'A', toAccountId: 'B', categoryId: 'move' }),
+    // 其它账户转入同一目标账户，不属于本预算
+    tx({ id: '2', kind: 'transfer', date: d('2026-01-04'), amount: money(30), accountId: 'C', toAccountId: 'B', categoryId: 'move' }),
+    // 同一转出账户转往其它账户，也不属于本预算
+    tx({ id: '3', kind: 'transfer', date: d('2026-01-05'), amount: money(20), accountId: 'A', toAccountId: 'D', categoryId: 'move' }),
+  ]
+
+  assert.equal(
+    budgetUsage(transactions, {
+      kind: 'transfer',
+      period,
+      categoryIds,
+      accountId: 'A',
+      toAccountId: 'B',
+    }),
+    money(100),
+  )
+})
+
+test('未分类的交易不计入分类预算', () => {
+  const categoryIds = new Set(['food'])
+  const period = periodOfMonth(d('2026-01-15'))
+  const transactions: LedgerTransaction[] = [
+    tx({ id: '1', kind: 'expense', date: d('2026-01-03'), amount: money(50), accountId: 'A' }),
+  ]
+
+  assert.equal(
+    budgetUsage(transactions, { kind: 'expense', period, categoryIds, accountId: 'A' }),
+    money(0),
+  )
+})
+
+test('跨期退款不会让预算已用为负', () => {
+  const categoryIds = new Set(['food'])
+  const period = periodOfMonth(d('2026-02-15'))
+  const transactions: LedgerTransaction[] = [
+    // 本期只有退款（上期支出已不在本期）
+    tx({ id: '1', kind: 'refund', date: d('2026-02-03'), amount: money(80), accountId: 'A', categoryId: 'food', relatedType: 'expense' }),
+  ]
+
+  assert.equal(
+    budgetUsage(transactions, { kind: 'expense', period, categoryIds, accountId: 'A' }),
+    money(0),
+  )
+})
+
+test('退款金额不能超过原交易净额', () => {  const original = tx({ id: 'e1', kind: 'expense', date: d('2026-01-01'), amount: money(100), accountId: 'A', categoryId: 'food' })
   const refunds = [
     tx({ id: 'r1', kind: 'refund', date: d('2026-01-02'), amount: money(30), accountId: 'A', categoryId: 'food', relatedTransactionId: 'e1', relatedType: 'expense' }),
   ]

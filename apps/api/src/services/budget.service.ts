@@ -1,4 +1,5 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
+import type { Budget } from '@prisma/client'
 import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
@@ -206,6 +207,108 @@ async function getCategoryWithDescendants(
   return collectDescendantIds(categoryId, childrenMap)
 }
 
+type BudgetPlan = {
+  budget: Budget
+  dateRange: { startDate: Date; endDate: Date }
+  categoryIds: string[]
+}
+
+/** 预算状态（金额为 number，序列化时由统一出口转换） */
+type BudgetStatusResult = {
+  budget: Budget
+  used: number
+  remaining: number
+  percentage: number
+  isOverBudget: boolean
+}
+
+type UsageRow = {
+  accountId: string
+  toAccountId: string | null
+  categoryId: string | null
+  type: string
+  relatedType: string | null
+  amount: Decimal | null
+}
+
+/**
+ * 一次性聚合出该期间内、相关账户与分类下的用量。
+ * 按「账户 × 转入账户 × 分类 × 类型 × 退款原类型」分组，
+ * 返回行数与分类数量相关，与交易笔数无关。
+ */
+async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
+  const first = group[0]
+  const accountIds = [...new Set(group.map((plan) => plan.budget.accountId))]
+  const categoryIds = [...new Set(group.flatMap((plan) => plan.categoryIds))]
+
+  const grouped = await prisma.transaction.groupBy({
+    by: ['accountId', 'toAccountId', 'categoryId', 'type', 'relatedType'],
+    where: {
+      date: { gte: first.dateRange.startDate, lt: first.dateRange.endDate },
+      accountId: { in: accountIds },
+      categoryId: { in: categoryIds },
+      excludeFromIncomeExpense: false,
+      type: { in: ['income', 'expense', 'refund', 'transfer'] },
+    },
+    _sum: { amount: true },
+  })
+
+  return grouped.map((row) => ({
+    accountId: row.accountId,
+    toAccountId: row.toAccountId,
+    categoryId: row.categoryId,
+    type: row.type,
+    relatedType: row.relatedType,
+    amount: row._sum.amount,
+  }))
+}
+
+/** 按预算口径从聚合行里算出已用、剩余与百分比。 */
+function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusResult {
+  const { budget, categoryIds } = plan
+  const categorySet = new Set(categoryIds)
+  const isTransferBudget = budget.type === 'transfer'
+
+  let used = ZERO
+
+  for (const row of rows) {
+    // 未分类的交易不计入任何分类预算
+    if (!row.categoryId || !categorySet.has(row.categoryId)) continue
+    const amount = row.amount ?? ZERO
+
+    if (row.type === budget.type) {
+      // 转账预算绑定「转出账户 + 转入账户」，只统计这一对账户之间的转账
+      if (isTransferBudget) {
+        if (row.accountId !== budget.accountId) continue
+        if (budget.toAccountId && row.toAccountId !== budget.toAccountId) continue
+      } else if (row.accountId !== budget.accountId) {
+        continue
+      }
+      used = used.plus(amount)
+    } else if (row.type === 'refund' && row.relatedType === budget.type) {
+      // 退款冲减按退款自身的账户与分类
+      if (isTransferBudget) continue
+      if (row.accountId !== budget.accountId) continue
+      used = used.minus(amount)
+    }
+  }
+
+  // 跨期退款会让本期已用为负；下限夹到 0，剩余不得超过额度
+  const clamped = Decimal.max(used, ZERO)
+  const amount = budget.amount
+  const percentage = amount.isZero()
+    ? 0
+    : Decimal.min(clamped.dividedBy(amount).times(100).toDecimalPlaces(0), 100).toNumber()
+
+  return {
+    budget,
+    used: clamped.toNumber(),
+    remaining: Decimal.max(amount.minus(clamped), ZERO).toNumber(),
+    percentage,
+    isOverBudget: clamped.greaterThan(amount),
+  }
+}
+
 export async function getBudgetStatusesByIds(budgetIds: string[]) {
   if (budgetIds.length === 0) return []
 
@@ -215,50 +318,41 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
   })
 
   const childrenMap = await buildCategoryChildrenMap()
+  const now = new Date()
 
-  const results = await Promise.all(
-    budgets.map(async (budget) => {
-      const now = new Date()
-      const dateRange = getPeriodRange(budget.period, now)
-      const categoryIds = await getCategoryWithDescendants(budget.categoryId, childrenMap)
-
-      // 预算口径必须与流水一致：同一期间、同一账户、同一分类树；
-      // 退款按原交易类型冲减，否则支出预算会把已退的钱继续算作已用。
-      const baseWhere = {
-        type: budget.type as string,
-        date: { gte: dateRange.startDate, lt: dateRange.endDate },
-        categoryId: { in: categoryIds },
-        accountId: budget.accountId,
-        excludeFromIncomeExpense: false,
-      }
-      const [usedResult, refundResult] = await Promise.all([
-        prisma.transaction.aggregate({
-          where: baseWhere,
-          _sum: { amount: true },
-        }),
-        budget.type === 'income' || budget.type === 'expense'
-          ? prisma.transaction.aggregate({
-              where: { ...baseWhere, type: 'refund', relatedType: budget.type },
-              _sum: { amount: true },
-            })
-          : Promise.resolve({ _sum: { amount: null } }),
-      ])
-
-      const used = (usedResult._sum.amount || ZERO).minus(refundResult._sum.amount || ZERO)
-      const amount = budget.amount
-      const percentage = amount.isZero() ? 0 : Math.min(used.dividedBy(amount).times(100).toDecimalPlaces(0).toNumber(), 100)
-
-      return {
-        budget,
-        used: used.toNumber(),
-        remaining: Decimal.max(amount.minus(used), ZERO).toNumber(),
-        percentage,
-        isOverBudget: used.greaterThan(amount),
-      }
-    })
+  // 每个预算的期间与分类子树
+  const plans: BudgetPlan[] = await Promise.all(
+    budgets.map(async (budget) => ({
+      budget,
+      dateRange: getPeriodRange(budget.period, now),
+      categoryIds: await getCategoryWithDescendants(budget.categoryId, childrenMap),
+    }))
   )
 
-  return results
+  // 同一期间的预算共用一次聚合查询，避免每个预算各查两次
+  const plansByRange = new Map<string, BudgetPlan[]>()
+  for (const plan of plans) {
+    const key = `${plan.dateRange.startDate.getTime()}-${plan.dateRange.endDate.getTime()}`
+    const group = plansByRange.get(key)
+    if (group) {
+      group.push(plan)
+    } else {
+      plansByRange.set(key, [plan])
+    }
+  }
+
+  const statusByBudgetId = new Map<string, BudgetStatusResult>()
+  for (const group of plansByRange.values()) {
+    const rows = await aggregateUsageRows(group)
+    for (const plan of group) {
+      statusByBudgetId.set(plan.budget.id, computeBudgetStatus(plan, rows))
+    }
+  }
+
+  // 保持与 budgets 一致的顺序
+  return budgets
+    .map((budget) => statusByBudgetId.get(budget.id))
+    .filter((status): status is BudgetStatusResult => Boolean(status))
 }
 
 /**

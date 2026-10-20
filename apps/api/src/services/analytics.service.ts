@@ -89,12 +89,20 @@ export async function getDashboardSummary() {
   }
 }
 
+/** 近 12 个月窗口：趋势图与分类占比共用，未指定期间时按此范围查询。 */
+function recent12MonthsWindow(): { startDate: Date; endExclusive: Date } {
+  const now = new Date()
+  return {
+    startDate: new Date(now.getFullYear(), now.getMonth() - 11, 1),
+    endExclusive: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+  }
+}
+
 export async function getTrends(type: string): Promise<TrendItem[]> {
   if (type !== 'income' && type !== 'expense') return []
 
   const now = new Date()
-  const startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1)
-  const endExclusive = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const { startDate, endExclusive } = recent12MonthsWindow()
 
   // 单次查询获取12个月全部数据，退款交给领域层冲减。
   const transactions = await prisma.transaction.findMany({
@@ -140,6 +148,11 @@ export async function getCategoryBreakdown(
       gte: dayStart(startDate),
       lt: nextDay(endDate),
     }
+  } else {
+    // 未指定期间时默认近 12 个月（与趋势图一致），
+    // 避免首页每次加载都扫描全部历史交易
+    const window = recent12MonthsWindow()
+    where.date = { gte: window.startDate, lt: window.endExclusive }
   }
 
   // 先加载全量分类：用于构建层级结构、判断 hasChildren

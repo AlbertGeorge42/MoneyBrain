@@ -274,6 +274,15 @@ export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseD
   const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
+  // 改类型会反转已有退款的冲减方向（收入退款 ↔ 支出退款），必须先处理退款
+  const nextType = data.type || oldTransaction.type
+  if (nextType !== oldTransaction.type) {
+    const refundCount = await prisma.transaction.count({ where: { relatedTransactionId: id } })
+    if (refundCount > 0) {
+      throw new ValidationError('该交易存在退款，不能修改交易类型')
+    }
+  }
+
   const merged = mergeTransactionData(oldTransaction, data)
 
   const transaction = await prisma.transaction.update({
