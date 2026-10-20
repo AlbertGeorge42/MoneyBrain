@@ -64,6 +64,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 转账：`Δ转出 + Δ转入 == −fee` | ✅ | 同上 |
 | 期初余额当天交易计入 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts`（`periodOf` 各周期边界） |
+| 预算：退款冲减、跨期退款下限为 0、未分类不计入、转账只算绑定的那一对账户 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts` |
+| 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 预算用量在周期最后一天计入 | 🔄 实现已用 `periodOf` 半开区间，缺专门断言 | — |
 | `Σ 所有账户余额 == 净资产` | 🔄 单账户余额已测，聚合恒等式未断言 | — |
 | `期末净资产 − 期初净资产 == 净收入 − 净支出` | ⬜ 未覆盖（报表无对账条） | — |
@@ -81,13 +83,11 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 | 模块 | 位置 | 该测什么 |
 |---|---|---|
-| 预算用量与状态 | `apps/api/src/services/budget.service.ts` | 正常值、退款冲减、跨期退款（用量下限 0）、转账预算的账户侧、周期末日 |
 | 收入支出表 | `apps/api/src/services/report/income-expense.service.ts` | 净收入/净支出、退款冲减、未分类、期初期末自洽 |
 | 现金流量表 | `apps/api/src/services/report/cash-flow-*` | 三活动 + 未分类合计 == 总流入/流出、手续费单列 |
 | 投资分析 | `apps/api/src/services/report/investment-analysis-*` | 收益分层、外部现金流与本金分离 |
 | 备份与恢复 | `apps/api/src/services/backup.service.ts` | 往返一致、`schemaVersion` 写入 |
 | 清库 | `apps/api/src/services/clear-data.service.ts` | 按范围清空、不误删范围外数据 |
-| 交易列表统计 | `apps/api/src/services/transaction.service.ts` | 统计口径与报表口径一致 |
 
 ### 5.4 尚未覆盖（列入计划）
 

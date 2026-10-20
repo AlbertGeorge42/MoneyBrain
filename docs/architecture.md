@@ -130,13 +130,12 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `Decimal`，
 
 | 债 | 位置 | 后果 |
 |---|---|---|
-| 口径重复：预算用量、可退金额、收支表、现金流各有一份自己的汇总；领域层的 `budgetUsage` / `remainingRefundable` 只被测试调用 | `services/budget.service.ts:227`、`services/transaction.service.ts:219`、`services/report/income-expense.service.ts:44` | 同一问题有两个答案；已确认转账预算两侧口径不一致 |
+| 口径重复：预算用量、可退金额、收支表、现金流各有一份自己的汇总；领域层的 `budgetUsage` / `remainingRefundable` 只被测试调用 | `services/budget.service.ts:227`、`services/transaction.service.ts:219`、`services/report/income-expense.service.ts:44` | 同一问题有两个答案；领域函数与线上口径需要人工保持一致 |
+| 决定数字的路径大多没有单测：收支表、现金流、投资分析、备份、清库 | `apps/api/tests/unit/` | 口径改动没有安全网（预算用量与改类型保护已补测试） |
 | 无版本化迁移：只有 `prisma db push`，没有 `prisma/migrations/` | `apps/api/prisma/` | 不知道某个库是第几版 schema；无法复现、无法回滚 |
 | 备份无格式版本：manifest 没有 `schemaVersion` | `services/backup.service.ts:30` | 旧备份在 schema 变更后无法可靠导入 |
 | SQLite 未显式配置 WAL / `busy_timeout`，写操作未串行化 | `src/prisma.ts` | 多标签页并发写可能 "database is locked" |
-| 决定数字的路径没有单测：预算用量、收支表、现金流、投资分析、备份、清库 | `apps/api/tests/unit/` | 口径改动没有安全网 |
 | 清库接口不需要确认值 | `routes/data.route.ts:43` | 一次误调用即可清空全部数据 |
-| 查询量随总历史增长：首页分类与报表全量加载 | `services/analytics.service.ts:133`、`services/report/income-expense.service.ts:26` | 用得越久越慢，且成本随总量而非期间增长 |
 
 ## 8. 端口与运行
 
