@@ -1,120 +1,131 @@
-# MoneyBrain 架构
+# MoneyBrain 架构（当前实现）
 
-## 1. 总览
+> 本文回答**现在代码是怎么组织的**。目标态与待办见 [rewrite-blueprint.md](rewrite-blueprint.md)，编码约定见 [dev-guide.md](dev-guide.md)。
+> 本文只描述**已落地**的事实；不写计划，不写历史。
+
+## 1. 分层总览
 
 ```
 React SPA (apps/web)
-   │  React Query + Axios
+   │  TanStack Query + Axios
    ▼
 Express API (apps/api)
-   │  参数校验 / 编排 / 事务
+   │  参数校验 / 用例编排 / 事务
    ▼
-packages/domain（纯函数）
-   ├─ money.ts      整数分
-   ├─ date.ts       LocalDate + 半开区间
-   ├─ ledger/       交易 → 分录 → 余额/收支/预算
-   └─ tests/        不变量与回归用例
-   │
+packages/domain（纯函数，算钱的唯一位置）
+   │  money.ts · date.ts · ledger/{types,postings,summary}.ts
    ▼
 Prisma → SQLite
 ```
 
-领域层不依赖 React、Express、Prisma。API 只负责取数、调用领域函数、组装 DTO。
+领域层不依赖 React、Express、Prisma、Node API。API 只负责取数、调用领域函数、组装 DTO。
 
-## 2. 记账内核
+### 依赖方向
 
-### 2.1 交易 → 分录
-
-```
-income     账户 +amount        分类 -amount
-expense    账户 -amount        分类 +amount
-transfer   转出 -(本金+手续费)  转入 +本金   手续费 +有效手续费
-refund     支出退款 账户 +amount；收入退款 账户 -amount
-adjustment 账户 +amount        权益 -amount
+```text
+apps/web  →  packages/contracts, packages/domain（仅类型/纯函数）
+apps/api  →  packages/contracts, packages/domain
+packages/domain → 无外部依赖
 ```
 
-所有金额影响都由 `postingsOf()` 产生，余额、报表、预算消费同一组分录。
+当前后端用相对路径导入领域包（`../../../../packages/domain/src/index.js`），避免开发期额外构建步骤；`tsc` 会把 `packages/domain` 一起编译到 `apps/api/dist/packages/domain`。
 
-### 2.2 核心函数
+## 2. 记账内核（packages/domain）
 
-| 函数 | 用途 |
+| 模块 | 职责 |
 |---|---|
-| `postingsOf(tx)` | 单笔交易的分录 |
-| `balanceAt` / `balanceBefore` | 账户余额 |
-| `summarizeFlows` | 收入、支出、退款、净额 |
-| `flowByCategory` | 分类明细 |
-| `budgetUsage` | 预算已用（含退款冲减） |
-| `remainingRefundable` | 可退余额 |
+| `money.ts` | 整数分金额 `Minor`；`add/sub/neg/sum/min/max`、`fromMajor/toMajor`、`parseAmount` |
+| `date.ts` | `LocalDate`（`YYYY-MM-DD`）；`localDate/today/compare/isBefore`、期间 `periodOf`、半开区间工具 |
+| `ledger/types.ts` | `LedgerTransaction`、`TransactionKind`、`Posting`、`OpeningBalance` |
+| `ledger/postings.ts` | **交易 → 分录**：`postingsOf`、`accountDelta`、`balanceAt`、`balanceBefore`、`transferOutflow`、`effectiveTransferFee` |
+| `ledger/summary.ts` | **分录 → 报表**：`summarizeFlows`、`flowByCategory`、`budgetUsage`、`remainingRefundable` |
 
-### 2.3 不变量
+分录规则（口径定义见 [requirements.md](requirements.md) §3.1，实现见 `ledger/postings.ts` 的 `postingsOf`）：
 
-1. 每笔交易的分录之和为 0。
-2. 期末净资产 − 期初净资产 = 净收入 − 净支出。
-3. 转账：`Δ转出 + Δ转入 = −手续费`。
-4. 全额退款后余额回到原交易前。
-5. 同一笔交易在余额/收支/预算中的归属可追溯到同一条分录。
+```text
+income      账户 +amount      分类 −amount
+expense     账户 −amount      分类 +amount
+transfer    转出 −(本金+fee)   转入 +本金    手续费 +fee
+refund      支出退款 账户 +amount；收入退款 账户 −amount
+adjustment  账户 +amount      权益 −amount
+```
 
-## 3. 后端模块
+记账不变量（6 条）及其测试覆盖情况见 [rewrite-blueprint.md](rewrite-blueprint.md) §1 与 [testing.md](testing.md) §5。
 
-| 模块 | 职责 | 与领域层关系 |
-|---|---|---|
-| `account.service` | 账户 CRUD、余额查询 | 调用 `calculateBalancesBatch` |
-| `transaction.service` | 交易创建/更新/退款 | 退款上限校验 |
-| `balance.service` | 批量余额 | 直接使用 `balanceBefore` |
-| `budget.service` | 预算 CRUD、状态、预测 | 期间用 domain，状态已接账户/退款 |
-| `report/` | 四张报表 | 收支表使用净额 + 退款口径 |
-| `import/export/` | CSV/配置导入导出 | 幂等键、范围过滤、覆盖确认已落地 |
-| `investment/` | 快照与收益分析 | 保存/编辑/删除后重排前链；未分类差额允许保存 |
-| `common/` | 错误、HTTP、日期、日志 | `date.ts` 仅保留边界转换 |
+> 领域层与后端之间的适配在 `apps/api/src/services/ledger.adapter.ts`（Prisma/Decimal ↔ 领域类型）。
 
-## 4. 前端数据流
+## 3. 后端模块（apps/api/src）
+
+| 位置 | 职责 |
+|---|---|
+| `routes/*.route.ts` | 参数解析、校验、委托 service；不写业务判断、不算钱 |
+| `services/account*.service.ts` | 账户与账户分类 CRUD、级联清理 |
+| `services/transaction.service.ts` | 交易创建/更新/删除、退款上限校验 |
+| `services/balance.service.ts` | 批量余额（走 `balanceBefore` / `postingsOf`） |
+| `services/budget.service.ts` | 预算 CRUD、状态（走 `budgetUsage`）、预测 |
+| `services/analytics.service.ts` | 首页汇总、趋势、分类占比（走 `summarizeFlows` / `flowByCategory`） |
+| `services/report/*` | 四张报表；现金流拆成 collect → aggregate → build 管线 |
+| `services/import/*`、`services/export/*` | 备份/CSV 导入导出；幂等键、范围过滤、覆盖保护 |
+| `services/investment/*` | 资产类型、快照链、收益分析 |
+| `services/ledger.adapter.ts` | Prisma/Decimal ↔ 领域类型适配 |
+| `common/` | 错误、HTTP 信封、请求 ID、日期、校验器、日志、树工具 |
+
+## 4. 前端数据流（apps/web/src）
 
 ```
 Page → queries/useXxx → services/api.ts → Axios → Express
-                                      ← ApiResponse<T>
+                                    ← ApiResponse<T>（判别联合）
 ```
 
-- 服务端状态：React Query。
-- 客户端状态：组件本地 state + URL 参数，无 Zustand。
-- 样式：CSS 变量 + AntD token；财务色与信息色语义分离。
+| 位置 | 职责 |
+|---|---|
+| `pages/` | 5 个页面：Dashboard、Transactions、Budgets、Reports、Settings |
+| `queries/` | React Query hooks；写操作统一调用 `invalidateLedger(queryClient)` |
+| `services/api.ts` | Axios 实例 + API 对象 + 响应拦截器（统一归一化错误） |
+| `services/apiError.ts` | `ApiClientError`：所有失败的标准形态 |
+| `services/apiResult.ts` | `unwrapApiData(res)`：唯一的响应解包入口 |
+| `components/` | 按领域分目录：`common/ transactions/ budgets/ reports/ investment/ settings/ charts/` |
+| `hooks/` | `useNotify`、`useIsMobile`、`usePersistedState`、`useSearchParamsState` 等 |
+| `styles/` | 主题令牌（`styles/theme/`）与页面样式，语义变量 `--mb-*` |
 
-## 5. 数据库
+**缓存失效**：所有派生数据（余额、收支、报表、预算、分析、投资）都来自同一份交易，
+因此写操作统一失效 `ledger` 根键（`queries/ledger.ts`），不允许各 mutation 手写 key 列表。
 
-当前模型：`AccountCategory`、`Account`、`TransactionCategory`、`Transaction`、
-`Budget`、`InvestmentAssetClass`、`InvestmentAllocationSnapshot`、
-`InvestmentAllocationItem`。
+**错误处理**：拦截器把任何失败归一化为 `ApiClientError`；查询 hook 用 `unwrapApiData` 解包，
+失败一定抛错，不会变成空列表；页面用 `components/common/ErrorState.tsx` 展示原因与重试。
 
-目标模型（见蓝图）：
+## 5. 数据库模型
 
-- 交易只存 `occurred_on`（日期）。
-- 增加 `postings` 表，交易与分录分离。
-- 删除 `previousSnapshotId` 等派生字段。
-- 金额改为整数分（或保留 Decimal 但只作存储）。
+Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `Decimal`，ID 为 `uuid`。
 
-## 6. 迁移状态
+| 模型 | 说明 |
+|---|---|
+| `AccountCategory` | 账户分类（资产/负债），树形；`isCashEquivalent`、`isInvestment` |
+| `Account` | 账户；`initialBalance` + `initialBalanceDate` 即期初余额 |
+| `TransactionCategory` | 收支分类（收入/支出），树形；`cashFlowType` 决定现金流量表归类 |
+| `Transaction` | 交易；`type` 五选一；`fee`/`coupon` 独立；`importKey` 唯一用于导入幂等；`relatedTransactionId` 关联退款；`excludeFromIncomeExpense` 表示不计收支 |
+| `Budget` | 预算；账户 + 分类 + 周期 + 额度 |
+| `InvestmentAssetClass` | 投资资产类型与目标比例 |
+| `InvestmentAllocationSnapshot` | 投资快照；`previousSnapshotId` 为派生链，写入后重排 |
+| `InvestmentAllocationItem` | 快照内的持仓市值与期间净流入 |
 
-已落地：
+数据库不存派生值：余额、预算百分比、快照前链、收益率全部按需计算。
 
-- npm workspaces 与目录迁移：`apps/api`、`apps/web`、`packages/contracts`。
-- 领域核心与测试。
-- 余额：期初当天、退款方向、转账手续费。
-- 预算：半开区间、账户/退款口径。
-- 退款：上限校验、编辑金额还原、有退款的原交易禁止删除。
-- 收支表：未分类节点。
-- CSV 导入幂等键；统一 `ledger` 查询失效入口。
-- 首页汇总、趋势、分类占比统一走领域层，退款按原类型冲减。
-- 导入范围过滤、覆盖导入二次确认、按范围清空与配置覆盖保护。
-- CSV 导出保留「不计收支」标记、稳定 ID、固定时间格式与调整方向。
-- 投资快照前链重排、日期唯一校验、未分类差额允许保存。
-- 现金流量表展示未分类活动。
-- API 默认只监听 `127.0.0.1`，CORS 使用本地前端白名单。
+## 6. 错误与请求链路
 
-未落地：
+```
+前端拦截器 → ApiClientError(code, message, details, requestId)
+                    ▲
+后端 errorHandler ← AppError / Prisma 错误映射
+   请求头 x-request-id ──→ 响应头 x-request-id ──→ 错误体 error.requestId ──→ 后端日志
+```
 
-- `packages/db` / `packages/ui` 拆包。
-- 交易写入的本金/手续费统一（目前仅转账分离）。
-- 导入回滚点、报表对账、鉴权。
-- 前端 feature 切片与设计系统包装层。
-- `packages/contracts` 的 zod schema 与请求/响应契约。
+- 每个请求由 `common/request-id.ts` 分配 ID（复用上游 `x-request-id`，否则生成 UUID）。
+- 错误码只有 `packages/contracts` 里的 `ApiErrorCode` 几种，前后端共用。
+- 未匹配的 `/api/*` 路径也返回同一信封（`NOT_FOUND`），不返回 HTML。
 
-详见 [rewrite-blueprint.md](rewrite-blueprint.md) 与 [audit-report.md](audit-report.md)。
+## 7. 端口与运行
+
+- 后端 `3001`，前端 `3002`（Vite 代理 `/api` → `127.0.0.1:3001`）。
+- API 默认只监听 `127.0.0.1`；需要局域网访问时显式设置 `HOST=0.0.0.0`，并用 `CORS_ORIGINS` 配置允许来源（逗号分隔）。
+- 根目录 `npm run build` 由 `scripts/build.mjs` 串行构建；在 Windows 上把 `TEMP`/`TMP` 指向仓库内临时目录，避开 esbuild 清理系统临时目录的权限问题。
