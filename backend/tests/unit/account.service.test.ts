@@ -63,6 +63,8 @@ vi.mock('../../src/prisma.js', () => {
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
+      count: vi.fn(),
     },
     investmentAssetClass: {
       findMany: vi.fn(),
@@ -307,6 +309,35 @@ describe('account.service', () => {
 
       await expect(deleteAccount('1')).rejects.toThrow(ValidationError)
       expect(mockPrisma.account.delete).not.toHaveBeenCalled()
+    })
+
+    it('有转入交易或预算引用且非 force 删除时应该抛出 ValidationError', async () => {
+      // accountId 交易为 0，toAccountId 转入交易为 2
+      mockPrisma.transaction.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(2)
+      mockPrisma.budget.count.mockResolvedValue(1)
+      mockPrisma.investmentAssetClass.count.mockResolvedValue(0)
+      mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(0)
+
+      await expect(deleteAccount('1')).rejects.toThrow(ValidationError)
+      expect(mockPrisma.account.delete).not.toHaveBeenCalled()
+    })
+
+    it('force 删除时应一并删除引用该账户的预算', async () => {
+      mockPrisma.transaction.count.mockResolvedValue(0)
+      mockPrisma.budget.count.mockResolvedValue(2)
+      mockPrisma.investmentAssetClass.count.mockResolvedValue(0)
+      mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(0)
+      mockPrisma.budget.deleteMany.mockResolvedValue({ count: 2 })
+      mockPrisma.account.delete.mockResolvedValue({ id: '1' })
+
+      const result = await deleteAccount('1', true)
+
+      expect(mockPrisma.budget.deleteMany).toHaveBeenCalledWith({
+        where: { OR: [{ accountId: '1' }, { toAccountId: '1' }] },
+      })
+      expect(result.deletedBudgets).toBe(2)
     })
 
     it('force 删除时应该级联删除交易和投资数据', async () => {

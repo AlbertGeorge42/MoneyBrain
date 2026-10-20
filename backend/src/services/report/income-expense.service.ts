@@ -264,6 +264,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     expenseByCategoryResult[k] = v.toNumber()
   }
 
+  logger.info({ action: 'generate', report: 'income-expense', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')
+
   return {
     startDate,
     endDate,
@@ -283,5 +285,4 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     assetChange: { actual: actualAssetChange, predicted: predictedNetWorthChange },
     predictionNote,
   }
-  logger.info({ action: 'generate', report: 'income-expense', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')
 }

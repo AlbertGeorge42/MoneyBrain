@@ -1,5 +1,5 @@
 import { generatePredictions } from '../budget.service.js'
-import { dayStart, dayEnd, nextDay } from '../../common/date.js'
+import { dayStart, dayEnd, nextDay, formatDateLocal } from '../../common/date.js'
 import { ValidationError } from '../../common/index.js'
 
 // 重导出日期工具，保持原有 import 路径可用
@@ -295,7 +295,8 @@ export async function getPredictionsIfFuture(
   // 否则 startDate 之前的预测（如 startDate=2026-07-01 时，6/9 到 6/30 的预算）
   // 会被吞掉，导致纯预测场景下 startPredicted 永远为 0。
   // 期初/期末的过滤由 computePredictedAssetsLiabilities / computePredictedAccountTotal 内部完成。
-  const nowStr = now.toISOString().split('T')[0]
+  // 使用本地日期而非 UTC，避免东八区凌晨等场景下预测起始日提前一天
+  const nowStr = formatDateLocal(now)
   return generatePredictions(nowStr, endDate)
 }
 

@@ -235,6 +235,8 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     buildStaleAccounts(accountDetails, endDate, 30),
   ])
 
+  logger.info({ action: 'generate', report: 'investment-analysis', period: `${startDateStr}~${endDateStr}`, durationMs: Date.now() - startTime }, 'report generated')
+
   return {
     startDate: startDateStr,
     endDate: endDateStr,
@@ -248,5 +250,4 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     byAccountAllocation,
     staleAccounts,
   }
-  logger.info({ action: 'generate', report: 'investment-analysis', period: `${startDateStr}~${endDateStr}`, durationMs: Date.now() - startTime }, 'report generated')
 }

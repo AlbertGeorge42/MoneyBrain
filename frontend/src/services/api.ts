@@ -92,6 +92,10 @@ export const accountApi = {
   delete: (id: string, force?: boolean) => api.delete<ApiResponse<{
     message: string
     deletedTransactions?: number
+    deletedIncomingTransfers?: number
+    deletedBudgets?: number
+    deletedAssetClasses?: number
+    deletedSnapshots?: number
   }>>(`/accounts/${id}`, { params: { force } }),
 }
 

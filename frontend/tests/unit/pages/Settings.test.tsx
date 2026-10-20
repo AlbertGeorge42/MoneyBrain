@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Settings from '../../../src/pages/Settings'
 
@@ -7,18 +7,36 @@ vi.mock('../../../src/styles/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ mode: 'light', theme: 'light', setThemeMode: vi.fn() })),
 }))
 
-vi.mock('../../../src/queries/account', () => ({
-  useAccounts: vi.fn(() => ({ data: [{ id: '1', name: '现金' }], isLoading: false })),
-  useAccountCategories: vi.fn(() => ({ data: [{ id: '1', name: '资产' }], isLoading: false })),
-}))
+vi.mock('../../../src/queries/account', () => {
+  // 工厂只执行一次，data 保持稳定引用，避免组件 useEffect 依赖反复触发造成无限渲染
+  const accounts = [{ id: '1', name: '现金' }]
+  const accountCategories = [{ id: '1', name: '资产' }]
+  return {
+    useAccounts: vi.fn(() => ({ data: accounts, isLoading: false })),
+    useAccountCategories: vi.fn(() => ({ data: accountCategories, isLoading: false })),
+    // 以下 hook 由 AccountConfigModal 等在渲染时调用（即使弹窗不可见也会执行 hooks）
+    useAccountStats: vi.fn(() => ({ data: { transactionCount: 0 }, isLoading: false })),
+    useAccountBalanceAt: vi.fn(() => ({ data: undefined, isLoading: false })),
+    useCreateAccount: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+    useUpdateAccount: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+    useDeleteAccount: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+    useUpdateAccountCategoryAssetType: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  }
+})
 
-vi.mock('../../../src/queries/category', () => ({
-  useTransactionCategories: vi.fn(() => ({ data: [{ id: '1', name: '餐饮' }], isLoading: false })),
-}))
+vi.mock('../../../src/queries/category', () => {
+  const transactionCategories = [{ id: '1', name: '餐饮' }]
+  return {
+    useTransactionCategories: vi.fn(() => ({ data: transactionCategories, isLoading: false })),
+  }
+})
 
-vi.mock('../../../src/queries/transaction', () => ({
-  useTransactions: vi.fn(() => ({ data: { list: [], total: 150, page: 1, pageSize: 20 }, isLoading: false })),
-}))
+vi.mock('../../../src/queries/transaction', () => {
+  const transactions = { list: [], total: 150, page: 1, pageSize: 20 }
+  return {
+    useTransactions: vi.fn(() => ({ data: transactions, isLoading: false })),
+  }
+})
 
 vi.mock('../../../src/queries/data', () => ({
   useClearTransactions: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
@@ -44,14 +62,16 @@ describe('Settings Page', () => {
     vi.clearAllMocks()
   })
 
-  it('应该显示正确的总交易数（pagination.total）', async () => {
+  it('应该显示配置中心入口', () => {
     renderWithQueryClient(<Settings />)
-    expect(screen.getByText('150')).toBeInTheDocument()
+    expect(screen.getByText('配置中心')).toBeInTheDocument()
+    expect(screen.getByText('现金流分类')).toBeInTheDocument()
+    expect(screen.getByText('投资资产类型')).toBeInTheDocument()
   })
 
-  it('应该显示账户数量', () => {
+  it('应该显示账户分类入口', () => {
     renderWithQueryClient(<Settings />)
-    expect(screen.getByText('账户')).toBeInTheDocument()
+    expect(screen.getByText('账户分类')).toBeInTheDocument()
   })
 
   it('应该显示收支分类数量', () => {
@@ -92,25 +112,21 @@ describe('Settings Page', () => {
     expect(screen.getByText('跟随系统')).toBeInTheDocument()
   })
 
-  it('应该显示导出选项 checkboxes 和快速选择按钮', async () => {
-    const view = renderWithQueryClient(<Settings />)
-    // 展开 Collapse 面板以显示内部内容
-    const collapseHeader = view.container.querySelector('.ant-collapse-header')
-    expect(collapseHeader).not.toBeNull()
-    fireEvent.click(collapseHeader!)
-    // 4 个 Checkbox 标签：交易记录、配置信息、预算配置、投资快照
-    await waitFor(() => {
-      expect(screen.getByText('配置信息（账户、分类）')).toBeInTheDocument()
-    })
-    expect(screen.getByText('预算配置')).toBeInTheDocument()
-    expect(screen.getByText('投资快照')).toBeInTheDocument()
-    // 快速选择按钮
-    const quickButtons = view.container.querySelectorAll('.ant-btn-sm')
-    expect(quickButtons.length).toBeGreaterThanOrEqual(3)
-    const quickTexts = Array.from(quickButtons).map(b => b.textContent?.replace(/\s/g, ''))
-    expect(quickTexts).toContain('全选')
-    expect(quickTexts).toContain('仅配置')
-    expect(quickTexts).toContain('仅数据')
+  it('数据导出区域应展示包含项标签与导出按钮', () => {
+    renderWithQueryClient(<Settings />)
+    // 导出/导入各渲染一组包含项标签
+    expect(screen.getAllByText('交易记录').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('配置信息').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('预算配置').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('投资快照').length).toBeGreaterThan(0)
+    // 导出按钮
+    expect(screen.getAllByRole('button', { name: /导出/ }).length).toBe(1)
+  })
+
+  it('应该显示导入模式选项', () => {
+    renderWithQueryClient(<Settings />)
+    expect(screen.getByText('合并')).toBeInTheDocument()
+    expect(screen.getByText('覆盖')).toBeInTheDocument()
   })
 
   it('应该只显示一个导出按钮', () => {

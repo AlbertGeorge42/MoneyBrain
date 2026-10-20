@@ -149,24 +149,32 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleDeleteAccount = async (id: string) => {
     try {
       const statsRes = await accountApi.getStats(id)
-      const { transactionCount } = statsRes.data.data || {}
-      if (transactionCount && transactionCount > 0) {
-        Modal.confirm({
-          title: '确认删除账户', icon: <ExclamationCircleOutlined />,
-          content: <div><p>该账户下有 <strong style={{ color: token.colorError }}>{transactionCount}</strong> 条交易记录</p><p>删除账户将同时删除这些交易记录，此操作不可恢复！</p></div>,
-          okText: '确认删除', okType: 'danger', cancelText: '取消',
-          onOk: async () => {
-            try {
-              await deleteAccountMutation.mutateAsync({ id, force: true })
-              notify.success(`删除成功，已删除 ${transactionCount} 条交易记录`)
-            } catch { notify.error('删除失败') }
-          },
-        })
-      } else {
-        await deleteAccountMutation.mutateAsync({ id })
-        notify.success('删除成功')
-      }
-    } catch { notify.error('删除失败') }
+      const transactionCount = statsRes.data.data?.transactionCount ?? 0
+      // 删除账户始终二次确认并走 force 删除：除交易外，预算、转入交易、投资大类/快照
+      // 也会因外键约束或静默置空而受影响，统一由后端在 force 模式下级联删除。
+      Modal.confirm({
+        title: '确认删除账户', icon: <ExclamationCircleOutlined />,
+        content: transactionCount > 0
+          ? <div><p>该账户下有 <strong style={{ color: token.colorError }}>{transactionCount}</strong> 条交易记录</p><p>删除账户将同时删除这些交易记录及相关预算，此操作不可恢复！</p></div>
+          : <p>删除后不可恢复，确定要删除该账户吗？</p>,
+        okText: '确认删除', okType: 'danger', cancelText: '取消',
+        onOk: async () => {
+          try {
+            const res = await deleteAccountMutation.mutateAsync({ id, force: true })
+            const deleted = res?.data?.data
+            const parts: string[] = []
+            if (deleted?.deletedTransactions) parts.push(`${deleted.deletedTransactions} 条交易记录`)
+            if (deleted?.deletedIncomingTransfers) parts.push(`${deleted.deletedIncomingTransfers} 条转入交易`)
+            if (deleted?.deletedBudgets) parts.push(`${deleted.deletedBudgets} 个预算`)
+            notify.success(parts.length ? `删除成功，已删除 ${parts.join('、')}` : '删除成功')
+          } catch (error) {
+            notify.error(error instanceof Error ? error.message : '删除失败')
+          }
+        },
+      })
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : '删除失败')
+    }
   }
 
   const handleAccountSubmit = async () => {

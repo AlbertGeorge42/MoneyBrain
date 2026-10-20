@@ -131,8 +131,26 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
 }
 
 export async function deleteAccount(accountId: string, forceDelete = false) {
+  const account = await prisma.account.findUnique({ where: { id: accountId } })
+  if (!account) {
+    throw new NotFoundError('账户')
+  }
+
   const transactionsCount = await prisma.transaction.count({
     where: { accountId },
+  })
+
+  // 转入交易（toAccountId 指向本账户）不会计入 transactionsCount，
+  // 但账户被删除后这些交易会被外键置空 toAccountId，静默破坏转账配对，
+  // 因此必须一并纳入"关联数据"判定与级联删除。
+  const incomingTransfersCount = await prisma.transaction.count({
+    where: { toAccountId: accountId },
+  })
+
+  // 该账户（作为转出或转入方）被预算引用时，外键为 RESTRICT，
+  // 若不先删除预算，删除账户会直接抛出外键错误。
+  const budgetsCount = await prisma.budget.count({
+    where: { OR: [{ accountId }, { toAccountId: accountId }] },
   })
 
   const assetClassesCount = await prisma.investmentAssetClass.count({
@@ -143,11 +161,18 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
     where: { accountId },
   })
 
-  const hasRelatedData = transactionsCount > 0 || assetClassesCount > 0 || snapshotsCount > 0
+  const hasRelatedData =
+    transactionsCount > 0 ||
+    incomingTransfersCount > 0 ||
+    budgetsCount > 0 ||
+    assetClassesCount > 0 ||
+    snapshotsCount > 0
 
   if (!forceDelete && hasRelatedData) {
     const messages: string[] = []
     if (transactionsCount > 0) messages.push(`${transactionsCount} 条交易记录`)
+    if (incomingTransfersCount > 0) messages.push(`${incomingTransfersCount} 条转入交易`)
+    if (budgetsCount > 0) messages.push(`${budgetsCount} 个预算`)
     if (assetClassesCount > 0) messages.push(`${assetClassesCount} 个投资大类`)
     if (snapshotsCount > 0) messages.push(`${snapshotsCount} 个投资快照`)
     throw new ValidationError(`该账户下存在 ${messages.join('、')}，无法删除`)
@@ -155,8 +180,15 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
 
   if (forceDelete && hasRelatedData) {
     await prisma.$transaction(async (tx) => {
+      // 先删引用账户的子表（交易、预算），再删账户
       if (transactionsCount > 0) {
         await tx.transaction.deleteMany({ where: { accountId } })
+      }
+      if (incomingTransfersCount > 0) {
+        await tx.transaction.deleteMany({ where: { toAccountId: accountId } })
+      }
+      if (budgetsCount > 0) {
+        await tx.budget.deleteMany({ where: { OR: [{ accountId }, { toAccountId: accountId }] } })
       }
 
       if (snapshotsCount > 0) {
@@ -179,6 +211,8 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
   return {
     message: '删除成功',
     deletedTransactions: transactionsCount,
+    deletedIncomingTransfers: incomingTransfersCount,
+    deletedBudgets: budgetsCount,
     deletedAssetClasses: assetClassesCount,
     deletedSnapshots: snapshotsCount,
   }

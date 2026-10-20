@@ -6,6 +6,7 @@ import {
   sumPredictionByType,
   sumAssetsLiabilities,
   resolveReportPeriod,
+  formatDateLocal,
   PREDICTION_NOTE_BALANCE_SHEET,
   type DateGranularity,
 } from './report.utils.js'
@@ -64,8 +65,8 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
 
   if (targetDate > now) {
     const predictions = await generatePredictions(
-      now.toISOString().split('T')[0],
-      targetDate.toISOString().split('T')[0]
+      formatDateLocal(now),
+      formatDateLocal(targetDate)
     )
 
     if (predictions.length > 0) {
@@ -146,7 +147,9 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     .filter(c => c.type === 'liability')
     .sort((a, b) => a.sort - b.sort)
 
-  const dateStr = targetDate.toISOString().split('T')[0]
+  const dateStr = formatDateLocal(targetDate)
+
+  logger.info({ action: 'generate', report: 'balance-sheet', period: date, durationMs: Date.now() - startTime }, 'report generated')
 
   return {
     date: dateStr,
@@ -160,5 +163,4 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     liabilityNodes,
     predictionNote,
   }
-  logger.info({ action: 'generate', report: 'balance-sheet', period: date, durationMs: Date.now() - startTime }, 'report generated')
 }

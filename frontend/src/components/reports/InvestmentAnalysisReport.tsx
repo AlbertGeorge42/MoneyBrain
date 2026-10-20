@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Button, Card, Empty, Grid, Statistic, theme } from 'antd'
+import { Button, Card, Empty, Grid, Skeleton, Statistic, theme } from 'antd'
 import { SettingOutlined } from '@ant-design/icons'
 import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../../components/common'
 import { ReportDetailList, type ReportTreeNode, type ReportDetailColumn } from './ReportDetailList'
@@ -158,6 +158,26 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
     </div>
   )
 
+  // 加载中且尚无数据时显示骨架屏，避免误报"暂无投资账户"
+  const renderLoadingState = () => (
+    <div className="section-grid">
+      <div className="report-toolbar" style={{ marginBottom: `${token.padding}px` }}>
+        <div className="report-toolbar__filters">
+          <RangeTimePickerField value={timeRange} config={pickerConfig} onChange={onTimeRangeChange} />
+        </div>
+        <div className="report-toolbar__actions">
+          <Button icon={<SettingOutlined />} onClick={onOpenSettings}>
+            设置
+          </Button>
+        </div>
+      </div>
+
+      <Card className="surface-card report-section-card">
+        <Skeleton active paragraph={{ rows: 6 }} />
+      </Card>
+    </div>
+  )
+
   const reportByCategory = investmentData?.byCategory ?? EMPTY_BY_CATEGORY
   const reportAllocations = investmentData?.byAccountAllocation ?? EMPTY_ALLOCATIONS
 
@@ -173,6 +193,11 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
   )
 
   const isEmpty = !investmentData
+
+  // 加载中且无数据时优先显示骨架屏；已有数据时继续展示旧数据并标记 loading
+  if (loading && isEmpty) {
+    return renderLoadingState()
+  }
 
   // 空状态时提前返回，弹窗在最外层渲染
   if (isEmpty) {
