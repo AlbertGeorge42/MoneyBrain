@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model AccountCategory {
+  id               String             @id @default(uuid())
+  name             String
+  type             String
+  icon             String?
+  color            String?
+  parentId         String?
+  sort             Int                @default(0)
+  parent           AccountCategory?   @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children         AccountCategory[]  @relation("AccountCategoryTree")
+  isCashEquivalent Boolean            @default(false)
+  isInvestment     Boolean            @default(false)
+  accounts         Account[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([parentId])
+  @@map("account_categories")
+}
+
+model Account {
+  id                  String            @id @default(uuid())
+  name                String
+  type                String
+  initialBalance      Decimal           @default(0)
+  initialBalanceDate  DateTime?
+  icon                String?
+  color               String?
+  categoryId          String?
+  sort                Int               @default(0)
+  category            AccountCategory?  @relation(fields: [categoryId], references: [id])
+  fromTransactions    Transaction[]     @relation("TransactionFrom")
+  toTransactions      Transaction[]     @relation("TransactionTo")
+  fromBudgets         Budget[]          @relation("BudgetFrom")
+  toBudgets           Budget[]          @relation("BudgetTo")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  investmentAssetClasses     InvestmentAssetClass[]
+  investmentAllocationSnapshots InvestmentAllocationSnapshot[]
+
+  @@index([categoryId])
+  @@index([type])
+  @@map("accounts")
+}
+
+model TransactionCategory {
+  id           String              @id @default(uuid())
+  name         String
+  type         String              // 'income' | 'expense' | 'transfer'
+  icon         String?
+  color        String?
+  cashFlowType String?
+  parentId     String?
+  sort         Int                 @default(0)
+  parent       TransactionCategory?  @relation("TransactionCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     TransactionCategory[] @relation("TransactionCategoryTree")
+  transactions Transaction[]
+  budgets      Budget[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([parentId])
+  @@map("transaction_categories")
+}
+
+model Transaction {
+  id                  String      @id @default(uuid())
+  importKey           String?     @unique // 导入幂等键：csv:<源ID> 或 natural:<指纹>
+  type                String      // 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
+  amount              Decimal
+  fee                 Decimal     @default(0) // 手续费
+  coupon              Decimal     @default(0) // 优惠券
+  date                DateTime
+  note                String?
+  accountId            String
+  account              Account     @relation("TransactionFrom", fields: [accountId], references: [id])
+  toAccountId          String?
+  toAccount            Account?    @relation("TransactionTo", fields: [toAccountId], references: [id])
+  categoryId           String?
+  category             TransactionCategory? @relation(fields: [categoryId], references: [id])
+  relatedTransactionId  String?    // 关联的原交易ID（退款时使用）
+  relatedType          String?    // 原交易类型：'income' | 'expense'（退款时记录）
+  excludeFromIncomeExpense Boolean @default(false) // 不计收支：不参与收入/支出统计（仍影响账户余额）
+  relatedTransaction   Transaction? @relation("TransactionRefund", fields: [relatedTransactionId], references: [id], onDelete: SetNull)
+  refunds              Transaction[] @relation("TransactionRefund")
+  createdAt            DateTime    @default(now())
+
+  @@index([date])
+  @@index([accountId, date])
+  @@index([categoryId, date])
+  @@index([type, date])
+  @@index([relatedTransactionId])
+  @@map("transactions")
+}
+
+model Budget {
+  id              String    @id @default(uuid())
+  name            String                     // 预算名称，如 "每月工资"、"ETF定投"
+  type            String                     // 'income' | 'expense' | 'transfer'
+  amount          Decimal
+  period          String                     // 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+  startDate       DateTime
+  endDate         DateTime?                  // null = 无限期
+  transactionTime Int?                       // 周期内天偏移，null=周期末
+  note            String?                    // 备注
+  isActive        Boolean   @default(true)   // 是否活跃
+
+  // 账户关联（与交易对齐）
+  accountId   String
+  account     Account   @relation("BudgetFrom", fields: [accountId], references: [id])
+
+  toAccountId String?
+  toAccount   Account?  @relation("BudgetTo", fields: [toAccountId], references: [id])
+
+  // 分类关联
+  categoryId  String
+  category    TransactionCategory  @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([accountId])
+  @@index([categoryId])
+  @@index([categoryId, isActive])
+  @@map("budgets")
+}
+
+model InvestmentAssetClass {
+  id          String   @id @default(uuid())
+  accountId   String
+  name        String
+  icon        String?
+  color       String?
+  targetRatio Decimal?
+  sort        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account         Account                    @relation(fields: [accountId], references: [id])
+  allocationItems InvestmentAllocationItem[]
+
+  @@index([accountId])
+  @@map("investment_asset_classes")
+}
+
+model InvestmentAllocationSnapshot {
+  id                  String   @id @default(uuid())
+  accountId           String
+  date                DateTime
+  accountBalance      Decimal
+  previousSnapshotId  String?
+  note                String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  account          Account                     @relation(fields: [accountId], references: [id])
+  items            InvestmentAllocationItem[]
+  previousSnapshot InvestmentAllocationSnapshot? @relation("SnapshotChain", fields: [previousSnapshotId], references: [id])
+  nextSnapshots    InvestmentAllocationSnapshot[] @relation("SnapshotChain")
+
+  @@index([accountId, date])
+  @@map("investment_allocation_snapshots")
+}
+
+model InvestmentAllocationItem {
+  id            String   @id @default(uuid())
+  snapshotId    String
+  assetClassId  String
+  marketValue   Decimal
+  periodNetFlow Decimal  @default(0)
+  sort          Int      @default(0)
+
+  snapshot   InvestmentAllocationSnapshot @relation(fields: [snapshotId], references: [id])
+  assetClass InvestmentAssetClass         @relation(fields: [assetClassId], references: [id])
+
+  @@unique([snapshotId, assetClassId])
+  @@map("investment_allocation_items")
+}

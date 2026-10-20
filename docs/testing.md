@@ -1,63 +1,66 @@
-# MoneyBrain 测试系统
+# MoneyBrain 测试
 
-## 测试层级
+## 1. 层级
 
-| 层级 | 工具 | 范围 | 目录 |
-|------|------|------|------|
-| 后端单元 | Vitest | Common 模块、Service 纯逻辑 | `backend/tests/unit/` |
-| 后端集成 | Vitest + Supertest | API 路由、数据库交互 | `backend/tests/integration/` |
-| 前端单元 | Vitest + React Testing Library | 组件渲染与交互 | `frontend/tests/unit/` |
-| 端到端 | Playwright | 完整用户流程 | `e2e/tests/` |
+| 层级 | 工具 | 目录 | 说明 |
+|---|---|---|---|
+| 领域 | Node Test Runner + tsx | `packages/domain/tests/` | 金额、日期、分录、汇总 |
+| 后端单元 | Vitest | `apps/api/tests/unit/` | service 纯逻辑、Mock Prisma |
+| 后端集成 | Vitest + Supertest | `apps/api/tests/integration/` | 路由 + 测试 SQLite |
+| 前端单元 | Vitest + Testing Library | `apps/web/tests/unit/` | 组件/页面 |
+| 端到端 | Playwright | `e2e/tests/` | 主旅程与响应式 |
 
-## 配置
-
-- 后端 3 个 vitest 配置：`vitest.config.ts`（默认）、`vitest.unit.config.ts`、`vitest.integration.config.ts`
-- 后端 `fileParallelism: false` — 测试文件内顺序执行
-- 全局测试超时 10s（`tests/setup.ts` 中 `vi.setConfig({ testTimeout: 10000 })`）
-- Vitest `@` 别名仅配置在 vitest 配置中（生产代码使用相对 `.js` 导入）
-- Playwright 5 项目：chromium-desktop、firefox-desktop、webkit-desktop、tablet、mobile
-
-## 命令
+## 2. 命令
 
 ```bash
-# 全部
-npm test                         # 后端 + 前端单元/集成
-npm run test:e2e                 # E2E（自动启动服务器）
+npm run test:domain                    # 领域测试
+npm run test:api                       # 后端全部
+npm run test:web                       # 前端
+npm run test:e2e                       # E2E（自动启动服务）
 
-# 后端
-cd backend && npm run test:unit        # 单元测试
-cd backend && npm run test:integration # 集成测试
-cd backend && npm test                 # 全部
-
-# 前端
-cd frontend && npm test                # 全部
-cd frontend && npm run test:coverage   # 覆盖率
+# 只跑后端某一层
+npm run test:unit -w @moneybrain/api
+npm run test:integration -w @moneybrain/api
+# 集成测试会先自动创建/同步 apps/api/prisma/test.db
 ```
 
-## Mock 策略
+## 3. 当前规模
 
-| 测试类型 | 数据库/API |
-|----------|-----------|
-| 后端单元 | `createMockPrisma()`（`backend/tests/mocks/prisma.ts`）— Mock Prisma Client |
-| 后端集成 | `backend/prisma/test.db` — 独立 SQLite 文件 |
-| 前端单元 | 测试 setup 自动 mock：antd message/notification/modal、echarts-for-react、matchMedia、ResizeObserver、IntersectionObserver |
-| E2E | 开发数据库，`clearAllTestData()`（DELETE `/api/data/all`）清理数据 |
+- 领域：18 个用例（金额、期间、五类交易、退款、预算、期初边界）。
+- 后端：19 个测试文件，224 个用例。
+- 前端：6 个测试文件，65 个用例，见 `apps/web/tests/unit/`。
+- E2E：6 个 spec（onboarding、theme、responsive ×2、settings、example）。
 
-## 后端测试
+## 4. Mock 策略
 
-- 单元测试目录 `backend/tests/unit/`（13 个测试文件）
-- 集成测试目录 `backend/tests/integration/`（2 个测试文件）
-- 测试数据工厂：`backend/tests/factories/`
-- Mock Prisma：`backend/tests/mocks/prisma.ts`
+| 层级 | 数据来源 |
+|---|---|
+| 领域 | 纯内存对象，无 mock |
+| 后端单元 | `createMockPrisma()`（`apps/api/tests/mocks/prisma.ts`） |
+| 后端集成 | `apps/api/prisma/test.db`（测试前由 `tests/global-setup.ts` 自动 `db push`） |
+| 前端 | `apps/web/tests/setup.ts` 统一 mock AntD/ECharts/ResizeObserver |
+| E2E | 开发数据库；`clearAllTestData()` 清理。**运行前先备份 `apps/api/prisma/dev.db`，E2E 会清空全部数据。** |
 
-## 前端测试
+## 5. 回归清单
 
-- 目录 `frontend/tests/unit/`
-- 测试 setup 全局配置见 `frontend/tests/setup.ts`
-- API mock：`frontend/tests/mocks/api.ts`
+- [x] 期初日期当天交易计入。
+- [x] 收入退款减少余额、支出退款增加余额。
+- [x] 转账手续费不贷记到目标账户。
+- [x] 预算最后一天（半开区间）。
+- [x] 退款金额超过可退余额时拒绝。
+- [x] 同一 CSV 重复导入不产生重复交易（`importKey`）。
+- [x] 报表合计与分类明细一致（含未分类）。
+- [ ] 导入中断后的回滚点。
+- [ ] 投资快照前链重算。
 
-## E2E 测试
+## 6. 验证顺序
 
-- 6 个 spec：`onboarding.spec.ts`、`theme.spec.ts`、`responsive-desktop.spec.ts`、`responsive-mobile.spec.ts`、`settings.spec.ts`、`example.spec.ts`
-- 辅助函数：`e2e/helpers/test-data.ts`
-- Playwright 自动启动前后端服务器（`playwright.config.ts` webServer 配置）
+`domain → lint → typecheck → test`。CI 未配置前，本地提交前至少跑：
+
+```bash
+npm run test:domain
+npm run typecheck:api
+npm run test:api
+npm run typecheck:web
+npm run test:web
+```

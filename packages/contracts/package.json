@@ -1,0 +1,12 @@
+{
+  "name": "@moneybrain/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MoneyBrain 前后端共享 API 类型与通用工具",
+  "exports": {
+    ".": "./types/index.ts",
+    "./types": "./types/index.ts",
+    "./utils/tree": "./utils/tree.ts"
+  }
+}

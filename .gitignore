@@ -47,8 +47,9 @@ yarn-error.log*
 # Database
 *.db
 *.db-journal
-backend/prisma/dev.db
-backend/prisma/dev.db-journal
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+apps/api/prisma/test-schema.prisma
 
 # Logs
 logs/

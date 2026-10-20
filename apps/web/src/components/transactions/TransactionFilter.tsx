@@ -1,0 +1,295 @@
+import React, { useMemo } from 'react'
+import { Button, Tag, Collapse, TreeSelect, theme } from 'antd'
+import { RangeTimePickerField, type RangeTimePickerConfig, type RangeTimeValue } from '../common'
+import { AccountSelect } from '../common'
+import { Account, AccountCategory, TransactionCategory } from '../../services/api'
+import { buildSortedTree } from '@contracts/utils/tree'
+import {
+  createQuarterRangePreset,
+  createRangePeriodPreset,
+  createTrailingRangePreset,
+  createYearToDatePreset,
+  formatRangeValue,
+} from '../../utils/timePicker'
+import { TRANSACTION_TYPE_CONFIG, TransactionType } from '../../utils/transactionType'
+
+const transactionTimePickerConfig: RangeTimePickerConfig = {
+  label: '筛选周期',
+  allowedGranularities: ['day', 'month', 'year'],
+  presets: {
+    day: [
+      createRangePeriodPreset('today', '今天', 'day'),
+      createRangePeriodPreset('yesterday', '昨天', 'day', -1),
+      createTrailingRangePreset('last-7-days', '近7天', 7, 'day'),
+      createTrailingRangePreset('last-30-days', '近30天', 30, 'day'),
+    ],
+    month: [
+      createRangePeriodPreset('current-month', '本月', 'month'),
+      createRangePeriodPreset('previous-month', '上月', 'month', -1),
+      createTrailingRangePreset('last-3-months', '近3个月', 3, 'month'),
+      createQuarterRangePreset('current-quarter', '本季'),
+    ],
+    year: [
+      createRangePeriodPreset('current-year', '今年', 'year'),
+      createRangePeriodPreset('previous-year', '去年', 'year', -1),
+      createTrailingRangePreset('last-3-years', '近3年', 3, 'year'),
+      createYearToDatePreset('year-to-date', '今年至今'),
+    ],
+  },
+}
+
+const resolveAccountLabel = (
+  id: string,
+  accounts: Account[],
+  accountCategories: AccountCategory[]
+): string | null => {
+  if (id === 'asset_root') return '资产'
+  if (id === 'liability_root') return '负债'
+  if (id.startsWith('category_')) {
+    const categoryId = id.replace('category_', '')
+    const cat = accountCategories.find(c => c.id === categoryId)
+    return cat?.name ?? null
+  }
+  const account = accounts.find(a => a.id === id)
+  return account?.name ?? null
+}
+
+export interface TransactionFilterValues {
+  type: TransactionType[]
+  accountId: string[]
+  categoryId: string[]
+  dateRange: RangeTimeValue | null
+}
+
+interface TransactionFilterProps {
+  accounts: Account[]
+  categories: TransactionCategory[]
+  accountCategories: AccountCategory[]
+  filters: TransactionFilterValues
+  filterExpanded: boolean
+  onFilterChange: (filters: TransactionFilterValues) => void
+  onFilterExpandedChange: (expanded: boolean) => void
+  onSearch: () => void
+  onReset: () => void
+}
+
+const TransactionFilterComponent: React.FC<TransactionFilterProps> = ({
+  accounts,
+  categories,
+  accountCategories,
+  filters,
+  filterExpanded,
+  onFilterChange,
+  onFilterExpandedChange,
+  onSearch,
+  onReset,
+}) => {
+  const { token } = theme.useToken()
+  const spaceStackDefault = `${token.paddingXS}px`
+  const spaceCardPadding = `${token.padding}px`
+
+  // 构建分类合并树（类型为顶层节点，子分类递归挂接）
+  const mergedTypeCategoryTree = useMemo(() => {
+    type TreeNode = { title: string; value: string; key: string; children?: TreeNode[] }
+
+    const toNode = (item: TransactionCategory & { children?: (TransactionCategory & { children?: unknown[] })[] }): TreeNode => ({
+      title: item.name,
+      value: item.id,
+      key: item.id,
+      children: item.children?.length ? item.children.map(c => toNode(c as TransactionCategory & { children?: unknown[] })) : undefined,
+    })
+
+    const nodes: TreeNode[] = []
+    for (const [typeKey, config] of Object.entries(TRANSACTION_TYPE_CONFIG)) {
+      const typeValue = `__type:${typeKey}`
+      const typeCategories = categories.filter(c => c.type === typeKey)
+      const catTree = buildSortedTree(typeCategories)
+      nodes.push({
+        title: config.text,
+        value: typeValue,
+        key: typeValue,
+        children: catTree.length > 0 ? catTree.map(toNode) : undefined,
+      })
+    }
+    return nodes
+  }, [categories])
+
+  // 合并类型+分类的选中值
+  const mergedTypeCategoryValue = useMemo(
+    () => [...filters.type.map(t => `__type:${t}`), ...filters.categoryId],
+    [filters.type, filters.categoryId]
+  )
+
+  // 合并下拉框变化处理
+  const handleTypeCategoryChange = (newValue: unknown) => {
+    const allValues = newValue as string[]
+    const types: TransactionType[] = []
+    const categoryIds: string[] = []
+
+    for (const v of allValues) {
+      if (v.startsWith('__type:')) {
+        const t = v.slice(7) as TransactionType
+        if (t in TRANSACTION_TYPE_CONFIG) {
+          types.push(t)
+        }
+      } else {
+        categoryIds.push(v)
+      }
+    }
+
+    onFilterChange({ ...filters, type: types, categoryId: categoryIds })
+  }
+
+  // 移除单个筛选条件
+  const removeFilter = (key: keyof TransactionFilterValues, value?: string) => {
+    if (key === 'dateRange') {
+      onFilterChange({ ...filters, [key]: null })
+    } else if (value) {
+      onFilterChange({
+        ...filters,
+        [key]: filters[key].filter((v: string) => v !== value)
+      })
+    } else {
+      onFilterChange({ ...filters, [key]: [] })
+    }
+  }
+
+  const hasActiveFilters = filters.type.length > 0 || filters.accountId.length > 0 || filters.categoryId.length > 0 || filters.dateRange !== null
+
+  // 渲染已选筛选条件标签
+  const renderFilterTags = () => (
+    <>
+      {filters.type.map(t => {
+        const config = TRANSACTION_TYPE_CONFIG[t]
+        return (
+          <Tag
+            key={t}
+            variant="outlined"
+            closable
+            onClose={() => removeFilter('type', t)}
+            color={config.tagColor}
+          >
+            {config.text}
+          </Tag>
+        )
+      })}
+      {filters.accountId.map(id => {
+        const label = resolveAccountLabel(id, accounts, accountCategories)
+        return label ? (
+          <Tag variant="outlined" key={id} closable onClose={() => removeFilter('accountId', id)}>
+            {label}
+          </Tag>
+        ) : null
+      })}
+      {filters.categoryId.map(id => {
+        const category = categories.find(c => c.id === id)
+        return category ? (
+          <Tag variant="outlined" key={id} closable onClose={() => removeFilter('categoryId', id)}>
+            {category.name}
+          </Tag>
+        ) : null
+      })}
+      {filters.dateRange && (
+        <Tag variant="outlined" closable onClose={() => removeFilter('dateRange')}>
+          {formatRangeValue(filters.dateRange)}
+        </Tag>
+      )}
+    </>
+  )
+
+  return (
+    <>
+      <Collapse
+        activeKey={filterExpanded ? ['1'] : []}
+        onChange={(keys) => onFilterExpandedChange(keys.length > 0)}
+        items={[
+          {
+            key: '1',
+            label: (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span>筛选条件</span>
+                {hasActiveFilters && (
+                  <div className="filter-tags-inline">
+                    {renderFilterTags()}
+                  </div>
+                )}
+              </div>
+            ),
+            children: (
+              <>
+                <div className="filter-grid">
+                  <div>
+                    <div style={{ marginBottom: spaceStackDefault }}>分类</div>
+                    <TreeSelect
+                      treeData={mergedTypeCategoryTree}
+                      value={mergedTypeCategoryValue}
+                      onChange={handleTypeCategoryChange}
+                      multiple
+                      placeholder="选择分类"
+                      allowClear
+                      showSearch
+                      treeNodeFilterProp="title"
+                      style={{ width: '100%' }}
+                      popupMatchSelectWidth={false}
+                      dropdownStyle={{ minWidth: 280 }}
+                      tagRender={(props) => {
+                        if (typeof props.value === 'string' && props.value.startsWith('__type:')) {
+                          const t = props.value.slice(7) as TransactionType
+                          const config = TRANSACTION_TYPE_CONFIG[t]
+                          if (!config) return <span />
+                          return (
+                            <Tag variant="outlined" closable={props.closable} onClose={props.onClose} color={config.tagColor}>
+                              {config.text}
+                            </Tag>
+                          )
+                        }
+                        const category = categories.find(c => c.id === props.value)
+                        return category ? (
+                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose}>{category.name}</Tag>
+                        ) : <span />
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ marginBottom: spaceStackDefault }}>账户</div>
+                    <AccountSelect
+                      accounts={accounts}
+                      accountCategories={accountCategories}
+                      selectableMode="all"
+                      multiple
+                      placeholder="选择账户"
+                      value={filters.accountId}
+                      onChange={accountId => onFilterChange({ ...filters, accountId: accountId as string[] })}
+                      tagRender={(props) => {
+                        const label = props.value ? resolveAccountLabel(props.value, accounts, accountCategories) : null
+                        return label ? (
+                          <Tag variant="outlined" closable={props.closable} onClose={props.onClose}>{label}</Tag>
+                        ) : <span />
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ marginBottom: spaceStackDefault }}>日期范围</div>
+                    <RangeTimePickerField
+                      value={filters.dateRange}
+                      config={transactionTimePickerConfig}
+                      placeholder="选择时间"
+                      style={{ width: '100%' }}
+                      onChange={(dateRange) => onFilterChange({ ...filters, dateRange })}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginTop: spaceCardPadding, textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <Button onClick={onReset}>重置</Button>
+                  <Button type="primary" onClick={onSearch}>查询</Button>
+                </div>
+              </>
+            ),
+          },
+        ]}
+      />
+    </>
+  )
+}
+
+export default TransactionFilterComponent

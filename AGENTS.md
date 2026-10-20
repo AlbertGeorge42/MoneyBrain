@@ -1,80 +1,81 @@
 # MoneyBrain Agent Guide
 
-MoneyBrain 个人记账软件。前后端分离 monorepo。
+个人记账软件。本地 SQLite、单用户、前后端 TypeScript、npm workspaces。
 
 ## 仓库结构
 
 ```
 MoneyBrain/
-├── frontend/       # React + Vite + TypeScript SPA
-│   ├── src/pages/      # 5 个页面（Dashboard, Transactions, Budgets, Reports, Settings）
-│   ├── src/components/ # charts/, common/, budgets/, reports/, settings/, transactions/, investment/
-│   ├── src/queries/    # React Query hooks（account, transaction, budget, report, analytics...）
-│   ├── src/services/   # 单文件 api.ts — Axios 实例 + 领域 API 对象
-│   ├── src/styles/     # 样式文件 + theme/（设计令牌、CSS 变量）
-│   └── src/hooks/      # useIsMobile, useNotify
-├── backend/        # Express + Prisma + TypeScript API
-│   ├── src/routes/  # 9 个 *.route.ts（kebab-case 命名）
-│   ├── src/services/# 业务逻辑（account, transaction, budget, report/, import/, export/, investment/）
-│   └── src/common/  # 错误类（7 种）、HTTP 辅助、验证器、日志（pino）
-├── shared/         # shared/types/index.ts（API 类型）、shared/utils/tree.ts
-├── e2e/            # Playwright 端到端测试（6 个 spec）
-└── docs/           # 项目文档
+├── apps/
+│   ├── web/              # React + Vite SPA
+│   └── api/              # Express + Prisma API
+├── packages/
+│   ├── domain/           # 纯记账内核（金额、日期、分录、汇总）— 单一事实来源
+│   └── contracts/        # 前后端 API 类型、树工具
+├── e2e/                  # Playwright 端到端测试
+└── docs/                 # 文档（看 docs/README.md）
 ```
 
-各包独立依赖，根 `package.json` 通过 `concurrently` 协调。
+目标结构中的 `packages/db`、`packages/ui` 尚未拆出；`apps/*` 与 `packages/*` 已经就位。
 
-## 命令速查
+## 命令
 
 ```bash
-npm run install:all  # 安装前后端依赖
-npm run dev          # 同时启动前后端
-npm run build        # 构建前后端
-npm run test         # 单元 + 集成测试
-npm run test:e2e     # Playwright E2E 测试
-npm run lint         # lint 后端 + 前端
+npm install                 # 安装全部 workspace
+npm run dev                 # 前后端一起启动（3001 / 3002）
+npm run build               # 构建 web + api
+npm run lint                # lint api + web
+npm run typecheck           # domain + api + web
+npm test                    # domain + api + web 测试
+npm run test:e2e            # Playwright
 ```
 
-### 前端 (cd frontend)
+单独运行：
 
 ```bash
-npm run dev         # Vite dev (port 3002)
-npm run test        # vitest run
-npm run typecheck   # tsc --noEmit
+npm run dev:api
+npm run dev:web
+npm run test:api
+npm run test:web
+npm run test:domain
 ```
 
-### 后端 (cd backend)
+等价于：
 
 ```bash
-npm run dev         # tsx watch (port 3001)
-npm run test        # vitest run
-npm run test:unit   # 单元测试
-npm run test:integration # 集成测试
-npm run db:migrate  # prisma migrate dev
-npm run db:seed     # 种子数据
+cd apps/api  && npm run test:unit && npm run typecheck
+cd apps/web  && npm test && npm run typecheck
+cd packages/domain && npm test
 ```
 
-## 技术栈
+## 不可违反的领域规则
 
-| 层 | 技术 |
-|---|------|
-| 前端 | React 18, TypeScript, Vite, Ant Design 6, ECharts, TanStack React Query, Axios, @dnd-kit |
-| 后端 | Express, TypeScript, Prisma ORM (SQLite), pino 日志 |
-| 测试 | Vitest, React Testing Library, Supertest, Playwright |
+1. **金额影响只有一个实现**：所有余额、收支、预算、退款计算必须经过
+   `packages/domain` 的 `postingsOf` / `summarizeFlows` / `budgetUsage`。
+   组件、route、service 里不得再写 `if (type === 'refund')` 之类的金额分支。
+2. **金额单位**：领域层用整数分（`Minor`）；`Decimal` 只允许出现在 Prisma 边界。
+3. **日期单位**：领域层用 `LocalDate`（YYYY-MM-DD）；期间一律半开
+   `[start, endExclusive)`。禁止在业务代码里拼 `23:59:59.999`。
+4. **期初余额**：视为「期初日期当天开始前」的余额，当天交易必须计入。
+5. **转账**：`amount` 是本金，`fee/coupon` 单独存放；手续费只从转出账户扣除。
+6. **退款**：必须关联原交易，金额不得超过剩余可退金额；方向由原交易类型决定。
+7. **不持久化派生值**：余额、预算百分比、快照前链、收益率一律按需计算。
 
-## 核心约定
+## 代码风格
 
-- 代码注释中文，变量/函数命名英文
-- 前端组件: `PascalCase.tsx`, `React.FC<Props>`, `export default`
-- 后端路由: `kebab-case.route.ts`，Service: `kebab-case.service.ts`
-- API: kebab-case (`/api/account-categories`), 响应统一 `ApiResponse<T>` 包装
-- 状态: 无 Zustand — React Query + 本地 hooks
-- 测试验证顺序: `lint → typecheck → test`
-- **禁止自动 git 提交/推送**，除非用户明确要求
+- 代码注释中文，标识符英文；一个概念一个名字（见 `docs/dev-guide.md` 词典）。
+- 新组件用 `function Foo(props: FooProps)`，**不使用 `React.FC`**；优先 named export。
+- 新文件一个主要导出，文件名 = 导出名；不新增桶导出（现有例外逐步清理）。
+- 禁止 `as` 断言（`satisfies` 可以）；边界处用 schema 解析。
+- 无分号、单引号；格式化以仓库现状为准，后续统一交给 Biome。
+- 测试顺序：`domain → lint → typecheck → test`。
+- **禁止自动 git commit/push**，除非用户明确要求。
 
-## 详细参考
+## 详细文档
 
-- [docs/dev-guide.md](docs/dev-guide.md) — 完整开发规范
+- [docs/rewrite-blueprint.md](docs/rewrite-blueprint.md) — 目标架构与 UX
+- [docs/audit-report.md](docs/audit-report.md) — 问题清单与优先级
+- [docs/dev-guide.md](docs/dev-guide.md) — 开发规范
 - [docs/architecture.md](docs/architecture.md) — 架构与数据流
-- [docs/testing.md](docs/testing.md) — 测试系统指南
+- [docs/testing.md](docs/testing.md) — 测试指南
 - [docs/README.md](docs/README.md) — 文档索引

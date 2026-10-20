@@ -1,25 +1,25 @@
 # MoneyBrain Claude Code 指南
 
-本文件供 Claude Code 使用。项目通用信息（结构、命令、技术栈）见 [AGENTS.md](AGENTS.md)。
+通用信息见 [AGENTS.md](AGENTS.md)。本文件只列容易踩错的点。
 
-## Claude 专用用法
+## 运行单个测试
 
 ```bash
-# 运行单个测试
-cd backend  && npx vitest run path/to/test.ts
-cd frontend && npx vitest run path/to/test.ts
-npx vitest run -t "test name"
-
-# 覆盖率
-cd frontend && npm run test:coverage
-cd backend  && npm run test:coverage
+cd apps/api  && npx vitest run path/to/test.ts
+cd apps/web  && npx vitest run path/to/test.ts
+cd apps/api  && npx vitest run -t "test name"
+node --import tsx --test packages/domain/tests/ledger.test.ts
 ```
 
-## 关键要点
+## 关键约束
 
-- **API 响应**: 统一 `ApiResponse<T>`（success/data/error/timestamp）
-- **交易类型**: `income | expense | transfer | refund | adjustment`
-- **预算类型**: `income | expense | transfer`，周期 `daily | weekly | monthly | quarterly | yearly`
-- **分类**: 层级结构（parentId/children）
-- **状态**: 无 Zustand — React Query + hooks
-- **主题**: Ant Design ConfigProvider + CSS 变量（`var(--mb-*)`），`useTheme()` hook
+- **算钱只走 `packages/domain`**：`postingsOf`、`summarizeFlows`、`budgetUsage`。
+- **交易类型**：`income | expense | transfer | refund | adjustment`。
+- **金额语义**：收入/支出/退款是净现金流；转账 `amount` 是本金，手续费单独存。
+- **期初余额**：期初日期当天开始前；当天交易计入。
+- **日期**：`LocalDate` + 半开区间；业务代码禁止 `23:59:59.999`。
+- **API**：统一 `ApiResponse<T>`（success/data/error/timestamp）。
+- **状态**：React Query + 本地 hooks，无 Zustand。
+- **主题**：AntD ConfigProvider + CSS 变量（`var(--mb-*)`）。
+- **导入**：`Transaction.importKey` 保证同一 CSV 重复导入幂等。
+- **不要**新增 `React.FC`、桶导出、按交易类型复制金额逻辑。

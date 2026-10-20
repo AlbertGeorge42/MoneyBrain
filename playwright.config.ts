@@ -87,13 +87,13 @@ export default defineConfig({
   /* 本地开发服务器配置 */
   webServer: [
     {
-      command: 'cd backend && npm run dev',
+      command: 'npm run dev:api',
       url: 'http://localhost:3001/api/accounts',
       reuseExistingServer: true,
       timeout: 120000,
     },
     {
-      command: 'cd frontend && npm run dev',
+      command: 'npm run dev:web',
       url: 'http://localhost:3002',
       reuseExistingServer: true,
       timeout: 120000,
