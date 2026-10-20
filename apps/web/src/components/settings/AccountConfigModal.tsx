@@ -5,6 +5,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAccounts, useAccountCategories, useCreateAccount, useUpdateAccount, useDeleteAccount } from '../../queries'
 import { queryKeys } from '../../queries/keys'
 import { AccountCategory, Account, accountCategoryApi, accountApi } from '../../services/api'
+import { unwrapApiData } from '../../services/apiResult'
+import { getApiErrorMessage } from '../../services/apiError'
 import dayjs from 'dayjs'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
@@ -149,7 +151,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleDeleteAccount = async (id: string) => {
     try {
       const statsRes = await accountApi.getStats(id)
-      const transactionCount = statsRes.data.data?.transactionCount ?? 0
+      const transactionCount = unwrapApiData(statsRes).transactionCount
       // 删除账户始终二次确认并走 force 删除：除交易外，预算、转入交易、投资大类/快照
       // 也会因外键约束或静默置空而受影响，统一由后端在 force 模式下级联删除。
       Modal.confirm({
@@ -161,19 +163,19 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
         onOk: async () => {
           try {
             const res = await deleteAccountMutation.mutateAsync({ id, force: true })
-            const deleted = res?.data?.data
+            const deleted = unwrapApiData(res)
             const parts: string[] = []
-            if (deleted?.deletedTransactions) parts.push(`${deleted.deletedTransactions} 条交易记录`)
-            if (deleted?.deletedIncomingTransfers) parts.push(`${deleted.deletedIncomingTransfers} 条转入交易`)
-            if (deleted?.deletedBudgets) parts.push(`${deleted.deletedBudgets} 个预算`)
+            if (deleted.deletedTransactions) parts.push(`${deleted.deletedTransactions} 条交易记录`)
+            if (deleted.deletedIncomingTransfers) parts.push(`${deleted.deletedIncomingTransfers} 条转入交易`)
+            if (deleted.deletedBudgets) parts.push(`${deleted.deletedBudgets} 个预算`)
             notify.success(parts.length ? `删除成功，已删除 ${parts.join('、')}` : '删除成功')
           } catch (error) {
-            notify.error(error instanceof Error ? error.message : '删除失败')
+            notify.error(getApiErrorMessage(error, '删除失败'))
           }
         },
       })
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : '删除失败')
+      notify.error(getApiErrorMessage(error, '删除失败'))
     }
   }
 

@@ -8,6 +8,7 @@ import './styles/global.css'
 import { ThemeProvider, useTheme } from './styles/ThemeContext'
 import { createThemeConfig, syncCssVars } from './styles/theme/config'
 import { initTheme } from './styles/theme/mode'
+import { ApiClientError } from './services/apiError'
 
 // 首屏渲染前同步 CSS 变量，避免 useEffect 时序导致的闪烁
 const initialTheme = initTheme()
@@ -18,8 +19,15 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       gcTime: 5 * 60_000,
-      refetchOnWindowFocus: false,
-      retry: 1,
+      // 切回窗口时刷新已过期的数据，避免看到过期金额
+      refetchOnWindowFocus: true,
+      // 4xx 是业务/请求问题，重试没有意义；5xx 与网络错误才重试一次
+      retry: (failureCount, error) => {
+        if (error instanceof ApiClientError && error.status !== undefined) {
+          if (error.status >= 400 && error.status < 500) return false
+        }
+        return failureCount < 1
+      },
     },
   },
 })

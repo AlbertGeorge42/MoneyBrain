@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Modal, DatePicker, Table, InputNumber, Space, theme, Alert, Typography, Spin, Grid, Card } from 'antd'
 import { useAccounts, useAccountCategories } from '../../queries'
 import { investmentApi, accountApi, InvestmentAssetClass, InvestmentAllocationSnapshot } from '../../services/api'
+import { unwrapApiData } from '../../services/apiResult'
 import CategoryIcon from '../../components/common/CategoryIcon'
 import { AccountSelect } from '../../components/common'
 import { useNotify } from '../../hooks/useNotify'
@@ -96,7 +97,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
     setLoading(true)
     try {
       const res = await investmentApi.getAssetClasses(selectedAccountId)
-      const classes = res.data.data || []
+      const classes = unwrapApiData(res)
       setAssetClasses(classes)
       
       if (editingSnapshot) {
@@ -136,7 +137,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
     
     try {
       const res = await investmentApi.getLatestSnapshot(selectedAccountId, selectedDate.format('YYYY-MM-DD'))
-      const snapshot = res.data.data ?? null
+      const snapshot = unwrapApiData(res)
       setPreviousSnapshot(snapshot)
 
       if (snapshot && snapshot.items.length > 0) {
@@ -158,7 +159,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
     setBalanceLoading(true)
     try {
       const res = await accountApi.getBalanceAt(selectedAccountId, selectedDate.format('YYYY-MM-DD'))
-      setAccountBalance(res.data.data?.balance ?? null)
+      setAccountBalance(unwrapApiData(res).balance)
     } catch {
       console.error('加载账户余额失败')
       setAccountBalance(null)

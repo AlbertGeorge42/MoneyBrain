@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { dataApi } from '../services/api'
+import { unwrapApiData } from '../services/apiResult'
 import { queryKeys } from './keys'
 import { invalidateLedger } from './ledger'
 
@@ -8,7 +9,7 @@ export function useClearAll() {
   return useMutation({
     mutationFn: async () => {
       const res = await dataApi.clearAll()
-      return res.data
+      return unwrapApiData(res)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.accountCategories.all })
@@ -23,7 +24,7 @@ export function useClearTransactions() {
   return useMutation({
     mutationFn: async () => {
       const res = await dataApi.clearTransactions()
-      return res.data
+      return unwrapApiData(res)
     },
     onSuccess: () => invalidateLedger(queryClient),
   })

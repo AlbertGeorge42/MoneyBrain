@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Form, Input, InputNumber, DatePicker, Row, Col, Typography, theme, Spin, Checkbox } from 'antd'
 import dayjs from 'dayjs'
 import { Account, TransactionCategory, Transaction, TransactionType, accountApi } from '../../services/api'
+import { unwrapApiData } from '../../services/apiResult'
 import { AccountSelect, CategorySelect } from '../../components/common'
 import { formatCurrency } from '../../utils/format'
 import { reverseComputeOriginalAmount } from '../../utils/transaction'
@@ -53,14 +54,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     if (type === 'adjustment' && watchedAccountId) {
       setLoadingBalance(true)
       accountApi.getBalanceAt(watchedAccountId, dayjs().format('YYYY-MM-DD'))
-        .then(res => {
-          const balance = res.data.data?.balance ?? null
+        .then(unwrapApiData)
+        .then(balanceResult => {
+          const balance = balanceResult.balance
           setAccountBalance(balance)
           onAccountBalanceChange?.(balance)
 
           // 编辑 adjustment 类型时，反向计算"当前金额"
           // 当前金额 = 当前余额 + 原始平账值
-          if (editingTransaction && balance !== null) {
+          if (editingTransaction) {
             const currentAmount = balance + editingTransaction.amount
             form.setFieldValue('amount', currentAmount)
           }

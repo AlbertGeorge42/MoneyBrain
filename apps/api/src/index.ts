@@ -10,7 +10,7 @@ import reportRoutes from './routes/report.route.js'
 import analyticsRoutes from './routes/analytics.route.js'
 import dataRoutes from './routes/data.route.js'
 import investmentRoutes from './routes/investment.route.js'
-import { errorHandler, rootLogger } from './common/index.js'
+import { errorHandler, notFoundHandler, requestId, rootLogger } from './common/index.js'
 import { httpLogger } from './common/logger/http.js'
 import { LOG_CONFIG } from './common/logger/config.js'
 
@@ -35,6 +35,8 @@ app.use(cors({
   origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
 }))
 app.use(express.json())
+// 请求 ID 必须早于日志中间件，保证前后端与日志使用同一个 ID
+app.use(requestId)
 app.use(httpLogger)
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
@@ -48,6 +50,9 @@ app.use('/api/reports', reportRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/data', dataRoutes)
 app.use('/api/investments', investmentRoutes)
+
+// 未匹配的 API 路径也返回统一错误信封
+app.use('/api', notFoundHandler)
 
 app.use(errorHandler)
 

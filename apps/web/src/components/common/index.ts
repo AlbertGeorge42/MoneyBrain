@@ -3,6 +3,8 @@ export { default as IconColorField } from './IconColorField'
 export { default as CategoryIcon } from './CategoryIcon'
 export { default as ErrorBoundary } from './ErrorBoundary'
 export { default as PageHeader } from './PageHeader'
+export { ErrorState } from './ErrorState'
+export type { ErrorStateProps } from './ErrorState'
 
 export { PointTimePickerField, RangeTimePickerField } from './TimePickerField'
 export type { PointTimePickerConfig, PointTimeValue, RangeTimePickerConfig, RangeTimeValue, TimeGranularity } from './TimePickerField'

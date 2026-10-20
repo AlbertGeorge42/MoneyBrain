@@ -1,15 +1,43 @@
 // ===== 通用响应类型 =====
 
-export interface ApiResponse<T = unknown> {
-  success: boolean
-  data?: T
-  error?: {
-    code: string
-    message: string
-    details?: unknown
-  }
+/**
+ * 后端统一错误码。
+ * 前端据此决定提示文案、是否重试、是否需要用户介入。
+ */
+export type ApiErrorCode =
+  | 'VALIDATION_ERROR'
+  | 'NOT_FOUND'
+  | 'DUPLICATE_ERROR'
+  | 'FOREIGN_KEY_ERROR'
+  | 'CONFLICT'
+  | 'INTERNAL_ERROR'
+  | 'NETWORK_ERROR'
+  | 'UNKNOWN'
+
+export interface ApiError {
+  code: ApiErrorCode
+  /** 面向用户的可读文案 */
+  message: string
+  /** 结构化补充信息（如字段级校验错误） */
+  details?: unknown
+  /** 请求 ID，用于在后端日志中定位同一次请求 */
+  requestId?: string
+}
+
+export interface ApiSuccessResponse<T> {
+  success: true
+  data: T
   timestamp: string
 }
+
+export interface ApiErrorResponse {
+  success: false
+  error: ApiError
+  timestamp: string
+}
+
+/** 所有 API 响应的联合类型：成功必有 data，失败必有 error */
+export type ApiResponse<T = unknown> = ApiSuccessResponse<T> | ApiErrorResponse
 
 export interface PaginatedResponse<T> {
   list: T[]

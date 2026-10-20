@@ -22,6 +22,7 @@ import type {
   TransactionCategoryStats,
   TransactionType,
 } from '@contracts/types'
+import { normalizeApiError } from './apiError'
 
 export type {
   Account,
@@ -47,6 +48,9 @@ export type {
   TransactionType,
 }
 
+export { ApiClientError, getApiErrorMessage, getApiErrorRequestId } from './apiError'
+export { unwrapApiData } from './apiResult'
+
 const api = axios.create({
   baseURL: '/api',
   timeout: 10000,
@@ -57,14 +61,10 @@ const api = axios.create({
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // 仅做错误归一化：把后端业务消息提取到 error.message，
-    // 不在此处弹错。UI 提示由 useNotify() 在组件层显式触发。
-    const apiMessage = error.response?.data?.error?.message
-    if (apiMessage) {
-      error.message = apiMessage
-    }
-    return Promise.reject(error)
+  (error: unknown) => {
+    // 统一归一化错误：所有失败都以 ApiClientError 抛出。
+    // 不在此处弹错，UI 提示由 useNotify() 在组件层显式触发。
+    return Promise.reject(normalizeApiError(error))
   },
 )
 

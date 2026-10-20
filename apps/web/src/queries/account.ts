@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { accountApi, accountCategoryApi } from '../services/api'
+import { unwrapApiData } from '../services/apiResult'
 import type { Account } from '../services/api'
 import { queryKeys } from './keys'
 import { invalidateLedger } from './ledger'
@@ -7,14 +8,14 @@ import { invalidateLedger } from './ledger'
 export function useAccounts() {
   return useQuery({
     queryKey: queryKeys.accounts.all,
-    queryFn: () => accountApi.getAll().then((res) => res.data.data ?? []),
+    queryFn: () => accountApi.getAll().then(unwrapApiData),
   })
 }
 
 export function useAccountStats(id: string) {
   return useQuery({
     queryKey: queryKeys.accounts.stats(id),
-    queryFn: () => accountApi.getStats(id).then((res) => res.data.data!),
+    queryFn: () => accountApi.getStats(id).then(unwrapApiData),
     enabled: !!id,
   })
 }
@@ -22,7 +23,7 @@ export function useAccountStats(id: string) {
 export function useAccountBalanceAt(id: string, date: string) {
   return useQuery({
     queryKey: queryKeys.accounts.balanceAt(id, date),
-    queryFn: () => accountApi.getBalanceAt(id, date).then((res) => res.data.data!),
+    queryFn: () => accountApi.getBalanceAt(id, date).then(unwrapApiData),
     enabled: !!id && !!date,
   })
 }
@@ -30,7 +31,7 @@ export function useAccountBalanceAt(id: string, date: string) {
 export function useAccountCategories() {
   return useQuery({
     queryKey: queryKeys.accountCategories.all,
-    queryFn: () => accountCategoryApi.getAll().then((res) => res.data.data ?? []),
+    queryFn: () => accountCategoryApi.getAll().then(unwrapApiData),
   })
 }
 

@@ -12,6 +12,8 @@ import {
 } from 'antd'
 import { DownloadOutlined, InboxOutlined } from '@ant-design/icons'
 import { dataApi, type ImportFullResult } from '../../services/api'
+import { unwrapApiData } from '../../services/apiResult'
+import { getApiErrorMessage } from '../../services/apiError'
 import { invalidateLedger } from '../../queries/ledger'
 import { useNotify } from '../../hooks/useNotify'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -99,7 +101,7 @@ const DataBackupSection: React.FC = () => {
       notify.success('导出成功，文件已开始下载')
     } catch (error) {
       hide()
-      notify.error('导出失败，请重试')
+      notify.error(getApiErrorMessage(error, '导出失败，请重试'))
       console.error('Export error:', error)
     } finally {
       setExporting(false)
@@ -114,9 +116,8 @@ const DataBackupSection: React.FC = () => {
 
     try {
       const response = await dataApi.detectFileIncludes(file)
-      if (response.data.success && response.data.data) {
-        setImportIncludes(response.data.data.includes)
-      }
+      const detected = unwrapApiData(response)
+      setImportIncludes(detected.includes)
     } catch {
       setImportIncludes([...allIncludes])
     }
@@ -133,18 +134,13 @@ const DataBackupSection: React.FC = () => {
         mode: importMode,
         includes: importIncludes,
       })
-      const result = response.data
+      const result = unwrapApiData(response)
 
-      if (!result.success || !result.data) {
-        notify.error(result.error?.message || '导入失败')
-        return
-      }
-
-      setImportBackupResult(result.data)
+      setImportBackupResult(result)
       await invalidateLedger(queryClient)
       notify.success('备份导入成功')
-    } catch {
-      notify.error('备份导入失败，请检查文件格式')
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '备份导入失败，请检查文件格式'))
     } finally {
       setImportingBackup(false)
     }

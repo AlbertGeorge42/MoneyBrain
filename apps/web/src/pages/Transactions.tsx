@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react'
-import { Button, Card, theme } from 'antd'
+import { Button, Card, Skeleton, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { Transaction, TransactionType } from '../services/api'
 import type { Account, AccountCategory } from '../services/api'
 import { toDateRangeParams, fromRangeTimeParam, toRangeTimeParam } from '../utils/timePicker'
-import { PageHeader } from '../components/common'
+import { ErrorState, PageHeader } from '../components/common'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useNotify } from '../hooks/useNotify'
+import { getApiErrorMessage } from '../services/apiError'
 import { useSearchParamsState } from '../hooks/useSearchParamsState'
 import { usePersistedState } from '../hooks/usePersistedState'
 import { STORAGE_KEYS } from '../utils/storageKeys'
@@ -105,8 +106,10 @@ const Transactions: React.FC = () => {
     return [...new Set(result)]
   }
 
-  const { data: accounts = [] } = useAccounts()
-  const { data: accountCategories = [] } = useAccountCategories()
+  const accountsQuery = useAccounts()
+  const accountCategoriesQuery = useAccountCategories()
+  const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data])
+  const accountCategories = useMemo(() => accountCategoriesQuery.data ?? [], [accountCategoriesQuery.data])
 
   // 从 URL 筛选条件 + 本地分页状态派生查询参数
   const queryParams = useMemo<Record<string, unknown>>(() => {
@@ -122,16 +125,17 @@ const Transactions: React.FC = () => {
     return params
   }, [filters, currentPage, pageSize, accounts, accountCategories])
 
-  const { data: transactionsData, isLoading: loading } = useTransactions(queryParams)
-  const transactions = transactionsData?.list ?? []
+  const transactionsQuery = useTransactions(queryParams)
+  const transactions = transactionsQuery.data?.list ?? []
   const pagination = {
-    total: transactionsData?.total ?? 0,
-    page: transactionsData?.page ?? 1,
-    pageSize: transactionsData?.pageSize ?? 20,
+    total: transactionsQuery.data?.total ?? 0,
+    page: transactionsQuery.data?.page ?? 1,
+    pageSize: transactionsQuery.data?.pageSize ?? 20,
   }
 
-  const { data: stats = { income: 0, expense: 0, refund: 0, balance: 0, transferCount: 0 } } = useTransactionStats(queryParams)
-  const { data: transactionCategories = [] } = useTransactionCategories()
+  const statsQuery = useTransactionStats(queryParams)
+  const transactionCategoriesQuery = useTransactionCategories()
+  const transactionCategories = transactionCategoriesQuery.data ?? []
 
   const createTransaction = useCreateTransaction()
   const updateTransaction = useUpdateTransaction()
@@ -186,17 +190,25 @@ const Transactions: React.FC = () => {
 
   // 新建提交
   const handleCreateSubmit = async (values: unknown) => {
-    await createTransaction.mutateAsync(values as Record<string, unknown>)
-    notify.success('创建成功')
-    setCreateVisible(false)
+    try {
+      await createTransaction.mutateAsync(values as Record<string, unknown>)
+      notify.success('创建成功')
+      setCreateVisible(false)
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '创建失败'))
+    }
   }
 
   // 编辑提交
   const handleEditSubmit = async (values: unknown) => {
     if (!selectedTransaction) return
-    await updateTransaction.mutateAsync({ id: selectedTransaction.id, data: values as Partial<Transaction> })
-    notify.success('更新成功')
-    handleCloseDetail()
+    try {
+      await updateTransaction.mutateAsync({ id: selectedTransaction.id, data: values as Partial<Transaction> })
+      notify.success('更新成功')
+      handleCloseDetail()
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '更新失败'))
+    }
   }
 
   // 退款提交
@@ -212,17 +224,25 @@ const Transactions: React.FC = () => {
       relatedTransactionId: selectedTransaction.id,
       note: (values as { note?: string }).note,
     }
-    await createTransaction.mutateAsync(data)
-    notify.success('退款记录成功')
-    handleCloseDetail()
+    try {
+      await createTransaction.mutateAsync(data)
+      notify.success('退款记录成功')
+      handleCloseDetail()
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '退款失败'))
+    }
   }
 
   // 删除确认
   const handleDelete = async () => {
     if (!selectedTransaction) return
-    await deleteTransaction.mutateAsync(selectedTransaction.id)
-    notify.success('删除成功')
-    handleCloseDetail()
+    try {
+      await deleteTransaction.mutateAsync(selectedTransaction.id)
+      notify.success('删除成功')
+      handleCloseDetail()
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '删除失败'))
+    }
   }
 
   // 筛选相关
@@ -275,23 +295,57 @@ const Transactions: React.FC = () => {
         />
       </Card>
 
-      <TransactionStatsComponent
-        totalIncome={stats.income}
-        totalExpense={stats.expense}
-        totalRefund={stats.refund}
-        balance={stats.balance}
-        transferCount={stats.transferCount}
-      />
+      {(accountsQuery.isError || accountCategoriesQuery.isError || transactionCategoriesQuery.isError) && (
+        <ErrorState
+          variant="inline"
+          title="筛选选项加载失败"
+          error={accountsQuery.error ?? accountCategoriesQuery.error ?? transactionCategoriesQuery.error}
+          onRetry={() => {
+            void accountsQuery.refetch()
+            void accountCategoriesQuery.refetch()
+            void transactionCategoriesQuery.refetch()
+          }}
+        />
+      )}
 
-      <TransactionTable
-        transactions={transactions}
-        loading={loading}
-        currentPage={currentPage}
-        pageSize={pageSize}
-        total={pagination.total}
-        onPageChange={handlePageChange}
-        onRowClick={handleRowClick}
-      />
+      {statsQuery.isError ? (
+        <ErrorState
+          variant="inline"
+          title="交易统计加载失败"
+          error={statsQuery.error}
+          onRetry={() => void statsQuery.refetch()}
+        />
+      ) : statsQuery.isLoading ? (
+        <Card style={{ marginBottom: 'var(--mb-space-xl)' }}>
+          <Skeleton active paragraph={{ rows: 1 }} />
+        </Card>
+      ) : (
+        <TransactionStatsComponent
+          totalIncome={statsQuery.data?.income ?? 0}
+          totalExpense={statsQuery.data?.expense ?? 0}
+          totalRefund={statsQuery.data?.refund ?? 0}
+          balance={statsQuery.data?.balance ?? 0}
+          transferCount={statsQuery.data?.transferCount ?? 0}
+        />
+      )}
+
+      {transactionsQuery.isError ? (
+        <ErrorState
+          title="交易列表加载失败"
+          error={transactionsQuery.error}
+          onRetry={() => void transactionsQuery.refetch()}
+        />
+      ) : (
+        <TransactionTable
+          transactions={transactions}
+          loading={transactionsQuery.isLoading}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          total={pagination.total}
+          onPageChange={handlePageChange}
+          onRowClick={handleRowClick}
+        />
+      )}
 
       {isMobile && <FloatingActionButton onClick={() => handleAdd('expense')} />}
 

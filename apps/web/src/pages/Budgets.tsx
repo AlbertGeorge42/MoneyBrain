@@ -8,12 +8,13 @@ import {
   ArrowUpOutlined, ArrowDownOutlined, SwapOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { PageHeader } from '../components/common'
+import { ErrorState, PageHeader } from '../components/common'
 import { ResponsiveDrawer } from '../components/common'
 import { BudgetForm, BudgetFormType } from '../components/budgets'
 import BudgetDetail, { BudgetDetailFooter } from '../components/budgets/BudgetDetail'
 import BudgetEdit from '../components/budgets/BudgetEdit'
 import { useNotify } from '../hooks/useNotify'
+import { getApiErrorMessage } from '../services/apiError'
 import {
   useBudgets,
   useBudgetStatuses,
@@ -49,11 +50,13 @@ const Budgets: React.FC = () => {
   const { token } = theme.useToken()
   const notify = useNotify()
 
-  const { data: budgets = [] } = useBudgets()
+  const budgetsQuery = useBudgets()
   const { data: accounts = [] } = useAccounts()
   const { data: categories = [] } = useTransactionCategories()
+  const budgets = useMemo(() => budgetsQuery.data ?? [], [budgetsQuery.data])
   const budgetIds = useMemo(() => budgets.map((b) => b.id), [budgets])
-  const { data: budgetStatuses = [] } = useBudgetStatuses(budgetIds)
+  const statusesQuery = useBudgetStatuses(budgetIds)
+  const budgetStatuses = useMemo(() => statusesQuery.data ?? [], [statusesQuery.data])
 
   const createBudget = useCreateBudget()
   const updateBudget = useUpdateBudget()
@@ -133,7 +136,7 @@ const Budgets: React.FC = () => {
       setCreateVisible(false)
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) return
-      notify.error('创建失败')
+      notify.error(getApiErrorMessage(error, '创建失败'))
     }
   }
 
@@ -144,8 +147,8 @@ const Budgets: React.FC = () => {
       await updateBudget.mutateAsync({ id: selectedBudget.id, data: values as Record<string, unknown> })
       notify.success('更新成功')
       handleCloseAll()
-    } catch {
-      notify.error('更新失败')
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '更新失败'))
     }
   }
 
@@ -156,8 +159,8 @@ const Budgets: React.FC = () => {
       await deleteBudgetMutation.mutateAsync(selectedBudget.id)
       notify.success('删除成功')
       handleCloseAll()
-    } catch {
-      notify.error('删除失败')
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '删除失败'))
     }
   }
 
@@ -166,8 +169,8 @@ const Budgets: React.FC = () => {
     try {
       await updateBudget.mutateAsync({ id: budget.id, data: { isActive: active } })
       notify.success(active ? '已启用' : '已停用')
-    } catch {
-      notify.error('操作失败')
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '操作失败'))
     }
   }
 
@@ -202,44 +205,66 @@ const Budgets: React.FC = () => {
       />
 
       <Space direction="vertical" size="middle" style={{ display: 'flex' }}>
-        {tabItems.map((tab) => {
-          const tabBudgets = budgets.filter((b) => b.type === tab.key)
-          if (tabBudgets.length === 0) return null
-
-          return (
-            <Card
-              key={tab.key}
-              title={
-                <Space>
-                  {BUDGET_TYPE_META[tab.key as keyof typeof BUDGET_TYPE_META].icon}
-                  <span>{tab.label}</span>
-                  <Tag variant="outlined">{tabBudgets.length}</Tag>
-                </Space>
-              }
-              size="small"
-            >
-              <div style={{ display: 'grid', gap: token.padding }}>
-                {tabBudgets.map((budget) => (
-                  <BudgetCard
-                    key={budget.id}
-                    budget={budget}
-                    status={budgetStatusMap[budget.id]}
-                    token={token}
-                    onClick={() => handleCardClick(budget)}
-                    onToggleActive={(active) => handleToggleActive(budget, active)}
-                    getProgressColor={getProgressColor}
-                    getStatusLabel={getStatusLabel}
-                  />
-                ))}
-              </div>
-            </Card>
-          )
-        })}
-
-        {budgets.length === 0 && (
+        {budgetsQuery.isError ? (
           <Card>
-            <Empty description="暂无预算数据" />
+            <ErrorState
+              title="预算列表加载失败"
+              error={budgetsQuery.error}
+              onRetry={() => void budgetsQuery.refetch()}
+            />
           </Card>
+        ) : (
+          <>
+            {statusesQuery.isError && (
+              <ErrorState
+                variant="inline"
+                title="预算进度加载失败"
+                error={statusesQuery.error}
+                onRetry={() => void statusesQuery.refetch()}
+              />
+            )}
+
+            {tabItems.map((tab) => {
+              const tabBudgets = budgets.filter((b) => b.type === tab.key)
+              if (tabBudgets.length === 0) return null
+
+              return (
+                <Card
+                  key={tab.key}
+                  title={
+                    <Space>
+                      {BUDGET_TYPE_META[tab.key as keyof typeof BUDGET_TYPE_META].icon}
+                      <span>{tab.label}</span>
+                      <Tag variant="outlined">{tabBudgets.length}</Tag>
+                    </Space>
+                  }
+                  size="small"
+                >
+                  <div style={{ display: 'grid', gap: token.padding }}>
+                    {tabBudgets.map((budget) => (
+                      <BudgetCard
+                        key={budget.id}
+                        budget={budget}
+                        status={budgetStatusMap[budget.id]}
+                        statusPending={statusesQuery.isLoading}
+                        token={token}
+                        onClick={() => handleCardClick(budget)}
+                        onToggleActive={(active) => handleToggleActive(budget, active)}
+                        getProgressColor={getProgressColor}
+                        getStatusLabel={getStatusLabel}
+                      />
+                    ))}
+                  </div>
+                </Card>
+              )
+            })}
+
+            {budgets.length === 0 && (
+              <Card>
+                <Empty description="暂无预算数据" />
+              </Card>
+            )}
+          </>
         )}
       </Space>
 
@@ -332,6 +357,8 @@ const Budgets: React.FC = () => {
 interface BudgetCardProps {
   budget: Budget
   status?: BudgetStatus
+  /** 进度是否仍在加载 */
+  statusPending?: boolean
   token: ReturnType<typeof theme.useToken>['token']
   onClick: () => void
   onToggleActive: (active: boolean) => void
@@ -342,6 +369,7 @@ interface BudgetCardProps {
 const BudgetCard: React.FC<BudgetCardProps> = ({
   budget,
   status,
+  statusPending = false,
   token,
   onClick,
   onToggleActive,
@@ -350,7 +378,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
 }) => {
   const percentage = status?.percentage ?? 0
   const isOverBudget = status?.isOverBudget ?? false
-  const used = status?.used ?? 0
+  const used = status?.used
   const amountColors = useAmountColors()
 
   const getBudgetAmountColor = () => {
@@ -417,19 +445,25 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
         </Space>
       </div>
 
-      <Progress
-        className="budget-progress"
-        percent={Math.min(percentage, 100)}
-        strokeColor={getProgressStrokeColor()}
-        format={() => getStatusLabel(budget.type, percentage, isOverBudget)}
-      />
+      {status ? (
+        <Progress
+          className="budget-progress"
+          percent={Math.min(percentage, 100)}
+          strokeColor={getProgressStrokeColor()}
+          format={() => getStatusLabel(budget.type, percentage, isOverBudget)}
+        />
+      ) : (
+        <div style={{ color: token.colorTextTertiary, fontSize: 12, padding: '4px 0' }}>
+          {statusPending ? '进度加载中…' : '进度未加载'}
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: token.paddingXS, color: token.colorTextSecondary, fontVariantNumeric: 'tabular-nums' }}>
         <span>
-          已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {formatCurrency(used)}
+          已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {used === undefined ? '—' : formatCurrency(used)}
         </span>
         <span>
-          剩余: {formatCurrency(Math.max(budget.amount - used, 0))}
+          剩余: {used === undefined ? '—' : formatCurrency(Math.max(budget.amount - used, 0))}
         </span>
       </div>
     </Card>

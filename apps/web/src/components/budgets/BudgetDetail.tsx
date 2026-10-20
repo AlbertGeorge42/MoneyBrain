@@ -111,7 +111,7 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({
   const amountColors = useAmountColors()
 
   const percentage = status?.percentage ?? 0
-  const used = status?.used ?? 0
+  const used = status?.used
   const isOverBudget = status?.isOverBudget ?? false
   const typeMeta = BUDGET_TYPE_META[budget.type as keyof typeof BUDGET_TYPE_META]
 
@@ -145,17 +145,23 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({
 
       {/* 进度条 */}
       <div style={{ marginBottom: token.paddingLG }}>
-        <Progress
-          percent={Math.min(percentage, 100)}
-          strokeColor={!budget.isActive ? token.colorFillSecondary : getProgressColor(budget.type, percentage, isOverBudget)}
-          format={() => getStatusLabel(budget.type, percentage, isOverBudget)}
-        />
+        {status ? (
+          <Progress
+            percent={Math.min(percentage, 100)}
+            strokeColor={!budget.isActive ? token.colorFillSecondary : getProgressColor(budget.type, percentage, isOverBudget)}
+            format={() => getStatusLabel(budget.type, percentage, isOverBudget)}
+          />
+        ) : (
+          <div style={{ color: token.colorTextTertiary, fontSize: 12, padding: '4px 0' }}>
+            进度未加载
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: token.paddingXS, color: token.colorTextSecondary, fontVariantNumeric: 'tabular-nums' }}>
           <span>
-            已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {formatCurrency(used)}
+            已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {used === undefined ? '—' : formatCurrency(used)}
           </span>
           <span>
-            剩余: {formatCurrency(Math.max(budget.amount - used, 0))}
+            剩余: {used === undefined ? '—' : formatCurrency(Math.max(budget.amount - used, 0))}
           </span>
         </div>
       </div>

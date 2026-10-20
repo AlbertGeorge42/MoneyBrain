@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Card, Tabs } from 'antd'
 import dayjs from 'dayjs'
-import { PageHeader } from '../components/common'
+import { ErrorState, PageHeader } from '../components/common'
 import { AccountConfigModal, CashFlowConfigModal, TransactionConfigModal } from '../components/settings'
 import { BalanceSheetReport, CashFlowReport, IncomeExpenseReport, InvestmentAnalysisReport } from '../components/reports'
 import InvestmentAssetClassConfigModal from '../components/investment/InvestmentAssetClassConfigModal'
@@ -209,34 +209,66 @@ const Reports: React.FC = () => {
   const earliestTransactionDate = earliestDateData?.date || null
 
   const balanceSheetDate = useMemo(() => toDateParam(selectedBalanceTime), [selectedBalanceTime])
-  const { data: balanceSheetData, isLoading: balanceSheetLoading, refetch: refetchBalanceSheet } = useBalanceSheet(
+  const balanceSheetQuery = useBalanceSheet(
     balanceSheetDate,
     activeTab === 'balance-sheet'
   )
+  const { data: balanceSheetData, isLoading: balanceSheetLoading, refetch: refetchBalanceSheet } = balanceSheetQuery
 
   const incomeExpenseParams = useMemo(() => toDateRangeParams(incomeExpenseTimeRange), [incomeExpenseTimeRange])
-  const { data: incomeExpenseData, isLoading: incomeExpenseLoading, refetch: refetchIncomeExpense } = useIncomeExpense(
+  const incomeExpenseQuery = useIncomeExpense(
     incomeExpenseParams.startDate,
     incomeExpenseParams.endDate,
     true,
     incomeExpenseIncludeExcluded,
     activeTab === 'income-expense'
   )
+  const { data: incomeExpenseData, isLoading: incomeExpenseLoading, refetch: refetchIncomeExpense } = incomeExpenseQuery
 
   const cashFlowParams = useMemo(() => toDateRangeParams(cashFlowTimeRange), [cashFlowTimeRange])
-  const { data: cashFlowData, isLoading: cashFlowLoading, refetch: refetchCashFlow } = useCashFlow(
+  const cashFlowQuery = useCashFlow(
     cashFlowParams.startDate,
     cashFlowParams.endDate,
     true,
     activeTab === 'cash-flow'
   )
+  const { data: cashFlowData, isLoading: cashFlowLoading, refetch: refetchCashFlow } = cashFlowQuery
 
   const investmentParams = useMemo(() => toDateRangeParams(investmentTimeRange), [investmentTimeRange])
-  const { data: investmentData, isLoading: investmentLoading, refetch: refetchInvestment } = useInvestmentAnalysis(
+  const investmentQuery = useInvestmentAnalysis(
     investmentParams.startDate,
     investmentParams.endDate,
     activeTab === 'investment-analysis'
   )
+  const { data: investmentData, isLoading: investmentLoading, refetch: refetchInvestment } = investmentQuery
+
+  /**
+   * 报表渲染守卫：
+   * - 失败且没有旧数据：整块错误，不渲染空报表（避免把失败伪装成「全是 0」）
+   * - 失败但有旧数据：提示刷新失败并保留上次数据
+   */
+  const renderReport = (
+    title: string,
+    query: { isError: boolean; error: unknown; data: unknown },
+    refetch: () => void,
+    content: React.ReactNode
+  ) => {
+    if (!query.isError) return content
+    if (query.data === undefined || query.data === null) {
+      return <ErrorState title={`${title}加载失败`} error={query.error} onRetry={refetch} />
+    }
+    return (
+      <>
+        <ErrorState
+          variant="inline"
+          title={`${title}刷新失败，当前显示上次数据`}
+          error={query.error}
+          onRetry={refetch}
+        />
+        {content}
+      </>
+    )
+  }
 
   const balanceSheetPickerConfig = useMemo<PointTimePickerConfig>(
     () => ({
@@ -274,60 +306,80 @@ const Reports: React.FC = () => {
     {
       key: 'balance-sheet',
       label: '资产负债表',
-      children: (
-        <BalanceSheetReport
-          selectedTime={selectedBalanceTime}
-          pickerConfig={balanceSheetPickerConfig}
-          balanceSheetData={balanceSheetData ?? null}
-          loading={balanceSheetLoading}
-          onTimeChange={setSelectedBalanceTime}
-          onOpenSettings={() => setAccountCategoryModalVisible(true)}
-        />
+      children: renderReport(
+        '资产负债表',
+        balanceSheetQuery,
+        () => void refetchBalanceSheet(),
+        (
+          <BalanceSheetReport
+            selectedTime={selectedBalanceTime}
+            pickerConfig={balanceSheetPickerConfig}
+            balanceSheetData={balanceSheetData ?? null}
+            loading={balanceSheetLoading}
+            onTimeChange={setSelectedBalanceTime}
+            onOpenSettings={() => setAccountCategoryModalVisible(true)}
+          />
+        )
       ),
     },
     {
       key: 'income-expense',
       label: '收入支出表',
-      children: (
-        <IncomeExpenseReport
-          timeRange={incomeExpenseTimeRange}
-          pickerConfig={incomeExpensePickerConfig}
-          incomeExpenseData={incomeExpenseData ?? null}
-          loading={incomeExpenseLoading}
-          onTimeRangeChange={setIncomeExpenseTimeRange}
-          onOpenSettings={() => setTransactionCategoryModalVisible(true)}
-          includeExcluded={incomeExpenseIncludeExcluded}
-          onIncludeExcludedChange={setIncomeExpenseIncludeExcluded}
-        />
+      children: renderReport(
+        '收入支出表',
+        incomeExpenseQuery,
+        () => void refetchIncomeExpense(),
+        (
+          <IncomeExpenseReport
+            timeRange={incomeExpenseTimeRange}
+            pickerConfig={incomeExpensePickerConfig}
+            incomeExpenseData={incomeExpenseData ?? null}
+            loading={incomeExpenseLoading}
+            onTimeRangeChange={setIncomeExpenseTimeRange}
+            onOpenSettings={() => setTransactionCategoryModalVisible(true)}
+            includeExcluded={incomeExpenseIncludeExcluded}
+            onIncludeExcludedChange={setIncomeExpenseIncludeExcluded}
+          />
+        )
       ),
     },
     {
       key: 'cash-flow',
       label: '现金流量表',
-      children: (
-        <CashFlowReport
-          timeRange={cashFlowTimeRange}
-          pickerConfig={cashFlowPickerConfig}
-          cashFlowData={cashFlowData ?? null}
-          loading={cashFlowLoading}
-          onTimeRangeChange={setCashFlowTimeRange}
-          onOpenSettings={() => setCashFlowConfigModalVisible(true)}
-        />
+      children: renderReport(
+        '现金流量表',
+        cashFlowQuery,
+        () => void refetchCashFlow(),
+        (
+          <CashFlowReport
+            timeRange={cashFlowTimeRange}
+            pickerConfig={cashFlowPickerConfig}
+            cashFlowData={cashFlowData ?? null}
+            loading={cashFlowLoading}
+            onTimeRangeChange={setCashFlowTimeRange}
+            onOpenSettings={() => setCashFlowConfigModalVisible(true)}
+          />
+        )
       ),
     },
     {
       key: 'investment-analysis',
       label: '投资分析表',
-      children: (
-        <InvestmentAnalysisReport
-          timeRange={investmentTimeRange}
-          pickerConfig={investmentPickerConfig}
-          investmentData={investmentData ?? null}
-          loading={investmentLoading}
-          onTimeRangeChange={setInvestmentTimeRange}
-          onOpenSettings={() => setInvestmentConfigModalVisible(true)}
-          onRefresh={refetchInvestment}
-        />
+      children: renderReport(
+        '投资分析表',
+        investmentQuery,
+        () => void refetchInvestment(),
+        (
+          <InvestmentAnalysisReport
+            timeRange={investmentTimeRange}
+            pickerConfig={investmentPickerConfig}
+            investmentData={investmentData ?? null}
+            loading={investmentLoading}
+            onTimeRangeChange={setInvestmentTimeRange}
+            onOpenSettings={() => setInvestmentConfigModalVisible(true)}
+            onRefresh={refetchInvestment}
+          />
+        )
       ),
     },
   ]

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionCategoryApi } from '../services/api'
+import { unwrapApiData } from '../services/apiResult'
 import type { TransactionCategory } from '../services/api'
 import { queryKeys } from './keys'
 import { invalidateLedger } from './ledger'
@@ -7,7 +8,7 @@ import { invalidateLedger } from './ledger'
 export function useTransactionCategories() {
   return useQuery({
     queryKey: queryKeys.transactionCategories.all,
-    queryFn: () => transactionCategoryApi.getAll().then((res) => res.data.data ?? []),
+    queryFn: () => transactionCategoryApi.getAll().then(unwrapApiData),
   })
 }
 

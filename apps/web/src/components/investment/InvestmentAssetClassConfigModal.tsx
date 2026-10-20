@@ -7,6 +7,8 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { useAccounts } from '../../queries'
 import { investmentApi } from '../../services/api'
+import { unwrapApiData } from '../../services/apiResult'
+import { getApiErrorMessage } from '../../services/apiError'
 import CategoryIcon from '../../components/common/CategoryIcon'
 import { SortableRow, SettingDropdown, renderExpandIcon, renderDragHandle, useSortableTable } from '../../components/settings/shared'
 import ConfigModalLayout from '../../components/settings/ConfigModalLayout'
@@ -70,7 +72,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
         investmentAccounts.map(async (account) => {
           try {
             const res = await investmentApi.getAssetClasses(account.id)
-            const assetClasses = res.data.data || []
+            const assetClasses = unwrapApiData(res)
             return { accountId: account.id, assetClasses }
           } catch {
             return { accountId: account.id, assetClasses: [] }
@@ -155,16 +157,16 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
     if (record.type !== 'assetClass') return
 
     try {
-      const result = await investmentApi.deleteAssetClass(record.id)
+      const result = unwrapApiData(await investmentApi.deleteAssetClass(record.id))
 
       // 如果需要二次确认，显示确认弹窗
-      if (result.data.data?.needConfirm && result.data.data.snapshotsCount) {
+      if (result.needConfirm && result.snapshotsCount) {
         Modal.confirm({
           title: '确认删除',
           icon: <ExclamationCircleOutlined />,
           content: (
             <div>
-              <p>该资产类型已被 {result.data.data.snapshotsCount} 条快照引用</p>
+              <p>该资产类型已被 {result.snapshotsCount} 条快照引用</p>
               <p style={{ marginTop: 8, color: 'var(--ant-color-warning)' }}>
                 强制删除将同时删除相关的快照记录，此操作不可恢复。
               </p>
@@ -175,16 +177,15 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
           cancelText: '取消',
           onOk: async () => {
             try {
-              const forceResult = await investmentApi.deleteAssetClass(record.id, true)
-              if (forceResult.data.data?.deletedSnapshots) {
-                notify.success(`删除成功，已删除 ${forceResult.data.data.deletedSnapshots} 条快照记录`)
+              const forceResult = unwrapApiData(await investmentApi.deleteAssetClass(record.id, true))
+              if (forceResult.deletedSnapshots) {
+                notify.success(`删除成功，已删除 ${forceResult.deletedSnapshots} 条快照记录`)
               } else {
                 notify.success('删除成功')
               }
               loadAllAssetClasses()
             } catch (forceError: unknown) {
-              const forceMessage = forceError instanceof Error ? forceError.message : '删除失败'
-              notify.error(forceMessage)
+              notify.error(getApiErrorMessage(forceError, '删除失败'))
             }
           },
         })
@@ -194,8 +195,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
         loadAllAssetClasses()
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '删除失败'
-      notify.error(message)
+      notify.error(getApiErrorMessage(error, '删除失败'))
     }
   }
 

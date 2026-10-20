@@ -1,8 +1,15 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
-import type { ApiResponse } from '../../../../packages/contracts/types/index.js'
+import type {
+  ApiError,
+  ApiErrorCode,
+  ApiErrorResponse,
+  ApiResponse,
+  ApiSuccessResponse,
+} from '../../../../packages/contracts/types/index.js'
 export type { ApiResponse }
-import { AppError } from './error.js'
+import { AppError, toApiErrorCode } from './error.js'
+import { getRequestId } from './request-id.js'
 import { rootLogger } from './logger/index.js'
 
 const logger = rootLogger.child({ module: 'errorHandler' })
@@ -51,7 +58,7 @@ const convertDecimals = (obj: unknown): unknown => {
 
 export const success = <T>(res: Response, data: T, statusCode = 200) => {
   const convertedData = convertDecimals(data)
-  const response: ApiResponse<T> = {
+  const response: ApiSuccessResponse<T> = {
     success: true,
     data: convertedData as T,
     timestamp: new Date().toISOString(),
@@ -59,26 +66,47 @@ export const success = <T>(res: Response, data: T, statusCode = 200) => {
   return res.status(statusCode).json(response)
 }
 
+interface ErrorOptions {
+  /** 结构化补充信息，透传给前端 */
+  details?: unknown
+  /** 请求 ID，用于前后端对照日志 */
+  requestId?: string
+}
+
 const error = (
   res: Response,
   message: string,
-  code = 'INTERNAL_ERROR',
-  statusCode = 500
-) => {
-  const response: ApiResponse = {
+  code: ApiErrorCode,
+  statusCode = 500,
+  options: ErrorOptions = {}
+): Response => {
+  const payload: ApiError = {
+    code,
+    message,
+    ...(options.details === undefined ? {} : { details: options.details }),
+    ...(options.requestId === undefined ? {} : { requestId: options.requestId }),
+  }
+  const response: ApiErrorResponse = {
     success: false,
-    error: {
-      code,
-      message,
-    },
+    error: payload,
     timestamp: new Date().toISOString(),
   }
   return res.status(statusCode).json(response)
 }
 
+/**
+ * 未匹配到路由时返回统一的 404 信封。
+ * 避免 Express 默认的 HTML 错误页破坏「所有 API 响应都是同一信封」的约定。
+ */
+export const notFoundHandler: RequestHandler = (req, res) => {
+  return error(res, `接口不存在：${req.method} ${req.originalUrl}`, 'NOT_FOUND', 404, {
+    requestId: getRequestId(req),
+  })
+}
+
 type ErrorResponse = {
   message: string
-  code: string
+  code: ApiErrorCode
   statusCode: number
 }
 
@@ -107,12 +135,21 @@ const mapPrismaError = (err: Error): ErrorResponse | null => {
   return null
 }
 
+/** 第三方错误可能自带 HTTP 状态码 */
+const hasStatusCode = (err: Error): err is Error & { statusCode: number } =>
+  'statusCode' in err && typeof err.statusCode === 'number'
+
+/** 第三方错误可能自带业务错误码 */
+const hasErrorCode = (err: Error): err is Error & { code: string } =>
+  'code' in err && typeof err.code === 'string'
+
 export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
   _next: NextFunction
 ) => {
+  const requestId = getRequestId(req)
   // Pino 自动展开 Error 对象，同时记录请求信息便于定位
   const statusCode = err instanceof AppError ? err.statusCode : 500
   logger.error({
@@ -123,20 +160,24 @@ export const errorHandler = (
       ip: req.ip,
     },
     statusCode,
+    requestId,
   }, 'request failed')
 
   if (err instanceof AppError) {
-    return error(res, err.message, err.code, err.statusCode)
+    return error(res, err.message, err.code, err.statusCode, {
+      details: err.details,
+      requestId,
+    })
   }
 
   const prismaError = mapPrismaError(err)
   if (prismaError) {
-    return error(res, prismaError.message, prismaError.code, prismaError.statusCode)
+    return error(res, prismaError.message, prismaError.code, prismaError.statusCode, { requestId })
   }
 
-  const resStatusCode = (err as Error & { statusCode?: number }).statusCode || 500
-  const code = (err as Error & { code?: string }).code || 'INTERNAL_ERROR'
+  const resStatusCode = hasStatusCode(err) ? err.statusCode : 500
+  const code = hasErrorCode(err) ? toApiErrorCode(err.code) : 'INTERNAL_ERROR'
   const message = err.message || '服务器内部错误'
 
-  return error(res, message, code, resStatusCode)
+  return error(res, message, code, resStatusCode, { requestId })
 }

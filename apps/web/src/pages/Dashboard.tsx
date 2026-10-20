@@ -11,7 +11,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { PageHeader } from '../components/common'
+import { ErrorState, PageHeader } from '../components/common'
 import PieChart, { PieChartDataItem } from '../components/charts/PieChart'
 import LineChart from '../components/charts/LineChart'
 import { TransactionItemRow } from '../components/transactions'
@@ -26,6 +26,7 @@ import {
 } from '../queries'
 import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
+import { unwrapApiData } from '../services/apiResult'
 import { formatCurrency, formatPercent } from '../utils/format'
 import { formatAmount, getAmountColor } from '../utils/formatAmount'
 import { useAmountColors } from '../hooks/useAmountColors'
@@ -51,25 +52,34 @@ const Dashboard: React.FC = () => {
   const today = useMemo(() => dayjs().format('YYYY-MM-DD'), [])
 
   // -- 数据 hooks --
-  const { data: dashboardSummary, isLoading: dashboardLoading } = useDashboardSummary()
-  const { data: balanceSheetData } = useBalanceSheet(today)
+  const summaryQuery = useDashboardSummary()
+  const balanceSheetQuery = useBalanceSheet(today)
 
-  const { data: expenseTrend = [], isLoading: expenseTrendLoading } = useTrends('expense')
-  const { data: categoryData = [], isLoading: categoryLoading } = useCategoryBreakdown('expense')
-  const { data: assetTrend = [] } = useAssetTrend()
+  const trendQuery = useTrends('expense')
+  const categoryQuery = useCategoryBreakdown('expense')
+  const assetTrendQuery = useAssetTrend()
 
-  const { data: budgets = [] } = useBudgets()
+  const budgetsQuery = useBudgets()
   const activeExpenseBudgetIds = useMemo(
-    () => budgets.filter((b) => b.type === 'expense' && b.isActive).map((b) => b.id),
-    [budgets],
+    () => (budgetsQuery.data ?? []).filter((b) => b.type === 'expense' && b.isActive).map((b) => b.id),
+    [budgetsQuery.data],
   )
-  const { data: budgetStatuses = [] } = useBudgetStatuses(activeExpenseBudgetIds)
+  const budgetStatusesQuery = useBudgetStatuses(activeExpenseBudgetIds)
 
-  const chartLoading = dashboardLoading || expenseTrendLoading || categoryLoading
+  const dashboardSummary = summaryQuery.data
+  const balanceSheetData = balanceSheetQuery.data
+  const expenseTrend = trendQuery.data ?? []
+  const categoryData = categoryQuery.data ?? []
+  const assetTrend = useMemo(() => assetTrendQuery.data ?? [], [assetTrendQuery.data])
+  const budgetStatuses = useMemo(() => budgetStatusesQuery.data ?? [], [budgetStatusesQuery.data])
+
+  const chartLoading = trendQuery.isLoading || categoryQuery.isLoading
 
   // -- 计算数据（直接从聚合 API 取，不再全量拉交易列表） --
   const balanceData = useMemo(() => {
-    if (!balanceSheetData) return { totalAssets: 0, totalLiabilities: 0, netWorth: 0 }
+    if (!balanceSheetData) {
+      return { totalAssets: undefined, totalLiabilities: undefined, netWorth: undefined }
+    }
     return {
       totalAssets: balanceSheetData.assets.actual,
       totalLiabilities: balanceSheetData.liabilities.actual,
@@ -77,9 +87,9 @@ const Dashboard: React.FC = () => {
     }
   }, [balanceSheetData])
 
-  const thisMonthIncome = dashboardSummary?.thisMonth.income ?? 0
-  const thisMonthExpense = dashboardSummary?.thisMonth.expense ?? 0
-  const thisMonthBalance = dashboardSummary?.thisMonth.balance ?? 0
+  const thisMonthIncome = dashboardSummary?.thisMonth.income
+  const thisMonthExpense = dashboardSummary?.thisMonth.expense
+  const thisMonthBalance = dashboardSummary?.thisMonth.balance
   const lastMonthIncome = dashboardSummary?.lastMonth.income ?? 0
   const lastMonthExpense = dashboardSummary?.lastMonth.expense ?? 0
   const recentTransactions = dashboardSummary?.recentTransactions ?? []
@@ -110,9 +120,7 @@ const Dashboard: React.FC = () => {
 
     try {
       const res = await analyticsApi.getCategoryBreakdown('expense', undefined, undefined, item.categoryId)
-      if (res.data.success && res.data.data) {
-        return res.data.data
-      }
+      return unwrapApiData(res)
     } catch (error) {
       console.error('获取二级分类数据失败:', error)
     }
@@ -131,18 +139,54 @@ const Dashboard: React.FC = () => {
       <Card className="surface-card dashboard-hero">
         <div className="dashboard-hero__body">
           <div className="dashboard-hero__label">净资产</div>
-          <div className="dashboard-hero__value" style={{ color: getAmountColor(balanceData.netWorth, 'flow', isDark) }}>
-            {formatAmount(balanceData.netWorth, 'flow').text}
-          </div>
-          {netWorthChange && (
-            <div className={`dashboard-hero__change ${netWorthChange.diff >= 0 ? 'dashboard-hero__change--up' : netWorthChange.diff < 0 ? 'dashboard-hero__change--down' : 'dashboard-hero__change--flat'}`}>
-              {netWorthChange.diff >= 0 ? <ArrowUpOutlined /> : netWorthChange.diff < 0 ? <ArrowDownOutlined /> : <MinusOutlined />}
-              <span>{formatCurrency(netWorthChange.diff, { showSign: true })}</span>
-              <span>{formatPercent(netWorthChange.rate)}</span>
-            </div>
+          {balanceSheetQuery.isError ? (
+            <ErrorState
+              variant="inline"
+              title="净资产加载失败"
+              error={balanceSheetQuery.error}
+              onRetry={() => void balanceSheetQuery.refetch()}
+            />
+          ) : (
+            <>
+              <div
+                className="dashboard-hero__value"
+                style={{
+                  color: balanceData.netWorth === undefined
+                    ? token.colorTextTertiary
+                    : getAmountColor(balanceData.netWorth, 'flow', isDark),
+                }}
+              >
+                {balanceData.netWorth === undefined ? '—' : formatAmount(balanceData.netWorth, 'flow').text}
+              </div>
+              {assetTrendQuery.isError ? (
+                <ErrorState
+                  variant="inline"
+                  title="净资产变化加载失败"
+                  error={assetTrendQuery.error}
+                  onRetry={() => void assetTrendQuery.refetch()}
+                />
+              ) : (
+                netWorthChange && (
+                  <div className={`dashboard-hero__change ${netWorthChange.diff >= 0 ? 'dashboard-hero__change--up' : netWorthChange.diff < 0 ? 'dashboard-hero__change--down' : 'dashboard-hero__change--flat'}`}>
+                    {netWorthChange.diff >= 0 ? <ArrowUpOutlined /> : netWorthChange.diff < 0 ? <ArrowDownOutlined /> : <MinusOutlined />}
+                    <span>{formatCurrency(netWorthChange.diff, { showSign: true })}</span>
+                    <span>{formatPercent(netWorthChange.rate)}</span>
+                  </div>
+                )
+              )}
+            </>
           )}
         </div>
       </Card>
+
+      {summaryQuery.isError && (
+        <ErrorState
+          variant="inline"
+          title="本月收支加载失败"
+          error={summaryQuery.error}
+          onRetry={() => void summaryQuery.refetch()}
+        />
+      )}
 
       {/* ===== KPI 指标行（3 卡） ===== */}
       <div className="kpi-grid dashboard-kpi-grid">
@@ -151,8 +195,15 @@ const Dashboard: React.FC = () => {
             <AccountBookOutlined style={{ fontSize: 20, color: colorActionPrimary }} />
             <span className="metric-card__label">总资产</span>
           </div>
-          <div className="metric-card__value" style={{ color: getAmountColor(balanceData.totalAssets, 'asset', isDark) }}>
-            {formatAmount(balanceData.totalAssets, 'asset').text}
+          <div
+            className="metric-card__value"
+            style={{
+              color: balanceData.totalAssets === undefined
+                ? token.colorTextTertiary
+                : getAmountColor(balanceData.totalAssets, 'asset', isDark),
+            }}
+          >
+            {balanceData.totalAssets === undefined ? '—' : formatAmount(balanceData.totalAssets, 'asset').text}
           </div>
         </Card>
 
@@ -161,18 +212,39 @@ const Dashboard: React.FC = () => {
             <CreditCardOutlined style={{ fontSize: 20, color: amountColors.negative }} />
             <span className="metric-card__label">总负债</span>
           </div>
-          <div className="metric-card__value" style={{ color: getAmountColor(balanceData.totalLiabilities, 'liability', isDark) }}>
-            {formatAmount(balanceData.totalLiabilities, 'liability').text}
+          <div
+            className="metric-card__value"
+            style={{
+              color: balanceData.totalLiabilities === undefined
+                ? token.colorTextTertiary
+                : getAmountColor(balanceData.totalLiabilities, 'liability', isDark),
+            }}
+          >
+            {balanceData.totalLiabilities === undefined ? '—' : formatAmount(balanceData.totalLiabilities, 'liability').text}
           </div>
         </Card>
 
         <Card className="surface-card metric-card">
           <div className="metric-card__header">
-            <TransactionOutlined style={{ fontSize: 20, color: getAmountColor(thisMonthBalance, 'flow', isDark) }} />
+            <TransactionOutlined
+              style={{
+                fontSize: 20,
+                color: thisMonthBalance === undefined
+                  ? token.colorTextTertiary
+                  : getAmountColor(thisMonthBalance, 'flow', isDark),
+              }}
+            />
             <span className="metric-card__label">本月结余</span>
           </div>
-          <div className="metric-card__value" style={{ color: getAmountColor(thisMonthBalance, 'flow', isDark) }}>
-            {formatAmount(thisMonthBalance, 'flow').text}
+          <div
+            className="metric-card__value"
+            style={{
+              color: thisMonthBalance === undefined
+                ? token.colorTextTertiary
+                : getAmountColor(thisMonthBalance, 'flow', isDark),
+            }}
+          >
+            {thisMonthBalance === undefined ? '—' : formatAmount(thisMonthBalance, 'flow').text}
           </div>
         </Card>
       </div>
@@ -186,9 +258,9 @@ const Dashboard: React.FC = () => {
               本月收入
             </div>
             <div className="dashboard-income-expense__value" style={{ color: amountColors.positive }}>
-              {formatCurrency(thisMonthIncome)}
+              {thisMonthIncome === undefined ? '—' : formatCurrency(thisMonthIncome)}
             </div>
-            {lastMonthIncome > 0 && (
+            {thisMonthIncome !== undefined && lastMonthIncome > 0 && (
               <div className={`dashboard-income-expense__trend ${thisMonthIncome >= lastMonthIncome ? 'dashboard-income-expense__trend--up' : 'dashboard-income-expense__trend--down'}`}>
                 {thisMonthIncome >= lastMonthIncome ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
                 较上月 {formatPercent(lastMonthIncome > 0 ? ((thisMonthIncome - lastMonthIncome) / lastMonthIncome) * 100 : 0)}
@@ -201,9 +273,9 @@ const Dashboard: React.FC = () => {
               本月支出
             </div>
             <div className="dashboard-income-expense__value" style={{ color: amountColors.negative }}>
-              {formatCurrency(thisMonthExpense)}
+              {thisMonthExpense === undefined ? '—' : formatCurrency(thisMonthExpense)}
             </div>
-            {lastMonthExpense > 0 && (
+            {thisMonthExpense !== undefined && lastMonthExpense > 0 && (
               <div className={`dashboard-income-expense__trend ${thisMonthExpense <= lastMonthExpense ? 'dashboard-income-expense__trend--up' : 'dashboard-income-expense__trend--down'}`}>
                 {thisMonthExpense <= lastMonthExpense ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
                 较上月 {formatPercent(lastMonthExpense > 0 ? ((thisMonthExpense - lastMonthExpense) / lastMonthExpense) * 100 : 0)}
@@ -214,6 +286,20 @@ const Dashboard: React.FC = () => {
       </Card>
 
       {/* ===== 预算进度摘要 ===== */}
+      {(budgetsQuery.isError || budgetStatusesQuery.isError) && (
+        <Card className="surface-card" title="预算执行">
+          <ErrorState
+            variant="inline"
+            title="预算数据加载失败"
+            error={budgetsQuery.error ?? budgetStatusesQuery.error}
+            onRetry={() => {
+              void budgetsQuery.refetch()
+              void budgetStatusesQuery.refetch()
+            }}
+          />
+        </Card>
+      )}
+
       {topBudgets.length > 0 && (
         <Card
           className="surface-card"
@@ -260,7 +346,14 @@ const Dashboard: React.FC = () => {
           <div className="chart-panel__header">
             <h3 className="chart-panel__title">支出趋势</h3>
           </div>
-          {chartLoading ? (
+          {trendQuery.isError ? (
+            <ErrorState
+              variant="inline"
+              title="支出趋势加载失败"
+              error={trendQuery.error}
+              onRetry={() => void trendQuery.refetch()}
+            />
+          ) : chartLoading ? (
             <Skeleton active paragraph={{ rows: 6 }} />
           ) : expenseTrend.length === 0 ? (
             <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ marginTop: 80 }} />
@@ -281,7 +374,14 @@ const Dashboard: React.FC = () => {
           <div className="chart-panel__header">
             <h3 className="chart-panel__title">支出分类</h3>
           </div>
-          {chartLoading ? (
+          {categoryQuery.isError ? (
+            <ErrorState
+              variant="inline"
+              title="支出分类加载失败"
+              error={categoryQuery.error}
+              onRetry={() => void categoryQuery.refetch()}
+            />
+          ) : chartLoading ? (
             <Skeleton active paragraph={{ rows: 6 }} />
           ) : (
             <PieChart title="" data={categoryData} height={300} onDrillDown={handleDrillDown} />
@@ -299,7 +399,14 @@ const Dashboard: React.FC = () => {
           </button>
         }
       >
-        {recentTransactions.length === 0 ? (
+        {summaryQuery.isError ? (
+          <ErrorState
+            variant="inline"
+            title="最近交易加载失败"
+            error={summaryQuery.error}
+            onRetry={() => void summaryQuery.refetch()}
+          />
+        ) : recentTransactions.length === 0 ? (
           <Empty description="暂无交易记录" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
           <div className="tx-item-row-list">
