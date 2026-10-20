@@ -64,6 +64,10 @@ if (type === 'refund') amount = +amount
 if (type === 'transfer') toAmount = amount - fee
 ```
 
+> **已知历史例外**：报表（收支表 / 现金流 / 投资分析）与预算用量目前仍各有一份自己的汇总实现，
+> 领域层的 `budgetUsage` / `remainingRefundable` 只被测试调用。**新代码不得再加第三份**；
+> 收口计划见 [rewrite-blueprint.md](rewrite-blueprint.md) 批次 A0。
+
 ### 3.2 金额
 
 | 场景 | 规则 |

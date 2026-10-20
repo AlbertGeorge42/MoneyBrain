@@ -50,7 +50,7 @@ refund      支出退款 账户 +amount；收入退款 账户 −amount
 adjustment  账户 +amount      权益 −amount
 ```
 
-记账不变量（6 条）及其测试覆盖情况见 [rewrite-blueprint.md](rewrite-blueprint.md) §1 与 [testing.md](testing.md) §5。
+记账不变量（6 条）及其测试覆盖情况见 [rewrite-blueprint.md](rewrite-blueprint.md) §2 与 [testing.md](testing.md) §5.1。
 
 > 领域层与后端之间的适配在 `apps/api/src/services/ledger.adapter.ts`（Prisma/Decimal ↔ 领域类型）。
 
@@ -124,7 +124,21 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `Decimal`，
 - 错误码只有 `packages/contracts` 里的 `ApiErrorCode` 几种，前后端共用。
 - 未匹配的 `/api/*` 路径也返回同一信封（`NOT_FOUND`），不返回 HTML。
 
-## 7. 端口与运行
+## 7. 已知技术债
+
+现状与目标之间的差距，完整清单见 [rewrite-blueprint.md](rewrite-blueprint.md) §4。这里只列**会影响正确性或数据安全**的：
+
+| 债 | 位置 | 后果 |
+|---|---|---|
+| 口径重复：预算用量、可退金额、收支表、现金流各有一份自己的汇总；领域层的 `budgetUsage` / `remainingRefundable` 只被测试调用 | `services/budget.service.ts:227`、`services/transaction.service.ts:219`、`services/report/income-expense.service.ts:44` | 同一问题有两个答案；已确认转账预算两侧口径不一致 |
+| 无版本化迁移：只有 `prisma db push`，没有 `prisma/migrations/` | `apps/api/prisma/` | 不知道某个库是第几版 schema；无法复现、无法回滚 |
+| 备份无格式版本：manifest 没有 `schemaVersion` | `services/backup.service.ts:30` | 旧备份在 schema 变更后无法可靠导入 |
+| SQLite 未显式配置 WAL / `busy_timeout`，写操作未串行化 | `src/prisma.ts` | 多标签页并发写可能 "database is locked" |
+| 决定数字的路径没有单测：预算用量、收支表、现金流、投资分析、备份、清库 | `apps/api/tests/unit/` | 口径改动没有安全网 |
+| 清库接口不需要确认值 | `routes/data.route.ts:43` | 一次误调用即可清空全部数据 |
+| 查询量随总历史增长：首页分类与报表全量加载 | `services/analytics.service.ts:133`、`services/report/income-expense.service.ts:26` | 用得越久越慢，且成本随总量而非期间增长 |
+
+## 8. 端口与运行
 
 - 后端 `3001`，前端 `3002`（Vite 代理 `/api` → `127.0.0.1:3001`）。
 - API 默认只监听 `127.0.0.1`；需要局域网访问时显式设置 `HOST=0.0.0.0`，并用 `CORS_ORIGINS` 配置允许来源（逗号分隔）。

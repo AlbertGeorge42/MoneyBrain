@@ -54,7 +54,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 ### 5.1 记账不变量覆盖
 
-6 条不变量的定义见 [rewrite-blueprint.md](rewrite-blueprint.md) §1；下表是**覆盖情况的唯一来源**。
+6 条不变量的定义见 [rewrite-blueprint.md](rewrite-blueprint.md) §2；下表是**覆盖情况的唯一来源**。
 
 | 不变量 | 覆盖 | 位置 |
 |---|---|---|
@@ -75,10 +75,25 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 - [x] 投资快照前链在增删改后重排且无自引用。
 - [x] 失败时页面显示错误而不是 0（前端错误态）。
 
-### 5.3 尚未覆盖（列入计划）
+### 5.3 完全没有测试的模块
+
+这些模块决定用户看到的数字或数据安全，目前**一行单测都没有**——是蓝图批次 A5 的第一批对象。
+
+| 模块 | 位置 | 该测什么 |
+|---|---|---|
+| 预算用量与状态 | `apps/api/src/services/budget.service.ts` | 正常值、退款冲减、跨期退款（用量下限 0）、转账预算的账户侧、周期末日 |
+| 收入支出表 | `apps/api/src/services/report/income-expense.service.ts` | 净收入/净支出、退款冲减、未分类、期初期末自洽 |
+| 现金流量表 | `apps/api/src/services/report/cash-flow-*` | 三活动 + 未分类合计 == 总流入/流出、手续费单列 |
+| 投资分析 | `apps/api/src/services/report/investment-analysis-*` | 收益分层、外部现金流与本金分离 |
+| 备份与恢复 | `apps/api/src/services/backup.service.ts` | 往返一致、`schemaVersion` 写入 |
+| 清库 | `apps/api/src/services/clear-data.service.ts` | 按范围清空、不误删范围外数据 |
+| 交易列表统计 | `apps/api/src/services/transaction.service.ts` | 统计口径与报表口径一致 |
+
+### 5.4 尚未覆盖（列入计划）
 
 - [ ] 导入中断后的回滚点。
 - [ ] 旧数据迁移的 v1 → v2 对账报告。
+- [ ] 报表对账条：`期初 + 净收入 − 净支出 = 期末`。
 
 ## 6. 验证顺序
 
