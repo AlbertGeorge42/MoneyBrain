@@ -22,7 +22,14 @@ export type { TreeNode } from './tree.js'
 export { ZERO, toDecimal, hasValue, toStringArray, parsePositiveInteger, toDate, toOptionalDate } from './utils.js'
 
 // Validators
-export { validateIdParam, validateBatchSort, validateDateRange, validateDateQuery, validateTypeQuery } from './validators.js'
+export {
+  validateIdParam,
+  validateBatchSort,
+  validateDateRange,
+  validateDateQuery,
+  validateTypeQuery,
+  requireClearConfirm,
+} from './validators.js'
 
 // Date utilities
 export { dayStart, dayEnd, nextDay, formatDateLocal } from './date.js'

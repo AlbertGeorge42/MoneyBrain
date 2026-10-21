@@ -45,3 +45,14 @@ export const validateTypeQuery = (req: Request): void => {
     throw new ValidationError('请指定类型(income/expense)')
   }
 }
+
+/**
+ * 破坏性操作必须带确认值。
+ * 浏览器弹窗只是第一道防线，服务端这一道才是保证。
+ */
+export const requireClearConfirm = (req: Request, expected: string): void => {
+  const confirm = (req.body as { confirm?: unknown } | undefined)?.confirm
+  if (confirm !== expected) {
+    throw new ValidationError('缺少确认值，操作已取消')
+  }
+}

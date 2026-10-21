@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   App,
+  Alert,
   Button,
   Card,
   Divider,
@@ -18,6 +19,8 @@ import { invalidateLedger } from '../../queries/ledger'
 import { useNotify } from '../../hooks/useNotify'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { downloadBlob, todayFilename } from '../../utils/download'
+import { STORAGE_KEYS } from '../../utils/storageKeys'
+import dayjs from 'dayjs'
 
 const allIncludes = ['transactions', 'config', 'budgets', 'snapshots'] as const
 
@@ -65,6 +68,19 @@ const DataBackupSection: React.FC = () => {
   const [importingBackup, setImportingBackup] = useState(false)
   const [importBackupResult, setImportBackupResult] = useState<ImportFullResult | null>(null)
 
+  // 上次备份时间（存在本机浏览器里；换设备后需要重新导出）
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.lastBackupAt)
+    } catch {
+      return null
+    }
+  })
+  const backupAgeDays = lastBackupAt
+    ? Math.floor((Date.now() - new Date(lastBackupAt).getTime()) / 86_400_000)
+    : null
+  const backupOverdue = backupAgeDays === null || backupAgeDays > 7
+
   // ─── 导出 ───
 
   const handleExport = async () => {
@@ -98,6 +114,11 @@ const DataBackupSection: React.FC = () => {
 
       await downloadBlob(buffer as Blob, todayFilename(prefix, ext))
       hide()
+      // 记录本次备份时间，用于「该备份了」的提醒
+      try {
+        localStorage.setItem(STORAGE_KEYS.lastBackupAt, new Date().toISOString())
+        setLastBackupAt(new Date().toISOString())
+      } catch { /* 隐私模式下写入失败可忽略 */ }
       notify.success('导出成功，文件已开始下载')
     } catch (error) {
       hide()
@@ -231,6 +252,25 @@ const DataBackupSection: React.FC = () => {
       >
         导出
       </Button>
+
+      <div className="backup-status">
+        {lastBackupAt ? (
+          <span>
+            上次备份：{dayjs(lastBackupAt).format('YYYY-MM-DD HH:mm')}
+            {backupAgeDays !== null && backupAgeDays > 0 ? `（${backupAgeDays} 天前）` : ''}
+          </span>
+        ) : (
+          <span>还没有备份过，建议先导出一份。</span>
+        )}
+        {backupOverdue && (
+          <Alert
+            type="warning"
+            showIcon
+            message="备份已超过 7 天，建议重新导出一次。"
+            style={{ marginTop: token.paddingSM }}
+          />
+        )}
+      </div>
 
       <Divider className="settings-divider" />
 

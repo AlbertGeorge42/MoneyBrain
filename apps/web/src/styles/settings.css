@@ -126,6 +126,12 @@
   flex-shrink: 0;
 }
 
+.backup-status {
+  margin-top: var(--mb-space-sm);
+  font-size: var(--mb-font-size-body);
+  color: var(--mb-color-text-secondary);
+}
+
 /* 导入模式行 */
 .backup-mode-row {
   display: flex;

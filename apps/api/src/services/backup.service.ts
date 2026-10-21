@@ -4,7 +4,7 @@ import { ZipArchive } from 'archiver'
 import unzipper from 'unzipper'
 import Papa from 'papaparse'
 import { prisma } from '../prisma.js'
-import { ValidationError } from '../common/index.js'
+import { ValidationError, rootLogger } from '../common/index.js'
 
 // ─── 备份文件格式常量与类型 ───
 
@@ -29,6 +29,8 @@ export interface BackupFiles {
 
 export interface ManifestData {
   exportedAt: string
+  /** 导出时的 schema 版本（最新已应用的迁移名）；未知时为 'unknown' */
+  schemaVersion: string
   includes: DataType[]
   stats: {
     transactions?: number
@@ -132,8 +134,53 @@ export async function createManifest(includes: DataType[]): Promise<ManifestData
 
   return {
     exportedAt: new Date().toISOString(),
+    schemaVersion: await getSchemaVersion(),
     includes,
     stats
+  }
+}
+
+/**
+ * 当前 schema 版本：取最新一条已应用的迁移名。
+ * 迁移名是时间戳前缀，字典序即时间序，可直接比较新旧。
+ * 尚未使用版本化迁移的库（没有 _prisma_migrations 表）返回 'unknown'。
+ */
+export async function getSchemaVersion(): Promise<string> {
+  try {
+    const rows = await prisma.$queryRaw<{ migration_name: string }[]>`
+      SELECT migration_name FROM _prisma_migrations
+      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
+      ORDER BY finished_at DESC LIMIT 1
+    `
+    return rows[0]?.migration_name ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/**
+ * 校验备份版本：
+ * - 备份比当前应用新：无法可靠解读，直接拒绝
+ * - 备份比当前应用旧：允许导入（不认识的字段会被忽略），但记一条警告
+ * - 版本未知（老备份没有版本号）：按现状导入
+ */
+export async function assertBackupVersion(manifest: ManifestData | undefined): Promise<void> {
+  const backupVersion = manifest?.schemaVersion
+  if (!backupVersion || backupVersion === 'unknown') return
+
+  const currentVersion = await getSchemaVersion()
+  if (currentVersion === 'unknown') return
+
+  if (backupVersion > currentVersion) {
+    throw new ValidationError('备份来自更新版本的应用，请先升级应用再导入')
+  }
+  if (backupVersion < currentVersion) {
+    rootLogger
+      .child({ module: 'backup' })
+      .warn(
+        { action: 'import-older-backup', backupVersion, currentVersion },
+        '备份版本较旧，按兼容模式导入',
+      )
   }
 }
 

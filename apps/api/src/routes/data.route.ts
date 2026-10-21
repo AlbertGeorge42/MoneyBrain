@@ -1,5 +1,7 @@
 import { Router, type Request } from 'express'
 import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
+import { requireClearConfirm } from '../common/validators.js'
+import { CLEAR_CONFIRM } from '../../../../packages/contracts/constants.js'
 import multer from 'multer'
 import { exportTransactionsCSV } from '../services/export/transaction-export.service.js'
 import { clearAllData, clearTransactionsOnly } from '../services/clear-data.service.js'
@@ -40,12 +42,20 @@ function parseImportIncludes(value: unknown): DataType[] | undefined {
   return parsed
 }
 
-router.delete('/all', asyncHandler(async (_req, res) => {
+/**
+ * 清空数据是不可逆操作：调用方必须带正确的确认值。
+ * 浏览器弹窗只是第一道防线，服务端这一道才是保证。
+ */
+router.delete('/all', validateRequest((req: Request) => {
+  requireClearConfirm(req, CLEAR_CONFIRM.all)
+}), asyncHandler(async (_req, res) => {
   await clearAllData()
   return success(res, { message: '所有数据已清空' })
 }))
 
-router.delete('/transactions', asyncHandler(async (_req, res) => {
+router.delete('/transactions', validateRequest((req: Request) => {
+  requireClearConfirm(req, CLEAR_CONFIRM.transactions)
+}), asyncHandler(async (_req, res) => {
   await clearTransactionsOnly()
   return success(res, { message: '交易数据已清空' })
 }))

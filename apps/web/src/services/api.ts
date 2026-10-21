@@ -23,6 +23,7 @@ import type {
   TransactionType,
 } from '@contracts/types'
 import { normalizeApiError } from './apiError'
+import { CLEAR_CONFIRM } from '@contracts/constants'
 
 export type {
   Account,
@@ -192,8 +193,13 @@ export interface ImportFullResult {
 }
 
 export const dataApi = {
-  clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all'),
-  clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions'),
+  // 清空数据不可逆：必须带确认值，服务端会校验
+  clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all', {
+    data: { confirm: CLEAR_CONFIRM.all },
+  }),
+  clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions', {
+    data: { confirm: CLEAR_CONFIRM.transactions },
+  }),
   // 新的备份API
   exportFull: () => {
     return api.get<Blob>('/data/export-full', {

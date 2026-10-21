@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { validateIdParam, validateBatchSort, validateDateRange, validateDateQuery, validateTypeQuery } from '../../src/common/validators.js'
+import {
+  validateIdParam,
+  validateBatchSort,
+  validateDateRange,
+  validateDateQuery,
+  validateTypeQuery,
+  requireClearConfirm,
+} from '../../src/common/validators.js'
 import { ValidationError } from '../../src/common/error.js'
+import { CLEAR_CONFIRM } from '../../../../packages/contracts/constants.js'
 
 describe('validators', () => {
   describe('validateIdParam', () => {
@@ -124,6 +132,29 @@ describe('validators', () => {
     it('空字符串 type 应该抛出 ValidationError', () => {
       const req = { query: { type: '' } } as any
       expect(() => validateTypeQuery(req)).toThrow(ValidationError)
+    })
+  })
+
+  describe('requireClearConfirm', () => {
+    it('缺少确认值时应该抛出 ValidationError', () => {
+      expect(() => requireClearConfirm({ body: undefined } as any, CLEAR_CONFIRM.all)).toThrow(ValidationError)
+      expect(() => requireClearConfirm({ body: {} } as any, CLEAR_CONFIRM.all)).toThrow(ValidationError)
+    })
+
+    it('确认值不匹配时应该抛出 ValidationError', () => {
+      expect(() =>
+        requireClearConfirm({ body: { confirm: 'clear-transactions' } } as any, CLEAR_CONFIRM.all),
+      ).toThrow(ValidationError)
+      expect(() => requireClearConfirm({ body: { confirm: true } } as any, CLEAR_CONFIRM.all)).toThrow(ValidationError)
+    })
+
+    it('确认值正确时不应该抛出错误', () => {
+      expect(() =>
+        requireClearConfirm({ body: { confirm: CLEAR_CONFIRM.all } } as any, CLEAR_CONFIRM.all),
+      ).not.toThrow()
+      expect(() =>
+        requireClearConfirm({ body: { confirm: CLEAR_CONFIRM.transactions } } as any, CLEAR_CONFIRM.transactions),
+      ).not.toThrow()
     })
   })
 })

@@ -1,7 +1,13 @@
 // ─── 智能导入（ZIP / CSV / JSON） ───
 
 import { prisma } from '../../prisma.js'
-import { parseBackupZip, detectFileType, detectFileIncludes, type DataType } from '../backup.service.js'
+import {
+  parseBackupZip,
+  detectFileType,
+  detectFileIncludes,
+  assertBackupVersion,
+  type DataType,
+} from '../backup.service.js'
 import { clearSelectedDataForImport } from '../clear-data.service.js'
 import { importConfig } from './config-import.service.js'
 import { importBudgets } from './budget-import.service.js'
@@ -26,6 +32,7 @@ async function importZipBackup(
   includes?: DataType[]
 ): Promise<ImportFullResult> {
   const files = await parseBackupZip(file)
+  await assertBackupVersion(files.manifest)
   const manifestIncludes = files.manifest?.includes ?? []
   const detected = await detectFileIncludes(file, 'zip')
   const availableIncludes = manifestIncludes.length > 0 ? manifestIncludes : detected

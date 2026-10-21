@@ -36,6 +36,9 @@ npm start       # 预览构建产物
 | `npm run typecheck` | domain + api + web |
 | `npm test` | domain + api + web 测试 |
 | `npm run test:e2e` | Playwright（**会清空开发数据库，先备份 `apps/api/prisma/dev.db`**） |
+| `npm run db:migrate` | 改 schema 后生成并应用版本化迁移（SQL 进仓库） |
+| `npm run db:status` | 查看当前库与迁移的差异 |
+| `npm run db:drill` | 恢复演练：导出 → 导入临时库 → 对比余额（备份可信度自检） |
 
 单独跑某一层：`npm run test:domain` / `npm run test:api` / `npm run test:web`。
 

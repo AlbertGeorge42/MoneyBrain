@@ -16,4 +16,6 @@ export const STORAGE_KEYS = {
     detailExpandedKeys: 'moneybrain:reports:ui:detailExpandedKeys',
     viewActiveKey: 'moneybrain:reports:ui:viewActiveKey',
   },
+  /** 上次成功导出备份的时间（ISO 字符串），用于提醒用户定期备份 */
+  lastBackupAt: 'moneybrain:backup:lastBackupAt',
 } as const

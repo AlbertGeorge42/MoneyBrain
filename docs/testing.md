@@ -19,6 +19,7 @@ npm run test:domain                    # 领域测试
 npm run test:api                       # 后端全部
 npm run test:web                       # 前端
 npm run test:e2e                       # E2E（自动启动服务）
+npm run db:drill                       # 恢复演练：导出 → 导入临时库 → 对比余额
 
 # 只跑后端某一层
 npm run test:unit -w @moneybrain/api
@@ -29,16 +30,27 @@ cd apps/api && npx vitest run tests/unit/http.test.ts
 cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 ```
 
-集成测试会先自动创建/同步 `apps/api/prisma/test.db`（`tests/global-setup.ts`）。
+集成测试会先自动创建/同步 `apps/api/prisma/test.db`（`tests/global-setup.ts`，用版本化迁移重建）。
 
 ## 3. 当前规模
 
 | 范围 | 文件 | 用例 |
 |---|---|---|
-| 领域 | 2 | 18 |
-| 后端 | 21 | 242 |
+| 领域 | 2 | 21 |
+| 后端 | 23 | 254 |
 | 前端 | 10 | 86 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
+
+## 3.1 恢复演练（不是单元测试）
+
+`npm run db:drill` 验证的是**备份能不能还原出同样的钱**：
+
+1. 用真实导出逻辑把当前账本导出成 ZIP；
+2. 用版本化迁移建一个临时库，把 ZIP 导进去；
+3. 用领域层从原始交易重算两边的账户余额与净资产，逐项对比。
+
+导入/导出/余额逻辑改动后必须跑；有差异说明备份不可信（或导入算错）。
+演练只碰临时库，不影响 `dev.db`；`-- --keep` 可保留临时库排查。
 
 ## 4. Mock 策略
 
@@ -46,7 +58,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 |---|---|
 | 领域 | 纯内存对象，无 mock |
 | 后端单元 | `createMockPrisma()`（`apps/api/tests/mocks/prisma.ts`） |
-| 后端集成 | `apps/api/prisma/test.db`（测试前自动 `db push`） |
+| 后端集成 | `apps/api/prisma/test.db`（测试前由 `tests/global-setup.ts` 用版本化迁移重建） |
 | 前端 | `apps/web/tests/setup.ts` 统一 mock AntD / ECharts / matchMedia / ResizeObserver；页面测试用 `vi.mock('../../../src/queries/xxx')` 注入查询状态 |
 | E2E | 开发数据库；`clearAllTestData()` 清理。**运行前先备份 `apps/api/prisma/dev.db`，E2E 会清空全部数据。** |
 
@@ -66,6 +78,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts`（`periodOf` 各周期边界） |
 | 预算：退款冲减、跨期退款下限为 0、未分类不计入、转账只算绑定的那一对账户 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts` |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
+| 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |
+| 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |
 | 预算用量在周期最后一天计入 | 🔄 实现已用 `periodOf` 半开区间，缺专门断言 | — |
 | `Σ 所有账户余额 == 净资产` | 🔄 单账户余额已测，聚合恒等式未断言 | — |
 | `期末净资产 − 期初净资产 == 净收入 − 净支出` | ⬜ 未覆盖（报表无对账条） | — |

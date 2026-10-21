@@ -173,13 +173,19 @@ if (type === 'transfer') toAmount = amount - fee
 
 - 路由只做参数解析、校验、调用 service；禁止算钱。
 - 错误由 `errorHandler` 统一映射；业务错误抛 `AppError` 子类（`code` 必须来自上表）。
+- **破坏性接口必须带确认值**：清库等不可逆操作要求请求体带 `confirm`，
+  取值来自 `packages/contracts/constants.ts` 的 `CLEAR_CONFIRM`（前后端共用，避免漂移）。
 
 ## 8. 数据库
 
 - SQLite，Prisma；金额 `Decimal`，ID `uuid`。
-- 修改 schema 后运行 `npx prisma db push --schema apps/api/prisma/schema.prisma`；测试库由 `tests/global-setup.ts` 自动同步。
-  **方向**：长期目标是改用版本化迁移（`prisma migrate` 生成 SQL 并提交），见 [rewrite-blueprint.md](rewrite-blueprint.md) 批次 B1；
-  在那之前，改 schema 必须同时在提交信息里写清变更内容与迁移方式。
+- **改 schema 一律走版本化迁移**：`npm run db:migrate`（生成并应用迁移，SQL 提交进仓库）。
+  禁止只用 `prisma db push`——没有迁移历史就无法复现、无法回滚。
+  - 迁移名必须以时间戳开头：`YYYYMMDDHHMMSS_描述`（版本新旧按字典序比较）。
+  - `npm run db:status` 查看当前库与迁移的差异；`npm run db:deploy` 只应用已有迁移。
+  - 测试库由 `tests/global-setup.ts` 用同一套迁移重建（不是 `db push`）。
+- `npm run db:drill` 跑恢复演练：导出 → 导入临时库 → 用领域层重算两边余额并对比。
+  改动导出/导入/余额逻辑后必须跑一次，结果不一致就是备份不可信了。
 - 不持久化余额、预算百分比、快照前链、收益率。
 - 交易删除是硬删除；退款通过 `relatedTransactionId` 关联。存在退款的原交易禁止删除，避免孤儿退款。
 - CSV 导入用 `Transaction.importKey` 去重；同一文件或数据库已存在的记录会跳过。
