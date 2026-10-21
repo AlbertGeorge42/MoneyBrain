@@ -1,5 +1,6 @@
 import { contains, type Period } from '../date.js'
 import { ZERO_MINOR, add, max, sub, sum, type Minor } from '../money.js'
+import { isCountable, refundOffsetKind, type FlowKind } from './rules.js'
 import type { LedgerTransaction } from './types.js'
 
 export const UNCATEGORIZED_CATEGORY_ID = '__uncategorized__'
@@ -18,14 +19,16 @@ function inPeriod(transaction: LedgerTransaction, period?: Period): boolean {
   return !period || contains(period, transaction.date)
 }
 
-function countable(transaction: LedgerTransaction): boolean {
-  return !transaction.excludeFromIncomeExpense
+/** 汇总选项：是否把「不计收支」的交易也算进来（报表的「含不计收支」口径）。 */
+export interface FlowSummaryOptions {
+  includeExcluded?: boolean
 }
 
 /** 收入/支出/退款汇总；退款按原交易类型冲减对应一侧。 */
 export function summarizeFlows(
   transactions: readonly LedgerTransaction[],
   period?: Period,
+  options: FlowSummaryOptions = {},
 ): FlowSummary {
   let income = ZERO_MINOR
   let expense = ZERO_MINOR
@@ -33,7 +36,8 @@ export function summarizeFlows(
   let expenseRefunds = ZERO_MINOR
 
   for (const transaction of transactions) {
-    if (!countable(transaction) || !inPeriod(transaction, period)) continue
+    if (!isCountable(transaction, options.includeExcluded)) continue
+    if (!inPeriod(transaction, period)) continue
 
     switch (transaction.kind) {
       case 'income':
@@ -42,13 +46,15 @@ export function summarizeFlows(
       case 'expense':
         expense = add(expense, transaction.amount)
         break
-      case 'refund':
-        if (transaction.relatedType === 'income') {
+      case 'refund': {
+        const offset = refundOffsetKind(transaction.relatedType)
+        if (offset === 'income') {
           incomeRefunds = add(incomeRefunds, transaction.amount)
-        } else if (transaction.relatedType === 'expense') {
+        } else if (offset === 'expense') {
           expenseRefunds = add(expenseRefunds, transaction.amount)
         }
         break
+      }
       default:
         break
     }
@@ -71,8 +77,9 @@ export function summarizeFlows(
 /** 按分类聚合净收入或净支出。退款会从原分类中扣减。 */
 export function flowByCategory(
   transactions: readonly LedgerTransaction[],
-  kind: 'income' | 'expense',
+  kind: FlowKind,
   period?: Period,
+  options: FlowSummaryOptions = {},
 ): Map<string, Minor> {
   const result = new Map<string, Minor>()
 
@@ -82,11 +89,12 @@ export function flowByCategory(
   }
 
   for (const transaction of transactions) {
-    if (!countable(transaction) || !inPeriod(transaction, period)) continue
+    if (!isCountable(transaction, options.includeExcluded)) continue
+    if (!inPeriod(transaction, period)) continue
 
     if (transaction.kind === kind) {
       append(transaction.categoryId, transaction.amount)
-    } else if (transaction.kind === 'refund' && transaction.relatedType === kind) {
+    } else if (transaction.kind === 'refund' && refundOffsetKind(transaction.relatedType) === kind) {
       append(transaction.categoryId, sub(ZERO_MINOR, transaction.amount))
     }
   }
@@ -94,54 +102,28 @@ export function flowByCategory(
   return result
 }
 
-export interface BudgetUsageInput {
-  kind: 'income' | 'expense' | 'transfer'
-  period: Period
-  categoryIds: ReadonlySet<string>
-  accountId: string
-  toAccountId?: string | null
+/** 可退金额计算需要的最小结构（原交易 + 它的退款）。 */
+export interface RefundableOriginal {
+  id: string
+  kind: string
+  amount: Minor
+}
+
+export interface RefundableRefund {
+  kind: string
+  amount: Minor
+  relatedTransactionId?: string | null
 }
 
 /**
- * 预算已用金额。
- * 预算与交易使用同一套日期/账户/分类口径，退款自动冲减。
+ * 原交易还可退多少。
+ *
+ * 退款上限的口径只有这一处；后端创建/编辑退款时也调用它，
+ * 避免自己再写一遍「原额 − 已退额」。
  */
-export function budgetUsage(
-  transactions: readonly LedgerTransaction[],
-  input: BudgetUsageInput,
-): Minor {
-  let used = ZERO_MINOR
-
-  for (const transaction of transactions) {
-    if (!countable(transaction) || !contains(input.period, transaction.date)) continue
-    // 未分类的交易不计入任何分类预算
-    if (!transaction.categoryId || !input.categoryIds.has(transaction.categoryId)) continue
-
-    // 转账预算绑定「转出账户 + 转入账户」，只统计这一对账户之间的转账；
-    // 收支预算只认自己的账户
-    const accountMatches =
-      input.kind === 'transfer'
-        ? transaction.kind === 'transfer' &&
-          transaction.accountId === input.accountId &&
-          (input.toAccountId == null || transaction.toAccountId === input.toAccountId)
-        : transaction.accountId === input.accountId
-
-    if (!accountMatches) continue
-
-    if (transaction.kind === input.kind) {
-      used = add(used, transaction.amount)
-    } else if (transaction.kind === 'refund' && transaction.relatedType === input.kind) {
-      used = sub(used, transaction.amount)
-    }
-  }
-
-  return max(used, ZERO_MINOR)
-}
-
-/** 原交易还可退多少。 */
 export function remainingRefundable(
-  original: LedgerTransaction,
-  refunds: readonly LedgerTransaction[],
+  original: RefundableOriginal,
+  refunds: readonly RefundableRefund[],
 ): Minor {
   if (original.kind !== 'income' && original.kind !== 'expense') return ZERO_MINOR
 

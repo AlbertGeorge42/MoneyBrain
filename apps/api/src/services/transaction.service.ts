@@ -1,11 +1,12 @@
 import { prisma } from '../prisma.js'
 import { Prisma } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, ZERO, rootLogger } from '../common/index.js'
+import { toDecimal, rootLogger } from '../common/index.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
+import { fromMajor, refundQueryFor, remainingRefundable, toMajor } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -207,17 +208,28 @@ async function assertRefundable(
     throw new ValidationError('退款金额必须大于 0')
   }
 
-  const refunded = await prisma.transaction.aggregate({
+  // 可退金额的口径只有领域层这一处：原额 − 已退额
+  const refunds = await prisma.transaction.findMany({
     where: {
       type: 'refund',
       relatedTransactionId: original.id,
       ...(excludeRefundId ? { id: { not: excludeRefundId } } : {}),
     },
-    _sum: { amount: true },
+    select: { type: true, amount: true, relatedTransactionId: true },
   })
 
-  const remaining = original.amount.minus(refunded._sum.amount || ZERO)
-  if (toDecimal(amount).greaterThan(remaining)) {
+  const remaining = toMajor(
+    remainingRefundable(
+      { id: original.id, kind: original.type, amount: fromMajor(original.amount.toNumber()) },
+      refunds.map((refund) => ({
+        kind: refund.type,
+        amount: fromMajor(refund.amount.toNumber()),
+        relatedTransactionId: refund.relatedTransactionId,
+      })),
+    ),
+  )
+
+  if (toDecimal(amount).greaterThan(toDecimal(remaining))) {
     throw new ValidationError(`退款金额不能超过可退余额 ${remaining.toFixed(2)}`)
   }
 }
@@ -476,6 +488,7 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
 
   // 分别统计收入退款和支出退款
   // 不计收支标记（excludeFromIncomeExpense）的交易不参与任何收入/支出/退款/转账统计
+  // 统计口径来自领域层规则：退款按原交易类型冲减对应侧
   const [incomeResult, expenseResult, incomeRefundResult, expenseRefundResult, transferCount] = await Promise.all([
     prisma.transaction.aggregate({
       where: { ...where, type: 'income', excludeFromIncomeExpense: false },
@@ -486,11 +499,11 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { ...where, type: 'refund', relatedType: 'income', excludeFromIncomeExpense: false },
+      where: { ...where, ...refundQueryFor('income'), excludeFromIncomeExpense: false },
       _sum: { amount: true, fee: true },
     }),
     prisma.transaction.aggregate({
-      where: { ...where, type: 'refund', relatedType: 'expense', excludeFromIncomeExpense: false },
+      where: { ...where, ...refundQueryFor('expense'), excludeFromIncomeExpense: false },
       _sum: { amount: true, fee: true },
     }),
     prisma.transaction.count({ where: { ...where, type: 'transfer', excludeFromIncomeExpense: false } }),

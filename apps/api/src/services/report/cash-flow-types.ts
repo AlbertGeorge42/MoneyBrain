@@ -62,6 +62,8 @@ export interface AccountInfo {
 export interface ProcessedTx {
   isPredicted: boolean
   type: string
+  /** 退款指向的原交易类型（'income' / 'expense'），决定退款的资金方向 */
+  relatedType: string | null
   amount: Decimal
   fee: Decimal
   coupon: Decimal

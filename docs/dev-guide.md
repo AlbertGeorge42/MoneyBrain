@@ -45,16 +45,19 @@ packages/
 
 ```ts
 // apps/api/src/services 下的真实导入路径
-import { postingsOf, summarizeFlows, budgetUsage } from '../../../../packages/domain/src/index.js'
+import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../packages/domain/src/index.js'
 ```
 
 | 口径 | 落在哪里 |
 |---|---|
 | 交易 → 分录的方向与金额 | `ledger/postings.ts` 的 `postingsOf` |
-| 余额（含期初当天计入） | 同上的 `balanceAt` / `balanceBefore` |
+| 余额（含期初当天计入） | 同上的 `balanceBefore` / `balanceAt` |
 | 收支净额与分类汇总 | `ledger/summary.ts` 的 `summarizeFlows` / `flowByCategory` |
-| 预算用量（含退款冲减） | 同上的 `budgetUsage` |
 | 退款可退余额 | 同上的 `remainingRefundable` |
+| 预算的账户/分类/冲减口径 | `ledger/rules.ts` 的 `scopeQuery` / `matchesBudgetScope` |
+
+**`ledger/rules.ts` 是口径的唯一来源**：它同时被领域层的纯函数和后端的 SQL 条件消费，
+所以「统计哪些类型」「退款冲减哪一侧」不会各写一份。
 
 **禁止**在组件、route、service 中复制：
 
@@ -64,9 +67,8 @@ if (type === 'refund') amount = +amount
 if (type === 'transfer') toAmount = amount - fee
 ```
 
-> **已知历史例外**：报表（收支表 / 现金流 / 投资分析）与预算用量目前仍各有一份自己的汇总实现，
-> 领域层的 `budgetUsage` / `remainingRefundable` 只被测试调用。**新代码不得再加第三份**；
-> 收口计划见 [rewrite-blueprint.md](rewrite-blueprint.md) 批次 A0。
+> **已知历史例外**：投资分析只统计「转账本金」这一套口径（见 [requirements.md](requirements.md) §3.5），尚未接入领域层规则；
+> 收口计划见 [rewrite-blueprint.md](rewrite-blueprint.md) 批次 A0；**新代码不得再加第二份**。
 
 ### 3.2 金额
 

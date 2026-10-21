@@ -1,7 +1,15 @@
 import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { ZERO, rootLogger } from '../../common/index.js'
+import { ZERO, rootLogger, toDecimal } from '../../common/index.js'
+import { toLedgerTransaction } from '../ledger.adapter.js'
+import {
+  flowByCategory,
+  summarizeFlows,
+  toMajor,
+  UNCATEGORIZED_CATEGORY_ID,
+  ZERO_MINOR,
+} from '../../../../../packages/domain/src/index.js'
 import {
   getPredictionsIfFuture,
   computePredictedAssetsLiabilities,
@@ -34,31 +42,11 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     include: { category: true, account: true },
   })
 
-  // 收入/支出按交易类型分别累加；退款按 relatedType 单独累加，最后在汇总时从对应侧扣减。
-  // 退款金额 = amount - fee，与 transaction.service.ts 的 getTransactionStats 保持一致。
-  let aIncome = ZERO
-  let aExpense = ZERO
-  let aIncomeRefund = ZERO
-  let aExpenseRefund = ZERO
-
-  transactions.forEach(t => {
-    if (t.type === 'income') {
-      aIncome = aIncome.plus(t.amount)
-    } else if (t.type === 'expense') {
-      aExpense = aExpense.plus(t.amount)
-    } else if (t.type === 'refund') {
-      // fee/coupon 已合并到 amount 中，直接用 amount
-      if (t.relatedType === 'income') {
-        aIncomeRefund = aIncomeRefund.plus(t.amount)
-      } else if (t.relatedType === 'expense') {
-        aExpenseRefund = aExpenseRefund.plus(t.amount)
-      }
-    }
-  })
-
-  // 净收入/净支出：扣除对应侧的退款
-  const netIncome = aIncome.minus(aIncomeRefund)
-  const netExpense = aExpense.minus(aExpenseRefund)
+  // 收支口径只有领域层这一处：退款按原交易类型冲减对应侧，报表与首页、交易统计一致。
+  const ledger = transactions.map(toLedgerTransaction)
+  const summary = summarizeFlows(ledger, undefined, { includeExcluded })
+  const netIncome = toDecimal(toMajor(summary.netIncome))
+  const netExpense = toDecimal(toMajor(summary.netExpense))
 
   let pIncome = ZERO
   let pExpense = ZERO
@@ -111,30 +99,12 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     childrenOf.get(key)!.push(cat)
   }
 
-  const leafActualIncome: Record<string, Decimal> = {}
-  const leafActualExpense: Record<string, Decimal> = {}
-  // 退款按原交易类型分桶：在 buildTree 时从对应侧扣减
-  const leafActualIncomeRefund: Record<string, Decimal> = {}
-  const leafActualExpenseRefund: Record<string, Decimal> = {}
+  // 分类净额：同样由领域层口径产出（退款从同分类中扣减）
+  const netIncomeByCategory = flowByCategory(ledger, 'income', undefined, { includeExcluded })
+  const netExpenseByCategory = flowByCategory(ledger, 'expense', undefined, { includeExcluded })
+
   const leafPredictedIncome: Record<string, Decimal> = {}
   const leafPredictedExpense: Record<string, Decimal> = {}
-
-  transactions.forEach(t => {
-    const catId = t.categoryId ?? 'uncategorized'
-    if (t.type === 'income') {
-      leafActualIncome[catId] = (leafActualIncome[catId] || ZERO).plus(t.amount)
-    } else if (t.type === 'expense') {
-      leafActualExpense[catId] = (leafActualExpense[catId] || ZERO).plus(t.amount)
-    } else if (t.type === 'refund') {
-      // 退款继承原交易分类；按 relatedType 计入对应侧的退款桶
-      // fee/coupon 已合并到 amount 中，直接用 amount
-      if (t.relatedType === 'income') {
-        leafActualIncomeRefund[catId] = (leafActualIncomeRefund[catId] || ZERO).plus(t.amount)
-      } else if (t.relatedType === 'expense') {
-        leafActualExpenseRefund[catId] = (leafActualExpenseRefund[catId] || ZERO).plus(t.amount)
-      }
-    }
-  })
 
   for (const [catId, pAmount] of Object.entries(predictedById)) {
     const cat = categoryMap.get(catId)
@@ -157,10 +127,11 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       // hasChildren 基于真实分类层级：分类表里只要有子分类就视为可下钻
       const hasChildren = (childrenOf.get(cat.id) ?? []).length > 0
 
-      // 自身实际 = 自身收入/支出 - 对应侧退款；预测侧无退款
-      const ownActual = (type === 'income' ? leafActualIncome : leafActualExpense)[cat.id] ?? ZERO
-      const ownRefund = (type === 'income' ? leafActualIncomeRefund : leafActualExpenseRefund)[cat.id] ?? ZERO
-      const catActual = ownActual.minus(ownRefund)
+      // 自身实际 = 该分类的净额（退款已扣减）；预测侧无退款
+      const ownActual = toDecimal(
+        toMajor((type === 'income' ? netIncomeByCategory : netExpenseByCategory).get(cat.id) ?? ZERO_MINOR),
+      )
+      const catActual = ownActual
       const catPredicted = (type === 'income' ? leafPredictedIncome : leafPredictedExpense)[cat.id] ?? ZERO
       const hasOwnData = !catActual.isZero() || !catPredicted.isZero()
 
@@ -187,9 +158,13 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   }
 
   function buildUncategorized(type: 'income' | 'expense'): ReportCategoryDetail | null {
-    const own = (type === 'income' ? leafActualIncome : leafActualExpense)['uncategorized'] ?? ZERO
-    const refund = (type === 'income' ? leafActualIncomeRefund : leafActualExpenseRefund)['uncategorized'] ?? ZERO
-    const actual = own.minus(refund)
+    const actual = toDecimal(
+      toMajor(
+        (type === 'income' ? netIncomeByCategory : netExpenseByCategory).get(
+          UNCATEGORIZED_CATEGORY_ID,
+        ) ?? ZERO_MINOR,
+      ),
+    )
     if (actual.isZero()) return null
 
     return {
@@ -212,23 +187,16 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   if (uncategorizedIncome) incomeCategoryDetails.push(uncategorizedIncome)
   if (uncategorizedExpense) expenseCategoryDetails.push(uncategorizedExpense)
 
-  for (const [catId, amount] of Object.entries(leafActualIncome)) {
+  // 分类汇总：直接用领域层算出的净额（退款已从同分类扣减）
+  for (const [catId, amount] of netIncomeByCategory) {
     const cat = categoryMap.get(catId)
-    incomeByCategory[cat?.name ?? '未分类'] = (incomeByCategory[cat?.name ?? '未分类'] || ZERO).plus(amount)
+    const key = cat?.name ?? '未分类'
+    incomeByCategory[key] = (incomeByCategory[key] || ZERO).plus(toDecimal(toMajor(amount)))
   }
-  // 收入侧退款需要从同分类的收入中扣减
-  for (const [catId, refund] of Object.entries(leafActualIncomeRefund)) {
+  for (const [catId, amount] of netExpenseByCategory) {
     const cat = categoryMap.get(catId)
-    incomeByCategory[cat?.name ?? '未分类'] = (incomeByCategory[cat?.name ?? '未分类'] || ZERO).minus(refund)
-  }
-  for (const [catId, amount] of Object.entries(leafActualExpense)) {
-    const cat = categoryMap.get(catId)
-    expenseByCategory[cat?.name ?? '未分类'] = (expenseByCategory[cat?.name ?? '未分类'] || ZERO).plus(amount)
-  }
-  // 支出侧退款需要从同分类的支出中扣减
-  for (const [catId, refund] of Object.entries(leafActualExpenseRefund)) {
-    const cat = categoryMap.get(catId)
-    expenseByCategory[cat?.name ?? '未分类'] = (expenseByCategory[cat?.name ?? '未分类'] || ZERO).minus(refund)
+    const key = cat?.name ?? '未分类'
+    expenseByCategory[key] = (expenseByCategory[key] || ZERO).plus(toDecimal(toMajor(amount)))
   }
 
   const accounts = await prisma.account.findMany()

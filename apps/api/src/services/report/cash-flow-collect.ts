@@ -31,6 +31,7 @@ export function collectTransactions(args: {
     actualItems.push({
       isPredicted: false,
       type: t.type,
+      relatedType: t.relatedType,
       amount: t.amount,
       fee: toDecimal(t.fee),
       coupon: toDecimal(t.coupon),
@@ -67,6 +68,7 @@ export function collectTransactions(args: {
     predictedItems.push({
       isPredicted: true,
       type: p.type,
+      relatedType: null,
       amount: toDecimal(p.amount),
       fee: ZERO,
       coupon: ZERO,

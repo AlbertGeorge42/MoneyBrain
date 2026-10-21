@@ -38,7 +38,8 @@ packages/domain → 无外部依赖
 | `date.ts` | `LocalDate`（`YYYY-MM-DD`）；`localDate/today/compare/isBefore`、期间 `periodOf`、半开区间工具 |
 | `ledger/types.ts` | `LedgerTransaction`、`TransactionKind`、`Posting`、`OpeningBalance` |
 | `ledger/postings.ts` | **交易 → 分录**：`postingsOf`、`accountDelta`、`balanceAt`、`balanceBefore`、`transferOutflow`、`effectiveTransferFee` |
-| `ledger/summary.ts` | **分录 → 报表**：`summarizeFlows`、`flowByCategory`、`budgetUsage`、`remainingRefundable` |
+| `ledger/summary.ts` | **分录 → 报表**：`summarizeFlows`、`flowByCategory`、`remainingRefundable` |
+| `ledger/rules.ts` | **口径规则唯一来源**：计入哪些类型、退款冲减哪侧、账户与分类如何匹配（SQL 与 JS 共用） |
 
 分录规则（口径定义见 [requirements.md](requirements.md) §3.1，实现见 `ledger/postings.ts` 的 `postingsOf`）：
 
@@ -60,11 +61,11 @@ adjustment  账户 +amount      权益 −amount
 |---|---|
 | `routes/*.route.ts` | 参数解析、校验、委托 service；不写业务判断、不算钱 |
 | `services/account*.service.ts` | 账户与账户分类 CRUD、级联清理 |
-| `services/transaction.service.ts` | 交易创建/更新/删除、退款上限校验 |
+| `services/transaction.service.ts` | 交易创建/更新/删除；退款上限调用领域层 `remainingRefundable` |
 | `services/balance.service.ts` | 批量余额（走 `balanceBefore` / `postingsOf`） |
-| `services/budget.service.ts` | 预算 CRUD、状态（走 `budgetUsage`）、预测 |
+| `services/budget.service.ts` | 预算 CRUD、状态、预测；统计类型与冲减口径来自领域层规则（`scopeQuery`） |
 | `services/analytics.service.ts` | 首页汇总、趋势、分类占比（走 `summarizeFlows` / `flowByCategory`） |
-| `services/report/*` | 四张报表；现金流拆成 collect → aggregate → build 管线 |
+| `services/report/*` | 四张报表；收支表用领域层 `summarizeFlows` / `flowByCategory` |
 | `services/import/*`、`services/export/*` | 备份/CSV 导入导出；幂等键、范围过滤、覆盖保护 |
 | `services/investment/*` | 资产类型、快照链、收益分析 |
 | `services/ledger.adapter.ts` | Prisma/Decimal ↔ 领域类型适配 |
@@ -137,8 +138,8 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `Decimal`，
 
 | 债 | 位置 | 后果 |
 |---|---|---|
-| 口径重复：预算用量、可退金额、收支表、现金流各有一份自己的汇总；领域层的 `budgetUsage` / `remainingRefundable` 只被测试调用 | `services/budget.service.ts:227`、`services/transaction.service.ts:219`、`services/report/income-expense.service.ts:44` | 同一问题有两个答案；领域函数与线上口径需要人工保持一致 |
-| 决定数字的路径大多没有单测：收支表、现金流、投资分析、备份、清库 | `apps/api/tests/unit/` | 口径改动没有安全网（预算用量、改类型保护、备份版本已有测试） |
+| 投资分析仍有一份自己的口径（只统计转账本金） | `services/report/investment-analysis-collect.ts` | 与其它报表口径不同属设计选择，但没有单测兜底 |
+| 决定数字的路径大多没有单测：投资分析、备份、清库 | `apps/api/tests/unit/` | 口径改动没有安全网（预算、收支表、现金流、退款上限、备份版本已有测试） |
 | SQLite 未显式配置 WAL / `busy_timeout`，写操作未串行化 | `src/prisma.ts` | 多标签页并发写可能 "database is locked" |
 
 ## 8. 端口与运行

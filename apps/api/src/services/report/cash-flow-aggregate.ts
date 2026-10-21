@@ -1,5 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/library.js'
 import { ZERO } from '../../common/index.js'
+import { refundOffsetKind } from '../../../../../packages/domain/src/index.js'
 import { transferOutflowDecimal } from '../ledger.adapter.js'
 import { AggregatedFlows, CashFlowActivityDecimal, ProcessedTx } from './cash-flow-types.js'
 
@@ -165,13 +166,23 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
       }
     } else if (it.type === 'refund' && it.isFromCash) {
-      const actualInflow = it.amount
+      // 退款方向由原交易类型决定（领域层规则）：
+      // 收入退款 = 钱流出账户 → 现金流为流出；支出退款 = 钱流回账户 → 流入。
+      const offset = refundOffsetKind(it.relatedType)
+      if (offset === null) continue
+
+      const direction = offset === 'income' ? 'outflow' : 'inflow'
       addTransaction(
         target, it.categoryName, it.categoryId, it.parentId, it.level,
-        actualInflow, 'refund', 'inflow', it.icon, it.color,
+        it.amount, 'refund', direction, it.icon, it.color,
       )
       const accountFlow = getOrCreateAccountFlow(it.accountName)
-      accountFlow.inflow = accountFlow.inflow.plus(actualInflow)
+      if (direction === 'inflow') {
+        accountFlow.inflow = accountFlow.inflow.plus(it.amount)
+      } else {
+        // 符号约定：outflow 累加为负
+        accountFlow.outflow = accountFlow.outflow.minus(it.amount)
+      }
     }
   }
 

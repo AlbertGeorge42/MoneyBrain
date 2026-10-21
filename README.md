@@ -60,7 +60,7 @@ MoneyBrain/
 ## 不可违反的领域规则
 
 1. **金额影响只有一个实现**：所有余额、收支、预算、退款计算必须经过
-   `packages/domain` 的 `postingsOf` / `summarizeFlows` / `budgetUsage`。
+   `packages/domain` 的 `postingsOf` / `summarizeFlows` / `remainingRefundable`。
    组件、route、service 里不得再写 `if (type === 'refund')` 之类的金额分支。
    （报表与预算用量是已知的历史例外，收口见蓝图批次 A0；新代码不得再复制这类分支。）
 2. **金额单位**：领域层用整数分（`Minor`）；`Decimal` 只允许出现在 Prisma 边界。

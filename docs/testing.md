@@ -36,8 +36,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 | 范围 | 文件 | 用例 |
 |---|---|---|
-| 领域 | 2 | 21 |
-| 后端 | 23 | 254 |
+| 领域 | 2 | 22 |
+| 后端 | 26 | 267 |
 | 前端 | 10 | 86 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
 
@@ -77,6 +77,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 期初余额当天交易计入 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts`（`periodOf` 各周期边界） |
 | 预算：退款冲减、跨期退款下限为 0、未分类不计入、转账只算绑定的那一对账户 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts` |
+| 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
+| 现金流量表：支出退款算流入、收入退款算出流、原类型不明的退款不计入 | ✅ | `apps/api/tests/unit/cash-flow-aggregate.test.ts` |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |
 | 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |
@@ -97,8 +99,6 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 | 模块 | 位置 | 该测什么 |
 |---|---|---|
-| 收入支出表 | `apps/api/src/services/report/income-expense.service.ts` | 净收入/净支出、退款冲减、未分类、期初期末自洽 |
-| 现金流量表 | `apps/api/src/services/report/cash-flow-*` | 三活动 + 未分类合计 == 总流入/流出、手续费单列 |
 | 投资分析 | `apps/api/src/services/report/investment-analysis-*` | 收益分层、外部现金流与本金分离 |
 | 备份与恢复 | `apps/api/src/services/backup.service.ts` | 往返一致、`schemaVersion` 写入 |
 | 清库 | `apps/api/src/services/clear-data.service.ts` | 按范围清空、不误删范围外数据 |

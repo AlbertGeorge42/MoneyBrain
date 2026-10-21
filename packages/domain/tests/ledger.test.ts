@@ -4,12 +4,13 @@ import {
   accountDelta,
   balanceAt,
   balanceBefore,
-  budgetUsage,
   fromMajor,
   localDate,
+  matchesBudgetScope,
   periodOfMonth,
   postingsOf,
   remainingRefundable,
+  scopeQuery,
   summarizeFlows,
   transferOutflow,
   type LedgerTransaction,
@@ -157,73 +158,117 @@ test('不计收支的交易不进入收支汇总，但仍影响余额', () => {
   )
 })
 
-test('预算用量按分类、账户、期间统计并冲减退款', () => {
-  const categoryIds = new Set(['food', 'food-child'])
-  const period = periodOfMonth(d('2026-01-15'))
-  const transactions: LedgerTransaction[] = [
-    tx({ id: '1', kind: 'expense', date: d('2026-01-03'), amount: money(100), accountId: 'A', categoryId: 'food' }),
-    tx({ id: '2', kind: 'expense', date: d('2026-01-04'), amount: money(80), accountId: 'A', categoryId: 'food-child' }),
-    tx({ id: '3', kind: 'expense', date: d('2026-01-05'), amount: money(50), accountId: 'B', categoryId: 'food' }),
-    tx({ id: '4', kind: 'refund', date: d('2026-01-06'), amount: money(20), accountId: 'A', categoryId: 'food', relatedType: 'expense' }),
-  ]
+test('支出预算只认本账户与分类子树的支出', () => {
+  const scope = {
+    kind: 'expense' as const,
+    accountId: 'A',
+    categoryIds: new Set(['food', 'food-child']),
+  }
 
   assert.equal(
-    budgetUsage(transactions, { kind: 'expense', period, categoryIds, accountId: 'A' }),
-    money(160),
+    matchesBudgetScope(
+      { kind: 'expense', accountId: 'A', categoryId: 'food', excludeFromIncomeExpense: false },
+      scope,
+    ),
+    true,
+  )
+  // 其它账户的同分类支出
+  assert.equal(
+    matchesBudgetScope(
+      { kind: 'expense', accountId: 'B', categoryId: 'food', excludeFromIncomeExpense: false },
+      scope,
+    ),
+    false,
+  )
+  // 子树外的分类
+  assert.equal(
+    matchesBudgetScope(
+      { kind: 'expense', accountId: 'A', categoryId: 'travel', excludeFromIncomeExpense: false },
+      scope,
+    ),
+    false,
   )
 })
 
-test('转账预算只统计绑定的那一对账户之间的转账', () => {
-  const categoryIds = new Set(['move'])
-  const period = periodOfMonth(d('2026-01-15'))
-  const transactions: LedgerTransaction[] = [
-    tx({ id: '1', kind: 'transfer', date: d('2026-01-03'), amount: money(100), accountId: 'A', toAccountId: 'B', categoryId: 'move' }),
-    // 其它账户转入同一目标账户，不属于本预算
-    tx({ id: '2', kind: 'transfer', date: d('2026-01-04'), amount: money(30), accountId: 'C', toAccountId: 'B', categoryId: 'move' }),
-    // 同一转出账户转往其它账户，也不属于本预算
-    tx({ id: '3', kind: 'transfer', date: d('2026-01-05'), amount: money(20), accountId: 'A', toAccountId: 'D', categoryId: 'move' }),
-  ]
+test('转账预算只认绑定的那一对账户之间的转账', () => {
+  const scope = {
+    kind: 'transfer' as const,
+    accountId: 'A',
+    toAccountId: 'B',
+    categoryIds: new Set(['move']),
+  }
 
   assert.equal(
-    budgetUsage(transactions, {
-      kind: 'transfer',
-      period,
-      categoryIds,
-      accountId: 'A',
-      toAccountId: 'B',
-    }),
-    money(100),
+    matchesBudgetScope(
+      { kind: 'transfer', accountId: 'A', toAccountId: 'B', categoryId: 'move', excludeFromIncomeExpense: false },
+      scope,
+    ),
+    true,
+  )
+  // 其它账户转入同一目标账户
+  assert.equal(
+    matchesBudgetScope(
+      { kind: 'transfer', accountId: 'C', toAccountId: 'B', categoryId: 'move', excludeFromIncomeExpense: false },
+      scope,
+    ),
+    false,
+  )
+  // 同一转出账户转往其它目标
+  assert.equal(
+    matchesBudgetScope(
+      { kind: 'transfer', accountId: 'A', toAccountId: 'D', categoryId: 'move', excludeFromIncomeExpense: false },
+      scope,
+    ),
+    false,
   )
 })
 
 test('未分类的交易不计入分类预算', () => {
-  const categoryIds = new Set(['food'])
-  const period = periodOfMonth(d('2026-01-15'))
-  const transactions: LedgerTransaction[] = [
-    tx({ id: '1', kind: 'expense', date: d('2026-01-03'), amount: money(50), accountId: 'A' }),
-  ]
+  const scope = {
+    kind: 'expense' as const,
+    accountId: 'A',
+    categoryIds: new Set(['food']),
+  }
 
   assert.equal(
-    budgetUsage(transactions, { kind: 'expense', period, categoryIds, accountId: 'A' }),
-    money(0),
+    matchesBudgetScope(
+      { kind: 'expense', accountId: 'A', categoryId: null, excludeFromIncomeExpense: false },
+      scope,
+    ),
+    false,
   )
 })
 
-test('跨期退款不会让预算已用为负', () => {
-  const categoryIds = new Set(['food'])
-  const period = periodOfMonth(d('2026-02-15'))
-  const transactions: LedgerTransaction[] = [
-    // 本期只有退款（上期支出已不在本期）
-    tx({ id: '1', kind: 'refund', date: d('2026-02-03'), amount: money(80), accountId: 'A', categoryId: 'food', relatedType: 'expense' }),
-  ]
+test('不计收支的交易不计入预算', () => {
+  const scope = {
+    kind: 'expense' as const,
+    accountId: 'A',
+    categoryIds: new Set(['food']),
+  }
 
   assert.equal(
-    budgetUsage(transactions, { kind: 'expense', period, categoryIds, accountId: 'A' }),
-    money(0),
+    matchesBudgetScope(
+      { kind: 'expense', accountId: 'A', categoryId: 'food', excludeFromIncomeExpense: true },
+      scope,
+    ),
+    false,
   )
 })
 
-test('退款金额不能超过原交易净额', () => {  const original = tx({ id: 'e1', kind: 'expense', date: d('2026-01-01'), amount: money(100), accountId: 'A', categoryId: 'food' })
+test('预算口径的 SQL 参数：退款冲减哪一侧、是否计退款', () => {
+  assert.deepEqual(
+    scopeQuery({ kind: 'expense', accountId: 'A', categoryIds: new Set(['food']) }),
+    { type: 'expense', countsRefunds: true, refundRelatedType: 'expense' },
+  )
+  // 转账预算不计退款
+  assert.deepEqual(
+    scopeQuery({ kind: 'transfer', accountId: 'A', toAccountId: 'B', categoryIds: new Set(['move']) }),
+    { type: 'transfer', countsRefunds: false, refundRelatedType: 'transfer' },
+  )
+})
+
+test('退款金额不能超过原交易净额', () => {
+  const original = tx({ id: 'e1', kind: 'expense', date: d('2026-01-01'), amount: money(100), accountId: 'A', categoryId: 'food' })
   const refunds = [
     tx({ id: 'r1', kind: 'refund', date: d('2026-01-02'), amount: money(30), accountId: 'A', categoryId: 'food', relatedTransactionId: 'e1', relatedType: 'expense' }),
   ]

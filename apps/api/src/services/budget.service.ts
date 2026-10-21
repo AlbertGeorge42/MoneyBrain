@@ -5,7 +5,15 @@ import { NotFoundError, ValidationError } from '../common/index.js'
 import { toDecimal, ZERO } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
-import { fromDate, periodOf, type LocalDate, type PeriodKind } from '../../../../packages/domain/src/index.js'
+import {
+  fromDate,
+  matchesBudgetScope,
+  periodOf,
+  scopeQuery,
+  type BudgetScope,
+  type LocalDate,
+  type PeriodKind,
+} from '../../../../packages/domain/src/index.js'
 
 // 预算类型
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
@@ -211,6 +219,8 @@ type BudgetPlan = {
   budget: Budget
   dateRange: { startDate: Date; endDate: Date }
   categoryIds: string[]
+  /** 统计口径（账户 + 分类 + 冲减哪一侧），由领域层规则定义 */
+  scope: BudgetScope
 }
 
 /** 预算状态（金额为 number，序列化时由统一出口转换） */
@@ -235,11 +245,14 @@ type UsageRow = {
  * 一次性聚合出该期间内、相关账户与分类下的用量。
  * 按「账户 × 转入账户 × 分类 × 类型 × 退款原类型」分组，
  * 返回行数与分类数量相关，与交易笔数无关。
+ *
+ * 「统计哪些类型」由领域层规则给出（scopeQuery），这里只负责翻译成 SQL。
  */
 async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
   const first = group[0]
   const accountIds = [...new Set(group.map((plan) => plan.budget.accountId))]
   const categoryIds = [...new Set(group.flatMap((plan) => plan.categoryIds))]
+  const countedTypes = [...new Set(group.map((plan) => scopeQuery(plan.scope).type))]
 
   const grouped = await prisma.transaction.groupBy({
     by: ['accountId', 'toAccountId', 'categoryId', 'type', 'relatedType'],
@@ -248,7 +261,7 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
       accountId: { in: accountIds },
       categoryId: { in: categoryIds },
       excludeFromIncomeExpense: false,
-      type: { in: ['income', 'expense', 'refund', 'transfer'] },
+      type: { in: [...countedTypes, 'refund'] },
     },
     _sum: { amount: true },
   })
@@ -265,30 +278,31 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
 
 /** 按预算口径从聚合行里算出已用、剩余与百分比。 */
 function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusResult {
-  const { budget, categoryIds } = plan
-  const categorySet = new Set(categoryIds)
-  const isTransferBudget = budget.type === 'transfer'
+  const { budget, scope } = plan
+  const query = scopeQuery(scope)
 
   let used = ZERO
 
   for (const row of rows) {
-    // 未分类的交易不计入任何分类预算
-    if (!row.categoryId || !categorySet.has(row.categoryId)) continue
+    // 账户与分类口径由领域层规则判定（与 SQL 侧同一份规则）
+    const inScope = matchesBudgetScope(
+      {
+        kind: row.type,
+        accountId: row.accountId,
+        toAccountId: row.toAccountId,
+        categoryId: row.categoryId,
+        excludeFromIncomeExpense: false,
+      },
+      scope,
+    )
+    if (!inScope) continue
+
     const amount = row.amount ?? ZERO
 
-    if (row.type === budget.type) {
-      // 转账预算绑定「转出账户 + 转入账户」，只统计这一对账户之间的转账
-      if (isTransferBudget) {
-        if (row.accountId !== budget.accountId) continue
-        if (budget.toAccountId && row.toAccountId !== budget.toAccountId) continue
-      } else if (row.accountId !== budget.accountId) {
-        continue
-      }
+    if (row.type === query.type) {
       used = used.plus(amount)
-    } else if (row.type === 'refund' && row.relatedType === budget.type) {
+    } else if (query.countsRefunds && row.type === 'refund' && row.relatedType === query.refundRelatedType) {
       // 退款冲减按退款自身的账户与分类
-      if (isTransferBudget) continue
-      if (row.accountId !== budget.accountId) continue
       used = used.minus(amount)
     }
   }
@@ -322,11 +336,20 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
 
   // 每个预算的期间与分类子树
   const plans: BudgetPlan[] = await Promise.all(
-    budgets.map(async (budget) => ({
-      budget,
-      dateRange: getPeriodRange(budget.period, now),
-      categoryIds: await getCategoryWithDescendants(budget.categoryId, childrenMap),
-    }))
+    budgets.map(async (budget) => {
+      const categoryIds = await getCategoryWithDescendants(budget.categoryId, childrenMap)
+      return {
+        budget,
+        dateRange: getPeriodRange(budget.period, now),
+        categoryIds,
+        scope: {
+          kind: budget.type as BudgetScope['kind'],
+          accountId: budget.accountId,
+          toAccountId: budget.toAccountId,
+          categoryIds: new Set(categoryIds),
+        },
+      }
+    })
   )
 
   // 同一期间的预算共用一次聚合查询，避免每个预算各查两次

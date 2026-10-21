@@ -57,11 +57,23 @@ export {
 export { accountDelta, balanceAt, balanceBefore, effectiveTransferFee, postingsOf, transferOutflow } from './ledger/postings.js'
 
 export {
+  COUNTABLE_KINDS,
+  isCountable,
+  matchesBudgetScope,
+  refundOffsetKind,
+  refundQueryFor,
+  scopeQuery,
+  type BudgetKind,
+  type BudgetScope,
+  type FlowKind,
+  type ScopeQuery,
+} from './ledger/rules.js'
+
+export {
   UNCATEGORIZED_CATEGORY_ID,
-  budgetUsage,
   flowByCategory,
   remainingRefundable,
   summarizeFlows,
-  type BudgetUsageInput,
   type FlowSummary,
+  type FlowSummaryOptions,
 } from './ledger/summary.js'
