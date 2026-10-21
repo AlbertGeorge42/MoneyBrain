@@ -5,6 +5,9 @@ import { ZERO, rootLogger, toDecimal } from '../../common/index.js'
 import { toLedgerTransaction } from '../ledger.adapter.js'
 import {
   flowByCategory,
+  fromDate,
+  fromMajor,
+  postingsOf,
   summarizeFlows,
   toMajor,
   UNCATEGORIZED_CATEGORY_ID,
@@ -40,6 +43,31 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       ...(includeExcluded ? {} : { excludeFromIncomeExpense: false }),
     },
     include: { category: true, account: true },
+  })
+
+  // 对账条需要「改变余额但不进收支统计」的交易：转账手续费、平账、不计收支
+  const balanceOnlyTransactions = await prisma.transaction.findMany({
+    where: {
+      date: { gte: start, lte: end },
+      OR: [
+        { type: { in: ['transfer', 'adjustment'] } },
+        { excludeFromIncomeExpense: true },
+      ],
+    },
+    select: {
+      id: true,
+      type: true,
+      amount: true,
+      fee: true,
+      coupon: true,
+      accountId: true,
+      toAccountId: true,
+      date: true,
+      excludeFromIncomeExpense: true,
+      relatedType: true,
+      categoryId: true,
+      relatedTransactionId: true,
+    },
   })
 
   // 收支口径只有领域层这一处：退款按原交易类型冲减对应侧，报表与首页、交易统计一致。
@@ -257,12 +285,78 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   logger.info({ action: 'generate', report: 'income-expense', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')
 
+  // 对账条：期初净资产 + 净收入 − 净支出 + 不进收支但影响余额的部分 = 期末净资产。
+  // 「不进收支但影响余额」包含：不计收支的交易、转账手续费、平账，
+  // 以及早于账户开户日的交易（它们进收支统计但不进余额）。
+  const openingDateOf = new Map(
+    accounts.map((a) => [a.id, a.initialBalanceDate ? fromDate(a.initialBalanceDate) : null]),
+  )
+  const netWorthEffect = (tx: (typeof balanceOnlyTransactions)[number]): number => {
+    const ledgerTx = toLedgerTransaction({
+      id: tx.id,
+      type: tx.type,
+      amount: tx.amount,
+      fee: tx.fee,
+      coupon: tx.coupon,
+      date: tx.date,
+      accountId: tx.accountId,
+      toAccountId: tx.toAccountId,
+      categoryId: tx.categoryId,
+      relatedTransactionId: tx.relatedTransactionId,
+      relatedType: tx.relatedType,
+      excludeFromIncomeExpense: tx.excludeFromIncomeExpense,
+    })
+    return postingsOf(ledgerTx)
+      .filter((posting) => posting.kind === 'account')
+      .reduce((total, posting) => total + posting.amount, 0)
+  }
+
+  const excludedNet = balanceOnlyTransactions
+    .filter((tx) => tx.excludeFromIncomeExpense)
+    .reduce((total, tx) => total + netWorthEffect(tx), 0)
+  const transferFee = balanceOnlyTransactions
+    .filter((tx) => tx.type === 'transfer')
+    .reduce((total, tx) => total + Math.max(Number(tx.fee) - Number(tx.coupon), 0), 0)
+  const adjustmentNet = balanceOnlyTransactions
+    .filter((tx) => tx.type === 'adjustment')
+    .reduce((total, tx) => total + netWorthEffect(tx), 0)
+
+  // 早于开户日的交易：进收支统计，但不进余额
+  const preOpeningFlow = [...transactions, ...balanceOnlyTransactions]
+    .filter((tx) => {
+      const opening = openingDateOf.get(tx.accountId)
+      return opening !== null && opening !== undefined && fromDate(tx.date) < opening
+    })
+    .filter((tx) => (includeExcluded ? true : !tx.excludeFromIncomeExpense))
+    .reduce((total, tx) => {
+      const amount = toMajor(fromMajor(Number(tx.amount)))
+      if (tx.type === 'income') return total + amount
+      if (tx.type === 'expense') return total - amount
+      if (tx.type === 'refund' && tx.relatedType === 'income') return total - amount
+      if (tx.type === 'refund' && tx.relatedType === 'expense') return total + amount
+      return total
+    }, 0)
+
+  const other =
+    (includeExcluded ? 0 : excludedNet) + transferFee + adjustmentNet - preOpeningFlow
+
+  const reconciliation = {
+    startNetWorth: actualStartNetWorth,
+    netIncome: netIncome.toNumber(),
+    netExpense: netExpense.toNumber(),
+    other,
+    endNetWorth: actualEndNetWorth,
+    difference:
+      actualEndNetWorth - (actualStartNetWorth + netIncome.toNumber() - netExpense.toNumber() + other),
+  }
+
   return {
     startDate,
     endDate,
     income: { actual: netIncome.toNumber(), predicted: pIncome.toNumber() },
     expense: { actual: netExpense.toNumber(), predicted: pExpense.toNumber() },
     balance: { actual: actualBalance.toNumber(), predicted: predictedBalance.toNumber() },
+    reconciliation,
     incomeByCategory: incomeByCategoryResult,
     expenseByCategory: expenseByCategoryResult,
     incomeCategoryDetails,

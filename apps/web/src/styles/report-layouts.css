@@ -111,6 +111,43 @@
   min-width: 0;
 }
 
+/* 对账条：期初净资产 + 净收入 − 净支出 = 期末净资产 */
+.report-reconciliation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mb-space-xs);
+  margin-top: var(--mb-space-sm);
+  padding: var(--mb-space-xs) var(--mb-space-sm);
+  border: 1px solid var(--mb-color-border-subtle);
+  border-radius: var(--mb-radius-sm);
+  font-size: var(--mb-font-size-body);
+  color: var(--mb-color-text-secondary);
+}
+
+.report-reconciliation b {
+  color: var(--mb-color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.report-reconciliation__op {
+  opacity: 0.5;
+}
+
+.report-reconciliation__ok {
+  color: var(--mb-color-success);
+}
+
+.report-reconciliation--warn {
+  border-color: var(--mb-color-danger);
+}
+
+.report-reconciliation__diff {
+  color: var(--mb-color-danger);
+  font-weight: 600;
+}
+
 .report-section-card .ant-statistic {
   min-width: 0;
 }

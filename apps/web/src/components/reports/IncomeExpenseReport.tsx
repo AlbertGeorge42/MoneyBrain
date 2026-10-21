@@ -163,6 +163,12 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
   const expenseTotal = expenseData.actual + expenseData.predicted
   const balanceTotal = balanceData.actual + balanceData.predicted
 
+  // 对账条：期末净资产应当等于「期初 + 净收入 − 净支出」，差额超过半分才算异常
+  const reconciliation = incomeExpenseData?.reconciliation
+  const hasReconciliationDiff = reconciliation
+    ? Math.abs(reconciliation.difference) >= 0.005
+    : false
+
   const incomePieData: PieChartDataItem[] = useMemo(() =>
     (incomeExpenseData?.incomeCategoryDetails || []).map((item) => ({
       name: item.name,
@@ -284,6 +290,41 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
       {((isMixed && hasPrediction) || isFuture) && incomeExpenseData?.predictionNote && (
         <div style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM, textAlign: 'center', marginTop: -8 }}>
           {incomeExpenseData.predictionNote}
+        </div>
+      )}
+
+      {reconciliation && (
+        <div className={`report-reconciliation${hasReconciliationDiff ? ' report-reconciliation--warn' : ''}`}>
+          <span className="report-reconciliation__item">
+            期初净资产 <b>{formatCurrency(reconciliation.startNetWorth)}</b>
+          </span>
+          <span className="report-reconciliation__op">+</span>
+          <span className="report-reconciliation__item">
+            净收入 <b>{formatCurrency(reconciliation.netIncome)}</b>
+          </span>
+          <span className="report-reconciliation__op">−</span>
+          <span className="report-reconciliation__item">
+            净支出 <b>{formatCurrency(reconciliation.netExpense)}</b>
+          </span>
+          {Math.abs(reconciliation.other) >= 0.005 && (
+            <>
+              <span className="report-reconciliation__op">+</span>
+              <span className="report-reconciliation__item">
+                其他 <b>{formatCurrency(reconciliation.other)}</b>
+              </span>
+            </>
+          )}
+          <span className="report-reconciliation__op">=</span>
+          <span className="report-reconciliation__item">
+            期末净资产 <b>{formatCurrency(reconciliation.endNetWorth)}</b>
+          </span>
+          {hasReconciliationDiff ? (
+            <span className="report-reconciliation__diff">
+              差异 {formatCurrency(reconciliation.difference)}，数字对不上，请检查数据
+            </span>
+          ) : (
+            <span className="report-reconciliation__ok">已对账</span>
+          )}
         </div>
       )}
     </>

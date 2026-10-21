@@ -17,6 +17,7 @@
     "db:deploy": "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
     "db:status": "prisma migrate status --schema apps/api/prisma/schema.prisma",
     "db:drill": "node --import tsx scripts/restore-drill.mts",
+    "db:verify": "node --import tsx scripts/db-verify.mts",
     "build": "node scripts/build.mjs",
     "start": "concurrently \"npm run start:api\" \"npm run start:web\"",
     "start:web": "npm run preview -w @moneybrain/web -- --port 4173",

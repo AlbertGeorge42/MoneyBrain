@@ -142,6 +142,11 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `Decimal`，
 | 决定数字的路径大多没有单测：投资分析、备份、清库 | `apps/api/tests/unit/` | 口径改动没有安全网（预算、收支表、现金流、退款上限、备份版本已有测试） |
 | SQLite 未显式配置 WAL / `busy_timeout`，写操作未串行化 | `src/prisma.ts` | 多标签页并发写可能 "database is locked" |
 
+**对账与自检**：
+
+- 收入支出表返回 `reconciliation`（期初 + 净收入 − 净支出 + 其他 = 期末，差额应为 0），前端常驻显示。
+- `npm run db:verify` 用同一套规则离线复核整本账；`npm run db:drill` 验证备份能还原出同样的余额。
+
 ## 8. 端口与运行
 
 - 后端 `3001`，前端 `3002`（Vite 代理 `/api` → `127.0.0.1:3001`）。

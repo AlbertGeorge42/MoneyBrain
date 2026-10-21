@@ -261,6 +261,19 @@ export interface IncomeExpenseReportData {
   income: ReportValue
   expense: ReportValue
   balance: ReportValue
+  /**
+   * 对账条：期初净资产 + 净收入 − 净支出 + other = 期末净资产。
+   * other = 不进收支统计但改变余额的部分（不计收支、转账手续费、平账、减开户日前的交易）。
+   * difference = 期末 − 上面等式的右边；恒为 0 才说明收支口径与余额口径自洽。
+   */
+  reconciliation: {
+    startNetWorth: number
+    netIncome: number
+    netExpense: number
+    other: number
+    endNetWorth: number
+    difference: number
+  }
   incomeByCategory: Record<string, number>
   expenseByCategory: Record<string, number>
   incomeCategoryDetails: ReportCategoryDetail[]

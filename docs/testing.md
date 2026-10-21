@@ -37,20 +37,20 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 范围 | 文件 | 用例 |
 |---|---|---|
 | 领域 | 2 | 22 |
-| 后端 | 26 | 267 |
+| 后端 | 26 | 269 |
 | 前端 | 10 | 86 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
 
-## 3.1 恢复演练（不是单元测试）
+## 3.1 数据自检与恢复演练（不是单元测试）
 
-`npm run db:drill` 验证的是**备份能不能还原出同样的钱**：
+`npm run db:verify` 用领域层重算整本账，核对这些等式：
 
-1. 用真实导出逻辑把当前账本导出成 ZIP；
-2. 用版本化迁移建一个临时库，把 ZIP 导进去；
-3. 用领域层从原始交易重算两边的账户余额与净资产，逐项对比。
+1. 期末净资产 = 期初净资产 + 净收入 − 净支出 + 其他（不计收支、手续费、平账、开户前交易）；
+2. 每笔转账满足 Δ转出 + Δ转入 == −手续费；
+3. 每笔退款不超过原交易剩余可退金额。
 
-导入/导出/余额逻辑改动后必须跑；有差异说明备份不可信（或导入算错）。
-演练只碰临时库，不影响 `dev.db`；`-- --keep` 可保留临时库排查。
+`npm run db:drill` 验证**备份能不能还原出同样的钱**：导出 → 导入临时库 → 用领域层重算两边的账户余额 → 逐项对比。
+两者都只碰只读数据或临时库；改动导出/导入/余额/口径逻辑后必须跑。
 
 ## 4. Mock 策略
 
@@ -77,7 +77,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 期初余额当天交易计入 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts`（`periodOf` 各周期边界） |
 | 预算：退款冲减、跨期退款下限为 0、未分类不计入、转账只算绑定的那一对账户 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts` |
-| 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
+| 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
 | 现金流量表：支出退款算流入、收入退款算出流、原类型不明的退款不计入 | ✅ | `apps/api/tests/unit/cash-flow-aggregate.test.ts` |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |
