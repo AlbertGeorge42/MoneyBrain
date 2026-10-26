@@ -1,13 +1,11 @@
-import { Decimal } from '@prisma/client/runtime/library.js'
+import { minor, transferOutflow, type Minor } from '../../../../../packages/domain/src/index.js'
 import { buildChildrenMap } from '../../common/tree.js'
-import { toDecimal, ZERO } from '../../common/index.js'
-import { transferOutflowDecimal } from '../ledger.adapter.js'
 import { getCashFlags } from './report.utils.js'
 import {
   AccountInfo,
   AggregatedFlows,
   CashFlowActivity,
-  CashFlowActivityDecimal,
+  CashFlowActivityMinor,
   CashFlowActivityItem,
   CashFlowResult,
   CategoryInfo,
@@ -19,9 +17,9 @@ import {
 // 桑基图节点类型（与 shared CashFlowReportData.sankey.nodes 对齐）
 type SankeyNode = CashFlowResult['sankey']['nodes'][number]
 
-function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowActivityDecimal): CashFlowActivity {
+function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActivityMinor): CashFlowActivity {
   // 合并实际和预测的 items
-  const itemMap = new Map<string, { categoryId: string | null; parentId: string | null; level: number; categoryName: string; actual: number; predicted: number; type: string; direction: string; icon?: string | null; color?: string | null }>()
+  const itemMap = new Map<string, { categoryId: string | null; parentId: string | null; level: number; categoryName: string; actual: Minor; predicted: Minor; type: string; direction: string; icon?: string | null; color?: string | null }>()
 
   for (const item of actual.items) {
     const key = `${item.categoryName}|${item.type}|${item.direction}`
@@ -31,7 +29,7 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
       level: item.level,
       categoryName: item.categoryName,
       actual: item.amount,
-      predicted: 0,
+      predicted: minor(0),
       type: item.type,
       direction: item.direction,
       icon: item.icon,
@@ -53,7 +51,7 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
         parentId: item.parentId,
         level: item.level,
         categoryName: item.categoryName,
-        actual: 0,
+        actual: minor(0),
         predicted: item.amount,
         type: item.type,
         direction: item.direction,
@@ -80,7 +78,7 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
         categoryId: child.categoryId,
         parentId: child.parentId,
         level: child.level,
-        amount: child.actual + child.predicted,
+        amount: minor(child.actual + child.predicted),
         actual: child.actual,
         predicted: child.predicted,
         type: child.type,
@@ -90,15 +88,15 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
       }))
 
     // 累加一级分类的值 = 一级分类本身 + 所有二级子分类
-    const totalActual = item.actual + children.reduce((sum, child) => sum + child.actual, 0)
-    const totalPredicted = item.predicted + children.reduce((sum, child) => sum + child.predicted, 0)
+    const totalActual = minor(item.actual + children.reduce((sum, child) => sum + child.actual, 0))
+    const totalPredicted = minor(item.predicted + children.reduce((sum, child) => sum + child.predicted, 0))
 
     return {
       categoryName: item.categoryName,
       categoryId: item.categoryId,
       parentId: item.parentId,
       level: item.level,
-      amount: totalActual + totalPredicted,
+      amount: minor(totalActual + totalPredicted),
       actual: totalActual,
       predicted: totalPredicted,
       type: item.type,
@@ -110,16 +108,20 @@ function toActivityResult(actual: CashFlowActivityDecimal, predicted: CashFlowAc
   })
 
   return {
-    inflow: { actual: actual.inflow.toNumber(), predicted: predicted.inflow.toNumber() },
-    outflow: { actual: actual.outflow.toNumber(), predicted: predicted.outflow.toNumber() },
+    inflow: { actual: actual.inflow, predicted: predicted.inflow },
+    outflow: { actual: actual.outflow, predicted: predicted.outflow },
     // outflow 已是负数，net = inflow + outflow 直接相加
-    net: { actual: actual.inflow.plus(actual.outflow).toNumber(), predicted: predicted.inflow.plus(predicted.outflow).toNumber() },
+    net: { actual: minor(actual.inflow + actual.outflow), predicted: minor(predicted.inflow + predicted.outflow) },
     items: treeItems,
   }
 }
 
-function addToMap(map: Map<string, Decimal>, key: string, value: Decimal) {
-  map.set(key, (map.get(key) || ZERO).plus(value))
+function addToMap(map: Map<string, Minor>, key: string, value: Minor) {
+  map.set(key, minor((map.get(key) ?? 0) + value))
+}
+
+function mapValue(map: Map<string, Minor>, key: string): Minor {
+  return map.get(key) ?? minor(0)
 }
 
 /**
@@ -132,29 +134,33 @@ export function buildStatement(actual: AggregatedFlows, predicted: AggregatedFlo
   netCashFlow: ReportValue
   flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
 } {
-  const actualCashInflow = actual.operating.inflow.plus(actual.investing.inflow).plus(actual.financing.inflow).plus(actual.uncategorized.inflow)
-  const actualCashOutflow = actual.operating.outflow.plus(actual.investing.outflow).plus(actual.financing.outflow).plus(actual.uncategorized.outflow)
-  // outflow 已是负数，net = inflow + outflow 直接相加
-  const actualNetCashFlow = actualCashInflow.plus(actualCashOutflow)
+  const sumBucket = (flows: AggregatedFlows, field: 'inflow' | 'outflow') => minor(
+    flows.operating[field] + flows.investing[field] + flows.financing[field] + flows.uncategorized[field],
+  )
 
-  const predictedCashInflow = predicted.operating.inflow.plus(predicted.investing.inflow).plus(predicted.financing.inflow).plus(predicted.uncategorized.inflow)
-  const predictedCashOutflow = predicted.operating.outflow.plus(predicted.investing.outflow).plus(predicted.financing.outflow).plus(predicted.uncategorized.outflow)
-  const predictedNetCashFlow = predictedCashInflow.plus(predictedCashOutflow)
+  const actualCashInflow = sumBucket(actual, 'inflow')
+  const actualCashOutflow = sumBucket(actual, 'outflow')
+  // outflow 已是负数，net = inflow + outflow 直接相加
+  const actualNetCashFlow = minor(actualCashInflow + actualCashOutflow)
+
+  const predictedCashInflow = sumBucket(predicted, 'inflow')
+  const predictedCashOutflow = sumBucket(predicted, 'outflow')
+  const predictedNetCashFlow = minor(predictedCashInflow + predictedCashOutflow)
 
   // 合并按账户的流入流出（actual + predicted 同账户聚合；只有 predicted 的账户 actual 也补 0）
   const flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }> = {}
   for (const [name, flow] of Object.entries(actual.flowByAccount)) {
-    const pred = predicted.flowByAccount[name] || { inflow: ZERO, outflow: ZERO }
+    const pred = predicted.flowByAccount[name] ?? { inflow: minor(0), outflow: minor(0) }
     flowByAccount[name] = {
-      inflow: { actual: flow.inflow.toNumber(), predicted: pred.inflow.toNumber() },
-      outflow: { actual: flow.outflow.toNumber(), predicted: pred.outflow.toNumber() },
+      inflow: { actual: flow.inflow, predicted: pred.inflow },
+      outflow: { actual: flow.outflow, predicted: pred.outflow },
     }
   }
   for (const [name, flow] of Object.entries(predicted.flowByAccount)) {
     if (!flowByAccount[name]) {
       flowByAccount[name] = {
-        inflow: { actual: 0, predicted: flow.inflow.toNumber() },
-        outflow: { actual: 0, predicted: flow.outflow.toNumber() },
+        inflow: { actual: minor(0), predicted: flow.inflow },
+        outflow: { actual: minor(0), predicted: flow.outflow },
       }
     }
   }
@@ -166,9 +172,9 @@ export function buildStatement(actual: AggregatedFlows, predicted: AggregatedFlo
       financing: toActivityResult(actual.financing, predicted.financing),
       uncategorized: toActivityResult(actual.uncategorized, predicted.uncategorized),
     },
-    cashInflow: { actual: actualCashInflow.toNumber(), predicted: predictedCashInflow.toNumber() },
-    cashOutflow: { actual: actualCashOutflow.toNumber(), predicted: predictedCashOutflow.toNumber() },
-    netCashFlow: { actual: actualNetCashFlow.toNumber(), predicted: predictedNetCashFlow.toNumber() },
+    cashInflow: { actual: actualCashInflow, predicted: predictedCashInflow },
+    cashOutflow: { actual: actualCashOutflow, predicted: predictedCashOutflow },
+    netCashFlow: { actual: actualNetCashFlow, predicted: predictedNetCashFlow },
     flowByAccount,
   }
 }
@@ -183,28 +189,28 @@ export function buildSankey(args: {
   end: Date
 }): {
   nodes: SankeyNode[]
-  links: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }>
+  links: CashFlowResult['sankey']['links']
 } {
   const { transactions, predictions, cashAccountIds, categoryMap, accountMap, start, end } = args
 
   type ActualPredicted<T> = { actual: T; predicted: T }
   const ap = <T>(a: T, b: T): ActualPredicted<T> => ({ actual: a, predicted: b })
 
-  const incomeCategoryNodes: ActualPredicted<Map<string, Decimal>> = ap(new Map(), new Map())
-  const nonCashSourceNodes: ActualPredicted<Map<string, Decimal>> = ap(new Map(), new Map())
-  const expenseCategoryNodes: ActualPredicted<Map<string, Decimal>> = ap(new Map(), new Map())
-  const nonCashTargetNodes: ActualPredicted<Map<string, Decimal>> = ap(new Map(), new Map())
-  const cashAccountFlows: ActualPredicted<Map<string, Decimal>> = ap(new Map(), new Map())
-  const sourceToCashLinks: ActualPredicted<Map<string, Map<string, Decimal>>> = ap(new Map(), new Map())
-  const cashToTargetLinks: ActualPredicted<Map<string, Map<string, Decimal>>> = ap(new Map(), new Map())
+  const incomeCategoryNodes = ap(new Map<string, Minor>(), new Map<string, Minor>())
+  const nonCashSourceNodes = ap(new Map<string, Minor>(), new Map<string, Minor>())
+  const expenseCategoryNodes = ap(new Map<string, Minor>(), new Map<string, Minor>())
+  const nonCashTargetNodes = ap(new Map<string, Minor>(), new Map<string, Minor>())
+  const cashAccountFlows = ap(new Map<string, Minor>(), new Map<string, Minor>())
+  const sourceToCashLinks = ap(new Map<string, Map<string, Minor>>(), new Map<string, Map<string, Minor>>())
+  const cashToTargetLinks = ap(new Map<string, Map<string, Minor>>(), new Map<string, Map<string, Minor>>())
 
   const processTransaction = (
     type: string,
     isFromCash: boolean,
     isToCash: boolean,
-    amount: Decimal,
-    fee: Decimal,
-    coupon: Decimal,
+    amount: Minor,
+    fee: Minor,
+    coupon: Minor,
     categoryName: string | undefined,
     accountName: string | undefined,
     toAccountName: string | undefined,
@@ -250,7 +256,7 @@ export function buildSankey(args: {
         const accName = toAccountName || '非现金账户'
         const fromCashName = accountName
         const toName = `${catName}-${accName}`
-        const actualOutflow = transferOutflowDecimal(amount, fee, coupon).abs()
+        const actualOutflow = minor(Math.abs(transferOutflow(amount, fee, coupon)))
         addToMap(nonCashTargetNodes_, toName, actualOutflow)
         addToMap(cashAccountFlows_, fromCashName, actualOutflow)
         if (!cashToTargetLinks_.has(fromCashName)) cashToTargetLinks_.set(fromCashName, new Map())
@@ -273,9 +279,9 @@ export function buildSankey(args: {
       t.type,
       isFromCash,
       isToCash,
-      t.amount,
-      toDecimal(t.fee),
-      toDecimal(t.coupon),
+      minor(Number(t.amount)),
+      minor(Number(t.fee ?? 0)),
+      minor(Number(t.coupon ?? 0)),
       t.category?.name || '未分类',
       t.account?.name,
       t.toAccount?.name,
@@ -296,9 +302,9 @@ export function buildSankey(args: {
       p.type,
       isFromCash,
       isToCash,
-      toDecimal(p.amount),
-      ZERO,
-      ZERO,
+      minor(p.amount),
+      minor(0),
+      minor(0),
       category?.name,
       account?.name,
       toAccount?.name,
@@ -306,7 +312,7 @@ export function buildSankey(args: {
     )
   })
 
-  const mergeNodes = (actual: Map<string, Decimal>, predicted: Map<string, Decimal>): Set<string> => {
+  const mergeNodes = (actual: Map<string, Minor>, predicted: Map<string, Minor>): Set<string> => {
     const result = new Set<string>()
     actual.forEach((_, key) => result.add(key))
     predicted.forEach((_, key) => result.add(key))
@@ -322,12 +328,10 @@ export function buildSankey(args: {
   const sankeyNodes: SankeyNode[] = []
   const nodeNameMap: Map<string, string> = new Map()
 
-  const sortedNodeNames = (nodeSet: Set<string>, actualMap: Map<string, Decimal>, predictedMap: Map<string, Decimal>) => {
-    return Array.from(nodeSet).sort((a, b) => {
-      const aVal = (actualMap.get(a) || ZERO).plus(predictedMap.get(a) || ZERO)
-      const bVal = (actualMap.get(b) || ZERO).plus(predictedMap.get(b) || ZERO)
-      return bVal.minus(aVal).toNumber()
-    })
+  const sortedNodeNames = (nodeSet: Set<string>, actualMap: Map<string, Minor>, predictedMap: Map<string, Minor>) => {
+    return Array.from(nodeSet).sort((a, b) =>
+      (mapValue(predictedMap, b) + mapValue(actualMap, b)) - (mapValue(predictedMap, a) + mapValue(actualMap, a)),
+    )
   }
 
   for (const name of sortedNodeNames(allNonCashSourceNodes, nonCashSourceNodes.actual, nonCashSourceNodes.predicted)) {
@@ -356,11 +360,11 @@ export function buildSankey(args: {
     sankeyNodes.push({ name: uniqueName, category: 'expense_category' })
   }
 
-  const sankeyLinks: Array<{ source: string; target: string; value: number; actualValue?: number; predictedValue?: number }> = []
+  const sankeyLinks: CashFlowResult['sankey']['links'] = []
 
   const mergeLinks = (
-    actualLinks: Map<string, Map<string, Decimal>>,
-    predictedLinks: Map<string, Map<string, Decimal>>,
+    actualLinks: Map<string, Map<string, Minor>>,
+    predictedLinks: Map<string, Map<string, Minor>>,
     isSourceToCash: boolean
   ) => {
     const allSources = new Set<string>()
@@ -368,18 +372,18 @@ export function buildSankey(args: {
     predictedLinks.forEach((_, source) => allSources.add(source))
 
     for (const sourceName of allSources) {
-      const actualTargets = actualLinks.get(sourceName) || new Map()
-      const predictedTargets = predictedLinks.get(sourceName) || new Map()
+      const actualTargets = actualLinks.get(sourceName) || new Map<string, Minor>()
+      const predictedTargets = predictedLinks.get(sourceName) || new Map<string, Minor>()
       const allTargets = new Set<string>()
       actualTargets.forEach((_, target) => allTargets.add(target))
       predictedTargets.forEach((_, target) => allTargets.add(target))
 
       for (const targetName of allTargets) {
-        const actualAmount = actualTargets.get(targetName) || ZERO
-        const predictedAmount = predictedTargets.get(targetName) || ZERO
-        const totalAmount = actualAmount.plus(predictedAmount)
+        const actualAmount = mapValue(actualTargets, targetName)
+        const predictedAmount = mapValue(predictedTargets, targetName)
+        const totalAmount = minor(actualAmount + predictedAmount)
 
-        if (totalAmount.greaterThan(ZERO)) {
+        if (totalAmount > 0) {
           const sourceKey = isSourceToCash
             ? (incomeCategoryNodes.actual.has(sourceName) || incomeCategoryNodes.predicted.has(sourceName) ? `income_${sourceName}` : `ncs_${sourceName}`)
             : `cash_${sourceName}`
@@ -390,9 +394,9 @@ export function buildSankey(args: {
           sankeyLinks.push({
             source: nodeNameMap.get(sourceKey) || sourceName,
             target: nodeNameMap.get(targetKey) || targetName,
-            value: totalAmount.toNumber(),
-            actualValue: actualAmount.greaterThan(ZERO) ? actualAmount.toNumber() : undefined,
-            predictedValue: predictedAmount.greaterThan(ZERO) ? predictedAmount.toNumber() : undefined,
+            value: totalAmount,
+            actualValue: actualAmount > 0 ? actualAmount : undefined,
+            predictedValue: predictedAmount > 0 ? predictedAmount : undefined,
           })
         }
       }

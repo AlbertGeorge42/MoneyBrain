@@ -1,4 +1,5 @@
 import type { MenuProps } from 'antd'
+import type { Minor } from '@domain/index'
 
 export interface MoveTreeDataNode {
   value: string
@@ -27,7 +28,7 @@ export interface AccountTreeNode extends BaseTreeNode {
   nodeType?: 'asset' | 'liability'
   parentId?: string
   sort?: number
-  initialBalance?: number
+  initialBalance?: Minor
   initialBalanceDate?: string | null
 }
 

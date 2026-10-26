@@ -1,5 +1,6 @@
 import { prisma } from '../../prisma.js'
 import { escapeCsvField } from '../../common/utils.js'
+import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
 
 /** 固定本地时间格式，避免不同区域设置导出成无法回读的日期。 */
 function formatDateTime(date: Date): string {
@@ -63,12 +64,12 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
     else if (t.type === 'adjustment') type = '调整'
     else type = '支出'
 
-    const amount = t.amount.toNumber()
+    const amount = formatAmount(minor(Number(t.amount)))
     const currency = 'CNY'
     const account1 = t.account?.name || ''
     const account2 = t.toAccount?.name || ''
-    const fee = t.fee?.toNumber() || 0
-    const coupon = t.coupon?.toNumber() || 0
+    const fee = formatAmount(minor(Number(t.fee ?? 0)))
+    const coupon = formatAmount(minor(Number(t.coupon ?? 0)))
     const recorder = 'MoneyBrain'
     const billMark = t.excludeFromIncomeExpense ? '不计收支' : ''
     // 当前数据模型没有标签、账单图片与报销字段，保留空列以兼容旧 CSV 表头。

@@ -1,6 +1,7 @@
 import { prisma } from '../../prisma.js'
 import { buildTree } from '../../common/tree.js'
 import { formatDateLocal } from '../../common/index.js'
+import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
 import {
   type ImportAccount,
   type ImportAccountCategory,
@@ -81,7 +82,7 @@ export async function exportConfig(): Promise<string> {
   data.accounts = accounts.map((a) => ({
     name: a.name,
     type: a.type,
-    initialBalance: a.initialBalance.toString(),
+    initialBalance: formatAmount(minor(Number(a.initialBalance))),
     // 用本地格式导出，保持与导入时的字符串格式一致（round-trip 不回退一天）
     // 原可选链语义：null 时输出 undefined（JSON 序列化时省略该字段）
     initialBalanceDate: a.initialBalanceDate ? formatDateLocal(a.initialBalanceDate) : undefined,

@@ -27,6 +27,7 @@ import {
 import type { Budget, BudgetStatus } from '@contracts/types'
 import dayjs from 'dayjs'
 import { formatCurrency } from '../utils/format'
+import { fromMajor, minor } from '@domain/index'
 import { getProgressColor, getStatusLabel } from '../utils/budget'
 import { useAmountColors } from '../hooks/useAmountColors'
 
@@ -121,7 +122,8 @@ const Budgets: React.FC = () => {
       const payload = {
         name: values.name,
         type: createFormType,
-        amount: values.amount,
+        // 表单内是元，提交前转分
+        amount: fromMajor(values.amount),
         period: values.period,
         startDate: values.startDate?.toISOString(),
         endDate: values.isLongTerm ? null : (values.endDate?.toISOString() ?? null),
@@ -463,7 +465,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
           已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {used === undefined ? '—' : formatCurrency(used)}
         </span>
         <span>
-          剩余: {used === undefined ? '—' : formatCurrency(Math.max(budget.amount - used, 0))}
+          剩余: {used === undefined ? '—' : formatCurrency(minor(Math.max(budget.amount - used, 0)))}
         </span>
       </div>
     </Card>

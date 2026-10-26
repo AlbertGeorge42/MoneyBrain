@@ -1,7 +1,6 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
-import { NotFoundError, ValidationError, rootLogger, toDecimal, ZERO } from '../../common/index.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
+import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
 
 const logger = rootLogger.child({ module: 'snapshot' })
 
@@ -36,8 +35,8 @@ export async function createSnapshot(data: {
   date: string
   items: Array<{
     assetClassId: string
-    marketValue: number | string | Decimal
-    periodNetFlow?: number | string | Decimal
+    marketValue: number
+    periodNetFlow?: number
   }>
   note?: string
 }) {
@@ -113,8 +112,8 @@ export async function createSnapshot(data: {
     // 如果是最早一条快照，强制写入 periodNetFlow=0
     const itemsData = data.items.map((item, index) => ({
       assetClassId: item.assetClassId,
-      marketValue: toDecimal(item.marketValue),
-      periodNetFlow: isEarliestSnapshot ? ZERO : toDecimal(item.periodNetFlow ?? 0),
+      marketValue: BigInt(item.marketValue),
+      periodNetFlow: isEarliestSnapshot ? BigInt(0) : BigInt(item.periodNetFlow ?? 0),
       sort: index,
     }))
 
@@ -129,7 +128,7 @@ export async function createSnapshot(data: {
       ? await tx.investmentAllocationSnapshot.update({
           where: { id: existingSnapshot.id },
           data: {
-            accountBalance,
+            accountBalance: BigInt(accountBalance),
             previousSnapshotId: previousSnapshot?.id ?? null,
             note: data.note ?? null,
             items: {
@@ -147,7 +146,7 @@ export async function createSnapshot(data: {
           data: {
             accountId: data.accountId,
             date: new Date(data.date + 'T00:00:00'),
-            accountBalance,
+            accountBalance: BigInt(accountBalance),
             previousSnapshotId: previousSnapshot?.id ?? null,
             note: data.note ?? null,
             items: {
@@ -245,8 +244,8 @@ export async function updateSnapshot(
     date: string
     items: Array<{
       assetClassId: string
-      marketValue: number | string | Decimal
-      periodNetFlow?: number | string | Decimal
+      marketValue: number
+      periodNetFlow?: number
     }>
     note?: string
   }
@@ -338,8 +337,8 @@ export async function updateSnapshot(
     // 准备新 items 数据
     const itemsData = data.items.map((item, index) => ({
       assetClassId: item.assetClassId,
-      marketValue: toDecimal(item.marketValue),
-      periodNetFlow: toDecimal(item.periodNetFlow ?? 0),
+      marketValue: BigInt(item.marketValue),
+      periodNetFlow: BigInt(item.periodNetFlow ?? 0),
       sort: index,
     }))
 
@@ -348,7 +347,7 @@ export async function updateSnapshot(
       where: { id },
       data: {
         date: new Date(data.date + 'T00:00:00'),
-        accountBalance,
+        accountBalance: BigInt(accountBalance),
         previousSnapshotId: previousSnapshot?.id ?? null,
         note: data.note ?? null,
         items: {

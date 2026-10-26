@@ -4,6 +4,7 @@ import type { Transaction } from '../../services/api'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 
 /**
  * 获取交易分类的显示名称
@@ -92,23 +93,23 @@ const TransactionItemRow: React.FC<TransactionItemRowProps> = ({
   const displayAmount = (() => {
     switch (transaction.type) {
       case 'income':
-        return formatCurrency(Number(transaction.amount), { showSign: true })
+        return formatCurrency(transaction.amount, { showSign: true })
       case 'expense':
-        return formatCurrency(-Number(transaction.amount), { showSign: true })
+        return formatCurrency(minor(-transaction.amount), { showSign: true })
       case 'refund':
-        return formatCurrency(Number(transaction.amount), { showSign: true })
+        return formatCurrency(transaction.amount, { showSign: true })
       case 'transfer':
-        return formatCurrency(Number(transaction.amount))
+        return formatCurrency(transaction.amount)
       default:
-        return formatCurrency(Number(transaction.amount))
+        return formatCurrency(transaction.amount)
     }
   })()
 
   // 手续费/优惠券提示文本
   const feeCouponText = (() => {
     const parts: string[] = []
-    const fee = Number(transaction.fee || 0)
-    const coupon = Number(transaction.coupon || 0)
+    const fee = transaction.fee
+    const coupon = transaction.coupon
     if (fee > 0) parts.push(`手续费 ${formatCurrency(fee)}`)
     if (coupon > 0) parts.push(`优惠券 ${formatCurrency(coupon)}`)
     return parts.length > 0 ? parts.join(', ') : null

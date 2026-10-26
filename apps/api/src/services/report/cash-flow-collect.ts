@@ -1,4 +1,4 @@
-import { toDecimal, ZERO } from '../../common/index.js'
+import { minor } from '../../../../../packages/domain/src/index.js'
 import { getCashFlags } from './report.utils.js'
 import {
   AccountInfo,
@@ -32,9 +32,9 @@ export function collectTransactions(args: {
       isPredicted: false,
       type: t.type,
       relatedType: t.relatedType,
-      amount: t.amount,
-      fee: toDecimal(t.fee),
-      coupon: toDecimal(t.coupon),
+      amount: minor(Number(t.amount)),
+      fee: minor(Number(t.fee ?? 0)),
+      coupon: minor(Number(t.coupon ?? 0)),
       isFromCash,
       isToCash,
       categoryName: t.category?.name || '未分类',
@@ -69,9 +69,9 @@ export function collectTransactions(args: {
       isPredicted: true,
       type: p.type,
       relatedType: null,
-      amount: toDecimal(p.amount),
-      fee: ZERO,
-      coupon: ZERO,
+      amount: minor(p.amount),
+      fee: minor(0),
+      coupon: minor(0),
       isFromCash,
       isToCash,
       categoryName: category?.name || '未分类',

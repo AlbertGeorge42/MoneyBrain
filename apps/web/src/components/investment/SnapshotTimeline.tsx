@@ -5,6 +5,7 @@ import type { MenuProps } from 'antd'
 import CategoryIcon from '../common/CategoryIcon'
 import type { InvestmentAllocationSnapshot } from '../../services/api'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { minor } from '@domain/index'
 import dayjs from 'dayjs'
 
 const { Text } = Typography
@@ -147,7 +148,7 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
                   type="secondary"
                   style={{ marginLeft: token.marginSM, fontSize: token.fontSizeSM }}
                 >
-                  {balanceChange >= 0 ? '+' : ''}{formatCurrency(balanceChange)}
+                  {balanceChange >= 0 ? '+' : ''}{formatCurrency(minor(balanceChange))}
                 </Text>
               )}
             </div>
@@ -173,7 +174,7 @@ const SnapshotTimeline: React.FC<SnapshotTimelineProps> = ({
               color: token.colorTextSecondary,
             }}
           >
-            期间净流入 {formatCurrency(totalNetFlow)}
+            期间净流入 {formatCurrency(minor(totalNetFlow))}
               {totalNetFlow > 0 && <span style={{ marginLeft: 4 }}>(投入)</span>}
               {totalNetFlow < 0 && <span style={{ marginLeft: 4 }}>(转出)</span>}
             </div>

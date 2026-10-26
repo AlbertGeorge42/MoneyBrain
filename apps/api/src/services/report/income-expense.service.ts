@@ -1,17 +1,16 @@
 import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
-import { ZERO, rootLogger, toDecimal } from '../../common/index.js'
+import { rootLogger } from '../../common/index.js'
 import { toLedgerTransaction } from '../ledger.adapter.js'
 import {
   flowByCategory,
   fromDate,
-  fromMajor,
+  minor,
   postingsOf,
   summarizeFlows,
-  toMajor,
   UNCATEGORIZED_CATEGORY_ID,
   ZERO_MINOR,
+  type Minor,
 } from '../../../../../packages/domain/src/index.js'
 import {
   getPredictionsIfFuture,
@@ -73,14 +72,14 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   // 收支口径只有领域层这一处：退款按原交易类型冲减对应侧，报表与首页、交易统计一致。
   const ledger = transactions.map(toLedgerTransaction)
   const summary = summarizeFlows(ledger, undefined, { includeExcluded })
-  const netIncome = toDecimal(toMajor(summary.netIncome))
-  const netExpense = toDecimal(toMajor(summary.netExpense))
+  const netIncome = summary.netIncome
+  const netExpense = summary.netExpense
 
-  let pIncome = ZERO
-  let pExpense = ZERO
+  let pIncome: Minor = ZERO_MINOR
+  let pExpense: Minor = ZERO_MINOR
   let predictionNote: string | undefined
 
-  const predictedById: Record<string, Decimal> = {}
+  const predictedById: Record<string, Minor> = {}
 
   // 合并获取预测数据（一次查询替代原来的两次）
   const predictions = await getPredictionsIfFuture(startDate, endDate, !!includePredictions)
@@ -98,22 +97,22 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       // 转账不是收入或支出，不应该计入收入支出报表
       if (p.type === 'transfer') return
       if (p.type === 'income') {
-        pIncome = pIncome.plus(p.amount)
+        pIncome = minor(pIncome + p.amount)
       } else if (p.type === 'expense') {
-        pExpense = pExpense.plus(p.amount)
+        pExpense = minor(pExpense + p.amount)
       }
       if (p.categoryId) {
-        predictedById[p.categoryId] = (predictedById[p.categoryId] || ZERO).plus(p.amount)
+        predictedById[p.categoryId] = minor((predictedById[p.categoryId] ?? 0) + p.amount)
       }
     })
     predictionNote = PREDICTION_NOTE_DEFAULT
   }
 
-  const actualBalance = netIncome.minus(netExpense)
-  const predictedBalance = pIncome.minus(pExpense)
+  const actualBalance = minor(netIncome - netExpense)
+  const predictedBalance = minor(pIncome - pExpense)
 
-  const incomeByCategory: Record<string, Decimal> = {}
-  const expenseByCategory: Record<string, Decimal> = {}
+  const incomeByCategory: Record<string, Minor> = {}
+  const expenseByCategory: Record<string, Minor> = {}
 
   const allCategories = await prisma.transactionCategory.findMany({
     orderBy: { sort: 'asc' },
@@ -131,8 +130,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const netIncomeByCategory = flowByCategory(ledger, 'income', undefined, { includeExcluded })
   const netExpenseByCategory = flowByCategory(ledger, 'expense', undefined, { includeExcluded })
 
-  const leafPredictedIncome: Record<string, Decimal> = {}
-  const leafPredictedExpense: Record<string, Decimal> = {}
+  const leafPredictedIncome: Record<string, Minor> = {}
+  const leafPredictedExpense: Record<string, Minor> = {}
 
   for (const [catId, pAmount] of Object.entries(predictedById)) {
     const cat = categoryMap.get(catId)
@@ -140,7 +139,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     // 转账分类不应该出现在收入支出报表中
     if (cat.type === 'transfer') continue
     const target = cat.type === 'income' ? leafPredictedIncome : leafPredictedExpense
-    target[catId] = (target[catId] || ZERO).plus(pAmount)
+    target[catId] = minor((target[catId] ?? 0) + pAmount)
   }
 
   function buildTree(type: 'income' | 'expense', parentId: string | null): ReportCategoryDetail[] {
@@ -156,12 +155,10 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       const hasChildren = (childrenOf.get(cat.id) ?? []).length > 0
 
       // 自身实际 = 该分类的净额（退款已扣减）；预测侧无退款
-      const ownActual = toDecimal(
-        toMajor((type === 'income' ? netIncomeByCategory : netExpenseByCategory).get(cat.id) ?? ZERO_MINOR),
-      )
+      const ownActual = (type === 'income' ? netIncomeByCategory : netExpenseByCategory).get(cat.id) ?? ZERO_MINOR
       const catActual = ownActual
-      const catPredicted = (type === 'income' ? leafPredictedIncome : leafPredictedExpense)[cat.id] ?? ZERO
-      const hasOwnData = !catActual.isZero() || !catPredicted.isZero()
+      const catPredicted = (type === 'income' ? leafPredictedIncome : leafPredictedExpense)[cat.id] ?? ZERO_MINOR
+      const hasOwnData = catActual !== 0 || catPredicted !== 0
 
       // 无自身数据且子树无产出 → 完全空节点，跳过
       if (!hasOwnData && childLeaves.length === 0) continue
@@ -171,8 +168,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
       result.push({
         name: cat.name,
-        actual: catActual.toNumber() + childrenActual,
-        predicted: catPredicted.toNumber() + childrenPredicted,
+        actual: minor(catActual + childrenActual),
+        predicted: minor(catPredicted + childrenPredicted),
         categoryId: cat.id,
         hasChildren,
         sort: cat.sort,
@@ -186,19 +183,15 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   }
 
   function buildUncategorized(type: 'income' | 'expense'): ReportCategoryDetail | null {
-    const actual = toDecimal(
-      toMajor(
-        (type === 'income' ? netIncomeByCategory : netExpenseByCategory).get(
-          UNCATEGORIZED_CATEGORY_ID,
-        ) ?? ZERO_MINOR,
-      ),
-    )
-    if (actual.isZero()) return null
+    const actual = (type === 'income' ? netIncomeByCategory : netExpenseByCategory).get(
+      UNCATEGORIZED_CATEGORY_ID,
+    ) ?? ZERO_MINOR
+    if (actual === 0) return null
 
     return {
       name: '未分类',
-      actual: actual.toNumber(),
-      predicted: 0,
+      actual,
+      predicted: ZERO_MINOR,
       categoryId: 'uncategorized',
       hasChildren: false,
       sort: Number.MAX_SAFE_INTEGER,
@@ -219,12 +212,12 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   for (const [catId, amount] of netIncomeByCategory) {
     const cat = categoryMap.get(catId)
     const key = cat?.name ?? '未分类'
-    incomeByCategory[key] = (incomeByCategory[key] || ZERO).plus(toDecimal(toMajor(amount)))
+    incomeByCategory[key] = minor((incomeByCategory[key] ?? 0) + amount)
   }
   for (const [catId, amount] of netExpenseByCategory) {
     const cat = categoryMap.get(catId)
     const key = cat?.name ?? '未分类'
-    expenseByCategory[key] = (expenseByCategory[key] || ZERO).plus(toDecimal(toMajor(amount)))
+    expenseByCategory[key] = minor((expenseByCategory[key] ?? 0) + amount)
   }
 
   const accounts = await prisma.account.findMany()
@@ -235,7 +228,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   // 期初期末资产/负债/净资产
   const accountGetValue = (account: { id: string; type: string }, date: Date) =>
-    balanceCache.get(account.id, date)
+    minor(balanceCache.get(account.id, date))
 
   const startResult = sumAssetsLiabilities(
     accounts.map(a => ({ id: a.id, type: a.type })),
@@ -248,12 +241,12 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   const actualStartAssets = startResult.assets
   const actualStartLiabilitiesBalance = startResult.liabilities
-  const actualStartLiabilities = Math.abs(actualStartLiabilitiesBalance)
+  const actualStartLiabilities = minor(Math.abs(actualStartLiabilitiesBalance))
   const actualStartNetWorth = startResult.netWorth
 
   const actualEndAssets = endResult.assets
   const actualEndLiabilitiesBalance = endResult.liabilities
-  const actualEndLiabilities = Math.abs(actualEndLiabilitiesBalance)
+  const actualEndLiabilities = minor(Math.abs(actualEndLiabilitiesBalance))
   const actualEndNetWorth = endResult.netWorth
 
   // 预测资产/负债变动（统一调用 computePredictedAssetsLiabilities，
@@ -271,17 +264,11 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const predictedEndLiabilities = endPredicted.liabilities
   const predictedEndNetWorth = endPredicted.netWorth
 
-  const predictedNetWorthChange = predictedEndNetWorth - predictedStartNetWorth
-  const actualAssetChange = actualEndNetWorth - actualStartNetWorth
+  const predictedNetWorthChange = minor(predictedEndNetWorth - predictedStartNetWorth)
+  const actualAssetChange = minor(actualEndNetWorth - actualStartNetWorth)
 
-  const incomeByCategoryResult: Record<string, number> = {}
-  for (const [k, v] of Object.entries(incomeByCategory)) {
-    incomeByCategoryResult[k] = v.toNumber()
-  }
-  const expenseByCategoryResult: Record<string, number> = {}
-  for (const [k, v] of Object.entries(expenseByCategory)) {
-    expenseByCategoryResult[k] = v.toNumber()
-  }
+  const incomeByCategoryResult: Record<string, Minor> = { ...incomeByCategory }
+  const expenseByCategoryResult: Record<string, Minor> = { ...expenseByCategory }
 
   logger.info({ action: 'generate', report: 'income-expense', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')
 
@@ -291,7 +278,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const openingDateOf = new Map(
     accounts.map((a) => [a.id, a.initialBalanceDate ? fromDate(a.initialBalanceDate) : null]),
   )
-  const netWorthEffect = (tx: (typeof balanceOnlyTransactions)[number]): number => {
+  const netWorthEffect = (tx: (typeof balanceOnlyTransactions)[number]): Minor => {
     const ledgerTx = toLedgerTransaction({
       id: tx.id,
       type: tx.type,
@@ -306,9 +293,11 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       relatedType: tx.relatedType,
       excludeFromIncomeExpense: tx.excludeFromIncomeExpense,
     })
-    return postingsOf(ledgerTx)
-      .filter((posting) => posting.kind === 'account')
-      .reduce((total, posting) => total + posting.amount, 0)
+    return minor(
+      postingsOf(ledgerTx)
+        .filter((posting) => posting.kind === 'account')
+        .reduce((total, posting) => total + posting.amount, 0),
+    )
   }
 
   const excludedNet = balanceOnlyTransactions
@@ -329,7 +318,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     })
     .filter((tx) => (includeExcluded ? true : !tx.excludeFromIncomeExpense))
     .reduce((total, tx) => {
-      const amount = toMajor(fromMajor(Number(tx.amount)))
+      const amount = minor(Number(tx.amount))
       if (tx.type === 'income') return total + amount
       if (tx.type === 'expense') return total - amount
       if (tx.type === 'refund' && tx.relatedType === 'income') return total - amount
@@ -337,25 +326,27 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       return total
     }, 0)
 
-  const other =
-    (includeExcluded ? 0 : excludedNet) + transferFee + adjustmentNet - preOpeningFlow
+  const other = minor(
+    (includeExcluded ? 0 : excludedNet) + transferFee + adjustmentNet - preOpeningFlow,
+  )
 
   const reconciliation = {
     startNetWorth: actualStartNetWorth,
-    netIncome: netIncome.toNumber(),
-    netExpense: netExpense.toNumber(),
+    netIncome,
+    netExpense,
     other,
     endNetWorth: actualEndNetWorth,
-    difference:
-      actualEndNetWorth - (actualStartNetWorth + netIncome.toNumber() - netExpense.toNumber() + other),
+    difference: minor(
+      actualEndNetWorth - (actualStartNetWorth + netIncome - netExpense + other),
+    ),
   }
 
   return {
     startDate,
     endDate,
-    income: { actual: netIncome.toNumber(), predicted: pIncome.toNumber() },
-    expense: { actual: netExpense.toNumber(), predicted: pExpense.toNumber() },
-    balance: { actual: actualBalance.toNumber(), predicted: predictedBalance.toNumber() },
+    income: { actual: netIncome, predicted: pIncome },
+    expense: { actual: netExpense, predicted: pExpense },
+    balance: { actual: actualBalance, predicted: predictedBalance },
     reconciliation,
     incomeByCategory: incomeByCategoryResult,
     expenseByCategory: expenseByCategoryResult,

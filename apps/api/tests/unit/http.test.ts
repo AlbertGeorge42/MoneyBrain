@@ -53,6 +53,23 @@ describe('http 响应封装', () => {
       })
       expect((res.body as { timestamp: string }).timestamp).toBeTruthy()
     })
+
+    it('金额 BigInt 应该序列化成 number 分', () => {
+      const res = createMockResponse()
+      success(res as unknown as Response, {
+        amount: 123456n,
+        nested: [{ amount: -100n }],
+        ratio: null,
+      })
+
+      expect(res.body).toMatchObject({
+        data: {
+          amount: 123456,
+          nested: [{ amount: -100 }],
+        },
+      })
+      expect(() => JSON.stringify(res.body)).not.toThrow()
+    })
   })
 
   describe('notFoundHandler', () => {

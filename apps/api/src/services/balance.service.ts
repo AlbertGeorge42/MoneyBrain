@@ -2,8 +2,7 @@ import { prisma } from '../prisma.js'
 import {
   balanceBefore,
   fromDate,
-  fromMajor,
-  toMajor,
+  minor,
   type LedgerTransaction,
   type OpeningBalance,
   type TransactionKind,
@@ -51,13 +50,14 @@ export class BalanceCache {
 type AccountList = Awaited<ReturnType<typeof prisma.account.findMany>>
 
 function openingOf(account: AccountList[number]): OpeningBalance {
+  const amount = minor(Number(account.initialBalance))
   // 没有期初日期时，期初余额覆盖全部历史交易。
   if (!account.initialBalanceDate) {
-    return { amount: fromMajor(account.initialBalance.toNumber()) }
+    return { amount }
   }
   return {
     date: fromDate(account.initialBalanceDate),
-    amount: fromMajor(account.initialBalance.toNumber()),
+    amount,
   }
 }
 
@@ -115,7 +115,7 @@ export async function calculateBalancesBatch(
     for (const targetDate of sortedDates) {
       const dateKey = fromDate(targetDate)
       const balance = balanceBefore(accountId, opening, relevant, dateKey)
-      dateBalanceMap.set(dateKey, toMajor(balance))
+      dateBalanceMap.set(dateKey, balance)
     }
 
     result.set(accountId, dateBalanceMap)

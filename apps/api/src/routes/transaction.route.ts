@@ -13,6 +13,7 @@ import {
   toDate,
   dayStart,
   dayEnd,
+  parseMoney,
 } from '../common/index.js'
 import {
   getTransactionList,
@@ -66,6 +67,14 @@ const validateStatsQuery = (req: Request) => {
   parseRangeDate(req.query.endDate, true)
 }
 
+/** 金额统一按「整数分」校验；未传的字段交给 service 的默认值。 */
+const validateMoneyFields = (body: Record<string, unknown>) => {
+  for (const [field, label] of [['amount', '金额'], ['fee', '手续费'], ['coupon', '优惠券']] as const) {
+    if (body[field] === undefined || body[field] === null) continue
+    parseMoney(body[field], label)
+  }
+}
+
 const validateCreateTransaction = (req: Request) => {
   const { type, amount, date, accountId, categoryId, toAccountId, relatedTransactionId } = req.body as Record<string, unknown>
   const transactionType = validateTransactionType(type)
@@ -74,6 +83,7 @@ const validateCreateTransaction = (req: Request) => {
     throw new ValidationError('缺少必要参数')
   }
 
+  validateMoneyFields(req.body as Record<string, unknown>)
   toDate(date, 'date')
 
   if (transactionType === 'refund') {
@@ -107,6 +117,8 @@ const validateUpdateTransaction = (req: Request) => {
   validateIdParam(req)
 
   const { type, date, accountId, toAccountId } = req.body as Record<string, unknown>
+
+  validateMoneyFields(req.body as Record<string, unknown>)
 
   if (hasValue(type)) {
     validateTransactionType(type)

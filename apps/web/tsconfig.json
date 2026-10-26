@@ -19,7 +19,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@contracts/*": ["../../packages/contracts/*"]
+      "@contracts/*": ["../../packages/contracts/*"],
+      "@domain/*": ["../../packages/domain/src/*"]
     }
   },
   "include": ["src"]

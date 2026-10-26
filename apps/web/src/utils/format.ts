@@ -1,6 +1,10 @@
 /**
  * 货币与数字格式化工具
+ *
+ * 金额在应用内一律是整数分（Minor）；这里是唯一的「分 → 元」展示边界。
  */
+
+import { minor, type Minor } from '@domain/index'
 
 interface FormatCurrencyOptions {
   /** 小数位数，默认 2 */
@@ -13,18 +17,18 @@ interface FormatCurrencyOptions {
 
 /**
  * 格式化货币金额
- * @param value 金额数值
+ * @param value 金额（整数分）
  * @param options 格式化选项
  * @returns 格式化后的字符串
  *
  * @example
- * formatCurrency(1234.5)              // "¥1,234.50"
- * formatCurrency(1234.5, { showSign: true })  // "+¥1,234.50"
- * formatCurrency(-1234.5)             // "-¥1,234.50"
- * formatCurrency(1234.5, { showSymbol: false }) // "1,234.50"
+ * formatCurrency(minor(123450))              // "¥1,234.50"
+ * formatCurrency(minor(123450), { showSign: true })  // "+¥1,234.50"
+ * formatCurrency(minor(-123450))             // "-¥1,234.50"
+ * formatCurrency(minor(123450), { showSymbol: false }) // "1,234.50"
  */
-export function formatCurrency(value: number, options?: FormatCurrencyOptions): string {
-  const num = typeof value === 'number' ? value : parseFloat(String(value)) || 0
+export function formatCurrency(value: Minor, options?: FormatCurrencyOptions): string {
+  const num = value / 100
   const { decimals = 2, showSign = false, showSymbol = true } = options ?? {}
 
   const formatted = num.toLocaleString('zh-CN', {
@@ -76,20 +80,21 @@ export function currencyTooltipFormatter(params: TooltipParams | TooltipParams[]
   const label = params[0]?.axisValue || ''
   const lines = params.map((p) => {
     const numValue = typeof p.value === 'number' ? p.value : parseFloat(String(p.value)) || 0
-    return `${p.marker} ${p.seriesName}: ${formatCurrency(numValue)}`
+    return `${p.marker} ${p.seriesName}: ${formatCurrency(minor(numValue))}`
   })
   return [label, ...lines].join('<br/>')
 }
 
+/** 坐标轴刻度：输入是分。 */
 export function currencyAxisFormatter(value: number): string {
-  return `¥${value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`
+  return `¥${(value / 100).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`
 }
 
 /**
  * 创建 Ant Design Statistic 组件专用的格式化器
  * @param decimals 小数位数
- * @returns 格式化器函数
+ * @returns 格式化器函数（输入是分）
  */
 export function createStatisticFormatter(decimals = 2): (value: string | number) => string {
-  return (value: string | number) => formatCurrency(Number(value || 0), { decimals })
+  return (value: string | number) => formatCurrency(minor(Number(value || 0)), { decimals })
 }

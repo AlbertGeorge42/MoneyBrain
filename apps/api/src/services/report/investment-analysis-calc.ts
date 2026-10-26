@@ -1,6 +1,5 @@
 import { prisma } from '../../prisma.js'
-import { toDecimal, ZERO } from '../../common/index.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
+import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
 import { formatDateLocal } from './report.utils.js'
 import type { BalanceCache } from '../balance.service.js'
 import {
@@ -71,31 +70,31 @@ export function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: n
  */
 export function calculateReturnMetrics(
   cashFlows: CashFlow[],
-  startValue: number,
-  endValue: number
+  startValue: Minor,
+  endValue: Minor
 ): {
-  periodInvested: number
-  periodWithdrawn: number
-  netCashFlow: number
-  periodReturn: number
+  periodInvested: Minor
+  periodWithdrawn: Minor
+  netCashFlow: Minor
+  periodReturn: Minor
   simpleReturnRate: number
-  maxCapitalEmployed: number
-  cumulativeReturn: number
+  maxCapitalEmployed: Minor
+  cumulativeReturn: Minor
   cumulativeReturnRate: number
 } {
-  const periodInvested = cashFlows
+  const periodInvested = minor(cashFlows
     .filter(cf => cf.type === 'buy')
-    .reduce((sum, cf) => sum + Math.abs(cf.amount), 0)
-  const periodWithdrawn = cashFlows
+    .reduce((sum, cf) => sum + Math.abs(cf.amount), 0))
+  const periodWithdrawn = minor(cashFlows
     .filter(cf => cf.type === 'sell')
-    .reduce((sum, cf) => sum + cf.amount, 0)
-  const netCashFlow = periodInvested - periodWithdrawn
+    .reduce((sum, cf) => sum + cf.amount, 0))
+  const netCashFlow = minor(periodInvested - periodWithdrawn)
 
-  const periodReturn = endValue - startValue - netCashFlow
+  const periodReturn = minor(endValue - startValue - netCashFlow)
   const simpleReturnRate = startValue !== 0 ? (periodReturn / startValue) * 100 : 0
 
-  const maxCapitalEmployed = calculateMaxCapitalEmployed(cashFlows, startValue)
-  const cumulativeReturn = endValue + periodWithdrawn - startValue - periodInvested
+  const maxCapitalEmployed = minor(calculateMaxCapitalEmployed(cashFlows, startValue))
+  const cumulativeReturn = minor(endValue + periodWithdrawn - startValue - periodInvested)
   const cumulativeReturnRate = maxCapitalEmployed !== 0 ? (cumulativeReturn / maxCapitalEmployed) * 100 : 0
 
   return {
@@ -111,7 +110,7 @@ export function calculateReturnMetrics(
 }
 
 export async function buildAccountAllocationDetail(
-  account: { id: string; name: string; balance: number; icon: string | null; color: string | null },
+  account: { id: string; name: string; balance: Minor; icon: string | null; color: string | null },
   endDate: Date,
   startDate: Date,
   balanceCache: BalanceCache,
@@ -136,8 +135,8 @@ export async function buildAccountAllocationDetail(
   const nextDayOfEnd = new Date(endDate)
   nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
 
-  const startValue = balanceCache.getMany([account.id], startDate)
-  const endValue = balanceCache.getMany([account.id], nextDayOfEnd)
+  const startValue = minor(balanceCache.getMany([account.id], startDate))
+  const endValue = minor(balanceCache.getMany([account.id], nextDayOfEnd))
 
   const { cumulativeReturnRate } = calculateReturnMetrics(accountCashFlows, startValue, endValue)
 
@@ -192,54 +191,56 @@ export async function buildAccountAllocationDetail(
     : null
 
   // 先计算已分类市值总和
-  const totalMarketValue = latestSnapshot.items.reduce(
-    (sum, item) => sum.plus(toDecimal(item.marketValue)),
-    ZERO,
-  )
+  const totalMarketValue = minor(latestSnapshot.items.reduce(
+    (sum, item) => sum + Number(item.marketValue),
+    0,
+  ))
 
   const items: AccountAllocationItem[] = latestSnapshot.items.map(item => {
     // ratio 基于已分类市值总和，不包含未分类
-    const itemMarketValue = toDecimal(item.marketValue)
-    const ratio = totalMarketValue.greaterThan(ZERO)
-      ? itemMarketValue.dividedBy(totalMarketValue).times(100).toNumber()
+    const itemMarketValue = minor(Number(item.marketValue))
+    const ratio = totalMarketValue > 0
+      ? (itemMarketValue / totalMarketValue) * 100
       : 0
-    const targetRatio = item.assetClass.targetRatio == null ? null : toDecimal(item.assetClass.targetRatio)
-    const deviation = targetRatio !== null ? ratio - targetRatio.toNumber() : null
-    // rebalanceAmount 基于已分类市值总和
+    const targetRatio = item.assetClass.targetRatio == null ? null : Number(item.assetClass.targetRatio)
+    const deviation = targetRatio !== null ? ratio - targetRatio : null
+    // rebalanceAmount 基于已分类市值总和（四舍五入到分）
     const rebalanceAmount = targetRatio !== null
-      ? targetRatio.dividedBy(100).times(totalMarketValue).minus(itemMarketValue).toNumber()
+      ? minor(Math.round((targetRatio / 100) * totalMarketValue - itemMarketValue))
       : null
 
-    let periodReturn: number | null = null
+    let periodReturn: Minor | null = null
     let returnRate: number | null = null
 
     if (previousSnapshot) {
       const prevItem = previousSnapshot.items.find(i => i.assetClassId === item.assetClassId)
       if (prevItem) {
-        const prevValue = toDecimal(prevItem.marketValue)
-        const netContribution = toDecimal(item.periodNetFlow)
-        const periodReturnDecimal = itemMarketValue.minus(prevValue).minus(netContribution)
-        const positiveNetContribution = netContribution.greaterThan(ZERO) ? netContribution : ZERO
-        const denominator = prevValue.plus(positiveNetContribution)
-        periodReturn = periodReturnDecimal.toNumber()
-        returnRate = denominator.greaterThan(ZERO)
-          ? periodReturnDecimal.dividedBy(denominator).times(100).toNumber()
+        const prevValue = minor(Number(prevItem.marketValue))
+        const netContribution = minor(Number(item.periodNetFlow))
+        const periodReturnAmount = minor(itemMarketValue - prevValue - netContribution)
+        const positiveNetContribution = netContribution > 0 ? netContribution : minor(0)
+        const denominator = minor(prevValue + positiveNetContribution)
+        periodReturn = periodReturnAmount
+        returnRate = denominator > 0
+          ? (periodReturnAmount / denominator) * 100
           : null
       }
     }
+
+    const periodNetFlow = minor(Number(item.periodNetFlow))
 
     return {
       assetClassId: item.assetClassId,
       name: item.assetClass.name,
       icon: item.assetClass.icon,
       color: item.assetClass.color,
-      marketValue: itemMarketValue.toNumber(),
+      marketValue: itemMarketValue,
       ratio,
-      targetRatio: targetRatio?.toNumber() ?? null,
+      targetRatio,
       deviation,
       rebalanceAmount,
-      periodInvested: toDecimal(item.periodNetFlow).greaterThan(ZERO) ? toDecimal(item.periodNetFlow).toNumber() : 0,
-      periodWithdrawn: toDecimal(item.periodNetFlow).lessThan(ZERO) ? toDecimal(item.periodNetFlow).abs().toNumber() : 0,
+      periodInvested: periodNetFlow > 0 ? periodNetFlow : minor(0),
+      periodWithdrawn: periodNetFlow < 0 ? minor(Math.abs(periodNetFlow)) : minor(0),
       periodReturn,
       returnRate,
       sort: item.sort,
@@ -247,10 +248,9 @@ export async function buildAccountAllocationDetail(
   })
 
   // 计算差额并添加"未分类"项
-  const accountBalance = toDecimal(account.balance)
-  const unclassifiedValueDecimal = accountBalance.minus(totalMarketValue)
-  const unclassifiedValue = unclassifiedValueDecimal.toNumber()
-  if (unclassifiedValueDecimal.abs().greaterThan(new Decimal('0.01')) && items.length > 0) {
+  const accountBalance = account.balance
+  const unclassifiedValue = minor(accountBalance - totalMarketValue)
+  if (unclassifiedValue !== 0 && items.length > 0) {
     items.push({
       assetClassId: '__unclassified__',
       name: '未分类',
@@ -261,8 +261,8 @@ export async function buildAccountAllocationDetail(
       targetRatio: null,
       deviation: null,
       rebalanceAmount: null,
-      periodInvested: 0,
-      periodWithdrawn: 0,
+      periodInvested: minor(0),
+      periodWithdrawn: minor(0),
       periodReturn: null,
       returnRate: null,
       sort: 999,
@@ -270,37 +270,36 @@ export async function buildAccountAllocationDetail(
   }
 
   const historySnapshots: SnapshotHistoryItem[] = snapshots.map(s => {
-    const sAccountBalance = toDecimal(s.accountBalance)
-    const sTotalMarketValue = s.items.reduce(
-      (sum, item) => sum.plus(toDecimal(item.marketValue)),
-      ZERO,
-    )
-    const sUnclassifiedValueDecimal = sAccountBalance.minus(sTotalMarketValue)
-    const sUnclassifiedValue = sUnclassifiedValueDecimal.toNumber()
+    const sAccountBalance = minor(Number(s.accountBalance))
+    const sTotalMarketValue = minor(s.items.reduce(
+      (sum, item) => sum + Number(item.marketValue),
+      0,
+    ))
+    const sUnclassifiedValue = minor(sAccountBalance - sTotalMarketValue)
     const sItems = s.items.map(item => {
-      const mv = toDecimal(item.marketValue)
+      const mv = minor(Number(item.marketValue))
       return {
         assetClassId: item.assetClassId,
         name: item.assetClass.name,
-        marketValue: mv.toNumber(),
-        ratio: sAccountBalance.greaterThan(ZERO) ? mv.dividedBy(sAccountBalance).times(100).toNumber() : 0,
+        marketValue: mv,
+        ratio: sAccountBalance > 0 ? (mv / sAccountBalance) * 100 : 0,
       }
     })
 
     // 添加"未分类"项（如果有差额且已有其他项）
-    if (sUnclassifiedValueDecimal.abs().greaterThan(new Decimal('0.01')) && sItems.length > 0) {
+    if (sUnclassifiedValue !== 0 && sItems.length > 0) {
       sItems.push({
         assetClassId: '__unclassified__',
         name: '未分类',
         marketValue: sUnclassifiedValue,
-        ratio: sAccountBalance.greaterThan(ZERO) ? sUnclassifiedValueDecimal.dividedBy(sAccountBalance).times(100).toNumber() : 0,
+        ratio: sAccountBalance > 0 ? (sUnclassifiedValue / sAccountBalance) * 100 : 0,
       })
     }
 
     return {
       id: s.id,
       date: formatDateLocal(s.date),
-      accountBalance: sAccountBalance.toNumber(),
+      accountBalance: sAccountBalance,
       items: sItems,
     }
   })

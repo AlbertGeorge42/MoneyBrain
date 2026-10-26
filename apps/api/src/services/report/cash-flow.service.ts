@@ -1,6 +1,7 @@
 import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
+import { minor } from '../../../../../packages/domain/src/index.js'
 import {
   getPredictionsIfFuture,
   computePredictedAccountTotal,
@@ -97,9 +98,9 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
 
   // 6. 期初 / 期末现金余额
   const balanceCache = await calculateBalancesBatch(cashAccountIds, [start, nextDayOfEnd])
-  const actualStartCash = cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, start), 0)
-  const actualEndCash = cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, nextDayOfEnd), 0)
-  const actualCashChange = actualEndCash - actualStartCash
+  const actualStartCash = minor(cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, start), 0))
+  const actualEndCash = minor(cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, nextDayOfEnd), 0))
+  const actualCashChange = minor(actualEndCash - actualStartCash)
 
   // 期初/期末现金预测：统一调用 computePredictedAccountTotal，
   // 不再依赖隐式排序、也不重复 income/expense/transfer 分支。
@@ -124,7 +125,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     cashAccounts: cashAccounts.map(a => a.name),
     startCash: { actual: actualStartCash, predicted: predictedStartCash },
     endCash: { actual: actualEndCash, predicted: predictedEndCash },
-    cashChange: { actual: actualCashChange, predicted: predictedEndCash - predictedStartCash },
+    cashChange: { actual: actualCashChange, predicted: minor(predictedEndCash - predictedStartCash) },
     byActivity: statement.byActivity,
     sankey,
     predictionNote,

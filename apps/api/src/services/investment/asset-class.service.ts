@@ -1,14 +1,12 @@
 import { prisma } from '../../prisma.js'
-import { NotFoundError, ValidationError, rootLogger, ZERO, toDecimal } from '../../common/index.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
+import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
 
 const logger = rootLogger.child({ module: 'asset-class' })
 
-// 校验 targetRatio 范围
+// 校验 targetRatio 范围（百分比，不是金额）
 function validateTargetRatio(targetRatio: number | null | undefined): void {
   if (targetRatio == null) return
-  const decimal = toDecimal(targetRatio)
-  if (decimal.lessThan(ZERO) || decimal.greaterThan(100)) {
+  if (targetRatio < 0 || targetRatio > 100) {
     throw new ValidationError('目标比例必须在 0-100 之间')
   }
 }
@@ -52,14 +50,10 @@ export async function createAssetClass(
 
     const sum = assetClasses
       .filter(ac => ac.targetRatio !== null)
-      .reduce(
-        (acc, ac) => acc.plus(toDecimal(ac.targetRatio)),
-        ZERO,
-      )
-      .plus(toDecimal(data.targetRatio))
+      .reduce((acc, ac) => acc + Number(ac.targetRatio), 0) + Number(data.targetRatio)
 
     // 允许小数误差 0.01
-    if (sum.greaterThan(new Decimal(100).plus('0.01'))) {
+    if (sum > 100.01) {
       throw new ValidationError(`目标比例总和（${sum.toFixed(2)}%）超过 100%`)
     }
   }
@@ -78,7 +72,7 @@ export async function createAssetClass(
       name: data.name.trim(),
       icon: data.icon ?? 'chart-pie',
       color: data.color ?? null,
-      targetRatio: data.targetRatio == null ? null : toDecimal(data.targetRatio),
+      targetRatio: data.targetRatio ?? null,
       sort: (maxSort?.sort ?? -1) + 1,
     },
   })
@@ -107,7 +101,7 @@ export async function updateAssetClass(
   validateTargetRatio(data.targetRatio)
 
   // 先校验该账户下所有资产类型 targetRatio 总和不超过 100（使用更新后的值）
-  const newTargetRatio = data.targetRatio !== undefined ? data.targetRatio : existing.targetRatio?.toNumber() ?? null
+  const newTargetRatio = data.targetRatio !== undefined ? data.targetRatio : (existing.targetRatio == null ? null : Number(existing.targetRatio))
   if (newTargetRatio !== null) {
     const assetClasses = await prisma.investmentAssetClass.findMany({
       where: { accountId: existing.accountId },
@@ -116,11 +110,10 @@ export async function updateAssetClass(
 
     const sum = assetClasses
       .filter(ac => ac.targetRatio !== null)
-      .map(ac => ac.id === id ? toDecimal(newTargetRatio) : toDecimal(ac.targetRatio!))
-      .reduce((acc, ratio) => acc.plus(ratio), ZERO)
+      .reduce((acc, ac) => acc + (ac.id === id ? newTargetRatio : Number(ac.targetRatio)), 0)
 
     // 允许小数误差 0.01
-    if (sum.greaterThan(new Decimal(100).plus('0.01'))) {
+    if (sum > 100.01) {
       throw new ValidationError(`目标比例总和（${sum.toFixed(2)}%）超过 100%`)
     }
   }
@@ -133,7 +126,7 @@ export async function updateAssetClass(
       icon: data.icon !== undefined ? data.icon : existing.icon,
       color: data.color !== undefined ? data.color : existing.color,
       targetRatio: data.targetRatio !== undefined
-        ? (data.targetRatio == null ? null : toDecimal(data.targetRatio))
+        ? (data.targetRatio == null ? null : data.targetRatio)
         : existing.targetRatio,
     },
   })

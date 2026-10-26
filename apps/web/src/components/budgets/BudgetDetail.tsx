@@ -2,6 +2,7 @@ import React from 'react'
 import { Button, Space, Tag, Divider, Typography, Modal, Progress, theme } from 'antd'
 import { EditOutlined, DeleteOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 import { getProgressColor, getStatusLabel } from '../../utils/budget'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
@@ -161,7 +162,7 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({
             已{budget.type === 'income' ? '达成' : budget.type === 'transfer' ? '流转' : '使用'}: {used === undefined ? '—' : formatCurrency(used)}
           </span>
           <span>
-            剩余: {used === undefined ? '—' : formatCurrency(Math.max(budget.amount - used, 0))}
+            剩余: {used === undefined ? '—' : formatCurrency(minor(Math.max(budget.amount - used, 0)))}
           </span>
         </div>
       </div>

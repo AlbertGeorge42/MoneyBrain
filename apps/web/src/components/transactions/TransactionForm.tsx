@@ -5,6 +5,7 @@ import { Account, TransactionCategory, Transaction, TransactionType, accountApi 
 import { unwrapApiData } from '../../services/apiResult'
 import { AccountSelect, CategorySelect } from '../../components/common'
 import { formatCurrency } from '../../utils/format'
+import { minor, fromMajor, type Minor } from '@domain/index'
 import { reverseComputeOriginalAmount } from '../../utils/transaction'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { useAccountCategories } from '../../queries'
@@ -20,7 +21,7 @@ interface TransactionFormProps {
   /** 原交易信息（仅在创建退款时使用） */
   sourceTransaction?: Transaction | null
   /** 账户余额变化回调（仅在 adjustment 类型使用） */
-  onAccountBalanceChange?: (balance: number | null) => void
+  onAccountBalanceChange?: (balance: Minor | null) => void
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -43,7 +44,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const spaceCardPadding = `${token.padding}px`
 
   // adjustment 类型：账户余额相关状态
-  const [accountBalance, setAccountBalance] = useState<number | null>(null)
+  const [accountBalance, setAccountBalance] = useState<Minor | null>(null)
   const [loadingBalance, setLoadingBalance] = useState(false)
 
   // 监听账户选择变化（用于 adjustment 类型）
@@ -64,7 +65,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           // 当前金额 = 当前余额 + 原始平账值
           if (editingTransaction) {
             const currentAmount = balance + editingTransaction.amount
-            form.setFieldValue('amount', currentAmount)
+            form.setFieldValue('amount', currentAmount / 100)
           }
         })
         .catch(() => {
@@ -82,10 +83,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   useEffect(() => {
     if (editingTransaction) {
-      const fee = editingTransaction.fee || 0
-      const coupon = editingTransaction.coupon || 0
+      const fee = editingTransaction.fee
+      const coupon = editingTransaction.coupon
       const originalAmount = reverseComputeOriginalAmount(
-        Number(editingTransaction.amount),
+        editingTransaction.amount,
         fee,
         coupon,
         type
@@ -148,7 +149,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text>{sourceTransaction.category?.name || '未分类'}</Text>
             <Text style={{ color: sourceAmountColor, fontVariantNumeric: 'tabular-nums' }}>
-              {formatCurrency(Number(sourceTransaction.amount))}
+              {formatCurrency(sourceTransaction.amount)}
             </Text>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
@@ -290,7 +291,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {({ getFieldValue }) => {
               const currentAmount = getFieldValue('amount')
               if (currentAmount !== undefined && currentAmount !== null) {
-                const adjustmentValue = currentAmount - accountBalance
+                const adjustmentValue = minor(fromMajor(currentAmount) - accountBalance)
                 const color = adjustmentValue >= 0 ? colorIncome : colorExpense
                 return (
                   <div style={{ marginTop: 8 }}>

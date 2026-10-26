@@ -11,19 +11,18 @@ import {
   flowByCategory,
   fromDate,
   summarizeFlows,
-  toMajor,
   type Minor,
   type Period,
 } from '../../../../packages/domain/src/index.js'
 
 export interface TrendItem {
   label: string
-  amount: number
+  amount: Minor
 }
 
 export interface CategoryBreakdownItem {
   name: string
-  value: number
+  value: Minor
   categoryId?: string
   hasChildren?: boolean
 }
@@ -77,13 +76,13 @@ export async function getDashboardSummary() {
 
   return {
     thisMonth: {
-      income: toMajor(thisMonth.netIncome),
-      expense: toMajor(thisMonth.netExpense),
-      balance: toMajor(thisMonth.balance),
+      income: thisMonth.netIncome,
+      expense: thisMonth.netExpense,
+      balance: thisMonth.balance,
     },
     lastMonth: {
-      income: toMajor(lastMonth.netIncome),
-      expense: toMajor(lastMonth.netExpense),
+      income: lastMonth.netIncome,
+      expense: lastMonth.netExpense,
     },
     recentTransactions,
   }
@@ -122,7 +121,7 @@ export async function getTrends(type: string): Promise<TrendItem[]> {
     const summary = summarizeFlows(ledger, toPeriod(monthStart, monthEnd))
     result.push({
       label: `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`,
-      amount: toMajor(type === 'income' ? summary.netIncome : summary.netExpense),
+      amount: type === 'income' ? summary.netIncome : summary.netExpense,
     })
   }
 
@@ -179,7 +178,7 @@ export async function getCategoryBreakdown(
     return kids
       .map((cat) => ({
         name: categoryMap.get(cat.id)?.name ?? '未分类',
-        value: toMajor(flow.get(cat.id) ?? ZERO_MINOR),
+        value: flow.get(cat.id) ?? ZERO_MINOR,
         categoryId: cat.id,
         hasChildren: (childrenOf.get(cat.id) ?? []).length > 0,
       }))
@@ -217,7 +216,7 @@ export async function getCategoryBreakdown(
   return [...breakdown.entries()]
     .map(([name, data]) => ({
       name,
-      value: toMajor(data.value),
+      value: data.value,
       categoryId: data.categoryId,
       hasChildren: data.hasChildren,
     }))

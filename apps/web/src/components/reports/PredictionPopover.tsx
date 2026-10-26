@@ -1,6 +1,7 @@
 import React from 'react'
 import { Popover } from 'antd'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 
 interface PredictionPopoverProps {
   children: React.ReactNode
@@ -16,16 +17,16 @@ const PredictionPopover: React.FC<PredictionPopoverProps> = ({ children, actual,
     <div style={{ minWidth: 160 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
         <span style={{ color: 'var(--mb-color-text-secondary)' }}>实际</span>
-        <span>{formatCurrency(actual)}</span>
+        <span>{formatCurrency(minor(actual))}</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
         <span style={{ color: 'var(--mb-color-text-secondary)' }}>预测</span>
-        <span>{predicted >= 0 ? '+' : ''}{formatCurrency(predicted)}</span>
+        <span>{predicted >= 0 ? '+' : ''}{formatCurrency(minor(predicted))}</span>
       </div>
       <div style={{ borderTop: '1px solid var(--mb-color-border)', margin: '4px 0' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontWeight: 600 }}>
         <span>合计</span>
-        <span>{formatCurrency(total)}</span>
+        <span>{formatCurrency(minor(total))}</span>
       </div>
     </div>
   )

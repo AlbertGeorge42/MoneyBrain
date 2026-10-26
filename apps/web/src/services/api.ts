@@ -16,6 +16,7 @@ import type {
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
   InvestmentAllocationSnapshot,
+  Minor,
   PaginatedResponse,
   Transaction,
   TransactionCategory,
@@ -42,6 +43,7 @@ export type {
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
   InvestmentAllocationSnapshot,
+  Minor,
   PaginatedResponse,
   Transaction,
   TransactionCategory,
@@ -82,7 +84,7 @@ export const accountApi = {
   getAll: () => api.get<ApiResponse<Account[]>>('/accounts'),
   getStats: (id: string) => api.get<ApiResponse<AccountStats>>(`/accounts/${id}/stats`),
   getBalanceAt: (id: string, date: string) =>
-    api.get<ApiResponse<{ accountId: string; date: string; balance: number }>>(
+    api.get<ApiResponse<{ accountId: string; date: string; balance: Minor }>>(
       `/accounts/${id}/balance-at`,
       { params: { date } }
     ),
@@ -120,7 +122,7 @@ export const transactionCategoryApi = {
 
 export const transactionApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<PaginatedResponse<Transaction>>>('/transactions', { params }),
-  getStats: (params?: Record<string, unknown>) => api.get<ApiResponse<{ income: number; expense: number; refund: number; balance: number; transferCount: number }>>('/transactions/stats', { params }),
+  getStats: (params?: Record<string, unknown>) => api.get<ApiResponse<{ income: Minor; expense: Minor; refund: Minor; balance: Minor; transferCount: number }>>('/transactions/stats', { params }),
   getEarliestDate: () => api.get<ApiResponse<{ date: string | null }>>('/transactions/earliest'),
   getRefundableList: () => api.get<ApiResponse<Transaction[]>>('/transactions/refundable/list'),
   create: (data: Partial<Transaction>) => api.post<ApiResponse<Transaction>>('/transactions', data),
@@ -152,8 +154,8 @@ export const reportApi = {
 
 export const analyticsApi = {
   getDashboardSummary: () => api.get<ApiResponse<{
-    thisMonth: { income: number; expense: number; balance: number }
-    lastMonth: { income: number; expense: number }
+    thisMonth: { income: Minor; expense: Minor; balance: Minor }
+    lastMonth: { income: Minor; expense: Minor }
     recentTransactions: Transaction[]
   }>>('/analytics/dashboard'),
   getTrends: (type: 'income' | 'expense', period?: string) => api.get<ApiResponse<AnalyticsTrendItem[]>>('/analytics/trends', { params: { type, period } }),
@@ -265,8 +267,8 @@ export const investmentApi = {
     date: string
     items: Array<{
       assetClassId: string
-      marketValue: number
-      periodNetFlow?: number
+      marketValue: Minor
+      periodNetFlow?: Minor
     }>
     note?: string
   }) => api.post<ApiResponse<InvestmentAllocationSnapshot>>('/investments/allocations', data),
@@ -275,8 +277,8 @@ export const investmentApi = {
     date: string
     items: Array<{
       assetClassId: string
-      marketValue: number
-      periodNetFlow?: number
+      marketValue: Minor
+      periodNetFlow?: Minor
     }>
     note?: string
   }) => api.put<ApiResponse<InvestmentAllocationSnapshot>>(`/investments/allocations/${id}`, data),

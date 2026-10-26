@@ -6,6 +6,7 @@ import { useChartTokens } from '../../styles/theme/chart-tokens'
 import { toRgba } from '../../utils/colorPalette'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { formatAmount } from '../../utils/formatAmount'
+import { minor } from '@domain/index'
 
 export interface PieChartDataItem {
   name: string
@@ -95,7 +96,7 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout =
       trigger: 'item',
       formatter: (params: { name?: string; value?: number | string; percent?: number }) => {
         const numValue = typeof params.value === 'number' ? params.value : parseFloat(params.value ?? '') || 0
-        const value = formatCurrency(numValue, { showSymbol: false })
+        const value = formatCurrency(minor(numValue), { showSymbol: false })
         const percent = formatPercent(params.percent ?? 0, 1, false)
         const item = currentData.find(d => d.name === params.name!)
         const drillDownHint = item?.hasChildren && onDrillDown ? ' (点击查看明细)' : ''
@@ -108,11 +109,11 @@ const PieChart: React.FC<PieChartProps> = ({ title, data, height = 300, layout =
           const predictedDisplay = formatAmount(item.predictedValue, 'flow')
 
           if (item.isLiability) {
-            const currentDebt = formatCurrency(numValue, { showSymbol: false })
+            const currentDebt = formatCurrency(minor(numValue), { showSymbol: false })
             return `${params.name!}: ¥${currentDebt} (${percent})${drillDownHint}<br/>当前欠款: ¥${currentDebt} &nbsp; 预测: ${predictedDisplay.text}`
           }
 
-          const actual = formatCurrency(numValue - item.predictedValue, { showSymbol: false })
+          const actual = formatCurrency(minor(numValue - item.predictedValue), { showSymbol: false })
           return `${params.name!}: ¥${value} (${percent})${drillDownHint}<br/>实际: ¥${actual} &nbsp; 预测: ${predictedDisplay.text}`
         }
 

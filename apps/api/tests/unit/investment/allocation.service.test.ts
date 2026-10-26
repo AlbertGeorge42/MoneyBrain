@@ -8,7 +8,6 @@ import {
 } from '../../../src/services/investment/allocation.service.js'
 import * as balanceService from '../../../src/services/balance.service.js'
 import { NotFoundError, ValidationError } from '../../../src/common/error.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
 
 // Mock balance service
 vi.mock('../../../src/services/balance.service.js', () => ({
@@ -192,7 +191,7 @@ describe('allocation.service', () => {
       })
 
       const createCall = mockPrisma.investmentAllocationSnapshot.create.mock.calls[0][0]
-      expect(createCall.data.items.create[0].periodNetFlow).toStrictEqual(new Decimal(0))
+      expect(createCall.data.items.create[0].periodNetFlow).toStrictEqual(0n)
     })
 
     it('同一天已存在快照时应该执行更新（upsert）', async () => {

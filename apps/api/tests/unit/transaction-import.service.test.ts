@@ -674,7 +674,7 @@ describe('import.service', () => {
 
       const data = (mockPrisma.transaction.createMany.mock.calls[0][0].data as any[])[0]
       expect(data.type).toBe('adjustment')
-      expect(data.amount).toBe(-100)
+      expect(data.amount).toBe(-10000n)
       expect(data.categoryId).toBeNull()
       expect(mockPrisma.transactionCategory.create).not.toHaveBeenCalled()
     })

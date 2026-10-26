@@ -1,6 +1,21 @@
 import type { Request } from 'express'
+import { minor, type Minor } from '../../../../packages/domain/src/index.js'
 import { ValidationError } from './error.js'
 import { hasValue } from './utils.js'
+
+/** 传输层金额上限：9e15 分（90 万亿元），远大于个人账本，且不越过 2^53。 */
+const MAX_MONEY_MINOR = 9_000_000_000_000_000
+
+/**
+ * 校验请求体里的金额：必须是整数分。
+ * 不做任何换算——前端送什么单位，这里就收什么单位。
+ */
+export const parseMoney = (value: unknown, fieldName: string): Minor => {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || Math.abs(value) > MAX_MONEY_MINOR) {
+    throw new ValidationError(`${fieldName}必须是整数分（单位：分，绝对值不超过 ${MAX_MONEY_MINOR}）`)
+  }
+  return minor(value)
+}
 
 export const validateIdParam = (req: Request): void => {
   if (!hasValue(req.params.id)) {

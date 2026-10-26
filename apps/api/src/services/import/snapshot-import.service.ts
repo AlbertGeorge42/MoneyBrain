@@ -1,8 +1,7 @@
 // ─── 投资快照导入（CSV 格式） ───
 
 import { prisma } from '../../prisma.js'
-import { toDecimal } from '../../common/index.js'
-import { Decimal } from '@prisma/client/runtime/library.js'
+import { parseAmount } from '../../../../../packages/domain/src/index.js'
 import {
   type ImportSnapshotCsvRow,
   type ImportSnapshotsResult,
@@ -104,7 +103,7 @@ export async function importSnapshotsFromCsv(
       }
 
       // 验证所有资产类别
-      const items: { assetClassId: string; marketValue: Decimal; periodNetFlow: Decimal; sort: number }[] = []
+      const items: { assetClassId: string; marketValue: bigint; periodNetFlow: bigint; sort: number }[] = []
       let allAssetClassesValid = true
       for (const row of snapshotRows) {
         if (!row.assetClassName) continue
@@ -121,8 +120,8 @@ export async function importSnapshotsFromCsv(
         }
         items.push({
           assetClassId: assetClass.id,
-          marketValue: toDecimal(row.marketValue || 0),
-          periodNetFlow: toDecimal(row.periodNetFlow || 0),
+          marketValue: BigInt(parseAmount(row.marketValue || '0')),
+          periodNetFlow: BigInt(parseAmount(row.periodNetFlow || '0')),
           sort: parseInt(row.sort, 10) || 0,
         })
       }
@@ -166,7 +165,7 @@ export async function importSnapshotsFromCsv(
         where: { accountId: account.id, date: snapshotDate },
       })
 
-      const accountBalance = toDecimal(firstRow.accountBalance || 0)
+      const accountBalance = BigInt(parseAmount(firstRow.accountBalance || '0'))
       const note = firstRow.note || null
 
       if (existing) {

@@ -2,6 +2,7 @@ import React from 'react'
 import { Statistic, Tag } from 'antd'
 import type { ReportValue } from '@contracts/types'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 import PredictionPopover from './PredictionPopover'
 
 interface PredictionStatisticProps {
@@ -22,10 +23,10 @@ const PredictionStatistic: React.FC<PredictionStatisticProps> = ({
 
   const valueNode = hasPrediction ? (
     <PredictionPopover actual={value.actual} predicted={value.predicted} useClickTrigger={useClickTrigger}>
-      {formatCurrency(total)}
+      {formatCurrency(minor(total))}
     </PredictionPopover>
   ) : (
-    formatCurrency(total)
+    formatCurrency(minor(total))
   )
 
   return (

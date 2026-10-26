@@ -12,8 +12,8 @@
  *   npm run db:verify -- 2026-01 # 检查指定月份（YYYY-MM）
  */
 import { PrismaClient } from '@prisma/client'
-import { balanceBefore, postingsOf, remainingRefundable } from '../packages/domain/src/index.js'
-import type { LedgerTransaction } from '../packages/domain/src/index.js'
+import { balanceBefore, minor, postingsOf, remainingRefundable } from '../packages/domain/src/index.js'
+import type { LedgerTransaction, Minor } from '../packages/domain/src/index.js'
 
 const toLocalDate = (value: Date): string => {
   const y = value.getFullYear()
@@ -22,7 +22,8 @@ const toLocalDate = (value: Date): string => {
   return `${y}-${m}-${d}`
 }
 
-const toMinor = (value: { toNumber(): number }) => Math.round(value.toNumber() * 100)
+/** 库里的金额已经是整数分（BigInt），这里只做 minor 标注。 */
+const toMinor = (value: bigint | number | null | undefined): Minor => minor(Number(value ?? 0))
 
 const toLedger = (t: Record<string, unknown>): LedgerTransaction => ({
   id: t.id as string,

@@ -8,7 +8,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --import tsx --test tests/ledger.test.ts tests/date.test.ts",
+    "test": "node --import tsx --test tests/ledger.test.ts tests/date.test.ts tests/money.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
-import { ZERO } from '../common/index.js'
+import { toMinor } from '../common/index.js'
 import type { AccountStats } from '../../../../packages/contracts/types/index.js'
 
 type AccountSortItem = {
@@ -69,7 +69,7 @@ export async function createAccount(data: {
     data: {
       name: data.name,
       type: data.type,
-      initialBalance: data.initialBalance ?? 0,
+      initialBalance: BigInt(data.initialBalance ?? 0),
       initialBalanceDate: data.initialBalanceDate
         ? new Date(`${data.initialBalanceDate}T00:00:00`)
         : new Date(),
@@ -120,7 +120,7 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
   }
 
   if (data.initialBalance !== undefined) {
-    updateData.initialBalance = data.initialBalance
+    updateData.initialBalance = BigInt(data.initialBalance)
   }
 
   return prisma.account.update({
@@ -237,7 +237,7 @@ export async function getAccountStats(accountId: string): Promise<AccountStats> 
 
   return {
     transactionCount: countResult,
-    totalIncome: (incomeResult._sum.amount || ZERO).toNumber(),
-    totalExpense: (expenseResult._sum.amount || ZERO).toNumber(),
+    totalIncome: toMinor(incomeResult._sum.amount),
+    totalExpense: toMinor(expenseResult._sum.amount),
   }
 }

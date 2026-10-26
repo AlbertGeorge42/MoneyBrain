@@ -19,10 +19,11 @@ export { buildTree, buildChildrenMap, collectDescendantIds } from './tree.js'
 export type { TreeNode } from './tree.js'
 
 // Utils
-export { ZERO, toDecimal, hasValue, toStringArray, parsePositiveInteger, toDate, toOptionalDate } from './utils.js'
+export { toMinor, hasValue, toStringArray, parsePositiveInteger, toDate, toOptionalDate } from './utils.js'
 
 // Validators
 export {
+  parseMoney,
   validateIdParam,
   validateBatchSort,
   validateDateRange,

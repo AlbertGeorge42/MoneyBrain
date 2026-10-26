@@ -214,15 +214,11 @@ const Transactions: React.FC = () => {
   // 退款提交
   const handleRefundSubmit = async (values: unknown) => {
     if (!selectedTransaction) return
+    // values 已在 TransactionEdit 中由元转成分
     const data = {
+      ...(values as Partial<Transaction>),
       type: 'refund' as const,
-      amount: (values as { amount: number }).amount,
-      fee: (values as { fee?: number }).fee || 0,
-      coupon: (values as { coupon?: number }).coupon || 0,
-      date: (values as { date: string }).date,
-      accountId: (values as { accountId: string }).accountId,
       relatedTransactionId: selectedTransaction.id,
-      note: (values as { note?: string }).note,
     }
     try {
       await createTransaction.mutateAsync(data)

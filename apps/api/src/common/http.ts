@@ -11,6 +11,7 @@ export type { ApiResponse }
 import { AppError, toApiErrorCode } from './error.js'
 import { getRequestId } from './request-id.js'
 import { rootLogger } from './logger/index.js'
+import { toMinor } from './utils.js'
 
 const logger = rootLogger.child({ module: 'errorHandler' })
 
@@ -33,10 +34,15 @@ export const validateRequest = (validator: RequestValidator): RequestHandler => 
   }
 }
 
-const convertDecimals = (obj: unknown): unknown => {
+const convertScalars = (obj: unknown): unknown => {
   if (obj === null || obj === undefined) {
     return obj
   }
+  // 金额在库里是 BigInt（分），JSON 里必须是 number（分）
+  if (typeof obj === 'bigint') {
+    return toMinor(obj)
+  }
+  // 比率字段（如 targetRatio）仍是 Decimal
   if (obj instanceof Decimal) {
     return obj.toNumber()
   }
@@ -44,12 +50,12 @@ const convertDecimals = (obj: unknown): unknown => {
     return obj.toISOString()
   }
   if (Array.isArray(obj)) {
-    return obj.map(convertDecimals)
+    return obj.map(convertScalars)
   }
   if (typeof obj === 'object' && obj.constructor === Object) {
     const converted: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(obj)) {
-      converted[key] = convertDecimals(value)
+      converted[key] = convertScalars(value)
     }
     return converted
   }
@@ -57,7 +63,7 @@ const convertDecimals = (obj: unknown): unknown => {
 }
 
 export const success = <T>(res: Response, data: T, statusCode = 200) => {
-  const convertedData = convertDecimals(data)
+  const convertedData = convertScalars(data)
   const response: ApiSuccessResponse<T> = {
     success: true,
     data: convertedData as T,

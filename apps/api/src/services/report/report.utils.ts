@@ -1,6 +1,8 @@
 import { generatePredictions } from '../budget.service.js'
 import { dayStart, dayEnd, nextDay, formatDateLocal } from '../../common/date.js'
 import { ValidationError } from '../../common/index.js'
+import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
+import type { ReportValue } from '../../../../../packages/contracts/types/index.js'
 
 // 重导出日期工具，保持原有 import 路径可用
 export { dayStart, dayEnd, nextDay, formatDateLocal } from '../../common/date.js'
@@ -173,7 +175,7 @@ export function computePredictedAssetsLiabilities<P extends PredictionWithDate>(
   predictions: P[],
   timePoint: Date,
   accountLookup: Map<string, { type: string }>
-): { assets: number; liabilities: number; netWorth: number } {
+): { assets: Minor; liabilities: Minor; netWorth: Minor } {
   const relevant = filterPredictionsUpTo(predictions, timePoint)
   const changes = accumulatePredictionChanges(relevant)
   const { assetChange, liabilityChange } = sumPredictionByType(changes, accountLookup)
@@ -182,9 +184,9 @@ export function computePredictedAssetsLiabilities<P extends PredictionWithDate>(
   // 报表口径上我们关心的是"绝对值变化量"，因此取负使正数代表负债增加。
   // 注意：使用 +0 避免 Object.is(-0, 0) 判定为不等。
   return {
-    assets: assetChange,
-    liabilities: liabilityChange !== 0 ? -liabilityChange : 0,
-    netWorth: assetChange + liabilityChange,
+    assets: minor(assetChange),
+    liabilities: minor(liabilityChange !== 0 ? -liabilityChange : 0),
+    netWorth: minor(assetChange + liabilityChange),
   }
 }
 
@@ -201,7 +203,7 @@ export function computePredictedAccountTotal<P extends PredictionWithDate>(
   predictions: P[],
   timePoint: Date,
   accountIds: ReadonlySet<string>
-): number {
+): Minor {
   const relevant = filterPredictionsUpTo(predictions, timePoint)
   let total = 0
   for (const p of relevant) {
@@ -216,7 +218,7 @@ export function computePredictedAccountTotal<P extends PredictionWithDate>(
       if (isTo) total += p.amount
     }
   }
-  return total
+  return minor(total)
 }
 
 // ===== 资产/负债/净资产求和 =====
@@ -232,11 +234,13 @@ interface AccountWithType {
 export function sumByType<T extends AccountWithType>(
   accounts: T[],
   type: 'asset' | 'liability',
-  getValue: (account: T) => number
-): number {
-  return accounts
-    .filter(a => a.type === type)
-    .reduce((sum, a) => sum + getValue(a), 0)
+  getValue: (account: T) => Minor
+): Minor {
+  return minor(
+    accounts
+      .filter(a => a.type === type)
+      .reduce((sum, a) => sum + getValue(a), 0),
+  )
 }
 
 /**
@@ -253,11 +257,11 @@ export function sumByType<T extends AccountWithType>(
  */
 export function sumAssetsLiabilities<T extends AccountWithType>(
   accounts: T[],
-  getValue: (account: T) => number
-): { assets: number; liabilities: number; netWorth: number } {
+  getValue: (account: T) => Minor
+): { assets: Minor; liabilities: Minor; netWorth: Minor } {
   const assets = sumByType(accounts, 'asset', getValue)
-  const liabilities = Math.abs(sumByType(accounts, 'liability', getValue))
-  return { assets, liabilities, netWorth: assets - liabilities }
+  const liabilities = minor(Math.abs(sumByType(accounts, 'liability', getValue)))
+  return { assets, liabilities, netWorth: minor(assets - liabilities) }
 }
 
 // ===== 预测数据获取 =====
@@ -302,10 +306,7 @@ export async function getPredictionsIfFuture(
 
 // ===== 报表通用类型 =====
 
-export interface ReportValue {
-  actual: number
-  predicted: number
-}
+export type { ReportValue }
 
 // ===== 现金账户标记 =====
 

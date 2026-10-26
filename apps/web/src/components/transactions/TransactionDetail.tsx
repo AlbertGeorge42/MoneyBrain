@@ -5,6 +5,7 @@ import type { Transaction } from '../../services/api'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 import { getCategoryName, getAccountName } from './TransactionItemRow'
 import dayjs from 'dayjs'
 
@@ -119,15 +120,15 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
   const displayAmount = (() => {
     switch (transaction.type) {
       case 'income':
-        return formatCurrency(Number(transaction.amount), { showSign: true })
+        return formatCurrency(transaction.amount, { showSign: true })
       case 'expense':
-        return formatCurrency(-Number(transaction.amount), { showSign: true })
+        return formatCurrency(minor(-transaction.amount), { showSign: true })
       case 'refund':
-        return formatCurrency(Number(transaction.amount), { showSign: true })
+        return formatCurrency(transaction.amount, { showSign: true })
       case 'transfer':
-        return formatCurrency(Number(transaction.amount))
+        return formatCurrency(transaction.amount)
       default:
-        return formatCurrency(Number(transaction.amount))
+        return formatCurrency(transaction.amount)
     }
   })()
 
@@ -151,11 +152,11 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
   }
 
   if (hasFee) {
-    infoRows.push({ label: '手续费', content: <Text>{formatCurrency(Number(transaction.fee))}</Text> })
+    infoRows.push({ label: '手续费', content: <Text>{formatCurrency(transaction.fee)}</Text> })
   }
 
   if (hasCoupon) {
-    infoRows.push({ label: '优惠券', content: <Text>{formatCurrency(Number(transaction.coupon))}</Text> })
+    infoRows.push({ label: '优惠券', content: <Text>{formatCurrency(transaction.coupon)}</Text> })
   }
 
   if (transaction.note) {
@@ -215,7 +216,7 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text>{transaction.relatedTransaction.category?.name || '未分类'}</Text>
                   <Text style={{ color: amountColors.negative, fontVariantNumeric: 'tabular-nums' }}>
-                    {formatCurrency(Number(transaction.relatedTransaction.amount))}
+                    {formatCurrency(transaction.relatedTransaction.amount)}
                   </Text>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
@@ -251,7 +252,7 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text>退款</Text>
                     <Text style={{ color: amountColors.positive, fontVariantNumeric: 'tabular-nums' }}>
-                      {formatCurrency(Number(refund.amount))}
+                      {formatCurrency(refund.amount)}
                     </Text>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>

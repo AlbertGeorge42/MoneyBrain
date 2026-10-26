@@ -9,6 +9,7 @@ import { groupTransactionsByDate } from '../../utils/transaction'
 import { toDateRangeParams } from '../../utils/timePicker'
 import type { RangeTimeValue } from '../../utils/timePicker'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { useNotify } from '../../hooks/useNotify'
 import type { Transaction } from '../../services/api'
@@ -85,11 +86,11 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
 
   // ── 汇总统计 ──
   const stats = useMemo(() => {
-    let income = 0
-    let expense = 0
+    let income = minor(0)
+    let expense = minor(0)
     for (const tx of transactions) {
-      if (tx.type === 'income') income += tx.amount
-      if (tx.type === 'expense') expense += tx.amount
+      if (tx.type === 'income') income = minor(income + tx.amount)
+      if (tx.type === 'expense') expense = minor(expense + tx.amount)
     }
     return { income, expense, count: transactions.length }
   }, [transactions])
@@ -142,15 +143,11 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
 
   const handleRefundSubmit = async (values: unknown) => {
     if (!selectedTx) return
+    // values 已在 TransactionEdit 中由元转成分
     const data = {
+      ...(values as Partial<Transaction>),
       type: 'refund' as const,
-      amount: (values as { amount: number }).amount,
-      fee: (values as { fee?: number }).fee || 0,
-      coupon: (values as { coupon?: number }).coupon || 0,
-      date: (values as { date: string }).date,
-      accountId: (values as { accountId: string }).accountId,
       relatedTransactionId: selectedTx.id,
-      note: (values as { note?: string }).note,
     }
     await createTransaction.mutateAsync(data)
     notify.success('退款记录成功')

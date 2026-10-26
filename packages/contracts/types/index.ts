@@ -1,3 +1,14 @@
+// ===== 金额单位 =====
+
+import type { Minor } from '../../domain/src/index.js'
+
+export type { Minor }
+
+/**
+ * 本项目所有金额字段的单位都是**分**（整数），从 DB 到前端一致。
+ * 唯一例外：CSV / 备份文件与用户输入框用元——换算只发生在那一处。
+ */
+
 // ===== 通用响应类型 =====
 
 /**
@@ -70,7 +81,7 @@ export interface Account {
   id: string
   name: string
   type: string
-  initialBalance: number
+  initialBalance: Minor
   initialBalanceDate: string | null
   icon: string | null
   color: string | null
@@ -83,8 +94,8 @@ export interface Account {
 
 export interface AccountStats {
   transactionCount: number
-  totalIncome: number
-  totalExpense: number
+  totalIncome: Minor
+  totalExpense: Minor
 }
 
 // ===== 交易分类 =====
@@ -112,9 +123,9 @@ export type TransactionType = 'expense' | 'income' | 'transfer' | 'refund' | 'ad
 export interface Transaction {
   id: string
   type: TransactionType
-  amount: number
-  fee: number
-  coupon: number
+  amount: Minor
+  fee: Minor
+  coupon: Minor
   date: string
   note: string | null
   accountId: string
@@ -137,7 +148,7 @@ export interface Budget {
   id: string
   name: string
   type: 'income' | 'expense' | 'transfer'
-  amount: number
+  amount: Minor
   period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
   startDate: string
   endDate: string | null
@@ -157,7 +168,7 @@ export interface Budget {
 export interface BudgetPrediction {
   date: string
   type: 'income' | 'expense' | 'transfer'
-  amount: number
+  amount: Minor
   note: string | null
   accountId: string
   toAccountId: string | null
@@ -168,8 +179,8 @@ export interface BudgetPrediction {
 
 export interface BudgetStatus {
   budget: Budget
-  used: number
-  remaining: number
+  used: Minor
+  remaining: Minor
   percentage: number
   isOverBudget: boolean
 }
@@ -182,27 +193,27 @@ export interface TransactionCategoryStats {
 // ===== 分析与报表 =====
 
 export interface ReportValue {
-  actual: number
-  predicted: number
+  actual: Minor
+  predicted: Minor
 }
 
 export interface AnalyticsTrendItem {
   label: string
-  amount: number
+  amount: Minor
 }
 
 export interface AnalyticsCategoryBreakdownItem {
   name: string
-  value: number
+  value: Minor
   categoryId?: string
   hasChildren?: boolean
 }
 
 export interface AnalyticsAssetTrendItem {
   label: string
-  assets: number
-  liabilities: number
-  netWorth: number
+  assets: Minor
+  liabilities: Minor
+  netWorth: Minor
 }
 
 // 资产负债表 - 分类节点
@@ -213,8 +224,8 @@ export interface BalanceSheetCategoryNode {
   sort: number
   icon?: string | null
   color?: string | null
-  actual: number
-  predicted: number
+  actual: Minor
+  predicted: Minor
   children: BalanceSheetAccountNode[]
 }
 
@@ -226,8 +237,8 @@ export interface BalanceSheetAccountNode {
   type: 'asset' | 'liability'
   icon?: string | null
   color?: string | null
-  actual: number
-  predicted: number
+  actual: Minor
+  predicted: Minor
 }
 
 export interface BalanceSheetReportData {
@@ -236,8 +247,8 @@ export interface BalanceSheetReportData {
   assets: ReportValue
   liabilities: ReportValue
   netWorth: ReportValue
-  assetsByCategory: Record<string, number>
-  liabilitiesByCategory: Record<string, number>
+  assetsByCategory: Record<string, Minor>
+  liabilitiesByCategory: Record<string, Minor>
   assetNodes: BalanceSheetCategoryNode[]
   liabilityNodes: BalanceSheetCategoryNode[]
   predictionNote?: string
@@ -245,8 +256,8 @@ export interface BalanceSheetReportData {
 
 export interface ReportCategoryDetail {
   name: string
-  actual: number
-  predicted: number
+  actual: Minor
+  predicted: Minor
   categoryId: string
   hasChildren: boolean
   sort: number
@@ -267,15 +278,15 @@ export interface IncomeExpenseReportData {
    * difference = 期末 − 上面等式的右边；恒为 0 才说明收支口径与余额口径自洽。
    */
   reconciliation: {
-    startNetWorth: number
-    netIncome: number
-    netExpense: number
-    other: number
-    endNetWorth: number
-    difference: number
+    startNetWorth: Minor
+    netIncome: Minor
+    netExpense: Minor
+    other: Minor
+    endNetWorth: Minor
+    difference: Minor
   }
-  incomeByCategory: Record<string, number>
-  expenseByCategory: Record<string, number>
+  incomeByCategory: Record<string, Minor>
+  expenseByCategory: Record<string, Minor>
   incomeCategoryDetails: ReportCategoryDetail[]
   expenseCategoryDetails: ReportCategoryDetail[]
   startAssets: ReportValue
@@ -293,9 +304,9 @@ export interface CashFlowActivityItem {
   categoryId: string | null
   parentId: string | null
   level: number
-  amount: number
-  actual: number
-  predicted: number
+  amount: Minor
+  actual: Minor
+  predicted: Minor
   type: string
   direction: string
   icon?: string | null
@@ -313,9 +324,9 @@ export interface CashFlowActivity {
 export interface SankeyLink {
   source: string
   target: string
-  value: number
-  actualValue?: number
-  predictedValue?: number
+  value: Minor
+  actualValue?: Minor
+  predictedValue?: Minor
 }
 
 export interface CashFlowReportData {
@@ -356,11 +367,11 @@ export interface InvestmentAccountDetail {
   color?: string | null
   categoryIcon?: string | null
   categoryColor?: string | null
-  balance: number
+  balance: Minor
   ratio: number
-  totalInvested: number
-  totalWithdrawn: number
-  maxCapitalEmployed: number
+  totalInvested: Minor
+  totalWithdrawn: Minor
+  maxCapitalEmployed: Minor
   simpleReturnRate: number
   cumulativeReturnRate: number
 }
@@ -370,20 +381,20 @@ export interface InvestmentCategorySummary {
   categoryName: string
   icon?: string | null
   color?: string | null
-  balance: number
+  balance: Minor
   ratio: number
   accounts: InvestmentAccountDetail[]
 }
 
 export interface InvestmentReturnAnalysis {
-  startValue: number
-  endValue: number
-  valueChange: number
-  periodInvested: number
-  periodWithdrawn: number
-  netCashFlow: number
-  periodReturn: number
-  maxCapitalEmployed: number
+  startValue: Minor
+  endValue: Minor
+  valueChange: Minor
+  periodInvested: Minor
+  periodWithdrawn: Minor
+  netCashFlow: Minor
+  periodReturn: Minor
+  maxCapitalEmployed: Minor
   simpleReturnRate: number
   cumulativeReturnRate: number
   xirr: number | null
@@ -395,8 +406,8 @@ export interface InvestmentReturnAnalysis {
 
 export interface InvestmentTrendItem {
   month: string
-  investment: number
-  netWorth: number
+  investment: Minor
+  netWorth: Minor
   ratio: number
 }
 
@@ -420,8 +431,8 @@ export interface InvestmentAllocationItem {
   id: string
   snapshotId: string
   assetClassId: string
-  marketValue: number
-  periodNetFlow: number
+  marketValue: Minor
+  periodNetFlow: Minor
   sort: number
   assetClass: InvestmentAssetClass
 }
@@ -430,7 +441,7 @@ export interface InvestmentAllocationSnapshot {
   id: string
   accountId: string
   date: string
-  accountBalance: number
+  accountBalance: Minor
   previousSnapshotId: string | null
   note: string | null
   items: InvestmentAllocationItem[]
@@ -445,14 +456,14 @@ export interface AccountAllocationItem {
   name: string
   icon: string | null
   color: string | null
-  marketValue: number
+  marketValue: Minor
   ratio: number
   targetRatio: number | null
   deviation: number | null
-  rebalanceAmount: number | null
-  periodInvested: number
-  periodWithdrawn: number
-  periodReturn: number | null
+  rebalanceAmount: Minor | null
+  periodInvested: Minor
+  periodWithdrawn: Minor
+  periodReturn: Minor | null
   returnRate: number | null
   sort: number
 }
@@ -460,11 +471,11 @@ export interface AccountAllocationItem {
 export interface SnapshotHistoryItem {
   id: string
   date: string
-  accountBalance: number
+  accountBalance: Minor
   items: Array<{
     assetClassId: string
     name: string
-    marketValue: number
+    marketValue: Minor
     ratio: number
   }>
 }
@@ -474,7 +485,7 @@ export interface AccountAllocationDetail {
   accountName: string
   accountIcon: string | null
   accountColor: string | null
-  balance: number
+  balance: Minor
   hasAssetClasses: boolean
   latestSnapshotDate: string | null
   returnRate: number | null
@@ -486,14 +497,14 @@ export interface StaleAccountInfo {
   accountId: string
   accountName: string
   daysSinceLastSnapshot: number
-  balance: number
+  balance: Minor
 }
 
 export interface InvestmentAnalysisReportData {
   startDate: string
   endDate: string
-  totalInvestment: number
-  totalAssets: number
+  totalInvestment: Minor
+  totalAssets: Minor
   investmentRatio: number
   accountCount: number
   returnAnalysis: InvestmentReturnAnalysis

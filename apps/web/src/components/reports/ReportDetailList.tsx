@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
 import CategoryIcon from '../common/CategoryIcon'
 import PredictionPopover from './PredictionPopover'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { minor } from '@domain/index'
 import { usePersistedState } from '../../hooks/usePersistedState'
 
 // ===== Types =====
@@ -134,7 +135,7 @@ function DetailValueCell<M>({
     if (predicted !== 0) {
       const actual = Number((node.metrics as Record<string, unknown>)?.[pred.actualMetric] ?? 0)
       const displayRaw = (node.metrics as Record<string, unknown>)?.[pred.displayMetric] ?? actual + predicted
-      const formatted = column.format ? column.format(displayRaw as M[keyof M], node) : formatCurrency(Number(displayRaw))
+      const formatted = column.format ? column.format(displayRaw as M[keyof M], node) : formatCurrency(minor(Number(displayRaw)))
       const color = resolveColor(column, raw, node)
       const trend = resolveTrend(column, node)
 
@@ -156,7 +157,7 @@ function DetailValueCell<M>({
     }
   }
 
-  const formatted = column.format ? column.format(raw as M[keyof M], node) : (raw != null ? formatCurrency(Number(raw)) : '--')
+  const formatted = column.format ? column.format(raw as M[keyof M], node) : (raw != null ? formatCurrency(minor(Number(raw))) : '--')
   const color = resolveColor(column, raw, node)
   const trend = resolveTrend(column, node)
 

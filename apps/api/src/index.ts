@@ -29,6 +29,8 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS?.split(',') ?? [])
 const allowedOrigins = CORS_ORIGINS.length > 0 ? CORS_ORIGINS : DEFAULT_CORS_ORIGINS
 
 const app = express()
+export { app }
+export default app
 
 // 本地单用户应用：只允许已知前端来源；非浏览器请求（无 Origin）仍然放行。
 app.use(cors({

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Decimal } from '@prisma/client/runtime/library.js'
 import {
   getAccounts,
   createAccount,
@@ -162,7 +161,7 @@ describe('account.service', () => {
 
   describe('createAccount', () => {
     it('应该使用 initialBalance 创建账户', async () => {
-      const mockAccount = { id: '1', name: '新账户', initialBalance: new Decimal(1000) }
+      const mockAccount = { id: '1', name: '新账户', initialBalance: 1000n }
       mockPrisma.account.create.mockResolvedValue(mockAccount)
 
       const result = await createAccount({
@@ -175,7 +174,7 @@ describe('account.service', () => {
         data: expect.objectContaining({
           name: '新账户',
           type: 'asset',
-          initialBalance: 1000,
+          initialBalance: 1000n,
         }),
         include: { category: true },
       })
@@ -193,7 +192,7 @@ describe('account.service', () => {
       expect(mockPrisma.account.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            initialBalance: 0,
+            initialBalance: 0n,
           }),
         })
       )
@@ -253,16 +252,16 @@ describe('account.service', () => {
         id: '1',
         name: '账户',
         type: 'asset',
-        initialBalance: new Decimal(1000),
+        initialBalance: 1000n,
       })
-      mockPrisma.account.update.mockResolvedValue({ id: '1', initialBalance: new Decimal(2000) })
+      mockPrisma.account.update.mockResolvedValue({ id: '1', initialBalance: 2000n })
 
       await updateAccountProfile('1', { initialBalance: 2000 })
 
       expect(mockPrisma.account.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            initialBalance: 2000,
+            initialBalance: 2000n,
           }),
         })
       )
@@ -345,9 +344,9 @@ describe('account.service', () => {
       mockPrisma.investmentAssetClass.count.mockResolvedValue(2)
       mockPrisma.investmentAllocationSnapshot.count.mockResolvedValue(3)
       mockPrisma.transaction.findMany.mockResolvedValue([
-        { id: 't1', type: 'income', amount: new Decimal(1000), fee: new Decimal(0), coupon: new Decimal(0), accountId: '1' },
-        { id: 't2', type: 'expense', amount: new Decimal(500), fee: new Decimal(0), coupon: new Decimal(0), accountId: '1' },
-        { id: 't3', type: 'transfer', amount: new Decimal(300), fee: new Decimal(0), coupon: new Decimal(0), accountId: '1', toAccountId: '2' },
+        { id: 't1', type: 'income', amount: 1000n, fee: 0n, coupon: 0n, accountId: '1' },
+        { id: 't2', type: 'expense', amount: 500n, fee: 0n, coupon: 0n, accountId: '1' },
+        { id: 't3', type: 'transfer', amount: 300n, fee: 0n, coupon: 0n, accountId: '1', toAccountId: '2' },
       ])
       mockPrisma.account.update.mockResolvedValue({ id: '1' })
       mockPrisma.transaction.deleteMany.mockResolvedValue({ count: 3 })
@@ -380,8 +379,8 @@ describe('account.service', () => {
     it('应该正确统计收入和支出', async () => {
       mockPrisma.transaction.count.mockResolvedValue(4)
       mockPrisma.transaction.aggregate
-        .mockResolvedValueOnce({ _sum: { amount: new Decimal(5000) } }) // income
-        .mockResolvedValueOnce({ _sum: { amount: new Decimal(3000) } }) // expense
+        .mockResolvedValueOnce({ _sum: { amount: 5000n } }) // income
+        .mockResolvedValueOnce({ _sum: { amount: 3000n } }) // expense
 
       const result = await getAccountStats('1')
 

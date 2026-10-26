@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
+import { asyncHandler, success, validateRequest, ValidationError, parseMoney } from '../common/index.js'
 import { validateIdParam } from '../common/validators.js'
 import {
   getAssetClassesByAccount,
@@ -17,6 +17,21 @@ import {
 } from '../services/investment/allocation.service.js'
 
 const router = Router()
+
+/** 快照明细的金额都是整数分（市值 / 期内净流入）。 */
+const validateSnapshotItems = (items: unknown): void => {
+  if (!Array.isArray(items)) return
+  items.forEach((item: unknown, index) => {
+    const row = item as Record<string, unknown> | null
+    if (!row || typeof row !== 'object') {
+      throw new ValidationError(`第 ${index + 1} 项格式错误`)
+    }
+    parseMoney(row.marketValue, `第 ${index + 1} 项市值`)
+    if (row.periodNetFlow !== undefined && row.periodNetFlow !== null) {
+      parseMoney(row.periodNetFlow, `第 ${index + 1} 项期内净流入`)
+    }
+  })
+}
 
 // === 资产类型路由 ===
 
@@ -101,6 +116,7 @@ router.post(
     if (!accountId || !date || !Array.isArray(items)) {
       throw new ValidationError('缺少必要参数 accountId、date、items')
     }
+    validateSnapshotItems(items)
   }),
   asyncHandler(async (req, res) => {
     const { accountId, date, items, note } = req.body
@@ -128,6 +144,7 @@ router.put(
     if (!date || !Array.isArray(items)) {
       throw new ValidationError('缺少必要参数 date、items')
     }
+    validateSnapshotItems(items)
     const snapshot = await updateSnapshot(req.params.id, { date, items, note })
     return success(res, snapshot)
   })

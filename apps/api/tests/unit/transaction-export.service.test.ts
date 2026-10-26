@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Decimal } from '@prisma/client/runtime/library.js'
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
@@ -22,9 +21,9 @@ describe('transaction-export.service', () => {
         id: 'tx-1',
         importKey: 'csv:exp-1',
         type: 'expense',
-        amount: new Decimal(50),
-        fee: new Decimal(0),
-        coupon: new Decimal(0),
+        amount: 5000n,
+        fee: 0n,
+        coupon: 0n,
         date: new Date(2025, 0, 15, 10, 0, 0),
         note: '午饭',
         excludeFromIncomeExpense: true,
@@ -38,9 +37,9 @@ describe('transaction-export.service', () => {
         id: 'tx-2',
         importKey: null,
         type: 'adjustment',
-        amount: new Decimal(-100),
-        fee: new Decimal(0),
-        coupon: new Decimal(0),
+        amount: -10000n,
+        fee: 0n,
+        coupon: 0n,
         date: new Date(2025, 0, 16, 0, 30, 0),
         note: null,
         excludeFromIncomeExpense: false,
@@ -55,8 +54,8 @@ describe('transaction-export.service', () => {
     const csv = await exportTransactionsCSV()
     const lines = csv.replace(/^\uFEFF/, '').split('\n')
 
-    expect(lines[1]).toContain('exp-1,2025-01-15 10:00:00,餐饮,午餐,支出,50,CNY,现金')
+    expect(lines[1]).toContain('exp-1,2025-01-15 10:00:00,餐饮,午餐,支出,50.00,CNY,现金')
     expect(lines[1]).toContain('不计收支')
-    expect(lines[2]).toContain('tx-2,2025-01-16 00:30:00,未分类,,调整,-100,CNY,现金')
+    expect(lines[2]).toContain('tx-2,2025-01-16 00:30:00,未分类,,调整,-100.00,CNY,现金')
   })
 })

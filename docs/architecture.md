@@ -53,7 +53,7 @@ adjustment  账户 +amount      权益 −amount
 
 记账不变量（6 条）及其测试覆盖情况见 [rewrite-blueprint.md](rewrite-blueprint.md) §2 与 [testing.md](testing.md) §5.1。
 
-> 领域层与后端之间的适配在 `apps/api/src/services/ledger.adapter.ts`（Prisma/Decimal ↔ 领域类型）。
+> 领域层与后端之间的适配在 `apps/api/src/services/ledger.adapter.ts`（Prisma `BigInt` 分 ↔ 领域类型）。
 
 ## 3. 后端模块（apps/api/src）
 
@@ -68,7 +68,7 @@ adjustment  账户 +amount      权益 −amount
 | `services/report/*` | 四张报表；收支表用领域层 `summarizeFlows` / `flowByCategory` |
 | `services/import/*`、`services/export/*` | 备份/CSV 导入导出；幂等键、范围过滤、覆盖保护 |
 | `services/investment/*` | 资产类型、快照链、收益分析 |
-| `services/ledger.adapter.ts` | Prisma/Decimal ↔ 领域类型适配 |
+| `services/ledger.adapter.ts` | Prisma `BigInt` 分 ↔ 领域类型适配 |
 | `common/` | 错误、HTTP 信封、请求 ID、日期、校验器、日志、树工具 |
 
 ## 4. 前端数据流（apps/web/src）
@@ -97,7 +97,7 @@ Page → queries/useXxx → services/api.ts → Axios → Express
 
 ## 5. 数据库模型
 
-Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `Decimal`，ID 为 `uuid`。
+Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（整数分），ID 为 `uuid`。
 
 **schema 演进走版本化迁移**（`apps/api/prisma/migrations/`）：改 schema 执行 `npm run db:migrate`，
 生成的 SQL 提交进仓库；`npm run db:status` 查看当前库与迁移的差异。

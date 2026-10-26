@@ -28,6 +28,7 @@ import type { AnalyticsCategoryBreakdownItem } from '../services/api'
 import { analyticsApi } from '../services/api'
 import { unwrapApiData } from '../services/apiResult'
 import { formatCurrency, formatPercent } from '../utils/format'
+import { minor } from '@domain/index'
 import { formatAmount, getAmountColor } from '../utils/formatAmount'
 import { useAmountColors } from '../hooks/useAmountColors'
 import { useTheme } from '../styles/ThemeContext'
@@ -169,7 +170,7 @@ const Dashboard: React.FC = () => {
                 netWorthChange && (
                   <div className={`dashboard-hero__change ${netWorthChange.diff >= 0 ? 'dashboard-hero__change--up' : netWorthChange.diff < 0 ? 'dashboard-hero__change--down' : 'dashboard-hero__change--flat'}`}>
                     {netWorthChange.diff >= 0 ? <ArrowUpOutlined /> : netWorthChange.diff < 0 ? <ArrowDownOutlined /> : <MinusOutlined />}
-                    <span>{formatCurrency(netWorthChange.diff, { showSign: true })}</span>
+                    <span>{formatCurrency(minor(netWorthChange.diff), { showSign: true })}</span>
                     <span>{formatPercent(netWorthChange.rate)}</span>
                   </div>
                 )
@@ -258,7 +259,7 @@ const Dashboard: React.FC = () => {
               本月收入
             </div>
             <div className="dashboard-income-expense__value" style={{ color: amountColors.positive }}>
-              {thisMonthIncome === undefined ? '—' : formatCurrency(thisMonthIncome)}
+              {thisMonthIncome === undefined ? '—' : formatCurrency(minor(thisMonthIncome))}
             </div>
             {thisMonthIncome !== undefined && lastMonthIncome > 0 && (
               <div className={`dashboard-income-expense__trend ${thisMonthIncome >= lastMonthIncome ? 'dashboard-income-expense__trend--up' : 'dashboard-income-expense__trend--down'}`}>
@@ -273,7 +274,7 @@ const Dashboard: React.FC = () => {
               本月支出
             </div>
             <div className="dashboard-income-expense__value" style={{ color: amountColors.negative }}>
-              {thisMonthExpense === undefined ? '—' : formatCurrency(thisMonthExpense)}
+              {thisMonthExpense === undefined ? '—' : formatCurrency(minor(thisMonthExpense))}
             </div>
             {thisMonthExpense !== undefined && lastMonthExpense > 0 && (
               <div className={`dashboard-income-expense__trend ${thisMonthExpense <= lastMonthExpense ? 'dashboard-income-expense__trend--up' : 'dashboard-income-expense__trend--down'}`}>

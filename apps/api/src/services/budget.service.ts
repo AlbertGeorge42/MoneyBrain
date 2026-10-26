@@ -1,17 +1,17 @@
-import { Decimal } from '@prisma/client/runtime/library.js'
 import type { Budget } from '@prisma/client'
 import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
-import { toDecimal, ZERO } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import {
   fromDate,
   matchesBudgetScope,
+  minor,
   periodOf,
   scopeQuery,
   type BudgetScope,
   type LocalDate,
+  type Minor,
   type PeriodKind,
 } from '../../../../packages/domain/src/index.js'
 
@@ -148,7 +148,7 @@ export async function createBudget(data: BudgetPayload) {
     data: {
       name: data.name,
       type: data.type,
-      amount: toDecimal(data.amount),
+      amount: BigInt(data.amount),
       period: data.period,
       startDate: data.startDate ? toDateValue(data.startDate) : new Date(),
       endDate: data.endDate ? toDateValue(data.endDate) : null,
@@ -188,7 +188,7 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
     data: {
       name: data.name,
       type: data.type,
-      amount: data.amount != null ? toDecimal(data.amount) : undefined,
+      amount: data.amount != null ? BigInt(data.amount) : undefined,
       period: data.period,
       startDate: data.startDate ? toDateValue(data.startDate) : undefined,
       endDate: data.endDate !== undefined ? (data.endDate ? toDateValue(data.endDate) : null) : undefined,
@@ -223,11 +223,11 @@ type BudgetPlan = {
   scope: BudgetScope
 }
 
-/** 预算状态（金额为 number，序列化时由统一出口转换） */
+/** 预算状态（金额为整数分） */
 type BudgetStatusResult = {
   budget: Budget
-  used: number
-  remaining: number
+  used: Minor
+  remaining: Minor
   percentage: number
   isOverBudget: boolean
 }
@@ -238,7 +238,7 @@ type UsageRow = {
   categoryId: string | null
   type: string
   relatedType: string | null
-  amount: Decimal | null
+  amount: Minor
 }
 
 /**
@@ -272,7 +272,7 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
     categoryId: row.categoryId,
     type: row.type,
     relatedType: row.relatedType,
-    amount: row._sum.amount,
+    amount: minor(Number(row._sum.amount ?? 0)),
   }))
 }
 
@@ -281,7 +281,7 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
   const { budget, scope } = plan
   const query = scopeQuery(scope)
 
-  let used = ZERO
+  let used = minor(0)
 
   for (const row of rows) {
     // 账户与分类口径由领域层规则判定（与 SQL 侧同一份规则）
@@ -297,29 +297,29 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
     )
     if (!inScope) continue
 
-    const amount = row.amount ?? ZERO
+    const amount = row.amount
 
     if (row.type === query.type) {
-      used = used.plus(amount)
+      used = minor(used + amount)
     } else if (query.countsRefunds && row.type === 'refund' && row.relatedType === query.refundRelatedType) {
       // 退款冲减按退款自身的账户与分类
-      used = used.minus(amount)
+      used = minor(used - amount)
     }
   }
 
   // 跨期退款会让本期已用为负；下限夹到 0，剩余不得超过额度
-  const clamped = Decimal.max(used, ZERO)
-  const amount = budget.amount
-  const percentage = amount.isZero()
+  const clamped = minor(Math.max(used, 0))
+  const amount = minor(Number(budget.amount))
+  const percentage = amount === 0
     ? 0
-    : Decimal.min(clamped.dividedBy(amount).times(100).toDecimalPlaces(0), 100).toNumber()
+    : Math.min(Math.round((clamped / amount) * 100), 100)
 
   return {
     budget,
-    used: clamped.toNumber(),
-    remaining: Decimal.max(amount.minus(clamped), ZERO).toNumber(),
+    used: clamped,
+    remaining: minor(Math.max(amount - clamped, 0)),
     percentage,
-    isOverBudget: clamped.greaterThan(amount),
+    isOverBudget: clamped > amount,
   }
 }
 
@@ -417,7 +417,7 @@ export async function generatePredictions(startDate: string, endDate: string) {
       predictions.push({
         date: tp,
         type: budget.type,
-        amount: budget.amount.toNumber(),
+        amount: Number(budget.amount),
         note: budget.note,
         accountId: budget.accountId,
         toAccountId: budget.toAccountId,

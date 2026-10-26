@@ -7,6 +7,7 @@ import {
   validateIdParam,
   hasValue,
   toDate,
+  parseMoney,
 } from '../common/index.js'
 import {
   createBudget,
@@ -24,6 +25,7 @@ const validateBudgetPayload = (req: Request) => {
   if (!hasValue(name) || !hasValue(amount) || !hasValue(type) || !hasValue(period) || !hasValue(accountId)) {
     throw new ValidationError('缺少必要参数(name, amount, type, period, accountId)')
   }
+  parseMoney(amount, '预算金额')
   if (hasValue(startDate)) {
     toDate(startDate, 'startDate')
   }

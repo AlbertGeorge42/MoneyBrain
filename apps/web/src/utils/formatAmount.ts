@@ -16,6 +16,7 @@
  */
 
 import { formatCurrency } from './format'
+import { minor } from '@domain/index'
 import { getFlatFinancialTokens } from '../styles/theme/financial-tokens'
 
 export type AmountType = 'asset' | 'liability' | 'flow'
@@ -67,7 +68,7 @@ export function formatAmount(
   // displayAbs 模式下文本用绝对值，但颜色判断仍使用原始符号
   const textValue = displayAbs ? Math.abs(value) : value
   return {
-    text: formatCurrency(textValue, { showSymbol, showSign, decimals }),
+    text: formatCurrency(minor(textValue), { showSymbol, showSign, decimals }),
     color: getAmountColor(value, type, isDark),
   }
 }

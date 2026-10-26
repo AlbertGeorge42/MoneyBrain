@@ -14,8 +14,8 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '@prisma/client'
-import { balanceBefore } from '../packages/domain/src/index.js'
-import type { LedgerTransaction } from '../packages/domain/src/index.js'
+import { balanceBefore, minor } from '../packages/domain/src/index.js'
+import type { LedgerTransaction, Minor } from '../packages/domain/src/index.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..')
@@ -47,8 +47,8 @@ const toLocalDate = (value: Date): string => {
   return `${y}-${m}-${d}`
 }
 
-/** 金额统一转成整数分，避免浮点比较抖动。 */
-const toMinor = (value: { toNumber(): number }): number => Math.round(value.toNumber() * 100)
+/** 库里的金额已经是整数分（BigInt），这里只做 minor 标注。 */
+const toMinor = (value: bigint | number | null | undefined): Minor => minor(Number(value ?? 0))
 
 /** 用领域层从原始交易重算每个账户的余额（不依赖任何缓存列）。 */
 async function computeTotals(db: PrismaClient): Promise<Totals> {

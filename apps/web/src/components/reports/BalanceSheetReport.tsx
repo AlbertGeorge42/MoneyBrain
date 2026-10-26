@@ -11,6 +11,7 @@ import ReportViewSwitcher from './ReportViewSwitcher'
 import { getPointTimeSemantics } from '../../utils/timePicker'
 import type { RangeTimeValue } from '../../utils/timePicker'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { useTheme } from '../../styles/ThemeContext'
 import { useAmountColors } from '../../hooks/useAmountColors'
@@ -221,16 +222,16 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
 
   const balanceSheetColumns = useMemo(() => createBalanceSheetColumns(isDark), [isDark])
 
-  const netWorthValue = balanceSheetData?.netWorth || { actual: 0, predicted: 0 }
-  const assetsValue = balanceSheetData?.assets || { actual: 0, predicted: 0 }
-  const liabilitiesValue = balanceSheetData?.liabilities || { actual: 0, predicted: 0 }
+  const netWorthValue = balanceSheetData?.netWorth || { actual: minor(0), predicted: minor(0) }
+  const assetsValue = balanceSheetData?.assets || { actual: minor(0), predicted: minor(0) }
+  const liabilitiesValue = balanceSheetData?.liabilities || { actual: minor(0), predicted: minor(0) }
   const hasPrediction = assetsValue.predicted !== 0 || liabilitiesValue.predicted !== 0
   const showPred = isFuture && hasPrediction
   const netWorthTotal = showPred ? netWorthValue.actual + netWorthValue.predicted : netWorthValue.actual
   const assetsTotal = showPred ? assetsValue.actual + assetsValue.predicted : assetsValue.actual
   const liabilitiesTotal = showPred ? liabilitiesValue.actual + liabilitiesValue.predicted : liabilitiesValue.actual
 
-  const formatStatValue = (v: number) => formatCurrency(v)
+  const formatStatValue = (v: number) => formatCurrency(minor(v))
 
   const summarySection = (
     <>

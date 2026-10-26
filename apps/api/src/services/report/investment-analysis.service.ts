@@ -1,6 +1,7 @@
 import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
+import { minor } from '../../../../../packages/domain/src/index.js'
 import { sumAssetsLiabilities, resolveReportPeriod, generateMonthRange } from './report.utils.js'
 import {
   getInvestmentAccounts,
@@ -60,18 +61,18 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const balanceCache = await calculateBalancesBatch(allAccountIds, requiredDates)
 
   // 计算投资账户的期初和期末余额
-  const startValue = balanceCache.getMany(investmentAccountIds, startDate)
-  const endValue = balanceCache.getMany(investmentAccountIds, nextDayOfEnd)
+  const startValue = minor(balanceCache.getMany(investmentAccountIds, startDate))
+  const endValue = minor(balanceCache.getMany(investmentAccountIds, nextDayOfEnd))
 
   // 计算总资产和总负债
   const { assets: totalAssets } = sumAssetsLiabilities(
     allAccounts.map(a => ({ type: a.type, id: a.id })),
-    (a) => balanceCache.get(a.id, nextDayOfEnd)
+    (a) => minor(balanceCache.get(a.id, nextDayOfEnd))
   )
 
   const investmentRatio = totalAssets !== 0 ? (endValue / totalAssets) * 100 : 0
 
-  const valueChange = endValue - startValue
+  const valueChange = minor(endValue - startValue)
 
   const {
     periodInvested,
@@ -129,17 +130,17 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const byCategory: InvestmentCategorySummary[] = []
 
   for (const [categoryId, data] of categoryMap) {
-    const categoryBalance = data.accounts.reduce((sum, a) => {
+    const categoryBalance = minor(data.accounts.reduce((sum, a) => {
       return sum + balanceCache.get(a.id, nextDayOfEnd)
-    }, 0)
+    }, 0))
 
     const ratio = endValue !== 0 ? (categoryBalance / endValue) * 100 : 0
 
     const accountDetails: InvestmentAccountDetail[] = data.accounts.map((account) => {
-      const balance = balanceCache.get(account.id, nextDayOfEnd)
+      const balance = minor(balanceCache.get(account.id, nextDayOfEnd))
       const accountRatio = endValue !== 0 ? (balance / endValue) * 100 : 0
 
-      const accStartBalance = balanceCache.get(account.id, startDate)
+      const accStartBalance = minor(balanceCache.get(account.id, startDate))
       const accEndBalance = balance
 
       // 计算单个账户的现金流（简化版，不额外查询）
@@ -190,11 +191,11 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     const nextMonthStart = monthDates[i]
     const monthStr = `${nextMonthStart.getFullYear()}-${String(nextMonthStart.getMonth() + 1).padStart(2, '0')}`
 
-    const investment = balanceCache.getMany(investmentAccountIds, nextMonthStart)
+    const investment = minor(balanceCache.getMany(investmentAccountIds, nextMonthStart))
 
     const { assets, netWorth } = sumAssetsLiabilities(
       allAccounts.map(a => ({ type: a.type, id: a.id })),
-      (a) => balanceCache.get(a.id, nextMonthStart)
+      (a) => minor(balanceCache.get(a.id, nextMonthStart))
     )
 
     const ratio = assets !== 0 ? (investment / assets) * 100 : 0
@@ -213,7 +214,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     name: a.name,
     icon: a.icon,
     color: a.color,
-    balance: balanceCache.get(a.id, nextDayOfEnd),
+    balance: minor(balanceCache.get(a.id, nextDayOfEnd)),
   }))
 
   // 批量预取资产分类和快照（消除 N+1 查询）；现金流已在上方获取，直接复用

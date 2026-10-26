@@ -31,7 +31,7 @@ model Account {
   id                  String            @id @default(uuid())
   name                String
   type                String
-  initialBalance      Decimal           @default(0)
+  initialBalance      BigInt            @default(0)
   initialBalanceDate  DateTime?
   icon                String?
   color               String?
@@ -77,9 +77,9 @@ model Transaction {
   id                  String      @id @default(uuid())
   importKey           String?     @unique // 导入幂等键：csv:<源ID> 或 natural:<指纹>
   type                String      // 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
-  amount              Decimal
-  fee                 Decimal     @default(0) // 手续费
-  coupon              Decimal     @default(0) // 优惠券
+  amount              BigInt
+  fee                 BigInt      @default(0) // 手续费
+  coupon              BigInt      @default(0) // 优惠券
   date                DateTime
   note                String?
   accountId            String
@@ -107,7 +107,7 @@ model Budget {
   id              String    @id @default(uuid())
   name            String                     // 预算名称，如 "每月工资"、"ETF定投"
   type            String                     // 'income' | 'expense' | 'transfer'
-  amount          Decimal
+  amount          BigInt
   period          String                     // 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
   startDate       DateTime
   endDate         DateTime?                  // null = 无限期
@@ -158,7 +158,7 @@ model InvestmentAllocationSnapshot {
   id                  String   @id @default(uuid())
   accountId           String
   date                DateTime
-  accountBalance      Decimal
+  accountBalance      BigInt
   previousSnapshotId  String?
   note                String?
   createdAt           DateTime @default(now())
@@ -177,8 +177,8 @@ model InvestmentAllocationItem {
   id            String   @id @default(uuid())
   snapshotId    String
   assetClassId  String
-  marketValue   Decimal
-  periodNetFlow Decimal  @default(0)
+  marketValue   BigInt
+  periodNetFlow BigInt   @default(0)
   sort          Int      @default(0)
 
   snapshot   InvestmentAllocationSnapshot @relation(fields: [snapshotId], references: [id])

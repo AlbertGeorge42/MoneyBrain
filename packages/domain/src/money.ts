@@ -1,8 +1,8 @@
 /**
  * 金额值对象。
  *
- * 领域层只使用「整数分」，避免浮点误差；展示层再转成元。
- * 数据库暂时仍使用 Decimal，由适配层在边界处完成换算。
+ * 全链路（数据库、API、前端）只用「整数分」，避免浮点误差。
+ * 只有用户输入框与文件（CSV/备份）在边界处按元读写。
  */
 
 export type Minor = number & { readonly __brand: 'Minor' }
@@ -30,14 +30,30 @@ export function toMajor(value: Minor): number {
   return value / 100
 }
 
-/** 解析用户输入的金额字符串，支持千分位与前后空格。 */
+/**
+ * 解析用户输入的金额字符串（元），支持千分位与前后空格。
+ *
+ * 按小数点做字符串解析，绝不经过浮点：`8.115 * 100` 会得到 `811.4999…`。
+ * 最多两位小数，超出直接失败——静默舍入等于悄悄改钱。
+ */
 export function parseAmount(input: string | number): Minor {
+  // number 只接受旧数据（元），例如早期备份里的数字金额
   if (typeof input === 'number') return fromMajor(input)
   const normalized = input.trim().replace(/,/g, '')
-  if (!/^-?\d+(\.\d{0,2})?$/.test(normalized)) {
-    throw new RangeError(`金额格式无效: ${input}`)
+  const match = /^(-?)(\d{1,14})(?:\.(\d{1,2}))?$/.exec(normalized)
+  if (!match) {
+    throw new RangeError(`金额格式无效（最多两位小数）: ${input}`)
   }
-  return fromMajor(Number(normalized))
+  const [, sign, integerPart, fractionPart = ''] = match
+  const cents = Number(integerPart) * 100 + Number(fractionPart.padEnd(2, '0'))
+  return minor(sign === '-' ? -cents : cents)
+}
+
+/** 分 → 元字符串（固定两位小数，不带千分位），用于文件导出。 */
+export function formatAmount(value: Minor): string {
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+  return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`
 }
 
 export function add(a: Minor, b: Minor): Minor {

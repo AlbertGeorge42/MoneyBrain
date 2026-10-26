@@ -11,6 +11,7 @@ import PredictionStatistic from './PredictionStatistic'
 import { analyticsApi } from '../../services/api'
 import { toDateRangeParams, getRangeTimeSemantics } from '../../utils/timePicker'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { minor } from '@domain/index'
 import { getAmountColor } from '../../utils/formatAmount'
 import { getFinancialTokens } from '../../styles/theme/financial-tokens'
 import { useTheme } from '../../styles/ThemeContext'
@@ -32,7 +33,7 @@ const createIncomeColumns = (isDark: boolean): ReportDetailColumn<IncomeExpenseM
     width: 140,
     align: 'right',
     prediction: { displayMetric: 'total', actualMetric: 'actual', predictedMetric: 'predicted' },
-    format: (v) => formatCurrency(v as number),
+    format: (v) => formatCurrency(minor(v as number)),
     color: getAmountColor(1, 'flow', isDark),
   },
 ]
@@ -44,7 +45,7 @@ const createExpenseColumns = (isDark: boolean): ReportDetailColumn<IncomeExpense
     width: 140,
     align: 'right',
     prediction: { displayMetric: 'total', actualMetric: 'actual', predictedMetric: 'predicted' },
-    format: (v) => formatCurrency(Math.abs(v as number)),
+    format: (v) => formatCurrency(minor(Math.abs(v as number))),
     color: getAmountColor(-1, 'flow', isDark),
   },
 ]
@@ -153,20 +154,20 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     return []
   }
 
-  const incomeData = incomeExpenseData?.income || { actual: 0, predicted: 0 }
-  const expenseData = incomeExpenseData?.expense || { actual: 0, predicted: 0 }
-  const balanceData = incomeExpenseData?.balance || { actual: 0, predicted: 0 }
-  const assetChangeData = incomeExpenseData?.assetChange || { actual: 0, predicted: 0 }
+  const incomeData = incomeExpenseData?.income || { actual: minor(0), predicted: minor(0) }
+  const expenseData = incomeExpenseData?.expense || { actual: minor(0), predicted: minor(0) }
+  const balanceData = incomeExpenseData?.balance || { actual: minor(0), predicted: minor(0) }
+  const assetChangeData = incomeExpenseData?.assetChange || { actual: minor(0), predicted: minor(0) }
   const hasPrediction = incomeData.predicted !== 0 || expenseData.predicted !== 0
 
   const incomeTotal = incomeData.actual + incomeData.predicted
   const expenseTotal = expenseData.actual + expenseData.predicted
   const balanceTotal = balanceData.actual + balanceData.predicted
 
-  // 对账条：期末净资产应当等于「期初 + 净收入 − 净支出」，差额超过半分才算异常
+  // 对账条：期末净资产应当等于「期初 + 净收入 − 净支出」；金额是整数分，任何非零差额都是异常
   const reconciliation = incomeExpenseData?.reconciliation
   const hasReconciliationDiff = reconciliation
-    ? Math.abs(reconciliation.difference) >= 0.005
+    ? reconciliation.difference !== 0
     : false
 
   const incomePieData: PieChartDataItem[] = useMemo(() =>
@@ -191,7 +192,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
     [incomeExpenseData?.expenseCategoryDetails]
   )
 
-  const formatStatValue = (v: number) => formatCurrency(Number(v))
+  const formatStatValue = (v: number) => formatCurrency(minor(v))
 
   // 柱状图配色：参考现金流量表
   const incomeColor = financialTokens.value.positive
@@ -247,7 +248,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <PredictionStatistic
             title="期初净值"
-            value={incomeExpenseData?.startNetWorth || { actual: 0, predicted: 0 }}
+            value={incomeExpenseData?.startNetWorth || { actual: minor(0), predicted: minor(0) }}
             useClickTrigger={useClickTrigger}
             valueStyle={{ color: amountColors.neutral }}
           />
@@ -255,7 +256,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <PredictionStatistic
             title="期末净值"
-            value={incomeExpenseData?.endNetWorth || { actual: 0, predicted: 0 }}
+            value={incomeExpenseData?.endNetWorth || { actual: minor(0), predicted: minor(0) }}
             useClickTrigger={useClickTrigger}
             valueStyle={{ color: amountColors.neutral }}
           />
@@ -306,7 +307,7 @@ const IncomeExpenseReport: React.FC<IncomeExpenseReportProps> = ({
           <span className="report-reconciliation__item">
             净支出 <b>{formatCurrency(reconciliation.netExpense)}</b>
           </span>
-          {Math.abs(reconciliation.other) >= 0.005 && (
+          {reconciliation.other !== 0 && (
             <>
               <span className="report-reconciliation__op">+</span>
               <span className="report-reconciliation__item">

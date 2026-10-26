@@ -1,4 +1,4 @@
-import { Decimal } from '@prisma/client/runtime/library.js'
+import { minor, type Minor } from '../../../../packages/domain/src/index.js'
 import { ValidationError } from './error.js'
 
 // ─── CSV ───
@@ -15,14 +15,14 @@ export function escapeCsvField(value: string | number | null | undefined): strin
   return str
 }
 
-// ─── Decimal ───
+// ─── 金额 ───
 
-export const ZERO = new Decimal(0)
-
-export function toDecimal(value: Decimal | number | string | null | undefined): Decimal {
-  if (value === null || value === undefined) return ZERO
-  if (value instanceof Decimal) return value
-  return new Decimal(value)
+/**
+ * Prisma 的 BigInt（分）→ 领域 Minor（分）。
+ * 超过 2^53 分（90 万亿元）时 `minor()` 会直接失败，不会静默丢精度。
+ */
+export function toMinor(value: bigint | number | null | undefined): Minor {
+  return minor(Number(value ?? 0))
 }
 
 export const hasValue = (value: unknown): boolean => 

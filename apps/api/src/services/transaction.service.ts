@@ -1,12 +1,11 @@
 import { prisma } from '../prisma.js'
 import { Prisma } from '@prisma/client'
-import { Decimal } from '@prisma/client/runtime/library.js'
-import { toDecimal, rootLogger } from '../common/index.js'
+import { rootLogger } from '../common/index.js'
 import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
-import { fromMajor, refundQueryFor, remainingRefundable, toMajor } from '../../../../packages/domain/src/index.js'
+import { formatAmount, minor, refundQueryFor, remainingRefundable } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -15,9 +14,9 @@ const logger = rootLogger.child({ module: 'transaction' })
 export interface TransactionWithRelations {
   id: string
   type: string
-  amount: Decimal
-  fee: Decimal | null
-  coupon: Decimal | null
+  amount: bigint
+  fee: bigint | null
+  coupon: bigint | null
   date: Date
   note: string | null
   accountId: string
@@ -147,9 +146,9 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
   const transaction = await prisma.transaction.create({
     data: {
       type,
-      amount: toDecimal(amount),
-      fee: toDecimal(fee),
-      coupon: toDecimal(coupon),
+      amount: BigInt(amount),
+      fee: BigInt(fee),
+      coupon: BigInt(coupon),
       date,
       note,
       accountId,
@@ -175,9 +174,9 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
   const transaction = await prisma.transaction.create({
     data: {
       type: 'transfer',
-      amount: toDecimal(amount),
-      fee: toDecimal(fee),
-      coupon: toDecimal(coupon),
+      amount: BigInt(amount),
+      fee: BigInt(fee),
+      coupon: BigInt(coupon),
       date,
       note,
       accountId,
@@ -197,7 +196,7 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
  * 退款是资金的逆向流动，必须从原交易发起，不能凭空创建。
  */
 async function assertRefundable(
-  original: { id: string; type: string; amount: Decimal },
+  original: { id: string; type: string; amount: bigint },
   amount: number,
   excludeRefundId?: string,
 ): Promise<void> {
@@ -218,19 +217,17 @@ async function assertRefundable(
     select: { type: true, amount: true, relatedTransactionId: true },
   })
 
-  const remaining = toMajor(
-    remainingRefundable(
-      { id: original.id, kind: original.type, amount: fromMajor(original.amount.toNumber()) },
-      refunds.map((refund) => ({
-        kind: refund.type,
-        amount: fromMajor(refund.amount.toNumber()),
-        relatedTransactionId: refund.relatedTransactionId,
-      })),
-    ),
+  const remaining = remainingRefundable(
+    { id: original.id, kind: original.type, amount: minor(Number(original.amount)) },
+    refunds.map((refund) => ({
+      kind: refund.type,
+      amount: minor(Number(refund.amount)),
+      relatedTransactionId: refund.relatedTransactionId,
+    })),
   )
 
-  if (toDecimal(amount).greaterThan(toDecimal(remaining))) {
-    throw new ValidationError(`退款金额不能超过可退余额 ${remaining.toFixed(2)}`)
+  if (amount > remaining) {
+    throw new ValidationError(`退款金额不能超过可退余额 ${formatAmount(remaining)} 元`)
   }
 }
 
@@ -244,9 +241,9 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
   const transaction = await prisma.transaction.create({
     data: {
       type: 'refund',
-      amount: toDecimal(amount),
-      fee: toDecimal(fee),
-      coupon: toDecimal(coupon),
+      amount: BigInt(amount),
+      fee: BigInt(fee),
+      coupon: BigInt(coupon),
       date,
       note,
       accountId,
@@ -267,13 +264,13 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
 // 共享的字段合并逻辑，三个 update 函数复用
 function mergeTransactionData(
-  old: { amount: Decimal; fee: Decimal; coupon: Decimal; date: Date; note: string | null; accountId: string; categoryId: string | null; excludeFromIncomeExpense: boolean },
+  old: { amount: bigint; fee: bigint; coupon: bigint; date: Date; note: string | null; accountId: string; categoryId: string | null; excludeFromIncomeExpense: boolean },
   data: { amount?: number; fee?: number; coupon?: number; date?: Date; note?: string; accountId?: string; categoryId?: string | null; excludeFromIncomeExpense?: boolean }
 ) {
   return {
-    amount: data.amount !== undefined ? toDecimal(data.amount) : old.amount,
-    fee: data.fee !== undefined ? toDecimal(data.fee) : old.fee,
-    coupon: data.coupon !== undefined ? toDecimal(data.coupon) : old.coupon,
+    amount: data.amount !== undefined ? BigInt(data.amount) : old.amount,
+    fee: data.fee !== undefined ? BigInt(data.fee) : old.fee,
+    coupon: data.coupon !== undefined ? BigInt(data.coupon) : old.coupon,
     date: data.date || old.date,
     note: data.note !== undefined ? data.note : old.note,
     accountId: data.accountId || old.accountId,
@@ -329,7 +326,7 @@ export async function updateRefund(id: string, data: UpdateRefundData): Promise<
   if (relatedId) {
     const original = await prisma.transaction.findUnique({ where: { id: relatedId } })
     if (!original) throw new NotFoundError('原交易记录')
-    await assertRefundable(original, data.amount ?? oldTransaction.amount.toNumber(), id)
+    await assertRefundable(original, data.amount ?? Number(oldTransaction.amount), id)
   }
 
   const merged = mergeTransactionData(oldTransaction, data)
@@ -509,18 +506,18 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
     prisma.transaction.count({ where: { ...where, type: 'transfer', excludeFromIncomeExpense: false } }),
   ])
 
-  const income = toDecimal(incomeResult._sum.amount || 0)
-  const expense = toDecimal(expenseResult._sum.amount || 0)
+  const income = Number(incomeResult._sum.amount ?? 0)
+  const expense = Number(expenseResult._sum.amount ?? 0)
   // fee/coupon 已合并到 amount 中，直接用 amount
-  const incomeRefund = toDecimal(incomeRefundResult._sum.amount || 0)
-  const expenseRefund = toDecimal(expenseRefundResult._sum.amount || 0)
-  const totalRefund = incomeRefund.plus(expenseRefund)
+  const incomeRefund = Number(incomeRefundResult._sum.amount ?? 0)
+  const expenseRefund = Number(expenseRefundResult._sum.amount ?? 0)
+  const totalRefund = incomeRefund + expenseRefund
 
   return {
-    income: income.minus(incomeRefund).toNumber(),
-    expense: expense.minus(expenseRefund).toNumber(),
-    refund: totalRefund.toNumber(),
-    balance: income.minus(incomeRefund).minus(expense).plus(expenseRefund).toNumber(),
+    income: income - incomeRefund,
+    expense: expense - expenseRefund,
+    refund: totalRefund,
+    balance: income - incomeRefund - expense + expenseRefund,
     transferCount,
   }
 }

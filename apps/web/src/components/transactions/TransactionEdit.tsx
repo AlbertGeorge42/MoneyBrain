@@ -4,6 +4,7 @@ import { Account, TransactionCategory, Transaction, TransactionType } from '../.
 import TransactionForm from './TransactionForm'
 import ResponsiveDrawer from '../common/ResponsiveDrawer'
 import { formatTransactionSubmitValues } from '../../utils/transaction'
+import { minor, fromMajor, type Minor } from '@domain/index'
 import { useNotify } from '../../hooks/useNotify'
 
 export type TransactionEditMode = 'edit' | 'refund'
@@ -44,7 +45,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
 }) => {
   const [form] = Form.useForm()
   const [refundForm] = Form.useForm()
-  const [accountBalance, setAccountBalance] = useState<number | null>(null)
+  const [accountBalance, setAccountBalance] = useState<Minor | null>(null)
   const notify = useNotify()
 
   const isRefundMode = mode === 'refund'
@@ -78,7 +79,7 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
           notify.error('无法获取账户余额')
           return
         }
-        const adjustmentValue = values.amount - accountBalance
+        const adjustmentValue = minor(fromMajor(values.amount) - accountBalance)
         const submitValues = {
           type: 'adjustment' as const,
           amount: adjustmentValue,
@@ -105,10 +106,8 @@ const TransactionEdit: React.FC<TransactionEditProps> = ({
     if (!transaction) return
     try {
       const values = await refundForm.validateFields()
-      const refundData = {
-        ...values,
-        date: values.date.format('YYYY-MM-DD'),
-      }
+      // 表单输入是元，统一在这里转成分
+      const refundData = formatTransactionSubmitValues(values, 'refund')
       await onRefund(refundData)
       onCancel()
     } catch {

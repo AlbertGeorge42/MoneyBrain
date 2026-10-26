@@ -28,7 +28,7 @@ export interface AccountWithCategory {
   category: { id: string; name: string; icon: string | null; color: string | null } | null
   icon: string | null
   color: string | null
-  initialBalance: { toNumber: () => number }
+  initialBalance: bigint
   initialBalanceDate: Date | null
   createdAt: Date
 }

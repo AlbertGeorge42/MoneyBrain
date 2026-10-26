@@ -1,41 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { Decimal } from '@prisma/client/runtime/library.js'
-import { ZERO, toDecimal, hasValue, toStringArray, parsePositiveInteger, toDate, toOptionalDate } from '../../src/common/utils.js'
+import { toMinor, hasValue, toStringArray, parsePositiveInteger, toDate, toOptionalDate } from '../../src/common/utils.js'
 import { ValidationError } from '../../src/common/error.js'
 
 describe('utils', () => {
-  describe('ZERO', () => {
-    it('应该等于 0', () => {
-      expect(ZERO.toNumber()).toBe(0)
-    })
-  })
-
-  describe('toDecimal', () => {
-    it('应该将 number 转换为 Decimal', () => {
-      const result = toDecimal(100)
-      expect(result).toBeInstanceOf(Decimal)
-      expect(result.toNumber()).toBe(100)
+  describe('toMinor', () => {
+    it('BigInt 分应该转成 number 分', () => {
+      expect(toMinor(1234n)).toBe(1234)
     })
 
-    it('应该将 string 转换为 Decimal', () => {
-      const result = toDecimal('99.99')
-      expect(result.toNumber()).toBe(99.99)
+    it('number 原样返回', () => {
+      expect(toMinor(99)).toBe(99)
     })
 
-    it('应该将 Decimal 原样返回', () => {
-      const input = new Decimal(50)
-      const result = toDecimal(input)
-      expect(result).toBe(input)
+    it('null / undefined 应该返回 0', () => {
+      expect(toMinor(null)).toBe(0)
+      expect(toMinor(undefined)).toBe(0)
     })
 
-    it('null 应该返回 ZERO', () => {
-      const result = toDecimal(null)
-      expect(result.toNumber()).toBe(0)
-    })
-
-    it('undefined 应该返回 ZERO', () => {
-      const result = toDecimal(undefined)
-      expect(result.toNumber()).toBe(0)
+    it('超出安全整数范围时应该直接失败', () => {
+      expect(() => toMinor(2n ** 60n)).toThrow()
     })
   })
 

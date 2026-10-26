@@ -2,6 +2,7 @@
 
 import Papa from 'papaparse'
 import { rootLogger } from '../../common/index.js'
+import { type Minor } from '../../../../../packages/domain/src/index.js'
 import { type TransactionClient } from '../../prisma.js'
 
 export const logger = rootLogger.child({ module: 'import' })
@@ -139,8 +140,8 @@ export interface ParsedRow {
   account1: string
   account2: string
   note: string
-  fee: number
-  coupon: number
+  fee: Minor
+  coupon: Minor
   relatedCsvId: string
   excludeFromIncomeExpense?: boolean // 账单标记为「不计收支」时导出为 true
 }

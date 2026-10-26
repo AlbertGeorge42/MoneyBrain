@@ -8,6 +8,7 @@ import { AccountCategory, Account, accountCategoryApi, accountApi } from '../../
 import { unwrapApiData } from '../../services/apiResult'
 import { getApiErrorMessage } from '../../services/apiError'
 import dayjs from 'dayjs'
+import { fromMajor } from '@domain/index'
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
@@ -141,7 +142,7 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleEditAccount = (record: AccountTreeNode) => {
     setEditingAccount(record)
     accountForm.setFieldsValue({
-      name: record.name, type: record.nodeType, initialBalance: record.initialBalance,
+      name: record.name, type: record.nodeType, initialBalance: (record.initialBalance ?? 0) / 100,
       initialBalanceDate: record.initialBalanceDate ? dayjs(record.initialBalanceDate) : dayjs(),
       icon: record.icon, color: record.color,
     })
@@ -192,11 +193,12 @@ const AccountConfigModal: React.FC<Props> = ({ visible, onClose }) => {
         color: values.color ?? null,
         initialBalanceDate: values.initialBalanceDate?.format('YYYY-MM-DD'),
       }
+      const initialBalance = fromMajor(values.initialBalance)
       if (!editingAccount) submitData.categoryId = categoryId
       if (editingAccount) {
-        if (values.initialBalance !== editingAccount.initialBalance) submitData.initialBalance = values.initialBalance
+        if (initialBalance !== editingAccount.initialBalance) submitData.initialBalance = initialBalance
       } else {
-        submitData.initialBalance = values.initialBalance
+        submitData.initialBalance = initialBalance
       }
       if (editingAccount) {
         await updateAccountMutation.mutateAsync({ id: editingAccount.id, data: submitData })

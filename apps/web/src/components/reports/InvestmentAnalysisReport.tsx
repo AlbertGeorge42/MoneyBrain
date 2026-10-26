@@ -11,6 +11,7 @@ import type {
   InvestmentAnalysisReportData,
 } from '@contracts/types'
 import { formatCurrency, formatPercent, createStatisticFormatter } from '../../utils/format'
+import { minor } from '@domain/index'
 import { getAmountColor } from '../../utils/formatAmount'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { useTheme } from '../../styles/ThemeContext'
@@ -35,7 +36,7 @@ const createInvestmentColumns = (isDark: boolean): ReportDetailColumn<Investment
     title: '市值',
     width: 140,
     align: 'right',
-    format: (v) => formatCurrency(v as number),
+    format: (v) => formatCurrency(minor(v as number)),
   },
   {
     key: 'ratio',

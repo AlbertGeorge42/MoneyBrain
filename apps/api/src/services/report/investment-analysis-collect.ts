@@ -1,5 +1,6 @@
 import { prisma } from '../../prisma.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
+import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
 import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investment-analysis-types.js'
 
 // ===== 数据收集 / 查询函数 =====
@@ -72,11 +73,11 @@ export async function getCashFlowsInRange(
     const isToInvestment = accountIds.includes(t.toAccountId || '')
     const isFromInvestment = accountIds.includes(t.accountId)
 
-    // fee/coupon 已合并到 amount 中，直接用 amount
+    // 投资分析只统计转账本金；手续费属于费用，不计入投资现金流
     if (isToInvestment && !isFromInvestment) {
       cashFlows.push({
         date: t.date,
-        amount: amount.negated().toNumber(),
+        amount: minor(-Number(amount)),
         type: 'buy',
         accountId: t.toAccountId!,
         accountName: accountMap.get(t.toAccountId!) || '未知账户',
@@ -84,7 +85,7 @@ export async function getCashFlowsInRange(
     } else if (isFromInvestment && !isToInvestment) {
       cashFlows.push({
         date: t.date,
-        amount: amount.toNumber(),
+        amount: minor(Number(amount)),
         type: 'sell',
         accountId: t.accountId,
         accountName: accountMap.get(t.accountId) || '未知账户',
@@ -133,7 +134,7 @@ export async function batchGetSnapshots(accountIds: string[], endDate: Date) {
 }
 
 export async function buildStaleAccounts(
-  accounts: Array<{ id: string; name: string; balance: number }>,
+  accounts: Array<{ id: string; name: string; balance: Minor }>,
   endDate: Date,
   staleDays: number = 30
 ): Promise<StaleAccountInfo[]> {

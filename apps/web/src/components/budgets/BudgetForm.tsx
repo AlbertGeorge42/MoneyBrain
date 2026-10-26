@@ -55,7 +55,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       const hasEndDate = !!editingBudget.endDate
       form.setFieldsValue({
         name: editingBudget.name,
-        amount: editingBudget.amount,
+        amount: editingBudget.amount / 100,
         period: editingBudget.period,
         startDate: dayjs(editingBudget.startDate),
         endDate: hasEndDate ? dayjs(editingBudget.endDate) : null,

@@ -8,6 +8,7 @@ import ReportViewSwitcher from './ReportViewSwitcher'
 import PredictionStatistic from './PredictionStatistic'
 import type { CashFlowReportData } from '@contracts/types'
 import { formatCurrency } from '../../utils/format'
+import { minor } from '@domain/index'
 import { formatAmount, getAmountColor } from '../../utils/formatAmount'
 import { getRangeTimeSemantics } from '../../utils/timePicker'
 import { useTheme } from '../../styles/ThemeContext'
@@ -65,6 +66,13 @@ const activityEntries: Array<{ key: 'operating' | 'investing' | 'financing' | 'u
   { key: 'investing', title: '投资活动' },
   { key: 'financing', title: '筹资活动' },
 ]
+
+const emptyActivity = (): CashFlowReportData['byActivity']['operating'] => ({
+  inflow: { actual: minor(0), predicted: minor(0) },
+  outflow: { actual: minor(0), predicted: minor(0) },
+  net: { actual: minor(0), predicted: minor(0) },
+  items: [],
+})
 
 function adaptCashFlowActivity(
   activity: CashFlowReportData['byActivity']['operating'],
@@ -202,12 +210,12 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
 
   const { isFuture, isMixed } = getRangeTimeSemantics(timeRange.start, timeRange.end)
 
-  const formatStatValue = (v: number) => formatCurrency(v)
+  const formatStatValue = (v: number) => formatCurrency(minor(v))
 
-  const netCashFlowValue = cashFlowData?.netCashFlow || { actual: 0, predicted: 0 }
-  const cashInflowValue = cashFlowData?.cashInflow || { actual: 0, predicted: 0 }
-  const cashOutflowValue = cashFlowData?.cashOutflow || { actual: 0, predicted: 0 }
-  const cashChangeValue = cashFlowData?.cashChange || { actual: 0, predicted: 0 }
+  const netCashFlowValue = cashFlowData?.netCashFlow || { actual: minor(0), predicted: minor(0) }
+  const cashInflowValue = cashFlowData?.cashInflow || { actual: minor(0), predicted: minor(0) }
+  const cashOutflowValue = cashFlowData?.cashOutflow || { actual: minor(0), predicted: minor(0) }
+  const cashChangeValue = cashFlowData?.cashChange || { actual: minor(0), predicted: minor(0) }
   const hasPrediction = cashInflowValue.predicted !== 0 || cashOutflowValue.predicted !== 0
   const netCashFlowTotal = netCashFlowValue.actual + netCashFlowValue.predicted
   // 现金流出本身是负数；汇总展示时按"红色正数"显示，与资产负债表一致
@@ -258,8 +266,8 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
               title="现金流出"
               // outflow 本身为负，预测明细展示用绝对值；汇总仍然只显示"红色正数"
               value={{
-                actual: Math.abs(cashOutflowValue.actual),
-                predicted: Math.abs(cashOutflowValue.predicted),
+                actual: minor(Math.abs(cashOutflowValue.actual)),
+                predicted: minor(Math.abs(cashOutflowValue.predicted)),
               }}
               useClickTrigger={useClickTrigger}
               valueStyle={{ color: amountColors.negative }}
@@ -276,7 +284,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <PredictionStatistic
             title="期初现金"
-            value={cashFlowData?.startCash || { actual: 0, predicted: 0 }}
+            value={cashFlowData?.startCash || { actual: minor(0), predicted: minor(0) }}
             useClickTrigger={useClickTrigger}
             valueStyle={{ color: amountColors.neutral }}
           />
@@ -284,7 +292,7 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           <PredictionStatistic
             title="期末现金"
-            value={cashFlowData?.endCash || { actual: 0, predicted: 0 }}
+            value={cashFlowData?.endCash || { actual: minor(0), predicted: minor(0) }}
             useClickTrigger={useClickTrigger}
             valueStyle={{ color: amountColors.neutral }}
           />
@@ -392,11 +400,11 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
 
   const showPred = (isFuture || isMixed) && hasPrediction
 
-  const defaultByActivity = {
-    operating: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
-    investing: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
-    financing: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
-    uncategorized: { inflow: { actual: 0, predicted: 0 }, outflow: { actual: 0, predicted: 0 }, net: { actual: 0, predicted: 0 }, items: [] },
+  const defaultByActivity: CashFlowReportData['byActivity'] = {
+    operating: emptyActivity(),
+    investing: emptyActivity(),
+    financing: emptyActivity(),
+    uncategorized: emptyActivity(),
   }
   const byActivity = cashFlowData?.byActivity || defaultByActivity
   const hasUncategorized =

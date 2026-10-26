@@ -2,6 +2,7 @@
 
 import { prisma } from '../../prisma.js'
 import { ValidationError } from '../../common/index.js'
+import { parseAmount } from '../../../../../packages/domain/src/index.js'
 import { clearConfigDataForImport } from '../clear-data.service.js'
 import {
   type ConfigImportData,
@@ -140,7 +141,7 @@ async function importAccounts(
             data: {
               type: account.type ?? existing.type,
               initialBalance: account.initialBalance
-                ? parseFloat(account.initialBalance)
+                ? BigInt(parseAmount(account.initialBalance))
                 : existing.initialBalance,
               initialBalanceDate: account.initialBalanceDate
                 ? new Date(account.initialBalanceDate)
@@ -161,7 +162,7 @@ async function importAccounts(
           data: {
             name: account.name,
             type: account.type,
-            initialBalance: account.initialBalance ? parseFloat(account.initialBalance) : 0,
+            initialBalance: account.initialBalance ? BigInt(parseAmount(account.initialBalance)) : BigInt(0),
             initialBalanceDate: account.initialBalanceDate
               ? new Date(account.initialBalanceDate)
               : null,

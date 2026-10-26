@@ -9,6 +9,7 @@ import {
   validateBatchSort,
   hasValue,
   nextDay,
+  parseMoney,
 } from '../common/index.js'
 import {
   createAccount,
@@ -24,9 +25,20 @@ import { calculateBalancesBatch } from '../services/balance.service.js'
 const router = Router()
 
 const validateCreateAccount = (req: Request) => {
-  const { name, type } = req.body as Record<string, unknown>
+  const { name, type, initialBalance } = req.body as Record<string, unknown>
   if (!hasValue(name) || !hasValue(type)) {
     throw new ValidationError('名称和类型不能为空')
+  }
+  if (hasValue(initialBalance)) {
+    parseMoney(initialBalance, '期初余额')
+  }
+}
+
+const validateUpdateAccount = (req: Request) => {
+  validateIdParam(req)
+  const { initialBalance } = req.body as Record<string, unknown>
+  if (hasValue(initialBalance)) {
+    parseMoney(initialBalance, '期初余额')
   }
 }
 
@@ -89,7 +101,7 @@ router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req
   return success(res, account, 201)
 }))
 
-router.put('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+router.put('/:id', validateRequest(validateUpdateAccount), asyncHandler(async (req, res) => {
   const account = await updateAccountProfile(req.params.id, req.body)
   return success(res, account)
 }))

@@ -63,8 +63,9 @@ MoneyBrain/
 1. **金额影响只有一个实现**：所有余额、收支、预算、退款计算必须经过
    `packages/domain` 的 `postingsOf` / `summarizeFlows` / `remainingRefundable`。
    组件、route、service 里不得再写 `if (type === 'refund')` 之类的金额分支。
-   （报表与预算用量是已知的历史例外，收口见蓝图批次 A0；新代码不得再复制这类分支。）
-2. **金额单位**：领域层用整数分（`Minor`）；`Decimal` 只允许出现在 Prisma 边界。
+   （投资分析只统计转账本金，是已知例外，收口见蓝图批次 A0；新代码不得再复制这类分支。）
+2. **金额单位**：DB / API / 契约 / 前端全链路都是整数分（`Minor`）；
+   只有用户输入框与文件（CSV / 备份）按元读写。
 3. **日期单位**：领域层用 `LocalDate`（YYYY-MM-DD）；期间一律半开
    `[start, endExclusive)`。禁止在业务代码里拼 `23:59:59.999`。
 4. **期初余额**：视为「期初日期当天开始前」的余额，当天交易必须计入。

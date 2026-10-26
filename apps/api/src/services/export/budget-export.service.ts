@@ -1,5 +1,6 @@
 import { prisma } from '../../prisma.js'
 import { formatDateLocal } from '../../common/index.js'
+import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
 
 interface ExportBudget {
   name: string
@@ -33,7 +34,7 @@ export async function exportBudgets(): Promise<string> {
   const exportBudgets: ExportBudget[] = budgets.map((b) => ({
     name: b.name,
     type: b.type,
-    amount: b.amount.toString(),
+    amount: formatAmount(minor(Number(b.amount))),
     period: b.period,
     // 用本地格式导出，避免 toISOString() 在 UTC+8 下把本地零点日期导出成前一天
     startDate: formatDateLocal(b.startDate),

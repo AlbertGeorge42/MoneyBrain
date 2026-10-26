@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react'
 import { Empty } from 'antd'
 import { useChartTokens } from '../../styles/theme/chart-tokens'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { minor } from '@domain/index'
 
 export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
 
@@ -115,7 +116,7 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
         if (params.dataType === 'node') {
           const nodeFlow = nodeFlows.get(params.name!) || 0
           const percentage = totalFlow > 0 ? formatPercent((nodeFlow / totalFlow) * 100, 1, false) : '0.0%'
-          return `${getDisplayName(params.name!)}<br/>金额: ${formatCurrency(params.value || 0)}<br/>占比: ${percentage}`
+          return `${getDisplayName(params.name!)}<br/>金额: ${formatCurrency(minor(params.value || 0))}<br/>占比: ${percentage}`
         } else if (params.dataType === 'edge') {
           const link = params.data!
           const percentage = totalFlow > 0 ? formatPercent((link.value! / totalFlow) * 100, 1, false) : '0.0%'
@@ -123,15 +124,15 @@ const SankeyChart: React.FC<SankeyChartProps> = ({ title, nodes, links, height =
           const targetName = getDisplayName(link.target!)
           
           if (isPurePrediction) {
-            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})<br/><span style="color: ${tokens.textSecondary}">预测</span>`
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(minor(link.value!))} (${percentage})<br/><span style="color: ${tokens.textSecondary}">预测</span>`
           }
           
           if (link.predictedValue && link.predictedValue !== 0) {
             const predictedSign = link.predictedValue >= 0 ? '+' : ''
-            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})<br/>实际 ${formatCurrency(link.actualValue || 0)} &nbsp; 预测 ${predictedSign}${formatCurrency(link.predictedValue)}`
+            return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(minor(link.value!))} (${percentage})<br/>实际 ${formatCurrency(minor(link.actualValue || 0))} &nbsp; 预测 ${predictedSign}${formatCurrency(minor(link.predictedValue))}`
           }
           
-          return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(link.value!)} (${percentage})`
+          return `${sourceName} → ${targetName}<br/>金额: ${formatCurrency(minor(link.value!))} (${percentage})`
         }
         return ''
       }

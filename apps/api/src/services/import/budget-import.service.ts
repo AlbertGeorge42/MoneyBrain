@@ -1,7 +1,7 @@
 // ─── 预算导入 ───
 
 import { prisma } from '../../prisma.js'
-import { toDecimal } from '../../common/index.js'
+import { parseAmount } from '../../../../../packages/domain/src/index.js'
 import { dayStart } from '../../common/date.js'
 import {
   type BudgetImportData,
@@ -120,7 +120,7 @@ export async function importBudgets(
               where: { id: existing.id },
               data: {
                 type: budget.type,
-                amount: toDecimal(budget.amount),
+                amount: BigInt(parseAmount(budget.amount)),
                 period: budget.period,
                 startDate: dayStart(budget.startDate),
                 endDate: budget.endDate ? dayStart(budget.endDate) : null,
@@ -141,7 +141,7 @@ export async function importBudgets(
             data: {
               name: budget.name,
               type: budget.type,
-              amount: toDecimal(budget.amount),
+              amount: BigInt(parseAmount(budget.amount)),
               period: budget.period,
               startDate: dayStart(budget.startDate),
               endDate: budget.endDate ? dayStart(budget.endDate) : null,

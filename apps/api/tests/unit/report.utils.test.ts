@@ -215,11 +215,11 @@ describe('report.utils - 时点预测快照', () => {
     it('无负债账户时 liabilities 为 0，netWorth = assets', () => {
       const result = sumAssetsLiabilities(
         [{ id: 'a1', type: 'asset' }],
-        () => 1234.56
+        () => 123456
       )
-      expect(result.assets).toBe(1234.56)
+      expect(result.assets).toBe(123456)
       expect(result.liabilities).toBe(0)
-      expect(result.netWorth).toBe(1234.56)
+      expect(result.netWorth).toBe(123456)
     })
   })
 

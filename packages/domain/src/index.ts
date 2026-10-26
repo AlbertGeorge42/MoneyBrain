@@ -1,6 +1,7 @@
 export {
   ZERO_MINOR,
   add,
+  formatAmount,
   fromMajor,
   isNegative,
   isZero,

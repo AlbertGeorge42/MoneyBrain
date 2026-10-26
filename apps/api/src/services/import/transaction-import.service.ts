@@ -3,7 +3,7 @@
 import crypto from 'crypto'
 import { prisma } from '../../prisma.js'
 import { clearTransactionsForImport } from '../clear-data.service.js'
-import { fromDate } from '../../../../../packages/domain/src/index.js'
+import { formatAmount, fromDate, minor, parseAmount, type Minor } from '../../../../../packages/domain/src/index.js'
 import {
   type AccountCache,
   type ImportContext,
@@ -339,7 +339,7 @@ async function getOrCreateAccount(
 
 interface ParsedRowBasics {
   date: Date
-  amount: number
+  amount: Minor
   type: 'income' | 'expense' | 'transfer' | 'adjustment'
 }
 
@@ -347,9 +347,7 @@ function parseRowBasicFields(row: ParsedRow): ParsedRowBasics | null {
   const date = new Date(row.time)
   if (isNaN(date.getTime())) return null
 
-  const amount = parseFloat(row.amountStr)
-  if (isNaN(amount)) return null
-
+  const amount = parseAmount(row.amountStr)
   let type: 'income' | 'expense' | 'transfer' | 'adjustment'
   if (row.typeStr === '收入') {
     type = 'income'
@@ -369,9 +367,9 @@ interface NormalTransactionData {
   importKey: string
   date: Date
   type: 'income' | 'expense' | 'transfer' | 'adjustment'
-  amount: number
-  fee: number
-  coupon: number
+  amount: Minor
+  fee: Minor
+  coupon: Minor
   note: string | null
   accountId: string
   toAccountId: string | null
@@ -385,9 +383,9 @@ interface RefundTransactionData {
   importKey: string
   date: Date
   type: 'refund'
-  amount: number
-  fee: number
-  coupon: number
+  amount: Minor
+  fee: Minor
+  coupon: Minor
   note: string | null
   accountId: string
   categoryId: string | null
@@ -451,8 +449,8 @@ function parseCsvFile(
         account1: record.账户1,
         account2: record.账户2,
         note: record.备注,
-        fee: feeStr ? parseFloat(feeStr) || 0 : 0,
-        coupon: couponStr ? parseFloat(couponStr) || 0 : 0,
+        fee: feeStr ? parseAmount(feeStr) : minor(0),
+        coupon: couponStr ? parseAmount(couponStr) : minor(0),
         relatedCsvId: record.关联账单,
         // 账单标记列值为「不计收支」（容错首尾空格）
         excludeFromIncomeExpense: (record['账单标记'] || '').trim() === '不计收支',
@@ -519,11 +517,11 @@ async function importTransactionsFromRows(
           : await getOrCreateCategory(row.category1, row.category2, basics.type, ctx, client)
       const id = crypto.randomUUID()
       // 调整（期初余额）的 amount 有方向，不能用绝对值；收入/支出/转账仍按正数保存。
-      const amount = basics.type === 'adjustment' ? basics.amount : Math.abs(basics.amount)
+      const amount = basics.type === 'adjustment' ? basics.amount : minor(Math.abs(basics.amount))
       const importKey = makeImportKey(row.csvId, [
         fromDate(basics.date),
         basics.type,
-        amount.toFixed(2),
+        formatAmount(amount),
         fromAccount.id,
         toAccount?.id ?? '',
         categoryId ?? '',
@@ -573,7 +571,12 @@ async function importTransactionsFromRows(
 
   if (normalToInsert.length > 0) {
     await client.transaction.createMany({
-      data: normalToInsert.map(({ csvId: _csvId, ...data }) => data),
+      data: normalToInsert.map(({ csvId: _csvId, ...data }) => ({
+        ...data,
+        amount: BigInt(data.amount),
+        fee: BigInt(data.fee),
+        coupon: BigInt(data.coupon),
+      })),
     })
   }
 
@@ -583,8 +586,7 @@ async function importTransactionsFromRows(
     try {
       const date = new Date(row.time)
       if (isNaN(date.getTime())) { skipped++; continue }
-      const amount = parseFloat(row.amountStr)
-      if (isNaN(amount)) { skipped++; continue }
+      const amount = parseAmount(row.amountStr)
 
       // 通过预生成 UUID 关联普通交易类型
       const relatedUuid = row.relatedCsvId ? csvIdToUuid.get(row.relatedCsvId) : null
@@ -620,11 +622,11 @@ async function importTransactionsFromRows(
 
       const accountData = await getOrCreateAccount(row.account1, ctx, client)
       const id = crypto.randomUUID()
-      const absAmount = Math.abs(amount)
+      const absAmount = minor(Math.abs(amount))
       const importKey = makeImportKey(row.csvId, [
         fromDate(date),
         'refund',
-        absAmount.toFixed(2),
+        formatAmount(absAmount),
         accountData.id,
         categoryId ?? '',
         row.note ?? '',
@@ -673,7 +675,12 @@ async function importTransactionsFromRows(
 
   if (refundToInsert.length > 0) {
     await client.transaction.createMany({
-      data: refundToInsert.map(({ csvId: _csvId, ...data }) => data),
+      data: refundToInsert.map(({ csvId: _csvId, ...data }) => ({
+        ...data,
+        amount: BigInt(data.amount),
+        fee: BigInt(data.fee),
+        coupon: BigInt(data.coupon),
+      })),
     })
   }
 

@@ -7,6 +7,7 @@ import CategoryIcon from '../../components/common/CategoryIcon'
 import { AccountSelect } from '../../components/common'
 import { useNotify } from '../../hooks/useNotify'
 import { formatCurrency, formatPercent } from '../../utils/format'
+import { fromMajor, minor } from '@domain/index'
 import dayjs from 'dayjs'
 
 interface Props {
@@ -109,8 +110,8 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
             icon: c.icon,
             color: c.color ?? null,
             targetRatio: c.targetRatio,
-            marketValue: existingItem?.marketValue ?? 0,
-            periodNetFlow: existingItem?.periodNetFlow ?? 0,
+            marketValue: (existingItem?.marketValue ?? 0) / 100,
+            periodNetFlow: (existingItem?.periodNetFlow ?? 0) / 100,
           }
         }))
       } else {
@@ -145,7 +146,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           const prevItem = snapshot.items.find(i => i.assetClassId === item.assetClassId)
           return prevItem ? {
             ...item,
-            marketValue: prevItem.marketValue,
+            marketValue: prevItem.marketValue / 100,
           } : item
         }))
       }
@@ -159,7 +160,7 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
     setBalanceLoading(true)
     try {
       const res = await accountApi.getBalanceAt(selectedAccountId, selectedDate.format('YYYY-MM-DD'))
-      setAccountBalance(unwrapApiData(res).balance)
+      setAccountBalance(unwrapApiData(res).balance / 100)
     } catch {
       console.error('加载账户余额失败')
       setAccountBalance(null)
@@ -197,8 +198,9 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
         date: selectedDate.format('YYYY-MM-DD'),
         items: items.map((item) => ({
           assetClassId: item.assetClassId,
-          marketValue: item.marketValue,
-          periodNetFlow: isEarliestSnapshot ? 0 : item.periodNetFlow,
+          // 表单内是元，提交前转分
+          marketValue: fromMajor(item.marketValue),
+          periodNetFlow: isEarliestSnapshot ? minor(0) : fromMajor(item.periodNetFlow),
         })),
       }
 
@@ -358,19 +360,19 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>账户余额</Text>
           <div style={{ marginTop: 4 }}>
             {balanceLoading ? <Spin size="small" /> : (
-              <Text strong>{accountBalance !== null ? formatCurrency(accountBalance) : '--'}</Text>
+              <Text strong>{accountBalance !== null ? formatCurrency(fromMajor(accountBalance)) : '--'}</Text>
             )}
           </div>
         </div>
         <div>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>已录入金额</Text>
-          <div style={{ marginTop: 4 }}><Text strong>{formatCurrency(totalMarketValue)}</Text></div>
+          <div style={{ marginTop: 4 }}><Text strong>{formatCurrency(fromMajor(totalMarketValue))}</Text></div>
         </div>
         <div>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>差额（未分类）</Text>
           <div style={{ marginTop: 4 }}>
             <Text strong style={{ color: difference !== null && difference !== 0 ? token.colorWarning : token.colorSuccess }}>
-              {difference !== null ? formatCurrency(difference) : '-'}
+              {difference !== null ? formatCurrency(fromMajor(difference)) : '-'}
             </Text>
           </div>
         </div>
@@ -460,10 +462,10 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
                           <Text strong>合计</Text>
                         </Table.Summary.Cell>
                         <Table.Summary.Cell index={1}>
-                          <Text strong>{formatCurrency(totalMarketValue)}</Text>
+                          <Text strong>{formatCurrency(fromMajor(totalMarketValue))}</Text>
                         </Table.Summary.Cell>
                         <Table.Summary.Cell index={2}>
-                          <Text strong>{formatCurrency(totalNetFlow)}</Text>
+                          <Text strong>{formatCurrency(fromMajor(totalNetFlow))}</Text>
                         </Table.Summary.Cell>
                         <Table.Summary.Cell index={3}>
                           <Text strong>100%</Text>
@@ -480,17 +482,17 @@ const InvestmentSnapshotModal: React.FC<Props> = ({ visible, onClose, onSuccess,
                   <Space>
                     <Text type="secondary">账户余额：</Text>
                     {balanceLoading ? <Spin size="small" /> : (
-                      <Text strong>{accountBalance !== null ? formatCurrency(accountBalance) : '--'}</Text>
+                      <Text strong>{accountBalance !== null ? formatCurrency(fromMajor(accountBalance)) : '--'}</Text>
                     )}
                   </Space>
                   <Space>
                     <Text type="secondary">已录入：</Text>
-                    <Text strong>{formatCurrency(totalMarketValue)}</Text>
+                    <Text strong>{formatCurrency(fromMajor(totalMarketValue))}</Text>
                   </Space>
                   <Space>
                     <Text type="secondary">差额（未分类）：</Text>
                     <Text strong style={{ color: difference !== null && difference !== 0 ? token.colorWarning : token.colorSuccess }}>
-                      {difference !== null ? formatCurrency(difference) : '-'}
+                      {difference !== null ? formatCurrency(fromMajor(difference)) : '-'}
                     </Text>
                   </Space>
                 </Space>
