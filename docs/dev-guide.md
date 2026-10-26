@@ -72,12 +72,26 @@ if (type === 'transfer') toAmount = amount - fee
 
 ### 3.2 金额
 
-| 场景 | 规则 |
-|---|---|
-| 领域层 | 整数分 `Minor` |
-| Prisma / API | `Decimal` 或 number（元） |
-| 换算 | 只在适配层：`fromMajor` / `toMajor` |
-| 禁止 | 领域层出现 `parseFloat`、`toFixed`、`Decimal` |
+金额的单位是**分**，全链路一套表示（蓝图 A1）。目标形态与当前形态：
+
+| 层 | 目标（A1 完成后） | 现状（A1 未完成） |
+|---|---|---|
+| 存储 | `BigInt`（分） | `Decimal`（元） |
+| 契约 / API / 前端 | `Minor`（分） | `number`（元） |
+| 文件（CSV / 备份） | 元字符串，表头写单位 | 同 |
+
+**迁移期规则**：新代码跟随「现状」列写，不要引入第三种表示；A1 落地时整列切过去。
+
+不管迁移到哪一步都成立：
+
+- **算钱只在领域层**，且只用整数分。`Minor` 是 branded number，把元当分传会编译不过。
+- **元只出现在两个边界**：用户输入框、文件（CSV / 备份）。别在中间层用元。
+- **输入按字符串解析**：`parseYuanToMinor('8.11')` → `811`。不要 `Number(x) * 100`
+  （`8.115 * 100 = 811.4999…`，浮点会在分位上制造 1 分误差）。最多 2 位小数，超出直接报错。
+- **字段名不加单位后缀**：单位由类型保证；**人类读的地方必须写单位**——
+  CSV 表头「金额（元）」、备份 manifest、UI 标签、错误信息。
+- **服务端是信任边界**：外部金额进来先校验「安全整数 + 范围」，不是整数分就 400，别静默取整。
+- **禁止**：领域层出现 `parseFloat`、`toFixed`、`Decimal`；前端用浮点做金额加减。
 
 ### 3.3 日期
 
@@ -180,7 +194,7 @@ if (type === 'transfer') toAmount = amount - fee
 
 ## 8. 数据库
 
-- SQLite，Prisma；金额 `Decimal`，ID `uuid`。
+- SQLite，Prisma；金额表示见 §3.2（迁移中），ID 为 `uuid`。
 - **改 schema 一律走版本化迁移**：`npm run db:migrate`（生成并应用迁移，SQL 提交进仓库）。
   禁止只用 `prisma db push`——没有迁移历史就无法复现、无法回滚。
   - 迁移名必须以时间戳开头：`YYYYMMDDHHMMSS_描述`（版本新旧按字典序比较）。
