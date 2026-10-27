@@ -66,7 +66,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 ### 5.1 记账不变量覆盖
 
-6 条不变量的定义见 [rewrite-blueprint.md](rewrite-blueprint.md) §2；下表是**覆盖情况的唯一来源**。
+不变量的定义见 [rewrite-blueprint.md](rewrite-blueprint.md) §2（内核 1–6 条、同步 7–11 条）；
+下表是**覆盖情况的唯一来源**。
 
 | 不变量 | 覆盖 | 位置 |
 |---|---|---|
@@ -111,6 +112,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 - [ ] 旧数据迁移的 v1 → v2 对账报告。
 - [ ] 清库按范围清空、不误删范围外数据。
 - [ ] `Σ 所有账户余额 == 净资产` 的聚合恒等式断言。
+- [ ] 同步不变量 7–11（重放一致、冲突不静默、密文出端、合并与传输解耦、加密不降级）——
+      随蓝图批次 F/G 落地时补齐。
 
 ## 6. 验证顺序
 
