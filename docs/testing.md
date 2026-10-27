@@ -36,8 +36,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 | 范围 | 文件 | 用例 |
 |---|---|---|
-| 领域 | 3 | 26 |
-| 后端 | 26 | 264 |
+| 领域 | 3 | 31 |
+| 后端 | 26 | 266 |
 | 前端 | 10 | 86 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
 
@@ -88,7 +88,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |
 | 预算用量在周期最后一天计入 | 🔄 实现已用 `periodOf` 半开区间，缺专门断言 | — |
 | `Σ 所有账户余额 == 净资产` | 🔄 单账户余额已测，聚合恒等式未断言 | — |
-| `期末净资产 − 期初净资产 == 净收入 − 净支出` | ⬜ 未覆盖（报表无对账条） | — |
+| `期末净资产 − 期初净资产 == 净收入 − 净支出` | ✅ | `apps/api/tests/unit/income-expense.service.test.ts`（「对账条在数字自洽时差额为 0」） |
 
 ### 5.2 其他回归项
 
@@ -99,19 +99,18 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 ### 5.3 完全没有测试的模块
 
-这些模块决定用户看到的数字或数据安全，目前**一行单测都没有**——是蓝图批次 A5 的第一批对象。
+这些模块决定用户看到的数字或数据安全，目前**一行单测都没有**——是蓝图批次 A0 的对象。
 
 | 模块 | 位置 | 该测什么 |
 |---|---|---|
-| 投资分析 | `apps/api/src/services/report/investment-analysis-*` | 收益分层、外部现金流与本金分离 |
-| 备份与恢复 | `apps/api/src/services/backup.service.ts` | 往返一致、`schemaVersion` 写入 |
 | 清库 | `apps/api/src/services/clear-data.service.ts` | 按范围清空、不误删范围外数据 |
 
 ### 5.4 尚未覆盖（列入计划）
 
 - [ ] 导入中断后的回滚点。
 - [ ] 旧数据迁移的 v1 → v2 对账报告。
-- [ ] 报表对账条：`期初 + 净收入 − 净支出 = 期末`。
+- [ ] 清库按范围清空、不误删范围外数据。
+- [ ] `Σ 所有账户余额 == 净资产` 的聚合恒等式断言。
 
 ## 6. 验证顺序
 

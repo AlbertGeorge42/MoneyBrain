@@ -69,6 +69,11 @@ adjustment  账户 +amount      权益 −amount
 前端通过 `@contracts/*` 别名引用（`tsconfig.json` 与 `vite.config.ts` 都配了），
 后端用相对路径（与 domain 一样，避免开发期额外构建步骤）。
 
+**已收敛的重复实现**：备份类型与显示名原本后端与前端各写一份，且叫法已经漂移
+（后端「配置/预算」、前端「配置信息/预算配置」），现共用 `constants.ts` 同一份。
+日期格式化原本 `common/date.ts` 与领域层 `date.ts` 各有一份逐字相同的实现，
+现由 `common/date.ts` 委托给领域层的 `fromDate`。
+
 ## 3. 后端模块（apps/api/src）
 
 | 位置 | 职责 |
@@ -125,13 +130,23 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 | `AccountCategory` | 账户分类（资产/负债），树形；`isCashEquivalent`、`isInvestment` |
 | `Account` | 账户；`initialBalance` + `initialBalanceDate` 即期初余额 |
 | `TransactionCategory` | 收支分类（收入/支出），树形；`cashFlowType` 决定现金流量表归类 |
-| `Transaction` | 交易；`type` 五选一；`fee`/`coupon` 独立；`importKey` 唯一用于导入幂等；`relatedTransactionId` 关联退款；`excludeFromIncomeExpense` 表示不计收支 |
+| `Transaction` | 交易；`type` 五选一；`fee`/`coupon` 独立；`importKey` 唯一用于导入幂等；`relatedTransactionId` 关联退款；`excludeFromIncomeExpense` 表示不计收支；`ruleVersion` 记录写入时的口径版本 |
 | `Budget` | 预算；账户 + 分类 + 周期 + 额度 |
 | `InvestmentAssetClass` | 投资资产类型与目标比例 |
 | `InvestmentAllocationSnapshot` | 投资快照；`previousSnapshotId` 为派生链，写入后重排 |
 | `InvestmentAllocationItem` | 快照内的持仓市值与期间净流入 |
 
 数据库不存派生值：余额、预算百分比、快照前链、收益率全部按需计算。
+
+**口径版本**：`Transaction.ruleVersion` 是写入这笔交易时的账务口径版本。
+解释历史数字时按交易自己的版本取规则（`rulesFor(version)`），
+因此新增口径版本只影响新写入的交易，旧交易的余额与报表数字不变。
+未知版本直接失败，不回退到当前规则——回退等于悄悄改写历史。
+
+**金额表示**：金额列是 `BigInt`（整数分），契约与前端用 `Minor`（branded number），
+`ledger.adapter.ts` 负责 `BigInt ↔ Minor`。元只出现在用户输入框与文件（CSV / 备份）两个边界。
+
+**CSV 往返**：导出带「口径版本」列；导入读该列，旧 CSV 缺省为当前版本。
 
 ## 6. 错误与请求链路
 
@@ -153,7 +168,7 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 | 债 | 位置 | 后果 |
 |---|---|---|
 | 投资分析仍有一份自己的口径（只统计转账本金） | `services/report/investment-analysis-collect.ts` | 与其它报表口径不同属设计选择，但没有单测兜底 |
-| 决定数字的路径大多没有单测：投资分析、备份、清库 | `apps/api/tests/unit/` | 口径改动没有安全网（预算、收支表、现金流、退款上限、备份版本已有测试） |
+| 清库没有单测 | `services/clear-data.service.ts` | 按范围清空是覆盖导入的前置步骤，清错范围会丢数据，却无安全网 |
 | SQLite 未显式配置 WAL / `busy_timeout`，写操作未串行化 | `src/prisma.ts` | 多标签页并发写可能 "database is locked" |
 
 **对账与自检**：
