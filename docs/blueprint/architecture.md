@@ -68,14 +68,14 @@
 长期的数据模型要补齐的是**恢复能力**、**版本历史**与**可同步性**：
 
 ```text
-ledgers(id, name, created_at)                                          ← 多账本（K3）
+ledgers(id, name, created_at)                                          ← 多账本（阶段 4 · K3）
 transactions(id, ledger_id, type, amount_minor, fee_minor, coupon_minor,
              occurred_on, rule_version, rev, vv, …, deleted_at)
 audit_events(id, entity, entity_id, action, before_json, after_json, at)   ← 支撑撤销与「修改历史」
-tags(id, name), transaction_tags(transaction_id, tag_id)                ← 标签（K2）
-recurring_rules(id, ledger_id, …, next_occurrence)                      ← 周期交易（K1）
-savings_goals(id, ledger_id, target_minor, deadline, …)                 ← 储蓄目标（K4）
-attachments(id, entity, entity_id, blob_ref, …)                         ← 票据图片（K5）
+tags(id, name), transaction_tags(transaction_id, tag_id)                ← 标签（阶段 4 · K2）
+recurring_rules(id, ledger_id, …, next_occurrence)                      ← 周期交易（阶段 4 · K1）
+savings_goals(id, ledger_id, target_minor, deadline, …)                 ← 储蓄目标（阶段 4 · K4）
+attachments(id, entity, entity_id, blob_ref, …)                         ← 票据图片（阶段 4 · K5）
 ```
 
 要点：
@@ -88,8 +88,10 @@ attachments(id, entity, entity_id, blob_ref, …)                         ← �
   并以客户端生成的 UUID 作主键。`vv` 存为 JSON 列即可——个人规模下设备数个位数，
   几十字节换掉「设备时钟可能偏差」这个隐患是划算的。
 - **多账本**：所有业务表带 `ledger_id`，查询默认按当前账本过滤（过滤规则同样集中在 repository 层）。
-- **票据图片不进主库**：只存引用与元数据，图片本体走文件存储（K5），
+- **票据图片不进主库**：只存引用与元数据，图片本体走文件存储（阶段 4 · K5），
   否则 SQLite 会被二进制撑大，备份与同步都会变慢。
+- **同步容器格式与实体集合解耦**（决策 #34 / 批次 F11）：记录自带 `entityType`，
+  合并算法不认识具体实体类型。这样推迟落地的实体（K1–K3）不会变成「推翻容器格式」。
 
 ### 5 分层与依赖方向
 
