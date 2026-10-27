@@ -76,6 +76,8 @@ tags(id, name), transaction_tags(transaction_id, tag_id)                ← 标�
 recurring_rules(id, ledger_id, …, next_occurrence)                      ← 周期交易（阶段 4 · K1）
 savings_goals(id, ledger_id, target_minor, deadline, …)                 ← 储蓄目标（阶段 4 · K4）
 attachments(id, entity, entity_id, blob_ref, …)                         ← 票据图片（阶段 4 · K5）
+sync_conflicts(id, entity_type, entity_id, version_a, version_b,
+               detected_at, resolved_at)                              ← 同步冲突本地表（不进容器、不参与同步）
 ```
 
 要点：
@@ -92,6 +94,9 @@ attachments(id, entity, entity_id, blob_ref, …)                         ← �
   否则 SQLite 会被二进制撑大，备份与同步都会变慢。
 - **同步容器格式与实体集合解耦**（决策 #34 / 批次 F11）：记录自带 `entityType`，
   合并算法不认识具体实体类型。这样推迟落地的实体（K1–K3）不会变成「推翻容器格式」。
+- **冲突落在本地表**：不可比版本写入 `sync_conflicts`（两个版本都留存），用户解决后
+  写一条 `rev = 双方较大值 + 1`、`vv = 双方逐维取最大` 的新记录——它同时支配两个旧版本，
+  冲突不会在另一端复现。存储与收敛规格见 [stage-2-sync.md](stage-2-sync.md)「冲突的存储与收敛」。
 
 ### 5 分层与依赖方向
 
@@ -174,6 +179,6 @@ domain        →  无外部依赖（禁止 react/express/prisma/node:fs）
 |---|---|
 | SQLite 参数 | 开启 WAL；设置 `busy_timeout`（≥5s）；避免读写互斥导致的「database is locked」 |
 | 并发写 | 单进程内写操作串行化（写队列）；前端同一时刻只允许一个写请求在飞 |
-| 性能包络 | 目标规模：10 年 × 每年 500 笔 ≈ 5000 笔交易、50 个账户；全量报表与余额计算 < 200ms，列表查询 < 100ms。**查询的扫描量必须随期间增长，不随总历史增长。** 超出包络时先测量再改结构 |
+| 性能包络 | 目标规模：10 年 × 每年 500 笔 ≈ 5000 笔交易、50 个账户；全量报表与余额计算 < 200ms，列表查询 < 100ms。**列表与报表的扫描量必须随期间增长，不随总历史增长**；余额是明确例外——某日余额 = 期初 + 该日前全部流水，天然 O(历史)，在包络内可接受，禁止为此加余额缓存列。超出包络时先测量再改结构 |
 | 数据自检 | `npm run db:verify`：重算全部余额与报表，用 蓝图入口 §4 的不变量交叉比对，输出差异报告（发现损坏、重复、口径漂移） |
 | 日志分级 | 领域层错误不打 error 级；未知异常打 error 并带堆栈 |

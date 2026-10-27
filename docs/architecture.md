@@ -52,7 +52,7 @@ refund      支出退款 账户 +amount；收入退款 账户 −amount
 adjustment  账户 +amount      权益 −amount
 ```
 
-记账不变量（6 条）及其测试覆盖情况见 [rewrite-blueprint.md](rewrite-blueprint.md) §2 与 [testing.md](testing.md) §5.1。
+记账不变量（6 条）及其测试覆盖情况见 [rewrite-blueprint.md](rewrite-blueprint.md) §4 与 [testing.md](testing.md) §5.1。
 
 > 领域层与后端之间的适配在 `apps/api/src/services/ledger.adapter.ts`（Prisma `BigInt` 分 ↔ 领域类型）。
 

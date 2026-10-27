@@ -66,7 +66,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 ### 5.1 记账不变量覆盖
 
-不变量的定义见 [rewrite-blueprint.md](rewrite-blueprint.md) §2（内核 1–6 条、同步 7–11 条）；
+不变量的定义见 [rewrite-blueprint.md](rewrite-blueprint.md) §4（内核 1–6 条、同步 7–11 条、界面 12 条）；
 下表是**覆盖情况的唯一来源**。
 
 | 不变量 | 覆盖 | 位置 |
@@ -89,7 +89,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |
 | 预算用量在周期最后一天计入 | 🔄 实现已用 `periodOf` 半开区间，缺专门断言 | — |
 | `Σ 所有账户余额 == 净资产` | 🔄 单账户余额已测，聚合恒等式未断言 | — |
-| `期末净资产 − 期初净资产 == 净收入 − 净支出` | ✅ | `apps/api/tests/unit/income-expense.service.test.ts`（「对账条在数字自洽时差额为 0」） |
+| 对账恒等式：`期末净资产 − 期初净资产 == 净收入 − 净支出 + 其他`（其他 = 不计收支 + 手续费 + 平账 − 期初前流水） | ✅ | `apps/api/tests/unit/income-expense.service.test.ts`（「对账条在数字自洽时差额为 0」） |
 
 ### 5.2 其他回归项
 

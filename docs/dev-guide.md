@@ -247,7 +247,9 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
   - 测试库由 `tests/global-setup.ts` 用同一套迁移重建（不是 `db push`）。
 - `npm run db:drill` 跑恢复演练：导出 → 导入临时库 → 用领域层重算两边余额并对比。
   改动导出/导入/余额逻辑后必须跑一次，结果不一致就是备份不可信了。
-- 不持久化余额、预算百分比、快照前链、收益率。
+- 不持久化余额、预算百分比、收益率。投资快照的 `previous_snapshot_id` **继续持久化**——
+  它是写入顺序的产物，不是金额派生值，且同步依赖它做应用后重算（[stage-2-sync.md](blueprint/stage-2-sync.md) 批次 F6）；
+  禁止的是**读取时**绕开快照链、按日期另算一套推导。
 - 交易删除是硬删除；退款通过 `relatedTransactionId` 关联。存在退款的原交易禁止删除，避免孤儿退款。
 - CSV 导入用 `Transaction.importKey` 去重；同一文件或数据库已存在的记录会跳过。
 - 导入支持 `includes` 范围过滤；覆盖模式只清空所选范围。独立配置覆盖若仍有未纳入范围的交易/预算/快照会被拒绝。

@@ -58,6 +58,6 @@
 
 ## 本阶段不做
 
-iOS、共享账本——见 [stage-4](stage-4-expansion.md) 与 [principles.md](principles.md) 的候选功能池。
+iOS、共享账本——见 [stage-4](stage-4-expansion.md) 的批次 J 与候选功能池。
 多语言的**基础设施**已在阶段 1 建好（文案目录 + 查表函数）；手机端复用同一份目录，
 不另建一套。第二种语言的翻译在阶段 4。
