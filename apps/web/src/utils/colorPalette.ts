@@ -49,7 +49,7 @@ export function isAntDPresetColor(value: string | null | undefined): value is An
   return (ANTD_PRESET_COLORS as readonly string[]).includes(value)
 }
 
-export interface ColorTokens {
+interface ColorTokens {
   /** 背景色（实心色块：浅色下深、深色下亮） */
   bg: string
   /** 前景色（图标：浅色下淡、深色下深） */
@@ -63,7 +63,7 @@ export interface ColorTokens {
  * - 深色：bg = palette[1]（深色淡块）+ fg = palette[7]（亮色图标）— 淡色色块风格
  * 两种风格都保持 ≥7:1 高对比，适合 32×32 小图标容器。
  */
-export function getColorTokens(name: string, isDark: boolean): ColorTokens | null {
+function getColorTokens(name: string, isDark: boolean): ColorTokens | null {
   if (!isAntDPresetColor(name)) return null
   const palette = generate(PRESET_SEEDS[name], isDark ? { theme: 'dark' } : { theme: 'default' })
   return isDark
@@ -77,7 +77,7 @@ export function getColorTokens(name: string, isDark: boolean): ColorTokens | nul
  * - 浅色：实心深灰块 + 白色图标（与彩色块视觉一致）
  * - 深色：淡灰底 + 亮色图标（与彩色淡块视觉一致）
  */
-export function getNeutralTokens(isDark: boolean): { bg: string; fg: string } {
+function getNeutralTokens(isDark: boolean): { bg: string; fg: string } {
   return isDark
     ? { bg: 'var(--mb-color-bg-neutral-pale)', fg: 'var(--mb-color-fg-neutral-pale)' }
     : { bg: 'var(--mb-color-bg-neutral-bold)', fg: 'var(--mb-color-fg-neutral-bold)' }

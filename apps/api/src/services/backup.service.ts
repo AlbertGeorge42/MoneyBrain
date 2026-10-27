@@ -5,19 +5,13 @@ import unzipper from 'unzipper'
 import Papa from 'papaparse'
 import { prisma } from '../prisma.js'
 import { ValidationError, rootLogger } from '../common/index.js'
+import { BACKUP_DATA_TYPES, type BackupDataType } from '../../../../packages/contracts/constants.js'
 
 // ─── 备份文件格式常量与类型 ───
 
-export type DataType = 'transactions' | 'config' | 'budgets' | 'snapshots'
+export type DataType = BackupDataType
 
-export const DATA_TYPE_LABELS: Record<DataType, string> = {
-  transactions: '交易记录',
-  config: '配置',
-  budgets: '预算',
-  snapshots: '投资快照',
-}
-
-export const ALL_DATA_TYPES: DataType[] = ['transactions', 'config', 'budgets', 'snapshots']
+export const ALL_DATA_TYPES: DataType[] = [...BACKUP_DATA_TYPES]
 
 export interface BackupFiles {
   manifest?: ManifestData

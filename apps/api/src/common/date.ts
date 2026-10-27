@@ -3,6 +3,8 @@
  * 提供字符串日期与 Date 对象之间的本地时区转换
  */
 
+import { fromDate } from '../../../../packages/domain/src/index.js'
+
 /** 字符串日期 → 当天开始 Date (T00:00:00) */
 export function dayStart(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00`)
@@ -21,10 +23,11 @@ export function nextDay(dateStr: string): Date {
   return new Date(year, month - 1, day + 1)
 }
 
-/** Date → 'YYYY-MM-DD' 本地格式字符串 */
+/** Date → 'YYYY-MM-DD' 本地格式字符串
+ *
+ * 实际转换委托给领域层的 `fromDate`——日期格式化只有一份实现，
+ * 后端自己再写一遍会随两边演化悄悄漂移。
+ */
 export function formatDateLocal(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return fromDate(date)
 }

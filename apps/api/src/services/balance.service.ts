@@ -123,22 +123,3 @@ export async function calculateBalancesBatch(
 
   return new BalanceCache(result)
 }
-
-export async function getOrCreateAdjustmentCategory(type: 'income' | 'expense'): Promise<string> {
-  const existing = await prisma.transactionCategory.findFirst({
-    where: { name: '平账调整', type },
-  })
-
-  if (!existing) {
-    const category = await prisma.transactionCategory.create({
-      data: {
-        name: '平账调整',
-        type,
-        icon: '⚙️',
-      },
-    })
-    return category.id
-  }
-
-  return existing.id
-}

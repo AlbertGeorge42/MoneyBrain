@@ -248,6 +248,26 @@ domain    →  无外部依赖（禁止 react/express/prisma/node:fs）
 - **顺带收口**：`scripts/db-verify.mts` 与 `scripts/restore-drill.mts` 原本各自写了一份
   退款冲减与手续费口径，现已改为调用领域层规则，不再是第二份实现。
 
+### D8 落地记录（已完成 · 仓库清理）
+
+- **删一次性脚本**：`apps/api/prisma/fix-duplicate-categories.ts`（修历史重复分类）全树 grep 无引用，已删。
+- **删冗余依赖**：`dnd-kit-sortable-tree` 全树 grep 无引用，已从 `apps/web/package.json` 与 lock 文件移除。
+  `@dnd-kit/core` / `sortable` / `modifiers` / `utilities` 仍在用，保留。
+- **删 A1 遗留死代码**：`balance.service.ts` 的 `getOrCreateAdjustmentCategory` 零调用方——
+  A1 后 `adjustment` 已由 `type` 字段区分（见 `account.service.ts` 的「isAdjustment 已删除」注释），函数已删。
+- **合并重复口径**：
+  - 备份类型与显示名收敛到 `packages/contracts/constants.ts` 的
+    `BACKUP_DATA_TYPES` / `BACKUP_DATA_TYPE_LABELS` / `IMPORT_ENTRY_LABELS`；
+    后端 `backup.service.ts` 与前端 `DataBackupSection.tsx` 共用同一份，
+    不再各写一份标签（原先后端叫「配置/预算」、前端叫「配置信息/预算配置」，已经漂移）。
+  - `apps/api/src/common/date.ts` 的 `formatDateLocal` 与领域层 `fromDate` 实现完全相同，
+    改为委托给 `fromDate`，日期格式化只留一份实现。
+- **清死导出**：`timePicker.ts` 的 `toMonthParam` / `createCurrentQuarterRange`、
+  `colorPalette.ts` 的 `getColorTokens` / `getNeutralTokens` / `ColorTokens`
+  零外部引用，或降级为文件私有。
+- **验证**：typecheck 0 错误 · lint 0 错误 · domain 31 · api unit 253 · api integration 13 ·
+  web 86 全通过 · `db:verify` 通过（3218 笔交易净资产对得上）· `npm run build` 通过。
+
 ### 批次 B · 数据安全与可恢复（信任）
 
 | # | 现状 | 目标 | 验收 |
@@ -275,7 +295,7 @@ domain    →  无外部依赖（禁止 react/express/prisma/node:fs）
 | D5 | 桶导出（`components/settings/shared.tsx` 等） | 删除 | ESLint `react-refresh` 警告归零 |
 | D6 | SQLite 未显式配置 WAL / busy_timeout；多标签页可能写冲突 | WAL + busy_timeout + 写串行化 | 两个标签页同时写不报「database is locked」 |
 | D7 | 查询量随总历史增长（首页分类、报表全量加载） | 所有列表/统计查询的扫描量随期间增长，不随总历史增长 | 首页与报表的扫描行数与期间成正比（用 `EXPLAIN QUERY PLAN` 确认走索引） |
-| D8 | 一次性修复脚本与无用依赖留在仓库 | 删掉无调用方的 `prisma/fix-duplicate-categories.ts` 与未被任何文件引用的 `dnd-kit-sortable-tree` | 全树 grep 无引用；依赖清单无冗余 |
+| D8 | 一次性修复脚本与无用依赖留在仓库 ✅ 已完成 | 删掉无调用方的 `prisma/fix-duplicate-categories.ts` 与未被任何文件引用的 `dnd-kit-sortable-tree` | 全树 grep 无引用；依赖清单无冗余 |
 | D9 | `report.utils.ts` 341 行、15 个导出混着期间/预测/求和/标记 | 拆成 `period.ts` / `prediction.ts` / `cash-flag.ts` / `account-sum.ts` | 单文件职责单一 |
 
 ### 批次 E · 体验（最后做）
@@ -301,10 +321,11 @@ domain    →  无外部依赖（禁止 react/express/prisma/node:fs）
 |---|---|---|
 | — | 安全网、A0、A1 已完成 | 见 §4 A1 落地记录 |
 | 3 | A2（口径版本）✅ 已完成 | 交易带 `rule_version`，改口径不影响历史 |
+| — | D8（仓库清理）✅ 已完成 | 见 §4 D8 落地记录 |
 | 4 | B1–B3（导入回滚点与预览、软删除与审计撤销、自动定时备份） | 覆盖导入可回退；删除可撤销且有修改历史 |
 | 5 | C1–C3（全局期间、预算下钻同源、真实百分比） | 报表期间统一；下钻与用量恒等 |
 | 6 | A3（属性测试） | 6 条不变量在随机序列上恒成立 |
-| 7 | D1–D9（结构、边界与规模） | service 不碰 prisma；并发写无冲突；查询量只随期间增长 |
+| 7 | D1–D7、D9（结构、边界与规模） | service 不碰 prisma；并发写无冲突；查询量只随期间增长 |
 | 8 | E1–E6（体验） | 每条独立可验收 |
 
 每个切片结束都要能回答：**这笔钱在 5 个视图里是否一致？**

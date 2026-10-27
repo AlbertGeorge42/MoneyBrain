@@ -147,8 +147,6 @@ export const formatRangeValue = (value: RangeTimeValue): string => {
   return `${value.start.format('YYYY年')} ~ ${value.end.format('YYYY年')}`
 }
 
-export const toMonthParam = (value: PointTimeValue): string => value.value.format('YYYY-MM')
-
 export const toDateParam = (value: PointTimeValue): string => {
   if (value.granularity === 'day') {
     return value.value.format('YYYY-MM-DD')
@@ -239,8 +237,6 @@ const getQuarterStart = (value: Dayjs): Dayjs => {
   return value.month(quarterStartMonth).startOf('month')
 }
 
-const getQuarterEnd = (value: Dayjs): Dayjs => getQuarterStart(value).add(2, 'month').endOf('month')
-
 export const createQuarterRangePreset = (key: string, label: string, offset = 0): TimePreset<RangeTimeValue> => ({
   key,
   label,
@@ -255,9 +251,6 @@ export const createYearToDatePreset = (key: string, label: string): TimePreset<R
   label,
   getValue: (reference) => createRangeValue('day', reference.startOf('year'), reference.endOf('day')),
 })
-
-export const createCurrentQuarterRange = (reference: Dayjs): RangeTimeValue =>
-  createRangeValue('month', getQuarterStart(reference), getQuarterEnd(reference))
 
 export function getRangeTimeSemantics(start: Dayjs, end: Dayjs): { isPast: boolean; isFuture: boolean; isMixed: boolean } {
   const today = dayjs().startOf('day')

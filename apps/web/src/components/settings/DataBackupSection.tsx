@@ -20,16 +20,10 @@ import { useNotify } from '../../hooks/useNotify'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { downloadBlob, todayFilename } from '../../utils/download'
 import { STORAGE_KEYS } from '../../utils/storageKeys'
+import { BACKUP_DATA_TYPES, BACKUP_DATA_TYPE_LABELS, IMPORT_ENTRY_LABELS, type BackupDataType } from '@contracts/constants'
 import dayjs from 'dayjs'
 
-const allIncludes = ['transactions', 'config', 'budgets', 'snapshots'] as const
-
-const includeLabels: Record<string, string> = {
-  transactions: '交易记录',
-  config: '配置信息',
-  budgets: '预算配置',
-  snapshots: '投资快照',
-}
+const allIncludes = BACKUP_DATA_TYPES
 
 /** 共用的 Tag 列表组件，导出和导入复用 */
 const IncludeTags: React.FC<{
@@ -41,7 +35,7 @@ const IncludeTags: React.FC<{
     <span className="backup-tags__label">包含：</span>
     {includes.map((key) => (
       <Tag variant="outlined" key={key} closable onClose={() => onRemove(key)}>
-        {includeLabels[key]}
+        {BACKUP_DATA_TYPE_LABELS[key as BackupDataType] ?? key}
       </Tag>
     ))}
     {includes.length < allIncludes.length && (
@@ -182,7 +176,7 @@ const DataBackupSection: React.FC = () => {
       return
     }
 
-    const scope = importIncludes.map((key) => includeLabels[key] ?? key).join('、')
+    const scope = importIncludes.map((key) => BACKUP_DATA_TYPE_LABELS[key as BackupDataType] ?? key).join('、')
     modal.confirm({
       title: '确认覆盖导入？',
       content: `将先清空“${scope}”范围内的现有数据，再导入文件内容。此操作不可撤销，建议先导出一份备份。`,
@@ -198,14 +192,7 @@ const DataBackupSection: React.FC = () => {
   const renderImportResult = (result: ImportFullResult | null) => {
     if (!result) return null
 
-    const labels: Record<string, string> = {
-      transactions: '交易记录',
-      accountCategories: '账户分类',
-      accounts: '账户',
-      transactionCategories: '收支分类',
-      budgets: '预算',
-      investmentSnapshots: '投资快照',
-    }
+    const labels: Record<string, string> = IMPORT_ENTRY_LABELS
     const rows: string[] = [
       ...Object.entries(result.imported)
         .filter(([, count]) => count > 0)

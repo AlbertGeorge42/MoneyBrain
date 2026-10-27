@@ -56,6 +56,19 @@ adjustment  账户 +amount      权益 −amount
 
 > 领域层与后端之间的适配在 `apps/api/src/services/ledger.adapter.ts`（Prisma `BigInt` 分 ↔ 领域类型）。
 
+## 2.5 共享契约层（packages/contracts）
+
+前后端都要用、且**必须一致**的东西放这里。任何一方各写一份的常量都会随两边演化悄悄漂移。
+
+| 位置 | 职责 |
+|---|---|
+| `types/index.ts` | 共享 DTO 类型（报表结构、实体、导入导出结果） |
+| `constants.ts` | 跨端字面量：`CLEAR_CONFIRM`（破坏性操作的确认值）、`BACKUP_DATA_TYPES` / `BACKUP_DATA_TYPE_LABELS` / `IMPORT_ENTRY_LABELS`（备份类型与显示名） |
+| `utils/tree.ts` | 分类树构建（后端 `common/tree.ts` 转出，前端共用） |
+
+前端通过 `@contracts/*` 别名引用（`tsconfig.json` 与 `vite.config.ts` 都配了），
+后端用相对路径（与 domain 一样，避免开发期额外构建步骤）。
+
 ## 3. 后端模块（apps/api/src）
 
 | 位置 | 职责 |

@@ -55,6 +55,8 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 | 收支净额与分类汇总 | `ledger/summary.ts` 的 `summarizeFlows` / `flowByCategory` |
 | 退款可退余额 | 同上的 `remainingRefundable` |
 | 预算的账户/分类/冲减口径 | `ledger/rules.vN.ts` 的 `scopeQuery` / `matchesBudgetScope` |
+| 日期格式化（Date → `YYYY-MM-DD`） | `ledger` 之外的 `packages/domain/src/date.ts` 的 `fromDate`（`common/date.ts` 的 `formatDateLocal` 委托给它） |
+| 前后端共用的字面量（确认值、备份类型名） | `packages/contracts/constants.ts` |
 
 **统计类接口怎么写**：用 `groupBy` 在 SQL 里按「类型 × 退款原类型 × 不计收支 × 口径版本」
 聚合，再把聚合行交给 `summarizeAggregatedFlows` 按各自版本解释。
@@ -62,6 +64,9 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 
 **`ledger/rules.ts` 是口径的唯一来源**：它同时被领域层的纯函数和后端的 SQL 条件消费，
 所以「统计哪些类型」「退款冲减哪一侧」不会各写一份。
+
+**前后端共用的常量放 `packages/contracts/constants.ts`**：像备份类型与显示名这种
+两边都要用的字面量，各自写一份必然漂移（曾经后端叫「配置/预算」、前端叫「配置信息/预算配置」）。
 
 **口径带版本（蓝图 A2 已完成）**：
 
