@@ -1,4 +1,4 @@
-import { minor, transferOutflow, type Minor } from '../../../../../packages/domain/src/index.js'
+import { CURRENT_RULE_VERSION, minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import { buildChildrenMap } from '../../common/tree.js'
 import { getCashFlags } from './report.utils.js'
 import {
@@ -211,6 +211,7 @@ export function buildSankey(args: {
     amount: Minor,
     fee: Minor,
     coupon: Minor,
+    ruleVersion: number,
     categoryName: string | undefined,
     accountName: string | undefined,
     toAccountName: string | undefined,
@@ -256,7 +257,7 @@ export function buildSankey(args: {
         const accName = toAccountName || '非现金账户'
         const fromCashName = accountName
         const toName = `${catName}-${accName}`
-        const actualOutflow = minor(Math.abs(transferOutflow(amount, fee, coupon)))
+        const actualOutflow = minor(Math.abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon)))
         addToMap(nonCashTargetNodes_, toName, actualOutflow)
         addToMap(cashAccountFlows_, fromCashName, actualOutflow)
         if (!cashToTargetLinks_.has(fromCashName)) cashToTargetLinks_.set(fromCashName, new Map())
@@ -282,6 +283,7 @@ export function buildSankey(args: {
       minor(Number(t.amount)),
       minor(Number(t.fee ?? 0)),
       minor(Number(t.coupon ?? 0)),
+      t.ruleVersion,
       t.category?.name || '未分类',
       t.account?.name,
       t.toAccount?.name,
@@ -305,6 +307,7 @@ export function buildSankey(args: {
       minor(p.amount),
       minor(0),
       minor(0),
+      CURRENT_RULE_VERSION,
       category?.name,
       account?.name,
       toAccount?.name,

@@ -61,6 +61,8 @@ export interface AccountInfo {
 // 统一后的交易项：actual + predicted 共用同一处理路径
 export interface ProcessedTx {
   isPredicted: boolean
+  /** 写入时的账务口径版本；聚合时按它解释转账手续费与退款方向。 */
+  ruleVersion: number
   type: string
   /** 退款指向的原交易类型（'income' / 'expense'），决定退款的资金方向 */
   relatedType: string | null

@@ -14,6 +14,8 @@ export type TransactionKind = 'income' | 'expense' | 'transfer' | 'refund' | 'ad
  */
 export interface LedgerTransaction {
   id: string
+  /** 写入这笔交易时使用的账务口径版本；解释历史时按它取规则。 */
+  ruleVersion: number
   kind: TransactionKind
   date: LocalDate
   amount: Minor

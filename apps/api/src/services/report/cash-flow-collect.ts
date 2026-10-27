@@ -1,4 +1,4 @@
-import { minor } from '../../../../../packages/domain/src/index.js'
+import { CURRENT_RULE_VERSION, minor } from '../../../../../packages/domain/src/index.js'
 import { getCashFlags } from './report.utils.js'
 import {
   AccountInfo,
@@ -30,6 +30,7 @@ export function collectTransactions(args: {
     const { isFromCash, isToCash } = getCashFlags(t.accountId, t.toAccountId, cashAccountIds)
     actualItems.push({
       isPredicted: false,
+      ruleVersion: t.ruleVersion,
       type: t.type,
       relatedType: t.relatedType,
       amount: minor(Number(t.amount)),
@@ -67,6 +68,7 @@ export function collectTransactions(args: {
 
     predictedItems.push({
       isPredicted: true,
+      ruleVersion: CURRENT_RULE_VERSION,
       type: p.type,
       relatedType: null,
       amount: minor(p.amount),

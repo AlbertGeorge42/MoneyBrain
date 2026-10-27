@@ -1,4 +1,4 @@
-import { minor, refundOffsetKind, transferOutflow, type Minor } from '../../../../../packages/domain/src/index.js'
+import { minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import { AggregatedFlows, CashFlowActivityMinor, ProcessedTx } from './cash-flow-types.js'
 
 // 查找或新增 activity item：相同 categoryName + direction 累加金额，否则新增
@@ -68,11 +68,12 @@ function addTransferFlow(
   fee: Minor,
   coupon: Minor,
   isOutflow: boolean,
+  ruleVersion: number,
   icon?: string | null,
   color?: string | null,
 ) {
   if (isOutflow) {
-    const actualOutflow = minor(Math.abs(transferOutflow(amount, fee, coupon)))
+    const actualOutflow = minor(Math.abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon)))
     // 符号约定：outflow 累加为负
     activity.outflow = minor(activity.outflow - actualOutflow)
     const categoryName = fromName || '转账转出'
@@ -123,6 +124,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
 
   for (const it of items) {
     const target = getTargetByType(it.cashFlowType)
+    const rules = rulesFor(it.ruleVersion)
 
     if (it.type === 'income' && it.isFromCash) {
       addTransaction(
@@ -145,10 +147,10 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         const fromName = it.categoryName || (it.isPredicted ? '转账转出' : '未分类')
         addTransferFlow(
           target, fromName, '', it.categoryId, it.parentId, it.level,
-          it.amount, it.fee, it.coupon, true, it.icon, it.color,
+          it.amount, it.fee, it.coupon, true, it.ruleVersion, it.icon, it.color,
         )
         const accountFlow = getOrCreateAccountFlow(it.accountName)
-        const actualOutflow = minor(Math.abs(transferOutflow(it.amount, it.fee, it.coupon)))
+        const actualOutflow = minor(Math.abs(rules.transferOutflow(it.amount, it.fee, it.coupon)))
         // 符号约定：outflow 累加为负
         accountFlow.outflow = minor(accountFlow.outflow - actualOutflow)
       } else if (!it.isFromCash && it.isToCash && it.toAccountName) {
@@ -156,7 +158,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         const toName = it.categoryName || (it.isPredicted ? '转账转入' : '未分类')
         addTransferFlow(
           target, '', toName, it.categoryId, it.parentId, it.level,
-          it.amount, it.fee, it.coupon, false, it.icon, it.color,
+          it.amount, it.fee, it.coupon, false, it.ruleVersion, it.icon, it.color,
         )
         const accountFlow = getOrCreateAccountFlow(it.toAccountName)
         const actualInflow = it.amount
@@ -165,7 +167,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
     } else if (it.type === 'refund' && it.isFromCash) {
       // 退款方向由原交易类型决定（领域层规则）：
       // 收入退款 = 钱流出账户 → 现金流为流出；支出退款 = 钱流回账户 → 流入。
-      const offset = refundOffsetKind(it.relatedType)
+      const offset = rules.refundOffsetKind(it.relatedType)
       if (offset === null) continue
 
       const direction = offset === 'income' ? 'outflow' : 'inflow'

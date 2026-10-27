@@ -5,10 +5,9 @@ import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import {
   fromDate,
-  matchesBudgetScope,
   minor,
   periodOf,
-  scopeQuery,
+  rulesFor,
   type BudgetScope,
   type LocalDate,
   type Minor,
@@ -238,30 +237,31 @@ type UsageRow = {
   categoryId: string | null
   type: string
   relatedType: string | null
+  excludeFromIncomeExpense: boolean
+  /** 写入时的口径版本：每条聚合行按自己的版本解释。 */
+  ruleVersion: number
   amount: Minor
 }
 
 /**
  * 一次性聚合出该期间内、相关账户与分类下的用量。
- * 按「账户 × 转入账户 × 分类 × 类型 × 退款原类型」分组，
+ * 按「账户 × 转入账户 × 分类 × 类型 × 退款原类型 × 口径版本 × 不计收支」分组，
  * 返回行数与分类数量相关，与交易笔数无关。
  *
- * 「统计哪些类型」由领域层规则给出（scopeQuery），这里只负责翻译成 SQL。
+ * 统计哪些类型、账户与分类如何匹配，全部由各交易自己版本的口径规则判定；
+ * 这里不在 SQL 里预筛，避免用当前规则误伤旧交易。
  */
 async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
   const first = group[0]
   const accountIds = [...new Set(group.map((plan) => plan.budget.accountId))]
   const categoryIds = [...new Set(group.flatMap((plan) => plan.categoryIds))]
-  const countedTypes = [...new Set(group.map((plan) => scopeQuery(plan.scope).type))]
 
   const grouped = await prisma.transaction.groupBy({
-    by: ['accountId', 'toAccountId', 'categoryId', 'type', 'relatedType'],
+    by: ['accountId', 'toAccountId', 'categoryId', 'type', 'relatedType', 'excludeFromIncomeExpense', 'ruleVersion'],
     where: {
       date: { gte: first.dateRange.startDate, lt: first.dateRange.endDate },
       accountId: { in: accountIds },
       categoryId: { in: categoryIds },
-      excludeFromIncomeExpense: false,
-      type: { in: [...countedTypes, 'refund'] },
     },
     _sum: { amount: true },
   })
@@ -272,6 +272,8 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
     categoryId: row.categoryId,
     type: row.type,
     relatedType: row.relatedType,
+    excludeFromIncomeExpense: row.excludeFromIncomeExpense,
+    ruleVersion: row.ruleVersion,
     amount: minor(Number(row._sum.amount ?? 0)),
   }))
 }
@@ -279,19 +281,21 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
 /** 按预算口径从聚合行里算出已用、剩余与百分比。 */
 function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusResult {
   const { budget, scope } = plan
-  const query = scopeQuery(scope)
 
   let used = minor(0)
 
   for (const row of rows) {
-    // 账户与分类口径由领域层规则判定（与 SQL 侧同一份规则）
-    const inScope = matchesBudgetScope(
+    const rules = rulesFor(row.ruleVersion)
+    const query = rules.scopeQuery(scope)
+
+    // 账户、分类与「不计收支」口径由领域层规则判定（与 SQL 侧同一份规则）
+    const inScope = rules.matchesBudgetScope(
       {
         kind: row.type,
         accountId: row.accountId,
         toAccountId: row.toAccountId,
         categoryId: row.categoryId,
-        excludeFromIncomeExpense: false,
+        excludeFromIncomeExpense: row.excludeFromIncomeExpense,
       },
       scope,
     )

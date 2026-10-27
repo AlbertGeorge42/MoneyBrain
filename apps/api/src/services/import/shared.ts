@@ -144,6 +144,8 @@ export interface ParsedRow {
   coupon: Minor
   relatedCsvId: string
   excludeFromIncomeExpense?: boolean // 账单标记为「不计收支」时导出为 true
+  /** 写入时的账务口径版本；旧 CSV 没有该列时按当前版本。 */
+  ruleVersion: number
 }
 
 // ─── Config 导入类型 ───

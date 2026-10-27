@@ -123,6 +123,7 @@ export type TransactionType = 'expense' | 'income' | 'transfer' | 'refund' | 'ad
 export interface Transaction {
   id: string
   type: TransactionType
+  ruleVersion: number
   amount: Minor
   fee: Minor
   coupon: Minor

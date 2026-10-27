@@ -227,6 +227,27 @@ domain    →  无外部依赖（禁止 react/express/prisma/node:fs）
 - **文件**：CSV / 备份仍是元，导出 `formatAmount`，导入 `parseAmount`。
 - **对账**：`scripts/a1-reconcile.mts` 迁移前后指纹一致；`db:verify`、`db:drill` 通过。
 
+### A2 落地记录（已完成）
+
+- **存储**：交易新增 `ruleVersion`（`INTEGER NOT NULL DEFAULT 1`）；迁移 `20261027000000_add_rule_version` 只加列。
+  旧交易按 v1 解释，之后改口径只影响新写入的交易。
+- **规则层**：`ledger/rules.v1.ts` 冻结 v1 行为；`ledger/rules.ts` 持有版本注册表，
+  `registerRuleSet` 登记新版本，**已登记版本不允许覆盖**（覆盖等于悄悄改写历史）。
+  `rulesFor(version)` 对未知版本直接抛错，不回退到当前规则。
+- **消费点**：领域层的 `postingsOf` / `summarizeFlows` / `flowByCategory` 与后端的
+  预算聚合、收支统计、现金流量表都按每笔交易自己的版本取规则。
+- **聚合仍留在 SQL**：统计类接口用 `groupBy` 按「类型 × 退款原类型 × 不计收支 × 口径版本」
+  聚合，再交给领域层 `summarizeAggregatedFlows` 按各自版本解释——
+  既不把整表读进内存（扫描量随期间增长），也不会让当前规则误伤旧交易。
+  领域层测试「聚合行汇总与明细汇总结果一致」保证两条路径数字相同。
+- **写入点**：新建交易写 `CURRENT_RULE_VERSION`；CSV 导入读「口径版本」列，
+  旧 CSV 无该列时按当前版本，未登记的版本让该行被跳过。
+- **边界**：CSV 导出带「口径版本」列；`packages/contracts` 的 `Transaction` 增加 `ruleVersion`。
+- **验收**：领域层测试「新增口径版本后，旧交易的余额与报表数字保持不变」直接证明——
+  登记一个刻意不同的新版本后，旧交易的收支、余额与净资产一分不差，新版本只影响新交易。
+- **顺带收口**：`scripts/db-verify.mts` 与 `scripts/restore-drill.mts` 原本各自写了一份
+  退款冲减与手续费口径，现已改为调用领域层规则，不再是第二份实现。
+
 ### 批次 B · 数据安全与可恢复（信任）
 
 | # | 现状 | 目标 | 验收 |
@@ -279,7 +300,7 @@ domain    →  无外部依赖（禁止 react/express/prisma/node:fs）
 | 切片 | 内容 | 出口条件 |
 |---|---|---|
 | — | 安全网、A0、A1 已完成 | 见 §4 A1 落地记录 |
-| 3 | A2（口径版本） | 交易带 `rule_version`，改口径不影响历史 |
+| 3 | A2（口径版本）✅ 已完成 | 交易带 `rule_version`，改口径不影响历史 |
 | 4 | B1–B3（导入回滚点与预览、软删除与审计撤销、自动定时备份） | 覆盖导入可回退；删除可撤销且有修改历史 |
 | 5 | C1–C3（全局期间、预算下钻同源、真实百分比） | 报表期间统一；下钻与用量恒等 |
 | 6 | A3（属性测试） | 6 条不变量在随机序列上恒成立 |

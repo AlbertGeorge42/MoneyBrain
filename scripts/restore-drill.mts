@@ -65,6 +65,8 @@ async function computeTotals(db: PrismaClient): Promise<Totals> {
   const ledger: LedgerTransaction[] = transactions.map((t) => ({
     id: t.id,
     kind: t.type as LedgerTransaction['kind'],
+    // 写入时的账务口径版本：历史数字按当时的规则解释
+    ruleVersion: t.ruleVersion,
     date: toLocalDate(t.date),
     amount: toMinor(t.amount),
     fee: toMinor(t.fee),

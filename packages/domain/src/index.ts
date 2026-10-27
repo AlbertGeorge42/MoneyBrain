@@ -55,18 +55,18 @@ export {
   type TransactionKind,
 } from './ledger/types.js'
 
-export { accountDelta, balanceAt, balanceBefore, effectiveTransferFee, postingsOf, transferOutflow } from './ledger/postings.js'
+export { accountDelta, balanceAt, balanceBefore, postingsOf } from './ledger/postings.js'
 
 export {
-  COUNTABLE_KINDS,
-  isCountable,
-  matchesBudgetScope,
-  refundOffsetKind,
-  refundQueryFor,
-  scopeQuery,
+  CURRENT_RULE_VERSION,
+  registerRuleSet,
+  rulesFor,
   type BudgetKind,
   type BudgetScope,
+  type BudgetTransaction,
+  type CountableTransaction,
   type FlowKind,
+  type RuleSet,
   type ScopeQuery,
 } from './ledger/rules.js'
 
@@ -74,7 +74,9 @@ export {
   UNCATEGORIZED_CATEGORY_ID,
   flowByCategory,
   remainingRefundable,
+  summarizeAggregatedFlows,
   summarizeFlows,
+  type AggregatedFlowRow,
   type FlowSummary,
   type FlowSummaryOptions,
 } from './ledger/summary.js'

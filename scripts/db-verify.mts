@@ -12,8 +12,16 @@
  *   npm run db:verify -- 2026-01 # 检查指定月份（YYYY-MM）
  */
 import { PrismaClient } from '@prisma/client'
-import { balanceBefore, minor, postingsOf, remainingRefundable } from '../packages/domain/src/index.js'
-import type { LedgerTransaction, Minor } from '../packages/domain/src/index.js'
+import {
+  balanceBefore,
+  minor,
+  postingsOf,
+  remainingRefundable,
+  rulesFor,
+  summarizeFlows,
+  type LedgerTransaction,
+  type Minor,
+} from '../packages/domain/src/index.js'
 
 const toLocalDate = (value: Date): string => {
   const y = value.getFullYear()
@@ -28,6 +36,8 @@ const toMinor = (value: bigint | number | null | undefined): Minor => minor(Numb
 const toLedger = (t: Record<string, unknown>): LedgerTransaction => ({
   id: t.id as string,
   kind: t.type as LedgerTransaction['kind'],
+  // 写入时的账务口径版本：历史数字按当时的规则解释
+  ruleVersion: (t.ruleVersion ?? 1) as number,
   date: toLocalDate(t.date as Date),
   amount: toMinor(t.amount as { toNumber(): number }),
   fee: toMinor((t.fee ?? 0) as { toNumber(): number }),
@@ -112,15 +122,14 @@ async function main() {
     const flowOf = (predicate: (t: LedgerTransaction) => boolean) =>
       inPeriod.filter(predicate).reduce((total, t) => total + t.amount, 0)
 
-    const netIncome = flowOf((t) => t.kind === 'income' && !t.excludeFromIncomeExpense)
-    const incomeRefunds = flowOf(
-      (t) => t.kind === 'refund' && t.relatedType === 'income' && !t.excludeFromIncomeExpense,
-    )
-    const netExpense = flowOf((t) => t.kind === 'expense' && !t.excludeFromIncomeExpense)
-    const expenseRefunds = flowOf(
-      (t) => t.kind === 'refund' && t.relatedType === 'expense' && !t.excludeFromIncomeExpense,
-    )
-    const flow = netIncome - incomeRefunds - (netExpense - expenseRefunds)
+    // 收支口径走领域层：退款冲减哪一侧、哪些交易计入，都由规则版本决定，
+    // 这里不自己重推一份（否则就成了第二份口径实现）。
+    const summary = summarizeFlows(inPeriod)
+    const netIncome = summary.income
+    const incomeRefunds = summary.incomeRefunds
+    const netExpense = summary.expense
+    const expenseRefunds = summary.expenseRefunds
+    const flow = summary.balance
 
     // 不进收支统计但改变余额的部分
     const excludedNet = inPeriod
@@ -128,7 +137,7 @@ async function main() {
       .reduce((total, t) => total + balanceEffect(t), 0)
     const transferFee = inPeriod
       .filter((t) => t.kind === 'transfer')
-      .reduce((total, t) => total + Math.max(t.fee - t.coupon, 0), 0)
+      .reduce((total, t) => total + rulesFor(t.ruleVersion).effectiveTransferFee(t.fee, t.coupon), 0)
     const adjustmentNet = inPeriod
       .filter((t) => t.kind === 'adjustment')
       .reduce((total, t) => total + balanceEffect(t), 0)
@@ -146,8 +155,10 @@ async function main() {
       .reduce((total, t) => {
         if (t.kind === 'income') return total + t.amount
         if (t.kind === 'expense') return total - t.amount
-        if (t.kind === 'refund' && t.relatedType === 'income') return total - t.amount
-        if (t.kind === 'refund' && t.relatedType === 'expense') return total + t.amount
+        // 退款冲减哪一侧同样走规则版本
+        const offset = rulesFor(t.ruleVersion).refundOffsetKind(t.relatedType)
+        if (offset === 'income') return total - t.amount
+        if (offset === 'expense') return total + t.amount
         return total
       }, 0)
 
@@ -176,7 +187,7 @@ async function main() {
     // 3. 转账：Δ转出 + Δ转入 == −手续费
     for (const t of ledger) {
       if (t.kind !== 'transfer' || !t.toAccountId) continue
-      const fee = Math.max(t.fee - t.coupon, 0)
+      const fee = rulesFor(t.ruleVersion).effectiveTransferFee(t.fee, t.coupon)
       const outflow = -t.amount - fee
       const inflow = t.amount
       if (outflow + inflow !== -fee) {

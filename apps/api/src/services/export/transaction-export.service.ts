@@ -42,7 +42,7 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
   })
 
   const csvRows: string[] = []
-  csvRows.push('ID,时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券,记账者,账单标记,标签,账单图片,关联账单')
+  csvRows.push('ID,时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券,记账者,账单标记,标签,账单图片,关联账单,口径版本')
 
   for (const t of transactions) {
     const id = idMap[t.id]
@@ -97,6 +97,7 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
         escapeCsvField(tags),
         escapeCsvField(images),
         escapeCsvField(relatedBill),
+        escapeCsvField(String(t.ruleVersion)),
       ].join(',')
     )
   }

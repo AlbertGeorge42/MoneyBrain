@@ -18,6 +18,7 @@ vi.mock('../../src/prisma.js', () => {
 
 import { prisma } from '../../src/prisma.js'
 import { calculateBalancesBatch } from '../../src/services/balance.service.js'
+import { CURRENT_RULE_VERSION } from '../../../../packages/domain/src/index.js'
 
 type MockPrisma = {
   account: { findMany: ReturnType<typeof vi.fn> }
@@ -40,6 +41,7 @@ function transaction(overrides: Record<string, unknown>) {
   return {
     id: 't',
     type: 'expense',
+    ruleVersion: CURRENT_RULE_VERSION,
     amount: new Decimal(0),
     fee: new Decimal(0),
     coupon: new Decimal(0),

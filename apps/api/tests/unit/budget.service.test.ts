@@ -21,6 +21,7 @@ vi.mock('../../src/prisma.js', () => {
 
 import { getBudgetStatusesByIds } from '../../src/services/budget.service.js'
 import { prisma } from '../../src/prisma.js'
+import { CURRENT_RULE_VERSION } from '../../../../packages/domain/src/index.js'
 
 const mockPrisma = prisma as any
 
@@ -52,6 +53,8 @@ const usageRow = (overrides: Record<string, unknown> = {}) => ({
   categoryId: 'food',
   type: 'expense',
   relatedType: null,
+  excludeFromIncomeExpense: false,
+  ruleVersion: CURRENT_RULE_VERSION,
   _sum: { amount: new Decimal(50) },
   ...overrides,
 })

@@ -3,7 +3,7 @@
 import crypto from 'crypto'
 import { prisma } from '../../prisma.js'
 import { clearTransactionsForImport } from '../clear-data.service.js'
-import { formatAmount, fromDate, minor, parseAmount, type Minor } from '../../../../../packages/domain/src/index.js'
+import { formatAmount, fromDate, minor, parseAmount, CURRENT_RULE_VERSION, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import {
   type AccountCache,
   type ImportContext,
@@ -19,7 +19,7 @@ import {
 const TRANSACTION_CSV_HEADER = [
   'ID', '时间', '分类', '二级分类', '类型', '金额', '币种',
   '账户1', '账户2', '备注', '已报销', '手续费', '优惠券',
-  '记账者', '账单标记', '标签', '账单图片', '关联账单',
+  '记账者', '账单标记', '标签', '账单图片', '关联账单', '口径版本',
 ] as const
 
 type TransactionCsvField = typeof TRANSACTION_CSV_HEADER[number]
@@ -343,6 +343,15 @@ interface ParsedRowBasics {
   type: 'income' | 'expense' | 'transfer' | 'adjustment'
 }
 
+/** 解析口径版本：旧 CSV 无此列时按当前版本；未登记的版本让该行被跳过。 */
+function parseRuleVersion(value: string): number {
+  if (!value) return CURRENT_RULE_VERSION
+  const version = Number(value)
+  if (!Number.isInteger(version)) throw new Error(`无效口径版本: ${value}`)
+  rulesFor(version) // 未知版本直接抛错，由调用方按无效行跳过
+  return version
+}
+
 function parseRowBasicFields(row: ParsedRow): ParsedRowBasics | null {
   const date = new Date(row.time)
   if (isNaN(date.getTime())) return null
@@ -367,6 +376,7 @@ interface NormalTransactionData {
   importKey: string
   date: Date
   type: 'income' | 'expense' | 'transfer' | 'adjustment'
+  ruleVersion: number
   amount: Minor
   fee: Minor
   coupon: Minor
@@ -383,6 +393,7 @@ interface RefundTransactionData {
   importKey: string
   date: Date
   type: 'refund'
+  ruleVersion: number
   amount: Minor
   fee: Minor
   coupon: Minor
@@ -454,6 +465,7 @@ function parseCsvFile(
         relatedCsvId: record.关联账单,
         // 账单标记列值为「不计收支」（容错首尾空格）
         excludeFromIncomeExpense: (record['账单标记'] || '').trim() === '不计收支',
+        ruleVersion: parseRuleVersion(record['口径版本']),
       }
 
       if (!isInRange(row)) {
@@ -533,6 +545,7 @@ async function importTransactionsFromRows(
         importKey,
         date: basics.date,
         type: basics.type,
+        ruleVersion: row.ruleVersion,
         amount,
         fee: row.fee,
         coupon: row.coupon,
@@ -637,6 +650,7 @@ async function importTransactionsFromRows(
         importKey,
         date,
         type: 'refund',
+        ruleVersion: row.ruleVersion,
         amount: absAmount,
         fee: row.fee,
         coupon: row.coupon,

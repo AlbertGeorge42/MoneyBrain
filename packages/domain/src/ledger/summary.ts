@@ -1,7 +1,7 @@
 import { contains, type Period } from '../date.js'
 import { ZERO_MINOR, add, max, sub, sum, type Minor } from '../money.js'
-import { isCountable, refundOffsetKind, type FlowKind } from './rules.js'
-import type { LedgerTransaction } from './types.js'
+import { rulesFor, type FlowKind } from './rules.js'
+import type { LedgerTransaction, TransactionKind } from './types.js'
 
 export const UNCATEGORIZED_CATEGORY_ID = '__uncategorized__'
 
@@ -24,6 +24,79 @@ export interface FlowSummaryOptions {
   includeExcluded?: boolean
 }
 
+/**
+ * 一组已按口径聚合好的行。
+ *
+ * service 侧先用 SQL 把交易按「类型 × 退款原类型 × 不计收支 × 口径版本」聚合，
+ * 再交给领域层按各自版本解释——这样聚合在 SQL 跑，口径仍只有一份，
+ * 且扫描量随期间增长而不是随总历史增长。
+ */
+export interface AggregatedFlowRow {
+  /** 交易类型 */
+  kind: TransactionKind
+  /** 退款指向的原交易类型（决定冲减哪一侧） */
+  relatedType?: string | null
+  /** 「不计收支」标记 */
+  excludeFromIncomeExpense?: boolean | null
+  /** 写入时的口径版本 */
+  ruleVersion: number
+  /** 该组的金额合计 */
+  amount: Minor
+}
+
+/**
+ * 按已聚合的行汇总收支；退款按原交易类型冲减对应一侧。
+ *
+ * 与 {@link summarizeFlows} 结果一致，区别只在于输入是聚合行而不是明细。
+ */
+export function summarizeAggregatedFlows(
+  rows: readonly AggregatedFlowRow[],
+  options: FlowSummaryOptions = {},
+): FlowSummary {
+  let income = ZERO_MINOR
+  let expense = ZERO_MINOR
+  let incomeRefunds = ZERO_MINOR
+  let expenseRefunds = ZERO_MINOR
+
+  for (const row of rows) {
+    const rules = rulesFor(row.ruleVersion)
+    if (!rules.isCountable(row, options.includeExcluded)) continue
+
+    switch (row.kind) {
+      case 'income':
+        income = add(income, row.amount)
+        break
+      case 'expense':
+        expense = add(expense, row.amount)
+        break
+      case 'refund': {
+        const offset = rules.refundOffsetKind(row.relatedType)
+        if (offset === 'income') {
+          incomeRefunds = add(incomeRefunds, row.amount)
+        } else if (offset === 'expense') {
+          expenseRefunds = add(expenseRefunds, row.amount)
+        }
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  const netIncome = sub(income, incomeRefunds)
+  const netExpense = sub(expense, expenseRefunds)
+
+  return {
+    income,
+    expense,
+    incomeRefunds,
+    expenseRefunds,
+    netIncome,
+    netExpense,
+    balance: sub(netIncome, netExpense),
+  }
+}
+
 /** 收入/支出/退款汇总；退款按原交易类型冲减对应一侧。 */
 export function summarizeFlows(
   transactions: readonly LedgerTransaction[],
@@ -36,7 +109,8 @@ export function summarizeFlows(
   let expenseRefunds = ZERO_MINOR
 
   for (const transaction of transactions) {
-    if (!isCountable(transaction, options.includeExcluded)) continue
+    const rules = rulesFor(transaction.ruleVersion)
+    if (!rules.isCountable(transaction, options.includeExcluded)) continue
     if (!inPeriod(transaction, period)) continue
 
     switch (transaction.kind) {
@@ -47,7 +121,7 @@ export function summarizeFlows(
         expense = add(expense, transaction.amount)
         break
       case 'refund': {
-        const offset = refundOffsetKind(transaction.relatedType)
+        const offset = rules.refundOffsetKind(transaction.relatedType)
         if (offset === 'income') {
           incomeRefunds = add(incomeRefunds, transaction.amount)
         } else if (offset === 'expense') {
@@ -89,12 +163,13 @@ export function flowByCategory(
   }
 
   for (const transaction of transactions) {
-    if (!isCountable(transaction, options.includeExcluded)) continue
+    const rules = rulesFor(transaction.ruleVersion)
+    if (!rules.isCountable(transaction, options.includeExcluded)) continue
     if (!inPeriod(transaction, period)) continue
 
     if (transaction.kind === kind) {
       append(transaction.categoryId, transaction.amount)
-    } else if (transaction.kind === 'refund' && refundOffsetKind(transaction.relatedType) === kind) {
+    } else if (transaction.kind === 'refund' && rules.refundOffsetKind(transaction.relatedType) === kind) {
       append(transaction.categoryId, sub(ZERO_MINOR, transaction.amount))
     }
   }

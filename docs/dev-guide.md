@@ -50,14 +50,27 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 
 | 口径 | 落在哪里 |
 |---|---|
-| 交易 → 分录的方向与金额 | `ledger/postings.ts` 的 `postingsOf` |
-| 余额（含期初当天计入） | 同上的 `balanceBefore` / `balanceAt` |
+| 交易 → 分录的方向与金额 | `ledger/rules.vN.ts` 的 `postingsOf`（按交易版本取） |
+| 余额（含期初当天计入） | `ledger/postings.ts` 的 `balanceBefore` / `balanceAt` |
 | 收支净额与分类汇总 | `ledger/summary.ts` 的 `summarizeFlows` / `flowByCategory` |
 | 退款可退余额 | 同上的 `remainingRefundable` |
-| 预算的账户/分类/冲减口径 | `ledger/rules.ts` 的 `scopeQuery` / `matchesBudgetScope` |
+| 预算的账户/分类/冲减口径 | `ledger/rules.vN.ts` 的 `scopeQuery` / `matchesBudgetScope` |
+
+**统计类接口怎么写**：用 `groupBy` 在 SQL 里按「类型 × 退款原类型 × 不计收支 × 口径版本」
+聚合，再把聚合行交给 `summarizeAggregatedFlows` 按各自版本解释。
+不要把整表明细读进内存再算——扫描量必须随期间增长，不随总历史增长（见蓝图 D7）。
 
 **`ledger/rules.ts` 是口径的唯一来源**：它同时被领域层的纯函数和后端的 SQL 条件消费，
 所以「统计哪些类型」「退款冲减哪一侧」不会各写一份。
+
+**口径带版本（蓝图 A2 已完成）**：
+
+- 交易写入时记录 `ruleVersion`；解释历史数字时按**交易自己的版本**取规则，
+  所以改一次口径不会改写历史报表。
+- 新增版本：复制 `ledger/rules.v1.ts` 为 `rules.v2.ts`，改行为，
+  再 `registerRuleSet(V2_RULES)` 登记。**已登记的版本不允许覆盖**。
+- 未知版本直接失败（`rulesFor` 抛错），**不回退到当前规则**——回退等于悄悄改写历史。
+- 新交易写入用 `CURRENT_RULE_VERSION`；不要在业务代码里硬编码版本号。
 
 **禁止**在组件、route、service 中复制：
 

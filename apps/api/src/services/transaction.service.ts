@@ -5,7 +5,7 @@ import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
-import { formatAmount, minor, refundQueryFor, remainingRefundable } from '../../../../packages/domain/src/index.js'
+import { formatAmount, minor, remainingRefundable, summarizeAggregatedFlows, CURRENT_RULE_VERSION, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -14,6 +14,7 @@ const logger = rootLogger.child({ module: 'transaction' })
 export interface TransactionWithRelations {
   id: string
   type: string
+  ruleVersion: number
   amount: bigint
   fee: bigint | null
   coupon: bigint | null
@@ -146,6 +147,7 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
   const transaction = await prisma.transaction.create({
     data: {
       type,
+      ruleVersion: CURRENT_RULE_VERSION,
       amount: BigInt(amount),
       fee: BigInt(fee),
       coupon: BigInt(coupon),
@@ -174,6 +176,7 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
   const transaction = await prisma.transaction.create({
     data: {
       type: 'transfer',
+      ruleVersion: CURRENT_RULE_VERSION,
       amount: BigInt(amount),
       fee: BigInt(fee),
       coupon: BigInt(coupon),
@@ -241,6 +244,7 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
   const transaction = await prisma.transaction.create({
     data: {
       type: 'refund',
+      ruleVersion: CURRENT_RULE_VERSION,
       amount: BigInt(amount),
       fee: BigInt(fee),
       coupon: BigInt(coupon),
@@ -262,7 +266,10 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
 // ===== 更新交易 =====
 
-// 共享的字段合并逻辑，三个 update 函数复用
+// 共享的字段合并逻辑，三个 update 函数复用。
+//
+// 注意：这里刻意**不**包含 `ruleVersion`——修改一笔交易不会改写它的口径版本，
+// 否则「历史数字按写入时的版本解释」就失效了。
 function mergeTransactionData(
   old: { amount: bigint; fee: bigint; coupon: bigint; date: Date; note: string | null; accountId: string; categoryId: string | null; excludeFromIncomeExpense: boolean },
   data: { amount?: number; fee?: number; coupon?: number; date?: Date; note?: string; accountId?: string; categoryId?: string | null; excludeFromIncomeExpense?: boolean }
@@ -483,41 +490,36 @@ export async function getTransactionList(params: TransactionListParams): Promise
 export async function getTransactionStats(params: TransactionListParams = {}): Promise<TransactionStats> {
   const where = await buildTransactionListWhere(params)
 
-  // 分别统计收入退款和支出退款
-  // 不计收支标记（excludeFromIncomeExpense）的交易不参与任何收入/支出/退款/转账统计
-  // 统计口径来自领域层规则：退款按原交易类型冲减对应侧
-  const [incomeResult, expenseResult, incomeRefundResult, expenseRefundResult, transferCount] = await Promise.all([
-    prisma.transaction.aggregate({
-      where: { ...where, type: 'income', excludeFromIncomeExpense: false },
+  // 收支口径统一走领域层：退款按原交易类型冲减、不计收支的交易不参与统计，
+  // 且每条交易按自己写入时的口径版本解释。
+  //
+  // 聚合在 SQL 跑（按类型 × 退款原类型 × 不计收支 × 口径版本分组），
+  // 口径仍由领域层按各自版本解释——既避免整表读进内存，
+  // 也不会让「当前规则」误伤旧交易。
+  const [grouped, transferCount] = await Promise.all([
+    prisma.transaction.groupBy({
+      by: ['type', 'relatedType', 'excludeFromIncomeExpense', 'ruleVersion'],
+      where,
       _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { ...where, type: 'expense', excludeFromIncomeExpense: false },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { ...where, ...refundQueryFor('income'), excludeFromIncomeExpense: false },
-      _sum: { amount: true, fee: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { ...where, ...refundQueryFor('expense'), excludeFromIncomeExpense: false },
-      _sum: { amount: true, fee: true },
     }),
     prisma.transaction.count({ where: { ...where, type: 'transfer', excludeFromIncomeExpense: false } }),
   ])
 
-  const income = Number(incomeResult._sum.amount ?? 0)
-  const expense = Number(expenseResult._sum.amount ?? 0)
-  // fee/coupon 已合并到 amount 中，直接用 amount
-  const incomeRefund = Number(incomeRefundResult._sum.amount ?? 0)
-  const expenseRefund = Number(expenseRefundResult._sum.amount ?? 0)
-  const totalRefund = incomeRefund + expenseRefund
+  const flows = summarizeAggregatedFlows(
+    grouped.map((row) => ({
+      kind: row.type as LedgerTransaction['kind'],
+      relatedType: row.relatedType,
+      excludeFromIncomeExpense: row.excludeFromIncomeExpense,
+      ruleVersion: row.ruleVersion,
+      amount: minor(Number(row._sum.amount ?? 0)),
+    })),
+  )
 
   return {
-    income: income - incomeRefund,
-    expense: expense - expenseRefund,
-    refund: totalRefund,
-    balance: income - incomeRefund - expense + expenseRefund,
+    income: flows.netIncome,
+    expense: flows.netExpense,
+    refund: minor(flows.incomeRefunds + flows.expenseRefunds),
+    balance: flows.balance,
     transferCount,
   }
 }

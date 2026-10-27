@@ -31,6 +31,7 @@ export interface CategoryBreakdownItem {
 const LEDGER_SELECT = {
   id: true,
   type: true,
+  ruleVersion: true,
   amount: true,
   fee: true,
   coupon: true,

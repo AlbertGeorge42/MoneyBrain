@@ -79,6 +79,10 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 预算：退款冲减、跨期退款下限为 0、未分类不计入、转账只算绑定的那一对账户 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts` |
 | 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
 | 现金流量表：支出退款算流入、收入退款算出流、原类型不明的退款不计入 | ✅ | `apps/api/tests/unit/cash-flow-aggregate.test.ts` |
+| 口径版本：旧交易按写入时的版本解释，新增版本不改历史数字 | ✅ | `packages/domain/tests/ledger.test.ts`（「新增口径版本后，旧交易的余额与报表数字保持不变」） |
+| 口径版本：未知版本直接失败，不被当前规则静默解释 | ✅ | 同上（「未知口径版本的交易直接失败」） |
+| 口径版本：已登记版本不可覆盖 | ✅ | 同上（「已登记的口径版本不能被覆盖」） |
+| 口径版本：SQL 聚合路径与明细路径数字一致 | ✅ | 同上（「聚合行汇总与明细汇总结果一致」） |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |
 | 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |

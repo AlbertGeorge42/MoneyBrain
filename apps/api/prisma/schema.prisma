@@ -77,6 +77,7 @@ model Transaction {
   id                  String      @id @default(uuid())
   importKey           String?     @unique // 导入幂等键：csv:<源ID> 或 natural:<指纹>
   type                String      // 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
+  ruleVersion         Int         @default(1) // 写入时的账务口径版本
   amount              BigInt
   fee                 BigInt      @default(0) // 手续费
   coupon              BigInt      @default(0) // 优惠券

@@ -13,7 +13,7 @@ Express API (apps/api)
    │  参数校验 / 用例编排 / 事务
    ▼
 packages/domain（纯函数，算钱的唯一位置）
-   │  money.ts · date.ts · ledger/{types,postings,summary}.ts
+   │  money.ts · date.ts · ledger/{types,postings,summary,rules,rules.v1}.ts
    ▼
 Prisma → SQLite
 ```
@@ -37,11 +37,12 @@ packages/domain → 无外部依赖
 | `money.ts` | 整数分金额 `Minor`；`add/sub/neg/sum/min/max`、`fromMajor/toMajor`、`parseAmount` |
 | `date.ts` | `LocalDate`（`YYYY-MM-DD`）；`localDate/today/compare/isBefore`、期间 `periodOf`、半开区间工具 |
 | `ledger/types.ts` | `LedgerTransaction`、`TransactionKind`、`Posting`、`OpeningBalance` |
-| `ledger/postings.ts` | **交易 → 分录**：`postingsOf`、`accountDelta`、`balanceAt`、`balanceBefore`、`transferOutflow`、`effectiveTransferFee` |
+| `ledger/postings.ts` | **交易 → 分录**：`postingsOf`（按交易的 `ruleVersion` 取规则）、`accountDelta`、`balanceAt`、`balanceBefore` |
 | `ledger/summary.ts` | **分录 → 报表**：`summarizeFlows`、`flowByCategory`、`remainingRefundable` |
-| `ledger/rules.ts` | **口径规则唯一来源**：计入哪些类型、退款冲减哪侧、账户与分类如何匹配（SQL 与 JS 共用） |
+| `ledger/rules.ts` | **口径规则唯一来源**：版本注册表（`rulesFor` / `registerRuleSet`）、`CURRENT_RULE_VERSION` |
+| `ledger/rules.v1.ts` | **口径 v1 的冻结实现**：计入哪些类型、退款冲减哪侧、账户与分类如何匹配、分录怎么生成 |
 
-分录规则（口径定义见 [requirements.md](requirements.md) §3.1，实现见 `ledger/postings.ts` 的 `postingsOf`）：
+分录规则（口径定义见 [requirements.md](requirements.md) §3.1，实现见 `ledger/rules.v1.ts` 的 `postingsOf`）：
 
 ```text
 income      账户 +amount      分类 −amount
