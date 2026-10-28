@@ -60,7 +60,7 @@ describe('import.service', () => {
   })
 
   describe('importTransactionsFromCsv', () => {
-    it('overwrite 模式应该先清空旧交易', async () => {
+    it('导入层只写数据，清空由编排层负责', async () => {
       mockPrisma.account.findFirst.mockResolvedValue(null)
       mockPrisma.account.create.mockResolvedValue({
         id: 'acc-1',
@@ -85,11 +85,13 @@ describe('import.service', () => {
         ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '50', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv, undefined, undefined, 'overwrite')
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
 
       expect(result.imported).toBe(1)
-      expect(mockPrisma.transaction.deleteMany).toHaveBeenCalled()
       expect(mockPrisma.transaction.createMany).toHaveBeenCalled()
+      // 清空由编排层（smart-import）在同一事务里统一执行，
+      // 导入层不再自己清空——否则预览无法整体回滚。
+      expect(mockPrisma.transaction.deleteMany).not.toHaveBeenCalled()
       expect(mockPrisma.budget.deleteMany).not.toHaveBeenCalled()
       expect(mockPrisma.investmentAllocationSnapshot.deleteMany).not.toHaveBeenCalled()
     })
@@ -140,7 +142,7 @@ describe('import.service', () => {
         ['csv2', '2025/1/16 10:00:00', '还款', '', '还款', '500', 'CNY', '储蓄卡', '信用卡A', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
 
       expect(result.imported).toBe(2)
 
@@ -195,7 +197,7 @@ describe('import.service', () => {
         ['csv2', '2025/1/16 10:00:00', '餐饮', '', '支出', '200', 'CNY', '信用卡A', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
 
       expect(result.imported).toBe(2)
       expect(mockPrisma.account.update).not.toHaveBeenCalled()
@@ -242,7 +244,7 @@ describe('import.service', () => {
         ['csv2', '2025/1/15 11:00:00', '餐饮', '', '支出', '100', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
 
       expect(result.imported).toBe(2)
       expect(mockPrisma.account.update).not.toHaveBeenCalled()
@@ -289,7 +291,7 @@ describe('import.service', () => {
         ['csv1', '2025/1/15 10:00:00', '还款', '', '还款', '500', 'CNY', '储蓄卡', '信用卡A', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
 
       expect(result.imported).toBe(1)
       expect(mockPrisma.account.update).toHaveBeenCalledTimes(1)
@@ -336,7 +338,7 @@ describe('import.service', () => {
         ['csv1', '2025/1/15 10:00:00', '', '餐饮', '支出', '100', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(1)
 
       // 关键断言：不应该创建空名父分类
@@ -398,7 +400,7 @@ describe('import.service', () => {
         ['csv2', '2025/1/16 10:00:00', '还款', '', '还款', '500', 'CNY', '储蓄卡', '信用卡A', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(2)
 
       // 创建的 transfer 类型分类中应有"还款"
@@ -450,7 +452,7 @@ describe('import.service', () => {
         ['csv6', '2025/1/15 15:00:00', '奖金', '', '收入', '1000', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(6)
 
       // 收集 expense 类型顶层分类的 sort
@@ -508,7 +510,7 @@ describe('import.service', () => {
         ['csv5', '2025/1/15 14:00:00', '餐饮', '', '支出', '60', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(5)
 
       // 关键断言：只创建了 1 个分类（缓存命中，不再查 SQL）
@@ -550,7 +552,7 @@ describe('import.service', () => {
         ['csv2', '2025/1/16 10:00:00', '交通', '', '支出', '50', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(2)
 
       const createManyCalls = mockPrisma.transaction.createMany.mock.calls as any[]
@@ -593,7 +595,7 @@ describe('import.service', () => {
         ['csv2', '2025/1/16 10:00:00', '餐饮', '', '退款', '200', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', 'csv1'],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(2)
 
       const createManyCalls = mockPrisma.transaction.createMany.mock.calls as any[]
@@ -636,7 +638,7 @@ describe('import.service', () => {
         ['csv2', '2025/1/16 10:00:00', '餐饮', '', '退款', '200', 'CNY', '现金', '', '', '', '0', '0', '', '不计收支', '', '', 'csv9'],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(1)
 
       const createManyCalls = mockPrisma.transaction.createMany.mock.calls as any[]
@@ -669,7 +671,7 @@ describe('import.service', () => {
         ['adj1', '2025/1/15 10:00:00', '', '', '调整', '-100', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
       expect(result.imported).toBe(1)
 
       const data = (mockPrisma.transaction.createMany.mock.calls[0][0].data as any[])[0]
@@ -710,7 +712,7 @@ describe('import.service', () => {
         ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '100', 'CNY', '现金', '', '午饭', '', '0', '0', '', '', '', '', ''],
       ])
 
-      const result = await importTransactionsFromCsv(csv)
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
 
       expect(result.imported).toBe(0)
       expect(result.skipped).toBe(1)

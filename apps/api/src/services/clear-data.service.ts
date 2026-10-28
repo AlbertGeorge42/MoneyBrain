@@ -5,10 +5,10 @@ import type { DataType } from './backup.service.js'
 const logger = rootLogger.child({ module: 'clear-data' })
 
 /**
- * 清空配置相关数据（账户、账户分类、交易分类、投资资产类别）
- * 用于单独导入 config.json 时的覆盖模式。
+ * 清空配置相关数据（账户、账户分类、交易分类、投资资产类别）。
+ * 仅供本文件的清空流程使用。
  */
-export async function clearConfigDataForImport(tx: TransactionClient): Promise<void> {
+async function clearConfigDataForImport(tx: TransactionClient): Promise<void> {
   await tx.investmentAssetClass.deleteMany()
   await tx.account.deleteMany()
   await tx.accountCategory.deleteMany({ where: { parentId: { not: null } } })
@@ -18,10 +18,10 @@ export async function clearConfigDataForImport(tx: TransactionClient): Promise<v
 }
 
 /**
- * 清空所有数据（用于完整 ZIP 覆盖模式导入或手动清空全部）
+ * 清空所有数据（用于手动清空全部）。
  * 必须按外键依赖顺序删除：子表先于父表，交易/账户先于分类。
  */
-export async function clearAllDataForImport(tx: TransactionClient): Promise<void> {
+async function clearAllDataForImport(tx: TransactionClient): Promise<void> {
   // 先删引用方（子表）：交易引用分类和账户
   await tx.transaction.deleteMany()
   await tx.budget.deleteMany()
@@ -65,10 +65,9 @@ export async function clearSelectedDataForImport(
 }
 
 /**
- * 仅清空交易记录，供 CSV 覆盖导入使用，必须在调用方的事务内执行。
- * 预算和投资快照不属于交易范围，覆盖交易时不删除。
+ * 仅清空交易记录。预算和投资快照不属于交易范围，覆盖交易时不删除。
  */
-export async function clearTransactionsForImport(tx: TransactionClient): Promise<void> {
+async function clearTransactionsForImport(tx: TransactionClient): Promise<void> {
   await tx.transaction.deleteMany()
 }
 

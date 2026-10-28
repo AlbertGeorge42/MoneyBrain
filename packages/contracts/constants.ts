@@ -43,3 +43,15 @@ export const IMPORT_ENTRY_LABELS = {
 } as const
 
 export type ImportEntryKey = keyof typeof IMPORT_ENTRY_LABELS
+
+// ===== 回滚确认值 =====
+//
+// 回滚会用快照覆盖当前数据，同样不可逆——按破坏性接口的规矩，
+// 请求必须带确认值，取值来自这里，避免前后端各写一份。
+
+export const ROLLBACK_CONFIRM = {
+  /** 回滚到指定回滚点 */
+  restore: 'restore-snapshot',
+} as const
+
+export type RollbackConfirmTarget = keyof typeof ROLLBACK_CONFIRM

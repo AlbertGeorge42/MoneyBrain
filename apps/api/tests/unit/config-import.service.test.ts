@@ -90,7 +90,8 @@ describe('config-import.service', () => {
             ],
           },
         },
-        'overwrite'
+        'overwrite',
+        mockPrisma
       )
 
       expect(result.imported.accountCategories).toBe(2)
@@ -101,19 +102,21 @@ describe('config-import.service', () => {
       expect(secondCall.data.parentId).toBe('acat-银行')
     })
 
-    it('overwrite 模式下存在交易时拒绝清空配置', async () => {
-      mockPrisma.transaction.count.mockResolvedValue(1)
+    it('导入层不清空数据，清空由编排层在同一事务里统一执行', async () => {
+      await importConfig(
+        {
+          exportedAt: new Date().toISOString(),
+          type: 'config',
+          data: { accountCategories: [] },
+        },
+        'overwrite',
+        mockPrisma
+      )
 
-      await expect(
-        importConfig(
-          {
-            exportedAt: new Date().toISOString(),
-            type: 'config',
-            data: { accountCategories: [] },
-          },
-          'overwrite'
-        )
-      ).rejects.toThrow('覆盖配置会删除现有账户')
+      // 「覆盖配置会删除现有账户」的拒绝判断在 clearSelectedDataForImport，
+      // 导入层只负责写入——否则预览无法整体回滚。
+      expect(mockPrisma.account.deleteMany).not.toHaveBeenCalled()
+      expect(mockPrisma.transactionCategory.deleteMany).not.toHaveBeenCalled()
     })
 
     it('不同父分类下的同名子分类应保持各自层级', async () => {
@@ -141,7 +144,8 @@ describe('config-import.service', () => {
             ],
           },
         },
-        'merge'
+        'merge',
+        mockPrisma
       )
 
       expect(result.imported.accountCategories).toBe(4)
@@ -178,7 +182,8 @@ describe('config-import.service', () => {
             ],
           },
         },
-        'merge'
+        'merge',
+        mockPrisma
       )
 
       expect(result.updated.transactionCategories).toBe(1)

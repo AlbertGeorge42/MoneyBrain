@@ -3,6 +3,7 @@
 import Papa from 'papaparse'
 import { rootLogger } from '../../common/index.js'
 import { type Minor } from '../../../../../packages/domain/src/index.js'
+import type { ImportFullResult } from '../../../../../packages/contracts/types/index.js'
 import { type TransactionClient } from '../../prisma.js'
 
 export const logger = rootLogger.child({ module: 'import' })
@@ -35,6 +36,7 @@ export function isAntDPresetColor(value: string | null | undefined): value is st
 
 // Prisma 事务客户端类型（re-export 自 src/prisma.ts，单一来源）
 export type { TransactionClient } from '../../prisma.js'
+export type { ImportFullResult }
 
 // ─── Account 缓存 ───
 
@@ -278,34 +280,9 @@ export interface ImportSnapshotsResult {
 }
 
 // ─── 智能导入（ZIP/CSV/JSON）总结果 ───
-
-export interface ImportFullResult {
-  imported: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-    transactions: number
-    budgets: number
-    investmentSnapshots: number
-    investmentItems: number
-  }
-  updated: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-    budgets: number
-    investmentSnapshots: number
-  }
-  skipped: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-    transactions: number
-    budgets: number
-    investmentSnapshots: number
-  }
-  errors: string[]
-}
+//
+// 结果结构定义在 packages/contracts——前后端共用一份，
+// 预览与正式导入返回同一结构，预览数字才能直接和实际结果对照。
 
 export function createEmptyImportFullResult(): ImportFullResult {
   return {

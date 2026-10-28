@@ -1,8 +1,6 @@
 // ─── CSV 事务导入 ───
 
 import crypto from 'crypto'
-import { prisma } from '../../prisma.js'
-import { clearTransactionsForImport } from '../clear-data.service.js'
 import { formatAmount, fromDate, minor, parseAmount, CURRENT_RULE_VERSION, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import {
   type AccountCache,
@@ -427,23 +425,9 @@ async function findExistingImportKeys(
 
 // ─── CSV 解析（Header 映射） ───
 
-function parseCsvFile(
-  buffer: Buffer,
-  startDate?: Date,
-  endDate?: Date
-): { rows: ParsedRow[]; outOfRangeCount: number } {
+function parseCsvFile(buffer: Buffer): ParsedRow[] {
   const records = readCsvRecords<TransactionCsvField>(buffer, TRANSACTION_CSV_HEADER)
   const rows: ParsedRow[] = []
-  let outOfRangeCount = 0
-
-  const isInRange = (row: ParsedRow): boolean => {
-    if (!startDate && !endDate) return true
-    const rowDate = new Date(row.time)
-    if (isNaN(rowDate.getTime())) return false
-    if (startDate && rowDate < startDate) return false
-    if (endDate && rowDate > endDate) return false
-    return true
-  }
 
   for (const record of records) {
     try {
@@ -468,28 +452,22 @@ function parseCsvFile(
         ruleVersion: parseRuleVersion(record['口径版本']),
       }
 
-      if (!isInRange(row)) {
-        outOfRangeCount++
-        continue
-      }
-
       rows.push(row)
     } catch {
       // skip invalid lines
     }
   }
 
-  return { rows, outOfRangeCount }
+  return rows
 }
 
 // ─── 主入口：批量 createMany ───
 
 async function importTransactionsFromRows(
   rows: ParsedRow[],
-  outOfRangeCount: number,
-  tx?: TransactionClient
+  tx: TransactionClient
 ): Promise<{ imported: number; skipped: number }> {
-  const client = tx || prisma
+  const client = tx
   const ctx = await buildImportContext(client)
   let imported = 0
   let skipped = 0
@@ -698,26 +676,12 @@ async function importTransactionsFromRows(
     })
   }
 
-  return { imported, skipped: skipped + outOfRangeCount }
+  return { imported, skipped }
 }
 
 export async function importTransactionsFromCsv(
   buffer: Buffer,
-  startDate?: Date,
-  endDate?: Date,
-  mode: 'merge' | 'overwrite' = 'merge',
-  tx?: TransactionClient
+  tx: TransactionClient
 ): Promise<{ imported: number; skipped: number }> {
-  const { rows, outOfRangeCount } = parseCsvFile(buffer, startDate, endDate)
-
-  // 独立 CSV 覆盖导入：先清空旧交易，再在同一事务中写入，失败可整体回滚。
-  // ZIP 覆盖导入已在外层清空数据，此时 tx 存在，不再重复清空。
-  if (mode === 'overwrite' && !tx) {
-    return prisma.$transaction(async (transaction) => {
-      await clearTransactionsForImport(transaction)
-      return importTransactionsFromRows(rows, outOfRangeCount, transaction)
-    })
-  }
-
-  return importTransactionsFromRows(rows, outOfRangeCount, tx)
+  return importTransactionsFromRows(parseCsvFile(buffer), tx)
 }

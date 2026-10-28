@@ -1,6 +1,22 @@
 import { vi } from 'vitest'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 // 全局测试配置
+
+/**
+ * 测试默认指向 test.db，不碰开发库 dev.db。
+ *
+ * 原因：src/prisma.ts 在 DATABASE_URL 未设置时连的是 dev.db——
+ * 那是用户真实账目所在的库。任何会写库的测试都可能把它清空。
+ *
+ * 需要连别的库的测试可以自己覆盖 process.env.DATABASE_URL
+ * （集成测试就是这么做的），但必须**在导入 src/prisma.ts 之前**设置。
+ */
+if (!process.env.DATABASE_URL) {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  process.env.DATABASE_URL = `file:${path.resolve(here, '../prisma/test.db')}`
+}
 
 // Mock console.error 在测试中避免噪音，但保留错误信息供调试
 const originalError = console.error

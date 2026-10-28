@@ -1,9 +1,6 @@
 // ─── 配置导入（账户/账户分类/收支分类/投资资产类别） ───
 
-import { prisma } from '../../prisma.js'
-import { ValidationError } from '../../common/index.js'
 import { parseAmount } from '../../../../../packages/domain/src/index.js'
-import { clearConfigDataForImport } from '../clear-data.service.js'
 import {
   type ConfigImportData,
   type ImportAccount,
@@ -314,7 +311,7 @@ async function importInvestmentAssetClasses(
 export async function importConfig(
   configData: ConfigImportData,
   mode: 'merge' | 'overwrite',
-  tx?: TransactionClient
+  tx: TransactionClient
 ): Promise<ImportConfigResult> {
   const result: ImportConfigResult = {
     imported: { accountCategories: 0, accounts: 0, transactionCategories: 0, investmentAssetClasses: 0 },
@@ -373,28 +370,7 @@ export async function importConfig(
     }
   }
 
-  if (tx) {
-    await executeImport(tx)
-  } else {
-    await prisma.$transaction(async (tx) => {
-      // 独立调用时（如单独导入 config.json），需要处理覆盖模式的清空。
-      // 账户被交易/预算/快照引用时禁止覆盖，避免删掉账户却留下孤儿数据。
-      if (mode === 'overwrite') {
-        const [transactionCount, budgetCount, snapshotCount] = await Promise.all([
-          tx.transaction.count(),
-          tx.budget.count(),
-          tx.investmentAllocationSnapshot.count(),
-        ])
-        if (transactionCount + budgetCount + snapshotCount > 0) {
-          throw new ValidationError(
-            '覆盖配置会删除现有账户，但当前仍有交易、预算或投资快照。请先清空这些数据，或改用完整备份覆盖。'
-          )
-        }
-        await clearConfigDataForImport(tx)
-      }
-      await executeImport(tx)
-    })
-  }
+  await executeImport(tx)
 
   return result
 }

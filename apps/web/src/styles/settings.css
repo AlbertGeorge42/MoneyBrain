@@ -182,6 +182,33 @@
   font-size: var(--mb-font-size-caption);
 }
 
+/* ─── 回滚点 ─── */
+.rollback-point-list {
+  display: grid;
+  gap: var(--mb-space-sm);
+  margin-top: var(--mb-space-sm);
+}
+
+.rollback-point-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-space-md);
+  padding: var(--mb-space-md);
+  border-radius: var(--mb-radius-card);
+  border: 1px solid var(--mb-color-border-subtle);
+}
+
+.rollback-point-item__info {
+  min-width: 0;
+}
+
+.rollback-point-item__meta {
+  margin-top: var(--mb-space-xs);
+  font-size: var(--mb-font-size-caption);
+  color: var(--mb-color-text-tertiary);
+}
+
 /* ─── 危险操作 ─── */
 .danger-action {
   display: flex;

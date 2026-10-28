@@ -41,6 +41,9 @@ vi.mock('../../../src/queries/transaction', () => {
 vi.mock('../../../src/queries/data', () => ({
   useClearTransactions: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   useClearAll: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useRollbackPoints: vi.fn(() => ({ data: [], isLoading: false, refetch: vi.fn() })),
+  useRestoreRollbackPoint: vi.fn(() => ({ mutate: vi.fn(), isPending: false, variables: undefined })),
+  useDeleteRollbackPoint: vi.fn(() => ({ mutate: vi.fn(), isPending: false, variables: undefined })),
 }))
 
 const createTestQueryClient = () => new QueryClient({

@@ -15,16 +15,20 @@ import type {
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
+  ImportFullResult,
+  ImportPreview,
   InvestmentAllocationSnapshot,
   Minor,
   PaginatedResponse,
+  RollbackPoint,
+  RollbackResult,
   Transaction,
   TransactionCategory,
   TransactionCategoryStats,
   TransactionType,
 } from '@contracts/types'
 import { normalizeApiError } from './apiError'
-import { CLEAR_CONFIRM } from '@contracts/constants'
+import { CLEAR_CONFIRM, ROLLBACK_CONFIRM } from '@contracts/constants'
 
 export type {
   Account,
@@ -42,9 +46,13 @@ export type {
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
+  ImportFullResult,
+  ImportPreview,
   InvestmentAllocationSnapshot,
   Minor,
   PaginatedResponse,
+  RollbackPoint,
+  RollbackResult,
   Transaction,
   TransactionCategory,
   TransactionCategoryStats,
@@ -166,34 +174,6 @@ export const analyticsApi = {
   getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
 }
 
-export interface ImportFullResult {
-  imported: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-    transactions: number
-    budgets: number
-    investmentSnapshots: number
-    investmentItems: number
-  }
-  updated: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-    budgets: number
-    investmentSnapshots: number
-  }
-  skipped: {
-    accountCategories: number
-    accounts: number
-    transactionCategories: number
-    transactions: number
-    budgets: number
-    investmentSnapshots: number
-  }
-  errors: string[]
-}
-
 export const dataApi = {
   // 清空数据不可逆：必须带确认值，服务端会校验
   clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all', {
@@ -220,13 +200,40 @@ export const dataApi = {
     if (params.includes) {
       formData.append('includes', JSON.stringify(params.includes))
     }
-    return api.post<ApiResponse<ImportFullResult>>('/data/import-backup', formData, {
+    return api.post<ApiResponse<ImportFullResult & { rollbackPointId?: string }>>(
+      '/data/import-backup',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 120000,
+      }
+    )
+  },
+  // 导入预览：与正式导入同一套逻辑，只是跑完就回滚
+  previewImport: (file: File, params: { mode: 'merge' | 'overwrite'; includes?: string[] }) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('mode', params.mode)
+    if (params.includes) {
+      formData.append('includes', JSON.stringify(params.includes))
+    }
+    return api.post<ApiResponse<ImportPreview>>('/data/import-preview', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
       timeout: 120000,
     })
   },
+  listRollbackPoints: () => api.get<ApiResponse<RollbackPoint[]>>('/data/rollback-points'),
+  // 回滚会用快照覆盖当前数据，不可逆：必须带确认值
+  restoreRollbackPoint: (id: string) =>
+    api.post<ApiResponse<RollbackResult>>(`/data/rollback-points/${id}/restore`, {
+      confirm: ROLLBACK_CONFIRM.restore,
+    }),
+  deleteRollbackPoint: (id: string) =>
+    api.delete<ApiResponse<{ message: string }>>(`/data/rollback-points/${id}`),
   detectFileIncludes: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)

@@ -1,6 +1,5 @@
 // ─── 投资快照导入（CSV 格式） ───
 
-import { prisma } from '../../prisma.js'
 import { parseAmount } from '../../../../../packages/domain/src/index.js'
 import {
   type ImportSnapshotCsvRow,
@@ -35,9 +34,9 @@ type SnapshotCsvField = typeof SNAPSHOT_CSV_HEADER[number]
 export async function importSnapshotsFromCsv(
   csvBuffer: Buffer | string,
   mode: 'merge' | 'overwrite',
-  tx?: TransactionClient
+  tx: TransactionClient
 ): Promise<ImportSnapshotsResult> {
-  const client = tx || prisma
+  const client = tx
   const result: ImportSnapshotsResult = {
     imported: { snapshots: 0, items: 0 },
     updated: { snapshots: 0 },
@@ -72,11 +71,6 @@ export async function importSnapshotsFromCsv(
       snapshotMap.set(key, [])
     }
     snapshotMap.get(key)!.push(row)
-  }
-
-  if (mode === 'overwrite') {
-    await client.investmentAllocationItem.deleteMany()
-    await client.investmentAllocationSnapshot.deleteMany()
   }
 
   // 按日期升序排序快照

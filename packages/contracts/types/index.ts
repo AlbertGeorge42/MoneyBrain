@@ -1,8 +1,10 @@
 // ===== 金额单位 =====
 
 import type { Minor } from '../../domain/src/index.js'
+import type { BackupDataType } from '../constants.js'
 
 export type { Minor }
+export type { BackupDataType }
 
 /**
  * 本项目所有金额字段的单位都是**分**（整数），从 DB 到前端一致。
@@ -513,4 +515,88 @@ export interface InvestmentAnalysisReportData {
   trend: InvestmentTrendItem[]
   byAccountAllocation: AccountAllocationDetail[]
   staleAccounts: StaleAccountInfo[]
+}
+
+// ===== 导入与回滚 =====
+
+/**
+ * 一次导入的结果计数。
+ * 前后端共用同一份定义——预览与正式导入返回同一结构，
+ * 预览数字才能直接和实际结果对照。
+ */
+export interface ImportCounts {
+  accountCategories: number
+  accounts: number
+  transactionCategories: number
+  transactions: number
+  budgets: number
+  investmentSnapshots: number
+  investmentItems: number
+}
+
+/**
+ * 更新计数：交易只导入不更新（重复的按幂等键跳过），持仓随快照一起写入。
+ */
+export interface ImportUpdatedCounts {
+  accountCategories: number
+  accounts: number
+  transactionCategories: number
+  budgets: number
+  investmentSnapshots: number
+}
+
+/**
+ * 跳过计数：持仓不会单独被跳过（它随快照整体写入）。
+ */
+export interface ImportSkippedCounts {
+  accountCategories: number
+  accounts: number
+  transactionCategories: number
+  transactions: number
+  budgets: number
+  investmentSnapshots: number
+}
+
+export interface ImportFullResult {
+  imported: ImportCounts
+  updated: ImportUpdatedCounts
+  skipped: ImportSkippedCounts
+  errors: string[]
+}
+
+/**
+ * 覆盖导入的预览结果。
+ * 与正式导入同一份结构，区别只在于库未真正改变。
+ */
+export interface ImportPreview {
+  /** 预览的数字，与正式导入完全一致 */
+  result: ImportFullResult
+  /** 本次覆盖会清空的数据类型 */
+  willOverwrite: BackupDataType[]
+  /** 覆盖后各数据类型的最终条数 */
+  resultingCounts: ImportCounts
+}
+
+/**
+ * 一个回滚点：覆盖导入前自动留下的整库快照。
+ */
+export interface RollbackPoint {
+  id: string
+  /** 创建时间（ISO 字符串） */
+  createdAt: string
+  /** 触发原因，如「覆盖导入前」 */
+  reason: string
+  /** 本次回滚点覆盖的数据类型 */
+  includes: BackupDataType[]
+  /** 快照各表的行数统计 */
+  stats: Record<string, number>
+  /** 快照文件大小（字节） */
+  sizeBytes: number
+}
+
+export interface RollbackResult {
+  /** 已恢复的表名 */
+  restoredTables: string[]
+  /** 快照各表的行数统计 */
+  stats: Record<string, number>
 }

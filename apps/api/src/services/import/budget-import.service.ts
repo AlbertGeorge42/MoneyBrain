@@ -1,6 +1,5 @@
 // ─── 预算导入 ───
 
-import { prisma } from '../../prisma.js'
 import { parseAmount } from '../../../../../packages/domain/src/index.js'
 import { dayStart } from '../../common/date.js'
 import {
@@ -15,7 +14,7 @@ const BUDGET_PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as 
 export async function importBudgets(
   budgetData: BudgetImportData,
   mode: 'merge' | 'overwrite',
-  tx?: TransactionClient
+  tx: TransactionClient
 ): Promise<ImportBudgetResult> {
   const result: ImportBudgetResult = {
     imported: 0,
@@ -25,10 +24,6 @@ export async function importBudgets(
   }
 
   const executeImport = async (tx: TransactionClient) => {
-    if (mode === 'overwrite') {
-      await tx.budget.deleteMany()
-    }
-
     const accountNameMap = new Map<string, string>()
     const accounts = await tx.account.findMany()
     for (const a of accounts) {
@@ -162,13 +157,7 @@ export async function importBudgets(
     }
   }
 
-  if (tx) {
-    await executeImport(tx)
-  } else {
-    await prisma.$transaction(async (tx) => {
-      await executeImport(tx)
-    })
-  }
+  await executeImport(tx)
 
   return result
 }

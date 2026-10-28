@@ -76,7 +76,7 @@ describe('importSnapshotsFromCsv', () => {
       ['投资账户', '2024-01-01T00:00:00.000Z', '10000', '', '首次快照', '债券', '4000', '500', '1']
     ])
 
-    const result = await importSnapshotsFromCsv(csv, 'merge')
+    const result = await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
 
     expect(result.imported.snapshots).toBe(1)
     expect(result.imported.items).toBe(2)
@@ -90,7 +90,7 @@ describe('importSnapshotsFromCsv', () => {
       ['不存在的账户', '2024-01-01T00:00:00.000Z', '10000', '', '', '股票', '6000', '0', '0']
     ])
 
-    const result = await importSnapshotsFromCsv(csv, 'merge')
+    const result = await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
 
     expect(result.imported.snapshots).toBe(0)
     expect(result.skipped.snapshots).toBe(1)
@@ -106,7 +106,7 @@ describe('importSnapshotsFromCsv', () => {
       ['投资账户', '2024-01-01T00:00:00.000Z', '10000', '', '', '不存在的类别', '6000', '0', '0']
     ])
 
-    const result = await importSnapshotsFromCsv(csv, 'merge')
+    const result = await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
 
     expect(result.imported.snapshots).toBe(0)
     expect(result.skipped.snapshots).toBe(1)
@@ -125,10 +125,12 @@ describe('importSnapshotsFromCsv', () => {
       ['投资账户', '2024-01-01T00:00:00.000Z', '10000', '', '', '股票', '6000', '0', '0']
     ])
 
-    await importSnapshotsFromCsv(csv, 'overwrite')
+    await importSnapshotsFromCsv(csv, 'overwrite', mockPrisma)
 
-    expect(mockPrisma.investmentAllocationItem.deleteMany).toHaveBeenCalled()
-    expect(mockPrisma.investmentAllocationSnapshot.deleteMany).toHaveBeenCalled()
+    // 清空由编排层（smart-import）在同一事务里统一执行，
+    // 导入层不再自己清空——否则预览无法整体回滚。
+    expect(mockPrisma.investmentAllocationItem.deleteMany).not.toHaveBeenCalled()
+    expect(mockPrisma.investmentAllocationSnapshot.deleteMany).not.toHaveBeenCalled()
   })
 
   it('merge 模式应按 (accountId, date) 匹配并更新已有快照', async () => {
@@ -144,7 +146,7 @@ describe('importSnapshotsFromCsv', () => {
       ['投资账户', '2024-01-01T00:00:00.000Z', '20000', '', '更新后', '股票', '12000', '0', '0']
     ])
 
-    const result = await importSnapshotsFromCsv(csv, 'merge')
+    const result = await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
 
     expect(result.updated.snapshots).toBe(1)
     expect(result.imported.snapshots).toBe(0)
@@ -172,7 +174,7 @@ describe('importSnapshotsFromCsv', () => {
       ['投资账户', '2024-02-01T00:00:00.000Z', '20000', '', '', '股票', '12000', '0', '0']
     ])
 
-    await importSnapshotsFromCsv(csv, 'merge')
+    await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
 
     // 第一个（1月）没有 previous
     expect(mockPrisma.investmentAllocationSnapshot.create.mock.calls[0][0].data.previousSnapshotId).toBeNull()
@@ -191,7 +193,7 @@ describe('importSnapshotsFromCsv', () => {
       ['投资账户', '2024-01-01T00:00:00.000Z', '10000', '', '空快照', '', '', '', '']
     ])
 
-    const result = await importSnapshotsFromCsv(csv, 'merge')
+    const result = await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
 
     expect(result.imported.snapshots).toBe(1)
     expect(result.imported.items).toBe(0)

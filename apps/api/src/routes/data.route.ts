@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express'
 import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
 import { requireClearConfirm } from '../common/validators.js'
-import { CLEAR_CONFIRM } from '../../../../packages/contracts/constants.js'
+import { CLEAR_CONFIRM, ROLLBACK_CONFIRM } from '../../../../packages/contracts/constants.js'
 import multer from 'multer'
 import { exportTransactionsCSV } from '../services/export/transaction-export.service.js'
 import { clearAllData, clearTransactionsOnly } from '../services/clear-data.service.js'
@@ -13,7 +13,17 @@ import {
   detectFileType,
   detectFileIncludes,
 } from '../services/backup.service.js'
-import { importBackup } from '../services/import/smart-import.service.js'
+import {
+  importBackup,
+  importBackupWithRollback,
+  previewImport,
+  resolveOverwriteScope,
+} from '../services/import/smart-import.service.js'
+import {
+  listSnapshotPoints,
+  restoreSnapshot,
+  deleteSnapshot,
+} from '../services/rollback.service.js'
 
 const router = Router()
 
@@ -127,8 +137,68 @@ router.post('/import-backup', upload.single('file'), validateRequest((req: Reque
   }
   const mode = rawMode === 'overwrite' ? 'overwrite' : 'merge'
   const includes = parseImportIncludes(req.body.includes)
+
+  // 覆盖导入会先清空数据，先留回滚点再执行——出错还有退路。
+  if (mode === 'overwrite') {
+    const { result, rollbackPointId } = await importBackupWithRollback(
+      req.file!.buffer,
+      req.file!.originalname,
+      includes
+    )
+    return success(res, { ...result, rollbackPointId })
+  }
+
   const result = await importBackup(req.file!.buffer, req.file!.originalname, mode, includes)
   return success(res, result)
+}))
+
+// 导入预览：跑一遍真实导入再回滚，让用户先看到数字。
+// 与正式导入走同一个 runImport，数字必然一致。
+router.post('/import-preview', upload.single('file'), validateRequest((req: Request) => {
+  if (!req.file) {
+    throw new ValidationError('请上传文件')
+  }
+}), asyncHandler(async (req, res) => {
+  const rawMode: unknown = req.body.mode
+  if (rawMode !== undefined && rawMode !== 'merge' && rawMode !== 'overwrite') {
+    throw new ValidationError('导入模式只支持 merge 或 overwrite')
+  }
+  const mode = rawMode === 'overwrite' ? 'overwrite' : 'merge'
+  const includes = parseImportIncludes(req.body.includes)
+
+  const result = await previewImport(req.file!.buffer, req.file!.originalname, mode, includes)
+  const willOverwrite = mode === 'overwrite'
+    ? await resolveOverwriteScope(req.file!.buffer, req.file!.originalname, includes)
+    : []
+  return success(res, { result, willOverwrite })
+}))
+
+// 回滚点列表
+router.get('/rollback-points', asyncHandler(async (_req, res) => {
+  const points = await listSnapshotPoints()
+  return success(res, points)
+}))
+
+// 回滚到指定回滚点：会用快照覆盖当前数据，不可逆，必须带确认值。
+router.post('/rollback-points/:id/restore', validateRequest((req: Request) => {
+  requireClearConfirm(req, ROLLBACK_CONFIRM.restore)
+}), asyncHandler(async (req, res) => {
+  const id = req.params.id
+  if (!id) {
+    throw new ValidationError('缺少回滚点 ID')
+  }
+  const result = await restoreSnapshot(id)
+  return success(res, result)
+}))
+
+// 删除回滚点
+router.delete('/rollback-points/:id', asyncHandler(async (req, res) => {
+  const id = req.params.id
+  if (!id) {
+    throw new ValidationError('缺少回滚点 ID')
+  }
+  await deleteSnapshot(id)
+  return success(res, { message: '回滚点已删除' })
 }))
 
 export default router

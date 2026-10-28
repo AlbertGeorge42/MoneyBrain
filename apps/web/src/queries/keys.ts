@@ -43,4 +43,7 @@ export const queryKeys = {
   investments: {
     snapshots: (accountId: string) => ['investments', 'snapshots', accountId] as const,
   },
+  rollbackPoints: {
+    all: ['rollbackPoints'] as const,
+  },
 }

@@ -16,6 +16,8 @@ import { dataApi, type ImportFullResult } from '../../services/api'
 import { unwrapApiData } from '../../services/apiResult'
 import { getApiErrorMessage } from '../../services/apiError'
 import { invalidateLedger } from '../../queries/ledger'
+import { useRollbackPoints } from '../../queries/data'
+import { RollbackPointList } from './RollbackPointList'
 import { useNotify } from '../../hooks/useNotify'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { downloadBlob, todayFilename } from '../../utils/download'
@@ -50,6 +52,7 @@ const DataBackupSection: React.FC = () => {
   const notify = useNotify()
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
+  const { refetch: refetchRollbackPoints } = useRollbackPoints()
 
   // ─── 导出状态 ───
   const [exporting, setExporting] = useState(false)
@@ -60,6 +63,7 @@ const DataBackupSection: React.FC = () => {
   const [importIncludes, setImportIncludes] = useState<string[]>([...allIncludes])
   const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('merge')
   const [importingBackup, setImportingBackup] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
   const [importBackupResult, setImportBackupResult] = useState<ImportFullResult | null>(null)
 
   // 上次备份时间（存在本机浏览器里；换设备后需要重新导出）
@@ -153,11 +157,55 @@ const DataBackupSection: React.FC = () => {
 
       setImportBackupResult(result)
       await invalidateLedger(queryClient)
+      void refetchRollbackPoints()
       notify.success('备份导入成功')
     } catch (error) {
       notify.error(getApiErrorMessage(error, '备份导入失败，请检查文件格式'))
     } finally {
       setImportingBackup(false)
+    }
+  }
+
+  /**
+   * 覆盖导入前先跑一次预览，把「会清空什么、会导入多少」摆给用户看。
+   * 预览与正式导入走服务端同一套逻辑，数字必然一致。
+   */
+  const previewOverwrite = async () => {
+    if (!importFile) return
+
+    setPreviewing(true)
+    try {
+      const response = await dataApi.previewImport(importFile, {
+        mode: 'overwrite',
+        includes: importIncludes,
+      })
+      const preview = unwrapApiData(response)
+
+      const scope = preview.willOverwrite
+        .map((key) => BACKUP_DATA_TYPE_LABELS[key as BackupDataType] ?? key)
+        .join('、')
+      const imported = preview.result.imported
+      const willImport = Object.values(imported).reduce((sum, n) => sum + n, 0)
+
+      modal.confirm({
+        title: '确认覆盖导入？',
+        content: (
+          <div>
+            <p>将清空「{scope}」，导入 {willImport} 条数据。</p>
+            {preview.result.skipped.transactions > 0 && (
+              <p>跳过 {preview.result.skipped.transactions} 条重复记录。</p>
+            )}
+          </div>
+        ),
+        okText: '覆盖导入',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: runImportBackup,
+      })
+    } catch (error) {
+      notify.error(getApiErrorMessage(error, '无法预览导入内容，请检查文件格式'))
+    } finally {
+      setPreviewing(false)
     }
   }
 
@@ -176,15 +224,7 @@ const DataBackupSection: React.FC = () => {
       return
     }
 
-    const scope = importIncludes.map((key) => BACKUP_DATA_TYPE_LABELS[key as BackupDataType] ?? key).join('、')
-    modal.confirm({
-      title: '确认覆盖导入？',
-      content: `将先清空“${scope}”范围内的现有数据，再导入文件内容。此操作不可撤销，建议先导出一份备份。`,
-      okText: '覆盖导入',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: runImportBackup,
-    })
+    void previewOverwrite()
   }
 
   // ─── 导入结果 ───
@@ -309,14 +349,21 @@ const DataBackupSection: React.FC = () => {
         <Button
           type="primary"
           onClick={handleImportBackup}
-          loading={importingBackup}
+          loading={importingBackup || previewing}
           disabled={!importFile || importIncludes.length === 0}
         >
-          导入
+          {importMode === 'overwrite' ? '预览并导入' : '导入'}
         </Button>
       </div>
 
       {renderImportResult(importBackupResult)}
+
+      <Divider className="settings-divider" />
+
+      {/* ── 回滚点 ── */}
+      <h3 className="settings-section-title">回滚点</h3>
+      <p className="settings-desc">覆盖导入前自动留快照，导入结果不对可回退。</p>
+      <RollbackPointList />
     </Card>
   )
 }
