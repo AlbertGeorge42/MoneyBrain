@@ -1,7 +1,8 @@
 import React from 'react'
-import { Button, Space, Tag, Divider, Typography, Modal, theme } from 'antd'
-import { EditOutlined, RollbackOutlined, DeleteOutlined } from '@ant-design/icons'
-import type { Transaction } from '../../services/api'
+import { Button, Space, Tag, Divider, Typography, Skeleton, Empty, theme } from 'antd'
+import { EditOutlined, RollbackOutlined, DeleteOutlined, HistoryOutlined } from '@ant-design/icons'
+import type { AuditEvent, Transaction } from '../../services/api'
+import { useTransactionHistory } from '../../queries'
 import { useAmountColors } from '../../hooks/useAmountColors'
 import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
 import { formatCurrency } from '../../utils/format'
@@ -34,21 +35,7 @@ export const TransactionDetailFooter: React.FC<TransactionDetailFooterProps> = (
   const { token } = theme.useToken()
   const canRefund = transactionType === 'income' || transactionType === 'expense'
 
-  const handleDeleteConfirm = async () => {
-    await onDelete()
-  }
-
-  const showDeleteConfirm = () => {
-    Modal.confirm({
-      title: '确定要删除此交易记录吗？',
-      content: '此操作不可撤销',
-      okText: '删除',
-      cancelText: '取消',
-      okButtonProps: { danger: true, loading: isDeleting },
-      onOk: handleDeleteConfirm,
-    })
-  }
-
+  // 软删除（B2-3）：不做二次确认，删除后由 useDeleteTransaction 统一提示「已删除 · 撤销」
   return (
     <Space direction="vertical" size={token.padding} style={{ width: '100%' }}>
       <Button
@@ -74,12 +61,115 @@ export const TransactionDetailFooter: React.FC<TransactionDetailFooterProps> = (
       <Button
         danger
         icon={<DeleteOutlined />}
-        onClick={showDeleteConfirm}
+        onClick={() => { void onDelete() }}
+        loading={isDeleting}
         block
         size="large"
       >
         删除
       </Button>
+    </Space>
+  )
+}
+
+// ===== 修改历史（B2-4） =====
+
+/** 审计动作的展示名与标签色 */
+const ACTION_META: Record<string, { label: string; color: string }> = {
+  updated: { label: '修改', color: 'blue' },
+  deleted: { label: '删除', color: 'red' },
+  restored: { label: '恢复', color: 'green' },
+}
+
+/** 直接可读的字段对比；账户/分类只提示「已变更」（详情抽屉没有现成的名称字典）。 */
+const DIFF_FIELDS: Array<{ key: string; label: string; format?: (value: unknown) => string }> = [
+  { key: 'type', label: '类型' },
+  { key: 'amount', label: '金额', format: (value) => formatCurrency(minor(Number(value))) },
+  { key: 'fee', label: '手续费', format: (value) => formatCurrency(minor(Number(value))) },
+  { key: 'coupon', label: '优惠券', format: (value) => formatCurrency(minor(Number(value))) },
+  { key: 'date', label: '日期' },
+  { key: 'note', label: '备注' },
+  { key: 'excludeFromIncomeExpense', label: '计收支标记' },
+]
+
+function parseSnapshot(json: string | null): Record<string, unknown> | null {
+  if (!json) return null
+  try {
+    const parsed: unknown = JSON.parse(json)
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
+/** 把一条 updated 事件的 before/after 对比成「字段：原值 → 新值」列表。 */
+function describeChanges(event: AuditEvent): string[] {
+  const before = parseSnapshot(event.beforeJson)
+  const after = parseSnapshot(event.afterJson)
+  if (!before || !after) return []
+
+  const changes: string[] = []
+  for (const field of DIFF_FIELDS) {
+    const from = before[field.key]
+    const to = after[field.key]
+    if (from === to) continue
+    const format = field.format ?? ((value: unknown) => String(value ?? '（空）'))
+    changes.push(`${field.label}：${format(from)} → ${format(to)}`)
+  }
+  if (before.accountId !== after.accountId) changes.push('账户已变更')
+  if (before.categoryId !== after.categoryId) changes.push('分类已变更')
+  return changes
+}
+
+/** 详情抽屉里的修改历史区块。 */
+const TransactionHistorySection: React.FC<{ transactionId: string }> = ({ transactionId }) => {
+  const { token } = theme.useToken()
+  const historyQuery = useTransactionHistory(transactionId)
+
+  if (historyQuery.isLoading) {
+    return <Skeleton active paragraph={{ rows: 2 }} />
+  }
+  if (historyQuery.isError) {
+    return <Text type="secondary">修改历史加载失败</Text>
+  }
+
+  const events = historyQuery.data?.list ?? []
+  if (events.length === 0) {
+    return <Empty description="暂无修改记录" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+  }
+
+  return (
+    <Space direction="vertical" size={token.paddingXS} style={{ width: '100%' }}>
+      {events.map((event) => {
+        const meta = ACTION_META[event.action] ?? { label: event.action, color: 'default' }
+        const changes = event.action === 'updated' ? describeChanges(event) : []
+        return (
+          <div
+            key={event.id}
+            style={{
+              padding: `${token.paddingXS}px ${token.paddingSM}px`,
+              backgroundColor: token.colorFillQuaternary,
+              borderRadius: token.borderRadius,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Tag variant="outlined" color={meta.color}>{meta.label}</Tag>
+              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                {dayjs(event.at).format('YYYY-MM-DD HH:mm')}
+              </Text>
+            </div>
+            {changes.length > 0 && (
+              <div style={{ marginTop: token.marginXXS }}>
+                {changes.map((change) => (
+                  <Text key={change} type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM }}>
+                    {change}
+                  </Text>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </Space>
   )
 }
@@ -271,6 +361,16 @@ const TransactionDetail: React.FC<TransactionDetailProps> = ({
           )}
         </>
       )}
+
+      {/* 第4层：修改历史（B2-4） */}
+      <Divider style={{ margin: `${token.paddingLG}px 0` }} />
+      <div>
+        <Text type="secondary" style={{ display: 'block', marginBottom: token.paddingSM, fontSize: token.fontSizeSM }}>
+          <HistoryOutlined style={{ marginRight: 4 }} />
+          修改历史
+        </Text>
+        <TransactionHistorySection transactionId={transaction.id} />
+      </div>
     </div>
   )
 }

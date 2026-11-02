@@ -229,15 +229,14 @@ const Transactions: React.FC = () => {
     }
   }
 
-  // 删除确认
+  // 删除（软删除）：提示「已删除 · 撤销」由 useDeleteTransaction 统一弹出
   const handleDelete = async () => {
     if (!selectedTransaction) return
     try {
       await deleteTransaction.mutateAsync(selectedTransaction.id)
-      notify.success('删除成功')
       handleCloseDetail()
-    } catch (error) {
-      notify.error(getApiErrorMessage(error, '删除失败'))
+    } catch {
+      // 错误提示已由 useDeleteTransaction 统一弹出
     }
   }
 

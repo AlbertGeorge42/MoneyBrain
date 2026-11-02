@@ -3,6 +3,7 @@ import { PageHeader } from '../components/common'
 import ReportConfigSection from '../components/settings/ReportConfigSection'
 import ThemeSection from '../components/settings/ThemeSection'
 import DataBackupSection from '../components/settings/DataBackupSection'
+import RecycleBinSection from '../components/settings/RecycleBinSection'
 import DangerZoneSection from '../components/settings/DangerZoneSection'
 
 const Settings: React.FC = () => {
@@ -22,6 +23,9 @@ const Settings: React.FC = () => {
 
       {/* ── 数据 ── */}
       <DataBackupSection />
+
+      {/* ── 回收站（B2-4）── */}
+      <RecycleBinSection />
 
       {/* ── 危险操作 ── */}
       <DangerZoneSection />

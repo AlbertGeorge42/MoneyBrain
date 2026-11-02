@@ -35,6 +35,9 @@ vi.mock('../../../src/queries/transaction', () => {
   const transactions = { list: [], total: 150, page: 1, pageSize: 20 }
   return {
     useTransactions: vi.fn(() => ({ data: transactions, isLoading: false })),
+    // 回收站区块（RecycleBinSection）渲染时需要的 hooks
+    useRecycleBin: vi.fn(() => ({ data: { list: [] }, isLoading: false, isError: false, refetch: vi.fn() })),
+    useUndoAuditEvent: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   }
 })
 

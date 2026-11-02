@@ -137,12 +137,34 @@ export interface Transaction {
   relatedTransactionId: string | null
   relatedType: string | null // 'income' | 'expense'（退款时记录原交易类型）
   excludeFromIncomeExpense: boolean // 不计收支：不参与收入/支出统计（仍影响账户余额）
+  deletedAt: string | null // 软删除时间；null = 未删除
   account: Account
   category: TransactionCategory | null
   toAccount: Account | null
   relatedTransaction: Transaction | null
   refunds: Transaction[]
   createdAt: string
+}
+
+// ===== 审计事件与回收站（B2） =====
+
+export type AuditEventAction = 'updated' | 'deleted' | 'restored'
+
+/** 审计事件：行内字段为序列化快照（金额分 → 字符串，Date → ISO 字符串）。 */
+export interface AuditEvent {
+  id: string
+  entity: string
+  entityId: string
+  action: AuditEventAction
+  beforeJson: string | null
+  afterJson: string | null
+  at: string
+}
+
+/** 回收站条目：交易 + 最近一条 deleted 事件 id（恢复 = 撤销它）。 */
+export interface RecycleBinItem {
+  transaction: Transaction
+  deleteEventId: string | null
 }
 
 // ===== 预算 =====

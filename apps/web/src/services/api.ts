@@ -7,6 +7,7 @@ import type {
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
   ApiResponse,
+  AuditEvent,
   BalanceSheetReportData,
   Budget,
   BudgetPrediction,
@@ -20,6 +21,7 @@ import type {
   InvestmentAllocationSnapshot,
   Minor,
   PaginatedResponse,
+  RecycleBinItem,
   RollbackPoint,
   RollbackResult,
   Transaction,
@@ -38,6 +40,7 @@ export type {
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
   ApiResponse,
+  AuditEvent,
   BalanceSheetReportData,
   Budget,
   BudgetPrediction,
@@ -51,6 +54,7 @@ export type {
   InvestmentAllocationSnapshot,
   Minor,
   PaginatedResponse,
+  RecycleBinItem,
   RollbackPoint,
   RollbackResult,
   Transaction,
@@ -135,7 +139,15 @@ export const transactionApi = {
   getRefundableList: () => api.get<ApiResponse<Transaction[]>>('/transactions/refundable/list'),
   create: (data: Partial<Transaction>) => api.post<ApiResponse<Transaction>>('/transactions', data),
   update: (id: string, data: Partial<Transaction>) => api.put<ApiResponse<Transaction>>(`/transactions/${id}`, data),
-  delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/transactions/${id}`),
+  // 软删除：返回审计事件 id，前端提示「已删除 · 撤销」
+  delete: (id: string) => api.delete<ApiResponse<{ message: string; auditEventId: string }>>(`/transactions/${id}`),
+  getHistory: (id: string) => api.get<ApiResponse<{ list: AuditEvent[] }>>(`/transactions/${id}/history`),
+  getRecycleBin: () => api.get<ApiResponse<{ list: RecycleBinItem[] }>>('/transactions/recycle-bin'),
+}
+
+export const auditEventApi = {
+  // 撤销 = 审计事件反向写入；回收站的「恢复」与删除提示条的「撤销」共用此端点
+  undo: (id: string) => api.post<ApiResponse<Transaction>>(`/audit-events/${id}/undo`),
 }
 
 export const budgetApi = {

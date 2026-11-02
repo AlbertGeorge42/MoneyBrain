@@ -12,6 +12,7 @@ export function useNotify() {
       warning: message.warning,
       info: message.info,
       loading: message.loading,
+      open: message.open,
     }),
     [message],
   )

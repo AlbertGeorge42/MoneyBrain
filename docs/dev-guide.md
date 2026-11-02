@@ -250,7 +250,7 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
 - 不持久化余额、预算百分比、收益率。投资快照的 `previous_snapshot_id` **继续持久化**——
   它是写入顺序的产物，不是金额派生值，且同步依赖它做应用后重算（[stage-2-sync.md](blueprint/stage-2-sync.md) 批次 F6）；
   禁止的是**读取时**绕开快照链、按日期另算一套推导。
-- 交易删除是硬删除；退款通过 `relatedTransactionId` 关联。存在退款的原交易禁止删除，避免孤儿退款。
+- 交易删除是软删除（`deletedAt`，B2）：过滤条件只允许出现在 `db/repositories/transaction.repository.ts`，service / route 不得再写 `deletedAt` 条件；撤销与回收站恢复 = 依据 `audit_events` 审计事件反向写入，不另建撤销表、不做二次确认（前端提示「已删除 · 撤销」）。退款通过 `relatedTransactionId` 关联。存在退款的原交易禁止删除（含回收站里的退款），避免孤儿退款；导出与备份必须排除已删除交易。
 - CSV 导入用 `Transaction.importKey` 去重；同一文件或数据库已存在的记录会跳过。
 - 导入支持 `includes` 范围过滤；覆盖模式只清空所选范围。独立配置覆盖若仍有未纳入范围的交易/预算/快照会被拒绝。
 - 覆盖导入必须二次确认；CSV 覆盖在单个事务内先清空再写入。

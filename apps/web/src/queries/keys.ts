@@ -18,6 +18,8 @@ export const queryKeys = {
     stats: (params?: Record<string, unknown>) => ['transactions', 'stats', params] as const,
     earliest: ['transactions', 'earliest'] as const,
     refundable: ['transactions', 'refundable'] as const,
+    history: (id: string) => ['transactions', id, 'history'] as const,
+    recycleBin: ['transactions', 'recycle-bin'] as const,
   },
   budgets: {
     all: ['budgets'] as const,

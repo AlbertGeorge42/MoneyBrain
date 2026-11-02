@@ -154,11 +154,15 @@ const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
     handleCloseDetail()
   }
 
+  // 删除（软删除）：提示「已删除 · 撤销」由 useDeleteTransaction 统一弹出
   const handleDelete = async () => {
     if (!selectedTx) return
-    await deleteTransaction.mutateAsync(selectedTx.id)
-    notify.success('删除成功')
-    handleCloseDetail()
+    try {
+      await deleteTransaction.mutateAsync(selectedTx.id)
+      handleCloseDetail()
+    } catch {
+      // 错误提示已由 useDeleteTransaction 统一弹出
+    }
   }
 
   return (
