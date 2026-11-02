@@ -84,6 +84,11 @@ export function createMockPrisma() {
       delete: vi.fn(),
       deleteMany: vi.fn(),
     },
+    auditEvent: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn().mockResolvedValue({ id: 'event-1' }),
+    },
     $transaction: vi.fn((callbackOrArray) => {
       // 支持数组形式和回调形式
       if (Array.isArray(callbackOrArray)) {

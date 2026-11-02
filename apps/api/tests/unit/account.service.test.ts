@@ -56,6 +56,11 @@ vi.mock('../../src/prisma.js', () => {
       delete: vi.fn(),
       deleteMany: vi.fn(),
     },
+    auditEvent: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn().mockResolvedValue({ id: 'event-1' }),
+    },
     budget: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -133,29 +138,29 @@ describe('account.service', () => {
   })
 
   describe('getAccountDetail', () => {
-    it('应该返回带关联数据的账户详情', async () => {
+    it('应该返回带关联数据的账户详情（最近交易只含未删除）', async () => {
       const mockAccount = {
         id: '1',
         name: '测试账户',
         category: { id: 'cat1', name: '现金' },
-        fromTransactions: [],
       }
+      const recentTransactions = [{ id: 'tx1', categoryId: 'cat1' }]
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount)
+      mockPrisma.transaction.findMany.mockResolvedValue(recentTransactions)
 
       const result = await getAccountDetail('1')
 
       expect(mockPrisma.account.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
-        include: {
-          category: true,
-          fromTransactions: {
-            take: 10,
-            orderBy: { date: 'desc' },
-            include: { category: true },
-          },
-        },
+        include: { category: true },
       })
-      expect(result).toEqual(mockAccount)
+      // 最近交易走交易 repository：软删除过滤在那一层
+      expect(mockPrisma.transaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ accountId: '1', deletedAt: null }),
+        }),
+      )
+      expect(result).toEqual({ ...mockAccount, fromTransactions: recentTransactions })
     })
   })
 

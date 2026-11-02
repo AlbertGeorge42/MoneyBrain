@@ -94,6 +94,7 @@ model Transaction {
   excludeFromIncomeExpense Boolean @default(false) // 不计收支：不参与收入/支出统计（仍影响账户余额）
   relatedTransaction   Transaction? @relation("TransactionRefund", fields: [relatedTransactionId], references: [id], onDelete: SetNull)
   refunds              Transaction[] @relation("TransactionRefund")
+  deletedAt            DateTime?   // 软删除时间；null = 未删除
   createdAt            DateTime    @default(now())
 
   @@index([date])
@@ -101,7 +102,23 @@ model Transaction {
   @@index([categoryId, date])
   @@index([type, date])
   @@index([relatedTransactionId])
+  @@index([deletedAt])
   @@map("transactions")
+}
+
+// 审计事件：删除/修改时写入 before/after 整行快照（JSON），
+// 撤销 = 依据事件里的 before 反向写入，不另建撤销表。
+model AuditEvent {
+  id         String   @id @default(uuid())
+  entity     String   // 实体名，如 'transaction' / 'account'
+  entityId   String   @map("entity_id")
+  action     String   // 'updated' | 'deleted' | 'restored'
+  beforeJson String?  @map("before_json")
+  afterJson  String?  @map("after_json")
+  at         DateTime @default(now())
+
+  @@index([entity, entityId, at])
+  @@map("audit_events")
 }
 
 model Budget {

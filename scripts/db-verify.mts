@@ -70,7 +70,8 @@ async function main() {
   try {
     const [accounts, transactions] = await Promise.all([
       prisma.account.findMany(),
-      prisma.transaction.findMany({ orderBy: { date: 'asc' } }),
+      // 软删除交易不参与余额与对账（B2 口径与导出/应用一致）
+      prisma.transaction.findMany({ where: { deletedAt: null }, orderBy: { date: 'asc' } }),
     ])
     const ledger = transactions.map((t) => toLedger(t as unknown as Record<string, unknown>))
 

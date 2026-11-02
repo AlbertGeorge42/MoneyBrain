@@ -1,5 +1,6 @@
 import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
+import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { rootLogger } from '../../common/index.js'
 import { minor } from '../../../../../packages/domain/src/index.js'
 import {
@@ -37,18 +38,18 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   })
   const cashAccountIds = cashAccounts.map(a => a.id)
 
-  // 2. 拉取 actual 交易（已限定到现金账户 + 日期范围）
+  // 2. 拉取 actual 交易（已限定到现金账户 + 日期范围；软删除过滤在 repository）
   // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
-  const transactions = await prisma.transaction.findMany({
-    where: {
+  const transactions = await transactionRepo.findActive(
+    {
       date: { gte: start, lte: end },
       OR: [
         { accountId: { in: cashAccountIds } },
         { toAccountId: { in: cashAccountIds } },
       ],
     },
-    include: { account: true, toAccount: true, category: true },
-  })
+    { include: { account: true, toAccount: true, category: true } },
+  )
 
   // 3. 拉取 predicted 交易（含分类 / 账户字典以便名称解析）
   let predictionNote: string | undefined

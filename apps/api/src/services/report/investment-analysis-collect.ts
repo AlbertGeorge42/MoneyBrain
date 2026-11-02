@@ -1,5 +1,6 @@
 import { prisma } from '../../prisma.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
+import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
 import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investment-analysis-types.js'
 
@@ -53,8 +54,8 @@ export async function getCashFlowsInRange(
   const accountMap = new Map(accounts.map(a => [a.id, a.name]))
 
   // 仅查询 transfer 类型：本金投入/取出。income/expense 已通过 balanceCache 反映在余额中，不应重复计入现金流
-  const transfers = await prisma.transaction.findMany({
-    where: {
+  const transfers = await transactionRepo.findActive(
+    {
       type: 'transfer',
       date: {
         gte: startDate,
@@ -65,8 +66,8 @@ export async function getCashFlowsInRange(
         { toAccountId: { in: accountIds } },
       ],
     },
-    orderBy: { date: 'asc' },
-  })
+    { orderBy: { date: 'asc' } },
+  )
 
   for (const t of transfers) {
     const amount = t.amount

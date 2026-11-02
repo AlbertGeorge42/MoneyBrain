@@ -57,7 +57,8 @@ async function computeTotals(db: PrismaClient): Promise<Totals> {
       db.account.findMany(),
       db.accountCategory.count(),
       db.transactionCategory.count(),
-      db.transaction.findMany(),
+      // 导出只含未删除交易；对比口径以原库的未删除交易为准（B2）
+      db.transaction.findMany({ where: { deletedAt: null } }),
       db.budget.count(),
       db.investmentAllocationSnapshot.count(),
     ])

@@ -1,38 +1,19 @@
 import { prisma } from '../prisma.js'
 import { Prisma } from '@prisma/client'
 import { rootLogger } from '../common/index.js'
-import type { Transaction, Account, TransactionCategory } from '@prisma/client'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
+import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
+import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
 import { formatAmount, minor, remainingRefundable, summarizeAggregatedFlows, CURRENT_RULE_VERSION, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
 // ===== 接口定义 =====
 
-export interface TransactionWithRelations {
-  id: string
-  type: string
-  ruleVersion: number
-  amount: bigint
-  fee: bigint | null
-  coupon: bigint | null
-  date: Date
-  note: string | null
-  accountId: string
-  toAccountId: string | null
-  categoryId: string | null
-  relatedTransactionId: string | null
-  relatedType: string | null
-  excludeFromIncomeExpense: boolean
-  createdAt: Date
-  account: Account
-  category: TransactionCategory | null
-  toAccount: Account | null
-  relatedTransaction: (Transaction & { account: Account; category: TransactionCategory | null }) | null
-  refunds: (Transaction & { account: Account; category: TransactionCategory | null })[]
-}
+export type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 
 export interface CreateIncomeExpenseData {
   type: 'income' | 'expense'
@@ -130,34 +111,22 @@ export interface TransactionStats {
   transferCount: number
 }
 
-/** 交易返回给前端时固定带上的关联，避免各处 include 漂移。 */
-const TRANSACTION_RELATIONS = {
-  account: true,
-  category: true,
-  toAccount: true,
-  relatedTransaction: { include: { account: true, category: true } },
-  refunds: { include: { account: true, category: true } },
-} satisfies Prisma.TransactionInclude
-
 // ===== 创建交易 =====
 
 export async function createIncomeExpense(data: CreateIncomeExpenseData): Promise<TransactionWithRelations> {
   const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, excludeFromIncomeExpense } = data
 
-  const transaction = await prisma.transaction.create({
-    data: {
-      type,
-      ruleVersion: CURRENT_RULE_VERSION,
-      amount: BigInt(amount),
-      fee: BigInt(fee),
-      coupon: BigInt(coupon),
-      date,
-      note,
-      accountId,
-      categoryId,
-      excludeFromIncomeExpense: excludeFromIncomeExpense ?? false,
-    },
-    include: TRANSACTION_RELATIONS,
+  const transaction = await transactionRepo.createWithRelations({
+    type,
+    ruleVersion: CURRENT_RULE_VERSION,
+    amount: BigInt(amount),
+    fee: BigInt(fee),
+    coupon: BigInt(coupon),
+    date,
+    note,
+    accountId,
+    categoryId,
+    excludeFromIncomeExpense: excludeFromIncomeExpense ?? false,
   })
 
   logger.debug({ type }, '交易创建')
@@ -173,21 +142,18 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
   const toAccount = await prisma.account.findUnique({ where: { id: toAccountId } })
   if (!toAccount) throw new NotFoundError('转入账户')
 
-  const transaction = await prisma.transaction.create({
-    data: {
-      type: 'transfer',
-      ruleVersion: CURRENT_RULE_VERSION,
-      amount: BigInt(amount),
-      fee: BigInt(fee),
-      coupon: BigInt(coupon),
-      date,
-      note,
-      accountId,
-      toAccountId,
-      categoryId,
-      excludeFromIncomeExpense: excludeFromIncomeExpense ?? false,
-    },
-    include: TRANSACTION_RELATIONS,
+  const transaction = await transactionRepo.createWithRelations({
+    type: 'transfer',
+    ruleVersion: CURRENT_RULE_VERSION,
+    amount: BigInt(amount),
+    fee: BigInt(fee),
+    coupon: BigInt(coupon),
+    date,
+    note,
+    accountId,
+    toAccountId,
+    categoryId,
+    excludeFromIncomeExpense: excludeFromIncomeExpense ?? false,
   })
 
   logger.debug({ type: 'transfer' }, '交易创建')
@@ -210,15 +176,8 @@ async function assertRefundable(
     throw new ValidationError('退款金额必须大于 0')
   }
 
-  // 可退金额的口径只有领域层这一处：原额 − 已退额
-  const refunds = await prisma.transaction.findMany({
-    where: {
-      type: 'refund',
-      relatedTransactionId: original.id,
-      ...(excludeRefundId ? { id: { not: excludeRefundId } } : {}),
-    },
-    select: { type: true, amount: true, relatedTransactionId: true },
-  })
+  // 可退金额的口径只有领域层这一处：原额 − 已退额（软删除的退款不再占用可退额）
+  const refunds = await transactionRepo.findActiveRefundsOf(original.id, excludeRefundId)
 
   const remaining = remainingRefundable(
     { id: original.id, kind: original.type, amount: minor(Number(original.amount)) },
@@ -237,27 +196,24 @@ async function assertRefundable(
 export async function createRefund(data: CreateRefundData): Promise<TransactionWithRelations> {
   const { amount, fee = 0, coupon = 0, date, note, accountId, relatedTransactionId } = data
 
-  const relatedTransaction = await prisma.transaction.findUnique({ where: { id: relatedTransactionId } })
+  const relatedTransaction = await transactionRepo.findById(relatedTransactionId)
   if (!relatedTransaction) throw new NotFoundError('原交易记录')
   await assertRefundable(relatedTransaction, amount)
 
-  const transaction = await prisma.transaction.create({
-    data: {
-      type: 'refund',
-      ruleVersion: CURRENT_RULE_VERSION,
-      amount: BigInt(amount),
-      fee: BigInt(fee),
-      coupon: BigInt(coupon),
-      date,
-      note,
-      accountId,
-      categoryId: relatedTransaction.categoryId,
-      relatedTransactionId,
-      relatedType: relatedTransaction.type,
-      // 退款继承原交易的「不计收支」标记
-      excludeFromIncomeExpense: relatedTransaction.excludeFromIncomeExpense,
-    },
-    include: TRANSACTION_RELATIONS,
+  const transaction = await transactionRepo.createWithRelations({
+    type: 'refund',
+    ruleVersion: CURRENT_RULE_VERSION,
+    amount: BigInt(amount),
+    fee: BigInt(fee),
+    coupon: BigInt(coupon),
+    date,
+    note,
+    accountId,
+    categoryId: relatedTransaction.categoryId,
+    relatedTransactionId,
+    relatedType: relatedTransaction.type,
+    // 退款继承原交易的「不计收支」标记
+    excludeFromIncomeExpense: relatedTransaction.excludeFromIncomeExpense,
   })
 
   logger.debug({ type: 'refund' }, '交易创建')
@@ -287,13 +243,13 @@ function mergeTransactionData(
 }
 
 export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseData): Promise<TransactionWithRelations> {
-  const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
+  const oldTransaction = await transactionRepo.findById(id)
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
   // 改类型会反转已有退款的冲减方向（收入退款 ↔ 支出退款），必须先处理退款
   const nextType = data.type || oldTransaction.type
   if (nextType !== oldTransaction.type) {
-    const refundCount = await prisma.transaction.count({ where: { relatedTransactionId: id } })
+    const refundCount = await transactionRepo.countIncludingDeleted({ relatedTransactionId: id })
     if (refundCount > 0) {
       throw new ValidationError('该交易存在退款，不能修改交易类型')
     }
@@ -301,53 +257,35 @@ export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseD
 
   const merged = mergeTransactionData(oldTransaction, data)
 
-  const transaction = await prisma.transaction.update({
-    where: { id },
-    data: { ...merged, type: data.type || oldTransaction.type },
-    include: TRANSACTION_RELATIONS,
-  })
-
-  return transaction
+  return updateWithEvent(id, oldTransaction, { ...merged, type: data.type || oldTransaction.type })
 }
 
 export async function updateTransfer(id: string, data: UpdateTransferData): Promise<TransactionWithRelations> {
-  const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
+  const oldTransaction = await transactionRepo.findById(id)
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
   const merged = mergeTransactionData(oldTransaction, data)
 
-  const transaction = await prisma.transaction.update({
-    where: { id },
-    data: { ...merged, toAccountId: data.toAccountId || oldTransaction.toAccountId! },
-    include: TRANSACTION_RELATIONS,
-  })
-
-  return transaction
+  return updateWithEvent(id, oldTransaction, { ...merged, toAccountId: data.toAccountId || oldTransaction.toAccountId! })
 }
 
 export async function updateRefund(id: string, data: UpdateRefundData): Promise<TransactionWithRelations> {
-  const oldTransaction = await prisma.transaction.findUnique({ where: { id } })
+  const oldTransaction = await transactionRepo.findById(id)
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
   const relatedId = data.relatedTransactionId ?? oldTransaction.relatedTransactionId
   if (relatedId) {
-    const original = await prisma.transaction.findUnique({ where: { id: relatedId } })
+    const original = await transactionRepo.findById(relatedId)
     if (!original) throw new NotFoundError('原交易记录')
     await assertRefundable(original, data.amount ?? Number(oldTransaction.amount), id)
   }
 
   const merged = mergeTransactionData(oldTransaction, data)
 
-  const transaction = await prisma.transaction.update({
-    where: { id },
-    data: {
-      ...merged,
-      relatedTransactionId: data.relatedTransactionId !== undefined ? data.relatedTransactionId : oldTransaction.relatedTransactionId,
-    },
-    include: TRANSACTION_RELATIONS,
+  return updateWithEvent(id, oldTransaction, {
+    ...merged,
+    relatedTransactionId: data.relatedTransactionId !== undefined ? data.relatedTransactionId : oldTransaction.relatedTransactionId,
   })
-
-  return transaction
 }
 
 // ===== 查询与删除 =====
@@ -463,16 +401,9 @@ export async function getTransactionList(params: TransactionListParams): Promise
 
   const where = await buildTransactionListWhere(params)
 
-  const total = await prisma.transaction.count({ where })
-  const transactions = await prisma.transaction.findMany({
-    where,
-    include: {
-      ...TRANSACTION_RELATIONS,
-      refunds: {
-        include: { account: true, category: true },
-        orderBy: { date: 'desc' },
-      },
-    },
+  const total = await transactionRepo.countActive(where)
+  const transactions = await transactionRepo.findActive(where, {
+    include: transactionRepo.TRANSACTION_RELATIONS,
     // 同日多笔按创建时间倒序，保证分页排序稳定
     orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     skip: (page - 1) * pageSize,
@@ -497,12 +428,8 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
   // 口径仍由领域层按各自版本解释——既避免整表读进内存，
   // 也不会让「当前规则」误伤旧交易。
   const [grouped, transferCount] = await Promise.all([
-    prisma.transaction.groupBy({
-      by: ['type', 'relatedType', 'excludeFromIncomeExpense', 'ruleVersion'],
-      where,
-      _sum: { amount: true },
-    }),
-    prisma.transaction.count({ where: { ...where, type: 'transfer', excludeFromIncomeExpense: false } }),
+    transactionRepo.sumActiveAmountByFlowKind(where),
+    transactionRepo.countActive({ ...where, type: 'transfer', excludeFromIncomeExpense: false }),
   ])
 
   const flows = summarizeAggregatedFlows(
@@ -525,46 +452,38 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
 }
 
 export async function getTransactionById(id: string): Promise<TransactionWithRelations | null> {
-  const transaction = await prisma.transaction.findUnique({
-    where: { id },
-    include: {
-      ...TRANSACTION_RELATIONS,
-      refunds: {
-        include: { account: true, category: true },
-        orderBy: { date: 'desc' },
-      },
-    },
-  })
-  return transaction
+  return transactionRepo.findByIdWithRelations(id)
 }
 
 export async function getRefundableTransactions(): Promise<TransactionWithRelations[]> {
-  const transactions = await prisma.transaction.findMany({
-    where: { type: { in: ['income', 'expense'] } },
-    include: TRANSACTION_RELATIONS,
-    orderBy: { date: 'desc' },
-    take: 100,
-  })
-  return transactions
+  return transactionRepo.findActive(
+    { type: { in: ['income', 'expense'] } },
+    {
+      include: transactionRepo.TRANSACTION_RELATIONS,
+      orderBy: { date: 'desc' },
+      take: 100,
+    },
+  )
 }
 
-export async function deleteTransaction(id: string): Promise<void> {
-  const transaction = await prisma.transaction.findUnique({ where: { id } })
+/**
+ * 软删除（B2）：写 deletedAt + 审计事件，不做二次确认，撤销靠审计事件反向写入。
+ * 保留不变：存在退款记录（含回收站里的）禁止删除——半条链被软删会让可退额算错。
+ */
+export async function deleteTransaction(id: string): Promise<{ auditEventId: string }> {
+  const transaction = await transactionRepo.findById(id)
   if (!transaction) throw new NotFoundError('交易记录')
 
-  const refundCount = await prisma.transaction.count({ where: { relatedTransactionId: id } })
+  const refundCount = await transactionRepo.countIncludingDeleted({ relatedTransactionId: id })
   if (refundCount > 0) {
     throw new ValidationError('该交易存在退款记录，请先删除退款')
   }
 
-  await prisma.transaction.delete({ where: { id } })
+  const auditEventId = await softDeleteWithEvent(transaction)
   logger.debug({ type: transaction.type }, 'transaction deleted')
+  return { auditEventId }
 }
 
 export async function getEarliestTransactionDate(): Promise<Date | null> {
-  const earliest = await prisma.transaction.findFirst({
-    orderBy: { date: 'asc' },
-    select: { date: true },
-  })
-  return earliest?.date || null
+  return transactionRepo.findEarliestActiveDate()
 }

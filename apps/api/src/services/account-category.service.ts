@@ -1,6 +1,7 @@
 import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
+import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
 
 export async function getAccountCategories(params?: { type?: string }) {
   const where: Record<string, unknown> = {}
@@ -121,6 +122,13 @@ export async function deleteAccountCategory(categoryId: string) {
   if (accountsCount > 0) {
     throw new ValidationError('该分类下存在账户，无法删除')
   }
+  const category = await prisma.accountCategory.findUnique({ where: { id: categoryId } })
+  if (!category) {
+    throw new NotFoundError('分类')
+  }
   await prisma.accountCategory.delete({ where: { id: categoryId } })
+  await auditEventRepo.createAuditEvent(
+    { entity: 'account_category', entityId: categoryId, action: 'deleted', before: category },
+  )
   return { message: '删除成功' }
 }

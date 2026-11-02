@@ -1,6 +1,8 @@
 import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toMinor } from '../common/index.js'
+import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { AccountStats } from '../../../../packages/contracts/types/index.js'
 
 type AccountSortItem = {
@@ -43,17 +45,23 @@ export async function updateAccountSorts(items: AccountSortItem[]): Promise<void
 }
 
 export async function getAccountDetail(accountId: string) {
-  return prisma.account.findUnique({
+  const account = await prisma.account.findUnique({
     where: { id: accountId },
-    include: {
-      category: true,
-      fromTransactions: {
-        take: 10,
-        orderBy: { date: 'desc' },
-        include: { category: true },
-      },
-    },
+    include: { category: true },
   })
+  if (!account) return null
+
+  // 最近交易走交易 repository：软删除过滤只在那层做
+  const fromTransactions = await transactionRepo.findActive(
+    { accountId },
+    {
+      orderBy: { date: 'desc' },
+      take: 10,
+      include: { category: true },
+    },
+  )
+
+  return { ...account, fromTransactions }
 }
 
 export async function createAccount(data: {
@@ -136,16 +144,13 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
     throw new NotFoundError('账户')
   }
 
-  const transactionsCount = await prisma.transaction.count({
-    where: { accountId },
-  })
+  // 交易计数不过滤软删除：回收站里的交易仍引用本账户，恢复时要能对上
+  const transactionsCount = await transactionRepo.countIncludingDeleted({ accountId })
 
   // 转入交易（toAccountId 指向本账户）不会计入 transactionsCount，
   // 但账户被删除后这些交易会被外键置空 toAccountId，静默破坏转账配对，
   // 因此必须一并纳入"关联数据"判定与级联删除。
-  const incomingTransfersCount = await prisma.transaction.count({
-    where: { toAccountId: accountId },
-  })
+  const incomingTransfersCount = await transactionRepo.countIncludingDeleted({ toAccountId: accountId })
 
   // 该账户（作为转出或转入方）被预算引用时，外键为 RESTRICT，
   // 若不先删除预算，删除账户会直接抛出外键错误。
@@ -180,12 +185,12 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
 
   if (forceDelete && hasRelatedData) {
     await prisma.$transaction(async (tx) => {
-      // 先删引用账户的子表（交易、预算），再删账户
+      // 先删引用账户的子表（交易、预算），再删账户；交易的批量删除走 repository
       if (transactionsCount > 0) {
-        await tx.transaction.deleteMany({ where: { accountId } })
+        await transactionRepo.deleteManyWhere({ accountId }, tx)
       }
       if (incomingTransfersCount > 0) {
-        await tx.transaction.deleteMany({ where: { toAccountId: accountId } })
+        await transactionRepo.deleteManyWhere({ toAccountId: accountId }, tx)
       }
       if (budgetsCount > 0) {
         await tx.budget.deleteMany({ where: { OR: [{ accountId }, { toAccountId: accountId }] } })
@@ -203,9 +208,17 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
       }
 
       await tx.account.delete({ where: { id: accountId } })
+      // 账户硬删除记审计事件（撤销暂不支持，留痕供后续 D1 接入）
+      await auditEventRepo.createAuditEvent(
+        { entity: 'account', entityId: accountId, action: 'deleted', before: account },
+        tx,
+      )
     })
   } else {
     await prisma.account.delete({ where: { id: accountId } })
+    await auditEventRepo.createAuditEvent(
+      { entity: 'account', entityId: accountId, action: 'deleted', before: account },
+    )
   }
 
   return {
@@ -222,17 +235,9 @@ export async function getAccountStats(accountId: string): Promise<AccountStats> 
   // isAdjustment 已删除：type='adjustment' 已能区分非业务调整
   // 不计收支标记的交易不计入账户收入/支出统计（仍计入账户余额）
   const [countResult, incomeResult, expenseResult] = await Promise.all([
-    prisma.transaction.count({
-      where: { accountId },
-    }),
-    prisma.transaction.aggregate({
-      where: { accountId, type: 'income', excludeFromIncomeExpense: false },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { accountId, type: 'expense', excludeFromIncomeExpense: false },
-      _sum: { amount: true },
-    }),
+    transactionRepo.countActive({ accountId }),
+    transactionRepo.sumActiveAmount({ accountId, type: 'income', excludeFromIncomeExpense: false }),
+    transactionRepo.sumActiveAmount({ accountId, type: 'expense', excludeFromIncomeExpense: false }),
   ])
 
   return {

@@ -1,5 +1,6 @@
 import { prisma, type TransactionClient } from '../prisma.js'
 import { rootLogger, ValidationError } from '../common/index.js'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { DataType } from './backup.service.js'
 
 const logger = rootLogger.child({ module: 'clear-data' })
@@ -22,8 +23,8 @@ async function clearConfigDataForImport(tx: TransactionClient): Promise<void> {
  * 必须按外键依赖顺序删除：子表先于父表，交易/账户先于分类。
  */
 async function clearAllDataForImport(tx: TransactionClient): Promise<void> {
-  // 先删引用方（子表）：交易引用分类和账户
-  await tx.transaction.deleteMany()
+  // 先删引用方（子表）：交易引用分类和账户；清库是全量硬删，不过滤软删除
+  await transactionRepo.deleteManyWhere(undefined, tx)
   await tx.budget.deleteMany()
   await tx.investmentAllocationItem.deleteMany()
   await tx.investmentAllocationSnapshot.deleteMany()
@@ -40,7 +41,7 @@ export async function clearSelectedDataForImport(
   includes: DataType[],
 ): Promise<void> {
   if (includes.includes('transactions')) {
-    await tx.transaction.deleteMany()
+    await transactionRepo.deleteManyWhere(undefined, tx)
   }
   if (includes.includes('snapshots')) {
     await tx.investmentAllocationItem.deleteMany()
@@ -50,8 +51,9 @@ export async function clearSelectedDataForImport(
     await tx.budget.deleteMany()
   }
   if (includes.includes('config')) {
+    // 计数含软删除行：回收站里的交易同样引用账户，从保守判定
     const [transactionCount, budgetCount, snapshotCount] = await Promise.all([
-      tx.transaction.count(),
+      transactionRepo.countIncludingDeleted({}, tx),
       tx.budget.count(),
       tx.investmentAllocationSnapshot.count(),
     ])
@@ -68,7 +70,7 @@ export async function clearSelectedDataForImport(
  * 仅清空交易记录。预算和投资快照不属于交易范围，覆盖交易时不删除。
  */
 async function clearTransactionsForImport(tx: TransactionClient): Promise<void> {
-  await tx.transaction.deleteMany()
+  await transactionRepo.deleteManyWhere(undefined, tx)
 }
 
 /** 仅清空交易相关数据（公开 API，用于路由层）。 */

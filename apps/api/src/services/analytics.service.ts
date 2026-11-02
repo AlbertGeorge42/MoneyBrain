@@ -1,5 +1,6 @@
 import { prisma } from '../prisma.js'
 import type { Prisma } from '@prisma/client'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { calculateBalancesBatch } from './balance.service.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
@@ -57,23 +58,26 @@ export async function getDashboardSummary() {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
   // 一次取回两个月，交给领域层统一冲减退款。
-  const transactions = await prisma.transaction.findMany({
-    where: {
+  const transactions = await transactionRepo.findActive(
+    {
       date: { gte: lastMonthStart, lt: nextMonthStart },
       excludeFromIncomeExpense: false,
     },
-    select: LEDGER_SELECT,
-  })
+    { select: LEDGER_SELECT },
+  )
   const ledger = transactions.map(toLedgerTransaction)
   const thisMonth = summarizeFlows(ledger, toPeriod(currentMonthStart, nextMonthStart))
   const lastMonth = summarizeFlows(ledger, toPeriod(lastMonthStart, currentMonthStart))
 
   // 最近交易（含账户和分类信息）
-  const recentTransactions = await prisma.transaction.findMany({
-    include: { account: true, category: true, toAccount: true },
-    orderBy: { date: 'desc' },
-    take: 8,
-  })
+  const recentTransactions = await transactionRepo.findActive(
+    {},
+    {
+      include: { account: true, category: true, toAccount: true },
+      orderBy: { date: 'desc' },
+      take: 8,
+    },
+  )
 
   return {
     thisMonth: {
@@ -105,14 +109,14 @@ export async function getTrends(type: string): Promise<TrendItem[]> {
   const { startDate, endExclusive } = recent12MonthsWindow()
 
   // 单次查询获取12个月全部数据，退款交给领域层冲减。
-  const transactions = await prisma.transaction.findMany({
-    where: {
+  const transactions = await transactionRepo.findActive(
+    {
       type: { in: [type, 'refund'] },
       date: { gte: startDate, lt: endExclusive },
       excludeFromIncomeExpense: false,
     },
-    select: LEDGER_SELECT,
-  })
+    { select: LEDGER_SELECT },
+  )
   const ledger = transactions.map(toLedgerTransaction)
 
   const result: TrendItem[] = []
@@ -163,13 +167,15 @@ export async function getCategoryBreakdown(
   // parent→children 映射：复用公共实现（传入已加载的全量分类，避免二次查询）
   const childrenOf = await buildCategoryChildrenMap(type, allCategories)
 
-  const transactions = await prisma.transaction.findMany({
+  const transactions = await transactionRepo.findActive(
     where,
-    select: {
-      ...LEDGER_SELECT,
-      category: { select: { id: true, name: true, parentId: true } },
+    {
+      select: {
+        ...LEDGER_SELECT,
+        category: { select: { id: true, name: true, parentId: true } },
+      },
     },
-  })
+  )
   const flow = flowByCategory(transactions.map(toLedgerTransaction), type)
 
   if (parentCategoryId) {

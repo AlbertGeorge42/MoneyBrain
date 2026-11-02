@@ -3,6 +3,8 @@ import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
+import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
   fromDate,
   minor,
@@ -256,14 +258,10 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
   const accountIds = [...new Set(group.map((plan) => plan.budget.accountId))]
   const categoryIds = [...new Set(group.flatMap((plan) => plan.categoryIds))]
 
-  const grouped = await prisma.transaction.groupBy({
-    by: ['accountId', 'toAccountId', 'categoryId', 'type', 'relatedType', 'excludeFromIncomeExpense', 'ruleVersion'],
-    where: {
-      date: { gte: first.dateRange.startDate, lt: first.dateRange.endDate },
-      accountId: { in: accountIds },
-      categoryId: { in: categoryIds },
-    },
-    _sum: { amount: true },
+  const grouped = await transactionRepo.sumActiveAmountByBudgetScope({
+    date: { gte: first.dateRange.startDate, lt: first.dateRange.endDate },
+    accountId: { in: accountIds },
+    categoryId: { in: categoryIds },
   })
 
   return grouped.map((row) => ({
@@ -552,6 +550,9 @@ export async function deleteBudget(budgetId: string) {
   }
 
   await prisma.budget.delete({ where: { id: budgetId } })
+  await auditEventRepo.createAuditEvent(
+    { entity: 'budget', entityId: budgetId, action: 'deleted', before: existing },
+  )
 
   return { message: '删除成功' }
 }

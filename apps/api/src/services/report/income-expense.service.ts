@@ -1,6 +1,7 @@
 import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
+import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { toLedgerTransaction } from '../ledger.adapter.js'
 import {
   flowByCategory,
@@ -33,42 +34,45 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const startDay = new Date(start)
 
   // isAdjustment 已删除：type='adjustment' 已能区分非业务调整，Prisma schema 仅保留 type
-  const transactions = await prisma.transaction.findMany({
-    where: {
+  // 软删除过滤在 repository：已删除交易不进报表
+  const transactions = await transactionRepo.findActive(
+    {
       date: { gte: start, lte: end },
       type: { in: ['income', 'expense', 'refund'] },
       amount: { not: 0 },
       // includeExcluded 为 true 时不过滤「不计收支」交易，否则排除 excludeFromIncomeExpense=true 的交易
       ...(includeExcluded ? {} : { excludeFromIncomeExpense: false }),
     },
-    include: { category: true, account: true },
-  })
+    { include: { category: true, account: true } },
+  )
 
   // 对账条需要「改变余额但不进收支统计」的交易：转账手续费、平账、不计收支
-  const balanceOnlyTransactions = await prisma.transaction.findMany({
-    where: {
+  const balanceOnlyTransactions = await transactionRepo.findActive(
+    {
       date: { gte: start, lte: end },
       OR: [
         { type: { in: ['transfer', 'adjustment'] } },
         { excludeFromIncomeExpense: true },
       ],
     },
-    select: {
-      id: true,
-      type: true,
-      ruleVersion: true,
-      amount: true,
-      fee: true,
-      coupon: true,
-      accountId: true,
-      toAccountId: true,
-      date: true,
-      excludeFromIncomeExpense: true,
-      relatedType: true,
-      categoryId: true,
-      relatedTransactionId: true,
+    {
+      select: {
+        id: true,
+        type: true,
+        ruleVersion: true,
+        amount: true,
+        fee: true,
+        coupon: true,
+        accountId: true,
+        toAccountId: true,
+        date: true,
+        excludeFromIncomeExpense: true,
+        relatedType: true,
+        categoryId: true,
+        relatedTransactionId: true,
+      },
     },
-  })
+  )
 
   // 收支口径只有领域层这一处：退款按原交易类型冲减对应侧，报表与首页、交易统计一致。
   const ledger = transactions.map(toLedgerTransaction)

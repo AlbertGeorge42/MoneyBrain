@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Decimal } from '@prisma/client/runtime/library.js'
 
-// Mock prisma：updateIncomeExpense 只用到 transaction.findUnique / count / update
+// Mock prisma：updateIncomeExpense 走 repository（findUnique / count / update）
+// 与审计事件写入（$transaction + auditEvent.create）
 vi.mock('../../src/prisma.js', () => {
   const mockPrisma = {
     transaction: {
@@ -9,6 +10,10 @@ vi.mock('../../src/prisma.js', () => {
       count: vi.fn(),
       update: vi.fn(),
     },
+    auditEvent: {
+      create: vi.fn().mockResolvedValue({ id: 'event-1' }),
+    },
+    $transaction: vi.fn((callback: (client: unknown) => unknown) => callback(mockPrisma)),
   }
   return {
     prisma: mockPrisma,
@@ -56,7 +61,10 @@ describe('updateIncomeExpense（改类型保护）', () => {
   })
 
   it('没有退款时允许修改交易类型', async () => {
-    mockPrisma.transaction.findUnique.mockResolvedValue(existingTransaction())
+    // 第一次 findUnique：读取旧交易（类型比较）；第二次：更新后带关联返回
+    mockPrisma.transaction.findUnique
+      .mockResolvedValueOnce(existingTransaction())
+      .mockResolvedValueOnce(existingTransaction({ type: 'expense' }))
     mockPrisma.transaction.count.mockResolvedValue(0)
     mockPrisma.transaction.update.mockResolvedValue(existingTransaction({ type: 'expense' }))
 

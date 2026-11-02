@@ -11,6 +11,7 @@ import {
   takeNextSort,
   readCsvRecords,
 } from './shared.js'
+import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 
 // ─── CSV Header 映射 ───
 
@@ -411,16 +412,12 @@ function makeImportKey(csvId: string, naturalParts: Array<string | number | null
   return `natural:${naturalParts.map((part) => part ?? '').join('|')}`
 }
 
-/** 查询本批次中已经存在的导入键，用于跳过重复导入。 */
+/** 查询本批次中已经存在的导入键，用于跳过重复导入（含软删除行：importKey 唯一约束仍被占用）。 */
 async function findExistingImportKeys(
   client: TransactionClient,
   keys: string[],
 ): Promise<Array<{ id: string; importKey: string | null }>> {
-  if (keys.length === 0) return []
-  return client.transaction.findMany({
-    where: { importKey: { in: keys } },
-    select: { id: true, importKey: true },
-  })
+  return transactionRepo.findByImportKeys(keys, client)
 }
 
 // ─── CSV 解析（Header 映射） ───
@@ -561,14 +558,15 @@ async function importTransactionsFromRows(
   })
 
   if (normalToInsert.length > 0) {
-    await client.transaction.createMany({
-      data: normalToInsert.map(({ csvId: _csvId, ...data }) => ({
+    await transactionRepo.createMany(
+      normalToInsert.map(({ csvId: _csvId, ...data }) => ({
         ...data,
         amount: BigInt(data.amount),
         fee: BigInt(data.fee),
         coupon: BigInt(data.coupon),
       })),
-    })
+      client,
+    )
   }
 
   // Step 4: 解析退款行（账户 + 分类 + 关联类型）
@@ -666,14 +664,15 @@ async function importTransactionsFromRows(
   })
 
   if (refundToInsert.length > 0) {
-    await client.transaction.createMany({
-      data: refundToInsert.map(({ csvId: _csvId, ...data }) => ({
+    await transactionRepo.createMany(
+      refundToInsert.map(({ csvId: _csvId, ...data }) => ({
         ...data,
         amount: BigInt(data.amount),
         fee: BigInt(data.fee),
         coupon: BigInt(data.coupon),
       })),
-    })
+      client,
+    )
   }
 
   return { imported, skipped }

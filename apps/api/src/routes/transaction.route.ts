@@ -29,6 +29,7 @@ import {
   updateTransfer,
   updateRefund
 } from '../services/transaction.service.js'
+import { getRecycleBin, getTransactionHistory } from '../services/audit-event.service.js'
 
 const router = Router()
 
@@ -167,6 +168,18 @@ router.get('/earliest', asyncHandler(async (_req, res) => {
 router.get('/refundable/list', asyncHandler(async (_req, res) => {
   const transactions = await getRefundableTransactions()
   return success(res, transactions)
+}))
+
+// 回收站（B2-4）：已删除交易可查，恢复走统一的撤销端点
+router.get('/recycle-bin', asyncHandler(async (_req, res) => {
+  const list = await getRecycleBin()
+  return success(res, { list })
+}))
+
+// 详情页修改历史（B2-4）
+router.get('/:id/history', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const history = await getTransactionHistory(req.params.id)
+  return success(res, { list: history })
 }))
 
 router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async (req, res) => {
@@ -308,8 +321,9 @@ router.put('/:id', validateRequest(validateUpdateTransaction), asyncHandler(asyn
 }))
 
 router.delete('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
-  await deleteTransaction(req.params.id)
-  return success(res, { message: '删除成功' })
+  const { auditEventId } = await deleteTransaction(req.params.id)
+  // 不做二次确认：前端提示「已删除 · 撤销」，撤销 = 反向写入这条审计事件
+  return success(res, { message: '删除成功', auditEventId })
 }))
 
 export default router

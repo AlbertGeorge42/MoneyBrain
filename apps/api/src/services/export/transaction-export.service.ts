@@ -1,4 +1,4 @@
-import { prisma } from '../../prisma.js'
+import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { escapeCsvField } from '../../common/utils.js'
 import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
 
@@ -12,8 +12,9 @@ function formatDateTime(date: Date): string {
 }
 
 export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): Promise<string> {
-  const transactions = await prisma.transaction.findMany({
-    where: {
+  // 导出的是当前事实源：只导出未删除交易（repository 统一过滤）
+  const transactions = await transactionRepo.findActive(
+    {
       ...(startDate || endDate ? {
         date: {
           ...(startDate ? { gte: startDate } : {}),
@@ -21,18 +22,20 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
         },
       } : {}),
     },
-    include: {
-      account: true,
-      toAccount: true,
-      category: {
-        include: { parent: true },
+    {
+      include: {
+        account: true,
+        toAccount: true,
+        category: {
+          include: { parent: true },
+        },
+        relatedTransaction: {
+          include: { account: true, category: { include: { parent: true } } },
+        },
       },
-      relatedTransaction: {
-        include: { account: true, category: { include: { parent: true } } },
-      },
+      orderBy: { date: 'desc' },
     },
-    orderBy: { date: 'desc' },
-  })
+  )
 
   const idMap: Record<string, string> = {}
   transactions.forEach(t => {

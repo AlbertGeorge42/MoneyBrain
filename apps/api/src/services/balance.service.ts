@@ -1,4 +1,5 @@
 import { prisma } from '../prisma.js'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
   balanceBefore,
   fromDate,
@@ -83,16 +84,17 @@ export async function calculateBalancesBatch(
   const maxTargetDate = sortedDates[sortedDates.length - 1]!
 
   // 查询到最大查询日（不含）即可；没有下界，保证导入的历史交易不会被漏掉。
-  const transactions = await prisma.transaction.findMany({
-    where: {
+  // 已删除交易不参与余额（repository 统一过滤）。
+  const transactions = await transactionRepo.findActive(
+    {
       OR: [
         { accountId: { in: accountIds } },
         { toAccountId: { in: accountIds } },
       ],
       date: { lt: maxTargetDate },
     },
-    orderBy: { date: 'asc' },
-  })
+    { orderBy: { date: 'asc' } },
+  )
 
   const ledgers: LedgerTransaction[] = transactions.map(toLedgerTransaction)
 

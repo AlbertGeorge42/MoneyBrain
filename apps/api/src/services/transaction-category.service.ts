@@ -1,6 +1,8 @@
 import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
+import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
 
 type TransactionCategoryCreatePayload = {
   name: string
@@ -45,7 +47,8 @@ export async function getTransactionCategories(params?: { type?: string }) {
 
 export async function getTransactionCategoryStats(categoryId: string) {
   const [transactionCount, childrenCount] = await Promise.all([
-    prisma.transaction.count({ where: { categoryId } }),
+    // 展示口径只统计未删除交易
+    transactionRepo.countActive({ categoryId }),
     prisma.transactionCategory.count({ where: { parentId: categoryId } }),
   ])
 
@@ -217,21 +220,25 @@ export async function deleteTransactionCategory(
     throw new ValidationError('该分类下存在子分类，无法删除')
   }
 
-  const transactionsCount = await prisma.transaction.count({
-    where: { categoryId },
-  })
+  // 删除校验不过滤软删除：回收站里的交易仍引用本分类，恢复时要能对上
+  const transactionsCount = await transactionRepo.countIncludingDeleted({ categoryId })
 
   if (transactionsCount === 0) {
     await prisma.transactionCategory.delete({ where: { id: categoryId } })
+    await auditEventRepo.createAuditEvent(
+      { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
+    )
     return { message: '删除成功', deletedCategory: category.name }
   }
 
   if (deleteTransactions) {
     const deletedTransactions = await prisma.$transaction(async (tx) => {
-      const deleted = await tx.transaction.deleteMany({
-        where: { categoryId },
-      })
+      const deleted = await transactionRepo.deleteManyWhere({ categoryId }, tx)
       await tx.transactionCategory.delete({ where: { id: categoryId } })
+      await auditEventRepo.createAuditEvent(
+        { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
+        tx,
+      )
       return deleted.count
     })
 
@@ -258,11 +265,13 @@ export async function deleteTransactionCategory(
     }
 
     const transferredTransactions = await prisma.$transaction(async (tx) => {
-      const updated = await tx.transaction.updateMany({
-        where: { categoryId },
-        data: { categoryId: transferToCategoryId },
-      })
+      // 含回收站里的交易一并转移，避免分类删除后悬挂 categoryId
+      const updated = await transactionRepo.transferCategoryTo(categoryId, transferToCategoryId, tx)
       await tx.transactionCategory.delete({ where: { id: categoryId } })
+      await auditEventRepo.createAuditEvent(
+        { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
+        tx,
+      )
       return updated.count
     })
 

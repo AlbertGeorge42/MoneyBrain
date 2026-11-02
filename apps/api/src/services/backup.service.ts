@@ -5,6 +5,7 @@ import unzipper from 'unzipper'
 import Papa from 'papaparse'
 import { prisma } from '../prisma.js'
 import { ValidationError, rootLogger } from '../common/index.js'
+import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { BACKUP_DATA_TYPES, type BackupDataType } from '../../../../packages/contracts/constants.js'
 
 // ─── 备份文件格式常量与类型 ───
@@ -113,7 +114,8 @@ export async function createManifest(includes: DataType[]): Promise<ManifestData
   const stats: ManifestData['stats'] = {}
 
   if (includes.includes('transactions')) {
-    stats.transactions = await prisma.transaction.count()
+    // 备份统计口径与导出内容一致：只数未删除交易
+    stats.transactions = await transactionRepo.countActive({})
   }
   if (includes.includes('config')) {
     stats.accounts = await prisma.account.count()
