@@ -74,7 +74,6 @@
 
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
-| D3 | API 类型内联在 `services/api.ts` | 全部收敛到 `packages/contracts` | 前端不再内联 `ApiResponse<{...}>` |
 | D4 | 页面直接组合 queries + 巨型组件 | feature 切片 + 页面瘦身 + `ui/` 原语层 | 页面文件 < 200 行；跨 feature 只走公开入口 |
 | D5 | 桶导出（`components/settings/shared.tsx` 等） | 删除 | ESLint `react-refresh` 警告归零 |
 | D6 | SQLite 未显式配置 WAL / busy_timeout；多标签页可能写冲突 | WAL + busy_timeout + 写串行化 | 两个标签页同时写不报「database is locked」 |
