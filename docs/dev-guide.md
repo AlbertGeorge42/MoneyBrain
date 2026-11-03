@@ -54,7 +54,7 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 | 余额（含期初当天计入） | `ledger/postings.ts` 的 `balanceBefore` / `balanceAt` |
 | 收支净额与分类汇总 | `ledger/summary.ts` 的 `summarizeFlows` / `flowByCategory` |
 | 退款可退余额 | 同上的 `remainingRefundable` |
-| 预算的账户/分类/冲减口径 | `ledger/rules.vN.ts` 的 `scopeQuery` / `matchesBudgetScope` |
+| 预算的账户/分类/冲减口径（用量与下钻明细同源，C2） | `ledger/rules.vN.ts` 的 `scopeQuery` / `matchesBudgetScope` + `budget.service` 的 `budgetContributionSign`（计入符号的唯一判定点：+1 主类型 / −1 冲减退款 / 0 不计入，下钻不得另写过滤条件） |
 | 日期格式化（Date → `YYYY-MM-DD`） | `ledger` 之外的 `packages/domain/src/date.ts` 的 `fromDate`（`common/date.ts` 的 `formatDateLocal` 委托给它） |
 | 前后端共用的字面量（确认值、备份类型名） | `packages/contracts/constants.ts` |
 

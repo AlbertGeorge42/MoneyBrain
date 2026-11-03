@@ -25,6 +25,7 @@ export const queryKeys = {
     all: ['budgets'] as const,
     list: (params?: Record<string, unknown>) => ['budgets', params] as const,
     statuses: (ids: string[]) => ['budgets', 'statuses', ids] as const,
+    usageDetails: (id: string) => ['budgets', 'usage-details', id] as const,
     predictions: (startDate: string, endDate: string) => ['budgets', 'predictions', startDate, endDate] as const,
   },
   reports: {

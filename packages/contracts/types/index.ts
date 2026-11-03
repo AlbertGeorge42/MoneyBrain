@@ -232,6 +232,23 @@ export interface BudgetStatus {
   isOverBudget: boolean
 }
 
+/** 预算下钻明细行（C2）：与预算用量同一口径，signedAmount 为主类型 +、冲减退款 −。 */
+export interface BudgetUsageDetail {
+  transaction: Transaction
+  /** 计入金额：主类型交易为正、冲减退款为负 */
+  signedAmount: Minor
+}
+
+export interface BudgetUsageDetails {
+  list: BudgetUsageDetail[]
+  /** 计入条数（主类型 + 冲减退款） */
+  count: number
+  /** 明细合计（跨期退款冲减超过本期支出时为负） */
+  total: Minor
+  /** 已用：与预算状态同款下限（负数夹到 0），与预算卡上的「已使用」一致 */
+  used: Minor
+}
+
 export interface TransactionCategoryStats {
   transactionCount: number
   childrenCount: number

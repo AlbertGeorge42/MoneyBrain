@@ -18,6 +18,7 @@
 | A0 | 阶段 0 · M0 | 2026-11-03 | 清库补齐三场景集成测试（正常全范围清空无残留 / 边界范围隔离与配置覆盖拒绝 / 空库幂等）；「转账转入 = 本金」收进领域层 `transferInflow` 规则，投资分析与现金流报表（collect / aggregate / build 转入侧）四处直取全部改走 `rulesFor(...)`，不再有第二份「转账本金」实现；dev-guide §3 例外段改为收口后规则 |
 | A3 | 阶段 0 · M0 | 2026-11-03 | fast-check 属性测试覆盖蓝图入口 §4 的内核不变量 1–6（`packages/domain/tests/invariants.test.ts`）：对账恒等式、Σ 账户余额 == 净资产、复式平衡、全额退款恢复余额与可退余额上限、转账 Δ转出+Δ转入 == −有效手续费、收支表与分类聚合逐分录同源追溯；每条属性随机 1000 组恒成立。验收：`npm run test:domain`（38 测试全过，含 7 个属性测试） |
 | B4 | 阶段 0 · M0 | 2026-11-03 | 退款口径放开 + 数据自检修正，四件事一次收口：① db:verify 对账条手续费改按「− 有效手续费」计入（修复前对 2026-05 实跑误报「净资产对不上，差 −5.46 = −2×手续费 2.73」，修复后不误报）；② 超额退款判定降级为 ℹ 信息性输出（退款可高于原额、退款账户可与原账户不同，均属合法，校验不得判错）；③ 放开写入拦截——transaction.service 不再用 remainingRefundable 拒写（assertRefundable 改名 assertRefundTarget 只校验目标类型与金额为正，连带删 repository findActiveRefundsOf 死代码）；④ 余额正确性测试（refund.route.test.ts 两例：超退按实际金额入账、跨账户退款原账户不恢复）。口径同步进 requirements §3、dev-guide §8/§9、蓝图不变量 4 与 A3 属性测试。验收：`npm run db:verify` 对真实库通过（ℹ 提示超退 2 笔，不判错）；`npm test` 三域全过 |
+| C2 | 阶段 0 · M0 | 2026-11-03 | 预算下钻与用量同源：计入判定收进 budget.service 的 `budgetContributionSign`（+1 主类型 / −1 冲减退款 / 0 不计入）与 `buildBudgetPlan`（期间 × 分类子树 × 领域层 scope），`computeBudgetStatus` 与新 `getBudgetUsageDetails` 共用，下钻不得另写过滤条件；新 API `GET /api/budgets/:id/usage-details` 返回 `{ list, count, total, used }`（used 与预算状态同款下限）；前端「查看交易」从跳转交易列表（只带 categoryId，无账户/期间/冲减口径）改为抽屉内明细视图 `BudgetUsageList`。验收：budget.service.test.ts 下钻用例——排除其它账户/不计收支/类型不符后 count == 2、total == 3000 == getBudgetStatusesByIds 的 used；跨期退款负合计夹 0 |
 
 ## 待领（按推荐顺序）
 

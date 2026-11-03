@@ -7,10 +7,9 @@ import {
   PlusOutlined,
   ArrowUpOutlined, ArrowDownOutlined, SwapOutlined,
 } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
 import { ErrorState, PageHeader } from '../components/common'
 import { ResponsiveDrawer } from '../components/common'
-import { BudgetForm, BudgetFormType } from '../components/budgets'
+import { BudgetForm, BudgetFormType, BudgetUsageList } from '../components/budgets'
 import BudgetDetail, { BudgetDetailFooter } from '../components/budgets/BudgetDetail'
 import BudgetEdit from '../components/budgets/BudgetEdit'
 import { useNotify } from '../hooks/useNotify'
@@ -71,8 +70,9 @@ const Budgets: React.FC = () => {
   // 详情/编辑状态
   const [detailVisible, setDetailVisible] = useState(false)
   const [editVisible, setEditVisible] = useState(false)
+  // 下钻明细视图（C2）：详情 ⇄ 计入明细，与用量同一口径
+  const [usageView, setUsageView] = useState(false)
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null)
-  const navigate = useNavigate()
 
   // 预算状态映射
   const budgetStatusMap = useMemo(() => {
@@ -94,6 +94,7 @@ const Budgets: React.FC = () => {
     setSelectedBudget(budget)
     setDetailVisible(true)
     setEditVisible(false)
+    setUsageView(false)
   }
 
   // 从详情切换到编辑
@@ -112,6 +113,7 @@ const Budgets: React.FC = () => {
   const handleCloseAll = () => {
     setDetailVisible(false)
     setEditVisible(false)
+    setUsageView(false)
     setSelectedBudget(null)
   }
 
@@ -326,19 +328,23 @@ const Budgets: React.FC = () => {
             <BudgetDetailFooter
               onEdit={handleEditFromDetail}
               onDelete={handleDelete}
-              onViewTransactions={() => {
-                if (selectedBudget?.categoryId) {
-                  navigate(`/transactions?categoryId=${selectedBudget.categoryId}`)
-                }
-              }}
+              onViewTransactions={() => setUsageView(true)}
               isDeleting={deleteBudgetMutation.isPending}
             />
           }
         >
-          <BudgetDetail
-            budget={selectedBudget}
-            status={budgetStatusMap[selectedBudget.id]}
-          />
+          {/* 下钻明细与用量同一口径（C2）：条数与合计 == 预算用量 */}
+          {usageView ? (
+            <BudgetUsageList
+              budgetId={selectedBudget.id}
+              onBack={() => setUsageView(false)}
+            />
+          ) : (
+            <BudgetDetail
+              budget={selectedBudget}
+              status={budgetStatusMap[selectedBudget.id]}
+            />
+          )}
         </ResponsiveDrawer>
       )}
 

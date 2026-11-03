@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Decimal } from '@prisma/client/runtime/library.js'
 
-// Mock prisma：预算状态只用到 budget.findMany、transaction.groupBy 与分类树查询
+// Mock prisma：预算状态与下钻明细只用到 budget.findMany/findUnique、transaction.groupBy/findMany 与分类树查询
 vi.mock('../../src/prisma.js', () => {
   const mockPrisma = {
     budget: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
     },
     transaction: {
       groupBy: vi.fn(),
+      findMany: vi.fn(),
     },
     transactionCategory: {
       findMany: vi.fn(),
@@ -19,7 +21,7 @@ vi.mock('../../src/prisma.js', () => {
   }
 })
 
-import { getBudgetStatusesByIds } from '../../src/services/budget.service.js'
+import { getBudgetStatusesByIds, getBudgetUsageDetails } from '../../src/services/budget.service.js'
 import { prisma } from '../../src/prisma.js'
 import { CURRENT_RULE_VERSION } from '../../../../packages/domain/src/index.js'
 
@@ -56,6 +58,23 @@ const usageRow = (overrides: Record<string, unknown> = {}) => ({
   excludeFromIncomeExpense: false,
   ruleVersion: CURRENT_RULE_VERSION,
   _sum: { amount: new Decimal(50) },
+  ...overrides,
+})
+
+// 下钻明细的交易行 mock（getBudgetUsageDetails 只读这些字段并原样返回）
+const detailRow = (overrides: Record<string, unknown> = {}) => ({
+  id: 't1',
+  type: 'expense',
+  amount: 5000,
+  accountId: 'A',
+  toAccountId: null,
+  categoryId: 'food',
+  relatedTransactionId: null,
+  relatedType: null,
+  excludeFromIncomeExpense: false,
+  ruleVersion: CURRENT_RULE_VERSION,
+  date: new Date(),
+  note: null,
   ...overrides,
 })
 
@@ -141,5 +160,57 @@ describe('getBudgetStatusesByIds（预算用量口径）', () => {
 
     expect(statuses).toHaveLength(3)
     expect(mockPrisma.transaction.groupBy).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('getBudgetUsageDetails（预算下钻与用量同源，C2）', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPrisma.transactionCategory.findMany.mockResolvedValue([{ id: 'food', parentId: null }])
+  })
+
+  it('下钻列表条数与合计 == 预算用量：排除其它账户、不计收支与类型不符', async () => {
+    mockPrisma.budget.findUnique.mockResolvedValue(makeBudget())
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      detailRow({ id: 't1', type: 'expense', amount: 5000 }),
+      detailRow({ id: 't2', type: 'refund', relatedType: 'expense', amount: 2000 }),
+      // 其它账户的同分类支出：不计入
+      detailRow({ id: 't3', accountId: 'B', amount: 3000 }),
+      // 不计收支：不计入
+      detailRow({ id: 't4', excludeFromIncomeExpense: true, amount: 4000 }),
+      // 类型不符（支出预算不统计收入）：不计入
+      detailRow({ id: 't5', type: 'income', amount: 6000 }),
+    ])
+
+    const details = await getBudgetUsageDetails('b1')
+
+    expect(details.count).toBe(2)
+    expect(details.list.map((item) => item.transaction.id)).toEqual(['t1', 't2'])
+    expect(details.list[0].signedAmount).toBe(5000)
+    expect(details.list[1].signedAmount).toBe(-2000)
+    expect(details.total).toBe(3000)
+    expect(details.used).toBe(3000)
+
+    // 同一份数据的聚合口径：预算用量与下钻合计相等（C2 验收）
+    mockPrisma.budget.findMany.mockResolvedValue([makeBudget()])
+    mockPrisma.transaction.groupBy.mockResolvedValue([
+      usageRow({ type: 'expense', _sum: { amount: new Decimal(5000) } }),
+      usageRow({ type: 'refund', relatedType: 'expense', _sum: { amount: new Decimal(2000) } }),
+    ])
+    const [status] = await getBudgetStatusesByIds(['b1'])
+    expect(status.used).toBe(details.used)
+  })
+
+  it('跨期退款让明细合计为负时，已用夹到 0（与预算状态同款下限）', async () => {
+    mockPrisma.budget.findUnique.mockResolvedValue(makeBudget())
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      detailRow({ id: 'r1', type: 'refund', relatedType: 'expense', amount: 8000 }),
+    ])
+
+    const details = await getBudgetUsageDetails('b1')
+
+    expect(details.count).toBe(1)
+    expect(details.total).toBe(-8000)
+    expect(details.used).toBe(0)
   })
 })

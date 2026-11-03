@@ -276,6 +276,67 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
   }))
 }
 
+/** 预算口径行的公共字段：聚合行与下钻明细交易都能映射到这。 */
+type ScopedRow = {
+  type: string
+  accountId: string
+  toAccountId: string | null
+  categoryId: string | null
+  excludeFromIncomeExpense: boolean
+  relatedType: string | null
+  ruleVersion: number
+}
+
+/**
+ * 预算口径的计入符号：+1 主类型、−1 冲减退款、0 不计入。
+ * 用量（computeBudgetStatus）与下钻明细（getBudgetUsageDetails）共用这一处判定（C2），
+ * 「下钻列表条数与合计 == 预算用量」因此恒成立，下钻不得另写过滤条件。
+ */
+function budgetContributionSign(row: ScopedRow, scope: BudgetScope): 1 | -1 | 0 {
+  const rules = rulesFor(row.ruleVersion)
+
+  // 账户、分类与「不计收支」口径由领域层规则判定（与 SQL 侧同一份规则）
+  const inScope = rules.matchesBudgetScope(
+    {
+      kind: row.type,
+      accountId: row.accountId,
+      toAccountId: row.toAccountId,
+      categoryId: row.categoryId,
+      excludeFromIncomeExpense: row.excludeFromIncomeExpense,
+    },
+    scope,
+  )
+  if (!inScope) return 0
+
+  const query = rules.scopeQuery(scope)
+  if (row.type === query.type) return 1
+  // 退款冲减按退款自身的账户与分类
+  if (query.countsRefunds && row.type === 'refund' && row.relatedType === query.refundRelatedType) return -1
+  return 0
+}
+
+/**
+ * 预算统计 plan：期间、分类子树与领域层 scope——用量与下钻共用的唯一构建处（C2）。
+ */
+async function buildBudgetPlan(
+  budget: Budget,
+  childrenMap: Map<string | null, { id: string; parentId: string | null }[]>,
+  now: Date,
+): Promise<BudgetPlan> {
+  const categoryIds = await getCategoryWithDescendants(budget.categoryId, childrenMap)
+  return {
+    budget,
+    dateRange: getPeriodRange(budget.period, now),
+    categoryIds,
+    scope: {
+      kind: budget.type as BudgetScope['kind'],
+      accountId: budget.accountId,
+      toAccountId: budget.toAccountId,
+      categoryIds: new Set(categoryIds),
+    },
+  }
+}
+
 /** 按预算口径从聚合行里算出已用、剩余与百分比。 */
 function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusResult {
   const { budget, scope } = plan
@@ -283,30 +344,9 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
   let used = minor(0)
 
   for (const row of rows) {
-    const rules = rulesFor(row.ruleVersion)
-    const query = rules.scopeQuery(scope)
-
-    // 账户、分类与「不计收支」口径由领域层规则判定（与 SQL 侧同一份规则）
-    const inScope = rules.matchesBudgetScope(
-      {
-        kind: row.type,
-        accountId: row.accountId,
-        toAccountId: row.toAccountId,
-        categoryId: row.categoryId,
-        excludeFromIncomeExpense: row.excludeFromIncomeExpense,
-      },
-      scope,
-    )
-    if (!inScope) continue
-
-    const amount = row.amount
-
-    if (row.type === query.type) {
-      used = minor(used + amount)
-    } else if (query.countsRefunds && row.type === 'refund' && row.relatedType === query.refundRelatedType) {
-      // 退款冲减按退款自身的账户与分类
-      used = minor(used - amount)
-    }
+    const sign = budgetContributionSign(row, scope)
+    if (sign === 0) continue
+    used = minor(used + sign * row.amount)
   }
 
   // 跨期退款会让本期已用为负；下限夹到 0，剩余不得超过额度
@@ -336,22 +376,9 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
   const childrenMap = await buildCategoryChildrenMap()
   const now = new Date()
 
-  // 每个预算的期间与分类子树
+  // 每个预算的期间与分类子树（与下钻共用同一 plan 构建，C2）
   const plans: BudgetPlan[] = await Promise.all(
-    budgets.map(async (budget) => {
-      const categoryIds = await getCategoryWithDescendants(budget.categoryId, childrenMap)
-      return {
-        budget,
-        dateRange: getPeriodRange(budget.period, now),
-        categoryIds,
-        scope: {
-          kind: budget.type as BudgetScope['kind'],
-          accountId: budget.accountId,
-          toAccountId: budget.toAccountId,
-          categoryIds: new Set(categoryIds),
-        },
-      }
-    })
+    budgets.map((budget) => buildBudgetPlan(budget, childrenMap, now)),
   )
 
   // 同一期间的预算共用一次聚合查询，避免每个预算各查两次
@@ -378,6 +405,63 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
   return budgets
     .map((budget) => statusByBudgetId.get(budget.id))
     .filter((status): status is BudgetStatusResult => Boolean(status))
+}
+
+/**
+ * 预算下钻明细（C2）：与用量同一套 plan 与计入判定，返回计入「已使用」口径的交易明细。
+ * 条数与合计跟预算用量恒等——「查看交易」看到的每一笔都计入「已使用」。
+ */
+export async function getBudgetUsageDetails(budgetId: string) {
+  const budget = await prisma.budget.findUnique({
+    where: { id: budgetId },
+    include: { account: true, toAccount: true, category: true },
+  })
+  if (!budget) throw new NotFoundError('预算')
+
+  const childrenMap = await buildCategoryChildrenMap()
+  const plan = await buildBudgetPlan(budget, childrenMap, new Date())
+
+  // 与用量同一结构性预筛（期间 × 账户 × 分类子树）；
+  // 类型、冲减与「不计收支」逐笔按交易自己的口径版本判定，不在 SQL 里预筛
+  const transactions = await transactionRepo.findActive(
+    {
+      date: { gte: plan.dateRange.startDate, lt: plan.dateRange.endDate },
+      accountId: plan.budget.accountId,
+      categoryId: { in: plan.categoryIds },
+    },
+    { include: transactionRepo.TRANSACTION_RELATIONS, orderBy: { date: 'desc' } },
+  )
+
+  const list: Array<{ transaction: transactionRepo.TransactionWithRelations; signedAmount: Minor }> = []
+  let total = minor(0)
+
+  for (const transaction of transactions) {
+    const sign = budgetContributionSign(
+      {
+        type: transaction.type,
+        accountId: transaction.accountId,
+        toAccountId: transaction.toAccountId,
+        categoryId: transaction.categoryId,
+        excludeFromIncomeExpense: transaction.excludeFromIncomeExpense,
+        relatedType: transaction.relatedType,
+        ruleVersion: transaction.ruleVersion,
+      },
+      plan.scope,
+    )
+    if (sign === 0) continue
+
+    const signedAmount = minor(sign * Number(transaction.amount))
+    list.push({ transaction, signedAmount })
+    total = minor(total + signedAmount)
+  }
+
+  // 已用与预算状态同款下限：跨期退款让本期明细合计为负时夹到 0
+  return {
+    list,
+    count: list.length,
+    total,
+    used: minor(Math.max(total, 0)),
+  }
 }
 
 /**

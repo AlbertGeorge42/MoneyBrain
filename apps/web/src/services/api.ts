@@ -13,6 +13,7 @@ import type {
   Budget,
   BudgetPrediction,
   BudgetStatus,
+  BudgetUsageDetails,
   CashFlowReportData,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
@@ -47,6 +48,7 @@ export type {
   Budget,
   BudgetPrediction,
   BudgetStatus,
+  BudgetUsageDetails,
   CashFlowReportData,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
@@ -155,6 +157,8 @@ export const auditEventApi = {
 export const budgetApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<Budget[]>>('/budgets', { params }),
   getStatuses: (ids: string[]) => api.get<ApiResponse<BudgetStatus[]>>('/budgets/statuses', { params: { ids } }),
+  // 预算下钻明细（C2）：与用量同一口径，条数与合计 == 预算用量
+  getUsageDetails: (id: string) => api.get<ApiResponse<BudgetUsageDetails>>(`/budgets/${id}/usage-details`),
   getPredictions: (startDate: string, endDate: string) => api.get<ApiResponse<BudgetPrediction[]>>('/budgets/predictions', { params: { startDate, endDate } }),
   create: (data: Partial<Budget>) => api.post<ApiResponse<Budget>>('/budgets', data),
   update: (id: string, data: Partial<Budget>) => api.put<ApiResponse<Budget>>(`/budgets/${id}`, data),

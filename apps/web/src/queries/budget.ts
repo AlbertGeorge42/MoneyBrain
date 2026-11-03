@@ -19,6 +19,15 @@ export function useBudgetStatuses(ids: string[]) {
   })
 }
 
+// 预算下钻明细（C2）：与用量同一口径
+export function useBudgetUsageDetails(budgetId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.budgets.usageDetails(budgetId ?? ''),
+    queryFn: () => budgetApi.getUsageDetails(budgetId!).then(unwrapApiData),
+    enabled: budgetId != null,
+  })
+}
+
 export function useBudgetPredictions(startDate: string, endDate: string) {
   return useQuery({
     queryKey: queryKeys.budgets.predictions(startDate, endDate),

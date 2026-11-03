@@ -14,6 +14,7 @@ import {
   deleteBudget,
   getBudgets,
   getBudgetStatusesByIds,
+  getBudgetUsageDetails,
   generatePredictions,
   updateBudget,
 } from '../services/budget.service.js'
@@ -68,6 +69,12 @@ router.get('/predictions', asyncHandler(async (req, res) => {
   }
   const predictions = await generatePredictions(String(startDate), String(endDate))
   return success(res, predictions)
+}))
+
+// 预算下钻明细（C2）：与用量同一口径，条数与合计 == 预算用量
+router.get('/:id/usage-details', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const details = await getBudgetUsageDetails(req.params.id)
+  return success(res, details)
 }))
 
 router.post('/', validateRequest(validateBudgetPayload), asyncHandler(async (req, res) => {
