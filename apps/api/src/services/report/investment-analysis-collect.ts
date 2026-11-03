@@ -1,5 +1,8 @@
-import { prisma } from '../../prisma.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as accountCategoryRepo from '../../db/repositories/account-category.repository.js'
+import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
+import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investment-analysis-types.js'
@@ -7,7 +10,7 @@ import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investme
 // ===== 数据收集 / 查询函数 =====
 
 async function getDescendantCategoryIds(parentIds: string[]): Promise<string[]> {
-  const children = await prisma.accountCategory.findMany({
+  const children = await accountCategoryRepo.findMany({
     where: { parentId: { in: parentIds } },
     select: { id: true },
   })
@@ -20,7 +23,7 @@ async function getDescendantCategoryIds(parentIds: string[]): Promise<string[]> 
 }
 
 export async function getInvestmentAccounts(): Promise<AccountWithCategory[]> {
-  const investmentCategories = await prisma.accountCategory.findMany({
+  const investmentCategories = await accountCategoryRepo.findMany({
     where: { isInvestment: true },
   })
 
@@ -32,7 +35,7 @@ export async function getInvestmentAccounts(): Promise<AccountWithCategory[]> {
     investmentCategories.map(c => c.id)
   )
 
-  const accounts = await prisma.account.findMany({
+  const accounts = await accountRepo.findMany({
     where: { categoryId: { in: allCategoryIds } },
     include: { category: true },
     orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
@@ -48,7 +51,7 @@ export async function getCashFlowsInRange(
 ): Promise<CashFlow[]> {
   const cashFlows: CashFlow[] = []
 
-  const accounts = await prisma.account.findMany({
+  const accounts = await accountRepo.findMany({
     where: { id: { in: accountIds } },
   })
   const accountMap = new Map(accounts.map(a => [a.id, a.name]))
@@ -102,7 +105,7 @@ export async function getCashFlowsInRange(
 }
 
 export async function batchGetAssetClasses(accountIds: string[]): Promise<Map<string, Array<{ id: string; accountId: string; name: string; icon: string | null; color: string | null; targetRatio: Decimal | null; sort: number }>>> {
-  const allClasses = await prisma.investmentAssetClass.findMany({
+  const allClasses = await assetClassRepo.findMany({
     where: { accountId: { in: accountIds } },
     orderBy: { sort: 'asc' },
   })
@@ -115,7 +118,7 @@ export async function batchGetAssetClasses(accountIds: string[]): Promise<Map<st
 }
 
 export async function batchGetSnapshots(accountIds: string[], endDate: Date) {
-  const allSnapshots = await prisma.investmentAllocationSnapshot.findMany({
+  const allSnapshots = await snapshotRepo.findMany({
     where: {
       accountId: { in: accountIds },
       date: { lte: endDate },
@@ -144,7 +147,7 @@ export async function buildStaleAccounts(
   const cutoffDate = new Date(endDate)
   cutoffDate.setDate(cutoffDate.getDate() - staleDays)
 
-  const latestSnapshots = await prisma.investmentAllocationSnapshot.findMany({
+  const latestSnapshots = await snapshotRepo.findMany({
     where: {
       accountId: { in: accounts.map(a => a.id) },
     },

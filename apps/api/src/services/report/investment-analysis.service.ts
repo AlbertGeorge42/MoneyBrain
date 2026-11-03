@@ -1,8 +1,8 @@
-import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
 import { minor } from '../../../../../packages/domain/src/index.js'
 import { sumAssetsLiabilities, resolveReportPeriod, generateMonthRange } from './report.utils.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
 import {
   getInvestmentAccounts,
   getCashFlowsInRange,
@@ -40,7 +40,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const investmentAccountIds = investmentAccounts.map(a => a.id)
 
   // 获取所有账户（用于计算总资产）
-  const allAccounts = await prisma.account.findMany()
+  const allAccounts = await accountRepo.findMany({})
   const allAccountIds = allAccounts.map(a => a.id)
 
   // 获取现金流数据

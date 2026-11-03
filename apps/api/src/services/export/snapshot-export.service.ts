@@ -1,20 +1,18 @@
-import { prisma } from '../../prisma.js'
 import { escapeCsvField } from '../../common/utils.js'
 import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
+import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
+import { SNAPSHOT_ITEMS_RELATIONS } from '../../db/repositories/investment-allocation-snapshot.repository.js'
 
 /**
  * 导出投资快照为 CSV 格式
  * 资产类别已移至 config 导出
  */
 export async function exportInvestmentSnapshotsCSV(): Promise<string> {
-  const snapshots = await prisma.investmentAllocationSnapshot.findMany({
+  const snapshots = await snapshotRepo.findMany({
     include: {
       account: { select: { name: true } },
       previousSnapshot: { select: { date: true } },
-      items: {
-        include: { assetClass: true },
-        orderBy: { sort: 'asc' }
-      }
+      ...SNAPSHOT_ITEMS_RELATIONS,
     },
     orderBy: [{ accountId: 'asc' }, { date: 'asc' }]
   })

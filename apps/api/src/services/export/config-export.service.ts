@@ -1,7 +1,10 @@
-import { prisma } from '../../prisma.js'
 import { buildTree } from '../../common/tree.js'
 import { formatDateLocal } from '../../common/index.js'
 import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as accountCategoryRepo from '../../db/repositories/account-category.repository.js'
+import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
+import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import {
   type ImportAccount,
   type ImportAccountCategory,
@@ -57,7 +60,7 @@ function serializeTransactionCategory(category: { name: string; type: string; ic
 export async function exportConfig(): Promise<string> {
   const data: ConfigBackupData['data'] = {}
 
-  const accountCategories = await prisma.accountCategory.findMany({
+  const accountCategories = await accountCategoryRepo.findMany({
     orderBy: { sort: 'asc' },
   })
   const accountCategoryTree = buildTree(
@@ -75,7 +78,7 @@ export async function exportConfig(): Promise<string> {
   )
   data.accountCategories = accountCategoryTree.map((cat) => serializeAccountCategory(cat as Parameters<typeof serializeAccountCategory>[0]))
 
-  const accounts = await prisma.account.findMany({
+  const accounts = await accountRepo.findMany({
     orderBy: { sort: 'asc' },
     include: { category: true },
   })
@@ -92,7 +95,7 @@ export async function exportConfig(): Promise<string> {
     categoryName: a.category?.name ?? undefined,
   }))
 
-  const transactionCategories = await prisma.transactionCategory.findMany({
+  const transactionCategories = await transactionCategoryRepo.findMany({
     orderBy: { sort: 'asc' },
   })
   const transactionCategoryTree = buildTree(
@@ -110,7 +113,7 @@ export async function exportConfig(): Promise<string> {
   data.transactionCategories = transactionCategoryTree.map((cat) => serializeTransactionCategory(cat as Parameters<typeof serializeTransactionCategory>[0]))
 
   // 投资资产类别（属于配置数据）
-  const investmentAssetClasses = await prisma.investmentAssetClass.findMany({
+  const investmentAssetClasses = await assetClassRepo.findMany({
     include: {
       account: { select: { name: true } }
     },

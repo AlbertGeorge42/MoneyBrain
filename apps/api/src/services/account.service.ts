@@ -1,7 +1,13 @@
 import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toMinor } from '../common/index.js'
+import * as accountRepo from '../db/repositories/account.repository.js'
+import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
+import * as assetClassRepo from '../db/repositories/investment-asset-class.repository.js'
+import * as snapshotRepo from '../db/repositories/investment-allocation-snapshot.repository.js'
+import * as allocationItemRepo from '../db/repositories/investment-allocation-item.repository.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
+import * as budgetRepo from '../db/repositories/budget.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { AccountStats } from '../../../../packages/contracts/types/index.js'
 
@@ -26,7 +32,7 @@ export async function getAccounts(params?: { type?: string; categoryId?: string 
   if (params?.type) where.type = params.type
   if (params?.categoryId) where.categoryId = params.categoryId
 
-  return prisma.account.findMany({
+  return accountRepo.findMany({
     where,
     include: { category: true },
     orderBy: [{ sort: 'asc' }, { createdAt: 'desc' }],
@@ -34,21 +40,11 @@ export async function getAccounts(params?: { type?: string; categoryId?: string 
 }
 
 export async function updateAccountSorts(items: AccountSortItem[]): Promise<void> {
-  await prisma.$transaction(
-    items.map(item =>
-      prisma.account.update({
-        where: { id: item.id },
-        data: { sort: item.sort, categoryId: item.categoryId },
-      })
-    )
-  )
+  await accountRepo.updateSorts(items)
 }
 
 export async function getAccountDetail(accountId: string) {
-  const account = await prisma.account.findUnique({
-    where: { id: accountId },
-    include: { category: true },
-  })
+  const account = await accountRepo.findByIdWithCategory(accountId)
   if (!account) return null
 
   // 最近交易走交易 repository：软删除过滤只在那层做
@@ -73,24 +69,21 @@ export async function createAccount(data: {
   initialBalance?: number
   initialBalanceDate?: string
 }) {
-  return prisma.account.create({
-    data: {
-      name: data.name,
-      type: data.type,
-      initialBalance: BigInt(data.initialBalance ?? 0),
-      initialBalanceDate: data.initialBalanceDate
-        ? new Date(`${data.initialBalanceDate}T00:00:00`)
-        : new Date(),
-      icon: data.icon,
-      color: data.color,
-      categoryId: data.categoryId,
-    },
-    include: { category: true },
+  return accountRepo.createWithCategory({
+    name: data.name,
+    type: data.type,
+    initialBalance: BigInt(data.initialBalance ?? 0),
+    initialBalanceDate: data.initialBalanceDate
+      ? new Date(`${data.initialBalanceDate}T00:00:00`)
+      : new Date(),
+    icon: data.icon,
+    color: data.color,
+    categoryId: data.categoryId,
   })
 }
 
 export async function updateAccountProfile(accountId: string, data: AccountUpdateData) {
-  const currentAccount = await prisma.account.findUnique({ where: { id: accountId } })
+  const currentAccount = await accountRepo.findById(accountId)
   if (!currentAccount) {
     throw new NotFoundError('账户')
   }
@@ -113,7 +106,7 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
     updateData.type = data.type
 
     if (!data.categoryId) {
-      const defaultCategory = await prisma.accountCategory.findFirst({
+      const defaultCategory = await accountCategoryRepo.findFirst({
         where: { type: data.type, parentId: null },
       })
       if (defaultCategory) {
@@ -131,15 +124,11 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
     updateData.initialBalance = BigInt(data.initialBalance)
   }
 
-  return prisma.account.update({
-    where: { id: accountId },
-    data: updateData,
-    include: { category: true },
-  })
+  return accountRepo.updateWithCategory(accountId, updateData)
 }
 
 export async function deleteAccount(accountId: string, forceDelete = false) {
-  const account = await prisma.account.findUnique({ where: { id: accountId } })
+  const account = await accountRepo.findById(accountId)
   if (!account) {
     throw new NotFoundError('账户')
   }
@@ -154,17 +143,13 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
 
   // 该账户（作为转出或转入方）被预算引用时，外键为 RESTRICT，
   // 若不先删除预算，删除账户会直接抛出外键错误。
-  const budgetsCount = await prisma.budget.count({
-    where: { OR: [{ accountId }, { toAccountId: accountId }] },
+  const budgetsCount = await budgetRepo.count({
+    OR: [{ accountId }, { toAccountId: accountId }],
   })
 
-  const assetClassesCount = await prisma.investmentAssetClass.count({
-    where: { accountId },
-  })
+  const assetClassesCount = await assetClassRepo.count({ accountId })
 
-  const snapshotsCount = await prisma.investmentAllocationSnapshot.count({
-    where: { accountId },
-  })
+  const snapshotsCount = await snapshotRepo.count({ accountId })
 
   const hasRelatedData =
     transactionsCount > 0 ||
@@ -193,21 +178,22 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
         await transactionRepo.deleteManyWhere({ toAccountId: accountId }, tx)
       }
       if (budgetsCount > 0) {
-        await tx.budget.deleteMany({ where: { OR: [{ accountId }, { toAccountId: accountId }] } })
+        await budgetRepo.deleteManyWhere(
+          { OR: [{ accountId }, { toAccountId: accountId }] },
+          tx,
+        )
       }
 
       if (snapshotsCount > 0) {
-        await tx.investmentAllocationItem.deleteMany({
-          where: { snapshot: { accountId } },
-        })
-        await tx.investmentAllocationSnapshot.deleteMany({ where: { accountId } })
+        await allocationItemRepo.deleteManyWhere({ snapshot: { accountId } }, tx)
+        await snapshotRepo.deleteManyWhere({ accountId }, tx)
       }
 
       if (assetClassesCount > 0) {
-        await tx.investmentAssetClass.deleteMany({ where: { accountId } })
+        await assetClassRepo.deleteManyWhere({ accountId }, tx)
       }
 
-      await tx.account.delete({ where: { id: accountId } })
+      await accountRepo.deleteById(accountId, tx)
       // 账户硬删除记审计事件（撤销暂不支持，留痕供后续 D1 接入）
       await auditEventRepo.createAuditEvent(
         { entity: 'account', entityId: accountId, action: 'deleted', before: account },
@@ -215,7 +201,7 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
       )
     })
   } else {
-    await prisma.account.delete({ where: { id: accountId } })
+    await accountRepo.deleteById(accountId)
     await auditEventRepo.createAuditEvent(
       { entity: 'account', entityId: accountId, action: 'deleted', before: account },
     )

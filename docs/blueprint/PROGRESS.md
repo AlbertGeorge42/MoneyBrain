@@ -21,11 +21,11 @@
 | C2 | 阶段 0 · M0 | 2026-11-03 | 预算下钻与用量同源：计入判定收进 budget.service 的 `budgetContributionSign`（+1 主类型 / −1 冲减退款 / 0 不计入）与 `buildBudgetPlan`（期间 × 分类子树 × 领域层 scope），`computeBudgetStatus` 与新 `getBudgetUsageDetails` 共用，下钻不得另写过滤条件；新 API `GET /api/budgets/:id/usage-details` 返回 `{ list, count, total, used }`（used 与预算状态同款下限）；前端「查看交易」从跳转交易列表（只带 categoryId，无账户/期间/冲减口径）改为抽屉内明细视图 `BudgetUsageList`。验收：budget.service.test.ts 下钻用例——排除其它账户/不计收支/类型不符后 count == 2、total == 3000 == getBudgetStatusesByIds 的 used；跨期退款负合计夹 0 |
 | C3 | 阶段 0 · M0 | 2026-11-03 | 预算使用率去截断（按决策 #39 缩减版）：`computeBudgetStatus` 的 percentage 去掉 `min(…,100)`，contracts `BudgetStatus.percentage` 注明真实使用率语义（超支 >100 不截断），单测覆盖「超支 180% 返回 180、isOverBudget、remaining 夹 0」；前端零改动——`getStatusLabel` 本就按 percentage 直渲染文本（超支显示「超预算: 180%」），Progress 条宽自行封顶；分档视觉（色档/文案档）留给原型落地。操作规则同步进 dev-guide §3.1 预算行 |
 | C4 | 阶段 0 · M0 | 2026-11-03 | 桑基图退款方向与活动表同源：`buildSankey` 的 refund 分支删掉「一律按流入直取」的重复判定，改走领域层 `rulesFor(version).refundOffsetKind(relatedType)` 分流——支出退款计入流入侧（分类 → 现金）、收入退款计入流出侧（现金 → 分类）、`relatedType` 无法识别时不计入，与 `aggregate()` 同一判定；`processTransaction` 补 `relatedType` 参数（交易侧传入、预测侧传 null）。验收：cash-flow-build.test.ts 四用例——支出退款 `未分类_income → 现金`、收入退款 `现金 → 未分类_expense`、null 不计入、金额按实际值；操作规则同步进 dev-guide §3.1「退款计入方向」行 |
+| D1 | 阶段 0 · M1 | 2026-11-03 | 其余实体收进 repository：account / account-category / transaction-category / budget / investment-asset-class / investment-allocation-snapshot / investment-allocation-item 七个 repository 落进 `db/repositories/`（纯委托 + `tx` 尾参，沿用 transaction.repository 约定；固定关联收成 `BUDGET_RELATIONS` / `SNAPSHOT_ITEMS_RELATIONS` 防漂移，批量排序/重排的数组式 `$transaction` 收进 repository），19 个 service 文件的 `prisma.<model>.` 与事务回调 `tx.<model>.` 全部改走 repository，15 个 mock prisma 的单测零改动全过。验收：`rg "prisma\.(account\|accountCategory\|transactionCategory\|budget\|investmentAssetClass\|investmentAllocationSnapshot\|investmentAllocationItem\|auditEvent)\." apps/api/src/services apps/api/src/routes` 0 命中；`npm test` 三域全过、typecheck / lint 0 错、`db:verify` ✅。操作规则同步进 dev-guide §8（含暂存例外：clear-data 与 import 的事务内直调留待后续条目） |
 
 ## 待领（按推荐顺序）
 
-- 阶段 0 · M0：B1 → B2 → B3 → B4 → A0 → A3 → C1 → C2 → C3 → C4（顺序依据见 [stage-0](stage-0-foundation.md) 差距清单开头）
-- 阶段 0 · M1：D1 → D2 → D3 → D4 → D5 → D6 → D7 → D9
+- 阶段 0 · M1：D2 → D3 → D4 → D5 → D6 → D7 → D9
 - 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U0 → U1 → U1b → U2–U3（地基）→ **UX1–UX5**（重设计，不改代码）→ U4 → U5 → U6–U11 / E/L/K8（可交错；E1–E4 在 UX 之后按原型落地，E6 随时可做）→ U12（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
 - 之后见 [../rewrite-blueprint.md](../rewrite-blueprint.md) §3 里程碑表

@@ -1,5 +1,9 @@
 import { prisma } from '../../prisma.js'
 import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
+import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
+import * as allocationItemRepo from '../../db/repositories/investment-allocation-item.repository.js'
 
 const logger = rootLogger.child({ module: 'asset-class' })
 
@@ -13,10 +17,10 @@ function validateTargetRatio(targetRatio: number | null | undefined): void {
 
 // 获取某账户下的所有资产类型
 export async function getAssetClassesByAccount(accountId: string) {
-  const account = await prisma.account.findUnique({ where: { id: accountId } })
+  const account = await accountRepo.findById(accountId)
   if (!account) throw new NotFoundError('账户不存在')
 
-  return prisma.investmentAssetClass.findMany({
+  return assetClassRepo.findMany({
     where: { accountId },
     orderBy: { sort: 'asc' },
   })
@@ -27,13 +31,13 @@ export async function createAssetClass(
   accountId: string,
   data: { name: string; icon?: string; color?: string; targetRatio?: number }
 ) {
-  const account = await prisma.account.findUnique({ where: { id: accountId } })
+  const account = await accountRepo.findById(accountId)
   if (!account) throw new NotFoundError('账户不存在')
 
   if (!data.name?.trim()) throw new ValidationError('资产类型名称不能为空')
 
   // 检查名称是否重复
-  const existingName = await prisma.investmentAssetClass.findFirst({
+  const existingName = await assetClassRepo.findFirst({
     where: { accountId, name: data.name.trim() },
   })
   if (existingName) throw new ValidationError('资产类型名称已存在')
@@ -43,7 +47,7 @@ export async function createAssetClass(
 
   // 先校验该账户下所有资产类型 targetRatio 总和不超过 100（包含新增的值）
   if (data.targetRatio !== undefined && data.targetRatio !== null) {
-    const assetClasses = await prisma.investmentAssetClass.findMany({
+    const assetClasses = await assetClassRepo.findMany({
       where: { accountId },
       select: { targetRatio: true },
     })
@@ -59,14 +63,14 @@ export async function createAssetClass(
   }
 
   // 获取当前最大 sort 值，用于追加到末尾
-  const maxSort = await prisma.investmentAssetClass.findFirst({
+  const maxSort = await assetClassRepo.findFirst({
     where: { accountId },
     orderBy: { sort: 'desc' },
     select: { sort: true },
   })
 
   // 校验通过后，执行数据库创建操作
-  const created = await prisma.investmentAssetClass.create({
+  const created = await assetClassRepo.create({
     data: {
       accountId,
       name: data.name.trim(),
@@ -86,12 +90,12 @@ export async function updateAssetClass(
   id: string,
   data: { name?: string; icon?: string; color?: string; targetRatio?: number }
 ) {
-  const existing = await prisma.investmentAssetClass.findUnique({ where: { id } })
+  const existing = await assetClassRepo.findById(id)
   if (!existing) throw new NotFoundError('资产类型不存在')
 
   // 检查名称是否重复（如果修改了名称）
   if (data.name?.trim() && data.name.trim() !== existing.name) {
-    const existingName = await prisma.investmentAssetClass.findFirst({
+    const existingName = await assetClassRepo.findFirst({
       where: { accountId: existing.accountId, name: data.name.trim() },
     })
     if (existingName) throw new ValidationError('资产类型名称已存在')
@@ -103,7 +107,7 @@ export async function updateAssetClass(
   // 先校验该账户下所有资产类型 targetRatio 总和不超过 100（使用更新后的值）
   const newTargetRatio = data.targetRatio !== undefined ? data.targetRatio : (existing.targetRatio == null ? null : Number(existing.targetRatio))
   if (newTargetRatio !== null) {
-    const assetClasses = await prisma.investmentAssetClass.findMany({
+    const assetClasses = await assetClassRepo.findMany({
       where: { accountId: existing.accountId },
       select: { id: true, targetRatio: true },
     })
@@ -119,7 +123,7 @@ export async function updateAssetClass(
   }
 
   // 校验通过后，执行数据库更新操作
-  const updated = await prisma.investmentAssetClass.update({
+  const updated = await assetClassRepo.update({
     where: { id },
     data: {
       name: data.name?.trim() ?? existing.name,
@@ -137,20 +141,7 @@ export async function updateAssetClass(
 
 // 删除资产类型（检查是否被快照引用）
 export async function deleteAssetClass(id: string, forceDelete = false) {
-  const existing = await prisma.investmentAssetClass.findUnique({
-    where: { id },
-    include: {
-      allocationItems: {
-        include: {
-          snapshot: {
-            include: {
-              items: true,
-            },
-          },
-        },
-      },
-    },
-  })
+  const existing = await assetClassRepo.findByIdWithAllocationItems(id)
 
   if (!existing) throw new NotFoundError('资产类型不存在')
 
@@ -173,29 +164,23 @@ export async function deleteAssetClass(id: string, forceDelete = false) {
       const affectedSnapshotIds = existing.allocationItems.map(item => item.snapshotId)
 
       // 删除所有引用该资产类型的明细项
-      await tx.investmentAllocationItem.deleteMany({
-        where: { assetClassId: id },
-      })
+      await allocationItemRepo.deleteManyWhere({ assetClassId: id }, tx)
 
       // 检查每个受影响的快照是否还有其他明细项
       for (const snapshotId of affectedSnapshotIds) {
-        const remainingItems = await tx.investmentAllocationItem.count({
-          where: { snapshotId },
-        })
+        const remainingItems = await allocationItemRepo.count({ snapshotId }, tx)
 
         // 如果快照没有剩余明细项，删除整个快照
         if (remainingItems === 0) {
-          await tx.investmentAllocationSnapshot.delete({
-            where: { id: snapshotId },
-          })
+          await snapshotRepo.deleteById(snapshotId, tx)
         }
       }
 
       // 删除资产类型
-      await tx.investmentAssetClass.delete({ where: { id } })
+      await assetClassRepo.deleteById(id, tx)
     })
   } else {
-    await prisma.investmentAssetClass.delete({ where: { id } })
+    await assetClassRepo.deleteById(id)
   }
 
   return {
@@ -206,13 +191,6 @@ export async function deleteAssetClass(id: string, forceDelete = false) {
 
 // 批量排序资产类型
 export async function reorderAssetClasses(accountId: string, orderedIds: string[]) {
-  await prisma.$transaction(
-    orderedIds.map((id, index) =>
-      prisma.investmentAssetClass.updateMany({
-        where: { id, accountId },
-        data: { sort: index },
-      })
-    )
-  )
+  await assetClassRepo.reorder(accountId, orderedIds)
   return { message: '排序已更新' }
 }

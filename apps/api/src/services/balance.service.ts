@@ -1,4 +1,5 @@
-import { prisma } from '../prisma.js'
+import type { Account } from '@prisma/client'
+import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
   balanceBefore,
@@ -48,7 +49,8 @@ export class BalanceCache {
   }
 }
 
-type AccountList = Awaited<ReturnType<typeof prisma.account.findMany>>
+/** 账户行的最小读取形状：余额计算只用到 id / type / 期初余额与期初日期。 */
+type AccountList = Account[]
 
 function openingOf(account: AccountList[number]): OpeningBalance {
   const amount = minor(Number(account.initialBalance))
@@ -75,7 +77,7 @@ export async function calculateBalancesBatch(
     return new BalanceCache(new Map())
   }
 
-  const accountList = accounts ?? await prisma.account.findMany({
+  const accountList = accounts ?? await accountRepo.findMany({
     where: { id: { in: accountIds } },
   })
   const accountMap = new Map(accountList.map((account) => [account.id, account]))

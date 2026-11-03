@@ -1,6 +1,7 @@
-import { prisma } from '../../prisma.js'
 import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
 import { formatDateLocal } from './report.utils.js'
+import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
+import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import type { BalanceCache } from '../balance.service.js'
 import {
   getCashFlowsInRange,
@@ -121,7 +122,7 @@ export async function buildAccountAllocationDetail(
     cashFlows: CashFlow[]  // 全部账户的现金流，函数内按 accountId 过滤
   }
 ): Promise<AccountAllocationDetail> {
-  const assetClasses = prefetched?.assetClasses.get(account.id) ?? await prisma.investmentAssetClass.findMany({
+  const assetClasses = prefetched?.assetClasses.get(account.id) ?? await assetClassRepo.findMany({
     where: { accountId: account.id },
     orderBy: { sort: 'asc' },
   })
@@ -155,7 +156,7 @@ export async function buildAccountAllocationDetail(
     }
   }
 
-  const snapshots = prefetched?.snapshots.get(account.id) ?? await prisma.investmentAllocationSnapshot.findMany({
+  const snapshots = prefetched?.snapshots.get(account.id) ?? await snapshotRepo.findMany({
     where: {
       accountId: account.id,
       date: { lte: endDate },

@@ -1,13 +1,14 @@
-import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
+import * as accountRepo from '../db/repositories/account.repository.js'
+import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
 
 export async function getAccountCategories(params?: { type?: string }) {
   const where: Record<string, unknown> = {}
   if (params?.type) where.type = params.type
 
-  return prisma.accountCategory.findMany({
+  return accountCategoryRepo.findMany({
     where,
     orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
   })
@@ -24,9 +25,7 @@ export async function createAccountCategory(data: {
   sort?: number
 }) {
   if (data.parentId) {
-    const parent = await prisma.accountCategory.findUnique({
-      where: { id: data.parentId },
-    })
+    const parent = await accountCategoryRepo.findById(data.parentId)
     if (!parent) {
       throw new NotFoundError('父分类')
     }
@@ -37,7 +36,7 @@ export async function createAccountCategory(data: {
 
   const finalSort = data.sort ?? await getNextSort('accountCategory', { type: data.type })
 
-  return prisma.accountCategory.create({
+  return accountCategoryRepo.create({
     data: {
       name: data.name,
       type: data.type,
@@ -69,16 +68,12 @@ export async function updateAccountCategory(
       throw new ValidationError('父分类不能是自己')
     }
 
-    const parent = await prisma.accountCategory.findUnique({
-      where: { id: data.parentId },
-    })
+    const parent = await accountCategoryRepo.findById(data.parentId)
     if (!parent) {
       throw new NotFoundError('父分类')
     }
 
-    const currentCategory = await prisma.accountCategory.findUnique({
-      where: { id: categoryId },
-    })
+    const currentCategory = await accountCategoryRepo.findById(categoryId)
     if (!currentCategory) {
       throw new NotFoundError('分类')
     }
@@ -89,7 +84,7 @@ export async function updateAccountCategory(
     }
   }
 
-  return prisma.accountCategory.update({
+  return accountCategoryRepo.update({
     where: { id: categoryId },
     data: {
       ...(data.name !== undefined && { name: data.name }),
@@ -105,28 +100,19 @@ export async function updateAccountCategory(
 }
 
 export async function updateAccountCategorySorts(items: Array<{ id: string; sort: number }>): Promise<void> {
-  await prisma.$transaction(
-    items.map(item =>
-      prisma.accountCategory.update({
-        where: { id: item.id },
-        data: { sort: item.sort },
-      })
-    )
-  )
+  await accountCategoryRepo.updateSorts(items)
 }
 
 export async function deleteAccountCategory(categoryId: string) {
-  const accountsCount = await prisma.account.count({
-    where: { categoryId },
-  })
+  const accountsCount = await accountRepo.count({ categoryId })
   if (accountsCount > 0) {
     throw new ValidationError('该分类下存在账户，无法删除')
   }
-  const category = await prisma.accountCategory.findUnique({ where: { id: categoryId } })
+  const category = await accountCategoryRepo.findById(categoryId)
   if (!category) {
     throw new NotFoundError('分类')
   }
-  await prisma.accountCategory.delete({ where: { id: categoryId } })
+  await accountCategoryRepo.deleteById(categoryId)
   await auditEventRepo.createAuditEvent(
     { entity: 'account_category', entityId: categoryId, action: 'deleted', before: category },
   )

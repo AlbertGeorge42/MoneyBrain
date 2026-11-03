@@ -1,5 +1,7 @@
-import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as accountCategoryRepo from '../../db/repositories/account-category.repository.js'
+import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { rootLogger } from '../../common/index.js'
 import { minor } from '../../../../../packages/domain/src/index.js'
@@ -26,13 +28,13 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   const { startDate: start, endDate: end, nextDay: nextDayOfEnd } = resolveReportPeriod(startDate, endDate)
 
   // 1. 准备：现金等价账户
-  const cashCategories = await prisma.accountCategory.findMany({
+  const cashCategories = await accountCategoryRepo.findMany({
     where: { isCashEquivalent: true },
     select: { id: true },
   })
   const cashCategoryIds = cashCategories.map(c => c.id)
 
-  const cashAccounts = await prisma.account.findMany({
+  const cashAccounts = await accountRepo.findMany({
     where: { categoryId: { in: cashCategoryIds } },
     select: { id: true, name: true },
   })
@@ -72,7 +74,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     }))
 
     if (predictions.length > 0) {
-      const allCategories = await prisma.transactionCategory.findMany({ include: { parent: true } })
+      const allCategories = await transactionCategoryRepo.findMany({ include: { parent: true } })
       categoryMap = new Map(allCategories.map(c => [c.id, {
         cashFlowType: c.cashFlowType,
         name: c.name,
@@ -81,7 +83,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
         parentId: c.parentId,
         level: c.parentId ? 2 : 1,
       }]))
-      const allAccounts = await prisma.account.findMany()
+      const allAccounts = await accountRepo.findMany({})
       accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
       predictionNote = PREDICTION_NOTE_DEFAULT
     }

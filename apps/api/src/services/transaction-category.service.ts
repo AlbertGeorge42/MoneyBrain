@@ -2,6 +2,7 @@ import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
+import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 
 type TransactionCategoryCreatePayload = {
@@ -39,7 +40,7 @@ export async function getTransactionCategories(params?: { type?: string }) {
   const where: Record<string, unknown> = {}
   if (params?.type) where.type = params.type
 
-  return prisma.transactionCategory.findMany({
+  return transactionCategoryRepo.findMany({
     where,
     orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
   })
@@ -49,7 +50,7 @@ export async function getTransactionCategoryStats(categoryId: string) {
   const [transactionCount, childrenCount] = await Promise.all([
     // 展示口径只统计未删除交易
     transactionRepo.countActive({ categoryId }),
-    prisma.transactionCategory.count({ where: { parentId: categoryId } }),
+    transactionCategoryRepo.count({ parentId: categoryId }),
   ])
 
   return { transactionCount, childrenCount }
@@ -57,9 +58,7 @@ export async function getTransactionCategoryStats(categoryId: string) {
 
 export async function createTransactionCategory(data: TransactionCategoryCreatePayload) {
   if (data.parentId) {
-    const parent = await prisma.transactionCategory.findUnique({
-      where: { id: data.parentId },
-    })
+    const parent = await transactionCategoryRepo.findById(data.parentId)
     if (!parent) {
       throw new NotFoundError('父分类')
     }
@@ -70,7 +69,7 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
 
   const finalSort = data.sort ?? await getNextSort('transactionCategory', { type: data.type, parentId: data.parentId || null })
 
-  return prisma.transactionCategory.create({
+  return transactionCategoryRepo.create({
     data: {
       name: data.name,
       type: data.type,
@@ -84,14 +83,7 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
 }
 
 export async function updateTransactionCategorySorts(items: TransactionCategorySortItem[]): Promise<void> {
-  await prisma.$transaction(
-    items.map((item) =>
-      prisma.transactionCategory.update({
-        where: { id: item.id },
-        data: { sort: item.sort, parentId: item.parentId },
-      })
-    )
-  )
+  await transactionCategoryRepo.updateSorts(items)
 }
 
 export async function updateTransactionCategory(categoryId: string, data: TransactionCategoryUpdatePayload) {
@@ -100,16 +92,12 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
       throw new ValidationError('父分类不能是自己')
     }
 
-    const parent = await prisma.transactionCategory.findUnique({
-      where: { id: data.parentId },
-    })
+    const parent = await transactionCategoryRepo.findById(data.parentId)
     if (!parent) {
       throw new NotFoundError('父分类')
     }
 
-    const currentCategory = await prisma.transactionCategory.findUnique({
-      where: { id: categoryId },
-    })
+    const currentCategory = await transactionCategoryRepo.findById(categoryId)
     if (!currentCategory) {
       throw new NotFoundError('分类')
     }
@@ -152,17 +140,14 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
     updateData.sort = data.sort
   }
 
-  return prisma.transactionCategory.update({
+  return transactionCategoryRepo.update({
     where: { id: categoryId },
     data: updateData,
   })
 }
 
 export async function moveTransactionCategory(categoryId: string, newParentId: string | null) {
-  const category = await prisma.transactionCategory.findUnique({
-    where: { id: categoryId },
-    include: { children: true },
-  })
+  const category = await transactionCategoryRepo.findByIdWithChildren(categoryId)
   if (!category) {
     throw new NotFoundError('分类')
   }
@@ -173,9 +158,7 @@ export async function moveTransactionCategory(categoryId: string, newParentId: s
       throw new ValidationError('不能移动到自己的子分类下')
     }
 
-    const newParent = await prisma.transactionCategory.findUnique({
-      where: { id: newParentId },
-    })
+    const newParent = await transactionCategoryRepo.findById(newParentId)
     if (!newParent) {
       throw new ValidationError('目标父分类不存在')
     }
@@ -184,14 +167,14 @@ export async function moveTransactionCategory(categoryId: string, newParentId: s
     }
   }
 
-  const siblings = await prisma.transactionCategory.findMany({
+  const siblings = await transactionCategoryRepo.findMany({
     where: { parentId: newParentId || null, type: category.type },
     orderBy: { sort: 'desc' },
     take: 1,
   })
   const newSort = siblings.length > 0 ? siblings[0].sort + 1 : 0
 
-  const movedCategory = await prisma.transactionCategory.update({
+  const movedCategory = await transactionCategoryRepo.update({
     where: { id: categoryId },
     data: { parentId: newParentId || null, sort: newSort },
   })
@@ -208,10 +191,7 @@ export async function deleteTransactionCategory(
 ) {
   const { transferToCategoryId, deleteTransactions = false } = options
 
-  const category = await prisma.transactionCategory.findUnique({
-    where: { id: categoryId },
-    include: { children: true },
-  })
+  const category = await transactionCategoryRepo.findByIdWithChildren(categoryId)
   if (!category) {
     throw new NotFoundError('分类')
   }
@@ -224,7 +204,7 @@ export async function deleteTransactionCategory(
   const transactionsCount = await transactionRepo.countIncludingDeleted({ categoryId })
 
   if (transactionsCount === 0) {
-    await prisma.transactionCategory.delete({ where: { id: categoryId } })
+    await transactionCategoryRepo.deleteById(categoryId)
     await auditEventRepo.createAuditEvent(
       { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
     )
@@ -234,7 +214,7 @@ export async function deleteTransactionCategory(
   if (deleteTransactions) {
     const deletedTransactions = await prisma.$transaction(async (tx) => {
       const deleted = await transactionRepo.deleteManyWhere({ categoryId }, tx)
-      await tx.transactionCategory.delete({ where: { id: categoryId } })
+      await transactionCategoryRepo.deleteById(categoryId, tx)
       await auditEventRepo.createAuditEvent(
         { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
         tx,
@@ -254,9 +234,7 @@ export async function deleteTransactionCategory(
       throw new ValidationError('不能转移到自己')
     }
 
-    const targetCategory = await prisma.transactionCategory.findUnique({
-      where: { id: transferToCategoryId },
-    })
+    const targetCategory = await transactionCategoryRepo.findById(transferToCategoryId)
     if (!targetCategory) {
       throw new ValidationError('目标分类不存在')
     }
@@ -267,7 +245,7 @@ export async function deleteTransactionCategory(
     const transferredTransactions = await prisma.$transaction(async (tx) => {
       // 含回收站里的交易一并转移，避免分类删除后悬挂 categoryId
       const updated = await transactionRepo.transferCategoryTo(categoryId, transferToCategoryId, tx)
-      await tx.transactionCategory.delete({ where: { id: categoryId } })
+      await transactionCategoryRepo.deleteById(categoryId, tx)
       await auditEventRepo.createAuditEvent(
         { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
         tx,
@@ -286,10 +264,7 @@ export async function deleteTransactionCategory(
 }
 
 async function checkIsChildCategory(parentId: string, targetId: string): Promise<boolean> {
-  const target = await prisma.transactionCategory.findUnique({
-    where: { id: targetId },
-    select: { parentId: true },
-  })
+  const target = await transactionCategoryRepo.findById(targetId)
   if (!target || !target.parentId) {
     return false
   }

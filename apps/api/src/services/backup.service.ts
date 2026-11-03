@@ -5,6 +5,11 @@ import unzipper from 'unzipper'
 import Papa from 'papaparse'
 import { prisma } from '../prisma.js'
 import { ValidationError, rootLogger } from '../common/index.js'
+import * as accountRepo from '../db/repositories/account.repository.js'
+import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
+import * as budgetRepo from '../db/repositories/budget.repository.js'
+import * as snapshotRepo from '../db/repositories/investment-allocation-snapshot.repository.js'
+import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { BACKUP_DATA_TYPES, type BackupDataType } from '../../../../packages/contracts/constants.js'
 
@@ -118,14 +123,14 @@ export async function createManifest(includes: DataType[]): Promise<ManifestData
     stats.transactions = await transactionRepo.countActive({})
   }
   if (includes.includes('config')) {
-    stats.accounts = await prisma.account.count()
-    stats.categories = await prisma.accountCategory.count() + await prisma.transactionCategory.count()
+    stats.accounts = await accountRepo.count()
+    stats.categories = await accountCategoryRepo.count() + await transactionCategoryRepo.count()
   }
   if (includes.includes('budgets')) {
-    stats.budgets = await prisma.budget.count()
+    stats.budgets = await budgetRepo.count()
   }
   if (includes.includes('snapshots')) {
-    stats.investmentSnapshots = await prisma.investmentAllocationSnapshot.count()
+    stats.investmentSnapshots = await snapshotRepo.count()
   }
 
   return {

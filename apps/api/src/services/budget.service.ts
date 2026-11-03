@@ -1,9 +1,11 @@
 import type { Budget } from '@prisma/client'
-import { prisma } from '../prisma.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
+import * as accountRepo from '../db/repositories/account.repository.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
+import * as budgetRepo from '../db/repositories/budget.repository.js'
+import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
   fromDate,
@@ -52,9 +54,7 @@ async function validateBudgetCategory(type: string, categoryId: string) {
     throw new ValidationError('分类ID不能为空')
   }
 
-  const category = await prisma.transactionCategory.findUnique({
-    where: { id: categoryId },
-  })
+  const category = await transactionCategoryRepo.findById(categoryId)
   if (!category) {
     throw new NotFoundError('交易分类')
   }
@@ -114,11 +114,7 @@ export async function getBudgets(params?: { type?: string; period?: string; acco
   if (params?.categoryId) where.categoryId = params.categoryId
   if (params?.isActive !== undefined) where.isActive = params.isActive
 
-  return prisma.budget.findMany({
-    where,
-    include: { account: true, toAccount: true, category: true },
-    orderBy: { createdAt: 'desc' },
-  })
+  return budgetRepo.findManyWithRelations(where, { createdAt: 'desc' })
 }
 
 export async function createBudget(data: BudgetPayload) {
@@ -128,12 +124,12 @@ export async function createBudget(data: BudgetPayload) {
   }
 
   // 校验账户存在
-  const account = await prisma.account.findUnique({ where: { id: data.accountId } })
+  const account = await accountRepo.findById(data.accountId)
   if (!account) {
     throw new NotFoundError('账户')
   }
   if (data.toAccountId) {
-    const toAccount = await prisma.account.findUnique({ where: { id: data.toAccountId } })
+    const toAccount = await accountRepo.findById(data.toAccountId)
     if (!toAccount) {
       throw new NotFoundError('目标账户')
     }
@@ -145,27 +141,24 @@ export async function createBudget(data: BudgetPayload) {
   // 校验预算类型/周期枚举、转账目标账户与分类类型匹配
   await validateBudgetFields(data.type, data.period, data.categoryId, data.toAccountId)
 
-  return prisma.budget.create({
-    data: {
-      name: data.name,
-      type: data.type,
-      amount: BigInt(data.amount),
-      period: data.period,
-      startDate: data.startDate ? toDateValue(data.startDate) : new Date(),
-      endDate: data.endDate ? toDateValue(data.endDate) : null,
-      transactionTime: data.transactionTime ?? null,
-      note: data.note ?? null,
-      isActive: data.isActive ?? true,
-      accountId: data.accountId,
-      toAccountId: data.toAccountId ?? null,
-      categoryId: data.categoryId,
-    },
-    include: { account: true, toAccount: true, category: true },
+  return budgetRepo.createWithRelations({
+    name: data.name,
+    type: data.type,
+    amount: BigInt(data.amount),
+    period: data.period,
+    startDate: data.startDate ? toDateValue(data.startDate) : new Date(),
+    endDate: data.endDate ? toDateValue(data.endDate) : null,
+    transactionTime: data.transactionTime ?? null,
+    note: data.note ?? null,
+    isActive: data.isActive ?? true,
+    accountId: data.accountId,
+    toAccountId: data.toAccountId ?? null,
+    categoryId: data.categoryId,
   })
 }
 
 export async function updateBudget(budgetId: string, data: BudgetPayload) {
-  const existing = await prisma.budget.findUnique({ where: { id: budgetId } })
+  const existing = await budgetRepo.findById(budgetId)
   if (!existing) {
     throw new NotFoundError('预算')
   }
@@ -178,29 +171,25 @@ export async function updateBudget(budgetId: string, data: BudgetPayload) {
   await validateBudgetFields(type, data.period, categoryId, toAccountId)
 
   if (data.toAccountId) {
-    const toAccount = await prisma.account.findUnique({ where: { id: data.toAccountId } })
+    const toAccount = await accountRepo.findById(data.toAccountId)
     if (!toAccount) {
       throw new NotFoundError('目标账户')
     }
   }
 
-  return prisma.budget.update({
-    where: { id: budgetId },
-    data: {
-      name: data.name,
-      type: data.type,
-      amount: data.amount != null ? BigInt(data.amount) : undefined,
-      period: data.period,
-      startDate: data.startDate ? toDateValue(data.startDate) : undefined,
-      endDate: data.endDate !== undefined ? (data.endDate ? toDateValue(data.endDate) : null) : undefined,
-      transactionTime: data.transactionTime !== undefined ? data.transactionTime : undefined,
-      note: data.note !== undefined ? data.note : undefined,
-      isActive: data.isActive,
-      accountId: data.accountId,
-      toAccountId: data.toAccountId !== undefined ? data.toAccountId : undefined,
-      categoryId: data.categoryId,
-    },
-    include: { account: true, toAccount: true, category: true },
+  return budgetRepo.updateWithRelations(budgetId, {
+    name: data.name,
+    type: data.type,
+    amount: data.amount != null ? BigInt(data.amount) : undefined,
+    period: data.period,
+    startDate: data.startDate ? toDateValue(data.startDate) : undefined,
+    endDate: data.endDate !== undefined ? (data.endDate ? toDateValue(data.endDate) : null) : undefined,
+    transactionTime: data.transactionTime !== undefined ? data.transactionTime : undefined,
+    note: data.note !== undefined ? data.note : undefined,
+    isActive: data.isActive,
+    accountId: data.accountId,
+    toAccountId: data.toAccountId !== undefined ? data.toAccountId : undefined,
+    categoryId: data.categoryId,
   })
 }
 
@@ -370,10 +359,7 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
 export async function getBudgetStatusesByIds(budgetIds: string[]) {
   if (budgetIds.length === 0) return []
 
-  const budgets = await prisma.budget.findMany({
-    where: { id: { in: budgetIds } },
-    include: { account: true, toAccount: true, category: true },
-  })
+  const budgets = await budgetRepo.findManyWithRelations({ id: { in: budgetIds } })
 
   const childrenMap = await buildCategoryChildrenMap()
   const now = new Date()
@@ -414,10 +400,7 @@ export async function getBudgetStatusesByIds(budgetIds: string[]) {
  * 条数与合计跟预算用量恒等——「查看交易」看到的每一笔都计入「已使用」。
  */
 export async function getBudgetUsageDetails(budgetId: string) {
-  const budget = await prisma.budget.findUnique({
-    where: { id: budgetId },
-    include: { account: true, toAccount: true, category: true },
-  })
+  const budget = await budgetRepo.findUniqueWithRelations(budgetId)
   if (!budget) throw new NotFoundError('预算')
 
   const childrenMap = await buildCategoryChildrenMap()
@@ -474,10 +457,7 @@ export async function generatePredictions(startDate: string, endDate: string) {
   const rangeStart = toDateValue(startDate)
   const rangeEnd = toDateValue(endDate)
 
-  const budgets = await prisma.budget.findMany({
-    where: { isActive: true },
-    include: { account: true, toAccount: true, category: true },
-  })
+  const budgets = await budgetRepo.findManyWithRelations({ isActive: true })
 
   const predictions: Array<{
     date: Date
@@ -630,12 +610,12 @@ function generateTimePoints(start: Date, end: Date, period: string, transactionT
 }
 
 export async function deleteBudget(budgetId: string) {
-  const existing = await prisma.budget.findUnique({ where: { id: budgetId } })
+  const existing = await budgetRepo.findById(budgetId)
   if (!existing) {
     throw new NotFoundError('预算')
   }
 
-  await prisma.budget.delete({ where: { id: budgetId } })
+  await budgetRepo.deleteById(budgetId)
   await auditEventRepo.createAuditEvent(
     { entity: 'budget', entityId: budgetId, action: 'deleted', before: existing },
   )

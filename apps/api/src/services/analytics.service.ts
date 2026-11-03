@@ -1,5 +1,6 @@
-import { prisma } from '../prisma.js'
 import type { Prisma } from '@prisma/client'
+import * as accountRepo from '../db/repositories/account.repository.js'
+import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { calculateBalancesBatch } from './balance.service.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
@@ -160,7 +161,7 @@ export async function getCategoryBreakdown(
   }
 
   // 先加载全量分类：用于构建层级结构、判断 hasChildren
-  const allCategories = await prisma.transactionCategory.findMany({
+  const allCategories = await transactionCategoryRepo.findMany({
     where: { type },
   })
   const categoryMap = new Map(allCategories.map(c => [c.id, c]))
@@ -248,7 +249,7 @@ export async function getAssetTrend(): Promise<Array<{
     })
   }
 
-  const accounts = await prisma.account.findMany()
+  const accounts = await accountRepo.findMany({})
 
   const allAccountIds = accounts.map(a => a.id)
   const monthDates = months.map(m => m.targetDate)

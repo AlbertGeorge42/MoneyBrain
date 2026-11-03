@@ -1,5 +1,5 @@
-import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
 import { rootLogger } from '../../common/index.js'
 import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
 import {
@@ -33,7 +33,7 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   const { targetDate, nextDay: nextDayDate, granularity } = parseDateParam(date)
   const now = new Date()
 
-  const accounts = await prisma.account.findMany({
+  const accounts = await accountRepo.findMany({
     include: { category: true },
     orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
   })

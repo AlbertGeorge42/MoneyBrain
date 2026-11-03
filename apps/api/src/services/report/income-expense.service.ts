@@ -1,6 +1,7 @@
-import { prisma } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { toLedgerTransaction } from '../ledger.adapter.js'
 import {
@@ -119,7 +120,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   const incomeByCategory: Record<string, Minor> = {}
   const expenseByCategory: Record<string, Minor> = {}
 
-  const allCategories = await prisma.transactionCategory.findMany({
+  const allCategories = await transactionCategoryRepo.findMany({
     orderBy: { sort: 'asc' },
   })
 
@@ -225,7 +226,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     expenseByCategory[key] = minor((expenseByCategory[key] ?? 0) + amount)
   }
 
-  const accounts = await prisma.account.findMany()
+  const accounts = await accountRepo.findMany({})
 
   // 期初/期末余额查询（传入 accounts 复用，避免 calculateBalancesBatch 内部重复查询）
   const allAccountIds = accounts.map(a => a.id)

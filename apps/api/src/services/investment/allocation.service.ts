@@ -1,6 +1,11 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
+import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
+import { SNAPSHOT_ITEMS_RELATIONS } from '../../db/repositories/investment-allocation-snapshot.repository.js'
+import * as allocationItemRepo from '../../db/repositories/investment-allocation-item.repository.js'
 
 const logger = rootLogger.child({ module: 'snapshot' })
 
@@ -11,19 +16,25 @@ const logger = rootLogger.child({ module: 'snapshot' })
  * 在每条写入路径手写“修下一个节点”更不容易漏。
  */
 async function relinkSnapshots(tx: TransactionClient, accountId: string): Promise<void> {
-  const snapshots = await tx.investmentAllocationSnapshot.findMany({
-    where: { accountId },
-    orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
-    select: { id: true, previousSnapshotId: true },
-  })
+  const snapshots = await snapshotRepo.findMany(
+    {
+      where: { accountId },
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, previousSnapshotId: true },
+    },
+    tx,
+  )
 
   let previousId: string | null = null
   for (const snapshot of snapshots) {
     if (snapshot.previousSnapshotId !== previousId) {
-      await tx.investmentAllocationSnapshot.update({
-        where: { id: snapshot.id },
-        data: { previousSnapshotId: previousId },
-      })
+      await snapshotRepo.update(
+        {
+          where: { id: snapshot.id },
+          data: { previousSnapshotId: previousId },
+        },
+        tx,
+      )
     }
     previousId = snapshot.id
   }
@@ -41,11 +52,11 @@ export async function createSnapshot(data: {
   note?: string
 }) {
   // 1. 校验账户存在
-  const account = await prisma.account.findUnique({ where: { id: data.accountId } })
+  const account = await accountRepo.findById(data.accountId)
   if (!account) throw new NotFoundError('账户不存在')
 
   // 2. 校验账户有资产类型
-  const assetClasses = await prisma.investmentAssetClass.findMany({
+  const assetClasses = await assetClassRepo.findMany({
     where: { accountId: data.accountId },
   })
   if (assetClasses.length === 0) {
@@ -79,25 +90,20 @@ export async function createSnapshot(data: {
   // 6. 市值总和可小于账户余额；差额由投资分析展示为「未分类」，不阻断保存。
 
   // 7. 找到该账户在当前日期之前（严格早于当天）的最新快照
-  const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
+  const previousSnapshot = await snapshotRepo.findFirst({
     where: {
       accountId: data.accountId,
       date: { lt: new Date(data.date + 'T00:00:00') },
     },
     orderBy: { date: 'desc' },
-    include: {
-      items: {
-        include: { assetClass: true },
-        orderBy: { sort: 'asc' },
-      },
-    },
+    include: SNAPSHOT_ITEMS_RELATIONS,
   })
 
   // 8. 是否为最早一条快照
   const isEarliestSnapshot = !previousSnapshot
 
   // 9. 检查同日是否已有快照（upsert 逻辑）
-  const existingSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
+  const existingSnapshot = await snapshotRepo.findFirst({
     where: {
       accountId: data.accountId,
       date: {
@@ -119,47 +125,41 @@ export async function createSnapshot(data: {
 
     if (existingSnapshot) {
       // 更新旧快照：先删除旧 items
-      await tx.investmentAllocationItem.deleteMany({
-        where: { snapshotId: existingSnapshot.id },
-      })
+      await allocationItemRepo.deleteManyWhere({ snapshotId: existingSnapshot.id }, tx)
     }
 
     const saved = existingSnapshot
-      ? await tx.investmentAllocationSnapshot.update({
-          where: { id: existingSnapshot.id },
-          data: {
-            accountBalance: BigInt(accountBalance),
-            previousSnapshotId: previousSnapshot?.id ?? null,
-            note: data.note ?? null,
-            items: {
-              create: itemsData,
+      ? await snapshotRepo.update(
+          {
+            where: { id: existingSnapshot.id },
+            data: {
+              accountBalance: BigInt(accountBalance),
+              previousSnapshotId: previousSnapshot?.id ?? null,
+              note: data.note ?? null,
+              items: {
+                create: itemsData,
+              },
             },
+            include: SNAPSHOT_ITEMS_RELATIONS,
           },
-          include: {
-            items: {
-              include: { assetClass: true },
-              orderBy: { sort: 'asc' },
+          tx,
+        )
+      : await snapshotRepo.create(
+          {
+            data: {
+              accountId: data.accountId,
+              date: new Date(data.date + 'T00:00:00'),
+              accountBalance: BigInt(accountBalance),
+              previousSnapshotId: previousSnapshot?.id ?? null,
+              note: data.note ?? null,
+              items: {
+                create: itemsData,
+              },
             },
+            include: SNAPSHOT_ITEMS_RELATIONS,
           },
-        })
-      : await tx.investmentAllocationSnapshot.create({
-          data: {
-            accountId: data.accountId,
-            date: new Date(data.date + 'T00:00:00'),
-            accountBalance: BigInt(accountBalance),
-            previousSnapshotId: previousSnapshot?.id ?? null,
-            note: data.note ?? null,
-            items: {
-              create: itemsData,
-            },
-          },
-          include: {
-            items: {
-              include: { assetClass: true },
-              orderBy: { sort: 'asc' },
-            },
-          },
-        })
+          tx,
+        )
 
     await relinkSnapshots(tx, data.accountId)
     return saved
@@ -184,14 +184,9 @@ export async function getSnapshots(
     where.date = { ...where.date, lt: endExclusive }
   }
 
-  return prisma.investmentAllocationSnapshot.findMany({
+  return snapshotRepo.findMany({
     where,
-    include: {
-      items: {
-        include: { assetClass: true },
-        orderBy: { sort: 'asc' },
-      },
-    },
+    include: SNAPSHOT_ITEMS_RELATIONS,
     orderBy: { date: 'desc' },
   })
 }
@@ -203,21 +198,16 @@ export async function getLatestSnapshot(accountId: string, beforeDate?: string) 
     where.date = { lt: new Date(beforeDate + 'T00:00:00') }
   }
 
-  return prisma.investmentAllocationSnapshot.findFirst({
+  return snapshotRepo.findFirst({
     where,
-    include: {
-      items: {
-        include: { assetClass: true },
-        orderBy: { sort: 'asc' },
-      },
-    },
+    include: SNAPSHOT_ITEMS_RELATIONS,
     orderBy: { date: 'desc' },
   })
 }
 
 // 删除快照，重排前后链
 export async function deleteSnapshot(id: string) {
-  const snapshot = await prisma.investmentAllocationSnapshot.findUnique({
+  const snapshot = await snapshotRepo.findUnique({
     where: { id },
     select: { accountId: true },
   })
@@ -225,11 +215,9 @@ export async function deleteSnapshot(id: string) {
   if (!snapshot) throw new NotFoundError('快照不存在')
 
   const result = await prisma.$transaction(async (tx) => {
-    await tx.investmentAllocationItem.deleteMany({
-      where: { snapshotId: id },
-    })
+    await allocationItemRepo.deleteManyWhere({ snapshotId: id }, tx)
 
-    const deleted = await tx.investmentAllocationSnapshot.delete({ where: { id } })
+    const deleted = await snapshotRepo.deleteById(id, tx)
     await relinkSnapshots(tx, snapshot.accountId)
     return deleted
   })
@@ -252,13 +240,10 @@ export async function updateSnapshot(
 ) {
   const newDate = new Date(data.date + 'T00:00:00')
 
-  const existingSnapshot = await prisma.investmentAllocationSnapshot.findUnique({
+  const existingSnapshot = await snapshotRepo.findUnique({
     where: { id },
     include: {
-      items: {
-        include: { assetClass: true },
-        orderBy: { sort: 'asc' },
-      },
+      ...SNAPSHOT_ITEMS_RELATIONS,
       nextSnapshots: true,
     },
   })
@@ -267,7 +252,7 @@ export async function updateSnapshot(
 
   const accountId = existingSnapshot.accountId
 
-  const duplicate = await prisma.investmentAllocationSnapshot.findFirst({
+  const duplicate = await snapshotRepo.findFirst({
     where: { accountId, date: newDate, id: { not: id } },
     select: { id: true },
   })
@@ -286,7 +271,7 @@ export async function updateSnapshot(
     }
   }
 
-  const assetClasses = await prisma.investmentAssetClass.findMany({
+  const assetClasses = await assetClassRepo.findMany({
     where: { accountId },
   })
   if (assetClasses.length === 0) {
@@ -318,7 +303,7 @@ export async function updateSnapshot(
   // 6. 市值总和可小于账户余额；差额由投资分析展示为「未分类」，不阻断保存。
 
   // 7. 找到该账户在当前日期之前的最新快照（严格早于当天，排除自身）
-  const previousSnapshot = await prisma.investmentAllocationSnapshot.findFirst({
+  const previousSnapshot = await snapshotRepo.findFirst({
     where: {
       accountId,
       date: { lt: new Date(data.date + 'T00:00:00') },
@@ -330,9 +315,7 @@ export async function updateSnapshot(
   // 8. 更新数据库
   const result = await prisma.$transaction(async (tx) => {
     // 删除旧 items
-    await tx.investmentAllocationItem.deleteMany({
-      where: { snapshotId: id },
-    })
+    await allocationItemRepo.deleteManyWhere({ snapshotId: id }, tx)
 
     // 准备新 items 数据
     const itemsData = data.items.map((item, index) => ({
@@ -343,24 +326,22 @@ export async function updateSnapshot(
     }))
 
     // 更新快照
-    const saved = await tx.investmentAllocationSnapshot.update({
-      where: { id },
-      data: {
-        date: new Date(data.date + 'T00:00:00'),
-        accountBalance: BigInt(accountBalance),
-        previousSnapshotId: previousSnapshot?.id ?? null,
-        note: data.note ?? null,
-        items: {
-          create: itemsData,
+    const saved = await snapshotRepo.update(
+      {
+        where: { id },
+        data: {
+          date: new Date(data.date + 'T00:00:00'),
+          accountBalance: BigInt(accountBalance),
+          previousSnapshotId: previousSnapshot?.id ?? null,
+          note: data.note ?? null,
+          items: {
+            create: itemsData,
+          },
         },
+        include: SNAPSHOT_ITEMS_RELATIONS,
       },
-      include: {
-        items: {
-          include: { assetClass: true },
-          orderBy: { sort: 'asc' },
-        },
-      },
-    })
+      tx,
+    )
 
     await relinkSnapshots(tx, accountId)
     return saved

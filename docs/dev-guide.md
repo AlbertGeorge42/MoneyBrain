@@ -25,6 +25,7 @@ apps/api/src/
 │   ├── import/ export/   # 备份与 CSV
 │   └── investment/       # 资产类型、快照、收益
 ├── common/               # 错误、HTTP 信封、请求 ID、日期、校验器、日志
+├── db/repositories/      # 各模型的 Prisma 访问唯一入口（D1：软删除过滤、固定 include 收口在这层）
 └── prisma.ts
 
 apps/web/src/
@@ -242,6 +243,15 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
 ## 8. 数据库
 
 - SQLite，Prisma；金额表示见 §3.2（迁移中），ID 为 `uuid`。
+- **数据库访问只在 repository 层（D1）**：`apps/api/src/db/repositories/` 是各模型读写的唯一入口，
+  service / route 不得出现 `prisma.<model>.`；事务回调里的 `tx.<model>.` 同样禁止——改调
+  repository 方法并把 `tx` 传进去（`$transaction` 编排本身可留在 service）。repository 方法做
+  纯委托，返回给前端的固定关联收成常量（`BUDGET_RELATIONS`、`SNAPSHOT_ITEMS_RELATIONS`），
+  「需要看已删除/全量」的方法名必须带 `IncludingDeleted`（约定见 transaction.repository）。
+  验收 grep（services 与 routes 零命中）：
+  `rg "prisma\.(account|accountCategory|transactionCategory|budget|investmentAssetClass|investmentAllocationSnapshot|investmentAllocationItem|auditEvent)\." apps/api/src/services apps/api/src/routes`。
+  暂存例外（后续条目收口）：clear-data 与 import 在事务客户端上的直调、迁移/种子脚本、
+  公共查询工具 `common/db.ts`。
 - **改 schema 一律走版本化迁移**：`npm run db:migrate`（生成并应用迁移，SQL 提交进仓库）。
   禁止只用 `prisma db push`——没有迁移历史就无法复现、无法回滚。
   - 迁移名必须以时间戳开头：`YYYYMMDDHHMMSS_描述`（版本新旧按字典序比较）。

@@ -1,6 +1,6 @@
-import { prisma } from '../../prisma.js'
 import { formatDateLocal } from '../../common/index.js'
 import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
+import * as budgetRepo from '../../db/repositories/budget.repository.js'
 
 interface ExportBudget {
   name: string
@@ -26,10 +26,7 @@ interface BudgetBackupData {
 }
 
 export async function exportBudgets(): Promise<string> {
-  const budgets = await prisma.budget.findMany({
-    include: { account: true, toAccount: true, category: true },
-    orderBy: { createdAt: 'asc' },
-  })
+  const budgets = await budgetRepo.findManyWithRelations(undefined, { createdAt: 'asc' })
 
   const exportBudgets: ExportBudget[] = budgets.map((b) => ({
     name: b.name,

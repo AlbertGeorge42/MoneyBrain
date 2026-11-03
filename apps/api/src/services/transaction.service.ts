@@ -1,9 +1,9 @@
-import { prisma } from '../prisma.js'
 import { Prisma } from '@prisma/client'
 import { rootLogger } from '../common/index.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
+import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
@@ -136,10 +136,10 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
 export async function createTransfer(data: CreateTransferData): Promise<TransactionWithRelations> {
   const { amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, categoryId, excludeFromIncomeExpense } = data
 
-  const fromAccount = await prisma.account.findUnique({ where: { id: accountId } })
+  const fromAccount = await accountRepo.findById(accountId)
   if (!fromAccount) throw new NotFoundError('转出账户')
 
-  const toAccount = await prisma.account.findUnique({ where: { id: toAccountId } })
+  const toAccount = await accountRepo.findById(toAccountId)
   if (!toAccount) throw new NotFoundError('转入账户')
 
   const transaction = await transactionRepo.createWithRelations({
@@ -299,7 +299,7 @@ const resolveAccountIds = async (accountId?: string | string[]): Promise<string[
     return directAccountIds.length > 0 ? directAccountIds : [EMPTY_FILTER_ID]
   }
 
-  const categoryAccounts = await prisma.account.findMany({
+  const categoryAccounts = await accountRepo.findMany({
     where: { categoryId: { in: categoryIds } },
     select: { id: true },
   })
