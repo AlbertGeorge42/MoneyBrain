@@ -56,35 +56,6 @@ U7 的焦点可见性、U8 的失败呈现是其中可自动化验收的部分�
 
 #### 段一 · 地基（U0–U3）
 
-##### U0 · 先解决命名空间冲突（U1 的根因，必须最先做）
-
-**这是实测发现的根因，不是一般性的"变量没定义"问题。**
-
-AntD 的 `cssVar: { prefix: 'mb' }` 会生成 **536 个** `--mb-*` 变量，与项目自有的 `--mb-*`
-命名空间**正面重叠**。实测比对结果：
-
-| 变量名 | AntD 也生成 | 后果 |
-|---|---|---|
-| `--mb-color-bg-container` | 是 | 项目 CSS 引用它，但项目从未定义——实际取到的是 AntD 的值，且只在 AntD 组件子树内生效 |
-| `--mb-color-border-secondary` | 是 | 同上（`picker.css` 引用） |
-| `--mb-color-text-quaternary` | 是 | 同上（`settings.css` 引用） |
-| `--mb-color-text-secondary` / `--mb-color-text-tertiary` | 是 | 项目与 AntD **各定义一份**，值相同但来源不同——谁生效取决于 DOM 位置 |
-| `--mb-color-border` / `--mb-color-success` | 是 | 同上 |
-| `--mb-font-size-sm` | 是 | **值还不一致**：项目 `variables.css` 定义 13px，AntD 的 `fontSizeSM` 是 12px |
-
-**为什么危险**：CSS 变量是**继承**的，同名变量按 DOM 位置就近生效。
-项目自定义组件（如 `.ip-cell`）读到的 `--mb-color-bg-container` 与 AntD 组件读到的
-可能来自不同来源；切换主题时两套来源的更新时机也不同（AntD 走 cssinjs 缓存，
-项目走 `syncCssVars()` 手动注入）。这类问题**不报错、不影响构建**，
-只在特定位置 + 特定主题下暴露，靠肉眼极难定位。
-
-**目标**：AntD 用 `--ant-*`，项目用 `--mb-*`，两套命名空间彻底隔离，互不干扰。
-`--mb-*` 的定义权收归项目一处。
-
-| # | 现状 | 目标 | 验收 |
-|---|---|---|---|
-| U0 | AntD `cssVar.prefix = 'mb'`，生成 536 个 `--mb-*`，与项目自有命名空间 8 个变量名重叠 | AntD 改用 `--ant-*` 前缀；项目 `--mb-*` 只由 `variables.css`（结构）与 `syncCssVars()`（颜色）两处定义 | 全树 `--mb-*` 的定义源只有这两处；AntD 生成的变量不再与项目变量同名 |
-
 ##### U1 · 变量引用完整性（U0 之后）
 
 | # | 现状 | 目标 | 验收 |
