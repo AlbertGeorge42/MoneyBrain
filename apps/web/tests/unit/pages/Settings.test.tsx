@@ -47,6 +47,14 @@ vi.mock('../../../src/queries/data', () => ({
   useRollbackPoints: vi.fn(() => ({ data: [], isLoading: false, refetch: vi.fn() })),
   useRestoreRollbackPoint: vi.fn(() => ({ mutate: vi.fn(), isPending: false, variables: undefined })),
   useDeleteRollbackPoint: vi.fn(() => ({ mutate: vi.fn(), isPending: false, variables: undefined })),
+  // 自动备份区块（AutoBackupSection）渲染时需要的 hooks
+  useAutoBackupConfig: vi.fn(() => ({
+    data: { enabled: false, directory: '/tmp/auto-backups', lastRunAt: null, lastRunError: null, defaultDirectory: '/tmp/auto-backups', nextWindowAt: null, backupCount: 0 },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  })),
+  useSaveAutoBackupConfig: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }))
 
 const createTestQueryClient = () => new QueryClient({

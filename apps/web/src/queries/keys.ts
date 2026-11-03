@@ -48,4 +48,7 @@ export const queryKeys = {
   rollbackPoints: {
     all: ['rollbackPoints'] as const,
   },
+  autoBackup: {
+    all: ['autoBackup'] as const,
+  },
 }

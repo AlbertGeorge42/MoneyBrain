@@ -14,6 +14,7 @@ import auditEventRoutes from './routes/audit-event.route.js'
 import { errorHandler, notFoundHandler, requestId, rootLogger } from './common/index.js'
 import { httpLogger } from './common/logger/http.js'
 import { LOG_CONFIG } from './common/logger/config.js'
+import { setupAutoBackupScheduler } from './services/auto-backup.service.js'
 
 const logger = rootLogger.child({ module: 'app' })
 const PORT = parseInt(process.env.PORT || '3001', 10)
@@ -62,6 +63,8 @@ app.use(errorHandler)
 
 // 仅在非测试环境下启动 HTTP 服务
 if (process.env.NODE_ENV !== 'test') {
+  // 自动定时备份（B3）：配置已开启时挂起调度；失败会记录到配置的 lastRunError
+  void setupAutoBackupScheduler()
   app.listen(PORT, HOST, () => {
     logger.info({
       action: 'boot',

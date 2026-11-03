@@ -146,6 +146,28 @@ export interface Transaction {
   createdAt: string
 }
 
+// ===== 自动定时备份（B3） =====
+
+/**
+ * 自动备份状态（时机由内部策略决定：24h 间隔 + 空闲窗口 + 10 分钟强制上限），
+ * 用户只设置开关与目录；F5 加密容器落地前导出的是明文 ZIP，目录限本地并带云目录警告。
+ */
+export interface AutoBackupConfig {
+  enabled: boolean
+  /** 备份目标目录（绝对路径） */
+  directory: string
+  /** 上次成功执行时间（ISO 字符串；从未执行为 null） */
+  lastRunAt: string | null
+  /** 上次执行失败原因 */
+  lastRunError: string | null
+  /** 服务端默认目录（数据库同级 auto-backups/） */
+  defaultDirectory: string
+  /** 预计下次窗口（上次成功 + 24h；从未成功为 null，首次空闲即执行） */
+  nextWindowAt: string | null
+  /** 目录内现有备份份数 */
+  backupCount: number
+}
+
 // ===== 审计事件与回收站（B2） =====
 
 export type AuditEventAction = 'updated' | 'deleted' | 'restored'

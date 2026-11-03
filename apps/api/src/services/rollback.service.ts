@@ -26,14 +26,12 @@ const logger = rootLogger.child({ module: 'rollback' })
 // ===== 快照存放位置 =====
 
 /**
- * 快照目录与数据库文件同级的 `rollback-points/`。
- * 放在一起的原因：数据库在哪，快照就在哪——用户搬走数据目录时
- * 不会漏掉回滚点。
+ * 库所在目录：回滚点、自动备份配置等「跟着数据库走」的文件都用它定位。
  *
  * 库的真实路径由 SQLite 自己报告（PRAGMA database_list），
  * 不靠拼 DATABASE_URL——相对路径的基准随调用方而变，拼出来会错。
  */
-async function resolveDbDirectory(): Promise<string> {
+export async function resolveDbDirectory(): Promise<string> {
   const rows = await prisma.$queryRawUnsafe<{ file: string }[]>('PRAGMA database_list')
   const main = rows.find((r) => r.file)
   if (!main?.file) {

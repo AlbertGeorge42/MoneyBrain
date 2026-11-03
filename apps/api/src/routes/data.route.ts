@@ -24,6 +24,12 @@ import {
   restoreSnapshot,
   deleteSnapshot,
 } from '../services/rollback.service.js'
+import {
+  countAutoBackups,
+  getAutoBackupConfig,
+  runExclusiveLongTask,
+  saveAutoBackupConfig,
+} from '../services/auto-backup.service.js'
 
 const router = Router()
 
@@ -72,18 +78,19 @@ router.delete('/transactions', validateRequest((req: Request) => {
 
 router.get('/export', asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query
-  
+
   let start: Date | undefined
   let end: Date | undefined
-  
+
   if (startDate && typeof startDate === 'string') {
     start = new Date(startDate)
   }
   if (endDate && typeof endDate === 'string') {
     end = new Date(endDate)
   }
-  
-  const csvContent = await exportTransactionsCSV(start, end)
+
+  // 长任务：导出进行中不让自动备份抢 IO
+  const csvContent = await runExclusiveLongTask(() => exportTransactionsCSV(start, end))
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', `attachment; filename=moneybrain-export-${new Date().toISOString().split('T')[0]}.csv`)
   res.send(csvContent)
@@ -102,7 +109,7 @@ router.post('/detect-file', upload.single('file'), validateRequest((req: Request
 
 // 完整备份导出
 router.get('/export-full', asyncHandler(async (_req, res) => {
-  const zipBuffer = await exportFullBackup()
+  const zipBuffer = await runExclusiveLongTask(() => exportFullBackup())
   res.setHeader('Content-Type', 'application/zip')
   res.setHeader('Content-Disposition', `attachment; filename=${generateBackupFilename()}`)
   res.send(zipBuffer)
@@ -119,7 +126,7 @@ router.post('/export-custom', validateRequest((req: Request) => {
   }
 }), asyncHandler(async (req, res) => {
   const includes = req.body.includes as DataType[]
-  const result = await exportCustomBackup(includes)
+  const result = await runExclusiveLongTask(() => exportCustomBackup(includes))
   res.setHeader('Content-Type', result.contentType)
   res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`)
   res.send(result.buffer)
@@ -139,16 +146,17 @@ router.post('/import-backup', upload.single('file'), validateRequest((req: Reque
   const includes = parseImportIncludes(req.body.includes)
 
   // 覆盖导入会先清空数据，先留回滚点再执行——出错还有退路。
+  // 长任务：导入进行中不让自动备份抢 IO
   if (mode === 'overwrite') {
-    const { result, rollbackPointId } = await importBackupWithRollback(
-      req.file!.buffer,
-      req.file!.originalname,
-      includes
+    const { result, rollbackPointId } = await runExclusiveLongTask(() =>
+      importBackupWithRollback(req.file!.buffer, req.file!.originalname, includes)
     )
     return success(res, { ...result, rollbackPointId })
   }
 
-  const result = await importBackup(req.file!.buffer, req.file!.originalname, mode, includes)
+  const result = await runExclusiveLongTask(() =>
+    importBackup(req.file!.buffer, req.file!.originalname, mode, includes)
+  )
   return success(res, result)
 }))
 
@@ -166,7 +174,9 @@ router.post('/import-preview', upload.single('file'), validateRequest((req: Requ
   const mode = rawMode === 'overwrite' ? 'overwrite' : 'merge'
   const includes = parseImportIncludes(req.body.includes)
 
-  const result = await previewImport(req.file!.buffer, req.file!.originalname, mode, includes)
+  const result = await runExclusiveLongTask(() =>
+    previewImport(req.file!.buffer, req.file!.originalname, mode, includes)
+  )
   const willOverwrite = mode === 'overwrite'
     ? await resolveOverwriteScope(req.file!.buffer, req.file!.originalname, includes)
     : []
@@ -179,6 +189,41 @@ router.get('/rollback-points', asyncHandler(async (_req, res) => {
   return success(res, points)
 }))
 
+// ─── 自动定时备份（B3）───
+// 备份时机由内部策略决定（24h 间隔 + 空闲窗口，见 service 头注释），用户只设置开关与目录。
+// 过渡态约束：F5 加密容器落地前导出的是明文 ZIP，云同步目录默认拒绝、需显式确认。
+router.get('/auto-backup', asyncHandler(async (_req, res) => {
+  const config = await getAutoBackupConfig()
+  return success(res, {
+    enabled: config.enabled,
+    directory: config.directory,
+    defaultDirectory: config.defaultDirectory,
+    lastRunAt: config.lastRunAt,
+    lastRunError: config.lastRunError,
+    // 预计下次窗口 = 上次成功 + 24h；从未成功过则首次空闲窗口即可
+    nextWindowAt: config.lastRunAt
+      ? new Date(new Date(config.lastRunAt).getTime() + 24 * 60 * 60_000).toISOString()
+      : null,
+    backupCount: countAutoBackups(config.directory),
+  })
+}))
+
+router.put('/auto-backup', validateRequest((req: Request) => {
+  const { enabled, directory, confirmCloudDirectory } = req.body as Record<string, unknown>
+  if (enabled !== undefined && typeof enabled !== 'boolean') {
+    throw new ValidationError('enabled 必须是布尔值')
+  }
+  if (directory !== undefined && typeof directory !== 'string') {
+    throw new ValidationError('directory 必须是字符串')
+  }
+  if (confirmCloudDirectory !== undefined && typeof confirmCloudDirectory !== 'boolean') {
+    throw new ValidationError('confirmCloudDirectory 必须是布尔值')
+  }
+}), asyncHandler(async (req, res) => {
+  const config = await saveAutoBackupConfig(req.body)
+  return success(res, config)
+}))
+
 // 回滚到指定回滚点：会用快照覆盖当前数据，不可逆，必须带确认值。
 router.post('/rollback-points/:id/restore', validateRequest((req: Request) => {
   requireClearConfirm(req, ROLLBACK_CONFIRM.restore)
@@ -187,7 +232,7 @@ router.post('/rollback-points/:id/restore', validateRequest((req: Request) => {
   if (!id) {
     throw new ValidationError('缺少回滚点 ID')
   }
-  const result = await restoreSnapshot(id)
+  const result = await runExclusiveLongTask(() => restoreSnapshot(id))
   return success(res, result)
 }))
 

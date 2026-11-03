@@ -68,3 +68,28 @@ export function useDeleteRollbackPoint() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.rollbackPoints.all }),
   })
 }
+
+// ─── 自动定时备份（B3）───
+
+/** 自动备份配置。 */
+export function useAutoBackupConfig() {
+  return useQuery({
+    queryKey: queryKeys.autoBackup.all,
+    queryFn: async () => {
+      const res = await dataApi.getAutoBackup()
+      return unwrapApiData(res)
+    },
+  })
+}
+
+/** 保存自动备份配置；云同步目录会被后端拒绝，需带 confirmCloudDirectory 显式确认。 */
+export function useSaveAutoBackupConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: Parameters<typeof dataApi.updateAutoBackup>[0]) => {
+      const res = await dataApi.updateAutoBackup(data)
+      return unwrapApiData(res)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.autoBackup.all }),
+  })
+}

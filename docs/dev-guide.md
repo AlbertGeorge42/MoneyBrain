@@ -247,6 +247,16 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
   - 测试库由 `tests/global-setup.ts` 用同一套迁移重建（不是 `db push`）。
 - `npm run db:drill` 跑恢复演练：导出 → 导入临时库 → 用领域层重算两边余额并对比。
   改动导出/导入/余额逻辑后必须跑一次，结果不一致就是备份不可信了。
+- 自动定时备份（B3）：配置存数据库同级 `auto-backup-config.json`（跟着数据库走，与回滚点同一套哲学）；
+  执行复用 `exportFullBackup`，按 `moneybrain-backup-YYYY-MM-DD.zip` 落盘。
+  **备份时机由内部策略决定，不做成用户设置**：判定只有两条——距上次成功备份 ≥ 24 小时（从未成功视为已到期）、
+  长任务锁空闲；两条都满足才执行，否则等下一轮（30 秒评估一次）。备份与导入/导出/回滚共用同一把
+  长任务锁（`runExclusiveLongTask`）严格互斥：到期时若长任务进行中一律不执行（没有强制越过），
+  等长任务结束后下一个评估轮次自动补跑；尝试失败后 10 分钟内退避。
+  策略常量（间隔 / 退避 / 评估周期 / 保留最近 7 份）集中在 `auto-backup.service.ts` 顶部，调整只改那一处。
+  **F5 加密容器落地前导出的是明文 ZIP**：云同步目录（OneDrive / Dropbox 等）由后端默认拒绝，
+  必须带 `confirmCloudDirectory: true` 显式确认才接受；加密容器落地后把 `runAutoBackupOnce`
+  里的导出换成容器导出，目录限制随之放开。
 - 不持久化余额、预算百分比、收益率。投资快照的 `previous_snapshot_id` **继续持久化**——
   它是写入顺序的产物，不是金额派生值，且同步依赖它做应用后重算（[stage-2-sync.md](blueprint/stage-2-sync.md) 批次 F6）；
   禁止的是**读取时**绕开快照链、按日期另算一套推导。
