@@ -262,6 +262,7 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
   它是写入顺序的产物，不是金额派生值，且同步依赖它做应用后重算（[stage-2-sync.md](blueprint/stage-2-sync.md) 批次 F6）；
   禁止的是**读取时**绕开快照链、按日期另算一套推导。
 - 交易删除是软删除（`deletedAt`，B2）：过滤条件只允许出现在 `db/repositories/transaction.repository.ts`，service / route 不得再写 `deletedAt` 条件；撤销与回收站恢复 = 依据 `audit_events` 审计事件反向写入，不另建撤销表、不做二次确认（前端提示「已删除 · 撤销」）。退款通过 `relatedTransactionId` 关联。存在退款的原交易禁止删除（含回收站里的退款），避免孤儿退款；导出与备份必须排除已删除交易。
+- **退款金额可高于原额、退款账户可与原账户不同（均属合法业务，任何校验不得判为数据错误）**：可退余额 = max(原额 − Σ退款, 0) 只是录入参考，不是上限。`npm run db:verify` 对超退记录只做信息性提示（ℹ 行），不进失败项。
 - CSV 导入用 `Transaction.importKey` 去重；同一文件或数据库已存在的记录会跳过。
 - 导入支持 `includes` 范围过滤；覆盖模式只清空所选范围。独立配置覆盖若仍有未纳入范围的交易/预算/快照会被拒绝。
 - 覆盖导入必须二次确认；CSV 覆盖在单个事务内先清空再写入。
@@ -279,7 +280,7 @@ npm run test:web
 新功能必须覆盖：
 
 - 领域：五类交易、退款方向、转账手续费、期初当天、期间边界。
-- API：happy path + 关键失败（退款超额、预算边界）。
+- API：happy path + 关键失败（预算边界）；退款超退与跨账户是合法路径，断言按实际金额入账（B4）。
 - 页面：空态、错误态（失败不渲染 0）、移动端布局。
 
 详见 [testing.md](testing.md)。

@@ -5,7 +5,7 @@
  * 1. Σ 所有账户余额 == 净资产（资产 − 负债）
  * 2. 期初净资产 + 净收入 − 净支出 == 期末净资产（本月）
  * 3. 每一笔转账满足 Δ转出 + Δ转入 == −手续费
- * 4. 每一笔退款不超过原交易的剩余可退金额
+ * 4. 退款金额可高于原额、退款账户可与原账户不同（均属合法业务），只统计提示、不判为错误；退款指向的原交易必须存在
  *
  * 用法：
  *   npm run db:verify            # 检查本月
@@ -16,7 +16,6 @@ import {
   balanceBefore,
   minor,
   postingsOf,
-  remainingRefundable,
   rulesFor,
   summarizeFlows,
   type LedgerTransaction,
@@ -163,16 +162,17 @@ async function main() {
         return total
       }, 0)
 
-    // 完整的恒等式：期初 + 净流量 + 不进收支但影响余额的部分 − 开户前交易 = 期末
+    // 完整的恒等式：期初 + 净流量 + 不进收支但影响余额的部分 − 转账手续费 − 开户前交易 = 期末；
+    // 手续费是净资产的减项（转账分录净效应 = −fee），不是加项（B4）
     const expectedEnd =
-      startNetWorth + flow + excludedNet + transferFee + adjustmentNet - preOpeningFlow
+      startNetWorth + flow + excludedNet - transferFee + adjustmentNet - preOpeningFlow
     const difference = endNetWorth - expectedEnd
 
     if (Math.abs(difference) >= 1) {
       problems.push(
         `净资产对不上：期末 ${yuan(endNetWorth)} ≠ 期望 ${yuan(expectedEnd)}` +
           `（期初 ${yuan(startNetWorth)} + 净流量 ${yuan(flow)} + 不计收支 ${yuan(excludedNet)}` +
-          ` + 手续费 ${yuan(transferFee)} + 平账 ${yuan(adjustmentNet)} − 开户前 ${yuan(preOpeningFlow)}，差 ${yuan(difference)}）`,
+          ` − 手续费 ${yuan(transferFee)} + 平账 ${yuan(adjustmentNet)} − 开户前 ${yuan(preOpeningFlow)}，差 ${yuan(difference)}）`,
       )
     } else {
       const extras: string[] = []
@@ -196,7 +196,9 @@ async function main() {
       }
     }
 
-    // 4. 退款不超过原交易剩余可退金额
+    // 4. 退款金额、退款账户都不受原交易限制（可高于原额、可跨账户，均属合法业务）：
+    //    只统计提示，不判为错误；可退余额 = max(原额 − Σ退款, 0) 只是录入参考
+    let refundOverOriginalCount = 0
     const byId = new Map(ledger.map((t) => [t.id, t]))
     const refundsByOriginal = new Map<string, LedgerTransaction[]>()
     for (const t of ledger) {
@@ -211,15 +213,16 @@ async function main() {
         problems.push(`退款指向的原交易不存在：${originalId}`)
         continue
       }
-      const remaining = remainingRefundable(original, refunds)
-      if (remaining < 0) {
-        problems.push(`退款超额：原交易 ${originalId} 剩余可退 ${yuan(remaining)}`)
-      }
+      const refunded = refunds.reduce((total, refund) => total + refund.amount, 0)
+      if (refunded > original.amount) refundOverOriginalCount++
     }
 
     console.log(`检查范围：${month}（${startDate} ~ ${endDate}）`)
     console.log(`账户 ${accounts.length} 个 · 交易 ${transactions.length} 笔 · 净资产 ${yuan(netWorth)} 元`)
     console.log(`期初净资产 ${yuan(startNetWorth)} + 净流量 ${yuan(flow)} = 期末净资产 ${yuan(endNetWorth)}`)
+    if (refundOverOriginalCount > 0) {
+      console.log(`ℹ 退款高于原额的记录 ${refundOverOriginalCount} 笔（业务允许，不判为错误）`)
+    }
 
     if (problems.length === 0) {
       console.log('✅ 数据自检通过：余额、净资产、转账与退款都对得上')

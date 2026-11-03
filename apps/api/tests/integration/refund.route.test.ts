@@ -117,4 +117,55 @@ describe('退款对统计数据的影响', () => {
     expect(response.body.data.balance).toBe(500)
     expect(response.body.data.refund).toBe(300)
   })
+
+  it('退款金额高于原额属合法业务：允许写入，余额与统计按实际金额正确（B4）', async () => {
+    const expense = await prisma.transaction.create({
+      data: { type: 'expense', amount: 5000, accountId: testAccountId, date: new Date() },
+    })
+
+    // 5000 分的支出退 6000 分——不设上限，允许写入
+    const created = await request(app)
+      .post('/api/transactions')
+      .send({ type: 'refund', amount: 6000, date: new Date().toISOString().split('T')[0], accountId: testAccountId, relatedTransactionId: expense.id })
+    expect(created.status).toBe(201)
+
+    // 余额按实际退款金额变动：−5000 + 6000 = +1000
+    const balance = await request(app)
+      .get(`/api/accounts/${testAccountId}/balance-at`)
+      .query({ date: '2099-12-31' })
+    expect(balance.body.data.balance).toBe(1000)
+
+    // 冲减语义不变：净支出 = 5000 − 6000 = −1000（超退冲减后为负是口径的自然结果）
+    const response = await request(app).get('/api/transactions/stats')
+    expect(response.body.data.expense).toBe(-1000)
+    expect(response.body.data.refund).toBe(6000)
+  })
+
+  it('跨账户退款属合法业务：原账户余额不恢复，退款账户按实际金额增加（B4）', async () => {
+    const refundAccount = await prisma.account.create({
+      data: { name: '跨账户退款账户', type: 'asset', initialBalance: 0 },
+    })
+    const expense = await prisma.transaction.create({
+      data: { type: 'expense', amount: 5000, accountId: testAccountId, date: new Date() },
+    })
+
+    const created = await request(app)
+      .post('/api/transactions')
+      .send({ type: 'refund', amount: 4000, date: new Date().toISOString().split('T')[0], accountId: refundAccount.id, relatedTransactionId: expense.id })
+    expect(created.status).toBe(201)
+
+    // 原账户不恢复（−5000），退款账户按实际金额增加（+4000）
+    const originalBalance = await request(app)
+      .get(`/api/accounts/${testAccountId}/balance-at`)
+      .query({ date: '2099-12-31' })
+    expect(originalBalance.body.data.balance).toBe(-5000)
+    const refundBalance = await request(app)
+      .get(`/api/accounts/${refundAccount.id}/balance-at`)
+      .query({ date: '2099-12-31' })
+    expect(refundBalance.body.data.balance).toBe(4000)
+
+    // 净资产变化 = −5000 + 4000 = −1000；冲减语义：净支出 = 5000 − 4000 = 1000
+    const response = await request(app).get('/api/transactions/stats')
+    expect(response.body.data.expense).toBe(1000)
+  })
 })

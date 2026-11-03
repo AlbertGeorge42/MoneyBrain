@@ -7,7 +7,7 @@ import { buildCategoryChildrenMap } from '../common/db.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
-import { formatAmount, minor, remainingRefundable, summarizeAggregatedFlows, CURRENT_RULE_VERSION, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
+import { minor, summarizeAggregatedFlows, CURRENT_RULE_VERSION, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -161,35 +161,16 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
 }
 
 /**
- * 校验退款金额不超过原交易剩余可退金额。
- * 退款是资金的逆向流动，必须从原交易发起，不能凭空创建。
+ * 校验退款目标合法：只有收入/支出可退，金额必须为正。
+ * 退款金额可高于原额、退款账户可与原账户不同（均属合法业务，B4）——
+ * 可退余额 = max(原额 − Σ退款, 0) 仅供前端录入参考，不作为拒写条件。
  */
-async function assertRefundable(
-  original: { id: string; type: string; amount: bigint },
-  amount: number,
-  excludeRefundId?: string,
-): Promise<void> {
+async function assertRefundTarget(original: { type: string }, amount: number): Promise<void> {
   if (original.type !== 'income' && original.type !== 'expense') {
     throw new ValidationError('只有收入或支出交易可以退款')
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new ValidationError('退款金额必须大于 0')
-  }
-
-  // 可退金额的口径只有领域层这一处：原额 − 已退额（软删除的退款不再占用可退额）
-  const refunds = await transactionRepo.findActiveRefundsOf(original.id, excludeRefundId)
-
-  const remaining = remainingRefundable(
-    { id: original.id, kind: original.type, amount: minor(Number(original.amount)) },
-    refunds.map((refund) => ({
-      kind: refund.type,
-      amount: minor(Number(refund.amount)),
-      relatedTransactionId: refund.relatedTransactionId,
-    })),
-  )
-
-  if (amount > remaining) {
-    throw new ValidationError(`退款金额不能超过可退余额 ${formatAmount(remaining)} 元`)
   }
 }
 
@@ -198,7 +179,7 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
   const relatedTransaction = await transactionRepo.findById(relatedTransactionId)
   if (!relatedTransaction) throw new NotFoundError('原交易记录')
-  await assertRefundable(relatedTransaction, amount)
+  await assertRefundTarget(relatedTransaction, amount)
 
   const transaction = await transactionRepo.createWithRelations({
     type: 'refund',
@@ -277,7 +258,7 @@ export async function updateRefund(id: string, data: UpdateRefundData): Promise<
   if (relatedId) {
     const original = await transactionRepo.findById(relatedId)
     if (!original) throw new NotFoundError('原交易记录')
-    await assertRefundable(original, data.amount ?? Number(oldTransaction.amount), id)
+    await assertRefundTarget(original, data.amount ?? Number(oldTransaction.amount))
   }
 
   const merged = mergeTransactionData(oldTransaction, data)

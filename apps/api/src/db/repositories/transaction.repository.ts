@@ -106,23 +106,6 @@ export async function findByIdWithRelations(
   })
 }
 
-/** 原交易的未删除退款（可退余额口径：软删除的退款不再占用可退额）。 */
-export async function findActiveRefundsOf(
-  originalId: string,
-  excludeRefundId?: string,
-  tx?: TransactionClient,
-): Promise<Array<{ type: string; amount: bigint; relatedTransactionId: string | null }>> {
-  return db(tx).transaction.findMany({
-    where: {
-      type: 'refund',
-      relatedTransactionId: originalId,
-      ...(excludeRefundId ? { id: { not: excludeRefundId } } : {}),
-      ...NOT_DELETED,
-    },
-    select: { type: true, amount: true, relatedTransactionId: true },
-  })
-}
-
 /** 最早一笔未删除交易的日期（报表期间参考；已删除交易不参与）。 */
 export async function findEarliestActiveDate(): Promise<Date | null> {
   const earliest = await prisma.transaction.findFirst({

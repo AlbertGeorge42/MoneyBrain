@@ -17,10 +17,11 @@
 | C1 | 阶段 0 · M0 | 2026-11-03 | `4e6878e` 四张报表共享一个全局期间（区间），切 tab 期间不变；期间报表预设合并为一套；资产负债表 UI 保持时点语义控件（数据取共享区间终点为期末时点，时点 ↔ 所在区间在传参处双向映射），余额类指标名统一带「期末」（期末余额 / 期末净资产 / 期末总资产 / 期末总负债），单组存量值不引入期初。验收：`tests/unit/pages/Reports.test.tsx` + `tests/unit/components/BalanceSheetReport.test.tsx` |
 | A0 | 阶段 0 · M0 | 2026-11-03 | 清库补齐三场景集成测试（正常全范围清空无残留 / 边界范围隔离与配置覆盖拒绝 / 空库幂等）；「转账转入 = 本金」收进领域层 `transferInflow` 规则，投资分析与现金流报表（collect / aggregate / build 转入侧）四处直取全部改走 `rulesFor(...)`，不再有第二份「转账本金」实现；dev-guide §3 例外段改为收口后规则 |
 | A3 | 阶段 0 · M0 | 2026-11-03 | fast-check 属性测试覆盖蓝图入口 §4 的内核不变量 1–6（`packages/domain/tests/invariants.test.ts`）：对账恒等式、Σ 账户余额 == 净资产、复式平衡、全额退款恢复余额与可退余额上限、转账 Δ转出+Δ转入 == −有效手续费、收支表与分类聚合逐分录同源追溯；每条属性随机 1000 组恒成立。验收：`npm run test:domain`（38 测试全过，含 7 个属性测试） |
+| B4 | 阶段 0 · M0 | 2026-11-03 | 退款口径放开 + 数据自检修正，四件事一次收口：① db:verify 对账条手续费改按「− 有效手续费」计入（修复前对 2026-05 实跑误报「净资产对不上，差 −5.46 = −2×手续费 2.73」，修复后不误报）；② 超额退款判定降级为 ℹ 信息性输出（退款可高于原额、退款账户可与原账户不同，均属合法，校验不得判错）；③ 放开写入拦截——transaction.service 不再用 remainingRefundable 拒写（assertRefundable 改名 assertRefundTarget 只校验目标类型与金额为正，连带删 repository findActiveRefundsOf 死代码）；④ 余额正确性测试（refund.route.test.ts 两例：超退按实际金额入账、跨账户退款原账户不恢复）。口径同步进 requirements §3、dev-guide §8/§9、蓝图不变量 4 与 A3 属性测试。验收：`npm run db:verify` 对真实库通过（ℹ 提示超退 2 笔，不判错）；`npm test` 三域全过 |
 
 ## 待领（按推荐顺序）
 
-- 阶段 0 · M0：B1 → B2 → B3 → A0 → A3 → C1 → C2 → C3 → C4（顺序依据见 [stage-0](stage-0-foundation.md) 差距清单开头）
+- 阶段 0 · M0：B1 → B2 → B3 → B4 → A0 → A3 → C1 → C2 → C3 → C4（顺序依据见 [stage-0](stage-0-foundation.md) 差距清单开头）
 - 阶段 0 · M1：D1 → D2 → D3 → D4 → D5 → D6 → D7 → D9
 - 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U0 → U1 → U1b → U2–U3（地基）→ **UX1–UX5**（重设计，不改代码）→ U4 → U5 → U6–U11 / E/L/K8（可交错；E1–E4 在 UX 之后按原型落地，E6 随时可做）→ U12（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
