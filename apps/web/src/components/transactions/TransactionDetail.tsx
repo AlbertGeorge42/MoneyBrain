@@ -7,7 +7,7 @@ import { useAmountColors } from '../../hooks/useAmountColors'
 import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
 import { formatCurrency } from '../../utils/format'
 import { minor } from '@domain/index'
-import { getCategoryName, getAccountName } from './TransactionItemRow'
+import { getCategoryName, getAccountName } from '../../utils/transaction'
 import dayjs from 'dayjs'
 
 const { Text } = Typography

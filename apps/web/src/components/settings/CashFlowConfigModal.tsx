@@ -8,8 +8,9 @@ import { accountCategoryApi, transactionCategoryApi } from '../../services/api'
 import CategoryIcon from '../common/CategoryIcon'
 import MoveModal from './MoveModal'
 import ConfigModalLayout from './ConfigModalLayout'
-import { renderExpandIcon, SettingDropdown, type CashTreeNode, type ActivityTreeNode, type MenuProps, type MoveTreeDataNode } from './shared'
-import { useMoveModal } from './shared'
+import { renderExpandIcon, SettingDropdown } from './sortable'
+import type { CashTreeNode, ActivityTreeNode, MenuProps, MoveTreeDataNode } from './treeTypes'
+import { useMoveModal } from './moveModalHelpers'
 import { useNotify } from '../../hooks/useNotify'
 
 interface CashFlowConfigModalProps {

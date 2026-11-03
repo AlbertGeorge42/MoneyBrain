@@ -18,16 +18,16 @@ import AccountForm from './AccountForm'
 import MoveModal from './MoveModal'
 import ConfigModalLayout from './ConfigModalLayout'
 import { useNotify } from '../../hooks/useNotify'
+import { useMoveModal } from './moveModalHelpers'
 import {
-  useMoveModal,
   useSortableTable,
   SortableRow,
   SettingDropdown,
   createSettingMenuItems,
   renderExpandIcon,
   renderDragHandle,
-} from './shared'
-import type { AccountTreeNode, MoveTreeDataNode, MenuProps } from './shared'
+} from './sortable'
+import type { AccountTreeNode, MoveTreeDataNode, MenuProps } from './treeTypes'
 
 interface Props {
   visible: boolean

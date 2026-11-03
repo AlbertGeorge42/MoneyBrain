@@ -14,8 +14,9 @@ import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { useNotify } from '../../hooks/useNotify'
-import { useMoveModal, useSortableTable, SortableRow, SettingDropdown, createSettingMenuItems, renderExpandIcon, renderDragHandle, buildMoveTargetTreeForCategory, getCurrentPositionLabel } from './shared'
-import type { TransactionTreeNode, MoveTreeDataNode, MenuProps } from './shared'
+import { useMoveModal, buildMoveTargetTreeForCategory, getCurrentPositionLabel } from './moveModalHelpers'
+import { useSortableTable, SortableRow, SettingDropdown, createSettingMenuItems, renderExpandIcon, renderDragHandle } from './sortable'
+import type { TransactionTreeNode, MoveTreeDataNode, MenuProps } from './treeTypes'
 
 interface Props { visible: boolean; onClose: () => void }
 

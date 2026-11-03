@@ -147,3 +147,33 @@ export const formatTransactionSubmitValues = (
     excludeFromIncomeExpense: !!values.excludeFromIncomeExpense,
   }
 }
+
+/**
+ * 获取交易分类的显示名称
+ * 后缀标记：退款/不计收支 以「分类-退款/不计收支」形式拼入名称
+ */
+export const getCategoryName = (record: Transaction): string => {
+  let base: string
+  if (record.type === 'adjustment') base = record.note || '平账'
+  else if (record.type === 'transfer') base = record.category?.name || '内部转账'
+  else if (record.type === 'refund') base = record.relatedTransaction?.category?.name || '退款'
+  else base = record.category?.name || '未分类'
+
+  const suffixes: string[] = []
+  if (record.type === 'refund') suffixes.push('退款')
+  if (record.excludeFromIncomeExpense) suffixes.push('不计收支')
+  if (suffixes.length > 0) return `${base}-${suffixes.join('/')}`
+  return base
+}
+
+/**
+ * 获取交易账户的显示名称
+ */
+export const getAccountName = (record: Transaction): string => {
+  if (record.type === 'transfer') {
+    const from = record.account?.name || ''
+    const to = record.toAccount?.name || ''
+    return `${from} → ${to}`
+  }
+  return record.account?.name || ''
+}
