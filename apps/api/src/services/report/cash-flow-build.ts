@@ -215,6 +215,7 @@ export function buildSankey(args: {
     categoryName: string | undefined,
     accountName: string | undefined,
     toAccountName: string | undefined,
+    relatedType: string | null,
     isActual: boolean
   ) => {
     const incomeCategoryNodes_ = isActual ? incomeCategoryNodes.actual : incomeCategoryNodes.predicted
@@ -265,13 +266,25 @@ export function buildSankey(args: {
         addToMap(cashToTargetLinks_.get(fromCashName)!, toName, actualOutflow)
       }
     } else if (type === 'refund' && isFromCash) {
+      // 退款方向由领域层 refundOffsetKind 唯一判定（C4）：支出退款 = 钱流回账户 → 流入；
+      // 收入退款 = 钱流出账户 → 流出。与 aggregate() 同一判定，不再一律按流入直取
+      const offset = rulesFor(ruleVersion).refundOffsetKind(relatedType)
       const catName = categoryName || '退款'
       const cashName = accountName || '现金账户'
-      const actualInflow = amount
-      addToMap(incomeCategoryNodes_, catName, actualInflow)
-      addToMap(cashAccountFlows_, cashName, actualInflow)
-      if (!sourceToCashLinks_.has(catName)) sourceToCashLinks_.set(catName, new Map())
-      addToMap(sourceToCashLinks_.get(catName)!, cashName, actualInflow)
+      if (offset === 'expense') {
+        // 支出退款：退款分类 → 现金（流入侧）
+        addToMap(incomeCategoryNodes_, catName, amount)
+        addToMap(cashAccountFlows_, cashName, amount)
+        if (!sourceToCashLinks_.has(catName)) sourceToCashLinks_.set(catName, new Map())
+        addToMap(sourceToCashLinks_.get(catName)!, cashName, amount)
+      } else if (offset === 'income') {
+        // 收入退款：现金 → 退款分类（流出侧）
+        addToMap(expenseCategoryNodes_, catName, amount)
+        addToMap(cashAccountFlows_, cashName, amount)
+        if (!cashToTargetLinks_.has(cashName)) cashToTargetLinks_.set(cashName, new Map())
+        addToMap(cashToTargetLinks_.get(cashName)!, catName, amount)
+      }
+      // relatedType 无法识别时 refundOffsetKind 返回 null：不计入，与 aggregate() 一致
     }
   }
 
@@ -288,6 +301,7 @@ export function buildSankey(args: {
       t.category?.name || '未分类',
       t.account?.name,
       t.toAccount?.name,
+      t.relatedType,
       true
     )
   })
@@ -312,6 +326,7 @@ export function buildSankey(args: {
       category?.name,
       account?.name,
       toAccount?.name,
+      null,
       false
     )
   })

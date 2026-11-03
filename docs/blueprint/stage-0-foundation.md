@@ -70,12 +70,6 @@
 - **元只出现在两个边界**：用户输入框、文件（CSV / 备份）。输入用字符串按小数位解析，
   不要 `Number(x) * 100`（`8.115 * 100 = 811.4999…`）。
 
-### 批次 C · 一致性与可解释（信任）
-
-| # | 现状 | 目标 | 验收 |
-|---|---|---|---|
-| C4 | 桑基图（`report/cash-flow-build.ts` 的 `buildSankey`）退款分支不分收入/支出退款方向，`refund && isFromCash` 一律按流入直取（`actualInflow = amount`）；而 `aggregate()` 按领域层 `refundOffsetKind` 分流——同一笔收入退款，活动表计流出、桑基图计流入 | 桑基图退款按 `rulesFor(version).refundOffsetKind(relatedType)` 分流（收入退款计流出、支出退款计流入），与四类活动表同源 | 桑基图单测：同一笔收入退款在桑基图计入流出侧、与 `aggregate` 路径方向一致，支出退款两侧都计流入；`buildSankey` 的 refund 分支不再自行判方向 |
-
 ### 批次 D · 结构、边界与规模（防债）
 
 | # | 现状 | 目标 | 验收 |
