@@ -75,7 +75,6 @@
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
 | D4 | 页面直接组合 queries + 巨型组件 | feature 切片 + 页面瘦身 + `ui/` 原语层 | 页面文件 < 200 行；跨 feature 只走公开入口 |
-| D6 | SQLite 未显式配置 WAL / busy_timeout；多标签页可能写冲突 | WAL + busy_timeout + 写串行化 | 两个标签页同时写不报「database is locked」 |
 | D7 | 列表/统计查询随总历史增长（首页分类、报表全量加载） | **列表与报表**查询的扫描量随期间增长，不随总历史增长。**余额是明确例外**：某日余额 = 期初 + 该日之前全部流水，天然 O(历史)（`balance.service.ts` 现状即如此，5000 笔包络内可接受）；决策 #6 禁止为此加余额缓存列，「可重建缓存」的触发条件出现时再评估检查点 | 列表与报表的扫描行数与期间成正比（用 `EXPLAIN QUERY PLAN` 确认走索引）；余额查询不新增缓存列 |
 | D9 | `report.utils.ts` 341 行、15 个导出混着期间/预测/求和/标记 | 拆成 `period.ts` / `prediction.ts` / `cash-flag.ts` / `account-sum.ts` | 单文件职责单一 |
 | D10 | D1 按基线只收了 19 个 service 文件，基线外残留绕过 repository：clear-data（15 处 `tx.<model>.` 直调 + 2 处 `prisma.$transaction`）、import/config-import（24 处 `tx.`）、import/budget-import（7 处 `tx.`）、smart-import（2 处 `prisma.$transaction`）、audit-event 与 rollback service（4 处 `prisma.$transaction`） | 残留收进 repository 或统一事务封装（`db/transaction.ts` 的 `withTransaction`，service 不再直接调 `prisma.$transaction`），使「数据库访问只在 repository 层」对**全量代码**成立。例外判定口径（同步进 dev-guide §8）：`$queryRaw` 仅允许查迁移元数据（`_prisma_migrations`），不得查业务表；迁移/种子脚本与 `common/db.ts` 公共查询工具为白名单 | grep 全量验证：① `rg "tx\.(account\|accountCategory\|transactionCategory\|budget\|investmentAssetClass\|investmentAllocationSnapshot\|investmentAllocationItem)\." apps/api/src` → 0 命中；② `rg "prisma\.\$transaction" apps/api/src/services` → 0 命中（批量事务封装在 `db/repositories/` 与 `db/transaction.ts` 内属合法）；③ D1 既有验收 grep 对 `apps/api/src/services` 保持 0 命中 |
