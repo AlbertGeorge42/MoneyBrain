@@ -262,7 +262,21 @@ function budgetOverlay(arg){
     <div class="hint" style="margin-bottom:12px">未超支，剩余 ¥${fmt(b.amount-b.used)}。</div>
     <div class="d-presets"><button onclick="swapOverlay('budget',{mode:'edit'})">调整所有预算条目</button></div>`}
     <div class="d-sec">该分类流水</div>
-    ${TXNS.filter(t=>t.type===b.type&&catHit(t.cat,b.cat)).map(t=>`<div class="drill-list"><div class="row"><span>${catName(t.type,t.cat)}${t.note?' · '+t.note:''}</span><span class="v">${t.type==='income'||t.type==='refund'?'+':'−'}${fmt(t.amt)}</span></div></div>`).join('')}`;
+    ${TXNS.filter(t=>t.type===b.type&&catHit(t.cat,b.cat)).map(t=>`<div class="drill-list"><div class="row"><span>${catName(t.type,t.cat)}${t.note?' · '+t.note:''}</span><span class="v">${t.type==='income'||t.type==='refund'?'+':'−'}${fmt(t.amt)}</span></div></div>`).join('')}
+    <div style="margin-top:12px">
+      <button class="btn ghost" onclick="delBudget('${b.id}')" title="删除该预算条目（两步确认）">${S.budConfirm===b.id?'再点一次确认删除':'删除条目'}</button>
+    </div>`;
+}
+/* 预算条目删除（第十六轮补齐）：详情面板两步确认 + toast 撤销——
+   原先「删除」双端都没有（新增有、金额调整有，唯独没有删除），补齐后双端同入口（详情面板） */
+function delBudget(id){
+  if(S.budConfirm!==id){ S.budConfirm=id; renderOverlay(); return; }
+  const i=BUDGETS.findIndex(b=>b.id===id);
+  if(i<0) return;
+  const [rm]=BUDGETS.splice(i,1);
+  S.budConfirm=null;
+  closeOverlay();
+  toast(`已删除预算条目「${rm.name}」`,'撤销',()=>{ BUDGETS.splice(i,0,rm); render(); });
 }
 /* 调整所有条目金额：按 id 存草稿 */
 function budgetEditForm(){
@@ -621,10 +635,14 @@ function cfCfgOverlay(){
   const tab=S.cfTab||'asset';
   const tabs=`<div class="seg-row" style="margin-bottom:8px">${[['asset','资产分类'],['income','收入分类'],['expense','支出分类'],['transfer','转账分类']]
     .map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="setCfTab('${k}')">${l}</button>`).join('')}</div>`;
-  /* 组头：可折叠 + (N 个分类) 摘要（对齐真实实现的组行） */
-  const grp=(key,label,count,body)=>`<div class="set-sec cf-grp" onclick="toggleFold('${key}')" role="button" tabindex="0" aria-expanded="${!S.folded.has(key)}">
-      ${label}<span class="cf-grp-n">（${count} 个分类）</span>
-      <button class="fold ${S.folded.has(key)?'closed':''}" aria-label="${S.folded.has(key)?'展开':'折叠'}">${S.folded.has(key)?I.foldRight:I.foldDown}</button>
+  /* 组头（固定一级类别，第十六轮样式统一）：与资产类别设置的一级行同一模板
+     （fold + ⠿ + 图标 + meta），唯一差别 = 无行尾 ⋯（固定类别不可改名/移动/删除）；
+     折叠走 fold 按钮、摘要进 meta.s，交互不缺失 */
+  const grp=(key,label,count,body)=>`<div class="set-item">
+      <button class="fold ${S.folded.has(key)?'closed':''}" onclick="toggleFold('${key}')" aria-expanded="${!S.folded.has(key)}" aria-label="${S.folded.has(key)?'展开':'折叠'}">${S.folded.has(key)?I.foldRight:I.foldDown}</button>
+      <span class="drag-handle" title="固定分组，不可排序">⠿</span>
+      <span class="acct-ico">${glyph(label)}</span>
+      <span class="meta"><span class="t">${label}</span><span class="s">${count} 个分类</span></span>
     </div>${S.folded.has(key)?'':body}`;
   if(tab==='asset'){
     const parts=CF_ASSET_GROUPS.map(([g,gl])=>{
@@ -636,7 +654,7 @@ function cfCfgOverlay(){
         const menu=S.cfgMenu===key?`<span class="row-menu">
           <button class="row-mi" onclick="openOverlay('movecf',{kind:'asset',id:'${c.id}'})">移动到…</button>
         </span>`:'';
-        return `<div class="set-item">
+        return `<div class="set-item set-item-sub">
         <span class="drag-handle" title="拖动排序（线框占位；真实实现此表无排序，占位仅保持行模板统一）">⠿</span>
         <span class="acct-ico">${glyph(c.name)}</span>
         <span class="meta"><span class="t">${c.name}</span><span class="s">账户分类 · ${n} 个账户</span></span>
@@ -661,7 +679,7 @@ function cfCfgOverlay(){
       const menu=S.cfgMenu===key?`<span class="row-menu">
         <button class="row-mi" onclick="openOverlay('movecf',{kind:'cat',id:'${c[0]}',type:'${tab}'})">移动到…</button>
       </span>`:'';
-      return `<div class="set-item">
+      return `<div class="set-item set-item-sub">
       <span class="drag-handle" title="拖动排序（线框占位；真实实现此表无排序，占位仅保持行模板统一）">⠿</span>
       <span class="cat-ico">${catGlyph(c[1])}</span>
       <span class="meta"><span class="t">${c[1]}</span><span class="s">${txN} 笔交易${kids?` · ${kids} 个子分类`:''}</span></span>

@@ -758,7 +758,13 @@ function filterPanelPc(){
 /* 移动端高级筛选走抽屉（与时间选择同一手势） */
 function filterPanelM(){
   const f=S.filters;
-  return `<div class="d-sec">账户</div>
+  /* 第十六轮双端一致性补齐：类型筛选（PC 工具栏 tab 的同一状态 S.typeFilter）——
+     原先移动端浮层只有账户/分类/金额/日期，退款/调整无法筛 */
+  const typeSel=`<div class="d-sec">类型</div>
+  <div class="field"><select onchange="S.typeFilter=this.value==='all'?undefined:this.value;S.txPage=1;render()">
+    ${TYPE_TABS.map(([l,v])=>`<option value="${v||'all'}" ${(S.typeFilter===undefined&&!v)||S.typeFilter===v?'selected':''}>${l}</option>`).join('')}
+  </select></div>`;
+  return `${typeSel}<div class="d-sec">账户</div>
   <div class="field"><select onchange="setFilter('acc',this.value)"><option value="">全部</option>${ACC.map(a=>`<option value="${a.id}" ${f.acc===a.id?'selected':''}>${a.name}</option>`).join('')}</select></div>
   <div class="d-sec">分类</div>
   <div class="field"><select onchange="setFilter('cat',this.value)"><option value="">全部</option>${catOptions('expense').map(o=>`<option value="${o.v}" ${f.cat===o.v?'selected':''}>${o.level?'　'+o.label:o.label}</option>`).join('')}</select></div>
@@ -1283,7 +1289,7 @@ function viewBudgets(device){
   }).join('');
   if(device==='m'){
     return withState(`
-    <div class="m-head"><h1>预算</h1><div class="m-head-acts"><button class="btn btn-sm" onclick="openOverlay('budget',{mode:'edit'})">调整</button></div></div>
+    <div class="m-head"><h1>预算</h1><div class="m-head-acts"><button class="btn btn-sm" onclick="openOverlay('budget',{mode:'new'})">＋ 新增</button><button class="btn btn-sm" onclick="openOverlay('budget',{mode:'edit'})">调整</button></div></div>
     <div class="card card-pad" style="margin-bottom:12px">
       <div class="budget-ring">${ring}
         <div><div class="lbl">支出预算 / 已用</div><div class="num" style="font-size:var(--mb-fs-3);font-weight:600">¥${fmt(tot.used)} / ¥${fmt(tot.limit)}</div>

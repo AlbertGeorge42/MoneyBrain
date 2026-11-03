@@ -341,9 +341,8 @@ table.inv tfoot tr.tot td:first-child{color:var(--mb-ink-2)}
 /* 现金流属性小标签：属性 tag 复用 .tag，笔数徽标一行小字 */
 .cf-n{font-size:var(--mb-fs-0);color:var(--mb-ink-3);margin-left:6px}
 /* 第十二轮：现金流量表设置的组头 —— 可折叠行 + (N 个分类) 摘要（对齐真实实现的组行） */
-.cf-grp{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
-.cf-grp .cf-grp-n{color:var(--mb-ink-3);font-weight:400}
-.cf-grp .fold{margin-left:auto}
+/* 第十六轮：现金流固定组头已改用资产类别一级行模板（.set-item，无行尾按钮），
+   .cf-grp / .cf-grp-n 旧组头样式随之删除 */
 /* ============ PC 设置页：左导航 + 右内容（第十二轮） ============ */
 .set-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:var(--mb-s-4);align-items:start}
 .set-nav{border:1px solid var(--mb-line);background:var(--mb-panel);padding:var(--mb-s-2)}
