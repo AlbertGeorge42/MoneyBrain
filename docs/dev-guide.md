@@ -40,6 +40,17 @@ packages/
 └── contracts/            # types/index.ts（API 类型与错误码）· utils/tree.ts
 ```
 
+### 2.1 CSS 变量（决策 #32）
+
+两套命名空间严格隔离，互不引用：
+
+| 命名空间 | 定义处 | 使用规则 |
+|---|---|---|
+| `--mb-*`（项目） | `styles/theme/variables.css`（结构：间距/字体/边框/圆角/动效/布局/z-index）+ `config.ts` 的 `syncCssVars()`（颜色/阴影，从 AntD 算法派生后注入 `:root`） | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
+| `--ant-*`（AntD） | AntD `cssVar: { prefix: 'ant' }` 生成 | 只供 AntD 组件内部消费；项目代码不得引用 `--ant-*`，需要同语义值时用项目等价 token（如 `--mb-color-warning`） |
+
+CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）：写 `var(--mb-*)` 时必须「引用即定义」。
+
 ## 3. 领域层规则（最高优先级）
 
 ### 3.1 算钱只能有一个实现

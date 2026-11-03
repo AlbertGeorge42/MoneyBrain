@@ -167,7 +167,7 @@ const InvestmentAssetClassConfigModal: React.FC<Props> = ({ visible, onClose }) 
           content: (
             <div>
               <p>该资产类型已被 {result.snapshotsCount} 条快照引用</p>
-              <p style={{ marginTop: 8, color: 'var(--ant-color-warning)' }}>
+              <p style={{ marginTop: 8, color: 'var(--mb-color-warning)' }}>
                 强制删除将同时删除相关的快照记录，此操作不可恢复。
               </p>
             </div>

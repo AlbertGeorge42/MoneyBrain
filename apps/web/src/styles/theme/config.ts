@@ -77,7 +77,9 @@ export function createThemeConfig(isDark: boolean): ThemeConfig {
   return {
     algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
     cssVar: {
-      prefix: 'mb',
+      // AntD 变量用 --ant-* 前缀，与项目自有 --mb-* 命名空间隔离（U0）；
+      // 项目变量只由 variables.css（结构）与 syncCssVars()（颜色）定义
+      prefix: 'ant',
     },
     token: baseSeed,
     components: getComponentTokens(),
