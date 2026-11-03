@@ -75,7 +75,6 @@
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
 | D4 | 页面直接组合 queries + 巨型组件 | feature 切片 + 页面瘦身 + `ui/` 原语层 | 页面文件 < 200 行；跨 feature 只走公开入口 |
-| D5 | 桶导出（`components/settings/shared.tsx` 等） | 删除 | ESLint `react-refresh` 警告归零 |
 | D6 | SQLite 未显式配置 WAL / busy_timeout；多标签页可能写冲突 | WAL + busy_timeout + 写串行化 | 两个标签页同时写不报「database is locked」 |
 | D7 | 列表/统计查询随总历史增长（首页分类、报表全量加载） | **列表与报表**查询的扫描量随期间增长，不随总历史增长。**余额是明确例外**：某日余额 = 期初 + 该日之前全部流水，天然 O(历史)（`balance.service.ts` 现状即如此，5000 笔包络内可接受）；决策 #6 禁止为此加余额缓存列，「可重建缓存」的触发条件出现时再评估检查点 | 列表与报表的扫描行数与期间成正比（用 `EXPLAIN QUERY PLAN` 确认走索引）；余额查询不新增缓存列 |
 | D9 | `report.utils.ts` 341 行、15 个导出混着期间/预测/求和/标记 | 拆成 `period.ts` / `prediction.ts` / `cash-flag.ts` / `account-sum.ts` | 单文件职责单一 |
