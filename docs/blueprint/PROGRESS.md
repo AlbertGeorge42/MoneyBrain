@@ -25,7 +25,7 @@
 
 ## 待领（按推荐顺序）
 
-- 阶段 0 · M1：D2 → D3 → D4 → D5 → D6 → D7 → D9
+- 阶段 0 · M1：D2 → D3 → D4 → D5 → D6 → D7 → D9 → D10（D10：D1 基线外残留收口——clear-data / import / smart-import / audit-event / rollback 的事务内直调收进 repository 或统一事务封装）
 - 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U0 → U1 → U1b → U2–U3（地基）→ **UX1–UX5**（重设计，不改代码）→ U4 → U5 → U6–U11 / E/L/K8（可交错；E1–E4 在 UX 之后按原型落地，E6 随时可做）→ U12（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
 - 之后见 [../rewrite-blueprint.md](../rewrite-blueprint.md) §3 里程碑表
