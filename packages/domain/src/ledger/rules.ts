@@ -67,6 +67,8 @@ export interface RuleSet {
   postingsOf(transaction: LedgerTransaction): Posting[]
   effectiveTransferFee(fee?: Minor, coupon?: Minor): Minor
   transferOutflow(principal: Minor, fee?: Minor, coupon?: Minor): Minor
+  /** 转账中转入方收到的现金（= 本金，手续费不进转入账户）。投资分析等只追踪本金进出的场景用它。 */
+  transferInflow(principal: Minor): Minor
   refundOffsetKind(relatedType: string | null | undefined): FlowKind | null
   isCountable(transaction: CountableTransaction, includeExcluded?: boolean): boolean
   scopeQuery(scope: BudgetScope): ScopeQuery

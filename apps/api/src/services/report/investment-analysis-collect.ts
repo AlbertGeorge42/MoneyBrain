@@ -1,7 +1,7 @@
 import { prisma } from '../../prisma.js'
 import { Decimal } from '@prisma/client/runtime/library.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
-import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investment-analysis-types.js'
 
 // ===== 数据收集 / 查询函数 =====
@@ -70,15 +70,17 @@ export async function getCashFlowsInRange(
   )
 
   for (const t of transfers) {
-    const amount = t.amount
     const isToInvestment = accountIds.includes(t.toAccountId || '')
     const isFromInvestment = accountIds.includes(t.accountId)
 
-    // 投资分析只统计转账本金；手续费属于费用，不计入投资现金流
+    // 转账本金只经领域层规则取值（A0：不得在报表里直接解释 transfer.amount）；
+    // 手续费属于费用，不计入投资现金流
+    const principal = rulesFor(t.ruleVersion).transferInflow(minor(Number(t.amount)))
+
     if (isToInvestment && !isFromInvestment) {
       cashFlows.push({
         date: t.date,
-        amount: minor(-Number(amount)),
+        amount: minor(-principal),
         type: 'buy',
         accountId: t.toAccountId!,
         accountName: accountMap.get(t.toAccountId!) || '未知账户',
@@ -86,7 +88,7 @@ export async function getCashFlowsInRange(
     } else if (isFromInvestment && !isToInvestment) {
       cashFlows.push({
         date: t.date,
-        amount: minor(Number(amount)),
+        amount: principal,
         type: 'sell',
         accountId: t.accountId,
         accountName: accountMap.get(t.accountId) || '未知账户',

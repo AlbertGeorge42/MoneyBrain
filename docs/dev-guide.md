@@ -86,8 +86,9 @@ if (type === 'refund') amount = +amount
 if (type === 'transfer') toAmount = amount - fee
 ```
 
-> **已知历史例外**：投资分析只统计「转账本金」这一套口径（见 [requirements.md](requirements.md) §3.5），尚未接入领域层规则；
-> 收口计划见 [rewrite-blueprint.md](rewrite-blueprint.md) 批次 A0；**新代码不得再加第二份**。
+> **转账现金流的两侧都必须经领域层规则取值**（A0 已收口）：转出 = `rulesFor(version).transferOutflow(amount, fee, coupon)`
+> （本金 + 有效手续费），转入 = `rulesFor(version).transferInflow(amount)`（本金，手续费不进转入账户）。
+> 报表（现金流表、投资分析）不得直接把 `transfer.amount` 当现金流解释；**新代码不得再加第二份**。
 
 ### 3.2 金额
 

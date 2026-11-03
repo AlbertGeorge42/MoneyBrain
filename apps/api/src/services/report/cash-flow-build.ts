@@ -246,7 +246,8 @@ export function buildSankey(args: {
         const accName = accountName || '非现金账户'
         const fromName = `${catName}-${accName}`
         const toCashName = toAccountName
-        const actualInflow = amount
+        // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
+        const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
         addToMap(nonCashSourceNodes_, fromName, actualInflow)
         addToMap(cashAccountFlows_, toCashName, actualInflow)
         if (!sourceToCashLinks_.has(fromName)) sourceToCashLinks_.set(fromName, new Map())

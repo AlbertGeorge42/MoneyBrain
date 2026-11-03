@@ -86,8 +86,8 @@ function addTransferFlow(
       color,
     })
   } else {
-    // 转入账户收到的是本金，手续费不会贷记到转入账户
-    const actualInflow = amount
+    // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
+    const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
     activity.inflow = minor(activity.inflow + actualInflow)
     const categoryName = toName || '转账转入'
     upsertActivityItem(activity.items, actualInflow, categoryName, 'inflow', {
@@ -161,7 +161,8 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
           it.amount, it.fee, it.coupon, false, it.ruleVersion, it.icon, it.color,
         )
         const accountFlow = getOrCreateAccountFlow(it.toAccountName)
-        const actualInflow = it.amount
+        // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
+        const actualInflow = rules.transferInflow(it.amount)
         accountFlow.inflow = minor(accountFlow.inflow + actualInflow)
       }
     } else if (it.type === 'refund' && it.isFromCash) {

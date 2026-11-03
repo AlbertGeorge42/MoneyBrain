@@ -147,11 +147,17 @@ function transferOutflow(
   return add(principal, effectiveTransferFee(fee, coupon))
 }
 
+/** 转账转入方收到的现金 = 本金（v1：手续费不进转入账户）。 */
+function transferInflow(principal: Minor): Minor {
+  return principal
+}
+
 export const V1_RULES: RuleSet = {
   version: 1,
   postingsOf,
   effectiveTransferFee,
   transferOutflow,
+  transferInflow,
   refundOffsetKind,
   isCountable,
   scopeQuery,
