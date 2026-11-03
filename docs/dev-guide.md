@@ -252,6 +252,16 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
   `rg "prisma\.(account|accountCategory|transactionCategory|budget|investmentAssetClass|investmentAllocationSnapshot|investmentAllocationItem|auditEvent)\." apps/api/src/services apps/api/src/routes`。
   暂存例外（后续条目收口）：clear-data 与 import 在事务客户端上的直调、迁移/种子脚本、
   公共查询工具 `common/db.ts`。
+- **连接初始化设 WAL 与 busy_timeout（D6）**：`prisma.ts` 启动时执行 `PRAGMA journal_mode = WAL`
+  （库级持久属性、幂等；**必须用 `$queryRawUnsafe`**——该 PRAGMA 返回结果行，execute 会报错）
+  与 `PRAGMA busy_timeout = 5000`（每连接属性，写锁竞争排队等待而非立即报 SQLITE_BUSY）。
+  写串行化的唯一额外一层是 `runExclusiveLongTask` 的**串行队列**：导入 / 导出 / 回滚恢复 / 自动备份
+  这些秒级大事务严格串行；用户写入不进队列，由 Prisma 单客户端内部排队 + busy_timeout 处理。
+  回滚恢复是 ATTACH 逐表复制、**不替换 db 文件**，不存在 `-wal`/`-shm` 残留导致读到旧数据的问题；
+  `-wal` 在最后一个连接关闭时自动 checkpoint 清除，`.gitignore` 已忽略 `*.db-wal` / `*.db-shm`
+  （注意 `*.db.*` 匹配不到连字符后缀的 `-wal`/`-shm`，需单列）。
+  验收：`tests/integration/concurrent-write.test.ts`（WAL 生效、busy_timeout ≥5000、
+  8 路并发写零失败、长任务窗口不重叠、失败不堵队列）。
 - **改 schema 一律走版本化迁移**：`npm run db:migrate`（生成并应用迁移，SQL 提交进仓库）。
   禁止只用 `prisma db push`——没有迁移历史就无法复现、无法回滚。
   - 迁移名必须以时间戳开头：`YYYYMMDDHHMMSS_描述`（版本新旧按字典序比较）。

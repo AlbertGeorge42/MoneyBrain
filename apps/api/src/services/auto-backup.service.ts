@@ -206,11 +206,24 @@ export function evaluateBackupPlan(state: BackupScheduleState): BackupDecision {
 
 let longTaskCount = 0
 
-/** 长任务（导入/导出/回滚恢复）执行期间不让自动备份抢 IO；与备份共用同一把锁。 */
+/**
+ * 长任务串行队列（D6 写串行化的唯一一层）：导入 / 导出 / 回滚恢复 / 自动备份
+ * 这些秒级大事务严格串行——它们互相抢库级写锁时只靠 busy_timeout 兜底会超时失败，
+ * 排队后后到者等前序完成后才开写。用户写入（毫秒级）不进此队列，
+ * 由 Prisma 单客户端内部排队与 busy_timeout 处理。
+ */
+let longTaskTail: Promise<unknown> = Promise.resolve()
+
 export async function runExclusiveLongTask<T>(task: () => Promise<T>): Promise<T> {
   longTaskCount++
+  const run = longTaskTail.then(task, task)
+  // 失败不阻塞后续长任务
+  longTaskTail = run.then(
+    () => undefined,
+    () => undefined,
+  )
   try {
-    return await task()
+    return await run
   } finally {
     longTaskCount--
   }

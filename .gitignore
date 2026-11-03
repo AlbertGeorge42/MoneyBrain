@@ -47,6 +47,8 @@ yarn-error.log*
 # Database
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 apps/api/prisma/*.db.*
