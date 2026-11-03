@@ -168,6 +168,18 @@ export const createPointValue = (granularity: TimeGranularity, value: Dayjs): Po
 export const createRangeValue = (granularity: TimeGranularity, start: Dayjs, end: Dayjs): RangeTimeValue =>
   normalizeRangeValue({ granularity, start, end })
 
+/**
+ * 时点 → 所在区间（day→当天，month→当月，year→当年）。
+ * C1：四张报表共享一个底层期间，但资产负债表的 UI 保持时点语义——
+ * 用户选时点，由这一行把它映射成所在区间写回共享状态；反向（共享区间 → 时点）取区间终点。
+ */
+export const pointToRange = (point: PointTimeValue): RangeTimeValue =>
+  createRangeValue(
+    point.granularity,
+    point.value.startOf(point.granularity),
+    point.value.endOf(point.granularity)
+  )
+
 export const getGranularityText = (granularity: TimeGranularity): string => {
   if (granularity === 'day') return '日'
   if (granularity === 'month') return '月'

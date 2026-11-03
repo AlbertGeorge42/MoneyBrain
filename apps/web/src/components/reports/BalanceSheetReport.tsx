@@ -4,12 +4,12 @@ import { SettingOutlined } from '@ant-design/icons'
 import type { BalanceSheetCategoryNode, BalanceSheetReportData } from '@contracts/types'
 import { PointTimePickerField } from '../common'
 import { ReportDetailList } from './ReportDetailList'
-import type { PointTimePickerConfig, PointTimeValue } from '../common'
+import type { PointTimePickerConfig, PointTimeValue, RangeTimeValue } from '../common'
+import { createPointValue } from '../../utils/timePicker'
 import type { ReportTreeNode, ReportDetailColumn } from './ReportDetailList'
 import { PieChart, type PieChartDataItem } from '../charts'
 import ReportViewSwitcher from './ReportViewSwitcher'
 import { getPointTimeSemantics } from '../../utils/timePicker'
-import type { RangeTimeValue } from '../../utils/timePicker'
 import { formatCurrency } from '../../utils/format'
 import { minor } from '@domain/index'
 import { formatAmount, getAmountColor } from '../../utils/formatAmount'
@@ -29,10 +29,12 @@ export interface BalanceSheetMetrics {
 export type BalanceSheetNode = ReportTreeNode<BalanceSheetMetrics>
 
 // ---- 本报表专属：列配置 ----
+// 余额类指标名统一带「期末」：本表只有一组存量值，看到「期末余额」即知是所选时点的值，不引入期初
 const createBalanceSheetColumns = (isDark: boolean): ReportDetailColumn<BalanceSheetMetrics>[] => [
   {
     key: 'amount',
     metric: 'balance',
+    title: '期末余额',
     width: 140,
     align: 'right',
     prediction: { displayMetric: 'balance', actualMetric: 'actual', predictedMetric: 'predicted' },
@@ -79,7 +81,12 @@ function adaptBalanceSheetNode(
 }
 
 interface BalanceSheetReportProps {
-  selectedTime: PointTimeValue
+  /**
+   * 共享期间（区间）作为数据事实源；资产负债表的 UI 保持时点语义（C1）：
+   * 数据层四张报表共用一个期间，但控件不统一——这张表选的是「某一天的余额快照」，
+   * 不是区间，所以展示时点控件，由父层做「时点 ↔ 所在区间」的双向映射。
+   */
+  timeRange: RangeTimeValue
   pickerConfig: PointTimePickerConfig
   balanceSheetData: BalanceSheetReportData | null
   loading?: boolean
@@ -88,13 +95,16 @@ interface BalanceSheetReportProps {
 }
 
 const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
-  selectedTime,
+  timeRange,
   pickerConfig,
   balanceSheetData,
   loading,
   onTimeChange,
   onOpenSettings,
 }) => {
+  // 共享区间 → 时点：取区间终点作为期末时点
+  const selectedTime: PointTimeValue = createPointValue(timeRange.granularity, timeRange.end)
+
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const useClickTrigger = !screens.lg
@@ -239,14 +249,14 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
         <Card className="surface-card report-section-card report-hero-card">
           {showPred ? (
             <PredictionStatistic
-              title="净资产"
+              title="期末净资产"
               value={netWorthValue}
               useClickTrigger={useClickTrigger}
               valueStyle={{ color: getAmountColor(netWorthTotal, 'flow', isDark) }}
             />
           ) : (
             <Statistic
-              title="净资产"
+              title="期末净资产"
               value={netWorthTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: getAmountColor(netWorthTotal, 'flow', isDark) }}
@@ -268,14 +278,14 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {showPred ? (
             <PredictionStatistic
-              title="总资产"
+              title="期末总资产"
               value={assetsValue}
               useClickTrigger={useClickTrigger}
               valueStyle={{ color: getAmountColor(assetsTotal, 'asset', isDark) }}
             />
           ) : (
             <Statistic
-              title="总资产"
+              title="期末总资产"
               value={assetsTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: getAmountColor(assetsTotal, 'asset', isDark) }}
@@ -285,14 +295,14 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
         <Card className="surface-card metric-card report-section-card report-metric-card--compact">
           {showPred ? (
             <PredictionStatistic
-              title="总负债"
+              title="期末总负债"
               value={liabilitiesValue}
               useClickTrigger={useClickTrigger}
               valueStyle={{ color: getAmountColor(liabilitiesTotal, 'liability', isDark) }}
             />
           ) : (
             <Statistic
-              title="总负债"
+              title="期末总负债"
               value={liabilitiesTotal}
               formatter={(v) => formatStatValue(Number(v))}
               valueStyle={{ color: getAmountColor(liabilitiesTotal, 'liability', isDark) }}
