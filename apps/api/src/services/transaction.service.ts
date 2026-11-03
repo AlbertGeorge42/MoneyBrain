@@ -5,6 +5,7 @@ import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
+import type { TransactionStats } from '../../../../packages/contracts/types/index.js'
 import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
 import { minor, summarizeAggregatedFlows, CURRENT_RULE_VERSION, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
@@ -101,14 +102,6 @@ export interface TransactionListResult {
   total: number
   page: number
   pageSize: number
-}
-
-export interface TransactionStats {
-  income: number
-  expense: number
-  refund: number
-  balance: number
-  transferCount: number
 }
 
 // ===== 创建交易 =====

@@ -59,6 +59,11 @@ export interface PaginatedResponse<T> {
   pageSize: number
 }
 
+/** 通用操作成功响应：删除 / 批量排序 / 清库等只回一句话的端点。 */
+export interface MessageResult {
+  message: string
+}
+
 // ===== 账户分类 =====
 
 export interface AccountCategory {
@@ -100,6 +105,23 @@ export interface AccountStats {
   totalExpense: Minor
 }
 
+/** 某账户在某日的余额查询（GET /accounts/:id/balance-at）。 */
+export interface AccountBalanceAtResult {
+  accountId: string
+  date: string
+  balance: Minor
+}
+
+/** 删除账户的结果：级联删除的各类关联行数。 */
+export interface AccountDeleteResult {
+  message: string
+  deletedTransactions?: number
+  deletedIncomingTransfers?: number
+  deletedBudgets?: number
+  deletedAssetClasses?: number
+  deletedSnapshots?: number
+}
+
 // ===== 交易分类 =====
 
 export interface TransactionCategory {
@@ -115,6 +137,20 @@ export interface TransactionCategory {
   cashFlowType: 'operating' | 'investing' | 'financing' | null
   createdAt: string
   updatedAt: string
+}
+
+/** 删除交易分类的结果：按所选处理方式返回转移 / 删除的交易数。 */
+export interface TransactionCategoryDeleteResult {
+  message: string
+  transferredTransactions?: number
+  deletedTransactions?: number
+  deletedCategory?: string
+}
+
+/** 移动交易分类的结果。 */
+export interface TransactionCategoryMoveResult {
+  message: string
+  movedCategory: TransactionCategory
 }
 
 // ===== 交易 =====
@@ -144,6 +180,26 @@ export interface Transaction {
   relatedTransaction: Transaction | null
   refunds: Transaction[]
   createdAt: string
+}
+
+/** 交易列表统计（口径由领域层规则定义，与报表同源）。 */
+export interface TransactionStats {
+  income: Minor
+  expense: Minor
+  refund: Minor
+  balance: Minor
+  transferCount: number
+}
+
+/** 最早一笔未删除交易的日期（报表期间参考；空库为 null）。 */
+export interface EarliestTransactionDateResult {
+  date: string | null
+}
+
+/** 交易软删除结果：auditEventId 供「已删除 · 撤销」反向写入。 */
+export interface TransactionDeleteResult {
+  message: string
+  auditEventId: string
 }
 
 // ===== 自动定时备份（B3） =====
@@ -187,6 +243,16 @@ export interface AuditEvent {
 export interface RecycleBinItem {
   transaction: Transaction
   deleteEventId: string | null
+}
+
+/** 交易修改历史（详情页时间线）。 */
+export interface AuditEventHistoryResult {
+  list: AuditEvent[]
+}
+
+/** 回收站列表。 */
+export interface RecycleBinResult {
+  list: RecycleBinItem[]
 }
 
 // ===== 预算 =====
@@ -256,6 +322,13 @@ export interface TransactionCategoryStats {
 }
 
 // ===== 分析与报表 =====
+
+/** 总览仪表盘（近两月收支 + 最近交易）。 */
+export interface DashboardSummaryData {
+  thisMonth: { income: Minor; expense: Minor; balance: Minor }
+  lastMonth: { income: Minor; expense: Minor }
+  recentTransactions: Transaction[]
+}
 
 export interface ReportValue {
   actual: Minor
@@ -490,6 +563,14 @@ export interface InvestmentAssetClass {
   updatedAt: string
 }
 
+/** 删除资产类别的结果：被快照引用且未强制时返回 needConfirm 与引用数。 */
+export interface AssetClassDeleteResult {
+  message: string
+  needConfirm?: boolean
+  snapshotsCount?: number
+  deletedSnapshots?: number
+}
+
 // ===== 投资快照 =====
 
 export interface InvestmentAllocationItem {
@@ -624,6 +705,16 @@ export interface ImportFullResult {
   updated: ImportUpdatedCounts
   skipped: ImportSkippedCounts
   errors: string[]
+}
+
+/** 正式导入的结果：覆盖模式额外带回滚点 id（合并模式无此字段）。 */
+export interface ImportBackupResult extends ImportFullResult {
+  rollbackPointId?: string
+}
+
+/** 备份文件内容识别：该文件包含哪些数据类型。 */
+export interface DetectFileResult {
+  includes: BackupDataType[]
 }
 
 /**

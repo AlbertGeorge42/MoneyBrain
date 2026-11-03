@@ -1,13 +1,17 @@
 import axios from 'axios'
 import type {
   Account,
+  AccountBalanceAtResult,
   AccountCategory,
+  AccountDeleteResult,
   AccountStats,
   AnalyticsAssetTrendItem,
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
   ApiResponse,
+  AssetClassDeleteResult,
   AuditEvent,
+  AuditEventHistoryResult,
   AutoBackupConfig,
   BalanceSheetReportData,
   Budget,
@@ -15,20 +19,30 @@ import type {
   BudgetStatus,
   BudgetUsageDetails,
   CashFlowReportData,
+  DashboardSummaryData,
+  DetectFileResult,
+  EarliestTransactionDateResult,
+  ImportBackupResult,
+  ImportFullResult,
+  ImportPreview,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
-  ImportFullResult,
-  ImportPreview,
   InvestmentAllocationSnapshot,
+  MessageResult,
   Minor,
   PaginatedResponse,
   RecycleBinItem,
+  RecycleBinResult,
   RollbackPoint,
   RollbackResult,
   Transaction,
   TransactionCategory,
+  TransactionCategoryDeleteResult,
+  TransactionCategoryMoveResult,
   TransactionCategoryStats,
+  TransactionDeleteResult,
+  TransactionStats,
   TransactionType,
 } from '@contracts/types'
 import { normalizeApiError } from './apiError'
@@ -92,30 +106,23 @@ export const accountCategoryApi = {
   create: (data: Partial<AccountCategory>) => api.post<ApiResponse<AccountCategory>>('/account-categories', data),
   update: (id: string, data: Partial<AccountCategory>) => api.put<ApiResponse<AccountCategory>>(`/account-categories/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; parentId: string | null }>) => 
-    api.put<ApiResponse<{ message: string }>>('/account-categories/sort/batch', { items }),
-  delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/account-categories/${id}`),
+    api.put<ApiResponse<MessageResult>>('/account-categories/sort/batch', { items }),
+  delete: (id: string) => api.delete<ApiResponse<MessageResult>>(`/account-categories/${id}`),
 }
 
 export const accountApi = {
   getAll: () => api.get<ApiResponse<Account[]>>('/accounts'),
   getStats: (id: string) => api.get<ApiResponse<AccountStats>>(`/accounts/${id}/stats`),
   getBalanceAt: (id: string, date: string) =>
-    api.get<ApiResponse<{ accountId: string; date: string; balance: Minor }>>(
+    api.get<ApiResponse<AccountBalanceAtResult>>(
       `/accounts/${id}/balance-at`,
       { params: { date } }
     ),
   create: (data: Partial<Account>) => api.post<ApiResponse<Account>>('/accounts', data),
   update: (id: string, data: Partial<Account>) => api.put<ApiResponse<Account>>(`/accounts/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; categoryId: string | null }>) =>
-    api.put<ApiResponse<{ message: string }>>('/accounts/sort/batch', { items }),
-  delete: (id: string, force?: boolean) => api.delete<ApiResponse<{
-    message: string
-    deletedTransactions?: number
-    deletedIncomingTransfers?: number
-    deletedBudgets?: number
-    deletedAssetClasses?: number
-    deletedSnapshots?: number
-  }>>(`/accounts/${id}`, { params: { force } }),
+    api.put<ApiResponse<MessageResult>>('/accounts/sort/batch', { items }),
+  delete: (id: string, force?: boolean) => api.delete<ApiResponse<AccountDeleteResult>>(`/accounts/${id}`, { params: { force } }),
 }
 
 export const transactionCategoryApi = {
@@ -123,30 +130,25 @@ export const transactionCategoryApi = {
   create: (data: Partial<TransactionCategory>) => api.post<ApiResponse<TransactionCategory>>('/transaction-categories', data),
   update: (id: string, data: Partial<TransactionCategory>) => api.put<ApiResponse<TransactionCategory>>(`/transaction-categories/${id}`, data),
   updateSort: (items: Array<{ id: string; sort: number; parentId: string | null }>) => 
-    api.put<ApiResponse<{ message: string }>>('/transaction-categories/sort/batch', { items }),
-  delete: (id: string, params?: { transferToCategoryId?: string; deleteTransactions?: boolean }) => 
-    api.delete<ApiResponse<{ 
-      message: string
-      transferredTransactions?: number
-      deletedTransactions?: number
-      deletedCategory?: string
-    }>>(`/transaction-categories/${id}`, { params }),
+    api.put<ApiResponse<MessageResult>>('/transaction-categories/sort/batch', { items }),
+  delete: (id: string, params?: { transferToCategoryId?: string; deleteTransactions?: boolean }) =>
+    api.delete<ApiResponse<TransactionCategoryDeleteResult>>(`/transaction-categories/${id}`, { params }),
   getStats: (id: string) => api.get<ApiResponse<TransactionCategoryStats>>(`/transaction-categories/${id}/stats`),
-  move: (id: string, data: { newParentId: string | null }) => 
-    api.put<ApiResponse<{ message: string; movedCategory: TransactionCategory }>>(`/transaction-categories/${id}/move`, data),
+  move: (id: string, data: { newParentId: string | null }) =>
+    api.put<ApiResponse<TransactionCategoryMoveResult>>(`/transaction-categories/${id}/move`, data),
 }
 
 export const transactionApi = {
   getAll: (params?: Record<string, unknown>) => api.get<ApiResponse<PaginatedResponse<Transaction>>>('/transactions', { params }),
-  getStats: (params?: Record<string, unknown>) => api.get<ApiResponse<{ income: Minor; expense: Minor; refund: Minor; balance: Minor; transferCount: number }>>('/transactions/stats', { params }),
-  getEarliestDate: () => api.get<ApiResponse<{ date: string | null }>>('/transactions/earliest'),
+  getStats: (params?: Record<string, unknown>) => api.get<ApiResponse<TransactionStats>>('/transactions/stats', { params }),
+  getEarliestDate: () => api.get<ApiResponse<EarliestTransactionDateResult>>('/transactions/earliest'),
   getRefundableList: () => api.get<ApiResponse<Transaction[]>>('/transactions/refundable/list'),
   create: (data: Partial<Transaction>) => api.post<ApiResponse<Transaction>>('/transactions', data),
   update: (id: string, data: Partial<Transaction>) => api.put<ApiResponse<Transaction>>(`/transactions/${id}`, data),
   // 软删除：返回审计事件 id，前端提示「已删除 · 撤销」
-  delete: (id: string) => api.delete<ApiResponse<{ message: string; auditEventId: string }>>(`/transactions/${id}`),
-  getHistory: (id: string) => api.get<ApiResponse<{ list: AuditEvent[] }>>(`/transactions/${id}/history`),
-  getRecycleBin: () => api.get<ApiResponse<{ list: RecycleBinItem[] }>>('/transactions/recycle-bin'),
+  delete: (id: string) => api.delete<ApiResponse<TransactionDeleteResult>>(`/transactions/${id}`),
+  getHistory: (id: string) => api.get<ApiResponse<AuditEventHistoryResult>>(`/transactions/${id}/history`),
+  getRecycleBin: () => api.get<ApiResponse<RecycleBinResult>>('/transactions/recycle-bin'),
 }
 
 export const auditEventApi = {
@@ -162,7 +164,7 @@ export const budgetApi = {
   getPredictions: (startDate: string, endDate: string) => api.get<ApiResponse<BudgetPrediction[]>>('/budgets/predictions', { params: { startDate, endDate } }),
   create: (data: Partial<Budget>) => api.post<ApiResponse<Budget>>('/budgets', data),
   update: (id: string, data: Partial<Budget>) => api.put<ApiResponse<Budget>>(`/budgets/${id}`, data),
-  delete: (id: string) => api.delete<ApiResponse<{ message: string }>>(`/budgets/${id}`),
+  delete: (id: string) => api.delete<ApiResponse<MessageResult>>(`/budgets/${id}`),
 }
 
 export const reportApi = {
@@ -179,11 +181,7 @@ export const reportApi = {
 }
 
 export const analyticsApi = {
-  getDashboardSummary: () => api.get<ApiResponse<{
-    thisMonth: { income: Minor; expense: Minor; balance: Minor }
-    lastMonth: { income: Minor; expense: Minor }
-    recentTransactions: Transaction[]
-  }>>('/analytics/dashboard'),
+  getDashboardSummary: () => api.get<ApiResponse<DashboardSummaryData>>('/analytics/dashboard'),
   getTrends: (type: 'income' | 'expense', period?: string) => api.get<ApiResponse<AnalyticsTrendItem[]>>('/analytics/trends', { params: { type, period } }),
   getCategoryBreakdown: (type: 'income' | 'expense', startDate?: string, endDate?: string, parentCategoryId?: string) => 
     api.get<ApiResponse<AnalyticsCategoryBreakdownItem[]>>('/analytics/category-breakdown', { 
@@ -194,10 +192,10 @@ export const analyticsApi = {
 
 export const dataApi = {
   // 清空数据不可逆：必须带确认值，服务端会校验
-  clearAll: () => api.delete<ApiResponse<{ message: string }>>('/data/all', {
+  clearAll: () => api.delete<ApiResponse<MessageResult>>('/data/all', {
     data: { confirm: CLEAR_CONFIRM.all },
   }),
-  clearTransactions: () => api.delete<ApiResponse<{ message: string }>>('/data/transactions', {
+  clearTransactions: () => api.delete<ApiResponse<MessageResult>>('/data/transactions', {
     data: { confirm: CLEAR_CONFIRM.transactions },
   }),
   // 新的备份API
@@ -218,7 +216,7 @@ export const dataApi = {
     if (params.includes) {
       formData.append('includes', JSON.stringify(params.includes))
     }
-    return api.post<ApiResponse<ImportFullResult & { rollbackPointId?: string }>>(
+    return api.post<ApiResponse<ImportBackupResult>>(
       '/data/import-backup',
       formData,
       {
@@ -256,11 +254,11 @@ export const dataApi = {
       confirm: ROLLBACK_CONFIRM.restore,
     }),
   deleteRollbackPoint: (id: string) =>
-    api.delete<ApiResponse<{ message: string }>>(`/data/rollback-points/${id}`),
+    api.delete<ApiResponse<MessageResult>>(`/data/rollback-points/${id}`),
   detectFileIncludes: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return api.post<ApiResponse<{ includes: string[] }>>('/data/detect-file', formData, {
+    return api.post<ApiResponse<DetectFileResult>>('/data/detect-file', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -279,12 +277,12 @@ export const investmentApi = {
     api.put<ApiResponse<InvestmentAssetClass>>(`/investments/asset-classes/${id}`, data),
 
   deleteAssetClass: (id: string, forceDelete = false) =>
-    api.delete<ApiResponse<{ message: string; needConfirm?: boolean; snapshotsCount?: number; deletedSnapshots?: number }>>(`/investments/asset-classes/${id}`, {
+    api.delete<ApiResponse<AssetClassDeleteResult>>(`/investments/asset-classes/${id}`, {
       params: { forceDelete },
     }),
 
   reorderAssetClasses: (accountId: string, orderedIds: string[]) =>
-    api.put<ApiResponse<{ message: string }>>(`/investments/${accountId}/asset-classes/reorder`, { orderedIds }),
+    api.put<ApiResponse<MessageResult>>(`/investments/${accountId}/asset-classes/reorder`, { orderedIds }),
 
   getSnapshots: (accountId: string, startDate?: string, endDate?: string) =>
     api.get<ApiResponse<InvestmentAllocationSnapshot[]>>('/investments/allocations', { params: { accountId, startDate, endDate } }),
@@ -314,7 +312,7 @@ export const investmentApi = {
   }) => api.put<ApiResponse<InvestmentAllocationSnapshot>>(`/investments/allocations/${id}`, data),
 
   deleteSnapshot: (id: string) =>
-    api.delete<ApiResponse<{ message: string }>>(`/investments/allocations/${id}`),
+    api.delete<ApiResponse<MessageResult>>(`/investments/allocations/${id}`),
 }
 
 export default api
