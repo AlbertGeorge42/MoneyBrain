@@ -1,0 +1,297 @@
+/**
+ * 蓝图入口 §4 内核不变量 1–6 的属性测试（stage-0 批次 A3）。
+ *
+ * 用 fast-check 生成随机账本（账户期初 + 交易序列），断言每条不变量在
+ * 随机输入上恒成立；每条属性按验收栏跑 1000 组。
+ *
+ * 生成域与真实写入路径对齐（超出写入路径的输入不生成）：
+ * - 退款必带 relatedType（income / expense）；服务端写入时必然关联原交易。
+ * - excludeFromIncomeExpense 只出现在收支类交易上；转账与平账本就不进收支统计。
+ * - 期初余额不带日期（覆盖全部历史）——pre-opening 语义由 ledger.test.ts 专项单测覆盖。
+ */
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import fc from 'fast-check'
+import {
+  addDays,
+  accountDelta,
+  balanceBefore,
+  flowByCategory,
+  localDate,
+  minor,
+  postingsOf,
+  remainingRefundable,
+  rulesFor,
+  summarizeFlows,
+  type LedgerTransaction,
+  type OpeningBalance,
+  type TransactionKind,
+} from '../src/index.js'
+
+const ACCOUNTS = ['A', 'B', 'C'] as const
+type AccountId = (typeof ACCOUNTS)[number]
+
+/** 生成域：交易全部落在 2026-03-01 ~ 2026-03-28，期间取 [2026-02-28, 2026-04-01)。 */
+const START = localDate('2026-02-28')
+const END = localDate('2026-04-01')
+const MAX_CENTS = 1_000_000
+
+const dayArb = fc
+  .integer({ min: 1, max: 28 })
+  .map(day => localDate(`2026-03-${String(day).padStart(2, '0')}`))
+const centsArb = fc.integer({ min: 0, max: MAX_CENTS })
+const signedCentsArb = fc.integer({ min: -MAX_CENTS, max: MAX_CENTS })
+const feeArb = fc.integer({ min: 0, max: 500 })
+const accountArb = fc.constantFrom<AccountId>(...ACCOUNTS)
+const categoryIdArb = fc.constantFrom('salary', 'food', 'move', null)
+const relatedTypeArb = fc.constantFrom<'income' | 'expense'>('income', 'expense')
+
+const kindArb = fc.constantFrom<TransactionKind>('income', 'expense', 'transfer', 'refund', 'adjustment')
+
+const txArb: fc.Arbitrary<LedgerTransaction> = kindArb.chain(kind => {
+  const amountArb = kind === 'adjustment' ? signedCentsArb : centsArb
+  return fc
+    .tuple(accountArb, accountArb, dayArb, amountArb, feeArb, feeArb, categoryIdArb, relatedTypeArb, fc.boolean())
+    .map(([accountId, otherAccount, date, amount, fee, coupon, categoryId, relatedType, excluded]) => ({
+      id: `${kind}-${date}-${amount}-${accountId}`,
+      ruleVersion: 1,
+      kind,
+      date,
+      amount: minor(amount),
+      fee: minor(fee),
+      coupon: minor(coupon),
+      accountId,
+      toAccountId: kind === 'transfer' ? (otherAccount === accountId ? (accountId === 'A' ? 'B' : 'A') : otherAccount) : null,
+      categoryId,
+      relatedTransactionId: null,
+      relatedType: kind === 'refund' ? relatedType : null,
+      // 转账与平账本就不进收支统计，不生成「被排除」的转账/平账
+      excludeFromIncomeExpense: kind === 'income' || kind === 'expense' || kind === 'refund' ? excluded : false,
+    }))
+})
+
+interface Ledger {
+  openings: Record<AccountId, OpeningBalance>
+  txs: LedgerTransaction[]
+}
+
+const ledgerArb: fc.Arbitrary<Ledger> = fc
+  .tuple(signedCentsArb, signedCentsArb, signedCentsArb, fc.array(txArb, { minLength: 0, maxLength: 30 }))
+  .map(([a, b, c, txs]) => ({
+    openings: { A: { amount: minor(a) }, B: { amount: minor(b) }, C: { amount: minor(c) } },
+    txs,
+  }))
+
+/** 交易对账户余额总量的影响 = 全部账户分录之和。 */
+function accountEffect(transaction: LedgerTransaction): number {
+  return postingsOf(transaction)
+    .filter(posting => posting.kind === 'account')
+    .reduce((total, posting) => total + posting.amount, 0)
+}
+
+/** 交易的收支侧分录之和（kind === 'category'）。 */
+function categoryEffect(transaction: LedgerTransaction): number {
+  return postingsOf(transaction)
+    .filter(posting => posting.kind === 'category')
+    .reduce((total, posting) => total + posting.amount, 0)
+}
+
+function netAt(ledger: Ledger, date: string): number {
+  return ACCOUNTS.reduce(
+    (total, account) => total + balanceBefore(account, ledger.openings[account], ledger.txs, date),
+    0,
+  )
+}
+
+test('不变量 1：对账恒等式——期末净资产 − 期初净资产 == 净收入 − 净支出 + 不计收支净额 − 转账手续费 + 平账净额', () => {
+  fc.assert(
+    fc.property(ledgerArb, ledger => {
+      const flow = summarizeFlows(ledger.txs).balance
+      const excludedNet = ledger.txs
+        .filter(t => t.excludeFromIncomeExpense)
+        .reduce((total, t) => total + accountEffect(t), 0)
+      // 手续费是净资产的减项：转账分录净效应 = −(本金 + 手续费) + 本金 = −手续费
+      const transferFee = ledger.txs
+        .filter(t => t.kind === 'transfer')
+        .reduce((total, t) => total + rulesFor(t.ruleVersion).effectiveTransferFee(t.fee, t.coupon), 0)
+      const adjustmentNet = ledger.txs
+        .filter(t => t.kind === 'adjustment')
+        .reduce((total, t) => total + accountEffect(t), 0)
+
+      assert.equal(
+        netAt(ledger, END) - netAt(ledger, START),
+        flow + excludedNet - transferFee + adjustmentNet,
+      )
+    }),
+    { numRuns: 1000 },
+  )
+})
+
+test('不变量 2：Σ 所有账户余额 == 净资产（= Σ 期初 + Σ 账户分录）', () => {
+  fc.assert(
+    fc.property(ledgerArb, ledger => {
+      const sumOpenings = ACCOUNTS.reduce((total, account) => total + ledger.openings[account].amount, 0)
+      const sumAccountPostings = ledger.txs.reduce((total, t) => total + accountEffect(t), 0)
+
+      assert.equal(netAt(ledger, END), sumOpenings + sumAccountPostings)
+    }),
+    { numRuns: 1000 },
+  )
+})
+
+test('不变量 3：任意交易的 Σ 分录.amount == 0（复式平衡）', () => {
+  fc.assert(
+    fc.property(txArb, transaction => {
+      const total = postingsOf(transaction).reduce((sum, posting) => sum + posting.amount, 0)
+      assert.equal(total, 0, `交易 ${transaction.id} 的分录不平衡`)
+    }),
+    { numRuns: 1000 },
+  )
+})
+
+test('不变量 4（全额退款）：退款后余额 == 原交易前余额', () => {
+  const fullRefundArb = fc
+    .tuple(relatedTypeArb, accountArb, dayArb, centsArb, categoryIdArb)
+    .map(([relatedType, accountId, date, amount, categoryId]) => {
+      const originalKind = relatedType === 'income' ? 'income' : 'expense'
+      const original: LedgerTransaction = {
+        id: 'original',
+        ruleVersion: 1,
+        kind: originalKind,
+        date,
+        amount: minor(amount),
+        accountId,
+        categoryId,
+      }
+      const refund: LedgerTransaction = {
+        id: 'refund',
+        ruleVersion: 1,
+        kind: 'refund',
+        date: addDays(date, 1),
+        amount: minor(amount),
+        accountId,
+        categoryId,
+        relatedTransactionId: 'original',
+        relatedType,
+      }
+      return { accountId, original, refund }
+    })
+
+  fc.assert(
+    fc.property(fullRefundArb, ({ accountId, original, refund }) => {
+      const opening: OpeningBalance = { amount: minor(0) }
+      const before = balanceBefore(accountId, opening, [original, refund], original.date)
+      const after = balanceBefore(accountId, opening, [original, refund], addDays(refund.date, 1))
+
+      assert.equal(after, before)
+    }),
+    { numRuns: 1000 },
+  )
+})
+
+test('不变量 4（可退余额）：依次合法退款时每笔 ≤ 剩余可退，且剩余可退 == 原额 − 已退合计', () => {
+  const refundSplitArb = fc
+    .tuple(relatedTypeArb, fc.integer({ min: 1, max: MAX_CENTS }), fc.array(centsArb, { minLength: 0, maxLength: 5 }))
+    .map(([relatedType, originalAmount, shares]) => {
+      const totalShares = shares.reduce((sum, share) => sum + share, 0)
+      // 按比例缩放并向下取整，保证 Σ 退款 ≤ 原额
+      const refunds = shares.map((share, index) => ({
+        kind: 'refund' as const,
+        amount: minor(totalShares === 0 ? 0 : Math.floor((share * originalAmount) / totalShares)),
+        relatedTransactionId: 'original',
+        id: `refund-${index}`,
+        relatedType,
+      }))
+      // 混入一笔指向其它原交易的退款：可退余额必须只统计本原交易的退款
+      const noise = {
+        kind: 'refund' as const,
+        amount: minor(originalAmount),
+        relatedTransactionId: 'other-original',
+        id: 'noise',
+        relatedType,
+      }
+      const original = { id: 'original', kind: relatedType === 'income' ? ('income' as const) : ('expense' as const), amount: minor(originalAmount) }
+      return { original, refunds: [...refunds, noise] }
+    })
+
+  fc.assert(
+    fc.property(refundSplitArb, ({ original, refunds }) => {
+      const own = refunds.filter(r => r.relatedTransactionId === 'original')
+      let refunded = 0
+      for (const refund of own) {
+        const before = own.slice(0, own.indexOf(refund))
+        const remaining = remainingRefundable(original, before)
+        // 合法退款序列：每笔都不超过当时的剩余可退
+        assert.ok(refund.amount <= remaining, `退款 ${refund.amount} 超过剩余可退 ${remaining}`)
+        refunded += refund.amount
+        // 处理到当前笔为止：剩余可退 == 原额 − 已退合计
+        assert.equal(remainingRefundable(original, [...before, refund]), Math.max(original.amount - refunded, 0))
+      }
+      assert.ok(refunded <= original.amount)
+      // 干扰退款（指向其它原交易）不影响本原交易的剩余可退
+      assert.equal(remainingRefundable(original, refunds), Math.max(original.amount - refunded, 0))
+    }),
+    { numRuns: 1000 },
+  )
+})
+
+test('不变量 5：转账满足 Δ转出 + Δ转入 == −有效手续费', () => {
+  const transferArb = fc
+    .tuple(accountArb, accountArb, dayArb, centsArb, feeArb, feeArb, categoryIdArb)
+    .map(([accountId, otherAccount, date, amount, fee, coupon, categoryId]) => ({
+      id: 'transfer',
+      ruleVersion: 1,
+      kind: 'transfer' as const,
+      date,
+      amount: minor(amount),
+      fee: minor(fee),
+      coupon: minor(coupon),
+      accountId,
+      toAccountId: otherAccount === accountId ? (accountId === 'A' ? 'B' : 'A') : otherAccount,
+      categoryId,
+    }))
+
+  fc.assert(
+    fc.property(transferArb, transfer => {
+      const effectiveFee = rulesFor(transfer.ruleVersion).effectiveTransferFee(transfer.fee, transfer.coupon)
+      const delta =
+        accountDelta(transfer, transfer.accountId) +
+        accountDelta(transfer, transfer.toAccountId ?? transfer.accountId)
+
+      // 写成加和 == 0，避免 -0 与 0 被 strictEqual 判为不等
+      assert.equal(delta + effectiveFee, 0)
+    }),
+    { numRuns: 1000 },
+  )
+})
+
+test('不变量 6：收支表与分类聚合可逐分录追溯到同一组 postingsOf 分录', () => {
+  fc.assert(
+    fc.property(ledgerArb, ledger => {
+      const summary = summarizeFlows(ledger.txs)
+
+      // 收支侧数字从 category 分录推导：收入分录为负（−amount），支出分录为正（+amount）
+      let incomeSide = 0
+      let expenseSide = 0
+      for (const transaction of ledger.txs) {
+        const rules = rulesFor(transaction.ruleVersion)
+        if (!rules.isCountable(transaction)) continue
+        const offset = transaction.kind === 'refund' ? rules.refundOffsetKind(transaction.relatedType) : null
+        if (transaction.kind === 'income' || offset === 'income') incomeSide += categoryEffect(transaction)
+        if (transaction.kind === 'expense' || offset === 'expense') expenseSide += categoryEffect(transaction)
+      }
+
+      // 净收入 / 净支出与分录逐笔对应（同一组 postingsOf 的另一种读法）；
+      // 写成加和 == 0，避免 -0 与 0 被 strictEqual 判为不等
+      assert.equal(summary.netIncome + incomeSide, 0)
+      assert.equal(summary.netExpense - expenseSide, 0)
+
+      // 分类聚合与收支总表同源：按分类求和后与总净额一致
+      const sumByCategory = (kind: 'income' | 'expense') =>
+        [...flowByCategory(ledger.txs, kind).values()].reduce((total, value) => total + value, 0)
+      assert.equal(sumByCategory('income'), summary.netIncome)
+      assert.equal(sumByCategory('expense'), summary.netExpense)
+    }),
+    { numRuns: 1000 },
+  )
+})
