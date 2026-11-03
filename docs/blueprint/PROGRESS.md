@@ -41,4 +41,6 @@
 
 ## 进行中
 
-（空）
+| 条目 | 领取日期 | 范围 |
+|---|---|---|
+| U0 | 2026-11-03 | AntD 与项目 CSS 变量命名空间隔离：`cssVar.prefix` mb → ant，`--mb-*` 定义权收归项目（`variables.css` + `syncCssVars()`） |
