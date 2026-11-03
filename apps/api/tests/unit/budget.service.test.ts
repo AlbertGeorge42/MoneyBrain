@@ -114,6 +114,22 @@ describe('getBudgetStatusesByIds（预算用量口径）', () => {
     expect(status.isOverBudget).toBe(false)
   })
 
+  it('超支时使用率返回真实百分比，不截断（C3：超支 180% 返回 180）', async () => {
+    mockPrisma.budget.findMany.mockResolvedValue([
+      makeBudget({ amount: new Decimal(100) }),
+    ])
+    mockPrisma.transaction.groupBy.mockResolvedValue([
+      usageRow({ type: 'expense', _sum: { amount: new Decimal(180) } }),
+    ])
+
+    const [status] = await getBudgetStatusesByIds(['b1'])
+
+    expect(status.used).toBe(180)
+    expect(status.percentage).toBe(180)
+    expect(status.isOverBudget).toBe(true)
+    expect(status.remaining).toBe(0)
+  })
+
   it('转账预算只统计绑定的那一对账户之间的转账', async () => {
     mockPrisma.budget.findMany.mockResolvedValue([
       makeBudget({

@@ -228,6 +228,7 @@ export interface BudgetStatus {
   budget: Budget
   used: Minor
   remaining: Minor
+  /** 真实使用率：超支时 >100，不截断（C3）；进度条条宽可封顶，文本必须显示真实值 */
   percentage: number
   isOverBudget: boolean
 }

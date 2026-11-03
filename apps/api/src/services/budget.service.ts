@@ -352,9 +352,11 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
   // 跨期退款会让本期已用为负；下限夹到 0，剩余不得超过额度
   const clamped = minor(Math.max(used, 0))
   const amount = minor(Number(budget.amount))
+  // 使用率返回真实百分比，超支时 >100 不截断（C3）；
+  // 前端进度条条宽自行封顶，文本必须显示真实值
   const percentage = amount === 0
     ? 0
-    : Math.min(Math.round((clamped / amount) * 100), 100)
+    : Math.round((clamped / amount) * 100)
 
   return {
     budget,
