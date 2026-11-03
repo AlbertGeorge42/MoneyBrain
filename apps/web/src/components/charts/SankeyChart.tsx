@@ -4,19 +4,13 @@ import { Empty } from 'antd'
 import { useChartTokens } from '../../styles/theme/chart-tokens'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { minor } from '@domain/index'
+import type { SankeyLink } from '@contracts/types'
 
 export type SankeyNodeCategory = 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
 
-export interface SankeyNode { 
+export interface SankeyNode {
   name: string
   category?: SankeyNodeCategory
-}
-interface SankeyLink { 
-  source: string
-  target: string
-  value: number
-  actualValue?: number
-  predictedValue?: number
 }
 
 interface SankeyChartProps {

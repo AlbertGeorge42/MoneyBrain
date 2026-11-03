@@ -74,7 +74,6 @@
 
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
-| D2 | `TransactionType` 等在 3 处定义 | 共享类型只在 `packages/contracts` 定义 | `grep -r "type TransactionType"` 只剩 1 处 |
 | D3 | API 类型内联在 `services/api.ts` | 全部收敛到 `packages/contracts` | 前端不再内联 `ApiResponse<{...}>` |
 | D4 | 页面直接组合 queries + 巨型组件 | feature 切片 + 页面瘦身 + `ui/` 原语层 | 页面文件 < 200 行；跨 feature 只走公开入口 |
 | D5 | 桶导出（`components/settings/shared.tsx` 等） | 删除 | ESLint `react-refresh` 警告归零 |

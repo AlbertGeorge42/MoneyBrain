@@ -11,7 +11,8 @@ import {
   createYearToDatePreset,
   formatRangeValue,
 } from '../../utils/timePicker'
-import { TRANSACTION_TYPE_CONFIG, TransactionType } from '../../utils/transactionType'
+import { TRANSACTION_TYPE_CONFIG } from '../../utils/transactionType'
+import type { TransactionType } from '../../services/api'
 
 const transactionTimePickerConfig: RangeTimePickerConfig = {
   label: '筛选周期',

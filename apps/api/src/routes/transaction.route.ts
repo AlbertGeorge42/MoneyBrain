@@ -30,10 +30,9 @@ import {
   updateRefund
 } from '../services/transaction.service.js'
 import { getRecycleBin, getTransactionHistory } from '../services/audit-event.service.js'
+import type { TransactionType } from '../../../../packages/contracts/types/index.js'
 
 const router = Router()
-
-type TransactionType = 'income' | 'expense' | 'transfer' | 'refund' | 'adjustment'
 
 const transactionTypes = new Set<TransactionType>(['income', 'expense', 'transfer', 'refund', 'adjustment'])
 

@@ -39,7 +39,7 @@ const CONFIG_FILENAME = 'auto-backup-config.json'
 /** 默认写到数据库同级的 auto-backups/ 目录。 */
 const DEFAULT_SUBDIRECTORY = 'auto-backups'
 
-export interface AutoBackupConfig {
+export interface AutoBackupConfigFile {
   enabled: boolean
   /** 备份目标目录（绝对路径） */
   directory: string
@@ -51,7 +51,7 @@ export interface AutoBackupConfig {
   lastRunError: string | null
 }
 
-const DEFAULT_CONFIG: AutoBackupConfig = {
+const DEFAULT_CONFIG: AutoBackupConfigFile = {
   enabled: false,
   directory: '',
   lastRunAt: null,
@@ -95,7 +95,7 @@ async function defaultDirectory(): Promise<string> {
 }
 
 /** 读取配置；文件缺失或损坏时返回默认值（自动备份默认关闭）。 */
-export async function getAutoBackupConfig(): Promise<AutoBackupConfig & { defaultDirectory: string }> {
+export async function getAutoBackupConfig(): Promise<AutoBackupConfigFile & { defaultDirectory: string }> {
   const configPath = await resolveConfigPath()
   const fallbackDirectory = await defaultDirectory()
   if (!existsSync(configPath)) {
@@ -106,7 +106,7 @@ export async function getAutoBackupConfig(): Promise<AutoBackupConfig & { defaul
     if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
       throw new Error('not a plain object')
     }
-    const parsed = raw as Partial<AutoBackupConfig>
+    const parsed = raw as Partial<AutoBackupConfigFile>
     return {
       enabled: parsed.enabled === true,
       directory: typeof parsed.directory === 'string' && parsed.directory ? parsed.directory : fallbackDirectory,
@@ -130,9 +130,9 @@ export async function saveAutoBackupConfig(
     confirmCloudDirectory?: boolean
   },
   configPath?: string
-): Promise<AutoBackupConfig & { defaultDirectory: string }> {
+): Promise<AutoBackupConfigFile & { defaultDirectory: string }> {
   const current = await getAutoBackupConfig()
-  const next: AutoBackupConfig = {
+  const next: AutoBackupConfigFile = {
     enabled: input.enabled ?? current.enabled,
     directory: input.directory ?? current.directory,
     lastRunAt: current.lastRunAt,

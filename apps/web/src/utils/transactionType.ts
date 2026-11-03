@@ -18,5 +18,3 @@ export const TRANSACTION_TYPE_CONFIG = {
   refund:     { color: 'var(--mb-color-refund)',   tagColor: TRANSACTION_TAG_PRESETS.refund,  text: '退款' },
   adjustment: { color: 'var(--mb-color-adjustment)',tagColor: TRANSACTION_TAG_PRESETS.adjustment,text: '平账' },
 } as const
-
-export type TransactionType = keyof typeof TRANSACTION_TYPE_CONFIG

@@ -7,12 +7,8 @@ import {
   minor,
   type LedgerTransaction,
   type OpeningBalance,
-  type TransactionKind,
 } from '../../../../packages/domain/src/index.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
-
-/** 与领域层保持同一套交易类型。 */
-export type TransactionType = TransactionKind
 
 /**
  * 账户余额缓存。
