@@ -38,7 +38,8 @@ apps/web/src/            # 目标结构（R 批次落地；重建完成前旧结
 
 packages/
 ├── domain/src/           # money.ts · date.ts · ledger/{types,postings,summary}.ts
-└── contracts/            # types/index.ts（API 类型与错误码）· utils/tree.ts
+├── contracts/            # types/index.ts（API 类型与错误码）· utils/tree.ts
+└── sync/src/             # 记录级合并（与端无关，不依赖文件系统 / 网盘 SDK）
 ```
 
 ### 2.1 CSS 变量（决策 #32）
@@ -390,6 +391,7 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
 
 ```bash
 npm run test:domain
+npm run test:sync
 npm run test:api
 npm run test:web
 ```

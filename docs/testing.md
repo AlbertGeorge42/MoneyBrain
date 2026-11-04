@@ -7,6 +7,7 @@
 | 层级 | 工具 | 目录 | 说明 |
 |---|---|---|---|
 | 领域 | Node Test Runner + tsx | `packages/domain/tests/` | 金额、日期、分录、汇总不变量 |
+| 同步 | Node Test Runner + tsx | `packages/sync/tests/` | 版本向量、记录级合并、冲突与引用（固定向量） |
 | 后端单元 | Vitest | `apps/api/tests/unit/` | service 纯逻辑、Mock Prisma |
 | 后端集成 | Vitest + Supertest | `apps/api/tests/integration/` | 路由 + 测试 SQLite |
 | 前端单元 | Vitest + Testing Library | `apps/web/tests/unit/` | 组件、页面、错误态 |
@@ -16,6 +17,7 @@
 
 ```bash
 npm run test:domain                    # 领域测试
+npm run test:sync                      # 同步合并（固定向量）
 npm run test:api                       # 后端全部
 npm run test:web                       # 前端
 npm run test:e2e                       # E2E（自动启动服务）
@@ -37,8 +39,9 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 范围 | 文件 | 用例 |
 |---|---|---|
 | 领域 | 3 | 38 |
-| 后端 | 35 | 325 |
-| 前端 | 13 | 93 |
+| 同步 | 1 | 4 |
+| 后端 | 41 | 350 |
+| 前端 | 15 | 106 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
 
 ## 3.1 数据自检与恢复演练（不是单元测试）
@@ -57,6 +60,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 层级 | 数据来源 |
 |---|---|
 | 领域 | 纯内存对象，无 mock |
+| 同步 | 纯内存记录 + `test-vectors/merge-vectors.json` 固定向量，无 mock |
 | 后端单元 | `createMockPrisma()`（`apps/api/tests/mocks/prisma.ts`） |
 | 后端集成 | `apps/api/prisma/test.db`（测试前由 `tests/global-setup.ts` 用版本化迁移重建） |
 | 前端 | `apps/web/tests/setup.ts` 统一 mock ECharts / matchMedia / ResizeObserver；重建期按需保留 AntD mock，R1 补 Mantine mock，R3 移除 AntD mock；页面测试用 `vi.mock('../../../src/queries/xxx')` 注入查询状态 |
@@ -98,11 +102,20 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 - [x] 投资快照前链在增删改后重排且无自引用。
 - [x] 失败时页面显示错误而不是 0（前端错误态）。
 
-### 5.3 尚未覆盖（列入计划）
+### 5.3 同步不变量（7–11）
+
+| 不变量 | 覆盖 | 位置 |
+|---|---|---|
+| 7 同步可重放 | 🔄 记录层已覆盖（固定向量、任意顺序、墓碑/悬空引用）；整库余额与报表级重放未断言 | `packages/sync/tests/merge.test.ts` |
+| 8 冲突不静默 | ✅ 输的一版落库且不重复；解决后保留、不再待处理 | `apps/api/tests/integration/sync-conflict.test.ts`、`packages/sync/tests/merge.test.ts` |
+| 9 密文出端 | ⬜ 待 F-C / F5 | — |
+| 10 合并与传输解耦 | ✅ 记录层合并结果与到达顺序无关 | `packages/sync/tests/merge.test.ts`（「任意顺序应用两次…」） |
+| 11 加密不降级 | ⬜ 待 F-C / F5（明文 ZIP 备份为过渡态） | — |
+
+### 5.4 尚未覆盖（列入计划）
 
 - [ ] 旧数据迁移的 v1 → v2 对账报告。
-- [ ] 同步不变量 7–11（重放一致、冲突不静默、密文出端、合并与传输解耦、加密不降级）——
-      随蓝图批次 F/G 落地时补齐。
+- [ ] 同步不变量 9、11 随蓝图批次 F-C 落地时补齐。
 
 ## 6. 验证顺序
 

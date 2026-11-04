@@ -24,7 +24,8 @@ Prisma → SQLite
 
 ```text
 apps/web  →  packages/contracts, packages/domain（仅类型/纯函数）
-apps/api  →  packages/contracts, packages/domain
+apps/api  →  packages/contracts, packages/domain, packages/sync
+packages/sync → 无外部依赖（记录级合并，不依赖文件系统 / 网盘 SDK）
 packages/domain → 无外部依赖
 ```
 
@@ -73,6 +74,25 @@ adjustment  账户 +amount      权益 −amount
 （后端「配置/预算」、前端「配置信息/预算配置」），现共用 `constants.ts` 同一份。
 日期格式化原本 `common/date.ts` 与领域层 `date.ts` 各有一份逐字相同的实现，
 现由 `common/date.ts` 委托给领域层的 `fromDate`。
+
+## 2.6 同步层（packages/sync）
+
+记录级合并的唯一实现，与端无关：不读文件、不碰网盘 SDK、不认识具体实体类型。
+
+| 位置 | 职责 |
+|---|---|
+| `version-vector.ts` | 版本向量编解码与比较（`compareVersionVectors` / `maxVersionVectors`），不用设备时钟判先后 |
+| `merge.ts` | `mergeRecord` / `mergeRecords`：稳定全序选出生效版本，输的一版作为冲突返回；结果与到达顺序无关且可重复应用 |
+| `references.ts` | 合并后的引用校验：悬空引用进入待补全，补齐后转正常；墓碑引用不静默复活 |
+| `canonical.ts` | 内容指纹与稳定序列化（固定向量测试的基准） |
+| `test-vectors/merge-vectors.json` | 跨端共用的合并固定向量 |
+
+`apps/api` 侧：六类可同步实体（账户分类、账户、收支分类、交易、预算、投资快照）各带
+`rev` / `vv`；`db/sync-identity.ts` 在数据库同目录的 `sync-identity.json` 持久化
+`ledgerId` / `deviceId`（容器 AAD 用 `formatVersion|ledgerId`）；`db/sync-version.ts`
+在写入时递增 `rev` 并刷新 `vv`；输的一版落 `sync_conflicts` 表。
+
+尚未落地：加密容器、格式版本与恢复码（F-C），以及传输适配与跨设备搬运（G-A 起）。
 
 ## 3. 后端模块（apps/api/src）
 
@@ -139,6 +159,9 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 | `InvestmentAssetClass` | 投资资产类型与目标比例 |
 | `InvestmentAllocationSnapshot` | 投资快照；`previousSnapshotId` 为派生链，写入后重排 |
 | `InvestmentAllocationItem` | 快照内的持仓市值与期间净流入 |
+| `SyncConflict` | 合并冲突留存（`sync_conflicts`）：生效版本与输的一版各存整条 JSON，`resolvedAt` 标记是否待处理；不进容器、不参与同步 |
+
+六类可同步实体（`AccountCategory` / `Account` / `TransactionCategory` / `Transaction` / `Budget` / `InvestmentAllocationSnapshot`）各带 `rev`（本设备修订号）与 `vv`（版本向量 JSON）；`ledgerId` / `deviceId` 不落库，存在数据库同目录的 `sync-identity.json`（见 §2.6）。
 
 数据库不存派生值：余额、预算百分比、收益率按需计算。快照链是显式例外——`previousSnapshotId` 入库并在写入后重排，供「按期间取前链」用。
 
