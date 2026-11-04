@@ -11,8 +11,8 @@ import type {
   DashboardSummaryData,
 } from '@contracts/types'
 import type { Transaction } from '../transactions/types'
-import { formatUnsigned, summarize, type TransactionSummary } from '../transactions/transaction-utils'
-import type { TrendPoint } from './overview-utils'
+import { summarize, type TransactionSummary } from '../transactions/transaction-utils'
+import { formatNetAmount, type TrendPoint } from './overview-utils'
 import { minorToYuan } from '../transactions/transactions-data'
 
 export type OverviewView = {
@@ -43,12 +43,16 @@ export function buildOverviewView(input: {
   accountCount: number
 }): OverviewView {
   const { today, items, dashboard, sheet, assetTrend, accountCount } = input
+  // API 的支出金额可能是负数（现金流口径），HF 汇总用「支出为正的金额大小」；
+  // 净额在这里重算，避免依赖 API 的 balance 字段（后者与支出符号口径绑定）。
+  const incomeYuan = dashboard ? Math.abs(minorToYuan(dashboard.thisMonth.income)) : 0
+  const expenseYuan = dashboard ? Math.abs(minorToYuan(dashboard.thisMonth.expense)) : 0
   const summary: TransactionSummary = dashboard
     ? {
         count: items.length,
-        income: minorToYuan(dashboard.thisMonth.income),
-        expense: minorToYuan(dashboard.thisMonth.expense),
-        net: minorToYuan(dashboard.thisMonth.balance),
+        income: incomeYuan,
+        expense: expenseYuan,
+        net: incomeYuan - expenseYuan,
       }
     : summarize(items)
 
@@ -68,16 +72,20 @@ export function buildOverviewView(input: {
     periodLabel: `${dayjs(today).year()} 年 ${dayjs(today).month() + 1} 月`,
     asOfLabel: `截至 ${today}`,
     heroCaption: sheet
-      ? `总资产 ${formatUnsigned(assets)} · 总负债 ${formatUnsigned(liabilities)} · ${accountCount} 个账户在用`
+      ? `总资产 ${formatNetAmount(assets)} · 总负债 ${formatNetAmount(liabilities)} · ${accountCount} 个账户在用`
       : `已记 ${items.length} 笔 · ${accountCount} 个账户在用`,
     trendCaption: points.length >= 2 ? `近 ${points.length} 个月` : '再记一天，走势就会出现',
     incomeChange: dashboard
-      ? percentChange(minorToYuan(dashboard.thisMonth.income), minorToYuan(dashboard.lastMonth.income))
+      ? percentChange(incomeYuan, Math.abs(minorToYuan(dashboard.lastMonth.income)))
       : null,
     expenseChange: dashboard
-      ? percentChange(minorToYuan(dashboard.thisMonth.expense), minorToYuan(dashboard.lastMonth.expense))
+      ? percentChange(expenseYuan, Math.abs(minorToYuan(dashboard.lastMonth.expense)))
       : null,
-    netWorthChange: null,
-    freshLedger: false,
+    netWorthChange:
+      points.length >= 2
+        ? percentChange(points[points.length - 1].value, points[points.length - 2].value)
+        : null,
+    // 账本无任何流水时才算冷启动，总览展示「记第一笔」引导。
+    freshLedger: items.length === 0,
   }
 }

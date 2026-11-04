@@ -21,6 +21,8 @@
     "db:repair-report-data": "node --import tsx scripts/repair-report-data.mts",
     "build": "node scripts/build.mjs",
     "start": "concurrently \"npm run start:api\" \"npm run start:web\"",
+    "desktop": "node scripts/desktop.mjs",
+    "desktop:build": "node scripts/desktop.mjs --build",
     "start:web": "npm run preview -w @moneybrain/web -- --port 4173",
     "start:api": "npm run start:prod -w @moneybrain/api",
     "lint": "npm run lint:api && npm run lint:web",

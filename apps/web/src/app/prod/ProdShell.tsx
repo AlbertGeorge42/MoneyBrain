@@ -1,3 +1,5 @@
+// HF 页面的样式只在 /design 里被引入；生产路由复用同一套页面时必须一起加载。
+import '../design/hf.css'
 import { useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'

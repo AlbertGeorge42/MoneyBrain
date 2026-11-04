@@ -45,8 +45,26 @@ describe('overview-data', () => {
     expect(view.points.map((point) => point.value)).toEqual([36000, 38000])
     expect(view.incomeChange).toBe(20)
     expect(view.expenseChange).toBeNull()
+    expect(view.netWorthChange).toBe(6)
     expect(view.periodLabel).toBe('2026 年 11 月')
     expect(view.heroCaption).toContain('总资产')
+  })
+
+  it('API 支出是负数时也归一化为正金额，净额重算不跟随 balance', () => {
+    const view = buildOverviewView({
+      today: '2026-11-05',
+      items: [item],
+      dashboard: {
+        thisMonth: { income: 0, expense: -2800, balance: 2800 },
+        lastMonth: { income: 0, expense: -1900 },
+      } as unknown as DashboardSummaryData,
+      sheet: undefined,
+      assetTrend: undefined,
+      accountCount: 1,
+    })
+    expect(view.summary.income).toBe(0)
+    expect(view.summary.expense).toBe(28)
+    expect(view.summary.net).toBe(-28)
   })
 
   it('冷启动：无流水无报表时为零，不出 mock 走势', () => {
@@ -61,7 +79,7 @@ describe('overview-data', () => {
     expect(view.summary).toEqual({ count: 0, income: 0, expense: 0, net: 0 })
     expect(view.netWorth).toBe(0)
     expect(view.points).toEqual([])
-    expect(view.freshLedger).toBe(false)
+    expect(view.freshLedger).toBe(true)
   })
 
   it('环比在去年同期为零时返回 null', () => {
