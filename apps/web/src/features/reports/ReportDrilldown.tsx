@@ -112,11 +112,11 @@ export function ReportDrilldown({
             </ul>
           ) : (
             <p className="mb-text-0 rep-detail-note">
-              {filters
-                ? '本期账本里没有匹配的流水；报表金额为示例汇总。'
-                : table.kind === 'investment'
-                  ? '持仓来自净值快照，与收支流水不是同一口径。'
-                  : '这一行是多条流水的汇总，请到流水页按分类或账户查看明细。'}
+              {table.kind === 'investment'
+                ? '持仓来自净值快照，与收支流水不是同一口径。'
+                : filters
+                  ? '本期账本里没有匹配的流水；报表金额为示例汇总。'
+                  : '这一行是汇总行，没有可直接定位的单笔流水。'}
             </p>
           )}
         </section>
@@ -126,7 +126,7 @@ export function ReportDrilldown({
         </p>
         <div className="rep-detail-actions">
           <Button variant="default" onClick={onClose}>关闭</Button>
-          {filters && (
+          {filters && related.length > 0 && (
             <Button
               onClick={() => {
                 onOpenTransactions(filters)
