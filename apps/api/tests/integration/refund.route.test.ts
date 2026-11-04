@@ -168,4 +168,29 @@ describe('退款对统计数据的影响', () => {
     const response = await request(app).get('/api/transactions/stats')
     expect(response.body.data.expense).toBe(1000)
   })
+
+  it('换原交易时应同步 relatedType，统计方向随新原交易（D11）', async () => {
+    const income = await prisma.transaction.create({
+      data: { type: 'income', amount: 1000, accountId: testAccountId, date: new Date() },
+    })
+    const expense = await prisma.transaction.create({
+      data: { type: 'expense', amount: 500, accountId: testAccountId, date: new Date() },
+    })
+    const refund = await prisma.transaction.create({
+      data: { type: 'refund', amount: 100, accountId: testAccountId, date: new Date(), relatedTransactionId: income.id, relatedType: 'income' },
+    })
+
+    const updated = await request(app)
+      .put(`/api/transactions/${refund.id}`)
+      .send({ relatedTransactionId: expense.id })
+    expect(updated.status).toBe(200)
+
+    const stored = await prisma.transaction.findUnique({ where: { id: refund.id } })
+    expect(stored?.relatedType).toBe('expense')
+
+    // 冲减方向跟着新原交易：收入不再被冲减，支出退 100
+    const stats = await request(app).get('/api/transactions/stats')
+    expect(stats.body.data.income).toBe(1000)
+    expect(stats.body.data.expense).toBe(400)
+  })
 })

@@ -144,6 +144,11 @@ async function importAccounts(
         }
       }
 
+      // 分类是报表口径的来源，宁可报错也不静默写 null
+      if (!categoryId) {
+        throw new Error(`缺少可用的账户分类（type=${account.type}），请先导入账户分类`)
+      }
+
       if (existing) {
         if (mode === 'merge') {
           await accountRepo.updateWithCategory(

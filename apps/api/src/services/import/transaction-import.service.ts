@@ -294,10 +294,22 @@ async function getOrCreateAccount(
     // 缓存未命中：查 DB
     const dbAccount = await client.account.findFirst({ where: { name: accountName } })
     if (dbAccount) {
+      // 旧数据可能没挂分类：导入时顺手补默认分类，避免静默留 null
+      const categoryId =
+        dbAccount.categoryId ??
+        (dbAccount.type === 'liability'
+          ? ctx.defaultLiabilityCategory.id
+          : ctx.defaultAssetCategory.id)
+      if (!dbAccount.categoryId) {
+        await client.account.update({
+          where: { id: dbAccount.id },
+          data: { categoryId },
+        })
+      }
       account = {
         id: dbAccount.id,
         type: dbAccount.type,
-        categoryId: dbAccount.categoryId,
+        categoryId,
         isInvestment: ctx.accountCategoryCache.get(`asset:${dbAccount.type}`)?.isInvestment ?? false,
       }
     } else {

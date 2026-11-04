@@ -60,6 +60,18 @@ export async function getAccountDetail(accountId: string) {
   return { ...account, fromTransactions }
 }
 
+/**
+ * 账户必须挂在分类下：报表口径（现金等价 / 投资 / 资产 / 负债）全靠分类标记。
+ * 未指定分类时按账户类型取顶层分类，取不到就报错——不允许静默写 null。
+ */
+async function resolveDefaultCategoryId(type: string): Promise<string> {
+  const category = await accountCategoryRepo.findFirst({ where: { type, parentId: null } })
+  if (!category) {
+    throw new ValidationError(`账户分类未初始化：请先创建「${type}」的顶层账户分类`)
+  }
+  return category.id
+}
+
 export async function createAccount(data: {
   name: string
   type: string
@@ -69,6 +81,8 @@ export async function createAccount(data: {
   initialBalance?: number
   initialBalanceDate?: string
 }) {
+  const categoryId = data.categoryId ?? (await resolveDefaultCategoryId(data.type))
+
   return accountRepo.createWithCategory({
     name: data.name,
     type: data.type,
@@ -78,7 +92,7 @@ export async function createAccount(data: {
       : new Date(),
     icon: data.icon,
     color: data.color,
-    categoryId: data.categoryId,
+    categoryId,
   })
 }
 

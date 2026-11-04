@@ -165,8 +165,13 @@ describe('account.service', () => {
   })
 
   describe('createAccount', () => {
-    it('应该使用 initialBalance 创建账户', async () => {
-      const mockAccount = { id: '1', name: '新账户', initialBalance: 1000n }
+    it('未指定分类时按账户类型挂默认分类', async () => {
+      mockPrisma.accountCategory.findFirst.mockResolvedValue({
+        id: 'cat-asset',
+        type: 'asset',
+        parentId: null,
+      })
+      const mockAccount = { id: '1', name: '新账户', initialBalance: 1000n, categoryId: 'cat-asset' }
       mockPrisma.account.create.mockResolvedValue(mockAccount)
 
       const result = await createAccount({
@@ -175,18 +180,40 @@ describe('account.service', () => {
         initialBalance: 1000,
       })
 
+      expect(mockPrisma.accountCategory.findFirst).toHaveBeenCalledWith({
+        where: { type: 'asset', parentId: null },
+      })
       expect(mockPrisma.account.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           name: '新账户',
           type: 'asset',
           initialBalance: 1000n,
+          categoryId: 'cat-asset',
         }),
         include: { category: true },
       })
       expect(result).toEqual(mockAccount)
     })
 
+    it('显式指定 categoryId 时不再查默认分类', async () => {
+      mockPrisma.account.create.mockResolvedValue({ id: '1', categoryId: 'cat-custom' })
+
+      await createAccount({
+        name: '新账户',
+        type: 'asset',
+        categoryId: 'cat-custom',
+      })
+
+      expect(mockPrisma.accountCategory.findFirst).not.toHaveBeenCalled()
+      expect(mockPrisma.account.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ categoryId: 'cat-custom' }),
+        })
+      )
+    })
+
     it('无余额时应该默认 0', async () => {
+      mockPrisma.accountCategory.findFirst.mockResolvedValue({ id: 'cat-asset' })
       mockPrisma.account.create.mockResolvedValue({ id: '1' })
 
       await createAccount({
@@ -201,6 +228,15 @@ describe('account.service', () => {
           }),
         })
       )
+    })
+
+    it('没有可用默认分类时应该报错而不是写 null', async () => {
+      mockPrisma.accountCategory.findFirst.mockResolvedValue(null)
+
+      await expect(
+        createAccount({ name: '新账户', type: 'asset' })
+      ).rejects.toThrow(ValidationError)
+      expect(mockPrisma.account.create).not.toHaveBeenCalled()
     })
   })
 

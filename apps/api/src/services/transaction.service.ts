@@ -247,18 +247,26 @@ export async function updateRefund(id: string, data: UpdateRefundData): Promise<
   const oldTransaction = await transactionRepo.findById(id)
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
-  const relatedId = data.relatedTransactionId ?? oldTransaction.relatedTransactionId
+  const relatedId =
+    data.relatedTransactionId !== undefined
+      ? data.relatedTransactionId
+      : oldTransaction.relatedTransactionId
+
+  // 退款冲减方向由 relatedType 决定：换原交易时必须同步，否则报表按旧类型算方向
+  let relatedType: string | null = null
   if (relatedId) {
     const original = await transactionRepo.findById(relatedId)
     if (!original) throw new NotFoundError('原交易记录')
     await assertRefundTarget(original, data.amount ?? Number(oldTransaction.amount))
+    relatedType = original.type
   }
 
   const merged = mergeTransactionData(oldTransaction, data)
 
   return updateWithEvent(id, oldTransaction, {
     ...merged,
-    relatedTransactionId: data.relatedTransactionId !== undefined ? data.relatedTransactionId : oldTransaction.relatedTransactionId,
+    relatedTransactionId: relatedId,
+    relatedType,
   })
 }
 
@@ -378,8 +386,8 @@ export async function getTransactionList(params: TransactionListParams): Promise
   const total = await transactionRepo.countActive(where)
   const transactions = await transactionRepo.findActive(where, {
     include: transactionRepo.TRANSACTION_RELATIONS,
-    // date 已精确到毫秒；同毫秒记录顺序不保证，按 date 倒序即可
-    orderBy: [{ date: 'desc' }],
+    // date 精确到毫秒；同毫秒记录用 id 作第二键保证翻页稳定
+    orderBy: [{ date: 'desc' }, { id: 'desc' }],
     skip: (page - 1) * pageSize,
     take: pageSize,
   })
