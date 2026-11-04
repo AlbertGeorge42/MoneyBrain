@@ -85,7 +85,7 @@
 }
 
 .config-entry-card__count {
-  font-size: var(--mb-font-size-h2);
+  font-size: var(--mb-font-size-title);
   font-weight: 700;
   color: var(--mb-color-text-primary);
   font-variant-numeric: tabular-nums;

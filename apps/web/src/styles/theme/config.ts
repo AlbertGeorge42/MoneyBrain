@@ -98,6 +98,8 @@ export function syncCssVars(isDark: boolean): void {
     '--mb-color-text-primary': token.colorText,
     '--mb-color-text-secondary': token.colorTextSecondary,
     '--mb-color-text-tertiary': token.colorTextTertiary,
+    // 四级文字色（U1）：项目无等价 token（tertiary 为 45%，此处需 25%），故补齐
+    '--mb-color-text-quaternary': token.colorTextQuaternary,
     // 背景色
     '--mb-color-bg-app': token.colorBgLayout,
     '--mb-color-bg-panel': token.colorBgContainer,

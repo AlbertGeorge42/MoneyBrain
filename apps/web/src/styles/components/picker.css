@@ -87,8 +87,8 @@
   height: 38px;
   border-radius: var(--mb-radius-control);
   cursor: pointer;
-  border: 1px solid var(--mb-color-border-secondary);
-  background: var(--mb-color-bg-container);
+  border: 1px solid var(--mb-color-border-subtle);
+  background: var(--mb-color-bg-panel);
   transition: background var(--mb-motion-fast) var(--mb-ease-standard),
               transform var(--mb-motion-fast) var(--mb-ease-standard),
               box-shadow var(--mb-motion-fast) var(--mb-ease-standard);
@@ -233,7 +233,7 @@
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
-  background: var(--mb-color-bg-container);
+  background: var(--mb-color-bg-panel);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
               box-shadow 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
               border-color 0.15s ease;

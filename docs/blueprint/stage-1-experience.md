@@ -60,8 +60,15 @@ U7 的焦点可见性、U8 的失败呈现是其中可自动化验收的部分�
 
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
-| U1 | 4 处 CSS 引用了项目未定义、只因 AntD 同名才"恰好能显示"的变量：`picker.css` 的 `--mb-color-bg-container`（2 处）、`--mb-color-border-secondary`（1 处），`settings.css` 的 `--mb-color-text-quaternary`（1 处） | 改为项目自有等价 token（`--mb-color-bg-panel`、`--mb-color-border-subtle`；四级文字色补齐 `--mb-color-text-quaternary`） | 引用即定义；样式文件里不再出现任何"靠 AntD 同名兜底"的变量 |
+| U1 | U0 后 6 处 `var(--mb-*)` 引用了项目未定义的变量：`picker.css` 的 `--mb-color-bg-container`（2 处）、`--mb-color-border-secondary`（1 处），`settings.css` 的 `--mb-color-text-quaternary`（1 处）、`--mb-font-size-h2`（1 处，AntD 从未生成），`report-layouts.css` 的 `--mb-radius-sm`（1 处，AntD 从未生成）。前 4 处在 U0 前靠 AntD 同名变量兜底，U0 后已失去兜底；后 2 处迁移前后都按浏览器回退渲染 | 改为项目自有等价 token（`--mb-color-bg-panel`、`--mb-color-border-subtle`；四级文字色补齐 `--mb-color-text-quaternary`；`--mb-font-size-h2` → `--mb-font-size-title`；`--mb-radius-sm` → `--mb-radius-control`） | 引用即定义；样式文件里不再出现任何 `var(--mb-*)` 未定义引用 |
 | U1b | 缺少机制防止此类问题复发——CSS 引用未定义变量**不报错**，浏览器静默回退 | 建立 lint 守卫：脚本扫描全部 CSS/TSX 的 `var(--mb-*)` 引用，与「`variables.css` + `syncCssVars()` 导出清单」比对，未定义即失败；**同时检查死变量**（定义了却无人引用） | 引用未定义变量 → lint 失败；新增未使用变量 → lint 失败（防死变量堆积） |
+
+> **U0 重叠清单实测修正**：U0 迁移前命名空间重叠实测共 **9** 个（最初记录为 8 个）——
+> 双定义 6（`--mb-font-size-sm` / `--mb-color-text-secondary` / `--mb-color-text-tertiary` /
+> `--mb-color-border` / `--mb-color-success` / `--mb-color-warning`，其中 `--mb-font-size-sm`
+> 项目 13px vs AntD 12px，其余同值）、项目引用未定义 3（`--mb-color-bg-container` /
+> `--mb-color-border-secondary` / `--mb-color-text-quaternary`）。第 9 个是
+> `--mb-color-warning`（同名同值，迁移后不构成回退风险，但不能按"8 个"判断）。
 
 > 守卫脚本应直接复用项目自己的变量清单（如把 `syncCssVars()` 拆出一个纯函数
 > `buildCssVars()` 导出键名），而不是在脚本里另抄一份——否则守卫本身也会漂移。

@@ -121,7 +121,7 @@
   margin-top: var(--mb-space-sm);
   padding: var(--mb-space-xs) var(--mb-space-sm);
   border: 1px solid var(--mb-color-border-subtle);
-  border-radius: var(--mb-radius-sm);
+  border-radius: var(--mb-radius-control);
   font-size: var(--mb-font-size-body);
   color: var(--mb-color-text-secondary);
 }
