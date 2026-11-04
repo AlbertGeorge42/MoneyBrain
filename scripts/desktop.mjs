@@ -1,29 +1,42 @@
 #!/usr/bin/env node
 /**
  * 桌面启动器（无 Rust 工具链时的可运行方案）：
- *   npm run desktop        → 复用已有构建，起 API + 预览服务，开一个 Edge 应用窗口
+ *   npm run desktop          → 复用已有构建，起 API + 预览服务，开一个 Edge 应用窗口
  *   npm run desktop -- --build → 先构建再启动
  *
  * 说明：Tauri 需要 rustc/cargo，本机没有；此脚本用 Edge「应用模式」提供独立窗口，
- * 仍是本机 API + 本地静态资源，但不等同于打包安装包。窗口尺寸只能在启动时指定，
- * 最小尺寸无法通过 Edge 命令行约束。
+ * 仍是本机 API + 本地静态资源，但不等同于打包安装包。
+ *
+ * 健壮性约定：
+ *   - 端口 3001 / 4173 被占用时明确报错，不静默连到别人的实例。
+ *   - 调试端口 9333 默认开启：重复启动会聚焦已有窗口，而不是再开一个。
+ *   - 窗口启动尺寸 1280×820；若 profile 记住了更小的尺寸，启动后通过 CDP 抬到最小尺寸。
+ *   - 退出时停止子进程并清理 profile 锁文件。
  */
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { connect } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const args = new Set(process.argv.slice(2))
-const WEB_URL = 'http://127.0.0.1:4173'
-const API_HEALTH = 'http://127.0.0.1:3001/api/health'
-const WINDOW = '1280,820'
+const WEB_PORT = 4173
+const API_PORT = 3001
+const WEB_URL = `http://127.0.0.1:${WEB_PORT}`
+const API_HEALTH = `http://127.0.0.1:${API_PORT}/api/health`
+const DEBUG_PORT = Number(process.env.MB_DESKTOP_DEBUG_PORT || 9333)
+const WINDOW = { width: 1280, height: 820 }
+const MIN_WINDOW = { width: 1024, height: 640 }
 
 const EDGE_CANDIDATES = [
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  path.join(process.env.LOCALAPPDATA || '', 'Microsoft\\Edge\\Application\\msedge.exe'),
 ]
+
+const PROFILE =
+  process.env.MB_DESKTOP_PROFILE || path.join(process.env.TEMP || root, 'moneybrain-desktop-profile')
 
 function log(message) {
   console.log(`[desktop] ${message}`)
@@ -49,7 +62,7 @@ async function waitFor(url, label, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, { signal: AbortSignal.timeout(2_000) })
       if (response.ok) return
     } catch {
       // 服务尚未起来，继续等
@@ -59,7 +72,7 @@ async function waitFor(url, label, timeoutMs = 60_000) {
   throw new Error(`${label} 在 ${timeoutMs / 1000}s 内未就绪：${url}`)
 }
 
-/** 端口已被占用时（上一次实例未关干净、或 npm run dev 在跑）提前报错，避免静默起不来。 */
+/** 端口已被占用时提前报错，避免静默起不来或连到别人的实例。 */
 function isPortInUse(port) {
   return new Promise((resolve) => {
     const socket = connect({ host: '127.0.0.1', port })
@@ -85,25 +98,159 @@ function killTree(child) {
   }
 }
 
+/** Edge/Chromium 异常退出会留下 profile 锁；清理后下次才能正常启动。 */
+function clearProfileLocks() {
+  for (const name of ['SingletonLock', 'SingletonCookie', 'SingletonSocket', 'lockfile']) {
+    rmSync(path.join(PROFILE, name), { force: true, recursive: true })
+  }
+}
+
+/** 通过 DevTools HTTP 端点找到本项目的页面目标。 */
+async function findDesktopTarget() {
+  try {
+    const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`, {
+      signal: AbortSignal.timeout(1_500),
+    })
+    if (!response.ok) return null
+    const targets = await response.json()
+    return targets.find((target) => target.type === 'page' && target.url.startsWith(WEB_URL)) || null
+  } catch {
+    return null
+  }
+}
+
+async function waitForDesktopTarget(timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const target = await findDesktopTarget()
+    if (target) return target
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  return null
+}
+
+/** 极简 CDP 调用（Node 22+ 自带 WebSocket），用于聚焦窗口与约束最小尺寸。 */
+async function cdpSend(webSocketUrl, method, params = {}) {
+  const ws = new WebSocket(webSocketUrl)
+  await new Promise((resolve, reject) => {
+    ws.addEventListener('open', resolve, { once: true })
+    ws.addEventListener('error', () => reject(new Error('CDP 连接失败')), { once: true })
+  })
+  try {
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`CDP ${method} 超时`)), 3_000)
+      ws.addEventListener('message', (event) => {
+        const message = JSON.parse(event.data)
+        if (message.id !== 1) return
+        clearTimeout(timer)
+        if (message.error) reject(new Error(message.error.message))
+        else resolve(message.result)
+      })
+      ws.send(JSON.stringify({ id: 1, method, params }))
+    })
+  } finally {
+    ws.close()
+  }
+}
+
+async function focusExisting(target) {
+  try {
+    await cdpSend(target.webSocketDebuggerUrl, 'Page.bringToFront')
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function enforceMinimumWindow(target) {
+  try {
+    const { windowId, bounds } = await cdpSend(target.webSocketDebuggerUrl, 'Browser.getWindowForTarget', {
+      targetId: target.id,
+    })
+    if (bounds.width >= MIN_WINDOW.width && bounds.height >= MIN_WINDOW.height) return
+
+    await cdpSend(target.webSocketDebuggerUrl, 'Browser.setWindowBounds', {
+      windowId,
+      bounds: {
+        width: Math.max(bounds.width, MIN_WINDOW.width),
+        height: Math.max(bounds.height, MIN_WINDOW.height),
+      },
+    })
+    log(`窗口尺寸 ${bounds.width}×${bounds.height} 小于下限，已抬到 ${MIN_WINDOW.width}×${MIN_WINDOW.height}。`)
+  } catch {
+    // 部分 Edge 版本不支持从页面会话设置窗口，启动尺寸仍由 --window-size 保证。
+  }
+}
+
+/** DATABASE_URL=file:... 时返回对应文件；非 SQLite 返回 null。 */
+function resolveDbPath() {
+  const url = process.env.DATABASE_URL
+  if (!url) return path.join(root, 'apps', 'api', 'prisma', 'dev.db')
+  if (!url.startsWith('file:')) return null
+  const raw = url.slice('file:'.length)
+  return path.isAbsolute(raw) ? raw : path.resolve(root, 'apps', 'api', 'prisma', raw)
+}
+
+function assertRuntimeAssets() {
+  const webDist = path.join(root, 'apps', 'web', 'dist', 'index.html')
+  const apiDist = path.join(root, 'apps', 'api', 'dist', 'apps', 'api', 'src', 'index.js')
+  if (!existsSync(webDist) || !existsSync(apiDist)) {
+    throw new Error(
+      `构建产物缺失：${!existsSync(webDist) ? webDist : apiDist}\n  请执行 npm run build（或 npm run desktop:build）。`,
+    )
+  }
+
+  const dbPath = resolveDbPath()
+  if (dbPath && !existsSync(dbPath)) {
+    throw new Error(
+      `数据库文件不存在：${dbPath}\n  请先执行 npm run db:deploy（开发期也可用 npm run db:migrate）初始化数据库。`,
+    )
+  }
+  if (!existsSync(path.join(root, 'apps', 'api', 'prisma', 'migrations'))) {
+    throw new Error('缺少 apps/api/prisma/migrations，无法确认数据库结构；请检查仓库是否完整。')
+  }
+}
+
 async function main() {
-  const distIndex = path.join(root, 'apps', 'web', 'dist', 'index.html')
-  if (args.has('--build') || !existsSync(distIndex)) {
+  if (args.has('--build')) {
     log('构建前端与后端产物…')
     await run('npm', ['run', 'build'])
   }
+  assertRuntimeAssets()
 
-  const edgePath = EDGE_CANDIDATES.find((candidate) => existsSync(candidate))
+  const edgePath = EDGE_CANDIDATES.find((candidate) => candidate && existsSync(candidate))
   if (!edgePath) {
     throw new Error('未找到 Microsoft Edge；请安装 Edge，或改用 npm run dev 在浏览器中打开。')
   }
 
-  for (const port of [3001, 4173]) {
+  // 单实例：调试端口上已有本项目的窗口 → 聚焦后直接退出。
+  const existing = await findDesktopTarget()
+  if (existing) {
+    if (await isPortInUse(WEB_PORT)) {
+      const focused = await focusExisting(existing)
+      log(`已有桌面实例在运行，${focused ? '已聚焦现有窗口' : '未能聚焦（请手动切换窗口）'}；本次不重复启动。`)
+      return
+    }
+    throw new Error(
+      `调试端口 ${DEBUG_PORT} 上有遗留的 MoneyBrain 窗口，但本地服务未运行。\n  请关闭该窗口后重试（或设置 MB_DESKTOP_DEBUG_PORT 使用其他端口）。`,
+    )
+  }
+
+  if (await isPortInUse(DEBUG_PORT)) {
+    throw new Error(
+      `调试端口 ${DEBUG_PORT} 已被其他程序占用（不是本项目窗口）。\n  请关闭占用程序，或设置 MB_DESKTOP_DEBUG_PORT 换一个端口。`,
+    )
+  }
+
+  for (const port of [API_PORT, WEB_PORT]) {
     if (await isPortInUse(port)) {
       throw new Error(
-        `端口 ${port} 已被占用：可能已有 MoneyBrain 桌面实例在运行（或 npm run dev 未关）。请先关闭后再启动。`,
+        `端口 ${port} 已被占用：可能已有 MoneyBrain 实例或 npm run dev 在运行。\n  请结束后重试（可用 Get-NetTCPConnection -LocalPort ${port} 查看占用进程）。`,
       )
     }
   }
+
+  clearProfileLocks()
 
   log('启动 API 与预览服务（npm run start）…')
   const server = spawn('npm', ['run', 'start'], {
@@ -114,10 +261,22 @@ async function main() {
   server.stdout.on('data', (chunk) => process.stdout.write(`[server] ${chunk}`))
   server.stderr.on('data', (chunk) => process.stderr.write(`[server] ${chunk}`))
 
-  const cleanup = () => killTree(server)
+  let app = null
+  let cleaned = false
+  const cleanup = () => {
+    if (cleaned) return
+    cleaned = true
+    killTree(app)
+    killTree(server)
+    clearProfileLocks()
+  }
   process.on('SIGINT', () => {
     cleanup()
     process.exit(130)
+  })
+  process.on('SIGTERM', () => {
+    cleanup()
+    process.exit(143)
   })
   process.on('exit', cleanup)
 
@@ -129,21 +288,17 @@ async function main() {
     throw error
   }
 
-  log(`打开桌面窗口 ${WINDOW}：${WEB_URL}`)
-  // 独立配置目录，避免污染用户日常 Edge；禁用首次运行引导，否则会多弹一个推广窗口。
-  const profile = path.join(process.env.TEMP || root, 'moneybrain-desktop-profile')
-  const app = spawn(
+  log(`打开桌面窗口 ${WINDOW.width}×${WINDOW.height}：${WEB_URL}`)
+  app = spawn(
     edgePath,
     [
       `--app=${WEB_URL}`,
-      `--window-size=${WINDOW}`,
-      `--user-data-dir=${profile}`,
+      `--window-size=${WINDOW.width},${WINDOW.height}`,
+      `--user-data-dir=${PROFILE}`,
+      `--remote-debugging-port=${DEBUG_PORT}`,
       '--no-first-run',
       '--no-default-browser-check',
       '--disable-features=msEdgeFirstRunExperience,Translate,msEdgeSidebarV2',
-      ...(process.env.MB_DESKTOP_DEBUG_PORT
-        ? [`--remote-debugging-port=${process.env.MB_DESKTOP_DEBUG_PORT}`]
-        : []),
     ],
     { stdio: 'ignore' },
   )
@@ -152,6 +307,10 @@ async function main() {
   app.on('exit', () => {
     exitedEarly = true
   })
+
+  const target = await waitForDesktopTarget()
+  if (target) await enforceMinimumWindow(target)
+
   await new Promise((resolve) => setTimeout(resolve, 3_000))
   if (exitedEarly) {
     // 交给已有 Edge 进程打开窗口时，启动进程会立刻退出，此时不能跟着停服务。
@@ -163,7 +322,7 @@ async function main() {
     return
   }
   await new Promise((resolve) => app.on('exit', resolve))
-  log('窗口已关闭，停止服务。')
+  log('窗口已关闭，停止服务并清理 profile 锁。')
   cleanup()
 }
 

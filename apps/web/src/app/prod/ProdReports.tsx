@@ -21,21 +21,28 @@ type ProdReportsProps = {
 
 type Range = { key: string; from: string; to: string; asOf: string }
 
-function monthRange(date: dayjs.Dayjs): Range {
+/** 区间末日落在未来时收敛到今天：报表时点不应写成未来日期。 */
+function clampEnd(end: dayjs.Dayjs, today: dayjs.Dayjs): dayjs.Dayjs {
+  return end.isAfter(today, 'day') ? today : end
+}
+
+function monthRange(date: dayjs.Dayjs, today: dayjs.Dayjs): Range {
+  const end = clampEnd(date.endOf('month'), today)
   return {
     key: date.format('YYYY-MM'),
     from: date.startOf('month').format('YYYY-MM-DD'),
-    to: date.endOf('month').format('YYYY-MM-DD'),
-    asOf: `截至 ${date.endOf('month').format('YYYY-MM-DD')}`,
+    to: end.format('YYYY-MM-DD'),
+    asOf: `截至 ${end.format('YYYY-MM-DD')}`,
   }
 }
 
-function yearRange(date: dayjs.Dayjs): Range {
+function yearRange(date: dayjs.Dayjs, today: dayjs.Dayjs): Range {
+  const end = clampEnd(date.endOf('year'), today)
   return {
     key: date.format('YYYY'),
     from: date.startOf('year').format('YYYY-MM-DD'),
-    to: date.endOf('year').format('YYYY-MM-DD'),
-    asOf: `截至 ${date.endOf('year').format('YYYY-MM-DD')}`,
+    to: end.format('YYYY-MM-DD'),
+    asOf: `截至 ${end.format('YYYY-MM-DD')}`,
   }
 }
 
@@ -47,9 +54,9 @@ export function ProdReports({ device, items, onRecord, onOpenTransactions }: Pro
   const ranges = useMemo(() => {
     const today = dayjs()
     return {
-      current: monthRange(today),
-      previous: monthRange(today.subtract(1, 'month')),
-      year: yearRange(today),
+      current: monthRange(today, today),
+      previous: monthRange(today.subtract(1, 'month'), today),
+      year: yearRange(today, today),
     }
   }, [])
 

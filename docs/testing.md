@@ -41,10 +41,10 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 领域 | 3 | 38 |
 | 同步 | 1 | 4 |
 | 后端 | 41 | 350 |
-| 前端 | 15 | 106 |
-| E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
+| 前端 | 25 | 166 |
+| E2E | 10 个 spec | example、onboarding、theme、responsive ×2、settings、hf-overview、hf-reports、prod-loop、prod-w1 |
 
-> 文件数为实际计数；用例数为静态 `test()/it()` 计数，不是 runner 实数——环境可跑测试后替换为实数。
+> 前端为 `npm run test:web` 实测（2026-11-05：25 文件 / 166 用例）；E2E 为 spec 文件数。
 
 ## 3.1 数据自检与恢复演练（不是单元测试）
 
