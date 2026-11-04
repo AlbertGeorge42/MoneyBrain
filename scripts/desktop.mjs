@@ -16,8 +16,9 @@
  *   - 退出时停止子进程、清理 profile 锁，并等待 3001 / 4173 / 调试端口释放。
  */
 import { spawn } from 'node:child_process'
-import { existsSync, rmSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { connect } from 'node:net'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -39,6 +40,10 @@ const EDGE_CANDIDATES = [
 
 const PROFILE =
   process.env.MB_DESKTOP_PROFILE || path.join(process.env.TEMP || root, 'moneybrain-desktop-profile')
+
+// 单实例互斥锁：目录按调试端口区分，允许用 MB_DESKTOP_DEBUG_PORT 并行开多个实例做测试。
+const LOCK_DIR = process.env.TEMP || os.tmpdir()
+const LOCK_FILE = process.env.MB_DESKTOP_LOCK || path.join(LOCK_DIR, `moneybrain-desktop-${DEBUG_PORT}.lock`)
 
 function log(message) {
   console.log(`[desktop] ${message}`)
@@ -89,6 +94,49 @@ function isPortInUse(port) {
     })
     socket.once('error', () => resolve(false))
   })
+}
+
+/** 进程是否仍存活（signal 0，跨平台）。 */
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return error.code === 'EPERM'
+  }
+}
+
+function readLockOwner() {
+  try {
+    return Number(readFileSync(LOCK_FILE, 'utf8').trim())
+  } catch {
+    return Number.NaN
+  }
+}
+
+/**
+ * 获取单实例锁。返回 false 表示已有另一个启动器持有锁（快速双击的第二次）；
+ * 持有者已退出的陈旧锁会被清掉后重试一次，避免崩溃后永久挡住启动。
+ */
+function acquireInstanceLock() {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const fd = openSync(LOCK_FILE, 'wx')
+      writeFileSync(fd, String(process.pid))
+      closeSync(fd)
+      return true
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error
+      if (isPidAlive(readLockOwner())) return false
+      rmSync(LOCK_FILE, { force: true })
+    }
+  }
+  return false
+}
+
+function releaseInstanceLock() {
+  if (readLockOwner() === process.pid) rmSync(LOCK_FILE, { force: true })
 }
 
 function killTree(child) {
@@ -228,6 +276,16 @@ async function countForeignPages() {
   }
 }
 
+/** 窗口交给已有 Edge 进程时，轮询调试端口判断窗口是否已关闭（连续 5 次找不到视为关闭）。 */
+async function waitForDesktopClosed() {
+  let misses = 0
+  while (true) {
+    if (await findDesktopTarget()) misses = 0
+    else if ((misses += 1) >= 5) return
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+  }
+}
+
 /** 关窗后等待端口释放，避免下一次启动被残留服务挡住。 */
 async function waitForPortsReleased(ports, timeoutMs = 8_000) {
   const deadline = Date.now() + timeoutMs
@@ -284,7 +342,7 @@ async function ensureRuntimeAssets() {
   }
 }
 
-async function main() {
+async function startDesktop() {
   if (args.has('--build')) {
     log('构建前端与后端产物…')
     await run('npm', ['run', 'build'])
@@ -402,12 +460,22 @@ async function main() {
 
   await new Promise((resolve) => setTimeout(resolve, 3_000))
   if (exitedEarly) {
-    // 交给已有 Edge 进程打开窗口时，启动进程会立刻退出，此时不能跟着停服务。
-    log('窗口已交由现有 Edge 进程打开；关闭窗口后按 Ctrl+C 结束本地服务。')
-    await new Promise((resolve) => {
-      process.on('SIGINT', resolve)
-    })
+    if (!target) {
+      cleanup()
+      throw new Error(
+        `Edge 启动进程提前退出，且调试端口 ${DEBUG_PORT} 上未出现 MoneyBrain 窗口。\n  可能是已有 Edge 实例占用了 profile；请关闭多余 Edge 进程后重试。`,
+      )
+    }
+    // 窗口受已有 Edge 进程托管，启动进程会立刻退出：不能跟着停服务，改为轮询窗口是否关闭。
+    log('窗口已交由现有 Edge 进程打开；关闭窗口后会自动停止本地服务（也可按 Ctrl+C 立即退出）。')
+    await waitForDesktopClosed()
+    log('窗口已关闭，停止服务并清理 profile 锁。')
     cleanup()
+    const handoffReleased = await waitForPortsReleased([API_PORT, WEB_PORT, DEBUG_PORT])
+    clearProfileLocks()
+    log(handoffReleased
+      ? `端口 ${API_PORT} / ${WEB_PORT} / ${DEBUG_PORT} 已释放。`
+      : '警告：仍有端口未释放，请检查残留进程。')
     return
   }
   await new Promise((resolve) => app.on('exit', resolve))
@@ -418,6 +486,28 @@ async function main() {
   log(released
     ? `端口 ${API_PORT} / ${WEB_PORT} / ${DEBUG_PORT} 已释放。`
     : '警告：仍有端口未释放，请检查残留进程。')
+}
+
+async function main() {
+  if (!acquireInstanceLock()) {
+    // 快速双击的第二次：已有窗口就聚焦后立即退出；否则明确报错，绝不挂在控制台等 Ctrl+C。
+    const existing = await waitForDesktopTarget(2_000)
+    if (existing) {
+      await enforceMinimumWindow(existing)
+      const focused = await focusExisting(existing)
+      log(`另一个启动器已在运行，${focused ? '已聚焦现有窗口' : '未能聚焦（请手动切换窗口）'}；本次退出。`)
+      return
+    }
+    throw new Error(
+      `另一个 MoneyBrain 启动器正在启动或运行（锁文件 ${LOCK_FILE}）。\n  请等它的窗口出现；若确认没有实例在运行，删除该锁文件后重试。`,
+    )
+  }
+  process.once('exit', releaseInstanceLock)
+  try {
+    await startDesktop()
+  } finally {
+    releaseInstanceLock()
+  }
 }
 
 main().catch((error) => {

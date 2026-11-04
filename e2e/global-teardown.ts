@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-const e2eDbDir = path.join(os.tmpdir(), 'moneybrain-e2e')
+// playwright.config.ts 按本次运行 PID 写入唯一目录；只删自己这一份，不碰并发的另一轮 e2e。
+const e2eDbDir = process.env.MB_E2E_DIR || path.join(os.tmpdir(), 'moneybrain-e2e')
 
 export default async function globalTeardown(): Promise<void> {
   // Playwright 在本钩子之后才停止 webServer；先按 e2e-api 记录的 PID 停掉 API 进程树，

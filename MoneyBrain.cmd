@@ -4,7 +4,16 @@ cd /d "%~dp0"
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo 需要 Node.js 20 或更高版本，请先安装后重试：https://nodejs.org/
+  echo 未找到 Node.js。请先安装 Node.js 20 或更高版本后重试：https://nodejs.org/
+  pause
+  exit /b 1
+)
+
+rem 版本门槛与 npm run desktop 的要求一致（>= 20）；用 parseInt 取主版本号比较。
+node -e "process.exit(parseInt(process.versions.node, 10) >= 20 ? 0 : 1)"
+if errorlevel 1 (
+  for /f "delims=" %%v in ('node --version 2^>nul') do echo 需要 Node.js 20 或更高版本，当前为 %%v。
+  echo 请升级 Node.js 后重试：https://nodejs.org/
   pause
   exit /b 1
 )
