@@ -202,6 +202,19 @@ if (type === 'transfer') toAmount = amount - fee
 五类交易的 `amount` 含义、期初余额语义、期间边界等**账务口径以 [requirements.md](requirements.md) §3 为唯一来源**。
 写代码时如果需要确认某个数字应该等于什么，去查 requirements，不要在这里找第二份定义。
 
+### 3.5 同步合并（F-B 起）
+
+- **合并只有一个实现**：`packages/sync` 的 `mergeRecord` / `mergeRecords`。service、repository、前端不得另写
+  「谁更新」的比较逻辑；比较先后一律用版本向量（`compareVersionVectors`），禁止用时间戳（决策 #25）。
+- **并发冲突两版都留存**：生效版本由合并函数的稳定全序选出，输的一版必须写进本地 `sync_conflicts`
+  （`recordConflict`），不能只在内存——整份覆盖导出会把它永久丢掉。冲突表**不进容器、不参与同步**。
+- **解决冲突只写一条新记录**：`rev` / `vv` 一律用 `resolutionStamp(left, right, deviceId)` 生成，
+  它同时支配两个旧版本；不要在解析界面里手工拼版本号。
+- **合并核心不认识实体类型**：引用完整性通过 `SYNC_REFERENCES` 注册表声明（新增实体只加一行），
+  引用了未到达或已墓碑的记录进入「待补全」——不入账、不参与余额与报表，不静默复活。
+- **合并是纯函数、顺序无关**：同一批记录任意顺序应用两次必须逐字段一致；判定逻辑改动先跑
+  `packages/sync/test-vectors/merge-vectors.json` 与 `npm run test:sync`。
+
 ## 4. 命名
 
 | 概念 | 统一用 | 禁止 |

@@ -1,0 +1,253 @@
+{
+  "version": 1,
+  "note": "记录级合并的固定向量：端无关，Node / WebView 共用同一份文件（F-B）。",
+  "cases": [
+    {
+      "name": "后继覆盖：vv 可比取后者",
+      "existing": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-1",
+          "rev": 2,
+          "vv": "{\"dev-a\":2}",
+          "deletedAt": null,
+          "data": { "amount": 100, "accountId": "acct-1" }
+        }
+      ],
+      "incoming": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-1",
+          "rev": 3,
+          "vv": "{\"dev-a\":3}",
+          "deletedAt": null,
+          "data": { "amount": 200, "accountId": "acct-1" }
+        }
+      ],
+      "expected": {
+        "records": [
+          {
+            "entityType": "transaction",
+            "entityId": "tx-1",
+            "rev": 3,
+            "vv": "{\"dev-a\":3}",
+            "deletedAt": null,
+            "data": { "amount": 200, "accountId": "acct-1" }
+          }
+        ],
+        "inserted": 0,
+        "replaced": 1,
+        "duplicates": 0,
+        "stale": 0,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "相同版本且内容相同：幂等丢弃",
+      "existing": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-2",
+          "rev": 2,
+          "vv": "{\"dev-a\":2}",
+          "deletedAt": null,
+          "data": { "amount": 100, "accountId": "acct-1" }
+        }
+      ],
+      "incoming": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-2",
+          "rev": 2,
+          "vv": "{\"dev-a\":2}",
+          "deletedAt": null,
+          "data": { "accountId": "acct-1", "amount": 100 }
+        }
+      ],
+      "expected": {
+        "records": [
+          {
+            "entityType": "transaction",
+            "entityId": "tx-2",
+            "rev": 2,
+            "vv": "{\"dev-a\":2}",
+            "deletedAt": null,
+            "data": { "amount": 100, "accountId": "acct-1" }
+          }
+        ],
+        "inserted": 0,
+        "replaced": 0,
+        "duplicates": 1,
+        "stale": 0,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "真并发：两版都留存，稳定选出生效版",
+      "existing": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-3",
+          "rev": 2,
+          "vv": "{\"dev-a\":2}",
+          "deletedAt": null,
+          "data": { "amount": 100, "accountId": "acct-1" }
+        }
+      ],
+      "incoming": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-3",
+          "rev": 1,
+          "vv": "{\"dev-b\":1}",
+          "deletedAt": null,
+          "data": { "amount": 200, "accountId": "acct-1" }
+        }
+      ],
+      "expected": {
+        "records": [
+          {
+            "entityType": "transaction",
+            "entityId": "tx-3",
+            "rev": 2,
+            "vv": "{\"dev-a\":2}",
+            "deletedAt": null,
+            "data": { "amount": 100, "accountId": "acct-1" }
+          }
+        ],
+        "inserted": 0,
+        "replaced": 0,
+        "duplicates": 0,
+        "stale": 0,
+        "conflicts": 1
+      }
+    },
+    {
+      "name": "墓碑覆盖：删除版本可比时取墓碑",
+      "existing": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-4",
+          "rev": 2,
+          "vv": "{\"dev-a\":2}",
+          "deletedAt": null,
+          "data": { "amount": 100, "accountId": "acct-1" }
+        }
+      ],
+      "incoming": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-4",
+          "rev": 3,
+          "vv": "{\"dev-a\":3}",
+          "deletedAt": "2026-11-04T00:00:00.000Z",
+          "data": { "amount": 100, "accountId": "acct-1" }
+        }
+      ],
+      "expected": {
+        "records": [
+          {
+            "entityType": "transaction",
+            "entityId": "tx-4",
+            "rev": 3,
+            "vv": "{\"dev-a\":3}",
+            "deletedAt": "2026-11-04T00:00:00.000Z",
+            "data": { "amount": 100, "accountId": "acct-1" }
+          }
+        ],
+        "inserted": 0,
+        "replaced": 1,
+        "duplicates": 0,
+        "stale": 0,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "旧版本到达：不覆盖已有后继",
+      "existing": [
+        {
+          "entityType": "account",
+          "entityId": "acct-1",
+          "rev": 3,
+          "vv": "{\"dev-a\":3}",
+          "deletedAt": null,
+          "data": { "name": "现金", "type": "asset" }
+        }
+      ],
+      "incoming": [
+        {
+          "entityType": "account",
+          "entityId": "acct-1",
+          "rev": 2,
+          "vv": "{\"dev-a\":2}",
+          "deletedAt": null,
+          "data": { "name": "旧名称", "type": "asset" }
+        }
+      ],
+      "expected": {
+        "records": [
+          {
+            "entityType": "account",
+            "entityId": "acct-1",
+            "rev": 3,
+            "vv": "{\"dev-a\":3}",
+            "deletedAt": null,
+            "data": { "name": "现金", "type": "asset" }
+          }
+        ],
+        "inserted": 0,
+        "replaced": 0,
+        "duplicates": 0,
+        "stale": 1,
+        "conflicts": 0
+      }
+    },
+    {
+      "name": "批量插入：结果按类型 + ID 排序",
+      "existing": [],
+      "incoming": [
+        {
+          "entityType": "transaction",
+          "entityId": "tx-5",
+          "rev": 1,
+          "vv": "{\"dev-a\":1}",
+          "deletedAt": null,
+          "data": { "amount": 100, "accountId": "acct-2" }
+        },
+        {
+          "entityType": "account",
+          "entityId": "acct-2",
+          "rev": 1,
+          "vv": "{\"dev-a\":1}",
+          "deletedAt": null,
+          "data": { "name": "现金", "type": "asset" }
+        }
+      ],
+      "expected": {
+        "records": [
+          {
+            "entityType": "account",
+            "entityId": "acct-2",
+            "rev": 1,
+            "vv": "{\"dev-a\":1}",
+            "deletedAt": null,
+            "data": { "name": "现金", "type": "asset" }
+          },
+          {
+            "entityType": "transaction",
+            "entityId": "tx-5",
+            "rev": 1,
+            "vv": "{\"dev-a\":1}",
+            "deletedAt": null,
+            "data": { "amount": 100, "accountId": "acct-2" }
+          }
+        ],
+        "inserted": 2,
+        "replaced": 0,
+        "duplicates": 0,
+        "stale": 0,
+        "conflicts": 0
+      }
+    }
+  ]
+}

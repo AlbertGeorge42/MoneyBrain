@@ -218,3 +218,20 @@ model InvestmentAllocationItem {
   @@unique([snapshotId, assetClassId])
   @@map("investment_allocation_items")
 }
+
+// 同步冲突本地表（F-B）：不可比的两个版本都留存。
+// **不进容器、不参与同步**——冲突在每台设备上独立检出；输的一版必须落库，
+// 否则下一次整份覆盖导出会把它永久丢掉（不变量 8「另一版本必须留存」）。
+model SyncConflict {
+  id         String    @id @default(uuid())
+  entityType String    @map("entity_type")
+  entityId   String    @map("entity_id")
+  versionA   String    @map("version_a") // 生效（保留）版本，整条记录 JSON
+  versionB   String    @map("version_b") // 输的一版，整条记录 JSON
+  detectedAt DateTime  @default(now()) @map("detected_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  @@index([entityType, entityId])
+  @@index([resolvedAt])
+  @@map("sync_conflicts")
+}
