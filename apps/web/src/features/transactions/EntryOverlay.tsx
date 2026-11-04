@@ -15,7 +15,7 @@ import { Check, ChevronDown, Plus } from 'lucide-react'
 import { CategoryGlyph } from '../../ui/CategoryGlyph'
 import { ACCOUNTS, CATEGORIES, PREVIEW_TODAY, findAccount, findCategory } from './mock'
 import { TYPE_OPTIONS } from './transaction-utils'
-import type { DeviceMode, Transaction, TxType } from './types'
+import type { Account, Category, DeviceMode, Transaction, TxType } from './types'
 
 type EntryFormValues = {
   type: TxType
@@ -32,8 +32,16 @@ type EntryFormValues = {
 type EntryOverlayProps = {
   open: boolean
   device: DeviceMode
+  accounts?: Account[]
+  categories?: Category[]
+  today?: string
+  /** 生产环境隐藏暂无 API 对应能力的类型（如退款需关联原交易）。 */
+  allowedTypes?: TxType[]
+  /** 预览壳沿用固定默认账户；生产不传，取真实账户首个。 */
+  defaultAccountId?: string
+  defaultToAccountId?: string
   onClose: () => void
-  onSaved: (tx: Transaction) => void
+  onSaved: (tx: Transaction) => void | Promise<void>
 }
 
 let entrySequence = 0
@@ -43,24 +51,36 @@ function nextTransactionId(): string {
   return `hf-entry-${entrySequence}`
 }
 
-function firstCategoryFor(type: TxType): string {
-  return CATEGORIES.find((category) => category.types.includes(type))?.id ?? 'food'
+function firstCategoryFor(categories: Category[], type: TxType): string {
+  return categories.find((category) => category.types.includes(type))?.id ?? categories[0]?.id ?? ''
 }
 
 const KEYPAD = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', '⌫'] as const
 
-export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayProps) {
+export function EntryOverlay({
+  open,
+  device,
+  accounts = ACCOUNTS,
+  categories = CATEGORIES,
+  today = PREVIEW_TODAY,
+  allowedTypes,
+  defaultAccountId,
+  defaultToAccountId,
+  onClose,
+  onSaved,
+}: EntryOverlayProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [savedCount, setSavedCount] = useState(0)
+  const [saving, setSaving] = useState(false)
 
   const form = useForm<EntryFormValues>({
     initialValues: {
       type: 'expense',
       amount: '',
-      categoryId: firstCategoryFor('expense'),
-      accountId: 'wx',
-      toAccountId: 'alipay',
-      date: PREVIEW_TODAY,
+      categoryId: firstCategoryFor(categories, 'expense'),
+      accountId: defaultAccountId ?? accounts[0]?.id ?? '',
+      toAccountId: defaultToAccountId ?? accounts[1]?.id ?? accounts[0]?.id ?? '',
+      date: today,
       note: '',
       fee: '',
       coupon: '',
@@ -77,20 +97,37 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
 
   useEffect(() => {
     if (open) {
+      form.setInitialValues(
+        {
+          type: 'expense',
+          amount: '',
+          categoryId: firstCategoryFor(categories, 'expense'),
+          accountId: defaultAccountId ?? accounts[0]?.id ?? '',
+          toAccountId: defaultToAccountId ?? accounts[1]?.id ?? accounts[0]?.id ?? '',
+          date: today,
+          note: '',
+          fee: '',
+          coupon: '',
+        },
+      )
       form.reset()
       setMoreOpen(false)
       setSavedCount(0)
+      setSaving(false)
     }
     // 只在浮层打开时重置，输入过程中不重置
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const categoryOptions = CATEGORIES.filter((category) => category.types.includes(form.values.type))
+  const typeOptions = TYPE_OPTIONS.filter(
+    (option) => option.value !== 'all' && (!allowedTypes || allowedTypes.includes(option.value as TxType)),
+  )
+  const categoryOptions = categories.filter((category) => category.types.includes(form.values.type))
 
   const selectType = (type: TxType) => {
     form.setFieldValue('type', type)
-    if (!CATEGORIES.some((category) => category.id === form.values.categoryId && category.types.includes(type))) {
-      form.setFieldValue('categoryId', firstCategoryFor(type))
+    if (!categories.some((category) => category.id === form.values.categoryId && category.types.includes(type))) {
+      form.setFieldValue('categoryId', firstCategoryFor(categories, type))
     }
   }
 
@@ -118,19 +155,21 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
     form.reset()
     setMoreOpen(false)
     setSavedCount(0)
+    setSaving(false)
     onClose()
   }
 
-  const commit = (closeAfter: boolean) => {
+  const commit = async (closeAfter: boolean) => {
+    if (saving) return
     const result = form.validate()
     if (result.hasErrors) return
 
     const values = form.values
-    const category = findCategory(CATEGORIES, values.categoryId)
-    const toAccount = findAccount(ACCOUNTS, values.toAccountId)
+    const category = findCategory(categories, values.categoryId)
+    const toAccount = findAccount(accounts, values.toAccountId)
     const signedAmount = values.type === 'income' || values.type === 'refund' ? Number(values.amount) : -Number(values.amount)
 
-    onSaved({
+    const tx: Transaction = {
       id: nextTransactionId(),
       type: values.type,
       amount: signedAmount,
@@ -138,11 +177,25 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
       subcategory: values.note.trim() || category?.name || '未命名',
       accountId: values.accountId,
       toAccountId: values.type === 'transfer' ? values.toAccountId : undefined,
-      date: values.date || PREVIEW_TODAY,
+      date: values.date || today,
       note: values.note.trim() || (values.type === 'transfer' ? `转入${toAccount?.name ?? '账户'}` : category?.name ?? ''),
       fee: values.fee.trim() ? Number(values.fee) : undefined,
       coupon: values.coupon.trim() ? Number(values.coupon) : undefined,
-    })
+    }
+
+    setSaving(true)
+    try {
+      await onSaved(tx)
+    } catch (error) {
+      notifications.show({
+        color: 'red',
+        message: error instanceof Error ? error.message : '保存失败，请重试',
+        autoClose: 4000,
+      })
+      return
+    } finally {
+      setSaving(false)
+    }
 
     if (closeAfter) {
       notifications.show({ message: '已记一笔', autoClose: 3000 })
@@ -172,7 +225,7 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
       )}
 
       <div className="hf-entry-types" role="group" aria-label="交易类型">
-        {TYPE_OPTIONS.filter((option) => option.value !== 'all').map((option) => (
+        {typeOptions.map((option) => (
           <UnstyledButton
             key={option.value}
             className="mb-chip hf-entry-type"
@@ -234,7 +287,7 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
           <>
             <div className="hf-entry-account-row">
               <span className="hf-entry-account-label">转出</span>
-              {ACCOUNTS.map((account) => (
+              {accounts.map((account) => (
                 <UnstyledButton
                   key={account.id}
                   className="mb-chip hf-account-chip"
@@ -248,7 +301,7 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
             </div>
             <div className="hf-entry-account-row">
               <span className="hf-entry-account-label">转入</span>
-              {ACCOUNTS.filter((account) => account.id !== form.values.accountId).map((account) => (
+              {accounts.filter((account) => account.id !== form.values.accountId).map((account) => (
                 <UnstyledButton
                   key={account.id}
                   className="mb-chip hf-account-chip"
@@ -263,7 +316,7 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
           </>
         ) : (
           <div className="hf-entry-account-row">
-            {ACCOUNTS.map((account) => (
+            {accounts.map((account) => (
               <UnstyledButton
                 key={account.id}
                 className="mb-chip hf-account-chip"
@@ -310,7 +363,7 @@ export function EntryOverlay({ open, device, onClose, onSaved }: EntryOverlayPro
             label="日期"
             valueFormat="YYYY-MM-DD"
             value={form.values.date}
-            onChange={(value) => form.setFieldValue('date', value ?? PREVIEW_TODAY)}
+            onChange={(value) => form.setFieldValue('date', value ?? today)}
           />
           <TextInput
             label="备注"

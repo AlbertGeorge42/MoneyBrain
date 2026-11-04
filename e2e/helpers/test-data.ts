@@ -110,3 +110,31 @@ export async function clearAllTestData(): Promise<void> {
     // 忽略清理错误
   }
 }
+
+/**
+ * 只清空交易，保留账户与分类：用于冷启动闭环，失败必须暴露。
+ */
+export async function clearTestTransactions(): Promise<void> {
+  const response = await fetch(`${API_BASE}/data/transactions`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: 'clear-transactions' }),
+  })
+  if (!response.ok) {
+    throw new Error(`清理交易失败：${response.status}`)
+  }
+}
+
+export async function listTestAccounts(): Promise<Array<{ id: string; name: string }>> {
+  const response = await fetch(`${API_BASE}/accounts`)
+  if (!response.ok) throw new Error(`读取账户失败：${response.status}`)
+  const result = await response.json()
+  return result.data ?? []
+}
+
+export async function listTestTransactionCategories(): Promise<Array<{ id: string; name: string; type: string }>> {
+  const response = await fetch(`${API_BASE}/transaction-categories`)
+  if (!response.ok) throw new Error(`读取分类失败：${response.status}`)
+  const result = await response.json()
+  return result.data ?? []
+}

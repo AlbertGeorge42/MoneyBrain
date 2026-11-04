@@ -11,6 +11,7 @@ import { ReportsEmptyState, ReportsLoadingState } from './ReportsStates'
 import {
   REPORT_PERIODS,
   type ReportGranularity,
+  type ReportPeriod,
   type ReportRow,
   type ReportView,
 } from './reports-mock'
@@ -21,6 +22,11 @@ type ReportsScreenProps = {
   scheme: ColorScheme
   dataState: DataState
   items: Transaction[]
+  periods?: Record<ReportGranularity, ReportPeriod[]>
+  /** 生产可用视图；未接入的视图不显示入口。 */
+  views?: ReportView[]
+  /** 生产数据：文案不再标注「预览示例」。 */
+  production?: boolean
   onRecord: () => void
   onRetry: () => void
   onOpenTransactions: (filters: Partial<TransactionFilters>) => void
@@ -45,6 +51,9 @@ export function ReportsScreen({
   scheme,
   dataState,
   items,
+  periods: periodData = REPORT_PERIODS,
+  views: availableViews,
+  production = false,
   onRecord,
   onRetry,
   onOpenTransactions,
@@ -57,8 +66,12 @@ export function ReportsScreen({
   const [sort, setSort] = useState<ReportSort | null>(null)
   const [detail, setDetail] = useState<DetailState | null>(null)
 
-  const viewTabs = VIEWS
-  const periods = REPORT_PERIODS[granularity]
+  const viewTabs = availableViews
+    ? VIEWS.filter((item) => availableViews.includes(item.id))
+    : VIEWS
+  const periods = periodData[granularity].length > 0
+    ? periodData[granularity]
+    : REPORT_PERIODS[granularity]
   const period = periods[Math.min(periodIndex, periods.length - 1)]
   const viewData = period.views[view]
   const tables = viewData.tables
@@ -87,7 +100,7 @@ export function ReportsScreen({
 
   const switchGranularity = (next: ReportGranularity) => {
     setGranularity(next)
-    setPeriodIndex(REPORT_PERIODS[next].length - 1)
+    setPeriodIndex(periodData[next].length - 1)
     setDetail(null)
     setMobileTable(0)
     setSort(null)
@@ -123,7 +136,9 @@ export function ReportsScreen({
     <header className="hf-page-header">
       <div>
         <h1 className="mb-title-5">报表</h1>
-        <p className="mb-text-1">{period.asOf} · 预览示例数据 · 相关流水取自当前账本</p>
+        <p className="mb-text-1">
+          {period.asOf} · {production ? '数据取自当前账本' : '预览示例数据 · 相关流水取自当前账本'}
+        </p>
       </div>
     </header>
   ) : null
@@ -207,7 +222,8 @@ export function ReportsScreen({
 
   const tableNote = (
     <p className="mb-text-0 rep-table-note">
-      合计口径：父项金额为子项之和；折叠不改变合计；占比相对本表合计。报表金额为预览示例。
+      合计口径：父项金额为子项之和；折叠不改变合计；占比相对本表合计。
+      {production ? '' : '报表金额为预览示例。'}
     </p>
   )
 

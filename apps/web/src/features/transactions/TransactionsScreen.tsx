@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Drawer, Modal } from '@mantine/core'
 import { useHotkeys } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
 import { Trash2 } from 'lucide-react'
 import { ACCOUNTS, CATEGORIES, PREVIEW_TODAY } from './mock'
 import { TransactionDetail } from './TransactionDetail'
 import { TransactionList } from './TransactionList'
 import { AdvancedFilterFields, ConditionChips, TransactionsToolbar } from './TransactionsToolbar'
 import { ColdStartState, ErrorState, NoResultState, TransactionLoadingState } from './TransactionStates'
-import { showUndoToast } from './undo-toast'
 import {
   filterTransactions,
   formatAmount,
@@ -18,8 +16,11 @@ import {
 } from './transaction-utils'
 import {
   EMPTY_FILTERS,
+  type Account,
+  type Category,
   type DataState,
   type DeviceMode,
+  type LedgerActions,
   type Transaction,
   type TransactionFilters,
   type TransactionFocus,
@@ -30,8 +31,12 @@ type TransactionsScreenProps = {
   dataState: DataState
   batchMode: boolean
   items: Transaction[]
-  setItems: Dispatch<SetStateAction<Transaction[]>>
-  /** 报表下钻携带的一次性筛选；新的 key 到达时覆盖当前筛选。 */
+  accounts?: Account[]
+  categories?: Category[]
+  today?: string
+  periodLabel?: string
+  actions: LedgerActions
+  /** 报表下钻携带的一次性筛选；按 key 应用，避免重复覆盖用户后续修改。 */
   focus?: TransactionFocus | null
   onEntryOpen: () => void
   onBatchModeChange: (value: boolean) => void
@@ -43,7 +48,11 @@ export function TransactionsScreen({
   dataState,
   batchMode,
   items,
-  setItems,
+  accounts = ACCOUNTS,
+  categories = CATEGORIES,
+  today = PREVIEW_TODAY,
+  periodLabel = '2026 年 11 月',
+  actions,
   focus,
   onEntryOpen,
   onBatchModeChange,
@@ -72,8 +81,8 @@ export function TransactionsScreen({
   }, [focus])
 
   const filtered = useMemo(
-    () => filterTransactions(items, filters, ACCOUNTS, CATEGORIES),
-    [items, filters],
+    () => filterTransactions(items, filters, accounts, categories),
+    [items, filters, accounts, categories],
   )
   const summary = summarize(filtered)
   const detailTx = items.find((tx) => tx.id === detailId)
@@ -101,43 +110,20 @@ export function TransactionsScreen({
   }
 
   const removeOne = (id: string) => {
-    const index = items.findIndex((tx) => tx.id === id)
-    if (index < 0) return
-    const removed = items[index]
-    setItems((current) => current.filter((tx) => tx.id !== id))
+    actions.remove([id])
     setDetailId(null)
-    showUndoToast(`tx-delete-${id}`, '已删除这笔', () => {
-      setItems((current) => {
-        const next = [...current]
-        next.splice(Math.min(index, next.length), 0, removed)
-        return next
-      })
-    })
   }
 
   const removeBatch = () => {
-    const removed = items
-      .map((tx, index) => ({ tx, index }))
-      .filter(({ tx }) => selectedIds.has(tx.id))
-    if (removed.length === 0) return
-    setItems((current) => current.filter((tx) => !selectedIds.has(tx.id)))
+    if (selectedIds.size === 0) return
+    actions.remove([...selectedIds])
     setBatchConfirmOpen(false)
     setSelectedIds(new Set())
     onBatchModeChange(false)
-    showUndoToast('tx-delete-batch', `已删除 ${removed.length} 笔`, () => {
-      setItems((current) => {
-        const next = [...current]
-        for (const entry of removed) {
-          next.splice(Math.min(entry.index, next.length), 0, entry.tx)
-        }
-        return next
-      })
-    })
   }
 
   const updateTransaction = (next: Transaction) => {
-    setItems((current) => current.map((tx) => (tx.id === next.id ? next : tx)))
-    notifications.show({ message: '已保存修改', autoClose: 2600 })
+    actions.update(next)
   }
 
   const body = (
@@ -146,12 +132,12 @@ export function TransactionsScreen({
         <header className="hf-page-header">
           <div>
             <h1 className="mb-title-5">流水</h1>
-            <p className="mb-text-1">2026 年 11 月 · 共 {filtered.length} 笔</p>
+            <p className="mb-text-1">{periodLabel} · 共 {filtered.length} 笔</p>
           </div>
         </header>
       ) : (
         <div className="tx-mobile-summary">
-          <span className="mb-text-1">2026 年 11 月</span>
+          <span className="mb-text-1">{periodLabel}</span>
           <span className="mb-text-0">共 {filtered.length} 笔</span>
         </div>
       )}
@@ -159,8 +145,8 @@ export function TransactionsScreen({
       <TransactionsToolbar
         device={device}
         filters={filters}
-        accounts={ACCOUNTS}
-        categories={CATEGORIES}
+        accounts={accounts}
+        categories={categories}
         searchInputRef={searchRef}
         advancedOpen={advancedOpen}
         batchMode={batchMode}
@@ -172,8 +158,8 @@ export function TransactionsScreen({
 
       <ConditionChips
         filters={filters}
-        accounts={ACCOUNTS}
-        categories={CATEGORIES}
+        accounts={accounts}
+        categories={categories}
         onChange={changeFilters}
         onReset={resetFilters}
       />
@@ -196,11 +182,11 @@ export function TransactionsScreen({
         <TransactionList
           device={device}
           items={filtered}
-          accounts={ACCOUNTS}
-          categories={CATEGORIES}
+          accounts={accounts}
+          categories={categories}
           batchMode={batchMode}
           selectedIds={selectedIds}
-          today={PREVIEW_TODAY}
+          today={today}
           onToggleSelect={toggleSelect}
           onOpen={setDetailId}
         />
@@ -240,8 +226,8 @@ export function TransactionsScreen({
         >
           <AdvancedFilterFields
             filters={filters}
-            accounts={ACCOUNTS}
-            categories={CATEGORIES}
+            accounts={accounts}
+            categories={categories}
             onChange={changeFilters}
             onReset={resetFilters}
           />
@@ -283,7 +269,8 @@ export function TransactionsScreen({
         open={Boolean(detailTx)}
         device={device}
         tx={detailTx}
-        accounts={ACCOUNTS}
+        accounts={accounts}
+        categories={categories}
         onClose={() => setDetailId(null)}
         onSave={updateTransaction}
         onDelete={removeOne}

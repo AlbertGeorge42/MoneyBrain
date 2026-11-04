@@ -11,7 +11,6 @@ import {
 import { DatePickerInput } from '@mantine/dates'
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import { CategoryGlyph } from '../../ui/CategoryGlyph'
-import { CATEGORIES } from './mock'
 import {
   TYPE_LABELS,
   accountName,
@@ -21,13 +20,14 @@ import {
   formatUnsigned,
   txTone,
 } from './transaction-utils'
-import type { Account, DeviceMode, Transaction } from './types'
+import type { Account, Category, DeviceMode, Transaction } from './types'
 
 type TransactionDetailProps = {
   open: boolean
   device: DeviceMode
   tx: Transaction | undefined
   accounts: Account[]
+  categories: Category[]
   onClose: () => void
   onSave: (tx: Transaction) => void
   onDelete: (id: string) => void
@@ -49,7 +49,7 @@ function draftFrom(tx: Transaction): EditDraft {
     amount: String(Math.abs(tx.amount)),
     categoryId: tx.categoryId,
     accountId: tx.accountId,
-    toAccountId: tx.toAccountId ?? 'alipay',
+    toAccountId: tx.toAccountId ?? '',
     date: tx.date,
     note: tx.note,
     fee: tx.fee === undefined ? '' : String(tx.fee),
@@ -57,7 +57,7 @@ function draftFrom(tx: Transaction): EditDraft {
   }
 }
 
-export function TransactionDetail({ open, device, tx, accounts, onClose, onSave, onDelete }: TransactionDetailProps) {
+export function TransactionDetail({ open, device, tx, accounts, categories, onClose, onSave, onDelete }: TransactionDetailProps) {
   const [editing, setEditing] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [draft, setDraft] = useState<EditDraft | null>(null)
@@ -78,11 +78,11 @@ export function TransactionDetail({ open, device, tx, accounts, onClose, onSave,
     )
   }
 
-  const category = CATEGORIES.find((item) => item.id === tx.categoryId)
+  const category = categories.find((item) => item.id === tx.categoryId)
   const account = accounts.find((item) => item.id === tx.accountId)
   const toAccount = accounts.find((item) => item.id === tx.toAccountId)
   const tone = txTone(tx)
-  const editCategories = CATEGORIES.filter((item) => item.types.includes(tx.type))
+  const editCategories = categories.filter((item) => item.types.includes(tx.type))
 
   const patchDraft = (patch: Partial<EditDraft>) => {
     setDraft((current) => (current ? { ...current, ...patch } : current))
@@ -103,7 +103,7 @@ export function TransactionDetail({ open, device, tx, accounts, onClose, onSave,
             ? amount
             : -amount
           : -amount
-    const nextCategory = CATEGORIES.find((item) => item.id === draft.categoryId)
+    const nextCategory = categories.find((item) => item.id === draft.categoryId)
     onSave({
       ...tx,
       amount: signed,

@@ -65,6 +65,12 @@ export interface TransactionFilters {
   to: string | null
 }
 
+/** 页面只描述「要改什么」，本地 mock 与 API 写入由壳层各自实现。 */
+export interface LedgerActions {
+  update: (tx: Transaction) => void
+  remove: (ids: string[]) => void
+}
+
 /** 从报表下钻到流水时携带的一次性筛选请求。 */
 export type TransactionFocus = {
   key: number

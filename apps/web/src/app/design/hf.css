@@ -9,6 +9,24 @@
   background: var(--mb-color-surface-sunken);
 }
 
+/* 生产壳：铺满视口，复用预览壳的导航与版式 */
+.hf-prod-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--mb-color-surface-sunken);
+}
+
+.hf-prod-root > .hf-shell-pc {
+  flex: 1;
+  min-height: 100vh;
+}
+
+.hf-prod-root > .hf-shell-mobile {
+  flex: 1;
+  height: 100vh;
+}
+
 .hf-preview-bar {
   display: flex;
   flex-wrap: wrap;

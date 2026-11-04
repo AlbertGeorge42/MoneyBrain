@@ -1,21 +1,25 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { Button, UnstyledButton } from '@mantine/core'
-import { Hammer, Plus } from 'lucide-react'
+import { Button } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { Hammer } from 'lucide-react'
 import type { ColorScheme } from '../../styles/theme/tokens'
 import { EntryOverlay } from '../../features/transactions/EntryOverlay'
 import { TransactionsScreen } from '../../features/transactions/TransactionsScreen'
 import { MONTH_SUMMARY } from '../../features/transactions/mock'
-import { formatAmount, summarize } from '../../features/transactions/transaction-utils'
+import { showUndoToast } from '../../features/transactions/undo-toast'
+import { summarize } from '../../features/transactions/transaction-utils'
 import type {
   DataState,
   DeviceMode,
+  LedgerActions,
   Transaction,
   TransactionFilters,
   TransactionFocus,
 } from '../../features/transactions/types'
 import { OverviewScreen } from '../../features/overview/OverviewScreen'
 import { ReportsScreen } from '../../features/reports/ReportsScreen'
-import { NAV_ITEMS, navLabel, type NavPage } from './navigation'
+import { navLabel, type NavPage } from './navigation'
+import { ShellFrame } from './ShellFrame'
 
 type HfShellProps = {
   device: DeviceMode
@@ -38,15 +42,6 @@ type HfShellProps = {
   onRetry: () => void
 }
 
-function Brand() {
-  return (
-    <div className="hf-brand">
-      <span className="hf-brand-mark mb-num" aria-hidden>MB</span>
-      <span className="hf-brand-name">MoneyBrain</span>
-    </div>
-  )
-}
-
 type ContentProps = {
   device: DeviceMode
   scheme: ColorScheme
@@ -55,7 +50,7 @@ type ContentProps = {
   batchMode: boolean
   items: Transaction[]
   freshLedger: boolean
-  setItems: Dispatch<SetStateAction<Transaction[]>>
+  actions: LedgerActions
   transactionFocus: TransactionFocus | null
   onEntryOpen: () => void
   onBatchModeChange: (value: boolean) => void
@@ -72,7 +67,7 @@ function PageContent({
   batchMode,
   items,
   freshLedger,
-  setItems,
+  actions,
   transactionFocus,
   onEntryOpen,
   onBatchModeChange,
@@ -88,7 +83,7 @@ function PageContent({
         dataState={dataState}
         items={items}
         freshLedger={freshLedger}
-        setItems={setItems}
+        actions={actions}
         onRecord={onEntryOpen}
         onRetry={onRetry}
         onOpenTransactions={() => onPageChange('transactions')}
@@ -103,7 +98,7 @@ function PageContent({
         dataState={dataState}
         batchMode={batchMode}
         items={items}
-        setItems={setItems}
+        actions={actions}
         focus={transactionFocus}
         onEntryOpen={onEntryOpen}
         onBatchModeChange={onBatchModeChange}
@@ -119,6 +114,7 @@ function PageContent({
         scheme={scheme}
         dataState={dataState}
         items={items}
+        production={false}
         onRecord={onEntryOpen}
         onRetry={onRetry}
         onOpenTransactions={onOpenTransactions}
@@ -156,21 +152,31 @@ export function HfShell({
   onBatchModeChange,
   onRetry,
 }: HfShellProps) {
-  const contentProps: ContentProps = {
-    device,
-    scheme,
-    page,
-    dataState,
-    batchMode,
-    items,
-    freshLedger,
-    setItems,
-    transactionFocus,
-    onEntryOpen,
-    onBatchModeChange,
-    onRetry,
-    onPageChange,
-    onOpenTransactions,
+  const actions: LedgerActions = {
+    update: (next) => {
+      setItems((current) => current.map((tx) => (tx.id === next.id ? next : tx)))
+      notifications.show({ message: '已保存修改', autoClose: 2600 })
+    },
+    remove: (ids) => {
+      const removed = items
+        .map((tx, index) => ({ tx, index }))
+        .filter(({ tx }) => ids.includes(tx.id))
+      if (removed.length === 0) return
+      setItems((current) => current.filter((tx) => !ids.includes(tx.id)))
+      showUndoToast(
+        `tx-delete-${ids[0]}-${ids.length}`,
+        ids.length > 1 ? `已删除 ${ids.length} 笔` : '已删除这笔',
+        () => {
+          setItems((current) => {
+            const next = [...current]
+            for (const entry of removed) {
+              next.splice(Math.min(entry.index, next.length), 0, entry.tx)
+            }
+            return next
+          })
+        },
+      )
+    },
   }
 
   // 空账本时侧栏跟随页面一起归零，不残留 mock 汇总
@@ -181,91 +187,44 @@ export function HfShell({
       ? `已记 ${summary.count} 笔`
       : `连续 ${MONTH_SUMMARY.streakDays} 天有记录`
 
-  const shell = device === 'mobile' ? (
-    <div className="hf-shell-mobile">
-      <header className="hf-mobile-header">
-        <Brand />
-        <span className="hf-mobile-page-title mb-title-3">{navLabel(page)}</span>
-      </header>
-      <div className="hf-mobile-body">
-        <PageContent {...contentProps} />
-      </div>
-      <nav className="hf-bottom-nav" aria-label="底部导航">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon
-          const active = item.page === page
-          return (
-            <UnstyledButton
-              key={item.page}
-              className="hf-bottom-nav-item"
-              data-active={active}
-              aria-current={active ? 'page' : undefined}
-              onClick={() => onPageChange(item.page)}
-            >
-              <Icon aria-hidden />
-              <span>{item.label}</span>
-            </UnstyledButton>
-          )
-        })}
-      </nav>
-      {!batchMode && (
-        <UnstyledButton className="hf-fab" aria-label="记一笔" onClick={onRecord}>
-          <Plus aria-hidden />
-        </UnstyledButton>
-      )}
-    </div>
-  ) : (
-    <div className="hf-shell-pc">
-      <aside className="hf-sidebar">
-        <Brand />
-        <nav className="hf-nav" aria-label="主导航">
-          {NAV_ITEMS.map((item, index) => {
-            const Icon = item.icon
-            const active = item.page === page
-            return (
-              <UnstyledButton
-                key={item.page}
-                className="hf-nav-item"
-                data-active={active}
-                aria-current={active ? 'page' : undefined}
-                onClick={() => onPageChange(item.page)}
-              >
-                <Icon className="hf-nav-icon" aria-hidden />
-                <span>{item.label}</span>
-                <kbd className="hf-kbd">{index + 1}</kbd>
-              </UnstyledButton>
-            )
-          })}
-        </nav>
-        <div className="hf-sidebar-foot">
-          <div className="hf-sidebar-status">
-            <span className="mb-text-0">本月收支</span>
-            <span className="hf-sidebar-amount mb-num" data-tone="expense">{formatAmount(-summary.expense)}</span>
-            <span className="mb-text-0">{ledgerNote}</span>
-          </div>
-          <Button
-            className="hf-record-btn mb-accent-btn"
-            fullWidth
-            leftSection={<Plus aria-hidden />}
-            rightSection={<kbd className="hf-kbd hf-kbd--onfill">N</kbd>}
-            onClick={onRecord}
-          >
-            记一笔
-          </Button>
-        </div>
-      </aside>
-      <main className="hf-main">
-        <div className="hf-content">
-          <PageContent {...contentProps} />
-        </div>
-      </main>
-    </div>
-  )
+  const contentProps: ContentProps = {
+    device,
+    scheme,
+    page,
+    dataState,
+    batchMode,
+    items,
+    freshLedger,
+    actions,
+    transactionFocus,
+    onEntryOpen,
+    onBatchModeChange,
+    onRetry,
+    onPageChange,
+    onOpenTransactions,
+  }
 
   return (
-    <>
-      {shell}
-      <EntryOverlay open={entryOpen} device={device} onClose={onEntryClose} onSaved={onEntrySaved} />
-    </>
+    <ShellFrame
+      device={device}
+      page={page}
+      ledgerExpense={summary.expense}
+      ledgerNote={ledgerNote}
+      batchMode={batchMode}
+      onPageChange={onPageChange}
+      onRecord={onRecord}
+      overlay={(
+        <EntryOverlay
+          open={entryOpen}
+          device={device}
+          defaultAccountId="wx"
+          defaultToAccountId="alipay"
+          onClose={onEntryClose}
+          onSaved={onEntrySaved}
+        />
+      )}
+    >
+      <PageContent {...contentProps} />
+    </ShellFrame>
   )
 }
