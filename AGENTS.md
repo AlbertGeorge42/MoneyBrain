@@ -14,22 +14,9 @@ MoneyBrain 采用「单人 + AI 会话」方式开发。本文件是每次会话
 
 1. **领一条**：从 [docs/blueprint/PROGRESS.md](docs/blueprint/PROGRESS.md) 的「待领」按顺序领**一条**差距条目，登记到「进行中」。一次只做一条。
 2. **读上下文**：该条目所在阶段文档 + 蓝图 [目标架构](docs/blueprint/architecture.md) 对应小节 + 相关决策（[principles.md](docs/blueprint/principles.md) 决策记录）。
-3. **实现**：提交粒度 = 一件事（含它带来的连带精简，见蓝图入口 §2）。
-4. **自检**：按条目「验收」栏验证，必须用**具体命令**（grep / ESLint 规则 / `npm run db:verify` / 测试），不是「看起来改好了」。把验证命令与结果写进提交说明。
-5. **销条目**：更新 PROGRESS.md（状态表加行、从阶段文档差距清单删行、移出「进行中」）。
-6. **顺手清理**本次改动产生的无用代码（[dev-guide.md](docs/dev-guide.md) §5.1）。
-
-## 验证命令基线
-
-| 目的 | 命令 |
-|---|---|
-| 全量测试 | `npm test`（分域：`test:domain` / `test:api` / `test:web`） |
-| Lint | `npm run lint` |
-| 类型检查 | `npm run typecheck` |
-| 数据自检（不变量交叉比对） | `npm run db:verify` |
-| 备份恢复演练 | `npm run db:drill` |
-| E2E | `npm run test:e2e` |
-| 条目专项 | 用条目「验收」栏写明的 grep 模式 / ESLint 规则 / `EXPLAIN QUERY PLAN` 等 |
+3. **实现 + 自检**：提交粒度 = 一件事（含连带精简，见蓝图入口 §2）；按条目「验收」栏用**具体命令**验证（grep / ESLint / 测试，基线命令见 [dev-guide.md](docs/dev-guide.md) §9.1），不是「看起来改好了」。验证命令与结果写进提交说明。
+4. **销条目**：更新 PROGRESS.md（状态表加行、从阶段文档差距清单删行、移出「进行中」）。
+5. **顺手清理**本次改动产生的无用代码（[dev-guide.md](docs/dev-guide.md) §5.1）。
 
 ## 硬规则
 
