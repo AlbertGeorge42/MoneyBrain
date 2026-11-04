@@ -150,13 +150,9 @@ PostCSS 构建期解析」失去对象，**不执行**。
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
 | U4（延后·并入 Mantine 实现） | 间距有 3 个来源（`token.padding*`、`var(--mb-space-*)`、裸数字）；字号有 4 套来源（CSS 变量 / `clamp()` / 裸 px / TSX 字面量 9 档）；`FloatingActionButton` 整个组件是内联 `style={{}}`，含 `bottom: 88`、`zIndex: 1000` 等硬编码 | 确立**间距与字号单一来源**：CSS 变量为唯一权威，TSX 一律引用变量；内联样式归零 | 全树无内联 `fontSize`/`margin`/`padding`/`gap` 裸数字 |
-| U5（取消） | 死 CSS **22 个类**（实测逐个 grep 确认零引用）：`transaction-list-item*` 系列（7）、`tx-row`/`tx-amount*`/`tx-actions*` 系列（8）、`income-expense-*`（3）、`report-detail-row__name--expandable`、`report-summary-stack`、`settings-count-badge`、`tx-item-row--static`、`filter-tags`。其中 `report-detail-row__name--expandable` 与在用的 `--clickable` 是**同一套样式的重复实现** | 删除；删除前逐个 grep 确认零引用 | 死类归零；样式文件行数下降且无回归 |
+| U5、U8–U11（已取消） | 旧页面的视觉收口：22 个死 CSS 类、加载/空态不统一、卡片/图标/过渡各写各的、暗色图表档位、移动导航 active——切换新实现后不存在对象 | 不执行 | 关闭（明细见 2026-11-04 版 git 历史） |
 | U6（延后·并入 Mantine 实现） | 触控目标尺寸在 38 / 40 / 44 / 56px 之间不一致；底部安全区只处理了一半（FAB 硬编码 88px 未叠加 `safe-area`） | 触控目标统一 ≥44×44（移动端）；安全区用 `env(safe-area-inset-*)` 统一处理 | 真机上无重叠、无误触；FAB 不遮挡 tab bar |
 | U7（延后·并入 Mantine 实现） | 键盘可达性几乎为零：`aria-label` 全项目仅 8 处（分布在 5 个文件）；`:focus-visible` 仅 3 处 | 自定义可交互元素全部可聚焦、有可见焦点、有可读名称 | 纯键盘走完主流程无「焦点丢失」；无障碍检查零严重项；自定义可交互元素有可访问名称与角色；装饰图标 `aria-hidden`；关闭浮层后焦点回到触发元素 |
-| U8（取消） | 加载态两套表达（图表用裸文本「加载中...」，列表用 Skeleton）；空状态 13 处混用默认插画与简化插画；`Alert` 用 `title` 与 `message` 两种 prop | 统一：**图表/列表/表单一律 Skeleton**；空状态统一插画与引导文案规范；`Alert` 统一用 `message` | 全树加载态只有一种表达；空状态视觉一致 |
-| U9（取消） | 视觉一致性：14 个 `<Card>` 未用统一的 `surface-card`；图标双库（AntD 25 文件 / lucide 3 文件）导致同类操作（如展开箭头）视觉不同；`transition: all` 4 处 | 卡片样式由组件层保证而非靠人记；图标库统一为一套；过渡只对颜色/阴影/边框生效 | 同类元素视觉一致 |
-| U10（取消） | 暗色模式图表调色板取 AntD 6 档（浅色档），暗背景上对比度未校验；财务色在暗色下混用 4 档与 6 档 | 暗色模式使用**专门的高对比色板**（暗背景上 ≥4.5:1），并统一档位 | 暗色模式下图表与数字对比度达标（用对比度工具验证） |
-| U11（取消） | 移动端底部导航只有文字变色，无 active 指示器；`:hover` 规则在触屏永远不触发 | active 项有独立指示（顶部指示条或图标容器填充态）；区分 `@media (hover: hover)` | 底部导航 active 状态一眼可辨 |
 | U12（换时机·U13.5 后） | 无设计规范文档，token 变量无说明；设计决策只存在于代码里 | 建立 `docs/design-system.md`：token 清单与选用规则、间距/字号阶梯、组件规范、可访问性要求（「可访问性」节写明可访问名称/角色、装饰图标 `aria-hidden`、浮层关闭焦点回归；只写要求不写实现） | 新增组件照文档能做出与现有组件一致的界面 |
 
 ##### U13 · 组件库迁移（父条目，跨 UX5b 前后）
@@ -180,9 +176,9 @@ PostCSS 构建期解析」失去对象，**不执行**。
 | 子条目 | 现状 → 目标 | 验收（含计数） | 依赖 | 工时 A / B |
 |---|---|---|---|---|
 | U13.1 主题骨架 | AntD 算法派生颜色、`data-theme` 手写、`message`/`notification` 直调 → `tokens.ts` + `ThemeRoot` + `useMantineColorScheme` + Mantine notifications；删 `config.ts` / `chart-tokens.ts` / `financial-tokens.ts` / `mode.ts` | antd **65 → 61**（拆 2 theme + `main.tsx` + `useNotify.ts`）；`--ant-*` 0；`--mantine-*` 外泄 0；`typecheck:web` / `lint:web` / `test:web` 全过；theme.spec 浅/暗 body 断言；已注册主题覆盖 40 × 2 scheme；build 记录 gzip | UX5a 确认 + U1b；**不依赖 D4 / UX5b** | 5–7（A，含扩展预留约 2 人日）/ 0 |
-| U13.2 自建原语 | `ui/` 为空；时间控件 350+866 行、报表树/列逻辑混在页面 → 12 项原语（见下） | **12/12 有测试**；`rg "from 'antd'" apps/web/src/ui` 0；每项有消费者或登记待接入；antd **61 → 61** | U13.1 + **UX5b 确认**；不依赖 D4 | 19–25（A 13–16 / B 7–10） |
+| U13.2 自建原语 | `ui/` 为空；时间控件 350+866 行、报表树/列逻辑混在页面 → 12 项原语（见下） | **12/12 有测试**；`rg "from 'antd'" apps/web/src/ui` 0；每项有消费者或登记待接入；antd **61 → 61**；映射表见 [mantine-mapping](ux/mantine-mapping.md) | U13.1 + **UX5b 确认**；不依赖 D4 | 19–25（A 13–16 / B 7–10） |
 | U13.3 P1 五屏 | 35 个 antd 业务文件 + `Settings.tsx` → Mantine + `ui/`；旧时间控件/报表树删除；撤销移出查询层 | antd **61 → 26**（拆 35）；`--ant-*` 0；页面 <200 行；五屏双端对照 W1/W2/W5/W6/W7；`test:web` + 双 project；错误边界按不变量 12 验收 | U13.1 + U13.2 + **D4** + 该页 UX5b 已确认（按页进入） | 17–21（A 45% / B 55%） |
-| U13.4 P2 其余 | 投资 6、配置弹窗 11、公共组件 8、布局 2；图标 31 文件 → lucide；删 `TimePickerField`/`TimePickerMobile`/`TRANSACTION_TAG_PRESETS` | antd **26 → 0**；图标文件 **31 → 0**；`rg "@ant-design/icons"` 0；`test:web` + `test:e2e`；错误边界按不变量 12 验收 | U13.3 | 10–14（A 25% / B 75%） |
+| U13.4 P2 其余 | 投资 6、配置弹窗 11、公共组件 8、布局 2；图标 31 文件 → lucide；删 `TimePickerField`/`TimePickerMobile`/`TRANSACTION_TAG_PRESETS` | antd **26 → 0**；图标文件 **31 → 0**；`rg "@ant-design/icons"` 0；图标映射见 [mantine-mapping](ux/mantine-mapping.md)；`test:web` + `test:e2e`；错误边界按不变量 12 验收 | U13.3 | 10–14（A 25% / B 75%） |
 | U13.5 P3 收口 | 双库并存、依赖仍在 → 卸载 `antd` / `@ant-design/icons`；守卫终态；文档切换 Mantine 单源 | `rg -n "antd\|@ant-design" apps/web/src apps/web/package.json` 0；`npm ls antd` 空；`npm test` 全过；build 对比 gzip | U13.4 + 双端走查 | 5–7（A 40% / B 60%） |
 
 **U13.1 接入清单**
@@ -252,89 +248,9 @@ U13.5 后 AntD 已卸载，只能整体回退。
 **验收命令（特有项）**：antd 计数、图标计数、`rg -n "var\(--ant-"`、`rg -n "--mantine-"`
 （`--glob '!styles/theme/**'`）、`npm run build -w @moneybrain/web`（记录 gzip）。
 
-###### 附录 A · 41 个组件符号
+###### 附录 · 映射表已移出
 
-**通用约定**：主按钮 `variant="filled"`、次按钮 `variant="default"`（移动 44 / PC 36）；
-业务组件禁止读 `theme.colors` 猜语义，只读 `theme.other` 与 `--mb-*`；自建落法统一走 `ui/`。
-
-**组件（41 个，括号内为用量）**：`Button(29)→Button/ActionIcon`、`Card(19)→Paper + ui/SurfaceCard`、
-`Empty(16)→自建 EmptyState`、`Tag(14)→Badge + ui/TypeBadge`、`Typography(13)→Text/Title`、
-`Form(13)→useForm`、`Modal(13)→Modal + ui/ResponsiveOverlay`、`Space(10)→Group/Stack`、
-`Input(9)→TextInput/Textarea`、`Skeleton(8)→Skeleton + ui/LoadingBlock`、`Grid(8)→SimpleGrid`、
-`Statistic(6)→自建 Metric/KpiCard`、`Alert(6)→Alert`、`Segmented(6)→Segmented`、
-`TreeSelect(5)→自建 TreeSelect`、`Table(5)→Table/自建 DataTable`、
-`InputNumber(5)→NumberInput + ui/CurrencyInput`、`DatePicker(5)→DatePickerInput/自建 TimePanel`、
-`Tabs(4)→Tabs`、`App(4)→删除（useNotify 接 notifications）`、`Divider(4)→Divider`、
-`Select(3)→Select/Combobox`、`Dropdown(3)→Menu`、`Switch(3)→Switch`、`Tooltip(3)→Tooltip`、
-`Progress(3)→Progress/RingProgress`、`Spin(3)→Loader`、`Radio(2)→Radio.Group`、
-`Result(2)→自建 ResultState`、`Row(2)→SimpleGrid`、`Col(2)→SimpleGrid`、`Popover(2)→Popover`、
-`Drawer(2)→Drawer + ui/Sheet`、`Checkbox(2)→Checkbox`、`Layout(1)→删除（CSS grid + Paper + NavLink）`、
-`Collapse(1)→Collapse/Accordion`、`Menu(1)→NavLink`、`ConfigProvider(1)→MantineProvider`、
-`Popconfirm(1)→自建 ConfirmDialog`、`List(1)→List/Stack`、`Upload(1)→dropzone + ui/UploadBox`。
-
-**`theme` API（35 文件）**：删除 `theme.useToken()`；间距/圆角读 `theme.other` 或 CSS 变量，
-颜色读 `theme.other.financial / chart / cover`。
-
-**6 个类型名**：`MenuProps→Mantine MenuProps`、`FormInstance→UseFormReturn`、
-`TreeSelectProps→自建 TreeSelectProps`、`ThemeConfig→MantineThemeOverride`、
-`InputRef→React.ComponentRef<typeof TextInput>`、`TabsProps→Mantine TabsProps`。
-
-###### 附录 B · 39 个图标（35 个 1:1 + 4 个语义重选）
-
-**1:1 直换（35 个 / 85 处）**：
-
-- `SettingOutlined→Settings`、`PlusOutlined→Plus`、`RightOutlined→ChevronRight`、
-  `DeleteOutlined→Trash2`、`EditOutlined→Pencil`、`LeftOutlined→ChevronLeft`、
-  `TransactionOutlined→ReceiptText`、`ExclamationCircleOutlined→CircleAlert`、
-  `DashboardOutlined→LayoutDashboard`、`ArrowUpOutlined→ArrowUp`、`HistoryOutlined→History`、
-  `RollbackOutlined→Undo2`
-- `BarChartOutlined→ChartColumn`、`ControlOutlined→SlidersHorizontal`、`SwapOutlined→ArrowLeftRight`、
-  `ArrowDownOutlined→ArrowDown`、`WalletOutlined→Wallet`、`DownOutlined→ChevronDown`、
-  `ArrowLeftOutlined→ArrowLeft`、`CalendarOutlined→CalendarDays`、`DesktopOutlined→Monitor`、
-  `SunOutlined→Sun`、`MoonOutlined→Moon`、`AccountBookOutlined→BookOpen`
-- `MinusOutlined→Minus`、`CreditCardOutlined→CreditCard`、`InboxOutlined→Inbox`、
-  `UnorderedListOutlined→List`、`DownloadOutlined→Download`、`FolderAddOutlined→FolderPlus`、
-  `HolderOutlined→GripVertical`、`CheckCircleOutlined→CircleCheck`、`BankOutlined→Landmark`、
-  `FileTextOutlined→FileText`、`FundOutlined→ChartLine`
-
-**语义重选（4 个，不按字形硬套）**：`ExportOutlined→MoveRight`（「移动到…」）；
-`RedoOutlined→RotateCcw`（「还原」）；`RestOutlined→ArchiveRestore`（回收站）；
-`AppstoreOutlined→CloudAlert`（云同步目录警告）。
-
-###### 附录 C · Mantine 色阶（10 级）
-
-浅色 `colors.gray`：
-
-| 索引 | 值 | 角色 |
-|---|---|---|
-| 0 | `#FCFAF4` | 面板 |
-| 1 | `#F5F2EA` | 页面底 |
-| 2 | `#EDE9DE` | 下沉 / hover 底 |
-| 3 | `#E2DCCC` | 分隔线 |
-| 4 | `#C9C2AC` | 强边框 |
-| 5 | `#646B5C` | 辅助文字 |
-| 6 | `#59614F` | 次级文字 |
-| 7 | `#20261F` | 主文字 |
-| 8 | `#171B15` | 深中性 |
-| 9 | `#0F1411` | 最深 |
-
-暗色 `colors.dark`：
-
-| 索引 | 值 | 角色 |
-|---|---|---|
-| 0 | `#EDE9DB` | 主文字 |
-| 1 | `#C3CBBE` | 中性浅色 |
-| 2 | `#A9B0A0` | 次级文字 |
-| 3 | `#8D9585` | 辅助文字 |
-| 4 | `#39443A` | 强边框 |
-| 5 | `#27302A` | 分隔线 / hover 底 |
-| 6 | `#161D17` | 面板 |
-| 7 | `#0F1411` | 页面底（body 固定取此档） |
-| 8 | `#0C100D` | 更深中性 |
-| 9 | `#080B09` | 最深 |
-
-品牌 `colors.brand`：`#E1EDE2 / #C7E3D4 / #9ADCB9 / #7CC9A2 / #4EA57F / #2F7C5C / #1D5C43 /
-#17503A / #0F3D2C / #0A2E21`；`primaryColor: 'brand'`，`primaryShade: { light: 6, dark: 3 }`。
+组件符号 / 类型名、图标、色阶三张映射表见 [mantine-mapping.md](ux/mantine-mapping.md)（仅 U13 执行时查阅，不是迁移计划）。
 
 **切换时 token 重规范（口径，不是执行清单）**：
 
