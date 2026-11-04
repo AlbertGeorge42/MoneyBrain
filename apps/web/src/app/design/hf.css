@@ -2450,13 +2450,34 @@
   height: var(--mb-ov-chart-h-m);
 }
 
+.rep-table-scroll {
+  min-width: 0;
+}
+
+.rep-table-scroll-hint {
+  padding: 0 var(--mb-s-3) var(--mb-s-2);
+  color: var(--mb-color-text-tertiary);
+}
+
 /* 投资持仓 5 列，窄屏给足列宽并允许表内横向滚动，避免金额被省略号截断 */
-.rep-page[data-device='mobile'] .rep-table-card--investment {
+.rep-page[data-device='mobile'] .rep-table-scroll--investment {
   overflow-x: auto;
 }
 
-.rep-page[data-device='mobile'] .rep-table-card--investment .rep-table {
+.rep-page[data-device='mobile'] .rep-table-scroll--investment .rep-table {
   min-width: 38rem;
+}
+
+/* 首列在横向滚动时固定在左侧，持仓名始终可见 */
+.rep-page[data-device='mobile'] .rep-table-scroll--investment .rep-table th:first-child,
+.rep-page[data-device='mobile'] .rep-table-scroll--investment .rep-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--mb-color-surface-raised);
+  box-shadow:
+    inset 0 -1px 0 var(--mb-color-border),
+    inset -1px 0 0 var(--mb-color-border);
 }
 
 /* 底部留白避开全局「+」FAB，避免最后一行被遮住 */
