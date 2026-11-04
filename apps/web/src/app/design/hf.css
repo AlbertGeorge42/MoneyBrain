@@ -2010,6 +2010,11 @@
   font-size: var(--mb-fs-1);
 }
 
+/* 表内金额 13px <18.66px，不使用 expense-display */
+.rep-table [data-tone='expense'] {
+  color: var(--mb-color-expense);
+}
+
 .rep-spacer-row,
 .rep-spacer-row td {
   height: var(--mb-tbl-row-h);
