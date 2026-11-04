@@ -70,6 +70,8 @@ function backOverlay(){
 function closeOverlay(){
   S.overlay=null; S.ovArg=null; S.ovStack=[];
   S.cfgMenu=null;
+  S.budOne=null;
+  S.budConfirm=null;
   renderOverlay();
 }
 function renderOverlay(){
@@ -233,13 +235,23 @@ function applyBatchCat(cat){
 /* ================= W7 · 预算条目与超支处理 ================= */
 /* M4：预算条目按 id 定位（不再按分类），条目 = 名称 + 类型 + 金额 + 周期 + 分类 + 账户 */
 function openBudget(id){ openOverlay('budget',{id}); }
+/* 第十七轮：统一「调整所有预算条目」入口移除 —— 金额调整只在单一预算条目详情内做。
+   理由：全局调整表把「改哪一条」和「改多少」拆成两步，且三类预算（支出/收入/转账）
+   的语义差异在批量表里看不出来；条目内调整能就地给出该类条的用量/超支反馈。 */
+function budFeedbackText(b){
+  const diff=b.amount-b.used;
+  if(diff===0) return b.type==='income'?'已达成目标':'额度刚好用完';
+  if(b.type==='expense') return b.over?`已超支 ¥${fmt(-diff)}`:`未超支，剩余 ¥${fmt(diff)}`;
+  if(b.type==='income') return b.over?`已达成目标（超出 ¥${fmt(-diff)}）`:`距目标还差 ¥${fmt(diff)}`;
+  return b.over?`流转量超出监控阈值 ¥${fmt(-diff)}`:`阈值内，剩余 ¥${fmt(diff)}`;
+}
 function budgetOverlay(arg){
-  if(arg.mode==='edit') return budgetEditForm();
   if(arg.mode==='new') return budgetNewForm();
   const b=budgetRows().find(x=>x.id===arg.id);
   if(!b) return `<div class="state-wrap"><h2>没有该预算条目</h2></div>`;
-  const over=b.over;
+  const over=b.type==='expense'&&b.over;
   const [from,to]=budgetRange(b,NOW_T());
+  const draft=S.budOne&&S.budOne.id===b.id?S.budOne.v:b.amount;
   return `
     <div class="drill-head"><span>${b.name}</span><span class="amt num">${fmt(b.used)} / ${fmt(b.amount)}</span></div>
     <div class="track" style="margin:12px 0"><div class="fill" style="width:${Math.min(100,b.pct)}%"></div></div>
@@ -258,9 +270,16 @@ function budgetOverlay(arg){
       <button class="btn primary" onclick="budFix('${b.id}','actual')">按实际调整金额（→ ¥${fmt(b.used)}）</button>
       <button class="btn" onclick="budFix('${b.id}','keep')">维持金额 ¥${fmt(b.amount)}</button>
       <button class="btn ghost" onclick="gotoCat('${b.cat}')">查看该分类流水</button>
-    </div>`:`
-    <div class="hint" style="margin-bottom:12px">未超支，剩余 ¥${fmt(b.amount-b.used)}。</div>
-    <div class="d-presets"><button onclick="swapOverlay('budget',{mode:'edit'})">调整所有预算条目</button></div>`}
+    </div>`:''}
+    <div class="d-sec">调整该条目额度</div>
+    <div class="field"><label>预算金额</label>
+      <div class="bud-amt-row">
+        <input value="${draft}" inputmode="decimal" aria-label="该条目的预算金额"
+          oninput="S.budOne={id:'${b.id}',v:this.value}">
+        <button class="btn bud-save" onclick="saveBudgetOne('${b.id}')">保存</button>
+      </div>
+    </div>
+    <div class="hint">${budFeedbackText(b)}</div>
     <div class="d-sec">该分类流水</div>
     ${TXNS.filter(t=>t.type===b.type&&catHit(t.cat,b.cat)).map(t=>`<div class="drill-list"><div class="row"><span>${catName(t.type,t.cat)}${t.note?' · '+t.note:''}</span><span class="v">${t.type==='income'||t.type==='refund'?'+':'−'}${fmt(t.amt)}</span></div></div>`).join('')}
     <div style="margin-top:12px">
@@ -278,22 +297,19 @@ function delBudget(id){
   closeOverlay();
   toast(`已删除预算条目「${rm.name}」`,'撤销',()=>{ BUDGETS.splice(i,0,rm); render(); });
 }
-/* 调整所有条目金额：按 id 存草稿 */
-function budgetEditForm(){
-  const rows=budgetRows();
-  return `
-    <div class="bud-edit" style="font-size:var(--mb-fs-0);color:var(--mb-ink-3)">
-      <span>预算条目</span><span>已用</span><span>金额</span>
-    </div>
-    ${rows.map(b=>`<div class="bud-edit">
-      <span>${b.name}<span class="tag">${budgetPeriodName(b.period)}</span></span>
-      <span class="used">${fmt(b.used)}</span>
-      <input value="${b.amount}" onchange="S.budDraft={...S.budDraft,'${b.id}':this.value}">
-    </div>`).join('')}
-    <div class="entry-actions" style="padding-left:0;padding-right:0;margin-top:12px">
-      <button class="btn ghost" onclick="closeOverlay()">取消</button>
-      <button class="btn primary" onclick="saveBudgets()">保存</button>
-    </div>`;
+/* 第十七轮：条目内调整额度 —— 保存后详情面板保持打开，用量/超支反馈随新额度即时重算 */
+function saveBudgetOne(id){
+  const b=BUDGETS.find(x=>x.id===id);
+  if(!b) return;
+  const raw=S.budOne&&S.budOne.id===id?S.budOne.v:'';
+  const v=parseFloat(raw);
+  if(!v||v<=0){ toast('先填预算金额','提示'); return; }
+  const before=b.amount;
+  b.amount=v;
+  S.budOne=null;
+  render();
+  renderOverlay();
+  toast(`「${b.name}」额度已调整为 ¥${fmt(v)}`,'撤销',()=>{ b.amount=before; render(); renderOverlay(); });
 }
 /* 新增预算条目：名称 + 类型 + 金额 + 周期 + 分类 + 账户 */
 function budgetNewForm(){
@@ -316,15 +332,6 @@ function budgetNewForm(){
       <button class="btn ghost" onclick="closeOverlay()">取消</button>
       <button class="btn primary" onclick="saveBudgetNew()">新增</button>
     </div>`;
-}
-function saveBudgets(){
-  const d=S.budDraft||{};
-  const before=BUDGETS.map(b=>b.amount);
-  BUDGETS.forEach(b=>{ if(d[b.id]!=null&&d[b.id]!=='') b.amount=parseFloat(d[b.id]); });
-  S.budDraft=null;
-  closeOverlay();
-  render();
-  toast('预算金额已更新','撤销',()=>{ BUDGETS.forEach((b,i)=>b.amount=before[i]); render(); });
 }
 function saveBudgetNew(){
   const d=S.budDraft||{};
@@ -511,7 +518,7 @@ function catCfgOverlay(){
     </span>`:'';
     const head=`<div class="set-item" ${depth?`style="padding-left:${depth*18}px"`:''}>
       ${kids.length?`<button class="fold ${S.folded.has(foldKey)?'closed':''}" onclick="toggleFold('${foldKey}')" aria-expanded="${!S.folded.has(foldKey)}" aria-label="${S.folded.has(foldKey)?'展开':'折叠'}子分类">${S.folded.has(foldKey)?I.foldRight:I.foldDown}</button>`:''}
-      <span class="drag-handle" title="拖动排序（线框占位；真实实现为同层级拖拽，落地阶段实现）">⠿</span>
+      <span class="drag-handle" title="拖动排序">⠿</span>
       <span class="cat-ico">${catGlyph(c[1])}</span>
       <span class="meta"><span class="t">${c[1]}</span><span class="s">${txN} 笔交易${kids.length?` · ${kids.length} 个子分类`:''}</span></span>
       <span class="row-more-wrap">
@@ -524,7 +531,7 @@ function catCfgOverlay(){
   };
   const rows=arr.filter(c=>!c[2]).map(c=>renderRow(c,0)).join('');
   return `${typeTabs}${rows||empty}
-  <div class="tbl-note">移动 = 改上级分类（子树整体跟随，层级可加深）；删除有子分类的分类会被拒绝；有交易的分类删除时转移交易。排序在真实实现为同层级拖拽，线框以 ⠿ 占位。</div>`;
+  <div class="tbl-note">移动 = 改上级分类（子树整体跟随，层级可加深）；删除有子分类的分类会被拒绝；有交易的分类删除时转移交易。</div>`;
 }
 /* ================= 账户分类管理（第十三轮：对齐真实 AccountConfigModal.tsx） =================
    真实实现：标题「账户分类管理」+ 2 Tab（资产分类 / 负债分类）；每 Tab = 两级树
@@ -553,7 +560,7 @@ function acctCfgOverlay(){
     </span>`:'';
     const head=`<div class="set-item">
       <button class="fold ${S.folded.has(foldKey)?'closed':''}" onclick="toggleFold('${foldKey}')" aria-expanded="${!S.folded.has(foldKey)}" aria-label="${S.folded.has(foldKey)?'展开':'折叠'}账户">${S.folded.has(foldKey)?I.foldRight:I.foldDown}</button>
-      <span class="drag-handle" title="拖动排序（线框占位；真实实现为同类型分类拖拽，落地阶段实现）">⠿</span>
+      <span class="drag-handle" title="拖动排序">⠿</span>
       <span class="acct-ico">${glyph(c.name)}</span>
       <span class="meta"><span class="t">${c.name}</span><span class="s">${list.length} 个账户</span></span>
       <span class="row-more-wrap">
@@ -571,7 +578,7 @@ function acctCfgOverlay(){
         <button class="row-mi" ${refN?'disabled':''} title="${refN?`有 ${refN} 笔交易引用，删除前先处理这些交易`:confirming?'再点一次确认删除':'账户删除需二次确认'}" ${confirming?'warn':''} onclick="delAcc('${a.id}')">${confirming?'确认删除':'删除'}</button>
       </span>`:'';
       return `<div class="set-item set-item-sub">
-        <span class="drag-handle" title="拖动排序（线框占位；真实实现为同分类内账户拖拽，落地阶段实现）">⠿</span>
+        <span class="drag-handle" title="拖动排序">⠿</span>
         <span class="acct-ico">${glyph(a.name)}</span>
         <span class="meta"><span class="t">${a.name}</span><span class="s">余额 ¥${fmt(a.bal)}${refN?` · ${refN} 笔交易`:''}</span></span>
         <span class="row-more-wrap">
@@ -655,7 +662,7 @@ function cfCfgOverlay(){
           <button class="row-mi" onclick="openOverlay('movecf',{kind:'asset',id:'${c.id}'})">移动到…</button>
         </span>`:'';
         return `<div class="set-item set-item-sub">
-        <span class="drag-handle" title="拖动排序（线框占位；真实实现此表无排序，占位仅保持行模板统一）">⠿</span>
+        <span class="drag-handle" title="拖动排序">⠿</span>
         <span class="acct-ico">${glyph(c.name)}</span>
         <span class="meta"><span class="t">${c.name}</span><span class="s">账户分类 · ${n} 个账户</span></span>
         <span class="row-more-wrap">
@@ -680,7 +687,7 @@ function cfCfgOverlay(){
         <button class="row-mi" onclick="openOverlay('movecf',{kind:'cat',id:'${c[0]}',type:'${tab}'})">移动到…</button>
       </span>`:'';
       return `<div class="set-item set-item-sub">
-      <span class="drag-handle" title="拖动排序（线框占位；真实实现此表无排序，占位仅保持行模板统一）">⠿</span>
+      <span class="drag-handle" title="拖动排序">⠿</span>
       <span class="cat-ico">${catGlyph(c[1])}</span>
       <span class="meta"><span class="t">${c[1]}</span><span class="s">${txN} 笔交易${kids?` · ${kids} 个子分类`:''}</span></span>
       <span class="row-more-wrap">
@@ -769,7 +776,7 @@ function catEditOverlay(arg){
   const editing=arg.id?arr.find(c=>c[0]===arg.id):null;
   const d=S.catDraft||{};
   /* 现金流属性编辑入口唯一化：本浮层只管名称 / 层级 / 删除转移，
-     属性在「现金流量表设置」（现金流报表「设置」）里改。 */
+     属性在「现金流量表设置」（现金流量表右端 ⚙「设置」）里改。 */
   /* 新增表单（arg.parent = 从一级行 ⋯「新增子分类」进入时预选上级） */
   if(!editing){
     const parents=arr.filter(c=>!c[2]);
@@ -912,7 +919,7 @@ function invTargetOverlay(arg){
         <button class="row-mi" ${held?'disabled':''} title="${held?'快照中有该类持仓，先清零再删除':'删除资产类别'}" onclick="delInvClass('${r.id}')">删除</button>
       </span>`:'';
       return `<div class="set-item">
-        <span class="drag-handle" title="拖动排序（线框占位；真实拖拽落地阶段实现）">⠿</span>
+        <span class="drag-handle" title="拖动排序">⠿</span>
         <span class="meta"><span class="t">${r.name}</span>
           <span class="s">当前 ${(r.curRatio*100).toFixed(1)}% · 目标 ${(r.target*100).toFixed(0)}% · 再平衡 ¥${fmt(r.rebalance)}</span></span>
         <span class="row-more-wrap">

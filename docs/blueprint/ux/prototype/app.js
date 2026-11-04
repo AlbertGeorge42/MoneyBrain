@@ -162,7 +162,7 @@ const S = {
   periodPop:false, timeGran:'month', timeDraft:null,
   folded:new Set(), notesOpen:false,
   txPage:1, txPageSize:8, batchMore:false,
-  txEdit:null, accDraft:null, budDraft:null, importStep:1, importFile:null, importMode:'merge',
+  txEdit:null, accDraft:null, budDraft:null, budOne:null, importStep:1, importFile:null, importMode:'merge',
   invDraft:null, invTargetDraft:null,
   repViews:['balance','flow','cash','invest'],
   txDensity:'normal',                       /* O6：列表密度（紧凑 / 标准），记忆在 localStorage；入口在设置 › 列表显示 */
@@ -618,7 +618,7 @@ function viewDash(device){
     <button class="acct-entry" onclick="go('settings')">账户与余额 · ${ACC.length} 个账户 · 现金等价 ¥${fmt(liq)} <span class="set-chev">›</span></button>
     <div class="card card-pad">
       <h3 style="margin-bottom:8px">净资产走势</h3>
-      <div class="fig" style="height:150px"><div class="t">近 12 个月（占位）</div><div class="s">线框级不画真实图表 · 高保真阶段替换为真实曲线</div></div>
+      <div class="fig" style="height:150px"><div class="t">近 12 个月（占位）</div><div class="anno">ℹ 线框级不画真实图表，UX5b 替换为真实曲线</div></div>
     </div>
     <div class="card card-pad">
       <h3 style="margin-bottom:8px">预算进度</h3>
@@ -661,7 +661,7 @@ function viewDash(device){
   </div>
   <div class="card card-pad">
     <div class="sec-head"><h3>净资产走势</h3><span class="sec-sub">近 12 个月 · 占位</span></div>
-    <div class="fig" style="height:200px"><div class="t">净资产趋势（占位）</div><div class="s">线框级不画真实图表 · 高保真阶段替换为真实曲线</div></div>
+    <div class="fig" style="height:200px"><div class="t">净资产趋势（占位）</div><div class="anno">ℹ 线框级不画真实图表，UX5b 替换为真实曲线</div></div>
   </div>
   </div>`);
 }
@@ -702,7 +702,7 @@ function viewTxns(device){
     return withState(`
     <div class="m-head"><h1>流水</h1><div class="m-head-acts">
       <button class="btn btn-sm" onclick="openFilter()">高级筛选</button>
-      <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度（与 PC ⚙ 显示同一面板）">显示</button>
+      <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度">显示</button>
       <button class="btn btn-sm ${S.batch?'on':''}" onclick="toggleBatch()">${S.batch?'退出批量':'批量'}</button>
     </div></div>
     <div class="m-search">${I.search}<input placeholder="搜索备注、账户、分类…" value="${S.search}" oninput="onSearch(this.value)"></div>
@@ -721,7 +721,7 @@ function viewTxns(device){
     </div>
     <button class="btn btn-sm" onclick="toggleFilter()">⌄ 高级筛选${activeFilterCount()?` <span class="filter-count">${activeFilterCount()}</span>`:''}</button>
     <button class="btn btn-sm ${S.batch?'on':''}" onclick="toggleBatch()">${S.batch?'退出批量':'☑ 批量'}</button>
-    <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度（原地打开，设置页同名分区为权威入口）">⚙ 显示</button>
+    <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度">⚙ 显示</button>
   </div>
   ${S.filterOpen?filterPanelPc():''}
   <div id="activeFilterBarPc">${activeFilterBar()}</div>
@@ -776,10 +776,11 @@ function filterPanelM(){
 }
 
 /* ================= 视图 · 报表 ================= */
-const REP_TABS=[['balance','资产负债'],['flow','收支'],['cash','现金流'],['invest','投资']];
+/* 报表名称统一（第十七轮）：四张表用正式全称，不再用「资产负债 / 收支 / 现金流 / 投资」简写。
+   全应用（tab / 卡片标题 / 图表标题 / 文档引用）以此为准。 */
+const REP_TABS=[['balance','资产负债表'],['flow','收支明细表'],['cash','现金流量表'],['invest','投资分析表']];
 /* O5：报表视图可自定义（隐藏不用的 tab）。默认全开；至少保留一个视图。 */
 const repViews=()=>S.repViews&&S.repViews.length?S.repViews:REP_TABS.map(r=>r[0]);
-const repTabLabel=k=>(REP_TABS.find(r=>r[0]===k)||[k,k])[1];
 /* Q7 已拍板：报表不保留「一句话结论」。PC 指标条与移动端结论块都不再渲染，
    结论改由「指标 + 表格 + 表尾合计」自己读出来。 */
 /* S9：所选期间晚于最后一个有数据的月份时，该期间是「预测」而不是「实际」。
@@ -896,7 +897,7 @@ function tbGranSeg(){
   return `<div class="tb-gran" role="group" aria-label="粒度">${GRAN_SHORT.map(([k,l])=>
     `<button class="${S.timeGran===k?'on':''}" onclick="setTimeGran('${k}')" aria-pressed="${S.timeGran===k}">${l}</button>`).join('')}</div>`;
 }
-function timeBar(device){
+function timeBar(device,extra){
   const label=timeLabelText();
   const open=S.periodPop||S.overlay==='period';
   return `<div class="rep-timebar">
@@ -904,6 +905,7 @@ function timeBar(device){
     <button class="tb-trigger" onclick="${S.device==='pc'?'toggleTimePanel()':'openTimeDrawer()'}" aria-expanded="${open?'true':'false'}">${label} ▾</button>
     <button class="tb-arrow" onclick="shiftTime(1)" aria-label="下一期">›</button>
     ${tbGranSeg()}
+    ${extra||''}
     ${S.device==='pc'&&S.periodPop&&device==='pc'?periodPopPc():''}
   </div>`;
 }
@@ -920,8 +922,10 @@ const REP_CFG={balance:'acctcfg',flow:'catcfg',cash:'cfcfg',invest:'invtarget'};
 function viewReports(device){
   const tab=S.repTab;
   const views=repViews();
-  const tabsHtml=`<div class="tabs">${REP_TABS.filter(([k])=>views.includes(k)).map(([k,l])=>`<button class="tab ${tab===k?'on':''}" onclick="setRepTab('${k}')">${l}</button>`).join('')}
-    <button class="tab" onclick="openOverlay('${REP_CFG[tab]}')" aria-label="打开本报表的配置弹窗">⚙ 设置</button></div>`;
+  /* 第十七轮：PC 报表「设置」移出 tab 栏，放到时间条右端（同一行右对齐的 ⚙ 图标按钮）；
+     移动端沿用页头「设置」。两端都只有这一个入口，打开的是同一批配置弹窗（REP_CFG 同一映射）。 */
+  const setBtn=`<button class="tb-set" onclick="openOverlay('${REP_CFG[tab]}')" aria-label="报表设置" title="报表设置">⚙</button>`;
+  const tabsHtml=`<div class="tabs">${REP_TABS.filter(([k])=>views.includes(k)).map(([k,l])=>`<button class="tab ${tab===k?'on':''}" onclick="setRepTab('${k}')">${l}</button>`).join('')}</div>`;
   if(device==='m'){
     const tabsM=`<div class="seg-row" style="margin-bottom:8px">${REP_TABS.filter(([k])=>views.includes(k)).map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="setRepTab('${k}')">${l}</button>`).join('')}</div>`;
     return withState(`
@@ -933,7 +937,7 @@ function viewReports(device){
   return withState(`
   <div class="page-head"><h1>报表</h1><span class="desc">口径：含全部账户 · 未计入费用型账户</span></div>
   ${tabsHtml}
-  ${timeBar(device)}
+  ${timeBar(device,setBtn)}
   ${reportPc(tab)}`);
 }
 /* O5：报表视图自定义（隐藏用不到的 tab）。至少保留一个视图。
@@ -1054,7 +1058,7 @@ function reportPc(tab){
     const liabRows=[...liabs.map(a=>({cells:[a.name,accKind(a),fmt(Math.abs(a.bal))]})),
                     {cells:['所有者权益','累计结余',fmt(netWorth())]}];
     return `${strip}
-    <div class="fig" style="height:180px;margin:16px 0"><div class="t">资产构成（占位）</div><div class="s">线框级不画真实图表 · 高保真阶段替换为真实图形</div></div>
+    <div class="fig" style="height:180px;margin:16px 0"><div class="t">资产构成（占位）</div><div class="anno">ℹ 线框级不画真实图表，UX5b 替换为真实图形</div></div>
     <div class="tbl-cols">
       <div><div class="tbl-col-head"><span class="tbl-title">资产</span><span class="lbl">按账户</span></div>
         ${invTable(['账户','性质','金额'],assets.map(a=>({cells:[a.name,accKind(a),fmt(a.bal)]})),{total:['合计','—',fmt(assetSum)]})}</div>
@@ -1078,7 +1082,7 @@ function reportPc(tab){
       </div>`;
     }
     return `${strip}
-    <div class="fig" style="height:180px;margin:16px 0"><div class="t">月度收支走势（占位）</div><div class="s">柱位高度仅示意量级</div></div>
+    <div class="fig" style="height:180px;margin:16px 0"><div class="t">月度收支走势（占位）</div><div class="anno">ℹ 柱位高度仅示意量级</div></div>
     <div class="tbl-cols">
       <div><div class="tbl-col-head"><span class="tbl-title">收入构成</span><span class="lbl">按分类 · 实际</span></div>
         ${catTable('income',['分类','笔数','金额','占比'],{note:false})}</div>
@@ -1093,7 +1097,7 @@ function reportPc(tab){
        与二级分类折叠同构）；转账单列「账户间转账」组，不计入三类净额。
        指标条四格等宽（见 metricStrip 的 .flat）。 */
     return `${strip}
-    <div class="fig" style="height:200px;margin:16px 0"><div class="t">资金流向 · 桑基图（占位）</div><div class="s">账户 → 现金流分类 的流向 · 高保真阶段替换为真实图形</div></div>
+    <div class="fig" style="height:200px;margin:16px 0"><div class="t">资金流向 · 桑基图（占位）</div><div class="s">账户 → 现金流分类 的流向</div><div class="anno">ℹ 高保真阶段替换为真实图形</div></div>
     <div class="tbl-cols">
       <div><div class="tbl-col-head"><span class="tbl-title">流入</span><span class="lbl">按现金流分类分组 · 可折叠</span></div>
         ${cashFlowTable('in','pc')}</div>
@@ -1103,7 +1107,7 @@ function reportPc(tab){
     <div class="tbl-note">流入（收入 + 退款）/ 流出（支出 + 转账）按交易的现金流属性分组；现金流属性是分类的局部字段，二级分类未标注时继承一级分类。账户间转账为账户间资金移动，不计入经营 / 投资 / 筹资三类净额。点分组行折叠 / 展开。</div>`;
   }
   return `${strip}
-  <div class="fig" style="height:180px;margin:16px 0"><div class="t">净值走势（占位）</div><div class="s">数据来自配置快照链 · 高保真阶段替换为真实曲线</div></div>
+  <div class="fig" style="height:180px;margin:16px 0"><div class="t">净值走势（占位）</div><div class="s">数据来自配置快照链</div><div class="anno">ℹ 高保真阶段替换为真实曲线</div></div>
   <div class="tbl-cols">
     <div><div class="tbl-col-head"><span class="tbl-title">资产分布</span><span class="lbl">当前 vs 目标</span></div>
       ${invDistTablePc()}</div>
@@ -1289,7 +1293,7 @@ function viewBudgets(device){
   }).join('');
   if(device==='m'){
     return withState(`
-    <div class="m-head"><h1>预算</h1><div class="m-head-acts"><button class="btn btn-sm" onclick="openOverlay('budget',{mode:'new'})">＋ 新增</button><button class="btn btn-sm" onclick="openOverlay('budget',{mode:'edit'})">调整</button></div></div>
+    <div class="m-head"><h1>预算</h1><div class="m-head-acts"><button class="btn btn-sm" onclick="openOverlay('budget',{mode:'new'})">＋ 新增</button></div></div>
     <div class="card card-pad" style="margin-bottom:12px">
       <div class="budget-ring">${ring}
         <div><div class="lbl">支出预算 / 已用</div><div class="num" style="font-size:var(--mb-fs-3);font-weight:600">¥${fmt(tot.used)} / ¥${fmt(tot.limit)}</div>
@@ -1300,8 +1304,7 @@ function viewBudgets(device){
     ${BUDGET_TYPE_NOTE}`);
   }
   return withState(`
-  <div class="page-head"><h1>预算</h1><span class="desc">2026 年 10 月 · ${BUDGETS.length} 个预算条目</span>
-    <button class="btn btn-sm" style="margin-left:auto" onclick="openOverlay('budget',{mode:'edit'})">调整预算</button></div>
+  <div class="page-head"><h1>预算</h1><span class="desc">2026 年 10 月 · ${BUDGETS.length} 个预算条目</span></div>
   <div class="card card-pad" style="margin-bottom:16px">
     <div class="budget-ring">${ring}
       <div style="flex:1">
@@ -1365,7 +1368,7 @@ function viewSettings(device){
       </div>`
     : settingsContent(S.setTab,'pc');
   return withState(`
-  <div class="page-head"><h1>设置</h1><span class="desc">配置中心 + 通用 · 与报表「设置」同源</span></div>
+  <div class="page-head"><h1>设置</h1><span class="anno">ℹ 配置中心 + 通用 · 与报表「设置」同源</span></div>
   <div class="set-layout">
     ${nav}
     <div class="set-main">${main}</div>
@@ -1392,7 +1395,7 @@ function settingsContent(tab,device){
         <label class="chk"><input type="checkbox" ${S.txCols[k]?'checked':''} onchange="setTxCol('${k}',this.checked)"> 显示</label>
       </div>`).join('');
     return `<div class="card card-pad">
-      <div class="sec-head"><h3>列表显示</h3><span class="sec-sub">每个开关都直接改变列表渲染 · 工具栏 ⚙ 显示原地打开本分区</span></div>
+      <div class="sec-head"><h3>列表显示</h3><span class="sec-sub">每个开关都直接改变列表渲染</span></div>
       <div class="set-item">
         <span class="meta"><span class="t">流水列表密度</span><span class="s">紧凑 / 标准 · 选择会被记住</span></span>
         <div class="seg-sm">
@@ -1407,7 +1410,7 @@ function settingsContent(tab,device){
         <span class="meta"><span class="t">${l}</span><span class="s">${k==='balance'?'时点报表':'期间报表'}</span></span>
         <label class="chk"><input type="checkbox" ${repViews().includes(k)?'checked':''} onchange="toggleRepView('${k}',this.checked)"> 显示</label>
       </div>`).join('')}
-      <div class="tbl-note">列集合固定，不提供新增 / 删除列（照 ProTable 列设置模式：只做显隐 + 排序）；名称 / 金额 / 日期·账户为必需列，固定显示不可隐藏。</div>
+      <div class="tbl-note">列集合固定，不提供新增 / 删除列；名称 / 金额 / 日期·账户为必需列，固定显示不可隐藏。</div>
     </div>`;
   }
   if(tab==='数据与备份'){
@@ -1439,7 +1442,7 @@ function settingsContent(tab,device){
       <div class="sec-head"><h3>回收站</h3><span class="sec-sub">删除的交易先进回收站 · 可恢复</span></div>
       ${rows||`<div class="state-wrap"><h2>回收站是空的</h2><p>删除的交易会在这里保留，可随时恢复。</p></div>`}
       ${S.recycle.length?`<button class="btn set-cta danger" style="width:100%" onclick="clearRecycle()">清空回收站（不可恢复）</button>`:''}
-      <div class="tbl-note">对应蓝图 B2（软删除 + 审计事件 + 撤销 + 回收站）：删除即入站、恢复走审计事件回写；当前为线框示意。</div>
+      <div class="anno">ℹ 对应蓝图 B2（软删除 + 审计事件 + 撤销 + 回收站）：删除即入站、恢复走审计事件回写；当前为线框示意。</div>
     </div>`;
   }
   /* 第九轮：原「偏好」卡已删 —— 启动视图 / 千分位 / 主题全是无真实效果的占位

@@ -120,6 +120,11 @@ body[data-device="m"] #mApp{display:flex}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--mb-s-3)}
 .sec-sub{font-size:var(--mb-fs-0);color:var(--mb-ink-3)}
 .tbl-note{font-size:var(--mb-fs-0);color:var(--mb-ink-3);margin-top:var(--mb-s-2)}
+/* 标注层（评审专用，UX5b 前移除）：ℹ 前缀 + 小号 + 虚线框，与产品文案在字号/颜色/边框上三重区分。
+   只允许放在页面外层（页头 / 说明面板）或占位图内部，不混进产品控件与列表。见概念稿 §1.3。 */
+.anno{display:inline-block;font-size:var(--mb-fs-0);color:var(--mb-ink-3);border:1px dashed var(--mb-line);
+  padding:0 6px;margin-top:var(--mb-s-1);line-height:1.7;max-width:100%}
+.fig .anno{background:var(--mb-panel)}
 .tag{font-size:var(--mb-fs-0);color:var(--mb-ink-2);border:1px solid var(--mb-line);padding:0 5px}
 .lbl{font-size:var(--mb-fs-0);color:var(--mb-ink-3)}
 
@@ -240,6 +245,10 @@ button.tb-trigger[aria-expanded="true"]{background:var(--mb-sunken)}
   font-size:var(--mb-fs-1);color:var(--mb-ink-3);cursor:pointer}
 .tb-gran button::after{content:'';position:absolute;top:0;bottom:0;left:-7px;right:-7px}
 .tb-gran button.on{background:var(--mb-sunken);color:var(--mb-ink);font-weight:600}
+/* 第十七轮：报表设置从 tab 栏移到时间条右端 —— 与箭头/分段同高的 ⚙ 图标键 */
+.tb-set{position:relative;border:1px solid var(--mb-line);background:var(--mb-panel);width:44px;height:44px;
+  flex:0 0 auto;margin-left:auto;font-size:var(--mb-fs-3);color:var(--mb-ink-2);cursor:pointer}
+.tb-set:hover{color:var(--mb-ink);border-color:var(--mb-line-strong)}
 /* PC 宽度充裕：触发器紧凑（min-width 170、不伸展）；移动端 flex 收缩放长起止文本。
    宽度是布局分配，控件规格（高 44 / 字号 fs-0）两端同值 */
 body[data-device="pc"] button.tb-trigger{flex:0 1 auto;min-width:170px}
@@ -554,10 +563,12 @@ body.batch .m-fab{display:none}
 .cat-pick button.sub .nm{font-size:var(--mb-fs-0)}
 
 /* 预算编辑 / 下钻 / 账户 / 回滚点 */
-.bud-edit{display:grid;grid-template-columns:1fr 120px 110px;gap:var(--mb-s-2);align-items:center;padding:var(--mb-s-2) 0;border-bottom:1px dashed var(--mb-line)}
-.bud-edit input{border:1px solid var(--mb-line);padding:6px 8px;background:var(--mb-panel);min-height:34px}
-.bud-edit .used{font-size:var(--mb-fs-0);color:var(--mb-ink-3)}
+/* 第十七轮：条目内调整替代「调整所有预算条目」——旧 .bud-edit 网格已删 */
 .bud-over{border:1px dashed var(--mb-line-strong);padding:var(--mb-s-2);margin:var(--mb-s-2) 0;display:flex;gap:var(--mb-s-2);align-items:center;flex-wrap:wrap}
+/* 条目内调整额度：PC 一行放输入 + 保存；移动端两者都抬到 44px 触控高 */
+.bud-amt-row{display:flex;gap:var(--mb-s-2);align-items:center}
+.bud-amt-row input{flex:1;min-width:0}
+body[data-device="m"] .bud-amt-row input,body[data-device="m"] .bud-amt-row button{min-height:44px}
 .bud-over .lab{font-size:var(--mb-fs-1)}
 .bud-over button{border:1px solid var(--mb-line);padding:3px 10px;font-size:var(--mb-fs-1)}
 .drill-head{display:flex;justify-content:space-between;align-items:baseline;padding:var(--mb-s-2) 0;border-bottom:1px solid var(--mb-line)}
