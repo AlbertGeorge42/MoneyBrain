@@ -25,7 +25,7 @@ export function NetWorthTrend({ points, scheme }: NetWorthTrendProps) {
     return (
       <div className="ov-chart-empty">
         <ChartLine aria-hidden />
-        <span className="mb-text-1">再记几笔，走势就会长出来</span>
+        <span className="mb-text-1">至少两天的记录后，走势会出现在这里</span>
       </div>
     )
   }

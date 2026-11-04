@@ -141,7 +141,13 @@ export function HfShell({
     onPageChange,
   }
 
-  const summary = summarize(items)
+  // 空账本时侧栏跟随页面一起归零，不残留 mock 汇总
+  const summary = summarize(dataState === 'empty' ? [] : items)
+  const ledgerNote = dataState === 'empty'
+    ? '还没有记录'
+    : freshLedger
+      ? `已记 ${summary.count} 笔`
+      : `连续 ${MONTH_SUMMARY.streakDays} 天有记录`
 
   const shell = device === 'mobile' ? (
     <div className="hf-shell-mobile">
@@ -203,7 +209,7 @@ export function HfShell({
           <div className="hf-sidebar-status">
             <span className="mb-text-0">本月收支</span>
             <span className="hf-sidebar-amount mb-num" data-tone="expense">{formatAmount(-summary.expense)}</span>
-            <span className="mb-text-0">连续 {MONTH_SUMMARY.streakDays} 天有记录</span>
+            <span className="mb-text-0">{ledgerNote}</span>
           </div>
           <Button
             className="hf-record-btn mb-accent-btn"

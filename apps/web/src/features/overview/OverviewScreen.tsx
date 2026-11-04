@@ -41,10 +41,18 @@ function money(value: number): string {
   return value < 0 ? formatAmount(value) : formatUnsigned(value)
 }
 
-function TrendChip({ direction, label }: { direction: 'up' | 'down'; label: string }) {
+function TrendChip({
+  direction,
+  tone,
+  label,
+}: {
+  direction: 'up' | 'down'
+  tone: 'income' | 'expense'
+  label: string
+}) {
   const Icon = direction === 'up' ? TrendingUp : TrendingDown
   return (
-    <span className="ov-trend" data-dir={direction}>
+    <span className="ov-trend" data-tone={tone}>
       <Icon aria-hidden />
       <span>{label}</span>
     </span>
@@ -75,6 +83,7 @@ export function OverviewScreen({
   const detailTx = items.find((tx) => tx.id === detailId)
   const limit = device === 'mobile' ? RECENT_LIMIT.mobile : RECENT_LIMIT.pc
   const recentItems = items.slice(0, limit)
+  const isFirstEntry = freshLedger && summary.count === 1
 
   const trendPoints = freshLedger
     ? [{ label: '现在', value: netWorth }]
@@ -122,7 +131,13 @@ export function OverviewScreen({
       <div className="ov-section-head">
         <div>
           <h2 className="mb-title-4">净资产走势</h2>
-          <p className="mb-text-0">{freshLedger ? '刚起步 · 数据来自你的记录' : '近 12 个月'}</p>
+          <p className="mb-text-0">
+            {freshLedger
+              ? summary.count === 1
+                ? '刚起步 · 数据来自你的记录'
+                : `已记 ${summary.count} 笔 · 至少两天的记录后显示走势`
+              : '近 12 个月'}
+          </p>
         </div>
       </div>
       <NetWorthTrend points={trendPoints} scheme={scheme} />
@@ -135,7 +150,7 @@ export function OverviewScreen({
         <div>
           <h2 className="mb-title-4">最近流水</h2>
           <p className="mb-text-0">
-            {freshLedger ? '冷启动后的第一笔' : `最新 ${limit} 笔 · 点击查看详情`}
+            {isFirstEntry ? '冷启动后的第一笔' : `最新 ${limit} 笔 · 点击查看详情`}
           </p>
         </div>
         <UnstyledButton className="ov-section-link" onClick={onOpenTransactions}>
@@ -162,12 +177,12 @@ export function OverviewScreen({
       <div className="ov-cell">
         <span className="ov-cell-label">本月收入</span>
         <span className="ov-cell-value mb-num" data-tone="income">{formatAmount(summary.income)}</span>
-        {!freshLedger && <TrendChip direction="up" label={`较上月 +${OVERVIEW_MOCK.incomeChange}%`} />}
+        {!freshLedger && <TrendChip direction="up" tone="income" label={`较上月 +${OVERVIEW_MOCK.incomeChange}%`} />}
       </div>
       <div className="ov-cell">
         <span className="ov-cell-label">本月支出</span>
-        <span className="ov-cell-value mb-num" data-tone="expense">{formatUnsigned(summary.expense)}</span>
-        {!freshLedger && <TrendChip direction="down" label={`较上月 +${OVERVIEW_MOCK.expenseChange}%`} />}
+        <span className="ov-cell-value mb-num" data-tone="expense">{formatAmount(-summary.expense)}</span>
+        {!freshLedger && <TrendChip direction="up" tone="expense" label={`较上月 +${OVERVIEW_MOCK.expenseChange}%`} />}
       </div>
       <div className="ov-cell">
         <span className="ov-cell-label">本月结余</span>
@@ -184,10 +199,10 @@ export function OverviewScreen({
 
   const body = device === 'pc' ? (
     <>
-      <section className="ov-hero">
+      <section className="ov-hero" aria-label="净资产">
         <div className="ov-hero-head">
           <span className="mb-text-1">净资产</span>
-          {!freshLedger && <TrendChip direction="up" label={`较上月 +${OVERVIEW_MOCK.netWorthChange}%`} />}
+          {!freshLedger && <TrendChip direction="up" tone="income" label={`较上月 +${OVERVIEW_MOCK.netWorthChange}%`} />}
         </div>
         <div className="ov-hero-amount mb-num">{money(netWorth)}</div>
         <div className="ov-hero-sub mb-text-1">
@@ -202,10 +217,10 @@ export function OverviewScreen({
     </>
   ) : (
     <>
-      <section className="ov-hero">
+      <section className="ov-hero" aria-label="净资产">
         <div className="ov-hero-head">
           <span className="mb-text-1">净资产</span>
-          {!freshLedger && <TrendChip direction="up" label={`较上月 +${OVERVIEW_MOCK.netWorthChange}%`} />}
+          {!freshLedger && <TrendChip direction="up" tone="income" label={`较上月 +${OVERVIEW_MOCK.netWorthChange}%`} />}
         </div>
         <div className="ov-hero-amount mb-num">{money(netWorth)}</div>
         <div className="ov-hero-sub mb-text-1">
@@ -218,12 +233,12 @@ export function OverviewScreen({
         <div className="ov-card ov-quick-card">
           <span className="ov-cell-label">本月收入</span>
           <span className="ov-cell-value mb-num" data-tone="income">{formatAmount(summary.income)}</span>
-          {!freshLedger && <TrendChip direction="up" label={`较上月 +${OVERVIEW_MOCK.incomeChange}%`} />}
+          {!freshLedger && <TrendChip direction="up" tone="income" label={`较上月 +${OVERVIEW_MOCK.incomeChange}%`} />}
         </div>
         <div className="ov-card ov-quick-card">
           <span className="ov-cell-label">本月支出</span>
-          <span className="ov-cell-value mb-num" data-tone="expense">{formatUnsigned(summary.expense)}</span>
-          {!freshLedger && <TrendChip direction="down" label={`较上月 +${OVERVIEW_MOCK.expenseChange}%`} />}
+          <span className="ov-cell-value mb-num" data-tone="expense">{formatAmount(-summary.expense)}</span>
+          {!freshLedger && <TrendChip direction="up" tone="expense" label={`较上月 +${OVERVIEW_MOCK.expenseChange}%`} />}
         </div>
       </div>
       {trendCard}

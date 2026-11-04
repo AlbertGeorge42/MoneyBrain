@@ -247,6 +247,11 @@
   font-weight: 600;
 }
 
+/* 18px 档同样不允许 expense-display */
+.hf-sidebar-amount[data-tone='expense'] {
+  color: var(--mb-color-expense);
+}
+
 .hf-record-btn {
   border: 1px solid var(--mb-color-accent);
 }
@@ -1528,6 +1533,11 @@
   text-overflow: ellipsis;
 }
 
+/* 16px 档支出金额：必须带 − 号并与 expense（非 display）色同现 */
+.ov-cell-value[data-tone='expense'] {
+  color: var(--mb-color-expense);
+}
+
 .ov-trend {
   display: inline-flex;
   align-items: center;
@@ -1543,8 +1553,8 @@
   height: var(--mb-fs-3);
 }
 
-.ov-trend[data-dir='up'] { color: var(--mb-color-income); }
-.ov-trend[data-dir='down'] { color: var(--mb-color-expense-display); }
+.ov-trend[data-tone='income'] { color: var(--mb-color-income); }
+.ov-trend[data-tone='expense'] { color: var(--mb-color-expense); }
 
 .ov-quick {
   display: grid;
@@ -1583,6 +1593,7 @@
   flex: none;
   align-items: center;
   gap: var(--mb-s-1);
+  min-height: var(--mb-touch);
   font-size: var(--mb-fs-1);
   color: var(--mb-color-text-secondary);
 }
@@ -1661,6 +1672,20 @@
 
 .ov-skeleton-hero { height: var(--mb-ov-skeleton-hero-h); }
 .ov-skeleton-chart { height: var(--mb-ov-skeleton-chart-h); }
+
+.ov-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  padding: var(--mb-card-pad);
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+}
+
+.ov-skeleton-row {
+  height: var(--mb-tx-row-h);
+}
 
 .ov-page[data-device='mobile'] .ov-hero,
 .ov-page[data-device='mobile'] .ov-card {

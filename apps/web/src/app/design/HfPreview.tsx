@@ -42,11 +42,8 @@ export default function HfPreview() {
     setEntryOpen(true)
   }
 
+  /** 数据态只切换视图，不得重置账本：真实记录在加载/错误态之后要原样回来。 */
   const changeDataState = (next: DataState) => {
-    if (next !== 'empty' && freshLedger) {
-      setItems(TRANSACTIONS)
-      setFreshLedger(false)
-    }
     setDataState(next)
   }
 
