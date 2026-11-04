@@ -45,7 +45,7 @@
   这些不产生视觉决策，但它们是重设计的前置：设备判定没有单入口，原型画出来就作废。
 - **段二 · 重设计（UX1–UX5b）**：把设计本身重做一版——信息架构、记账交互、跨平台差异、
   视觉语言、线框级概念稿（UX5a）、组件库驱动的可运行高保真页面（UX5b）。
-  **这一段不改应用代码**，产出设计决策与原型。
+  **这一段不改应用代码**，产出设计决策与原型（例外：U13.1 是 UX5b 的接入前置，只搭主题/Provider，不改页面观感，见段三）。
 - **段三 · 落地（U4–U13）**：出口是「能干净地切到原型版本」——只保留机制与能力，
   旧页面的视觉收口一律取消或挂到 UX5b（三档见本段开头）；U13 是组件库迁移
   （AntD → Mantine 8），即「切换新界面」的实现本体。
@@ -101,12 +101,13 @@ PostCSS 构建期解析」失去对象，**不执行**。
 - **没有原型，UI 改造就变成反复重写**。段三要动 66 个组件；设计方向没定，改完还得再改。
 
 **这一段不改应用代码**，产出设计决策与原型（UX5a 线框；UX5b 的可运行页面是原型，
-不进应用构建）；应用内实现由切换后的新实现承接。
+不进应用构建）；应用内实现由切换后的新实现承接。**唯一例外是 U13.1**（主题骨架接入）：
+它只替换主题 / Provider / 图表取色，不改页面观感，是 UX5b 的前置。
 因此验收是「文档覆盖度」与「原型可走查」，不是自动化测试。
 
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
-| UX5b | 没有可对照的原型，所有 UI 验收都只能靠「看着还行」，无法客观判断；且手写高保真再翻译成组件库是两道工 | 按 **UX5a 确认稿**，用 **Mantine 8**（锁 `8.3.18`）产出**可运行的 React 高保真页面**（代表页 + 关键工作流），覆盖：记账主流程、交易列表与搜索、报表四视图、账户总览、设置、空/错/加载三态。**前置**：Mantine 8 已接入 + 主题骨架可用（决策 #40、#41）——未接入不开工 | ① 可运行、可操作，每条验收清单项都能在页面上走查；② 与 `concept-design.md` 的 W1–W9 及双端结构一致；③ 所有视觉差异都能用 Mantine 的主题机制解释，凡需 hack 内部类名（`--mantine-*`）之处必须记为「设计不可实现项」并回写概念稿；④ 作为切换新界面的实现基准，**不得偏离 UX5a 确认稿做交互决策** |
+| UX5b | 没有可对照的原型，所有 UI 验收都只能靠「看着还行」，无法客观判断；且手写高保真再翻译成组件库是两道工 | 按 **UX5a 确认稿**，用 **Mantine 8**（锁 `8.3.18`）产出**可运行的 React 高保真页面**（代表页 + 关键工作流），覆盖：记账主流程、交易列表与搜索、报表四视图、账户总览、设置、空/错/加载三态。**前置**：Mantine 8 已接入 + 主题骨架可用（= U13.1 完成；决策 #40、#41）——未接入不开工 | ① 可运行、可操作，每条验收清单项都能在页面上走查；② 与 `concept-design.md` 的 W1–W9 及双端结构一致；③ 所有视觉差异都能用 Mantine 的主题机制解释，凡需 hack 内部类名（`--mantine-*`）之处必须记为「设计不可实现项」并回写概念稿；④ 作为切换新界面的实现基准，**不得偏离 UX5a 确认稿做交互决策** |
 
 > UX1–UX4 已完成（产出物见下方表，完成记录见 [PROGRESS.md](PROGRESS.md)「状态」表，
 > 明细以 git 历史为准）。UX5a / UX5b 承接它们的结论，不推翻。
@@ -126,8 +127,8 @@ PostCSS 构建期解析」失去对象，**不执行**。
 | `docs/blueprint/ux/platform-design.md` | PC 与移动端的设计差异与各自规范 | UX3 |
 | `docs/blueprint/ux/design-tokens.md` | 色彩角色、字号阶梯、密度、圆角阴影、暗色方案 | UX4 |
 | `docs/blueprint/ux/concept-design.md` | **线框级概念设计**：模块布局 + 九类工作流（W1–W9）的双端线框、差异与取舍、待确认项、§8 实现说明 | UX5a |
-| `docs/blueprint/ux/prototype/` | 可交互原型：**线框级**（UX5a 概念稿的落地，灰阶 / 占位块 / 无 CDN 依赖）与**高保真**（UX5b：用选定组件库的可运行 React 页面） | UX5a、UX5b |
-| `docs/design-system.md` | 由段二产出并经段三验证后的规范文档 | U12（在段二之后） |
+| `docs/blueprint/ux/prototype/` | 可交互原型：**线框级**（UX5a 概念稿的落地，灰阶 / 占位块 / 无 CDN 依赖）与**高保真**（UX5b：用选定组件库的可运行 React 页面；可 import `tokens.ts` 与 `ui/`，但不进生产构建） | UX5a、UX5b |
+| `docs/design-system.md` | 由段二产出并经段三验证后的规范文档 | U12（U13.5 后） |
 
 **本段不做**：不新增业务功能（周期交易、标签、多账本等仍在
 [stage-4](stage-4-expansion.md)）；不做视觉资产（图标库与插画的视觉处理随 UX5b 落地）。
@@ -157,11 +158,169 @@ PostCSS 构建期解析」失去对象，**不执行**。
 | U9（取消） | 视觉一致性：14 个 `<Card>` 未用统一的 `surface-card`；图标双库（AntD 25 文件 / lucide 3 文件）导致同类操作（如展开箭头）视觉不同；`transition: all` 4 处 | 卡片样式由组件层保证而非靠人记；图标库统一为一套；过渡只对颜色/阴影/边框生效 | 同类元素视觉一致 |
 | U10（取消） | 暗色模式图表调色板取 AntD 6 档（浅色档），暗背景上对比度未校验；财务色在暗色下混用 4 档与 6 档 | 暗色模式使用**专门的高对比色板**（暗背景上 ≥4.5:1），并统一档位 | 暗色模式下图表与数字对比度达标（用对比度工具验证） |
 | U11（取消） | 移动端底部导航只有文字变色，无 active 指示器；`:hover` 规则在触屏永远不触发 | active 项有独立指示（顶部指示条或图标容器填充态）；区分 `@media (hover: hover)` | 底部导航 active 状态一眼可辨 |
-| U12（换时机·UX5b 后） | 无设计规范文档，token 变量无说明；设计决策只存在于代码里 | 建立 `docs/design-system.md`：token 清单与选用规则、间距/字号阶梯、组件规范、可访问性要求 | 新增组件照文档能做出与现有组件一致的界面 |
-| U13（切换本体·UX5b 后） | `apps/web/src` 全面依赖 AntD：组件、`--ant-*` 变量、颜色由 AntD 算法派生，与选定组件库 Mantine 8 不符 | 全量迁移到 **Mantine 8（锁 `8.3.18`）**：主题只从 `createTheme` 出；颜色两层映射（Mantine `colors` 10 级色阶 + 结构走 `--mb-*`），不出现第三个颜色来源；迁移期双库并存但**同页面不混用** | `apps/web/src` 中 antd import 归零；`--ant-*` 引用归零；主题只从 Mantine theme 出；`test:web` / typecheck / lint 全过 |
+| U12（换时机·U13.5 后） | 无设计规范文档，token 变量无说明；设计决策只存在于代码里 | 建立 `docs/design-system.md`：token 清单与选用规则、间距/字号阶梯、组件规范、可访问性要求 | 新增组件照文档能做出与现有组件一致的界面 |
 
-**U13 执行时点**：UX5b 确认后执行——它就是「切新界面」的实现本体（实现计划另出，
-状态见 [PROGRESS.md](PROGRESS.md) 待领）。
+##### U13 · 组件库迁移（父条目，跨 UX5b 前后）
+
+**总验收**：`apps/web/src` 中 `antd` / `@ant-design/icons` import 归零，`--ant-*` 引用归零；
+业务代码不引用 `--mantine-*`（只允许出现在 `styles/theme/**`）；页面只用 Mantine + `ui/` 自建组件。
+
+**基线（2026-11-04 实测）**：antd 文件 **65**（含 2 个 theme 文件）→ 0；图标文件 **31** → 0；
+图标名 **39 个 / 85 处** → 0；组件符号 **41 个 + `theme` + 6 个类型名** → 0；`--ant-*` **0** 且不得回升；
+迁移文件约 **12.7k 行**。计数按 **65 → 61 → 61 → 26 → 0**——U13.2 新增原语、不消灭 antd 文件，
+故停在 61；执行日重测，按「该批拆掉 N 个文件」判，不硬套绝对值。
+
+**工时（两个口径分开）**：A 纯迁移 **26–33**（结构/交互/布局不变，只换库）；B 按 UX5b 重写增量
+**29–39**（原语增强、页面布局/交互/IA、双端视觉验收）；合计 **55–72**。回答「换个库为什么这么久」
+只报 A；B 记在 UX5b 的落地成本里。分项上下界不做严格相加。
+
+**顺序**：`D4 → U1b → U13.1 → UX5b → U13.2 → U13.3 → U13.4 → U13.5 → U12`；D4 与 U13.1 可对调。
+硬边：U13.1→UX5b、UX5b→U13.2、U13.2→U13.3、D4→U13.3、U13.5→U12。
+
+| 子条目 | 现状 → 目标 | 验收（含计数） | 依赖 | 工时 A / B |
+|---|---|---|---|---|
+| U13.1 主题骨架 | AntD 算法派生颜色、`data-theme` 手写、`message`/`notification` 直调 → `tokens.ts` + `ThemeRoot` + `useMantineColorScheme` + Mantine notifications；删 `config.ts` / `chart-tokens.ts` / `financial-tokens.ts` / `mode.ts` | antd **65 → 61**（拆 2 theme + `main.tsx` + `useNotify.ts`）；`--ant-*` 0；`--mantine-*` 外泄 0；`typecheck:web` / `lint:web` / `test:web` 全过；theme.spec 浅/暗 body 断言；build 记录 gzip | UX5a 确认 + U1b；**不依赖 D4 / UX5b** | 4–5 / 0 |
+| U13.2 自建原语 | `ui/` 为空；时间控件 350+866 行、报表树/列逻辑混在页面 → 12 项原语（见下） | **12/12 有测试**；`rg "from 'antd'" apps/web/src/ui` 0；每项有消费者或登记待接入；antd **61 → 61** | U13.1 + **UX5b 确认**；不依赖 D4 | 19–25（A 13–16 / B 7–10） |
+| U13.3 P1 五屏 | 35 个 antd 业务文件 + `Settings.tsx` → Mantine + `ui/`；旧时间控件/报表树删除；撤销移出查询层 | antd **61 → 26**（拆 35）；`--ant-*` 0；页面 <200 行；五屏双端对照 W1/W2/W5/W6/W7；`test:web` + 双 project | U13.1 + U13.2 + **D4** + 该页 UX5b 已确认（按页进入） | 17–21（A 45% / B 55%） |
+| U13.4 P2 其余 | 投资 6、配置弹窗 11、公共组件 8、布局 2；图标 31 文件 → lucide；删 `TimePickerField`/`TimePickerMobile`/`TRANSACTION_TAG_PRESETS` | antd **26 → 0**；图标文件 **31 → 0**；`rg "@ant-design/icons"` 0；`test:web` + `test:e2e` | U13.3 | 10–14（A 25% / B 75%） |
+| U13.5 P3 收口 | 双库并存、依赖仍在 → 卸载 `antd` / `@ant-design/icons`；守卫终态；文档切换 Mantine 单源 | `rg -n "antd\|@ant-design" apps/web/src apps/web/package.json` 0；`npm ls antd` 空；`npm test` 全过；build 对比 gzip | U13.4 + 双端走查 | 5–7（A 40% / B 60%） |
+
+**U13.1 接入清单**
+
+- 依赖：`@mantine/core` / `hooks` / `form` / `dates` / `notifications` / `dropzone` 全部锁 `8.3.18`；
+  `postcss-preset-mantine` + `postcss-simple-vars`（断点 `xs`–`xl`）。样式顺序：Mantine 四份 CSS →
+  `variables.css` → `reset.css` → `global.css`；AntD 继续走 CSS-in-JS，U13.5 才卸载。
+- 主题：新增 `styles/theme/tokens.ts`（`buildMantineTheme(scheme)` / `buildCssVars(scheme)` /
+  `getChartTokens(scheme)`）与 `ThemeRoot.tsx`（`MantineProvider` → `DatesProvider` → `Notifications`）；
+  `ThemeContext` 保留公开 API，内部委托 `useMantineColorScheme` + `useComputedColorScheme`。
+  删除 `config.ts`、`chart-tokens.ts`、`financial-tokens.ts`、`mode.ts`；`reset.css` 选择器改
+  `[data-mantine-color-scheme='dark']`；`variables.css` 只放结构 token。
+- 颜色：Mantine `colors` 10 级色阶（gray / dark / brand，body 固定 `dark[7]`）；语义/封皮/反色
+  **不进 `colors`**，放 `theme.other` + `--mb-*`。色值唯一来源是 [design-tokens](ux/design-tokens.md)，
+  此处只列「角色 → `theme.other` 键」映射，不抄值。分类色保留独立 `cat-1..6`：按色相环与语义色
+  错开（与 income/expense/transfer 最小 30°、cat 内相邻 ≥25°、暗色另备一套），验收口径为
+  「文字 ≥4.5:1、色块 ≥3:1、相邻分类可辨」，不采用语义色派生档。
+- 图表：`useChartTokens` 改从 `theme.other` 取色；`BaseChart` 按 scheme 注册 `mb-light` / `mb-dark`；
+  分类色只读 `cat-1..6`，超过 6 类聚合为「其他」。
+- 命名过渡：`buildCssVars()` 同时产出目标 `--mb-*` 与旧名 `--mb-color-*` 别名（27 文件 / 203 处），
+  U13.5 清零；别名只存在于生成器，不写进设计文档。
+- 测试：`tests/setup.ts` 补 `matchMedia` / `ResizeObserver` mock；RTL 外包 `ThemeRoot`。
+
+**U13.1 验收命令**（typecheck / lint / test 用 AGENTS 基线）：
+`(rg -l "from 'antd'" apps/web/src | Measure-Object).Count` = **61**；
+`rg -n "var\(--ant-" apps/web/src` = 0；`rg -n "--mantine-" apps/web/src --glob '!styles/theme/**'` = 0；
+`npx playwright test e2e/tests/theme.spec.ts --project=chromium-desktop`（浅色 `rgb(245,242,234)`、
+暗色 `rgb(15,20,17)`）；`npm run build -w @moneybrain/web` 成功并记录 gzip。
+
+**U13.2 的 12 项**：`DataTable`（分组表头 / 合计行 / 行折叠 / 列显隐）、`TreeSelect`、
+`TimeBar + TimePanel`（W6 九维度）、`Sheet`、`EmptyState / LoadingBlock / ResultState`、`UploadBox`、
+`Metric / KpiCard`、`TypeBadge / CountBadge`、`FormField / CurrencyInput`、
+`ResponsiveOverlay / ConfirmDialog`、`Icon`（39 → lucide）、`UndoToast + useNotify`。
+全部放 `ui/`，按 D4 的 feature 切片公开入口引用，不放桶导出。明确不做：虚拟滚动、固定列、
+列拖拽、Sheet 多段停靠、完整 i18n 框架（触发条件见决策 #38）。
+
+**图标约定**：尺寸 16 / 导航 20 / 主卡 22 / 空态 32；`strokeWidth=1.75`；`currentColor`；
+装饰图标 `aria-hidden`，纯图标按钮必须 `aria-label`；从 `lucide-react` 具名导入，不建全量映射对象。
+
+**U13.3 五屏范围**：流水 11 文件 / 2216 行；报表 12 / 3045；预算 5 / 1071；设置首屏 7（6 antd）/ 890；
+首页 1 / 401。**U13.4 其余范围**：投资 6 / 1446；设置配置弹窗 11 / 1277；公共组件 8 / 1983；布局 2 / 97。
+
+**双库并存（迁移期）**：① 同页面不混用，antd 页面不得引入依赖 Mantine 的 `ui/` 组件；
+② 共享组件先迁，调用页跟着改；③ 全局层可共存（Provider / Notifications），图标可提前换；
+④ 不写兼容层，页面迁移直接删旧实现（决策 #39）。Provider 可在根节点共存，页面主题不并存。
+
+**风险与回滚（6 条）**：双库全局样式污染（同页面不混用 + 探针截图）｜DataTable 能力缺口（自建，
+复用报表树逻辑）｜时间控件两套并存（单渲染函数 + W6 矩阵验收）｜ECharts 主题不同步（只读
+`ChartTokens`）｜测试缺 Mantine 依赖（U13.1 改 setup）｜分类色与语义色重值（独立 `cat-1..6`，
+验收见上）。暗色精度与 `as any` 见决策 #41，不重复。回滚：U13.5 前按页 `git revert`；
+U13.5 后 AntD 已卸载，只能整体回退。
+
+**验收命令（特有项）**：antd 计数、图标计数、`rg -n "var\(--ant-"`、`rg -n "--mantine-"`
+（`--glob '!styles/theme/**'`）、`npm run build -w @moneybrain/web`（记录 gzip）。
+
+###### 附录 A · 41 个组件符号
+
+**通用约定**：主按钮 `variant="filled"`、次按钮 `variant="default"`（移动 44 / PC 36）；
+业务组件禁止读 `theme.colors` 猜语义，只读 `theme.other` 与 `--mb-*`；自建落法统一走 `ui/`。
+
+**组件（41 个，括号内为用量）**：`Button(29)→Button/ActionIcon`、`Card(19)→Paper + ui/SurfaceCard`、
+`Empty(16)→自建 EmptyState`、`Tag(14)→Badge + ui/TypeBadge`、`Typography(13)→Text/Title`、
+`Form(13)→useForm`、`Modal(13)→Modal + ui/ResponsiveOverlay`、`Space(10)→Group/Stack`、
+`Input(9)→TextInput/Textarea`、`Skeleton(8)→Skeleton + ui/LoadingBlock`、`Grid(8)→SimpleGrid`、
+`Statistic(6)→自建 Metric/KpiCard`、`Alert(6)→Alert`、`Segmented(6)→Segmented`、
+`TreeSelect(5)→自建 TreeSelect`、`Table(5)→Table/自建 DataTable`、
+`InputNumber(5)→NumberInput + ui/CurrencyInput`、`DatePicker(5)→DatePickerInput/自建 TimePanel`、
+`Tabs(4)→Tabs`、`App(4)→删除（useNotify 接 notifications）`、`Divider(4)→Divider`、
+`Select(3)→Select/Combobox`、`Dropdown(3)→Menu`、`Switch(3)→Switch`、`Tooltip(3)→Tooltip`、
+`Progress(3)→Progress/RingProgress`、`Spin(3)→Loader`、`Radio(2)→Radio.Group`、
+`Result(2)→自建 ResultState`、`Row(2)→SimpleGrid`、`Col(2)→SimpleGrid`、`Popover(2)→Popover`、
+`Drawer(2)→Drawer + ui/Sheet`、`Checkbox(2)→Checkbox`、`Layout(1)→删除（CSS grid + Paper + NavLink）`、
+`Collapse(1)→Collapse/Accordion`、`Menu(1)→NavLink`、`ConfigProvider(1)→MantineProvider`、
+`Popconfirm(1)→自建 ConfirmDialog`、`List(1)→List/Stack`、`Upload(1)→dropzone + ui/UploadBox`。
+
+**`theme` API（35 文件）**：删除 `theme.useToken()`；间距/圆角读 `theme.other` 或 CSS 变量，
+颜色读 `theme.other.financial / chart / cover`。
+
+**6 个类型名**：`MenuProps→Mantine MenuProps`、`FormInstance→UseFormReturn`、
+`TreeSelectProps→自建 TreeSelectProps`、`ThemeConfig→MantineThemeOverride`、
+`InputRef→React.ComponentRef<typeof TextInput>`、`TabsProps→Mantine TabsProps`。
+
+###### 附录 B · 39 个图标（35 个 1:1 + 4 个语义重选）
+
+**1:1 直换（35 个 / 85 处）**：
+
+- `SettingOutlined→Settings`、`PlusOutlined→Plus`、`RightOutlined→ChevronRight`、
+  `DeleteOutlined→Trash2`、`EditOutlined→Pencil`、`LeftOutlined→ChevronLeft`、
+  `TransactionOutlined→ReceiptText`、`ExclamationCircleOutlined→CircleAlert`、
+  `DashboardOutlined→LayoutDashboard`、`ArrowUpOutlined→ArrowUp`、`HistoryOutlined→History`、
+  `RollbackOutlined→Undo2`
+- `BarChartOutlined→ChartColumn`、`ControlOutlined→SlidersHorizontal`、`SwapOutlined→ArrowLeftRight`、
+  `ArrowDownOutlined→ArrowDown`、`WalletOutlined→Wallet`、`DownOutlined→ChevronDown`、
+  `ArrowLeftOutlined→ArrowLeft`、`CalendarOutlined→CalendarDays`、`DesktopOutlined→Monitor`、
+  `SunOutlined→Sun`、`MoonOutlined→Moon`、`AccountBookOutlined→BookOpen`
+- `MinusOutlined→Minus`、`CreditCardOutlined→CreditCard`、`InboxOutlined→Inbox`、
+  `UnorderedListOutlined→List`、`DownloadOutlined→Download`、`FolderAddOutlined→FolderPlus`、
+  `HolderOutlined→GripVertical`、`CheckCircleOutlined→CircleCheck`、`BankOutlined→Landmark`、
+  `FileTextOutlined→FileText`、`FundOutlined→ChartLine`
+
+**语义重选（4 个，不按字形硬套）**：`ExportOutlined→MoveRight`（「移动到…」）；
+`RedoOutlined→RotateCcw`（「还原」）；`RestOutlined→ArchiveRestore`（回收站）；
+`AppstoreOutlined→CloudAlert`（云同步目录警告）。
+
+###### 附录 C · Mantine 色阶（10 级）
+
+浅色 `colors.gray`：
+
+| 索引 | 值 | 角色 |
+|---|---|---|
+| 0 | `#FCFAF4` | 面板 |
+| 1 | `#F5F2EA` | 页面底 |
+| 2 | `#EDE9DE` | 下沉 / hover 底 |
+| 3 | `#E2DCCC` | 分隔线 |
+| 4 | `#C9C2AC` | 强边框 |
+| 5 | `#646B5C` | 辅助文字 |
+| 6 | `#59614F` | 次级文字 |
+| 7 | `#20261F` | 主文字 |
+| 8 | `#171B15` | 深中性 |
+| 9 | `#0F1411` | 最深 |
+
+暗色 `colors.dark`：
+
+| 索引 | 值 | 角色 |
+|---|---|---|
+| 0 | `#EDE9DB` | 主文字 |
+| 1 | `#C3CBBE` | 中性浅色 |
+| 2 | `#A9B0A0` | 次级文字 |
+| 3 | `#8D9585` | 辅助文字 |
+| 4 | `#39443A` | 强边框 |
+| 5 | `#27302A` | 分隔线 / hover 底 |
+| 6 | `#161D17` | 面板 |
+| 7 | `#0F1411` | 页面底（body 固定取此档） |
+| 8 | `#0C100D` | 更深中性 |
+| 9 | `#080B09` | 最深 |
+
+品牌 `colors.brand`：`#E1EDE2 / #C7E3D4 / #9ADCB9 / #7CC9A2 / #4EA57F / #2F7C5C / #1D5C43 /
+#17503A / #0F3D2C / #0A2E21`；`primaryColor: 'brand'`，`primaryShade: { light: 6, dark: 3 }`。
 
 **切换时 token 重规范（口径，不是执行清单）**：
 
@@ -193,11 +352,12 @@ PostCSS 构建期解析」失去对象，**不执行**。
    并行边界（UX3 的规范可与 UX4 并行，原型的视觉层必须等 UX4 token 定稿）见段二。
    **确认关卡不可跳过**：UX5a 未确认前不动原型界面——概念阶段就重做界面，
    等于把没拍板的取舍直接固化进高保真，改一次的成本是改线框的数倍。
-4. **UX5b 之后 → U13 组件库迁移 + 切换新界面**（两者是同一件事的实现本体）：
-   `apps/web` 从 AntD 迁到 Mantine 8（锁 `8.3.18`），同页面不混用两库；
+4. **U13.1 → UX5b → U13.2 → U13.3 → U13.4 → U13.5**（D4 与 U13.1 可对调，其余为硬边）：
+   U13.1 是 UX5b 的接入前置，只搭主题 / Provider；UX5b 确认后做原语（U13.2）；
+   再按页迁五屏（U13.3）与其余页面（U13.4），最后删 AntD 收口（U13.5）。
    段三只做延后档——U4（无内联字面量）、U6（44px 触控）、U7（键盘可达与焦点）
-   在 Mantine 新实现上验收；E1–E4 随 Mantine 实现验证；E6 随时可做。
-5. **U12** 在 UX5b 与 U13 之后写——此时规范对着已落成的高保真与 Mantine 实现，
+   在 Mantine 新实现上验收；E1–E4 随 U13.3 验收；E6 随时可做。
+5. **U12** 在 U13.5 之后写——此时规范对着已落成的高保真与 Mantine 实现，
    写出来的才是真的规范而不是愿望。
 
 **与其它批次的关系**：
@@ -230,10 +390,10 @@ PostCSS 构建期解析」失去对象，**不执行**。
 
 | # | 现状 | 目标 | 验收 | 落地/验收时点 |
 |---|---|---|---|---|
-| E1 | 冷启动无引导 | 空数据给「建账户 → 记第一笔 → 看报表」清单 | 新库 3 步内看到非零净资产 | 并入 Mantine 实现（UX5b 后按高保真验收） |
-| E2 | 手续费/优惠券常驻表单 | 折叠进「更多」，记住上次账户/分类 | 常规记账 3 步内完成 | 并入 Mantine 实现（UX5b 后按高保真验收） |
-| E3 | 交易列表无关键字搜索、无批量操作 | 关键字搜索 + 批量改分类/删除 | 搜索结果条数与条件一致；批量操作有确认 | 并入 Mantine 实现（UX5b 后按高保真验收） |
-| E4 | 设置页承载全部配置，报表页内嵌配置弹窗 | 设置按账户/分类/投资/数据/外观分组，报表只留跳转链接 | 同类配置只有一个权威入口 | 并入 Mantine 实现（UX5b 后按高保真验收） |
+| E1 | 冷启动无引导 | 空数据给「建账户 → 记第一笔 → 看报表」清单 | 新库 3 步内看到非零净资产 | 随 U13.3 页面迁移验收（以 UX5b 确认稿为准） |
+| E2 | 手续费/优惠券常驻表单 | 折叠进「更多」，记住上次账户/分类 | 常规记账 3 步内完成 | 随 U13.3 页面迁移验收（以 UX5b 确认稿为准） |
+| E3 | 交易列表无关键字搜索、无批量操作 | 关键字搜索 + 批量改分类/删除 | 搜索结果条数与条件一致；批量操作有确认 | 随 U13.3 页面迁移验收（以 UX5b 确认稿为准） |
+| E4 | 设置页承载全部配置，报表页内嵌配置弹窗 | 设置按账户/分类/投资/数据/外观分组，报表只留跳转链接 | 同类配置只有一个权威入口 | 随 U13.3 页面迁移验收（以 UX5b 确认稿为准） |
 | E6 | 桑基图条数无上限 | 取 Top N + 「其他」 | 大数据量不卡顿 | 无设计依赖，随时可做 |
 
 移动端条目（E5 时间选择交互）在 [stage-3](stage-3-mobile.md) 做。
@@ -289,7 +449,7 @@ PostCSS 构建期解析」失去对象，**不执行**。
 | 10 | 键盘可用 | 纯键盘走通主流程，焦点始终可见（新实现验收） | U7 |
 | 11 | 三态一致 | 加载/空/错三态齐全且一致（原型已定，新实现自带） | UX5b |
 | 12 | 视觉一致 | 按高保真稿实现；暗色对比度达标 | UX5b |
-| 13 | 规范可查 | `design-system.md` 存在且能指导新组件 | U12（UX5b 后） |
+| 13 | 规范可查 | `design-system.md` 存在且能指导新组件 | U12（U13.5 后） |
 | 14 | 文案可查表 | 新增/修改文案零裸字符串（存量清零在 J1）；金额与日期只有一个格式化入口 | L1–L3 |
 | 15 | 装得起来 | 桌面可一键启动（Tauri），不要求用户开终端 | K8 |
 | 16 | 数据能带走 | 导出格式长期稳定，能用标准工具读出全量账目 | 阶段 2 |
