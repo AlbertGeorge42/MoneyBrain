@@ -22,6 +22,7 @@
     "build": "node scripts/build.mjs",
     "start": "concurrently \"npm run start:api\" \"npm run start:web\"",
     "desktop": "node scripts/desktop.mjs",
+    "desktop:open": "node scripts/desktop.mjs",
     "desktop:build": "node scripts/desktop.mjs --build",
     "start:web": "npm run preview -w @moneybrain/web -- --port 4173",
     "start:api": "npm run start:prod -w @moneybrain/api",

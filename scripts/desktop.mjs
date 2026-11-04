@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /**
  * 桌面启动器（无 Rust 工具链时的可运行方案）：
- *   npm run desktop          → 复用已有构建，起 API + 预览服务，开一个 Edge 应用窗口
- *   npm run desktop -- --build → 先构建再启动
+ *   npm run desktop / npm run desktop:open → 起 API + 预览服务，开一个 Edge 应用窗口
+ *   npm run desktop -- --build              → 强制先重新构建再启动
  *
  * 说明：Tauri 需要 rustc/cargo，本机没有；此脚本用 Edge「应用模式」提供独立窗口，
- * 仍是本机 API + 本地静态资源，但不等同于打包安装包。
+ * 仍是本机 API + 本地静态资源，但不等同于打包安装包（无签名、无自动更新）。
  *
  * 健壮性约定：
+ *   - 构建产物缺失时自动执行 npm run build；dev.db 缺失且未指定 DATABASE_URL 时自动应用迁移。
  *   - 端口 3001 / 4173 被占用时明确报错，不静默连到别人的实例。
- *   - 调试端口 9333 默认开启：重复启动会聚焦已有窗口，而不是再开一个。
- *   - 窗口启动尺寸 1280×820；若 profile 记住了更小的尺寸，启动后通过 CDP 抬到最小尺寸。
- *   - 退出时停止子进程并清理 profile 锁文件。
+ *   - 调试端口 9333 默认开启：重复启动会聚焦已有窗口，并把过小窗口抬到最小尺寸。
+ *   - 全新 profile 首启会弹 Edge 同步确认页；用 --disable-sync 抑制，并在启动后关闭残留弹窗。
+ *   - 窗口启动尺寸 1280×820，最小尺寸 1024×640。
+ *   - 退出时停止子进程、清理 profile 锁，并等待 3001 / 4173 / 调试端口释放。
  */
 import { spawn } from 'node:child_process'
 import { existsSync, rmSync } from 'node:fs'
@@ -182,6 +184,64 @@ async function enforceMinimumWindow(target) {
   }
 }
 
+/** Edge 全新 profile 首启的同步确认页 / 欢迎页。 */
+function isStartupPopup(url) {
+  return /^(edge|chrome):\/\//.test(url) && /sync|first-run|firstrun|welcome|signin/i.test(url)
+}
+
+/** 用 CDP 关闭残留的同步确认页；--disable-sync 是主要手段，这里是兜底。 */
+async function dismissStartupPopups() {
+  try {
+    const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`, {
+      signal: AbortSignal.timeout(1_500),
+    })
+    if (!response.ok) return
+    const targets = await response.json()
+    const popups = targets.filter((target) => target.type === 'page' && isStartupPopup(target.url))
+    for (const popup of popups) {
+      try {
+        await cdpSend(popup.webSocketDebuggerUrl, 'Page.close')
+        log(`已关闭首启弹窗：${popup.url}`)
+      } catch {
+        // 弹窗可能已被 --disable-sync 抑制或自行关闭
+      }
+    }
+  } catch {
+    // 调试端口尚未就绪
+    return
+  }
+}
+
+/** 探测所有页面，确保只剩应用窗口；返回非应用页面数量。 */
+async function countForeignPages() {
+  try {
+    const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`, {
+      signal: AbortSignal.timeout(1_500),
+    })
+    if (!response.ok) return 0
+    const targets = await response.json()
+    return targets.filter(
+      (target) => target.type === 'page' && !target.url.startsWith(WEB_URL),
+    ).length
+  } catch {
+    return 0
+  }
+}
+
+/** 关窗后等待端口释放，避免下一次启动被残留服务挡住。 */
+async function waitForPortsReleased(ports, timeoutMs = 8_000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const busy = []
+    for (const port of ports) {
+      if (await isPortInUse(port)) busy.push(port)
+    }
+    if (busy.length === 0) return true
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  return false
+}
+
 /** DATABASE_URL=file:... 时返回对应文件；非 SQLite 返回 null。 */
 function resolveDbPath() {
   const url = process.env.DATABASE_URL
@@ -191,23 +251,36 @@ function resolveDbPath() {
   return path.isAbsolute(raw) ? raw : path.resolve(root, 'apps', 'api', 'prisma', raw)
 }
 
-function assertRuntimeAssets() {
+async function ensureRuntimeAssets() {
   const webDist = path.join(root, 'apps', 'web', 'dist', 'index.html')
   const apiDist = path.join(root, 'apps', 'api', 'dist', 'apps', 'api', 'src', 'index.js')
   if (!existsSync(webDist) || !existsSync(apiDist)) {
+    log('构建产物缺失，自动执行 npm run build（首次启动可能较慢）…')
+    await run('npm', ['run', 'build'])
+  }
+  if (!existsSync(webDist) || !existsSync(apiDist)) {
     throw new Error(
-      `构建产物缺失：${!existsSync(webDist) ? webDist : apiDist}\n  请执行 npm run build（或 npm run desktop:build）。`,
+      `构建失败：${!existsSync(webDist) ? webDist : apiDist} 仍不存在。\n  请手动执行 npm run build 查看具体错误。`,
     )
+  }
+
+  const migrations = path.join(root, 'apps', 'api', 'prisma', 'migrations')
+  if (!existsSync(migrations)) {
+    throw new Error('缺少 apps/api/prisma/migrations，无法确认数据库结构；请检查仓库是否完整。')
   }
 
   const dbPath = resolveDbPath()
   if (dbPath && !existsSync(dbPath)) {
-    throw new Error(
-      `数据库文件不存在：${dbPath}\n  请先执行 npm run db:deploy（开发期也可用 npm run db:migrate）初始化数据库。`,
-    )
-  }
-  if (!existsSync(path.join(root, 'apps', 'api', 'prisma', 'migrations'))) {
-    throw new Error('缺少 apps/api/prisma/migrations，无法确认数据库结构；请检查仓库是否完整。')
+    if (process.env.DATABASE_URL) {
+      throw new Error(
+        `DATABASE_URL 指向的数据库不存在：${dbPath}\n  请先由调用方建库并应用迁移（桌面烟测会自动完成）。`,
+      )
+    }
+    log(`未找到数据库 ${dbPath}，自动应用迁移…`)
+    await run('npm', ['run', 'db:deploy'])
+    if (!existsSync(dbPath)) {
+      throw new Error(`数据库初始化失败：${dbPath} 仍不存在。\n  请手动执行 npm run db:status 查看迁移状态。`)
+    }
   }
 }
 
@@ -216,17 +289,20 @@ async function main() {
     log('构建前端与后端产物…')
     await run('npm', ['run', 'build'])
   }
-  assertRuntimeAssets()
+  await ensureRuntimeAssets()
 
   const edgePath = EDGE_CANDIDATES.find((candidate) => candidate && existsSync(candidate))
   if (!edgePath) {
-    throw new Error('未找到 Microsoft Edge；请安装 Edge，或改用 npm run dev 在浏览器中打开。')
+    throw new Error(
+      '未找到 Microsoft Edge。\n  前置要求：Node.js 20+ 与 Microsoft Edge（Windows 自带）；\n  安装 Edge 后重试，或改用 npm run dev 在浏览器中打开。',
+    )
   }
 
-  // 单实例：调试端口上已有本项目的窗口 → 聚焦后直接退出。
+  // 单实例：调试端口上已有本项目的窗口 → 抬到最小尺寸并聚焦后直接退出。
   const existing = await findDesktopTarget()
   if (existing) {
     if (await isPortInUse(WEB_PORT)) {
+      await enforceMinimumWindow(existing)
       const focused = await focusExisting(existing)
       log(`已有桌面实例在运行，${focused ? '已聚焦现有窗口' : '未能聚焦（请手动切换窗口）'}；本次不重复启动。`)
       return
@@ -270,14 +346,15 @@ async function main() {
     killTree(server)
     clearProfileLocks()
   }
-  process.on('SIGINT', () => {
+  const cleanupAndExit = async (code) => {
     cleanup()
-    process.exit(130)
-  })
-  process.on('SIGTERM', () => {
-    cleanup()
-    process.exit(143)
-  })
+    const released = await waitForPortsReleased([API_PORT, WEB_PORT, DEBUG_PORT])
+    clearProfileLocks()
+    if (!released) log('警告：仍有端口未释放，请检查残留进程。')
+    process.exit(code)
+  }
+  process.on('SIGINT', () => { void cleanupAndExit(130) })
+  process.on('SIGTERM', () => { void cleanupAndExit(143) })
   process.on('exit', cleanup)
 
   try {
@@ -298,6 +375,7 @@ async function main() {
       `--remote-debugging-port=${DEBUG_PORT}`,
       '--no-first-run',
       '--no-default-browser-check',
+      '--disable-sync',
       '--disable-features=msEdgeFirstRunExperience,Translate,msEdgeSidebarV2',
     ],
     { stdio: 'ignore' },
@@ -309,7 +387,18 @@ async function main() {
   })
 
   const target = await waitForDesktopTarget()
-  if (target) await enforceMinimumWindow(target)
+  if (target) {
+    await enforceMinimumWindow(target)
+    // --disable-sync 已抑制同步确认页；这里再兜底关闭任何残留首启弹窗。
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await dismissStartupPopups()
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    const foreign = await countForeignPages()
+    log(foreign === 0
+      ? '首启只有应用窗口（无同步确认页 / 欢迎页残留）'
+      : `注意：调试端口上还有 ${foreign} 个非应用页面，请手动关闭。`)
+  }
 
   await new Promise((resolve) => setTimeout(resolve, 3_000))
   if (exitedEarly) {
@@ -324,6 +413,11 @@ async function main() {
   await new Promise((resolve) => app.on('exit', resolve))
   log('窗口已关闭，停止服务并清理 profile 锁。')
   cleanup()
+  const released = await waitForPortsReleased([API_PORT, WEB_PORT, DEBUG_PORT])
+  clearProfileLocks()
+  log(released
+    ? `端口 ${API_PORT} / ${WEB_PORT} / ${DEBUG_PORT} 已释放。`
+    : '警告：仍有端口未释放，请检查残留进程。')
 }
 
 main().catch((error) => {

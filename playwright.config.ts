@@ -1,12 +1,23 @@
+import os from 'node:os'
+import path from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
+
+/** global-setup 会在同一路径建库；API 通过 DATABASE_URL 连它。 */
+const E2E_DB_URL = `file:${path.join(os.tmpdir(), 'moneybrain-e2e', 'e2e.db').replace(/\\/g, '/')}`
 
 /**
  * Playwright 端到端测试配置
  * 支持多浏览器、多视口测试
+ *
+ * 写库隔离：API 默认连 global-setup 建出的临时 SQLite 库（%TEMP%），
+ * 不再读写 apps/api/prisma/dev.db；API 不允许复用已有服务，避免误连真实账本。
  */
 export default defineConfig({
   testDir: './e2e/tests',
   outputDir: './test-results',
+
+  /* 临时库：API 包装脚本开始前建库、结束后删除 */
+  globalTeardown: './e2e/global-teardown.ts',
 
   /* 测试文件匹配模式 */
   testMatch: '**/*.spec.ts',
@@ -64,10 +75,11 @@ export default defineConfig({
   /* 本地开发服务器配置 */
   webServer: [
     {
-      command: 'npm run dev:api',
+      command: 'node scripts/e2e-api.mjs',
       url: 'http://localhost:3001/api/accounts',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 120000,
+      env: { DATABASE_URL: E2E_DB_URL },
     },
     {
       command: 'npm run dev:web',

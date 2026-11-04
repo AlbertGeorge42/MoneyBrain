@@ -3,18 +3,19 @@
  * 桌面端端到端烟测：自己拉起桌面启动器（临时 SQLite 库 + 临时 profile + 独立调试端口），
  * 通过 CDP 驱动真实的 Edge 应用窗口，验证「记一笔 → 总览 → 流水 → 报表」闭环并留截图。
  *
- * 隔离约定：烟测只写 apps/api/prisma/smoke-<pid>.db，跑完删除；
- * 真实账本 dev.db 只读，前后对比交易笔数，确保不留痕。
+ * 隔离约定：烟测只写 %TEMP%/moneybrain-smoke-<pid>/smoke.db（临时 schema + 迁移重建），
+ * 跑完删除；真实账本 dev.db 只读，前后对比交易笔数，确保不留痕。
  *
  * 用法：node scripts/desktop-smoke.mjs
  */
 import { chromium } from '@playwright/test'
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { connect } from 'node:net'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { prepareTempDatabase, removeTempDatabase } from './temp-db.mjs'
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const prismaDir = path.join(root, 'apps', 'api', 'prisma')
@@ -125,28 +126,8 @@ async function waitForTarget(desktop, timeoutMs = 120_000) {
 
 /** Windows 上子进程退出后仍可能短暂持有 SQLite/profile 句柄，重试删除。 */
 async function removeTempDb() {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    try {
-      rmSync(TMP_DIR, { force: true, recursive: true })
-      rmSync(PROFILE, { force: true, recursive: true })
-      return
-    } catch (error) {
-      if (attempt === 9) throw error
-      await new Promise((resolve) => setTimeout(resolve, 500))
-    }
-  }
-}
-
-/** 复制 schema + migrations 到临时目录，把 datasource 换成 DATABASE_URL，避免动到 dev.db。 */
-function prepareTempSchema() {
-  mkdirSync(TMP_DIR, { recursive: true })
-  const schema = readFileSync(path.join(prismaDir, 'schema.prisma'), 'utf8').replace(
-    /url\s*=\s*"file:\.\/dev\.db"/,
-    'url      = env("DATABASE_URL")',
-  )
-  writeFileSync(path.join(TMP_DIR, 'schema.prisma'), schema)
-  cpSync(path.join(prismaDir, 'migrations'), path.join(TMP_DIR, 'migrations'), { recursive: true })
-  return path.join(TMP_DIR, 'schema.prisma')
+  await removeTempDatabase(TMP_DIR)
+  rmSync(PROFILE, { force: true, recursive: true })
 }
 
 async function main() {
@@ -170,9 +151,12 @@ async function main() {
     : null
 
   log(`初始化临时库 ${DB_PATH}`)
-  const tempSchema = prepareTempSchema()
-  await run('npx', ['prisma', 'migrate', 'deploy', '--schema', tempSchema], {
-    DATABASE_URL: DB_URL,
+  prepareTempDatabase({
+    sourceSchema: path.join(prismaDir, 'schema.prisma'),
+    sourceMigrations: path.join(prismaDir, 'migrations'),
+    targetDir: TMP_DIR,
+    databaseUrl: DB_URL,
+    prismaCli: path.join(root, 'node_modules', 'prisma', 'build', 'index.js'),
   })
 
   let desktop = null
@@ -199,6 +183,27 @@ async function main() {
     if (!context) throw new Error('未连上桌面窗口：没有浏览器上下文')
     const page = context.pages().find((candidate) => candidate.url().startsWith('http://127.0.0.1:4173'))
     if (!page) throw new Error('未找到 4173 的应用窗口')
+
+    // 全新 profile 首启：等启动器关掉同步确认页后，确认只剩应用窗口。
+    let foreign = []
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      foreign = browser.contexts()
+        .flatMap((ctx) => ctx.pages())
+        .filter((candidate) => !candidate.url().startsWith('http://127.0.0.1:4173'))
+      if (foreign.length === 0) break
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    if (foreign.length > 0) {
+      throw new Error(`首启残留非应用页面：${foreign.map((candidate) => candidate.url()).join(', ')}`)
+    }
+    log('全新 profile 首启只有应用窗口')
+
+    const windowInfo = await page.evaluate(() => ({
+      title: document.title,
+      width: window.outerWidth,
+      height: window.outerHeight,
+    }))
+    log(`窗口标题「${windowInfo.title}」，外框 ${windowInfo.width}×${windowInfo.height}`)
 
     await page.goto('http://127.0.0.1:4173/dashboard')
     await page.getByRole('heading', { name: '总览', exact: true }).waitFor()
@@ -233,6 +238,16 @@ async function main() {
     await expenseMetric.waitFor()
     log(`报表本期支出：${(await expenseMetric.innerText()).replace(/\s+/g, ' ')}`)
     await page.screenshot({ path: path.join(OUT, '4-reports.png') })
+
+    // 关于：品牌入口 → 版本号可见
+    await page.getByRole('button', { name: '关于 MoneyBrain' }).first().click()
+    const about = page.getByRole('dialog')
+    await about.waitFor()
+    const aboutText = (await about.innerText()).replace(/\s+/g, ' ')
+    if (!/版本 \d+\.\d+\.\d+/.test(aboutText)) throw new Error(`关于里没有版本号：${aboutText}`)
+    log(`关于：${aboutText}`)
+    await page.screenshot({ path: path.join(OUT, '5-about.png') })
+    await page.keyboard.press('Escape')
 
     const tempCount = await countTransactions(DB_URL)
     if (tempCount !== 1) throw new Error(`临时库应有 1 笔交易，实际 ${tempCount} 笔`)

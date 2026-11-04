@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Button, UnstyledButton } from '@mantine/core'
+import { useState, type ReactNode } from 'react'
+import { Button, Modal, Stack, Text, UnstyledButton } from '@mantine/core'
 import { Plus } from 'lucide-react'
 import { formatAmount } from '../../features/transactions/transaction-utils'
 import type { DeviceMode } from '../../features/transactions/types'
@@ -17,12 +17,12 @@ type ShellFrameProps = {
   children: ReactNode
 }
 
-function Brand() {
+function Brand({ onAbout }: { onAbout: () => void }) {
   return (
-    <div className="hf-brand">
+    <UnstyledButton className="hf-brand" aria-label="关于 MoneyBrain" onClick={onAbout}>
       <span className="hf-brand-mark mb-num" aria-hidden>MB</span>
       <span className="hf-brand-name">MoneyBrain</span>
-    </div>
+    </UnstyledButton>
   )
 }
 
@@ -38,10 +38,11 @@ export function ShellFrame({
   overlay,
   children,
 }: ShellFrameProps) {
+  const [aboutOpen, setAboutOpen] = useState(false)
   const shell = device === 'mobile' ? (
     <div className="hf-shell-mobile">
       <header className="hf-mobile-header">
-        <Brand />
+        <Brand onAbout={() => setAboutOpen(true)} />
         <span className="hf-mobile-page-title mb-title-3">{navLabel(page)}</span>
       </header>
       <div className="hf-mobile-body">{children}</div>
@@ -72,7 +73,7 @@ export function ShellFrame({
   ) : (
     <div className="hf-shell-pc">
       <aside className="hf-sidebar">
-        <Brand />
+        <Brand onAbout={() => setAboutOpen(true)} />
         <nav className="hf-nav" aria-label="主导航">
           {NAV_ITEMS.map((item, index) => {
             const Icon = item.icon
@@ -118,6 +119,13 @@ export function ShellFrame({
   return (
     <>
       {shell}
+      <Modal opened={aboutOpen} onClose={() => setAboutOpen(false)} title="关于 MoneyBrain" centered>
+        <Stack gap="xs">
+          <Text fw={600}>MoneyBrain 个人记账</Text>
+          <Text size="sm">版本 {__APP_VERSION__}</Text>
+          <Text size="sm" c="dimmed">本地 SQLite · 数据不出本机</Text>
+        </Stack>
+      </Modal>
       {overlay}
     </>
   )

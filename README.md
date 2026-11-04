@@ -32,16 +32,35 @@ npm start       # 预览构建产物
 | `npm run dev` | 前后端一起启动 |
 | `npm run dev:api` / `npm run dev:web` | 单独启动 |
 | `npm run build` | 构建 web + api |
+| `npm run desktop` / `desktop:open` | 启动桌面窗口（缺失产物自动构建、缺失库自动迁移） |
+| `npm run desktop:build` | 强制重新构建后启动桌面窗口 |
 | `npm run lint` | lint api + web |
 | `npm run typecheck` | domain + api + web |
 | `npm test` | domain + api + web 测试 |
-| `npm run test:e2e` | Playwright（**会清空开发数据库，先备份 `apps/api/prisma/dev.db`**） |
+| `npm run test:e2e` | Playwright（自动使用 `%TEMP%` 下的临时库，不读写 `dev.db`） |
 | `npm run db:migrate` | 改 schema 后生成并应用版本化迁移（SQL 进仓库） |
 | `npm run db:status` | 查看当前库与迁移的差异 |
 | `npm run db:verify` | 数据自检：重算净资产恒等式、转账与退款，报告不一致项 |
 | `npm run db:drill` | 恢复演练：导出 → 导入临时库 → 对比余额（备份可信度自检） |
 
 单独跑某一层：`npm run test:domain` / `npm run test:api` / `npm run test:web`。
+
+## 桌面端（当前可交付形态）
+
+**如何拿到并启动**：克隆仓库后执行一次 `npm install`，然后双击仓库根目录的
+`MoneyBrain.cmd`，或执行 `npm run desktop`（`desktop:open` 等价）。首次启动会自动构建
+缺失产物、应用数据库迁移，并打开 1280×820 的独立窗口；窗口标题与图标来自应用本身，
+「关于」（点击左上角品牌）里可看到版本号。关闭窗口即停止本地 API / 预览服务并清理临时 profile 锁。
+
+**前置条件**：Windows + Node.js 20+ + Microsoft Edge（Windows 自带），不需要 Rust 工具链。
+
+**当前形态与限制（如实说明）**：
+
+- 本机没有 `rustc` / `cargo`，**不产出 Tauri 安装包**；所谓「桌面端」= 本机 API（3001）
+  + `vite preview`（4173）+ Edge `--app` 独立窗口（独立 profile、调试端口 9333）。
+- 依赖本机已安装的 Edge；没有代码签名、没有自动更新，也不能分发给未安装 Node/Edge 的机器。
+- 数据库仍是本地 SQLite（`apps/api/prisma/dev.db`），数据不出本机。
+- 分发前若要真正的安装包，需在装有 Rust 工具链的机器上另行构建 Tauri 产物（本仓库未包含）。
 
 ## 目录
 
