@@ -47,40 +47,17 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
   },
 
-  /* 项目配置（多浏览器、多视口） */
+  /*
+   * 项目配置：统一走系统 Edge（channel: 'msedge'），不依赖 Playwright 浏览器下载。
+   * 双端覆盖由用例自己声明 viewport（responsive-* / settings / hf-reports 均如此），
+   * 因此只保留一个项目，避免同一用例在两种视口下重复跑导致必然失败——
+   * 桌面版 HF 用例在移动视口下本就不成立。
+   * 不再保留 Firefox / WebKit：运行环境未安装对应引擎时 `npm run test:e2e` 会直接失败。
+   */
   projects: [
-    // 桌面端 Chromium
     {
-      name: 'chromium-desktop',
-      use: { ...devices['Desktop Chrome'] },
-    },
-
-    // 桌面端 Firefox
-    {
-      name: 'firefox-desktop',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    // 桌面端 WebKit
-    {
-      name: 'webkit-desktop',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    // 平板端
-    {
-      name: 'tablet',
-      use: {
-        ...devices['iPad (gen 7) landscape'],
-      },
-    },
-
-    // 移动端
-    {
-      name: 'mobile',
-      use: {
-        ...devices['iPhone 13'],
-      },
+      name: 'edge',
+      use: { ...devices['Desktop Chrome'], channel: 'msedge' },
     },
   ],
 

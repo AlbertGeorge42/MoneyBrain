@@ -63,15 +63,25 @@ test.describe('HF 报表：四视图、图表与下钻', () => {
     await page.goto('/design')
     await page.getByRole('button', { name: '报表' }).click()
 
-    // 月切换：前一月 → 2026-10
+    // 月切换：前一月 → 2026-10，走势 x 轴跟随所选期间
     await page.getByRole('button', { name: '上一期' }).click()
     await expect(page.getByText('2026-10', { exact: true })).toBeVisible()
     await expect(page.getByRole('table', { name: '收入 · 2026-10' })).toBeVisible()
+    await expect(page.locator('.rep-trend-x span')).toHaveText(['5月', '6月', '7月', '8月', '9月', '10月'])
+    await expect(page.locator('.rep-trend-svg')).toHaveAttribute('aria-label', /近 6 个月.*10月/)
 
-    // 年切换：回到 2026
+    // 再往前一月 → 2026-09
+    await page.getByRole('button', { name: '上一期' }).click()
+    await expect(page.getByText('2026-09', { exact: true })).toBeVisible()
+    await expect(page.locator('.rep-trend-x span')).toHaveText(['4月', '5月', '6月', '7月', '8月', '9月'])
+    await expect(page.locator('.rep-trend-svg')).toHaveAttribute('aria-label', /近 6 个月.*9月/)
+
+    // 年切换：回到 2026，走势按年份
     await page.getByRole('button', { name: '年', exact: true }).click()
-    await expect(page.getByText('2026', { exact: true })).toBeVisible()
+    await expect(page.locator('.rep-period-value')).toHaveText('2026')
     await expect(page.getByRole('table', { name: '收入 · 2026' })).toBeVisible()
+    await expect(page.locator('.rep-trend-x span')).toHaveText(['2021', '2022', '2023', '2024', '2025', '2026'])
+    await expect(page.locator('.rep-trend-svg')).toHaveAttribute('aria-label', /近 6 年.*2026/)
 
     // 资产负债视图：两侧合计相等
     await page.getByRole('button', { name: '资产负债' }).click()
@@ -117,6 +127,15 @@ test.describe('HF 报表：四视图、图表与下钻', () => {
     await expect(cashMetrics).toHaveCount(4)
     await expect(page.getByText('期末现金总量', { exact: true })).toBeVisible()
 
+    // 汇总行没有可定位的流水：不给出口，文案也不承诺
+    await page.getByRole('table', { name: '流入 · 2026-11' }).locator('tr.rep-data-row').first().click()
+    const groupDrawer = page.getByRole('dialog')
+    await expect(groupDrawer.getByRole('heading', { name: '流入 · 详情' })).toBeVisible()
+    await expect(groupDrawer.getByRole('button', { name: '在流水中查看' })).toHaveCount(0)
+    await expect(groupDrawer.getByText('没有可直接定位的单笔流水')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(groupDrawer).toBeHidden()
+
     await page.getByRole('button', { name: '投资分析' }).click()
     const holdings = page.getByRole('table', { name: '持仓明细 · 2026-11' })
     await expect(holdings).toBeVisible()
@@ -132,6 +151,18 @@ test.describe('HF 报表：四视图、图表与下钻', () => {
     const drawer = page.getByRole('dialog')
     await expect(drawer.getByRole('heading', { name: '持仓明细 · 详情' })).toBeVisible()
     await expect(drawer.getByRole('button', { name: '在流水中查看' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+
+    // 有匹配但所选期间账本无流水：不给出口，文案不承诺
+    await page.getByRole('button', { name: '收支明细' }).click()
+    await page.getByRole('button', { name: '上一期' }).click()
+    await page.getByRole('button', { name: '上一期' }).click()
+    await expect(page.getByText('2026-09', { exact: true })).toBeVisible()
+    await page.getByRole('table', { name: '支出 · 2026-09' }).locator('tr.rep-data-row').first().click()
+    const emptyDrawer = page.getByRole('dialog')
+    await expect(emptyDrawer.getByText('本期账本里没有匹配的流水')).toBeVisible()
+    await expect(emptyDrawer.getByRole('button', { name: '在流水中查看' })).toHaveCount(0)
   })
 
   test('移动端单表切换、四视图空态与金额不截断', async ({ page }) => {
@@ -177,6 +208,23 @@ test.describe('HF 报表：四视图、图表与下钻', () => {
       .locator('.rep-table tbody .rep-data-row td.rep-num-cell .mb-num')
       .evaluateAll((nodes) => nodes.filter((node) => node.scrollWidth > node.clientWidth + 1).length)
     expect(investOverflow).toBe(0)
+
+    // 投资表可横向滚动：有提示、首列吸顶
+    await expect(page.getByText('左右滑动查看成本、收益与收益率。')).toBeVisible()
+    const scroller = page.locator('.rep-table-scroll--investment')
+    await expect(scroller).toHaveCount(1)
+    expect(await scroller.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+    const firstHeader = scroller.locator('thead th').first()
+    const beforeScroll = await firstHeader.boundingBox()
+    await scroller.evaluate((element) => { element.scrollLeft = element.scrollWidth })
+    const afterScroll = await firstHeader.boundingBox()
+    expect(Math.abs((afterScroll?.x ?? 0) - (beforeScroll?.x ?? 0))).toBeLessThan(2)
+    const scrolledOverflow = await page
+      .locator('.rep-table tbody .rep-data-row td.rep-num-cell .mb-num')
+      .evaluateAll((nodes) => nodes
+        .filter((node) => node.clientWidth > 0)
+        .filter((node) => node.scrollWidth > node.clientWidth + 1).length)
+    expect(scrolledOverflow).toBe(0)
 
     // 最大滚动时，最后内容在「+」FAB 上方
     await page.locator('.hf-mobile-body').evaluate((element) => {
