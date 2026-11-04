@@ -29,11 +29,12 @@
 | D7 | 阶段 0 · M1 | 2026-11-03 | `fe79d32` 列表/报表查询扫描量随期间（EXPLAIN 确认走索引）：**基线实测**（dev.db，3218 笔、最重月 2026-07=187 笔）——带 type 条件的报表/分类占比查询本就走 `transactions_type_date_idx`（扫 171/985 行）；交易列表分页与统计 groupBy 走 `transactions_deletedAt_idx` 单列索引扫全部 3218 未删行 + TEMP B-TREE（随总历史 ✗）；耗时 1-12ms 在包络内，问题是扫描结构而非当前耗时。最小改法：`@@index([deletedAt])` 替换为 `@@index([deletedAt, date])`（等值列 + 范围列保序；单列索引被复合前缀覆盖不冗余），版本化迁移 `20261103122257_transactions_deleted_date_idx` 已应用到 dev.db。**改后实测**（dev.db 同参数同脚本）：列表分页与统计 groupBy 均 `SEARCH transactions USING INDEX transactions_deletedAt_date_idx (deletedAt=? AND date>? AND date<?)`，扫描收敛到期间 187 行，耗时 0.5-0.7ms；排序仍残留 `TEMP B-TREE FOR RIGHT PART OF ORDER BY`（列表带 createdAt 次序键）与 `TEMP B-TREE FOR GROUP BY`（分组列不在索引序），但只作用于期间内的行，扫描量不再随总历史增长。余额保持例外（O(历史)、决策 #6 禁止缓存列，未动）。验收：`tests/integration/query-plan.test.ts` 2 用例全过；`npm test` 三域全过（api 35 文件 322 用例）、typecheck / lint 0 错、`db:verify` ✅（迁移后净资产对得上） |
 | D9 | 阶段 0 · M1 | 2026-11-04 | `5ffe91c` 拆分 `report.utils.ts`：基线 342 行、19 条 export，混装期间解析（`resolveReportPeriod` / `ReportPeriod` / `DateGranularity` / `generateMonthRange`）、预测（2 常量 + 6 函数）、资产求和（`sumByType` / `sumAssetsLiabilities`）、现金标记（`getCashFlags`）四类职责；耦合实证：纯计算文件反向 `import { generatePredictions } from '../budget.service.js'`（单测导入即拖入 prisma 依赖链）、`ReportValue` 与日期函数经 utils 中转、`sumByType` 外部 0 消费者。按决策 #39 拆分不留兼容 re-export：`period.ts`（91 行）/ `prediction.ts`（185 行）/ `cash-flag.ts`（13 行）/ `account-sum.ts`（44 行）；9 个 service 与模块 `index.ts` 直连新文件，`ReportValue` 改从 contracts 取、日期函数改从 `common/date` 取，`sumByType` 降为文件内私有；单测更名 `report-calc.test.ts`。验收：`grep report.utils apps`（排除 dist）0 命中；`npm run test:api` 35 文件 322 用例全过；typecheck / lint 0 错 |
 | U0 | 阶段 1 · M2 | 2026-11-03 | `a60a135` AntD cssVar 前缀 mb → ant（运行时实测 --ant-* 678 个），与项目 `--mb-*` 重叠 9 → 0（双定义 6：font-size-sm / text-secondary / text-tertiary / border / success / warning，其中 font-size-sm 值不一致——项目 13px vs AntD 子树 12px；项目引用未定义 3：bg-container / border-secondary / text-quaternary）；`--mb-*` 定义源只剩 `variables.css`（结构 25）+ `syncCssVars()`（颜色 32）。连带：InvestmentAssetClassConfigModal 的 `var(--ant-color-warning)` 改用项目等价 token `--mb-color-warning`（决策 #32：项目代码不引用 AntD 命名空间）；决策 #32 操作规则同步 dev-guide §2.1。验收（独立 chromium 读注入样式表 + computed style）：AntD `--mb-*` 644 → 0、重叠 9 → 0、`--mb-font-size-sm` 全树一致 13px；typecheck / lint 0 错、test:web 90 用例全过。遗留（U1 范围）：picker.css ×3 + settings.css ×1 失去同名兜底（背景→透明、边框→currentColor、四级文字→继承主文字色），另发现 2 处死引用 `--mb-font-size-h2` / `--mb-radius-sm`（AntD 从不生成，迁移前后表现不变） |
+| U1 | 阶段 1 · M2 | 2026-11-04 | `137af85` 清除 6 处项目未定义的 `--mb-*` 引用，引用即定义断言 0 未定义（定义 58 = 结构 25 + 颜色/阴影 33）：picker.css ×3 改 `--mb-color-bg-panel` / `--mb-color-border-subtle`；settings.css 的 `--mb-color-text-quaternary` 补进 `syncCssVars()`（项目无等价 token：tertiary 45% vs 需 25%），`--mb-font-size-h2` → `--mb-font-size-title`（18px）；report-layouts.css 的 `--mb-radius-sm` → `--mb-radius-control`（6px）。运行时实测恢复 U0 前观感：`.ip-cell` 背景 #fff / 边框 #f0f0f0、`.csp-clear` 背景 #fff、chevron rgba(0,0,0,0.25)；计数徽标 14→18px、对账条圆角 0→6px。stage-1 现状栏刷新并记录 U0 实测重叠 9（含同值 `--mb-color-warning`）。验收：typecheck / lint 0 错、test:web 12 文件 90 用例全过 |
 
 ## 待领（按推荐顺序）
 
 - 阶段 0 · M1：D4 → D10（D10：D1 基线外残留收口——clear-data / import / smart-import / audit-event / rollback 的事务内直调收进 repository 或统一事务封装）
-- 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U1 → U1b → U2–U3（地基）→ **UX1–UX5**（重设计，不改代码）→ U4 → U5 → U6–U11 / E/L/K8（可交错；E1–E4 在 UX 之后按原型落地，E6 随时可做）→ U12（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
+- 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U1b → U2–U3（地基）→ **UX1–UX5**（重设计，不改代码）→ U4 → U5 → U6–U11 / E/L/K8（可交错；E1–E4 在 UX 之后按原型落地，E6 随时可做）→ U12（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
 - 之后见 [../rewrite-blueprint.md](../rewrite-blueprint.md) §3 里程碑表
 
@@ -45,7 +46,4 @@
 
 ## 进行中
 
-| 条目 | 领取日期 | 范围 |
-|---|---|---|
-| U1 | 2026-11-04 | 变量引用完整性：清除 6 处未定义 `--mb-*` 引用（picker.css ×3 / settings.css ×2 / report-layouts.css ×1），改用项目已定义 token 或补齐缺失的语义 token；不做 U1b（lint 守卫） |
-| D10 | 2026-11-04 | D1 基线外残留收口：clear-data / import（config-import / budget-import）/ smart-import / audit-event / rollback 的事务内直调收进 repository 或统一事务封装；验收以全量 grep 0 命中为准（明细见 stage-0 D10 条目） |
+（空）
