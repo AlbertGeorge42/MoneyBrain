@@ -152,6 +152,8 @@ if (type === 'transfer') toAmount = amount - fee
   CSV 表头「金额（元）」、备份 manifest、UI 标签、错误信息。
 - **服务端是信任边界**：外部金额进来先校验「安全整数 + 范围」，不是整数分就 400，别静默取整。
 - **禁止**：领域层出现 `parseFloat`、`toFixed`、`Decimal`；前端用浮点做金额加减。
+- **展示格式化四个入口**：`formatMoney` / `LocalDate` / `formatTime` / `formatPercent`，一律走 `Intl` 封装；
+  页面不得自拼货币符号或日期格式（禁 `toFixed`、`¥` 字面量、`dayjs().format`）。
 
 ### 3.3 日期
 

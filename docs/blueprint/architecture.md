@@ -62,6 +62,7 @@
 - `created_at/updated_at` 是时间戳，只用于审计与排序，不参与任何金额计算。
 - 期间一律半开 `[start, endExclusive)`。
 - 日期的语义（本地日历日、不做 UTC 转换）见 [requirements.md](../requirements.md) 2。
+- 时间戳（`created_at` / `updated_at`）存 UTC、展示按本地时区；交易日期仍是本地日历年月日字符串，二者不得混用。
 
 ### 4 数据模型（目标）
 
