@@ -483,6 +483,16 @@
   box-shadow: var(--mb-sh-1);
 }
 
+/* 移动端高级筛选走底部抽屉（对齐 W2 线框），字段单列排布 */
+.tx-advanced-panel--mobile .tx-advanced {
+  grid-template-columns: 1fr;
+}
+
+.tx-advanced-panel--mobile .tx-advanced-amount,
+.tx-advanced-panel--mobile .tx-advanced-dates {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .tx-advanced {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

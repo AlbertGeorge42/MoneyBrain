@@ -1,5 +1,7 @@
 import {
+  Button,
   Collapse,
+  Drawer,
   NumberInput,
   Select,
   TextInput,
@@ -171,6 +173,29 @@ export function TransactionsToolbar({
             />
           </div>
         </Collapse>
+      )}
+
+      {device === 'mobile' && (
+        <Drawer
+          opened={advancedOpen}
+          onClose={onToggleAdvanced}
+          position="bottom"
+          size="auto"
+          title="高级筛选"
+        >
+          <div className="tx-advanced-panel--mobile">
+            <AdvancedFilterFields
+              filters={filters}
+              accounts={accounts}
+              categories={categories}
+              onChange={onChange}
+              onReset={onReset}
+            />
+          </div>
+          <Button className="mb-accent-btn" fullWidth mt="md" onClick={onToggleAdvanced}>
+            查看结果
+          </Button>
+        </Drawer>
       )}
     </div>
   )
