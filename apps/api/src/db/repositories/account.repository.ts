@@ -63,6 +63,14 @@ export async function count(
   return db(tx).account.count({ where })
 }
 
+/** 批量硬删除（清库用）：where 由调用方给定。 */
+export async function deleteManyWhere(
+  where: Prisma.AccountWhereInput | undefined,
+  tx?: TransactionClient,
+): Promise<Prisma.BatchPayload> {
+  return db(tx).account.deleteMany({ where })
+}
+
 /** 批量更新排序（含分类挂载）：整个批次一个事务，部分失败全部回滚。 */
 export async function updateSorts(
   items: Array<{ id: string; sort: number; categoryId: string | null }>,

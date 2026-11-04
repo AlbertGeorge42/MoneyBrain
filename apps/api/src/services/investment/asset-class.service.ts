@@ -1,4 +1,4 @@
-import { prisma } from '../../prisma.js'
+import { withTransaction } from '../../db/transaction.js'
 import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
@@ -159,7 +159,7 @@ export async function deleteAssetClass(id: string, forceDelete = false) {
 
   // 强制删除：删除相关快照记录和资产类型
   if (forceDelete && snapshotsCount > 0) {
-    await prisma.$transaction(async (tx) => {
+    await withTransaction(async (tx) => {
       // 找出所有受影响的快照ID
       const affectedSnapshotIds = existing.allocationItems.map(item => item.snapshotId)
 

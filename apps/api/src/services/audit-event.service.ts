@@ -1,5 +1,5 @@
 import type { Prisma, Transaction } from '@prisma/client'
-import { prisma } from '../prisma.js'
+import { withTransaction } from '../db/transaction.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
@@ -84,7 +84,7 @@ function deriveAction(before: Transaction, after: Transaction): string {
 
 /** 软删除 + 审计事件（同一事务内），返回审计事件 id（提示条「撤销」用）。 */
 export async function softDeleteWithEvent(transaction: Transaction): Promise<string> {
-  const event = await prisma.$transaction(async (tx) => {
+  const event = await withTransaction(async (tx) => {
     const after = await transactionRepo.softDelete(transaction.id, tx)
     return auditEventRepo.createAuditEvent(
       {
@@ -106,7 +106,7 @@ export async function updateWithEvent(
   before: Transaction,
   data: Prisma.TransactionUncheckedUpdateInput,
 ): Promise<TransactionWithRelations> {
-  return prisma.$transaction(async (tx) => {
+  return withTransaction(async (tx) => {
     const after = await transactionRepo.updateFields(id, data, tx)
     await auditEventRepo.createAuditEvent(
       {
@@ -156,7 +156,7 @@ async function applyTransactionSnapshot(
   current: Transaction,
   target: Record<string, unknown>,
 ): Promise<TransactionWithRelations> {
-  await prisma.$transaction(async (tx) => {
+  await withTransaction(async (tx) => {
     const after = await transactionRepo.updateFields(transactionId, snapshotToUpdate(target), tx)
     await auditEventRepo.createAuditEvent(
       {

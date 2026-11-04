@@ -9,7 +9,7 @@
 // 事务边界与清空范围都归这一层管：子服务只负责「把数据写进去」，
 // 各自清空、各自开事务的老写法会让预览无法整体回滚。
 
-import { prisma } from '../../prisma.js'
+import { withTransaction } from '../../db/transaction.js'
 import {
   parseBackupZip,
   detectFileType,
@@ -218,7 +218,7 @@ export async function importBackup(
 ): Promise<ImportFullResult> {
   const start = Date.now()
   logger.info({ action: 'start', mode, includes }, 'import started')
-  const result = await prisma.$transaction((tx) => runImport(tx, file, filename, mode, includes))
+  const result = await withTransaction((tx) => runImport(tx, file, filename, mode, includes))
   logger.info({ action: 'finish', mode, durationMs: Date.now() - start }, 'import completed')
   return result
 }
@@ -253,7 +253,7 @@ export async function previewImport(
 ): Promise<ImportFullResult> {
   let captured: ImportFullResult | undefined
   try {
-    await prisma.$transaction(async (tx) => {
+    await withTransaction(async (tx) => {
       captured = await runImport(tx, file, filename, mode, includes)
       // 抛错触发回滚：预览不该留下任何数据改动
       throw new PreviewRollback()

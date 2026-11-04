@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { randomUUID } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { prisma } from '../prisma.js'
+import { withTransaction } from '../db/transaction.js'
 import { rootLogger, ValidationError } from '../common/index.js'
 import type { BackupDataType } from '../../../../packages/contracts/constants.js'
 import type { RollbackPoint } from '../../../../packages/contracts/types/index.js'
@@ -279,7 +280,7 @@ export async function restoreSnapshot(id: string): Promise<{
     await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF')
 
     try {
-      await prisma.$transaction(async (tx) => {
+      await withTransaction(async (tx) => {
         for (const table of tables) {
           await tx.$executeRawUnsafe(`DELETE FROM main."${table}"`)
           await tx.$executeRawUnsafe(

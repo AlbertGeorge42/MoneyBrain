@@ -75,6 +75,27 @@ export async function count(
   return db(tx).transactionCategory.count({ where })
 }
 
+/** 取某分组下最大 sort（导入自动建分类时用于追加序号）。 */
+export async function findMaxSort(
+  where: Prisma.TransactionCategoryWhereInput,
+  tx?: TransactionClient,
+): Promise<number> {
+  const row = await db(tx).transactionCategory.findFirst({
+    where,
+    orderBy: { sort: 'desc' },
+    select: { sort: true },
+  })
+  return row?.sort ?? 0
+}
+
+/** 批量硬删除（清库用，按 parentId 分两轮保证子表先删）：where 由调用方给定。 */
+export async function deleteManyWhere(
+  where: Prisma.TransactionCategoryWhereInput | undefined,
+  tx?: TransactionClient,
+): Promise<Prisma.BatchPayload> {
+  return db(tx).transactionCategory.deleteMany({ where })
+}
+
 /** 批量更新排序（含父分类移动）：整个批次一个事务，部分失败全部回滚。 */
 export async function updateSorts(
   items: Array<{ id: string; sort: number; parentId: string | null }>,

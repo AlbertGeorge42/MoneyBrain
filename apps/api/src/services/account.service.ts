@@ -1,4 +1,4 @@
-import { prisma } from '../prisma.js'
+import { withTransaction } from '../db/transaction.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toMinor } from '../common/index.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
@@ -169,7 +169,7 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
   }
 
   if (forceDelete && hasRelatedData) {
-    await prisma.$transaction(async (tx) => {
+    await withTransaction(async (tx) => {
       // 先删引用账户的子表（交易、预算），再删账户；交易的批量删除走 repository
       if (transactionsCount > 0) {
         await transactionRepo.deleteManyWhere({ accountId }, tx)

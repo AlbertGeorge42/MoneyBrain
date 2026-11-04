@@ -37,6 +37,13 @@ export async function findById(id: string, tx?: TransactionClient): Promise<Budg
   return db(tx).budget.findUnique({ where: { id } })
 }
 
+export async function findFirst<T extends Prisma.BudgetFindFirstArgs>(
+  args: Prisma.SelectSubset<T, Prisma.BudgetFindFirstArgs>,
+  tx?: TransactionClient,
+): Promise<Prisma.BudgetGetPayload<T> | null> {
+  return db(tx).budget.findFirst(args as Prisma.SelectSubset<T, Prisma.BudgetFindFirstArgs>)
+}
+
 export async function createWithRelations(
   data: Prisma.BudgetUncheckedCreateInput,
   tx?: TransactionClient,

@@ -1,4 +1,5 @@
-import { prisma, type TransactionClient } from '../../prisma.js'
+import type { TransactionClient } from '../../prisma.js'
+import { withTransaction } from '../../db/transaction.js'
 import { calculateBalancesBatch } from '../balance.service.js'
 import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
@@ -114,7 +115,7 @@ export async function createSnapshot(data: {
   })
 
   // 10. 写入数据库（事务中执行）
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withTransaction(async (tx) => {
     // 如果是最早一条快照，强制写入 periodNetFlow=0
     const itemsData = data.items.map((item, index) => ({
       assetClassId: item.assetClassId,
@@ -214,9 +215,8 @@ export async function deleteSnapshot(id: string) {
 
   if (!snapshot) throw new NotFoundError('快照不存在')
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withTransaction(async (tx) => {
     await allocationItemRepo.deleteManyWhere({ snapshotId: id }, tx)
-
     const deleted = await snapshotRepo.deleteById(id, tx)
     await relinkSnapshots(tx, snapshot.accountId)
     return deleted
@@ -313,7 +313,7 @@ export async function updateSnapshot(
   })
 
   // 8. 更新数据库
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withTransaction(async (tx) => {
     // 删除旧 items
     await allocationItemRepo.deleteManyWhere({ snapshotId: id }, tx)
 

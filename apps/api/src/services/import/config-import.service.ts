@@ -17,6 +17,10 @@ import {
   incSkipped,
   isAntDPresetColor,
 } from './shared.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as accountCategoryRepo from '../../db/repositories/account-category.repository.js'
+import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
+import * as investmentAssetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 
 // ─── importAccountCategories ───
 
@@ -31,41 +35,48 @@ async function importAccountCategories(
 ): Promise<void> {
   for (const item of categories) {
     try {
-      const existing = await tx.accountCategory.findFirst({
-        where: { name: item.name, type: item.type, parentId },
-      })
+      const existing = await accountCategoryRepo.findFirst(
+        { where: { name: item.name, type: item.type, parentId } },
+        tx,
+      )
 
       let currentId: string
 
       if (existing) {
         if (mode === 'merge') {
-          await tx.accountCategory.update({
-            where: { id: existing.id },
-            data: {
-              icon: item.icon ?? existing.icon,
-              color: isAntDPresetColor(item.color) ? item.color : existing.color,
-              sort: item.sort ?? existing.sort,
-              isCashEquivalent: item.isCashEquivalent ?? existing.isCashEquivalent,
-              isInvestment: item.isInvestment ?? existing.isInvestment,
+          await accountCategoryRepo.update(
+            {
+              where: { id: existing.id },
+              data: {
+                icon: item.icon ?? existing.icon,
+                color: isAntDPresetColor(item.color) ? item.color : existing.color,
+                sort: item.sort ?? existing.sort,
+                isCashEquivalent: item.isCashEquivalent ?? existing.isCashEquivalent,
+                isInvestment: item.isInvestment ?? existing.isInvestment,
+              },
             },
-          })
+            tx,
+          )
         }
         currentId = existing.id
         incUpdated(result, 'accountCategories')
       } else {
         const sort = item.sort ?? takeNextSort(counters, 'accountCategory', item.type)
-        const created = await tx.accountCategory.create({
-          data: {
-            name: item.name,
-            type: item.type,
-            parentId,
-            icon: item.icon,
-            color: isAntDPresetColor(item.color) ? item.color : undefined,
-            isCashEquivalent: item.isCashEquivalent ?? false,
-            isInvestment: item.isInvestment ?? false,
-            sort,
+        const created = await accountCategoryRepo.create(
+          {
+            data: {
+              name: item.name,
+              type: item.type,
+              parentId,
+              icon: item.icon,
+              color: isAntDPresetColor(item.color) ? item.color : undefined,
+              isCashEquivalent: item.isCashEquivalent ?? false,
+              isInvestment: item.isInvestment ?? false,
+              sort,
+            },
           },
-        })
+          tx,
+        )
         currentId = created.id
         incImported(result, 'accountCategories')
       }
@@ -103,7 +114,7 @@ async function importAccounts(
 ): Promise<void> {
   for (const account of accounts) {
     try {
-      const existing = await tx.account.findFirst({ where: { name: account.name } })
+      const existing = await accountRepo.findFirst({ where: { name: account.name } }, tx)
 
       let categoryId: string | null = null
       if (account.categoryName) {
@@ -112,9 +123,10 @@ async function importAccounts(
         if (categoryNameMap.has(keyByName)) {
           categoryId = categoryNameMap.get(keyByName)!
         } else {
-          const matched = await tx.accountCategory.findFirst({
-            where: { name: account.categoryName, type: account.type },
-          })
+          const matched = await accountCategoryRepo.findFirst(
+            { where: { name: account.categoryName, type: account.type } },
+            tx,
+          )
           if (matched) {
             categoryId = matched.id
           }
@@ -123,9 +135,10 @@ async function importAccounts(
 
       // 兜底：使用默认分类
       if (!categoryId) {
-        const defaultCategory = await tx.accountCategory.findFirst({
-          where: { type: account.type, parentId: null },
-        })
+        const defaultCategory = await accountCategoryRepo.findFirst(
+          { where: { type: account.type, parentId: null } },
+          tx,
+        )
         if (defaultCategory) {
           categoryId = defaultCategory.id
         }
@@ -133,9 +146,9 @@ async function importAccounts(
 
       if (existing) {
         if (mode === 'merge') {
-          await tx.account.update({
-            where: { id: existing.id },
-            data: {
+          await accountRepo.updateWithCategory(
+            existing.id,
+            {
               type: account.type ?? existing.type,
               initialBalance: account.initialBalance
                 ? BigInt(parseAmount(account.initialBalance))
@@ -148,15 +161,16 @@ async function importAccounts(
               sort: account.sort ?? existing.sort,
               categoryId: categoryId ?? existing.categoryId,
             },
-          })
+            tx,
+          )
           incUpdated(result, 'accounts')
         } else {
           incSkipped(result, 'accounts')
         }
       } else {
         const sort = account.sort ?? takeNextSort(counters, 'account', categoryId ?? 'default')
-        await tx.account.create({
-          data: {
+        await accountRepo.createWithCategory(
+          {
             name: account.name,
             type: account.type,
             initialBalance: account.initialBalance ? BigInt(parseAmount(account.initialBalance)) : BigInt(0),
@@ -168,7 +182,8 @@ async function importAccounts(
             sort,
             categoryId,
           },
-        })
+          tx,
+        )
         incImported(result, 'accounts')
       }
     } catch (error) {
@@ -191,40 +206,47 @@ async function importTransactionCategories(
 ): Promise<void> {
   for (const item of categories) {
     try {
-      const existing = await tx.transactionCategory.findFirst({
-        where: { name: item.name, type: item.type, parentId },
-      })
+      const existing = await transactionCategoryRepo.findFirst(
+        { where: { name: item.name, type: item.type, parentId } },
+        tx,
+      )
 
       let currentId: string
 
       if (existing) {
         if (mode === 'merge') {
-          await tx.transactionCategory.update({
-            where: { id: existing.id },
-            data: {
-              icon: item.icon ?? existing.icon,
-              color: item.color ?? existing.color,
-              cashFlowType: item.cashFlowType ?? existing.cashFlowType,
-              sort: item.sort ?? existing.sort,
+          await transactionCategoryRepo.update(
+            {
+              where: { id: existing.id },
+              data: {
+                icon: item.icon ?? existing.icon,
+                color: item.color ?? existing.color,
+                cashFlowType: item.cashFlowType ?? existing.cashFlowType,
+                sort: item.sort ?? existing.sort,
+              },
             },
-          })
+            tx,
+          )
         }
         currentId = existing.id
         incUpdated(result, 'transactionCategories')
       } else {
         const sortGroupKey = `${item.type}:${parentId ?? 'root'}`
         const sort = item.sort ?? takeNextSort(counters, 'transactionCategory', sortGroupKey)
-        const created = await tx.transactionCategory.create({
-          data: {
-            name: item.name,
-            type: item.type,
-            parentId,
-            icon: item.icon,
-            color: isAntDPresetColor(item.color) ? item.color : undefined,
-            cashFlowType: item.cashFlowType,
-            sort,
+        const created = await transactionCategoryRepo.create(
+          {
+            data: {
+              name: item.name,
+              type: item.type,
+              parentId,
+              icon: item.icon,
+              color: isAntDPresetColor(item.color) ? item.color : undefined,
+              cashFlowType: item.cashFlowType,
+              sort,
+            },
           },
-        })
+          tx,
+        )
         currentId = created.id
         incImported(result, 'transactionCategories')
       }
@@ -259,43 +281,50 @@ async function importInvestmentAssetClasses(
 ): Promise<void> {
   for (const ac of assetClasses) {
     try {
-      const account = await tx.account.findFirst({ where: { name: ac.accountName } })
+      const account = await accountRepo.findFirst({ where: { name: ac.accountName } }, tx)
       if (!account) {
         result.errors.push(`投资资产类别关联账户不存在: ${ac.accountName}`)
         incSkipped(result, 'investmentAssetClasses')
         continue
       }
 
-      const existing = await tx.investmentAssetClass.findFirst({
-        where: { accountId: account.id, name: ac.name },
-      })
+      const existing = await investmentAssetClassRepo.findFirst(
+        { where: { accountId: account.id, name: ac.name } },
+        tx,
+      )
 
       if (existing) {
         if (mode === 'merge') {
-          await tx.investmentAssetClass.update({
-            where: { id: existing.id },
-            data: {
-              icon: ac.icon ?? existing.icon,
-              color: isAntDPresetColor(ac.color) ? ac.color : existing.color,
-              targetRatio: ac.targetRatio ?? existing.targetRatio,
-              sort: ac.sort ?? existing.sort,
+          await investmentAssetClassRepo.update(
+            {
+              where: { id: existing.id },
+              data: {
+                icon: ac.icon ?? existing.icon,
+                color: isAntDPresetColor(ac.color) ? ac.color : existing.color,
+                targetRatio: ac.targetRatio ?? existing.targetRatio,
+                sort: ac.sort ?? existing.sort,
+              },
             },
-          })
+            tx,
+          )
           incUpdated(result, 'investmentAssetClasses')
         } else {
           incSkipped(result, 'investmentAssetClasses')
         }
       } else {
-        await tx.investmentAssetClass.create({
-          data: {
-            accountId: account.id,
-            name: ac.name,
-            icon: ac.icon,
-            color: isAntDPresetColor(ac.color) ? ac.color : undefined,
-            targetRatio: ac.targetRatio,
-            sort: ac.sort,
+        await investmentAssetClassRepo.create(
+          {
+            data: {
+              accountId: account.id,
+              name: ac.name,
+              icon: ac.icon,
+              color: isAntDPresetColor(ac.color) ? ac.color : undefined,
+              targetRatio: ac.targetRatio,
+              sort: ac.sort,
+            },
           },
-        })
+          tx,
+        )
         incImported(result, 'investmentAssetClasses')
       }
     } catch (error) {

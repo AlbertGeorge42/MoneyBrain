@@ -256,13 +256,17 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
 - SQLite，Prisma；金额表示见 §3.2（迁移中），ID 为 `uuid`。
 - **数据库访问只在 repository 层（D1）**：`apps/api/src/db/repositories/` 是各模型读写的唯一入口，
   service / route 不得出现 `prisma.<model>.`；事务回调里的 `tx.<model>.` 同样禁止——改调
-  repository 方法并把 `tx` 传进去（`$transaction` 编排本身可留在 service）。repository 方法做
+  repository 方法并把 `tx` 传进去。repository 方法做
   纯委托，返回给前端的固定关联收成常量（`BUDGET_RELATIONS`、`SNAPSHOT_ITEMS_RELATIONS`），
   「需要看已删除/全量」的方法名必须带 `IncludingDeleted`（约定见 transaction.repository）。
-  验收 grep（services 与 routes 零命中）：
-  `rg "prisma\.(account|accountCategory|transactionCategory|budget|investmentAssetClass|investmentAllocationSnapshot|investmentAllocationItem|auditEvent)\." apps/api/src/services apps/api/src/routes`。
-  暂存例外（后续条目收口）：clear-data 与 import 在事务客户端上的直调、迁移/种子脚本、
-  公共查询工具 `common/db.ts`。
+  **事务边界也统一（D10）**：service 不得直接调 `prisma.$transaction`，统一用
+  `db/transaction.ts` 的 `withTransaction(fn)`；批量事务封装留在 `db/repositories/` 内属合法。
+  例外白名单：`$queryRaw` 仅可查迁移元数据（`_prisma_migrations`），不得查业务表；迁移/种子脚本、
+  公共查询工具 `common/db.ts`、rollback 恢复的 ATTACH/PRAGMA 原始 SQL。
+  验收 grep（D10 后应全部 0 命中）：
+  `rg "tx\.(account|accountCategory|transactionCategory|budget|investmentAssetClass|investmentAllocationSnapshot|investmentAllocationItem)\." apps/api/src`；
+  `rg "prisma\.\$transaction" apps/api/src/services`；对 services/routes 的
+  `rg "prisma\.(account|accountCategory|transactionCategory|budget|investmentAssetClass|investmentAllocationSnapshot|investmentAllocationItem|auditEvent)\."`。
 - **连接初始化设 WAL 与 busy_timeout（D6）**：`prisma.ts` 启动时执行 `PRAGMA journal_mode = WAL`
   （库级持久属性、幂等；**必须用 `$queryRawUnsafe`**——该 PRAGMA 返回结果行，execute 会报错）
   与 `PRAGMA busy_timeout = 5000`（每连接属性，写锁竞争排队等待而非立即报 SQLITE_BUSY）。

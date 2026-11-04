@@ -7,6 +7,9 @@ import {
   type ImportBudgetResult,
   type TransactionClient,
 } from './shared.js'
+import * as accountRepo from '../../db/repositories/account.repository.js'
+import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
+import * as budgetRepo from '../../db/repositories/budget.repository.js'
 
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
 const BUDGET_PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const
@@ -25,14 +28,14 @@ export async function importBudgets(
 
   const executeImport = async (tx: TransactionClient) => {
     const accountNameMap = new Map<string, string>()
-    const accounts = await tx.account.findMany()
+    const accounts = await accountRepo.findMany({}, tx)
     for (const a of accounts) {
       accountNameMap.set(a.name, a.id)
     }
 
     // 复合键 `${type}:${name}` 避免同名不同类别的分类互相覆盖
     const categoryMap = new Map<string, string>()
-    const categories = await tx.transactionCategory.findMany()
+    const categories = await transactionCategoryRepo.findMany({}, tx)
     for (const c of categories) {
       categoryMap.set(`${c.type}:${c.name}`, c.id)
     }
@@ -56,14 +59,11 @@ export async function importBudgets(
       if (legacy) return legacy
 
       // 3. 自动创建缺失的分类
-      const maxResult = await tx.transactionCategory.aggregate({
-        where: { type },
-        _max: { sort: true },
-      })
-      const nextSort = (maxResult._max.sort ?? 0) + 1
-      const created = await tx.transactionCategory.create({
-        data: { name, type, sort: nextSort },
-      })
+      const nextSort = (await transactionCategoryRepo.findMaxSort({ type }, tx)) + 1
+      const created = await transactionCategoryRepo.create(
+        { data: { name, type, sort: nextSort } },
+        tx,
+      )
       categoryMap.set(`${type}:${name}`, created.id)
       return created.id
     }
@@ -107,13 +107,13 @@ export async function importBudgets(
           continue
         }
 
-        const existing = await tx.budget.findFirst({ where: { name: budget.name } })
+        const existing = await budgetRepo.findFirst({ where: { name: budget.name } }, tx)
 
         if (existing) {
           if (mode === 'merge') {
-            await tx.budget.update({
-              where: { id: existing.id },
-              data: {
+            await budgetRepo.updateWithRelations(
+              existing.id,
+              {
                 type: budget.type,
                 amount: BigInt(parseAmount(budget.amount)),
                 period: budget.period,
@@ -126,14 +126,15 @@ export async function importBudgets(
                 toAccountId,
                 categoryId,
               },
-            })
+              tx,
+            )
             result.updated++
           } else {
             result.skipped++
           }
         } else {
-          await tx.budget.create({
-            data: {
+          await budgetRepo.createWithRelations(
+            {
               name: budget.name,
               type: budget.type,
               amount: BigInt(parseAmount(budget.amount)),
@@ -147,7 +148,8 @@ export async function importBudgets(
               toAccountId,
               categoryId,
             },
-          })
+            tx,
+          )
           result.imported++
         }
       } catch (error) {

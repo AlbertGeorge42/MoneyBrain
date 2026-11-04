@@ -1,4 +1,4 @@
-import { prisma } from '../prisma.js'
+import { withTransaction } from '../db/transaction.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
@@ -212,7 +212,7 @@ export async function deleteTransactionCategory(
   }
 
   if (deleteTransactions) {
-    const deletedTransactions = await prisma.$transaction(async (tx) => {
+    const deletedTransactions = await withTransaction(async (tx) => {
       const deleted = await transactionRepo.deleteManyWhere({ categoryId }, tx)
       await transactionCategoryRepo.deleteById(categoryId, tx)
       await auditEventRepo.createAuditEvent(
@@ -242,7 +242,7 @@ export async function deleteTransactionCategory(
       throw new ValidationError('目标分类类型不匹配')
     }
 
-    const transferredTransactions = await prisma.$transaction(async (tx) => {
+    const transferredTransactions = await withTransaction(async (tx) => {
       // 含回收站里的交易一并转移，避免分类删除后悬挂 categoryId
       const updated = await transactionRepo.transferCategoryTo(categoryId, transferToCategoryId, tx)
       await transactionCategoryRepo.deleteById(categoryId, tx)
