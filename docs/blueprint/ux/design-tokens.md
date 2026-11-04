@@ -1,27 +1,30 @@
-# 设计 Token（UX4）
+# 设计 Token（UX4，darkfirst 定稿）
 
 > 这份文档回答：**界面长什么样，凭什么这么定**。
 > 它是 U4（间距字号单一来源）与 U12 的**唯一权威输入**；视觉一致性类条目（U5、U8–U11）已取消。
 > 段三照此实现；U12（U13.5 后）将产出 `docs/design-system.md`，届时据此收口。
 >
 > **规则：token 之外不得出现字面量。** 出现即返工。
+>
+> **主题口径（v0.6）**：darkfirst 为唯一皮肤，**默认 `light`，`dark` 为可选次要方案**。
+> 本文给落地值与最低对比度；逐项实测留在 UX5b 交付记录。实现约定见 [dev-guide.md](../../dev-guide.md) §2.3，本文不重复。
 
 ---
 
-## 1. 视觉方向：「账本」
+## 1. 视觉方向：「暗色优先」（darkfirst）
 
-隐喻是**一本纸质账本**——不是 SaaS 后台，不是银行 App。
+隐喻是**一块安静的黑板 + 一支荧光笔**——不是银行 App，也不是 SaaS 后台。
 
 | 决策 | 具体化 | 理由 |
 |---|---|---|
-| 暖纸面底色 | `#F5F2EA` 而不是纯白 | 纯白配饱和色刺眼；纸面底让长时间查看不累 |
-| 衬线中文标题 | Noto Serif SC | 账本的「标题栏」质感，与正文的无衬线形成层级 |
-| 等宽数字 | IBM Plex Mono + `tabular-nums` | 金额要能上下对齐比较，等宽是硬需求 |
-| 点阵纸纹 | 22px 网格的 1px 淡点 | 极轻的质感，不参与信息 |
-| 深绿封皮 | 品牌绿 `#1D5C43` 作主卡底 | 「账本封皮」的直觉，且深绿在暖纸面上不刺眼 |
-| 单一品牌色 | 一支绿 | 多品牌色会让「哪个是主色」变成问题 |
+| 中性炭黑底 | `#F6F6F4` / `#0D0F10`，不偏黄也不纯黑 | 数字和图表在两种底色上都稳；避免暖纸底与财务红绿抢色 |
+| 青柠拆两档 | 文字 `#356B0C` / 填充 `#A3E635` | 一支深绿保证文字 5.95，一支亮青柠负责「活」的填充；一档无法同时满足 |
+| 等宽数字 | JetBrains Mono → Cascadia Mono → Consolas + `tabular-nums` | 金额必须上下对齐；Windows 实际落到 Consolas |
+| 无衬线标题 | 标题与正文同一字栈 | 12–14px 高密度下衬线会糊；记账工具不需要「封面感」 |
+| 零装饰 | 无纸纹、无渐变、无彩色阴影 | 视觉重量留给数字与状态色 |
+| 单一强调色 | 两支青柠（文字 / 填充） | 多强调色会让「哪个是主色」失焦 |
 
-**反模式**：渐变按钮、彩色阴影、玻璃拟态、圆角过大的卡片、emoji 当图标。
+**反模式**：橙色支出（警告语义）、红色普通提示、渐变按钮、彩色阴影、玻璃拟态、圆角过大的卡片、emoji 当图标。
 分类图标用 lucide 线性图标，类别靠颜色与文字区分，不靠 emoji。
 
 ---
@@ -30,142 +33,165 @@
 
 ### 2.1 语义角色
 
-颜色是**角色**，不是装饰。每个角色只有一个色值。
+颜色是**角色**，不是装饰。每个角色只有一个色值；下表 42 项即 `--mb-color-*` 的全集。
 
-| Token | 浅色 | 暗色 | 角色 |
+**面 / 字 / 线 / 品牌 / 状态**
+
+| Token | 浅色（默认） | 暗色 | 角色 |
 |---|---|---|---|
-| `--mb-bg` | `#F5F2EA` | `#0F1411` | 页面底 |
-| `--mb-bg-panel` | `#FCFAF4` | `#161D17` | 面板 / 卡片 |
-| `--mb-bg-sunken` | `#EDE9DE` | `#10160F` | 下沉区（侧栏、输入底） |
-| `--mb-ink` | `#20261F` | `#EDE9DB` | 主文字 |
-| `--mb-ink-2` | `#59614F` | `#A9B0A0` | 次级文字 |
-| `--mb-ink-3` | `#646B5C` | `#8D9585` | 辅助文字 |
-| `--mb-line` | `#E2DCCC` | `#27302A` | 分隔线 |
-| `--mb-line-strong` | `#C9C2AC` | `#39443A` | 强分隔 / 边框 |
-| `--mb-brand` | `#1D5C43` | `#7CC9A2` | 品牌绿 |
-| `--mb-brand-ink` | `#0F3D2C` | `#9ADCB9` | 品牌深色（选中态文字） |
-| `--mb-brand-soft` | `#E1EDE2` | `#1B2E24` | 品牌浅底 |
-| `--mb-income` | `#177245` | `#74C693` | 收入 |
-| `--mb-expense` | `#B5442C` | `#EE8B6F` | 支出 |
-| `--mb-transfer` | `#7A5C28` | `#D9A94E` | 转账 |
-| `--mb-accent` | `#806010` | `#D9A94E` | 强调 / 预算警示 |
-| `--mb-danger` | `#A93A24` | `#EE8B6F` | 危险操作 |
-| `--mb-focus` | `#1D5C43` | `#7CC9A2` | 焦点环 |
+| `--mb-color-surface` | `#F6F6F4` | `#0D0F10` | 页面底 |
+| `--mb-color-surface-sunken` | `#EDEDEA` | `#08090A` | 下沉区（侧栏、输入底） |
+| `--mb-color-surface-raised` | `#FFFFFF` | `#16191B` | 面板 / 卡片 / 弹层 |
+| `--mb-color-surface-hover` | `#EFEFEC` | `#1D2226` | 行悬停、列表项悬停 |
+| `--mb-color-surface-overlay` | `rgba(20,22,26,.45)` | `rgba(0,0,0,.65)` | 遮罩 |
+| `--mb-color-text-primary` | `#14161A` | `#ECEEEF` | 主文字 |
+| `--mb-color-text-secondary` | `#565A60` | `#9CA3A8` | 次级文字 |
+| `--mb-color-text-tertiary` | `#63686E` | `#7F878D` | 辅助 / 元信息 |
+| `--mb-color-text-inverse` | `#F7FBEF` | `#14161A` | 反色承载上的文字 |
+| `--mb-color-border` | `#DFE1DD` | `#242A2E` | 分隔线、卡片边 |
+| `--mb-color-border-strong` | `#CBCEC8` | `#333A3F` | 输入框、强分隔 |
+| `--mb-color-accent` | `#356B0C` | `#A3E635` | 强调**文字**：图标、指示条、链接、focus 环 |
+| `--mb-color-accent-fill` | `#A3E635` | `#A3E635` | 强调**填充**：按钮底、徽标、图表强调块 |
+| `--mb-color-on-accent-fill` | `#0D1005` | `#0D1005` | 填充上的墨字（禁止用白） |
+| `--mb-color-accent-fill-hover` | `#93D12A` | `#B0E352` | 填充悬停 |
+| `--mb-color-accent-fill-pressed` | `#84BE1F` | `#93D12A` | 填充按下 |
+| `--mb-color-accent-soft` | `#E4F0D7` | `#1C2611` | 选中底、浅色强调块 |
+| `--mb-color-focus` | `#356B0C` | `#A3E635` | 焦点环 |
+| `--mb-color-skeleton` | `#E7E8E3` | `#1A1E20` | 骨架屏 |
 
-对应底色另有 `--mb-income-bg`、`--mb-expense-bg`、`--mb-transfer-bg`。
+**财务语义**
 
-### 2.2 深底承载面：封皮面前景色
-
-主卡（PC 净资产、移动端总览）是**深绿底**——它不是「纸面上的一个色块」，
-而是纸面之外的另一种承载面。纸面墨色（`--mb-ink`）在深绿底上不可读，
-品牌绿在深绿底上也几乎消失。
-
-**因此深底单独列一套前景色**，而不是在各处现写「深底就用白字」：
-
-| Token | 浅色 | 暗色 | 角色 |
+| Token | 浅色（默认） | 暗色 | 角色 |
 |---|---|---|---|
-| `--mb-cover-bg` | `#0F3D2C` | `#1C3A2C` | 封皮底 |
-| `--mb-on-cover` | `#F2EFE4` | `#F2EFE4` | 封皮上的主文字 |
-| `--mb-on-cover-2` | `#9ADCB9` | `#9ADCB9` | 封皮上的标签 / 次级 |
-| `--mb-on-cover-3` | `#C8E9D6` | `#C8E9D6` | 封皮上的说明文字 |
-| `--mb-on-cover-pos` | `#7CC9A2` | `#7CC9A2` | 封皮上的正向数字 |
-| `--mb-on-cover-neg` | `#EE8B6F` | `#EE8B6F` | 封皮上的负向数字 |
-| `--mb-on-cover-warm` | `#D9A94E` | `#D9A94E` | 封皮上的暖色装饰 |
+| `--mb-color-income` | `#1B7A48` | `#4ADE80` | 收入 / 收益（正向） |
+| `--mb-color-income-bg` | `#E7F3EB` | `#0F2417` | 收入 chip 底 |
+| `--mb-color-expense` | `#A64D56` | `#F0A4AB` | 支出（文字档，18px 以下） |
+| `--mb-color-expense-display` | `#B65B62` | `#F0A4AB` | 支出大号金额 / 图形填充档（≥24px 或 ≥18.66px 粗） |
+| `--mb-color-expense-bg` | `#F9E7E3` | `#2A1615` | 支出 chip 底 |
+| `--mb-color-transfer` | `#1D6D8E` | `#4C9FC4` | 转账（无损益） |
+| `--mb-color-transfer-bg` | `#E5F0F4` | `#13252D` | 转账 chip 底 |
+| `--mb-color-danger` | `#7A1220` | `#E5484D` | 危险（仅破坏性动作） |
+| `--mb-color-danger-solid` | `#6C1019` | `#6C1019` | 危险实心按钮（二次确认） |
+| `--mb-color-danger-bg` | `#FAE8E6` | `#241114` | 危险 chip / 提示底 |
+| `--mb-color-on-danger` | `#FFE9E7` | `#FFE9E7` | 危险实心上的文字 |
 
-封皮面前景色**不随主题反转**：两种主题下都是深底浅字。
+**分类与图表辅助**
 
-**但封皮底本身在暗色下要「变亮」而不是「变深」。**
-浅色主题里封皮是全页最深的色块，一眼认出「这本账的封面」；
-夜账本里没有比页面更深的层次可用，继续压深只会让它和面板糊在一起
-（实测 `#15271E` 对面板 `#161D17` 只有 1.10:1，等于没有边界）。
-因此暗色下封皮底改为**更亮的一块绿** `#1C3A2C`——仍是绿、仍比面板亮，
-但和纸面主题的「最深的封面」在明度关系上相反：**浅色靠更深成立，暗色靠更亮成立**。
-
-配套的 `--mb-on-brand` 是**品牌实心块上的文字**（主按钮、侧栏标记、选中标记）：
-浅色 `#F5F2EA`，暗色 `#0F1411`——因为暗色下品牌绿变浅（`--mb-brand: #7CC9A2`），
-实心块上的文字必须随之变深，否则浅底浅字。
-
-### 2.3 反色浮层：toast 与批量条
-
-Toast、批量操作条是**反色承载**——它们浮在页面之上，用「与底色相反」的方式
-宣告自己是系统级反馈，与用户内容区分开。
-
-| Token | 浅色 | 暗色 | 角色 |
+| Token | 浅色（默认） | 暗色 | 角色 |
 |---|---|---|---|
-| `--mb-inv-bg` | `#20261F` | `#EDE9DB` | 反色浮层底 |
-| `--mb-inv-ink` | `#F5F2EA` | `#161D17` | 反色浮层文字 |
-| `--mb-inv-soft` | `rgba(255,255,255,.12)` | `rgba(22,29,23,.10)` | 次级按钮底 |
-| `--mb-inv-soft-hover` | `rgba(255,255,255,.22)` | `rgba(22,29,23,.20)` | 次级按钮悬停底 |
-| `--mb-inv-accent` | `#7CC9A2` | `#177245` | 反色浮层里的强调 / 动作 |
+| `--mb-color-cat-1` … `-6` | `#3F7D0F` `#0F7D6A` `#1B6FA8` `#6D4FD6` `#C25383` `#B07A0B` | `#A3E635` `#4CC9E8` `#A78BFA` `#D9A21B` `#34D399` `#FF7AB6` | 分类区分（无语义） |
+| `--mb-color-chart-axis` | `#63686E` | `#7F878D` | 坐标轴文字 / 刻度 |
+| `--mb-color-chart-grid` | `#E3E5E0` | `#242A2E` | 网格线 |
+| `--mb-color-chart-tooltip-bg` | `#14161A` | `#16191B` | 图表 tooltip 底 |
+| `--mb-color-chart-tooltip-ink` | `#F3F4F0` | `#ECEEEF` | 图表 tooltip 文字 |
+| `--mb-color-chart-annot-pos` | `#1B7A48` | `#4ADE80` | 图表正向标注（= 收入绿） |
+| `--mb-color-chart-annot-neg` | `#A64D56` | `#F0A4AB` | 图表负向标注（= 支出红） |
 
-浅色主题下反色浮层是深底浅字；暗色主题下**转为浅底深字**——
-夜账本里再放一个深色块会沉进背景，反而不像「浮起来了」。
+### 2.2 Mantine 色阶（四条 10 档）
 
-遮罩另有 `--mb-veil`（浅色 `rgba(24,26,20,.45)`），两种主题同值。
+`theme.colors` 只放这四条；暗色 body 默认取 `dark[7]`，与 `--mb-color-surface` 同值。
+
+```ts
+gray   = ['#FFFFFF','#F7F7F5','#EFEFEC','#E4E5E1','#D5D7D2','#B9BDB6','#8D938C','#6A7069','#404540','#14161A']
+dark   = ['#F3F4F4','#E4E6E6','#C7CBCB','#A5AAAB','#83898A','#1D2226','#16191B','#0D0F10','#08090A','#050607']
+brand  = ['#F5FCE8','#E9F7CE','#D5F0A6','#C0E878','#B0E352','#A3E635','#8FCF26','#6BA414','#356B0C','#244A06']
+danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318','#7A1220','#6C1019','#4E0F0F']
+```
+
+| 取值 | 值 | 用途 |
+|---|---|---|
+| `dark[7]` | `#0D0F10` | 暗色 body，精确等于 `surface` |
+| `dark[8]` | `#08090A` | 暗色下沉面 |
+| `brand[5]` | `#A3E635` | `accent-fill`；`primaryShade = { light: 5, dark: 5 }` |
+| `brand[8]` | `#356B0C` | `accent` 文字档 |
+| `danger[5]` | `#E5484D` | 暗色 `danger` |
+| `danger[7]` | `#7A1220` | 亮色 `danger` |
+| `danger[8]` | `#6C1019` | `danger-solid`（比 danger 更深） |
+
+`dark[4]`（Mantine 默认边框位）太亮，必须覆写 `--mantine-color-default-border` = `border`；`dark[5]/[6]` 覆写 hover / 面板。
+
+### 2.3 两档强调色与边界
+
+**一档 accent 不可能同时满足「文字可读」与「填充鲜活」**：深绿做填充沉闷，亮青柠做文字只有 1.39。
+
+| 层 | 浅色 | 暗色 | 只用于 |
+|---|---|---|---|
+| `accent`（文字档） | `#356B0C` | `#A3E635` | 文字、图标、指示条、链接、focus 环 |
+| `accent-fill`（填充档） | `#A3E635` | `#A3E635` | 按钮底、徽标、Switch track、Checkbox 指示块、图表强调 |
+| `on-accent-fill` | `#0D1005` | `#0D1005` | 填充上的字（12.74，禁止白字） |
+
+- 文字档对三档底色：浅色 5.95 / 5.49 / 6.44，暗色 12.74 / 13.22 / 11.71。
+- 填充档对页面：浅色 **1.39**、暗色 **12.74** → 浅色填充面必须加 **1px `#356B0C` 描边**（边界 5.95、对填充 4.27）；阴影不能替代。实现细节见开发手册 §2.3。
+- `expense` 的大号金额 / 填充档由 `expense-display` 承担，避免把文字档拉亮。
 
 ### 2.4 暗色是独立设计，不是反色
 
 暗色**不是**把浅色值反过来。两套色板各自调校：
 
-- 浅色底是暖纸面（米黄），暗色底是**墨绿夜账本**（`#0F1411` 偏绿，不是纯黑）。
-- 浅色的深色前景在暗色下会变成刺眼的白块，因此暗色前景用**柔化的暖白**
-  `#EDE9DB` 而非 `#FFFFFF`。
-- 饱和色在暗背景上要**提亮**：`#B5442C`（浅色支出）→ `#EE8B6F`（暗色支出）。
-- 品牌绿在暗色下从「深绿封皮」变成「浅青绿」`#7CC9A2`——同一角色的不同表达，
-  不是同一色值的反转。
+- 暗色底是**中性炭黑** `#0D0F10`（`dark[7]`），下沉 `#08090A`（`dark[8]`），面板 `#16191B`——
+  不偏绿、也不是纯黑。浅色底 `#F6F6F4` 同理不偏黄。
+- 浅色的深墨字 `#14161A` 不能反成纯白，暗色前景用柔白 `#ECEEEF`，避免大块刺眼白字。
+- 饱和色在暗背景上要**提亮**：支出 `#A64D56` → `#F0A4AB`；收入 `#1B7A48` → `#4ADE80`；
+  转账 `#1D6D8E` → `#4C9FC4`。
+- 强调色在暗色下从「深绿文字」变成「亮青柠」，`accent` 与 `accent-fill` 合并为
+  `#A3E635`（12.74，无需描边）——同一角色的不同表达，不是同一色值的反转。
 
 ### 2.5 对比度校验（硬性验收）
 
-**正文前景在三种底色（bg / panel / sunken）上必须全部 ≥ 4.5:1。**
+**正文前景在三种底色（surface / sunken / raised）上必须全部 ≥ 4.5:1。**
+下表给亮/暗两套的**三底最低值**（完整逐项实测见 UX5b 交付记录）：
 
-浅色主题实测：
-
-| 前景 | 纸面 | 面板 | 下沉 | 判定 |
-|---|---|---|---|---|
-| `--mb-ink` | 13.82 | 14.81 | 12.74 | ✓ |
-| `--mb-ink-2` | 5.78 | 6.20 | 5.33 | ✓ |
-| `--mb-ink-3` | 4.94 | 5.30 | 4.56 | ✓ |
-| `--mb-brand` | 7.05 | 7.55 | 6.50 | ✓ |
-| `--mb-income` | 5.32 | 5.70 | 4.91 | ✓ |
-| `--mb-expense` | 4.90 | 5.26 | 4.52 | ✓ |
-| `--mb-transfer` | 5.54 | 5.94 | 5.11 | ✓ |
-| `--mb-accent` | 5.22 | 5.59 | 4.81 | ✓ |
-
-暗色主题全部 ≥ 5.5:1（最低 `--mb-ink-3` 在面板上 5.54）。
-
-深底承载面同样要达标（封皮底 `#0F3D2C` / `#1C3A2C`）：
-
-| 前景 | 浅色封皮 | 暗色封皮 | 判定 |
+| 前景 | 浅色最低 | 暗色最低 | 判定 |
 |---|---|---|---|
-| `--mb-on-cover` | 10.58 | 10.79 | ✓ |
-| `--mb-on-cover-2` | 7.72 | 7.87 | ✓ |
-| `--mb-on-cover-3` | 9.33 | 9.51 | ✓ |
-| `--mb-on-cover-pos` | 6.23 | 6.35 | ✓ |
-| `--mb-on-cover-neg` | 4.96 | 5.06 | ✓ |
-| `--mb-on-cover-warm` | 5.65 | 5.76 | ✓ |
+| `--mb-color-text-primary` | 15.44 | 15.17 | ✓ |
+| `--mb-color-text-secondary` | 5.91 | 6.91 | ✓ |
+| `--mb-color-text-tertiary` | 4.79 | 4.84 | ✓ |
+| `--mb-color-accent` | 5.49 | 11.71 | ✓ |
+| `--mb-color-focus` | 5.49 | 11.71 | ✓ |
+| `--mb-color-income` | 4.56 | 10.14 | ✓ |
+| `--mb-color-expense` | 4.69 | 8.92 | ✓ |
+| `--mb-color-transfer` | 4.93 | 5.94 | ✓ |
+| `--mb-color-danger` | 9.25 | 4.51 | ✓ |
 
-反色浮层：浅色 `--mb-inv-ink` on `--mb-inv-bg` = 13.82；暗色 = 14.14；
-动作色 `--mb-inv-accent` 浅色 7.90 / 暗色 4.90，均 ≥ 4.5。
+**图形专用（非文字，≥3:1 即过，不参与正文 4.5 验收）**：
 
-品牌实心块：`--mb-on-brand` on `--mb-brand` 浅色 7.05 / 暗色 9.51。
+- `--mb-color-cat-1` … `-6`：浅色最低 **3.44**（`cat-6` `#B07A0B`），暗色最低 7.06。
+  分类色只用于图形（色块、折线、堆叠段），不得当正文色。
+- `--mb-color-expense-display`：浅色 4.16 / 3.84 / 4.50，仅用于 ≥24px 或 ≥18.66px 粗的
+  大号金额与图形填充；正文尺寸一律用 `expense` 文字档。
+
+状态与边界配对（通过项不逐条列）：
+
+| 场景 | 浅色 | 暗色 | 处置 |
+|---|---|---|---|
+| `on-accent-fill` on `accent-fill` | 12.74 | 12.74 | ✓ |
+| `accent` on `accent-soft`（选中） | 5.44 | 10.43 | ✓ |
+| `accent-fill` vs 页面 | **1.39** | 12.74 | 浅色必须 1px `#356B0C` 描边（见开发手册 §2.3） |
+| `danger-solid` vs 页面 | 11.25 | **1.58** | 暗色实心危险块需 1px 描边 |
+| `danger` vs `expense` 亮度比 | 3.0–3.9× | 2.2× | 可靠明度 + 场景 + 图标/文案分离 |
 
 > 段三落地时内置**实时对比度自检面板**（设置 → 设计说明 → 对比度自检，
 > 切主题实时重算）。这不是装饰——它是把「≥4.5:1」从口号变成可验证事实的手段。
 > （线框原型未实现此面板，本条是段三 U12 的目标。）
 
-**非文字图形**（图表色块、进度条、分隔线中的重要者）要求 ≥ 3:1。
-
 ### 2.6 图表分类色板独立于语义色
 
-`--mb-cat-1` … `--mb-cat-6`：用于饼图、堆叠条、桑基的分类区分。
+`--mb-color-cat-1` … `-6`：用于饼图、堆叠条、桑基的分类区分。
 
 **为什么不用语义色**：语义色有固定含义（绿=收入、红=支出），
 若拿来做分类色，用户会把「红色的那一块」读成「支出」。分类色必须**无语义**。
 
-浅色：`#1D5C43` `#806010` `#7A5C28` `#646B5C` `#177245` `#B5442C`
-暗色：`#7CC9A2` `#D9A94E` `#C4A882` `#8D9585` `#74C693` `#EE8B6F`
+浅色：`#3F7D0F` `#0F7D6A` `#1B6FA8` `#6D4FD6` `#C25383` `#B07A0B`
+暗色：`#A3E635` `#4CC9E8` `#A78BFA` `#D9A21B` `#34D399` `#FF7AB6`
 
-暗色下的分类色是**另调的一套**（UX5b 定稿）——沿用浅色档在暗背景上对比度不达标。
+暗色下的分类色是**另调的一套**——沿用浅色档在暗背景上对比度不达标。
+
+碰撞检查（支出改红后新增）：
+
+- 浅色 `cat-5` 玫红 vs 支出玫瑰红 ΔE **21.5** → 分类色不得编码收入/支出，图例必须带名称。
+- 浅色 `cat-1` 深绿 vs 收入绿 ΔE 27.8（deutan 28.2）→ 可共存，但「绿色分类」与「收入」
+  必须靠图例区分。
+- 暗色 `cat-6` 玫粉 vs 支出 `#F0A4AB` ΔE 32.4 → 可共存。
 
 ---
 
@@ -211,55 +237,66 @@ Toast、批量操作条是**反色承载**——它们浮在页面之上，用�
 
 ## 5. 密度档位
 
-| Token | 舒适 | 紧凑 |
-|---|---|---|
-| `--mb-row-py` | 12px | 6px |
-| `--mb-row-gap` | 12px | 8px |
-| `--mb-card-pad` | 24px | 16px |
-| `--mb-tbl-py` | 10px | 5px |
+**单档（v0.6 取消紧凑档）**：不再有 `[data-density="compact"]`，避免两套密度各自漂移。
 
-切换方式是**换一整套变量**（`[data-density="compact"]`），
-而不是逐处改数值——后者是密度档位最终失控的原因。
+| Token | 值 |
+|---|---|
+| `--mb-row-py` | 10px |
+| `--mb-row-gap` | 10px |
+| `--mb-card-pad` | 20px |
+| `--mb-tbl-py` | 8px |
+| `--mb-control-h` | 38px |
+| `--mb-section-gap` | 16px |
+| `--mb-page-pad` | 28px（PC）/ 26px（移动端） |
+
+密度只通过这一组变量表达，不逐处改数值——逐处改是密度档位最终失控的原因。
 
 ---
 
 ## 6. 圆角
 
-| Token | 值 | 用途 |
-|---|---|---|
-| `--mb-r-1` | 6px | 输入框、小图标按钮 |
-| `--mb-r-2` | 10px | 按钮、chip、行内元素 |
-| `--mb-r-3` | 16px | 卡片 |
-| `--mb-r-4` | 24px | 主卡、弹层、移动端抽屉顶部 |
+| Token | 值 | Mantine 键 | 用途 |
+|---|---|---|---|
+| `--mb-radius-xs` | 6px | `xs` | 输入框、小图标按钮 |
+| `--mb-radius-sm` | 10px | `sm` | 按钮、chip、行内元素 |
+| `--mb-radius-md` | 14px | `md` | **默认**：卡片、面板 |
+| `--mb-radius-lg` | 20px | `lg` | 主卡、弹层、移动端抽屉顶部 |
 
 胶囊形（`999px`）只用于 chip、tag、batch-bar 这类「有明确胶囊语义」的元素。
+`theme.radius = { xs: '6px', sm: '10px', md: '14px', lg: '20px', defaultRadius: 'md' }`。
 
 ---
 
 ## 7. 阴影
 
-| Token | 值 | 用途 |
-|---|---|---|
-| `--mb-sh-1` | 轻 | 卡片静止态、悬停微抬 |
-| `--mb-sh-2` | 中 | 弹层、悬浮操作条 |
-| `--mb-sh-3` | 重 | 时间选择面板等浮层 |
+| Token | 浅色 | 暗色 | 用途 |
+|---|---|---|---|
+| `--mb-sh-1` | `0 1px 2px rgba(20,22,26,.05), 0 8px 24px rgba(20,22,26,.06)` | `0 1px 0 rgba(255,255,255,.03), 0 10px 28px rgba(0,0,0,.45)` | 卡片静止态、悬停微抬 |
+| `--mb-sh-2` | `0 2px 6px rgba(20,22,26,.07), 0 16px 40px rgba(20,22,26,.09)` | `0 2px 0 rgba(255,255,255,.04), 0 20px 46px rgba(0,0,0,.55)` | 弹层、悬浮操作条 |
+| `--mb-sh-3` | `0 4px 12px rgba(20,22,26,.09), 0 32px 64px rgba(20,22,26,.12)` | `0 8px 20px rgba(0,0,0,.55), 0 40px 80px rgba(0,0,0,.6)` | 时间选择面板等浮层 |
 
-阴影用**低透明度的大扩散 + 高透明度的小收紧**双层，
-不用单层大模糊——后者在暖纸面上会显脏。
+双层：**低透明度大扩散 + 高透明度小收紧**，不用单层大模糊——后者在浅灰面上会显脏。
+暗色靠「顶亮线 + 大黑晕」表达层次，不额外加边框。上面的 `rgba()` 只允许出现在
+token 定义文件（生成 CSS）；业务代码写 `var(--mb-sh-*)`。
 
 ---
 
 ## 8. 字体
 
 ```css
---mb-font-ui:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
---mb-font-display:"Noto Serif SC","Fraunces",serif;
---mb-font-num:"IBM Plex Mono","Noto Sans SC",monospace;
+--mb-font-ui:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+--mb-font-display:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;  /* 同 UI，无衬线 */
+--mb-font-num:"JetBrains Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
 ```
 
 - `--mb-font-ui`：正文与 UI
-- `--mb-font-display`：标题（衬线，承担「账本」质感）
-- `--mb-font-num`：所有金额与数字，`font-variant-numeric: tabular-nums`
+- `--mb-font-display`：标题——**与 UI 同栈**，不要衬线；12–14px 高密度下衬线会糊
+- `--mb-font-num`：所有金额与数字，配 `font-variant-numeric: tabular-nums`
+
+**字体现状**：仓库**不自托管**任何 woff2/woff/ttf，字体全部回落系统字。
+Windows 上 `Inter` / `JetBrains Mono` / `Cascadia Mono` / `PingFang SC` 均不存在，
+实际落到 **Microsoft YaHei**（正文/标题）与 **Consolas**（数字）；macOS 落 PingFang SC，
+Linux 落 system-ui / 等宽默认。若要求跨平台一致，需要先引入自托管字体（另行决策）。
 
 ---
 
@@ -288,11 +325,11 @@ Toast、批量操作条是**反色承载**——它们浮在页面之上，用�
 ## 11. 焦点环
 
 ```css
-:focus-visible{outline:2px solid var(--mb-focus);outline-offset:2px;border-radius:var(--mb-r-1)}
+:focus-visible{outline:2px solid var(--mb-color-focus);outline-offset:2px;border-radius:var(--mb-radius-xs)}
 ```
 
-统一 2px + 2px 偏移，不逐组件自定义。暗色下 `--mb-focus` 切到 `#7CC9A2`，
-保证在暗背景上仍可见。
+统一 2px + 2px 偏移，不逐组件自定义。`--mb-color-focus` 与 `accent` 同值：
+浅色 `#356B0C`（5.49）、暗色 `#A3E635`（11.71）。
 
 ---
 
@@ -300,20 +337,21 @@ Toast、批量操作条是**反色承载**——它们浮在页面之上，用�
 
 | 要表达 | 用 | 不要用 |
 |---|---|---|
-| 主文字 | `--mb-ink` | 纯黑 |
-| 次要说明 | `--mb-ink-2` | `--mb-ink` 降透明度 |
-| 辅助 / 元信息 | `--mb-ink-3` | `--mb-ink-2` 降透明度 |
-| 收入金额 | `--mb-income` | 绿色 |
-| 支出金额 | `--mb-expense` | 红色 |
-| 转账金额 | `--mb-transfer` | 中性灰（会读成「无意义」） |
-| 分类区分 | `--mb-cat-*` | 语义色（会读成收入/支出） |
-| 强调 / 警示 | `--mb-accent` | `--mb-danger`（危险色只用于危险操作） |
-| 分隔线 | `--mb-line` | `--mb-line-strong`（后者用于输入边框） |
-| 卡片 | `--mb-bg-panel` + `--mb-line` + `--mb-sh-1` | 纯白 + 纯灰边框 |
-| 深绿封皮上的文字 | `--mb-on-cover*` | `--mb-ink`（纸面墨色在深底不可读） |
-| 品牌实心块上的文字 | `--mb-on-brand` | `#FFF`（暗色下会浅底浅字） |
-| Toast / 批量条 | `--mb-inv-bg` + `--mb-inv-ink` | `--mb-ink` + `--mb-bg`（反转语义色） |
-| 遮罩 | `--mb-veil` | 裸 `rgba(0,0,0,.x)`（不随主题） |
+| 主文字 | `--mb-color-text-primary` | 纯黑 / 纯白 |
+| 次要说明 | `--mb-color-text-secondary` | text-primary 降透明度 |
+| 辅助 / 元信息 | `--mb-color-text-tertiary` | text-secondary 降透明度 |
+| 收入金额 | `--mb-color-income` | 泛称「绿色」 |
+| 支出金额 | `--mb-color-expense`（≥24px 或 ≥18.66px 粗用 `expense-display`） | 橙色、正红 |
+| 转账金额 | `--mb-color-transfer` | 中性灰（会读成「无意义」） |
+| 分类区分 | `--mb-color-cat-*` | 语义色（会读成收入/支出） |
+| 强调文字 / 图标 / 链接 | `--mb-color-accent` | `accent-fill` 当文字（1.39） |
+| 强调填充 | `--mb-color-accent-fill` + `on-accent-fill` + 1px 描边 | 白字（1.51） |
+| 危险动作 | `--mb-color-danger` + 图标 + 文案 + 二次确认 | 普通提示、警告 |
+| 分隔线 | `--mb-color-border` | `border-strong`（后者用于输入边框） |
+| 卡片 | `--mb-color-surface-raised` + `border` + `--mb-sh-1` | 纯白 + 纯灰边框 |
+| 填充按钮上的文字 | `--mb-color-on-accent-fill`（`#0D1005`） | `#FFF` |
+| 危险实心上的文字 | `--mb-color-on-danger` | `#FFF` |
+| 遮罩 | `--mb-color-surface-overlay` | 裸 `rgba(0,0,0,.x)`（不随主题） |
 
 **半透明叠加一律用 `color-mix(in srgb, var(--mb-x) N%, transparent)`**，
 不写 `rgba()` 字面量——后者无法随主题变化。

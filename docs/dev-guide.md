@@ -46,7 +46,7 @@ packages/
 
 | 命名空间 | 定义处 | 使用规则 |
 |---|---|---|
-| `--mb-*`（项目） | `styles/theme/variables.css`（结构：间距/字体/边框/圆角/动效/布局/z-index）+ `config.ts` 的 `syncCssVars()`（颜色/阴影；迁移期为 AntD 算法派生，迁移后改由 Mantine `createTheme.colors` 显式声明） | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
+| `--mb-*`（项目） | `styles/theme/variables.css`（结构：间距/字体/边框/圆角/动效/布局/z-index）+ 构建期 `scripts/gen-theme-css.mjs` 从 `styles/theme/darkfirst.ts`（ThemeSpec，唯一来源）生成 `generated/darkfirst.css`：`:root` 一段结构变量 + `html[data-mantine-color-scheme='light']` / `html[data-mantine-color-scheme='dark']` 两段颜色变量。`config.ts` 的 `syncCssVars()` **只在 DEV 作断言**（读 `getComputedStyle` 与 spec 比对，不等即抛错），不写值、不进生产 | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
 | `--ant-*`（AntD） | AntD `cssVar: { prefix: 'ant' }` 生成 | **过渡期约束**：只供 AntD 组件内部消费；项目代码不得引用 `--ant-*`，需要同语义值时用项目等价 token（如 `--mb-color-warning`）。U13 迁移完成后 `--ant-*` 归零，本行失效；`--mantine-*` 同理属库内部变量，业务代码不得覆盖 |
 
 CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）：写 `var(--mb-*)` 时必须「引用即定义」。
@@ -83,6 +83,34 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
 - **已知技术债**：自定义圆角键需 `as any`（类型只认 xs..xl）——二选一处理
   （提交 `DefaultMantineColor` / `DefaultMantineRadius` 模块增强，或接受并记录），
   不得用 `@ts-ignore` 掩盖。
+
+#### darkfirst 主题落地约定（UX5b）
+
+设计依据见 [design-tokens.md](blueprint/ux/design-tokens.md)；**实现约定只写在这一处**。
+
+1. **静态 CSS 是唯一生产路径**：`ThemeSpec` → `gen-theme-css.mjs`（`predev` / `prebuild`）→
+   `generated/darkfirst.css`，生成 42×2 个颜色变量；`main.tsx` 静态 `import`，
+   `<ColorSchemeScript defaultColorScheme="light" />` 在首帧前写 `data-mantine-color-scheme`。
+   `syncCssVars` 只在 `import.meta.env.DEV` 断言，不写值、不参与首帧；手写 `--mb-*` 色值即返工。
+2. **默认亮色**：`defaultColorScheme='light'`，暗色为次要方案；存储键统一
+   `mantine-color-scheme-value`，旧 `moneybrain-theme-mode` 一次性迁移（`system → auto`）。
+3. **accent 双档**：`accent` 只用于文字 / 图标 / 链接 / focus 环；`accent-fill` 只用于填充面。
+   亮色下所有 `accent-fill` 面（Button、Badge、Switch track、Checkbox/Radio indicator、
+   Slider thumb）统一 **1px solid `#356B0C`**，暗色 `transparent`——**阴影不能替代描边**
+   （填充对页面仅 1.39，形状必须由描边定义）。填充上一律 `on-accent-fill` `#0D1005`，
+   禁止 Mantine 默认白字（1.51）。
+4. **支出色是硬要求，不只是配色**：`expense` / `expense-display` 必须与 `+` / `−` 符号、
+   右对齐金额列同时出现——亮色 deutan 下支出与收入绿 ΔE 仅 3.2，颜色本身不可分。
+   支出禁用橙色或正红；≥24px 或 ≥18.66px 粗才允许切 `expense-display`。
+5. **danger 只给破坏性动作**：删除 / 清空 / 覆盖 / 退出未保存，且必须「图标 + 动词文案 +
+   二次确认」（按钮写「删除 12 笔」不写「确定」）。普通错误提示用 `text-primary` + ⚠，
+   不借 danger。暗色 danger 文字 4.51 刚过线，不得再降饱和度。
+6. **Tauri 窗口底色**：`tauri.conf.json` 的 `app.windows[0].backgroundColor` 写死 `#F6F6F4`
+   作兜底；运行时把 scheme 镜像到 `appConfigDir/theme.json`，`setup` 读文件后用
+   `WebviewWindowBuilder::background_color(light ? '#F6F6F4' : '#0D0F10')` 建窗。
+   CSS 管不到原生窗口，不能只靠 body 背景。
+7. **投资页正负色 = 全局「正绿负红」**：盈利 `income`、亏损 `expense`，图例写
+   「收入/支出」「盈利/亏损」，禁用「涨/跌」；「涨红跌绿」仅记为未来候选，不做页内例外。
 
 ## 3. 领域层规则（最高优先级）
 
