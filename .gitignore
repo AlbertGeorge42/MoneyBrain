@@ -1,5 +1,7 @@
 # Hidden Folder
 .*/
+# 例外：提交信息钩子目录需要入库（见 docs/dev-guide.md §10.1）
+!.githooks/
 
 # Dependencies
 node_modules/

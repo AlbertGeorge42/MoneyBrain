@@ -1,0 +1,4 @@
+#!/bin/sh
+# 提交信息格式校验（docs/dev-guide.md §10.1）
+# Git for Windows 会用自带 sh 执行本文件，Windows 下不需要 chmod +x。
+exec node scripts/check-commit-msg.mjs "$1"
