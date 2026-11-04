@@ -190,13 +190,22 @@ function composition(
   return { title, tone, format, total, items: top }
 }
 
-const MONTH_LABELS = ['6月', '7月', '8月', '9月', '10月', '11月']
+/** 月视图取该月及前 5 个月；年视图取该年及前 5 年。 */
+function trendLabels(periodKey: string, granularity: ReportGranularity): string[] {
+  if (granularity === 'year') {
+    const year = Number(periodKey)
+    return Array.from({ length: 6 }, (_, index) => String(year - 5 + index))
+  }
+  const [yearText, monthText] = periodKey.split('-')
+  const end = Number(yearText) * 12 + Number(monthText) - 1
+  return Array.from({ length: 6 }, (_, index) => `${((end - 5 + index) % 12 + 12) % 12 + 1}月`)
+}
 
-/** 生成以当前值为终点的走势，保证图表末点与指标主值一致。 */
-function trendEndingAt(total: number, ratios: number[]): TrendDatum[] {
+/** 生成以当前值为终点的走势，末点与 x 轴标签都严格落在所选期间。 */
+function trendEndingAt(total: number, ratios: number[], labels: string[]): TrendDatum[] {
   return [
-    ...ratios.map((ratio, index) => ({ label: MONTH_LABELS[index], value: round2(total * ratio) })),
-    { label: MONTH_LABELS[5], value: total },
+    ...ratios.map((ratio, index) => ({ label: labels[index], value: round2(total * ratio) })),
+    { label: labels[labels.length - 1], value: total },
   ]
 }
 
@@ -555,6 +564,8 @@ function monthPeriod(key: string, asOf: string, from: string, to: string, factor
   const netWorth = round2(tableTotal(assetRows) - tableTotal(liabilityRows))
   const holdingTotal = tableTotal(holdings)
   const balance = balanceTables(assetRows, liabilityRows, net)
+  const labels = trendLabels(key, 'month')
+  const span = '近 6 个月'
 
   return {
     key,
@@ -567,8 +578,8 @@ function monthPeriod(key: string, asOf: string, from: string, to: string, factor
       flows: {
         metrics: flowsMetrics(incomeRows, expenseRows),
         tables: flowsTables(incomeRows, expenseRows),
-        trend: trendEndingAt(net, TREND_RATIOS),
-        trendLabel: '近 6 个月结余',
+        trend: trendEndingAt(net, TREND_RATIOS, labels),
+        trendLabel: `${span}结余`,
         composition: {
           primary: composition('收入构成', incomeRows, 'income', 'signed'),
           secondary: composition('支出构成', expenseRows, 'expense', 'signed'),
@@ -579,8 +590,8 @@ function monthPeriod(key: string, asOf: string, from: string, to: string, factor
         metrics: cashMetrics(inflowRows, outflowRows, cashTotal),
         metricsLayout: 'flat',
         tables: cashTables(inflowRows, outflowRows),
-        trend: trendEndingAt(cashTotal, TREND_RATIOS),
-        trendLabel: '近 6 个月期末现金',
+        trend: trendEndingAt(cashTotal, TREND_RATIOS, labels),
+        trendLabel: `${span}期末现金`,
         composition: {
           primary: composition('流入构成', inflowRows, 'income', 'signed'),
           secondary: composition('流出构成', outflowRows, 'expense', 'signed'),
@@ -590,8 +601,8 @@ function monthPeriod(key: string, asOf: string, from: string, to: string, factor
       balance: {
         metrics: balanceMetrics(assetRows, liabilityRows),
         tables: balance,
-        trend: trendEndingAt(netWorth, TREND_RATIOS),
-        trendLabel: '近 6 个月净资产',
+        trend: trendEndingAt(netWorth, TREND_RATIOS, labels),
+        trendLabel: `${span}净资产`,
         composition: {
           primary: composition('资产构成', assetRows, 'neutral', 'unsigned'),
           secondary: composition('负债与权益构成', balance[1].rows, 'neutral', 'unsigned'),
@@ -601,8 +612,8 @@ function monthPeriod(key: string, asOf: string, from: string, to: string, factor
       investment: {
         metrics: investmentMetrics(holdings),
         tables: [{ ...MONTH_HOLDING_TABLE, rows: holdings }],
-        trend: trendEndingAt(holdingTotal, TREND_RATIOS),
-        trendLabel: '近 6 个月持仓市值',
+        trend: trendEndingAt(holdingTotal, TREND_RATIOS, labels),
+        trendLabel: `${span}持仓市值`,
         composition: {
           primary: composition('持仓构成', holdings, 'neutral', 'unsigned'),
           mobileSide: 'primary',
@@ -625,6 +636,8 @@ function yearPeriod(key: string, asOf: string, factor: number): ReportPeriod {
   const netWorth = round2(tableTotal(assetRows) - tableTotal(liabilityRows))
   const holdingTotal = tableTotal(holdings)
   const balance = balanceTables(assetRows, liabilityRows, net)
+  const labels = trendLabels(key, 'year')
+  const span = '近 6 年'
 
   return {
     key,
@@ -637,8 +650,8 @@ function yearPeriod(key: string, asOf: string, factor: number): ReportPeriod {
       flows: {
         metrics: flowsMetrics(incomeRows, expenseRows),
         tables: flowsTables(incomeRows, expenseRows),
-        trend: trendEndingAt(net, TREND_RATIOS),
-        trendLabel: '近 6 个月结余',
+        trend: trendEndingAt(net, TREND_RATIOS, labels),
+        trendLabel: `${span}结余`,
         composition: {
           primary: composition('收入构成', incomeRows, 'income', 'signed'),
           secondary: composition('支出构成', expenseRows, 'expense', 'signed'),
@@ -649,8 +662,8 @@ function yearPeriod(key: string, asOf: string, factor: number): ReportPeriod {
         metrics: cashMetrics(inflowRows, outflowRows, cashTotal),
         metricsLayout: 'flat',
         tables: cashTables(inflowRows, outflowRows),
-        trend: trendEndingAt(cashTotal, TREND_RATIOS),
-        trendLabel: '近 6 个月期末现金',
+        trend: trendEndingAt(cashTotal, TREND_RATIOS, labels),
+        trendLabel: `${span}期末现金`,
         composition: {
           primary: composition('流入构成', inflowRows, 'income', 'signed'),
           secondary: composition('流出构成', outflowRows, 'expense', 'signed'),
@@ -660,8 +673,8 @@ function yearPeriod(key: string, asOf: string, factor: number): ReportPeriod {
       balance: {
         metrics: balanceMetrics(assetRows, liabilityRows),
         tables: balance,
-        trend: trendEndingAt(netWorth, TREND_RATIOS),
-        trendLabel: '近 6 个月净资产',
+        trend: trendEndingAt(netWorth, TREND_RATIOS, labels),
+        trendLabel: `${span}净资产`,
         composition: {
           primary: composition('资产构成', assetRows, 'neutral', 'unsigned'),
           secondary: composition('负债与权益构成', balance[1].rows, 'neutral', 'unsigned'),
@@ -671,8 +684,8 @@ function yearPeriod(key: string, asOf: string, factor: number): ReportPeriod {
       investment: {
         metrics: investmentMetrics(holdings),
         tables: [{ ...MONTH_HOLDING_TABLE, id: 'holdings-year', rows: holdings }],
-        trend: trendEndingAt(holdingTotal, TREND_RATIOS),
-        trendLabel: '近 6 个月持仓市值',
+        trend: trendEndingAt(holdingTotal, TREND_RATIOS, labels),
+        trendLabel: `${span}持仓市值`,
         composition: {
           primary: composition('持仓构成', holdings, 'neutral', 'unsigned'),
           mobileSide: 'primary',

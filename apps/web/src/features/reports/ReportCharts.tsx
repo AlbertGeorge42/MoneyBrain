@@ -95,7 +95,7 @@ export function ReportCharts({ view, device, scheme }: ReportChartsProps) {
                 viewBox="0 0 100 100"
                 preserveAspectRatio="none"
                 role="img"
-                aria-label={`${view.trendLabel}，从 ${view.trend[0].label} 的 ${formatCompactMoney(view.trend[0].value)} 到 ${view.trend[view.trend.length - 1].label} 的 ${formatCompactMoney(view.trend[view.trend.length - 1].value)}`}
+                aria-label={`${view.trendLabel}，${view.trend[0].label} ${formatCompactMoney(view.trend[0].value)}，${view.trend[view.trend.length - 1].label} ${formatCompactMoney(view.trend[view.trend.length - 1].value)}`}
               >
                 <path d={geometry.areaPath} fill={trendColor} opacity={0.12} />
                 <path d={geometry.linePath} fill="none" stroke={trendColor} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />

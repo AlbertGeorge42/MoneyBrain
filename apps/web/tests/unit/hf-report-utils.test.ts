@@ -173,6 +173,37 @@ describe('列宽与金额口径', () => {
   })
 })
 
+describe('走势期间标签', () => {
+  const mainNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ''))
+
+  it('月视图标签为所选月及前 5 个月，末点与主指标同源', () => {
+    const expected: Record<string, string[]> = {
+      '2026-09': ['4月', '5月', '6月', '7月', '8月', '9月'],
+      '2026-10': ['5月', '6月', '7月', '8月', '9月', '10月'],
+      '2026-11': ['6月', '7月', '8月', '9月', '10月', '11月'],
+    }
+    for (const period of REPORT_PERIODS.month) {
+      for (const view of Object.values(period.views)) {
+        expect(view.trend.map((point) => point.label)).toEqual(expected[period.key])
+        expect(view.trendLabel).toContain('近 6 个月')
+        expect(view.trend.at(-1)?.value).toBeCloseTo(mainNumber(view.metrics.main.value), 2)
+      }
+    }
+  })
+
+  it('年视图按年份生成标签，末点为所选年且指标口径为年', () => {
+    for (const period of REPORT_PERIODS.year) {
+      const year = Number(period.key)
+      const expected = Array.from({ length: 6 }, (_, index) => String(year - 5 + index))
+      for (const view of Object.values(period.views)) {
+        expect(view.trend.map((point) => point.label)).toEqual(expected)
+        expect(view.trendLabel).toContain('近 6 年')
+        expect(view.trend.at(-1)?.value).toBeCloseTo(mainNumber(view.metrics.main.value), 2)
+      }
+    }
+  })
+})
+
 describe('排序与下钻筛选', () => {
   const table: ReportTableData = REPORT_PERIODS.month[2].views.investment.tables[0]
 
