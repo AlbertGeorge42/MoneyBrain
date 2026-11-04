@@ -38,7 +38,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 |---|---|---|
 | 领域 | 3 | 38 |
 | 后端 | 35 | 325 |
-| 前端 | 12 | 90 |
+| 前端 | 13 | 93 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
 
 ## 3.1 数据自检与恢复演练（不是单元测试）

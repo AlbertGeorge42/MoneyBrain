@@ -86,13 +86,13 @@ export function createThemeConfig(isDark: boolean): ThemeConfig {
   }
 }
 
-// ===== CSS 变量同步 =====
-// 将 AntD 算法计算的 token + 财务色派生 token + 阴影 token 同步为全局 CSS 变量
-// 用于 FOUC 防闪烁和 CSS 文件中的全局引用
-export function syncCssVars(isDark: boolean): void {
-  const config = createThemeConfig(isDark)
-  const token = theme.getDesignToken(config) as unknown as Record<string, string>
-
+// ===== CSS 变量清单 =====
+// 纯函数，无 DOM 副作用；键名即项目 --mb-* 的唯一定义源（颜色/阴影部分）
+// syncCssVars() 与变量守卫（tests/unit/css-vars-guard.test.ts）共用，避免清单漂移
+export function buildCssVars(
+  token: Record<string, string>,
+  isDark: boolean,
+): Record<string, string> {
   const vars: Record<string, string> = {
     // 文本色
     '--mb-color-text-primary': token.colorText,
@@ -137,6 +137,17 @@ export function syncCssVars(isDark: boolean): void {
   for (const [name, value] of Object.entries(financialTokens)) {
     vars[`--mb-color-${name}`] = value
   }
+
+  return vars
+}
+
+// ===== CSS 变量同步 =====
+// 将 AntD 算法计算的 token + 财务色派生 token + 阴影 token 同步为全局 CSS 变量
+// 用于 FOUC 防闪烁和 CSS 文件中的全局引用
+export function syncCssVars(isDark: boolean): void {
+  const config = createThemeConfig(isDark)
+  const token = theme.getDesignToken(config) as unknown as Record<string, string>
+  const vars = buildCssVars(token, isDark)
 
   const el = document.documentElement
   for (const [key, value] of Object.entries(vars)) {
