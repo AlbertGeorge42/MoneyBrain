@@ -33,7 +33,7 @@ export {
 } from './validators.js'
 
 // Date utilities
-export { dayStart, dayEnd, nextDay, formatDateLocal } from './date.js'
+export { dayStart, dayEnd, nextDay, formatDateLocal, parseDateLocal } from './date.js'
 
 // Logger
 export { rootLogger } from './logger/index.js'

@@ -15,6 +15,15 @@ export function dayEnd(dateStr: string): Date {
   return new Date(`${dateStr}T23:59:59.999`)
 }
 
+/** 字符串日期 → 本地日历日 Date
+ *
+ * date-only（'YYYY-MM-DD'）按本地当天零点解析；完整时间戳保持原始瞬时。
+ * 兼容旧版导出文件里的 ISO 日期与新版本地日期。
+ */
+export function parseDateLocal(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? dayStart(value) : new Date(value)
+}
+
 /** 字符串日期 → 下一天本地零点 Date (用于余额计算的 lt 边界)
  * 按字符串拆分本地日期加一天，避免 new Date(dateStr) 的 UTC 零点偏差
  */

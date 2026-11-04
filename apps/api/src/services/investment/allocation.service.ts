@@ -1,7 +1,7 @@
 import type { TransactionClient } from '../../prisma.js'
 import { withTransaction } from '../../db/transaction.js'
 import { calculateBalancesBatch } from '../balance.service.js'
-import { NotFoundError, ValidationError, rootLogger } from '../../common/index.js'
+import { NotFoundError, ValidationError, rootLogger, formatDateLocal } from '../../common/index.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
@@ -266,7 +266,7 @@ export async function updateSnapshot(
     )
     if (newDate >= earliestNext.date) {
       throw new ValidationError(
-        `新日期不能晚于或等于后继快照日期（${earliestNext.date.toISOString().split('T')[0]}）`
+        `新日期不能晚于或等于后继快照日期（${formatDateLocal(earliestNext.date)}）`
       )
     }
   }

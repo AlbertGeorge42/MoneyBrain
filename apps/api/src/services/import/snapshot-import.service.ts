@@ -1,6 +1,7 @@
 // ─── 投资快照导入（CSV 格式） ───
 
 import { parseAmount } from '../../../../../packages/domain/src/index.js'
+import { parseDateLocal } from '../../common/index.js'
 import {
   type ImportSnapshotCsvRow,
   type ImportSnapshotsResult,
@@ -124,9 +125,8 @@ export async function importSnapshotsFromCsv(
         continue
       }
 
-      // 先解析再归一化到本地当天零点（与预算日期处理一致）；
-      // Invalid Date 时保留原值，走下方 isNaN 校验错误分支
-      const parsed = new Date(firstRow.date)
+      // 先解析再归一化到本地当天零点（与预算日期处理一致）；兼容旧版 ISO 与新版本地日期
+      const parsed = parseDateLocal(firstRow.date)
       const snapshotDate = isNaN(parsed.getTime())
         ? parsed
         : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())

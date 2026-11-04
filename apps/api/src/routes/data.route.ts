@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express'
-import { asyncHandler, formatDateLocal, success, validateRequest, ValidationError } from '../common/index.js'
+import { asyncHandler, dayEnd, dayStart, formatDateLocal, success, validateRequest, ValidationError } from '../common/index.js'
 import { requireClearConfirm } from '../common/validators.js'
 import { CLEAR_CONFIRM, ROLLBACK_CONFIRM } from '../../../../packages/contracts/constants.js'
 import multer from 'multer'
@@ -76,18 +76,18 @@ router.delete('/transactions', validateRequest((req: Request) => {
   return success(res, { message: '交易数据已清空' })
 }))
 
+// 导出范围：date-only 按本地当天零点/末刻，完整时间戳保持原样
+const parseExportBoundary = (value: unknown, isEnd: boolean): Date | undefined => {
+  if (typeof value !== 'string' || !value) return undefined
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return new Date(value)
+  return isEnd ? dayEnd(value) : dayStart(value)
+}
+
 router.get('/export', asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query
 
-  let start: Date | undefined
-  let end: Date | undefined
-
-  if (startDate && typeof startDate === 'string') {
-    start = new Date(startDate)
-  }
-  if (endDate && typeof endDate === 'string') {
-    end = new Date(endDate)
-  }
+  const start = parseExportBoundary(startDate, false)
+  const end = parseExportBoundary(endDate, true)
 
   // 长任务：导出进行中不让自动备份抢 IO
   const csvContent = await runExclusiveLongTask(() => exportTransactionsCSV(start, end))

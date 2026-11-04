@@ -1,4 +1,5 @@
 import { escapeCsvField } from '../../common/utils.js'
+import { formatDateLocal } from '../../common/index.js'
 import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import { SNAPSHOT_ITEMS_RELATIONS } from '../../db/repositories/investment-allocation-snapshot.repository.js'
@@ -35,9 +36,9 @@ export async function exportInvestmentSnapshotsCSV(): Promise<string> {
   for (const s of snapshots) {
     const commonFields = [
       escapeCsvField(s.account.name),
-      escapeCsvField(s.date.toISOString()),
+      escapeCsvField(formatDateLocal(s.date)),
       escapeCsvField(formatAmount(minor(Number(s.accountBalance)))),
-      escapeCsvField(s.previousSnapshot?.date.toISOString() ?? ''),
+      escapeCsvField(s.previousSnapshot ? formatDateLocal(s.previousSnapshot.date) : ''),
       escapeCsvField(s.note ?? '')
     ]
 

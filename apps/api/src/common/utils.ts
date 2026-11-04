@@ -1,5 +1,6 @@
 import { minor, type Minor } from '../../../../packages/domain/src/index.js'
 import { ValidationError } from './error.js'
+import { parseDateLocal } from './date.js'
 
 // ─── CSV ───
 
@@ -54,7 +55,7 @@ export const parsePositiveInteger = (value: unknown, fieldName: string, defaultV
 }
 
 export const toDate = (value: unknown, fieldName: string): Date => {
-  const date = new Date(String(value))
+  const date = parseDateLocal(String(value))
   if (Number.isNaN(date.getTime())) {
     throw new ValidationError(`${fieldName}格式错误`)
   }

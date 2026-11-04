@@ -373,13 +373,13 @@ describe('allocation.service', () => {
       })).rejects.toThrow(NotFoundError)
     })
 
-    it('新日期晚于后继快照时应该抛出 ValidationError', async () => {
+    it('新日期晚于后继快照时应该抛出 ValidationError（错误消息用本地日期）', async () => {
       const existingSnapshot = {
         id: 'snap1',
         accountId: 'acc1',
-        date: new Date('2024-01-01'),
+        date: new Date(2024, 0, 1, 0, 30),
         items: [],
-        nextSnapshots: [{ id: 'next1', date: new Date('2024-02-01') }],
+        nextSnapshots: [{ id: 'next1', date: new Date(2024, 1, 1, 0, 30) }],
       }
 
       mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(existingSnapshot)
@@ -387,7 +387,7 @@ describe('allocation.service', () => {
       await expect(updateSnapshot('snap1', {
         date: '2024-02-15',
         items: [{ assetClassId: 'class1', marketValue: 10000 }],
-      })).rejects.toThrow(ValidationError)
+      })).rejects.toThrow('2024-02-01')
     })
 
     it('新日期等于后继快照时应该抛出 ValidationError', async () => {

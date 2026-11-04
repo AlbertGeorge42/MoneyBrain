@@ -83,6 +83,45 @@ describe('importSnapshotsFromCsv', () => {
     expect(result.errors).toEqual([])
   })
 
+  it('新格式 YYYY-MM-DD 导入为本地日历日', async () => {
+    mockPrisma.account.findFirst.mockResolvedValue({ id: 'acc-1', name: '投资账户' })
+    mockPrisma.investmentAssetClass.findFirst.mockResolvedValue({ id: 'ac-1', name: '股票' })
+    mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null)
+    mockPrisma.investmentAllocationSnapshot.create.mockResolvedValue({ id: 'snap-1' })
+
+    const csv = makeSnapshotsCsv([
+      ['投资账户', '2024-01-01', '10000', '', '', '股票', '6000', '0', '0'],
+    ])
+
+    await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
+
+    expect(mockPrisma.investmentAllocationSnapshot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ date: new Date(2024, 0, 1, 0, 0, 0, 0) }),
+      })
+    )
+  })
+
+  it('旧 ISO 格式（...T00:00:00.000Z）仍能正确导入', async () => {
+    mockPrisma.account.findFirst.mockResolvedValue({ id: 'acc-1', name: '投资账户' })
+    mockPrisma.investmentAssetClass.findFirst.mockResolvedValue({ id: 'ac-1', name: '股票' })
+    mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null)
+    mockPrisma.investmentAllocationSnapshot.create.mockResolvedValue({ id: 'snap-1' })
+
+    const oldIso = new Date(2024, 0, 1, 0, 0, 0, 0).toISOString()
+    const csv = makeSnapshotsCsv([
+      ['投资账户', oldIso, '10000', '', '', '股票', '6000', '0', '0'],
+    ])
+
+    await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
+
+    expect(mockPrisma.investmentAllocationSnapshot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ date: new Date(2024, 0, 1, 0, 0, 0, 0) }),
+      })
+    )
+  })
+
   it('账户不存在时应该报错并跳过', async () => {
     mockPrisma.account.findFirst.mockResolvedValue(null)
 

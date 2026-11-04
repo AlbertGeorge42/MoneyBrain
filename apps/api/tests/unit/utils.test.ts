@@ -111,17 +111,14 @@ describe('utils', () => {
   })
 
   describe('toDate', () => {
-    it('应该解析有效的日期字符串', () => {
+    it('date-only 按本地日历日零点解析', () => {
       const result = toDate('2024-01-15', '日期')
-      expect(result).toBeInstanceOf(Date)
-      expect(result.getFullYear()).toBe(2024)
-      expect(result.getMonth()).toBe(0)
-      expect(result.getDate()).toBe(15)
+      expect(result).toEqual(new Date(2024, 0, 15, 0, 0, 0, 0))
     })
 
-    it('应该解析 ISO 日期字符串', () => {
+    it('完整时间戳保持原始瞬时', () => {
       const result = toDate('2024-01-15T10:30:00.000Z', '日期')
-      expect(result).toBeInstanceOf(Date)
+      expect(result.toISOString()).toBe('2024-01-15T10:30:00.000Z')
     })
 
     it('无效日期应该抛出 ValidationError', () => {

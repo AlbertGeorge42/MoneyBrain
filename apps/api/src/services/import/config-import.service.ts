@@ -18,6 +18,7 @@ import {
   isAntDPresetColor,
 } from './shared.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
+import { parseDateLocal } from '../../common/index.js'
 import * as accountCategoryRepo from '../../db/repositories/account-category.repository.js'
 import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
 import * as investmentAssetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
@@ -159,7 +160,7 @@ async function importAccounts(
                 ? BigInt(parseAmount(account.initialBalance))
                 : existing.initialBalance,
               initialBalanceDate: account.initialBalanceDate
-                ? new Date(account.initialBalanceDate)
+                ? parseDateLocal(account.initialBalanceDate)
                 : existing.initialBalanceDate,
               icon: account.icon ?? existing.icon,
               color: account.color ?? existing.color,
@@ -180,7 +181,7 @@ async function importAccounts(
             type: account.type,
             initialBalance: account.initialBalance ? BigInt(parseAmount(account.initialBalance)) : BigInt(0),
             initialBalanceDate: account.initialBalanceDate
-              ? new Date(account.initialBalanceDate)
+              ? parseDateLocal(account.initialBalanceDate)
               : null,
             icon: account.icon,
             color: account.color,

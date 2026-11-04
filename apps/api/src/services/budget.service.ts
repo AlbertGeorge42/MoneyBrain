@@ -1,5 +1,5 @@
 import type { Budget } from '@prisma/client'
-import { NotFoundError, ValidationError } from '../common/index.js'
+import { NotFoundError, ValidationError, parseDateLocal } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
@@ -38,11 +38,11 @@ type BudgetPayload = {
   categoryId: string
 }
 
-// 预算日期：先解析成 Date，再归一化到本地当天零点。
-// 兼容 date-only 字符串（'2025-12-01'）与前端 toISOString() 完整时间戳
-// （如 '2025-12-01T16:00:00.000Z'），避免 dayStart 拼接 'T00:00:00' 产生 Invalid Date。
+// 预算日期：先按本地日历日解析，再归一化到本地当天零点。
+// date-only 字符串（'2025-12-01'）按本地零点；前端完整时间戳
+// （如 '2025-12-01T16:00:00.000Z'）按本地分量归一化。
 const toDateValue = (value: string) => {
-  const d = new Date(value)
+  const d = parseDateLocal(value)
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 

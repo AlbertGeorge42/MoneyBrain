@@ -190,5 +190,43 @@ describe('config-import.service', () => {
       expect(result.imported.transactionCategories).toBe(1)
       expect(createCallCount).toBe(1)
     })
+
+    it('账户初始余额日期（date-only）按本地日历日导入', async () => {
+      mockPrisma.accountCategory.findFirst.mockResolvedValue({
+        id: 'acat-asset',
+        name: '资产',
+        type: 'asset',
+        parentId: null,
+      })
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockResolvedValue({ id: 'acc-1' })
+
+      await importConfig(
+        {
+          exportedAt: new Date().toISOString(),
+          type: 'config',
+          data: {
+            accounts: [
+              {
+                name: '现金',
+                type: 'asset',
+                initialBalance: '100.00',
+                initialBalanceDate: '2024-01-01',
+              },
+            ],
+          },
+        },
+        'merge',
+        mockPrisma
+      )
+
+      expect(mockPrisma.account.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            initialBalanceDate: new Date(2024, 0, 1, 0, 0, 0, 0),
+          }),
+        })
+      )
+    })
   })
 })

@@ -13,6 +13,7 @@ import {
   toDate,
   dayStart,
   dayEnd,
+  formatDateLocal,
   parseMoney,
 } from '../common/index.js'
 import {
@@ -161,7 +162,7 @@ router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (re
 
 router.get('/earliest', asyncHandler(async (_req, res) => {
   const date = await getEarliestTransactionDate()
-  return success(res, { date: date ? date.toISOString().split('T')[0] : null })
+  return success(res, { date: date ? formatDateLocal(date) : null })
 }))
 
 router.get('/refundable/list', asyncHandler(async (_req, res) => {
