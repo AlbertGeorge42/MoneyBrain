@@ -153,12 +153,12 @@ PostCSS 构建期解析」失去对象，**不执行**。
 | U4（延后·并入 Mantine 实现） | 间距有 3 个来源（`token.padding*`、`var(--mb-space-*)`、裸数字）；字号有 4 套来源（CSS 变量 / `clamp()` / 裸 px / TSX 字面量 9 档）；`FloatingActionButton` 整个组件是内联 `style={{}}`，含 `bottom: 88`、`zIndex: 1000` 等硬编码 | 确立**间距与字号单一来源**：CSS 变量为唯一权威，TSX 一律引用变量；内联样式归零 | 全树无内联 `fontSize`/`margin`/`padding`/`gap` 裸数字 |
 | U5（取消） | 死 CSS **22 个类**（实测逐个 grep 确认零引用）：`transaction-list-item*` 系列（7）、`tx-row`/`tx-amount*`/`tx-actions*` 系列（8）、`income-expense-*`（3）、`report-detail-row__name--expandable`、`report-summary-stack`、`settings-count-badge`、`tx-item-row--static`、`filter-tags`。其中 `report-detail-row__name--expandable` 与在用的 `--clickable` 是**同一套样式的重复实现** | 删除；删除前逐个 grep 确认零引用 | 死类归零；样式文件行数下降且无回归 |
 | U6（延后·并入 Mantine 实现） | 触控目标尺寸在 38 / 40 / 44 / 56px 之间不一致；底部安全区只处理了一半（FAB 硬编码 88px 未叠加 `safe-area`） | 触控目标统一 ≥44×44（移动端）；安全区用 `env(safe-area-inset-*)` 统一处理 | 真机上无重叠、无误触；FAB 不遮挡 tab bar |
-| U7（延后·并入 Mantine 实现） | 键盘可达性几乎为零：`aria-label` 全项目仅 8 处（分布在 5 个文件）；`:focus-visible` 仅 3 处 | 自定义可交互元素全部可聚焦、有可见焦点、有可读名称 | 纯键盘走完主流程无「焦点丢失」；无障碍检查零严重项 |
+| U7（延后·并入 Mantine 实现） | 键盘可达性几乎为零：`aria-label` 全项目仅 8 处（分布在 5 个文件）；`:focus-visible` 仅 3 处 | 自定义可交互元素全部可聚焦、有可见焦点、有可读名称 | 纯键盘走完主流程无「焦点丢失」；无障碍检查零严重项；自定义可交互元素有可访问名称与角色；装饰图标 `aria-hidden`；关闭浮层后焦点回到触发元素 |
 | U8（取消） | 加载态两套表达（图表用裸文本「加载中...」，列表用 Skeleton）；空状态 13 处混用默认插画与简化插画；`Alert` 用 `title` 与 `message` 两种 prop | 统一：**图表/列表/表单一律 Skeleton**；空状态统一插画与引导文案规范；`Alert` 统一用 `message` | 全树加载态只有一种表达；空状态视觉一致 |
 | U9（取消） | 视觉一致性：14 个 `<Card>` 未用统一的 `surface-card`；图标双库（AntD 25 文件 / lucide 3 文件）导致同类操作（如展开箭头）视觉不同；`transition: all` 4 处 | 卡片样式由组件层保证而非靠人记；图标库统一为一套；过渡只对颜色/阴影/边框生效 | 同类元素视觉一致 |
 | U10（取消） | 暗色模式图表调色板取 AntD 6 档（浅色档），暗背景上对比度未校验；财务色在暗色下混用 4 档与 6 档 | 暗色模式使用**专门的高对比色板**（暗背景上 ≥4.5:1），并统一档位 | 暗色模式下图表与数字对比度达标（用对比度工具验证） |
 | U11（取消） | 移动端底部导航只有文字变色，无 active 指示器；`:hover` 规则在触屏永远不触发 | active 项有独立指示（顶部指示条或图标容器填充态）；区分 `@media (hover: hover)` | 底部导航 active 状态一眼可辨 |
-| U12（换时机·U13.5 后） | 无设计规范文档，token 变量无说明；设计决策只存在于代码里 | 建立 `docs/design-system.md`：token 清单与选用规则、间距/字号阶梯、组件规范、可访问性要求 | 新增组件照文档能做出与现有组件一致的界面 |
+| U12（换时机·U13.5 后） | 无设计规范文档，token 变量无说明；设计决策只存在于代码里 | 建立 `docs/design-system.md`：token 清单与选用规则、间距/字号阶梯、组件规范、可访问性要求（「可访问性」节写明可访问名称/角色、装饰图标 `aria-hidden`、浮层关闭焦点回归；只写要求不写实现） | 新增组件照文档能做出与现有组件一致的界面 |
 
 ##### U13 · 组件库迁移（父条目，跨 UX5b 前后）
 
@@ -182,8 +182,8 @@ PostCSS 构建期解析」失去对象，**不执行**。
 |---|---|---|---|---|
 | U13.1 主题骨架 | AntD 算法派生颜色、`data-theme` 手写、`message`/`notification` 直调 → `tokens.ts` + `ThemeRoot` + `useMantineColorScheme` + Mantine notifications；删 `config.ts` / `chart-tokens.ts` / `financial-tokens.ts` / `mode.ts` | antd **65 → 61**（拆 2 theme + `main.tsx` + `useNotify.ts`）；`--ant-*` 0；`--mantine-*` 外泄 0；`typecheck:web` / `lint:web` / `test:web` 全过；theme.spec 浅/暗 body 断言；已注册主题覆盖 40 × 2 scheme；build 记录 gzip | UX5a 确认 + U1b；**不依赖 D4 / UX5b** | 5–7（A，含扩展预留约 2 人日）/ 0 |
 | U13.2 自建原语 | `ui/` 为空；时间控件 350+866 行、报表树/列逻辑混在页面 → 12 项原语（见下） | **12/12 有测试**；`rg "from 'antd'" apps/web/src/ui` 0；每项有消费者或登记待接入；antd **61 → 61** | U13.1 + **UX5b 确认**；不依赖 D4 | 19–25（A 13–16 / B 7–10） |
-| U13.3 P1 五屏 | 35 个 antd 业务文件 + `Settings.tsx` → Mantine + `ui/`；旧时间控件/报表树删除；撤销移出查询层 | antd **61 → 26**（拆 35）；`--ant-*` 0；页面 <200 行；五屏双端对照 W1/W2/W5/W6/W7；`test:web` + 双 project | U13.1 + U13.2 + **D4** + 该页 UX5b 已确认（按页进入） | 17–21（A 45% / B 55%） |
-| U13.4 P2 其余 | 投资 6、配置弹窗 11、公共组件 8、布局 2；图标 31 文件 → lucide；删 `TimePickerField`/`TimePickerMobile`/`TRANSACTION_TAG_PRESETS` | antd **26 → 0**；图标文件 **31 → 0**；`rg "@ant-design/icons"` 0；`test:web` + `test:e2e` | U13.3 | 10–14（A 25% / B 75%） |
+| U13.3 P1 五屏 | 35 个 antd 业务文件 + `Settings.tsx` → Mantine + `ui/`；旧时间控件/报表树删除；撤销移出查询层 | antd **61 → 26**（拆 35）；`--ant-*` 0；页面 <200 行；五屏双端对照 W1/W2/W5/W6/W7；`test:web` + 双 project；错误边界按不变量 12 验收 | U13.1 + U13.2 + **D4** + 该页 UX5b 已确认（按页进入） | 17–21（A 45% / B 55%） |
+| U13.4 P2 其余 | 投资 6、配置弹窗 11、公共组件 8、布局 2；图标 31 文件 → lucide；删 `TimePickerField`/`TimePickerMobile`/`TRANSACTION_TAG_PRESETS` | antd **26 → 0**；图标文件 **31 → 0**；`rg "@ant-design/icons"` 0；`test:web` + `test:e2e`；错误边界按不变量 12 验收 | U13.3 | 10–14（A 25% / B 75%） |
 | U13.5 P3 收口 | 双库并存、依赖仍在 → 卸载 `antd` / `@ant-design/icons`；守卫终态；文档切换 Mantine 单源 | `rg -n "antd\|@ant-design" apps/web/src apps/web/package.json` 0；`npm ls antd` 空；`npm test` 全过；build 对比 gzip | U13.4 + 双端走查 | 5–7（A 40% / B 60%） |
 
 **U13.1 接入清单**
@@ -424,7 +424,7 @@ U13.5 后 AntD 已卸载，只能整体回退。
 
 | # | 现状 | 目标 | 验收 |
 |---|---|---|---|
-| L1 | 用户可见文案散落在组件里，无统一目录 | 建单一文案目录 `packages/contracts/src/i18n/`，初始只含 `zh-CN`；配一个轻量查表函数；**所有新增或被修改的用户可见文案必须先进目录**；配一条 lint（如 `no-restricted-syntax`）拦住新增的用户可见裸字符串 | 目录存在且可查；**新增 / 被修改的文案零裸字符串**（存量清零留到阶段 4 · J1，见 L3）；查表函数有测试；lint 对新文件生效 |
+| L1 | 用户可见文案散落在组件里，无统一目录 | 建单一文案目录 `packages/contracts/src/i18n/`，初始只含 `zh-CN`；配一个轻量查表函数；**所有新增或被修改的用户可见文案必须先进目录**；配一条 lint（如 `no-restricted-syntax`）拦住新增的用户可见裸字符串；key 形状 `feature.page.element[.state]`；查表只支持 `{}` 插值；lint 同时扫 `.tsx` 的 JSX 文本与字符串字面量 | 目录存在且可查；**新增 / 被修改的文案零裸字符串**（存量清零留到阶段 4 · J1，见 L3）；查表函数有测试；lint 对新文件生效；key 命名符合上述形状 |
 | L2 | 本地化边界没有钉死 | 金额格式化只有 `formatMoney(minor, locale, currency)` 一个入口（组件里禁止 `¥`、`toFixed(2)`）；日期展示只有 `LocalDate` + locale（存储永远是 `YYYY-MM-DD`）；错误提示走错误码映射（后端不拼用户文案）；**CSV / 备份 / 同步格式的键名与枚举值不本地化**（它们是机器格式）；分类名、账户名、备注属于用户数据，**不翻译**；文案保持完整句子，不拼「前缀 + 名词 + 后缀」 | 全树无 `toFixed(2)` 拼金额、无 `¥` 字面量；错误文案无后端拼接；机器格式键名未被本地化 |
 | L3 | 既有散落文案数量大，一次性抽取是永远排不上队的工程 | 已有的散落文案**在被触及时**（改到那个文件、那行时）顺手迁进目录，**不做一次性全量抽取**；本阶段触及的文件内不再有裸字符串 | 本阶段改动过的文件零裸字符串；目录覆盖率随改动递增而非停滞 |
 
