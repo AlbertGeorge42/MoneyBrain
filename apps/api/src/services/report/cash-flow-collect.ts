@@ -1,5 +1,5 @@
 import { CURRENT_RULE_VERSION, minor } from '../../../../../packages/domain/src/index.js'
-import { getCashFlags } from './report.utils.js'
+import { getCashFlags } from './cash-flag.js'
 import {
   AccountInfo,
   CategoryInfo,

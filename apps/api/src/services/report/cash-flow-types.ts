@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { type Minor } from '../../../../../packages/domain/src/index.js'
-import { type ReportValue } from './report.utils.js'
+import { type ReportValue } from '../../../../../packages/contracts/types/index.js'
 
 // 报表结果类型统一引用 shared 类型（cash-flow 报表对外契约）
 export type {

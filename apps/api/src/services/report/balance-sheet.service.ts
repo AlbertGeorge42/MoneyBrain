@@ -2,15 +2,10 @@ import { calculateBalancesBatch } from '../balance.service.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import { rootLogger } from '../../common/index.js'
 import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
-import {
-  accumulatePredictionChanges,
-  sumPredictionByType,
-  sumAssetsLiabilities,
-  resolveReportPeriod,
-  formatDateLocal,
-  PREDICTION_NOTE_BALANCE_SHEET,
-  type DateGranularity,
-} from './report.utils.js'
+import { accumulatePredictionChanges, sumPredictionByType, PREDICTION_NOTE_BALANCE_SHEET } from './prediction.js'
+import { sumAssetsLiabilities } from './account-sum.js'
+import { resolveReportPeriod, type DateGranularity } from './period.js'
+import { formatDateLocal } from '../../common/date.js'
 import { generatePredictions } from '../budget.service.js'
 import type {
   BalanceSheetReportData,
@@ -23,7 +18,7 @@ const logger = rootLogger.child({ module: 'report' })
 export type { DateGranularity }
 
 function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granularity: DateGranularity } {
-  // 统一到 report.utils.ts 的 resolveReportPeriod；保留旧签名以便最小化调用方改动
+  // 统一到 period.ts 的 resolveReportPeriod；保留旧签名以便最小化调用方改动
   const { endDate, nextDay, granularity } = resolveReportPeriod(date)
   return { targetDate: endDate, nextDay, granularity }
 }

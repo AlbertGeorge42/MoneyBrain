@@ -14,13 +14,9 @@ import {
   ZERO_MINOR,
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
-import {
-  getPredictionsIfFuture,
-  computePredictedAssetsLiabilities,
-  sumAssetsLiabilities,
-  resolveReportPeriod,
-  PREDICTION_NOTE_DEFAULT,
-} from './report.utils.js'
+import { getPredictionsIfFuture, computePredictedAssetsLiabilities, PREDICTION_NOTE_DEFAULT } from './prediction.js'
+import { sumAssetsLiabilities } from './account-sum.js'
+import { resolveReportPeriod } from './period.js'
 import type {
   IncomeExpenseReportData,
   ReportCategoryDetail,

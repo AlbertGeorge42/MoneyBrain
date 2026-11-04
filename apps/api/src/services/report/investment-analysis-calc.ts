@@ -1,5 +1,5 @@
 import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
-import { formatDateLocal } from './report.utils.js'
+import { formatDateLocal } from '../../common/date.js'
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import type { BalanceCache } from '../balance.service.js'

@@ -1,6 +1,6 @@
 import { CURRENT_RULE_VERSION, minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import { buildChildrenMap } from '../../common/tree.js'
-import { getCashFlags } from './report.utils.js'
+import { getCashFlags } from './cash-flag.js'
 import {
   AccountInfo,
   AggregatedFlows,

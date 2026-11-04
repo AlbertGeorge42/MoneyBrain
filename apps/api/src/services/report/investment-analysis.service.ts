@@ -1,7 +1,8 @@
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
 import { minor } from '../../../../../packages/domain/src/index.js'
-import { sumAssetsLiabilities, resolveReportPeriod, generateMonthRange } from './report.utils.js'
+import { sumAssetsLiabilities } from './account-sum.js'
+import { resolveReportPeriod, generateMonthRange } from './period.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import {
   getInvestmentAccounts,

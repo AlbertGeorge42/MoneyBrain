@@ -3,8 +3,8 @@ import {
   filterPredictionsUpTo,
   computePredictedAssetsLiabilities,
   computePredictedAccountTotal,
-  sumAssetsLiabilities,
-} from '../../src/services/report/report.utils.js'
+} from '../../src/services/report/prediction.js'
+import { sumAssetsLiabilities } from '../../src/services/report/account-sum.js'
 
 interface MockPrediction {
   date: Date
@@ -14,7 +14,7 @@ interface MockPrediction {
   toAccountId: string | null
 }
 
-describe('report.utils - 时点预测快照', () => {
+describe('report-calc - 时点预测快照', () => {
   // 账户类型映射
   const accountLookup = new Map<string, { type: string }>([
     ['cash', { type: 'asset' }],

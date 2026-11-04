@@ -5,12 +5,8 @@ import * as transactionCategoryRepo from '../../db/repositories/transaction-cate
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { rootLogger } from '../../common/index.js'
 import { minor } from '../../../../../packages/domain/src/index.js'
-import {
-  getPredictionsIfFuture,
-  computePredictedAccountTotal,
-  resolveReportPeriod,
-  PREDICTION_NOTE_DEFAULT,
-} from './report.utils.js'
+import { getPredictionsIfFuture, computePredictedAccountTotal, PREDICTION_NOTE_DEFAULT } from './prediction.js'
+import { resolveReportPeriod } from './period.js'
 import {
   AccountInfo,
   CategoryInfo,
