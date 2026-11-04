@@ -701,13 +701,14 @@ function viewTxns(device){
   if(device==='m'){
     return withState(`
     <div class="m-head"><h1>流水</h1><div class="m-head-acts">
-      <button class="btn btn-sm" onclick="openFilter()">高级筛选</button>
       <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度">显示</button>
-      <button class="btn btn-sm ${S.batch?'on':''}" onclick="toggleBatch()">${S.batch?'退出批量':'批量'}</button>
     </div></div>
     <div class="m-search">${I.search}<input placeholder="搜索备注、账户、分类…" value="${S.search}" oninput="onSearch(this.value)"></div>
-    <div class="seg-row" style="margin-bottom:8px">
+    <!-- 第十八轮：筛选操作区 —— 类型分段 + 高级筛选 + 批量同排，与 PC 工具栏同一组操作 -->
+    <div class="seg-row m-filter-ops">
       ${TYPE_TABS.slice(0,4).map(([l,v])=>`<button class="${S.typeFilter===v?'on':''}" onclick="setTypeFilter(${v?`'${v}'`:'undefined'})">${l}</button>`).join('')}
+      <button onclick="openFilter()">高级筛选${activeFilterCount()?` ${activeFilterCount()}`:''}</button>
+      <button class="${S.batch?'on':''}" onclick="toggleBatch()">${S.batch?'退出批量':'批量'}</button>
     </div>
     <div id="activeFilterBarM">${activeFilterBar()}</div>
     <div id="txListM">${txList('m')}</div>`);
@@ -1293,7 +1294,7 @@ function viewBudgets(device){
   }).join('');
   if(device==='m'){
     return withState(`
-    <div class="m-head"><h1>预算</h1><div class="m-head-acts"><button class="btn btn-sm" onclick="openOverlay('budget',{mode:'new'})">＋ 新增</button></div></div>
+    <div class="m-head"><h1>预算</h1><div class="m-head-acts"><button class="btn btn-sm m-hit44" onclick="openOverlay('budget',{mode:'new'})">＋ 新增</button></div></div>
     <div class="card card-pad" style="margin-bottom:12px">
       <div class="budget-ring">${ring}
         <div><div class="lbl">支出预算 / 已用</div><div class="num" style="font-size:var(--mb-fs-3);font-weight:600">¥${fmt(tot.used)} / ¥${fmt(tot.limit)}</div>
@@ -1304,7 +1305,9 @@ function viewBudgets(device){
     ${BUDGET_TYPE_NOTE}`);
   }
   return withState(`
-  <div class="page-head"><h1>预算</h1><span class="desc">2026 年 10 月 · ${BUDGETS.length} 个预算条目</span></div>
+  <div class="page-head"><h1>预算</h1><span class="desc">2026 年 10 月 · ${BUDGETS.length} 个预算条目</span>
+    <button class="btn primary page-head-act" onclick="openOverlay('budget',{mode:'new'})">＋ 新增预算条目</button>
+  </div>
   <div class="card card-pad" style="margin-bottom:16px">
     <div class="budget-ring">${ring}
       <div style="flex:1">
@@ -1317,7 +1320,6 @@ function viewBudgets(device){
   <div class="card card-pad">
     <div class="sec-head"><h3>预算条目</h3><span class="sec-sub">名称 + 类型 + 金额 + 周期 + 分类 + 账户 · 点击行可调整 / 处理超支</span></div>
     ${groups}
-    <button class="btn primary set-cta" onclick="openOverlay('budget',{mode:'new'})">＋ 新增预算条目</button>
     ${BUDGET_TYPE_NOTE}
   </div>`);
 }

@@ -313,11 +313,14 @@ function toggleBatch(){
   render();
 }
 /* 评审轮 P5：单笔删除成功后自动关闭详情面板/抽屉，不停留在「这笔已不存在」墓碑态；
-   撤销闭包随 toast（T7）。 */
+   撤销闭包随 toast（T7）。
+   第十八轮：与预算条目对齐 —— 两步确认（第一次点击只换文案，第二次才执行）。 */
 function delTx(id){
+  if(S.txConfirm!==id){ S.txConfirm=id; renderOverlay(); return; }
   const i=TXNS.findIndex(t=>t.id===id);
   if(i<0) return;
   const [removed]=TXNS.splice(i,1);
+  S.txConfirm=null;
   closeOverlay();
   render();
   toast('已删除 1 笔','撤销',()=>{ TXNS.splice(Math.min(i,TXNS.length),0,removed); render(); });

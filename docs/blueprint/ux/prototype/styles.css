@@ -104,6 +104,8 @@ body[data-device="m"] #mApp{display:flex}
 .page-head{display:flex;align-items:baseline;gap:var(--mb-s-3);margin-bottom:var(--mb-s-4);border-bottom:1px solid var(--mb-line);padding-bottom:var(--mb-s-2)}
 .page-head h1{font-size:var(--mb-fs-4);font-weight:700}
 .page-head .desc{color:var(--mb-ink-3);font-size:var(--mb-fs-1)}
+/* 第十八轮：PC 页头右端主操作位（预算「＋ 新增预算条目」与标题/期间同一带） */
+.page-head-act{margin-left:auto;align-self:center}
 
 /* ---- 结构块 ---- */
 .card{background:var(--mb-panel);border:1px solid var(--mb-line)}
@@ -478,6 +480,8 @@ body.batch .m-fab{display:none}
 .d-head h3{font-size:var(--mb-fs-2);font-weight:700}
 .d-head .icon-btn:last-child{margin-left:auto}
 .d-head .icon-btn.sp-back{margin-left:0;margin-right:var(--mb-s-1)}
+/* 第十八轮：浮层页头按钮统一 44×44（PC 右侧面板 / 居中弹层 / 移动抽屉与全屏页） */
+.sp-head .icon-btn,.mo-head .icon-btn,.d-head .icon-btn,.d-head .m-back{width:44px;height:44px}
 .sp-body,.mo-body,.d-body{padding:var(--mb-s-3);overflow-y:auto}
 .sp-foot,.mo-foot,.d-foot{border-top:1px solid var(--mb-line);padding:var(--mb-s-3);display:flex;gap:var(--mb-s-2);justify-content:flex-end}
 .grabber{width:34px;height:4px;background:var(--mb-block-2);margin:6px auto 0}
@@ -623,6 +627,11 @@ body[data-device="m"] .bud-amt-row input,body[data-device="m"] .bud-amt-row butt
 .seg-row{display:flex;gap:var(--mb-s-1);overflow-x:auto;padding-bottom:2px}
 .seg-row button{white-space:nowrap;border:1px solid var(--mb-line);background:var(--mb-panel);padding:4px 12px;font-size:var(--mb-fs-1);color:var(--mb-ink-2)}
 .seg-row button.on{border-color:var(--mb-line-strong);background:var(--mb-sunken);color:var(--mb-ink);font-weight:600}
+/* 第十八轮：移动端筛选操作区 —— 类型分段 + 高级筛选 + 批量同排，触控热区 44px；
+   不吸底、不随列表滚动，紧邻搜索框 */
+.m-filter-ops button{min-height:44px;display:inline-flex;align-items:center}
+/* 第十八轮：移动页头主按钮热区 44px（预算「＋ 新增」） */
+body[data-device="m"] .m-hit44{min-height:44px;display:inline-flex;align-items:center}
 /* 图标占位：方块内单字 */
 .cat-ico .em,.acct-ico .em{display:block;font-size:var(--mb-fs-1);line-height:1}
 /* 移动端指标卡（报表）。评审轮 P7：与概念稿对齐 —— 主指标（结余/净资产/期末市值）

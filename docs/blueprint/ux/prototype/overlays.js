@@ -72,6 +72,7 @@ function closeOverlay(){
   S.cfgMenu=null;
   S.budOne=null;
   S.budConfirm=null;
+  S.txConfirm=null;
   renderOverlay();
 }
 function renderOverlay(){
@@ -147,7 +148,7 @@ function txOverlay(arg){
     </div>
     <div class="lv-list">${rows.map(([k,v])=>`<div class="lv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>
     <div class="entry-actions" style="border-top:1px solid var(--mb-line);margin-top:16px">
-      <button class="btn ghost" onclick="delTx('${tx.id}')">删除</button>
+      <button class="btn ghost" onclick="delTx('${tx.id}')" title="删除这笔交易（两步确认）">${S.txConfirm===tx.id?'再点一次确认删除':'删除'}</button>
       <button class="btn primary" onclick="openTx('${tx.id}','edit')">编辑</button>
     </div>`;
 }
