@@ -19,7 +19,7 @@
 | 本文 | 产品终局、原则、不变量、阶段总览 | 每次都看 |
 | [principles.md](blueprint/principles.md) | 决策记录、明确不做、反模式清单、已评估方案 | 决定「什么不能改」时 |
 | [stage-0-foundation.md](blueprint/stage-0-foundation.md) | **M0–M1 地基**：口径、数据安全、结构 | 现在的下一步 |
-| [stage-1-experience.md](blueprint/stage-1-experience.md) | **M2 体验与桌面化**：批次 U「界面重做」三段（U0–U3 地基 → UX1–UX5b 重设计 → 切换新界面：U4/U6/U7 在新实现验收、U12 写规范）、E、i18n 基础设施、桌面壳 | M1 完成后 |
+| [stage-1-experience.md](blueprint/stage-1-experience.md) | **M2 体验与桌面化**：批次 U「界面重做」三段（U0–U3 地基 → UX1–UX5b 重设计 → 切换新界面：U13 迁移、U4/U6/U7 在新实现验收、U12 写规范）、E、i18n 基础设施、桌面壳 | M1 完成后 |
 | [stage-2-sync.md](blueprint/stage-2-sync.md) | **M3–M5 同步**：同步契约、加密容器、自动同步 | **M1 完成后 / 移动端之前**（M4 的 G1、G6、G7 也在本篇） |
 | [stage-3-mobile.md](blueprint/stage-3-mobile.md) | **M4–M6 移动端**：Android 记账闭环、通知自动记账 | 有第二台设备后 |
 | [stage-4-expansion.md](blueprint/stage-4-expansion.md) | **M7 延后与按需扩展**：推迟的 PC 功能、按触发条件开工的条目 | 主线做完之后 |
@@ -55,7 +55,7 @@
 | 能力 | 落在哪 |
 |---|---|
 | 桌面安装包（Tauri） | 阶段 1（批次 K8） |
-| 界面重做（U0–U3 地基 → UX1–UX5b 重设计 → 切换新界面，U4/U6/U7 在新实现验收） | 阶段 1（批次 U） |
+| 界面重做（U0–U3 地基 → UX1–UX5b 重设计 → 切换新界面：U13 AntD → Mantine 8 迁移，U4/U6/U7 在新实现验收） | 阶段 1（批次 U） |
 | i18n 基础设施（文案目录 + 本地化边界） | 阶段 1（批次 L1–L3） |
 | 周期交易 · 标签 · 多账本 · 目标储蓄 · 票据附件 · 按范围备份 · 待付款清单 | 阶段 4（批次 K1–K7，推迟） |
 | 端到端加密同步 · 加密账本容器 | 阶段 2（批次 F、G） |
@@ -111,7 +111,7 @@
 |---|---|---|---|---|---|
 | **M0 · 单机可信** | P0 | B1–B3、C1–C3、A0、A3、**D1 的 repository 部分** | 记账不再怕误删与覆盖导入；报表期间统一 | 覆盖导入可回退；删除可撤销；报表期间统一；不变量 1–6 在随机序列上恒成立 | [stage-0](blueprint/stage-0-foundation.md) |
 | **M1 · 结构收口** | P0 | D1（其余部分）–D7、D9 | （无用户可见变化，是给后面铺路） | service 不碰 Prisma；并发写无冲突；列表与报表查询量只随期间增长（余额是 O(历史) 的明确例外，见 D7）；repository 成为移动端可替换的缝 | [stage-0](blueprint/stage-0-foundation.md) |
-| **M2 · 体验与桌面化** | P0 | U0–U3、U12（U4–U11 取消或并入新实现验收）、UX1–UX5b、E1–E4、E6、L1–L3、K8 | 界面能干净切到原型版本、键盘可走通主流程、装得上双击即用、文案可查表；**界面按 UX5b 的组件库驱动可运行页面落地** | 「PC 端可用」清单全部达成（见 [stage-1](blueprint/stage-1-experience.md)） | [stage-1](blueprint/stage-1-experience.md) |
+| **M2 · 体验与桌面化** | P0 | U0–U3、U12、U13（AntD → Mantine 8 迁移；U4–U11 取消或并入新实现验收）、UX1–UX5b、E1–E4、E6、L1–L3、K8 | 界面能干净切到原型版本、键盘可走通主流程、装得上双击即用、文案可查表；**界面按 UX5b 的 Mantine 8 实现落地** | 「PC 端可用」清单全部达成（见 [stage-1](blueprint/stage-1-experience.md)） | [stage-1](blueprint/stage-1-experience.md) |
 | **M3 · 同步地基** | P1（PC） | F1–F11 | 账本能导出成一个加密文件 | 加密容器可导出可导入；版本向量合并任意顺序结果一致；备份与同步共用一套加密；容器格式可独立解密 | [stage-2](blueprint/stage-2-sync.md) |
 | **M4 · 跨设备可用** | P1 | H1–H8 + G1、G6、G7、E5 | 手机能装；账能用文件在设备间搬 | 手机与桌面导出的容器互相可读；新设备 10 分钟恢复出同样余额 | [stage-3](blueprint/stage-3-mobile.md) |
 | **M5 · 自动同步** | P1 | G2–G5、G8 | 两端自动收敛，不用手动搬 | 网盘 / NAS / GitHub 任一介质都能同步；冲突可见且不重复计钱；恢复码可更换 | [stage-2](blueprint/stage-2-sync.md) |

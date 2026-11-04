@@ -36,7 +36,7 @@
 ## 待领（按推荐顺序）
 
 - 阶段 0 · M1：D4
-- 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U1 → U1b →（U2–U3 降级为原则：设备判定单入口，不排条目）→ **UX1 → UX2 → UX3 → UX4 → UX5a**（重设计，不改代码）→ **UX5b**（按 UX5a 确认稿落地）→ **切换新界面**（U4 / U6 / U7 与 E1–E4 在新实现上验收；U5、U8–U11 已取消）→ E / L / K8 可交错（E6 随时可做）→ U12（UX5b 后写 design-system.md）（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
+- 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U1 → U1b →（U2–U3 降级为原则：设备判定单入口，不排条目）→ **UX1 → UX2 → UX3 → UX4 → UX5a**（重设计，不改代码）→ **UX5b**（按 UX5a 确认稿、用 Mantine 8 落地）→ **切换新界面 = U13 组件库迁移（AntD → Mantine 8，锁 `8.3.18`）**（U4 / U6 / U7 与 E1–E4 在 Mantine 实现上验收；U5、U8–U11 已取消）→ E / L / K8 可交错（E6 随时可做）→ U12（UX5b 与 U13 后写 design-system.md）（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
 - 之后见 [../rewrite-blueprint.md](../rewrite-blueprint.md) §3 里程碑表
 

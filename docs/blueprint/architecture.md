@@ -146,14 +146,19 @@ domain        →  无外部依赖（禁止 react/express/prisma/node:fs）
   - `index.ts` 是 feature 的公开入口，属于「包公共入口」，不算违规的桶导出。
   - 页面（`routes/` / `pages/`）只做布局装配，业务逻辑下沉到 feature。
 - **共享原语层** `apps/web/src/ui/`：只放真正被多处复用的原语（`MoneyText`、`DateField`、`PeriodPicker`、`DataTable`、`EmptyState`、`ErrorState`、`PageHeader`）与设计令牌。
-  - **不做「包装层的包装层」**：只有当某个原语需要统一行为（金额等宽、日期格式、错误呈现）时才包；否则直接用 AntD。
-- **设计系统层** `apps/web/src/styles/`：token 是一切的来源，组件不允许自带第二套。
-  - **命名空间隔离**：AntD 的 CSS 变量用 `--ant-*`（由 `cssVar.prefix` 指定），
+  - **不做「包装层的包装层」**：只有当某个原语需要统一行为（金额等宽、日期格式、错误呈现）时才包；否则直接用组件库组件（**Mantine 8**；迁移完成前为 AntD）。
+- **设计系统层** `apps/web/src/styles/`：三层职责，token 是一切的来源，组件不允许自带第二套。
+  1. **组件库主题**（`createTheme`）：颜色语义与组件默认样式——10 级色阶放在 `colors`，body 底色固定取 `dark[7]`。
+  2. **`--mb-*` 结构 token**（`variables.css`）：间距/字号/圆角/动效/布局/设备判定。
+  3. **业务组件**（`features/*/components`）：只消费上面两层，自带样式视为违规。
+  - **命名空间隔离（过渡期约束）**：迁移完成前，AntD 的 CSS 变量用 `--ant-*`（由 `cssVar.prefix` 指定），
     项目自有 token 用 `--mb-*`。两者不得同名——同名后「读到谁的变量」取决于 DOM 位置，
-    且切换主题时两套来源的更新时机不同（AntD 走 cssinjs 缓存，项目走 `syncCssVars()` 手动注入）。
+    且切换主题时两套来源的更新时机不同。迁移完成后 `--ant-*` 归零，这条约束**自然失效**；
+    U0 的结论本身不需要推翻——它描述的是「多来源必须按前缀隔离」，换成 Mantine 后仍是同一原则
+    （`--mantine-*` 是库内部变量，业务代码不得覆盖，只用公开 API 与主题机制）。
   - **token 单一来源**：结构 token（间距/字号/圆角/动效/布局）只写在
-    `styles/theme/variables.css`；颜色 token（信息色/财务色/阴影）只由
-    `syncCssVars()` 从 AntD 算法派生后注入。组件里出现裸值即视为违规。
+    `styles/theme/variables.css`；颜色只从 `createTheme` 出（迁移期为
+    `syncCssVars()` 从 AntD 算法派生后注入）。组件里出现裸值即视为违规。
   - **设备判定单入口**：双端是两套独立结构，不是响应式断点。设备判定只从一个常量 +
     一个 hook 产出，CSS 与 JS 都从它对齐；确需断点时阈值与 JS 判定同源
     （CSS 自定义属性在 `@media` 条件里不生效，需构建期解析）。不得并存两套判定。

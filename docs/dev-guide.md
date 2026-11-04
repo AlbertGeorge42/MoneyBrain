@@ -46,8 +46,8 @@ packages/
 
 | 命名空间 | 定义处 | 使用规则 |
 |---|---|---|
-| `--mb-*`（项目） | `styles/theme/variables.css`（结构：间距/字体/边框/圆角/动效/布局/z-index）+ `config.ts` 的 `syncCssVars()`（颜色/阴影，从 AntD 算法派生后注入 `:root`） | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
-| `--ant-*`（AntD） | AntD `cssVar: { prefix: 'ant' }` 生成 | 只供 AntD 组件内部消费；项目代码不得引用 `--ant-*`，需要同语义值时用项目等价 token（如 `--mb-color-warning`） |
+| `--mb-*`（项目） | `styles/theme/variables.css`（结构：间距/字体/边框/圆角/动效/布局/z-index）+ `config.ts` 的 `syncCssVars()`（颜色/阴影；迁移期为 AntD 算法派生，迁移后改由 Mantine `createTheme.colors` 显式声明） | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
+| `--ant-*`（AntD） | AntD `cssVar: { prefix: 'ant' }` 生成 | **过渡期约束**：只供 AntD 组件内部消费；项目代码不得引用 `--ant-*`，需要同语义值时用项目等价 token（如 `--mb-color-warning`）。U13 迁移完成后 `--ant-*` 归零，本行失效；`--mantine-*` 同理属库内部变量，业务代码不得覆盖 |
 
 CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）：写 `var(--mb-*)` 时必须「引用即定义」。
 
@@ -63,6 +63,22 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
   比「同一棵树靠断点变形」少一类不一致。
 
 （原 U2–U3「16 处媒体查询 token 化 + PostCSS 构建期解析」随双端独立结构取消。）
+
+### 2.3 组件库规则（Mantine 8，过渡期 AntD 并存）
+
+**目标库是 Mantine 8（锁 `8.3.18`）**——9.x 的 peer 要求 React 19，项目当前 React 18，
+升级 React 需另行决策（决策 #41）。
+
+- **新代码不得新增 AntD 引用**：迁移期新增界面一律用 Mantine；存量按 U13 迁移。
+- **同页面不混用两库**：一个页面 / 一个 feature 的组件树只用一个库的组件；迁移是「整页换」，
+  不是逐组件换。
+- **主题只从 `createTheme` 出**：不得用 CSS 覆盖 `--mantine-*` 内部变量；颜色只走 `colors`
+  的 10 级色阶（body 底色取 `dark[7]`），结构只走 `--mb-*`。**不得出现第三个颜色来源。**
+- **自建组件必须进白名单**：确需自建的先登记进 `docs/design-system.md` 的自建清单并有测试覆盖；
+  能用库组件拼出来的不许自建。
+- **已知技术债**：自定义圆角键需 `as any`（类型只认 xs..xl）——二选一处理
+  （提交 `DefaultMantineColor` / `DefaultMantineRadius` 模块增强，或接受并记录），
+  不得用 `@ts-ignore` 掩盖。
 
 ## 3. 领域层规则（最高优先级）
 
