@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock prisma：只用到 $queryRaw 读迁移表
 vi.mock('../../src/prisma.js', () => {
@@ -10,7 +10,12 @@ vi.mock('../../src/prisma.js', () => {
   }
 })
 
-import { assertBackupVersion, getSchemaVersion } from '../../src/services/backup.service.js'
+import {
+  assertBackupVersion,
+  generateBackupFilename,
+  generateExportFilename,
+  getSchemaVersion,
+} from '../../src/services/backup.service.js'
 import { prisma } from '../../src/prisma.js'
 
 const mockPrisma = prisma as any
@@ -54,5 +59,28 @@ describe('备份版本', () => {
 
     await expect(assertBackupVersion(undefined)).resolves.toBeUndefined()
     await expect(assertBackupVersion(manifest('unknown'))).resolves.toBeUndefined()
+  })
+})
+
+describe('导出文件名日期（本地日历日）', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // 用本地时间构造临界点：无论测试机在哪个时区，这两个时刻都属于同一天。
+  it('本地 00:30 导出：文件名用当天，不退到 UTC 的前一天', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 2, 1, 0, 30, 0))
+
+    expect(generateBackupFilename()).toBe('moneybrain-backup-2026-03-01.zip')
+    expect(generateExportFilename('transactions', 'csv')).toBe('moneybrain-transactions-2026-03-01.csv')
+  })
+
+  it('本地 23:30 导出：文件名仍是当天', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 2, 1, 23, 30, 0))
+
+    expect(generateBackupFilename()).toBe('moneybrain-backup-2026-03-01.zip')
+    expect(generateExportFilename('config', 'json')).toBe('moneybrain-config-2026-03-01.json')
   })
 })

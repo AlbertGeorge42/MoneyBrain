@@ -2,6 +2,8 @@
  * 通用浏览器端文件下载工具
  */
 
+import { today } from '@domain/index'
+
 /**
  * 把 Blob 触发为浏览器下载，下载完成后释放 ObjectURL。
  * @param blob 要下载的文件
@@ -27,6 +29,6 @@ export async function downloadBlob(blob: Blob, filename: string): Promise<void> 
  * 生成带日期的文件名：`<prefix>-YYYY-MM-DD.<ext>`
  */
 export function todayFilename(prefix: string, ext: string): string {
-  const date = new Date().toISOString().split('T')[0]
+  const date = today()
   return `${prefix}-${date}.${ext}`
 }

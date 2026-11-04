@@ -172,7 +172,8 @@ describe('自动备份配置（B3 过渡态约束）', () => {
     const configPath = join(fakeDbDir, 'auto-backup-config.json')
     const result = await runAutoBackupOnce({ directory: backupDir, configPath })
 
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     expect(existsSync(result.file)).toBe(true)
     expect(result.file).toContain(`moneybrain-backup-${today}.zip`)
 

@@ -4,7 +4,7 @@ import { ZipArchive } from 'archiver'
 import unzipper from 'unzipper'
 import Papa from 'papaparse'
 import { prisma } from '../prisma.js'
-import { ValidationError, rootLogger } from '../common/index.js'
+import { formatDateLocal, ValidationError, rootLogger } from '../common/index.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
 import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
 import * as budgetRepo from '../db/repositories/budget.repository.js'
@@ -45,7 +45,7 @@ export interface ManifestData {
  * 生成单个导出文件名
  */
 export function generateExportFilename(type: DataType, ext: string): string {
-  const date = new Date().toISOString().split('T')[0]
+  const date = formatDateLocal(new Date())
   return `moneybrain-${type}-${date}.${ext}`
 }
 
@@ -53,7 +53,7 @@ export function generateExportFilename(type: DataType, ext: string): string {
  * 生成完整备份 ZIP 文件名
  */
 export function generateBackupFilename(): string {
-  const date = new Date().toISOString().split('T')[0]
+  const date = formatDateLocal(new Date())
   return `moneybrain-backup-${date}.zip`
 }
 

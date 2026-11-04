@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express'
-import { asyncHandler, success, validateRequest, ValidationError } from '../common/index.js'
+import { asyncHandler, formatDateLocal, success, validateRequest, ValidationError } from '../common/index.js'
 import { requireClearConfirm } from '../common/validators.js'
 import { CLEAR_CONFIRM, ROLLBACK_CONFIRM } from '../../../../packages/contracts/constants.js'
 import multer from 'multer'
@@ -92,7 +92,7 @@ router.get('/export', asyncHandler(async (req, res) => {
   // 长任务：导出进行中不让自动备份抢 IO
   const csvContent = await runExclusiveLongTask(() => exportTransactionsCSV(start, end))
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
-  res.setHeader('Content-Disposition', `attachment; filename=moneybrain-export-${new Date().toISOString().split('T')[0]}.csv`)
+  res.setHeader('Content-Disposition', `attachment; filename=moneybrain-export-${formatDateLocal(new Date())}.csv`)
   res.send(csvContent)
 }))
 

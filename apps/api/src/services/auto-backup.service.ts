@@ -14,7 +14,7 @@
 
 import { existsSync, mkdirSync, readdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { rootLogger, ValidationError } from '../common/index.js'
+import { formatDateLocal, rootLogger, ValidationError } from '../common/index.js'
 import { resolveDbDirectory } from './rollback.service.js'
 import { exportFullBackup } from './export/index.js'
 
@@ -252,7 +252,7 @@ export async function runAutoBackupOnce(
   }
 
   mkdirSync(directory, { recursive: true })
-  const filename = `moneybrain-backup-${new Date().toISOString().split('T')[0]}.zip`
+  const filename = `moneybrain-backup-${formatDateLocal(new Date())}.zip`
   const target = join(directory, filename)
   const attemptedAt = new Date().toISOString()
 
