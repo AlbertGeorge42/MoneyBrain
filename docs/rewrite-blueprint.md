@@ -18,7 +18,7 @@
 |---|---|---|
 | 本文 | 产品终局、原则、不变量、阶段总览 | 每次都看 |
 | [principles.md](blueprint/principles.md) | 决策记录、明确不做、反模式清单、已评估方案 | 决定「什么不能改」时 |
-| [stage-0-foundation.md](blueprint/stage-0-foundation.md) | **M0–M1 地基**：口径、数据安全、结构；M0–M1 已收口，仅余 D4、A6 | 现在 |
+| [stage-0-foundation.md](blueprint/stage-0-foundation.md) | **M0–M1 地基**：口径、数据安全、结构；M0–M1 已收口，仅余 D4 | 现在 |
 | [stage-1-experience.md](blueprint/stage-1-experience.md) | **M2 体验与桌面化**：批次 U「界面重做」三段（U0–U1b 已收口、U2–U3 降为原则 → UX1–UX5b 重设计 → U13.1–U13.5 切换新界面，U13.2/U13.3 各拆 a/b/c；U4/U6/U7 并入 U13.3/U13.4 验收，U5/U8–U11 取消）、E1–E4 并入 U13.3 / E6 并入 U13.4、i18n 基础设施、桌面壳 | M1 完成后 |
 | [stage-2-sync.md](blueprint/stage-2-sync.md) | **M3–M5 同步**：同步契约、加密容器、自动同步 | **M1 完成后 / 移动端之前**（M4 的 G1、G6、G7 也在本篇） |
 | [stage-3-mobile.md](blueprint/stage-3-mobile.md) | **M4–M6 移动端**：Android 记账闭环、通知自动记账 | 有第二台设备后 |
