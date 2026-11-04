@@ -31,10 +31,11 @@
 | U0 | 阶段 1 · M2 | 2026-11-03 | `a60a135` AntD cssVar 前缀 mb → ant（运行时实测 --ant-* 678 个），与项目 `--mb-*` 重叠 9 → 0（双定义 6：font-size-sm / text-secondary / text-tertiary / border / success / warning，其中 font-size-sm 值不一致——项目 13px vs AntD 子树 12px；项目引用未定义 3：bg-container / border-secondary / text-quaternary）；`--mb-*` 定义源只剩 `variables.css`（结构 25）+ `syncCssVars()`（颜色 32）。连带：InvestmentAssetClassConfigModal 的 `var(--ant-color-warning)` 改用项目等价 token `--mb-color-warning`（决策 #32：项目代码不引用 AntD 命名空间）；决策 #32 操作规则同步 dev-guide §2.1。验收（独立 chromium 读注入样式表 + computed style）：AntD `--mb-*` 644 → 0、重叠 9 → 0、`--mb-font-size-sm` 全树一致 13px；typecheck / lint 0 错、test:web 90 用例全过。遗留（U1 范围）：picker.css ×3 + settings.css ×1 失去同名兜底（背景→透明、边框→currentColor、四级文字→继承主文字色），另发现 2 处死引用 `--mb-font-size-h2` / `--mb-radius-sm`（AntD 从不生成，迁移前后表现不变） |
 | U1 | 阶段 1 · M2 | 2026-11-04 | `137af85` 清除 6 处项目未定义的 `--mb-*` 引用，引用即定义断言 0 未定义（定义 58 = 结构 25 + 颜色/阴影 33）：picker.css ×3 改 `--mb-color-bg-panel` / `--mb-color-border-subtle`；settings.css 的 `--mb-color-text-quaternary` 补进 `syncCssVars()`（项目无等价 token：tertiary 45% vs 需 25%），`--mb-font-size-h2` → `--mb-font-size-title`（18px）；report-layouts.css 的 `--mb-radius-sm` → `--mb-radius-control`（6px）。运行时实测恢复 U0 前观感：`.ip-cell` 背景 #fff / 边框 #f0f0f0、`.csp-clear` 背景 #fff、chevron rgba(0,0,0,0.25)；计数徽标 14→18px、对账条圆角 0→6px。stage-1 现状栏刷新并记录 U0 实测重叠 9（含同值 `--mb-color-warning`）。验收：typecheck / lint 0 错、test:web 12 文件 90 用例全过 |
 | D10 | 阶段 0 · M1 | 2026-11-04 | `85ac424` 事务边界统一：新增 `db/transaction.ts` 的 `withTransaction(fn)`，14 处 service 层 `prisma.$transaction`（8 文件）全部替换；clear-data（17 处）、import/config-import（15 处）、import/budget-import（7 处）的 `tx.<model>.` 直调改 repository（repository 补 `deleteManyWhere` / `findMaxSort` / `findFirst`，均带 `tx` 尾参）；`clearSelectedDataForImport(tx, includes)` 签名保留供覆盖导入复用。条目原写 46 处直调 / 10 处事务，实测 39 处 / 14 处（D1 已收口一部分，另补记 account、transaction-category、investment 的事务）。验收：三条 grep 全量 0 命中（`tx.<model>.` / services 的 `prisma.$transaction` / services+routes 的 `prisma.<model>.`）；`npm run test:api` 35 文件 322 用例全过；typecheck / lint 0 错；`db:verify` ✅。操作规则同步 dev-guide §8 |
+| D11 | 阶段 0 · M1 | 2026-11-04 | `777fd70` 报表数据修复：① `Account.categoryId` 12 行回填（现金等价 4 / 投资 2 / 资产 1 / 负债 5；data script 幂等，复跑 backfilled 0）+ 账户创建/配置导入/交易导入缺省按 `Account.type` 映射（不静默留 null）+「现金等价」「投资」分类标记置位（现金流 4 账户 1666 笔、投资 2 账户 62 笔）；② 更新退款换原交易时同步 `relatedType`（回归：改挂后收入 1000 / 支出 400）；③ 列表分页 `orderBy` 补 `id` 第二键。验收：dev.db EXPLAIN 带 id 出现 TEMP B-TREE 但只作用于期间行（2026 期间 1653 行 0.169→0.192ms，最大同毫秒 7 行，保留 id 换翻页确定性）；pageSize=5 翻完 3218 行 dup 0 / missing 0；`test:api` 35 文件 325 用例、typecheck / lint 0 错、`db:verify` ✅（净资产 1165048.37） |
 
 ## 待领（按推荐顺序）
 
-- 阶段 0 · M1：D4 → D11（D11：报表数据修复——① `Account.categoryId` 12 行回填 + 账户创建/配置导入缺省按 `Account.type` 映射（不静默留 null）+「现金等价」「投资」两个账户分类标记置位；② 更新退款或原交易时同步 `relatedType`（报表退款方向不再按旧类型判断）；③ 列表分页 `orderBy` 补 `id` 第二键并用 EXPLAIN 验证索引路径。验收：`categoryId` 空值 0、创建/导入路径有测试、退款改原交易后现金流/桑基口径正确、同秒 15 行翻页不重不丢、dev.db 现金流与投资报表非空、`test:api` / typecheck / lint / `db:verify` 全过）
+- 阶段 0 · M1：D4
 - 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U1 → U1b →（U2–U3 降级为原则：设备判定单入口，不排条目）→ **UX1 → UX2 → UX3 → UX4 → UX5a**（重设计，不改代码）→ **UX5b**（按 UX5a 确认稿落地）→ **切换新界面**（U4 / U6 / U7 与 E1–E4 在新实现上验收；U5、U8–U11 已取消）→ E / L / K8 可交错（E6 随时可做）→ U12（UX5b 后写 design-system.md）（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
 - 之后见 [../rewrite-blueprint.md](../rewrite-blueprint.md) §3 里程碑表
@@ -49,4 +50,4 @@
 
 | 条目 | 领取日期 | 范围 |
 |---|---|---|
-| D11 | 2026-11-04 | 报表数据修复：① `Account.categoryId` 回填 12 行 + 账户创建/配置导入缺省按 `Account.type` 映射 + 两个账户分类的 `isCashEquivalent`/`isInvestment` 置位；② 更新退款/换原交易时同步 `relatedType` 并加回归测试；③ 列表分页 `orderBy` 补 `id` 第二键，dev.db EXPLAIN 验证不重新引入 TEMP B-TREE，同秒 15 行翻页比对不重不丢 |
+
