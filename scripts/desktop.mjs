@@ -10,6 +10,7 @@
  */
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { connect } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -58,6 +59,23 @@ async function waitFor(url, label, timeoutMs = 60_000) {
   throw new Error(`${label} 在 ${timeoutMs / 1000}s 内未就绪：${url}`)
 }
 
+/** 端口已被占用时（上一次实例未关干净、或 npm run dev 在跑）提前报错，避免静默起不来。 */
+function isPortInUse(port) {
+  return new Promise((resolve) => {
+    const socket = connect({ host: '127.0.0.1', port })
+    socket.setTimeout(1_000)
+    socket.once('connect', () => {
+      socket.destroy()
+      resolve(true)
+    })
+    socket.once('timeout', () => {
+      socket.destroy()
+      resolve(false)
+    })
+    socket.once('error', () => resolve(false))
+  })
+}
+
 function killTree(child) {
   if (!child || child.exitCode !== null) return
   if (process.platform === 'win32') {
@@ -77,6 +95,14 @@ async function main() {
   const edgePath = EDGE_CANDIDATES.find((candidate) => existsSync(candidate))
   if (!edgePath) {
     throw new Error('未找到 Microsoft Edge；请安装 Edge，或改用 npm run dev 在浏览器中打开。')
+  }
+
+  for (const port of [3001, 4173]) {
+    if (await isPortInUse(port)) {
+      throw new Error(
+        `端口 ${port} 已被占用：可能已有 MoneyBrain 桌面实例在运行（或 npm run dev 未关）。请先关闭后再启动。`,
+      )
+    }
   }
 
   log('启动 API 与预览服务（npm run start）…')
