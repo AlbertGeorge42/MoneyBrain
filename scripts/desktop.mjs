@@ -115,6 +115,9 @@ async function main() {
       '--no-first-run',
       '--no-default-browser-check',
       '--disable-features=msEdgeFirstRunExperience,Translate,msEdgeSidebarV2',
+      ...(process.env.MB_DESKTOP_DEBUG_PORT
+        ? [`--remote-debugging-port=${process.env.MB_DESKTOP_DEBUG_PORT}`]
+        : []),
     ],
     { stdio: 'ignore' },
   )
