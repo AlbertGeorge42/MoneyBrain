@@ -6,7 +6,13 @@ import { EntryOverlay } from '../../features/transactions/EntryOverlay'
 import { TransactionsScreen } from '../../features/transactions/TransactionsScreen'
 import { MONTH_SUMMARY } from '../../features/transactions/mock'
 import { formatAmount, summarize } from '../../features/transactions/transaction-utils'
-import type { DataState, DeviceMode, Transaction } from '../../features/transactions/types'
+import type {
+  DataState,
+  DeviceMode,
+  Transaction,
+  TransactionFilters,
+  TransactionFocus,
+} from '../../features/transactions/types'
 import { OverviewScreen } from '../../features/overview/OverviewScreen'
 import { ReportsScreen } from '../../features/reports/ReportsScreen'
 import { NAV_ITEMS, navLabel, type NavPage } from './navigation'
@@ -21,7 +27,9 @@ type HfShellProps = {
   freshLedger: boolean
   setItems: Dispatch<SetStateAction<Transaction[]>>
   entryOpen: boolean
+  transactionFocus: TransactionFocus | null
   onPageChange: (page: NavPage) => void
+  onOpenTransactions: (filters: Partial<TransactionFilters>) => void
   onRecord: () => void
   onEntryOpen: () => void
   onEntryClose: () => void
@@ -48,10 +56,12 @@ type ContentProps = {
   items: Transaction[]
   freshLedger: boolean
   setItems: Dispatch<SetStateAction<Transaction[]>>
+  transactionFocus: TransactionFocus | null
   onEntryOpen: () => void
   onBatchModeChange: (value: boolean) => void
   onRetry: () => void
   onPageChange: (page: NavPage) => void
+  onOpenTransactions: (filters: Partial<TransactionFilters>) => void
 }
 
 function PageContent({
@@ -63,10 +73,12 @@ function PageContent({
   items,
   freshLedger,
   setItems,
+  transactionFocus,
   onEntryOpen,
   onBatchModeChange,
   onRetry,
   onPageChange,
+  onOpenTransactions,
 }: ContentProps) {
   if (page === 'overview') {
     return (
@@ -92,6 +104,7 @@ function PageContent({
         batchMode={batchMode}
         items={items}
         setItems={setItems}
+        focus={transactionFocus}
         onEntryOpen={onEntryOpen}
         onBatchModeChange={onBatchModeChange}
         onRetry={onRetry}
@@ -103,9 +116,12 @@ function PageContent({
     return (
       <ReportsScreen
         device={device}
+        scheme={scheme}
         dataState={dataState}
+        items={items}
         onRecord={onEntryOpen}
         onRetry={onRetry}
+        onOpenTransactions={onOpenTransactions}
       />
     )
   }
@@ -130,7 +146,9 @@ export function HfShell({
   freshLedger,
   setItems,
   entryOpen,
+  transactionFocus,
   onPageChange,
+  onOpenTransactions,
   onRecord,
   onEntryOpen,
   onEntryClose,
@@ -147,10 +165,12 @@ export function HfShell({
     items,
     freshLedger,
     setItems,
+    transactionFocus,
     onEntryOpen,
     onBatchModeChange,
     onRetry,
     onPageChange,
+    onOpenTransactions,
   }
 
   // 空账本时侧栏跟随页面一起归零，不残留 mock 汇总

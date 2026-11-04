@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('HF 报表：固定表与两视图', () => {
+test.describe('HF 报表：四视图、图表与下钻', () => {
   test('并排表列宽固定、行高一致、合计行对齐、短侧占位', async ({ page }) => {
     await page.goto('/design')
     await page.getByRole('button', { name: '报表' }).click()
@@ -43,14 +43,20 @@ test.describe('HF 报表：固定表与两视图', () => {
     const incomeFoldedFoot = await income.locator('tfoot tr').boundingBox()
     expect(foldedFoot?.y).toBe(incomeFoldedFoot?.y)
 
-    // 点击行进入详情，不做行内展开
+    // 点击行进入详情：构成 + 相关流水 + 在流水中查看
     await expense.locator('tr.rep-data-row').first().click()
     const drawer = page.getByRole('dialog')
     await expect(drawer).toBeVisible()
     await expect(drawer.getByRole('heading', { name: '支出 · 详情' })).toBeVisible()
     await expect(drawer.getByRole('heading', { name: '构成' })).toBeVisible()
-    await drawer.getByRole('button', { name: '关闭' }).click()
-    await expect(drawer).toBeHidden()
+    await expect(drawer.getByRole('heading', { name: '相关流水 · 近 2 笔' })).toBeVisible()
+    await expect(drawer.getByText('11 月房租')).toBeVisible()
+    await drawer.getByRole('button', { name: '在流水中查看' }).click()
+
+    // 跳转流水页并带筛选 chip
+    await expect(page.getByRole('heading', { name: '流水', exact: true })).toBeVisible()
+    await expect(page.locator('.tx-condition').filter({ hasText: '居住' })).toBeVisible()
+    await expect(page.locator('.tx-condition').filter({ hasText: '2026-11-01' })).toBeVisible()
   })
 
   test('月/年切换与资产负债视图', async ({ page }) => {
@@ -96,7 +102,39 @@ test.describe('HF 报表：固定表与两视图', () => {
     await expect(assets.getByText('基金', { exact: true })).not.toHaveAttribute('tabindex', '0')
   })
 
-  test('移动端单表切换与空态', async ({ page }) => {
+  test('现金流与投资分析：指标、图表与持仓排序', async ({ page }) => {
+    await page.goto('/design')
+    await page.getByRole('button', { name: '报表' }).click()
+
+    // 每个视图都有走势与构成图
+    await expect(page.getByRole('region', { name: '走势' })).toBeVisible()
+    await expect(page.getByRole('region', { name: '构成' })).toBeVisible()
+
+    await page.getByRole('button', { name: '现金流' }).click()
+    await expect(page.getByRole('table', { name: '流入 · 2026-11' })).toBeVisible()
+    await expect(page.getByRole('table', { name: '流出 · 2026-11' })).toBeVisible()
+    const cashMetrics = page.locator('.rep-metric-strip--flat .rep-metric-cell')
+    await expect(cashMetrics).toHaveCount(4)
+    await expect(page.getByText('期末现金总量', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: '投资分析' }).click()
+    const holdings = page.getByRole('table', { name: '持仓明细 · 2026-11' })
+    await expect(holdings).toBeVisible()
+    await expect(holdings.locator('colgroup col')).toHaveCount(5)
+    const before = await holdings.locator('tr.rep-data-row').first().innerText()
+    await holdings.getByRole('button', { name: '按收益率排序' }).click()
+    const after = await holdings.locator('tr.rep-data-row').first().innerText()
+    expect(after).not.toBe(before)
+    await expect(holdings.locator('th[aria-sort="descending"]')).toHaveCount(1)
+
+    // 投资详情不下钻到流水
+    await holdings.locator('tr.rep-data-row').first().click()
+    const drawer = page.getByRole('dialog')
+    await expect(drawer.getByRole('heading', { name: '持仓明细 · 详情' })).toBeVisible()
+    await expect(drawer.getByRole('button', { name: '在流水中查看' })).toHaveCount(0)
+  })
+
+  test('移动端单表切换、四视图空态与金额不截断', async ({ page }) => {
     await page.goto('/design')
     await page.getByRole('button', { name: '报表' }).click()
     await page.getByRole('group', { name: '设备' }).getByRole('button', { name: '移动' }).click()
@@ -106,20 +144,57 @@ test.describe('HF 报表：固定表与两视图', () => {
     await page.getByRole('button', { name: '支出', exact: true }).click()
     await expect(page.getByRole('table', { name: '支出 · 2026-11' })).toBeVisible()
 
-    // 移动端金额列不被截断、表头不裁切
-    const overflowing = await page
-      .locator('.rep-table tbody .rep-data-row td:last-child span')
-      .evaluateAll((nodes) => nodes.filter((node) => node.scrollWidth > node.clientWidth + 1).length)
-    expect(overflowing).toBe(0)
+    // 有效断言：金额 span 有实际宽度，且 scrollWidth 不超过 clientWidth（真的检测截断）
+    const overflow = await page
+      .locator('.rep-table tbody .rep-data-row td.rep-num-cell .mb-num')
+      .evaluateAll((nodes) => nodes
+        .filter((node) => node.clientWidth > 0)
+        .filter((node) => node.scrollWidth > node.clientWidth + 1)
+        .map((node) => node.textContent ?? ''))
+    expect(overflow).toEqual([])
+
+    const zeroWidth = await page
+      .locator('.rep-table tbody .rep-data-row td.rep-num-cell .mb-num')
+      .evaluateAll((nodes) => nodes.filter((node) => node.clientWidth === 0).length)
+    expect(zeroWidth).toBe(0)
+
     const clippedHeaders = await page
       .locator('.rep-table th')
       .evaluateAll((nodes) => nodes.filter((node) => node.scrollWidth > node.clientWidth + 1).length)
     expect(clippedHeaders).toBe(0)
 
-    // 冷启动空态：不渲染表格，给出记账入口
+    // 现金流与投资分析在移动端也检查金额不截断
+    await page.getByRole('button', { name: '现金流' }).click()
+    await expect(page.getByRole('table', { name: '流入 · 2026-11' })).toBeVisible()
+    const cashOverflow = await page
+      .locator('.rep-table tbody .rep-data-row td.rep-num-cell .mb-num')
+      .evaluateAll((nodes) => nodes.filter((node) => node.scrollWidth > node.clientWidth + 1).length)
+    expect(cashOverflow).toBe(0)
+
+    await page.getByRole('button', { name: '投资分析' }).click()
+    await expect(page.getByRole('table', { name: '持仓明细 · 2026-11' })).toBeVisible()
+    const investOverflow = await page
+      .locator('.rep-table tbody .rep-data-row td.rep-num-cell .mb-num')
+      .evaluateAll((nodes) => nodes.filter((node) => node.scrollWidth > node.clientWidth + 1).length)
+    expect(investOverflow).toBe(0)
+
+    // 最大滚动时，最后内容在「+」FAB 上方
+    await page.locator('.hf-mobile-body').evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    const noteBox = await page.locator('.rep-table-note').last().boundingBox()
+    const fabBox = await page.locator('.hf-fab').boundingBox()
+    expect(noteBox).not.toBeNull()
+    expect(fabBox).not.toBeNull()
+    expect((noteBox?.y ?? 0) + (noteBox?.height ?? 0)).toBeLessThanOrEqual(fabBox?.y ?? 0)
+
+    // 冷启动空态：四个视图都空态、不渲染表格
     await page.getByRole('group', { name: '数据态' }).getByRole('button', { name: '冷启动' }).click()
-    await expect(page.getByRole('heading', { name: '这段时间还没有可汇总的记录' })).toBeVisible()
+    for (const view of ['收支明细', '资产负债', '现金流', '投资分析']) {
+      await page.getByRole('button', { name: view }).click()
+      await expect(page.getByRole('heading', { name: '这段时间还没有可汇总的记录' })).toBeVisible()
+      await expect(page.getByRole('table')).toHaveCount(0)
+    }
     await expect(page.getByRole('button', { name: '记第一笔' })).toBeVisible()
-    await expect(page.getByRole('table')).toHaveCount(0)
   })
 })

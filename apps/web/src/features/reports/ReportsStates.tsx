@@ -38,7 +38,7 @@ export function ReportsEmptyState({ onRecord }: ReportsEmptyStateProps) {
       <div>
         <h2 className="mb-title-4">这段时间还没有可汇总的记录</h2>
         <p className="mb-text-1 hf-state-copy">
-          报表随记录自动生成。先记一笔，收入和支出会按类别汇总到这里；资产负债视图会从同一批记录长出。
+          当前报表为预览示例，用于核对版式与交互。接入真实账本后，收支、现金流、资产负债与投资分析四个视图会随记录自动汇总。
         </p>
       </div>
       <Button className="mb-accent-btn" leftSection={<Plus />} onClick={onRecord}>记第一笔</Button>

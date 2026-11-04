@@ -3,7 +3,13 @@ import { useHotkeys } from '@mantine/hooks'
 import { ThemeRoot } from '../../styles/theme/ThemeRoot'
 import type { ColorScheme } from '../../styles/theme/tokens'
 import { TRANSACTIONS } from '../../features/transactions/mock'
-import type { DataState, DeviceMode, Transaction } from '../../features/transactions/types'
+import type {
+  DataState,
+  DeviceMode,
+  Transaction,
+  TransactionFilters,
+  TransactionFocus,
+} from '../../features/transactions/types'
 import { HfShell } from './HfShell'
 import { PreviewBar } from './PreviewBar'
 import type { NavPage } from './navigation'
@@ -24,6 +30,7 @@ export default function HfPreview() {
   const [freshLedger, setFreshLedger] = useState(false)
   const [entryOpen, setEntryOpen] = useState(false)
   const [batchMode, setBatchMode] = useState(false)
+  const [transactionFocus, setTransactionFocus] = useState<TransactionFocus | null>(null)
 
   const changeScheme = (next: ColorScheme) => {
     setScheme(next)
@@ -34,6 +41,13 @@ export default function HfPreview() {
     if (entryOpen) return
     setPage(next)
     if (next !== 'transactions') setBatchMode(false)
+  }
+
+  /** 报表下钻：带筛选跳到流水页，流水页按 focus.key 应用一次。 */
+  const openTransactionsWithFilters = (filters: Partial<TransactionFilters>) => {
+    setBatchMode(false)
+    setTransactionFocus({ key: Date.now(), filters })
+    changePage('transactions')
   }
 
   const openEntry = () => {
@@ -78,7 +92,9 @@ export default function HfPreview() {
     freshLedger,
     setItems,
     entryOpen,
+    transactionFocus,
     onPageChange: changePage,
+    onOpenTransactions: openTransactionsWithFilters,
     onRecord: openEntry,
     onEntryOpen: openEntry,
     onEntryClose: () => setEntryOpen(false),

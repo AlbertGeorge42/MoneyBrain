@@ -65,6 +65,12 @@ export interface TransactionFilters {
   to: string | null
 }
 
+/** 从报表下钻到流水时携带的一次性筛选请求。 */
+export type TransactionFocus = {
+  key: number
+  filters: Partial<TransactionFilters>
+}
+
 export const EMPTY_FILTERS: TransactionFilters = {
   query: '',
   type: 'all',

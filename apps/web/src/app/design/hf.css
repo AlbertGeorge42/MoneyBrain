@@ -1833,6 +1833,15 @@
   overflow: hidden;
 }
 
+/* 现金流口径：四格等宽，不设主指标 */
+.rep-metric-strip--flat {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rep-metric-strip--flat .rep-metric-cell:first-child {
+  border-left: 0;
+}
+
 .rep-metric-main {
   display: flex;
   flex-direction: column;
@@ -2044,6 +2053,179 @@
   margin: 0;
 }
 
+.rep-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.rep-sort-btn svg {
+  width: var(--mb-s-3);
+  height: var(--mb-s-3);
+}
+
+.rep-head-row th[aria-sort]:not([aria-sort='none']) {
+  color: var(--mb-color-text-primary);
+}
+
+.rep-num-cell .mb-num {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 走势 / 构成图 */
+
+.rep-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--mb-s-4);
+}
+
+.rep-chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+  min-width: 0;
+  padding: var(--mb-card-pad);
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+}
+
+.rep-chart-head,
+.rep-comp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+}
+
+.rep-comp-head h4 {
+  margin: 0;
+}
+
+.rep-chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mb-s-2);
+  min-height: var(--mb-ov-chart-h-pc);
+  color: var(--mb-color-text-tertiary);
+  text-align: center;
+}
+
+.rep-chart-empty p {
+  margin: 0;
+  max-width: 32ch;
+}
+
+.rep-chart-empty svg {
+  width: var(--mb-s-6);
+  height: var(--mb-s-6);
+}
+
+.rep-trend {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--mb-s-2);
+  height: var(--mb-ov-chart-h-pc);
+}
+
+.rep-trend-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.rep-trend-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  min-width: 0;
+}
+
+.rep-trend-svg {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.rep-trend-x {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.rep-comp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mb-s-4);
+}
+
+.rep-comp-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rep-comp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+.rep-comp-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+.rep-comp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 4.6rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--mb-s-2);
+}
+
+.rep-comp-label {
+  overflow: hidden;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rep-comp-track {
+  height: var(--mb-s-2);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-sunken);
+  overflow: hidden;
+}
+
+.rep-comp-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.rep-comp-value {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  white-space: nowrap;
+}
+
+.rep-comp-empty {
+  margin: 0;
+}
+
 @media (hover: hover) {
   .rep-data-row:hover td {
     background: var(--mb-color-surface-hover);
@@ -2238,6 +2420,32 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.rep-charts--mobile {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rep-charts--mobile .rep-comp-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rep-charts--mobile .rep-trend {
+  height: var(--mb-ov-chart-h-m);
+}
+
+/* 投资持仓 5 列，窄屏给足列宽并允许表内横向滚动，避免金额被省略号截断 */
+.rep-page[data-device='mobile'] .rep-table-card--investment {
+  overflow-x: auto;
+}
+
+.rep-page[data-device='mobile'] .rep-table-card--investment .rep-table {
+  min-width: 38rem;
+}
+
+/* 底部留白避开全局「+」FAB，避免最后一行被遮住 */
+.rep-page[data-device='mobile'] {
+  padding-bottom: var(--mb-fab);
+}
+
 /* 行详情抽屉 */
 
 .rep-detail {
@@ -2296,4 +2504,52 @@
 
 .rep-detail-note {
   margin: 0;
+}
+
+.rep-related-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rep-related-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+  min-height: var(--mb-touch);
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
+.rep-related-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+.rep-related-date {
+  flex: none;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.rep-related-note {
+  overflow: hidden;
+  color: var(--mb-color-text-primary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rep-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+}
+
+.rep-page[data-device='mobile'] .rep-detail-actions > * {
+  flex: 1;
+  min-height: var(--mb-touch);
 }

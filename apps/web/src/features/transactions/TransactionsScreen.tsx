@@ -16,7 +16,14 @@ import {
   hasActiveFilters,
   summarize,
 } from './transaction-utils'
-import { EMPTY_FILTERS, type DataState, type DeviceMode, type Transaction, type TransactionFilters } from './types'
+import {
+  EMPTY_FILTERS,
+  type DataState,
+  type DeviceMode,
+  type Transaction,
+  type TransactionFilters,
+  type TransactionFocus,
+} from './types'
 
 type TransactionsScreenProps = {
   device: DeviceMode
@@ -24,6 +31,8 @@ type TransactionsScreenProps = {
   batchMode: boolean
   items: Transaction[]
   setItems: Dispatch<SetStateAction<Transaction[]>>
+  /** 报表下钻携带的一次性筛选；新的 key 到达时覆盖当前筛选。 */
+  focus?: TransactionFocus | null
   onEntryOpen: () => void
   onBatchModeChange: (value: boolean) => void
   onRetry: () => void
@@ -35,6 +44,7 @@ export function TransactionsScreen({
   batchMode,
   items,
   setItems,
+  focus,
   onEntryOpen,
   onBatchModeChange,
   onRetry,
@@ -54,6 +64,12 @@ export function TransactionsScreen({
       setBatchConfirmOpen(false)
     }
   }, [batchMode])
+
+  useEffect(() => {
+    if (!focus) return
+    setFilters({ ...EMPTY_FILTERS, ...focus.filters })
+    setAdvancedOpen(true)
+  }, [focus])
 
   const filtered = useMemo(
     () => filterTransactions(items, filters, ACCOUNTS, CATEGORIES),
