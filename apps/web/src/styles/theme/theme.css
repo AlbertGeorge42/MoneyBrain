@@ -84,6 +84,11 @@ body[data-hf-scheme] {
   --mb-skeleton-amount-w: 80px;
   --mb-state-copy-w: 420px;
   --mb-cat-grid-col: 4;
+  /* 总览（HF 第二批）：走势图与加载骨架高度 */
+  --mb-ov-chart-h-pc: 180px;
+  --mb-ov-chart-h-m: 140px;
+  --mb-ov-skeleton-hero-h: 168px;
+  --mb-ov-skeleton-chart-h: 196px;
 
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-2);

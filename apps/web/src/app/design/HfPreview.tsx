@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useHotkeys } from '@mantine/hooks'
 import { ThemeRoot } from '../../styles/theme/ThemeRoot'
 import type { ColorScheme } from '../../styles/theme/tokens'
-import type { DataState, DeviceMode } from '../../features/transactions/types'
+import { TRANSACTIONS } from '../../features/transactions/mock'
+import type { DataState, DeviceMode, Transaction } from '../../features/transactions/types'
 import { HfShell } from './HfShell'
 import { PreviewBar } from './PreviewBar'
 import type { NavPage } from './navigation'
@@ -18,7 +19,9 @@ export default function HfPreview() {
   const [device, setDevice] = useState<DeviceMode>('pc')
   const [scheme, setScheme] = useState<ColorScheme>(initialScheme)
   const [dataState, setDataState] = useState<DataState>('ready')
-  const [page, setPage] = useState<NavPage>('transactions')
+  const [page, setPage] = useState<NavPage>('overview')
+  const [items, setItems] = useState<Transaction[]>(TRANSACTIONS)
+  const [freshLedger, setFreshLedger] = useState(false)
   const [entryOpen, setEntryOpen] = useState(false)
   const [batchMode, setBatchMode] = useState(false)
 
@@ -35,9 +38,27 @@ export default function HfPreview() {
 
   const openEntry = () => {
     if (entryOpen) return
-    setPage('transactions')
     setBatchMode(false)
     setEntryOpen(true)
+  }
+
+  const changeDataState = (next: DataState) => {
+    if (next !== 'empty' && freshLedger) {
+      setItems(TRANSACTIONS)
+      setFreshLedger(false)
+    }
+    setDataState(next)
+  }
+
+  /** 冷启动账本的第一笔：清掉 mock 历史，只保留这一笔并切到正常态。 */
+  const recordEntry = (tx: Transaction) => {
+    if (dataState === 'empty') {
+      setItems([tx])
+      setFreshLedger(true)
+      setDataState('ready')
+      return
+    }
+    setItems((current) => [tx, ...current])
   }
 
   useHotkeys([
@@ -50,6 +71,25 @@ export default function HfPreview() {
     ['Escape', () => { if (!entryOpen) setBatchMode(false) }],
   ])
 
+  const shellProps = {
+    device,
+    scheme,
+    page,
+    dataState,
+    batchMode,
+    items,
+    freshLedger,
+    setItems,
+    entryOpen,
+    onPageChange: changePage,
+    onRecord: openEntry,
+    onEntryOpen: openEntry,
+    onEntryClose: () => setEntryOpen(false),
+    onEntrySaved: recordEntry,
+    onBatchModeChange: setBatchMode,
+    onRetry: () => setDataState('ready'),
+  }
+
   return (
     <ThemeRoot scheme={scheme} notificationPosition={device === 'mobile' ? 'top-center' : 'bottom-right'}>
       <div className="hf-preview-root">
@@ -59,40 +99,16 @@ export default function HfPreview() {
           dataState={dataState}
           onDeviceChange={setDevice}
           onSchemeChange={changeScheme}
-          onDataStateChange={setDataState}
+          onDataStateChange={changeDataState}
         />
         {device === 'pc' ? (
           <div className="hf-stage hf-stage--pc">
-            <HfShell
-              device={device}
-              page={page}
-              dataState={dataState}
-              batchMode={batchMode}
-              entryOpen={entryOpen}
-              onPageChange={changePage}
-              onRecord={openEntry}
-              onEntryOpen={openEntry}
-              onEntryClose={() => setEntryOpen(false)}
-              onBatchModeChange={setBatchMode}
-              onRetry={() => setDataState('ready')}
-            />
+            <HfShell {...shellProps} />
           </div>
         ) : (
           <div className="hf-stage hf-stage--mobile">
             <div className="hf-device-frame">
-              <HfShell
-                device={device}
-                page={page}
-                dataState={dataState}
-                batchMode={batchMode}
-                entryOpen={entryOpen}
-                onPageChange={changePage}
-                onRecord={openEntry}
-                onEntryOpen={openEntry}
-                onEntryClose={() => setEntryOpen(false)}
-                onBatchModeChange={setBatchMode}
-                onRetry={() => setDataState('ready')}
-              />
+              <HfShell {...shellProps} />
             </div>
           </div>
         )}

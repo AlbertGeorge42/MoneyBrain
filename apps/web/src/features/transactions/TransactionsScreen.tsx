@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Drawer, Modal, UnstyledButton } from '@mantine/core'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { Button, Drawer, Modal } from '@mantine/core'
 import { useHotkeys } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { Trash2 } from 'lucide-react'
-import { ACCOUNTS, CATEGORIES, PREVIEW_TODAY, TRANSACTIONS } from './mock'
-import { EntryOverlay } from './EntryOverlay'
+import { ACCOUNTS, CATEGORIES, PREVIEW_TODAY } from './mock'
 import { TransactionDetail } from './TransactionDetail'
 import { TransactionList } from './TransactionList'
 import { AdvancedFilterFields, ConditionChips, TransactionsToolbar } from './TransactionsToolbar'
 import { ColdStartState, ErrorState, NoResultState, TransactionLoadingState } from './TransactionStates'
+import { showUndoToast } from './undo-toast'
 import {
   filterTransactions,
   formatAmount,
@@ -22,9 +22,9 @@ type TransactionsScreenProps = {
   device: DeviceMode
   dataState: DataState
   batchMode: boolean
-  entryOpen: boolean
+  items: Transaction[]
+  setItems: Dispatch<SetStateAction<Transaction[]>>
   onEntryOpen: () => void
-  onEntryClose: () => void
   onBatchModeChange: (value: boolean) => void
   onRetry: () => void
 }
@@ -33,13 +33,12 @@ export function TransactionsScreen({
   device,
   dataState,
   batchMode,
-  entryOpen,
+  items,
+  setItems,
   onEntryOpen,
-  onEntryClose,
   onBatchModeChange,
   onRetry,
 }: TransactionsScreenProps) {
-  const [items, setItems] = useState<Transaction[]>(TRANSACTIONS)
   const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -85,28 +84,6 @@ export function TransactionsScreen({
     onBatchModeChange(false)
   }
 
-  const showUndoToast = (id: string, message: string, onUndo: () => void) => {
-    notifications.show({
-      id,
-      autoClose: 6000,
-      withCloseButton: false,
-      message: (
-        <div className="hf-toast">
-          <span>{message}</span>
-          <UnstyledButton
-            className="hf-toast-action"
-            onClick={() => {
-              onUndo()
-              notifications.hide(id)
-            }}
-          >
-            撤销
-          </UnstyledButton>
-        </div>
-      ),
-    })
-  }
-
   const removeOne = (id: string) => {
     const index = items.findIndex((tx) => tx.id === id)
     if (index < 0) return
@@ -140,10 +117,6 @@ export function TransactionsScreen({
         return next
       })
     })
-  }
-
-  const addTransaction = (tx: Transaction) => {
-    setItems((current) => [tx, ...current])
   }
 
   const updateTransaction = (next: Transaction) => {
@@ -298,13 +271,6 @@ export function TransactionsScreen({
         onClose={() => setDetailId(null)}
         onSave={updateTransaction}
         onDelete={removeOne}
-      />
-
-      <EntryOverlay
-        open={entryOpen}
-        device={device}
-        onClose={onEntryClose}
-        onSaved={addTransaction}
       />
     </>
   )

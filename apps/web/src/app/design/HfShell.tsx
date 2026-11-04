@@ -1,21 +1,30 @@
+import type { Dispatch, SetStateAction } from 'react'
 import { Button, UnstyledButton } from '@mantine/core'
 import { Hammer, Plus } from 'lucide-react'
+import type { ColorScheme } from '../../styles/theme/tokens'
+import { EntryOverlay } from '../../features/transactions/EntryOverlay'
 import { TransactionsScreen } from '../../features/transactions/TransactionsScreen'
 import { MONTH_SUMMARY } from '../../features/transactions/mock'
-import { formatAmount } from '../../features/transactions/transaction-utils'
-import type { DataState, DeviceMode } from '../../features/transactions/types'
+import { formatAmount, summarize } from '../../features/transactions/transaction-utils'
+import type { DataState, DeviceMode, Transaction } from '../../features/transactions/types'
+import { OverviewScreen } from '../../features/overview/OverviewScreen'
 import { NAV_ITEMS, navLabel, type NavPage } from './navigation'
 
 type HfShellProps = {
   device: DeviceMode
+  scheme: ColorScheme
   page: NavPage
   dataState: DataState
   batchMode: boolean
+  items: Transaction[]
+  freshLedger: boolean
+  setItems: Dispatch<SetStateAction<Transaction[]>>
   entryOpen: boolean
   onPageChange: (page: NavPage) => void
   onRecord: () => void
   onEntryOpen: () => void
   onEntryClose: () => void
+  onEntrySaved: (tx: Transaction) => void
   onBatchModeChange: (value: boolean) => void
   onRetry: () => void
 }
@@ -31,12 +40,14 @@ function Brand() {
 
 type ContentProps = {
   device: DeviceMode
+  scheme: ColorScheme
   page: NavPage
   dataState: DataState
   batchMode: boolean
-  entryOpen: boolean
+  items: Transaction[]
+  freshLedger: boolean
+  setItems: Dispatch<SetStateAction<Transaction[]>>
   onEntryOpen: () => void
-  onEntryClose: () => void
   onBatchModeChange: (value: boolean) => void
   onRetry: () => void
   onPageChange: (page: NavPage) => void
@@ -44,105 +55,128 @@ type ContentProps = {
 
 function PageContent({
   device,
+  scheme,
   page,
   dataState,
   batchMode,
-  entryOpen,
+  items,
+  freshLedger,
+  setItems,
   onEntryOpen,
-  onEntryClose,
   onBatchModeChange,
   onRetry,
   onPageChange,
 }: ContentProps) {
-  if (page !== 'transactions') {
+  if (page === 'overview') {
     return (
-      <div className="hf-placeholder">
-        <div className="hf-state-icon"><Hammer aria-hidden /></div>
-        <h2 className="mb-title-4">「{navLabel(page)}」不在本批</h2>
-        <p className="mb-text-1 hf-state-copy">HF 首批交付流水闭环与记账。该页在下一批高保真补齐。</p>
-        <Button variant="default" onClick={() => onPageChange('transactions')}>回到流水</Button>
-      </div>
+      <OverviewScreen
+        device={device}
+        scheme={scheme}
+        dataState={dataState}
+        items={items}
+        freshLedger={freshLedger}
+        setItems={setItems}
+        onRecord={onEntryOpen}
+        onRetry={onRetry}
+        onOpenTransactions={() => onPageChange('transactions')}
+      />
+    )
+  }
+
+  if (page === 'transactions') {
+    return (
+      <TransactionsScreen
+        device={device}
+        dataState={dataState}
+        batchMode={batchMode}
+        items={items}
+        setItems={setItems}
+        onEntryOpen={onEntryOpen}
+        onBatchModeChange={onBatchModeChange}
+        onRetry={onRetry}
+      />
     )
   }
 
   return (
-    <TransactionsScreen
-      device={device}
-      dataState={dataState}
-      batchMode={batchMode}
-      entryOpen={entryOpen}
-      onEntryOpen={onEntryOpen}
-      onEntryClose={onEntryClose}
-      onBatchModeChange={onBatchModeChange}
-      onRetry={onRetry}
-    />
+    <div className="hf-placeholder">
+      <div className="hf-state-icon"><Hammer aria-hidden /></div>
+      <h2 className="mb-title-4">「{navLabel(page)}」不在本批</h2>
+      <p className="mb-text-1 hf-state-copy">本批交付总览、流水与记账闭环。该页在下一批高保真补齐。</p>
+      <Button variant="default" onClick={() => onPageChange('overview')}>回到总览</Button>
+    </div>
   )
 }
 
 export function HfShell({
   device,
+  scheme,
   page,
   dataState,
   batchMode,
+  items,
+  freshLedger,
+  setItems,
   entryOpen,
   onPageChange,
   onRecord,
   onEntryOpen,
   onEntryClose,
+  onEntrySaved,
   onBatchModeChange,
   onRetry,
 }: HfShellProps) {
   const contentProps: ContentProps = {
     device,
+    scheme,
     page,
     dataState,
     batchMode,
-    entryOpen,
+    items,
+    freshLedger,
+    setItems,
     onEntryOpen,
-    onEntryClose,
     onBatchModeChange,
     onRetry,
     onPageChange,
   }
 
-  if (device === 'mobile') {
-    return (
-      <div className="hf-shell-mobile">
-        <header className="hf-mobile-header">
-          <Brand />
-          <span className="hf-mobile-page-title mb-title-3">{navLabel(page)}</span>
-        </header>
-        <div className="hf-mobile-body">
-          <PageContent {...contentProps} />
-        </div>
-        <nav className="hf-bottom-nav" aria-label="底部导航">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon
-            const active = item.page === page
-            return (
-              <UnstyledButton
-                key={item.page}
-                className="hf-bottom-nav-item"
-                data-active={active}
-                aria-current={active ? 'page' : undefined}
-                onClick={() => onPageChange(item.page)}
-              >
-                <Icon aria-hidden />
-                <span>{item.label}</span>
-              </UnstyledButton>
-            )
-          })}
-        </nav>
-        {!batchMode && (
-          <UnstyledButton className="hf-fab" aria-label="记一笔" onClick={onRecord}>
-            <Plus aria-hidden />
-          </UnstyledButton>
-        )}
-      </div>
-    )
-  }
+  const summary = summarize(items)
 
-  return (
+  const shell = device === 'mobile' ? (
+    <div className="hf-shell-mobile">
+      <header className="hf-mobile-header">
+        <Brand />
+        <span className="hf-mobile-page-title mb-title-3">{navLabel(page)}</span>
+      </header>
+      <div className="hf-mobile-body">
+        <PageContent {...contentProps} />
+      </div>
+      <nav className="hf-bottom-nav" aria-label="底部导航">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon
+          const active = item.page === page
+          return (
+            <UnstyledButton
+              key={item.page}
+              className="hf-bottom-nav-item"
+              data-active={active}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => onPageChange(item.page)}
+            >
+              <Icon aria-hidden />
+              <span>{item.label}</span>
+            </UnstyledButton>
+          )
+        })}
+      </nav>
+      {!batchMode && (
+        <UnstyledButton className="hf-fab" aria-label="记一笔" onClick={onRecord}>
+          <Plus aria-hidden />
+        </UnstyledButton>
+      )}
+    </div>
+  ) : (
     <div className="hf-shell-pc">
       <aside className="hf-sidebar">
         <Brand />
@@ -168,7 +202,7 @@ export function HfShell({
         <div className="hf-sidebar-foot">
           <div className="hf-sidebar-status">
             <span className="mb-text-0">本月收支</span>
-            <span className="hf-sidebar-amount mb-num" data-tone="expense">{formatAmount(-MONTH_SUMMARY.expense)}</span>
+            <span className="hf-sidebar-amount mb-num" data-tone="expense">{formatAmount(-summary.expense)}</span>
             <span className="mb-text-0">连续 {MONTH_SUMMARY.streakDays} 天有记录</span>
           </div>
           <Button
@@ -188,5 +222,12 @@ export function HfShell({
         </div>
       </main>
     </div>
+  )
+
+  return (
+    <>
+      {shell}
+      <EntryOverlay open={entryOpen} device={device} onClose={onEntryClose} onSaved={onEntrySaved} />
+    </>
   )
 }
