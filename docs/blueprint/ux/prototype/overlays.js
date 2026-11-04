@@ -1004,7 +1004,7 @@ function invSnapOverlay(arg){
   }
   return `
     <div class="hint" style="margin-bottom:12px">快照是投资的时点记录。链上每期快照都指向它的前一期，新增 / 删除后自动重排，不会悬空。</div>
-    <table class="inv"><thead><tr><th>快照日期</th><th class="num">市值</th><th class="num">净流入</th><th class="num">前期</th><th></th></tr></thead>
+    <table class="inv">${tblColgroup(['快照日期','市值','净流入','前期',''])}<thead><tr><th>快照日期</th><th class="num">市值</th><th class="num">净流入</th><th class="num">前期</th><th></th></tr></thead>
       <tbody>${sorted.map(s=>`<tr>
         <td>${s.date}</td><td class="num">${fmt(invTotalOf(s))}</td><td class="num">${fmt(s.net)}</td>
         <td class="num">${s.prev?s.prev:'—'}</td>
@@ -1107,7 +1107,7 @@ function importOverlay(arg){
     const merge=S.importMode==='merge';
     return `${steps}
       <div class="d-sec">第 2 步 · 预览与导入方式</div>
-      <table class="inv"><thead><tr><th>行</th><th>日期</th><th>分类</th><th>金额</th></tr></thead>
+      <table class="inv">${tblColgroup(['行','日期','分类','金额'],['num','date','mid','num'])}<thead><tr><th>行</th><th>日期</th><th>分类</th><th class="num">金额</th></tr></thead>
       <tbody>
         <tr><td>1</td><td>2026-10-02</td><td>餐饮</td><td class="num">32.00</td></tr>
         <tr><td>2</td><td>2026-10-03</td><td>交通</td><td class="num">4.00</td></tr>

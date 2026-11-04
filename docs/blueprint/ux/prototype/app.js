@@ -552,7 +552,7 @@ const isFolded = (type,cat) => S.folded.has(foldKey(type,cat));
    不计入三类净额。分组行可折叠，复用 S.folded / toggleFold（与二级分类同构）。 */
 const cashGroupOf = t => t.type==='transfer' ? '账户间转账' : cfOf(t.cat);
 const CASH_GROUP_ORDER = ['经营','投资','筹资','未分类','账户间转账'];
-function cashFlowTable(dir,device){
+function cashFlowData(dir,device){
   const list = dir==='in'
     ? TXNS.filter(t=>t.type==='income'||t.type==='refund')
     : [...TXNS.filter(t=>t.type==='expense'),...TXNS.filter(t=>t.type==='transfer')];
@@ -571,9 +571,13 @@ function cashFlowTable(dir,device){
       : {cells:[`└ ${t.note||catName(t.type,t.cat)} · ${accName(t.acc)}`,fmt(t.amt)],level:1}));
   });
   const sum=list.reduce((s,t)=>s+t.amt,0);
+  return {rows,sum};
+}
+function cashFlowTable(dir,device,padRows=0){
+  const {rows,sum}=cashFlowData(dir,device);
   return device==='pc'
-    ? invTable(['现金流分类 / 交易','账户','金额'],rows,{total:['合计','—',fmt(sum)]})
-    : invTable(['现金流分类 / 交易','金额'],rows,{total:['合计',fmt(sum)]});
+    ? invTable(['现金流分类 / 交易','账户','金额'],rows,{total:['合计','—',fmt(sum)],padRows})
+    : invTable(['现金流分类 / 交易','金额'],rows,{total:['合计',fmt(sum)],padRows});
 }
 /* 摊平成表格行：level 0 = 父级（可折叠），level 1 = 子级（缩进） */
 function catRows(type){
@@ -1000,26 +1004,104 @@ function metricStrip(tab){
     <div class="m-cell"><div class="k">TWR</div><div class="v num">${invTwr()==null?'—':(invTwr()*100).toFixed(2)+'%'}</div></div>
   </div>`;
 }
+/* 列语义 → 列宽权重：首列主宽度，其余按日期 / 中列 / 数字列分（权重见 design-tokens §5）。
+   colgroup 把权重折算成百分比，配合 table-layout:fixed 让 ellipsis 真正生效。 */
+const tblColKind=(c,i)=>{
+  if(i===0) return 'main';
+  if(/日期|时间/.test(c)) return 'date';
+  if(/性质|账户|分类|类别|备注|说明|条目|行/.test(c)) return 'mid';
+  return 'num';
+};
+function tblColWeights(){
+  const cs=getComputedStyle(document.documentElement);
+  const n=k=>parseFloat(cs.getPropertyValue(k))||1;
+  return {main:n('--mb-tbl-w-main'),mid:n('--mb-tbl-w-mid'),date:n('--mb-tbl-w-date'),num:n('--mb-tbl-w-num')};
+}
+function tblColgroup(cols,kindsOverride){
+  const w=tblColWeights(), kinds=kindsOverride||cols.map(tblColKind);
+  const total=kinds.reduce((s,k)=>s+w[k],0);
+  return `<colgroup>${kinds.map(k=>`<col style="width:${(w[k]/total*100).toFixed(2)}%">`).join('')}</colgroup>`;
+}
+/* 超长内容：悬停 / 键盘聚焦显示全文 tooltip；点击行沿用所在页面的行语义。
+   规范见 interaction-spec §5.3；实现不得改为行内展开（会撑高行）。 */
+let tblTip=null;
+function ensureTblTip(){
+  if(!tblTip){
+    tblTip=document.createElement('div');
+    tblTip.className='tbl-tip'; tblTip.setAttribute('role','tooltip'); tblTip.hidden=true;
+    document.body.appendChild(tblTip);
+  }
+  return tblTip;
+}
+function showTblTip(target,force){
+  const text=(target.matches('tr.drill')?target.querySelector('td'):target)?.textContent.trim();
+  if(!text) return;
+  if(!force&&target.scrollWidth<=target.clientWidth) return; // 未截断不打扰
+  const tip=ensureTblTip();
+  tip.textContent=text; tip.hidden=false;
+  const r=target.getBoundingClientRect(), tw=tip.offsetWidth, th=tip.offsetHeight;
+  tip.style.left=Math.min(Math.max(4,r.left),window.innerWidth-tw-4)+'px';
+  /* 默认在单元格上方展开：最后几行的 tooltip 不会盖住表尾合计行 */
+  const top=r.top-th-6;
+  tip.style.top=(top<4?r.bottom+6:top)+'px';
+}
+function hideTblTip(){ if(tblTip) tblTip.hidden=true; }
+document.addEventListener('mouseover',e=>{
+  const t=e.target.closest('table.inv td,table.inv th');
+  if(t) showTblTip(t);
+});
+document.addEventListener('mouseout',e=>{ if(e.target.closest('table.inv td,table.inv th')) hideTblTip(); });
+document.addEventListener('focusin',e=>{
+  const t=e.target.closest('table.inv td,table.inv th,table.inv tr.drill');
+  if(t) showTblTip(t,true);
+});
+document.addEventListener('focusout',e=>{ if(e.target.closest('table.inv td,table.inv th,table.inv tr.drill')) hideTblTip(); });
+window.addEventListener('scroll',hideTblTip,true);
+/* 只有真正被截断的文本单元格才进 tab 序列（未截断的全文本来就可见）；
+   可下钻行始终可聚焦——键盘要能进详情。内容变化后也要重算。 */
+function syncTblTabStops(){
+  document.querySelectorAll('table.inv td[data-txt="1"]').forEach(td=>{
+    const truncated=td.clientWidth&&td.scrollWidth>td.clientWidth;
+    if(truncated){ if(!td.hasAttribute('tabindex')) td.tabIndex=0; }
+    else td.removeAttribute('tabindex');
+  });
+}
+new MutationObserver(()=>requestAnimationFrame(syncTblTabStops))
+  .observe(document.body,{childList:true,subtree:true,characterData:true});
+
 /* 构成表：cols 决定列数，rows 每行给一个与列数等长的 cells 数组。
    行选项：level（0 父级 / 1 子级）、foldKey+folded（父行可折叠子行）、
           cat+type（该行可下钻）。
    opt.total：表尾合计行（首格为标签，其余按列右对齐）；
    opt.note：表下说明（写清合计口径，避免「折叠了但合计没变」的疑问）。 */
 function invTable(cols,rows,opt={}){
+  const kinds=cols.map(tblColKind);
   const head=`<thead><tr>${cols.map((c,i)=>`<th class="${i>0?'num':''}">${c}</th>`).join('')}</tr></thead>`;
   const body=rows.map(r=>{
     const arrow=r.foldKey
       ? `<button class="fold ${r.folded?'closed':''}" onclick="event.stopPropagation();toggleFold('${r.foldKey}')" aria-expanded="${!r.folded}" aria-label="${r.folded?'展开':'折叠'}子分类">${r.folded?I.foldRight:I.foldDown}</button>`
       : '';
-    const cells=r.cells.map((c,i)=>`<td class="${i>0?'num':''}">${i===0?arrow+c:c}</td>`).join('');
+    /* 文本列可聚焦（键盘也能触发全文 tooltip）；可下钻行由行本身承载焦点，避免双重 tab 停靠 */
+    const cells=r.cells.map((c,i)=>{
+      const focus=(kinds[i]!=='num'&&!r.cat)?' tabindex="0" data-txt="1"':'';
+      return `<td class="${i>0?'num':''}"${focus}>${i===0?arrow+c:c}</td>`;
+    }).join('');
     const cls=[r.level===1?'sub':'', r.foldKey?'grp':'', r.cat?'drill':''].filter(Boolean).join(' ');
-    const drill=r.cat?`onclick="openDrill('${r.cat}','${r.type}')"`:'';
+    const drill=r.cat
+      ? `onclick="openDrill('${r.cat}','${r.type}')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDrill('${r.cat}','${r.type}')}"`
+      : '';
     return `<tr class="${cls}" ${drill}>${cells}</tr>`;
   }).join('');
+  /* 短侧静默占位：不补内容、不补边框/底色/hover，只占固定行高，
+     让两张并排表的 tfoot 合计行落在同一水平线（interaction-spec §5.3）。 */
+  const padCount=Math.max(0,(opt.padRows||0)-rows.length);
+  const pads=padCount
+    ? Array.from({length:padCount},()=>`<tr class="spacer" aria-hidden="true"><td colspan="${cols.length}">&nbsp;</td></tr>`).join('')
+    : '';
   const foot=opt.total
     ? `<tfoot><tr class="tot"><td>${opt.total[0]}</td>${opt.total.slice(1).map(c=>`<td class="num">${c}</td>`).join('')}</tr></tfoot>`
     : '';
-  return `<table class="inv">${head}<tbody>${body}</tbody>${foot}</table>`
+  return `<table class="inv">${tblColgroup(cols)}${head}<tbody>${body}${pads}</tbody>${foot}</table>`
     + (opt.note?`<div class="tbl-note">${opt.note}</div>`:'');
 }
 /* 分类构成表（报表用）：二级层级 + 父行折叠 + 表尾合计行。
@@ -1046,7 +1128,8 @@ function catTable(type,cols,opt={}){
     level:r.level, foldKey:r.hasKids?foldKey(type,r.cat):null, folded:r.folded,
     cat:r.cat, type,
   })),{total:['合计',...cols.slice(1).map(totalOf)],
-    note:opt.note===false?undefined:'合计口径：按一级父分类汇总（父级金额已包含其子分类），因此折叠子行不改变合计；各级「占比」均相对合计（子分类金额已计入其父级）。'});
+    note:opt.note===false?undefined:'合计口径：按一级父分类汇总（父级金额已包含其子分类），因此折叠子行不改变合计；各级「占比」均相对合计（子分类金额已计入其父级）。',
+    padRows:opt.padRows});
 }
 function reportPc(tab){
   const f=flowTotals();
@@ -1058,13 +1141,14 @@ function reportPc(tab){
     /* 负债与权益表：负债行 + 所有者权益行；合计 = 负债 + 权益 = 总资产 */
     const liabRows=[...liabs.map(a=>({cells:[a.name,accKind(a),fmt(Math.abs(a.bal))]})),
                     {cells:['所有者权益','累计结余',fmt(netWorth())]}];
+    const padRows=Math.max(assets.length,liabRows.length);
     return `${strip}
     <div class="fig" style="height:180px;margin:16px 0"><div class="t">资产构成（占位）</div><div class="anno">ℹ 线框级不画真实图表，UX5b 替换为真实图形</div></div>
     <div class="tbl-cols">
       <div><div class="tbl-col-head"><span class="tbl-title">资产</span><span class="lbl">按账户</span></div>
-        ${invTable(['账户','性质','金额'],assets.map(a=>({cells:[a.name,accKind(a),fmt(a.bal)]})),{total:['合计','—',fmt(assetSum)]})}</div>
+        ${invTable(['账户','性质','金额'],assets.map(a=>({cells:[a.name,accKind(a),fmt(a.bal)]})),{total:['合计','—',fmt(assetSum)],padRows})}</div>
       <div><div class="tbl-col-head"><span class="tbl-title">负债与权益</span><span class="lbl">按账户</span></div>
-        ${invTable(['账户','性质','金额'],liabRows,{total:['合计','—',fmt(liabSum+netWorth())]})}
+        ${invTable(['账户','性质','金额'],liabRows,{total:['合计','—',fmt(liabSum+netWorth())],padRows})}
       </div>
     </div>
     <div class="tbl-note">时点 ${S.repTime.y}-${String(S.repTime.m).padStart(2,'0')}-${String(S.repTime.d).padStart(2,'0')} 余额。资产合计 = 负债与权益合计（互为校验的恒等式，不是 bug）；净资产 = 总资产 − 总负债（见指标条）。</div>`;
@@ -1082,13 +1166,14 @@ function reportPc(tab){
           {total:['合计',fmt(fo),'100.0%'],note:'预测口径：按该期间生效的预算条目金额推算，不是实际发生额。'})}
       </div>`;
     }
+    const padRows=Math.max(catRows('income').length,catRows('expense').length);
     return `${strip}
     <div class="fig" style="height:180px;margin:16px 0"><div class="t">月度收支走势（占位）</div><div class="anno">ℹ 柱位高度仅示意量级</div></div>
     <div class="tbl-cols">
       <div><div class="tbl-col-head"><span class="tbl-title">收入构成</span><span class="lbl">按分类 · 实际</span></div>
-        ${catTable('income',['分类','笔数','金额','占比'],{note:false})}</div>
+        ${catTable('income',['分类','笔数','金额','占比'],{note:false,padRows})}</div>
       <div><div class="tbl-col-head"><span class="tbl-title">支出构成</span><span class="lbl">按分类 · 实际</span></div>
-        ${catTable('expense',['分类','笔数','金额','占比'],{note:false})}</div>
+        ${catTable('expense',['分类','笔数','金额','占比'],{note:false,padRows})}</div>
     </div>
     <div class="tbl-note">合计口径：按一级父分类汇总（父级金额已包含其子分类），折叠子行不改变合计；各级「占比」均相对合计。结余 = 收入合计 − 支出合计（见指标条）。</div>`;
   }
@@ -1097,34 +1182,37 @@ function reportPc(tab){
        独立「现金流分类」表已删除 —— 分组直接进入流入 / 流出表（分组行可折叠，
        与二级分类折叠同构）；转账单列「账户间转账」组，不计入三类净额。
        指标条四格等宽（见 metricStrip 的 .flat）。 */
+    const padRows=Math.max(cashFlowData('in','pc').rows.length,cashFlowData('out','pc').rows.length);
     return `${strip}
     <div class="fig" style="height:200px;margin:16px 0"><div class="t">资金流向 · 桑基图（占位）</div><div class="s">账户 → 现金流分类 的流向</div><div class="anno">ℹ 高保真阶段替换为真实图形</div></div>
     <div class="tbl-cols">
       <div><div class="tbl-col-head"><span class="tbl-title">流入</span><span class="lbl">按现金流分类分组 · 可折叠</span></div>
-        ${cashFlowTable('in','pc')}</div>
+        ${cashFlowTable('in','pc',padRows)}</div>
       <div><div class="tbl-col-head"><span class="tbl-title">流出</span><span class="lbl">按现金流分类分组 · 可折叠</span></div>
-        ${cashFlowTable('out','pc')}</div>
+        ${cashFlowTable('out','pc',padRows)}</div>
     </div>
     <div class="tbl-note">流入（收入 + 退款）/ 流出（支出 + 转账）按交易的现金流属性分组；现金流属性是分类的局部字段，二级分类未标注时继承一级分类。账户间转账为账户间资金移动，不计入经营 / 投资 / 筹资三类净额。点分组行折叠 / 展开。</div>`;
   }
+  const periodRows=[
+    {cells:['期初投入',fmt(invTotalOf(invSorted()[0]))]},
+    {cells:['期间投入',fmt(invIn())]},
+    {cells:['期间取出',fmt(invOut())]},
+    {cells:['期末市值',fmt(invLatestTotal())]},
+    {cells:['累计收益',fmt(invCumReturn().val)]},
+    {cells:['累计收益率',(invCumReturn().rate*100).toFixed(2)+'%']},
+    {cells:['XIRR',invXirr()==null?'—':(invXirr()*100).toFixed(2)+'%']},
+    {cells:['TWR',invTwr()==null?'—':(invTwr()*100).toFixed(2)+'%']},
+    {cells:['投资占总资产',(invWeight()*100).toFixed(1)+'%']},
+    {cells:['本期费用',fmt(invFees())]},
+  ];
+  const padRows=Math.max(invAllocation().length,periodRows.length);
   return `${strip}
   <div class="fig" style="height:180px;margin:16px 0"><div class="t">净值走势（占位）</div><div class="s">数据来自配置快照链</div><div class="anno">ℹ 高保真阶段替换为真实曲线</div></div>
   <div class="tbl-cols">
     <div><div class="tbl-col-head"><span class="tbl-title">资产分布</span><span class="lbl">当前 vs 目标</span></div>
-      ${invDistTablePc()}</div>
+      ${invDistTablePc(padRows)}</div>
     <div><div class="tbl-col-head"><span class="tbl-title">期间投入与指标</span><span class="lbl">快照链口径</span></div>
-      ${invTable(['项目','金额'],[
-        {cells:['期初投入',fmt(invTotalOf(invSorted()[0]))]},
-        {cells:['期间投入',fmt(invIn())]},
-        {cells:['期间取出',fmt(invOut())]},
-        {cells:['期末市值',fmt(invLatestTotal())]},
-        {cells:['累计收益',fmt(invCumReturn().val)]},
-        {cells:['累计收益率',(invCumReturn().rate*100).toFixed(2)+'%']},
-        {cells:['XIRR',invXirr()==null?'—':(invXirr()*100).toFixed(2)+'%']},
-        {cells:['TWR',invTwr()==null?'—':(invTwr()*100).toFixed(2)+'%']},
-        {cells:['投资占总资产',(invWeight()*100).toFixed(1)+'%']},
-        {cells:['本期费用',fmt(invFees())]},
-      ],{total:['合计','—']})}</div>
+      ${invTable(['项目','金额'],periodRows,{total:['合计','—'],padRows})}</div>
   </div>
   <div class="tbl-note">偏差 = 当前占比 − 目标比例；再平衡金额 = 目标金额 − 当前金额（正数需增持，负数需减持）。XIRR 按现金流与实际间隔折算；TWR 剔除期间投入的影响再年化，两者口径不同、不互相替代。</div>
   <div class="card card-pad" style="margin-top:16px">
@@ -1138,23 +1226,23 @@ function reportPc(tab){
   </div>`;
 }
 /* 资产分布表：当前占比 / 目标比例 / 偏差 / 再平衡金额（口径说明由调用方共用一条） */
-function invDistTablePc(){
+function invDistTablePc(padRows=0){
   const rows=invAllocation();
   return invTable(['资产类别','当前市值','当前占比','目标比例','偏差','再平衡'],
     rows.map(r=>({cells:[r.name,fmt(r.cur),(r.curRatio*100).toFixed(1)+'%',
       (r.target*100).toFixed(1)+'%',(r.dev*100>=0?'+':'')+(r.dev*100).toFixed(1)+'%',fmt(r.rebalance)]})),
-    {total:['合计',fmt(invLatestTotal()),'100.0%','100.0%','—',fmt(rows.reduce((s,r)=>s+r.rebalance,0))]});
+    {total:['合计',fmt(invLatestTotal()),'100.0%','100.0%','—',fmt(rows.reduce((s,r)=>s+r.rebalance,0))],padRows});
 }
 /* 投资账户明细树：账户 → 资产类别 */
 function invAccountTablePc(){
   const rows=invAccountRows();
   if(!rows.length) return `<div class="state-wrap"><h2>还没有投资账户</h2></div>`;
   const body=rows.map(r=>{
-    const kids=r.detail.map(d=>`<tr class="sub"><td>　└ ${d.cls.name}</td><td class="num">${fmt(d.amt)}</td><td class="num">${(invLatestTotal()?d.amt/invLatestTotal()*100:0).toFixed(1)}%</td></tr>`).join('');
-    return `<tr class="grp"><td>${r.acc?r.acc.name:r.acc}${r.cat?' · '+r.cat.name:''}</td>
+    const kids=r.detail.map(d=>`<tr class="sub"><td tabindex="0" data-txt="1">　└ ${d.cls.name}</td><td class="num">${fmt(d.amt)}</td><td class="num">${(invLatestTotal()?d.amt/invLatestTotal()*100:0).toFixed(1)}%</td></tr>`).join('');
+    return `<tr class="grp"><td tabindex="0" data-txt="1">${r.acc?r.acc.name:r.acc}${r.cat?' · '+r.cat.name:''}</td>
       <td class="num">${fmt(r.total)}</td><td class="num">100.0%</td></tr>${kids}`;
   }).join('');
-  return `<table class="inv"><thead><tr><th>账户 / 资产类别</th><th class="num">市值</th><th class="num">占比</th></tr></thead>
+  return `<table class="inv">${tblColgroup(['账户 / 资产类别','市值','占比'])}<thead><tr><th>账户 / 资产类别</th><th class="num">市值</th><th class="num">占比</th></tr></thead>
     <tbody>${body}</tbody>
     <tfoot><tr class="tot"><td>合计</td><td class="num">${fmt(invLatestTotal())}</td><td class="num">100.0%</td></tr></tfoot></table>`;
 }

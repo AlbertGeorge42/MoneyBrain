@@ -245,11 +245,21 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 | `--mb-row-gap` | 10px |
 | `--mb-card-pad` | 20px |
 | `--mb-tbl-py` | 8px |
+| `--mb-tbl-row-h` | `calc(fs-1 + s-4)`（默认 13+16 = 29px）——**所有数据表**（并排与单表）的单行固定高度；超长内容截断/展开不改行高 |
+| `--mb-tbl-w-main` | `2.4`（相对权重，非绝对值）——首列：名称 / 分类 / 项目 |
+| `--mb-tbl-w-mid` | `1.6`——性质 / 账户 / 说明 |
+| `--mb-tbl-w-date` | `1.4`——日期 / 时间 |
+| `--mb-tbl-w-num` | `1.1`——金额 / 占比 / 比率 |
 | `--mb-control-h` | 38px |
 | `--mb-section-gap` | 16px |
 | `--mb-page-pad` | 28px（PC）/ 26px（移动端） |
 
 密度只通过这一组变量表达，不逐处改数值——逐处改是密度档位最终失控的原因。
+
+**表格列宽**：按列语义给权重（首列名称/分类最宽，日期、中列、数字列依次收窄），
+由 `colgroup` 把权重折算成百分比，配合 `table-layout: fixed` 生效——不写固定 px 列宽，
+也不允许每张表各写一套。超长文本由 `ellipsis` 截断，全文走 tooltip（见
+[interaction-spec §5.3](interaction-spec.md)）。
 
 ---
 

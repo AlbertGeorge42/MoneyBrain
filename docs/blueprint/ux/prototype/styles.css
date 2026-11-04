@@ -36,6 +36,12 @@
   --mb-r-1:2px;
 
   --mb-touch:44px;         /* 触控目标最小边长 */
+  --mb-tbl-row-h:calc(var(--mb-fs-1) + var(--mb-s-4)); /* 表格单行固定高度：字高 + 上下内边距 */
+  /* 表格列宽权重（按列语义分配剩余宽度，由 colgroup 折算成百分比；非绝对值） */
+  --mb-tbl-w-main:2.4;  /* 名称 / 分类 / 项目：主列 */
+  --mb-tbl-w-mid:1.6;   /* 性质 / 账户 / 说明 */
+  --mb-tbl-w-date:1.4;  /* 日期 / 时间 */
+  --mb-tbl-w-num:1.1;   /* 金额 / 占比 / 比率 */
   --mb-font-ui:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
   --mb-font-num:"IBM Plex Mono",Consolas,monospace;
 }
@@ -287,31 +293,37 @@ body[data-device="pc"] button.tb-trigger{flex:0 1 auto;min-width:170px}
 /* 用户第三轮：现金流指标拉平 —— 经营 / 投资 / 筹资 / 账户间转账四格等宽 */
 .metric-strip.flat{grid-template-columns:repeat(4,1fr)}
 .tbl-cols{display:grid;grid-template-columns:1fr 1fr;gap:var(--mb-s-4)}
-/* 用户第三轮：两栏并排表等高 —— 列内 flex + 表格吃满列高，
-   表尾合计行（tfoot）统一落在较长表格的底部，两表合计不错位 */
+/* 并排报表：行高固定，不做等高拉伸；短侧用静默占位行补齐，
+   两表 tfoot 合计行因此落在同一水平线（规则见 interaction-spec §5.3） */
 .tbl-cols>div{display:flex;flex-direction:column}
 .tbl-cols .tbl-col-head{flex:none}
-.tbl-cols table.inv{flex:1}
+.tbl-cols table.inv{flex:none}
 .tbl-col-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--mb-line);padding-bottom:4px;margin-bottom:6px}
 .tbl-title{font-weight:600;font-size:var(--mb-fs-1)}
 .fold-all button{font-size:var(--mb-fs-0);color:var(--mb-ink-2);text-decoration:underline}
-table.inv{width:100%;border-collapse:collapse;font-size:var(--mb-fs-1)}
-table.inv th{text-align:left;font-weight:600;color:var(--mb-ink-3);font-size:var(--mb-fs-0);border-bottom:1px solid var(--mb-line);padding:5px 6px}
-table.inv td{padding:5px 6px;border-bottom:1px dashed var(--mb-line)}
+table.inv{width:100%;border-collapse:collapse;font-size:var(--mb-fs-1);table-layout:fixed}
+table.inv th{text-align:left;font-weight:600;color:var(--mb-ink-3);font-size:var(--mb-fs-0);border-bottom:1px solid var(--mb-line);height:var(--mb-tbl-row-h);padding:0 var(--mb-s-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+table.inv td{height:var(--mb-tbl-row-h);padding:0 var(--mb-s-2);border-bottom:1px dashed var(--mb-line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+/* 短侧静默占位：无边框、无底色、无 hover，不可被读成空数据行 */
+table.inv tr.spacer td{height:var(--mb-tbl-row-h);border:0;background:transparent;padding:0 var(--mb-s-2);pointer-events:none}
 table.inv td.num,table.inv th.num{text-align:right;font-family:var(--mb-font-num)}
 /* 二级分类：子级缩进一级、字色稍浅 */
 table.inv tr.sub td{color:var(--mb-ink-2);padding-left:18px}
 table.inv tr.drill{cursor:pointer}
 table.inv tr.drill:hover td{background:var(--mb-sunken)}
 /* 表尾合计行：与各列底部对齐，数值右对齐，用样式区分合计语义 */
-table.inv tfoot tr.tot td{border-top:1px solid var(--mb-line-strong);border-bottom:0;font-weight:600;background:var(--mb-sunken);padding-top:7px;padding-bottom:7px}
+table.inv tfoot tr.tot td{border-top:1px solid var(--mb-line-strong);border-bottom:0;font-weight:600;background:var(--mb-sunken);height:var(--mb-tbl-row-h);padding:0 var(--mb-s-2)}
 table.inv tfoot tr.tot td:first-child{color:var(--mb-ink-2)}
+/* 超长内容全文 tooltip：悬停 / 键盘聚焦触发，默认在单元格上方展开（不遮挡表尾合计行） */
+.tbl-tip{position:fixed;z-index:60;max-width:280px;padding:var(--mb-s-1) var(--mb-s-2);background:var(--mb-ink);color:var(--mb-panel);font-size:var(--mb-fs-0);line-height:1.45;border-radius:var(--mb-r-1);pointer-events:none;white-space:normal}
+.tbl-tip[hidden]{display:none}
+table.inv td:focus-visible,table.inv tr.drill:focus-visible td{outline:2px solid var(--mb-ink);outline-offset:-2px}
 .fold{border:0;color:var(--mb-ink-3);width:16px;display:inline-block;vertical-align:-2px;margin-right:4px}
 .fold svg{width:11px;height:11px}
 .fold:hover{color:var(--mb-ink)}
 .gc{font-size:var(--mb-fs-0);color:var(--mb-ink-3);margin-left:6px}
 /* 用户第三轮：底部独立对照行（.tbl-total）与移动端合计行（.m-total）已删除 ——
-   合计并入各表 tfoot；两栏并排时由 .tbl-cols 等高规则对齐 */
+   合计并入各表 tfoot；两栏并排时按「固定行高 + 合计行底部对齐 + 短侧静默占位」处理 */
 .stack-bar{display:flex;height:16px;border:1px solid var(--mb-line-strong)}
 .stack-bar span{background:var(--mb-block);border-right:1px solid var(--mb-line)}
 .stack-bar span:last-child{border-right:0}
