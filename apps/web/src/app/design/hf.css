@@ -516,6 +516,43 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* 「显示」面板：PC 原地面板 / 移动端抽屉同一渲染器（列显隐 + 密度，T4） */
+.tx-display-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-5);
+}
+
+.tx-display-group {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+}
+
+.tx-display-label {
+  color: var(--mb-color-text-tertiary);
+}
+
+.tx-mobile-summary-side {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+}
+
+/* 紧凑密度：PC 行高回到触控下限 44px；移动卡片收紧内边距但保持 44px 点击区 */
+.tx-table[data-density='compact'] .tx-row,
+.tx-table[data-density='compact'] .tx-row td {
+  height: calc(var(--mb-tx-row-h) - var(--mb-s-3));
+}
+
+.tx-mobile-list[data-density='compact'] .tx-mobile-card {
+  padding: var(--mb-s-2);
+}
+
+.tx-mobile-list[data-density='compact'] .tx-mobile-cards {
+  gap: var(--mb-s-1);
+}
+
 .tx-advanced {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1042,6 +1079,17 @@
 
 .hf-drawer-footer {
   padding-top: var(--mb-s-4);
+}
+
+/* PC 记账弹层头：标题 + 连记计数（已连记 N 笔只在有入账后出现）。 */
+.hf-entry-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mb-s-2);
+}
+
+.hf-entry-title-count {
+  color: var(--mb-color-text-tertiary);
 }
 
 .tx-detail {

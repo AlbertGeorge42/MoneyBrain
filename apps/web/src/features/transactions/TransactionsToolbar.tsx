@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   Collapse,
   Drawer,
   NumberInput,
@@ -8,8 +9,9 @@ import {
   UnstyledButton,
 } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
-import { SlidersHorizontal, SquareCheckBig, Search, X } from 'lucide-react'
+import { Settings2, SlidersHorizontal, SquareCheckBig, Search, X } from 'lucide-react'
 import type { RefObject } from 'react'
+import type { ListDisplay } from './display-settings'
 import { TYPE_LABELS, TYPE_OPTIONS, formatUnsigned } from './transaction-utils'
 import type { Account, Category, DeviceMode, TransactionFilters } from './types'
 
@@ -89,6 +91,56 @@ export function AdvancedFilterFields({ filters, accounts, categories, onChange, 
   )
 }
 
+type ListDisplayFieldsProps = {
+  display: ListDisplay
+  onChange: (patch: Partial<ListDisplay>) => void
+}
+
+/** 「显示」面板的字段：PC 原地面板、移动端底部抽屉与设置页共用同一渲染器（T4）。 */
+export function ListDisplayFields({ display, onChange }: ListDisplayFieldsProps) {
+  return (
+    <div className="tx-display-fields">
+      <div className="tx-display-group" role="group" aria-label="列显示">
+        <span className="mb-text-0 tx-display-label">列显示</span>
+        <Checkbox
+          label="账户"
+          checked={display.account}
+          onChange={(event) => onChange({ account: event.currentTarget.checked })}
+        />
+        <Checkbox
+          label="类型"
+          checked={display.type}
+          onChange={(event) => onChange({ type: event.currentTarget.checked })}
+        />
+        <Checkbox
+          label="备注"
+          checked={display.note}
+          onChange={(event) => onChange({ note: event.currentTarget.checked })}
+        />
+      </div>
+      <div className="tx-display-group" role="group" aria-label="密度">
+        <span className="mb-text-0 tx-display-label">密度</span>
+        <UnstyledButton
+          className="mb-chip"
+          data-active={display.density === 'standard'}
+          aria-pressed={display.density === 'standard'}
+          onClick={() => onChange({ density: 'standard' })}
+        >
+          标准
+        </UnstyledButton>
+        <UnstyledButton
+          className="mb-chip"
+          data-active={display.density === 'compact'}
+          aria-pressed={display.density === 'compact'}
+          onClick={() => onChange({ density: 'compact' })}
+        >
+          紧凑
+        </UnstyledButton>
+      </div>
+    </div>
+  )
+}
+
 type TransactionsToolbarProps = {
   device: DeviceMode
   filters: TransactionFilters
@@ -97,10 +149,14 @@ type TransactionsToolbarProps = {
   searchInputRef: RefObject<HTMLInputElement>
   advancedOpen: boolean
   batchMode: boolean
+  display: ListDisplay
+  displayOpen: boolean
   onChange: (patch: Partial<TransactionFilters>) => void
+  onChangeDisplay: (patch: Partial<ListDisplay>) => void
   onReset: () => void
   onToggleAdvanced: () => void
   onToggleBatch: () => void
+  onToggleDisplay: () => void
 }
 
 export function TransactionsToolbar({
@@ -111,10 +167,14 @@ export function TransactionsToolbar({
   searchInputRef,
   advancedOpen,
   batchMode,
+  display,
+  displayOpen,
   onChange,
+  onChangeDisplay,
   onReset,
   onToggleAdvanced,
   onToggleBatch,
+  onToggleDisplay,
 }: TransactionsToolbarProps) {
   return (
     <div className={`tx-toolbar tx-toolbar--${device}`}>
@@ -158,6 +218,16 @@ export function TransactionsToolbar({
           >
             <SquareCheckBig aria-hidden /> {batchMode ? '退出批量' : '批量'}
           </UnstyledButton>
+          {device === 'pc' && (
+            <UnstyledButton
+              className="mb-chip"
+              data-active={displayOpen}
+              aria-expanded={displayOpen}
+              onClick={onToggleDisplay}
+            >
+              <Settings2 aria-hidden /> 显示
+            </UnstyledButton>
+          )}
         </div>
       </div>
 
@@ -171,6 +241,14 @@ export function TransactionsToolbar({
               onChange={onChange}
               onReset={onReset}
             />
+          </div>
+        </Collapse>
+      )}
+
+      {device === 'pc' && (
+        <Collapse in={displayOpen}>
+          <div className="tx-advanced-panel" aria-label="列表显示">
+            <ListDisplayFields display={display} onChange={onChangeDisplay} />
           </div>
         </Collapse>
       )}

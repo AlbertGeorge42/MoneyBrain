@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Drawer, Modal } from '@mantine/core'
+import { Button, Drawer, Modal, UnstyledButton } from '@mantine/core'
 import { useHotkeys } from '@mantine/hooks'
-import { Trash2 } from 'lucide-react'
+import { Settings2, Trash2 } from 'lucide-react'
 import { ACCOUNTS, CATEGORIES, PREVIEW_TODAY } from './mock'
+import { readListDisplay, writeListDisplay, type ListDisplay } from './display-settings'
 import { TransactionDetail } from './TransactionDetail'
 import { TransactionList } from './TransactionList'
-import { AdvancedFilterFields, ConditionChips, TransactionsToolbar } from './TransactionsToolbar'
+import { AdvancedFilterFields, ConditionChips, ListDisplayFields, TransactionsToolbar } from './TransactionsToolbar'
 import { ColdStartState, ErrorState, NoResultState, TransactionLoadingState } from './TransactionStates'
 import {
   filterTransactions,
@@ -63,7 +64,17 @@ export function TransactionsScreen({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [detailId, setDetailId] = useState<string | null>(null)
   const [batchConfirmOpen, setBatchConfirmOpen] = useState(false)
+  const [displayOpen, setDisplayOpen] = useState(false)
+  const [display, setDisplay] = useState<ListDisplay>(readListDisplay)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  const changeDisplay = (patch: Partial<ListDisplay>) => {
+    setDisplay((current) => {
+      const next = { ...current, ...patch }
+      writeListDisplay(next)
+      return next
+    })
+  }
 
   useHotkeys([['/', () => searchRef.current?.focus()]])
 
@@ -138,7 +149,17 @@ export function TransactionsScreen({
       ) : (
         <div className="tx-mobile-summary">
           <span className="mb-text-1">{periodLabel}</span>
-          <span className="mb-text-0">共 {filtered.length} 笔</span>
+          <div className="tx-mobile-summary-side">
+            <span className="mb-text-0">共 {filtered.length} 笔</span>
+            <UnstyledButton
+              className="mb-chip"
+              data-active={displayOpen}
+              aria-expanded={displayOpen}
+              onClick={() => setDisplayOpen(true)}
+            >
+              <Settings2 aria-hidden /> 显示
+            </UnstyledButton>
+          </div>
         </div>
       )}
 
@@ -150,10 +171,14 @@ export function TransactionsScreen({
         searchInputRef={searchRef}
         advancedOpen={advancedOpen}
         batchMode={batchMode}
+        display={display}
+        displayOpen={displayOpen}
         onChange={changeFilters}
+        onChangeDisplay={changeDisplay}
         onReset={resetFilters}
         onToggleAdvanced={() => setAdvancedOpen((value) => !value)}
         onToggleBatch={() => (batchMode ? exitBatch() : onBatchModeChange(true))}
+        onToggleDisplay={() => setDisplayOpen((value) => !value)}
       />
 
       <ConditionChips
@@ -187,6 +212,7 @@ export function TransactionsScreen({
           batchMode={batchMode}
           selectedIds={selectedIds}
           today={today}
+          display={display}
           onToggleSelect={toggleSelect}
           onOpen={setDetailId}
         />
@@ -233,6 +259,22 @@ export function TransactionsScreen({
           />
           <div className="hf-drawer-footer">
             <Button className="mb-accent-btn" fullWidth onClick={() => setAdvancedOpen(false)}>应用</Button>
+          </div>
+        </Drawer>
+      )}
+
+      {device === 'mobile' && (
+        <Drawer
+          opened={displayOpen}
+          onClose={() => setDisplayOpen(false)}
+          position="bottom"
+          size="auto"
+          title="列表显示"
+          classNames={{ body: 'hf-drawer-body' }}
+        >
+          <ListDisplayFields display={display} onChange={changeDisplay} />
+          <div className="hf-drawer-footer">
+            <Button className="mb-accent-btn" fullWidth onClick={() => setDisplayOpen(false)}>完成</Button>
           </div>
         </Drawer>
       )}

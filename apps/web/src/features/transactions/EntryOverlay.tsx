@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Button,
   Collapse,
@@ -15,6 +15,7 @@ import { Check, ChevronDown, Plus } from 'lucide-react'
 import { CategoryGlyph } from '../../ui/CategoryGlyph'
 import { ACCOUNTS, CATEGORIES, PREVIEW_TODAY, findAccount, findCategory } from './mock'
 import { TYPE_OPTIONS } from './transaction-utils'
+import { showUndoToast } from './undo-toast'
 import type { Account, Category, DeviceMode, Transaction, TxType } from './types'
 
 type EntryFormValues = {
@@ -29,6 +30,9 @@ type EntryFormValues = {
   coupon: string
 }
 
+/** 关闭时的草稿快照：撤销 = 重开并原样恢复（含连记计数）。 */
+type EntryDraft = EntryFormValues & { moreOpen: boolean; savedCount: number }
+
 type EntryOverlayProps = {
   open: boolean
   device: DeviceMode
@@ -42,6 +46,8 @@ type EntryOverlayProps = {
   defaultToAccountId?: string
   onClose: () => void
   onSaved: (tx: Transaction) => void | Promise<void>
+  /** 撤销「草稿已丢弃」时由浮层自己请求重开（不传则不提供撤销）。 */
+  onReopen?: () => void
 }
 
 let entrySequence = 0
@@ -68,10 +74,15 @@ export function EntryOverlay({
   defaultToAccountId,
   onClose,
   onSaved,
+  onReopen,
 }: EntryOverlayProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [savedCount, setSavedCount] = useState(0)
   const [saving, setSaving] = useState(false)
+  /** 撤销「草稿已丢弃」要恢复的快照，等浮层下次打开时消费。 */
+  const pendingDraftRef = useRef<EntryDraft | null>(null)
+  /** 保存成功后的关闭不是「丢弃草稿」，不弹 toast。 */
+  const savedCloseRef = useRef(false)
 
   const form = useForm<EntryFormValues>({
     initialValues: {
@@ -97,22 +108,31 @@ export function EntryOverlay({
 
   useEffect(() => {
     if (open) {
-      form.setInitialValues(
-        {
-          type: 'expense',
-          amount: '',
-          categoryId: firstCategoryFor(categories, 'expense'),
-          accountId: defaultAccountId ?? accounts[0]?.id ?? '',
-          toAccountId: defaultToAccountId ?? accounts[1]?.id ?? accounts[0]?.id ?? '',
-          date: today,
-          note: '',
-          fee: '',
-          coupon: '',
-        },
-      )
-      form.reset()
-      setMoreOpen(false)
-      setSavedCount(0)
+      const defaults: EntryFormValues = {
+        type: 'expense',
+        amount: '',
+        categoryId: firstCategoryFor(categories, 'expense'),
+        accountId: defaultAccountId ?? accounts[0]?.id ?? '',
+        toAccountId: defaultToAccountId ?? accounts[1]?.id ?? accounts[0]?.id ?? '',
+        date: today,
+        note: '',
+        fee: '',
+        coupon: '',
+      }
+      form.setInitialValues(defaults)
+      const restore = pendingDraftRef.current
+      pendingDraftRef.current = null
+      savedCloseRef.current = false
+      if (restore) {
+        const { moreOpen: more, savedCount: count, ...values } = restore
+        form.setValues(values)
+        setMoreOpen(more)
+        setSavedCount(count)
+      } else {
+        form.reset()
+        setMoreOpen(false)
+        setSavedCount(0)
+      }
       setSaving(false)
     }
     // 只在浮层打开时重置，输入过程中不重置
@@ -151,7 +171,23 @@ export function EntryOverlay({
     form.setFieldValue('amount', next)
   }
 
+  /** 有已填内容才算草稿：空表单关闭不发「草稿已丢弃」。 */
+  const hasDraft = () => Boolean(
+    form.values.amount.trim()
+    || form.values.note.trim()
+    || form.values.fee.trim()
+    || form.values.coupon.trim()
+    || form.values.date !== today
+    || moreOpen,
+  )
+
   const closeAndReset = () => {
+    // 保存成功的关闭不是丢弃草稿；只有用户主动关且有内容时才快照并提供撤销。
+    if (!savedCloseRef.current && onReopen && hasDraft()) {
+      pendingDraftRef.current = { ...form.values, moreOpen, savedCount }
+      showUndoToast('entry-draft', '草稿已丢弃', onReopen)
+    }
+    savedCloseRef.current = false
     form.reset()
     setMoreOpen(false)
     setSavedCount(0)
@@ -198,6 +234,7 @@ export function EntryOverlay({
     }
 
     if (closeAfter) {
+      savedCloseRef.current = true
       notifications.show({ message: '已记一笔', autoClose: 3000 })
       closeAndReset()
       return
@@ -425,7 +462,12 @@ export function EntryOverlay({
       opened={open}
       onClose={closeAndReset}
       centered
-      title="记账"
+      title={(
+        <div className="hf-entry-title">
+          <span>记账</span>
+          {savedCount > 0 && <span className="hf-entry-title-count mb-text-0">已连记 {savedCount} 笔</span>}
+        </div>
+      )}
       size="var(--mb-entry-w)"
       classNames={{ body: 'hf-modal-body' }}
     >

@@ -9,6 +9,7 @@ import {
   txTone,
   txTitle,
 } from './transaction-utils'
+import { DEFAULT_LIST_DISPLAY, type ListDisplay } from './display-settings'
 import type { Account, Category, DeviceMode, Transaction } from './types'
 
 type TransactionListProps = {
@@ -19,6 +20,8 @@ type TransactionListProps = {
   batchMode: boolean
   selectedIds: Set<string>
   today: string
+  /** 只读场景（总览最近流水）可省略，默认显示全部列与标准密度。 */
+  display?: ListDisplay
   onToggleSelect: (id: string) => void
   onOpen: (id: string) => void
 }
@@ -46,14 +49,16 @@ export function TransactionList({
   batchMode,
   selectedIds,
   today,
+  display = DEFAULT_LIST_DISPLAY,
   onToggleSelect,
   onOpen,
 }: TransactionListProps) {
   const groups = groupTransactionsByDay(items, today)
+  const showMid = display.account || display.type
 
   if (device === 'mobile') {
     return (
-      <div className="tx-mobile-list">
+      <div className="tx-mobile-list" data-density={display.density}>
         {groups.map((group) => (
           <section key={group.date} className="tx-mobile-day-group" aria-label={group.label}>
             <div className="tx-mobile-day">
@@ -66,6 +71,10 @@ export function TransactionList({
               {group.items.map((tx) => {
                 const category = categories.find((item) => item.id === tx.categoryId)
                 const selected = selectedIds.has(tx.id)
+                const meta = [
+                  display.account ? accountText(tx, accounts) : null,
+                  display.type ? TYPE_LABELS[tx.type] : null,
+                ].filter(Boolean).join(' · ')
                 return (
                   <div key={tx.id} className="tx-mobile-row" data-selected={selected}>
                     {batchMode && (
@@ -83,7 +92,7 @@ export function TransactionList({
                       {category && <CategoryGlyph icon={category.icon} colorIndex={category.colorIndex} />}
                       <span className="tx-mobile-main">
                         <span className="tx-mobile-title">{txTitle(tx, category)}</span>
-                        <span className="mb-text-0">{accountText(tx, accounts)} · {TYPE_LABELS[tx.type]}</span>
+                        {meta && <span className="mb-text-0">{meta}</span>}
                       </span>
                       <span className="tx-amount mb-num" data-tone={txTone(tx)}>{formatAmount(tx.amount)}</span>
                     </UnstyledButton>
@@ -99,10 +108,10 @@ export function TransactionList({
 
   return (
     <div className="tx-table-wrap">
-      <table className="tx-table">
+      <table className="tx-table" data-density={display.density}>
         <colgroup>
           <col className="tx-col-main" />
-          <col className="tx-col-mid" />
+          {showMid && <col className="tx-col-mid" />}
           <col className="tx-col-num" />
         </colgroup>
         <tbody>
@@ -114,6 +123,8 @@ export function TransactionList({
               categories={categories}
               batchMode={batchMode}
               selectedIds={selectedIds}
+              display={display}
+              showMid={showMid}
               onToggleSelect={onToggleSelect}
               onOpen={onOpen}
             />
@@ -130,15 +141,27 @@ type GroupRowsProps = {
   categories: Category[]
   batchMode: boolean
   selectedIds: Set<string>
+  display: ListDisplay
+  showMid: boolean
   onToggleSelect: (id: string) => void
   onOpen: (id: string) => void
 }
 
-function GroupRows({ group, accounts, categories, batchMode, selectedIds, onToggleSelect, onOpen }: GroupRowsProps) {
+function GroupRows({
+  group,
+  accounts,
+  categories,
+  batchMode,
+  selectedIds,
+  display,
+  showMid,
+  onToggleSelect,
+  onOpen,
+}: GroupRowsProps) {
   return (
     <>
       <tr className="tx-day-row">
-        <th colSpan={3}>
+        <th colSpan={showMid ? 3 : 2}>
           <div className="tx-day-head">
             <span>{group.label}</span>
             <span className="mb-num" data-tone={subtotalTone(group.subtotal)}>{formatAmount(group.subtotal)}</span>
@@ -177,14 +200,16 @@ function GroupRows({ group, accounts, categories, batchMode, selectedIds, onTogg
                 {category && <CategoryGlyph icon={category.icon} colorIndex={category.colorIndex} />}
                 <div className="tx-main-text">
                   <TruncateCell className="tx-title" text={txTitle(tx, category)} />
-                  {tx.note && <TruncateCell className="tx-subtitle" text={tx.note} />}
+                  {display.note && tx.note && <TruncateCell className="tx-subtitle" text={tx.note} />}
                 </div>
               </div>
             </td>
-            <td>
-              <TruncateCell className="tx-account" text={accountText(tx, accounts)} />
-              <div className="mb-text-0">{TYPE_LABELS[tx.type]}</div>
-            </td>
+            {showMid && (
+              <td>
+                {display.account && <TruncateCell className="tx-account" text={accountText(tx, accounts)} />}
+                {display.type && <div className="mb-text-0">{TYPE_LABELS[tx.type]}</div>}
+              </td>
+            )}
             <td className="tx-num-cell">
               <span className="tx-amount mb-num" data-tone={txTone(tx)}>{formatAmount(tx.amount)}</span>
             </td>

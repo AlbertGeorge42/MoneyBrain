@@ -3,6 +3,7 @@ import '../design/hf.css'
 import { useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
+import { useHotkeys } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useCreateTransaction, useDeleteTransaction, useUndoAuditEvent, useUpdateTransaction, useTransactions } from '../../queries/transaction'
 import { useAccounts } from '../../queries/account'
@@ -161,6 +162,27 @@ export function ProdShell({ page }: ProdShellProps) {
     ? '还没有记录'
     : `共 ${transactions.data?.total ?? items.length} 笔 · ${accountCount} 个账户`
 
+  /** 与 /design 预览同一条热键链路：N 记一笔、1–5 切页、/ 搜流水（输入框内不触发）。 */
+  useHotkeys([
+    ['n', () => { if (!entryOpen) setEntryOpen(true) }],
+    ['1', () => { if (!entryOpen) navigate(ROUTES.overview) }],
+    ['2', () => { if (!entryOpen) navigate(ROUTES.transactions) }],
+    ['3', () => { if (!entryOpen) navigate(ROUTES.reports) }],
+    ['4', () => { if (!entryOpen) navigate(ROUTES.budgets) }],
+    ['5', () => { if (!entryOpen) navigate(ROUTES.settings) }],
+    ['/', () => {
+      if (entryOpen) return
+      const focusSearch = () => document.querySelector<HTMLInputElement>('.tx-search input')?.focus()
+      if (page === 'transactions') {
+        focusSearch()
+        return
+      }
+      navigate(ROUTES.transactions)
+      window.setTimeout(focusSearch, 120)
+    }],
+    ['Escape', () => { if (!entryOpen) setBatchMode(false) }],
+  ])
+
   const allowedTypes = hfAccounts.length >= 2
     ? (['expense', 'income', 'transfer'] as const)
     : (['expense', 'income'] as const)
@@ -226,6 +248,7 @@ export function ProdShell({ page }: ProdShellProps) {
               allowedTypes={[...allowedTypes]}
               onClose={() => setEntryOpen(false)}
               onSaved={onEntrySaved}
+              onReopen={() => setEntryOpen(true)}
             />
           )}
         >

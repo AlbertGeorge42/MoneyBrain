@@ -221,6 +221,7 @@ export function HfShell({
           defaultToAccountId="alipay"
           onClose={onEntryClose}
           onSaved={onEntrySaved}
+          onReopen={onEntryOpen}
         />
       )}
     >
