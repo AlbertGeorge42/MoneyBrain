@@ -102,7 +102,7 @@ model Transaction {
   @@index([categoryId, date])
   @@index([type, date])
   @@index([relatedTransactionId])
-  @@index([deletedAt])
+  @@index([deletedAt, date])
   @@map("transactions")
 }
 
