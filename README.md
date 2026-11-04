@@ -37,7 +37,7 @@ npm start       # 预览构建产物
 | `npm run lint` | lint api + web |
 | `npm run typecheck` | domain + api + web |
 | `npm test` | domain + api + web 测试 |
-| `npm run test:e2e` | Playwright（自动使用 `%TEMP%` 下的临时库，不读写 `dev.db`） |
+| `npm run test:e2e` | Playwright（每次运行在 `%TEMP%\moneybrain-e2e-<PID>` 建独占临时库，不读写 `dev.db`；3001/3002 不复用已有服务，端口被占时明确报错） |
 | `npm run db:migrate` | 改 schema 后生成并应用版本化迁移（SQL 进仓库） |
 | `npm run db:status` | 查看当前库与迁移的差异 |
 | `npm run db:verify` | 数据自检：重算净资产恒等式、转账与退款，报告不一致项 |
@@ -51,6 +51,11 @@ npm start       # 预览构建产物
 `MoneyBrain.cmd`，或执行 `npm run desktop`（`desktop:open` 等价）。首次启动会自动构建
 缺失产物、应用数据库迁移，并打开 1280×820 的独立窗口；窗口标题与图标来自应用本身，
 「关于」（点击左上角品牌）里可看到版本号。关闭窗口即停止本地 API / 预览服务并清理临时 profile 锁。
+
+**单实例行为**：启动器用锁文件（`%TEMP%\moneybrain-desktop-9333.lock`）互斥。快速双击两次时，
+第二次在约 2 秒内明确退出：已有窗口则聚焦后退出码 0；第一个启动器仍在启动中则退出码 1 并提示
+锁文件位置，不会挂在控制台等 Ctrl+C。窗口若交由已有 Edge 进程托管，关闭窗口后本地服务会自动停止
+（按 Ctrl+C 可立即退出）。
 
 **前置条件**：Windows + Node.js 20+ + Microsoft Edge（Windows 自带），不需要 Rust 工具链。
 
