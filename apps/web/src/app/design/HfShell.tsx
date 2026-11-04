@@ -8,6 +8,7 @@ import { MONTH_SUMMARY } from '../../features/transactions/mock'
 import { formatAmount, summarize } from '../../features/transactions/transaction-utils'
 import type { DataState, DeviceMode, Transaction } from '../../features/transactions/types'
 import { OverviewScreen } from '../../features/overview/OverviewScreen'
+import { ReportsScreen } from '../../features/reports/ReportsScreen'
 import { NAV_ITEMS, navLabel, type NavPage } from './navigation'
 
 type HfShellProps = {
@@ -98,11 +99,22 @@ function PageContent({
     )
   }
 
+  if (page === 'reports') {
+    return (
+      <ReportsScreen
+        device={device}
+        dataState={dataState}
+        onRecord={onEntryOpen}
+        onRetry={onRetry}
+      />
+    )
+  }
+
   return (
     <div className="hf-placeholder">
       <div className="hf-state-icon"><Hammer aria-hidden /></div>
       <h2 className="mb-title-4">「{navLabel(page)}」不在本批</h2>
-      <p className="mb-text-1 hf-state-copy">本批交付总览、流水与记账闭环。该页在下一批高保真补齐。</p>
+      <p className="mb-text-1 hf-state-copy">本批交付总览、流水、报表与记账闭环。该页在下一批高保真补齐。</p>
       <Button variant="default" onClick={() => onPageChange('overview')}>回到总览</Button>
     </div>
   )

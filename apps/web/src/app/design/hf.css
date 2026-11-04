@@ -1713,3 +1713,582 @@
 @media (hover: hover) {
   .ov-section-link:hover { color: var(--mb-color-accent); }
 }
+
+/* ---------- 报表（HF 第三批）：时间条 + 双视图 + 并排固定表 ---------- */
+
+.rep-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-section-gap);
+  min-width: 0;
+}
+
+.rep-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-4);
+  flex-wrap: wrap;
+}
+
+.rep-view-tabs {
+  display: inline-flex;
+  gap: var(--mb-s-1);
+  padding: var(--mb-s-1);
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-raised);
+}
+
+.rep-view-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-4);
+  border-radius: var(--mb-radius-pill);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  color: var(--mb-color-text-secondary);
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.rep-view-tab[data-active='true'] {
+  background: var(--mb-color-text-primary);
+  color: var(--mb-color-text-inverse);
+}
+
+.rep-timebar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+}
+
+.rep-period-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-control-h);
+  height: var(--mb-control-h);
+  border-radius: var(--mb-radius-sm);
+  color: var(--mb-color-text-secondary);
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.rep-period-btn svg {
+  width: var(--mb-s-4);
+  height: var(--mb-s-4);
+}
+
+.rep-period-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.rep-period-value {
+  min-width: calc(var(--mb-s-7) + var(--mb-s-3));
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  text-align: center;
+  color: var(--mb-color-text-primary);
+}
+
+.rep-granularity {
+  display: inline-flex;
+  gap: var(--mb-s-1);
+  margin-left: var(--mb-s-2);
+  padding: var(--mb-s-1);
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-raised);
+}
+
+.rep-granularity-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--mb-s-7) - var(--mb-s-3));
+  height: calc(var(--mb-control-h) - var(--mb-s-2));
+  padding: 0 var(--mb-s-3);
+  border-radius: var(--mb-radius-pill);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  color: var(--mb-color-text-secondary);
+}
+
+.rep-granularity-btn[data-active='true'] {
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+}
+
+/* 指标条：左 1 主指标 + 右 3 单元格 */
+
+.rep-metric-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr);
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+  overflow: hidden;
+}
+
+.rep-metric-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  padding: var(--mb-card-pad);
+}
+
+.rep-metric-value {
+  font-size: var(--mb-fs-5);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.rep-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.rep-metric-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  min-width: 0;
+  padding: var(--mb-s-4) var(--mb-card-pad);
+  border-left: 1px solid var(--mb-color-border);
+}
+
+.rep-metric-cell-value {
+  overflow: hidden;
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rep-metric-hint {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+/* 并排表：列宽由 colgroup 权重决定，短侧用等高占位行补到同一行数 */
+
+.rep-tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mb-s-4);
+  align-items: start;
+}
+
+.rep-tables--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rep-table-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+  overflow: hidden;
+}
+
+.rep-table-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+  min-height: var(--mb-s-6);
+  padding: var(--mb-s-3);
+}
+
+.rep-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.rep-table th,
+.rep-table td {
+  overflow: hidden;
+  padding: 0 var(--mb-s-3);
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.rep-head-row {
+  height: var(--mb-tbl-row-h);
+}
+
+.rep-head-row th {
+  font-size: var(--mb-fs-0);
+  font-weight: 600;
+  color: var(--mb-color-text-tertiary);
+  box-shadow: inset 0 -1px 0 var(--mb-color-border);
+}
+
+.rep-head-num,
+.rep-num-cell {
+  text-align: right;
+}
+
+/* 行高固定；分隔线用 inset 阴影，不占布局高度，合计行与数据行同高 */
+
+.rep-data-row,
+.rep-data-row td {
+  height: var(--mb-tbl-row-h);
+}
+
+.rep-data-row {
+  cursor: pointer;
+}
+
+.rep-data-row td {
+  box-shadow: inset 0 -1px 0 var(--mb-color-border);
+}
+
+.rep-main-cell {
+  overflow: hidden;
+}
+
+.rep-main-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  min-width: 0;
+  height: 100%;
+}
+
+.rep-main-cell[data-level='1'] {
+  padding-left: calc(var(--mb-s-3) + var(--mb-s-5));
+}
+
+.rep-fold-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-s-5);
+  height: var(--mb-s-5);
+}
+
+.rep-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-s-5);
+  height: var(--mb-s-5);
+  border-radius: var(--mb-radius-xs);
+  color: var(--mb-color-text-secondary);
+}
+
+.rep-fold svg {
+  width: var(--mb-s-4);
+  height: var(--mb-s-4);
+}
+
+.rep-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mb-color-text-primary);
+}
+
+.rep-main-cell[data-level='1'] .rep-label {
+  color: var(--mb-color-text-secondary);
+}
+
+.rep-num-cell {
+  font-size: var(--mb-fs-1);
+}
+
+.rep-spacer-row,
+.rep-spacer-row td {
+  height: var(--mb-tbl-row-h);
+}
+
+.rep-spacer-row td {
+  background: transparent;
+  box-shadow: none;
+}
+
+.rep-total-row,
+.rep-total-row td {
+  height: var(--mb-tbl-row-h);
+}
+
+.rep-total-row td {
+  background: var(--mb-color-surface-sunken);
+  box-shadow: inset 0 1px 0 var(--mb-color-border-strong);
+  font-weight: 600;
+}
+
+.rep-total-row td:first-child {
+  color: var(--mb-color-text-secondary);
+}
+
+.rep-table-note {
+  margin: 0;
+}
+
+@media (hover: hover) {
+  .rep-data-row:hover td {
+    background: var(--mb-color-surface-hover);
+  }
+
+  .rep-period-btn:not(:disabled):hover,
+  .rep-fold:hover {
+    background: var(--mb-color-surface-hover);
+    color: var(--mb-color-accent);
+  }
+
+  .rep-metric-cell:hover {
+    background: var(--mb-color-surface-hover);
+  }
+}
+
+.rep-data-row:focus-visible td {
+  background: var(--mb-color-surface-hover);
+  box-shadow: inset 0 1px 0 var(--mb-color-focus), inset 0 -1px 0 var(--mb-color-focus);
+}
+
+.rep-metric-main [data-tone='income'],
+.rep-metric-cell [data-tone='income'],
+.rep-detail [data-tone='income'] {
+  color: var(--mb-color-income);
+}
+
+.rep-metric-main [data-tone='expense'],
+.rep-metric-cell [data-tone='expense'],
+.rep-detail [data-tone='expense'] {
+  color: var(--mb-color-expense);
+}
+
+/* 移动端：单表切换 + 指标卡片 */
+
+.rep-table-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mb-s-2);
+}
+
+.rep-table-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--mb-touch);
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  color: var(--mb-color-text-secondary);
+}
+
+.rep-table-switch-btn[data-active='true'] {
+  border-color: var(--mb-color-accent);
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+}
+
+.rep-page[data-device='mobile'] .rep-toolbar {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.rep-page[data-device='mobile'] .rep-view-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rep-page[data-device='mobile'] .rep-view-tab {
+  min-height: var(--mb-touch);
+}
+
+.rep-page[data-device='mobile'] .rep-timebar {
+  justify-content: space-between;
+}
+
+.rep-page[data-device='mobile'] .rep-period-btn {
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+}
+
+.rep-page[data-device='mobile'] .rep-granularity {
+  margin-left: 0;
+}
+
+.rep-page[data-device='mobile'] .rep-granularity-btn {
+  min-width: var(--mb-touch);
+  height: var(--mb-touch);
+}
+
+.rep-page[data-device='mobile'] .rep-metric-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.rep-page[data-device='mobile'] .rep-metric-main,
+.rep-page[data-device='mobile'] .rep-metric-cell {
+  border: 1px solid var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  padding: var(--mb-s-4);
+}
+
+.rep-page[data-device='mobile'] .rep-metric-value {
+  font-size: var(--mb-fs-4);
+}
+
+.rep-page[data-device='mobile'] .rep-metric-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mb-s-3);
+}
+
+.rep-page[data-device='mobile'] .rep-metric-cell {
+  border-left: 1px solid var(--mb-color-border);
+}
+
+.rep-page[data-device='mobile'] .rep-metric-grid > :last-child:nth-child(odd) {
+  grid-column: span 2;
+}
+
+.rep-page[data-device='mobile'] .rep-table-head {
+  padding: var(--mb-s-3);
+}
+
+/* 移动端收窄单元格留白，给金额列更多空间 */
+.rep-page[data-device='mobile'] .rep-table th,
+.rep-page[data-device='mobile'] .rep-table td {
+  padding: 0 var(--mb-s-2);
+}
+
+.rep-page[data-device='mobile'] .rep-main-cell[data-level='1'] {
+  padding-left: calc(var(--mb-s-2) + var(--mb-s-5));
+}
+
+/* 加载骨架 */
+
+.rep-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-4);
+}
+
+.rep-skeleton-metrics {
+  height: calc(var(--mb-fs-5) + var(--mb-s-7));
+  border-radius: var(--mb-radius-md);
+}
+
+.rep-loading-tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mb-s-4);
+}
+
+.rep-skeleton-title {
+  width: calc(var(--mb-s-7) + var(--mb-s-4));
+  height: var(--mb-s-4);
+}
+
+.rep-skeleton-meta {
+  width: var(--mb-s-7);
+  height: var(--mb-s-3);
+}
+
+.rep-loading-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: var(--mb-s-3);
+  height: var(--mb-tbl-row-h);
+  padding: 0 var(--mb-s-3);
+}
+
+.rep-skeleton-line {
+  width: 60%;
+  height: var(--mb-s-3);
+}
+
+.rep-skeleton-num {
+  justify-self: end;
+  width: 60%;
+  height: var(--mb-s-3);
+}
+
+.rep-page[data-device='mobile'] .rep-loading-tables {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 行详情抽屉 */
+
+.rep-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-5);
+}
+
+.rep-detail-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  padding-bottom: var(--mb-s-4);
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
+.rep-detail-amount {
+  font-size: var(--mb-amount-lg);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.rep-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+.rep-detail-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rep-detail-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--mb-s-3);
+  min-height: var(--mb-touch);
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
+.rep-detail-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rep-detail-share {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.rep-detail-note {
+  margin: 0;
+}

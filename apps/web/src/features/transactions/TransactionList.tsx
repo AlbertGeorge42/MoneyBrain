@@ -1,5 +1,6 @@
-import { Checkbox, Tooltip, UnstyledButton } from '@mantine/core'
+import { Checkbox, UnstyledButton } from '@mantine/core'
 import { CategoryGlyph } from '../../ui/CategoryGlyph'
+import { TruncateCell } from '../../ui/TruncateCell'
 import {
   TYPE_LABELS,
   accountName,
@@ -35,15 +36,6 @@ function subtotalTone(value: number): 'income' | 'expense' | 'neutral' {
   if (value > 0) return 'income'
   if (value < 0) return 'expense'
   return 'neutral'
-}
-
-/** 截断单元格：悬停 / 键盘聚焦显示全文；不改变行高，不做行内展开。 */
-function Truncated({ text, className }: { text: string; className: string }) {
-  return (
-    <Tooltip label={text} openDelay={300} withinPortal position="top">
-      <span className={className} tabIndex={0} aria-label={text}>{text}</span>
-    </Tooltip>
-  )
 }
 
 export function TransactionList({
@@ -184,13 +176,13 @@ function GroupRows({ group, accounts, categories, batchMode, selectedIds, onTogg
                 )}
                 {category && <CategoryGlyph icon={category.icon} colorIndex={category.colorIndex} />}
                 <div className="tx-main-text">
-                  <Truncated className="tx-title" text={txTitle(tx, category)} />
-                  {tx.note && <Truncated className="tx-subtitle" text={tx.note} />}
+                  <TruncateCell className="tx-title" text={txTitle(tx, category)} />
+                  {tx.note && <TruncateCell className="tx-subtitle" text={tx.note} />}
                 </div>
               </div>
             </td>
             <td>
-              <Truncated className="tx-account" text={accountText(tx, accounts)} />
+              <TruncateCell className="tx-account" text={accountText(tx, accounts)} />
               <div className="mb-text-0">{TYPE_LABELS[tx.type]}</div>
             </td>
             <td className="tx-num-cell">
