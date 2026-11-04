@@ -1,0 +1,23 @@
+* text=auto eol=lf
+
+*.md text=auto eol=lf
+*.ts text=auto eol=lf
+*.tsx text=auto eol=lf
+*.js text=auto eol=lf
+*.jsx text=auto eol=lf
+*.css text=auto eol=lf
+*.json text=auto eol=lf
+*.prisma text=auto eol=lf
+*.sql text=auto eol=lf
+
+*.ps1 text=auto eol=crlf
+*.bat text=auto eol=crlf
+*.cmd text=auto eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
