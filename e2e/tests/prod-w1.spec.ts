@@ -56,3 +56,22 @@ test.describe('生产壳：W1 交互收尾', () => {
     await page.getByLabel('列表显示').getByRole('group', { name: '密度' }).getByRole('button', { name: '标准' }).click()
   })
 })
+
+test.describe('移动端：页头「显示」抽屉', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('从页头打开同一套显示字段', async ({ page }) => {
+    await page.goto('/transactions')
+    // 移动端页头不渲染 h1 标题，以页头「显示」入口作为就绪信号。
+    await expect(page.getByRole('button', { name: '显示' })).toBeVisible()
+
+    await page.getByRole('button', { name: '显示' }).click()
+    const drawer = page.getByRole('dialog').filter({ hasText: '列表显示' })
+    await expect(drawer).toBeVisible()
+    await expect(drawer.getByRole('checkbox', { name: '账户' })).toBeChecked()
+    await expect(drawer.getByRole('group', { name: '密度' })).toBeVisible()
+
+    await drawer.getByRole('button', { name: '完成' }).click()
+    await expect(drawer).toBeHidden()
+  })
+})
