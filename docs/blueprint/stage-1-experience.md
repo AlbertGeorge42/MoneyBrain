@@ -167,9 +167,10 @@ PostCSS 构建期解析」失去对象，**不执行**。
 - **机制要改一处**：颜色的定义源从「AntD 算法派生」改为「手工声明的设计 token 表」——
   新色值（暖纸面 `#F5F2EA`、墨绿夜账本 `#0F1411`）不是 AntD 能派生的；不改，
   新值无处安放，旧观感会随算法回流到新界面。
-- **两处缺口须在 UX5b 前补齐或明确复用**：① 交易类型色缺 `refund` / `adjustment`
+- **三处缺口须在 UX5b 前补齐或明确复用**：① 交易类型色缺 `refund` / `adjustment`
   （领域有退款与调整交易，`design-tokens.md` 只定义了 income/expense/transfer）；
-  ② 现金流语义缺 `cash` / `non-cash` / `investing`（W5 现金流配置在用）。
+  ② 现金流语义缺 `cash` / `non-cash` / `investing`（W5 现金流配置在用）；
+  ③ 交互状态色缺 `hover` / `selected` / `disabled`（现有 token 只有静态色，状态差异靠组件内散写）。
 
 **顺序要求**（一条流水线，按段推进）：
 
