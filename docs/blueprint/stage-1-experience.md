@@ -130,7 +130,8 @@ D4 与 U13.1 可对调。硬边：U13.1→UX5b、UX5b→U13.2、U13.2→U13.3、
   分类色只读 `cat-1..6`，超过 6 类聚合为「其他」。
 - 命名过渡：`buildCssVars()` 同时产出目标 `--mb-*` 与旧名 `--mb-color-*` 别名（27 文件 / 203 处），
   U13.5 清零；别名只存在于生成器，不写进设计文档。
-- 测试：`tests/setup.ts` 补 `matchMedia` / `ResizeObserver` mock；RTL 外包 `ThemeRoot`。
+- 测试：`tests/setup.ts` 已有 `matchMedia` / `ResizeObserver` mock；本批补 Mantine 所需 mock，
+  RTL 外包 `ThemeRoot`；U13.5 移除 AntD mock。
 
 **主题可扩展性（预留；初版只做一种皮肤）**
 
