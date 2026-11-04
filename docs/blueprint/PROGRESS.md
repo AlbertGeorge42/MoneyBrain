@@ -34,7 +34,7 @@
 
 ## 待领（按推荐顺序）
 
-- 阶段 0 · M1：D4
+- 阶段 0 · M1：D4 → D11（D11：报表数据修复——① `Account.categoryId` 12 行回填 + 账户创建/配置导入缺省按 `Account.type` 映射（不静默留 null）+「现金等价」「投资」两个账户分类标记置位；② 更新退款或原交易时同步 `relatedType`（报表退款方向不再按旧类型判断）；③ 列表分页 `orderBy` 补 `id` 第二键并用 EXPLAIN 验证索引路径。验收：`categoryId` 空值 0、创建/导入路径有测试、退款改原交易后现金流/桑基口径正确、同秒 15 行翻页不重不丢、dev.db 现金流与投资报表非空、`test:api` / typecheck / lint / `db:verify` 全过）
 - 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U1b → U2–U3（地基）→ **UX1–UX5**（重设计，不改代码）→ U4 → U5 → U6–U11 / E/L/K8（可交错；E1–E4 在 UX 之后按原型落地，E6 随时可做）→ U12（完整顺序与依据见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
 - 之后见 [../rewrite-blueprint.md](../rewrite-blueprint.md) §3 里程碑表
@@ -49,3 +49,4 @@
 
 | 条目 | 领取日期 | 范围 |
 |---|---|---|
+| D11 | 2026-11-04 | 报表数据修复：① `Account.categoryId` 回填 12 行 + 账户创建/配置导入缺省按 `Account.type` 映射 + 两个账户分类的 `isCashEquivalent`/`isInvestment` 置位；② 更新退款/换原交易时同步 `relatedType` 并加回归测试；③ 列表分页 `orderBy` 补 `id` 第二键，dev.db EXPLAIN 验证不重新引入 TEMP B-TREE，同秒 15 行翻页比对不重不丢 |
