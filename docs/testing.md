@@ -44,6 +44,8 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 前端 | 15 | 106 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
 
+> 文件数为实际计数；用例数为静态 `test()/it()` 计数，不是 runner 实数——环境可跑测试后替换为实数。
+
 ## 3.1 数据自检与恢复演练（不是单元测试）
 
 `npm run db:verify` 用领域层重算整本账，核对这些等式：
