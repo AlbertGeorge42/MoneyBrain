@@ -13,8 +13,15 @@ import { fileURLToPath } from 'url'
  * 需要连别的库的测试可以自己覆盖 process.env.DATABASE_URL
  * （集成测试就是这么做的），但必须**在导入 src/prisma.ts 之前**设置。
  */
+const here = path.dirname(fileURLToPath(import.meta.url))
+
+/**
+ * 同步身份文件固定到 prisma 目录：单元测试里 prisma 常被 mock，
+ * 走不到 SQLite 的 PRAGMA 查询；身份文件只是本地常量，不需要真实连接。
+ */
+process.env.MONEYBRAIN_SYNC_IDENTITY_PATH ??= path.resolve(here, '../prisma/sync-identity.json')
+
 if (!process.env.DATABASE_URL) {
-  const here = path.dirname(fileURLToPath(import.meta.url))
   process.env.DATABASE_URL = `file:${path.resolve(here, '../prisma/test.db')}`
 }
 

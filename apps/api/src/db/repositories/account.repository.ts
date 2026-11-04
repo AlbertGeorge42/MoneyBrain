@@ -1,5 +1,6 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import type { Account, Prisma } from '@prisma/client'
+import { createSyncVersion, updateSyncVersion } from '../sync-version.js'
 
 // 账户表数据访问的唯一入口（D1）：service / route 只通过这里读写账户，
 // 不再出现 prisma.account。账户没有软删除字段，方法没有 *IncludingDeleted 变体；
@@ -41,7 +42,18 @@ export async function createWithCategory(
   data: Prisma.AccountUncheckedCreateInput,
   tx?: TransactionClient,
 ): Promise<AccountWithCategory> {
-  return db(tx).account.create({ data, include: { category: true } })
+  // 客户端生成的 UUID 是同步身份：同一 id 重复写入视为幂等，不产生第二行。
+  if (typeof data.id === 'string') {
+    const existing = await db(tx).account.findUnique({
+      where: { id: data.id },
+      include: { category: true },
+    })
+    if (existing) return existing
+  }
+  return db(tx).account.create({
+    data: { ...data, ...(await createSyncVersion()) },
+    include: { category: true },
+  })
 }
 
 export async function updateWithCategory(
@@ -49,7 +61,16 @@ export async function updateWithCategory(
   data: Prisma.AccountUncheckedUpdateInput,
   tx?: TransactionClient,
 ): Promise<AccountWithCategory> {
-  return db(tx).account.update({ where: { id }, data, include: { category: true } })
+  const current = await db(tx).account.findUnique({
+    where: { id },
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).account.update({
+    where: { id },
+    data: { ...data, ...version },
+    include: { category: true },
+  })
 }
 
 export async function deleteById(id: string, tx?: TransactionClient): Promise<Account> {
@@ -79,7 +100,7 @@ export async function updateSorts(
     items.map((item) =>
       prisma.account.update({
         where: { id: item.id },
-        data: { sort: item.sort, categoryId: item.categoryId },
+        data: { sort: item.sort, categoryId: item.categoryId, rev: { increment: 1 } },
       })
     )
   )

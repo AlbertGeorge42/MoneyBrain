@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { asyncHandler, success, validateRequest, ValidationError, parseMoney } from '../common/index.js'
+import { asyncHandler, success, validateRequest, ValidationError, parseMoney, parseOptionalUuid } from '../common/index.js'
 import { validateIdParam } from '../common/validators.js'
 import {
   getAssetClassesByAccount,
@@ -116,11 +116,12 @@ router.post(
     if (!accountId || !date || !Array.isArray(items)) {
       throw new ValidationError('缺少必要参数 accountId、date、items')
     }
+    parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
     validateSnapshotItems(items)
   }),
   asyncHandler(async (req, res) => {
-    const { accountId, date, items, note } = req.body
-    const snapshot = await createSnapshot({ accountId, date, items, note })
+    const { id, accountId, date, items, note } = req.body
+    const snapshot = await createSnapshot({ id, accountId, date, items, note })
     return success(res, snapshot)
   })
 )

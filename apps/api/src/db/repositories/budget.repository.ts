@@ -1,5 +1,6 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import type { Budget, Prisma } from '@prisma/client'
+import { createSyncVersion, updateSyncVersion } from '../sync-version.js'
 
 // 预算表数据访问的唯一入口（D1）：service / route 不再出现 prisma.budget。
 // 预算没有软删除字段。返回给前端的预算固定带 account / toAccount / category
@@ -48,7 +49,18 @@ export async function createWithRelations(
   data: Prisma.BudgetUncheckedCreateInput,
   tx?: TransactionClient,
 ): Promise<BudgetWithRelations> {
-  return db(tx).budget.create({ data, include: BUDGET_RELATIONS })
+  // 客户端生成的 UUID 是同步身份：同一 id 重复写入视为幂等，不产生第二行。
+  if (typeof data.id === 'string') {
+    const existing = await db(tx).budget.findUnique({
+      where: { id: data.id },
+      include: BUDGET_RELATIONS,
+    })
+    if (existing) return existing
+  }
+  return db(tx).budget.create({
+    data: { ...data, ...(await createSyncVersion()) },
+    include: BUDGET_RELATIONS,
+  })
 }
 
 export async function updateWithRelations(
@@ -56,7 +68,16 @@ export async function updateWithRelations(
   data: Prisma.BudgetUncheckedUpdateInput,
   tx?: TransactionClient,
 ): Promise<BudgetWithRelations> {
-  return db(tx).budget.update({ where: { id }, data, include: BUDGET_RELATIONS })
+  const current = await db(tx).budget.findUnique({
+    where: { id },
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).budget.update({
+    where: { id },
+    data: { ...data, ...version },
+    include: BUDGET_RELATIONS,
+  })
 }
 
 export async function deleteById(id: string, tx?: TransactionClient): Promise<Budget> {

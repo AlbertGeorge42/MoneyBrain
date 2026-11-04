@@ -7,6 +7,7 @@ import {
   validateIdParam,
   validateBatchSort,
   hasValue,
+  parseOptionalUuid,
 } from '../common/index.js'
 import {
   createTransactionCategory,
@@ -28,6 +29,7 @@ const validateCategoryPayload = (req: Request) => {
   if (hasValue(parentId) && parentId === req.params.id) {
     throw new ValidationError('父分类不能是自己')
   }
+  parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
 }
 
 const validateCategoryUpdatePayload = (req: Request) => {

@@ -15,31 +15,16 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { prisma } from '../prisma.js'
 import { withTransaction } from '../db/transaction.js'
-import { rootLogger, ValidationError } from '../common/index.js'
+import { resolveDbDirectory, rootLogger, ValidationError } from '../common/index.js'
 import type { BackupDataType } from '../../../../packages/contracts/constants.js'
 import type { RollbackPoint } from '../../../../packages/contracts/types/index.js'
 
 const logger = rootLogger.child({ module: 'rollback' })
 
 // ===== 快照存放位置 =====
-
-/**
- * 库所在目录：回滚点、自动备份配置等「跟着数据库走」的文件都用它定位。
- *
- * 库的真实路径由 SQLite 自己报告（PRAGMA database_list），
- * 不靠拼 DATABASE_URL——相对路径的基准随调用方而变，拼出来会错。
- */
-export async function resolveDbDirectory(): Promise<string> {
-  const rows = await prisma.$queryRawUnsafe<{ file: string }[]>('PRAGMA database_list')
-  const main = rows.find((r) => r.file)
-  if (!main?.file) {
-    throw new ValidationError('无法确定数据库文件位置，无法创建回滚点')
-  }
-  return dirname(main.file)
-}
 
 async function snapshotDirectory(): Promise<string> {
   return join(await resolveDbDirectory(), 'rollback-points')

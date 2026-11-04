@@ -15,6 +15,7 @@ export async function getAccountCategories(params?: { type?: string }) {
 }
 
 export async function createAccountCategory(data: {
+  id?: string
   name: string
   type: string
   icon?: string | null
@@ -38,6 +39,7 @@ export async function createAccountCategory(data: {
 
   return accountCategoryRepo.create({
     data: {
+      id: data.id,
       name: data.name,
       type: data.type,
       icon: data.icon,

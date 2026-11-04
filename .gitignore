@@ -57,6 +57,8 @@ apps/api/prisma/*.db.*
 apps/api/prisma/test-schema.prisma
 # 导入回滚点：整库快照，含用户账目，绝不入库
 apps/api/prisma/rollback-points/
+# 本机同步身份（ledgerId / deviceId），每台设备独立
+apps/api/prisma/sync-identity.json
 
 # Logs
 logs/

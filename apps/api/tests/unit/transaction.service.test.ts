@@ -61,9 +61,10 @@ describe('updateIncomeExpense（改类型保护）', () => {
   })
 
   it('没有退款时允许修改交易类型', async () => {
-    // 第一次 findUnique：读取旧交易（类型比较）；第二次：更新后带关联返回
+    // findUnique 依次：读取旧交易 → 读 rev/vv（同步版本戳）→ 更新后带关联返回
     mockPrisma.transaction.findUnique
       .mockResolvedValueOnce(existingTransaction())
+      .mockResolvedValueOnce(existingTransaction({ type: 'expense' }))
       .mockResolvedValueOnce(existingTransaction({ type: 'expense' }))
     mockPrisma.transaction.count.mockResolvedValue(0)
     mockPrisma.transaction.update.mockResolvedValue(existingTransaction({ type: 'expense' }))

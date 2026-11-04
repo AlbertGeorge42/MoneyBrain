@@ -23,6 +23,21 @@ export const validateIdParam = (req: Request): void => {
   }
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/**
+ * 客户端预生成的同步 ID（UUID）。缺省时返回 undefined，让 Prisma 继续生成；
+ * 一旦提供就必须是合法 UUID——否则同一记录会拿到两个无法对齐的标识。
+ */
+export const parseOptionalUuid = (value: unknown, fieldName = 'id'): string | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+    throw new ValidationError(`${fieldName}必须是 UUID`)
+  }
+  return value
+}
+
 export const validateBatchSort = (req: Request): void => {
   if (!Array.isArray(req.body?.items)) {
     throw new ValidationError('参数格式错误')

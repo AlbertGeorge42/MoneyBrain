@@ -1,5 +1,6 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import type { Prisma, TransactionCategory } from '@prisma/client'
+import { createSyncVersion, updateSyncVersion } from '../sync-version.js'
 
 // 交易分类表数据访问的唯一入口（D1）。没有软删除字段，方法没有 *IncludingDeleted 变体；
 // 分类的 parent→children 树查询（buildCategoryChildrenMap）在 common/db.ts，属公共工具。
@@ -47,18 +48,31 @@ export async function create<T extends Prisma.TransactionCategoryCreateArgs>(
   args: Prisma.SelectSubset<T, Prisma.TransactionCategoryCreateArgs>,
   tx?: TransactionClient,
 ): Promise<Prisma.TransactionCategoryGetPayload<T>> {
-  return db(tx).transactionCategory.create(
-    args as Prisma.SelectSubset<T, Prisma.TransactionCategoryCreateArgs>,
-  )
+  const clientId = (args.data as { id?: unknown }).id
+  if (typeof clientId === 'string') {
+    const existing = await db(tx).transactionCategory.findUnique({ where: { id: clientId } })
+    if (existing) return existing as Prisma.TransactionCategoryGetPayload<T>
+  }
+  const data = { ...(args.data as object), ...(await createSyncVersion()) }
+  return db(tx).transactionCategory.create({
+    ...args,
+    data,
+  } as Prisma.SelectSubset<T, Prisma.TransactionCategoryCreateArgs>)
 }
 
 export async function update<T extends Prisma.TransactionCategoryUpdateArgs>(
   args: Prisma.SelectSubset<T, Prisma.TransactionCategoryUpdateArgs>,
   tx?: TransactionClient,
 ): Promise<Prisma.TransactionCategoryGetPayload<T>> {
-  return db(tx).transactionCategory.update(
-    args as Prisma.SelectSubset<T, Prisma.TransactionCategoryUpdateArgs>,
-  )
+  const current = await db(tx).transactionCategory.findUnique({
+    where: args.where as Prisma.TransactionCategoryWhereUniqueInput,
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).transactionCategory.update({
+    ...args,
+    data: { ...(args.data as object), ...version },
+  } as Prisma.SelectSubset<T, Prisma.TransactionCategoryUpdateArgs>)
 }
 
 export async function deleteById(
@@ -104,7 +118,7 @@ export async function updateSorts(
     items.map((item) =>
       prisma.transactionCategory.update({
         where: { id: item.id },
-        data: { sort: item.sort, parentId: item.parentId },
+        data: { sort: item.sort, parentId: item.parentId, rev: { increment: 1 } },
       })
     )
   )

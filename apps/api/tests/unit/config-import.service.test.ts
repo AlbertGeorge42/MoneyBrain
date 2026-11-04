@@ -6,6 +6,7 @@ vi.mock('../../src/prisma.js', () => {
     $transaction: vi.fn((callback) => callback(mockPrisma)),
     account: {
       findFirst: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       update: vi.fn(),
@@ -13,6 +14,7 @@ vi.mock('../../src/prisma.js', () => {
     },
     accountCategory: {
       findFirst: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       update: vi.fn(),
@@ -20,6 +22,7 @@ vi.mock('../../src/prisma.js', () => {
     },
     transactionCategory: {
       findFirst: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       update: vi.fn(),
@@ -27,6 +30,7 @@ vi.mock('../../src/prisma.js', () => {
     },
     investmentAssetClass: {
       findFirst: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       update: vi.fn(),

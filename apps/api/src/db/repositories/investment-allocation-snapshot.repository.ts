@@ -1,5 +1,6 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import type { InvestmentAllocationSnapshot, Prisma } from '@prisma/client'
+import { createSyncVersion, updateSyncVersion } from '../sync-version.js'
 
 // 投资配置快照表数据访问的唯一入口（D1）。没有软删除字段。
 // 快照读取固定带明细（items + assetClass，按 sort 升序），常量收口防止 include 漂移；
@@ -50,18 +51,33 @@ export async function create<T extends Prisma.InvestmentAllocationSnapshotCreate
   args: Prisma.SelectSubset<T, Prisma.InvestmentAllocationSnapshotCreateArgs>,
   tx?: TransactionClient,
 ): Promise<Prisma.InvestmentAllocationSnapshotGetPayload<T>> {
-  return db(tx).investmentAllocationSnapshot.create(
-    args as Prisma.SelectSubset<T, Prisma.InvestmentAllocationSnapshotCreateArgs>,
-  )
+  const clientId = (args.data as { id?: unknown }).id
+  if (typeof clientId === 'string') {
+    const existing = await db(tx).investmentAllocationSnapshot.findUnique({
+      where: { id: clientId },
+    })
+    if (existing) return existing as Prisma.InvestmentAllocationSnapshotGetPayload<T>
+  }
+  const data = { ...(args.data as object), ...(await createSyncVersion()) }
+  return db(tx).investmentAllocationSnapshot.create({
+    ...args,
+    data,
+  } as Prisma.SelectSubset<T, Prisma.InvestmentAllocationSnapshotCreateArgs>)
 }
 
 export async function update<T extends Prisma.InvestmentAllocationSnapshotUpdateArgs>(
   args: Prisma.SelectSubset<T, Prisma.InvestmentAllocationSnapshotUpdateArgs>,
   tx?: TransactionClient,
 ): Promise<Prisma.InvestmentAllocationSnapshotGetPayload<T>> {
-  return db(tx).investmentAllocationSnapshot.update(
-    args as Prisma.SelectSubset<T, Prisma.InvestmentAllocationSnapshotUpdateArgs>,
-  )
+  const current = await db(tx).investmentAllocationSnapshot.findUnique({
+    where: args.where as Prisma.InvestmentAllocationSnapshotWhereUniqueInput,
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).investmentAllocationSnapshot.update({
+    ...args,
+    data: { ...(args.data as object), ...version },
+  } as Prisma.SelectSubset<T, Prisma.InvestmentAllocationSnapshotUpdateArgs>)
 }
 
 export async function deleteById(

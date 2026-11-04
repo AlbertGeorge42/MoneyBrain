@@ -73,6 +73,7 @@ async function resolveDefaultCategoryId(type: string): Promise<string> {
 }
 
 export async function createAccount(data: {
+  id?: string
   name: string
   type: string
   icon?: string | null
@@ -84,6 +85,7 @@ export async function createAccount(data: {
   const categoryId = data.categoryId ?? (await resolveDefaultCategoryId(data.type))
 
   return accountRepo.createWithCategory({
+    id: data.id,
     name: data.name,
     type: data.type,
     initialBalance: BigInt(data.initialBalance ?? 0),

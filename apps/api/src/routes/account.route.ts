@@ -10,6 +10,7 @@ import {
   hasValue,
   nextDay,
   parseMoney,
+  parseOptionalUuid,
 } from '../common/index.js'
 import {
   createAccount,
@@ -32,6 +33,7 @@ const validateCreateAccount = (req: Request) => {
   if (hasValue(initialBalance)) {
     parseMoney(initialBalance, '期初余额')
   }
+  parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
 }
 
 const validateUpdateAccount = (req: Request) => {
@@ -88,8 +90,9 @@ router.get('/:id/balance-at', validateRequest(validateIdParam), asyncHandler(asy
 }))
 
 router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req, res) => {
-  const { name, type, icon, color, categoryId, initialBalance, initialBalanceDate } = req.body
+  const { id, name, type, icon, color, categoryId, initialBalance, initialBalanceDate } = req.body
   const account = await createAccount({
+    id,
     name,
     type,
     icon,

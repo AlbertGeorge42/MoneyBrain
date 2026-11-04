@@ -15,6 +15,7 @@ import {
   dayEnd,
   formatDateLocal,
   parseMoney,
+  parseOptionalUuid,
 } from '../common/index.js'
 import {
   getTransactionList,
@@ -78,6 +79,7 @@ const validateMoneyFields = (body: Record<string, unknown>) => {
 
 const validateCreateTransaction = (req: Request) => {
   const { type, amount, date, accountId, categoryId, toAccountId, relatedTransactionId } = req.body as Record<string, unknown>
+  parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
   const transactionType = validateTransactionType(type)
 
   if (!hasValue(amount) || !hasValue(date) || !hasValue(accountId)) {
@@ -183,11 +185,12 @@ router.get('/:id/history', validateRequest(validateIdParam), asyncHandler(async 
 }))
 
 router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async (req, res) => {
-  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId, excludeFromIncomeExpense } = req.body
+  const { id, type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, toAccountId, relatedTransactionId, excludeFromIncomeExpense } = req.body
   const parsedDate = toDate(date, 'date')
 
   if (type === 'refund') {
     const result = await createRefund({
+      id,
       amount,
       fee,
       coupon,
@@ -202,6 +205,7 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
 
   if (type === 'transfer') {
     const result = await createTransfer({
+      id,
       amount,
       fee,
       coupon,
@@ -216,6 +220,7 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
   }
 
   const result = await createIncomeExpense({
+    id,
     type,
     amount,
     fee,

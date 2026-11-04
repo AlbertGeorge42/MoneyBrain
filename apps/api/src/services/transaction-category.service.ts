@@ -6,6 +6,7 @@ import * as transactionCategoryRepo from '../db/repositories/transaction-categor
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 
 type TransactionCategoryCreatePayload = {
+  id?: string
   name: string
   type: string
   icon?: string | null
@@ -71,6 +72,7 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
 
   return transactionCategoryRepo.create({
     data: {
+      id: data.id,
       name: data.name,
       type: data.type,
       icon: data.icon,

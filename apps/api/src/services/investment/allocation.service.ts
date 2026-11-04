@@ -43,6 +43,7 @@ async function relinkSnapshots(tx: TransactionClient, accountId: string): Promis
 
 // 创建/更新快照（含校验）
 export async function createSnapshot(data: {
+  id?: string
   accountId: string
   date: string
   items: Array<{
@@ -148,6 +149,7 @@ export async function createSnapshot(data: {
       : await snapshotRepo.create(
           {
             data: {
+              id: data.id,
               accountId: data.accountId,
               date: new Date(data.date + 'T00:00:00'),
               accountBalance: BigInt(accountBalance),

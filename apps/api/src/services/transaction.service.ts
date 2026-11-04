@@ -17,6 +17,7 @@ const logger = rootLogger.child({ module: 'transaction' })
 export type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 
 export interface CreateIncomeExpenseData {
+  id?: string // 客户端预生成的同步 ID
   type: 'income' | 'expense'
   amount: number
   fee?: number
@@ -29,6 +30,7 @@ export interface CreateIncomeExpenseData {
 }
 
 export interface CreateTransferData {
+  id?: string // 客户端预生成的同步 ID
   amount: number
   fee?: number
   coupon?: number
@@ -41,6 +43,7 @@ export interface CreateTransferData {
 }
 
 export interface CreateRefundData {
+  id?: string // 客户端预生成的同步 ID
   amount: number
   fee?: number
   coupon?: number
@@ -107,9 +110,10 @@ export interface TransactionListResult {
 // ===== 创建交易 =====
 
 export async function createIncomeExpense(data: CreateIncomeExpenseData): Promise<TransactionWithRelations> {
-  const { type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, excludeFromIncomeExpense } = data
+  const { id, type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, excludeFromIncomeExpense } = data
 
   const transaction = await transactionRepo.createWithRelations({
+    id,
     type,
     ruleVersion: CURRENT_RULE_VERSION,
     amount: BigInt(amount),
@@ -127,7 +131,7 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
 }
 
 export async function createTransfer(data: CreateTransferData): Promise<TransactionWithRelations> {
-  const { amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, categoryId, excludeFromIncomeExpense } = data
+  const { id, amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, categoryId, excludeFromIncomeExpense } = data
 
   const fromAccount = await accountRepo.findById(accountId)
   if (!fromAccount) throw new NotFoundError('转出账户')
@@ -136,6 +140,7 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
   if (!toAccount) throw new NotFoundError('转入账户')
 
   const transaction = await transactionRepo.createWithRelations({
+    id,
     type: 'transfer',
     ruleVersion: CURRENT_RULE_VERSION,
     amount: BigInt(amount),
@@ -168,13 +173,14 @@ async function assertRefundTarget(original: { type: string }, amount: number): P
 }
 
 export async function createRefund(data: CreateRefundData): Promise<TransactionWithRelations> {
-  const { amount, fee = 0, coupon = 0, date, note, accountId, relatedTransactionId } = data
+  const { id, amount, fee = 0, coupon = 0, date, note, accountId, relatedTransactionId } = data
 
   const relatedTransaction = await transactionRepo.findById(relatedTransactionId)
   if (!relatedTransaction) throw new NotFoundError('原交易记录')
   await assertRefundTarget(relatedTransaction, amount)
 
   const transaction = await transactionRepo.createWithRelations({
+    id,
     type: 'refund',
     ruleVersion: CURRENT_RULE_VERSION,
     amount: BigInt(amount),

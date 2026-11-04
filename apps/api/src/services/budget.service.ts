@@ -24,6 +24,7 @@ const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
 const BUDGET_PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const
 
 type BudgetPayload = {
+  id?: string
   name: string
   type: string
   amount: number
@@ -142,6 +143,7 @@ export async function createBudget(data: BudgetPayload) {
   await validateBudgetFields(data.type, data.period, data.categoryId, data.toAccountId)
 
   return budgetRepo.createWithRelations({
+    id: data.id,
     name: data.name,
     type: data.type,
     amount: BigInt(data.amount),

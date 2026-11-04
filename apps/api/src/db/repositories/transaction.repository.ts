@@ -1,5 +1,6 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import type { Prisma, Transaction } from '@prisma/client'
+import { createSyncVersion, updateSyncVersion } from '../sync-version.js'
 
 // 交易表数据访问的唯一入口（B2-2 与 D1 的 repository 部分一并落地）。
 //
@@ -158,7 +159,18 @@ export async function createWithRelations(
   data: Prisma.TransactionUncheckedCreateInput,
   tx?: TransactionClient,
 ): Promise<TransactionWithRelations> {
-  return db(tx).transaction.create({ data, include: TRANSACTION_RELATIONS })
+  // 客户端生成的 UUID 是同步身份：同一 id 重复写入视为幂等，不产生第二行。
+  if (typeof data.id === 'string') {
+    const existing = await db(tx).transaction.findUnique({
+      where: { id: data.id },
+      include: TRANSACTION_RELATIONS,
+    })
+    if (existing) return existing
+  }
+  return db(tx).transaction.create({
+    data: { ...data, ...(await createSyncVersion()) },
+    include: TRANSACTION_RELATIONS,
+  })
 }
 
 export async function updateWithRelations(
@@ -166,7 +178,16 @@ export async function updateWithRelations(
   data: Prisma.TransactionUncheckedUpdateInput,
   tx?: TransactionClient,
 ): Promise<TransactionWithRelations> {
-  return db(tx).transaction.update({ where: { id }, data, include: TRANSACTION_RELATIONS })
+  const current = await db(tx).transaction.findUnique({
+    where: { id },
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).transaction.update({
+    where: { id },
+    data: { ...data, ...version },
+    include: TRANSACTION_RELATIONS,
+  })
 }
 
 /** 裸行更新（审计反向写用），返回更新后的完整行。 */
@@ -175,12 +196,25 @@ export async function updateFields(
   data: Prisma.TransactionUncheckedUpdateInput,
   tx?: TransactionClient,
 ): Promise<Transaction> {
-  return db(tx).transaction.update({ where: { id }, data })
+  const current = await db(tx).transaction.findUnique({
+    where: { id },
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).transaction.update({ where: { id }, data: { ...data, ...version } })
 }
 
 /** 软删除：deletedAt 的写入入口之一（撤销/恢复走 updateFields 反向写）。 */
 export async function softDelete(id: string, tx?: TransactionClient): Promise<Transaction> {
-  return db(tx).transaction.update({ where: { id }, data: { deletedAt: new Date() } })
+  const current = await db(tx).transaction.findUnique({
+    where: { id },
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).transaction.update({
+    where: { id },
+    data: { deletedAt: new Date(), ...version },
+  })
 }
 
 // ===== 批量操作（清库 / 覆盖导入 / 级联删除 / CSV 导入） =====
@@ -201,7 +235,7 @@ export async function transferCategoryTo(
 ): Promise<Prisma.BatchPayload> {
   return db(tx).transaction.updateMany({
     where: { categoryId: fromCategoryId },
-    data: { categoryId: toCategoryId },
+    data: { categoryId: toCategoryId, rev: { increment: 1 } },
   })
 }
 
@@ -210,5 +244,8 @@ export async function createMany(
   data: Prisma.TransactionCreateManyInput[],
   tx?: TransactionClient,
 ): Promise<Prisma.BatchPayload> {
-  return db(tx).transaction.createMany({ data })
+  const version = await createSyncVersion()
+  return db(tx).transaction.createMany({
+    data: data.map((row) => ({ ...row, ...version })),
+  })
 }

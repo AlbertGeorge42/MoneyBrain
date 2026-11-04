@@ -14,8 +14,7 @@
 
 import { existsSync, mkdirSync, readdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { formatDateLocal, rootLogger, ValidationError } from '../common/index.js'
-import { resolveDbDirectory } from './rollback.service.js'
+import { formatDateLocal, resolveDbDirectory, rootLogger, ValidationError } from '../common/index.js'
 import { exportFullBackup } from './export/index.js'
 
 const logger = rootLogger.child({ module: 'auto-backup' })

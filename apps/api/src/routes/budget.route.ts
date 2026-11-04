@@ -8,6 +8,7 @@ import {
   hasValue,
   toDate,
   parseMoney,
+  parseOptionalUuid,
 } from '../common/index.js'
 import {
   createBudget,
@@ -77,7 +78,10 @@ router.get('/:id/usage-details', validateRequest(validateIdParam), asyncHandler(
   return success(res, details)
 }))
 
-router.post('/', validateRequest(validateBudgetPayload), asyncHandler(async (req, res) => {
+router.post('/', validateRequest((req) => {
+  validateBudgetPayload(req)
+  parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
+}), asyncHandler(async (req, res) => {
   const budget = await createBudget(req.body)
   return success(res, budget, 201)
 }))

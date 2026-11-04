@@ -1,5 +1,6 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import type { AccountCategory, Prisma } from '@prisma/client'
+import { createSyncVersion, updateSyncVersion } from '../sync-version.js'
 
 // 账户分类表数据访问的唯一入口（D1）。没有软删除字段，方法没有 *IncludingDeleted 变体。
 
@@ -31,18 +32,31 @@ export async function create<T extends Prisma.AccountCategoryCreateArgs>(
   args: Prisma.SelectSubset<T, Prisma.AccountCategoryCreateArgs>,
   tx?: TransactionClient,
 ): Promise<Prisma.AccountCategoryGetPayload<T>> {
-  return db(tx).accountCategory.create(
-    args as Prisma.SelectSubset<T, Prisma.AccountCategoryCreateArgs>,
-  )
+  const clientId = (args.data as { id?: unknown }).id
+  if (typeof clientId === 'string') {
+    const existing = await db(tx).accountCategory.findUnique({ where: { id: clientId } })
+    if (existing) return existing as Prisma.AccountCategoryGetPayload<T>
+  }
+  const data = { ...(args.data as object), ...(await createSyncVersion()) }
+  return db(tx).accountCategory.create({
+    ...args,
+    data,
+  } as Prisma.SelectSubset<T, Prisma.AccountCategoryCreateArgs>)
 }
 
 export async function update<T extends Prisma.AccountCategoryUpdateArgs>(
   args: Prisma.SelectSubset<T, Prisma.AccountCategoryUpdateArgs>,
   tx?: TransactionClient,
 ): Promise<Prisma.AccountCategoryGetPayload<T>> {
-  return db(tx).accountCategory.update(
-    args as Prisma.SelectSubset<T, Prisma.AccountCategoryUpdateArgs>,
-  )
+  const current = await db(tx).accountCategory.findUnique({
+    where: args.where as Prisma.AccountCategoryWhereUniqueInput,
+    select: { rev: true, vv: true },
+  })
+  const version = current && typeof current.rev === 'number' ? await updateSyncVersion(current) : {}
+  return db(tx).accountCategory.update({
+    ...args,
+    data: { ...(args.data as object), ...version },
+  } as Prisma.SelectSubset<T, Prisma.AccountCategoryUpdateArgs>)
 }
 
 export async function deleteById(id: string, tx?: TransactionClient): Promise<AccountCategory> {
@@ -70,7 +84,7 @@ export async function updateSorts(items: Array<{ id: string; sort: number }>): P
     items.map((item) =>
       prisma.accountCategory.update({
         where: { id: item.id },
-        data: { sort: item.sort },
+        data: { sort: item.sort, rev: { increment: 1 } },
       })
     )
   )

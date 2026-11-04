@@ -25,6 +25,7 @@ export { toMinor, hasValue, toStringArray, parsePositiveInteger, toDate, toOptio
 export {
   parseMoney,
   validateIdParam,
+  parseOptionalUuid,
   validateBatchSort,
   validateDateRange,
   validateDateQuery,
@@ -34,6 +35,9 @@ export {
 
 // Date utilities
 export { dayStart, dayEnd, nextDay, formatDateLocal, parseDateLocal } from './date.js'
+
+// 数据库文件位置
+export { resolveDbDirectory } from './db-path.js'
 
 // Logger
 export { rootLogger } from './logger/index.js'

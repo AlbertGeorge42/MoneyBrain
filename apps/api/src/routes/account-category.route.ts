@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express'
-import { asyncHandler, success, validateRequest, ValidationError, validateIdParam, validateBatchSort } from '../common/index.js'
+import { asyncHandler, success, validateRequest, ValidationError, validateIdParam, validateBatchSort, parseOptionalUuid } from '../common/index.js'
 import {
   getAccountCategories,
   createAccountCategory,
@@ -15,6 +15,7 @@ const validateCategoryPayload = (req: Request) => {
   if (!name || !type) {
     throw new ValidationError('名称和类型不能为空')
   }
+  parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
 }
 
 router.get('/', asyncHandler(async (req, res) => {
@@ -24,8 +25,9 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 router.post('/', validateRequest(validateCategoryPayload), asyncHandler(async (req, res) => {
-  const { name, type, icon, color, parentId, isCashEquivalent, isInvestment, sort } = req.body
+  const { id, name, type, icon, color, parentId, isCashEquivalent, isInvestment, sort } = req.body
   const category = await createAccountCategory({
+    id,
     name,
     type,
     icon,
