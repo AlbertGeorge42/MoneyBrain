@@ -48,3 +48,4 @@
 | 条目 | 领取日期 | 范围 |
 |---|---|---|
 | U1 | 2026-11-04 | 变量引用完整性：清除 6 处未定义 `--mb-*` 引用（picker.css ×3 / settings.css ×2 / report-layouts.css ×1），改用项目已定义 token 或补齐缺失的语义 token；不做 U1b（lint 守卫） |
+| D10 | 2026-11-04 | D1 基线外残留收口：clear-data / import（config-import / budget-import）/ smart-import / audit-event / rollback 的事务内直调收进 repository 或统一事务封装；验收以全量 grep 0 命中为准（明细见 stage-0 D10 条目） |
