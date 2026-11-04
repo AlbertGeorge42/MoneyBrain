@@ -1533,8 +1533,9 @@
   text-overflow: ellipsis;
 }
 
-/* 16px 档支出金额：必须带 − 号并与 expense（非 display）色同现 */
-.ov-cell-value[data-tone='expense'] {
+/* 16px 档支出金额：必须带 − 号并与 expense（非 display）色同现；移动端快捷卡同步覆盖 */
+.ov-cell-value[data-tone='expense'],
+.ov-quick-card .ov-cell-value[data-tone='expense'] {
   color: var(--mb-color-expense);
 }
 

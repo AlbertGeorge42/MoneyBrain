@@ -1,16 +1,11 @@
 import { useMemo } from 'react'
 import { ChartLine } from 'lucide-react'
 import { getChartTokens, type ColorScheme } from '../../styles/theme/tokens'
-import { formatAmount, formatUnsigned } from '../transactions/transaction-utils'
-import { buildTrendGeometry, formatCompactMoney, type TrendPoint } from './overview-utils'
+import { buildTrendGeometry, formatCompactMoney, formatNetAmount, type TrendPoint } from './overview-utils'
 
 type NetWorthTrendProps = {
   points: TrendPoint[]
   scheme: ColorScheme
-}
-
-function money(value: number): string {
-  return value < 0 ? formatAmount(value) : formatUnsigned(value)
 }
 
 /**
@@ -47,7 +42,7 @@ export function NetWorthTrend({ points, scheme }: NetWorthTrendProps) {
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           role="img"
-          aria-label={`近 ${points.length} 个月净资产走势：从 ${money(first.value)} 到 ${money(last.value)}`}
+          aria-label={`近 ${points.length} 个月净资产走势：从 ${formatNetAmount(first.value)} 到 ${formatNetAmount(last.value)}`}
         >
           {[8, 50, 92].map((y) => (
             <line

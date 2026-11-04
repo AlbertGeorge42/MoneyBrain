@@ -3,6 +3,8 @@
  * 只在 HF 预览的 mock 数据上工作；真实 API 接线留 R 批。
  */
 
+import { formatAmount, formatUnsigned } from '../transactions/transaction-utils'
+
 export type TrendPoint = {
   label: string
   value: number
@@ -37,6 +39,11 @@ export function deriveNetWorth(options: {
 }): number {
   if (options.freshLedger) return options.currentNet
   return options.base + (options.currentNet - options.baselineNet)
+}
+
+/** 净资产 / 走势金额：负数带 − 号，正数不带 +（概览里不作为增量展示）。 */
+export function formatNetAmount(value: number): string {
+  return value < 0 ? formatAmount(value) : formatUnsigned(value)
 }
 
 /** 储蓄率 = 本月结余 / 本月收入；没有收入时不显示（返回 null）。 */

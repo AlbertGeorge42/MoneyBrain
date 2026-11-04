@@ -18,7 +18,7 @@ import type { DataState, DeviceMode, Transaction } from '../transactions/types'
 import { NetWorthTrend } from './NetWorthTrend'
 import { OVERVIEW_MOCK, RECENT_LIMIT } from './overview-mock'
 import { OverviewLoadingState } from './OverviewStates'
-import { deriveNetWorth, savingsRate } from './overview-utils'
+import { deriveNetWorth, formatNetAmount, savingsRate } from './overview-utils'
 
 type OverviewScreenProps = {
   device: DeviceMode
@@ -36,10 +36,6 @@ type OverviewScreenProps = {
 const BASELINE_NET = summarize(TRANSACTIONS).net
 const NO_SELECTION: Set<string> = new Set()
 const noop = () => {}
-
-function money(value: number): string {
-  return value < 0 ? formatAmount(value) : formatUnsigned(value)
-}
 
 function TrendChip({
   direction,
@@ -204,7 +200,7 @@ export function OverviewScreen({
           <span className="mb-text-1">净资产</span>
           {!freshLedger && <TrendChip direction="up" tone="income" label={`较上月 +${OVERVIEW_MOCK.netWorthChange}%`} />}
         </div>
-        <div className="ov-hero-amount mb-num">{money(netWorth)}</div>
+        <div className="ov-hero-amount mb-num">{formatNetAmount(netWorth)}</div>
         <div className="ov-hero-sub mb-text-1">
           {freshLedger
             ? `本月结余 ${formatAmount(summary.net)} · 已记 ${summary.count} 笔`
@@ -222,7 +218,7 @@ export function OverviewScreen({
           <span className="mb-text-1">净资产</span>
           {!freshLedger && <TrendChip direction="up" tone="income" label={`较上月 +${OVERVIEW_MOCK.netWorthChange}%`} />}
         </div>
-        <div className="ov-hero-amount mb-num">{money(netWorth)}</div>
+        <div className="ov-hero-amount mb-num">{formatNetAmount(netWorth)}</div>
         <div className="ov-hero-sub mb-text-1">
           {freshLedger
             ? `本月结余 ${formatAmount(summary.net)} · 已记 ${summary.count} 笔`
