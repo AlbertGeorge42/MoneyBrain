@@ -1,0 +1,156 @@
+/**
+ * HF 主题的结构性 token 与全局基线。
+ * 颜色 / 阴影由 tokens.ts 注入；本文件只允许出现结构性字面量（px、时长、字重）。
+ */
+
+body[data-hf-scheme] {
+  --mb-font-ui: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mb-font-display: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mb-font-num: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  --mb-fs-0: 12px;
+  --mb-fs-1: 13px;
+  --mb-fs-2: 14px;
+  --mb-fs-3: 16px;
+  --mb-fs-4: 20px;
+  --mb-fs-5: 28px;
+  --mb-fs-6: 40px;
+
+  --mb-s-1: 4px;
+  --mb-s-2: 8px;
+  --mb-s-3: 12px;
+  --mb-s-4: 16px;
+  --mb-s-5: 24px;
+  --mb-s-6: 32px;
+  --mb-s-7: 48px;
+
+  --mb-row-py: 10px;
+  --mb-row-gap: 10px;
+  --mb-card-pad: 20px;
+  --mb-tbl-py: 8px;
+  /* 报表并排表的单行固定高度（design-tokens §5） */
+  --mb-tbl-row-h: calc(var(--mb-fs-1) + var(--mb-s-4));
+  /* 流水表：含 40px 分类图标，行高固定 56px，点击区 ≥44px（interaction-spec §4） */
+  --mb-tx-row-h: 56px;
+  --mb-tbl-w-main: 2.4;
+  --mb-tbl-w-mid: 1.6;
+  --mb-tbl-w-date: 1.4;
+  --mb-tbl-w-num: 1.1;
+  --mb-tbl-w-main-pct: 48%;
+  --mb-tbl-w-mid-pct: 30%;
+  --mb-tbl-w-num-pct: 22%;
+  --mb-day-row-h: 44px;
+  --mb-control-h: 38px;
+  --mb-section-gap: 16px;
+  --mb-page-pad-pc: 28px;
+  --mb-page-pad-m: 26px;
+
+  --mb-radius-xs: 6px;
+  --mb-radius-sm: 10px;
+  --mb-radius-md: 14px;
+  --mb-radius-lg: 20px;
+  --mb-radius-pill: 999px;
+
+  --mb-dur-1: 150ms;
+  --mb-dur-2: 280ms;
+  --mb-ease: cubic-bezier(.22,.8,.32,1);
+
+  --mb-touch: 44px;
+  --mb-sidebar-w: 236px;
+  --mb-content-max: 1120px;
+  --mb-nav-indicator-w: 3px;
+  --mb-nav-indicator-h: 20px;
+  --mb-fab: 56px;
+  --mb-bottom-nav-h: 60px;
+  --mb-mobile-header-h: 56px;
+  --mb-device-w: 390px;
+  --mb-device-h: 844px;
+  --mb-panel-w: 420px;
+  --mb-entry-w: 600px;
+  --mb-icon-box: 34px;
+  --mb-icon-size: 18px;
+  --mb-cat-box: 40px;
+  /* 分类图标局部变量的兜底值；.cat-N 会按分类覆盖 */
+  --mb-cat: var(--mb-color-text-secondary);
+  --mb-state-icon: 56px;
+  --mb-batch-bar-h: 64px;
+  --mb-keypad-key-h: 52px;
+  --mb-search-min: 240px;
+  --mb-scrollbar-w: 10px;
+  --mb-amount-lg: 40px;
+  --mb-amount-input-h: 64px;
+  --mb-entry-cat-h: 72px;
+  --mb-condition-x: 18px;
+  --mb-skeleton-amount-w: 80px;
+  --mb-state-copy-w: 420px;
+  --mb-cat-grid-col: 4;
+
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-2);
+  color: var(--mb-color-text-primary);
+  background: var(--mb-color-surface);
+}
+
+body[data-hf-scheme] * ,
+body[data-hf-scheme] *::before,
+body[data-hf-scheme] *::after {
+  box-sizing: border-box;
+}
+
+.mb-theme {
+  min-height: 100%;
+  background: var(--mb-color-surface);
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-2);
+}
+
+.mb-num {
+  font-family: var(--mb-font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-text-0 { font-size: var(--mb-fs-0); color: var(--mb-color-text-tertiary); }
+.mb-text-1 { font-size: var(--mb-fs-1); color: var(--mb-color-text-secondary); }
+.mb-text-2 { font-size: var(--mb-fs-2); color: var(--mb-color-text-primary); }
+.mb-title-3 { font-size: var(--mb-fs-3); font-weight: 600; color: var(--mb-color-text-primary); }
+.mb-title-4 { font-size: var(--mb-fs-4); font-weight: 600; color: var(--mb-color-text-primary); }
+.mb-title-5 { font-size: var(--mb-fs-5); font-weight: 600; color: var(--mb-color-text-primary); }
+
+.mb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+body[data-hf-scheme] :focus-visible {
+  outline: 2px solid var(--mb-color-focus);
+  outline-offset: 2px;
+  border-radius: var(--mb-radius-xs);
+}
+
+body[data-hf-scheme] ::selection {
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+}
+
+body[data-hf-scheme] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mb-color-border-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-hf-scheme] *,
+  body[data-hf-scheme] *::before,
+  body[data-hf-scheme] *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
