@@ -20,7 +20,7 @@
 | [principles.md](blueprint/principles.md) | 决策记录、明确不做、反模式清单、已评估方案 | 决定「什么不能改」时 |
 | [stage-0-foundation.md](blueprint/stage-0-foundation.md) | **M0–M1 地基**：口径、数据安全、结构；M0–M1 已收口，无剩余条目（D4 取消） | 现在 |
 | [stage-1-experience.md](blueprint/stage-1-experience.md) | **M2 体验与桌面化**：UX1–UX5a 已确认 → HF 高保真设计（A 设计即代码，已拍板） → R1–R3 按高保真重建前端（R2 拆 a/b/c；U4/U6/U7、E1–E4 并入 R2，E6 并入 R3；D4 与 U13.1–U13.5 取消）、i18n 基础设施、桌面壳 | M1 完成后 |
-| [stage-2-sync.md](blueprint/stage-2-sync.md) | **M3–M5 同步**：同步契约、加密容器、自动同步 | **M1 完成后 / 移动端之前**（M4 的 G1、G6、G7 也在本篇） |
+| [stage-2-sync.md](blueprint/stage-2-sync.md) | **M3–M5 同步**：同步契约、加密容器、自动同步 | **M1 完成后 / 移动端之前**（M4 的 G1、G6 也在本篇；G7 属 M5） |
 | [stage-3-mobile.md](blueprint/stage-3-mobile.md) | **M4–M6 移动端**：Android 记账闭环、通知自动记账 | 有第二台设备后 |
 | [stage-4-expansion.md](blueprint/stage-4-expansion.md) | **候选池（M7 及以后）**：推迟的 PC 功能、按触发条件开工的条目、spike | 主线做完之后 |
 | [architecture.md](blueprint/architecture.md) | 目标架构：记账内核、金额、分层、API、前端结构 | 动手实现前 |
@@ -114,10 +114,10 @@
 | **M1 · 结构收口** | P0 | D1（其余部分）–D3、D5–D7、D9（D4 取消，见决策 #42） | （无用户可见变化，是给后面铺路） | service 不碰 Prisma；并发写无冲突；列表与报表查询量只随期间增长（余额是 O(历史) 的明确例外，见 D7）；repository 成为移动端可替换的缝 | [stage-0](blueprint/stage-0-foundation.md) |
 | **M2 · 体验与桌面化** | P0 | U0–U1b（已完成）、U2–U3（降为原则）、UX1–UX5a（已确认）、HF 高保真设计（UX5b；A 设计即代码，已拍板）、R1–R3 按高保真重建（R2 拆 a/b/c；U4/U6/U7 与 E1–E4 并入 R2，E6 并入 R3；D4 取消、U13.1–U13.5 取消）、U12、L1–L3、K8 | 界面按高保真设计重建、键盘可走通主流程、装得上双击即用、文案可查表 | 「PC 端可用」清单全部达成（见 [stage-1](blueprint/stage-1-experience.md)） | [stage-1](blueprint/stage-1-experience.md) |
 | **M3 · 同步地基** | P1（PC） | F1–F11 | 账本能导出成一个加密文件 | 加密容器可导出可导入；版本向量合并任意顺序结果一致；备份与同步共用一套加密；容器格式可独立解密 | [stage-2](blueprint/stage-2-sync.md) |
-| **M4 · 跨设备可用** | P1 | H1–H7 + G1、G6、G7、E5（H8 非目标） | 手机能装；账能用文件在设备间搬 | 手机与桌面导出的容器互相可读；新设备 10 分钟恢复出同样余额 | [stage-3](blueprint/stage-3-mobile.md) |
-| **M5 · 自动同步** | P1 | G2–G5、G8 | 两端自动收敛，不用手动搬 | 网盘 / NAS / GitHub 任一介质都能同步；冲突可见且不重复计钱；恢复码可更换 | [stage-2](blueprint/stage-2-sync.md) |
+| **M4 · 跨设备可用** | P1 | H1–H7 + G1、G6、E5（G7 属 M5；H8 非目标） | 手机能装；账能用文件在设备间搬 | 手机与桌面导出的容器互相可读；新设备 10 分钟恢复出同样余额 | [stage-3](blueprint/stage-3-mobile.md) |
+| **M5 · 自动同步** | P1 | G2–G5、G7、G8 | 两端自动收敛，不用手动搬 | 网盘 / NAS / GitHub 任一介质都能同步；冲突可见且不重复计钱；恢复码可更换 | [stage-2](blueprint/stage-2-sync.md) |
 | **M6 · 通知自动记账** | P2 | I1–I6 | 手机自动识别消费通知 | 真机候选可解析、可确认、可去重；失败可见；原文不出设备 | [stage-3](blueprint/stage-3-mobile.md) |
-| **M7 · 候选池（及以后）** | P3 | K1–K7、J1–J4、P1–P10、V1–V5 | 推迟的 PC 功能；按触发条件开工的条目；spike | 每条独立验收；spike 有通过标准 | [stage-4](blueprint/stage-4-expansion.md) |
+| **M7 · 候选池（及以后）** | P3 | K1–K7、J1–J4、P1–P10（V1–V5 已排期，见阶段 4） | 推迟的 PC 功能；按触发条件开工的条目；spike | 每条独立验收；spike 有通过标准 | [stage-4](blueprint/stage-4-expansion.md) |
 
 **关键依赖**（错了两端都要返工）：
 
