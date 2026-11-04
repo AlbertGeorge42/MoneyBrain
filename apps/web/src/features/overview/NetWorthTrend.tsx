@@ -6,13 +6,14 @@ import { buildTrendGeometry, formatCompactMoney, formatNetAmount, type TrendPoin
 type NetWorthTrendProps = {
   points: TrendPoint[]
   scheme: ColorScheme
+  emptyHint?: string
 }
 
 /**
  * 净资产走势：纯 SVG + ChartTokens，不引 ECharts。
  * 坐标轴文字用 HTML 排布，避免 preserveAspectRatio 拉伸字形。
  */
-export function NetWorthTrend({ points, scheme }: NetWorthTrendProps) {
+export function NetWorthTrend({ points, scheme, emptyHint = '还没有足够的记录点，走势会随记录出现' }: NetWorthTrendProps) {
   const tokens = getChartTokens(scheme)
   const geometry = useMemo(() => buildTrendGeometry(points), [points])
 
@@ -20,7 +21,7 @@ export function NetWorthTrend({ points, scheme }: NetWorthTrendProps) {
     return (
       <div className="ov-chart-empty">
         <ChartLine aria-hidden />
-        <span className="mb-text-1">至少两天的记录后，走势会出现在这里</span>
+        <span className="mb-text-1">{emptyHint}</span>
       </div>
     )
   }

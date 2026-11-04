@@ -4,11 +4,13 @@
 import { describe, it, expect } from 'vitest'
 import { OVERVIEW_MOCK, RECENT_LIMIT } from '../../src/features/overview/overview-mock'
 import {
+  buildRecordTrend,
   buildTrendGeometry,
   deriveNetWorth,
   formatCompactMoney,
   savingsRate,
 } from '../../src/features/overview/overview-utils'
+import type { Transaction } from '../../src/features/transactions/types'
 
 describe('deriveNetWorth', () => {
   it('正常账本只在快照基础上叠加本次新增记录的净额', () => {
@@ -43,6 +45,43 @@ describe('formatCompactMoney', () => {
   it('不足一万元取整并保留负号', () => {
     expect(formatCompactMoney(-980)).toBe('−¥980')
     expect(formatCompactMoney(0)).toBe('¥0')
+  })
+})
+
+describe('buildRecordTrend', () => {
+  const tx = (id: string, date: string, amount: number, type: Transaction['type'] = 'expense'): Transaction => ({
+    id,
+    type,
+    amount,
+    categoryId: 'food',
+    subcategory: '外食',
+    accountId: 'wechat',
+    date,
+    note: '',
+  })
+
+  it('按记录日累计净额，一天一个点', () => {
+    const points = buildRecordTrend([
+      tx('a', '2026-11-02', -50),
+      tx('b', '2026-11-01', 2000, 'income'),
+      tx('c', '2026-11-02', 30, 'refund'),
+    ])
+    expect(points).toEqual([
+      { label: '11月1日', value: 2000 },
+      { label: '11月2日', value: 1980 },
+    ])
+  })
+
+  it('转账不进入收支净额', () => {
+    const points = buildRecordTrend([
+      tx('a', '2026-11-01', 200, 'transfer'),
+      tx('b', '2026-11-01', -20),
+    ])
+    expect(points).toEqual([{ label: '11月1日', value: -20 }])
+  })
+
+  it('同一天多笔只产生一个点，单日记录不足两天时只有一个点', () => {
+    expect(buildRecordTrend([tx('a', '2026-11-01', -10)])).toHaveLength(1)
   })
 })
 

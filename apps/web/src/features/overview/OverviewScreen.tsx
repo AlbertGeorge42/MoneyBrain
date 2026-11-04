@@ -18,7 +18,7 @@ import type { DataState, DeviceMode, Transaction } from '../transactions/types'
 import { NetWorthTrend } from './NetWorthTrend'
 import { OVERVIEW_MOCK, RECENT_LIMIT } from './overview-mock'
 import { OverviewLoadingState } from './OverviewStates'
-import { deriveNetWorth, formatNetAmount, savingsRate } from './overview-utils'
+import { buildRecordTrend, deriveNetWorth, formatNetAmount, savingsRate } from './overview-utils'
 
 type OverviewScreenProps = {
   device: DeviceMode
@@ -81,8 +81,14 @@ export function OverviewScreen({
   const recentItems = items.slice(0, limit)
   const isFirstEntry = freshLedger && summary.count === 1
 
+  // 冷启动账本没有历史快照：走势点只来自已记记录，按记录日累计。
+  const recordTrend = useMemo(
+    () => (freshLedger ? buildRecordTrend(items) : []),
+    [freshLedger, items],
+  )
+  const trendReady = recordTrend.length >= 2
   const trendPoints = freshLedger
-    ? [{ label: '现在', value: netWorth }]
+    ? recordTrend
     : OVERVIEW_MOCK.trend.map((point, index) => ({
         ...point,
         value: index === OVERVIEW_MOCK.trend.length - 1 ? netWorth : point.value,
@@ -129,14 +135,18 @@ export function OverviewScreen({
           <h2 className="mb-title-4">净资产走势</h2>
           <p className="mb-text-0">
             {freshLedger
-              ? summary.count === 1
-                ? '刚起步 · 数据来自你的记录'
-                : `已记 ${summary.count} 笔 · 至少两天的记录后显示走势`
+              ? trendReady
+                ? `按记录日累计 · ${recordTrend.length} 天`
+                : '再记一天，走势就会出现'
               : '近 12 个月'}
           </p>
         </div>
       </div>
-      <NetWorthTrend points={trendPoints} scheme={scheme} />
+      <NetWorthTrend
+        points={trendPoints}
+        scheme={scheme}
+        emptyHint={freshLedger ? '再记一天，走势就会出现' : undefined}
+      />
     </section>
   )
 

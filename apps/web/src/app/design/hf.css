@@ -1580,12 +1580,12 @@
   gap: var(--mb-s-3);
 }
 
-.ov-section-head h2,
-.ov-section-head p {
+.ov-section-head h2 {
   margin: 0;
 }
 
 .ov-section-head p {
+  margin: 0;
   margin-top: var(--mb-s-1);
 }
 

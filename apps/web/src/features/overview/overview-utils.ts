@@ -3,7 +3,8 @@
  * 只在 HF 预览的 mock 数据上工作；真实 API 接线留 R 批。
  */
 
-import { formatAmount, formatUnsigned } from '../transactions/transaction-utils'
+import type { Transaction } from '../transactions/types'
+import { formatAmount, formatShortDate, formatUnsigned } from '../transactions/transaction-utils'
 
 export type TrendPoint = {
   label: string
@@ -39,6 +40,26 @@ export function deriveNetWorth(options: {
 }): number {
   if (options.freshLedger) return options.currentNet
   return options.base + (options.currentNet - options.baselineNet)
+}
+
+/**
+ * 冷启动账本的走势只能来自已记记录：按记录日累计净额，一天一个点。
+ * 转账不计入收支净额，与 summarize 的口径一致。
+ */
+export function buildRecordTrend(items: Transaction[]): TrendPoint[] {
+  const byDay = new Map<string, number>()
+  for (const tx of items) {
+    if (tx.type === 'transfer') continue
+    byDay.set(tx.date, (byDay.get(tx.date) ?? 0) + tx.amount)
+  }
+
+  let running = 0
+  return [...byDay.entries()]
+    .sort(([left], [right]) => (left < right ? -1 : 1))
+    .map(([date, dailyNet]) => {
+      running += dailyNet
+      return { label: formatShortDate(date), value: running }
+    })
 }
 
 /** 净资产 / 走势金额：负数带 − 号，正数不带 +（概览里不作为增量展示）。 */
