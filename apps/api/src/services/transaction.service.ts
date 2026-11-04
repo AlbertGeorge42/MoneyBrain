@@ -378,8 +378,8 @@ export async function getTransactionList(params: TransactionListParams): Promise
   const total = await transactionRepo.countActive(where)
   const transactions = await transactionRepo.findActive(where, {
     include: transactionRepo.TRANSACTION_RELATIONS,
-    // 同日多笔按创建时间倒序，保证分页排序稳定
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    // date 已精确到毫秒；同毫秒记录顺序不保证，按 date 倒序即可
+    orderBy: [{ date: 'desc' }],
     skip: (page - 1) * pageSize,
     take: pageSize,
   })
