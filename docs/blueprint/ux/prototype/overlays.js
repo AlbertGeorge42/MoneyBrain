@@ -20,12 +20,12 @@ const OV = {
      形态对齐 apps/web ConfigModal：Tab + 树形列表（一行一个实体，列固定）+ 增删/排序/移动 */
   acctcfg: {kind:'panel', title:'账户分类管理', render:()=>acctCfgOverlay()},
   catcfg:  {kind:'panel', title:'收支分类设置', render:()=>catCfgOverlay()},
-  /* 第十二轮：标题对齐真实实现（CashFlowConfigModal = 现金流量表设置） */
-  cfcfg:   {kind:'panel', title:'现金流量表设置', render:()=>cfCfgOverlay()},
+  /* 第十二轮：标题对齐真实实现（CashFlowConfigModal = 现金流量设置） */
+  cfcfg:   {kind:'panel', title:'现金流量设置', render:()=>cfCfgOverlay()},
   movecf:  {kind:'modal', title:'移动到…', render:moveCfOverlay},
   moveacc: {kind:'modal', title:'移动到…', render:moveAccOverlay},
   /* 第十轮：setsec 标题 = 分区名本身（与四个配置弹窗标题平级）；
-     渲染按当前设备 —— 移动端全屏页（设置页入口）/ 抽屉（报表 ⚙、流水「显示」）与 PC 面板同一渲染器 */
+     渲染按当前设备 —— 移动端全屏页（设置页入口）/ 抽屉（报表「设置」、流水「显示」）与 PC 面板同一渲染器 */
   setsec:  {kind:'panel', title:arg=>`${arg&&arg.sec?arg.sec:'列表显示'}`, render:arg=>settingsContent(arg.sec||'列表显示',S.device)},
   /* 第七轮：抽屉标题与 PC 面板同文 —— 时点「选择时点」/ 期间「选择期间」（两端同名） */
   period:  {kind:'panel', title:()=>isPointReport()?'选择时点':'选择期间', render:periodOverlay},
@@ -45,7 +45,7 @@ S.overlay=null; S.ovArg=null; S.ovStack=[];
    ‹ 返回 = 回到上一级弹窗（当前弹窗由另一弹窗打开时压栈）；✕ 关闭 = 关闭整条弹窗链。
    没有上一级（栈空）时隐藏返回按钮。同一浮层内部换模式（列表↔编辑）用 swapOverlay 不压栈。
    评审轮（载体分置拍板）：arg.page = 移动端全屏二级页变体 —— 设置页「配置中心」
-   4 入口用它（占满机身、页头 ‹ 返回）；报表 ⚙ 设置仍走普通底部抽屉（边改边看）。
+   4 入口用它（占满机身、页头 ‹ 返回）；报表「设置」仍走普通底部抽屉（边改边看）。
    swapOverlay 继承 page 标记：同一弹窗内部换模式不换载体。 */
 function openOverlay(id,arg){
   if(S.overlay) S.ovStack.push({id:S.overlay,arg:S.ovArg});
@@ -127,8 +127,11 @@ function renderOverlay(){
 
 /* ================= W4 · 交易详情 / 编辑 ================= */
 function openTx(id,mode){
-  S.ovArg={id,mode};
-  openOverlay('tx',S.ovArg);
+  const arg={id,mode};
+  /* 第十九轮：详情 ↔ 编辑是同一浮层的模式切换，不压栈。
+     原实现用 openOverlay，编辑态会凭空出现「‹ 返回」，点它只是弹回详情（按钮随之消失）。 */
+  if(mode==='edit'&&S.overlay==='tx'){ swapOverlay('tx',arg); return; }
+  openOverlay('tx',arg);
 }
 function txOverlay(arg){
   const tx=TXNS.find(t=>t.id===arg.id);
@@ -542,7 +545,7 @@ function catCfgOverlay(){
    删除保护 = 账户删除走确认弹窗（有交易时列明 N 条并将级联删除）；
    排序 = dnd 拖拽（分类同级拖 / 账户同分类内拖，跨类拒绝）；Tab 栏右侧「＋」新增分类。
    原型不造的：级联强删（线框保留「有引用禁删」保护，与真实 force 删除不同的取舍见 §8.19）。
-   第十一轮职责划分不变：现金等价 / 投资标记在现金流量表设置管。 */
+   第十一轮职责划分不变：现金等价 / 投资标记在现金流量设置管。 */
 function acctCfgOverlay(){
   const type=S.accTab||'asset';
   const typeTabs=`<div class="seg-row" style="margin-bottom:8px">${[['asset','资产分类'],['liability','负债分类']]
@@ -623,9 +626,9 @@ function applyMoveAcc(id){
   backOverlay(); render();
   toast(`已移动到「${accCatName(target)}」`,'撤销',()=>{ acc.cat=old; render(); });
 }
-/* ================= 现金流量表设置（第十二轮：对齐真实 CashFlowConfigModal.tsx） =================
+/* ================= 现金流量设置（第十二轮：对齐真实 CashFlowConfigModal.tsx） =================
    真实实现的结构（以此为据，替代第十一轮的「活动分组混排」形态）：
-   · 标题「现金流量表设置」+ 4 个 Tab：资产分类 / 收入分类 / 支出分类 / 转账分类；
+   · 标题「现金流量设置」+ 4 个 Tab：资产分类 / 收入分类 / 支出分类 / 转账分类；
    · 资产分类 Tab：**资产类**账户分类按标记分三组 —— 现金及等价物（isCashEquivalent）/
      投资资产（isInvestment）/ 其他资产（两者皆否；负债分类不进此表）；
      行操作只有「移动到…」—— 移动即改标记组合（现金=只开 isCash、投资=只开 isInv、其他=双关），
@@ -674,7 +677,7 @@ function cfCfgOverlay(){
       return grp(`cfasset:${g}`,gl,list.length,body);
     }).join('');
     return `${tabs}${parts||`<div class="state-wrap"><h2>暂无资产分类</h2><p>账户分类在「账户分类」里维护。</p></div>`}
-    <div class="tbl-note">现金及等价物 / 投资资产 / 其他资产由「现金等价 / 投资账户」标记决定——移动即改标记；负债分类不进现金流量表。标记只在此处改。</div>`;
+    <div class="tbl-note">现金及等价物 / 投资资产 / 其他资产由「现金等价 / 投资账户」标记决定——移动即改标记；负债分类不进现金流量。标记只在此处改。</div>`;
   }
   /* 收入 / 支出 / 转账：一级交易分类按现金流活动分组 */
   const parts=CF_ACTIVITY_GROUPS.map(([g,gl])=>{
@@ -777,7 +780,7 @@ function catEditOverlay(arg){
   const editing=arg.id?arr.find(c=>c[0]===arg.id):null;
   const d=S.catDraft||{};
   /* 现金流属性编辑入口唯一化：本浮层只管名称 / 层级 / 删除转移，
-     属性在「现金流量表设置」（现金流量表右端 ⚙「设置」）里改。 */
+     属性在「现金流量设置」（现金流量右端 ⚙「设置」）里改。 */
   /* 新增表单（arg.parent = 从一级行 ⋯「新增子分类」进入时预选上级） */
   if(!editing){
     const parents=arr.filter(c=>!c[2]);
@@ -787,7 +790,7 @@ function catEditOverlay(arg){
       <div class="field"><label>上级分类</label><select onchange="S.catDraft={...S.catDraft,parent:this.value};renderOverlay()">
         <option value="">（作为一级分类）</option>
         ${parents.map(p=>`<option value="${p[0]}" ${parent===p[0]?'selected':''}>${p[1]}</option>`).join('')}</select></div>
-      <div class="hint">新分类的现金流归属默认继承上级（一级默认「未分配」）；单独标注请到 现金流量表设置。</div>
+      <div class="hint">新分类的现金流归属默认继承上级（一级默认「未分配」）；单独标注请到 现金流量设置。</div>
       <div class="entry-actions" style="padding-left:0;padding-right:0;margin-top:12px">
         <button class="btn ghost" onclick="backOverlay()">取消</button>
         <button class="btn primary" onclick="saveCatEdit('${type}',null)">新增</button>
@@ -810,7 +813,7 @@ function catEditOverlay(arg){
     <div class="field"><label>上级分类</label><select onchange="S.catDraft={...S.catDraft,parent:this.value};renderOverlay()">
       <option value="">（作为一级分类）</option>
       ${parents.map(p=>`<option value="${p[0]}" ${parent===p[0]?'selected':''}>${p[1]}</option>`).join('')}</select></div>
-    <div class="hint">现金流归属 ${cfOf(editing[0])}（在 现金流量表设置 修改）</div>
+    <div class="hint">现金流归属 ${cfOf(editing[0])}（在 现金流量设置 修改）</div>
     <div class="d-sec" style="margin-top:12px">删除</div>
     ${delHtml}
     <div class="entry-actions" style="padding-left:0;padding-right:0;margin-top:12px">

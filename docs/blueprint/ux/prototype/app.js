@@ -10,7 +10,7 @@
 /* 账户分类树（对齐真实实现 AccountCategory）：
    账户挂在分类下；分类决定报表口径 —— 资产/负债、现金等价、是否投资账户。
    「现金等价」与「投资账户」是分类上的标记，不再是账户自己的 kind 字符串；
-   现金流量表设置（cfcfg）按这两个标记给资产分类分组，移动即改标记（第十二轮）。 */
+   现金流量设置（cfcfg）按这两个标记给资产分类分组，移动即改标记（第十二轮）。 */
 const ACC_CATS = [
   {id:'cash_eq', name:'现金等价', type:'asset',  cashEq:true,  inv:false},
   {id:'deposit', name:'存款',     type:'asset',  cashEq:false, inv:false},
@@ -170,7 +170,7 @@ const S = {
   txColOrder:['fee','coupon','typeTag'],    /* 可选列顺序（第七轮：勾选显隐；评审轮 T5：排序以 ⠿ 拖拽占位表达） */
   catTab:'income',                          /* 收支分类设置 Tab（第十三轮：对齐真实 TransactionConfigModal 默认收入） */
   accTab:'asset',                           /* 第十三轮：账户分类管理 Tab（资产 / 负债，对齐真实 AccountConfigModal） */
-  cfTab:'asset',                            /* 第十二轮：现金流量表设置 Tab（资产/收入/支出/转账，对齐真实实现） */
+  cfTab:'asset',                            /* 第十二轮：现金流量设置 Tab（资产/收入/支出/转账，对齐真实实现） */
   setTab:'acctcfg',                         /* 第十二轮：PC 设置页左导航当前分区（与移动端列表一一对应） */
   accConfirm:null,                          /* 账户行内删除的两步确认（第七轮：第一次点变「确认删除」，3s 未确认自动复位） */
   cfgMenu:null,                             /* 评审轮 T5：配置行行尾「⋯」菜单的展开键（一个菜单一次只开一个） */
@@ -701,14 +701,14 @@ function viewTxns(device){
   if(device==='m'){
     return withState(`
     <div class="m-head"><h1>流水</h1><div class="m-head-acts">
-      <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度">显示</button>
+      <button class="btn btn-sm m-hit44" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度">显示</button>
     </div></div>
     <div class="m-search">${I.search}<input placeholder="搜索备注、账户、分类…" value="${S.search}" oninput="onSearch(this.value)"></div>
-    <!-- 第十八轮：筛选操作区 —— 类型分段 + 高级筛选 + 批量同排，与 PC 工具栏同一组操作 -->
+    <!-- 第十九轮：筛选操作区 —— 与 PC 同一组按钮、同一套标签；类型 6 项一行，入口按钮第二行，不横滚 -->
     <div class="seg-row m-filter-ops">
-      ${TYPE_TABS.slice(0,4).map(([l,v])=>`<button class="${S.typeFilter===v?'on':''}" onclick="setTypeFilter(${v?`'${v}'`:'undefined'})">${l}</button>`).join('')}
-      <button onclick="openFilter()">高级筛选${activeFilterCount()?` ${activeFilterCount()}`:''}</button>
-      <button class="${S.batch?'on':''}" onclick="toggleBatch()">${S.batch?'退出批量':'批量'}</button>
+      ${TYPE_TABS.map(([l,v])=>`<button class="${S.typeFilter===v?'on':''}" aria-pressed="${S.typeFilter===v}" onclick="setTypeFilter(${v?`'${v}'`:'undefined'})">${l}</button>`).join('')}
+      <button aria-pressed="${S.filterOpen}" onclick="openFilter()">高级筛选${activeFilterCount()?` <span class="filter-count">${activeFilterCount()}</span>`:''}</button>
+      <button class="${S.batch?'on':''}" aria-pressed="${S.batch}" onclick="toggleBatch()">${S.batch?'退出批量':'批量'}</button>
     </div>
     <div id="activeFilterBarM">${activeFilterBar()}</div>
     <div id="txListM">${txList('m')}</div>`);
@@ -718,11 +718,11 @@ function viewTxns(device){
   <div class="tx-toolbar">
     <div class="search">${I.search}<input placeholder="搜索备注、账户、分类…" value="${S.search}" oninput="onSearch(this.value)"></div>
     <div class="seg-row">
-      ${TYPE_TABS.map(([l,v])=>`<button class="${S.typeFilter===v?'on':''}" onclick="setTypeFilter(${v?`'${v}'`:'undefined'})">${l}</button>`).join('')}
+      ${TYPE_TABS.map(([l,v])=>`<button class="${S.typeFilter===v?'on':''}" aria-pressed="${S.typeFilter===v}" onclick="setTypeFilter(${v?`'${v}'`:'undefined'})">${l}</button>`).join('')}
     </div>
-    <button class="btn btn-sm" onclick="toggleFilter()">⌄ 高级筛选${activeFilterCount()?` <span class="filter-count">${activeFilterCount()}</span>`:''}</button>
-    <button class="btn btn-sm ${S.batch?'on':''}" onclick="toggleBatch()">${S.batch?'退出批量':'☑ 批量'}</button>
-    <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度">⚙ 显示</button>
+    <button class="btn btn-sm" aria-pressed="${S.filterOpen}" onclick="toggleFilter()">高级筛选${activeFilterCount()?` <span class="filter-count">${activeFilterCount()}</span>`:''}</button>
+    <button class="btn btn-sm ${S.batch?'on':''}" aria-pressed="${S.batch}" onclick="toggleBatch()">${S.batch?'退出批量':'批量'}</button>
+    <button class="btn btn-sm" onclick="openOverlay('setsec',{sec:'列表显示'})" title="列显示与密度">显示</button>
   </div>
   ${S.filterOpen?filterPanelPc():''}
   <div id="activeFilterBarPc">${activeFilterBar()}</div>
@@ -777,10 +777,10 @@ function filterPanelM(){
 }
 
 /* ================= 视图 · 报表 ================= */
-/* 报表名称统一（第十七轮）：四张表用正式全称，不再用「资产负债 / 收支 / 现金流 / 投资」简写。
-   全应用（tab / 卡片标题 / 图表标题 / 文档引用）以此为准。 */
-const REP_TABS=[['balance','资产负债表'],['flow','收支明细表'],['cash','现金流量表'],['invest','投资分析表']];
-/* O5：报表视图可自定义（隐藏不用的 tab）。默认全开；至少保留一个视图。 */
+/* 报表名称统一（第十七轮全称 → 第十九轮去「表」）：四张报表用「资产负债 / 收支明细 / 现金流量 / 投资分析」。
+   全应用（切换按钮 / 卡片标题 / 图表标题 / 设置页显隐列表 / 文档引用）以此为准。 */
+const REP_TABS=[['balance','资产负债'],['flow','收支明细'],['cash','现金流量'],['invest','投资分析']];
+/* O5：报表视图可自定义（隐藏不用的报表）。默认全开；至少保留一个视图。 */
 const repViews=()=>S.repViews&&S.repViews.length?S.repViews:REP_TABS.map(r=>r[0]);
 /* Q7 已拍板：报表不保留「一句话结论」。PC 指标条与移动端结论块都不再渲染，
    结论改由「指标 + 表格 + 表尾合计」自己读出来。 */
@@ -923,14 +923,14 @@ const REP_CFG={balance:'acctcfg',flow:'catcfg',cash:'cfcfg',invest:'invtarget'};
 function viewReports(device){
   const tab=S.repTab;
   const views=repViews();
-  /* 第十七轮：PC 报表「设置」移出 tab 栏，放到时间条右端（同一行右对齐的 ⚙ 图标按钮）；
-     移动端沿用页头「设置」。两端都只有这一个入口，打开的是同一批配置弹窗（REP_CFG 同一映射）。 */
-  const setBtn=`<button class="tb-set" onclick="openOverlay('${REP_CFG[tab]}')" aria-label="报表设置" title="报表设置">⚙</button>`;
-  const tabsHtml=`<div class="tabs">${REP_TABS.filter(([k])=>views.includes(k)).map(([k,l])=>`<button class="tab ${tab===k?'on':''}" onclick="setRepTab('${k}')">${l}</button>`).join('')}</div>`;
+  /* 第十九轮：入口控件统一 —— 两端「设置」都是文字按钮（不再一端纯图标、一端文字）；
+     PC 仍在时间条右端、移动仍在页头，只差位置。报表切换也与移动同用 .seg-row 按钮，不再用 tab 形态。 */
+  const setBtn=`<button class="btn btn-sm tb-set" onclick="openOverlay('${REP_CFG[tab]}')" aria-label="报表设置">设置</button>`;
+  const tabsHtml=`<div class="seg-row rep-tabs">${REP_TABS.filter(([k])=>views.includes(k)).map(([k,l])=>`<button class="${tab===k?'on':''}" aria-pressed="${tab===k}" onclick="setRepTab('${k}')">${l}</button>`).join('')}</div>`;
   if(device==='m'){
-    const tabsM=`<div class="seg-row" style="margin-bottom:8px">${REP_TABS.filter(([k])=>views.includes(k)).map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="setRepTab('${k}')">${l}</button>`).join('')}</div>`;
+    const tabsM=`<div class="seg-row rep-tabs" style="margin-bottom:8px">${REP_TABS.filter(([k])=>views.includes(k)).map(([k,l])=>`<button class="${tab===k?'on':''}" aria-pressed="${tab===k}" onclick="setRepTab('${k}')">${l}</button>`).join('')}</div>`;
     return withState(`
-    <div class="m-head"><h1>报表</h1><div class="m-head-acts"><button class="btn btn-sm" onclick="openOverlay('${REP_CFG[tab]}')">设置</button></div></div>
+    <div class="m-head"><h1>报表</h1><div class="m-head-acts"><button class="btn btn-sm m-hit44" onclick="openOverlay('${REP_CFG[tab]}')">设置</button></div></div>
     ${tabsM}
     ${timeBar(device)}
     ${reportM(tab)}`);
@@ -941,7 +941,7 @@ function viewReports(device){
   ${timeBar(device,setBtn)}
   ${reportPc(tab)}`);
 }
-/* O5：报表视图自定义（隐藏用不到的 tab）。至少保留一个视图。
+/* O5：报表视图自定义（隐藏用不到的报表）。至少保留一个视图。
    配置入口在 设置›列表显示（setsec 原地面板同渲染器，多入口一数据源）。 */
 function toggleRepView(k,on){
   const cur=[...repViews()];
@@ -1326,7 +1326,7 @@ function viewBudgets(device){
 
 /* ================= 视图 · 设置 ================= */
 /* 载体（第十二轮定稿）：PC = 左导航 + 右内容（一次一个分区）；
-   移动 = 列表 → 全屏二级页。行内编辑 / 选值走浮层；报表 ⚙ 原地面板属「在报表里调」。 */
+   移动 = 列表 → 全屏二级页。行内编辑 / 选值走浮层；报表「设置」原地面板属「在报表里调」。 */
 /* 设置分区清单（第十二轮）：PC 左导航与移动端列表一一对应 ——
    同一组分区、同一顺序、同一命名（配置中心 4 项 + 通用 3 项）。 */
 const CFG_ENTRIES=[
@@ -1376,7 +1376,7 @@ function viewSettings(device){
     <div class="set-main">${main}</div>
   </div>`);
 }
-const settingsHint = t => t==='列表显示'?'列显示 · 密度 · 报表视图'
+const settingsHint = t => t==='列表显示'?'列显示 · 密度 · 报表显示'
   :t==='数据与备份'?'导入 / 导出 / 回滚 / 危险区'
   :`${S.recycle.length} 条可恢复`;
 function settingsContent(tab,device){
@@ -1384,7 +1384,7 @@ function settingsContent(tab,device){
      （acctcfg / catcfg / cfcfg / invtarget，见 overlays.js），此处只留通用卡片。 */
   if(tab==='列表显示'){
     /* 第九轮：只保留「真的能改变界面」的项 —— 密度（body.dense 即时生效）、
-       可选列显隐 + ⠿ 排序、报表视图 tab 显隐；必需列是纯展示死行，已删
+       可选列显隐 + ⠿ 排序、报表显示（切换按钮显隐）；必需列是纯展示死行，已删
        （以表下说明表达「列集合固定、必需列不可取消」）。 */
     const names={fee:'手续费提示',coupon:'优惠券提示',typeTag:'类型标签'};
     const descs={fee:'行内金额下方显示「含手续费」',coupon:'行内金额下方显示「券 −金额」',typeTag:'行第二行显示支出 / 收入等标签'};
@@ -1407,7 +1407,7 @@ function settingsContent(tab,device){
       </div>
       <div class="set-sec">可选列（显隐 + ⠿ 拖动排序）</div>
       ${optRows}
-      <div class="set-sec">报表视图（tab 显隐）</div>
+      <div class="set-sec">报表显示（切换按钮显隐）</div>
       ${REP_TABS.map(([k,l])=>`<div class="set-item">
         <span class="meta"><span class="t">${l}</span><span class="s">${k==='balance'?'时点报表':'期间报表'}</span></span>
         <label class="chk"><input type="checkbox" ${repViews().includes(k)?'checked':''} onchange="toggleRepView('${k}',this.checked)"> 显示</label>
@@ -1466,7 +1466,7 @@ function clearRecycle(){
   render();
   toast('回收站已清空','提示');
 }
-/* 列显示 / 密度（设置 › 列表显示，⚙ 显示原地面板同一渲染器） */
+/* 列显示 / 密度（设置 › 列表显示，「显示」原地面板同一渲染器） */
 function setTxCol(k,v){ S.txCols[k]=v; render(); }
 function setDensity(v){
   S.txDensity=v;

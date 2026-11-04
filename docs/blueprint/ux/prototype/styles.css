@@ -222,9 +222,7 @@ body.batch .tx-check{display:grid}
 .btn.danger{border:2px solid var(--mb-ink)}
 
 /* ---- 报表 ---- */
-.tabs{display:flex;gap:var(--mb-s-1);border-bottom:1px solid var(--mb-line);margin-bottom:var(--mb-s-3)}
-.tab{border:1px solid var(--mb-line);border-bottom:0;background:var(--mb-panel);padding:6px 14px;font-size:var(--mb-fs-1);color:var(--mb-ink-2)}
-.tab.on{background:var(--mb-sunken);color:var(--mb-ink);font-weight:600}
+/* 第十九轮：报表切换不再用 tab 形态，改与移动端同一 .seg-row 按钮；.tabs/.tab 已删 */
 /* 第十五轮：时间条 = ‹ 箭头 · 只读触发器 · 箭头 › · 粒度分段（常驻，维度 9「粒度归属」）。
    高度恒定 50px（盒含边框内边距，内容控件 44px 触控热区），日/月/年 × 时点/期间四态全等、两端同值；
    单行 nowrap（折行会破坏高度恒定）。箭头可视 32px 宽、伪元素横向扩 6px/侧 → 热区 44×44。 */
@@ -247,9 +245,9 @@ button.tb-trigger[aria-expanded="true"]{background:var(--mb-sunken)}
   font-size:var(--mb-fs-1);color:var(--mb-ink-3);cursor:pointer}
 .tb-gran button::after{content:'';position:absolute;top:0;bottom:0;left:-7px;right:-7px}
 .tb-gran button.on{background:var(--mb-sunken);color:var(--mb-ink);font-weight:600}
-/* 第十七轮：报表设置从 tab 栏移到时间条右端 —— 与箭头/分段同高的 ⚙ 图标键 */
-.tb-set{position:relative;border:1px solid var(--mb-line);background:var(--mb-panel);width:44px;height:44px;
-  flex:0 0 auto;margin-left:auto;font-size:var(--mb-fs-3);color:var(--mb-ink-2);cursor:pointer}
+/* 第十七轮：报表设置从报表切换栏移到时间条右端；第十九轮改为文字按钮（与移动端同标签） */
+.tb-set{position:relative;border:1px solid var(--mb-line);background:var(--mb-panel);min-width:44px;height:44px;
+  padding:0 12px;flex:0 0 auto;margin-left:auto;font-size:var(--mb-fs-1);color:var(--mb-ink-2);cursor:pointer}
 .tb-set:hover{color:var(--mb-ink);border-color:var(--mb-line-strong)}
 /* PC 宽度充裕：触发器紧凑（min-width 170、不伸展）；移动端 flex 收缩放长起止文本。
    宽度是布局分配，控件规格（高 44 / 字号 fs-0）两端同值 */
@@ -351,7 +349,7 @@ table.inv tfoot tr.tot td:first-child{color:var(--mb-ink-2)}
 .m-drawer .row-mi{min-height:44px;display:flex;align-items:center}
 /* 现金流属性小标签：属性 tag 复用 .tag，笔数徽标一行小字 */
 .cf-n{font-size:var(--mb-fs-0);color:var(--mb-ink-3);margin-left:6px}
-/* 第十二轮：现金流量表设置的组头 —— 可折叠行 + (N 个分类) 摘要（对齐真实实现的组行） */
+/* 第十二轮：现金流量设置的组头 —— 可折叠行 + (N 个分类) 摘要（对齐真实实现的组行） */
 /* 第十六轮：现金流固定组头已改用资产类别一级行模板（.set-item，无行尾按钮），
    .cf-grp / .cf-grp-n 旧组头样式随之删除 */
 /* ============ PC 设置页：左导航 + 右内容（第十二轮） ============ */
@@ -458,7 +456,7 @@ body.batch .m-fab{display:none}
 .m-drawer{position:absolute;left:0;right:0;bottom:0;max-height:78%;background:var(--mb-panel);border-top:1px solid var(--mb-line-strong);z-index:50;display:none;flex-direction:column}
 .m-drawer.open{display:flex}
 /* 评审轮（载体分置拍板）：配置中心全屏二级页变体 —— 占满机身高度（无 22% 顶部留白），
-   页头只有 ‹ 返回（JS 不渲染 grabber / ✕）；设置页 4 入口用它，报表 ⚙ 设置仍走普通抽屉。
+   页头只有 ‹ 返回（JS 不渲染 grabber / ✕）；设置页 4 入口用它，报表「设置」仍走普通抽屉。
    第十轮（一致性）：全屏页是「页面级」二级页，标题升到与 m-head h1 同级（15px）；
    普通抽屉标题保持 13px（弹窗层级低于页面）。 */
 .m-drawer.full{top:0;bottom:0;max-height:none;border-top:0}
@@ -623,13 +621,19 @@ body[data-device="m"] .bud-amt-row input,body[data-device="m"] .bud-amt-row butt
 .phone .toast{background:var(--mb-panel);color:var(--mb-ink);border:1px solid var(--mb-line-strong);max-width:none}
 
 /* ============ 补充构件（脚本用到、上面未定义的） ============ */
-/* 横滑分段（类型筛选 / 报表 tab） */
+/* 分段按钮组（类型筛选 / 报表切换）；第十九轮：两端同一控件形态 */
 .seg-row{display:flex;gap:var(--mb-s-1);overflow-x:auto;padding-bottom:2px}
 .seg-row button{white-space:nowrap;border:1px solid var(--mb-line);background:var(--mb-panel);padding:4px 12px;font-size:var(--mb-fs-1);color:var(--mb-ink-2)}
-.seg-row button.on{border-color:var(--mb-line-strong);background:var(--mb-sunken);color:var(--mb-ink);font-weight:600}
-/* 第十八轮：移动端筛选操作区 —— 类型分段 + 高级筛选 + 批量同排，触控热区 44px；
+/* 选中态不靠颜色单打：1px 边框 + 1px 内描边（视觉 2px）+ 字重 600 + 下沉底色 */
+.seg-row button.on{border-color:var(--mb-line-strong);background:var(--mb-sunken);color:var(--mb-ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--mb-ink)}
+.btn[aria-pressed="true"]{border-color:var(--mb-line-strong);background:var(--mb-sunken);color:var(--mb-ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--mb-ink)}
+/* 第十八轮：移动端筛选操作区；第十九轮：6 个类型按钮 + 2 个入口按钮，放不下换行、不横滚；
    不吸底、不随列表滚动，紧邻搜索框 */
+.m-filter-ops{flex-wrap:wrap;overflow:visible;row-gap:var(--mb-s-1)}
 .m-filter-ops button{min-height:44px;display:inline-flex;align-items:center}
+/* 第十九轮：报表切换按钮移动端同样 ≥44px；四项一行，不横滚 */
+.rep-tabs{overflow:visible}
+body[data-device="m"] .rep-tabs button{min-height:44px;display:inline-flex;align-items:center}
 /* 第十八轮：移动页头主按钮热区 44px（预算「＋ 新增」） */
 body[data-device="m"] .m-hit44{min-height:44px;display:inline-flex;align-items:center}
 /* 图标占位：方块内单字 */
