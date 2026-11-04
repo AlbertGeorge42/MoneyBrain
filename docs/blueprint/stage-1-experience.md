@@ -170,16 +170,17 @@ PostCSS 构建期解析」失去对象，**不执行**。
 迁移文件约 **12.7k 行**。计数按 **65 → 61 → 61 → 26 → 0**——U13.2 新增原语、不消灭 antd 文件，
 故停在 61；执行日重测，按「该批拆掉 N 个文件」判，不硬套绝对值。
 
-**工时（两个口径分开）**：A 纯迁移 **26–33**（结构/交互/布局不变，只换库）；B 按 UX5b 重写增量
-**29–39**（原语增强、页面布局/交互/IA、双端视觉验收）；合计 **55–72**。回答「换个库为什么这么久」
-只报 A；B 记在 UX5b 的落地成本里。分项上下界不做严格相加。
+**工时（两个口径分开）**：A 纯迁移 **27–35**（结构/交互/布局不变，只换库；含 U13.1 的主题扩展预留
+约 2 人日）；B 按 UX5b 重写增量 **29–39**（原语增强、页面布局/交互/IA、双端视觉验收）；合计 **56–74**。
+回答「换个库为什么这么久」只报 A；B 记在 UX5b 的落地成本里。分项上下界不做严格相加。
+预留在 P0 一次做完，后补需 **6–10 人日**且必然返工；UX5b 侧「token 表按 themeId 分组」计入 B，不重复计。
 
 **顺序**：`D4 → U1b → U13.1 → UX5b → U13.2 → U13.3 → U13.4 → U13.5 → U12`；D4 与 U13.1 可对调。
 硬边：U13.1→UX5b、UX5b→U13.2、U13.2→U13.3、D4→U13.3、U13.5→U12。
 
 | 子条目 | 现状 → 目标 | 验收（含计数） | 依赖 | 工时 A / B |
 |---|---|---|---|---|
-| U13.1 主题骨架 | AntD 算法派生颜色、`data-theme` 手写、`message`/`notification` 直调 → `tokens.ts` + `ThemeRoot` + `useMantineColorScheme` + Mantine notifications；删 `config.ts` / `chart-tokens.ts` / `financial-tokens.ts` / `mode.ts` | antd **65 → 61**（拆 2 theme + `main.tsx` + `useNotify.ts`）；`--ant-*` 0；`--mantine-*` 外泄 0；`typecheck:web` / `lint:web` / `test:web` 全过；theme.spec 浅/暗 body 断言；build 记录 gzip | UX5a 确认 + U1b；**不依赖 D4 / UX5b** | 4–5 / 0 |
+| U13.1 主题骨架 | AntD 算法派生颜色、`data-theme` 手写、`message`/`notification` 直调 → `tokens.ts` + `ThemeRoot` + `useMantineColorScheme` + Mantine notifications；删 `config.ts` / `chart-tokens.ts` / `financial-tokens.ts` / `mode.ts` | antd **65 → 61**（拆 2 theme + `main.tsx` + `useNotify.ts`）；`--ant-*` 0；`--mantine-*` 外泄 0；`typecheck:web` / `lint:web` / `test:web` 全过；theme.spec 浅/暗 body 断言；已注册主题覆盖 40 × 2 scheme；build 记录 gzip | UX5a 确认 + U1b；**不依赖 D4 / UX5b** | 5–7（A，含扩展预留约 2 人日）/ 0 |
 | U13.2 自建原语 | `ui/` 为空；时间控件 350+866 行、报表树/列逻辑混在页面 → 12 项原语（见下） | **12/12 有测试**；`rg "from 'antd'" apps/web/src/ui` 0；每项有消费者或登记待接入；antd **61 → 61** | U13.1 + **UX5b 确认**；不依赖 D4 | 19–25（A 13–16 / B 7–10） |
 | U13.3 P1 五屏 | 35 个 antd 业务文件 + `Settings.tsx` → Mantine + `ui/`；旧时间控件/报表树删除；撤销移出查询层 | antd **61 → 26**（拆 35）；`--ant-*` 0；页面 <200 行；五屏双端对照 W1/W2/W5/W6/W7；`test:web` + 双 project | U13.1 + U13.2 + **D4** + 该页 UX5b 已确认（按页进入） | 17–21（A 45% / B 55%） |
 | U13.4 P2 其余 | 投资 6、配置弹窗 11、公共组件 8、布局 2；图标 31 文件 → lucide；删 `TimePickerField`/`TimePickerMobile`/`TRANSACTION_TAG_PRESETS` | antd **26 → 0**；图标文件 **31 → 0**；`rg "@ant-design/icons"` 0；`test:web` + `test:e2e` | U13.3 | 10–14（A 25% / B 75%） |
@@ -190,8 +191,8 @@ PostCSS 构建期解析」失去对象，**不执行**。
 - 依赖：`@mantine/core` / `hooks` / `form` / `dates` / `notifications` / `dropzone` 全部锁 `8.3.18`；
   `postcss-preset-mantine` + `postcss-simple-vars`（断点 `xs`–`xl`）。样式顺序：Mantine 四份 CSS →
   `variables.css` → `reset.css` → `global.css`；AntD 继续走 CSS-in-JS，U13.5 才卸载。
-- 主题：新增 `styles/theme/tokens.ts`（`buildMantineTheme(scheme)` / `buildCssVars(scheme)` /
-  `getChartTokens(scheme)`）与 `ThemeRoot.tsx`（`MantineProvider` → `DatesProvider` → `Notifications`）；
+- 主题：新增 `styles/theme/tokens.ts`（`buildMantineTheme(spec, scheme)` /
+  `buildCssVars(spec, scheme)` / `getChartTokens(scheme)`）与 `ThemeRoot.tsx`（`MantineProvider` → `DatesProvider` → `Notifications`）；
   `ThemeContext` 保留公开 API，内部委托 `useMantineColorScheme` + `useComputedColorScheme`。
   删除 `config.ts`、`chart-tokens.ts`、`financial-tokens.ts`、`mode.ts`；`reset.css` 选择器改
   `[data-mantine-color-scheme='dark']`；`variables.css` 只放结构 token。
@@ -206,11 +207,25 @@ PostCSS 构建期解析」失去对象，**不执行**。
   U13.5 清零；别名只存在于生成器，不写进设计文档。
 - 测试：`tests/setup.ts` 补 `matchMedia` / `ResizeObserver` mock；RTL 外包 `ThemeRoot`。
 
+**主题可扩展性（预留；初版只做一种皮肤）**
+
+- `ThemeSpec` = 颜色（40 个 token 名 × 亮/暗各一）+ 结构（密度 / 圆角 / 阴影 / 字体四条）+ 字体三元组
+  （ui / display / num，标是否需打包资源）；`theme/specs/{themeId}.ts` 各自导出同一个 `ThemeSpec`。
+- `tokens.ts` 只做注册表 + 聚合 + 工厂，**不做模块级单例**；`buildMantineTheme(spec, scheme)` 与
+  `buildCssVars(spec, scheme)` 都是纯函数。
+- 持久化 `themeId` 与 `mode`；首屏在 render 前 `syncCssVars(spec, scheme)`（`ColorSchemeScript` 管不到 `--mb-*`）。
+- 图表 ECharts 主题名统一 `mb-{themeId}-{scheme}`；截图基线目录按 `{themeId}-{scheme}` 命名。
+- 初版只实现一种皮肤；新增皮肤 = 加一个 spec 文件 + 注册 + 补一组截图基线，**不改组件、不新增分支逻辑**。
+
 **U13.1 验收命令**（typecheck / lint / test 用 AGENTS 基线）：
 `(rg -l "from 'antd'" apps/web/src | Measure-Object).Count` = **61**；
 `rg -n "var\(--ant-" apps/web/src` = 0；`rg -n "--mantine-" apps/web/src --glob '!styles/theme/**'` = 0；
 `npx playwright test e2e/tests/theme.spec.ts --project=chromium-desktop`（浅色 `rgb(245,242,234)`、
 暗色 `rgb(15,20,17)`）；`npm run build -w @moneybrain/web` 成功并记录 gzip。
+
+**U13.1 验收补充**：每个已注册主题必须完整覆盖 **40 个 token 名 × 2 scheme**，缺一即失败（扩
+`css-vars-guard` 一条用例）；`styles/theme/**` 之外不得出现色值 / 密度 / 圆角 / 字号字面量（grep 进验收命令）；
+**初版只注册一个主题**，但结构必须按 registry 写——不得因「只有一个」就退回单例或硬编码。
 
 **U13.2 的 12 项**：`DataTable`（分组表头 / 合计行 / 行折叠 / 列显隐）、`TreeSelect`、
 `TimeBar + TimePanel`（W6 九维度）、`Sheet`、`EmptyState / LoadingBlock / ResultState`、`UploadBox`、
