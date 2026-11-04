@@ -1,54 +1,53 @@
 # 蓝图推进状态
 
 > 差距条目完成状态的**唯一来源**。领条目、销条目都在这里登记。
-> 阶段文档只写「还没做到的事」——已完成条目从差距清单删除并留编号空洞（如 A1、A2、D8），明细以本文件与 git 历史为准。
+> 已完成条目一行收口：`✅ <提交> · 一句话结论`；细节回查 git 历史，不再复述。
+> 未完成条目只在所属阶段文档定义（[stage-0](stage-0-foundation.md)–[stage-4](stage-4-expansion.md)）。
 > 不变量覆盖状态见 [../testing.md](../testing.md) §5.1（不变量的唯一来源）。
+> **并行会话**：多个会话共用工作区时，只改自己条目对应的行；提交前 `git diff --cached -U1` 逐行核对，不得带入他人未提交改动。
 
 ## 状态
 
-| 条目 | 阶段 | 完成于 | 备注 |
+| 条目 | 阶段 | 完成于 | 结论 |
 |---|---|---|---|
-| A1 | 阶段 0 · M0 | （历史） | 已完成并从清单移除，明细见 git 历史 |
-| B1 | 阶段 0 · M0 | 2026-10-28 | `fb87eeb` 覆盖导入回滚点 + 导入预览 |
-| A2 | 阶段 0 · M0 | （历史） | 同上 |
-| D8 | 阶段 0 · M1 | （历史） | 同上 |
-| B2 | 阶段 0 · M0 | 2026-11-02 | `c24b685` 交易软删除 + 审计事件 + 撤销 + 回收站（前端入口与销条目随第二批提交落地）；`deletedAt` 过滤只留在 `db/repositories/transaction.repository.ts`，D1 的交易表部分一并收口 |
-| B3 | 阶段 0 · M0 | 2026-11-02 | `e773ff6` 自动定时备份：开关 + 备份目录 + 云同步目录默认拒绝需显式确认；时机由内部策略决定（24h 间隔 + 长任务锁互斥，锁释放后下一轮补跑），用户不设置执行时刻 |
-| C1 | 阶段 0 · M0 | 2026-11-03 | `4e6878e` 四张报表共享一个全局期间（区间），切 tab 期间不变；期间报表预设合并为一套；资产负债表 UI 保持时点语义控件（数据取共享区间终点为期末时点，时点 ↔ 所在区间在传参处双向映射），余额类指标名统一带「期末」（期末余额 / 期末净资产 / 期末总资产 / 期末总负债），单组存量值不引入期初。验收：`tests/unit/pages/Reports.test.tsx` + `tests/unit/components/BalanceSheetReport.test.tsx` |
-| A0 | 阶段 0 · M0 | 2026-11-03 | 清库补齐三场景集成测试（正常全范围清空无残留 / 边界范围隔离与配置覆盖拒绝 / 空库幂等）；「转账转入 = 本金」收进领域层 `transferInflow` 规则，投资分析与现金流报表（collect / aggregate / build 转入侧）四处直取全部改走 `rulesFor(...)`，不再有第二份「转账本金」实现；dev-guide §3 例外段改为收口后规则 |
-| A3 | 阶段 0 · M0 | 2026-11-03 | fast-check 属性测试覆盖蓝图入口 §4 的内核不变量 1–6（`packages/domain/tests/invariants.test.ts`）：对账恒等式、Σ 账户余额 == 净资产、复式平衡、全额退款恢复余额与可退余额上限、转账 Δ转出+Δ转入 == −有效手续费、收支表与分类聚合逐分录同源追溯；每条属性随机 1000 组恒成立。验收：`npm run test:domain`（38 测试全过，含 7 个属性测试） |
-| B4 | 阶段 0 · M0 | 2026-11-03 | 退款口径放开 + 数据自检修正，四件事一次收口：① db:verify 对账条手续费改按「− 有效手续费」计入（修复前对 2026-05 实跑误报「净资产对不上，差 −5.46 = −2×手续费 2.73」，修复后不误报）；② 超额退款判定降级为 ℹ 信息性输出（退款可高于原额、退款账户可与原账户不同，均属合法，校验不得判错）；③ 放开写入拦截——transaction.service 不再用 remainingRefundable 拒写（assertRefundable 改名 assertRefundTarget 只校验目标类型与金额为正，连带删 repository findActiveRefundsOf 死代码）；④ 余额正确性测试（refund.route.test.ts 两例：超退按实际金额入账、跨账户退款原账户不恢复）。口径同步进 requirements §3、dev-guide §8/§9、蓝图不变量 4 与 A3 属性测试。验收：`npm run db:verify` 对真实库通过（ℹ 提示超退 2 笔，不判错）；`npm test` 三域全过 |
-| C2 | 阶段 0 · M0 | 2026-11-03 | 预算下钻与用量同源：计入判定收进 budget.service 的 `budgetContributionSign`（+1 主类型 / −1 冲减退款 / 0 不计入）与 `buildBudgetPlan`（期间 × 分类子树 × 领域层 scope），`computeBudgetStatus` 与新 `getBudgetUsageDetails` 共用，下钻不得另写过滤条件；新 API `GET /api/budgets/:id/usage-details` 返回 `{ list, count, total, used }`（used 与预算状态同款下限）；前端「查看交易」从跳转交易列表（只带 categoryId，无账户/期间/冲减口径）改为抽屉内明细视图 `BudgetUsageList`。验收：budget.service.test.ts 下钻用例——排除其它账户/不计收支/类型不符后 count == 2、total == 3000 == getBudgetStatusesByIds 的 used；跨期退款负合计夹 0 |
-| C3 | 阶段 0 · M0 | 2026-11-03 | 预算使用率去截断（按决策 #39 缩减版）：`computeBudgetStatus` 的 percentage 去掉 `min(…,100)`，contracts `BudgetStatus.percentage` 注明真实使用率语义（超支 >100 不截断），单测覆盖「超支 180% 返回 180、isOverBudget、remaining 夹 0」；前端零改动——`getStatusLabel` 本就按 percentage 直渲染文本（超支显示「超预算: 180%」），Progress 条宽自行封顶；分档视觉（色档/文案档）留给原型落地。操作规则同步进 dev-guide §3.1 预算行 |
-| C4 | 阶段 0 · M0 | 2026-11-03 | 桑基图退款方向与活动表同源：`buildSankey` 的 refund 分支删掉「一律按流入直取」的重复判定，改走领域层 `rulesFor(version).refundOffsetKind(relatedType)` 分流——支出退款计入流入侧（分类 → 现金）、收入退款计入流出侧（现金 → 分类）、`relatedType` 无法识别时不计入，与 `aggregate()` 同一判定；`processTransaction` 补 `relatedType` 参数（交易侧传入、预测侧传 null）。验收：cash-flow-build.test.ts 四用例——支出退款 `未分类_income → 现金`、收入退款 `现金 → 未分类_expense`、null 不计入、金额按实际值；操作规则同步进 dev-guide §3.1「退款计入方向」行 |
-| D1 | 阶段 0 · M1 | 2026-11-03 | 其余实体收进 repository：account / account-category / transaction-category / budget / investment-asset-class / investment-allocation-snapshot / investment-allocation-item 七个 repository 落进 `db/repositories/`（纯委托 + `tx` 尾参，沿用 transaction.repository 约定；固定关联收成 `BUDGET_RELATIONS` / `SNAPSHOT_ITEMS_RELATIONS` 防漂移，批量排序/重排的数组式 `$transaction` 收进 repository），19 个 service 文件的 `prisma.<model>.` 与事务回调 `tx.<model>.` 全部改走 repository，15 个 mock prisma 的单测零改动全过。验收：`rg "prisma\.(account\|accountCategory\|transactionCategory\|budget\|investmentAssetClass\|investmentAllocationSnapshot\|investmentAllocationItem\|auditEvent)\." apps/api/src/services apps/api/src/routes` 0 命中；`npm test` 三域全过、typecheck / lint 0 错、`db:verify` ✅。操作规则同步进 dev-guide §8（含暂存例外：clear-data 与 import 的事务内直调留待后续条目） |
-| D2 | 阶段 0 · M1 | 2026-11-03 | 共享类型收敛到 contracts（按决策 #39 最小实现：删重复定义、单一来源、不写适配层，前端从简）：`TransactionType` 删 3 处重复定义——balance.service 死导出（无消费者，连 `TransactionKind` import 一并删）、transaction.route 内联联合改 import contracts、web utils/transactionType 的 `keyof typeof CONFIG` 推导删除（消费者 TransactionFilter 改从 services/api 取，与其它 transactions 组件同路径）；`AutoBackupConfig` 后端存储形状（含 `lastAttemptAt`）与契约响应形状（含 `defaultDirectory`/`nextWindowAt`/`backupCount`）同名不同构，后端私有类型改名 `AutoBackupConfigFile`（函数名 `getAutoBackupConfig`/`saveAutoBackupConfig` 与路由、测试调用点不动）；web SankeyChart 局部 `SankeyLink`（value: number 与契约 Minor 同构）删除改 `import type { SankeyLink } from '@contracts/types'`。验收：`rg "type TransactionType" apps packages` 仅 contracts 1 处、`AutoBackupConfig`/`SankeyLink` 定义各仅 contracts 1 处（迁移前 8 处定义 → 3 个类型各 1 处唯一来源）；`npm test` 三域全过（api 33 文件 315 用例）、typecheck / lint 0 错、`db:verify` ✅ |
+| A0 | 阶段 0 · M0 | 2026-11-03 | ✅ `32f2afe` · 清库三场景集成测试；转账转入本金收进领域层 `transferInflow` |
+| A1 | 阶段 0 · M0 | （历史） | ✅ · 历史条目，明细见 git 历史 |
+| A2 | 阶段 0 · M0 | （历史） | ✅ · 同上 |
+| A3 | 阶段 0 · M0 | 2026-11-03 | ✅ `4b318ba` · fast-check 属性测试覆盖内核不变量 1–6 |
+| B1 | 阶段 0 · M0 | 2026-10-28 | ✅ `fb87eeb` · 覆盖导入回滚点 + 导入预览 |
+| B2 | 阶段 0 · M0 | 2026-11-02 | ✅ `c24b685` · 交易软删除 + 审计事件 + 撤销 + 回收站 |
+| B3 | 阶段 0 · M0 | 2026-11-02 | ✅ `e773ff6` · 自动定时备份（24h 到期 + 长任务空闲，用户不设时刻） |
+| B4 | 阶段 0 · M0 | 2026-11-03 | ✅ `7196a02` · 退款放开超退/跨账户；`db:verify` 手续费符号修正、超退降为信息提示 |
+| C1 | 阶段 0 · M0 | 2026-11-03 | ✅ `4e6878e` · 四张报表共享一个全局期间；余额类指标统一带「期末」 |
+| C2 | 阶段 0 · M0 | 2026-11-03 | ✅ `a3f61cd` · 预算下钻与用量同源（`budgetContributionSign`），新增 usage-details API |
+| C3 | 阶段 0 · M0 | 2026-11-03 | ✅ `4612b5b` · 预算使用率不截断，超支显示真实百分比 |
+| C4 | 阶段 0 · M0 | 2026-11-03 | ✅ `062505d` · 桑基图退款方向改走 `refundOffsetKind`，与活动表同源 |
+| D1 | 阶段 0 · M1 | 2026-11-03 | ✅ `662ebb3` · 七个实体收进 repository，service 层 `prisma.<model>.` 归零 |
+| D2 | 阶段 0 · M1 | 2026-11-03 | ✅ `048df1e` · 共享类型收敛 contracts（`TransactionType` / `AutoBackupConfig` / `SankeyLink`） |
 | D3 | 阶段 0 · M1 | 2026-11-03 | `3161237` API 响应类型收敛 contracts（按决策 #39 最小实现：删内联、单一来源、不写适配层，前端从简）：api.ts 的 22 处 `ApiResponse<{...}>` 内联全部替换为 contracts 新增的 14 个具名响应类型（MessageResult / AccountBalanceAtResult / AccountDeleteResult / TransactionCategoryDeleteResult / TransactionCategoryMoveResult / TransactionStats / EarliestTransactionDateResult / TransactionDeleteResult / AuditEventHistoryResult / RecycleBinResult / DashboardSummaryData / AssetClassDeleteResult / ImportBackupResult / DetectFileResult，其中 DetectFileResult.includes 按后端实际返回收紧为 `BackupDataType[]`、各 Result 的 optional 字段与后端分支返回形状逐一核对）；后端 transaction.service 的 `TransactionStats` interface（number 版重复定义）删除改 import contracts 的 Minor 版——同名类型只剩一个来源；api.ts 既有 re-export 链保持，组件消费者零改动。验收：`rg "ApiResponse<\{" apps/web/src` 0 命中（迁移前 22 处）；typecheck 三包 0 错、lint 0 错、test:web 12 文件 + test:api 33 文件全过 |
 | D5 | 阶段 0 · M1 | 2026-11-03 | `41b80bd` 删桶导出、react-refresh 警告归零（按决策 #39 最小实现：删桶、消费者直连具体文件，不留兼容 re-export）：settings/shared.tsx（3 个 `export *` 桶，treeTypes / sortable / moveModalHelpers）删除，4 个消费者（AccountConfigModal / CashFlowConfigModal / TransactionConfigModal / InvestmentAssetClassConfigModal）import 拆直连三个源文件，settings/index.ts 的 `export * from './shared'` 行删除；TransactionItemRow.tsx 的两个非组件导出（getCategoryName / getAccountName）移入 utils/transaction.ts 纯函数工具文件，TransactionDetail / RecycleBinSection 改从 utils 取、TransactionItemRow 自身本地改 import。验收：`npm run lint` react-refresh 警告 **0**（总数 10 → 5，剩余 5 条全为 react-hooks/exhaustive-deps 历史遗留——图表组件 useMemo 依赖写法问题，不属本条目）；shared 残留引用 grep 0 命中；typecheck 三包 0 错、test:web 12 文件全过 |
 | D6 | 阶段 0 · M1 | 2026-11-03 | `005faff` SQLite WAL + busy_timeout + 写串行化：**基线实测**（dev.db 副本）journal_mode=delete、busy_timeout=5000ms（Prisma 驱动隐式默认）；短写并发三种模式（单客户端 8 路 / 独立连接 8 路 / 双进程 2×4）全部成功、长事务 1.5s 期间 4 路短写各排队 ~1.4s 成功——busy_timeout 在兜底，但 `runExclusiveLongTask` 名为锁实为**计数器**，长任务可并发抢库级写锁（dev-guide 声称的「严格互斥」实现上不存在）。改法两处：① `prisma.ts` 启动时 `$queryRawUnsafe('PRAGMA journal_mode = WAL')` + `PRAGMA busy_timeout = 5000`（WAL 库级持久、幂等；必须 queryRaw 因返回结果行——execute 版实测报 P2010 已修；失败退回默认即改前行为），实测 dev.db 已切 wal；② `runExclusiveLongTask` 计数器改真串行队列（promise 链：秒级长任务不互抢写锁、失败不堵队列；用户写不进队列，Prisma 内部排队 + busy_timeout 足够）。**否掉的方案**：用户写也进长任务锁（毫秒级写排队进秒级锁，无必要）、SQLite 重试层（busy_timeout 已排队，重试是第二套口径）、外部队列（单进程无必要）。改后同压测复跑全部成功。**连带影响结论**：恢复 = ATTACH 逐表复制不替换 db 文件 → 无 `-wal`/`-shm` 残留旧数据问题；`-wal` 最后连接关闭时自动清除（实测 dev.db 关闭后无残留文件）；`.gitignore` 补 `*.db-wal`/`*.db-shm`（`*.db.*` 匹配不到连字符后缀）；db:verify / db:drill 走 Prisma 读 WAL 透明。验收：`tests/integration/concurrent-write.test.ts` 5 用例全过；`npm test` 三域全过（api 34 文件 320 用例）、typecheck / lint 0 错、`db:verify` ✅、`db:drill` ✅（恢复演练通过） |
-| D7 | 阶段 0 · M1 | 2026-11-03 | `fe79d32` 列表/报表查询扫描量随期间（EXPLAIN 确认走索引）：**基线实测**（dev.db，3218 笔、最重月 2026-07=187 笔）——带 type 条件的报表/分类占比查询本就走 `transactions_type_date_idx`（扫 171/985 行）；交易列表分页与统计 groupBy 走 `transactions_deletedAt_idx` 单列索引扫全部 3218 未删行 + TEMP B-TREE（随总历史 ✗）；耗时 1-12ms 在包络内，问题是扫描结构而非当前耗时。最小改法：`@@index([deletedAt])` 替换为 `@@index([deletedAt, date])`（等值列 + 范围列保序；单列索引被复合前缀覆盖不冗余），版本化迁移 `20261103122257_transactions_deleted_date_idx` 已应用到 dev.db。**改后实测**（dev.db 同参数同脚本）：列表分页与统计 groupBy 均 `SEARCH transactions USING INDEX transactions_deletedAt_date_idx (deletedAt=? AND date>? AND date<?)`，扫描收敛到期间 187 行，耗时 0.5-0.7ms；排序仍残留 `TEMP B-TREE FOR RIGHT PART OF ORDER BY`（列表带 createdAt 次序键）与 `TEMP B-TREE FOR GROUP BY`（分组列不在索引序），但只作用于期间内的行，扫描量不再随总历史增长。余额保持例外（O(历史)、决策 #6 禁止缓存列，未动）。验收：`tests/integration/query-plan.test.ts` 2 用例全过；`npm test` 三域全过（api 35 文件 322 用例）、typecheck / lint 0 错、`db:verify` ✅（迁移后净资产对得上） |
-| D9 | 阶段 0 · M1 | 2026-11-04 | `5ffe91c` 拆分 `report.utils.ts`：基线 342 行、19 条 export，混装期间解析（`resolveReportPeriod` / `ReportPeriod` / `DateGranularity` / `generateMonthRange`）、预测（2 常量 + 6 函数）、资产求和（`sumByType` / `sumAssetsLiabilities`）、现金标记（`getCashFlags`）四类职责；耦合实证：纯计算文件反向 `import { generatePredictions } from '../budget.service.js'`（单测导入即拖入 prisma 依赖链）、`ReportValue` 与日期函数经 utils 中转、`sumByType` 外部 0 消费者。按决策 #39 拆分不留兼容 re-export：`period.ts`（91 行）/ `prediction.ts`（185 行）/ `cash-flag.ts`（13 行）/ `account-sum.ts`（44 行）；9 个 service 与模块 `index.ts` 直连新文件，`ReportValue` 改从 contracts 取、日期函数改从 `common/date` 取，`sumByType` 降为文件内私有；单测更名 `report-calc.test.ts`。验收：`grep report.utils apps`（排除 dist）0 命中；`npm run test:api` 35 文件 322 用例全过；typecheck / lint 0 错 |
-| U0 | 阶段 1 · M2 | 2026-11-03 | `a60a135` AntD cssVar 前缀 mb → ant（运行时实测 --ant-* 678 个），与项目 `--mb-*` 重叠 9 → 0（双定义 6：font-size-sm / text-secondary / text-tertiary / border / success / warning，其中 font-size-sm 值不一致——项目 13px vs AntD 子树 12px；项目引用未定义 3：bg-container / border-secondary / text-quaternary）；`--mb-*` 定义源只剩 `variables.css`（结构 25）+ `syncCssVars()`（颜色 32）。连带：InvestmentAssetClassConfigModal 的 `var(--ant-color-warning)` 改用项目等价 token `--mb-color-warning`（决策 #32：项目代码不引用 AntD 命名空间）；决策 #32 操作规则同步 dev-guide §2.1。验收（独立 chromium 读注入样式表 + computed style）：AntD `--mb-*` 644 → 0、重叠 9 → 0、`--mb-font-size-sm` 全树一致 13px；typecheck / lint 0 错、test:web 90 用例全过。遗留（U1 范围）：picker.css ×3 + settings.css ×1 失去同名兜底（背景→透明、边框→currentColor、四级文字→继承主文字色），另发现 2 处死引用 `--mb-font-size-h2` / `--mb-radius-sm`（AntD 从不生成，迁移前后表现不变） |
-| U1 | 阶段 1 · M2 | 2026-11-04 | `137af85` 清除 6 处项目未定义的 `--mb-*` 引用，引用即定义断言 0 未定义（定义 58 = 结构 25 + 颜色/阴影 33）：picker.css ×3 改 `--mb-color-bg-panel` / `--mb-color-border-subtle`；settings.css 的 `--mb-color-text-quaternary` 补进 `syncCssVars()`（项目无等价 token：tertiary 45% vs 需 25%），`--mb-font-size-h2` → `--mb-font-size-title`（18px）；report-layouts.css 的 `--mb-radius-sm` → `--mb-radius-control`（6px）。运行时实测恢复 U0 前观感：`.ip-cell` 背景 #fff / 边框 #f0f0f0、`.csp-clear` 背景 #fff、chevron rgba(0,0,0,0.25)；计数徽标 14→18px、对账条圆角 0→6px。stage-1 现状栏刷新并记录 U0 实测重叠 9（含同值 `--mb-color-warning`）。验收：typecheck / lint 0 错、test:web 12 文件 90 用例全过 |
-| D10 | 阶段 0 · M1 | 2026-11-04 | `85ac424` 事务边界统一：新增 `db/transaction.ts` 的 `withTransaction(fn)`，14 处 service 层 `prisma.$transaction`（8 文件）全部替换；clear-data（17 处）、import/config-import（15 处）、import/budget-import（7 处）的 `tx.<model>.` 直调改 repository（repository 补 `deleteManyWhere` / `findMaxSort` / `findFirst`，均带 `tx` 尾参）；`clearSelectedDataForImport(tx, includes)` 签名保留供覆盖导入复用。条目原写 46 处直调 / 10 处事务，实测 39 处 / 14 处（D1 已收口一部分，另补记 account、transaction-category、investment 的事务）。验收：三条 grep 全量 0 命中（`tx.<model>.` / services 的 `prisma.$transaction` / services+routes 的 `prisma.<model>.`）；`npm run test:api` 35 文件 322 用例全过；typecheck / lint 0 错；`db:verify` ✅。操作规则同步 dev-guide §8 |
-| D11 | 阶段 0 · M1 | 2026-11-04 | `777fd70` 报表数据修复：① `Account.categoryId` 12 行回填（现金等价 4 / 投资 2 / 资产 1 / 负债 5；data script 幂等，复跑 backfilled 0）+ 账户创建/配置导入/交易导入缺省按 `Account.type` 映射（不静默留 null）+「现金等价」「投资」分类标记置位（现金流 4 账户 1666 笔、投资 2 账户 62 笔）；② 更新退款换原交易时同步 `relatedType`（回归：改挂后收入 1000 / 支出 400）；③ 列表分页 `orderBy` 补 `id` 第二键。验收：dev.db EXPLAIN 带 id 出现 TEMP B-TREE 但只作用于期间行（2026 期间 1653 行 0.169→0.192ms，最大同毫秒 7 行，保留 id 换翻页确定性）；pageSize=5 翻完 3218 行 dup 0 / missing 0；`test:api` 35 文件 325 用例、typecheck / lint 0 错、`db:verify` ✅（净资产 1165048.37） |
-| UX5a | 阶段 1 · M2 | 2026-11-04 | `855741d`、`6c1c062`、`e39d669`、`aac20cc`、`b121868` 线框级概念设计定稿：九类工作流 W1–W9 的双端线框与待确认项全部拍板 → `ux/concept-design.md`；原型迭代收口——报表名统一为「资产负债 / 收支明细 / 现金流量 / 投资分析」、设计标注层收敛为 `.anno`（只允许页面外层）、筛选/批量/显示/设置入口统一为同标签按钮（选中态内描边 + 字重 600）、移动流水筛选操作区重排（6 类型 + 高级筛选/批量，热区 44px，349=349）、PC 新增预算上移页头、交易与预算条目面板三处一致（两步删除 + 44px 页头）、UX1–UX4 回冲 21 处、时间选择器规范（时点/期间二分 + 粒度外置时间条 + 面板层级）。验收：双端五视图回归旧报表名 0、DOM `.tab` 0、`node --check` 全过、console 0 报错；原型 `file://` 可开、两端可切、主路径可点通 |
+| D7 | 阶段 0 · M1 | 2026-11-03 | ✅ `fe79d32` · 软删除索引改 `[deletedAt, date]`，列表/统计扫描收敛到期间 |
+| D8 | 阶段 0 · M1 | （历史） | ✅ · 历史条目，明细见 git 历史 |
+| D9 | 阶段 0 · M1 | 2026-11-04 | ✅ `5ffe91c` · `report.utils` 拆为 period / prediction / cash-flag / account-sum |
+| D10 | 阶段 0 · M1 | 2026-11-04 | ✅ `85ac424` · 事务边界统一 `withTransaction`，clear-data / import 残留直调改走 repository |
+| D11 | 阶段 0 · M1 | 2026-11-04 | ✅ `777fd70` · 账户分类回填与写入映射、退款 `relatedType` 同步、分页 id 次序键 |
+| U0 | 阶段 1 · M2 | 2026-11-03 | ✅ `a60a135` · AntD cssVar 前缀 mb → ant，`--mb-*` 与 `--ant-*` 重叠归零 |
+| U1 | 阶段 1 · M2 | 2026-11-04 | ✅ `137af85` · 清除 6 处未定义 `--mb-*` 引用（引用即定义） |
+| UX5a | 阶段 1 · M2 | 2026-11-04 | ✅ `855741d` 等 · 九类工作流双端线框概念稿定稿（W1–W9） |
 
 ## 待领（按推荐顺序）
 
-- 阶段 0 · M1：D4、A5（导出日期按本地日历日）
-- 阶段 1 · M2：见 [stage-1](stage-1-experience.md)——批次 U「界面重做」三段：U1 → U1b → **U13.1 主题骨架**（UX5b 的接入前置；Mantine `8.3.18`）→ **UX5b**（按 UX5a 确认稿落地）→ **U13.2 12 项原语**（UX5b 确认后）→ **U13.3 五屏（61→26）→ U13.4 其余（26→0）→ U13.5 删 AntD 收口** → E / L / K8 可交错（E6 随时可做）→ U12（U13.5 后写 design-system.md）。硬边：U1b→U13.1→UX5b→U13.2→U13.3、D4→U13.3、U13.5→U12；D4 与 U13.1 可对调（U4/U6/U7 与 E1–E4 在 Mantine 实现上验收；U5、U8–U11 已取消；完整顺序见 [stage-1](stage-1-experience.md)「顺序要求」）
+- 阶段 0 · M1：D4、A5（A5 = 导出日期取本地日历日）
+- 阶段 1 · M2：U1b → U13.1 → UX5b → U13.2 → U13.3 → U13.4 → U13.5 → E / L / K8 → U12（D4 与 U13.1 可对调；硬边与完整顺序见 [stage-1](stage-1-experience.md)「顺序要求」）
 - 阶段 2 · M3：F1–F11（见 [stage-2](stage-2-sync.md)）；V5 spike 在 M3 开头做
 - 之后见 [../rewrite-blueprint.md](../rewrite-blueprint.md) §3 里程碑表
 
 ## 领条目 / 销条目
 
-1. **领**：在下方「进行中」加一行（条目 / 领取日期）；一次只领一条。
-2. **做**：读阶段文档 + [architecture.md](architecture.md) 对应小节；按验收标准**用具体命令**自检。
-3. **销**：「状态」表加一行（条目 / 阶段 / 完成日期 / commit），从阶段文档差距清单删除该行（保留编号空洞），并从「进行中」移除。
+工作循环（领一条 → 读上下文 → 实现 → 自检 → 销条目 → 清理）见 [AGENTS.md](../../AGENTS.md)；本文件只做登记：领时在「进行中」加一行，销时在「状态」加一行并从阶段文档差距清单删行（保留编号空洞）。
 
 ## 进行中
 
 | 条目 | 领取日期 | 范围 |
 |---|---|---|
-
