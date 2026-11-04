@@ -27,7 +27,7 @@ import type { Budget, BudgetStatus } from '@contracts/types'
 import dayjs from 'dayjs'
 import { formatCurrency } from '../utils/format'
 import { fromMajor, minor } from '@domain/index'
-import { getProgressColor, getStatusLabel } from '../utils/budget'
+import { getProgressColor, getStatusLabel, toBudgetDate } from '../utils/budget'
 import { useAmountColors } from '../hooks/useAmountColors'
 
 const { Text } = Typography
@@ -127,8 +127,8 @@ const Budgets: React.FC = () => {
         // 表单内是元，提交前转分
         amount: fromMajor(values.amount),
         period: values.period,
-        startDate: values.startDate?.toISOString(),
-        endDate: values.isLongTerm ? null : (values.endDate?.toISOString() ?? null),
+        startDate: values.startDate ? toBudgetDate(values.startDate) : '',
+        endDate: values.isLongTerm || !values.endDate ? null : toBudgetDate(values.endDate),
         transactionTime: values.transactionTime ?? null,
         note: values.note,
         accountId: values.accountId,

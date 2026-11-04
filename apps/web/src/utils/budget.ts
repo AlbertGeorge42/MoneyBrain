@@ -1,3 +1,4 @@
+import type { Dayjs } from 'dayjs'
 import { formatPercent } from './format'
 
 // 预算进度条固定色相：收入=绿、支出=红、转账=蓝
@@ -5,6 +6,13 @@ const BUDGET_PROGRESS_HUES: Record<string, number> = {
   income: 100,
   expense: 0,
   transfer: 209,
+}
+
+/**
+ * 预算日期提交口径：本地日历日（YYYY-MM-DD），避免 toISOString 把日期转成 UTC 瞬时
+ */
+export function toBudgetDate(value: Dayjs): string {
+  return value.format('YYYY-MM-DD')
 }
 
 /**

@@ -5,6 +5,7 @@ import BudgetForm from './BudgetForm'
 import ResponsiveDrawer from '../common/ResponsiveDrawer'
 import type { Budget } from '@contracts/types'
 import { fromMajor } from '@domain/index'
+import { toBudgetDate } from '../../utils/budget'
 
 interface BudgetEditProps {
   visible: boolean
@@ -51,8 +52,8 @@ const BudgetEdit: React.FC<BudgetEditProps> = ({
         // 表单内是元，提交前转分
         amount: fromMajor(values.amount),
         period: values.period,
-        startDate: values.startDate?.toISOString(),
-        endDate: values.isLongTerm ? null : (values.endDate?.toISOString() ?? null),
+        startDate: values.startDate ? toBudgetDate(values.startDate) : '',
+        endDate: values.isLongTerm || !values.endDate ? null : toBudgetDate(values.endDate),
         transactionTime: values.transactionTime ?? null,
         note: values.note,
         accountId: values.accountId,
