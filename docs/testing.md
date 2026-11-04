@@ -59,7 +59,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 领域 | 纯内存对象，无 mock |
 | 后端单元 | `createMockPrisma()`（`apps/api/tests/mocks/prisma.ts`） |
 | 后端集成 | `apps/api/prisma/test.db`（测试前由 `tests/global-setup.ts` 用版本化迁移重建） |
-| 前端 | `apps/web/tests/setup.ts` 统一 mock AntD / ECharts / matchMedia / ResizeObserver；页面测试用 `vi.mock('../../../src/queries/xxx')` 注入查询状态 |
+| 前端 | `apps/web/tests/setup.ts` 统一 mock ECharts / matchMedia / ResizeObserver；重建期按需保留 AntD mock，R1 补 Mantine mock，R3 移除 AntD mock；页面测试用 `vi.mock('../../../src/queries/xxx')` 注入查询状态 |
 | E2E | 开发数据库；`clearAllTestData()` 清理。**运行前先备份 `apps/api/prisma/dev.db`，E2E 会清空全部数据。** |
 
 ## 5. 回归清单

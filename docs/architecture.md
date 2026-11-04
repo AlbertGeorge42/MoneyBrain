@@ -92,6 +92,10 @@ adjustment  账户 +amount      权益 −amount
 
 ## 4. 前端数据流（apps/web/src）
 
+> **现状快照**：以下描述的是重建前的旧实现。前端按「高保真设计重建」R 批次（R1–R3）落地后，
+> 本节需按新结构重写；重建完成前，本节仍是现状唯一来源（计划见
+> [stage-1](blueprint/stage-1-experience.md) 批次 U）。
+
 ```
 Page → queries/useXxx → services/api.ts → Axios → Express
                                     ← ApiResponse<T>（判别联合）

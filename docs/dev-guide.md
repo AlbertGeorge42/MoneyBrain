@@ -8,7 +8,7 @@
 
 | 层 | 技术 |
 |---|---|
-| 前端 | React 18、Vite 5、TypeScript、Mantine 8（锁 `8.3.18`，过渡期 AntD 6 并存）、ECharts、TanStack Query、Axios |
+| 前端 | React 18、Vite 5、TypeScript、Mantine 8（锁 `8.3.18`；旧 AntD 6 仅存于未重建页面，R3 后移除）、ECharts、TanStack Query、Axios |
 | 后端 | Express 4、TypeScript、Prisma 5、SQLite、pino / pino-http |
 | 领域内核 | 纯 TypeScript（`packages/domain`，无框架、无数据库依赖） |
 | 契约 | `packages/contracts`（TypeScript 类型 + 错误码 + 树工具） |
@@ -28,12 +28,13 @@ apps/api/src/
 ├── db/repositories/      # 各模型的 Prisma 访问唯一入口（D1：软删除过滤、固定 include 收口在这层）
 └── prisma.ts
 
-apps/web/src/
-├── pages/                # 页面（当前 5 个）
-├── components/           # 领域组件（common/transactions/budgets/reports/investment/settings/charts）
-├── queries/              # React Query hooks + invalidateLedger
+apps/web/src/            # 目标结构（R 批次落地；重建完成前旧结构仍存在）
+├── app/                  # 壳、路由、Provider、设备入口
+├── features/<domain>/    # components/ hooks/ index.ts（唯一公开入口）
+├── ui/                   # 共享原语（按实际复用建立）
+├── queries/              # 全局缓存键 + invalidateLedger
 ├── services/             # api.ts（Axios）、apiError.ts、apiResult.ts
-├── hooks/  utils/  styles/  layouts/
+├── hooks/  utils/  styles/
 
 packages/
 ├── domain/src/           # money.ts · date.ts · ledger/{types,postings,summary}.ts
@@ -47,9 +48,12 @@ packages/
 | 命名空间 | 定义处 | 使用规则 |
 |---|---|---|
 | `--mb-*`（项目） | `styles/theme/variables.css`（结构：间距/字体/边框/圆角/动效/布局/z-index）+ 构建期 `scripts/gen-theme-css.mjs` 从 `styles/theme/darkfirst.ts`（ThemeSpec，唯一来源）生成 `generated/darkfirst.css`：`:root` 一段结构变量 + `html[data-mantine-color-scheme='light']` / `html[data-mantine-color-scheme='dark']` 两段颜色变量。`config.ts` 的 `syncCssVars()` **只在 DEV 作断言**（读 `getComputedStyle` 与 spec 比对，不等即抛错），不写值、不进生产 | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
-| `--ant-*`（AntD） | AntD `cssVar: { prefix: 'ant' }` 生成 | **过渡期约束**：只供 AntD 组件内部消费；项目代码不得引用 `--ant-*`，需要同语义值时用项目等价 token（如 `--mb-color-warning`）。U13 迁移完成后 `--ant-*` 归零，本行失效；`--mantine-*` 同理属库内部变量，业务代码不得覆盖 |
+| `--ant-*`（AntD） | AntD `cssVar: { prefix: 'ant' }` 生成 | **过渡期约束**：只供 AntD 组件内部消费；项目代码不得引用 `--ant-*`，需要同语义值时用项目等价 token（如 `--mb-color-warning`）。R3 完成后 `--ant-*` 归零，本行失效；`--mantine-*` 同理属库内部变量，业务代码不得覆盖 |
 
 CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）：写 `var(--mb-*)` 时必须「引用即定义」。
+
+> 上表是 **R1 目标态**。R1 落地前，代码仍走 `config.ts` 的旧主题实现；`darkfirst.ts` /
+> `gen-theme-css.mjs` / `generated/darkfirst.css` 尚不存在。不要据上表误判现状。
 
 ### 2.2 设备判定只有一个入口
 
@@ -64,27 +68,28 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
 
 （原 U2–U3「16 处媒体查询 token 化 + PostCSS 构建期解析」随双端独立结构取消。）
 
-### 2.3 组件库规则（Mantine 8，过渡期 AntD 并存）
+### 2.3 组件库规则（Mantine 8，重建期 AntD 退场）
 
 **目标库是 Mantine 8（锁 `8.3.18`）**——9.x 的 peer 要求 React 19，项目当前 React 18，
 升级 React 需另行决策（决策 #41）。
 
-- **新代码不得新增 AntD 引用**：迁移期新增界面一律用 Mantine；存量按 U13 迁移。
-- **同页面不混用两库**：一个页面 / 一个 feature 的组件树只用一个库的组件；迁移是「整页换」，
+- **新代码不得新增 AntD 引用**：R1–R3 一律用 Mantine；旧页面不迁移，按 R2 重建后删除（决策 #42）。
+- **同页面不混用两库**：一个页面 / 一个 feature 的组件树只用一个库的组件；重建是「整屏换」，
   不是逐组件换。全局层（Provider / Notifications）可共存，页面主题不并存。
 - **主题只从 `createTheme` 出**：不得用 CSS 覆盖 `--mantine-*` 内部变量；颜色只走 `colors`
   的 10 级色阶（body 底色取 `dark[7]`），结构只走 `--mb-*`。**不得出现第三个颜色来源。**
 - **自建组件必须进白名单**：确需自建的先登记进白名单并有测试覆盖；U12 落成前，白名单以
-  stage-1 U13.2 的 12 项目录为准；U12（U13.5 后）将产出 `docs/design-system.md` 再承接。能用库组件拼出来的不许自建。
+  stage-1 R1 的参考清单与实际消费者为准；U12（R3 后）将产出 `docs/design-system.md` 再承接。
+  能用库组件拼出来的不许自建。
 - **新增主题 = 新增 `ThemeSpec` 文件并注册**：组件只读 `--mb-*` 与 `theme.other`，不得读 `themeId`
   做条件渲染。
-- **间距 / 触控 / 可访问性验收并入 U13.3–U13.4**：U4（间距字号单一来源）、U6（触控 ≥44×44 + 安全区）、
-  U7（焦点可见 / 可访问名称）在迁移后的新实现上验收，不返修旧组件。
+- **间距 / 触控 / 可访问性验收并入 R2/R3**：U4（间距字号单一来源）、U6（触控 ≥44×44 + 安全区）、
+  U7（焦点可见 / 可访问名称）在重建后的新实现上验收，不返修旧组件。
 - **已知技术债**：自定义圆角键需 `as any`（类型只认 xs..xl）——二选一处理
   （提交 `DefaultMantineColor` / `DefaultMantineRadius` 模块增强，或接受并记录），
   不得用 `@ts-ignore` 掩盖。
 
-#### darkfirst 主题落地约定（UX5b）
+#### darkfirst 主题落地约定（HF / R1）
 
 设计依据见 [design-tokens.md](blueprint/ux/design-tokens.md)；**实现约定只写在这一处**。
 
@@ -403,7 +408,7 @@ npm run test:web
       会则直接删掉旧路径，不写适配层——「以后再删」的「以后」不会来。
 - [ ] 新增 / 被修改的用户可见文案已进文案目录（key `feature.page.element[.state]`），查表只用 `{}` 插值；
       lint 覆盖 `.tsx` JSX 文本与字符串字面量。
-- [ ] 前端即将切换为原型设计版本，前端改动从简（决策 #39）：能在后端 / 契约层收口的就在后端收口，
+- [ ] 前端按 R 批次重建，旧页面不修（决策 #42）：能在后端 / 契约层收口的就在后端收口，
       不为当前界面做过度的适配；但契约（`packages/contracts`）与后端必须做完整，不留临时的半成品逻辑。
 - [ ] 提交信息首行含「——」且括号内是条目号 / 哈希 / 重写批次（`commit-msg` 钩子会自动拦，这步是 `--no-verify` 场景的兜底）。
 
@@ -453,15 +458,17 @@ npm run test:web
 | 级别 | 产出 | 精度 | 能否改界面 |
 |---|---|---|---|
 | **概念稿（UX5a）** | 线框级 Markdown：模块布局 + 工作流线框 + 双端差异与取舍 | 只讲布局、顺序、承载方式 | **不改产品界面代码**；可按用户明确指示把**原型**落成线框级 |
-| **高保真（UX5b）** | 可运行 React 页面原型（Mantine 渲染；可 import `tokens.ts` 与 `ui/`，不进生产构建） | token 落地、真实视觉 | 只在概念稿已确认后进行 |
+| **高保真（HF / UX5b）** | **A 设计即代码（已拍板，决策 #40a）**：直接落在 `apps/web` 生产代码路径的可运行高保真基准（Mantine 渲染；可 import `tokens.ts` 与 `ui/`）；B 设计稿已否决。不另建长期高保真目录 | token 落地、真实视觉 | UX5a 已确认后开工；HF 成品确认后进入 R1–R3，它是 R1–R3 的视觉 / 交互基线 |
 
 **硬规则**：
 
-1. **概念稿未确认前，不做高保真、不改产品界面代码**。确认关卡由用户把关——
+1. **概念稿未确认前，不开始 HF、不改生产界面代码**。确认关卡由用户把关——
    未经确认就动产品界面，等于把没拍板的取舍固化成「已设计」。
+   HF 成品经用户确认后才进入 R1；A 形态开工即按 R 批次重建生产界面，**不再维护独立的「高保真原型」目录**。
    **例外**：用户明确指示「把原型落成线框级演示」时，允许改**原型目录**
    （`docs/blueprint/ux/prototype/`），但产物必须保持线框精度——
    灰阶、占位块、不做视觉润色，且每条待确认项在界面里标注「当前按推荐值 X，待确认」。
+   A 形态是生产路径的基准，**不得**退化成 `ux/prototype/` 的视觉扩展。
 2. **概念稿不推翻已确认的结论**。信息架构、交互模型、平台差异、设计 token
    四份文档已定；概念稿只在它们划定的范围内展开，发现它们有问题就**回到那份文档改**，
    不在概念稿里另立一套。

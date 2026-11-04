@@ -12,7 +12,7 @@ MoneyBrain 采用「单人 + AI 会话」方式开发。本文件是每次会话
 
 ## 工作循环
 
-1. **领一条**：从 [docs/blueprint/PROGRESS.md](docs/blueprint/PROGRESS.md) 的「待领」按顺序领**一条**差距条目，登记到「进行中」。一次只做一条。
+1. **领一条**：从 [docs/blueprint/PROGRESS.md](docs/blueprint/PROGRESS.md) 的「待领」按通道领**一条**差距条目，登记到「进行中」。项目有两条通道（**后端完善 / 前端重建**）：同一会话一次只做一条；并行会话可在不同通道各领一条，同通道内仍严格串行；跨通道并行时只改自己条目涉及的文件，不得带入他人未提交改动。
 2. **读上下文**：该条目所在阶段文档 + 蓝图 [目标架构](docs/blueprint/architecture.md) 对应小节 + 相关决策（[principles.md](docs/blueprint/principles.md) 决策记录）。
 3. **实现 + 自检**：提交粒度 = 一件事（含连带精简，见蓝图入口 §2）；按条目「验收」栏用**具体命令**验证（grep / ESLint / 测试，基线命令见 [dev-guide.md](docs/dev-guide.md) §9.1），不是「看起来改好了」。验证命令与结果写进提交说明。
 4. **销条目**：更新 PROGRESS.md（状态表加行、从阶段文档差距清单删行、移出「进行中」）。

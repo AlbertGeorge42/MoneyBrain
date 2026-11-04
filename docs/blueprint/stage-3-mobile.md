@@ -8,6 +8,7 @@
 ## 前置
 
 - 阶段 2 的批次 F 完成：同步契约先于移动端（见 [rewrite §3 关键依赖](../rewrite-blueprint.md)）。
+- 阶段 1 的 **R2c + L1–L3** 完成：手机复用重建后的 feature/query 层与文案目录，不在旧页面上开工。
 - 阶段 1 的 UX3 平台差异规范完成（见 [stage-1](stage-1-experience.md)）。
 - Spike 先行：**V2**（Capacitor + Mantine 8 真机布局）与 **V3**（WebView 内 SQLite + 共享领域层）
   在 H 批开工前完成；**V4**（目标机型通知可达）在 I 批开工前完成。失败即换方案，
