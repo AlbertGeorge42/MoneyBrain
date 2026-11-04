@@ -1,8 +1,8 @@
 # 设计 Token（UX4）
 
 > 这份文档回答：**界面长什么样，凭什么这么定**。
-> 它是 U4（间距字号单一来源）、U9–U11（视觉一致性）的**唯一权威输入**，
-> 段三照此实现，U12 据此写成 [../../design-system.md](../../design-system.md)。
+> 它是 U4（间距字号单一来源）与 U12 的**唯一权威输入**；视觉一致性类条目（U5、U8–U11）已取消。
+> 段三照此实现；U12（U13.5 后）将产出 `docs/design-system.md`，届时据此收口。
 >
 > **规则：token 之外不得出现字面量。** 出现即返工。
 
@@ -165,7 +165,7 @@ Toast、批量操作条是**反色承载**——它们浮在页面之上，用�
 浅色：`#1D5C43` `#806010` `#7A5C28` `#646B5C` `#177245` `#B5442C`
 暗色：`#7CC9A2` `#D9A94E` `#C4A882` `#8D9585` `#74C693` `#EE8B6F`
 
-暗色下的分类色是**另调的一套**（U10）——沿用浅色档在暗背景上对比度不达标。
+暗色下的分类色是**另调的一套**（UX5b 定稿）——沿用浅色档在暗背景上对比度不达标。
 
 ---
 
@@ -328,7 +328,7 @@ grep -rnE "fontSize:|font-size:\s*[0-9]|padding:\s*[0-9]|margin:\s*[0-9]|gap:\s*
 
 # 2. 无硬编码颜色（token 定义文件本身除外；rgba( 一并算字面量）
 grep -rnE "#[0-9a-fA-F]{3,6}|rgba?\(" apps/web/src --include=*.tsx --include=*.css \
-  | grep -v "var(--mb-" | grep -v "styles/tokens.css"
+  | grep -v "var(--mb-" | grep -v "styles/theme/"
 
 # 3. 无内联样式
 grep -rn "style={{" apps/web/src --include=*.tsx
@@ -340,10 +340,10 @@ grep -rn "transition:all" apps/web/src --include=*.css --include=*.tsx
 grep -rn ":focus-visible" apps/web/src --include=*.css
 
 # 6. 半透明叠加走 color-mix，不写 rgba 字面量
-grep -rn "rgba(" apps/web/src --include=*.tsx --include=*.css | grep -v "styles/tokens.css"
+grep -rn "rgba(" apps/web/src --include=*.tsx --include=*.css | grep -v "styles/theme/"
 ```
 
-六条命令对应 U4、U9、U12 的验收项。**出现即返工**——这是 §「规则」一节的执行方式。
+六条命令对应 U4、U12 的验收项。**出现即返工**——这是 §「规则」一节的执行方式。
 
-> token 定义文件是**唯一**允许出现色值字面量的地方（它就是字面量的收口处）。
+> `styles/theme/` 下的 token 定义文件是**唯一**允许出现色值字面量的地方（它就是字面量的收口处）。
 > 其余任何位置（包括内联 `style`、图表配置、ECharts 配色）都必须引用 `var(--mb-*)`。

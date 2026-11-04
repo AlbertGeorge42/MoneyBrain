@@ -127,7 +127,7 @@ PostCSS 构建期解析」失去对象，**不执行**。
 | `docs/blueprint/ux/design-tokens.md` | 色彩角色、字号阶梯、密度、圆角阴影、暗色方案 | UX4 |
 | `docs/blueprint/ux/concept-design.md` | **线框级概念设计**：模块布局 + 九类工作流（W1–W9）的双端线框、差异与取舍、待确认项、§8 实现说明 | UX5a |
 | `docs/blueprint/ux/prototype/` | 可交互原型：**线框级**（UX5a 概念稿的落地，灰阶 / 占位块 / 无 CDN 依赖）与**高保真**（UX5b：用选定组件库的可运行 React 页面；可 import `tokens.ts` 与 `ui/`，但不进生产构建） | UX5a、UX5b |
-| `docs/design-system.md` | 由段二产出并经段三验证后的规范文档 | U12（U13.5 后） |
+| `docs/design-system.md` | U12（U13.5 后）将产出：从 UX5b 高保真与 Mantine 实现收口；本阶段不建空壳 | U12（U13.5 后） |
 
 **本段不做**：不新增业务功能（周期交易、标签、多账本等仍在
 [stage-4](stage-4-expansion.md)）；不做视觉资产（图标库与插画的视觉处理随 UX5b 落地）。

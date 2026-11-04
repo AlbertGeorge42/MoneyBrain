@@ -36,9 +36,9 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 | 范围 | 文件 | 用例 |
 |---|---|---|
-| 领域 | 3 | 31 |
-| 后端 | 26 | 266 |
-| 前端 | 10 | 86 |
+| 领域 | 3 | 38 |
+| 后端 | 35 | 325 |
+| 前端 | 12 | 90 |
 | E2E | 6 个 spec | onboarding、theme、responsive ×2、settings、example |
 
 ## 3.1 数据自检与恢复演练（不是单元测试）
@@ -47,7 +47,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 1. 期末净资产 = 期初净资产 + 净收入 − 净支出 + 其他（不计收支、手续费、平账、开户前交易）；
 2. 每笔转账满足 Δ转出 + Δ转入 == −手续费；
-3. 每笔退款不超过原交易剩余可退金额。
+3. 可退余额 = max(原额 − Σ退款, 0)，仅为录入参考；超退与跨账户退款合法，只做信息性提示（决策见 requirements §3）。
 
 `npm run db:drill` 验证**备份能不能还原出同样的钱**：导出 → 导入临时库 → 用领域层重算两边的账户余额 → 逐项对比。
 两者都只碰只读数据或临时库；改动导出/导入/余额/口径逻辑后必须跑。
@@ -73,7 +73,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 |---|---|---|
 | 任意交易 `Σ postings.amount == 0` | ✅ | `packages/domain/tests/ledger.test.ts` |
 | 退款：全额退款后余额回到原交易前 | ✅ | 同上 |
-| 退款：退款额 ≤ 可退余额 | ✅ | 同上 |
+| 可退余额按 max(原额 − Σ退款, 0) 计算（超退合法，不判错） | ✅ | 同上 |
 | 转账：`Δ转出 + Δ转入 == −fee` | ✅ | 同上 |
 | 期初余额当天交易计入 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts`（`periodOf` 各周期边界） |
@@ -98,20 +98,9 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 - [x] 投资快照前链在增删改后重排且无自引用。
 - [x] 失败时页面显示错误而不是 0（前端错误态）。
 
-### 5.3 完全没有测试的模块
+### 5.3 尚未覆盖（列入计划）
 
-这些模块决定用户看到的数字或数据安全，目前**一行单测都没有**——是蓝图批次 A0 的对象。
-
-| 模块 | 位置 | 该测什么 |
-|---|---|---|
-| 清库 | `apps/api/src/services/clear-data.service.ts` | 按范围清空、不误删范围外数据 |
-
-### 5.4 尚未覆盖（列入计划）
-
-- [ ] 导入中断后的回滚点。
 - [ ] 旧数据迁移的 v1 → v2 对账报告。
-- [ ] 清库按范围清空、不误删范围外数据。
-- [ ] `Σ 所有账户余额 == 净资产` 的聚合恒等式断言。
 - [ ] 同步不变量 7–11（重放一致、冲突不静默、密文出端、合并与传输解耦、加密不降级）——
       随蓝图批次 F/G 落地时补齐。
 

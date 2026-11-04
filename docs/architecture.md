@@ -136,7 +136,7 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 | `InvestmentAllocationSnapshot` | 投资快照；`previousSnapshotId` 为派生链，写入后重排 |
 | `InvestmentAllocationItem` | 快照内的持仓市值与期间净流入 |
 
-数据库不存派生值：余额、预算百分比、快照前链、收益率全部按需计算。
+数据库不存派生值：余额、预算百分比、收益率按需计算。快照链是显式例外——`previousSnapshotId` 入库并在写入后重排，供「按期间取前链」用。
 
 **口径版本**：`Transaction.ruleVersion` 是写入这笔交易时的账务口径版本。
 解释历史数字时按交易自己的版本取规则（`rulesFor(version)`），
@@ -163,13 +163,7 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 
 ## 7. 已知技术债
 
-现状与目标之间的差距，完整清单见 [rewrite-blueprint.md](rewrite-blueprint.md) §4。这里只列**会影响正确性或数据安全**的：
-
-| 债 | 位置 | 后果 |
-|---|---|---|
-| 投资分析仍有一份自己的口径（只统计转账本金） | `services/report/investment-analysis-collect.ts` | 与其它报表口径不同属设计选择，但没有单测兜底 |
-| 清库没有单测 | `services/clear-data.service.ts` | 按范围清空是覆盖导入的前置步骤，清错范围会丢数据，却无安全网 |
-| SQLite 未显式配置 WAL / `busy_timeout`，写操作未串行化 | `src/prisma.ts` | 多标签页并发写可能 "database is locked" |
+本文不再维护技术债清单：已完成条目见 [blueprint/PROGRESS.md](blueprint/PROGRESS.md)，未完成条目只在所属阶段文档的差距清单里定义。本文只记录**跨模块的现状事实**。
 
 **对账与自检**：
 

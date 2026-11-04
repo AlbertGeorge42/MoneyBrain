@@ -8,7 +8,7 @@
 
 | 层 | 技术 |
 |---|---|
-| 前端 | React 18、Vite 5、TypeScript、Ant Design 6、ECharts、TanStack Query、Axios |
+| 前端 | React 18、Vite 5、TypeScript、Mantine 8（锁 `8.3.18`，过渡期 AntD 6 并存）、ECharts、TanStack Query、Axios |
 | 后端 | Express 4、TypeScript、Prisma 5、SQLite、pino / pino-http |
 | 领域内核 | 纯 TypeScript（`packages/domain`，无框架、无数据库依赖） |
 | 契约 | `packages/contracts`（TypeScript 类型 + 错误码 + 树工具） |
@@ -415,7 +415,7 @@ npm run test:web
 | 级别 | 产出 | 精度 | 能否改界面 |
 |---|---|---|---|
 | **概念稿（UX5a）** | 线框级 Markdown：模块布局 + 工作流线框 + 双端差异与取舍 | 只讲布局、顺序、承载方式 | **不改产品界面代码**；可按用户明确指示把**原型**落成线框级 |
-| **高保真（UX5b）** | HTML 可交互原型 | token 落地、真实视觉 | 只在概念稿已确认后进行 |
+| **高保真（UX5b）** | 可运行 React 页面原型（Mantine 渲染；可 import `tokens.ts` 与 `ui/`，不进生产构建） | token 落地、真实视觉 | 只在概念稿已确认后进行 |
 
 **硬规则**：
 
