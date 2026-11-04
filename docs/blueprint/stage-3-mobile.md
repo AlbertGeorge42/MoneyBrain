@@ -12,6 +12,7 @@
 - Spike 先行：**V2**（Capacitor + Mantine 8 真机布局）与 **V3**（WebView 内 SQLite + 共享领域层）
   在 H 批开工前完成；**V4**（目标机型通知可达）在 I 批开工前完成。失败即换方案，
   不把风险带进主线（见 [stage-4](stage-4-expansion.md)「先验证的 spike」）。
+- **H6 依赖阶段 2 的 G1**（容器导出/导入）：执行序为 `H-A → H-B → G1+G6 → H6`，见 [PROGRESS](PROGRESS.md)。
 
 ## 差距清单
 

@@ -126,7 +126,7 @@
   设备判定单入口仍是原型前置（[dev-guide §2.2](dev-guide.md)）。
   段二内部再设一道**确认关卡**（UX5a 线框级概念稿 → 确认 → UX5b 组件库驱动的可运行 React 页面），
   未确认不做 UX5b。
-  详见 [stage-1](blueprint/stage-1-experience.md) 批次 U 的「顺序要求」。
+  详见 [stage-1](blueprint/stage-1-experience.md) 批次 U 的 U13「顺序」。
 - **F → H**：手机端必须从第一天就按同一套同步契约写。
 - **F 与实体集合解耦**（批次 F11）：周期交易、标签、多账本（阶段 4 的 K1–K3）决定可同步实体
   的集合。它们的落地被推迟，**所以容器格式不能与实体集合耦合**——记录自带 `entityType`，
