@@ -8,11 +8,21 @@ import Reports from './pages/Reports'
 import Budgets from './pages/Budgets'
 import Settings from './pages/Settings'
 
+const HfPreview = React.lazy(() => import('./app/design/HfPreview'))
+
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
+          <Route
+            path="/design"
+            element={
+              <React.Suspense fallback={null}>
+                <HfPreview />
+              </React.Suspense>
+            }
+          />
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
