@@ -326,6 +326,11 @@
   align-items: stretch;
 }
 
+/* 最近交易卡贴合自身内容高度，不被右栏预算卡撑出空白 */
+.mb-recent-card {
+  align-self: start;
+}
+
 .mb-sec-head {
   display: flex;
   align-items: flex-start;

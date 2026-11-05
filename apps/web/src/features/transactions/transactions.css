@@ -126,6 +126,11 @@
   margin-left: auto;
 }
 
+/* 三个工具栏按钮宽度统一，避免长短文案造成参差 */
+.mb-tx-actions .mb-tx-btn {
+  min-width: calc(var(--mb-touch) * 2 + var(--mb-s-2));
+}
+
 .mb-tx-btn {
   display: inline-flex;
   align-items: center;

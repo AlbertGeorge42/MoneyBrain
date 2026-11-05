@@ -740,9 +740,9 @@
 /* 固定列宽：按列数分档，不写硬编码 px */
 .mb-rp-table.is-c2 col:nth-child(1) { width: 66%; }
 .mb-rp-table.is-c2 col:nth-child(2) { width: 34%; }
-.mb-rp-table.is-c3 col:nth-child(1) { width: 46%; }
-.mb-rp-table.is-c3 col:nth-child(2) { width: 28%; }
-.mb-rp-table.is-c3 col:nth-child(3) { width: 26%; }
+.mb-rp-table.is-c3 col:nth-child(1) { width: 40.82%; }
+.mb-rp-table.is-c3 col:nth-child(2) { width: 36.73%; }
+.mb-rp-table.is-c3 col:nth-child(3) { width: 22.45%; }
 .mb-rp-table.is-c4 col:nth-child(1) { width: 40%; }
 .mb-rp-table.is-c4 col:nth-child(2) { width: 16%; }
 .mb-rp-table.is-c4 col:nth-child(3) { width: 20%; }
@@ -963,7 +963,7 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--mb-s-4);
-  align-items: start;
+  align-items: stretch;
 }
 
 .mb-rp-chart-scroll {
@@ -986,7 +986,15 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
 }
 
 .mb-rp-chart-card {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+}
+
+/* 并排两卡等高：资产构成图例在卡内纵向铺满，不把空白留在卡底 */
+.mb-rp-chart-grid .mb-rp-compare-side {
+  flex: 1;
+  justify-content: space-between;
 }
 
 .mb-rp-chart-body {

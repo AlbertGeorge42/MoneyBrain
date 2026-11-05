@@ -226,7 +226,8 @@
 
 .mb-bg-watch-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* 单列：条目只有 3 条，两列会让少的一侧留下整行空槽 */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--mb-s-4);
 }
 
@@ -671,10 +672,6 @@
 
 .mb-bg-page[data-device='mobile'] .mb-bg-hero-amount {
   font-size: var(--mb-fs-5);
-}
-
-.mb-bg-page[data-device='mobile'] .mb-bg-watch-grid {
-  grid-template-columns: 1fr;
 }
 
 .mb-bg-page[data-device='mobile'] .mb-bg-watch-row,
