@@ -23,6 +23,8 @@ export type TypeFilter = 'all' | TxType
 export interface AdvancedFilters {
   accountId: string
   categoryId: string
+  /** 报表合并「其他」下钻时一次筛多个根分类；普通筛选留空。 */
+  categoryIds: string[]
   amountMin: string
   amountMax: string
   dateFrom: string
@@ -38,6 +40,7 @@ export interface TransactionFilters {
 export const EMPTY_ADVANCED: AdvancedFilters = {
   accountId: '',
   categoryId: '',
+  categoryIds: [],
   amountMin: '',
   amountMax: '',
   dateFrom: '',
@@ -113,11 +116,17 @@ export function filterTransactions(ledger: Ledger, filters: TransactionFilters):
   const min = parseAmount(filters.advanced.amountMin)
   const max = parseAmount(filters.advanced.amountMax)
   const rootCategoryId = filters.advanced.categoryId
+  const rootCategoryIds = filters.advanced.categoryIds
 
   return ledger.transactions.filter((transaction) => {
     if (filters.type !== 'all' && transaction.type !== filters.type) return false
     if (filters.advanced.accountId && transaction.accountId !== filters.advanced.accountId) return false
-    if (rootCategoryId && getCategoryRootId(ledger, transaction.categoryId) !== rootCategoryId) return false
+    const rootId = getCategoryRootId(ledger, transaction.categoryId)
+    if (rootCategoryIds.length > 0) {
+      if (!rootCategoryIds.includes(rootId)) return false
+    } else if (rootCategoryId && rootId !== rootCategoryId) {
+      return false
+    }
     if (filters.advanced.dateFrom && transaction.date < filters.advanced.dateFrom) return false
     if (filters.advanced.dateTo && transaction.date > filters.advanced.dateTo) return false
     if (!inAmountRange(transaction, min, max)) return false
@@ -161,6 +170,121 @@ export function signedMinorText(value: number): string {
   return `${sign}${formatCurrency(minor(Math.abs(value)))}`
 }
 
+/** 流水筛选写入 URL 的键名；返回列表或深链跳转都靠这组键还原上下文。 */
+export const FILTER_QUERY_KEYS = [
+  'txQ',
+  'txType',
+  'txAccount',
+  'txCategory',
+  'txRoots',
+  'txFrom',
+  'txTo',
+  'txAmin',
+  'txAmax',
+] as const
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const AMOUNT_INPUT = /^\d+(\.\d{0,2})?$/
+
+export interface FilterUrlRestore {
+  filters: TransactionFilters
+  /** 未能还原的条件，用于页面显式提示，而不是静默清空。 */
+  dropped: string[]
+}
+
+export function readFiltersFromSearch(search: string, ledger: Ledger): FilterUrlRestore {
+  const params = new URLSearchParams(search)
+  const dropped: string[] = []
+  const advanced: AdvancedFilters = { ...EMPTY_ADVANCED, categoryIds: [] }
+
+  const rawType = params.get('txType')
+  let type: TypeFilter = 'all'
+  if (rawType) {
+    if (TYPE_OPTIONS.some((option) => option.value === rawType)) type = rawType as TypeFilter
+    else dropped.push('类型')
+  }
+
+  const accountId = params.get('txAccount') ?? ''
+  if (accountId) {
+    if (ledger.accounts.some((account) => account.id === accountId)) advanced.accountId = accountId
+    else dropped.push('账户')
+  }
+
+  const categoryId = params.get('txCategory') ?? ''
+  if (categoryId) {
+    if (ledger.categories.some((category) => category.id === categoryId)) advanced.categoryId = categoryId
+    else dropped.push('分类')
+  }
+
+  const roots = params.get('txRoots') ?? ''
+  if (roots) {
+    const ids = roots.split(',').filter(Boolean)
+    const valid = ids.filter((id) => ledger.categories.some((category) => category.id === id))
+    if (valid.length > 0) advanced.categoryIds = valid
+    if (valid.length !== ids.length) dropped.push('合并分类')
+  }
+
+  for (const [key, field, label] of [
+    ['txFrom', 'dateFrom', '起始日期'],
+    ['txTo', 'dateTo', '结束日期'],
+  ] as const) {
+    const value = params.get(key) ?? ''
+    if (!value) continue
+    if (ISO_DATE.test(value)) advanced[field] = value
+    else dropped.push(label)
+  }
+
+  for (const [key, field, label] of [
+    ['txAmin', 'amountMin', '最小金额'],
+    ['txAmax', 'amountMax', '最大金额'],
+  ] as const) {
+    const value = params.get(key) ?? ''
+    if (!value) continue
+    if (AMOUNT_INPUT.test(value)) advanced[field] = value
+    else dropped.push(label)
+  }
+
+  return {
+    filters: { query: params.get('txQ') ?? '', type, advanced },
+    dropped,
+  }
+}
+
+/** 只覆盖本页键，保留预览壳的 page/device/state 等无关参数。 */
+export function writeFiltersToSearch(search: string, filters: TransactionFilters): string {
+  const params = new URLSearchParams(search)
+  FILTER_QUERY_KEYS.forEach((key) => params.delete(key))
+
+  if (filters.query.trim()) params.set('txQ', filters.query)
+  if (filters.type !== 'all') params.set('txType', filters.type)
+  if (filters.advanced.accountId) params.set('txAccount', filters.advanced.accountId)
+  if (filters.advanced.categoryId) params.set('txCategory', filters.advanced.categoryId)
+  if (filters.advanced.categoryIds.length > 0) {
+    params.set('txRoots', filters.advanced.categoryIds.join(','))
+  }
+  if (filters.advanced.dateFrom) params.set('txFrom', filters.advanced.dateFrom)
+  if (filters.advanced.dateTo) params.set('txTo', filters.advanced.dateTo)
+  if (filters.advanced.amountMin.trim()) params.set('txAmin', filters.advanced.amountMin.trim())
+  if (filters.advanced.amountMax.trim()) params.set('txAmax', filters.advanced.amountMax.trim())
+
+  const serialized = params.toString()
+  return serialized ? `?${serialized}` : ''
+}
+
+export function hasActiveFilters(filters: TransactionFilters): boolean {
+  return (
+    filters.query.trim() !== '' ||
+    filters.type !== 'all' ||
+    (filters.advanced.accountId !== '' ||
+      filters.advanced.categoryId !== '' ||
+      filters.advanced.categoryIds.length > 0 ||
+      filters.advanced.amountMin !== '' ||
+      filters.advanced.amountMax !== '' ||
+      filters.advanced.dateFrom !== '' ||
+      filters.advanced.dateTo !== '')
+  )
+}
+
 export function filterChips(ledger: Ledger, filters: TransactionFilters): FilterChip[] {
   const chips: FilterChip[] = []
   if (filters.type !== 'all') {
@@ -171,7 +295,13 @@ export function filterChips(ledger: Ledger, filters: TransactionFilters): Filter
     const account = getAccount(ledger, filters.advanced.accountId)
     chips.push({ key: 'account', label: `账户：${account?.name ?? '未知账户'}` })
   }
-  if (filters.advanced.categoryId) {
+  if (filters.advanced.categoryIds.length > 0) {
+    const names = filters.advanced.categoryIds
+      .map((id) => getCategoryName(ledger, id))
+      .filter(Boolean)
+      .join(' / ')
+    chips.push({ key: 'category', label: `分类：其他（含${names}）` })
+  } else if (filters.advanced.categoryId) {
     const category = getCategoryName(ledger, filters.advanced.categoryId)
     chips.push({ key: 'category', label: `分类：${category}` })
   }

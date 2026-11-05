@@ -5,6 +5,7 @@ import {
   CURRENT_MONTH_LABEL,
   TODAY,
   getCategory,
+  getCategoryName,
 } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -31,6 +32,9 @@ import {
   filterChips,
   filterTransactions,
   groupTransactions,
+  hasActiveFilters,
+  readFiltersFromSearch,
+  writeFiltersToSearch,
   type AdvancedFilters,
   type TypeFilter,
 } from './filters'
@@ -231,9 +235,12 @@ export function TransactionsPage({
   onImport,
 }: TransactionsPageProps) {
   const { ledger, updateTransaction, deleteTransactions, setTransactionCategory, replaceLedger } = useLedger()
-  const [query, setQuery] = useState('')
-  const [type, setType] = useState<TypeFilter>('all')
-  const [advanced, setAdvanced] = useState<AdvancedFilters>(EMPTY_ADVANCED)
+  // 筛选写入 URL：返回列表（含报表下钻）时还原分类/期间，避免静默丢失。
+  const restored = useMemo(() => readFiltersFromSearch(window.location.search, ledger), [ledger])
+  const [query, setQuery] = useState(restored.filters.query)
+  const [type, setType] = useState<TypeFilter>(restored.filters.type)
+  const [advanced, setAdvanced] = useState<AdvancedFilters>(restored.filters.advanced)
+  const [restoreNotice] = useState<string[]>(restored.dropped)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
@@ -298,6 +305,24 @@ export function TransactionsPage({
     setSelected((current) => (current.size > 0 ? new Set() : current))
   }, [filters])
 
+  // URL 是筛选状态的唯一持久层：切页回来、报表下钻都从同一组 query 键还原。
+  useEffect(() => {
+    const search = writeFiltersToSearch(window.location.search, filters)
+    const next = `${window.location.pathname}${search}`
+    if (next === `${window.location.pathname}${window.location.search}`) return
+    window.history.replaceState(window.history.state, '', next)
+  }, [filters])
+
+  // 深链进入时回到列表顶部，不沿用上一页的滚动位置。
+  useEffect(() => {
+    if (!hasActiveFilters(filters)) return
+    window.scrollTo(0, 0)
+    const mobileScroll = document.querySelector('.mb-mobile-scroll')
+    if (mobileScroll instanceof HTMLElement) mobileScroll.scrollTop = 0
+    // 只在挂载时定位一次；后续筛选变化不强制回顶。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const filtered = dataState === 'normal' ? filterTransactions(ledger, filters) : []
   const sorted =
     display.sort === 'amount'
@@ -323,6 +348,24 @@ export function TransactionsPage({
     selected.size > 0 && !canBatchCategory
       ? '含转账 / 退款 / 调整，或混选收支类型，不能批量改分类'
       : undefined
+  // 批量条要指出「异类」是谁，而不是只给一句概括理由。
+  const excludedFromBatch = selectedTransactions
+    .filter((transaction) => transaction.type !== 'expense')
+    .map((transaction) => ({
+      id: transaction.id,
+      label: getCategoryName(ledger, transaction.categoryId),
+      reason:
+        TYPE_OPTIONS.find((option) => option.value === transaction.type)?.label ?? transaction.type,
+    }))
+  const selectExpenseOnly = () => {
+    setSelected(
+      new Set(
+        selectedTransactions
+          .filter((transaction) => transaction.type === 'expense')
+          .map((transaction) => transaction.id),
+      ),
+    )
+  }
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id))
@@ -355,7 +398,7 @@ export function TransactionsPage({
       return
     }
     if (key === 'category') {
-      setAdvanced((current) => ({ ...current, categoryId: '' }))
+      setAdvanced((current) => ({ ...current, categoryId: '', categoryIds: [] }))
       return
     }
     if (key === 'amount') {
@@ -521,6 +564,11 @@ export function TransactionsPage({
         onClose={onDisplayToggle}
       />
 
+      {restoreNotice.length > 0 && (
+        <div className="mb-tx-restore-note" role="status">
+          部分筛选条件未能还原：{restoreNotice.join('、')}。其余条件仍按 URL 保留。
+        </div>
+      )}
       <FilterChips chips={chips} onClear={clearKey} />
 
       {noResults ? (
@@ -561,10 +609,12 @@ export function TransactionsPage({
         <BatchBar
           device={device}
           count={selected.size}
+          excluded={excludedFromBatch}
           categoryDisabled={!canBatchCategory}
           categoryHint={batchCategoryHint}
           onCategory={() => setDialog('category')}
           onDelete={() => setDialog('delete')}
+          onSelectExpenseOnly={selectExpenseOnly}
           onExit={() => onBatchModeChange(false)}
         />
       )}
