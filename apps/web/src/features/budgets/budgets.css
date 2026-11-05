@@ -13,6 +13,12 @@
   gap: var(--mb-s-3);
 }
 
+.mb-bg-page-copy {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mb-s-3);
+}
+
 .mb-bg-head-actions {
   display: flex;
   align-items: center;

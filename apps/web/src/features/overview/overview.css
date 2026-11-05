@@ -2,14 +2,15 @@
 
 .mb-page-head {
   display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-1);
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--mb-s-3);
 }
 
 .mb-page-title {
   margin: 0;
   font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-5);
+  font-size: var(--mb-fs-4);
   font-weight: 600;
   line-height: var(--mb-lh-tight);
   letter-spacing: -0.01em;

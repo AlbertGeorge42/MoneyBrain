@@ -11,8 +11,9 @@
 
 .mb-set-head {
   display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-1);
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--mb-s-3);
 }
 
 .mb-set-title {

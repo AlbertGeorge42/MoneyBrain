@@ -587,7 +587,7 @@ function BudgetPageHead({
   const count = data.groups.reduce((total, group) => total + group.rows.length, 0)
   return (
     <div className="mb-page-head mb-bg-page-head">
-      <div>
+      <div className="mb-bg-page-copy">
         <h1 className="mb-page-title">预算</h1>
         <p className="mb-page-sub">
           {data.monthLabel} · {count} 个条目
