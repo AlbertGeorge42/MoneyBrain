@@ -1010,15 +1010,18 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             {ASSET_MARK_GROUPS.map((group) => {
               const rows = ledger.accounts.filter((account) => group.kinds.includes(account.kind))
               const groupKey = `cf-asset-${group.id}`
-              const open = !collapsed.has(groupKey)
+              const empty = rows.length === 0
+              // 空组默认折叠，不再渲染「没有账户」占位行，避免像还没加载完。
+              const open = !empty && !collapsed.has(groupKey)
               return (
                 <div key={group.id} className="mb-set-group">
                   <div className="mb-set-row is-group">
                     <button
                       type="button"
                       className="mb-set-fold"
-                      aria-label={open ? '收起分类' : '展开分类'}
+                      aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                       aria-expanded={open}
+                      disabled={empty}
                       onClick={() => toggleCollapsed(groupKey)}
                     >
                       {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -1068,11 +1071,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                         </div>
                       )
                     })}
-                  {open && rows.length === 0 && (
-                    <div className="mb-set-row is-child is-empty">
-                      <span className="mb-set-meta">没有账户</span>
-                    </div>
-                  )}
                 </div>
               )
             })}
@@ -1106,15 +1104,18 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           {ACTIVITY_GROUPS.map((group) => {
             const groupRows = flat.filter((item) => item.group === group.id)
             const groupKey = `cf-${type}-${group.id}`
-            const open = !collapsed.has(groupKey)
+            const empty = groupRows.length === 0
+            // 空组默认折叠，不再渲染「未分配」占位行，避免像还没加载完。
+            const open = !empty && !collapsed.has(groupKey)
             return (
               <div key={group.id} className="mb-set-group">
                 <div className="mb-set-row is-group">
                   <button
                     type="button"
                     className="mb-set-fold"
-                    aria-label={open ? '收起分类' : '展开分类'}
+                    aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                     aria-expanded={open}
+                    disabled={empty}
                     onClick={() => toggleCollapsed(groupKey)}
                   >
                     {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -1159,11 +1160,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                       />
                     </div>
                   ))}
-                {open && groupRows.length === 0 && (
-                  <div className="mb-set-row is-child is-empty">
-                    <span className="mb-set-meta">未分配</span>
-                  </div>
-                )}
               </div>
             )
           })}
