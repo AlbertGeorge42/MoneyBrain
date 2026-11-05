@@ -37,9 +37,8 @@ export interface FlowTreeNode {
   share: number
   level: 0 | 1
   children: FlowTreeNode[]
-  /** 卡片合并「其他」时记录被并入的根分类，用于标注与同口径下钻。 */
+  /** 卡片合并「其他」时记录被并入的根分类，用于同口径下钻。 */
   mergedIds?: string[]
-  mergedLabel?: string
 }
 
 export interface FlowReport {

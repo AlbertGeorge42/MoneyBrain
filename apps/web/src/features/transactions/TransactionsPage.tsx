@@ -568,7 +568,7 @@ export function TransactionsPage({
 
       {restoreNotice.length > 0 && (
         <div className="mb-tx-restore-note" role="status">
-          部分筛选条件未能还原：{restoreNotice.join('、')}。其余条件仍按 URL 保留。
+          部分筛选条件未能还原：{restoreNotice.join('、')}。
         </div>
       )}
       <FilterChips chips={chips} onClear={clearKey} />

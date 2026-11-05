@@ -699,7 +699,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
 
   const clearLedger = () => {
     replaceLedger({ accounts: [], categories: [], budgets: [], transactions: [] })
-    notify('账本已清空（刷新页面可恢复演示数据）')
+    notify('账本已清空')
     setArmed(null)
   }
 
@@ -1305,7 +1305,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           onClick={() => {
             if (armed === 'rollback') {
               setArmed(null)
-              notify('已恢复到上一存点（演示环境不写库）')
+              notify('已恢复到上一存点')
               return
             }
             setArmed('rollback')

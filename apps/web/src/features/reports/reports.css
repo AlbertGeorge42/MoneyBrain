@@ -1195,13 +1195,6 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   white-space: nowrap;
 }
 
-.mb-rp-compare-hint {
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  font-style: normal;
-  font-weight: 400;
-}
-
 .mb-rp-compare-amount {
   flex: none;
   font-family: var(--mb-font-num);

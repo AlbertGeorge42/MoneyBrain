@@ -87,10 +87,9 @@ describe('#16 卡片「其他」与下钻同口径', () => {
     level: 0,
     children: rest.map((item) => ({ ...item, level: 1 as const, children: [] })),
     mergedIds: rest.map((item) => item.id),
-    mergedLabel: '医疗 / 交通 / 调整',
   }
 
-  it('卡片「其他」标注被并入的小类与金额', () => {
+  it('卡片「其他」金额与下钻同口径，不列构成说明', () => {
     const { container } = render(
       <CompositionBars
         incomeTrees={[]}
@@ -103,7 +102,7 @@ describe('#16 卡片「其他」与下钻同口径', () => {
     const row = rows.find((item) =>
       item.querySelector('.mb-rp-compare-name')?.textContent?.includes('其他'),
     )
-    expect(row?.querySelector('.mb-rp-compare-hint')?.textContent).toContain('含 医疗 / 交通 / 调整')
+    expect(row?.querySelector('.mb-rp-compare-hint')).toBeNull()
     expect(row?.querySelector('.mb-rp-compare-amount')?.textContent).toBe('¥54.90')
   })
 

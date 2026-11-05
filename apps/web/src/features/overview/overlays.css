@@ -745,8 +745,4 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-detail-note {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
+

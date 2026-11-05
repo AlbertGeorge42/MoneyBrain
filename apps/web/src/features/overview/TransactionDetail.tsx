@@ -74,8 +74,6 @@ function DetailBody({
         </div>
       </dl>
 
-      <p className="mb-detail-note">数据只在本机；这笔记录不会上传到任何服务器。</p>
-
       <div className="mb-entry-actions">
         <Button variant="default" className="mb-secondary-btn" onClick={onClose}>
           关闭
