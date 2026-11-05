@@ -53,7 +53,10 @@ function DesktopTable({
         {groups.map((group) => (
           <Fragment key={group.date}>
             <div className="mb-tx-group-row">
-              <span className="mb-tx-group-label">{group.label}</span>
+              <span className="mb-tx-group-label">
+                {group.label}
+                {group.date === 'future' && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
+              </span>
               <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
                 小计 {signedMinorText(group.net)}
               </span>
@@ -130,7 +133,10 @@ function MobileList({
       {groups.map((group) => (
         <div key={group.date} className="mb-tx-m-group">
           <div className="mb-tx-m-group-head">
-            <span className="mb-tx-group-label">{group.label}</span>
+            <span className="mb-tx-group-label">
+              {group.label}
+              {group.date === 'future' && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
+            </span>
             <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
               小计 {signedMinorText(group.net)}
             </span>

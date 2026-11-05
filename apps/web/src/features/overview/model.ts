@@ -249,6 +249,8 @@ function sumMonthFlow(transactions: LedgerTransaction[]) {
   let expense = 0
   for (const transaction of transactions) {
     if (!transaction.date.startsWith(CURRENT_MONTH)) continue
+    // 与流水页同口径：晚于今天的记录属于「未来」，不计入本月收支。
+    if (transaction.date > TODAY) continue
     if (transaction.type === 'income' || transaction.type === 'refund') income += transaction.amount
     if (transaction.type === 'expense') expense += transaction.amount
     if (transaction.type === 'adjustment' && transaction.amount < 0) expense += -transaction.amount

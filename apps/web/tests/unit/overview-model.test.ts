@@ -42,6 +42,33 @@ describe('总览数字', () => {
   })
 })
 
+describe('未来记录', () => {
+  const ledger = createSeedLedger()
+  const planned = addTransaction(ledger, {
+    type: 'expense',
+    categoryId: 'food',
+    accountId: 'cmb',
+    amount: 1_000,
+    note: '计划晚餐',
+    date: '2026-10-31',
+  })
+  const before = deriveOverview(ledger)
+  const after = deriveOverview(planned)
+
+  it('晚于今天的记录不计入总览本月收支，与流水页口径一致', () => {
+    expect(after.expense).toBe(before.expense)
+    expect(after.balance).toBe(before.balance)
+    expect(after.income).toBe(before.income)
+  })
+
+  it('未来记录仍扣账户余额，只是不进入本月口径', () => {
+    const account = planned.accounts.find((item) => item.id === 'cmb')
+    const previous = ledger.accounts.find((item) => item.id === 'cmb')
+    expect(account?.balance).toBe((previous?.balance ?? 0) - 1_000)
+    expect(planned.transactions.find((item) => item.id === 't14')?.date).toBe('2026-10-31')
+  })
+})
+
 describe('预算', () => {
   const ledger = createSeedLedger()
   const budgets = deriveBudgets(ledger)

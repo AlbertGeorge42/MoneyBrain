@@ -22,6 +22,11 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* 「未来」分组用数字自证：本组笔数与合计并列，与页脚本月合计区分。 */
+.mb-tx-group-count {
+  margin-left: var(--mb-s-2);
+}
+
 .mb-tx-row {
   display: flex;
   align-items: center;
