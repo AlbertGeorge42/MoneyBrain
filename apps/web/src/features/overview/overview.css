@@ -471,6 +471,30 @@
   min-width: 0;
 }
 
+/* 最近交易行内主次与流水一致：分类名 primary/600，备注与账户 secondary，类型标签 tertiary */
+.mb-recent-table .mb-recent-cat {
+  color: var(--mb-color-text-primary);
+  font-weight: 600;
+}
+
+.mb-recent-table .mb-recent-note,
+.mb-recent-table .mb-recent-account {
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-recent-account-line {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  min-width: 0;
+}
+
+.mb-recent-kind {
+  flex: none;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
 .mb-cat-icon {
   display: inline-flex;
   align-items: center;

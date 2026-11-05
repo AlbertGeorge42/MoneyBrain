@@ -7,6 +7,7 @@ import {
   getAccount,
   getCategoryName,
   getCategoryRootId,
+  transactionDirection,
   transactionTone,
   type Ledger,
   type LedgerTransaction,
@@ -14,7 +15,7 @@ import {
 } from './model'
 import type { DeviceMode } from '@/features/shared/types'
 
-function EllipsisText({ text }: { text: string }) {
+function EllipsisText({ text, className }: { text: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   const [truncated, setTruncated] = useState(false)
 
@@ -30,7 +31,7 @@ function EllipsisText({ text }: { text: string }) {
   }, [text])
 
   const content = (
-    <span ref={ref} className="mb-ellipsis" tabIndex={truncated ? 0 : undefined}>
+    <span ref={ref} className={`mb-ellipsis${className ? ` ${className}` : ''}`} tabIndex={truncated ? 0 : undefined}>
       {text}
     </span>
   )
@@ -104,7 +105,8 @@ export function RecentTransactions({
                     <span className="mb-m-tx-main">
                       <span className="mb-m-tx-note">{transaction.note}</span>
                       <span className="mb-m-tx-meta">
-                        {getCategoryName(ledger, transaction.categoryId)} · {account?.name ?? '未知账户'}
+                        {getCategoryName(ledger, transaction.categoryId)} · {account?.name ?? '未知账户'} ·{' '}
+                        {transactionDirection(transaction)}
                       </span>
                     </span>
                     <span className={`mb-m-tx-amount is-${tone}`}>{signedAmountText(transaction)}</span>
@@ -156,14 +158,17 @@ export function RecentTransactions({
                         <td>
                           <span className="mb-cat-cell">
                             <CategoryIcon rootId={rootId} />
-                            <EllipsisText text={getCategoryName(ledger, transaction.categoryId)} />
+                            <EllipsisText text={getCategoryName(ledger, transaction.categoryId)} className="mb-recent-cat" />
                           </span>
                         </td>
                         <td>
-                          <EllipsisText text={transaction.note} />
+                          <EllipsisText text={transaction.note} className="mb-recent-note" />
                         </td>
                         <td>
-                          <EllipsisText text={account?.name ?? '未知账户'} />
+                          <span className="mb-recent-account-line">
+                            <EllipsisText text={account?.name ?? '未知账户'} className="mb-recent-account" />
+                            <span className="mb-recent-kind">· {transactionDirection(transaction)}</span>
+                          </span>
                         </td>
                         <td className="is-num">
                           <span className={`mb-amount is-${tone}`}>{signedAmountText(transaction)}</span>
