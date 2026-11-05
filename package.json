@@ -20,6 +20,7 @@
     "db:verify": "node --import tsx scripts/db-verify.mts",
     "sync:decrypt": "node --import tsx scripts/decrypt-container.mts",
     "db:fix-expense-sign": "node --import tsx scripts/fix-expense-sign.mts",
+    "spike:v5": "node --import tsx scripts/spike-v5-directory-sync.mts",
     "db:repair-report-data": "node --import tsx scripts/repair-report-data.mts",
     "build": "node scripts/build.mjs",
     "start": "concurrently \"npm run start:api\" \"npm run start:web\"",
