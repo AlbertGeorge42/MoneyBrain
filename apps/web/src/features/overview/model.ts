@@ -122,6 +122,8 @@ export interface BudgetSummary {
 export interface RecentGroup {
   date: string
   label: string
+  /** 未来分组附带的「不计入本月支出」说明。 */
+  hint?: string
   items: LedgerTransaction[]
 }
 
@@ -387,11 +389,12 @@ const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五',
 
 function recentDateLabel(date: string, today: string): string {
   const parsed = parseDay(date)
+  const year = parsed.getUTCFullYear()
   const month = parsed.getUTCMonth() + 1
   const day = parsed.getUTCDate()
   const weekday = WEEK_LABELS[parsed.getUTCDay()]
   const prefix = date === today ? '今天 · ' : ''
-  return `${prefix}${month}月${day}日 ${weekday}`
+  return `${prefix}${year}年${month}月${day}日 ${weekday}`
 }
 
 export function formatDateLabel(date: string): string {
@@ -403,9 +406,16 @@ export function groupRecentTransactions(
   limit: number,
   today = TODAY,
 ): RecentGroup[] {
-  const sorted = [...transactions].sort((left, right) => right.date.localeCompare(left.date)).slice(0, limit)
+  // 未来日期不参与「今天/过去」的时间线，单独收进「未来」分组并注明不计入本月。
+  const future = transactions
+    .filter((transaction) => transaction.date > today)
+    .sort((left, right) => left.date.localeCompare(right.date))
+  const past = transactions
+    .filter((transaction) => transaction.date <= today)
+    .sort((left, right) => right.date.localeCompare(left.date))
+    .slice(0, limit)
   const groups: RecentGroup[] = []
-  for (const transaction of sorted) {
+  for (const transaction of past) {
     const last = groups[groups.length - 1]
     if (last && last.date === transaction.date) {
       last.items.push(transaction)
@@ -415,6 +425,14 @@ export function groupRecentTransactions(
       date: transaction.date,
       label: recentDateLabel(transaction.date, today),
       items: [transaction],
+    })
+  }
+  if (future.length > 0) {
+    groups.push({
+      date: 'future',
+      label: `未来 · ${recentDateLabel(future[0].date, today)}`,
+      hint: '不计入本月支出',
+      items: future,
     })
   }
   return groups

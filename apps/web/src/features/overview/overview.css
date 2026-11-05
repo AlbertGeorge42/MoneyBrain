@@ -439,6 +439,16 @@
   font-weight: 500;
 }
 
+.mb-day-row.is-future td {
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-day-hint {
+  margin-left: var(--mb-s-2);
+  color: var(--mb-color-text-tertiary);
+  font-weight: 400;
+}
+
 .mb-tx-table-row {
   height: var(--mb-tbl-row-h);
   cursor: pointer;
@@ -611,6 +621,9 @@
 }
 
 .mb-m-day-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-2);
   padding: var(--mb-s-1) 0;
   color: var(--mb-color-text-tertiary);
   font-size: var(--mb-fs-0);

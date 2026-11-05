@@ -89,7 +89,10 @@ export function RecentTransactions({
         <div className="mb-m-tx-list">
           {groups.map((group) => (
             <div key={group.date} className="mb-m-day">
-              <div className="mb-m-day-label">{group.label}</div>
+              <div className="mb-m-day-label">
+                <span>{group.label}</span>
+                {group.hint && <span className="mb-day-hint">{group.hint}</span>}
+              </div>
               {group.items.map((transaction) => {
                 const rootId = getCategoryRootId(ledger, transaction.categoryId)
                 const tone = transactionTone(transaction)
@@ -139,8 +142,11 @@ export function RecentTransactions({
             <tbody>
               {groups.map((group) => (
                 <Fragment key={group.date}>
-                  <tr className="mb-day-row">
-                    <td colSpan={4}>{group.label}</td>
+                  <tr className={group.date === 'future' ? 'mb-day-row is-future' : 'mb-day-row'}>
+                    <td colSpan={4}>
+                      <span>{group.label}</span>
+                      {group.hint && <span className="mb-day-hint">{group.hint}</span>}
+                    </td>
                   </tr>
                   {group.items.map((transaction) => {
                     const rootId = getCategoryRootId(ledger, transaction.categoryId)
