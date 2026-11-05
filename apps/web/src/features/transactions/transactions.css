@@ -1059,21 +1059,31 @@
 
 /* ===== 提示条 ===== */
 
-.mb-tx-toast {
+.mb-tx-toast-stack {
   position: fixed;
   left: 50%;
   bottom: var(--mb-s-7);
   z-index: var(--mb-z-toast);
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mb-s-2);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.mb-tx-toast {
+  display: flex;
   align-items: center;
   gap: var(--mb-s-3);
+  max-width: min(90vw, 560px);
   padding: var(--mb-s-2) var(--mb-s-3);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-text-primary);
   color: var(--mb-color-text-inverse);
   font-size: var(--mb-fs-1);
   box-shadow: var(--mb-sh-2);
-  transform: translateX(-50%);
+  pointer-events: auto;
 }
 
 .mb-tx-toast-action {
@@ -1166,7 +1176,7 @@
   flex: 1;
 }
 
-.mb-mobile-scroll .mb-tx-toast {
+.mb-mobile-scroll .mb-tx-toast-stack {
   bottom: calc(var(--mb-touch) + var(--mb-s-4));
 }
 

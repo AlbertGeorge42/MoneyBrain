@@ -356,10 +356,10 @@
 
 .mb-entry-cat-hint {
   position: absolute;
-  top: 2px;
-  right: 5px;
+  top: 1px;
+  right: 6px;
   font-family: var(--mb-font-num);
-  font-size: 10px;
+  font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
@@ -758,10 +758,10 @@
   gap: var(--mb-s-2);
 }
 
-.mb-detail-code {
+.mb-detail-list .mb-detail-code {
   font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-1) !important;
-  color: var(--mb-color-text-tertiary) !important;
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-tertiary);
 }
 
 .mb-detail-note {

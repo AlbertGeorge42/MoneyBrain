@@ -49,6 +49,7 @@ interface TransactionsPageProps {
 }
 
 interface ToastState {
+  id: number
   message: string
   undo?: () => void
 }
@@ -238,8 +239,22 @@ export function TransactionsPage({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [detailId, setDetailId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'category' | 'delete' | null>(null)
-  const [toast, setToast] = useState<ToastState | null>(null)
+  const [toasts, setToasts] = useState<ToastState[]>([])
+  const toastSeq = useRef(0)
+  const toastTimers = useRef<number[]>([])
+  const ledgerRef = useRef(ledger)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    ledgerRef.current = ledger
+  }, [ledger])
+
+  useEffect(
+    () => () => {
+      toastTimers.current.forEach((timer) => window.clearTimeout(timer))
+    },
+    [],
+  )
 
   useEffect(() => {
     if (!batchMode) setSelected(new Set())
@@ -248,12 +263,6 @@ export function TransactionsPage({
   useEffect(() => {
     writeDisplaySettings(display)
   }, [display])
-
-  useEffect(() => {
-    if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 6000)
-    return () => window.clearTimeout(timer)
-  }, [toast])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -315,9 +324,20 @@ export function TransactionsPage({
       ? '含转账 / 退款 / 调整，或混选收支类型，不能批量改分类'
       : undefined
 
-  const notify = useCallback((message: string, undo?: () => void) => {
-    setToast({ message, undo })
+  const dismissToast = useCallback((id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id))
   }, [])
+
+  const notify = useCallback(
+    (message: string, undo?: () => void) => {
+      const id = toastSeq.current + 1
+      toastSeq.current = id
+      setToasts((current) => [...current, { id, message, undo }].slice(-3))
+      const timer = window.setTimeout(() => dismissToast(id), 6000)
+      toastTimers.current.push(timer)
+    },
+    [dismissToast],
+  )
 
   const clearKey = (key: string) => {
     if (key === 'all') {
@@ -363,7 +383,7 @@ export function TransactionsPage({
       '已保存修改 · 账户余额与总览已同步',
       before
         ? () => {
-            replaceLedger(restoreTransactionsInLedger(ledger, [before]))
+            replaceLedger(restoreTransactionsInLedger(ledgerRef.current, [before]))
             notify('已撤销修改')
           }
         : undefined,
@@ -375,7 +395,7 @@ export function TransactionsPage({
     deleteTransactions([id])
     setDetailId(null)
     notify('已删除 1 笔流水', () => {
-      replaceLedger(restoreTransactionsInLedger(ledger, removed))
+      replaceLedger(restoreTransactionsInLedger(ledgerRef.current, removed))
       notify('已撤销删除')
     })
   }
@@ -387,7 +407,7 @@ export function TransactionsPage({
     setDialog(null)
     onBatchModeChange(false)
     notify(`已删除 ${ids.length} 笔流水`, () => {
-      replaceLedger(restoreTransactionsInLedger(ledger, removed))
+      replaceLedger(restoreTransactionsInLedger(ledgerRef.current, removed))
       notify('已撤销批量删除')
     })
   }
@@ -401,7 +421,7 @@ export function TransactionsPage({
     setTransactionCategory(ids, categoryId)
     setDialog(null)
     notify(`已将 ${ids.length} 笔改为「${category?.name ?? '新分类'}」`, () => {
-      replaceLedger(restoreTransactionCategoriesInLedger(ledger, before))
+      replaceLedger(restoreTransactionCategoriesInLedger(ledgerRef.current, before))
       notify('已撤销分类修改')
     })
   }
@@ -521,7 +541,7 @@ export function TransactionsPage({
               setAdvanced(EMPTY_ADVANCED)
             }}
           >
-            清除全部条件
+            清空筛选
           </button>
         </section>
       ) : (
@@ -575,18 +595,25 @@ export function TransactionsPage({
         onClose={() => setDialog(null)}
       />
 
-      {toast && (
-        <div className="mb-tx-toast" role="status">
-          <span>{toast.message}</span>
-          {toast.undo && (
-            <button
-              type="button"
-              className="mb-tx-toast-action"
-              onClick={() => toast.undo?.()}
-            >
-              撤销
-            </button>
-          )}
+      {toasts.length > 0 && (
+        <div className="mb-tx-toast-stack">
+          {toasts.map((toast) => (
+            <div key={toast.id} className="mb-tx-toast" role="status">
+              <span>{toast.message}</span>
+              {toast.undo && (
+                <button
+                  type="button"
+                  className="mb-tx-toast-action"
+                  onClick={() => {
+                    toast.undo?.()
+                    dismissToast(toast.id)
+                  }}
+                >
+                  撤销
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

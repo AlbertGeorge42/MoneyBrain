@@ -186,7 +186,6 @@ function RowMenu({
                   armed || item.danger ? 'mb-set-menu-item is-danger' : 'mb-set-menu-item'
                 }
                 disabled={item.disabled}
-                title={item.disabled ? item.hint : undefined}
                 onClick={() => {
                   if (item.disabled) return
                   if (item.confirm && confirming !== item.key) {
@@ -197,7 +196,10 @@ function RowMenu({
                   item.onSelect()
                 }}
               >
-                {armed ? '确认删除' : item.label}
+                <span>{armed ? '确认删除' : item.label}</span>
+                {item.disabled && item.hint && (
+                  <span className="mb-set-menu-hint">{item.hint}</span>
+                )}
               </button>
             )
           })}
