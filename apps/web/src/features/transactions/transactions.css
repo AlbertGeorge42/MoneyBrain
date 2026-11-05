@@ -388,16 +388,14 @@
   cursor: pointer;
 }
 
-.mb-tx-batch-hint {
-  flex: 1 1 100%;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-warning);
-}
-
-.mb-tx-batch-excluded {
-  flex: 1 1 100%;
+.mb-tx-batch-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mb-tx-input,
@@ -619,6 +617,12 @@
   font-weight: 500;
 }
 
+.mb-tx-foot-future {
+  flex: 1 1 100%;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
 .is-income {
   color: var(--mb-color-income);
 }
@@ -801,9 +805,12 @@
   z-index: var(--mb-z-batchbar);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--mb-s-3);
-  padding: var(--mb-s-2) var(--mb-s-3);
+  /* 固定高度：文案再长也不顶高，摘要单行省略（超出折叠成 +N）。 */
+  box-sizing: border-box;
+  height: 56px;
+  padding: 0 var(--mb-s-3);
+  overflow: hidden;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-md);
   background: var(--mb-color-surface-raised);
@@ -812,18 +819,40 @@
 
 .mb-tx-batchbar.is-mobile {
   bottom: var(--mb-s-2);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'count summary'
+    'actions actions';
+  align-items: center;
+  gap: var(--mb-s-1) var(--mb-s-2);
+  height: 84px;
   padding: var(--mb-s-2);
 }
 
+.mb-tx-batchbar.is-mobile .mb-tx-batch-count {
+  grid-area: count;
+}
+
+.mb-tx-batchbar.is-mobile .mb-tx-batch-summary {
+  grid-area: summary;
+}
+
+.mb-tx-batchbar.is-mobile .mb-tx-batch-actions {
+  grid-area: actions;
+}
+
 .mb-tx-batch-count {
+  flex: none;
   font-size: var(--mb-fs-1);
   font-weight: 600;
   color: var(--mb-color-text-primary);
+  white-space: nowrap;
 }
 
 .mb-tx-batch-actions {
   display: flex;
+  flex: none;
   gap: var(--mb-s-1);
 }
 

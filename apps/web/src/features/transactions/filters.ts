@@ -153,6 +153,23 @@ export function summarizeTransactions(transactions: readonly LedgerTransaction[]
   return { count: transactions.length, income, expense, net: income - expense }
 }
 
+/**
+ * 未来记录（date > 今天）不计入任何「本月」合计：
+ * 当前期间单独汇总，未来记录单独汇总给页面标注「另有 N 笔…不计入本月」。
+ */
+export function splitTotalsByToday(
+  transactions: readonly LedgerTransaction[],
+  today = TODAY,
+): { current: TransactionTotals; future: TransactionTotals } {
+  const current: LedgerTransaction[] = []
+  const future: LedgerTransaction[] = []
+  for (const transaction of transactions) {
+    if (transaction.date > today) future.push(transaction)
+    else current.push(transaction)
+  }
+  return { current: summarizeTransactions(current), future: summarizeTransactions(future) }
+}
+
 export function groupTransactions(
   transactions: readonly LedgerTransaction[],
   today = TODAY,

@@ -1,6 +1,19 @@
 import { Tag, Trash2, X } from 'lucide-react'
 import type { DeviceMode } from '@/features/shared/types'
 
+/** 类别名与类型名重复时只留一次：退款（退款）→ 退款，账户互转（转账）→ 账户互转。 */
+function describeExcluded(item: { label: string; reason: string }): string {
+  const redundant = item.label === item.reason || (item.reason === '转账' && item.label.includes('转'))
+  return redundant ? item.label : `${item.label}（${item.reason}）`
+}
+
+/** 摘要固定一行：最多展开两项，其余折叠成「+N」。 */
+function summarizeExcluded(excluded: readonly { label: string; reason: string }[]): string {
+  const shown = excluded.slice(0, 2).map(describeExcluded)
+  const rest = excluded.length - shown.length
+  return `已排除：${shown.join('、')}${rest > 0 ? ` +${rest}` : ''}`
+}
+
 export function BatchBar({
   device,
   count,
@@ -23,16 +36,20 @@ export function BatchBar({
   onSelectExpenseOnly: () => void
   onExit: () => void
 }) {
+  const summary = excluded.length > 0 ? summarizeExcluded(excluded) : categoryHint
+  const summaryTitle =
+    excluded.length > 0
+      ? `已排除：${excluded.map(describeExcluded).join('、')}`
+      : categoryHint
+
   return (
     <div className={device === 'mobile' ? 'mb-tx-batchbar is-mobile' : 'mb-tx-batchbar'} role="region" aria-label="批量操作">
       <span className="mb-tx-batch-count">已选 {count} 笔</span>
-      {excluded.length > 0 && (
-        <span className="mb-tx-batch-excluded">
-          已排除：
-          {excluded.map((item) => `${item.label}（${item.reason}）`).join('、')}
+      {summary && (
+        <span className="mb-tx-batch-summary" title={summaryTitle}>
+          {summary}
         </span>
       )}
-      {categoryHint && <span className="mb-tx-batch-hint">{categoryHint}</span>}
       <div className="mb-tx-batch-actions">
         {excluded.length > 0 && (
           <button type="button" className="mb-tx-btn is-ghost" onClick={onSelectExpenseOnly}>

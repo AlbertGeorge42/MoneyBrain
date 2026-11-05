@@ -34,8 +34,11 @@ import {
   groupTransactions,
   hasActiveFilters,
   readFiltersFromSearch,
+  signedMinorText,
+  splitTotalsByToday,
   writeFiltersToSearch,
   type AdvancedFilters,
+  type TransactionTotals,
   type TypeFilter,
 } from './filters'
 import './transactions.css'
@@ -62,10 +65,13 @@ function PageHead({
   device,
   dataState,
   count,
+  future,
 }: {
   device: DeviceMode
   dataState: DataState
   count: number
+  /** 未来记录单独成组、不计入本月合计；有则在页头明说。 */
+  future?: TransactionTotals
 }) {
   const note =
     dataState === 'normal'
@@ -75,11 +81,16 @@ function PageHead({
         : dataState === 'empty'
           ? '尚未开始记账'
           : '本地账本读取失败'
+  const futureNote =
+    future && future.count > 0
+      ? `另有 ${future.count} 笔未来记录（${signedMinorText(future.net)}），不计入本月`
+      : ''
+  const fullNote = futureNote ? `${note} · ${futureNote}` : note
 
   if (device === 'mobile') {
     return (
       <p className="mb-tx-page-meta">
-        {CURRENT_MONTH_LABEL} · {note}
+        {CURRENT_MONTH_LABEL} · {fullNote}
       </p>
     )
   }
@@ -87,7 +98,7 @@ function PageHead({
   return (
     <div className="mb-page-head">
       <h1 className="mb-page-title">流水</h1>
-      <p className="mb-page-sub">{note}</p>
+      <p className="mb-page-sub">{fullNote}</p>
     </div>
   )
 }
@@ -329,6 +340,7 @@ export function TransactionsPage({
       ? [...filtered].sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount))
       : filtered
   const groups = groupTransactions(sorted)
+  const { future: futureTotals } = splitTotalsByToday(filtered)
   const chips = filterChips(ledger, filters)
   const detail = detailId
     ? ledger.transactions.find((transaction) => transaction.id === detailId) ?? null
@@ -509,7 +521,7 @@ export function TransactionsPage({
 
   return (
     <>
-      <PageHead device={device} dataState={dataState} count={filtered.length} />
+      <PageHead device={device} dataState={dataState} count={filtered.length} future={futureTotals} />
 
       <Toolbar
         query={query}

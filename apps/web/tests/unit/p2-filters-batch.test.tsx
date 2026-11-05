@@ -1,13 +1,19 @@
 /**
- * P2 #8 / #11 筛选写入 URL 并还原；#17 批量混选列出异类。
+ * P2 #8 / #11 筛选写入 URL 并还原；#17 批量混选列出异类；#9 未来记录不计入本月合计。
  */
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { BatchBar } from '@/features/transactions/BatchBar'
+import { TransactionsList } from '@/features/transactions/TransactionsList'
+import { DEFAULT_DISPLAY } from '@/features/transactions/displaySettings'
 import {
   EMPTY_ADVANCED,
   filterTransactions,
+  groupTransactions,
   readFiltersFromSearch,
+  signedMinorText,
+  splitTotalsByToday,
+  summarizeTransactions,
   writeFiltersToSearch,
   type TransactionFilters,
 } from '@/features/transactions/filters'
@@ -85,8 +91,85 @@ describe('#17 批量混选列出异类', () => {
       />,
     )
 
-    expect(screen.getByText(/已排除：工资（收入）、账户互转（转账）/)).toBeInTheDocument()
+    expect(screen.getByText(/已排除：工资（收入）、账户互转/)).toBeInTheDocument()
+    expect(screen.queryByText(/账户互转（转账）/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '仅选支出' }))
     expect(onExpenseOnly).toHaveBeenCalledTimes(1)
+  })
+
+  it('摘要固定一行：重复类型名只留一次，超出两项折叠成 +N', () => {
+    render(
+      <BatchBar
+        device="desktop"
+        count={4}
+        excluded={[
+          { id: 't1', label: '退款', reason: '退款' },
+          { id: 't2', label: '账户互转', reason: '转账' },
+          { id: 't3', label: '调整', reason: '调整' },
+        ]}
+        categoryDisabled
+        categoryHint="含转账 / 退款 / 调整，或混选收支类型，不能批量改分类"
+        onCategory={() => {}}
+        onDelete={() => {}}
+        onSelectExpenseOnly={() => {}}
+        onExit={() => {}}
+      />,
+    )
+
+    const summary = screen.getByText(/^已排除：/)
+    expect(summary.className).toContain('mb-tx-batch-summary')
+    expect(summary.textContent).toBe('已排除：退款、账户互转 +1')
+    expect(summary.getAttribute('title')).toBe('已排除：退款、账户互转、调整')
+  })
+})
+
+describe('#9 未来记录不计入本月合计', () => {
+  const futureLedger: Ledger = {
+    ...ledger,
+    transactions: [
+      ...ledger.transactions,
+      {
+        id: 't4',
+        date: '2027-01-05',
+        type: 'expense',
+        categoryId: 'food',
+        note: '年度订阅',
+        accountId: 'cmb',
+        amount: 1_200,
+      },
+    ],
+  }
+
+  it('合计按今天切分，未来记录单独汇总', () => {
+    const all = summarizeTransactions(futureLedger.transactions)
+    const { current, future } = splitTotalsByToday(futureLedger.transactions)
+
+    expect(future.count).toBe(1)
+    expect(future.net).toBe(-1_200)
+    expect(all.count - current.count).toBe(1)
+    expect(all.expense - current.expense).toBe(1_200)
+  })
+
+  it('页脚合计不含未来金额，并标注另有 N 笔不计入本月', () => {
+    const { current } = splitTotalsByToday(futureLedger.transactions)
+    const { container } = render(
+      <TransactionsList
+        device="desktop"
+        groups={groupTransactions(futureLedger.transactions)}
+        ledger={futureLedger}
+        batchMode={false}
+        display={DEFAULT_DISPLAY}
+        selected={new Set<string>()}
+        onToggle={() => {}}
+        onOpenDetail={() => {}}
+      />,
+    )
+
+    const flow = container.querySelector('.mb-tx-foot-flow')?.textContent ?? ''
+    expect(flow).toContain(signedMinorText(-current.expense))
+    expect(flow).not.toContain('¥64.40')
+
+    const note = container.querySelector('.mb-tx-foot-future')?.textContent ?? ''
+    expect(note).toBe('另有 1 笔未来记录（−¥12.00），不计入本月')
   })
 })
