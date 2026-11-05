@@ -227,8 +227,15 @@
   background: var(--mb-color-surface-sunken);
 }
 
-.mb-set-row.is-group .mb-set-name {
+/* 层级只看「是不是子级」：一级名称 primary/600，二级与流水里的分类同层级感，
+   降为 secondary/400；行高与分隔线全层级同一套。 */
+.mb-set-row:not(.is-child) .mb-set-name {
   font-weight: 600;
+}
+
+.mb-set-row.is-child .mb-set-name {
+  color: var(--mb-color-text-secondary);
+  font-weight: 400;
 }
 
 .mb-set-fold {
@@ -259,6 +266,11 @@
   flex: none;
   width: 24px;
   margin-left: calc(var(--mb-s-2) * -1);
+}
+
+/* 桌面端二级行整体再右移 12px，层级缩进可见；移动端行宽紧张，保持 302px 时可用。 */
+.mb-set-page[data-device='desktop'] .mb-set-row.is-child {
+  padding-left: calc(var(--mb-s-3) + var(--mb-s-3));
 }
 
 .mb-set-drag {
