@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Drawer } from '@mantine/core'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { CURRENT_MONTH } from '@/features/overview/model'
 import { amountText, percentText } from '@/features/overview/format'
+import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import {
@@ -203,15 +204,16 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
                   <div className="mb-bg-row-top">
                     <span className="mb-bg-name">{row.name}</span>
                     <span className="mb-bg-status" data-level={row.level}>
+                      {(row.level === 'warning' || row.level === 'over') && (
+                        <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+                      )}
                       {row.status}
                     </span>
                   </div>
-                  <progress
-                    className="mb-bg-progress"
-                    data-level={row.level}
-                    value={row.level === 'neutral' ? 0 : Math.min(100, Math.max(0, row.percent))}
-                    max={100}
-                    aria-label={
+                  <BudgetProgress
+                    level={row.level}
+                    percent={row.percent}
+                    label={
                       row.level === 'neutral'
                         ? `${row.name} 不计入预算`
                         : `${row.name} 预算使用 ${Math.round(row.percent)}%`
@@ -475,15 +477,16 @@ export function BudgetPage({
               <span className="mb-bg-detail-divider">/</span>
               <span className="mb-bg-detail-limit">{moneyText(detail.limit)}</span>
               <span className="mb-bg-status" data-level={detail.level}>
+                {(detail.level === 'warning' || detail.level === 'over') && (
+                  <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+                )}
                 {detail.status}
               </span>
             </div>
-            <progress
-              className="mb-bg-progress"
-              data-level={detail.level}
-              value={detail.level === 'neutral' ? 0 : Math.min(100, Math.max(0, detail.percent))}
-              max={100}
-              aria-label={detail.level === 'neutral' ? '不计入预算' : '预算使用进度'}
+            <BudgetProgress
+              level={detail.level}
+              percent={detail.percent}
+              label={detail.level === 'neutral' ? '不计入预算' : '预算使用进度'}
             />
             <dl className="mb-bg-detail-meta">
               <div>

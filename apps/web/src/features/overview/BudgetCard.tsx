@@ -1,5 +1,6 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, TriangleAlert } from 'lucide-react'
 import { amountText, percentText } from './format'
+import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import type { BudgetSummary } from './model'
 
 export function BudgetCard({
@@ -30,23 +31,24 @@ export function BudgetCard({
           <div key={row.id} className="mb-budget-row" data-level={row.level}>
             <div className="mb-budget-row-head">
               <span className="mb-budget-name">{row.name}</span>
-              <span className="mb-budget-percent">{percentText(row.percent, false)}</span>
+              <span className="mb-budget-percent">
+                {(row.level === 'warning' || row.level === 'over') && (
+                  <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+                )}
+                {percentText(row.percent, false)}
+              </span>
             </div>
-            <progress
-              className="mb-budget-progress"
-              data-level={row.level}
-              value={Math.min(100, row.percent)}
-              max={100}
-              aria-label={`${row.name}预算使用 ${Math.round(row.percent)}%`}
+            <BudgetProgress
+              level={row.level}
+              percent={row.percent}
+              label={`${row.name}预算使用 ${Math.round(row.percent)}%`}
             />
             <div className="mb-budget-meta">
               <span>
                 {amountText(row.used)} / {amountText(row.limit)}
               </span>
               {row.level === 'over' && row.used > row.limit && (
-                <span className="mb-budget-over">
-                  超支 {amountText(row.used - row.limit)}
-                </span>
+                <span className="mb-budget-over">超支 {amountText(row.used - row.limit)}</span>
               )}
               {row.level === 'warning' && row.percent >= 100 && (
                 <span className="mb-budget-limit">已达上限</span>

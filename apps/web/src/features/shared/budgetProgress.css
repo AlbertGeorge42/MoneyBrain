@@ -1,0 +1,50 @@
+/* 预算进度条：6px 细线，无描边；条色用填充专用 token，与文字色解耦。
+   轨道按 0–130% 刻度：100% 位置（76.923%）右侧为溢出区，超支第二段由此处长出。 */
+.mb-progress {
+  position: relative;
+  width: 100%;
+  height: var(--mb-bar-h);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-border-strong);
+  overflow: hidden;
+}
+
+.mb-progress-headroom {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 23.0769%; /* 30 / 130 */
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-progress-fill,
+.mb-progress-spill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-progress-normal);
+  z-index: 1;
+}
+
+.mb-progress-spill {
+  background: var(--mb-progress-over);
+}
+
+.mb-progress[data-level='warning'] .mb-progress-fill {
+  background: var(--mb-progress-warning);
+}
+
+.mb-progress[data-level='over'] .mb-progress-fill,
+.mb-progress-spill {
+  background: var(--mb-progress-over);
+}
+
+.mb-progress[data-level='achieved'] .mb-progress-fill {
+  background: var(--mb-progress-achieved);
+}
+
+.mb-progress[data-level='neutral'] .mb-progress-fill {
+  display: none;
+}

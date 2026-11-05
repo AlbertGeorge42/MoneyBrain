@@ -706,12 +706,16 @@
 .mb-budget-name {
   font-size: var(--mb-fs-1);
   font-weight: 500;
+  color: var(--mb-color-text-primary);
 }
 
 .mb-budget-percent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
+  color: var(--mb-color-text-secondary);
 }
 
 .mb-budget-row[data-level='warning'] .mb-budget-percent {
@@ -722,51 +726,16 @@
   color: var(--mb-color-expense);
 }
 
-.mb-budget-progress {
-  width: 100%;
-  height: var(--mb-s-2);
-  border: 0;
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-border-strong);
-  outline: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  overflow: hidden;
-  appearance: none;
-}
-
-.mb-budget-progress::-webkit-progress-bar {
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-border-strong);
-}
-
-.mb-budget-progress::-webkit-progress-value {
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-accent);
-}
-
-.mb-budget-progress[data-level='warning']::-webkit-progress-value {
-  background: var(--mb-color-warning);
-}
-
-.mb-budget-progress[data-level='over']::-webkit-progress-value {
-  background: var(--mb-color-expense);
-}
-
-.mb-budget-progress::-moz-progress-bar {
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-accent);
-}
-
-.mb-budget-progress[data-level='warning']::-moz-progress-bar {
-  background: var(--mb-color-warning);
-}
-
-.mb-budget-progress[data-level='over']::-moz-progress-bar {
-  background: var(--mb-color-expense);
-}
-
 .mb-budget-meta {
   font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-budget-over,
+.mb-budget-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
 }
 
 .mb-budget-over {

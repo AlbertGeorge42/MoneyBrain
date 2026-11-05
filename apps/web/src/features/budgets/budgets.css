@@ -355,23 +355,20 @@
   white-space: nowrap;
   font-size: var(--mb-fs-2);
   font-weight: 600;
+  color: var(--mb-color-text-primary);
 }
 
+/* 文字回到文字体系：只有 warning / over 用语义色并带图标 */
 .mb-bg-status {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: var(--mb-s-1);
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-0);
   font-variant-numeric: tabular-nums;
   color: var(--mb-color-text-secondary);
   white-space: nowrap;
-}
-
-.mb-bg-status[data-level='normal'] {
-  color: var(--mb-color-accent);
-}
-
-.mb-bg-status[data-level='neutral'] {
-  color: var(--mb-color-text-secondary);
 }
 
 .mb-bg-status[data-level='warning'] {
@@ -382,59 +379,6 @@
   color: var(--mb-color-expense);
 }
 
-.mb-bg-status[data-level='achieved'] {
-  color: var(--mb-color-income);
-}
-
-.mb-bg-progress {
-  width: 100%;
-  height: 6px;
-  border: 0;
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-border-strong);
-  outline: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  appearance: none;
-  overflow: hidden;
-}
-
-.mb-bg-progress::-webkit-progress-bar {
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-border-strong);
-}
-
-.mb-bg-progress::-webkit-progress-value {
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-accent);
-}
-
-.mb-bg-progress::-moz-progress-bar {
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-accent);
-}
-
-.mb-bg-progress[data-level='warning']::-webkit-progress-value {
-  background: var(--mb-color-warning);
-}
-
-.mb-bg-progress[data-level='warning']::-moz-progress-bar {
-  background: var(--mb-color-warning);
-}
-
-.mb-bg-progress[data-level='over']::-webkit-progress-value {
-  background: var(--mb-color-expense);
-}
-
-.mb-bg-progress[data-level='over']::-moz-progress-bar {
-  background: var(--mb-color-expense);
-}
-
-.mb-bg-progress[data-level='achieved']::-webkit-progress-value {
-  background: var(--mb-color-income);
-}
-
-.mb-bg-progress[data-level='achieved']::-moz-progress-bar {
-  background: var(--mb-color-income);
-}
 
 .mb-bg-row-meta {
   display: flex;

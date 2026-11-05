@@ -95,6 +95,7 @@
   --mb-page-pad: 28px;
   --mb-page-pad-mobile: 26px;
   --mb-touch: 44px;
+  --mb-bar-h: 6px;
 
   /* 表格列权重 */
   --mb-tbl-w-main: 2;
@@ -164,6 +165,12 @@
   --mb-color-danger-bg: #fae8e6;
   --mb-color-on-danger: #ffe9e7;
   --mb-color-warning: #8a5a00;
+  /* 进度条填充专属：色相沿用语义但降饱和压暗，只用于条面，不参与文字色；
+     对轨道 border-strong 均 ≥3:1（实测见 design-tokens §2.6） */
+  --mb-progress-normal: #4b7326;
+  --mb-progress-warning: #7d5200;
+  --mb-progress-over: #93414a;
+  --mb-progress-achieved: #17603a;
   --mb-color-cat-1: #3f7d0f;
   --mb-color-cat-2: #0f7d6a;
   --mb-color-cat-3: #1b6fa8;
@@ -226,6 +233,11 @@
   --mb-color-danger-bg: #241114;
   --mb-color-on-danger: #ffe9e7;
   --mb-color-warning: #e5b54a;
+  /* 暗色填充比文字档略去饱和，对 border-strong #333A3F 均 ≥3:1 */
+  --mb-progress-normal: #7fa84a;
+  --mb-progress-warning: #d9a64b;
+  --mb-progress-over: #e08a90;
+  --mb-progress-achieved: #45b37a;
   --mb-color-cat-1: #a3e635;
   --mb-color-cat-2: #4cc9e8;
   --mb-color-cat-3: #a78bfa;
