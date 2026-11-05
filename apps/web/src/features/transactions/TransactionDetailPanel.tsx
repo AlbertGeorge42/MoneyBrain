@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Drawer } from '@mantine/core'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { CategoryIcon } from '@/features/overview/category'
+import { normalizeAmountInput } from '@/features/overview/amountInput'
 import { signedAmountText } from '@/features/overview/format'
 import {
   accountKindLabel,
@@ -118,8 +119,8 @@ function EditForm({
   const [note, setNote] = useState(transaction.note)
 
   const categories = ledger.categories.filter((category) => category.type === nextType)
-  // 银行 App 复制来的千分位不能挡路：解析前剥离逗号与空格。
-  const parsed = Number(amount.replace(/[,\s，]/g, ''))
+  // 银行 App 复制来的货币符号 / 千分位 / 全角数字不能挡路：解析前统一归一化。
+  const parsed = Number(normalizeAmountInput(amount))
   const invalid =
     !Number.isFinite(parsed) || (nextType === 'adjustment' ? parsed === 0 : parsed <= 0)
   // 错误态与输入实时联动：有错就标红并禁用保存，不再等点保存才报。
@@ -129,9 +130,14 @@ function EditForm({
       : '金额需大于 0。退款请改用退款类型，冲正请用调整。'
     : ''
 
+  // 切到退款时把负数金额转正：支出语义下的 −28 就是退款 +28，
+  // 否则用户点了出口仍被「金额需大于 0」挡住，保存不可达。
   const switchType = (type: 'refund' | 'adjustment') => {
     setNextType(type)
     setCategoryId(ledger.categories.find((category) => category.type === type)?.id ?? categoryId)
+    if (type === 'refund' && Number.isFinite(parsed) && parsed < 0) {
+      setAmount(String(Math.abs(parsed)))
+    }
   }
 
   const submit = () => {

@@ -65,4 +65,39 @@ describe('#14 支出改负数的引导', () => {
       expect.objectContaining({ type: 'adjustment', amount: -500 }),
     )
   })
+
+  it('改为退款时负数金额同时转正，错误消失且保存可达', () => {
+    const onSave = vi.fn()
+    render(
+      <MantineProvider>
+        <TransactionDetailPanel
+          transaction={expenseTransaction()}
+          ledger={ledger}
+          device="desktop"
+          onClose={() => {}}
+          onSave={onSave}
+          onDelete={() => {}}
+        />
+      </MantineProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '-28' } })
+
+    expect(screen.getByRole('button', { name: /保存修改/ })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: '改为退款' }))
+
+    expect((screen.getByLabelText('金额（元）') as HTMLInputElement).value).toBe('28')
+    expect((screen.getByLabelText('分类') as HTMLSelectElement).value).toBe('refund')
+    expect(screen.queryByRole('alert')).toBeNull()
+
+    const save = screen.getByRole('button', { name: /保存修改/ })
+    expect(save).toBeEnabled()
+    fireEvent.click(save)
+    expect(onSave).toHaveBeenCalledWith(
+      't1',
+      expect.objectContaining({ type: 'refund', amount: 2_800, categoryId: 'refund' }),
+    )
+  })
 })
