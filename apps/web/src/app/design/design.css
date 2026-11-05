@@ -151,18 +151,21 @@
   transform: translateZ(0);
 }
 
+/* 手机框固定 390×844 1:1 渲染，不再按画布高度压扁；
+   窗口放不下时由画布滚动，框内字号保持设计值（截图与规范同尺寸）。 */
 .mb-hf-canvas.is-mobile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: start center;
   padding: var(--mb-s-5);
   background: var(--mb-color-surface-sunken);
 }
 
-/* 手机框高度以画布可视高度为上限：否则窄视口下工具栏换行后画布变矮，
-   手机框向上溢出到工具栏区域，把二级页的返回按钮压在工具栏下面。 */
-.mb-hf-canvas.is-mobile .mb-hf-phone {
-  max-height: 100%;
+/* 窄窗口下先保证左缘可见，剩余部分交给画布横向滚动。 */
+@media (max-width: 440px) {
+  .mb-hf-canvas.is-mobile {
+    place-items: start start;
+    padding: var(--mb-s-2);
+  }
 }
 
 .mb-hf-desktop {
@@ -173,8 +176,8 @@
 .mb-hf-phone {
   position: relative;
   flex: none;
-  width: min(var(--mb-mobile-w), calc(100vw - var(--mb-s-6)));
-  height: min(var(--mb-mobile-h), calc(100dvh - var(--mb-s-7) * 3));
+  width: var(--mb-mobile-w);
+  height: var(--mb-mobile-h);
   overflow: hidden;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
   border-radius: var(--mb-radius-lg);
