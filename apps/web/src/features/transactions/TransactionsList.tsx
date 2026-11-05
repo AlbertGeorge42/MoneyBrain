@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Check } from 'lucide-react'
 import { CategoryIcon } from '@/features/overview/category'
 import { signedAmountText } from '@/features/overview/format'
@@ -45,166 +46,99 @@ function DesktopTable({
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
-  const columnCount = 2 + (display.showNote ? 1 : 0) + (display.showAccount ? 1 : 0) + (batchMode ? 1 : 0)
-
   return (
     <section className="mb-card mb-tx-list-card" aria-label="流水列表">
-      <table className={`mb-tx-table${display.showNote ? ' has-note' : ''}${display.showAccount ? ' has-account' : ''}${batchMode ? ' has-check' : ''}`}>
-        <colgroup>
-          {batchMode && <col className="mb-tx-col-check" />}
-          <col className="mb-tx-col-main" />
-          {display.showNote && <col className="mb-tx-col-mid" />}
-          {display.showAccount && <col className="mb-tx-col-account" />}
-          <col className="mb-tx-col-num" />
-        </colgroup>
-        <thead>
-          <tr>
-            {batchMode && <th scope="col" className="mb-tx-th-check" aria-label="选择" />}
-            <th scope="col">分类</th>
-            {display.showNote && <th scope="col">备注</th>}
-            {display.showAccount && <th scope="col">账户</th>}
-            <th scope="col" className="mb-tx-th-num">金额</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((group) => (
-            <FragmentGroup
-              key={group.date}
-              group={group}
-              ledger={ledger}
-              batchMode={batchMode}
-              display={display}
-              columnCount={columnCount}
-              selected={selected}
-              onToggle={onToggle}
-              onOpenDetail={onOpenDetail}
-            />
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colSpan={columnCount}>
-              <div className="mb-tx-foot">
-                <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
-                <span className="mb-tx-foot-flow">
-                  支出 <strong className="is-expense">{signedMinorText(-totals.expense)}</strong>
-                  收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
-                </span>
-              </div>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </section>
-  )
-}
-
-function FragmentGroup({
-  group,
-  ledger,
-  batchMode,
-  display,
-  columnCount,
-  selected,
-  onToggle,
-  onOpenDetail,
-}: {
-  group: GroupedTransactions
-  ledger: Ledger
-  batchMode: boolean
-  display: DisplaySettings
-  columnCount: number
-  selected: ReadonlySet<string>
-  onToggle: (id: string) => void
-  onOpenDetail: (id: string) => void
-}) {
-  return (
-    <>
-      <tr className="mb-tx-group-row">
-        <td colSpan={columnCount}>
-          <span className="mb-tx-group-label">{group.label}</span>
-          <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
-            小计 {signedMinorText(group.net)}
-          </span>
-        </td>
-      </tr>
-      {group.items.map((transaction) => {
-        const account = getAccount(ledger, transaction.accountId)
-        const rootId = getCategoryRootId(ledger, transaction.categoryId)
-        const isSelected = selected.has(transaction.id)
-        const categoryName = getCategoryName(ledger, transaction.categoryId)
-        const categoryNode = (
-          <span className="mb-tx-category">
-            <CategoryIcon rootId={rootId} size="row" />
-            <span className="mb-tx-ellipsis" title={categoryName}>
-              {categoryName}
-            </span>
-          </span>
-        )
-        return (
-          <tr
-            key={transaction.id}
-            className={`mb-tx-row${batchMode ? ' is-batch' : ''}${isSelected ? ' is-selected' : ''}`}
-            onClick={() => (batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id))}
-          >
-            {batchMode && (
-              <td className="mb-tx-td-check">
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={isSelected}
-                  aria-label={`选择 ${transaction.note}`}
-                  className="mb-tx-check-btn"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onToggle(transaction.id)
+      <div className="mb-tx-rows">
+        {groups.map((group) => (
+          <Fragment key={group.date}>
+            <div className="mb-tx-group-row">
+              <span className="mb-tx-group-label">{group.label}</span>
+              <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
+                小计 {signedMinorText(group.net)}
+              </span>
+            </div>
+            {group.items.map((transaction) => {
+              const account = getAccount(ledger, transaction.accountId)
+              const rootId = getCategoryRootId(ledger, transaction.categoryId)
+              const isSelected = selected.has(transaction.id)
+              const categoryName = getCategoryName(ledger, transaction.categoryId)
+              const activate = () =>
+                batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id)
+              return (
+                <div
+                  key={transaction.id}
+                  role="button"
+                  tabIndex={0}
+                  className={`mb-tx-row${isSelected ? ' is-selected' : ''}`}
+                  aria-label={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
+                  onClick={activate}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    event.preventDefault()
+                    activate()
                   }}
                 >
-                  <CheckBox checked={isSelected} />
-                </button>
-              </td>
-            )}
-            <td>
-              {batchMode ? (
-                categoryNode
-              ) : (
-                <button
-                  type="button"
-                  className="mb-tx-row-trigger"
-                  aria-label={`查看 ${transaction.note} 详情`}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onOpenDetail(transaction.id)
-                  }}
-                >
-                  {categoryNode}
-                </button>
-              )}
-            </td>
-            {display.showNote && (
-              <td>
-                <span className="mb-tx-ellipsis mb-tx-note" title={transaction.note}>
-                  {transaction.note}
-                </span>
-              </td>
-            )}
-            {display.showAccount && (
-              <td>
-                <div className="mb-tx-account-line">
-                  <span className="mb-tx-ellipsis mb-tx-account" title={account?.name}>
-                    {account?.name ?? '未知账户'}
+                  {batchMode && (
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={`选择 ${transaction.note}`}
+                      className="mb-tx-check-btn"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onToggle(transaction.id)
+                      }}
+                    >
+                      <CheckBox checked={isSelected} />
+                    </button>
+                  )}
+                  <CategoryIcon rootId={rootId} />
+                  <span className="mb-tx-main">
+                    <span className="mb-tx-primary">
+                      <span className="mb-tx-cat-name">{categoryName}</span>
+                      {display.showNote && transaction.note && (
+                        <>
+                          <span className="mb-tx-sep" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="mb-tx-note" title={transaction.note}>
+                            {transaction.note}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                    <span className="mb-tx-secondary">
+                      {display.showAccount && (
+                        <>
+                          <span className="mb-tx-account" title={account?.name ?? '未知账户'}>
+                            {account?.name ?? '未知账户'}
+                          </span>
+                          <span className="mb-tx-sep" aria-hidden="true">
+                            ·
+                          </span>
+                        </>
+                      )}
+                      <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
+                    </span>
                   </span>
-                  <span className="mb-tx-kind-tag">· {transactionDirection(transaction)}</span>
+                  <span className={`mb-tx-amount is-${transactionTone(transaction)}`}>
+                    {signedAmountText(transaction)}
+                  </span>
                 </div>
-              </td>
-            )}
-            <td className={`mb-tx-amount is-${transactionTone(transaction)}`}>
-              {signedAmountText(transaction)}
-            </td>
-          </tr>
-        )
-      })}
-    </>
+              )
+            })}
+          </Fragment>
+        ))}
+      </div>
+      <div className="mb-tx-foot">
+        <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
+        <span className="mb-tx-foot-flow">
+          支出 <strong className="is-expense">{signedMinorText(-totals.expense)}</strong>
+          收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
+        </span>
+      </div>
+    </section>
   )
 }
 

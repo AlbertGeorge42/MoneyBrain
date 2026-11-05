@@ -30,6 +30,7 @@
   --mb-border-width: 1px;
   --mb-border-width-thick: 2px;
   --mb-border-style: solid;
+  --mb-border-style-dashed: dashed;
 
   /* ===== 圆角 ===== */
   --mb-radius-control: 6px;
@@ -86,6 +87,9 @@
   --mb-tbl-py: 4px;
   --mb-tbl-row-h: calc(var(--mb-fs-1) + var(--mb-s-4));
   --mb-tbl-line-h: calc(var(--mb-tbl-row-h) - var(--mb-tbl-py) * 2 - var(--mb-border-width));
+  /* 流水列表：原型两段式行，不受表格 29px 约束 */
+  --mb-tx-row-h: 54px;
+  --mb-tx-icon: 26px;
   --mb-control-h: 38px;
   --mb-section-gap: 16px;
   --mb-page-pad: 28px;

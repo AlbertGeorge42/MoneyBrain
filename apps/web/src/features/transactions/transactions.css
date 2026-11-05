@@ -429,102 +429,33 @@
   overflow: hidden;
 }
 
-.mb-tx-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+/* 原型结构：无表头，54px 两段式行（主行 分类 · 备注 / 副行 账户 · 类型）。
+   29px 表格行高只约束报表数据表，不再约束流水列表（interaction-spec §5.3）。 */
+.mb-tx-rows {
+  display: flex;
+  flex-direction: column;
 }
 
-/* 列宽按 design-tokens §5 权重：分类 2.0 / 备注 1.9 / 账户 1.8 / 金额 1.1。
-   百分比列 + 固定复选框列（44px），浏览器按剩余宽度折算，避免 fixed 布局下 calc 失效。 */
-.mb-tx-col-check {
-  width: calc(var(--mb-s-7) - var(--mb-s-1));
-}
-
-.mb-tx-table.has-note.has-account .mb-tx-col-main {
-  width: 29.41%;
-}
-
-.mb-tx-table.has-note.has-account .mb-tx-col-mid {
-  width: 27.94%;
-}
-
-.mb-tx-table.has-note.has-account .mb-tx-col-account {
-  width: 26.47%;
-}
-
-.mb-tx-table.has-note.has-account .mb-tx-col-num {
-  width: 16.18%;
-}
-
-/* 隐藏备注 / 账户时按剩余列权重等比折算，避免金额列吃掉死白 */
-.mb-tx-table.has-note:not(.has-account) .mb-tx-col-main {
-  width: 40%;
-}
-
-.mb-tx-table.has-note:not(.has-account) .mb-tx-col-mid {
-  width: 38%;
-}
-
-.mb-tx-table.has-note:not(.has-account) .mb-tx-col-num {
-  width: 22%;
-}
-
-.mb-tx-table.has-account:not(.has-note) .mb-tx-col-main {
-  width: 40.82%;
-}
-
-.mb-tx-table.has-account:not(.has-note) .mb-tx-col-account {
-  width: 36.73%;
-}
-
-.mb-tx-table.has-account:not(.has-note) .mb-tx-col-num {
-  width: 22.45%;
-}
-
-.mb-tx-table:not(.has-note):not(.has-account) .mb-tx-col-main {
-  width: 64.52%;
-}
-
-.mb-tx-table:not(.has-note):not(.has-account) .mb-tx-col-num {
-  width: 35.48%;
-}
-
-.mb-tx-th-check,
-.mb-tx-td-check {
-  padding: 0;
-  text-align: center;
-}
-
-.mb-tx-table th {
-  height: var(--mb-tbl-row-h);
-  padding: var(--mb-tbl-py) var(--mb-s-3);
-  border-bottom: var(--mb-border-width) dashed var(--mb-color-border);
+.mb-tx-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  min-height: var(--mb-s-6);
+  padding: 0 var(--mb-s-3);
+  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-tertiary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-0);
-  font-weight: 500;
-  line-height: var(--mb-tbl-line-h);
-  text-align: left;
-}
-
-.mb-tx-table th.mb-tx-th-num {
-  text-align: right;
-}
-
-.mb-tx-table td {
-  height: var(--mb-tbl-row-h);
-  padding: var(--mb-tbl-py) var(--mb-s-3);
-  border-bottom: var(--mb-border-width) dashed var(--mb-color-border);
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  line-height: var(--mb-tbl-line-h);
-  vertical-align: middle;
 }
 
 .mb-tx-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  min-height: var(--mb-tx-row-h);
+  padding: var(--mb-s-2) var(--mb-s-3);
+  border-bottom: var(--mb-border-width) var(--mb-border-style-dashed) var(--mb-color-border);
+  background: transparent;
+  color: var(--mb-color-text-primary);
   cursor: pointer;
   transition: background var(--mb-motion-fast) var(--mb-ease-standard);
 }
@@ -533,116 +464,86 @@
   background: var(--mb-color-surface-hover);
 }
 
-.mb-tx-row.is-selected {
-  background: var(--mb-color-accent-soft);
-}
-
+.mb-tx-row.is-selected,
 .mb-tx-row.is-selected:hover {
   background: var(--mb-color-accent-soft);
 }
 
-.mb-tx-group-row td {
-  height: var(--mb-s-6);
-  padding: 0 var(--mb-s-3);
-  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  background: var(--mb-color-surface-sunken);
+.mb-tx-row:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * -2);
 }
 
-.mb-tx-group-label {
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  color: var(--mb-color-text-secondary);
+/* 原型 .cat-ico：26px 容器 + 15px 线性字形 */
+.mb-tx-row .mb-cat-icon {
+  width: var(--mb-tx-icon);
+  height: var(--mb-tx-icon);
 }
 
-.mb-tx-group-net {
-  float: right;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-1);
-}
-
-.mb-tx-category {
+.mb-tx-main {
   display: flex;
-  align-items: center;
-  gap: var(--mb-s-2);
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-/* 行高 29px 下图标上限 20px（4px 上下内边距）；字形 18px 接近原型的视觉量级 */
-.mb-tx-category .mb-cat-icon {
-  width: calc(var(--mb-s-5) - var(--mb-s-1));
-  height: calc(var(--mb-s-5) - var(--mb-s-1));
+.mb-tx-primary,
+.mb-tx-secondary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mb-s-1);
+  min-width: 0;
 }
 
-.mb-tx-category .mb-tx-ellipsis {
-  color: var(--mb-color-text-primary);
+.mb-tx-cat-name {
+  flex: none;
+  font-size: var(--mb-fs-1);
   font-weight: 600;
+  color: var(--mb-color-text-primary);
+  line-height: var(--mb-lh-tight);
 }
 
-.mb-tx-ellipsis {
-  display: block;
+.mb-tx-note {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-secondary);
+  line-height: var(--mb-lh-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-tx-secondary {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-tx-account {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mb-tx-note {
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-account {
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-account-line {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mb-tx-kind-tag {
+.mb-tx-kind {
   flex: none;
-  color: var(--mb-color-text-tertiary);
+}
+
+.mb-tx-sep {
+  flex: none;
   font-size: var(--mb-fs-0);
+  line-height: 1;
+  color: var(--mb-color-text-tertiary);
 }
 
 .mb-tx-amount {
+  flex: none;
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-2);
   text-align: right;
   white-space: nowrap;
-}
-
-/* td 上的金额需要压过 .mb-tx-table td 的正文色与 13px 字号 */
-.mb-tx-table td.mb-tx-amount {
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-2);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.is-income {
-  color: var(--mb-color-income);
-}
-
-.is-expense {
-  color: var(--mb-color-expense);
-}
-
-.is-transfer {
-  color: var(--mb-color-transfer);
-}
-
-.mb-tx-table td.is-income {
-  color: var(--mb-color-income);
-}
-
-.mb-tx-table td.is-expense {
-  color: var(--mb-color-expense);
-}
-
-.mb-tx-table td.is-transfer {
-  color: var(--mb-color-transfer);
 }
 
 .mb-tx-foot {
@@ -651,7 +552,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-2);
-  padding: var(--mb-s-2) 0;
+  padding: var(--mb-s-2) var(--mb-s-3);
 }
 
 .mb-tx-foot-count {
@@ -669,6 +570,18 @@
 .mb-tx-foot-flow strong {
   font-family: var(--mb-font-num);
   font-weight: 500;
+}
+
+.is-income {
+  color: var(--mb-color-income);
+}
+
+.is-expense {
+  color: var(--mb-color-expense);
+}
+
+.is-transfer {
+  color: var(--mb-color-transfer);
 }
 
 /* 批量勾选 */
