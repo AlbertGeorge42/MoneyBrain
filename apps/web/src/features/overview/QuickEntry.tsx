@@ -6,6 +6,7 @@ import type { DeviceMode } from '@/features/shared/types'
 import { formatCurrency } from '@/utils/format'
 import type { Ledger, LedgerAccount, NewTransactionInput, TxType } from './model'
 import { accountKindLabel, TODAY } from './model'
+import { formatAmountInput, normalizeAmountInput, toCents } from './amountInput'
 import { useLedger } from './ledgerStore'
 import './overlays.css'
 
@@ -34,27 +35,6 @@ const DEFAULT_CATEGORY: Record<TxType, string> = {
 }
 
 const MAX_AMOUNT_DIGITS = 9
-
-function toCents(raw: string): number | null {
-  const normalized = raw.trim().replace(',', '.')
-  if (!normalized) return null
-  if (!/^\d+(\.\d{0,2})?$/.test(normalized)) return null
-  const numeric = Number(normalized)
-  if (!Number.isFinite(numeric) || numeric <= 0) return null
-  return Math.round(numeric * 100)
-}
-
-interface Draft {
-  type: TxType
-  amount: string
-  categoryId: string
-  accountId: string
-  toAccountId: string
-  note: string
-  date: string
-  fee: string
-  adjustSign: 1 | -1
-}
 
 function categoryOptions(categories: Ledger['categories'], type: TxType) {
   if (type === 'transfer') return []
@@ -195,31 +175,25 @@ function Keypad({ onKey }: { onKey: (key: string) => void }) {
 function EntryForm({
   ledger,
   device,
-  initialDraft,
-  onDraftChange,
   onRequestClose,
   onSave,
 }: {
   ledger: Ledger
   device: DeviceMode
-  initialDraft: Draft | null
-  onDraftChange: (draft: Draft | null) => void
   onRequestClose: () => void
   onSave: (input: NewTransactionInput, keepOpen: boolean) => void
 }) {
   const mobile = device === 'mobile'
-  const [type, setType] = useState<TxType>(initialDraft?.type ?? 'expense')
-  const [amount, setAmount] = useState(initialDraft?.amount ?? '')
-  const [categoryId, setCategoryId] = useState(initialDraft?.categoryId ?? DEFAULT_CATEGORY.expense)
-  const [accountId, setAccountId] = useState(initialDraft?.accountId || ledger.accounts[0]?.id || '')
-  const [toAccountId, setToAccountId] = useState(
-    initialDraft?.toAccountId || ledger.accounts[1]?.id || '',
-  )
-  const [note, setNote] = useState(initialDraft?.note ?? '')
-  const [date, setDate] = useState(initialDraft?.date ?? TODAY)
-  const [fee, setFee] = useState(initialDraft?.fee ?? '')
-  const [adjustSign, setAdjustSign] = useState<1 | -1>(initialDraft?.adjustSign ?? 1)
-  const [moreOpen, setMoreOpen] = useState(Boolean(initialDraft))
+  const [type, setType] = useState<TxType>('expense')
+  const [amount, setAmount] = useState('')
+  const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY.expense)
+  const [accountId, setAccountId] = useState(ledger.accounts[0]?.id || '')
+  const [toAccountId, setToAccountId] = useState(ledger.accounts[1]?.id || '')
+  const [note, setNote] = useState('')
+  const [date, setDate] = useState(TODAY)
+  const [fee, setFee] = useState('')
+  const [adjustSign, setAdjustSign] = useState<1 | -1>(1)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [picker, setPicker] = useState<'from' | 'to' | null>(null)
   const [recent, setRecent] = useState<string[]>(ledger.accounts.slice(0, 5).map((item) => item.id))
   const [stage, setStage] = useState<'amount' | 'category'>('amount')
@@ -229,14 +203,6 @@ function EntryForm({
   useEffect(() => {
     if (!mobile) amountRef.current?.focus()
   }, [mobile])
-
-  useEffect(() => {
-    if (!amount.trim()) {
-      onDraftChange(null)
-      return
-    }
-    onDraftChange({ type, amount, categoryId, accountId, toAccountId, note, date, fee, adjustSign })
-  }, [type, amount, categoryId, accountId, toAccountId, note, date, fee, adjustSign, onDraftChange])
 
   const cents = toCents(amount)
   const feeCents = toCents(fee)
@@ -300,7 +266,6 @@ function EntryForm({
     setNote('')
     setFee('')
     setStage('amount')
-    onDraftChange(null)
     if (!mobile) amountRef.current?.focus()
   }
 
@@ -350,16 +315,19 @@ function EntryForm({
           )}
         </div>
       ) : (
-        <div className="mb-entry-amount-row">
+        <div className={cents === null && amount.trim() !== '' ? 'mb-entry-amount-row is-invalid' : 'mb-entry-amount-row'}>
           <span className="mb-entry-currency" aria-hidden="true">¥</span>
           <input
             ref={amountRef}
             className="mb-entry-amount-input"
             aria-label="金额"
+            aria-invalid={cents === null && amount.trim() !== ''}
             inputMode="decimal"
             placeholder="0.00"
             value={amount}
-            onChange={(event) => setAmount(event.currentTarget.value)}
+            onChange={(event) => setAmount(normalizeAmountInput(event.currentTarget.value))}
+            onFocus={(event) => setAmount(normalizeAmountInput(event.currentTarget.value))}
+            onBlur={(event) => setAmount(formatAmountInput(event.currentTarget.value))}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault()
@@ -577,51 +545,20 @@ export function QuickEntry({
   opened,
   device,
   onClose,
-  onReopen,
   onSaved,
 }: {
   opened: boolean
   device: DeviceMode
   onClose: () => void
-  onReopen: () => void
-  onSaved: (message: string) => void
+  onSaved: (transactionId: string | null) => void
 }) {
   const { ledger, addTransaction } = useLedger()
   const [savedCount, setSavedCount] = useState(0)
-  const [draftToast, setDraftToast] = useState<Draft | null>(null)
-  const [restored, setRestored] = useState<Draft | null>(null)
-  const [formKey, setFormKey] = useState(0)
-  const liveDraft = useRef<Draft | null>(null)
-
-  useEffect(() => {
-    if (!draftToast) return
-    const timer = window.setTimeout(() => setDraftToast(null), 4200)
-    return () => window.clearTimeout(timer)
-  }, [draftToast])
-
-  // 恢复用的草稿只服务于「撤销」后的这一次重开；弹层一打开就清空，
-  // 避免下次正常打开时又带出旧金额。
-  useEffect(() => {
-    if (opened && restored) setRestored(null)
-  }, [opened, restored])
-
-  const requestClose = () => {
-    setDraftToast(liveDraft.current)
-    onClose()
-  }
-
-  const undo = () => {
-    if (!draftToast) return
-    setRestored(draftToast)
-    setFormKey((current) => current + 1)
-    setDraftToast(null)
-    onReopen()
-  }
 
   const handleSave = (input: NewTransactionInput, keepOpen: boolean) => {
-    addTransaction(input)
+    const transactionId = addTransaction(input)
     setSavedCount((current) => current + 1)
-    onSaved('已保存 · 账本与总览数字已同步')
+    onSaved(transactionId)
     if (!keepOpen) onClose()
   }
 
@@ -663,14 +600,9 @@ export function QuickEntry({
 
   const form = (
     <EntryForm
-      key={formKey}
       ledger={ledger}
       device={device}
-      initialDraft={restored}
-      onDraftChange={(draft) => {
-        liveDraft.current = draft
-      }}
-      onRequestClose={requestClose}
+      onRequestClose={onClose}
       onSave={handleSave}
     />
   )
@@ -680,7 +612,7 @@ export function QuickEntry({
       {device === 'mobile' ? (
         <Drawer
           opened={opened}
-          onClose={requestClose}
+          onClose={onClose}
           position="bottom"
           size="auto"
           withinPortal={false}
@@ -692,7 +624,7 @@ export function QuickEntry({
       ) : (
         <Modal
           opened={opened}
-          onClose={requestClose}
+          onClose={onClose}
           centered
           size="auto"
           withinPortal={false}
@@ -701,14 +633,6 @@ export function QuickEntry({
         >
           {form}
         </Modal>
-      )}
-      {draftToast && (
-        <div className="mb-entry-undo" role="status">
-          <span>已放弃这笔（{formatCurrency(minor(toCents(draftToast.amount) ?? 0))}）</span>
-          <button type="button" onClick={undo}>
-            撤销
-          </button>
-        </div>
       )}
     </div>
   )

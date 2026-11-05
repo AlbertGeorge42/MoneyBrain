@@ -262,6 +262,14 @@
   line-height: var(--mb-lh-tight);
 }
 
+.mb-entry-amount-row.is-invalid {
+  border-bottom-color: var(--mb-color-expense);
+}
+
+.mb-entry-amount-row.is-invalid .mb-entry-amount-input {
+  color: var(--mb-color-expense);
+}
+
 .mb-entry-amount-input:focus {
   outline: none;
 }
@@ -606,33 +614,6 @@
   text-align: center;
   font-size: var(--mb-fs-1);
   color: var(--mb-color-text-tertiary);
-}
-
-.mb-entry-undo {
-  position: fixed;
-  left: 50%;
-  bottom: calc(var(--mb-s-6) + env(safe-area-inset-bottom));
-  z-index: 400;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-4);
-  padding: var(--mb-s-2) var(--mb-s-4);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-text-primary);
-  color: var(--mb-color-surface-raised);
-  font-size: var(--mb-fs-1);
-  box-shadow: var(--mb-sh-3);
-}
-
-.mb-entry-undo button {
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-accent);
-  font-family: inherit;
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  cursor: pointer;
 }
 
 /* 移动端：触控热区统一 44px（数字键盘保留 40px 高度例外，见 platform-design §7）。 */

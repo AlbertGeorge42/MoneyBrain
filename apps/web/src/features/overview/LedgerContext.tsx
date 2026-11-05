@@ -22,9 +22,19 @@ export function LedgerProvider({
 }) {
   const [ledger, setLedger] = useState<Ledger>(() => initialLedger ?? createSeedLedger())
 
-  const addTransaction = useCallback((input: NewTransactionInput) => {
-    setLedger((current) => applyTransaction(current, input))
-  }, [])
+  const addTransaction = useCallback(
+    (input: NewTransactionInput): string | null => {
+      if (Math.round(Math.abs(input.amount)) <= 0) return null
+      const nextNumber = ledger.transactions.reduce((max, transaction) => {
+        const numeric = Number(transaction.id.replace(/\D/g, ''))
+        return Number.isFinite(numeric) ? Math.max(max, numeric) : max
+      }, 0)
+      const id = `t${nextNumber + 1}`
+      setLedger((current) => applyTransaction(current, input))
+      return id
+    },
+    [ledger.transactions],
+  )
 
   const updateTransaction = useCallback((id: string, patch: TransactionPatch) => {
     setLedger((current) => updateTransactionInLedger(current, id, patch))

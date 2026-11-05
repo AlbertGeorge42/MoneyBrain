@@ -243,9 +243,35 @@ export function validateRange(from: string, to: string, gran: Granularity): Time
   return { ok: true, message: null }
 }
 
+/** 时点不得晚于数据截止日；月末锚点在「本月」会被 asOf 截断。 */
+export function clampAsOfPoint(point: string, today: string): string {
+  return point > today ? today : point
+}
+
+/**
+ * 统一期间表述：三个 tab 使用同一控件的语义，都读这一处。
+ * 单月显示「YYYY 年 M 月 · 截至 MM-DD」；单日、跨月、跨年各有明确写法。
+ */
 export function formatRangeLabel(time: ReportTime): string {
-  if (time.preset) return presetLabel(time.preset)
-  return `${time.from} ~ ${time.to}`
+  const { from, to, gran } = time
+  if (from === to) {
+    return `${yearOf(from)} 年 ${monthOf(from)} 月 ${dayOfMonth(from)} 日`
+  }
+  if (gran === 'month' && bucketKey(from, 'month') === bucketKey(to, 'month')) {
+    return `${yearOf(from)} 年 ${monthOf(from)} 月 · 截至 ${to.slice(5)}`
+  }
+  if (gran === 'year' && yearOf(from) === yearOf(to)) {
+    return `${yearOf(from)} 年 · 截至 ${to.slice(5)}`
+  }
+  return `${from} ~ ${to}`
+}
+
+/** 时点标签：显示截至日（已被 asOf 截断），由时间条另注「月末估值」。 */
+export function formatPointLabel(point: string, gran: Granularity, today: string): string {
+  const asOf = clampAsOfPoint(point, today)
+  if (gran === 'year') return `${yearOf(asOf)} 年 · 截至 ${asOf.slice(5)}`
+  if (gran === 'month') return `${yearOf(asOf)} 年 ${monthOf(asOf)} 月 · 截至 ${asOf.slice(5)}`
+  return `${yearOf(asOf)} 年 ${monthOf(asOf)} 月 ${dayOfMonth(asOf)} 日`
 }
 
 function shortDate(value: string, gran: Granularity): string {

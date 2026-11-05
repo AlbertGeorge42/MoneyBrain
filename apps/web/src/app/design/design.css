@@ -214,10 +214,13 @@
 /* ===== 轻提示 ===== */
 
 .mb-hf-toast {
-  position: absolute;
+  position: fixed;
   left: 50%;
-  bottom: var(--mb-s-5);
+  bottom: calc(var(--mb-s-5) + env(safe-area-inset-bottom));
   z-index: var(--mb-z-fab);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-3);
   padding: var(--mb-s-2) var(--mb-s-4);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-chart-tooltip-bg);
@@ -226,6 +229,18 @@
   box-shadow: var(--mb-sh-2);
   transform: translateX(-50%);
   white-space: nowrap;
+}
+
+.mb-hf-toast-action {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* ===== 通用按钮（Mantine Button 与原生 button 共用） ===== */
@@ -250,6 +265,16 @@
 
 .mb-primary-btn:active {
   background: var(--mb-color-accent-fill-pressed);
+}
+
+/* 错误态必须让主按钮看得出不可点（Mantine 默认样式会被上面的背景覆盖）。 */
+.mb-primary-btn:disabled,
+.mb-primary-btn.mantine-Button-root:disabled,
+.mb-primary-btn:disabled:hover,
+.mb-primary-btn.mantine-Button-root:disabled:hover {
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-tertiary);
+  cursor: not-allowed;
 }
 
 .mb-secondary-btn {

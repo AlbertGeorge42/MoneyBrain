@@ -38,6 +38,9 @@ export interface FlowTreeNode {
   share: number
   level: 0 | 1
   children: FlowTreeNode[]
+  /** 卡片合并「其他」时记录被并入的根分类，用于标注与同口径下钻。 */
+  mergedIds?: string[]
+  mergedLabel?: string
 }
 
 export interface FlowReport {
@@ -99,6 +102,15 @@ export interface CashReport {
   financingNet: number
   closingCash: number
   metrics: ReportMetric[]
+  /** 三处口径对账所需明细；不改业务规则，只把差异显式列出。 */
+  reconcile: {
+    flowIncome: number
+    flowExpense: number
+    flowBalance: number
+    adjustmentExpense: number
+    transferFee: number
+    difference: number
+  }
 }
 
 export interface InvestmentAllocation {
@@ -500,16 +512,45 @@ export function deriveCashReport(ledger: Ledger, from: string, to: string): Cash
     .filter((account) => account.kind === 'cash')
     .reduce((sum, account) => sum + (balances.get(account.id) ?? account.balance), 0)
 
+  // 与收支明细对账：调整只计支出侧、手续费两边净额都不计，差异必须显式可见。
+  const flowIncome = transactions
+    .filter(isIncomeSide)
+    .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
+  const flowExpense = transactions.reduce(
+    (sum, transaction) =>
+      sum +
+      (transaction.type === 'expense' ? Math.abs(transaction.amount) : 0) +
+      adjustmentExpense(transaction),
+    0,
+  )
+  const adjustmentTotal = transactions.reduce(
+    (sum, transaction) => sum + adjustmentExpense(transaction),
+    0,
+  )
+  const transferFee = transactions
+    .filter((transaction) => transaction.type === 'transfer')
+    .reduce((sum, transaction) => sum + Number(transaction.fee ?? 0), 0)
+  const flowBalance = flowIncome - flowExpense
+  const operatingNet = netOf('经营')
+
   return {
     period: { from, to },
     inflowGroups,
     outflowGroups,
     inflowTotal,
     outflowTotal,
-    operatingNet: netOf('经营'),
+    operatingNet,
     investingNet: netOf('投资'),
     financingNet: netOf('筹资'),
     closingCash,
+    reconcile: {
+      flowIncome,
+      flowExpense,
+      flowBalance,
+      adjustmentExpense: adjustmentTotal,
+      transferFee,
+      difference: operatingNet - flowBalance,
+    },
     metrics: [
       { label: '期末现金总量', value: currency(closingCash) },
       { label: '经营净额', value: signedCurrency(netOf('经营')), tone: netOf('经营') >= 0 ? 'income' : 'expense' },
@@ -686,21 +727,23 @@ export interface DrillData {
 /** 下钻只展开当期口径：二级类别 + 相关流水，不重复完整流水页。 */
 export function buildDrill(
   ledger: Ledger,
-  rootId: string,
+  node: FlowTreeNode,
   kind: 'income' | 'expense',
   from: string,
   to: string,
 ): DrillData {
-  const root = getCategory(ledger, rootId)
-  const tree =
-    kind === 'income'
-      ? deriveFlowReport(ledger, from, to, 'day').incomeTrees
-      : deriveFlowReport(ledger, from, to, 'day').expenseTrees
-  const node = tree.find((item) => item.id === rootId)
+  // 合并「其他」卡片必须与下钻用同一组根分类，点击行的金额才对得上。
+  const rootIds = node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id]
+  const subtree = new Set<string>()
+  const collect = (id: string) => {
+    subtree.add(id)
+    ledger.categories.filter((category) => category.parentId === id).forEach((child) => collect(child.id))
+  }
+  rootIds.forEach(collect)
   const transactions = ledger.transactions
     .filter((transaction) => {
       if (!inRange(transaction, from, to)) return false
-      if (getCategoryRootId(ledger, transaction.categoryId) !== rootId) return false
+      if (!subtree.has(transaction.categoryId)) return false
       if (kind === 'income') return isIncomeSide(transaction)
       return transaction.type === 'expense' || adjustmentExpense(transaction) > 0
     })
@@ -708,10 +751,10 @@ export function buildDrill(
     .slice(0, 4)
 
   return {
-    title: root?.name ?? '未分类',
-    amount: node?.amount ?? 0,
+    title: node.name,
+    amount: node.amount,
     tone: kind === 'income' ? 'income' : 'expense',
-    children: (node?.children ?? []).map((child) => ({
+    children: node.children.map((child) => ({
       id: child.id,
       name: child.name,
       amount: child.amount,

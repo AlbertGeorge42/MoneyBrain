@@ -38,8 +38,8 @@ import {
   type InvestmentReport,
 } from './reportsModel'
 import {
+  clampAsOfPoint,
   formatRangeLabel,
-  monthEnd,
   monthStart,
   type ReportTab,
   type ReportTime,
@@ -66,7 +66,7 @@ interface ToastState {
 }
 
 interface DrillState {
-  rootId: string
+  node: FlowTreeNode
   kind: 'income' | 'expense'
 }
 
@@ -226,13 +226,18 @@ export function ReportsPage({
   onSettingsToggle: () => void
   onRetry: () => void
   onImport: () => void
-  onViewFlow: (categoryId: string) => void
+  onViewFlow: (options: {
+    categoryId?: string
+    categoryIds?: string[]
+    from: string
+    to: string
+  }) => void
 }) {
   const { ledger } = useLedger()
   const [tab, setTab] = useState<ReportTab>('balance')
   const [time, setTime] = useState<ReportTime>({
     gran: 'month',
-    point: monthEnd(TODAY),
+    point: TODAY,
     from: monthStart(TODAY),
     to: TODAY,
     preset: 'thisMonth',
@@ -245,7 +250,12 @@ export function ReportsPage({
   const [cashSide, setCashSide] = useState<'in' | 'out'>('in')
   const [balanceSide, setBalanceSide] = useState<'assets' | 'liabilities'>('assets')
 
-  const balance = useMemo(() => deriveBalanceReport(ledger, time.point), [ledger, time.point])
+  // 时点不超过数据截止日：月末/年末锚点在本月会被截到 asOf，避免出现 10-31 晚于 10-28。
+  const balancePoint = clampAsOfPoint(time.point, TODAY)
+  const balance = useMemo(
+    () => deriveBalanceReport(ledger, balancePoint),
+    [ledger, balancePoint],
+  )
   const flow = useMemo(
     () => deriveFlowReport(ledger, time.from, time.to, time.gran),
     [ledger, time.from, time.to, time.gran],
@@ -253,7 +263,7 @@ export function ReportsPage({
   const cash = useMemo(() => deriveCashReport(ledger, time.from, time.to), [ledger, time.from, time.to])
   const invest = useMemo(() => deriveInvestmentReport(ledger), [ledger])
   const drillData = useMemo<DrillData | null>(
-    () => (drill ? buildDrill(ledger, drill.rootId, drill.kind, time.from, time.to) : null),
+    () => (drill ? buildDrill(ledger, drill.node, drill.kind, time.from, time.to) : null),
     [drill, ledger, time.from, time.to],
   )
 
@@ -309,7 +319,7 @@ export function ReportsPage({
               onSide={setFlowSide}
               folded={foldedFlow}
               onFold={toggleFlowFold}
-              onDrill={(node, kind) => setDrill({ rootId: node.id, kind })}
+              onDrill={(node, kind) => setDrill({ node, kind })}
             />
           )}
           {tab === 'cash' && (
@@ -338,8 +348,11 @@ export function ReportsPage({
         onClose={() => setDrill(null)}
         onViewFlow={() => {
           if (!drill) return
-          notify('已切到流水页；分类筛选联动随流水筛选入口一起接入')
-          onViewFlow(drill.rootId)
+          onViewFlow(
+            drill.node.id === 'rest'
+              ? { categoryIds: drill.node.mergedIds, from: time.from, to: time.to }
+              : { categoryId: drill.node.id, from: time.from, to: time.to },
+          )
           setDrill(null)
         }}
       />
@@ -807,6 +820,40 @@ function CashView({
           />
         </>
       )}
+      <section className="mb-rp-reconcile" aria-label="口径与对账">
+        <div className="mb-rp-reconcile-head">
+          <h3>口径与对账</h3>
+          <span>不改账务规则，只把三处差异列清</span>
+        </div>
+        <div className="mb-rp-reconcile-row">
+          <span>收支明细 · 本期支出</span>
+          <strong>{currency(report.reconcile.flowExpense)}</strong>
+        </div>
+        <div className="mb-rp-reconcile-row is-sub">
+          <span>其中：对账修正（计支出）</span>
+          <strong>{currency(report.reconcile.adjustmentExpense)}</strong>
+        </div>
+        <div className="mb-rp-reconcile-row">
+          <span>收支明细 · 本期结余</span>
+          <strong>{signedCurrency(report.reconcile.flowBalance)}</strong>
+        </div>
+        <div className="mb-rp-reconcile-row">
+          <span>现金流 · 经营净额</span>
+          <strong>{signedCurrency(report.operatingNet)}</strong>
+        </div>
+        <div className="mb-rp-reconcile-row is-diff">
+          <span>差异（现金流 − 收支明细）</span>
+          <strong>{signedCurrency(report.reconcile.difference)}</strong>
+        </div>
+        <div className="mb-rp-reconcile-row">
+          <span>转账手续费（两处净额均不计）</span>
+          <strong>{currency(report.reconcile.transferFee)}</strong>
+        </div>
+        <p className="mb-rp-reconcile-note">
+          对账修正只计入收支明细支出，现金流净额排除它；转账手续费只从转出账户扣减、不进入任何净额。
+          因此上两项差异可逐笔对上。
+        </p>
+      </section>
       <p className="mb-rp-footnote">
         <Info size={13} /> 期末现金总量取当前现金等价账户余额；本期净额 = 流入 − 流出。
       </p>

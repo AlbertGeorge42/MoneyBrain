@@ -4,7 +4,8 @@ import type { Ledger, NewTransactionInput } from './model'
 
 export interface LedgerContextValue {
   ledger: Ledger
-  addTransaction: (input: NewTransactionInput) => void
+  /** 返回新建交易的 id（金额无效时为 null），供保存后 6 秒撤销复用记录级删除。 */
+  addTransaction: (input: NewTransactionInput) => string | null
   updateTransaction: (id: string, patch: TransactionPatch) => void
   deleteTransactions: (ids: readonly string[]) => void
   setTransactionCategory: (ids: readonly string[], categoryId: string) => void

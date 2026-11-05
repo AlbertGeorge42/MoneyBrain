@@ -15,6 +15,7 @@ import { OverviewPage } from '@/features/overview/OverviewPage'
 import { QuickEntry } from '@/features/overview/QuickEntry'
 import { TransactionDetail } from '@/features/overview/TransactionDetail'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
+import { EMPTY_ADVANCED, writeFiltersToSearch } from '@/features/transactions/filters'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
@@ -214,10 +215,14 @@ function PreviewBody({
   onPage: (next: ShellPage) => void
   onState: (next: DataState) => void
 }) {
-  const { ledger } = useLedger()
+  const { ledger, deleteTransactions } = useLedger()
   const [entryOpen, setEntryOpen] = useState(false)
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{
+    message: string
+    duration: number
+    action?: { label: string; run: () => void }
+  } | null>(null)
   const [batchMode, setBatchMode] = useState(false)
   const [displayOpen, setDisplayOpen] = useState(false)
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false)
@@ -232,11 +237,40 @@ function PreviewBody({
 
   useEffect(() => {
     if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 2400)
+    const timer = window.setTimeout(() => setToast(null), toast.duration)
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  const notify = (message: string) => setToast(message)
+  const notify = (message: string) => setToast({ message, duration: 2400 })
+
+  // 报表下钻 → 流水：把分类与期间写进 URL，流水页挂载时还原并回到列表顶部。
+  const viewFlow = (options: {
+    categoryId?: string
+    categoryIds?: string[]
+    from: string
+    to: string
+  }) => {
+    const search = writeFiltersToSearch(window.location.search, {
+      query: '',
+      type: 'all',
+      advanced: {
+        ...EMPTY_ADVANCED,
+        categoryId: options.categoryId ?? '',
+        categoryIds: options.categoryIds ?? [],
+        dateFrom: options.from,
+        dateTo: options.to,
+      },
+    })
+    const params = new URLSearchParams(search)
+    // 预览壳的 page 也写进 URL：刷新 / 回退时仍落在带条件的流水页，而不是报表。
+    params.set('page', 'transactions')
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}?${params.toString()}`,
+    )
+    onPage('transactions')
+  }
   const createAccount = () => notify('创建账户将在设置批次开放，本次只验证冷启动引导。')
   const importLedger = () => notify('导入账单将在流水批次开放，本次只验证冷启动引导。')
   const retry = () => {
@@ -277,7 +311,7 @@ function PreviewBody({
         onSettingsToggle={() => setReportSettingsOpen((open) => !open)}
         onRetry={retry}
         onImport={importLedger}
-        onViewFlow={() => onPage('transactions')}
+        onViewFlow={viewFlow}
       />
     ) : page === 'budgets' ? (
       <BudgetPage
@@ -352,8 +386,21 @@ function PreviewBody({
         opened={entryOpen}
         device={device}
         onClose={() => setEntryOpen(false)}
-        onReopen={() => setEntryOpen(true)}
-        onSaved={() => notify('已保存 · 账本与总览数字已同步')}
+        onSaved={(transactionId) =>
+          setToast({
+            message: '已保存 · 账本与总览数字已同步',
+            duration: 6000,
+            action: transactionId
+              ? {
+                  label: '撤销',
+                  run: () => {
+                    deleteTransactions([transactionId])
+                    notify('已撤销保存')
+                  },
+                }
+              : undefined,
+          })
+        }
       />
       <TransactionDetail
         transaction={detail}
@@ -366,7 +413,19 @@ function PreviewBody({
 
   const toastNode = toast ? (
     <div className="mb-hf-toast" role="status">
-      {toast}
+      <span>{toast.message}</span>
+      {toast.action && (
+        <button
+          type="button"
+          className="mb-hf-toast-action"
+          onClick={() => {
+            toast.action?.run()
+            setToast(null)
+          }}
+        >
+          {toast.action.label}
+        </button>
+      )}
     </div>
   ) : null
 
