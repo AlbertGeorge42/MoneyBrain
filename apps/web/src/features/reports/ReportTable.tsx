@@ -12,6 +12,8 @@ import type { ReportMetric } from './reportsModel'
 export interface ReportColumn {
   label: string
   align?: 'num'
+  /** 列头角标：紧贴列名的极短标记（如「测算」），说明该列口径。 */
+  hint?: string
 }
 
 export interface ReportRow {
@@ -21,12 +23,15 @@ export interface ReportRow {
   fold?: { expanded: boolean; onToggle: () => void }
   onOpen?: () => void
   tone?: 'income' | 'expense' | 'neutral' | 'transfer'
+  /** 行内后缀：紧贴首列名称的极短标记，不新增行。 */
+  hint?: string
 }
 
 export interface CardRow {
   id: string
   label: string
   meta?: string
+  hint?: string
   amount: ReactNode
   tone?: 'income' | 'expense' | 'neutral' | 'transfer'
   level?: 0 | 1
@@ -51,7 +56,10 @@ export function MetricStrip({
       <section className="mb-rp-metrics is-flat" data-device={device} aria-label="本期指标">
         {metrics.map((metric) => (
           <div className="mb-rp-metric" key={metric.label}>
-            <span className="mb-rp-metric-label">{metric.label}</span>
+            <span className="mb-rp-metric-label">
+              {metric.label}
+              {metric.hint && <span className="mb-rp-metric-hint">{metric.hint}</span>}
+            </span>
             <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
           </div>
         ))}
@@ -63,13 +71,19 @@ export function MetricStrip({
     <section className="mb-rp-metrics" data-device={device} aria-label="本期指标">
       {main && (
         <div className="mb-rp-metric is-main">
-          <span className="mb-rp-metric-label">{main.label}</span>
+          <span className="mb-rp-metric-label">
+            {main.label}
+            {main.hint && <span className="mb-rp-metric-hint">{main.hint}</span>}
+          </span>
           <span className={`mb-rp-metric-value is-${main.tone ?? 'neutral'}`}>{main.value}</span>
         </div>
       )}
       {rest.map((metric) => (
         <div className="mb-rp-metric" key={metric.label}>
-          <span className="mb-rp-metric-label">{metric.label}</span>
+          <span className="mb-rp-metric-label">
+            {metric.label}
+            {metric.hint && <span className="mb-rp-metric-hint">{metric.hint}</span>}
+          </span>
           <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
         </div>
       ))}
@@ -130,8 +144,13 @@ export function ReportTable({
           <thead>
             <tr>
               {columns.map((column) => (
-                <th key={column.label} className={column.align === 'num' ? 'is-num' : undefined} scope="col">
+                <th
+                  key={column.label + (column.align ?? '')}
+                  className={column.align === 'num' ? 'is-num' : undefined}
+                  scope="col"
+                >
                   {column.label}
+                  {column.hint && <span className="mb-rp-col-hint">{column.hint}</span>}
                 </th>
               ))}
             </tr>
@@ -181,13 +200,18 @@ export function ReportTable({
                               >
                                 {row.fold.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                               </button>
-                            ) : (
+                            ) : row.level === 1 ? null : (
+                              // 子级行的 padding-left 已含折叠槽，再放占位会把缩进叠成 40px。
                               <span className="mb-rp-fold-space" aria-hidden="true" />
                             )}
                             <span className="mb-rp-row-first-label">{cell}</span>
+                            {index === 0 && row.hint && <span className="mb-rp-row-hint">{row.hint}</span>}
                           </span>
                         ) : (
-                          cell
+                          <>
+                            {cell}
+                            {index === 0 && row.hint && <span className="mb-rp-row-hint">{row.hint}</span>}
+                          </>
                         )}
                       </td>
                     ))}
@@ -274,7 +298,10 @@ export function ReportCardList({
                 onClick={row.onOpen}
               >
                 <span className="mb-rp-crow-copy">
-                  <span className="mb-rp-crow-label">{row.label}</span>
+                  <span className="mb-rp-crow-label-wrap">
+                    <span className="mb-rp-crow-label">{row.label}</span>
+                    {row.hint && <span className="mb-rp-row-hint">{row.hint}</span>}
+                  </span>
                   {row.meta && <span className="mb-rp-crow-meta">{row.meta}</span>}
                 </span>
                 <span className={`mb-rp-crow-amount is-${row.tone ?? 'neutral'}`}>{row.amount}</span>

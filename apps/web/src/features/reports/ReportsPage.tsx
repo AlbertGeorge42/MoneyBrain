@@ -21,6 +21,7 @@ import {
   ReportLineChart,
 } from './charts'
 import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportRow } from './ReportTable'
+import { flattenFlowRows } from './reportRows'
 import {
   buildDrill,
   cashRowsFor,
@@ -164,40 +165,6 @@ function ReportsEmpty({ onImport }: { onImport: () => void }) {
 function chartGrid(device: DeviceMode, charts: ReactNode) {
   if (device === 'mobile') return <div className="mb-rp-chart-scroll">{charts}</div>
   return <div className="mb-rp-chart-grid">{charts}</div>
-}
-
-function flattenFlowRows(
-  nodes: FlowTreeNode[],
-  folded: Record<string, boolean>,
-  onFold: (id: string) => void,
-  onOpen: (node: FlowTreeNode) => void,
-): ReportRow[] {
-  const rows: ReportRow[] = []
-  for (const node of nodes) {
-    const expanded = folded[node.id] !== false
-    rows.push({
-      id: node.id,
-      cells: [
-        node.name,
-        `${node.count} 笔`,
-        currency(node.amount),
-        formatPercent(node.share, 1, false),
-      ],
-      fold: node.children.length > 0 ? { expanded, onToggle: () => onFold(node.id) } : undefined,
-      onOpen: () => onOpen(node),
-    })
-    if (expanded) {
-      for (const child of node.children) {
-        rows.push({
-          id: child.id,
-          level: 1,
-          cells: [child.name, `${child.count} 笔`, currency(child.amount), formatPercent(child.share, 1, false)],
-          onOpen: () => onOpen(child),
-        })
-      }
-    }
-  }
-  return rows
 }
 
 export function ReportsPage({
@@ -362,6 +329,7 @@ export function ReportsPage({
         }}
       >
         <div className="mb-rp-settings">
+          <p className="mb-rp-settings-note">报表只读 · 只改展示口径</p>
           {TABS.map((item) => (
             <div className="mb-rp-settings-row" key={item.id}>
               <div>
@@ -561,6 +529,9 @@ function FlowView({
   const expenseCards: CardRow[] = flattenCards(report.expenseTrees, folded, onFold, 'expense', (node) =>
     onDrill(node, 'expense'),
   )
+  // 子级行只挂「†」，含义放在已有合计说明位，不新增行。
+  const childLegend = (nodes: FlowTreeNode[]) =>
+    nodes.some((node) => node.children.length > 0) ? ' · † 子级已计入父级' : ''
 
   return (
     <>
@@ -588,7 +559,7 @@ function FlowView({
           <ReportTable
             device={device}
             title="收入构成"
-            desc={`合计 ${currency(report.income)}`}
+            desc={`合计 ${currency(report.income)}${childLegend(report.incomeTrees)}`}
             ariaLabel="收入构成"
             variant="c4"
             columns={[
@@ -604,7 +575,7 @@ function FlowView({
           <ReportTable
             device={device}
             title="支出构成"
-            desc={`合计 ${currency(report.expense)}`}
+            desc={`合计 ${currency(report.expense)}${childLegend(report.expenseTrees)}`}
             ariaLabel="支出构成"
             variant="c4"
             columns={[
@@ -632,7 +603,9 @@ function FlowView({
           <ReportCardList
             device={device}
             title={side === 'expense' ? '支出构成' : '收入构成'}
-            desc={`合计 ${currency(side === 'expense' ? report.expense : report.income)}`}
+            desc={`合计 ${currency(side === 'expense' ? report.expense : report.income)}${childLegend(
+              side === 'expense' ? report.expenseTrees : report.incomeTrees,
+            )}`}
             rows={side === 'expense' ? expenseCards : incomeCards}
             total={{
               label: '合计',
@@ -673,6 +646,7 @@ function flattenCards(
           level: 1,
           label: child.name,
           meta: `${child.count} 笔 · ${formatPercent(child.share, 1, false)}`,
+          hint: '†',
           amount: `${tone === 'income' ? '+' : '−'}${currency(child.amount)}`,
           tone,
           share: child.share,
@@ -756,7 +730,9 @@ function CashView({
           <ReportTable
             device={device}
             title="流出"
-            desc={`合计 ${currency(report.outflowTotal)}`}
+            desc={`合计 ${currency(report.outflowTotal)}${
+              report.reconcile.transferFee > 0 ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计` : ''
+            }`}
             ariaLabel="现金流出"
             columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
             rows={outflowRows}
@@ -778,7 +754,9 @@ function CashView({
           <ReportCardList
             device={device}
             title={side === 'in' ? '流入' : '流出'}
-            desc={side === 'in' ? `合计 ${currency(report.inflowTotal)}` : `合计 ${currency(report.outflowTotal)}`}
+            desc={side === 'in' ? `合计 ${currency(report.inflowTotal)}` : `合计 ${currency(report.outflowTotal)}${
+              report.reconcile.transferFee > 0 ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计` : ''
+            }`}
             rows={cards}
             total={{ label: '合计', value: currency(side === 'in' ? report.inflowTotal : report.outflowTotal) }}
           />
@@ -860,7 +838,7 @@ function InvestView({ device, report }: { device: DeviceMode; report: Investment
         columns={[
           { label: '持仓' },
           { label: '市值', align: 'num' },
-          { label: '成本', align: 'num' },
+          { label: '成本', align: 'num', hint: '测算' },
           { label: '收益', align: 'num' },
           { label: '收益率', align: 'num' },
         ]}

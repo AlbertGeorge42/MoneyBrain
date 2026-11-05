@@ -503,6 +503,29 @@
   color: var(--mb-color-text-secondary);
 }
 
+/* 回补标记：紧贴已有元素的极短口径角标，tertiary 小字、不占新增行 */
+.mb-rp-metric-hint {
+  margin-left: var(--mb-s-2);
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  font-weight: 400;
+}
+
+.mb-rp-col-hint {
+  margin-left: var(--mb-s-1);
+  color: var(--mb-color-text-tertiary);
+  font-weight: 400;
+}
+
+.mb-rp-row-hint {
+  flex: none;
+  margin-left: var(--mb-s-2);
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
 .mb-rp-metric-value {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-3);
@@ -852,6 +875,13 @@
   min-width: 0;
 }
 
+.mb-rp-crow-label-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
 .mb-rp-crow-label {
   font-size: var(--mb-fs-2);
   overflow: hidden;
@@ -1151,6 +1181,8 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
 .mb-rp-compare-title {
   font-size: var(--mb-fs-1);
   font-weight: 600;
+  flex: none;
+  white-space: nowrap;
 }
 
 .mb-rp-compare-title.is-income {
@@ -1161,10 +1193,12 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   color: var(--mb-color-expense-display);
 }
 
-.mb-rp-compare-total {
-  font-family: var(--mb-font-num);
+/* 两侧各自标尺：只标本侧满格金额，不比较两侧柱长。 */
+.mb-rp-compare-scale {
+  flex: none;
+  color: var(--mb-color-text-tertiary);
   font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1346,6 +1380,13 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   min-height: 56px;
   padding: var(--mb-s-2) 0;
   border-bottom: 1px solid var(--mb-color-border);
+}
+
+/* 抽屉顶部极短说明：只陈述只读与口径，不展开成段落。 */
+.mb-rp-settings-note {
+  margin: 0 0 var(--mb-s-2);
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
 }
 
 .mb-rp-settings-title {

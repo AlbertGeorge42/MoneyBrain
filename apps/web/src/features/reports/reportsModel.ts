@@ -27,6 +27,8 @@ export interface ReportMetric {
   label: string
   value: string
   tone?: 'income' | 'expense' | 'neutral'
+  /** 紧贴标签的极短口径标记，不新增说明行。 */
+  hint?: string
 }
 
 export interface FlowTreeNode {
@@ -550,7 +552,13 @@ export function deriveCashReport(ledger: Ledger, from: string, to: string): Cash
     },
     metrics: [
       { label: '期末现金总量', value: currency(closingCash) },
-      { label: '经营净额', value: signedCurrency(netOf('经营')), tone: netOf('经营') >= 0 ? 'income' : 'expense' },
+      {
+        label: '经营净额',
+        value: signedCurrency(netOf('经营')),
+        tone: netOf('经营') >= 0 ? 'income' : 'expense',
+        // 与收支明细结余的差额来自对账修正；只用金额角标说明，不恢复对账表。
+        hint: adjustmentTotal > 0 ? `不含修正 ${currency(adjustmentTotal)}` : undefined,
+      },
       { label: '投资净额', value: signedCurrency(netOf('投资')), tone: netOf('投资') >= 0 ? 'income' : 'expense' },
       { label: '筹资净额', value: signedCurrency(netOf('筹资')), tone: netOf('筹资') >= 0 ? 'income' : 'expense' },
     ],

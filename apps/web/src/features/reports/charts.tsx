@@ -335,7 +335,8 @@ function topNodes(nodes: FlowTreeNode[], limit: number): FlowTreeNode[] {
     ...visible,
     {
       id: 'rest',
-      name: '其他',
+      // 与根分类「其他」区分：这里的金额是多个小类之和，不是同名分类本身。
+      name: `其余 ${rest.length} 类`,
       amount,
       count,
       share: visible.length ? 100 - visible.reduce((sum, node) => sum + node.share, 0) : 100,
@@ -366,7 +367,14 @@ function CompositionSide({
     <div className="mb-rp-compare-side">
       <div className="mb-rp-compare-head">
         <span className={`mb-rp-compare-title is-${tone}`}>{title}</span>
-        <span className="mb-rp-compare-total">{currency(total)}</span>
+        {visible.length > 0 && (
+          <span
+            className="mb-rp-compare-scale"
+            aria-label={`${title}满格 ${currencyAxisFormatter(max)}，本侧合计 ${currency(total)}`}
+          >
+            满格 {currencyAxisFormatter(max)}
+          </span>
+        )}
       </div>
       {visible.length === 0 ? (
         <p className="mb-rp-empty-line">该期间没有{title.slice(0, 2)}</p>
