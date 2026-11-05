@@ -58,8 +58,15 @@ interface Draft {
 
 function categoryOptions(categories: Ledger['categories'], type: TxType) {
   if (type === 'transfer') return []
+  const roots = categories.filter((category) => !category.parentId)
+  if (type === 'refund') {
+    return [
+      ...roots.filter((category) => category.type === 'refund'),
+      ...roots.filter((category) => category.type === 'expense'),
+    ]
+  }
   const target = CATEGORY_TYPE[type]
-  return categories.filter((category) => category.type === target && !category.parentId)
+  return roots.filter((category) => category.type === target)
 }
 
 /** 常用账户 chips：最近使用 + 当前选中，最多 5 个，选中项恒可见。 */

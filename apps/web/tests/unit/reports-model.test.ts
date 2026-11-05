@@ -55,6 +55,20 @@ describe('deriveFlowReport', () => {
     expect(report.savingsRate).toBeCloseTo((3_800 / 5_200) * 100, 4)
   })
 
+  it('退款落在支出分类时仍按收入计，并按该分类归集', () => {
+    const refundToFood: LedgerTransaction = { ...OCTOBER[3], categoryId: 'food' }
+    const report = deriveFlowReport(
+      fixture([...OCTOBER.filter((item) => item.id !== 't4'), refundToFood]),
+      '2026-10-01',
+      '2026-10-31',
+      'day',
+    )
+    expect(report.income).toBe(5_200)
+    const food = report.incomeTrees.find((node) => node.id === 'food')
+    expect(food?.amount).toBe(200)
+    expect(report.expenseTrees.find((node) => node.id === 'food')?.amount).toBe(1_300)
+  })
+
   it('一级分类汇总子分类，占比相对合计', () => {
     const report = deriveFlowReport(fixture([...OCTOBER]), '2026-10-01', '2026-10-31', 'day')
     const food = report.expenseTrees.find((node) => node.id === 'food')
