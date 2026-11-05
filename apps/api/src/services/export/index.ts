@@ -13,6 +13,7 @@ import {
   generateBackupFilename,
 } from '../backup.service.js'
 import { rootLogger } from '../../common/index.js'
+import { sealBackupArchive } from '../sync/container.service.js'
 
 const logger = rootLogger.child({ module: 'export' })
 
@@ -23,21 +24,31 @@ export interface ExportResult {
 }
 
 /**
- * 完整备份导出（始终为 ZIP）
+ * 完整备份导出 = ZIP 装进加密容器（F-C）。
+ *
+ * 备份与同步共用 packages/sync 的容器实现，不存在第二份加密路径；
+ * 容器内是一条 `backupArchive` 记录，按魔数可被同步引擎读取/解密。
  */
 export async function exportFullBackup(): Promise<Buffer> {
   const start = Date.now()
-  const files: BackupFiles = {}
+  const archive = await createFullBackupArchive()
+  const container = await sealBackupArchive(archive)
+  logger.info(
+    { action: 'finish', includes: ALL_DATA_TYPES, encrypted: true, durationMs: Date.now() - start },
+    'backup exported',
+  )
+  return container
+}
 
+/** 完整备份的明文 ZIP 字节（只在进程内传给容器，不落盘）。 */
+async function createFullBackupArchive(): Promise<Buffer> {
+  const files: BackupFiles = {}
   files.transactions = Buffer.from(await exportTransactionsCSV(), 'utf-8')
   files.config = await exportConfig()
   files.budgets = await exportBudgets()
   files.snapshots = Buffer.from(await exportInvestmentSnapshotsCSV(), 'utf-8')
   files.manifest = await createManifest(ALL_DATA_TYPES)
-
-  const result = createBackupZip(files)
-  logger.info({ action: 'finish', includes: ALL_DATA_TYPES, durationMs: Date.now() - start }, 'backup exported')
-  return result
+  return createBackupZip(files)
 }
 
 /**

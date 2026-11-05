@@ -17,6 +17,10 @@ import {
   assertBackupVersion,
   type DataType,
 } from '../backup.service.js'
+import {
+  normalizeBackupInput,
+  type EncryptedBackupOptions,
+} from '../sync/container.service.js'
 import { clearSelectedDataForImport } from '../clear-data.service.js'
 import { createSnapshot } from '../rollback.service.js'
 import { ValidationError } from '../../common/index.js'
@@ -214,11 +218,15 @@ export async function importBackup(
   file: Buffer,
   filename: string,
   mode: ImportMode,
-  includes?: DataType[]
+  includes?: DataType[],
+  options: EncryptedBackupOptions = {}
 ): Promise<ImportFullResult> {
   const start = Date.now()
   logger.info({ action: 'start', mode, includes }, 'import started')
-  const result = await withTransaction((tx) => runImport(tx, file, filename, mode, includes))
+  const input = await normalizeBackupInput(file, filename, options)
+  const result = await withTransaction((tx) =>
+    runImport(tx, input.buffer, input.filename, mode, includes)
+  )
   logger.info({ action: 'finish', mode, durationMs: Date.now() - start }, 'import completed')
   return result
 }
@@ -232,11 +240,12 @@ export async function importBackup(
 export async function importBackupWithRollback(
   file: Buffer,
   filename: string,
-  includes?: DataType[]
+  includes?: DataType[],
+  options: EncryptedBackupOptions = {}
 ): Promise<{ result: ImportFullResult; rollbackPointId: string }> {
-  const scope = await resolveOverwriteScope(file, filename, includes)
+  const scope = await resolveOverwriteScope(file, filename, includes, options)
   const snapshot = await createSnapshot('覆盖导入前', scope)
-  const result = await importBackup(file, filename, 'overwrite', includes)
+  const result = await importBackup(file, filename, 'overwrite', includes, options)
   return { result, rollbackPointId: snapshot.id }
 }
 
@@ -249,12 +258,14 @@ export async function previewImport(
   file: Buffer,
   filename: string,
   mode: ImportMode,
-  includes?: DataType[]
+  includes?: DataType[],
+  options: EncryptedBackupOptions = {}
 ): Promise<ImportFullResult> {
+  const input = await normalizeBackupInput(file, filename, options)
   let captured: ImportFullResult | undefined
   try {
     await withTransaction(async (tx) => {
-      captured = await runImport(tx, file, filename, mode, includes)
+      captured = await runImport(tx, input.buffer, input.filename, mode, includes)
       // 抛错触发回滚：预览不该留下任何数据改动
       throw new PreviewRollback()
     })
@@ -283,9 +294,13 @@ class PreviewRollback extends Error {
 export async function resolveOverwriteScope(
   file: Buffer,
   filename: string,
-  includes?: DataType[]
+  includes?: DataType[],
+  options: EncryptedBackupOptions = {}
 ): Promise<DataType[]> {
-  const fileType = detectFileType(filename)
+  const input = await normalizeBackupInput(file, filename, options)
+  const fileType = detectFileType(input.filename)
+  file = input.buffer
+  filename = input.filename
 
   if (fileType === 'zip') {
     const files = await parseBackupZip(file)

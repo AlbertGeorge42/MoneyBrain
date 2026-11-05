@@ -18,6 +18,7 @@
     "db:status": "prisma migrate status --schema apps/api/prisma/schema.prisma",
     "db:drill": "node --import tsx scripts/restore-drill.mts",
     "db:verify": "node --import tsx scripts/db-verify.mts",
+    "sync:decrypt": "node --import tsx scripts/decrypt-container.mts",
     "db:repair-report-data": "node --import tsx scripts/repair-report-data.mts",
     "build": "node scripts/build.mjs",
     "start": "concurrently \"npm run start:api\" \"npm run start:web\"",

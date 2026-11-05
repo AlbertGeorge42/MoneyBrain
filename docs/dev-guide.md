@@ -216,6 +216,21 @@ if (type === 'transfer') toAmount = amount - fee
 - **合并是纯函数、顺序无关**：同一批记录任意顺序应用两次必须逐字段一致；判定逻辑改动先跑
   `packages/sync/test-vectors/merge-vectors.json` 与 `npm run test:sync`。
 
+### 3.6 加密容器（F-C 起）
+
+- **容器只有一份实现**：`packages/sync/src/container.ts`。备份（`services/sync/container.service.ts`）与同步
+  共用同一 `sealContainer` / `openContainer`；禁止在 service / 脚本 / 前端另写加解密。格式见
+  [sync-container-format.md](sync-container-format.md)。
+- **加密库已锁定**：Argon2id 用 `@noble/hashes`，AEAD 用 Node 内置 `crypto` 的 `chacha20-poly1305`
+  + 自实现 HChaCha20。移动端换实现必须保持同一字节格式（`formatVersion = 1`）。
+- **两个层级的拒绝规则不同**：未知 `formatVersion` / 头部非法 → **整批拒绝**；未知 `entityType`
+  → **只跳过该条并警告**，已识别实体照常合并（决策 #34）。
+- **本地字段不进容器**：`investmentSnapshot.previousSnapshotId` 在 `sealContainer` 里统一剔除（导出路径
+  无法绕过）；应用后按 `packages/domain` 的 `sortSnapshotChain` / `resolvePreviousSnapshotIds` 重算，
+  本地 `relinkSnapshots` 与同步应用必须用同一规则。新增本地字段只改 `LOCAL_ONLY_DATA_FIELDS` 一行。
+- **格式暂定至 V5/V3**：`formatVersion = 1` 在跨端与真机初始化开销验证前不算冻结；改字节布局前先看
+  阶段文档的 F8/V5 约束。
+
 ## 4. 命名
 
 | 概念 | 统一用 | 禁止 |
@@ -367,17 +382,18 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
 - `npm run db:drill` 跑恢复演练：导出 → 导入临时库 → 用领域层重算两边余额并对比。
   改动导出/导入/余额逻辑后必须跑一次，结果不一致就是备份不可信了。
 - 自动定时备份（B3）：配置存数据库同级 `auto-backup-config.json`（跟着数据库走，与回滚点同一套哲学）；
-  执行复用 `exportFullBackup`，按 `moneybrain-backup-YYYY-MM-DD.zip` 落盘。
+  执行复用 `exportFullBackup`（输出加密容器），按 `moneybrain-backup-YYYY-MM-DD.mbx` 落盘；
+  历史明文 `.zip` 一并计入清理，导入时按文件魔数自动识别（容器先解密成 ZIP 再走原流程）。
   **备份时机由内部策略决定，不做成用户设置**：判定只有两条——距上次成功备份 ≥ 24 小时（从未成功视为已到期）、
   长任务锁空闲；两条都满足才执行，否则等下一轮（30 秒评估一次）。备份与导入/导出/回滚共用同一把
   长任务锁（`runExclusiveLongTask`）严格互斥：到期时若长任务进行中一律不执行（没有强制越过），
   等长任务结束后下一个评估轮次自动补跑；尝试失败后 10 分钟内退避。
   策略常量（间隔 / 退避 / 评估周期 / 保留最近 7 份）集中在 `auto-backup.service.ts` 顶部，调整只改那一处。
-  **F5 加密容器落地前导出的是明文 ZIP**：云同步目录（OneDrive / Dropbox 等）由后端默认拒绝，
-  必须带 `confirmCloudDirectory: true` 显式确认才接受；加密容器落地后把 `runAutoBackupOnce`
-  里的导出换成容器导出，目录限制随之放开。
+  **F-C 起导出即加密容器**，写入网盘 / 云同步目录不再产生明文泄露，因此不再校验目录类型、
+  也不再有 `confirmCloudDirectory` 确认参数。
 - 不持久化余额、预算百分比、收益率。投资快照的 `previous_snapshot_id` **继续持久化**——
-  它是写入顺序的产物，不是金额派生值，且同步依赖它做应用后重算（[stage-2-sync.md](blueprint/stage-2-sync.md) 批次 F6）；
+  它是写入顺序的产物，不是金额派生值；F-C 起它**不进入同步记录**（`LOCAL_ONLY_DATA_FIELDS`），
+  应用后按本地规则重算（[stage-2-sync.md](blueprint/stage-2-sync.md) 批次 F-C）；
   禁止的是**读取时**绕开快照链、按日期另算一套推导。
 - 交易删除是软删除（`deletedAt`，B2）：过滤条件只允许出现在 `db/repositories/transaction.repository.ts`，service / route 不得再写 `deletedAt` 条件；撤销与回收站恢复 = 依据 `audit_events` 审计事件反向写入，不另建撤销表、不做二次确认（前端提示「已删除 · 撤销」）。退款通过 `relatedTransactionId` 关联。存在退款的原交易禁止删除（含回收站里的退款），避免孤儿退款；导出与备份必须排除已删除交易。
 - **退款金额可高于原额、退款账户可与原账户不同（均属合法业务，任何校验不得判为数据错误）**：可退余额 = max(原额 − Σ退款, 0) 只是录入参考，不是上限。`npm run db:verify` 对超退记录只做信息性提示（ℹ 行），不进失败项。

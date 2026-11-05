@@ -7,10 +7,8 @@
 // 备份与导入/导出/回滚共用同一把长任务锁（runExclusiveLongTask），严格互斥、
 // 没有强制越过——长任务结束后下一个评估轮次自动补跑。
 //
-// F5 加密容器（M3）落地前，导出的 ZIP 是明文。明文副本只对**手动**导出可接受，
-// 定时任务会把明文持续写到磁盘上，因此本过渡态只允许写**本地目录**；
-// 目标目录指向网盘 / 云同步目录时必须明确警告且默认拒绝，需显式确认（批次 B 规约）。
-// F5 落地后：把 runAutoBackupOnce 里的导出换成加密容器导出，目录限制随之放开。
+// F5 已落地：导出的是加密容器（.mbx），写入网盘 / 云同步目录不再产生明文泄露，
+// 因此目录限制放开，用户可把自动备份直接指向自己的网盘目录。
 
 import { existsSync, mkdirSync, readdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -58,33 +56,6 @@ const DEFAULT_CONFIG: AutoBackupConfigFile = {
   lastRunError: null,
 }
 
-/** 已知网盘 / 云同步客户端的目录特征（大小写不敏感）。 */
-const CLOUD_DIRECTORY_MARKERS = [
-  'onedrive',
-  'dropbox',
-  'google drive',
-  'googledrive',
-  'icloud',
-  'iclouddrive',
-  'nutstore',
-  '坚果云',
-  '百度网盘',
-  'baidunetdisk',
-  'baiduyunguanjia',
-  '阿里云盘',
-  'aliyundrive',
-  'nutstorecloud',
-] as const
-
-/**
- * 是否疑似网盘 / 云同步目录。
- * 特征匹配是保守判定：宁可误报（多弹一次确认），不可漏报（明文悄悄上云）。
- */
-export function isCloudSyncDirectory(directory: string): boolean {
-  const normalized = directory.replaceAll('\\', '/').toLowerCase()
-  return CLOUD_DIRECTORY_MARKERS.some((marker) => normalized.includes(marker))
-}
-
 async function resolveConfigPath(): Promise<string> {
   return join(await resolveDbDirectory(), CONFIG_FILENAME)
 }
@@ -125,8 +96,6 @@ export async function saveAutoBackupConfig(
   input: {
     enabled?: boolean
     directory?: string
-    /** 云同步目录必须显式确认「将定时产生全量明文账本副本」才接受 */
-    confirmCloudDirectory?: boolean
   },
   configPath?: string
 ): Promise<AutoBackupConfigFile & { defaultDirectory: string }> {
@@ -145,13 +114,6 @@ export async function saveAutoBackupConfig(
   if (next.enabled && !/^([A-Za-z]:[\\/]|\\\\|\/)/.test(next.directory.trim())) {
     throw new ValidationError('备份目录必须是绝对路径，例如 C:\\Users\\me\\backups')
   }
-  if (next.enabled && isCloudSyncDirectory(next.directory) && !input.confirmCloudDirectory) {
-    // 默认拒绝，需显式确认：定时任务会把明文 ZIP 持续写进云同步目录
-    throw new ValidationError(
-      '检测到云同步目录：将定时产生全量明文账本副本并同步到云端。如确认继续，请显式确认。'
-    )
-  }
-
   const target = configPath ?? (await resolveConfigPath())
   writeFileSync(target, JSON.stringify(next, null, 2), 'utf-8')
   await restartScheduler()
@@ -230,17 +192,20 @@ export async function runExclusiveLongTask<T>(task: () => Promise<T>): Promise<T
 
 // ===== 执行 =====
 
-/** 统计目录内现有备份份数（只数本服务命名的文件）。 */
+/** 本服务产生的备份文件：新格式 .mbx；历史明文 .zip 一起计入，避免旧文件永远不清理。 */
+function isAutoBackupFile(name: string): boolean {
+  return name.startsWith('moneybrain-backup-') && (name.endsWith('.mbx') || name.endsWith('.zip'))
+}
+
+/** 统计目录内现有备份份数（新旧格式都算）。 */
 export function countAutoBackups(directory: string): number {
   if (!existsSync(directory)) {
     return 0
   }
-  return readdirSync(directory).filter(
-    (name) => name.startsWith('moneybrain-backup-') && name.endsWith('.zip')
-  ).length
+  return readdirSync(directory).filter(isAutoBackupFile).length
 }
 
-/** 执行一次自动备份：导出 ZIP、按日期命名落盘、更新运行状态、清理超限旧备份。 */
+/** 执行一次自动备份：导出加密容器、按日期命名落盘、更新运行状态、清理超限旧备份。 */
 export async function runAutoBackupOnce(
   options: { directory?: string; configPath?: string } = {}
 ): Promise<{ file: string }> {
@@ -251,7 +216,7 @@ export async function runAutoBackupOnce(
   }
 
   mkdirSync(directory, { recursive: true })
-  const filename = `moneybrain-backup-${formatDateLocal(new Date())}.zip`
+  const filename = `moneybrain-backup-${formatDateLocal(new Date())}.mbx`
   const target = join(directory, filename)
   const attemptedAt = new Date().toISOString()
 
@@ -271,9 +236,7 @@ export async function runAutoBackupOnce(
 
 /** 只保留最近 MAX_AUTO_BACKUPS 份（含刚写的那份），删除更旧的。 */
 function pruneOldBackups(directory: string, keepFilename: string): void {
-  const files = readdirSync(directory)
-    .filter((name) => name.startsWith('moneybrain-backup-') && name.endsWith('.zip'))
-    .sort()
+  const files = readdirSync(directory).filter(isAutoBackupFile).sort()
   // 刚写的当天文件名排序在最后；多出来的（超过上限的）是最旧的
   const excess = files.length - MAX_AUTO_BACKUPS
   for (let i = 0; i < excess; i++) {

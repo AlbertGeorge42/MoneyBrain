@@ -50,11 +50,11 @@ export function generateExportFilename(type: DataType, ext: string): string {
 }
 
 /**
- * 生成完整备份 ZIP 文件名
+ * 生成完整备份容器文件名（加密容器，扩展名 .mbx）
  */
 export function generateBackupFilename(): string {
   const date = formatDateLocal(new Date())
-  return `moneybrain-backup-${date}.zip`
+  return `moneybrain-backup-${date}.mbx`
 }
 
 // ─── ZIP打包服务 ───

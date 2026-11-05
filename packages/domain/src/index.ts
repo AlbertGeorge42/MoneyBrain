@@ -71,6 +71,12 @@ export {
 } from './ledger/rules.js'
 
 export {
+  resolvePreviousSnapshotIds,
+  sortSnapshotChain,
+  type SnapshotChainNode,
+} from './investment.js'
+
+export {
   UNCATEGORIZED_CATEGORY_ID,
   flowByCategory,
   remainingRefundable,

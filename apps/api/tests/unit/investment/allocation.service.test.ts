@@ -103,8 +103,8 @@ describe('allocation.service', () => {
       mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null)
       mockPrisma.investmentAllocationSnapshot.create.mockResolvedValue({ id: 'snap1' })
       mockPrisma.investmentAllocationSnapshot.findMany.mockResolvedValue([
-        { id: 'snap1', previousSnapshotId: null },
-        { id: 'snap2', previousSnapshotId: null },
+        { id: 'snap1', previousSnapshotId: null, date: new Date('2024-01-01T00:00:00'), createdAt: new Date('2024-01-01T01:00:00') },
+        { id: 'snap2', previousSnapshotId: null, date: new Date('2024-01-02T00:00:00'), createdAt: new Date('2024-01-02T01:00:00') },
       ])
       mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
 
@@ -280,8 +280,8 @@ describe('allocation.service', () => {
       const snapshotToDelete = { id: 'snap1', accountId: 'acc1' }
       mockPrisma.investmentAllocationSnapshot.findUnique.mockResolvedValue(snapshotToDelete)
       mockPrisma.investmentAllocationSnapshot.findMany.mockResolvedValue([
-        { id: 'prev1', previousSnapshotId: null },
-        { id: 'next1', previousSnapshotId: 'snap1' },
+        { id: 'prev1', previousSnapshotId: null, date: new Date('2023-12-31T00:00:00'), createdAt: new Date('2023-12-31T01:00:00') },
+        { id: 'next1', previousSnapshotId: 'snap1', date: new Date('2024-01-02T00:00:00'), createdAt: new Date('2024-01-02T01:00:00') },
       ])
       mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
 
@@ -308,8 +308,8 @@ describe('allocation.service', () => {
         accountId: 'acc1',
       })
       mockPrisma.investmentAllocationSnapshot.findMany.mockResolvedValue([
-        { id: 'next1', previousSnapshotId: 'snap1' },
-        { id: 'next2', previousSnapshotId: 'snap1' },
+        { id: 'next1', previousSnapshotId: 'snap1', date: new Date('2024-01-01T00:00:00'), createdAt: new Date('2024-01-01T01:00:00') },
+        { id: 'next2', previousSnapshotId: 'snap1', date: new Date('2024-01-02T00:00:00'), createdAt: new Date('2024-01-02T01:00:00') },
       ])
       mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma))
 

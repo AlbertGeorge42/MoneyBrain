@@ -19,6 +19,7 @@ import {
   previewImport,
   resolveOverwriteScope,
 } from '../services/import/smart-import.service.js'
+import { normalizeBackupInput } from '../services/sync/container.service.js'
 import {
   listSnapshotPoints,
   restoreSnapshot,
@@ -96,23 +97,35 @@ router.get('/export', asyncHandler(async (req, res) => {
   res.send(csvContent)
 }))
 
-// 文件内容识别
+// 恢复码只做类型检查；格式与解密失败由容器服务统一报错
+function parseRecoveryCode(raw: unknown): string | undefined {
+  if (raw === undefined || raw === '') return undefined
+  if (typeof raw !== 'string') throw new ValidationError('恢复码格式错误')
+  return raw
+}
+
+// 文件内容识别（加密容器会先解密成 ZIP 再识别）
 router.post('/detect-file', upload.single('file'), validateRequest((req: Request) => {
   if (!req.file) {
     throw new ValidationError('请上传文件')
   }
 }), asyncHandler(async (req, res) => {
-  const fileType = detectFileType(req.file!.originalname)
-  const includes = await detectFileIncludes(req.file!.buffer, fileType)
-  return success(res, { includes })
+  const input = await normalizeBackupInput(
+    req.file!.buffer,
+    req.file!.originalname,
+    { recoveryCode: parseRecoveryCode(req.body?.recoveryCode) },
+  )
+  const fileType = detectFileType(input.filename)
+  const includes = await detectFileIncludes(input.buffer, fileType)
+  return success(res, { includes, encrypted: input.encrypted })
 }))
 
-// 完整备份导出
+// 完整备份导出（加密容器；扩展名 .mbx）
 router.get('/export-full', asyncHandler(async (_req, res) => {
-  const zipBuffer = await runExclusiveLongTask(() => exportFullBackup())
-  res.setHeader('Content-Type', 'application/zip')
+  const buffer = await runExclusiveLongTask(() => exportFullBackup())
+  res.setHeader('Content-Type', 'application/octet-stream')
   res.setHeader('Content-Disposition', `attachment; filename=${generateBackupFilename()}`)
-  res.send(zipBuffer)
+  res.send(buffer)
 }))
 
 // 自定义导出
@@ -144,18 +157,19 @@ router.post('/import-backup', upload.single('file'), validateRequest((req: Reque
   }
   const mode = rawMode === 'overwrite' ? 'overwrite' : 'merge'
   const includes = parseImportIncludes(req.body.includes)
+  const options = { recoveryCode: parseRecoveryCode(req.body.recoveryCode) }
 
   // 覆盖导入会先清空数据，先留回滚点再执行——出错还有退路。
   // 长任务：导入进行中不让自动备份抢 IO
   if (mode === 'overwrite') {
     const { result, rollbackPointId } = await runExclusiveLongTask(() =>
-      importBackupWithRollback(req.file!.buffer, req.file!.originalname, includes)
+      importBackupWithRollback(req.file!.buffer, req.file!.originalname, includes, options)
     )
     return success(res, { ...result, rollbackPointId })
   }
 
   const result = await runExclusiveLongTask(() =>
-    importBackup(req.file!.buffer, req.file!.originalname, mode, includes)
+    importBackup(req.file!.buffer, req.file!.originalname, mode, includes, options)
   )
   return success(res, result)
 }))
@@ -173,12 +187,13 @@ router.post('/import-preview', upload.single('file'), validateRequest((req: Requ
   }
   const mode = rawMode === 'overwrite' ? 'overwrite' : 'merge'
   const includes = parseImportIncludes(req.body.includes)
+  const options = { recoveryCode: parseRecoveryCode(req.body.recoveryCode) }
 
   const result = await runExclusiveLongTask(() =>
-    previewImport(req.file!.buffer, req.file!.originalname, mode, includes)
+    previewImport(req.file!.buffer, req.file!.originalname, mode, includes, options)
   )
   const willOverwrite = mode === 'overwrite'
-    ? await resolveOverwriteScope(req.file!.buffer, req.file!.originalname, includes)
+    ? await resolveOverwriteScope(req.file!.buffer, req.file!.originalname, includes, options)
     : []
   return success(res, { result, willOverwrite })
 }))
@@ -191,7 +206,7 @@ router.get('/rollback-points', asyncHandler(async (_req, res) => {
 
 // ─── 自动定时备份（B3）───
 // 备份时机由内部策略决定（24h 间隔 + 空闲窗口，见 service 头注释），用户只设置开关与目录。
-// 过渡态约束：F5 加密容器落地前导出的是明文 ZIP，云同步目录默认拒绝、需显式确认。
+// F5 已落地：导出的是加密容器，云同步目录限制已放开。
 router.get('/auto-backup', asyncHandler(async (_req, res) => {
   const config = await getAutoBackupConfig()
   return success(res, {
@@ -209,18 +224,16 @@ router.get('/auto-backup', asyncHandler(async (_req, res) => {
 }))
 
 router.put('/auto-backup', validateRequest((req: Request) => {
-  const { enabled, directory, confirmCloudDirectory } = req.body as Record<string, unknown>
+  const { enabled, directory } = req.body as Record<string, unknown>
   if (enabled !== undefined && typeof enabled !== 'boolean') {
     throw new ValidationError('enabled 必须是布尔值')
   }
   if (directory !== undefined && typeof directory !== 'string') {
     throw new ValidationError('directory 必须是字符串')
   }
-  if (confirmCloudDirectory !== undefined && typeof confirmCloudDirectory !== 'boolean') {
-    throw new ValidationError('confirmCloudDirectory 必须是布尔值')
-  }
 }), asyncHandler(async (req, res) => {
-  const config = await saveAutoBackupConfig(req.body)
+  const { enabled, directory } = req.body as { enabled?: boolean; directory?: string }
+  const config = await saveAutoBackupConfig({ enabled, directory })
   return success(res, config)
 }))
 

@@ -7,6 +7,7 @@ import * as assetClassRepo from '../../db/repositories/investment-asset-class.re
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import { SNAPSHOT_ITEMS_RELATIONS } from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import * as allocationItemRepo from '../../db/repositories/investment-allocation-item.repository.js'
+import { resolvePreviousSnapshotIds } from '../../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'snapshot' })
 
@@ -20,14 +21,23 @@ async function relinkSnapshots(tx: TransactionClient, accountId: string): Promis
   const snapshots = await snapshotRepo.findMany(
     {
       where: { accountId },
-      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, previousSnapshotId: true },
+      select: { id: true, previousSnapshotId: true, date: true, createdAt: true },
     },
     tx,
   )
 
-  let previousId: string | null = null
+  // 排序规则只有一份（packages/domain）：同步应用后的重算与本地写入走同一条链。
+  const links = resolvePreviousSnapshotIds(
+    snapshots.map((snapshot) => ({
+      id: snapshot.id,
+      accountId,
+      date: formatDateLocal(snapshot.date),
+      createdAt: snapshot.createdAt.toISOString(),
+    })),
+  )
+
   for (const snapshot of snapshots) {
+    const previousId = links.get(snapshot.id) ?? null
     if (snapshot.previousSnapshotId !== previousId) {
       await snapshotRepo.update(
         {
@@ -37,7 +47,6 @@ async function relinkSnapshots(tx: TransactionClient, accountId: string): Promis
         tx,
       )
     }
-    previousId = snapshot.id
   }
 }
 

@@ -25,7 +25,6 @@ vi.mock('../../src/services/export/index.js', () => ({
 
 const {
   evaluateBackupPlan,
-  isCloudSyncDirectory,
   getAutoBackupConfig,
   saveAutoBackupConfig,
   runAutoBackupOnce,
@@ -104,21 +103,7 @@ describe('evaluateBackupPlan（调度策略：24h 间隔 + 长任务锁互斥）
   })
 })
 
-describe('isCloudSyncDirectory（云同步目录判定）', () => {
-  it('常见网盘目录判为云同步目录', () => {
-    expect(isCloudSyncDirectory('C:/Users/me/OneDrive/backup')).toBe(true)
-    expect(isCloudSyncDirectory('D:\\Dropbox\\moneybrain')).toBe(true)
-    expect(isCloudSyncDirectory('/Users/me/nutstore/backup')).toBe(true)
-    expect(isCloudSyncDirectory('C:\\Users\\me\\百度网盘\\backup')).toBe(true)
-  })
-
-  it('普通本地目录不是云同步目录', () => {
-    expect(isCloudSyncDirectory('C:\\Users\\me\\backups')).toBe(false)
-    expect(isCloudSyncDirectory('/home/me/backups')).toBe(false)
-  })
-})
-
-describe('自动备份配置（B3 过渡态约束）', () => {
+describe('自动备份配置（加密容器后不再限制云目录）', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     fakeDbDir = mkdtempSync(join(tmpdir(), 'mb-autobackup-'))
@@ -135,18 +120,10 @@ describe('自动备份配置（B3 过渡态约束）', () => {
     expect(config.directory).toBe(join(fakeDbDir, 'auto-backups'))
   })
 
-  it('开启时云同步目录默认拒绝，显式确认后才接受', async () => {
+  it('加密容器落地后，云同步目录可直接保存', async () => {
     const cloudDirectory = 'C:\\Users\\me\\OneDrive\\backups'
 
-    await expect(
-      saveAutoBackupConfig({ enabled: true, directory: cloudDirectory })
-    ).rejects.toThrow(/云同步目录/)
-
-    const saved = await saveAutoBackupConfig({
-      enabled: true,
-      directory: cloudDirectory,
-      confirmCloudDirectory: true,
-    })
+    const saved = await saveAutoBackupConfig({ enabled: true, directory: cloudDirectory })
     expect(saved.enabled).toBe(true)
     expect((await getAutoBackupConfig()).directory).toBe(cloudDirectory)
 
@@ -164,7 +141,7 @@ describe('自动备份配置（B3 过渡态约束）', () => {
   it('执行一次：按日期落盘、保留最近 7 份、记录运行时间', async () => {
     const backupDir = join(fakeDbDir, 'backups')
     mkdirSync(backupDir, { recursive: true })
-    // 预置 7 份旧备份，加上本次共 8 份，应删掉最旧的 1 份
+    // 预置 7 份旧版明文备份，加上本次共 8 份，应删掉最旧的 1 份（旧格式一起计入清理）
     for (let i = 1; i <= 7; i++) {
       writeFileSync(join(backupDir, `moneybrain-backup-2026-01-0${i}.zip`), Buffer.from('old'))
     }
@@ -175,11 +152,14 @@ describe('自动备份配置（B3 过渡态约束）', () => {
     const now = new Date()
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     expect(existsSync(result.file)).toBe(true)
-    expect(result.file).toContain(`moneybrain-backup-${today}.zip`)
+    expect(result.file).toContain(`moneybrain-backup-${today}.mbx`)
 
-    const zips = readdirSync(backupDir).filter((name) => name.endsWith('.zip')).sort()
-    expect(zips).toHaveLength(7)
-    expect(zips).not.toContain('moneybrain-backup-2026-01-01.zip')
+    const backups = readdirSync(backupDir)
+      .filter((name) => name.endsWith('.mbx') || name.endsWith('.zip'))
+      .sort()
+    expect(backups).toHaveLength(7)
+    expect(backups).not.toContain('moneybrain-backup-2026-01-01.zip')
+    expect(backups).toContain(`moneybrain-backup-${today}.mbx`)
 
     const recorded: { lastRunAt: unknown; lastAttemptAt: unknown; lastRunError: unknown } = JSON.parse(
       readFileSync(configPath, 'utf-8'),
@@ -195,7 +175,7 @@ describe('自动备份配置（B3 过渡态约束）', () => {
     const backupDir = join(fakeDbDir, 'backups')
     mkdirSync(backupDir, { recursive: true })
     writeFileSync(join(backupDir, 'moneybrain-backup-2026-01-01.zip'), Buffer.from('x'))
-    writeFileSync(join(backupDir, 'moneybrain-backup-2026-01-02.zip'), Buffer.from('x'))
+    writeFileSync(join(backupDir, 'moneybrain-backup-2026-01-02.mbx'), Buffer.from('x'))
     writeFileSync(join(backupDir, 'unrelated.txt'), Buffer.from('x'))
     expect(countAutoBackups(backupDir)).toBe(2)
   })

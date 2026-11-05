@@ -13,9 +13,11 @@ process.env.DATABASE_URL = `file:${testDbPath}`
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')
 
-// B3 过渡态验收：云同步目录默认拒绝、需显式确认；开关与目录可读写；
-// 执行时机由内部策略决定，接口只暴露只读状态（上次成功 / 预计窗口 / 当前份数）。
-// 自动备份配置跟着数据库走（test.db 同级），用例结束后清理，避免污染 prisma 目录。
+// B3 验收：开关与目录可读写；执行时机由内部策略决定，接口只暴露只读状态
+// （上次成功 / 预计窗口 / 当前份数）。
+// F-C 起导出即加密容器，云同步目录不再需要显式确认，因此接口不再有
+// confirmCloudDirectory 参数。自动备份配置跟着数据库走（test.db 同级），
+// 用例结束后清理，避免污染 prisma 目录。
 
 const configPath = path.join(path.dirname(testDbPath), 'auto-backup-config.json')
 
@@ -40,24 +42,15 @@ describe('自动备份 API（B3）', () => {
     expect(response.body.data).toHaveProperty('backupCount')
   })
 
-  it('开启时云同步目录默认拒绝，显式确认后接受', async () => {
+  it('开启时云同步目录可直接使用（导出的已是加密容器）', async () => {
     const cloudDirectory = 'C:\\Users\\me\\OneDrive\\moneybrain-backup'
-
-    const blocked = await request(app)
-      .put('/api/data/auto-backup')
-      .send({ enabled: true, directory: cloudDirectory })
-    expect(blocked.status).toBe(400)
-    expect(blocked.body.error.message).toMatch(/云同步目录/)
 
     const accepted = await request(app)
       .put('/api/data/auto-backup')
-      .send({
-        enabled: true,
-        directory: cloudDirectory,
-        confirmCloudDirectory: true,
-      })
+      .send({ enabled: true, directory: cloudDirectory })
     expect(accepted.status).toBe(200)
     expect(accepted.body.data.enabled).toBe(true)
+    expect(accepted.body.data.directory).toBe(cloudDirectory)
 
     // 关闭调度收尾，避免定时器泄漏到测试进程
     const disabled = await request(app)

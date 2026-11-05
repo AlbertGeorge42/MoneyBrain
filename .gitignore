@@ -59,6 +59,8 @@ apps/api/prisma/test-schema.prisma
 apps/api/prisma/rollback-points/
 # 本机同步身份（ledgerId / deviceId），每台设备独立
 apps/api/prisma/sync-identity.json
+# 本账本恢复码（可解开本库所有加密备份），绝不入库
+apps/api/prisma/sync-recovery-code.json
 
 # Logs
 logs/

@@ -72,7 +72,7 @@ describe('导出文件名日期（本地日历日）', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 2, 1, 0, 30, 0))
 
-    expect(generateBackupFilename()).toBe('moneybrain-backup-2026-03-01.zip')
+    expect(generateBackupFilename()).toBe('moneybrain-backup-2026-03-01.mbx')
     expect(generateExportFilename('transactions', 'csv')).toBe('moneybrain-transactions-2026-03-01.csv')
   })
 
@@ -80,7 +80,7 @@ describe('导出文件名日期（本地日历日）', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 2, 1, 23, 30, 0))
 
-    expect(generateBackupFilename()).toBe('moneybrain-backup-2026-03-01.zip')
+    expect(generateBackupFilename()).toBe('moneybrain-backup-2026-03-01.mbx')
     expect(generateExportFilename('config', 'json')).toBe('moneybrain-config-2026-03-01.json')
   })
 })

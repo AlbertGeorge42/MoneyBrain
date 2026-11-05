@@ -23,7 +23,7 @@ const prismaDir = resolve(repoRoot, 'apps/api/prisma')
 const schemaPath = resolve(prismaDir, 'schema.prisma')
 const tempSchemaPath = resolve(prismaDir, 'restore-drill-schema.prisma')
 const tempDbPath = resolve(prismaDir, 'restore-drill.db')
-const tempZipPath = resolve(prismaDir, 'restore-drill-backup.zip')
+const tempContainerPath = resolve(prismaDir, 'restore-drill-backup.mbx')
 const prismaCli = resolve(repoRoot, 'node_modules/prisma/build/index.js')
 
 const keepTemp = process.argv.includes('--keep')
@@ -144,9 +144,9 @@ const toPosix = (path: string) => path.replace(/\\/g, '/')
 async function main() {
   console.log('▶ 1/4 导出当前账本…')
   const { exportFullBackup } = await import('../apps/api/src/services/export/index.js')
-  const zip = await exportFullBackup()
-  writeFileSync(tempZipPath, zip)
-  console.log(`  备份大小 ${(zip.length / 1024).toFixed(1)} KB`)
+  const container = await exportFullBackup()
+  writeFileSync(tempContainerPath, container)
+  console.log(`  加密备份大小 ${(container.length / 1024).toFixed(1)} KB`)
 
   console.log('▶ 2/4 建立临时库…')
   if (existsSync(tempDbPath)) rmSync(tempDbPath)
@@ -178,7 +178,7 @@ async function main() {
       'tsx',
       resolve(repoRoot, 'scripts/restore-drill-import.mts'),
       tempUrl,
-      tempZipPath,
+      tempContainerPath,
     ],
     { stdio: 'inherit', env: { ...process.env, DATABASE_URL: tempUrl } },
   )
@@ -206,7 +206,7 @@ async function main() {
     await restored.$disconnect()
     if (!keepTemp) {
       if (existsSync(tempDbPath)) rmSync(tempDbPath)
-      if (existsSync(tempZipPath)) rmSync(tempZipPath)
+      if (existsSync(tempContainerPath)) rmSync(tempContainerPath)
     } else {
       console.log(`临时库保留在 ${tempDbPath}`)
     }
