@@ -70,15 +70,13 @@ export function useUpdateTransaction() {
 }
 
 /** 撤销一条审计事件（反向写入）；删除提示条与回收站恢复共用。 */
-export function useUndoAuditEvent(options?: { silent?: boolean }) {
+export function useUndoAuditEvent() {
   const queryClient = useQueryClient()
   const notify = useNotify()
   return useMutation({
     mutationFn: (eventId: string) => auditEventApi.undo(eventId).then(unwrapApiData),
     onSuccess: (restored: Transaction) => {
-      if (!options?.silent) {
-        notify.success(`已恢复：${restored.note ?? ''}`.trim() || '已撤销删除')
-      }
+      notify.success(`已恢复：${restored.note ?? ''}`.trim() || '已撤销删除')
       return invalidateLedger(queryClient)
     },
     onError: (error) => {
@@ -90,19 +88,15 @@ export function useUndoAuditEvent(options?: { silent?: boolean }) {
 /**
  * 删除交易（软删除）：不做二次确认，删除后提示「已删除 · 撤销」。
  * 撤销 = 调审计事件反向写入，与回收站恢复同一条路径。
- * `silent` 供 HF 生产壳复用同一删除能力，由壳层渲染自己的撤销提示。
  */
-export function useDeleteTransaction(options?: { silent?: boolean }) {
+export function useDeleteTransaction() {
   const queryClient = useQueryClient()
   const notify = useNotify()
-  const undoMutation = useUndoAuditEvent(options)
+  const undoMutation = useUndoAuditEvent()
 
   return useMutation({
     mutationFn: (id: string) => transactionApi.delete(id).then(unwrapApiData),
     onSuccess: (result: { message: string; auditEventId: string }) => {
-      if (options?.silent) {
-        return invalidateLedger(queryClient)
-      }
       notify.open({
         type: 'success',
         content: (

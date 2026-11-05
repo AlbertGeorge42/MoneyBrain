@@ -1,50 +1,51 @@
 import { test, expect } from '@playwright/test'
 
-/** 移动端壳层（ProdShell）：无侧栏、底部导航切页、内容紧凑。 */
 test.describe('移动端响应式布局', () => {
   test.use({ viewport: { width: 375, height: 667 } })
 
   test('移动端应该隐藏侧边导航栏', async ({ page }) => {
-    await page.goto('/dashboard')
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
 
-    await expect(page.locator('.hf-sidebar')).toHaveCount(0)
-    await expect(page.locator('.hf-shell-mobile')).toBeVisible()
+    // 侧边栏在移动端应该隐藏（检查 app-shell__sider 的 CSS 属性）
+    const sider = page.locator('.app-shell__sider')
+    // 在移动端，侧边栏可能仍然存在但不可见或被隐藏
+    const isVisible = await sider.isVisible().catch(() => false)
+    expect(isVisible).toBe(false)
   })
 
   test('移动端应该显示底部导航栏', async ({ page }) => {
-    await page.goto('/dashboard')
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
 
-    const nav = page.getByRole('navigation', { name: '底部导航' })
-    await expect(nav).toBeVisible()
-    for (const label of ['总览', '流水', '报表', '预算', '设置']) {
-      await expect(nav.getByRole('button', { name: label })).toBeVisible()
-    }
+    // 验证底部导航存在
+    await expect(page.locator('.mobile-tab-bar')).toBeVisible()
   })
 
   test('移动端底部导航应该可以切换页面', async ({ page }) => {
-    await page.goto('/dashboard')
-    const nav = page.getByRole('navigation', { name: '底部导航' })
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
 
-    await nav.getByRole('button', { name: '流水' }).click()
-    await expect(page).toHaveURL(/\/transactions$/)
+    // 点击底部导航的交易记录
+    await page.locator('.mobile-tab-bar').locator('text=交易').click()
+    await expect(page).toHaveURL(/.*transactions/)
 
-    await page.getByRole('navigation', { name: '底部导航' }).getByRole('button', { name: '报表' }).click()
-    await expect(page).toHaveURL(/\/reports$/)
+    // 点击底部导航的报表
+    await page.locator('.mobile-tab-bar').locator('text=报表').click()
+    await expect(page).toHaveURL(/.*reports/)
 
-    await page.getByRole('navigation', { name: '底部导航' }).getByRole('button', { name: '设置' }).click()
-    await expect(page).toHaveURL(/\/legacy\/settings$/)
+    // 点击底部导航的设置
+    await page.locator('.mobile-tab-bar').locator('text=设置').click()
+    await expect(page).toHaveURL(/.*settings/)
   })
 
   test('移动端应该显示紧凑的布局', async ({ page }) => {
     await page.goto('/dashboard')
+    await page.waitForLoadState('networkidle')
 
-    await expect(page.locator('.hf-mobile-header')).toBeVisible()
-    // 移动端页标题在头部（PC 才渲染 h1 标题）。
-    await expect(page.locator('.hf-mobile-page-title')).toHaveText('总览')
-    await expect(page.locator('.hf-fab')).toBeVisible()
-    await expect(
-      page.getByRole('region', { name: '净资产', exact: true })
-        .or(page.getByRole('heading', { name: '账本还是空的' })),
-    ).toBeVisible()
+    // 验证 KPI 卡片在移动端正常显示 - 使用 metric-card__label 选择器
+    await expect(page.locator('.metric-card__label', { hasText: '总资产' })).toBeVisible()
+    await expect(page.locator('.metric-card__label', { hasText: '总负债' })).toBeVisible()
+    await expect(page.locator('.metric-card__label', { hasText: '净资产' })).toBeVisible()
   })
 })

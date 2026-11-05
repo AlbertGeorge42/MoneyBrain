@@ -2,29 +2,23 @@
  * CSS 变量守卫（U1b）
  *
  * CSS 引用未定义变量不会报错，浏览器会静默回退。本守卫把这类问题变成测试失败：
- * 1. 引用完整性：src 内每个 var(--mb-*) 都必须在以下定义源中定义：
- *    variables.css（旧结构 token）∪ theme.css（HF 结构 token）∪ 两套 buildCssVars()（旧主题色/HF 42 色）；
+ * 1. 引用完整性：src 内每个 var(--mb-*) 都必须在「variables.css ∪ buildCssVars()」中定义；
  * 2. 命名空间隔离：项目代码不得出现 --ant-*（决策 #32）；
- * 3. 死变量：手写来源（variables.css）已定义的 --mb-* 必须至少被引用一次；
- *    契约型 token（design-tokens.md 规定的完整色板、theme.css 的结构契约）按规格必须齐全，
- *    当前未引用不算死变量，不参与本项检查。
+ * 3. 死变量：已定义的 --mb-* 必须至少被引用一次；过渡期保留的需在下方白名单显式登记。
  *
- * 定义清单直接复用两套 buildCssVars()，不在守卫里另抄一份色值。
+ * 定义清单直接复用 buildCssVars()（syncCssVars() 也用它），不在守卫里另抄一份。
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildCssVars as buildLegacyCssVars } from '../../src/styles/theme/config'
-import { buildCssVars as buildHfCssVars } from '../../src/styles/theme/tokens'
+import { buildCssVars } from '../../src/styles/theme/config'
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const SRC_ROOT = join(WEB_ROOT, 'src')
 const THEME_DIR = join(SRC_ROOT, 'styles', 'theme')
 const VARIABLES_CSS = join(THEME_DIR, 'variables.css')
-const THEME_CSS = join(THEME_DIR, 'theme.css')
 const CONFIG_TS = join(THEME_DIR, 'config.ts')
-const TOKENS_TS = join(THEME_DIR, 'tokens.ts')
 
 const SCAN_EXTENSIONS = new Set(['.css', '.ts', '.tsx'])
 const MB_REF = /var\(\s*(--mb-[A-Za-z0-9_-]+)/g
@@ -163,30 +157,14 @@ function collectReferences(): Array<{ name: string; at: string }> {
   })
 }
 
-/**
- * 定义来源：CSS 文件（variables.css 为手写来源，theme.css 为 HF 结构契约）+ 两套 buildCssVars()。
- * contract=false 才参与死变量检查；同名 token 只要有一个非契约来源就按非契约处理（更严格）。
- */
-type Definition = { at: string; contract: boolean }
+/** 收集定义清单：variables.css 结构 token ∪ buildCssVars() 键名 */
+function collectDefinitions(): Map<string, string> {
+  const definitions = new Map<string, string>()
 
-function collectDefinitions(): Map<string, Definition> {
-  const definitions = new Map<string, Definition>()
-
-  const add = (name: string, at: string, contract: boolean) => {
-    const existing = definitions.get(name)
-    if (existing && !existing.contract) return
-    definitions.set(name, { at, contract })
+  const variablesSource = stripCssComments(readFileSync(VARIABLES_CSS, 'utf8'))
+  for (const match of variablesSource.matchAll(MB_DEFINITION)) {
+    definitions.set(match[1], location(VARIABLES_CSS, variablesSource, match.index ?? 0))
   }
-
-  const addCssFile = (file: string, contract: boolean) => {
-    const source = stripCssComments(readFileSync(file, 'utf8'))
-    for (const match of source.matchAll(MB_DEFINITION)) {
-      add(match[1], location(file, source, match.index ?? 0), contract)
-    }
-  }
-
-  addCssFile(VARIABLES_CSS, false)
-  addCssFile(THEME_CSS, true)
 
   const configSource = stripTsComments(readFileSync(CONFIG_TS, 'utf8'))
   const literalKeys = new Map<string, string>()
@@ -195,21 +173,15 @@ function collectDefinitions(): Map<string, Definition> {
   }
 
   // 键名来自 project 自己的清单；传空 token 只取键，不求值
-  const generated = buildLegacyCssVars({}, false)
+  const generated = buildCssVars({}, false)
   const generatedAt = configSource.indexOf('--mb-color-${name}')
   for (const key of Object.keys(generated)) {
-    add(
+    const literalAt = literalKeys.get(key)
+    definitions.set(
       key,
-      literalKeys.get(key) ??
+      literalAt ??
         location(CONFIG_TS, configSource, generatedAt < 0 ? 0 : generatedAt),
-      false,
     )
-  }
-
-  // HF 42 色 + 3 档阴影：design-tokens.md 的契约，必须齐全；两 scheme 键名一致，取 light 即可
-  const hfTokensAt = stripTsComments(readFileSync(TOKENS_TS, 'utf8')).indexOf('COLOR_TOKENS')
-  for (const key of Object.keys(buildHfCssVars('light'))) {
-    add(key, location(TOKENS_TS, '', Math.max(hfTokensAt, 0)), true)
   }
 
   return definitions
@@ -237,7 +209,7 @@ describe('CSS 变量守卫（U1b）', () => {
 
     expect(
       failures,
-      `发现 ${failures.length} 处未定义引用（定义源：variables.css ∪ theme.css ∪ 两套 buildCssVars()）：\n${failures.join('\n')}`,
+      `发现 ${failures.length} 处未定义引用（定义源：variables.css ∪ buildCssVars()）：\n${failures.join('\n')}`,
     ).toEqual([])
   })
 
@@ -252,10 +224,10 @@ describe('CSS 变量守卫（U1b）', () => {
     ).toEqual([])
   })
 
-  it('手写来源定义的 --mb-* 必须被引用（新增未使用需登记白名单）', () => {
+  it('已定义的 --mb-* 必须被引用（新增未使用需登记白名单）', () => {
     const failures = [...definitions.entries()]
-      .filter(([name, definition]) => !definition.contract && !referencedNames.has(name) && !(name in DEAD_VAR_ALLOWLIST))
-      .map(([name, definition]) => `${definition.at}  ${name}  ← 定义后无人引用`)
+      .filter(([name]) => !referencedNames.has(name) && !(name in DEAD_VAR_ALLOWLIST))
+      .map(([name, at]) => `${at}  ${name}  ← 定义后无人引用`)
 
     expect(
       failures,

@@ -1,49 +1,70 @@
 import { test, expect } from '@playwright/test'
 
-/**
- * 用户入门流程（R1 后）：总览 / 流水 / 报表是生产壳，预算与设置暂在 /legacy。
- * 断言取当前壳层与页面标题，不依赖旧 AntD 的类名。
- */
-
 test.describe('用户入门流程', () => {
-  test('从总览进入设置页', async ({ page }) => {
+  test('创建账户分类 -> 创建账户 -> 验证显示', async ({ page }) => {
+    // 访问首页
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: '总览', exact: true })).toBeVisible()
-    await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible()
+    await page.waitForLoadState('domcontentloaded')
 
-    await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '设置' }).click()
-    await expect(page).toHaveURL(/\/legacy\/settings$/)
+    // 检查是否是移动端（通过检查侧边栏是否隐藏）
+    const sider = page.locator('.app-shell__sider')
+    const isDesktop = await sider.isVisible().catch(() => false)
+
+    if (!isDesktop) {
+      // 移动端验证工具栏标题（侧边栏在移动端隐藏）
+      await expect(page.locator('.app-shell__toolbar-title')).toBeVisible()
+    } else {
+      // 桌面端验证 app-shell__brand-title
+      await expect(page.locator('.app-shell__brand-title')).toBeVisible()
+    }
+
+    // 导航到设置页面
+    if (!isDesktop) {
+      await page.locator('.mobile-tab-bar').locator('text=设置').click()
+    } else {
+      await page.click('text=设置')
+    }
+    await expect(page).toHaveURL(/.*settings/)
+    await page.waitForLoadState('domcontentloaded')
+
+    // 验证设置页面内容 - 使用 page-header__title 类选择器定位页面标题
     await expect(page.locator('h1.page-header__title')).toContainText('设置与数据')
-
-    await expect(page.getByText('外观主题').first()).toBeVisible()
-    await expect(page.getByRole('heading', { name: '数据导出' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '数据导入' })).toBeVisible()
+    await expect(page.locator('text=外观主题').first()).toBeVisible()
+    await expect(page.locator('text=导入与导出').first()).toBeVisible()
   })
 })
 
-test.describe('生产页面访问', () => {
-  test('流水页面可以正常访问', async ({ page }) => {
+test.describe('交易记录流程', () => {
+  test('交易记录页面可以正常访问', async ({ page }) => {
     await page.goto('/transactions')
-    await expect(page.getByRole('heading', { name: '流水', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: '显示' })).toBeVisible()
-    await expect(page.getByRole('button', { name: /记一笔/ }).first()).toBeVisible()
+    // 使用 domcontentloaded 代替 networkidle，避免 Firefox 超时
+    await page.waitForLoadState('domcontentloaded')
+
+    // 验证交易记录页面内容 - 使用 page-header__title 定位标题
+    await expect(page.locator('h1.page-header__title')).toContainText('交易记录', { timeout: 10000 })
+    await expect(page.locator('text=记收入').first()).toBeVisible()
+    await expect(page.locator('text=记支出').first()).toBeVisible()
   })
 
-  test('总览页面显示净资产主卡或冷启动引导', async ({ page }) => {
+  test('Dashboard 页面显示 KPI 指标', async ({ page }) => {
     await page.goto('/dashboard')
-    await expect(page.getByRole('heading', { name: '总览', exact: true })).toBeVisible()
+    await page.waitForLoadState('domcontentloaded')
 
-    // 有数据时显示净资产主卡；空账本时显示「记第一笔」引导，两者都是有效首屏。
-    await expect(
-      page.getByRole('region', { name: '净资产', exact: true })
-        .or(page.getByRole('heading', { name: '账本还是空的' })),
-    ).toBeVisible()
+    // 验证 Dashboard 页面内容 - 使用 page-header__title 定位标题
+    await expect(page.locator('h1.page-header__title')).toContainText('财务总览', { timeout: 10000 })
+    // 使用 metric-card__label 选择器定位 KPI 标签，避免 toolbar meta 的 hidden 问题
+    await expect(page.locator('.metric-card__label', { hasText: '总资产' })).toBeVisible()
+    await expect(page.locator('.metric-card__label', { hasText: '总负债' })).toBeVisible()
+    await expect(page.locator('.metric-card__label', { hasText: '净资产' })).toBeVisible()
   })
 })
 
 test.describe('预算管理流程', () => {
   test('预算页面可以正常访问', async ({ page }) => {
-    await page.goto('/legacy/budgets')
-    await expect(page.locator('h1.page-header__title')).toContainText('预算管理')
+    await page.goto('/budgets')
+    await page.waitForLoadState('domcontentloaded')
+
+    // 验证预算页面内容 - 使用 page-header__title 定位标题
+    await expect(page.locator('h1.page-header__title')).toContainText('预算管理', { timeout: 10000 })
   })
 })
