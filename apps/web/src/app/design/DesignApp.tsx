@@ -10,7 +10,7 @@ import { getPortalHost } from '@/features/shared/portalHost'
 import '@mantine/core/styles.css'
 import { MantineProvider } from '@mantine/core'
 import { AppShell } from '@/features/shell/AppShell'
-import { shellPageLabel, type ShellPage } from '@/features/shell/navigation'
+import type { ShellPage } from '@/features/shell/navigation'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { OverviewPage } from '@/features/overview/OverviewPage'
@@ -22,7 +22,6 @@ import { ReportsPage } from '@/features/reports/ReportsPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import type { LedgerTransaction } from '@/features/overview/model'
-import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
 import { hfTheme } from '@/styles/theme/hf-theme'
 import './design.css'
@@ -125,7 +124,6 @@ function PreviewToolbar({
         </span>
         <span className="mb-hf-toolbar-copy">
           <span className="mb-hf-toolbar-name">MoneyBrain</span>
-          <span className="mb-hf-toolbar-meta">HF 预览 · /design</span>
         </span>
       </div>
       <div className="mb-hf-toolbar-controls">
@@ -151,56 +149,7 @@ function PreviewToolbar({
           onChange={onState}
         />
       </div>
-      <span className="mb-hf-toolbar-hint">旧前端未接入</span>
     </header>
-  )
-}
-
-function PlaceholderPage({
-  device,
-  page,
-  dataState,
-  onRetry,
-  onPrimary,
-  onImport,
-  onOverview,
-}: {
-  device: DeviceMode
-  page: ShellPage
-  dataState: DataState
-  onRetry: () => void
-  onPrimary: () => void
-  onImport: () => void
-  onOverview: () => void
-}) {
-  if (dataState === 'loading') return <LoadingSkeleton device={device} />
-  if (dataState === 'error') return <ErrorPanel onRetry={onRetry} />
-  if (dataState === 'empty') {
-    return (
-      <ColdStartGuide
-        variant={page === 'transactions' ? 'transactions' : 'overview'}
-        onPrimary={onPrimary}
-        onImport={onImport}
-      />
-    )
-  }
-
-  return (
-    <section className="mb-card mb-hf-placeholder">
-      {device === 'desktop' && (
-        <div className="mb-page-head">
-          <h1 className="mb-page-title">{shellPageLabel(page)}</h1>
-          <p className="mb-page-sub">本批次只交付应用壳与总览页</p>
-        </div>
-      )}
-      <p className="mb-hf-placeholder-copy">
-        {shellPageLabel(page)}的完整高保真会在后续批次接入；当前页面用于验证应用壳导航与状态切换，
-        不包含旧页面实现。
-      </p>
-      <button type="button" className="mb-link-btn" onClick={onOverview}>
-        回到总览
-      </button>
-    </section>
   )
 }
 
@@ -332,17 +281,7 @@ function PreviewBody({
         onRetry={retry}
         onImport={importLedger}
       />
-    ) : (
-      <PlaceholderPage
-        device={device}
-        page={page}
-        dataState={dataState}
-        onRetry={retry}
-        onPrimary={createAccount}
-        onImport={importLedger}
-        onOverview={() => onPage('overview')}
-      />
-    )
+    ) : null
 
   const shell = (
     <AppShell

@@ -59,11 +59,6 @@
   line-height: var(--mb-lh-tight);
 }
 
-.mb-hf-toolbar-meta {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
 .mb-hf-toolbar-controls {
   display: flex;
   flex-wrap: wrap;
@@ -117,13 +112,7 @@
   box-shadow: var(--mb-sh-1);
 }
 
-.mb-hf-toolbar-hint {
-  margin-left: auto;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
-/* 窄视口下工具栏折叠成两行：保留控件标签，隐藏品牌文案与右侧提示，
+/* 窄视口下工具栏折叠成两行：保留控件标签，隐藏品牌文案，
    给手机框腾出高度（否则记账抽屉的固定键盘会压住分类网格）。 */
 @media (max-width: 720px) {
   .mb-hf-toolbar {
@@ -131,8 +120,7 @@
     padding: var(--mb-s-2) var(--mb-s-3);
   }
 
-  .mb-hf-toolbar-copy,
-  .mb-hf-toolbar-hint {
+  .mb-hf-toolbar-copy {
     display: none;
   }
 
@@ -195,20 +183,6 @@
    显式归零后：桌面贴视口右缘，移动贴手机屏幕。 */
 .mb-hf-root .mantine-Drawer-inner {
   inset: 0;
-}
-
-/* ===== 占位页 ===== */
-
-.mb-hf-placeholder {
-  align-items: flex-start;
-}
-
-.mb-hf-placeholder-copy {
-  margin: 0;
-  max-width: calc(var(--mb-s-7) * 9);
-  font-size: var(--mb-fs-2);
-  line-height: var(--mb-lh-body);
-  color: var(--mb-color-text-secondary);
 }
 
 /* ===== 轻提示 ===== */
