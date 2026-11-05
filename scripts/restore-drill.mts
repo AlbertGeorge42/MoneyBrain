@@ -16,6 +16,13 @@ import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '@prisma/client'
 import { balanceBefore, minor } from '../packages/domain/src/index.js'
 import type { LedgerTransaction, Minor } from '../packages/domain/src/index.js'
+import {
+  buildCategoryPaths,
+  buildTransactionFingerprint,
+  compareTotals,
+  findDuplicateNames,
+  type LedgerTotals,
+} from './restore-drill-compare.mts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..')
@@ -28,18 +35,6 @@ const prismaCli = resolve(repoRoot, 'node_modules/prisma/build/index.js')
 
 const keepTemp = process.argv.includes('--keep')
 
-type Totals = {
-  accounts: number
-  accountCategories: number
-  transactionCategories: number
-  transactions: number
-  budgets: number
-  snapshots: number
-  /** 账户名 → 余额（整数分） */
-  balances: Record<string, number>
-  netWorth: number
-}
-
 const toLocalDate = (value: Date): string => {
   const y = value.getFullYear()
   const m = String(value.getMonth() + 1).padStart(2, '0')
@@ -51,17 +46,27 @@ const toLocalDate = (value: Date): string => {
 const toMinor = (value: bigint | number | null | undefined): Minor => minor(Number(value ?? 0))
 
 /** 用领域层从原始交易重算每个账户的余额（不依赖任何缓存列）。 */
-async function computeTotals(db: PrismaClient): Promise<Totals> {
+async function computeTotals(db: PrismaClient): Promise<LedgerTotals> {
   const [accounts, accountCategories, transactionCategories, transactions, budgets, snapshots] =
     await Promise.all([
       db.account.findMany(),
-      db.accountCategory.count(),
-      db.transactionCategory.count(),
+      db.accountCategory.findMany({
+        select: { id: true, name: true, type: true, parentId: true },
+      }),
+      db.transactionCategory.findMany({
+        select: { id: true, name: true, type: true, parentId: true },
+      }),
       // 导出只含未删除交易；对比口径以原库的未删除交易为准（B2）
       db.transaction.findMany({ where: { deletedAt: null } }),
       db.budget.count(),
       db.investmentAllocationSnapshot.count(),
     ])
+
+  const accountNameById = new Map(accounts.map((account) => [account.id, account.name]))
+  const transactionCategoryPaths = buildCategoryPaths(transactionCategories)
+  const transactionCategoryPathById = new Map(
+    transactionCategories.map((category, index) => [category.id, transactionCategoryPaths[index]!]),
+  )
 
   const ledger: LedgerTransaction[] = transactions.map((t) => ({
     id: t.id,
@@ -81,6 +86,7 @@ async function computeTotals(db: PrismaClient): Promise<Totals> {
   }))
 
   const balances: Record<string, number> = {}
+  const accountNames: Record<string, string> = {}
   let netWorth = 0
 
   for (const account of accounts) {
@@ -88,55 +94,44 @@ async function computeTotals(db: PrismaClient): Promise<Totals> {
       date: account.initialBalanceDate ? toLocalDate(account.initialBalanceDate) : null,
       amount: toMinor(account.initialBalance),
     }
-    const balance = balanceBefore(account.id, opening, ledger, toLocalDate(new Date()))
-    balances[account.name] = balance
-    if (account.type === 'asset') netWorth += balance
-    if (account.type === 'liability') netWorth -= balance
+    // 余额按 id 聚合：同名账户不会互相覆盖
+    balances[account.id] = balanceBefore(account.id, opening, ledger, toLocalDate(new Date()))
+    accountNames[account.id] = account.name
+    if (account.type === 'asset') netWorth += balances[account.id]
+    if (account.type === 'liability') netWorth -= balances[account.id]
   }
+
+  const transactionFingerprints = transactions.map((t) =>
+    buildTransactionFingerprint({
+      type: t.type,
+      date: toLocalDate(t.date),
+      amount: Number(t.amount),
+      fee: Number(t.fee),
+      coupon: Number(t.coupon),
+      accountName: accountNameById.get(t.accountId) ?? t.accountId,
+      toAccountName: t.toAccountId ? accountNameById.get(t.toAccountId) ?? t.toAccountId : null,
+      categoryPath: t.categoryId ? transactionCategoryPathById.get(t.categoryId) ?? null : null,
+      relatedType: t.relatedType === 'income' || t.relatedType === 'expense' ? t.relatedType : null,
+      excludeFromIncomeExpense: t.excludeFromIncomeExpense,
+    }),
+  )
 
   return {
     accounts: accounts.length,
-    accountCategories,
-    transactionCategories,
+    accountCategories: accountCategories.length,
+    transactionCategories: transactionCategories.length,
     transactions: transactions.length,
     budgets,
     snapshots,
     balances,
+    accountNames,
+    accountNamesList: accounts.map((account) => account.name),
+    accountCategoryKeys: buildCategoryPaths(accountCategories),
+    transactionCategoryKeys: buildCategoryPaths(transactionCategories),
+    transactionFingerprints,
     netWorth,
+    duplicateNames: findDuplicateNames(accounts, accountCategories, transactionCategories),
   }
-}
-
-function diff(a: Totals, b: Totals): string[] {
-  const problems: string[] = []
-  const counts = [
-    'accounts',
-    'accountCategories',
-    'transactionCategories',
-    'transactions',
-    'budgets',
-    'snapshots',
-  ] as const
-
-  for (const key of counts) {
-    if (a[key] !== b[key]) {
-      problems.push(`${key}: 原库 ${a[key]} ≠ 恢复库 ${b[key]}`)
-    }
-  }
-  if (a.netWorth !== b.netWorth) {
-    problems.push(`netWorth: 原库 ${a.netWorth} ≠ 恢复库 ${b.netWorth}`)
-  }
-  for (const [name, value] of Object.entries(a.balances)) {
-    const restored = b.balances[name]
-    if (restored !== value) {
-      problems.push(`账户「${name}」余额: 原库 ${value} ≠ 恢复库 ${restored ?? '缺失'}`)
-    }
-  }
-  for (const name of Object.keys(b.balances)) {
-    if (!(name in a.balances)) {
-      problems.push(`账户「${name}」只出现在恢复库`)
-    }
-  }
-  return problems
 }
 
 const toPosix = (path: string) => path.replace(/\\/g, '/')
@@ -190,16 +185,24 @@ async function main() {
     const liveTotals = await computeTotals(live)
     const restoredTotals = await computeTotals(restored)
 
-    const problems = diff(liveTotals, restoredTotals)
-    if (problems.length === 0) {
-      console.log('✅ 恢复演练通过：备份能还原出完全相同的账户余额与数据量')
+    const comparison = compareTotals(liveTotals, restoredTotals)
+    if (comparison.identical) {
+      console.log(
+        '✅ 恢复演练通过：identical: true（库内按 id 聚合；跨库按名称/内容匹配——导入会重建 id）',
+      )
       console.log(
         `   账户 ${liveTotals.accounts} 个 · 交易 ${liveTotals.transactions} 笔 · 净资产 ${liveTotals.netWorth} 分`,
       )
     } else {
-      console.error('❌ 恢复演练失败，备份与原库不一致：')
-      for (const problem of problems) console.error(`   - ${problem}`)
+      console.error('❌ 恢复演练失败：identical: false（还原内容与名称/内容口径不一致）')
+      for (const problem of comparison.problems) console.error(`   - ${problem}`)
       process.exitCode = 1
+    }
+    if (comparison.hygieneNotes.length === 0) {
+      console.log('ℹ️ 数据卫生提示：未发现同名重复（不影响 identical）')
+    } else {
+      console.log('ℹ️ 数据卫生提示（不影响 identical，未做任何清洗）：')
+      for (const note of comparison.hygieneNotes) console.log(`   - ${note}`)
     }
   } finally {
     await live.$disconnect()

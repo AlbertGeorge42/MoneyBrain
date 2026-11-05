@@ -384,6 +384,9 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
   - `npm run db:status` 查看当前库与迁移的差异；`npm run db:deploy` 只应用已有迁移。
   - 测试库由 `tests/global-setup.ts` 用同一套迁移重建（不是 `db push`）。
 - `npm run db:drill` 跑恢复演练：导出 → 导入临时库 → 用领域层重算两边余额并对比。
+  比较口径：**库内按 id 聚合**（同名账户不会互相覆盖），**跨库按稳定键**（账户名、分类
+  type+名称路径、交易内容指纹）——导入会重建 id，所以不做 id 字节相等判定；同名重复只在
+  `ℹ️ 数据卫生提示` 里报告，不影响 `identical`。
   改动导出/导入/余额逻辑后必须跑一次，结果不一致就是备份不可信了。
 - 自动定时备份（B3）：配置存数据库同级 `auto-backup-config.json`（跟着数据库走，与回滚点同一套哲学）；
   执行复用 `exportFullBackup`（输出加密容器），按 `moneybrain-backup-YYYY-MM-DD.mbx` 落盘；
