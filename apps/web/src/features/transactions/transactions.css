@@ -436,62 +436,58 @@
 }
 
 /* 列宽按 design-tokens §5 权重：分类 2.0 / 备注 1.9 / 账户 1.8 / 金额 1.1。
-   表格容器宽度先扣除批量模式的复选框列（44px），再按权重折算。 */
-.mb-tx-table.has-check {
-  --mb-tx-check-w: calc(var(--mb-s-7) - var(--mb-s-1));
-}
-
+   百分比列 + 固定复选框列（44px），浏览器按剩余宽度折算，避免 fixed 布局下 calc 失效。 */
 .mb-tx-col-check {
-  width: var(--mb-tx-check-w);
+  width: calc(var(--mb-s-7) - var(--mb-s-1));
 }
 
 .mb-tx-table.has-note.has-account .mb-tx-col-main {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.2941);
+  width: 29.41%;
 }
 
 .mb-tx-table.has-note.has-account .mb-tx-col-mid {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.2794);
+  width: 27.94%;
 }
 
 .mb-tx-table.has-note.has-account .mb-tx-col-account {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.2647);
+  width: 26.47%;
 }
 
 .mb-tx-table.has-note.has-account .mb-tx-col-num {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.1618);
+  width: 16.18%;
 }
 
 /* 隐藏备注 / 账户时按剩余列权重等比折算，避免金额列吃掉死白 */
 .mb-tx-table.has-note:not(.has-account) .mb-tx-col-main {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.4);
+  width: 40%;
 }
 
 .mb-tx-table.has-note:not(.has-account) .mb-tx-col-mid {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.38);
+  width: 38%;
 }
 
 .mb-tx-table.has-note:not(.has-account) .mb-tx-col-num {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.22);
+  width: 22%;
 }
 
 .mb-tx-table.has-account:not(.has-note) .mb-tx-col-main {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.4082);
+  width: 40.82%;
 }
 
 .mb-tx-table.has-account:not(.has-note) .mb-tx-col-account {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.3673);
+  width: 36.73%;
 }
 
 .mb-tx-table.has-account:not(.has-note) .mb-tx-col-num {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.2245);
+  width: 22.45%;
 }
 
 .mb-tx-table:not(.has-note):not(.has-account) .mb-tx-col-main {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.6452);
+  width: 64.52%;
 }
 
 .mb-tx-table:not(.has-note):not(.has-account) .mb-tx-col-num {
-  width: calc((100% - var(--mb-tx-check-w)) * 0.3548);
+  width: 35.48%;
 }
 
 .mb-tx-th-check,
