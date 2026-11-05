@@ -384,122 +384,7 @@
   color: var(--mb-color-text-tertiary);
 }
 
-/* ===== 最近流水固定表 ===== */
-
-.mb-table-scroll {
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.mb-recent-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-}
-
-.mb-col-main {
-  width: calc(var(--mb-tbl-w-main) * 100% / var(--mb-tbl-w-total));
-}
-
-.mb-col-mid {
-  width: calc(var(--mb-tbl-w-mid) * 100% / var(--mb-tbl-w-total));
-}
-
-.mb-col-account {
-  width: calc(var(--mb-tbl-w-date) * 100% / var(--mb-tbl-w-total));
-}
-
-.mb-col-num {
-  width: calc(var(--mb-tbl-w-num) * 100% / var(--mb-tbl-w-total));
-}
-
-.mb-recent-table th {
-  height: var(--mb-tbl-row-h);
-  padding: var(--mb-tbl-py) var(--mb-s-2);
-  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  font-weight: 500;
-  line-height: var(--mb-tbl-line-h);
-  text-align: left;
-}
-
-.mb-recent-table th.is-num,
-.mb-recent-table td.is-num {
-  text-align: right;
-}
-
-.mb-day-row td {
-  height: var(--mb-s-6);
-  padding: var(--mb-s-1) var(--mb-s-2);
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  font-weight: 500;
-}
-
-.mb-day-row.is-future td {
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-table-row {
-  height: var(--mb-tbl-row-h);
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-tx-table-row td {
-  height: var(--mb-tbl-row-h);
-  padding: var(--mb-tbl-py) var(--mb-s-2);
-  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  font-size: var(--mb-fs-1);
-  line-height: var(--mb-tbl-line-h);
-  vertical-align: middle;
-}
-
-.mb-tx-table-row:hover td,
-.mb-tx-table-row:focus-visible td {
-  background: var(--mb-color-surface-hover);
-}
-
-.mb-tx-table-row:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * -2);
-}
-
-.mb-cat-cell {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-2);
-  min-width: 0;
-}
-
-/* 最近交易行内主次与流水一致：分类名 primary/600，备注与账户 secondary，类型标签 tertiary */
-.mb-recent-table .mb-recent-cat {
-  color: var(--mb-color-text-primary);
-  font-weight: 600;
-}
-
-.mb-recent-table .mb-recent-note {
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-recent-table .mb-recent-account {
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-recent-account-line {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-1);
-  min-width: 0;
-}
-
-.mb-recent-kind {
-  flex: none;
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
+/* ===== 分类图标 ===== */
 
 .mb-cat-icon {
   display: inline-flex;
@@ -559,30 +444,11 @@
   background: var(--mb-color-cat-3);
 }
 
-.mb-ellipsis {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb-ellipsis:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * 2);
-  border-radius: var(--mb-radius-xs);
-}
-
 .mb-amount,
 .mb-m-tx-amount {
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-/* 列表金额按「行高 29px 优先」定稿：14px，行高由表格 token 固定 */
-.mb-recent-table .mb-amount {
-  font-size: var(--mb-fs-2);
 }
 
 .mb-amount.is-income,

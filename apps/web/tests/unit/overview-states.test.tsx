@@ -19,7 +19,7 @@ function renderOverview(
   options: { device?: DeviceMode; onRetry?: () => void } = {},
 ) {
   const { device = 'desktop', onRetry = vi.fn() } = options
-  render(
+  const view = render(
     <MantineProvider theme={hfTheme}>
       <LedgerProvider>
         <OverviewPage
@@ -36,16 +36,17 @@ function renderOverview(
       </LedgerProvider>
     </MantineProvider>,
   )
-  return { onRetry }
+  return { onRetry, container: view.container }
 }
 
 describe('总览四态', () => {
-  it('正常态渲染净资产主卡与最近流水固定表格', () => {
-    renderOverview('normal')
+  it('正常态渲染净资产主卡与最近交易两段式行（无表格）', () => {
+    const { container } = renderOverview('normal')
     expect(screen.getByRole('heading', { name: '总览' })).toBeInTheDocument()
     expect(screen.getByText('净资产')).toBeInTheDocument()
     expect(screen.getAllByText('¥137,388.35').length).toBeGreaterThan(0)
-    expect(screen.getByRole('table')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(container.querySelectorAll('.mb-tx-row').length).toBeGreaterThan(0)
     expect(screen.getByRole('heading', { name: '最近交易', level: 2 })).toBeInTheDocument()
   })
 

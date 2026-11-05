@@ -86,9 +86,10 @@
   --mb-card-pad: 20px;
   --mb-card-pad-compact: 12px;
   --mb-tbl-py: 4px;
+  /* 29px 固定行高只约束报表数据表；流水与总览最近交易用两段式行 */
   --mb-tbl-row-h: calc(var(--mb-fs-1) + var(--mb-s-4));
   --mb-tbl-line-h: calc(var(--mb-tbl-row-h) - var(--mb-tbl-py) * 2 - var(--mb-border-width));
-  /* 流水列表：原型两段式行，不受表格 29px 约束 */
+  /* 流水列表 / 总览最近交易：两段式行，不受表格 29px 约束 */
   --mb-tx-row-h: 54px;
   --mb-tx-icon: 26px;
   --mb-control-h: 38px;
@@ -97,15 +98,6 @@
   --mb-page-pad-mobile: 26px;
   --mb-touch: 44px;
   --mb-bar-h: 6px;
-
-  /* 表格列权重 */
-  --mb-tbl-w-main: 2;
-  --mb-tbl-w-mid: 1.9;
-  --mb-tbl-w-date: 1.8;
-  --mb-tbl-w-num: 1.1;
-  --mb-tbl-w-total: calc(
-    var(--mb-tbl-w-main) + var(--mb-tbl-w-mid) + var(--mb-tbl-w-date) + var(--mb-tbl-w-num)
-  );
 
   /* 圆角 */
   --mb-radius-xs: 6px;

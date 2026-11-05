@@ -1,6 +1,6 @@
-import { Fragment, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Tooltip } from '@mantine/core'
+import { Fragment } from 'react'
 import { ArrowRight } from 'lucide-react'
+import { TxRow } from '@/features/shared/TxRow'
 import { CategoryIcon } from './category'
 import { signedAmountText } from './format'
 import {
@@ -14,47 +14,6 @@ import {
   type RecentGroup,
 } from './model'
 import type { DeviceMode } from '@/features/shared/types'
-
-function EllipsisText({ text, className }: { text: string; className?: string }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [truncated, setTruncated] = useState(false)
-
-  useLayoutEffect(() => {
-    const node = ref.current
-    if (!node) return
-    const measure = () => setTruncated(node.scrollWidth > node.clientWidth + 1)
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [text])
-
-  const content = (
-    <span ref={ref} className={`mb-ellipsis${className ? ` ${className}` : ''}`} tabIndex={truncated ? 0 : undefined}>
-      {text}
-    </span>
-  )
-
-  return truncated ? (
-    <Tooltip label={text} withArrow multiline maw="calc(var(--mb-s-7) * 6)">
-      {content}
-    </Tooltip>
-  ) : (
-    content
-  )
-}
-
-function rowKeyboardHandler(
-  event: KeyboardEvent<HTMLTableRowElement>,
-  transaction: LedgerTransaction,
-  onOpenDetail: (transaction: LedgerTransaction) => void,
-) {
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault()
-    onOpenDetail(transaction)
-  }
-}
 
 export function RecentTransactions({
   device,
@@ -119,71 +78,23 @@ export function RecentTransactions({
           ))}
         </div>
       ) : (
-        <div className="mb-table-scroll">
-          <table className="mb-recent-table">
-            <caption className="mb-visually-hidden">最近交易</caption>
-            <colgroup>
-              <col className="mb-col-main" />
-              <col className="mb-col-mid" />
-              <col className="mb-col-account" />
-              <col className="mb-col-num" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th scope="col">分类</th>
-                <th scope="col">备注</th>
-                <th scope="col">账户</th>
-                <th scope="col" className="is-num">
-                  金额
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((group) => (
-                <Fragment key={group.date}>
-                  <tr className={group.date === 'future' ? 'mb-day-row is-future' : 'mb-day-row'}>
-                    <td colSpan={4}>
-                      <span>{group.label}</span>
-                    </td>
-                  </tr>
-                  {group.items.map((transaction) => {
-                    const rootId = getCategoryRootId(ledger, transaction.categoryId)
-                    const tone = transactionTone(transaction)
-                    const account = getAccount(ledger, transaction.accountId)
-                    return (
-                      <tr
-                        key={transaction.id}
-                        className="mb-tx-table-row"
-                        tabIndex={0}
-                        aria-label={`查看交易详情：${transaction.note}`}
-                        onClick={() => onOpenDetail(transaction)}
-                        onKeyDown={(event) => rowKeyboardHandler(event, transaction, onOpenDetail)}
-                      >
-                        <td>
-                          <span className="mb-cat-cell">
-                            <CategoryIcon rootId={rootId} />
-                            <EllipsisText text={getCategoryName(ledger, transaction.categoryId)} className="mb-recent-cat" />
-                          </span>
-                        </td>
-                        <td>
-                          <EllipsisText text={transaction.note} className="mb-recent-note" />
-                        </td>
-                        <td>
-                          <span className="mb-recent-account-line">
-                            <EllipsisText text={account?.name ?? '未知账户'} className="mb-recent-account" />
-                            <span className="mb-recent-kind">· {transactionDirection(transaction)}</span>
-                          </span>
-                        </td>
-                        <td className="is-num">
-                          <span className={`mb-amount is-${tone}`}>{signedAmountText(transaction)}</span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </Fragment>
+        <div className="mb-tx-rows">
+          {groups.map((group) => (
+            <Fragment key={group.date}>
+              <div className="mb-tx-group-row">
+                <span className="mb-tx-group-label">{group.label}</span>
+              </div>
+              {group.items.map((transaction) => (
+                <TxRow
+                  key={transaction.id}
+                  ledger={ledger}
+                  transaction={transaction}
+                  ariaLabel={`查看交易详情：${transaction.note}`}
+                  onActivate={() => onOpenDetail(transaction)}
+                />
               ))}
-            </tbody>
-          </table>
+            </Fragment>
+          ))}
         </div>
       )}
 

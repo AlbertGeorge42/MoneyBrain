@@ -10,6 +10,7 @@ import {
   transactionTone,
   type Ledger,
 } from '@/features/overview/model'
+import { TxRow } from '@/features/shared/TxRow'
 import type { DeviceMode } from '@/features/shared/types'
 import type { DisplaySettings } from './displaySettings'
 import {
@@ -58,83 +59,37 @@ function DesktopTable({
               </span>
             </div>
             {group.items.map((transaction) => {
-              const account = getAccount(ledger, transaction.accountId)
-              const rootId = getCategoryRootId(ledger, transaction.categoryId)
               const isSelected = selected.has(transaction.id)
-              const categoryName = getCategoryName(ledger, transaction.categoryId)
-              const toAccount =
-                transaction.type === 'transfer' && transaction.toAccountId
-                  ? getAccount(ledger, transaction.toAccountId)
-                  : undefined
               const activate = () =>
                 batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id)
               return (
-                <div
+                <TxRow
                   key={transaction.id}
-                  role="button"
-                  tabIndex={0}
-                  className={`mb-tx-row${isSelected ? ' is-selected' : ''}`}
-                  aria-label={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
-                  onClick={activate}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return
-                    event.preventDefault()
-                    activate()
-                  }}
-                >
-                  {batchMode && (
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={isSelected}
-                      aria-label={`选择 ${transaction.note}`}
-                      className="mb-tx-check-btn"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        onToggle(transaction.id)
-                      }}
-                    >
-                      <CheckBox checked={isSelected} />
-                    </button>
-                  )}
-                  <CategoryIcon rootId={rootId} />
-                  <span className="mb-tx-main">
-                    <span className="mb-tx-primary">
-                      <span className="mb-tx-cat-name">{categoryName}</span>
-                      {display.showNote && transaction.note && (
-                        <>
-                          <span className="mb-tx-sep" aria-hidden="true">
-                            ·
-                          </span>
-                          <span className="mb-tx-note" title={transaction.note}>
-                            {transaction.note}
-                          </span>
-                        </>
-                      )}
-                    </span>
-                    <span className="mb-tx-secondary">
-                      {display.showAccount && (
-                        <>
-                          <span className="mb-tx-account" title={account?.name ?? '未知账户'}>
-                            {account?.name ?? '未知账户'}
-                          </span>
-                          <span className="mb-tx-sep" aria-hidden="true">
-                            ·
-                          </span>
-                        </>
-                      )}
-                      <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
-                    </span>
-                  </span>
-                  <span className="mb-tx-amount-col">
-                    <span className={`mb-tx-amount is-${transactionTone(transaction)}`}>
-                      {signedAmountText(transaction)}
-                    </span>
-                    {toAccount?.name && (
-                      <span className="mb-tx-amount-alt">→ {toAccount.name}</span>
-                    )}
-                  </span>
-                </div>
+                  ledger={ledger}
+                  transaction={transaction}
+                  showNote={display.showNote}
+                  showAccount={display.showAccount}
+                  selected={isSelected}
+                  ariaLabel={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
+                  onActivate={activate}
+                  leading={
+                    batchMode ? (
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        aria-label={`选择 ${transaction.note}`}
+                        className="mb-tx-check-btn"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onToggle(transaction.id)
+                        }}
+                      >
+                        <CheckBox checked={isSelected} />
+                      </button>
+                    ) : undefined
+                  }
+                />
               )
             })}
           </Fragment>

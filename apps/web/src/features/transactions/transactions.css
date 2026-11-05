@@ -434,150 +434,11 @@
 }
 
 /* 原型结构：无表头，54px 两段式行（主行 分类 · 备注 / 副行 账户 · 类型）。
-   29px 表格行高只约束报表数据表，不再约束流水列表（interaction-spec §5.3）。 */
-.mb-tx-rows {
-  display: flex;
-  flex-direction: column;
-}
-
-/* 原型分组头：透明底 + 细线 + 12px tertiary，轻量分隔而非灰底横带。 */
-.mb-tx-group-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mb-s-2);
-  padding: 6px var(--mb-s-3);
-  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  background: transparent;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-tx-group-label {
-  color: var(--mb-color-text-tertiary);
-}
+   行与分组头样式在 shared/txRow.css，与总览「最近交易」同源；
+   29px 表格行高只约束报表数据表（interaction-spec §5.3）。 */
 
 .mb-tx-group-net {
   font-family: var(--mb-font-num);
-}
-
-.mb-tx-row {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-3);
-  min-height: var(--mb-tx-row-h);
-  padding: var(--mb-s-2) var(--mb-s-3);
-  border-bottom: var(--mb-border-width) var(--mb-border-style-dashed) var(--mb-color-border);
-  background: transparent;
-  color: var(--mb-color-text-primary);
-  cursor: pointer;
-  transition: background var(--mb-motion-fast) var(--mb-ease-standard);
-}
-
-.mb-tx-row:hover {
-  background: var(--mb-color-surface-hover);
-}
-
-.mb-tx-row.is-selected,
-.mb-tx-row.is-selected:hover {
-  background: var(--mb-color-accent-soft);
-}
-
-.mb-tx-row:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * -2);
-}
-
-/* 原型 .cat-ico：26px 容器 + 15px 线性字形 */
-.mb-tx-row .mb-cat-icon {
-  width: var(--mb-tx-icon);
-  height: var(--mb-tx-icon);
-}
-
-.mb-tx-main {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mb-tx-primary,
-.mb-tx-secondary {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mb-s-1);
-  min-width: 0;
-}
-
-.mb-tx-cat-name {
-  flex: none;
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  color: var(--mb-color-text-primary);
-  line-height: var(--mb-lh-tight);
-}
-
-/* 原型 .t 整体 600 / primary：备注与分类名同一套字重与颜色，靠图标、间距与「·」区分主次。 */
-.mb-tx-note {
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  color: var(--mb-color-text-primary);
-  line-height: var(--mb-lh-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb-tx-secondary {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-  line-height: var(--mb-lh-tight);
-}
-
-.mb-tx-account {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb-tx-kind {
-  flex: none;
-}
-
-.mb-tx-sep {
-  flex: none;
-  font-size: var(--mb-fs-0);
-  line-height: 1;
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-tx-amount-col {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  text-align: right;
-}
-
-.mb-tx-amount {
-  flex: none;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-2);
-  line-height: var(--mb-lh-tight);
-  text-align: right;
-  white-space: nowrap;
-}
-
-/* 转账行金额下方的目标账户子行：12px tertiary，右对齐在金额同一列。 */
-.mb-tx-amount-alt {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-  line-height: var(--mb-lh-tight);
-  white-space: nowrap;
 }
 
 .mb-tx-foot {
@@ -1150,11 +1011,6 @@
 .mb-tx-select:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);
-}
-
-.mb-tx-row:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * -2);
 }
 
 .mb-tx-row-trigger:focus-visible,
