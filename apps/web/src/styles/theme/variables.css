@@ -176,13 +176,14 @@
   --mb-color-chart-tooltip-ink: #f3f4f0;
   --mb-color-chart-annot-pos: #1b7a48;
   --mb-color-chart-annot-neg: #a64d56;
-  --mb-color-hero-bg: #14161a;
-  --mb-color-hero-ink: #f7fbef;
-  --mb-color-hero-muted: #d5d7d2;
-  --mb-color-hero-line: rgba(255, 255, 255, 0.14);
-  /* 主卡涨跌由财务语义色派生，保证与列表金额同一色义 */
-  --mb-color-hero-pos: color-mix(in srgb, var(--mb-color-income) 45%, var(--mb-color-hero-ink));
-  --mb-color-hero-neg: color-mix(in srgb, var(--mb-color-expense-display) 45%, var(--mb-color-hero-ink));
+  /* 主卡随主题切换层级：浅色 = surface-raised 卡片（不常驻深底），靠尺寸与排版做焦点。
+     涨跌色直接取文字档语义色，保证 12px chip 在白底 ≥ 4.5:1。 */
+  --mb-color-hero-bg: var(--mb-color-surface-raised);
+  --mb-color-hero-ink: var(--mb-color-text-primary);
+  --mb-color-hero-muted: var(--mb-color-text-secondary);
+  --mb-color-hero-line: var(--mb-color-border);
+  --mb-color-hero-pos: var(--mb-color-income);
+  --mb-color-hero-neg: var(--mb-color-expense);
 
   color-scheme: light;
 }
@@ -242,8 +243,9 @@
   --mb-color-hero-ink: #eceeef;
   --mb-color-hero-muted: #9ca3a8;
   --mb-color-hero-line: rgba(255, 255, 255, 0.1);
-  --mb-color-hero-pos: color-mix(in srgb, var(--mb-color-income) 80%, var(--mb-color-hero-ink));
-  --mb-color-hero-neg: color-mix(in srgb, var(--mb-color-expense-display) 80%, var(--mb-color-hero-ink));
+  /* 涨跌色取文字档语义色；暗色两者均已提亮，小字 chip 也 ≥ 4.5:1 */
+  --mb-color-hero-pos: var(--mb-color-income);
+  --mb-color-hero-neg: var(--mb-color-expense-display);
 
   color-scheme: dark;
 }

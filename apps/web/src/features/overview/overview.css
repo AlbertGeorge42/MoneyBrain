@@ -56,14 +56,14 @@
   padding: var(--mb-s-1) var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
   border-radius: var(--mb-radius-pill);
-  background: color-mix(in srgb, var(--mb-color-hero-pos) 16%, transparent);
+  background: var(--mb-color-income-bg);
   color: var(--mb-color-hero-pos);
   font-size: var(--mb-fs-0);
 }
 
 .mb-hero-change.is-neg {
   color: var(--mb-color-hero-neg);
-  background: color-mix(in srgb, var(--mb-color-hero-neg) 16%, transparent);
+  background: var(--mb-color-expense-bg);
 }
 
 .mb-hero-change.is-pos {
