@@ -33,17 +33,6 @@
   letter-spacing: -0.01em;
 }
 
-.mb-rp-page-desc,
-.mb-rp-page-meta {
-  margin: 0;
-  font-size: var(--mb-fs-1);
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-rp-page-meta {
-  font-size: var(--mb-fs-0);
-}
-
 .mb-rp-tabs {
   display: flex;
   align-items: center;
@@ -157,69 +146,6 @@
 
 .mb-rp-time-value {
   white-space: nowrap;
-}
-
-.mb-rp-reconcile {
-  margin-top: var(--mb-s-4);
-  padding: var(--mb-s-3) var(--mb-s-4);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-card);
-  background: var(--mb-color-surface-raised);
-}
-
-.mb-rp-reconcile-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--mb-s-3);
-  margin-bottom: var(--mb-s-2);
-}
-
-.mb-rp-reconcile-head h3 {
-  margin: 0;
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-}
-
-.mb-rp-reconcile-head span {
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
-
-.mb-rp-reconcile-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--mb-s-3);
-  padding: 3px 0;
-  color: var(--mb-color-text-secondary);
-  font-size: var(--mb-fs-1);
-}
-
-.mb-rp-reconcile-row strong {
-  color: var(--mb-color-text-primary);
-  font-family: var(--mb-font-num);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.mb-rp-reconcile-row.is-sub {
-  padding-left: var(--mb-s-4);
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
-
-.mb-rp-reconcile-row.is-diff {
-  margin-top: var(--mb-s-1);
-  padding-top: var(--mb-s-2);
-  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-}
-
-.mb-rp-reconcile-note {
-  margin: var(--mb-s-2) 0 0;
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  line-height: 1.6;
 }
 
 .mb-rp-time-tag {
@@ -499,12 +425,6 @@
   min-height: 30px;
 }
 
-.mb-rp-time-note {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
 .mb-rp-time-error {
   margin: 4px 0 0;
   font-size: var(--mb-fs-0);
@@ -615,11 +535,6 @@
   color: var(--mb-color-transfer);
 }
 
-.mb-rp-metric-note {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
 .mb-rp-metrics.is-flat {
   grid-template-columns: repeat(4, 1fr);
 }
@@ -662,15 +577,6 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--mb-s-4);
   align-items: start;
-}
-
-.mb-rp-footnote {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 /* ===== 表格 ===== */
@@ -1418,13 +1324,6 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   white-space: nowrap;
 }
 
-.mb-rp-drill-note,
-.mb-rp-settings-note {
-  margin: var(--mb-s-2) 0 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
 .mb-rp-settings {
   display: flex;
   flex-direction: column;
@@ -1444,12 +1343,6 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   margin: 0;
   font-size: var(--mb-fs-2);
   font-weight: 600;
-}
-
-.mb-rp-settings-desc {
-  margin: 2px 0 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 .mb-rp-empty {
@@ -1485,12 +1378,6 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   font-size: var(--mb-fs-1);
   line-height: var(--mb-lh-body);
   color: var(--mb-color-text-secondary);
-}
-
-.mb-rp-empty-note {
-  margin: var(--mb-s-1) 0 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 /* 移动分段 */

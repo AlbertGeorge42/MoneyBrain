@@ -318,12 +318,6 @@ function TimeFields({
           />
         </>
       )}
-
-      <p className="mb-rp-time-note">
-        {isPoint
-          ? `时点锚定：${gran === 'month' ? '月粒度取月末' : gran === 'year' ? '年粒度取年末' : '日粒度按当日'}`
-          : `期间按${GRANULARITY_LABELS[gran]}聚合；起止会自动对齐到桶边界。`}
-      </p>
     </div>
   )
 }

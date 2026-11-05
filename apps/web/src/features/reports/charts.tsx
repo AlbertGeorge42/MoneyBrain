@@ -304,7 +304,7 @@ export function CompositionBars({
   onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
 }) {
   return (
-    <ChartCard title="收入 / 支出构成" desc="两侧各自标尺 · 按一级分类">
+    <ChartCard title="收入 / 支出构成">
       <div className="mb-rp-compare">
         <CompositionSide
           title="收入构成"
@@ -424,7 +424,7 @@ export function CashFlowBars({
     1,
   )
   return (
-    <ChartCard title="资金流向" desc="左侧流出 · 右侧流入 · 按现金流分组">
+    <ChartCard title="资金流向">
       <div className="mb-rp-flow-legend">
         <span>流出 {currency(outflowTotal)}</span>
         <span>流入 {currency(inflowTotal)}</span>

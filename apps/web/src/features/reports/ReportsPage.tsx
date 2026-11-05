@@ -5,7 +5,7 @@
  * PC 双列表格、移动卡片行；结构以 concept-design 的报表章节为准，视觉只用 design-tokens。
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { FolderInput, Info, ScanLine } from 'lucide-react'
+import { FolderInput, ScanLine } from 'lucide-react'
 import { Drawer } from '@mantine/core'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { TODAY } from '@/features/overview/model'
@@ -39,7 +39,6 @@ import {
 } from './reportsModel'
 import {
   clampAsOfPoint,
-  formatRangeLabel,
   monthStart,
   type ReportTab,
   type ReportTime,
@@ -53,13 +52,6 @@ const TABS: readonly { id: ReportTab; label: string }[] = [
   { id: 'cash', label: '现金流' },
   { id: 'invest', label: '投资分析' },
 ]
-
-const SETTINGS_COPY: Record<ReportTab, string> = {
-  balance: '账户性质与负债口径',
-  flow: '分类归并、退款与调整的收支口径',
-  cash: '现金流分组映射（经营 / 投资 / 筹资）',
-  invest: '投资账户与资产类别映射',
-}
 
 interface ToastState {
   message: string
@@ -110,7 +102,6 @@ function PageHead({
   if (device === 'mobile') {
     return (
       <div className="mb-rp-mobile-head">
-        <p className="mb-rp-page-meta">余额看时点 · 发生额看期间 · 数据截至 {TODAY.slice(5)}</p>
         <div className="mb-rp-tabs is-mobile" role="tablist" aria-label="报表视图">
           {TABS.map((item) => (
             <button
@@ -133,7 +124,6 @@ function PageHead({
     <div className="mb-rp-page-head">
       <div className="mb-rp-page-copy">
         <h1 className="mb-rp-page-title">报表</h1>
-        <p className="mb-rp-page-desc">余额看时点，发生额看期间；下钻只看当期口径。</p>
       </div>
       <div className="mb-rp-tabs" role="tablist" aria-label="报表视图">
         {TABS.map((item) => (
@@ -167,7 +157,6 @@ function ReportsEmpty({ onImport }: { onImport: () => void }) {
         <FolderInput size={16} />
         导入账单
       </button>
-      <p className="mb-rp-empty-note">数据只留在本机；报表不会写回账本。</p>
     </section>
   )
 }
@@ -314,7 +303,6 @@ export function ReportsPage({
             <FlowView
               device={device}
               report={flow}
-              time={time}
               side={flowSide}
               onSide={setFlowSide}
               folded={foldedFlow}
@@ -378,16 +366,12 @@ export function ReportsPage({
             <div className="mb-rp-settings-row" key={item.id}>
               <div>
                 <p className="mb-rp-settings-title">{item.label}</p>
-                <p className="mb-rp-settings-desc">{SETTINGS_COPY[item.id]}</p>
               </div>
               <button type="button" className="mb-rp-btn is-ghost" onClick={() => notify(`${item.label}配置将在设置批次接入`)}>
                 配置
               </button>
             </div>
           ))}
-          <p className="mb-rp-settings-note">
-            报表设置只影响展示口径，不改写账本。账户映射与分类归并的完整面板随设置页交付。
-          </p>
         </div>
       </Drawer>
 
@@ -455,7 +439,7 @@ function BalanceView({
   ]
 
   const composition = (
-    <ChartCard title="资产构成" desc="按账户性质 · 占比相对总资产">
+    <ChartCard title="资产构成">
       {report.composition.length === 0 ? (
         <p className="mb-rp-empty-line">暂无资产账户</p>
       ) : (
@@ -485,7 +469,7 @@ function BalanceView({
     <ReportLineChart
       device={device}
       title="净值走势"
-      desc="近 12 个月 · 末点随当前净资产"
+      desc="近 12 个月"
       points={report.trend.map((point) => ({ label: point.month, value: point.value }))}
       ariaLabel="净资产月度走势"
     />
@@ -500,24 +484,20 @@ function BalanceView({
           <ReportTable
             device={device}
             title="资产"
-            desc="按当前余额快照"
             ariaLabel="资产明细"
             columns={[{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]}
             rows={assetRows}
             minRows={balanceMinRows}
             total={['合计', '', currency(report.assetTotal)]}
-            note="金额为当前账户余额；信用卡等负余额计入负债。"
           />
           <ReportTable
             device={device}
             title="负债与权益"
-            desc="资产 = 负债 + 所有者权益"
             ariaLabel="负债与权益明细"
             columns={[{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]}
             rows={liabilityRows}
             minRows={balanceMinRows}
             total={['合计', '', currency(report.equityTotal)]}
-            note={`恒等式校验：${currency(report.assetTotal)} = ${currency(report.liabilityTotal)} + ${currency(report.equity)}`}
           />
         </div>
       ) : (
@@ -538,7 +518,6 @@ function BalanceView({
               desc={`总资产 ${currency(report.assetTotal)}`}
               rows={assetCards}
               total={{ label: '合计', value: currency(report.assetTotal) }}
-              note="金额为当前账户余额；信用卡等负余额计入负债。"
             />
           ) : (
             <ReportCardList
@@ -547,14 +526,10 @@ function BalanceView({
               desc={`负债 ${currency(report.liabilityTotal)} · 权益 ${currency(report.equity)}`}
               rows={liabilityCards}
               total={{ label: '合计', value: currency(report.equityTotal) }}
-              note={`资产 = 负债 + 所有者权益（${currency(report.assetTotal)}）`}
             />
           )}
         </>
       )}
-      <p className="mb-rp-footnote">
-        <Info size={13} /> 余额按当前账户快照回放到 {report.point}；历史余额由交易逆推，不写回账本。
-      </p>
     </>
   )
 }
@@ -562,7 +537,6 @@ function BalanceView({
 function FlowView({
   device,
   report,
-  time,
   side,
   onSide,
   folded,
@@ -571,7 +545,6 @@ function FlowView({
 }: {
   device: DeviceMode
   report: FlowReport
-  time: ReportTime
   side: 'income' | 'expense'
   onSide: (next: 'income' | 'expense') => void
   folded: Record<string, boolean>
@@ -598,7 +571,6 @@ function FlowView({
           <ReportBarChart
             device={device}
             title="收支走势"
-            desc={`按${time.gran === 'day' ? '日' : time.gran === 'month' ? '月' : '年'}聚合 · 收支分柱`}
             series={report.series}
             ariaLabel="本期收支走势"
           />
@@ -616,7 +588,7 @@ function FlowView({
           <ReportTable
             device={device}
             title="收入构成"
-            desc={`合计 ${currency(report.income)} · 含退款`}
+            desc={`合计 ${currency(report.income)}`}
             ariaLabel="收入构成"
             variant="c4"
             columns={[
@@ -628,12 +600,11 @@ function FlowView({
             rows={incomeRows}
             minRows={Math.max(incomeRows.length, expenseRows.length)}
             total={['合计', '', currency(report.income), '100.0%']}
-            note="点击一级分类可下钻；子分类金额已计入父级，占比相对合计。"
           />
           <ReportTable
             device={device}
             title="支出构成"
-            desc={`合计 ${currency(report.expense)} · 含负向调整`}
+            desc={`合计 ${currency(report.expense)}`}
             ariaLabel="支出构成"
             variant="c4"
             columns={[
@@ -645,7 +616,6 @@ function FlowView({
             rows={expenseRows}
             minRows={Math.max(incomeRows.length, expenseRows.length)}
             total={['合计', '', currency(report.expense), '100.0%']}
-            note="点击一级分类可下钻；子分类金额已计入父级，占比相对合计。"
           />
         </div>
       ) : (
@@ -662,19 +632,15 @@ function FlowView({
           <ReportCardList
             device={device}
             title={side === 'expense' ? '支出构成' : '收入构成'}
-            desc={side === 'expense' ? `合计 ${currency(report.expense)} · 含负向调整` : `合计 ${currency(report.income)} · 含退款`}
+            desc={`合计 ${currency(side === 'expense' ? report.expense : report.income)}`}
             rows={side === 'expense' ? expenseCards : incomeCards}
             total={{
               label: '合计',
               value: currency(side === 'expense' ? report.expense : report.income),
             }}
-            note="点击一级分类可下钻；子分类金额已计入父级，占比相对合计。"
           />
         </>
       )}
-      <p className="mb-rp-footnote">
-        <Info size={13} /> 期间 {formatRangeLabel(time)}；转账不计入收支，退款冲减收入口径。
-      </p>
     </>
   )
 }
@@ -780,24 +746,22 @@ function CashView({
           <ReportTable
             device={device}
             title="流入"
-            desc={`合计 ${currency(report.inflowTotal)} · 收入 + 退款`}
+            desc={`合计 ${currency(report.inflowTotal)}`}
             ariaLabel="现金流入"
             columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
             rows={inflowRows}
             minRows={cashMinRows}
             total={['合计', '', currency(report.inflowTotal)]}
-            note="经营 = 工资 / 红包 / 退款 − 日常支出；投资 = 理财收益；账户间转账单列。"
           />
           <ReportTable
             device={device}
             title="流出"
-            desc={`合计 ${currency(report.outflowTotal)} · 支出 + 转账`}
+            desc={`合计 ${currency(report.outflowTotal)}`}
             ariaLabel="现金流出"
             columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
             rows={outflowRows}
             minRows={cashMinRows}
             total={['合计', '', currency(report.outflowTotal)]}
-            note="转账只影响账户间分布，不计入经营 / 投资 / 筹资净额。"
           />
         </div>
       ) : (
@@ -817,47 +781,9 @@ function CashView({
             desc={side === 'in' ? `合计 ${currency(report.inflowTotal)}` : `合计 ${currency(report.outflowTotal)}`}
             rows={cards}
             total={{ label: '合计', value: currency(side === 'in' ? report.inflowTotal : report.outflowTotal) }}
-            note="转账单列；现金流净额只统计经营 / 投资 / 筹资。"
           />
         </>
       )}
-      <section className="mb-rp-reconcile" aria-label="口径与对账">
-        <div className="mb-rp-reconcile-head">
-          <h3>口径与对账</h3>
-          <span>不改账务规则，只把三处差异列清</span>
-        </div>
-        <div className="mb-rp-reconcile-row">
-          <span>收支明细 · 本期支出</span>
-          <strong>{currency(report.reconcile.flowExpense)}</strong>
-        </div>
-        <div className="mb-rp-reconcile-row is-sub">
-          <span>其中：对账修正（计支出）</span>
-          <strong>{currency(report.reconcile.adjustmentExpense)}</strong>
-        </div>
-        <div className="mb-rp-reconcile-row">
-          <span>收支明细 · 本期结余</span>
-          <strong>{signedCurrency(report.reconcile.flowBalance)}</strong>
-        </div>
-        <div className="mb-rp-reconcile-row">
-          <span>现金流 · 经营净额</span>
-          <strong>{signedCurrency(report.operatingNet)}</strong>
-        </div>
-        <div className="mb-rp-reconcile-row is-diff">
-          <span>差异（现金流 − 收支明细）</span>
-          <strong>{signedCurrency(report.reconcile.difference)}</strong>
-        </div>
-        <div className="mb-rp-reconcile-row">
-          <span>转账手续费（两处净额均不计）</span>
-          <strong>{currency(report.reconcile.transferFee)}</strong>
-        </div>
-        <p className="mb-rp-reconcile-note">
-          对账修正只计入收支明细支出，现金流净额排除它；转账手续费只从转出账户扣减、不进入任何净额。
-          因此上两项差异可逐笔对上。
-        </p>
-      </section>
-      <p className="mb-rp-footnote">
-        <Info size={13} /> 期末现金总量取当前现金等价账户余额；本期净额 = 流入 − 流出。
-      </p>
     </>
   )
 }
@@ -910,13 +836,12 @@ function InvestView({ device, report }: { device: DeviceMode; report: Investment
     <ReportLineChart
       device={device}
       title="净值走势"
-      desc="快照链 · 末点跟随账户余额"
       points={report.trend.map((point) => ({ label: point.month, value: point.value }))}
       ariaLabel="投资净值走势"
     />
   )
   const allocationChart = (
-    <ChartCard title="资产分布" desc="当前占比 / 目标比例">
+    <ChartCard title="资产分布">
       <AllocationBars rows={report.allocation} />
     </ChartCard>
   )
@@ -947,11 +872,7 @@ function InvestView({ device, report }: { device: DeviceMode; report: Investment
           signedCurrency(report.gainTotal),
           formatPercent(totalRate, 2),
         ]}
-        note="成本按目标配置比例折算（演示口径）；收益率 = 收益 / 成本。移动端左右滑动查看全部列，首列固定。"
       />
-      <p className="mb-rp-footnote">
-        <Info size={13} /> 投资报表复用快照链；成本为演示口径折算值，不写回账本。
-      </p>
     </>
   )
 }
@@ -1023,7 +944,6 @@ function DrillDrawer({
               </div>
             ))
           )}
-          <p className="mb-rp-drill-note">下钻只展开当期口径；完整筛选与编辑在流水页完成。</p>
           <div className="mb-rp-sheet-actions">
             <button type="button" className="mb-rp-btn is-ghost" onClick={onClose}>
               关闭

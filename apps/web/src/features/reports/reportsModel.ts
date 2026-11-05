@@ -26,7 +26,6 @@ import type { ReportRow } from './ReportTable'
 export interface ReportMetric {
   label: string
   value: string
-  note?: string
   tone?: 'income' | 'expense' | 'neutral'
 }
 
@@ -327,7 +326,6 @@ export function deriveFlowReport(ledger: Ledger, from: string, to: string, gran:
         label: '本期结余',
         value: signedCurrency(balance),
         tone: balance >= 0 ? 'income' : 'expense',
-        note: '收入 − 支出',
       },
       { label: '本期收入', value: `+${currency(income)}`, tone: 'income' },
       { label: '本期支出', value: `−${currency(expense)}`, tone: 'expense' },
@@ -410,7 +408,7 @@ export function deriveBalanceReport(ledger: Ledger, point: string): BalanceRepor
     composition,
     trend: deriveNetWorthTrend(netWorth),
     metrics: [
-      { label: '净资产', value: currency(netWorth), note: '资产 − 负债' },
+      { label: '净资产', value: currency(netWorth) },
       { label: '总资产', value: currency(assetTotal) },
       { label: '总负债', value: currency(liabilityTotal), tone: liabilityTotal > 0 ? 'expense' : 'neutral' },
       {
@@ -699,7 +697,6 @@ export function deriveInvestmentReport(ledger: Ledger): InvestmentReport {
       {
         label: '期末市值',
         value: currency(latest),
-        note: `最新快照 ${SNAPSHOT_DATES[SNAPSHOT_DATES.length - 1]}`,
       },
       { label: '累计收益率', value: formatPercent(cumulativeReturn, 2), tone: cumulativeReturn >= 0 ? 'income' : 'expense' },
       { label: 'XIRR', value: xirrRate === null ? '—' : formatPercent(xirrRate * 100, 2) },

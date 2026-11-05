@@ -53,7 +53,6 @@ export function MetricStrip({
           <div className="mb-rp-metric" key={metric.label}>
             <span className="mb-rp-metric-label">{metric.label}</span>
             <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
-            {metric.note && <span className="mb-rp-metric-note">{metric.note}</span>}
           </div>
         ))}
       </section>
@@ -66,14 +65,12 @@ export function MetricStrip({
         <div className="mb-rp-metric is-main">
           <span className="mb-rp-metric-label">{main.label}</span>
           <span className={`mb-rp-metric-value is-${main.tone ?? 'neutral'}`}>{main.value}</span>
-          {main.note && <span className="mb-rp-metric-note">{main.note}</span>}
         </div>
       )}
       {rest.map((metric) => (
         <div className="mb-rp-metric" key={metric.label}>
           <span className="mb-rp-metric-label">{metric.label}</span>
           <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
-          {metric.note && <span className="mb-rp-metric-note">{metric.note}</span>}
         </div>
       ))}
     </section>
