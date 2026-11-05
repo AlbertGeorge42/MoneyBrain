@@ -118,7 +118,7 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
 7. **投资页正负色 = 全局「正绿负红」**：盈利 `income`、亏损 `expense`，图例写
    「收入/支出」「盈利/亏损」，禁用「涨/跌」；「涨红跌绿」仅记为未来候选，不做页内例外。
 8. **主卡随主题切换层级（决策 #43）**：浅色 = `surface-raised` 卡片 + `border` + `sh-1`，
-   不得再写成深底反白；暗色 = 比 `surface-raised` 高一档（`#1D2226`）+ 1px `hero-line` 高光边。
+   不得再写成深底反白；暗色 = 比 `surface-raised` 高一档 + 1px `hero-line` 高光边（值见 design-tokens §2.1）。
    主卡涨跌色浅色取 `income` / `expense` 文字档（12px chip 需 ≥4.5），暗色取
    `income` / `expense-display`；禁用 `accent-fill` 当文字。
 9. **图表只走 1:1 viewBox**：宽度按容器实测写入 `viewBox`，高度只由

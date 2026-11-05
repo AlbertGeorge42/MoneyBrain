@@ -392,7 +392,7 @@ Linux 落 system-ui / 等宽默认。若要求跨平台一致，需要先引入�
 | 危险动作 | `--mb-color-danger` + 图标 + 文案 + 二次确认 | 普通提示、警告 |
 | 分隔线 | `--mb-color-border` | `border-strong`（后者用于输入边框） |
 | 卡片 | `--mb-color-surface-raised` + `border` + `--mb-sh-1` | 纯白 + 纯灰边框 |
-| 最高层级主卡 | 浅色同卡片（`surface-raised` + `border` + `sh-1`）；暗色 `hero-bg` 高一档 + 1px `hero-line` | 浅色深底反白（破坏主题一致性） |
+| 最高层级主卡 | 浅色 `surface-raised`；暗色 `hero-bg` 高一档（值见 §2.1） | 浅色深底反白（破坏主题一致性） |
 | 填充按钮上的文字 | `--mb-color-on-accent-fill`（`#0D1005`） | `#FFF` |
 | 危险实心上的文字 | `--mb-color-on-danger` | `#FFF` |
 | 遮罩 | `--mb-color-surface-overlay` | 裸 `rgba(0,0,0,.x)`（不随主题） |
