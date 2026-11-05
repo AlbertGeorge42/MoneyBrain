@@ -1,7 +1,7 @@
 /**
  * 预算页数据模型单测（HF 修复批次）
  *
- * 覆盖三类预算、80–100% warning、超支金额、收入达成、转账阈值与历史月份结算。
+ * 覆盖三类预算、80–100% warning、超支金额、收入达成、转账不计入预算与历史月份结算。
  */
 import { describe, expect, it } from 'vitest'
 import { createSeedLedger } from '@/features/overview/model'
@@ -27,13 +27,14 @@ describe('预算页数据', () => {
     expect(food?.status).toBe('剩余 ¥1,214.00')
   })
 
-  it('收入达成与转账阈值分组正确', () => {
+  it('收入达成；转账不计入预算告警', () => {
     const income = page.groups.find((group) => group.type === 'income')?.rows[0]
     const transfer = page.groups.find((group) => group.type === 'transfer')?.rows[0]
     expect(income?.level).toBe('achieved')
     expect(income?.status).toBe('已达成')
     expect(transfer?.percent).toBe(100)
-    expect(transfer?.level).toBe('normal')
+    expect(transfer?.level).toBe('neutral')
+    expect(transfer?.status).toBe('不计入预算')
   })
 
   it('历史月份按月末结算，没有流水时使用为 0', () => {

@@ -703,14 +703,15 @@
   height: var(--mb-s-2);
   border: 0;
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
+  background: var(--mb-color-border-strong);
+  outline: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   overflow: hidden;
   appearance: none;
 }
 
 .mb-budget-progress::-webkit-progress-bar {
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
+  background: var(--mb-color-border-strong);
 }
 
 .mb-budget-progress::-webkit-progress-value {

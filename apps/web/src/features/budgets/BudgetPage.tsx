@@ -209,9 +209,13 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
                   <progress
                     className="mb-bg-progress"
                     data-level={row.level}
-                    value={Math.min(100, Math.max(0, row.percent))}
+                    value={row.level === 'neutral' ? 0 : Math.min(100, Math.max(0, row.percent))}
                     max={100}
-                    aria-label={`${row.name} 预算使用 ${Math.round(row.percent)}%`}
+                    aria-label={
+                      row.level === 'neutral'
+                        ? `${row.name} 不计入预算`
+                        : `${row.name} 预算使用 ${Math.round(row.percent)}%`
+                    }
                   />
                   <div className="mb-bg-row-meta">
                     <span className="mb-bg-row-tags">
@@ -246,7 +250,7 @@ function EmptyPage({ device, onAdd }: { device: DeviceMode; onAdd: () => void })
         </div>
         <h2 className="mb-sec-title">还没有预算</h2>
         <p className="mb-bg-empty-copy">
-          为支出设置上限、为收入设置目标、为转账设置阈值。第一条预算建好后，这一页会显示「可花多少」、
+          为支出设置上限、为收入设置目标、为转账记录计划。第一条预算建好后，这一页会显示「可花多少」、
           接近上限与超支提醒。
         </p>
         <button type="button" className="mb-primary-btn" onClick={onAdd}>
@@ -440,8 +444,8 @@ export function BudgetPage({
 
       <section className="mb-card mb-bg-note">
         <p>
-          支出超过 80% 标黄、超过 100% 标红并显示超支金额；收入未达目标只提示差额，不叫超支；转账超过阈值标黄，
-          作为现金流量监控，不参与支出总计。
+          支出超过 80% 标黄、超过 100% 标红并显示超支金额；收入未达目标只提示差额，不叫超支；
+          转账只记录流量，不计入预算告警（行内标「不计入预算」，不填充进度条），也不参与支出总计。
         </p>
       </section>
 
@@ -477,9 +481,9 @@ export function BudgetPage({
             <progress
               className="mb-bg-progress"
               data-level={detail.level}
-              value={Math.min(100, Math.max(0, detail.percent))}
+              value={detail.level === 'neutral' ? 0 : Math.min(100, Math.max(0, detail.percent))}
               max={100}
-              aria-label="预算使用进度"
+              aria-label={detail.level === 'neutral' ? '不计入预算' : '预算使用进度'}
             />
             <dl className="mb-bg-detail-meta">
               <div>
@@ -644,7 +648,7 @@ function BudgetEditor({
       title={
         <div className="mb-overlay-title-copy">
           <span className="mb-overlay-title">新增预算条目</span>
-          <span className="mb-overlay-sub">支出设上限、收入设目标、转账设阈值</span>
+          <span className="mb-overlay-sub">支出设上限、收入设目标、转账记录计划</span>
         </div>
       }
     >

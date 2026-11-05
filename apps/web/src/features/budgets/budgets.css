@@ -366,6 +366,14 @@
   white-space: nowrap;
 }
 
+.mb-bg-status[data-level='normal'] {
+  color: var(--mb-color-accent);
+}
+
+.mb-bg-status[data-level='neutral'] {
+  color: var(--mb-color-text-secondary);
+}
+
 .mb-bg-status[data-level='warning'] {
   color: var(--mb-color-warning);
 }
@@ -383,14 +391,15 @@
   height: 6px;
   border: 0;
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
+  background: var(--mb-color-border-strong);
+  outline: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   appearance: none;
   overflow: hidden;
 }
 
 .mb-bg-progress::-webkit-progress-bar {
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
+  background: var(--mb-color-border-strong);
 }
 
 .mb-bg-progress::-webkit-progress-value {

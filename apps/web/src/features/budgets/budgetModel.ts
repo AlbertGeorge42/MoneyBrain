@@ -2,7 +2,7 @@
  * 预算页数据模型（HF 预览）
  *
  * 与总览 BudgetCard 共用预算口径：金额为整数分、分类按子树汇总、账户过滤可选。
- * 预算页额外覆盖收入目标与转账阈值，并把「超支 / 接近上限」单独分组。
+ * 预算页额外覆盖收入目标与转账计划，并把「超支 / 接近上限」单独分组。
  */
 
 import type {
@@ -15,7 +15,7 @@ import type {
 import { CURRENT_MONTH, TODAY } from '@/features/overview/model'
 
 export type BudgetKind = 'expense' | 'income' | 'transfer'
-export type BudgetRowLevel = 'normal' | 'warning' | 'over' | 'achieved'
+export type BudgetRowLevel = 'normal' | 'warning' | 'over' | 'achieved' | 'neutral'
 
 export interface BudgetPageRow {
   id: string
@@ -164,8 +164,8 @@ function rowStatus(row: Omit<BudgetPageRow, 'status'>): string {
     if (row.level === 'achieved') return row.used > row.limit ? `已达成 · 超出 ${yuan(gap)}` : '已达成'
     return `还差 ${yuan(gap)}`
   }
-  if (row.level === 'warning') return `超出阈值 ${yuan(gap)}`
-  return `剩余 ${yuan(gap)}`
+  // 转账是账户互转，不参与预算告警，也不计入任何超支口径
+  return '不计入预算'
 }
 
 function rowLevel(type: BudgetKind, percent: number): BudgetRowLevel {
@@ -175,7 +175,8 @@ function rowLevel(type: BudgetKind, percent: number): BudgetRowLevel {
     return 'normal'
   }
   if (type === 'income') return percent >= 100 ? 'achieved' : 'warning'
-  return percent > 100 ? 'warning' : 'normal'
+  // 转账只做流量记录：任何占用率都不触发预算告警
+  return 'neutral'
 }
 
 export function deriveBudgetPage(ledger: Ledger, month = CURRENT_MONTH): BudgetPageData {
