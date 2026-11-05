@@ -15,13 +15,17 @@
   --mb-space-3xl: 32px;
 
   /* ===== 字体 ===== */
+  --mb-font-ui: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --mb-font-display: var(--mb-font-ui);
+  --mb-font-num: var(--mb-font-ui);
   --mb-font-size-caption: 12px;
   --mb-font-size-sm: 13px;
   --mb-font-size-body: 14px;
   --mb-font-size-body-lg: 16px;
-  --mb-font-size-title: 18px;
+  --mb-font-size-title: 20px;
   --mb-font-size-heading: 20px;
-  --mb-font-size-mobile-label: 11px;
+  --mb-font-size-display: 28px;
+  --mb-font-size-mobile-label: 12px;
 
   /* ===== 边框 ===== */
   --mb-border-width: 1px;
@@ -53,11 +57,6 @@
  * 字面量只允许出现在 token 定义文件；业务 CSS 一律引用 --mb-*。
  */
 .mb-hf-root {
-  /* 字体 */
-  --mb-font-ui: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
-  --mb-font-display: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
-  --mb-font-num: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
-
   /* 字号 */
   --mb-fs-0: 12px;
   --mb-fs-1: 13px;

@@ -17,7 +17,8 @@ html {
 body {
   min-height: 100%;
   margin: 0;
-  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--mb-font-ui);
+  font-variant-numeric: tabular-nums;
   background: var(--mb-color-bg-app);
   color: var(--mb-color-text-primary);
   -webkit-font-smoothing: antialiased;

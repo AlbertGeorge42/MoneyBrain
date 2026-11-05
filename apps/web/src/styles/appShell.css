@@ -29,7 +29,7 @@
   background: linear-gradient(135deg, var(--mb-color-action-primary), color-mix(in srgb, var(--mb-color-action-primary), white 20%) 70%);
   color: var(--mb-color-on-action-primary);
   font-size: var(--mb-font-size-title);
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: var(--mb-shadow-card);
 }
 
@@ -41,7 +41,7 @@
 .app-shell__brand-title {
   margin: 0;
   font-size: var(--mb-font-size-heading);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 

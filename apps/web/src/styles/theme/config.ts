@@ -16,7 +16,7 @@ const baseSeed: Partial<ThemeConfig['token']> = {
   colorError: '#ff4d4f',
   colorInfo: '#1890ff',
 
-  fontFamily: '"Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif',
+  fontFamily: 'var(--mb-font-ui)',
   fontSize: 14,
   borderRadius: 8,
   controlHeight: 44,

@@ -1,7 +1,7 @@
 /* ─── 通用工具类 ─── */
 .settings-section-title {
   font-size: var(--mb-font-size-body-lg);
-  font-weight: 700;
+  font-weight: 600;
   margin-top: 0;
   color: var(--mb-color-text-primary);
 }
@@ -86,7 +86,7 @@
 
 .config-entry-card__count {
   font-size: var(--mb-font-size-title);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--mb-color-text-primary);
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -94,7 +94,7 @@
 }
 
 .config-entry-card__chevron {
-  font-size: 12px;
+  font-size: var(--mb-font-size-caption);
   color: var(--mb-color-text-quaternary);
   flex-shrink: 0;
   transition: transform var(--mb-motion-fast) var(--mb-ease-standard);
@@ -158,7 +158,7 @@
 
 .import-result__title {
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .import-result__rows {

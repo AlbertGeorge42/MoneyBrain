@@ -431,13 +431,13 @@ const BudgetCard: React.FC<BudgetCardProps> = ({
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.paddingSM }}>
         <Space wrap size={12} align="center">
-          <Text strong style={{ fontSize: 15, color: budget.isActive ? token.colorText : token.colorTextSecondary, lineHeight: '22px' }}>
+          <Text strong style={{ fontSize: 'var(--mb-font-size-body-lg)', color: budget.isActive ? token.colorText : token.colorTextSecondary, lineHeight: '22px' }}>
             {budget.name}
           </Text>
           <Tag variant="outlined">{PERIOD_LABELS[budget.period] ?? budget.period}</Tag>
         </Space>
         <Space size={8} align="center">
-          <Text strong style={{ color: getBudgetAmountColor(), fontSize: 15, fontVariantNumeric: 'tabular-nums', lineHeight: '22px' }}>
+          <Text strong style={{ color: getBudgetAmountColor(), fontSize: 'var(--mb-font-size-body-lg)', fontVariantNumeric: 'tabular-nums', lineHeight: '22px' }}>
             {formatCurrency(budget.amount)}
           </Text>
           <Switch

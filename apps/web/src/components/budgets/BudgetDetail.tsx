@@ -135,7 +135,7 @@ const BudgetDetail: React.FC<BudgetDetailProps> = ({
         <div style={{ fontSize: 20, fontWeight: 600, color: token.colorText, marginBottom: token.paddingXS }}>
           {budget.name}
         </div>
-        <div style={{ fontSize: 32, fontWeight: 600, color: getBudgetAmountColor(), margin: `${token.paddingSM}px 0`, fontVariantNumeric: 'tabular-nums' }}>
+        <div style={{ fontSize: 'var(--mb-font-size-display)', fontWeight: 600, color: getBudgetAmountColor(), margin: `${token.paddingSM}px 0`, fontVariantNumeric: 'tabular-nums' }}>
           {formatCurrency(budget.amount)}
         </div>
         <Space size={4} wrap style={{ justifyContent: 'center' }}>

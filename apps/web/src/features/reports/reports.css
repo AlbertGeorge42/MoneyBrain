@@ -988,7 +988,7 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
 
 .mb-rp-chart-svg text {
   font-family: var(--mb-font-num);
-  font-size: 12px;
+  font-size: var(--mb-fs-0);
   fill: var(--mb-color-chart-axis);
   font-variant-numeric: tabular-nums;
 }
@@ -1035,7 +1035,7 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
 .mb-rp-chart-tooltip-value {
   fill: var(--mb-color-chart-tooltip-ink) !important;
   font-family: var(--mb-font-display) !important;
-  font-size: 13px !important;
+  font-size: var(--mb-fs-1) !important;
   font-weight: 600;
 }
 
@@ -1566,7 +1566,7 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-chart-svg text {
-  font-size: 13px;
+  font-size: var(--mb-fs-1);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-flow-row {

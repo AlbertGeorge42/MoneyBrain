@@ -307,7 +307,7 @@ const Dashboard: React.FC = () => {
           title="预算执行"
           extra={
             <button className="card-extra-link" onClick={() => navigate('/budgets')}>
-              查看全部 <RightOutlined style={{ fontSize: 10 }} />
+              查看全部 <RightOutlined style={{ fontSize: 12 }} />
             </button>
           }
         >
@@ -396,7 +396,7 @@ const Dashboard: React.FC = () => {
         title="最近交易"
         extra={
           <button className="card-extra-link" onClick={() => navigate('/transactions')}>
-            查看全部 <RightOutlined style={{ fontSize: 10 }} />
+            查看全部 <RightOutlined style={{ fontSize: 12 }} />
           </button>
         }
       >

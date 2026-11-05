@@ -19,7 +19,7 @@
 |---|---|---|
 | 中性炭黑底 | `#F6F6F4` / `#0D0F10`，不偏黄也不纯黑 | 数字和图表在两种底色上都稳；避免暖纸底与财务红绿抢色 |
 | 青柠拆两档 | 文字 `#356B0C` / 填充 `#A3E635` | 一支深绿保证文字 5.95，一支亮青柠负责「活」的填充；一档无法同时满足 |
-| 等宽数字 | JetBrains Mono → Cascadia Mono → Consolas + `tabular-nums` | 金额必须上下对齐；Windows 实际落到 Consolas |
+| 数字 | 与正文同一字体栈 + `tabular-nums`（全站 `body` 继承启用） | 单一字体栈；金额按列宽对齐，不再用等宽族 |
 | 无衬线标题 | 标题与正文同一字栈 | 12–14px 高密度下衬线会糊；记账工具不需要「封面感」 |
 | 零装饰 | 无纸纹、无渐变、无彩色阴影 | 视觉重量留给数字与状态色 |
 | 单一强调色 | 两支青柠（文字 / 填充） | 多强调色会让「哪个是主色」失焦 |
@@ -235,7 +235,7 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 > 线框追求结构密度，不按产品字号渲染；本表约束的是段三 `apps/web` 实现，
 > 原型样式不作为段三验收对象。
 
-字重只用 400 / 500 / 600 / 700。
+字重只用 400 / 500 / 600（regular / medium / semibold）。
 
 行高：`--mb-lh-tight: 1.2`（标题、金额、表格行）、`--mb-lh-body: 1.55`（正文）。
 表格行内文字统一用 `--mb-tbl-line-h`（20px），不继承正文字号行高。
@@ -323,22 +323,26 @@ HF 批次 1 起，暗色卡片**移除边框**，只用上述阴影与底色分�
 
 ---
 
-## 8. 字体
+## 8. 字体栈与数字
 
 ```css
---mb-font-ui:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
---mb-font-display:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;  /* 同 UI，无衬线 */
---mb-font-num:"JetBrains Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
+--mb-font-ui: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+--mb-font-display: var(--mb-font-ui);   /* 标题同栈，不要衬线 */
+--mb-font-num: var(--mb-font-ui);       /* 数字同栈，靠 tabular-nums 对齐 */
 ```
 
-- `--mb-font-ui`：正文与 UI
+- `--mb-font-ui`：正文与 UI，也是全站唯一字体栈
 - `--mb-font-display`：标题——**与 UI 同栈**，不要衬线；12–14px 高密度下衬线会糊
-- `--mb-font-num`：所有金额与数字，配 `font-variant-numeric: tabular-nums`
+- `--mb-font-num`：所有金额与数字——**与正文同族**，不再使用 JetBrains Mono / Consolas；
+  数字等宽由 `font-variant-numeric: tabular-nums` 提供（在 `body` 上定义并全局继承）
+
+**字号档位**：`fs-0…fs-6` = 12 / 13 / 14 / 16 / 20 / 28 / 40px，最小 12px，不得出现 10 / 11px。
+**字重档位**：400 / 500 / 600（regular / medium / semibold），不得出现 700。
 
 **字体现状**：仓库**不自托管**任何 woff2/woff/ttf，字体全部回落系统字。
-Windows 上 `Inter` / `JetBrains Mono` / `Cascadia Mono` / `PingFang SC` 均不存在，
-实际落到 **Microsoft YaHei**（正文/标题）与 **Consolas**（数字）；macOS 落 PingFang SC，
-Linux 落 system-ui / 等宽默认。若要求跨平台一致，需要先引入自托管字体（另行决策）。
+Windows 上 `Inter` 不存在，实际落到 **Microsoft YaHei**；macOS 落 PingFang SC，
+Linux 落 system-ui。若要求跨平台完全一致，需要先引入自托管字体（另行决策）。
+正文、标题、数字三者必须同栈——**不允许**出现「金额用等宽族、正文用 UI 族」的第二套字体。
 
 ---
 

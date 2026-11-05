@@ -357,7 +357,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
       onEntityClick={handleEntityClick}
-      title={isFuture ? <>资产明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '资产明细'}
+      title={isFuture ? <>资产明细 <Tag variant="outlined" color="processing" style={{ fontSize: 'var(--mb-font-size-caption)', lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '资产明细'}
     />
   )
 
@@ -375,7 +375,7 @@ const BalanceSheetReport: React.FC<BalanceSheetReportProps> = ({
       isFuture={showPred}
       useClickTrigger={useClickTrigger}
       onEntityClick={handleEntityClick}
-      title={isFuture ? <>负债明细 <Tag variant="outlined" color="processing" style={{ fontSize: 10, lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '负债明细'}
+      title={isFuture ? <>负债明细 <Tag variant="outlined" color="processing" style={{ fontSize: 'var(--mb-font-size-caption)', lineHeight: '16px', fontWeight: 400, marginLeft: 4 }}>预测</Tag></> : '负债明细'}
     />
   )
 
