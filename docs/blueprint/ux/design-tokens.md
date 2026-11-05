@@ -336,8 +336,8 @@ HF 批次 1 起，暗色卡片**移除边框**，只用上述阴影与底色分�
 - `--mb-font-num`：所有金额与数字——**与正文同族**，不再使用 JetBrains Mono / Consolas；
   数字等宽由 `font-variant-numeric: tabular-nums` 提供（在 `body` 上定义并全局继承）
 
-**字号档位**：`fs-0…fs-6` = 12 / 13 / 14 / 16 / 20 / 28 / 40px，最小 12px，不得出现 10 / 11px。
-**字重档位**：400 / 500 / 600（regular / medium / semibold），不得出现 700。
+**字号档位**：`fs-0…fs-6` = 12 / 13 / 14 / 16 / 20 / 28 / 40px，最小 12px，不得出现 10 / 11px（约束 HF 新壳；旧页处于冻结，其 11px 由旧页 token `--mb-font-size-mobile-label` 承载）。
+**字重档位**：400 / 500 / 600（regular / medium / semibold），不得出现 700（同样约束 HF 新壳；旧页冻结不动）。
 
 **字体现状**：仓库**不自托管**任何 woff2/woff/ttf，字体全部回落系统字。
 Windows 上 `Inter` 不存在，实际落到 **Microsoft YaHei**；macOS 落 PingFang SC，
