@@ -57,13 +57,9 @@ export function toLedgerTransaction(source: LedgerSource): LedgerTransaction {
     ruleVersion: source.ruleVersion,
     kind: kindOf(source.type),
     date: fromDate(source.date),
-    // 领域口径要求支出为正的金额大小（见 packages/domain/tests/ledger.test.ts:141）。
-    // 线上写入的支出是负数（现金流），这里归一化；已经是正数的旧数据/测试夹具保持原样。
-    amount: minor(
-      source.type === 'expense' && Number(source.amount) < 0
-        ? -Number(source.amount)
-        : Number(source.amount),
-    ),
+    // 写入边界（transaction.service.ts 的 normalizeExpenseAmount）已保证支出为正的金额大小；
+    // 这里只做纯映射，不再按类型翻转符号——否则会把数据问题长期掩盖在读路径里。
+    amount: minor(Number(source.amount)),
     fee: minor(Number(source.fee ?? 0)),
     coupon: minor(Number(source.coupon ?? 0)),
     accountId: source.accountId,

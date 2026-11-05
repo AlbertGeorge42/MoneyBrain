@@ -191,6 +191,10 @@ if (type === 'transfer') toAmount = amount - fee
 - **字段名不加单位后缀**：单位由类型保证；**人类读的地方必须写单位**——
   CSV 表头「金额（元）」、备份 manifest、UI 标签、错误信息。
 - **服务端是信任边界**：外部金额进来先校验「安全整数 + 范围」，不是整数分就 400，别静默取整。
+- **支出金额写入统一为正**：`transaction.service.ts` 的 `normalizeExpenseAmount` 在创建/更新时
+  对 `expense` 取绝对值（与导入 `Math.abs`、领域层「金额大小再减法」一致）；收入/转账/退款/调整
+  保留原符号（调整的负号本身就是余额方向）。历史负数用 `npm run db:fix-expense-sign` 修复：
+  默认 dry-run，`--apply` 会先导出一份 `.mbx` 备份、再逐条推进 `rev`/`vv`——**不要手改库**。
 - **禁止**：领域层出现 `parseFloat`、`toFixed`、`Decimal`；前端用浮点做金额加减。
 - **展示格式化四个入口**：`formatMoney` / `LocalDate` / `formatTime` / `formatPercent`，一律走 `Intl` 封装；
   页面不得自拼货币符号或日期格式（禁 `toFixed`、`¥` 字面量、`dayjs().format`）。

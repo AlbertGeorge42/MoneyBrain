@@ -109,6 +109,24 @@ export interface TransactionListResult {
 
 // ===== 创建交易 =====
 
+/**
+ * 支出金额统一按正数（分）落库。
+ *
+ * 领域层把支出当作「金额大小」再做减法（packages/domain/src/ledger/rules.v1.ts），
+ * 导入也按 `Math.abs` 保存；因此写入边界必须产出同一种符号，否则列表、导出、
+ * 同步记录与预算会各拿一套口径（历史 bug：dev.db 里存在 -2800 的支出）。
+ *
+ * 这里选「取绝对值」而不是「拒绝负数」：旧客户端/旧数据可能仍传负数，
+ * 拒绝会让用户直接无法保存；取绝对值与导入行为一致，且不改变业务含义。
+ * 非支出类型（收入/转账/退款/调整）原样保留——调整的负号本身就是余额方向。
+ */
+function normalizeExpenseAmount(type: string, amount: number): number {
+  if (!Number.isFinite(amount)) {
+    throw new ValidationError('金额必须是有限数字')
+  }
+  return type === 'expense' ? Math.abs(amount) : amount
+}
+
 export async function createIncomeExpense(data: CreateIncomeExpenseData): Promise<TransactionWithRelations> {
   const { id, type, amount, fee = 0, coupon = 0, date, note, accountId, categoryId, excludeFromIncomeExpense } = data
 
@@ -116,7 +134,7 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
     id,
     type,
     ruleVersion: CURRENT_RULE_VERSION,
-    amount: BigInt(amount),
+    amount: BigInt(normalizeExpenseAmount(type, amount)),
     fee: BigInt(fee),
     coupon: BigInt(coupon),
     date,
@@ -237,7 +255,11 @@ export async function updateIncomeExpense(id: string, data: UpdateIncomeExpenseD
 
   const merged = mergeTransactionData(oldTransaction, data)
 
-  return updateWithEvent(id, oldTransaction, { ...merged, type: data.type || oldTransaction.type })
+  return updateWithEvent(id, oldTransaction, {
+    ...merged,
+    type: nextType,
+    amount: BigInt(normalizeExpenseAmount(nextType, Number(merged.amount))),
+  })
 }
 
 export async function updateTransfer(id: string, data: UpdateTransferData): Promise<TransactionWithRelations> {
