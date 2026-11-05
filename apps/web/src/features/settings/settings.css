@@ -268,9 +268,13 @@
   margin-left: calc(var(--mb-s-2) * -1);
 }
 
-/* 桌面端二级行整体再右移 12px，层级缩进可见；移动端行宽紧张，保持 302px 时可用。 */
+/* 二级行整体右移：桌面 +12px，移动端对齐桌面同一 nameX（图标落在父级图标右侧 12px）。 */
 .mb-set-page[data-device='desktop'] .mb-set-row.is-child {
   padding-left: calc(var(--mb-s-3) + var(--mb-s-3));
+}
+
+.mb-set-page[data-device='mobile'] .mb-set-row.is-child {
+  padding-left: calc(var(--mb-s-3) + var(--mb-s-2) + 50px);
 }
 
 .mb-set-drag {
