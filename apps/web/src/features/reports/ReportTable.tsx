@@ -107,6 +107,8 @@ export function ReportTable({
   scrollable?: boolean
 }) {
   const empty = rows.length === 0
+  // 只要有一行可折叠，就给所有一级行预留同样的折叠槽，避免「有箭头/无箭头」两套缩进。
+  const foldable = rows.some((row) => row.fold)
   return (
     <section className={footInline ? 'mb-rp-card mb-rp-table-card is-inline' : 'mb-rp-card mb-rp-table-card'} data-device={device}>
       <div className="mb-rp-sec-head">
@@ -116,7 +118,10 @@ export function ReportTable({
         </div>
       </div>
       <div className="mb-rp-table-wrap">
-        <table className={`mb-rp-table is-${variant}${scrollable ? ' is-scroll' : ''}`} aria-label={ariaLabel}>
+        <table
+          className={`mb-rp-table is-${variant}${scrollable ? ' is-scroll' : ''}${foldable ? ' is-foldable' : ''}`}
+          aria-label={ariaLabel}
+        >
           <colgroup>
             {columns.map((column, index) => (
               <col key={column.label + index} className={column.align === 'num' ? 'mb-rp-col-num' : 'mb-rp-col-main'} />
@@ -161,20 +166,24 @@ export function ReportTable({
                   >
                     {row.cells.map((cell, index) => (
                       <td key={`${row.id}-${index}`} className={columns[index]?.align === 'num' ? 'is-num' : undefined}>
-                        {index === 0 && row.fold ? (
+                        {index === 0 && foldable ? (
                           <span className="mb-rp-row-first">
-                            <button
-                              type="button"
-                              className="mb-rp-fold"
-                              aria-expanded={row.fold.expanded}
-                              aria-label={row.fold.expanded ? '收起子项' : '展开子项'}
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                row.fold?.onToggle()
-                              }}
-                            >
-                              {row.fold.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
+                            {row.fold ? (
+                              <button
+                                type="button"
+                                className="mb-rp-fold"
+                                aria-expanded={row.fold.expanded}
+                                aria-label={row.fold.expanded ? '收起子项' : '展开子项'}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  row.fold?.onToggle()
+                                }}
+                              >
+                                {row.fold.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                            ) : (
+                              <span className="mb-rp-fold-space" aria-hidden="true" />
+                            )}
                             <span className="mb-rp-row-first-label">{cell}</span>
                           </span>
                         ) : (

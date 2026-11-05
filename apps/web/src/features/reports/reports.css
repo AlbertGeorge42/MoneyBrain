@@ -617,15 +617,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 单一规则：文本列左对齐，金额列由 .is-num 右对齐。 */
+  text-align: left;
 }
 
 .mb-rp-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
+/* 子级文本 = 一级文本起点 + 16px；一级文本起点含固定折叠槽（见 .mb-rp-fold-space）。 */
 .mb-rp-table tr.is-child td:first-child {
-  padding-left: 30px;
+  padding-left: calc(var(--mb-s-2) + 22px + 2px + var(--mb-s-4));
   color: var(--mb-color-text-secondary);
+}
+
+/* 可折叠表：表头与合计行跳过折叠槽，和一级行文本同一起点。 */
+.mb-rp-table.is-foldable th:first-child,
+.mb-rp-table.is-foldable tfoot td:first-child {
+  padding-left: calc(var(--mb-s-2) + 22px + 2px);
 }
 
 .mb-rp-table tr.is-interactive {
@@ -694,7 +703,6 @@
   flex: none;
   width: 22px;
   height: 20px;
-  margin-left: -4px;
   border: 0;
   border-radius: var(--mb-radius-xs);
   background: transparent;
@@ -705,6 +713,13 @@
 .mb-rp-fold:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
+}
+
+/* 无折叠按钮的一级行用等宽占位，保证同表内所有一级文本左缘一致。 */
+.mb-rp-fold-space {
+  flex: none;
+  width: 22px;
+  height: 20px;
 }
 
 .mb-rp-fold::after {
@@ -723,13 +738,14 @@
 /* 固定列宽：按列数分档，不写硬编码 px */
 .mb-rp-table.is-c2 col:nth-child(1) { width: 66%; }
 .mb-rp-table.is-c2 col:nth-child(2) { width: 34%; }
-.mb-rp-table.is-c3 col:nth-child(1) { width: 40.82%; }
-.mb-rp-table.is-c3 col:nth-child(2) { width: 36.73%; }
-.mb-rp-table.is-c3 col:nth-child(3) { width: 22.45%; }
-.mb-rp-table.is-c4 col:nth-child(1) { width: 40%; }
-.mb-rp-table.is-c4 col:nth-child(2) { width: 16%; }
-.mb-rp-table.is-c4 col:nth-child(3) { width: 20%; }
-.mb-rp-table.is-c4 col:nth-child(4) { width: 24%; }
+/* 金额列按 1024 卡片宽度也 ≥100px 分配，保证 ¥139,506.75 不被省略号截断。 */
+.mb-rp-table.is-c3 col:nth-child(1) { width: 34%; }
+.mb-rp-table.is-c3 col:nth-child(2) { width: 32%; }
+.mb-rp-table.is-c3 col:nth-child(3) { width: 34%; }
+.mb-rp-table.is-c4 col:nth-child(1) { width: 32%; }
+.mb-rp-table.is-c4 col:nth-child(2) { width: 13%; }
+.mb-rp-table.is-c4 col:nth-child(3) { width: 33%; }
+.mb-rp-table.is-c4 col:nth-child(4) { width: 22%; }
 .mb-rp-table.is-c6 { font-size: var(--mb-fs-0); }
 .mb-rp-table.is-c6 col:nth-child(1) { width: 28%; }
 .mb-rp-table.is-c6 col:nth-child(2) { width: 14%; }
