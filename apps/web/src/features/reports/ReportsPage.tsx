@@ -719,21 +719,24 @@ function CashView({
   onFold: (id: string) => void
 }) {
   const groups = side === 'in' ? report.inflowGroups : report.outflowGroups
+  // 左右两表共用一份 folded：键必须带方向前缀，否则同名分组（经营 / 投资 / 筹资）会串扰
+  const foldKey = (id: string) => `${side}:${id}`
   const cards: CardRow[] = []
   for (const group of groups) {
-    const expanded = folded[group.key] !== false
+    const key = foldKey(group.key)
+    const expanded = folded[key] !== false
     cards.push({
-      id: group.key,
+      id: key,
       label: group.name,
       meta: `${group.count} 笔`,
       amount: currency(group.total),
       tone: side === 'in' ? 'income' : 'expense',
-      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(group.key) } : undefined,
+      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
     })
     if (expanded) {
       for (const child of group.children) {
         cards.push({
-          id: child.id,
+          id: foldKey(child.id),
           level: 1,
           label: child.label,
           meta: child.account,
@@ -744,8 +747,8 @@ function CashView({
     }
   }
 
-  const inflowRows = rowsFor(report.inflowGroups, folded, onFold)
-  const outflowRows = rowsFor(report.outflowGroups, folded, onFold)
+  const inflowRows = cashRowsFor('in', report.inflowGroups, folded, onFold)
+  const outflowRows = cashRowsFor('out', report.outflowGroups, folded, onFold)
   const cashMinRows = Math.max(inflowRows.length, outflowRows.length)
 
   return (
@@ -810,23 +813,26 @@ function CashView({
   )
 }
 
-function rowsFor(
+export function cashRowsFor(
+  side: 'in' | 'out',
   groups: CashReport['inflowGroups'],
   folded: Record<string, boolean>,
   onFold: (id: string) => void,
 ): ReportRow[] {
+  const foldKey = (id: string) => `${side}:${id}`
   const rows: ReportRow[] = []
   for (const group of groups) {
-    const expanded = folded[group.key] !== false
+    const key = foldKey(group.key)
+    const expanded = folded[key] !== false
     rows.push({
-      id: group.key,
+      id: key,
       cells: [group.name, `${group.count} 笔`, currency(group.total)],
-      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(group.key) } : undefined,
+      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
     })
     if (expanded) {
       for (const child of group.children) {
         rows.push({
-          id: child.id,
+          id: foldKey(child.id),
           level: 1,
           cells: [child.label, child.account, currency(child.amount)],
           tone: child.tone,
