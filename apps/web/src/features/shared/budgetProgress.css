@@ -24,27 +24,9 @@
   top: 0;
   height: 100%;
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-progress-normal);
   z-index: 1;
 }
 
 .mb-progress-spill {
   background: var(--mb-progress-over);
-}
-
-.mb-progress[data-level='warning'] .mb-progress-fill {
-  background: var(--mb-progress-warning);
-}
-
-.mb-progress[data-level='over'] .mb-progress-fill,
-.mb-progress-spill {
-  background: var(--mb-progress-over);
-}
-
-.mb-progress[data-level='achieved'] .mb-progress-fill {
-  background: var(--mb-progress-achieved);
-}
-
-.mb-progress[data-level='neutral'] .mb-progress-fill {
-  display: none;
 }
