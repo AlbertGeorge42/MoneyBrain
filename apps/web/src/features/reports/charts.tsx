@@ -294,17 +294,32 @@ export function CompositionBars({
   expenseTrees,
   incomeTotal,
   expenseTotal,
+  onOpen,
 }: {
   incomeTrees: FlowTreeNode[]
   expenseTrees: FlowTreeNode[]
   incomeTotal: number
   expenseTotal: number
+  /** 每一行都可点：打开与行金额同口径的下钻（含被并入的小类）。 */
+  onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
 }) {
   return (
     <ChartCard title="收入 / 支出构成" desc="两侧各自标尺 · 按一级分类">
       <div className="mb-rp-compare">
-        <CompositionSide title="收入构成" nodes={incomeTrees} total={incomeTotal} tone="income" />
-        <CompositionSide title="支出构成" nodes={expenseTrees} total={expenseTotal} tone="expense" />
+        <CompositionSide
+          title="收入构成"
+          nodes={incomeTrees}
+          total={incomeTotal}
+          tone="income"
+          onOpen={onOpen}
+        />
+        <CompositionSide
+          title="支出构成"
+          nodes={expenseTrees}
+          total={expenseTotal}
+          tone="expense"
+          onOpen={onOpen}
+        />
       </div>
     </ChartCard>
   )
@@ -338,11 +353,13 @@ function CompositionSide({
   nodes,
   total,
   tone,
+  onOpen,
 }: {
   title: string
   nodes: FlowTreeNode[]
   total: number
   tone: 'income' | 'expense'
+  onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
 }) {
   const visible = topNodes(nodes, 6)
   const max = Math.max(...visible.map((node) => node.amount), 1)
@@ -356,7 +373,13 @@ function CompositionSide({
         <p className="mb-rp-empty-line">该期间没有{title.slice(0, 2)}</p>
       ) : (
         visible.map((node, index) => (
-          <div className="mb-rp-compare-row" key={node.id}>
+          <button
+            type="button"
+            className="mb-rp-compare-row is-interactive"
+            key={node.id}
+            aria-label={`查看 ${node.name} ${currency(node.amount)} 的下钻`}
+            onClick={() => onOpen?.(node, tone)}
+          >
             <div className="mb-rp-compare-row-head">
               <span className="mb-rp-compare-name">
                 {node.name}
@@ -372,7 +395,7 @@ function CompositionSide({
               max={100}
               aria-label={`${node.name}占${title}的 ${node.share.toFixed(1)}%`}
             />
-          </div>
+          </button>
         ))
       )}
     </div>

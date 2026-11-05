@@ -5,8 +5,8 @@
  * #15 现金流与收支明细的差异显式列出（调整 2.40 / 转账手续费 2.00）；
  * #16 卡片合并「其他」与下钻同一聚合口径，标注含哪些小类。
  */
-import { describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render } from '@testing-library/react'
 import { CompositionBars } from '@/features/reports/charts'
 import {
   buildDrill,
@@ -112,5 +112,33 @@ describe('#16 卡片「其他」与下钻同口径', () => {
     expect(drill.title).toBe('其他')
     expect(drill.amount).toBe(5_490)
     expect(drill.children.reduce((sum, child) => sum + child.amount, 0)).toBe(5_490)
+  })
+
+  it('卡片每一行可点，点「其他」打开与被点金额一致的下钻', () => {
+    const onOpen = vi.fn()
+    const { container } = render(
+      <CompositionBars
+        incomeTrees={[]}
+        expenseTrees={trees}
+        incomeTotal={0}
+        expenseTotal={trees.reduce((sum, item) => sum + item.amount, 0)}
+        onOpen={onOpen}
+      />,
+    )
+    const rows = Array.from(container.querySelectorAll<HTMLButtonElement>('.mb-rp-compare-row'))
+    expect(rows.every((row) => row.tagName === 'BUTTON')).toBe(true)
+
+    const other = rows.find((row) =>
+      row.querySelector('.mb-rp-compare-name')?.textContent?.includes('其他'),
+    )
+    expect(other).toBeDefined()
+    fireEvent.click(other as HTMLButtonElement)
+
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    const [openedNode, kind] = onOpen.mock.calls[0] as [FlowTreeNode, string]
+    expect(kind).toBe('expense')
+    expect(openedNode.id).toBe('rest')
+    expect(openedNode.amount).toBe(5_490)
+    expect(openedNode.mergedIds).toEqual(rest.map((item) => item.id))
   })
 })

@@ -1252,6 +1252,24 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   gap: 4px;
 }
 
+/* 构成卡片每行都可点：整行打开与行金额同口径的下钻。 */
+.mb-rp-compare-row.is-interactive {
+  width: 100%;
+  margin: 0 calc(-1 * var(--mb-s-1));
+  padding: 2px var(--mb-s-1);
+  border: 0;
+  border-radius: var(--mb-radius-xs);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-rp-compare-row.is-interactive:hover,
+.mb-rp-compare-row.is-interactive:focus-visible {
+  background: var(--mb-color-surface-hover);
+}
+
 .mb-rp-compare-row-head {
   display: flex;
   align-items: baseline;
