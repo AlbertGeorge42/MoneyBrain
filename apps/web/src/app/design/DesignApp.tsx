@@ -15,6 +15,7 @@ import { OverviewPage } from '@/features/overview/OverviewPage'
 import { QuickEntry } from '@/features/overview/QuickEntry'
 import { TransactionDetail } from '@/features/overview/TransactionDetail'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
+import { ReportsPage } from '@/features/reports/ReportsPage'
 import type { LedgerTransaction } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
@@ -217,10 +218,12 @@ function PreviewBody({
   const [toast, setToast] = useState<string | null>(null)
   const [batchMode, setBatchMode] = useState(false)
   const [displayOpen, setDisplayOpen] = useState(false)
+  const [reportSettingsOpen, setReportSettingsOpen] = useState(false)
 
   useEffect(() => {
     setBatchMode(false)
     setDisplayOpen(false)
+    setReportSettingsOpen(false)
   }, [page])
 
   useEffect(() => {
@@ -262,6 +265,16 @@ function PreviewBody({
         onCreateAccount={createAccount}
         onImport={importLedger}
       />
+    ) : page === 'reports' ? (
+      <ReportsPage
+        device={device}
+        dataState={dataState}
+        settingsOpen={reportSettingsOpen}
+        onSettingsToggle={() => setReportSettingsOpen((open) => !open)}
+        onRetry={retry}
+        onImport={importLedger}
+        onViewFlow={() => onPage('transactions')}
+      />
     ) : (
       <PlaceholderPage
         device={device}
@@ -289,6 +302,15 @@ function PreviewBody({
             onClick={() => setDisplayOpen((open) => !open)}
           >
             显示
+          </button>
+        ) : page === 'reports' ? (
+          <button
+            type="button"
+            className="mb-rp-head-action"
+            aria-expanded={reportSettingsOpen}
+            onClick={() => setReportSettingsOpen((open) => !open)}
+          >
+            设置
           </button>
         ) : undefined
       }

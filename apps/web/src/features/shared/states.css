@@ -173,6 +173,14 @@
   height: calc(var(--mb-s-6) * 6 + var(--mb-s-5));
 }
 
+.mb-skeleton-chart.is-wide {
+  height: calc(var(--mb-s-6) * 8);
+}
+
+.mb-skeleton-metrics {
+  height: calc(var(--mb-s-6) * 3 + var(--mb-s-2));
+}
+
 .mb-visually-hidden {
   position: absolute;
   width: var(--mb-border-width);

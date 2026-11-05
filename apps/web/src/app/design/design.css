@@ -164,6 +164,12 @@
   height: 100%;
 }
 
+/* 预览壳内的 Drawer 用 withinPortal=false；默认 inset 会带上页面内边距偏移，
+   显式归零后：桌面贴视口右缘，移动贴手机屏幕。 */
+.mb-hf-root .mantine-Drawer-inner {
+  inset: 0;
+}
+
 /* ===== 占位页 ===== */
 
 .mb-hf-placeholder {
