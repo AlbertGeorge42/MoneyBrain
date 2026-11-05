@@ -90,16 +90,16 @@
 
 **主卡专用（HF 批次 1，6 项）**
 
-主卡是深色反色面，语义色需按底派生。涨跌色不得再用强调填充色；暗色主卡底色比普通卡片高一档。
+主卡是**最高层级卡片**，**不再常驻深底**：浅色用 `surface-raised`（与普通卡片同底，靠整行宽度、40px 数字与排版做焦点），暗色底色比普通卡片高一档（`surface-raised` → `#1D2226`）并加 1px 高光边。涨跌色直接取文字档财务语义色；浅色 `expense-display` 对白底仅 4.16，只用于 ≥18.66px 粗的大号金额，12px chip 必须用 `expense`。
 
 | Token | 浅色（默认） | 暗色 | 角色 |
 |---|---|---|---|
-| `--mb-color-hero-bg` | `#14161A` | `#1D2226` | 主卡底（暗色 = surface-hover 一档） |
-| `--mb-color-hero-ink` | `#F7FBEF` | `#ECEEEF` | 主卡主文字 |
-| `--mb-color-hero-muted` | `#D5D7D2` | `#9CA3A8` | 主卡标签 / 辅助文字 |
-| `--mb-color-hero-line` | `rgba(255,255,255,.14)` | `rgba(255,255,255,.10)` | 主卡分隔线 / 1px 高光边 |
-| `--mb-color-hero-pos` | `color-mix(in srgb, income 45%, hero-ink)` | `color-mix(in srgb, income 80%, hero-ink)` | 主卡正向涨跌（派生自 `income`） |
-| `--mb-color-hero-neg` | `color-mix(in srgb, expense-display 45%, hero-ink)` | `color-mix(in srgb, expense-display 80%, hero-ink)` | 主卡负向涨跌（派生自 `expense-display`） |
+| `--mb-color-hero-bg` | `surface-raised`（`#FFFFFF`） | `#1D2226` | 主卡底（暗色 = 比 `surface-raised` 高一档） |
+| `--mb-color-hero-ink` | `text-primary`（`#14161A`） | `#ECEEEF` | 主卡主文字 |
+| `--mb-color-hero-muted` | `text-secondary`（`#565A60`） | `#9CA3A8` | 主卡标签 / 辅助文字 |
+| `--mb-color-hero-line` | `border`（`#DFE1DD`） | `rgba(255,255,255,.10)` | 主卡分隔线 / 暗色 1px 高光边 |
+| `--mb-color-hero-pos` | `income`（`#1B7A48`） | `income`（`#4ADE80`） | 主卡正向涨跌（直接取 `income`） |
+| `--mb-color-hero-neg` | `expense`（`#A64D56`） | `expense-display`（`#F0A4AB`） | 主卡负向涨跌（浅色取文字档 `expense`，暗色取 `expense-display`） |
 
 ### 2.2 Mantine 色阶（四条 10 档）
 
@@ -180,6 +180,7 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 |---|---|---|---|
 | `on-accent-fill` on `accent-fill` | 12.74 | 12.74 | ✓ |
 | `accent` on `accent-soft`（选中） | 5.44 | 10.43 | ✓ |
+| 主卡 ink / muted / pos / neg on `hero-bg` | 17.9 / 6.9 / 4.6 / 4.7 | 13.9 / 6.3 / 9.3 / 8.1 | ✓（浅色主卡为白底卡片） |
 | `accent-fill` vs 页面 | **1.39** | 12.74 | 浅色必须 1px `#356B0C` 描边（见开发手册 §2.3） |
 | `danger-solid` vs 页面 | 11.25 | **1.58** | 暗色实心危险块需 1px 描边 |
 | `danger` vs `expense` 亮度比 | 3.0–3.9× | 2.2× | 可靠明度 + 场景 + 图标/文案分离 |
@@ -312,9 +313,9 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 暗色靠「顶亮线 + 大黑晕」表达层次，不额外加边框。上面的 `rgba()` 只允许出现在
 token 定义文件（生成 CSS）；业务代码写 `var(--mb-sh-*)`。
 
-HF 批次 1 起，暗色卡片**移除边框**，只用上述阴影与底色分层；主卡底色取
-`--mb-color-hero-bg`（暗色 `#1D2226`，比 `surface-raised` 高一档）+ 1px `hero-line` 高光边，
-保证与普通卡片层级可辨。
+HF 批次 1 起，暗色卡片**移除边框**，只用上述阴影与底色分层。
+主卡按主题切换层级：**浅色 = 普通卡片同款**（`surface-raised` + `border` + `--mb-sh-1`，靠整行宽度与字号做最高层级），
+**暗色 = 比 `surface-raised` 高一档**（`#1D2226`）+ 1px `hero-line` 高光边，保证与普通卡片可辨。
 
 ---
 
@@ -387,6 +388,7 @@ Linux 落 system-ui / 等宽默认。若要求跨平台一致，需要先引入�
 | 危险动作 | `--mb-color-danger` + 图标 + 文案 + 二次确认 | 普通提示、警告 |
 | 分隔线 | `--mb-color-border` | `border-strong`（后者用于输入边框） |
 | 卡片 | `--mb-color-surface-raised` + `border` + `--mb-sh-1` | 纯白 + 纯灰边框 |
+| 最高层级主卡 | 浅色同卡片（`surface-raised` + `border` + `sh-1`）；暗色 `hero-bg` 高一档 + 1px `hero-line` | 浅色深底反白（破坏主题一致性） |
 | 填充按钮上的文字 | `--mb-color-on-accent-fill`（`#0D1005`） | `#FFF` |
 | 危险实心上的文字 | `--mb-color-on-danger` | `#FFF` |
 | 遮罩 | `--mb-color-surface-overlay` | 裸 `rgba(0,0,0,.x)`（不随主题） |
