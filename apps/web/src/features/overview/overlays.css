@@ -1,0 +1,287 @@
+/* 浮层：记账、交易详情。Modal / Drawer 的结构类名来自 Mantine，视觉值全部走 --mb-*。 */
+
+.mb-overlay {
+  background: var(--mb-color-surface-overlay);
+}
+
+.mb-modal {
+  width: var(--mb-modal-w);
+  max-width: calc(100vw - var(--mb-s-6));
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-lg);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-3);
+}
+
+.mb-sheet {
+  max-height: calc(var(--mb-mobile-h) - var(--mb-s-7));
+  border-top-left-radius: var(--mb-radius-lg);
+  border-top-right-radius: var(--mb-radius-lg);
+  background: var(--mb-color-surface-raised);
+}
+
+.mb-overlay-head {
+  padding: var(--mb-s-4) var(--mb-s-5) 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.mb-overlay-title-wrap {
+  display: block;
+}
+
+.mb-overlay-title-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--mb-s-1) / 2);
+}
+
+.mb-overlay-title {
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-4);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-overlay-sub {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-overlay-body {
+  padding: var(--mb-s-4) var(--mb-s-5) var(--mb-s-5);
+}
+
+.mb-sheet .mb-overlay-head {
+  padding: var(--mb-s-3) var(--mb-page-pad-mobile) 0;
+}
+
+.mb-sheet .mb-overlay-body {
+  padding: var(--mb-s-3) var(--mb-page-pad-mobile)
+    calc(var(--mb-s-5) + env(safe-area-inset-bottom));
+}
+
+.mb-overlay-close {
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-4);
+}
+
+.mb-seg {
+  padding: var(--mb-s-1);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-seg label {
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-1);
+}
+
+.mb-seg label[data-active] {
+  color: var(--mb-color-accent);
+  font-weight: 600;
+}
+
+.mb-seg .mantine-SegmentedControl-indicator {
+  border-radius: var(--mb-radius-xs);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+}
+
+.mb-entry-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mb-field-label {
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+}
+
+.mb-input {
+  min-height: var(--mb-control-h);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  font-size: var(--mb-fs-2);
+}
+
+.mb-input:focus,
+.mb-input:focus-within {
+  border-color: var(--mb-color-accent);
+  box-shadow: 0 0 0 var(--mb-s-1) var(--mb-color-accent-soft);
+}
+
+.mb-currency {
+  font-family: var(--mb-font-num);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-2);
+}
+
+.mb-chip {
+  min-height: calc(var(--mb-control-h) - var(--mb-s-1));
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-chip:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-chip[aria-pressed='true'] {
+  border-color: var(--mb-color-accent-fill);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  font-weight: 600;
+}
+
+.mb-entry-hint {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+}
+
+/* ===== 交易详情 ===== */
+
+.mb-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-4);
+}
+
+.mb-detail-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  padding-bottom: var(--mb-s-4);
+  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+}
+
+.mb-detail-amount {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-5);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-detail-amount.is-income {
+  color: var(--mb-color-income);
+}
+
+.mb-detail-amount.is-expense {
+  color: var(--mb-color-expense);
+}
+
+.mb-detail-amount.is-transfer {
+  color: var(--mb-color-transfer);
+}
+
+.mb-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mb-s-2);
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-detail-badge {
+  padding: var(--mb-s-1) var(--mb-s-2);
+  border-radius: var(--mb-radius-pill);
+  font-size: var(--mb-fs-0);
+  font-weight: 600;
+}
+
+.mb-detail-badge.is-income {
+  background: var(--mb-color-income-bg);
+  color: var(--mb-color-income);
+}
+
+.mb-detail-badge.is-expense {
+  background: var(--mb-color-expense-bg);
+  color: var(--mb-color-expense);
+}
+
+.mb-detail-badge.is-transfer {
+  background: var(--mb-color-transfer-bg);
+  color: var(--mb-color-transfer);
+}
+
+.mb-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+  margin: 0;
+}
+
+.mb-detail-list > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mb-s-4);
+  padding-bottom: var(--mb-s-2);
+  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+}
+
+.mb-detail-list dt {
+  flex: none;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-detail-list dd {
+  margin: 0;
+  text-align: right;
+  font-size: var(--mb-fs-2);
+  color: var(--mb-color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.mb-detail-category {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+}
+
+.mb-detail-code {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-1) !important;
+  color: var(--mb-color-text-tertiary) !important;
+}
+
+.mb-detail-note {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}

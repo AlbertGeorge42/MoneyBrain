@@ -1,0 +1,285 @@
+/* HF 预览壳：工具栏、画布、手机框、提示与按钮。颜色 / 字号 / 圆角 / 阴影全部走 --mb-* token。 */
+
+.mb-hf-root {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--mb-color-surface);
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== 预览工具栏 ===== */
+
+.mb-hf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mb-s-3) var(--mb-s-5);
+  flex: none;
+  min-height: calc(var(--mb-control-h) + var(--mb-s-4));
+  padding: var(--mb-s-2) var(--mb-s-5);
+  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  background: var(--mb-color-surface-raised);
+}
+
+.mb-hf-toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+}
+
+.mb-hf-toolbar-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--mb-touch) - var(--mb-s-3));
+  height: calc(var(--mb-touch) - var(--mb-s-3));
+  border-radius: var(--mb-radius-xs);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-0);
+  font-weight: 600;
+}
+
+.mb-hf-toolbar-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--mb-s-1) / 2);
+}
+
+.mb-hf-toolbar-name {
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-2);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-hf-toolbar-meta {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-hf-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mb-s-2) var(--mb-s-4);
+}
+
+.mb-hf-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+}
+
+.mb-hf-toolbar-label {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-hf-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--mb-s-1) / 2);
+  padding: calc(var(--mb-s-1) / 2);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-hf-choice {
+  min-height: calc(var(--mb-control-h) - var(--mb-s-2));
+  padding: 0 var(--mb-s-3);
+  border: 0;
+  border-radius: var(--mb-radius-xs);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-hf-choice:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-hf-choice.is-active {
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-accent);
+  font-weight: 600;
+  box-shadow: var(--mb-sh-1);
+}
+
+.mb-hf-toolbar-hint {
+  margin-left: auto;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+/* ===== 画布 ===== */
+
+.mb-hf-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  transform: translateZ(0);
+}
+
+.mb-hf-canvas.is-mobile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mb-s-5);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-hf-desktop {
+  position: relative;
+  min-height: 100%;
+}
+
+.mb-hf-phone {
+  position: relative;
+  flex: none;
+  width: min(var(--mb-mobile-w), calc(100vw - var(--mb-s-6)));
+  height: min(var(--mb-mobile-h), calc(100dvh - var(--mb-s-7) * 3));
+  overflow: hidden;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-lg);
+  background: var(--mb-color-surface);
+  box-shadow: var(--mb-sh-2);
+  transform: translateZ(0);
+}
+
+.mb-hf-phone-screen {
+  position: relative;
+  height: 100%;
+}
+
+/* ===== 占位页 ===== */
+
+.mb-hf-placeholder {
+  align-items: flex-start;
+}
+
+.mb-hf-placeholder-copy {
+  margin: 0;
+  max-width: calc(var(--mb-s-7) * 9);
+  font-size: var(--mb-fs-2);
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-secondary);
+}
+
+/* ===== 轻提示 ===== */
+
+.mb-hf-toast {
+  position: absolute;
+  left: 50%;
+  bottom: var(--mb-s-5);
+  z-index: var(--mb-z-fab);
+  padding: var(--mb-s-2) var(--mb-s-4);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-chart-tooltip-bg);
+  color: var(--mb-color-chart-tooltip-ink);
+  font-size: var(--mb-fs-1);
+  box-shadow: var(--mb-sh-2);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* ===== 通用按钮（Mantine Button 与原生 button 共用） ===== */
+
+.mb-primary-btn {
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-4);
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-primary-btn:hover {
+  background: var(--mb-color-accent-fill-hover);
+}
+
+.mb-primary-btn:active {
+  background: var(--mb-color-accent-fill-pressed);
+}
+
+.mb-secondary-btn {
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-4);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), border-color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-secondary-btn:hover {
+  border-color: var(--mb-color-border-strong);
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-primary-btn.mantine-Button-root,
+.mb-secondary-btn.mantine-Button-root {
+  padding: 0 var(--mb-s-4);
+  font-size: var(--mb-fs-1);
+}
+
+.mb-primary-btn.mantine-Button-root {
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+}
+
+.mb-primary-btn.mantine-Button-root:hover {
+  background: var(--mb-color-accent-fill-hover);
+}
+
+.mb-primary-btn.mantine-Button-root:active {
+  background: var(--mb-color-accent-fill-pressed);
+}
+
+.mb-secondary-btn.mantine-Button-root {
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-secondary-btn.mantine-Button-root:hover {
+  border-color: var(--mb-color-border-strong);
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-hf-choice:focus-visible,
+.mb-primary-btn:focus-visible,
+.mb-secondary-btn:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-hf-choice,
+  .mb-primary-btn,
+  .mb-secondary-btn {
+    transition: none;
+  }
+}

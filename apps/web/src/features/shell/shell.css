@@ -1,0 +1,344 @@
+/* 应用壳：PC 侧栏 + 移动底部导航 / FAB。所有值走 --mb-* token。 */
+
+.mb-desktop-shell {
+  display: grid;
+  grid-template-columns: var(--mb-sidebar-w) minmax(0, 1fr);
+  min-height: 100%;
+  background: var(--mb-color-surface);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-5);
+  min-height: 100%;
+  padding: var(--mb-s-5) var(--mb-s-4);
+  background: var(--mb-color-surface-sunken);
+  border-right: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+}
+
+.mb-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  padding: 0 var(--mb-s-1);
+}
+
+.mb-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--mb-touch) - var(--mb-s-3));
+  height: calc(var(--mb-touch) - var(--mb-s-3));
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.mb-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--mb-s-1) / 2);
+}
+
+.mb-brand-name {
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-brand-tag {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+}
+
+.mb-side-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  min-height: var(--mb-touch);
+  padding: var(--mb-s-2) var(--mb-s-3);
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-side-nav-item:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-side-nav-item.is-active {
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+  font-weight: 600;
+}
+
+.mb-side-nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--mb-s-3);
+  bottom: var(--mb-s-3);
+  width: calc(var(--mb-border-width) * 3);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-accent);
+}
+
+.mb-kbd {
+  margin-left: auto;
+  padding: 0 var(--mb-s-1);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-xs);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  font-weight: 400;
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-side-add {
+  margin-top: auto;
+  width: 100%;
+}
+
+.mb-side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--mb-s-1) / 2);
+  padding-top: var(--mb-s-4);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+}
+
+.mb-side-foot-label {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-side-foot-value {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-4);
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-side-foot-value.is-positive {
+  color: var(--mb-color-income);
+}
+
+.mb-side-foot-value.is-negative {
+  color: var(--mb-color-expense);
+}
+
+.mb-side-foot-value.is-muted {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-side-foot-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dot {
+  width: var(--mb-s-2);
+  height: var(--mb-s-2);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-text-tertiary);
+}
+
+.mb-dot.is-positive {
+  background: var(--mb-color-income);
+}
+
+.mb-dot.is-negative {
+  background: var(--mb-color-expense);
+}
+
+.mb-main {
+  min-width: 0;
+  background: var(--mb-color-surface);
+}
+
+.mb-content {
+  width: 100%;
+  max-width: var(--mb-content-max);
+  margin: 0 auto;
+  padding: var(--mb-page-pad);
+}
+
+/* ===== 移动应用壳 ===== */
+
+.mb-mobile-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--mb-color-surface);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-mobile-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--mb-s-6);
+  padding: 0 var(--mb-s-5);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-mobile-status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+}
+
+.mb-mobile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--mb-s-2) var(--mb-page-pad-mobile);
+}
+
+.mb-mobile-title {
+  margin: 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-4);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-mobile-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+}
+
+.mb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-icon-btn:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-mobile-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-section-gap);
+  padding: var(--mb-s-2) var(--mb-page-pad-mobile)
+    calc(var(--mb-touch) + var(--mb-s-7) + var(--mb-s-5) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+.mb-mobile-nav {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-height: calc(var(--mb-touch) + var(--mb-s-4));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--mb-color-surface-raised);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+}
+
+.mb-mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--mb-s-1) / 2);
+  min-height: var(--mb-touch);
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+}
+
+.mb-mobile-nav-item.is-active {
+  color: var(--mb-color-accent);
+  font-weight: 600;
+}
+
+.mb-mobile-fab {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--mb-touch) + var(--mb-s-5) + env(safe-area-inset-bottom));
+  z-index: var(--mb-z-fab);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--mb-touch) + var(--mb-s-2));
+  height: calc(var(--mb-touch) + var(--mb-s-2));
+  border: calc(var(--mb-border-width) * 3) var(--mb-border-style) var(--mb-color-surface);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  box-shadow: var(--mb-sh-2);
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), transform var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-mobile-fab:hover {
+  background: var(--mb-color-accent-fill-hover);
+}
+
+.mb-mobile-fab:active {
+  background: var(--mb-color-accent-fill-pressed);
+  transform: translateX(-50%) scale(0.96);
+}
+
+.mb-side-nav-item:focus-visible,
+.mb-mobile-nav-item:focus-visible,
+.mb-icon-btn:focus-visible,
+.mb-mobile-fab:focus-visible,
+.mb-primary-btn:focus-visible,
+.mb-secondary-btn:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-side-nav-item,
+  .mb-icon-btn,
+  .mb-mobile-fab {
+    transition: none;
+  }
+}

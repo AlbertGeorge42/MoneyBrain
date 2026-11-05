@@ -1,0 +1,186 @@
+/* 四态：冷启动、错误、加载骨架。全部使用 --mb-* token。 */
+
+.mb-coldstart,
+.mb-errorpanel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mb-s-3);
+  padding: calc(var(--mb-card-pad) + var(--mb-s-3));
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+}
+
+.mb-coldstart-mark,
+.mb-errorpanel-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-s-7);
+  height: var(--mb-s-7);
+  border-radius: var(--mb-radius-pill);
+}
+
+.mb-coldstart-mark {
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+}
+
+.mb-errorpanel {
+  border-left: calc(var(--mb-border-width) * 3) var(--mb-border-style) var(--mb-color-danger-solid);
+}
+
+.mb-errorpanel-mark {
+  background: var(--mb-color-danger-solid);
+  color: var(--mb-color-on-danger);
+  box-shadow: 0 0 0 var(--mb-s-1) var(--mb-color-danger-bg);
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-4);
+  font-weight: 600;
+}
+
+.mb-coldstart-title,
+.mb-errorpanel-title {
+  margin: 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-4);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-coldstart-desc,
+.mb-errorpanel-desc {
+  margin: 0;
+  max-width: calc(var(--mb-s-7) * 9);
+  font-size: var(--mb-fs-2);
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-coldstart-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  margin: var(--mb-s-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mb-coldstart-steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-coldstart-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-s-5);
+  height: var(--mb-s-5);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-coldstart-actions,
+.mb-errorpanel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-2);
+  margin-top: var(--mb-s-2);
+}
+
+.mb-coldstart-note {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-errorpanel-code {
+  margin: 0;
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-danger);
+}
+
+.mb-skeleton-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-section-gap);
+}
+
+.mb-skeleton {
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-skeleton);
+  animation: mb-pulse calc(var(--mb-dur-2) * 5) var(--mb-ease) infinite alternate;
+}
+
+.mb-skeleton-hero {
+  height: calc(var(--mb-s-7) * 4 + var(--mb-s-5));
+}
+
+.mb-skeleton-hero.is-mobile {
+  height: calc(var(--mb-s-7) * 2 + var(--mb-s-5));
+}
+
+.mb-skeleton-row,
+.mb-skeleton-mid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mb-section-gap);
+}
+
+.mb-skeleton-snap {
+  height: calc(var(--mb-s-7) + var(--mb-s-5));
+}
+
+.mb-skeleton-entry {
+  height: calc(var(--mb-s-7) + var(--mb-s-3));
+}
+
+.mb-skeleton-card {
+  height: calc(var(--mb-s-7) * 3);
+}
+
+.mb-skeleton-card.is-tall {
+  height: calc(var(--mb-s-6) * 6);
+}
+
+.mb-skeleton-chart {
+  height: calc(var(--mb-s-6) * 6 + var(--mb-s-5));
+}
+
+.mb-visually-hidden {
+  position: absolute;
+  width: var(--mb-border-width);
+  height: var(--mb-border-width);
+  padding: 0;
+  margin: calc(var(--mb-border-width) * -1);
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes mb-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-skeleton {
+    animation: none;
+  }
+}

@@ -39,6 +39,8 @@ const DEAD_VAR_ALLOWLIST: Record<string, string> = {
   '--mb-color-neutral': '存量财务色，当前无中性数字显示场景',
   '--mb-color-cash': '存量财务色，现金流色板暂未引用',
   '--mb-color-non-cash': '存量财务色，现金流色板暂未引用',
+  // HF token：design-tokens 全量保留；hero 反白文字改用 --mb-color-hero-ink
+  '--mb-color-text-inverse': 'design-tokens 全量保留，当前无其他反色文字场景',
 }
 
 function toPosix(path: string): string {

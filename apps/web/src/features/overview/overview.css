@@ -1,0 +1,818 @@
+/* 总览：主卡、账户入口、两栏、走势、最近流水、预算。全部使用 --mb-* token。 */
+
+.mb-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--mb-s-1) / 2);
+}
+
+.mb-page-title {
+  margin: 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-5);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+  letter-spacing: -0.01em;
+}
+
+.mb-page-sub,
+.mb-m-page-meta {
+  margin: 0;
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-m-page-meta {
+  font-size: var(--mb-fs-0);
+}
+
+/* ===== 净资产主卡 ===== */
+
+.mb-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+  padding: calc(var(--mb-card-pad) + var(--mb-s-2));
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-hero-bg);
+  color: var(--mb-color-hero-ink);
+  box-shadow: var(--mb-sh-1);
+}
+
+.mb-hero-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+}
+
+.mb-hero-label {
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-hero-muted);
+}
+
+.mb-hero-change {
+  padding: var(--mb-s-1) var(--mb-s-2);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
+  border-radius: var(--mb-radius-pill);
+  background: color-mix(in srgb, var(--mb-color-accent-fill) 18%, transparent);
+  color: var(--mb-color-accent-fill);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-hero-change.is-neg {
+  color: var(--mb-color-hero-neg);
+  background: color-mix(in srgb, var(--mb-color-hero-neg) 16%, transparent);
+}
+
+.mb-hero-worth {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-6);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-hero-meta {
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-hero-muted);
+}
+
+.mb-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--mb-s-4);
+  margin-top: var(--mb-s-2);
+  padding-top: var(--mb-s-4);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
+}
+
+.mb-hero-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  min-width: 0;
+}
+
+.mb-hero-cell + .mb-hero-cell {
+  padding-left: var(--mb-s-4);
+  border-left: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
+}
+
+.mb-hero-cell-label {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-hero-muted);
+}
+
+.mb-hero-cell-value {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-4);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-hero-cell-value.is-pos,
+.mb-hero-delta.is-pos,
+.mb-hero-inline strong.is-pos {
+  color: var(--mb-color-hero-pos);
+}
+
+.mb-hero-cell-value.is-neg,
+.mb-hero-delta.is-neg,
+.mb-hero-inline strong.is-neg {
+  color: var(--mb-color-hero-neg);
+}
+
+.mb-hero-delta,
+.mb-hero-foot {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--mb-s-1) / 2);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-hero-muted);
+}
+
+.mb-hero.is-mobile {
+  gap: var(--mb-s-2);
+  padding: var(--mb-card-pad);
+}
+
+.mb-hero.is-mobile .mb-hero-worth {
+  font-size: var(--mb-fs-5);
+}
+
+.mb-hero-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-2) var(--mb-s-4);
+  margin-top: var(--mb-s-1);
+  padding-top: var(--mb-s-3);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-hero-muted);
+}
+
+.mb-hero-inline strong {
+  font-family: var(--mb-font-num);
+  font-weight: 600;
+}
+
+/* ===== 移动快照卡 ===== */
+
+.mb-m-snapshots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mb-s-2);
+}
+
+.mb-snapshot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+  min-width: 0;
+}
+
+.mb-snapshot-label {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-snapshot-value {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-4);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-snapshot-value.is-income {
+  color: var(--mb-color-income);
+}
+
+.mb-snapshot-value.is-expense {
+  color: var(--mb-color-expense);
+}
+
+.mb-snapshot .mb-hero-delta {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-snapshot .mb-hero-delta.is-pos {
+  color: var(--mb-color-income);
+}
+
+.mb-snapshot .mb-hero-delta.is-neg {
+  color: var(--mb-color-expense);
+}
+
+/* ===== 账户入口 ===== */
+
+.mb-account-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  width: 100%;
+  padding: var(--mb-s-3) var(--mb-s-4);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--mb-sh-1);
+  transition: background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-account-entry:hover {
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-account-entry:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+.mb-account-ledger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: calc(var(--mb-touch) - var(--mb-s-2));
+  height: calc(var(--mb-touch) - var(--mb-s-2));
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+}
+
+.mb-account-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--mb-s-1) / 2);
+  min-width: 0;
+}
+
+.mb-account-title {
+  font-size: var(--mb-fs-2);
+  font-weight: 600;
+}
+
+.mb-account-meta {
+  overflow: hidden;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-account-stack {
+  display: inline-flex;
+  margin-left: auto;
+  padding-left: var(--mb-s-2);
+}
+
+.mb-account-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-s-5);
+  height: var(--mb-s-5);
+  margin-left: calc(var(--mb-s-1) * -1);
+  border: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-surface-raised);
+  border-radius: var(--mb-radius-pill);
+  color: var(--mb-color-surface-raised);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-account-chevron {
+  flex: none;
+  color: var(--mb-color-text-tertiary);
+}
+
+/* ===== 卡片与栏头 ===== */
+
+.mb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+  min-width: 0;
+  padding: var(--mb-card-pad);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+}
+
+.mb-dash-mid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: var(--mb-section-gap);
+  align-items: stretch;
+}
+
+.mb-sec-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+}
+
+.mb-sec-title {
+  margin: 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-sec-desc {
+  margin: calc(var(--mb-s-1) / 2) 0 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-1);
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-accent);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mb-link-btn:hover {
+  text-decoration: underline;
+}
+
+.mb-card-foot {
+  align-self: flex-start;
+  margin-top: auto;
+  padding-top: var(--mb-s-2);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  width: 100%;
+  justify-content: space-between;
+}
+
+.mb-empty-inline {
+  margin: 0;
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-tertiary);
+}
+
+/* ===== 最近流水固定表 ===== */
+
+.mb-table-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.mb-recent-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.mb-col-main {
+  width: calc(var(--mb-tbl-w-main) * 100% / var(--mb-tbl-w-total));
+}
+
+.mb-col-mid {
+  width: calc(var(--mb-tbl-w-mid) * 100% / var(--mb-tbl-w-total));
+}
+
+.mb-col-account {
+  width: calc(var(--mb-tbl-w-account) * 100% / var(--mb-tbl-w-total));
+}
+
+.mb-col-num {
+  width: calc(var(--mb-tbl-w-num) * 100% / var(--mb-tbl-w-total));
+}
+
+.mb-recent-table th {
+  padding: var(--mb-tbl-py) var(--mb-s-2);
+  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+  text-align: left;
+}
+
+.mb-recent-table th.is-num,
+.mb-recent-table td.is-num {
+  text-align: right;
+}
+
+.mb-day-row td {
+  height: var(--mb-s-6);
+  padding: var(--mb-s-1) var(--mb-s-2);
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+}
+
+.mb-tx-table-row {
+  height: var(--mb-tbl-row-h);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-tx-table-row td {
+  height: var(--mb-tbl-row-h);
+  padding: var(--mb-tbl-py) var(--mb-s-2);
+  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  font-size: var(--mb-fs-1);
+  vertical-align: middle;
+}
+
+.mb-tx-table-row:hover td,
+.mb-tx-table-row:focus-visible td {
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-tx-table-row:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * -2);
+}
+
+.mb-cat-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+.mb-cat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: calc(var(--mb-touch) - var(--mb-s-4));
+  height: calc(var(--mb-touch) - var(--mb-s-4));
+  border-radius: var(--mb-radius-xs);
+}
+
+.mb-cat-icon.is-md {
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+  border-radius: var(--mb-radius-sm);
+}
+
+.mb-cat-icon.mb-tone-cat-1 {
+  background: color-mix(in srgb, var(--mb-color-cat-1) 14%, var(--mb-color-surface-raised));
+  color: var(--mb-color-cat-1);
+}
+
+.mb-cat-icon.mb-tone-cat-2 {
+  background: color-mix(in srgb, var(--mb-color-cat-2) 14%, var(--mb-color-surface-raised));
+  color: var(--mb-color-cat-2);
+}
+
+.mb-cat-icon.mb-tone-cat-3 {
+  background: color-mix(in srgb, var(--mb-color-cat-3) 14%, var(--mb-color-surface-raised));
+  color: var(--mb-color-cat-3);
+}
+
+.mb-cat-icon.mb-tone-cat-4 {
+  background: color-mix(in srgb, var(--mb-color-cat-4) 14%, var(--mb-color-surface-raised));
+  color: var(--mb-color-cat-4);
+}
+
+.mb-cat-icon.mb-tone-cat-5 {
+  background: color-mix(in srgb, var(--mb-color-cat-5) 14%, var(--mb-color-surface-raised));
+  color: var(--mb-color-cat-5);
+}
+
+.mb-cat-icon.mb-tone-cat-6 {
+  background: color-mix(in srgb, var(--mb-color-cat-6) 14%, var(--mb-color-surface-raised));
+  color: var(--mb-color-cat-6);
+}
+
+.mb-account-dot.mb-tone-cat-1 {
+  background: var(--mb-color-cat-1);
+}
+
+.mb-account-dot.mb-tone-cat-2 {
+  background: var(--mb-color-cat-2);
+}
+
+.mb-account-dot.mb-tone-cat-3 {
+  background: var(--mb-color-cat-3);
+}
+
+.mb-ellipsis {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-ellipsis:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+  border-radius: var(--mb-radius-xs);
+}
+
+.mb-amount,
+.mb-m-tx-amount {
+  font-family: var(--mb-font-num);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mb-amount.is-income,
+.mb-m-tx-amount.is-income {
+  color: var(--mb-color-income);
+}
+
+.mb-amount.is-expense,
+.mb-m-tx-amount.is-expense {
+  color: var(--mb-color-expense);
+}
+
+.mb-amount.is-transfer,
+.mb-m-tx-amount.is-transfer {
+  color: var(--mb-color-transfer);
+}
+
+/* ===== 移动流水卡行 ===== */
+
+.mb-m-tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+}
+
+.mb-m-day {
+  display: flex;
+  flex-direction: column;
+}
+
+.mb-m-day-label {
+  padding: var(--mb-s-1) 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+}
+
+.mb-m-tx {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  width: 100%;
+  min-height: calc(var(--mb-touch) + var(--mb-s-3));
+  padding: var(--mb-row-py) 0;
+  border: 0;
+  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-m-day .mb-m-tx:last-child {
+  border-bottom: 0;
+}
+
+.mb-m-tx-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  min-width: 0;
+}
+
+.mb-m-tx-note,
+.mb-m-tx-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-m-tx-note {
+  font-size: var(--mb-fs-2);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-m-tx-meta {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-m-tx-amount {
+  flex: none;
+  font-size: var(--mb-fs-2);
+  font-weight: 600;
+}
+
+.mb-m-tx:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * -2);
+  border-radius: var(--mb-radius-xs);
+}
+
+/* ===== 预算 ===== */
+
+.mb-budget-badge {
+  flex: none;
+  padding: var(--mb-s-1) var(--mb-s-2);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+  font-size: var(--mb-fs-0);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mb-budget-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-row-gap);
+}
+
+.mb-budget-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+}
+
+.mb-budget-row-head,
+.mb-budget-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+}
+
+.mb-budget-name {
+  font-size: var(--mb-fs-1);
+  font-weight: 500;
+}
+
+.mb-budget-percent {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-budget-row[data-level='warning'] .mb-budget-percent {
+  color: var(--mb-color-cat-4);
+}
+
+.mb-budget-row[data-level='over'] .mb-budget-percent {
+  color: var(--mb-color-expense);
+}
+
+.mb-budget-progress {
+  width: 100%;
+  height: var(--mb-s-2);
+  border: 0;
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-sunken);
+  overflow: hidden;
+  appearance: none;
+}
+
+.mb-budget-progress::-webkit-progress-bar {
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-budget-progress::-webkit-progress-value {
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-accent-fill);
+}
+
+.mb-budget-progress[data-level='warning']::-webkit-progress-value {
+  background: var(--mb-color-cat-4);
+}
+
+.mb-budget-progress[data-level='over']::-webkit-progress-value {
+  background: var(--mb-color-expense-display);
+}
+
+.mb-budget-progress::-moz-progress-bar {
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-accent-fill);
+}
+
+.mb-budget-progress[data-level='warning']::-moz-progress-bar {
+  background: var(--mb-color-cat-4);
+}
+
+.mb-budget-progress[data-level='over']::-moz-progress-bar {
+  background: var(--mb-color-expense-display);
+}
+
+.mb-budget-meta {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-budget-over {
+  color: var(--mb-color-expense);
+}
+
+/* ===== 走势图 ===== */
+
+.mb-trend-card .mb-trend-delta {
+  flex: none;
+  padding: var(--mb-s-1) var(--mb-s-2);
+  border-radius: var(--mb-radius-pill);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-trend-card .mb-trend-delta.is-positive {
+  background: var(--mb-color-income-bg);
+  color: var(--mb-color-chart-annot-pos);
+}
+
+.mb-trend-card .mb-trend-delta.is-negative {
+  background: var(--mb-color-expense-bg);
+  color: var(--mb-color-chart-annot-neg);
+}
+
+.mb-chart-body {
+  height: calc(var(--mb-s-7) * 4);
+}
+
+.mb-chart-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mb-chart-grid line {
+  stroke: var(--mb-color-chart-grid);
+  stroke-width: var(--mb-border-width);
+}
+
+.mb-chart-grid text,
+.mb-chart-month {
+  fill: var(--mb-color-chart-axis);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-chart-area {
+  fill: color-mix(in srgb, var(--mb-color-accent-fill) 16%, transparent);
+}
+
+.mb-chart-line {
+  fill: none;
+  stroke: var(--mb-color-accent);
+  stroke-width: calc(var(--mb-border-width) * 2.5);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.mb-chart-dot {
+  fill: var(--mb-color-surface-raised);
+  stroke: var(--mb-color-accent);
+  stroke-width: calc(var(--mb-border-width) * 2);
+}
+
+.mb-chart-dot.is-last {
+  fill: var(--mb-color-accent-fill);
+  stroke: var(--mb-color-surface-raised);
+}
+
+.mb-chart-hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.mb-chart-tooltip rect {
+  fill: var(--mb-color-chart-tooltip-bg);
+}
+
+.mb-chart-tooltip-label {
+  fill: var(--mb-color-chart-tooltip-ink);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  opacity: 0.68;
+}
+
+.mb-chart-tooltip-value {
+  fill: var(--mb-color-chart-tooltip-ink);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+}
