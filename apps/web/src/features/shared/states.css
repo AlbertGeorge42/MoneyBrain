@@ -154,6 +154,21 @@
   height: calc(var(--mb-s-6) * 6);
 }
 
+.mb-skeleton-toolbar {
+  height: var(--mb-control-h);
+  border-radius: var(--mb-radius-control);
+}
+
+.mb-skeleton-list {
+  padding: var(--mb-card-pad);
+  gap: var(--mb-s-3);
+}
+
+.mb-skeleton-line {
+  height: var(--mb-tbl-row-h);
+  border-radius: var(--mb-radius-control);
+}
+
 .mb-skeleton-chart {
   height: calc(var(--mb-s-6) * 6 + var(--mb-s-5));
 }

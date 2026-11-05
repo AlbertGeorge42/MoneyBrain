@@ -77,8 +77,29 @@ export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
   )
 }
 
-export function LoadingSkeleton({ device }: { device: DeviceMode }) {
+export function LoadingSkeleton({
+  device,
+  variant = 'overview',
+}: {
+  device: DeviceMode
+  variant?: 'overview' | 'transactions'
+}) {
   const mobile = device === 'mobile'
+
+  if (variant === 'transactions') {
+    return (
+      <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载流水">
+        <div className="mb-skeleton mb-skeleton-toolbar" />
+        <div className="mb-card mb-skeleton-list">
+          {[0, 1, 2, 3, 4, 5].map((row) => (
+            <div key={row} className="mb-skeleton mb-skeleton-line" />
+          ))}
+        </div>
+        <span className="mb-visually-hidden">正在加载流水数据</span>
+      </div>
+    )
+  }
+
   return (
     <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载总览">
       <div className={mobile ? 'mb-skeleton mb-skeleton-hero is-mobile' : 'mb-skeleton mb-skeleton-hero'} />

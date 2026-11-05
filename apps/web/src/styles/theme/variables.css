@@ -43,6 +43,8 @@
 
   /* ===== Z-index ===== */
   --mb-z-mobile-tab: 100;
+  --mb-z-batchbar: 50;
+  --mb-z-toast: 500;
 }
 
 /**
@@ -126,8 +128,7 @@
   --mb-modal-w: 600px;
   --mb-z-fab: 110;
 
-  /* 走势图 / 报表图高度（宽度按容器实测，1 SVG 单位 = 1 CSS px） */
-  --mb-chart-h: 200px;
+  /* 图表高度由 shared/chartLayout 的 CHART_HEIGHT 单一来源提供 */
 
   /* 颜色 — 浅色 */
   --mb-color-surface: #f6f6f4;

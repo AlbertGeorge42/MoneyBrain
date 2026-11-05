@@ -12,6 +12,8 @@ interface AppShellProps {
   device: DeviceMode
   page: ShellPage
   dataState?: DataState
+  hideFab?: boolean
+  headAction?: ReactNode
   onNavigate: (page: ShellPage) => void
   onOpenEntry: () => void
   children: ReactNode
@@ -95,7 +97,14 @@ function DesktopShell({
   )
 }
 
-function MobileShell({ page, onNavigate, onOpenEntry, children }: Omit<AppShellProps, 'device'>) {
+function MobileShell({
+  page,
+  hideFab = false,
+  headAction,
+  onNavigate,
+  onOpenEntry,
+  children,
+}: Omit<AppShellProps, 'device' | 'dataState'>) {
   return (
     <div className="mb-mobile-shell">
       <div className="mb-mobile-status" aria-hidden="true">
@@ -108,6 +117,7 @@ function MobileShell({ page, onNavigate, onOpenEntry, children }: Omit<AppShellP
       <header className="mb-mobile-head">
         <h1 className="mb-mobile-title">{shellPageLabel(page)}</h1>
         <div className="mb-mobile-head-actions">
+          {headAction}
           <button
             type="button"
             className="mb-icon-btn"
@@ -145,14 +155,16 @@ function MobileShell({ page, onNavigate, onOpenEntry, children }: Omit<AppShellP
           )
         })}
       </nav>
-      <button
-        type="button"
-        className="mb-mobile-fab"
-        aria-label="记一笔"
-        onClick={onOpenEntry}
-      >
-        <Plus size={22} />
-      </button>
+      {!hideFab && (
+        <button
+          type="button"
+          className="mb-mobile-fab"
+          aria-label="记一笔"
+          onClick={onOpenEntry}
+        >
+          <Plus size={22} />
+        </button>
+      )}
     </div>
   )
 }
@@ -161,13 +173,21 @@ export function AppShell({
   device,
   page,
   dataState = 'normal',
+  hideFab = false,
+  headAction,
   onNavigate,
   onOpenEntry,
   children,
 }: AppShellProps) {
   if (device === 'mobile') {
     return (
-      <MobileShell page={page} onNavigate={onNavigate} onOpenEntry={onOpenEntry}>
+      <MobileShell
+        page={page}
+        hideFab={hideFab}
+        headAction={headAction}
+        onNavigate={onNavigate}
+        onOpenEntry={onOpenEntry}
+      >
         {children}
       </MobileShell>
     )

@@ -14,6 +14,7 @@ import { useLedger } from '@/features/overview/ledgerStore'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import { QuickEntry } from '@/features/overview/QuickEntry'
 import { TransactionDetail } from '@/features/overview/TransactionDetail'
+import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import type { LedgerTransaction } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
@@ -214,6 +215,13 @@ function PreviewBody({
   const [entryOpen, setEntryOpen] = useState(false)
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [batchMode, setBatchMode] = useState(false)
+  const [displayOpen, setDisplayOpen] = useState(false)
+
+  useEffect(() => {
+    setBatchMode(false)
+    setDisplayOpen(false)
+  }, [page])
 
   useEffect(() => {
     if (!toast) return
@@ -242,6 +250,18 @@ function PreviewBody({
         onCreateAccount={createAccount}
         onImport={importLedger}
       />
+    ) : page === 'transactions' ? (
+      <TransactionsPage
+        device={device}
+        dataState={dataState}
+        batchMode={batchMode}
+        onBatchModeChange={setBatchMode}
+        displayOpen={displayOpen}
+        onDisplayToggle={() => setDisplayOpen((open) => !open)}
+        onRetry={retry}
+        onCreateAccount={createAccount}
+        onImport={importLedger}
+      />
     ) : (
       <PlaceholderPage
         device={device}
@@ -259,6 +279,19 @@ function PreviewBody({
       device={device}
       page={page}
       dataState={dataState}
+      hideFab={page === 'transactions' && batchMode}
+      headAction={
+        page === 'transactions' ? (
+          <button
+            type="button"
+            className="mb-tx-head-action"
+            aria-expanded={displayOpen}
+            onClick={() => setDisplayOpen((open) => !open)}
+          >
+            显示
+          </button>
+        ) : undefined
+      }
       onNavigate={onPage}
       onOpenEntry={() => setEntryOpen(true)}
     >

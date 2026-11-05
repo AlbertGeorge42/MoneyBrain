@@ -30,9 +30,6 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
     return () => observer.disconnect()
   }, [])
 
-  const layout = buildChartLayout(device, measuredWidth)
-  const { width: VIEW_W, height: VIEW_H, padL: PAD_L, padR: PAD_R, padT: PAD_T, padB: PAD_B } = layout
-
   const values = points.map((point) => point.value)
   const rawMax = Math.max(...values)
   const rawMin = Math.min(...values)
@@ -40,6 +37,13 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
   const max = rawMax + headroom
   const min = rawMin - headroom
   const span = max - min
+  const axisValues = [max, (max + min) / 2, min]
+  const axisLabelText = axisValues.map((value) => currencyAxisFormatter(value))
+
+  // 先算刻度文字，再按最长刻度反推左侧留白，避免 ¥1,234,567 这类标签越界
+  const layout = buildChartLayout(device, measuredWidth, axisLabelText)
+  const { width: VIEW_W, height: VIEW_H, padL: PAD_L, padR: PAD_R, padT: PAD_T, padB: PAD_B } = layout
+
   const plotW = VIEW_W - PAD_L - PAD_R
   const plotH = VIEW_H - PAD_T - PAD_B
   const baseline = PAD_T + plotH
@@ -59,7 +63,6 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
         100
       : 0
 
-  const axisLabels = [max, (max + min) / 2, min]
   const monthTicks = [0, Math.floor(points.length / 2), points.length - 1]
 
   const hovered = hover === null ? null : points[hover]
@@ -96,18 +99,18 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
         <svg
           className="mb-chart-svg"
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-          preserveAspectRatio="none"
+          height={VIEW_H}
           role="img"
           aria-label="近 12 个月净资产走势，单位元"
         >
           <g className="mb-chart-grid" aria-hidden="true">
-            {axisLabels.map((label, index) => {
+            {axisLabelText.map((label, index) => {
               const y = PAD_T + (plotH * index) / 2
               return (
                 <g key={label + index}>
                   <line x1={PAD_L} y1={y} x2={VIEW_W - PAD_R} y2={y} />
                   <text x={PAD_L - 8} y={y + 4} textAnchor="end">
-                    {currencyAxisFormatter(Math.round(label))}
+                    {label}
                   </text>
                 </g>
               )

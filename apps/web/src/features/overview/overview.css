@@ -766,16 +766,15 @@
   color: var(--mb-color-chart-annot-neg);
 }
 
-/* 1:1 单位 viewBox：高度固定，宽度由 JS 按容器实测写入 viewBox，字号不被缩放 */
+/* 1:1 单位 viewBox：高度由 SVG height 属性（CHART_HEIGHT 单一来源）决定，
+   宽度由 JS 按容器实测写入 viewBox，字号不被缩放 */
 .mb-chart-body {
   width: 100%;
-  height: var(--mb-chart-h);
 }
 
 .mb-chart-svg {
   display: block;
   width: 100%;
-  height: 100%;
   overflow: visible;
 }
 
@@ -791,7 +790,7 @@
   font-size: var(--mb-fs-0);
 }
 
-/* 移动 viewBox 更窄，提一档字号保证渲染后仍 ≥ 12px */
+/* 1:1 单位下渲染字号 = CSS 字号；移动端取 13px，桌面默认 12px */
 .mb-chart-body.is-mobile .mb-chart-grid text,
 .mb-chart-body.is-mobile .mb-chart-month {
   font-size: var(--mb-fs-1);
