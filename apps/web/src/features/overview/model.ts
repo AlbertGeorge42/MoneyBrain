@@ -126,11 +126,14 @@ export interface RecentGroup {
 }
 
 export interface NewTransactionInput {
-  type: 'expense' | 'income'
+  type: TxType
   categoryId: string
   accountId: string
+  toAccountId?: string
   amount: number
   note: string
+  date?: string
+  fee?: number
 }
 
 const SEED_ACCOUNTS: LedgerAccount[] = [
@@ -473,15 +476,22 @@ export function transactionDirection(transaction: LedgerTransaction): string {
 }
 
 export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledger {
-  const amount = Math.round(Math.abs(input.amount))
-  if (amount <= 0) return ledger
+  const magnitude = Math.round(Math.abs(input.amount))
+  if (magnitude <= 0) return ledger
+
+  const signed = input.type === 'adjustment' ? Math.round(input.amount) : magnitude
+  const fee = input.fee && input.fee > 0 ? Math.round(input.fee) : 0
 
   const accounts = ledger.accounts.map((account) => {
-    if (account.id !== input.accountId) return account
-    return {
-      ...account,
-      balance: account.balance + (input.type === 'expense' ? -amount : amount),
+    if (input.type === 'transfer') {
+      if (account.id === input.accountId) return { ...account, balance: account.balance - magnitude - fee }
+      if (account.id === input.toAccountId) return { ...account, balance: account.balance + magnitude }
+      return account
     }
+    if (account.id !== input.accountId) return account
+    const delta =
+      input.type === 'expense' ? -magnitude : input.type === 'adjustment' ? signed : magnitude
+    return { ...account, balance: account.balance + delta }
   })
 
   const nextNumber = ledger.transactions.reduce((max, transaction) => {
@@ -491,12 +501,20 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
 
   const transaction: LedgerTransaction = {
     id: `t${nextNumber + 1}`,
-    date: TODAY,
+    date: input.date || TODAY,
     type: input.type,
     categoryId: input.categoryId,
     note: input.note.trim() || '未填写备注',
     accountId: input.accountId,
-    amount,
+    amount: signed,
+    ...(input.type === 'transfer'
+      ? {
+          toAccountId:
+            input.toAccountId ||
+            ledger.accounts.find((account) => account.id !== input.accountId)?.id,
+          fee,
+        }
+      : {}),
   }
 
   return {

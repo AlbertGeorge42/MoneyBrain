@@ -19,29 +19,39 @@ interface BalanceDelta {
   amount: number
 }
 
-function balanceDelta(transaction: LedgerTransaction): BalanceDelta | null {
+function balanceDeltas(transaction: LedgerTransaction): BalanceDelta[] {
   switch (transaction.type) {
     case 'expense':
-      return { accountId: transaction.accountId, amount: -Math.abs(transaction.amount) }
+      return [{ accountId: transaction.accountId, amount: -Math.abs(transaction.amount) }]
     case 'income':
     case 'refund':
-      return { accountId: transaction.accountId, amount: Math.abs(transaction.amount) }
+      return [{ accountId: transaction.accountId, amount: Math.abs(transaction.amount) }]
     case 'adjustment':
-      return { accountId: transaction.accountId, amount: transaction.amount }
-    case 'transfer':
-      return null
+      return [{ accountId: transaction.accountId, amount: transaction.amount }]
+    case 'transfer': {
+      if (!transaction.toAccountId) return []
+      const amount = Math.abs(transaction.amount)
+      const fee = transaction.fee ?? 0
+      return [
+        { accountId: transaction.accountId, amount: -amount - fee },
+        { accountId: transaction.toAccountId, amount },
+      ]
+    }
   }
 }
 
-function adjustAccounts(ledger: Ledger, delta: BalanceDelta | null, direction: 1 | -1): Ledger {
-  if (!delta) return ledger
+function adjustAccounts(
+  ledger: Ledger,
+  deltas: readonly BalanceDelta[],
+  direction: 1 | -1,
+): Ledger {
+  if (deltas.length === 0) return ledger
   return {
     ...ledger,
-    accounts: ledger.accounts.map((account) =>
-      account.id === delta.accountId
-        ? { ...account, balance: account.balance + delta.amount * direction }
-        : account,
-    ),
+    accounts: ledger.accounts.map((account) => {
+      const delta = deltas.find((item) => item.accountId === account.id)
+      return delta ? { ...account, balance: account.balance + delta.amount * direction } : account
+    }),
   }
 }
 
@@ -66,8 +76,8 @@ export function updateTransactionInLedger(
         : Math.round(Math.abs(patch.amount)),
   }
 
-  const reverted = adjustAccounts(ledger, balanceDelta(current), -1)
-  const applied = adjustAccounts(reverted, balanceDelta(next), 1)
+  const reverted = adjustAccounts(ledger, balanceDeltas(current), -1)
+  const applied = adjustAccounts(reverted, balanceDeltas(next), 1)
 
   return {
     ...applied,
@@ -82,7 +92,7 @@ export function deleteTransactionsFromLedger(ledger: Ledger, ids: readonly strin
   let next = ledger
   for (const transaction of ledger.transactions) {
     if (!removing.has(transaction.id)) continue
-    next = adjustAccounts(next, balanceDelta(transaction), -1)
+    next = adjustAccounts(next, balanceDeltas(transaction), -1)
   }
 
   return {
@@ -116,8 +126,8 @@ export function restoreTransactionsInLedger(
   let next = ledger
   for (const record of records) {
     const current = next.transactions.find((transaction) => transaction.id === record.id)
-    if (current) next = adjustAccounts(next, balanceDelta(current), -1)
-    next = adjustAccounts(next, balanceDelta(record), 1)
+    if (current) next = adjustAccounts(next, balanceDeltas(current), -1)
+    next = adjustAccounts(next, balanceDeltas(record), 1)
   }
 
   const existing = next.transactions.map((transaction) => restoring.get(transaction.id) ?? transaction)

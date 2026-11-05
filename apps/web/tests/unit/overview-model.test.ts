@@ -85,6 +85,53 @@ describe('走势与最近流水', () => {
   })
 })
 
+describe('记账浮层：五种类型', () => {
+  const ledger = createSeedLedger()
+  const balanceOf = (target: typeof ledger, id: string) =>
+    target.accounts.find((account) => account.id === id)?.balance ?? 0
+
+  it('转账同时改两个账户，手续费从转出方扣', () => {
+    const next = addTransaction(ledger, {
+      type: 'transfer',
+      categoryId: 'move',
+      accountId: 'cmb',
+      toAccountId: 'wx',
+      amount: 20_000,
+      fee: 250,
+      note: '转到零钱',
+    })
+    expect(balanceOf(next, 'cmb')).toBe(balanceOf(ledger, 'cmb') - 20_250)
+    expect(balanceOf(next, 'wx')).toBe(balanceOf(ledger, 'wx') + 20_000)
+    expect(next.transactions[0].toAccountId).toBe('wx')
+    expect(next.transactions[0].fee).toBe(250)
+  })
+
+  it('调整保留符号：调减直接减记余额', () => {
+    const next = addTransaction(ledger, {
+      type: 'adjustment',
+      categoryId: 'other',
+      accountId: 'cmb',
+      amount: -5_000,
+      note: '调减',
+    })
+    expect(balanceOf(next, 'cmb')).toBe(balanceOf(ledger, 'cmb') - 5_000)
+    expect(next.transactions[0].amount).toBe(-5_000)
+  })
+
+  it('退款记入正向余额，自定义日期写入流水', () => {
+    const next = addTransaction(ledger, {
+      type: 'refund',
+      categoryId: 'refund',
+      accountId: 'zfb',
+      amount: 3_000,
+      note: '退款',
+      date: '2026-10-20',
+    })
+    expect(balanceOf(next, 'zfb')).toBe(balanceOf(ledger, 'zfb') + 3_000)
+    expect(next.transactions[0].date).toBe('2026-10-20')
+  })
+})
+
 describe('记账联动', () => {
   const ledger = createSeedLedger()
   const next = addTransaction(ledger, {

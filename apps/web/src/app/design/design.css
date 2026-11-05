@@ -123,6 +123,24 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* 窄视口下工具栏折叠成两行：保留控件标签，隐藏品牌文案与右侧提示，
+   给手机框腾出高度（否则记账抽屉的固定键盘会压住分类网格）。 */
+@media (max-width: 720px) {
+  .mb-hf-toolbar {
+    gap: var(--mb-s-2) var(--mb-s-3);
+    padding: var(--mb-s-2) var(--mb-s-3);
+  }
+
+  .mb-hf-toolbar-copy,
+  .mb-hf-toolbar-hint {
+    display: none;
+  }
+
+  .mb-hf-toolbar-controls {
+    gap: var(--mb-s-2) var(--mb-s-3);
+  }
+}
+
 /* ===== 画布 ===== */
 
 .mb-hf-canvas {

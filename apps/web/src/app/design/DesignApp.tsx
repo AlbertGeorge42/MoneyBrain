@@ -335,6 +335,7 @@ function PreviewBody({
         opened={entryOpen}
         device={device}
         onClose={() => setEntryOpen(false)}
+        onReopen={() => setEntryOpen(true)}
         onSaved={() => notify('已保存 · 账本与总览数字已同步')}
       />
       <TransactionDetail
