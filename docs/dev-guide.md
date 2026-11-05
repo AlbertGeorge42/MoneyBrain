@@ -121,6 +121,11 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
    不得再写成深底反白；暗色 = 比 `surface-raised` 高一档（`#1D2226`）+ 1px `hero-line` 高光边。
    主卡涨跌色浅色取 `income` / `expense` 文字档（12px chip 需 ≥4.5），暗色取
    `income` / `expense-display`；禁用 `accent-fill` 当文字。
+9. **图表只走 1:1 viewBox**：宽度按容器实测写入 `viewBox`，高度只由
+   `features/shared/chartLayout.ts` 的 `CHART_HEIGHT` 一处提供（SVG `height` 属性，禁止
+   再在 CSS 定义 `--mb-chart-h`）。禁用固定比例 viewBox + 等比缩放，禁用
+   `preserveAspectRatio="none"`（会拉变文字和线宽）。`padL` 必须按最长刻度文字宽度推算，
+   不得写死；报表页复用 `buildChartLayout`，不要复制第二套几何。
 
 ## 3. 领域层规则（最高优先级）
 
