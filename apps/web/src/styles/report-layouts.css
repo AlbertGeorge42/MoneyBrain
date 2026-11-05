@@ -337,7 +337,7 @@
 }
 
 .report-detail-cell__main {
-  font-weight: 600;
+  font-weight: 700;
   font-size: var(--mb-font-size-body);
   color: var(--mb-color-text-primary);
   letter-spacing: -0.01em;

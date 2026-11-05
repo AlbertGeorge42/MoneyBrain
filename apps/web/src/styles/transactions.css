@@ -44,8 +44,8 @@
 }
 
 .transaction-list-item__amount {
-  font-weight: 600;
-  font-size: var(--mb-font-size-body-lg);
+  font-weight: 700;
+  font-size: 15px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -147,7 +147,7 @@
   color: var(--mb-color-text-tertiary);
   border-radius: var(--mb-radius-control);
   cursor: pointer;
-  font-size: var(--mb-font-size-caption);
+  font-size: 12px;
   transition: all var(--mb-motion-fast) var(--mb-ease-standard);
 }
 
@@ -186,7 +186,7 @@
   }
 
   .tx-amount__subtitle {
-    font-size: var(--mb-font-size-caption);
+    font-size: 10px;
     max-width: 100px;
   }
 }
@@ -221,7 +221,7 @@
 }
 
 .tx-group-header__day {
-  font-size: var(--mb-font-size-body-lg);
+  font-size: 15px;
   font-weight: 600;
   color: var(--mb-color-text-primary);
 }
@@ -238,7 +238,7 @@
 }
 
 .tx-group-header__summary-item {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .tx-group-body {
@@ -324,8 +324,8 @@
 }
 
 .tx-item-row__amount {
-  font-weight: 600;
-  font-size: var(--mb-font-size-body-lg);
+  font-weight: 700;
+  font-size: 15px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }

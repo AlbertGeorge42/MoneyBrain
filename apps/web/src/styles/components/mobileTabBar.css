@@ -37,7 +37,7 @@
 }
 
 .mobile-tab-bar__icon {
-  font-size: var(--mb-font-size-heading);
+  font-size: 20px;
 }
 
 .mobile-tab-bar__label {

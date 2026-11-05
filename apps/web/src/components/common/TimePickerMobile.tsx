@@ -139,7 +139,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           style={titleBtnStyle}
         >
           {title}
-          <DownOutlined style={{ fontSize: 12, opacity: 0.6 }} />
+          <DownOutlined style={{ fontSize: 10, opacity: 0.6 }} />
         </button>
       ) : (
         <span style={{ fontSize: 16, fontWeight: 500, color: colorTextPrimary, padding: '4px 10px' }}>{title}</span>

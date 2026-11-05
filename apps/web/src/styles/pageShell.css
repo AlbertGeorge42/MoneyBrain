@@ -21,7 +21,7 @@
 .page-header__eyebrow {
   color: var(--mb-color-action-primary);
   font-size: var(--mb-font-size-caption);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -37,7 +37,7 @@
   margin: 0;
   max-width: 760px;
   color: var(--mb-color-text-secondary);
-  font-size: var(--mb-font-size-body-lg);
+  font-size: 15px;
   line-height: 1.65;
 }
 

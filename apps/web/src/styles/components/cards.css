@@ -33,7 +33,7 @@
 
 .metric-card__value {
   font-size: var(--mb-font-size-heading);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
@@ -50,7 +50,7 @@
 .chart-panel__title {
   margin: 0;
   font-size: var(--mb-font-size-body-lg);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--mb-color-text-primary);
 }
 
@@ -88,7 +88,7 @@
   }
 
   .metric-card__value {
-    font-size: var(--mb-font-size-heading);
+    font-size: 22px;
     margin-top: 4px;
   }
 }

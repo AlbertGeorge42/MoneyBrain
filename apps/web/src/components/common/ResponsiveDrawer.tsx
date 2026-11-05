@@ -55,7 +55,7 @@ const ResponsiveDrawer: React.FC<ResponsiveDrawerProps> = ({
       afterOpenChange={afterVisibleChange}
       closable
       closeIcon={
-        <span style={{ fontSize: 'var(--mb-font-size-heading)', lineHeight: 1, color: token.colorTextSecondary }}>×</span>
+        <span style={{ fontSize: 18, lineHeight: 1, color: token.colorTextSecondary }}>×</span>
       }
       extra={extra}
       footer={footer}
