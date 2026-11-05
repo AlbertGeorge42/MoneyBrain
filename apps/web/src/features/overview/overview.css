@@ -716,7 +716,7 @@
 
 .mb-budget-progress::-webkit-progress-value {
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-accent-fill);
+  background: var(--mb-color-accent);
 }
 
 .mb-budget-progress[data-level='warning']::-webkit-progress-value {
@@ -724,12 +724,12 @@
 }
 
 .mb-budget-progress[data-level='over']::-webkit-progress-value {
-  background: var(--mb-color-expense-display);
+  background: var(--mb-color-expense);
 }
 
 .mb-budget-progress::-moz-progress-bar {
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-accent-fill);
+  background: var(--mb-color-accent);
 }
 
 .mb-budget-progress[data-level='warning']::-moz-progress-bar {
@@ -737,7 +737,7 @@
 }
 
 .mb-budget-progress[data-level='over']::-moz-progress-bar {
-  background: var(--mb-color-expense-display);
+  background: var(--mb-color-expense);
 }
 
 .mb-budget-meta {
