@@ -176,10 +176,6 @@ function chartGrid(device: DeviceMode, charts: ReactNode) {
   return <div className="mb-rp-chart-grid">{charts}</div>
 }
 
-function signedPercent(value: number): string {
-  return formatPercent(value, 1)
-}
-
 function flattenFlowRows(
   nodes: FlowTreeNode[],
   folded: Record<string, boolean>,
@@ -247,7 +243,6 @@ export function ReportsPage({
   const [flowSide, setFlowSide] = useState<'income' | 'expense'>('expense')
   const [cashSide, setCashSide] = useState<'in' | 'out'>('in')
   const [balanceSide, setBalanceSide] = useState<'assets' | 'liabilities'>('assets')
-  const [investPane, setInvestPane] = useState<'allocation' | 'period' | 'accounts' | 'snapshots'>('allocation')
 
   const balance = useMemo(() => deriveBalanceReport(ledger, time.point), [ledger, time.point])
   const flow = useMemo(
@@ -326,9 +321,7 @@ export function ReportsPage({
               onFold={toggleCashFold}
             />
           )}
-          {tab === 'invest' && (
-            <InvestView device={device} report={invest} pane={investPane} onPane={setInvestPane} />
-          )}
+          {tab === 'invest' && <InvestView device={device} report={invest} />}
         </>
       )}
     </>
@@ -844,117 +837,49 @@ function rowsFor(
   return rows
 }
 
-function InvestView({
-  device,
-  report,
-  pane,
-  onPane,
-}: {
-  device: DeviceMode
-  report: InvestmentReport
-  pane: 'allocation' | 'period' | 'accounts' | 'snapshots'
-  onPane: (next: 'allocation' | 'period' | 'accounts' | 'snapshots') => void
-}) {
-  const allocationRows: ReportRow[] = report.allocation.map((row) => ({
-    id: row.id,
-    cells: [
-      row.name,
-      currency(row.current),
-      formatPercent(row.ratio, 1, false),
-      formatPercent(row.target, 1, false),
-      signedPercent(row.deviation),
-      signedCurrency(row.rebalance),
-    ],
-  }))
-  const accountRows: ReportRow[] = []
-  for (const account of report.accountRows) {
-    accountRows.push({
-      id: account.id,
-      cells: [account.name, currency(account.total), '100.0%'],
+function InvestView({ device, report }: { device: DeviceMode; report: InvestmentReport }) {
+  const [folded, setFolded] = useState<Record<string, boolean>>({})
+
+  const rows: ReportRow[] = []
+  for (const group of report.holdings) {
+    const expanded = folded[group.id] !== false
+    rows.push({
+      id: group.id,
+      cells: [
+        group.name,
+        currency(group.marketValue),
+        currency(group.cost),
+        signedCurrency(group.gain),
+        formatPercent(group.rate, 2),
+      ],
+      fold: group.children.length > 0
+        ? {
+            expanded,
+            onToggle: () =>
+              setFolded((current) => ({ ...current, [group.id]: current[group.id] === false })),
+          }
+        : undefined,
+      tone: group.gain >= 0 ? 'income' : 'expense',
     })
-    for (const child of account.children) {
-      accountRows.push({
-        id: child.id,
-        level: 1,
-        cells: [child.name, currency(child.amount), formatPercent(child.share, 1, false)],
-      })
+    if (expanded) {
+      for (const child of group.children) {
+        rows.push({
+          id: child.id,
+          level: 1,
+          cells: [
+            child.name,
+            currency(child.marketValue),
+            currency(child.cost),
+            signedCurrency(child.gain),
+            formatPercent(child.rate, 2),
+          ],
+          tone: child.gain >= 0 ? 'income' : 'expense',
+        })
+      }
     }
   }
-  const snapshotRows: ReportRow[] = report.snapshots.map((snapshot) => ({
-    id: snapshot.date,
-    cells: [
-      snapshot.date,
-      currency(snapshot.total),
-      snapshot.periodReturn === null ? '—' : formatPercent(snapshot.periodReturn, 2),
-      signedCurrency(snapshot.net),
-    ],
-  }))
-  const periodRows: ReportRow[] = report.periodRows.map((row) => ({
-    id: row.label,
-    cells: [row.label, row.value],
-  }))
 
-  const allocationTable = (
-    <ReportTable
-      device={device}
-      title="资产分布"
-      desc={`总市值 ${currency(report.total)} · 当前 / 目标`}
-      ariaLabel="投资资产分布"
-      variant="c6"
-      columns={[
-        { label: '资产类别' },
-        { label: '市值', align: 'num' },
-        { label: '当前', align: 'num' },
-        { label: '目标', align: 'num' },
-        { label: '偏差', align: 'num' },
-        { label: '再平衡', align: 'num' },
-      ]}
-      rows={allocationRows}
-      total={['合计', currency(report.total), '100.0%', '100.0%', '0.0%', '—']}
-      note="目标比例为演示口径；再平衡 = 目标市值 − 当前市值。"
-    />
-  )
-  const periodTable = (
-    <ReportTable
-      device={device}
-      title="期间投入与指标"
-      desc="累计收益已扣除期间净投入"
-      ariaLabel="投资期间指标"
-      variant="c2"
-      columns={[{ label: '指标' }, { label: '数值', align: 'num' }]}
-      rows={periodRows}
-      note="XIRR / TWR 由快照链与净投入推算；快照缺失时显示「—」。"
-    />
-  )
-  const accountTable = (
-    <ReportTable
-      device={device}
-      title="投资账户明细"
-      desc="按账户市值拆分资产类别"
-      ariaLabel="投资账户明细"
-      columns={[{ label: '账户 / 类别' }, { label: '市值', align: 'num' }, { label: '占比', align: 'num' }]}
-      rows={accountRows}
-      total={['合计', currency(report.total), '100.0%']}
-      note="类别金额按当前市值比例估算，不写回账本。"
-    />
-  )
-  const snapshotTable = (
-    <ReportTable
-      device={device}
-      title="快照链"
-      desc="每期市值 / 期间收益 / 净投入"
-      ariaLabel="投资快照链"
-      variant="c4"
-      columns={[
-        { label: '日期' },
-        { label: '市值', align: 'num' },
-        { label: '期间收益', align: 'num' },
-        { label: '净投入', align: 'num' },
-      ]}
-      rows={snapshotRows}
-      note="末点市值跟随投资账户余额；期间收益已剔除净投入。"
-    />
-  )
+  const totalRate = report.costTotal === 0 ? 0 : (report.gainTotal / report.costTotal) * 100
 
   const trendChart = (
     <ReportLineChart
@@ -975,105 +900,32 @@ function InvestView({
     <>
       <MetricStrip device={device} metrics={report.metrics} />
       {chartGrid(device, <>{trendChart}{allocationChart}</>)}
-      {device === 'desktop' ? (
-        <>
-          <div className="mb-rp-cols">
-            {allocationTable}
-            {periodTable}
-          </div>
-          <div className="mb-rp-cols">
-            {accountTable}
-            {snapshotTable}
-          </div>
-        </>
-      ) : (
-        <>
-          <Segmented
-            label="投资分析分段"
-            value={pane}
-            options={[
-              { id: 'allocation', label: '资产分布' },
-              { id: 'period', label: '投入指标' },
-              { id: 'accounts', label: '账户' },
-              { id: 'snapshots', label: '快照' },
-            ]}
-            onChange={onPane}
-          />
-          {pane === 'allocation' && (
-            <ReportCardList
-              device={device}
-              title="资产分布"
-              desc={`总市值 ${currency(report.total)}`}
-              rows={report.allocation.map((row) => ({
-                id: row.id,
-                label: row.name,
-                meta: `目标 ${row.target.toFixed(1)}% · 偏差 ${signedPercent(row.deviation)}`,
-                amount: currency(row.current),
-                share: row.ratio,
-                barTone: 'accent',
-              }))}
-              total={{ label: '合计', value: currency(report.total) }}
-              note="目标比例为演示口径；再平衡 = 目标市值 − 当前市值。"
-            />
-          )}
-          {pane === 'period' && (
-            <ReportCardList
-              device={device}
-              title="期间投入与指标"
-              desc="累计收益已扣除期间净投入"
-              rows={report.periodRows.map((row) => ({
-                id: row.label,
-                label: row.label,
-                amount: row.value,
-              }))}
-              note="XIRR / TWR 由快照链与净投入推算；快照缺失时显示「—」。"
-            />
-          )}
-          {pane === 'accounts' && (
-            <ReportCardList
-              device={device}
-              title="投资账户明细"
-              desc="按账户市值拆分资产类别"
-              rows={report.accountRows.flatMap((account) => [
-                {
-                  id: account.id,
-                  label: account.name,
-                  meta: '账户',
-                  amount: currency(account.total),
-                },
-                ...account.children.map((child) => ({
-                  id: child.id,
-                  level: 1 as const,
-                  label: child.name,
-                  meta: `${child.share.toFixed(1)}%`,
-                  amount: currency(child.amount),
-                })),
-              ])}
-              total={{ label: '合计', value: currency(report.total) }}
-              note="类别金额按当前市值比例估算，不写回账本。"
-            />
-          )}
-          {pane === 'snapshots' && (
-            <ReportCardList
-              device={device}
-              title="快照链"
-              desc="每期市值 / 期间收益 / 净投入"
-              rows={report.snapshots.map((snapshot) => ({
-                id: snapshot.date,
-                label: snapshot.date,
-                meta: `净投入 ${signedCurrency(snapshot.net)}`,
-                amount:
-                  snapshot.periodReturn === null
-                    ? currency(snapshot.total)
-                    : `${currency(snapshot.total)} · ${formatPercent(snapshot.periodReturn, 2)}`,
-              }))}
-              note="末点市值跟随投资账户余额；期间收益已剔除净投入。"
-            />
-          )}
-        </>
-      )}
+      <ReportTable
+        device={device}
+        title="持仓明细"
+        desc={`总市值 ${currency(report.total)} · 成本 ${currency(report.costTotal)}`}
+        ariaLabel="投资持仓明细"
+        variant="c5"
+        scrollable
+        columns={[
+          { label: '持仓' },
+          { label: '市值', align: 'num' },
+          { label: '成本', align: 'num' },
+          { label: '收益', align: 'num' },
+          { label: '收益率', align: 'num' },
+        ]}
+        rows={rows}
+        total={[
+          '合计',
+          currency(report.total),
+          currency(report.costTotal),
+          signedCurrency(report.gainTotal),
+          formatPercent(totalRate, 2),
+        ]}
+        note="成本按目标配置比例折算（演示口径）；收益率 = 收益 / 成本。移动端左右滑动查看全部列，首列固定。"
+      />
       <p className="mb-rp-footnote">
-        <Info size={13} /> 投资报表复用快照链；无快照的账户只显示市值，收益率留空。
+        <Info size={13} /> 投资报表复用快照链；成本为演示口径折算值，不写回账本。
       </p>
     </>
   )

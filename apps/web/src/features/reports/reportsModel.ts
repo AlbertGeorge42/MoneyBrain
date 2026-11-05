@@ -117,19 +117,26 @@ export interface InvestmentSnapshot {
   periodReturn: number | null
 }
 
-export interface InvestmentAccountRow {
+export interface InvestmentHolding {
   id: string
   name: string
-  total: number
-  children: { id: string; name: string; amount: number; share: number }[]
+  marketValue: number
+  cost: number
+  gain: number
+  rate: number
+}
+
+export interface InvestmentHoldingGroup extends InvestmentHolding {
+  children: InvestmentHolding[]
 }
 
 export interface InvestmentReport {
   total: number
   allocation: InvestmentAllocation[]
   snapshots: InvestmentSnapshot[]
-  accountRows: InvestmentAccountRow[]
-  periodRows: { label: string; value: string }[]
+  holdings: InvestmentHoldingGroup[]
+  costTotal: number
+  gainTotal: number
   cumulativeReturn: number
   xirr: number | null
   twr: number | null
@@ -572,28 +579,46 @@ export function deriveInvestmentReport(ledger: Ledger): InvestmentReport {
   )
   const twr = (Math.pow(periodFactor, 365 / spanDays) - 1) * 100
 
-  const totalAssets = ledger.accounts
-    .filter((account) => account.balance > 0)
-    .reduce((sum, account) => sum + account.balance, 0)
-  const fees = ledger.transactions.reduce((sum, transaction) => sum + (transaction.fee ?? 0), 0)
-
-  const accountRows: InvestmentAccountRow[] = accounts.map((account) => ({
-    id: account.id,
-    name: account.name,
-    total: account.balance,
-    children: classes.map((item) => ({
-      id: `${account.id}-${item.id}`,
-      name: item.name,
-      amount: Math.round(account.balance * INVEST_WEIGHTS[item.name as keyof typeof INVEST_WEIGHTS]),
-      share: account.balance === 0 ? 0 : (INVEST_WEIGHTS[item.name as keyof typeof INVEST_WEIGHTS] * 100),
-    })),
-  }))
+  const holdingNames = Object.keys(INVEST_WEIGHTS) as (keyof typeof INVEST_WEIGHTS)[]
+  const holdings: InvestmentHoldingGroup[] = accounts.map((account) => {
+    const ratio = 1 + cumulativeReturn / 100
+    const accountCost = ratio <= 0 ? account.balance : Math.round(account.balance / ratio)
+    const children = holdingNames.map((name) => {
+      const marketValue = Math.round(account.balance * INVEST_WEIGHTS[name])
+      const cost = Math.round(accountCost * INVEST_TARGETS[name])
+      const gain = marketValue - cost
+      return {
+        id: `${account.id}-${name}`,
+        name,
+        marketValue,
+        cost,
+        gain,
+        rate: cost === 0 ? 0 : (gain / cost) * 100,
+      }
+    })
+    const marketValue = children.reduce((sum, row) => sum + row.marketValue, 0)
+    const cost = children.reduce((sum, row) => sum + row.cost, 0)
+    const gain = marketValue - cost
+    return {
+      id: account.id,
+      name: account.name,
+      marketValue,
+      cost,
+      gain,
+      rate: cost === 0 ? 0 : (gain / cost) * 100,
+      children,
+    }
+  })
+  const costTotal = holdings.reduce((sum, row) => sum + row.cost, 0)
+  const gainTotal = holdings.reduce((sum, row) => sum + row.gain, 0)
 
   return {
     total,
     allocation: classes,
     snapshots,
-    accountRows,
+    holdings,
+    costTotal,
+    gainTotal,
     cumulativeReturn,
     xirr: xirrRate === null ? null : xirrRate * 100,
     twr,
@@ -606,18 +631,6 @@ export function deriveInvestmentReport(ledger: Ledger): InvestmentReport {
       { label: '累计收益率', value: formatPercent(cumulativeReturn, 2), tone: cumulativeReturn >= 0 ? 'income' : 'expense' },
       { label: 'XIRR', value: xirrRate === null ? '—' : formatPercent(xirrRate * 100, 2) },
       { label: 'TWR', value: formatPercent(twr, 2) },
-    ],
-    periodRows: [
-      { label: '期初投入', value: currency(totals[0]) },
-      { label: '期间投入', value: currency(netIn) },
-      { label: '期间取出', value: currency(netOut) },
-      { label: '期末市值', value: currency(latest) },
-      { label: '累计收益', value: signedCurrency(cumulative) },
-      { label: '累计收益率', value: formatPercent(cumulativeReturn, 2) },
-      { label: 'XIRR', value: xirrRate === null ? '—' : formatPercent(xirrRate * 100, 2) },
-      { label: 'TWR', value: formatPercent(twr, 2) },
-      { label: '投资占总资产', value: totalAssets === 0 ? '—' : formatPercent((latest / totalAssets) * 100, 1, false) },
-      { label: '本期费用', value: currency(fees) },
     ],
     trend: snapshots.map((snapshot) => ({ month: snapshot.date.slice(0, 7), value: snapshot.total })),
   }

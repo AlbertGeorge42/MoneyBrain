@@ -92,6 +92,7 @@ export function ReportTable({
   variant = 'c3',
   ariaLabel,
   footInline = false,
+  scrollable = false,
 }: {
   device: DeviceMode
   title: string
@@ -102,9 +103,11 @@ export function ReportTable({
   /** 并排两表的最小数据行数：按两表最大行数补齐，保证 tfoot 同 y。 */
   minRows?: number
   note?: string
-  variant?: 'c2' | 'c3' | 'c4' | 'c6'
+  variant?: 'c2' | 'c3' | 'c4' | 'c5' | 'c6'
   ariaLabel: string
   footInline?: boolean
+  /** 移动端横向滚动 + 首列吸顶：用于列数多、无法卡片化的单表。 */
+  scrollable?: boolean
 }) {
   const empty = rows.length === 0
   return (
@@ -116,7 +119,7 @@ export function ReportTable({
         </div>
       </div>
       <div className="mb-rp-table-wrap">
-        <table className={`mb-rp-table is-${variant}`} aria-label={ariaLabel}>
+        <table className={`mb-rp-table is-${variant}${scrollable ? ' is-scroll' : ''}`} aria-label={ariaLabel}>
           <colgroup>
             {columns.map((column, index) => (
               <col key={column.label + index} className={column.align === 'num' ? 'mb-rp-col-num' : 'mb-rp-col-main'} />
@@ -160,7 +163,7 @@ export function ReportTable({
                     }
                   >
                     {row.cells.map((cell, index) => (
-                      <td key={`${row.id}-${index}`} className={index > 0 && index === row.cells.length - 1 ? 'is-num' : undefined}>
+                      <td key={`${row.id}-${index}`} className={columns[index]?.align === 'num' ? 'is-num' : undefined}>
                         {index === 0 && row.fold ? (
                           <span className="mb-rp-row-first">
                             <button
@@ -198,7 +201,7 @@ export function ReportTable({
             <tfoot>
               <tr className="is-total">
                 {total.map((cell, index) => (
-                  <td key={`total-${index}`} className={index > 0 && index === total.length - 1 ? 'is-num' : undefined}>
+                  <td key={`total-${index}`} className={columns[index]?.align === 'num' ? 'is-num' : undefined}>
                     {cell}
                   </td>
                 ))}
