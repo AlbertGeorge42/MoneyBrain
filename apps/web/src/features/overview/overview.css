@@ -477,9 +477,12 @@
   font-weight: 600;
 }
 
-.mb-recent-table .mb-recent-note,
-.mb-recent-table .mb-recent-account {
+.mb-recent-table .mb-recent-note {
   color: var(--mb-color-text-secondary);
+}
+
+.mb-recent-table .mb-recent-account {
+  color: var(--mb-color-text-tertiary);
 }
 
 .mb-recent-account-line {

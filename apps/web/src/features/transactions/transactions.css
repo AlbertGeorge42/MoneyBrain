@@ -436,15 +436,25 @@
   flex-direction: column;
 }
 
+/* 原型分组头：透明底 + 细线 + 12px tertiary，轻量分隔而非灰底横带。 */
 .mb-tx-group-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-2);
-  min-height: var(--mb-s-6);
-  padding: 0 var(--mb-s-3);
+  padding: 6px var(--mb-s-3);
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  background: var(--mb-color-surface-sunken);
+  background: transparent;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-tx-group-label {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-tx-group-net {
+  font-family: var(--mb-font-num);
 }
 
 .mb-tx-row {
@@ -504,11 +514,13 @@
   line-height: var(--mb-lh-tight);
 }
 
+/* 原型 .t 整体 600 / primary：备注与分类名同一套字重与颜色，靠图标、间距与「·」区分主次。 */
 .mb-tx-note {
   min-width: 0;
   overflow: hidden;
   font-size: var(--mb-fs-1);
-  color: var(--mb-color-text-secondary);
+  font-weight: 600;
+  color: var(--mb-color-text-primary);
   line-height: var(--mb-lh-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -516,7 +528,7 @@
 
 .mb-tx-secondary {
   font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
+  color: var(--mb-color-text-tertiary);
   line-height: var(--mb-lh-tight);
 }
 
