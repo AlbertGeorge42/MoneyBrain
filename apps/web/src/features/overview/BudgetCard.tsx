@@ -43,10 +43,13 @@ export function BudgetCard({
               <span>
                 {amountText(row.used)} / {amountText(row.limit)}
               </span>
-              {row.level === 'over' && (
+              {row.level === 'over' && row.used > row.limit && (
                 <span className="mb-budget-over">
-                  {row.used > row.limit ? `超支 ${amountText(row.used - row.limit)}` : '已达上限'}
+                  超支 {amountText(row.used - row.limit)}
                 </span>
+              )}
+              {row.level === 'warning' && row.percent >= 100 && (
+                <span className="mb-budget-limit">已达上限</span>
               )}
             </div>
           </div>

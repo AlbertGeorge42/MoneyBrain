@@ -126,11 +126,8 @@
   --mb-modal-w: 600px;
   --mb-z-fab: 110;
 
-  /* 走势图 viewBox（响应式按设备取独立比例，禁止固定高度等比缩放） */
-  --mb-chart-w-desktop: 720;
-  --mb-chart-h-desktop: 200;
-  --mb-chart-w-mobile: 320;
-  --mb-chart-h-mobile: 200;
+  /* 走势图 / 报表图高度（宽度按容器实测，1 SVG 单位 = 1 CSS px） */
+  --mb-chart-h: 200px;
 
   /* 颜色 — 浅色 */
   --mb-color-surface: #f6f6f4;
@@ -242,7 +239,7 @@
   --mb-color-hero-bg: #1d2226;
   --mb-color-hero-ink: #eceeef;
   --mb-color-hero-muted: #9ca3a8;
-  --mb-color-hero-line: rgba(255, 255, 255, 0.1);
+  --mb-color-hero-line: rgba(255, 255, 255, 0.16);
   /* 涨跌色取文字档语义色；暗色两者均已提亮，小字 chip 也 ≥ 4.5:1 */
   --mb-color-hero-pos: var(--mb-color-income);
   --mb-color-hero-neg: var(--mb-color-expense-display);

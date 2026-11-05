@@ -57,12 +57,12 @@ describe('预算', () => {
     expect(food?.used).toBe(28_600)
   })
 
-  it('超支预算标记为 over', () => {
+  it('超支预算标记为 over，100% 归 warning', () => {
     const shop = budgets.rows.find((row) => row.id === 'b_shop')
     const home = budgets.rows.find((row) => row.id === 'b_home')
     expect(shop?.used).toBe(125_720)
     expect(shop?.level).toBe('over')
-    expect(home?.level).toBe('over')
+    expect(home?.level).toBe('warning')
   })
 })
 

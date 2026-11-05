@@ -334,7 +334,7 @@ function categorySubtree(categories: LedgerCategory[], rootId: string): Set<stri
 }
 
 function budgetLevel(percent: number): BudgetRow['level'] {
-  if (percent >= 100) return 'over'
+  if (percent > 100) return 'over'
   if (percent >= 80) return 'warning'
   return 'normal'
 }
