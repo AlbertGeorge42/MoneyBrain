@@ -80,10 +80,6 @@ export function RecentTransactions({
             {count === 0 ? '还没有流水' : `最新 ${count} 笔${mobile ? ' · 点按查看详情' : ' · 点击行查看详情'}`}
           </p>
         </div>
-        <button type="button" className="mb-link-btn" onClick={onOpenAll}>
-          查看全部
-          <ArrowRight size={14} />
-        </button>
       </div>
 
       {count === 0 ? (
@@ -181,6 +177,11 @@ export function RecentTransactions({
           </table>
         </div>
       )}
+
+      <button type="button" className="mb-link-btn mb-card-foot" onClick={onOpenAll}>
+        查看全部流水
+        <ArrowRight size={14} />
+      </button>
     </section>
   )
 }

@@ -52,9 +52,9 @@
  */
 .mb-hf-root {
   /* 字体 */
-  --mb-font-ui: 'Noto Sans SC', 'PingFang SC', -apple-system, 'Segoe UI', sans-serif;
-  --mb-font-display: 'Fraunces', 'Noto Serif SC', 'Songti SC', serif;
-  --mb-font-num: 'JetBrains Mono', 'SF Mono', 'SFMono-Regular', ui-monospace, Consolas, monospace;
+  --mb-font-ui: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --mb-font-display: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --mb-font-num: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
 
   /* 字号 */
   --mb-fs-0: 12px;
@@ -87,7 +87,7 @@
   --mb-control-h: 38px;
   --mb-section-gap: 16px;
   --mb-page-pad: 28px;
-  --mb-page-pad-mobile: 20px;
+  --mb-page-pad-mobile: 26px;
   --mb-touch: 44px;
 
   /* 表格列权重 */
@@ -107,14 +107,14 @@
   --mb-radius-pill: 999px;
 
   /* 阴影 */
-  --mb-sh-1: 0 1px 2px rgba(16, 20, 24, 0.04), 0 8px 24px rgba(16, 20, 24, 0.05);
-  --mb-sh-2: 0 2px 6px rgba(16, 20, 24, 0.06), 0 16px 40px rgba(16, 20, 24, 0.1);
-  --mb-sh-3: 0 24px 64px rgba(16, 20, 24, 0.22);
+  --mb-sh-1: 0 1px 2px rgba(20, 22, 26, 0.05), 0 8px 24px rgba(20, 22, 26, 0.06);
+  --mb-sh-2: 0 2px 6px rgba(20, 22, 26, 0.07), 0 16px 40px rgba(20, 22, 26, 0.09);
+  --mb-sh-3: 0 4px 12px rgba(20, 22, 26, 0.09), 0 32px 64px rgba(20, 22, 26, 0.12);
 
   /* 动效 */
   --mb-dur-1: 150ms;
   --mb-dur-2: 280ms;
-  --mb-ease: cubic-bezier(0.2, 0, 0, 1);
+  --mb-ease: cubic-bezier(0.22, 0.8, 0.32, 1);
 
   /* 布局 */
   --mb-sidebar-w: 236px;
@@ -155,12 +155,12 @@
   --mb-color-danger-solid: #6c1019;
   --mb-color-danger-bg: #fae8e6;
   --mb-color-on-danger: #ffe9e7;
-  --mb-color-cat-1: #356b0c;
-  --mb-color-cat-2: #1d6d8e;
-  --mb-color-cat-3: #9a4f8a;
-  --mb-color-cat-4: #b07a0b;
-  --mb-color-cat-5: #8a6b2e;
-  --mb-color-cat-6: #4b5563;
+  --mb-color-cat-1: #3f7d0f;
+  --mb-color-cat-2: #0f7d6a;
+  --mb-color-cat-3: #1b6fa8;
+  --mb-color-cat-4: #6d4fd6;
+  --mb-color-cat-5: #c25383;
+  --mb-color-cat-6: #b07a0b;
   --mb-color-chart-axis: #63686e;
   --mb-color-chart-grid: #e3e5e0;
   --mb-color-chart-tooltip-bg: #14161a;
@@ -178,6 +178,11 @@
 }
 
 .mb-hf-root[data-hf-scheme='dark'] {
+  /* 阴影 — 深色：顶亮线 + 大黑晕 */
+  --mb-sh-1: 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 28px rgba(0, 0, 0, 0.45);
+  --mb-sh-2: 0 2px 0 rgba(255, 255, 255, 0.04), 0 20px 46px rgba(0, 0, 0, 0.55);
+  --mb-sh-3: 0 8px 20px rgba(0, 0, 0, 0.55), 0 40px 80px rgba(0, 0, 0, 0.6);
+
   /* 颜色 — 深色 */
   --mb-color-surface: #0d0f10;
   --mb-color-surface-sunken: #08090a;
@@ -209,12 +214,12 @@
   --mb-color-danger-solid: #6c1019;
   --mb-color-danger-bg: #241114;
   --mb-color-on-danger: #ffe9e7;
-  --mb-color-cat-1: #86c232;
-  --mb-color-cat-2: #59a6c4;
-  --mb-color-cat-3: #c08ab4;
-  --mb-color-cat-4: #e0b64c;
-  --mb-color-cat-5: #c7a86a;
-  --mb-color-cat-6: #9ca3af;
+  --mb-color-cat-1: #a3e635;
+  --mb-color-cat-2: #4cc9e8;
+  --mb-color-cat-3: #a78bfa;
+  --mb-color-cat-4: #d9a21b;
+  --mb-color-cat-5: #34d399;
+  --mb-color-cat-6: #ff7ab6;
   --mb-color-chart-axis: #7f878d;
   --mb-color-chart-grid: #242a2e;
   --mb-color-chart-tooltip-bg: #16191b;
