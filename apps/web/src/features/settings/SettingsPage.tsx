@@ -8,7 +8,9 @@
  * - 「每项皆可调」：编辑 / 移动到… / 删除都真的改账本或设置。
  */
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Drawer } from '@mantine/core'
+import { getPortalHost } from '@/features/shared/portalHost'
 import {
   AlertTriangle,
   ChevronDown,
@@ -536,17 +538,24 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [editor, setEditor] = useState<Editor | null>(null)
   const [mover, setMover] = useState<Mover | null>(null)
   const [deleteTransfer, setDeleteTransfer] = useState<{ row: CategoryRow; type: TxType } | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{
+    message: string
+    duration: number
+    action?: { label: string; run: () => void }
+  } | null>(null)
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [activity, setActivity] = useState<Record<string, ActivityGroupId>>({})
   const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
 
-  const notify = (message: string) => setToast(message)
+  const notify = (message: string) => setToast({ message, duration: 2600 })
+  // 危险操作（转移后删除）与批量删除一致：6 秒内可撤销。
+  const notifyUndoable = (message: string, run: () => void) =>
+    setToast({ message, duration: 6000, action: { label: '撤销', run } })
 
   useEffect(() => {
     if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 2600)
+    const timer = window.setTimeout(() => setToast(null), toast.duration)
     return () => window.clearTimeout(timer)
   }, [toast])
 
@@ -647,8 +656,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const transferAndDelete = (targetId: string) => {
     if (!deleteTransfer) return
     const { row } = deleteTransfer
+    const targetName =
+      ledger.categories.find((item) => item.id === targetId)?.name ?? '目标分类'
+    // 撤销必须恢复原分类与记录归属：快照整份账本，比逐条回填更可靠。
+    const before = ledger
     replaceLedger(removeCategory(transferCategoryTransactions(ledger, row.id, targetId), row.id))
-    notify(`已转移 ${row.txCount} 笔到「${ledger.categories.find((item) => item.id === targetId)?.name ?? '目标分类'}」并删除「${row.name}」`)
+    notifyUndoable(`已转移 ${row.txCount} 笔到「${targetName}」并删除「${row.name}」`, () => {
+      replaceLedger(before)
+      notify('已撤销转移与删除')
+    })
     setDeleteTransfer(null)
   }
 
@@ -1549,11 +1565,25 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           onTransfer={transferAndDelete}
         />
       )}
-      {toast && (
-        <div className="mb-hf-toast" role="status">
-          {toast}
-        </div>
-      )}
+      {toast &&
+        createPortal(
+          <div className="mb-hf-toast" role="status">
+            <span>{toast.message}</span>
+            {toast.action && (
+              <button
+                type="button"
+                className="mb-hf-toast-action"
+                onClick={() => {
+                  toast.action?.run()
+                  setToast(null)
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
+          </div>,
+          getPortalHost(),
+        )}
     </div>
   )
 }
