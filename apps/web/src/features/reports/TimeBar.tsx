@@ -12,6 +12,7 @@ import {
   GRANULARITIES,
   GRANULARITY_LABELS,
   PRESETS,
+  formatPointLabel,
   formatRangeLabel,
   monthEnd,
   monthOf,
@@ -363,7 +364,7 @@ export function TimeBar({ device, tab, time, onChange, onToast, onOpenSettings }
   const [draft, setDraft] = useState<Draft>({ point: time.point, from: time.from, to: time.to, active: 'to' })
   const rootRef = useRef<HTMLDivElement>(null)
   const isPoint = tab === 'balance'
-  const label = isPoint ? time.point : formatRangeLabel(time)
+  const label = isPoint ? formatPointLabel(time.point, time.gran, TODAY) : formatRangeLabel(time)
   const validation = validateRange(draft.from, draft.to, time.gran)
 
   useEffect(() => {
@@ -448,6 +449,7 @@ export function TimeBar({ device, tab, time, onChange, onToast, onOpenSettings }
             onClick={() => (open ? setOpen(false) : openPanel())}
           >
             <span className="mb-rp-time-value">{label}</span>
+            {isPoint && <span className="mb-rp-time-tag">月末估值</span>}
           </button>
           <button type="button" className="mb-rp-iconbtn" aria-label="下一期" onClick={() => step(1)}>
             <ChevronRight size={18} />

@@ -141,7 +141,11 @@ describe('deriveInvestmentReport', () => {
 
 describe('buildDrill', () => {
   it('下钻返回二级类别与当期相关流水', () => {
-    const drill = buildDrill(fixture([...OCTOBER]), 'food', 'expense', '2026-10-01', '2026-10-31')
+    const ledger = fixture([...OCTOBER])
+    const node = deriveFlowReport(ledger, '2026-10-01', '2026-10-31', 'month').expenseTrees.find(
+      (item) => item.id === 'food',
+    )
+    const drill = buildDrill(ledger, node!, 'expense', '2026-10-01', '2026-10-31')
     expect(drill.title).toBe('餐饮')
     expect(drill.amount).toBe(1_300)
     expect(drill.children.map((child) => child.name)).toEqual(['午餐'])

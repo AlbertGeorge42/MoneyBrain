@@ -79,7 +79,7 @@ describe('走势与最近流水', () => {
     const groups = groupRecentTransactions(createSeedLedger().transactions, 3)
     expect(groups).toHaveLength(2)
     expect(groups[0].date).toBe('2026-10-28')
-    expect(groups[0].label).toBe('今天 · 10月28日 周三')
+    expect(groups[0].label).toBe('今天 · 2026年10月28日 周三')
     expect(groups[0].items).toHaveLength(2)
     expect(groups[1].date).toBe('2026-10-27')
   })

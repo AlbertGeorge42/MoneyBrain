@@ -325,7 +325,10 @@ function topNodes(nodes: FlowTreeNode[], limit: number): FlowTreeNode[] {
       count,
       share: visible.length ? 100 - visible.reduce((sum, node) => sum + node.share, 0) : 100,
       level: 0,
-      children: [],
+      // 与下钻同口径：被并入的根分类原样带过去，标注「含 …」，点开金额一致。
+      children: rest.map((node) => ({ ...node, level: 1 as const, children: [] })),
+      mergedIds: rest.map((node) => node.id),
+      mergedLabel: rest.map((node) => (node.name === '其他' ? '调整' : node.name)).join(' / '),
     },
   ]
 }
@@ -355,7 +358,12 @@ function CompositionSide({
         visible.map((node, index) => (
           <div className="mb-rp-compare-row" key={node.id}>
             <div className="mb-rp-compare-row-head">
-              <span className="mb-rp-compare-name">{node.name}</span>
+              <span className="mb-rp-compare-name">
+                {node.name}
+                {node.mergedLabel && (
+                  <em className="mb-rp-compare-hint">含 {node.mergedLabel}</em>
+                )}
+              </span>
               <span className="mb-rp-compare-amount">{currency(node.amount)}</span>
             </div>
             <progress
