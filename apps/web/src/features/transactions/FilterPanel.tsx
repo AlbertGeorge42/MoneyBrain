@@ -120,7 +120,6 @@ export function DesktopFilterPanel({
     <div className="mb-tx-filter-panel" id="mb-tx-filter-panel">
       <div className="mb-tx-filter-head">
         <span className="mb-tx-filter-title">高级筛选</span>
-        <span className="mb-tx-filter-hint">条件即时生效</span>
       </div>
       <FilterFields ledger={ledger} value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions">
@@ -188,7 +187,6 @@ export function MobileFilterDrawer({
           完成
         </button>
       </div>
-      <p className="mb-tx-sheet-note">条件即时生效；收起后仍会保留。</p>
     </Drawer>
   )
 }

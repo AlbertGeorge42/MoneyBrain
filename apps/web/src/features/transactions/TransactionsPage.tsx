@@ -3,7 +3,6 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import {
   CURRENT_MONTH_LABEL,
-  TODAY,
   getCategory,
   getCategoryName,
 } from '@/features/overview/model'
@@ -34,11 +33,9 @@ import {
   groupTransactions,
   hasActiveFilters,
   readFiltersFromSearch,
-  signedMinorText,
   splitTotalsByToday,
   writeFiltersToSearch,
   type AdvancedFilters,
-  type TransactionTotals,
   type TypeFilter,
 } from './filters'
 import './transactions.css'
@@ -65,34 +62,25 @@ function PageHead({
   device,
   dataState,
   count,
-  future,
 }: {
   device: DeviceMode
   dataState: DataState
   count: number
-  /** 未来记录单独成组、不计入本月合计；有则在页头明说。 */
-  future?: TransactionTotals
 }) {
+  // 页头「共 N 笔」已是本月口径（不含未来）；未来记录在列表里以「未来」分组自证。
   const note =
     dataState === 'normal'
-      ? `共 ${count} 笔 · 数据截至 ${TODAY.slice(5)}`
+      ? `共 ${count} 笔`
       : dataState === 'loading'
         ? '正在读取本地账本'
         : dataState === 'empty'
           ? '尚未开始记账'
           : '本地账本读取失败'
-  // 页头「共 N 笔」已是本月口径（不含未来）；未来记录只在这里单独计一次，
-  // 不再让 N 与「另有」叠加读成总数。
-  const futureNote =
-    future && future.count > 0
-      ? `另有 ${future.count} 笔未来（${signedMinorText(future.net)}，不计入本月）`
-      : ''
-  const fullNote = futureNote ? `${note} · ${futureNote}` : note
 
   if (device === 'mobile') {
     return (
       <p className="mb-tx-page-meta">
-        {CURRENT_MONTH_LABEL} · {fullNote}
+        {CURRENT_MONTH_LABEL} · {note}
       </p>
     )
   }
@@ -100,7 +88,7 @@ function PageHead({
   return (
     <div className="mb-page-head">
       <h1 className="mb-page-title">流水</h1>
-      <p className="mb-page-sub">{fullNote}</p>
+      <p className="mb-page-sub">{note}</p>
     </div>
   )
 }
@@ -523,7 +511,7 @@ export function TransactionsPage({
 
   return (
     <>
-      <PageHead device={device} dataState={dataState} count={monthTotals.count} future={futureTotals} />
+      <PageHead device={device} dataState={dataState} count={monthTotals.count} />
 
       <Toolbar
         query={query}
@@ -623,7 +611,6 @@ export function TransactionsPage({
         <BatchBar
           device={device}
           count={selected.size}
-          futureCount={selectedTransactions.filter((transaction) => transaction.date > TODAY).length}
           excluded={excludedFromBatch}
           categoryDisabled={!canBatchCategory}
           categoryHint={batchCategoryHint}

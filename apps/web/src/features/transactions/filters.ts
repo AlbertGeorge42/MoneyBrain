@@ -155,7 +155,7 @@ export function summarizeTransactions(transactions: readonly LedgerTransaction[]
 
 /**
  * 未来记录（date > 今天）不计入任何「本月」合计：
- * 当前期间单独汇总，未来记录单独汇总给页面标注「另有 N 笔…不计入本月」。
+ * 当前期间单独汇总；未来记录在列表内以「未来」分组呈现。
  */
 export function splitTotalsByToday(
   transactions: readonly LedgerTransaction[],

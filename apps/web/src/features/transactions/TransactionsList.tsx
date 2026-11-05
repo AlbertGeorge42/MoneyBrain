@@ -30,7 +30,6 @@ function CheckBox({ checked }: { checked: boolean }) {
 function DesktopTable({
   groups,
   totals,
-  future,
   ledger,
   batchMode,
   display,
@@ -40,7 +39,6 @@ function DesktopTable({
 }: {
   groups: GroupedTransactions[]
   totals: TransactionTotals
-  future: TransactionTotals
   ledger: Ledger
   batchMode: boolean
   display: DisplaySettings
@@ -148,11 +146,6 @@ function DesktopTable({
           支出 <strong className="is-expense">{signedMinorText(-totals.expense)}</strong>
           收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
         </span>
-        {future.count > 0 && (
-          <span className="mb-tx-foot-future">
-            另有 {future.count} 笔未来（{signedMinorText(future.net)}，不计入本月）
-          </span>
-        )}
       </div>
     </section>
   )
@@ -161,7 +154,6 @@ function DesktopTable({
 function MobileList({
   groups,
   totals,
-  future,
   ledger,
   batchMode,
   display,
@@ -171,7 +163,6 @@ function MobileList({
 }: {
   groups: GroupedTransactions[]
   totals: TransactionTotals
-  future: TransactionTotals
   ledger: Ledger
   batchMode: boolean
   display: DisplaySettings
@@ -230,11 +221,6 @@ function MobileList({
       <p className="mb-tx-m-foot">
         共 {totals.count} 笔 · 支出 {signedMinorText(-totals.expense)} · 收入 {signedMinorText(totals.income)}
       </p>
-      {future.count > 0 && (
-        <p className="mb-tx-m-foot mb-tx-foot-future">
-          另有 {future.count} 笔未来（{signedMinorText(future.net)}，不计入本月）
-        </p>
-      )}
     </section>
   )
 }
@@ -258,14 +244,13 @@ export function TransactionsList({
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
-  const { current: totals, future } = splitTotalsByToday(groups.flatMap((group) => group.items))
+  const { current: totals } = splitTotalsByToday(groups.flatMap((group) => group.items))
 
   if (device === 'mobile') {
     return (
       <MobileList
         groups={groups}
         totals={totals}
-        future={future}
         ledger={ledger}
         batchMode={batchMode}
         display={display}
@@ -280,7 +265,6 @@ export function TransactionsList({
     <DesktopTable
       groups={groups}
       totals={totals}
-      future={future}
       ledger={ledger}
       batchMode={batchMode}
       display={display}

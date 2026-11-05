@@ -29,7 +29,6 @@ function Fields({
           />
           <span>账户</span>
         </label>
-        <p className="mb-tx-display-note">分类与金额为固定列；移动卡片按核心信息折叠展示。</p>
       </div>
 
       <div className="mb-tx-display-block">
@@ -47,7 +46,6 @@ function Fields({
             </button>
           ))}
         </div>
-        <p className="mb-tx-display-note">金额排序在日期分组内生效，组间仍按日期排列。</p>
       </div>
     </div>
   )
@@ -68,7 +66,6 @@ export function DesktopDisplayPanel({
     <div className="mb-tx-filter-panel" id="mb-tx-display-panel">
       <div className="mb-tx-filter-head">
         <span className="mb-tx-filter-title">显示</span>
-        <span className="mb-tx-filter-hint">只影响当前预览</span>
       </div>
       <Fields value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions">

@@ -294,11 +294,6 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-tx-filter-hint {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
 .mb-tx-filter-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -351,12 +346,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--mb-s-1);
-}
-
-.mb-tx-display-note {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 .mb-tx-row-trigger {
@@ -615,12 +604,6 @@
 .mb-tx-foot-flow strong {
   font-family: var(--mb-font-num);
   font-weight: 500;
-}
-
-.mb-tx-foot-future {
-  flex: 1 1 100%;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
 }
 
 .is-income {
@@ -917,12 +900,6 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-tx-sheet-note {
-  margin: var(--mb-s-3) 0 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
 .mb-tx-detail {
   display: flex;
   flex-direction: column;
@@ -1009,12 +986,6 @@
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-detail-note {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 .mb-tx-detail-actions {

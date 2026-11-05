@@ -81,8 +81,6 @@ function DetailView({
         </div>
       </dl>
 
-      <p className="mb-tx-detail-note">数据只在本机；这笔记录不会上传到任何服务器。</p>
-
       <div className="mb-tx-detail-actions">
         <button type="button" className="mb-tx-btn is-primary" onClick={onEdit}>
           <Pencil size={15} />
@@ -246,7 +244,6 @@ function EditForm({
           取消
         </button>
       </div>
-      <p className="mb-tx-detail-note">保存后账户余额与总览数字会同步更新。</p>
     </div>
   )
 }

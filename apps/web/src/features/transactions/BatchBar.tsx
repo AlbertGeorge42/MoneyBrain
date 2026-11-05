@@ -17,7 +17,6 @@ function summarizeExcluded(excluded: readonly { label: string; reason: string }[
 export function BatchBar({
   device,
   count,
-  futureCount = 0,
   excluded = [],
   categoryDisabled = false,
   categoryHint,
@@ -28,8 +27,6 @@ export function BatchBar({
 }: {
   device: DeviceMode
   count: number
-  /** 选择集里属于未来日期的笔数：操作范围按实际选中计，未来单独标注。 */
-  futureCount?: number
   /** 混选时被挡在「改分类」之外的具体记录：指出是哪几笔、为什么。 */
   excluded?: readonly { id: string; label: string; reason: string }[]
   categoryDisabled?: boolean
@@ -48,7 +45,7 @@ export function BatchBar({
   return (
     <div className={device === 'mobile' ? 'mb-tx-batchbar is-mobile' : 'mb-tx-batchbar'} role="region" aria-label="批量操作">
       <span className="mb-tx-batch-count">
-        已选 {count} 笔{futureCount > 0 ? `（含未来 ${futureCount} 笔）` : ''}
+        已选 {count} 笔
       </span>
       {summary && (
         <span className="mb-tx-batch-summary" title={summaryTitle}>

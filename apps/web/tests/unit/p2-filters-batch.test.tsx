@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
-import { TODAY } from '@/features/overview/model'
 import { BatchBar } from '@/features/transactions/BatchBar'
 import { TransactionsList } from '@/features/transactions/TransactionsList'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
@@ -154,7 +153,7 @@ describe('#9 未来记录不计入本月合计', () => {
     expect(all.expense - current.expense).toBe(1_200)
   })
 
-  it('页脚合计不含未来金额，并标注另有 N 笔不计入本月', () => {
+  it('页脚合计与笔数都不含未来记录，且不附说明句', () => {
     const { current } = splitTotalsByToday(futureLedger.transactions)
     const { container } = render(
       <TransactionsList
@@ -173,8 +172,7 @@ describe('#9 未来记录不计入本月合计', () => {
     expect(flow).toContain(signedMinorText(-current.expense))
     expect(flow).not.toContain('¥64.40')
 
-    const note = container.querySelector('.mb-tx-foot-future')?.textContent ?? ''
-    expect(note).toBe('另有 1 笔未来（−¥12.00，不计入本月）')
+    expect(container.querySelector('.mb-tx-foot-future')).toBeNull()
   })
 
   it('页头与页脚笔数一致，且均按本月口径不含未来记录', () => {
@@ -200,7 +198,7 @@ describe('#9 未来记录不计入本月合计', () => {
     // 原缺陷：页头用筛选总数（4 笔）又叠加「另有 1 笔未来」，读起来像 4+1。
     expect(current.count).toBe(3)
     const head = container.querySelector('.mb-page-sub')?.textContent ?? ''
-    expect(head).toBe(`共 3 笔 · 数据截至 ${TODAY.slice(5)} · 另有 1 笔未来（−¥12.00，不计入本月）`)
+    expect(head).toBe('共 3 笔')
     const foot = container.querySelector('.mb-tx-foot-count')?.textContent ?? ''
     expect(foot).toBe('共 3 笔')
   })
