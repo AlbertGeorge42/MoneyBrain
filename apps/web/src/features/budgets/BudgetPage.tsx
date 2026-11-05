@@ -107,6 +107,18 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
       </section>
     )
   }
+  // 单项超支优先于总比例：头部徽标与「需要关注」必须给同一结论。
+  const badge =
+    data.over.length > 0
+      ? { level: 'over' as const, text: `${data.over.length} 项超支`, icon: true }
+      : data.near.length > 0
+        ? { level: 'warning' as const, text: `${data.near.length} 项接近上限`, icon: true }
+        : {
+            level: expense.level === 'warning' ? ('warning' as const) : ('normal' as const),
+            text: '按计划',
+            icon: false,
+          }
+
   return (
     <section className="mb-card mb-bg-hero">
       <Ring percent={expense.percent} level={expense.level} size={device === 'mobile' ? 'sm' : 'lg'} />
@@ -118,8 +130,9 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
               {data.groups[0].rows.length} 个分类 · 已用 {percentText(expense.percent, false)}
             </p>
           </div>
-          <span className="mb-bg-hero-badge" data-level={expense.level}>
-            {expense.level === 'over' ? '已超支' : expense.level === 'warning' ? '接近上限' : '按计划'}
+          <span className="mb-bg-hero-badge" data-level={badge.level}>
+            {badge.icon && <TriangleAlert size={13} aria-hidden="true" />}
+            {badge.text}
           </span>
         </div>
         <p className="mb-bg-hero-amount">

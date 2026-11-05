@@ -149,6 +149,9 @@
 
 .mb-bg-hero-badge {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 2px var(--mb-s-2);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-surface-sunken);

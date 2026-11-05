@@ -217,11 +217,21 @@ export function deriveBudgetPage(ledger: Ledger, month = CURRENT_MONTH): BudgetP
       return { ...base, status: rowStatus(base) }
     })
 
-  const groups: BudgetTypeGroup[] = (['expense', 'income', 'transfer'] as BudgetKind[]).map((type) => ({
-    type,
-    label: BUDGET_KIND_LABEL[type],
-    rows: rows.filter((row) => row.type === type),
-  }))
+  const levelOrder: Record<BudgetRowLevel, number> = {
+    over: 0,
+    warning: 1,
+    achieved: 2,
+    neutral: 3,
+    normal: 4,
+  }
+  const groups: BudgetTypeGroup[] = (['expense', 'income', 'transfer'] as BudgetKind[]).map((type) => {
+    const typeRows = rows.filter((row) => row.type === type)
+    // 支出组把超支行置顶，避免头部已提示超支、列表却埋在末尾。
+    if (type === 'expense') {
+      typeRows.sort((left, right) => levelOrder[left.level] - levelOrder[right.level])
+    }
+    return { type, label: BUDGET_KIND_LABEL[type], rows: typeRows }
+  })
 
   const expenseRows = groups[0].rows
   const used = expenseRows.reduce((total, row) => total + row.used, 0)
