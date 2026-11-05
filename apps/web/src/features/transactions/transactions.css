@@ -434,16 +434,21 @@
   width: calc(var(--mb-s-7) - var(--mb-s-1));
 }
 
+/* 列宽按 design-tokens §5 权重：主 2.4 / 中 1.6 / 账户 1.6 / 数字 1.1 */
 .mb-tx-col-main {
-  width: 34%;
+  width: 47%;
+}
+
+.mb-tx-table.has-note.has-account .mb-tx-col-main {
+  width: 36%;
 }
 
 .mb-tx-col-mid {
-  width: 27%;
+  width: 24%;
 }
 
 .mb-tx-col-account {
-  width: 23%;
+  width: 24%;
 }
 
 .mb-tx-col-num {
@@ -546,6 +551,18 @@
 
 .mb-tx-account {
   color: var(--mb-color-text-secondary);
+}
+
+.mb-tx-account-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.mb-tx-kind-tag {
+  flex: none;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
 }
 
 .mb-tx-amount {

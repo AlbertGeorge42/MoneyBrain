@@ -49,7 +49,7 @@ function DesktopTable({
 
   return (
     <section className="mb-card mb-tx-list-card" aria-label="流水列表">
-      <table className="mb-tx-table">
+      <table className={`mb-tx-table${display.showNote ? ' has-note' : ''}${display.showAccount ? ' has-account' : ''}${batchMode ? ' has-check' : ''}`}>
         <colgroup>
           {batchMode && <col className="mb-tx-col-check" />}
           <col className="mb-tx-col-main" />
@@ -190,9 +190,12 @@ function FragmentGroup({
             )}
             {display.showAccount && (
               <td>
-                <span className="mb-tx-ellipsis mb-tx-account" title={account?.name}>
-                  {account?.name ?? '未知账户'}
-                </span>
+                <div className="mb-tx-account-line">
+                  <span className="mb-tx-ellipsis mb-tx-account" title={account?.name}>
+                    {account?.name ?? '未知账户'}
+                  </span>
+                  <span className="mb-tx-kind-tag">· {transactionDirection(transaction)}</span>
+                </div>
               </td>
             )}
             <td className={`mb-tx-amount is-${transactionTone(transaction)}`}>
