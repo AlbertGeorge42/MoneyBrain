@@ -82,8 +82,10 @@
   --mb-row-py: 10px;
   --mb-row-gap: 10px;
   --mb-card-pad: 20px;
-  --mb-tbl-py: 8px;
+  --mb-card-pad-compact: 12px;
+  --mb-tbl-py: 4px;
   --mb-tbl-row-h: calc(var(--mb-fs-1) + var(--mb-s-4));
+  --mb-tbl-line-h: calc(var(--mb-tbl-row-h) - var(--mb-tbl-py) * 2 - var(--mb-border-width));
   --mb-control-h: 38px;
   --mb-section-gap: 16px;
   --mb-page-pad: 28px;
@@ -93,10 +95,10 @@
   /* 表格列权重 */
   --mb-tbl-w-main: 2.4;
   --mb-tbl-w-mid: 1.6;
-  --mb-tbl-w-account: 1.6;
+  --mb-tbl-w-date: 1.6;
   --mb-tbl-w-num: 1.1;
   --mb-tbl-w-total: calc(
-    var(--mb-tbl-w-main) + var(--mb-tbl-w-mid) + var(--mb-tbl-w-account) + var(--mb-tbl-w-num)
+    var(--mb-tbl-w-main) + var(--mb-tbl-w-mid) + var(--mb-tbl-w-date) + var(--mb-tbl-w-num)
   );
 
   /* 圆角 */
@@ -123,6 +125,12 @@
   --mb-mobile-h: 844px;
   --mb-modal-w: 600px;
   --mb-z-fab: 110;
+
+  /* 走势图 viewBox（响应式按设备取独立比例，禁止固定高度等比缩放） */
+  --mb-chart-w-desktop: 720;
+  --mb-chart-h-desktop: 200;
+  --mb-chart-w-mobile: 320;
+  --mb-chart-h-mobile: 200;
 
   /* 颜色 — 浅色 */
   --mb-color-surface: #f6f6f4;
@@ -155,6 +163,7 @@
   --mb-color-danger-solid: #6c1019;
   --mb-color-danger-bg: #fae8e6;
   --mb-color-on-danger: #ffe9e7;
+  --mb-color-warning: #8a5a00;
   --mb-color-cat-1: #3f7d0f;
   --mb-color-cat-2: #0f7d6a;
   --mb-color-cat-3: #1b6fa8;
@@ -171,8 +180,9 @@
   --mb-color-hero-ink: #f7fbef;
   --mb-color-hero-muted: #d5d7d2;
   --mb-color-hero-line: rgba(255, 255, 255, 0.14);
-  --mb-color-hero-pos: #8fe3b0;
-  --mb-color-hero-neg: #f2b6a8;
+  /* 主卡涨跌由财务语义色派生，保证与列表金额同一色义 */
+  --mb-color-hero-pos: color-mix(in srgb, var(--mb-color-income) 45%, var(--mb-color-hero-ink));
+  --mb-color-hero-neg: color-mix(in srgb, var(--mb-color-expense-display) 45%, var(--mb-color-hero-ink));
 
   color-scheme: light;
 }
@@ -214,6 +224,7 @@
   --mb-color-danger-solid: #6c1019;
   --mb-color-danger-bg: #241114;
   --mb-color-on-danger: #ffe9e7;
+  --mb-color-warning: #e5b54a;
   --mb-color-cat-1: #a3e635;
   --mb-color-cat-2: #4cc9e8;
   --mb-color-cat-3: #a78bfa;
@@ -226,10 +237,13 @@
   --mb-color-chart-tooltip-ink: #eceeef;
   --mb-color-chart-annot-pos: #4ade80;
   --mb-color-chart-annot-neg: #f0a4ab;
-  --mb-color-hero-bg: #16191b;
+  /* 暗色主卡比普通卡片高一档（raised #16191B → #1D2226），靠底色与 1px 高光边分层 */
+  --mb-color-hero-bg: #1d2226;
   --mb-color-hero-ink: #eceeef;
   --mb-color-hero-muted: #9ca3a8;
   --mb-color-hero-line: rgba(255, 255, 255, 0.1);
+  --mb-color-hero-pos: color-mix(in srgb, var(--mb-color-income) 80%, var(--mb-color-hero-ink));
+  --mb-color-hero-neg: color-mix(in srgb, var(--mb-color-expense-display) 80%, var(--mb-color-hero-ink));
 
   color-scheme: dark;
 }

@@ -3,7 +3,7 @@
 .mb-page-head {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
 }
 
 .mb-page-title {
@@ -32,8 +32,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-3);
-  padding: calc(var(--mb-card-pad) + var(--mb-s-2));
-  border-radius: var(--mb-radius-md);
+  padding: var(--mb-card-pad);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
+  border-radius: var(--mb-radius-lg);
   background: var(--mb-color-hero-bg);
   color: var(--mb-color-hero-ink);
   box-shadow: var(--mb-sh-1);
@@ -55,14 +56,18 @@
   padding: var(--mb-s-1) var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
   border-radius: var(--mb-radius-pill);
-  background: color-mix(in srgb, var(--mb-color-accent-fill) 18%, transparent);
-  color: var(--mb-color-accent-fill);
+  background: color-mix(in srgb, var(--mb-color-hero-pos) 16%, transparent);
+  color: var(--mb-color-hero-pos);
   font-size: var(--mb-fs-0);
 }
 
 .mb-hero-change.is-neg {
   color: var(--mb-color-hero-neg);
   background: color-mix(in srgb, var(--mb-color-hero-neg) 16%, transparent);
+}
+
+.mb-hero-change.is-pos {
+  color: var(--mb-color-hero-pos);
 }
 
 .mb-hero-worth {
@@ -129,7 +134,7 @@
 .mb-hero-foot {
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
   font-size: var(--mb-fs-0);
   color: var(--mb-color-hero-muted);
 }
@@ -171,7 +176,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
-  padding: var(--mb-s-3);
+  padding: var(--mb-card-pad-compact);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-md);
   background: var(--mb-color-surface-raised);
@@ -219,7 +224,7 @@
   align-items: center;
   gap: var(--mb-s-3);
   width: 100%;
-  padding: var(--mb-s-3) var(--mb-s-4);
+  padding: var(--mb-card-pad-compact) var(--mb-s-4);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-md);
   background: var(--mb-color-surface-raised);
@@ -257,8 +262,9 @@
 
 .mb-account-copy {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
   min-width: 0;
 }
 
@@ -268,11 +274,10 @@
 }
 
 .mb-account-meta {
-  overflow: hidden;
   font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-tight);
   color: var(--mb-color-text-tertiary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .mb-account-stack {
@@ -336,7 +341,7 @@
 }
 
 .mb-sec-desc {
-  margin: calc(var(--mb-s-1) / 2) 0 0;
+  margin: var(--mb-s-1) 0 0;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
@@ -350,7 +355,7 @@
   border: 0;
   background: transparent;
   color: var(--mb-color-accent);
-  font-size: var(--mb-fs-0);
+  font-size: var(--mb-fs-1);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -396,7 +401,7 @@
 }
 
 .mb-col-account {
-  width: calc(var(--mb-tbl-w-account) * 100% / var(--mb-tbl-w-total));
+  width: calc(var(--mb-tbl-w-date) * 100% / var(--mb-tbl-w-total));
 }
 
 .mb-col-num {
@@ -404,11 +409,13 @@
 }
 
 .mb-recent-table th {
+  height: var(--mb-tbl-row-h);
   padding: var(--mb-tbl-py) var(--mb-s-2);
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   color: var(--mb-color-text-tertiary);
   font-size: var(--mb-fs-0);
   font-weight: 500;
+  line-height: var(--mb-tbl-line-h);
   text-align: left;
 }
 
@@ -437,6 +444,7 @@
   padding: var(--mb-tbl-py) var(--mb-s-2);
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   font-size: var(--mb-fs-1);
+  line-height: var(--mb-tbl-line-h);
   vertical-align: middle;
 }
 
@@ -462,8 +470,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: calc(var(--mb-touch) - var(--mb-s-4));
-  height: calc(var(--mb-touch) - var(--mb-s-4));
+  width: calc(var(--mb-s-5) - var(--mb-s-1));
+  height: calc(var(--mb-s-5) - var(--mb-s-1));
   border-radius: var(--mb-radius-xs);
 }
 
@@ -534,6 +542,11 @@
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* 列表金额按「行高 29px 优先」定稿：14px，行高由表格 token 固定 */
+.mb-recent-table .mb-amount {
+  font-size: var(--mb-fs-2);
 }
 
 .mb-amount.is-income,
@@ -672,7 +685,7 @@
 }
 
 .mb-budget-row[data-level='warning'] .mb-budget-percent {
-  color: var(--mb-color-cat-4);
+  color: var(--mb-color-warning);
 }
 
 .mb-budget-row[data-level='over'] .mb-budget-percent {
@@ -700,7 +713,7 @@
 }
 
 .mb-budget-progress[data-level='warning']::-webkit-progress-value {
-  background: var(--mb-color-cat-4);
+  background: var(--mb-color-warning);
 }
 
 .mb-budget-progress[data-level='over']::-webkit-progress-value {
@@ -713,7 +726,7 @@
 }
 
 .mb-budget-progress[data-level='warning']::-moz-progress-bar {
-  background: var(--mb-color-cat-4);
+  background: var(--mb-color-warning);
 }
 
 .mb-budget-progress[data-level='over']::-moz-progress-bar {
@@ -749,8 +762,14 @@
   color: var(--mb-color-chart-annot-neg);
 }
 
+/* 容器比例与 viewBox 同源：消除默认 preserveAspectRatio 产生的横向留白 */
 .mb-chart-body {
-  height: calc(var(--mb-s-7) * 4);
+  width: 100%;
+  aspect-ratio: var(--mb-chart-w-desktop) / var(--mb-chart-h-desktop);
+}
+
+.mb-chart-body.is-mobile {
+  aspect-ratio: var(--mb-chart-w-mobile) / var(--mb-chart-h-mobile);
 }
 
 .mb-chart-svg {
@@ -769,6 +788,12 @@
   fill: var(--mb-color-chart-axis);
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-0);
+}
+
+/* 移动 viewBox 更窄，提一档字号保证渲染后仍 ≥ 12px */
+.mb-chart-body.is-mobile .mb-chart-grid text,
+.mb-chart-body.is-mobile .mb-chart-month {
+  font-size: var(--mb-fs-1);
 }
 
 .mb-chart-area {
@@ -815,4 +840,11 @@
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-1);
   font-weight: 600;
+}
+
+/* 暗色卡片按 design-tokens §7 去掉边框，层级由阴影/底色承担 */
+.mb-hf-root[data-hf-scheme='dark'] .mb-card,
+.mb-hf-root[data-hf-scheme='dark'] .mb-account-entry,
+.mb-hf-root[data-hf-scheme='dark'] .mb-snapshot {
+  border-color: transparent;
 }

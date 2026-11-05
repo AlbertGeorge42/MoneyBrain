@@ -6,7 +6,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--mb-s-3);
-  padding: calc(var(--mb-card-pad) + var(--mb-s-3));
+  padding: var(--mb-card-pad);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-md);
   background: var(--mb-color-surface-raised);
@@ -168,6 +168,16 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* 暗色卡片按 design-tokens §7 去掉边框；错误态保留左侧危险语义边 */
+.mb-hf-root[data-hf-scheme='dark'] .mb-coldstart {
+  border-color: transparent;
+}
+
+.mb-hf-root[data-hf-scheme='dark'] .mb-errorpanel {
+  border-color: transparent;
+  border-left-color: var(--mb-color-danger-solid);
 }
 
 @keyframes mb-pulse {

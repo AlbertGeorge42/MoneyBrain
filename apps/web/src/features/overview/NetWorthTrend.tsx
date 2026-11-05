@@ -1,22 +1,36 @@
 import { useState } from 'react'
 import { currencyAxisFormatter } from '@/utils/format'
+import type { DeviceMode } from '@/features/shared/types'
 import { amountText, percentText } from './format'
 import type { TrendPoint } from './model'
 
-const VIEW_W = 720
-const VIEW_H = 200
-const PAD_L = 64
-const PAD_R = 18
-const PAD_T = 22
-const PAD_B = 30
+interface ChartLayout {
+  width: number
+  height: number
+  padL: number
+  padR: number
+  padT: number
+  padB: number
+}
+
+const LAYOUTS: Record<DeviceMode, ChartLayout> = {
+  desktop: { width: 720, height: 200, padL: 64, padR: 18, padT: 8, padB: 26 },
+  mobile: { width: 320, height: 200, padL: 48, padR: 12, padT: 8, padB: 24 },
+}
+
+const TOOLTIP_W = 108
+const TOOLTIP_H = 40
+const TOOLTIP_RX = 10
 
 function monthLabel(month: string): string {
   const [year, value] = month.split('-')
   return `${year.slice(2)}.${value}`
 }
 
-export function NetWorthTrend({ points }: { points: TrendPoint[] }) {
+export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device: DeviceMode }) {
   const [hover, setHover] = useState<number | null>(null)
+  const layout = LAYOUTS[device]
+  const { width: VIEW_W, height: VIEW_H, padL: PAD_L, padR: PAD_R, padT: PAD_T, padB: PAD_B } = layout
 
   const values = points.map((point) => point.value)
   const rawMax = Math.max(...values)
@@ -48,16 +62,20 @@ export function NetWorthTrend({ points }: { points: TrendPoint[] }) {
   const monthTicks = [0, Math.floor(points.length / 2), points.length - 1]
 
   const hovered = hover === null ? null : points[hover]
+  const tooltipHalf = TOOLTIP_W / 2
   const tooltipX =
     hover === null
       ? 0
-      : Math.min(Math.max(xOf(hover), PAD_L + 58), VIEW_W - PAD_R - 58)
+      : Math.min(
+          Math.max(xOf(hover), PAD_L + tooltipHalf),
+          VIEW_W - PAD_R - tooltipHalf,
+        )
   const tooltipY =
     hover === null
       ? 0
-      : yOf(points[hover].value) - 52 < PAD_T
+      : yOf(points[hover].value) - (TOOLTIP_H + 12) < PAD_T
         ? yOf(points[hover].value) + 14
-        : yOf(points[hover].value) - 52
+        : yOf(points[hover].value) - (TOOLTIP_H + 12)
 
   return (
     <section className="mb-card mb-trend-card">
@@ -70,7 +88,7 @@ export function NetWorthTrend({ points }: { points: TrendPoint[] }) {
           {percentText(change)}
         </span>
       </div>
-      <div className="mb-chart-body">
+      <div className={device === 'mobile' ? 'mb-chart-body is-mobile' : 'mb-chart-body'}>
         <svg
           className="mb-chart-svg"
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
@@ -107,7 +125,7 @@ export function NetWorthTrend({ points }: { points: TrendPoint[] }) {
               key={points[index].month}
               className="mb-chart-month"
               x={xOf(index)}
-              y={VIEW_H - 8}
+              y={VIEW_H - 6}
               textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
             >
               {monthLabel(points[index].month)}
@@ -128,7 +146,13 @@ export function NetWorthTrend({ points }: { points: TrendPoint[] }) {
           ))}
           {hovered && (
             <g className="mb-chart-tooltip" aria-hidden="true" transform={`translate(${tooltipX}, ${tooltipY})`}>
-              <rect x={-54} y={0} width={108} height={40} rx={10} />
+              <rect
+                x={-tooltipHalf}
+                y={0}
+                width={TOOLTIP_W}
+                height={TOOLTIP_H}
+                rx={TOOLTIP_RX}
+              />
               <text className="mb-chart-tooltip-label" x={0} y={16} textAnchor="middle">
                 {monthLabel(hovered.month)}
               </text>

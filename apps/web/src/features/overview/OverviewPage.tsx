@@ -101,7 +101,7 @@ export function OverviewPage({
         <MobileHero summary={summary} />
         <MobileSnapshots summary={summary} />
         <AccountEntry summary={summary} accounts={ledger.accounts} onOpen={onOpenAccounts} />
-        <NetWorthTrend points={trend} />
+        <NetWorthTrend points={trend} device="mobile" />
         <BudgetCard summary={budget} mobile onOpenAll={onOpenBudgets} />
         <RecentTransactions
           device="mobile"
@@ -129,7 +129,7 @@ export function OverviewPage({
         />
         <BudgetCard summary={budget} onOpenAll={onOpenBudgets} />
       </div>
-      <NetWorthTrend points={trend} />
+      <NetWorthTrend points={trend} device="desktop" />
     </>
   )
 }

@@ -46,7 +46,7 @@
 .mb-brand-copy {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
 }
 
 .mb-brand-name {
@@ -126,7 +126,7 @@
 .mb-side-foot {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
   padding-top: var(--mb-s-4);
   border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
@@ -183,6 +183,9 @@
 }
 
 .mb-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-section-gap);
   width: 100%;
   max-width: var(--mb-content-max);
   margin: 0 auto;
@@ -227,7 +230,7 @@
 .mb-mobile-title {
   margin: 0;
   font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-4);
+  font-size: var(--mb-fs-5);
   font-weight: 600;
   line-height: var(--mb-lh-tight);
 }
@@ -268,6 +271,17 @@
   overflow-y: auto;
 }
 
+/* 移动端可点击控件统一满足 44px 触控目标 */
+.mb-mobile-scroll .mb-link-btn,
+.mb-mobile-scroll .mb-primary-btn,
+.mb-mobile-scroll .mb-secondary-btn,
+.mb-sheet .mb-link-btn,
+.mb-sheet .mb-primary-btn,
+.mb-sheet .mb-secondary-btn,
+.mb-sheet .mb-chip {
+  min-height: var(--mb-touch);
+}
+
 .mb-mobile-nav {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -278,11 +292,12 @@
 }
 
 .mb-mobile-nav-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
   min-height: var(--mb-touch);
   border: 0;
   background: transparent;
@@ -296,6 +311,18 @@
   font-weight: 600;
 }
 
+.mb-mobile-nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: calc(var(--mb-s-5) - var(--mb-s-1));
+  height: calc(var(--mb-border-width) * 3);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-accent);
+  transform: translateX(-50%);
+}
+
 .mb-mobile-fab {
   position: absolute;
   left: 50%;
@@ -304,8 +331,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: calc(var(--mb-touch) + var(--mb-s-2));
-  height: calc(var(--mb-touch) + var(--mb-s-2));
+  width: calc(var(--mb-touch) + var(--mb-s-3));
+  height: calc(var(--mb-touch) + var(--mb-s-3));
   border: calc(var(--mb-border-width) * 3) var(--mb-border-style) var(--mb-color-surface);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-accent-fill);
@@ -329,6 +356,7 @@
 .mb-mobile-nav-item:focus-visible,
 .mb-icon-btn:focus-visible,
 .mb-mobile-fab:focus-visible,
+.mb-link-btn:focus-visible,
 .mb-primary-btn:focus-visible,
 .mb-secondary-btn:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);

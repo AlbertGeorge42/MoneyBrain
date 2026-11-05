@@ -33,7 +33,7 @@
 .mb-overlay-title-copy {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
 }
 
 .mb-overlay-title {

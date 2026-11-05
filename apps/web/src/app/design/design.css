@@ -49,7 +49,7 @@
 .mb-hf-toolbar-copy {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
 }
 
 .mb-hf-toolbar-name {
@@ -85,8 +85,8 @@
 .mb-hf-switch {
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--mb-s-1) / 2);
-  padding: calc(var(--mb-s-1) / 2);
+  gap: var(--mb-s-1);
+  padding: var(--mb-s-1);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-sunken);
