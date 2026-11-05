@@ -1217,10 +1217,10 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   )
 
   const renderDisplay = () => {
-    const columns: { key: 'showNote' | 'showAccount' | 'fixed'; label: string; desc: string }[] = [
-      { key: 'showNote', label: '备注列', desc: '在流水列表显示备注' },
-      { key: 'showAccount', label: '账户列', desc: '在流水列表显示所属账户' },
-      { key: 'fixed', label: '金额与分类', desc: '必需列，始终显示' },
+    const columns: { key: 'showNote' | 'showAccount' | 'fixed'; label: string; desc?: string }[] = [
+      { key: 'showNote', label: '备注列' },
+      { key: 'showAccount', label: '账户列' },
+      { key: 'fixed', label: '金额与分类', desc: '必需' },
     ]
     return (
       <>
@@ -1233,7 +1233,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                   <GripVertical size={14} />
                 </span>
                 <span className="mb-set-name">{column.label}</span>
-                <span className="mb-set-meta">{column.desc}</span>
+                {column.desc && <span className="mb-set-meta">{column.desc}</span>}
                 <label className="mb-set-check">
                   <input
                     type="checkbox"
