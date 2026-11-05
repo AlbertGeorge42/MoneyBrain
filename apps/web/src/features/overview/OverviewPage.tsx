@@ -13,7 +13,6 @@ import {
   deriveNetWorthTrend,
   deriveOverview,
   groupRecentTransactions,
-  TODAY,
 } from './model'
 import './overview.css'
 
@@ -31,20 +30,21 @@ interface OverviewPageProps {
 
 function PageHead({ device, dataState }: { device: DeviceMode; dataState: DataState }) {
   const note =
-    dataState === 'normal'
-      ? `数据截至 ${TODAY.slice(5)}`
-      : dataState === 'loading'
-        ? '正在读取本地账本'
-        : dataState === 'empty'
-          ? '尚未开始记账'
-          : '本地账本读取失败'
+    dataState === 'loading'
+      ? '正在读取本地账本'
+      : dataState === 'empty'
+        ? '尚未开始记账'
+        : dataState === 'error'
+          ? '本地账本读取失败'
+          : null
+  const sub = note ? `${CURRENT_MONTH_LABEL} · ${note}` : CURRENT_MONTH_LABEL
   if (device === 'mobile') {
-    return <p className="mb-m-page-meta">{CURRENT_MONTH_LABEL} · {note}</p>
+    return <p className="mb-m-page-meta">{sub}</p>
   }
   return (
     <div className="mb-page-head">
       <h1 className="mb-page-title">总览</h1>
-      <p className="mb-page-sub">{CURRENT_MONTH_LABEL} · {note}</p>
+      <p className="mb-page-sub">{sub}</p>
     </div>
   )
 }

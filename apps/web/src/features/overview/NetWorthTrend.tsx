@@ -86,7 +86,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">净资产走势</h2>
-          <p className="mb-sec-desc">近 12 个月 · 月底快照</p>
+          <p className="mb-sec-desc">近 12 个月</p>
         </div>
         <span className={change >= 0 ? 'mb-trend-delta is-positive' : 'mb-trend-delta is-negative'}>
           {percentText(change)}

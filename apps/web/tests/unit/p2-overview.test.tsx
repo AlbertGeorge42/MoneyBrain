@@ -81,10 +81,11 @@ describe('#9 未来日期分组', () => {
     expect(groups[groups.length - 1].items.map((item) => item.id)).toEqual(['future'])
   })
 
-  it('未来分组标签带年份并提示不计入本月', () => {
+  it('未来分组只用标签表达，不带说明句', () => {
     const future = groups[groups.length - 1]
+    expect(future.label).toContain('未来')
     expect(future.label).toContain('2027年1月5日')
-    expect(future.hint).toBe('不计入本月支出')
+    expect(future).not.toHaveProperty('hint')
   })
 
   it('过去分组标签也补年份', () => {

@@ -122,8 +122,6 @@ export interface BudgetSummary {
 export interface RecentGroup {
   date: string
   label: string
-  /** 未来分组附带的「不计入本月支出」说明。 */
-  hint?: string
   items: LedgerTransaction[]
 }
 
@@ -406,7 +404,7 @@ export function groupRecentTransactions(
   limit: number,
   today = TODAY,
 ): RecentGroup[] {
-  // 未来日期不参与「今天/过去」的时间线，单独收进「未来」分组并注明不计入本月。
+  // 未来日期不参与「今天/过去」的时间线，单独收进「未来」分组。
   const future = transactions
     .filter((transaction) => transaction.date > today)
     .sort((left, right) => left.date.localeCompare(right.date))
@@ -431,7 +429,6 @@ export function groupRecentTransactions(
     groups.push({
       date: 'future',
       label: `未来 · ${recentDateLabel(future[0].date, today)}`,
-      hint: '不计入本月支出',
       items: future,
     })
   }

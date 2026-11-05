@@ -51,7 +51,6 @@ export function ColdStartGuide({
           导入账单
         </Button>
       </div>
-      <p className="mb-coldstart-note">你的数据只在本机；随时可完整导出。</p>
     </section>
   )
 }

@@ -25,8 +25,7 @@ export function NetWorthHero({ summary }: { summary: OverviewSummary }) {
       </div>
       <div className="mb-hero-worth">{amountText(summary.netWorth)}</div>
       <div className="mb-hero-meta">
-        现金等价 {amountText(summary.liquidAssets)} · 投资账户 {amountText(summary.investmentAssets)} · 10 月已过{' '}
-        {summary.elapsedDays} 天
+        现金等价 {amountText(summary.liquidAssets)} · 投资账户 {amountText(summary.investmentAssets)}
       </div>
       <div className="mb-hero-grid">
         <div className="mb-hero-cell">
@@ -44,12 +43,10 @@ export function NetWorthHero({ summary }: { summary: OverviewSummary }) {
           <strong className={positive ? 'mb-hero-cell-value is-pos' : 'mb-hero-cell-value is-neg'}>
             {amountText(summary.balance, { showSign: positive })}
           </strong>
-          <span className="mb-hero-foot">收入 − 支出</span>
         </div>
         <div className="mb-hero-cell">
           <span className="mb-hero-cell-label">储蓄率</span>
           <strong className="mb-hero-cell-value">{percentText(summary.savingsRate, false)}</strong>
-          <span className="mb-hero-foot">结余占收入</span>
         </div>
       </div>
     </section>

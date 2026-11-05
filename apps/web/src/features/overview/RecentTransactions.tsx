@@ -78,7 +78,7 @@ export function RecentTransactions({
         <div>
           <h2 className="mb-sec-title">最近交易</h2>
           <p className="mb-sec-desc">
-            {count === 0 ? '还没有流水' : `最新 ${count} 笔${mobile ? ' · 点按查看详情' : ' · 点击行查看详情'}`}
+            {count === 0 ? '还没有流水' : `最新 ${count} 笔`}
           </p>
         </div>
       </div>
@@ -91,7 +91,6 @@ export function RecentTransactions({
             <div key={group.date} className="mb-m-day">
               <div className="mb-m-day-label">
                 <span>{group.label}</span>
-                {group.hint && <span className="mb-day-hint">{group.hint}</span>}
               </div>
               {group.items.map((transaction) => {
                 const rootId = getCategoryRootId(ledger, transaction.categoryId)
@@ -145,7 +144,6 @@ export function RecentTransactions({
                   <tr className={group.date === 'future' ? 'mb-day-row is-future' : 'mb-day-row'}>
                     <td colSpan={4}>
                       <span>{group.label}</span>
-                      {group.hint && <span className="mb-day-hint">{group.hint}</span>}
                     </td>
                   </tr>
                   {group.items.map((transaction) => {

@@ -98,12 +98,6 @@
   margin-top: var(--mb-s-2);
 }
 
-.mb-coldstart-note {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
 .mb-errorpanel-code {
   margin: 0;
   font-family: var(--mb-font-num);

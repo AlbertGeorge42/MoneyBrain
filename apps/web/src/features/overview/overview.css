@@ -131,8 +131,7 @@
   color: var(--mb-color-hero-neg);
 }
 
-.mb-hero-delta,
-.mb-hero-foot {
+.mb-hero-delta {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
@@ -441,12 +440,6 @@
 
 .mb-day-row.is-future td {
   color: var(--mb-color-text-secondary);
-}
-
-.mb-day-hint {
-  margin-left: var(--mb-s-2);
-  color: var(--mb-color-text-tertiary);
-  font-weight: 400;
 }
 
 .mb-tx-table-row {
