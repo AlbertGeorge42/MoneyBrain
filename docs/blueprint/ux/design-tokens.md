@@ -33,7 +33,7 @@
 
 ### 2.1 语义角色
 
-颜色是**角色**，不是装饰。每个角色只有一个色值；下表 42 项即 `--mb-color-*` 的全集。
+颜色是**角色**，不是装饰。每个角色只有一个色值；下表即 `--mb-color-*` 全集（HF 批次 1 增补 `warning` 与 6 项主卡 token）。
 
 **面 / 字 / 线 / 品牌 / 状态**
 
@@ -74,6 +74,7 @@
 | `--mb-color-danger-solid` | `#6C1019` | `#6C1019` | 危险实心按钮（二次确认） |
 | `--mb-color-danger-bg` | `#FAE8E6` | `#241114` | 危险 chip / 提示底 |
 | `--mb-color-on-danger` | `#FFE9E7` | `#FFE9E7` | 危险实心上的文字 |
+| `--mb-color-warning` | `#8A5A00` | `#E5B54A` | 预算 80–100% 预警（文字与进度条） |
 
 **分类与图表辅助**
 
@@ -86,6 +87,19 @@
 | `--mb-color-chart-tooltip-ink` | `#F3F4F0` | `#ECEEEF` | 图表 tooltip 文字 |
 | `--mb-color-chart-annot-pos` | `#1B7A48` | `#4ADE80` | 图表正向标注（= 收入绿） |
 | `--mb-color-chart-annot-neg` | `#A64D56` | `#F0A4AB` | 图表负向标注（= 支出红） |
+
+**主卡专用（HF 批次 1，6 项）**
+
+主卡是深色反色面，语义色需按底派生。涨跌色不得再用强调填充色；暗色主卡底色比普通卡片高一档。
+
+| Token | 浅色（默认） | 暗色 | 角色 |
+|---|---|---|---|
+| `--mb-color-hero-bg` | `#14161A` | `#1D2226` | 主卡底（暗色 = surface-hover 一档） |
+| `--mb-color-hero-ink` | `#F7FBEF` | `#ECEEEF` | 主卡主文字 |
+| `--mb-color-hero-muted` | `#D5D7D2` | `#9CA3A8` | 主卡标签 / 辅助文字 |
+| `--mb-color-hero-line` | `rgba(255,255,255,.14)` | `rgba(255,255,255,.10)` | 主卡分隔线 / 1px 高光边 |
+| `--mb-color-hero-pos` | `color-mix(in srgb, income 45%, hero-ink)` | `color-mix(in srgb, income 80%, hero-ink)` | 主卡正向涨跌（派生自 `income`） |
+| `--mb-color-hero-neg` | `color-mix(in srgb, expense-display 45%, hero-ink)` | `color-mix(in srgb, expense-display 80%, hero-ink)` | 主卡负向涨跌（派生自 `expense-display`） |
 
 ### 2.2 Mantine 色阶（四条 10 档）
 
@@ -218,6 +232,9 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 
 字重只用 400 / 500 / 600 / 700。
 
+行高：`--mb-lh-tight: 1.2`（标题、金额、表格行）、`--mb-lh-body: 1.55`（正文）。
+表格行内文字统一用 `--mb-tbl-line-h`（20px），不继承正文字号行高。
+
 ---
 
 ## 4. 间距阶梯（4 的倍数）
@@ -228,7 +245,7 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 | `--mb-s-2` | 8px | 元素内间隙 |
 | `--mb-s-3` | 12px | 列表项内间距 |
 | `--mb-s-4` | 16px | 组件内边距 |
-| `--mb-s-5` | 24px | 卡片内边距、区块间距 |
+| `--mb-s-5` | 24px | 大间距（浮层内边距、侧栏区块）；**卡内边距 / 区块间距见 §5，不用本档** |
 | `--mb-s-6` | 32px | 页面级间距 |
 | `--mb-s-7` | 48px | 空状态上下留白 |
 
@@ -245,11 +262,13 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 | `--mb-row-py` | 10px |
 | `--mb-row-gap` | 10px |
 | `--mb-card-pad` | 20px |
-| `--mb-tbl-py` | 8px |
+| `--mb-card-pad-compact` | 12px——快照卡、账户入口等紧凑卡 |
+| `--mb-tbl-py` | 4px |
 | `--mb-tbl-row-h` | `calc(fs-1 + s-4)`（默认 13+16 = 29px）——**所有数据表**（并排与单表）的单行固定高度；超长内容截断/展开不改行高 |
+| `--mb-tbl-line-h` | `calc(tbl-row-h - tbl-py * 2 - border)`（默认 20px）——表格行内统一行高 |
 | `--mb-tbl-w-main` | `2.4`（相对权重，非绝对值）——首列：名称 / 分类 / 项目 |
 | `--mb-tbl-w-mid` | `1.6`——性质 / 账户 / 说明 |
-| `--mb-tbl-w-date` | `1.4`——日期 / 时间 |
+| `--mb-tbl-w-date` | `1.6`——日期 / 账户（同一列位） |
 | `--mb-tbl-w-num` | `1.1`——金额 / 占比 / 比率 |
 | `--mb-control-h` | 38px |
 | `--mb-section-gap` | 16px |
@@ -261,6 +280,9 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 由 `colgroup` 把权重折算成百分比，配合 `table-layout: fixed` 生效——不写固定 px 列宽，
 也不允许每张表各写一套。超长文本由 `ellipsis` 截断，全文走 tooltip（见
 [interaction-spec §5.3](interaction-spec.md)）。
+
+**行高优先规则**：表格行固定 29px 优先于字号；列表金额用 `--mb-fs-2`（14px）配
+`--mb-tbl-line-h`（20px），分类图标 20px，不通过缩放字号或图标撑高行。
 
 ---
 
@@ -289,6 +311,10 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 双层：**低透明度大扩散 + 高透明度小收紧**，不用单层大模糊——后者在浅灰面上会显脏。
 暗色靠「顶亮线 + 大黑晕」表达层次，不额外加边框。上面的 `rgba()` 只允许出现在
 token 定义文件（生成 CSS）；业务代码写 `var(--mb-sh-*)`。
+
+HF 批次 1 起，暗色卡片**移除边框**，只用上述阴影与底色分层；主卡底色取
+`--mb-color-hero-bg`（暗色 `#1D2226`，比 `surface-raised` 高一档）+ 1px `hero-line` 高光边，
+保证与普通卡片层级可辨。
 
 ---
 
@@ -355,6 +381,7 @@ Linux 落 system-ui / 等宽默认。若要求跨平台一致，需要先引入�
 | 支出金额 | `--mb-color-expense`（≥24px 或 ≥18.66px 粗用 `expense-display`） | 橙色、正红 |
 | 转账金额 | `--mb-color-transfer` | 中性灰（会读成「无意义」） |
 | 分类区分 | `--mb-color-cat-*` | 语义色（会读成收入/支出） |
+| 预算 80–100% | `--mb-color-warning` | `--mb-color-cat-*`（分类色不得当状态色） |
 | 强调文字 / 图标 / 链接 | `--mb-color-accent` | `accent-fill` 当文字（1.39） |
 | 强调填充 | `--mb-color-accent-fill` + `on-accent-fill` + 1px 描边 | 白字（1.51） |
 | 危险动作 | `--mb-color-danger` + 图标 + 文案 + 二次确认 | 普通提示、警告 |
