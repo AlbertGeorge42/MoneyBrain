@@ -3,8 +3,12 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { MantineProvider } from '@mantine/core'
+import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { TODAY } from '@/features/overview/model'
 import { BatchBar } from '@/features/transactions/BatchBar'
 import { TransactionsList } from '@/features/transactions/TransactionsList'
+import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { DEFAULT_DISPLAY } from '@/features/transactions/displaySettings'
 import {
   EMPTY_ADVANCED,
@@ -170,6 +174,34 @@ describe('#9 未来记录不计入本月合计', () => {
     expect(flow).not.toContain('¥64.40')
 
     const note = container.querySelector('.mb-tx-foot-future')?.textContent ?? ''
-    expect(note).toBe('另有 1 笔未来记录（−¥12.00），不计入本月')
+    expect(note).toBe('另有 1 笔未来（−¥12.00，不计入本月）')
+  })
+
+  it('页头与页脚笔数一致，且均按本月口径不含未来记录', () => {
+    const { current } = splitTotalsByToday(futureLedger.transactions)
+    const { container } = render(
+      <MantineProvider>
+        <LedgerProvider initialLedger={futureLedger}>
+          <TransactionsPage
+            device="desktop"
+            dataState="normal"
+            batchMode={false}
+            onBatchModeChange={() => {}}
+            displayOpen={false}
+            onDisplayToggle={() => {}}
+            onRetry={() => {}}
+            onCreateAccount={() => {}}
+            onImport={() => {}}
+          />
+        </LedgerProvider>
+      </MantineProvider>,
+    )
+
+    // 原缺陷：页头用筛选总数（4 笔）又叠加「另有 1 笔未来」，读起来像 4+1。
+    expect(current.count).toBe(3)
+    const head = container.querySelector('.mb-page-sub')?.textContent ?? ''
+    expect(head).toBe(`共 3 笔 · 数据截至 ${TODAY.slice(5)} · 另有 1 笔未来（−¥12.00，不计入本月）`)
+    const foot = container.querySelector('.mb-tx-foot-count')?.textContent ?? ''
+    expect(foot).toBe('共 3 笔')
   })
 })

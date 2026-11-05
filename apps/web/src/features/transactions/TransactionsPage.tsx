@@ -81,9 +81,11 @@ function PageHead({
         : dataState === 'empty'
           ? '尚未开始记账'
           : '本地账本读取失败'
+  // 页头「共 N 笔」已是本月口径（不含未来）；未来记录只在这里单独计一次，
+  // 不再让 N 与「另有」叠加读成总数。
   const futureNote =
     future && future.count > 0
-      ? `另有 ${future.count} 笔未来记录（${signedMinorText(future.net)}），不计入本月`
+      ? `另有 ${future.count} 笔未来（${signedMinorText(future.net)}，不计入本月）`
       : ''
   const fullNote = futureNote ? `${note} · ${futureNote}` : note
 
@@ -340,7 +342,7 @@ export function TransactionsPage({
       ? [...filtered].sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount))
       : filtered
   const groups = groupTransactions(sorted)
-  const { future: futureTotals } = splitTotalsByToday(filtered)
+  const { current: monthTotals, future: futureTotals } = splitTotalsByToday(filtered)
   const chips = filterChips(ledger, filters)
   const detail = detailId
     ? ledger.transactions.find((transaction) => transaction.id === detailId) ?? null
@@ -521,7 +523,7 @@ export function TransactionsPage({
 
   return (
     <>
-      <PageHead device={device} dataState={dataState} count={filtered.length} future={futureTotals} />
+      <PageHead device={device} dataState={dataState} count={monthTotals.count} future={futureTotals} />
 
       <Toolbar
         query={query}
@@ -621,6 +623,7 @@ export function TransactionsPage({
         <BatchBar
           device={device}
           count={selected.size}
+          futureCount={selectedTransactions.filter((transaction) => transaction.date > TODAY).length}
           excluded={excludedFromBatch}
           categoryDisabled={!canBatchCategory}
           categoryHint={batchCategoryHint}
@@ -680,7 +683,9 @@ export function TransactionsPage({
       )}
 
       <span className="mb-visually-hidden" aria-live="polite">
-        当前筛选 {filtered.length} 笔，共 {ledger.transactions.length} 笔
+        当前筛选 {monthTotals.count} 笔
+        {futureTotals.count > 0 ? `，另有 ${futureTotals.count} 笔未来不计入本月` : ''}，共{' '}
+        {ledger.transactions.length} 笔
       </span>
     </>
   )

@@ -150,7 +150,7 @@ function DesktopTable({
         </span>
         {future.count > 0 && (
           <span className="mb-tx-foot-future">
-            另有 {future.count} 笔未来记录（{signedMinorText(future.net)}），不计入本月
+            另有 {future.count} 笔未来（{signedMinorText(future.net)}，不计入本月）
           </span>
         )}
       </div>
@@ -232,7 +232,7 @@ function MobileList({
       </p>
       {future.count > 0 && (
         <p className="mb-tx-m-foot mb-tx-foot-future">
-          另有 {future.count} 笔未来记录（{signedMinorText(future.net)}），不计入本月
+          另有 {future.count} 笔未来（{signedMinorText(future.net)}，不计入本月）
         </p>
       )}
     </section>
