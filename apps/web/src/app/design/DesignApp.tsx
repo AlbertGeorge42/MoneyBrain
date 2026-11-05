@@ -5,6 +5,8 @@
  * 正常 / 加载 / 空账本 / 错误；预览入口不接入生产路由，也不引用旧页面代码。
  */
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { getPortalHost } from '@/features/shared/portalHost'
 import '@mantine/core/styles.css'
 import { MantineProvider } from '@mantine/core'
 import { AppShell } from '@/features/shell/AppShell'
@@ -429,14 +431,21 @@ function PreviewBody({
     </div>
   ) : null
 
+  // 预览画布与手机框都带 transform，会成为 fixed 的包含块；toast 挂到带 token 的
+  // body 级宿主，才能在任何祖先滚动后仍固定在视口同一位置。
+  const toastPortal =
+    toastNode && typeof document !== 'undefined'
+      ? createPortal(toastNode, getPortalHost())
+      : toastNode
+
   if (device === 'mobile') {
     return (
       <div className="mb-hf-phone">
         <div className="mb-hf-phone-screen">
           {shell}
           {overlays}
-          {toastNode}
         </div>
+        {toastPortal}
       </div>
     )
   }
@@ -445,7 +454,7 @@ function PreviewBody({
     <div className="mb-hf-desktop">
       {shell}
       {overlays}
-      {toastNode}
+      {toastPortal}
     </div>
   )
 }

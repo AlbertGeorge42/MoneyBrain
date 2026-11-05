@@ -56,7 +56,8 @@
  * 数值来源：docs/blueprint/ux/design-tokens.md（全量颜色 + 字号 + 行高 + 间距 + 圆角 + 阴影 + 表格行高）
  * 字面量只允许出现在 token 定义文件；业务 CSS 一律引用 --mb-*。
  */
-.mb-hf-root {
+.mb-hf-root,
+.mb-hf-portal {
   /* 字号 */
   --mb-fs-0: 12px;
   --mb-fs-1: 13px;
