@@ -566,9 +566,6 @@ export function QuickEntry({
     <span className="mb-entry-head">
       <span className="mb-overlay-title-copy">
         <span className="mb-overlay-title">记一笔</span>
-        {device === 'mobile' ? null : (
-          <span className="mb-overlay-sub">先记下来，之后可以再补充细节</span>
-        )}
       </span>
       {device === 'mobile' && (
         <span className="mb-entry-count">

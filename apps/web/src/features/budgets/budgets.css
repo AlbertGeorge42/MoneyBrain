@@ -407,14 +407,7 @@
   color: var(--mb-color-text-secondary);
 }
 
-/* ===== 说明 / 空态 ===== */
-
-.mb-bg-note p {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  line-height: var(--mb-lh-body);
-  color: var(--mb-color-text-tertiary);
-}
+/* ===== 空态 ===== */
 
 .mb-bg-empty {
   align-items: flex-start;
@@ -501,13 +494,6 @@
   padding: var(--mb-s-3);
   border-radius: var(--mb-radius-sm);
   background: var(--mb-color-expense-bg);
-}
-
-.mb-bg-over-title {
-  margin: 0;
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  color: var(--mb-color-expense);
 }
 
 .mb-bg-over-buttons {

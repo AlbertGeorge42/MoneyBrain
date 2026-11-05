@@ -457,13 +457,6 @@ export function BudgetPage({
       <WatchGroup data={data} onOpen={openDetail} />
       <GroupSection data={data} onOpen={openDetail} />
 
-      <section className="mb-card mb-bg-note">
-        <p>
-          支出超过 80% 标黄、超过 100% 标红并显示超支金额；收入未达目标只提示差额，不叫超支；
-          转账只记录流量，不计入预算告警（行内标「不计入预算」，不填充进度条），也不参与支出总计。
-        </p>
-      </section>
-
       <Drawer
         opened={Boolean(detail)}
         onClose={() => setDetailId(null)}
@@ -522,7 +515,6 @@ export function BudgetPage({
 
             {detail.type === 'expense' && detail.level === 'over' && (
               <div className="mb-bg-over-actions">
-                <h3 className="mb-bg-over-title">这笔预算已超支，接下来怎么处理？</h3>
                 <div className="mb-bg-over-buttons">
                   <button type="button" className="mb-secondary-btn" onClick={adjustToActual}>
                     按实际调整
@@ -530,7 +522,7 @@ export function BudgetPage({
                   <button
                     type="button"
                     className="mb-secondary-btn"
-                    onClick={() => setDetailNote('已维持原限额，本期继续标记为超支，作为已知告警。')}
+                    onClick={() => setDetailNote('已维持原限额')}
                   >
                     维持限额
                   </button>
@@ -664,7 +656,6 @@ function BudgetEditor({
       title={
         <div className="mb-overlay-title-copy">
           <span className="mb-overlay-title">新增预算条目</span>
-          <span className="mb-overlay-sub">支出设上限、收入设目标、转账记录计划</span>
         </div>
       }
     >
