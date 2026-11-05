@@ -550,11 +550,29 @@
   color: var(--mb-color-text-tertiary);
 }
 
+.mb-tx-amount-col {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
 .mb-tx-amount {
   flex: none;
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-2);
+  line-height: var(--mb-lh-tight);
   text-align: right;
+  white-space: nowrap;
+}
+
+/* 转账行金额下方的目标账户子行：12px tertiary，右对齐在金额同一列。 */
+.mb-tx-amount-alt {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+  line-height: var(--mb-lh-tight);
   white-space: nowrap;
 }
 

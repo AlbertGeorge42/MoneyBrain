@@ -62,6 +62,10 @@ function DesktopTable({
               const rootId = getCategoryRootId(ledger, transaction.categoryId)
               const isSelected = selected.has(transaction.id)
               const categoryName = getCategoryName(ledger, transaction.categoryId)
+              const toAccount =
+                transaction.type === 'transfer' && transaction.toAccountId
+                  ? getAccount(ledger, transaction.toAccountId)
+                  : undefined
               const activate = () =>
                 batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id)
               return (
@@ -122,8 +126,13 @@ function DesktopTable({
                       <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
                     </span>
                   </span>
-                  <span className={`mb-tx-amount is-${transactionTone(transaction)}`}>
-                    {signedAmountText(transaction)}
+                  <span className="mb-tx-amount-col">
+                    <span className={`mb-tx-amount is-${transactionTone(transaction)}`}>
+                      {signedAmountText(transaction)}
+                    </span>
+                    {toAccount?.name && (
+                      <span className="mb-tx-amount-alt">→ {toAccount.name}</span>
+                    )}
                   </span>
                 </div>
               )
