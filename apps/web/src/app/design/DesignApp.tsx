@@ -401,7 +401,10 @@ export default function DesignApp() {
   const [dataState, setDataState] = useState<DataState>(() =>
     readInitial('state', STATES, 'normal'),
   )
-  const [page, setPage] = useState<ShellPage>(() => readInitial('page', PAGES, 'overview'))
+  const [page, setPage] = useState<ShellPage>(() => {
+    const raw = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('page')
+    return raw === 'budget' ? 'budgets' : readInitial('page', PAGES, 'overview')
+  })
   const systemScheme = useSystemScheme()
   const resolvedScheme: SchemeMode = scheme === 'system' ? systemScheme : scheme
 
