@@ -25,12 +25,6 @@
   letter-spacing: -0.01em;
 }
 
-.mb-set-sub {
-  margin: 0;
-  font-size: var(--mb-fs-1);
-  color: var(--mb-color-text-tertiary);
-}
-
 /* ===== 双列布局 ===== */
 
 .mb-set-layout {
@@ -128,12 +122,6 @@
   font-size: var(--mb-fs-3);
   font-weight: 600;
   line-height: var(--mb-lh-tight);
-}
-
-.mb-set-panel-desc {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 /* ===== 工具栏：Tabs + 新增 ===== */

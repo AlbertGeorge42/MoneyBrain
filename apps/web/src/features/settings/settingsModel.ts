@@ -28,20 +28,19 @@ export type SectionId =
 export interface SectionMeta {
   id: SectionId
   label: string
-  desc: string
 }
 
 export const CONFIG_SECTIONS: readonly SectionMeta[] = [
-  { id: 'accounts', label: '账户分类', desc: '账户名称、余额与归属分类' },
-  { id: 'categories', label: '收支分类', desc: '收入 / 支出 / 转账的两级分类树' },
-  { id: 'cashflow', label: '现金流分类', desc: '资产的现金流标记与交易分类的活动归属' },
-  { id: 'invest', label: '投资资产类型', desc: '持仓类别与目标占比' },
+  { id: 'accounts', label: '账户分类' },
+  { id: 'categories', label: '收支分类' },
+  { id: 'cashflow', label: '现金流分类' },
+  { id: 'invest', label: '投资资产类型' },
 ]
 
 export const GENERAL_SECTIONS: readonly SectionMeta[] = [
-  { id: 'display', label: '列表显示', desc: '流水列显隐与排序方式' },
-  { id: 'data', label: '数据与备份', desc: '导入、导出、回滚与危险区' },
-  { id: 'trash', label: '回收站', desc: '恢复或清空已删除交易' },
+  { id: 'display', label: '列表显示' },
+  { id: 'data', label: '数据与备份' },
+  { id: 'trash', label: '回收站' },
 ]
 
 export const SECTION_GROUP_TITLES: Record<'config' | 'general', string> = {

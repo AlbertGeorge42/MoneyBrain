@@ -456,7 +456,6 @@ function MoverSheet({
             </button>
           ))}
         </div>
-        <p className="mb-set-hint">移动只改归属，不改名称、余额与已有流水。</p>
       </div>
     </Drawer>
   )
@@ -934,9 +933,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           </div>
         </div>
         <div className="mb-set-list">{groups.map(renderAccountGroup)}</div>
-        <p className="mb-set-hint">
-          账户性质决定图标与现金流标记；名称、余额与归属都在这里改。删除分类前需先清空其下账户。
-        </p>
       </>
     )
   }
@@ -986,7 +982,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             </div>
           )}
         </div>
-        <p className="mb-set-hint">有子分类的分类要先处理子分类；有交易引用的删除时会先让你选目标分类，把交易整体转移后再删除。转账分类只影响流水归类，不计入收支。</p>
       </>
     )
   }
@@ -1082,9 +1077,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               )
             })}
           </div>
-          <p className="mb-set-hint">
-            资产按现金流标记分组；把账户移动到另一组即改变它的现金等价 / 投资 / 其他标记。负债分类不进此表。
-          </p>
         </>
       )
     }
@@ -1176,7 +1168,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             )
           })}
         </div>
-        <p className="mb-set-hint">活动归属只影响现金流报表分组；子分类随父分类的归属计算。</p>
       </>
     )
   }
@@ -1222,7 +1213,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           </div>
         ))}
       </div>
-      <p className="mb-set-hint">目标占比参与报表「资产分布」的偏离计算；快照中仍有持仓的类型不能删除。</p>
     </>
   )
 
@@ -1277,7 +1267,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             ))}
           </div>
         </div>
-        <p className="mb-set-hint">列集合固定，只能显隐；改动即时同步到流水页工具栏「显示」。</p>
       </>
     )
   }
@@ -1289,7 +1278,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           <Database size={18} />
           <h3>导出</h3>
         </div>
-        <p>把当前账本原样导出为 JSON，包含账户、分类、预算与全部流水。</p>
         <button type="button" className="mb-set-btn" onClick={exportLedger}>
           <Download size={16} />
           导出账本
@@ -1300,7 +1288,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           <FolderInput size={18} />
           <h3>导入</h3>
         </div>
-        <p>支持支付宝、微信与银行账单，导入后可回滚到导入前的存点。</p>
         <button type="button" className="mb-set-btn" onClick={onImport}>
           <FolderInput size={16} />
           打开导入向导
@@ -1466,7 +1453,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     <>
       <header className="mb-set-head">
         <h1 className="mb-set-title">设置</h1>
-        <p className="mb-set-sub">账户、分类与数据的唯一配置入口；改动即时同步到总览、流水与报表。</p>
       </header>
       <div className="mb-set-layout">
         <nav className="mb-set-nav" aria-label="设置分区">
@@ -1498,7 +1484,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             <h2 id="mb-set-panel-title" className="mb-set-panel-title">
               {sectionMeta(active).label}
             </h2>
-            <p className="mb-set-panel-desc">{sectionMeta(active).desc}</p>
           </div>
           {renderSection(active)}
         </section>
