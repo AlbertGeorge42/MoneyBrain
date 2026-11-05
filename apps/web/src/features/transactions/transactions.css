@@ -430,29 +430,63 @@
   table-layout: fixed;
 }
 
-.mb-tx-col-check {
-  width: calc(var(--mb-s-7) - var(--mb-s-1));
+/* 列宽按 design-tokens §5 权重：分类 2.0 / 备注 1.9 / 账户 1.8 / 金额 1.1。
+   表格容器宽度先扣除批量模式的复选框列（44px），再按权重折算。 */
+.mb-tx-table.has-check {
+  --mb-tx-check-w: calc(var(--mb-s-7) - var(--mb-s-1));
 }
 
-/* 列宽按 design-tokens §5 权重：主 2.4 / 中 1.6 / 账户 1.6 / 数字 1.1 */
-.mb-tx-col-main {
-  width: 47%;
+.mb-tx-col-check {
+  width: var(--mb-tx-check-w);
 }
 
 .mb-tx-table.has-note.has-account .mb-tx-col-main {
-  width: 36%;
+  width: calc((100% - var(--mb-tx-check-w)) * 0.2941);
 }
 
-.mb-tx-col-mid {
-  width: 24%;
+.mb-tx-table.has-note.has-account .mb-tx-col-mid {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.2794);
 }
 
-.mb-tx-col-account {
-  width: 24%;
+.mb-tx-table.has-note.has-account .mb-tx-col-account {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.2647);
 }
 
-.mb-tx-col-num {
-  width: auto;
+.mb-tx-table.has-note.has-account .mb-tx-col-num {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.1618);
+}
+
+/* 隐藏备注 / 账户时按剩余列权重等比折算，避免金额列吃掉死白 */
+.mb-tx-table.has-note:not(.has-account) .mb-tx-col-main {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.4);
+}
+
+.mb-tx-table.has-note:not(.has-account) .mb-tx-col-mid {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.38);
+}
+
+.mb-tx-table.has-note:not(.has-account) .mb-tx-col-num {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.22);
+}
+
+.mb-tx-table.has-account:not(.has-note) .mb-tx-col-main {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.4082);
+}
+
+.mb-tx-table.has-account:not(.has-note) .mb-tx-col-account {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.3673);
+}
+
+.mb-tx-table.has-account:not(.has-note) .mb-tx-col-num {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.2245);
+}
+
+.mb-tx-table:not(.has-note):not(.has-account) .mb-tx-col-main {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.6452);
+}
+
+.mb-tx-table:not(.has-note):not(.has-account) .mb-tx-col-num {
+  width: calc((100% - var(--mb-tx-check-w)) * 0.3548);
 }
 
 .mb-tx-th-check,
@@ -464,7 +498,7 @@
 .mb-tx-table th {
   height: var(--mb-tbl-row-h);
   padding: var(--mb-tbl-py) var(--mb-s-3);
-  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-bottom: var(--mb-border-width) dashed var(--mb-color-border);
   background: var(--mb-color-surface-sunken);
   color: var(--mb-color-text-tertiary);
   font-family: var(--mb-font-ui);
@@ -474,14 +508,14 @@
   text-align: left;
 }
 
-.mb-tx-th-num {
+.mb-tx-table th.mb-tx-th-num {
   text-align: right;
 }
 
 .mb-tx-table td {
   height: var(--mb-tbl-row-h);
   padding: var(--mb-tbl-py) var(--mb-s-3);
-  border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-bottom: var(--mb-border-width) dashed var(--mb-color-border);
   color: var(--mb-color-text-secondary);
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-1);
@@ -532,10 +566,15 @@
   min-width: 0;
 }
 
-/* 数据表分类图标 20px（design-tokens §表格） */
+/* 行高 29px 下图标上限 20px（4px 上下内边距）；字形 18px 接近原型的视觉量级 */
 .mb-tx-category .mb-cat-icon {
   width: calc(var(--mb-s-5) - var(--mb-s-1));
   height: calc(var(--mb-s-5) - var(--mb-s-1));
+}
+
+.mb-tx-category .mb-tx-ellipsis {
+  color: var(--mb-color-text-primary);
+  font-weight: 600;
 }
 
 .mb-tx-ellipsis {
@@ -546,7 +585,7 @@
 }
 
 .mb-tx-note {
-  color: var(--mb-color-text-primary);
+  color: var(--mb-color-text-secondary);
 }
 
 .mb-tx-account {

@@ -93,13 +93,16 @@
   --mb-touch: 44px;
 
   /* 表格列权重 */
-  --mb-tbl-w-main: 2.4;
-  --mb-tbl-w-mid: 1.6;
-  --mb-tbl-w-date: 1.6;
+  --mb-tbl-w-main: 2;
+  --mb-tbl-w-mid: 1.9;
+  --mb-tbl-w-date: 1.8;
   --mb-tbl-w-num: 1.1;
   --mb-tbl-w-total: calc(
     var(--mb-tbl-w-main) + var(--mb-tbl-w-mid) + var(--mb-tbl-w-date) + var(--mb-tbl-w-num)
   );
+
+  /* 流水表批量复选框列宽：默认 0，批量模式（.has-check）为 44px */
+  --mb-tx-check-w: 0px;
 
   /* 圆角 */
   --mb-radius-xs: 6px;

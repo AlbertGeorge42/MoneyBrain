@@ -135,7 +135,7 @@ function FragmentGroup({
         const categoryName = getCategoryName(ledger, transaction.categoryId)
         const categoryNode = (
           <span className="mb-tx-category">
-            <CategoryIcon rootId={rootId} />
+            <CategoryIcon rootId={rootId} size="row" />
             <span className="mb-tx-ellipsis" title={categoryName}>
               {categoryName}
             </span>

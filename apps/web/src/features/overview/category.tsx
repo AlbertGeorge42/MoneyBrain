@@ -48,12 +48,12 @@ const ROOT_TONES: Record<string, string> = {
   move: 'cat-2',
 }
 
-export function CategoryIcon({ rootId, size = 'sm' }: { rootId: string; size?: 'sm' | 'md' }) {
+export function CategoryIcon({ rootId, size = 'sm' }: { rootId: string; size?: 'sm' | 'md' | 'row' }) {
   const Icon = ROOT_ICONS[rootId] ?? Tag
   const tone = ROOT_TONES[rootId] ?? 'cat-6'
   return (
     <span className={`mb-cat-icon mb-tone-${tone} is-${size}`} aria-hidden="true">
-      <Icon size={size === 'md' ? 18 : 15} strokeWidth={1.8} />
+      <Icon size={size === 'sm' ? 15 : 18} strokeWidth={1.8} />
     </span>
   )
 }

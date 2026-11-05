@@ -271,9 +271,9 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 | `--mb-tbl-py` | 4px |
 | `--mb-tbl-row-h` | `calc(fs-1 + s-4)`（默认 13+16 = 29px）——**所有数据表**（并排与单表）的单行固定高度；超长内容截断/展开不改行高 |
 | `--mb-tbl-line-h` | `calc(tbl-row-h - tbl-py * 2 - border)`（默认 20px）——表格行内统一行高 |
-| `--mb-tbl-w-main` | `2.4`（相对权重，非绝对值）——首列：名称 / 分类 / 项目 |
-| `--mb-tbl-w-mid` | `1.6`——性质 / 账户 / 说明 |
-| `--mb-tbl-w-date` | `1.6`——日期 / 账户（同一列位） |
+| `--mb-tbl-w-main` | `2.0`（相对权重，非绝对值）——首列：名称 / 分类 / 项目 |
+| `--mb-tbl-w-mid` | `1.9`——备注 / 性质 / 说明 |
+| `--mb-tbl-w-date` | `1.8`——日期 / 账户（同一列位） |
 | `--mb-tbl-w-num` | `1.1`——金额 / 占比 / 比率 |
 | `--mb-control-h` | 38px |
 | `--mb-section-gap` | 16px |
@@ -283,7 +283,8 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 
 **表格列宽**：按列语义给权重（首列名称/分类最宽，日期、中列、数字列依次收窄），
 由 `colgroup` 把权重折算成百分比，配合 `table-layout: fixed` 生效——不写固定 px 列宽，
-也不允许每张表各写一套。超长文本由 `ellipsis` 截断，全文走 tooltip（见
+也不允许每张表各写一套。批量模式多出的复选框列（`--mb-tx-check-w`，44px）先从容器宽度
+扣除再按权重折算，避免整表超宽。超长文本由 `ellipsis` 截断，全文走 tooltip（见
 [interaction-spec §5.3](interaction-spec.md)）。
 
 **行高优先规则**：表格行固定 29px 优先于字号；列表金额用 `--mb-fs-2`（14px）配
