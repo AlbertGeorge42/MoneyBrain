@@ -17,6 +17,7 @@ import { TransactionDetail } from '@/features/overview/TransactionDetail'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import { BudgetPage } from '@/features/budgets/BudgetPage'
 import type { LedgerTransaction } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
@@ -220,11 +221,13 @@ function PreviewBody({
   const [batchMode, setBatchMode] = useState(false)
   const [displayOpen, setDisplayOpen] = useState(false)
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false)
+  const [budgetEditorOpen, setBudgetEditorOpen] = useState(false)
 
   useEffect(() => {
     setBatchMode(false)
     setDisplayOpen(false)
     setReportSettingsOpen(false)
+    setBudgetEditorOpen(false)
   }, [page])
 
   useEffect(() => {
@@ -276,6 +279,16 @@ function PreviewBody({
         onImport={importLedger}
         onViewFlow={() => onPage('transactions')}
       />
+    ) : page === 'budgets' ? (
+      <BudgetPage
+        device={device}
+        dataState={dataState}
+        editorOpen={budgetEditorOpen}
+        onEditorOpenChange={setBudgetEditorOpen}
+        onRetry={retry}
+        onViewFlow={() => onPage('transactions')}
+        notify={notify}
+      />
     ) : page === 'settings' ? (
       <SettingsPage
         device={device}
@@ -310,6 +323,10 @@ function PreviewBody({
             onClick={() => setDisplayOpen((open) => !open)}
           >
             显示
+          </button>
+        ) : page === 'budgets' ? (
+          <button type="button" className="mb-bg-head-action" onClick={() => setBudgetEditorOpen(true)}>
+            新增
           </button>
         ) : page === 'reports' ? (
           <button

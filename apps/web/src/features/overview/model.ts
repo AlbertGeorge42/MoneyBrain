@@ -168,9 +168,11 @@ const SEED_BUDGETS: LedgerBudget[] = [
   { id: 'b_food', name: '餐饮', type: 'expense', period: 'monthly', limit: 150_000, categoryId: 'food', accountId: 'cmb' },
   { id: 'b_home', name: '居住', type: 'expense', period: 'monthly', limit: 560_000, categoryId: 'home', accountId: 'cmb' },
   { id: 'b_shop', name: '购物', type: 'expense', period: 'monthly', limit: 80_000, categoryId: 'shop', accountId: 'cmb' },
-  { id: 'b_fun', name: '娱乐', type: 'expense', period: 'monthly', limit: 30_000, categoryId: 'fun', accountId: 'zfb' },
+  { id: 'b_fun', name: '娱乐', type: 'expense', period: 'monthly', limit: 9_000, categoryId: 'fun', accountId: 'zfb' },
   { id: 'b_traffic', name: '交通', type: 'expense', period: 'weekly', limit: 10_000, categoryId: 'traffic', accountId: 'wx' },
   { id: 'b_edu', name: '教育', type: 'expense', period: 'yearly', limit: 200_000, categoryId: 'edu', accountId: 'zfb' },
+  { id: 'b_salary', name: '工资入账', type: 'income', period: 'monthly', limit: 1_850_000, categoryId: 'salary', accountId: 'cmb' },
+  { id: 'b_move', name: '账户互转', type: 'transfer', period: 'monthly', limit: 500_000, categoryId: 'move', accountId: 'cmb' },
 ]
 
 const SEED_TRANSACTIONS: LedgerTransaction[] = [
