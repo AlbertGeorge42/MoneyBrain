@@ -20,4 +20,10 @@ export default defineConfig({
       },
     },
   },
+  // 桌面启动器用 127.0.0.1 探活，显式绑 IPv4：Windows 上默认只监听 ::1。
+  preview: {
+    host: '127.0.0.1',
+    port: 4173,
+    strictPort: true,
+  },
 })
