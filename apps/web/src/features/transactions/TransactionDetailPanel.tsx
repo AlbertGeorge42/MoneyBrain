@@ -111,27 +111,38 @@ function EditForm({
   onCancel: () => void
 }) {
   const [amount, setAmount] = useState(String(transaction.amount / 100))
+  const [nextType, setNextType] = useState(transaction.type)
   const [categoryId, setCategoryId] = useState(transaction.categoryId)
   const [accountId, setAccountId] = useState(transaction.accountId)
   const [date, setDate] = useState(transaction.date)
   const [note, setNote] = useState(transaction.note)
-  const [error, setError] = useState('')
 
-  const categories = ledger.categories.filter((category) => category.type === transaction.type)
+  const categories = ledger.categories.filter((category) => category.type === nextType)
+  // 银行 App 复制来的千分位不能挡路：解析前剥离逗号与空格。
+  const parsed = Number(amount.replace(/[,\s，]/g, ''))
+  const invalid =
+    !Number.isFinite(parsed) || (nextType === 'adjustment' ? parsed === 0 : parsed <= 0)
+  // 错误态与输入实时联动：有错就标红并禁用保存，不再等点保存才报。
+  const errorText = invalid
+    ? nextType === 'adjustment'
+      ? '调整金额不能为 0。'
+      : '金额需大于 0。退款请改用退款类型，冲正请用调整。'
+    : ''
+
+  const switchType = (type: 'refund' | 'adjustment') => {
+    setNextType(type)
+    setCategoryId(ledger.categories.find((category) => category.type === type)?.id ?? categoryId)
+  }
 
   const submit = () => {
-    const parsed = Number(amount)
-    const invalid = !Number.isFinite(parsed) || (transaction.type === 'adjustment' ? parsed === 0 : parsed <= 0)
-    if (invalid) {
-      setError(transaction.type === 'adjustment' ? '调整金额不能为 0' : '金额需大于 0')
-      return
-    }
+    if (invalid) return
     onSave({
       amount: Math.round(parsed * 100),
       categoryId,
       accountId,
       date,
       note,
+      ...(nextType !== transaction.type ? { type: nextType } : {}),
     })
   }
 
@@ -146,10 +157,7 @@ function EditForm({
           step="0.01"
           inputMode="decimal"
           value={amount}
-          onChange={(event) => {
-            setAmount(event.target.value)
-            setError('')
-          }}
+          onChange={(event) => setAmount(event.target.value)}
         />
       </label>
 
@@ -207,14 +215,24 @@ function EditForm({
         />
       </label>
 
-      {error && (
+      {errorText && (
         <p className="mb-tx-form-error" role="alert">
-          {error}
+          {errorText}
+          {nextType === 'expense' && (
+            <span className="mb-tx-form-error-actions">
+              <button type="button" className="mb-tx-form-error-action" onClick={() => switchType('refund')}>
+                改为退款
+              </button>
+              <button type="button" className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
+                改为调整
+              </button>
+            </span>
+          )}
         </p>
       )}
 
       <div className="mb-tx-detail-actions">
-        <button type="button" className="mb-tx-btn is-primary" onClick={submit}>
+        <button type="button" className="mb-tx-btn is-primary" onClick={submit} disabled={invalid}>
           <Check size={15} />
           保存修改
         </button>

@@ -4,7 +4,7 @@
  * 只做「记录 → 账户余额」的可逆调整，保证编辑 / 删除 / 批量操作后
  * 总览净值与账户卡同步。所有函数返回新账本，不修改入参。
  */
-import type { Ledger, LedgerTransaction } from '@/features/overview/model'
+import type { Ledger, LedgerTransaction, TxType } from '@/features/overview/model'
 
 export interface TransactionPatch {
   categoryId: string
@@ -12,6 +12,8 @@ export interface TransactionPatch {
   date: string
   note: string
   amount: number
+  /** 退款 / 调整入口会顺手切换交易类型；普通编辑不传。 */
+  type?: TxType
 }
 
 interface BalanceDelta {
@@ -63,15 +65,17 @@ export function updateTransactionInLedger(
   const current = ledger.transactions.find((transaction) => transaction.id === id)
   if (!current) return ledger
 
+  const nextType = patch.type ?? current.type
   const next: LedgerTransaction = {
     ...current,
+    type: nextType,
     categoryId: patch.categoryId,
     accountId: patch.accountId,
     date: patch.date,
     note: patch.note.trim() || current.note,
     // 支出取正；收入 / 转账 / 退款 / 调整保留符号（调整的负数表示减记）
     amount:
-      current.type === 'adjustment'
+      nextType === 'adjustment'
         ? Math.round(patch.amount)
         : Math.round(Math.abs(patch.amount)),
   }

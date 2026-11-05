@@ -221,6 +221,17 @@
   gap: var(--mb-s-1);
 }
 
+.mb-tx-restore-note {
+  margin-bottom: var(--mb-s-2);
+  padding: var(--mb-s-2) var(--mb-s-3);
+  border-radius: var(--mb-radius-control);
+  border-left: 2px solid var(--mb-color-warning);
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-primary);
+  font-size: var(--mb-fs-1);
+  line-height: 1.5;
+}
+
 .mb-tx-chip {
   display: inline-flex;
   align-items: center;
@@ -381,6 +392,12 @@
   flex: 1 1 100%;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-warning);
+}
+
+.mb-tx-batch-excluded {
+  flex: 1 1 100%;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
 }
 
 .mb-tx-input,
@@ -985,9 +1002,29 @@
 }
 
 .mb-tx-form-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mb-s-2);
   margin: 0;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-expense);
+}
+
+.mb-tx-form-error-actions {
+  display: inline-flex;
+  gap: var(--mb-s-2);
+}
+
+.mb-tx-form-error-action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--mb-color-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 .mb-tx-confirm {
