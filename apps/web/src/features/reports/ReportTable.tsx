@@ -87,7 +87,7 @@ export function ReportTable({
   columns,
   rows,
   total,
-  padRows = 3,
+  minRows = 0,
   note,
   variant = 'c3',
   ariaLabel,
@@ -99,7 +99,8 @@ export function ReportTable({
   columns: ReportColumn[]
   rows: ReportRow[]
   total?: ReactNode[]
-  padRows?: number
+  /** 并排两表的最小数据行数：按两表最大行数补齐，保证 tfoot 同 y。 */
+  minRows?: number
   note?: string
   variant?: 'c2' | 'c3' | 'c4' | 'c6'
   ariaLabel: string
@@ -185,8 +186,8 @@ export function ReportTable({
                 )
               })
             )}
-            {Array.from({ length: empty ? 0 : Math.max(0, padRows) }, (_, index) => (
-              <tr key={`pad-${index}`} className="is-pad" aria-hidden="true">
+            {Array.from({ length: empty ? 0 : Math.max(0, minRows - rows.length) }, (_, index) => (
+              <tr key={`pad-${index}`} className="is-pad" aria-hidden="true" tabIndex={-1}>
                 {columns.map((column) => (
                   <td key={column.label}>&nbsp;</td>
                 ))}

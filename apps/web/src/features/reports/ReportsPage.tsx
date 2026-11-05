@@ -416,6 +416,8 @@ function BalanceView({
     { id: 'equity', cells: ['所有者权益', '净资产', currency(report.equity)], tone: 'income' as const },
   ]
 
+  const balanceMinRows = Math.max(assetRows.length, liabilityRows.length)
+
   const assetCards: CardRow[] = report.assets.map((row) => ({
     id: row.id,
     label: row.name,
@@ -495,6 +497,7 @@ function BalanceView({
             ariaLabel="资产明细"
             columns={[{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]}
             rows={assetRows}
+            minRows={balanceMinRows}
             total={['合计', '', currency(report.assetTotal)]}
             note="金额为当前账户余额；信用卡等负余额计入负债。"
           />
@@ -505,6 +508,7 @@ function BalanceView({
             ariaLabel="负债与权益明细"
             columns={[{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]}
             rows={liabilityRows}
+            minRows={balanceMinRows}
             total={['合计', '', currency(report.equityTotal)]}
             note={`恒等式校验：${currency(report.assetTotal)} = ${currency(report.liabilityTotal)} + ${currency(report.equity)}`}
           />
@@ -614,6 +618,7 @@ function FlowView({
               { label: '占比', align: 'num' },
             ]}
             rows={incomeRows}
+            minRows={Math.max(incomeRows.length, expenseRows.length)}
             total={['合计', '', currency(report.income), '100.0%']}
             note="点击一级分类可下钻；子分类金额已计入父级，占比相对合计。"
           />
@@ -630,6 +635,7 @@ function FlowView({
               { label: '占比', align: 'num' },
             ]}
             rows={expenseRows}
+            minRows={Math.max(incomeRows.length, expenseRows.length)}
             total={['合计', '', currency(report.expense), '100.0%']}
             note="点击一级分类可下钻；子分类金额已计入父级，占比相对合计。"
           />
@@ -745,6 +751,10 @@ function CashView({
     }
   }
 
+  const inflowRows = rowsFor(report.inflowGroups, folded, onFold)
+  const outflowRows = rowsFor(report.outflowGroups, folded, onFold)
+  const cashMinRows = Math.max(inflowRows.length, outflowRows.length)
+
   return (
     <>
       <MetricStrip device={device} metrics={report.metrics} flat />
@@ -762,7 +772,8 @@ function CashView({
             desc={`合计 ${currency(report.inflowTotal)} · 收入 + 退款`}
             ariaLabel="现金流入"
             columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
-            rows={rowsFor(report.inflowGroups, folded, onFold)}
+            rows={inflowRows}
+            minRows={cashMinRows}
             total={['合计', '', currency(report.inflowTotal)]}
             note="经营 = 工资 / 红包 / 退款 − 日常支出；投资 = 理财收益；账户间转账单列。"
           />
@@ -772,7 +783,8 @@ function CashView({
             desc={`合计 ${currency(report.outflowTotal)} · 支出 + 转账`}
             ariaLabel="现金流出"
             columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
-            rows={rowsFor(report.outflowGroups, folded, onFold)}
+            rows={outflowRows}
+            minRows={cashMinRows}
             total={['合计', '', currency(report.outflowTotal)]}
             note="转账只影响账户间分布，不计入经营 / 投资 / 筹资净额。"
           />
@@ -900,7 +912,6 @@ function InvestView({
       rows={allocationRows}
       total={['合计', currency(report.total), '100.0%', '100.0%', '0.0%', '—']}
       note="目标比例为演示口径；再平衡 = 目标市值 − 当前市值。"
-      padRows={2}
     />
   )
   const periodTable = (
@@ -912,7 +923,6 @@ function InvestView({
       variant="c2"
       columns={[{ label: '指标' }, { label: '数值', align: 'num' }]}
       rows={periodRows}
-      padRows={1}
       note="XIRR / TWR 由快照链与净投入推算；快照缺失时显示「—」。"
     />
   )
@@ -925,7 +935,6 @@ function InvestView({
       columns={[{ label: '账户 / 类别' }, { label: '市值', align: 'num' }, { label: '占比', align: 'num' }]}
       rows={accountRows}
       total={['合计', currency(report.total), '100.0%']}
-      padRows={2}
       note="类别金额按当前市值比例估算，不写回账本。"
     />
   )
@@ -943,7 +952,6 @@ function InvestView({
         { label: '净投入', align: 'num' },
       ]}
       rows={snapshotRows}
-      padRows={2}
       note="末点市值跟随投资账户余额；期间收益已剔除净投入。"
     />
   )
