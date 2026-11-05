@@ -285,6 +285,21 @@ export function moveCategory(
   }
 }
 
+/** 删除前把该分类（含子分类）的引用交易转到目标分类，数字与删除弹窗同源。 */
+export function transferCategoryTransactions(
+  ledger: Ledger,
+  sourceId: string,
+  targetId: string,
+): Ledger {
+  const ids = new Set<string>([sourceId, ...categoryDescendantIds(ledger, sourceId)])
+  return {
+    ...ledger,
+    transactions: ledger.transactions.map((transaction) =>
+      ids.has(transaction.categoryId) ? { ...transaction, categoryId: targetId } : transaction,
+    ),
+  }
+}
+
 export function removeCategory(ledger: Ledger, categoryId: string): Ledger {
   return {
     ...ledger,

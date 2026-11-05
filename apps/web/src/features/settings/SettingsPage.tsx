@@ -62,6 +62,7 @@ import {
   removeAccount,
   removeCategory,
   sectionMeta,
+  transferCategoryTransactions,
   updateAccount,
   updateCategory,
   type AccountGroup,
@@ -459,6 +460,69 @@ function MoverSheet({
   )
 }
 
+function CategoryDeleteSheet({
+  row,
+  type,
+  device,
+  ledger,
+  onClose,
+  onTransfer,
+}: {
+  row: CategoryRow
+  type: TxType
+  device: DeviceMode
+  ledger: ReturnType<typeof useLedger>['ledger']
+  onClose: () => void
+  onTransfer: (targetId: string) => void
+}) {
+  const ids = new Set([row.id, ...categoryDescendantIds(ledger, row.id)])
+  const options = ledger.categories
+    .filter((category) => category.type === type && !ids.has(category.id))
+    .sort((left, right) => Number(Boolean(left.parentId)) - Number(Boolean(right.parentId)))
+
+  return (
+    <Drawer
+      opened
+      onClose={onClose}
+      position={device === 'mobile' ? 'bottom' : 'right'}
+      size={device === 'mobile' ? 'auto' : 380}
+      withinPortal={false}
+      withCloseButton={false}
+      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+    >
+      <div className="mb-set-sheet-head">
+        <h2 className="mb-set-sheet-title">删除「{row.name}」</h2>
+        <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+      <div className="mb-set-sheet-body">
+        <p className="mb-set-hint">
+          共 {row.txCount} 笔交易引用这个分类（含子分类）。选择目标分类后，这些流水会整体转移，然后删除「{row.name}」。
+        </p>
+        <div className="mb-set-radio-list" role="radiogroup" aria-label="转移目标分类">
+          {options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={false}
+              className="mb-set-radio"
+              onClick={() => onTransfer(option.id)}
+            >
+              <span className="mb-set-radio-dot" aria-hidden="true" />
+              <span>{option.name}</span>
+            </button>
+          ))}
+        </div>
+        {options.length === 0 && (
+          <p className="mb-set-hint">没有可转移的同类型分类，请先新建一个分类。</p>
+        )}
+      </div>
+    </Drawer>
+  )
+}
+
 export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsPageProps) {
   const { ledger, replaceLedger } = useLedger()
   const [active, setActive] = useState<SectionId>('accounts')
@@ -471,6 +535,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [armed, setArmed] = useState<string | null>(null)
   const [editor, setEditor] = useState<Editor | null>(null)
   const [mover, setMover] = useState<Mover | null>(null)
+  const [deleteTransfer, setDeleteTransfer] = useState<{ row: CategoryRow; type: TxType } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [activity, setActivity] = useState<Record<string, ActivityGroupId>>({})
@@ -503,6 +568,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     setArmed(null)
     setEditor(null)
     setMover(null)
+    setDeleteTransfer(null)
   }, [active, openSection])
 
   useMenuDismiss(menuOpen, () => setMenuOpen(null))
@@ -576,6 +642,14 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const deleteCategory = (row: CategoryRow) => {
     replaceLedger(removeCategory(ledger, row.id))
     notify('分类已删除')
+  }
+
+  const transferAndDelete = (targetId: string) => {
+    if (!deleteTransfer) return
+    const { row } = deleteTransfer
+    replaceLedger(removeCategory(transferCategoryTransactions(ledger, row.id, targetId), row.id))
+    notify(`已转移 ${row.txCount} 笔到「${ledger.categories.find((item) => item.id === targetId)?.name ?? '目标分类'}」并删除「${row.name}」`)
+    setDeleteTransfer(null)
   }
 
   const move = (target: string) => {
@@ -791,15 +865,17 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 key: `del-${row.id}`,
                 label: '删除',
                 danger: true,
-                confirm: true,
-                disabled: row.childCount > 0 || row.txCount > 0,
-                hint:
-                  row.childCount > 0
-                    ? '有子分类，先处理子分类'
-                    : row.txCount > 0
-                      ? `${row.txCount} 笔交易引用此分类，需先转移`
-                      : undefined,
-                onSelect: () => deleteCategory(row),
+                // 有子分类时先处理层级；仅被交易引用时打开转移弹窗，完成转移即删除。
+                confirm: row.childCount === 0 && row.txCount === 0,
+                disabled: row.childCount > 0,
+                hint: row.childCount > 0 ? '有子分类，先处理子分类' : undefined,
+                onSelect: () => {
+                  if (row.txCount > 0) {
+                    setDeleteTransfer({ row, type })
+                    return
+                  }
+                  deleteCategory(row)
+                },
               },
             ]}
           />
@@ -894,7 +970,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             </div>
           )}
         </div>
-        <p className="mb-set-hint">有子分类或有交易引用的分类不能直接删除；转账分类只影响流水归类，不计入收支。</p>
+        <p className="mb-set-hint">有子分类的分类要先处理子分类；有交易引用的删除时会先让你选目标分类，把交易整体转移后再删除。转账分类只影响流水归类，不计入收支。</p>
       </>
     )
   }
@@ -1461,6 +1537,16 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             }
             move(target)
           }}
+        />
+      )}
+      {deleteTransfer && (
+        <CategoryDeleteSheet
+          row={deleteTransfer.row}
+          type={deleteTransfer.type}
+          device={device}
+          ledger={ledger}
+          onClose={() => setDeleteTransfer(null)}
+          onTransfer={transferAndDelete}
         />
       )}
       {toast && (
