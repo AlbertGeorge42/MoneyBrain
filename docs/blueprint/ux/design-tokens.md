@@ -97,7 +97,7 @@
 | `--mb-color-hero-bg` | `surface-raised`（`#FFFFFF`） | `#1D2226` | 主卡底（暗色 = 比 `surface-raised` 高一档） |
 | `--mb-color-hero-ink` | `text-primary`（`#14161A`） | `#ECEEEF` | 主卡主文字 |
 | `--mb-color-hero-muted` | `text-secondary`（`#565A60`） | `#9CA3A8` | 主卡标签 / 辅助文字 |
-| `--mb-color-hero-line` | `border`（`#DFE1DD`） | `rgba(255,255,255,.10)` | 主卡分隔线 / 暗色 1px 高光边 |
+| `--mb-color-hero-line` | `border`（`#DFE1DD`） | `rgba(255,255,255,.16)` | 主卡分隔线 / 暗色 1px 高光边 |
 | `--mb-color-hero-pos` | `income`（`#1B7A48`） | `income`（`#4ADE80`） | 主卡正向涨跌（直接取 `income`） |
 | `--mb-color-hero-neg` | `expense`（`#A64D56`） | `expense-display`（`#F0A4AB`） | 主卡负向涨跌（浅色取文字档 `expense`，暗色取 `expense-display`） |
 
@@ -180,7 +180,7 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
 |---|---|---|---|
 | `on-accent-fill` on `accent-fill` | 12.74 | 12.74 | ✓ |
 | `accent` on `accent-soft`（选中） | 5.44 | 10.43 | ✓ |
-| 主卡 ink / muted / pos / neg on `hero-bg` | 17.9 / 6.9 / 4.6 / 4.7 | 13.9 / 6.3 / 9.3 / 8.1 | ✓（浅色主卡为白底卡片） |
+| 主卡 ink / muted / pos / neg on `hero-bg` | 18.11 / 6.94 / 5.35 / 5.50 | 13.9 / 6.3 / 9.3 / 8.1 | ✓（浅色主卡为白底卡片，数值为白底实测） |
 | `accent-fill` vs 页面 | **1.39** | 12.74 | 浅色必须 1px `#356B0C` 描边（见开发手册 §2.3） |
 | `danger-solid` vs 页面 | 11.25 | **1.58** | 暗色实心危险块需 1px 描边 |
 | `danger` vs `expense` 亮度比 | 3.0–3.9× | 2.2× | 可靠明度 + 场景 + 图标/文案分离 |
