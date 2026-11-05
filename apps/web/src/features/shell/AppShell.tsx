@@ -126,14 +126,16 @@ function MobileShell({
           >
             <Search size={19} />
           </button>
-          <button
-            type="button"
-            className="mb-icon-btn"
-            aria-label="打开设置"
-            onClick={() => onNavigate('settings')}
-          >
-            <Settings size={19} />
-          </button>
+          {page !== 'settings' && (
+            <button
+              type="button"
+              className="mb-icon-btn"
+              aria-label="打开设置"
+              onClick={() => onNavigate('settings')}
+            >
+              <Settings size={19} />
+            </button>
+          )}
         </div>
       </header>
       <div className="mb-mobile-scroll">{children}</div>

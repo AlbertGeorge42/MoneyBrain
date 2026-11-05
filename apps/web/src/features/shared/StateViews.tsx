@@ -82,7 +82,7 @@ export function LoadingSkeleton({
   variant = 'overview',
 }: {
   device: DeviceMode
-  variant?: 'overview' | 'transactions' | 'reports'
+  variant?: 'overview' | 'transactions' | 'reports' | 'settings'
 }) {
   const mobile = device === 'mobile'
   if (variant === 'reports') {
@@ -96,6 +96,18 @@ export function LoadingSkeleton({
           <div className="mb-skeleton mb-skeleton-card" />
         </div>
         <span className="mb-visually-hidden">正在加载报表数据</span>
+      </div>
+    )
+  }
+  if (variant === 'settings') {
+    return (
+      <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载设置">
+        <div className="mb-skeleton mb-skeleton-toolbar" />
+        <div className={mobile ? '' : 'mb-set-skeleton'}>
+          {!mobile && <div className="mb-skeleton mb-skeleton-nav" />}
+          <div className="mb-skeleton mb-skeleton-settings-list" />
+        </div>
+        <span className="mb-visually-hidden">正在加载设置</span>
       </div>
     )
   }

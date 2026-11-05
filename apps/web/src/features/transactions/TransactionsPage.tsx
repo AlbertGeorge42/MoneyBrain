@@ -14,7 +14,7 @@ import {
   DesktopDisplayPanel,
   MobileDisplayDrawer,
 } from './DisplayPanel'
-import { DEFAULT_DISPLAY, type DisplaySettings } from './displaySettings'
+import { DEFAULT_DISPLAY, readDisplaySettings, writeDisplaySettings, type DisplaySettings } from './displaySettings'
 import {
   DesktopFilterPanel,
   MobileFilterDrawer,
@@ -234,7 +234,7 @@ export function TransactionsPage({
   const [type, setType] = useState<TypeFilter>('all')
   const [advanced, setAdvanced] = useState<AdvancedFilters>(EMPTY_ADVANCED)
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [display, setDisplay] = useState<DisplaySettings>(DEFAULT_DISPLAY)
+  const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [detailId, setDetailId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'category' | 'delete' | null>(null)
@@ -244,6 +244,10 @@ export function TransactionsPage({
   useEffect(() => {
     if (!batchMode) setSelected(new Set())
   }, [batchMode])
+
+  useEffect(() => {
+    writeDisplaySettings(display)
+  }, [display])
 
   useEffect(() => {
     if (!toast) return

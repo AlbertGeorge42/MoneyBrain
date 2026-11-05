@@ -141,6 +141,12 @@
   background: var(--mb-color-surface-sunken);
 }
 
+/* 手机框高度以画布可视高度为上限：否则窄视口下工具栏换行后画布变矮，
+   手机框向上溢出到工具栏区域，把二级页的返回按钮压在工具栏下面。 */
+.mb-hf-canvas.is-mobile .mb-hf-phone {
+  max-height: 100%;
+}
+
 .mb-hf-desktop {
   position: relative;
   min-height: 100%;

@@ -16,6 +16,7 @@ import { QuickEntry } from '@/features/overview/QuickEntry'
 import { TransactionDetail } from '@/features/overview/TransactionDetail'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
+import { SettingsPage } from '@/features/settings/SettingsPage'
 import type { LedgerTransaction } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
@@ -274,6 +275,13 @@ function PreviewBody({
         onRetry={retry}
         onImport={importLedger}
         onViewFlow={() => onPage('transactions')}
+      />
+    ) : page === 'settings' ? (
+      <SettingsPage
+        device={device}
+        dataState={dataState}
+        onRetry={retry}
+        onImport={importLedger}
       />
     ) : (
       <PlaceholderPage
