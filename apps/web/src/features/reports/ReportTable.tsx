@@ -178,7 +178,7 @@ export function ReportTable({
                             >
                               {row.fold.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             </button>
-                            {cell}
+                            <span className="mb-rp-row-first-label">{cell}</span>
                           </span>
                         ) : (
                           cell

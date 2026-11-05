@@ -21,6 +21,7 @@ import {
   type TxType,
 } from '@/features/overview/model'
 import { bucketKey, listBuckets, type Granularity } from './reportsTime'
+import type { ReportRow } from './ReportTable'
 
 export interface ReportMetric {
   label: string
@@ -444,6 +445,37 @@ function groupCash(
     groups.set(groupName, group)
   }
   return CASH_GROUPS.filter((name) => groups.has(name)).map((name) => groups.get(name) as CashGroup)
+}
+
+/** 现金流左右两表的行：键带方向前缀，两表共用一份 folded 也不串扰。 */
+export function cashRowsFor(
+  side: 'in' | 'out',
+  groups: CashGroup[],
+  folded: Record<string, boolean>,
+  onFold: (id: string) => void,
+): ReportRow[] {
+  const foldKey = (id: string) => `${side}:${id}`
+  const rows: ReportRow[] = []
+  for (const group of groups) {
+    const key = foldKey(group.key)
+    const expanded = folded[key] !== false
+    rows.push({
+      id: key,
+      cells: [group.name, `${group.count} 笔`, currency(group.total)],
+      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
+    })
+    if (expanded) {
+      for (const child of group.children) {
+        rows.push({
+          id: foldKey(child.id),
+          level: 1,
+          cells: [child.label, child.account, currency(child.amount)],
+          tone: child.tone,
+        })
+      }
+    }
+  }
+  return rows
 }
 
 export function deriveCashReport(ledger: Ledger, from: string, to: string): CashReport {

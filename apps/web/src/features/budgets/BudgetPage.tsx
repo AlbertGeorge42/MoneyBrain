@@ -90,7 +90,7 @@ function Ring({ percent, level, size }: { percent: number; level: string; size: 
     >
       <div className="mb-bg-ring-inner">
         <span className="mb-bg-ring-label">已用</span>
-        <strong className="mb-bg-ring-value">{Math.round(percent)}%</strong>
+        <strong className="mb-bg-ring-value">{percentText(percent, false)}</strong>
       </div>
     </div>
   )

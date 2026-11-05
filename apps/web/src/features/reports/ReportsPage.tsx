@@ -23,6 +23,7 @@ import {
 import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportRow } from './ReportTable'
 import {
   buildDrill,
+  cashRowsFor,
   currency,
   deriveBalanceReport,
   deriveCashReport,
@@ -811,36 +812,6 @@ function CashView({
       </p>
     </>
   )
-}
-
-export function cashRowsFor(
-  side: 'in' | 'out',
-  groups: CashReport['inflowGroups'],
-  folded: Record<string, boolean>,
-  onFold: (id: string) => void,
-): ReportRow[] {
-  const foldKey = (id: string) => `${side}:${id}`
-  const rows: ReportRow[] = []
-  for (const group of groups) {
-    const key = foldKey(group.key)
-    const expanded = folded[key] !== false
-    rows.push({
-      id: key,
-      cells: [group.name, `${group.count} 笔`, currency(group.total)],
-      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
-    })
-    if (expanded) {
-      for (const child of group.children) {
-        rows.push({
-          id: foldKey(child.id),
-          level: 1,
-          cells: [child.label, child.account, currency(child.amount)],
-          tone: child.tone,
-        })
-      }
-    }
-  }
-  return rows
 }
 
 function InvestView({ device, report }: { device: DeviceMode; report: InvestmentReport }) {

@@ -691,6 +691,18 @@
   min-width: 0;
 }
 
+/* 折叠按钮的 44 × 44 热区要越过单元格边界，裁切改由内层文本自己处理 */
+.mb-rp-table td:has(> .mb-rp-row-first) {
+  overflow: visible;
+}
+
+.mb-rp-row-first-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mb-rp-fold {
   position: relative;
   display: inline-flex;
@@ -715,7 +727,8 @@
 .mb-rp-fold::after {
   content: '';
   position: absolute;
-  inset: -11px;
+  /* 22 × 20 的可视按钮向右 / 上 / 下外扩成 44 × 44 热区；左侧贴住滚动容器不再外扩 */
+  inset: -12px -22px -12px 0;
 }
 
 .mb-rp-table-note {

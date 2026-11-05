@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cashRowsFor } from '@/features/reports/ReportsPage'
-import type { CashGroup } from '@/features/reports/reportsModel'
+import { cashRowsFor, type CashGroup } from '@/features/reports/reportsModel'
 
 function groups(): CashGroup[] {
   return [
