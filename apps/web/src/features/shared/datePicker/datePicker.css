@@ -1,0 +1,446 @@
+/**
+ * 统一日期选择器（HF）
+ *
+ * PC：输入框式触发 + 零位移浮层；移动 390：底部面板沿用 mb-rp-sheet 规范
+ * （底部升起、按内容收缩、动作区常驻）。只引用 --mb-* token。
+ */
+
+.mb-dp {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  min-width: 0;
+  width: 100%;
+}
+
+.mb-dp-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-2);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-control);
+  background: var(--mb-color-surface-raised);
+}
+
+/* 报表时间条内嵌：外框由 mb-rp-time-picker 提供，不再叠一层边框。 */
+.mb-dp.is-inline .mb-dp-control {
+  width: auto;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.mb-dp-zone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: calc(var(--mb-control-h) - var(--mb-s-2));
+  padding: 0 var(--mb-s-1);
+  border: 0;
+  border-radius: var(--mb-radius-xs);
+  background: transparent;
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-1);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-dp.is-inline .mb-dp-zone {
+  flex: none;
+  min-height: 32px;
+  padding: 0 var(--mb-s-2);
+}
+
+.mb-dp-zone:hover {
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-dp-zone-label {
+  flex: none;
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-zone-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-dp-zone-placeholder {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-sep {
+  flex: none;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-dp-tag {
+  flex: none;
+  margin-left: var(--mb-s-1);
+  padding: 1px var(--mb-s-1);
+  border-radius: var(--mb-radius-control);
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-tertiary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* ===== PC 浮层 ===== */
+
+.mb-dp-pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 340px;
+  max-width: calc(100vw - var(--mb-s-5));
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-2);
+}
+
+.mb-dp.is-align-right .mb-dp-pop {
+  left: auto;
+  right: 0;
+}
+
+.mb-dp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+.mb-dp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+}
+
+.mb-dp-title {
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-2);
+  font-weight: 600;
+}
+
+.mb-dp-head-note {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mb-s-2);
+}
+
+.mb-dp-fields.is-single {
+  grid-template-columns: 1fr;
+}
+
+.mb-dp-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--mb-s-1) var(--mb-s-2);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-dp-field.is-active {
+  border-color: var(--mb-color-accent);
+  box-shadow: inset 0 0 0 1px var(--mb-color-accent);
+}
+
+.mb-dp-field-label {
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-field-value {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-dp-field-value.is-empty {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mb-dp-preset {
+  min-height: 30px;
+  padding: 0 10px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+}
+
+.mb-dp-preset:hover:not(:disabled) {
+  border-color: var(--mb-color-border-strong);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-dp-preset.is-active {
+  border-color: var(--mb-color-accent);
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+}
+
+.mb-dp-preset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mb-dp-note {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-divider {
+  height: 1px;
+  margin: var(--mb-s-1) 0;
+  background: var(--mb-color-border);
+}
+
+.mb-dp-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+}
+
+.mb-dp-cal-title {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-dp-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  cursor: pointer;
+}
+
+.mb-dp-iconbtn:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-dp-weekdays,
+.mb-dp-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.mb-dp-weekdays span {
+  text-align: center;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-day {
+  min-height: 30px;
+  border: 0;
+  border-radius: var(--mb-radius-xs);
+  background: transparent;
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.mb-dp-day:hover:not(:disabled) {
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-dp-day.is-outside {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-day.is-in-range {
+  background: var(--mb-color-accent-soft);
+}
+
+.mb-dp-day.is-active {
+  background: var(--mb-color-accent);
+  color: var(--mb-color-on-accent-fill);
+  font-weight: 600;
+}
+
+.mb-dp-day.is-today:not(.is-active) {
+  box-shadow: inset 0 0 0 1px var(--mb-color-accent);
+}
+
+.mb-dp-day:disabled {
+  color: var(--mb-color-text-tertiary);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mb-dp-feedback {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-accent);
+}
+
+.mb-dp-error {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-expense);
+}
+
+.mb-dp-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+  margin-top: var(--mb-s-1);
+}
+
+.mb-dp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--mb-radius-control);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+}
+
+.mb-dp-btn.is-primary {
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent-fill);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  font-weight: 600;
+}
+
+.mb-dp-btn.is-primary:hover {
+  background: var(--mb-color-accent-fill-hover);
+}
+
+.mb-dp-btn.is-ghost {
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-dp-btn.is-ghost:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-dp-btn.is-clear {
+  margin-right: auto;
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-dp-btn.is-clear:hover {
+  color: var(--mb-color-text-primary);
+}
+
+.mb-dp-zone:focus-visible,
+.mb-dp-field:focus-visible,
+.mb-dp-preset:focus-visible,
+.mb-dp-iconbtn:focus-visible,
+.mb-dp-day:focus-visible,
+.mb-dp-btn:focus-visible {
+  outline: 2px solid var(--mb-color-focus);
+  outline-offset: 2px;
+}
+
+/* ===== 移动 390：底部面板 ===== */
+
+.mb-dp.is-mobile .mb-dp-control {
+  min-height: var(--mb-touch);
+}
+
+.mb-dp.is-mobile .mb-dp-zone {
+  min-height: calc(var(--mb-touch) - var(--mb-s-2));
+}
+
+.mb-dp-sheet .mb-dp-day {
+  min-height: var(--mb-touch);
+}
+
+.mb-dp-sheet .mb-dp-field {
+  min-height: var(--mb-touch);
+}
+
+.mb-dp-sheet .mb-dp-preset {
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-3);
+}
+
+.mb-dp-sheet .mb-dp-iconbtn {
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+}
+
+/* 动作区常驻：与 mb-rp-sheet-actions 同一套底部固定规则，按钮吃满触控高度。 */
+.mb-dp-sheet-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  gap: var(--mb-s-2);
+  padding: var(--mb-s-3) var(--mb-s-4) var(--mb-s-4);
+  border-top: 1px solid var(--mb-color-border);
+  background: var(--mb-color-surface-raised);
+}
+
+.mb-dp-sheet-actions .mb-dp-btn {
+  flex: 1;
+  min-height: var(--mb-touch);
+}
