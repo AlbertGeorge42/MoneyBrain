@@ -2,6 +2,9 @@
  * P2 #8 / #11 筛选写入 URL 并还原；#17 批量混选列出异类；#9 未来记录不计入本月合计。
  */
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
@@ -21,6 +24,8 @@ import {
   type TransactionFilters,
 } from '@/features/transactions/filters'
 import type { Ledger } from '@/features/overview/model'
+
+const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 const ledger: Ledger = {
   accounts: [{ id: 'cmb', name: '招商储蓄卡', kind: 'deposit', balance: 100_000 }],
@@ -98,6 +103,43 @@ describe('#17 批量混选列出异类', () => {
     expect(screen.queryByText(/账户互转（转账）/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '仅选支出' }))
     expect(onExpenseOnly).toHaveBeenCalledTimes(1)
+  })
+
+  it('移动端 390：计数与三颗主按钮同区，高度走 56px 固定槽位 token', () => {
+    render(
+      <BatchBar
+        device="mobile"
+        count={2}
+        excluded={[]}
+        categoryHint=""
+        onCategory={() => {}}
+        onDelete={() => {}}
+        onSelectExpenseOnly={() => {}}
+        onExit={() => {}}
+      />,
+    )
+
+    const bar = screen.getByRole('region', { name: '批量操作' })
+    expect(bar.className).toContain('is-mobile')
+    expect(screen.getByText('已选 2 笔')).toBeInTheDocument()
+    for (const name of ['改分类', '删除', '退出']) {
+      expect(screen.getByRole('button', { name })).toBeVisible()
+    }
+    expect(screen.queryByRole('button', { name: '仅选支出' })).toBeNull()
+  })
+
+  it('批量条 CSS 契约：高度 = --mb-dock-batch-h（56px），且不参与 flex 收缩', () => {
+    const variables = readFileSync(resolve(WEB_ROOT, 'src/styles/theme/variables.css'), 'utf8')
+    const transactions = readFileSync(
+      resolve(WEB_ROOT, 'src/features/transactions/transactions.css'),
+      'utf8',
+    )
+    expect(variables).toMatch(/--mb-dock-batch-h:\s*56px/)
+    expect(transactions).toMatch(/\.mb-tx-batchbar\s*\{[^}]*flex:\s*none/)
+    expect(transactions).toMatch(/\.mb-tx-batchbar\s*\{[^}]*height:\s*var\(--mb-dock-batch-h\)/)
+    expect(transactions).toMatch(
+      /\.mb-tx-batchbar\.is-mobile\s*\{[^}]*height:\s*var\(--mb-dock-batch-h\)/,
+    )
   })
 
   it('摘要固定一行：重复类型名只留一次，超出两项折叠成 +N', () => {

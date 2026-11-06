@@ -98,6 +98,9 @@
   --mb-page-pad-mobile: 26px;
   --mb-touch: 44px;
   --mb-bar-h: 6px;
+  /* 视口底部固定区：合计条高度 / 批量条高度（batch bar 不参与 flex 收缩） */
+  --mb-dock-h: 36px;
+  --mb-dock-batch-h: 56px;
 
   /* 圆角 */
   --mb-radius-xs: 6px;

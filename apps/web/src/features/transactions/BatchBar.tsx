@@ -1,4 +1,5 @@
 import { Tag, Trash2, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import type { DeviceMode } from '@/features/shared/types'
 
 /** 类别名与类型名重复时只留一次：退款（退款）→ 退款，账户互转（转账）→ 账户互转。 */
@@ -42,9 +43,9 @@ export function BatchBar({
       ? `已排除：${excluded.map(describeExcluded).join('、')}`
       : categoryHint
 
-  return (
+  const bar = (
     <div className={device === 'mobile' ? 'mb-tx-batchbar is-mobile' : 'mb-tx-batchbar'} role="region" aria-label="批量操作">
-      <span className="mb-tx-batch-count">
+      <span className="mb-tx-batch-count" title={summaryTitle}>
         已选 {count} 笔
       </span>
       {summary && (
@@ -54,7 +55,7 @@ export function BatchBar({
       )}
       <div className="mb-tx-batch-actions">
         {excluded.length > 0 && (
-          <button type="button" className="mb-tx-btn is-ghost" onClick={onSelectExpenseOnly}>
+          <button type="button" className="mb-tx-btn is-ghost mb-tx-batch-select-expense" onClick={onSelectExpenseOnly}>
             仅选支出
           </button>
         )}
@@ -79,4 +80,10 @@ export function BatchBar({
       </div>
     </div>
   )
+
+  if (device === 'mobile' && typeof document !== 'undefined') {
+    const dock = document.querySelector('.mb-mobile-dock')
+    if (dock) return createPortal(bar, dock)
+  }
+  return bar
 }

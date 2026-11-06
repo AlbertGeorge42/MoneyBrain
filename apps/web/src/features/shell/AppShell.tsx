@@ -139,6 +139,9 @@ function MobileShell({
         </div>
       </header>
       <div className="mb-mobile-scroll">{children}</div>
+      {/* 移动端底部操作条的 portal 宿主：在滚动容器外、手机框内，
+          让批量条相对手机屏幕固定而不是随内容滚动。 */}
+      <div className="mb-mobile-dock" />
       <nav className="mb-mobile-nav" aria-label="底部导航">
         {SHELL_NAV.map((item) => {
           const Icon = item.icon

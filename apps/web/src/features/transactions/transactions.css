@@ -661,29 +661,33 @@
   box-shadow: var(--mb-sh-2);
 }
 
+/* 移动端批量条：portal 到手机框内、滚动容器外的 dock，相对屏幕固定。
+   底部让出移动底栏（44 触控 + 16 间距 + 1 边框），单行 56px。 */
 .mb-tx-batchbar.is-mobile {
-  bottom: var(--mb-s-2);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas:
-    'count summary'
-    'actions actions';
+  position: fixed;
+  left: var(--mb-page-pad-mobile);
+  right: var(--mb-page-pad-mobile);
+  bottom: calc(var(--mb-touch) + var(--mb-s-4) + var(--mb-border-width));
+  display: flex;
   align-items: center;
-  gap: var(--mb-s-1) var(--mb-s-2);
-  height: 84px;
-  padding: var(--mb-s-2);
-}
-
-.mb-tx-batchbar.is-mobile .mb-tx-batch-count {
-  grid-area: count;
+  gap: var(--mb-s-2);
+  height: var(--mb-dock-batch-h);
+  padding: 0 var(--mb-s-2);
+  width: auto;
 }
 
 .mb-tx-batchbar.is-mobile .mb-tx-batch-summary {
-  grid-area: summary;
+  display: none;
+}
+
+/* 390 宽放不下第四个动作；混选提示留在计数 title，移动端只保留三颗主按钮。 */
+.mb-tx-batchbar.is-mobile .mb-tx-batch-select-expense {
+  display: none;
 }
 
 .mb-tx-batchbar.is-mobile .mb-tx-batch-actions {
-  grid-area: actions;
+  flex: 1;
+  min-width: 0;
 }
 
 .mb-tx-batch-count {
