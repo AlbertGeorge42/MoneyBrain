@@ -721,6 +721,22 @@
   padding: 0 var(--mb-s-2);
 }
 
+/* 删除是破坏性操作：两侧各留 24px 组间距（20 + 动作行 gap 4），并用细分隔线分组。 */
+.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn.is-danger {
+  position: relative;
+  margin-inline: calc(var(--mb-s-4) + var(--mb-s-1));
+}
+
+.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn.is-danger::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--mb-s-3) * -1);
+  top: var(--mb-s-1);
+  bottom: var(--mb-s-1);
+  width: var(--mb-border-width);
+  background: var(--mb-color-border);
+}
+
 /* 计数 + 排除项/禁用原因：移动端独占一行；PC 与动作行同行。 */
 .mb-tx-batch-meta {
   display: flex;
