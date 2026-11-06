@@ -788,21 +788,23 @@ export function CashFlowBars({
 
 export function AllocationBars({
   rows,
+  showTarget = true,
 }: {
   rows: { id: string; name: string; ratio: number; target: number }[]
+  showTarget?: boolean
 }) {
   return (
     <div className="mb-rp-allocation">
       <div className="mb-rp-flow-legend">
         <span>当前占比</span>
-        <span>目标比例</span>
+        {showTarget && <span>目标比例</span>}
       </div>
       {rows.map((row) => (
         <div className="mb-rp-allocation-row" key={row.id}>
           <div className="mb-rp-compare-row-head">
             <span className="mb-rp-compare-name">{row.name}</span>
             <span className="mb-rp-compare-amount">
-              {row.ratio.toFixed(1)}% / {row.target.toFixed(1)}%
+              {showTarget ? `${row.ratio.toFixed(1)}% / ${row.target.toFixed(1)}%` : `${row.ratio.toFixed(1)}%`}
             </span>
           </div>
           <progress

@@ -30,6 +30,8 @@ import {
   groupBalanceRows,
   loadReportSettings,
   saveReportSettings,
+  sliceSnapshots,
+  sortHoldingRows,
   visibleCashGroups,
   type ReportViewSettings,
 } from './reportSettings'
@@ -335,7 +337,9 @@ export function ReportsPage({
               onFold={toggleCashFold}
             />
           )}
-          {tab === 'invest' && <InvestView device={device} report={invest} />}
+          {tab === 'invest' && (
+            <InvestView device={device} report={invest} settings={effectiveSettings.invest} />
+          )}
         </>
       )}
     </>
@@ -923,11 +927,25 @@ function CashView({
   )
 }
 
-function InvestView({ device, report }: { device: DeviceMode; report: InvestmentReport }) {
+function InvestView({
+  device,
+  report,
+  settings,
+}: {
+  device: DeviceMode
+  report: InvestmentReport
+  settings: ReportViewSettings['invest']
+}) {
   const [folded, setFolded] = useState<Record<string, boolean>>({})
+  // 排序只改显示行序：先排账户，再排账户下的资产类型。
+  const holdings = sortHoldingRows(report.holdings, settings.sortBy).map((group) => ({
+    ...group,
+    children: sortHoldingRows(group.children, settings.sortBy),
+  }))
+  const trend = sliceSnapshots(report.trend, settings.snapshotCount)
 
   const rows: ReportRow[] = []
-  for (const group of report.holdings) {
+  for (const group of holdings) {
     const expanded = folded[group.id] !== false
     rows.push({
       id: group.id,
@@ -970,14 +988,14 @@ function InvestView({ device, report }: { device: DeviceMode; report: Investment
   const trendChart = (
     <ReportLineChart
       device={device}
-      title="净值走势"
-      points={report.trend.map((point) => ({ label: point.month, value: point.value }))}
+      title={`净值走势 · 近 ${settings.snapshotCount} 期`}
+      points={trend.map((point) => ({ label: point.month, value: point.value }))}
       ariaLabel="投资净值走势"
     />
   )
   const allocationChart = (
     <ChartCard title="资产分布">
-      <AllocationBars rows={report.allocation} />
+      <AllocationBars rows={report.allocation} showTarget={settings.showTarget} />
     </ChartCard>
   )
 
