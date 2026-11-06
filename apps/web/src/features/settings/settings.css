@@ -1,4 +1,4 @@
-/* 设置页：导航、分区面板、配置行、弹层。全部引用 --mb-* token。 */
+﻿/* 设置页：导航、分区面板、配置行、弹层。全部引用 --mb-* token。 */
 
 .mb-set-page {
   display: flex;
@@ -577,6 +577,176 @@
   font-size: var(--mb-fs-0);
   line-height: var(--mb-lh-body);
   color: var(--mb-color-text-secondary);
+}
+
+/* 数据区：导入预览 / 批次 / 清空备份状态 */
+.mb-set-warn {
+  color: var(--mb-color-warning) !important;
+}
+
+.mb-set-error {
+  margin: 0;
+  padding: var(--mb-s-2) var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-expense);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-expense-bg);
+  color: var(--mb-color-expense);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
+.mb-set-textbtn {
+  margin-left: var(--mb-s-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mb-color-accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mb-set-textbtn:disabled {
+  color: var(--mb-color-text-tertiary);
+  cursor: default;
+}
+
+.mb-set-hint {
+  margin: 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
+.mb-set-file {
+  padding: var(--mb-s-2);
+  cursor: pointer;
+}
+
+.mb-set-batch-list {
+  display: grid;
+  gap: var(--mb-s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mb-set-batch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--mb-s-1) var(--mb-s-3);
+  align-items: center;
+  padding: var(--mb-s-2) 0;
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+}
+
+.mb-set-batch-name {
+  overflow: hidden;
+  color: var(--mb-color-text-primary);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-set-batch-meta {
+  grid-column: 1;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-set-batch .mb-set-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.mb-set-batch-done {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  white-space: nowrap;
+}
+
+.mb-set-preview {
+  display: grid;
+  gap: var(--mb-s-1);
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+}
+
+.mb-set-preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
+.mb-set-preview-row > span {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-set-preview-row > b {
+  color: var(--mb-color-text-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.mb-set-preview-note {
+  display: grid;
+  gap: 2px;
+  padding-top: var(--mb-s-1);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
+.mb-set-preview-note > span {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-set-preview-note > b {
+  color: var(--mb-color-text-primary);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.mb-set-danger-note {
+  margin: 0;
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-expense);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-expense-bg);
+  color: var(--mb-color-expense);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
+.mb-set-backup-state {
+  display: grid;
+  gap: var(--mb-s-1);
+  justify-items: start;
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-sm);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
+.mb-set-backup-state.is-ready {
+  border-color: var(--mb-color-income);
+  background: var(--mb-color-income-bg);
+  color: var(--mb-color-income);
+  overflow-wrap: anywhere;
+}
+
+.mb-set-backup-state.is-blocked {
+  border-color: var(--mb-color-expense);
+  background: var(--mb-color-expense-bg);
+  color: var(--mb-color-expense);
 }
 
 /* ===== 按钮 ===== */

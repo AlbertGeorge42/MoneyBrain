@@ -23,6 +23,8 @@ import type {
   DetectFileResult,
   EarliestTransactionDateResult,
   ImportBackupResult,
+  ImportBatch,
+  ImportBatchRollbackResult,
   ImportFullResult,
   ImportPreview,
   IncomeExpenseReportData,
@@ -68,7 +70,10 @@ export type {
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
   ImportFullResult,
+  ImportBackupResult,
   ImportPreview,
+  ImportBatch,
+  ImportBatchRollbackResult,
   InvestmentAllocationSnapshot,
   Minor,
   PaginatedResponse,
@@ -243,6 +248,13 @@ export const dataApi = {
     })
   },
   listRollbackPoints: () => api.get<ApiResponse<RollbackPoint[]>>('/data/rollback-points'),
+  // 导入批次：设置页展示「这批导入了多少笔」，并可精确撤销
+  listImportBatches: (limit = 10) =>
+    api.get<ApiResponse<ImportBatch[]>>('/data/import-batches', { params: { limit } }),
+  rollbackImportBatch: (id: string) =>
+    api.post<ApiResponse<ImportBatchRollbackResult>>(`/data/import-batches/${id}/rollback`, {
+      confirm: ROLLBACK_CONFIRM.import,
+    }),
   // ─── 自动定时备份（B3）───
   getAutoBackup: () => api.get<ApiResponse<AutoBackupConfig>>('/data/auto-backup'),
   // 云同步目录默认被后端拒绝；confirmCloudDirectory: true 表示用户已确认「将定时产生全量明文账本副本」

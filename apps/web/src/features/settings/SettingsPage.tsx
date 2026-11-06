@@ -34,7 +34,9 @@ import {
 } from 'lucide-react'
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
-import { transactionCategoryApi } from '@/services/api'
+import { downloadBlob, todayFilename } from '@/utils/download'
+import { dataApi, transactionCategoryApi } from '@/services/api'
+import type { ImportBackupResult, ImportBatch, ImportPreview } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import { useLedger } from '@/features/overview/ledgerStore'
@@ -101,6 +103,9 @@ const CASHFLOW_TABS: readonly { id: 'asset' | 'income' | 'expense' | 'transfer';
   { id: 'expense', label: '支出分类' },
   { id: 'transfer', label: '转账分类' },
 ]
+
+/** 清空确认需要用户逐字输入的文字 */
+const CLEAR_WORD = '清空账本'
 
 type Editor =
   | { kind: 'account'; mode: 'create' | 'edit'; accountId?: string; preset: AccountKind }
@@ -583,6 +588,53 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
 
+  /* ===== 数据：导入 / 导出 / 回滚 / 清空 ===== */
+  type DataBusy = null | 'export' | 'preview' | 'import' | 'clear' | `rollback:${string}`
+  const [dataBusy, setDataBusy] = useState<DataBusy>(null)
+  const [backupReady, setBackupReady] = useState<{ filename: string; at: string } | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<ImportPreview | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [lastImport, setLastImport] = useState<ImportBackupResult | null>(null)
+  const [batches, setBatches] = useState<ImportBatch[]>([])
+  const [batchError, setBatchError] = useState<string | null>(null)
+  const [clearOpen, setClearOpen] = useState(false)
+  const [clearWord, setClearWord] = useState('')
+  const [clearError, setClearError] = useState<string | null>(null)
+
+  const refreshImportBatches = async () => {
+    try {
+      const response = await dataApi.listImportBatches()
+      setBatches(unwrapApiData(response))
+      setBatchError(null)
+    } catch (error) {
+      setBatchError(getApiErrorMessage(error, '读取导入记录失败，请重试'))
+    }
+  }
+
+  useEffect(() => {
+    if (!apiMode) return
+    if (active !== 'data' && openSection !== 'data') return
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await dataApi.listImportBatches()
+        if (!cancelled) {
+          setBatches(unwrapApiData(response))
+          setBatchError(null)
+        }
+      } catch (error) {
+        if (!cancelled) setBatchError(getApiErrorMessage(error, '读取导入记录失败，请重试'))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [apiMode, active, openSection, lastImport])
+
+
   const notify = (message: string) => setToast({ message, duration: 2600 })
   // 危险操作（转移后删除）与批量删除一致：6 秒内可撤销。
   const notifyUndoable = (message: string, run: () => void) =>
@@ -850,6 +902,118 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     replaceLedger({ accounts: [], categories: [], budgets: [], transactions: [] })
     notify('账本已清空')
     setArmed(null)
+  }
+
+  /** API 模式：后端导出加密容器 `.mbx`，成功后才允许清空。 */
+  const exportApiLedger = async () => {
+    if (dataBusy) return
+    setDataBusy('export')
+    setExportError(null)
+    try {
+      const response = await dataApi.exportFull()
+      const disposition = String(response.headers['content-disposition'] ?? '')
+      const matched = /filename="?([^";]+)"?/i.exec(disposition)
+      const filename = matched?.[1] ?? todayFilename('moneybrain-backup', 'mbx')
+      await downloadBlob(response.data, filename)
+      setBackupReady({ filename, at: new Date().toISOString() })
+      notify(`已导出备份 ${filename}`)
+    } catch (error) {
+      setExportError(getApiErrorMessage(error, '导出失败，请重试'))
+    } finally {
+      setDataBusy(null)
+    }
+  }
+
+  const runImportPreview = async () => {
+    if (!importFile) {
+      setPreviewError('请选择要导入的备份文件')
+      return
+    }
+    if (dataBusy) return
+    setDataBusy('preview')
+    setPreviewError(null)
+    setPreview(null)
+    try {
+      const response = await dataApi.previewImport(importFile, { mode: 'merge' })
+      setPreview(unwrapApiData(response))
+    } catch (error) {
+      setPreviewError(getApiErrorMessage(error, '解析失败，请检查文件后重试'))
+    } finally {
+      setDataBusy(null)
+    }
+  }
+
+  const confirmImport = async () => {
+    if (!importFile || !preview || dataBusy) return
+    setDataBusy('import')
+    setPreviewError(null)
+    try {
+      const response = await dataApi.importBackup(importFile, { mode: 'merge' })
+      const result = unwrapApiData(response)
+      setLastImport(result)
+      setImportOpen(false)
+      setImportFile(null)
+      setPreview(null)
+      notify(`这批导入了 ${result.imported.transactions} 笔`)
+      onRetry()
+      await refreshImportBatches()
+    } catch (error) {
+      setPreviewError(getApiErrorMessage(error, '导入失败，数据没有写入，可重试'))
+    } finally {
+      setDataBusy(null)
+    }
+  }
+
+  const rollbackImport = async (batch: ImportBatch) => {
+    if (dataBusy) return
+    setDataBusy(`rollback:${batch.id}`)
+    setBatchError(null)
+    try {
+      const response = await dataApi.rollbackImportBatch(batch.id)
+      const result = unwrapApiData(response)
+      notify(`已撤销 ${result.removedTransactions} 笔`)
+      await refreshImportBatches()
+      onRetry()
+    } catch (error) {
+      setBatchError(getApiErrorMessage(error, '撤销失败，请重试'))
+    } finally {
+      setDataBusy(null)
+      setArmed(null)
+    }
+  }
+
+  const openClearSheet = () => {
+    setClearOpen(true)
+    setClearWord('')
+    setClearError(null)
+    setArmed(null)
+  }
+
+  const confirmClearLedger = async () => {
+    if (dataBusy) return
+    if (!backupReady) {
+      setClearError('请先导出备份：备份成功后才会继续清空')
+      return
+    }
+    if (clearWord.trim() !== CLEAR_WORD) {
+      setClearError(`请输入「${CLEAR_WORD}」以确认`)
+      return
+    }
+    setDataBusy('clear')
+    setClearError(null)
+    try {
+      await dataApi.clearAll()
+      replaceLedger({ accounts: [], categories: [], budgets: [], transactions: [] })
+      setClearOpen(false)
+      setClearWord('')
+      setBackupReady(null)
+      notify('账本已清空，可用刚导出的备份恢复')
+      onRetry()
+    } catch (error) {
+      setClearError(getApiErrorMessage(error, '清空失败，数据没有变化，可重试'))
+    } finally {
+      setDataBusy(null)
+    }
   }
 
   /* ===== 行渲染 ===== */
@@ -1437,6 +1601,114 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     )
   }
 
+  const renderBatchList = () => {
+    if (batchError) {
+      return (
+        <p className="mb-set-error" role="alert">
+          {batchError}
+          <button type="button" className="mb-set-textbtn" onClick={() => void refreshImportBatches()}>
+            重试
+          </button>
+        </p>
+      )
+    }
+    if (batches.length === 0) {
+      return <p>还没有导入记录。导入成功后会在这里显示可撤销的批次。</p>
+    }
+    return (
+      <ul className="mb-set-batch-list">
+        {batches.map((batch) => {
+          const armedBatch = armed === `import-${batch.id}`
+          const busyBatch = dataBusy === `rollback:${batch.id}`
+          return (
+            <li className="mb-set-batch" key={batch.id}>
+              <span className="mb-set-batch-name">{batch.filename}</span>
+              <span className="mb-set-batch-meta">
+                {new Date(batch.createdAt).toLocaleString('zh-CN', { hour12: false })} · 这批{' '}
+                {batch.transactionCount} 笔
+              </span>
+              {batch.status === 'active' ? (
+                <button
+                  type="button"
+                  className={armedBatch ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn'}
+                  disabled={busyBatch}
+                  onClick={() => {
+                    if (busyBatch) return
+                    if (!armedBatch) {
+                      setArmed(`import-${batch.id}`)
+                      return
+                    }
+                    void rollbackImport(batch)
+                  }}
+                >
+                  {busyBatch ? '撤销中…' : armedBatch ? '确认撤销' : '撤销这批'}
+                </button>
+              ) : (
+                <span className="mb-set-batch-done">
+                  已撤销 {batch.rolledBack?.transaction ?? 0} 笔
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    )
+  }
+
+  const renderImportSummary = (value: ImportPreview) => {
+    const summary = value.result.summary
+    return (
+      <div className="mb-set-preview" data-testid="import-preview">
+        {summary ? (
+          <>
+            <div className="mb-set-preview-row">
+              <span>期间跨度</span>
+              <b>
+                {summary.dateFrom && summary.dateTo
+                  ? `${summary.dateFrom} ~ ${summary.dateTo}`
+                  : '未识别到日期'}
+              </b>
+            </div>
+            <div className="mb-set-preview-row">
+              <span>文件笔数</span>
+              <b>{summary.total} 笔</b>
+            </div>
+            <div className="mb-set-preview-row">
+              <span>金额合计</span>
+              <b>{formatCurrency(minor(summary.amountTotal))}</b>
+            </div>
+            <div className="mb-set-preview-row">
+              <span>疑似重复</span>
+              <b>{summary.duplicates} 笔（将跳过）</b>
+            </div>
+          </>
+        ) : (
+          <p>服务端未返回文件摘要，仅显示导入计数。</p>
+        )}
+        <div className="mb-set-preview-row">
+          <span>将导入</span>
+          <b>{value.result.imported.transactions} 笔</b>
+        </div>
+        <div className="mb-set-preview-row">
+          <span>将跳过</span>
+          <b>{value.result.skipped.transactions} 笔</b>
+        </div>
+        {summary && (
+          <>
+            <div className="mb-set-preview-note">
+              <span>无法识别的账户（导入时新建）</span>
+              <b>{summary.unknownAccounts.length ? summary.unknownAccounts.join('、') : '无'}</b>
+            </div>
+            <div className="mb-set-preview-note">
+              <span>无法识别的分类（导入时新建）</span>
+              <b>{summary.unknownCategories.length ? summary.unknownCategories.join('、') : '无'}</b>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
   const renderData = () => (
     <div className="mb-set-data">
       <section className="mb-set-datacard">
@@ -1444,61 +1716,138 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           <Database size={18} />
           <h3>导出</h3>
         </div>
-        <button type="button" className="mb-set-btn" onClick={exportLedger}>
-          <Download size={16} />
-          导出账本
-        </button>
+        {apiMode ? (
+          <>
+            <button
+              type="button"
+              className="mb-set-btn"
+              disabled={dataBusy === 'export'}
+              onClick={() => void exportApiLedger()}
+            >
+              <Download size={16} />
+              {dataBusy === 'export' ? '导出中…' : '导出账本 (.mbx)'}
+            </button>
+            {backupReady && (
+              <p>
+                最近备份：{backupReady.filename}（
+                {new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）
+              </p>
+            )}
+            {exportError && (
+              <p className="mb-set-error" role="alert">
+                {exportError}
+                <button
+                  type="button"
+                  className="mb-set-textbtn"
+                  onClick={() => void exportApiLedger()}
+                >
+                  重试
+                </button>
+              </p>
+            )}
+          </>
+        ) : (
+          <button type="button" className="mb-set-btn" onClick={exportLedger}>
+            <Download size={16} />
+            导出账本
+          </button>
+        )}
       </section>
       <section className="mb-set-datacard">
         <div className="mb-set-datacard-head">
           <FolderInput size={18} />
           <h3>导入</h3>
         </div>
-        <button type="button" className="mb-set-btn" onClick={onImport}>
-          <FolderInput size={16} />
-          打开导入向导
-        </button>
+        {apiMode ? (
+          <>
+            <button
+              type="button"
+              className="mb-set-btn"
+              onClick={() => {
+                setImportOpen(true)
+                setPreview(null)
+                setPreviewError(null)
+              }}
+            >
+              <FolderInput size={16} />
+              打开导入向导
+            </button>
+            {lastImport && (
+              <p>
+                这批导入了 {lastImport.imported.transactions} 笔；批次 {lastImport.importId?.slice(0, 8)}
+                可在「回滚」撤销。
+              </p>
+            )}
+            <p>导入前会先解析并展示预览，确认后才写入；失败不会留下半截数据。</p>
+          </>
+        ) : (
+          <button type="button" className="mb-set-btn" onClick={onImport}>
+            <FolderInput size={16} />
+            打开导入向导
+          </button>
+        )}
       </section>
       <section className="mb-set-datacard">
         <div className="mb-set-datacard-head">
           <RotateCcw size={18} />
           <h3>回滚</h3>
         </div>
-        <p>还原到最近一次自动存点，回滚前会再存一个还原点。</p>
-        <button
-          type="button"
-          className={armed === 'rollback' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn'}
-          onClick={() => {
-            if (armed === 'rollback') {
-              setArmed(null)
-              notify('已恢复到上一存点')
-              return
-            }
-            setArmed('rollback')
-          }}
-        >
-          {armed === 'rollback' ? '确认恢复' : '回滚到上一存点'}
-        </button>
+        {apiMode ? (
+          renderBatchList()
+        ) : (
+          <>
+            <p>还原到最近一次自动存点，回滚前会再存一个还原点。</p>
+            <button
+              type="button"
+              className={armed === 'rollback' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn'}
+              onClick={() => {
+                if (armed === 'rollback') {
+                  setArmed(null)
+                  notify('已恢复到上一存点')
+                  return
+                }
+                setArmed('rollback')
+              }}
+            >
+              {armed === 'rollback' ? '确认恢复' : '回滚到上一存点'}
+            </button>
+          </>
+        )}
       </section>
       <section className="mb-set-datacard is-danger">
         <div className="mb-set-datacard-head">
           <AlertTriangle size={18} />
           <h3>危险区</h3>
         </div>
-        <p>清空后所有账户、分类与流水都会删除，仅保留导出文件可恢复。</p>
-        <button
-          type="button"
-          className={armed === 'clear' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn is-danger'}
-          onClick={() => {
-            if (armed === 'clear') {
-              clearLedger()
-              return
-            }
-            setArmed('clear')
-          }}
-        >
-          {armed === 'clear' ? '确认清空账本' : '清空账本'}
-        </button>
+        {apiMode ? (
+          <>
+            <p>
+              清空前必须导出备份；清空后所有账户、分类、流水、预算与投资快照都会删除，
+              回收站与审计记录一并清空。
+            </p>
+            <button type="button" className="mb-set-btn is-danger" onClick={openClearSheet}>
+              清空账本
+            </button>
+            {!backupReady && <p className="mb-set-warn">尚未导出备份，清空会被拦住。</p>}
+          </>
+        ) : (
+          <>
+            <p>清空后所有账户、分类与流水都会删除，仅保留导出文件可恢复。</p>
+            <button
+              type="button"
+              className={armed === 'clear' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn is-danger'}
+              onClick={() => {
+                if (armed === 'clear') {
+                  clearLedger()
+                  return
+                }
+                setArmed('clear')
+              }}
+            >
+              {armed === 'clear' ? '确认清空账本' : '清空账本'}
+            </button>
+          </>
+        )}
       </section>
     </div>
   )
@@ -1725,6 +2074,173 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           onClose={() => setDeleteTransfer(null)}
           onTransfer={(target) => void transferAndDelete(target)}
         />
+      )}
+      {apiMode && (
+        <Drawer
+          opened={importOpen}
+          onClose={() => {
+            if (dataBusy === 'import' || dataBusy === 'preview') return
+            setImportOpen(false)
+          }}
+          position={device === 'mobile' ? 'bottom' : 'right'}
+          size={device === 'mobile' ? 'auto' : 460}
+          withinPortal={false}
+          withCloseButton={false}
+          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+        >
+          <div className="mb-set-sheet-head">
+            <h2 className="mb-set-sheet-title">导入备份</h2>
+            <button
+              type="button"
+              className="mb-set-icon-btn"
+              aria-label="关闭"
+              onClick={() => setImportOpen(false)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mb-set-sheet-body">
+            <label className="mb-set-field">
+              <span className="mb-set-label">备份文件（.mbx / .zip / .csv / .json）</span>
+              <input
+                className="mb-set-input mb-set-file"
+                type="file"
+                accept=".mbx,.zip,.csv,.json"
+                disabled={dataBusy === 'preview' || dataBusy === 'import'}
+                onChange={(event) => {
+                  setImportFile(event.target.files?.[0] ?? null)
+                  setPreview(null)
+                  setPreviewError(null)
+                }}
+              />
+            </label>
+
+            {previewError && (
+              <p className="mb-set-error" role="alert">
+                {previewError}
+              </p>
+            )}
+
+            {preview ? renderImportSummary(preview) : (
+              <p className="mb-set-hint">
+                先解析预览：期间跨度、笔数、金额合计、无法识别的账户/分类与疑似重复都会在确认前显示。
+              </p>
+            )}
+
+            <div className="mb-set-sheet-actions">
+              <button
+                type="button"
+                className="mb-set-btn"
+                disabled={dataBusy === 'import'}
+                onClick={() => setImportOpen(false)}
+              >
+                取消
+              </button>
+              {preview ? (
+                <button
+                  type="button"
+                  className="mb-set-btn is-primary"
+                  disabled={dataBusy === 'import'}
+                  onClick={() => void confirmImport()}
+                >
+                  {dataBusy === 'import' ? '导入中…' : '确认导入'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="mb-set-btn is-primary"
+                  disabled={dataBusy === 'preview'}
+                  onClick={() => void runImportPreview()}
+                >
+                  {dataBusy === 'preview' ? '解析中…' : '解析并预览'}
+                </button>
+              )}
+            </div>
+          </div>
+        </Drawer>
+      )}
+      {apiMode && (
+        <Drawer
+          opened={clearOpen}
+          onClose={() => {
+            if (dataBusy === 'clear') return
+            setClearOpen(false)
+          }}
+          position={device === 'mobile' ? 'bottom' : 'right'}
+          size={device === 'mobile' ? 'auto' : 460}
+          withinPortal={false}
+          withCloseButton={false}
+          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+        >
+          <div className="mb-set-sheet-head">
+            <h2 className="mb-set-sheet-title">清空账本</h2>
+            <button
+              type="button"
+              className="mb-set-icon-btn"
+              aria-label="关闭"
+              onClick={() => setClearOpen(false)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mb-set-sheet-body">
+            <p className="mb-set-danger-note">
+              清空会删除所有账户、分类、流水、预算与投资快照，且不可恢复。回收站与审计记录会一并清空。
+            </p>
+
+            <div className={backupReady ? 'mb-set-backup-state is-ready' : 'mb-set-backup-state is-blocked'}>
+              {backupReady
+                ? `已备份：${backupReady.filename}（${new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）`
+                : '尚未导出备份：必须先导出备份才能继续'}
+              <button
+                type="button"
+                className="mb-set-textbtn"
+                disabled={dataBusy === 'export'}
+                onClick={() => void exportApiLedger()}
+              >
+                {dataBusy === 'export' ? '导出中…' : backupReady ? '重新导出' : '先导出备份 (.mbx)'}
+              </button>
+            </div>
+            {exportError && (
+              <p className="mb-set-error" role="alert">
+                {exportError}
+              </p>
+            )}
+
+            <label className="mb-set-field">
+              <span className="mb-set-label">输入「{CLEAR_WORD}」确认</span>
+              <input
+                className="mb-set-input"
+                value={clearWord}
+                placeholder={CLEAR_WORD}
+                onChange={(event) => {
+                  setClearWord(event.target.value)
+                  setClearError(null)
+                }}
+              />
+            </label>
+
+            {clearError && (
+              <p className="mb-set-error" role="alert">
+                {clearError}
+              </p>
+            )}
+
+            <div className="mb-set-sheet-actions">
+              <button type="button" className="mb-set-btn" disabled={dataBusy === 'clear'} onClick={() => setClearOpen(false)}>
+                取消
+              </button>
+              <button
+                type="button"
+                className="mb-set-btn is-danger"
+                disabled={dataBusy === 'clear'}
+                onClick={() => void confirmClearLedger()}
+              >
+                {dataBusy === 'clear' ? '清空中…' : '确认清空'}
+              </button>
+            </div>
+          </div>
+        </Drawer>
       )}
       {toast &&
         createPortal(
