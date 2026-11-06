@@ -5,9 +5,11 @@ import { formatAmount, fromDate, minor, parseAmount, CURRENT_RULE_VERSION, rules
 import {
   type AccountCache,
   type ImportContext,
+  type ImportSummaryCollector,
   type ParsedRow,
   type TransactionClient,
   buildSortCounters,
+  recordRowSummary,
   takeNextSort,
   readCsvRecords,
 } from './shared.js'
@@ -44,7 +46,10 @@ async function ensureDefaultCategory(
 
 // ─── 构建导入上下文（一次性预加载） ───
 
-async function buildImportContext(client: TransactionClient): Promise<ImportContext> {
+async function buildImportContext(
+  client: TransactionClient,
+  summary?: ImportSummaryCollector
+): Promise<ImportContext> {
   const [accounts, accountCategories, transactionCategories, investmentAssetClasses] =
     await Promise.all([
       client.account.findMany({
@@ -104,6 +109,7 @@ async function buildImportContext(client: TransactionClient): Promise<ImportCont
     transactionCategoryCache,
     investmentAssetClassCache,
     sortCounters,
+    summary,
   }
 }
 
@@ -212,6 +218,7 @@ async function getOrCreateCategory(
         parentCategory = await client.transactionCategory.create({
           data: { name: effectiveParent, type: categoryType, icon: 'folder', sort },
         })
+        ctx.summary?.unknownCategories.add(effectiveParent)
       }
       parentId = parentCategory.id
       ctx.transactionCategoryCache.set(parentCacheKey, parentId)
@@ -233,6 +240,9 @@ async function getOrCreateCategory(
         sort,
       },
     })
+    ctx.summary?.unknownCategories.add(
+      effectiveParent ? `${effectiveParent}/${effectiveChild}` : effectiveChild
+    )
   }
   ctx.transactionCategoryCache.set(cacheKey, category.id)
   return category.id
@@ -330,6 +340,7 @@ async function getOrCreateAccount(
           sort,
         },
       })
+      ctx.summary?.unknownAccounts.add(accountName)
       account = {
         id: created.id,
         type: created.type,
@@ -474,10 +485,11 @@ function parseCsvFile(buffer: Buffer): ParsedRow[] {
 
 async function importTransactionsFromRows(
   rows: ParsedRow[],
-  tx: TransactionClient
+  tx: TransactionClient,
+  summary?: ImportSummaryCollector
 ): Promise<{ imported: number; skipped: number }> {
   const client = tx
-  const ctx = await buildImportContext(client)
+  const ctx = await buildImportContext(client, summary)
   let imported = 0
   let skipped = 0
 
@@ -499,6 +511,7 @@ async function importTransactionsFromRows(
   for (const row of normalRows) {
     try {
       const basics = parseRowBasicFields(row)!
+      recordRowSummary(summary, basics.date, basics.amount)
       const fromAccount = await getOrCreateAccount(row.account1, ctx, client)
       const toAccount =
         basics.type === 'transfer' && row.account2
@@ -562,6 +575,7 @@ async function importTransactionsFromRows(
       csvIdToUuid.set(row.csvId, existingId)
       imported--
       skipped++
+      if (summary) summary.duplicates++
       return false
     }
     // 同一文件内的重复行也只保留一条
@@ -588,6 +602,7 @@ async function importTransactionsFromRows(
       const date = new Date(row.time)
       if (isNaN(date.getTime())) { skipped++; continue }
       const amount = parseAmount(row.amountStr)
+      recordRowSummary(summary, date, amount)
 
       // 通过预生成 UUID 关联普通交易类型
       const relatedUuid = row.relatedCsvId ? csvIdToUuid.get(row.relatedCsvId) : null
@@ -669,6 +684,7 @@ async function importTransactionsFromRows(
       csvIdToUuid.set(row.csvId, existingId)
       imported--
       skipped++
+      if (summary) summary.duplicates++
       return false
     }
     knownRefundKeys.set(row.importKey, row.id)
@@ -692,7 +708,8 @@ async function importTransactionsFromRows(
 
 export async function importTransactionsFromCsv(
   buffer: Buffer,
-  tx: TransactionClient
+  tx: TransactionClient,
+  summary?: ImportSummaryCollector
 ): Promise<{ imported: number; skipped: number }> {
-  return importTransactionsFromRows(parseCsvFile(buffer), tx)
+  return importTransactionsFromRows(parseCsvFile(buffer), tx, summary)
 }

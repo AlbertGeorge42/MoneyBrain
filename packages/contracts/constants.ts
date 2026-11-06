@@ -52,6 +52,8 @@ export type ImportEntryKey = keyof typeof IMPORT_ENTRY_LABELS
 export const ROLLBACK_CONFIRM = {
   /** 回滚到指定回滚点 */
   restore: 'restore-snapshot',
+  /** 撤销指定导入批次（只删该批新建的行） */
+  import: 'rollback-import',
 } as const
 
 export type RollbackConfirmTarget = keyof typeof ROLLBACK_CONFIRM

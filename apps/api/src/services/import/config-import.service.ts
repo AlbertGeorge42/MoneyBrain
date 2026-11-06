@@ -7,6 +7,7 @@ import {
   type ImportAccountCategory,
   type ImportConfigResult,
   type ImportInvestmentAssetClass,
+  type ImportSummaryCollector,
   type ImportTransactionCategory,
   type TransactionClient,
   type SortCounters,
@@ -32,7 +33,8 @@ async function importAccountCategories(
   nameMap: Map<string, string>,
   counters: SortCounters,
   mode: 'merge' | 'overwrite',
-  parentId: string | null = null
+  parentId: string | null = null,
+  summary?: ImportSummaryCollector
 ): Promise<void> {
   for (const item of categories) {
     try {
@@ -80,6 +82,7 @@ async function importAccountCategories(
         )
         currentId = created.id
         incImported(result, 'accountCategories')
+        summary?.unknownCategories.add(item.name)
       }
 
       // key 包含 parentId，避免不同父分类下的同名子分类互相覆盖
@@ -93,7 +96,8 @@ async function importAccountCategories(
           nameMap,
           counters,
           mode,
-          currentId
+          currentId,
+          summary
         )
       }
     } catch (error) {
@@ -111,7 +115,8 @@ async function importAccounts(
   result: ImportConfigResult,
   categoryNameMap: Map<string, string>,
   counters: SortCounters,
-  mode: 'merge' | 'overwrite'
+  mode: 'merge' | 'overwrite',
+  summary?: ImportSummaryCollector
 ): Promise<void> {
   for (const account of accounts) {
     try {
@@ -191,6 +196,7 @@ async function importAccounts(
           tx,
         )
         incImported(result, 'accounts')
+        summary?.unknownAccounts.add(account.name)
       }
     } catch (error) {
       result.errors.push(`账户 "${account.name}" 导入失败: ${(error as Error).message}`)
@@ -208,7 +214,8 @@ async function importTransactionCategories(
   nameMap: Map<string, string>,
   counters: SortCounters,
   mode: 'merge' | 'overwrite',
-  parentId: string | null = null
+  parentId: string | null = null,
+  summary?: ImportSummaryCollector
 ): Promise<void> {
   for (const item of categories) {
     try {
@@ -255,6 +262,7 @@ async function importTransactionCategories(
         )
         currentId = created.id
         incImported(result, 'transactionCategories')
+        summary?.unknownCategories.add(item.name)
       }
 
       nameMap.set(buildCategoryKey(item.type, item.name, parentId), currentId)
@@ -267,7 +275,8 @@ async function importTransactionCategories(
           nameMap,
           counters,
           mode,
-          currentId
+          currentId,
+          summary
         )
       }
     } catch (error) {
@@ -346,7 +355,8 @@ async function importInvestmentAssetClasses(
 export async function importConfig(
   configData: ConfigImportData,
   mode: 'merge' | 'overwrite',
-  tx: TransactionClient
+  tx: TransactionClient,
+  summary?: ImportSummaryCollector
 ): Promise<ImportConfigResult> {
   const result: ImportConfigResult = {
     imported: { accountCategories: 0, accounts: 0, transactionCategories: 0, investmentAssetClasses: 0 },
@@ -366,7 +376,9 @@ export async function importConfig(
         result,
         accountCategoryNameMap,
         counters,
-        mode
+        mode,
+        null,
+        summary
       )
     }
 
@@ -377,7 +389,8 @@ export async function importConfig(
         result,
         accountCategoryNameMap,
         counters,
-        mode
+        mode,
+        summary
       )
     }
 
@@ -390,7 +403,9 @@ export async function importConfig(
         result,
         transactionCategoryNameMap,
         counters,
-        mode
+        mode,
+        null,
+        summary
       )
     }
 

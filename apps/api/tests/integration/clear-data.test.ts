@@ -16,6 +16,7 @@ const { clearSelectedDataForImport } = await import('../../src/services/clear-da
 
 /** 清空全部业务表，保证用例相互独立。 */
 async function truncateAll(): Promise<void> {
+  await prisma.importBatch.deleteMany()
   await prisma.auditEvent.deleteMany()
   await prisma.transaction.deleteMany()
   await prisma.investmentAllocationItem.deleteMany()

@@ -715,16 +715,64 @@ export interface ImportSkippedCounts {
   investmentSnapshots: number
 }
 
+/**
+ * 导入文件本身的摘要：确认前就能看到的数字。
+ * 全部来自真实解析结果，预览与正式导入走同一段解析代码。
+ */
+export interface ImportFileSummary {
+  /** 文件里可解析的流水笔数（含被重复跳过的） */
+  total: number
+  /** 这些流水的金额绝对值合计（分） */
+  amountTotal: number
+  /** 期间跨度（YYYY-MM-DD） */
+  dateFrom: string | null
+  dateTo: string | null
+  /** 文件里出现、但库里还没有、导入时会新建的账户名 */
+  unknownAccounts: string[]
+  /** 文件里出现、但库里还没有、导入时会新建的分类名 */
+  unknownCategories: string[]
+  /** 疑似重复（幂等键已存在或文件内重复）而被跳过的笔数 */
+  duplicates: number
+}
+
 export interface ImportFullResult {
   imported: ImportCounts
   updated: ImportUpdatedCounts
   skipped: ImportSkippedCounts
   errors: string[]
+  /** 预览与正式导入都返回；旧调用方可以不读 */
+  summary?: ImportFileSummary
 }
 
-/** 正式导入的结果：覆盖模式额外带回滚点 id（合并模式无此字段）。 */
+/** 正式导入的结果：覆盖模式额外带回滚点 id，所有模式都带导入批次 id。 */
 export interface ImportBackupResult extends ImportFullResult {
   rollbackPointId?: string
+  /** 本次导入的批次 id，可按它精确回滚 */
+  importId?: string
+}
+
+/** 一次导入批次的可读信息（设置页展示「这批导入了多少笔」）。 */
+export interface ImportBatch {
+  id: string
+  createdAt: string
+  filename: string
+  mode: 'merge' | 'overwrite'
+  includes: BackupDataType[]
+  imported: ImportCounts
+  /** 本批实际新增的流水笔数 */
+  transactionCount: number
+  status: 'active' | 'rolledBack'
+  rolledBackAt: string | null
+  /** 回滚实际删除的各类行数（仅回滚过的批次有） */
+  rolledBack: Record<string, number> | null
+}
+
+export interface ImportBatchRollbackResult {
+  importId: string
+  /** 各类实际删除的行数 */
+  removed: Record<string, number>
+  /** 其中流水笔数——回滚后给用户的「撤销了 N 笔」 */
+  removedTransactions: number
 }
 
 /** 备份文件内容识别：该文件包含哪些数据类型。 */

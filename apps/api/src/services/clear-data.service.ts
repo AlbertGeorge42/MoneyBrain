@@ -38,6 +38,10 @@ async function clearAllDataForImport(tx: TransactionClient): Promise<void> {
   await investmentAllocationSnapshotRepo.deleteManyWhere(undefined, tx)
   // 再删被引用方（父表）
   await clearConfigDataForImport(tx)
+  // 回收站条目指向已物理删除的行，留着只会变成无法恢复的幽灵；
+  // 导入批次记录里的行 id 同样已失效——两者随清库一起清掉。
+  await tx.auditEvent.deleteMany()
+  await tx.importBatch.deleteMany()
 }
 
 /**
@@ -89,6 +93,9 @@ export async function clearTransactionsOnly(): Promise<void> {
     await investmentAllocationSnapshotRepo.deleteManyWhere(undefined, tx)
     await budgetRepo.deleteManyWhere(undefined, tx)
     await clearTransactionsForImport(tx)
+    // 同 clearAllDataForImport：被清数据的回收站/批次记录一并清掉
+    await tx.auditEvent.deleteMany()
+    await tx.importBatch.deleteMany()
   })
 }
 

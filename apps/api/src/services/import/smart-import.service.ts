@@ -33,11 +33,16 @@ import {
   type ImportSnapshotsResult,
   type ImportConfigResult,
   type ImportBudgetResult,
+  type ImportSummaryCollector,
   type TransactionClient,
   createEmptyImportFullResult,
+  createImportSummaryCollector,
+  toImportFileSummary,
   stripBom,
   logger,
 } from './shared.js'
+import type { ImportBackupResult } from '../../../../../packages/contracts/types/index.js'
+import { collectExistingIds, createImportBatch, diffCreatedIds } from '../import-batch.service.js'
 
 /** 导入模式：合并（保留现有数据）或覆盖（先清空所选范围） */
 export type ImportMode = 'merge' | 'overwrite'
@@ -49,7 +54,8 @@ async function importZipBackup(
   mode: ImportMode,
   result: ImportFullResult,
   includes: DataType[] | undefined,
-  tx: TransactionClient
+  tx: TransactionClient,
+  summary?: ImportSummaryCollector
 ): Promise<ImportFullResult> {
   const files = await parseBackupZip(file)
   await assertBackupVersion(files.manifest)
@@ -67,12 +73,12 @@ async function importZipBackup(
 
   // 按依赖顺序导入：先 config，再 transactions，最后 budgets/snapshots
   if (selectedIncludes.includes('config') && files.config) {
-    const configResult: ImportConfigResult = await importConfig(JSON.parse(files.config), mode, tx)
+    const configResult: ImportConfigResult = await importConfig(JSON.parse(files.config), mode, tx, summary)
     mergeConfigResult(result, configResult)
   }
 
   if (selectedIncludes.includes('transactions') && files.transactions) {
-    const transactionResult = await importTransactionsFromCsv(files.transactions, tx)
+    const transactionResult = await importTransactionsFromCsv(files.transactions, tx, summary)
     result.imported.transactions = transactionResult.imported
     result.skipped.transactions = transactionResult.skipped
   }
@@ -100,7 +106,8 @@ async function importCsvBackup(
   mode: ImportMode,
   result: ImportFullResult,
   includes: DataType[] | undefined,
-  tx: TransactionClient
+  tx: TransactionClient,
+  summary?: ImportSummaryCollector
 ): Promise<ImportFullResult> {
   const csvText = stripBom(file.toString('utf-8'))
   const firstLine = csvText.split(/\r?\n/)[0] || ''
@@ -121,7 +128,7 @@ async function importCsvBackup(
     const snapshotResult = await importSnapshotsFromCsv(file, mode, tx)
     mergeSnapshotsResult(result, snapshotResult)
   } else {
-    const transactionResult = await importTransactionsFromCsv(file, tx)
+    const transactionResult = await importTransactionsFromCsv(file, tx, summary)
     result.imported.transactions = transactionResult.imported
     result.skipped.transactions = transactionResult.skipped
   }
@@ -135,7 +142,8 @@ async function importJsonBackup(
   mode: ImportMode,
   result: ImportFullResult,
   includes: DataType[] | undefined,
-  tx: TransactionClient
+  tx: TransactionClient,
+  summary?: ImportSummaryCollector
 ): Promise<ImportFullResult> {
   const data = JSON.parse(file.toString())
   if (data.type === 'config') {
@@ -143,7 +151,7 @@ async function importJsonBackup(
     if (mode === 'overwrite') {
       await clearSelectedDataForImport(tx, ['config'])
     }
-    const configResult: ImportConfigResult = await importConfig(data, mode, tx)
+    const configResult: ImportConfigResult = await importConfig(data, mode, tx, summary)
     mergeConfigResult(result, configResult)
   } else if (data.type === 'budgets') {
     if (includes && !includes.includes('budgets')) return result
@@ -194,18 +202,19 @@ export async function runImport(
   file: Buffer,
   filename: string,
   mode: ImportMode,
-  includes?: DataType[]
+  includes?: DataType[],
+  summary?: ImportSummaryCollector
 ): Promise<ImportFullResult> {
   const result = createEmptyImportFullResult()
   const fileType = detectFileType(filename)
 
   switch (fileType) {
     case 'zip':
-      return importZipBackup(file, mode, result, includes, tx)
+      return importZipBackup(file, mode, result, includes, tx, summary)
     case 'csv':
-      return importCsvBackup(file, mode, result, includes, tx)
+      return importCsvBackup(file, mode, result, includes, tx, summary)
     case 'json':
-      return importJsonBackup(file, mode, result, includes, tx)
+      return importJsonBackup(file, mode, result, includes, tx, summary)
     default:
       return result
   }
@@ -220,15 +229,32 @@ export async function importBackup(
   mode: ImportMode,
   includes?: DataType[],
   options: EncryptedBackupOptions = {}
-): Promise<ImportFullResult> {
+): Promise<ImportBackupResult> {
   const start = Date.now()
   logger.info({ action: 'start', mode, includes }, 'import started')
   const input = await normalizeBackupInput(file, filename, options)
-  const result = await withTransaction((tx) =>
-    runImport(tx, input.buffer, input.filename, mode, includes)
-  )
+  const summary = createImportSummaryCollector()
+
+  const { result, importId } = await withTransaction(async (tx) => {
+    // 导入前记下各表现有 id，导入后求差即为本批新建的行
+    const existing = await collectExistingIds(tx)
+    const imported = await runImport(tx, input.buffer, input.filename, mode, includes, summary)
+    const created = await diffCreatedIds(existing, tx)
+    const batch = await createImportBatch(tx, {
+      filename: input.filename,
+      mode,
+      includes: includes ?? [],
+      imported: imported.imported,
+      created,
+    })
+    return { result: imported, importId: batch.id }
+  })
+
+  result.summary = toImportFileSummary(summary)
+  const output = result as ImportBackupResult
+  output.importId = importId
   logger.info({ action: 'finish', mode, durationMs: Date.now() - start }, 'import completed')
-  return result
+  return output
 }
 
 /**
@@ -242,7 +268,7 @@ export async function importBackupWithRollback(
   filename: string,
   includes?: DataType[],
   options: EncryptedBackupOptions = {}
-): Promise<{ result: ImportFullResult; rollbackPointId: string }> {
+): Promise<{ result: ImportBackupResult; rollbackPointId: string }> {
   const scope = await resolveOverwriteScope(file, filename, includes, options)
   const snapshot = await createSnapshot('覆盖导入前', scope)
   const result = await importBackup(file, filename, 'overwrite', includes, options)
@@ -262,10 +288,11 @@ export async function previewImport(
   options: EncryptedBackupOptions = {}
 ): Promise<ImportFullResult> {
   const input = await normalizeBackupInput(file, filename, options)
+  const summary = createImportSummaryCollector()
   let captured: ImportFullResult | undefined
   try {
     await withTransaction(async (tx) => {
-      captured = await runImport(tx, input.buffer, input.filename, mode, includes)
+      captured = await runImport(tx, input.buffer, input.filename, mode, includes, summary)
       // 抛错触发回滚：预览不该留下任何数据改动
       throw new PreviewRollback()
     })
@@ -274,6 +301,7 @@ export async function previewImport(
       throw error
     }
   }
+  captured!.summary = toImportFileSummary(summary)
   return captured!
 }
 

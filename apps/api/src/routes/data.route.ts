@@ -20,6 +20,7 @@ import {
   resolveOverwriteScope,
 } from '../services/import/smart-import.service.js'
 import { normalizeBackupInput } from '../services/sync/container.service.js'
+import { listImportBatches, rollbackImportBatch } from '../services/import-batch.service.js'
 import {
   listSnapshotPoints,
   restoreSnapshot,
@@ -202,6 +203,31 @@ router.post('/import-preview', upload.single('file'), validateRequest((req: Requ
 router.get('/rollback-points', asyncHandler(async (_req, res) => {
   const points = await listSnapshotPoints()
   return success(res, points)
+}))
+
+// ─── 导入批次（按 importId 精确回滚）───
+
+/** 最近的导入批次：设置页展示「这批导入了多少笔」与可撤销批次。 */
+router.get('/import-batches', asyncHandler(async (req, res) => {
+  const rawLimit = Number(req.query.limit ?? 10)
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 50) : 10
+  const batches = await listImportBatches(limit)
+  return success(res, batches)
+}))
+
+/**
+ * 撤销一次导入：只删该批新建的行，导入前已有的数据不动。
+ * 不可逆，按破坏性接口的规矩要求带确认值。
+ */
+router.post('/import-batches/:id/rollback', validateRequest((req: Request) => {
+  requireClearConfirm(req, ROLLBACK_CONFIRM.import)
+}), asyncHandler(async (req, res) => {
+  const id = req.params.id
+  if (!id) {
+    throw new ValidationError('缺少导入批次 ID')
+  }
+  const result = await runExclusiveLongTask(() => rollbackImportBatch(id))
+  return success(res, result)
 }))
 
 // ─── 自动定时备份（B3）───

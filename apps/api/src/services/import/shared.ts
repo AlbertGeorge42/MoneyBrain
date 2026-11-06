@@ -1,9 +1,9 @@
 // ─── 通用类型定义 ───
 
 import Papa from 'papaparse'
-import { rootLogger } from '../../common/index.js'
+import { formatDateLocal, rootLogger } from '../../common/index.js'
 import { type Minor } from '../../../../../packages/domain/src/index.js'
-import type { ImportFullResult } from '../../../../../packages/contracts/types/index.js'
+import type { ImportFileSummary, ImportFullResult } from '../../../../../packages/contracts/types/index.js'
 import { type TransactionClient } from '../../prisma.js'
 
 export const logger = rootLogger.child({ module: 'import' })
@@ -49,6 +49,59 @@ export interface AccountCache {
 
 // ─── 导入上下文（按数据类型拆分后，所有子模块共享） ───
 
+/**
+ * 导入文件摘要收集器。
+ * 在解析过程中顺手累计，预览与正式导入共用同一段代码，
+ * 所以预览看到的数字与真正写入的结果不会漂移。
+ */
+export interface ImportSummaryCollector {
+  /** 可解析的流水笔数（含重复跳过的） */
+  total: number
+  /** 金额绝对值合计（分） */
+  amountTotal: number
+  dateFrom: Date | null
+  dateTo: Date | null
+  unknownAccounts: Set<string>
+  unknownCategories: Set<string>
+  duplicates: number
+}
+
+export function createImportSummaryCollector(): ImportSummaryCollector {
+  return {
+    total: 0,
+    amountTotal: 0,
+    dateFrom: null,
+    dateTo: null,
+    unknownAccounts: new Set(),
+    unknownCategories: new Set(),
+    duplicates: 0,
+  }
+}
+
+export function recordRowSummary(
+  summary: ImportSummaryCollector | undefined,
+  date: Date,
+  amount: Minor
+): void {
+  if (!summary) return
+  summary.total += 1
+  summary.amountTotal += Math.abs(amount)
+  if (!summary.dateFrom || date < summary.dateFrom) summary.dateFrom = date
+  if (!summary.dateTo || date > summary.dateTo) summary.dateTo = date
+}
+
+export function toImportFileSummary(summary: ImportSummaryCollector): ImportFileSummary {
+  return {
+    total: summary.total,
+    amountTotal: summary.amountTotal,
+    dateFrom: summary.dateFrom ? formatDateLocal(summary.dateFrom) : null,
+    dateTo: summary.dateTo ? formatDateLocal(summary.dateTo) : null,
+    unknownAccounts: [...summary.unknownAccounts].sort(),
+    unknownCategories: [...summary.unknownCategories].sort(),
+    duplicates: summary.duplicates,
+  }
+}
+
 export interface ImportContext {
   defaultAssetCategory: { id: string }
   defaultLiabilityCategory: { id: string }
@@ -60,7 +113,10 @@ export interface ImportContext {
    * 内存 sort 计数器：避免每次新建账户/分类时查 `MAX(sort)+1` 的 SQL。
    */
   sortCounters: SortCounters
+  /** 文件摘要收集器（可选，单元测试可省略） */
+  summary?: ImportSummaryCollector
 }
+
 
 // ─── Sort 计数器（避免导入过程中反复查 MAX(sort)+1） ───
 
