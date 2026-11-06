@@ -2045,7 +2045,36 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 .mb-rp-page[data-device='mobile'] .mb-rp-gran-btn {
   flex: 1;
-  min-height: 40px;
+  min-height: var(--mb-touch);
+}
+
+/* 移动时间面板：按内容收缩的底部面板，内容可滚，动作区吸底常驻。 */
+.mb-rp-sheet:not(.mb-rp-sheet-settings) {
+  display: flex;
+  flex-direction: column;
+  top: auto;
+  bottom: 0;
+  height: auto;
+  max-height: 82%;
+  overflow: hidden;
+  border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
+  background: var(--mb-color-surface);
+}
+
+.mb-rp-sheet:not(.mb-rp-sheet-settings) .mb-rp-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mb-rp-sheet:not(.mb-rp-sheet-settings) .mb-rp-sheet-actions {
+  position: sticky;
+  bottom: calc(var(--mb-s-4) * -1);
+  z-index: 1;
+  margin: var(--mb-s-2) calc(var(--mb-s-4) * -1) 0;
+  padding: var(--mb-s-3) var(--mb-s-4) var(--mb-s-4);
+  background: var(--mb-color-surface);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-preset {
