@@ -7,6 +7,7 @@
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import {
+  formatDateLabel,
   getAccount,
   getCategoryName,
   getCategoryRootId,
@@ -47,6 +48,23 @@ export const EMPTY_ADVANCED: AdvancedFilters = {
   dateTo: '',
 }
 
+/** 起止反选时自动交换，避免生成「起 11-05 ~ 止 11-01」这种必然返回 0 行的区间。 */
+export function normalizeDateRange(advanced: AdvancedFilters): AdvancedFilters {
+  const { dateFrom, dateTo } = advanced
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    return { ...advanced, dateFrom: dateTo, dateTo: dateFrom }
+  }
+  return advanced
+}
+
+export function applyDateFilter(
+  advanced: AdvancedFilters,
+  field: 'dateFrom' | 'dateTo',
+  value: string,
+): AdvancedFilters {
+  return normalizeDateRange({ ...advanced, [field]: value })
+}
+
 export const TYPE_OPTIONS: readonly { value: TypeFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'expense', label: '支出' },
@@ -63,6 +81,8 @@ export interface GroupedTransactions {
   net: number
   income: number
   expense: number
+  /** 未来分组按笔数展示（见 groupTransactions）。 */
+  future?: boolean
 }
 
 export interface TransactionTotals {
@@ -176,10 +196,38 @@ export function groupTransactions(
   today = TODAY,
 ): GroupedTransactions[] {
   const base = groupRecentTransactions([...transactions], transactions.length, today)
-  return base.map((group) => {
+  const groups: GroupedTransactions[] = []
+
+  for (const group of base) {
     const totals = summarizeTransactions(group.items)
-    return { ...group, net: totals.net, income: totals.income, expense: totals.expense }
-  })
+    const summary = { net: totals.net, income: totals.income, expense: totals.expense }
+    // 未来记录合并成一个组时，组头只标第一笔的日期，跨天/跨年会误读成同一天。
+    // 按各笔自己的日期拆组，组头带年份与星期。
+    if (group.date === 'future') {
+      const byDate = new Map<string, LedgerTransaction[]>()
+      for (const transaction of group.items) {
+        const items = byDate.get(transaction.date) ?? []
+        items.push(transaction)
+        byDate.set(transaction.date, items)
+      }
+      for (const [date, items] of byDate) {
+        const dayTotals = summarizeTransactions(items)
+        groups.push({
+          date,
+          label: `未来 · ${formatDateLabel(date)}`,
+          items,
+          net: dayTotals.net,
+          income: dayTotals.income,
+          expense: dayTotals.expense,
+          future: true,
+        })
+      }
+      continue
+    }
+    groups.push({ ...group, ...summary })
+  }
+
+  return groups
 }
 
 export function signedMinorText(value: number): string {
@@ -263,7 +311,7 @@ export function readFiltersFromSearch(search: string, ledger: Ledger): FilterUrl
   }
 
   return {
-    filters: { query: params.get('txQ') ?? '', type, advanced },
+    filters: { query: params.get('txQ') ?? '', type, advanced: normalizeDateRange(advanced) },
     dropped,
   }
 }
@@ -331,8 +379,13 @@ export function filterChips(ledger: Ledger, filters: TransactionFilters): Filter
   const from = filters.advanced.dateFrom
   const to = filters.advanced.dateTo
   if (from || to) {
-    chips.push({ key: 'date', label: `日期：${from || '不限'}–${to || '不限'}` })
+    // 与原生 date 输入框可见的 yyyy/mm/dd 格式对齐，避免同一日期在面板与 chip 里出现两种写法。
+    chips.push({ key: 'date', label: `日期：${from ? chipDay(from) : '不限'}–${to ? chipDay(to) : '不限'}` })
   }
   return chips
+}
+
+function chipDay(value: string): string {
+  return ISO_DATE.test(value) ? value.replaceAll('-', '/') : value
 }
 

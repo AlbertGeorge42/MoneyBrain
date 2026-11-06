@@ -60,7 +60,7 @@ function DesktopTable({
               <div className="mb-tx-group-row">
                 <span className="mb-tx-group-label">
                   {group.label}
-                  {group.date === 'future' && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
+                  {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
                 </span>
                 <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
                   小计 {signedMinorText(group.net)}
@@ -145,7 +145,7 @@ function MobileList({
           <div className="mb-tx-m-group-head">
             <span className="mb-tx-group-label">
               {group.label}
-              {group.date === 'future' && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
+              {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
             </span>
             <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
               小计 {signedMinorText(group.net)}

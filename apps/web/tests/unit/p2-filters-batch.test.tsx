@@ -15,6 +15,8 @@ import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { DEFAULT_DISPLAY } from '@/features/transactions/displaySettings'
 import {
   EMPTY_ADVANCED,
+  applyDateFilter,
+  filterChips,
   filterTransactions,
   groupTransactions,
   readFiltersFromSearch,
@@ -287,6 +289,55 @@ describe('#9 未来记录不计入本月合计', () => {
     expect(head).toBe('共 3 笔')
     const foot = container.querySelector('.mb-tx-foot-count')?.textContent ?? ''
     expect(foot).toBe('共 3 笔')
+  })
+})
+
+describe('K1 未来分组按各自日期拆分', () => {
+  const futureTransactions = [
+    { id: 'f1', date: '2026-12-20', type: 'expense' as const, categoryId: 'other', note: '未来 A', accountId: 'cmb', amount: 500 },
+    { id: 'f2', date: '2026-12-25', type: 'expense' as const, categoryId: 'other', note: '未来 B', accountId: 'cmb', amount: 600 },
+    { id: 'f3', date: '2027-01-03', type: 'expense' as const, categoryId: 'other', note: '未来 C', accountId: 'cmb', amount: 700 },
+    { id: 'p1', date: '2026-11-05', type: 'expense' as const, categoryId: 'other', note: '当期', accountId: 'cmb', amount: 800 },
+  ]
+
+  it('跨月/跨年的未来记录各自成组，组头带年份', () => {
+    const groups = groupTransactions(futureTransactions, '2026-11-06')
+    const future = groups.filter((group) => group.future)
+    expect(future.map((group) => group.date)).toEqual(['2026-12-20', '2026-12-25', '2027-01-03'])
+    expect(future.map((group) => group.label)).toEqual([
+      '未来 · 2026年12月20日 周日',
+      '未来 · 2026年12月25日 周五',
+      '未来 · 2027年1月3日 周日',
+    ])
+    expect(future.map((group) => group.items.length)).toEqual([1, 1, 1])
+  })
+})
+
+describe('K4 起止反选自动交换，chip 与中文日期口径一致', () => {
+  it('起晚于止时交换两端', () => {
+    const next = applyDateFilter(
+      { ...EMPTY_ADVANCED, dateFrom: '2026-11-01', dateTo: '2026-11-01' },
+      'dateFrom',
+      '2026-11-05',
+    )
+    expect(next.dateFrom).toBe('2026-11-01')
+    expect(next.dateTo).toBe('2026-11-05')
+  })
+
+  it('URL 还原时同样纠正反选区间，不会得到空列表', () => {
+    const restored = readFiltersFromSearch('?txFrom=2026-11-05&txTo=2026-11-01', ledger)
+    expect(restored.filters.advanced.dateFrom).toBe('2026-11-01')
+    expect(restored.filters.advanced.dateTo).toBe('2026-11-05')
+    expect(restored.dropped).toEqual([])
+  })
+
+  it('日期 chip 与原生日期输入框的 yyyy/mm/dd 写法一致', () => {
+    const chips = filterChips(ledger, {
+      query: '',
+      type: 'all',
+      advanced: { ...EMPTY_ADVANCED, dateFrom: '2026-11-01', dateTo: '2026-11-05' },
+    })
+    expect(chips.find((chip) => chip.key === 'date')?.label).toBe('日期：2026/11/01–2026/11/05')
   })
 })
 

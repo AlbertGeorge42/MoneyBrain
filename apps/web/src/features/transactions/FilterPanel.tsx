@@ -2,7 +2,7 @@ import { Drawer } from '@mantine/core'
 import { RotateCcw } from 'lucide-react'
 import { getCategoryName, type Ledger } from '@/features/overview/model'
 import type { DeviceMode } from '@/features/shared/types'
-import type { AdvancedFilters } from './filters'
+import { applyDateFilter, type AdvancedFilters } from './filters'
 
 function FilterFields({
   ledger,
@@ -80,22 +80,23 @@ function FilterFields({
       </label>
 
       <label className="mb-tx-field" htmlFor="mb-tx-filter-date-from">
-        <span className="mb-tx-field-label">日期</span>
+        <span className="mb-tx-field-label">日期（留空不限）</span>
         <span className="mb-tx-range">
           <input
             id="mb-tx-filter-date-from"
             className="mb-tx-input"
             type="date"
+            aria-label="起始日期（留空不限）"
             value={value.dateFrom}
-            onChange={(event) => update('dateFrom', event.target.value)}
+            onChange={(event) => onChange(applyDateFilter(value, 'dateFrom', event.target.value))}
           />
           <span className="mb-tx-range-sep" aria-hidden="true">–</span>
           <input
-            aria-label="结束日期"
+            aria-label="结束日期（留空不限）"
             className="mb-tx-input"
             type="date"
             value={value.dateTo}
-            onChange={(event) => update('dateTo', event.target.value)}
+            onChange={(event) => onChange(applyDateFilter(value, 'dateTo', event.target.value))}
           />
         </span>
       </label>
