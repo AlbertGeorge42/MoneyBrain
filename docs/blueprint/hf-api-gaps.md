@@ -1,13 +1,13 @@
 # HF × API 缺失清单（2026-11-06）
 
 > 对照 `apps/api` 路由与 `packages/contracts/types`，逐页列出「接口有什么 / 前端缺什么 / 接上要改哪一层」。
-> 状态基准：总览（只读）、流水（读写、审计撤销、回收站）、设置（账户/分类读写、排序、撤销、回收站、导入/导出/导入回滚/清空）已接真实账本（`VITE_HF_DATA=api`）；报表、预算仍在内存种子账本上。
+> 状态基准：总览（只读）、流水（读写、审计撤销、回收站、退款关联原交易）、设置（账户/分类读写、排序、撤销、回收站、导入/导出/导入回滚/清空）已接真实账本（`VITE_HF_DATA=api`）；报表、预算仍在内存种子账本上。
 > 阻塞级别：**A = 会挡住接入**；**B = 只是体验缺失**；**C = 已知占位 / 未到里程碑**。
 
 ## 结论先行
 
-- **本批新增端点：2 个**（`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`）。此前设置批新增 0 个，只扩展现有端点：`POST /accounts` 接受 `sort`；`DELETE /accounts/:id`、`DELETE /transaction-categories/:id` 返回 `auditEventId`；`GET /transactions/recycle-bin` 响应追加 `accounts` / `categories`。
-- 总览已只读接通；流水已接通读、写、审计撤销与回收站；设置已接通账户与分类的读写、排序/移动、删除撤销、回收站，以及导入/导出/导入回滚/清空。API 模式写操作真写库，种子模式仍走内存。
+- **本批新增端点：0 个**（退款关联复用既有的 `GET /transactions/refundable/list` 与 `POST/PUT /transactions` 的 `relatedTransactionId`）。此前导入导出批新增 2 个（`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`）；设置批新增 0 个，只扩展现有端点：`POST /accounts` 接受 `sort`；`DELETE /accounts/:id`、`DELETE /transaction-categories/:id` 返回 `auditEventId`；`GET /transactions/recycle-bin` 响应追加 `accounts` / `categories`。
+- 总览已只读接通；流水已接通读、写、审计撤销、回收站与退款关联；设置已接通账户与分类的读写、排序/移动、删除撤销、回收站，以及导入/导出/导入回滚/清空。API 模式写操作真写库，种子模式仍走内存。
 - 接口侧真正缺的只有一件：**没有同步端点**（同步能力还在 `packages/sync`，未到里程碑，不阻塞当前接入）。
 - 报表四视图接口已有；缺的是前端接线，不是后端能力。
 - 下一批建议做**报表**：它的下钻落到流水页，依赖流水批次已接通的真实筛选参数。
@@ -25,7 +25,7 @@
 | 流水 | 删除 + 6 秒撤销 | `DELETE /transactions/:id` 返回 `auditEventId`；`POST /audit-events/:id/undo` | 已接：逐条软删收集 `auditEventId`，6 秒 toast 撤销走审计事件；过期记录留在回收站 | 批量删除是逐条 N 次请求，非原子 | 已接入 |
 | 流水 | 回收站 | `GET /transactions/recycle-bin`（`RecycleBinItem.deleteEventId`） | 已接：设置页 API 模式显示真实条目、数量与恢复（复用 audit undo）；种子模式保持原空态 | 流水页暂无独立入口（入口在设置页） | 已接入（入口 B） |
 | 流水 | 批量改分类 | 无批量端点；只能逐条 `PUT /transactions/:id` | 已接：逐条 PUT，请求数 = 选中笔数；部分失败保留失败项可重试 | 非原子；无 6 秒撤销（update 无 auditEventId） | B |
-| 流水 | 退款 / 关联原交易 | `POST` 支持 `relatedTransactionId`；`GET /transactions/refundable` | 无退款关联能力；API 模式显式返回「本批暂未接入」，不假装成功 | 编辑器补关联选择与可退列表 | B（留到下一批） |
+| 流水 | 退款 / 关联原交易 | `POST/PUT /transactions` 支持 `relatedTransactionId`（可空）；`GET /transactions/refundable/list` | 已接：编辑器/详情可选关联原交易，退款行标「关联 #原交易」、原交易行标「已退款 / 已全额退款」；未关联退款可记账并标「未关联原交易」；累计退款超原额后端拒绝 | 无（退款关联的编辑入口在详情抽屉内） | 已接入 |
 | 报表 | 资产负债表 | `GET /reports/balance-sheet?date=`（时点语义） | 本地 derive 四视图之一 | 改为端点口径；保留时点控件 | A |
 | 报表 | 收支明细 | `GET /reports/income-expense?from&to` | 本地 derive | 改为端点口径 | A |
 | 报表 | 现金流量表 | `GET /reports/cash-flow?from&to` | 本地 derive | 改为端点口径（现金流分类以后端 `cashFlowType` 为准） | A |
@@ -62,7 +62,7 @@
 5. 回收站：设置页 API 模式显示真实条目、数量与恢复（`deleteEventId`），种子模式保持原空态。
 6. 批量：改分类/删除均为逐条请求，请求数 = 选中笔数，非原子；部分失败保留失败项并提示。
 
-**本批未做（留到下一批）**：退款关联原交易（`relatedTransactionId` / `GET /transactions/refundable`）；`PUT` 的 6 秒撤销（后端不返回审计 id）；流水页独立回收站入口。
+**本批未做（留到下一批）**：`PUT` 的 6 秒撤销（后端不返回审计 id）；流水页独立回收站入口。
 
 ## 本批：设置（已完成，2026-11-06）
 
@@ -74,7 +74,7 @@
 4. 失效查询：写后失效总览 / 流水 / 报表 / 预算 / 回收站五组查询。
 5. 失败路径：断网或接口造错时表单/弹层保留、错误可见、解除后可重试。
 
-**本批未做（留到后续）**：退款关联；报表/预算页接入。
+**本批未做（留到后续）**：报表/预算页接入。
 
 ## 本批：导入 / 导出 / 导入回滚 / 清空（已完成，2026-11-06）
 
@@ -87,7 +87,27 @@
 5. 事务边界：导入的解析、写库、批次记录在同一事务内；任一步失败整批回滚，不留半截数据，也不留批次记录。导入/导出/回滚/清空通过长任务互斥避免并发互相覆盖。
 6. 三态：四个操作均有进行中 / 成功 / 失败态；失败保留弹层与原始输入，可直接重试。清空未导出备份时按钮可点但拦截，并给出「请先导出备份：备份成功后才会继续清空」。
 
-**本批未做（留到后续）**：存点回滚（`/data/rollback-points` 系列）仍为种子行为；退款关联；报表/预算页接入。
+**本批未做（留到后续）**：存点回滚（`/data/rollback-points` 系列）仍为种子行为；报表/预算页接入。
+
+## 本批：退款关联原交易（已完成，2026-11-06）
+
+**新增端点：0 个。** 复用 `GET /transactions/refundable/list`（收入/支出中仍有可退余额的记录，最多 200 条、按日期倒序）与 `POST/PUT /transactions` 的 `relatedTransactionId`（创建可空、更新可传 `null` 解除关联）。
+
+1. 关联写入与读取：退款写 `relatedTransactionId` + `relatedType`，并**强制继承原交易分类**与 `excludeFromIncomeExpense`；API 响应与总览最近交易的 include 补齐双向关系（`relatedTransaction` / `refunds`），前端据此算「已退款 / 剩余」。
+2. 累计上限：可退余额 = `max(原额 − Σ未删除关联退款, 0)`，由领域层 `remainingRefundable` 单一口径计算；创建与编辑（含改金额、换原交易）都重新校验，超额返回 400 与精确文案：`退款金额超出可退余额：原交易 ¥500.00，已退款 ¥250.00，本次可退 ¥250.00，本次退款 ¥300.00`。软删除退款不计入，撤销恢复后重新计入。
+3. 可退列表：`GET /transactions/refundable/list` 过滤掉剩余为 0 的原交易，全额退款后自动移出候选。
+4. 未关联退款：允许正常记账（`relatedTransactionId=null`），不参与收入/支出合计，只影响账户余额；UI 标「未关联原交易」，详情抽屉提供可选关联入口，不强制。
+5. 删除 / 撤销：删除退款走软删除，原交易「已退款」立即回退、可退余额恢复；审计撤销恢复后重新计入，不留孤儿引用。
+6. 统计口径（**实际采纳**）：关联退款冲减原交易那一侧（支出退款减支出、收入退款减收入），**永不另计收入**；未关联退款不进收支、只影响余额；预算按退款自身分类（= 原交易分类）子树统计，与总览/报表同步冲减。原「退款计收入」规则作废，因此不存在「既减支出又计收入」的双计；种子前端已按同一口径改（`refundOffsetKind`），与后端一致。
+7. 实测（临时库，原支出 ¥500 → 部分退 ¥250 → 全额退 ¥500）：
+   - 无退款：stats `income=0 / expense=500.00`，报表 `expense.actual=500.00`，预算 `used=500.00`，总览 `500.00`。
+   - 部分退款：stats `expense=250.00 / refund=250.00`，报表 `expense.actual=250.00`，预算 `used=250.00`，总览 `250.00`。
+   - 全额退款：上述四处均为 `0`。
+   - 超额：部分退后再退 ¥300 → 400（文案见上）；全额后再退 ¥10 → 400（`本次可退 ¥0.00`）。
+   - 删除 ¥250 退款：原交易 `refunds=[50.00,200.00]` 合计 `250.00`，stats `expense=250.00`；撤销后 `refunds=[250.00,50.00,200.00]` 合计 `500.00`，stats `expense=0`。
+8. 视觉：三档（1440/1024/390）种子 vs API 行高 54 / 69、金额列宽 54.8125 不变；新增标记 `flex:none` 挂在行内，不改变行高与列宽。截图 `.artifacts/refund-link-2026-11-06/`。
+
+**本批未做**：按「有退款」筛选流水；退款凭证/审批；API 模式日期仍按 `date.slice(0,10)` 显示，本地午夜序列化后早一天（既有问题，待统一后端日期语义时修复）。
 
 ## 下一批：报表
 
