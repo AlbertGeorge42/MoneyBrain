@@ -8,8 +8,13 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { CompositionBars, DonutChart } from '@/features/reports/charts'
+import { buildDrill, deriveFlowReport } from '@/features/reports/reportsModel'
 import type { FlowTreeNode } from '@/features/reports/reportsModel'
+import type { Ledger } from '@/features/overview/model'
 
 function node(id: string, name: string, amount: number, children: FlowTreeNode[] = []): FlowTreeNode {
   return { id, name, amount, count: 1, share: 0, level: 0, children }
@@ -259,5 +264,113 @@ describe('DonutChart 二级环', () => {
     expect(container.querySelectorAll('.mb-rp-donut-rest')).toHaveLength(1)
     expect(container.querySelector('.mb-rp-donut-slice[data-id="rest"]')?.getAttribute('data-sub-step')).toBe('5')
     expect(screen.getAllByRole('button')).toHaveLength(7)
+  })
+
+  it('6–8 子类：只显示 5 个具名 + 「其余 N 类」，点击「其余」带合并集合下钻', () => {
+    const onOpen = vi.fn()
+    // 8 个子类 → 5 个具名 + 「其余 3 类」。
+    const many = node(
+      'home',
+      '居住',
+      6_000,
+      Array.from({ length: 8 }, (_, index) => child(`c${index}`, `子类${index}`, 900 - index * 100)),
+    )
+    const { container } = render(
+      <DonutChart nodes={[many]} total={6_000} title="支出构成" emptyText="无支出" onOpen={onOpen} />,
+    )
+    fireEvent.click(container.querySelector<SVGGElement>('.mb-rp-donut-slice[data-id="home"]') as SVGGElement)
+
+    const slices = Array.from(container.querySelectorAll<SVGGElement>('.mb-rp-donut-slice'))
+    expect(slices.map((slice) => slice.dataset.id)).toEqual(['c0', 'c1', 'c2', 'c3', 'c4', 'rest'])
+    const restSlice = slices[5]
+    // 其余 3 类的金额是剩余子类之和，且不等于父类总额。
+    expect(restSlice.dataset.amount).toBe(String(400 + 300 + 200))
+
+    const restButton = screen.getByRole('button', { name: /其余 3 类/ })
+    fireEvent.click(restButton)
+
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    const opened = onOpen.mock.calls[0][0] as FlowTreeNode
+    expect(opened.id).toBe('rest')
+    expect(opened.mergedIds).toEqual(['c5', 'c6', 'c7'])
+    expect(opened.amount).toBe(400 + 300 + 200)
+    expect(opened.count).toBe(3)
+    // 下钻节点仍按父色阶梯第 6 段着色，不回父色。
+    expect(restSlice.getAttribute('data-sub-step')).toBe('5')
+    expect(restSlice.querySelector('.mb-rp-donut-arc')?.getAttribute('style')).toContain('color-mix')
+  })
+
+  it('点「其余」落到流水：笔数与金额与合并子类一致', () => {
+    const children = Array.from({ length: 7 }, (_, index) => ({
+      id: `fx${index}`,
+      name: `子类${index}`,
+      type: 'expense' as const,
+      parentId: 'fx',
+    }))
+    const ledger: Ledger = {
+      accounts: [{ id: 'a1', name: '现金', kind: 'cash', balance: 0 }],
+      categories: [{ id: 'fx', name: '验证大类', type: 'expense' }, ...children],
+      budgets: [],
+      // 金额逐类递减，顺序稳定：其余落在 fx5 / fx6。
+      transactions: children.map((category, index) => ({
+        id: `t${index}`,
+        date: '2026-10-12',
+        type: 'expense' as const,
+        categoryId: category.id,
+        note: '',
+        accountId: 'a1',
+        amount: 800 - index * 100,
+      })),
+    }
+    const from = '2026-10-01'
+    const to = '2026-10-31'
+    const report = deriveFlowReport(ledger, from, to, 'month')
+    const onOpen = vi.fn()
+    const { container } = render(
+      <DonutChart
+        nodes={report.expenseTrees}
+        total={report.expense}
+        title="支出构成"
+        emptyText="无支出"
+        onOpen={onOpen}
+      />,
+    )
+    fireEvent.click(container.querySelector<SVGGElement>('.mb-rp-donut-slice[data-id="fx"]') as SVGGElement)
+    fireEvent.click(screen.getByRole('button', { name: /其余 2 类/ }))
+
+    const opened = onOpen.mock.calls[0][0] as FlowTreeNode
+    expect(opened.mergedIds).toEqual(['fx5', 'fx6'])
+    expect(opened.amount).toBe(300 + 200)
+    expect(opened.count).toBe(2)
+
+    const drill = buildDrill(ledger, opened, 'expense', from, to)
+    expect(drill.amount).toBe(500)
+    expect(drill.children.map((row) => [row.name, row.amount, row.count])).toEqual([
+      ['子类5', 300, 1],
+      ['子类6', 200, 1],
+    ])
+    // 「落到流水」的笔数与金额对得上：2 笔、合计 ¥5.00。
+    expect(drill.transactions).toHaveLength(2)
+    expect(drill.transactions.reduce((sum, row) => sum + row.amount, 0)).toBe(500)
+  })
+
+  it('二级阶梯不回父色：token 区间不含 100%，单子类取中点', () => {
+    const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+    const variablesCss = readFileSync(join(webRoot, 'src/styles/theme/variables.css'), 'utf8')
+    expect(variablesCss).not.toMatch(/--mb-chart-sub-(from|to):\s*100%/)
+    expect(variablesCss).toContain('--mb-chart-sub-from: 90%')
+    expect(variablesCss).toContain('--mb-chart-sub-to: 40%')
+    expect(variablesCss).toContain('--mb-chart-sub-from: 84%')
+    expect(variablesCss).toContain('--mb-chart-sub-to: 32%')
+
+    const single = node('solo', '独子类', 600, [child('only', '唯一子类', 600)])
+    const { container } = render(
+      <DonutChart nodes={[single]} total={600} title="支出构成" emptyText="无支出" />,
+    )
+    fireEvent.click(container.querySelector<SVGGElement>('.mb-rp-donut-slice[data-id="solo"]') as SVGGElement)
+    const arc = container.querySelector('.mb-rp-donut-arc')
+    expect(arc?.getAttribute('style')).toContain('0.5000')
+    expect(arc?.getAttribute('style')).not.toContain('1.0000')
+    expect(arc?.getAttribute('style')).not.toContain('0.0000')
   })
 })
