@@ -1483,6 +1483,54 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   overflow-y: auto;
 }
 
+/* 设置抽屉：桌面按内容收缩（锚底、留 24 边距），移动端 380 高 bottom sheet。
+   内容区独立滚动，底部「完成」常驻，不随行数被推走。 */
+.mb-rp-sheet-settings {
+  display: flex;
+  flex-direction: column;
+  top: auto;
+  bottom: var(--mb-s-5);
+  height: auto;
+  max-height: calc(100% - var(--mb-s-5) * 2);
+  overflow: hidden;
+  border-radius: var(--mb-radius-lg);
+}
+
+.mb-rp-sheet-settings.is-mobile {
+  bottom: 0;
+  height: 380px;
+  max-height: calc(100% - var(--mb-s-4));
+  border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
+}
+
+.mb-rp-sheet-body.is-settings {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.mb-rp-settings-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: var(--mb-s-4);
+  overflow-y: auto;
+}
+
+.mb-rp-sheet-actions {
+  flex: none;
+  padding: var(--mb-s-3) var(--mb-s-4);
+  border-top: 1px solid var(--mb-color-border);
+  background: var(--mb-color-surface-raised);
+}
+
+.mb-rp-sheet-actions .mb-rp-btn {
+  width: 100%;
+  min-height: var(--mb-touch);
+}
+
 .mb-rp-sheet-close {
   width: 44px;
   height: 44px;

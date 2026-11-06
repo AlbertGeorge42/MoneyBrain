@@ -320,26 +320,36 @@ export function ReportsPage({
         withinPortal={false}
         title="报表设置"
         classNames={{
-          content: 'mb-rp-sheet',
+          content:
+            device === 'mobile'
+              ? 'mb-rp-sheet mb-rp-sheet-settings is-mobile'
+              : 'mb-rp-sheet mb-rp-sheet-settings',
           header: 'mb-rp-sheet-head',
           title: 'mb-rp-sheet-title',
-          body: 'mb-rp-sheet-body',
+          body: 'mb-rp-sheet-body is-settings',
           overlay: 'mb-rp-overlay',
           close: 'mb-rp-sheet-close',
         }}
       >
         <div className="mb-rp-settings">
-          <p className="mb-rp-settings-note">报表只读 · 只改展示口径</p>
-          {TABS.map((item) => (
-            <div className="mb-rp-settings-row" key={item.id}>
-              <div>
-                <p className="mb-rp-settings-title">{item.label}</p>
+          <div className="mb-rp-settings-scroll">
+            <p className="mb-rp-settings-note">报表只读 · 只改展示口径</p>
+            {TABS.map((item) => (
+              <div className="mb-rp-settings-row" key={item.id}>
+                <div>
+                  <p className="mb-rp-settings-title">{item.label}</p>
+                </div>
+                <button type="button" className="mb-rp-btn is-ghost" onClick={() => notify(`${item.label}配置将在设置批次接入`)}>
+                  配置
+                </button>
               </div>
-              <button type="button" className="mb-rp-btn is-ghost" onClick={() => notify(`${item.label}配置将在设置批次接入`)}>
-                配置
-              </button>
-            </div>
-          ))}
+            ))}
+          </div>
+          <div className="mb-rp-sheet-actions">
+            <button type="button" className="mb-rp-btn is-primary" onClick={onSettingsToggle}>
+              完成
+            </button>
+          </div>
         </div>
       </Drawer>
 
