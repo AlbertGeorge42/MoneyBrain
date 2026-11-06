@@ -39,6 +39,8 @@ export interface CardRow {
   barTone?: 'income' | 'expense' | 'accent'
   fold?: { expanded: boolean; onToggle: () => void }
   onOpen?: () => void
+  /** 行内附加操作（如账户对账）；不影响整行点击。 */
+  action?: ReactNode
 }
 
 export function MetricStrip({
@@ -306,6 +308,7 @@ export function ReportCardList({
                 </span>
                 <span className={`mb-rp-crow-amount is-${row.tone ?? 'neutral'}`}>{row.amount}</span>
               </button>
+              {row.action}
               {row.share !== undefined && (
                 <progress
                   className={`mb-rp-crow-bar is-${row.barTone ?? 'accent'}`}
