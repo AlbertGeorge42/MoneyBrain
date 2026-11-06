@@ -274,10 +274,11 @@ function activityGroup(
   to: string,
 ): CashGroup | null {
   if (total <= 0) return null
-  const items = activity.items.filter((item) => {
-    const effective = item.direction === 'inflow' ? item.actual : -item.actual
-    return direction === 'in' ? effective > 0 : effective < 0
-  })
+  // actual 已带符号（流入为正、流出为负），与 grossOf 的拆法一致；
+  // 收入退款（direction=inflow、actual<0）因此归入流出，不会制造负数分组。
+  const items = activity.items.filter((item) =>
+    direction === 'in' ? item.actual > 0 : item.actual < 0,
+  )
   const fromAccount = new Map(ledger.accounts.map((account) => [account.id, account.name]))
   const counted = new Set<string>()
 
@@ -293,12 +294,11 @@ function activityGroup(
         fromAccount.get(transaction.accountId)
       if (name) accounts.add(name)
     }
-    const effective = item.direction === 'inflow' ? item.actual : -item.actual
     return {
       id: `${key}-${direction}-${item.categoryId ?? item.categoryName}-${index}`,
       label: item.categoryName,
       account: accounts.size > 0 ? [...accounts].join(' / ') : '—',
-      amount: Math.abs(effective),
+      amount: Math.abs(item.actual),
       tone:
         item.type.startsWith('transfer')
           ? ('transfer' as const)

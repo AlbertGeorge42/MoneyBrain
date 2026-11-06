@@ -243,7 +243,8 @@ describe('视图 ↔ 端点映射', () => {
     expect(report.outflowGroups.map((group) => group.name)).toEqual(['经营'])
     expect(report.inflowGross).toBe(50000)
     expect(report.outflowGross).toBe(32400)
-    expect(report.outflowGroups[0].children.some((child) => child.label === '退款')).toBe(true)
+    // 支出叶子必须真的生成：actual 已带符号，流出项不能因为再取反而被过滤掉。
+    expect(report.outflowGroups[0].children.map((child) => child.label)).toEqual(['教育', '退款'])
 
     const sankey = deriveCashSankey(ledger, report, DEFAULT_REPORT_SETTINGS.cash.groups)
     expect(sankey.status).toBe('ready')
@@ -253,6 +254,18 @@ describe('视图 ↔ 端点映射', () => {
     for (const account of sankey.accounts) {
       expect(Math.abs(account.difference)).toBeLessThanOrEqual(1)
     }
+  })
+
+  it('API 模式隐藏分组：隐藏经营后支出侧落成「其他（已隐藏 1 组）」', () => {
+    const ledger = cashConsistentLedger()
+    const report = mapCashReport(CASH_FLOW, ledger, '2026-11-01', '2026-11-06')
+    const settings = { ...DEFAULT_REPORT_SETTINGS.cash.groups, 经营: false }
+    const sankey = deriveCashSankey(ledger, report, settings)
+    expect(sankey.status).toBe('ready')
+    expect(sankey.hiddenGroups).toBe(1)
+    expect(sankey.nodes.some((node) => node.id === 'out:edu')).toBe(false)
+    const hidden = sankey.nodes.find((node) => node.id === 'out:hidden')
+    expect(hidden?.name).toBe('其他（已隐藏 1 组）')
   })
 
   it('桑基失败态：现金账户期初余额日期晚于本期时说明原因，仍不画图', () => {
