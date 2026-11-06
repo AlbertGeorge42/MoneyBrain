@@ -153,22 +153,24 @@ D4 取消（不降级、不保留）、U13.1–U13.5 取消，前端改为「HF 
 
 | 端点 | 参数 | 返回字段 |
 |---|---|---|
-| `GET /api/analytics/asset-projection` | `months=3/6/12`（默认 12）、`asOf=YYYY-MM-DD`（默认今天）、`includePlanned`、`includeCommitted`（默认 true） | `asOf`、`months`、`base{assets,liabilities,netWorth}`、`points[{label,date,actual,planned,committed,total}]`（每个都是 `{assets,liabilities,netWorth}`，整数分） |
-| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`months`、`startCash`、`endCash`、`points[{label,date,inflow,outflow,net,startCash,endCash}]`（inflow/outflow/net 均为 `{actual,planned,committed,total}`） |
+| `GET /api/analytics/asset-projection` | `months=3/6/12`（默认 12）、`asOf=YYYY-MM-DD`（默认今天）、`includePlanned`、`includeCommitted`（默认 true） | `asOf`、`months`、`base{assets,liabilities,netWorth}`、`points[{label,date,actual,planned,committed,total,covered[]}]`（前三者都是 `{assets,liabilities,netWorth}`，整数分） |
+| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`months`、`startCash`、`endCash`、`points[{label,date,inflow,outflow,net,startCash,endCash,covered[]}]`（inflow/outflow/net 均为 `{actual,planned,committed,total}`） |
 | `GET /api/budgets/period-plan` | `fromMonth=YYYY-MM`（默认当前月）、`months=1–24`（默认 12） | `fromMonth`、`months`、`points[{month,hasBudget,budgets[{budgetId,budgetName,type,date,amount}],totals\|null}]` |
 
-**隐患修复（不双计）**：`actual` 只含 `date ≤ asOf` 的真实交易；未来日期真实交易归 `committed`；预算展开归 `planned`；`total = actual + planned + committed`。同一月份 `planned` 与 `committed` 来源互不重叠，逐项相加只有一份。手算对照（asOf=2026-11-06，单位分；A 现金期初 0 + 11-01 收入 20000，B 投资期初 30000，L 信用卡 −10000；未来 11-20 支出 3000、12-05 收入 8000、12-15 A→B 转账 1000；预算收入 50000 / 支出 10000 / 转账 2000 月末）：
+**隐患修复（不双计）**：`actual` 只含 `date ≤ asOf` 的真实交易；未来日期真实交易归 `committed`；预算展开归 `planned`；`total = actual + planned + committed`。两个来源数据不重叠，同一 occurrence 两者都有时互斥：预算点位与周期内同类型、同来源账户（转账还需同目标账户）的真实交易匹配后，从 `planned` 剔除、金额只留在 `committed`，点位输出 `covered[{budgetId,budgetName,type,date,amount,transactionId,transactionDate}]`。手算对照（asOf=2026-11-06，单位分；A 现金期初 0 + 11-01 收入 20000，B 投资期初 30000，L 信用卡 −10000；未来 11-20 支出 3000、12-05 收入 8000、12-15 A→B 转账 1000；预算收入 50000 / 支出 10000 / 转账 2000 月末；11 月支出、12 月收入、12 月转账三处被覆盖）：
 
-| 月份 | actual（资产/负债/净） | planned | committed | total | 现金流 期初→净额→期末 |
+| 月份 | actual（资产/负债/净） | planned（已剔除覆盖点） | committed | total | 现金流 期初→净额→期末 |
 |---|---|---|---|---|---|
-| 2026-11 | 50000 / 10000 / 40000 | 40000 / 0 / 40000 | −3000 / 0 / −3000 | 87000 / 10000 / 77000 | 0 → 55000 → 55000 |
-| 2026-12 | 50000 / 10000 / 40000 | 80000 / 0 / 80000 | 5000 / 0 / 5000 | 135000 / 10000 / 125000 | 55000 → 45000 → 100000 |
-| 2027-01 | 50000 / 10000 / 40000 | 120000 / 0 / 120000 | 5000 / 0 / 5000 | 175000 / 10000 / 165000 | 100000 → 38000 → 138000 |
+| 2026-11 | 50000 / 10000 / 40000 | 50000 / 0 / 50000 | −3000 / 0 / −3000 | 97000 / 10000 / 87000 | 0 → 65000 → 65000 |
+| 2026-12 | 50000 / 10000 / 40000 | 40000 / 0 / 40000 | 5000 / 0 / 5000 | 95000 / 10000 / 85000 | 65000 → −3000 → 62000 |
+| 2027-01 | 50000 / 10000 / 40000 | 80000 / 0 / 80000 | 5000 / 0 / 5000 | 135000 / 10000 / 125000 | 62000 → 38000 → 100000 |
 
-资产 `起点净资产 40000 + 累计净额 125000 = 期末 165000`；现金流每月 `期初 + 净额 = 期末`。3/6/12 切换：12 个月的前 6 个点与单独 6 个月逐字段相等（资产与现金流两侧都有断言）。无预算月份：`hasBudget=false`、`totals=null`（不用 0 冒充），`budgets=[]`。
+资产 `起点净资产 40000 + 累计净额 85000 = 期末 125000`；现金流每月 `期初 + 净额 = 期末`。3/6/12 切换：12 个月的前 6 个点与单独 6 个月逐字段相等（资产与现金流两侧都有断言）。无预算月份：`hasBudget=false`、`totals=null`（不用 0 冒充），`budgets=[]`。
+
+**同一 occurrence 双计对照（房租）**：现金账户 A 期初 0、无已发生交易；月度支出预算「房租」20000 月末点位；已排定 12-05 真实支出 20000。12 月 total 改前 −60000（planned −40000 + committed −20000），改后 −40000（planned −20000 + committed −20000），双计 20000；1 月累计改前 −80000、改后 −60000。现金流 12 月流出改前 40000、期末 −60000，改后 20000、期末 −40000。
 
 **预算展开修复**：`generateBudgetTimePoints` 只返回窗口内的点；季度/年度 `transactionTime` 从周期起点按天偏移，窗口起点之前的落点被裁掉（月度几号同理），避免长期推演重复带入已过去点位。
 
 **改动文件**：`apps/api/src/services/projection.service.ts`（新）、`apps/api/src/services/budget.service.ts`、`apps/api/src/routes/analytics.route.ts`、`apps/api/src/routes/report.route.ts`、`apps/api/src/routes/budget.route.ts`、`apps/api/src/common/validators.ts`、`apps/api/src/common/index.ts`、`packages/contracts/types/index.ts`、`apps/api/tests/integration/projection.route.test.ts`（新）、`apps/api/tests/unit/budget-time-points.test.ts`（新）。
 
-**验证**：api 全量 `npm test` 51 文件 413 用例通过；`npm run typecheck` 全量 0 错；改动文件 `npx eslint ...` 0 输出。实现提交 `c22298f`（`feat：新增预算推演端点并拆分 planned/committed——未来日期交易不再被当作实际余额重复计入（预算推演批）`），本文件为文档提交。
+**验证**：api 全量 `npm test` 51 文件 416 用例通过（`projection.route.test.ts` 8 条，含同一 occurrence 互斥的逐点断言）；`npm run typecheck` 全量 0 错；`apps/api` 改动文件 ESLint 0 error（contracts 文件提示 outside of base path）。原实现提交 `c22298f`（`feat：新增预算推演端点并拆分 planned/committed——未来日期交易不再被当作实际余额重复计入（预算推演批）`）。

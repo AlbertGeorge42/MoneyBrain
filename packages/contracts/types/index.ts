@@ -839,15 +839,34 @@ export interface ProjectionBalance {
 }
 
 /**
+ * 被未来真实交易覆盖的预算点位。
+ *
+ * occurrence 匹配口径：同一预算点位所属周期内，存在同类型、同账户（转账还需同转入账户）
+ * 的已排定真实交易。命中后该点位从 planned 中剔除，金额只出现在 committed。
+ */
+export interface ProjectionCoveredOccurrence {
+  budgetId: string
+  budgetName: string
+  type: 'income' | 'expense' | 'transfer'
+  /** 预算点位日期（YYYY-MM-DD）。 */
+  date: string
+  /** 被剔除的 planned 金额。 */
+  amount: Minor
+  /** 覆盖它的真实交易。 */
+  transactionId: string
+  transactionDate: string
+}
+
+/**
  * 一行推演点位。
  *
  * - actual：asOf 当期真实余额（只含 date ≤ asOf 的交易；未来各点保持不变）
- * - planned：预算展开的**累计增量**（相对 actual）
+ * - planned：预算展开的**累计增量**（相对 actual，已剔除被真实交易覆盖的点位）
  * - committed：已排定未来真实交易的**累计增量**（相对 actual）
  * - total = actual + planned + committed（逐项相加）
  *
  * planned 与 committed 是两个互不重叠的来源：未来日期真实交易只进 committed，
- * 预算展开只进 planned，同一月份两者相加不会把同一笔钱算两次。
+ * 预算展开只进 planned，同一笔计划被真实交易覆盖时只保留 committed 一份。
  */
 export interface AssetProjectionPoint {
   label: string
@@ -857,6 +876,8 @@ export interface AssetProjectionPoint {
   planned: ProjectionBalance
   committed: ProjectionBalance
   total: ProjectionBalance
+  /** 本月（label）计划点位被真实交易覆盖的 occurrence（已从 planned 剔除，金额只在 committed）。 */
+  covered: ProjectionCoveredOccurrence[]
 }
 
 export interface AssetProjectionResult {
@@ -886,6 +907,8 @@ export interface CashFlowProjectionPoint {
   net: ProjectionFlowValue
   startCash: Minor
   endCash: Minor
+  /** 本月（label）计划点位被真实交易覆盖的 occurrence（已从 planned 剔除，金额只在 committed）。 */
+  covered: ProjectionCoveredOccurrence[]
 }
 
 export interface CashFlowProjectionResult {

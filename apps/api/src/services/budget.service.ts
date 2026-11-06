@@ -461,22 +461,48 @@ export async function getBudgetUsageDetails(budgetId: string) {
  * 将活跃预算展开为指定时间范围内的预测交易序列
  */
 export async function generatePredictions(startDate: string, endDate: string) {
+  const occurrences = await generatePredictedOccurrences(startDate, endDate)
+  return occurrences.map((occurrence) => ({
+    date: occurrence.date,
+    type: occurrence.type,
+    amount: occurrence.amount,
+    note: occurrence.note,
+    accountId: occurrence.accountId,
+    toAccountId: occurrence.toAccountId,
+    categoryId: occurrence.categoryId,
+    budgetId: occurrence.budgetId,
+    budgetName: occurrence.budgetName,
+  }))
+}
+
+/** 预算展开点位：日期 + 所属周期范围（用于和真实交易做 occurrence 匹配）。 */
+export interface PredictedOccurrence {
+  date: Date
+  /** 该点位所属预算周期的第一天（含）。 */
+  periodStart: Date
+  /** 该点位所属预算周期的最后一天（含）。 */
+  periodEnd: Date
+  type: string
+  amount: number
+  note: string | null
+  accountId: string
+  toAccountId: string | null
+  categoryId: string | null
+  budgetId: string
+  budgetName: string
+}
+
+/**
+ * 展开活跃预算并保留每个点位的周期范围。
+ * 与 `generatePredictions` 共用同一份展开逻辑，后者只是去掉周期字段后的旧返回结构。
+ */
+export async function generatePredictedOccurrences(startDate: string, endDate: string): Promise<PredictedOccurrence[]> {
   const rangeStart = toDateValue(startDate)
   const rangeEnd = toDateValue(endDate)
 
   const budgets = await budgetRepo.findManyWithRelations({ isActive: true })
 
-  const predictions: Array<{
-    date: Date
-    type: string
-    amount: number
-    note: string | null
-    accountId: string
-    toAccountId: string | null
-    categoryId: string | null
-    budgetId: string
-    budgetName: string
-  }> = []
+  const occurrences: PredictedOccurrence[] = []
 
   for (const budget of budgets) {
     // 确定该预算的有效时间范围
@@ -485,12 +511,14 @@ export async function generatePredictions(startDate: string, endDate: string) {
 
     if (effectiveStart > effectiveEnd) continue
 
-    // 根据周期和交易时间生成时间点
-    const timePoints = generateBudgetTimePoints(effectiveStart, effectiveEnd, budget.period, budget.transactionTime)
+    // 根据周期和交易时间生成点位（每个点位带自己的周期范围）
+    const points = generateBudgetOccurrences(effectiveStart, effectiveEnd, budget.period, budget.transactionTime)
 
-    for (const tp of timePoints) {
-      predictions.push({
-        date: tp,
+    for (const point of points) {
+      occurrences.push({
+        date: point.date,
+        periodStart: point.periodStart,
+        periodEnd: point.periodEnd,
         type: budget.type,
         amount: Number(budget.amount),
         note: budget.note,
@@ -504,13 +532,20 @@ export async function generatePredictions(startDate: string, endDate: string) {
   }
 
   // 按日期排序
-  predictions.sort((a, b) => a.date.getTime() - b.date.getTime())
+  occurrences.sort((a, b) => a.date.getTime() - b.date.getTime())
 
-  return predictions
+  return occurrences
+}
+
+/** 预算展开点位（含所属周期范围）。 */
+export interface BudgetOccurrencePoint {
+  date: Date
+  periodStart: Date
+  periodEnd: Date
 }
 
 /**
- * 根据周期和交易时间生成时间点序列。
+ * 根据周期和交易时间生成点位序列。
  *
  * 只返回落在 [start, end] 内的点：起点之前的本期点位（如月度预算的 5 号、
  * 季度/年度天偏移落点）不会因为「本周期开始」而被带进窗口——
@@ -521,17 +556,32 @@ export async function generatePredictions(startDate: string, endDate: string) {
  * - weekly：0=周一 … 6=周日（缺省周日）
  * - monthly：几号（缺省月末）
  * - quarterly / yearly：从周期起点起的天偏移（缺省周期末）
+ *
+ * 每个点位同时给出它所属的预算周期 [periodStart, periodEnd]，供 occurrence 匹配使用。
  */
-export function generateBudgetTimePoints(start: Date, end: Date, period: string, transactionTime: number | null): Date[] {
-  const points: Date[] = []
+export function generateBudgetOccurrences(
+  start: Date,
+  end: Date,
+  period: string,
+  transactionTime: number | null,
+): BudgetOccurrencePoint[] {
+  const points: BudgetOccurrencePoint[] = []
   const inRange = (date: Date) => date >= start && date <= end
+  const weekRange = (date: Date) => {
+    const weekStart = new Date(date)
+    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 6)
+    return { periodStart: weekStart, periodEnd: weekEnd }
+  }
 
   switch (period) {
     case 'daily': {
       const current = new Date(start)
       current.setHours(0, 0, 0, 0)
       while (current <= end) {
-        points.push(new Date(current))
+        const day = new Date(current)
+        points.push({ date: day, periodStart: day, periodEnd: day })
         current.setDate(current.getDate() + 1)
       }
       break
@@ -547,7 +597,8 @@ export function generateBudgetTimePoints(start: Date, end: Date, period: string,
         }
       }
       while (current <= end) {
-        points.push(new Date(current))
+        const { periodStart, periodEnd } = weekRange(current)
+        points.push({ date: new Date(current), periodStart, periodEnd })
         current.setDate(current.getDate() + 7)
       }
       break
@@ -558,17 +609,16 @@ export function generateBudgetTimePoints(start: Date, end: Date, period: string,
       current.setHours(0, 0, 0, 0)
 
       while (current <= end) {
+        const periodStart = new Date(current)
+        const periodEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0)
         if (transactionTime !== null) {
           const pointDate = new Date(current)
           pointDate.setDate(transactionTime)
           if (pointDate.getMonth() === current.getMonth() && inRange(pointDate)) {
-            points.push(pointDate)
+            points.push({ date: pointDate, periodStart, periodEnd })
           }
-        } else {
-          const lastDay = new Date(current.getFullYear(), current.getMonth() + 1, 0)
-          if (inRange(lastDay)) {
-            points.push(lastDay)
-          }
+        } else if (inRange(periodEnd)) {
+          points.push({ date: periodEnd, periodStart, periodEnd })
         }
         current.setMonth(current.getMonth() + 1)
       }
@@ -581,20 +631,19 @@ export function generateBudgetTimePoints(start: Date, end: Date, period: string,
       current.setHours(0, 0, 0, 0)
 
       while (current <= end) {
+        const currentQ = Math.floor(current.getMonth() / 3)
+        const periodStart = new Date(current)
+        const periodEnd = new Date(current.getFullYear(), (currentQ + 1) * 3, 0)
         if (transactionTime !== null) {
           // 天偏移从**季度起点**算起（不是窗口起点），并裁掉窗口起点之前的落点
           const pointDate = new Date(current)
           pointDate.setDate(pointDate.getDate() + transactionTime)
           if (inRange(pointDate)) {
-            points.push(pointDate)
+            points.push({ date: pointDate, periodStart, periodEnd })
           }
-        } else {
+        } else if (inRange(periodEnd)) {
           // 默认：季度最后一天
-          const currentQ = Math.floor(current.getMonth() / 3)
-          const lastDay = new Date(current.getFullYear(), (currentQ + 1) * 3, 0)
-          if (inRange(lastDay)) {
-            points.push(lastDay)
-          }
+          points.push({ date: periodEnd, periodStart, periodEnd })
         }
         current.setMonth(current.getMonth() + 3)
       }
@@ -606,19 +655,18 @@ export function generateBudgetTimePoints(start: Date, end: Date, period: string,
       current.setHours(0, 0, 0, 0)
 
       while (current <= end) {
+        const periodStart = new Date(current)
+        const periodEnd = new Date(current.getFullYear(), 11, 31)
         if (transactionTime !== null) {
           // 天偏移从**年度起点**算起（不是窗口起点），并裁掉窗口起点之前的落点
           const pointDate = new Date(current)
           pointDate.setDate(pointDate.getDate() + transactionTime)
           if (inRange(pointDate)) {
-            points.push(pointDate)
+            points.push({ date: pointDate, periodStart, periodEnd })
           }
-        } else {
+        } else if (inRange(periodEnd)) {
           // 默认：12月31日
-          const lastDay = new Date(current.getFullYear(), 11, 31)
-          if (inRange(lastDay)) {
-            points.push(lastDay)
-          }
+          points.push({ date: periodEnd, periodStart, periodEnd })
         }
         current.setFullYear(current.getFullYear() + 1)
       }
@@ -627,6 +675,11 @@ export function generateBudgetTimePoints(start: Date, end: Date, period: string,
   }
 
   return points
+}
+
+/** 只要日期序列的旧接口：与 `generateBudgetOccurrences` 同一份实现。 */
+export function generateBudgetTimePoints(start: Date, end: Date, period: string, transactionTime: number | null): Date[] {
+  return generateBudgetOccurrences(start, end, period, transactionTime).map((point) => point.date)
 }
 
 /** 预算类型收窄：生成器只会产出这三种，未知值直接失败而不是悄悄按 0 处理。 */

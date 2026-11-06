@@ -5,6 +5,7 @@ import type {
   CashFlowProjectionPoint,
   CashFlowProjectionResult,
   ProjectionBalance,
+  ProjectionCoveredOccurrence,
   ProjectionFlowValue,
   ProjectionMonths,
 } from '../../../../packages/contracts/types/index.js'
@@ -26,7 +27,7 @@ import {
   type Minor,
 } from '../../../../packages/domain/src/index.js'
 import { calculateBalancesBatch } from './balance.service.js'
-import { generatePredictions } from './budget.service.js'
+import { generatePredictedOccurrences } from './budget.service.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
 
 // ===== 窗口 =====
@@ -64,33 +65,120 @@ function toLocalDateDate(value: LocalDate): Date {
 
 // ===== 来源事件 =====
 
-type ProjectionSource = 'planned' | 'committed'
+interface PlannedOccurrenceMeta {
+  budgetId: string
+  budgetName: string
+  type: 'income' | 'expense' | 'transfer'
+  amount: Minor
+  accountId: string
+  toAccountId: string | null
+  /** 点位所属预算周期的第一天（含），用于 occurrence 匹配。 */
+  periodStart: LocalDate
+  /** 点位所属预算周期的最后一天（含），用于 occurrence 匹配。 */
+  periodEnd: LocalDate
+}
 
-interface ProjectionEvent {
-  source: ProjectionSource
+interface PlannedEvent {
+  source: 'planned'
   date: LocalDate
   ledger: LedgerTransaction
+  occurrence: PlannedOccurrenceMeta
+}
+
+interface CommittedEvent {
+  source: 'committed'
+  date: LocalDate
+  ledger: LedgerTransaction
+  transactionId: string
+}
+
+type ProjectionEvent = PlannedEvent | CommittedEvent
+
+/** 一次覆盖：某个预算点位被哪一笔真实交易替代。 */
+interface CoveredOccurrence {
+  event: PlannedEvent
+  transactionId: string
+  transactionDate: LocalDate
+}
+
+interface LoadedProjectionEvents {
+  /** 已剔除被真实交易覆盖的点位。 */
+  planned: PlannedEvent[]
+  /** date > asOf 的真实交易，按日期升序。 */
+  committed: CommittedEvent[]
+  /** 窗口内被覆盖的点位，按点位日期升序。 */
+  covered: CoveredOccurrence[]
 }
 
 function budgetKindOf(value: string): 'income' | 'expense' | 'transfer' {
   if (value === 'income' || value === 'expense' || value === 'transfer') return value
   throw new Error(`未知预算类型: ${value}`)
 }
+
 /**
- * 两个互不重叠的未来来源：
+ * 同一 occurrence 的互斥判定。
+ *
+ * 预算点位与其周期内的真实交易视为「同一笔计划」需同时满足：
+ * - 类型相同（income / expense / transfer）；
+ * - 来源账户相同；
+ * - 转入账户相同（非转账两侧都为 null，转账必须同源同目标）；
+ * - 真实交易日期落在点位所属预算周期 [periodStart, periodEnd] 内。
+ *
+ * 金额与分类不参与匹配：周期内同类型同账户的交易即视为该计划已兑现，
+ * 否则「预算 2000、实际只花 800」会被算成两份。
+ */
+function occurrenceMatches(planned: PlannedEvent, transaction: CommittedEvent): boolean {
+  const meta = planned.occurrence
+  if (meta.type !== transaction.ledger.kind) return false
+  if (meta.accountId !== transaction.ledger.accountId) return false
+  if (meta.toAccountId !== transaction.ledger.toAccountId) return false
+  return transaction.date >= meta.periodStart && transaction.date <= meta.periodEnd
+}
+
+/**
+ * committed 按日期升序贪心匹配：一笔真实交易最多覆盖一个预算点位。
+ */
+function matchOccurrences(planned: PlannedEvent[], committed: CommittedEvent[]): CoveredOccurrence[] {
+  const matched = new Set<PlannedEvent>()
+  const covered: CoveredOccurrence[] = []
+
+  for (const transaction of committed) {
+    const event = planned.find(
+      (candidate) => !matched.has(candidate) && occurrenceMatches(candidate, transaction),
+    )
+    if (!event) continue
+    matched.add(event)
+    covered.push({
+      event,
+      transactionId: transaction.transactionId,
+      transactionDate: transaction.date,
+    })
+  }
+
+  covered.sort((a, b) => a.event.date.localeCompare(b.event.date))
+  return covered
+}
+
+/**
+ * 两个未来来源 + occurrence 互斥：
  * - committed：date > asOf 的真实交易（不再被余额当作 actual，改由本来源单独累计）
  * - planned：预算展开点位（合成交易，只走预算口径，不读真实交易）
  *
- * 同一笔钱只会出现在其中一个来源里，因此同一月份 planned + committed 不会重复计。
+ * 预算点位在其周期内存在同类型同账户（转账还需同目标账户）的真实交易时，
+ * 视为同一 occurrence 已由真实交易兑现：点位从 planned 剔除，金额只留在 committed，
+ * 并通过 `covered` 输出。调用方据此保持 total = actual + planned + committed。
+ *
+ * 只有两者都纳入时才做匹配：单独请求 planned 时返回未兑现的原始预算展开。
  */
 async function loadProjectionEvents(params: {
   asOf: LocalDate
   windowEndExclusive: LocalDate
   includePlanned: boolean
   includeCommitted: boolean
-}): Promise<ProjectionEvent[]> {
+}): Promise<LoadedProjectionEvents> {
   const firstFutureDay = addDays(params.asOf, 1)
-  const events: ProjectionEvent[] = []
+  const committed: CommittedEvent[] = []
+  const plannedAll: PlannedEvent[] = []
 
   if (params.includeCommitted) {
     const rows = await transactionRepo.findActive(
@@ -103,48 +191,83 @@ async function loadProjectionEvents(params: {
       { orderBy: { date: 'asc' } },
     )
     for (const row of rows) {
-      events.push({
+      const date = fromDate(row.date)
+      committed.push({
         source: 'committed',
-        date: fromDate(row.date),
+        date,
         ledger: toLedgerTransaction(row),
+        transactionId: row.id,
       })
     }
   }
 
   if (params.includePlanned) {
     // 只展开 [asOf+1, 窗口末日]：已过去的预算点位不会进来
-    const predictions = await generatePredictions(
+    const occurrences = await generatePredictedOccurrences(
       firstFutureDay,
       addDays(params.windowEndExclusive, -1),
     )
-    for (const prediction of predictions) {
-      events.push({
+    for (const occurrence of occurrences) {
+      const date = fromDate(occurrence.date)
+      const type = budgetKindOf(occurrence.type)
+      plannedAll.push({
         source: 'planned',
-        date: fromDate(prediction.date),
+        date,
         ledger: {
-          id: `budget:${prediction.budgetId}:${fromDate(prediction.date)}`,
+          id: `budget:${occurrence.budgetId}:${date}`,
           ruleVersion: CURRENT_RULE_VERSION,
-          kind: budgetKindOf(prediction.type),
-          date: fromDate(prediction.date),
-          amount: minor(prediction.amount),
+          kind: type,
+          date,
+          amount: minor(occurrence.amount),
           fee: ZERO_MINOR,
           coupon: ZERO_MINOR,
-          accountId: prediction.accountId,
-          toAccountId: prediction.toAccountId,
-          categoryId: prediction.categoryId,
+          accountId: occurrence.accountId,
+          toAccountId: occurrence.toAccountId,
+          categoryId: occurrence.categoryId,
           relatedTransactionId: null,
           relatedType: null,
           excludeFromIncomeExpense: false,
+        },
+        occurrence: {
+          budgetId: occurrence.budgetId,
+          budgetName: occurrence.budgetName,
+          type,
+          amount: minor(occurrence.amount),
+          accountId: occurrence.accountId,
+          toAccountId: occurrence.toAccountId,
+          periodStart: fromDate(occurrence.periodStart),
+          periodEnd: fromDate(occurrence.periodEnd),
         },
       })
     }
   }
 
-  return events
+  const covered = matchOccurrences(plannedAll, committed)
+  const coveredEvents = new Set(covered.map((item) => item.event))
+  return {
+    planned: plannedAll.filter((event) => !coveredEvents.has(event)),
+    committed,
+    covered,
+  }
 }
 
-function eventsByMonth(events: ProjectionEvent[]): Map<string, ProjectionEvent[]> {
-  const groups = new Map<string, ProjectionEvent[]>()
+/** 某个月份（YYYY-MM）被真实交易覆盖的预算点位。 */
+function coveredInMonth(covered: CoveredOccurrence[], monthLabel: string): ProjectionCoveredOccurrence[] {
+  return covered
+    .filter((item) => item.event.date.slice(0, 7) === monthLabel)
+    .map((item) => ({
+      budgetId: item.event.occurrence.budgetId,
+      budgetName: item.event.occurrence.budgetName,
+      type: item.event.occurrence.type,
+      date: item.event.date,
+      amount: item.event.occurrence.amount,
+      transactionId: item.transactionId,
+      transactionDate: item.transactionDate,
+    }))
+}
+
+function eventsByMonth<T extends ProjectionEvent>(events: T[]): Map<string, T[]> {
+  const groups = new Map<string, T[]>()
   for (const event of events) {
     const label = event.date.slice(0, 7)
     const group = groups.get(label)
@@ -217,14 +340,18 @@ export async function getAssetProjection(params: {
     includePlanned: params.includePlanned,
     includeCommitted: params.includeCommitted,
   })
-  const byMonth = eventsByMonth(events)
+  const plannedByMonth = eventsByMonth(events.planned)
+  const committedByMonth = eventsByMonth(events.committed)
 
   const plannedDelta = new Map<string, number>()
   const committedDelta = new Map<string, number>()
 
   const points: AssetProjectionPoint[] = windows.map((window) => {
-    for (const event of byMonth.get(window.label) ?? []) {
-      applyEventToBalances(event.source === 'planned' ? plannedDelta : committedDelta, event)
+    for (const event of plannedByMonth.get(window.label) ?? []) {
+      applyEventToBalances(plannedDelta, event)
+    }
+    for (const event of committedByMonth.get(window.label) ?? []) {
+      applyEventToBalances(committedDelta, event)
     }
     const planned = aggregateBalances(accounts, plannedDelta)
     const committed = aggregateBalances(accounts, committedDelta)
@@ -235,6 +362,7 @@ export async function getAssetProjection(params: {
       planned,
       committed,
       total: addBalance(base, addBalance(planned, committed)),
+      covered: coveredInMonth(events.covered, window.label),
     }
   })
 
@@ -356,13 +484,13 @@ export async function getCashFlowProjection(params: {
     includePlanned: params.includePlanned,
     includeCommitted: params.includeCommitted,
   })
-  const byMonth = eventsByMonth(events)
+  const plannedByMonth = eventsByMonth(events.planned)
+  const committedByMonth = eventsByMonth(events.committed)
 
   let runningCash = startCash
   const points: CashFlowProjectionPoint[] = windows.map((window, index) => {
-    const monthEvents = byMonth.get(window.label) ?? []
-    const planned = sumFlows(monthEvents.filter((event) => event.source === 'planned'), cashSet)
-    const committed = sumFlows(monthEvents.filter((event) => event.source === 'committed'), cashSet)
+    const planned = sumFlows(plannedByMonth.get(window.label) ?? [], cashSet)
+    const committed = sumFlows(committedByMonth.get(window.label) ?? [], cashSet)
 
     const actual: FlowTotals = index === 0
       ? { inflow: minor(actualInflow), outflow: minor(actualOutflow) }
@@ -388,6 +516,7 @@ export async function getCashFlowProjection(params: {
       net,
       startCash: start,
       endCash,
+      covered: coveredInMonth(events.covered, window.label),
     }
   })
 

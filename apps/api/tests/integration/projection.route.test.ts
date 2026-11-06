@@ -8,7 +8,9 @@
  * - 未来真实交易：11-20 支出 30；12-05 收入 80；12-15 A→B 转账 10
  * - 月度预算：收入 500、支出 100、转账 20（均月末）
  *
- * 「未来日期交易」只进 committed，预算只进 planned，两者相加不重复计。
+ * planned 与 committed 的数据源不重叠；同一 occurrence 两者都有时互斥，
+ * 点位从 planned 剔除、金额只留在 committed，并在点位 `covered` 中标注。
+ * 本场景 11 月支出、12 月收入、12 月转账三处发生覆盖。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import request from 'supertest'
@@ -40,6 +42,16 @@ interface FlowValue {
   total: number
 }
 
+interface CoveredOccurrence {
+  budgetId: string
+  budgetName: string
+  type: string
+  date: string
+  amount: number
+  transactionId: string
+  transactionDate: string
+}
+
 interface AssetPoint {
   label: string
   date: string
@@ -47,6 +59,7 @@ interface AssetPoint {
   planned: Balance
   committed: Balance
   total: Balance
+  covered: CoveredOccurrence[]
 }
 
 interface AssetProjection {
@@ -64,6 +77,7 @@ interface CashFlowPoint {
   net: FlowValue
   startCash: number
   endCash: number
+  covered: CoveredOccurrence[]
 }
 
 interface CashFlowProjection {
@@ -208,7 +222,7 @@ describe('GET /api/analytics/asset-projection：planned / committed 不重复计
     await seed()
   })
 
-  it('逐月手算对照：actual 不含未来交易，planned 与 committed 各计一次', async () => {
+  it('逐月手算对照：同一 occurrence 只计一次，actual 不含未来交易', async () => {
     const res = await request(app)
       .get('/api/analytics/asset-projection')
       .query({ asOf: AS_OF, months: 3 })
@@ -225,23 +239,56 @@ describe('GET /api/analytics/asset-projection：planned / committed 不重复计
     expect(data.points.map((point) => point.label)).toEqual(['2026-11', '2026-12', '2027-01'])
     expect(data.points.map((point) => point.date)).toEqual(['2026-11-30', '2026-12-31', '2027-01-31'])
 
-    // 11 月：预算净 400，未来支出 30 → 资产 500 + 400 − 30 = 870
+    // 11 月：收入预算 500 在 planned；支出预算 100 被 11-20 真实支出 30 覆盖，从 planned 剔除。
+    // total 资产 = 500 + 500 − 30 = 970，净资产 970 − 100 = 870。
     expect(data.points[0]).toMatchObject({
       actual: { assets: 50000, liabilities: 10000, netWorth: 40000 },
-      planned: { assets: 40000, liabilities: 0, netWorth: 40000 },
+      planned: { assets: 50000, liabilities: 0, netWorth: 50000 },
       committed: { assets: -3000, liabilities: 0, netWorth: -3000 },
-      total: { assets: 87000, liabilities: 10000, netWorth: 77000 },
+      total: { assets: 97000, liabilities: 10000, netWorth: 87000 },
+    })
+    expect(data.points[0].covered).toEqual([
+      {
+        budgetId: 'proj-budget-expense',
+        budgetName: '每月支出',
+        type: 'expense',
+        date: '2026-11-30',
+        amount: 10000,
+        transactionId: 'proj-future-expense',
+        transactionDate: '2026-11-20',
+      },
+    ])
+
+    // 12 月：planned 累计 500（11 月收入）− 100（12 月支出）= 400；
+    // committed 累计 −30（11 月支出）+ 80（12 月收入）+ 0（内部转账）= +50。
+    expect(data.points[1].planned).toEqual({ assets: 40000, liabilities: 0, netWorth: 40000 })
+    expect(data.points[1].committed).toEqual({ assets: 5000, liabilities: 0, netWorth: 5000 })
+    expect(data.points[1].total).toEqual({ assets: 95000, liabilities: 10000, netWorth: 85000 })
+
+    // 12 月两处覆盖：收入预算 500 ← 12-05 真实收入 80；转账预算 20 ← 12-15 真实转账 10
+    expect(data.points[1].covered).toHaveLength(2)
+    const coveredIncome = data.points[1].covered.find((item) => item.budgetId === 'proj-budget-income')
+    expect(coveredIncome).toMatchObject({
+      type: 'income',
+      date: '2026-12-31',
+      amount: 50000,
+      transactionId: 'proj-future-income',
+      transactionDate: '2026-12-05',
+    })
+    const coveredTransfer = data.points[1].covered.find((item) => item.budgetId === 'proj-budget-transfer')
+    expect(coveredTransfer).toMatchObject({
+      type: 'transfer',
+      date: '2026-12-31',
+      amount: 2000,
+      transactionId: 'proj-future-transfer',
+      transactionDate: '2026-12-15',
     })
 
-    // 12 月：预算累计 +800，committed 累计 +50（800 收入 − 30 支出 + 0 内部转账）
-    expect(data.points[1].planned).toEqual({ assets: 80000, liabilities: 0, netWorth: 80000 })
-    expect(data.points[1].committed).toEqual({ assets: 5000, liabilities: 0, netWorth: 5000 })
-    expect(data.points[1].total).toEqual({ assets: 135000, liabilities: 10000, netWorth: 125000 })
-
-    // 1 月：预算累计 +1200
-    expect(data.points[2].planned).toEqual({ assets: 120000, liabilities: 0, netWorth: 120000 })
+    // 1 月：planned 累计 500 − 100 − 100 + 500 = 800；committed 仍是 50。
+    expect(data.points[2].planned).toEqual({ assets: 80000, liabilities: 0, netWorth: 80000 })
     expect(data.points[2].committed).toEqual({ assets: 5000, liabilities: 0, netWorth: 5000 })
-    expect(data.points[2].total).toEqual({ assets: 175000, liabilities: 10000, netWorth: 165000 })
+    expect(data.points[2].total).toEqual({ assets: 135000, liabilities: 10000, netWorth: 125000 })
+    expect(data.points[2].covered).toEqual([])
 
     // 每个点位上：actual + planned + committed = total（逐项相加，不存在第二份未来交易）
     for (const point of data.points) {
@@ -304,7 +351,7 @@ describe('GET /api/reports/cash-flow-projection：期初 + 净额 = 期末', () 
     await seed()
   })
 
-  it('逐月 inflow/outflow/net 手算对照（现金流账户仅 A）', async () => {
+  it('逐月 inflow/outflow/net 手算对照（现金流账户仅 A，覆盖点位不进 planned）', async () => {
     const res = await request(app)
       .get('/api/reports/cash-flow-projection')
       .query({ asOf: AS_OF, months: 3 })
@@ -313,37 +360,39 @@ describe('GET /api/reports/cash-flow-projection：期初 + 净额 = 期末', () 
     const data = res.body.data as CashFlowProjection
 
     expect(data.startCash).toBe(0)
-    expect(data.endCash).toBe(138000)
+    expect(data.endCash).toBe(100000)
 
-    // 11 月：期初 0 + 实际收入 200 + 预算净 380 − 未来支出 30 = 550
+    // 11 月：期初 0 + 实际收入 200 + 预算净 480（收入 500 − 转账 20，支出预算被覆盖）− 未来支出 30 = 650
     expect(data.points[0]).toMatchObject({
       label: '2026-11',
       startCash: 0,
-      endCash: 55000,
+      endCash: 65000,
       inflow: { actual: 20000, planned: 50000, committed: 0, total: 70000 },
-      outflow: { actual: 0, planned: 12000, committed: 3000, total: 15000 },
-      net: { actual: 20000, planned: 38000, committed: -3000, total: 55000 },
+      outflow: { actual: 0, planned: 2000, committed: 3000, total: 5000 },
+      net: { actual: 20000, planned: 48000, committed: -3000, total: 65000 },
     })
 
-    // 12 月：预算净 380 + 未来收入 80 − 转出 10 = 450
+    // 12 月：收入/转账预算点位被覆盖，planned 只剩支出 100；真实收入 80 与转账 10 留在 committed
     expect(data.points[1]).toMatchObject({
       label: '2026-12',
-      startCash: 55000,
-      endCash: 100000,
-      inflow: { actual: 0, planned: 50000, committed: 8000, total: 58000 },
-      outflow: { actual: 0, planned: 12000, committed: 1000, total: 13000 },
-      net: { actual: 0, planned: 38000, committed: 7000, total: 45000 },
+      startCash: 65000,
+      endCash: 62000,
+      inflow: { actual: 0, planned: 0, committed: 8000, total: 8000 },
+      outflow: { actual: 0, planned: 10000, committed: 1000, total: 11000 },
+      net: { actual: 0, planned: -10000, committed: 7000, total: -3000 },
     })
+    expect(data.points[1].covered).toHaveLength(2)
 
     // 1 月：只剩预算净 380
     expect(data.points[2]).toMatchObject({
       label: '2027-01',
-      startCash: 100000,
-      endCash: 138000,
+      startCash: 62000,
+      endCash: 100000,
       inflow: { actual: 0, planned: 50000, committed: 0, total: 50000 },
       outflow: { actual: 0, planned: 12000, committed: 0, total: 12000 },
       net: { actual: 0, planned: 38000, committed: 0, total: 38000 },
     })
+    expect(data.points[2].covered).toEqual([])
 
     for (const point of data.points) {
       expect(point.endCash).toBe(point.startCash + point.net.total)
@@ -428,5 +477,168 @@ describe('GET /api/budgets/period-plan：未设预算的月份表达', () => {
     expect(data.points[1].budgets).toEqual([])
     expect(data.points[2].hasBudget).toBe(false)
     expect(data.points[2].totals).toBeNull()
+  })
+})
+
+/**
+ * 同一 occurrence 互斥的专用账本（房租）。
+ *
+ * - 账户「房租账户」A（现金），期初 0，asOf 前无已发生交易
+ * - 月度支出预算「房租」200（20000 分），月末点位
+ * - 已排定 12-05 真实房租支出 200（20000 分），落在 A、类型 expense
+ *
+ * 12-31 的预算点位与 12-05 的真实交易是同一 occurrence：改前两边都计，
+ * 12 月 total 资产 −600，1 月累计 −800；改后计划点位从 planned 剔除，
+ * 12 月 total −400，1 月累计 −600，差额 200 只出现一次。
+ */
+async function seedOccurrenceOverlap() {
+  await resetData()
+
+  await prisma.accountCategory.createMany({
+    data: [{ id: 'occ-cat-cash', name: '互斥现金', type: 'asset', isCashEquivalent: true }],
+  })
+  await prisma.account.create({
+    data: { id: 'occ-acc-a', name: '房租账户', type: 'asset', initialBalance: 0n, categoryId: 'occ-cat-cash' },
+  })
+  await prisma.transactionCategory.create({
+    data: { id: 'occ-tc-expense', name: '房租支出', type: 'expense' },
+  })
+  // 已排定的未来真实房租（date > asOf）
+  await prisma.transaction.create({
+    data: {
+      id: 'occ-rent-tx',
+      type: 'expense',
+      amount: 20000n,
+      date: localDate(2026, 12, 5),
+      accountId: 'occ-acc-a',
+      categoryId: 'occ-tc-expense',
+    },
+  })
+  await prisma.budget.create({
+    data: {
+      id: 'occ-rent-budget',
+      name: '房租',
+      type: 'expense',
+      amount: 20000n,
+      period: 'monthly',
+      startDate: localDate(2026, 1, 1),
+      transactionTime: null,
+      accountId: 'occ-acc-a',
+      categoryId: 'occ-tc-expense',
+    },
+  })
+}
+
+describe('同一 occurrence 的 planned 与 committed 互斥（房租账本）', () => {
+  beforeAll(async () => {
+    await prisma.$connect()
+  })
+
+  afterAll(async () => {
+    await resetData()
+    await prisma.$disconnect()
+  })
+
+  beforeEach(async () => {
+    await seedOccurrenceOverlap()
+  })
+
+  it('12 月房租既在预算又已有真实交易：改前 total −60000，改后 −40000', async () => {
+    const res = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, months: 3 })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as AssetProjection
+    expect(data.base).toEqual(zero())
+
+    // 11 月：只有 11-30 预算点位，planned −20000
+    expect(data.points[0]).toMatchObject({
+      planned: { assets: -20000, liabilities: 0, netWorth: -20000 },
+      committed: { assets: 0, liabilities: 0, netWorth: 0 },
+      total: { assets: -20000, liabilities: 0, netWorth: -20000 },
+    })
+    expect(data.points[0].covered).toEqual([])
+
+    // 12 月：12-31 点位被 12-05 真实交易覆盖。
+    // 改前（不剔除）：planned 累计 −40000 + committed −20000 → total −60000（双计 20000）
+    // 改后：planned 累计 −20000 + committed −20000 → total −40000
+    expect(data.points[1]).toMatchObject({
+      planned: { assets: -20000, liabilities: 0, netWorth: -20000 },
+      committed: { assets: -20000, liabilities: 0, netWorth: -20000 },
+      total: { assets: -40000, liabilities: 0, netWorth: -40000 },
+    })
+    expect(data.points[1].covered).toEqual([
+      {
+        budgetId: 'occ-rent-budget',
+        budgetName: '房租',
+        type: 'expense',
+        date: '2026-12-31',
+        amount: 20000,
+        transactionId: 'occ-rent-tx',
+        transactionDate: '2026-12-05',
+      },
+    ])
+
+    // 1 月：被覆盖的点位不会回到 planned；累计 = 11 月 + 1 月 = −40000。
+    // 改前累计会是 −60000 + committed −20000 = −80000，改后 −60000。
+    expect(data.points[2]).toMatchObject({
+      planned: { assets: -40000, liabilities: 0, netWorth: -40000 },
+      committed: { assets: -20000, liabilities: 0, netWorth: -20000 },
+      total: { assets: -60000, liabilities: 0, netWorth: -60000 },
+    })
+    expect(data.points[2].covered).toEqual([])
+
+    for (const point of data.points) {
+      expect(point.total.assets).toBe(point.actual.assets + point.planned.assets + point.committed.assets)
+      expect(point.total.netWorth).toBe(point.actual.netWorth + point.planned.netWorth + point.committed.netWorth)
+    }
+  })
+
+  it('现金流同口径：12 月 outflow planned 0，committed 只计一次', async () => {
+    const res = await request(app)
+      .get('/api/reports/cash-flow-projection')
+      .query({ asOf: AS_OF, months: 3 })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as CashFlowProjection
+
+    expect(data.startCash).toBe(0)
+
+    // 11 月：预算房租 200 流出，无真实交易
+    expect(data.points[0]).toMatchObject({
+      startCash: 0,
+      endCash: -20000,
+      inflow: { actual: 0, planned: 0, committed: 0, total: 0 },
+      outflow: { actual: 0, planned: 20000, committed: 0, total: 20000 },
+      net: { actual: 0, planned: -20000, committed: 0, total: -20000 },
+    })
+
+    // 12 月：计划点位被覆盖 → planned 流出 0；committed 流出 200。
+    // 改前 planned 200 + committed 200 = 400（双计 200），改后 200。
+    expect(data.points[1]).toMatchObject({
+      startCash: -20000,
+      endCash: -40000,
+      inflow: { actual: 0, planned: 0, committed: 0, total: 0 },
+      outflow: { actual: 0, planned: 0, committed: 20000, total: 20000 },
+      net: { actual: 0, planned: 0, committed: -20000, total: -20000 },
+    })
+    expect(data.points[1].covered).toHaveLength(1)
+
+    // 1 月：只剩 1-31 预算点位
+    expect(data.points[2]).toMatchObject({
+      startCash: -40000,
+      endCash: -60000,
+      inflow: { actual: 0, planned: 0, committed: 0, total: 0 },
+      outflow: { actual: 0, planned: 20000, committed: 0, total: 20000 },
+      net: { actual: 0, planned: -20000, committed: 0, total: -20000 },
+    })
+    expect(data.points[2].covered).toEqual([])
+    expect(data.endCash).toBe(-60000)
+
+    for (const point of data.points) {
+      expect(point.endCash).toBe(point.startCash + point.net.total)
+      expect(point.net.total).toBe(point.inflow.total - point.outflow.total)
+    }
   })
 })

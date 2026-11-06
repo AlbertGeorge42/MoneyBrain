@@ -8,7 +8,7 @@
 
 - **本批新增端点：0 个**。报表四视图复用既有 `GET /reports/balance-sheet`、`/reports/income-expense`、`/reports/cash-flow`、`/reports/investment-analysis` 与 `/analytics/asset-trend`、`GET /transactions`、`GET /accounts`、`GET /budgets/statuses`；此前导入导出批新增 2 个（`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`）；设置批新增 0 个，只扩展现有端点：`POST /accounts` 接受 `sort`；`DELETE /accounts/:id`、`DELETE /transaction-categories/:id` 返回 `auditEventId`；`GET /transactions/recycle-bin` 响应追加 `accounts` / `categories`。
 - 总览已只读接通；流水已接通读、写、审计撤销、回收站与退款关联；报表已接通四视图端点口径；设置已接通账户与分类的读写、排序/移动、删除撤销、回收站，以及导入/导出/导入回滚/清空。API 模式写操作真写库，种子模式仍走内存。
-- **本批新增推演端点 3 个**（后端，未接前端）：`GET /analytics/asset-projection`、`GET /reports/cash-flow-projection`、`GET /budgets/period-plan`；把「未来日期真实交易」与「预算展开」拆成 `committed` / `planned` 两个来源，同一月份相加不重复计。
+- **本批新增推演端点 3 个**（后端，未接前端）：`GET /analytics/asset-projection`、`GET /reports/cash-flow-projection`、`GET /budgets/period-plan`；把「未来日期真实交易」与「预算展开」拆成 `committed` / `planned` 两个来源。同一 occurrence 两者都有时互斥：点位从 `planned` 剔除、金额只留在 `committed`，并在点位 `covered[]` 标注。
 - 报表/预算的合计不再聚合总览快照：ledger 改为完整分页拉取 `GET /transactions`，跨月/跨年数据不再被最近 8 笔窗口截断。
 - 接口侧真正缺的只有一件：**没有同步端点**（同步能力还在 `packages/sync`，未到里程碑，不阻塞当前接入）。
 - 下一批建议做**预算**：真实 CRUD + `statuses` 口径，先拍板「周期混算」与「账户绑定」两个产品口径。
@@ -198,45 +198,60 @@
 
 | 端点 | 参数 | 返回字段 |
 |---|---|---|
-| `GET /api/analytics/asset-projection` | `months=3/6/12`（默认 12）、`asOf=YYYY-MM-DD`（默认今天）、`includePlanned=true/false`（默认 true）、`includeCommitted=true/false`（默认 true） | `asOf`、`months`、`base{assets,liabilities,netWorth}`、`points[{label,date,actual{…},planned{…},committed{…},total{…}}]` |
-| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`months`、`startCash`、`endCash`、`points[{label,date,inflow{actual,planned,committed,total},outflow{…},net{…},startCash,endCash}]` |
+| `GET /api/analytics/asset-projection` | `months=3/6/12`（默认 12）、`asOf=YYYY-MM-DD`（默认今天）、`includePlanned=true/false`（默认 true）、`includeCommitted=true/false`（默认 true） | `asOf`、`months`、`base{assets,liabilities,netWorth}`、`points[{label,date,actual{…},planned{…},committed{…},total{…},covered[]}]` |
+| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`months`、`startCash`、`endCash`、`points[{label,date,inflow{actual,planned,committed,total},outflow{…},net{…},startCash,endCash,covered[]}]` |
 | `GET /api/budgets/period-plan` | `fromMonth=YYYY-MM`（默认当前月）、`months=1–24`（默认 12） | `fromMonth`、`months`、`points[{month,hasBudget,budgets[{budgetId,budgetName,type,date,amount}],totals{income,expense,transfer}\|null}]` |
+
+**`covered[]` 字段**（两个推演端点一致）：本月计划点位被真实交易覆盖时逐条列出，字段为 `budgetId`、`budgetName`、`type`（`income`/`expense`/`transfer`）、`date`（预算点位日期）、`amount`（被剔除的 planned 金额，整数分）、`transactionId`、`transactionDate`。该数组只列本月（`label`）被覆盖的点位；被覆盖金额已从 `planned` 剔除，只留在 `committed`。
 
 **口径（硬约束）**：
 
 1. `actual` = `date ≤ asOf` 的真实交易余额；未来日期真实交易**不**计入起点，也不进入 `actual`。
 2. `committed` = `asOf < date ≤ 月末` 的真实交易累计增量，只来自真实交易。
-3. `planned` = 同一窗口的预算展开累计增量，只来自 `generatePredictions`（合成交易）。
-4. `total = actual + planned + committed`，逐项相加；两个未来来源互不重叠，同月相加不重复计。
-5. 资产口径只做预算展开 + 已排定交易，不做统计外推、不推定投资收益。
-6. 现金流 `流入 − 流出` 与交易对现金余额的净影响同源（同一份复式分录）；现金账户互转本金不计流入/流出、手续费计流出，`endCash = startCash + net` 恒成立。
-7. `hasBudget=false` 时 `totals=null`——无预算月份不用 0 冒充。
+3. `planned` = 同一窗口的预算展开累计增量，只来自 `generatePredictedOccurrences`（合成交易），已剔除被真实交易覆盖的点位。
+4. `total = actual + planned + committed`，逐项相加；两个未来来源互不重叠，同一 occurrence 只出现一次。
+5. **同一 occurrence 互斥**（落在 `projection.service.ts`，前端不做抵扣）：预算点位与其所属周期内的真实交易视为同一笔计划，需同时满足「类型相同 + 来源账户相同 + 转入账户相同（非转账两侧都为 `null`，转账必须同源同目标）+ 真实交易日期在 `[periodStart, periodEnd]` 内」。金额与分类不参与匹配；`committed` 按日期升序贪心匹配，一笔真实交易最多覆盖一个点位。命中后该点位从 `planned` 剔除，金额只出现在 `committed`，并在 `covered[]` 标注。只关掉 `includeCommitted` 时不匹配，`planned` 回到未兑现的原始展开。
+6. 资产口径只做预算展开 + 已排定交易，不做统计外推、不推定投资收益。
+7. 现金流 `流入 − 流出` 与交易对现金余额的净影响同源（同一份复式分录）；现金账户互转本金不计流入/流出、手续费计流出，`endCash = startCash + net` 恒成立。
+8. `hasBudget=false` 时 `totals=null`——无预算月份不用 0 冒充。
 
 **手算对照（临时库，asOf=2026-11-06；单位分）**：
 
 账本：A 现金期初 0 + 11-01 已发生收入 20000；B 投资期初 30000（非现金）；L 信用卡期初 −10000；未来真实交易 11-20 支出 3000、12-05 收入 8000、12-15 A→B 转账 1000；月度预算 收入 50000 / 支出 10000 / 转账 2000（均月末）。
 
+occurrence 覆盖：11 月支出预算被 11-20 支出覆盖；12 月收入预算被 12-05 收入覆盖；12 月转账预算被 12-15 转账覆盖（同源 A、同目标 B）。
+
 资产推演（每格 `assets / liabilities / netWorth`）：
 
-| 月份 | actual | planned（累计） | committed（累计） | total | 核对 |
+| 月份 | actual | planned（累计，已剔除覆盖点） | committed（累计） | total | 核对 |
 |---|---|---|---|---|---|
-| 2026-11 | 50000 / 10000 / 40000 | 40000 / 0 / 40000 | −3000 / 0 / −3000 | 87000 / 10000 / 77000 | 50000 + 40000 − 3000 |
-| 2026-12 | 50000 / 10000 / 40000 | 80000 / 0 / 80000 | 5000 / 0 / 5000 | 135000 / 10000 / 125000 | 50000 + 80000 + 5000 |
-| 2027-01 | 50000 / 10000 / 40000 | 120000 / 0 / 120000 | 5000 / 0 / 5000 | 175000 / 10000 / 165000 | 起点净资产 40000 + 累计结余 125000 |
+| 2026-11 | 50000 / 10000 / 40000 | 50000 / 0 / 50000 | −3000 / 0 / −3000 | 97000 / 10000 / 87000 | 50000 + 50000 − 3000 |
+| 2026-12 | 50000 / 10000 / 40000 | 40000 / 0 / 40000 | 5000 / 0 / 5000 | 95000 / 10000 / 85000 | 50000 + 40000 + 5000 |
+| 2027-01 | 50000 / 10000 / 40000 | 80000 / 0 / 80000 | 5000 / 0 / 5000 | 135000 / 10000 / 125000 | 起点净资产 40000 + 累计结余 85000 |
 
 现金流推演（现金账户 A）：
 
 | 月份 | 期初 | 流入 actual / planned / committed | 流出 actual / planned / committed | 净额 | 期末 |
 |---|---|---|---|---|---|
-| 2026-11 | 0 | 20000 / 50000 / 0 | 0 / 12000 / 3000 | 55000 | 55000 |
-| 2026-12 | 55000 | 0 / 50000 / 8000 | 0 / 12000 / 1000 | 45000 | 100000 |
-| 2027-01 | 100000 | 0 / 50000 / 0 | 0 / 12000 / 0 | 38000 | 138000 |
+| 2026-11 | 0 | 20000 / 50000 / 0 | 0 / 2000 / 3000 | 65000 | 65000 |
+| 2026-12 | 65000 | 0 / 0 / 8000 | 0 / 10000 / 1000 | −3000 | 62000 |
+| 2027-01 | 62000 | 0 / 50000 / 0 | 0 / 12000 / 0 | 38000 | 100000 |
 
-每月 `期初 + 净额 = 期末`；资产 `起点 40000 + 累计结余 125000 = 165000`。3/6/12 切换：同一 `asOf` 下 12 个月的前 6 个点与单独请求 6 个月逐字段相等。
+每月 `期初 + 净额 = 期末`；资产 `起点净资产 40000 + 累计结余 85000 = 125000`。3/6/12 切换：同一 `asOf` 下 12 个月的前 6 个点与单独请求 6 个月逐字段相等。
+
+**同一 occurrence 双计对照（房租专用账本）**：现金账户 A 期初 0、asOf 前无交易；月度支出预算「房租」20000（月末点位）；已排定 12-05 真实支出 20000（同账户、同类型）。12-31 点位与 12-05 交易为同一 occurrence：
+
+| 月份 | 改前 planned / committed / total | 改后 planned / committed / total | 双计 |
+|---|---|---|---|
+| 2026-11 | −20000 / 0 / −20000 | −20000 / 0 / −20000 | 0 |
+| 2026-12 | −40000 / −20000 / **−60000** | −20000 / −20000 / **−40000** | 20000 |
+| 2027-01 | −60000 / −20000 / **−80000** | −40000 / −20000 / **−60000** | 20000（累计保留） |
+
+现金流同账本：12 月流出改前 `planned 20000 + committed 20000 = 40000`、期末 −60000；改后 `planned 0 + committed 20000 = 20000`、期末 −40000。该用例的逐点断言（含 `covered` 的 budgetId / date / amount / transactionId / transactionDate）在 `projection.route.test.ts` 的「同一 occurrence 的 planned 与 committed 互斥（房租账本）」中。
 
 **预算展开语义修复**：`generateBudgetTimePoints`（原 `generateTimePoints`）只返回 `[start, end]` 内的点；季度/年度 `transactionTime` 明确为「从周期起点起的天偏移」，窗口起点之前的落点被裁掉（月度几号同理）。否则长期推演会把已经过去的本期点位重复带进未来。
 
-**验证**：`apps/api/tests/integration/projection.route.test.ts`（5 条）、`apps/api/tests/unit/budget-time-points.test.ts`（3 条）；`npm test -w @moneybrain/api` 51 文件 413 用例通过，`npm run typecheck` 全量 0 错，改动文件 ESLint 0 输出。
+**验证**：`apps/api/tests/integration/projection.route.test.ts`（8 条）、`apps/api/tests/unit/budget-time-points.test.ts`（3 条）；api 全量 `npm test` 51 文件 416 用例通过，`npm run typecheck` 全量 0 错，`apps/api` 改动文件 ESLint 0 error（contracts 文件提示 outside of base path）。
 
 ## 下一批：预算
 
