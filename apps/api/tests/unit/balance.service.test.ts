@@ -120,6 +120,38 @@ describe('balance.service - calculateBalancesBatch', () => {
     expect(cache.get('A', new Date('2025-02-01T00:00:00'))).toBe(0)
   })
 
+  it('月初 0 点语义：上月末平账计入月初余额，1 号当天交易不进月初余额也不被漏掉', async () => {
+    mockPrisma.account.findMany.mockResolvedValue([
+      account({
+        initialBalance: new Decimal(500),
+        initialBalanceDate: new Date('2024-12-31T00:00:00'),
+      }),
+    ])
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      // 历史平账落在上月末（2024-12-31 0 点），属于 12 月的修正。
+      transaction({
+        id: 'adj',
+        type: 'adjustment',
+        amount: new Decimal(200),
+        date: new Date('2024-12-31T00:00:00'),
+      }),
+      // 1 号当天交易：按「月初 = 当天 0 点之前」口径，不进 1 号的月初余额。
+      transaction({
+        id: 'jan1',
+        type: 'expense',
+        amount: new Decimal(100),
+        date: new Date('2025-01-01T10:00:00'),
+      }),
+    ])
+
+    const monthStart = await calculateBalancesBatch(['A'], [new Date('2025-01-01T00:00:00')])
+    expect(monthStart.get('A', new Date('2025-01-01T00:00:00'))).toBe(700)
+
+    // 次日余额已包含 1 号交易：它只是不参与月初快照，不会丢账。
+    const nextDayBalance = await calculateBalancesBatch(['A'], [new Date('2025-01-02T00:00:00')])
+    expect(nextDayBalance.get('A', new Date('2025-01-02T00:00:00'))).toBe(600)
+  })
+
   it('收入退款减少余额，支出退款增加余额', async () => {
     mockPrisma.account.findMany.mockResolvedValue([
       account({ initialBalance: new Decimal(0) }),
