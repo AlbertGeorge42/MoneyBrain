@@ -213,6 +213,7 @@ if (type === 'transfer') toAmount = amount - fee
 - 期间一律半开：`start <= date < endExclusive`。
 - 交易日期不存时分秒；`createdAt` 只用于审计。
 - 禁止 `new Date('YYYY-MM-DD')`（UTC 偏移）和 `23:59:59.999`。
+- **API 日期契约**：响应里的账本日期字段（`date` / `startDate` / `endDate` / `initialBalanceDate`）由 `common/http.ts` 统一输出 `YYYY-MM-DD`；`createdAt` / `updatedAt` / `deletedAt` 等瞬时仍是 ISO。前端只消费字符串，禁止对日期做 `slice(0, 10)` 截断；历史 ISO 载荷按本地时区显式解析。
 
 ### 3.4 口径不在本文重复定义
 

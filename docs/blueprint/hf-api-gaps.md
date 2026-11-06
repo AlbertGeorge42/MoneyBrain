@@ -107,7 +107,35 @@
    - 删除 ¥250 退款：原交易 `refunds=[50.00,200.00]` 合计 `250.00`，stats `expense=250.00`；撤销后 `refunds=[250.00,50.00,200.00]` 合计 `500.00`，stats `expense=0`。
 8. 视觉：三档（1440/1024/390）种子 vs API 行高 54 / 69、金额列宽 54.8125 不变；新增标记 `flex:none` 挂在行内，不改变行高与列宽。截图 `.artifacts/refund-link-2026-11-06/`。
 
-**本批未做**：按「有退款」筛选流水；退款凭证/审批；API 模式日期仍按 `date.slice(0,10)` 显示，本地午夜序列化后早一天（既有问题，待统一后端日期语义时修复）。
+**本批未做**：按「有退款」筛选流水；退款凭证/审批。API 模式日期曾在适配层用 `date.slice(0,10)` 显示、本地午夜序列化后早一天，已在下一节统一修复。
+
+## 本批：日期语义统一（已完成，2026-11-06）
+
+**结论**：账本 `date` 是**本地日历日**（`LocalDate`，`YYYY-MM-DD`），不是 UTC 瞬时；旧前端 `dayjs(transaction.date).format('YYYY-MM-DD')` 按客户端本地时区解析，在 UTC+8 下显示的正是这个日历日，因此沿用该语义、不再引入第二套口径。
+
+**契约**：
+
+| 层 | 规则 |
+|---|---|
+| 领域层 | `packages/domain/src/date.ts` 的 `LocalDate`；一律本地 `getFullYear/getMonth/getDate`，禁止 `toISOString()` 取日期 |
+| 数据库 | 交易日期只存日（本地午夜）；`createdAt` 等时间戳单独存 |
+| API 响应 | `apps/api/src/common/http.ts` 统一按字段名序列化：`date` / `startDate` / `endDate` / `initialBalanceDate` → `YYYY-MM-DD`；其余 Date（`createdAt` / `updatedAt` / `deletedAt` / `at`）仍为 ISO 瞬时 |
+| 前端 | 只消费字符串：date-only 原样使用；历史 ISO 载荷按本地时区显式解析（`calendarDay`），禁止 `slice(0, 10)` |
+
+**改动**：`convertScalars` 增加字段名识别（覆盖 list / 详情同源 / 回收站 / 预算 / 快照等所有出口）；`apiLedger.ts` 新增 `calendarDay` 替换 `transaction.date.slice(0, 10)`。流水行、详情抽屉、报表下钻、预算归属、交易 CSV、预算 JSON 导出全部由同一 date-only 字符串驱动；交易 CSV 与预算 JSON 原本就用本地格式化，未改。
+
+**实测（真实 API + 边界数据）**：
+
+- 创建 2026-11-01 00:05 与 2026-11-30 23:55 两笔：API 返回 `2026-11-01` / `2026-11-30`，列表与报表均只含这 2 笔、`expense=300`；2026-10-31 23:55 与 2026-12-01 00:05 两笔不进入本期。
+- 跨年 2026-12-31 23:55 与 2027-01-01 00:05：单日区间各自只返回 1 笔，合计区间 `expense=300`。
+- 预算月度周期：上述 4 笔中只计本期首末两笔，`used=300`。
+- 导出：交易 CSV 含 `2026-11-01 00:05:00` / `2026-11-30 23:55:00`；预算 JSON `startDate` 为 `2026-01-01`。
+- 三种时区（UTC+8 / UTC-5 / UTC）跑同一份断言全部通过；同一 date-only 字符串在三种时区下显示同一日历日。
+
+**旧 ISO 兼容**：若外部仍传来旧序列化 ISO，前端按本地时区显式解析（与旧前端一致）。这类载荷本身不具跨时区不变性，修复后的后端不再产生。
+
+**回归**：`apps/api/tests/unit/http-date-serialization.test.ts`（3 条）、`apps/api/tests/integration/date-contract.test.ts`（8 条，三时区各跑一次）、`apps/web/tests/unit/overview-api-ledger.test.ts` 新增 5 条（含「不再 slice 截断」源码断言）。
+
 
 ## 下一批：报表
 
