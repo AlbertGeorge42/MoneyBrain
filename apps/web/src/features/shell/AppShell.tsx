@@ -5,7 +5,7 @@ import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { getPortalHost } from '@/features/shared/portalHost'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { deriveOverview } from '@/features/overview/model'
+import { deriveOverview, ledgerAnchorDay } from '@/features/overview/model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { SHELL_NAV, shellPageLabel, type ShellPage } from './navigation'
 import './shell.css'
@@ -26,6 +26,9 @@ function MonthSummary({ state, compact = false }: { state: DataState; compact?: 
   const summary = deriveOverview(ledger)
   const positive = summary.balance >= 0
   const stateText = state === 'empty' ? '从第一笔开始' : state === 'loading' ? '正在读取' : '暂不可用'
+  // 脚注只报账本里真实发生的事：本月流水笔数，不写与账本无关的固定文案。
+  const month = ledgerAnchorDay(ledger).slice(0, 7)
+  const monthCount = ledger.transactions.filter((transaction) => transaction.date.slice(0, 7) === month).length
 
   return (
     <div className={compact ? 'mb-side-foot is-compact' : 'mb-side-foot'}>
@@ -37,7 +40,7 @@ function MonthSummary({ state, compact = false }: { state: DataState; compact?: 
           </div>
           <div className="mb-side-foot-meta">
             <span className={positive ? 'mb-dot is-positive' : 'mb-dot is-negative'} />
-            连续记录 12 天
+            {monthCount > 0 ? `本月 ${monthCount} 笔流水` : '本月还没有流水'}
           </div>
         </>
       ) : (
