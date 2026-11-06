@@ -9,8 +9,8 @@
 **现在不能整体切换。** `/design` 的五个页面全部跑在内存种子账本上，没有一条 API 读写；
 切换不是「换视图」，而是「换数据源 + 换路由」。建议分页接入，先总览（只读），不整体替换。
 
-> 2026-11-06 更新：**总览已按此建议完成只读接入，流水已完成真实读写**（开关 `VITE_HF_DATA=api`，默认仍为种子）。
-> 其余三页未接；进度与回退见第八节。
+> 2026-11-06 更新：**总览已按此建议完成只读接入，流水已完成真实读写，设置页账户与分类已接真实读写**（开关 `VITE_HF_DATA=api`，默认仍为种子）。
+> 报表、预算未接；进度与回退见第八节。
 
 ## 一、事实核实
 
@@ -119,8 +119,8 @@
 
 ## 七、现在就能切的页面
 
-**总览已具备只读切换条件，流水已具备读写 + 撤销 + 回收站的切换条件**（2026-11-06 完成，见第八节）；其余三页仍依赖内存数据，直接切会把演示数据当生产数据。
-报表需先接四视图端点；预算需先修口径；设置必须最后。
+**总览已具备只读切换条件，流水已具备读写 + 撤销 + 回收站的切换条件，设置页的账户/分类已具备读写 + 撤销 + 回收站的切换条件**（2026-11-06 完成，见第八节）；报表、预算仍依赖内存数据，直接切会把演示数据当生产数据。
+报表需先接四视图端点；预算需先修口径。设置里的导入/导出/回滚/清空仍未接，破坏性操作留待后续。
 
 ## 八、接入进度（2026-11-06）
 
@@ -130,7 +130,7 @@
 | 2 | 流水 | **已接（读写 + 审计撤销 + 回收站）** | `GET /transactions`（含 `keyword/amountMin/amountMax`）、`POST/PUT/DELETE /transactions`、`POST /audit-events/:id/undo`、`GET /transactions/recycle-bin`；DTO→`LedgerTransaction` 与分类展示映射 | `VITE_HF_DATA` 默认 `seed`；API 模式写操作真写库，种子模式仍内存 |
 | 3 | 报表 | 未接 | 计划：四视图端点，下钻带流水筛选 | 同上 |
 | 4 | 预算 | 未接 | 计划：`budgets` + `statuses`，先定月度口径 | 同上 |
-| 5 | 设置 | 未接 | 计划：账户/分类 CRUD、导入导出、回滚、清空、回收站 | 同上 |
+| 5 | 设置 | **已接（账户/分类读写 + 审计撤销 + 回收站）** | `GET/POST/PUT/DELETE /accounts` + `sort/batch`、`/transaction-categories` + `move` + `sort/batch`、`POST /audit-events/:id/undo`、`GET /transactions/recycle-bin`（含 `accounts/categories`）；DTO→`Ledger` 映射 | `VITE_HF_DATA` 默认 `seed`；导入/导出/回滚/清空仍为种子内存 |
 
 总览接入要点：
 
@@ -149,5 +149,15 @@
 - 批量：改分类与删除都是逐条请求（请求数 = 选中笔数），非原子；部分失败保留失败项供重试。
 - 新增端点：**0**；`GET /transactions` 新增参数 `keyword`、`amountMin`、`amountMax`（整数分）。
 - 遗留：退款关联原交易、`PUT` 的 6 秒撤销（后端不返回审计 id）、流水页独立回收站入口。
+
+设置接入要点：
+
+- 账户：创建 `POST /accounts`（`sort` 取同性质组 `max+1`）、编辑 `PUT /accounts/:id`、删除 `DELETE /accounts/:id`；性质映射顶级账户分类；编辑「当前余额」按差额修正 `initialBalance`，与 `balance-at` 同口径。
+- 分类：两级增删改走 `/transaction-categories`，`parentId` 与 `PUT /:id/move`、`PUT /sort/batch` 真写；展示 id ↔ 真实 id 经 `categoryDisplay/categoryReal` 映射，流水/报表的层级展示不变。
+- 撤销 / 回收站：删除返回 `auditEventId`，6 秒 toast 走 `POST /audit-events/:id/undo`；账户按 `beforeJson` 重建、分类重建并回填转移交易；过期条目进 `GET /transactions/recycle-bin`（响应新增 `accounts` / `categories`），级联删除标「不可恢复」。
+- 失效查询：写后失效 `['hf','overview','ledger']`、`['hf','transactions']`、`['hf','reports']`、`['hf','budgets']`、`['hf','recycle-bin']`。
+- 失败路径：断网或接口造错时表单/弹层保留、错误可见，解除后可重试。
+- 新增端点：**0**；扩展三处：`POST /accounts` 接受 `sort`、两个 DELETE 返回 `auditEventId`、回收站响应追加 `accounts` / `categories`。
+- 遗留：导入/导出、导入回滚、清空数据、退款关联；报表/预算页接入。
 
 下一批：**报表**。前置条件见 [hf-api-gaps.md](hf-api-gaps.md) 的「下一批：报表」。
