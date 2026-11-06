@@ -506,6 +506,8 @@ export interface CashFlowReportData {
   cashInflow: ReportValue
   cashOutflow: ReportValue
   netCashFlow: ReportValue
+  /** 平账（对账调整）净额，单列展示，不计入生活/投资/筹资流量。 */
+  reconciliation: ReportValue
   flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
   cashAccounts: string[]
   startCash: ReportValue

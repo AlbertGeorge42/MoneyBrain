@@ -55,6 +55,19 @@ describe('现金流量表退款方向', () => {
     expect(result.operating.outflow).toBe(0)
   })
 
+  it('平账不计入任何活动桶，只单列 reconciliation 净额', () => {
+    const result = aggregate([
+      item({ type: 'adjustment', amount: minor(500) }),
+      item({ type: 'adjustment', amount: minor(-200) }),
+    ])
+
+    expect(result.operating.inflow).toBe(0)
+    expect(result.operating.outflow).toBe(0)
+    expect(result.investing.inflow).toBe(0)
+    expect(result.financing.inflow).toBe(0)
+    expect(result.reconciliation).toBe(300)
+  })
+
   it('收支与退款的净额自洽', () => {
     const result = aggregate([
       item({ type: 'income', amount: minor(1000) }),

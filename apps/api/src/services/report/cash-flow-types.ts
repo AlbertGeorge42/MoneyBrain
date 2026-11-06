@@ -87,5 +87,7 @@ export interface AggregatedFlows {
   investing: CashFlowActivityMinor
   financing: CashFlowActivityMinor
   uncategorized: CashFlowActivityMinor
+  /** 平账（adjustment）净额：只影响余额，不进任何活动桶。 */
+  reconciliation: Minor
   flowByAccount: Record<string, { inflow: Minor; outflow: Minor }>
 }

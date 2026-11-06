@@ -111,6 +111,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
   const financing: CashFlowActivityMinor = { inflow: minor(0), outflow: minor(0), items: [] }
   const uncategorized: CashFlowActivityMinor = { inflow: minor(0), outflow: minor(0), items: [] }
   const flowByAccount: Record<string, { inflow: Minor; outflow: Minor }> = {}
+  let reconciliation = minor(0)
 
   const getTargetByType = (cashFlowType: string | null): CashFlowActivityMinor =>
     cashFlowType === 'investing' ? investing :
@@ -165,6 +166,9 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         const actualInflow = rules.transferInflow(it.amount)
         accountFlow.inflow = minor(accountFlow.inflow + actualInflow)
       }
+    } else if (it.type === 'adjustment' && it.isFromCash) {
+      // 平账只改变账户余额，不是一笔资金流入/流出：单列累计，不进任何活动桶。
+      reconciliation = minor(reconciliation + it.amount)
     } else if (it.type === 'refund' && it.isFromCash) {
       // 退款方向由原交易类型决定（领域层规则）：
       // 收入退款 = 钱流出账户 → 现金流为流出；支出退款 = 钱流回账户 → 流入。
@@ -186,5 +190,5 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
     }
   }
 
-  return { operating, investing, financing, uncategorized, flowByAccount }
+  return { operating, investing, financing, uncategorized, reconciliation, flowByAccount }
 }

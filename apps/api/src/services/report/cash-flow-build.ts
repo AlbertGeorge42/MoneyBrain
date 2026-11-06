@@ -132,6 +132,7 @@ export function buildStatement(actual: AggregatedFlows, predicted: AggregatedFlo
   cashInflow: ReportValue
   cashOutflow: ReportValue
   netCashFlow: ReportValue
+  reconciliation: ReportValue
   flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
 } {
   const sumBucket = (flows: AggregatedFlows, field: 'inflow' | 'outflow') => minor(
@@ -175,6 +176,8 @@ export function buildStatement(actual: AggregatedFlows, predicted: AggregatedFlo
     cashInflow: { actual: actualCashInflow, predicted: predictedCashInflow },
     cashOutflow: { actual: actualCashOutflow, predicted: predictedCashOutflow },
     netCashFlow: { actual: actualNetCashFlow, predicted: predictedNetCashFlow },
+    // 平账单列：netCashFlow + reconciliation === cashChange
+    reconciliation: { actual: actual.reconciliation, predicted: predicted.reconciliation },
     flowByAccount,
   }
 }

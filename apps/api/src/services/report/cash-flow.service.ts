@@ -120,6 +120,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     cashInflow: statement.cashInflow,
     cashOutflow: statement.cashOutflow,
     netCashFlow: statement.netCashFlow,
+    reconciliation: statement.reconciliation,
     flowByAccount: statement.flowByAccount,
     cashAccounts: cashAccounts.map(a => a.name),
     startCash: { actual: actualStartCash, predicted: predictedStartCash },

@@ -160,8 +160,7 @@ export function summarizeTransactions(transactions: readonly LedgerTransaction[]
   for (const transaction of transactions) {
     if (transaction.type === 'income' || transaction.type === 'refund') income += Math.abs(transaction.amount)
     if (transaction.type === 'expense') expense += Math.abs(transaction.amount)
-    if (transaction.type === 'adjustment' && transaction.amount > 0) income += transaction.amount
-    if (transaction.type === 'adjustment' && transaction.amount < 0) expense += -transaction.amount
+    // 平账（adjustment）只修正账户余额，不属于收入/支出，绝不进流水页合计。
   }
   return { count: transactions.length, income, expense, net: income - expense }
 }

@@ -442,6 +442,14 @@ const CashFlowReport: React.FC<CashFlowReportProps> = ({
           )
         })}
       </div>
+      {(cashFlowData?.reconciliation?.actual ?? 0) !== 0 && (
+        <Card title="平账" size="small" className="surface-card report-section-card">
+          <div className="report-summary-note">
+            对账调整净额：{formatCurrency(minor(cashFlowData?.reconciliation?.actual ?? 0), { showSign: true })}
+            （单列为对账调整，不计入生活 / 投资 / 筹资流量）
+          </div>
+        </Card>
+      )}
       {cashFlowData?.cashAccounts && cashFlowData.cashAccounts.length > 0 && (
         <Card title="现金账户" size="small" className="surface-card report-section-card">
           <div className="report-summary-note">{cashFlowData.cashAccounts.join('、')}</div>
