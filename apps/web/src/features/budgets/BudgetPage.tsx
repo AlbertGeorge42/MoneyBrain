@@ -262,29 +262,21 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
   )
 }
 
-function EmptyPage({ device, onAdd }: { device: DeviceMode; onAdd: () => void }) {
+function EmptyPage({ onAdd }: { onAdd: () => void }) {
   return (
-    <>
-      {device === 'desktop' && (
-        <div className="mb-page-head">
-          <h1 className="mb-page-title">预算</h1>
-          <p className="mb-page-sub">还没有预算</p>
-        </div>
-      )}
-      <section className="mb-card mb-bg-empty">
-        <div className="mb-bg-empty-mark" aria-hidden>
-          <Plus size={22} />
-        </div>
-        <h2 className="mb-sec-title">还没有预算</h2>
-        <p className="mb-bg-empty-copy">
-          为支出设置上限、为收入设置目标、为转账记录计划。第一条预算建好后，这一页会显示「可花多少」、
-          接近上限与超支提醒。
-        </p>
-        <button type="button" className="mb-primary-btn" onClick={onAdd}>
-          新增预算条目
-        </button>
-      </section>
-    </>
+    <section className="mb-card mb-bg-empty">
+      <div className="mb-bg-empty-mark" aria-hidden>
+        <Plus size={22} />
+      </div>
+      <h2 className="mb-sec-title">还没有预算</h2>
+      <p className="mb-bg-empty-copy">
+        为支出设置上限、为收入设置目标、为转账记录计划。第一条预算建好后，这一页会显示「可花多少」、
+        接近上限与超支提醒。
+      </p>
+      <button type="button" className="mb-primary-btn" onClick={onAdd}>
+        新增预算条目
+      </button>
+    </section>
   )
 }
 
@@ -474,8 +466,9 @@ export function BudgetPage({
           onAdd={() => onEditorOpenChange(true)}
           currentMonth={currentMonth}
           hasData={hasMonthData}
+          empty
         />
-        <EmptyPage device={device} onAdd={() => onEditorOpenChange(true)} />
+        <EmptyPage onAdd={() => onEditorOpenChange(true)} />
         <BudgetEditor
           opened={editorOpen}
           device={device}
@@ -653,6 +646,7 @@ function BudgetPageHead({
   onAdd,
   currentMonth,
   hasData,
+  empty,
 }: {
   device: DeviceMode
   data: BudgetPageData
@@ -661,6 +655,7 @@ function BudgetPageHead({
   onAdd: () => void
   currentMonth: string
   hasData: (month: string) => boolean
+  empty?: boolean
 }) {
   if (device === 'mobile') return null
   const count = data.groups.reduce((total, group) => total + group.rows.length, 0)
@@ -679,9 +674,11 @@ function BudgetPageHead({
           currentMonth={currentMonth}
           hasData={hasData}
         />
-        <button type="button" className="mb-primary-btn mb-bg-add" onClick={onAdd}>
-          <Plus size={16} /> 新增
-        </button>
+        {!empty && (
+          <button type="button" className="mb-primary-btn mb-bg-add" onClick={onAdd}>
+            <Plus size={16} /> 新增
+          </button>
+        )}
       </div>
     </div>
   )
