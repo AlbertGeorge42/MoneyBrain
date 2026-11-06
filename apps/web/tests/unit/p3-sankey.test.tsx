@@ -1,9 +1,9 @@
 /**
- * 批 C：PC 现金流桑基
+ * 批 C：PC 现金流桑基（三层重设计）
  *
- * 守护口径：三层（期初 → 流入 / 流出 → 期末）、费用与修正各为独立 link、
- * 每条 link 与每个节点都有 ≥24px 命中带、守恒差额在页脚可见；
- * 390 不渲染桑基，仍用 Top5 横条。
+ * 守护口径：收入一级分类 → 账户 → 支出一级分类；期初 / 期末逐账户读数；
+ * 逐账户 + 总账双重守恒；现金账户之间转账画成账户 → 账户 link；
+ * 每条 link 与每个节点都有 ≥24px 命中带；390 不渲染桑基，仍用 Top5 横条。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -14,7 +14,7 @@ import { createSeedLedger } from '@/features/overview/model'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { CashSankeyChart } from '@/features/reports/CashSankey'
 import { deriveCashReport } from '@/features/reports/reportsModel'
-import { assertCashSankeyConservation, deriveCashSankey } from '@/features/reports/cashSankeyModel'
+import { assertAccountConservation, assertCashSankeyConservation, deriveCashSankey } from '@/features/reports/cashSankeyModel'
 import type { DeviceMode } from '@/features/shared/types'
 
 const ledger = createSeedLedger()
@@ -29,6 +29,7 @@ describe('CashSankeyChart', () => {
     expect(linkHits.length).toBe(sankey.links.length)
     for (const hit of linkHits) {
       expect(Number(hit.dataset.hit)).toBeGreaterThanOrEqual(24)
+      expect(Number(hit.getAttribute('stroke-width'))).toBeGreaterThanOrEqual(24)
     }
     const nodes = container.querySelectorAll('.mb-rp-sankey-node')
     const nodeHits = Array.from(container.querySelectorAll<SVGRectElement>('.mb-rp-sankey-node-hit'))
@@ -36,10 +37,11 @@ describe('CashSankeyChart', () => {
     for (const hit of nodeHits) {
       expect(Number(hit.dataset.hit)).toBeGreaterThanOrEqual(24)
       expect(Number(hit.getAttribute('height'))).toBeGreaterThanOrEqual(24)
+      expect(Number(hit.getAttribute('width'))).toBeGreaterThanOrEqual(24)
     }
   })
 
-  it('点 link / 点节点都落到同一节点锚点（合计逐字段一致）', () => {
+  it('点 link / 点节点都落到同一节点锚点（金额逐字段一致）', () => {
     const onOpen = vi.fn()
     const { container } = render(<CashSankeyChart data={sankey} onOpen={onOpen} />)
     const feeNode = sankey.nodes.find((node) => node.id === 'out:fee')
@@ -47,10 +49,19 @@ describe('CashSankeyChart', () => {
     expect(feeHit).not.toBeNull()
     fireEvent.click(feeHit!)
     expect(onOpen).toHaveBeenCalledWith('out:fee', feeNode?.amount)
-    const openingHit = container.querySelector<SVGRectElement>('.mb-rp-sankey-node-hit')
-    fireEvent.click(openingHit!)
-    const opening = sankey.nodes.find((node) => node.id === 'opening')
-    expect(onOpen).toHaveBeenCalledWith('opening', opening?.amount)
+    const nodeHit = container.querySelector<SVGRectElement>('.mb-rp-sankey-node-hit')
+    fireEvent.click(nodeHit!)
+    const first = sankey.nodes.find((node) => node.id === nodeHit!.closest('.mb-rp-sankey-node')?.getAttribute('data-id'))
+    expect(onOpen).toHaveBeenLastCalledWith(first?.id, first?.amount)
+  })
+
+  it('账户节点下方逐账户给出期初 → 期末读数', () => {
+    const { container } = render(<CashSankeyChart data={sankey} onOpen={() => {}} />)
+    const balances = Array.from(container.querySelectorAll('.mb-rp-sankey-balance'))
+    expect(balances).toHaveLength(sankey.accounts.length)
+    for (const text of balances) {
+      expect(text.textContent).toMatch(/期初 .+ → 期末 .+/)
+    }
   })
 
   it('页脚给出期初 / 流入 / 流出 / 期末与差额，差额实测为 0', () => {
@@ -69,12 +80,49 @@ describe('CashSankeyChart', () => {
   })
 })
 
-describe('deriveCashSankey 守恒', () => {
-  it('期初 + 流入 − 流出 − 期末 = 0，账户间转账不进桑基', () => {
+describe('deriveCashSankey 三层与守恒', () => {
+  it('总账守恒：期初 + 流入 − 流出 − 期末 = 0，逐账户等式全部成立', () => {
     expect(sankey.status).toBe('ready')
     expect(sankey.difference).toBe(0)
     expect(sankey.opening + sankey.inflow - sankey.outflow - sankey.closing).toBe(0)
-    expect(sankey.transferExcluded).toBeGreaterThan(0)
+    expect(assertAccountConservation(sankey.accounts)).toBeNull()
+    for (const account of sankey.accounts) {
+      expect(Math.abs(account.difference)).toBeLessThanOrEqual(1)
+      expect(
+        account.opening +
+          account.inflow -
+          account.outflow +
+          account.transferIn -
+          account.transferOut,
+      ).toBe(account.closing)
+    }
+  })
+
+  it('节点键用账户 / 分类 id，左右列落到一级分类', () => {
+    const categoryNames = sankey.nodes
+      .filter((node) => node.layer === 0 || node.layer === 2)
+      .map((node) => node.id)
+    for (const id of categoryNames) {
+      expect(id).toMatch(/^(in|out):.+$/)
+    }
+    const accountIds = sankey.nodes.filter((node) => node.layer === 1).map((node) => node.id)
+    for (const id of accountIds) {
+      expect(id).toMatch(/^acct:.+$/)
+    }
+  })
+
+  it('现金账户之间转账保留账户 → 账户 link，并反映在两侧余额变化', () => {
+    expect(sankey.transferTotal).toBeGreaterThan(0)
+    const transfers = sankey.links.filter((link) => link.kind === 'transfer')
+    expect(transfers.length).toBeGreaterThan(0)
+    for (const transfer of transfers) {
+      const from = sankey.accounts.find((account) => `acct:${account.id}` === transfer.sourceId)
+      const to = sankey.accounts.find((account) => `acct:${account.id}` === transfer.targetId)
+      expect(from).toBeDefined()
+      expect(to).toBeDefined()
+      expect(from!.transferOut).toBeGreaterThanOrEqual(transfer.amount)
+      expect(to!.transferIn).toBeGreaterThanOrEqual(transfer.amount)
+    }
   })
 
   it('手续费与对账修正各为一条独立出流 link', () => {
@@ -95,6 +143,7 @@ describe('deriveCashSankey 守恒', () => {
     expect(hidden.nodes.some((node) => node.name.startsWith('其他（已隐藏'))).toBe(true)
     expect(hidden.inflow).toBe(sankey.inflow)
     expect(hidden.outflow).toBe(sankey.outflow)
+    expect(assertAccountConservation(hidden.accounts)).toBeNull()
   })
 
   it('隐藏组数按活动分组去重：隐藏 1 组只算 1 组，不把流入 / 流出各计一次', () => {
@@ -117,6 +166,10 @@ describe('deriveCashSankey 守恒', () => {
     expect(two.hiddenGroups).toBe(2)
     // 本期只有经营 / 账户间转账有流水，全隐藏与隐藏 2 组同数。
     expect(all.hiddenGroups).toBe(2)
+    // 账户间转账隐藏后不再画账户 → 账户 link，但金额并入「其他」仍守恒。
+    expect(two.links.some((link) => link.kind === 'transfer')).toBe(false)
+    expect(two.transferTotal).toBe(sankey.transferTotal)
+    expect(two.difference).toBe(0)
     for (const data of [one, two, all]) {
       const { container } = render(<CashSankeyChart data={data} onOpen={() => {}} />)
       const note = container.querySelector('.mb-rp-chart-note')?.textContent ?? ''
@@ -137,12 +190,56 @@ describe('deriveCashSankey 守恒', () => {
     )
     expect(negative.status).toBe('invalid')
     expect(negative.reason).toContain('三层桑基不适用')
-    expect(negative.links).toHaveLength(0)
   })
 
   it('守恒断言容差 ¥0.01：差 1 分放行，差 2 分抛错', () => {
     expect(assertCashSankeyConservation(10_000, 1_000, 500, 10_500)).toBe(0)
     expect(() => assertCashSankeyConservation(10_000, 1_000, 500, 10_498)).toThrow('现金流桑基不守恒')
+  })
+
+  it('十几项分类时按行带避让：同一列标签基线间距不小于 14px，图形随之变高', () => {
+    const base = createSeedLedger()
+    const categories = Array.from({ length: 16 }, (_, index) => ({
+      id: `dense_${index}`,
+      name: `密集分类 ${index + 1}`,
+      type: 'expense' as const,
+    }))
+    const denseTransactions = categories.map((category, index) => ({
+      id: `dense_tx_${index}`,
+      date: '2026-10-15',
+      type: 'expense' as const,
+      categoryId: category.id,
+      note: '',
+      accountId: 'wx',
+      amount: 1_000 + index * 300,
+    }))
+    const denseLedger = {
+      ...base,
+      categories: [...base.categories, ...categories],
+      transactions: [...base.transactions, ...denseTransactions],
+    }
+    const dense = deriveCashSankey(
+      denseLedger,
+      deriveCashReport(denseLedger, '2026-10-01', '2026-10-31'),
+      ALL_VISIBLE,
+    )
+    expect(dense.status).toBe('ready')
+    const expenseNodes = dense.nodes.filter((node) => node.layer === 2)
+    expect(expenseNodes.length).toBeGreaterThanOrEqual(16)
+    const { container } = render(<CashSankeyChart data={dense} onOpen={() => {}} />)
+    const rows = Array.from(container.querySelectorAll<SVGGElement>('.mb-rp-sankey-node[data-layer="2"]'))
+      .map((node) => {
+        const name = node.querySelector('.mb-rp-sankey-name')
+        const value = node.querySelector('.mb-rp-sankey-value')
+        return { name: Number(name?.getAttribute('y')), value: Number(value?.getAttribute('y')) }
+      })
+      .sort((left, right) => left.name - right.name)
+    expect(rows.length).toBeGreaterThanOrEqual(16)
+    for (let index = 1; index < rows.length; index += 1) {
+      expect(rows[index].name - rows[index - 1].value).toBeGreaterThanOrEqual(14)
+    }
+    const viewBox = container.querySelector('.mb-rp-sankey-svg')?.getAttribute('viewBox') ?? ''
+    expect(Number(viewBox.split(' ')[3])).toBeGreaterThan(600)
   })
 })
 

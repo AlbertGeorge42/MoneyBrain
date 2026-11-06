@@ -1018,7 +1018,7 @@ function CashView({
       {device === 'desktop' ? (
         <>
           {sankey && (
-            <ChartCard title="现金流流向" desc="期初 → 流入 / 流出 → 期末 · 账户间转账为内部转移">
+            <ChartCard title="现金流流向" desc="收入分类 → 账户 → 支出分类 · 期初 / 期末逐账户读数">
               <CashSankeyChart data={sankey} onOpen={openSankeyNode} />
             </ChartCard>
           )}
@@ -1095,7 +1095,7 @@ function CashView({
           <div className="mb-rp-drill">
             <div className="mb-rp-drill-head">
               <span className="mb-rp-drill-label">
-                {sankeyNode.layer === 1 ? '活动分组合计' : '期初 / 期末口径净额'}
+                {sankeyNode.layer === 1 ? '账户本期流动' : '本期分类合计'}
               </span>
               <span className="mb-rp-drill-amount is-neutral">{currency(sankeyNode.amount)}</span>
             </div>
@@ -1103,7 +1103,7 @@ function CashView({
               {sankeyNode.children.length > 0 ? `${sankeyNode.children.length} 笔` : '无分组明细'}
             </h4>
             {sankeyNode.children.length === 0 ? (
-              <p className="mb-rp-empty-line">期初 / 期末为报表口径净额，没有可下钻的分组流水</p>
+              <p className="mb-rp-empty-line">该节点没有可下钻的分组流水</p>
             ) : (
               sankeyNode.children.map((child) => (
                 <div className="mb-rp-drill-row" key={child.id}>

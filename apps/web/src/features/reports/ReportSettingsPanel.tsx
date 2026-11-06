@@ -201,7 +201,7 @@ export function ReportConfigPanel({
       {tab === 'cash' && (
         <Field
           label="分组显示"
-          note="表尾合计按可见分组重算；PC 桑基把隐藏项并入「其他（已隐藏 N 组）」以保持守恒，图与表合计允许不同，账户间转账为内部转移不进桑基。"
+          note="表尾合计按可见分组重算；PC 桑基把隐藏项并入「其他（已隐藏 N 组）」以保持守恒，图与表合计允许不同；账户间转账为账户内部移动，画成账户间连线而非首尾节点。"
         >
           {CASH_GROUP_KEYS.map((key) => (
             <Toggle

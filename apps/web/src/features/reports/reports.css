@@ -558,7 +558,8 @@
   color: var(--mb-color-expense-display);
 }
 
-.mb-rp-crow-amount.is-transfer {
+.mb-rp-crow-amount.is-transfer,
+.mb-rp-drill-value.is-transfer {
   color: var(--mb-color-transfer);
 }
 
@@ -1520,17 +1521,21 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-sankey-ribbon {
-  fill: var(--mb-color-border);
+  fill: var(--mb-chart-series-7);
   opacity: 0.45;
   pointer-events: none;
 }
 
 .mb-rp-sankey-link.is-inflow .mb-rp-sankey-ribbon {
-  fill: var(--mb-color-income);
+  fill: var(--mb-chart-series-1);
 }
 
 .mb-rp-sankey-link.is-outflow .mb-rp-sankey-ribbon {
-  fill: var(--mb-color-expense);
+  fill: var(--mb-chart-series-2);
+}
+
+.mb-rp-sankey-link.is-neutral .mb-rp-sankey-ribbon {
+  fill: var(--mb-chart-series-7);
 }
 
 .mb-rp-sankey-link:hover .mb-rp-sankey-ribbon {
@@ -1545,17 +1550,17 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   cursor: pointer;
 }
 
-.mb-rp-sankey-node rect:first-of-type {
-  fill: var(--mb-color-text-secondary);
+.mb-rp-sankey-node-body {
+  fill: var(--mb-chart-series-7);
   pointer-events: none;
 }
 
-.mb-rp-sankey-node.is-inflow rect:first-of-type {
-  fill: var(--mb-color-income);
+.mb-rp-sankey-node.is-inflow .mb-rp-sankey-node-body {
+  fill: var(--mb-chart-series-1);
 }
 
-.mb-rp-sankey-node.is-outflow rect:first-of-type {
-  fill: var(--mb-color-expense);
+.mb-rp-sankey-node.is-outflow .mb-rp-sankey-node-body {
+  fill: var(--mb-chart-series-2);
 }
 
 .mb-rp-sankey-node-hit {
@@ -1564,8 +1569,16 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   cursor: pointer;
 }
 
+.mb-rp-sankey-axis {
+  fill: var(--mb-color-text-tertiary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  letter-spacing: 0.08em;
+}
+
 .mb-rp-sankey-label,
 .mb-rp-sankey-value,
+.mb-rp-sankey-balance,
 .mb-rp-sankey-name {
   fill: var(--mb-color-text-secondary);
   font-family: var(--mb-font-ui);
@@ -1577,6 +1590,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-sankey-value,
+.mb-rp-sankey-balance,
 .mb-rp-sankey-label {
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;

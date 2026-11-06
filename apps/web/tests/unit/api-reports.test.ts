@@ -11,6 +11,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { render } from '@testing-library/react'
 import { createSeedLedger, ledgerAnchorDay, type Ledger, type LedgerTransaction } from '@/features/overview/model'
 import {
   mapBalanceReport,
@@ -22,6 +24,7 @@ import {
   assertCashSankeyConservation,
   deriveCashSankey,
 } from '@/features/reports/cashSankeyModel'
+import { CashSankeyChart } from '@/features/reports/CashSankey'
 import { deriveCashReport } from '@/features/reports/reportsModel'
 import {
   CASH_GROUP_KEYS,
@@ -43,6 +46,22 @@ function ledgerWith(transactions: LedgerTransaction[], today?: string): Ledger {
     ...createSeedLedger(),
     transactions,
     ...(today ? { snapshot: { ...(createSeedLedger().snapshot ?? {}), today } as never } : {}),
+  }
+}
+
+/** 与 CASH_FLOW.sankey 对齐的 API 账本：期初 482,620 → 期末 500,220。 */
+function cashConsistentLedger(): Ledger {
+  const transactions = [
+    tx({ id: 'c1', date: '2026-11-02', amount: 50000, type: 'transfer', categoryId: 'move', accountId: 'cmb', toAccountId: 'wx' }),
+    tx({ id: 'c2', date: '2026-11-03', amount: 31200, categoryId: 'edu', accountId: 'wx' }),
+    // 收入退款：钱流出账户，后端桑基归到支出侧，和 start / end 现金一致。
+    tx({ id: 'c3', date: '2026-11-04', amount: 1200, type: 'refund', relatedType: 'income', categoryId: 'refund', accountId: 'wx' }),
+  ]
+  const base = ledgerWith(transactions)
+  // wx 当前余额 = 128620 + 50000 − 31200 − 1200。
+  return {
+    ...base,
+    accounts: base.accounts.map((account) => (account.id === 'wx' ? { ...account, balance: 146220 } : account)),
   }
 }
 
@@ -142,6 +161,21 @@ const CASH_FLOW = {
       ],
     },
   },
+  sankey: {
+    nodes: [
+      { name: '账户互转_ncs', category: 'non_cash_source' },
+      { name: '退款_expense', category: 'expense_category' },
+      { name: '教育_expense', category: 'expense_category' },
+      { name: '其他_expense', category: 'expense_category' },
+      { name: '微信零钱_cash', category: 'cash' },
+    ],
+    links: [
+      { source: '账户互转_ncs', target: '微信零钱_cash', value: 50000, actualValue: 50000 },
+      { source: '微信零钱_cash', target: '退款_expense', value: 1200, actualValue: 1200 },
+      { source: '微信零钱_cash', target: '教育_expense', value: 19900, actualValue: 19900 },
+      { source: '微信零钱_cash', target: '其他_expense', value: 11300, actualValue: 11300 },
+    ],
+  },
 } as never
 
 describe('视图 ↔ 端点映射', () => {
@@ -199,11 +233,8 @@ describe('视图 ↔ 端点映射', () => {
   })
 
   it('现金流：合计 / 期初 / 期末 / 分组来自后端，退款冲减流入不制造负数分组', () => {
-    const transactions = [
-      tx({ id: 'c1', date: '2026-11-02', amount: 50000, type: 'transfer', categoryId: 'move', accountId: 'cmb' }),
-      tx({ id: 'c2', date: '2026-11-03', amount: 19900, categoryId: 'edu' }),
-    ]
-    const report = mapCashReport(CASH_FLOW, ledgerWith(transactions), '2026-11-01', '2026-11-06')
+    const ledger = cashConsistentLedger()
+    const report = mapCashReport(CASH_FLOW, ledger, '2026-11-01', '2026-11-06')
     expect(report.inflowTotal).toBe(48800)
     expect(report.outflowTotal).toBe(31200)
     expect(report.openingCash).toBe(482620)
@@ -214,11 +245,14 @@ describe('视图 ↔ 端点映射', () => {
     expect(report.outflowGross).toBe(32400)
     expect(report.outflowGroups[0].children.some((child) => child.label === '退款')).toBe(true)
 
-    const sankey = deriveCashSankey(ledgerWith(transactions), report, DEFAULT_REPORT_SETTINGS.cash.groups)
+    const sankey = deriveCashSankey(ledger, report, DEFAULT_REPORT_SETTINGS.cash.groups)
     expect(sankey.status).toBe('ready')
     expect(sankey.difference).toBe(0)
     expect(sankey.inflow).toBe(50000)
     expect(sankey.outflow).toBe(32400)
+    for (const account of sankey.accounts) {
+      expect(Math.abs(account.difference)).toBeLessThanOrEqual(1)
+    }
   })
 
   it('桑基失败态：现金账户期初余额日期晚于本期时说明原因，仍不画图', () => {
@@ -235,10 +269,11 @@ describe('视图 ↔ 端点映射', () => {
     const sankey = deriveCashSankey(lateLedger, report, DEFAULT_REPORT_SETTINGS.cash.groups)
 
     expect(sankey.status).toBe('invalid')
-    expect(sankey.nodes).toEqual([])
-    expect(sankey.links).toEqual([])
+    const { container } = render(createElement(CashSankeyChart, { data: sankey, onOpen: () => {} }))
+    expect(container.querySelector('.mb-rp-sankey-svg')).toBeNull()
     expect(sankey.reason).toContain('期初余额日期（2026 年 10 月 31 日）晚于本期起始日 2026 年 10 月 1 日')
     expect(sankey.reason).toContain('期初前的流水未计入期初余额')
+    expect(sankey.reason).toContain('逐账户期初合计')
   })
 
   it('投资分析：汇总 / 收益 / 分布 / 持仓取自后端；无投资账户时返回 null', () => {
@@ -334,7 +369,7 @@ describe('配置只影响展示', () => {
   })
 
   it('现金流：隐藏经营组后表格少一行，桑基并入「其他」仍守恒', () => {
-    const ledger = ledgerWith([])
+    const ledger = cashConsistentLedger()
     const report = mapCashReport(CASH_FLOW, ledger, '2026-11-01', '2026-11-06')
     expect(visibleCashGroups(report.outflowGroups, DEFAULT_REPORT_SETTINGS.cash)).toHaveLength(1)
     expect(visibleCashGroups(report.outflowGroups, settings.cash)).toHaveLength(0)

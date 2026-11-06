@@ -217,10 +217,10 @@ describe('面板切换、确认与刷新保持', () => {
     renderPage()
     fireEvent.click(screen.getAllByRole('button', { name: '配置' })[2])
     fireEvent.click(screen.getByRole('button', { name: /账户间转账/ }))
-    expect(screen.getByText(/已隐藏 1 组/)).toBeInTheDocument()
+    expect(screen.getAllByText(/已隐藏 1 组/).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: '重置' }))
-    expect(screen.queryByText(/已隐藏 1 组/)).not.toBeInTheDocument()
+    expect(screen.queryAllByText(/已隐藏 1 组/)).toHaveLength(0)
 
     fireEvent.click(screen.getByRole('button', { name: '确认' }))
     expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toContain('"账户间转账":true')

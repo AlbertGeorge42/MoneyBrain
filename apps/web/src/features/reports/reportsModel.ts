@@ -23,6 +23,7 @@ import {
 } from '@/features/overview/model'
 import { bucketKey, listBuckets, type Granularity } from './reportsTime'
 import type { ReportRow } from './ReportTable'
+import type { CashFlowReportData } from '@/services/api'
 
 export interface ReportMetric {
   label: string
@@ -144,6 +145,10 @@ export interface CashReport {
   investingNet: number
   financingNet: number
   closingCash: number
+  /**
+   * API 模式：后端三层桑基的节点 / link；种子模式为空，由桑基模型按流水推导。
+   */
+  apiSankey?: CashFlowReportData['sankey']
   /**
    * API 模式：后端口径的期初现金（现金等价账户）。
    * 种子模式没有该字段，桑基仍用全账户净额回放。

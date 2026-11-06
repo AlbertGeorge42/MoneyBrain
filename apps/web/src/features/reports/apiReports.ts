@@ -355,6 +355,8 @@ export function mapCashReport(data: CashFlowReportData, ledger: Ledger, from: st
     investingNet,
     financingNet,
     closingCash,
+    /** 后端三层桑基：现金账户之间转账已由后端产出 cash → cash link。 */
+    apiSankey: data.sankey,
     /** 后端口径的期初现金；桑基优先用它，避免再按全账户净额重算。 */
     openingCash: data.startCash.actual,
     /** 后端分组已含对账修正与手续费，桑基不再二次补计。 */
