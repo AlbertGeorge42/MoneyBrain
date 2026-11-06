@@ -703,6 +703,15 @@
   min-width: 0;
 }
 
+/* 三颗主按钮 44px：portal 后已脱离 .mb-mobile-scroll，触控规则不能挂在滚动容器上。 */
+.mb-tx-batchbar.is-mobile .mb-tx-btn {
+  flex: 1;
+  min-width: 0;
+  height: var(--mb-touch);
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-2);
+}
+
 .mb-tx-batch-count {
   flex: none;
   font-size: var(--mb-fs-1);
