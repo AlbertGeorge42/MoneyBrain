@@ -690,7 +690,8 @@
   position: fixed;
   left: var(--mb-page-pad-mobile);
   right: var(--mb-page-pad-mobile);
-  bottom: calc(var(--mb-touch) + var(--mb-s-4) + var(--mb-border-width));
+  /* 与底部导航之间至少留 8px，避免两条操作区贴成一条。 */
+  bottom: calc(var(--mb-touch) + var(--mb-s-4) + var(--mb-border-width) + var(--mb-s-2));
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -819,6 +820,13 @@
 
 .mb-tx-sheet-close {
   color: var(--mb-color-text-secondary);
+}
+
+/* 移动抽屉的关闭入口按 44×44 触控下限；水平内边距 20px，离边缘仍 ≥8px。 */
+.mb-tx-sheet .mb-tx-sheet-close {
+  flex: 0 0 var(--mb-touch);
+  width: var(--mb-touch);
+  height: var(--mb-touch);
 }
 
 .mb-tx-detail {
