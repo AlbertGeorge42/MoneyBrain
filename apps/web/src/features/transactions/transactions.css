@@ -645,14 +645,16 @@
 
 .mb-tx-batchbar {
   position: sticky;
-  bottom: var(--mb-s-4);
+  bottom: calc(var(--mb-dock-h) + var(--mb-s-2));
   z-index: var(--mb-z-batchbar);
   display: flex;
+  /* 固定区不参与 flex 收缩：否则高度会被内容压成 18px，按钮被裁掉。 */
+  flex: none;
   align-items: center;
   gap: var(--mb-s-3);
   /* 固定高度：文案再长也不顶高，摘要单行省略（超出折叠成 +N）。 */
   box-sizing: border-box;
-  height: 56px;
+  height: var(--mb-dock-batch-h);
   padding: 0 var(--mb-s-3);
   overflow: hidden;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
