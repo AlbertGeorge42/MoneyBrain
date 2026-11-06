@@ -48,56 +48,59 @@ function DesktopTable({
   onOpenDetail: (id: string) => void
 }) {
   return (
-    <section className="mb-card mb-tx-list-card" aria-label="流水列表">
-      <div className="mb-tx-rows">
-        {groups.map((group) => (
-          <Fragment key={group.date}>
-            <div className="mb-tx-group-row">
-              <span className="mb-tx-group-label">
-                {group.label}
-                {group.date === 'future' && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
-              </span>
-              <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
-                小计 {signedMinorText(group.net)}
-              </span>
-            </div>
-            {group.items.map((transaction) => {
-              const isSelected = selected.has(transaction.id)
-              const activate = () =>
-                batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id)
-              return (
-                <TxRow
-                  key={transaction.id}
-                  ledger={ledger}
-                  transaction={transaction}
-                  showNote={display.showNote}
-                  showAccount={display.showAccount}
-                  selected={isSelected}
-                  ariaLabel={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
-                  onActivate={activate}
-                  leading={
-                    batchMode ? (
-                      <button
-                        type="button"
-                        role="checkbox"
-                        aria-checked={isSelected}
-                        aria-label={`选择 ${transaction.note}`}
-                        className="mb-tx-check-btn"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onToggle(transaction.id)
-                        }}
-                      >
-                        <CheckBox checked={isSelected} />
-                      </button>
-                    ) : undefined
-                  }
-                />
-              )
-            })}
-          </Fragment>
-        ))}
-      </div>
+    <>
+      <section className="mb-card mb-tx-list-card" aria-label="流水列表">
+        <div className="mb-tx-rows">
+          {groups.map((group) => (
+            <Fragment key={group.date}>
+              <div className="mb-tx-group-row">
+                <span className="mb-tx-group-label">
+                  {group.label}
+                  {group.date === 'future' && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
+                </span>
+                <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
+                  小计 {signedMinorText(group.net)}
+                </span>
+              </div>
+              {group.items.map((transaction) => {
+                const isSelected = selected.has(transaction.id)
+                const activate = () =>
+                  batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id)
+                return (
+                  <TxRow
+                    key={transaction.id}
+                    ledger={ledger}
+                    transaction={transaction}
+                    showNote={display.showNote}
+                    showAccount={display.showAccount}
+                    selected={isSelected}
+                    ariaLabel={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
+                    onActivate={activate}
+                    leading={
+                      batchMode ? (
+                        <button
+                          type="button"
+                          role="checkbox"
+                          aria-checked={isSelected}
+                          aria-label={`选择 ${transaction.note}`}
+                          className="mb-tx-check-btn"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            onToggle(transaction.id)
+                          }}
+                        >
+                          <CheckBox checked={isSelected} />
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                )
+              })}
+            </Fragment>
+          ))}
+        </div>
+      </section>
+      {/* 合计条独立于列表卡片：卡片 overflow:hidden 会让 sticky 失效。 */}
       <div className="mb-tx-foot">
         <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
         <span className="mb-tx-foot-flow">
@@ -105,7 +108,7 @@ function DesktopTable({
           收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
         </span>
       </div>
-    </section>
+    </>
   )
 }
 

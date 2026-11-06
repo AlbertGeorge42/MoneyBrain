@@ -190,7 +190,8 @@
 .mb-hf-toast {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--mb-s-5) + env(safe-area-inset-bottom));
+  /* 与流水页合计条 / 批量条共用底部槽位时抬到其上，避免叠压。 */
+  bottom: calc(var(--mb-dock-h) + var(--mb-dock-batch-h) + var(--mb-s-5));
   z-index: var(--mb-z-fab);
   display: inline-flex;
   align-items: center;
