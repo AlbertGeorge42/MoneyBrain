@@ -1053,8 +1053,26 @@
   display: flex;
   flex-direction: column;
   max-height: 88vh;
+  overflow: hidden;
   border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
   background: var(--mb-color-surface-raised);
+}
+
+/* 移动端底部抽屉按内容高度收紧：内容短时不出现大片空白，
+   内容超高时再由 max-height 收口、body 内滚。 */
+.mb-set-page[data-device='mobile'] .mb-set-sheet {
+  --drawer-size: auto;
+  height: auto;
+}
+
+/* Mantine Body：只作「固定头 / 滚动体 / 常驻动作区」的纵向容器，自己不滚。 */
+.mb-set-sheet-frame {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .mb-set-sheet-inner {
@@ -1104,7 +1122,9 @@
 
 .mb-set-sheet-body {
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
+  min-height: 0;
   gap: var(--mb-s-4);
   padding: var(--mb-s-4);
   overflow-y: auto;
@@ -1147,11 +1167,15 @@
   color: var(--mb-color-text-secondary);
 }
 
+/* 动作区常驻抽屉底部：内容在 body 内滚，按钮不随内容被推走。 */
 .mb-set-sheet-actions {
   display: flex;
+  flex: none;
   justify-content: flex-end;
   gap: var(--mb-s-2);
-  margin-top: var(--mb-s-2);
+  padding: var(--mb-s-3) var(--mb-s-4);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  background: var(--mb-color-surface-raised);
 }
 
 .mb-set-radio-list {

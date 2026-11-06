@@ -290,7 +290,7 @@ function EditorSheet({
       size={device === 'mobile' ? 'auto' : 380}
       withinPortal={false}
       withCloseButton={false}
-      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">{title}</h2>
@@ -363,27 +363,27 @@ function EditorSheet({
         )}
 
         {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
+      </div>
 
-        <div className="mb-set-sheet-actions">
-          <button type="button" className="mb-set-btn is-ghost" onClick={onClose}>
-            取消
-          </button>
-          <button
-            type="button"
-            className="mb-set-btn is-primary"
-            disabled={!valid || saving}
-            onClick={() =>
-              onSave({
-                name: name.trim(),
-                kind,
-                balance: Math.round(Number(balance) * 100),
-                target: Number(target),
-              })
-            }
-          >
-            {saving ? '保存中…' : '保存'}
-          </button>
-        </div>
+      <div className="mb-set-sheet-actions">
+        <button type="button" className="mb-set-btn is-ghost" onClick={onClose}>
+          取消
+        </button>
+        <button
+          type="button"
+          className="mb-set-btn is-primary"
+          disabled={!valid || saving}
+          onClick={() =>
+            onSave({
+              name: name.trim(),
+              kind,
+              balance: Math.round(Number(balance) * 100),
+              target: Number(target),
+            })
+          }
+        >
+          {saving ? '保存中…' : '保存'}
+        </button>
       </div>
     </Drawer>
   )
@@ -442,7 +442,7 @@ function MoverSheet({
       size={device === 'mobile' ? 'auto' : 380}
       withinPortal={false}
       withCloseButton={false}
-      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">移动「{mover.name}」到…</h2>
@@ -506,7 +506,7 @@ function CategoryDeleteSheet({
       size={device === 'mobile' ? 'auto' : 380}
       withinPortal={false}
       withCloseButton={false}
-      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">删除「{row.name}」</h2>
@@ -2086,7 +2086,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           size={device === 'mobile' ? 'auto' : 460}
           withinPortal={false}
           withCloseButton={false}
-          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">导入备份</h2>
@@ -2126,36 +2126,36 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 先解析预览：期间跨度、笔数、金额合计、无法识别的账户/分类与疑似重复都会在确认前显示。
               </p>
             )}
+          </div>
 
-            <div className="mb-set-sheet-actions">
+          <div className="mb-set-sheet-actions">
+            <button
+              type="button"
+              className="mb-set-btn"
+              disabled={dataBusy === 'import'}
+              onClick={() => setImportOpen(false)}
+            >
+              取消
+            </button>
+            {preview ? (
               <button
                 type="button"
-                className="mb-set-btn"
+                className="mb-set-btn is-primary"
                 disabled={dataBusy === 'import'}
-                onClick={() => setImportOpen(false)}
+                onClick={() => void confirmImport()}
               >
-                取消
+                {dataBusy === 'import' ? '导入中…' : '确认导入'}
               </button>
-              {preview ? (
-                <button
-                  type="button"
-                  className="mb-set-btn is-primary"
-                  disabled={dataBusy === 'import'}
-                  onClick={() => void confirmImport()}
-                >
-                  {dataBusy === 'import' ? '导入中…' : '确认导入'}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="mb-set-btn is-primary"
-                  disabled={dataBusy === 'preview'}
-                  onClick={() => void runImportPreview()}
-                >
-                  {dataBusy === 'preview' ? '解析中…' : '解析并预览'}
-                </button>
-              )}
-            </div>
+            ) : (
+              <button
+                type="button"
+                className="mb-set-btn is-primary"
+                disabled={dataBusy === 'preview'}
+                onClick={() => void runImportPreview()}
+              >
+                {dataBusy === 'preview' ? '解析中…' : '解析并预览'}
+              </button>
+            )}
           </div>
         </Drawer>
       )}
@@ -2170,7 +2170,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           size={device === 'mobile' ? 'auto' : 460}
           withinPortal={false}
           withCloseButton={false}
-          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-body', inner: 'mb-set-sheet-inner' }}
+          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">清空账本</h2>
@@ -2225,20 +2225,20 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 {clearError}
               </p>
             )}
+          </div>
 
-            <div className="mb-set-sheet-actions">
-              <button type="button" className="mb-set-btn" disabled={dataBusy === 'clear'} onClick={() => setClearOpen(false)}>
-                取消
-              </button>
-              <button
-                type="button"
-                className="mb-set-btn is-danger"
-                disabled={dataBusy === 'clear'}
-                onClick={() => void confirmClearLedger()}
-              >
-                {dataBusy === 'clear' ? '清空中…' : '确认清空'}
-              </button>
-            </div>
+          <div className="mb-set-sheet-actions">
+            <button type="button" className="mb-set-btn" disabled={dataBusy === 'clear'} onClick={() => setClearOpen(false)}>
+              取消
+            </button>
+            <button
+              type="button"
+              className="mb-set-btn is-danger"
+              disabled={dataBusy === 'clear'}
+              onClick={() => void confirmClearLedger()}
+            >
+              {dataBusy === 'clear' ? '清空中…' : '确认清空'}
+            </button>
           </div>
         </Drawer>
       )}
