@@ -74,7 +74,7 @@
 | `--mb-color-danger-solid` | `#6C1019` | `#6C1019` | 危险实心按钮（二次确认） |
 | `--mb-color-danger-bg` | `#FAE8E6` | `#241114` | 危险 chip / 提示底 |
 | `--mb-color-on-danger` | `#FFE9E7` | `#FFE9E7` | 危险实心上的文字 |
-| `--mb-color-warning` | `#8A5A00` | `#E5B54A` | 预算 80–100% 预警（文字与进度条） |
+| `--mb-color-warning` | `#8A5A00` | `#E5B54A` | 预算 80–100% 预警（仅文字；条面见 §2.7） |
 
 **分类与图表辅助**
 
@@ -209,27 +209,28 @@ danger = ['#FFF1EF','#FFE0DD','#FFC5C1','#FF9E9A','#F2555A','#E5484D','#B42318',
   必须靠图例区分。
 - 暗色 `cat-6` 玫粉 vs 支出 `#F0A4AB` ΔE 32.4 → 可共存。
 
-### 2.6 进度条填充（面 / 字分离）
+### 2.7 进度条填充（面 / 字分离）
 
 用户原话「文字这套颜色不适合作为进度条」：条面不再引用 `accent` / `expense` 等文字色，
-改用独立填充档；这些 token **只用于条面，不用于任何文字**。轨道固定
+改用独立填充档。条面颜色独立于文字色，**提高彩度而不是压暗**，与轨道保持 ≥3:1 的明度差；
+这些 token **只用于条面，不用于任何文字**。轨道固定
 `--mb-color-border-strong`（浅 `#CBCEC8` / 暗 `#333A3F`），条高 **6px**、圆角、**无描边**。
 填充属图形，验收阈值是**对轨道 ≥3:1**（不参与正文 4.5 门槛）。
 
-| Token | 浅色 | 暗色 | 浅色对轨道 | 暗色对轨道 |
-|---|---|---|---|---|
-| `--mb-progress-normal` | `#4B7326` | `#7FA84A` | 3.49 | 4.18 |
-| `--mb-progress-warning` | `#7D5200` | `#D9A64B` | 4.29 | 5.23 |
-| `--mb-progress-over` | `#93414A` | `#E08A90` | 4.26 | 4.52 |
-| `--mb-progress-achieved` | `#17603A` | `#45B37A` | 4.76 | 4.39 |
+| Token | 浅色 | 暗色 | 浅色对轨道 | 暗色对轨道 | 含义 |
+|---|---|---|---|---|---|
+| `--mb-progress-normal` | `#425B70` | `#8EA8BF` | 4.46 | 4.68 | 计划内（支出未到临界 / 收入未达成） |
+| `--mb-progress-warning` | `#A65700` | `#EEA743` | 3.31 | 5.64 | 接近上限（支出 80–100%） |
+| `--mb-progress-over` | `#A5292D` | `#ED6869` | 4.47 | 3.73 | 超支（支出 >100%） |
+| `--mb-progress-achieved` | `#106C3E` | `#60C68F` | 4.08 | 5.49 | 达成（收入 ≥100%，收入方向专属） |
 
-**超支表现（0–130% 刻度）**：轨道铺满 130 个百分点，100% 预算位在 **76.92%**，
-右侧 30% 是 `surface-sunken` 的溢出区。`percent > 100` 时 0–100 段照常填充，
-第二段从 100% 处向右长出（同为 `--mb-progress-over`）。100% 整额行停在预算刻度、
-超支行越过刻度，二者一眼可分；溢出超过 130% 时钳在轨道右端。
+**超支表现（0–130% 刻度）**：轨道统一 `--mb-color-border-strong`，不再有
+`surface-sunken` 溢出区。100% 预算位在 **76.9231%**，此处画一条 **2px 宽、与轨道同色**
+的竖缺口；`percent < 100` 时它落在空轨道上不可见，`percent = 100` 时条面停在缺口左侧，
+`percent > 100` 时条面**连续跨过缺口**、被切出一段空隙。溢出超过 130% 钳在轨道右端。
 条面与文字解耦后，文字规则回到文字体系：名称恒 `primary`，`normal` / `achieved` /
 `neutral` 的状态文字 `secondary`，只有 `warning` / `over` 用语义色并带图标
-（见 [interaction-spec §6.2](interaction-spec.md)）。
+（见 [interaction-spec §6.2](interaction-spec.md)）。收入未达成用 `normal`，不用 `warning`。
 
 ---
 
@@ -418,7 +419,8 @@ Linux 落 system-ui。若要求跨平台完全一致，需要先引入自托管�
 | 支出金额 | `--mb-color-expense`（≥24px 或 ≥18.66px 粗用 `expense-display`） | 橙色、正红 |
 | 转账金额 | `--mb-color-transfer` | 中性灰（会读成「无意义」） |
 | 分类区分 | `--mb-color-cat-*` | 语义色（会读成收入/支出） |
-| 预算 80–100% | `--mb-color-warning` | `--mb-color-cat-*`（分类色不得当状态色） |
+| 预算计划内 | `--mb-progress-normal` | `--mb-color-accent`（绿色是收入语义） |
+| 预算 80–100% 文字 | `--mb-color-warning` | `--mb-color-cat-*`（分类色不得当状态色） |
 | 强调文字 / 图标 / 链接 | `--mb-color-accent` | `accent-fill` 当文字（1.39） |
 | 强调填充 | `--mb-color-accent-fill` + `on-accent-fill` + 1px 描边 | 白字（1.51） |
 | 危险动作 | `--mb-color-danger` + 图标 + 文案 + 二次确认 | 普通提示、警告 |

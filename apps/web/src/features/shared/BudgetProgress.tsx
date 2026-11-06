@@ -2,7 +2,7 @@ import './budgetProgress.css'
 
 export type BudgetProgressLevel = 'normal' | 'warning' | 'over' | 'achieved' | 'neutral'
 
-/** 轨道按 0–130% 刻度铺满：100% 预算位在 76.92%，右侧 30% 为溢出区。 */
+/** 轨道按 0–130% 刻度铺满：100% 预算位在 76.9231%，缺口只在这里切一刀。 */
 const SCALE = 130
 
 /** level → 填充 token（neutral 不填充，因此不在表内）。 */
@@ -23,8 +23,8 @@ export function BudgetProgress({
   label: string
 }) {
   const safe = Number.isFinite(percent) ? Math.max(0, percent) : 0
-  const fill = level === 'neutral' ? 0 : (Math.min(100, safe) / SCALE) * 100
-  const spill = level === 'over' ? (Math.min(Math.max(0, safe - 100), SCALE - 100) / SCALE) * 100 : 0
+  // 单段填充：0–130% 共用一段，超支时连续跨过 100% 刻度缺口，不再拼接第二段。
+  const fill = level === 'neutral' ? 0 : (Math.min(SCALE, safe) / SCALE) * 100
   const fillToken = level === 'neutral' ? null : FILL_TOKENS[level]
 
   return (
@@ -37,16 +37,12 @@ export function BudgetProgress({
       aria-valuenow={Math.round(Math.min(100, safe))}
       aria-label={label}
     >
-      {fillToken && <span className="mb-progress-headroom" aria-hidden="true" />}
       {fillToken && (
         <span className="mb-progress-fill" style={{ width: `${fill}%`, background: fillToken }} />
       )}
-      {spill > 0 && (
-        <span
-          className="mb-progress-spill"
-          style={{ left: `${(100 / SCALE) * 100}%`, width: `${spill}%` }}
-        />
-      )}
+      {/* 100% 刻度缺口：与轨道同色，未满时不可见，超支时在条面中间切出一刀。
+          转账没有预算刻度，不渲染。 */}
+      {level !== 'neutral' && <span className="mb-progress-tick" aria-hidden="true" />}
     </div>
   )
 }

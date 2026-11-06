@@ -37,6 +37,20 @@ describe('预算页数据', () => {
     expect(transfer?.status).toBe('不计入预算')
   })
 
+  it('收入未达成判 normal，不显示「接近上限」', () => {
+    const halfGoal = {
+      ...ledger,
+      budgets: ledger.budgets.map((budget) =>
+        budget.id === 'b_salary' ? { ...budget, limit: 3_700_000 } : budget,
+      ),
+    }
+    const page = deriveBudgetPage(halfGoal, '2026-10')
+    const income = page.groups.find((group) => group.type === 'income')?.rows[0]
+    expect(income?.percent).toBeCloseTo(50, 1)
+    expect(income?.level).toBe('normal')
+    expect(income?.status).toBe('还差 ¥18,500.00')
+  })
+
   it('历史月份按月末结算，没有流水时使用为 0', () => {
     const previous = deriveBudgetPage(ledger, '2025-09')
     expect(previous.expense.used).toBe(0)

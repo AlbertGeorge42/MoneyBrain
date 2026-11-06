@@ -77,9 +77,9 @@ function Ring({ percent, level, size }: { percent: number; level: string; size: 
   const value = Math.min(100, Math.max(0, percent))
   const ink =
     level === 'over'
-      ? 'var(--mb-color-expense)'
+      ? 'var(--mb-progress-over)'
       : level === 'warning'
-        ? 'var(--mb-color-warning)'
+        ? 'var(--mb-progress-warning)'
         : 'var(--mb-color-accent)'
   return (
     <div

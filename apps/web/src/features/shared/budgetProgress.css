@@ -1,5 +1,6 @@
 /* 预算进度条：6px 细线，无描边；条色用填充专用 token，与文字色解耦。
-   轨道按 0–130% 刻度：100% 位置（76.923%）右侧为溢出区，超支第二段由此处长出。 */
+   轨道按 0–130% 刻度铺满，100% 预算位（76.9231%）用一条与轨道同色的 2px 缺口标示：
+   未满时落在空轨道上不可见，超支时单段条面连续跨过缺口、被切出一刀。 */
 .mb-progress {
   position: relative;
   width: 100%;
@@ -9,24 +10,20 @@
   overflow: hidden;
 }
 
-.mb-progress-headroom {
+.mb-progress-fill {
   position: absolute;
   top: 0;
-  right: 0;
-  bottom: 0;
-  width: 23.0769%; /* 30 / 130 */
-  background: var(--mb-color-surface-sunken);
-}
-
-.mb-progress-fill,
-.mb-progress-spill {
-  position: absolute;
-  top: 0;
+  left: 0;
   height: 100%;
   border-radius: var(--mb-radius-pill);
   z-index: 1;
 }
 
-.mb-progress-spill {
-  background: var(--mb-progress-over);
+.mb-progress-tick {
+  position: absolute;
+  inset-block: 0;
+  left: 76.9231%; /* 100 / 130 */
+  width: 2px;
+  background: var(--mb-color-border-strong);
+  z-index: 2;
 }
