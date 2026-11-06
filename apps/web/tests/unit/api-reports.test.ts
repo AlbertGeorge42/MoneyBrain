@@ -305,6 +305,16 @@ describe('视图 ↔ 端点映射', () => {
     expect(report.zeroAccountCount).toBe(2)
   })
 
+  it('资产构成为正余额口径：环内合计与资产表差额 = 负余额资产（真实库 882,603.34 / −127,857.71）', () => {
+    const report = mapBalanceReport(REAL_BALANCE, [], createSeedLedger())
+    // 构成块只含正余额账户，环内合计 882,603.34；资产表合计 754,745.63。
+    expect(report.composition.reduce((sum, item) => sum + item.amount, 0)).toBe(88260334)
+    expect(report.composition.every((item) => item.amount > 0)).toBe(true)
+    // 差额逐分等于被排除的负余额资产，图注用同一组数字解释。
+    expect(report.positiveAssetTotal + report.negativeAssetTotal).toBe(report.assetTotal)
+    expect(report.positiveAssetTotal - report.assetTotal).toBe(12785771)
+  })
+
   it('收支明细：合计 / 分类树来自后端，笔数取完整期间流水', () => {
     const transactions = [
       tx({ id: 't1', date: '2026-11-01', amount: 1850000, type: 'income', categoryId: 'salary', accountId: 'cmb' }),

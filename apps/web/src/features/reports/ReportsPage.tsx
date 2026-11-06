@@ -632,8 +632,13 @@ function BalanceView({
       />
       <p className="mb-rp-chart-note">
         {settings.groupMode === 'kind'
-          ? '按性质汇总：环与资产表同一口径，点切块或图例查看该性质的账户'
-          : '按账户：环与资产表同一口径，点切块或图例落到该账户的流水'}
+          ? '按性质汇总：环只含正余额账户，点切块或图例查看该性质的账户'
+          : '按账户：环只含正余额账户，点扇形落到该账户的流水'}
+        。环内合计 {currency(report.positiveAssetTotal)}（仅含正余额账户）
+        {report.negativeAssetCount > 0
+          ? `；已排除 ${report.negativeAssetCount} 个负余额账户 ${currency(report.negativeAssetTotal)}，资产合计 ${currency(report.assetTotal)}`
+          : ''}
+        。
       </p>
     </ChartCard>
   )
