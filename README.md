@@ -18,6 +18,15 @@ npm run dev     # 前后端一起启动：API :3001，前端 :3002
 
 打开 http://localhost:3002 即可。首次使用请先在「设置 → 账户」创建账户，再在「交易」记第一笔。
 
+> **启动日志会打印当前库路径与流水总笔数**（如 `数据库: …apps/api/prisma/dev.db | 流水: 1 笔`）。
+> 默认 `dev.db` 可能只有一两笔流水，看起来像空账本；要读真实账本必须显式指定 `DATABASE_URL`：
+>
+> ```powershell
+> $env:DATABASE_URL='file:C:/path/to/ledger.db'; npm run dev
+> ```
+>
+> 不要为了「让页面有数据」直接往 `apps/api/prisma/dev.db` 写测试数据。
+
 生产构建：
 
 ```bash

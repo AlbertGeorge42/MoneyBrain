@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import path from 'node:path'
 import { prisma } from './prisma.js'
 import accountCategoryRoutes from './routes/account-category.route.js'
 import accountRoutes from './routes/account.route.js'
@@ -76,7 +77,32 @@ if (process.env.NODE_ENV !== 'test') {
       node: process.version,
       pid: process.pid,
     }, 'application started')
+    void announceDatabase()
   })
+}
+
+/**
+ * 启动时打印当前库路径与流水总笔数。
+ *
+ * 默认库（apps/api/prisma/dev.db）可能只有一两笔流水，打开前端会像空账本；
+ * 把「路径 + 笔数」直接打出来，避免误判。要读别的账本必须显式设置 DATABASE_URL。
+ */
+async function announceDatabase(): Promise<void> {
+  // dev / start 脚本都以 apps/api 为工作目录，默认库就在 prisma/dev.db。
+  const database = process.env.DATABASE_URL ?? path.resolve(process.cwd(), 'prisma/dev.db')
+  try {
+    const transactions = await prisma.transaction.count()
+    const fields = { action: 'db.summary', database, transactions }
+    const message = `数据库: ${database} | 流水: ${transactions} 笔`
+    // 少于 10 笔时用 warn 级别，避免把它当成正常启动噪声跳过。
+    if (transactions < 10) logger.warn(fields, message)
+    else logger.info(fields, message)
+  } catch (error) {
+    logger.warn(
+      { action: 'db.summary', database, error: error instanceof Error ? error.message : error },
+      `数据库: ${database} | 无法读取流水笔数`,
+    )
+  }
 }
 
 process.on('beforeExit', async () => {
