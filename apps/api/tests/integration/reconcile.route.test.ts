@@ -79,6 +79,13 @@ describe('POST /api/accounts/:id/reconcile', () => {
       .get(`/api/accounts/${account.id}/balance-at`)
       .query({ date: DATE })
     expect(balanceAt.body.data.balance).toBe(90000)
+
+    // 平账不计入收支统计。
+    const stats = await request(app)
+      .get('/api/transactions/stats')
+      .query({ startDate: '2026-11-01', endDate: DATE })
+    expect(stats.body.data.income).toBe(0)
+    expect(stats.body.data.expense).toBe(EXPENSE)
   })
 
   it('负数差额生成负数平账分录（账面高于实际）', async () => {
