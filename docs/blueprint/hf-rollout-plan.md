@@ -142,7 +142,8 @@
 
 流水接入要点：
 
-- 读：`GET /transactions` 承担分页与全部筛选（期间/分类/关键词/类型/账户），`categoryIds` 映射为重复 `categoryId`；前端不再本地过滤一遍。无可见分页控件，按 `pageSize=100` 自动翻到 `total`（请求数 = `ceil(total/100)`）。
+- 读：`GET /transactions` 承担分页与全部筛选（期间/分类/关键词/类型/账户），`categoryIds` 映射为重复 `categoryId`；前端不再本地过滤一遍。无可见分页控件，按 `pageSize=100` 自动翻到 `total`（请求数 = `ceil(total/100)`）。深链还原必须等真实账本就绪且防抖落到最终筛选后才启用请求，否则会先发一轮空筛选。
+- 关键词：只搜备注 / 账户 / 分类 / 方向，不搜金额文本；金额用 `amountMin/amountMax`。种子版与 API 版同口径。
 - 写：新增/编辑/删除真实 mutation；失败保留输入或表单并回显错误、可重试，成功后才关闭弹层或刷新列表。
 - 删除 / 撤销：逐条 `DELETE` 收集 `auditEventId`，6 秒 toast「撤销」走 `POST /audit-events/:id/undo` 并刷新三组查询；过期记录留在 `GET /transactions/recycle-bin`。
 - 回收站：设置页 API 模式显示真实条目、数量与恢复（`deleteEventId`）；种子模式保持原空态，视觉不变。
