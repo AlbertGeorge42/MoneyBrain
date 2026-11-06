@@ -1,6 +1,7 @@
 import { Drawer } from '@mantine/core'
 import { RotateCcw } from 'lucide-react'
 import { getCategoryName, type Ledger } from '@/features/overview/model'
+import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import { datePresets } from '@/features/shared/datePicker/datePickerModel'
 import type { DeviceMode } from '@/features/shared/types'
@@ -35,7 +36,7 @@ function FilterFields({
           <option value="">全部账户</option>
           {ledger.accounts.map((account) => (
             <option key={account.id} value={account.id}>
-              {account.name}
+              {accountDisplayName(account, ledger.accounts)}
             </option>
           ))}
         </select>

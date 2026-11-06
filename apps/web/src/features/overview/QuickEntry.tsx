@@ -3,6 +3,7 @@ import { Button, Drawer, Modal, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
 import type { DeviceMode } from '@/features/shared/types'
+import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { formatCurrency } from '@/utils/format'
 import type { Ledger, LedgerAccount, NewTransactionInput, TxType } from './model'
 import { accountKindLabel, TODAY } from './model'
@@ -141,7 +142,7 @@ function AccountPicker({
                     aria-pressed={account.id === selectedId}
                     onClick={() => onSelect(account.id)}
                   >
-                    <span className="mb-entry-picker-name">{account.name}</span>
+                    <span className="mb-entry-picker-name">{accountDisplayName(account, accounts)}</span>
                     <span className="mb-entry-picker-meta">{formatCurrency(minor(account.balance))}</span>
                   </button>
                 ))}
@@ -444,7 +445,7 @@ function EntryForm({
                     aria-pressed={account.id === accountId}
                     onClick={() => rememberAccount(account.id, 'from')}
                   >
-                    {account.name}
+                    {accountDisplayName(account, ledger.accounts)}
                   </button>
                 ))}
               </div>
@@ -466,7 +467,7 @@ function EntryForm({
                     disabled={account.id === accountId}
                     onClick={() => rememberAccount(account.id, 'to')}
                   >
-                    {account.name}
+                    {accountDisplayName(account, ledger.accounts)}
                   </button>
                 ))}
               </div>

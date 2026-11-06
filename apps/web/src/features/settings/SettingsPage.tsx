@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Drawer } from '@mantine/core'
 import { getPortalHost } from '@/features/shared/portalHost'
+import { accountDisplayName } from '@/features/shared/accountIdentity'
 import {
   AlertTriangle,
   ChevronDown,
@@ -1280,9 +1281,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               <span className="mb-set-icon">
                 <Icon size={16} />
               </span>
-              <span className="mb-set-name">{account.name}</span>
+              <span className="mb-set-name">{accountDisplayName(account, ledger.accounts)}</span>
               <span className="mb-set-meta">
-                {formatCurrency(minor(account.balance))} · {account.txCount} 笔
+                {formatCurrency(minor(account.balance))} · {account.txCount} 笔 ·{' '}
+                {account.initialBalanceDate
+                  ? `期初 ${account.initialBalanceDate}`
+                  : '期初未设'}
               </span>
               <RowMenu
                 id={`acc-${account.id}`}
@@ -1583,7 +1587,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                           <span className="mb-set-icon">
                             <Icon size={16} />
                           </span>
-                          <span className="mb-set-name">{account.name}</span>
+                          <span className="mb-set-name">{accountDisplayName(account, ledger.accounts)}</span>
                           <span className="mb-set-meta">
                             {formatCurrency(minor(account.balance))}
                           </span>
@@ -2086,7 +2090,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             </button>
             <p className="mb-set-warn">
               未设期初（余额由流水推导，可能不准）：
-              {unsetAccounts.map((account) => account.name).join('、')}
+              {unsetAccounts.map((account) => accountDisplayName(account, ledger.accounts)).join('、')}
             </p>
           </>
         ) : (
@@ -2098,7 +2102,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             {setAccounts
               .map(
                 (account) =>
-                  `${account.name}（${account.initialBalanceDate}）`,
+                  `${accountDisplayName(account, ledger.accounts)}（${account.initialBalanceDate}）`,
               )
               .join('、')}
           </p>
@@ -2454,7 +2458,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               return (
                 <div className="mb-set-preview" key={account.id}>
                   <div className="mb-set-preview-row">
-                    <span>{account.name}</span>
+                    <span>{accountDisplayName(account, ledger.accounts)}</span>
                     <b className={hasOpening ? '' : 'mb-set-warn'}>
                       {hasOpening ? `已设期初 ${account.initialBalanceDate ?? ''}` : '未设期初'}
                     </b>
