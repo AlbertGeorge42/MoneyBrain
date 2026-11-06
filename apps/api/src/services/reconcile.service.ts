@@ -2,7 +2,7 @@ import { AppError, NotFoundError, toDate, dayStart, dayEnd, nextDay } from '../c
 import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { calculateBalancesBatch } from './balance.service.js'
-import { updateWithEvent } from './audit-event.service.js'
+import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
 import { CURRENT_RULE_VERSION, fromDate, minor } from '../../../../packages/domain/src/index.js'
 import type { AccountReconcileResult } from '../../../../packages/contracts/types/index.js'
 
@@ -75,6 +75,21 @@ export async function reconcileAccount(
   const difference = input.actualBalance - bookExcludingTarget
 
   if (overwriteTarget) {
+    // 覆盖后差额为 0：账面已与真实值一致，原平账记录不再需要。
+    // 软删除并留审计事件，不保留 0 元记录——否则流水里会多出一条无意义的调整。
+    if (difference === 0) {
+      await softDeleteWithEvent(overwriteTarget)
+      return {
+        accountId,
+        date: dateKey,
+        bookBalance: minor(bookExcludingTarget),
+        actualBalance: minor(input.actualBalance),
+        difference: minor(0),
+        status: 'balanced',
+        transactionId: null,
+      }
+    }
+
     const updated = await updateWithEvent(overwriteTarget.id, overwriteTarget, {
       amount: BigInt(difference),
       date,

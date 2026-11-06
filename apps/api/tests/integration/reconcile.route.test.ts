@@ -165,6 +165,39 @@ describe('POST /api/accounts/:id/reconcile', () => {
     expect(events).toBeGreaterThan(0)
   })
 
+  it('覆盖后差额归零：软删除原平账记录并写审计事件，不保留 0 元记录', async () => {
+    const account = await createAccount()
+    await createExpense(account.id)
+
+    const first = await request(app)
+      .post(`/api/accounts/${account.id}/reconcile`)
+      .send({ date: DATE, actualBalance: 90000 })
+    const second = await request(app)
+      .post(`/api/accounts/${account.id}/reconcile`)
+      .send({ date: DATE, actualBalance: 80000, mode: 'overwrite' })
+
+    expect(second.body.data.status).toBe('balanced')
+    expect(second.body.data.difference).toBe(0)
+    expect(await prisma.transaction.count({
+      where: { accountId: account.id, type: 'adjustment', deletedAt: null },
+    })).toBe(0)
+
+    const deleted = await prisma.transaction.findUnique({
+      where: { id: first.body.data.transactionId },
+    })
+    expect(deleted!.deletedAt).not.toBeNull()
+
+    const deletedEvents = await prisma.auditEvent.count({
+      where: { entityId: first.body.data.transactionId, action: 'deleted' },
+    })
+    expect(deletedEvents).toBeGreaterThan(0)
+
+    const balanceAt = await request(app)
+      .get(`/api/accounts/${account.id}/balance-at`)
+      .query({ date: DATE })
+    expect(balanceAt.body.data.balance).toBe(80000)
+  })
+
   it('追加路径：显式 mode=append 才新增第二条，合计仍等于差额', async () => {
     const account = await createAccount()
     await createExpense(account.id)
