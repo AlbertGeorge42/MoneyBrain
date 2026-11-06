@@ -482,6 +482,11 @@ export function deriveBalanceReport(ledger: Ledger, point: string): BalanceRepor
   const assetTotal = assets.reduce((sum, row) => sum + row.amount, 0)
   const liabilityTotal = liabilities.reduce((sum, row) => sum + row.amount, 0)
   const netWorth = assetTotal - liabilityTotal
+  // 明细只列余额 ≠ 0 的账户；负余额在种子口径归入负债，不计入资产环分母。
+  const zeroAccountCount = accounts.filter((account) => account.pointBalance === 0).length
+  const positiveAssetTotal = assetTotal
+  const negativeAssetTotal = 0
+  const negativeAssetCount = 0
 
   const kindTotals = new Map<string, number>()
   for (const account of accounts) {
@@ -506,6 +511,10 @@ export function deriveBalanceReport(ledger: Ledger, point: string): BalanceRepor
     netWorth,
     equity: netWorth,
     equityTotal: liabilityTotal + netWorth,
+    zeroAccountCount,
+    positiveAssetTotal,
+    negativeAssetTotal,
+    negativeAssetCount,
     composition,
     trend: deriveNetWorthTrend(netWorth),
     metrics: [
