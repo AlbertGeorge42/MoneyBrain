@@ -127,10 +127,14 @@ export function useServerTransactions(
   const debounced = useDebouncedValue(filters, 250)
   const key = buildTransactionQueryParams(debounced, ledger, 1).toString()
 
+  // 防抖尚未落到最新筛选时不要发请求：否则 hydration 完成的那一帧，
+  // enabled 已翻真而 debounced 还是空筛选，仍会先发一轮未筛选请求。
+  const active = enabled && debounced === filters
+
   const query = useQuery({
     queryKey: ['hf', 'transactions', key],
     queryFn: () => fetchFilteredTransactions(debounced, ledger),
-    enabled,
+    enabled: active,
     placeholderData: keepPreviousData,
   })
 
@@ -138,7 +142,7 @@ export function useServerTransactions(
     ? 'ready'
     : query.isError
       ? 'error'
-      : query.isPending
+      : query.isPending || (debounced !== filters && !query.data)
         ? 'loading'
         : 'ready'
 

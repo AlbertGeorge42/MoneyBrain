@@ -307,8 +307,15 @@ export function TransactionsPage({
   }, [filters])
 
   // 深链还原：账本就绪后一次性初始化筛选，并回到列表顶部（不沿用上一页滚动位置）。
+  // API 模式下 dataState 翻到 normal 的那一帧，LedgerProvider 可能还持有上一帧的
+  // EMPTY_LEDGER（initialLedger 通过 effect 同步），此时分类为空，深链分类会被误丢。
+  // 用真实账本独有的 ids 映射判断就绪，确保 hydration 读到的是同一份分类。
+  const ledgerReady = apiMode
+    ? ledger.ids !== undefined
+    : ledger.categories.length > 0
+
   useEffect(() => {
-    if (hydrated || ledger.categories.length === 0) return
+    if (hydrated || !ledgerReady) return
     const restored = readFiltersFromSearch(initialSearch.current, ledger)
     setQuery(restored.filters.query)
     setType(restored.filters.type)
@@ -320,7 +327,7 @@ export function TransactionsPage({
       const mobileScroll = document.querySelector('.mb-mobile-scroll')
       if (mobileScroll instanceof HTMLElement) mobileScroll.scrollTop = 0
     }
-  }, [hydrated, ledger])
+  }, [hydrated, ledgerReady, ledger])
 
   // URL 是筛选状态的唯一持久层：切页回来、报表下钻都从同一组 query 键还原。
   useEffect(() => {
@@ -332,7 +339,12 @@ export function TransactionsPage({
   }, [filters, hydrated])
 
   // API 模式：筛选与分页都交给 /transactions，页面不再本地过滤一遍。
-  const serverList = useServerTransactions(filters, ledger, apiMode && dataState === 'normal')
+  // 必须等 hydration 完成后再请求：否则先按空筛选取一轮，再按深链筛选取一轮（双取）。
+  const serverList = useServerTransactions(
+    filters,
+    ledger,
+    apiMode && dataState === 'normal' && hydrated,
+  )
   const filtered =
     dataState !== 'normal'
       ? []
