@@ -45,7 +45,21 @@ export function buildTransactionQueryParams(
   if (keyword) params.set('keyword', keyword)
 
   if (filters.type !== 'all') params.set('type', filters.type)
-  if (filters.advanced.accountId) params.set('accountId', filters.advanced.accountId)
+
+  // 分组筛选：把分组翻译成该组账户集合（后端支持重复 accountId），只收窄范围。
+  if (filters.advanced.groupId) {
+    const groupAccounts = ledger.accounts.filter(
+      (account) => account.categoryId === filters.advanced.groupId,
+    )
+    if (groupAccounts.length === 0) {
+      // 空分组没有任何账户：用一个不存在的 id 让后端返回空集，而不是静默忽略筛选。
+      params.set('accountId', '__empty-group__')
+    } else {
+      groupAccounts.forEach((account) => params.append('accountId', account.id))
+    }
+  } else if (filters.advanced.accountId) {
+    params.set('accountId', filters.advanced.accountId)
+  }
 
   // 合并分类优先（报表下钻）；普通筛选只有单个根分类。
   const roots =

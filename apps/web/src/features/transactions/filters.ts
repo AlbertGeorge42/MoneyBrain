@@ -23,6 +23,8 @@ export type TypeFilter = 'all' | TxType
 
 export interface AdvancedFilters {
   accountId: string
+  /** 账户分组 id（后端 AccountCategory）；只收窄账户范围，不参与任何合计。 */
+  groupId: string
   categoryId: string
   /** 报表合并「其他」下钻时一次筛多个根分类；普通筛选留空。 */
   categoryIds: string[]
@@ -40,6 +42,7 @@ export interface TransactionFilters {
 
 export const EMPTY_ADVANCED: AdvancedFilters = {
   accountId: '',
+  groupId: '',
   categoryId: '',
   categoryIds: [],
   amountMin: '',
@@ -85,7 +88,7 @@ export interface TransactionTotals {
 }
 
 export interface FilterChip {
-  key: 'type' | 'account' | 'category' | 'amount' | 'date'
+  key: 'type' | 'account' | 'group' | 'category' | 'amount' | 'date'
   label: string
 }
 
@@ -130,10 +133,19 @@ export function filterTransactions(ledger: Ledger, filters: TransactionFilters):
   const max = parseAmount(filters.advanced.amountMax)
   const rootCategoryId = filters.advanced.categoryId
   const rootCategoryIds = filters.advanced.categoryIds
+  // 分组筛选：把分组翻译成账户集合，再按账户收窄；不改变任何金额口径。
+  const groupAccountIds = filters.advanced.groupId
+    ? new Set(
+        ledger.accounts
+          .filter((account) => account.categoryId === filters.advanced.groupId)
+          .map((account) => account.id),
+      )
+    : null
 
   return ledger.transactions.filter((transaction) => {
     if (filters.type !== 'all' && transaction.type !== filters.type) return false
     if (filters.advanced.accountId && transaction.accountId !== filters.advanced.accountId) return false
+    if (groupAccountIds && !groupAccountIds.has(transaction.accountId)) return false
     const rootId = getCategoryRootId(ledger, transaction.categoryId)
     if (rootCategoryIds.length > 0) {
       if (!rootCategoryIds.includes(rootId)) return false
@@ -232,6 +244,7 @@ export const FILTER_QUERY_KEYS = [
   'txQ',
   'txType',
   'txAccount',
+  'txGroup',
   'txCategory',
   'txRoots',
   'txFrom',
@@ -265,6 +278,13 @@ export function readFiltersFromSearch(search: string, ledger: Ledger): FilterUrl
   if (accountId) {
     if (ledger.accounts.some((account) => account.id === accountId)) advanced.accountId = accountId
     else dropped.push('账户')
+  }
+
+  const groupId = params.get('txGroup') ?? ''
+  if (groupId) {
+    if ((ledger.accountCategories ?? []).some((group) => group.id === groupId)) {
+      advanced.groupId = groupId
+    } else dropped.push('账户分组')
   }
 
   const categoryId = params.get('txCategory') ?? ''
@@ -315,6 +335,7 @@ export function writeFiltersToSearch(search: string, filters: TransactionFilters
   if (filters.query.trim()) params.set('txQ', filters.query)
   if (filters.type !== 'all') params.set('txType', filters.type)
   if (filters.advanced.accountId) params.set('txAccount', filters.advanced.accountId)
+  if (filters.advanced.groupId) params.set('txGroup', filters.advanced.groupId)
   if (filters.advanced.categoryId) params.set('txCategory', filters.advanced.categoryId)
   if (filters.advanced.categoryIds.length > 0) {
     params.set('txRoots', filters.advanced.categoryIds.join(','))
@@ -333,6 +354,7 @@ export function hasActiveFilters(filters: TransactionFilters): boolean {
     filters.query.trim() !== '' ||
     filters.type !== 'all' ||
     (filters.advanced.accountId !== '' ||
+      filters.advanced.groupId !== '' ||
       filters.advanced.categoryId !== '' ||
       filters.advanced.categoryIds.length > 0 ||
       filters.advanced.amountMin !== '' ||
@@ -351,6 +373,19 @@ export function filterChips(ledger: Ledger, filters: TransactionFilters): Filter
   if (filters.advanced.accountId) {
     const account = getAccount(ledger, filters.advanced.accountId)
     chips.push({ key: 'account', label: `账户：${account?.name ?? '未知账户'}` })
+  }
+  if (filters.advanced.groupId) {
+    const groups = (ledger.accountCategories ?? []).filter((group) => !group.parentId)
+    const group = groups.find((item) => item.id === filters.advanced.groupId)
+    const duplicated = group
+      ? groups.filter((item) => item.name === group.name).length > 1
+      : false
+    chips.push({
+      key: 'group',
+      label: `分组：${group?.name ?? '未知分组'}${
+        group && duplicated ? ` · #${group.id.slice(-4)}` : ''
+      }`,
+    })
   }
   if (filters.advanced.categoryIds.length > 0) {
     const names = filters.advanced.categoryIds

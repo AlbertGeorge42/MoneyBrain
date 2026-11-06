@@ -20,11 +20,55 @@ function FilterFields({
   value: AdvancedFilters
   onChange: (next: AdvancedFilters) => void
 }) {
-  const update = (key: keyof AdvancedFilters, next: string) => onChange({ ...value, [key]: next })
+  const update = (key: keyof AdvancedFilters, next: string | string[]) =>
+    onChange({ ...value, [key]: next })
   const roots = ledger.categories.filter((category) => !category.parentId)
+  const groups = (ledger.accountCategories ?? []).filter((group) => !group.parentId)
+  const groupLabel = (group: (typeof groups)[number]) => {
+    const duplicated = groups.filter((item) => item.name === group.name).length > 1
+    return `${group.type === 'liability' ? '负债' : '资产'} · ${group.name}${
+      duplicated ? ` · #${group.id.slice(-4)}` : ''
+    }`
+  }
+  const visibleAccounts = value.groupId
+    ? ledger.accounts.filter((account) => account.categoryId === value.groupId)
+    : ledger.accounts
 
   return (
     <div className="mb-tx-filter-fields">
+      {groups.length > 0 && (
+        <label className="mb-tx-field" htmlFor="mb-tx-filter-group">
+          <span className="mb-tx-field-label">账户分组</span>
+          <select
+            id="mb-tx-filter-group"
+            className="mb-tx-select"
+            value={value.groupId}
+            onChange={(event) => {
+              const groupId = event.target.value
+              // 分组与账户是同一维度：换分组时，若原账户不属于新分组就清空，避免组合成空集。
+              const nextAccounts = groupId
+                ? ledger.accounts.filter((account) => account.categoryId === groupId)
+                : ledger.accounts
+              const keepAccount =
+                value.accountId === '' ||
+                nextAccounts.some((account) => account.id === value.accountId)
+              onChange({
+                ...value,
+                groupId,
+                accountId: keepAccount ? value.accountId : '',
+              })
+            }}
+          >
+            <option value="">全部分组</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {groupLabel(group)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <label className="mb-tx-field" htmlFor="mb-tx-filter-account">
         <span className="mb-tx-field-label">账户</span>
         <select
@@ -34,7 +78,7 @@ function FilterFields({
           onChange={(event) => update('accountId', event.target.value)}
         >
           <option value="">全部账户</option>
-          {ledger.accounts.map((account) => (
+          {visibleAccounts.map((account) => (
             <option key={account.id} value={account.id}>
               {accountDisplayName(account, ledger.accounts)}
             </option>
