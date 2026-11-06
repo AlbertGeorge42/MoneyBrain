@@ -222,7 +222,13 @@ function PreviewBody({
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  const notify = (message: string) => setToast({ message, duration: 2400 })
+  // 带撤销动作的提示与批量删除一致：6 秒可撤销；普通提示 2.4 秒。
+  const notify = (message: string, action?: () => void) =>
+    setToast({
+      message,
+      duration: action ? 6000 : 2400,
+      action: action ? { label: '撤销', run: action } : undefined,
+    })
 
   // 报表下钻 → 流水：把分类与期间写进 URL，流水页挂载时还原并回到列表顶部。
   const viewFlow = (options: {

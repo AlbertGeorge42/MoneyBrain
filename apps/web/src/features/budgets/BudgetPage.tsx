@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { Drawer } from '@mantine/core'
 import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
+import type { LedgerBudgetInput } from '@/features/overview/ledgerStore'
 import { ledgerAnchorDay } from '@/features/overview/model'
+import type { LedgerBudget } from '@/features/overview/model'
 import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
+import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import {
   BUDGET_KIND_LABEL,
   BUDGET_PERIOD_LABEL,
-  createBudgetId,
   deriveBudgetPage,
   monthLabel,
   shiftMonth,
@@ -27,7 +29,8 @@ interface BudgetPageProps {
   onEditorOpenChange: (open: boolean) => void
   onRetry: () => void
   onViewFlow: (categoryId?: string) => void
-  notify: (message: string) => void
+  /** 第二个参数为撤销动作；API 模式删除后 6 秒内可撤销。 */
+  notify: (message: string, action?: () => void) => void
 }
 
 function moneyText(value: number): string {
@@ -287,6 +290,8 @@ interface EditorState {
   amount: string
   categoryId: string
   accountId: string
+  /** 仅转账预算：转入账户。 */
+  toAccountId: string
 }
 
 const EMPTY_EDITOR: EditorState = {
@@ -296,6 +301,7 @@ const EMPTY_EDITOR: EditorState = {
   amount: '',
   categoryId: '',
   accountId: '',
+  toAccountId: '',
 }
 
 export function BudgetPage({
@@ -307,7 +313,7 @@ export function BudgetPage({
   onViewFlow,
   notify,
 }: BudgetPageProps) {
-  const { ledger, replaceLedger } = useLedger()
+  const { ledger, dataMode, createBudget, updateBudget, deleteBudget: removeBudget, undo } = useLedger()
   // 锚点跟真实数据走：API 模式用真实今天 / 最新流水，不再停在种子的 2026-10。
   const anchorDay = ledgerAnchorDay(ledger)
   const currentMonth = anchorDay.slice(0, 7)
@@ -324,6 +330,8 @@ export function BudgetPage({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR)
   const [editorError, setEditorError] = useState('')
+  // 写请求进行中禁掉再次提交，避免一次点击落两条预算。
+  const [saving, setSaving] = useState(false)
 
   const data = useMemo(
     () => deriveBudgetPage(ledger, month, { today: anchorDay, currentMonth }),
@@ -350,49 +358,89 @@ export function BudgetPage({
       ? null
       : (document.querySelector(device === 'mobile' ? '.mb-hf-phone' : '.mb-hf-root') as HTMLElement | null)
 
-  const updateBudgets = (next: typeof ledger.budgets, message: string) => {
-    replaceLedger({ ...ledger, budgets: next })
-    notify(message)
-  }
+  const apiMode = dataMode === 'api'
 
-  const saveLimit = () => {
-    if (!detail) return
+  /** 现有预算 + 新限额 → 写接口入参（真实后端 PUT 要求完整字段）。 */
+  const toBudgetInput = (budget: LedgerBudget, limit: number): LedgerBudgetInput => ({
+    name: budget.name,
+    type: budget.type as LedgerBudgetInput['type'],
+    period: budget.period,
+    limit,
+    categoryId: budget.categoryId,
+    accountId: budget.accountId,
+  })
+
+  const saveLimit = async () => {
+    if (!detail || saving) return
     const value = Math.round(Number(detailLimit) * 100)
     if (!Number.isFinite(value) || value <= 0) {
       setDetailNote('限额需大于 0')
       return
     }
-    updateBudgets(
-      ledger.budgets.map((budget) => (budget.id === detail.id ? { ...budget, limit: value } : budget)),
-      `已把「${detail.name}」限额调整为 ${moneyText(value)}`,
-    )
+    const budget = ledger.budgets.find((item) => item.id === detail.id)
+    if (!budget) {
+      setDetailNote('预算条目已不存在，请关闭后重试')
+      return
+    }
+    setSaving(true)
+    const result = await updateBudget(detail.id, toBudgetInput(budget, value))
+    setSaving(false)
+    if (!result.ok) {
+      setDetailNote(`保存失败：${result.error ?? '请重试'}`)
+      return
+    }
     setDetailNote('已保存')
+    notify(`已把「${detail.name}」限额调整为 ${moneyText(value)}`)
   }
 
-  const deleteBudget = () => {
-    if (!detail) return
+  const deleteBudget = async () => {
+    if (!detail || saving) return
     if (!confirmDelete) {
       setConfirmDelete(true)
       setDetailNote('再次点击确认删除该预算条目')
       return
     }
-    updateBudgets(
-      ledger.budgets.filter((budget) => budget.id !== detail.id),
-      `已删除预算「${detail.name}」`,
-    )
+    setSaving(true)
+    const result = await removeBudget(detail.id)
+    setSaving(false)
+    if (!result.ok) {
+      setDetailNote(`删除失败：${result.error ?? '请重试'}`)
+      return
+    }
+    const name = detail.name
     setDetailId(null)
-  }
-
-  const adjustToActual = () => {
-    if (!detail) return
-    updateBudgets(
-      ledger.budgets.map((budget) => (budget.id === detail.id ? { ...budget, limit: detail.used } : budget)),
-      `已按实际把「${detail.name}」上限调整为 ${moneyText(detail.used)}`,
+    notify(
+      `已删除预算「${name}」`,
+      result.undoToken
+        ? () => {
+            void undo(result.undoToken!).then((outcome) =>
+              notify(outcome.ok ? '已撤销删除' : `撤销失败：${outcome.error ?? '请重试'}`),
+            )
+          }
+        : undefined,
     )
-    setDetailNote('已按实际调整')
   }
 
-  const saveEditor = () => {
+  const adjustToActual = async () => {
+    if (!detail || saving) return
+    const budget = ledger.budgets.find((item) => item.id === detail.id)
+    if (!budget) {
+      setDetailNote('预算条目已不存在，请关闭后重试')
+      return
+    }
+    setSaving(true)
+    const result = await updateBudget(detail.id, toBudgetInput(budget, detail.used))
+    setSaving(false)
+    if (!result.ok) {
+      setDetailNote(`调整失败：${result.error ?? '请重试'}`)
+      return
+    }
+    setDetailNote('已按实际调整')
+    notify(`已按实际把「${detail.name}」上限调整为 ${moneyText(detail.used)}`)
+  }
+
+  const saveEditor = async () => {
+    if (saving) return
     const amount = Math.round(Number(editor.amount) * 100)
     if (!editor.name.trim()) {
       setEditorError('请填写预算名称')
@@ -402,23 +450,37 @@ export function BudgetPage({
       setEditorError('请填写大于 0 的金额')
       return
     }
+    // 真实后端要求预算必须绑定账户与分类；在这里先讲清楚，避免提交后静默失败。
+    if (apiMode && !editor.categoryId) {
+      setEditorError('真实账本要求预算绑定分类，请选择分类')
+      return
+    }
+    if (apiMode && !editor.accountId) {
+      setEditorError('真实账本要求预算绑定账户，请选择账户')
+      return
+    }
+    if (apiMode && editor.type === 'transfer' && !editor.toAccountId) {
+      setEditorError('转账预算需要选择转入账户')
+      return
+    }
     const category = ledger.categories.find((item) => item.id === editor.categoryId)
-    updateBudgets(
-      [
-        ...ledger.budgets,
-        {
-          id: createBudgetId(ledger.budgets),
-          name: editor.name.trim(),
-          type: editor.type,
-          period: editor.period,
-          limit: amount,
-          categoryId: editor.categoryId || undefined,
-          accountId: editor.accountId || undefined,
-        },
-      ],
-      `已新增预算「${editor.name.trim()}」${category ? `，分类 ${category.name}` : ''}`,
-    )
+    setSaving(true)
+    const result = await createBudget({
+      name: editor.name.trim(),
+      type: editor.type,
+      period: editor.period,
+      limit: amount,
+      categoryId: editor.categoryId || undefined,
+      accountId: editor.accountId || undefined,
+      toAccountId: editor.type === 'transfer' ? editor.toAccountId || undefined : undefined,
+    })
+    setSaving(false)
+    if (!result.ok) {
+      setEditorError(`保存失败：${result.error ?? '请重试'}`)
+      return
+    }
     onEditorOpenChange(false)
+    notify(`已新增预算「${editor.name.trim()}」${category ? `，分类 ${category.name}` : ''}`)
   }
 
   if (dataState === 'loading') {
@@ -475,6 +537,8 @@ export function BudgetPage({
           state={editor}
           ledger={ledger}
           error={editorError}
+          saving={saving}
+          apiMode={apiMode}
           portalTarget={portalTarget}
           onChange={setEditor}
           onClose={() => onEditorOpenChange(false)}
@@ -572,7 +636,7 @@ export function BudgetPage({
             {detail.type === 'expense' && detail.level === 'over' && (
               <div className="mb-bg-over-actions">
                 <div className="mb-bg-over-buttons">
-                  <button type="button" className="mb-secondary-btn" onClick={adjustToActual}>
+                  <button type="button" className="mb-secondary-btn" onClick={adjustToActual} disabled={saving}>
                     按实际调整
                   </button>
                   <button
@@ -608,7 +672,7 @@ export function BudgetPage({
                   value={detailLimit}
                   onChange={(event) => setDetailLimit(event.target.value)}
                 />
-                <button type="button" className="mb-primary-btn" onClick={saveLimit}>
+                <button type="button" className="mb-primary-btn" onClick={saveLimit} disabled={saving}>
                   保存
                 </button>
               </div>
@@ -616,7 +680,7 @@ export function BudgetPage({
 
             {detailNote && <p className="mb-bg-detail-note">{detailNote}</p>}
 
-            <button type="button" className="mb-bg-danger-link" onClick={deleteBudget}>
+            <button type="button" className="mb-bg-danger-link" onClick={deleteBudget} disabled={saving}>
               {confirmDelete ? '再次点击确认删除' : '删除预算条目'}
             </button>
           </>
@@ -629,6 +693,8 @@ export function BudgetPage({
         state={editor}
         ledger={ledger}
         error={editorError}
+        saving={saving}
+        apiMode={apiMode}
         portalTarget={portalTarget}
         onChange={setEditor}
         onClose={() => onEditorOpenChange(false)}
@@ -690,6 +756,8 @@ function BudgetEditor({
   state,
   ledger,
   error,
+  saving,
+  apiMode,
   portalTarget,
   onChange,
   onClose,
@@ -700,6 +768,9 @@ function BudgetEditor({
   state: EditorState
   ledger: ReturnType<typeof useLedger>['ledger']
   error: string
+  saving: boolean
+  /** 真实账本要求预算绑定分类与账户，占位文案随之变化。 */
+  apiMode: boolean
   portalTarget: HTMLElement | null
   onChange: (next: EditorState) => void
   onClose: () => void
@@ -735,7 +806,7 @@ function BudgetEditor({
               key={kind}
               type="button"
               className={`mb-entry-type${state.type === kind ? ' is-active' : ''}`}
-              onClick={() => onChange({ ...state, type: kind, categoryId: '' })}
+              onClick={() => onChange({ ...state, type: kind, categoryId: '', toAccountId: '' })}
             >
               {BUDGET_KIND_LABEL[kind]}
             </button>
@@ -786,7 +857,7 @@ function BudgetEditor({
             value={state.categoryId}
             onChange={(event) => onChange({ ...state, categoryId: event.target.value })}
           >
-            <option value="">全部分类</option>
+            <option value="">{apiMode ? '请选择分类（必选）' : '全部分类'}</option>
             {options.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -802,14 +873,34 @@ function BudgetEditor({
             value={state.accountId}
             onChange={(event) => onChange({ ...state, accountId: event.target.value })}
           >
-            <option value="">全部账户</option>
+            <option value="">{apiMode ? '请选择账户（必选）' : '全部账户'}</option>
             {ledger.accounts.map((account) => (
               <option key={account.id} value={account.id}>
-                {account.name}
+                {accountDisplayName(account, ledger.accounts)}
               </option>
             ))}
           </select>
         </label>
+
+        {state.type === 'transfer' && (
+          <label className="mb-entry-field">
+            <span className="mb-field-label">转入账户</span>
+            <select
+              className="mb-input mb-bg-input mb-bg-select"
+              value={state.toAccountId}
+              onChange={(event) => onChange({ ...state, toAccountId: event.target.value })}
+            >
+              <option value="">请选择转入账户</option>
+              {ledger.accounts
+                .filter((account) => account.id !== state.accountId)
+                .map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {accountDisplayName(account, ledger.accounts)}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
 
         {error && <p className="mb-entry-error">{error}</p>}
 
@@ -817,7 +908,7 @@ function BudgetEditor({
           <button type="button" className="mb-secondary-btn" onClick={onClose}>
             取消
           </button>
-          <button type="button" className="mb-primary-btn" onClick={onSave}>
+          <button type="button" className="mb-primary-btn" onClick={onSave} disabled={saving}>
             保存
           </button>
         </div>

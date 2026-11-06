@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { TransactionPatch } from '@/features/transactions/ledgerOps'
-import type { AccountKind, Ledger, NewTransactionInput, TxType } from './model'
+import type { AccountKind, BudgetPeriod, Ledger, NewTransactionInput, TxType } from './model'
 
 export type LedgerDataMode = 'seed' | 'api'
 
@@ -44,6 +44,18 @@ export interface LedgerCategoryInput {
   parentId?: string | null
 }
 
+/** 预算表单：金额为分；分类 id 为展示 id（API 模式由 context 翻成真实 id）。 */
+export interface LedgerBudgetInput {
+  name: string
+  type: 'expense' | 'income' | 'transfer'
+  period: BudgetPeriod
+  limit: number
+  categoryId?: string
+  accountId?: string
+  /** 仅转账预算使用：转入账户（真实账户 id）。 */
+  toAccountId?: string
+}
+
 export interface LedgerContextValue {
   ledger: Ledger
   /** 数据来源：种子内存账本 / 真实 API。写操作在 API 模式下真写。 */
@@ -66,6 +78,10 @@ export interface LedgerContextValue {
   /** 删除分类；有交易引用时传 transferToId 先转移再删除（撤销会一并回填）。 */
   deleteCategory: (id: string, transferToId?: string) => Promise<LedgerMutationOutcome>
   reorderCategory: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
+  /* 预算页：新增 / 修改 / 删除（API 模式落 /budgets，种子模式改内存）。 */
+  createBudget: (input: LedgerBudgetInput) => Promise<LedgerCreateOutcome>
+  updateBudget: (id: string, input: LedgerBudgetInput) => Promise<LedgerMutationOutcome>
+  deleteBudget: (id: string) => Promise<LedgerMutationOutcome>
   /** 撤销删除 / 保存 / 批量改分类；令牌过期时返回失败而不是静默成功。 */
   undo: (token: string) => Promise<LedgerMutationOutcome>
   replaceLedger: (next: Ledger) => void

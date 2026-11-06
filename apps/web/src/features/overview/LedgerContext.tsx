@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { minor } from '@domain/index'
-import type { Account, AccountCategory, Transaction } from '@contracts/types'
-import { accountApi, accountCategoryApi, auditEventApi, transactionApi, transactionCategoryApi } from '@/services/api'
+import type { Account, AccountCategory, Budget, Transaction } from '@contracts/types'
+import {
+  accountApi,
+  accountCategoryApi,
+  auditEventApi,
+  budgetApi,
+  transactionApi,
+  transactionCategoryApi,
+} from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import {
@@ -27,12 +34,14 @@ import {
   LedgerContext,
   type LedgerAccountInput,
   type LedgerBatchCategoryOutcome,
+  type LedgerBudgetInput,
   type LedgerCategoryInput,
   type LedgerCreateOutcome,
   type LedgerDataMode,
   type LedgerDeleteOutcome,
   type LedgerMutationOutcome,
 } from './ledgerStore'
+import { createBudgetId } from '@/features/budgets/budgetModel'
 import {
   deleteTransactionsFromLedger,
   setTransactionsCategory,
@@ -646,6 +655,137 @@ export function LedgerProvider({
     [apiMode, refreshRemote],
   )
 
+  /** 预算表单 → /budgets 请求体：分类展示 id 翻成真实 id，金额转分。 */
+  const budgetBody = useCallback((input: LedgerBudgetInput): Partial<Budget> => {
+    const body: Partial<Budget> = {
+      name: input.name,
+      type: input.type,
+      amount: minor(input.limit),
+      period: input.period,
+      accountId: input.accountId,
+    }
+    if (input.categoryId) body.categoryId = realCategoryId(ledgerRef.current, input.categoryId)
+    if (input.toAccountId) body.toAccountId = input.toAccountId
+    return body
+  }, [])
+
+  const createBudget = useCallback(
+    async (input: LedgerBudgetInput): Promise<LedgerCreateOutcome> => {
+      if (!apiMode) {
+        const current = ledgerRef.current
+        const budget = {
+          id: createBudgetId(current.budgets),
+          name: input.name,
+          type: input.type,
+          period: input.period,
+          limit: input.limit,
+          categoryId: input.categoryId || undefined,
+          accountId: input.accountId || undefined,
+        }
+        setLedger({ ...current, budgets: [...current.budgets, budget] })
+        return { ok: true, id: budget.id }
+      }
+      // 真实后端要求预算必须落在具体账户与分类上，不做静默兜底。
+      if (!input.accountId) return { ok: false, error: '真实账本要求预算绑定账户，请选择账户' }
+      if (!input.categoryId) return { ok: false, error: '真实账本要求预算绑定分类，请选择分类' }
+      try {
+        const created = await budgetApi.create(budgetBody(input)).then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true, id: created.id }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, budgetBody, refreshRemote],
+  )
+
+  const updateBudget = useCallback(
+    async (id: string, input: LedgerBudgetInput): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        const current = ledgerRef.current
+        setLedger({
+          ...current,
+          budgets: current.budgets.map((budget) =>
+            budget.id === id
+              ? {
+                  ...budget,
+                  name: input.name,
+                  type: input.type,
+                  period: input.period,
+                  limit: input.limit,
+                  categoryId: input.categoryId || undefined,
+                  accountId: input.accountId || undefined,
+                }
+              : budget,
+          ),
+        })
+        return { ok: true }
+      }
+      if (!input.accountId) return { ok: false, error: '真实账本要求预算绑定账户，请选择账户' }
+      if (!input.categoryId) return { ok: false, error: '真实账本要求预算绑定分类，请选择分类' }
+      try {
+        await budgetApi.update(id, budgetBody(input)).then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, budgetBody, refreshRemote],
+  )
+
+  const deleteBudget = useCallback(
+    async (id: string): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        const before = ledgerRef.current
+        setLedger({ ...before, budgets: before.budgets.filter((budget) => budget.id !== id) })
+        const undoToken = registerUndo(async () => {
+          setLedger(before)
+          return { ok: true }
+        })
+        return { ok: true, undoToken }
+      }
+      try {
+        // 后端是硬删除且不回传审计事件；先取完整预算快照，撤销时按原 id 重建。
+        const snapshot = (await budgetApi.getAll().then(unwrapApiData)).find(
+          (budget) => budget.id === id,
+        )
+        await budgetApi.delete(id).then(unwrapApiData)
+        await refreshRemote()
+        const undoToken = registerUndo(async () => {
+          if (!snapshot) return { ok: false, error: '撤销快照已丢失，请重新创建预算' }
+          try {
+            await budgetApi
+              .create({
+                id: snapshot.id,
+                name: snapshot.name,
+                type: snapshot.type,
+                amount: snapshot.amount,
+                period: snapshot.period,
+                startDate: snapshot.startDate,
+                endDate: snapshot.endDate,
+                transactionTime: snapshot.transactionTime,
+                note: snapshot.note,
+                isActive: snapshot.isActive,
+                accountId: snapshot.accountId,
+                toAccountId: snapshot.toAccountId,
+                categoryId: snapshot.categoryId,
+              })
+              .then(unwrapApiData)
+            await refreshRemote()
+            return { ok: true }
+          } catch (error) {
+            return { ok: false, error: getApiErrorMessage(error) }
+          }
+        })
+        return { ok: true, undoToken }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote, registerUndo],
+  )
+
   const replaceLedger = useCallback(
     (next: Ledger) => {
       // API 模式下尚未接线的分区（导入导出 / 现金流 / 清空）保持只读预览。
@@ -674,6 +814,9 @@ export function LedgerProvider({
         moveCategory,
         deleteCategory,
         reorderCategory,
+        createBudget,
+        updateBudget,
+        deleteBudget,
         undo,
         replaceLedger,
       }}
