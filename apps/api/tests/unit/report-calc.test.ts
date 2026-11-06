@@ -4,7 +4,7 @@ import {
   computePredictedAssetsLiabilities,
   computePredictedAccountTotal,
 } from '../../src/services/report/prediction.js'
-import { sumAssetsLiabilities } from '../../src/services/report/account-sum.js'
+import { sumAssetsLiabilities, sumPositiveAssets } from '../../src/services/report/account-sum.js'
 
 interface MockPrediction {
   date: Date
@@ -239,6 +239,32 @@ describe('report-calc - 时点预测快照', () => {
       expect(result.assets).toBe(123456)
       expect(result.liabilities).toBe(0)
       expect(result.netWorth).toBe(123456)
+    })
+  })
+
+  describe('sumPositiveAssets', () => {
+    it('投资占比分母只取正余额资产：排除负余额资产与负债账户（真实库 105.18% → 89.94%）', () => {
+      const result = sumPositiveAssets(
+        [
+          { id: 'a1', type: 'asset' },
+          { id: 'a2', type: 'asset' },
+          { id: 'a3', type: 'asset' },
+          { id: 'a4', type: 'asset' },
+          { id: 'l1', type: 'liability' },
+        ],
+        (a) => {
+          if (a.id === 'a1') return 82211079 // 雪球基金
+          if (a.id === 'a2') return 6046455 // 云闪付
+          if (a.id === 'a3') return -9016838 // 公积金（负余额，不计入）
+          if (a.id === 'a4') return 2800 // 钱包
+          return 1603015 // 负债（不计入）
+        }
+      )
+      expect(result).toBe(88260334)
+    })
+
+    it('没有正余额资产时返回 0，避免除零', () => {
+      expect(sumPositiveAssets([{ id: 'a1', type: 'asset' }], () => -100)).toBe(0)
     })
   })
 

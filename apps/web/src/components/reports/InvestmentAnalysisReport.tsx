@@ -205,7 +205,15 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
     return renderEmptyState()
   }
 
-  const { returnAnalysis, trend, totalAssets, investmentRatio } = investmentData
+  const {
+    returnAnalysis,
+    trend,
+    totalAssets,
+    ratioBase,
+    excludedNegativeAssetCount,
+    excludedNegativeAssets,
+    investmentRatio,
+  } = investmentData
 
   const summarySection = (
     <>
@@ -257,6 +265,12 @@ const InvestmentAnalysisReport: React.FC<InvestmentAnalysisReportProps> = ({
       <Card className="surface-card report-section-card">
         <div className="report-summary-note" style={{ color: token.colorTextTertiary, fontSize: `${token.fontSizeSM}px` }}>
           投资天数: {returnAnalysis.investmentDays} 天 | 现金流笔数: {returnAnalysis.cashFlowCount} 笔 | 账户数量: {investmentData.accountCount} 个 | 总资产 {formatCurrency(totalAssets)}
+          <br />
+          投资占比 = 投资总额 {formatCurrency(investmentData.totalInvestment)} ÷ 正余额资产 {formatCurrency(ratioBase)}
+          {excludedNegativeAssetCount > 0
+            ? `（总资产 ${formatCurrency(totalAssets)} 已排除 ${excludedNegativeAssetCount} 个负余额资产账户 ${formatCurrency(minor(-excludedNegativeAssets))}；负债不计入分母）`
+            : '（负债不计入分母）'}
+          
         </div>
       </Card>
     </>

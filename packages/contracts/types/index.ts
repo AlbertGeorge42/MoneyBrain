@@ -671,7 +671,14 @@ export interface InvestmentAnalysisReportData {
   startDate: string
   endDate: string
   totalInvestment: Minor
+  /** 资产合计（含负余额资产），仅用于「总资产」展示。 */
   totalAssets: Minor
+  /** 投资占比的分母：正余额资产合计（负余额资产与负债账户都不计入）。 */
+  ratioBase: Minor
+  /** 分母里排除掉的负余额资产：账户数量与合计（正数幅度）。 */
+  excludedNegativeAssetCount: number
+  excludedNegativeAssets: Minor
+  /** = totalInvestment / ratioBase，恒 ≤ 100%。 */
   investmentRatio: number
   accountCount: number
   returnAnalysis: InvestmentReturnAnalysis

@@ -1,7 +1,7 @@
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
 import { minor } from '../../../../../packages/domain/src/index.js'
-import { sumAssetsLiabilities } from './account-sum.js'
+import { sumAssetsLiabilities, sumPositiveAssets } from './account-sum.js'
 import { resolveReportPeriod, generateMonthRange } from './period.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import {
@@ -65,13 +65,25 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const startValue = minor(balanceCache.getMany(investmentAccountIds, startDate))
   const endValue = minor(balanceCache.getMany(investmentAccountIds, nextDayOfEnd))
 
-  // 计算总资产和总负债
+  // 总资产（含负余额资产）保留给「总资产」展示；
+  // 投资占比的分母改为正余额资产合计：负余额资产不是可配置资产，
+  // 计入分母会把占比推过 100%（真实库 105.18% → 89.94%）。
   const { assets: totalAssets } = sumAssetsLiabilities(
     allAccounts.map(a => ({ type: a.type, id: a.id })),
     (a) => minor(balanceCache.get(a.id, nextDayOfEnd))
   )
+  const ratioBase = sumPositiveAssets(
+    allAccounts.map(a => ({ type: a.type, id: a.id })),
+    (a) => minor(balanceCache.get(a.id, nextDayOfEnd))
+  )
+  const negativeAssetBalances = allAccounts
+    .filter(a => a.type === 'asset')
+    .map(a => balanceCache.get(a.id, nextDayOfEnd))
+    .filter(balance => balance < 0)
+  const excludedNegativeAssetCount = negativeAssetBalances.length
+  const excludedNegativeAssets = minor(-negativeAssetBalances.reduce((sum, balance) => sum + balance, 0))
 
-  const investmentRatio = totalAssets !== 0 ? (endValue / totalAssets) * 100 : 0
+  const investmentRatio = ratioBase !== 0 ? (endValue / ratioBase) * 100 : 0
 
   const valueChange = minor(endValue - startValue)
 
@@ -194,12 +206,17 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
     const investment = minor(balanceCache.getMany(investmentAccountIds, nextMonthStart))
 
-    const { assets, netWorth } = sumAssetsLiabilities(
+    const { netWorth } = sumAssetsLiabilities(
+      allAccounts.map(a => ({ type: a.type, id: a.id })),
+      (a) => minor(balanceCache.get(a.id, nextMonthStart))
+    )
+    // 与报表头部的投资占比同口径：分母只取正余额资产。
+    const ratioBase = sumPositiveAssets(
       allAccounts.map(a => ({ type: a.type, id: a.id })),
       (a) => minor(balanceCache.get(a.id, nextMonthStart))
     )
 
-    const ratio = assets !== 0 ? (investment / assets) * 100 : 0
+    const ratio = ratioBase !== 0 ? (investment / ratioBase) * 100 : 0
 
     trend.push({
       month: monthStr,
@@ -244,6 +261,9 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     endDate: endDateStr,
     totalInvestment: endValue,
     totalAssets,
+    ratioBase,
+    excludedNegativeAssetCount,
+    excludedNegativeAssets,
     investmentRatio,
     accountCount: investmentAccounts.length,
     returnAnalysis,
