@@ -151,6 +151,7 @@ function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
     statuses: [status(food, 40_000)],
     dashboard,
     assetTrend,
+    transactions: dashboard.recentTransactions,
     balances: new Map([
       ['acc-1', 500_000],
       ['acc-2', 50_000],

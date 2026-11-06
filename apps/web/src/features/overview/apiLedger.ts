@@ -19,7 +19,7 @@ import type {
   Transaction,
   TransactionCategory,
 } from '@contracts/types'
-import { accountApi, analyticsApi, budgetApi, transactionCategoryApi } from '@/services/api'
+import { accountApi, analyticsApi, budgetApi, transactionApi, transactionCategoryApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import type {
   AccountKind,
@@ -218,8 +218,26 @@ export interface LedgerApiPayload {
   statuses: BudgetStatus[]
   dashboard: DashboardSummaryData
   assetTrend: AnalyticsAssetTrendItem[]
+  /**
+   * 完整流水分页拉取的结果（不是 dashboard 的最近 8 笔）。
+   * 报表与预算的合计都从这里取，跨月 / 跨年才不会被快照窗口截断。
+   */
+  transactions: Transaction[]
   /** accountId → 当日余额（分）。缺任一项都应视为请求失败，不做 0 兜底。 */
   balances: ReadonlyMap<string, number>
+}
+
+/** 完整流水分页拉取：只读端点，失败直接抛给页面进入 error 态。 */
+export async function fetchAllTransactions(): Promise<Transaction[]> {
+  const pageSize = 200
+  const all: Transaction[] = []
+  for (let page = 1; page <= 100; page += 1) {
+    const result = await transactionApi.getAll({ page, pageSize }).then(unwrapApiData)
+    all.push(...result.list)
+    if (result.list.length === 0 || all.length >= result.total) return all
+  }
+  // 超过 2 万笔时宁可报错，也不静默截断后算出偏小的合计。
+  throw new Error('流水超过 2 万笔，分页加载未完成')
 }
 
 export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal()): Ledger {
@@ -282,8 +300,8 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
   budgetsSummary.percent =
     budgetsSummary.limit === 0 ? 0 : (budgetsSummary.used / budgetsSummary.limit) * 100
 
-  const transactions: LedgerTransaction[] = payload.dashboard.recentTransactions.map(
-    (transaction: Transaction) => toLedgerTransaction(transaction, mapper),
+  const transactions: LedgerTransaction[] = payload.transactions.map((transaction: Transaction) =>
+    toLedgerTransaction(transaction, mapper),
   )
 
   const netWorth = accounts.reduce((total, account) => total + account.balance, 0)
@@ -352,12 +370,13 @@ export interface ApiLedgerResult {
 /** 只读拉取总览所需数据；任一请求失败都抛出，由上层进入 error 态。 */
 export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
   const today = todayLocal()
-  const [accounts, categories, budgets, dashboard, assetTrend] = await Promise.all([
+  const [accounts, categories, budgets, dashboard, assetTrend, transactions] = await Promise.all([
     accountApi.getAll().then(unwrapApiData),
     transactionCategoryApi.getAll().then(unwrapApiData),
     budgetApi.getAll().then(unwrapApiData),
     analyticsApi.getDashboardSummary().then(unwrapApiData),
     analyticsApi.getAssetTrend().then(unwrapApiData),
+    fetchAllTransactions(),
   ])
 
   const balanceResults = await Promise.all(
@@ -386,6 +405,7 @@ export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
         statuses,
         dashboard,
         assetTrend,
+        transactions,
         balances: new Map(balanceResults),
       },
       today,
