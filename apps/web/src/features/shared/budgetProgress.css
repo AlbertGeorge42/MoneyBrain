@@ -6,7 +6,7 @@
   width: 100%;
   height: var(--mb-bar-h);
   border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-border-strong);
+  background: var(--mb-progress-track);
   overflow: hidden;
 }
 
@@ -19,11 +19,16 @@
   z-index: 1;
 }
 
+/* 超支保底：真实宽度不足时，至少留出 2px 缺口 + 6px 红段。 */
+.mb-progress-fill.is-over {
+  width: max(var(--mb-fill-width), var(--mb-over-min));
+}
+
 .mb-progress-tick {
   position: absolute;
   inset-block: 0;
   left: 76.9231%; /* 100 / 130 */
   width: 2px;
-  background: var(--mb-color-border-strong);
+  background: var(--mb-progress-track);
   z-index: 2;
 }

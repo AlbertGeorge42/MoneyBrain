@@ -161,13 +161,14 @@
   --mb-color-danger-bg: #fae8e6;
   --mb-color-on-danger: #ffe9e7;
   --mb-color-warning: #8a5a00;
-  /* 进度条填充专属：只用于条面，不参与文字色；提彩度而不是压暗，
-     对轨道 border-strong 均 ≥3:1（实测见 design-tokens §2.7）。
-     normal = 计划内（支出未到临界 / 收入未达成），绿色只留给收入达成。 */
-  --mb-progress-normal: #425b70;
-  --mb-progress-warning: #a65700;
-  --mb-progress-over: #a5292d;
-  --mb-progress-achieved: #106c3e;
+  /* 进度条填充专属：只用于条面，不参与文字色；对卡片底 ≥4.0、
+     对轨道 ≥1.6 明度比且 ΔE00 ≥20（实测见 design-tokens §2.7）。
+     绿只表示「良好」：支出仍在计划内、收入已达成；收入进行中用中性钢色。 */
+  --mb-progress-normal: #2e8a57;
+  --mb-progress-neutral: #425b70;
+  --mb-progress-warning: #c26600;
+  --mb-progress-over: #ca4d40;
+  --mb-progress-track: #a4a8a2;
   --mb-color-cat-1: #3f7d0f;
   --mb-color-cat-2: #0f7d6a;
   --mb-color-cat-3: #1b6fa8;
@@ -245,11 +246,12 @@
   --mb-color-danger-bg: #241114;
   --mb-color-on-danger: #ffe9e7;
   --mb-color-warning: #e5b54a;
-  /* 暗色提亮但保留彩度（不是浅色反相），对 border-strong #333A3F 均 ≥3:1 */
-  --mb-progress-normal: #8ea8bf;
-  --mb-progress-warning: #eea743;
-  --mb-progress-over: #ed6869;
-  --mb-progress-achieved: #60c68f;
+  /* 暗色提亮但保留彩度（不是浅色反相），口径同浅色 */
+  --mb-progress-normal: #3fa572;
+  --mb-progress-neutral: #8ea8bf;
+  --mb-progress-warning: #c9822f;
+  --mb-progress-over: #c9615f;
+  --mb-progress-track: #4a5257;
   --mb-color-cat-1: #a3e635;
   --mb-color-cat-2: #4cc9e8;
   --mb-color-cat-3: #a78bfa;
