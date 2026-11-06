@@ -363,6 +363,7 @@ function PreviewBody({
         ledger={ledger}
         device={device}
         onClose={() => setDetail(null)}
+        onOpenTransaction={setDetail}
       />
     </>
   )

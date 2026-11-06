@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react'
 import { CategoryIcon } from '@/features/overview/category'
 import { signedAmountText } from '@/features/overview/format'
+import { RefundRelationTag, RefundStateTag } from './RefundTag'
 import {
   getAccount,
   getCategoryName,
@@ -28,6 +29,7 @@ export function TxRow({
   leading,
   ariaLabel,
   onActivate,
+  onOpenRelated,
 }: {
   ledger: Ledger
   transaction: LedgerTransaction
@@ -37,6 +39,8 @@ export function TxRow({
   leading?: ReactNode
   ariaLabel?: string
   onActivate: () => void
+  /** 点行内「关联 #原交易」时打开对方详情（不触发本行详情）。 */
+  onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
   const account = getAccount(ledger, transaction.accountId)
   const rootId = getCategoryRootId(ledger, transaction.categoryId)
@@ -87,6 +91,8 @@ export function TxRow({
             </>
           )}
           <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
+          <RefundRelationTag ledger={ledger} transaction={transaction} onOpenRelated={onOpenRelated} />
+          <RefundStateTag ledger={ledger} transaction={transaction} />
         </span>
       </span>
       <span className="mb-tx-amount-col">

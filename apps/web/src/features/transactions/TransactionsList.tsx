@@ -9,8 +9,10 @@ import {
   transactionDirection,
   transactionTone,
   type Ledger,
+  type LedgerTransaction,
 } from '@/features/overview/model'
 import { TxRow } from '@/features/shared/TxRow'
+import { RefundRelationTag, RefundStateTag } from '@/features/shared/RefundTag'
 import type { DeviceMode } from '@/features/shared/types'
 import type { DisplaySettings } from './displaySettings'
 import {
@@ -37,6 +39,7 @@ function DesktopTable({
   selected,
   onToggle,
   onOpenDetail,
+  onOpenRelated,
 }: {
   groups: GroupedTransactions[]
   totals: TransactionTotals
@@ -46,6 +49,7 @@ function DesktopTable({
   selected: ReadonlySet<string>
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
+  onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
   return (
     <>
@@ -76,6 +80,7 @@ function DesktopTable({
                     selected={isSelected}
                     ariaLabel={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
                     onActivate={activate}
+                    onOpenRelated={onOpenRelated}
                     leading={
                       batchMode ? (
                         <button
@@ -121,6 +126,7 @@ function MobileList({
   selected,
   onToggle,
   onOpenDetail,
+  onOpenRelated,
 }: {
   groups: GroupedTransactions[]
   totals: TransactionTotals
@@ -130,6 +136,7 @@ function MobileList({
   selected: ReadonlySet<string>
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
+  onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
   return (
     <section className="mb-tx-m-list" aria-label="流水列表">
@@ -157,13 +164,19 @@ function MobileList({
                 .filter(Boolean)
                 .join(' · ')
               return (
-                <button
+                <div
                   key={transaction.id}
-                  type="button"
-                  role={batchMode ? 'checkbox' : undefined}
+                  role={batchMode ? 'checkbox' : 'button'}
                   aria-checked={batchMode ? isSelected : undefined}
+                  tabIndex={0}
                   className={`mb-tx-m-row${isSelected ? ' is-selected' : ''}`}
                   onClick={() => (batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id))}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    event.preventDefault()
+                    if (batchMode) onToggle(transaction.id)
+                    else onOpenDetail(transaction.id)
+                  }}
                 >
                   {batchMode && <CheckBox checked={isSelected} />}
                   <CategoryIcon rootId={rootId} size="md" />
@@ -171,12 +184,20 @@ function MobileList({
                     <span className="mb-tx-m-title">
                       {display.showNote ? transaction.note : categoryName}
                     </span>
-                    <span className="mb-tx-m-meta">{meta}</span>
+                    <span className="mb-tx-m-meta">
+                      <span className="mb-tx-m-meta-text">{meta}</span>
+                      {!batchMode && (
+                        <>
+                          <RefundRelationTag ledger={ledger} transaction={transaction} onOpenRelated={onOpenRelated} />
+                          <RefundStateTag ledger={ledger} transaction={transaction} />
+                        </>
+                      )}
+                    </span>
                   </span>
                   <span className={`mb-tx-m-amount is-${transactionTone(transaction)}`}>
                     {signedAmountText(transaction)}
                   </span>
-                </button>
+                </div>
               )
             })}
           </div>
@@ -199,6 +220,7 @@ export function TransactionsList({
   selected,
   onToggle,
   onOpenDetail,
+  onOpenRelated,
 }: {
   device: DeviceMode
   groups: GroupedTransactions[]
@@ -210,6 +232,7 @@ export function TransactionsList({
   selected: ReadonlySet<string>
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
+  onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
   const { current: totals } = splitTotalsByToday(groups.flatMap((group) => group.items), today)
 
@@ -224,6 +247,7 @@ export function TransactionsList({
         selected={selected}
         onToggle={onToggle}
         onOpenDetail={onOpenDetail}
+        onOpenRelated={onOpenRelated}
       />
     )
   }
@@ -238,6 +262,7 @@ export function TransactionsList({
       selected={selected}
       onToggle={onToggle}
       onOpenDetail={onOpenDetail}
+      onOpenRelated={onOpenRelated}
     />
   )
 }

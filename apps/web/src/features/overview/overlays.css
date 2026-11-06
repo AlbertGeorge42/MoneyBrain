@@ -745,4 +745,85 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* 退款关联：总览详情同样可点开对方；金额与行标记口径一致。 */
+.mb-detail-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-accent);
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+}
+
+.mb-detail-link:hover {
+  text-decoration: underline;
+}
+
+.mb-detail-link:focus-visible,
+.mb-detail-refund-item:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * -1);
+}
+
+.mb-detail-muted {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-detail-refund-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+}
+
+.mb-detail-refund-badge {
+  padding: 1px 6px;
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-warning);
+}
+
+.mb-detail-refund-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  margin-top: var(--mb-s-2);
+}
+
+.mb-detail-refund-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+  width: 100%;
+  padding: var(--mb-s-1) 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  text-align: right;
+  cursor: pointer;
+}
+
+.mb-detail-refund-item:hover {
+  color: var(--mb-color-accent);
+}
+
+.mb-detail-refund-item-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-detail-refund-item-amount {
+  flex: none;
+  font-family: var(--mb-font-num);
+  color: var(--mb-color-text-primary);
+}
+
 

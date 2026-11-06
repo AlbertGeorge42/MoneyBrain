@@ -494,6 +494,7 @@
   align-items: center;
   gap: var(--mb-s-3);
   width: 100%;
+  box-sizing: border-box;
   min-height: calc(var(--mb-touch) + var(--mb-s-3));
   padding: var(--mb-row-py) 0;
   border: 0;
@@ -521,6 +522,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mb-m-tx-meta {
+  display: flex;
+  align-items: baseline;
+}
+
+.mb-m-tx-meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mb-m-tx-note {

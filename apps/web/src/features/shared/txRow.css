@@ -112,6 +112,55 @@
   flex: none;
 }
 
+/* 退款关联/已退款标记：行内轻量文字，不增加第二行或改变行高。
+   `::before` 承接分隔点，省掉额外 flex 子元素。 */
+.mb-tx-refund-tag {
+  display: inline-block;
+  flex: none;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-tertiary);
+  font-family: inherit;
+  font-size: var(--mb-fs-0);
+  font-weight: inherit;
+  line-height: var(--mb-lh-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.mb-tx-refund-tag::before {
+  content: '·';
+  margin-right: var(--mb-s-1);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-tx-refund-tag.is-link {
+  color: var(--mb-color-accent);
+  cursor: pointer;
+}
+
+.mb-tx-refund-tag.is-link:hover {
+  text-decoration: underline;
+}
+
+.mb-tx-refund-tag.is-link:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * -1);
+}
+
+.mb-tx-refund-tag.is-unlinked {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-tx-refund-tag.is-full {
+  color: var(--mb-color-warning);
+}
+
 .mb-tx-sep {
   flex: none;
   font-size: var(--mb-fs-0);

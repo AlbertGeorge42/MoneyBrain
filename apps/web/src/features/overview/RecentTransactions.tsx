@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { TxRow } from '@/features/shared/TxRow'
+import { RefundRelationTag, RefundStateTag } from '@/features/shared/RefundTag'
 import { CategoryIcon } from './category'
 import { signedAmountText } from './format'
 import {
@@ -56,22 +57,32 @@ export function RecentTransactions({
                 const tone = transactionTone(transaction)
                 const account = getAccount(ledger, transaction.accountId)
                 return (
-                  <button
+                  <div
                     key={transaction.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     className="mb-m-tx"
                     onClick={() => onOpenDetail(transaction)}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return
+                      event.preventDefault()
+                      onOpenDetail(transaction)
+                    }}
                   >
                     <CategoryIcon rootId={rootId} size="md" />
                     <span className="mb-m-tx-main">
                       <span className="mb-m-tx-note">{transaction.note}</span>
                       <span className="mb-m-tx-meta">
-                        {getCategoryName(ledger, transaction.categoryId)} · {account?.name ?? '未知账户'} ·{' '}
-                        {transactionDirection(transaction)}
+                        <span className="mb-m-tx-meta-text">
+                          {getCategoryName(ledger, transaction.categoryId)} · {account?.name ?? '未知账户'} ·{' '}
+                          {transactionDirection(transaction)}
+                        </span>
+                        <RefundRelationTag ledger={ledger} transaction={transaction} onOpenRelated={onOpenDetail} />
+                        <RefundStateTag ledger={ledger} transaction={transaction} />
                       </span>
                     </span>
                     <span className={`mb-m-tx-amount is-${tone}`}>{signedAmountText(transaction)}</span>
-                  </button>
+                  </div>
                 )
               })}
             </div>
@@ -91,6 +102,7 @@ export function RecentTransactions({
                   transaction={transaction}
                   ariaLabel={`查看交易详情：${transaction.note}`}
                   onActivate={() => onOpenDetail(transaction)}
+                  onOpenRelated={onOpenDetail}
                 />
               ))}
             </Fragment>

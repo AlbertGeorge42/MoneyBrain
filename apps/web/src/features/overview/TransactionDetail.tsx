@@ -1,13 +1,17 @@
 import { Button, Drawer, Modal } from '@mantine/core'
 import { CategoryIcon } from './category'
-import { signedAmountText } from './format'
+import { amountText, signedAmountText } from './format'
 import {
   accountKindLabel,
   formatDateLabel,
   getAccount,
   getCategoryName,
   getCategoryRootId,
+  getRefundList,
+  getRefundSummary,
+  getRelatedTransaction,
   transactionDirection,
+  transactionRefLabel,
   transactionTone,
   type Ledger,
   type LedgerTransaction,
@@ -19,16 +23,24 @@ function DetailBody({
   transaction,
   ledger,
   onClose,
+  onOpenTransaction,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
   onClose: () => void
+  onOpenTransaction: (transaction: LedgerTransaction) => void
 }) {
   const tone = transactionTone(transaction)
   const category = getCategoryName(ledger, transaction.categoryId)
   const rootId = getCategoryRootId(ledger, transaction.categoryId)
   const account = getAccount(ledger, transaction.accountId)
   const toAccount = transaction.toAccountId ? getAccount(ledger, transaction.toAccountId) : undefined
+  const related = transaction.type === 'refund' ? getRelatedTransaction(ledger, transaction) : undefined
+  const refundSummary =
+    transaction.type === 'expense' || transaction.type === 'income'
+      ? getRefundSummary(ledger, transaction)
+      : null
+  const refunds = refundSummary ? getRefundList(ledger, transaction) : []
 
   return (
     <div className="mb-detail">
@@ -64,6 +76,51 @@ function DetailBody({
             </dd>
           </div>
         )}
+        {transaction.type === 'refund' && (
+          <div>
+            <dt>原交易</dt>
+            <dd>
+              {related ? (
+                <button
+                  type="button"
+                  className="mb-detail-link"
+                  onClick={() => onOpenTransaction(related)}
+                >
+                  {`关联 #${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
+                </button>
+              ) : (
+                <span className="mb-detail-muted">未关联原交易（仍按退款记账）</span>
+              )}
+            </dd>
+          </div>
+        )}
+        {refundSummary && refundSummary.state !== 'none' && (
+          <div>
+            <dt>退款</dt>
+            <dd>
+              <span className="mb-detail-refund-summary">
+                已退款 {amountText(refundSummary.refunded)} / 剩余 {amountText(refundSummary.remaining)}
+                {refundSummary.state === 'full' && <span className="mb-detail-refund-badge">已全额退款</span>}
+              </span>
+              {refunds.length > 0 && (
+                <span className="mb-detail-refund-items">
+                  {refunds.map((refund) => (
+                    <button
+                      key={refund.id}
+                      type="button"
+                      className="mb-detail-refund-item"
+                      onClick={() => onOpenTransaction(refund)}
+                    >
+                      <span>{formatDateLabel(refund.date)}</span>
+                      <span className="mb-detail-refund-item-note">{refund.note || '退款'}</span>
+                      <span className="mb-detail-refund-item-amount">{amountText(refund.amount)}</span>
+                    </button>
+                  ))}
+                </span>
+              )}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>备注</dt>
           <dd>{transaction.note}</dd>
@@ -88,11 +145,13 @@ export function TransactionDetail({
   ledger,
   device,
   onClose,
+  onOpenTransaction,
 }: {
   transaction: LedgerTransaction | null
   ledger: Ledger
   device: DeviceMode
   onClose: () => void
+  onOpenTransaction: (transaction: LedgerTransaction) => void
 }) {
   if (!transaction) return null
 
@@ -121,7 +180,12 @@ export function TransactionDetail({
           close: 'mb-overlay-close',
         }}
       >
-        <DetailBody transaction={transaction} ledger={ledger} onClose={onClose} />
+        <DetailBody
+          transaction={transaction}
+          ledger={ledger}
+          onClose={onClose}
+          onOpenTransaction={onOpenTransaction}
+        />
       </Drawer>
     )
   }
@@ -143,7 +207,12 @@ export function TransactionDetail({
         close: 'mb-overlay-close',
       }}
     >
-      <DetailBody transaction={transaction} ledger={ledger} onClose={onClose} />
+      <DetailBody
+        transaction={transaction}
+        ledger={ledger}
+        onClose={onClose}
+        onOpenTransaction={onOpenTransaction}
+      />
     </Modal>
   )
 }

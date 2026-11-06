@@ -4,6 +4,7 @@ import { useLedger } from '@/features/overview/ledgerStore'
 import {
   CURRENT_MONTH_LABEL,
   TODAY,
+  findTransactionDeep,
   getCategory,
   getCategoryName,
 } from '@/features/overview/model'
@@ -236,7 +237,7 @@ export function TransactionsPage({
   onCreateAccount,
   onImport,
 }: TransactionsPageProps) {
-  const { ledger, dataMode, updateTransaction, deleteTransactions, setTransactionCategory, undo } = useLedger()
+  const { ledger, dataMode, updateTransaction, deleteTransactions, setTransactionCategory, linkRefund, undo } = useLedger()
   const apiMode = dataMode === 'api'
   // 筛选写入 URL：返回列表（含报表下钻）时还原分类/期间，避免静默丢失。
   // API 账本异步到达：分类/账户要等账本就绪才能校验。先冻结进入时的 query，
@@ -361,10 +362,10 @@ export function TransactionsPage({
   const groups = groupTransactions(sorted, today)
   const { current: monthTotals, future: futureTotals } = splitTotalsByToday(filtered, today)
   const chips = filterChips(ledger, filters)
+  // 关联对方可能不在当前筛选结果里，但一定作为 relatedTransaction/refunds 嵌在行上；
+  // 递归查找让「退款 → 原交易」「原交易 → 退款」都能直接打开详情。
   const detail = detailId
-    ? filtered.find((transaction) => transaction.id === detailId) ??
-      ledger.transactions.find((transaction) => transaction.id === detailId) ??
-      null
+    ? findTransactionDeep([...filtered, ...ledger.transactions], detailId) ?? null
     : null
   const categoryRoots = ledger.categories.filter(
     (category) =>
@@ -486,6 +487,23 @@ export function TransactionsPage({
       result.undoToken ? () => runUndo(result.undoToken!, '已撤销删除') : undefined,
     )
     return result
+  }
+
+  const handleLinkRefund = async (
+    id: string,
+    originalId: string | null,
+  ): Promise<LedgerMutationOutcome> => {
+    const result = await linkRefund(id, originalId)
+    if (!result.ok) {
+      notify(`关联失败：${result.error ?? '请重试'}`)
+      return result
+    }
+    notify(originalId ? '已关联原交易' : '已解除原交易关联')
+    return result
+  }
+
+  const handleOpenRelated = (transaction: { id: string }) => {
+    setDetailId(transaction.id)
   }
 
   const confirmBatchDelete = async (): Promise<LedgerMutationOutcome> => {
@@ -657,6 +675,7 @@ export function TransactionsPage({
           selected={selected}
           onToggle={toggleSelected}
           onOpenDetail={setDetailId}
+          onOpenRelated={handleOpenRelated}
         />
       )}
 
@@ -681,6 +700,9 @@ export function TransactionsPage({
         onClose={() => setDetailId(null)}
         onSave={handleSave}
         onDelete={handleDelete}
+        apiMode={apiMode}
+        onOpenTransaction={handleOpenRelated}
+        onLinkRefund={handleLinkRefund}
       />
 
       <BatchCategoryDialog

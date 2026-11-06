@@ -1,44 +1,204 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Drawer } from '@mantine/core'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { CategoryIcon } from '@/features/overview/category'
 import { normalizeAmountInput } from '@/features/overview/amountInput'
-import { signedAmountText } from '@/features/overview/format'
+import { amountText, signedAmountText } from '@/features/overview/format'
 import {
   accountKindLabel,
   formatDateLabel,
   getAccount,
   getCategoryName,
   getCategoryRootId,
+  getRefundList,
+  getRefundSummary,
+  getRelatedTransaction,
   transactionDirection,
+  transactionRefLabel,
   transactionTone,
   type Ledger,
   type LedgerTransaction,
 } from '@/features/overview/model'
+import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
+import { transactionApi, unwrapApiData } from '@/services/api'
 import type { DeviceMode } from '@/features/shared/types'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
 import type { TransactionPatch } from './ledgerOps'
 
 type Mode = 'view' | 'edit' | 'confirm-delete'
 
-function DetailView({
+/**
+ * 未关联退款的可选关联入口：默认收起，点开才读取候选原交易。
+ * 种子模式直接取账本；API 模式按 /transactions/refundable/list 现查，避免拿旧快照。
+ */
+function RefundLinkForm({
   transaction,
   ledger,
-  onEdit,
-  onDelete,
-  onClose,
+  apiMode,
+  onLink,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
+  apiMode: boolean
+  onLink: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [candidates, setCandidates] = useState<LedgerTransaction[]>([])
+  const [selected, setSelected] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setExpanded(false)
+    setSelected('')
+    setError('')
+  }, [transaction.id])
+
+  useEffect(() => {
+    if (!expanded) return
+    let cancelled = false
+    const localCandidates = ledger.transactions.filter(
+      (item) =>
+        (item.type === 'expense' || item.type === 'income') &&
+        item.id !== transaction.id &&
+        getRefundSummary(ledger, item).remaining > 0,
+    )
+
+    if (!apiMode) {
+      setCandidates(localCandidates)
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    void transactionApi
+      .getRefundableList()
+      .then(unwrapApiData)
+      .then((items) => {
+        if (cancelled) return
+        const mapper = mapperFromLedger(ledger)
+        setCandidates(
+          items
+            .map((item) => toLedgerTransaction(item, mapper))
+            .filter((item) => getRefundSummary(ledger, item).remaining > 0),
+        )
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : '读取可关联原交易失败')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [apiMode, expanded, ledger, transaction.id])
+
+  const confirm = async () => {
+    if (!selected || saving) return
+    setSaving(true)
+    setError('')
+    const result = await onLink(transaction.id, selected)
+    setSaving(false)
+    if (!result.ok) {
+      setError(result.error ?? '关联失败，请重试')
+      return
+    }
+    setExpanded(false)
+  }
+
+  if (!expanded) {
+    return (
+      <button type="button" className="mb-tx-refund-link-open" onClick={() => setExpanded(true)}>
+        关联原交易
+      </button>
+    )
+  }
+
+  return (
+    <div className="mb-tx-refund-link-form">
+      {loading ? (
+        <p className="mb-tx-refund-link-hint">正在读取可关联原交易…</p>
+      ) : candidates.length === 0 && !error ? (
+        <p className="mb-tx-refund-link-hint">当前没有仍有可退余额的收入/支出。</p>
+      ) : (
+        <select
+          className="mb-tx-select"
+          aria-label="选择原交易"
+          value={selected}
+          onChange={(event) => setSelected(event.target.value)}
+        >
+          <option value="">选择原交易…</option>
+          {candidates.map((candidate) => {
+            const summary = getRefundSummary(ledger, candidate)
+            return (
+              <option key={candidate.id} value={candidate.id}>
+                {transactionRefLabel(ledger, candidate)} · {formatDateLabel(candidate.date)} · 可退{' '}
+                {amountText(summary.remaining)}
+              </option>
+            )
+          })}
+        </select>
+      )}
+      {error && (
+        <p className="mb-tx-form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mb-tx-refund-link-actions">
+        <button
+          type="button"
+          className="mb-tx-btn is-primary"
+          onClick={() => void confirm()}
+          disabled={!selected || saving}
+        >
+          {saving ? '关联中…' : '关联'}
+        </button>
+        <button
+          type="button"
+          className="mb-tx-btn is-ghost"
+          onClick={() => setExpanded(false)}
+          disabled={saving}
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DetailView({
+  transaction,
+  ledger,
+  apiMode,
+  onEdit,
+  onDelete,
+  onClose,
+  onOpenTransaction,
+  onLinkRefund,
+}: {
+  transaction: LedgerTransaction
+  ledger: Ledger
+  apiMode: boolean
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
+  onOpenTransaction: (transaction: LedgerTransaction) => void
+  onLinkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
 }) {
   const tone = transactionTone(transaction)
   const category = getCategoryName(ledger, transaction.categoryId)
   const rootId = getCategoryRootId(ledger, transaction.categoryId)
   const account = getAccount(ledger, transaction.accountId)
   const toAccount = transaction.toAccountId ? getAccount(ledger, transaction.toAccountId) : undefined
+  const related = transaction.type === 'refund' ? getRelatedTransaction(ledger, transaction) : undefined
+  const refundSummary =
+    transaction.type === 'expense' || transaction.type === 'income'
+      ? getRefundSummary(ledger, transaction)
+      : null
+  const refunds = refundSummary ? getRefundList(ledger, transaction) : []
 
   return (
     <div className="mb-tx-detail">
@@ -72,6 +232,51 @@ function DetailView({
             </dd>
           </div>
         )}
+        {transaction.type === 'refund' && (
+          <div>
+            <dt>原交易</dt>
+            <dd>
+              {related ? (
+                <button
+                  type="button"
+                  className="mb-tx-detail-link"
+                  onClick={() => onOpenTransaction(related)}
+                >
+                  {`关联 #${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
+                </button>
+              ) : (
+                <span className="mb-tx-detail-muted">未关联原交易</span>
+              )}
+            </dd>
+          </div>
+        )}
+        {refundSummary && refundSummary.state !== 'none' && (
+          <div>
+            <dt>退款</dt>
+            <dd>
+              <span className="mb-tx-refund-summary">
+                已退款 {amountText(refundSummary.refunded)} / 剩余 {amountText(refundSummary.remaining)}
+                {refundSummary.state === 'full' && <span className="mb-tx-refund-badge is-full">已全额退款</span>}
+              </span>
+              {refunds.length > 0 && (
+                <span className="mb-tx-refund-items">
+                  {refunds.map((refund) => (
+                    <button
+                      key={refund.id}
+                      type="button"
+                      className="mb-tx-refund-item"
+                      onClick={() => onOpenTransaction(refund)}
+                    >
+                      <span>{formatDateLabel(refund.date)}</span>
+                      <span className="mb-tx-refund-item-note">{refund.note || '退款'}</span>
+                      <span className="mb-tx-refund-item-amount">{amountText(refund.amount)}</span>
+                    </button>
+                  ))}
+                </span>
+              )}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>备注</dt>
           <dd>{transaction.note}</dd>
@@ -81,6 +286,15 @@ function DetailView({
           <dd className="mb-tx-detail-code">{transaction.id}</dd>
         </div>
       </dl>
+
+      {transaction.type === 'refund' && !related && (
+        <RefundLinkForm
+          transaction={transaction}
+          ledger={ledger}
+          apiMode={apiMode}
+          onLink={onLinkRefund}
+        />
+      )}
 
       <div className="mb-tx-detail-actions">
         <button type="button" className="mb-tx-btn is-primary" onClick={onEdit}>
@@ -319,16 +533,22 @@ export function TransactionDetailPanel({
   transaction,
   ledger,
   device,
+  apiMode,
   onClose,
   onSave,
   onDelete,
+  onOpenTransaction,
+  onLinkRefund,
 }: {
   transaction: LedgerTransaction | null
   ledger: Ledger
   device: DeviceMode
+  apiMode: boolean
   onClose: () => void
   onSave: (id: string, patch: TransactionPatch) => Promise<LedgerMutationOutcome>
   onDelete: (id: string) => Promise<LedgerMutationOutcome>
+  onOpenTransaction: (transaction: LedgerTransaction) => void
+  onLinkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
 }) {
   const [mode, setMode] = useState<Mode>('view')
   if (!transaction) return null
@@ -343,11 +563,15 @@ export function TransactionDetailPanel({
     <>
       {mode === 'view' && (
         <DetailView
+          key={transaction.id}
           transaction={transaction}
           ledger={ledger}
+          apiMode={apiMode}
           onEdit={() => setMode('edit')}
           onDelete={() => setMode('confirm-delete')}
           onClose={close}
+          onOpenTransaction={onOpenTransaction}
+          onLinkRefund={onLinkRefund}
         />
       )}
       {mode === 'edit' && (
