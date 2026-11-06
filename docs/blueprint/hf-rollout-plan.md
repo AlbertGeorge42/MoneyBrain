@@ -119,8 +119,8 @@
 
 ## 七、现在就能切的页面
 
-**总览已具备只读切换条件，流水已具备读写 + 撤销 + 回收站的切换条件，设置页的账户/分类与导入/导出/导入回滚/清空均已具备真实读写条件**（2026-11-06 完成，见第八节）；报表、预算仍依赖内存数据，直接切会把演示数据当生产数据。
-报表需先接四视图端点；预算需先修口径。设置里的导入/导出/导入回滚/清空已于本批接通，存点回滚与自动备份仍留后续。
+**总览已具备只读切换条件，流水已具备读写 + 撤销 + 回收站的切换条件，报表四视图已具备端点口径切换条件，设置页的账户/分类与导入/导出/导入回滚/清空均已具备真实读写条件**（2026-11-06 完成，见第八节）；预算仍依赖内存数据，直接切会把演示数据当生产数据。
+预算需先拍板月度口径（周期混算、账户绑定）。设置里的存点回滚与自动备份仍留后续。
 
 ## 八、接入进度（2026-11-06）
 
@@ -128,7 +128,7 @@
 |---|---|---|---|---|
 | 1 | 总览 | **已接（只读）** | `dashboard`、`asset-trend`、`accounts` + `balance-at`、`budgets` + `statuses`；DTO→`Ledger` 适配层 | `VITE_HF_DATA` 默认 `seed`，启动时不设即回种子；页面代码不动 |
 | 2 | 流水 | **已接（读写 + 审计撤销 + 回收站）** | `GET /transactions`（含 `keyword/amountMin/amountMax`）、`POST/PUT/DELETE /transactions`、`POST /audit-events/:id/undo`、`GET /transactions/recycle-bin`；DTO→`LedgerTransaction` 与分类展示映射 | `VITE_HF_DATA` 默认 `seed`；API 模式写操作真写库，种子模式仍内存 |
-| 3 | 报表 | 未接 | 计划：四视图端点，下钻带流水筛选 | 同上 |
+| 3 | 报表 | **已接（四视图端点口径 + 三态 + 展示配置）** | `GET /reports/balance-sheet`、`GET /reports/income-expense`、`GET /reports/cash-flow`、`GET /reports/investment-analysis`、`GET /analytics/asset-trend`、`GET /transactions`（完整分页）、`GET /accounts`；DTO→`BalanceReport/FlowReport/CashReport/InvestmentReport` | `VITE_HF_DATA` 默认 `seed`；种子模式保持本地 derive，视觉不变 |
 | 4 | 预算 | 未接 | 计划：`budgets` + `statuses`，先定月度口径 | 同上 |
 | 5 | 设置 | **已接（账户/分类读写 + 审计撤销 + 回收站 + 导入/导出/回滚/清空）** | `GET/POST/PUT/DELETE /accounts` + `sort/batch`、`/transaction-categories` + `move` + `sort/batch`、`POST /audit-events/:id/undo`、`GET /transactions/recycle-bin`（含 `accounts/categories`）、`GET /data/export-full`、`POST /data/import-preview`、`POST /data/import-backup`、`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`、`DELETE /data/all`；DTO→`Ledger` 映射 | `VITE_HF_DATA` 默认 `seed`；种子模式保持内存行为，API 模式真写库 |
 
@@ -172,4 +172,14 @@
 - 新增端点：**2**：`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`。
 - 遗留：存点回滚（`/data/rollback-points`）、自动备份 UI、退款关联；报表/预算页接入。
 
-下一批：**报表**。前置条件见 [hf-api-gaps.md](hf-api-gaps.md) 的「下一批：报表」。
+报表接入要点：
+
+- 四视图全部端点口径：资产负债 `balance-sheet?date=` + `asset-trend`；收支 `income-expense?startDate&endDate`；现金流 `cash-flow?startDate&endDate`；投资 `investment-analysis?startDate&endDate`。前端不再按日过滤或重算合计。
+- 期间 / 月份切换按接口语义逐桶查询；月份锚点跟真实数据最新流水（`ledgerAnchorDay`），报表期间边界（月初/月末一笔）与后端 `total` 一致。
+- 桑基期初/期末取后端 `startCash`/`endCash`，毛流入/流出按活动项拆正负；不守恒时显示可见失败态，不抛错白屏。
+- 展示配置落 `localStorage`，只影响分组/列/活动显隐/排序，不写回后端；切换后目标卡片与表格真实变化。
+- 三态：加载骨架 / 空账本「还没有可分析的流水」/ 失败「数据没取出来」+ 重试；API 模式不用种子兜底。
+- 文件约束：未改 `charts.tsx`、`CashSankey.tsx`、`DonutChart` 的图形实现。
+- 新增端点：**0**。遗留：投资持仓明细 `items` 缺失、报表下钻 `from/to` 未带、预算页仍种子。
+
+下一批：**预算**。前置条件见 [hf-api-gaps.md](hf-api-gaps.md) 的「下一批：预算」。
