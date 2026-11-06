@@ -16,7 +16,10 @@
   flex-direction: column;
   gap: var(--mb-s-5);
   min-height: 100%;
-  padding: var(--mb-s-5) var(--mb-s-4);
+  /* 底部为固定的「记一笔」留位：按钮贴视口底 38px，页脚再让 16px 间距；
+     报表页内容略高于视口（滚动 0 时页脚最低），也要保证不与按钮相交。 */
+  padding: var(--mb-s-5) var(--mb-s-4)
+    calc(var(--mb-s-5) + var(--mb-control-h) + var(--mb-s-4));
   background: var(--mb-color-surface-sunken);
   border-right: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }

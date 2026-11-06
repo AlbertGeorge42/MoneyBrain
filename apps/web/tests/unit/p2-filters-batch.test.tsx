@@ -161,6 +161,7 @@ describe('#17 批量混选列出异类', () => {
       resolve(WEB_ROOT, 'src/features/transactions/transactions.css'),
       'utf8',
     )
+    const shell = readFileSync(resolve(WEB_ROOT, 'src/features/shell/shell.css'), 'utf8')
     expect(variables).toMatch(/--mb-dock-batch-h:\s*56px/)
     expect(transactions).toMatch(/\.mb-tx-batchbar\s*\{[^}]*flex:\s*none/)
     expect(transactions).toMatch(/\.mb-tx-batchbar\s*\{[^}]*height:\s*var\(--mb-dock-batch-h\)/)
@@ -177,6 +178,8 @@ describe('#17 批量混选列出异类', () => {
     expect(transactions).not.toMatch(
       /\.mb-tx-batchbar\.is-mobile \.mb-tx-batch-summary\s*\{[^}]*display:\s*none/,
     )
+    // 侧栏页脚为贴底按钮预留 38px 按钮高 + 16px 间距，滚动到底不再被压住。
+    expect(shell).toMatch(/\.mb-sidebar\s*\{[^}]*padding:[^;]*var\(--mb-control-h\)/)
   })
 
   it('摘要固定一行：重复类型名只留一次，超出两项折叠成 +N', () => {
