@@ -114,6 +114,63 @@ const BALANCE = {
   ],
 } as never
 
+/**
+ * 真实库 3,291 笔（2026-11-06）的资产负债快照：
+ * 资产 754,745.63 = 正余额资产 882,603.34 + 负余额资产 -127,857.71；
+ * 5 个负债账户合计 16,030.15（这些账户在库里余额为正，表示欠款）；
+ * 净资产 738,715.48 = 资产 − 负债；负债 + 权益 = 资产。
+ */
+const REAL_BALANCE = {
+  date: '2026-11-06',
+  assets: { actual: 75474563, predicted: 0 },
+  liabilities: { actual: 1603015, predicted: 0 },
+  netWorth: { actual: 73871548, predicted: 0 },
+  assetNodes: [
+    {
+      id: 'ac-cash',
+      name: '现金',
+      actual: 5107551,
+      children: [
+        { id: 'a-ysf', name: '云闪付', actual: 6046455 },
+        { id: 'a-wx', name: '微信', actual: -582436 },
+        { id: 'a-zfb', name: '支付宝', actual: -359268 },
+        { id: 'a-wallet', name: '钱包', actual: 2800 },
+        { id: 'a-cash-zero', name: '现金', actual: 0 },
+        { id: 'a-wallet-zero', name: '备用钱包', actual: 0 },
+      ],
+    },
+    {
+      id: 'ac-other',
+      name: '资产',
+      actual: -9016838,
+      children: [{ id: 'a-gjj', name: '公积金', actual: -9016838 }],
+    },
+    {
+      id: 'ac-invest',
+      name: '投资',
+      actual: 79383850,
+      children: [
+        { id: 'a-xq', name: '雪球基金', actual: 82211079 },
+        { id: 'a-zfbjj', name: '支付宝基金', actual: -2827229 },
+      ],
+    },
+  ],
+  liabilityNodes: [
+    {
+      id: 'lc-credit',
+      name: '负债',
+      actual: 1603015,
+      children: [
+        { id: 'l1', name: '花呗', actual: 832785 },
+        { id: 'l2', name: '京东白条', actual: 699188 },
+        { id: 'l3', name: '广发银行', actual: 67680 },
+        { id: 'l4', name: '微信分付', actual: 2899 },
+        { id: 'l5', name: '民生银行', actual: 463 },
+      ],
+    },
+  ],
+} as never
+
 const TREND = [
   { label: '2026-10', netWorth: 13738835 },
   { label: '2026-11', netWorth: 14961075 },
@@ -211,6 +268,20 @@ describe('视图 ↔ 端点映射', () => {
     const blocks = report.assets.filter((row) => row.amount > 0)
     expect(blocks.reduce((sum, row) => sum + row.amount, 0)).toBe(report.assetTotal)
     expect(blocks.every((row) => row.id !== 'xyk')).toBe(true)
+  })
+
+  it('负债表列出全部非零负债账户，负债 + 权益 = 资产（真实库 754,745.63 / 16,030.15）', () => {
+    const report = mapBalanceReport(REAL_BALANCE, [{ label: '2026-11', netWorth: 73871548 }], createSeedLedger())
+    // 5 个负债账户一个不少，合计等于后端总负债；不再被资产侧的 actual > 0 过滤成 0 行。
+    expect(report.liabilities.map((row) => row.id)).toEqual(['l1', 'l2', 'l3', 'l4', 'l5'])
+    expect(report.liabilities.reduce((sum, row) => sum + row.amount, 0)).toBe(1603015)
+    expect(report.liabilityTotal).toBe(1603015)
+    // 三处净资产同口径：报表 / 资产走势 / 总览都取 资产 − 负债。
+    expect(report.netWorth).toBe(73871548)
+    expect(report.trend.at(-1)).toEqual({ month: '2026-11', value: 73871548 })
+    // 负债与权益合计 = 总资产，表内三块相加能对上。
+    expect(report.equityTotal).toBe(75474563)
+    expect(report.liabilityTotal + report.netWorth).toBe(report.assetTotal)
   })
 
   it('收支明细：合计 / 分类树来自后端，笔数取完整期间流水', () => {

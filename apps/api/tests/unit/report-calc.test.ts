@@ -212,6 +212,25 @@ describe('report-calc - 时点预测快照', () => {
       expect(result.netWorth).toBe(-4000)
     })
 
+    it('负债账户余额为正（真实库约定）时仍按资产 − 负债计算净资产', () => {
+      // 真实库：负债账户余额 +832,785 分表示欠款，不能被当成资产加进净值。
+      const result = sumAssetsLiabilities(
+        [
+          { id: 'a1', type: 'asset' },
+          { id: 'l1', type: 'liability' },
+          { id: 'l2', type: 'liability' },
+        ],
+        (a) => {
+          if (a.id === 'a1') return 75474563
+          if (a.id === 'l1') return 1603015
+          return 0
+        }
+      )
+      expect(result.assets).toBe(75474563)
+      expect(result.liabilities).toBe(1603015)
+      expect(result.netWorth).toBe(73871548)
+    })
+
     it('无负债账户时 liabilities 为 0，netWorth = assets', () => {
       const result = sumAssetsLiabilities(
         [{ id: 'a1', type: 'asset' }],

@@ -29,6 +29,7 @@ import {
 import { calculateBalancesBatch } from './balance.service.js'
 import { generatePredictedOccurrences } from './budget.service.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
+import { sumAssetsLiabilities } from './report/account-sum.js'
 
 // ===== 窗口 =====
 
@@ -287,23 +288,15 @@ function applyEventToBalances(balances: Map<string, number>, event: ProjectionEv
 }
 
 /**
- * 按账户类型汇总水平。
- * liabilities 取负债账户余额合计的相反数（正常为正），netWorth = 资产 + 负债（带符号）。
+ * 按账户类型汇总水平：与报表共用 sumAssetsLiabilities
+ * （负债为正数欠款，净资产 = 资产 − 负债）。
  * 三个量都是 balances 的线性函数，因此组件可逐项相加。
  */
 function aggregateBalances(accounts: Account[], balances: Map<string, number>): ProjectionBalance {
-  let assets = 0
-  let liabilitySigned = 0
-  for (const account of accounts) {
-    const balance = balances.get(account.id) ?? 0
-    if (account.type === 'asset') assets += balance
-    else if (account.type === 'liability') liabilitySigned += balance
-  }
-  return {
-    assets: minor(assets),
-    liabilities: minor(-liabilitySigned),
-    netWorth: minor(assets + liabilitySigned),
-  }
+  return sumAssetsLiabilities(
+    accounts.map((account) => ({ type: account.type, id: account.id })),
+    (account) => minor(balances.get(account.id) ?? 0),
+  )
 }
 
 function addBalance(a: ProjectionBalance, b: ProjectionBalance): ProjectionBalance {

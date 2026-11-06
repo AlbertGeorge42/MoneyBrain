@@ -4,6 +4,7 @@ import * as transactionCategoryRepo from '../db/repositories/transaction-categor
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { calculateBalancesBatch } from './balance.service.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
+import { sumAssetsLiabilities } from './report/account-sum.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import { dayStart, nextDay } from '../common/date.js'
 import {
@@ -12,6 +13,7 @@ import {
   add,
   flowByCategory,
   fromDate,
+  minor,
   summarizeFlows,
   type Minor,
   type Period,
@@ -256,18 +258,13 @@ export async function getAssetTrend(): Promise<Array<{
   const balanceCache = await calculateBalancesBatch(allAccountIds, monthDates)
 
   return months.map(({ label, targetDate }) => {
-    const balances = allAccountIds.map(id => balanceCache.get(id, targetDate))
-    const assets = balances
-      .filter((_, idx) => accounts[idx].type === 'asset')
-      .reduce((sum, b) => sum + b, 0)
-    const liabilities = balances
-      .filter((_, idx) => accounts[idx].type === 'liability')
-      .reduce((sum, b) => sum + b, 0)
-    return {
-      label,
-      assets,
-      liabilities: Math.abs(liabilities),
-      netWorth: assets + liabilities,
-    }
+    // 与资产负债报表共用同一实现：liabilities 为正数欠款，netWorth = 资产 − 负债。
+    // 旧的 `assets + liabilitySigned` 只在负债余额为负时碰巧相等；
+    // 真实库负债余额为正，会把欠款加进净值（770,775.78 → 738,715.48）。
+    const { assets, liabilities, netWorth } = sumAssetsLiabilities(
+      accounts.map(account => ({ type: account.type, id: account.id })),
+      account => minor(balanceCache.get(account.id, targetDate)),
+    )
+    return { label, assets, liabilities, netWorth }
   })
 }

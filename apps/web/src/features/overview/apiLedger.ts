@@ -305,7 +305,13 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     toLedgerTransaction(transaction, mapper),
   )
 
-  const netWorth = accounts.reduce((total, account) => total + account.balance, 0)
+  // 负债账户余额在 API 里以正数表示欠款；净资产 = 资产 − 负债。
+  // 不能把全部余额直接相加，否则欠款会被加进净值（真实库 770,775.78 vs 738,715.48）。
+  const assetBalances = accounts.filter((account) => account.kind !== 'credit')
+  const liabilityBalances = accounts.filter((account) => account.kind === 'credit')
+  const netWorth =
+    assetBalances.reduce((total, account) => total + account.balance, 0) -
+    liabilityBalances.reduce((total, account) => total + Math.abs(account.balance), 0)
   const liquidAssets = accounts
     .filter((account) => account.kind === 'cash')
     .reduce((total, account) => total + account.balance, 0)

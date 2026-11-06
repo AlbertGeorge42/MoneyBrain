@@ -201,10 +201,12 @@ export function mapBalanceReport(
   const cashAccountIds = new Set(
     ledger.accounts.filter((account) => account.kind === 'cash').map((account) => account.id),
   )
-  const rowsOf = (nodes: BalanceSheetReportData['assetNodes']): BalanceRow[] =>
+  // 负债表必须列全部非零负债账户：后端已统一为「正数 = 欠款」，
+  // 不能再沿用资产侧的 `actual > 0` 过滤（真实库里 5 个负债账户会被整表滤成 0 行）。
+  const rowsOf = (nodes: BalanceSheetReportData['assetNodes'], positiveOnly: boolean): BalanceRow[] =>
     nodes.flatMap((node) =>
       node.children
-        .filter((account) => account.actual > 0)
+        .filter((account) => (positiveOnly ? account.actual > 0 : account.actual !== 0))
         .map((account) => ({
           id: account.id,
           name: account.name,
@@ -213,8 +215,8 @@ export function mapBalanceReport(
         })),
     ).sort((left, right) => right.amount - left.amount)
 
-  const assets = rowsOf(data.assetNodes)
-  const liabilities = rowsOf(data.liabilityNodes)
+  const assets = rowsOf(data.assetNodes, true)
+  const liabilities = rowsOf(data.liabilityNodes, false)
   const assetTotal = data.assets.actual
   const liabilityTotal = data.liabilities.actual
   const netWorth = data.netWorth.actual

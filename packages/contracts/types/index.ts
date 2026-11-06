@@ -830,7 +830,7 @@ export type ProjectionMonths = 3 | 6 | 12
 
 /**
  * 资产/负债水平（整数分）。
- * liabilities 为负债账户余额合计的相反数：正常为正，负债账户出现正余额时为负。
+ * liabilities 为正数欠款（与资产负债报表同一口径）；netWorth = assets − liabilities。
  */
 export interface ProjectionBalance {
   assets: Minor

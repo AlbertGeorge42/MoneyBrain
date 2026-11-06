@@ -122,7 +122,9 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
       type: account.type as 'asset' | 'liability',
       icon: account.icon || null,
       color: account.color || null,
-      actual: isLiability ? minor(-account.balance) : account.balance,
+      // 负债账户按「欠款金额」正数列示（API 契约统一为正数表示欠款）；
+      // 不能取 `-balance`，否则真实库里余额为正的负债账户会被报成负欠款并被展示层过滤掉。
+      actual: isLiability ? minor(Math.abs(account.balance)) : account.balance,
       predicted: isLiability ? minor(-(predictedChanges.get(account.id) ?? 0)) : minor(predictedChanges.get(account.id) ?? 0),
     }
 
