@@ -11,6 +11,7 @@ import {
   nextDay,
   parseMoney,
   parseOptionalUuid,
+  toDate,
 } from '../common/index.js'
 import {
   createAccount,
@@ -22,6 +23,7 @@ import {
   updateAccountSorts,
 } from '../services/account.service.js'
 import { calculateBalancesBatch } from '../services/balance.service.js'
+import { reconcileAccount } from '../services/reconcile.service.js'
 
 const router = Router()
 
@@ -87,6 +89,35 @@ router.get('/:id/balance-at', validateRequest(validateIdParam), asyncHandler(asy
     date: dateStr,
     balance,
   })
+}))
+
+const validateReconcile = (req: Request) => {
+  validateIdParam(req)
+  const { date, actualBalance, note, mode } = req.body as Record<string, unknown>
+  if (!hasValue(date)) {
+    throw new ValidationError('日期不能为空')
+  }
+  toDate(date, '日期')
+  if (!Number.isInteger(actualBalance)) {
+    throw new ValidationError('实际余额必须是整数分')
+  }
+  if (note !== undefined && typeof note !== 'string') {
+    throw new ValidationError('备注必须是字符串')
+  }
+  if (mode !== undefined && mode !== 'overwrite' && mode !== 'append') {
+    throw new ValidationError('mode 只能是 overwrite 或 append')
+  }
+}
+
+router.post('/:id/reconcile', validateRequest(validateReconcile), asyncHandler(async (req, res) => {
+  const { date, actualBalance, note, mode } = req.body
+  const result = await reconcileAccount(req.params.id, {
+    date,
+    actualBalance,
+    note,
+    mode,
+  })
+  return success(res, result)
 }))
 
 router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req, res) => {

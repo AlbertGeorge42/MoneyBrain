@@ -113,6 +113,19 @@ export interface AccountBalanceAtResult {
   balance: Minor
 }
 
+/** 一键对账的结果（POST /accounts/:id/reconcile）。 */
+export interface AccountReconcileResult {
+  accountId: string
+  date: string
+  /** 账面推导值（覆盖时已剔除被覆盖的当日调整）。 */
+  bookBalance: Minor
+  actualBalance: Minor
+  /** actualBalance − bookBalance；正数入账、负数出账。 */
+  difference: Minor
+  status: 'balanced' | 'created' | 'overwritten' | 'appended'
+  transactionId: string | null
+}
+
 /** 删除账户的结果：级联删除的各类关联行数 + 6 秒撤销用的审计事件 id。 */
 export interface AccountDeleteResult {
   message: string
