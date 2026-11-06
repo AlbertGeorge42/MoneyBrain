@@ -12,6 +12,14 @@ process.env.DATABASE_URL = `file:${testDbPath}`
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')
 
+/** 统计接口按本地日期解释起止日；用 UTC 日期会在本地跨日时段把「今天」查成昨天。 */
+const localToday = (): string => {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 describe('退款对统计数据的影响', () => {
   let testAccountId: string
 
@@ -119,7 +127,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('累计退款不得超过原交易金额：500 退 200 + 50 后再退 300 被拒，并给出精确原因', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 50_000, accountId: testAccountId, date: new Date() },
     })
@@ -150,7 +158,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('全额退款后不可再退，原交易从可关联列表移除', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 10_000, accountId: testAccountId, date: new Date() },
     })
@@ -171,7 +179,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('未关联退款可正常记账，但不进入收入/支出合计（只影响余额）', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const created = await request(app)
       .post('/api/transactions')
       .send({ type: 'refund', amount: 5_000, date: today, accountId: testAccountId, note: '未关联退款' })
@@ -192,7 +200,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('删除退款后原交易已退款金额回退，撤销后恢复', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 50_000, accountId: testAccountId, date: new Date() },
     })
@@ -227,7 +235,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('编辑退款金额同样受累计上限约束，不能借编辑绕过', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 10_000, accountId: testAccountId, date: new Date() },
     })
@@ -249,7 +257,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('退款口径：统计、总览、报表都按原侧冲减，不把退款再计成收入', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 50_000, accountId: testAccountId, date: new Date() },
     })
@@ -276,7 +284,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('关联退款归属原交易分类，预算用量与总览/报表同步冲减', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const now = new Date()
     const category = await prisma.transactionCategory.create({
       data: { name: '预算分类', type: 'expense' },
@@ -315,7 +323,7 @@ describe('退款对统计数据的影响', () => {
 
     const created = await request(app)
       .post('/api/transactions')
-      .send({ type: 'refund', amount: 4000, date: new Date().toISOString().split('T')[0], accountId: refundAccount.id, relatedTransactionId: expense.id })
+      .send({ type: 'refund', amount: 4000, date: localToday(), accountId: refundAccount.id, relatedTransactionId: expense.id })
     expect(created.status).toBe(201)
 
     // 原账户不恢复（−5000），退款账户按实际金额增加（+4000）
@@ -359,7 +367,7 @@ describe('退款对统计数据的影响', () => {
   })
 
   it('统计开关：默认排除「不计收支」，includeExcluded=true 时计入全貌', async () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localToday()
     const otherAccount = await prisma.account.create({
       data: { name: '转账目标账户', type: 'asset', initialBalance: 0 },
     })

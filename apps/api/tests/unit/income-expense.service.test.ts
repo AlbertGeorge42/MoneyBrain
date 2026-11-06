@@ -111,6 +111,26 @@ describe('收入支出表口径', () => {
     expect(report.reconciliation.difference).toBe(0)
   })
 
+  it('转账手续费在对账条里按减项处理，差额为 0', async () => {
+    rowsRef.queue.push([])
+    rowsRef.queue.push([
+      transaction({
+        id: 'fee',
+        type: 'transfer',
+        amount: new Decimal(1000),
+        fee: new Decimal(30),
+        toAccountId: 'acc2',
+      }),
+    ])
+    setBalances(0, -30)
+
+    const report = await generateIncomeExpense('2026-01-01', '2026-01-31')
+
+    // 转账本金不进收支，账户净效应只有 −手续费
+    expect(report.reconciliation.other).toBe(-30)
+    expect(report.reconciliation.difference).toBe(0)
+  })
+
   it('余额与收支对不上时要给出差额', async () => {
     rowsRef.queue.push([
       transaction({ id: '1', type: 'income', amount: new Decimal(1000), categoryId: 'salary' }),

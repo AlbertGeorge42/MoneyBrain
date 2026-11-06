@@ -329,8 +329,9 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       return total
     }, 0)
 
+  // 手续费是净资产的减项：转账分录的账户净效应 = −fee，所以这里要减。
   const other = minor(
-    (includeExcluded ? 0 : excludedNet) + transferFee + adjustmentNet - preOpeningFlow,
+    (includeExcluded ? 0 : excludedNet) - transferFee + adjustmentNet - preOpeningFlow,
   )
 
   const reconciliation = {

@@ -63,7 +63,12 @@ async function main() {
   const startDate = toLocalDate(start)
   const endDate = toLocalDate(new Date(endExclusive.getTime() - 1))
 
-  const prisma = new PrismaClient()
+  // DATABASE_URL 可指向重建库/备份副本；不设时检查默认 dev.db。
+  const prisma = new PrismaClient(
+    process.env.DATABASE_URL
+      ? { datasources: { db: { url: process.env.DATABASE_URL } } }
+      : undefined,
+  )
   const problems: string[] = []
 
   try {
@@ -74,27 +79,12 @@ async function main() {
     ])
     const ledger = transactions.map((t) => toLedger(t as unknown as Record<string, unknown>))
 
-    // 1. 净资产 = Σ 账户余额（负债余额本身为负）
-    let netWorth = 0
-    for (const account of accounts) {
-      const balance = balanceBefore(
-        account.id,
-        {
-          date: account.initialBalanceDate ? toLocalDate(account.initialBalanceDate) : null,
-          amount: toMinor(account.initialBalance),
-        },
-        ledger,
-        toLocalDate(new Date()),
-      )
-      netWorth += balance
-    }
-
-    // 2. 期初 + 净收入 − 净支出 + 不进收支但影响余额的部分 = 期末
-    const inPeriod = ledger.filter((t) => t.date >= startDate && t.date < toLocalDate(endExclusive))
-
-    // 净资产 = Σ 资产账户余额 + Σ 负债账户余额（负债余额本身是负数）
-    const netAt = (date: string) => {
-      let total = 0
+    // 1. 净资产 = Σ 资产账户余额 + Σ 负债账户余额（负债余额本身为负）
+    // 期初与期末都用同一函数、同一时点口径（date < 目标日），
+    // 不再拿「今天 0 点前」另算一个净资产——否则月初/月末会因当日交易出现两套数字。
+    const balancesAt = (date: string) => {
+      let assets = 0
+      let liabilities = 0
       for (const account of accounts) {
         const balance = balanceBefore(
           account.id,
@@ -105,13 +95,19 @@ async function main() {
           ledger,
           date,
         )
-        total += balance
+        if (account.type === 'liability') liabilities += balance
+        else assets += balance
       }
-      return total
+      return { assets, liabilities, net: assets + liabilities }
     }
 
-    const startNetWorth = netAt(startDate)
-    const endNetWorth = netAt(toLocalDate(endExclusive))
+    // 2. 期初 + 净收入 − 净支出 + 不进收支但影响余额的部分 = 期末
+    const inPeriod = ledger.filter((t) => t.date >= startDate && t.date < toLocalDate(endExclusive))
+
+    const startBalances = balancesAt(startDate)
+    const startNetWorth = startBalances.net
+    const endBalances = balancesAt(toLocalDate(endExclusive))
+    const endNetWorth = endBalances.net
 
     // 余额影响 = 分录里所有账户分录之和（用领域层算，不自己重推）
     const balanceEffect = (t: LedgerTransaction) =>
@@ -218,7 +214,11 @@ async function main() {
     }
 
     console.log(`检查范围：${month}（${startDate} ~ ${endDate}）`)
-    console.log(`账户 ${accounts.length} 个 · 交易 ${transactions.length} 笔 · 净资产 ${yuan(netWorth)} 元`)
+    // 只保留一套净资产口径：期末 = 资产 − 负债，和下面的「期初 + 净流量 = 期末」是同一个数。
+    console.log(
+      `账户 ${accounts.length} 个 · 交易 ${transactions.length} 笔 · 期末资产 ${yuan(endBalances.assets)}` +
+        ` · 期末负债 ${yuan(-endBalances.liabilities)} · 期末净资产 ${yuan(endNetWorth)}`,
+    )
     console.log(`期初净资产 ${yuan(startNetWorth)} + 净流量 ${yuan(flow)} = 期末净资产 ${yuan(endNetWorth)}`)
     if (refundOverOriginalCount > 0) {
       console.log(`ℹ 退款高于原额的记录 ${refundOverOriginalCount} 笔（业务允许，不判为错误）`)

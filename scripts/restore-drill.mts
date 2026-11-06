@@ -179,7 +179,12 @@ async function main() {
   )
 
   console.log('▶ 4/4 重新计算两边的余额并对比')
-  const live = new PrismaClient()
+  // DATABASE_URL 可指向备份副本，让演练验证「这份备份」而不是一定验证 dev.db。
+  const live = new PrismaClient(
+    process.env.DATABASE_URL
+      ? { datasources: { db: { url: process.env.DATABASE_URL } } }
+      : undefined,
+  )
   const restored = new PrismaClient({ datasources: { db: { url: tempUrl } } })
   try {
     const liveTotals = await computeTotals(live)
