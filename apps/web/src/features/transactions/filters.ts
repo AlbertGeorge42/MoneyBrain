@@ -386,6 +386,6 @@ export function filterChips(ledger: Ledger, filters: TransactionFilters): Filter
 }
 
 function chipDay(value: string): string {
-  return ISO_DATE.test(value) ? value.replaceAll('-', '/') : value
+  return ISO_DATE.test(value) ? value.replace(/-/g, '/') : value
 }
 
