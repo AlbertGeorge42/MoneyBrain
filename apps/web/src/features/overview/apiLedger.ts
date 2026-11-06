@@ -109,7 +109,7 @@ function toBaseLedgerTransaction(
 ): LedgerTransaction {
   return {
     id: transaction.id,
-    date: transaction.date.slice(0, 10),
+    date: calendarDay(transaction.date),
     type: transaction.type,
     categoryId: mapper.displayId(transaction.categoryId),
     note: transaction.note ?? '',
@@ -168,6 +168,24 @@ export function todayLocal(now = new Date()): string {
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * 账本日期 → `YYYY-MM-DD`。
+ *
+ * API 已统一输出本地日历日（date-only），这里原样返回、不做任何时区换算，
+ * 所以同一笔交易在 UTC+8 / UTC-5 / UTC 下显示的都是同一个日历日。
+ * 仅历史载荷还是 ISO 瞬时（旧后端序列化）时，按客户端本地时区显式解析，
+ * 与旧前端 `dayjs(date).format('YYYY-MM-DD')` 的显示一致；
+ * 不再用 `slice(0, 10)` 截取 UTC 日期部分（那会把本地午夜写成前一天）。
+ */
+export function calendarDay(value: string): string {
+  if (DATE_ONLY_PATTERN.test(value)) return value
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return todayLocal(parsed)
 }
 
 function periodLabelOf(today: string): string {

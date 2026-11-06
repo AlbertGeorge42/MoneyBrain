@@ -5,6 +5,9 @@
  * 不发网络请求。
  */
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type {
   Account,
   AnalyticsAssetTrendItem,
@@ -14,7 +17,13 @@ import type {
   Transaction,
   TransactionCategory,
 } from '@contracts/types'
-import { buildLedgerFromApi, type LedgerApiPayload } from '@/features/overview/apiLedger'
+import {
+  buildLedgerFromApi,
+  calendarDay,
+  toLedgerTransaction,
+  createCategoryDisplayMapper,
+  type LedgerApiPayload,
+} from '@/features/overview/apiLedger'
 import { deriveBudgets, deriveNetWorthTrend, deriveOverview } from '@/features/overview/model'
 
 function account(id: string, name: string, type: string, category: Partial<Account['category']> = {}): Account {
@@ -94,7 +103,7 @@ function transaction(id: string, type: Transaction['type'], amount: number, cate
     amount,
     fee: 0,
     coupon: 0,
-    date: '2026-11-05T00:00:00.000Z',
+    date: '2026-11-05',
     note: null,
     accountId: 'acc-1',
     toAccountId: null,
@@ -195,7 +204,7 @@ describe('DTO → Ledger 适配', () => {
     expect(byName.get('工资')?.id).toBe('salary')
   })
 
-  it('最近交易截断到日期并保留转账 / 费用字段', () => {
+  it('最近交易保留本地日历日并保留转账 / 费用字段', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
 
     expect(ledger.transactions).toHaveLength(2)
@@ -215,5 +224,41 @@ describe('DTO → Ledger 适配', () => {
   it('账户缺少当日余额时抛错，而不是用 0 静默兜底', () => {
     const partial = payload({ balances: new Map([['acc-1', 500_000]]) })
     expect(() => buildLedgerFromApi(partial, '2026-11-06')).toThrow(/缺少当日余额/)
+  })
+})
+
+describe('账本日期解析：本地日历日', () => {
+  const mapper = createCategoryDisplayMapper([category('food', '餐饮')])
+
+  it('date-only 原样保留，不随时区变化（UTC+8 / UTC-5 / UTC 结果相同）', () => {
+    // 这些断言不读取本地时区，三种时区跑同一份用例结果必须一致。
+    expect(calendarDay('2026-12-31')).toBe('2026-12-31')
+    expect(calendarDay('2027-01-01')).toBe('2027-01-01')
+    expect(calendarDay('2026-11-01')).toBe('2026-11-01')
+  })
+
+  it('历史 ISO 载荷按客户端本地时区显式解析，与旧前端 dayjs 一致', () => {
+    // 本地午夜序列化为 ISO 后（UTC+8 = 前一日 16:00Z）再解析回来，
+    // 必须仍是同一个日历日，不能靠截取 UTC 日期前缀。
+    const localMidnight = new Date(2026, 11, 31, 0, 0, 0)
+    expect(calendarDay(localMidnight.toISOString())).toBe('2026-12-31')
+  })
+
+  it('交易 DTO 的 date-only 日期进入账本模型后仍是同一天', () => {
+    const dto = { ...transaction('t-boundary', 'expense', 10_000, 'food'), date: '2026-12-31' }
+    expect(toLedgerTransaction(dto, mapper).date).toBe('2026-12-31')
+  })
+
+  it('非法值返回空串，不再产生 Invalid Date', () => {
+    expect(calendarDay('not-a-date')).toBe('')
+  })
+
+  it('适配层不再用 slice(0, 10) 截断交易日期', () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../src/features/overview/apiLedger.ts'),
+      'utf8',
+    )
+    expect(source).not.toMatch(/transaction\.date\.slice\s*\(\s*0\s*,\s*10\s*\)/)
+    expect(source).toContain('export function calendarDay')
   })
 })

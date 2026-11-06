@@ -12,6 +12,7 @@ import { AppError, toApiErrorCode } from './error.js'
 import { getRequestId } from './request-id.js'
 import { rootLogger } from './logger/index.js'
 import { toMinor } from './utils.js'
+import { formatDateLocal } from './date.js'
 
 const logger = rootLogger.child({ module: 'errorHandler' })
 
@@ -34,7 +35,15 @@ export const validateRequest = (validator: RequestValidator): RequestHandler => 
   }
 }
 
-const convertScalars = (obj: unknown): unknown => {
+/**
+ * 账本日期的字段名：语义是「本地日历日」（LocalDate），一律序列化为 `YYYY-MM-DD`。
+ * 其余 Date（createdAt / updatedAt / deletedAt / at 等）是瞬时，保留 ISO。
+ *
+ * 统一放在响应信封里做，避免 list / 详情 / 回收站 / 预算等出口各写一份。
+ */
+const DATE_ONLY_FIELDS = new Set(['date', 'startDate', 'endDate', 'initialBalanceDate'])
+
+const convertScalars = (obj: unknown, field?: string): unknown => {
   if (obj === null || obj === undefined) {
     return obj
   }
@@ -47,15 +56,17 @@ const convertScalars = (obj: unknown): unknown => {
     return obj.toNumber()
   }
   if (obj instanceof Date) {
-    return obj.toISOString()
+    // 本地午夜用 toISOString() 会退到前一日（UTC+8 下为前一日 16:00Z），
+    // 客户端再截前 10 位就会显示早一天；账本日期必须输出日历日本身。
+    return DATE_ONLY_FIELDS.has(field ?? '') ? formatDateLocal(obj) : obj.toISOString()
   }
   if (Array.isArray(obj)) {
-    return obj.map(convertScalars)
+    return obj.map((item) => convertScalars(item))
   }
   if (typeof obj === 'object' && obj.constructor === Object) {
     const converted: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(obj)) {
-      converted[key] = convertScalars(value)
+      converted[key] = convertScalars(value, key)
     }
     return converted
   }

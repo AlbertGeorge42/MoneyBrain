@@ -89,6 +89,7 @@ export interface Account {
   name: string
   type: string
   initialBalance: Minor
+  /** 本地日历日 `YYYY-MM-DD`（无时分秒，不做 UTC 换算）。 */
   initialBalanceDate: string | null
   icon: string | null
   color: string | null
@@ -168,6 +169,7 @@ export interface Transaction {
   amount: Minor
   fee: Minor
   coupon: Minor
+  /** 本地日历日 `YYYY-MM-DD`（无时分秒，不做 UTC 换算）。 */
   date: string
   note: string | null
   accountId: string
@@ -279,7 +281,9 @@ export interface Budget {
   type: 'income' | 'expense' | 'transfer'
   amount: Minor
   period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+  /** 本地日历日 `YYYY-MM-DD`（无时分秒，不做 UTC 换算）。 */
   startDate: string
+  /** 本地日历日 `YYYY-MM-DD`；null = 无限期。 */
   endDate: string | null
   transactionTime: number | null
   note: string | null
@@ -602,6 +606,7 @@ export interface InvestmentAllocationItem {
 export interface InvestmentAllocationSnapshot {
   id: string
   accountId: string
+  /** 本地日历日 `YYYY-MM-DD`（无时分秒，不做 UTC 换算）。 */
   date: string
   accountBalance: Minor
   previousSnapshotId: string | null
