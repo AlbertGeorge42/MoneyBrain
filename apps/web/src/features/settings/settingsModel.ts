@@ -249,6 +249,26 @@ export function removeAccount(ledger: Ledger, accountId: string): Ledger {
   return { ...ledger, accounts: ledger.accounts.filter((account) => account.id !== accountId) }
 }
 
+/** 同性质分组内的账户排序：与设置页展示顺序一致。 */
+export function reorderAccount(
+  ledger: Ledger,
+  accountId: string,
+  direction: 'up' | 'down',
+): Ledger {
+  const account = ledger.accounts.find((item) => item.id === accountId)
+  if (!account) return ledger
+  const siblings = ledger.accounts.filter((item) => item.kind === account.kind)
+  const index = siblings.findIndex((item) => item.id === accountId)
+  const target = index + (direction === 'up' ? -1 : 1)
+  if (target < 0 || target >= siblings.length) return ledger
+  const swapId = siblings[target].id
+  const next = [...ledger.accounts]
+  const a = next.findIndex((item) => item.id === accountId)
+  const b = next.findIndex((item) => item.id === swapId)
+  ;[next[a], next[b]] = [next[b], next[a]]
+  return { ...ledger, accounts: next }
+}
+
 export function addCategory(
   ledger: Ledger,
   input: { name: string; type: TxType; parentId?: string },
@@ -304,6 +324,35 @@ export function removeCategory(ledger: Ledger, categoryId: string): Ledger {
     ...ledger,
     categories: ledger.categories.filter((category) => category.id !== categoryId),
   }
+}
+
+/** 同类型、同父级下的兄弟分类（展示顺序）。 */
+export function categorySiblings(ledger: Ledger, categoryId: string): LedgerCategory[] {
+  const category = ledger.categories.find((item) => item.id === categoryId)
+  if (!category) return []
+  return ledger.categories.filter(
+    (item) => item.type === category.type && item.parentId === category.parentId,
+  )
+}
+
+/** 同级分类排序（不影响父子层级）。 */
+export function reorderCategory(
+  ledger: Ledger,
+  categoryId: string,
+  direction: 'up' | 'down',
+): Ledger {
+  const category = ledger.categories.find((item) => item.id === categoryId)
+  if (!category) return ledger
+  const siblings = categorySiblings(ledger, categoryId)
+  const index = siblings.findIndex((item) => item.id === categoryId)
+  const target = index + (direction === 'up' ? -1 : 1)
+  if (target < 0 || target >= siblings.length) return ledger
+  const swapId = siblings[target].id
+  const next = [...ledger.categories]
+  const a = next.findIndex((item) => item.id === categoryId)
+  const b = next.findIndex((item) => item.id === swapId)
+  ;[next[a], next[b]] = [next[b], next[a]]
+  return { ...ledger, categories: next }
 }
 
 /* ===== 展示用格式化 ===== */

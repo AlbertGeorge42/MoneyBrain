@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { TransactionPatch } from '@/features/transactions/ledgerOps'
-import type { Ledger, NewTransactionInput } from './model'
+import type { AccountKind, Ledger, NewTransactionInput, TxType } from './model'
 
 export type LedgerDataMode = 'seed' | 'api'
 
@@ -26,6 +26,20 @@ export interface LedgerBatchCategoryOutcome extends LedgerMutationOutcome {
   succeeded: number
 }
 
+/** 设置页账户表单：余额为「分」（与 LedgerAccount.balance 同口径）。 */
+export interface LedgerAccountInput {
+  name: string
+  kind: AccountKind
+  balance: number
+}
+
+/** 设置页分类表单：parentId 为展示 id（种子 key 或真实 id）。 */
+export interface LedgerCategoryInput {
+  name: string
+  type: TxType
+  parentId?: string | null
+}
+
 export interface LedgerContextValue {
   ledger: Ledger
   /** 数据来源：种子内存账本 / 真实 API。写操作在 API 模式下真写。 */
@@ -34,6 +48,18 @@ export interface LedgerContextValue {
   updateTransaction: (id: string, patch: TransactionPatch) => Promise<LedgerMutationOutcome>
   deleteTransactions: (ids: readonly string[]) => Promise<LedgerDeleteOutcome>
   setTransactionCategory: (ids: readonly string[], categoryId: string) => Promise<LedgerBatchCategoryOutcome>
+  /* 设置页：账户与分类的真实读写（API 模式落库，种子模式改内存）。 */
+  createAccount: (input: LedgerAccountInput) => Promise<LedgerCreateOutcome>
+  updateAccount: (id: string, input: LedgerAccountInput) => Promise<LedgerMutationOutcome>
+  deleteAccount: (id: string) => Promise<LedgerMutationOutcome>
+  /** 上下移动同组账户顺序；返回撤销令牌（排序也可撤销）。 */
+  reorderAccount: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
+  createCategory: (input: LedgerCategoryInput) => Promise<LedgerCreateOutcome>
+  updateCategory: (id: string, name: string) => Promise<LedgerMutationOutcome>
+  moveCategory: (id: string, parentId: string | null) => Promise<LedgerMutationOutcome>
+  /** 删除分类；有交易引用时传 transferToId 先转移再删除（撤销会一并回填）。 */
+  deleteCategory: (id: string, transferToId?: string) => Promise<LedgerMutationOutcome>
+  reorderCategory: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
   /** 撤销删除 / 保存 / 批量改分类；令牌过期时返回失败而不是静默成功。 */
   undo: (token: string) => Promise<LedgerMutationOutcome>
   replaceLedger: (next: Ledger) => void

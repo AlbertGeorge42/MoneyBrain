@@ -1,19 +1,33 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { minor } from '@domain/index'
-import type { Transaction } from '@contracts/types'
-import { auditEventApi, transactionApi } from '@/services/api'
+import type { Account, AccountCategory, Transaction } from '@contracts/types'
+import { accountApi, accountCategoryApi, auditEventApi, transactionApi, transactionCategoryApi } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import {
   addTransaction as applyTransaction,
   createSeedLedger,
+  type AccountKind,
   type Ledger,
   type NewTransactionInput,
 } from './model'
-import { todayLocal } from './apiLedger'
+import { mapperFromLedger, todayLocal } from './apiLedger'
+import {
+  addAccount as addAccountToLedger,
+  addCategory as addCategoryToLedger,
+  removeAccount as removeAccountFromLedger,
+  removeCategory as removeCategoryFromLedger,
+  reorderAccount as reorderAccountInLedger,
+  reorderCategory as reorderCategoryInLedger,
+  transferCategoryTransactions,
+  updateAccount as updateAccountInLedger,
+  updateCategory as updateCategoryInLedger,
+} from '@/features/settings/settingsModel'
 import {
   LedgerContext,
+  type LedgerAccountInput,
   type LedgerBatchCategoryOutcome,
+  type LedgerCategoryInput,
   type LedgerCreateOutcome,
   type LedgerDataMode,
   type LedgerDeleteOutcome,
@@ -29,6 +43,36 @@ import {
 /** 展示用分类 id → 后端真实 id（种子账本没有映射，原样返回）。 */
 function realCategoryId(ledger: Ledger, id: string): string {
   return ledger.ids?.categoryReal?.[id] ?? id
+}
+
+/** 设置页的账户性质 → 后端账户类型。 */
+function accountTypeForKind(kind: AccountKind): 'asset' | 'liability' {
+  return kind === 'credit' ? 'liability' : 'asset'
+}
+
+/**
+ * 账户性质在后端由「账户分类标记」决定（现金等价 / 投资 / 其他 / 负债）。
+ * 设置页只暴露四类性质，写入时映射到对应的顶级账户分类，保证读回后性质不变。
+ */
+async function resolveAccountCategory(
+  kind: AccountKind,
+): Promise<{ categoryId?: string; error?: string }> {
+  const categories: AccountCategory[] = await accountCategoryApi.getAll().then(unwrapApiData)
+  const type = accountTypeForKind(kind)
+  const roots = categories.filter((category) => !category.parentId && category.type === type)
+  if (kind === 'credit') {
+    return roots[0] ? { categoryId: roots[0].id } : { error: '缺少负债账户分类' }
+  }
+  if (kind === 'cash') {
+    const matched = roots.find((category) => category.isCashEquivalent)
+    return matched ? { categoryId: matched.id } : { error: '缺少「现金及等价物」账户分类' }
+  }
+  if (kind === 'investment') {
+    const matched = roots.find((category) => category.isInvestment)
+    return matched ? { categoryId: matched.id } : { error: '缺少「投资资产」账户分类' }
+  }
+  const other = roots.find((category) => !category.isCashEquivalent && !category.isInvestment)
+  return { categoryId: (other ?? roots[0])?.id }
 }
 
 export function LedgerProvider({
@@ -269,9 +313,299 @@ export function LedgerProvider({
     [apiMode, refreshRemote, registerUndo],
   )
 
+  /* ===== 设置页：账户与分类的真实读写 ===== */
+
+  const createAccount = useCallback(
+    async (input: LedgerAccountInput): Promise<LedgerCreateOutcome> => {
+      if (!apiMode) {
+        setLedger(addAccountToLedger(ledgerRef.current, input))
+        return { ok: true }
+      }
+      try {
+        const resolved = await resolveAccountCategory(input.kind)
+        if (resolved.error) return { ok: false, error: resolved.error }
+        const accounts = await accountApi.getAll().then(unwrapApiData)
+        // 追加到列表末尾：sort 取现有最大值 + 1。
+        const sort = accounts.reduce((max, account) => Math.max(max, account.sort), 0) + 1
+        const created = await accountApi
+          .create({
+            name: input.name,
+            type: accountTypeForKind(input.kind),
+            categoryId: resolved.categoryId,
+            initialBalance: minor(input.balance),
+            initialBalanceDate: todayLocal(),
+            sort,
+          })
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true, id: created.id }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const updateAccount = useCallback(
+    async (id: string, input: LedgerAccountInput): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        setLedger(updateAccountInLedger(ledgerRef.current, id, input))
+        return { ok: true }
+      }
+      try {
+        const resolved = await resolveAccountCategory(input.kind)
+        if (resolved.error) return { ok: false, error: resolved.error }
+        const body: Partial<Account> = {
+          name: input.name,
+          type: accountTypeForKind(input.kind),
+          categoryId: resolved.categoryId,
+        }
+        const currentBalance = ledgerRef.current.accounts.find((account) => account.id === id)?.balance ?? 0
+        if (input.balance !== currentBalance) {
+          const accounts = await accountApi.getAll().then(unwrapApiData)
+          const apiAccount = accounts.find((account) => account.id === id)
+          if (!apiAccount) return { ok: false, error: '账户不存在' }
+          // 期初日期不变，用差额修正期初：balance-at 的当日余额与面板显示一致。
+          body.initialBalance = minor(
+            Number(apiAccount.initialBalance) + (input.balance - currentBalance),
+          )
+        }
+        await accountApi.update(id, body).then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const deleteAccount = useCallback(
+    async (id: string): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        const before = ledgerRef.current
+        setLedger(removeAccountFromLedger(before, id))
+        const undoToken = registerUndo(async () => {
+          setLedger(before)
+          return { ok: true }
+        })
+        return { ok: true, undoToken }
+      }
+      try {
+        // 非 force：有交易 / 预算 / 快照等引用时由后端拒绝，前端原样显示原因。
+        const result = await accountApi.delete(id).then(unwrapApiData)
+        await refreshRemote()
+        const undoToken = registerUndo(async () => {
+          try {
+            await auditEventApi.undo(result.auditEventId).then(unwrapApiData)
+            await refreshRemote()
+            return { ok: true }
+          } catch (error) {
+            return { ok: false, error: getApiErrorMessage(error) }
+          }
+        })
+        return { ok: true, undoToken }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote, registerUndo],
+  )
+
+  const reorderAccount = useCallback(
+    async (id: string, direction: 'up' | 'down'): Promise<LedgerMutationOutcome> => {
+      const current = ledgerRef.current
+      const account = current.accounts.find((item) => item.id === id)
+      if (!account) return { ok: false, error: '账户不存在' }
+      const siblings = current.accounts.filter((item) => item.kind === account.kind)
+      const index = siblings.findIndex((item) => item.id === id)
+      const target = index + (direction === 'up' ? -1 : 1)
+      if (target < 0 || target >= siblings.length) {
+        return { ok: false, error: direction === 'up' ? '已经在最前面了' : '已经在最后面了' }
+      }
+
+      if (!apiMode) {
+        setLedger(reorderAccountInLedger(current, id, direction))
+        return { ok: true }
+      }
+      try {
+        const swapped = [...siblings]
+        ;[swapped[index], swapped[target]] = [swapped[target], swapped[index]]
+        const accounts = await accountApi.getAll().then(unwrapApiData)
+        const categoryById = new Map(accounts.map((item) => [item.id, item.categoryId]))
+        await accountApi
+          .updateSort(
+            swapped.map((item, sort) => ({
+              id: item.id,
+              sort,
+              categoryId: categoryById.get(item.id) ?? null,
+            })),
+          )
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const createCategory = useCallback(
+    async (input: LedgerCategoryInput): Promise<LedgerCreateOutcome> => {
+      if (!apiMode) {
+        setLedger(
+          addCategoryToLedger(ledgerRef.current, {
+            name: input.name,
+            type: input.type,
+            parentId: input.parentId ?? undefined,
+          }),
+        )
+        return { ok: true }
+      }
+      try {
+        const mapper = mapperFromLedger(ledgerRef.current)
+        const parentId = input.parentId ? mapper.realId(input.parentId) : null
+        const created = await transactionCategoryApi
+          .create({ name: input.name, type: input.type, parentId })
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true, id: created.id }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const updateCategory = useCallback(
+    async (id: string, name: string): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        setLedger(updateCategoryInLedger(ledgerRef.current, id, name))
+        return { ok: true }
+      }
+      try {
+        const mapper = mapperFromLedger(ledgerRef.current)
+        await transactionCategoryApi.update(mapper.realId(id), { name }).then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const moveCategory = useCallback(
+    async (id: string, parentId: string | null): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        // 种子模式直接改层级（保持与原有 moveCategory 一致）。
+        setLedger((current) => ({
+          ...current,
+          categories: current.categories.map((category) =>
+            category.id === id ? { ...category, parentId: parentId ?? undefined } : category,
+          ),
+        }))
+        return { ok: true }
+      }
+      try {
+        const mapper = mapperFromLedger(ledgerRef.current)
+        await transactionCategoryApi
+          .move(mapper.realId(id), { newParentId: parentId ? mapper.realId(parentId) : null })
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const deleteCategory = useCallback(
+    async (id: string, transferToId?: string): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        const before = ledgerRef.current
+        const next = transferToId
+          ? transferCategoryTransactions(before, id, transferToId)
+          : before
+        setLedger(removeCategoryFromLedger(next, id))
+        const undoToken = registerUndo(async () => {
+          setLedger(before)
+          return { ok: true }
+        })
+        return { ok: true, undoToken }
+      }
+      try {
+        const mapper = mapperFromLedger(ledgerRef.current)
+        const params = transferToId
+          ? { transferToCategoryId: mapper.realId(transferToId) }
+          : undefined
+        const result = await transactionCategoryApi
+          .delete(mapper.realId(id), params)
+          .then(unwrapApiData)
+        await refreshRemote()
+        const undoToken = registerUndo(async () => {
+          try {
+            await auditEventApi.undo(result.auditEventId).then(unwrapApiData)
+            await refreshRemote()
+            return { ok: true }
+          } catch (error) {
+            return { ok: false, error: getApiErrorMessage(error) }
+          }
+        })
+        return { ok: true, undoToken }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote, registerUndo],
+  )
+
+  const reorderCategory = useCallback(
+    async (id: string, direction: 'up' | 'down'): Promise<LedgerMutationOutcome> => {
+      const current = ledgerRef.current
+      const category = current.categories.find((item) => item.id === id)
+      if (!category) return { ok: false, error: '分类不存在' }
+      const siblings = current.categories.filter(
+        (item) => item.type === category.type && item.parentId === category.parentId,
+      )
+      const index = siblings.findIndex((item) => item.id === id)
+      const target = index + (direction === 'up' ? -1 : 1)
+      if (target < 0 || target >= siblings.length) {
+        return { ok: false, error: direction === 'up' ? '已经在最前面了' : '已经在最后面了' }
+      }
+
+      if (!apiMode) {
+        setLedger(reorderCategoryInLedger(current, id, direction))
+        return { ok: true }
+      }
+      try {
+        const mapper = mapperFromLedger(current)
+        const swapped = [...siblings]
+        ;[swapped[index], swapped[target]] = [swapped[target], swapped[index]]
+        const parentId = category.parentId ? mapper.realId(category.parentId) : null
+        await transactionCategoryApi
+          .updateSort(
+            swapped.map((item, sort) => ({
+              id: mapper.realId(item.id),
+              sort,
+              parentId,
+            })),
+          )
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
   const replaceLedger = useCallback(
     (next: Ledger) => {
-      // API 模式下的设置页仍是本地预览，真实写库留到设置批次。
+      // API 模式下尚未接线的分区（导入导出 / 现金流 / 清空）保持只读预览。
       if (apiMode) return
       setLedger(next)
     },
@@ -287,6 +621,15 @@ export function LedgerProvider({
         updateTransaction,
         deleteTransactions,
         setTransactionCategory,
+        createAccount,
+        updateAccount,
+        deleteAccount,
+        reorderAccount,
+        createCategory,
+        updateCategory,
+        moveCategory,
+        deleteCategory,
+        reorderCategory,
         undo,
         replaceLedger,
       }}

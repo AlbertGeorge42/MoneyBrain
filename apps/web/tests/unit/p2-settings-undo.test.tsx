@@ -5,7 +5,7 @@
  * 断言：转移后出现「撤销」；点击后原分类与记录归属都恢复。
  */
 import { describe, expect, it } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { useLedger } from '@/features/overview/ledgerStore'
@@ -34,7 +34,7 @@ function OwnershipProbe() {
 }
 
 describe('#12 转移并删除分类后的 6 秒撤销', () => {
-  it('撤销恢复原分类与记录归属', () => {
+  it('撤销恢复原分类与记录归属', async () => {
     render(
       <MantineProvider>
         <LedgerProvider initialLedger={ledger}>
@@ -55,16 +55,16 @@ describe('#12 转移并删除分类后的 6 秒撤销', () => {
     fireEvent.click(screen.getByRole('radio', { name: '餐饮' }))
 
     // 转移即删除：源分类消失，交易落到目标分类。
+    await waitFor(() => expect(ownership.textContent).toBe('t1:food'))
     expect(screen.queryByText('购物')).toBeNull()
-    expect(ownership.textContent).toBe('t1:food')
 
-    const toast = screen.getByRole('status')
+    const toast = await screen.findByRole('status')
     expect(toast.textContent).toContain('已转移 1 笔到「餐饮」并删除「购物」')
 
     fireEvent.click(within(toast).getByRole('button', { name: '撤销' }))
 
     // 撤销恢复原分类与记录归属。
+    await waitFor(() => expect(ownership.textContent).toBe('t1:shop'))
     expect(screen.getByText('购物')).toBeInTheDocument()
-    expect(ownership.textContent).toBe('t1:shop')
   })
 })

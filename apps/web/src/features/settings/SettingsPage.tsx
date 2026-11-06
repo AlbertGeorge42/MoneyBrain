@@ -34,6 +34,9 @@ import {
 } from 'lucide-react'
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
+import { transactionCategoryApi } from '@/services/api'
+import { getApiErrorMessage } from '@/services/apiError'
+import { unwrapApiData } from '@/services/apiResult'
 import { useLedger } from '@/features/overview/ledgerStore'
 import type { AccountKind, TxType } from '@/features/overview/model'
 import { RecycleBinCountProbe, RecycleBinPanel } from './RecycleBinSection'
@@ -56,18 +59,11 @@ import {
   INVESTMENT_TYPES,
   LIABILITY_KINDS,
   accountGroups,
-  addAccount,
-  addCategory,
   categoryDescendantIds,
   categoryRows,
+  categorySiblings,
   defaultActivity,
-  moveCategory,
-  removeAccount,
-  removeCategory,
   sectionMeta,
-  transferCategoryTransactions,
-  updateAccount,
-  updateCategory,
   type AccountGroup,
   type AccountRow,
   type ActivityGroupId,
@@ -218,6 +214,8 @@ function EditorSheet({
   device,
   ledger,
   investRows,
+  error,
+  saving,
   onClose,
   onSave,
 }: {
@@ -225,6 +223,8 @@ function EditorSheet({
   device: DeviceMode
   ledger: ReturnType<typeof useLedger>['ledger']
   investRows: readonly InvestmentTypeRow[]
+  error: string | null
+  saving: boolean
   onClose: () => void
   onSave: (value: { name: string; kind: AccountKind; balance: number; target: number }) => void
 }) {
@@ -357,6 +357,8 @@ function EditorSheet({
           </label>
         )}
 
+        {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
+
         <div className="mb-set-sheet-actions">
           <button type="button" className="mb-set-btn is-ghost" onClick={onClose}>
             取消
@@ -364,7 +366,7 @@ function EditorSheet({
           <button
             type="button"
             className="mb-set-btn is-primary"
-            disabled={!valid}
+            disabled={!valid || saving}
             onClick={() =>
               onSave({
                 name: name.trim(),
@@ -374,7 +376,7 @@ function EditorSheet({
               })
             }
           >
-            保存
+            {saving ? '保存中…' : '保存'}
           </button>
         </div>
       </div>
@@ -386,12 +388,16 @@ function MoverSheet({
   mover,
   device,
   ledger,
+  error,
+  saving,
   onClose,
   onMove,
 }: {
   mover: Mover | null
   device: DeviceMode
   ledger: ReturnType<typeof useLedger>['ledger']
+  error: string | null
+  saving: boolean
   onClose: () => void
   onMove: (target: string) => void
 }) {
@@ -448,7 +454,7 @@ function MoverSheet({
               role="radio"
               aria-checked={option.current}
               className={option.current ? 'mb-set-radio is-current' : 'mb-set-radio'}
-              disabled={option.current}
+              disabled={option.current || saving}
               onClick={() => onMove(option.id)}
             >
               <span className="mb-set-radio-dot" aria-hidden="true" />
@@ -457,6 +463,7 @@ function MoverSheet({
             </button>
           ))}
         </div>
+        {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       </div>
     </Drawer>
   )
@@ -467,6 +474,8 @@ function CategoryDeleteSheet({
   type,
   device,
   ledger,
+  error,
+  saving,
   onClose,
   onTransfer,
 }: {
@@ -474,6 +483,8 @@ function CategoryDeleteSheet({
   type: TxType
   device: DeviceMode
   ledger: ReturnType<typeof useLedger>['ledger']
+  error: string | null
+  saving: boolean
   onClose: () => void
   onTransfer: (targetId: string) => void
 }) {
@@ -510,6 +521,7 @@ function CategoryDeleteSheet({
               role="radio"
               aria-checked={false}
               className="mb-set-radio"
+              disabled={saving}
               onClick={() => onTransfer(option.id)}
             >
               <span className="mb-set-radio-dot" aria-hidden="true" />
@@ -520,13 +532,28 @@ function CategoryDeleteSheet({
         {options.length === 0 && (
           <p className="mb-set-hint">没有可转移的同类型分类，请先新建一个分类。</p>
         )}
+        {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       </div>
     </Drawer>
   )
 }
 
 export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsPageProps) {
-  const { ledger, dataMode, replaceLedger } = useLedger()
+  const {
+    ledger,
+    dataMode,
+    replaceLedger,
+    createAccount,
+    updateAccount,
+    deleteAccount: deleteAccountRemote,
+    reorderAccount,
+    createCategory,
+    updateCategory,
+    moveCategory,
+    deleteCategory: deleteCategoryRemote,
+    reorderCategory,
+    undo,
+  } = useLedger()
   const apiMode = dataMode === 'api'
   const [trashCount, setTrashCount] = useState(0)
   const [active, setActive] = useState<SectionId>('accounts')
@@ -540,6 +567,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [editor, setEditor] = useState<Editor | null>(null)
   const [mover, setMover] = useState<Mover | null>(null)
   const [deleteTransfer, setDeleteTransfer] = useState<{ row: CategoryRow; type: TxType } | null>(null)
+  const [editorError, setEditorError] = useState<string | null>(null)
+  const [editorSaving, setEditorSaving] = useState(false)
+  const [moverError, setMoverError] = useState<string | null>(null)
+  const [moverSaving, setMoverSaving] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteSaving, setDeleteSaving] = useState(false)
   const [toast, setToast] = useState<{
     message: string
     duration: number
@@ -554,6 +587,21 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   // 危险操作（转移后删除）与批量删除一致：6 秒内可撤销。
   const notifyUndoable = (message: string, run: () => void) =>
     setToast({ message, duration: 6000, action: { label: '撤销', run } })
+
+  useEffect(() => {
+    setEditorError(null)
+    setEditorSaving(false)
+  }, [editor])
+
+  useEffect(() => {
+    setMoverError(null)
+    setMoverSaving(false)
+  }, [mover])
+
+  useEffect(() => {
+    setDeleteError(null)
+    setDeleteSaving(false)
+  }, [deleteTransfer])
 
   useEffect(() => {
     if (!toast) return
@@ -609,77 +657,175 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
 
   /* ===== 操作 ===== */
 
-  const saveEditor = (value: { name: string; kind: AccountKind; balance: number; target: number }) => {
-    if (!editor) return
-    if (editor.kind === 'account') {
-      if (editor.mode === 'edit' && editor.accountId) {
-        replaceLedger(
-          updateAccount(ledger, editor.accountId, {
-            name: value.name,
-            kind: value.kind,
-            balance: value.balance,
-          }),
-        )
-        notify('账户已更新')
-      } else {
-        replaceLedger(addAccount(ledger, { name: value.name, kind: value.kind, balance: value.balance }))
-        notify('账户已新增')
-      }
-    } else if (editor.kind === 'category') {
-      if (editor.mode === 'edit' && editor.categoryId) {
-        replaceLedger(updateCategory(ledger, editor.categoryId, value.name))
-        notify('分类已重命名')
-      } else {
-        replaceLedger(
-          addCategory(ledger, { name: value.name, type: editor.type, parentId: editor.parentId }),
-        )
-        notify('分类已新增')
-      }
-    } else {
+  const runUndo = async (token: string) => {
+    const result = await undo(token)
+    if (!result.ok) notify(result.error ?? '撤销失败')
+  }
+
+  const saveEditor = async (value: {
+    name: string
+    kind: AccountKind
+    balance: number
+    target: number
+  }) => {
+    if (!editor || editorSaving) return
+    if (editor.kind === 'invest') {
       setInvestRows((rows) =>
         rows.map((row) => (row.id === editor.id ? { ...row, target: value.target } : row)),
       )
       notify('目标占比已更新')
+      setEditor(null)
+      return
     }
+
+    setEditorError(null)
+    setEditorSaving(true)
+    const result =
+      editor.kind === 'account'
+        ? editor.mode === 'edit' && editor.accountId
+          ? await updateAccount(editor.accountId, {
+              name: value.name,
+              kind: value.kind,
+              balance: value.balance,
+            })
+          : await createAccount({ name: value.name, kind: value.kind, balance: value.balance })
+        : editor.mode === 'edit' && editor.categoryId
+          ? await updateCategory(editor.categoryId, value.name)
+          : await createCategory({
+              name: value.name,
+              type: editor.type,
+              parentId: editor.parentId ?? null,
+            })
+    setEditorSaving(false)
+    if (!result.ok) {
+      // 失败保留表单与原输入，错误可见，可直接重试。
+      setEditorError(result.error ?? '保存失败，请重试')
+      return
+    }
+    notify(
+      editor.kind === 'account'
+        ? editor.mode === 'edit'
+          ? '账户已更新'
+          : '账户已新增'
+        : editor.mode === 'edit'
+          ? '分类已重命名'
+          : '分类已新增',
+    )
     setEditor(null)
   }
 
-  const deleteAccount = (account: AccountRow) => {
-    if (account.txCount > 0) return
-    replaceLedger(removeAccount(ledger, account.id))
-    notify('账户已删除')
+  const deleteAccount = async (account: AccountRow) => {
+    if (!apiMode && account.txCount > 0) return
+    const result = await deleteAccountRemote(account.id)
+    if (!result.ok) {
+      notify(result.error ?? '删除失败，请重试')
+      return
+    }
+    if (result.undoToken) {
+      notifyUndoable('账户已删除', () => void runUndo(result.undoToken!))
+    } else {
+      notify('账户已删除')
+    }
   }
 
-  const deleteCategory = (row: CategoryRow) => {
-    replaceLedger(removeCategory(ledger, row.id))
-    notify('分类已删除')
+  const moveAccountOrder = async (id: string, direction: 'up' | 'down') => {
+    const result = await reorderAccount(id, direction)
+    if (!result.ok) notify(result.error ?? '排序失败，请重试')
   }
 
-  const transferAndDelete = (targetId: string) => {
-    if (!deleteTransfer) return
+  const moveCategoryOrder = async (id: string, direction: 'up' | 'down') => {
+    const result = await reorderCategory(id, direction)
+    if (!result.ok) notify(result.error ?? '排序失败，请重试')
+  }
+
+  const openTransfer = async (row: CategoryRow, type: TxType) => {
+    let txCount = row.txCount
+    if (apiMode) {
+      try {
+        const realId = ledger.ids?.categoryReal?.[row.id] ?? row.id
+        const stats = await transactionCategoryApi.getStats(realId).then(unwrapApiData)
+        txCount = stats.transactionCount
+      } catch (error) {
+        notify(getApiErrorMessage(error))
+        return
+      }
+    }
+    setDeleteTransfer({ row: { ...row, txCount }, type })
+  }
+
+  const deleteCategory = async (row: CategoryRow, type: TxType) => {
+    // 有交易引用先转移：种子模式按本地计数，API 模式先尝试删除、被拒后再查真实计数。
+    if (row.txCount > 0) {
+      await openTransfer(row, type)
+      return
+    }
+    const result = await deleteCategoryRemote(row.id)
+    if (result.ok) {
+      if (result.undoToken) {
+        notifyUndoable(`分类「${row.name}」已删除`, () => void runUndo(result.undoToken!))
+      } else {
+        notify('分类已删除')
+      }
+      return
+    }
+    if (apiMode && (result.error ?? '').includes('存在交易记录')) {
+      await openTransfer(row, type)
+      return
+    }
+    notify(result.error ?? '删除失败，请重试')
+  }
+
+  const transferAndDelete = async (targetId: string) => {
+    if (!deleteTransfer || deleteSaving) return
     const { row } = deleteTransfer
     const targetName =
       ledger.categories.find((item) => item.id === targetId)?.name ?? '目标分类'
-    // 撤销必须恢复原分类与记录归属：快照整份账本，比逐条回填更可靠。
-    const before = ledger
-    replaceLedger(removeCategory(transferCategoryTransactions(ledger, row.id, targetId), row.id))
-    notifyUndoable(`已转移 ${row.txCount} 笔到「${targetName}」并删除「${row.name}」`, () => {
-      replaceLedger(before)
-      notify('已撤销转移与删除')
-    })
+    setDeleteError(null)
+    setDeleteSaving(true)
+    const result = await deleteCategoryRemote(row.id, targetId)
+    setDeleteSaving(false)
+    if (!result.ok) {
+      setDeleteError(result.error ?? '转移失败，请重试')
+      return
+    }
     setDeleteTransfer(null)
+    const message = `已转移 ${row.txCount} 笔到「${targetName}」并删除「${row.name}」`
+    if (result.undoToken) {
+      notifyUndoable(message, () => void runUndo(result.undoToken!))
+    } else {
+      notify(message)
+    }
   }
 
-  const move = (target: string) => {
-    if (!mover) return
-    if (mover.kind === 'account') {
-      const account = ledger.accounts.find((item) => item.id === mover.id)
-      if (account) replaceLedger(updateAccount(ledger, account.id, { ...account, kind: target as AccountKind }))
-      notify('账户已移动到新分类')
-    } else {
-      replaceLedger(moveCategory(ledger, mover.id, target === 'root' ? null : target))
-      notify('分类已移动')
+  const move = async (target: string) => {
+    if (!mover || moverSaving) return
+    setMoverError(null)
+    if (mover.kind === 'activity') {
+      setActivity((current) => ({ ...current, [mover.id]: target as ActivityGroupId }))
+      notify('活动归属已更新')
+      setMover(null)
+      return
     }
+
+    setMoverSaving(true)
+    const result =
+      mover.kind === 'account'
+        ? await (async () => {
+            const account = ledger.accounts.find((item) => item.id === mover.id)
+            if (!account) return { ok: false, error: '账户不存在' }
+            return updateAccount(account.id, {
+              name: account.name,
+              kind: target as AccountKind,
+              balance: account.balance,
+            })
+          })()
+        : await moveCategory(mover.id, target === 'root' ? null : target)
+    setMoverSaving(false)
+    if (!result.ok) {
+      setMoverError(result.error ?? '移动失败，请重试')
+      return
+    }
+    notify(mover.kind === 'account' ? '账户已移动到新分类' : '分类已移动')
     setMover(null)
   }
 
@@ -756,7 +902,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           />
         </div>
         {expandedRow &&
-          group.rows.map((account) => (
+          group.rows.map((account, index) => (
             <div key={account.id} className="mb-set-row is-child">
               <span className="mb-set-child-space" aria-hidden="true" />
               <span className="mb-set-drag" aria-hidden="true">
@@ -794,13 +940,26 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                       }),
                   },
                   {
+                    key: `up-${account.id}`,
+                    label: '上移',
+                    disabled: index === 0,
+                    onSelect: () => void moveAccountOrder(account.id, 'up'),
+                  },
+                  {
+                    key: `down-${account.id}`,
+                    label: '下移',
+                    disabled: index === group.rows.length - 1,
+                    onSelect: () => void moveAccountOrder(account.id, 'down'),
+                  },
+                  {
                     key: `del-${account.id}`,
                     label: '删除',
                     danger: true,
                     confirm: true,
-                    disabled: account.txCount > 0,
+                    // API 模式交给后端判定：有引用时原样显示拒绝原因。
+                    disabled: !apiMode && account.txCount > 0,
                     hint: `${account.txCount} 笔交易引用此账户，不能删除`,
-                    onSelect: () => deleteAccount(account),
+                    onSelect: () => void deleteAccount(account),
                   },
                 ]}
               />
@@ -817,6 +976,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
 
   const renderCategoryRow = (row: CategoryRow, type: TxType, level: number) => {
     const expandedRow = !collapsed.has(`cat-${row.id}`)
+    const siblings = categorySiblings(ledger, row.id)
+    const index = siblings.findIndex((category) => category.id === row.id)
     return (
       <div key={row.id} className={level > 0 ? 'mb-set-group is-child' : 'mb-set-group'}>
         <div className={level > 0 ? 'mb-set-row is-child' : 'mb-set-row'}>
@@ -880,6 +1041,18 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                   }),
               },
               {
+                key: `up-${row.id}`,
+                label: '上移',
+                disabled: index <= 0,
+                onSelect: () => void moveCategoryOrder(row.id, 'up'),
+              },
+              {
+                key: `down-${row.id}`,
+                label: '下移',
+                disabled: index < 0 || index >= siblings.length - 1,
+                onSelect: () => void moveCategoryOrder(row.id, 'down'),
+              },
+              {
                 key: `del-${row.id}`,
                 label: '删除',
                 danger: true,
@@ -887,13 +1060,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 confirm: row.childCount === 0 && row.txCount === 0,
                 disabled: row.childCount > 0,
                 hint: row.childCount > 0 ? '有子分类，先处理子分类' : undefined,
-                onSelect: () => {
-                  if (row.txCount > 0) {
-                    setDeleteTransfer({ row, type })
-                    return
-                  }
-                  deleteCategory(row)
-                },
+                onSelect: () => void deleteCategory(row, type),
               },
             ]}
           />
@@ -1524,6 +1691,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           device={device}
           ledger={ledger}
           investRows={investRows}
+          error={editorError}
+          saving={editorSaving}
           onClose={() => setEditor(null)}
           onSave={saveEditor}
         />
@@ -1533,13 +1702,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           mover={mover}
           device={device}
           ledger={ledger}
+          error={moverError}
+          saving={moverSaving}
           onClose={() => setMover(null)}
           onMove={(target) => {
             if (mover.kind === 'activity') {
               moveActivity(mover.id, target as ActivityGroupId)
               return
             }
-            move(target)
+            void move(target)
           }}
         />
       )}
@@ -1549,8 +1720,10 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           type={deleteTransfer.type}
           device={device}
           ledger={ledger}
+          error={deleteError}
+          saving={deleteSaving}
           onClose={() => setDeleteTransfer(null)}
-          onTransfer={transferAndDelete}
+          onTransfer={(target) => void transferAndDelete(target)}
         />
       )}
       {toast &&

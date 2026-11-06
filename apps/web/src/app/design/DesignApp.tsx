@@ -433,13 +433,15 @@ export default function DesignApp() {
   const apiMode = dataMode === 'api'
   const api = useApiLedger(apiMode)
   const queryClient = useQueryClient()
-  // 写操作成功后统一刷新真实数据：总览、流水列表、回收站。
+  // 写操作成功后统一刷新真实数据：总览、流水列表、回收站、报表/预算。
   const refreshRemote = useCallback(async () => {
     if (!apiMode) return
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['hf', 'overview', 'ledger'] }),
       queryClient.invalidateQueries({ queryKey: ['hf', 'transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['hf', 'recycle-bin'] }),
+      queryClient.invalidateQueries({ queryKey: ['hf', 'reports'] }),
+      queryClient.invalidateQueries({ queryKey: ['hf', 'budgets'] }),
     ])
   }, [apiMode, queryClient])
 
