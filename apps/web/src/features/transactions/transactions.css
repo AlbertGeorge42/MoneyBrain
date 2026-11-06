@@ -675,41 +675,50 @@
 }
 
 /* 移动端批量条：portal 到手机框内、滚动容器外的 dock，相对屏幕固定。
-   底部让出移动底栏（44 触控 + 16 间距 + 1 边框），单行 56px。 */
+   两行布局：第一行计数 + 排除项/禁用原因（可见文字），第二行动作。
+   底部让出移动底栏（44 触控 + 16 间距 + 1 边框），最小高度走 56px 槽位。 */
 .mb-tx-batchbar.is-mobile {
   position: fixed;
   left: var(--mb-page-pad-mobile);
   right: var(--mb-page-pad-mobile);
   bottom: calc(var(--mb-touch) + var(--mb-s-4) + var(--mb-border-width));
   display: flex;
-  align-items: center;
-  gap: var(--mb-s-2);
-  height: var(--mb-dock-batch-h);
-  padding: 0 var(--mb-s-2);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--mb-s-1);
+  height: auto;
+  min-height: var(--mb-dock-batch-h);
+  padding: var(--mb-s-1) var(--mb-s-2);
   width: auto;
 }
 
-.mb-tx-batchbar.is-mobile .mb-tx-batch-summary {
-  display: none;
-}
-
-/* 390 宽放不下第四个动作；混选提示留在计数 title，移动端只保留三颗主按钮。 */
-.mb-tx-batchbar.is-mobile .mb-tx-batch-select-expense {
-  display: none;
+.mb-tx-batchbar.is-mobile .mb-tx-batch-meta {
+  flex: none;
+  gap: var(--mb-s-2);
 }
 
 .mb-tx-batchbar.is-mobile .mb-tx-batch-actions {
-  flex: 1;
-  min-width: 0;
+  flex: none;
+  width: 100%;
 }
 
-/* 三颗主按钮 44px：portal 后已脱离 .mb-mobile-scroll，触控规则不能挂在滚动容器上。 */
+/* 三颗主按钮 44px：portal 后已脱离 .mb-mobile-scroll，触控规则不能挂在滚动容器上。
+   混选时动作行多一颗「仅选支出」，四颗等分。 */
 .mb-tx-batchbar.is-mobile .mb-tx-btn {
   flex: 1;
   min-width: 0;
   height: var(--mb-touch);
   min-height: var(--mb-touch);
   padding: 0 var(--mb-s-2);
+}
+
+/* 计数 + 排除项/禁用原因：移动端独占一行；PC 与动作行同行。 */
+.mb-tx-batch-meta {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--mb-s-3);
+  min-width: 0;
 }
 
 .mb-tx-batch-count {

@@ -45,14 +45,18 @@ export function BatchBar({
 
   const bar = (
     <div className={device === 'mobile' ? 'mb-tx-batchbar is-mobile' : 'mb-tx-batchbar'} role="region" aria-label="批量操作">
-      <span className="mb-tx-batch-count" title={summaryTitle}>
-        已选 {count} 笔
-      </span>
-      {summary && (
-        <span className="mb-tx-batch-summary" title={summaryTitle}>
-          {summary}
+      {/* 移动端两行：本行是计数 + 排除项（或禁用原因），下一行才是动作。
+          排除原因必须可见——触屏没有 hover，title 不构成可达提示。 */}
+      <div className="mb-tx-batch-meta">
+        <span className="mb-tx-batch-count" title={summaryTitle}>
+          已选 {count} 笔
         </span>
-      )}
+        {summary && (
+          <span className="mb-tx-batch-summary" title={summaryTitle}>
+            {summary}
+          </span>
+        )}
+      </div>
       <div className="mb-tx-batch-actions">
         {excluded.length > 0 && (
           <button type="button" className="mb-tx-btn is-ghost mb-tx-batch-select-expense" onClick={onSelectExpenseOnly}>

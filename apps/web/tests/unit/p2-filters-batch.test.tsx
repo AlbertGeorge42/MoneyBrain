@@ -105,7 +105,7 @@ describe('#17 批量混选列出异类', () => {
     expect(onExpenseOnly).toHaveBeenCalledTimes(1)
   })
 
-  it('移动端 390：计数与三颗主按钮同区，高度走 56px 固定槽位 token', () => {
+  it('移动端 390：计数独占首行，三颗主按钮在动作行', () => {
     render(
       <BatchBar
         device="mobile"
@@ -123,12 +123,39 @@ describe('#17 批量混选列出异类', () => {
     expect(bar.className).toContain('is-mobile')
     expect(screen.getByText('已选 2 笔')).toBeInTheDocument()
     for (const name of ['改分类', '删除', '退出']) {
-      expect(screen.getByRole('button', { name })).toBeVisible()
+      const button = screen.getByRole('button', { name })
+      expect(button).toBeVisible()
+      expect(button.closest('.mb-tx-batch-actions')).not.toBeNull()
     }
     expect(screen.queryByRole('button', { name: '仅选支出' })).toBeNull()
   })
 
-  it('批量条 CSS 契约：高度 = --mb-dock-batch-h（56px），且不参与 flex 收缩', () => {
+  it('移动端混选：排除项可见，且「仅选支出」就在动作行内可点', () => {
+    const onExpenseOnly = vi.fn()
+    const { container } = render(
+      <BatchBar
+        device="mobile"
+        count={2}
+        excluded={[{ id: 't9', label: '工资', reason: '收入' }]}
+        categoryDisabled
+        categoryHint="含转账 / 退款 / 调整，或混选收支类型，不能批量改分类"
+        onCategory={() => {}}
+        onDelete={() => {}}
+        onSelectExpenseOnly={onExpenseOnly}
+        onExit={() => {}}
+      />,
+    )
+
+    expect(container.querySelector('.mb-tx-batch-meta .mb-tx-batch-summary')?.textContent).toBe(
+      '已排除：工资（收入）',
+    )
+    const only = screen.getByRole('button', { name: '仅选支出' })
+    expect(only.closest('.mb-tx-batch-actions')).not.toBeNull()
+    fireEvent.click(only)
+    expect(onExpenseOnly).toHaveBeenCalledTimes(1)
+  })
+
+  it('批量条 CSS 契约：PC 56px；移动两行、主按钮 44px，排除项不再隐藏', () => {
     const variables = readFileSync(resolve(WEB_ROOT, 'src/styles/theme/variables.css'), 'utf8')
     const transactions = readFileSync(
       resolve(WEB_ROOT, 'src/features/transactions/transactions.css'),
@@ -138,7 +165,17 @@ describe('#17 批量混选列出异类', () => {
     expect(transactions).toMatch(/\.mb-tx-batchbar\s*\{[^}]*flex:\s*none/)
     expect(transactions).toMatch(/\.mb-tx-batchbar\s*\{[^}]*height:\s*var\(--mb-dock-batch-h\)/)
     expect(transactions).toMatch(
-      /\.mb-tx-batchbar\.is-mobile\s*\{[^}]*height:\s*var\(--mb-dock-batch-h\)/,
+      /\.mb-tx-batchbar\.is-mobile\s*\{[^}]*min-height:\s*var\(--mb-dock-batch-h\)/,
+    )
+    expect(transactions).toMatch(/\.mb-tx-batchbar\.is-mobile\s*\{[^}]*flex-direction:\s*column/)
+    expect(transactions).toMatch(
+      /\.mb-tx-batchbar\.is-mobile \.mb-tx-btn\s*\{[^}]*min-height:\s*var\(--mb-touch\)/,
+    )
+    expect(transactions).not.toMatch(
+      /\.mb-tx-batchbar\.is-mobile \.mb-tx-batch-select-expense\s*\{[^}]*display:\s*none/,
+    )
+    expect(transactions).not.toMatch(
+      /\.mb-tx-batchbar\.is-mobile \.mb-tx-batch-summary\s*\{[^}]*display:\s*none/,
     )
   })
 
