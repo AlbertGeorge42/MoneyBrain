@@ -744,6 +744,19 @@ export interface ImportSkippedCounts {
 }
 
 /**
+ * 一条被跳过的 CSV 行。解析/入库失败必须留下这条记录，
+ * 不能像旧实现那样 catch 后静默丢掉。
+ */
+export interface ImportSkippedRow {
+  /** CSV 数据行号（含表头，从 1 起算） */
+  rowNumber: number
+  /** 可读的失败原因 */
+  reason: string
+  /** 原始行的核心字段原值（字段名 → 值） */
+  raw: Record<string, string>
+}
+
+/**
  * 导入文件本身的摘要：确认前就能看到的数字。
  * 全部来自真实解析结果，预览与正式导入走同一段解析代码。
  */
@@ -761,6 +774,10 @@ export interface ImportFileSummary {
   unknownCategories: string[]
   /** 疑似重复（幂等键已存在或文件内重复）而被跳过的笔数 */
   duplicates: number
+  /** 被跳过的行；空数组表示没有任何行被静默丢弃 */
+  skippedRows: ImportSkippedRow[]
+  /** 已安全自动修正的行数（如金额浮点尾差四舍五入到分） */
+  autoFixedRows: number
 }
 
 export interface ImportFullResult {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { importTransactionsFromCsv } from '../../src/services/import/transaction-import.service.js'
+import { createImportSummaryCollector, toImportFileSummary } from '../../src/services/import/shared.js'
 
 vi.mock('../../src/prisma.js', () => {
   const mockPrisma = {
@@ -717,6 +718,283 @@ describe('import.service', () => {
       expect(data.amount).toBe(-10000n)
       expect(data.categoryId).toBeNull()
       expect(mockPrisma.transactionCategory.create).not.toHaveBeenCalled()
+    })
+
+    it('备份还原保留负号金额，用户 CSV 导入仍按正数归一', async () => {
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) => {
+        if (where.type === 'asset' && where.parentId === null) {
+          return Promise.resolve({ id: 'acat-1', name: '资产', type: 'asset', parentId: null })
+        }
+        if (where.type === 'liability' && where.parentId === null) {
+          return Promise.resolve({ id: 'lcat-1', name: '负债', type: 'liability', parentId: null })
+        }
+        return Promise.resolve(null)
+      })
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) => ({
+        id: `acc-${data.name}`,
+        name: data.name,
+        type: data.type,
+        categoryId: data.categoryId,
+      }))
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) => ({
+        id: `tcat-${data.name}`,
+        ...data,
+      }))
+
+      // 历史脏数据：支出金额为负，备份还原必须原样回来
+      const csv = makeCsvBuffer([
+        ['neg1', '2026-11-05 00:00:00', '餐饮', '', '支出', '-28.00', 'CNY', '钱包', '', '生产冷启动', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      await importTransactionsFromCsv(csv, mockPrisma)
+      const normalized = (mockPrisma.transaction.createMany.mock.calls[0][0].data as any[])[0]
+      expect(normalized.amount).toBe(2800n)
+
+      await importTransactionsFromCsv(csv, mockPrisma, undefined, { amountSign: 'preserve' })
+      const preserved = (mockPrisma.transaction.createMany.mock.calls[1][0].data as any[])[0]
+      expect(preserved.amount).toBe(-2800n)
+    })
+
+    it('同名多分类节点时按规范规则选父节点，不再被最后一个同名节点覆盖', async () => {
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.type === 'liability'
+            ? { id: 'lcat-1', name: '负债', type: 'liability', parentId: null }
+            : { id: 'acat-1', name: '资产', type: 'asset', parentId: null }
+        )
+      )
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: `acc-${data.name}`,
+          name: data.name,
+          type: data.type,
+          categoryId: data.categoryId,
+        })
+      )
+
+      // 两个同名「餐饮」根：root-real 有子分类（真实在用），root-empty 是空壳。
+      // 数组顺序刻意为「真实根在前、空壳在后」，旧实现 last-wins 会选空壳。
+      mockPrisma.transactionCategory.findMany.mockResolvedValueOnce([
+        { id: 'root-real', name: '餐饮', type: 'expense', parentId: null, sort: 9, createdAt: new Date('2025-02-01') },
+        { id: 'child-existing', name: '外卖', type: 'expense', parentId: 'root-real', sort: 1, createdAt: new Date('2025-02-02') },
+        { id: 'root-empty', name: '餐饮', type: 'expense', parentId: null, sort: 1, createdAt: new Date('2025-01-01') },
+      ])
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+
+      const createdCategories: any[] = []
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) => {
+        createdCategories.push(data)
+        return Promise.resolve({ id: `tcat-${createdCategories.length}`, ...data })
+      })
+
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '新子类', '支出', '50', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
+      expect(result.imported).toBe(1)
+      expect(createdCategories).toHaveLength(1)
+      expect(createdCategories[0].name).toBe('新子类')
+      // 规范节点规则：子节点更多者优先 → root-real，而不是数组最后的 root-empty
+      expect(createdCategories[0].parentId).toBe('root-real')
+      expect(createdCategories[0].parentId).not.toBe('root-empty')
+    })
+
+    it('ensureDefaultCategory 按 name+type 取「资产」根，不借用第一个资产分类「现金」', async () => {
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) => {
+        if (where.type === 'asset' && where.parentId === null) {
+          // 旧实现只按 type 查会先拿到「现金」；新实现带 name 时必须拿到「资产」
+          if (where.name === '资产') {
+            return Promise.resolve({ id: 'acat-asset', name: '资产', type: 'asset', parentId: null })
+          }
+          return Promise.resolve({ id: 'acat-cash', name: '现金', type: 'asset', parentId: null })
+        }
+        if (where.type === 'liability' && where.parentId === null) {
+          return Promise.resolve({ id: 'lcat-1', name: '负债', type: 'liability', parentId: null })
+        }
+        return Promise.resolve(null)
+      })
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: `acc-${data.name}`,
+          name: data.name,
+          type: data.type,
+          categoryId: data.categoryId,
+        })
+      )
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: `tcat-${data.name}`, ...data })
+      )
+
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '50', 'CNY', '新账户', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
+      expect(result.imported).toBe(1)
+
+      const accountCreate = mockPrisma.account.create.mock.calls.find(
+        (call: any) => call[0].data.name === '新账户'
+      )
+      expect(accountCreate[0].data.categoryId).toBe('acat-asset')
+      expect(accountCreate[0].data.categoryId).not.toBe('acat-cash')
+    })
+
+    it('ensureDefaultCategory 查不到 name+type 时新建同名顶层分类，不借用其他分类', async () => {
+      mockPrisma.accountCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.accountCategory.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: `acat-${data.name}`, ...data })
+      )
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: `acc-${data.name}`,
+          name: data.name,
+          type: data.type,
+          categoryId: data.categoryId,
+        })
+      )
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: `tcat-${data.name}`, ...data })
+      )
+
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '50', 'CNY', '新账户', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
+      expect(result.imported).toBe(1)
+
+      const createdCategoryNames = mockPrisma.accountCategory.create.mock.calls.map(
+        (call: any) => call[0].data.name
+      )
+      expect(createdCategoryNames).toContain('资产')
+      const accountCreate = mockPrisma.account.create.mock.calls.find(
+        (call: any) => call[0].data.name === '新账户'
+      )
+      expect(accountCreate[0].data.categoryId).toBe('acat-资产')
+    })
+
+    it('同名资产/负债账户并存时按 type 精确命中，还款目标落到负债账户', async () => {
+      mockPrisma.account.findMany.mockResolvedValueOnce([
+        { id: 'acc-asset', name: '信用卡A', type: 'asset', categoryId: 'acat-1', sort: 1, createdAt: new Date('2025-01-01'), category: { isInvestment: false } },
+        { id: 'acc-liability', name: '信用卡A', type: 'liability', categoryId: 'lcat-1', sort: 2, createdAt: new Date('2025-01-02'), category: { isInvestment: false } },
+      ])
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: `acc-${data.name}`,
+          name: data.name,
+          type: data.type,
+          categoryId: data.categoryId,
+        })
+      )
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.type === 'liability'
+            ? { id: 'lcat-1', name: '负债', type: 'liability', parentId: null }
+            : { id: 'acat-1', name: '资产', type: 'asset', parentId: null }
+        )
+      )
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: `tcat-${data.name}`, ...data })
+      )
+
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '还款', '', '还款', '500', 'CNY', '储蓄卡', '信用卡A', '', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
+      expect(result.imported).toBe(1)
+
+      const data = (mockPrisma.transaction.createMany.mock.calls[0][0].data as any[])[0]
+      expect(data.toAccountId).toBe('acc-liability')
+      expect(data.toAccountId).not.toBe('acc-asset')
+      // 精确命中后不应再触发类型纠偏
+      expect(mockPrisma.account.update).not.toHaveBeenCalled()
+    })
+
+    it('同名资产/负债账户并存且行内无类型信息时，明确跳过并给出原因，不猜账户', async () => {
+      mockPrisma.account.findMany.mockResolvedValueOnce([
+        { id: 'acc-asset', name: '信用卡A', type: 'asset', categoryId: 'acat-1', sort: 1, createdAt: new Date('2025-01-01'), category: { isInvestment: false } },
+        { id: 'acc-liability', name: '信用卡A', type: 'liability', categoryId: 'lcat-1', sort: 2, createdAt: new Date('2025-01-02'), category: { isInvestment: false } },
+      ])
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.type === 'liability'
+            ? { id: 'lcat-1', name: '负债', type: 'liability', parentId: null }
+            : { id: 'acat-1', name: '资产', type: 'asset', parentId: null }
+        )
+      )
+
+      const summary = createImportSummaryCollector()
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '50', 'CNY', '信用卡A', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv, mockPrisma, summary)
+      expect(result.imported).toBe(0)
+      expect(result.skipped).toBe(1)
+
+      const issues = toImportFileSummary(summary).skippedRows
+      expect(issues).toHaveLength(1)
+      expect(issues[0].rowNumber).toBe(2)
+      expect(issues[0].reason).toContain('同时存在资产与负债两个同名账户')
+      expect(issues[0].raw['账户1']).toBe('信用卡A')
+    })
+
+    it('解析失败行不再静默丢弃：记录行号/原因/原值，并统计自动修正行数', async () => {
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: `acc-${data.name}`,
+          name: data.name,
+          type: data.type,
+          categoryId: data.categoryId,
+        })
+      )
+      mockPrisma.accountCategory.findFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.type === 'liability'
+            ? { id: 'lcat-1', name: '负债', type: 'liability', parentId: null }
+            : { id: 'acat-1', name: '资产', type: 'asset', parentId: null }
+        )
+      )
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: `tcat-${data.name}`, ...data })
+      )
+
+      const summary = createImportSummaryCollector()
+      const csv = makeCsvBuffer([
+        // 第 2 行：合法，优惠券带浮点尾差 → 自动修正 1 行
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '53.43', 'CNY', '现金', '', '', '', '0', '9.969999999999999', '', '', '', '', ''],
+        // 第 3 行：优惠券列非法 → 解析阶段跳过
+        ['csv2', '2025/1/16 10:00:00', '餐饮', '', '支出', '20', 'CNY', '现金', '', '', '', '0', 'abc', '', '', '', '', ''],
+        // 第 4 行：时间非法 → 入库解析阶段跳过
+        ['csv3', '不是日期', '餐饮', '', '支出', '30', 'CNY', '现金', '', '', '', '0', '0', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv, mockPrisma, summary)
+      expect(result.imported).toBe(1)
+      expect(result.skipped).toBe(2)
+
+      const fileSummary = toImportFileSummary(summary)
+      expect(fileSummary.skippedRows).toHaveLength(2)
+      expect(fileSummary.skippedRows[0].rowNumber).toBe(3)
+      expect(fileSummary.skippedRows[0].reason).toContain('金额格式无效')
+      expect(fileSummary.skippedRows[0].raw['优惠券']).toBe('abc')
+      expect(fileSummary.skippedRows[1].rowNumber).toBe(4)
+      expect(fileSummary.skippedRows[1].reason).toContain('时间无法解析')
+      expect(fileSummary.autoFixedRows).toBe(1)
     })
 
     it('重复导入同一 CSV 源 ID 时应跳过，不重复插入', async () => {

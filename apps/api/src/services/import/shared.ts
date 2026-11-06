@@ -3,7 +3,11 @@
 import Papa from 'papaparse'
 import { formatDateLocal, rootLogger } from '../../common/index.js'
 import { type Minor } from '../../../../../packages/domain/src/index.js'
-import type { ImportFileSummary, ImportFullResult } from '../../../../../packages/contracts/types/index.js'
+import type {
+  ImportFileSummary,
+  ImportFullResult,
+  ImportSkippedRow,
+} from '../../../../../packages/contracts/types/index.js'
 import { type TransactionClient } from '../../prisma.js'
 
 export const logger = rootLogger.child({ module: 'import' })
@@ -42,6 +46,8 @@ export type { ImportFullResult }
 
 export interface AccountCache {
   id: string
+  /** 原始账户名：缓存键会带上 type，这里保留名字用于同名歧义判定。 */
+  name: string
   type: string
   categoryId: string | null
   isInvestment: boolean
@@ -64,6 +70,10 @@ export interface ImportSummaryCollector {
   unknownAccounts: Set<string>
   unknownCategories: Set<string>
   duplicates: number
+  /** 解析/入库失败被跳过的行；绝不静默丢弃 */
+  skippedRows: ImportSkippedRow[]
+  /** 已安全自动修正的行数（金额浮点尾差等） */
+  autoFixedRows: number
 }
 
 export function createImportSummaryCollector(): ImportSummaryCollector {
@@ -75,7 +85,34 @@ export function createImportSummaryCollector(): ImportSummaryCollector {
     unknownAccounts: new Set(),
     unknownCategories: new Set(),
     duplicates: 0,
+    skippedRows: [],
+    autoFixedRows: 0,
   }
+}
+
+/**
+ * 记录一条被跳过的行。
+ * 解析阶段拿到的原始字段优先；已经解析成 ParsedRow 的用核心字段还原。
+ */
+export function recordSkippedRow(
+  summary: ImportSummaryCollector | undefined,
+  rowNumber: number,
+  reason: string,
+  raw: Record<string, string>
+): void {
+  if (!summary) return
+  summary.skippedRows.push({ rowNumber, reason, raw })
+}
+
+/** 只保留非空的核心字段，避免把账单图片 URL 等长字段塞进摘要。 */
+export function compactCsvRaw(record: Record<string, string>): Record<string, string> {
+  const keys = ['ID', '时间', '分类', '二级分类', '类型', '金额', '币种', '账户1', '账户2', '备注', '手续费', '优惠券', '账单标记', '关联账单']
+  const raw: Record<string, string> = {}
+  for (const key of keys) {
+    const value = record[key]
+    if (value) raw[key] = value
+  }
+  return raw
 }
 
 export function recordRowSummary(
@@ -99,13 +136,18 @@ export function toImportFileSummary(summary: ImportSummaryCollector): ImportFile
     unknownAccounts: [...summary.unknownAccounts].sort(),
     unknownCategories: [...summary.unknownCategories].sort(),
     duplicates: summary.duplicates,
+    skippedRows: [...summary.skippedRows],
+    autoFixedRows: summary.autoFixedRows,
   }
 }
 
 export interface ImportContext {
   defaultAssetCategory: { id: string }
   defaultLiabilityCategory: { id: string }
+  /** 账户缓存：键为 `${type}:${name}`，同名资产/负债是不同的两条记录。 */
   accountCache: Map<string, AccountCache>
+  /** 同名账户候选：name → 全部同名的已加载/新建账户，用于判定跨类型歧义。 */
+  accountCandidates: Map<string, AccountCache[]>
   accountCategoryCache: Map<string, { id: string; isInvestment: boolean }>
   transactionCategoryCache: Map<string, string>
   investmentAssetClassCache: Map<string, string>
@@ -189,6 +231,8 @@ export function takeNextSort(
 // ─── ParsedRow（CSV 交易） ───
 
 export interface ParsedRow {
+  /** CSV 数据行号（含表头，从 1 起算），跳过行报错时用它定位。 */
+  rowNumber: number
   csvId: string
   time: string
   category1: string

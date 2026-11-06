@@ -63,6 +63,8 @@ const previewResult = {
     unknownAccounts: ['新账户'],
     unknownCategories: ['测试分类'],
     duplicates: 0,
+    skippedRows: [],
+    autoFixedRows: 0,
   },
 }
 

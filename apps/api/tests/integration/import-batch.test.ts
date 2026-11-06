@@ -185,6 +185,49 @@ describe('导入预览摘要 / 批次回滚 / 全成或全不成', () => {
     expect(await prisma.account.count()).toBe(1)
   })
 
+  it('备份还原逐字段保真：-2800 支出原样还原，净资产一致', async () => {
+    const category = await prisma.accountCategory.create({
+      data: { id: 'ib-neg-cat', name: '保真资产', type: 'asset', sort: 0 },
+    })
+    const account = await prisma.account.create({
+      data: { id: 'ib-neg-account', name: '保真账户', type: 'asset', initialBalance: 0, categoryId: category.id },
+    })
+    // 历史脏数据：支出金额为负，导出/还原都不得改写
+    await prisma.transaction.create({
+      data: {
+        id: 'ib-negative-tx',
+        type: 'expense',
+        ruleVersion: 1,
+        amount: BigInt(-2800),
+        fee: BigInt(0),
+        coupon: BigInt(0),
+        date: new Date('2026-11-05T00:00:00'),
+        accountId: account.id,
+        excludeFromIncomeExpense: false,
+        note: '生产冷启动',
+      },
+    })
+
+    const backup = await exportFullBackup()
+    const beforeSum = (await prisma.transaction.aggregate({ _sum: { amount: true } }))._sum.amount
+    // 资产账户期初为 0，净资产 = −Σ支出金额；负数支出意味着净资产 +2800
+    const beforeNetWorth = -(beforeSum ?? BigInt(0))
+    expect(beforeNetWorth).toBe(BigInt(2800))
+
+    await clearAllData()
+    expect(await prisma.transaction.count()).toBe(0)
+
+    const restored = await importBackup(backup, 'moneybrain-sign-backup.mbx', 'merge')
+    expect(restored.imported.transactions).toBe(1)
+
+    const negative = await prisma.transaction.findFirst({ where: { note: '生产冷启动' } })
+    expect(negative?.amount).toBe(BigInt(-2800))
+
+    const afterSum = (await prisma.transaction.aggregate({ _sum: { amount: true } }))._sum.amount
+    expect(afterSum).toBe(beforeSum)
+    expect(-(afterSum ?? BigInt(0))).toBe(beforeNetWorth)
+  })
+
   it('清空全部：业务表归零，回收站/审计与导入批次一并清空', async () => {
     await seedExisting()
     await importBackup(sampleCsv(), 'sample.csv', 'merge')

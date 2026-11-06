@@ -9,7 +9,10 @@ import {
   type ParsedRow,
   type TransactionClient,
   buildSortCounters,
+  compactCsvRaw,
+  logger,
   recordRowSummary,
+  recordSkippedRow,
   takeNextSort,
   readCsvRecords,
 } from './shared.js'
@@ -25,6 +28,92 @@ const TRANSACTION_CSV_HEADER = [
 
 type TransactionCsvField = typeof TRANSACTION_CSV_HEADER[number]
 
+// ─── 同名分类的规范节点选择 ───
+//
+// 历史数据里存在同名多节点（例如 16 个同名「餐饮」根分类）。旧实现用
+// `${type}:${name}` 做 Map 键，后写入的同名节点会覆盖前者——新子分类就被挂到
+// 最后一个空壳根上。这里改成确定性选择，规则固定为：
+//   1. 直接子节点更多者优先（真实在用的父分类通常有子分类）；
+//   2. sort 更小者优先（越早创建越靠前）；
+//   3. createdAt 更早者优先；
+//   4. id 字典序兜底，保证任何输入下结果可复现。
+// 绝不取“最后一个”或依赖数据库返回顺序。
+
+interface CategoryLike {
+  id: string
+  name: string
+  type: string
+  parentId: string | null
+  sort: number
+  createdAt?: Date | string | null
+}
+
+function createdAtMs(value: Date | string | null | undefined): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function pickCanonicalCategory<T extends CategoryLike>(
+  candidates: T[],
+  childCount: Map<string, number>
+): T {
+  return [...candidates].sort((a, b) => {
+    const childDiff = (childCount.get(b.id) ?? 0) - (childCount.get(a.id) ?? 0)
+    if (childDiff !== 0) return childDiff
+    const sortDiff = (a.sort ?? 0) - (b.sort ?? 0)
+    if (sortDiff !== 0) return sortDiff
+    const createdDiff = createdAtMs(a.createdAt) - createdAtMs(b.createdAt)
+    if (createdDiff !== 0) return createdDiff
+    return a.id.localeCompare(b.id)
+  })[0]
+}
+
+/** 统计每个节点的直接子节点数，供规范节点选择使用。 */
+function countChildren(nodes: ReadonlyArray<{ id: string; parentId: string | null }>): Map<string, number> {
+  const childCount = new Map<string, number>()
+  for (const node of nodes) {
+    if (!node.parentId) continue
+    childCount.set(node.parentId, (childCount.get(node.parentId) ?? 0) + 1)
+  }
+  return childCount
+}
+
+/**
+ * 按自然键分组后选出每条键的规范节点。
+ * 分组键对父子层分别使用 `${type}:${name}` 与 `${type}:${parentName}/${name}`。
+ */
+function indexCanonicalCategories<T extends CategoryLike>(
+  nodes: T[]
+): Map<string, T> {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const childCount = countChildren(nodes)
+  const groups = new Map<string, T[]>()
+  for (const node of nodes) {
+    const parentName = node.parentId ? byId.get(node.parentId)?.name ?? '' : ''
+    const key = node.parentId
+      ? `${node.type}:${parentName}/${node.name}`
+      : `${node.type}:${node.name}`
+    const group = groups.get(key)
+    if (group) group.push(node)
+    else groups.set(key, [node])
+  }
+
+  const result = new Map<string, T>()
+  for (const [key, group] of groups) {
+    const canonical = pickCanonicalCategory(group, childCount)
+    result.set(key, canonical)
+    if (group.length > 1) {
+      logger.warn(
+        { key, count: group.length, chosenId: canonical.id, childCount: childCount.get(canonical.id) ?? 0 },
+        'import: duplicate category name resolved by canonical rule'
+      )
+    }
+  }
+  return result
+}
+
 // ─── 默认分类（资产/负债兜底） ───
 
 async function ensureDefaultCategory(
@@ -33,10 +122,15 @@ async function ensureDefaultCategory(
   name: string,
   icon: string
 ): Promise<{ id: string }> {
+  // 必须按 name + type 精确查：旧实现只看 type 取第一个，
+  // 请求「资产」时会拿到第一个资产分类「现金」。
   let category = await client.accountCategory.findFirst({
-    where: { type, parentId: null },
+    where: { name, type, parentId: null },
+    orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
   })
   if (!category) {
+    // 明确回退规则：没有名为「资产/负债」的顶层分类时新建同名顶层分类，
+    // 绝不借用同类型的其他分类。
     category = await client.accountCategory.create({
       data: { name, type, icon, sort: 1 },
     })
@@ -54,36 +148,43 @@ async function buildImportContext(
     await Promise.all([
       client.account.findMany({
         include: { category: { select: { isInvestment: true } } },
+        // 同名账户（如 16 个「钱包」）需要可复现的规范顺序；
+        // 跨类型同名则通过 type 键分开，不再按名字合并。
+        orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
       }),
       client.accountCategory.findMany(),
       client.transactionCategory.findMany(),
       client.investmentAssetClass.findMany(),
     ])
 
-  // 账户分类缓存：按 `${type}:${name}` 索引
+  // 账户分类缓存：同名多节点按规范规则取一条，避免后者覆盖前者。
   const accountCategoryCache = new Map<string, { id: string; isInvestment: boolean }>()
-  for (const c of accountCategories) {
-    accountCategoryCache.set(`${c.type}:${c.name}`, { id: c.id, isInvestment: c.isInvestment })
+  for (const [key, canonical] of indexCanonicalCategories(accountCategories)) {
+    accountCategoryCache.set(key, { id: canonical.id, isInvestment: canonical.isInvestment })
   }
 
-  // 账户缓存：按 name 索引，包含 isInvestment（来自关联的 category）
+  // 账户缓存：键为 `${type}:${name}`；同名资产/负债是两个账户。
   const accountCache = new Map<string, AccountCache>()
+  const accountCandidates = new Map<string, AccountCache[]>()
   for (const a of accounts) {
-    accountCache.set(a.name, {
+    const entry: AccountCache = {
       id: a.id,
+      name: a.name,
       type: a.type,
       categoryId: a.categoryId,
       isInvestment: a.category?.isInvestment ?? false,
-    })
+    }
+    const typedKey = `${a.type}:${a.name}`
+    if (!accountCache.has(typedKey)) accountCache.set(typedKey, entry)
+    const sameName = accountCandidates.get(a.name)
+    if (sameName) sameName.push(entry)
+    else accountCandidates.set(a.name, [entry])
   }
 
-  // 交易分类缓存：按 `${type}:${name}` 索引（含子分类 `${type}:${parent}/${child}`）
+  // 交易分类缓存：按规范节点生成 `${type}:${name}` 与 `${type}:${parent}/${child}`。
   const transactionCategoryCache = new Map<string, string>()
-  for (const c of transactionCategories) {
-    const key = c.parentId
-      ? `${c.type}:${transactionCategories.find(tc => tc.id === c.parentId)?.name ?? ''}/${c.name}`
-      : `${c.type}:${c.name}`
-    transactionCategoryCache.set(key, c.id)
+  for (const [key, canonical] of indexCanonicalCategories(transactionCategories)) {
+    transactionCategoryCache.set(key, canonical.id)
   }
 
   // 投资资产类别缓存：按 `${accountId}:${name}` 索引
@@ -105,6 +206,7 @@ async function buildImportContext(
     defaultAssetCategory,
     defaultLiabilityCategory,
     accountCache,
+    accountCandidates,
     accountCategoryCache,
     transactionCategoryCache,
     investmentAssetClassCache,
@@ -267,7 +369,17 @@ function findCategoryFromCache(
   return null
 }
 
-// ─── 账户查找/创建（带 ensureAccountType 去重） ───
+// ─── 账户查找/创建（按 type 精确查询，同名跨类型不合并） ───
+
+function registerAccount(ctx: ImportContext, account: AccountCache): void {
+  ctx.accountCache.set(`${account.type}:${account.name}`, account)
+  const sameName = ctx.accountCandidates.get(account.name)
+  if (sameName) {
+    if (!sameName.some((item) => item.id === account.id)) sameName.push(account)
+  } else {
+    ctx.accountCandidates.set(account.name, [account])
+  }
+}
 
 async function ensureAccountType(
   account: AccountCache,
@@ -288,9 +400,80 @@ async function ensureAccountType(
       icon: forceType === 'liability' ? 'credit-card' : 'wallet',
     },
   })
+  // 类型变了，缓存键也要从 `${旧类型}:${name}` 迁到 `${新类型}:${name}`
+  ctx.accountCache.delete(`${account.type}:${account.name}`)
   account.type = forceType
   account.categoryId = categoryId
+  ctx.accountCache.set(`${forceType}:${account.name}`, account)
 }
+
+async function absorbDbAccount(
+  dbAccount: {
+    id: string
+    name: string
+    type: string
+    categoryId: string | null
+  },
+  ctx: ImportContext,
+  client: TransactionClient
+): Promise<AccountCache> {
+  // 旧数据可能没挂分类：导入时顺手补默认分类，避免静默留 null
+  const categoryId =
+    dbAccount.categoryId ??
+    (dbAccount.type === 'liability'
+      ? ctx.defaultLiabilityCategory.id
+      : ctx.defaultAssetCategory.id)
+  if (!dbAccount.categoryId) {
+    await client.account.update({
+      where: { id: dbAccount.id },
+      data: { categoryId },
+    })
+  }
+  const account: AccountCache = {
+    id: dbAccount.id,
+    name: dbAccount.name,
+    type: dbAccount.type,
+    categoryId,
+    isInvestment: ctx.accountCategoryCache.get(`asset:${dbAccount.type}`)?.isInvestment ?? false,
+  }
+  registerAccount(ctx, account)
+  return account
+}
+
+async function createAccount(
+  name: string,
+  type: 'asset' | 'liability',
+  ctx: ImportContext,
+  client: TransactionClient
+): Promise<AccountCache> {
+  const categoryId =
+    type === 'liability'
+      ? ctx.defaultLiabilityCategory.id
+      : ctx.defaultAssetCategory.id
+  const sort = takeNextSort(ctx.sortCounters, 'account', categoryId)
+  const created = await client.account.create({
+    data: {
+      name,
+      type,
+      initialBalance: 0,
+      categoryId,
+      icon: type === 'liability' ? 'credit-card' : 'wallet',
+      sort,
+    },
+  })
+  ctx.summary?.unknownAccounts.add(name)
+  const account: AccountCache = {
+    id: created.id,
+    name,
+    type: created.type,
+    categoryId: created.categoryId,
+    isInvestment: false,
+  }
+  registerAccount(ctx, account)
+  return account
+}
+
+const ACCOUNT_LOOKUP_ORDER = [{ sort: 'asc' as const }, { createdAt: 'asc' as const }, { id: 'asc' as const }]
 
 async function getOrCreateAccount(
   accountName: string,
@@ -298,63 +481,73 @@ async function getOrCreateAccount(
   client: TransactionClient,
   forceType?: 'asset' | 'liability'
 ): Promise<AccountCache> {
-  let account = ctx.accountCache.get(accountName)
+  const name = accountName.trim()
+  if (!name) throw new Error('账户名称为空，无法确定归属')
 
-  if (!account) {
-    // 缓存未命中：查 DB
-    const dbAccount = await client.account.findFirst({ where: { name: accountName } })
-    if (dbAccount) {
-      // 旧数据可能没挂分类：导入时顺手补默认分类，避免静默留 null
-      const categoryId =
-        dbAccount.categoryId ??
-        (dbAccount.type === 'liability'
-          ? ctx.defaultLiabilityCategory.id
-          : ctx.defaultAssetCategory.id)
-      if (!dbAccount.categoryId) {
-        await client.account.update({
-          where: { id: dbAccount.id },
-          data: { categoryId },
-        })
-      }
-      account = {
-        id: dbAccount.id,
-        type: dbAccount.type,
-        categoryId,
-        isInvestment: ctx.accountCategoryCache.get(`asset:${dbAccount.type}`)?.isInvestment ?? false,
-      }
-    } else {
-      // 创建新账户
-      const type = forceType || 'asset'
-      const categoryId =
-        type === 'liability'
-          ? ctx.defaultLiabilityCategory.id
-          : ctx.defaultAssetCategory.id
-      const sort = takeNextSort(ctx.sortCounters, 'account', categoryId)
-      const created = await client.account.create({
-        data: {
-          name: accountName,
-          type,
-          initialBalance: 0,
-          categoryId,
-          icon: type === 'liability' ? 'credit-card' : 'wallet',
-          sort,
-        },
-      })
-      ctx.summary?.unknownAccounts.add(accountName)
-      account = {
-        id: created.id,
-        type: created.type,
-        categoryId: created.categoryId,
-        isInvestment: false,
-      }
+  if (forceType) {
+    // 先按 (name, type) 精确命中：同名资产/负债是两个账户，不能串。
+    const typed = ctx.accountCache.get(`${forceType}:${name}`)
+    if (typed) return typed
+
+    const dbTyped = await client.account.findFirst({
+      where: { name, type: forceType },
+      orderBy: ACCOUNT_LOOKUP_ORDER,
+    })
+    if (dbTyped && dbTyped.type === forceType) {
+      return absorbDbAccount(dbTyped, ctx, client)
     }
-    ctx.accountCache.set(accountName, account)
+
+    // 精确类型不存在时，只有在“同名账户总共只有一个”的情况下才沿用
+    // 既有类型纠偏（同一张信用卡先被默认建成资产，后面还款行纠正为负债）。
+    // 同名账户已经有多条时不再猜，交由跳过行清单提示用户清理。
+    const sameName = ctx.accountCandidates.get(name) ?? []
+    if (sameName.length > 1) {
+      throw new Error(
+        `账户「${name}」存在 ${sameName.length} 个同名账户，且没有可精确匹配的${forceType === 'liability' ? '负债' : '资产'}账户；请先在设置页清理或改名后重试`
+      )
+    }
+    if (sameName.length === 1) {
+      const account = sameName[0]
+      if (account.type !== forceType) {
+        await ensureAccountType(account, forceType, ctx, client)
+      }
+      return account
+    }
+
+    const dbOther = dbTyped ?? await client.account.findFirst({
+      where: { name },
+      orderBy: ACCOUNT_LOOKUP_ORDER,
+    })
+    if (dbOther) {
+      const account = await absorbDbAccount(dbOther, ctx, client)
+      if (account.type !== forceType) {
+        await ensureAccountType(account, forceType, ctx, client)
+      }
+      return account
+    }
+    return createAccount(name, forceType, ctx, client)
   }
 
-  if (forceType && account.type !== forceType) {
-    await ensureAccountType(account, forceType, ctx, client)
+  // 行内没有类型信息：只看已缓存的同名账户；跨类型同名视为歧义，不替用户猜。
+  const asset = ctx.accountCache.get(`asset:${name}`)
+  const liability = ctx.accountCache.get(`liability:${name}`)
+  if (asset && liability) {
+    throw new Error(
+      `账户「${name}」同时存在资产与负债两个同名账户，当前行未提供类型，无法确定归属；请先在设置页改名区分`
+    )
   }
-  return account
+  if (asset) return asset
+  if (liability) return liability
+
+  // 缓存未命中：查 DB（仍按规范顺序取第一条，保证结果可复现）
+  const dbAccount = await client.account.findFirst({
+    where: { name },
+    orderBy: ACCOUNT_LOOKUP_ORDER,
+  })
+  if (dbAccount) return absorbDbAccount(dbAccount, ctx, client)
+
+  // 默认按资产账户新建（与旧行为一致）
+  return createAccount(name, 'asset', ctx, client)
 }
 
 // ─── 基础字段解析 ───
@@ -379,19 +572,20 @@ function parseRuleVersion(value: string): number {
  * 超过两位小数时四舍五入到分；其余情况仍走 parseAmount 的严格校验。
  * 只做数值归一，不放宽金额合法性（非数字、空值照旧拒绝）。
  */
-function parseCsvMoney(value: string): Minor {
+function parseCsvMoney(value: string, onAutoFix?: () => void): Minor {
   const raw = value.trim()
   const match = /^(-?\d+)(?:\.(\d+))?$/.exec(raw)
   if (match && (match[2]?.length ?? 0) > 2) {
     const cents = Math.round(Number(raw) * 100)
+    onAutoFix?.()
     return minor(cents)
   }
   return parseAmount(raw)
 }
 
-function parseRowBasicFields(row: ParsedRow): ParsedRowBasics | null {
+function parseRowBasicFields(row: ParsedRow): ParsedRowBasics {
   const date = new Date(row.time)
-  if (isNaN(date.getTime())) return null
+  if (isNaN(date.getTime())) throw new Error(`时间无法解析: ${row.time || '(空)'}`)
 
   const amount = parseCsvMoney(row.amountStr)
   let type: 'income' | 'expense' | 'transfer' | 'adjustment'
@@ -460,16 +654,43 @@ async function findExistingImportKeys(
 
 // ─── CSV 解析（Header 映射） ───
 
-function parseCsvFile(buffer: Buffer): ParsedRow[] {
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function parsedRowRaw(row: ParsedRow): Record<string, string> {
+  return compactCsvRaw({
+    ID: row.csvId,
+    时间: row.time,
+    分类: row.category1,
+    二级分类: row.category2,
+    类型: row.typeStr,
+    金额: row.amountStr,
+    账户1: row.account1,
+    账户2: row.account2,
+    备注: row.note,
+  })
+}
+
+function parseCsvFile(
+  buffer: Buffer,
+  summary?: ImportSummaryCollector
+): { rows: ParsedRow[]; skipped: number } {
   const records = readCsvRecords<TransactionCsvField>(buffer, TRANSACTION_CSV_HEADER)
   const rows: ParsedRow[] = []
+  let skipped = 0
 
-  for (const record of records) {
+  records.forEach((record, index) => {
+    // 表头占第 1 行，数据行从第 2 行开始计数。
+    const rowNumber = index + 2
+    let autoFixed = false
     try {
       const feeStr = record['手续费']
       const couponStr = record['优惠券']
+      const onAutoFix = () => { autoFixed = true }
 
       const row: ParsedRow = {
+        rowNumber,
         csvId: record.ID,
         time: record.时间,
         category1: record.分类,
@@ -479,9 +700,9 @@ function parseCsvFile(buffer: Buffer): ParsedRow[] {
         account1: record.账户1,
         account2: record.账户2,
         note: record.备注,
-        fee: feeStr ? parseCsvMoney(feeStr) : minor(0),
+        fee: feeStr ? parseCsvMoney(feeStr, onAutoFix) : minor(0),
         // 优惠券只是「省了多少」的展示信息（元），不参与任何收支/预算/报表合计。
-        coupon: couponStr ? parseCsvMoney(couponStr) : minor(0),
+        coupon: couponStr ? parseCsvMoney(couponStr, onAutoFix) : minor(0),
         relatedCsvId: record.关联账单,
         // 账单标记列值为「不计收支」（容错首尾空格）
         excludeFromIncomeExpense: (record['账单标记'] || '').trim() === '不计收支',
@@ -489,21 +710,37 @@ function parseCsvFile(buffer: Buffer): ParsedRow[] {
       }
 
       rows.push(row)
-    } catch {
-      // skip invalid lines
+      if (autoFixed && summary) summary.autoFixedRows++
+    } catch (error) {
+      // 绝不静默丢行：行号 + 原因 + 核心原值全部进入摘要。
+      skipped++
+      recordSkippedRow(summary, rowNumber, errorMessage(error), compactCsvRaw(record))
     }
-  }
+  })
 
-  return rows
+  return { rows, skipped }
 }
 
 // ─── 主入口：批量 createMany ───
 
+/**
+ * 金额符号口径：
+ * - `normalize`（默认，用户 CSV 导入）：非 adjustment 一律取正，兼容钱迹等外部账本；
+ * - `preserve`（系统备份还原）：逐字段保真，负数金额原样落库，禁止改写。
+ */
+export type AmountSignPolicy = 'normalize' | 'preserve'
+
+export interface TransactionImportOptions {
+  amountSign?: AmountSignPolicy
+}
+
 async function importTransactionsFromRows(
   rows: ParsedRow[],
   tx: TransactionClient,
-  summary?: ImportSummaryCollector
+  summary?: ImportSummaryCollector,
+  options: TransactionImportOptions = {}
 ): Promise<{ imported: number; skipped: number }> {
+  const preserveAmountSign = options.amountSign === 'preserve'
   const client = tx
   const ctx = await buildImportContext(client, summary)
   let imported = 0
@@ -526,7 +763,7 @@ async function importTransactionsFromRows(
 
   for (const row of normalRows) {
     try {
-      const basics = parseRowBasicFields(row)!
+      const basics = parseRowBasicFields(row)
       recordRowSummary(summary, basics.date, basics.amount)
       const fromAccount = await getOrCreateAccount(row.account1, ctx, client)
       const toAccount =
@@ -544,8 +781,12 @@ async function importTransactionsFromRows(
           ? null
           : await getOrCreateCategory(row.category1, row.category2, basics.type, ctx, client)
       const id = crypto.randomUUID()
-      // 调整（期初余额）的 amount 有方向，不能用绝对值；收入/支出/转账仍按正数保存。
-      const amount = basics.type === 'adjustment' ? basics.amount : minor(Math.abs(basics.amount))
+      // 调整（期初余额）的 amount 有方向，不能用绝对值；
+      // 备份还原逐字段保真，其余（用户 CSV）收入/支出/转账仍按正数保存。
+      const amount =
+        basics.type === 'adjustment' || preserveAmountSign
+          ? basics.amount
+          : minor(Math.abs(basics.amount))
       const importKey = makeImportKey(row.csvId, [
         fromDate(basics.date),
         basics.type,
@@ -573,8 +814,9 @@ async function importTransactionsFromRows(
         excludeFromIncomeExpense: row.excludeFromIncomeExpense ?? false,
       })
       imported++
-    } catch {
+    } catch (error) {
       skipped++
+      recordSkippedRow(summary, row.rowNumber, errorMessage(error), parsedRowRaw(row))
     }
   }
 
@@ -616,8 +858,10 @@ async function importTransactionsFromRows(
   for (const row of refundRows) {
     try {
       const date = new Date(row.time)
-      if (isNaN(date.getTime())) { skipped++; continue }
-      const amount = parseCsvMoney(row.amountStr)
+      if (isNaN(date.getTime())) throw new Error(`时间无法解析: ${row.time || '(空)'}`)
+      const amount = parseCsvMoney(row.amountStr, () => {
+        if (summary) summary.autoFixedRows++
+      })
       recordRowSummary(summary, date, amount)
 
       // 通过预生成 UUID 关联普通交易类型
@@ -654,11 +898,11 @@ async function importTransactionsFromRows(
 
       const accountData = await getOrCreateAccount(row.account1, ctx, client)
       const id = crypto.randomUUID()
-      const absAmount = minor(Math.abs(amount))
+      const refundAmount = preserveAmountSign ? amount : minor(Math.abs(amount))
       const importKey = makeImportKey(row.csvId, [
         fromDate(date),
         'refund',
-        formatAmount(absAmount),
+        formatAmount(refundAmount),
         accountData.id,
         categoryId ?? '',
         row.note ?? '',
@@ -670,7 +914,7 @@ async function importTransactionsFromRows(
         date,
         type: 'refund',
         ruleVersion: row.ruleVersion,
-        amount: absAmount,
+        amount: refundAmount,
         fee: row.fee,
         coupon: row.coupon,
         note: row.note || null,
@@ -682,8 +926,9 @@ async function importTransactionsFromRows(
         excludeFromIncomeExpense,
       })
       imported++
-    } catch {
+    } catch (error) {
       skipped++
+      recordSkippedRow(summary, row.rowNumber, errorMessage(error), parsedRowRaw(row))
     }
   }
 
@@ -725,7 +970,11 @@ async function importTransactionsFromRows(
 export async function importTransactionsFromCsv(
   buffer: Buffer,
   tx: TransactionClient,
-  summary?: ImportSummaryCollector
+  summary?: ImportSummaryCollector,
+  options: TransactionImportOptions = {}
 ): Promise<{ imported: number; skipped: number }> {
-  return importTransactionsFromRows(parseCsvFile(buffer), tx, summary)
+  const parsed = parseCsvFile(buffer, summary)
+  const result = await importTransactionsFromRows(parsed.rows, tx, summary, options)
+  // 解析阶段被跳过的行也要计入「将跳过」，不能只统计入库阶段的跳过。
+  return { imported: result.imported, skipped: result.skipped + parsed.skipped }
 }

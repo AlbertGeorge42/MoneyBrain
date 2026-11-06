@@ -78,7 +78,10 @@ async function importZipBackup(
   }
 
   if (selectedIncludes.includes('transactions') && files.transactions) {
-    const transactionResult = await importTransactionsFromCsv(files.transactions, tx, summary)
+    // ZIP 是系统备份：逐字段保真，金额符号不得归一，否则还原出的不是同一本账。
+    const transactionResult = await importTransactionsFromCsv(files.transactions, tx, summary, {
+      amountSign: 'preserve',
+    })
     result.imported.transactions = transactionResult.imported
     result.skipped.transactions = transactionResult.skipped
   }
