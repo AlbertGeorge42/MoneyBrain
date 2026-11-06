@@ -182,6 +182,10 @@ describe('DonutChart 二级环', () => {
     // 父色相固定：同一父槽位 + 递增阶梯，不重新分配 7 槽 series。
     expect(slices.map((slice) => slice.dataset.subParent)).toEqual(['0', '0', '0'])
     expect(slices.map((slice) => slice.dataset.subStep)).toEqual(['0', '1', '2'])
+    // 子级颜色来自父色的 color-mix 阶梯，而不是重新分配的 series 槽。
+    const arcs = container.querySelectorAll<SVGPathElement>('.mb-rp-donut-arc')
+    expect(arcs[0].getAttribute('style')).toContain('color-mix')
+    expect(arcs[0].getAttribute('style')).toContain('var(--mb-chart-sub-from)')
     expect(container.querySelector('.mb-rp-donut-center-label')?.textContent).toBe('居住')
     expect(container.querySelector('.mb-rp-donut-center-value')?.textContent).toBe('¥10.00')
     expect(container.querySelector('.mb-rp-donut-back')).not.toBeNull()
