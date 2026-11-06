@@ -354,7 +354,10 @@ export function ReportsPage({
       </Drawer>
 
       {toast && (
-        <div className="mb-rp-toast" role="status">
+        <div
+          className={settingsOpen && device === 'mobile' ? 'mb-rp-toast is-over-sheet' : 'mb-rp-toast'}
+          role="status"
+        >
           {toast.message}
         </div>
       )}

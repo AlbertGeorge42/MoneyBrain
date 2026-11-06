@@ -6,6 +6,9 @@
  * #16 卡片合并桶「其余 N 类」与下钻同一聚合口径；子级行挂「†」图例角标。
  */
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { fireEvent, render } from '@testing-library/react'
 import { CompositionBars } from '@/features/reports/charts'
 import { flattenFlowRows } from '@/features/reports/reportRows'
@@ -30,6 +33,25 @@ const MONTH_TIME: ReportTime = {
   to: '2026-10-28',
   preset: 'thisMonth',
 }
+
+const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+
+describe('报表设置抽屉：移动 sheet 四行可见、toast 不压「完成」', () => {
+  const reports = readFileSync(resolve(WEB_ROOT, 'src/features/reports/reports.css'), 'utf8')
+
+  it('380px sheet 内四行压到 44px，打开即可完整落位', () => {
+    expect(reports).toMatch(
+      /\.mb-rp-sheet-settings\.is-mobile \.mb-rp-settings-row\s*\{[^}]*min-height:\s*var\(--mb-touch\)/,
+    )
+    expect(reports).toMatch(
+      /\.mb-rp-sheet-settings\.is-mobile \.mb-rp-settings-scroll\s*\{[^}]*padding:\s*var\(--mb-s-2\)/,
+    )
+  })
+
+  it('sheet 打开时 toast 抬到 sheet 上方，不遮住底部「完成」', () => {
+    expect(reports).toMatch(/\.mb-rp-toast\.is-over-sheet\s*\{[^}]*bottom:\s*calc\(380px/)
+  })
+})
 
 describe('#10 期间措辞统一', () => {
   it('期间与时点标签写成同一句「2026 年 10 月 · 截至 10-28」', () => {
