@@ -177,8 +177,8 @@ function rowLevel(type: BudgetKind, percent: number): BudgetRowLevel {
     if (percent >= 80) return 'warning'
     return 'normal'
   }
-  // 收入目标：未达成只是「进行中」，不判 warning（琥珀只属于支出接近上限）
-  if (type === 'income') return percent >= 100 ? 'achieved' : 'normal'
+  // 收入目标：未达成是「进行中」，用 neutral 钢色，不能显示成绿（绿 = 良好 / 已达成）
+  if (type === 'income') return percent >= 100 ? 'achieved' : 'neutral'
   // 转账只做流量记录：任何占用率都不触发预算告警
   return 'neutral'
 }

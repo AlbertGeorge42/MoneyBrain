@@ -37,7 +37,7 @@ describe('预算页数据', () => {
     expect(transfer?.status).toBe('不计入预算')
   })
 
-  it('收入未达成判 normal，不显示「接近上限」', () => {
+  it('收入未达成判 neutral（进行中），不显示成绿、也不显示「接近上限」', () => {
     const halfGoal = {
       ...ledger,
       budgets: ledger.budgets.map((budget) =>
@@ -47,7 +47,7 @@ describe('预算页数据', () => {
     const page = deriveBudgetPage(halfGoal, '2026-10')
     const income = page.groups.find((group) => group.type === 'income')?.rows[0]
     expect(income?.percent).toBeCloseTo(50, 1)
-    expect(income?.level).toBe('normal')
+    expect(income?.level).toBe('neutral')
     expect(income?.status).toBe('还差 ¥18,500.00')
   })
 

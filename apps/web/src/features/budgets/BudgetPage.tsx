@@ -226,8 +226,9 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
                   <BudgetProgress
                     level={row.level}
                     percent={row.percent}
+                    neutralFill={row.type === 'income'}
                     label={
-                      row.level === 'neutral'
+                      row.type === 'transfer'
                         ? `${row.name} 不计入预算`
                         : `${row.name} 预算使用 ${Math.round(row.percent)}%`
                     }
@@ -492,7 +493,8 @@ export function BudgetPage({
             <BudgetProgress
               level={detail.level}
               percent={detail.percent}
-              label={detail.level === 'neutral' ? '不计入预算' : '预算使用进度'}
+              neutralFill={detail.type === 'income'}
+              label={detail.type === 'transfer' ? '不计入预算' : '预算使用进度'}
             />
             <dl className="mb-bg-detail-meta">
               <div>
