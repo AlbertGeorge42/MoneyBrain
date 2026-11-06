@@ -1,14 +1,20 @@
 import { Drawer } from '@mantine/core'
 import { RotateCcw } from 'lucide-react'
 import { getCategoryName, type Ledger } from '@/features/overview/model'
+import { DatePicker } from '@/features/shared/datePicker/DatePicker'
+import { datePresets } from '@/features/shared/datePicker/datePickerModel'
 import type { DeviceMode } from '@/features/shared/types'
-import { applyDateFilter, type AdvancedFilters } from './filters'
+import type { AdvancedFilters } from './filters'
 
 function FilterFields({
+  device,
+  today,
   ledger,
   value,
   onChange,
 }: {
+  device: DeviceMode
+  today: string
   ledger: Ledger
   value: AdvancedFilters
   onChange: (next: AdvancedFilters) => void
@@ -79,38 +85,35 @@ function FilterFields({
         </span>
       </label>
 
-      <label className="mb-tx-field" htmlFor="mb-tx-filter-date-from">
+      <div className="mb-tx-field">
         <span className="mb-tx-field-label">日期（留空不限）</span>
-        <span className="mb-tx-range">
-          <input
-            id="mb-tx-filter-date-from"
-            className="mb-tx-input"
-            type="date"
-            aria-label="起始日期（留空不限）"
-            value={value.dateFrom}
-            onChange={(event) => onChange(applyDateFilter(value, 'dateFrom', event.target.value))}
-          />
-          <span className="mb-tx-range-sep" aria-hidden="true">–</span>
-          <input
-            aria-label="结束日期（留空不限）"
-            className="mb-tx-input"
-            type="date"
-            value={value.dateTo}
-            onChange={(event) => onChange(applyDateFilter(value, 'dateTo', event.target.value))}
-          />
-        </span>
-      </label>
+        <DatePicker
+          device={device}
+          value={{ from: value.dateFrom, to: value.dateTo }}
+          onChange={(next) => onChange({ ...value, dateFrom: next.from, dateTo: next.to })}
+          optional
+          placeholder="不限"
+          presets={datePresets(today)}
+          today={today}
+          align="right"
+          sheetTitle="选择日期（留空不限）"
+        />
+      </div>
     </div>
   )
 }
 
 export function DesktopFilterPanel({
+  device,
+  today,
   ledger,
   value,
   onChange,
   onReset,
   onClose,
 }: {
+  device: DeviceMode
+  today: string
   ledger: Ledger
   value: AdvancedFilters
   onChange: (next: AdvancedFilters) => void
@@ -122,7 +125,7 @@ export function DesktopFilterPanel({
       <div className="mb-tx-filter-head">
         <span className="mb-tx-filter-title">高级筛选</span>
       </div>
-      <FilterFields ledger={ledger} value={value} onChange={onChange} />
+      <FilterFields device={device} today={today} ledger={ledger} value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions">
         <button type="button" className="mb-tx-btn is-ghost" onClick={onReset}>
           <RotateCcw size={15} />
@@ -139,6 +142,7 @@ export function DesktopFilterPanel({
 export function MobileFilterDrawer({
   opened,
   device,
+  today,
   ledger,
   value,
   onChange,
@@ -147,6 +151,7 @@ export function MobileFilterDrawer({
 }: {
   opened: boolean
   device: DeviceMode
+  today: string
   ledger: Ledger
   value: AdvancedFilters
   onChange: (next: AdvancedFilters) => void
@@ -172,7 +177,7 @@ export function MobileFilterDrawer({
         close: 'mb-tx-sheet-close',
       }}
     >
-      <FilterFields ledger={ledger} value={value} onChange={onChange} />
+      <FilterFields device={device} today={today} ledger={ledger} value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions is-mobile">
         <button
           type="button"

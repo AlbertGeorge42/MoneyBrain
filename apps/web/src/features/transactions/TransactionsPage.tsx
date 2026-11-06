@@ -600,6 +600,8 @@ export function TransactionsPage({
 
       {device === 'desktop' && advancedOpen && (
         <DesktopFilterPanel
+          device={device}
+          today={today}
           ledger={ledger}
           value={advanced}
           onChange={setAdvanced}
@@ -620,6 +622,7 @@ export function TransactionsPage({
       <MobileFilterDrawer
         opened={device === 'mobile' && advancedOpen}
         device={device}
+        today={today}
         ledger={ledger}
         value={advanced}
         onChange={setAdvanced}

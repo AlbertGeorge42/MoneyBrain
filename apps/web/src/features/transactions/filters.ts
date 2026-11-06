@@ -57,14 +57,6 @@ export function normalizeDateRange(advanced: AdvancedFilters): AdvancedFilters {
   return advanced
 }
 
-export function applyDateFilter(
-  advanced: AdvancedFilters,
-  field: 'dateFrom' | 'dateTo',
-  value: string,
-): AdvancedFilters {
-  return normalizeDateRange({ ...advanced, [field]: value })
-}
-
 export const TYPE_OPTIONS: readonly { value: TypeFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'expense', label: '支出' },
@@ -379,13 +371,9 @@ export function filterChips(ledger: Ledger, filters: TransactionFilters): Filter
   const from = filters.advanced.dateFrom
   const to = filters.advanced.dateTo
   if (from || to) {
-    // 与原生 date 输入框可见的 yyyy/mm/dd 格式对齐，避免同一日期在面板与 chip 里出现两种写法。
-    chips.push({ key: 'date', label: `日期：${from ? chipDay(from) : '不限'}–${to ? chipDay(to) : '不限'}` })
+    // 与控件、URL、请求参数同一口径：YYYY-MM-DD，不再出现 yyyy/mm/dd 混用。
+    chips.push({ key: 'date', label: `日期：${from || '不限'}–${to || '不限'}` })
   }
   return chips
-}
-
-function chipDay(value: string): string {
-  return ISO_DATE.test(value) ? value.replace(/-/g, '/') : value
 }
 

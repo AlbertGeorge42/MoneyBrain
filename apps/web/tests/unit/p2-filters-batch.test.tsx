@@ -15,7 +15,7 @@ import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { DEFAULT_DISPLAY } from '@/features/transactions/displaySettings'
 import {
   EMPTY_ADVANCED,
-  applyDateFilter,
+  normalizeDateRange,
   filterChips,
   filterTransactions,
   groupTransactions,
@@ -313,13 +313,13 @@ describe('K1 未来分组按各自日期拆分', () => {
   })
 })
 
-describe('K4 起止反选自动交换，chip 与中文日期口径一致', () => {
+describe('K4 起止反选自动交换，chip 与控件日期口径一致', () => {
   it('起晚于止时交换两端', () => {
-    const next = applyDateFilter(
-      { ...EMPTY_ADVANCED, dateFrom: '2026-11-01', dateTo: '2026-11-01' },
-      'dateFrom',
-      '2026-11-05',
-    )
+    const next = normalizeDateRange({
+      ...EMPTY_ADVANCED,
+      dateFrom: '2026-11-05',
+      dateTo: '2026-11-01',
+    })
     expect(next.dateFrom).toBe('2026-11-01')
     expect(next.dateTo).toBe('2026-11-05')
   })
@@ -331,13 +331,13 @@ describe('K4 起止反选自动交换，chip 与中文日期口径一致', () =>
     expect(restored.dropped).toEqual([])
   })
 
-  it('日期 chip 与原生日期输入框的 yyyy/mm/dd 写法一致', () => {
+  it('日期 chip 与控件、URL 参数统一为 YYYY-MM-DD', () => {
     const chips = filterChips(ledger, {
       query: '',
       type: 'all',
       advanced: { ...EMPTY_ADVANCED, dateFrom: '2026-11-01', dateTo: '2026-11-05' },
     })
-    expect(chips.find((chip) => chip.key === 'date')?.label).toBe('日期：2026/11/01–2026/11/05')
+    expect(chips.find((chip) => chip.key === 'date')?.label).toBe('日期：2026-11-01–2026-11-05')
   })
 })
 
