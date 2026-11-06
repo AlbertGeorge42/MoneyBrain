@@ -111,7 +111,7 @@ function MobileShell({
   children,
 }: Omit<AppShellProps, 'device' | 'dataState'>) {
   return (
-    <div className="mb-mobile-shell">
+    <div className="mb-mobile-shell" data-page={page}>
       <div className="mb-mobile-status" aria-hidden="true">
         <span>9:41</span>
         <span className="mb-mobile-status-icons">

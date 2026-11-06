@@ -282,6 +282,15 @@
   overflow-y: auto;
 }
 
+/* 报表页：移动端给浮动按钮留一条不参与滚动的底部通道。
+   浮层占据「底距 44+24、高 56」的带；滚动区底缘 = 导航高 60 + 外面距 68 = 128，
+   恰在浮层顶缘（124）之上，环 / 图例 / 中心读数在任何滚动位置都不会滚到浮层下方。
+   通道高度 = 浮层底距，原滚动区的 44+32+24 触控留白在报表页由通道取代。 */
+.mb-mobile-shell[data-page='reports'] .mb-mobile-scroll {
+  margin-bottom: calc(var(--mb-touch) + var(--mb-s-5) + env(safe-area-inset-bottom));
+  padding-bottom: var(--mb-s-5);
+}
+
 /* 移动端可点击控件统一满足 44px 触控目标 */
 .mb-mobile-scroll .mb-link-btn,
 .mb-mobile-scroll .mb-primary-btn,
