@@ -81,6 +81,7 @@ export async function createAccount(data: {
   categoryId?: string | null
   initialBalance?: number
   initialBalanceDate?: string
+  sort?: number
 }) {
   const categoryId = data.categoryId ?? (await resolveDefaultCategoryId(data.type))
 
@@ -95,6 +96,7 @@ export async function createAccount(data: {
     icon: data.icon,
     color: data.color,
     categoryId,
+    sort: data.sort,
   })
 }
 
@@ -185,7 +187,7 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
   }
 
   if (forceDelete && hasRelatedData) {
-    await withTransaction(async (tx) => {
+    const result = await withTransaction(async (tx) => {
       // 先删引用账户的子表（交易、预算），再删账户；交易的批量删除走 repository
       if (transactionsCount > 0) {
         await transactionRepo.deleteManyWhere({ accountId }, tx)
@@ -210,21 +212,48 @@ export async function deleteAccount(accountId: string, forceDelete = false) {
       }
 
       await accountRepo.deleteById(accountId, tx)
-      // 账户硬删除记审计事件（撤销暂不支持，留痕供后续 D1 接入）
-      await auditEventRepo.createAuditEvent(
-        { entity: 'account', entityId: accountId, action: 'deleted', before: account },
+      // 账户硬删除记审计事件（after 标记级联删除，撤销只恢复账户行、不再恢复子表）
+      const event = await auditEventRepo.createAuditEvent(
+        {
+          entity: 'account',
+          entityId: accountId,
+          action: 'deleted',
+          before: account,
+          after: {
+            __deleteMeta: {
+              force: true,
+              deletedTransactions: transactionsCount,
+              deletedIncomingTransfers: incomingTransfersCount,
+              deletedBudgets: budgetsCount,
+              deletedAssetClasses: assetClassesCount,
+              deletedSnapshots: snapshotsCount,
+            },
+          },
+        },
         tx,
       )
+      return { auditEventId: event.id }
     })
-  } else {
-    await accountRepo.deleteById(accountId)
-    await auditEventRepo.createAuditEvent(
-      { entity: 'account', entityId: accountId, action: 'deleted', before: account },
-    )
+
+    return {
+      message: '删除成功',
+      auditEventId: result.auditEventId,
+      deletedTransactions: transactionsCount,
+      deletedIncomingTransfers: incomingTransfersCount,
+      deletedBudgets: budgetsCount,
+      deletedAssetClasses: assetClassesCount,
+      deletedSnapshots: snapshotsCount,
+    }
   }
+
+  await accountRepo.deleteById(accountId)
+  const event = await auditEventRepo.createAuditEvent(
+    { entity: 'account', entityId: accountId, action: 'deleted', before: account },
+  )
 
   return {
     message: '删除成功',
+    auditEventId: event.id,
     deletedTransactions: transactionsCount,
     deletedIncomingTransfers: incomingTransfersCount,
     deletedBudgets: budgetsCount,

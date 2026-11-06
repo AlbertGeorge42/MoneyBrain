@@ -239,6 +239,33 @@ export async function transferCategoryTo(
   })
 }
 
+/** 删除分类前记下被转移的交易 id，供审计撤销回填原分类。 */
+export async function findIdsByCategory(
+  categoryId: string,
+  tx?: TransactionClient,
+): Promise<string[]> {
+  const rows = await db(tx).transaction.findMany({
+    where: { categoryId },
+    select: { id: true },
+  })
+  return rows.map((row) => row.id)
+}
+
+/** 撤销「转移后删除分类」：把仍在目标分类下的交易回填到原分类。 */
+export async function reassignCategoryByIds(
+  ids: readonly string[],
+  fromCategoryId: string,
+  toCategoryId: string,
+  tx?: TransactionClient,
+): Promise<number> {
+  if (ids.length === 0) return 0
+  const result = await db(tx).transaction.updateMany({
+    where: { id: { in: [...ids] }, categoryId: fromCategoryId },
+    data: { categoryId: toCategoryId, rev: { increment: 1 } },
+  })
+  return result.count
+}
+
 /** CSV 批量写入。 */
 export async function createMany(
   data: Prisma.TransactionCreateManyInput[],

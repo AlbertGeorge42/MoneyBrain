@@ -207,27 +207,34 @@ export async function deleteTransactionCategory(
 
   if (transactionsCount === 0) {
     await transactionCategoryRepo.deleteById(categoryId)
-    await auditEventRepo.createAuditEvent(
+    const event = await auditEventRepo.createAuditEvent(
       { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
     )
-    return { message: '删除成功', deletedCategory: category.name }
+    return { message: '删除成功', deletedCategory: category.name, auditEventId: event.id }
   }
 
   if (deleteTransactions) {
-    const deletedTransactions = await withTransaction(async (tx) => {
+    const result = await withTransaction(async (tx) => {
       const deleted = await transactionRepo.deleteManyWhere({ categoryId }, tx)
       await transactionCategoryRepo.deleteById(categoryId, tx)
-      await auditEventRepo.createAuditEvent(
-        { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
+      const event = await auditEventRepo.createAuditEvent(
+        {
+          entity: 'transaction_category',
+          entityId: categoryId,
+          action: 'deleted',
+          before: category,
+          after: { __deleteMeta: { deletedTransactions: deleted.count } },
+        },
         tx,
       )
-      return deleted.count
+      return { deleted: deleted.count, auditEventId: event.id }
     })
 
     return {
       message: '删除成功',
       deletedCategory: category.name,
-      deletedTransactions,
+      deletedTransactions: result.deleted,
+      auditEventId: result.auditEventId,
     }
   }
 
@@ -244,21 +251,35 @@ export async function deleteTransactionCategory(
       throw new ValidationError('目标分类类型不匹配')
     }
 
-    const transferredTransactions = await withTransaction(async (tx) => {
+    const result = await withTransaction(async (tx) => {
       // 含回收站里的交易一并转移，避免分类删除后悬挂 categoryId
+      // 先记下被转移的交易 id，撤销删除时按 id 回填原分类。
+      const transferIds = await transactionRepo.findIdsByCategory(categoryId, tx)
       const updated = await transactionRepo.transferCategoryTo(categoryId, transferToCategoryId, tx)
       await transactionCategoryRepo.deleteById(categoryId, tx)
-      await auditEventRepo.createAuditEvent(
-        { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
+      const event = await auditEventRepo.createAuditEvent(
+        {
+          entity: 'transaction_category',
+          entityId: categoryId,
+          action: 'deleted',
+          before: category,
+          after: {
+            __deleteMeta: {
+              transferToCategoryId,
+              transferredTransactionIds: transferIds,
+            },
+          },
+        },
         tx,
       )
-      return updated.count
+      return { transferred: updated.count, auditEventId: event.id }
     })
 
     return {
       message: '删除成功',
       deletedCategory: category.name,
-      transferredTransactions,
+      transferredTransactions: result.transferred,
+      auditEventId: result.auditEventId,
     }
   }
 

@@ -112,9 +112,10 @@ export interface AccountBalanceAtResult {
   balance: Minor
 }
 
-/** 删除账户的结果：级联删除的各类关联行数。 */
+/** 删除账户的结果：级联删除的各类关联行数 + 6 秒撤销用的审计事件 id。 */
 export interface AccountDeleteResult {
   message: string
+  auditEventId: string
   deletedTransactions?: number
   deletedIncomingTransfers?: number
   deletedBudgets?: number
@@ -139,9 +140,10 @@ export interface TransactionCategory {
   updatedAt: string
 }
 
-/** 删除交易分类的结果：按所选处理方式返回转移 / 删除的交易数。 */
+/** 删除交易分类的结果：按所选处理方式返回转移 / 删除的交易数 + 6 秒撤销用的审计事件 id。 */
 export interface TransactionCategoryDeleteResult {
   message: string
+  auditEventId: string
   transferredTransactions?: number
   deletedTransactions?: number
   deletedCategory?: string
@@ -245,6 +247,17 @@ export interface RecycleBinItem {
   deleteEventId: string | null
 }
 
+/** 回收站里的硬删除实体（账户 / 交易分类），恢复 = 撤销 deleted 事件。 */
+export interface RecycleBinEntityItem {
+  deleteEventId: string
+  entity: 'account' | 'transaction_category'
+  entityId: string
+  name: string
+  detail: string
+  deletedAt: string
+  canRestore: boolean
+}
+
 /** 交易修改历史（详情页时间线）。 */
 export interface AuditEventHistoryResult {
   list: AuditEvent[]
@@ -253,6 +266,8 @@ export interface AuditEventHistoryResult {
 /** 回收站列表。 */
 export interface RecycleBinResult {
   list: RecycleBinItem[]
+  accounts?: RecycleBinEntityItem[]
+  categories?: RecycleBinEntityItem[]
 }
 
 // ===== 预算 =====

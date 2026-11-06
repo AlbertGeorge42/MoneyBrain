@@ -86,3 +86,46 @@ export async function findLatestDeleteEventIds(
   }
   return latest
 }
+
+/**
+ * 硬删除实体的回收站条目：只看 deleted / restored 两类事件，每个实体取最近一条；
+ * 若最近一条是 restored（已从回收站恢复），则不再列出。
+ */
+export async function listLatestDeletedEntities(entity: string): Promise<
+  Array<{
+    id: string
+    entityId: string
+    action: string
+    beforeJson: string | null
+    afterJson: string | null
+    at: Date
+  }>
+> {
+  const events = await prisma.auditEvent.findMany({
+    where: { entity, action: { in: ['deleted', 'restored'] } },
+    orderBy: [{ at: 'desc' }, { id: 'desc' }],
+    select: {
+      id: true,
+      entityId: true,
+      action: true,
+      beforeJson: true,
+      afterJson: true,
+      at: true,
+    },
+  })
+  const seen = new Set<string>()
+  const result: Array<{
+    id: string
+    entityId: string
+    action: string
+    beforeJson: string | null
+    afterJson: string | null
+    at: Date
+  }> = []
+  for (const event of events) {
+    if (seen.has(event.entityId)) continue
+    seen.add(event.entityId)
+    if (event.action === 'deleted') result.push(event)
+  }
+  return result
+}

@@ -31,7 +31,7 @@ import {
   updateTransfer,
   updateRefund
 } from '../services/transaction.service.js'
-import { getRecycleBin, getTransactionHistory } from '../services/audit-event.service.js'
+import { getDeletedEntityRecycleBin, getRecycleBin, getTransactionHistory } from '../services/audit-event.service.js'
 import type { TransactionType } from '../../../../packages/contracts/types/index.js'
 
 const router = Router()
@@ -201,9 +201,10 @@ router.get('/refundable/list', asyncHandler(async (_req, res) => {
 }))
 
 // 回收站（B2-4）：已删除交易可查，恢复走统一的撤销端点
+// 账户 / 分类是硬删除，另有审计事件找回；响应里带 accounts / categories 两个列表。
 router.get('/recycle-bin', asyncHandler(async (_req, res) => {
-  const list = await getRecycleBin()
-  return success(res, { list })
+  const [list, entities] = await Promise.all([getRecycleBin(), getDeletedEntityRecycleBin()])
+  return success(res, { list, ...entities })
 }))
 
 // 详情页修改历史（B2-4）

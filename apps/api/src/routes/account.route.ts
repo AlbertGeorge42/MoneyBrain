@@ -90,7 +90,7 @@ router.get('/:id/balance-at', validateRequest(validateIdParam), asyncHandler(asy
 }))
 
 router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req, res) => {
-  const { id, name, type, icon, color, categoryId, initialBalance, initialBalanceDate } = req.body
+  const { id, name, type, icon, color, categoryId, initialBalance, initialBalanceDate, sort } = req.body
   const account = await createAccount({
     id,
     name,
@@ -100,6 +100,7 @@ router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req
     categoryId,
     initialBalance,
     initialBalanceDate,
+    sort,
   })
   return success(res, account, 201)
 }))
