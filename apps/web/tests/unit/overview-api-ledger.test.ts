@@ -187,6 +187,25 @@ describe('DTO → Ledger 适配', () => {
     expect(ledger.snapshot?.today).toBe('2026-11-06')
   })
 
+  it('dashboard 的历史负向支出只取金额绝对值，方向交给展示前缀', () => {
+    const ledger = buildLedgerFromApi(
+      payload({
+        dashboard: {
+          thisMonth: { income: 0, expense: -2_800, balance: 2_800 },
+          lastMonth: { income: 0, expense: 0 },
+          recentTransactions: dashboard.recentTransactions,
+        },
+      }),
+      '2026-11-06',
+    )
+    const summary = deriveOverview(ledger)
+
+    expect(summary.expense).toBe(2_800)
+    expect(summary.income).toBe(0)
+    expect(summary.expense).toBeGreaterThanOrEqual(0)
+    expect(summary.expenseChangePct).toBe(0)
+  })
+
   it('预算已用金额直接取后端状态，期间与分类映射保留', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
     const budgets = deriveBudgets(ledger)

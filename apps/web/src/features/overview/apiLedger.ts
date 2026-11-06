@@ -321,8 +321,10 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
   const previousNetWorth =
     trend.length >= 2 ? trend[trend.length - 2].value : netWorth
 
-  const income = payload.dashboard.thisMonth.income
-  const expense = payload.dashboard.thisMonth.expense
+  // 收支方向由前端展示层承担（前缀 + / −）：接口里的历史负向支出只取金额绝对值，
+  // 否则会出现「−-¥28.00」。净资产 / 结余等带符号口径仍用接口原值，不在此处翻转。
+  const income = Math.abs(payload.dashboard.thisMonth.income)
+  const expense = Math.abs(payload.dashboard.thisMonth.expense)
   const overview: OverviewSummary = {
     netWorth,
     previousNetWorth,
@@ -333,8 +335,8 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     expense,
     balance: payload.dashboard.thisMonth.balance,
     savingsRate: income === 0 ? 0 : ((income - expense) / income) * 100,
-    incomeChangePct: percentChange(income, payload.dashboard.lastMonth.income),
-    expenseChangePct: percentChange(expense, payload.dashboard.lastMonth.expense),
+    incomeChangePct: percentChange(income, Math.abs(payload.dashboard.lastMonth.income)),
+    expenseChangePct: percentChange(expense, Math.abs(payload.dashboard.lastMonth.expense)),
     elapsedDays: Number(today.slice(8, 10)),
   }
 

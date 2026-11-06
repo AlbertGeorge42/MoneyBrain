@@ -153,8 +153,10 @@ export function mapFlowReport(
   from: string,
   to: string,
 ): FlowReport {
-  const income = data.income.actual
-  const expense = data.expense.actual
+  // 接口的 actual 保留历史符号（真实库存在负向支出）；收入 / 支出是「方向 + 金额」，
+  // 方向由本层的前缀承担，金额只取绝对值，避免「−-¥28.00」。
+  const income = Math.abs(data.income.actual)
+  const expense = Math.abs(data.expense.actual)
   const balance = data.balance.actual
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
   const counts = flowCounts(ledger, from, to)
