@@ -121,24 +121,29 @@ function treeOf(
   details: ReportCategoryDetail[],
   total: number,
   counts: Map<string, number>,
+  displayIdOf: (realId: string) => string,
 ): FlowTreeNode[] {
+  // 构成的金额是「该侧发生了多少」，不继承接口历史符号；负向支出按绝对值参与分类树，
+  // 否则 actual < 0 会被 > 0 的过滤条件静默丢掉，出现「合计有金额、构成没有数据」。
+  const amountOf = (detail: ReportCategoryDetail) => Math.abs(detail.actual)
   return details
-    .filter((detail) => detail.actual > 0)
+    .filter((detail) => amountOf(detail) > 0)
     .map((detail) => ({
       id: detail.categoryId,
       name: detail.name,
-      amount: detail.actual,
-      count: counts.get(detail.categoryId) ?? 0,
-      share: total === 0 ? 0 : (detail.actual / total) * 100,
+      amount: amountOf(detail),
+      // 接口分类是后端真实 id，账本流水按展示 id 归集；笔数必须同一 id 空间才能对上。
+      count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
+      share: total === 0 ? 0 : (amountOf(detail) / total) * 100,
       level: 0 as const,
       children: (detail.children ?? [])
-        .filter((child: ReportCategoryDetail) => child.actual > 0)
+        .filter((child: ReportCategoryDetail) => amountOf(child) > 0)
         .map((child: ReportCategoryDetail) => ({
           id: child.categoryId,
           name: child.name,
-          amount: child.actual,
-          count: counts.get(child.categoryId) ?? 0,
-          share: total === 0 ? 0 : (child.actual / total) * 100,
+          amount: amountOf(child),
+          count: counts.get(displayIdOf(child.categoryId)) ?? 0,
+          share: total === 0 ? 0 : (amountOf(child) / total) * 100,
           level: 1 as const,
           children: [],
         })),
@@ -160,13 +165,14 @@ export function mapFlowReport(
   const balance = data.balance.actual
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
   const counts = flowCounts(ledger, from, to)
+  const displayIdOf = (realId: string) => ledger.ids?.categoryDisplay?.[realId] ?? realId
   return {
     income,
     expense,
     balance,
     savingsRate,
-    incomeTrees: treeOf(data.incomeCategoryDetails, income, counts.income),
-    expenseTrees: treeOf(data.expenseCategoryDetails, expense, counts.expense),
+    incomeTrees: treeOf(data.incomeCategoryDetails, income, counts.income, displayIdOf),
+    expenseTrees: treeOf(data.expenseCategoryDetails, expense, counts.expense, displayIdOf),
     series,
     metrics: [
       {
