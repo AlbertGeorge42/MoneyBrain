@@ -284,6 +284,27 @@ describe('视图 ↔ 端点映射', () => {
     expect(report.liabilityTotal + report.netWorth).toBe(report.assetTotal)
   })
 
+  it('资产表覆盖全部非零账户：负余额保留、0 元账户折叠（真实库 7 行 + 2 个 0 元）', () => {
+    const report = mapBalanceReport(REAL_BALANCE, [], createSeedLedger())
+    // 负余额资产不再被 actual > 0 吞掉：7 个非零账户全部列出（按金额降序）。
+    expect(report.assets.map((row) => row.id)).toEqual([
+      'a-xq',
+      'a-ysf',
+      'a-wallet',
+      'a-zfb',
+      'a-wx',
+      'a-zfbjj',
+      'a-gjj',
+    ])
+    // 行合计与后端资产合计逐分相等；差额正是负余额账户。
+    expect(report.assets.reduce((sum, row) => sum + row.amount, 0)).toBe(75474563)
+    expect(report.positiveAssetTotal).toBe(88260334)
+    expect(report.negativeAssetTotal).toBe(-12785771)
+    expect(report.negativeAssetCount).toBe(4)
+    // 0 元账户不进明细，但有可见计数（真实库为 16 个）。
+    expect(report.zeroAccountCount).toBe(2)
+  })
+
   it('收支明细：合计 / 分类树来自后端，笔数取完整期间流水', () => {
     const transactions = [
       tx({ id: 't1', date: '2026-11-01', amount: 1850000, type: 'income', categoryId: 'salary', accountId: 'cmb' }),

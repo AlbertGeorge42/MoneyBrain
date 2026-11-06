@@ -201,12 +201,13 @@ export function mapBalanceReport(
   const cashAccountIds = new Set(
     ledger.accounts.filter((account) => account.kind === 'cash').map((account) => account.id),
   )
-  // 负债表必须列全部非零负债账户：后端已统一为「正数 = 欠款」，
-  // 不能再沿用资产侧的 `actual > 0` 过滤（真实库里 5 个负债账户会被整表滤成 0 行）。
-  const rowsOf = (nodes: BalanceSheetReportData['assetNodes'], positiveOnly: boolean): BalanceRow[] =>
+  // 统一账户覆盖规则：资产与负债都只列「余额 ≠ 0」的账户（负余额保留），
+  // 0 元账户折叠成计数提示（后端仍返回全部账户，设置页能看到）。
+  // 不再对资产侧做 `actual > 0` 过滤——那会吞掉负余额资产，造成报表只显示 3 行。
+  const rowsOf = (nodes: BalanceSheetReportData['assetNodes']): BalanceRow[] =>
     nodes.flatMap((node) =>
       node.children
-        .filter((account) => (positiveOnly ? account.actual > 0 : account.actual !== 0))
+        .filter((account) => account.actual !== 0)
         .map((account) => ({
           id: account.id,
           name: account.name,
@@ -215,14 +216,23 @@ export function mapBalanceReport(
         })),
     ).sort((left, right) => right.amount - left.amount)
 
-  const assets = rowsOf(data.assetNodes, true)
-  const liabilities = rowsOf(data.liabilityNodes, false)
+  const countZero = (nodes: BalanceSheetReportData['assetNodes']) =>
+    nodes.reduce((sum, node) => sum + node.children.filter((account) => account.actual === 0).length, 0)
+
+  const assets = rowsOf(data.assetNodes)
+  const liabilities = rowsOf(data.liabilityNodes)
   const assetTotal = data.assets.actual
   const liabilityTotal = data.liabilities.actual
   const netWorth = data.netWorth.actual
 
+  const zeroAccountCount = countZero(data.assetNodes) + countZero(data.liabilityNodes)
+  const positiveAssets = assets.filter((row) => row.amount > 0)
+  const negativeAssets = assets.filter((row) => row.amount < 0)
+  const positiveAssetTotal = positiveAssets.reduce((sum, row) => sum + row.amount, 0)
+  const negativeAssetTotal = negativeAssets.reduce((sum, row) => sum + row.amount, 0)
+
   const kindTotals = new Map<string, number>()
-  for (const row of assets) {
+  for (const row of positiveAssets) {
     kindTotals.set(row.kind, (kindTotals.get(row.kind) ?? 0) + row.amount)
   }
   const composition = [...kindTotals.entries()]
@@ -230,7 +240,7 @@ export function mapBalanceReport(
       id: kind,
       name: kind,
       amount,
-      share: assetTotal === 0 ? 0 : (amount / assetTotal) * 100,
+      share: positiveAssetTotal === 0 ? 0 : (amount / positiveAssetTotal) * 100,
     }))
     .sort((left, right) => right.amount - left.amount)
 
@@ -243,6 +253,10 @@ export function mapBalanceReport(
     netWorth,
     equity: netWorth,
     equityTotal: liabilityTotal + netWorth,
+    zeroAccountCount,
+    positiveAssetTotal,
+    negativeAssetTotal,
+    negativeAssetCount: negativeAssets.length,
     composition,
     trend: trend.map((item) => ({ month: item.label, value: item.netWorth })),
     metrics: [

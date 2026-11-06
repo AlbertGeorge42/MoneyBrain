@@ -72,6 +72,13 @@ export interface BalanceReport {
   netWorth: number
   equity: number
   equityTotal: number
+  /** 余额为 0、未在明细中列出的账户数（覆盖规则：只列余额 ≠ 0 的账户）。 */
+  zeroAccountCount: number
+  /** 正余额资产合计（资产构成的环内合计与投资占比的分母）。 */
+  positiveAssetTotal: number
+  /** 负余额资产合计（负数），未计入正余额口径。 */
+  negativeAssetTotal: number
+  negativeAssetCount: number
   composition: { id: string; name: string; amount: number; share: number }[]
   trend: TrendPoint[]
   metrics: ReportMetric[]

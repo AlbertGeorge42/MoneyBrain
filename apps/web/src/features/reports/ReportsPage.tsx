@@ -532,13 +532,18 @@ function BalanceView({
   const shownLiabilities = groupBalanceRows(report.liabilities, settings.groupMode)
   const [kindDetail, setKindDetail] = useState<BalanceRow['kind'] | null>(null)
   const assetNodes = useMemo(
-    () => buildAssetComposition(report.assets, settings.groupMode),
+    // 环只含正余额账户：负余额无法画成扇形，图注单独说明（合计 = 正余额资产合计）。
+    () => buildAssetComposition(report.assets.filter((row) => row.amount > 0), settings.groupMode),
     [report.assets, settings.groupMode],
   )
   const kindAccounts = kindDetail
     ? report.assets.filter((row) => row.kind === kindDetail)
     : []
-  const kindAmount = kindAccounts.reduce((sum, row) => sum + row.amount, 0)
+  // 环只画正余额账户；抽屉同时列出该性质的负余额账户，并在头部单独说明，不混入环内合计。
+  const kindPositiveAccounts = kindAccounts.filter((row) => row.amount > 0)
+  const kindNegativeAccounts = kindAccounts.filter((row) => row.amount < 0)
+  const kindAmount = kindPositiveAccounts.reduce((sum, row) => sum + row.amount, 0)
+  const kindNegativeAmount = kindNegativeAccounts.reduce((sum, row) => sum + row.amount, 0)
 
   const openAssetNode = (node: FlowTreeNode, kind: DonutKind) => {
     if (kind !== 'asset') return
@@ -588,7 +593,10 @@ function BalanceView({
     meta: showKind ? row.kind : undefined,
     amount: currency(row.amount),
     barTone: 'accent',
-    share: report.assetTotal === 0 ? 0 : (row.amount / report.assetTotal) * 100,
+    share:
+      row.amount > 0 && report.positiveAssetTotal !== 0
+        ? (row.amount / report.positiveAssetTotal) * 100
+        : 0,
   }))
   const liabilityCards: CardRow[] = [
     ...shownLiabilities.map((row) => ({
@@ -695,6 +703,11 @@ function BalanceView({
           )}
         </>
       )}
+      <p className="mb-rp-chart-note">
+        账户覆盖：资产与负债都只列余额 ≠ 0 的账户（负余额保留）；另有 {report.zeroAccountCount} 个
+        0 元账户未列出。资产合计 {currency(report.assetTotal)} = 正余额 {currency(report.positiveAssetTotal)} + 负余额{' '}
+        {currency(report.negativeAssetTotal)}。
+      </p>
       <Drawer
         opened={kindDetail !== null}
         onClose={() => setKindDetail(null)}
@@ -714,9 +727,14 @@ function BalanceView({
         {kindDetail && (
           <div className="mb-rp-drill">
             <div className="mb-rp-drill-head">
-              <span className="mb-rp-drill-label">{kindDetail}合计</span>
+              <span className="mb-rp-drill-label">{kindDetail}正余额合计</span>
               <span className="mb-rp-drill-amount is-neutral">{currency(kindAmount)}</span>
             </div>
+            {kindNegativeAccounts.length > 0 && (
+              <p className="mb-rp-chart-note">
+                另有 {kindNegativeAccounts.length} 个负余额账户 {currency(kindNegativeAmount)}，不计入环内合计。
+              </p>
+            )}
             <h4 className="mb-rp-drill-title">{kindAccounts.length} 个账户</h4>
             {kindAccounts.map((row) => (
               <button
