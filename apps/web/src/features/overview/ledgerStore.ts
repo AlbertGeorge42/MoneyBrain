@@ -4,6 +4,8 @@ import type { Ledger, NewTransactionInput } from './model'
 
 export interface LedgerContextValue {
   ledger: Ledger
+  /** API 只读接入阶段：写操作不落库，页面据此提示而不假装已保存。 */
+  readOnly: boolean
   /** 返回新建交易的 id（金额无效时为 null），供保存后 6 秒撤销复用记录级删除。 */
   addTransaction: (input: NewTransactionInput) => string | null
   updateTransaction: (id: string, patch: TransactionPatch) => void

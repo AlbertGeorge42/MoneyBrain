@@ -60,6 +60,7 @@ export const BUDGET_KIND_LABEL: Record<BudgetKind, string> = {
 }
 
 export const BUDGET_PERIOD_LABEL: Record<BudgetPeriod, string> = {
+  daily: '每日',
   weekly: '每周',
   monthly: '每月',
   quarterly: '每季',
@@ -99,6 +100,8 @@ function budgetRange(period: BudgetPeriod, anchorDay: string): { start: string; 
   const month = anchor.getUTCMonth()
 
   switch (period) {
+    case 'daily':
+      return { start: anchorDay, end: anchorDay }
     case 'weekly': {
       const start = new Date(anchor)
       start.setUTCDate(start.getUTCDate() - 6)

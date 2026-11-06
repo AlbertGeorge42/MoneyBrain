@@ -13,6 +13,8 @@ import { AppShell } from '@/features/shell/AppShell'
 import type { ShellPage } from '@/features/shell/navigation'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { useLedger } from '@/features/overview/ledgerStore'
+import { EMPTY_LEDGER } from '@/features/overview/apiLedger'
+import { readHfDataMode, useApiLedger } from '@/features/overview/useApiLedger'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import { QuickEntry } from '@/features/overview/QuickEntry'
 import { TransactionDetail } from '@/features/overview/TransactionDetail'
@@ -159,14 +161,18 @@ function PreviewBody({
   page,
   onPage,
   onState,
+  apiMode,
+  onRetry,
 }: {
   device: DeviceMode
   dataState: DataState
   page: ShellPage
   onPage: (next: ShellPage) => void
   onState: (next: DataState) => void
+  apiMode: boolean
+  onRetry: () => void
 }) {
-  const { ledger, deleteTransactions } = useLedger()
+  const { ledger, readOnly, deleteTransactions } = useLedger()
   const [entryOpen, setEntryOpen] = useState(false)
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
   const [toast, setToast] = useState<{
@@ -226,6 +232,11 @@ function PreviewBody({
   const importLedger = () => notify('导入账单将在流水批次开放，本次只验证冷启动引导。')
   const retry = () => {
     onState('normal')
+    if (apiMode) {
+      onRetry()
+      notify('正在重新读取真实账本…')
+      return
+    }
     notify('已重新连接本地数据库，数据已恢复。')
   }
 
@@ -327,7 +338,12 @@ function PreviewBody({
         opened={entryOpen}
         device={device}
         onClose={() => setEntryOpen(false)}
-        onSaved={(transactionId) =>
+        onSaved={(transactionId) => {
+          // 只读接入阶段不写真实账本，也不假装保存成功。
+          if (readOnly) {
+            notify('只读接入阶段：本批不写入真实账本。')
+            return
+          }
           setToast({
             message: '已保存 · 账本与总览数字已同步',
             duration: 6000,
@@ -341,7 +357,7 @@ function PreviewBody({
                 }
               : undefined,
           })
-        }
+        }}
       />
       <TransactionDetail
         transaction={detail}
@@ -415,6 +431,23 @@ export default function DesignApp() {
   const systemScheme = useSystemScheme()
   const resolvedScheme: SchemeMode = scheme === 'system' ? systemScheme : scheme
 
+  // 数据源开关：默认 seed；VITE_HF_DATA=api 时读真实账本（只读）。
+  const dataMode = readHfDataMode()
+  const apiMode = dataMode === 'api'
+  const api = useApiLedger(apiMode)
+
+  // 「正常」档在 API 模式下跟随真实请求状态；其余档仍是预览用的显式状态。
+  const effectiveState: DataState =
+    apiMode && dataState === 'normal'
+      ? api.status === 'loading'
+        ? 'loading'
+        : api.status === 'error'
+          ? 'error'
+          : api.isEmpty
+            ? 'empty'
+            : 'normal'
+      : dataState
+
   const canvasClass = useMemo(
     () => (device === 'mobile' ? 'mb-hf-canvas is-mobile' : 'mb-hf-canvas'),
     [device],
@@ -432,13 +465,18 @@ export default function DesignApp() {
           onState={setDataState}
         />
         <div className={canvasClass}>
-          <LedgerProvider>
+          <LedgerProvider
+            initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : undefined}
+            readOnly={apiMode}
+          >
             <PreviewBody
               device={device}
-              dataState={dataState}
+              dataState={effectiveState}
               page={page}
               onPage={setPage}
               onState={setDataState}
+              apiMode={apiMode}
+              onRetry={api.refetch}
             />
           </LedgerProvider>
         </div>

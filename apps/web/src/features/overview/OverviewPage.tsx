@@ -28,7 +28,15 @@ interface OverviewPageProps {
   onImport: () => void
 }
 
-function PageHead({ device, dataState }: { device: DeviceMode; dataState: DataState }) {
+function PageHead({
+  device,
+  dataState,
+  periodLabel,
+}: {
+  device: DeviceMode
+  dataState: DataState
+  periodLabel: string
+}) {
   const note =
     dataState === 'loading'
       ? '正在读取本地账本'
@@ -37,7 +45,7 @@ function PageHead({ device, dataState }: { device: DeviceMode; dataState: DataSt
         : dataState === 'error'
           ? '本地账本读取失败'
           : null
-  const sub = note ? `${CURRENT_MONTH_LABEL} · ${note}` : CURRENT_MONTH_LABEL
+  const sub = note ? `${periodLabel} · ${note}` : periodLabel
   if (device === 'mobile') {
     return <p className="mb-m-page-meta">{sub}</p>
   }
@@ -61,11 +69,14 @@ export function OverviewPage({
   onImport,
 }: OverviewPageProps) {
   const { ledger } = useLedger()
+  // API 模式用真实数据所在月份；种子模式保持原来的固定期间。
+  const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
+  const today = ledger.snapshot?.today
 
   if (dataState === 'loading') {
     return (
       <>
-        <PageHead device={device} dataState={dataState} />
+        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
         <LoadingSkeleton device={device} />
       </>
     )
@@ -74,7 +85,7 @@ export function OverviewPage({
   if (dataState === 'empty') {
     return (
       <>
-        <PageHead device={device} dataState={dataState} />
+        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
         <ColdStartGuide variant="overview" onPrimary={onCreateAccount} onImport={onImport} />
       </>
     )
@@ -83,7 +94,7 @@ export function OverviewPage({
   if (dataState === 'error') {
     return (
       <>
-        <PageHead device={device} dataState={dataState} />
+        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
         <ErrorPanel onRetry={onRetry} />
       </>
     )
@@ -91,13 +102,17 @@ export function OverviewPage({
 
   const summary = deriveOverview(ledger)
   const budget = deriveBudgets(ledger)
-  const groups = groupRecentTransactions(ledger.transactions, device === 'mobile' ? 4 : 3)
-  const trend = deriveNetWorthTrend(summary.netWorth)
+  const groups = groupRecentTransactions(
+    ledger.transactions,
+    device === 'mobile' ? 4 : 3,
+    today,
+  )
+  const trend = deriveNetWorthTrend(summary.netWorth, ledger.snapshot?.trend)
 
   if (device === 'mobile') {
     return (
       <>
-        <PageHead device={device} dataState={dataState} />
+        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
         <MobileHero summary={summary} />
         <MobileSnapshots summary={summary} />
         <AccountEntry summary={summary} accounts={ledger.accounts} onOpen={onOpenAccounts} />
@@ -116,7 +131,7 @@ export function OverviewPage({
 
   return (
     <>
-      <PageHead device={device} dataState={dataState} />
+      <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
       <NetWorthHero summary={summary} />
       <AccountEntry summary={summary} accounts={ledger.accounts} onOpen={onOpenAccounts} />
       <div className="mb-dash-mid">

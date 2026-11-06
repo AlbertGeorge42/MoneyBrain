@@ -7,7 +7,7 @@
 
 export type TxType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
 export type AccountKind = 'cash' | 'deposit' | 'investment' | 'credit'
-export type BudgetPeriod = 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+export type BudgetPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 
 export interface LedgerAccount {
   id: string
@@ -45,11 +45,29 @@ export interface LedgerTransaction {
   fee?: number
 }
 
+/**
+ * 真实 API 接入时由适配层预先算好的快照。
+ *
+ * 总览的收支、预算、走势在 API 模式下直接采用后端口径，
+ * 避免前端本地算法与领域规则（退款冲减、预算账户绑定）出现第二套口径。
+ * 种子模式下不提供 snapshot，派生函数仍走本地纯函数。
+ */
+export interface LedgerSnapshot {
+  overview: OverviewSummary
+  budgets: BudgetSummary
+  trend: TrendPoint[]
+  /** 真实数据对应的「今天」，用于最近交易分组和预算期间。 */
+  today: string
+  /** 页头期间文案，例如「2026 年 11 月」。 */
+  periodLabel: string
+}
+
 export interface Ledger {
   accounts: LedgerAccount[]
   categories: LedgerCategory[]
   budgets: LedgerBudget[]
   transactions: LedgerTransaction[]
+  snapshot?: LedgerSnapshot
 }
 
 export const TODAY = '2026-10-28'
@@ -97,9 +115,12 @@ const TREND_BASE: TrendPoint[] = [
 ]
 
 /** 走势最后一点始终与当前净资产联动；记账后曲线末端随净值变化。 */
-export function deriveNetWorthTrend(netWorth: number): TrendPoint[] {
-  return TREND_BASE.map((point, index) =>
-    index === TREND_BASE.length - 1 ? { ...point, value: netWorth } : { ...point },
+export function deriveNetWorthTrend(netWorth: number, series?: TrendPoint[]): TrendPoint[] {
+  // 真实数据的 12 个月点位来自 /analytics/asset-trend；
+  // 最后一点仍与当前净资产联动，保证曲线末端与页头数字一致。
+  const base = series && series.length > 0 ? series : TREND_BASE
+  return base.map((point, index) =>
+    index === base.length - 1 ? { ...point, value: netWorth } : { ...point },
   )
 }
 
@@ -259,6 +280,9 @@ function sumMonthFlow(transactions: LedgerTransaction[]) {
 }
 
 export function deriveOverview(ledger: Ledger): OverviewSummary {
+  // API 模式：收支与环比采用后端 dashboard 口径，不在此重复实现退款/排除规则。
+  if (ledger.snapshot) return ledger.snapshot.overview
+
   const netWorth = ledger.accounts.reduce((total, account) => total + account.balance, 0)
   const liquidAssets = ledger.accounts
     .filter((account) => account.kind === 'cash')
@@ -300,6 +324,8 @@ function budgetRange(period: BudgetPeriod, today: string): { start: string; end:
   const month = anchor.getUTCMonth()
 
   switch (period) {
+    case 'daily':
+      return { start: today, end: today }
     case 'weekly': {
       const start = new Date(anchor)
       start.setUTCDate(start.getUTCDate() - 6)
@@ -346,7 +372,10 @@ function budgetLevel(percent: number): BudgetRow['level'] {
   return 'normal'
 }
 
-export function deriveBudgets(ledger: Ledger, today = TODAY): BudgetSummary {
+export function deriveBudgets(ledger: Ledger, today = ledger.snapshot?.today ?? TODAY): BudgetSummary {
+  // API 模式：每个预算的已用金额来自 /budgets/statuses（领域口径），不在前端重算。
+  if (ledger.snapshot) return ledger.snapshot.budgets
+
   const expenseBudgets = ledger.budgets.filter((budget) => budget.type === 'expense')
 
   const rows = expenseBudgets.map((budget) => {

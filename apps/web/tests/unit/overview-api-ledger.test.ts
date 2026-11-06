@@ -1,0 +1,219 @@
+/**
+ * DTO → Ledger 适配层单测（总览只读接入）
+ *
+ * 只测纯映射：账户余额、分类图标 key、预算已用口径、本月收支快照与走势。
+ * 不发网络请求。
+ */
+import { describe, expect, it } from 'vitest'
+import type {
+  Account,
+  AnalyticsAssetTrendItem,
+  Budget,
+  BudgetStatus,
+  DashboardSummaryData,
+  Transaction,
+  TransactionCategory,
+} from '@contracts/types'
+import { buildLedgerFromApi, type LedgerApiPayload } from '@/features/overview/apiLedger'
+import { deriveBudgets, deriveNetWorthTrend, deriveOverview } from '@/features/overview/model'
+
+function account(id: string, name: string, type: string, category: Partial<Account['category']> = {}): Account {
+  return {
+    id,
+    name,
+    type,
+    initialBalance: 0,
+    initialBalanceDate: null,
+    icon: null,
+    color: null,
+    categoryId: null,
+    sort: 0,
+    category: {
+      id: `${id}-cat`,
+      name: '分类',
+      type: 'asset',
+      isCashEquivalent: false,
+      isInvestment: false,
+      icon: null,
+      color: null,
+      sort: 0,
+      createdAt: '',
+      updatedAt: '',
+      ...category,
+    } as Account['category'],
+    createdAt: '',
+    updatedAt: '',
+  }
+}
+
+function category(id: string, name: string, parentId: string | null = null, type = 'expense'): TransactionCategory {
+  return {
+    id,
+    name,
+    type,
+    icon: null,
+    color: null,
+    parentId,
+    sort: 0,
+    parent: null,
+    children: [],
+    cashFlowType: null,
+    createdAt: '',
+    updatedAt: '',
+  }
+}
+
+function budget(id: string, name: string, categoryId: string, amount: number, period: Budget['period'] = 'monthly'): Budget {
+  return {
+    id,
+    name,
+    type: 'expense',
+    amount,
+    period,
+    startDate: '2026-11-01',
+    endDate: null,
+    transactionTime: null,
+    note: null,
+    isActive: true,
+    accountId: 'acc-1',
+    toAccountId: null,
+    categoryId,
+    account: account('acc-1', '储蓄卡', 'asset'),
+    toAccount: null,
+    category: category(categoryId, name),
+    createdAt: '',
+    updatedAt: '',
+  } as Budget
+}
+
+function transaction(id: string, type: Transaction['type'], amount: number, categoryId: string): Transaction {
+  return {
+    id,
+    type,
+    ruleVersion: 1,
+    amount,
+    fee: 0,
+    coupon: 0,
+    date: '2026-11-05T00:00:00.000Z',
+    note: null,
+    accountId: 'acc-1',
+    toAccountId: null,
+    categoryId,
+    createdAt: '',
+    updatedAt: '',
+  } as unknown as Transaction
+}
+
+function status(b: Budget, used: number): BudgetStatus {
+  return { budget: b, used, remaining: b.amount - used, percentage: 0, isOverBudget: false }
+}
+
+const assetTrend: AnalyticsAssetTrendItem[] = Array.from({ length: 12 }, (_, index) => ({
+  label: `2025-12`,
+  assets: 0,
+  liabilities: 0,
+  netWorth: 1_000_000 + index * 100_000,
+}))
+
+const dashboard: DashboardSummaryData = {
+  thisMonth: { income: 1_500_000, expense: 600_000, balance: 900_000 },
+  lastMonth: { income: 1_200_000, expense: 500_000 },
+  recentTransactions: [
+    transaction('t1', 'expense', 12_300, 'cat-food'),
+    transaction('t2', 'income', 1_500_000, 'cat-salary'),
+  ],
+}
+
+function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
+  const food = budget('b-food', '餐饮', 'cat-food', 100_000)
+  return {
+    accounts: [
+      account('acc-1', '招商储蓄卡', 'asset'),
+      account('acc-2', '微信零钱', 'asset', { isCashEquivalent: true }),
+      account('acc-3', '长桥证券', 'asset', { isInvestment: true }),
+      account('acc-4', '交行信用卡', 'liability'),
+    ],
+    categories: [
+      category('cat-food', '餐饮'),
+      category('cat-food-lunch', '午餐', 'cat-food'),
+      category('cat-salary', '工资', null, 'income'),
+    ],
+    budgets: [food],
+    statuses: [status(food, 40_000)],
+    dashboard,
+    assetTrend,
+    balances: new Map([
+      ['acc-1', 500_000],
+      ['acc-2', 50_000],
+      ['acc-3', 1_000_000],
+      ['acc-4', -100_000],
+    ]),
+    ...overrides,
+  }
+}
+
+describe('DTO → Ledger 适配', () => {
+  it('账户余额求和为净资产，并按现金等价 / 投资 / 负债分类', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    const summary = deriveOverview(ledger)
+
+    expect(summary.netWorth).toBe(1_450_000)
+    expect(summary.liquidAssets).toBe(50_000)
+    expect(summary.investmentAssets).toBe(1_000_000)
+    expect(ledger.accounts.map((item) => item.kind)).toEqual(['deposit', 'cash', 'investment', 'credit'])
+  })
+
+  it('收支与环比采用 dashboard 快照，上月净资产取走势倒数第二点', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    const summary = deriveOverview(ledger)
+
+    expect(summary.income).toBe(1_500_000)
+    expect(summary.expense).toBe(600_000)
+    expect(summary.balance).toBe(900_000)
+    expect(summary.savingsRate).toBeCloseTo(60, 5)
+    expect(summary.previousNetWorth).toBe(2_000_000)
+    expect(summary.elapsedDays).toBe(6)
+    expect(ledger.snapshot?.periodLabel).toBe('2026 年 11 月')
+    expect(ledger.snapshot?.today).toBe('2026-11-06')
+  })
+
+  it('预算已用金额直接取后端状态，期间与分类映射保留', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    const budgets = deriveBudgets(ledger)
+
+    expect(budgets.rows).toHaveLength(1)
+    expect(budgets.rows[0]).toMatchObject({ name: '餐饮', used: 40_000, limit: 100_000, level: 'normal' })
+    expect(ledger.budgets[0]).toMatchObject({ period: 'monthly', categoryId: 'food' })
+  })
+
+  it('分类命中种子名称时映射回稳定 key，供图标与筛选使用', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    const byName = new Map(ledger.categories.map((item) => [item.name, item]))
+
+    expect(byName.get('餐饮')?.id).toBe('food')
+    expect(byName.get('午餐')?.parentId).toBe('food')
+    expect(byName.get('工资')?.id).toBe('salary')
+  })
+
+  it('最近交易截断到日期并保留转账 / 费用字段', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+
+    expect(ledger.transactions).toHaveLength(2)
+    expect(ledger.transactions[0]).toMatchObject({ id: 't1', date: '2026-11-05', categoryId: 'food', note: '' })
+    expect(ledger.transactions[1]).toMatchObject({ type: 'income', categoryId: 'salary' })
+  })
+
+  it('走势末点随当前净资产联动，前缀沿用真实月份', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    const trend = deriveNetWorthTrend(1_450_000, ledger.snapshot?.trend)
+
+    expect(trend).toHaveLength(12)
+    expect(trend[0].value).toBe(1_000_000)
+    expect(trend[trend.length - 1].value).toBe(1_450_000)
+  })
+
+  it('账户缺少当日余额时抛错，而不是用 0 静默兜底', () => {
+    const partial = payload({ balances: new Map([['acc-1', 500_000]]) })
+    expect(() => buildLedgerFromApi(partial, '2026-11-06')).toThrow(/缺少当日余额/)
+  })
+})

@@ -1,0 +1,297 @@
+/**
+ * DTO → Ledger 适配层（总览只读接入）
+ *
+ * 只调用只读端点：
+ * - GET /accounts（账户）+ GET /accounts/:id/balance-at（每账户当日余额）
+ * - GET /transaction-categories
+ * - GET /budgets + GET /budgets/statuses（预算已用金额用后端领域口径）
+ * - GET /analytics/dashboard（本月/上月收支 + 最近交易）
+ * - GET /analytics/asset-trend（近 12 个月净资产走势）
+ *
+ * 适配层不写库、不缓存；请求失败直接抛出，由页面进入 error 态。
+ */
+import type {
+  Account,
+  AnalyticsAssetTrendItem,
+  Budget,
+  BudgetStatus,
+  DashboardSummaryData,
+  Transaction,
+  TransactionCategory,
+} from '@contracts/types'
+import { accountApi, analyticsApi, budgetApi, transactionCategoryApi } from '@/services/api'
+import { unwrapApiData } from '@/services/apiResult'
+import type {
+  AccountKind,
+  BudgetPeriod,
+  BudgetRow,
+  BudgetSummary,
+  Ledger,
+  LedgerAccount,
+  LedgerBudget,
+  LedgerCategory,
+  LedgerTransaction,
+  OverviewSummary,
+  TrendPoint,
+  TxType,
+} from './model'
+
+/**
+ * 真实分类是 UUID，而总览的分类图标按种子 key（food / salary…）取字形。
+ * 名称命中种子分类时把根分类 id 映射成同一个 key，保证接线后视觉与种子一致。
+ * 未命中的分类保留真实 id，图标回退为通用 Tag。
+ */
+const CATEGORY_KEY_BY_NAME: Record<string, string> = {
+  餐饮: 'food',
+  交通: 'traffic',
+  居住: 'home',
+  购物: 'shop',
+  娱乐: 'fun',
+  医疗: 'health',
+  教育: 'edu',
+  其他: 'other',
+  工资: 'salary',
+  理财收益: 'inv',
+  红包: 'gift',
+  退款: 'refund',
+  账户互转: 'move',
+}
+
+const TX_TYPES: readonly TxType[] = ['expense', 'income', 'transfer', 'refund', 'adjustment']
+
+function asTxType(value: string): TxType {
+  return TX_TYPES.includes(value as TxType) ? (value as TxType) : 'expense'
+}
+
+function asBudgetPeriod(value: string): BudgetPeriod {
+  if (value === 'daily' || value === 'weekly' || value === 'quarterly' || value === 'yearly') return value
+  return 'monthly'
+}
+
+/** 本地日历日（与后端 LocalDate 口径一致，不用 UTC 截断）。 */
+export function todayLocal(now = new Date()): string {
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function periodLabelOf(today: string): string {
+  const [year, month] = today.split('-')
+  return `${year} 年 ${Number(month)} 月`
+}
+
+function percentChange(current: number, previous: number): number {
+  if (previous === 0) return 0
+  return ((current - previous) / previous) * 100
+}
+
+function accountKind(account: Account): AccountKind {
+  if (account.category?.isInvestment) return 'investment'
+  if (account.type === 'liability') return 'credit'
+  if (account.category?.isCashEquivalent) return 'cash'
+  return 'deposit'
+}
+
+function budgetLevel(percent: number): BudgetRow['level'] {
+  if (percent > 100) return 'over'
+  if (percent >= 80) return 'warning'
+  return 'normal'
+}
+
+export interface LedgerApiPayload {
+  accounts: Account[]
+  categories: TransactionCategory[]
+  budgets: Budget[]
+  statuses: BudgetStatus[]
+  dashboard: DashboardSummaryData
+  assetTrend: AnalyticsAssetTrendItem[]
+  /** accountId → 当日余额（分）。缺任一项都应视为请求失败，不做 0 兜底。 */
+  balances: ReadonlyMap<string, number>
+}
+
+export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal()): Ledger {
+  const displayIds = new Map<string, string>()
+  for (const category of payload.categories) {
+    const key = CATEGORY_KEY_BY_NAME[category.name.trim()]
+    if (!category.parentId && key) displayIds.set(category.id, key)
+  }
+  const displayId = (id: string | null | undefined): string =>
+    id ? displayIds.get(id) ?? id : ''
+
+  const categories: LedgerCategory[] = payload.categories.map((category) => ({
+    id: displayId(category.id),
+    name: category.name,
+    type: asTxType(category.type),
+    parentId: category.parentId ? displayId(category.parentId) : undefined,
+  }))
+
+  const accounts: LedgerAccount[] = payload.accounts.map((account) => {
+    const balance = payload.balances.get(account.id)
+    if (balance === undefined) {
+      throw new Error(`账户 ${account.name} 缺少当日余额`)
+    }
+    return {
+      id: account.id,
+      name: account.name,
+      kind: accountKind(account),
+      balance,
+    }
+  })
+
+  const budgets: LedgerBudget[] = payload.budgets.map((budget) => ({
+    id: budget.id,
+    name: budget.name,
+    type: asTxType(budget.type),
+    period: asBudgetPeriod(budget.period),
+    limit: Number(budget.amount),
+    categoryId: displayId(budget.categoryId) || undefined,
+    accountId: budget.accountId,
+  }))
+
+  const statusById = new Map(payload.statuses.map((status) => [status.budget.id, status]))
+  const rows: BudgetRow[] = budgets
+    .filter((budget) => budget.type === 'expense')
+    .map((budget) => {
+      const used = statusById.get(budget.id)?.used ?? 0
+      const percent = budget.limit === 0 ? 0 : (used / budget.limit) * 100
+      return {
+        id: budget.id,
+        name: budget.name,
+        used,
+        limit: budget.limit,
+        percent,
+        level: budgetLevel(percent),
+      }
+    })
+  // 与现有总览口径保持一致：头部合计仍是所有支出预算行相加。
+  // 「月度可花」混算周/年预算属于已知缺口，见 hf-api-gaps.md，本批不擅自改口径。
+  const budgetsSummary: BudgetSummary = {
+    rows,
+    used: rows.reduce((total, row) => total + row.used, 0),
+    limit: rows.reduce((total, row) => total + row.limit, 0),
+    percent: 0,
+  }
+  budgetsSummary.percent =
+    budgetsSummary.limit === 0 ? 0 : (budgetsSummary.used / budgetsSummary.limit) * 100
+
+  const transactions: LedgerTransaction[] = payload.dashboard.recentTransactions.map(
+    (transaction: Transaction) => ({
+      id: transaction.id,
+      date: transaction.date.slice(0, 10),
+      type: transaction.type,
+      categoryId: displayId(transaction.categoryId),
+      note: transaction.note ?? '',
+      accountId: transaction.accountId,
+      amount: transaction.amount,
+      toAccountId: transaction.toAccountId ?? undefined,
+      fee: transaction.fee || undefined,
+    }),
+  )
+
+  const netWorth = accounts.reduce((total, account) => total + account.balance, 0)
+  const liquidAssets = accounts
+    .filter((account) => account.kind === 'cash')
+    .reduce((total, account) => total + account.balance, 0)
+  const investmentAssets = accounts
+    .filter((account) => account.kind === 'investment')
+    .reduce((total, account) => total + account.balance, 0)
+
+  const trend: TrendPoint[] = payload.assetTrend.map((item) => ({
+    month: item.label,
+    value: item.netWorth,
+  }))
+  // 上月净资产取走势的倒数第二个月；不足两个月时退回当前净值（环比为 0）。
+  const previousNetWorth =
+    trend.length >= 2 ? trend[trend.length - 2].value : netWorth
+
+  const income = payload.dashboard.thisMonth.income
+  const expense = payload.dashboard.thisMonth.expense
+  const overview: OverviewSummary = {
+    netWorth,
+    previousNetWorth,
+    netWorthChangePct: percentChange(netWorth, previousNetWorth),
+    liquidAssets,
+    investmentAssets,
+    income,
+    expense,
+    balance: payload.dashboard.thisMonth.balance,
+    savingsRate: income === 0 ? 0 : ((income - expense) / income) * 100,
+    incomeChangePct: percentChange(income, payload.dashboard.lastMonth.income),
+    expenseChangePct: percentChange(expense, payload.dashboard.lastMonth.expense),
+    elapsedDays: Number(today.slice(8, 10)),
+  }
+
+  return {
+    accounts,
+    categories,
+    budgets,
+    transactions,
+    snapshot: {
+      overview,
+      budgets: budgetsSummary,
+      trend,
+      today,
+      periodLabel: periodLabelOf(today),
+    },
+  }
+}
+
+/** API 模式加载中/失败时的占位账本：不是种子数据，页面此时只渲染骨架或错误态。 */
+export const EMPTY_LEDGER: Ledger = {
+  accounts: [],
+  categories: [],
+  budgets: [],
+  transactions: [],
+}
+
+export interface ApiLedgerResult {
+  ledger: Ledger
+  /** 无账户即视为空账本，页头走冷启动引导。 */
+  isEmpty: boolean
+}
+
+/** 只读拉取总览所需数据；任一请求失败都抛出，由上层进入 error 态。 */
+export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
+  const today = todayLocal()
+  const [accounts, categories, budgets, dashboard, assetTrend] = await Promise.all([
+    accountApi.getAll().then(unwrapApiData),
+    transactionCategoryApi.getAll().then(unwrapApiData),
+    budgetApi.getAll().then(unwrapApiData),
+    analyticsApi.getDashboardSummary().then(unwrapApiData),
+    analyticsApi.getAssetTrend().then(unwrapApiData),
+  ])
+
+  const balanceResults = await Promise.all(
+    accounts.map((account) =>
+      accountApi
+        .getBalanceAt(account.id, today)
+        .then(unwrapApiData)
+        .then((result) => [account.id, result.balance] as const),
+    ),
+  )
+
+  const expenseBudgetIds = budgets
+    .filter((budget) => budget.type === 'expense')
+    .map((budget) => budget.id)
+  const statuses =
+    expenseBudgetIds.length > 0
+      ? await budgetApi.getStatuses(expenseBudgetIds).then(unwrapApiData)
+      : []
+
+  return {
+    ledger: buildLedgerFromApi(
+      {
+        accounts,
+        categories,
+        budgets,
+        statuses,
+        dashboard,
+        assetTrend,
+        balances: new Map(balanceResults),
+      },
+      today,
+    ),
+    isEmpty: accounts.length === 0,
+  }
+}
