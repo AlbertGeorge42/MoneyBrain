@@ -25,6 +25,7 @@ process.env.DATABASE_URL = `file:${testDbPath}`
 
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')
+const { formatDateLocal } = await import('../../src/common/date.js')
 
 const ACCOUNT_ID = 'date-contract-account'
 const CATEGORY_ID = 'date-contract-category'
@@ -109,6 +110,57 @@ describe('账本日期契约：本地日历日', () => {
     expect(list.body.data.list.map((item: { date: string }) => item.date)).toEqual([MONTH_START_DAY])
     expect(list.body.data.list[0].id).toBe(created.body.data.id)
     expect(list.body.data.list[0].accountId).toBe(ACCOUNT_ID)
+  })
+
+  it('写侧按 YYYY-MM-DD 保存：选 11-06 后列表 / 报表归属仍是 11-06', async () => {
+    const day = '2026-11-06'
+    const created = await request(app)
+      .post('/api/transactions')
+      .send({
+        type: 'expense',
+        amount: 12300,
+        date: day,
+        accountId: ACCOUNT_ID,
+        categoryId: CATEGORY_ID,
+        note: '写侧日历日',
+      })
+
+    expect(created.status).toBe(201)
+    expect(created.body.data.date).toBe(day)
+    // 响应里不能出现 T16:00Z / T00:00:00 这类瞬时。
+    expect(created.body.data.date).not.toContain('T')
+
+    // 读回同一个本地日历日，而不是 UTC 转换后的前一天。
+    const row = await prisma.transaction.findUnique({ where: { id: created.body.data.id } })
+    expect(row).not.toBeNull()
+    expect(formatDateLocal(row!.date)).toBe(day)
+
+    const list = await request(app)
+      .get('/api/transactions')
+      .query({ startDate: day, endDate: day, pageSize: 50 })
+    expect(list.body.data.list.map((item: { date: string }) => item.date)).toEqual([day])
+
+    const report = await request(app)
+      .get('/api/reports/income-expense')
+      .query({ startDate: day, endDate: day })
+    expect(report.status).toBe(200)
+    expect(report.body.data.expense.actual).toBe(12300)
+
+    const budget = await request(app)
+      .post('/api/budgets')
+      .send({
+        name: '写侧日期预算',
+        amount: 50000,
+        type: 'expense',
+        period: 'monthly',
+        accountId: ACCOUNT_ID,
+        categoryId: CATEGORY_ID,
+        startDate: day,
+        endDate: day,
+      })
+    expect(budget.status).toBe(201)
+    expect(budget.body.data.startDate).toBe(day)
+    expect(budget.body.data.endDate).toBe(day)
   })
 
   it('账户 initialBalanceDate 也是日历日', async () => {
