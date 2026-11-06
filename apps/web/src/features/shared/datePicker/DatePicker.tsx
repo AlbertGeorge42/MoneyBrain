@@ -89,13 +89,14 @@ export function DatePicker({
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const pendingFocus = useRef<string | null>(null)
 
-  const [portalTarget] = useState<HTMLElement | null>(() => {
-    if (typeof document === 'undefined') return null
-    return (
-      document.querySelector<HTMLElement>('.mb-hf-phone') ??
-      document.querySelector<HTMLElement>('.mb-hf-root')
-    )
-  })
+  // 每次渲染解析挂载点（与预算抽屉同一做法）：报表时间条在首帧就挂载，
+  // 此时 .mb-hf-phone 还没进 DOM；若在挂载时缓存 null，移动面板会掉到 body，
+  // 既脱离手机框又丢失 .mb-hf-root 上的设计 token（背景/触控高度全部失效）。
+  const portalTarget =
+    device !== 'mobile' || typeof document === 'undefined'
+      ? null
+      : (document.querySelector<HTMLElement>('.mb-hf-phone') ??
+        document.querySelector<HTMLElement>('.mb-hf-root'))
 
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<DateRange>(value)

@@ -133,6 +133,29 @@ describe('DatePicker 交互', () => {
     expect(onChange).toHaveBeenCalledWith({ from: '', to: '' }, null)
   })
 
+  it('移动端面板挂在手机框内（不落到 body，否则丢失 .mb-hf-root 上的 token）', async () => {
+    const user = userEvent.setup()
+    const phone = document.createElement('div')
+    phone.className = 'mb-hf-phone'
+    document.body.appendChild(phone)
+
+    render(
+      <MantineProvider>
+        <DatePicker
+          device="mobile"
+          value={{ from: '2026-10-01', to: '2026-10-31' }}
+          onChange={vi.fn()}
+          today="2026-11-06"
+        />
+      </MantineProvider>,
+    )
+    await user.click(screen.getByRole('button', { name: /起始日期/ }))
+
+    await waitFor(() => expect(phone.querySelector('.mb-dp-panel')).not.toBeNull())
+    expect(phone.querySelector('.mb-dp-sheet')).not.toBeNull()
+    document.body.removeChild(phone)
+  })
+
   it('Esc 关闭并把焦点还给触发控件', async () => {
     const user = userEvent.setup()
     renderPicker()
