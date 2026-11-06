@@ -7,7 +7,7 @@ import {
   CHART_TOOLTIP_W,
   buildChartLayout,
 } from '@/features/shared/chartLayout'
-import { amountText, percentText } from './format'
+import { amountText, percentText, trendChangePct } from './format'
 import type { TrendPoint } from './model'
 
 function monthLabel(month: string): string {
@@ -56,12 +56,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
     .map((point, index) => `${xOf(index)} ${yOf(point.value)}`)
     .join(' L ')} L ${xOf(points.length - 1)} ${baseline} Z`
 
-  const change =
-    points.length > 1
-      ? ((points[points.length - 1].value - points[points.length - 2].value) /
-          points[points.length - 2].value) *
-        100
-      : 0
+  const change = trendChangePct(points)
 
   const monthTicks = [0, Math.floor(points.length / 2), points.length - 1]
 
@@ -88,8 +83,16 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
           <h2 className="mb-sec-title">净资产走势</h2>
           <p className="mb-sec-desc">近 12 个月</p>
         </div>
-        <span className={change >= 0 ? 'mb-trend-delta is-positive' : 'mb-trend-delta is-negative'}>
-          {percentText(change)}
+        <span
+          className={
+            change === null
+              ? 'mb-trend-delta'
+              : change >= 0
+                ? 'mb-trend-delta is-positive'
+                : 'mb-trend-delta is-negative'
+          }
+        >
+          {change === null ? '基期无数据，无法计算涨幅' : percentText(change)}
         </span>
       </div>
       <div
