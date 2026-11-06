@@ -17,8 +17,10 @@ import {
   CashFlowBars,
   ChartCard,
   CompositionBars,
+  DonutChart,
   ReportBarChart,
   ReportLineChart,
+  type DonutKind,
 } from './charts'
 import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportColumn, type ReportRow } from './ReportTable'
 import { flattenFlowRows } from './reportRows'
@@ -36,6 +38,7 @@ import {
   type ReportViewSettings,
 } from './reportSettings'
 import {
+  buildAssetComposition,
   buildDrill,
   cashRowsFor,
   currency,
@@ -45,6 +48,7 @@ import {
   deriveInvestmentReport,
   signedCurrency,
   type BalanceReport,
+  type BalanceRow,
   type CashReport,
   type DrillData,
   type FlowTreeNode,
@@ -198,6 +202,7 @@ export function ReportsPage({
   onViewFlow: (options: {
     categoryId?: string
     categoryIds?: string[]
+    accountId?: string
     from: string
     to: string
   }) => void
@@ -312,6 +317,9 @@ export function ReportsPage({
               settings={effectiveSettings.balance}
               side={balanceSide}
               onSide={setBalanceSide}
+              from={time.from}
+              to={time.to}
+              onViewFlow={onViewFlow}
             />
           )}
           {tab === 'flow' && (
@@ -323,7 +331,9 @@ export function ReportsPage({
               onSide={setFlowSide}
               folded={foldedFlow}
               onFold={toggleFlowFold}
-              onDrill={(node, kind) => setDrill({ node, kind })}
+              onDrill={(node, kind) => {
+                if (kind !== 'asset') setDrill({ node, kind })
+              }}
             />
           )}
           {tab === 'cash' && (
@@ -449,15 +459,41 @@ function BalanceView({
   settings,
   side,
   onSide,
+  from,
+  to,
+  onViewFlow,
 }: {
   device: DeviceMode
   report: BalanceReport
   settings: ReportViewSettings['balance']
   side: 'assets' | 'liabilities'
   onSide: (next: 'assets' | 'liabilities') => void
+  from: string
+  to: string
+  onViewFlow: (options: { accountId: string; from: string; to: string }) => void
 }) {
   const shownAssets = groupBalanceRows(report.assets, settings.groupMode)
   const shownLiabilities = groupBalanceRows(report.liabilities, settings.groupMode)
+  const [kindDetail, setKindDetail] = useState<BalanceRow['kind'] | null>(null)
+  const assetNodes = useMemo(
+    () => buildAssetComposition(report.assets, settings.groupMode),
+    [report.assets, settings.groupMode],
+  )
+  const kindAccounts = kindDetail
+    ? report.assets.filter((row) => row.kind === kindDetail)
+    : []
+  const kindAmount = kindAccounts.reduce((sum, row) => sum + row.amount, 0)
+
+  const openAssetNode = (node: FlowTreeNode, kind: DonutKind) => {
+    if (kind !== 'asset') return
+    if (settings.groupMode === 'kind') {
+      // 环按性质切块时，点性质先落到该性质的账户抽屉（图例合计 = 抽屉合计）。
+      setKindDetail(node.name)
+      return
+    }
+    // 按账户切块时，点账户直接落到流水的账户筛选。
+    onViewFlow({ accountId: node.id, from, to })
+  }
   // 按性质汇总后性质列不再单列；面板里该开关同步禁用并给出原因。
   const showKind = settings.showKindColumn && settings.groupMode === 'account'
   const cellsOf = (row: { name: string; kind: string; amount: number }) =>
@@ -521,28 +557,20 @@ function BalanceView({
 
   const composition = (
     <ChartCard title="资产构成">
-      {report.composition.length === 0 ? (
-        <p className="mb-rp-empty-line">暂无资产账户</p>
-      ) : (
-        <div className="mb-rp-compare-side">
-          {report.composition.map((row) => (
-            <div className="mb-rp-compare-row" key={row.id}>
-              <div className="mb-rp-compare-row-head">
-                <span className="mb-rp-compare-name">{row.name}</span>
-                <span className="mb-rp-compare-amount">
-                  {currency(row.amount)} · {formatPercent(row.share, 1, false)}
-                </span>
-              </div>
-              <progress
-                className="mb-rp-progress is-accent"
-                value={row.share}
-                max={100}
-                aria-label={`${row.name}占总资产 ${row.share.toFixed(1)}%`}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <DonutChart
+        nodes={assetNodes}
+        total={report.assetTotal}
+        device={device}
+        kind="asset"
+        title="资产构成"
+        emptyText="暂无资产账户"
+        onOpen={openAssetNode}
+      />
+      <p className="mb-rp-chart-note">
+        {settings.groupMode === 'kind'
+          ? '按性质汇总：环与资产表同一口径，点切块或图例查看该性质的账户'
+          : '按账户：环与资产表同一口径，点切块或图例落到该账户的流水'}
+      </p>
     </ChartCard>
   )
 
@@ -611,6 +639,47 @@ function BalanceView({
           )}
         </>
       )}
+      <Drawer
+        opened={kindDetail !== null}
+        onClose={() => setKindDetail(null)}
+        position={device === 'mobile' ? 'bottom' : 'right'}
+        size={device === 'mobile' ? 'auto' : 420}
+        withinPortal={false}
+        title={kindDetail ? `${kindDetail} · 账户明细` : '账户明细'}
+        classNames={{
+          content: 'mb-rp-sheet',
+          header: 'mb-rp-sheet-head',
+          title: 'mb-rp-sheet-title',
+          body: 'mb-rp-sheet-body',
+          overlay: 'mb-rp-overlay',
+          close: 'mb-rp-sheet-close',
+        }}
+      >
+        {kindDetail && (
+          <div className="mb-rp-drill">
+            <div className="mb-rp-drill-head">
+              <span className="mb-rp-drill-label">{kindDetail}合计</span>
+              <span className="mb-rp-drill-amount is-neutral">{currency(kindAmount)}</span>
+            </div>
+            <h4 className="mb-rp-drill-title">{kindAccounts.length} 个账户</h4>
+            {kindAccounts.map((row) => (
+              <button
+                type="button"
+                className="mb-rp-drill-row is-action"
+                key={row.id}
+                onClick={() => {
+                  onViewFlow({ accountId: row.id, from, to })
+                  setKindDetail(null)
+                }}
+              >
+                <span>{row.name}</span>
+                <span className="mb-rp-drill-value">{currency(row.amount)}</span>
+              </button>
+            ))}
+            <p className="mb-rp-chart-note">点账户落到流水，按该账户筛选；合计与图例一致。</p>
+          </div>
+        )}
+      </Drawer>
     </>
   )
 }
@@ -632,7 +701,7 @@ function FlowView({
   onSide: (next: 'income' | 'expense') => void
   folded: Record<string, boolean>
   onFold: (id: string) => void
-  onDrill: (node: FlowTreeNode, kind: 'income' | 'expense') => void
+  onDrill: (node: FlowTreeNode, kind: DonutKind) => void
 }) {
   const rowColumns = { showCount: settings.showCountColumn, showShare: settings.showShareColumn }
   const incomeRows = flattenFlowRows(

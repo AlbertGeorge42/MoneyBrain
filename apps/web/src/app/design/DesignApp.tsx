@@ -205,6 +205,7 @@ function PreviewBody({
   const viewFlow = (options: {
     categoryId?: string
     categoryIds?: string[]
+    accountId?: string
     from: string
     to: string
   }) => {
@@ -215,6 +216,7 @@ function PreviewBody({
         ...EMPTY_ADVANCED,
         categoryId: options.categoryId ?? '',
         categoryIds: options.categoryIds ?? [],
+        accountId: options.accountId ?? '',
         dateFrom: options.from,
         dateTo: options.to,
       },

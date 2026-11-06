@@ -75,12 +75,54 @@ export interface BalanceReport {
   metrics: ReportMetric[]
 }
 
+/**
+ * 资产构成环：与资产负债表同一份 `groupMode` 决定切块口径。
+ * - `account`：每个资产账户一块，点击落流水账户筛选；
+ * - `kind`：按账户性质合并（储蓄 / 现金等价 / 投资 / 信用），点击打开该性质的账户抽屉。
+ * 这里只产出环与图例共用的根节点；性质抽屉的账户明细仍来自 `report.assets`。
+ */
+export function buildAssetComposition(rows: BalanceRow[], mode: 'account' | 'kind'): FlowTreeNode[] {
+  const total = rows.reduce((sum, row) => sum + row.amount, 0)
+  const shareOf = (amount: number) => (total > 0 ? (amount / total) * 100 : 0)
+  if (mode === 'account') {
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      amount: row.amount,
+      count: 1,
+      share: shareOf(row.amount),
+      level: 0 as const,
+      children: [],
+    }))
+  }
+  const buckets = new Map<string, { amount: number; count: number }>()
+  for (const row of rows) {
+    const group = buckets.get(row.kind) ?? { amount: 0, count: 0 }
+    group.amount += row.amount
+    group.count += 1
+    buckets.set(row.kind, group)
+  }
+  return [...buckets.entries()]
+    .map(([kind, group]) => ({
+      id: `kind:${kind}`,
+      name: kind,
+      amount: group.amount,
+      count: group.count,
+      share: shareOf(group.amount),
+      level: 0 as const,
+      children: [],
+    }))
+    .sort((left, right) => right.amount - left.amount)
+}
+
 export interface CashChild {
   id: string
   label: string
   account: string
   amount: number
   tone: 'income' | 'expense' | 'transfer'
+  /** 下钻到流水时按分类精确复现同一组（合并「其余」时取并集）。 */
+  categoryId: string
 }
 
 export interface CashGroup {
@@ -452,6 +494,7 @@ function groupCash(
       amount,
       tone:
         direction === 'in' ? 'income' : transaction.type === 'transfer' ? 'transfer' : 'expense',
+      categoryId: transaction.categoryId,
     })
     groups.set(groupName, group)
   }

@@ -157,7 +157,7 @@ export function ReportConfigPanel({
               { id: 'kind', label: '按性质汇总' },
             ]}
             onChange={(next) => patchBalance({ groupMode: next })}
-            note="按性质汇总后，储蓄 / 现金等价 / 投资 / 信用各并为一行。"
+            note="表与「资产构成」环同一口径：按性质汇总时环按性质切块，按账户时环按账户切块。"
           />
           <Field label="列显示">
             <Toggle

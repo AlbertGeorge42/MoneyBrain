@@ -79,7 +79,7 @@ describe('DonutChart 一级环', () => {
     expect(opened.amount).toBe(1_000 - 60 + 1_000 - 70)
   })
 
-  it('空态不画空环；单条数据画完整环，中心仍标支出合计', () => {
+  it('空态不画空环；单条数据画 356° 弧并标「仅 1 类」，不把满环当正常构成', () => {
     const empty = render(<DonutChart nodes={[]} total={0} title="支出构成" emptyText="该期间没有支出" />)
     expect(empty.container.querySelector('svg')).toBeNull()
     expect(empty.container.textContent).toContain('该期间没有支出')
@@ -89,8 +89,51 @@ describe('DonutChart 一级环', () => {
       <DonutChart nodes={[node('only', '唯一分类', 2_500)]} total={2_500} title="支出构成" emptyText="无支出" />,
     )
     expect(single.container.querySelectorAll('.mb-rp-donut-arc')).toHaveLength(1)
-    expect(single.container.querySelector('.mb-rp-donut-center-label')?.textContent).toBe('支出 · 100%')
+    const arc = single.container.querySelector('.mb-rp-donut-slice')
+    expect(arc?.getAttribute('data-sweep')).toBe('356')
+    expect(arc?.getAttribute('data-start')).toBe('-90')
+    expect(single.container.querySelector('.mb-rp-donut-center-label')?.textContent).toBe('支出 · 仅 1 类')
     expect(single.container.querySelector('.mb-rp-donut-center-value')?.textContent).toBe('¥25.00')
+  })
+
+  it('资产构成环用 asset 口径：中心读数是资产，切块/图例命中 ≥24px 且回调带 asset', () => {
+    const assetNode = (id: string, name: string, amount: number): FlowTreeNode => ({
+      ...node(id, name, amount),
+      share: (amount / 9_000) * 100,
+    })
+    const onOpen = vi.fn()
+    const { container } = render(
+      <DonutChart
+        nodes={[assetNode('kind:储蓄', '储蓄', 6_000), assetNode('kind:投资', '投资', 3_000)]}
+        total={9_000}
+        kind="asset"
+        title="资产构成"
+        emptyText="暂无资产账户"
+        onOpen={onOpen}
+      />,
+    )
+    expect(container.querySelector('.mb-rp-donut-center-label')?.textContent).toBe('资产')
+    const hits = [...container.querySelectorAll('.mb-rp-donut-hit')]
+    expect(hits).toHaveLength(2)
+    for (const hit of hits) expect(Number(hit.getAttribute('data-hit'))).toBeGreaterThanOrEqual(24)
+    fireEvent.click(container.querySelectorAll('.mb-rp-donut-slice')[0])
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(onOpen.mock.calls[0][1]).toBe('asset')
+    expect((onOpen.mock.calls[0][0] as FlowTreeNode).id).toBe('kind:储蓄')
+  })
+
+  it('资产只有 1 类时同样画 356° 弧并标「仅 1 类」', () => {
+    const single = render(
+      <DonutChart
+        nodes={[node('kind:储蓄', '储蓄', 9_000)]}
+        total={9_000}
+        kind="asset"
+        title="资产构成"
+        emptyText="暂无资产账户"
+      />,
+    )
+    expect(single.container.querySelector('.mb-rp-donut-center-label')?.textContent).toBe('资产 · 仅 1 类')
+    expect(single.container.querySelector('.mb-rp-donut-slice')?.getAttribute('data-sweep')).toBe('356')
   })
 
   it('收入侧也是环形，两环中心读数分别对应支出 / 收入', () => {

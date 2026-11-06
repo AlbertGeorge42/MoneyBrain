@@ -1482,6 +1482,29 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   padding: var(--mb-s-1) 0;
 }
 
+.mb-rp-drill-row.is-action {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--mb-color-border) 70%, transparent);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-rp-drill-row.is-action:hover {
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-rp-chart-note {
+  margin: var(--mb-s-2) 0 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.5;
+}
+
 .mb-rp-drill-row > div {
   display: flex;
   flex-direction: column;

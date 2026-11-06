@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import {
   accountBalancesAt,
+  buildAssetComposition,
   buildDrill,
   deriveBalanceReport,
   deriveCashReport,
@@ -170,5 +171,29 @@ describe('时间预设与校验', () => {
     expect(spanBuckets('2026-10-01', '2026-10-31', 'month')).toBe(1)
     expect(validateRange('2026-10-28', '2026-10-01', 'day').ok).toBe(false)
     expect(validateRange('2026-10-01', '2026-10-31', 'month').ok).toBe(true)
+  })
+})
+
+describe('buildAssetComposition', () => {
+  const report = deriveBalanceReport(fixture([...OCTOBER]), '2026-10-31')
+
+  it('按账户切块：每块就是一个账户，id 可直接落到流水账户筛选', () => {
+    const nodes = buildAssetComposition(report.assets, 'account')
+    expect(nodes.map((node) => node.id)).toEqual(report.assets.map((row) => row.id))
+    expect(nodes.every((node) => node.count === 1 && node.children.length === 0)).toBe(true)
+    expect(nodes.reduce((sum, node) => sum + node.amount, 0)).toBe(report.assetTotal)
+  })
+
+  it('按性质切块：与资产表同一份分组，合计、账户数与图例一致', () => {
+    const nodes = buildAssetComposition(report.assets, 'kind')
+    for (const node of nodes) {
+      expect(node.id).toBe(`kind:${node.name}`)
+      expect(node.amount).toBe(
+        report.assets.filter((row) => row.kind === node.name).reduce((sum, row) => sum + row.amount, 0),
+      )
+      expect(node.count).toBe(report.assets.filter((row) => row.kind === node.name).length)
+      expect(node.children).toHaveLength(0)
+    }
+    expect(nodes.reduce((sum, node) => sum + node.amount, 0)).toBe(report.assetTotal)
   })
 })

@@ -304,7 +304,7 @@ export function CompositionBars({
   expenseTotal: number
   device?: DeviceMode
   /** 每一行都可点：打开与行金额同口径的下钻（含被并入的小类）。 */
-  onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
+  onOpen?: (node: FlowTreeNode, kind: DonutKind) => void
   namedCount?: number
 }) {
   return (
@@ -387,10 +387,6 @@ function donutArc(
   return `M ${outerStart[0]} ${outerStart[1]} A ${rOuter} ${rOuter} 0 ${large} 1 ${outerEnd[0]} ${outerEnd[1]} L ${innerEnd[0]} ${innerEnd[1]} A ${rInner} ${rInner} 0 ${large} 0 ${innerStart[0]} ${innerStart[1]} Z`
 }
 
-function donutRing(cx: number, cy: number, rOuter: number, rInner: number): string {
-  return `M ${cx - rOuter} ${cy} A ${rOuter} ${rOuter} 0 0 1 ${cx + rOuter} ${cy} A ${rOuter} ${rOuter} 0 0 1 ${cx - rOuter} ${cy} L ${cx - rInner} ${cy} A ${rInner} ${rInner} 0 0 0 ${cx + rInner} ${cy} A ${rInner} ${rInner} 0 0 0 ${cx - rInner} ${cy} Z`
-}
-
 /**
  * 二级环配色：父色只作锚点，子级明度阶梯整段不含 100%（任一子级都不等于父色）。
  * 浅色向深调（90%→40%），暗色向浅调（84%→32%）；只有 1 个子类时取阶梯中点。
@@ -400,10 +396,12 @@ function subFill(parentColor: string, index: number, count: number): string {
   return `color-mix(in srgb, ${parentColor} calc(var(--mb-chart-sub-from) + (var(--mb-chart-sub-to) - var(--mb-chart-sub-from)) * ${fraction.toFixed(4)}), var(--mb-chart-sub-tint))`
 }
 
+export type DonutKind = 'income' | 'expense' | 'asset'
+
 /**
  * 构成环形：纯 SVG，面积按金额占比；一级根分类 Top 6 + 「其余 N 类」，
  * 第 8 类起并入「其余」。「其余」块叠 45° 斜纹并保留文字图例，不靠颜色单独编码。
- * 空态不画环；单条数据画完整环，中心仍标该侧合计。
+ * 空态不画环；单条数据画 356° 弧 +「仅 1 类」，不把 360° 满环当成正常构成。
  * 一级类别有子分类时点进二级环（最多 5 个具名 + 其余）；叶子类别直接下钻到流水，
  * 不进空环。面包屑与 Esc 回到一级；二级环不再有第三级。
  */
@@ -420,8 +418,8 @@ export function DonutChart({
   nodes: FlowTreeNode[]
   total: number
   device?: DeviceMode
-  onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
-  kind?: 'income' | 'expense'
+  onOpen?: (node: FlowTreeNode, kind: DonutKind) => void
+  kind?: DonutKind
   title: string
   emptyText: string
   /** 一级具名类别上限（默认 6，配置可降到 5）；其余并入「其余 N 类」。 */
@@ -509,11 +507,11 @@ export function DonutChart({
     return { ...item, start, sweep }
   })
   const isSingle = items.length === 1
-  const sideLabel = kind === 'income' ? '收入' : '支出'
+  const sideLabel = kind === 'income' ? '收入' : kind === 'asset' ? '资产' : '支出'
   const centerLabel = isDrilled && drilled
     ? drilled.name
     : isSingle
-      ? `${sideLabel} · 100%`
+      ? `${sideLabel} · 仅 1 类`
       : sideLabel
   const centerValue = currency(isDrilled && drilled ? drilled.amount : denom)
   const aria = `${isDrilled && drilled ? `${drilled.name}构成` : title}：${items.map((item) => `${item.node.name} ${item.share.toFixed(1)}%`).join('，')}`
@@ -580,17 +578,18 @@ export function DonutChart({
                   data-view={isDrilled ? 'sub' : 'root'}
                   data-sub-step={isDrilled ? 0 : undefined}
                   data-sub-parent={isDrilled ? rootIndex : undefined}
-                  data-start={0}
+                  data-start={-90}
+                  data-sweep={356}
                   onClick={() => activate(items[0].node)}
                 >
                   <path
                     className="mb-rp-donut-arc"
-                    d={donutRing(cx, cy, rOuter, rInner)}
+                    d={donutArc(cx, cy, rOuter, rInner, -90, 356)}
                     style={{ fill: items[0].color }}
                   />
                   <path
                     className="mb-rp-donut-hit"
-                    d={donutRing(cx, cy, rOuter, hitInner)}
+                    d={donutArc(cx, cy, rOuter, hitInner, -90, 356)}
                     fill="transparent"
                     data-hit={hitBand}
                     aria-hidden="true"
@@ -695,7 +694,7 @@ function CompositionDonutSide({
   nodes: FlowTreeNode[]
   total: number
   device: DeviceMode
-  onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
+  onOpen?: (node: FlowTreeNode, kind: DonutKind) => void
   emptyText: string
   namedCount?: number
 }) {
