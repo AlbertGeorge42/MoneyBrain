@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
 import { TODAY, createSeedLedger } from '@/features/overview/model'
 import { ReportsPage } from '@/features/reports/ReportsPage'
@@ -54,19 +55,22 @@ const contextValue = {
 } as unknown as LedgerContextValue
 
 function renderPage(settingsOpen = true) {
+  const queryClient = new QueryClient()
   return render(
     <MantineProvider>
-      <LedgerContext.Provider value={contextValue}>
-        <ReportsPage
+      <QueryClientProvider client={queryClient}>
+        <LedgerContext.Provider value={contextValue}>
+          <ReportsPage
           device="desktop"
           dataState="ready"
           settingsOpen={settingsOpen}
           onSettingsToggle={() => {}}
           onRetry={() => {}}
           onImport={() => {}}
-          onViewFlow={() => {}}
-        />
-      </LedgerContext.Provider>
+            onViewFlow={() => {}}
+          />
+        </LedgerContext.Provider>
+      </QueryClientProvider>
     </MantineProvider>,
   )
 }

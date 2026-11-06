@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { FolderInput, ScanLine } from 'lucide-react'
 import { Drawer } from '@mantine/core'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { TODAY, getCategoryRootId } from '@/features/overview/model'
+import { getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { formatPercent } from '@/utils/format'
@@ -55,6 +55,7 @@ import {
   type FlowReport,
   type InvestmentReport,
 } from './reportsModel'
+import { useApiBalanceReport, useApiCashReport, useApiFlowReport, useApiInvestReport } from './apiReports'
 import { CashSankeyChart } from './CashSankey'
 import { deriveCashSankey, type CashSankey, type CashSankeyNode } from './cashSankeyModel'
 import {
@@ -181,6 +182,10 @@ function ReportsEmpty({ onImport }: { onImport: () => void }) {
   )
 }
 
+function initialReportTime(anchor: string): ReportTime {
+  return { gran: 'month', point: anchor, from: monthStart(anchor), to: anchor, preset: 'thisMonth' }
+}
+
 function chartGrid(device: DeviceMode, charts: ReactNode) {
   if (device === 'mobile') return <div className="mb-rp-chart-scroll">{charts}</div>
   return <div className="mb-rp-chart-grid">{charts}</div>
@@ -211,13 +216,12 @@ export function ReportsPage({
 }) {
   const { ledger } = useLedger()
   const [tab, setTab] = useState<ReportTab>('balance')
-  const [time, setTime] = useState<ReportTime>({
-    gran: 'month',
-    point: TODAY,
-    from: monthStart(TODAY),
-    to: TODAY,
-    preset: 'thisMonth',
-  })
+  // API 模式用真实今天 / 最新流水做锚点；用户改过时间后不再跟随账本刷新。
+  const apiMode = Boolean(ledger.snapshot)
+  const anchor = ledgerAnchorDay(ledger)
+  const [timeOverride, setTimeOverride] = useState<ReportTime | null>(null)
+  const time = timeOverride ?? initialReportTime(anchor)
+  const setTime = (next: ReportTime) => setTimeOverride(next)
   const [toast, setToast] = useState<ToastState | null>(null)
   const [drill, setDrill] = useState<DrillState | null>(null)
   const [foldedFlow, setFoldedFlow] = useState<Record<string, boolean>>({})
@@ -232,22 +236,37 @@ export function ReportsPage({
   const effectiveSettings = draftSettings ?? viewSettings
 
   // 时点不超过数据截止日：月末/年末锚点在本月会被截到 asOf，避免出现 10-31 晚于 10-28。
-  const balancePoint = clampAsOfPoint(time.point, TODAY)
-  const balance = useMemo(
+  const balancePoint = clampAsOfPoint(time.point, anchor)
+  const seedBalance = useMemo(
     () => deriveBalanceReport(ledger, balancePoint),
     [ledger, balancePoint],
   )
-  const flow = useMemo(
+  const seedFlow = useMemo(
     () => deriveFlowReport(ledger, time.from, time.to, time.gran),
     [ledger, time.from, time.to, time.gran],
   )
-  const cash = useMemo(() => deriveCashReport(ledger, time.from, time.to), [ledger, time.from, time.to])
+  const seedCash = useMemo(() => deriveCashReport(ledger, time.from, time.to), [ledger, time.from, time.to])
+  const seedInvest = useMemo(() => deriveInvestmentReport(ledger), [ledger])
+
+  // API 模式：合计口径全部来自后端报表端点，查询自身也有加载 / 失败态。
+  const apiReady = apiMode && dataState === 'normal'
+  const balanceApi = useApiBalanceReport(balancePoint, ledger, apiReady && tab === 'balance')
+  const flowApi = useApiFlowReport(time.from, time.to, time.gran, ledger, apiReady && tab === 'flow')
+  const cashApi = useApiCashReport(time.from, time.to, ledger, apiReady && tab === 'cash')
+  const investApi = useApiInvestReport(time.from, time.to, apiReady && tab === 'invest')
+
+  const balance = apiMode ? balanceApi.data : seedBalance
+  const flow = apiMode ? flowApi.data : seedFlow
+  const cash = apiMode ? cashApi.data : seedCash
+  const invest = apiMode ? investApi.data : seedInvest
   // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；隐藏分组并入「其他」后仍守恒。
   const sankey = useMemo(
-    () => (device === 'desktop' ? deriveCashSankey(ledger, cash, effectiveSettings.cash.groups) : null),
+    () =>
+      device === 'desktop' && cash
+        ? deriveCashSankey(ledger, cash, effectiveSettings.cash.groups)
+        : null,
     [device, ledger, cash, effectiveSettings.cash.groups],
   )
-  const invest = useMemo(() => deriveInvestmentReport(ledger), [ledger])
   const drillData = useMemo<DrillData | null>(
     () => (drill ? buildDrill(ledger, drill.node, drill.kind, time.from, time.to) : null),
     [drill, ledger, time.from, time.to],
@@ -295,6 +314,20 @@ export function ReportsPage({
     onSettingsToggle()
   }
 
+  const activeApi =
+    tab === 'balance' ? balanceApi : tab === 'flow' ? flowApi : tab === 'cash' ? cashApi : investApi
+  const reportPageState =
+    apiReady && activeApi.status === 'error' ? (
+      <ErrorPanel
+        onRetry={() => {
+          activeApi.refetch()
+          onRetry()
+        }}
+      />
+    ) : apiReady && activeApi.status === 'loading' ? (
+      <LoadingSkeleton device={device} variant="reports" />
+    ) : null
+
   const pageState =
     dataState === 'loading' ? (
       <LoadingSkeleton device={device} variant="reports" />
@@ -302,7 +335,9 @@ export function ReportsPage({
       <ErrorPanel onRetry={onRetry} />
     ) : dataState === 'empty' ? (
       <ReportsEmpty onImport={onImport} />
-    ) : null
+    ) : (
+      reportPageState
+    )
 
   const content = (
     <>
@@ -313,11 +348,12 @@ export function ReportsPage({
             device={device}
             tab={tab}
             time={time}
+            today={anchor}
             onChange={setTime}
             onToast={notify}
             onOpenSettings={onSettingsToggle}
           />
-          {tab === 'balance' && (
+          {tab === 'balance' && balance && (
             <BalanceView
               device={device}
               report={balance}
@@ -329,7 +365,7 @@ export function ReportsPage({
               onViewFlow={onViewFlow}
             />
           )}
-          {tab === 'flow' && (
+          {tab === 'flow' && flow && (
             <FlowView
               device={device}
               report={flow}
@@ -343,7 +379,7 @@ export function ReportsPage({
               }}
             />
           )}
-          {tab === 'cash' && (
+          {tab === 'cash' && cash && (
             <CashView
               device={device}
               report={cash}
@@ -359,8 +395,16 @@ export function ReportsPage({
               rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
             />
           )}
-          {tab === 'invest' && (
+          {tab === 'invest' && invest && (
             <InvestView device={device} report={invest} settings={effectiveSettings.invest} />
+          )}
+          {tab === 'invest' && apiMode && investApi.status === 'success' && investApi.data === null && (
+            <section className="mb-rp-card mb-rp-empty">
+              <h2 className="mb-rp-empty-title">暂无投资账户</h2>
+              <p className="mb-rp-empty-desc">
+                投资分析只统计标记为「投资资产」的账户；当前账本没有可分析的投资持仓。
+              </p>
+            </section>
           )}
         </>
       )}
@@ -412,7 +456,7 @@ export function ReportsPage({
                 tab={configTab}
                 draft={draftSettings}
                 onChange={setDraftSettings}
-                cashPresence={cashGroupPresence(cash)}
+                cashPresence={cashGroupPresence(cash ?? seedCash)}
                 onBack={closeConfig}
               />
             ) : (
@@ -1051,7 +1095,7 @@ function CashView({
           <div className="mb-rp-drill">
             <div className="mb-rp-drill-head">
               <span className="mb-rp-drill-label">
-                {sankeyNode.layer === 1 ? '活动分组合计' : '全账户净额'}
+                {sankeyNode.layer === 1 ? '活动分组合计' : '期初 / 期末口径净额'}
               </span>
               <span className="mb-rp-drill-amount is-neutral">{currency(sankeyNode.amount)}</span>
             </div>
@@ -1059,7 +1103,7 @@ function CashView({
               {sankeyNode.children.length > 0 ? `${sankeyNode.children.length} 笔` : '无分组明细'}
             </h4>
             {sankeyNode.children.length === 0 ? (
-              <p className="mb-rp-empty-line">期初 / 期末为全账户净额，没有可下钻的分组流水</p>
+              <p className="mb-rp-empty-line">期初 / 期末为报表口径净额，没有可下钻的分组流水</p>
             ) : (
               sankeyNode.children.map((child) => (
                 <div className="mb-rp-drill-row" key={child.id}>

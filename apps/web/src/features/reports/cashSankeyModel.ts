@@ -148,20 +148,34 @@ export function deriveCashSankey(
   visibility: Record<string, boolean>,
 ): CashSankey {
   const { from, to } = report.period
-  const transactions = ledger.transactions.filter((transaction) => inRange(transaction, from, to))
+  // API 模式：后端口径已经包含现金等价账户内的全部修正与手续费，期初/期末也由后端给出；
+  // 再按流水补计会重复，所以这里直接用显式期初/期末，修正与手续费补计为 0。
+  const fromApi = report.correctionsIncluded === true
+  const transactions = fromApi
+    ? []
+    : ledger.transactions.filter((transaction) => inRange(transaction, from, to))
   const correctionIncome = transactions
     .filter((transaction) => transaction.type === 'adjustment' && transaction.amount > 0)
     .reduce((sum, transaction) => sum + transaction.amount, 0)
   const correctionExpense = transactions
     .filter((transaction) => transaction.type === 'adjustment' && transaction.amount < 0)
     .reduce((sum, transaction) => sum + -transaction.amount, 0)
-  const fee = report.reconcile.transferFee
-  const transferExcluded = report.outflowGroups.find((group) => group.name === '账户间转账')?.total ?? 0
+  const fee = fromApi ? 0 : report.reconcile.transferFee
+  const transferExcluded = fromApi
+    ? 0
+    : report.outflowGroups.find((group) => group.name === '账户间转账')?.total ?? 0
   // 桑基逐节点按现金移动分组求和：流入/流出直接用组合计，账户间转账本金是内部转移，不画。
-  const inflow = report.inflowTotal + correctionIncome
-  const outflow = report.outflowTotal - transferExcluded + fee + correctionExpense
-  const opening = netAt(ledger, addDays(from, -1))
-  const closing = netAt(ledger, to)
+  // API 模式的中间层按活动净值正负拆成毛流入 / 毛流出；种子模式仍是组合计 + 修正。
+  const inflow = fromApi
+    ? (report.inflowGross ?? report.inflowTotal)
+    : report.inflowTotal + correctionIncome
+  const outflow = fromApi
+    ? (report.outflowGross ?? report.outflowTotal)
+    : report.outflowTotal - transferExcluded + fee + correctionExpense
+  const opening = fromApi && report.openingCash !== undefined
+    ? report.openingCash
+    : netAt(ledger, addDays(from, -1))
+  const closing = fromApi ? report.closingCash : netAt(ledger, to)
 
   const base: CashSankey = {
     status: 'ready',
@@ -180,12 +194,13 @@ export function deriveCashSankey(
 
   try {
     base.difference = assertCashSankeyConservation(opening, inflow, outflow, closing)
-  } catch (error) {
-    if (import.meta.env.DEV) throw error
+  } catch {
+    // 不静默画错图，也不让整页崩掉：落成可见失败态，差额如实写进 reason。
+    base.difference = opening + inflow - outflow - closing
     return {
       ...base,
       status: 'invalid',
-      reason: `现金流不守恒：期初 + 流入 − 流出 − 期末 = ${formatCurrency(minor(Math.abs(opening + inflow - outflow - closing)))}。为避免误读，本图已停画。`,
+      reason: `现金流不守恒：期初 + 流入 − 流出 − 期末 = ${formatCurrency(minor(Math.abs(base.difference)))}。为避免误读，本图已停画。`,
     }
   }
 

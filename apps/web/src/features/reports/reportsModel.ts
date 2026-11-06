@@ -144,6 +144,22 @@ export interface CashReport {
   investingNet: number
   financingNet: number
   closingCash: number
+  /**
+   * API 模式：后端口径的期初现金（现金等价账户）。
+   * 种子模式没有该字段，桑基仍用全账户净额回放。
+   */
+  openingCash?: number
+  /**
+   * 后端现金流分组已包含对账修正与手续费；桑基不能再补一次，否则会重复计。
+   */
+  correctionsIncluded?: boolean
+  /**
+   * 毛流入 / 毛流出（按活动净值正负拆分）。退款冲减流入时，
+   * 后端 `cashInflow` 是净流入，而桑基中间层按毛额画；两者差一笔冲减，
+   * 用毛额才能保证「节点合计 = 桑基流入 / 流出」。
+   */
+  inflowGross?: number
+  outflowGross?: number
   metrics: ReportMetric[]
   /** 三处口径对账所需明细；不改业务规则，只把差异显式列出。 */
   reconcile: {

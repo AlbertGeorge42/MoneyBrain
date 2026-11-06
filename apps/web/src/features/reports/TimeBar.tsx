@@ -34,7 +34,6 @@ import {
   type ReportTab,
   type ReportTime,
 } from './reportsTime'
-import { TODAY } from '@/features/overview/model'
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 
@@ -348,17 +347,19 @@ interface TimeBarProps {
   device: DeviceMode
   tab: ReportTab
   time: ReportTime
+  /** 期间锚点：API 模式是真实今天 / 最新流水，种子模式是冻结的 2026-10-28。 */
+  today: string
   onChange: (next: ReportTime) => void
   onToast: (message: string) => void
   onOpenSettings: () => void
 }
 
-export function TimeBar({ device, tab, time, onChange, onToast, onOpenSettings }: TimeBarProps) {
+export function TimeBar({ device, tab, time, today, onChange, onToast, onOpenSettings }: TimeBarProps) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<Draft>({ point: time.point, from: time.from, to: time.to, active: 'to' })
   const rootRef = useRef<HTMLDivElement>(null)
   const isPoint = tab === 'balance'
-  const label = isPoint ? formatPointLabel(time.point, time.gran, TODAY) : formatRangeLabel(time)
+  const label = isPoint ? formatPointLabel(time.point, time.gran, today) : formatRangeLabel(time)
   const validation = validateRange(draft.from, draft.to, time.gran)
 
   useEffect(() => {
@@ -381,9 +382,9 @@ export function TimeBar({ device, tab, time, onChange, onToast, onOpenSettings }
 
   const applyPreset = (preset: PresetId) => {
     if (isPoint) {
-      onChange({ ...time, point: presetPoint(preset, time.gran, TODAY), preset })
+      onChange({ ...time, point: presetPoint(preset, time.gran, today), preset })
     } else {
-      onChange({ ...time, ...presetRange(preset, time.gran, TODAY), preset })
+      onChange({ ...time, ...presetRange(preset, time.gran, today), preset })
     }
     setOpen(false)
     onToast(`预设「${presetLabel(preset)}」已生效`)

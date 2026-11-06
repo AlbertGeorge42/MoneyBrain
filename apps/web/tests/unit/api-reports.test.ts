@@ -1,0 +1,366 @@
+/**
+ * 报表页 API 接入断言（本批）
+ *
+ * 覆盖用户验收要求：
+ * - 四个视图 ← 端点 ← 字段的映射（源码层 + 适配器数值层）
+ * - 期间边界：页面合计直接等于后端返回，月初 / 月末两笔都计入
+ * - 桑基守恒：真数据适配后逐月差值 0；退款冲减流入时仍守恒
+ * - 配置生效：分组 / 隐藏分组 / 排序在 API 数据上仍改变展示
+ * - 无写调用：报表页与接入层不引用任何 POST / PUT / DELETE
+ */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { createSeedLedger, ledgerAnchorDay, type Ledger, type LedgerTransaction } from '@/features/overview/model'
+import {
+  mapBalanceReport,
+  mapCashReport,
+  mapFlowReport,
+  mapInvestmentReport,
+} from '@/features/reports/apiReports'
+import {
+  assertCashSankeyConservation,
+  deriveCashSankey,
+} from '@/features/reports/cashSankeyModel'
+import { deriveCashReport } from '@/features/reports/reportsModel'
+import {
+  CASH_GROUP_KEYS,
+  DEFAULT_REPORT_SETTINGS,
+  groupBalanceRows,
+  sortHoldingRows,
+  visibleCashGroups,
+  type ReportViewSettings,
+} from '@/features/reports/reportSettings'
+
+const webSrc = resolve(__dirname, '../../src')
+
+function source(relative: string): string {
+  return readFileSync(resolve(webSrc, relative), 'utf8')
+}
+
+function ledgerWith(transactions: LedgerTransaction[], today?: string): Ledger {
+  return {
+    ...createSeedLedger(),
+    transactions,
+    ...(today ? { snapshot: { ...(createSeedLedger().snapshot ?? {}), today } as never } : {}),
+  }
+}
+
+function tx(partial: Partial<LedgerTransaction> & Pick<LedgerTransaction, 'id' | 'date'>): LedgerTransaction {
+  return {
+    type: 'expense',
+    amount: 0,
+    categoryId: 'food',
+    accountId: 'wx',
+    note: '',
+    ...partial,
+  } as LedgerTransaction
+}
+
+const BALANCE = {
+  date: '2026-11-06',
+  assets: { actual: 15172915, predicted: 0 },
+  liabilities: { actual: 211840, predicted: 0 },
+  netWorth: { actual: 14961075, predicted: 0 },
+  assetNodes: [
+    {
+      id: 'ac-savings',
+      name: '储蓄卡',
+      actual: 6027695,
+      children: [{ id: 'cmb', name: '招商储蓄卡', actual: 6027695 }],
+    },
+    {
+      id: 'ac-cash',
+      name: '现金等价',
+      actual: 500220,
+      children: [
+        { id: 'wx', name: '微信零钱', actual: 124020 },
+        { id: 'zfb', name: '支付宝', actual: 376200 },
+      ],
+    },
+    {
+      id: 'ac-invest',
+      name: '投资账户',
+      actual: 8645000,
+      children: [{ id: 'brk', name: '长桥证券', actual: 8645000 }],
+    },
+  ],
+  liabilityNodes: [
+    {
+      id: 'ac-credit',
+      name: '信用账户',
+      actual: 211840,
+      children: [{ id: 'xyk', name: '交行信用卡', actual: 211840 }],
+    },
+  ],
+} as never
+
+const TREND = [
+  { label: '2026-10', netWorth: 13738835 },
+  { label: '2026-11', netWorth: 14961075 },
+]
+
+const INCOME_EXPENSE = {
+  income: { actual: 1850000 },
+  expense: { actual: 627760 },
+  balance: { actual: 1222240 },
+  incomeCategoryDetails: [{ name: '工资', categoryId: 'salary', actual: 1850000, children: [] }],
+  expenseCategoryDetails: [
+    {
+      name: '餐饮',
+      categoryId: 'food',
+      actual: 5300,
+      children: [{ name: '午餐', categoryId: 'food_lunch', actual: 2800, children: [] }],
+    },
+    { name: '居住', categoryId: 'home', actual: 560000, children: [] },
+  ],
+} as never
+
+const CASH_FLOW = {
+  cashInflow: { actual: 48800 },
+  cashOutflow: { actual: -31200 },
+  startCash: { actual: 482620 },
+  endCash: { actual: 500220 },
+  byActivity: {
+    operating: {
+      inflow: { actual: -1200 },
+      outflow: { actual: -31200 },
+      net: { actual: -32400 },
+      items: [
+        { categoryName: '教育', categoryId: 'edu', actual: -19900, direction: 'outflow', type: 'expense' },
+        { categoryName: '退款', categoryId: 'refund', actual: -1200, direction: 'inflow', type: 'refund' },
+      ],
+    },
+    investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+    financing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+    uncategorized: {
+      inflow: { actual: 50000 },
+      outflow: { actual: 0 },
+      net: { actual: 50000 },
+      items: [
+        { categoryName: '账户互转', categoryId: 'move', actual: 50000, direction: 'inflow', type: 'transfer_in' },
+      ],
+    },
+  },
+} as never
+
+describe('视图 ↔ 端点映射', () => {
+  it('四个视图各自调用对应报表端点，不拿流水重算合计', () => {
+    const adapter = source('features/reports/apiReports.ts')
+    expect(adapter).toContain('reportApi.getBalanceSheet')
+    expect(adapter).toContain('analyticsApi.getAssetTrend')
+    expect(adapter).toContain('reportApi.getIncomeExpense')
+    expect(adapter).toContain('reportApi.getCashFlow')
+    expect(adapter).toContain('reportApi.getInvestmentAnalysis')
+
+    const api = source('services/api.ts')
+    expect(api).toContain("'/reports/balance-sheet'")
+    expect(api).toContain("'/analytics/asset-trend'")
+    expect(api).toContain("'/reports/income-expense'")
+    expect(api).toContain("'/reports/cash-flow'")
+    expect(api).toContain("'/reports/investment-analysis'")
+  })
+
+  it('资产负债：账户行 / 合计 / 趋势都取自后端字段，信用卡不进资产环', () => {
+    const ledger = createSeedLedger()
+    const report = mapBalanceReport(BALANCE, TREND, ledger)
+    const rows = [...report.assets, ...report.liabilities]
+    expect(report.assetTotal).toBe(15172915)
+    expect(report.liabilityTotal).toBe(211840)
+    expect(report.netWorth).toBe(14961075)
+    expect(report.assets.map((row) => row.id)).toEqual(['brk', 'cmb', 'zfb', 'wx'])
+    expect(report.liabilities.map((row) => row.id)).toEqual(['xyk'])
+    expect(rows.some((row) => row.id === 'xyk' && report.assets.includes(row))).toBe(false)
+    expect(report.trend.at(-1)).toEqual({ month: '2026-11', value: 14961075 })
+
+    // 资产环只取正数根节点：合计 = 各块之和，信用卡不在其中。
+    const blocks = report.assets.filter((row) => row.amount > 0)
+    expect(blocks.reduce((sum, row) => sum + row.amount, 0)).toBe(report.assetTotal)
+    expect(blocks.every((row) => row.id !== 'xyk')).toBe(true)
+  })
+
+  it('收支明细：合计 / 分类树来自后端，笔数取完整期间流水', () => {
+    const transactions = [
+      tx({ id: 't1', date: '2026-11-01', amount: 1850000, type: 'income', categoryId: 'salary', accountId: 'cmb' }),
+      tx({ id: 't2', date: '2026-11-06', amount: 5300, categoryId: 'food' }),
+      tx({ id: 't3', date: '2026-11-30', amount: 560000, categoryId: 'home', accountId: 'cmb' }),
+      tx({ id: 't4', date: '2026-10-31', amount: 999, categoryId: 'food' }),
+    ]
+    const ledger = ledgerWith(transactions)
+    const report = mapFlowReport(INCOME_EXPENSE, [{ label: '11月', income: 1850000, expense: 627760 }], ledger, '2026-11-01', '2026-11-06')
+    expect(report.income).toBe(1850000)
+    expect(report.expense).toBe(627760)
+    expect(report.balance).toBe(1222240)
+    expect(report.incomeTrees[0].count).toBe(1)
+    expect(report.expenseTrees.find((node) => node.id === 'food')?.count).toBe(1)
+    // 期间外（10-31）不计入笔数；月末 11-30 同理不计入 11-01~11-06。
+    expect(report.expenseTrees.find((node) => node.id === 'home')?.count).toBe(0)
+    expect(report.series[0]).toEqual({ label: '11月', income: 1850000, expense: 627760 })
+  })
+
+  it('现金流：合计 / 期初 / 期末 / 分组来自后端，退款冲减流入不制造负数分组', () => {
+    const transactions = [
+      tx({ id: 'c1', date: '2026-11-02', amount: 50000, type: 'transfer', categoryId: 'move', accountId: 'cmb' }),
+      tx({ id: 'c2', date: '2026-11-03', amount: 19900, categoryId: 'edu' }),
+    ]
+    const report = mapCashReport(CASH_FLOW, ledgerWith(transactions), '2026-11-01', '2026-11-06')
+    expect(report.inflowTotal).toBe(48800)
+    expect(report.outflowTotal).toBe(31200)
+    expect(report.openingCash).toBe(482620)
+    expect(report.closingCash).toBe(500220)
+    expect(report.inflowGroups.map((group) => group.name)).toEqual(['未分类'])
+    expect(report.outflowGroups.map((group) => group.name)).toEqual(['经营'])
+    expect(report.inflowGross).toBe(50000)
+    expect(report.outflowGross).toBe(32400)
+    expect(report.outflowGroups[0].children.some((child) => child.label === '退款')).toBe(true)
+
+    const sankey = deriveCashSankey(ledgerWith(transactions), report, DEFAULT_REPORT_SETTINGS.cash.groups)
+    expect(sankey.status).toBe('ready')
+    expect(sankey.difference).toBe(0)
+    expect(sankey.inflow).toBe(50000)
+    expect(sankey.outflow).toBe(32400)
+  })
+
+  it('投资分析：汇总 / 收益 / 分布 / 持仓取自后端；无投资账户时返回 null', () => {
+    const data = {
+      totalInvestment: 8645000,
+      returnAnalysis: { cumulativeReturnRate: 12.5, xirr: 8.2, twr: 9.1 },
+      byCategory: [{ categoryId: 'ac-invest', categoryName: '投资账户', balance: 8645000, ratio: 100 }],
+      trend: [{ month: '2026-11', investment: 8645000 }],
+      byAccountAllocation: [
+        {
+          accountId: 'brk',
+          accountName: '长桥证券',
+          balance: 8645000,
+          returnRate: 12.5,
+          items: [
+            { assetClassId: 'stock', name: '股票', marketValue: 6000000, targetRatio: 60, periodReturn: 600000, returnRate: 10, rebalanceAmount: 0 },
+            { assetClassId: 'fund', name: '基金', marketValue: 2645000, targetRatio: 40, periodReturn: 264500, returnRate: 10, rebalanceAmount: 0 },
+          ],
+        },
+      ],
+    } as never
+    const report = mapInvestmentReport(data)
+    expect(report).not.toBeNull()
+    expect(report!.total).toBe(8645000)
+    expect(report!.gainTotal).toBe(864500)
+    expect(report!.costTotal).toBe(8645000 - 864500)
+    expect(report!.holdings[0].marketValue).toBe(8645000)
+    expect(report!.allocation.map((row) => row.name).sort()).toEqual(['基金', '股票'])
+    expect(mapInvestmentReport(null)).toBeNull()
+  })
+})
+
+describe('期间边界与锚点', () => {
+  it('页面合计直接等于后端返回，不受本地流水过滤影响', () => {
+    const ledger = ledgerWith([
+      tx({ id: 'b1', date: '2026-11-01', amount: 100 }),
+      tx({ id: 'b2', date: '2026-11-30', amount: 200 }),
+    ])
+    const report = mapFlowReport(INCOME_EXPENSE, [], ledger, '2026-11-01', '2026-11-30')
+    expect(report.income).toBe(1850000)
+    expect(report.expense).toBe(627760)
+  })
+
+  it('锚点跟真实今天 / 最新流水走，不再停在 2026-10-28', () => {
+    expect(ledgerAnchorDay(ledgerWith([], '2026-11-06'))).toBe('2026-11-06')
+    expect(
+      ledgerAnchorDay(ledgerWith([tx({ id: 'f1', date: '2027-01-02' })], '2026-11-06')),
+    ).toBe('2027-01-02')
+    expect(ledgerAnchorDay(createSeedLedger())).toBe('2026-10-28')
+  })
+})
+
+describe('桑基守恒（真数据适配）', () => {
+  it('逐月差值都为 0（用同一后端口径构造 12 个月）', () => {
+    const ledger = ledgerWith([
+      tx({ id: 's1', date: '2026-11-02', amount: 50000, type: 'transfer', categoryId: 'move', accountId: 'cmb' }),
+    ])
+    const rows = []
+    for (let month = 1; month <= 12; month += 1) {
+      const from = `2026-${String(month).padStart(2, '0')}-01`
+      const to = `2026-${String(month).padStart(2, '0')}-28`
+      const report = mapCashReport(CASH_FLOW, ledger, from, to)
+      const sankey = deriveCashSankey(ledger, report, DEFAULT_REPORT_SETTINGS.cash.groups)
+      rows.push(assertCashSankeyConservation(sankey.opening, sankey.inflow, sankey.outflow, sankey.closing))
+    }
+    expect(rows).toEqual(new Array(12).fill(0))
+  })
+
+  it('种子模式仍用本地口径，不受 API 字段影响', () => {
+    const seed = createSeedLedger()
+    const report = deriveCashReport(seed, '2026-10-01', '2026-10-31')
+    const sankey = deriveCashSankey(seed, report, DEFAULT_REPORT_SETTINGS.cash.groups)
+    expect(assertCashSankeyConservation(sankey.opening, sankey.inflow, sankey.outflow, sankey.closing)).toBe(0)
+  })
+})
+
+describe('配置只影响展示', () => {
+  const settings: ReportViewSettings = {
+    ...DEFAULT_REPORT_SETTINGS,
+    cash: { groups: { ...DEFAULT_REPORT_SETTINGS.cash.groups, 经营: false } },
+  }
+
+  it('资产负债：按性质汇总后行数变化', () => {
+    const report = mapBalanceReport(BALANCE, TREND, createSeedLedger())
+    expect(groupBalanceRows(report.assets, 'account')).toHaveLength(4)
+    expect(groupBalanceRows(report.assets, 'kind')).toHaveLength(3)
+    const mixed = [
+      ...report.assets,
+      { ...report.assets[1], id: 'cmb2', name: '招商二卡', amount: 100 },
+    ]
+    expect(groupBalanceRows(mixed, 'account')).toHaveLength(5)
+    expect(groupBalanceRows(mixed, 'kind')).toHaveLength(3)
+  })
+
+  it('现金流：隐藏经营组后表格少一行，桑基并入「其他」仍守恒', () => {
+    const ledger = ledgerWith([])
+    const report = mapCashReport(CASH_FLOW, ledger, '2026-11-01', '2026-11-06')
+    expect(visibleCashGroups(report.outflowGroups, DEFAULT_REPORT_SETTINGS.cash)).toHaveLength(1)
+    expect(visibleCashGroups(report.outflowGroups, settings.cash)).toHaveLength(0)
+    const sankey = deriveCashSankey(ledger, report, settings.cash.groups)
+    expect(sankey.status).toBe('ready')
+    expect(sankey.difference).toBe(0)
+    expect(sankey.hiddenGroups).toBe(1)
+  })
+
+  it('投资分析：按收益率排序时持仓顺序变化，配置键仍是四个', () => {
+    const data = {
+      totalInvestment: 100,
+      returnAnalysis: { cumulativeReturnRate: 0, xirr: 0, twr: 0 },
+      byCategory: [],
+      trend: [],
+      byAccountAllocation: [
+        { accountId: 'a', accountName: 'A', balance: 100, returnRate: 1, items: [] },
+        { accountId: 'b', accountName: 'B', balance: 100, returnRate: 20, items: [] },
+      ],
+    } as never
+    const report = mapInvestmentReport(data)!
+    const byValue = sortHoldingRows(report.holdings, 'marketValue').map((row) => row.id)
+    const byRate = sortHoldingRows(report.holdings, 'rate').map((row) => row.id)
+    expect(byRate[0]).toBe('b')
+    expect(byValue.length).toBe(2)
+    expect(Object.keys(DEFAULT_REPORT_SETTINGS)).toEqual(['balance', 'flow', 'cash', 'invest'])
+    expect(CASH_GROUP_KEYS).toHaveLength(5)
+  })
+})
+
+describe('无写调用', () => {
+  it('报表页与接入层只读，不引用任何写接口', () => {
+    const page = source('features/reports/ReportsPage.tsx')
+    const adapter = source('features/reports/apiReports.ts')
+    for (const text of [page, adapter]) {
+      expect(text).not.toMatch(/transactionApi\.(create|update|delete)/)
+      expect(text).not.toMatch(/reportApi\.\w+Post|api\.post|api\.put|api\.delete/)
+      expect(text).not.toContain('fetchAllTransactions')
+    }
+  })
+
+  it('账本拉取改为完整期间分页，不再用 dashboard 的最近 8 笔', () => {
+    const apiLedger = source('features/overview/apiLedger.ts')
+    expect(apiLedger).toContain('fetchAllTransactions')
+    expect(apiLedger).toContain('transactionApi.getAll')
+    expect(apiLedger).toContain('payload.transactions.map')
+    expect(apiLedger).not.toContain('payload.dashboard.recentTransactions.map')
+  })
+})
