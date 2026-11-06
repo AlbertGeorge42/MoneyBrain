@@ -174,6 +174,16 @@
   --mb-color-cat-4: #6d4fd6;
   --mb-color-cat-5: #c25383;
   --mb-color-cat-6: #b07a0b;
+  /* 图表序列色：只用于图表填充（环形 / 堆叠条 / 后续桑基），不用于分类图标；
+     cat-* 退出图表填充，仅保留给分类图标与标签底色。相邻槽按色盲 ΔE 排序，
+     同一张图最多 7 个有色项，第 8 类并入「其余 N 类」。 */
+  --mb-chart-series-1: #1b6fa8;
+  --mb-chart-series-2: #c25e00;
+  --mb-chart-series-3: #0c7a80;
+  --mb-chart-series-4: #6b4fd1;
+  --mb-chart-series-5: #8a7a0a;
+  --mb-chart-series-6: #c24a8a;
+  --mb-chart-series-7: #8c9188;
   --mb-color-chart-axis: #63686e;
   --mb-color-chart-grid: #e3e5e0;
   --mb-color-chart-tooltip-bg: #14161a;
@@ -241,6 +251,14 @@
   --mb-color-cat-4: #d9a21b;
   --mb-color-cat-5: #34d399;
   --mb-color-cat-6: #ff7ab6;
+  /* 图表序列色：暗色另调一套（沿用浅色档会失去对暗底对比），规则同浅色。 */
+  --mb-chart-series-1: #6fa8dc;
+  --mb-chart-series-2: #e08a3c;
+  --mb-chart-series-3: #45c9c0;
+  --mb-chart-series-4: #a78bfa;
+  --mb-chart-series-5: #d6c24a;
+  --mb-chart-series-6: #e86fb2;
+  --mb-chart-series-7: #8a9196;
   --mb-color-chart-axis: #7f878d;
   --mb-color-chart-grid: #242a2e;
   --mb-color-chart-tooltip-bg: #16191b;

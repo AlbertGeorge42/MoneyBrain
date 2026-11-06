@@ -105,19 +105,20 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
     node('transit', '交通', 2_000),
     node('other', '其他', 490),
   ]
-  const rest = trees.slice(5)
+  // 环形为一级根分类 Top 6 + 「其余」，因此 8 类时只合并最后 2 类。
+  const rest = trees.slice(6)
   const restNode: FlowTreeNode = {
     id: 'rest',
-    name: '其余 3 类',
-    amount: 5_490,
-    count: 3,
+    name: '其余 2 类',
+    amount: 2_490,
+    count: 2,
     share: 0,
     level: 0,
     children: rest.map((item) => ({ ...item, level: 1 as const, children: [] })),
     mergedIds: rest.map((item) => item.id),
   }
 
-  it('合并桶「其余 3 类」金额与下钻同口径，不列构成说明', () => {
+  it('合并桶「其余 2 类」金额与下钻同口径，不列构成说明', () => {
     const { container } = render(
       <CompositionBars
         incomeTrees={[]}
@@ -131,16 +132,16 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
       item.querySelector('.mb-rp-compare-name')?.textContent?.includes('其余'),
     )
     // 合并桶不再叫「其他」，避免与根分类「其他 ¥2.40」重名。
-    expect(row?.querySelector('.mb-rp-compare-name')?.textContent).toContain('其余 3 类')
+    expect(row?.querySelector('.mb-rp-compare-name')?.textContent).toContain('其余 2 类')
     expect(row?.querySelector('.mb-rp-compare-hint')).toBeNull()
-    expect(row?.querySelector('.mb-rp-compare-amount')?.textContent).toBe('¥54.90')
+    expect(row?.querySelector('.mb-rp-compare-amount')?.textContent).toBe('¥24.90')
   })
 
   it('点进「其余」的下钻金额与被点行一致', () => {
     const drill = buildDrill(createSeedLedger(), restNode, 'expense', '2026-10-01', '2026-10-28')
-    expect(drill.title).toBe('其余 3 类')
-    expect(drill.amount).toBe(5_490)
-    expect(drill.children.reduce((sum, child) => sum + child.amount, 0)).toBe(5_490)
+    expect(drill.title).toBe('其余 2 类')
+    expect(drill.amount).toBe(2_490)
+    expect(drill.children.reduce((sum, child) => sum + child.amount, 0)).toBe(2_490)
   })
 
   it('子级行挂「†」角标，可见行相加不再被当作合计', () => {
@@ -183,7 +184,7 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
     const [openedNode, kind] = onOpen.mock.calls[0] as [FlowTreeNode, string]
     expect(kind).toBe('expense')
     expect(openedNode.id).toBe('rest')
-    expect(openedNode.amount).toBe(5_490)
+    expect(openedNode.amount).toBe(2_490)
     expect(openedNode.mergedIds).toEqual(rest.map((item) => item.id))
   })
 })

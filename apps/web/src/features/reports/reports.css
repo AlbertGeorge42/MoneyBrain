@@ -973,18 +973,20 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   background: var(--mb-color-expense-display);
 }
 
-progress.mb-rp-progress.is-cat-1::-webkit-progress-value { background: var(--mb-color-cat-1); }
-progress.mb-rp-progress.is-cat-2::-webkit-progress-value { background: var(--mb-color-cat-2); }
-progress.mb-rp-progress.is-cat-3::-webkit-progress-value { background: var(--mb-color-cat-3); }
-progress.mb-rp-progress.is-cat-4::-webkit-progress-value { background: var(--mb-color-cat-4); }
-progress.mb-rp-progress.is-cat-5::-webkit-progress-value { background: var(--mb-color-cat-5); }
-progress.mb-rp-progress.is-cat-6::-webkit-progress-value { background: var(--mb-color-cat-6); }
-progress.mb-rp-progress.is-cat-1::-moz-progress-bar { background: var(--mb-color-cat-1); }
-progress.mb-rp-progress.is-cat-2::-moz-progress-bar { background: var(--mb-color-cat-2); }
-progress.mb-rp-progress.is-cat-3::-moz-progress-bar { background: var(--mb-color-cat-3); }
-progress.mb-rp-progress.is-cat-4::-moz-progress-bar { background: var(--mb-color-cat-4); }
-progress.mb-rp-progress.is-cat-5::-moz-progress-bar { background: var(--mb-color-cat-5); }
-progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color-cat-6); }
+progress.mb-rp-progress.is-series-1::-webkit-progress-value { background: var(--mb-chart-series-1); }
+progress.mb-rp-progress.is-series-2::-webkit-progress-value { background: var(--mb-chart-series-2); }
+progress.mb-rp-progress.is-series-3::-webkit-progress-value { background: var(--mb-chart-series-3); }
+progress.mb-rp-progress.is-series-4::-webkit-progress-value { background: var(--mb-chart-series-4); }
+progress.mb-rp-progress.is-series-5::-webkit-progress-value { background: var(--mb-chart-series-5); }
+progress.mb-rp-progress.is-series-6::-webkit-progress-value { background: var(--mb-chart-series-6); }
+progress.mb-rp-progress.is-series-7::-webkit-progress-value { background: var(--mb-chart-series-7); }
+progress.mb-rp-progress.is-series-1::-moz-progress-bar { background: var(--mb-chart-series-1); }
+progress.mb-rp-progress.is-series-2::-moz-progress-bar { background: var(--mb-chart-series-2); }
+progress.mb-rp-progress.is-series-3::-moz-progress-bar { background: var(--mb-chart-series-3); }
+progress.mb-rp-progress.is-series-4::-moz-progress-bar { background: var(--mb-chart-series-4); }
+progress.mb-rp-progress.is-series-5::-moz-progress-bar { background: var(--mb-chart-series-5); }
+progress.mb-rp-progress.is-series-6::-moz-progress-bar { background: var(--mb-chart-series-6); }
+progress.mb-rp-progress.is-series-7::-moz-progress-bar { background: var(--mb-chart-series-7); }
 
 /* ===== 图表 ===== */
 
@@ -1247,6 +1249,98 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
 
 .mb-rp-compare-amount {
   flex: none;
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 支出构成环形（纯 SVG）：面积按金额占比，图例三件套；移动端图例行 44px 命中。 */
+.mb-rp-compare.is-mobile {
+  grid-template-columns: 1fr;
+}
+
+.mb-rp-donut {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+.mb-rp-donut-chart {
+  display: flex;
+  justify-content: center;
+}
+
+.mb-rp-donut-svg {
+  flex: none;
+  shape-rendering: geometricPrecision;
+}
+
+.mb-rp-donut-slice {
+  cursor: pointer;
+}
+
+.mb-rp-donut-arc,
+.mb-rp-donut-rest {
+  pointer-events: none;
+}
+
+.mb-rp-donut-slice:hover .mb-rp-donut-arc {
+  opacity: 0.86;
+}
+
+.mb-rp-donut-hit {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.mb-rp-donut-center-label {
+  fill: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-donut-center-value {
+  fill: var(--mb-color-text-primary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-donut-legend {
+  display: flex;
+  flex-direction: column;
+}
+
+.mb-rp-donut-legend-row {
+  min-height: 24px;
+  padding-block: 2px;
+}
+
+.mb-rp-donut.is-mobile .mb-rp-donut-legend-row {
+  min-height: var(--mb-touch);
+  padding-block: 0;
+  justify-content: center;
+}
+
+.mb-rp-donut-swatch {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.mb-rp-donut-meta {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-donut-pct {
+  min-width: 38px;
+  text-align: right;
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-secondary);

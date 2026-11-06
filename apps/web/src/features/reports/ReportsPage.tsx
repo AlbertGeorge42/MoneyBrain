@@ -563,6 +563,7 @@ function FlowView({
             expenseTrees={report.expenseTrees}
             incomeTotal={report.income}
             expenseTotal={report.expense}
+            device={device}
             onOpen={onDrill}
           />
         </>,
