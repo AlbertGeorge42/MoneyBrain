@@ -169,6 +169,9 @@
   --mb-progress-warning: #c26600;
   --mb-progress-over: #ca4d40;
   --mb-progress-track: #a4a8a2;
+  /* 超支宽度由组件内联覆盖；这里的默认值只给 CSS 变量守卫与兜底。 */
+  --mb-fill-width: 0%;
+  --mb-over-min: calc(76.9231% + 8px);
   --mb-color-cat-1: #3f7d0f;
   --mb-color-cat-2: #0f7d6a;
   --mb-color-cat-3: #1b6fa8;

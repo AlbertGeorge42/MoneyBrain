@@ -7,6 +7,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   BudgetProgress,
   type BudgetProgressLevel,
@@ -109,5 +111,42 @@ describe('BudgetProgress', () => {
     // 超过 130% 时真实宽度已大于保底，max() 取 100%。
     expect(fill?.style.getPropertyValue('--mb-fill-width')).toBe('100%')
     expect(fill?.style.getPropertyValue('--mb-over-min')).toBe(OVER_MIN)
+  })
+})
+
+describe('进度条口径与 token 落地', () => {
+  // vitest 的工作目录是 apps/web，仓库根在上两级。
+  const repoRoot = path.resolve(process.cwd(), '../..')
+  const read = (relative: string) => fs.readFileSync(path.join(repoRoot, relative), 'utf8')
+  const tokensDoc = read('docs/blueprint/ux/design-tokens.md')
+  const specDoc = read('docs/blueprint/ux/interaction-spec.md')
+  const variables = read('apps/web/src/styles/theme/variables.css')
+  const progressCss = read('apps/web/src/features/shared/budgetProgress.css')
+
+  it('§2.7 与 §6.2 不再残留「对轨道 ≥3:1」旧口径', () => {
+    const tokenSection = tokensDoc.slice(tokensDoc.indexOf('### 2.7'), tokensDoc.indexOf('### 2.8'))
+    const specSection = specDoc.slice(specDoc.indexOf('## 6. 预算'), specDoc.indexOf('## 7.'))
+    expect(tokenSection.length).toBeGreaterThan(100)
+    expect(specSection.length).toBeGreaterThan(100)
+    expect(tokenSection).not.toContain('≥3:1')
+    expect(specSection).not.toContain('≥3:1')
+  })
+
+  it('新口径与 neutral / track token 写进文档', () => {
+    expect(tokensDoc).toContain('≥1.6 明度比且 ΔE00 ≥20')
+    expect(tokensDoc).toContain('--mb-progress-neutral')
+    expect(tokensDoc).toContain('--mb-progress-track')
+    expect(specDoc).toContain('--mb-progress-neutral')
+  })
+
+  it('轨道不再借用 border-strong，超支用 max() 取 6px 保底', () => {
+    expect(progressCss).toContain('var(--mb-progress-track)')
+    expect(progressCss).not.toContain('border-strong')
+    expect(progressCss).toContain('max(var(--mb-fill-width), var(--mb-over-min))')
+  })
+
+  it('两套绿已合并：没有 achieved token，normal 仍是唯一绿', () => {
+    expect(variables).not.toContain('--mb-progress-achieved')
+    expect(variables.match(/--mb-progress-normal/g)?.length).toBe(2)
   })
 })

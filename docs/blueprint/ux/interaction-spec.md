@@ -481,11 +481,12 @@ PC                                   移动
 - 环形中心是**百分比**，下方是「已用 ¥x / ¥y」——百分比用于快读，金额用于决策。
 - **分类列表**每行三段：名称 / 进度条 / `已用 / 限额`，超支行加「超支」标记。
 - **条面与文字解耦**（用户拍板）：「文字这套颜色不适合作为进度条」——填充不再引用
-  `accent` / `expense` 等文字色，改用填充专用 token `--mb-progress-normal / -neutral /
-  -warning / -over`（`normal` 与 `achieved` 是**同一个绿** = 「良好」，代码不留第二套绿；
+  `accent` / `expense` 等文字色，改用填充专用 token `--mb-progress-normal /
+  --mb-progress-neutral / --mb-progress-warning / --mb-progress-over`（`normal` 与
+  `achieved` 是**同一个绿** = 「良好」，代码不留第二套绿；
   `neutral` = 进行中；颜色只用于条面；验收口径：对卡片 ≥4.0、对轨道 ≥1.6 明度比
   且 ΔE00 ≥20，见 design-tokens §2.7）；条高 **6px**、圆角、**无描边**，轨道取
-  `--mb-progress-track`。旧「填充对轨道 ≥3:1」口径已作废：3:1 是给只能靠颜色理解的
+  `--mb-progress-track`。旧「填充对轨道固定 3:1」口径已作废：3:1 是给只能靠颜色理解的
   图形用的，我们的状态有文字，卡 3:1 只会逼出反主题的深色。
 - **文字回到文字体系**：分类名恒为 `primary`；`normal`（含 `achieved`、`neutral`）行的
   百分比与状态文字用 `secondary`；只有 `warning` / `over` 行的状态文字用语义色并带
