@@ -91,6 +91,9 @@ export function TxRow({
             </>
           )}
           <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
+          {transaction.excludeFromIncomeExpense && (
+            <span className="mb-tx-excluded">不计收支</span>
+          )}
           <RefundRelationTag ledger={ledger} transaction={transaction} onOpenRelated={onOpenRelated} />
           <RefundStateTag ledger={ledger} transaction={transaction} />
         </span>

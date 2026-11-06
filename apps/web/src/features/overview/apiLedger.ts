@@ -128,6 +128,7 @@ function toBaseLedgerTransaction(
     fee: transaction.fee || undefined,
     relatedTransactionId: transaction.relatedTransactionId ?? undefined,
     relatedType: transaction.relatedType ? asTxType(transaction.relatedType) : null,
+    excludeFromIncomeExpense: transaction.excludeFromIncomeExpense || undefined,
   }
 }
 

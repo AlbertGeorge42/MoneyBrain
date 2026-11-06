@@ -81,6 +81,8 @@ export interface LedgerTransaction {
   refundedAmount?: number
   /** 原交易剩余可退金额。 */
   remainingAmount?: number
+  /** 不计收支：仍影响账户余额，但不进收入/支出统计、预算用量。 */
+  excludeFromIncomeExpense?: boolean
 }
 
 /**
@@ -229,6 +231,8 @@ export interface NewTransactionInput {
   fee?: number
   /** 退款可选关联原交易；不填 = 未关联退款（照常记账，只影响余额）。 */
   relatedTransactionId?: string
+  /** 不计收支：仍影响余额，但不进收入/支出统计与预算用量。 */
+  excludeFromIncomeExpense?: boolean
 }
 
 const SEED_ACCOUNTS: LedgerAccount[] = [
@@ -726,6 +730,9 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
           relatedTransactionId: related?.id,
           relatedType,
         }
+      : {}),
+    ...(input.excludeFromIncomeExpense && input.type !== 'transfer' && input.type !== 'adjustment'
+      ? { excludeFromIncomeExpense: true }
       : {}),
   }
 

@@ -183,6 +183,7 @@ router.get('/stats', validateRequest(validateStatsQuery), asyncHandler(async (re
     type: toStringArray(req.query.type),
     startDate: parseRangeDate(req.query.startDate, false),
     endDate: parseRangeDate(req.query.endDate, true),
+    includeExcluded: req.query.includeExcluded === 'true',
   })
 
   return success(res, stats)

@@ -357,4 +357,60 @@ describe('退款对统计数据的影响', () => {
     expect(stats.body.data.income).toBe(1000)
     expect(stats.body.data.expense).toBe(400)
   })
+
+  it('统计开关：默认排除「不计收支」，includeExcluded=true 时计入全貌', async () => {
+    const today = new Date().toISOString().split('T')[0]
+    const otherAccount = await prisma.account.create({
+      data: { name: '转账目标账户', type: 'asset', initialBalance: 0 },
+    })
+    await prisma.transaction.create({
+      data: { type: 'income', amount: 100_000, accountId: testAccountId, date: new Date() },
+    })
+    await prisma.transaction.create({
+      data: { type: 'expense', amount: 50_000, accountId: testAccountId, date: new Date() },
+    })
+    // 被标记为「不计收支」的支出与转账：余额照常变化，但默认不进收支合计。
+    const excludedExpense = await prisma.transaction.create({
+      data: {
+        type: 'expense',
+        amount: 30_000,
+        accountId: testAccountId,
+        date: new Date(),
+        excludeFromIncomeExpense: true,
+      },
+    })
+    await prisma.transaction.create({
+      data: {
+        type: 'transfer',
+        amount: 20_000,
+        accountId: testAccountId,
+        toAccountId: otherAccount.id,
+        date: new Date(),
+        excludeFromIncomeExpense: true,
+      },
+    })
+
+    const excluded = await request(app)
+      .get('/api/transactions/stats')
+      .query({ startDate: today, endDate: today })
+    expect(excluded.body.data.income).toBe(100_000)
+    expect(excluded.body.data.expense).toBe(50_000)
+    expect(excluded.body.data.balance).toBe(50_000)
+    expect(excluded.body.data.transferCount).toBe(0)
+
+    const included = await request(app)
+      .get('/api/transactions/stats')
+      .query({ startDate: today, endDate: today, includeExcluded: 'true' })
+    expect(included.body.data.income).toBe(100_000)
+    expect(included.body.data.expense).toBe(80_000)
+    expect(included.body.data.balance).toBe(20_000)
+    expect(included.body.data.transferCount).toBe(1)
+
+    // 影响面：标记只改统计口径，余额与净资产照常计入。
+    const balance = await request(app)
+      .get(`/api/accounts/${testAccountId}/balance-at`)
+      .query({ date: '2099-12-31' })
+    expect(balance.body.data.balance).toBe(0)
+    expect(await prisma.transaction.findUnique({ where: { id: excludedExpense.id } })).not.toBeNull()
+  })
 })

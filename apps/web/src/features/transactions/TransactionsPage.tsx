@@ -248,6 +248,7 @@ export function TransactionsPage({
   const [type, setType] = useState<TypeFilter>('all')
   const [advanced, setAdvanced] = useState<AdvancedFilters>(EMPTY_ADVANCED)
   const [restoreNotice, setRestoreNotice] = useState<string[]>([])
+  const [includeExcluded, setIncludeExcluded] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
@@ -360,7 +361,10 @@ export function TransactionsPage({
   const today = ledger.snapshot?.today ?? TODAY
   const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
   const groups = groupTransactions(sorted, today)
-  const { current: monthTotals, future: futureTotals } = splitTotalsByToday(filtered, today)
+  const { current: monthTotals, future: futureTotals } = splitTotalsByToday(filtered, today, {
+    includeExcluded,
+  })
+  const excludedCount = filtered.filter((transaction) => transaction.excludeFromIncomeExpense).length
   const chips = filterChips(ledger, filters)
   // 关联对方可能不在当前筛选结果里，但一定作为 relatedTransaction/refunds 嵌在行上；
   // 递归查找让「退款 → 原交易」「原交易 → 退款」都能直接打开详情。
@@ -676,6 +680,9 @@ export function TransactionsPage({
           batchMode={batchMode}
           display={display}
           selected={selected}
+          includeExcluded={includeExcluded}
+          excludedCount={excludedCount}
+          onToggleExcluded={() => setIncludeExcluded((current) => !current)}
           onToggle={toggleSelected}
           onOpenDetail={setDetailId}
           onOpenRelated={handleOpenRelated}

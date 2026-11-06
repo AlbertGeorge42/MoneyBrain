@@ -166,14 +166,24 @@ export function transactionNet(transaction: LedgerTransaction): number {
   return 0
 }
 
-export function summarizeTransactions(transactions: readonly LedgerTransaction[]): TransactionTotals {
+export interface SummarizeOptions {
+  /** 默认排除标了「不计收支」的交易；true = 全貌口径（含它们）。 */
+  includeExcluded?: boolean
+}
+
+export function summarizeTransactions(
+  transactions: readonly LedgerTransaction[],
+  options: SummarizeOptions = {},
+): TransactionTotals {
   let income = 0
   let expense = 0
   for (const transaction of transactions) {
+    if (!options.includeExcluded && transaction.excludeFromIncomeExpense) continue
     if (transaction.type === 'income' || transaction.type === 'refund') income += Math.abs(transaction.amount)
     if (transaction.type === 'expense') expense += Math.abs(transaction.amount)
     // 平账（adjustment）只修正账户余额，不属于收入/支出，绝不进流水页合计。
   }
+  // 笔数始终是当前筛选结果的完整条数；开关只改金额口径，不改列表内容。
   return { count: transactions.length, income, expense, net: income - expense }
 }
 
@@ -184,6 +194,7 @@ export function summarizeTransactions(transactions: readonly LedgerTransaction[]
 export function splitTotalsByToday(
   transactions: readonly LedgerTransaction[],
   today = TODAY,
+  options: SummarizeOptions = {},
 ): { current: TransactionTotals; future: TransactionTotals } {
   const current: LedgerTransaction[] = []
   const future: LedgerTransaction[] = []
@@ -191,7 +202,10 @@ export function splitTotalsByToday(
     if (transaction.date > today) future.push(transaction)
     else current.push(transaction)
   }
-  return { current: summarizeTransactions(current), future: summarizeTransactions(future) }
+  return {
+    current: summarizeTransactions(current, options),
+    future: summarizeTransactions(future, options),
+  }
 }
 
 export function groupTransactions(
@@ -202,7 +216,8 @@ export function groupTransactions(
   const groups: GroupedTransactions[] = []
 
   for (const group of base) {
-    const totals = summarizeTransactions(group.items)
+    // 分组小计是「当天资金变动」：含不计收支标记，保证与列表金额自洽。
+    const totals = summarizeTransactions(group.items, { includeExcluded: true })
     const summary = { net: totals.net, income: totals.income, expense: totals.expense }
     // 未来记录合并成一个组时，组头只标第一笔的日期，跨天/跨年会误读成同一天。
     // 按各笔自己的日期拆组，组头带年份与星期。
@@ -214,7 +229,7 @@ export function groupTransactions(
         byDate.set(transaction.date, items)
       }
       for (const [date, items] of byDate) {
-        const dayTotals = summarizeTransactions(items)
+        const dayTotals = summarizeTransactions(items, { includeExcluded: true })
         groups.push({
           date,
           label: `未来 · ${formatDateLabel(date)}`,

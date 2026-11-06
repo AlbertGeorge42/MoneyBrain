@@ -30,6 +30,29 @@ function CheckBox({ checked }: { checked: boolean }) {
   )
 }
 
+function ExcludedToggle({
+  includeExcluded,
+  excludedCount,
+  onToggle,
+}: {
+  includeExcluded: boolean
+  excludedCount: number
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={includeExcluded ? 'mb-tx-excluded-toggle is-active' : 'mb-tx-excluded-toggle'}
+      aria-pressed={includeExcluded}
+      title="默认只统计计入收支的流水；切换后把标记为「不计收支」的交易也并入合计"
+      onClick={onToggle}
+    >
+      {includeExcluded ? '包含不计收支' : '不含不计收支'}
+      {excludedCount > 0 && <span className="mb-tx-excluded-count">{excludedCount}</span>}
+    </button>
+  )
+}
+
 function DesktopTable({
   groups,
   totals,
@@ -37,6 +60,9 @@ function DesktopTable({
   batchMode,
   display,
   selected,
+  includeExcluded,
+  excludedCount,
+  onToggleExcluded,
   onToggle,
   onOpenDetail,
   onOpenRelated,
@@ -47,6 +73,9 @@ function DesktopTable({
   batchMode: boolean
   display: DisplaySettings
   selected: ReadonlySet<string>
+  includeExcluded: boolean
+  excludedCount: number
+  onToggleExcluded: () => void
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
   onOpenRelated?: (transaction: LedgerTransaction) => void
@@ -108,6 +137,11 @@ function DesktopTable({
       {/* 合计条独立于列表卡片：卡片 overflow:hidden 会让 sticky 失效。 */}
       <div className="mb-tx-foot">
         <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
+        <ExcludedToggle
+          includeExcluded={includeExcluded}
+          excludedCount={excludedCount}
+          onToggle={onToggleExcluded}
+        />
         <span className="mb-tx-foot-flow">
           支出 <strong className="is-expense">{signedMinorText(-totals.expense)}</strong>
           收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
@@ -124,6 +158,9 @@ function MobileList({
   batchMode,
   display,
   selected,
+  includeExcluded,
+  excludedCount,
+  onToggleExcluded,
   onToggle,
   onOpenDetail,
   onOpenRelated,
@@ -134,6 +171,9 @@ function MobileList({
   batchMode: boolean
   display: DisplaySettings
   selected: ReadonlySet<string>
+  includeExcluded: boolean
+  excludedCount: number
+  onToggleExcluded: () => void
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
   onOpenRelated?: (transaction: LedgerTransaction) => void
@@ -186,6 +226,9 @@ function MobileList({
                     </span>
                     <span className="mb-tx-m-meta">
                       <span className="mb-tx-m-meta-text">{meta}</span>
+                      {transaction.excludeFromIncomeExpense && (
+                        <span className="mb-tx-excluded">不计收支</span>
+                      )}
                       {!batchMode && (
                         <>
                           <RefundRelationTag ledger={ledger} transaction={transaction} onOpenRelated={onOpenRelated} />
@@ -203,9 +246,16 @@ function MobileList({
           </div>
         </div>
       ))}
-      <p className="mb-tx-m-foot">
-        共 {totals.count} 笔 · 支出 {signedMinorText(-totals.expense)} · 收入 {signedMinorText(totals.income)}
-      </p>
+      <div className="mb-tx-m-foot">
+        <span>
+          共 {totals.count} 笔 · 支出 {signedMinorText(-totals.expense)} · 收入 {signedMinorText(totals.income)}
+        </span>
+        <ExcludedToggle
+          includeExcluded={includeExcluded}
+          excludedCount={excludedCount}
+          onToggle={onToggleExcluded}
+        />
+      </div>
     </section>
   )
 }
@@ -218,6 +268,9 @@ export function TransactionsList({
   batchMode,
   display,
   selected,
+  includeExcluded,
+  excludedCount,
+  onToggleExcluded,
   onToggle,
   onOpenDetail,
   onOpenRelated,
@@ -230,11 +283,16 @@ export function TransactionsList({
   batchMode: boolean
   display: DisplaySettings
   selected: ReadonlySet<string>
+  includeExcluded: boolean
+  excludedCount: number
+  onToggleExcluded: () => void
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
   onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
-  const { current: totals } = splitTotalsByToday(groups.flatMap((group) => group.items), today)
+  const { current: totals } = splitTotalsByToday(groups.flatMap((group) => group.items), today, {
+    includeExcluded,
+  })
 
   if (device === 'mobile') {
     return (
@@ -245,6 +303,9 @@ export function TransactionsList({
         batchMode={batchMode}
         display={display}
         selected={selected}
+        includeExcluded={includeExcluded}
+        excludedCount={excludedCount}
+        onToggleExcluded={onToggleExcluded}
         onToggle={onToggle}
         onOpenDetail={onOpenDetail}
         onOpenRelated={onOpenRelated}
@@ -260,6 +321,9 @@ export function TransactionsList({
       batchMode={batchMode}
       display={display}
       selected={selected}
+      includeExcluded={includeExcluded}
+      excludedCount={excludedCount}
+      onToggleExcluded={onToggleExcluded}
       onToggle={onToggle}
       onOpenDetail={onOpenDetail}
       onOpenRelated={onOpenRelated}

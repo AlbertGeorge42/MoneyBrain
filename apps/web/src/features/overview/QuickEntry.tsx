@@ -197,6 +197,7 @@ function EntryForm({
   const [note, setNote] = useState('')
   const [date, setDate] = useState(ledger.snapshot?.today ?? TODAY)
   const [fee, setFee] = useState('')
+  const [excluded, setExcluded] = useState(false)
   const [adjustSign, setAdjustSign] = useState<1 | -1>(1)
   const [moreOpen, setMoreOpen] = useState(false)
   const [picker, setPicker] = useState<'from' | 'to' | null>(null)
@@ -252,6 +253,8 @@ function EntryForm({
       setFee('')
     }
     if (next !== 'adjustment') setAdjustSign(1)
+    // 转账 / 调整本就不进收支统计，标记无意义，切换类型时清掉。
+    if (next === 'transfer' || next === 'adjustment') setExcluded(false)
   }
 
   const appendKey = (key: string) => {
@@ -288,6 +291,8 @@ function EntryForm({
       note,
       date,
       fee: type === 'transfer' ? feeCents ?? 0 : 0,
+      excludeFromIncomeExpense:
+        type !== 'transfer' && type !== 'adjustment' ? excluded : undefined,
     }
     setSaving(true)
     setSavingMode(mode)
@@ -499,6 +504,23 @@ function EntryForm({
             </button>
           </div>
         </fieldset>
+      )}
+
+      {!missingAccount && type !== 'transfer' && type !== 'adjustment' && (
+        <label className="mb-entry-excluded">
+          <input
+            type="checkbox"
+            className="mb-entry-excluded-input"
+            checked={excluded}
+            onChange={(event) => setExcluded(event.currentTarget.checked)}
+          />
+          <span className="mb-entry-excluded-copy">
+            <span className="mb-entry-excluded-title">不计收支</span>
+            <span className="mb-entry-excluded-hint">
+              仍影响账户余额，但不进收入/支出统计与预算用量
+            </span>
+          </span>
+        </label>
       )}
 
       <button

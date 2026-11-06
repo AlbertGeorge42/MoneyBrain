@@ -106,6 +106,8 @@ export interface TransactionListParams {
   /** 金额区间，整数分；按绝对值比较。 */
   amountMin?: number
   amountMax?: number
+  /** 统计口径：默认排除「不计收支」交易；true = 连它们一起统计。 */
+  includeExcluded?: boolean
 }
 
 export interface TransactionListResult {
@@ -544,7 +546,11 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
   // 也不会让「当前规则」误伤旧交易。
   const [grouped, transferCount] = await Promise.all([
     transactionRepo.sumActiveAmountByFlowKind(where),
-    transactionRepo.countActive({ ...where, type: 'transfer', excludeFromIncomeExpense: false }),
+    transactionRepo.countActive({
+      ...where,
+      type: 'transfer',
+      ...(params.includeExcluded ? {} : { excludeFromIncomeExpense: false }),
+    }),
   ])
 
   const flows = summarizeAggregatedFlows(
@@ -555,6 +561,7 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
       ruleVersion: row.ruleVersion,
       amount: minor(Number(row._sum.amount ?? 0)),
     })),
+    { includeExcluded: params.includeExcluded },
   )
 
   return {

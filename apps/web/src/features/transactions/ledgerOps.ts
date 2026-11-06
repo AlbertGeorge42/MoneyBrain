@@ -14,6 +14,8 @@ export interface TransactionPatch {
   amount: number
   /** 退款 / 调整入口会顺手切换交易类型；普通编辑不传。 */
   type?: TxType
+  /** 不计收支标记；不传 = 保持原值。 */
+  excludeFromIncomeExpense?: boolean
 }
 
 interface BalanceDelta {
@@ -73,6 +75,8 @@ export function updateTransactionInLedger(
     accountId: patch.accountId,
     date: patch.date,
     note: patch.note.trim() || current.note,
+    excludeFromIncomeExpense:
+      patch.excludeFromIncomeExpense ?? current.excludeFromIncomeExpense,
     // 支出取正；收入 / 转账 / 退款 / 调整保留符号（调整的负数表示减记）
     amount:
       nextType === 'adjustment'

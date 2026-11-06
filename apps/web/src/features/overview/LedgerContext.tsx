@@ -169,6 +169,10 @@ export function LedgerProvider({
         if (input.type === 'refund' && input.relatedTransactionId) {
           body.relatedTransactionId = input.relatedTransactionId
         }
+        // 不计收支是逐笔标记：转账/调整本就不进收支统计，不写入该字段。
+        if (input.excludeFromIncomeExpense && input.type !== 'transfer' && input.type !== 'adjustment') {
+          body.excludeFromIncomeExpense = true
+        }
 
         try {
           const created = await transactionApi.create(body).then(unwrapApiData)
@@ -214,6 +218,9 @@ export function LedgerProvider({
           amount: minor(patch.amount),
         }
         if (patch.type) body.type = patch.type
+        if (patch.excludeFromIncomeExpense !== undefined) {
+          body.excludeFromIncomeExpense = patch.excludeFromIncomeExpense
+        }
         // adjustment 不需要分类；其余类型把展示 id 翻回真实 id。
         if (patch.categoryId && patch.type !== 'adjustment') {
           body.categoryId = realCategoryId(ledgerRef.current, patch.categoryId)

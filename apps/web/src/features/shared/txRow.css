@@ -168,6 +168,21 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* 「不计收支」逐笔标识：行内轻量文字，与退款标记同一行，不增加行高。 */
+.mb-tx-excluded {
+  flex: none;
+  color: var(--mb-color-warning);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-tight);
+  white-space: nowrap;
+}
+
+.mb-tx-excluded::before {
+  content: '·';
+  margin-right: var(--mb-s-1);
+  color: var(--mb-color-text-tertiary);
+}
+
 .mb-tx-amount-col {
   display: flex;
   flex: none;

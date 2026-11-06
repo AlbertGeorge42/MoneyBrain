@@ -463,6 +463,39 @@
   transform: rotate(180deg);
 }
 
+/* 记账表单的逐笔「不计收支」：默认可见，不藏进「更多」。 */
+.mb-entry-excluded {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mb-s-2);
+  padding: var(--mb-s-2) var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  cursor: pointer;
+}
+
+.mb-entry-excluded-input {
+  margin: 2px 0 0;
+  accent-color: var(--mb-color-accent);
+}
+
+.mb-entry-excluded-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mb-entry-excluded-title {
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-entry-excluded-hint {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
 .mb-entry-more {
   display: grid;
   gap: var(--mb-s-3);

@@ -281,6 +281,15 @@ function DetailView({
           <dt>备注</dt>
           <dd>{transaction.note}</dd>
         </div>
+        {transaction.excludeFromIncomeExpense && (
+          <div>
+            <dt>统计</dt>
+            <dd>
+              <span className="mb-tx-badge is-excluded">不计收支</span>
+              <span className="mb-tx-detail-muted"> 仅影响余额，不进收支统计与预算</span>
+            </dd>
+          </div>
+        )}
         <div>
           <dt>交易编号</dt>
           <dd className="mb-tx-detail-code">{transaction.id}</dd>
@@ -332,6 +341,7 @@ function EditForm({
   const [accountId, setAccountId] = useState(transaction.accountId)
   const [date, setDate] = useState(transaction.date)
   const [note, setNote] = useState(transaction.note)
+  const [excluded, setExcluded] = useState(Boolean(transaction.excludeFromIncomeExpense))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -352,6 +362,7 @@ function EditForm({
   const switchType = (type: 'refund' | 'adjustment') => {
     setNextType(type)
     setCategoryId(ledger.categories.find((category) => category.type === type)?.id ?? categoryId)
+    if (type === 'adjustment') setExcluded(false)
     if (type === 'refund' && Number.isFinite(parsed) && parsed < 0) {
       setAmount(String(Math.abs(parsed)))
     }
@@ -368,6 +379,8 @@ function EditForm({
       date,
       note,
       ...(nextType !== transaction.type ? { type: nextType } : {}),
+      excludeFromIncomeExpense:
+        nextType === 'transfer' || nextType === 'adjustment' ? false : excluded,
     })
     setSaving(false)
     // 失败时保留表单与输入，错误就地回显，用户可直接重试。
@@ -446,6 +459,20 @@ function EditForm({
           onChange={(event) => setNote(event.target.value)}
         />
       </label>
+
+      {(nextType === 'income' || nextType === 'expense' || nextType === 'refund') && (
+        <label className="mb-tx-exclude-toggle">
+          <input
+            type="checkbox"
+            checked={excluded}
+            onChange={(event) => setExcluded(event.currentTarget.checked)}
+          />
+          <span>
+            不计收支
+            <span className="mb-tx-exclude-hint">仍影响余额，不进收支统计与预算</span>
+          </span>
+        </label>
+      )}
 
       {errorText && (
         <p className="mb-tx-form-error" role="alert">
