@@ -42,11 +42,12 @@
 }
 
 .mb-bg-month-btn {
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-surface-sunken);
@@ -201,6 +202,12 @@
 .mb-bg-ring.is-sm {
   width: 108px;
   height: 108px;
+}
+
+/* 深色下 sunken(#08090a) 与卡面 raised(#16191b) 只有 1.13:1，0% 空环会整个融进卡面。
+   仅在环内把赛道色换成进度轨道 token(#4a5257，对卡面 2.22:1)，仍是未填充的空环。 */
+.mb-hf-root[data-hf-scheme='dark'] .mb-bg-ring {
+  --mb-color-surface-sunken: var(--mb-progress-track);
 }
 
 .mb-bg-ring-inner {
