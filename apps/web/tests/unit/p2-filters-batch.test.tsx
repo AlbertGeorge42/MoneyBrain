@@ -7,6 +7,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { BatchBar } from '@/features/transactions/BatchBar'
 import { TransactionsList } from '@/features/transactions/TransactionsList'
@@ -259,22 +260,25 @@ describe('#9 未来记录不计入本月合计', () => {
 
   it('页头与页脚笔数一致，且均按本月口径不含未来记录', () => {
     const { current } = splitTotalsByToday(futureLedger.transactions)
+    const queryClient = new QueryClient()
     const { container } = render(
-      <MantineProvider>
-        <LedgerProvider initialLedger={futureLedger}>
-          <TransactionsPage
-            device="desktop"
-            dataState="normal"
-            batchMode={false}
-            onBatchModeChange={() => {}}
-            displayOpen={false}
-            onDisplayToggle={() => {}}
-            onRetry={() => {}}
-            onCreateAccount={() => {}}
-            onImport={() => {}}
-          />
-        </LedgerProvider>
-      </MantineProvider>,
+      <QueryClientProvider client={queryClient}>
+        <MantineProvider>
+          <LedgerProvider initialLedger={futureLedger}>
+            <TransactionsPage
+              device="desktop"
+              dataState="normal"
+              batchMode={false}
+              onBatchModeChange={() => {}}
+              displayOpen={false}
+              onDisplayToggle={() => {}}
+              onRetry={() => {}}
+              onCreateAccount={() => {}}
+              onImport={() => {}}
+            />
+          </LedgerProvider>
+        </MantineProvider>
+      </QueryClientProvider>,
     )
 
     // 原缺陷：页头用筛选总数（4 笔）又叠加「另有 1 笔未来」，读起来像 4+1。

@@ -57,11 +57,36 @@ const parseRangeDate = (v: unknown, isEnd: boolean): Date | undefined => {
   return isEnd ? dayEnd(s) : dayStart(s)
 }
 
+/** 金额筛选参数：整数分，非负。 */
+const toOptionalMinor = (v: unknown, label: string): number | undefined => {
+  if (!hasValue(v)) return undefined
+  const raw = String(v)
+  if (!/^\d+$/.test(raw)) {
+    throw new ValidationError(`${label}必须是整数分`)
+  }
+  const parsed = Number(raw)
+  if (!Number.isSafeInteger(parsed)) {
+    throw new ValidationError(`${label}超出范围`)
+  }
+  return parsed
+}
+
 const validateListQuery = (req: Request) => {
   parsePositiveInteger(req.query.page, 'page', 1)
   parsePositiveInteger(req.query.pageSize, 'pageSize', 20)
   parseRangeDate(req.query.startDate, false)
   parseRangeDate(req.query.endDate, true)
+  if (hasValue(req.query.keyword)) {
+    const keyword = String(req.query.keyword).trim()
+    if (keyword.length > 100) {
+      throw new ValidationError('关键词不能超过 100 个字符')
+    }
+  }
+  const amountMin = toOptionalMinor(req.query.amountMin, '最小金额')
+  const amountMax = toOptionalMinor(req.query.amountMax, '最大金额')
+  if (amountMin !== undefined && amountMax !== undefined && amountMin > amountMax) {
+    throw new ValidationError('最小金额不能大于最大金额')
+  }
 }
 
 const validateStatsQuery = (req: Request) => {
@@ -145,6 +170,9 @@ router.get('/', validateRequest(validateListQuery), asyncHandler(async (req, res
     type: toStringArray(req.query.type),
     startDate: parseRangeDate(req.query.startDate, false),
     endDate: parseRangeDate(req.query.endDate, true),
+    keyword: hasValue(req.query.keyword) ? String(req.query.keyword).trim() : undefined,
+    amountMin: toOptionalMinor(req.query.amountMin, '最小金额'),
+    amountMax: toOptionalMinor(req.query.amountMax, '最大金额'),
   })
 
   return success(res, result)

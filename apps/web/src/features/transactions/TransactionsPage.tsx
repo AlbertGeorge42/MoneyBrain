@@ -3,6 +3,7 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import {
   CURRENT_MONTH_LABEL,
+  TODAY,
   getCategory,
   getCategoryName,
 } from '@/features/overview/model'
@@ -21,10 +22,8 @@ import {
 } from './FilterPanel'
 import { TransactionDetailPanel } from './TransactionDetailPanel'
 import { TransactionsList } from './TransactionsList'
-import {
-  restoreTransactionCategoriesInLedger,
-  restoreTransactionsInLedger,
-} from './ledgerOps'
+import { useServerTransactions } from './apiTransactions'
+import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
 import {
   EMPTY_ADVANCED,
   TYPE_OPTIONS,
@@ -62,10 +61,12 @@ function PageHead({
   device,
   dataState,
   count,
+  periodLabel,
 }: {
   device: DeviceMode
   dataState: DataState
   count: number
+  periodLabel: string
 }) {
   // 页头「共 N 笔」已是本月口径（不含未来）；未来记录在列表里以「未来」分组自证。
   const note =
@@ -80,7 +81,7 @@ function PageHead({
   if (device === 'mobile') {
     return (
       <p className="mb-tx-page-meta">
-        {CURRENT_MONTH_LABEL} · {note}
+        {periodLabel} · {note}
       </p>
     )
   }
@@ -235,13 +236,17 @@ export function TransactionsPage({
   onCreateAccount,
   onImport,
 }: TransactionsPageProps) {
-  const { ledger, updateTransaction, deleteTransactions, setTransactionCategory, replaceLedger } = useLedger()
+  const { ledger, dataMode, updateTransaction, deleteTransactions, setTransactionCategory, undo } = useLedger()
+  const apiMode = dataMode === 'api'
   // 筛选写入 URL：返回列表（含报表下钻）时还原分类/期间，避免静默丢失。
-  const restored = useMemo(() => readFiltersFromSearch(window.location.search, ledger), [ledger])
-  const [query, setQuery] = useState(restored.filters.query)
-  const [type, setType] = useState<TypeFilter>(restored.filters.type)
-  const [advanced, setAdvanced] = useState<AdvancedFilters>(restored.filters.advanced)
-  const [restoreNotice] = useState<string[]>(restored.dropped)
+  // API 账本异步到达：分类/账户要等账本就绪才能校验。先冻结进入时的 query，
+  // 待分类可用后一次性初始化——否则深链里的分类会被误判为无效，随后 URL 回写把它抹掉。
+  const initialSearch = useRef(typeof window === 'undefined' ? '' : window.location.search)
+  const [hydrated, setHydrated] = useState(false)
+  const [query, setQuery] = useState('')
+  const [type, setType] = useState<TypeFilter>('all')
+  const [advanced, setAdvanced] = useState<AdvancedFilters>(EMPTY_ADVANCED)
+  const [restoreNotice, setRestoreNotice] = useState<string[]>([])
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
@@ -250,12 +255,7 @@ export function TransactionsPage({
   const [toasts, setToasts] = useState<ToastState[]>([])
   const toastSeq = useRef(0)
   const toastTimers = useRef<number[]>([])
-  const ledgerRef = useRef(ledger)
   const searchRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    ledgerRef.current = ledger
-  }, [ledger])
 
   useEffect(
     () => () => {
@@ -306,40 +306,59 @@ export function TransactionsPage({
     setSelected((current) => (current.size > 0 ? new Set() : current))
   }, [filters])
 
+  // 深链还原：账本就绪后一次性初始化筛选，并回到列表顶部（不沿用上一页滚动位置）。
+  useEffect(() => {
+    if (hydrated || ledger.categories.length === 0) return
+    const restored = readFiltersFromSearch(initialSearch.current, ledger)
+    setQuery(restored.filters.query)
+    setType(restored.filters.type)
+    setAdvanced(restored.filters.advanced)
+    setRestoreNotice(restored.dropped)
+    setHydrated(true)
+    if (hasActiveFilters(restored.filters)) {
+      window.scrollTo(0, 0)
+      const mobileScroll = document.querySelector('.mb-mobile-scroll')
+      if (mobileScroll instanceof HTMLElement) mobileScroll.scrollTop = 0
+    }
+  }, [hydrated, ledger])
+
   // URL 是筛选状态的唯一持久层：切页回来、报表下钻都从同一组 query 键还原。
   useEffect(() => {
+    if (!hydrated) return
     const search = writeFiltersToSearch(window.location.search, filters)
     const next = `${window.location.pathname}${search}`
     if (next === `${window.location.pathname}${window.location.search}`) return
     window.history.replaceState(window.history.state, '', next)
-  }, [filters])
+  }, [filters, hydrated])
 
-  // 深链进入时回到列表顶部，不沿用上一页的滚动位置。
-  useEffect(() => {
-    if (!hasActiveFilters(filters)) return
-    window.scrollTo(0, 0)
-    const mobileScroll = document.querySelector('.mb-mobile-scroll')
-    if (mobileScroll instanceof HTMLElement) mobileScroll.scrollTop = 0
-    // 只在挂载时定位一次；后续筛选变化不强制回顶。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const filtered = dataState === 'normal' ? filterTransactions(ledger, filters) : []
+  // API 模式：筛选与分页都交给 /transactions，页面不再本地过滤一遍。
+  const serverList = useServerTransactions(filters, ledger, apiMode && dataState === 'normal')
+  const filtered =
+    dataState !== 'normal'
+      ? []
+      : apiMode
+        ? serverList.items
+        : filterTransactions(ledger, filters)
   const sorted =
     display.sort === 'amount'
       ? [...filtered].sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount))
       : filtered
-  const groups = groupTransactions(sorted)
-  const { current: monthTotals, future: futureTotals } = splitTotalsByToday(filtered)
+  // 「本月/未来」以真实账本的今天为准；种子版仍用固定 TODAY，视觉不变。
+  const today = ledger.snapshot?.today ?? TODAY
+  const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
+  const groups = groupTransactions(sorted, today)
+  const { current: monthTotals, future: futureTotals } = splitTotalsByToday(filtered, today)
   const chips = filterChips(ledger, filters)
   const detail = detailId
-    ? ledger.transactions.find((transaction) => transaction.id === detailId) ?? null
+    ? filtered.find((transaction) => transaction.id === detailId) ??
+      ledger.transactions.find((transaction) => transaction.id === detailId) ??
+      null
     : null
   const categoryRoots = ledger.categories.filter(
     (category) =>
       !category.parentId && (category.type === 'expense' || category.type === 'income'),
   )
-  const selectedTransactions = ledger.transactions.filter((transaction) => selected.has(transaction.id))
+  const selectedTransactions = filtered.filter((transaction) => selected.has(transaction.id))
   const selectedTypes = new Set(selectedTransactions.map((transaction) => transaction.type))
   const selectedType = selectedTypes.size === 1 ? [...selectedTypes][0] : null
   const canBatchCategory = selectedType === 'expense' || selectedType === 'income'
@@ -421,60 +440,76 @@ export function TransactionsPage({
     })
   }
 
-  const handleSave = (id: string, patch: Parameters<typeof updateTransaction>[1]) => {
-    const before = ledger.transactions.find((transaction) => transaction.id === id)
-    updateTransaction(id, patch)
-    notify(
-      '已保存修改 · 账户余额与总览已同步',
-      before
-        ? () => {
-            replaceLedger(restoreTransactionsInLedger(ledgerRef.current, [before]))
-            notify('已撤销修改')
-          }
-        : undefined,
+  const runUndo = (token: string, message: string) => {
+    void undo(token).then((result) =>
+      notify(result.ok ? message : `撤销失败：${result.error ?? '请重试'}`),
     )
   }
 
-  const handleDelete = (id: string) => {
-    const removed = ledger.transactions.filter((transaction) => transaction.id === id)
-    deleteTransactions([id])
-    setDetailId(null)
-    notify('已删除 1 笔流水', () => {
-      replaceLedger(restoreTransactionsInLedger(ledgerRef.current, removed))
-      notify('已撤销删除')
-    })
+  const handleSave = async (
+    id: string,
+    patch: Parameters<typeof updateTransaction>[1],
+  ): Promise<LedgerMutationOutcome> => {
+    const result = await updateTransaction(id, patch)
+    if (!result.ok) {
+      notify(`保存失败：${result.error ?? '请重试'}`)
+      return result
+    }
+    notify(
+      '已保存修改 · 账户余额与总览已同步',
+      result.undoToken ? () => runUndo(result.undoToken!, '已撤销修改') : undefined,
+    )
+    return result
   }
 
-  const confirmBatchDelete = () => {
+  const handleDelete = async (id: string): Promise<LedgerMutationOutcome> => {
+    const result = await deleteTransactions([id])
+    if (!result.ok) {
+      notify(`删除失败：${result.error ?? '请重试'}`)
+      return result
+    }
+    setDetailId(null)
+    notify(
+      `已删除 ${result.succeeded} 笔流水`,
+      result.undoToken ? () => runUndo(result.undoToken!, '已撤销删除') : undefined,
+    )
+    return result
+  }
+
+  const confirmBatchDelete = async (): Promise<LedgerMutationOutcome> => {
     const ids = [...selected]
-    const removed = ledger.transactions.filter((transaction) => ids.includes(transaction.id))
-    deleteTransactions(ids)
+    const result = await deleteTransactions(ids)
+    if (!result.ok) {
+      // 部分成功时把选中集合收敛到失败条目，重试只处理剩余流水。
+      if (result.succeeded > 0) setSelected(new Set(result.failedIds))
+      return result
+    }
     setDialog(null)
     onBatchModeChange(false)
-    notify(`已删除 ${ids.length} 笔流水`, () => {
-      replaceLedger(restoreTransactionsInLedger(ledgerRef.current, removed))
-      notify('已撤销批量删除')
-    })
+    notify(
+      `已删除 ${result.succeeded} 笔流水`,
+      result.undoToken ? () => runUndo(result.undoToken!, '已撤销批量删除') : undefined,
+    )
+    return result
   }
 
-  const pickBatchCategory = (categoryId: string) => {
+  const pickBatchCategory = async (categoryId: string): Promise<LedgerMutationOutcome> => {
     const category = getCategory(ledger, categoryId)
     const ids = [...selected]
-    const before = ledger.transactions
-      .filter((transaction) => selected.has(transaction.id))
-      .map((transaction) => ({ id: transaction.id, categoryId: transaction.categoryId }))
-    setTransactionCategory(ids, categoryId)
+    const result = await setTransactionCategory(ids, categoryId)
+    if (!result.ok) return result
     setDialog(null)
-    notify(`已将 ${ids.length} 笔改为「${category?.name ?? '新分类'}」`, () => {
-      replaceLedger(restoreTransactionCategoriesInLedger(ledgerRef.current, before))
-      notify('已撤销分类修改')
-    })
+    notify(
+      `已将 ${result.succeeded} 笔改为「${category?.name ?? '新分类'}」`,
+      result.undoToken ? () => runUndo(result.undoToken!, '已撤销分类修改') : undefined,
+    )
+    return result
   }
 
-  if (dataState === 'loading') {
+  if (dataState === 'loading' || (apiMode && serverList.status === 'loading')) {
     return (
       <>
-        <PageHead device={device} dataState={dataState} count={0} />
+        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
         <LoadingSkeleton device={device} variant="transactions" />
       </>
     )
@@ -483,17 +518,22 @@ export function TransactionsPage({
   if (dataState === 'empty') {
     return (
       <>
-        <PageHead device={device} dataState={dataState} count={0} />
+        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
         <ColdStartGuide variant="transactions" onPrimary={onCreateAccount} onImport={onImport} />
       </>
     )
   }
 
-  if (dataState === 'error') {
+  if (dataState === 'error' || (apiMode && serverList.status === 'error')) {
     return (
       <>
-        <PageHead device={device} dataState={dataState} count={0} />
-        <ErrorPanel onRetry={onRetry} />
+        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
+        <ErrorPanel
+          onRetry={() => {
+            serverList.refetch()
+            onRetry()
+          }}
+        />
       </>
     )
   }
@@ -501,7 +541,7 @@ export function TransactionsPage({
   if (ledger.transactions.length === 0) {
     return (
       <>
-        <PageHead device={device} dataState={dataState} count={0} />
+        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
         <ColdStartGuide variant="transactions" onPrimary={onCreateAccount} onImport={onImport} />
       </>
     )
@@ -511,7 +551,7 @@ export function TransactionsPage({
 
   return (
     <>
-      <PageHead device={device} dataState={dataState} count={monthTotals.count} />
+      <PageHead device={device} dataState={dataState} count={monthTotals.count} periodLabel={periodLabel} />
 
       <Toolbar
         query={query}
@@ -599,6 +639,7 @@ export function TransactionsPage({
           device={device}
           groups={groups}
           ledger={ledger}
+          today={today}
           batchMode={batchMode}
           display={display}
           selected={selected}
@@ -672,7 +713,7 @@ export function TransactionsPage({
       <span className="mb-visually-hidden" aria-live="polite">
         当前筛选 {monthTotals.count} 笔
         {futureTotals.count > 0 ? `，另有 ${futureTotals.count} 笔未来不计入本月` : ''}，共{' '}
-        {ledger.transactions.length} 笔
+        {apiMode ? serverList.total : ledger.transactions.length} 笔
       </span>
     </>
   )

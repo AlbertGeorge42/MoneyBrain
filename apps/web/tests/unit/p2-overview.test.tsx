@@ -38,7 +38,7 @@ function transaction(overrides: Partial<LedgerTransaction>): LedgerTransaction {
 }
 
 describe('#7 保存后的记录级撤销', () => {
-  it('addTransaction 返回新记录 id，删除后可用同一 id 撤销', () => {
+  it('addTransaction 返回新记录 id，删除后可用同一 id 撤销', async () => {
     const { result } = renderHook(() => useLedger(), {
       wrapper: ({ children }) => (
         <LedgerProvider initialLedger={createSeedLedger()}>{children}</LedgerProvider>
@@ -46,20 +46,23 @@ describe('#7 保存后的记录级撤销', () => {
     })
 
     let id: string | null = null
-    act(() => {
-      id = result.current.addTransaction({
+    await act(async () => {
+      const outcome = await result.current.addTransaction({
         type: 'expense',
         categoryId: 'food',
         accountId: 'cmb',
         amount: 1_234,
         note: '撤销链路测试',
       })
+      id = outcome.id ?? null
     })
 
     expect(id).toBe('t14')
     expect(result.current.ledger.transactions.some((item) => item.id === id)).toBe(true)
 
-    act(() => result.current.deleteTransactions([id as string]))
+    await act(async () => {
+      await result.current.deleteTransactions([id as string])
+    })
     expect(result.current.ledger.transactions.some((item) => item.id === id)).toBe(false)
   })
 })

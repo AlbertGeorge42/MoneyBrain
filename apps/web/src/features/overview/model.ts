@@ -68,6 +68,15 @@ export interface Ledger {
   budgets: LedgerBudget[]
   transactions: LedgerTransaction[]
   snapshot?: LedgerSnapshot
+  /** API 模式下展示 id 与后端真实 id 的映射（种子账本为 undefined）。 */
+  ids?: LedgerIds
+}
+
+export interface LedgerIds {
+  /** 后端真实分类 id → 展示用 id（根分类被改写成种子 key 时存在）。 */
+  categoryDisplay?: Record<string, string>
+  /** 展示用分类 id → 后端真实 id（用于把筛选/写入参数翻回真实 id）。 */
+  categoryReal?: Record<string, string>
 }
 
 export const TODAY = '2026-10-28'

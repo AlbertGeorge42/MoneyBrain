@@ -7,7 +7,7 @@ import { formatCurrency } from '@/utils/format'
 import type { Ledger, LedgerAccount, NewTransactionInput, TxType } from './model'
 import { accountKindLabel, TODAY } from './model'
 import { formatAmountInput, normalizeAmountInput, toCents } from './amountInput'
-import { useLedger } from './ledgerStore'
+import { useLedger, type LedgerMutationOutcome } from './ledgerStore'
 import './overlays.css'
 
 const ENTRY_TYPES: readonly { value: TxType; label: string }[] = [
@@ -181,7 +181,7 @@ function EntryForm({
   ledger: Ledger
   device: DeviceMode
   onRequestClose: () => void
-  onSave: (input: NewTransactionInput, keepOpen: boolean) => void
+  onSave: (input: NewTransactionInput, keepOpen: boolean) => Promise<LedgerMutationOutcome>
 }) {
   const mobile = device === 'mobile'
   const [type, setType] = useState<TxType>('expense')
@@ -190,13 +190,15 @@ function EntryForm({
   const [accountId, setAccountId] = useState(ledger.accounts[0]?.id || '')
   const [toAccountId, setToAccountId] = useState(ledger.accounts[1]?.id || '')
   const [note, setNote] = useState('')
-  const [date, setDate] = useState(TODAY)
+  const [date, setDate] = useState(ledger.snapshot?.today ?? TODAY)
   const [fee, setFee] = useState('')
   const [adjustSign, setAdjustSign] = useState<1 | -1>(1)
   const [moreOpen, setMoreOpen] = useState(false)
   const [picker, setPicker] = useState<'from' | 'to' | null>(null)
   const [recent, setRecent] = useState<string[]>(ledger.accounts.slice(0, 5).map((item) => item.id))
   const [stage, setStage] = useState<'amount' | 'category'>('amount')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const amountRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
 
@@ -248,8 +250,8 @@ function EntryForm({
     Boolean(ledger.accounts.find((account) => account.id === accountId)) &&
     (type !== 'transfer' || (Boolean(toAccountId) && toAccountId !== accountId))
 
-  const commit = (keepOpen: boolean) => {
-    if (!canSave || cents === null) return
+  const commit = async (keepOpen: boolean) => {
+    if (!canSave || cents === null || saving) return
     const signed = type === 'adjustment' ? cents * adjustSign : cents
     const input: NewTransactionInput = {
       type,
@@ -261,7 +263,15 @@ function EntryForm({
       date,
       fee: type === 'transfer' ? feeCents ?? 0 : 0,
     }
-    onSave(input, keepOpen)
+    setSaving(true)
+    setSaveError('')
+    const result = await onSave(input, keepOpen)
+    setSaving(false)
+    // 写失败时保留输入与弹层，错误就地回显，用户可以直接重试。
+    if (!result.ok) {
+      setSaveError(result.error ?? '保存失败，请重试')
+      return
+    }
     setAmount('')
     setNote('')
     setFee('')
@@ -272,7 +282,7 @@ function EntryForm({
   const handleGridKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault()
-      commit(true)
+      void commit(true)
       return
     }
     const index = Number(event.key)
@@ -494,35 +504,41 @@ function EntryForm({
         </div>
       )}
 
+      {saveError && (
+        <p className="mb-tx-form-error" role="alert">
+          {saveError}
+        </p>
+      )}
+
       {mobile ? (
         <div className="mb-entry-mobile-foot">
           <Keypad onKey={appendKey} />
           <div className="mb-entry-mobile-actions">
-            <Button variant="default" className="mb-secondary-btn" onClick={onRequestClose}>
+            <Button variant="default" className="mb-secondary-btn" onClick={onRequestClose} disabled={saving}>
               取消
             </Button>
             <Button
               variant="default"
               className="mb-secondary-btn"
-              disabled={!canSave}
-              onClick={() => commit(false)}
+              disabled={!canSave || saving}
+              onClick={() => void commit(false)}
             >
               保存
             </Button>
-            <Button className="mb-primary-btn mb-entry-continue" disabled={!canSave} onClick={() => commit(true)}>
+            <Button className="mb-primary-btn mb-entry-continue" disabled={!canSave || saving} onClick={() => void commit(true)}>
               保存并再记
             </Button>
           </div>
         </div>
       ) : (
         <div className="mb-entry-actions">
-          <Button variant="default" className="mb-secondary-btn" onClick={onRequestClose}>
+          <Button variant="default" className="mb-secondary-btn" onClick={onRequestClose} disabled={saving}>
             取消
           </Button>
-          <Button className="mb-primary-btn" disabled={!canSave} onClick={() => commit(true)}>
+          <Button className="mb-primary-btn" disabled={!canSave || saving} onClick={() => void commit(true)}>
             保存并再记 <kbd className="mb-kbd">⏎</kbd>
           </Button>
-          <Button className="mb-primary-btn" disabled={!canSave} onClick={() => commit(false)}>
+          <Button className="mb-primary-btn" disabled={!canSave || saving} onClick={() => void commit(false)}>
             保存
           </Button>
         </div>
@@ -550,16 +566,21 @@ export function QuickEntry({
   opened: boolean
   device: DeviceMode
   onClose: () => void
-  onSaved: (transactionId: string | null) => void
+  onSaved: (transactionId: string | null, undoToken?: string) => void
 }) {
   const { ledger, addTransaction } = useLedger()
   const [savedCount, setSavedCount] = useState(0)
 
-  const handleSave = (input: NewTransactionInput, keepOpen: boolean) => {
-    const transactionId = addTransaction(input)
+  const handleSave = async (
+    input: NewTransactionInput,
+    keepOpen: boolean,
+  ): Promise<LedgerMutationOutcome> => {
+    const result = await addTransaction(input)
+    if (!result.ok) return result
     setSavedCount((current) => current + 1)
-    onSaved(transactionId)
+    onSaved(result.id ?? null, result.undoToken)
     if (!keepOpen) onClose()
+    return result
   }
 
   const title = (

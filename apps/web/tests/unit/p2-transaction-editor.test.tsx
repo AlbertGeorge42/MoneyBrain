@@ -33,7 +33,7 @@ function expenseTransaction(): LedgerTransaction {
 
 describe('#14 支出改负数的引导', () => {
   it('负数时提示退款 / 调整入口、禁用保存，并可切换到调整类型', () => {
-    const onSave = vi.fn()
+    const onSave = vi.fn(async () => ({ ok: true }))
     render(
       <MantineProvider>
         <TransactionDetailPanel
@@ -42,7 +42,7 @@ describe('#14 支出改负数的引导', () => {
           device="desktop"
           onClose={() => {}}
           onSave={onSave}
-          onDelete={() => {}}
+          onDelete={async () => ({ ok: true })}
         />
       </MantineProvider>,
     )
@@ -67,7 +67,7 @@ describe('#14 支出改负数的引导', () => {
   })
 
   it('改为退款时负数金额同时转正，错误消失且保存可达', () => {
-    const onSave = vi.fn()
+    const onSave = vi.fn(async () => ({ ok: true }))
     render(
       <MantineProvider>
         <TransactionDetailPanel
@@ -76,7 +76,7 @@ describe('#14 支出改负数的引导', () => {
           device="desktop"
           onClose={() => {}}
           onSave={onSave}
-          onDelete={() => {}}
+          onDelete={async () => ({ ok: true })}
         />
       </MantineProvider>,
     )

@@ -193,6 +193,7 @@ export function TransactionsList({
   device,
   groups,
   ledger,
+  today,
   batchMode,
   display,
   selected,
@@ -202,13 +203,15 @@ export function TransactionsList({
   device: DeviceMode
   groups: GroupedTransactions[]
   ledger: Ledger
+  /** 「本月」口径的今天；API 模式来自真实账本，种子版是固定 TODAY。 */
+  today: string
   batchMode: boolean
   display: DisplaySettings
   selected: ReadonlySet<string>
   onToggle: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
-  const { current: totals } = splitTotalsByToday(groups.flatMap((group) => group.items))
+  const { current: totals } = splitTotalsByToday(groups.flatMap((group) => group.items), today)
 
   if (device === 'mobile') {
     return (

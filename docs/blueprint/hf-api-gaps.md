@@ -1,16 +1,16 @@
 # HF × API 缺失清单（2026-11-06）
 
 > 对照 `apps/api` 路由与 `packages/contracts/types`，逐页列出「接口有什么 / 前端缺什么 / 接上要改哪一层」。
-> 状态基准：总览已只读接入（`VITE_HF_DATA=api`），其余四页仍在内存种子账本上。
+> 状态基准：总览（只读）+ 流水（读写、审计撤销、回收站）已接真实账本（`VITE_HF_DATA=api`），其余三页仍在内存种子账本上。
 > 阻塞级别：**A = 会挡住接入**；**B = 只是体验缺失**；**C = 已知占位 / 未到里程碑**。
 
 ## 结论先行
 
-- **本批新增端点：0 个。** 总览所需数据现有端点全部覆盖；唯一代价是账户余额按账户逐个取（N+1）。
-- 总览已接通，但写操作在 API 模式被显式拒绝并提示，不会假装写库。
-- 下一批建议做**流水**；它的真实删除/撤销/回收站链路是预算与设置可信写入的前提。
+- **本批新增端点：0 个。** 流水筛选为 `GET /transactions` 扩展了 3 个 list 参数：`keyword`、`amountMin`、`amountMax`（整数分），未新增路由。
+- 总览已只读接通；流水已接通读、写、审计撤销与回收站。API 模式写操作真写库，种子模式仍走内存。
 - 接口侧真正缺的只有一件：**没有同步端点**（同步能力还在 `packages/sync`，未到里程碑，不阻塞当前接入）。
 - 报表四视图、分类父子结构、账户余额时点快照**接口都已有**；缺的是前端接线，不是后端能力。
+- 下一批建议做**报表**：它的下钻落到流水页，依赖本批已接通的真实筛选参数。
 
 ## 缺失清单
 
@@ -20,12 +20,12 @@
 | 总览 | 净资产走势 | `GET /analytics/asset-trend`（12 个月） | 已接：走势取真实 12 个月，末点随净资产联动 | 无 | 已接入 |
 | 总览 | 预算卡 | `GET /budgets` + `GET /budgets/statuses` | 已接：已用金额用后端 statuses | 头部合计仍混算周期（见预算页）；本批未改口径 | B |
 | 总览 | 账户余额 | `GET /accounts/:id/balance-at?date=`（单账户） | 已接：`Promise.all` 逐账户取 | 无批量余额端点；账户多时请求数线性增长 | B |
-| 流水 | 列表 / 分页 / 筛选 | `GET /transactions`：`page/pageSize/accountId/categoryId[]/type[]/from/to` | 全内存派生；只接了总览 | DTO→流水模型；HF 的 `categoryIds` 要映射成重复 `categoryId` 参数 | A |
-| 流水 | 新增 / 编辑 | `POST /transactions`、`PUT /transactions/:id` | 本地 `setLedger` | 真实 mutation、成功后失效查询、失败回显 | A |
-| 流水 | 删除 + 6 秒撤销 | `DELETE /transactions/:id` 返回 `auditEventId`；`POST /audit-events/:id/undo` | 本地删除 + 内存重加；6 秒后不可恢复 | 改真实软删 + 审计撤销；失败要回滚列表 | A |
-| 流水 | 回收站 | `GET /transactions/recycle-bin`（`RecycleBinItem.deleteEventId`） | 无入口；设置页写死「空的」 | 列表与恢复动作（恢复复用 audit undo）；删除过期自动进回收站 | A |
-| 流水 | 批量改分类 | 无批量端点；只能逐条 `PUT /transactions/:id` | 本地批量改 | 可用 N 次请求替代，但需明确非原子；若要原子需新端点 | B |
-| 流水 | 退款 / 关联原交易 | `POST` 支持 `relatedTransactionId`；`GET /transactions/refundable` | 无退款关联能力 | 编辑器补关联选择与可退列表 | B |
+| 流水 | 列表 / 分页 / 筛选 | `GET /transactions`：`page/pageSize/accountId/categoryId[]/type[]/startDate/endDate/keyword/amountMin/amountMax` | 已接：`categoryIds` → 重复 `categoryId`；期间/分类/关键词/类型/账户全部交服务端，前端不再本地过滤；无可见分页控件，按 100/页自动翻到全量 | 无 | 已接入 |
+| 流水 | 新增 / 编辑 | `POST /transactions`、`PUT /transactions/:id` | 已接：真实 mutation；失败保留输入或表单并回显，可重试；成功后失效总览/流水/回收站查询 | `PUT` 不返回 auditEventId，API 模式编辑没有 6 秒撤销 | 已接入（撤销缺口 B） |
+| 流水 | 删除 + 6 秒撤销 | `DELETE /transactions/:id` 返回 `auditEventId`；`POST /audit-events/:id/undo` | 已接：逐条软删收集 `auditEventId`，6 秒 toast 撤销走审计事件；过期记录留在回收站 | 批量删除是逐条 N 次请求，非原子 | 已接入 |
+| 流水 | 回收站 | `GET /transactions/recycle-bin`（`RecycleBinItem.deleteEventId`） | 已接：设置页 API 模式显示真实条目、数量与恢复（复用 audit undo）；种子模式保持原空态 | 流水页暂无独立入口（入口在设置页） | 已接入（入口 B） |
+| 流水 | 批量改分类 | 无批量端点；只能逐条 `PUT /transactions/:id` | 已接：逐条 PUT，请求数 = 选中笔数；部分失败保留失败项可重试 | 非原子；无 6 秒撤销（update 无 auditEventId） | B |
+| 流水 | 退款 / 关联原交易 | `POST` 支持 `relatedTransactionId`；`GET /transactions/refundable` | 无退款关联能力；API 模式显式返回「本批暂未接入」，不假装成功 | 编辑器补关联选择与可退列表 | B（留到下一批） |
 | 报表 | 资产负债表 | `GET /reports/balance-sheet?date=`（时点语义） | 本地 derive 四视图之一 | 改为端点口径；保留时点控件 | A |
 | 报表 | 收支明细 | `GET /reports/income-expense?from&to` | 本地 derive | 改为端点口径 | A |
 | 报表 | 现金流量表 | `GET /reports/cash-flow?from&to` | 本地 derive | 改为端点口径（现金流分类以后端 `cashFlowType` 为准） | A |
@@ -47,20 +47,30 @@
 | 设置 | 回滚存点 | `/data/rollback-points` CRUD + `POST /data/rollback-points/:id/restore` | 本地 toast | 接存点列表与恢复；恢复后整页失效重取 | A |
 | 设置 | 清空数据 | `DELETE /data/all`、`DELETE /data/transactions` | 只清内存 | 接真实清空 + 二次确认 + 失败回显 | A |
 | 设置 | 自动备份 | `GET/PUT /data/auto-backup` | 无 UI | 接开关与状态 | B |
-| 设置 | 回收站 | `GET /transactions/recycle-bin` | 写死空（[SettingsPage.tsx L1336-L1341](file:///c:/Users/George/Documents/MoneyBrain/apps/web/src/features/settings/SettingsPage.tsx#L1336-L1341)） | 接列表 + `deleteEventId` 恢复；与流水页共用 | A |
+| 设置 | 回收站 | `GET /transactions/recycle-bin` + `POST /audit-events/:id/undo` | 已接（API 模式）：真实列表、数量与恢复；种子模式保持空态 | 无 | 已接入 |
 | 设置 | 同步状态 / 关闭 | **无同步端点**（同步只在 `packages/sync`） | 无 UI | 接口缺；未到里程碑，先不实现 | C |
-| 全局 | 三态（加载/空/错） | 不适用 | 总览已由真实请求驱动；其余页仍是种子假设 | 每页接入时复用 `DataState`，不要用种子兜底 | — |
+| 全局 | 三态（加载/空/错） | 不适用 | 总览、流水已由真实请求驱动（加载 / 空结果 / 失败重试）；其余三页仍是种子假设 | 每页接入时复用 `DataState`，不要用种子兜底 | — |
 
-## 下一批：流水
+## 本批：流水（已完成，2026-11-06）
 
-**顺序**：总览（已接）→ **流水** → 报表 → 预算 → 设置。
+**新增端点：0 个；`GET /transactions` 新增参数：`keyword`、`amountMin`、`amountMax`（整数分，仅 list）。**
+
+1. 读：列表/分页/筛选接 `GET /transactions`；`categoryIds` → 重复 `categoryId`；期间/分类/关键词/类型/账户全部直传服务端，前端不再本地过滤。无可见分页控件，按 `pageSize=100` 自动翻到 `total`。
+2. 写：新增/编辑/删除改真实 mutation；失败保留输入或表单、回显错误并可重试；成功后失效总览/流水/回收站三组查询。
+3. 删除 / 撤销：逐条 `DELETE` 收集 `auditEventId`，6 秒 toast 撤销走 `POST /audit-events/:id/undo`；过期记录进 `GET /transactions/recycle-bin`。
+4. 回收站：设置页 API 模式显示真实条目、数量与恢复（`deleteEventId`），种子模式保持原空态。
+5. 批量：改分类/删除均为逐条请求，请求数 = 选中笔数，非原子；部分失败保留失败项并提示。
+
+**本批未做（留到下一批）**：退款关联原交易（`relatedTransactionId` / `GET /transactions/refundable`）；`PUT` 的 6 秒撤销（后端不返回审计 id）；流水页独立回收站入口。
+
+## 下一批：报表
+
+**顺序**：总览（已接）→ 流水（已接）→ **报表** → 预算 → 设置。
 
 **前置条件**：
 
-1. 数据读：`GET /transactions` 分页/筛选接入，`categoryIds` → 重复 `categoryId` 参数；账户、分类下拉复用总览已接的 `/accounts`、`/transaction-categories`。
-2. 数据写：新增/编辑/删除改真实 mutation；删除返回的 `auditEventId` 支撑 6 秒撤销；撤销过期后记录出现在回收站。
-3. 回收站：流水页先给入口，设置页最后接同一份 `GET /transactions/recycle-bin`。
-4. 三态：列表加载、空结果、请求失败分别有真实 UI；写失败必须回显，不得乐观地留在列表里。
-5. 退款关联放到流水批次的收尾，不阻塞主链路。
+1. 四视图改端点口径：`/reports/balance-sheet`（时点）、`/income-expense`、`/cash-flow`、`/investment-analysis`。
+2. 下钻复用本批已通的流水筛选：`categoryIds` → 重复 `categoryId`，并带 `startDate/endDate`。
+3. 三态与空报表复用 `DataState`；不要用本地 derive 兜底真实数据。
 
-**报表为什么排第三**：报表下钻落到流水页，依赖流水的真实筛选参数；流水没接之前，报表只能继续用本地派生，口径无法与后端对齐。
+**预算为什么排第四**：预算的两个口径缺口（周期混算、账户绑定漏计）必须先拍板再接线；报表不依赖它们。

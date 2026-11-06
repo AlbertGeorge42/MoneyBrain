@@ -16,6 +16,7 @@ import {
   type LedgerTransaction,
 } from '@/features/overview/model'
 import type { DeviceMode } from '@/features/shared/types'
+import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
 import type { TransactionPatch } from './ledgerOps'
 
 type Mode = 'view' | 'edit' | 'confirm-delete'
@@ -102,11 +103,13 @@ function EditForm({
   transaction,
   ledger,
   onSave,
+  onSaved,
   onCancel,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
-  onSave: (patch: TransactionPatch) => void
+  onSave: (patch: TransactionPatch) => Promise<LedgerMutationOutcome>
+  onSaved: () => void
   onCancel: () => void
 }) {
   const [amount, setAmount] = useState(String(transaction.amount / 100))
@@ -115,6 +118,8 @@ function EditForm({
   const [accountId, setAccountId] = useState(transaction.accountId)
   const [date, setDate] = useState(transaction.date)
   const [note, setNote] = useState(transaction.note)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const categories = ledger.categories.filter((category) => category.type === nextType)
   // 银行 App 复制来的货币符号 / 千分位 / 全角数字不能挡路：解析前统一归一化。
@@ -138,9 +143,11 @@ function EditForm({
     }
   }
 
-  const submit = () => {
-    if (invalid) return
-    onSave({
+  const submit = async () => {
+    if (invalid || saving) return
+    setSaving(true)
+    setSaveError('')
+    const result = await onSave({
       amount: Math.round(parsed * 100),
       categoryId,
       accountId,
@@ -148,6 +155,13 @@ function EditForm({
       note,
       ...(nextType !== transaction.type ? { type: nextType } : {}),
     })
+    setSaving(false)
+    // 失败时保留表单与输入，错误就地回显，用户可直接重试。
+    if (!result.ok) {
+      setSaveError(result.error ?? '保存失败，请重试')
+      return
+    }
+    onSaved()
   }
 
   return (
@@ -235,12 +249,18 @@ function EditForm({
         </p>
       )}
 
+      {saveError && (
+        <p className="mb-tx-form-error" role="alert">
+          {saveError}
+        </p>
+      )}
+
       <div className="mb-tx-detail-actions">
-        <button type="button" className="mb-tx-btn is-primary" onClick={submit} disabled={invalid}>
+        <button type="button" className="mb-tx-btn is-primary" onClick={() => void submit()} disabled={invalid || saving}>
           <Check size={15} />
-          保存修改
+          {saving ? '保存中…' : '保存修改'}
         </button>
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onCancel}>
+        <button type="button" className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
           取消
         </button>
       </div>
@@ -254,9 +274,21 @@ function DeleteConfirm({
   onCancel,
 }: {
   transaction: LedgerTransaction
-  onConfirm: () => void
+  onConfirm: () => Promise<LedgerMutationOutcome>
   onCancel: () => void
 }) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const confirm = async () => {
+    if (saving) return
+    setSaving(true)
+    setError('')
+    const result = await onConfirm()
+    setSaving(false)
+    if (!result.ok) setError(result.error ?? '删除失败，请重试')
+  }
+
   return (
     <div className="mb-tx-confirm">
       <p className="mb-tx-confirm-title">删除这笔记录？</p>
@@ -265,11 +297,16 @@ function DeleteConfirm({
         {signedAmountText(transaction)}
       </p>
       <p className="mb-tx-confirm-note">删除后可用提示条撤销；账户余额会一并回滚。</p>
+      {error && (
+        <p className="mb-tx-form-error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="mb-tx-detail-actions">
-        <button type="button" className="mb-tx-btn is-danger-solid" onClick={onConfirm}>
-          删除
+        <button type="button" className="mb-tx-btn is-danger-solid" onClick={() => void confirm()} disabled={saving}>
+          {saving ? '删除中…' : '删除'}
         </button>
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onCancel}>
+        <button type="button" className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
           <X size={15} />
           取消
         </button>
@@ -290,8 +327,8 @@ export function TransactionDetailPanel({
   ledger: Ledger
   device: DeviceMode
   onClose: () => void
-  onSave: (id: string, patch: TransactionPatch) => void
-  onDelete: (id: string) => void
+  onSave: (id: string, patch: TransactionPatch) => Promise<LedgerMutationOutcome>
+  onDelete: (id: string) => Promise<LedgerMutationOutcome>
 }) {
   const [mode, setMode] = useState<Mode>('view')
   if (!transaction) return null
@@ -317,20 +354,21 @@ export function TransactionDetailPanel({
         <EditForm
           transaction={transaction}
           ledger={ledger}
-          onSave={(patch) => {
-            onSave(transaction.id, patch)
-            setMode('view')
-          }}
+          onSave={(patch) => onSave(transaction.id, patch)}
+          onSaved={() => setMode('view')}
           onCancel={() => setMode('view')}
         />
       )}
       {mode === 'confirm-delete' && (
         <DeleteConfirm
           transaction={transaction}
-          onConfirm={() => {
-            onDelete(transaction.id)
-            setMode('view')
-            onClose()
+          onConfirm={async () => {
+            const result = await onDelete(transaction.id)
+            if (result.ok) {
+              setMode('view')
+              onClose()
+            }
+            return result
           }}
           onCancel={() => setMode('view')}
         />

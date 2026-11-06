@@ -57,6 +57,69 @@ const CATEGORY_KEY_BY_NAME: Record<string, string> = {
   账户互转: 'move',
 }
 
+export interface CategoryDisplayMapper {
+  /** 真实分类 id → 展示 id（种子 key 或原 id）。 */
+  displayId: (id: string | null | undefined) => string
+  /** 展示 id → 真实分类 id；未映射的视为本身就是真实 id。 */
+  realId: (displayId: string) => string
+  /** 真实 → 展示 的全量映射，挂在 Ledger.ids 上供跨页面复用。 */
+  display: Record<string, string>
+  /** 展示 → 真实 的全量映射。 */
+  real: Record<string, string>
+}
+
+export function createCategoryDisplayMapper(
+  categories: readonly TransactionCategory[],
+): CategoryDisplayMapper {
+  const display = new Map<string, string>()
+  const real: Record<string, string> = {}
+  const used = new Set<string>()
+  for (const category of categories) {
+    const key = CATEGORY_KEY_BY_NAME[category.name.trim()]
+    // 同名根分类（如收入/支出都叫「其他」）只映射第一个，避免展示 id 撞车。
+    if (!category.parentId && key && !used.has(key)) {
+      display.set(category.id, key)
+      real[key] = category.id
+      used.add(key)
+    }
+  }
+  return {
+    displayId: (id) => (id ? display.get(id) ?? id : ''),
+    realId: (displayId) => real[displayId] ?? displayId,
+    display: Object.fromEntries(display),
+    real,
+  }
+}
+
+/** 复用账本里的映射（API 模式下 Ledger.ids 由 buildLedgerFromApi 写入）。 */
+export function mapperFromLedger(ledger: Ledger): CategoryDisplayMapper {
+  const display = ledger.ids?.categoryDisplay ?? {}
+  const real = ledger.ids?.categoryReal ?? {}
+  return {
+    displayId: (id) => (id ? display[id] ?? id : ''),
+    realId: (displayId) => real[displayId] ?? displayId,
+    display,
+    real,
+  }
+}
+
+export function toLedgerTransaction(
+  transaction: Transaction,
+  mapper: CategoryDisplayMapper,
+): LedgerTransaction {
+  return {
+    id: transaction.id,
+    date: transaction.date.slice(0, 10),
+    type: transaction.type,
+    categoryId: mapper.displayId(transaction.categoryId),
+    note: transaction.note ?? '',
+    accountId: transaction.accountId,
+    amount: transaction.amount,
+    toAccountId: transaction.toAccountId ?? undefined,
+    fee: transaction.fee || undefined,
+  }
+}
+
 const TX_TYPES: readonly TxType[] = ['expense', 'income', 'transfer', 'refund', 'adjustment']
 
 function asTxType(value: string): TxType {
@@ -111,13 +174,8 @@ export interface LedgerApiPayload {
 }
 
 export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal()): Ledger {
-  const displayIds = new Map<string, string>()
-  for (const category of payload.categories) {
-    const key = CATEGORY_KEY_BY_NAME[category.name.trim()]
-    if (!category.parentId && key) displayIds.set(category.id, key)
-  }
-  const displayId = (id: string | null | undefined): string =>
-    id ? displayIds.get(id) ?? id : ''
+  const mapper = createCategoryDisplayMapper(payload.categories)
+  const displayId = mapper.displayId
 
   const categories: LedgerCategory[] = payload.categories.map((category) => ({
     id: displayId(category.id),
@@ -176,17 +234,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     budgetsSummary.limit === 0 ? 0 : (budgetsSummary.used / budgetsSummary.limit) * 100
 
   const transactions: LedgerTransaction[] = payload.dashboard.recentTransactions.map(
-    (transaction: Transaction) => ({
-      id: transaction.id,
-      date: transaction.date.slice(0, 10),
-      type: transaction.type,
-      categoryId: displayId(transaction.categoryId),
-      note: transaction.note ?? '',
-      accountId: transaction.accountId,
-      amount: transaction.amount,
-      toAccountId: transaction.toAccountId ?? undefined,
-      fee: transaction.fee || undefined,
-    }),
+    (transaction: Transaction) => toLedgerTransaction(transaction, mapper),
   )
 
   const netWorth = accounts.reduce((total, account) => total + account.balance, 0)
@@ -227,6 +275,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     categories,
     budgets,
     transactions,
+    ids: { categoryDisplay: mapper.display, categoryReal: mapper.real },
     snapshot: {
       overview,
       budgets: budgetsSummary,

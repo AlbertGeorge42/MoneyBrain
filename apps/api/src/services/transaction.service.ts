@@ -98,6 +98,11 @@ export interface TransactionListParams {
   type?: string | string[]
   startDate?: Date
   endDate?: Date
+  /** 关键词：备注 / 账户名 / 分类名 / 交易方向（支出、收入…）。 */
+  keyword?: string
+  /** 金额区间，整数分；按绝对值比较。 */
+  amountMin?: number
+  amountMax?: number
 }
 
 export interface TransactionListResult {
@@ -375,10 +380,21 @@ const applyDateRange = (
   }
 }
 
+/** 关键词里出现的交易方向词，命中时按类型筛。 */
+const KEYWORD_TYPE_LABELS: readonly { label: string; type: string }[] = [
+  { label: '支出', type: 'expense' },
+  { label: '收入', type: 'income' },
+  { label: '转账', type: 'transfer' },
+  { label: '退款', type: 'refund' },
+  { label: '调整', type: 'adjustment' },
+]
+
 export const buildTransactionListWhere = async (
   params: TransactionListParams,
 ): Promise<Prisma.TransactionWhereInput> => {
   const where: Prisma.TransactionWhereInput = {}
+  // 多个条件都各自需要 OR 时放进 AND，避免互相覆盖（账户 / 关键词）。
+  const and: Prisma.TransactionWhereInput[] = []
 
   const [accountIds, categoryIds] = await Promise.all([
     resolveAccountIds(params.accountId),
@@ -386,7 +402,26 @@ export const buildTransactionListWhere = async (
   ])
 
   if (accountIds) {
-    where.OR = accountIds.flatMap(id => [{ accountId: id }, { toAccountId: id }])
+    and.push({ OR: accountIds.flatMap(id => [{ accountId: id }, { toAccountId: id }]) })
+  }
+
+  const keyword = params.keyword?.trim()
+  if (keyword) {
+    const typeMatches = KEYWORD_TYPE_LABELS
+      .filter(({ label }) => label.includes(keyword))
+      .map(({ type }) => ({ type }))
+    and.push({
+      OR: [
+        { note: { contains: keyword } },
+        { account: { name: { contains: keyword } } },
+        { category: { name: { contains: keyword } } },
+        ...typeMatches,
+      ],
+    })
+  }
+
+  if (and.length > 0) {
+    where.AND = and
   }
 
   if (categoryIds) {
@@ -396,6 +431,13 @@ export const buildTransactionListWhere = async (
   const types = normalizeStringArray(params.type)
   if (types.length > 0) {
     where.type = { in: types }
+  }
+
+  if (params.amountMin !== undefined || params.amountMax !== undefined) {
+    where.amount = {
+      ...(params.amountMin !== undefined ? { gte: BigInt(params.amountMin) } : {}),
+      ...(params.amountMax !== undefined ? { lte: BigInt(params.amountMax) } : {}),
+    }
   }
 
   applyDateRange(where, params.startDate, params.endDate)

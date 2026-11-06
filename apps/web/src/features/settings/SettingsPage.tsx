@@ -36,6 +36,7 @@ import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { useLedger } from '@/features/overview/ledgerStore'
 import type { AccountKind, TxType } from '@/features/overview/model'
+import { RecycleBinCountProbe, RecycleBinPanel } from './RecycleBinSection'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import {
@@ -525,7 +526,9 @@ function CategoryDeleteSheet({
 }
 
 export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsPageProps) {
-  const { ledger, replaceLedger } = useLedger()
+  const { ledger, dataMode, replaceLedger } = useLedger()
+  const apiMode = dataMode === 'api'
+  const [trashCount, setTrashCount] = useState(0)
   const [active, setActive] = useState<SectionId>('accounts')
   const [openSection, setOpenSection] = useState<SectionId | null>(null)
   const [accountTab, setAccountTab] = useState<'asset' | 'liability'>('asset')
@@ -1333,13 +1336,16 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     </div>
   )
 
-  const renderTrash = () => (
-    <div className="mb-set-list-empty is-tall">
-      <Trash2 size={24} />
-      <p>回收站是空的</p>
-      <span>删除流水后 6 秒内可在提示中撤销；过期后才会进入这里。</span>
-    </div>
-  )
+  const renderTrash = () =>
+    apiMode ? (
+      <RecycleBinPanel ledger={ledger} />
+    ) : (
+      <div className="mb-set-list-empty is-tall">
+        <Trash2 size={24} />
+        <p>回收站是空的</p>
+        <span>删除流水后 6 秒内可在提示中撤销；过期后才会进入这里。</span>
+      </div>
+    )
 
   const renderSection = (id: SectionId) => {
     switch (id) {
@@ -1371,7 +1377,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     invest: `${investRows.length} 类资产`,
     display: '列显隐 · 排序',
     data: '导入 · 导出 · 回滚',
-    trash: '0 条可恢复',
+    trash: apiMode ? `${trashCount} 条可恢复` : '0 条可恢复',
   }
 
   const renderMobileList = () => (
@@ -1468,7 +1474,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 >
                   <span>{item.label}</span>
                   <span className="mb-set-nav-count">
-                    {item.id === 'trash' ? '0' : ''}
+                    {item.id === 'trash' ? (apiMode ? String(trashCount) : '0') : ''}
                   </span>
                 </button>
               ))}
@@ -1510,6 +1516,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
 
   return (
     <div className="mb-set-page" data-device={device}>
+      {apiMode && <RecycleBinCountProbe ledger={ledger} onCount={setTrashCount} />}
       {body}
       {editor && (
         <EditorSheet

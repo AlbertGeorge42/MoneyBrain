@@ -4,8 +4,9 @@
  * 只承载本批次交付的「应用壳 + 总览页」。预览态可切换 PC / 移动、浅 / 深 / 跟随系统、
  * 正常 / 加载 / 空账本 / 错误；预览入口不接入生产路由，也不引用旧页面代码。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { getPortalHost } from '@/features/shared/portalHost'
 import '@mantine/core/styles.css'
 import { MantineProvider } from '@mantine/core'
@@ -172,7 +173,7 @@ function PreviewBody({
   apiMode: boolean
   onRetry: () => void
 }) {
-  const { ledger, readOnly, deleteTransactions } = useLedger()
+  const { ledger, undo } = useLedger()
   const [entryOpen, setEntryOpen] = useState(false)
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
   const [toast, setToast] = useState<{
@@ -338,21 +339,17 @@ function PreviewBody({
         opened={entryOpen}
         device={device}
         onClose={() => setEntryOpen(false)}
-        onSaved={(transactionId) => {
-          // 只读接入阶段不写真实账本，也不假装保存成功。
-          if (readOnly) {
-            notify('只读接入阶段：本批不写入真实账本。')
-            return
-          }
+        onSaved={(_transactionId, undoToken) => {
           setToast({
             message: '已保存 · 账本与总览数字已同步',
             duration: 6000,
-            action: transactionId
+            action: undoToken
               ? {
                   label: '撤销',
                   run: () => {
-                    deleteTransactions([transactionId])
-                    notify('已撤销保存')
+                    void undo(undoToken).then((result) =>
+                      notify(result.ok ? '已撤销保存' : `撤销失败：${result.error ?? '请重试'}`),
+                    )
                   },
                 }
               : undefined,
@@ -435,6 +432,16 @@ export default function DesignApp() {
   const dataMode = readHfDataMode()
   const apiMode = dataMode === 'api'
   const api = useApiLedger(apiMode)
+  const queryClient = useQueryClient()
+  // 写操作成功后统一刷新真实数据：总览、流水列表、回收站。
+  const refreshRemote = useCallback(async () => {
+    if (!apiMode) return
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['hf', 'overview', 'ledger'] }),
+      queryClient.invalidateQueries({ queryKey: ['hf', 'transactions'] }),
+      queryClient.invalidateQueries({ queryKey: ['hf', 'recycle-bin'] }),
+    ])
+  }, [apiMode, queryClient])
 
   // 「正常」档在 API 模式下跟随真实请求状态；其余档仍是预览用的显式状态。
   const effectiveState: DataState =
@@ -467,7 +474,8 @@ export default function DesignApp() {
         <div className={canvasClass}>
           <LedgerProvider
             initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : undefined}
-            readOnly={apiMode}
+            dataMode={dataMode}
+            onRemoteChange={refreshRemote}
           >
             <PreviewBody
               device={device}
