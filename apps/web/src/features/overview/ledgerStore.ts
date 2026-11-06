@@ -46,6 +46,8 @@ export interface LedgerContextValue {
   dataMode: LedgerDataMode
   addTransaction: (input: NewTransactionInput) => Promise<LedgerCreateOutcome>
   updateTransaction: (id: string, patch: TransactionPatch) => Promise<LedgerMutationOutcome>
+  /** 退款关联/解除关联原交易；originalId 为 null 时解除。API 模式由后端重算可退上限。 */
+  linkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
   deleteTransactions: (ids: readonly string[]) => Promise<LedgerDeleteOutcome>
   setTransactionCategory: (ids: readonly string[], categoryId: string) => Promise<LedgerBatchCategoryOutcome>
   /* 设置页：账户与分类的真实读写（API 模式落库，种子模式改内存）。 */

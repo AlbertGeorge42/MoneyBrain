@@ -29,16 +29,16 @@ describe('总览数字', () => {
     expect(summary.investmentAssets).toBe(8_645_000)
   })
 
-  it('本月收入、支出、结余与储蓄率', () => {
-    expect(summary.income).toBe(1_862_900)
-    expect(summary.expense).toBe(750_410)
+  it('本月收入、支出、结余与储蓄率（关联退款冲减原侧，不计收入）', () => {
+    expect(summary.income).toBe(1_850_000)
+    expect(summary.expense).toBe(737_510)
     expect(summary.balance).toBe(1_112_490)
-    expect(summary.savingsRate).toBeCloseTo(59.72, 1)
+    expect(summary.savingsRate).toBeCloseTo(60.13, 1)
   })
 
   it('收支环比', () => {
-    expect(summary.incomeChangePct).toBeCloseTo(8.2, 1)
-    expect(summary.expenseChangePct).toBeCloseTo(3.1, 1)
+    expect(summary.incomeChangePct).toBeCloseTo(7.45, 1)
+    expect(summary.expenseChangePct).toBeCloseTo(1.3, 1)
   })
 })
 

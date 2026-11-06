@@ -43,6 +43,18 @@ export interface LedgerTransaction {
   amount: number
   toAccountId?: string
   fee?: number
+  /** 退款关联的原交易；同时供 API 与种子账本使用（种子以 id 关联）。 */
+  relatedTransactionId?: string
+  /** 原交易类型；退款冲减哪一侧由它决定（缺省 = 未关联退款，只影响余额）。 */
+  relatedType?: TxType | null
+  /** API 适配层带入的原交易（列表/详情直接展示，不额外查库）。 */
+  relatedTransaction?: LedgerTransaction
+  /** API 适配层带入的有效退款（软删除的不在其中）。 */
+  refunds?: LedgerTransaction[]
+  /** 原交易已退款合计（API 适配层预计算；种子模式由 getRefundSummary 现算）。 */
+  refundedAmount?: number
+  /** 原交易剩余可退金额。 */
+  remainingAmount?: number
 }
 
 /**
@@ -164,6 +176,8 @@ export interface NewTransactionInput {
   note: string
   date?: string
   fee?: number
+  /** 退款可选关联原交易；不填 = 未关联退款（照常记账，只影响余额）。 */
+  relatedTransactionId?: string
 }
 
 const SEED_ACCOUNTS: LedgerAccount[] = [
@@ -231,8 +245,9 @@ const SEED_TRANSACTIONS: LedgerTransaction[] = [
     note: '电影《沙丘 3》', accountId: 'zfb', amount: 7_900,
   },
   {
-    id: 't7', date: '2026-10-24', type: 'refund', categoryId: 'refund',
+    id: 't7', date: '2026-10-24', type: 'refund', categoryId: 'shop_daily',
     note: '退货·保温杯', accountId: 'wx', amount: 12_900,
+    relatedTransactionId: 't3', relatedType: 'expense',
   },
   {
     id: 't8', date: '2026-10-23', type: 'expense', categoryId: 'home',
@@ -274,6 +289,17 @@ function percentChange(current: number, previous: number): number {
   return ((current - previous) / previous) * 100
 }
 
+/**
+ * 退款冲减哪一侧：只认原交易类型。未关联退款（relatedType 为空）不进入收支合计，
+ * 只影响账户余额——与后端 summarizeAggregatedFlows 的 refundOffsetKind 同口径。
+ */
+export function refundOffsetSide(transaction: LedgerTransaction): 'income' | 'expense' | null {
+  if (transaction.type !== 'refund') return null
+  if (transaction.relatedType === 'income') return 'income'
+  if (transaction.relatedType === 'expense') return 'expense'
+  return null
+}
+
 function sumMonthFlow(transactions: LedgerTransaction[]) {
   let income = 0
   let expense = 0
@@ -281,8 +307,11 @@ function sumMonthFlow(transactions: LedgerTransaction[]) {
     if (!transaction.date.startsWith(CURRENT_MONTH)) continue
     // 与流水页同口径：晚于今天的记录属于「未来」，不计入本月收支。
     if (transaction.date > TODAY) continue
-    if (transaction.type === 'income' || transaction.type === 'refund') income += transaction.amount
+    if (transaction.type === 'income') income += transaction.amount
     if (transaction.type === 'expense') expense += transaction.amount
+    const offset = refundOffsetSide(transaction)
+    if (offset === 'income') income -= transaction.amount
+    if (offset === 'expense') expense -= transaction.amount
     if (transaction.type === 'adjustment' && transaction.amount < 0) expense += -transaction.amount
   }
   return { income, expense }
@@ -392,15 +421,17 @@ export function deriveBudgets(ledger: Ledger, today = ledger.snapshot?.today ?? 
     const categoryIds = budget.categoryId
       ? categorySubtree(ledger.categories, budget.categoryId)
       : undefined
-    const used = ledger.transactions
+    const rawUsed = ledger.transactions
       .filter((transaction) => {
-        if (transaction.type !== 'expense') return false
+        if (transaction.type !== 'expense' && refundOffsetSide(transaction) !== 'expense') return false
         if (transaction.date < range.start || transaction.date > range.end) return false
         if (categoryIds && !categoryIds.has(transaction.categoryId)) return false
         if (budget.accountId && transaction.accountId !== budget.accountId) return false
         return true
       })
-      .reduce((total, transaction) => total + transaction.amount, 0)
+      .reduce((total, transaction) => total + (transaction.type === 'expense' ? transaction.amount : -transaction.amount), 0)
+    // 退款冲减后为负时按 0 展示，与后端预算用量同口径。
+    const used = Math.max(0, rawUsed)
     const percent = budget.limit === 0 ? 0 : (used / budget.limit) * 100
     return {
       id: budget.id,
@@ -532,12 +563,70 @@ export function transactionDirection(transaction: LedgerTransaction): string {
   }
 }
 
+export interface RefundSummary {
+  refunded: number
+  remaining: number
+  state: 'none' | 'partial' | 'full'
+}
+
+/** 原交易的退款列表：API 用适配层带入的 refunds；种子按 relatedTransactionId 现算。 */
+export function getRefundList(ledger: Ledger, transaction: LedgerTransaction): LedgerTransaction[] {
+  if (transaction.refunds) return transaction.refunds
+  return ledger.transactions.filter(
+    (item) => item.type === 'refund' && item.relatedTransactionId === transaction.id,
+  )
+}
+
+export function getRefundSummary(ledger: Ledger, transaction: LedgerTransaction): RefundSummary {
+  if (transaction.type !== 'expense' && transaction.type !== 'income') {
+    return { refunded: 0, remaining: transaction.amount, state: 'none' }
+  }
+  const refunds = getRefundList(ledger, transaction)
+  const refunded = transaction.refundedAmount ?? refunds.reduce((total, item) => total + item.amount, 0)
+  const remaining = transaction.remainingAmount ?? Math.max(transaction.amount - refunded, 0)
+  const state = refunded <= 0 ? 'none' : remaining <= 0 ? 'full' : 'partial'
+  return { refunded, remaining, state }
+}
+
+/** 在列表里递归查找关联原交易/退款，便于从任意一侧打开对方详情。 */
+export function findTransactionDeep(list: LedgerTransaction[], id: string): LedgerTransaction | undefined {
+  const queue = [...list]
+  const seen = new Set<string>()
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (seen.has(current.id)) continue
+    seen.add(current.id)
+    if (current.id === id) return current
+    if (current.relatedTransaction) queue.push(current.relatedTransaction)
+    if (current.refunds) queue.push(...current.refunds)
+  }
+  return undefined
+}
+
+export function getRelatedTransaction(ledger: Ledger, transaction: LedgerTransaction): LedgerTransaction | undefined {
+  if (transaction.relatedTransaction) return transaction.relatedTransaction
+  if (!transaction.relatedTransactionId) return undefined
+  return findTransactionDeep(ledger.transactions, transaction.relatedTransactionId)
+}
+
+/** 关联标记的展示名：优先备注，其次分类名，最后短 id。 */
+export function transactionRefLabel(ledger: Ledger, transaction: LedgerTransaction): string {
+  const note = transaction.note.trim()
+  if (note) return note
+  const category = getCategoryName(ledger, transaction.categoryId)
+  return category !== '未分类' ? category : `#${transaction.id.slice(0, 8)}`
+}
+
 export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledger {
   const magnitude = Math.round(Math.abs(input.amount))
   if (magnitude <= 0) return ledger
 
   const signed = input.type === 'adjustment' ? Math.round(input.amount) : magnitude
   const fee = input.fee && input.fee > 0 ? Math.round(input.fee) : 0
+  const related = input.relatedTransactionId
+    ? findTransactionDeep(ledger.transactions, input.relatedTransactionId)
+    : undefined
+  const relatedType = input.type === 'refund' ? related?.type ?? null : undefined
 
   const accounts = ledger.accounts.map((account) => {
     if (input.type === 'transfer') {
@@ -546,8 +635,16 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
       return account
     }
     if (account.id !== input.accountId) return account
+    // 关联的收入退款是钱退回去（余额减少）；支出退款与未关联退款是余额增加。
+    const refundDelta = relatedType === 'income' ? -magnitude : magnitude
     const delta =
-      input.type === 'expense' ? -magnitude : input.type === 'adjustment' ? signed : magnitude
+      input.type === 'expense'
+        ? -magnitude
+        : input.type === 'adjustment'
+          ? signed
+          : input.type === 'refund'
+            ? refundDelta
+            : magnitude
     return { ...account, balance: account.balance + delta }
   })
 
@@ -560,7 +657,8 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
     id: `t${nextNumber + 1}`,
     date: input.date || TODAY,
     type: input.type,
-    categoryId: input.categoryId,
+    // 关联退款归属原交易分类：预算按分类子树统计，挂在「退款」分类会让预算不冲减。
+    categoryId: input.type === 'refund' && related ? related.categoryId : input.categoryId,
     note: input.note.trim() || '未填写备注',
     accountId: input.accountId,
     amount: signed,
@@ -570,6 +668,12 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
             input.toAccountId ||
             ledger.accounts.find((account) => account.id !== input.accountId)?.id,
           fee,
+        }
+      : {}),
+    ...(input.type === 'refund'
+      ? {
+          relatedTransactionId: related?.id,
+          relatedType,
         }
       : {}),
   }

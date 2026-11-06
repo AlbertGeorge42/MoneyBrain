@@ -12,6 +12,7 @@ import {
   deriveNetWorthTrend,
   getCategory,
   getCategoryRootId,
+  refundOffsetSide,
   TODAY,
   type Ledger,
   type LedgerAccount,
@@ -217,8 +218,23 @@ function inRange(transaction: LedgerTransaction, from: string, to: string): bool
   return transaction.date >= from && transaction.date <= to
 }
 
+/**
+ * 收支口径：退款不计收入，只冲减原交易一侧；未关联退款只影响余额。
+ * 现金流口径（isCashInflow）是另一套：看真实现金移动，用于桑基守恒。
+ */
 function isIncomeSide(transaction: LedgerTransaction): boolean {
-  return transaction.type === 'income' || transaction.type === 'refund'
+  return transaction.type === 'income'
+}
+
+function isCashInflow(transaction: LedgerTransaction): boolean {
+  if (transaction.type === 'income') return true
+  if (transaction.type === 'refund') return refundOffsetSide(transaction) !== 'income'
+  return false
+}
+
+function isCashOutflow(transaction: LedgerTransaction): boolean {
+  if (transaction.type === 'expense' || transaction.type === 'transfer') return true
+  return transaction.type === 'refund' && refundOffsetSide(transaction) === 'income'
 }
 
 function adjustmentExpense(transaction: LedgerTransaction): number {
@@ -230,7 +246,7 @@ function flowTrees(
   transactions: LedgerTransaction[],
   side: 'income' | 'expense',
 ): FlowTreeNode[] {
-  const allowed: TxType[] = side === 'income' ? ['income', 'refund'] : ['expense']
+  const allowed: TxType[] = side === 'income' ? ['income'] : ['expense']
   const roots = ledger.categories.filter((category) => !category.parentId && allowed.includes(category.type))
   const childrenOf = new Map<string, LedgerCategory[]>()
   for (const category of ledger.categories) {
@@ -249,14 +265,18 @@ function flowTrees(
 
   const own = new Map<string, { amount: number; count: number }>()
   for (const transaction of transactions) {
-    if (side === 'income' && !isIncomeSide(transaction)) continue
-    if (side === 'expense' && !(transaction.type === 'expense' || adjustmentExpense(transaction) > 0)) continue
-    const amount =
-      side === 'income'
-        ? Math.abs(transaction.amount)
-        : transaction.type === 'expense'
-          ? Math.abs(transaction.amount)
-          : adjustmentExpense(transaction)
+    const offset = refundOffsetSide(transaction)
+    let amount = 0
+    if (side === 'income') {
+      if (transaction.type === 'income') amount = Math.abs(transaction.amount)
+      else if (offset === 'income') amount = -Math.abs(transaction.amount)
+      else continue
+    } else {
+      if (transaction.type === 'expense') amount = Math.abs(transaction.amount)
+      else if (offset === 'expense') amount = -Math.abs(transaction.amount)
+      else if (adjustmentExpense(transaction) > 0) amount = adjustmentExpense(transaction)
+      else continue
+    }
     const key = transaction.categoryId
     const entry = own.get(key) ?? { amount: 0, count: 0 }
     entry.amount += amount
@@ -337,8 +357,11 @@ export function deriveFlowReport(ledger: Ledger, from: string, to: string, gran:
   let income = 0
   let expense = 0
   for (const transaction of transactions) {
+    const offset = refundOffsetSide(transaction)
     if (isIncomeSide(transaction)) income += Math.abs(transaction.amount)
+    if (offset === 'income') income -= Math.abs(transaction.amount)
     if (transaction.type === 'expense') expense += Math.abs(transaction.amount)
+    if (offset === 'expense') expense -= Math.abs(transaction.amount)
     expense += adjustmentExpense(transaction)
   }
   const balance = income - expense
@@ -349,8 +372,11 @@ export function deriveFlowReport(ledger: Ledger, from: string, to: string, gran:
     let bucketExpense = 0
     for (const transaction of transactions) {
       if (bucketKey(transaction.date, gran) !== bucketKey(bucket.key, gran)) continue
+      const offset = refundOffsetSide(transaction)
       if (isIncomeSide(transaction)) bucketIncome += Math.abs(transaction.amount)
+      if (offset === 'income') bucketIncome -= Math.abs(transaction.amount)
       if (transaction.type === 'expense') bucketExpense += Math.abs(transaction.amount)
+      if (offset === 'expense') bucketExpense -= Math.abs(transaction.amount)
       bucketExpense += adjustmentExpense(transaction)
     }
     return { label: bucket.label, income: bucketIncome, expense: bucketExpense }
@@ -385,8 +411,12 @@ export function accountBalancesAt(ledger: Ledger, point: string): Map<string, nu
     const amount = Math.abs(transaction.amount)
     if (transaction.type === 'expense') {
       balances.set(transaction.accountId, (balances.get(transaction.accountId) ?? 0) + amount)
-    } else if (transaction.type === 'income' || transaction.type === 'refund') {
+    } else if (transaction.type === 'income') {
       balances.set(transaction.accountId, (balances.get(transaction.accountId) ?? 0) - amount)
+    } else if (transaction.type === 'refund') {
+      // 收入退款是钱退回去（余额减少）；支出退款与未关联退款是余额增加。
+      const delta = refundOffsetSide(transaction) === 'income' ? amount : -amount
+      balances.set(transaction.accountId, (balances.get(transaction.accountId) ?? 0) + delta)
     } else if (transaction.type === 'adjustment') {
       balances.set(transaction.accountId, (balances.get(transaction.accountId) ?? 0) - transaction.amount)
     } else if (transaction.type === 'transfer') {
@@ -534,10 +564,9 @@ export function cashRowsFor(
 
 export function deriveCashReport(ledger: Ledger, from: string, to: string): CashReport {
   const transactions = ledger.transactions.filter((transaction) => inRange(transaction, from, to))
-  const inflow = transactions.filter(isIncomeSide)
-  const outflow = transactions.filter(
-    (transaction) => transaction.type === 'expense' || transaction.type === 'transfer',
-  )
+  // 现金流表看真实现金移动：支出退款/未关联退款是流入，收入退款是流出。
+  const inflow = transactions.filter(isCashInflow)
+  const outflow = transactions.filter(isCashOutflow)
   const inflowGroups = groupCash(ledger, inflow, 'in')
   const outflowGroups = groupCash(ledger, outflow, 'out')
   const inflowTotal = inflowGroups.reduce((sum, group) => sum + group.total, 0)
@@ -555,16 +584,16 @@ export function deriveCashReport(ledger: Ledger, from: string, to: string): Cash
     .reduce((sum, account) => sum + (balances.get(account.id) ?? account.balance), 0)
 
   // 与收支明细对账：调整只计支出侧、手续费两边净额都不计，差异必须显式可见。
-  const flowIncome = transactions
-    .filter(isIncomeSide)
-    .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
-  const flowExpense = transactions.reduce(
-    (sum, transaction) =>
-      sum +
-      (transaction.type === 'expense' ? Math.abs(transaction.amount) : 0) +
-      adjustmentExpense(transaction),
-    0,
-  )
+  const flowIncome = transactions.reduce((sum, transaction) => {
+    if (isIncomeSide(transaction)) return sum + Math.abs(transaction.amount)
+    if (refundOffsetSide(transaction) === 'income') return sum - Math.abs(transaction.amount)
+    return sum
+  }, 0)
+  const flowExpense = transactions.reduce((sum, transaction) => {
+    let amount = transaction.type === 'expense' ? Math.abs(transaction.amount) : 0
+    if (refundOffsetSide(transaction) === 'expense') amount -= Math.abs(transaction.amount)
+    return sum + amount + adjustmentExpense(transaction)
+  }, 0)
   const adjustmentTotal = transactions.reduce(
     (sum, transaction) => sum + adjustmentExpense(transaction),
     0,
@@ -791,8 +820,10 @@ export function buildDrill(
     .filter((transaction) => {
       if (!inRange(transaction, from, to)) return false
       if (!subtree.has(transaction.categoryId)) return false
-      if (kind === 'income') return isIncomeSide(transaction)
-      return transaction.type === 'expense' || adjustmentExpense(transaction) > 0
+      if (kind === 'income') return isIncomeSide(transaction) || refundOffsetSide(transaction) === 'income'
+      return transaction.type === 'expense' ||
+        refundOffsetSide(transaction) === 'expense' ||
+        adjustmentExpense(transaction) > 0
     })
     .sort((left, right) => right.date.localeCompare(left.date))
     .slice(0, 4)
@@ -813,11 +844,13 @@ export function buildDrill(
       label: `${getCategory(ledger, transaction.categoryId)?.name ?? '未分类'}${transaction.note ? ` · ${transaction.note}` : ''}`,
       account: ledger.accounts.find((account) => account.id === transaction.accountId)?.name ?? '—',
       amount:
-        transaction.type === 'expense'
-          ? Math.abs(transaction.amount)
-          : adjustmentExpense(transaction) > 0
-            ? adjustmentExpense(transaction)
-            : Math.abs(transaction.amount),
+        refundOffsetSide(transaction) === kind
+          ? -Math.abs(transaction.amount)
+          : transaction.type === 'expense'
+            ? Math.abs(transaction.amount)
+            : adjustmentExpense(transaction) > 0
+              ? adjustmentExpense(transaction)
+              : Math.abs(transaction.amount),
       tone: kind,
     })),
   }

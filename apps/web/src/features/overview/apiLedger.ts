@@ -103,7 +103,7 @@ export function mapperFromLedger(ledger: Ledger): CategoryDisplayMapper {
   }
 }
 
-export function toLedgerTransaction(
+function toBaseLedgerTransaction(
   transaction: Transaction,
   mapper: CategoryDisplayMapper,
 ): LedgerTransaction {
@@ -117,6 +117,37 @@ export function toLedgerTransaction(
     amount: transaction.amount,
     toAccountId: transaction.toAccountId ?? undefined,
     fee: transaction.fee || undefined,
+    relatedTransactionId: transaction.relatedTransactionId ?? undefined,
+    relatedType: transaction.relatedType ? asTxType(transaction.relatedType) : null,
+  }
+}
+
+/**
+ * 交易 DTO → 页面模型：连同退款双向关系一起带上。
+ * 列表/详情抽屉据此显示「退款 · 关联 #原交易」并可跳到对方详情，无需额外查库。
+ */
+export function toLedgerTransaction(
+  transaction: Transaction,
+  mapper: CategoryDisplayMapper,
+): LedgerTransaction {
+  const base = toBaseLedgerTransaction(transaction, mapper)
+  const relatedTransaction = transaction.relatedTransaction
+    ? toBaseLedgerTransaction(transaction.relatedTransaction, mapper)
+    : undefined
+  const refunds = (transaction.refunds ?? [])
+    .filter((refund) => refund.type === 'refund')
+    .map((refund) => toBaseLedgerTransaction(refund, mapper))
+
+  if (base.type === 'expense' || base.type === 'income') {
+    const refundedAmount = refunds.reduce((total, refund) => total + refund.amount, 0)
+    base.refundedAmount = refundedAmount
+    base.remainingAmount = Math.max(base.amount - refundedAmount, 0)
+  }
+
+  return {
+    ...base,
+    relatedTransaction,
+    refunds,
   }
 }
 

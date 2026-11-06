@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Ledger, LedgerTransaction } from '@/features/overview/model'
+import { type Ledger, type LedgerTransaction } from '@/features/overview/model'
 import {
   accountBalancesAt,
   buildAssetComposition,
@@ -48,26 +48,31 @@ const OCTOBER: LedgerTransaction[] = [
 ]
 
 describe('deriveFlowReport', () => {
-  it('收入含退款、支出含负向调整，转账不计入收支', () => {
+  it('未关联退款不计收入、只影响余额；支出含负向调整、转账不计收支', () => {
     const report = deriveFlowReport(fixture([...OCTOBER]), '2026-10-01', '2026-10-31', 'day')
-    expect(report.income).toBe(5_200)
+    expect(report.income).toBe(5_000)
     expect(report.expense).toBe(1_400)
-    expect(report.balance).toBe(3_800)
-    expect(report.savingsRate).toBeCloseTo((3_800 / 5_200) * 100, 4)
+    expect(report.balance).toBe(3_600)
+    expect(report.savingsRate).toBeCloseTo(72, 4)
   })
 
-  it('退款落在支出分类时仍按收入计，并按该分类归集', () => {
-    const refundToFood: LedgerTransaction = { ...OCTOBER[3], categoryId: 'food' }
+  it('关联支出退款冲减原分类，不把退款再计成收入', () => {
+    const linkedRefund: LedgerTransaction = {
+      ...OCTOBER[3],
+      categoryId: 'food',
+      relatedTransactionId: 't1',
+      relatedType: 'expense',
+    }
     const report = deriveFlowReport(
-      fixture([...OCTOBER.filter((item) => item.id !== 't4'), refundToFood]),
+      fixture([...OCTOBER.filter((item) => item.id !== 't4'), linkedRefund]),
       '2026-10-01',
       '2026-10-31',
       'day',
     )
-    expect(report.income).toBe(5_200)
-    const food = report.incomeTrees.find((node) => node.id === 'food')
-    expect(food?.amount).toBe(200)
-    expect(report.expenseTrees.find((node) => node.id === 'food')?.amount).toBe(1_300)
+    expect(report.income).toBe(5_000)
+    expect(report.expense).toBe(1_200)
+    expect(report.incomeTrees.find((node) => node.id === 'food')).toBeUndefined()
+    expect(report.expenseTrees.find((node) => node.id === 'food')?.amount).toBe(1_100)
   })
 
   it('一级分类汇总子分类，占比相对合计', () => {

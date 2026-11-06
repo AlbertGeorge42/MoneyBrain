@@ -129,10 +129,6 @@ export function LedgerProvider({
       if (magnitude <= 0) return { ok: false, error: '金额需大于 0' }
 
       if (apiMode) {
-        // 退款必须挂在原交易上；关联选择留到下一批，这里明确失败而不是假装保存。
-        if (input.type === 'refund') {
-          return { ok: false, error: '退款需要关联原交易，本批暂未接入，请改用支出或调整' }
-        }
         const body: Partial<Transaction> = {
           type: input.type,
           amount: minor(input.type === 'adjustment' ? Math.round(input.amount) : magnitude),
@@ -145,6 +141,10 @@ export function LedgerProvider({
           body.fee = minor(input.fee ?? 0)
         } else if (input.type !== 'adjustment') {
           body.categoryId = realCategoryId(ledgerRef.current, input.categoryId)
+        }
+        // 退款可选关联原交易；未关联退款由后端按「只影响余额」记账。
+        if (input.type === 'refund' && input.relatedTransactionId) {
+          body.relatedTransactionId = input.relatedTransactionId
         }
 
         try {
@@ -207,6 +207,45 @@ export function LedgerProvider({
 
       const before = ledgerRef.current
       setLedger(updateTransactionInLedger(before, id, patch))
+      const undoToken = registerUndo(async () => {
+        setLedger(before)
+        return { ok: true }
+      })
+      return { ok: true, undoToken }
+    },
+    [apiMode, refreshRemote, registerUndo],
+  )
+
+  const linkRefund = useCallback(
+    async (id: string, originalId: string | null): Promise<LedgerMutationOutcome> => {
+      if (apiMode) {
+        try {
+          await transactionApi.update(id, { relatedTransactionId: originalId }).then(unwrapApiData)
+          await refreshRemote()
+          return { ok: true }
+        } catch (error) {
+          return { ok: false, error: getApiErrorMessage(error) }
+        }
+      }
+
+      const before = ledgerRef.current
+      const original = originalId
+        ? before.transactions.find((transaction) => transaction.id === originalId)
+        : undefined
+      setLedger({
+        ...before,
+        transactions: before.transactions.map((transaction) =>
+          transaction.id === id
+            ? {
+                ...transaction,
+                // 关联后退款归属原交易分类，保证预算同口径冲减（与 API 后端一致）
+                categoryId: original?.categoryId ?? transaction.categoryId,
+                relatedTransactionId: original?.id,
+                relatedType: original?.type ?? null,
+              }
+            : transaction,
+        ),
+      })
       const undoToken = registerUndo(async () => {
         setLedger(before)
         return { ok: true }
@@ -619,6 +658,7 @@ export function LedgerProvider({
         dataMode,
         addTransaction,
         updateTransaction,
+        linkRefund,
         deleteTransactions,
         setTransactionCategory,
         createAccount,
