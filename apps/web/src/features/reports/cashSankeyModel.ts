@@ -198,13 +198,19 @@ export function deriveCashSankey(
   }
 
   const visible = (key: string) => visibility[key] !== false
+  // 隐藏组数按「配置里被隐藏的活动分组」计，跨流入 / 流出只算一次；
+  // 账户间转账虽不进桑基，但被隐藏时仍是用户隐藏的一个分组，一并计入。
+  base.hiddenGroups = new Set(
+    [...report.inflowGroups, ...report.outflowGroups]
+      .filter((group) => group.total > 0 && !visible(group.key))
+      .map((group) => group.key),
+  ).size
   const inflowGroups = report.inflowGroups.filter((group) => group.total > 0)
   const outflowGroups = report.outflowGroups.filter((group) => group.name !== '账户间转账' && group.total > 0)
   const hiddenIn = inflowGroups.filter((group) => !visible(group.key))
   const hiddenOut = outflowGroups.filter((group) => !visible(group.key))
   const shownIn = inflowGroups.filter((group) => visible(group.key))
   const shownOut = outflowGroups.filter((group) => visible(group.key))
-  base.hiddenGroups = hiddenIn.length + hiddenOut.length
 
   const nodes: CashSankeyNode[] = [
     { id: 'opening', name: '期初', layer: 0, tone: 'neutral', amount: opening, children: [] },
@@ -213,7 +219,7 @@ export function deriveCashSankey(
 
   const mergeHidden = (groups: CashGroup[]): CashGroup => ({
     key: 'hidden',
-    name: `其他（已隐藏 ${groups.length} 组）`,
+    name: `其他（已隐藏 ${base.hiddenGroups} 组）`,
     total: groups.reduce((sum, group) => sum + group.total, 0),
     count: groups.reduce((sum, group) => sum + group.count, 0),
     children: groups.flatMap((group) => group.children),

@@ -6,7 +6,7 @@
  * 390 不渲染桑基，仍用 Top5 横条。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
 import { createSeedLedger } from '@/features/overview/model'
@@ -96,6 +96,34 @@ describe('deriveCashSankey 守恒', () => {
     expect(hidden.outflow).toBe(sankey.outflow)
   })
 
+  it('隐藏组数按活动分组去重：隐藏 1 组只算 1 组，不把流入 / 流出各计一次', () => {
+    const hidden = deriveCashSankey(ledger, report, { ...ALL_VISIBLE, 经营: false })
+    expect(hidden.hiddenGroups).toBe(1)
+    const merged = hidden.nodes.filter((node) => node.name.startsWith('其他（已隐藏'))
+    expect(merged.map((node) => node.name)).toEqual(['其他（已隐藏 1 组）', '其他（已隐藏 1 组）'])
+  })
+
+  it('隐藏 2 组 / 全隐藏时图注与抽屉说明位同数同词', () => {
+    const one = deriveCashSankey(ledger, report, { ...ALL_VISIBLE, 经营: false })
+    const two = deriveCashSankey(ledger, report, { ...ALL_VISIBLE, 经营: false, 账户间转账: false })
+    const all = deriveCashSankey(ledger, report, {
+      经营: false,
+      投资: false,
+      筹资: false,
+      未分类: false,
+      账户间转账: false,
+    })
+    expect(two.hiddenGroups).toBe(2)
+    // 本期只有经营 / 账户间转账有流水，全隐藏与隐藏 2 组同数。
+    expect(all.hiddenGroups).toBe(2)
+    for (const data of [one, two, all]) {
+      const { container } = render(<CashSankeyChart data={data} onOpen={() => {}} />)
+      const note = container.querySelector('.mb-rp-chart-note')?.textContent ?? ''
+      expect(note).toContain(`已隐藏 ${data.hiddenGroups} 组，并入「其他」以保持守恒；`)
+      cleanup()
+    }
+  })
+
   it('期初净额为负（负债大于资产）时走可见失败态，不静默画图', () => {
     const negativeLedger = {
       ...ledger,
@@ -178,5 +206,26 @@ describe('现金流 tab 的平台降级', () => {
     fireEvent.click(screen.getByRole('tab', { name: '现金流' }))
     expect(container.querySelector('.mb-rp-sankey')).not.toBeNull()
     expect(container.querySelector('.mb-rp-flow-row')).toBeNull()
+  })
+
+  it('图注与抽屉说明位的隐藏组数逐字一致', async () => {
+    window.localStorage.setItem(
+      'mb-reports-view-settings-v1',
+      JSON.stringify({
+        balance: { groupMode: 'account', showKindColumn: true },
+        flow: { namedCategories: 6, showCountColumn: true, showShareColumn: true },
+        cash: { groups: { 经营: false, 投资: true, 筹资: true, 未分类: true, 账户间转账: true } },
+        invest: { showTarget: true, sortBy: 'marketValue', snapshotCount: 6 },
+      }),
+    )
+    const { container } = renderPage('desktop')
+    fireEvent.click(screen.getByRole('tab', { name: '现金流' }))
+    const chartNote = container.querySelector('.mb-rp-sankey .mb-rp-chart-note')?.textContent ?? ''
+    expect(chartNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
+    fireEvent.click(container.querySelector('.mb-rp-sankey-node[data-id="in:hidden"] .mb-rp-sankey-node-hit')!)
+    await waitFor(() => expect(container.querySelector('.mb-rp-drill')).not.toBeNull())
+    const drawerNote = container.querySelector('.mb-rp-drill .mb-rp-chart-note')?.textContent ?? ''
+    expect(drawerNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
+    expect(drawerNote).toContain('图与表合计允许不同')
   })
 })

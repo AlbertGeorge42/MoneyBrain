@@ -1073,7 +1073,7 @@ function CashView({
             )}
             {sankeyNode.hiddenCount ? (
               <p className="mb-rp-chart-note">
-                已隐藏 {sankeyNode.hiddenCount} 组，全部并入「其他」以保持守恒；表尾合计仍按可见分组重算。
+                已隐藏 {sankey?.hiddenGroups ?? sankeyNode.hiddenCount} 组，并入「其他」以保持守恒；表尾合计按可见分组重算（图与表合计允许不同）。
               </p>
             ) : null}
             <div className="mb-rp-sheet-actions">

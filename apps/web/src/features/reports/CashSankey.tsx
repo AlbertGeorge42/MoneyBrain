@@ -143,6 +143,11 @@ export function CashSankeyChart({
     )
   }
 
+  // 只有真的把隐藏分组并进「其他」时才声明合并；只藏了账户间转账时它本就不进桑基。
+  const mergedHidden = data.nodes.some((node) => node.id === 'in:hidden' || node.id === 'out:hidden')
+  const hiddenNote =
+    mergedHidden && data.hiddenGroups > 0 ? `已隐藏 ${data.hiddenGroups} 组，并入「其他」以保持守恒；` : ''
+
   return (
     <div className="mb-rp-sankey">
       <svg
@@ -228,9 +233,9 @@ export function CashSankeyChart({
           差额 {currency(Math.abs(data.difference))}
         </span>
       </div>
-      {(data.hiddenGroups > 0 || data.transferExcluded > 0) && (
+      {(hiddenNote || data.transferExcluded > 0) && (
         <p className="mb-rp-chart-note">
-          {data.hiddenGroups > 0 ? `已隐藏 ${data.hiddenGroups} 组，并入「其他」以保持守恒；` : ''}
+          {hiddenNote}
           {data.transferExcluded > 0 ? `账户间转账 ${currency(data.transferExcluded)} 为内部转移，不进桑基。` : ''}
         </p>
       )}
