@@ -884,3 +884,13 @@ export function currency(value: number): string {
 export function signedCurrency(value: number): string {
   return formatCurrency(minor(value), { showSign: true })
 }
+
+/**
+ * 柱高下限钳制：负值 / 非有限值一律给 0。SVG 对负高度只报 warning 不绘制，
+ * 零数据或异常金额时先在这里截断，保证控制台没有「negative value is not valid」。
+ */
+export function barHeight(value: number, max: number, plotH: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(max) || !Number.isFinite(plotH)) return 0
+  if (max <= 0 || plotH <= 0) return 0
+  return Math.max(0, (value / max) * plotH)
+}

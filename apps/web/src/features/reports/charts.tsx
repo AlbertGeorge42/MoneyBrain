@@ -14,7 +14,7 @@ import {
   CHART_TOOLTIP_W,
   buildChartLayout,
 } from '@/features/shared/chartLayout'
-import { currency } from './reportsModel'
+import { barHeight, currency } from './reportsModel'
 import type { FlowTreeNode } from './reportsModel'
 
 function useChartWidth(): [RefObject<HTMLDivElement>, number] {
@@ -250,8 +250,8 @@ export function ReportBarChart({
             </g>
             {series.map((item, index) => {
               const centerX = padL + slot * index + slot / 2
-              const incomeH = (item.income / max) * plotH
-              const expenseH = (item.expense / max) * plotH
+              const incomeH = barHeight(item.income, max, plotH)
+              const expenseH = barHeight(item.expense, max, plotH)
               return (
                 <g key={item.label + index} aria-hidden="true">
                   <rect

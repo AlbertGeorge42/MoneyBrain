@@ -166,6 +166,11 @@ export function mapFlowReport(
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
   const counts = flowCounts(ledger, from, to)
   const displayIdOf = (realId: string) => ledger.ids?.categoryDisplay?.[realId] ?? realId
+  const normalizedSeries = series.map((item) => ({
+    label: item.label,
+    income: Math.abs(item.income),
+    expense: Math.abs(item.expense),
+  }))
   return {
     income,
     expense,
@@ -173,7 +178,7 @@ export function mapFlowReport(
     savingsRate,
     incomeTrees: treeOf(data.incomeCategoryDetails, income, counts.income, displayIdOf),
     expenseTrees: treeOf(data.expenseCategoryDetails, expense, counts.expense, displayIdOf),
-    series,
+    series: normalizedSeries,
     metrics: [
       {
         label: '本期结余',

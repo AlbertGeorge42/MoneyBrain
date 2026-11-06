@@ -241,7 +241,7 @@ export function CashSankeyChart({
             data-layer={node.layer}
             data-amount={node.amount}
           >
-            <rect className="mb-rp-sankey-node-body" x={node.x} y={node.y} width={NODE_W} height={node.h} rx={3} />
+            <rect className="mb-rp-sankey-node-body" x={node.x} y={node.y} width={NODE_W} height={Math.max(0, node.h)} rx={3} />
             <rect
               className="mb-rp-sankey-node-hit"
               x={node.x - (HIT - NODE_W) / 2}
