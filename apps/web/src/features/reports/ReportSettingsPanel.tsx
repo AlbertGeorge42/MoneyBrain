@@ -199,7 +199,10 @@ export function ReportConfigPanel({
       )}
 
       {tab === 'cash' && (
-        <Field label="分组显示" note="只影响流入 / 流出表与构成条，合计随可见分组重算。">
+        <Field
+          label="分组显示"
+          note="表尾合计按可见分组重算；PC 桑基把隐藏项并入「其他（已隐藏 N 组）」以保持守恒，账户间转账为内部转移不进桑基。"
+        >
           {CASH_GROUP_KEYS.map((key) => (
             <Toggle
               key={key}

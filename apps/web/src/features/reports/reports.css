@@ -1505,6 +1505,107 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   line-height: 1.5;
 }
 
+/* 现金流桑基（PC）：三层节点 + 每条 link 独立命中带（24px）。 */
+.mb-rp-sankey {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+.mb-rp-sankey-svg {
+  width: 100%;
+  height: auto;
+  shape-rendering: geometricPrecision;
+}
+
+.mb-rp-sankey-ribbon {
+  fill: var(--mb-color-border);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.mb-rp-sankey-link.is-inflow .mb-rp-sankey-ribbon {
+  fill: var(--mb-color-income);
+}
+
+.mb-rp-sankey-link.is-outflow .mb-rp-sankey-ribbon {
+  fill: var(--mb-color-expense);
+}
+
+.mb-rp-sankey-link:hover .mb-rp-sankey-ribbon {
+  opacity: 0.68;
+}
+
+.mb-rp-sankey-hit {
+  fill: transparent;
+  stroke: transparent;
+  stroke-linejoin: round;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.mb-rp-sankey-node rect:first-of-type {
+  fill: var(--mb-color-text-secondary);
+  pointer-events: none;
+}
+
+.mb-rp-sankey-node.is-inflow rect:first-of-type {
+  fill: var(--mb-color-income);
+}
+
+.mb-rp-sankey-node.is-outflow rect:first-of-type {
+  fill: var(--mb-color-expense);
+}
+
+.mb-rp-sankey-node-hit {
+  fill: transparent;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.mb-rp-sankey-label,
+.mb-rp-sankey-value,
+.mb-rp-sankey-name {
+  fill: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-sankey-name {
+  fill: var(--mb-color-text-primary);
+}
+
+.mb-rp-sankey-value,
+.mb-rp-sankey-label {
+  font-family: var(--mb-font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-sankey-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-2) var(--mb-s-4);
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-sankey-check {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-rp-sankey-fail {
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-expense);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-expense-bg);
+  color: var(--mb-color-text-primary);
+  font-size: var(--mb-fs-1);
+  line-height: 1.5;
+}
+
 .mb-rp-drill-row > div {
   display: flex;
   flex-direction: column;

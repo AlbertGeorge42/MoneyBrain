@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { FolderInput, ScanLine } from 'lucide-react'
 import { Drawer } from '@mantine/core'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { TODAY } from '@/features/overview/model'
+import { TODAY, getCategoryRootId } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { formatPercent } from '@/utils/format'
@@ -55,6 +55,8 @@ import {
   type FlowReport,
   type InvestmentReport,
 } from './reportsModel'
+import { CashSankeyChart } from './CashSankey'
+import { deriveCashSankey, type CashSankey, type CashSankeyNode } from './cashSankeyModel'
 import {
   clampAsOfPoint,
   monthStart,
@@ -240,6 +242,11 @@ export function ReportsPage({
     [ledger, time.from, time.to, time.gran],
   )
   const cash = useMemo(() => deriveCashReport(ledger, time.from, time.to), [ledger, time.from, time.to])
+  // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；隐藏分组并入「其他」后仍守恒。
+  const sankey = useMemo(
+    () => (device === 'desktop' ? deriveCashSankey(ledger, cash, effectiveSettings.cash.groups) : null),
+    [device, ledger, cash, effectiveSettings.cash.groups],
+  )
   const invest = useMemo(() => deriveInvestmentReport(ledger), [ledger])
   const drillData = useMemo<DrillData | null>(
     () => (drill ? buildDrill(ledger, drill.node, drill.kind, time.from, time.to) : null),
@@ -340,11 +347,16 @@ export function ReportsPage({
             <CashView
               device={device}
               report={cash}
+              sankey={sankey}
               settings={effectiveSettings.cash}
               side={cashSide}
               onSide={setCashSide}
               folded={foldedCash}
               onFold={toggleCashFold}
+              from={time.from}
+              to={time.to}
+              onViewFlow={onViewFlow}
+              rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
             />
           )}
           {tab === 'invest' && (
@@ -881,20 +893,40 @@ function flattenCards(
 function CashView({
   device,
   report,
+  sankey,
   settings,
   side,
   onSide,
   folded,
   onFold,
+  from,
+  to,
+  onViewFlow,
+  rootOf,
 }: {
   device: DeviceMode
   report: CashReport
+  sankey: CashSankey | null
   settings: ReportViewSettings['cash']
   side: 'in' | 'out'
   onSide: (next: 'in' | 'out') => void
   folded: Record<string, boolean>
   onFold: (id: string) => void
+  from: string
+  to: string
+  onViewFlow: (options: { categoryIds: string[]; from: string; to: string }) => void
+  /** 流水页 txRoots 只认根分类：抽屉里的叶分类先展开到根。 */
+  rootOf: (categoryId: string) => string
 }) {
+  const [sankeyNode, setSankeyNode] = useState<CashSankeyNode | null>(null)
+  // 点切块 / 每条 ribbon 都落到同一个节点抽屉：合计与该节点、图例字段一一对应。
+  const openSankeyNode = (nodeId: string) => {
+    const node = sankey?.nodes.find((item) => item.id === nodeId)
+    if (node) setSankeyNode(node)
+  }
+  const sankeyCategories = sankeyNode
+    ? [...new Set(sankeyNode.children.map((child) => child.categoryId).filter(Boolean).map(rootOf))]
+    : []
   // 只按配置过滤可见分组；合计随可见分组重算，未显示的金额不留在表尾。
   const inflowGroups = visibleCashGroups(report.inflowGroups, settings)
   const outflowGroups = visibleCashGroups(report.outflowGroups, settings)
@@ -939,14 +971,14 @@ function CashView({
   return (
     <>
       <MetricStrip device={device} metrics={report.metrics} flat />
-      <CashFlowBars
-        inflowGroups={inflowGroups}
-        outflowGroups={outflowGroups}
-        inflowTotal={inflowTotal}
-        outflowTotal={outflowTotal}
-      />
       {device === 'desktop' ? (
-        <div className="mb-rp-cols">
+        <>
+          {sankey && (
+            <ChartCard title="现金流流向" desc="期初 → 流入 / 流出 → 期末 · 账户间转账为内部转移">
+              <CashSankeyChart data={sankey} onOpen={openSankeyNode} />
+            </ChartCard>
+          )}
+          <div className="mb-rp-cols">
           <ReportTable
             device={device}
             title="流入"
@@ -969,9 +1001,16 @@ function CashView({
             minRows={cashMinRows}
             total={['合计', '', currency(outflowTotal)]}
           />
-        </div>
+          </div>
+        </>
       ) : (
         <>
+          <CashFlowBars
+            inflowGroups={inflowGroups}
+            outflowGroups={outflowGroups}
+            inflowTotal={inflowTotal}
+            outflowTotal={outflowTotal}
+          />
           <Segmented
             label="现金流分段"
             value={side}
@@ -992,6 +1031,71 @@ function CashView({
           />
         </>
       )}
+      <Drawer
+        opened={sankeyNode !== null}
+        onClose={() => setSankeyNode(null)}
+        position={device === 'mobile' ? 'bottom' : 'right'}
+        size={device === 'mobile' ? 'auto' : 420}
+        withinPortal={false}
+        title={sankeyNode ? `${sankeyNode.name} · 现金流明细` : '现金流明细'}
+        classNames={{
+          content: 'mb-rp-sheet',
+          header: 'mb-rp-sheet-head',
+          title: 'mb-rp-sheet-title',
+          body: 'mb-rp-sheet-body',
+          overlay: 'mb-rp-overlay',
+          close: 'mb-rp-sheet-close',
+        }}
+      >
+        {sankeyNode && (
+          <div className="mb-rp-drill">
+            <div className="mb-rp-drill-head">
+              <span className="mb-rp-drill-label">
+                {sankeyNode.layer === 1 ? '活动分组合计' : '全账户净额'}
+              </span>
+              <span className="mb-rp-drill-amount is-neutral">{currency(sankeyNode.amount)}</span>
+            </div>
+            <h4 className="mb-rp-drill-title">
+              {sankeyNode.children.length > 0 ? `${sankeyNode.children.length} 笔` : '无分组明细'}
+            </h4>
+            {sankeyNode.children.length === 0 ? (
+              <p className="mb-rp-empty-line">期初 / 期末为全账户净额，没有可下钻的分组流水</p>
+            ) : (
+              sankeyNode.children.map((child) => (
+                <div className="mb-rp-drill-row" key={child.id}>
+                  <div>
+                    <span className="mb-rp-drill-tx-label">{child.label}</span>
+                    <span className="mb-rp-drill-meta">{child.account}</span>
+                  </div>
+                  <span className={`mb-rp-drill-value is-${child.tone}`}>{currency(child.amount)}</span>
+                </div>
+              ))
+            )}
+            {sankeyNode.hiddenCount ? (
+              <p className="mb-rp-chart-note">
+                已隐藏 {sankeyNode.hiddenCount} 组，全部并入「其他」以保持守恒；表尾合计仍按可见分组重算。
+              </p>
+            ) : null}
+            <div className="mb-rp-sheet-actions">
+              <button type="button" className="mb-rp-btn is-ghost" onClick={() => setSankeyNode(null)}>
+                关闭
+              </button>
+              {sankeyCategories.length > 0 && (
+                <button
+                  type="button"
+                  className="mb-rp-btn is-primary"
+                  onClick={() => {
+                    onViewFlow({ categoryIds: sankeyCategories, from, to })
+                    setSankeyNode(null)
+                  }}
+                >
+                  在流水中查看
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </Drawer>
     </>
   )
 }
