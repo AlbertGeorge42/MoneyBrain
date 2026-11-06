@@ -28,8 +28,13 @@
 }
 
 /* 报表时间条内嵌：外框由 mb-rp-time-picker 提供，不再叠一层边框。 */
-.mb-dp.is-inline .mb-dp-control {
+.mb-dp.is-inline {
+  flex: 1 1 auto;
   width: auto;
+}
+
+.mb-dp.is-inline .mb-dp-control {
+  width: 100%;
   min-height: 32px;
   padding: 0;
   border: 0;
@@ -398,7 +403,7 @@
   outline-offset: 2px;
 }
 
-/* ===== 移动 390：底部面板 ===== */
+/* ===== 移动 390：底部面板（mb-rp-sheet 等面板样式在 reports.css，两页共用同一份规范） ===== */
 
 .mb-dp.is-mobile .mb-dp-control {
   min-height: var(--mb-touch);

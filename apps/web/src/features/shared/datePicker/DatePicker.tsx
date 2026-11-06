@@ -46,6 +46,8 @@ interface DatePickerProps {
   gran?: DateGranularity
   variant?: 'field' | 'inline'
   align?: 'left' | 'right'
+  /** 触发器尾部小标签（如报表时点的「月末估值」）。 */
+  tag?: string
   className?: string
   sheetTitle?: string
 }
@@ -74,6 +76,7 @@ export function DatePicker({
   gran = 'day',
   variant = 'field',
   align = 'left',
+  tag,
   className,
   sheetTitle = '选择日期',
 }: DatePickerProps) {
@@ -245,7 +248,10 @@ export function DatePicker({
   }
 
   const matchedPreset =
-    presets.find((preset) => preset.from === draft.from && preset.to === draft.to)?.id ?? null
+    presets.find(
+      (preset) =>
+        !preset.disabledReason && preset.from === draft.from && preset.to === draft.to,
+    )?.id ?? null
   const disabledPresets = presets.filter((preset) => preset.disabledReason)
 
   const apply = () => {
@@ -547,6 +553,7 @@ export function DatePicker({
             </button>
           </>
         )}
+        {tag && <span className="mb-dp-tag">{tag}</span>}
       </div>
 
       {open && device !== 'mobile' && <div className="mb-dp-pop">{panel}</div>}

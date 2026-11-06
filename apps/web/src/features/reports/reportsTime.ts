@@ -13,6 +13,7 @@ export type PresetId =
   | 'last7'
   | 'thisMonth'
   | 'lastMonth'
+  | 'last3m'
   | 'thisQuarter'
   | 'thisYear'
   | 'last12m'
@@ -40,6 +41,7 @@ export const PRESETS: readonly { id: PresetId; label: string }[] = [
   { id: 'last7', label: '近 7 天' },
   { id: 'thisMonth', label: '本月' },
   { id: 'lastMonth', label: '上月' },
+  { id: 'last3m', label: '近 3 个月' },
   { id: 'thisQuarter', label: '本季' },
   { id: 'thisYear', label: '今年' },
   { id: 'last12m', label: '近 12 个月' },
@@ -51,6 +53,7 @@ const PRESET_GRAN: Record<PresetId, readonly Granularity[]> = {
   last7: ['day'],
   thisMonth: ['month'],
   lastMonth: ['month'],
+  last3m: ['month'],
   thisQuarter: ['month'],
   thisYear: ['year'],
   last12m: ['year'],
@@ -187,6 +190,11 @@ export function presetRange(
     case 'lastMonth': {
       const previous = addDays(monthStart(today), -1)
       return { from: monthStart(previous), to: monthEnd(previous) }
+    }
+    case 'last3m': {
+      const date = parseDay(today)
+      const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2, 1))
+      return { from: formatDay(start), to: today }
     }
     case 'thisQuarter': {
       const date = parseDay(today)
