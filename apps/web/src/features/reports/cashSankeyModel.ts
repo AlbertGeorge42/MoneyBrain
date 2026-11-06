@@ -9,7 +9,7 @@
  */
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
-import type { Ledger } from '@/features/overview/model'
+import type { Ledger, LedgerAccount } from '@/features/overview/model'
 import { addDays } from './reportsTime'
 import {
   accountBalancesAt,
@@ -94,6 +94,43 @@ function netAt(ledger: Ledger, point: string): number {
 
 function inRange(transaction: { date: string }, from: string, to: string): boolean {
   return transaction.date >= from && transaction.date <= to
+}
+
+/** 失败态里的可读日期（与页头的「2026 年 9 月」写法一致）。 */
+function dayLabel(point: string): string {
+  const [year, month, day] = point.split('-')
+  return `${Number(year)} 年 ${Number(month)} 月 ${Number(day)} 日`
+}
+
+/**
+ * 期初余额日期晚于期间起点的现金账户。
+ *
+ * 这是 2026-10 失败态的已知原因：账户期初余额在 10-31 才生效，而后端按期间起点
+ * 回放余额时该账户期初记 0，于是期初 + 流入 − 流出 − 期末的等式断裂。
+ */
+function lateOpeningCashAccounts(ledger: Ledger, from: string): LedgerAccount[] {
+  return ledger.accounts.filter((account) => {
+    if (account.kind !== 'cash' || typeof account.initialBalanceDate !== 'string') return false
+    // API 返回 ISO 时间串（2026-10-31T00:00:00.000Z），只取本地日历日部分比较。
+    return account.initialBalanceDate.slice(0, 10) > from
+  })
+}
+
+/** 把「期初余额日期晚于本期」翻译成用户能看懂的原因；找不到时才退回通用文案。 */
+function lateOpeningCause(ledger: Ledger, from: string): string | null {
+  const accounts = lateOpeningCashAccounts(ledger, from)
+  if (accounts.length === 0) return null
+  const names = accounts
+    .slice(0, 2)
+    .map((account) => `「${account.name}」`)
+    .join('、')
+  const suffix = accounts.length > 2 ? ` 等 ${accounts.length} 个账户` : ''
+  const openingDates = new Set<string>()
+  for (const account of accounts) {
+    openingDates.add(dayLabel(String(account.initialBalanceDate).slice(0, 10)))
+  }
+  const dates = [...openingDates].join('、')
+  return `账户${names}${suffix}的期初余额日期（${dates}）晚于本期起始日 ${dayLabel(from)}，期初余额在期中才生效，期初前的流水未计入期初余额`
 }
 
 /** 按权重把整数分拆成和精确等于总额的一组份额（最大余数法）。 */
@@ -197,10 +234,14 @@ export function deriveCashSankey(
   } catch {
     // 不静默画错图，也不让整页崩掉：落成可见失败态，差额如实写进 reason。
     base.difference = opening + inflow - outflow - closing
+    const cause = lateOpeningCause(ledger, from)
+    const amount = formatCurrency(minor(Math.abs(base.difference)))
     return {
       ...base,
       status: 'invalid',
-      reason: `现金流不守恒：期初 + 流入 − 流出 − 期末 = ${formatCurrency(minor(Math.abs(base.difference)))}。为避免误读，本图已停画。`,
+      reason: cause
+        ? `现金流不守恒：${cause}（期初 + 流入 − 流出 − 期末 = ${amount}）。为避免误读，本图已停画；请先调整账户期初余额日期。`
+        : `现金流不守恒：期初 + 流入 − 流出 − 期末 = ${amount}。为避免误读，本图已停画。`,
     }
   }
 

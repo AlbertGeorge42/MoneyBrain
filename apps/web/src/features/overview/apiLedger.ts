@@ -261,6 +261,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
       name: account.name,
       kind: accountKind(account),
       balance,
+      initialBalanceDate: account.initialBalanceDate,
     }
   })
 

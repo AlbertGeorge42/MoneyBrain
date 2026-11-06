@@ -14,6 +14,8 @@ export interface LedgerAccount {
   name: string
   kind: AccountKind
   balance: number
+  /** 期初余额的生效日期（API 适配层带入）；晚于报表期间起点时，该账户期初在期中才生效。 */
+  initialBalanceDate?: string | null
 }
 
 export interface LedgerCategory {
