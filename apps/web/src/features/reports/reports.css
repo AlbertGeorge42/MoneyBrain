@@ -1369,7 +1369,9 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
 
 .mb-rp-settings {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  min-height: 0;
 }
 
 .mb-rp-settings-row {
@@ -1637,31 +1639,47 @@ progress.mb-rp-progress.is-cat-6::-moz-progress-bar { background: var(--mb-color
   overflow: visible;
 }
 
+/* 折叠成 2×2 指标：每格 43px（4 上下内距 + 标签 12/1.2 + 数值 14/1.2），
+   加 8px 行距后合计 94px，把首屏让给图表。 */
 .mb-rp-page[data-device='mobile'] .mb-rp-metric {
-  padding: var(--mb-card-pad-compact);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  min-height: 43px;
+  padding: var(--mb-s-1) var(--mb-s-3);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-card);
   background: var(--mb-color-surface-raised);
   box-shadow: var(--mb-sh-1);
 }
 
-.mb-rp-page[data-device='mobile'] .mb-rp-metric.is-main {
-  grid-column: 1 / -1;
+.mb-rp-page[data-device='mobile'] .mb-rp-metric-label {
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-tight);
+  white-space: nowrap;
 }
 
-/* 四个指标时主指标占满首行，末尾奇数格补满整行，避免半格空白 */
-.mb-rp-page[data-device='mobile'] .mb-rp-metrics:not(.is-flat) > .mb-rp-metric:last-child:nth-child(4) {
-  grid-column: 1 / -1;
+.mb-rp-page[data-device='mobile'] .mb-rp-metric-value {
+  line-height: var(--mb-lh-tight);
+  white-space: nowrap;
+}
+
+.mb-rp-page[data-device='mobile'] .mb-rp-metric-hint {
+  display: none;
+}
+
+.mb-rp-page[data-device='mobile'] .mb-rp-metric.is-main {
+  grid-column: auto;
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-metrics.is-flat .mb-rp-metric {
   grid-column: auto;
 }
 
-.mb-rp-page[data-device='mobile'] .mb-rp-metric.is-main .mb-rp-metric-value {
-  font-size: var(--mb-fs-4);
-}
-
+.mb-rp-page[data-device='mobile'] .mb-rp-metric.is-main .mb-rp-metric-value,
 .mb-rp-page[data-device='mobile'] .mb-rp-metric-value {
   font-size: var(--mb-fs-2);
 }
