@@ -2048,7 +2048,9 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   min-height: var(--mb-touch);
 }
 
-/* 移动时间面板：按内容收缩的底部面板，内容可滚，动作区吸底常驻。 */
+/* 移动时间面板：按内容收缩的底部面板，内容可滚。
+   动作区固定在面板底部、不参与内容滚动：sheet 底部预留动作区高度，滚动区到此为止，
+   滚到顶时最后一行不会落在动作区下方，滚到底也不额外多出空白。 */
 .mb-rp-sheet:not(.mb-rp-sheet-settings) {
   display: flex;
   flex-direction: column;
@@ -2058,7 +2060,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   max-height: 82%;
   overflow: hidden;
   border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
-  background: var(--mb-color-surface);
+  padding-bottom: calc(var(--mb-touch) + var(--mb-s-3) + var(--mb-s-4) + var(--mb-border-width));
 }
 
 .mb-rp-sheet:not(.mb-rp-sheet-settings) .mb-rp-sheet-body {
@@ -2066,15 +2068,19 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* 与首屏末行到动作区的实测间距一致：滚到底时同距，不会多出一段空白。 */
+  padding-bottom: 10px;
 }
 
 .mb-rp-sheet:not(.mb-rp-sheet-settings) .mb-rp-sheet-actions {
-  position: sticky;
-  bottom: calc(var(--mb-s-4) * -1);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 1;
-  margin: var(--mb-s-2) calc(var(--mb-s-4) * -1) 0;
+  margin: 0;
   padding: var(--mb-s-3) var(--mb-s-4) var(--mb-s-4);
-  background: var(--mb-color-surface);
+  background: var(--mb-color-surface-raised);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-preset {
