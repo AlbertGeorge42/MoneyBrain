@@ -387,10 +387,12 @@ function donutRing(cx: number, cy: number, rOuter: number, rInner: number): stri
   return `M ${cx - rOuter} ${cy} A ${rOuter} ${rOuter} 0 0 1 ${cx + rOuter} ${cy} A ${rOuter} ${rOuter} 0 0 1 ${cx - rOuter} ${cy} L ${cx - rInner} ${cy} A ${rInner} ${rInner} 0 0 0 ${cx + rInner} ${cy} A ${rInner} ${rInner} 0 0 0 ${cx - rInner} ${cy} Z`
 }
 
-/** 二级环配色：父色相固定，明度做阶梯。浅色向深调（末位回到父色），暗色向浅调（父色最深）。 */
+/**
+ * 二级环配色：父色只作锚点，子级明度阶梯整段不含 100%（任一子级都不等于父色）。
+ * 浅色向深调（90%→40%），暗色向浅调（84%→32%）；只有 1 个子类时取阶梯中点。
+ */
 function subFill(parentColor: string, index: number, count: number): string {
-  if (count <= 1) return parentColor
-  const fraction = index / (count - 1)
+  const fraction = count <= 1 ? 0.5 : index / (count - 1)
   return `color-mix(in srgb, ${parentColor} calc(var(--mb-chart-sub-from) + (var(--mb-chart-sub-to) - var(--mb-chart-sub-from)) * ${fraction.toFixed(4)}), var(--mb-chart-sub-tint))`
 }
 
@@ -474,8 +476,9 @@ export function DonutChart({
   /** 命中层：桌面也必须有（弧本身 pointer-events:none），移动向内加厚到 44 触控带。 */
   const hitInner = Math.max(1, rInner - (device === 'mobile' ? 24 : 6))
   const hitBand = device === 'mobile' ? 44 : 30
-  // 切块角：先按金额占比扣 1° 白隙；<2° 的块保底 1.4°，保底增量从其他块按富余比例扣除，
-  // 保证总角 ≤ 360 − 白隙，最细的块不会压到相邻块（含 270° 处的首块）。
+  // 切块角：先按金额占比扣 1° 白隙；<2° 的块保底 1.4°。保底增量不是从最大块扣，
+  // 而是按各块富余（sweep − 1.4°）占比分摊（富余为 0 的块不扣），保证总角 ≤ 360 − 白隙，
+  // 最细的块不会压到相邻块（含 270° 处的首块）。
   const TOO_THIN = 1.4
   const SLICE_GAP = 1
   const rawSweeps =
