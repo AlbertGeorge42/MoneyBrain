@@ -71,6 +71,9 @@
 .mb-rp-iconbtn:focus-visible,
 .mb-rp-time-trigger:focus-visible,
 .mb-rp-settings-btn:focus-visible,
+.mb-rp-config-back:focus-visible,
+.mb-rp-config-choice:focus-visible,
+.mb-rp-config-toggle:focus-visible,
 .mb-rp-btn:focus-visible,
 .mb-rp-crow-main:focus-visible,
 .mb-rp-crow-fold:focus-visible,
@@ -1533,6 +1536,154 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-weight: 600;
 }
 
+/* ===== 报表设置：四个展示配置面板 ===== */
+
+.mb-rp-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-4);
+}
+
+.mb-rp-config-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-config-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+  margin-left: calc(var(--mb-s-2) * -1);
+  border: 0;
+  border-radius: var(--mb-radius-control);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  cursor: pointer;
+}
+
+.mb-rp-config-back:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-rp-config-title {
+  margin: 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-rp-config-note {
+  margin: 2px 0 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-config-label {
+  margin: 0;
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+}
+
+.mb-rp-config-field-note {
+  margin: 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.45;
+}
+
+.mb-rp-config-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-config-choice {
+  min-width: 72px;
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-control);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+}
+
+.mb-rp-config-choice.is-active {
+  border-color: var(--mb-color-accent);
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+  font-weight: 600;
+}
+
+.mb-rp-config-choice:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mb-rp-config-toggle-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mb-rp-config-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-control);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+}
+
+.mb-rp-config-toggle.is-on {
+  border-color: var(--mb-color-accent);
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+}
+
+.mb-rp-config-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mb-rp-config-toggle-state {
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-config-toggle.is-on .mb-rp-config-toggle-state {
+  color: var(--mb-color-accent);
+}
+
+.mb-rp-config-reason {
+  margin: 0;
+  padding-left: 2px;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.45;
+}
+
 .mb-rp-empty {
   display: flex;
   flex-direction: column;
@@ -1678,6 +1829,17 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 .mb-rp-sheet-actions .mb-rp-btn {
   width: 100%;
   min-height: var(--mb-touch);
+}
+
+/* 配置面板：重置 / 取消 / 确认 同一行常驻，380 sheet 不被三个按钮吃掉内容区。 */
+.mb-rp-sheet-actions.is-config {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-sheet-actions.is-config .mb-rp-btn {
+  width: auto;
 }
 
 .mb-rp-sheet-close {

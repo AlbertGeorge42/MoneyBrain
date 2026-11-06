@@ -20,8 +20,17 @@ import {
   ReportBarChart,
   ReportLineChart,
 } from './charts'
-import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportRow } from './ReportTable'
+import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportColumn, type ReportRow } from './ReportTable'
 import { flattenFlowRows } from './reportRows'
+import { ReportConfigPanel } from './ReportSettingsPanel'
+import {
+  cashGroupPresence,
+  defaultReportSettings,
+  groupBalanceRows,
+  loadReportSettings,
+  saveReportSettings,
+  type ReportViewSettings,
+} from './reportSettings'
 import {
   buildDrill,
   cashRowsFor,
@@ -205,6 +214,11 @@ export function ReportsPage({
   const [flowSide, setFlowSide] = useState<'income' | 'expense'>('expense')
   const [cashSide, setCashSide] = useState<'in' | 'out'>('in')
   const [balanceSide, setBalanceSide] = useState<'assets' | 'liabilities'>('assets')
+  // 展示偏好只落 localStorage；面板里的切换先改 draft，页面即时按 draft 重算。
+  const [viewSettings, setViewSettings] = useState<ReportViewSettings>(() => loadReportSettings())
+  const [configTab, setConfigTab] = useState<ReportTab | null>(null)
+  const [draftSettings, setDraftSettings] = useState<ReportViewSettings | null>(null)
+  const effectiveSettings = draftSettings ?? viewSettings
 
   // 时点不超过数据截止日：月末/年末锚点在本月会被截到 asOf，避免出现 10-31 晚于 10-28。
   const balancePoint = clampAsOfPoint(time.point, TODAY)
@@ -241,6 +255,30 @@ export function ReportsPage({
   const toggleCashFold = (id: string) =>
     setFoldedCash((current) => ({ ...current, [id]: current[id] === false }))
 
+  const openConfig = (next: ReportTab) => {
+    // 配置在目标报表上生效：先把视图切过去，抽屉后仍能看到改前/改后结构。
+    setTab(next)
+    setDraftSettings(viewSettings)
+    setConfigTab(next)
+  }
+  const closeConfig = () => {
+    setDraftSettings(null)
+    setConfigTab(null)
+  }
+  const commitConfig = () => {
+    if (!draftSettings) return
+    saveReportSettings(draftSettings)
+    setViewSettings(draftSettings)
+    closeConfig()
+    notify('已应用展示配置 · 不写回账本')
+  }
+  const resetConfig = () => setDraftSettings(defaultReportSettings())
+  const closeSettings = () => {
+    // 关闭抽屉等同取消未确认的改动，避免「看过就生效」。
+    closeConfig()
+    onSettingsToggle()
+  }
+
   const pageState =
     dataState === 'loading' ? (
       <LoadingSkeleton device={device} variant="reports" />
@@ -264,7 +302,13 @@ export function ReportsPage({
             onOpenSettings={onSettingsToggle}
           />
           {tab === 'balance' && (
-            <BalanceView device={device} report={balance} side={balanceSide} onSide={setBalanceSide} />
+            <BalanceView
+              device={device}
+              report={balance}
+              settings={effectiveSettings.balance}
+              side={balanceSide}
+              onSide={setBalanceSide}
+            />
           )}
           {tab === 'flow' && (
             <FlowView
@@ -314,7 +358,7 @@ export function ReportsPage({
 
       <Drawer
         opened={settingsOpen}
-        onClose={onSettingsToggle}
+        onClose={closeSettings}
         position={device === 'mobile' ? 'bottom' : 'right'}
         size={device === 'mobile' ? 'auto' : 420}
         withinPortal={false}
@@ -333,23 +377,49 @@ export function ReportsPage({
       >
         <div className="mb-rp-settings">
           <div className="mb-rp-settings-scroll">
-            <p className="mb-rp-settings-note">报表只读 · 只改展示口径</p>
-            {TABS.map((item) => (
-              <div className="mb-rp-settings-row" key={item.id}>
-                <div>
-                  <p className="mb-rp-settings-title">{item.label}</p>
-                </div>
-                <button type="button" className="mb-rp-btn is-ghost" onClick={() => notify(`${item.label}配置将在设置批次接入`)}>
-                  配置
-                </button>
-              </div>
-            ))}
+            {configTab && draftSettings ? (
+              <ReportConfigPanel
+                tab={configTab}
+                draft={draftSettings}
+                onChange={setDraftSettings}
+                cashPresence={cashGroupPresence(cash)}
+                onBack={closeConfig}
+              />
+            ) : (
+              <>
+                <p className="mb-rp-settings-note">报表只读 · 不写回账本 · 只改展示口径</p>
+                {TABS.map((item) => (
+                  <div className="mb-rp-settings-row" key={item.id}>
+                    <div>
+                      <p className="mb-rp-settings-title">{item.label}</p>
+                    </div>
+                    <button type="button" className="mb-rp-btn is-ghost" onClick={() => openConfig(item.id)}>
+                      配置
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
-          <div className="mb-rp-sheet-actions">
-            <button type="button" className="mb-rp-btn is-primary" onClick={onSettingsToggle}>
-              完成
-            </button>
-          </div>
+          {configTab && draftSettings ? (
+            <div className="mb-rp-sheet-actions is-config">
+              <button type="button" className="mb-rp-btn is-ghost" onClick={resetConfig}>
+                重置
+              </button>
+              <button type="button" className="mb-rp-btn is-ghost" onClick={closeConfig}>
+                取消
+              </button>
+              <button type="button" className="mb-rp-btn is-primary" onClick={commitConfig}>
+                确认
+              </button>
+            </div>
+          ) : (
+            <div className="mb-rp-sheet-actions">
+              <button type="button" className="mb-rp-btn is-primary" onClick={closeSettings}>
+                完成
+              </button>
+            </div>
+          )}
         </div>
       </Drawer>
 
@@ -368,41 +438,63 @@ export function ReportsPage({
 function BalanceView({
   device,
   report,
+  settings,
   side,
   onSide,
 }: {
   device: DeviceMode
   report: BalanceReport
+  settings: ReportViewSettings['balance']
   side: 'assets' | 'liabilities'
   onSide: (next: 'assets' | 'liabilities') => void
 }) {
-  const assetRows: ReportRow[] = report.assets.map((row) => ({
+  const shownAssets = groupBalanceRows(report.assets, settings.groupMode)
+  const shownLiabilities = groupBalanceRows(report.liabilities, settings.groupMode)
+  // 按性质汇总后性质列不再单列；面板里该开关同步禁用并给出原因。
+  const showKind = settings.showKindColumn && settings.groupMode === 'account'
+  const cellsOf = (row: { name: string; kind: string; amount: number }) =>
+    showKind ? [row.name, row.kind, currency(row.amount)] : [row.name, currency(row.amount)]
+  const assetColumns: ReportColumn[] = showKind
+    ? [{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]
+    : [{ label: '账户' }, { label: '金额', align: 'num' }]
+  const assetTotalCells = showKind ? ['合计', '', currency(report.assetTotal)] : ['合计', currency(report.assetTotal)]
+  const equityTotalCells = showKind
+    ? ['合计', '', currency(report.equityTotal)]
+    : ['合计', currency(report.equityTotal)]
+
+  const assetRows: ReportRow[] = shownAssets.map((row) => ({
     id: row.id,
-    cells: [row.name, row.kind, currency(row.amount)],
+    cells: cellsOf(row),
   }))
   const liabilityRows: ReportRow[] = [
-    ...report.liabilities.map((row) => ({
+    ...shownLiabilities.map((row) => ({
       id: row.id,
-      cells: [row.name, row.kind, currency(row.amount)],
+      cells: cellsOf(row),
     })),
-    { id: 'equity', cells: ['所有者权益', '净资产', currency(report.equity)], tone: 'income' as const },
+    {
+      id: 'equity',
+      cells: showKind
+        ? ['所有者权益', '净资产', currency(report.equity)]
+        : ['所有者权益', currency(report.equity)],
+      tone: 'income' as const,
+    },
   ]
 
   const balanceMinRows = Math.max(assetRows.length, liabilityRows.length)
 
-  const assetCards: CardRow[] = report.assets.map((row) => ({
+  const assetCards: CardRow[] = shownAssets.map((row) => ({
     id: row.id,
     label: row.name,
-    meta: row.kind,
+    meta: showKind ? row.kind : undefined,
     amount: currency(row.amount),
     barTone: 'accent',
     share: report.assetTotal === 0 ? 0 : (row.amount / report.assetTotal) * 100,
   }))
   const liabilityCards: CardRow[] = [
-    ...report.liabilities.map((row) => ({
+    ...shownLiabilities.map((row) => ({
       id: row.id,
       label: row.name,
-      meta: row.kind,
+      meta: showKind ? row.kind : undefined,
       amount: currency(row.amount),
       tone: 'expense' as const,
       barTone: 'expense' as const,
@@ -466,19 +558,19 @@ function BalanceView({
             device={device}
             title="资产"
             ariaLabel="资产明细"
-            columns={[{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]}
+            columns={assetColumns}
             rows={assetRows}
             minRows={balanceMinRows}
-            total={['合计', '', currency(report.assetTotal)]}
+            total={assetTotalCells}
           />
           <ReportTable
             device={device}
             title="负债与权益"
             ariaLabel="负债与权益明细"
-            columns={[{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]}
+            columns={assetColumns}
             rows={liabilityRows}
             minRows={balanceMinRows}
-            total={['合计', '', currency(report.equityTotal)]}
+            total={equityTotalCells}
           />
         </div>
       ) : (
