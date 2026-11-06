@@ -70,11 +70,11 @@ export async function getDashboardSummary() {
   const thisMonth = summarizeFlows(ledger, toPeriod(currentMonthStart, nextMonthStart))
   const lastMonth = summarizeFlows(ledger, toPeriod(lastMonthStart, currentMonthStart))
 
-  // 最近交易（含账户和分类信息）
+  // 最近交易（含账户/分类，以及退款关联与退款列表：行标记和详情跳转共用）
   const recentTransactions = await transactionRepo.findActive(
     {},
     {
-      include: { account: true, category: true, toAccount: true },
+      include: transactionRepo.TRANSACTION_RELATIONS,
       orderBy: { date: 'desc' },
       take: 8,
     },

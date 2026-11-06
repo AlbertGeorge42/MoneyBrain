@@ -103,7 +103,7 @@ const validateMoneyFields = (body: Record<string, unknown>) => {
 }
 
 const validateCreateTransaction = (req: Request) => {
-  const { type, amount, date, accountId, categoryId, toAccountId, relatedTransactionId } = req.body as Record<string, unknown>
+  const { type, amount, date, accountId, categoryId, toAccountId } = req.body as Record<string, unknown>
   parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
   const transactionType = validateTransactionType(type)
 
@@ -114,10 +114,8 @@ const validateCreateTransaction = (req: Request) => {
   validateMoneyFields(req.body as Record<string, unknown>)
   toDate(date, 'date')
 
+  // 退款可合法地不关联原交易：仍按退款类型记账，只是不参与收入/支出冲减。
   if (transactionType === 'refund') {
-    if (!hasValue(relatedTransactionId)) {
-      throw new ValidationError('退款交易缺少必要参数')
-    }
     return
   }
 
@@ -226,7 +224,8 @@ router.post('/', validateRequest(validateCreateTransaction), asyncHandler(async 
       date: parsedDate,
       note,
       accountId,
-      relatedTransactionId,
+      categoryId,
+      relatedTransactionId: relatedTransactionId ?? undefined,
       excludeFromIncomeExpense,
     })
     return success(res, result, 201)

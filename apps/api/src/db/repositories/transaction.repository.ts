@@ -72,6 +72,23 @@ export async function sumActiveAmount(
   return db(tx).transaction.aggregate({ where: { ...where, ...NOT_DELETED }, _sum: { amount: true } })
 }
 
+/** 某个原交易下未删除退款的合计（累计退款上限校验用；编辑时排除自身）。 */
+export async function sumActiveRefundAmount(
+  relatedTransactionId: string,
+  excludeRefundId?: string,
+  tx?: TransactionClient,
+): Promise<{ _sum: { amount: bigint | null } }> {
+  return db(tx).transaction.aggregate({
+    where: {
+      ...NOT_DELETED,
+      type: 'refund',
+      relatedTransactionId,
+      ...(excludeRefundId ? { id: { not: excludeRefundId } } : {}),
+    },
+    _sum: { amount: true },
+  })
+}
+
 /** 交易统计的口径聚合：类型 × 退款原类型 × 不计收支 × 口径版本。 */
 export function sumActiveAmountByFlowKind(where: Prisma.TransactionWhereInput, tx?: TransactionClient) {
   return db(tx).transaction.groupBy({
