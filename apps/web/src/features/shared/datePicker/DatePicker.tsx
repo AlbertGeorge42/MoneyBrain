@@ -185,6 +185,14 @@ export function DatePicker({
     openPanel(field)
   }
 
+  // 焦点还没进浮层的瞬间也可能按 Esc（例如刚点开触发控件），这里兜底关闭。
+  const onZoneKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Escape' || !open) return
+    event.preventDefault()
+    event.stopPropagation()
+    close(true)
+  }
+
   const dayDisabled = (date: string) => Boolean(maxDate && date > maxDate)
 
   const pickDay = (raw: string) => {
@@ -218,7 +226,11 @@ export function DatePicker({
     if (preset.disabledReason) return
     setDraft({ from: preset.from, to: preset.to })
     setError(null)
-    setFeedback(`预设「${preset.label}」：${preset.from} ~ ${preset.to}`)
+    setFeedback(
+      isPoint
+        ? `预设「${preset.label}」：${preset.from}`
+        : `预设「${preset.label}」：${preset.from} ~ ${preset.to}`,
+    )
     setActive('to')
     const anchor = preset.to || preset.from
     if (anchor) {
@@ -515,6 +527,7 @@ export function DatePicker({
             aria-expanded={open}
             aria-label={`时点，当前 ${value.from || '未选择'}`}
             onClick={(event) => onTrigger(event, 'from')}
+            onKeyDown={onZoneKeyDown}
           >
             <span className="mb-dp-zone-label">时点</span>
             <span className={value.from ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
@@ -530,6 +543,7 @@ export function DatePicker({
               aria-expanded={open}
               aria-label={`起始日期，当前 ${value.from || placeholderText}`}
               onClick={(event) => onTrigger(event, 'from')}
+              onKeyDown={onZoneKeyDown}
             >
               <span className="mb-dp-zone-label">起</span>
               <span className={value.from ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
@@ -546,6 +560,7 @@ export function DatePicker({
               aria-expanded={open}
               aria-label={`结束日期，当前 ${value.to || placeholderText}`}
               onClick={(event) => onTrigger(event, 'to')}
+              onKeyDown={onZoneKeyDown}
             >
               <span className="mb-dp-zone-label">止</span>
               <span className={value.to ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>

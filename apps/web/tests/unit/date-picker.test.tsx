@@ -166,6 +166,18 @@ describe('DatePicker 交互', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('焦点仍在触发控件时按 Esc 也能关闭', async () => {
+    const user = userEvent.setup()
+    renderPicker()
+    const trigger = screen.getByRole('button', { name: /起始日期/ })
+    await user.click(trigger)
+    trigger.focus()
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
   it('Tab 在浮层内循环，方向键选日、Enter 确认', async () => {
     const user = userEvent.setup()
     const { onChange } = renderPicker()

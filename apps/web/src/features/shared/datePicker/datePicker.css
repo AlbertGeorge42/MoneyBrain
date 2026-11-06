@@ -301,7 +301,8 @@
   cursor: pointer;
 }
 
-.mb-dp-day:hover:not(:disabled) {
+/* :not(:disabled) 会抬高选择器权重，若不排除选中/区间内日期，悬停会把高亮刷掉。 */
+.mb-dp-day:hover:not(:disabled):not(.is-active):not(.is-in-range) {
   background: var(--mb-color-surface-hover);
 }
 
@@ -315,7 +316,8 @@
 
 .mb-dp-day.is-active {
   background: var(--mb-color-accent);
-  color: var(--mb-color-on-accent-fill);
+  /* accent 是深绿（暗色主题是亮绿），对应文字用 inverse，避免 on-accent-fill 的低对比。 */
+  color: var(--mb-color-text-inverse);
   font-weight: 600;
 }
 
@@ -448,4 +450,9 @@
 .mb-dp-sheet-actions .mb-dp-btn {
   flex: 1;
   min-height: var(--mb-touch);
+}
+
+/* 动作区绝对定位在底部，内容区留出让位，避免最后一行反馈被压住。 */
+.mb-dp-sheet .mb-dp-panel {
+  padding-bottom: calc(var(--mb-touch) * 2);
 }
