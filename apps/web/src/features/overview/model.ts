@@ -14,6 +14,8 @@ export interface LedgerAccount {
   name: string
   kind: AccountKind
   balance: number
+  /** 期初余额（分，API 适配层带入）；种子账本没有独立期初，视为未设。 */
+  initialBalance?: number
   /** 期初余额的生效日期（API 适配层带入）；晚于报表期间起点时，该账户期初在期中才生效。 */
   initialBalanceDate?: string | null
 }

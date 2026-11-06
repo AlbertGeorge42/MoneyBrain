@@ -161,6 +161,17 @@
   min-height: 100%;
 }
 
+/* 生产入口（非预览）：移动端直接铺满视口，不再套 390×844 手机框。 */
+.mb-hf-canvas.is-live-mobile {
+  overflow: hidden;
+  padding: 0;
+}
+
+.mb-hf-live-mobile {
+  position: relative;
+  height: 100%;
+}
+
 .mb-hf-phone {
   position: relative;
   flex: none;

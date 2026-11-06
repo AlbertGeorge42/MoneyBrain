@@ -51,6 +51,26 @@ function readInitial<T extends string>(key: string, allowed: readonly T[], fallb
   return value && allowed.includes(value) ? value : fallback
 }
 
+/** 生产入口（非预览）按视口宽度切设备档；预览壳仍用工具栏手动切。 */
+function useViewportDevice(enabled: boolean): DeviceMode {
+  const query = '(max-width: 767px)'
+  const [device, setDevice] = useState<DeviceMode>(() =>
+    typeof window !== 'undefined' && window.matchMedia(query).matches ? 'mobile' : 'desktop',
+  )
+
+  useEffect(() => {
+    if (!enabled) return
+    const media = window.matchMedia(query)
+    const handleChange = (event: MediaQueryListEvent) =>
+      setDevice(event.matches ? 'mobile' : 'desktop')
+    setDevice(media.matches ? 'mobile' : 'desktop')
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
+  }, [enabled])
+
+  return device
+}
+
 function useSystemScheme(): SchemeMode {
   const [system, setSystem] = useState<SchemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -164,6 +184,7 @@ function PreviewBody({
   onState,
   apiMode,
   onRetry,
+  framed,
 }: {
   device: DeviceMode
   dataState: DataState
@@ -172,6 +193,8 @@ function PreviewBody({
   onState: (next: DataState) => void
   apiMode: boolean
   onRetry: () => void
+  /** 预览壳用 390×844 手机框；生产入口直接铺满视口。 */
+  framed: boolean
 }) {
   const { ledger, undo } = useLedger()
   const [entryOpen, setEntryOpen] = useState(false)
@@ -399,6 +422,15 @@ function PreviewBody({
       : toastNode
 
   if (device === 'mobile') {
+    if (!framed) {
+      return (
+        <div className="mb-hf-live-mobile">
+          {shell}
+          {overlays}
+          {toastPortal}
+        </div>
+      )
+    }
     return (
       <div className="mb-hf-phone">
         <div className="mb-hf-phone-screen">
@@ -419,10 +451,12 @@ function PreviewBody({
   )
 }
 
-export default function DesignApp() {
+export default function DesignApp({ preview = true }: { preview?: boolean }) {
   const [device, setDevice] = useState<DeviceMode>(() =>
     readInitial('device', DEVICES, 'desktop'),
   )
+  const viewportDevice = useViewportDevice(!preview)
+  const activeDevice = preview ? device : viewportDevice
   const [scheme, setScheme] = useState<SchemeChoice>(() =>
     readInitial('scheme', SCHEMES, 'system'),
   )
@@ -465,22 +499,26 @@ export default function DesignApp() {
             : 'normal'
       : dataState
 
-  const canvasClass = useMemo(
-    () => (device === 'mobile' ? 'mb-hf-canvas is-mobile' : 'mb-hf-canvas'),
-    [device],
-  )
+  const canvasClass = useMemo(() => {
+    if (!preview) {
+      return activeDevice === 'mobile' ? 'mb-hf-canvas is-live-mobile' : 'mb-hf-canvas'
+    }
+    return activeDevice === 'mobile' ? 'mb-hf-canvas is-mobile' : 'mb-hf-canvas'
+  }, [preview, activeDevice])
 
   return (
     <MantineProvider theme={hfTheme} forceColorScheme={resolvedScheme}>
       <div className="mb-hf-root" data-hf-scheme={resolvedScheme}>
-        <PreviewToolbar
-          device={device}
-          scheme={scheme}
-          dataState={dataState}
-          onDevice={setDevice}
-          onScheme={setScheme}
-          onState={setDataState}
-        />
+        {preview && (
+          <PreviewToolbar
+            device={device}
+            scheme={scheme}
+            dataState={dataState}
+            onDevice={setDevice}
+            onScheme={setScheme}
+            onState={setDataState}
+          />
+        )}
         <div className={canvasClass}>
           <LedgerProvider
             initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : undefined}
@@ -488,13 +526,14 @@ export default function DesignApp() {
             onRemoteChange={refreshRemote}
           >
             <PreviewBody
-              device={device}
+              device={activeDevice}
               dataState={effectiveState}
               page={page}
               onPage={setPage}
               onState={setDataState}
               apiMode={apiMode}
               onRetry={api.refetch}
+              framed={preview}
             />
           </LedgerProvider>
         </div>

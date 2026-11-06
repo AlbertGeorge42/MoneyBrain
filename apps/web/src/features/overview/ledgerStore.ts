@@ -26,11 +26,15 @@ export interface LedgerBatchCategoryOutcome extends LedgerMutationOutcome {
   succeeded: number
 }
 
-/** 设置页账户表单：余额为「分」（与 LedgerAccount.balance 同口径）。 */
+/** 设置页账户表单：余额与期初余额均为「分」（与 LedgerAccount 同口径）。 */
 export interface LedgerAccountInput {
   name: string
   kind: AccountKind
   balance: number
+  /** 期初余额（分）；新建必填，编辑时省略表示保持原值。 */
+  initialBalance?: number
+  /** 期初余额日期（YYYY-MM-DD）；新建必填，编辑时省略表示保持原值。 */
+  initialBalanceDate?: string
 }
 
 /** 设置页分类表单：parentId 为展示 id（种子 key 或真实 id）。 */

@@ -96,6 +96,44 @@ describe('import.service', () => {
       expect(mockPrisma.investmentAllocationSnapshot.deleteMany).not.toHaveBeenCalled()
     })
 
+    it('优惠券只存展示值，不从支出金额扣减；浮点尾差四舍五入到分', async () => {
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockResolvedValue({
+        id: 'acc-1',
+        type: 'asset',
+        categoryId: 'acat-1',
+      })
+      mockPrisma.accountCategory.findFirst.mockResolvedValue({
+        id: 'acat-1',
+        name: '资产',
+        type: 'asset',
+        parentId: null,
+      })
+      mockPrisma.transactionCategory.findFirst.mockResolvedValue(null)
+      mockPrisma.transactionCategory.create.mockResolvedValue({
+        id: 'tcat-1',
+        name: '餐饮',
+        type: 'expense',
+        parentId: null,
+      })
+
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '餐饮', '', '支出', '736.43', 'CNY', '现金', '', '', '', '0', '30', '', '', '', '', ''],
+        ['csv2', '2025/1/16 10:00:00', '餐饮', '', '支出', '53.43', 'CNY', '现金', '', '', '', '0', '9.969999999999999', '', '', '', '', ''],
+      ])
+
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
+
+      expect(result.imported).toBe(2)
+      const rows = mockPrisma.transaction.createMany.mock.calls[0][0].data
+      // 金额是实付值：736.43 / 53.43 原样保留，优惠券不参与扣减
+      expect(rows[0].amount).toBe(73643n)
+      expect(rows[0].coupon).toBe(3000n)
+      expect(rows[1].amount).toBe(5343n)
+      // 浮点尾差归一为 9.97，不再整行丢弃
+      expect(rows[1].coupon).toBe(997n)
+    })
+
     it('负债账户先出普通交易后出还款交易时应该修正账户类型', async () => {
       let accountIdCounter = 0
       mockPrisma.account.findFirst.mockResolvedValue(null)

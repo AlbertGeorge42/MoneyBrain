@@ -1274,6 +1274,12 @@
   border-radius: var(--mb-radius-lg) 0 0 var(--mb-radius-lg);
 }
 
+/* 设计预览的工具栏固定在顶部，移动端底部抽屉会盖住抽屉头部；
+   预览内把抽屉高度收口到工具栏下方，保证标题与关闭可见。 */
+.mb-hf-root .mb-set-page[data-device='mobile'] .mb-set-sheet {
+  max-height: calc(100vh - 160px);
+}
+
 /* ===== 骨架屏 ===== */
 
 .mb-set-skeleton {

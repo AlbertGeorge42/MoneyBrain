@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "cross-env VITE_HF_DATA=api vite",
+    "dev:seed": "vite",
+    "dev:legacy": "cross-env VITE_HF_ENTRY=legacy VITE_HF_DATA=api vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

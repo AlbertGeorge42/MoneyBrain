@@ -374,11 +374,26 @@ function parseRuleVersion(value: string): number {
   return version
 }
 
+/**
+ * CSV 金额边界归一：外部账本可能带浮点尾差（如 9.969999999999999），
+ * 超过两位小数时四舍五入到分；其余情况仍走 parseAmount 的严格校验。
+ * 只做数值归一，不放宽金额合法性（非数字、空值照旧拒绝）。
+ */
+function parseCsvMoney(value: string): Minor {
+  const raw = value.trim()
+  const match = /^(-?\d+)(?:\.(\d+))?$/.exec(raw)
+  if (match && (match[2]?.length ?? 0) > 2) {
+    const cents = Math.round(Number(raw) * 100)
+    return minor(cents)
+  }
+  return parseAmount(raw)
+}
+
 function parseRowBasicFields(row: ParsedRow): ParsedRowBasics | null {
   const date = new Date(row.time)
   if (isNaN(date.getTime())) return null
 
-  const amount = parseAmount(row.amountStr)
+  const amount = parseCsvMoney(row.amountStr)
   let type: 'income' | 'expense' | 'transfer' | 'adjustment'
   if (row.typeStr === '收入') {
     type = 'income'
@@ -464,8 +479,9 @@ function parseCsvFile(buffer: Buffer): ParsedRow[] {
         account1: record.账户1,
         account2: record.账户2,
         note: record.备注,
-        fee: feeStr ? parseAmount(feeStr) : minor(0),
-        coupon: couponStr ? parseAmount(couponStr) : minor(0),
+        fee: feeStr ? parseCsvMoney(feeStr) : minor(0),
+        // 优惠券只是「省了多少」的展示信息（元），不参与任何收支/预算/报表合计。
+        coupon: couponStr ? parseCsvMoney(couponStr) : minor(0),
         relatedCsvId: record.关联账单,
         // 账单标记列值为「不计收支」（容错首尾空格）
         excludeFromIncomeExpense: (record['账单标记'] || '').trim() === '不计收支',
@@ -601,7 +617,7 @@ async function importTransactionsFromRows(
     try {
       const date = new Date(row.time)
       if (isNaN(date.getTime())) { skipped++; continue }
-      const amount = parseAmount(row.amountStr)
+      const amount = parseCsvMoney(row.amountStr)
       recordRowSummary(summary, date, amount)
 
       // 通过预生成 UUID 关联普通交易类型

@@ -371,8 +371,10 @@ export function LedgerProvider({
             name: input.name,
             type: accountTypeForKind(input.kind),
             categoryId: resolved.categoryId,
-            initialBalance: minor(input.balance),
-            initialBalanceDate: todayLocal(),
+            // 新建账户：表单里的「期初余额」直接作为 initialBalance，
+            // 语义与 balance-at 一致（期初日期当天开始前），不再用当日余额倒推。
+            initialBalance: minor(input.initialBalance ?? input.balance),
+            initialBalanceDate: input.initialBalanceDate ?? todayLocal(),
             sort,
           })
           .then(unwrapApiData)
@@ -400,15 +402,17 @@ export function LedgerProvider({
           categoryId: resolved.categoryId,
         }
         const currentBalance = ledgerRef.current.accounts.find((account) => account.id === id)?.balance ?? 0
-        if (input.balance !== currentBalance) {
-          const accounts = await accountApi.getAll().then(unwrapApiData)
-          const apiAccount = accounts.find((account) => account.id === id)
-          if (!apiAccount) return { ok: false, error: '账户不存在' }
-          // 期初日期不变，用差额修正期初：balance-at 的当日余额与面板显示一致。
-          body.initialBalance = minor(
-            Number(apiAccount.initialBalance) + (input.balance - currentBalance),
-          )
-        }
+        const accounts = await accountApi.getAll().then(unwrapApiData)
+        const apiAccount = accounts.find((account) => account.id === id)
+        if (!apiAccount) return { ok: false, error: '账户不存在' }
+        // 期初余额：显式填写的值优先；若用户同时改了「当前余额」，
+        // 把差额折算进期初（与 balance-at 同口径，保证当日余额和面板一致）。
+        const explicitInitial =
+          input.initialBalance !== undefined ? input.initialBalance : Number(apiAccount.initialBalance)
+        const delta = input.balance !== currentBalance ? input.balance - currentBalance : 0
+        body.initialBalance = minor(explicitInitial + delta)
+        const nextDate = input.initialBalanceDate ?? apiAccount.initialBalanceDate
+        if (nextDate) body.initialBalanceDate = nextDate
         await accountApi.update(id, body).then(unwrapApiData)
         await refreshRemote()
         return { ok: true }

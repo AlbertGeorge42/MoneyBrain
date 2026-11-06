@@ -66,6 +66,9 @@ export interface AccountRow {
   id: string
   name: string
   balance: number
+  /** 期初余额（分）；未设期初时为 undefined。 */
+  initialBalance?: number
+  initialBalanceDate?: string | null
   txCount: number
 }
 
@@ -91,6 +94,8 @@ export function accountGroups(ledger: Ledger, kinds: readonly AccountKind[]): Ac
         id: account.id,
         name: account.name,
         balance: account.balance,
+        initialBalance: account.initialBalance,
+        initialBalanceDate: account.initialBalanceDate,
         txCount: counts.get(account.id) ?? 0,
       })),
   }))
@@ -221,13 +226,21 @@ function nextId(prefix: string): string {
 
 export function addAccount(
   ledger: Ledger,
-  input: { name: string; kind: AccountKind; balance: number },
+  input: {
+    name: string
+    kind: AccountKind
+    balance: number
+    initialBalance?: number
+    initialBalanceDate?: string
+  },
 ): Ledger {
   const account: LedgerAccount = {
     id: nextId('acc'),
     name: input.name,
     kind: input.kind,
     balance: input.balance,
+    initialBalance: input.initialBalance,
+    initialBalanceDate: input.initialBalanceDate ?? null,
   }
   return { ...ledger, accounts: [...ledger.accounts, account] }
 }
@@ -235,13 +248,24 @@ export function addAccount(
 export function updateAccount(
   ledger: Ledger,
   accountId: string,
-  patch: { name: string; kind: AccountKind; balance: number },
+  patch: {
+    name: string
+    kind: AccountKind
+    balance: number
+    /** 省略表示保持原期初；显式传入 undefined 也不会清空。 */
+    initialBalance?: number
+    initialBalanceDate?: string
+  },
 ): Ledger {
   return {
     ...ledger,
-    accounts: ledger.accounts.map((account) =>
-      account.id === accountId ? { ...account, ...patch } : account,
-    ),
+    accounts: ledger.accounts.map((account) => {
+      if (account.id !== accountId) return account
+      const next: LedgerAccount = { ...account, name: patch.name, kind: patch.kind, balance: patch.balance }
+      if (patch.initialBalance !== undefined) next.initialBalance = patch.initialBalance
+      if (patch.initialBalanceDate !== undefined) next.initialBalanceDate = patch.initialBalanceDate
+      return next
+    }),
   }
 }
 

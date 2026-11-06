@@ -32,14 +32,15 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { minor } from '@domain/index'
+import { fromMajor, minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { downloadBlob, todayFilename } from '@/utils/download'
-import { dataApi, transactionCategoryApi } from '@/services/api'
+import { accountApi, dataApi, transactionCategoryApi } from '@/services/api'
 import type { ImportBackupResult, ImportBatch, ImportPreview } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import { useLedger } from '@/features/overview/ledgerStore'
+import { todayLocal } from '@/features/overview/apiLedger'
 import type { AccountKind, TxType } from '@/features/overview/model'
 import { RecycleBinCountProbe, RecycleBinPanel } from './RecycleBinSection'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
@@ -138,6 +139,51 @@ function countByType(categories: readonly { type: TxType }[], type: TxType): num
   return categories.filter((category) => category.type === type).length
 }
 
+/** 账户快照：余额按 balance-at 当日口径取，避免用总数或流水倒推。 */
+interface AccountSnapshotRow {
+  id: string
+  name: string
+  isLiability: boolean
+  initialBalance: number
+  initialBalanceDate: string | null
+  balance: number
+}
+
+interface NetSnapshot {
+  assets: number
+  liabilities: number
+  net: number
+}
+
+function netSnapshotOf(rows: readonly AccountSnapshotRow[]): NetSnapshot {
+  let assets = 0
+  let liabilities = 0
+  for (const row of rows) {
+    if (row.isLiability) liabilities += row.balance
+    else assets += row.balance
+  }
+  // 负债余额按「绝对欠款」口径展示，净资产 = 资产 − 负债（与报表页一致）。
+  const debt = Math.abs(liabilities)
+  return { assets, liabilities: debt, net: assets - debt }
+}
+
+async function fetchAccountSnapshots(): Promise<AccountSnapshotRow[]> {
+  const accounts = await accountApi.getAll().then(unwrapApiData)
+  return Promise.all(
+    accounts.map(async (account) => {
+      const result = await accountApi.getBalanceAt(account.id, todayLocal()).then(unwrapApiData)
+      return {
+        id: account.id,
+        name: account.name,
+        isLiability: account.type === 'liability',
+        initialBalance: Number(account.initialBalance),
+        initialBalanceDate: account.initialBalanceDate,
+        balance: result.balance,
+      }
+    }),
+  )
+}
+
 function useMenuDismiss(openId: string | null, close: () => void) {
   useEffect(() => {
     if (!openId) return
@@ -231,7 +277,17 @@ function EditorSheet({
   error: string | null
   saving: boolean
   onClose: () => void
-  onSave: (value: { name: string; kind: AccountKind; balance: number; target: number }) => void
+  onSave: (value: {
+    name: string
+    kind: AccountKind
+    /** 当前余额 / 新建时的初始余额（分）。 */
+    balance: number
+    /** 期初余额（分）。 */
+    initialBalance: number
+    /** 期初余额日期（YYYY-MM-DD）。 */
+    initialBalanceDate: string
+    target: number
+  }) => void
 }) {
   const account =
     editor?.kind === 'account' && editor.mode === 'edit'
@@ -246,18 +302,24 @@ function EditorSheet({
   const initialName = account?.name ?? category?.name ?? invest?.name ?? ''
   const initialKind =
     editor?.kind === 'account' ? (account?.kind ?? editor.preset) : ('deposit' as AccountKind)
-  const initialBalance = account ? account.balance / 100 : 0
+  const currentBalance = account ? account.balance / 100 : 0
+  const openingBalance = account?.initialBalance !== undefined ? account.initialBalance / 100 : currentBalance
+  const openingDate = account?.initialBalanceDate ?? todayLocal()
   const initialTarget = invest?.target ?? 0
 
   const [name, setName] = useState(initialName)
   const [kind, setKind] = useState<AccountKind>(initialKind)
-  const [balance, setBalance] = useState(String(initialBalance))
+  const [balance, setBalance] = useState(String(currentBalance))
+  const [initialBalance, setInitialBalance] = useState(String(openingBalance))
+  const [initialBalanceDate, setInitialBalanceDate] = useState(openingDate)
   const [target, setTarget] = useState(String(initialTarget))
 
   useEffect(() => {
     setName(initialName)
     setKind(initialKind)
-    setBalance(String(initialBalance))
+    setBalance(String(currentBalance))
+    setInitialBalance(String(openingBalance))
+    setInitialBalanceDate(openingDate)
     setTarget(String(initialTarget))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
@@ -277,9 +339,13 @@ function EditorSheet({
           : '编辑分类'
         : '编辑投资资产类型'
 
+  const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(initialBalanceDate)
   const valid =
     name.trim().length > 0 &&
-    (editor.kind !== 'account' || Number.isFinite(Number(balance))) &&
+    (editor.kind !== 'account' ||
+      (Number.isFinite(Number(balance)) &&
+        Number.isFinite(Number(initialBalance)) &&
+        dateValid)) &&
     (editor.kind !== 'invest' || Number.isFinite(Number(target)))
 
   return (
@@ -328,15 +394,44 @@ function EditorSheet({
               </div>
             </div>
             <label className="mb-set-field">
-              <span className="mb-set-label">当前余额</span>
+              <span className="mb-set-label">期初余额（元）</span>
               <input
                 className="mb-set-input"
                 inputMode="decimal"
-                value={balance}
-                onChange={(event) => setBalance(event.target.value)}
+                value={initialBalance}
+                onChange={(event) => setInitialBalance(event.target.value)}
                 placeholder="0.00"
               />
             </label>
+            <label className="mb-set-field">
+              <span className="mb-set-label">期初余额日期</span>
+              <input
+                className="mb-set-input"
+                type="date"
+                value={initialBalanceDate}
+                onChange={(event) => setInitialBalanceDate(event.target.value)}
+              />
+            </label>
+            <p className="mb-set-hint">
+              期初余额 = 期初日期当天开始前的余额，当天交易照常计入。负债账户填负值（如信用卡欠款 ¥5,000 填 -5000）。
+            </p>
+            {editor.mode === 'edit' && (
+              <label className="mb-set-field">
+                <span className="mb-set-label">当前余额（元）</span>
+                <input
+                  className="mb-set-input"
+                  inputMode="decimal"
+                  value={balance}
+                  onChange={(event) => setBalance(event.target.value)}
+                  placeholder="0.00"
+                />
+              </label>
+            )}
+            {editor.mode === 'edit' && (
+              <p className="mb-set-hint">
+                只改「当前余额」时按差额折算进期初；同时改两项会叠加。
+              </p>
+            )}
           </>
         )}
 
@@ -377,7 +472,12 @@ function EditorSheet({
             onSave({
               name: name.trim(),
               kind,
-              balance: Math.round(Number(balance) * 100),
+              balance:
+                editor.kind === 'account' && editor.mode === 'create'
+                  ? Math.round(Number(initialBalance) * 100)
+                  : Math.round(Number(balance) * 100),
+              initialBalance: Math.round(Number(initialBalance) * 100),
+              initialBalanceDate,
               target: Number(target),
             })
           }
@@ -598,6 +698,20 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [lastImport, setLastImport] = useState<ImportBackupResult | null>(null)
+  /** 导入后创建的新账户：补录期初余额（可跳过，跳过即标注余额由流水推导）。 */
+  const [openingStep, setOpeningStep] = useState<{
+    accounts: AccountSnapshotRow[]
+    before: NetSnapshot
+  } | null>(null)
+  const [openingValues, setOpeningValues] = useState<
+    Record<string, { amount: string; date: string }>
+  >({})
+  const [openingResult, setOpeningResult] = useState<{
+    before: NetSnapshot
+    after: NetSnapshot
+  } | null>(null)
+  const [openingError, setOpeningError] = useState<string | null>(null)
+  const [openingSaving, setOpeningSaving] = useState(false)
   const [batches, setBatches] = useState<ImportBatch[]>([])
   const [batchError, setBatchError] = useState<string | null>(null)
   const [clearOpen, setClearOpen] = useState(false)
@@ -718,6 +832,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     name: string
     kind: AccountKind
     balance: number
+    initialBalance: number
+    initialBalanceDate: string
     target: number
   }) => {
     if (!editor || editorSaving) return
@@ -739,8 +855,16 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               name: value.name,
               kind: value.kind,
               balance: value.balance,
+              initialBalance: value.initialBalance,
+              initialBalanceDate: value.initialBalanceDate,
             })
-          : await createAccount({ name: value.name, kind: value.kind, balance: value.balance })
+          : await createAccount({
+              name: value.name,
+              kind: value.kind,
+              balance: value.balance,
+              initialBalance: value.initialBalance,
+              initialBalanceDate: value.initialBalanceDate,
+            })
         : editor.mode === 'edit' && editor.categoryId
           ? await updateCategory(editor.categoryId, value.name)
           : await createCategory({
@@ -957,11 +1081,92 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       notify(`这批导入了 ${result.imported.transactions} 笔`)
       onRetry()
       await refreshImportBatches()
+      // 新账户的期初不能由流水倒推：导入完成后立刻进入补录步骤（可跳过）。
+      const created = result.summary?.unknownAccounts ?? []
+      if (created.length > 0) await openOpeningStep(created)
     } catch (error) {
       setPreviewError(getApiErrorMessage(error, '导入失败，数据没有写入，可重试'))
     } finally {
       setDataBusy(null)
     }
+  }
+
+  /** 导入收尾：列出本批新建的账户，逐个填期初余额与日期。 */
+  const openOpeningStep = async (names: readonly string[]) => {
+    setOpeningResult(null)
+    setOpeningError(null)
+    try {
+      const rows = await fetchAccountSnapshots()
+      const targets = rows.filter((row) => names.includes(row.name))
+      if (targets.length === 0) {
+        notify('这批没有新建账户，无需补录期初')
+        return
+      }
+      setOpeningValues(
+        Object.fromEntries(
+          targets.map((row) => [
+            row.id,
+            {
+              // 未设期初的账户留空：留空 = 跳过，不会把 0 元写成「已设期初」。
+              amount: row.initialBalance !== 0 ? String(row.initialBalance / 100) : '',
+              date: row.initialBalanceDate ?? todayLocal(),
+            },
+          ]),
+        ),
+      )
+      setOpeningStep({ accounts: targets, before: netSnapshotOf(rows) })
+    } catch (error) {
+      setOpeningError(getApiErrorMessage(error, '读取新账户失败，可稍后从「账户期初补录」重试'))
+      notify(getApiErrorMessage(error, '读取新账户失败'))
+    }
+  }
+
+  const saveOpeningStep = async () => {
+    if (!openingStep || openingSaving) return
+    setOpeningSaving(true)
+    setOpeningError(null)
+    try {
+      for (const account of openingStep.accounts) {
+        const value = openingValues[account.id]
+        // 留空表示跳过该账户，不写期初日期，页面继续标注「未设期初」。
+        if (!value || value.amount.trim() === '') continue
+        const amount = Number(value.amount)
+        if (!Number.isFinite(amount)) throw new Error(`「${account.name}」的期初余额格式不正确`)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value.date)) {
+          throw new Error(`「${account.name}」的期初余额日期格式不正确`)
+        }
+        await accountApi
+          .update(account.id, {
+            initialBalance: fromMajor(amount),
+            initialBalanceDate: value.date,
+          })
+          .then(unwrapApiData)
+      }
+      const rows = await fetchAccountSnapshots()
+      setOpeningResult({ before: openingStep.before, after: netSnapshotOf(rows) })
+      setOpeningStep({
+        accounts: rows.filter((row) => openingStep.accounts.some((item) => item.id === row.id)),
+        before: openingStep.before,
+      })
+      notify('期初余额已保存，资产负债与净资产已按新期初重算')
+      onRetry()
+    } catch (error) {
+      setOpeningError(getApiErrorMessage(error, '保存失败，请检查后重试'))
+    } finally {
+      setOpeningSaving(false)
+    }
+  }
+
+  const closeOpeningStep = () => {
+    setOpeningStep(null)
+    setOpeningResult(null)
+    setOpeningValues({})
+    setOpeningError(null)
+  }
+
+  const skipOpeningStep = () => {
+    closeOpeningStep()
+    notify('已跳过期初补录：这些账户的余额由流水推导，可能不准')
   }
 
   const rollbackImport = async (batch: ImportBatch) => {
@@ -1709,7 +1914,17 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     )
   }
 
-  const renderData = () => (
+  const renderData = () => {
+    const unsetAccounts = ledger.accounts.filter((account) => !account.initialBalanceDate)
+    // 同名的历史账户（如批量种子钱包）按「名称 + 期初日期」去重，避免同一状态重复刷屏。
+    const setAccounts = [
+      ...new Map(
+        ledger.accounts
+          .filter((account) => account.initialBalanceDate)
+          .map((account) => [`${account.name}|${account.initialBalanceDate}`, account]),
+      ).values(),
+    ]
+    return (
     <div className="mb-set-data">
       <section className="mb-set-datacard">
         <div className="mb-set-datacard-head">
@@ -1849,8 +2064,49 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           </>
         )}
       </section>
+      {apiMode && <section className="mb-set-datacard">
+        <div className="mb-set-datacard-head">
+          <Wallet size={18} />
+          <h3>账户期初</h3>
+        </div>
+        <p>期初余额不能由流水倒推；导入新建的账户需要补录「期初余额 + 期初日期」。</p>
+        {openingError && !openingStep && (
+          <p className="mb-set-error" role="alert">
+            {openingError}
+          </p>
+        )}
+        {unsetAccounts.length > 0 ? (
+          <>
+            <button
+              type="button"
+              className="mb-set-btn"
+              onClick={() => void openOpeningStep(unsetAccounts.map((account) => account.name))}
+            >
+              补录期初余额（{unsetAccounts.length} 个未设）
+            </button>
+            <p className="mb-set-warn">
+              未设期初（余额由流水推导，可能不准）：
+              {unsetAccounts.map((account) => account.name).join('、')}
+            </p>
+          </>
+        ) : (
+          <p>{lastImport ? '本批导入的新账户都已设置期初。' : '所有账户都已设置期初。'}</p>
+        )}
+        {setAccounts.length > 0 && (
+          <p className="mb-set-hint">
+            已设期初：
+            {setAccounts
+              .map(
+                (account) =>
+                  `${account.name}（${account.initialBalanceDate}）`,
+              )
+              .join('、')}
+          </p>
+        )}
+      </section>}
     </div>
-  )
+    )
+  }
 
   const renderTrash = () =>
     apiMode ? (
@@ -2154,6 +2410,146 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 onClick={() => void runImportPreview()}
               >
                 {dataBusy === 'preview' ? '解析中…' : '解析并预览'}
+              </button>
+            )}
+          </div>
+        </Drawer>
+      )}
+      {apiMode && openingStep && (
+        <Drawer
+          opened
+          onClose={() => {
+            if (openingSaving) return
+            skipOpeningStep()
+          }}
+          position={device === 'mobile' ? 'bottom' : 'right'}
+          size={device === 'mobile' ? 'auto' : 460}
+          withinPortal={false}
+          withCloseButton={false}
+          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
+        >
+          <div className="mb-set-sheet-head">
+            <h2 className="mb-set-sheet-title">补充期初余额</h2>
+            <button
+              type="button"
+              className="mb-set-icon-btn"
+              aria-label="关闭"
+              disabled={openingSaving}
+              onClick={skipOpeningStep}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mb-set-sheet-body">
+            <p className="mb-set-hint">
+              当前有 {openingStep.accounts.length} 个账户未设期初。期初余额 = 期初日期当天开始前的余额，当天交易照常计入；
+              留空表示跳过该账户，余额只能由流水推导，可能不准。
+            </p>
+            {openingStep.accounts.map((account) => {
+              const value = openingValues[account.id] ?? {
+                amount: account.initialBalance !== 0 ? String(account.initialBalance / 100) : '',
+                date: account.initialBalanceDate ?? todayLocal(),
+              }
+              const hasOpening = account.initialBalanceDate !== null || account.initialBalance !== 0
+              return (
+                <div className="mb-set-preview" key={account.id}>
+                  <div className="mb-set-preview-row">
+                    <span>{account.name}</span>
+                    <b className={hasOpening ? '' : 'mb-set-warn'}>
+                      {hasOpening ? `已设期初 ${account.initialBalanceDate ?? ''}` : '未设期初'}
+                    </b>
+                  </div>
+                  <label className="mb-set-field">
+                    <span className="mb-set-label">期初余额（元）</span>
+                    <input
+                      className="mb-set-input"
+                      inputMode="decimal"
+                      value={value.amount}
+                      disabled={openingSaving}
+                      onChange={(event) =>
+                        setOpeningValues((current) => ({
+                          ...current,
+                          [account.id]: { ...value, amount: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="mb-set-field">
+                    <span className="mb-set-label">期初余额日期</span>
+                    <input
+                      className="mb-set-input"
+                      type="date"
+                      value={value.date}
+                      disabled={openingSaving}
+                      onChange={(event) =>
+                        setOpeningValues((current) => ({
+                          ...current,
+                          [account.id]: { ...value, date: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="mb-set-preview-row">
+                    <span>当前余额（balance-at）</span>
+                    <b>{formatCurrency(minor(account.balance))}</b>
+                  </div>
+                </div>
+              )
+            })}
+            {openingResult && (
+              <div className="mb-set-preview">
+                <div className="mb-set-preview-row">
+                  <span>资产合计</span>
+                  <b>
+                    {formatCurrency(minor(openingResult.before.assets))} →{' '}
+                    {formatCurrency(minor(openingResult.after.assets))}
+                  </b>
+                </div>
+                <div className="mb-set-preview-row">
+                  <span>负债合计</span>
+                  <b>
+                    {formatCurrency(minor(openingResult.before.liabilities))} →{' '}
+                    {formatCurrency(minor(openingResult.after.liabilities))}
+                  </b>
+                </div>
+                <div className="mb-set-preview-row">
+                  <span>净资产</span>
+                  <b>
+                    {formatCurrency(minor(openingResult.before.net))} →{' '}
+                    {formatCurrency(minor(openingResult.after.net))}（
+                    {openingResult.after.net - openingResult.before.net >= 0 ? '+' : ''}
+                    {formatCurrency(minor(openingResult.after.net - openingResult.before.net))}）
+                  </b>
+                </div>
+              </div>
+            )}
+            {openingError && (
+              <p className="mb-set-error" role="alert">
+                {openingError}
+              </p>
+            )}
+          </div>
+          <div className="mb-set-sheet-actions">
+            <button
+              type="button"
+              className="mb-set-btn is-ghost"
+              disabled={openingSaving}
+              onClick={skipOpeningStep}
+            >
+              跳过补录
+            </button>
+            {openingResult ? (
+              <button type="button" className="mb-set-btn is-primary" onClick={closeOpeningStep}>
+                完成
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="mb-set-btn is-primary"
+                disabled={openingSaving}
+                onClick={() => void saveOpeningStep()}
+              >
+                {openingSaving ? '保存中…' : '保存期初'}
               </button>
             )}
           </div>
