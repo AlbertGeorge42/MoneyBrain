@@ -606,6 +606,19 @@
   cursor: pointer;
 }
 
+/* 备份入口是清空的前置动作，不能只有一个 19px 高的文字命中区。 */
+.mb-set-textbtn.is-boxed {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  margin-left: 0;
+  padding: 0 var(--mb-s-2);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  text-decoration: none;
+}
+
 .mb-set-textbtn:disabled {
   color: var(--mb-color-text-tertiary);
   cursor: default;
@@ -803,6 +816,11 @@
 
 .mb-set-btn.is-ghost:hover {
   background: var(--mb-color-surface-hover);
+}
+
+.mb-set-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .mb-set-btn.is-danger {
@@ -1118,6 +1136,12 @@
 .mb-set-icon-btn:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width));
+}
+
+/* 移动端抽屉的关闭入口按 44×44 触控下限。 */
+.mb-set-page[data-device='mobile'] .mb-set-icon-btn {
+  width: var(--mb-touch);
+  height: var(--mb-touch);
 }
 
 .mb-set-sheet-body {

@@ -2189,12 +2189,14 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             </p>
 
             <div className={backupReady ? 'mb-set-backup-state is-ready' : 'mb-set-backup-state is-blocked'}>
-              {backupReady
-                ? `已备份：${backupReady.filename}（${new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）`
-                : '尚未导出备份：必须先导出备份才能继续'}
+              <span className="mb-set-backup-reason" id="mb-set-clear-reason">
+                {backupReady
+                  ? `已备份：${backupReady.filename}（${new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）`
+                  : '尚未导出备份：必须先导出备份才能继续'}
+              </span>
               <button
                 type="button"
-                className="mb-set-textbtn"
+                className="mb-set-textbtn is-boxed"
                 disabled={dataBusy === 'export'}
                 onClick={() => void exportApiLedger()}
               >
@@ -2234,7 +2236,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             <button
               type="button"
               className="mb-set-btn is-danger"
-              disabled={dataBusy === 'clear'}
+              disabled={!backupReady || dataBusy === 'clear'}
+              aria-describedby={!backupReady ? 'mb-set-clear-reason' : undefined}
+              title={backupReady ? undefined : '先导出备份后才能清空'}
               onClick={() => void confirmClearLedger()}
             >
               {dataBusy === 'clear' ? '清空中…' : '确认清空'}
