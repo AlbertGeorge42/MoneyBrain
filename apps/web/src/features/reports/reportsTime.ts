@@ -48,14 +48,16 @@ export const PRESETS: readonly { id: PresetId; label: string }[] = [
 ]
 
 /** 预设 × 粒度兼容矩阵（PRESET_GRAN_OK）：不兼容者在面板内置灰。 */
+const ANY_GRAN: readonly Granularity[] = ['day', 'month', 'year']
 const PRESET_GRAN: Record<PresetId, readonly Granularity[]> = {
   today: ['day'],
   last7: ['day'],
-  thisMonth: ['month'],
-  lastMonth: ['month'],
-  last3m: ['month'],
+  // 用户要求的五个固定预设：任何粒度都可点，起止按当前粒度吸附（月粒度取月初/月末）。
+  thisMonth: ANY_GRAN,
+  lastMonth: ANY_GRAN,
+  last3m: ANY_GRAN,
   thisQuarter: ['month'],
-  thisYear: ['year'],
+  thisYear: ANY_GRAN,
   last12m: ['year'],
 }
 
