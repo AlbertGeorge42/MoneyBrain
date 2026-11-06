@@ -1,13 +1,13 @@
 # HF × API 缺失清单（2026-11-06）
 
 > 对照 `apps/api` 路由与 `packages/contracts/types`，逐页列出「接口有什么 / 前端缺什么 / 接上要改哪一层」。
-> 状态基准：总览（只读）、流水（读写、审计撤销、回收站）、设置（账户/分类读写、排序、撤销、回收站）已接真实账本（`VITE_HF_DATA=api`）；报表、预算及设置里的导入导出/回滚/清空仍在内存种子账本上。
+> 状态基准：总览（只读）、流水（读写、审计撤销、回收站）、设置（账户/分类读写、排序、撤销、回收站、导入/导出/导入回滚/清空）已接真实账本（`VITE_HF_DATA=api`）；报表、预算仍在内存种子账本上。
 > 阻塞级别：**A = 会挡住接入**；**B = 只是体验缺失**；**C = 已知占位 / 未到里程碑**。
 
 ## 结论先行
 
-- **本批新增端点：0 个。** 只扩展现有端点：`POST /accounts` 接受 `sort`；`DELETE /accounts/:id`、`DELETE /transaction-categories/:id` 返回 `auditEventId`；`GET /transactions/recycle-bin` 响应追加 `accounts` / `categories`。
-- 总览已只读接通；流水已接通读、写、审计撤销与回收站；设置已接通账户与分类的读写、排序/移动、删除撤销与回收站。API 模式写操作真写库，种子模式仍走内存。
+- **本批新增端点：2 个**（`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`）。此前设置批新增 0 个，只扩展现有端点：`POST /accounts` 接受 `sort`；`DELETE /accounts/:id`、`DELETE /transaction-categories/:id` 返回 `auditEventId`；`GET /transactions/recycle-bin` 响应追加 `accounts` / `categories`。
+- 总览已只读接通；流水已接通读、写、审计撤销与回收站；设置已接通账户与分类的读写、排序/移动、删除撤销、回收站，以及导入/导出/导入回滚/清空。API 模式写操作真写库，种子模式仍走内存。
 - 接口侧真正缺的只有一件：**没有同步端点**（同步能力还在 `packages/sync`，未到里程碑，不阻塞当前接入）。
 - 报表四视图接口已有；缺的是前端接线，不是后端能力。
 - 下一批建议做**报表**：它的下钻落到流水页，依赖流水批次已接通的真实筛选参数。
@@ -42,10 +42,10 @@
 | 设置 | 账户性质 | 无独立端点；由顶级账户分类标记（现金等价 / 投资 / 负债）表达 | 已接：四类性质映射到顶级账户分类 | 无 | 已接入 |
 | 设置 | 交易分类父子结构 | `/transaction-categories` 含 `parentId`、`move`、`sort` | 已接（API 模式）：两级增删改、`move`、排序真写；展示 id ↔ 真实 id 经 `categoryDisplay/categoryReal` 映射 | 无 | 已接入 |
 | 设置 | 合并集合（「其余 N 类」） | 无「合并分类」实体端点；流水筛选支持多 `categoryId` | 报表用本地 `mergedIds` | 不需要新端点，接线时把集合映射成重复 `categoryId` | B |
-| 设置 | 导入 | `POST /data/detect-file`、`/data/import-preview`、`/data/import-backup` | 本地 toast | 导入向导、预览差异、覆盖/合并确认 | A |
-| 设置 | 导出 | `GET /data/export`、`/data/export-full`、`/data/export-custom` | 本地下载内存 JSON | 接真实导出；导出范围与文件字段以后端为准 | A |
-| 设置 | 回滚存点 | `/data/rollback-points` CRUD + `POST /data/rollback-points/:id/restore` | 本地 toast | 接存点列表与恢复；恢复后整页失效重取 | A |
-| 设置 | 清空数据 | `DELETE /data/all`、`DELETE /data/transactions` | 只清内存 | 接真实清空 + 二次确认 + 失败回显 | A |
+| 设置 | 导入 | `POST /data/import-preview`、`/data/import-backup`、`GET /data/import-batches` | 已接（API 模式）：先预览（期间跨度/笔数/金额合计/未知账户分类/疑似重复）再写库；写入返回 `importId`，批次列表显示本批笔数 | 无 | 已接入 |
+| 设置 | 导出 | `GET /data/export-full`（`.mbx`，文件名带日期） | 已接（API 模式）：下载真实 `.mbx`；导出成功才解锁清空 | 无 | 已接入 |
+| 设置 | 导入回滚 | `POST /data/import-batches/:id/rollback`（需 `confirm=rollback-import`） | 已接（API 模式）：批次两击确认，按 `importId` 只删本批新建行，回显实际撤销笔数 | 存点回滚（`/data/rollback-points`）仍未接，本批只做导入批次回滚 | 已接入（存点 B） |
+| 设置 | 清空数据 | `DELETE /data/all`、`DELETE /data/transactions`（`confirm=clear-all`） | 已接（API 模式）：必须先在本次会话导出备份，再输入「清空账本」二次确认；无备份时按钮给出拦截文案；清空后同时删除回收站审计事件与导入批次 | 无 | 已接入 |
 | 设置 | 自动备份 | `GET/PUT /data/auto-backup` | 无 UI | 接开关与状态 | B |
 | 设置 | 回收站 | `GET /transactions/recycle-bin`（含 `list` / `accounts` / `categories`）+ `POST /audit-events/:id/undo` | 已接（API 模式）：交易、账户、分类真实条目、数量与恢复；级联删除条目显示「不可恢复」 | 无 | 已接入 |
 | 设置 | 同步状态 / 关闭 | **无同步端点**（同步只在 `packages/sync`） | 无 UI | 接口缺；未到里程碑，先不实现 | C |
@@ -74,7 +74,20 @@
 4. 失效查询：写后失效总览 / 流水 / 报表 / 预算 / 回收站五组查询。
 5. 失败路径：断网或接口造错时表单/弹层保留、错误可见、解除后可重试。
 
-**本批未做（留到后续）**：导入/导出、导入回滚、清空数据、退款关联；报表/预算页接入。
+**本批未做（留到后续）**：退款关联；报表/预算页接入。
+
+## 本批：导入 / 导出 / 导入回滚 / 清空（已完成，2026-11-06）
+
+**新增端点：2 个。** `GET /data/import-batches?limit=`（默认 10，1–50）；`POST /data/import-batches/:id/rollback`（确认值 `rollback-import`，与导入/导出/清空共用长任务互斥）。其余复用：`GET /data/export-full`、`POST /data/import-preview`、`POST /data/import-backup`、`DELETE /data/all`、`DELETE /data/transactions`。
+
+1. 导出：`GET /data/export-full` 返回 `.mbx`（ZIP 内容 + `.mbx` 扩展名，文件名 `moneybrain-backup-YYYY-MM-DD.mbx`）；前端从 `Content-Disposition` 取名下载，导出成功才把「已备份」记入本次会话。
+2. 导入：先 `POST /data/import-preview` 出摘要（期间跨度 / 文件笔数 / 金额合计 / 未知账户与分类 / 疑似重复），确认后 `POST /data/import-backup` 写库并返回 `importId`；预览与正式导入共用同一解析器，数字不漂移。批次记录 `transactionCount` 可在 `GET /data/import-batches` 查到。
+3. 回滚：导入前记录各表 id 基线，导入后求差把本批新建行写入 `ImportBatch.createdJson`；`POST /data/import-batches/:id/rollback` 只删这些 id（硬删除），不误删导入前数据，也不恢复 merge 更新；返回 `removedTransactions`。
+4. 清空：`DELETE /data/all` 除业务表外一并删除 `auditEvent`（回收站）与 `importBatch`（导入记录），清空后总览/流水/报表/预算查询全部失效重取。
+5. 事务边界：导入的解析、写库、批次记录在同一事务内；任一步失败整批回滚，不留半截数据，也不留批次记录。导入/导出/回滚/清空通过长任务互斥避免并发互相覆盖。
+6. 三态：四个操作均有进行中 / 成功 / 失败态；失败保留弹层与原始输入，可直接重试。清空未导出备份时按钮可点但拦截，并给出「请先导出备份：备份成功后才会继续清空」。
+
+**本批未做（留到后续）**：存点回滚（`/data/rollback-points` 系列）仍为种子行为；退款关联；报表/预算页接入。
 
 ## 下一批：报表
 

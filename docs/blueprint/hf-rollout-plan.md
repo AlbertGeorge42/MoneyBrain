@@ -119,8 +119,8 @@
 
 ## 七、现在就能切的页面
 
-**总览已具备只读切换条件，流水已具备读写 + 撤销 + 回收站的切换条件，设置页的账户/分类已具备读写 + 撤销 + 回收站的切换条件**（2026-11-06 完成，见第八节）；报表、预算仍依赖内存数据，直接切会把演示数据当生产数据。
-报表需先接四视图端点；预算需先修口径。设置里的导入/导出/回滚/清空仍未接，破坏性操作留待后续。
+**总览已具备只读切换条件，流水已具备读写 + 撤销 + 回收站的切换条件，设置页的账户/分类与导入/导出/导入回滚/清空均已具备真实读写条件**（2026-11-06 完成，见第八节）；报表、预算仍依赖内存数据，直接切会把演示数据当生产数据。
+报表需先接四视图端点；预算需先修口径。设置里的导入/导出/导入回滚/清空已于本批接通，存点回滚与自动备份仍留后续。
 
 ## 八、接入进度（2026-11-06）
 
@@ -130,7 +130,7 @@
 | 2 | 流水 | **已接（读写 + 审计撤销 + 回收站）** | `GET /transactions`（含 `keyword/amountMin/amountMax`）、`POST/PUT/DELETE /transactions`、`POST /audit-events/:id/undo`、`GET /transactions/recycle-bin`；DTO→`LedgerTransaction` 与分类展示映射 | `VITE_HF_DATA` 默认 `seed`；API 模式写操作真写库，种子模式仍内存 |
 | 3 | 报表 | 未接 | 计划：四视图端点，下钻带流水筛选 | 同上 |
 | 4 | 预算 | 未接 | 计划：`budgets` + `statuses`，先定月度口径 | 同上 |
-| 5 | 设置 | **已接（账户/分类读写 + 审计撤销 + 回收站）** | `GET/POST/PUT/DELETE /accounts` + `sort/batch`、`/transaction-categories` + `move` + `sort/batch`、`POST /audit-events/:id/undo`、`GET /transactions/recycle-bin`（含 `accounts/categories`）；DTO→`Ledger` 映射 | `VITE_HF_DATA` 默认 `seed`；导入/导出/回滚/清空仍为种子内存 |
+| 5 | 设置 | **已接（账户/分类读写 + 审计撤销 + 回收站 + 导入/导出/回滚/清空）** | `GET/POST/PUT/DELETE /accounts` + `sort/batch`、`/transaction-categories` + `move` + `sort/batch`、`POST /audit-events/:id/undo`、`GET /transactions/recycle-bin`（含 `accounts/categories`）、`GET /data/export-full`、`POST /data/import-preview`、`POST /data/import-backup`、`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`、`DELETE /data/all`；DTO→`Ledger` 映射 | `VITE_HF_DATA` 默认 `seed`；种子模式保持内存行为，API 模式真写库 |
 
 总览接入要点：
 
@@ -159,6 +159,17 @@
 - 失效查询：写后失效 `['hf','overview','ledger']`、`['hf','transactions']`、`['hf','reports']`、`['hf','budgets']`、`['hf','recycle-bin']`。
 - 失败路径：断网或接口造错时表单/弹层保留、错误可见，解除后可重试。
 - 新增端点：**0**；扩展三处：`POST /accounts` 接受 `sort`、两个 DELETE 返回 `auditEventId`、回收站响应追加 `accounts` / `categories`。
-- 遗留：导入/导出、导入回滚、清空数据、退款关联；报表/预算页接入。
+- 遗留：退款关联；报表/预算页接入。
+
+设置数据操作接入要点（导入 / 导出 / 回滚 / 清空）：
+
+- 导出：`GET /data/export-full` 下载 `.mbx`（`moneybrain-backup-YYYY-MM-DD.mbx`），文件名取自 `Content-Disposition`；导出成功才在当前会话记为「已备份」。
+- 导入：先 `POST /data/import-preview` 出摘要（期间跨度 / 笔数 / 金额合计 / 未知账户与分类 / 疑似重复），确认后 `POST /data/import-backup`，返回 `importId`；预览与正式导入共用解析器。
+- 回滚：导入前记 id 基线、导入后求差存入 `ImportBatch.createdJson`；`POST /data/import-batches/:id/rollback` 只删本批新建行并返回实际撤销笔数；二次回滚拒绝。
+- 清空：必须先在本次会话导出 `.mbx`，再输入「清空账本」；`DELETE /data/all` 同时清审计事件与导入批次，清空后失效总览/流水/报表/预算查询。
+- 事务：导入解析、写库、批次记录同一事务；失败整批回滚，不留半截数据。
+- 三态：四个操作均有进行中 / 成功 / 失败态，失败保留弹层与输入可重试。
+- 新增端点：**2**：`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`。
+- 遗留：存点回滚（`/data/rollback-points`）、自动备份 UI、退款关联；报表/预算页接入。
 
 下一批：**报表**。前置条件见 [hf-api-gaps.md](hf-api-gaps.md) 的「下一批：报表」。
