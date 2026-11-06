@@ -93,6 +93,29 @@ export interface LedgerIds {
 
 export const TODAY = '2026-10-28'
 export const CURRENT_MONTH = '2026-10'
+
+/** 最新一笔流水的本地日历日；无流水时为 null。 */
+export function latestTransactionDate(
+  transactions: readonly LedgerTransaction[],
+): string | null {
+  let latest: string | null = null
+  for (const transaction of transactions) {
+    if (!latest || transaction.date > latest) latest = transaction.date
+  }
+  return latest
+}
+
+/**
+ * 报表 / 预算的期间锚点：真实今天与最新流水取较晚者。
+ *
+ * API 模式不再用种子的 2026-10-28，否则用户到不了真实的 11 月；
+ * 有未来日期的数据时也不会把用户挡在数据之外。种子模式没有 snapshot，仍用 TODAY。
+ */
+export function ledgerAnchorDay(ledger: Ledger): string {
+  const today = ledger.snapshot?.today ?? TODAY
+  const latest = latestTransactionDate(ledger.transactions)
+  return latest && latest > today ? latest : today
+}
 export const CURRENT_MONTH_LABEL = '2026 年 10 月'
 export const ELAPSED_DAYS = 28
 

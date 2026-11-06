@@ -73,6 +73,13 @@
   color: var(--mb-color-text-secondary);
 }
 
+/* 下一月禁用时给出可见原因，而不是只把按钮变成灰色。 */
+.mb-bg-month-reason {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+  white-space: nowrap;
+}
+
 .mb-bg-month-today {
   min-height: auto;
   padding: 0 var(--mb-s-2);

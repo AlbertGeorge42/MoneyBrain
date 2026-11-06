@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Drawer } from '@mantine/core'
 import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { CURRENT_MONTH } from '@/features/overview/model'
+import { ledgerAnchorDay } from '@/features/overview/model'
 import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
@@ -38,12 +38,18 @@ function MonthBar({
   month,
   onChange,
   compact,
+  currentMonth,
+  hasData,
 }: {
   month: string
   onChange: (next: string) => void
   compact?: boolean
+  currentMonth: string
+  hasData: (month: string) => boolean
 }) {
-  const current = month === CURRENT_MONTH
+  const isCurrent = month === currentMonth
+  const nextMonth = shiftMonth(month, 1)
+  const nextHasData = hasData(nextMonth)
   return (
     <div className={`mb-bg-month${compact ? ' is-compact' : ''}`} role="group" aria-label="预算月份">
       <button
@@ -59,13 +65,18 @@ function MonthBar({
         type="button"
         className="mb-bg-month-btn"
         aria-label="下一个月"
-        disabled={current}
-        onClick={() => onChange(shiftMonth(month, 1))}
+        disabled={!nextHasData}
+        aria-disabled={!nextHasData}
+        title={nextHasData ? undefined : `${monthLabel(nextMonth)}没有流水，暂不可切换`}
+        onClick={() => onChange(nextMonth)}
       >
         <ChevronRight size={16} />
       </button>
-      {!current && (
-        <button type="button" className="mb-link-btn mb-bg-month-today" onClick={() => onChange(CURRENT_MONTH)}>
+      {!nextHasData && (
+        <span className="mb-bg-month-reason">{monthLabel(nextMonth)}无流水</span>
+      )}
+      {!isCurrent && (
+        <button type="button" className="mb-link-btn mb-bg-month-today" onClick={() => onChange(currentMonth)}>
           回到本月
         </button>
       )}
@@ -305,7 +316,16 @@ export function BudgetPage({
   notify,
 }: BudgetPageProps) {
   const { ledger, replaceLedger } = useLedger()
-  const [month, setMonth] = useState(CURRENT_MONTH)
+  // 锚点跟真实数据走：API 模式用真实今天 / 最新流水，不再停在种子的 2026-10。
+  const anchorDay = ledgerAnchorDay(ledger)
+  const currentMonth = anchorDay.slice(0, 7)
+  const [monthOverride, setMonthOverride] = useState<string | null>(null)
+  const month = monthOverride ?? currentMonth
+  const setMonth = setMonthOverride
+  const hasMonthData = useMemo(() => {
+    const present = new Set(ledger.transactions.map((transaction) => transaction.date.slice(0, 7)))
+    return (target: string) => present.has(target)
+  }, [ledger.transactions])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [detailLimit, setDetailLimit] = useState('')
   const [detailNote, setDetailNote] = useState('')
@@ -313,7 +333,10 @@ export function BudgetPage({
   const [editor, setEditor] = useState<EditorState>(EMPTY_EDITOR)
   const [editorError, setEditorError] = useState('')
 
-  const data = useMemo(() => deriveBudgetPage(ledger, month), [ledger, month])
+  const data = useMemo(
+    () => deriveBudgetPage(ledger, month, { today: anchorDay, currentMonth }),
+    [ledger, month, anchorDay, currentMonth],
+  )
   const detail = detailId ? data.groups.flatMap((group) => group.rows).find((row) => row.id === detailId) : undefined
 
   useEffect(() => {
@@ -409,7 +432,15 @@ export function BudgetPage({
   if (dataState === 'loading') {
     return (
       <>
-        <BudgetPageHead device={device} data={data} month={month} onMonth={setMonth} onAdd={() => onEditorOpenChange(true)} />
+        <BudgetPageHead
+          device={device}
+          data={data}
+          month={month}
+          onMonth={setMonth}
+          onAdd={() => onEditorOpenChange(true)}
+          currentMonth={currentMonth}
+          hasData={hasMonthData}
+        />
         <LoadingSkeleton device={device} />
       </>
     )
@@ -418,7 +449,15 @@ export function BudgetPage({
   if (dataState === 'error') {
     return (
       <>
-        <BudgetPageHead device={device} data={data} month={month} onMonth={setMonth} onAdd={() => onEditorOpenChange(true)} />
+        <BudgetPageHead
+          device={device}
+          data={data}
+          month={month}
+          onMonth={setMonth}
+          onAdd={() => onEditorOpenChange(true)}
+          currentMonth={currentMonth}
+          hasData={hasMonthData}
+        />
         <ErrorPanel onRetry={onRetry} />
       </>
     )
@@ -427,7 +466,15 @@ export function BudgetPage({
   if (ledger.budgets.length === 0 || dataState === 'empty') {
     return (
       <>
-        <BudgetPageHead device={device} data={data} month={month} onMonth={setMonth} onAdd={() => onEditorOpenChange(true)} />
+        <BudgetPageHead
+          device={device}
+          data={data}
+          month={month}
+          onMonth={setMonth}
+          onAdd={() => onEditorOpenChange(true)}
+          currentMonth={currentMonth}
+          hasData={hasMonthData}
+        />
         <EmptyPage device={device} onAdd={() => onEditorOpenChange(true)} />
         <BudgetEditor
           opened={editorOpen}
@@ -446,11 +493,25 @@ export function BudgetPage({
 
   return (
     <div className="mb-bg-page" data-device={device}>
-      <BudgetPageHead device={device} data={data} month={month} onMonth={setMonth} onAdd={() => onEditorOpenChange(true)} />
+      <BudgetPageHead
+        device={device}
+        data={data}
+        month={month}
+        onMonth={setMonth}
+        onAdd={() => onEditorOpenChange(true)}
+        currentMonth={currentMonth}
+        hasData={hasMonthData}
+      />
 
       {device === 'mobile' && (
         <div className="mb-bg-mobile-month">
-          <MonthBar month={month} onChange={setMonth} compact />
+          <MonthBar
+            month={month}
+            onChange={setMonth}
+            compact
+            currentMonth={currentMonth}
+            hasData={hasMonthData}
+          />
         </div>
       )}
 
@@ -590,12 +651,16 @@ function BudgetPageHead({
   month,
   onMonth,
   onAdd,
+  currentMonth,
+  hasData,
 }: {
   device: DeviceMode
   data: BudgetPageData
   month: string
   onMonth: (next: string) => void
   onAdd: () => void
+  currentMonth: string
+  hasData: (month: string) => boolean
 }) {
   if (device === 'mobile') return null
   const count = data.groups.reduce((total, group) => total + group.rows.length, 0)
@@ -608,7 +673,12 @@ function BudgetPageHead({
         </p>
       </div>
       <div className="mb-bg-head-actions">
-        <MonthBar month={month} onChange={onMonth} />
+        <MonthBar
+          month={month}
+          onChange={onMonth}
+          currentMonth={currentMonth}
+          hasData={hasData}
+        />
         <button type="button" className="mb-primary-btn mb-bg-add" onClick={onAdd}>
           <Plus size={16} /> 新增
         </button>

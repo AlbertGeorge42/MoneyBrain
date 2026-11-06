@@ -12,7 +12,7 @@ import type {
   LedgerCategory,
   LedgerTransaction,
 } from '@/features/overview/model'
-import { CURRENT_MONTH, TODAY } from '@/features/overview/model'
+import { CURRENT_MONTH, TODAY, ledgerAnchorDay } from '@/features/overview/model'
 
 export type BudgetKind = 'expense' | 'income' | 'transfer'
 export type BudgetRowLevel = 'normal' | 'warning' | 'over' | 'achieved' | 'neutral'
@@ -87,9 +87,9 @@ export function shiftMonth(month: string, delta: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-/** 本月按当前日期结算；历史月份按当月最后一天结算。 */
-export function monthAnchor(month: string): string {
-  if (month === CURRENT_MONTH) return TODAY
+/** 当前月按锚定日结算；历史月份按当月最后一天结算。 */
+export function monthAnchor(month: string, currentMonth = CURRENT_MONTH, today = TODAY): string {
+  if (month === currentMonth) return today
   const [year, value] = month.split('-').map(Number)
   return formatDay(new Date(Date.UTC(year, value, 0)))
 }
@@ -183,8 +183,14 @@ function rowLevel(type: BudgetKind, percent: number): BudgetRowLevel {
   return 'neutral'
 }
 
-export function deriveBudgetPage(ledger: Ledger, month = CURRENT_MONTH): BudgetPageData {
-  const anchor = monthAnchor(month)
+export function deriveBudgetPage(
+  ledger: Ledger,
+  month = CURRENT_MONTH,
+  options?: { today?: string; currentMonth?: string },
+): BudgetPageData {
+  const today = options?.today ?? ledgerAnchorDay(ledger)
+  const currentMonth = options?.currentMonth ?? today.slice(0, 7)
+  const anchor = monthAnchor(month, currentMonth, today)
   const rows: BudgetPageRow[] = ledger.budgets
     .filter((budget) => budget.type === 'expense' || budget.type === 'income' || budget.type === 'transfer')
     .map((budget) => {
