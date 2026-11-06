@@ -176,14 +176,18 @@ function EntryForm({
   ledger,
   device,
   onRequestClose,
+  onCreateAccount,
   onSave,
 }: {
   ledger: Ledger
   device: DeviceMode
   onRequestClose: () => void
+  onCreateAccount: () => void
   onSave: (input: NewTransactionInput, keepOpen: boolean) => Promise<LedgerMutationOutcome>
 }) {
   const mobile = device === 'mobile'
+  // 空账本没有账户/分类：保存按钮禁用时必须说明原因，并给出可执行的下一步。
+  const missingAccount = ledger.accounts.length === 0
   const [type, setType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
   const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY.expense)
@@ -337,6 +341,15 @@ function EntryForm({
         ))}
       </div>
 
+      {missingAccount && (
+        <div className="mb-entry-missing-account" role="status">
+          <p>还没有账户，记账前需要先添加一个账户。</p>
+          <button type="button" className="mb-entry-missing-account-action" onClick={onCreateAccount}>
+            去设置添加账户
+          </button>
+        </div>
+      )}
+
       {mobile ? (
         <div className="mb-entry-amount-display" role="textbox" aria-label="金额" aria-readonly="true">
           <span className="mb-entry-currency">¥</span>
@@ -390,7 +403,7 @@ function EntryForm({
         </div>
       )}
 
-      {type === 'transfer' ? null : (
+      {type === 'transfer' || missingAccount ? null : (
         <fieldset className="mb-entry-field">
           <legend className="mb-field-label">分类</legend>
           <div
@@ -417,7 +430,7 @@ function EntryForm({
         </fieldset>
       )}
 
-      {type === 'transfer' ? (
+      {missingAccount ? null : type === 'transfer' ? (
         <>
           <fieldset className="mb-entry-field">
             <legend className="mb-field-label">转出账户</legend>
@@ -591,11 +604,14 @@ export function QuickEntry({
   device,
   onClose,
   onSaved,
+  onCreateAccount,
 }: {
   opened: boolean
   device: DeviceMode
   onClose: () => void
   onSaved: (transactionId: string | null, undoToken?: string) => void
+  /** 空账本时「去设置添加账户」的入口；未接时只保留说明文案。 */
+  onCreateAccount?: () => void
 }) {
   const { ledger, addTransaction } = useLedger()
   const [savedCount, setSavedCount] = useState(0)
@@ -650,6 +666,7 @@ export function QuickEntry({
       ledger={ledger}
       device={device}
       onRequestClose={onClose}
+      onCreateAccount={onCreateAccount ?? onClose}
       onSave={handleSave}
     />
   )

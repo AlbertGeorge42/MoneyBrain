@@ -841,3 +841,38 @@
 }
 
 
+
+/* ===== 空账本记一笔：说明 + 去添加账户 ===== */
+
+.mb-entry-missing-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-entry-missing-account p {
+  flex: 1 1 160px;
+  margin: 0;
+  font-size: var(--mb-fs-1);
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-entry-missing-account-action {
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-3);
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  cursor: pointer;
+}

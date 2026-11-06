@@ -341,6 +341,11 @@ function PreviewBody({
         opened={entryOpen}
         device={device}
         onClose={() => setEntryOpen(false)}
+        onCreateAccount={() => {
+          setEntryOpen(false)
+          onPage('settings')
+          notify('请在「设置 → 账户」中新增账户后再记账')
+        }}
         onSaved={(_transactionId, undoToken) => {
           setToast({
             message: '已保存 · 账本与总览数字已同步',
