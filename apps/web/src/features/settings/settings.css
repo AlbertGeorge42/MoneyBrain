@@ -436,6 +436,22 @@
   color: var(--mb-color-text-tertiary);
 }
 
+.mb-set-hint.is-warning {
+  color: var(--mb-color-expense);
+}
+
+.mb-set-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  flex-wrap: wrap;
+}
+
+.mb-set-order-actions {
+  display: flex;
+  gap: var(--mb-s-2);
+}
+
 .mb-set-list-empty {
   display: flex;
   flex-direction: column;
@@ -727,6 +743,37 @@
   overflow-wrap: anywhere;
 }
 
+.mb-set-preview-issues {
+  display: grid;
+  gap: var(--mb-s-1);
+  padding-top: var(--mb-s-1);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-warning);
+}
+
+.mb-set-preview-issues p {
+  margin: 0;
+}
+
+.mb-set-preview-issues ul {
+  display: grid;
+  gap: var(--mb-s-1);
+  margin: 0;
+  padding-left: var(--mb-s-4);
+}
+
+.mb-set-preview-issues li {
+  color: var(--mb-color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.mb-set-preview-issue-raw {
+  display: block;
+  color: var(--mb-color-text-tertiary);
+}
+
 .mb-set-danger-note {
   margin: 0;
   padding: var(--mb-s-3);
@@ -836,6 +883,12 @@
 .mb-set-btn.is-danger.is-armed {
   background: var(--mb-color-expense-bg);
   font-weight: 600;
+}
+
+.mb-set-btn.is-small {
+  min-height: 32px;
+  padding: 0 var(--mb-s-2);
+  font-size: var(--mb-fs-0);
 }
 
 /* ===== 空状态 ===== */

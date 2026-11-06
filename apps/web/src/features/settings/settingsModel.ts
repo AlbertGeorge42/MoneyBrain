@@ -73,32 +73,94 @@ export interface AccountRow {
 }
 
 export interface AccountGroup {
-  kind: AccountKind
-  label: string
+  id: string
+  name: string
+  type: 'asset' | 'liability'
+  sort: number
   rows: AccountRow[]
+  /** 未分组占位（账户 categoryId 为空或指向不存在的分组）。 */
+  ungrouped?: boolean
+  /** 种子账本按性质合成的只读分组，不能增删改。 */
+  seeded?: boolean
 }
 
-export function accountGroups(ledger: Ledger, kinds: readonly AccountKind[]): AccountGroup[] {
+/**
+ * 账户分组列表（只用于展示与组织，不参与任何合计）。
+ *
+ * API 模式直接投影后端的 AccountCategory（顶级）；种子账本没有分组表，
+ * 按性质合成只读分组，保证预览不空。
+ */
+export function accountGroupsForType(ledger: Ledger, type: 'asset' | 'liability'): AccountGroup[] {
   const counts = new Map<string, number>()
   for (const tx of ledger.transactions) {
     counts.set(tx.accountId, (counts.get(tx.accountId) ?? 0) + 1)
     if (tx.toAccountId) counts.set(tx.toAccountId, (counts.get(tx.toAccountId) ?? 0) + 1)
   }
+  const toRow = (account: Ledger['accounts'][number]): AccountRow => ({
+    id: account.id,
+    name: account.name,
+    balance: account.balance,
+    initialBalance: account.initialBalance,
+    initialBalanceDate: account.initialBalanceDate,
+    txCount: counts.get(account.id) ?? 0,
+  })
 
-  return kinds.map((kind) => ({
-    kind,
-    label: ACCOUNT_KIND_LABEL[kind],
-    rows: ledger.accounts
-      .filter((account) => account.kind === kind)
-      .map((account) => ({
-        id: account.id,
-        name: account.name,
-        balance: account.balance,
-        initialBalance: account.initialBalance,
-        initialBalanceDate: account.initialBalanceDate,
-        txCount: counts.get(account.id) ?? 0,
-      })),
-  }))
+  if (!ledger.accountCategories) {
+    const kinds: readonly AccountKind[] =
+      type === 'asset' ? ['cash', 'deposit', 'investment'] : ['credit']
+    return kinds.map((kind, index) => ({
+      id: `seed-${kind}`,
+      name: ACCOUNT_KIND_LABEL[kind],
+      type,
+      sort: index,
+      seeded: true,
+      rows: ledger.accounts.filter((account) => account.kind === kind).map(toRow),
+    }))
+  }
+
+  const known = new Set(
+    ledger.accountCategories.filter((category) => !category.parentId).map((category) => category.id),
+  )
+  // 资产 / 负债归属由账户本身决定，分组只决定它排在哪个抽屉里。
+  const accountType = (account: Ledger['accounts'][number]): 'asset' | 'liability' =>
+    account.kind === 'credit' ? 'liability' : 'asset'
+  const ofType = (account: Ledger['accounts'][number]) => accountType(account) === type
+  const groups: AccountGroup[] = ledger.accountCategories
+    .filter((category) => !category.parentId && category.type === type)
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      type,
+      sort: category.sort,
+      rows: ledger.accounts
+        .filter((account) => account.categoryId === category.id && ofType(account))
+        .map(toRow),
+    }))
+
+  const ungrouped = ledger.accounts.filter(
+    (account) => ofType(account) && (!account.categoryId || !known.has(account.categoryId)),
+  )
+  if (ungrouped.length > 0) {
+    groups.push({
+      id: '__ungrouped',
+      name: '未分组',
+      type,
+      sort: Number.MAX_SAFE_INTEGER,
+      ungrouped: true,
+      rows: ungrouped.map(toRow),
+    })
+  }
+  return groups
+}
+
+/** 分组展示名：同名时追加 id 尾号，避免「现金 × 5」无法区分。 */
+export function accountGroupDisplayName(
+  group: AccountGroup,
+  groups: readonly AccountGroup[],
+): string {
+  const sameName = groups.filter((item) => item.name === group.name)
+  if (sameName.length <= 1) return group.name
+  return `${group.name} · #${group.id.slice(-4)}`
 }
 
 export function accountTxCount(ledger: Ledger, accountId: string): number {

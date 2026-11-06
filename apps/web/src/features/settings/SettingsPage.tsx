@@ -37,7 +37,7 @@ import { fromMajor, minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { downloadBlob, todayFilename } from '@/utils/download'
 import { accountApi, dataApi, transactionCategoryApi } from '@/services/api'
-import type { ImportBackupResult, ImportBatch, ImportPreview } from '@/services/api'
+import type { ImportBackupResult, ImportBatch, ImportFileSummary, ImportPreview } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import { useLedger } from '@/features/overview/ledgerStore'
@@ -56,13 +56,13 @@ import {
 import {
   ACCOUNT_KIND_LABEL,
   ACTIVITY_GROUPS,
-  ASSET_KINDS,
   ASSET_MARK_GROUPS,
   CONFIG_SECTIONS,
   GENERAL_SECTIONS,
   INVESTMENT_TYPES,
-  LIABILITY_KINDS,
-  accountGroups,
+  accountGroupDisplayName,
+  accountGroupsForType,
+  accountTxCount,
   categoryDescendantIds,
   categoryRows,
   categorySiblings,
@@ -75,6 +75,9 @@ import {
   type InvestmentTypeRow,
   type SectionId,
 } from './settingsModel'
+import { ReconcileButton } from './ReconcileSheet'
+import { ReportCardList, ReportTable, type CardRow, type ReportRow } from '@/features/reports/ReportTable'
+import '@/features/reports/reports.css'
 import './settings.css'
 
 interface SettingsPageProps {
@@ -110,12 +113,26 @@ const CASHFLOW_TABS: readonly { id: 'asset' | 'income' | 'expense' | 'transfer';
 const CLEAR_WORD = '清空账本'
 
 type Editor =
-  | { kind: 'account'; mode: 'create' | 'edit'; accountId?: string; preset: AccountKind }
+  | {
+      kind: 'account'
+      mode: 'create' | 'edit'
+      accountId?: string
+      preset: AccountKind
+      /** 新建时预选的分组 id；编辑时以账户当前分组为准。 */
+      groupId?: string
+    }
+  | { kind: 'accountGroup'; mode: 'create' | 'edit'; type: 'asset' | 'liability'; groupId?: string }
   | { kind: 'category'; mode: 'create' | 'edit'; type: TxType; parentId?: string; categoryId?: string }
   | { kind: 'invest'; id: string }
 
 type Mover =
-  | { kind: 'account'; id: string; name: string; current: AccountKind }
+  | {
+      kind: 'account'
+      id: string
+      name: string
+      current: string | null
+      type: 'asset' | 'liability'
+    }
   | {
       kind: 'category'
       id: string
@@ -270,6 +287,8 @@ function EditorSheet({
   saving,
   onClose,
   onSave,
+  onDelete,
+  onMove,
 }: {
   editor: Editor | null
   device: DeviceMode
@@ -281,6 +300,8 @@ function EditorSheet({
   onSave: (value: {
     name: string
     kind: AccountKind
+    /** 选中分组 id；null = 未分组；undefined = 种子账本按性质回退。 */
+    categoryId?: string | null
     /** 当前余额 / 新建时的初始余额（分）。 */
     balance: number
     /** 期初余额（分）。 */
@@ -289,6 +310,8 @@ function EditorSheet({
     initialBalanceDate: string
     target: number
   }) => void
+  onDelete?: () => void
+  onMove?: (direction: 'up' | 'down') => void
 }) {
   const account =
     editor?.kind === 'account' && editor.mode === 'edit'
@@ -298,12 +321,29 @@ function EditorSheet({
     editor?.kind === 'category' && editor.mode === 'edit'
       ? ledger.categories.find((item) => item.id === editor.categoryId)
       : undefined
+  const group =
+    editor?.kind === 'accountGroup' && editor.mode === 'edit'
+      ? (ledger.accountCategories ?? []).find((item) => item.id === editor.groupId)
+      : undefined
   const invest = editor?.kind === 'invest' ? investRows.find((item) => item.id === editor.id) : undefined
 
-  const initialName = account?.name ?? category?.name ?? invest?.name ?? ''
+  /** 真实账本才有可管理的分组；种子账本退回「账户性质」四选一。 */
+  const groupMode = Boolean(ledger.accountCategories)
   const initialKind =
     editor?.kind === 'account' ? (account?.kind ?? editor.preset) : ('deposit' as AccountKind)
-  const currentBalance = account ? account.balance / 100 : 0
+  // 账户性质由所属分组决定，所以分组下拉只列同一归属的分组。
+  const groupType = initialKind === 'credit' ? 'liability' : 'asset'
+  const groupOptions = (ledger.accountCategories ?? []).filter(
+    (item) => !item.parentId && item.type === groupType,
+  )
+  /** 分组重名在真实库里很常见（导入残留），下拉里也用尾号区分。 */
+  const groupOptionLabel = (item: (typeof groupOptions)[number]) => {
+    const duplicated = groupOptions.filter((other) => other.name === item.name).length > 1
+    return `${item.name}${duplicated ? ` · #${item.id.slice(-4)}` : ''}`
+  }
+  const defaultGroupId = editor?.kind === 'account' ? editor.groupId : undefined
+  const initialGroupId = account?.categoryId ?? defaultGroupId ?? ''
+
   // 有流水后，期初余额冻结：改当前余额会自动落平账分录，不再折算期初。
   const hasTransactions =
     editor?.kind === 'account' &&
@@ -312,20 +352,39 @@ function EditorSheet({
     ledger.transactions.some(
       (transaction) => transaction.accountId === account?.id || transaction.toAccountId === account?.id,
     )
+  const initialName = account?.name ?? category?.name ?? group?.name ?? invest?.name ?? ''
+  const currentBalance = account ? account.balance / 100 : 0
   const openingBalance = account?.initialBalance !== undefined ? account.initialBalance / 100 : currentBalance
   const openingDate = account?.initialBalanceDate ?? todayLocal()
   const initialTarget = invest?.target ?? 0
 
   const [name, setName] = useState(initialName)
   const [kind, setKind] = useState<AccountKind>(initialKind)
+  const [groupId, setGroupId] = useState(initialGroupId)
   const [balance, setBalance] = useState(String(currentBalance))
   const [initialBalance, setInitialBalance] = useState(String(openingBalance))
   const [initialBalanceDate, setInitialBalanceDate] = useState(openingDate)
   const [target, setTarget] = useState(String(initialTarget))
 
+  const currentCategory = account?.categoryId
+    ? (ledger.accountCategories ?? []).find((item) => item.id === account.categoryId)
+    : undefined
+  const selectedGroup = groupId
+    ? (ledger.accountCategories ?? []).find((item) => item.id === groupId)
+    : undefined
+  // 后端口径落差：现金等价 / 投资标识挂在 AccountCategory 上，换分组就是换标识。
+  // 界面上不曝光这两个开关，但改动前必须提示数值口径会变，不能静默。
+  const flagChanged =
+    editor?.kind === 'account' &&
+    editor.mode === 'edit' &&
+    Boolean(selectedGroup) &&
+    (Boolean(currentCategory?.isCashEquivalent) !== Boolean(selectedGroup?.isCashEquivalent) ||
+      Boolean(currentCategory?.isInvestment) !== Boolean(selectedGroup?.isInvestment))
+
   useEffect(() => {
     setName(initialName)
     setKind(initialKind)
+    setGroupId(initialGroupId)
     setBalance(String(currentBalance))
     setInitialBalance(String(openingBalance))
     setInitialBalanceDate(openingDate)
@@ -340,22 +399,38 @@ function EditorSheet({
       ? editor.mode === 'create'
         ? '新增账户'
         : '编辑账户'
-      : editor.kind === 'category'
+      : editor.kind === 'accountGroup'
         ? editor.mode === 'create'
-          ? editor.parentId
-            ? '新增子分类'
-            : '新增一级分类'
-          : '编辑分类'
-        : '编辑投资资产类型'
+          ? `新增${editor.type === 'liability' ? '负债' : '资产'}分组`
+          : '编辑账户分组'
+        : editor.kind === 'category'
+          ? editor.mode === 'create'
+            ? editor.parentId
+              ? '新增子分类'
+              : '新增一级分类'
+            : '编辑分类'
+          : '编辑投资资产类型'
 
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(initialBalanceDate)
   const valid =
     name.trim().length > 0 &&
     (editor.kind !== 'account' ||
+      (!groupMode || editor.mode === 'edit' || groupId !== '') &&
       (Number.isFinite(Number(balance)) &&
         Number.isFinite(Number(initialBalance)) &&
         dateValid)) &&
     (editor.kind !== 'invest' || Number.isFinite(Number(target)))
+
+  const duplicateGroup =
+    editor.kind === 'accountGroup'
+      ? (ledger.accountCategories ?? []).filter(
+          (item) =>
+            !item.parentId &&
+            item.type === editor.type &&
+            item.id !== editor.groupId &&
+            item.name.trim() === name.trim(),
+        )
+      : []
 
   return (
     <Drawer
@@ -380,28 +455,103 @@ function EditorSheet({
             className="mb-set-input"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder={editor.kind === 'account' ? '如「招商储蓄卡」' : '如「餐饮」'}
+            placeholder={
+              editor.kind === 'account'
+                ? '如「招商储蓄卡」'
+                : editor.kind === 'accountGroup'
+                  ? '如「短期现金」'
+                  : '如「餐饮」'
+            }
           />
         </label>
 
-        {editor.kind === 'account' && (
+        {editor.kind === 'accountGroup' && (
           <>
             <div className="mb-set-field">
-              <span className="mb-set-label">账户性质</span>
-              <div className="mb-set-kind-grid" role="group" aria-label="账户性质">
-                {[...ASSET_KINDS, ...LIABILITY_KINDS].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={kind === value ? 'mb-set-kind is-active' : 'mb-set-kind'}
-                    aria-pressed={kind === value}
-                    onClick={() => setKind(value)}
-                  >
-                    {ACCOUNT_KIND_LABEL[value]}
-                  </button>
-                ))}
+              <span className="mb-set-label">归属</span>
+              <div className="mb-set-static">
+                {editor.type === 'liability' ? '负债账户分组' : '资产账户分组'}
               </div>
             </div>
+            <p className="mb-set-hint">
+              分组即后端的账户分类，新建时默认不带「现金等价 / 投资」标识；账户移入后按该分组的标识参与现金流与投资占比计算。
+            </p>
+            {duplicateGroup.length > 0 && (
+              <p className="mb-set-hint is-warning">
+                已存在同名分组「{duplicateGroup[0].name}」（#
+                {duplicateGroup[0].id.slice(-4)}），保存后将并存并按尾号区分。
+              </p>
+            )}
+            {editor.mode === 'edit' && (
+              <p className="mb-set-hint">
+                该分组下现有 {ledger.accounts.filter((item) => item.categoryId === editor.groupId).length}{' '}
+                个账户。有账户引用时后端会拒绝删除。
+              </p>
+            )}
+            {editor.mode === 'edit' && onMove && (
+              <div className="mb-set-order-actions">
+                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
+                  上移
+                </button>
+                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
+                  下移
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {editor.kind === 'account' && (
+          <>
+            {groupMode ? (
+              <label className="mb-set-field">
+                <span className="mb-set-label">账户分组</span>
+                <select
+                  className="mb-set-input"
+                  value={groupId}
+                  onChange={(event) => setGroupId(event.target.value)}
+                >
+                  <option value="">{editor.mode === 'create' ? '请选择分组' : '未分组'}</option>
+                  {groupOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.type === 'liability' ? '负债' : '资产'} · {groupOptionLabel(item)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div className="mb-set-field">
+                <span className="mb-set-label">账户性质</span>
+                <div className="mb-set-kind-grid" role="group" aria-label="账户性质">
+                  {(['deposit', 'cash', 'investment', 'credit'] as AccountKind[]).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={kind === value ? 'mb-set-kind is-active' : 'mb-set-kind'}
+                      aria-pressed={kind === value}
+                      onClick={() => setKind(value)}
+                    >
+                      {ACCOUNT_KIND_LABEL[value]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {groupMode && groupId && (
+              <p className="mb-set-hint">
+                {(() => {
+                  const selected = groupOptions.find((item) => item.id === groupId)
+                  return selected
+                    ? `将计入${selected.type === 'liability' ? '负债' : '资产'}；余额按账户本身计算。`
+                    : null
+                })()}
+              </p>
+            )}
+            {flagChanged && (
+              <p className="mb-set-hint is-warning">
+                该分组与账户原分类的「现金等价 / 投资」标识不同；保存后现金流与投资占比会按新标识重算，净资产与资产构成不受影响。
+              </p>
+            )}
             <label className="mb-set-field">
               <span className="mb-set-label">期初余额（元）</span>
               <input
@@ -447,6 +597,16 @@ function EditorSheet({
                   : '账户尚无流水，当前余额与期初余额等价。'}
               </p>
             )}
+            {editor.mode === 'edit' && onMove && (
+              <div className="mb-set-order-actions">
+                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
+                  组内上移
+                </button>
+                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
+                  组内下移
+                </button>
+              </div>
+            )}
           </>
         )}
 
@@ -476,6 +636,17 @@ function EditorSheet({
       </div>
 
       <div className="mb-set-sheet-actions">
+        {onDelete && (
+          <button
+            type="button"
+            className="mb-set-btn is-danger"
+            disabled={saving}
+            onClick={onDelete}
+          >
+            <Trash2 size={15} />
+            {editor.kind === 'accountGroup' ? '删除分组' : '删除账户'}
+          </button>
+        )}
         <button type="button" className="mb-set-btn is-ghost" onClick={onClose}>
           取消
         </button>
@@ -487,6 +658,14 @@ function EditorSheet({
             onSave({
               name: name.trim(),
               kind,
+              categoryId:
+                editor.kind === 'account' && groupMode
+                  ? groupId === ''
+                    ? editor.mode === 'edit'
+                      ? null
+                      : undefined
+                    : groupId
+                  : undefined,
               balance:
                 editor.kind === 'account' && editor.mode === 'create'
                   ? Math.round(Number(initialBalance) * 100)
@@ -525,11 +704,22 @@ function MoverSheet({
 
   const options: { id: string; label: string; current: boolean }[] =
     mover.kind === 'account'
-      ? [...ASSET_KINDS, ...LIABILITY_KINDS].map((value) => ({
-          id: value,
-          label: `${ACCOUNT_KIND_LABEL[value]}账户`,
-          current: value === mover.current,
-        }))
+      ? (() => {
+          const groups = (ledger.accountCategories ?? []).filter(
+            (category) => !category.parentId && category.type === mover.type,
+          )
+          return [
+            { id: '', label: '未分组', current: mover.current === null },
+            ...groups.map((category) => {
+              const duplicated = groups.filter((other) => other.name === category.name).length > 1
+              return {
+                id: category.id,
+                label: `${category.name}${duplicated ? ` · #${category.id.slice(-4)}` : ''}`,
+                current: category.id === mover.current,
+              }
+            }),
+          ]
+        })()
       : mover.kind === 'activity'
         ? ACTIVITY_GROUPS.map((group) => ({
             id: group.id,
@@ -667,6 +857,10 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     updateAccount,
     deleteAccount: deleteAccountRemote,
     reorderAccount,
+    createAccountGroup,
+    updateAccountGroup,
+    deleteAccountGroup: deleteAccountGroupRemote,
+    reorderAccountGroup,
     createCategory,
     updateCategory,
     moveCategory,
@@ -679,6 +873,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [active, setActive] = useState<SectionId>('accounts')
   const [openSection, setOpenSection] = useState<SectionId | null>(null)
   const [accountTab, setAccountTab] = useState<'asset' | 'liability'>('asset')
+  /** 真实库里有大量导入残留的空分组；默认只看有账户的分组，可一键显示。 */
+  const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [categoryTab, setCategoryTab] = useState<CategoryTab>('expense')
   const [cashTab, setCashTab] = useState<'asset' | 'income' | 'expense' | 'transfer'>('asset')
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
@@ -817,8 +1013,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     writeDisplaySettings(display)
   }, [display])
 
-  const assetGroups = useMemo(() => accountGroups(ledger, ASSET_KINDS), [ledger])
-  const liabilityGroups = useMemo(() => accountGroups(ledger, LIABILITY_KINDS), [ledger])
+  const assetGroups = useMemo(() => accountGroupsForType(ledger, 'asset'), [ledger])
+  const liabilityGroups = useMemo(() => accountGroupsForType(ledger, 'liability'), [ledger])
   const rowsByType = useMemo(
     () => ({
       income: categoryRows(ledger, 'income'),
@@ -846,6 +1042,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const saveEditor = async (value: {
     name: string
     kind: AccountKind
+    categoryId?: string | null
     balance: number
     initialBalance: number
     initialBalanceDate: string
@@ -864,33 +1061,44 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     setEditorError(null)
     setEditorSaving(true)
     const result =
-      editor.kind === 'account'
-        ? editor.mode === 'edit' && editor.accountId
-          ? await updateAccount(editor.accountId, {
-              name: value.name,
-              kind: value.kind,
-              balance: value.balance,
-              initialBalance: value.initialBalance,
-              initialBalanceDate: value.initialBalanceDate,
-            })
-          : await createAccount({
-              name: value.name,
-              kind: value.kind,
-              balance: value.balance,
-              initialBalance: value.initialBalance,
-              initialBalanceDate: value.initialBalanceDate,
-            })
-        : editor.mode === 'edit' && editor.categoryId
-          ? await updateCategory(editor.categoryId, value.name)
-          : await createCategory({
-              name: value.name,
-              type: editor.type,
-              parentId: editor.parentId ?? null,
-            })
+      editor.kind === 'accountGroup'
+        ? editor.mode === 'edit' && editor.groupId
+          ? await updateAccountGroup(editor.groupId, value.name)
+          : await createAccountGroup({ name: value.name, type: editor.type })
+        : editor.kind === 'account'
+          ? editor.mode === 'edit' && editor.accountId
+            ? await updateAccount(editor.accountId, {
+                name: value.name,
+                kind: value.kind,
+                categoryId: value.categoryId,
+                balance: value.balance,
+                initialBalance: value.initialBalance,
+                initialBalanceDate: value.initialBalanceDate,
+              })
+            : await createAccount({
+                name: value.name,
+                kind: value.kind,
+                categoryId: value.categoryId,
+                balance: value.balance,
+                initialBalance: value.initialBalance,
+                initialBalanceDate: value.initialBalanceDate,
+              })
+          : editor.mode === 'edit' && editor.categoryId
+            ? await updateCategory(editor.categoryId, value.name)
+            : await createCategory({
+                name: value.name,
+                type: editor.type,
+                parentId: editor.parentId ?? null,
+              })
     setEditorSaving(false)
     if (!result.ok) {
       // 失败保留表单与原输入，错误可见，可直接重试。
       setEditorError(result.error ?? '保存失败，请重试')
+      return
+    }
+    if (editor.kind === 'accountGroup') {
+      notify(editor.mode === 'edit' ? '分组已重命名' : '分组已新增')
+      setEditor(null)
       return
     }
     notify(
@@ -922,6 +1130,73 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const moveAccountOrder = async (id: string, direction: 'up' | 'down') => {
     const result = await reorderAccount(id, direction)
     if (!result.ok) notify(result.error ?? '排序失败，请重试')
+  }
+
+  /** 删除分组：有账户引用时后端拒绝，前端显式说明原因，绝不静默清空引用。 */
+  const deleteGroup = async (group: AccountGroup) => {
+    if (group.ungrouped) {
+      notify('「未分组」是默认归类占位，不能删除；把账户移入任一正式分组即可')
+      return
+    }
+    if (group.seeded) {
+      notify('演示账本的账户性质分组只读，请在真实账本中管理分组')
+      return
+    }
+    if (group.rows.length > 0) {
+      const names = group.rows
+        .slice(0, 3)
+        .map((account) => accountDisplayName(account, ledger.accounts))
+        .join('、')
+      notify(
+        `「${group.name}」下还有 ${group.rows.length} 个账户（${names}${
+          group.rows.length > 3 ? '…' : ''
+        }），后端拒绝删除；后端暂无停用字段，请先把账户移到其他分组`,
+      )
+      return
+    }
+    const result = await deleteAccountGroupRemote(group.id)
+    if (!result.ok) {
+      notify(result.error ?? '删除分组失败，请重试')
+      return
+    }
+    notify(`分组「${group.name}」已删除`)
+    setEditor(null)
+  }
+
+  const deleteEditorTarget = async () => {
+    if (!editor) return
+    if (editor.kind === 'accountGroup' && editor.groupId) {
+      const groups = editor.type === 'asset' ? assetGroups : liabilityGroups
+      const target = groups.find((group) => group.id === editor.groupId)
+      if (target) await deleteGroup(target)
+      return
+    }
+    if (editor.kind === 'account' && editor.accountId) {
+      const account = ledger.accounts.find((item) => item.id === editor.accountId)
+      if (!account) return
+      await deleteAccount({
+        id: account.id,
+        name: account.name,
+        balance: account.balance,
+        initialBalance: account.initialBalance,
+        initialBalanceDate: account.initialBalanceDate,
+        txCount: accountTxCount(ledger, account.id),
+      })
+      setEditor(null)
+    }
+  }
+
+  const moveEditorTarget = async (direction: 'up' | 'down') => {
+    if (!editor) return
+    if (editor.kind === 'accountGroup' && editor.groupId) {
+      const result = await reorderAccountGroup(editor.groupId, direction)
+      if (!result.ok) notify(result.error ?? '排序失败，请重试')
+      else notify('分组排序已更新')
+      return
+    }
+    if (editor.kind === 'account' && editor.accountId) {
+      await moveAccountOrder(editor.accountId, direction)
+    }
   }
 
   const moveCategoryOrder = async (id: string, direction: 'up' | 'down') => {
@@ -1006,7 +1281,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             if (!account) return { ok: false, error: '账户不存在' }
             return updateAccount(account.id, {
               name: account.name,
-              kind: target as AccountKind,
+              kind: account.kind,
+              // 空 id = 未分组；后端允许更新账户的分类为 null。
+              categoryId: target === '' ? null : target,
               balance: account.balance,
             })
           })()
@@ -1016,7 +1293,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       setMoverError(result.error ?? '移动失败，请重试')
       return
     }
-    notify(mover.kind === 'account' ? '账户已移动到新分类' : '分类已移动')
+    notify(mover.kind === 'account' ? '账户已移动到新分组' : '分类已移动')
     setMover(null)
   }
 
@@ -1238,129 +1515,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
 
   /* ===== 行渲染 ===== */
 
-  const renderAccountGroup = (group: AccountGroup) => {
-    const Icon = ACCOUNT_ICONS[group.kind]
-    const expandedRow = !collapsed.has(`acc-${group.kind}`)
-    return (
-      <div key={group.kind} className="mb-set-group">
-        <div className="mb-set-row is-group">
-          <button
-            type="button"
-            className="mb-set-fold"
-            aria-label={expandedRow ? '收起账户' : '展开账户'}
-            aria-expanded={expandedRow}
-            onClick={() => toggleCollapsed(`acc-${group.kind}`)}
-          >
-            {expandedRow ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
-          <span className="mb-set-drag" aria-hidden="true">
-            <GripVertical size={14} />
-          </span>
-          <span className="mb-set-icon">
-            <Icon size={16} />
-          </span>
-          <span className="mb-set-name">{group.label}</span>
-          <span className="mb-set-meta">{group.rows.length} 个账户</span>
-          <RowMenu
-            id={`group-${group.kind}`}
-            openId={menuOpen}
-            onOpen={setMenuOpen}
-            confirming={confirming}
-            onConfirm={setConfirming}
-            items={[
-              {
-                key: `add-${group.kind}`,
-                label: '新增账户',
-                onSelect: () => setEditor({ kind: 'account', mode: 'create', preset: group.kind }),
-              },
-              {
-                key: `del-${group.kind}`,
-                label: '删除',
-                danger: true,
-                confirm: true,
-                disabled: group.rows.length > 0,
-                hint: '分类下仍有账户，先移动或删除账户',
-                onSelect: () => notify('分类下仍有账户，不能删除'),
-              },
-            ]}
-          />
-        </div>
-        {expandedRow &&
-          group.rows.map((account, index) => (
-            <div key={account.id} className="mb-set-row is-child">
-              <span className="mb-set-child-space" aria-hidden="true" />
-              <span className="mb-set-drag" aria-hidden="true">
-                <GripVertical size={14} />
-              </span>
-              <span className="mb-set-icon">
-                <Icon size={16} />
-              </span>
-              <span className="mb-set-name">{accountDisplayName(account, ledger.accounts)}</span>
-              <span className="mb-set-meta">
-                {formatCurrency(minor(account.balance))} · {account.txCount} 笔 ·{' '}
-                {account.initialBalanceDate
-                  ? `期初 ${account.initialBalanceDate}`
-                  : '期初未设'}
-              </span>
-              <RowMenu
-                id={`acc-${account.id}`}
-                openId={menuOpen}
-                onOpen={setMenuOpen}
-                confirming={confirming}
-                onConfirm={setConfirming}
-                items={[
-                  {
-                    key: `edit-${account.id}`,
-                    label: '编辑',
-                    onSelect: () =>
-                      setEditor({ kind: 'account', mode: 'edit', accountId: account.id, preset: group.kind }),
-                  },
-                  {
-                    key: `move-${account.id}`,
-                    label: '移动到…',
-                    onSelect: () =>
-                      setMover({
-                        kind: 'account',
-                        id: account.id,
-                        name: account.name,
-                        current: group.kind,
-                      }),
-                  },
-                  {
-                    key: `up-${account.id}`,
-                    label: '上移',
-                    disabled: index === 0,
-                    onSelect: () => void moveAccountOrder(account.id, 'up'),
-                  },
-                  {
-                    key: `down-${account.id}`,
-                    label: '下移',
-                    disabled: index === group.rows.length - 1,
-                    onSelect: () => void moveAccountOrder(account.id, 'down'),
-                  },
-                  {
-                    key: `del-${account.id}`,
-                    label: '删除',
-                    danger: true,
-                    confirm: true,
-                    // API 模式交给后端判定：有引用时原样显示拒绝原因。
-                    disabled: !apiMode && account.txCount > 0,
-                    hint: `${account.txCount} 笔交易引用此账户，不能删除`,
-                    onSelect: () => void deleteAccount(account),
-                  },
-                ]}
-              />
-            </div>
-          ))}
-        {expandedRow && group.rows.length === 0 && (
-          <div className="mb-set-row is-child is-empty">
-            <span className="mb-set-meta">还没有账户</span>
-          </div>
-        )}
-      </div>
-    )
-  }
-
   const renderCategoryRow = (row: CategoryRow, type: TxType, level: number) => {
     const expandedRow = !collapsed.has(`cat-${row.id}`)
     const siblings = categorySiblings(ledger, row.id)
@@ -1468,13 +1622,54 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
 
   const renderAccounts = () => {
     const groups = accountTab === 'asset' ? assetGroups : liabilityGroups
+    const emptyCount = groups.filter((group) => group.rows.length === 0).length
+    const visibleGroups = showEmptyGroups
+      ? groups
+      : groups.filter((group) => group.rows.length > 0)
+    const allCollapsed =
+      visibleGroups.length > 0 && visibleGroups.every((group) => collapsed.has(`grp-${group.id}`))
+    const groupLabel = (group: AccountGroup) => accountGroupDisplayName(group, groups)
+    const subtotal = (group: AccountGroup) =>
+      formatCurrency(minor(group.rows.reduce((sum, account) => sum + account.balance, 0)))
+    const accountLabel = (account: AccountRow) => accountDisplayName(account, ledger.accounts)
+    const expandedOf = (group: AccountGroup) => !collapsed.has(`grp-${group.id}`)
+    const toggleGroup = (group: AccountGroup) => toggleCollapsed(`grp-${group.id}`)
+    const canManage = (group: AccountGroup) => !group.ungrouped && !group.seeded
+    const openGroup = (group: AccountGroup) => {
+      if (!canManage(group)) return
+      const source = (ledger.accountCategories ?? []).find((item) => item.id === group.id)
+      if (!source) return
+      setEditor({ kind: 'accountGroup', mode: 'edit', type: group.type, groupId: group.id })
+    }
+    const openAccount = (account: AccountRow, group: AccountGroup) => {
+      const current = ledger.accounts.find((item) => item.id === account.id)
+      setEditor({
+        kind: 'account',
+        mode: 'edit',
+        accountId: account.id,
+        preset: current?.kind ?? 'deposit',
+        groupId: group.ungrouped ? undefined : group.id,
+      })
+    }
+    const totalBalance = groups.reduce(
+      (sum, group) => sum + group.rows.reduce((inner, account) => inner + account.balance, 0),
+      0,
+    )
+    const totalAccounts = groups.reduce((sum, group) => sum + group.rows.length, 0)
+    const emptyHint =
+      groups.length === 0
+        ? '还没有分组'
+        : emptyCount > 0 && !showEmptyGroups
+          ? `已隐藏 ${emptyCount} 个空分组（点「显示空分组」可管理）`
+          : undefined
+
     return (
       <>
         <div className="mb-set-toolbar">
-          <div className="mb-set-tabs" role="tablist" aria-label="账户分类">
+          <div className="mb-set-tabs" role="tablist" aria-label="账户分组">
             {[
-              { id: 'asset' as const, label: '资产分类' },
-              { id: 'liability' as const, label: '负债分类' },
+              { id: 'asset' as const, label: '资产分组' },
+              { id: 'liability' as const, label: '负债分组' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1488,8 +1683,144 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               </button>
             ))}
           </div>
+          <div className="mb-set-toolbar-actions">
+            <button
+              type="button"
+              className="mb-set-btn is-ghost is-small"
+              disabled={emptyCount === 0}
+              onClick={() => setShowEmptyGroups((value) => !value)}
+            >
+              {showEmptyGroups ? '隐藏空分组' : `显示空分组（${emptyCount}）`}
+            </button>
+            <button
+              type="button"
+              className="mb-set-btn is-ghost is-small"
+              disabled={visibleGroups.length === 0}
+              onClick={() =>
+                setCollapsed((current) => {
+                  const next = new Set(current)
+                  for (const group of visibleGroups) {
+                    if (allCollapsed) next.delete(`grp-${group.id}`)
+                    else next.add(`grp-${group.id}`)
+                  }
+                  return next
+                })
+              }
+            >
+              {allCollapsed ? '全部展开' : '全部收起'}
+            </button>
+            <button
+              type="button"
+              className="mb-set-btn is-primary is-small"
+              onClick={() => {
+                // 新建的分组还没有账户，先切到「显示空分组」，否则保存后会看不见。
+                setShowEmptyGroups(true)
+                setEditor({ kind: 'accountGroup', mode: 'create', type: accountTab })
+              }}
+            >
+              <Plus size={15} /> 新建分组
+            </button>
+            <button
+              type="button"
+              className="mb-set-btn is-ghost is-small"
+              onClick={() =>
+                setEditor({
+                  kind: 'account',
+                  mode: 'create',
+                  preset: accountTab === 'liability' ? 'credit' : 'deposit',
+                })
+              }
+            >
+              <Plus size={15} /> 新增账户
+            </button>
+          </div>
         </div>
-        <div className="mb-set-list">{groups.map(renderAccountGroup)}</div>
+
+        <p className="mb-set-hint">
+          分组即后端的账户分类（AccountCategory）：用于组织与浏览账户。净资产与资产构成合计不变，但资产构成按分类名分行，分组名会出现在表里。新建分组默认不带「现金等价 / 投资」标识；把带标识的账户移入新分组会改变现金流与投资占比，保存前会提示。默认全部展开，点分组行可改名/排序/删除，点账户行可编辑或移动。
+        </p>
+
+        {device === 'desktop' ? (
+          <ReportTable
+            device={device}
+            title={accountTab === 'asset' ? '资产账户分组' : '负债账户分组'}
+            desc={`共 ${totalAccounts} 个账户；${allCollapsed ? '当前全部收起' : '默认全部展开'}`}
+            ariaLabel="账户分组表"
+            variant="c3"
+            columns={[
+              { label: '分组 / 账户' },
+              { label: '余额', align: 'num' },
+              { label: '账户数', align: 'num' },
+            ]}
+            rows={visibleGroups.flatMap((group) => {
+              const groupRow: ReportRow = {
+                id: `grp-${group.id}`,
+                cells: [groupLabel(group), subtotal(group), `${group.rows.length} 个`],
+                fold: { expanded: expandedOf(group), onToggle: () => toggleGroup(group) },
+                onOpen: canManage(group) ? () => openGroup(group) : undefined,
+                hint: group.ungrouped ? '默认归类' : group.seeded ? '演示只读' : undefined,
+              }
+              const accountRows: ReportRow[] = expandedOf(group)
+                ? group.rows.map((account) => ({
+                    id: `acc-${account.id}`,
+                    level: 1 as const,
+                    cells: [
+                      accountLabel(account),
+                      formatCurrency(minor(account.balance)),
+                      group.seeded ? '' : (
+                        <ReconcileButton
+                          account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
+                          device="desktop"
+                          onDone={onRetry}
+                        />
+                      ),
+                    ],
+                    onOpen: () => openAccount(account, group),
+                  }))
+                : []
+              return [groupRow, ...accountRows]
+            })}
+            total={['合计', formatCurrency(minor(totalBalance)), `${totalAccounts} 个`]}
+            note={emptyHint ? `${emptyHint}，点右上角「新建分组」开始。` : undefined}
+          />
+        ) : (
+          <ReportCardList
+            device={device}
+            title={accountTab === 'asset' ? '资产账户分组' : '负债账户分组'}
+            desc={`共 ${totalAccounts} 个账户；${allCollapsed ? '当前全部收起' : '默认全部展开'}`}
+            rows={visibleGroups.flatMap((group) => {
+              const groupRow: CardRow = {
+                id: `grp-${group.id}`,
+                label: groupLabel(group),
+                meta: `${group.rows.length} 个账户`,
+                hint: group.ungrouped ? '默认归类' : group.seeded ? '演示只读' : undefined,
+                amount: subtotal(group),
+                fold: { expanded: expandedOf(group), onToggle: () => toggleGroup(group) },
+                onOpen: canManage(group) ? () => openGroup(group) : undefined,
+              }
+              const accountRows: CardRow[] = expandedOf(group)
+                ? group.rows.map((account) => ({
+                    id: `acc-${account.id}`,
+                    level: 1 as const,
+                    label: accountLabel(account),
+                    meta: `${account.txCount} 笔`,
+                    amount: formatCurrency(minor(account.balance)),
+                    onOpen: () => openAccount(account, group),
+                    action: group.seeded ? undefined : (
+                      <ReconcileButton
+                        account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
+                        device="mobile"
+                        onDone={onRetry}
+                      />
+                    ),
+                  }))
+                : []
+              return [groupRow, ...accountRows]
+            })}
+            total={{ label: '合计', value: formatCurrency(minor(totalBalance)) }}
+            emptyText={emptyHint ?? '还没有分组'}
+          />
+        )}
       </>
     )
   }
@@ -1620,7 +1951,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                                     kind: 'account',
                                     id: account.id,
                                     name: account.name,
-                                    current: account.kind,
+                                    current: account.categoryId ?? null,
+                                    type: account.kind === 'credit' ? 'liability' : 'asset',
                                   }),
                               },
                             ]}
@@ -1878,6 +2210,37 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     )
   }
 
+  const renderImportIssues = (summary: ImportFileSummary | undefined) => {
+    if (!summary) return null
+    const skippedRows = summary.skippedRows ?? []
+    const autoFixedRows = summary.autoFixedRows ?? 0
+    if (skippedRows.length === 0 && autoFixedRows === 0) return null
+    return (
+      <div className="mb-set-preview-issues" data-testid="import-issues">
+        {autoFixedRows > 0 && (
+          <p>已自动修正 {autoFixedRows} 行（金额浮点尾差已四舍五入到分）</p>
+        )}
+        {skippedRows.length > 0 && (
+          <>
+            <p>跳过 {skippedRows.length} 行（未写入账本）：</p>
+            <ul>
+              {skippedRows.map((row) => (
+                <li key={`${row.rowNumber}-${row.reason}`}>
+                  第 {row.rowNumber} 行：{row.reason}
+                  {Object.keys(row.raw).length > 0 && (
+                    <span className="mb-set-preview-issue-raw">
+                      原值 {Object.entries(row.raw).map(([key, value]) => `${key}=${value}`).join('；')}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    )
+  }
+
   const renderImportSummary = (value: ImportPreview) => {
     const summary = value.result.summary
     return (
@@ -1926,6 +2289,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               <span>无法识别的分类（导入时新建）</span>
               <b>{summary.unknownCategories.length ? summary.unknownCategories.join('、') : '无'}</b>
             </div>
+            {renderImportIssues(summary)}
           </>
         )}
       </div>
@@ -2006,10 +2370,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               打开导入向导
             </button>
             {lastImport && (
-              <p>
-                这批导入了 {lastImport.imported.transactions} 笔；批次 {lastImport.importId?.slice(0, 8)}
-                可在「回滚」撤销。
-              </p>
+              <>
+                <p>
+                  这批导入了 {lastImport.imported.transactions} 笔；批次 {lastImport.importId?.slice(0, 8)}
+                  可在「回滚」撤销。
+                </p>
+                {renderImportIssues(lastImport.summary)}
+              </>
             )}
             <p>导入前会先解析并展示预览，确认后才写入；失败不会留下半截数据。</p>
           </>
@@ -2318,6 +2685,20 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           saving={editorSaving}
           onClose={() => setEditor(null)}
           onSave={saveEditor}
+          onDelete={
+            editor &&
+            ((editor.kind === 'account' || editor.kind === 'accountGroup') &&
+              editor.mode === 'edit')
+              ? deleteEditorTarget
+              : undefined
+          }
+          onMove={
+            editor &&
+            ((editor.kind === 'account' || editor.kind === 'accountGroup') &&
+              editor.mode === 'edit')
+              ? moveEditorTarget
+              : undefined
+          }
         />
       )}
       {mover && (
