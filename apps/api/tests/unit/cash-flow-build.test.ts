@@ -51,13 +51,40 @@ const makeRefund = (relatedType: 'income' | 'expense' | null): TransactionWithIn
   category: null,
 })
 
+const makeCashTransfer = (fee = 0n): TransactionWithIncludes => ({
+  id: 'transfer-cash-to-cash',
+  importKey: null,
+  type: 'transfer',
+  ruleVersion: 1,
+  amount: 100n,
+  fee,
+  coupon: 0n,
+  date: new Date('2026-01-15'),
+  note: null,
+  accountId: 'cash-a',
+  toAccountId: 'cash-b',
+  categoryId: null,
+  relatedTransactionId: null,
+  relatedType: null,
+  excludeFromIncomeExpense: false,
+  deletedAt: null,
+  createdAt: new Date(),
+  account: makeAccount('cash-a', '微信零钱'),
+  toAccount: makeAccount('cash-b', '支付宝'),
+  category: null,
+})
+
 const buildWith = (transactions: TransactionWithIncludes[]) =>
   buildSankey({
     transactions,
     predictions: [],
-    cashAccountIds: ['cash'],
+    cashAccountIds: ['cash', 'cash-a', 'cash-b'],
     categoryMap: new Map(),
-    accountMap: new Map([['cash', { name: '现金账户' }]]),
+    accountMap: new Map([
+      ['cash', { name: '现金账户' }],
+      ['cash-a', { name: '微信零钱' }],
+      ['cash-b', { name: '支付宝' }],
+    ]),
     start: new Date('2026-01-01'),
     end: new Date('2026-02-01'),
   })
@@ -92,5 +119,28 @@ describe('buildSankey 退款方向与活动表同源（C4）', () => {
     const sankey = buildWith([makeRefund('expense')])
     const link = sankey.links.find((item) => item.source === '未分类_income')
     expect(link?.value).toBe(minor(100))
+  })
+})
+
+describe('buildSankey 现金账户内部转账（三层桑基）', () => {
+  it('现金 → 现金保留账户到账户的 link，不被吞掉', () => {
+    const sankey = buildWith([makeCashTransfer()])
+
+    expect(hasLink(sankey, '微信零钱_cash', '支付宝_cash')).toBe(true)
+    expect(sankey.nodes.map((node) => node.name)).toEqual(
+      expect.arrayContaining(['微信零钱_cash', '支付宝_cash']),
+    )
+    expect(sankey.links.find((link) => link.target === '支付宝_cash')?.value).toBe(minor(100))
+  })
+
+  it('转账手续费不随本金转移：单独成为「手续费」出流节点', () => {
+    const sankey = buildWith([makeCashTransfer(10n)])
+
+    expect(hasLink(sankey, '微信零钱_cash', '支付宝_cash')).toBe(true)
+    expect(sankey.links.find((link) => link.source === '微信零钱_cash' && link.target === '支付宝_cash')?.value).toBe(
+      minor(100),
+    )
+    expect(hasLink(sankey, '微信零钱_cash', '手续费_expense')).toBe(true)
+    expect(sankey.links.find((link) => link.target === '手续费_expense')?.value).toBe(minor(10))
   })
 })

@@ -203,6 +203,7 @@ export function buildSankey(args: {
   const cashAccountFlows = ap(new Map<string, Minor>(), new Map<string, Minor>())
   const sourceToCashLinks = ap(new Map<string, Map<string, Minor>>(), new Map<string, Map<string, Minor>>())
   const cashToTargetLinks = ap(new Map<string, Map<string, Minor>>(), new Map<string, Map<string, Minor>>())
+  const cashToCashLinks = ap(new Map<string, Map<string, Minor>>(), new Map<string, Map<string, Minor>>())
 
   const processTransaction = (
     type: string,
@@ -225,6 +226,7 @@ export function buildSankey(args: {
     const cashAccountFlows_ = isActual ? cashAccountFlows.actual : cashAccountFlows.predicted
     const sourceToCashLinks_ = isActual ? sourceToCashLinks.actual : sourceToCashLinks.predicted
     const cashToTargetLinks_ = isActual ? cashToTargetLinks.actual : cashToTargetLinks.predicted
+    const cashToCashLinks_ = isActual ? cashToCashLinks.actual : cashToCashLinks.predicted
 
     if (type === 'income' && isFromCash) {
       const catName = categoryName || '其他收入'
@@ -264,6 +266,22 @@ export function buildSankey(args: {
         addToMap(cashAccountFlows_, fromCashName, actualOutflow)
         if (!cashToTargetLinks_.has(fromCashName)) cashToTargetLinks_.set(fromCashName, new Map())
         addToMap(cashToTargetLinks_.get(fromCashName)!, toName, actualOutflow)
+      } else if (isFromCash && isToCash && accountName && toAccountName) {
+        // 现金账户之间转账：本金从转出账户流入转入账户，账户之间的内部移动可见；
+        // 手续费不随本金转移，单独挂到「手续费」节点，保持逐账户恒等式。
+        const fromCashName = accountName
+        const toCashName = toAccountName
+        const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
+        const effectiveFee = rulesFor(ruleVersion).effectiveTransferFee(fee, coupon)
+        addToMap(cashAccountFlows_, fromCashName, minor(actualInflow + effectiveFee))
+        addToMap(cashAccountFlows_, toCashName, actualInflow)
+        if (!cashToCashLinks_.has(fromCashName)) cashToCashLinks_.set(fromCashName, new Map())
+        addToMap(cashToCashLinks_.get(fromCashName)!, toCashName, actualInflow)
+        if (effectiveFee > 0) {
+          addToMap(expenseCategoryNodes_, '手续费', effectiveFee)
+          if (!cashToTargetLinks_.has(fromCashName)) cashToTargetLinks_.set(fromCashName, new Map())
+          addToMap(cashToTargetLinks_.get(fromCashName)!, '手续费', effectiveFee)
+        }
       }
     } else if (type === 'refund' && isFromCash) {
       // 退款方向由领域层 refundOffsetKind 唯一判定（C4）：支出退款 = 钱流回账户 → 流入；
@@ -384,7 +402,7 @@ export function buildSankey(args: {
   const mergeLinks = (
     actualLinks: Map<string, Map<string, Minor>>,
     predictedLinks: Map<string, Map<string, Minor>>,
-    isSourceToCash: boolean
+    mode: 'source-to-cash' | 'cash-to-target' | 'cash-to-cash'
   ) => {
     const allSources = new Set<string>()
     actualLinks.forEach((_, source) => allSources.add(source))
@@ -403,12 +421,12 @@ export function buildSankey(args: {
         const totalAmount = minor(actualAmount + predictedAmount)
 
         if (totalAmount > 0) {
-          const sourceKey = isSourceToCash
+          const sourceKey = mode === 'source-to-cash'
             ? (incomeCategoryNodes.actual.has(sourceName) || incomeCategoryNodes.predicted.has(sourceName) ? `income_${sourceName}` : `ncs_${sourceName}`)
             : `cash_${sourceName}`
-          const targetKey = isSourceToCash
-            ? `cash_${targetName}`
-            : (expenseCategoryNodes.actual.has(targetName) || expenseCategoryNodes.predicted.has(targetName) ? `expense_${targetName}` : `nct_${targetName}`)
+          const targetKey = mode === 'cash-to-target'
+            ? (expenseCategoryNodes.actual.has(targetName) || expenseCategoryNodes.predicted.has(targetName) ? `expense_${targetName}` : `nct_${targetName}`)
+            : `cash_${targetName}`
 
           sankeyLinks.push({
             source: nodeNameMap.get(sourceKey) || sourceName,
@@ -422,8 +440,9 @@ export function buildSankey(args: {
     }
   }
 
-  mergeLinks(sourceToCashLinks.actual, sourceToCashLinks.predicted, true)
-  mergeLinks(cashToTargetLinks.actual, cashToTargetLinks.predicted, false)
+  mergeLinks(sourceToCashLinks.actual, sourceToCashLinks.predicted, 'source-to-cash')
+  mergeLinks(cashToTargetLinks.actual, cashToTargetLinks.predicted, 'cash-to-target')
+  mergeLinks(cashToCashLinks.actual, cashToCashLinks.predicted, 'cash-to-cash')
 
   return { nodes: sankeyNodes, links: sankeyLinks }
 }
