@@ -289,3 +289,45 @@ describe('#9 未来记录不计入本月合计', () => {
     expect(foot).toBe('共 3 笔')
   })
 })
+
+describe('关键词口径：只搜文本，不搜金额（与 API 一致）', () => {
+  const amountLedger: Ledger = {
+    ...ledger,
+    transactions: [
+      {
+        id: 't-amount',
+        date: '2026-10-05',
+        type: 'expense',
+        categoryId: 'food_lunch',
+        note: '工作餐',
+        accountId: 'cmb',
+        amount: 32_800,
+      },
+    ],
+  }
+
+  const idsFor = (query: string, advanced = EMPTY_ADVANCED) =>
+    filterTransactions(amountLedger, {
+      query,
+      type: 'all',
+      advanced: { ...advanced, categoryIds: [] },
+    }).map((transaction) => transaction.id)
+
+  it('金额文本（328）不再命中关键词', () => {
+    expect(idsFor('328')).toEqual([])
+    expect(idsFor('328.00')).toEqual([])
+  })
+
+  it('备注 / 账户 / 分类 / 方向仍命中', () => {
+    expect(idsFor('工作餐')).toEqual(['t-amount'])
+    expect(idsFor('午餐')).toEqual(['t-amount'])
+    expect(idsFor('招商')).toEqual(['t-amount'])
+    expect(idsFor('支出')).toEqual(['t-amount'])
+  })
+
+  it('金额区间筛选不受影响', () => {
+    expect(idsFor('', { ...EMPTY_ADVANCED, amountMin: '328', amountMax: '328' })).toEqual([
+      't-amount',
+    ])
+  })
+})

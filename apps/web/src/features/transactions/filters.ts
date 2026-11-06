@@ -1,8 +1,8 @@
 /**
  * 流水页筛选与分组（纯函数）
  *
- * 搜索覆盖备注 / 账户 / 分类 / 方向 / 金额；高级筛选按账户、分类根节点、金额区间、
- * 日期区间取交集。列表分组沿用总览的日期标签口径，另补每组合计。
+ * 搜索覆盖备注 / 账户 / 分类 / 方向（与服务端一致，不搜金额文本——金额有独立区间筛选）；
+ * 高级筛选按账户、分类根节点、金额区间、日期区间取交集。列表分组沿用总览的日期标签口径，另补每组合计。
  */
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
@@ -86,14 +86,15 @@ function matchesQuery(ledger: Ledger, transaction: LedgerTransaction, query: str
   const needle = normalize(query)
   const account = getAccount(ledger, transaction.accountId)
   const category = getCategoryName(ledger, transaction.categoryId)
+  // 与服务端口径一致：关键词只搜文本（备注 / 账户 / 分类 / 方向），不搜金额。
+  // 金额有独立区间筛选（amountMin/amountMax），若在这里额外匹配金额文本，
+  // 同一关键词在种子版与 API 版会返回不同结果。
   const haystack = normalize(
     [
       transaction.note,
       account?.name ?? '',
       category,
       transactionDirection(transaction),
-      formatCurrency(minor(transaction.amount), { showSymbol: false }),
-      String(transaction.amount / 100),
     ].join(' '),
   )
   return haystack.includes(needle)
