@@ -3,6 +3,7 @@ import { withTransaction } from '../db/transaction.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
+import * as budgetRepo from '../db/repositories/budget.repository.js'
 import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
@@ -280,10 +281,18 @@ async function restoreTransactionCategory(event: {
   } satisfies Prisma.TransactionCategoryUncheckedCreateInput
 
   const meta = deleteMeta(event)
+  if (meta?.deletedTransactions !== undefined) {
+    throw new ValidationError(
+      `该分类删除时已级联删除 ${Number(meta.deletedTransactions)} 笔交易，交易已不在，无法恢复；如需重记请在流水页新增`,
+    )
+  }
   const transferTo =
     meta?.transferToCategoryId === undefined ? null : String(meta.transferToCategoryId)
   const transferredIds = Array.isArray(meta?.transferredTransactionIds)
     ? (meta.transferredTransactionIds as string[]).map(String)
+    : []
+  const transferredBudgetIds = Array.isArray(meta?.transferredBudgetIds)
+    ? (meta.transferredBudgetIds as string[]).map(String)
     : []
 
   await withTransaction(async (tx) => {
@@ -292,6 +301,14 @@ async function restoreTransactionCategory(event: {
       // 仍停在目标分类下的交易回填到恢复后的原分类；之后被用户改走的记录不覆盖。
       await transactionRepo.reassignCategoryByIds(
         transferredIds,
+        transferTo,
+        event.entityId,
+        tx,
+      )
+    }
+    if (transferTo && transferredBudgetIds.length > 0) {
+      await budgetRepo.reassignCategoryByIds(
+        transferredBudgetIds,
         transferTo,
         event.entityId,
         tx,

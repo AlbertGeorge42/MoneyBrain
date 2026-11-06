@@ -55,7 +55,7 @@ describe('设置页账户 / 分类真实读写', () => {
     await prisma.transaction.deleteMany()
     await prisma.account.deleteMany()
     await prisma.transactionCategory.deleteMany({
-      where: { id: { in: ['s-cat-budget-only', 's-cat-budget-tx'] } },
+      where: { id: { in: ['s-cat-budget-only', 's-cat-budget-tx', 's-cat-cascade'] } },
     })
   })
 
@@ -244,6 +244,37 @@ describe('设置页账户 / 分类真实读写', () => {
       '预算转移分类',
     )
     expect((await prisma.transaction.findUnique({ where: { id: tx.id } }))?.categoryId).toBe(source.id)
+    expect((await prisma.budget.findUnique({ where: { id: budget.id } }))?.categoryId).toBe(source.id)
+  })
+
+  it('级联删交易后撤销必须被拒：与 canRestore=false 语义一致', async () => {
+    const account = await prisma.account.create({
+      data: { name: '级联账户', type: 'asset', initialBalance: 0, categoryId: accountCategoryId },
+    })
+    const source = await prisma.transactionCategory.create({
+      data: { id: 's-cat-cascade', name: '级联分类', type: 'expense', sort: 32 },
+    })
+    await prisma.transaction.create({
+      data: { type: 'expense', amount: 700, accountId: account.id, categoryId: source.id, date: new Date() },
+    })
+
+    const del = await request(app)
+      .delete(`/api/transaction-categories/${source.id}`)
+      .query({ deleteTransactions: 'true' })
+    expect(del.status).toBe(200)
+    expect(del.body.data.deletedTransactions).toBe(1)
+
+    const bin = await request(app).get('/api/transactions/recycle-bin')
+    const item = bin.body.data.categories.find(
+      (category: { entityId: string }) => category.entityId === source.id,
+    )
+    expect(item?.canRestore).toBe(false)
+
+    const undo = await request(app).post(`/api/audit-events/${del.body.data.auditEventId}/undo`)
+    expect(undo.status).toBe(400)
+    expect(undo.body.error.message).toContain('已级联删除 1 笔交易')
+    expect(undo.status).not.toBe(200)
+    expect(await prisma.transactionCategory.findUnique({ where: { id: source.id } })).toBeNull()
   })
 
   it('分类只被预算引用且未选转移：拒绝文案精确，不再 FOREIGN_KEY_ERROR', async () => {
