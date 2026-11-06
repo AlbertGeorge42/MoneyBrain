@@ -1,7 +1,9 @@
 import { BatteryMedium, Plus, Search, Settings, Wifi } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
+import { getPortalHost } from '@/features/shared/portalHost'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { deriveOverview } from '@/features/overview/model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -84,10 +86,13 @@ function DesktopShell({
             )
           })}
         </nav>
-        <button type="button" className="mb-primary-btn mb-side-add" onClick={onOpenEntry}>
-          <Plus size={16} />
-          记一笔
-        </button>
+        {createPortal(
+          <button type="button" className="mb-primary-btn mb-side-add" onClick={onOpenEntry}>
+            <Plus size={16} />
+            记一笔
+          </button>,
+          getPortalHost(),
+        )}
         <MonthSummary state={dataState} />
       </aside>
       <main className="mb-main">

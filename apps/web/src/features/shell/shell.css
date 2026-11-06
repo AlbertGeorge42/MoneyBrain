@@ -118,15 +118,23 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* 主入口固定在视口底部左侧（PC 三档均为 805–843 区）：
+   侧栏 height = 内容总高，sticky 会跟着整页滚走；按钮经 portal 挂到 body，
+   脱离画布 transform 的包含块，才真正相对视口固定。 */
 .mb-side-add {
-  margin-top: auto;
-  width: 100%;
+  position: fixed;
+  left: var(--mb-s-4);
+  bottom: 0;
+  z-index: var(--mb-z-batchbar);
+  width: calc(var(--mb-sidebar-w) - var(--mb-s-4) * 2);
+  box-shadow: var(--mb-sh-2);
 }
 
 .mb-side-foot {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
+  margin-top: auto;
   padding-top: var(--mb-s-4);
   border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
