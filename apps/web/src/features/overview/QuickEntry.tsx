@@ -198,9 +198,27 @@ function EntryForm({
   const [recent, setRecent] = useState<string[]>(ledger.accounts.slice(0, 5).map((item) => item.id))
   const [stage, setStage] = useState<'amount' | 'category'>('amount')
   const [saving, setSaving] = useState(false)
+  const [savingMode, setSavingMode] = useState<'save' | 'continue' | null>(null)
   const [saveError, setSaveError] = useState('')
   const amountRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const busyRef = useRef(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  // 展开「更多」后把日期 / 备注滚到吸底键盘上方，否则字段正好被键盘盖住。
+  useEffect(() => {
+    if (!mobile || !moreOpen) return
+    const frame = requestAnimationFrame(() => {
+      const more = moreRef.current
+      const body = more?.closest('.mb-overlay-body') as HTMLElement | null
+      if (!more || !body) return
+      const foot = body.querySelector('.mb-entry-mobile-foot') as HTMLElement | null
+      const limit = (foot?.getBoundingClientRect().top ?? body.getBoundingClientRect().bottom) - 8
+      const overflow = more.getBoundingClientRect().bottom - limit
+      if (overflow > 0) body.scrollTop += overflow
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [moreOpen, mobile])
 
   useEffect(() => {
     if (!mobile) amountRef.current?.focus()
@@ -251,7 +269,10 @@ function EntryForm({
     (type !== 'transfer' || (Boolean(toAccountId) && toAccountId !== accountId))
 
   const commit = async (keepOpen: boolean) => {
-    if (!canSave || cents === null || saving) return
+    // 同步闸门：双击 / 按住 Enter 时第二次调用必须被挡住，不能只依赖 saving 的异步渲染。
+    if (!canSave || cents === null || busyRef.current) return
+    busyRef.current = true
+    const mode = keepOpen ? 'continue' : 'save'
     const signed = type === 'adjustment' ? cents * adjustSign : cents
     const input: NewTransactionInput = {
       type,
@@ -264,19 +285,27 @@ function EntryForm({
       fee: type === 'transfer' ? feeCents ?? 0 : 0,
     }
     setSaving(true)
+    setSavingMode(mode)
     setSaveError('')
-    const result = await onSave(input, keepOpen)
-    setSaving(false)
-    // 写失败时保留输入与弹层，错误就地回显，用户可以直接重试。
-    if (!result.ok) {
-      setSaveError(result.error ?? '保存失败，请重试')
-      return
+    try {
+      const result = await onSave(input, keepOpen)
+      // 写失败时保留输入与弹层，错误就地回显，用户可以直接重试。
+      if (!result.ok) {
+        setSaveError(result.error ?? '保存失败，请重试')
+        return
+      }
+      setAmount('')
+      setNote('')
+      setFee('')
+      setStage('amount')
+      if (!mobile) amountRef.current?.focus()
+    } catch {
+      setSaveError('保存失败，请重试')
+    } finally {
+      busyRef.current = false
+      setSaving(false)
+      setSavingMode(null)
     }
-    setAmount('')
-    setNote('')
-    setFee('')
-    setStage('amount')
-    if (!mobile) amountRef.current?.focus()
   }
 
   const handleGridKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -469,7 +498,7 @@ function EntryForm({
       </button>
 
       {moreOpen && (
-        <div className="mb-entry-more">
+        <div className="mb-entry-more" ref={moreRef}>
           <label className="mb-entry-more-field">
             <span className="mb-field-label">日期</span>
             <input
@@ -523,10 +552,10 @@ function EntryForm({
               disabled={!canSave || saving}
               onClick={() => void commit(false)}
             >
-              保存
+              {savingMode === 'save' ? '保存中…' : '保存'}
             </Button>
             <Button className="mb-primary-btn mb-entry-continue" disabled={!canSave || saving} onClick={() => void commit(true)}>
-              保存并再记
+              {savingMode === 'continue' ? '保存中…' : '保存并再记'}
             </Button>
           </div>
         </div>
@@ -536,10 +565,10 @@ function EntryForm({
             取消
           </Button>
           <Button className="mb-primary-btn" disabled={!canSave || saving} onClick={() => void commit(true)}>
-            保存并再记 <kbd className="mb-kbd">⏎</kbd>
+            {savingMode === 'continue' ? '保存中…' : '保存并再记'} <kbd className="mb-kbd">⏎</kbd>
           </Button>
           <Button className="mb-primary-btn" disabled={!canSave || saving} onClick={() => void commit(false)}>
-            保存
+            {savingMode === 'save' ? '保存中…' : '保存'}
           </Button>
         </div>
       )}

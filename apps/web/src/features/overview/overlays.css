@@ -535,7 +535,21 @@
 }
 
 .mb-entry-sheet {
+  display: flex;
+  flex-direction: column;
+  top: auto;
+  bottom: 0;
+  height: auto;
   max-height: calc(var(--mb-mobile-h) - var(--mb-s-7));
+  overflow: hidden;
+}
+
+/* 内容区独立滚动：展开「更多」后日期 / 备注不会被吸底键盘压住。 */
+.mb-entry-sheet .mb-overlay-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .mb-entry-picker-sheet {
