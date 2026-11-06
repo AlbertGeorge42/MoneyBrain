@@ -314,6 +314,7 @@ export function ReportsPage({
             <FlowView
               device={device}
               report={flow}
+              settings={effectiveSettings.flow}
               side={flowSide}
               onSide={setFlowSide}
               folded={foldedFlow}
@@ -610,6 +611,7 @@ function BalanceView({
 function FlowView({
   device,
   report,
+  settings,
   side,
   onSide,
   folded,
@@ -618,22 +620,57 @@ function FlowView({
 }: {
   device: DeviceMode
   report: FlowReport
+  settings: ReportViewSettings['flow']
   side: 'income' | 'expense'
   onSide: (next: 'income' | 'expense') => void
   folded: Record<string, boolean>
   onFold: (id: string) => void
   onDrill: (node: FlowTreeNode, kind: 'income' | 'expense') => void
 }) {
-  const incomeRows = flattenFlowRows(report.incomeTrees, folded, onFold, (node) =>
-    onDrill(node, 'income'),
+  const rowColumns = { showCount: settings.showCountColumn, showShare: settings.showShareColumn }
+  const incomeRows = flattenFlowRows(
+    report.incomeTrees,
+    folded,
+    onFold,
+    (node) => onDrill(node, 'income'),
+    rowColumns,
   )
-  const expenseRows = flattenFlowRows(report.expenseTrees, folded, onFold, (node) => onDrill(node, 'expense'))
-  const incomeCards: CardRow[] = flattenCards(report.incomeTrees, folded, onFold, 'income', (node) =>
-    onDrill(node, 'income'),
+  const expenseRows = flattenFlowRows(
+    report.expenseTrees,
+    folded,
+    onFold,
+    (node) => onDrill(node, 'expense'),
+    rowColumns,
   )
-  const expenseCards: CardRow[] = flattenCards(report.expenseTrees, folded, onFold, 'expense', (node) =>
-    onDrill(node, 'expense'),
+  const incomeCards: CardRow[] = flattenCards(
+    report.incomeTrees,
+    folded,
+    onFold,
+    'income',
+    (node) => onDrill(node, 'income'),
+    rowColumns,
   )
+  const expenseCards: CardRow[] = flattenCards(
+    report.expenseTrees,
+    folded,
+    onFold,
+    'expense',
+    (node) => onDrill(node, 'expense'),
+    rowColumns,
+  )
+  const flowColumns: ReportColumn[] = [
+    { label: '分类' },
+    ...(settings.showCountColumn ? [{ label: '笔数' }] : []),
+    { label: '金额', align: 'num' as const },
+    ...(settings.showShareColumn ? [{ label: '占比', align: 'num' as const }] : []),
+  ]
+  const flowTotal = (amount: number) => [
+    '合计',
+    ...(settings.showCountColumn ? [''] : []),
+    currency(amount),
+    ...(settings.showShareColumn ? ['100.0%'] : []),
+  ]
+  const flowVariant = flowColumns.length === 4 ? 'c4' : 'c3'
   // 子级行只挂「†」，含义放在已有合计说明位，不新增行。
   const childLegend = (nodes: FlowTreeNode[]) =>
     nodes.some((node) => node.children.length > 0) ? ' · † 子级已计入父级' : ''
@@ -657,6 +694,7 @@ function FlowView({
             expenseTotal={report.expense}
             device={device}
             onOpen={onDrill}
+            namedCount={settings.namedCategories}
           />
         </>,
       )}
@@ -667,32 +705,22 @@ function FlowView({
             title="收入构成"
             desc={`合计 ${currency(report.income)}${childLegend(report.incomeTrees)}`}
             ariaLabel="收入构成"
-            variant="c4"
-            columns={[
-              { label: '分类' },
-              { label: '笔数' },
-              { label: '金额', align: 'num' },
-              { label: '占比', align: 'num' },
-            ]}
+            variant={flowVariant}
+            columns={flowColumns}
             rows={incomeRows}
             minRows={Math.max(incomeRows.length, expenseRows.length)}
-            total={['合计', '', currency(report.income), '100.0%']}
+            total={flowTotal(report.income)}
           />
           <ReportTable
             device={device}
             title="支出构成"
             desc={`合计 ${currency(report.expense)}${childLegend(report.expenseTrees)}`}
             ariaLabel="支出构成"
-            variant="c4"
-            columns={[
-              { label: '分类' },
-              { label: '笔数' },
-              { label: '金额', align: 'num' },
-              { label: '占比', align: 'num' },
-            ]}
+            variant={flowVariant}
+            columns={flowColumns}
             rows={expenseRows}
             minRows={Math.max(incomeRows.length, expenseRows.length)}
-            total={['合计', '', currency(report.expense), '100.0%']}
+            total={flowTotal(report.expense)}
           />
         </div>
       ) : (
@@ -730,14 +758,24 @@ function flattenCards(
   onFold: (id: string) => void,
   tone: 'income' | 'expense',
   onOpen: (node: FlowTreeNode) => void,
+  columns: { showCount?: boolean; showShare?: boolean } = {},
 ): CardRow[] {
+  const showCount = columns.showCount !== false
+  const showShare = columns.showShare !== false
+  const metaOf = (node: FlowTreeNode) =>
+    [
+      showCount ? `${node.count} 笔` : null,
+      showShare ? formatPercent(node.share, 1, false) : null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || undefined
   const rows: CardRow[] = []
   for (const node of nodes) {
     const expanded = folded[node.id] !== false
     rows.push({
       id: node.id,
       label: node.name,
-      meta: `${node.count} 笔 · ${formatPercent(node.share, 1, false)}`,
+      meta: metaOf(node),
       amount: `${tone === 'income' ? '+' : '−'}${currency(node.amount)}`,
       tone,
       share: node.share,
@@ -751,7 +789,7 @@ function flattenCards(
           id: child.id,
           level: 1,
           label: child.name,
-          meta: `${child.count} 笔 · ${formatPercent(child.share, 1, false)}`,
+          meta: metaOf(child),
           hint: '†',
           amount: `${tone === 'income' ? '+' : '−'}${currency(child.amount)}`,
           tone,

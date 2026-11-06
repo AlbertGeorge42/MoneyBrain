@@ -296,6 +296,7 @@ export function CompositionBars({
   expenseTotal,
   device = 'desktop',
   onOpen,
+  namedCount = 6,
 }: {
   incomeTrees: FlowTreeNode[]
   expenseTrees: FlowTreeNode[]
@@ -304,6 +305,7 @@ export function CompositionBars({
   device?: DeviceMode
   /** 每一行都可点：打开与行金额同口径的下钻（含被并入的小类）。 */
   onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
+  namedCount?: number
 }) {
   return (
     <ChartCard title="收入 / 支出构成">
@@ -316,6 +318,7 @@ export function CompositionBars({
           total={expenseTotal}
           device={device}
           onOpen={onOpen}
+          namedCount={namedCount}
           emptyText="该期间没有支出"
         />
         <CompositionDonutSide
@@ -325,6 +328,7 @@ export function CompositionBars({
           total={incomeTotal}
           device={device}
           onOpen={onOpen}
+          namedCount={namedCount}
           emptyText="该期间没有收入"
         />
       </div>
@@ -411,6 +415,7 @@ export function DonutChart({
   kind = 'expense',
   title,
   emptyText,
+  namedCount = 6,
 }: {
   nodes: FlowTreeNode[]
   total: number
@@ -419,6 +424,8 @@ export function DonutChart({
   kind?: 'income' | 'expense'
   title: string
   emptyText: string
+  /** 一级具名类别上限（默认 6，配置可降到 5）；其余并入「其余 N 类」。 */
+  namedCount?: number
 }) {
   const [bodyRef, measuredWidth] = useChartWidth()
   const [drillId, setDrillId] = useState<string | null>(null)
@@ -427,7 +434,7 @@ export function DonutChart({
   // 只取一级根分类；0 金额分类不进环。
   const roots = mergeTail(
     nodes.filter((node) => node.level === 0 && node.amount > 0),
-    6,
+    namedCount,
   )
   const drilled = drillId ? roots.find((node) => node.id === drillId) ?? null : null
   const subChildren = drilled
@@ -681,6 +688,7 @@ function CompositionDonutSide({
   device,
   onOpen,
   emptyText,
+  namedCount = 6,
 }: {
   title: string
   tone: 'income' | 'expense'
@@ -689,6 +697,7 @@ function CompositionDonutSide({
   device: DeviceMode
   onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
   emptyText: string
+  namedCount?: number
 }) {
   return (
     <div className="mb-rp-compare-side">
@@ -711,6 +720,7 @@ function CompositionDonutSide({
         kind={tone}
         title={title}
         emptyText={emptyText}
+        namedCount={namedCount}
       />
     </div>
   )
