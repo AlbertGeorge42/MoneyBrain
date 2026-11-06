@@ -146,3 +146,29 @@ D4 取消（不降级、不保留）、U13.1–U13.5 取消，前端改为「HF 
 | 第二轮走查瑕疵项（X1–X8） | 2026-11-06 | `2e19f6b` · **X7**：移动筛选抽屉关闭 28×28 → 44×44，距右缘 20px（≥8）。**X8**：批量条与底部导航间距 1px → 9px。**X1** 已随 K1 解决：未来组按日期拆分后，390 下组头实测单行 22px（原 3 笔/长小计的双三行不再出现），符合「两行内收敛」。**X4** 已随 K4 解决：日期输入与 chip 均为 yyyy/mm/dd（原生 date 控件展示格式不可改，未换控件）。归属未做：**X2**（`reports.css` 浮层小目标 + `budgets.css` 月箭头）、**X3**（`TimeBar.tsx`/`reports.css` 今天标记）、**X5**（`budgets.css` 深色环形轨道）、**X6**（报表空态 + API 数据源）——均为报表通道/接入会话文件，本轮不碰。截图 `.artifacts/r2-flaws-2026-11-06/{before,after}/`（390 浅暗，X1/X7/X8）；验证：实测 close 44×44/insetRight 20、gap 9px；CSS-only 改动 |
 | 第二轮走查收尾（K9 位置 + 测试 / X2 / X5 / 桑基失败态） | 2026-11-06 | `1574090` · `98ce4e7` · `ccb40ee` · **K9**：未备份的禁用原因从表单中部（距确认按钮 169px）移到动作区上方，实测 1440/390 均为 13px，`aria-describedby` 仍指向 `#mb-set-clear-reason`；备份后原因消失、按钮解锁；`settings-data.test.tsx` 改为断言 disabled + 原因 + describedby + 原因是动作区紧邻兄弟节点。**X2**：桌面月箭头 30×30→36×36，移动端 `flex:none` 锁 44×44（原被原因文字挤到 43.3）；**X5**：深色 0% 环轨道由 `surface-sunken`（对卡面 1.13:1）改 `--mb-progress-track`（2.22:1），浅色不动（1.17:1），仍是空环。**桑基失败态**：2026-10 失败时识别现金账户 `initialBalanceDate` 晚于本期起点，reason 写明账户名/日期与「期初前的流水未计入期初余额」，仍 `status=invalid`、不画图（svg count 0）。截图 `.artifacts/r3-work/shots/{settings-k9,x2x5-before,x2x5-after,sankey-failure-before,sankey-failure}/`；验证：test web 42 文件 301 用例通过、typecheck 0 错、改动 TS 文件 lint 0 error（CSS 不在 ESLint 配置范围） |
 | HF API 接入（报表四视图 + 三阻断 + K6/K7） | 2026-11-06 | `14b527e` · `c8f0130` · `43208cd` · `39138a4` · `c3c4cb5` · **报表四视图改端点口径**：资产负债 `balance-sheet?date=` + `asset-trend`、收支 `income-expense?startDate&endDate`、现金流 `cash-flow?startDate&endDate`（`startCash/endCash` + `byActivity` 毛额）、投资 `investment-analysis?startDate&endDate`；前端不再本地过滤/重算。对账（真实库 2026-11-06）：总资产 ¥151,729.15 / 总负债 ¥2,118.40 / 净资产 ¥149,610.75 / 流动资产 ¥5,002.20，资产环合计 = ¥151,729.15 且信用卡不进环；收支 2026-11 收入 ¥18,500.00 / 支出 ¥6,277.60 / 结余 ¥12,222.40，跨月 2025-12 收入 ¥16,500.00（改前 0）；现金流期初 ¥4,826.20 / 期末 ¥5,002.20 / 经营净额 −¥324.00；投资总市值 ¥86,450.00；预算 `usedSum=623,760` 分 = ¥6,237.60。桑基逐月差值：2025-12–2026-09 为 0、2026-10 为 −4,866.00（临时库期初日晚于流水，页面显示不守恒失败态）、2026-11 为 0。三态：加载骨架 / 空账本「还没有可分析的流水」/ 失败「数据没取出来」+ 重试成功；配置 API 模式逐个生效（按性质汇总、笔数列、未分类显隐、目标比例于种子），非 GET `/api` 写调用 0。**三阻断**：Z1 ledger 改完整分页（`pageSize=200` 翻到 `total`）不再用总览 8 笔；Z2 写侧 date-only 由 `parseDateLocal` 解释为本地零点，三时区与边界断言通过（DB 列仍 DateTime 存本地零点瞬时，未改 schema）；Z3 `ledgerAnchorDay` 取 `snapshot.today` 与最新流水较晚者，真实 11 月可切。**K6** 无数据月份给可见原因「2026 年 12 月无流水」；**K7** 空预算页页头「新增」隐藏、页面级主按钮只剩「新增预算条目」。未动 `charts.tsx` / `CashSankey.tsx` / `DonutChart` 图形实现。截图 `.artifacts/r3-work/shots/`；断言 `api-reports.test.ts`、`budget-month-k6.test.tsx`、`budget-empty-k7.test.tsx`、`date-contract.test.ts`。遗留：预算页仍种子（下一批）、投资持仓无 `items`、报表下钻 `from/to` 未带。验证：typecheck 0 错、lint 0 error / 5 既有 warning、test web（除 `settings-data.test.tsx` 1 条外部会话失败外全绿）/ api 49 文件 402 用例 |
+
+## 后端：预算推演端点（2026-11-06，非蓝图条目，后端先行）
+
+**本批新增端点 3 个（只读 GET；既有端点返回结构不变）**：
+
+| 端点 | 参数 | 返回字段 |
+|---|---|---|
+| `GET /api/analytics/asset-projection` | `months=3/6/12`（默认 12）、`asOf=YYYY-MM-DD`（默认今天）、`includePlanned`、`includeCommitted`（默认 true） | `asOf`、`months`、`base{assets,liabilities,netWorth}`、`points[{label,date,actual,planned,committed,total}]`（每个都是 `{assets,liabilities,netWorth}`，整数分） |
+| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`months`、`startCash`、`endCash`、`points[{label,date,inflow,outflow,net,startCash,endCash}]`（inflow/outflow/net 均为 `{actual,planned,committed,total}`） |
+| `GET /api/budgets/period-plan` | `fromMonth=YYYY-MM`（默认当前月）、`months=1–24`（默认 12） | `fromMonth`、`months`、`points[{month,hasBudget,budgets[{budgetId,budgetName,type,date,amount}],totals\|null}]` |
+
+**隐患修复（不双计）**：`actual` 只含 `date ≤ asOf` 的真实交易；未来日期真实交易归 `committed`；预算展开归 `planned`；`total = actual + planned + committed`。同一月份 `planned` 与 `committed` 来源互不重叠，逐项相加只有一份。手算对照（asOf=2026-11-06，单位分；A 现金期初 0 + 11-01 收入 20000，B 投资期初 30000，L 信用卡 −10000；未来 11-20 支出 3000、12-05 收入 8000、12-15 A→B 转账 1000；预算收入 50000 / 支出 10000 / 转账 2000 月末）：
+
+| 月份 | actual（资产/负债/净） | planned | committed | total | 现金流 期初→净额→期末 |
+|---|---|---|---|---|---|
+| 2026-11 | 50000 / 10000 / 40000 | 40000 / 0 / 40000 | −3000 / 0 / −3000 | 87000 / 10000 / 77000 | 0 → 55000 → 55000 |
+| 2026-12 | 50000 / 10000 / 40000 | 80000 / 0 / 80000 | 5000 / 0 / 5000 | 135000 / 10000 / 125000 | 55000 → 45000 → 100000 |
+| 2027-01 | 50000 / 10000 / 40000 | 120000 / 0 / 120000 | 5000 / 0 / 5000 | 175000 / 10000 / 165000 | 100000 → 38000 → 138000 |
+
+资产 `起点净资产 40000 + 累计净额 125000 = 期末 165000`；现金流每月 `期初 + 净额 = 期末`。3/6/12 切换：12 个月的前 6 个点与单独 6 个月逐字段相等（资产与现金流两侧都有断言）。无预算月份：`hasBudget=false`、`totals=null`（不用 0 冒充），`budgets=[]`。
+
+**预算展开修复**：`generateBudgetTimePoints` 只返回窗口内的点；季度/年度 `transactionTime` 从周期起点按天偏移，窗口起点之前的落点被裁掉（月度几号同理），避免长期推演重复带入已过去点位。
+
+**改动文件**：`apps/api/src/services/projection.service.ts`（新）、`apps/api/src/services/budget.service.ts`、`apps/api/src/routes/analytics.route.ts`、`apps/api/src/routes/report.route.ts`、`apps/api/src/routes/budget.route.ts`、`apps/api/src/common/validators.ts`、`apps/api/src/common/index.ts`、`packages/contracts/types/index.ts`、`apps/api/tests/integration/projection.route.test.ts`（新）、`apps/api/tests/unit/budget-time-points.test.ts`（新）。
+
+**验证**：api 全量 `npm test` 51 文件 413 用例通过；`npm run typecheck` 全量 0 错；改动文件 `npx eslint ...` 0 输出。实现提交 `c22298f`（`feat：新增预算推演端点并拆分 planned/committed——未来日期交易不再被当作实际余额重复计入（预算推演批）`），本文件为文档提交。

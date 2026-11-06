@@ -8,6 +8,7 @@
 
 - **本批新增端点：0 个**。报表四视图复用既有 `GET /reports/balance-sheet`、`/reports/income-expense`、`/reports/cash-flow`、`/reports/investment-analysis` 与 `/analytics/asset-trend`、`GET /transactions`、`GET /accounts`、`GET /budgets/statuses`；此前导入导出批新增 2 个（`GET /data/import-batches`、`POST /data/import-batches/:id/rollback`）；设置批新增 0 个，只扩展现有端点：`POST /accounts` 接受 `sort`；`DELETE /accounts/:id`、`DELETE /transaction-categories/:id` 返回 `auditEventId`；`GET /transactions/recycle-bin` 响应追加 `accounts` / `categories`。
 - 总览已只读接通；流水已接通读、写、审计撤销、回收站与退款关联；报表已接通四视图端点口径；设置已接通账户与分类的读写、排序/移动、删除撤销、回收站，以及导入/导出/导入回滚/清空。API 模式写操作真写库，种子模式仍走内存。
+- **本批新增推演端点 3 个**（后端，未接前端）：`GET /analytics/asset-projection`、`GET /reports/cash-flow-projection`、`GET /budgets/period-plan`；把「未来日期真实交易」与「预算展开」拆成 `committed` / `planned` 两个来源，同一月份相加不重复计。
 - 报表/预算的合计不再聚合总览快照：ledger 改为完整分页拉取 `GET /transactions`，跨月/跨年数据不再被最近 8 笔窗口截断。
 - 接口侧真正缺的只有一件：**没有同步端点**（同步能力还在 `packages/sync`，未到里程碑，不阻塞当前接入）。
 - 下一批建议做**预算**：真实 CRUD + `statuses` 口径，先拍板「周期混算」与「账户绑定」两个产品口径。
@@ -190,6 +191,52 @@
 - 投资 API 持仓无 `items`，目标比例列无数据可显；需要后端补资产分类明细，或接受该列为空。
 - 报表下钻到流水的 `from/to` 尚未带上（B）。
 - DB 的 date 列仍是 DateTime（存本地零点瞬时），不是纯日期字符串；需要改 schema 才能彻底消除瞬时，当前读写在日历日语义上已一致。
+
+## 本批：预算推演端点（已完成，2026-11-06）
+
+**新增端点 3 个**（只读 GET；不改任何已有端点的返回结构，新增字段只用新字段名）：
+
+| 端点 | 参数 | 返回字段 |
+|---|---|---|
+| `GET /api/analytics/asset-projection` | `months=3/6/12`（默认 12）、`asOf=YYYY-MM-DD`（默认今天）、`includePlanned=true/false`（默认 true）、`includeCommitted=true/false`（默认 true） | `asOf`、`months`、`base{assets,liabilities,netWorth}`、`points[{label,date,actual{…},planned{…},committed{…},total{…}}]` |
+| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`months`、`startCash`、`endCash`、`points[{label,date,inflow{actual,planned,committed,total},outflow{…},net{…},startCash,endCash}]` |
+| `GET /api/budgets/period-plan` | `fromMonth=YYYY-MM`（默认当前月）、`months=1–24`（默认 12） | `fromMonth`、`months`、`points[{month,hasBudget,budgets[{budgetId,budgetName,type,date,amount}],totals{income,expense,transfer}\|null}]` |
+
+**口径（硬约束）**：
+
+1. `actual` = `date ≤ asOf` 的真实交易余额；未来日期真实交易**不**计入起点，也不进入 `actual`。
+2. `committed` = `asOf < date ≤ 月末` 的真实交易累计增量，只来自真实交易。
+3. `planned` = 同一窗口的预算展开累计增量，只来自 `generatePredictions`（合成交易）。
+4. `total = actual + planned + committed`，逐项相加；两个未来来源互不重叠，同月相加不重复计。
+5. 资产口径只做预算展开 + 已排定交易，不做统计外推、不推定投资收益。
+6. 现金流 `流入 − 流出` 与交易对现金余额的净影响同源（同一份复式分录）；现金账户互转本金不计流入/流出、手续费计流出，`endCash = startCash + net` 恒成立。
+7. `hasBudget=false` 时 `totals=null`——无预算月份不用 0 冒充。
+
+**手算对照（临时库，asOf=2026-11-06；单位分）**：
+
+账本：A 现金期初 0 + 11-01 已发生收入 20000；B 投资期初 30000（非现金）；L 信用卡期初 −10000；未来真实交易 11-20 支出 3000、12-05 收入 8000、12-15 A→B 转账 1000；月度预算 收入 50000 / 支出 10000 / 转账 2000（均月末）。
+
+资产推演（每格 `assets / liabilities / netWorth`）：
+
+| 月份 | actual | planned（累计） | committed（累计） | total | 核对 |
+|---|---|---|---|---|---|
+| 2026-11 | 50000 / 10000 / 40000 | 40000 / 0 / 40000 | −3000 / 0 / −3000 | 87000 / 10000 / 77000 | 50000 + 40000 − 3000 |
+| 2026-12 | 50000 / 10000 / 40000 | 80000 / 0 / 80000 | 5000 / 0 / 5000 | 135000 / 10000 / 125000 | 50000 + 80000 + 5000 |
+| 2027-01 | 50000 / 10000 / 40000 | 120000 / 0 / 120000 | 5000 / 0 / 5000 | 175000 / 10000 / 165000 | 起点净资产 40000 + 累计结余 125000 |
+
+现金流推演（现金账户 A）：
+
+| 月份 | 期初 | 流入 actual / planned / committed | 流出 actual / planned / committed | 净额 | 期末 |
+|---|---|---|---|---|---|
+| 2026-11 | 0 | 20000 / 50000 / 0 | 0 / 12000 / 3000 | 55000 | 55000 |
+| 2026-12 | 55000 | 0 / 50000 / 8000 | 0 / 12000 / 1000 | 45000 | 100000 |
+| 2027-01 | 100000 | 0 / 50000 / 0 | 0 / 12000 / 0 | 38000 | 138000 |
+
+每月 `期初 + 净额 = 期末`；资产 `起点 40000 + 累计结余 125000 = 165000`。3/6/12 切换：同一 `asOf` 下 12 个月的前 6 个点与单独请求 6 个月逐字段相等。
+
+**预算展开语义修复**：`generateBudgetTimePoints`（原 `generateTimePoints`）只返回 `[start, end]` 内的点；季度/年度 `transactionTime` 明确为「从周期起点起的天偏移」，窗口起点之前的落点被裁掉（月度几号同理）。否则长期推演会把已经过去的本期点位重复带进未来。
+
+**验证**：`apps/api/tests/integration/projection.route.test.ts`（5 条）、`apps/api/tests/unit/budget-time-points.test.ts`（3 条）；`npm test -w @moneybrain/api` 51 文件 413 用例通过，`npm run typecheck` 全量 0 错，改动文件 ESLint 0 输出。
 
 ## 下一批：预算
 
