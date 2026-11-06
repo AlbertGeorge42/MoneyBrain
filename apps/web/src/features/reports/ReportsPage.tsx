@@ -25,10 +25,12 @@ import { flattenFlowRows } from './reportRows'
 import { ReportConfigPanel } from './ReportSettingsPanel'
 import {
   cashGroupPresence,
+  cashTotalOf,
   defaultReportSettings,
   groupBalanceRows,
   loadReportSettings,
   saveReportSettings,
+  visibleCashGroups,
   type ReportViewSettings,
 } from './reportSettings'
 import {
@@ -326,6 +328,7 @@ export function ReportsPage({
             <CashView
               device={device}
               report={cash}
+              settings={effectiveSettings.cash}
               side={cashSide}
               onSide={setCashSide}
               folded={foldedCash}
@@ -805,6 +808,7 @@ function flattenCards(
 function CashView({
   device,
   report,
+  settings,
   side,
   onSide,
   folded,
@@ -812,12 +816,21 @@ function CashView({
 }: {
   device: DeviceMode
   report: CashReport
+  settings: ReportViewSettings['cash']
   side: 'in' | 'out'
   onSide: (next: 'in' | 'out') => void
   folded: Record<string, boolean>
   onFold: (id: string) => void
 }) {
-  const groups = side === 'in' ? report.inflowGroups : report.outflowGroups
+  // 只按配置过滤可见分组；合计随可见分组重算，未显示的金额不留在表尾。
+  const inflowGroups = visibleCashGroups(report.inflowGroups, settings)
+  const outflowGroups = visibleCashGroups(report.outflowGroups, settings)
+  const inflowTotal = cashTotalOf(inflowGroups)
+  const outflowTotal = cashTotalOf(outflowGroups)
+  const hiddenIn = report.inflowGroups.length - inflowGroups.length
+  const hiddenOut = report.outflowGroups.length - outflowGroups.length
+  const hiddenNote = (hidden: number) => (hidden > 0 ? ` · 已隐藏 ${hidden} 组` : '')
+  const groups = side === 'in' ? inflowGroups : outflowGroups
   // 左右两表共用一份 folded：键必须带方向前缀，否则同名分组（经营 / 投资 / 筹资）会串扰
   const foldKey = (id: string) => `${side}:${id}`
   const cards: CardRow[] = []
@@ -846,42 +859,42 @@ function CashView({
     }
   }
 
-  const inflowRows = cashRowsFor('in', report.inflowGroups, folded, onFold)
-  const outflowRows = cashRowsFor('out', report.outflowGroups, folded, onFold)
+  const inflowRows = cashRowsFor('in', inflowGroups, folded, onFold)
+  const outflowRows = cashRowsFor('out', outflowGroups, folded, onFold)
   const cashMinRows = Math.max(inflowRows.length, outflowRows.length)
 
   return (
     <>
       <MetricStrip device={device} metrics={report.metrics} flat />
       <CashFlowBars
-        inflowGroups={report.inflowGroups}
-        outflowGroups={report.outflowGroups}
-        inflowTotal={report.inflowTotal}
-        outflowTotal={report.outflowTotal}
+        inflowGroups={inflowGroups}
+        outflowGroups={outflowGroups}
+        inflowTotal={inflowTotal}
+        outflowTotal={outflowTotal}
       />
       {device === 'desktop' ? (
         <div className="mb-rp-cols">
           <ReportTable
             device={device}
             title="流入"
-            desc={`合计 ${currency(report.inflowTotal)}`}
+            desc={`合计 ${currency(inflowTotal)}${hiddenNote(hiddenIn)}`}
             ariaLabel="现金流入"
             columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
             rows={inflowRows}
             minRows={cashMinRows}
-            total={['合计', '', currency(report.inflowTotal)]}
+            total={['合计', '', currency(inflowTotal)]}
           />
           <ReportTable
             device={device}
             title="流出"
-            desc={`合计 ${currency(report.outflowTotal)}${
+            desc={`合计 ${currency(outflowTotal)}${hiddenNote(hiddenOut)}${
               report.reconcile.transferFee > 0 ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计` : ''
             }`}
             ariaLabel="现金流出"
             columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
             rows={outflowRows}
             minRows={cashMinRows}
-            total={['合计', '', currency(report.outflowTotal)]}
+            total={['合计', '', currency(outflowTotal)]}
           />
         </div>
       ) : (
@@ -898,11 +911,11 @@ function CashView({
           <ReportCardList
             device={device}
             title={side === 'in' ? '流入' : '流出'}
-            desc={side === 'in' ? `合计 ${currency(report.inflowTotal)}` : `合计 ${currency(report.outflowTotal)}${
+            desc={side === 'in' ? `合计 ${currency(inflowTotal)}${hiddenNote(hiddenIn)}` : `合计 ${currency(outflowTotal)}${hiddenNote(hiddenOut)}${
               report.reconcile.transferFee > 0 ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计` : ''
             }`}
             rows={cards}
-            total={{ label: '合计', value: currency(side === 'in' ? report.inflowTotal : report.outflowTotal) }}
+            total={{ label: '合计', value: currency(side === 'in' ? inflowTotal : outflowTotal) }}
           />
         </>
       )}
