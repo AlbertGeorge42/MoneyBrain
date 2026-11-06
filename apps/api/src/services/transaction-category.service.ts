@@ -2,6 +2,7 @@ import { withTransaction } from '../db/transaction.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
+import * as budgetRepo from '../db/repositories/budget.repository.js'
 import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 
@@ -204,8 +205,10 @@ export async function deleteTransactionCategory(
 
   // 删除校验不过滤软删除：回收站里的交易仍引用本分类，恢复时要能对上
   const transactionsCount = await transactionRepo.countIncludingDeleted({ categoryId })
+  const budgetsCount = await budgetRepo.count({ categoryId })
+  const budgetBlockedMessage = `该分类被 ${budgetsCount} 个预算引用，请先把预算转移到其他分类（或删除预算）后再删除分类`
 
-  if (transactionsCount === 0) {
+  if (transactionsCount === 0 && budgetsCount === 0) {
     await transactionCategoryRepo.deleteById(categoryId)
     const event = await auditEventRepo.createAuditEvent(
       { entity: 'transaction_category', entityId: categoryId, action: 'deleted', before: category },
@@ -214,6 +217,7 @@ export async function deleteTransactionCategory(
   }
 
   if (deleteTransactions) {
+    if (budgetsCount > 0) throw new ValidationError(budgetBlockedMessage)
     const result = await withTransaction(async (tx) => {
       const deleted = await transactionRepo.deleteManyWhere({ categoryId }, tx)
       await transactionCategoryRepo.deleteById(categoryId, tx)
@@ -253,9 +257,14 @@ export async function deleteTransactionCategory(
 
     const result = await withTransaction(async (tx) => {
       // 含回收站里的交易一并转移，避免分类删除后悬挂 categoryId
-      // 先记下被转移的交易 id，撤销删除时按 id 回填原分类。
+      // 先记下被转移的交易 / 预算 id，撤销删除时按 id 回填原分类。
       const transferIds = await transactionRepo.findIdsByCategory(categoryId, tx)
+      const budgetIds = budgetsCount > 0 ? await budgetRepo.findIdsByCategory(categoryId, tx) : []
       const updated = await transactionRepo.transferCategoryTo(categoryId, transferToCategoryId, tx)
+      const transferredBudgets =
+        budgetIds.length > 0
+          ? await budgetRepo.transferCategoryTo(categoryId, transferToCategoryId, tx)
+          : { count: 0 }
       await transactionCategoryRepo.deleteById(categoryId, tx)
       const event = await auditEventRepo.createAuditEvent(
         {
@@ -267,22 +276,29 @@ export async function deleteTransactionCategory(
             __deleteMeta: {
               transferToCategoryId,
               transferredTransactionIds: transferIds,
+              transferredBudgetIds: budgetIds,
             },
           },
         },
         tx,
       )
-      return { transferred: updated.count, auditEventId: event.id }
+      return {
+        transferred: updated.count,
+        transferredBudgets: transferredBudgets.count,
+        auditEventId: event.id,
+      }
     })
 
     return {
       message: '删除成功',
       deletedCategory: category.name,
       transferredTransactions: result.transferred,
+      transferredBudgets: result.transferredBudgets,
       auditEventId: result.auditEventId,
     }
   }
 
+  if (budgetsCount > 0) throw new ValidationError(budgetBlockedMessage)
   throw new ValidationError('该分类下存在交易记录，请选择转移或删除交易')
 }
 

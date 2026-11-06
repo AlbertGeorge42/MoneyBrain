@@ -98,3 +98,40 @@ export async function deleteManyWhere(
 ): Promise<Prisma.BatchPayload> {
   return db(tx).budget.deleteMany({ where })
 }
+
+/** 分类被删除时用于转移 / 撤销回填：列出挂在指定分类上的预算 id。 */
+export async function findIdsByCategory(
+  categoryId: string,
+  tx?: TransactionClient,
+): Promise<string[]> {
+  const rows = await db(tx).budget.findMany({
+    where: { categoryId },
+    select: { id: true },
+  })
+  return rows.map((row) => row.id)
+}
+
+/** 把分类下的预算整体转到目标分类（分类转移删除用）。 */
+export async function transferCategoryTo(
+  categoryId: string,
+  targetCategoryId: string,
+  tx?: TransactionClient,
+): Promise<Prisma.BatchPayload> {
+  return db(tx).budget.updateMany({
+    where: { categoryId },
+    data: { categoryId: targetCategoryId },
+  })
+}
+
+/** 撤销分类删除：只回填仍停在目标分类下的预算，期间被用户改走的不覆盖。 */
+export async function reassignCategoryByIds(
+  ids: string[],
+  fromCategoryId: string,
+  toCategoryId: string,
+  tx?: TransactionClient,
+): Promise<Prisma.BatchPayload> {
+  return db(tx).budget.updateMany({
+    where: { id: { in: ids }, categoryId: fromCategoryId },
+    data: { categoryId: toCategoryId },
+  })
+}

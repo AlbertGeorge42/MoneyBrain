@@ -146,6 +146,7 @@ export interface TransactionCategoryDeleteResult {
   auditEventId: string
   transferredTransactions?: number
   deletedTransactions?: number
+  transferredBudgets?: number
   deletedCategory?: string
 }
 

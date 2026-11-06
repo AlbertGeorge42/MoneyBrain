@@ -50,9 +50,13 @@ describe('设置页账户 / 分类真实读写', () => {
   })
 
   beforeEach(async () => {
+    await prisma.budget.deleteMany()
     await prisma.auditEvent.deleteMany()
     await prisma.transaction.deleteMany()
     await prisma.account.deleteMany()
+    await prisma.transactionCategory.deleteMany({
+      where: { id: { in: ['s-cat-budget-only', 's-cat-budget-tx'] } },
+    })
   })
 
   it('账户排序落库：sort/batch 后 GET 顺序一致', async () => {
@@ -185,6 +189,89 @@ describe('设置页账户 / 分类真实读写', () => {
     expect(restoredCategory?.name).toBe('待转移分类')
     const back = await prisma.transaction.findUnique({ where: { id: tx.id } })
     expect(back?.categoryId).toBe(source.id)
+  })
+
+  it('分类带交易与预算：转移删除后交易和预算都归目标，撤销一起回位', async () => {
+    const account = await prisma.account.create({
+      data: { name: '预算转移账户', type: 'asset', initialBalance: 0, categoryId: accountCategoryId },
+    })
+    const source = await prisma.transactionCategory.create({
+      data: { id: 's-cat-budget-tx', name: '预算转移分类', type: 'expense', sort: 30 },
+    })
+    const tx = await prisma.transaction.create({
+      data: { type: 'expense', amount: 500, accountId: account.id, categoryId: source.id, date: new Date() },
+    })
+    const budget = await prisma.budget.create({
+      data: {
+        id: 's-budget-transfer',
+        name: '预算转移预算',
+        type: 'expense',
+        amount: 1000,
+        period: 'monthly',
+        startDate: new Date('2026-11-01'),
+        accountId: account.id,
+        categoryId: source.id,
+      },
+    })
+
+    const before = {
+      transactionCount: await prisma.transaction.count(),
+      transactionAmount: (await prisma.transaction.aggregate({ _sum: { amount: true } }))._sum.amount,
+      budgetCount: await prisma.budget.count(),
+      budgetAmount: (await prisma.budget.aggregate({ _sum: { amount: true } }))._sum.amount,
+    }
+
+    const del = await request(app)
+      .delete(`/api/transaction-categories/${source.id}`)
+      .query({ transferToCategoryId: foodId })
+    expect(del.status).toBe(200)
+    expect(del.body.data.transferredTransactions).toBe(1)
+    expect(del.body.data.transferredBudgets).toBe(1)
+
+    expect((await prisma.transaction.findUnique({ where: { id: tx.id } }))?.categoryId).toBe(foodId)
+    expect((await prisma.budget.findUnique({ where: { id: budget.id } }))?.categoryId).toBe(foodId)
+    const after = {
+      transactionCount: await prisma.transaction.count(),
+      transactionAmount: (await prisma.transaction.aggregate({ _sum: { amount: true } }))._sum.amount,
+      budgetCount: await prisma.budget.count(),
+      budgetAmount: (await prisma.budget.aggregate({ _sum: { amount: true } }))._sum.amount,
+    }
+    expect(after).toEqual(before)
+
+    const undo = await request(app).post(`/api/audit-events/${del.body.data.auditEventId}/undo`)
+    expect(undo.status).toBe(200)
+    expect((await prisma.transactionCategory.findUnique({ where: { id: source.id } }))?.name).toBe(
+      '预算转移分类',
+    )
+    expect((await prisma.transaction.findUnique({ where: { id: tx.id } }))?.categoryId).toBe(source.id)
+  })
+
+  it('分类只被预算引用且未选转移：拒绝文案精确，不再 FOREIGN_KEY_ERROR', async () => {
+    const account = await prisma.account.create({
+      data: { name: '预算账户', type: 'asset', initialBalance: 0, categoryId: accountCategoryId },
+    })
+    const source = await prisma.transactionCategory.create({
+      data: { id: 's-cat-budget-only', name: '仅预算分类', type: 'expense', sort: 31 },
+    })
+    await prisma.budget.create({
+      data: {
+        id: 's-budget-only',
+        name: '仅预算',
+        type: 'expense',
+        amount: 1000,
+        period: 'monthly',
+        startDate: new Date('2026-11-01'),
+        accountId: account.id,
+        categoryId: source.id,
+      },
+    })
+
+    const del = await request(app).delete(`/api/transaction-categories/${source.id}`)
+    expect(del.status).toBe(400)
+    expect(del.body.error.message).toContain('1 个预算')
+    expect(del.body.error.message).toContain('转移')
+    expect(del.body.error.message).not.toContain('FOREIGN_KEY')
+    expect(await prisma.transactionCategory.findUnique({ where: { id: source.id } })).not.toBeNull()
   })
 
   it('父子移动落库：move 后 parentId 改变', async () => {
