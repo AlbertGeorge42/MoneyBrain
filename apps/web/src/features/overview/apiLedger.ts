@@ -12,6 +12,7 @@
  */
 import type {
   Account,
+  AccountCategory,
   AnalyticsAssetTrendItem,
   Budget,
   BudgetStatus,
@@ -19,7 +20,14 @@ import type {
   Transaction,
   TransactionCategory,
 } from '@contracts/types'
-import { accountApi, analyticsApi, budgetApi, transactionApi, transactionCategoryApi } from '@/services/api'
+import {
+  accountApi,
+  accountCategoryApi,
+  analyticsApi,
+  budgetApi,
+  transactionApi,
+  transactionCategoryApi,
+} from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import type {
   AccountKind,
@@ -28,6 +36,7 @@ import type {
   BudgetSummary,
   Ledger,
   LedgerAccount,
+  LedgerAccountCategory,
   LedgerBudget,
   LedgerCategory,
   LedgerTransaction,
@@ -214,6 +223,7 @@ function budgetLevel(percent: number): BudgetRow['level'] {
 export interface LedgerApiPayload {
   accounts: Account[]
   categories: TransactionCategory[]
+  accountCategories: AccountCategory[]
   budgets: Budget[]
   statuses: BudgetStatus[]
   dashboard: DashboardSummaryData
@@ -251,6 +261,16 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     parentId: category.parentId ? displayId(category.parentId) : undefined,
   }))
 
+  const accountCategories: LedgerAccountCategory[] = payload.accountCategories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    type: category.type === 'liability' ? 'liability' : 'asset',
+    parentId: category.parentId ?? null,
+    sort: category.sort,
+    isCashEquivalent: category.isCashEquivalent,
+    isInvestment: category.isInvestment,
+  }))
+
   const accounts: LedgerAccount[] = payload.accounts.map((account) => {
     const balance = payload.balances.get(account.id)
     if (balance === undefined) {
@@ -261,6 +281,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
       name: account.name,
       kind: accountKind(account),
       balance,
+      categoryId: account.categoryId ?? null,
       initialBalance: Number(account.initialBalance),
       initialBalanceDate: account.initialBalanceDate,
     }
@@ -350,6 +371,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
   return {
     accounts,
     categories,
+    accountCategories,
     budgets,
     transactions,
     ids: { categoryDisplay: mapper.display, categoryReal: mapper.real },
@@ -380,9 +402,10 @@ export interface ApiLedgerResult {
 /** 只读拉取总览所需数据；任一请求失败都抛出，由上层进入 error 态。 */
 export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
   const today = todayLocal()
-  const [accounts, categories, budgets, dashboard, assetTrend, transactions] = await Promise.all([
+  const [accounts, categories, accountCategories, budgets, dashboard, assetTrend, transactions] = await Promise.all([
     accountApi.getAll().then(unwrapApiData),
     transactionCategoryApi.getAll().then(unwrapApiData),
+    accountCategoryApi.getAll().then(unwrapApiData),
     budgetApi.getAll().then(unwrapApiData),
     analyticsApi.getDashboardSummary().then(unwrapApiData),
     analyticsApi.getAssetTrend().then(unwrapApiData),
@@ -411,6 +434,7 @@ export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
       {
         accounts,
         categories,
+        accountCategories,
         budgets,
         statuses,
         dashboard,

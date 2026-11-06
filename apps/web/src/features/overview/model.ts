@@ -18,6 +18,28 @@ export interface LedgerAccount {
   initialBalance?: number
   /** 期初余额的生效日期（API 适配层带入）；晚于报表期间起点时，该账户期初在期中才生效。 */
   initialBalanceDate?: string | null
+  /** 所属账户分组（后端 AccountCategory 的真实 id）；null = 未分组。种子账本无分组。 */
+  categoryId?: string | null
+}
+
+/**
+ * 账户分组（后端 AccountCategory 的只读投影）。
+ *
+ * 只用于组织与浏览账户：名称、资产/负债归属、排序。计算口径（现金等价 / 投资）
+ * 仍由后端分类标记决定，本投影不参与任何合计。
+ */
+export interface LedgerAccountCategory {
+  id: string
+  name: string
+  type: 'asset' | 'liability'
+  parentId?: string | null
+  sort: number
+  /**
+   * 后端分类自带的计算标识。分组界面不展示、不可编辑，只在把账户移入
+   * 标识不同的分组时给出可见提示（否则现金流 / 投资占比会静默变口径）。
+   */
+  isCashEquivalent?: boolean
+  isInvestment?: boolean
 }
 
 export interface LedgerCategory {
@@ -83,6 +105,8 @@ export interface Ledger {
   categories: LedgerCategory[]
   budgets: LedgerBudget[]
   transactions: LedgerTransaction[]
+  /** 账户分组（API 模式由 /account-categories 带入；种子账本为 undefined）。 */
+  accountCategories?: LedgerAccountCategory[]
   snapshot?: LedgerSnapshot
   /** API 模式下展示 id 与后端真实 id 的映射（种子账本为 undefined）。 */
   ids?: LedgerIds

@@ -31,10 +31,18 @@ export interface LedgerAccountInput {
   name: string
   kind: AccountKind
   balance: number
+  /** 所属账户分组（后端真实 id）；null = 未分组，省略 = 按 kind 回退默认分类。 */
+  categoryId?: string | null
   /** 期初余额（分）；新建必填，编辑时省略表示保持原值。 */
   initialBalance?: number
   /** 期初余额日期（YYYY-MM-DD）；新建必填，编辑时省略表示保持原值。 */
   initialBalanceDate?: string
+}
+
+/** 设置页账户分组表单：只含名称与资产/负债归属，不碰计算标记。 */
+export interface LedgerAccountGroupInput {
+  name: string
+  type: 'asset' | 'liability'
 }
 
 /** 设置页分类表单：parentId 为展示 id（种子 key 或真实 id）。 */
@@ -72,6 +80,11 @@ export interface LedgerContextValue {
   deleteAccount: (id: string) => Promise<LedgerMutationOutcome>
   /** 上下移动同组账户顺序；返回撤销令牌（排序也可撤销）。 */
   reorderAccount: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
+  /* 设置页：账户分组（后端 AccountCategory，只用于组织与浏览）。 */
+  createAccountGroup: (input: LedgerAccountGroupInput) => Promise<LedgerCreateOutcome>
+  updateAccountGroup: (id: string, name: string) => Promise<LedgerMutationOutcome>
+  deleteAccountGroup: (id: string) => Promise<LedgerMutationOutcome>
+  reorderAccountGroup: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
   createCategory: (input: LedgerCategoryInput) => Promise<LedgerCreateOutcome>
   updateCategory: (id: string, name: string) => Promise<LedgerMutationOutcome>
   moveCategory: (id: string, parentId: string | null) => Promise<LedgerMutationOutcome>

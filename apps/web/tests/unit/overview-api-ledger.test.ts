@@ -147,6 +147,7 @@ function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
       category('cat-food-lunch', '午餐', 'cat-food'),
       category('cat-salary', '工资', null, 'income'),
     ],
+    accountCategories: [],
     budgets: [food],
     statuses: [status(food, 40_000)],
     dashboard,

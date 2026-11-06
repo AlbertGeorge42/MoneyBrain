@@ -16,6 +16,7 @@ import {
   createSeedLedger,
   type AccountKind,
   type Ledger,
+  type LedgerAccount,
   type NewTransactionInput,
 } from './model'
 import { mapperFromLedger, todayLocal } from './apiLedger'
@@ -32,6 +33,7 @@ import {
 } from '@/features/settings/settingsModel'
 import {
   LedgerContext,
+  type LedgerAccountGroupInput,
   type LedgerAccountInput,
   type LedgerBatchCategoryOutcome,
   type LedgerBudgetInput,
@@ -48,6 +50,9 @@ import {
   updateTransactionInLedger,
   type TransactionPatch,
 } from '@/features/transactions/ledgerOps'
+
+/** 种子账本没有后端账户分组表，写操作明确拒绝而不是假成功。 */
+const SEED_GROUP_ERROR = '演示账本（种子数据）没有账户分组；用真实账本（VITE_HF_DATA=api）后可管理'
 
 /** 展示用分类 id → 后端真实 id（种子账本没有映射，原样返回）。 */
 function realCategoryId(ledger: Ledger, id: string): string {
@@ -82,6 +87,15 @@ async function resolveAccountCategory(
   }
   const other = roots.find((category) => !category.isCashEquivalent && !category.isInvestment)
   return { categoryId: (other ?? roots[0])?.id }
+}
+
+/** 账户写入时后端要求的 type：选定分组以分组为准，否则按展示性质回退。 */
+function accountTypeForInput(input: LedgerAccountInput, ledger: Ledger): 'asset' | 'liability' {
+  if (input.categoryId) {
+    const group = ledger.accountCategories?.find((category) => category.id === input.categoryId)
+    if (group) return group.type
+  }
+  return accountTypeForKind(input.kind)
 }
 
 export function LedgerProvider({
@@ -370,16 +384,21 @@ export function LedgerProvider({
         return { ok: true }
       }
       try {
-        const resolved = await resolveAccountCategory(input.kind)
-        if (resolved.error) return { ok: false, error: resolved.error }
+        // 选定分组直接落该分类；未选时仍按展示性质回退到语义分类（旧表单兼容）。
+        let categoryId = input.categoryId ?? undefined
+        if (!categoryId) {
+          const resolved = await resolveAccountCategory(input.kind)
+          if (resolved.error) return { ok: false, error: resolved.error }
+          categoryId = resolved.categoryId
+        }
         const accounts = await accountApi.getAll().then(unwrapApiData)
         // 追加到列表末尾：sort 取现有最大值 + 1。
         const sort = accounts.reduce((max, account) => Math.max(max, account.sort), 0) + 1
         const created = await accountApi
           .create({
             name: input.name,
-            type: accountTypeForKind(input.kind),
-            categoryId: resolved.categoryId,
+            type: accountTypeForInput(input, ledgerRef.current),
+            categoryId,
             // 新建账户：表单里的「期初余额」直接作为 initialBalance，
             // 语义与 balance-at 一致（期初日期当天开始前），不再用当日余额倒推。
             initialBalance: minor(input.initialBalance ?? input.balance),
@@ -403,12 +422,17 @@ export function LedgerProvider({
         return { ok: true }
       }
       try {
-        const resolved = await resolveAccountCategory(input.kind)
-        if (resolved.error) return { ok: false, error: resolved.error }
+        // 编辑时 categoryId 显式给出（含 null = 未分组）；省略才按性质回退。
+        let categoryId = input.categoryId
+        if (categoryId === undefined) {
+          const resolved = await resolveAccountCategory(input.kind)
+          if (resolved.error) return { ok: false, error: resolved.error }
+          categoryId = resolved.categoryId ?? undefined
+        }
         const body: Partial<Account> = {
           name: input.name,
-          type: accountTypeForKind(input.kind),
-          categoryId: resolved.categoryId,
+          type: accountTypeForInput(input, ledgerRef.current),
+          categoryId,
         }
         const currentBalance = ledgerRef.current.accounts.find((account) => account.id === id)?.balance ?? 0
         const accounts = await accountApi.getAll().then(unwrapApiData)
@@ -483,7 +507,9 @@ export function LedgerProvider({
       const current = ledgerRef.current
       const account = current.accounts.find((item) => item.id === id)
       if (!account) return { ok: false, error: '账户不存在' }
-      const siblings = current.accounts.filter((item) => item.kind === account.kind)
+      // 账户顺序只在同一分组内调整；未分组按性质归并。
+      const groupKey = (item: LedgerAccount) => item.categoryId ?? `kind:${item.kind}`
+      const siblings = current.accounts.filter((item) => groupKey(item) === groupKey(account))
       const index = siblings.findIndex((item) => item.id === id)
       const target = index + (direction === 'up' ? -1 : 1)
       if (target < 0 || target >= siblings.length) {
@@ -507,6 +533,82 @@ export function LedgerProvider({
               categoryId: categoryById.get(item.id) ?? null,
             })),
           )
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  /* -------- 账户分组（后端 AccountCategory；只负责组织与浏览，不参与计算） -------- */
+
+  const createAccountGroup = useCallback(
+    async (input: LedgerAccountGroupInput): Promise<LedgerCreateOutcome> => {
+      if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
+      try {
+        const created = await accountCategoryApi
+          .create({ name: input.name, type: input.type })
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true, id: created.id }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const updateAccountGroup = useCallback(
+    async (id: string, name: string): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
+      try {
+        await accountCategoryApi.update(id, { name }).then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const deleteAccountGroup = useCallback(
+    async (id: string): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
+      try {
+        // 有账户引用时后端拒绝删除并返回原因；前端不静默清空引用。
+        await accountCategoryApi.delete(id).then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
+  const reorderAccountGroup = useCallback(
+    async (id: string, direction: 'up' | 'down'): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
+      const groups = (ledgerRef.current.accountCategories ?? []).filter(
+        (category) => !category.parentId,
+      )
+      const current = groups.find((category) => category.id === id)
+      if (!current) return { ok: false, error: '分组不存在' }
+      const siblings = groups.filter((category) => category.type === current.type)
+      const index = siblings.findIndex((category) => category.id === id)
+      const target = index + (direction === 'up' ? -1 : 1)
+      if (target < 0 || target >= siblings.length) {
+        return { ok: false, error: direction === 'up' ? '已经在最前面了' : '已经在最后面了' }
+      }
+      try {
+        const swapped = [...siblings]
+        ;[swapped[index], swapped[target]] = [swapped[target], swapped[index]]
+        await accountCategoryApi
+          .updateSort(swapped.map((category, sort) => ({ id: category.id, sort, parentId: null })))
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true }
@@ -823,6 +925,10 @@ export function LedgerProvider({
         updateAccount,
         deleteAccount,
         reorderAccount,
+        createAccountGroup,
+        updateAccountGroup,
+        deleteAccountGroup,
+        reorderAccountGroup,
         createCategory,
         updateCategory,
         moveCategory,
