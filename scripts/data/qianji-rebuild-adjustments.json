@@ -1,0 +1,783 @@
+{
+  "adjustments": [
+    {
+      "month": "2025-01",
+      "date": "2025-01-31",
+      "account": "雪球基金",
+      "amount": 1018114,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-01",
+      "date": "2025-01-31",
+      "account": "花呗",
+      "amount": 4930,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-01",
+      "date": "2025-01-31",
+      "account": "支付宝基金",
+      "amount": -640,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-01",
+      "date": "2025-01-31",
+      "account": "云闪付",
+      "amount": -977856,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-01",
+      "date": "2025-01-31",
+      "account": "支付宝",
+      "amount": 630,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-01",
+      "date": "2025-01-31",
+      "account": "京东白条",
+      "amount": -202,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-01",
+      "date": "2025-01-31",
+      "account": "微信",
+      "amount": -6981,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-02",
+      "date": "2025-02-28",
+      "account": "雪球基金",
+      "amount": -42433,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-02",
+      "date": "2025-02-28",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-02",
+      "date": "2025-02-28",
+      "account": "云闪付",
+      "amount": 82853,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-02",
+      "date": "2025-02-28",
+      "account": "京东白条",
+      "amount": 416900,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-02",
+      "date": "2025-02-28",
+      "account": "美团月付",
+      "amount": 7,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-02",
+      "date": "2025-02-28",
+      "account": "微信",
+      "amount": -30,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-03",
+      "date": "2025-03-31",
+      "account": "雪球基金",
+      "amount": -1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-03",
+      "date": "2025-03-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-03",
+      "date": "2025-03-31",
+      "account": "云闪付",
+      "amount": 417599,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-03",
+      "date": "2025-03-31",
+      "account": "京东白条",
+      "amount": -416900,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-03",
+      "date": "2025-03-31",
+      "account": "美团月付",
+      "amount": 11,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-04",
+      "date": "2025-04-30",
+      "account": "雪球基金",
+      "amount": -23,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-04",
+      "date": "2025-04-30",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-04",
+      "date": "2025-04-30",
+      "account": "云闪付",
+      "amount": -252,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-04",
+      "date": "2025-04-30",
+      "account": "美团月付",
+      "amount": 56,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-05",
+      "date": "2025-05-31",
+      "account": "雪球基金",
+      "amount": 5,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-05",
+      "date": "2025-05-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-05",
+      "date": "2025-05-31",
+      "account": "云闪付",
+      "amount": 256,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-05",
+      "date": "2025-05-31",
+      "account": "支付宝",
+      "amount": 368,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-05",
+      "date": "2025-05-31",
+      "account": "美团月付",
+      "amount": 1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-06",
+      "date": "2025-06-30",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-06",
+      "date": "2025-06-30",
+      "account": "云闪付",
+      "amount": 231,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-06",
+      "date": "2025-06-30",
+      "account": "支付宝",
+      "amount": -22,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-07",
+      "date": "2025-07-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-07",
+      "date": "2025-07-31",
+      "account": "云闪付",
+      "amount": 657,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-07",
+      "date": "2025-07-31",
+      "account": "支付宝",
+      "amount": 922,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-08",
+      "date": "2025-08-31",
+      "account": "雪球基金",
+      "amount": -1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-08",
+      "date": "2025-08-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-08",
+      "date": "2025-08-31",
+      "account": "云闪付",
+      "amount": 196,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-08",
+      "date": "2025-08-31",
+      "account": "支付宝",
+      "amount": -886,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-08",
+      "date": "2025-08-31",
+      "account": "美团月付",
+      "amount": 12,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-09",
+      "date": "2025-09-30",
+      "account": "雪球基金",
+      "amount": 1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-09",
+      "date": "2025-09-30",
+      "account": "未报账项",
+      "amount": 18412,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-09",
+      "date": "2025-09-30",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-31",
+      "account": "雪球基金",
+      "amount": -1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-31",
+      "account": "未报账项",
+      "amount": -18412,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-31",
+      "account": "云闪付",
+      "amount": 181,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-31",
+      "account": "支付宝",
+      "amount": 9,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-31",
+      "account": "美团月付",
+      "amount": 38,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-10",
+      "date": "2025-10-31",
+      "account": "微信",
+      "amount": 10,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-11",
+      "date": "2025-11-30",
+      "account": "民生银行",
+      "amount": 1118,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-11",
+      "date": "2025-11-30",
+      "account": "云闪付",
+      "amount": 2245,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-11",
+      "date": "2025-11-30",
+      "account": "美团月付",
+      "amount": 48,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-11",
+      "date": "2025-11-30",
+      "account": "微信",
+      "amount": -10,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-12",
+      "date": "2025-12-31",
+      "account": "民生银行",
+      "amount": 2600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2025-12",
+      "date": "2025-12-31",
+      "account": "云闪付",
+      "amount": 3040,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-01",
+      "date": "2026-01-31",
+      "account": "雪球基金",
+      "amount": -1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-01",
+      "date": "2026-01-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-01",
+      "date": "2026-01-31",
+      "account": "支付宝",
+      "amount": 4,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-02",
+      "date": "2026-02-28",
+      "account": "支付宝基金",
+      "amount": -2,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-02",
+      "date": "2026-02-28",
+      "account": "支付宝",
+      "amount": 1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-02",
+      "date": "2026-02-28",
+      "account": "京东白条",
+      "amount": 180,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-02",
+      "date": "2026-02-28",
+      "account": "微信",
+      "amount": 6,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-03",
+      "date": "2026-03-31",
+      "account": "雪球基金",
+      "amount": 1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-03",
+      "date": "2026-03-31",
+      "account": "民生银行",
+      "amount": 709,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-03",
+      "date": "2026-03-31",
+      "account": "美团月付",
+      "amount": 3,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-03",
+      "date": "2026-03-31",
+      "account": "微信",
+      "amount": -6,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-04",
+      "date": "2026-04-30",
+      "account": "雪球基金",
+      "amount": -1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-04",
+      "date": "2026-04-30",
+      "account": "民生银行",
+      "amount": 726,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-04",
+      "date": "2026-04-30",
+      "account": "支付宝",
+      "amount": 1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-05",
+      "date": "2026-05-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-06",
+      "date": "2026-06-30",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-06",
+      "date": "2026-06-30",
+      "account": "支付宝",
+      "amount": 7,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-07",
+      "date": "2026-07-31",
+      "account": "民生银行",
+      "amount": 928,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-07",
+      "date": "2026-07-31",
+      "account": "云闪付",
+      "amount": -1561,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-07",
+      "date": "2026-07-31",
+      "account": "支付宝",
+      "amount": 4,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-07",
+      "date": "2026-07-31",
+      "account": "美团月付",
+      "amount": 500,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-07",
+      "date": "2026-07-31",
+      "account": "微信",
+      "amount": 2,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-08",
+      "date": "2026-08-31",
+      "account": "花呗",
+      "amount": -10,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-08",
+      "date": "2026-08-31",
+      "account": "民生银行",
+      "amount": 728,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-08",
+      "date": "2026-08-31",
+      "account": "云闪付",
+      "amount": -456,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-08",
+      "date": "2026-08-31",
+      "account": "支付宝",
+      "amount": 1688,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-08",
+      "date": "2026-08-31",
+      "account": "微信",
+      "amount": -30,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-09",
+      "date": "2026-09-30",
+      "account": "民生银行",
+      "amount": 800,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-09",
+      "date": "2026-09-30",
+      "account": "云闪付",
+      "amount": -40,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-09",
+      "date": "2026-09-30",
+      "account": "支付宝",
+      "amount": 40,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-10",
+      "date": "2026-10-31",
+      "account": "雪球基金",
+      "amount": -1,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-10",
+      "date": "2026-10-31",
+      "account": "民生银行",
+      "amount": 600,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-10",
+      "date": "2026-10-31",
+      "account": "云闪付",
+      "amount": 52,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-10",
+      "date": "2026-10-31",
+      "account": "支付宝",
+      "amount": -51,
+      "note": "历史平帐（Excel 月度锚点）"
+    },
+    {
+      "month": "2026-10",
+      "date": "2026-10-31",
+      "account": "美团月付",
+      "amount": 185,
+      "note": "历史平帐（Excel 月度锚点）"
+    }
+  ],
+  "monthly": [
+    {
+      "month": "2025-01",
+      "excelNet": 42649779,
+      "derivedNet": 42611784,
+      "diff": 37995,
+      "count": 7
+    },
+    {
+      "month": "2025-02",
+      "excelNet": 48509190,
+      "derivedNet": 48051293,
+      "diff": 457897,
+      "count": 6
+    },
+    {
+      "month": "2025-03",
+      "excelNet": 50864058,
+      "derivedNet": 50862749,
+      "diff": 1309,
+      "count": 5
+    },
+    {
+      "month": "2025-04",
+      "excelNet": 53384926,
+      "derivedNet": 53384545,
+      "diff": 381,
+      "count": 4
+    },
+    {
+      "month": "2025-05",
+      "excelNet": 56989772,
+      "derivedNet": 56988542,
+      "diff": 1230,
+      "count": 5
+    },
+    {
+      "month": "2025-06",
+      "excelNet": 55482203,
+      "derivedNet": 55481394,
+      "diff": 809,
+      "count": 3
+    },
+    {
+      "month": "2025-07",
+      "excelNet": 58988962,
+      "derivedNet": 58986783,
+      "diff": 2179,
+      "count": 3
+    },
+    {
+      "month": "2025-08",
+      "excelNet": 64058382,
+      "derivedNet": 64058461,
+      "diff": -79,
+      "count": 5
+    },
+    {
+      "month": "2025-09",
+      "excelNet": 68040673,
+      "derivedNet": 68021660,
+      "diff": 19013,
+      "count": 3
+    },
+    {
+      "month": "2025-10",
+      "excelNet": 70570050,
+      "derivedNet": 70587625,
+      "diff": -17575,
+      "count": 7
+    },
+    {
+      "month": "2025-11",
+      "excelNet": 72771581,
+      "derivedNet": 72768180,
+      "diff": 3401,
+      "count": 4
+    },
+    {
+      "month": "2025-12",
+      "excelNet": 76277009,
+      "derivedNet": 76271369,
+      "diff": 5640,
+      "count": 2
+    },
+    {
+      "month": "2026-01",
+      "excelNet": 80891575,
+      "derivedNet": 80890972,
+      "diff": 603,
+      "count": 3
+    },
+    {
+      "month": "2026-02",
+      "excelNet": 94917178,
+      "derivedNet": 94916993,
+      "diff": 185,
+      "count": 4
+    },
+    {
+      "month": "2026-03",
+      "excelNet": 93728961,
+      "derivedNet": 93728254,
+      "diff": 707,
+      "count": 4
+    },
+    {
+      "month": "2026-04",
+      "excelNet": 100256892,
+      "derivedNet": 100256166,
+      "diff": 726,
+      "count": 3
+    },
+    {
+      "month": "2026-05",
+      "excelNet": 103726413,
+      "derivedNet": 103725813,
+      "diff": 600,
+      "count": 1
+    },
+    {
+      "month": "2026-06",
+      "excelNet": 104584688,
+      "derivedNet": 104584081,
+      "diff": 607,
+      "count": 2
+    },
+    {
+      "month": "2026-07",
+      "excelNet": 107241292,
+      "derivedNet": 107241419,
+      "diff": -127,
+      "count": 5
+    },
+    {
+      "month": "2026-08",
+      "excelNet": 112201550,
+      "derivedNet": 112199630,
+      "diff": 1920,
+      "count": 5
+    },
+    {
+      "month": "2026-09",
+      "excelNet": 112040529,
+      "derivedNet": 112039729,
+      "diff": 800,
+      "count": 3
+    },
+    {
+      "month": "2026-10",
+      "excelNet": 111555248,
+      "derivedNet": 111554463,
+      "diff": 785,
+      "count": 5
+    }
+  ]
+}
