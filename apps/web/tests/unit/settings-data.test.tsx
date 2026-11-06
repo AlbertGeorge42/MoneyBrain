@@ -101,20 +101,22 @@ describe('设置页数据区（API 模式）', () => {
     vi.unstubAllGlobals()
   })
 
-  it('未导出备份时清空被拦住，并给出可见文案', async () => {
+  it('未导出备份时「确认清空」为真禁用，并用 aria-describedby 指向可见原因', async () => {
     renderPage()
     await openDataSection()
 
     fireEvent.click(screen.getByRole('button', { name: '清空账本' }))
     const sheet = await screen.findByRole('dialog')
-    fireEvent.change(within(sheet).getByPlaceholderText('清空账本'), {
-      target: { value: '清空账本' },
-    })
-    fireEvent.click(within(sheet).getByRole('button', { name: '确认清空' }))
+    const reason = within(sheet).getByText('尚未导出备份：必须先导出备份才能继续')
+    const confirm = within(sheet).getByRole('button', { name: '确认清空' })
 
-    await waitFor(() =>
-      expect(screen.getByText('请先导出备份：备份成功后才会继续清空')).toBeInTheDocument(),
-    )
+    expect(reason).toHaveAttribute('id', 'mb-set-clear-reason')
+    expect(confirm).toBeDisabled()
+    expect(confirm).toHaveAttribute('aria-describedby', 'mb-set-clear-reason')
+    // 原因必须紧邻动作区：中间不能隔着输入框、导出按钮等其他可交互控件。
+    const actions = reason.nextElementSibling as HTMLElement
+    expect(actions).toHaveClass('mb-set-sheet-actions')
+    expect(within(actions).getByRole('button', { name: '确认清空' })).toBe(confirm)
     expect(mocks.clearAll).not.toHaveBeenCalled()
   })
 
@@ -133,6 +135,12 @@ describe('设置页数据区（API 模式）', () => {
     await waitFor(() =>
       expect(within(sheet).getByText(/已备份：moneybrain-backup-2026-11-06\.mbx/)).toBeInTheDocument(),
     )
+
+    // 备份后：禁用原因消失、按钮解锁，aria-describedby 一并撤下。
+    expect(within(sheet).queryByText('尚未导出备份：必须先导出备份才能继续')).not.toBeInTheDocument()
+    const unlocked = within(sheet).getByRole('button', { name: '确认清空' })
+    expect(unlocked).toBeEnabled()
+    expect(unlocked).not.toHaveAttribute('aria-describedby')
 
     fireEvent.change(within(sheet).getByPlaceholderText('清空账本'), {
       target: { value: '清空账本' },

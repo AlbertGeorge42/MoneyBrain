@@ -1191,6 +1191,17 @@
   color: var(--mb-color-text-secondary);
 }
 
+/* 清空的禁用原因紧贴动作区，在视觉上就是「确认清空」的直接说明。 */
+.mb-set-clear-gate {
+  flex: none;
+  margin: 0;
+  padding: var(--mb-s-2) var(--mb-s-4) 0;
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-expense);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
 /* 动作区常驻抽屉底部：内容在 body 内滚，按钮不随内容被推走。 */
 .mb-set-sheet-actions {
   display: flex;

@@ -2189,10 +2189,10 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             </p>
 
             <div className={backupReady ? 'mb-set-backup-state is-ready' : 'mb-set-backup-state is-blocked'}>
-              <span className="mb-set-backup-reason" id="mb-set-clear-reason">
+              <span className="mb-set-backup-reason">
                 {backupReady
                   ? `已备份：${backupReady.filename}（${new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）`
-                  : '尚未导出备份：必须先导出备份才能继续'}
+                  : '备份文件 (.mbx)'}
               </span>
               <button
                 type="button"
@@ -2229,6 +2229,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             )}
           </div>
 
+          {/* 禁用原因紧贴确认按钮上方：不要把理由埋在表单中部。 */}
+          {!backupReady && (
+            <p className="mb-set-clear-gate" id="mb-set-clear-reason">
+              尚未导出备份：必须先导出备份才能继续
+            </p>
+          )}
           <div className="mb-set-sheet-actions">
             <button type="button" className="mb-set-btn" disabled={dataBusy === 'clear'} onClick={() => setClearOpen(false)}>
               取消
@@ -2238,7 +2244,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               className="mb-set-btn is-danger"
               disabled={!backupReady || dataBusy === 'clear'}
               aria-describedby={!backupReady ? 'mb-set-clear-reason' : undefined}
-              title={backupReady ? undefined : '先导出备份后才能清空'}
               onClick={() => void confirmClearLedger()}
             >
               {dataBusy === 'clear' ? '清空中…' : '确认清空'}
