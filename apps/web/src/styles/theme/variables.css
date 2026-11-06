@@ -184,6 +184,10 @@
   --mb-chart-series-5: #8a7a0a;
   --mb-chart-series-6: #c24a8a;
   --mb-chart-series-7: #8c9188;
+  /* 二级环（子分类）在父色相上做明度阶梯：浅色向深调，末位回到父色，避免变淡后对白底低于 3:1。 */
+  --mb-chart-sub-from: 72%;
+  --mb-chart-sub-to: 100%;
+  --mb-chart-sub-tint: #14161a;
   --mb-color-chart-axis: #63686e;
   --mb-color-chart-grid: #e3e5e0;
   --mb-color-chart-tooltip-bg: #14161a;
@@ -259,6 +263,10 @@
   --mb-chart-series-5: #d6c24a;
   --mb-chart-series-6: #e86fb2;
   --mb-chart-series-7: #8a9196;
+  /* 二级环：暗色向浅调，父色最深，逐级变浅且对暗底对比度只增不减。 */
+  --mb-chart-sub-from: 100%;
+  --mb-chart-sub-to: 62%;
+  --mb-chart-sub-tint: #ffffff;
   --mb-color-chart-axis: #7f878d;
   --mb-color-chart-grid: #242a2e;
   --mb-color-chart-tooltip-bg: #16191b;

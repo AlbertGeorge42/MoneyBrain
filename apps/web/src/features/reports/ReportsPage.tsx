@@ -425,7 +425,7 @@ function BalanceView({
         <p className="mb-rp-empty-line">暂无资产账户</p>
       ) : (
         <div className="mb-rp-compare-side">
-          {report.composition.map((row, index) => (
+          {report.composition.map((row) => (
             <div className="mb-rp-compare-row" key={row.id}>
               <div className="mb-rp-compare-row-head">
                 <span className="mb-rp-compare-name">{row.name}</span>
@@ -434,7 +434,7 @@ function BalanceView({
                 </span>
               </div>
               <progress
-                className={`mb-rp-progress is-accent is-cat-${(index % 6) + 1}`}
+                className="mb-rp-progress is-accent"
                 value={row.share}
                 max={100}
                 aria-label={`${row.name}占总资产 ${row.share.toFixed(1)}%`}

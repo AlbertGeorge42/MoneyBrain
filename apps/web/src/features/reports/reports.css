@@ -76,6 +76,7 @@
 .mb-rp-crow-fold:focus-visible,
 .mb-rp-fold:focus-visible,
 .mb-rp-head-action:focus-visible,
+.mb-rp-donut-back:focus-visible,
 .mb-rp-table tr.is-interactive:focus-visible {
   outline: 2px solid var(--mb-color-focus);
   outline-offset: 2px;
@@ -973,21 +974,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   background: var(--mb-color-expense-display);
 }
 
-progress.mb-rp-progress.is-series-1::-webkit-progress-value { background: var(--mb-chart-series-1); }
-progress.mb-rp-progress.is-series-2::-webkit-progress-value { background: var(--mb-chart-series-2); }
-progress.mb-rp-progress.is-series-3::-webkit-progress-value { background: var(--mb-chart-series-3); }
-progress.mb-rp-progress.is-series-4::-webkit-progress-value { background: var(--mb-chart-series-4); }
-progress.mb-rp-progress.is-series-5::-webkit-progress-value { background: var(--mb-chart-series-5); }
-progress.mb-rp-progress.is-series-6::-webkit-progress-value { background: var(--mb-chart-series-6); }
-progress.mb-rp-progress.is-series-7::-webkit-progress-value { background: var(--mb-chart-series-7); }
-progress.mb-rp-progress.is-series-1::-moz-progress-bar { background: var(--mb-chart-series-1); }
-progress.mb-rp-progress.is-series-2::-moz-progress-bar { background: var(--mb-chart-series-2); }
-progress.mb-rp-progress.is-series-3::-moz-progress-bar { background: var(--mb-chart-series-3); }
-progress.mb-rp-progress.is-series-4::-moz-progress-bar { background: var(--mb-chart-series-4); }
-progress.mb-rp-progress.is-series-5::-moz-progress-bar { background: var(--mb-chart-series-5); }
-progress.mb-rp-progress.is-series-6::-moz-progress-bar { background: var(--mb-chart-series-6); }
-progress.mb-rp-progress.is-series-7::-moz-progress-bar { background: var(--mb-chart-series-7); }
-
 /* ===== 图表 ===== */
 
 .mb-rp-chart-grid {
@@ -1020,12 +1006,6 @@ progress.mb-rp-progress.is-series-7::-moz-progress-bar { background: var(--mb-ch
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-/* 并排两卡等高：资产构成图例在卡内纵向铺满，不把空白留在卡底 */
-.mb-rp-chart-grid .mb-rp-compare-side {
-  flex: 1;
-  justify-content: space-between;
 }
 
 .mb-rp-chart-body {
@@ -1255,9 +1235,29 @@ progress.mb-rp-progress.is-series-7::-moz-progress-bar { background: var(--mb-ch
   font-variant-numeric: tabular-nums;
 }
 
-/* 支出构成环形（纯 SVG）：面积按金额占比，图例三件套；移动端图例行 44px 命中。 */
+/* 构成环形（收入 / 支出两侧）：面积按金额占比，图例三件套；移动端图例行 44px 命中。 */
 .mb-rp-compare.is-mobile {
   grid-template-columns: 1fr;
+}
+
+/* 桌面窄栏（1024 每侧约 150px）时图例换成两行：金额与百分比下移，名称不再被省略号截断。 */
+.mb-rp-compare-side {
+  container-type: inline-size;
+}
+
+@container (max-width: 200px) {
+  .mb-rp-donut-legend-row .mb-rp-compare-row-head {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .mb-rp-donut-legend-row .mb-rp-compare-name {
+    flex: 1 1 100%;
+  }
+
+  .mb-rp-donut-legend-row .mb-rp-donut-meta {
+    margin-left: calc(9px + var(--mb-s-1));
+  }
 }
 
 .mb-rp-donut {
@@ -1265,6 +1265,48 @@ progress.mb-rp-progress.is-series-7::-moz-progress-bar { background: var(--mb-ch
   flex-direction: column;
   gap: var(--mb-s-2);
   min-width: 0;
+}
+
+/* 二级环：面包屑是明确的返回路径，Esc 亦可返回。 */
+.mb-rp-donut-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  min-height: 24px;
+}
+
+.mb-rp-donut-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 24px;
+  padding: 0 var(--mb-s-1);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-xs);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+}
+
+.mb-rp-donut-back:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-rp-donut-crumb-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-donut.is-mobile .mb-rp-donut-back {
+  min-height: var(--mb-touch);
+  padding-inline: var(--mb-s-2);
 }
 
 .mb-rp-donut-chart {

@@ -308,34 +308,25 @@ export function CompositionBars({
   return (
     <ChartCard title="收入 / 支出构成">
       <div className={device === 'mobile' ? 'mb-rp-compare is-mobile' : 'mb-rp-compare'}>
-        <CompositionSide
+        {/* 用户要求两侧对称：支出在左、收入在右，两环同尺寸。 */}
+        <CompositionDonutSide
+          title="支出构成"
+          tone="expense"
+          nodes={expenseTrees}
+          total={expenseTotal}
+          device={device}
+          onOpen={onOpen}
+          emptyText="该期间没有支出"
+        />
+        <CompositionDonutSide
           title="收入构成"
+          tone="income"
           nodes={incomeTrees}
           total={incomeTotal}
-          tone="income"
+          device={device}
           onOpen={onOpen}
+          emptyText="该期间没有收入"
         />
-        <div className="mb-rp-compare-side">
-          <div className="mb-rp-compare-head">
-            <span className="mb-rp-compare-title is-expense">支出构成</span>
-            {expenseTotal > 0 && (
-              <span
-                className="mb-rp-compare-scale"
-                aria-label={`支出构成合计 ${currency(expenseTotal)}`}
-              >
-                合计 {currency(expenseTotal)}
-              </span>
-            )}
-          </div>
-          <DonutChart
-            nodes={expenseTrees}
-            total={expenseTotal}
-            device={device}
-            onOpen={onOpen}
-            title="支出构成"
-            emptyText="该期间没有支出"
-          />
-        </div>
       </div>
     </ChartCard>
   )
@@ -363,11 +354,6 @@ function mergeTail(nodes: FlowTreeNode[], keep: number): FlowTreeNode[] {
       mergedIds: rest.map((node) => node.id),
     },
   ]
-}
-
-/** 横条保留旧口径：5 个具名 + 1 个「其余」，共 6 行。 */
-function topNodes(nodes: FlowTreeNode[], limit: number): FlowTreeNode[] {
-  return mergeTail(nodes, limit - 1)
 }
 
 const SERIES_FILL = [
@@ -401,10 +387,19 @@ function donutRing(cx: number, cy: number, rOuter: number, rInner: number): stri
   return `M ${cx - rOuter} ${cy} A ${rOuter} ${rOuter} 0 0 1 ${cx + rOuter} ${cy} A ${rOuter} ${rOuter} 0 0 1 ${cx - rOuter} ${cy} L ${cx - rInner} ${cy} A ${rInner} ${rInner} 0 0 0 ${cx + rInner} ${cy} A ${rInner} ${rInner} 0 0 0 ${cx - rInner} ${cy} Z`
 }
 
+/** 二级环配色：父色相固定，明度做阶梯。浅色向深调（末位回到父色），暗色向浅调（父色最深）。 */
+function subFill(parentColor: string, index: number, count: number): string {
+  if (count <= 1) return parentColor
+  const fraction = index / (count - 1)
+  return `color-mix(in srgb, ${parentColor} calc(var(--mb-chart-sub-from) + (var(--mb-chart-sub-to) - var(--mb-chart-sub-from)) * ${fraction.toFixed(4)}), var(--mb-chart-sub-tint))`
+}
+
 /**
- * 支出构成环形：纯 SVG，面积按金额占比；一级根分类 Top 6 + 「其余 N 类」，
+ * 构成环形：纯 SVG，面积按金额占比；一级根分类 Top 6 + 「其余 N 类」，
  * 第 8 类起并入「其余」。「其余」块叠 45° 斜纹并保留文字图例，不靠颜色单独编码。
- * 空态不画环；单条数据画完整环、中心 100%。切块与图例行都可下钻。
+ * 空态不画环；单条数据画完整环，中心仍标该侧合计。
+ * 一级类别有子分类时点进二级环（最多 5 个具名 + 其余）；叶子类别直接下钻到流水，
+ * 不进空环。面包屑与 Esc 回到一级；二级环不再有第三级。
  */
 export function DonutChart({
   nodes,
@@ -424,20 +419,51 @@ export function DonutChart({
   emptyText: string
 }) {
   const [bodyRef, measuredWidth] = useChartWidth()
+  const [drillId, setDrillId] = useState<string | null>(null)
   const rawPatternId = useId()
   const patternId = `mb-donut-${rawPatternId.replace(/[^a-zA-Z0-9_-]/g, '')}`
   // 只取一级根分类；0 金额分类不进环。
-  const visible = mergeTail(
+  const roots = mergeTail(
     nodes.filter((node) => node.level === 0 && node.amount > 0),
     6,
   )
-  const amountSum = visible.reduce((sum, node) => sum + node.amount, 0)
-  const denom = amountSum > 0 ? amountSum : total
-  const items = visible.map((node, index) => ({
+  const drilled = drillId ? roots.find((node) => node.id === drillId) ?? null : null
+  const subChildren = drilled
+    ? drilled.children.filter((child) => child.level === 1 && child.amount > 0)
+    : []
+  const isDrilled = Boolean(drilled && subChildren.length > 0)
+  const levelNodes = isDrilled ? mergeTail(subChildren, 5) : roots
+  const rootIndex = drilled ? roots.findIndex((node) => node.id === drilled.id) : -1
+  const parentColor = SERIES_FILL[Math.max(0, rootIndex) % SERIES_FILL.length]
+  const amountSum = levelNodes.reduce((sum, node) => sum + node.amount, 0)
+  const denom = amountSum > 0 ? amountSum : drilled?.amount ?? total
+  const items = levelNodes.map((node, index) => ({
     node,
-    color: SERIES_FILL[index % SERIES_FILL.length],
+    color: isDrilled ? subFill(parentColor, index, levelNodes.length) : SERIES_FILL[index % SERIES_FILL.length],
     share: denom > 0 ? (node.amount / denom) * 100 : 0,
+    rest: node.id === 'rest',
   }))
+  // 一级类别：有子分类进二级环；叶子与「其余 N 类」直接下钻到流水。
+  const activate = (node: FlowTreeNode) => {
+    if (!isDrilled && node.id !== 'rest') {
+      const children = node.children.filter((child) => child.level === 1 && child.amount > 0)
+      if (children.length > 0) {
+        setDrillId(node.id)
+        return
+      }
+    }
+    onOpen?.(node, kind)
+  }
+  useEffect(() => {
+    if (!isDrilled) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setDrillId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isDrilled])
   const cap = device === 'mobile' ? 232 : 260
   const size = Math.max(140, Math.min(cap, measuredWidth || (device === 'mobile' ? cap : 200)))
   const cx = size / 2
@@ -445,24 +471,69 @@ export function DonutChart({
   const rOuter = size / 2 - 6
   const thickness = device === 'mobile' ? 20 : 24
   const rInner = Math.max(8, rOuter - thickness)
+  /** 命中层：桌面也必须有（弧本身 pointer-events:none），移动向内加厚到 44 触控带。 */
+  const hitInner = Math.max(1, rInner - (device === 'mobile' ? 24 : 6))
+  const hitBand = device === 'mobile' ? 44 : 30
+  // 切块角：先按金额占比扣 1° 白隙；<2° 的块保底 1.4°，保底增量从其他块按富余比例扣除，
+  // 保证总角 ≤ 360 − 白隙，最细的块不会压到相邻块（含 270° 处的首块）。
+  const TOO_THIN = 1.4
+  const SLICE_GAP = 1
+  const rawSweeps =
+    items.length === 1
+      ? [360]
+      : items.map((item) => Math.max(TOO_THIN, (item.share / 100) * 360 - SLICE_GAP))
+  const budget = 360 - items.length * SLICE_GAP
+  const rawTotal = rawSweeps.reduce((sum, sweep) => sum + sweep, 0)
+  const deficit = Math.max(0, rawTotal - budget)
+  const slack = rawSweeps.map((sweep) => Math.max(0, sweep - TOO_THIN))
+  const slackTotal = slack.reduce((sum, value) => sum + value, 0)
+  const fitted =
+    deficit > 0 && slackTotal > 0
+      ? rawSweeps.map((sweep, index) => sweep - deficit * (slack[index] / slackTotal))
+      : rawSweeps
   let cursor = -90
-  const slices = items.map((item) => {
-    const raw = (item.share / 100) * 360
-    // 切块间留 1°，最细的块保底 1.4°——<2° 的块只靠图例读数。
-    const sweep = items.length === 1 ? 360 : Math.max(1.4, raw - 1)
+  const slices = items.map((item, index) => {
+    const sweep = fitted[index]
     const start = cursor
-    cursor += raw
-    return { ...item, start, sweep, rest: item.node.id === 'rest' }
+    cursor += sweep + (items.length === 1 ? 0 : SLICE_GAP)
+    return { ...item, start, sweep }
   })
   const isSingle = items.length === 1
-  const aria = `${title}：${items.map((item) => `${item.node.name} ${item.share.toFixed(1)}%`).join('，')}`
+  const sideLabel = kind === 'income' ? '收入' : '支出'
+  const centerLabel = isDrilled && drilled
+    ? drilled.name
+    : isSingle
+      ? `${sideLabel} · 100%`
+      : sideLabel
+  const centerValue = currency(isDrilled && drilled ? drilled.amount : denom)
+  const aria = `${isDrilled && drilled ? `${drilled.name}构成` : title}：${items.map((item) => `${item.node.name} ${item.share.toFixed(1)}%`).join('，')}`
 
   return (
-    <div ref={bodyRef} className={device === 'mobile' ? 'mb-rp-donut is-mobile' : 'mb-rp-donut'}>
+    <div
+      ref={bodyRef}
+      className={device === 'mobile' ? 'mb-rp-donut is-mobile' : 'mb-rp-donut'}
+      data-view={isDrilled ? 'sub' : 'root'}
+    >
       {items.length === 0 ? (
         <p className="mb-rp-empty-line">{emptyText}</p>
       ) : (
         <>
+          {/* 面包屑槽位常驻：任一侧下钻时，两侧环形顶部仍对齐。 */}
+          <div className="mb-rp-donut-crumb">
+            {isDrilled && drilled && (
+              <>
+                <button
+                  type="button"
+                  className="mb-rp-donut-back"
+                  onClick={() => setDrillId(null)}
+                  aria-label={`返回${title}一级`}
+                >
+                  <span aria-hidden="true">‹</span> 返回一级
+                </button>
+                <span className="mb-rp-donut-crumb-name">{drilled.name}</span>
+              </>
+            )}
+          </div>
           <div className="mb-rp-donut-chart">
             <svg
               className="mb-rp-donut-svg"
@@ -478,7 +549,7 @@ export function DonutChart({
                   width="6"
                   height="6"
                   patternUnits="userSpaceOnUse"
-                  patternTransform="rotate(45)"
+                  patternTransform="rotate(-45)"
                 >
                   <line
                     x1="0"
@@ -496,20 +567,27 @@ export function DonutChart({
                   data-id={items[0].node.id}
                   data-amount={items[0].node.amount}
                   data-share={items[0].share}
-                  onClick={() => onOpen?.(items[0].node, kind)}
+                  data-view={isDrilled ? 'sub' : 'root'}
+                  data-sub-step={isDrilled ? 0 : undefined}
+                  data-sub-parent={isDrilled ? rootIndex : undefined}
+                  data-start={0}
+                  onClick={() => activate(items[0].node)}
                 >
-                  <path className="mb-rp-donut-arc" d={donutRing(cx, cy, rOuter, rInner)} fill={items[0].color} />
-                  {device === 'mobile' && (
-                    <path
-                      className="mb-rp-donut-hit"
-                      d={donutRing(cx, cy, rOuter, Math.max(1, rInner - 24))}
-                      fill="transparent"
-                      aria-hidden="true"
-                    />
-                  )}
+                  <path
+                    className="mb-rp-donut-arc"
+                    d={donutRing(cx, cy, rOuter, rInner)}
+                    style={{ fill: items[0].color }}
+                  />
+                  <path
+                    className="mb-rp-donut-hit"
+                    d={donutRing(cx, cy, rOuter, hitInner)}
+                    fill="transparent"
+                    data-hit={hitBand}
+                    aria-hidden="true"
+                  />
                 </g>
               ) : (
-                slices.map((slice) => (
+                slices.map((slice, index) => (
                   <g
                     key={slice.node.id}
                     className="mb-rp-donut-slice"
@@ -517,12 +595,16 @@ export function DonutChart({
                     data-amount={slice.node.amount}
                     data-share={slice.share}
                     data-sweep={slice.sweep}
-                    onClick={() => onOpen?.(slice.node, kind)}
+                    data-start={slice.start}
+                    data-view={isDrilled ? 'sub' : 'root'}
+                    data-sub-step={isDrilled ? index : undefined}
+                    data-sub-parent={isDrilled ? rootIndex : undefined}
+                    onClick={() => activate(slice.node)}
                   >
                     <path
                       className={slice.rest ? 'mb-rp-donut-arc is-rest' : 'mb-rp-donut-arc'}
                       d={donutArc(cx, cy, rOuter, rInner, slice.start, slice.sweep)}
-                      fill={slice.color}
+                      style={{ fill: slice.color }}
                     />
                     {slice.rest && (
                       <path
@@ -532,22 +614,21 @@ export function DonutChart({
                         aria-hidden="true"
                       />
                     )}
-                    {device === 'mobile' && (
-                      <path
-                        className="mb-rp-donut-hit"
-                        d={donutArc(cx, cy, rOuter, Math.max(1, rInner - 24), slice.start, slice.sweep)}
-                        fill="transparent"
-                        aria-hidden="true"
-                      />
-                    )}
+                    <path
+                      className="mb-rp-donut-hit"
+                      d={donutArc(cx, cy, rOuter, hitInner, slice.start, slice.sweep)}
+                      fill="transparent"
+                      data-hit={hitBand}
+                      aria-hidden="true"
+                    />
                   </g>
                 ))
               )}
               <text className="mb-rp-donut-center-label" x={cx} y={cy - 2} textAnchor="middle">
-                {isSingle ? '100%' : '合计'}
+                {centerLabel}
               </text>
               <text className="mb-rp-donut-center-value" x={cx} y={cy + 17} textAnchor="middle">
-                {currency(denom)}
+                {centerValue}
               </text>
             </svg>
           </div>
@@ -558,7 +639,7 @@ export function DonutChart({
                 key={slice.node.id}
                 className="mb-rp-compare-row is-interactive mb-rp-donut-legend-row"
                 aria-label={`查看 ${slice.node.name} ${currency(slice.node.amount)} 的下钻`}
-                onClick={() => onOpen?.(slice.node, kind)}
+                onClick={() => activate(slice.node)}
               >
                 <span className="mb-rp-compare-row-head">
                   <span className="mb-rp-compare-name">
@@ -588,58 +669,46 @@ export function DonutChart({
   )
 }
 
-function CompositionSide({
+/** 一侧构成：标题 + 合计 + 环形。两侧共用同一个 DonutChart，保证同尺寸同交互。 */
+function CompositionDonutSide({
   title,
+  tone,
   nodes,
   total,
-  tone,
+  device,
   onOpen,
+  emptyText,
 }: {
   title: string
+  tone: 'income' | 'expense'
   nodes: FlowTreeNode[]
   total: number
-  tone: 'income' | 'expense'
+  device: DeviceMode
   onOpen?: (node: FlowTreeNode, kind: 'income' | 'expense') => void
+  emptyText: string
 }) {
-  const visible = topNodes(nodes, 6)
-  const max = Math.max(...visible.map((node) => node.amount), 1)
   return (
     <div className="mb-rp-compare-side">
       <div className="mb-rp-compare-head">
         <span className={`mb-rp-compare-title is-${tone}`}>{title}</span>
-        {visible.length > 0 && (
+        {total > 0 && (
           <span
             className="mb-rp-compare-scale"
-            aria-label={`${title}满格 ${currencyAxisFormatter(max)}，本侧合计 ${currency(total)}`}
+            aria-label={`${title}合计 ${currency(total)}`}
           >
-            满格 {currencyAxisFormatter(max)}
+            合计 {currency(total)}
           </span>
         )}
       </div>
-      {visible.length === 0 ? (
-        <p className="mb-rp-empty-line">该期间没有{title.slice(0, 2)}</p>
-      ) : (
-        visible.map((node, index) => (
-          <button
-            type="button"
-            className="mb-rp-compare-row is-interactive"
-            key={node.id}
-            aria-label={`查看 ${node.name} ${currency(node.amount)} 的下钻`}
-            onClick={() => onOpen?.(node, tone)}
-          >
-            <div className="mb-rp-compare-row-head">
-              <span className="mb-rp-compare-name">{node.name}</span>
-              <span className="mb-rp-compare-amount">{currency(node.amount)}</span>
-            </div>
-            <progress
-              className={`mb-rp-progress is-series-${(index % 7) + 1}`}
-              value={(node.amount / max) * 100}
-              max={100}
-              aria-label={`${node.name}占${title}的 ${node.share.toFixed(1)}%`}
-            />
-          </button>
-        ))
-      )}
+      <DonutChart
+        nodes={nodes}
+        total={total}
+        device={device}
+        onOpen={onOpen}
+        kind={tone}
+        title={title}
+        emptyText={emptyText}
+      />
     </div>
   )
 }
