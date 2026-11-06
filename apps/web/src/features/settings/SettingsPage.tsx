@@ -304,6 +304,14 @@ function EditorSheet({
   const initialKind =
     editor?.kind === 'account' ? (account?.kind ?? editor.preset) : ('deposit' as AccountKind)
   const currentBalance = account ? account.balance / 100 : 0
+  // 有流水后，期初余额冻结：改当前余额会自动落平账分录，不再折算期初。
+  const hasTransactions =
+    editor?.kind === 'account' &&
+    editor.mode === 'edit' &&
+    Boolean(account?.id) &&
+    ledger.transactions.some(
+      (transaction) => transaction.accountId === account?.id || transaction.toAccountId === account?.id,
+    )
   const openingBalance = account?.initialBalance !== undefined ? account.initialBalance / 100 : currentBalance
   const openingDate = account?.initialBalanceDate ?? todayLocal()
   const initialTarget = invest?.target ?? 0
@@ -402,6 +410,7 @@ function EditorSheet({
                 value={initialBalance}
                 onChange={(event) => setInitialBalance(event.target.value)}
                 placeholder="0.00"
+                disabled={hasTransactions}
               />
             </label>
             <label className="mb-set-field">
@@ -411,10 +420,13 @@ function EditorSheet({
                 type="date"
                 value={initialBalanceDate}
                 onChange={(event) => setInitialBalanceDate(event.target.value)}
+                disabled={hasTransactions}
               />
             </label>
             <p className="mb-set-hint">
-              期初余额 = 期初日期当天开始前的余额，当天交易照常计入。负债账户填负值（如信用卡欠款 ¥5,000 填 -5000）。
+              {hasTransactions
+                ? '该账户已有流水，期初余额已冻结。要修正余额请改「当前余额」，系统会生成一条可见的平账记录。'
+                : '期初余额 = 期初日期当天开始前的余额，当天交易照常计入。负债账户填负值（如信用卡欠款 ¥5,000 填 -5000）。'}
             </p>
             {editor.mode === 'edit' && (
               <label className="mb-set-field">
@@ -430,7 +442,9 @@ function EditorSheet({
             )}
             {editor.mode === 'edit' && (
               <p className="mb-set-hint">
-                只改「当前余额」时按差额折算进期初；同时改两项会叠加。
+                {hasTransactions
+                  ? '改「当前余额」不会改动期初，而是按差额自动生成一条平账记录（不计入收支与预算）。'
+                  : '账户尚无流水，当前余额与期初余额等价。'}
               </p>
             )}
           </>

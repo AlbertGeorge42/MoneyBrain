@@ -4,6 +4,7 @@ import type {
   AccountBalanceAtResult,
   AccountCategory,
   AccountDeleteResult,
+  AccountReconcileResult,
   AccountStats,
   AnalyticsAssetTrendItem,
   AnalyticsCategoryBreakdownItem,
@@ -125,6 +126,16 @@ export const accountApi = {
     ),
   create: (data: Partial<Account>) => api.post<ApiResponse<Account>>('/accounts', data),
   update: (id: string, data: Partial<Account>) => api.put<ApiResponse<Account>>(`/accounts/${id}`, data),
+  /** 一键对账：给出真实余额，后端算差额并生成 adjustment 分录。 */
+  reconcile: (
+    id: string,
+    data: {
+      date: string
+      actualBalance: Minor
+      note?: string
+      mode?: 'overwrite' | 'append'
+    },
+  ) => api.post<ApiResponse<AccountReconcileResult>>(`/accounts/${id}/reconcile`, data),
   updateSort: (items: Array<{ id: string; sort: number; categoryId: string | null }>) =>
     api.put<ApiResponse<MessageResult>>('/accounts/sort/batch', { items }),
   delete: (id: string, force?: boolean) => api.delete<ApiResponse<AccountDeleteResult>>(`/accounts/${id}`, { params: { force } }),

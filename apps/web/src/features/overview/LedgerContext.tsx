@@ -414,15 +414,29 @@ export function LedgerProvider({
         const accounts = await accountApi.getAll().then(unwrapApiData)
         const apiAccount = accounts.find((account) => account.id === id)
         if (!apiAccount) return { ok: false, error: '账户不存在' }
-        // 期初余额：显式填写的值优先；若用户同时改了「当前余额」，
-        // 把差额折算进期初（与 balance-at 同口径，保证当日余额和面板一致）。
+        const hasTransactions = ledgerRef.current.transactions.some(
+          (transaction) => transaction.accountId === id || transaction.toAccountId === id,
+        )
         const explicitInitial =
           input.initialBalance !== undefined ? input.initialBalance : Number(apiAccount.initialBalance)
-        const delta = input.balance !== currentBalance ? input.balance - currentBalance : 0
-        body.initialBalance = minor(explicitInitial + delta)
-        const nextDate = input.initialBalanceDate ?? apiAccount.initialBalanceDate
-        if (nextDate) body.initialBalanceDate = nextDate
+        if (hasTransactions) {
+          // 有流水后，期初余额冻结：改当前余额只能走「对账」，差额落 adjustment，
+          // 绝不折算进 initialBalance（否则历史余额会被静默重写）。
+          if (input.initialBalance !== undefined && explicitInitial !== Number(apiAccount.initialBalance)) {
+            return { ok: false, error: '账户已有流水，期初余额不可修改；改当前余额会自动生成平账记录' }
+          }
+        } else {
+          body.initialBalance = minor(explicitInitial)
+          const nextDate = input.initialBalanceDate ?? apiAccount.initialBalanceDate
+          if (nextDate) body.initialBalanceDate = nextDate
+        }
         await accountApi.update(id, body).then(unwrapApiData)
+        if (hasTransactions && input.balance !== currentBalance) {
+          // 与一键对账共用同一后端路径：差额可见、可筛选、可撤销。
+          await accountApi
+            .reconcile(id, { date: todayLocal(), actualBalance: minor(input.balance) })
+            .then(unwrapApiData)
+        }
         await refreshRemote()
         return { ok: true }
       } catch (error) {
