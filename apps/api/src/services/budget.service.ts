@@ -1,5 +1,9 @@
 import type { Budget } from '@prisma/client'
-import { NotFoundError, ValidationError, parseDateLocal } from '../common/index.js'
+import type {
+  BudgetPeriodPlanPoint,
+  BudgetPeriodPlanResult,
+} from '../../../../packages/contracts/types/index.js'
+import { NotFoundError, ValidationError, formatDateLocal, parseDateLocal } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
@@ -12,6 +16,7 @@ import {
   minor,
   periodOf,
   rulesFor,
+  type BudgetKind,
   type BudgetScope,
   type LocalDate,
   type Minor,
@@ -481,7 +486,7 @@ export async function generatePredictions(startDate: string, endDate: string) {
     if (effectiveStart > effectiveEnd) continue
 
     // 根据周期和交易时间生成时间点
-    const timePoints = generateTimePoints(effectiveStart, effectiveEnd, budget.period, budget.transactionTime)
+    const timePoints = generateBudgetTimePoints(effectiveStart, effectiveEnd, budget.period, budget.transactionTime)
 
     for (const tp of timePoints) {
       predictions.push({
@@ -505,10 +510,21 @@ export async function generatePredictions(startDate: string, endDate: string) {
 }
 
 /**
- * 根据周期和交易时间生成时间点序列
+ * 根据周期和交易时间生成时间点序列。
+ *
+ * 只返回落在 [start, end] 内的点：起点之前的本期点位（如月度预算的 5 号、
+ * 季度/年度天偏移落点）不会因为「本周期开始」而被带进窗口——
+ * 否则推演会把已经过去的点位算成未来预测。
+ *
+ * transactionTime 语义：
+ * - daily：忽略
+ * - weekly：0=周一 … 6=周日（缺省周日）
+ * - monthly：几号（缺省月末）
+ * - quarterly / yearly：从周期起点起的天偏移（缺省周期末）
  */
-function generateTimePoints(start: Date, end: Date, period: string, transactionTime: number | null): Date[] {
+export function generateBudgetTimePoints(start: Date, end: Date, period: string, transactionTime: number | null): Date[] {
   const points: Date[] = []
+  const inRange = (date: Date) => date >= start && date <= end
 
   switch (period) {
     case 'daily': {
@@ -545,12 +561,12 @@ function generateTimePoints(start: Date, end: Date, period: string, transactionT
         if (transactionTime !== null) {
           const pointDate = new Date(current)
           pointDate.setDate(transactionTime)
-          if (pointDate.getMonth() === current.getMonth() && pointDate <= end) {
+          if (pointDate.getMonth() === current.getMonth() && inRange(pointDate)) {
             points.push(pointDate)
           }
         } else {
           const lastDay = new Date(current.getFullYear(), current.getMonth() + 1, 0)
-          if (lastDay <= end) {
+          if (inRange(lastDay)) {
             points.push(lastDay)
           }
         }
@@ -566,16 +582,17 @@ function generateTimePoints(start: Date, end: Date, period: string, transactionT
 
       while (current <= end) {
         if (transactionTime !== null) {
+          // 天偏移从**季度起点**算起（不是窗口起点），并裁掉窗口起点之前的落点
           const pointDate = new Date(current)
           pointDate.setDate(pointDate.getDate() + transactionTime)
-          if (pointDate <= end) {
+          if (inRange(pointDate)) {
             points.push(pointDate)
           }
         } else {
           // 默认：季度最后一天
           const currentQ = Math.floor(current.getMonth() / 3)
           const lastDay = new Date(current.getFullYear(), (currentQ + 1) * 3, 0)
-          if (lastDay <= end) {
+          if (inRange(lastDay)) {
             points.push(lastDay)
           }
         }
@@ -590,15 +607,16 @@ function generateTimePoints(start: Date, end: Date, period: string, transactionT
 
       while (current <= end) {
         if (transactionTime !== null) {
+          // 天偏移从**年度起点**算起（不是窗口起点），并裁掉窗口起点之前的落点
           const pointDate = new Date(current)
           pointDate.setDate(pointDate.getDate() + transactionTime)
-          if (pointDate <= end) {
+          if (inRange(pointDate)) {
             points.push(pointDate)
           }
         } else {
           // 默认：12月31日
           const lastDay = new Date(current.getFullYear(), 11, 31)
-          if (lastDay <= end) {
+          if (inRange(lastDay)) {
             points.push(lastDay)
           }
         }
@@ -609,6 +627,75 @@ function generateTimePoints(start: Date, end: Date, period: string, transactionT
   }
 
   return points
+}
+
+/** 预算类型收窄：生成器只会产出这三种，未知值直接失败而不是悄悄按 0 处理。 */
+function budgetKindOf(value: string): BudgetKind {
+  if (value === 'income' || value === 'expense' || value === 'transfer') return value
+  throw new Error(`未知预算类型: ${value}`)
+}
+
+/**
+ * 未来各周期预算额度（逐月）。
+ *
+ * 每个点位代表一个自然月：`hasBudget=false` 表示该月没有任何预算展开点位，
+ * 此时 `totals=null`——「无预算」不能用一个 0 额度冒充。
+ */
+export async function buildBudgetPeriodPlan(fromMonth: string, months: number): Promise<BudgetPeriodPlanResult> {
+  if (months < 1) {
+    throw new ValidationError('months 必须大于 0')
+  }
+
+  const first = toDateValue(`${fromMonth}-01`)
+  const windows: Array<{ month: string; start: Date; endExclusive: Date }> = []
+  let cursor = new Date(first.getFullYear(), first.getMonth(), 1)
+  for (let i = 0; i < months; i++) {
+    const next = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+    windows.push({
+      month: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+      start: cursor,
+      endExclusive: next,
+    })
+    cursor = next
+  }
+
+  const lastWindow = windows[windows.length - 1]!
+  const lastDay = new Date(lastWindow.endExclusive)
+  lastDay.setDate(lastDay.getDate() - 1)
+  const predictions = await generatePredictions(formatDateLocal(first), formatDateLocal(lastDay))
+
+  const points: BudgetPeriodPlanPoint[] = windows.map((window) => ({
+    month: window.month,
+    hasBudget: false,
+    budgets: [],
+    totals: null,
+  }))
+  const pointByMonth = new Map(points.map((point) => [point.month, point]))
+
+  for (const prediction of predictions) {
+    const month = formatDateLocal(prediction.date).slice(0, 7)
+    const point = pointByMonth.get(month)
+    if (!point) continue
+
+    const type = budgetKindOf(prediction.type)
+    point.budgets.push({
+      budgetId: prediction.budgetId,
+      budgetName: prediction.budgetName,
+      type,
+      date: formatDateLocal(prediction.date),
+      amount: minor(prediction.amount),
+    })
+    const totals = point.totals ?? {
+      income: minor(0),
+      expense: minor(0),
+      transfer: minor(0),
+    }
+    totals[type] = minor(totals[type] + prediction.amount)
+    point.totals = totals
+    point.hasBudget = true
+  }
+
+  return { fromMonth, months, points }
 }
 
 export async function deleteBudget(budgetId: string) {

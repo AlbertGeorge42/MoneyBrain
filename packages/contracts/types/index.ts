@@ -822,3 +822,104 @@ export interface RollbackResult {
   /** 快照各表的行数统计 */
   stats: Record<string, number>
 }
+
+// ===== 预算推演（资产 / 现金流） =====
+
+/** 推演窗口：3 / 6 / 12 个月。 */
+export type ProjectionMonths = 3 | 6 | 12
+
+/**
+ * 资产/负债水平（整数分）。
+ * liabilities 为负债账户余额合计的相反数：正常为正，负债账户出现正余额时为负。
+ */
+export interface ProjectionBalance {
+  assets: Minor
+  liabilities: Minor
+  netWorth: Minor
+}
+
+/**
+ * 一行推演点位。
+ *
+ * - actual：asOf 当期真实余额（只含 date ≤ asOf 的交易；未来各点保持不变）
+ * - planned：预算展开的**累计增量**（相对 actual）
+ * - committed：已排定未来真实交易的**累计增量**（相对 actual）
+ * - total = actual + planned + committed（逐项相加）
+ *
+ * planned 与 committed 是两个互不重叠的来源：未来日期真实交易只进 committed，
+ * 预算展开只进 planned，同一月份两者相加不会把同一笔钱算两次。
+ */
+export interface AssetProjectionPoint {
+  label: string
+  /** 该月最后一个日历日（YYYY-MM-DD）。 */
+  date: string
+  actual: ProjectionBalance
+  planned: ProjectionBalance
+  committed: ProjectionBalance
+  total: ProjectionBalance
+}
+
+export interface AssetProjectionResult {
+  /** 推演起点（YYYY-MM-DD）。 */
+  asOf: string
+  months: ProjectionMonths
+  /** 起点真实余额，等于每个点位里的 actual。 */
+  base: ProjectionBalance
+  points: AssetProjectionPoint[]
+}
+
+/** 一组现金流口径：actual（当期已发生）+ planned + committed。 */
+export interface ProjectionFlowValue {
+  actual: Minor
+  planned: Minor
+  committed: Minor
+  total: Minor
+}
+
+/** 现金流推演点位：期初 + 净额 = 期末。 */
+export interface CashFlowProjectionPoint {
+  label: string
+  /** 该月最后一个日历日（YYYY-MM-DD）。 */
+  date: string
+  inflow: ProjectionFlowValue
+  outflow: ProjectionFlowValue
+  net: ProjectionFlowValue
+  startCash: Minor
+  endCash: Minor
+}
+
+export interface CashFlowProjectionResult {
+  asOf: string
+  months: ProjectionMonths
+  /** 首个推演月月初现金（真实余额，不含未来日期交易）。 */
+  startCash: Minor
+  /** 末个推演月月末现金（= 逐月净额累加）。 */
+  endCash: Minor
+  points: CashFlowProjectionPoint[]
+}
+
+/** 某个预算在某个月的展开点位。 */
+export interface BudgetPeriodPlanOccurrence {
+  budgetId: string
+  budgetName: string
+  type: 'income' | 'expense' | 'transfer'
+  /** 该点位日期（YYYY-MM-DD）。 */
+  date: string
+  amount: Minor
+}
+
+export interface BudgetPeriodPlanPoint {
+  /** 自然月（YYYY-MM）。 */
+  month: string
+  /** 该月是否存在预算展开点位；false 表示「无预算」。 */
+  hasBudget: boolean
+  budgets: BudgetPeriodPlanOccurrence[]
+  /** 该月预算额度合计；hasBudget=false 时为 null（不用 0 冒充无预算）。 */
+  totals: { income: Minor; expense: Minor; transfer: Minor } | null
+}
+
+export interface BudgetPeriodPlanResult {
+  fromMonth: string
+  months: number
+  points: BudgetPeriodPlanPoint[]
+}

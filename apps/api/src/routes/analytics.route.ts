@@ -1,6 +1,15 @@
 import { Router } from 'express'
-import { asyncHandler, success, validateRequest, validateTypeQuery } from '../common/index.js'
+import {
+  asyncHandler,
+  parseAsOfQuery,
+  parseBooleanQuery,
+  parseProjectionMonths,
+  success,
+  validateRequest,
+  validateTypeQuery,
+} from '../common/index.js'
 import { getTrends, getCategoryBreakdown, getAssetTrend, getDashboardSummary } from '../services/analytics.service.js'
+import { getAssetProjection } from '../services/projection.service.js'
 
 const router = Router()
 
@@ -27,6 +36,15 @@ router.get('/category-breakdown', validateRequest(validateTypeQuery), asyncHandl
 router.get('/asset-trend', asyncHandler(async (_req, res) => {
   const trends = await getAssetTrend()
   return success(res, trends)
+}))
+
+router.get('/asset-projection', asyncHandler(async (req, res) => {
+  const months = parseProjectionMonths(req.query.months)
+  const asOf = parseAsOfQuery(req.query.asOf)
+  const includePlanned = parseBooleanQuery(req.query.includePlanned, 'includePlanned', true)
+  const includeCommitted = parseBooleanQuery(req.query.includeCommitted, 'includeCommitted', true)
+  const result = await getAssetProjection({ asOf, months, includePlanned, includeCommitted })
+  return success(res, result)
 }))
 
 export default router

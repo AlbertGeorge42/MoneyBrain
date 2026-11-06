@@ -9,8 +9,11 @@ import {
   toDate,
   parseMoney,
   parseOptionalUuid,
+  parseFromMonthQuery,
+  parsePeriodPlanMonths,
 } from '../common/index.js'
 import {
+  buildBudgetPeriodPlan,
   createBudget,
   deleteBudget,
   getBudgets,
@@ -70,6 +73,14 @@ router.get('/predictions', asyncHandler(async (req, res) => {
   }
   const predictions = await generatePredictions(String(startDate), String(endDate))
   return success(res, predictions)
+}))
+
+// 未来各周期预算额度：无预算的月份返回 hasBudget=false / totals=null
+router.get('/period-plan', asyncHandler(async (req, res) => {
+  const fromMonth = parseFromMonthQuery(req.query.fromMonth)
+  const months = parsePeriodPlanMonths(req.query.months)
+  const plan = await buildBudgetPeriodPlan(fromMonth, months)
+  return success(res, plan)
 }))
 
 // 预算下钻明细（C2）：与用量同一口径，条数与合计 == 预算用量

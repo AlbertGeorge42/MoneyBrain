@@ -1,6 +1,16 @@
 import { Router } from 'express'
-import { asyncHandler, success, validateRequest, validateDateQuery, validateDateRange } from '../common/index.js'
+import {
+  asyncHandler,
+  parseAsOfQuery,
+  parseBooleanQuery,
+  parseProjectionMonths,
+  success,
+  validateRequest,
+  validateDateQuery,
+  validateDateRange,
+} from '../common/index.js'
 import { generateBalanceSheet, generateIncomeExpense, generateCashFlow, generateInvestmentAnalysis } from '../services/report/index.js'
+import { getCashFlowProjection } from '../services/projection.service.js'
 
 const router = Router()
 
@@ -24,6 +34,15 @@ router.get('/cash-flow', validateRequest(validateDateRange), asyncHandler(async 
 
 router.get('/investment-analysis', validateRequest(validateDateRange), asyncHandler(async (req, res) => {
   const result = await generateInvestmentAnalysis(String(req.query.startDate), String(req.query.endDate))
+  return success(res, result)
+}))
+
+router.get('/cash-flow-projection', asyncHandler(async (req, res) => {
+  const months = parseProjectionMonths(req.query.months)
+  const asOf = parseAsOfQuery(req.query.asOf)
+  const includePlanned = parseBooleanQuery(req.query.includePlanned, 'includePlanned', true)
+  const includeCommitted = parseBooleanQuery(req.query.includeCommitted, 'includeCommitted', true)
+  const result = await getCashFlowProjection({ asOf, months, includePlanned, includeCommitted })
   return success(res, result)
 }))
 

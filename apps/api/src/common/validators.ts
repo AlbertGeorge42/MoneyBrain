@@ -1,5 +1,11 @@
 import type { Request } from 'express'
-import { minor, type Minor } from '../../../../packages/domain/src/index.js'
+import {
+  isLocalDate,
+  minor,
+  today,
+  type LocalDate,
+  type Minor,
+} from '../../../../packages/domain/src/index.js'
 import { ValidationError } from './error.js'
 import { hasValue } from './utils.js'
 
@@ -85,4 +91,60 @@ export const requireClearConfirm = (req: Request, expected: string): void => {
   if (confirm !== expected) {
     throw new ValidationError('缺少确认值，操作已取消')
   }
+}
+
+// ===== 推演参数 =====
+
+/** 推演窗口月份：只允许 3 / 6 / 12（缺省 12）。 */
+export const parseProjectionMonths = (value: unknown): 3 | 6 | 12 => {
+  if (value === undefined || value === null || value === '') return 12
+  if (typeof value !== 'string') {
+    throw new ValidationError('months 只支持 3 / 6 / 12')
+  }
+  const months = Number(value)
+  if (months !== 3 && months !== 6 && months !== 12) {
+    throw new ValidationError('months 只支持 3 / 6 / 12')
+  }
+  return months
+}
+
+/** 预算周期额度窗口：1–24 个月（缺省 12）。 */
+export const parsePeriodPlanMonths = (value: unknown): number => {
+  if (value === undefined || value === null || value === '') return 12
+  if (typeof value !== 'string') {
+    throw new ValidationError('months 必须是 1–24 的整数')
+  }
+  const months = Number(value)
+  if (!Number.isInteger(months) || months < 1 || months > 24) {
+    throw new ValidationError('months 必须是 1–24 的整数')
+  }
+  return months
+}
+
+/** 推演起点：YYYY-MM-DD 日历日（缺省今天）。 */
+export const parseAsOfQuery = (value: unknown): LocalDate => {
+  if (value === undefined || value === null || value === '') return today()
+  if (typeof value !== 'string' || !isLocalDate(value)) {
+    throw new ValidationError('asOf 必须是 YYYY-MM-DD')
+  }
+  return value
+}
+
+/** 推演来源开关：缺省 true，只接受 true / false。 */
+export const parseBooleanQuery = (value: unknown, fieldName: string, fallback: boolean): boolean => {
+  if (value === undefined || value === null || value === '') return fallback
+  if (value === 'true') return true
+  if (value === 'false') return false
+  throw new ValidationError(`${fieldName} 只能是 true 或 false`)
+}
+
+/** 预算周期额度起始月：YYYY-MM（缺省当前月）。 */
+export const parseFromMonthQuery = (value: unknown): string => {
+  if (value === undefined || value === null || value === '') {
+    return today().slice(0, 7)
+  }
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}$/.test(value) || !isLocalDate(`${value}-01`)) {
+    throw new ValidationError('fromMonth 必须是 YYYY-MM')
+  }
+  return value
 }
