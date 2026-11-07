@@ -9,12 +9,12 @@ import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
-import { createSeedLedger } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 
 function renderBudget() {
   return render(
     <MantineProvider>
-      <LedgerProvider initialLedger={createSeedLedger()}>
+      <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
         <BudgetPage
           device="desktop"
           dataState="ready"

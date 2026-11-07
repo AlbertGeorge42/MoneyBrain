@@ -37,7 +37,7 @@ describe('#12 转移并删除分类后的 6 秒撤销', () => {
   it('撤销恢复原分类与记录归属', async () => {
     render(
       <MantineProvider defaultColorScheme="auto">
-        <LedgerProvider initialLedger={ledger}>
+        <LedgerProvider initialLedger={ledger} dataMode="seed">
           <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
           <OwnershipProbe />
         </LedgerProvider>

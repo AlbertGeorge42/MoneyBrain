@@ -23,7 +23,7 @@ import { EMPTY_ADVANCED, writeFiltersToSearch } from '@/features/transactions/fi
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
-import type { LedgerTransaction } from '@/features/overview/model'
+import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
 import './design.css'
 
@@ -471,10 +471,25 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
     return raw === 'budget' ? 'budgets' : readInitial('page', PAGES, 'overview')
   })
 
-  // 数据源开关：默认 seed；VITE_HF_DATA=api 时读真实账本（只读）。
+  // 数据源模式：生产构建恒为 api；种子只在开发模式 + 显式 VITE_HF_DATA=seed 时可用。
   const dataMode = readHfDataMode()
   const apiMode = dataMode === 'api'
   const api = useApiLedger(apiMode)
+  const [seedLedger, setSeedLedger] = useState<Ledger | null>(null)
+
+  // 种子模块只通过动态 import 取用：生产入口的静态依赖图里不含它；
+  // 生产分支被 import.meta.env.DEV 静态求值为 false 后整体消除。
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    if (dataMode !== 'seed') return
+    let cancelled = false
+    void import('@/dev-fixtures/seed').then(({ createSeedLedger }) => {
+      if (!cancelled) setSeedLedger(createSeedLedger())
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [dataMode])
   const queryClient = useQueryClient()
   // 写操作成功后统一刷新真实数据：总览、流水列表、回收站、报表/预算。
   const refreshRemote = useCallback(async () => {
@@ -507,8 +522,16 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
     return activeDevice === 'mobile' ? 'mb-hf-canvas is-mobile' : 'mb-hf-canvas'
   }, [preview, activeDevice])
 
+  // 种子模式等演示账本就绪再渲染，避免先闪一帧空账本。
+  if (dataMode === 'seed' && !seedLedger) return null
+
   return (
     <div className="mb-hf-root">
+      {dataMode === 'seed' && (
+        <div className="mb-hf-demo-badge" role="status">
+          演示数据 · 非真实账本
+        </div>
+      )}
       {preview && (
         <PreviewToolbar
           device={device}
@@ -521,7 +544,7 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
       )}
       <div className={canvasClass}>
         <LedgerProvider
-          initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : undefined}
+          initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : seedLedger ?? EMPTY_LEDGER}
           dataMode={dataMode}
           onRemoteChange={refreshRemote}
         >

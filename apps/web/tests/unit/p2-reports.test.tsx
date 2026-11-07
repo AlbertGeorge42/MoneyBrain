@@ -24,7 +24,8 @@ import {
   formatRangeLabel,
   type ReportTime,
 } from '@/features/reports/reportsTime'
-import { TODAY, createSeedLedger } from '@/features/overview/model'
+import { TODAY } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 
 const MONTH_TIME: ReportTime = {
   gran: 'month',

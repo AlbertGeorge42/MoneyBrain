@@ -9,6 +9,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { hfTheme } from '@/styles/theme/hf-theme'
 
@@ -19,7 +20,7 @@ function renderReports() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={hfTheme}>
-        <LedgerProvider>
+        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
           <ReportsPage
             device="desktop"
             dataState="normal"

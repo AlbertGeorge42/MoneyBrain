@@ -4,7 +4,7 @@
  * 覆盖三类预算、80–100% warning、超支金额、收入达成、转账不计入预算与历史月份结算。
  */
 import { describe, expect, it } from 'vitest'
-import { createSeedLedger } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 import { createBudgetId, deriveBudgetPage, shiftMonth } from '@/features/budgets/budgetModel'
 
 describe('预算页数据', () => {

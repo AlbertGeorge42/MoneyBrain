@@ -14,12 +14,12 @@ import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { render } from '@testing-library/react'
 import {
-  createSeedLedger,
   ledgerAnchorDay,
   type Ledger,
   type LedgerAccountCategory,
   type LedgerTransaction,
 } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 import {
   mapBalanceReport,
   mapCashReport,

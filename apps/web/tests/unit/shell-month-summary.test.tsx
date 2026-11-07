@@ -21,7 +21,7 @@ function makeLedger(transactions: Ledger['transactions']): Ledger {
 
 function renderShell(ledger: Ledger) {
   render(
-    <LedgerProvider initialLedger={ledger}>
+    <LedgerProvider initialLedger={ledger} dataMode="seed">
       <AppShell device="desktop" page="overview" onNavigate={() => {}} onOpenEntry={() => {}}>
         <div>内容</div>
       </AppShell>

@@ -7,12 +7,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   addTransaction,
-  createSeedLedger,
   deriveBudgets,
   deriveNetWorthTrend,
   deriveOverview,
   groupRecentTransactions,
 } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 
 describe('总览数字', () => {
   const ledger = createSeedLedger()

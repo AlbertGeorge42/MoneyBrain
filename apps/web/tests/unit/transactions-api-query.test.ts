@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { Transaction, TransactionCategory } from '@contracts/types'
-import { createSeedLedger } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 import {
   createCategoryDisplayMapper,
   toLedgerTransaction,

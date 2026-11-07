@@ -10,7 +10,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
-import { createSeedLedger } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { CashSankeyChart } from '@/features/reports/CashSankey'
 import { deriveCashReport } from '@/features/reports/reportsModel'

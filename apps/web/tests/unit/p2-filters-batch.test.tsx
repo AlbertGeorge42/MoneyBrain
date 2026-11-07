@@ -266,7 +266,7 @@ describe('#9 未来记录不计入本月合计', () => {
     const { container } = render(
       <QueryClientProvider client={queryClient}>
         <MantineProvider>
-          <LedgerProvider initialLedger={futureLedger}>
+          <LedgerProvider initialLedger={futureLedger} dataMode="seed">
             <TransactionsPage
               device="desktop"
               dataState="normal"

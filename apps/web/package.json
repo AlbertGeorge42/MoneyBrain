@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "cross-env VITE_HF_DATA=api vite",
-    "dev:seed": "vite",
+    "dev:seed": "cross-env VITE_HF_DATA=seed vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

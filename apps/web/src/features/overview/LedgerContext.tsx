@@ -13,7 +13,6 @@ import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import {
   addTransaction as applyTransaction,
-  createSeedLedger,
   type AccountKind,
   type Ledger,
   type LedgerAccount,
@@ -52,7 +51,7 @@ import {
 } from '@/features/transactions/ledgerOps'
 
 /** 种子账本没有后端账户分组表，写操作明确拒绝而不是假成功。 */
-const SEED_GROUP_ERROR = '演示账本（种子数据）没有账户分组；用真实账本（VITE_HF_DATA=api）后可管理'
+const SEED_GROUP_ERROR = '演示账本（种子数据）没有账户分组；真实账本支持账户分组管理'
 
 /** 展示用分类 id → 后端真实 id（种子账本没有映射，原样返回）。 */
 function realCategoryId(ledger: Ledger, id: string): string {
@@ -101,17 +100,18 @@ function accountTypeForInput(input: LedgerAccountInput, ledger: Ledger): 'asset'
 export function LedgerProvider({
   children,
   initialLedger,
-  dataMode = 'seed',
+  dataMode = 'api',
   onRemoteChange,
 }: {
   children: ReactNode
-  initialLedger?: Ledger
+  /** 初始账本必须由调用方提供：生产来自 API，测试/开发演示来自 dev-fixtures。 */
+  initialLedger: Ledger
   dataMode?: LedgerDataMode
   /** API 模式写成功后刷新真实数据（总览 / 流水 / 回收站）。 */
   onRemoteChange?: () => Promise<void>
 }) {
   const apiMode = dataMode === 'api'
-  const [ledger, setLedger] = useState<Ledger>(() => initialLedger ?? createSeedLedger())
+  const [ledger, setLedger] = useState<Ledger>(initialLedger)
   const ledgerRef = useRef(ledger)
   const undoSeq = useRef(0)
   // 6 秒撤销在两种模式下都真实可执行：种子模式恢复快照，API 模式回放审计事件。
@@ -122,9 +122,8 @@ export function LedgerProvider({
   }, [ledger])
 
   // API 数据异步到达或重试后，把外部 Ledger 同步进来。
-  // 种子模式没有 initialLedger，不受影响。
   useEffect(() => {
-    if (initialLedger) setLedger(initialLedger)
+    setLedger(initialLedger)
   }, [initialLedger])
 
   const registerUndo = useCallback((run: () => Promise<LedgerMutationOutcome>): string => {

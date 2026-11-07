@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { hfTheme } from '@/styles/theme/hf-theme'
@@ -21,7 +22,7 @@ function renderOverview(
   const { device = 'desktop', onRetry = vi.fn() } = options
   const view = render(
     <MantineProvider theme={hfTheme}>
-      <LedgerProvider>
+      <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
         <OverviewPage
           device={device}
           dataState={state}

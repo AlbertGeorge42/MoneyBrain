@@ -18,11 +18,11 @@ import {
 } from '@/features/overview/amountInput'
 import {
   TODAY,
-  createSeedLedger,
   deriveOverview,
   groupRecentTransactions,
   type LedgerTransaction,
 } from '@/features/overview/model'
+import { createSeedLedger } from '@/dev-fixtures/seed'
 
 function transaction(overrides: Partial<LedgerTransaction>): LedgerTransaction {
   return {
@@ -41,7 +41,7 @@ describe('#7 保存后的记录级撤销', () => {
   it('addTransaction 返回新记录 id，删除后可用同一 id 撤销', async () => {
     const { result } = renderHook(() => useLedger(), {
       wrapper: ({ children }) => (
-        <LedgerProvider initialLedger={createSeedLedger()}>{children}</LedgerProvider>
+        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">{children}</LedgerProvider>
       ),
     })
 
@@ -137,7 +137,7 @@ describe('#13 千分位金额输入', () => {
   it('记账弹层粘贴 1,234.56 不再标红且可保存', () => {
     render(
       <MantineProvider>
-        <LedgerProvider initialLedger={createSeedLedger()}>
+        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
           <QuickEntry opened device="desktop" onClose={() => {}} onSaved={() => {}} />
         </LedgerProvider>
       </MantineProvider>,
@@ -155,7 +155,7 @@ describe('#13 千分位金额输入', () => {
   it('记账弹层粘贴 ¥1,234.56 与全角数字同样可保存', () => {
     render(
       <MantineProvider>
-        <LedgerProvider initialLedger={createSeedLedger()}>
+        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
           <QuickEntry opened device="desktop" onClose={() => {}} onSaved={() => {}} />
         </LedgerProvider>
       </MantineProvider>,
