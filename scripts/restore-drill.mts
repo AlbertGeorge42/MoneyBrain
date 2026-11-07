@@ -10,7 +10,7 @@
  *   npm run db:drill -- --keep  # 保留临时库以便排查
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '@prisma/client'
@@ -29,7 +29,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..')
 const prismaDir = resolve(repoRoot, 'apps/api/prisma')
 const schemaPath = resolve(prismaDir, 'schema.prisma')
-const tempSchemaPath = resolve(prismaDir, 'restore-drill-schema.prisma')
 const tempDbPath = resolve(prismaDir, 'restore-drill.db')
 const tempContainerPath = resolve(prismaDir, 'restore-drill-backup.mbx')
 const prismaCli = resolve(repoRoot, 'node_modules/prisma/build/index.js')
@@ -146,27 +145,18 @@ async function main() {
 
   console.log('▶ 2/4 建立临时库…')
   if (existsSync(tempDbPath)) rmSync(tempDbPath)
-  const schema = readFileSync(schemaPath, 'utf8')
-  const tempSchema = schema.replace(
-    /url\s*=\s*"file:\.\/dev\.db"/,
-    'url      = "file:./restore-drill.db"',
+  // schema 现在读取 env("DATABASE_URL")，直接复用仓库 schema，用临时 URL 建库即可。
+  const tempUrl = `file:${toPosix(tempDbPath)}`
+  execFileSync(
+    process.execPath,
+    [prismaCli, 'migrate', 'deploy', '--schema', schemaPath],
+    {
+      stdio: 'inherit',
+      env: { ...process.env, DATABASE_URL: tempUrl, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
+    },
   )
-  if (tempSchema === schema) {
-    throw new Error('无法生成临时 schema：schema.prisma 的 datasource url 不是 file:./dev.db')
-  }
-  writeFileSync(tempSchemaPath, tempSchema, 'utf8')
-  try {
-    execFileSync(
-      process.execPath,
-      [prismaCli, 'migrate', 'deploy', '--schema', tempSchemaPath],
-      { stdio: 'inherit', env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' } },
-    )
-  } finally {
-    if (existsSync(tempSchemaPath)) rmSync(tempSchemaPath)
-  }
 
   console.log('▶ 3/4 把备份导入临时库…')
-  const tempUrl = `file:${toPosix(tempDbPath)}`
   execFileSync(
     process.execPath,
     [
@@ -182,11 +172,9 @@ async function main() {
   console.log('▶ 4/4 重新计算两边的余额并对比')
   // DATABASE_URL 可指向备份副本，让演练验证「这份备份」而不是一定验证 dev.db。
   assertPrismaTarget()
-  const live = new PrismaClient(
-    process.env.DATABASE_URL
-      ? { datasources: { db: { url: process.env.DATABASE_URL } } }
-      : undefined,
-  )
+  const liveUrl = process.env.DATABASE_URL
+  if (!liveUrl) throw new Error('请显式指定 DATABASE_URL')
+  const live = new PrismaClient({ datasources: { db: { url: liveUrl } } })
   const restored = new PrismaClient({ datasources: { db: { url: tempUrl } } })
   try {
     const liveTotals = await computeTotals(live)

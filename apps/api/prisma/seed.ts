@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client'
+import { requireDatabaseUrl } from '../src/db/database-url.js'
 
-const prisma = new PrismaClient()
+// 缺 DATABASE_URL 直接抛错；不允许隐式落到 dev.db。
+const prisma = new PrismaClient({ datasources: { db: { url: requireDatabaseUrl() } } })
 
 async function main() {
   console.log('开始填充种子数据...')

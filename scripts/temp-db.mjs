@@ -1,5 +1,5 @@
 /**
- * 临时 SQLite 库：复制 schema 与版本化迁移，把 datasource 换成 DATABASE_URL，
+ * 临时 SQLite 库：复制 schema 与版本化迁移，用调用方给的 DATABASE_URL
  * 跑 `prisma migrate deploy` 建库。供桌面烟测与 Playwright e2e 共用，
  * 避免任何自动化流程读写真实账本 dev.db。
  */
@@ -20,12 +20,11 @@ export function prepareTempDatabase({ sourceSchema, sourceMigrations, targetDir,
   mkdirSync(targetDir, { recursive: true })
 
   const schema = readFileSync(sourceSchema, 'utf8')
-  const tempSchema = schema.replace(/url\s*=\s*"file:\.\/dev\.db"/, 'url      = env("DATABASE_URL")')
-  if (tempSchema === schema) {
-    throw new Error('无法从 schema.prisma 生成临时库 schema（未找到 file:./dev.db 数据源）')
+  if (!/url\s*=\s*env\("DATABASE_URL"\)/.test(schema)) {
+    throw new Error('schema.prisma 的 datasource 必须使用 env("DATABASE_URL")')
   }
 
-  writeFileSync(path.join(targetDir, 'schema.prisma'), tempSchema)
+  writeFileSync(path.join(targetDir, 'schema.prisma'), schema)
   cpSync(sourceMigrations, path.join(targetDir, 'migrations'), { recursive: true })
 
   execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy', '--schema', path.join(targetDir, 'schema.prisma')], {

@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  // 必须由调用方显式设置 DATABASE_URL；不设时 Prisma 直接报错，不再静默连接 dev.db。
+  url      = env("DATABASE_URL")
 }
 
 model AccountCategory {

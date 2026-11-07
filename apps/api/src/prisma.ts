@@ -1,17 +1,15 @@
 import { PrismaClient, type Prisma } from '@prisma/client'
+import { requireDatabaseUrl } from './db/database-url.js'
 
 /**
  * Prisma 客户端。
  *
- * 默认连接开发库（apps/api/prisma/dev.db）。
- * 设置 DATABASE_URL 可指向别的 SQLite 文件——恢复演练与自动化脚本用它把数据
- * 导入临时库，避免碰到真实账本。
+ * 连接目标必须由调用方通过 DATABASE_URL 显式提供（绝对路径的 file: URL）；
+ * 缺失时在模块加载阶段直接抛错，绝不静默落到 apps/api/prisma/dev.db。
  */
-export const prisma = new PrismaClient(
-  process.env.DATABASE_URL
-    ? { datasources: { db: { url: process.env.DATABASE_URL } } }
-    : undefined,
-)
+export const prisma = new PrismaClient({
+  datasources: { db: { url: requireDatabaseUrl() } },
+})
 
 // 连接初始化处的持久化设置（D6）：
 // - journal_mode=WAL：库级持久属性（写进 db 文件，幂等），允许读与写并行；

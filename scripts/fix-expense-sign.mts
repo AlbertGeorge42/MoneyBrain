@@ -47,9 +47,8 @@ async function databaseDirectory(db: PrismaClient): Promise<string> {
 async function main(): Promise<void> {
   const configuredUrl = process.env.DATABASE_URL
   assertPrismaTarget({ url: configuredUrl })
-  const db = configuredUrl
-    ? new PrismaClient({ datasources: { db: { url: configuredUrl } } })
-    : new PrismaClient()
+  if (!configuredUrl) throw new Error('请显式指定 DATABASE_URL')
+  const db = new PrismaClient({ datasources: { db: { url: configuredUrl } } })
 
   try {
     const rows = await db.transaction.findMany({

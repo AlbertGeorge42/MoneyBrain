@@ -1,6 +1,5 @@
 import express from 'express'
 import cors from 'cors'
-import path from 'node:path'
 import { prisma } from './prisma.js'
 import accountCategoryRoutes from './routes/account-category.route.js'
 import accountRoutes from './routes/account.route.js'
@@ -84,12 +83,11 @@ if (process.env.NODE_ENV !== 'test') {
 /**
  * 启动时打印当前库路径与流水总笔数。
  *
- * 默认库（apps/api/prisma/dev.db）可能只有一两笔流水，打开前端会像空账本；
- * 把「路径 + 笔数」直接打出来，避免误判。要读别的账本必须显式设置 DATABASE_URL。
+ * DATABASE_URL 由启动脚本显式提供（缺失时 src/prisma.ts 已在加载阶段抛错），
+ * 这里把「路径 + 笔数」直接打出来，方便核对当前连的是哪本账。
  */
 async function announceDatabase(): Promise<void> {
-  // dev / start 脚本都以 apps/api 为工作目录，默认库就在 prisma/dev.db。
-  const database = process.env.DATABASE_URL ?? path.resolve(process.cwd(), 'prisma/dev.db')
+  const database = process.env.DATABASE_URL
   try {
     const transactions = await prisma.transaction.count()
     const fields = { action: 'db.summary', database, transactions }

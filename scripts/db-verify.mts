@@ -64,13 +64,11 @@ async function main() {
   const startDate = toLocalDate(start)
   const endDate = toLocalDate(new Date(endExclusive.getTime() - 1))
 
-  // DATABASE_URL 可指向重建库/备份副本；不设时检查默认 dev.db。
+  // 必须显式指定 DATABASE_URL；可指向重建库/备份副本，默认开发库由 npm 入口注入。
   assertPrismaTarget()
-  const prisma = new PrismaClient(
-    process.env.DATABASE_URL
-      ? { datasources: { db: { url: process.env.DATABASE_URL } } }
-      : undefined,
-  )
+  const databaseUrl = process.env.DATABASE_URL
+  if (!databaseUrl) throw new Error('请显式指定 DATABASE_URL')
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } })
   const problems: string[] = []
 
   try {

@@ -18,14 +18,20 @@ npm run dev     # 前后端一起启动：API :3001，前端 :3002
 
 打开 http://localhost:3002 即可。首次使用请先在「设置 → 账户」创建账户，再在「交易」记第一笔。
 
-> **启动日志会打印当前库路径与流水总笔数**（如 `数据库: …apps/api/prisma/dev.db | 流水: 1 笔`）。
-> 默认 `dev.db` 可能只有一两笔流水，看起来像空账本；要读真实账本必须显式指定 `DATABASE_URL`：
+> **数据库连接串必须显式提供**：`schema.prisma` 的 datasource 使用 `env("DATABASE_URL")`，
+> 不再有 `file:./dev.db` 默认值。`npm run dev` 与各 db 脚本会经
+> `scripts/with-database-url.mjs` 显式注入默认开发库 `apps/api/prisma/dev.db` 的**绝对路径**，
+> 启动日志会打印当前库路径与流水总笔数。
+>
+> 绕过 npm 直接启动 API 或脚本时，未设置 `DATABASE_URL` 会直接报错退出，不会静默连接 dev.db。
+> 要指向别的库（备份副本 / 临时库）时显式传入：
 >
 > ```powershell
 > $env:DATABASE_URL='file:C:/path/to/ledger.db'; npm run dev
 > ```
 >
-> 不要为了「让页面有数据」直接往 `apps/api/prisma/dev.db` 写测试数据。
+> 不要为了「让页面有数据」直接往 `apps/api/prisma/dev.db` 写测试数据；脚本要写真实库必须传
+> `--allow-real`（会先自动整份备份并打印 SHA256）。
 
 生产构建：
 

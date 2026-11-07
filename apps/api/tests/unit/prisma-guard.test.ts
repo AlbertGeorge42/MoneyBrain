@@ -1,17 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import {
-  REAL_DEV_DB,
+  DEV_DB_URL,
   RealDatabaseBlockedError,
+  MissingDatabaseUrlError,
   guardPrismaTarget,
   resolveDatabaseTarget,
+  REAL_DEV_DB,
 } from '../../../../scripts/lib/prisma-guard.mjs'
 
-describe('prisma-guard 真实库防护', () => {
-  it('未传 --allow-real 且目标解析为真实 dev.db 时拒绝运行并打印目标路径', () => {
+describe('prisma-guard 目标防护', () => {
+  it('未设置 DATABASE_URL 时直接拒绝，不再回落真实 dev.db', () => {
     let caught: unknown
     try {
-      // 传空 url = 不设 DATABASE_URL，Prisma 走 schema 字面量 file:./dev.db → 真实库
       guardPrismaTarget({ argv: [], url: '' })
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toBeInstanceOf(MissingDatabaseUrlError)
+    expect((caught as Error).message).toContain('请显式指定 DATABASE_URL')
+    expect((caught as Error).message).toContain(DEV_DB_URL)
+  })
+
+  it('显式指向真实 dev.db 且未传 --allow-real 时仍拒绝运行', () => {
+    let caught: unknown
+    try {
+      guardPrismaTarget({ argv: [], url: DEV_DB_URL })
     } catch (error) {
       caught = error
     }

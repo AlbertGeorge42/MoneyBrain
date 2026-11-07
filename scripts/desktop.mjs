@@ -24,6 +24,14 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const args = new Set(process.argv.slice(2))
+
+// schema 读取 env("DATABASE_URL")：桌面启动器未收到外部 URL 时，显式指向默认开发库。
+// 记录是否由调用方提供，决定「库文件缺失时自动迁移」还是直接报错。
+const DEFAULT_DB_PATH = path.join(root, 'apps', 'api', 'prisma', 'dev.db')
+const DATABASE_URL_EXPLICIT = Boolean(process.env.DATABASE_URL)
+if (!DATABASE_URL_EXPLICIT) {
+  process.env.DATABASE_URL = `file:${DEFAULT_DB_PATH.replace(/\\/g, '/')}`
+}
 const WEB_PORT = 4173
 const API_PORT = 3001
 const WEB_URL = `http://127.0.0.1:${WEB_PORT}`
@@ -303,7 +311,7 @@ async function waitForPortsReleased(ports, timeoutMs = 8_000) {
 /** DATABASE_URL=file:... 时返回对应文件；非 SQLite 返回 null。 */
 function resolveDbPath() {
   const url = process.env.DATABASE_URL
-  if (!url) return path.join(root, 'apps', 'api', 'prisma', 'dev.db')
+  if (!url) return null
   if (!url.startsWith('file:')) return null
   const raw = url.slice('file:'.length)
   return path.isAbsolute(raw) ? raw : path.resolve(root, 'apps', 'api', 'prisma', raw)
@@ -329,7 +337,7 @@ async function ensureRuntimeAssets() {
 
   const dbPath = resolveDbPath()
   if (dbPath && !existsSync(dbPath)) {
-    if (process.env.DATABASE_URL) {
+    if (DATABASE_URL_EXPLICIT) {
       throw new Error(
         `DATABASE_URL 指向的数据库不存在：${dbPath}\n  请先由调用方建库并应用迁移（桌面烟测会自动完成）。`,
       )

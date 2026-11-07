@@ -17,9 +17,11 @@
 import { PrismaClient } from '@prisma/client'
 import { assertPrismaTarget } from './lib/prisma-guard.mjs'
 
-assertPrismaTarget()
+const databaseUrl = process.env.DATABASE_URL
+assertPrismaTarget({ url: databaseUrl })
+if (!databaseUrl) throw new Error('请显式指定 DATABASE_URL')
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } })
 
 /** 现金等价账户（按现有账本命名；未命中的资产按顶层「资产」兜底） */
 const CASH_ACCOUNTS = ['微信', '云闪付', '支付宝', '现金']

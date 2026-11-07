@@ -391,6 +391,12 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
   （注意 `*.db.*` 匹配不到连字符后缀的 `-wal`/`-shm`，需单列）。
   验收：`tests/integration/concurrent-write.test.ts`（WAL 生效、busy_timeout ≥5000、
   8 路并发写零失败、长任务窗口不重叠、失败不堵队列）。
+- **数据库连接串必须显式（不再回落）**：`schema.prisma` 的 datasource 用 `env("DATABASE_URL")`。
+  所有入口（API、seed、脚本、测试、e2e）都必须显式给出绝对 `file:` URL：
+  - npm 入口统一经 `scripts/with-database-url.mjs` 注入默认开发库绝对路径（已设置则原样透传）；
+  - 绕过 npm 直接运行 API / 脚本时，缺 `DATABASE_URL` 直接报错退出
+    （`apps/api/src/db/database-url.ts` 与 `scripts/lib/prisma-guard.mjs`），不得新增隐式默认；
+  - 脚本目标是真实库时仍需 `--allow-real`（先自动备份并打印 SHA256）。
 - **改 schema 一律走版本化迁移**：`npm run db:migrate`（生成并应用迁移，SQL 提交进仓库）。
   禁止只用 `prisma db push`——没有迁移历史就无法复现、无法回滚。
   - 迁移名必须以时间戳开头：`YYYYMMDDHHMMSS_描述`（版本新旧按字典序比较）。

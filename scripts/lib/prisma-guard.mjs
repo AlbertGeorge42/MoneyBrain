@@ -1,16 +1,16 @@
 /**
  * 数据库目标防护（脚本与工具层）。
  *
- * 背景：`schema.prisma` 的数据源是字面量 `file:./dev.db`，不读 `DATABASE_URL`。
- * 因此直接 `new PrismaClient()`（不带 datasources 覆盖）的脚本，无论环境变量怎么设，
- * 都会落到真实账本 `apps/api/prisma/dev.db` —— 曾因此误写入过一次。
+ * 背景：`schema.prisma` 的 datasource 读取 `env("DATABASE_URL")`，脚本不再能靠
+ * schema 里的字面量静默落到真实账本 `apps/api/prisma/dev.db`。
  *
  * 规则：脚本在实例化 PrismaClient 之前调用 `assertPrismaTarget()`。
+ * - 未设置 DATABASE_URL：直接抛 `MissingDatabaseUrlError`，要求显式指定（不回落）；
  * - 目标不是真实库：放行，并打印目标路径；
  * - 目标是真实库且未传 `--allow-real`：抛错拒绝运行，错误信息包含目标路径；
  * - 目标是真实库且显式传了 `--allow-real`：先整份备份并打印备份路径与 SHA256，再放行。
  *
- * 不修改 `schema.prisma` 的 `url` 写法（默认启动路径依赖它）。
+ * 默认开发库路径由 npm 入口脚本显式写成绝对 URL（见 scripts/with-database-url.mjs）。
  */
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -21,7 +21,20 @@ import { fileURLToPath } from 'node:url'
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..')
 export const REAL_DEV_DB = path.resolve(REPO_ROOT, 'apps/api/prisma/dev.db')
+/** 默认开发库的显式绝对 URL（供 npm 入口脚本注入 DATABASE_URL）。 */
+export const DEV_DB_URL = `file:${REAL_DEV_DB.replace(/\\/g, '/')}`
 const SCHEMA_DIR = path.resolve(REPO_ROOT, 'apps/api/prisma')
+
+/** 未设置 DATABASE_URL 时抛出；不再回落到 dev.db。 */
+export class MissingDatabaseUrlError extends Error {
+  constructor() {
+    super(
+      '[prisma-guard] 请显式指定 DATABASE_URL（例如 ' +
+        `${DEV_DB_URL}）；已不再隐式回落 dev.db。`,
+    )
+    this.name = 'MissingDatabaseUrlError'
+  }
+}
 
 /** 目标库是真实账本、且未显式放行时抛出。 */
 export class RealDatabaseBlockedError extends Error {
@@ -43,14 +56,14 @@ function normalize(value) {
 
 /**
  * 解析 `DATABASE_URL` 指向的库文件绝对路径。
- * - 未设置：Prisma 走 schema 字面量 → 真实库；
+ * - 未设置：抛 `MissingDatabaseUrlError`（不再默认到真实库）；
  * - `file:` URL：按 schema 目录解析相对路径；
  * - 非 SQLite URL：返回 null（与真实库无关）。
  * @param {string | undefined} url
  * @returns {string | null}
  */
 export function resolveDatabaseTarget(url = process.env.DATABASE_URL) {
-  if (!url) return REAL_DEV_DB
+  if (!url) throw new MissingDatabaseUrlError()
   if (!url.startsWith('file:')) return null
   let raw = url.slice('file:'.length)
   if (raw.startsWith('//')) raw = raw.slice(2)

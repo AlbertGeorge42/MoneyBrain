@@ -14,7 +14,7 @@
  *   node --import tsx scripts/rebuild-from-qianji.mts --csv <...> --db apps/api/prisma/dev-rebuild.db
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, resolve, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
@@ -26,7 +26,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..')
 const prismaDir = resolve(repoRoot, 'apps/api/prisma')
 const schemaPath = resolve(prismaDir, 'schema.prisma')
-const tempSchemaPath = resolve(prismaDir, 'rebuild-schema.prisma')
 const prismaCli = resolve(repoRoot, 'node_modules/prisma/build/index.js')
 const adjustmentsPath = resolve(here, 'data/qianji-rebuild-adjustments.json')
 
@@ -279,23 +278,19 @@ for (const sidecar of [`${dbPath}-wal`, `${dbPath}-shm`]) {
   if (existsSync(sidecar)) rmSync(sidecar, { force: true })
 }
 
-const schema = readFileSync(schemaPath, 'utf8')
-// 用绝对路径，--db 指到 prisma 目录之外时迁移也不会落到错误位置。
-const tempSchema = schema.replace(
-  /url\s*=\s*"file:\.\/dev\.db"/,
-  `url      = "file:${toPosix(dbPath)}"`,
+// schema 读取 env("DATABASE_URL")；用绝对 file: URL 指向 --db，避免迁移落到其它库。
+execFileSync(
+  process.execPath,
+  [prismaCli, 'migrate', 'deploy', '--schema', schemaPath],
+  {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      DATABASE_URL: `file:${toPosix(dbPath)}`,
+      PRISMA_HIDE_UPDATE_MESSAGE: '1',
+    },
+  },
 )
-writeFileSync(tempSchemaPath, tempSchema, 'utf8')
-
-try {
-  execFileSync(
-    process.execPath,
-    [prismaCli, 'migrate', 'deploy', '--schema', tempSchemaPath],
-    { stdio: 'inherit', env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' } },
-  )
-} finally {
-  if (existsSync(tempSchemaPath)) rmSync(tempSchemaPath, { force: true })
-}
 
 const prisma = new PrismaClient({ datasources: { db: { url: `file:${toPosix(dbPath)}` } } })
 

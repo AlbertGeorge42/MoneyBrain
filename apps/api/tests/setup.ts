@@ -5,13 +5,13 @@ import { fileURLToPath } from 'url'
 // 全局测试配置
 
 /**
- * 测试默认指向 test.db，不碰开发库 dev.db。
+ * 测试必须显式指向 test.db，不碰开发库 dev.db。
  *
- * 原因：src/prisma.ts 在 DATABASE_URL 未设置时连的是 dev.db——
- * 那是用户真实账目所在的库。任何会写库的测试都可能把它清空。
+ * 原因：src/prisma.ts 在 DATABASE_URL 未设置时直接抛错，不再隐式回落 dev.db；
+ * 测试在这里显式给出 test.db 的绝对 URL（global-setup 用同一个地址建库）。
  *
- * 需要连别的库的测试可以自己覆盖 process.env.DATABASE_URL
- * （集成测试就是这么做的），但必须**在导入 src/prisma.ts 之前**设置。
+ * 需要连别的库的测试可以自己覆盖 process.env.DATABASE_URL，
+ * 但必须**在导入 src/prisma.ts 之前**设置。
  */
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -22,7 +22,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 process.env.MONEYBRAIN_SYNC_IDENTITY_PATH ??= path.resolve(here, '../prisma/sync-identity.json')
 
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = `file:${path.resolve(here, '../prisma/test.db')}`
+  process.env.DATABASE_URL = `file:${path.resolve(here, '../prisma/test.db').replace(/\\/g, '/')}`
 }
 
 // Mock console.error 在测试中避免噪音，但保留错误信息供调试
