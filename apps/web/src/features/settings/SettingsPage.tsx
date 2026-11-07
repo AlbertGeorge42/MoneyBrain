@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 设置页（HF 批次 4）
  *
  * 结构以 concept-design「设置信息架构」为准：
@@ -23,9 +23,12 @@ import {
   FolderInput,
   GripVertical,
   Landmark,
+  Monitor,
+  Moon,
   MoreHorizontal,
   Plus,
   RotateCcw,
+  Sun,
   Tag,
   Trash2,
   TrendingUp,
@@ -33,6 +36,8 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { useTheme } from '@/styles/ThemeContext'
+import type { ThemeMode } from '@/styles/theme/mode'
 import { fromMajor, minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { downloadBlob, todayFilename } from '@/utils/download'
@@ -111,6 +116,12 @@ const CASHFLOW_TABS: readonly { id: 'asset' | 'income' | 'expense' | 'transfer';
 
 /** 清空确认需要用户逐字输入的文字 */
 const CLEAR_WORD = '清空账本'
+
+const THEME_OPTIONS: readonly { value: ThemeMode; label: string; icon: LucideIcon }[] = [
+  { value: 'light', label: '浅色', icon: Sun },
+  { value: 'dark', label: '深色', icon: Moon },
+  { value: 'system', label: '跟随系统', icon: Monitor },
+]
 
 type Editor =
   | {
@@ -899,6 +910,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
 
+  /* ===== 外观主题：复用共享 ThemeContext（localStorage + data-theme + syncCssVars） ===== */
+  const { mode: themeMode, theme: currentTheme, setThemeMode } = useTheme()
+
   /* ===== 数据：导入 / 导出 / 回滚 / 清空 ===== */
   type DataBusy = null | 'export' | 'preview' | 'import' | 'clear' | `rollback:${string}`
   const [dataBusy, setDataBusy] = useState<DataBusy>(null)
@@ -959,8 +973,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     }
   }, [apiMode, active, openSection, lastImport])
 
-
   const notify = (message: string) => setToast({ message, duration: 2600 })
+
   // 危险操作（转移后删除）与批量删除一致：6 秒内可撤销。
   const notifyUndoable = (message: string, run: () => void) =>
     setToast({ message, duration: 6000, action: { label: '撤销', run } })
@@ -2101,6 +2115,58 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     </>
   )
 
+  const renderAppearance = () => {
+    const effectiveLabel =
+      themeMode === 'system'
+        ? `跟随系统（当前${currentTheme === 'dark' ? '深色' : '浅色'}）`
+        : currentTheme === 'dark'
+          ? '深色'
+          : '浅色'
+    return (
+      <div className="mb-set-appearance">
+        <div className="mb-set-subblock">
+          <span className="mb-set-label" id="mb-set-theme-label">
+            外观主题
+          </span>
+          <div
+            className="mb-set-sort mb-set-theme-grid"
+            role="radiogroup"
+            aria-labelledby="mb-set-theme-label"
+          >
+            {THEME_OPTIONS.map((option) => {
+              const active = themeMode === option.value
+              const Icon = option.icon
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={
+                    active
+                      ? 'mb-set-kind mb-set-theme-option is-active'
+                      : 'mb-set-kind mb-set-theme-option'
+                  }
+                  onClick={() => setThemeMode(option.value)}
+                >
+                  <Icon size={16} aria-hidden="true" />
+                  <span>{option.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <p className="mb-set-theme-status" role="status">
+          当前生效：{effectiveLabel}
+        </p>
+        <p className="mb-set-hint">
+          切换后立即作用于整个应用，并记住选择；「跟随系统」会随操作系统外观自动变化。
+        </p>
+      </div>
+    )
+  }
+
+
   const renderDisplay = () => {
     const columns: { key: 'showNote' | 'showAccount' | 'fixed'; label: string; desc?: string }[] = [
       { key: 'showNote', label: '备注列' },
@@ -2514,6 +2580,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         return renderCashflow()
       case 'invest':
         return renderInvest()
+      case 'appearance':
+        return renderAppearance()
       case 'display':
         return renderDisplay()
       case 'data':
@@ -2532,6 +2600,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     categories: `收入 ${countByType(ledger.categories, 'income')} · 支出 ${countByType(ledger.categories, 'expense')}`,
     cashflow: '3 组标记 · 4 类活动',
     invest: `${investRows.length} 类资产`,
+    appearance: themeMode === 'system' ? '跟随系统' : themeMode === 'dark' ? '深色' : '浅色',
     display: '列显隐 · 排序',
     data: '导入 · 导出 · 回滚',
     trash: apiMode ? `${trashCount} 条可恢复` : '0 条可恢复',
@@ -2556,11 +2625,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                       ? TrendingUp
                       : item.id === 'invest'
                         ? TrendingUp
-                        : item.id === 'display'
-                          ? Tag
-                          : item.id === 'data'
-                            ? Database
-                            : Trash2
+                        : item.id === 'appearance'
+                          ? Sun
+                          : item.id === 'display'
+                            ? Tag
+                            : item.id === 'data'
+                              ? Database
+                              : Trash2
               return (
                 <button
                   key={item.id}

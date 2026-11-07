@@ -4,7 +4,7 @@
  * 只承载本批次交付的「应用壳 + 总览页」。预览态可切换 PC / 移动、浅 / 深 / 跟随系统、
  * 正常 / 加载 / 空账本 / 错误；预览入口不接入生产路由，也不引用旧页面代码。
  */
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { getPortalHost } from '@/features/shared/portalHost'
@@ -27,6 +27,7 @@ import { BudgetPage } from '@/features/budgets/BudgetPage'
 import type { LedgerTransaction } from '@/features/overview/model'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
 import { hfTheme } from '@/styles/theme/hf-theme'
+import { useTheme } from '@/styles/ThemeContext'
 import './design.css'
 
 type SchemeChoice = 'system' | SchemeMode
@@ -69,23 +70,6 @@ function useViewportDevice(enabled: boolean): DeviceMode {
   }, [enabled])
 
   return device
-}
-
-function useSystemScheme(): SchemeMode {
-  const [system, setSystem] = useState<SchemeMode>(() =>
-    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light',
-  )
-
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (event: MediaQueryListEvent) => setSystem(event.matches ? 'dark' : 'light')
-    query.addEventListener('change', handleChange)
-    return () => query.removeEventListener('change', handleChange)
-  }, [])
-
-  return system
 }
 
 function ChoiceGroup<T extends string>({
@@ -284,6 +268,7 @@ function PreviewBody({
         onRetry={retry}
         onCreateAccount={createAccount}
         onImport={importLedger}
+        onDrillCategory={viewFlow}
       />
     ) : page === 'transactions' ? (
       <TransactionsPage
@@ -463,9 +448,19 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
   )
   const viewportDevice = useViewportDevice(!preview)
   const activeDevice = preview ? device : viewportDevice
-  const [scheme, setScheme] = useState<SchemeChoice>(() =>
-    readInitial('scheme', SCHEMES, 'system'),
-  )
+  // 主题唯一来源是共享 ThemeContext（mode.ts 持久化 + data-theme）。
+  // 预览工具栏的三档操控同一个 setThemeMode，设置页切主题也即时反映到这里。
+  const { mode: scheme, theme: resolvedScheme, setThemeMode } = useTheme()
+  const schemeParam = useMemo(() => {
+    const raw = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('scheme')
+    return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : null
+  }, [])
+  const schemeParamApplied = useRef(false)
+  useEffect(() => {
+    if (schemeParamApplied.current) return
+    schemeParamApplied.current = true
+    if (schemeParam) setThemeMode(schemeParam)
+  }, [schemeParam, setThemeMode])
   const [dataState, setDataState] = useState<DataState>(() =>
     readInitial('state', STATES, 'normal'),
   )
@@ -473,8 +468,6 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
     const raw = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('page')
     return raw === 'budget' ? 'budgets' : readInitial('page', PAGES, 'overview')
   })
-  const systemScheme = useSystemScheme()
-  const resolvedScheme: SchemeMode = scheme === 'system' ? systemScheme : scheme
 
   // 数据源开关：默认 seed；VITE_HF_DATA=api 时读真实账本（只读）。
   const dataMode = readHfDataMode()
@@ -521,7 +514,7 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
             scheme={scheme}
             dataState={dataState}
             onDevice={setDevice}
-            onScheme={setScheme}
+            onScheme={setThemeMode}
             onState={setDataState}
           />
         )}

@@ -1352,3 +1352,41 @@
 .mb-set-page[data-device='mobile'] .mb-skeleton-settings-list {
   height: 420px;
 }
+
+/* ===== 外观主题 ===== */
+
+.mb-set-appearance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+}
+
+.mb-set-theme-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 520px;
+}
+
+.mb-set-theme-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mb-s-2);
+}
+
+.mb-set-theme-status {
+  margin: 0;
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  color: var(--mb-color-text-primary);
+}
+
+.mb-set-hint {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-set-page[data-device='mobile'] .mb-set-theme-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
