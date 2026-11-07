@@ -1,5 +1,4 @@
 import React, { Component, type ReactNode } from 'react'
-import { Result, Button } from 'antd'
 
 interface Props {
   children: ReactNode
@@ -9,6 +8,10 @@ interface State {
   hasError: boolean
 }
 
+/**
+ * 渲染期兜底：复用高保真错误面板的样式类（states.css），只用原生 DOM，
+ * 不再依赖任何组件库——组件库本身抛错时这里仍要能画出来。
+ */
 class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false }
 
@@ -23,16 +26,24 @@ class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <Result
-          status="error"
-          title="页面出错了"
-          subTitle="请刷新页面重试"
-          extra={
-            <Button type="primary" onClick={() => window.location.reload()}>
-              刷新页面
-            </Button>
-          }
-        />
+        <div className="mb-hf-root">
+          <section className="mb-errorpanel" role="alert">
+            <div className="mb-errorpanel-mark" aria-hidden="true">
+              !
+            </div>
+            <h2 className="mb-errorpanel-title">页面出错了</h2>
+            <p className="mb-errorpanel-desc">请刷新页面重试</p>
+            <div className="mb-errorpanel-actions">
+              <button
+                type="button"
+                className="mb-primary-btn"
+                onClick={() => window.location.reload()}
+              >
+                刷新页面
+              </button>
+            </div>
+          </section>
+        </div>
       )
     }
     return this.props.children

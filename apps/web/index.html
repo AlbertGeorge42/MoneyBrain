@@ -5,6 +5,15 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MoneyBrain - 个人记账软件</title>
+    <script>
+      // 首帧前同步 colorScheme，避免 React 挂载前的一帧浅色闪烁（Mantine 的等价 SSR 能力）。
+      try {
+        var stored = localStorage.getItem('moneybrain-theme-mode')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        var scheme = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-mantine-color-scheme', scheme)
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

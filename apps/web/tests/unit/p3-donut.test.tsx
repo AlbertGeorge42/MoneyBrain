@@ -399,12 +399,12 @@ describe('DonutChart 二级环', () => {
 
   it('二级阶梯不回父色：token 区间不含 100%，单子类取中点', () => {
     const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-    const variablesCss = readFileSync(join(webRoot, 'src/styles/theme/variables.css'), 'utf8')
-    expect(variablesCss).not.toMatch(/--mb-chart-sub-(from|to):\s*100%/)
-    expect(variablesCss).toContain('--mb-chart-sub-from: 90%')
-    expect(variablesCss).toContain('--mb-chart-sub-to: 40%')
-    expect(variablesCss).toContain('--mb-chart-sub-from: 84%')
-    expect(variablesCss).toContain('--mb-chart-sub-to: 32%')
+    const themeVars = readFileSync(join(webRoot, 'src/styles/theme/hf-theme.ts'), 'utf8')
+    expect(themeVars).not.toMatch(/--mb-chart-sub-(from|to):\s*100%/)
+    expect(themeVars).toContain("'--mb-chart-sub-from': '90%'")
+    expect(themeVars).toContain("'--mb-chart-sub-to': '40%'")
+    expect(themeVars).toContain("'--mb-chart-sub-from': '84%'")
+    expect(themeVars).toContain("'--mb-chart-sub-to': '32%'")
 
     const single = node('solo', '独子类', 600, [child('only', '唯一子类', 600)])
     const { container } = render(

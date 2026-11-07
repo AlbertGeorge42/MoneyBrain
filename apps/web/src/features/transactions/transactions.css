@@ -1327,8 +1327,8 @@
 
 /* ===== 暗色边界：靠阴影而非亮边框 ===== */
 
-.mb-hf-root[data-hf-scheme='dark'] .mb-tx-list-card,
-.mb-hf-root[data-hf-scheme='dark'] .mb-tx-filter-panel,
-.mb-hf-root[data-hf-scheme='dark'] .mb-tx-batchbar {
+[data-mantine-color-scheme='dark'] .mb-tx-list-card,
+[data-mantine-color-scheme='dark'] .mb-tx-filter-panel,
+[data-mantine-color-scheme='dark'] .mb-tx-batchbar {
   border-color: transparent;
 }

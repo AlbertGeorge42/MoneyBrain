@@ -46,42 +46,6 @@ Object.defineProperty(window, 'scrollTo', {
   value: vi.fn(),
 })
 
-// Mock Ant Design 的 message 组件 & App.useApp() 上下文
-const mockMessage = {
-  success: vi.fn(),
-  error: vi.fn(),
-  warning: vi.fn(),
-  info: vi.fn(),
-  loading: vi.fn(() => vi.fn()),
-}
-
-const mockNotification = {
-  success: vi.fn(),
-  error: vi.fn(),
-  warning: vi.fn(),
-  info: vi.fn(),
-}
-
-const mockModal = {
-  confirm: vi.fn(),
-  info: vi.fn(),
-  success: vi.fn(),
-  error: vi.fn(),
-  warning: vi.fn(),
-}
-
-vi.mock('antd', async () => {
-  const actual = await vi.importActual('antd')
-  return {
-    ...actual,
-    App: {
-      useApp: () => ({ message: mockMessage, notification: mockNotification, modal: mockModal }),
-    },
-    message: mockMessage,
-    notification: mockNotification,
-  }
-})
-
 // Mock echarts-for-react
 vi.mock('echarts-for-react', () => ({
   default: vi.fn(() => null),

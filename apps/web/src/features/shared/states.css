@@ -188,11 +188,11 @@
 }
 
 /* 暗色卡片按 design-tokens §7 去掉边框；错误态保留左侧危险语义边 */
-.mb-hf-root[data-hf-scheme='dark'] .mb-coldstart {
+[data-mantine-color-scheme='dark'] .mb-coldstart {
   border-color: transparent;
 }
 
-.mb-hf-root[data-hf-scheme='dark'] .mb-errorpanel {
+[data-mantine-color-scheme='dark'] .mb-errorpanel {
   border-color: transparent;
   border-left-color: var(--mb-color-danger-solid);
 }

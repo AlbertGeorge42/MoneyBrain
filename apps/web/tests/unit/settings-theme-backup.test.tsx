@@ -1,16 +1,16 @@
 /**
  * 设置页：外观主题 + 自动备份
  *
- * - 主题三档是真实控件：切换立即改写共享 ThemeContext（data-theme + localStorage），
+ * - 主题三档是真实控件：切换立即改写 Mantine 的 colorScheme（data-mantine-color-scheme + localStorage），
  *   不是只写 localStorage 不改页面；
  * - 自动备份走真实 GET/PUT /data/auto-backup；频率与保留份数后端无字段，
  *   必须明确显示「后端未提供」且控件禁用，不能假装保存成功。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MantineProvider } from '@mantine/core'
+import { MantineProvider, useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ThemeProvider, useTheme } from '@/styles/ThemeContext'
+import { mbColorSchemeManager } from '@/styles/theme/hf-theme'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import type { AutoBackupConfig } from '@/services/api'
@@ -56,8 +56,13 @@ const config: AutoBackupConfig = {
 const ok = <T,>(data: T) => ({ data: { success: true, data } })
 
 function ThemeProbe() {
-  const { mode, theme } = useTheme()
-  return <span data-testid="theme-probe">{`${mode}:${theme}`}</span>
+  const { colorScheme } = useMantineColorScheme()
+  const resolved = useComputedColorScheme('light')
+  return (
+    <span data-testid="theme-probe">
+      {`${colorScheme === 'auto' ? 'system' : colorScheme}:${resolved}`}
+    </span>
+  )
 }
 
 function renderPage(dataMode: 'api' | 'seed' = 'api') {
@@ -66,14 +71,12 @@ function renderPage(dataMode: 'api' | 'seed' = 'api') {
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <MantineProvider>
-          <LedgerProvider initialLedger={ledger} dataMode={dataMode}>
-            <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
-            <ThemeProbe />
-          </LedgerProvider>
-        </MantineProvider>
-      </ThemeProvider>
+      <MantineProvider defaultColorScheme="auto" colorSchemeManager={mbColorSchemeManager}>
+        <LedgerProvider initialLedger={ledger} dataMode={dataMode}>
+          <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
+          <ThemeProbe />
+        </LedgerProvider>
+      </MantineProvider>
     </QueryClientProvider>,
   )
 }
@@ -85,7 +88,7 @@ async function openSection(name: string) {
 beforeEach(() => {
   Object.values(mocks).forEach((mock) => mock.mockReset())
   window.localStorage.clear()
-  document.documentElement.removeAttribute('data-theme')
+  document.documentElement.removeAttribute('data-mantine-color-scheme')
 })
 
 afterEach(() => {
@@ -93,7 +96,7 @@ afterEach(() => {
 })
 
 describe('外观主题', () => {
-  it('三档切换立即生效：data-theme、ThemeContext 与 localStorage 同步', async () => {
+  it('三档切换立即生效：data-mantine-color-scheme、Mantine colorScheme 与 localStorage 同步', async () => {
     renderPage()
     await openSection('外观主题')
 
@@ -107,7 +110,7 @@ describe('外观主题', () => {
     fireEvent.click(dark)
     expect(dark).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByRole('radio', { name: '浅色' })).toHaveAttribute('aria-checked', 'false')
-    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    expect(document.documentElement).toHaveAttribute('data-mantine-color-scheme', 'dark')
     expect(window.localStorage.getItem('moneybrain-theme-mode')).toBe('dark')
     expect(screen.getByTestId('theme-probe').textContent).toBe('dark:dark')
     expect(screen.getByRole('status').textContent).toContain('当前生效：深色')
@@ -118,8 +121,8 @@ describe('外观主题', () => {
 
     fireEvent.click(system)
     expect(system).toHaveAttribute('aria-checked', 'true')
-    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
-    expect(window.localStorage.getItem('moneybrain-theme-mode')).toBe('system')
+    expect(document.documentElement).toHaveAttribute('data-mantine-color-scheme', 'light')
+    expect(window.localStorage.getItem('moneybrain-theme-mode')).toBe('auto')
     expect(screen.getByRole('status').textContent).toContain('跟随系统（当前浅色）')
   })
 })

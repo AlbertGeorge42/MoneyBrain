@@ -48,13 +48,12 @@ packages/
 
 | 命名空间 | 定义处 | 使用规则 |
 |---|---|---|
-| `--mb-*`（项目） | `styles/theme/variables.css`（结构：间距/字体/边框/圆角/动效/布局/z-index）+ 构建期 `scripts/gen-theme-css.mjs` 从 `styles/theme/tokens.ts`（ThemeSpec，唯一来源）生成 `generated/darkfirst.css`：`:root` 一段结构变量 + `html[data-mantine-color-scheme='light']` / `html[data-mantine-color-scheme='dark']` 两段颜色变量。`config.ts` 的 `syncCssVars()` **只在 DEV 作断言**（读 `getComputedStyle` 与 spec 比对，不等即抛错），不写值、不进生产 | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
-| `--ant-*`（AntD） | AntD `cssVar: { prefix: 'ant' }` 生成 | **过渡期约束**：只供 AntD 组件内部消费；项目代码不得引用 `--ant-*`，需要同语义值时用项目等价 token（如 `--mb-color-warning`）。R3 完成后 `--ant-*` 归零，本行失效；`--mantine-*` 同理属库内部变量，业务代码不得覆盖 |
+| `--mb-*`（项目） | 结构（间距/字体/边框/圆角/动效/布局/z-index）只写在 `styles/theme/variables.css`；颜色/阴影只由 `styles/theme/hf-theme.ts` 的 `cssVariablesResolver` 输出，`MantineProvider` 按 colorScheme 注入 `:root` | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源（散落 CSS、内联注入、组件级覆盖都不允许） |
+| `--ant-*`（AntD） | 已随 AntD 一起移除（R3 完成） | 业务代码不得再出现 `--ant-*`（`css-vars-guard` 有守卫）；`--mantine-*` 属库内部变量，业务代码不得覆盖，只用 Mantine 公开 API |
 
 CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）：写 `var(--mb-*)` 时必须「引用即定义」。
 
-> 上表是 **R1 目标态**。R1 落地前，代码仍走 `config.ts` 的旧主题实现；`tokens.ts` /
-> `gen-theme-css.mjs` / `generated/darkfirst.css` 尚不存在。不要据上表误判现状。
+> 上表即当前实现：AntD 已移除，`config.ts` / `syncCssVars` 不再存在；不要在别处重建第二套 token 表。
 
 ### 2.2 设备判定只有一个入口
 
@@ -97,12 +96,13 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
 
 设计依据见 [design-tokens.md](blueprint/ux/design-tokens.md)；**实现约定只写在这一处**。
 
-1. **静态 CSS 是唯一生产路径**：`ThemeSpec` → `gen-theme-css.mjs`（`predev` / `prebuild`）→
-   `generated/darkfirst.css`，生成 42×2 个颜色变量；`main.tsx` 静态 `import`，
-   `<ColorSchemeScript defaultColorScheme="light" />` 在首帧前写 `data-mantine-color-scheme`。
-   `syncCssVars` 只在 `import.meta.env.DEV` 断言，不写值、不参与首帧；手写 `--mb-*` 色值即返工。
-2. **默认亮色**：`defaultColorScheme='light'`，暗色为次要方案；存储键统一
-   `mantine-color-scheme-value`，旧 `moneybrain-theme-mode` 一次性迁移（`system → auto`）。
+1. **静态 CSS 是唯一生产路径**：结构 token 由 `variables.css` 提供；颜色/阴影由
+   `hf-theme.ts` 的 `cssVariablesResolver` 输出 `--mb-*`，随 Mantine colorScheme 在 `:root`
+   切换；`index.html` 的首帧内联脚本先写 `data-mantine-color-scheme` 防闪烁。
+   业务 CSS/TSX 手写色值即返工。
+2. **主题唯一来源是 Mantine**：`defaultColorScheme='auto'`，三档 light / dark / auto；
+   存储键沿用 `moneybrain-theme-mode`（值为 `light` / `dark` / `auto`），由
+   `localStorageColorSchemeManager` 读写。不要再自建 Context、`data-theme` 或并行 token 表。
 3. **accent 双档**：`accent` 只用于文字 / 图标 / 链接 / focus 环；`accent-fill` 只用于填充面。
    亮色下所有 `accent-fill` 面（Button、Badge、Switch track、Checkbox/Radio indicator、
    Slider thumb）统一 **1px solid `#356B0C`**，暗色 `transparent`——**阴影不能替代描边**

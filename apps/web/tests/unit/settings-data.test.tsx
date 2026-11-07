@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ThemeProvider } from '@/styles/ThemeContext'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import type { Ledger } from '@/features/overview/model'
@@ -75,13 +74,11 @@ function renderPage() {
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <MantineProvider>
-          <LedgerProvider initialLedger={ledger} dataMode="api">
-            <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
-          </LedgerProvider>
-        </MantineProvider>
-      </ThemeProvider>
+      <MantineProvider defaultColorScheme="auto">
+        <LedgerProvider initialLedger={ledger} dataMode="api">
+          <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
+        </LedgerProvider>
+      </MantineProvider>
     </QueryClientProvider>,
   )
 }

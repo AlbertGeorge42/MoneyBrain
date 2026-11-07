@@ -12,7 +12,6 @@
     "dev:web": "npm run dev -w @moneybrain/web",
     "dev:api": "npm run dev -w @moneybrain/api",
     "dev:seed": "concurrently \"npm run dev:api\" \"npm run dev:seed -w @moneybrain/web\"",
-    "dev:legacy": "concurrently \"npm run dev:api\" \"npm run dev:legacy -w @moneybrain/web\"",
     "install:all": "npm install",
     "postinstall": "prisma generate --schema apps/api/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema apps/api/prisma/schema.prisma",

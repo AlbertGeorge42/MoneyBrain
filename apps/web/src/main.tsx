@@ -1,18 +1,12 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { App as AntApp, ConfigProvider } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
+import { MantineProvider } from '@mantine/core'
+import '@mantine/core/styles.css'
 import App from './App'
 import './styles/global.css'
-import { ThemeProvider, useTheme } from './styles/ThemeContext'
-import { createThemeConfig, syncCssVars } from './styles/theme/config'
-import { initTheme } from './styles/theme/mode'
+import { hfTheme, mbColorSchemeManager, mbCssVariablesResolver } from './styles/theme/hf-theme'
 import { ApiClientError } from './services/apiError'
-
-// 首屏渲染前同步 CSS 变量，避免 useEffect 时序导致的闪烁
-const initialTheme = initTheme()
-syncCssVars(initialTheme === 'dark')
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,34 +26,19 @@ const queryClient = new QueryClient({
   },
 })
 
-// eslint-disable-next-line react-refresh/only-export-components
-const ThemedApp: React.FC = () => {
-  const { theme: currentTheme } = useTheme()
-  const isDark = currentTheme === 'dark'
-
-  useEffect(() => {
-    syncCssVars(isDark)
-  }, [isDark])
-
-  return (
-    <ConfigProvider
-      locale={zhCN}
-      theme={createThemeConfig(isDark)}
-    >
-      {/* antd <App> 必须在 ConfigProvider 内、Router 外，让 useApp() 能取到主题感知的 message/notification/modal 实例 */}
-      <AntApp>
-        <App />
-      </AntApp>
-    </ConfigProvider>
-  )
-}
-
+// 主题唯一来源：MantineProvider 的 colorScheme（light / dark / auto）+ cssVariablesResolver 输出 --mb-*。
+// 首次绘制前由 index.html 的内联脚本同步 color-scheme 属性，避免深浅闪烁。
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ThemedApp />
-      </ThemeProvider>
+      <MantineProvider
+        theme={hfTheme}
+        cssVariablesResolver={mbCssVariablesResolver}
+        colorSchemeManager={mbColorSchemeManager}
+        defaultColorScheme="auto"
+      >
+        <App />
+      </MantineProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 )

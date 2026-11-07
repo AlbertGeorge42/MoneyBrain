@@ -158,8 +158,8 @@ domain        →  无外部依赖（禁止 react/express/prisma/node:fs）
     U0 的结论本身不需要推翻——它描述的是「多来源必须按前缀隔离」，换成 Mantine 后仍是同一原则
     （`--mantine-*` 是库内部变量，业务代码不得覆盖，只用公开 API 与主题机制）。
   - **token 单一来源**：结构 token（间距/字号/圆角/动效/布局）只写在
-    `styles/theme/variables.css`；颜色只从 `createTheme` 出（R1 前为
-    `syncCssVars()` 从 AntD 算法派生后注入）。组件里出现裸值即视为违规。
+    `styles/theme/variables.css`；颜色/阴影只由 `styles/theme/hf-theme.ts` 的
+    `cssVariablesResolver` 输出（Mantine `createTheme` 是唯一主题来源）。组件里出现裸值即视为违规。
   - **设备判定单入口**：双端是两套独立结构，不是响应式断点。设备判定只从一个常量 +
     一个 hook 产出，CSS 与 JS 都从它对齐；确需断点时阈值与 JS 判定同源
     （CSS 自定义属性在 `@media` 条件里不生效，需构建期解析）。不得并存两套判定。

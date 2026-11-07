@@ -891,8 +891,8 @@
 }
 
 /* 暗色卡片按 design-tokens §7 去掉边框，层级由阴影/底色承担 */
-.mb-hf-root[data-hf-scheme='dark'] .mb-card,
-.mb-hf-root[data-hf-scheme='dark'] .mb-account-entry,
-.mb-hf-root[data-hf-scheme='dark'] .mb-snapshot {
+[data-mantine-color-scheme='dark'] .mb-card,
+[data-mantine-color-scheme='dark'] .mb-account-entry,
+[data-mantine-color-scheme='dark'] .mb-snapshot {
   border-color: transparent;
 }

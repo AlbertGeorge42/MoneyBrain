@@ -7,9 +7,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { useMantineColorScheme } from '@mantine/core'
 import { getPortalHost } from '@/features/shared/portalHost'
-import '@mantine/core/styles.css'
-import { MantineProvider } from '@mantine/core'
 import { AppShell } from '@/features/shell/AppShell'
 import type { ShellPage } from '@/features/shell/navigation'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
@@ -26,8 +25,6 @@ import { SettingsPage } from '@/features/settings/SettingsPage'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import type { LedgerTransaction } from '@/features/overview/model'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
-import { hfTheme } from '@/styles/theme/hf-theme'
-import { useTheme } from '@/styles/ThemeContext'
 import './design.css'
 
 type SchemeChoice = 'system' | SchemeMode
@@ -448,9 +445,14 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
   )
   const viewportDevice = useViewportDevice(!preview)
   const activeDevice = preview ? device : viewportDevice
-  // 主题唯一来源是共享 ThemeContext（mode.ts 持久化 + data-theme）。
-  // 预览工具栏的三档操控同一个 setThemeMode，设置页切主题也即时反映到这里。
-  const { mode: scheme, theme: resolvedScheme, setThemeMode } = useTheme()
+  // 主题唯一来源是 Mantine 的 colorScheme：预览工具栏三档与设置页操控同一个值，
+  // 'system' 在 Mantine 里对应 'auto'。
+  const { colorScheme, setColorScheme } = useMantineColorScheme()
+  const scheme: SchemeChoice = colorScheme === 'auto' ? 'system' : colorScheme
+  const applyScheme = useCallback(
+    (next: SchemeChoice) => setColorScheme(next === 'system' ? 'auto' : next),
+    [setColorScheme],
+  )
   const schemeParam = useMemo(() => {
     const raw = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('scheme')
     return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : null
@@ -459,8 +461,8 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
   useEffect(() => {
     if (schemeParamApplied.current) return
     schemeParamApplied.current = true
-    if (schemeParam) setThemeMode(schemeParam)
-  }, [schemeParam, setThemeMode])
+    if (schemeParam) applyScheme(schemeParam)
+  }, [schemeParam, applyScheme])
   const [dataState, setDataState] = useState<DataState>(() =>
     readInitial('state', STATES, 'normal'),
   )
@@ -506,37 +508,35 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
   }, [preview, activeDevice])
 
   return (
-    <MantineProvider theme={hfTheme} forceColorScheme={resolvedScheme}>
-      <div className="mb-hf-root" data-hf-scheme={resolvedScheme}>
-        {preview && (
-          <PreviewToolbar
-            device={device}
-            scheme={scheme}
-            dataState={dataState}
-            onDevice={setDevice}
-            onScheme={setThemeMode}
+    <div className="mb-hf-root">
+      {preview && (
+        <PreviewToolbar
+          device={device}
+          scheme={scheme}
+          dataState={dataState}
+          onDevice={setDevice}
+          onScheme={applyScheme}
+          onState={setDataState}
+        />
+      )}
+      <div className={canvasClass}>
+        <LedgerProvider
+          initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : undefined}
+          dataMode={dataMode}
+          onRemoteChange={refreshRemote}
+        >
+          <PreviewBody
+            device={activeDevice}
+            dataState={effectiveState}
+            page={page}
+            onPage={setPage}
             onState={setDataState}
+            apiMode={apiMode}
+            onRetry={api.refetch}
+            framed={preview}
           />
-        )}
-        <div className={canvasClass}>
-          <LedgerProvider
-            initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : undefined}
-            dataMode={dataMode}
-            onRemoteChange={refreshRemote}
-          >
-            <PreviewBody
-              device={activeDevice}
-              dataState={effectiveState}
-              page={page}
-              onPage={setPage}
-              onState={setDataState}
-              apiMode={apiMode}
-              onRetry={api.refetch}
-              framed={preview}
-            />
-          </LedgerProvider>
-        </div>
+        </LedgerProvider>
       </div>
-    </MantineProvider>
+    </div>
   )
 }

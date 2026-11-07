@@ -2,23 +2,24 @@
  * CSS 变量守卫（U1b）
  *
  * CSS 引用未定义变量不会报错，浏览器会静默回退。本守卫把这类问题变成测试失败：
- * 1. 引用完整性：src 内每个 var(--mb-*) 都必须在「variables.css ∪ buildCssVars()」中定义；
- * 2. 命名空间隔离：项目代码不得出现 --ant-*（决策 #32）；
+ * 1. 引用完整性：src 内每个 var(--mb-*) 都必须在「variables.css ∪ hf-theme 颜色清单」中定义；
+ * 2. 命名空间隔离：项目代码不得引用 AntD 的 --ant-* 变量（防回潮）；
  * 3. 死变量：已定义的 --mb-* 必须至少被引用一次；过渡期保留的需在下方白名单显式登记。
  *
- * 定义清单直接复用 buildCssVars()（syncCssVars() 也用它），不在守卫里另抄一份。
+ * 定义清单直接复用 `buildMbColorVarNames()`（Mantine cssVariablesResolver 也用它），
+ * 不在守卫里另抄一份。
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildCssVars } from '../../src/styles/theme/config'
+import { buildMbColorVarNames } from '../../src/styles/theme/hf-theme'
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const SRC_ROOT = join(WEB_ROOT, 'src')
 const THEME_DIR = join(SRC_ROOT, 'styles', 'theme')
 const VARIABLES_CSS = join(THEME_DIR, 'variables.css')
-const CONFIG_TS = join(THEME_DIR, 'config.ts')
+const HF_THEME_TS = join(THEME_DIR, 'hf-theme.ts')
 
 const SCAN_EXTENSIONS = new Set(['.css', '.ts', '.tsx'])
 const MB_REF = /var\(\s*(--mb-[A-Za-z0-9_-]+)/g
@@ -33,51 +34,28 @@ const ANT_VAR = /--ant-[A-Za-z0-9_-]+/g
 const DEAD_VAR_ALLOWLIST: Record<string, string> = {
   // 存量结构 token：当前无 2px 边框用法，保留待原型切换时重规范（U1b 不删 token）
   '--mb-border-width-thick': '存量结构 token，当前无 2px 边框场景',
-  // 存量结构 token：布局实际用 JSX width={244}，该值待原型切换时统一重规范
-  '--mb-layout-sider-width': '存量结构 token，当前 Sider 用 JSX width={244}',
-  // 存量财务色：中性数字/现金流色板已生成，当前页面尚未引用
-  '--mb-color-neutral': '存量财务色，当前无中性数字显示场景',
-  '--mb-color-cash': '存量财务色，现金流色板暂未引用',
-  '--mb-color-non-cash': '存量财务色，现金流色板暂未引用',
-  // HF token：design-tokens 全量保留；hero 反白文字改用 --mb-color-hero-ink
+  // 结构 token：字号 / 间距 / 圆角 / 动效由 design-tokens 统一登记，供 Mantine theme 与后续组件引用
+  '--mb-space-xs': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
+  '--mb-space-sm': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
+  '--mb-space-md': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
+  '--mb-space-lg': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
+  '--mb-space-xl': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
+  '--mb-space-2xl': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
+  '--mb-space-3xl': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
+  '--mb-font-size-sm': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
+  '--mb-font-size-body': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
+  '--mb-font-size-body-lg': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
+  '--mb-font-size-title': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
+  '--mb-font-size-heading': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
+  '--mb-radius-control': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-radius-*',
+  '--mb-radius-card': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-radius-*',
+  '--mb-motion-fast': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
+  '--mb-motion-mid': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
+  '--mb-ease-standard': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-ease',
+  '--mb-font-num': '保留：数字等宽字体预留位，暂无独立引用',
   '--mb-color-text-inverse': 'design-tokens 全量保留，当前无其他反色文字场景',
-  // 旧 AntD 样式清退后，theme 内的结构/颜色 token 按约定保留（styles/theme 不删），
-  // 暂由 HF 自带选择器直接取值；待主题 token 重规范时再统一收敛。
-  '--mb-space-xs': '旧布局样式清退后暂无人引用，theme token 保留',
-  '--mb-space-sm': '旧布局样式清退后暂无人引用，theme token 保留',
-  '--mb-space-md': '旧布局样式清退后暂无人引用，theme token 保留',
-  '--mb-space-lg': '旧布局样式清退后暂无人引用，theme token 保留',
-  '--mb-space-xl': '旧布局样式清退后暂无人引用，theme token 保留',
-  '--mb-space-2xl': '旧布局样式清退后暂无人引用，theme token 保留',
-  '--mb-space-3xl': '旧布局样式清退后暂无人引用，theme token 保留',
-  '--mb-font-size-sm': '旧排版样式清退后暂无人引用，theme token 保留',
-  '--mb-font-size-body': '旧排版样式清退后暂无人引用，theme token 保留',
-  '--mb-font-size-body-lg': '旧排版样式清退后暂无人引用，theme token 保留',
-  '--mb-font-size-title': '旧排版样式清退后暂无人引用，theme token 保留',
-  '--mb-font-size-heading': '旧排版样式清退后暂无人引用，theme token 保留',
-  '--mb-font-size-mobile-label': '旧排版样式清退后暂无人引用，theme token 保留',
-  '--mb-radius-brand': '旧品牌样式清退后暂无人引用，theme token 保留',
-  '--mb-z-mobile-tab': '旧移动端样式清退后暂无人引用，theme token 保留',
-  '--mb-color-text-quaternary': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-bg-panel': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-bg-hover': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-bg-selected': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-bg-neutral-bold': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-fg-neutral-bold': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-bg-neutral-pale': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-fg-neutral-pale': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-border-subtle': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-action-primary': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-action-primary-hover': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-on-action-primary': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-success': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-shadow-card': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-shadow-panel': '旧组件样式清退后暂无人引用，theme token 保留',
-  '--mb-color-refund': '旧财务色板清退后暂无人引用，theme token 保留',
-  '--mb-color-adjustment': '旧财务色板清退后暂无人引用，theme token 保留',
-  '--mb-color-positive': '旧财务色板清退后暂无人引用，theme token 保留',
-  '--mb-color-negative': '旧财务色板清退后暂无人引用，theme token 保留',
-  '--mb-color-investing': '旧财务色板清退后暂无人引用，theme token 保留',
+  // 兼容别名：reset.css 的 body 使用，供页面外（portal / 错误兜底）取底色
+  '--mb-color-bg-panel': '兼容别名，当前仅 bg-app 被 body 引用',
 }
 
 function toPosix(path: string): string {
@@ -196,7 +174,7 @@ function collectReferences(): Array<{ name: string; at: string }> {
   })
 }
 
-/** 收集定义清单：variables.css 结构 token ∪ buildCssVars() 键名 */
+/** 收集定义清单：variables.css 结构 token ∪ hf-theme 颜色清单 */
 function collectDefinitions(): Map<string, string> {
   const definitions = new Map<string, string>()
 
@@ -205,21 +183,16 @@ function collectDefinitions(): Map<string, string> {
     definitions.set(match[1], location(VARIABLES_CSS, variablesSource, match.index ?? 0))
   }
 
-  const configSource = stripTsComments(readFileSync(CONFIG_TS, 'utf8'))
+  const themeSource = stripTsComments(readFileSync(HF_THEME_TS, 'utf8'))
   const literalKeys = new Map<string, string>()
-  for (const match of configSource.matchAll(MB_LITERAL_KEY)) {
-    literalKeys.set(match[1], location(CONFIG_TS, configSource, match.index ?? 0))
+  for (const match of themeSource.matchAll(MB_LITERAL_KEY)) {
+    literalKeys.set(match[1], location(HF_THEME_TS, themeSource, match.index ?? 0))
   }
 
-  // 键名来自 project 自己的清单；传空 token 只取键，不求值
-  const generated = buildCssVars({}, false)
-  const generatedAt = configSource.indexOf('--mb-color-${name}')
-  for (const key of Object.keys(generated)) {
-    const literalAt = literalKeys.get(key)
+  for (const key of buildMbColorVarNames()) {
     definitions.set(
       key,
-      literalAt ??
-        location(CONFIG_TS, configSource, generatedAt < 0 ? 0 : generatedAt),
+      literalKeys.get(key) ?? location(HF_THEME_TS, themeSource, 0),
     )
   }
 
@@ -248,11 +221,11 @@ describe('CSS 变量守卫（U1b）', () => {
 
     expect(
       failures,
-      `发现 ${failures.length} 处未定义引用（定义源：variables.css ∪ buildCssVars()）：\n${failures.join('\n')}`,
+      `发现 ${failures.length} 处未定义引用（定义源：variables.css ∪ hf-theme 颜色清单）：\n${failures.join('\n')}`,
     ).toEqual([])
   })
 
-  it('项目代码不得出现 --ant-*（决策 #32）', () => {
+  it('项目代码不得出现 --ant-*（已移除 AntD，防回潮）', () => {
     const failures = collectAntReferences().map(
       (reference) => `${reference.at}  ${reference.name}  ← 项目代码不得引用 AntD 变量`,
     )

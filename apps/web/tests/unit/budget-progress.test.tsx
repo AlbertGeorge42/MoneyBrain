@@ -120,7 +120,7 @@ describe('进度条口径与 token 落地', () => {
   const read = (relative: string) => fs.readFileSync(path.join(repoRoot, relative), 'utf8')
   const tokensDoc = read('docs/blueprint/ux/design-tokens.md')
   const specDoc = read('docs/blueprint/ux/interaction-spec.md')
-  const variables = read('apps/web/src/styles/theme/variables.css')
+  const themeVars = read('apps/web/src/styles/theme/hf-theme.ts')
   const progressCss = read('apps/web/src/features/shared/budgetProgress.css')
 
   it('§2.7 与 §6.2 不再残留「对轨道 ≥3:1」旧口径', () => {
@@ -146,7 +146,7 @@ describe('进度条口径与 token 落地', () => {
   })
 
   it('两套绿已合并：没有 achieved token，normal 仍是唯一绿', () => {
-    expect(variables).not.toContain('--mb-progress-achieved')
-    expect(variables.match(/--mb-progress-normal/g)?.length).toBe(2)
+    expect(themeVars).not.toContain('--mb-progress-achieved')
+    expect(themeVars.match(/--mb-progress-normal/g)?.length).toBe(2)
   })
 })

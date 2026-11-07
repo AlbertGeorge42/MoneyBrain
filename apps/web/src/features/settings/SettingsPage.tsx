@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Drawer } from '@mantine/core'
+import { Drawer, useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { getPortalHost } from '@/features/shared/portalHost'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import {
@@ -37,8 +37,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useTheme } from '@/styles/ThemeContext'
-import type { ThemeMode } from '@/styles/theme/mode'
+import type { ThemeMode } from '@/features/shared/types'
 import { fromMajor, minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { downloadBlob, todayFilename } from '@/utils/download'
@@ -917,8 +916,10 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
 
-  /* ===== 外观主题：复用共享 ThemeContext（localStorage + data-theme + syncCssVars） ===== */
-  const { mode: themeMode, theme: currentTheme, setThemeMode } = useTheme()
+  /* ===== 外观主题：直接读写 Mantine 的 colorScheme（light / dark / auto） ===== */
+  const { colorScheme, setColorScheme } = useMantineColorScheme()
+  const currentTheme = useComputedColorScheme('light')
+  const themeMode: ThemeMode = colorScheme === 'auto' ? 'system' : colorScheme
 
   /* ===== 自动备份：真实读写 GET/PUT /data/auto-backup ===== */
   const [backupConfig, setBackupConfig] = useState<AutoBackupConfig | null>(null)
@@ -2205,7 +2206,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                       ? 'mb-set-kind mb-set-theme-option is-active'
                       : 'mb-set-kind mb-set-theme-option'
                   }
-                  onClick={() => setThemeMode(option.value)}
+                  onClick={() =>
+                    setColorScheme(option.value === 'system' ? 'auto' : option.value)
+                  }
                 >
                   <Icon size={16} aria-hidden="true" />
                   <span>{option.label}</span>

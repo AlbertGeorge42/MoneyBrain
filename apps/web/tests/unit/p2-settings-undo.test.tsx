@@ -7,7 +7,6 @@
 import { describe, expect, it } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
-import { ThemeProvider } from '@/styles/ThemeContext'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { SettingsPage } from '@/features/settings/SettingsPage'
@@ -37,14 +36,12 @@ function OwnershipProbe() {
 describe('#12 转移并删除分类后的 6 秒撤销', () => {
   it('撤销恢复原分类与记录归属', async () => {
     render(
-      <ThemeProvider>
-        <MantineProvider>
-          <LedgerProvider initialLedger={ledger}>
-            <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
-            <OwnershipProbe />
-          </LedgerProvider>
-        </MantineProvider>
-      </ThemeProvider>,
+      <MantineProvider defaultColorScheme="auto">
+        <LedgerProvider initialLedger={ledger}>
+          <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
+          <OwnershipProbe />
+        </LedgerProvider>
+      </MantineProvider>,
     )
     const ownership = screen.getByTestId('ownership')
     expect(ownership.textContent).toBe('t1:shop')

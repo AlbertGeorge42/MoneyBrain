@@ -2,7 +2,7 @@
   color-scheme: light;
 }
 
-[data-theme='dark'] {
+[data-mantine-color-scheme='dark'] {
   color-scheme: dark;
 }
 
