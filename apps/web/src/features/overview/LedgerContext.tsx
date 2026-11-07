@@ -803,6 +803,7 @@ export function LedgerProvider({
           limit: input.limit,
           categoryId: input.categoryId || undefined,
           accountId: input.accountId || undefined,
+          toAccountId: input.toAccountId || undefined,
         }
         setLedger({ ...current, budgets: [...current.budgets, budget] })
         return { ok: true, id: budget.id }
@@ -837,6 +838,7 @@ export function LedgerProvider({
                   limit: input.limit,
                   categoryId: input.categoryId || undefined,
                   accountId: input.accountId || undefined,
+                  toAccountId: input.toAccountId || undefined,
                 }
               : budget,
           ),

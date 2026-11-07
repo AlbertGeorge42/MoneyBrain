@@ -73,10 +73,11 @@ describe('预算', () => {
   const ledger = createSeedLedger()
   const budgets = deriveBudgets(ledger)
 
-  it('预算总量与占比（含 warning 种子，73.6%）', () => {
-    expect(budgets.used).toBe(742_720)
-    expect(budgets.limit).toBe(1_009_000)
-    expect(budgets.percent).toBeCloseTo(73.6, 1)
+  it('本月预算总量与占比只含月度启用预算（90.4%）', () => {
+    // 周度 b_traffic（¥100）与年度 b_edu（¥2,000）不再并入「本月预算」。
+    expect(budgets.used).toBe(722_220)
+    expect(budgets.limit).toBe(799_000)
+    expect(budgets.percent).toBeCloseTo(90.4, 1)
   })
 
   it('账户过滤生效：餐饮只统计招商储蓄卡', () => {

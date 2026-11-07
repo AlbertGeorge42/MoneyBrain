@@ -298,6 +298,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     }
   })
 
+  const statusById = new Map(payload.statuses.map((status) => [status.budget.id, status]))
   const budgets: LedgerBudget[] = payload.budgets.map((budget) => ({
     id: budget.id,
     name: budget.name,
@@ -306,13 +307,16 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     limit: Number(budget.amount),
     categoryId: displayId(budget.categoryId) || undefined,
     accountId: budget.accountId,
+    toAccountId: budget.toAccountId ?? undefined,
+    isActive: budget.isActive,
+    // 已用金额来自 /budgets/statuses（领域口径），不在前端按流水重算。
+    used: statusById.get(budget.id)?.used,
   }))
-
-  const statusById = new Map(payload.statuses.map((status) => [status.budget.id, status]))
+  // 总览卡是「本月预算」：只含月度且启用的支出预算，周/年预算在预算页明细里展示各自周期。
   const rows: BudgetRow[] = budgets
-    .filter((budget) => budget.type === 'expense')
+    .filter((budget) => budget.type === 'expense' && budget.period === 'monthly' && (budget.isActive ?? true))
     .map((budget) => {
-      const used = statusById.get(budget.id)?.used ?? 0
+      const used = budget.used ?? 0
       const percent = budget.limit === 0 ? 0 : (used / budget.limit) * 100
       return {
         id: budget.id,
@@ -323,8 +327,6 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
         level: budgetLevel(percent),
       }
     })
-  // 与现有总览口径保持一致：头部合计仍是所有支出预算行相加。
-  // 「月度可花」混算周/年预算属于已知缺口，见 hf-api-gaps.md，本批不擅自改口径。
   const budgetsSummary: BudgetSummary = {
     rows,
     used: rows.reduce((total, row) => total + row.used, 0),
@@ -459,12 +461,11 @@ export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
     ),
   )
 
-  const expenseBudgetIds = budgets
-    .filter((budget) => budget.type === 'expense')
-    .map((budget) => budget.id)
+  // 预算页需要收支/转账预算的用量，统一一次拉取全部 statuses（总览只用其中的支出行）。
+  const budgetIds = budgets.map((budget) => budget.id)
   const statuses =
-    expenseBudgetIds.length > 0
-      ? await budgetApi.getStatuses(expenseBudgetIds).then(unwrapApiData)
+    budgetIds.length > 0
+      ? await budgetApi.getStatuses(budgetIds).then(unwrapApiData)
       : []
 
   return {

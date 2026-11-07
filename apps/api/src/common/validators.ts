@@ -130,6 +130,18 @@ export const parseAsOfQuery = (value: unknown): LocalDate => {
   return value
 }
 
+/** 可选参考日查询参数：YYYY-MM-DD；缺省 undefined（由调用方决定默认值）。 */
+export const parseOptionalDateQuery = (
+  value: unknown,
+  fieldName = 'date',
+): LocalDate | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value !== 'string' || !isLocalDate(value)) {
+    throw new ValidationError(`${fieldName} 必须是 YYYY-MM-DD`)
+  }
+  return value
+}
+
 /** 推演来源开关：缺省 true，只接受 true / false。 */
 export const parseBooleanQuery = (value: unknown, fieldName: string, fallback: boolean): boolean => {
   if (value === undefined || value === null || value === '') return fallback

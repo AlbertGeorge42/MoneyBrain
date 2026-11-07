@@ -52,7 +52,7 @@ const SEED_BUDGETS: LedgerBudget[] = [
   { id: 'b_traffic', name: '交通', type: 'expense', period: 'weekly', limit: 10_000, categoryId: 'traffic', accountId: 'wx' },
   { id: 'b_edu', name: '教育', type: 'expense', period: 'yearly', limit: 200_000, categoryId: 'edu', accountId: 'zfb' },
   { id: 'b_salary', name: '工资入账', type: 'income', period: 'monthly', limit: 1_850_000, categoryId: 'salary', accountId: 'cmb' },
-  { id: 'b_move', name: '账户互转', type: 'transfer', period: 'monthly', limit: 500_000, categoryId: 'move', accountId: 'cmb' },
+  { id: 'b_move', name: '账户互转', type: 'transfer', period: 'monthly', limit: 500_000, categoryId: 'move', accountId: 'cmb', toAccountId: 'brk' },
 ]
 
 const SEED_TRANSACTIONS: LedgerTransaction[] = [

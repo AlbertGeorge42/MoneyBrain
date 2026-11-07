@@ -5,12 +5,18 @@
  * 预算页额外覆盖收入目标与转账计划，并把「超支 / 接近上限」单独分组。
  */
 
+import {
+  CURRENT_RULE_VERSION,
+  periodOf,
+  rulesFor,
+  type BudgetScope,
+  type LocalDate,
+} from '@domain/index'
 import type {
   BudgetPeriod,
   Ledger,
   LedgerBudget,
   LedgerCategory,
-  LedgerTransaction,
 } from '@/features/overview/model'
 import { CURRENT_MONTH, TODAY, ledgerAnchorDay } from '@/features/overview/model'
 
@@ -71,11 +77,6 @@ export const BUDGET_PERIOD_LABEL: Record<BudgetPeriod, string> = {
   yearly: '每年',
 }
 
-function parseDay(day: string): Date {
-  const [year, month, date] = day.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, date))
-}
-
 function formatDay(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
@@ -98,39 +99,6 @@ export function monthAnchor(month: string, currentMonth = CURRENT_MONTH, today =
   return formatDay(new Date(Date.UTC(year, value, 0)))
 }
 
-function budgetRange(period: BudgetPeriod, anchorDay: string): { start: string; end: string } {
-  const anchor = parseDay(anchorDay)
-  const year = anchor.getUTCFullYear()
-  const month = anchor.getUTCMonth()
-
-  switch (period) {
-    case 'daily':
-      return { start: anchorDay, end: anchorDay }
-    case 'weekly': {
-      const start = new Date(anchor)
-      start.setUTCDate(start.getUTCDate() - 6)
-      return { start: formatDay(start), end: anchorDay }
-    }
-    case 'monthly':
-      return {
-        start: formatDay(new Date(Date.UTC(year, month, 1))),
-        end: formatDay(new Date(Date.UTC(year, month + 1, 0))),
-      }
-    case 'quarterly': {
-      const quarterStart = Math.floor(month / 3) * 3
-      return {
-        start: formatDay(new Date(Date.UTC(year, quarterStart, 1))),
-        end: formatDay(new Date(Date.UTC(year, quarterStart + 3, 0))),
-      }
-    }
-    case 'yearly':
-      return {
-        start: formatDay(new Date(Date.UTC(year, 0, 1))),
-        end: formatDay(new Date(Date.UTC(year, 11, 31))),
-      }
-  }
-}
-
 function categorySubtree(categories: LedgerCategory[], rootId: string): Set<string> {
   const ids = new Set<string>([rootId])
   let changed = true
@@ -144,12 +112,6 @@ function categorySubtree(categories: LedgerCategory[], rootId: string): Set<stri
     }
   }
   return ids
-}
-
-function matchesType(transaction: LedgerTransaction, type: BudgetKind): boolean {
-  if (type === 'expense') return transaction.type === 'expense'
-  if (type === 'income') return transaction.type === 'income'
-  return transaction.type === 'transfer'
 }
 
 function yuan(cents: number): string {
@@ -187,32 +149,83 @@ function rowLevel(type: BudgetKind, percent: number): BudgetRowLevel {
   return 'neutral'
 }
 
+/** 后端 /budgets/statuses 的预算用量（真实数据唯一口径）。 */
+export interface BudgetUsageStatus {
+  used: number
+  isActive: boolean
+}
+
+/**
+ * 种子演示账本的用量回退（仅 DEV 且 VITE_HF_DATA=seed 时走到这里）。
+ *
+ * 真实数据一律消费 /budgets/statuses，不在前端重算；种子模式没有后端，
+ * 只能本地算。这里复用 packages/domain 的期间与类型规则（与后端同源），
+ * 并保留种子账本的「全部账户 / 全部分类」通配语义（后端预算始终绑定账户与分类）。
+ * 退款冲减与转账账户对必须与后端一致，由 budget-page-model 的种子用例锁住。
+ */
+function seedBudgetUsed(ledger: Ledger, budget: LedgerBudget, anchorDay: string): number {
+  const { start, endExclusive } = periodOf(budget.period, anchorDay as LocalDate)
+  const rules = rulesFor(CURRENT_RULE_VERSION)
+  const query = rules.scopeQuery({
+    kind: budget.type as BudgetScope['kind'],
+    accountId: budget.accountId ?? '',
+    toAccountId: budget.toAccountId ?? null,
+    categoryIds: new Set<string>(),
+  })
+  const categoryIds = budget.categoryId
+    ? categorySubtree(ledger.categories, budget.categoryId)
+    : undefined
+  let used = 0
+  for (const transaction of ledger.transactions) {
+    if (transaction.date < start || transaction.date >= endExclusive) continue
+    if (!rules.isCountable(transaction)) continue
+    if (budget.type === 'transfer') {
+      if (transaction.type !== 'transfer') continue
+      if (budget.accountId && transaction.accountId !== budget.accountId) continue
+      if (budget.toAccountId && transaction.toAccountId !== budget.toAccountId) continue
+    } else if (budget.accountId && transaction.accountId !== budget.accountId) {
+      continue
+    }
+    if (categoryIds && (!transaction.categoryId || !categoryIds.has(transaction.categoryId))) {
+      continue
+    }
+    if (transaction.type === query.type) {
+      used += transaction.amount
+    } else if (
+      query.countsRefunds &&
+      transaction.type === 'refund' &&
+      transaction.relatedType === query.refundRelatedType
+    ) {
+      used -= transaction.amount
+    }
+  }
+  return Math.max(0, used)
+}
+
 export function deriveBudgetPage(
   ledger: Ledger,
   month = CURRENT_MONTH,
-  options?: { today?: string; currentMonth?: string; activeById?: Map<string, boolean> },
+  options?: {
+    today?: string
+    currentMonth?: string
+    activeById?: Map<string, boolean>
+    /** API 模式该月的后端预算用量；种子模式不传，改用 seedBudgetUsed。 */
+    statusById?: ReadonlyMap<string, BudgetUsageStatus>
+  },
 ): BudgetPageData {
   const today = options?.today ?? ledgerAnchorDay(ledger)
   const currentMonth = options?.currentMonth ?? today.slice(0, 7)
   const activeById = options?.activeById
+  const statusById = options?.statusById
   const anchor = monthAnchor(month, currentMonth, today)
   const rows: BudgetPageRow[] = ledger.budgets
     .filter((budget) => budget.type === 'expense' || budget.type === 'income' || budget.type === 'transfer')
     .map((budget) => {
       const type = budget.type as BudgetKind
-      const range = budgetRange(budget.period, anchor)
-      const categoryIds = budget.categoryId
-        ? categorySubtree(ledger.categories, budget.categoryId)
-        : undefined
-      const used = ledger.transactions
-        .filter((transaction) => {
-          if (!matchesType(transaction, type)) return false
-          if (transaction.date < range.start || transaction.date > range.end) return false
-          if (categoryIds && !categoryIds.has(transaction.categoryId)) return false
-          if (budget.accountId && transaction.accountId !== budget.accountId) return false
-          return true
-        })
-        .reduce((total, transaction) => total + transaction.amount, 0)
+      const status = statusById?.get(budget.id)
+      const used = statusById
+        ? (status?.used ?? 0)
+        : (budget.used ?? seedBudgetUsed(ledger, budget, anchor))
       const percent = budget.limit === 0 ? 0 : (used / budget.limit) * 100
       const level = rowLevel(type, percent)
       const category = ledger.categories.find((item) => item.id === budget.categoryId)
@@ -228,8 +241,8 @@ export function deriveBudgetPage(
         level,
         categoryName: category?.name ?? '全部分类',
         accountName: account?.name ?? '全部账户',
-        // 真实后端字段；没有该映射（种子数据 / 查询未就绪）时按启用处理。
-        isActive: activeById?.get(budget.id) ?? true,
+        // 1) 页面乐观更新覆盖；2) 后端 statuses；3) 种子预算默认启用。
+        isActive: activeById?.get(budget.id) ?? status?.isActive ?? budget.isActive ?? true,
       }
       return { ...base, status: rowStatus(base) }
     })
@@ -251,13 +264,14 @@ export function deriveBudgetPage(
   })
 
   const expenseRows = groups[0].rows
-  // 头部合计与告警只看启用条目；停用预算保留在列表里供恢复，不参与「可花多少」。
-  const activeExpenseRows = expenseRows.filter((row) => row.isActive)
-  const used = activeExpenseRows.reduce((total, row) => total + row.used, 0)
-  const limit = activeExpenseRows.reduce((total, row) => total + row.limit, 0)
+  // 头部是「本月可花」：只算月度且启用的支出预算；周/年预算保留在明细里展示各自周期与用量。
+  // 停用预算同样保留在列表里供恢复，不参与合计与告警。
+  const monthlyActiveExpenseRows = expenseRows.filter((row) => row.isActive && row.period === 'monthly')
+  const used = monthlyActiveExpenseRows.reduce((total, row) => total + row.used, 0)
+  const limit = monthlyActiveExpenseRows.reduce((total, row) => total + row.limit, 0)
   const percent = limit === 0 ? 0 : (used / limit) * 100
-  const over = activeExpenseRows.filter((row) => row.level === 'over')
-  const near = activeExpenseRows.filter((row) => row.level === 'warning')
+  const over = monthlyActiveExpenseRows.filter((row) => row.level === 'over')
+  const near = monthlyActiveExpenseRows.filter((row) => row.level === 'warning')
 
   return {
     month,
@@ -273,7 +287,7 @@ export function deriveBudgetPage(
     over,
     near,
     primaryOver: over[0],
-    disabledExpenseCount: expenseRows.length - activeExpenseRows.length,
+    disabledExpenseCount: expenseRows.filter((row) => !row.isActive).length,
   }
 }
 

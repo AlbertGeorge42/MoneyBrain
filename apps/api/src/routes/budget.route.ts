@@ -10,6 +10,7 @@ import {
   parseMoney,
   parseOptionalUuid,
   parseFromMonthQuery,
+  parseOptionalDateQuery,
   parsePeriodPlanMonths,
 } from '../common/index.js'
 import {
@@ -62,7 +63,9 @@ router.get('/statuses', asyncHandler(async (req, res) => {
   if (ids.length === 0) {
     return success(res, [])
   }
-  const statuses = await getBudgetStatusesByIds(ids)
+  // 可选参考日：预算页浏览历史月份时按该日所在周期结算；缺省为今天。
+  const referenceDate = parseOptionalDateQuery(req.query.date)
+  const statuses = await getBudgetStatusesByIds(ids, referenceDate)
   return success(res, statuses)
 }))
 

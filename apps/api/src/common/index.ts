@@ -34,6 +34,7 @@ export {
   parseProjectionMonths,
   parsePeriodPlanMonths,
   parseAsOfQuery,
+  parseOptionalDateQuery,
   parseBooleanQuery,
   parseFromMonthQuery,
 } from './validators.js'

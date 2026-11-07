@@ -84,7 +84,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 | 转账：`Δ转出 + Δ转入 == −fee` | ✅ | 同上 |
 | 期初余额当天交易计入 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts`（`periodOf` 各周期边界） |
-| 预算：退款冲减、跨期退款下限为 0、未分类不计入、转账只算绑定的那一对账户 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts` |
+| 预算：退款冲减、跨期退款下限为 0、未分类不计入、转账只算绑定的那一对账户、月度头部不并入周/年 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts`、`apps/web/tests/unit/budget-page-model.test.ts` |
 | 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
 | 现金流量表：支出退款算流入、收入退款算出流、原类型不明的退款不计入 | ✅ | `apps/api/tests/unit/cash-flow-aggregate.test.ts` |
 | 口径版本：旧交易按写入时的版本解释，新增版本不改历史数字 | ✅ | `packages/domain/tests/ledger.test.ts`（「新增口径版本后，旧交易的余额与报表数字保持不变」） |

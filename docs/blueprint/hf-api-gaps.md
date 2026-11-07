@@ -7,7 +7,7 @@
 ## 当前状态（2026-11-07）
 
 - 总览、流水、报表、预算、设置五个页面全部接真实账本（生产构建恒为 API；种子数据仅开发用，见 `features/dev-fixtures`）。
-- 预算 CRUD、启停、`/budgets/statuses` 已接；设置页自动备份开关已接 `GET/PUT /data/auto-backup`。
+- 预算 CRUD、启停、`/budgets/statuses` 已接；预算页与总览预算卡直接消费 statuses，头部只合计**月度且启用**的支出预算，周/年预算在明细里按各自周期展示。设置页自动备份开关已接 `GET/PUT /data/auto-backup`。
 - 导入/导出/导入回滚/清空、账户与分类 CRUD、排序、删除撤销、回收站均已接。
 - 三个推演端点（资产推演 / 现金流推演 / 预算周期计划）后端已完成，前端未接。
 - 同步仍只在 `packages/sync`，**没有同步端点**；未到 M3/M5，不阻塞当前页面。
@@ -16,14 +16,11 @@
 
 | 页 | 能力 | 接口 | 前端现状 | 缺什么 | 级别 |
 |---|---|---|---|---|---|
-| 总览 | 预算卡头部合计 | `GET /budgets/statuses` | 已用金额取后端 statuses | 头部合计仍把周/年预算并入月度（见预算页） | B |
 | 总览 | 账户余额 | `GET /accounts/:id/balance-at?date=` | 逐账户 `Promise.all` | 无批量余额端点；账户多时请求数线性增长 | B |
 | 流水 | 编辑撤销 | `PUT /transactions/:id` | 编辑真实落库 | `PUT` 不返回 `auditEventId`，API 模式编辑没有 6 秒撤销 | B |
 | 流水 | 回收站入口 | `GET /transactions/recycle-bin` | 设置页可恢复 | 流水页无独立入口 | B |
 | 流水 | 批量改分类 | 无批量端点 | 逐条 `PUT` | 非原子；请求数 = 选中笔数 | B |
 | 报表 | 下钻到流水 | `GET /transactions` 支持多 `categoryId` | 只写 URL `categoryIds` | 未带 `from/to`，下钻后落到流水默认期间 | B |
-| 预算 | 本月可花 | 无月度聚合端点 | 头部把所有启用支出预算行相加，周/年预算并入月度（[apiLedger.ts](../../../apps/web/src/features/overview/apiLedger.ts#L328-L332)） | 产品先拍板：只取月度，还是并入周/年 | A |
-| 预算 | 账户绑定漏计 | `/budgets/statuses` 按 `accountId` 过滤 | 同类支出在别的账户不计入（[budgetModel.ts](../../../apps/web/src/features/budgets/budgetModel.ts#L212)） | 产品先拍板：按分类全账户，还是按账户 | A |
 | 预算 | 预测 / 用量明细 | `/budgets/predictions`、`/budgets/:id/usage-details` | 未用 | 接线后补下钻与预测 | B |
 | 预算 | 推演三端点 | `/analytics/asset-projection`、`/reports/cash-flow-projection`、`/budgets/period-plan` | 未接 | 前端接入资产/现金流/预算前瞻视图 | B |
 | 报表 | 投资分析目标比例 | `GET /reports/investment-analysis` | 持仓无 `items` | 目标比例列无数据可显；需后端补资产分类明细，或接受该列为空 | B |

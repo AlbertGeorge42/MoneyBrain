@@ -164,6 +164,29 @@ describe('getBudgetStatusesByIds（预算用量口径）', () => {
     expect(status.used).toBe(0)
   })
 
+  it('date 参考日：weekly 按该日所在 ISO 自然周（周一至下周一）', async () => {
+    mockPrisma.budget.findMany.mockResolvedValue([makeBudget({ period: 'weekly' })])
+    mockPrisma.transaction.groupBy.mockResolvedValue([])
+
+    // 2026-10-28 是周三；ISO 周从周一 10-26 开始，到下周一 11-02 前结束。
+    await getBudgetStatusesByIds(['b1'], '2026-10-28')
+
+    const where = mockPrisma.transaction.groupBy.mock.calls[0][0].where
+    expect(where.date.gte).toEqual(new Date(2026, 9, 26))
+    expect(where.date.lt).toEqual(new Date(2026, 10, 2))
+  })
+
+  it('date 参考日：monthly 按该日所在自然月，供预算页浏览历史月份', async () => {
+    mockPrisma.budget.findMany.mockResolvedValue([makeBudget({ period: 'monthly' })])
+    mockPrisma.transaction.groupBy.mockResolvedValue([])
+
+    await getBudgetStatusesByIds(['b1'], '2026-09-30')
+
+    const where = mockPrisma.transaction.groupBy.mock.calls[0][0].where
+    expect(where.date.gte).toEqual(new Date(2026, 8, 1))
+    expect(where.date.lt).toEqual(new Date(2026, 9, 1))
+  })
+
   it('同期间的多个预算应该只查一次', async () => {
     mockPrisma.budget.findMany.mockResolvedValue([
       makeBudget({ id: 'b1' }),

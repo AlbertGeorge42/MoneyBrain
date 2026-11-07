@@ -363,13 +363,17 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
   }
 }
 
-export async function getBudgetStatusesByIds(budgetIds: string[]) {
+export async function getBudgetStatusesByIds(
+  budgetIds: string[],
+  /** 可选参考日：按该日所在周期结算（预算页浏览历史月份）；缺省今天。 */
+  referenceDate?: LocalDate,
+) {
   if (budgetIds.length === 0) return []
 
   const budgets = await budgetRepo.findManyWithRelations({ id: { in: budgetIds } })
 
   const childrenMap = await buildCategoryChildrenMap()
-  const now = new Date()
+  const now = referenceDate ? parseDateLocal(referenceDate) : new Date()
 
   // 每个预算的期间与分类子树（与下钻共用同一 plan 构建，C2）
   const plans: BudgetPlan[] = await Promise.all(

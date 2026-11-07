@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   delete: vi.fn(),
   getAll: vi.fn(),
+  getStatuses: vi.fn(),
 }))
 
 vi.mock('@/services/api', () => ({
@@ -27,6 +28,7 @@ vi.mock('@/services/api', () => ({
     update: mocks.update,
     delete: mocks.delete,
     getAll: mocks.getAll,
+    getStatuses: mocks.getStatuses,
   },
   accountApi: {},
   accountCategoryApi: {},
@@ -111,6 +113,8 @@ beforeEach(() => {
   mocks.update.mockReset()
   mocks.delete.mockReset()
   mocks.getAll.mockReset()
+  mocks.getStatuses.mockReset()
+  mocks.getStatuses.mockResolvedValue(success([]))
 })
 
 afterEach(() => {
@@ -122,7 +126,7 @@ describe('预算写操作（API 模式）', () => {
     mocks.update.mockResolvedValue(success(apiBudget))
     const notify = renderPage()
 
-    fireEvent.click(screen.getByText('餐饮预算'))
+    fireEvent.click(await screen.findByText('餐饮预算'))
     const input = await screen.findByLabelText('调整限额（元）')
     fireEvent.change(input, { target: { value: '1500' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
@@ -203,7 +207,7 @@ describe('预算写操作（API 模式）', () => {
     mocks.create.mockResolvedValue(success(apiBudget))
     const notify = renderPage()
 
-    fireEvent.click(screen.getByText('餐饮预算'))
+    fireEvent.click(await screen.findByText('餐饮预算'))
     fireEvent.click(await screen.findByRole('button', { name: '删除预算条目' }))
     fireEvent.click(screen.getByRole('button', { name: '再次点击确认删除' }))
 

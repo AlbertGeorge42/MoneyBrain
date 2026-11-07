@@ -21,10 +21,11 @@ import {
   BUDGET_KIND_LABEL,
   BUDGET_PERIOD_LABEL,
   deriveBudgetPage,
+  monthAnchor,
   monthLabel,
   shiftMonth,
 } from './budgetModel'
-import type { BudgetKind, BudgetPageData, BudgetPageRow } from './budgetModel'
+import type { BudgetKind, BudgetPageData, BudgetPageRow, BudgetUsageStatus } from './budgetModel'
 import '../overview/overview.css'
 import '../overview/overlays.css'
 import './budgets.css'
@@ -118,15 +119,21 @@ function Ring({ percent, level, size }: { percent: number; level: string; size: 
 
 function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
   const { expense, primaryOver } = data
-  if (expense.limit === 0) {
+  const expenseRows = data.groups[0].rows
+  // 头部是「本月可花」：只统计月度且启用的支出预算。
+  const monthlyRows = expenseRows.filter((row) => row.isActive && row.period === 'monthly')
+  if (monthlyRows.length === 0) {
+    // 周/年预算仍在下方明细展示；这里不能把它们误报成「还没有设置支出预算」。
+    const message =
+      expenseRows.length === 0
+        ? '还没有设置支出预算，新增第一条后会在这里显示可花金额。'
+        : expenseRows.every((row) => !row.isActive)
+          ? `支出预算已全部停用（${data.disabledExpenseCount} 条）；启用后才会显示可花金额与告警。`
+          : '当前没有启用的月度支出预算；周/年预算在下方明细中按各自周期展示。'
     return (
       <Card className="mb-bg-hero is-empty">
         <h2 className="mb-sec-title">本月支出预算</h2>
-        <p className="mb-bg-hero-empty">
-          {data.disabledExpenseCount > 0
-            ? `支出预算已全部停用（${data.disabledExpenseCount} 条）；启用后才会显示可花金额与告警。`
-            : '还没有设置支出预算，新增第一条后会在这里显示可花金额。'}
-        </p>
+        <p className="mb-bg-hero-empty">{message}</p>
       </Card>
     )
   }
@@ -150,7 +157,7 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
           <div>
             <h2 className="mb-sec-title">本月支出预算</h2>
             <p className="mb-sec-desc">
-              {data.groups[0].rows.length} 个分类 · 已用 {percentText(expense.percent, false)}
+              {monthlyRows.length} 个月度预算 · 已用 {percentText(expense.percent, false)}
             </p>
           </div>
           <span className="mb-bg-hero-badge" data-level={badge.level}>
@@ -184,7 +191,7 @@ function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Budg
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">需要关注</h2>
-          <p className="mb-sec-desc">超支 {data.over.length} 条 · 接近上限 {data.near.length} 条</p>
+          <p className="mb-sec-desc">本月超支 {data.over.length} 条 · 接近上限 {data.near.length} 条</p>
         </div>
       </div>
       <div className="mb-bg-watch-grid">
@@ -326,6 +333,9 @@ const EMPTY_EDITOR: EditorState = {
   toAccountId: '',
 }
 
+/** API 模式等待 statuses 时传空表：页面在外层显示骨架，不让前端规则临时兜底。 */
+const EMPTY_BUDGET_STATUS: ReadonlyMap<string, BudgetUsageStatus> = new Map()
+
 export function BudgetPage({
   device,
   dataState,
@@ -341,7 +351,6 @@ export function BudgetPage({
   const currentMonth = anchorDay.slice(0, 7)
   const [monthOverride, setMonthOverride] = useState<string | null>(null)
   const month = monthOverride ?? currentMonth
-  const setMonth = setMonthOverride
   const hasMonthData = useMemo(() => {
     const present = new Set(ledger.transactions.map((transaction) => transaction.date.slice(0, 7)))
     return (target: string) => present.has(target)
@@ -354,12 +363,91 @@ export function BudgetPage({
   const [editorError, setEditorError] = useState('')
   // 写请求进行中禁掉再次提交，避免一次点击落两条预算。
   const [saving, setSaving] = useState(false)
-  // 预算启停属于后端 Budget 字段，账本实体不携带 isActive；单独按 id 取真实值。
+  // 启停写接口成功后先覆盖 statuses 的 isActive，避免等待账本重读。
   const [activeById, setActiveById] = useState<Map<string, boolean>>()
 
+  const apiMode = dataMode === 'api'
+
+  // 预算口径只有一处：API 模式一律消费 /budgets/statuses。
+  // 当前期的 statuses 随账本一起加载；浏览历史月份时按该月结算日再查一次。
+  const anchor = monthAnchor(month, currentMonth, anchorDay)
+  const statusKey = `${month}|${anchor}`
+  const ledgerStatusKey = ledger.snapshot
+    ? `${ledger.snapshot.today.slice(0, 7)}|${ledger.snapshot.today}`
+    : undefined
+  const ledgerStatusById = useMemo(() => {
+    if (!ledger.snapshot) return undefined
+    const statuses = new Map<string, BudgetUsageStatus>()
+    for (const budget of ledger.budgets) {
+      statuses.set(budget.id, { used: budget.used ?? 0, isActive: budget.isActive ?? true })
+    }
+    return statuses
+  }, [ledger])
+  const [monthStatus, setMonthStatus] = useState<{
+    key: string
+    byId: Map<string, BudgetUsageStatus>
+  }>()
+  const [statusError, setStatusError] = useState(false)
+  const [statusRetry, setStatusRetry] = useState(0)
+
+  const setMonth = (next: string) => {
+    setMonthOverride(next)
+    setStatusError(false)
+  }
+  const retryStatuses = () => {
+    setStatusError(false)
+    setStatusRetry((count) => count + 1)
+  }
+
+  const statusById = apiMode
+    ? statusKey === ledgerStatusKey
+      ? ledgerStatusById
+      : monthStatus?.key === statusKey
+        ? monthStatus.byId
+        : undefined
+    : undefined
+  // 没有预算时无需等 statuses，直接走页面的空状态。
+  const statusesReady = !apiMode || ledger.budgets.length === 0 || statusById !== undefined
+
+  useEffect(() => {
+    if (!apiMode || statusKey === ledgerStatusKey) return
+    const ids = ledger.budgets.map((budget) => budget.id)
+    if (ids.length === 0) return
+    let cancelled = false
+    setStatusError(false)
+    void budgetApi
+      .getStatuses(ids, anchor)
+      .then(unwrapApiData)
+      .then((statuses) => {
+        if (cancelled) return
+        setMonthStatus({
+          key: statusKey,
+          byId: new Map(
+            statuses.map((status) => [
+              status.budget.id,
+              { used: status.used, isActive: status.budget.isActive },
+            ]),
+          ),
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setStatusError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [apiMode, statusKey, ledgerStatusKey, anchor, ledger.budgets, statusRetry])
+
   const data = useMemo(
-    () => deriveBudgetPage(ledger, month, { today: anchorDay, currentMonth, activeById }),
-    [ledger, month, anchorDay, currentMonth, activeById],
+    () =>
+      deriveBudgetPage(ledger, month, {
+        today: anchorDay,
+        currentMonth,
+        activeById,
+        // API 模式未就绪时传空表，避免在等待后端时用种子规则算出另一种口径。
+        statusById: apiMode ? statusById ?? EMPTY_BUDGET_STATUS : undefined,
+      }),
+    [ledger, month, anchorDay, currentMonth, activeById, apiMode, statusById],
   )
   const detail = detailId ? data.groups.flatMap((group) => group.rows).find((row) => row.id === detailId) : undefined
 
@@ -377,30 +465,6 @@ export function BudgetPage({
     setConfirmDelete(false)
   }
 
-  const apiMode = dataMode === 'api'
-
-  // 真实模式下读一次后端 isActive；种子数据没有该字段，保持 undefined（按启用处理）。
-  useEffect(() => {
-    if (!apiMode) {
-      setActiveById(undefined)
-      return
-    }
-    let cancelled = false
-    void Promise.resolve(budgetApi.getAll())
-      .then((response) => (response ? unwrapApiData(response) : []))
-      .then((budgets) => {
-        if (!cancelled) {
-          setActiveById(new Map(budgets.map((budget) => [budget.id, budget.isActive])))
-        }
-      })
-      .catch(() => {
-        // 读取失败不阻断预算页：按启用展示，写操作仍会给出各自错误。
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [apiMode, ledger.budgets])
-
   /** 现有预算 + 新限额 → 写接口入参（真实后端 PUT 要求完整字段）。 */
   const toBudgetInput = (budget: LedgerBudget, limit: number): LedgerBudgetInput => ({
     name: budget.name,
@@ -409,6 +473,7 @@ export function BudgetPage({
     limit,
     categoryId: budget.categoryId,
     accountId: budget.accountId,
+    toAccountId: budget.toAccountId,
   })
 
   /** 真实后端 PUT 的原始字段：金额字段名是 amount（整数分），分类 id 要还原成后端真实 id。 */
@@ -421,6 +486,7 @@ export function BudgetPage({
       ? (ledger.ids?.categoryReal?.[budget.categoryId] ?? budget.categoryId)
       : undefined,
     accountId: budget.accountId,
+    toAccountId: budget.toAccountId,
   })
 
   const toggleActive = async () => {
@@ -560,7 +626,25 @@ export function BudgetPage({
     notify(`已新增预算「${editor.name.trim()}」${category ? `，分类 ${category.name}` : ''}`)
   }
 
-  if (dataState === 'loading') {
+  // 历史月 statuses 查询失败时，页面不能退回前端本地重算（会变成第二套口径）。
+  if (dataState === 'error' || statusError) {
+    return (
+      <>
+        <BudgetPageHead
+          device={device}
+          data={data}
+          month={month}
+          onMonth={setMonth}
+          onAdd={() => onEditorOpenChange(true)}
+          currentMonth={currentMonth}
+          hasData={hasMonthData}
+        />
+        <ErrorPanel onRetry={dataState === 'error' ? onRetry : retryStatuses} />
+      </>
+    )
+  }
+
+  if (dataState === 'loading' || !statusesReady) {
     return (
       <>
         <BudgetPageHead
@@ -573,23 +657,6 @@ export function BudgetPage({
           hasData={hasMonthData}
         />
         <LoadingSkeleton device={device} />
-      </>
-    )
-  }
-
-  if (dataState === 'error') {
-    return (
-      <>
-        <BudgetPageHead
-          device={device}
-          data={data}
-          month={month}
-          onMonth={setMonth}
-          onAdd={() => onEditorOpenChange(true)}
-          currentMonth={currentMonth}
-          hasData={hasMonthData}
-        />
-        <ErrorPanel onRetry={onRetry} />
       </>
     )
   }

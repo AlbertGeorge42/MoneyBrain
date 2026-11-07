@@ -118,7 +118,6 @@ D4 取消（不降级、不保留）、U13.1–U13.5 取消，前端改为「HF 
 
 ## 已知未收口（不属于任何阶段条目，按来源文档跟踪）
 
-- **预算口径**：头部「本月可花」仍把所有支出预算行相加，周/年预算被并入月度（[apiLedger.ts](../../../apps/web/src/features/overview/apiLedger.ts#L328-L332)）；账户绑定按 `accountId` 过滤会漏计其他账户同类支出（[budgetModel.ts](../../../apps/web/src/features/budgets/budgetModel.ts#L212)）。两项均待产品拍板。
 - **预算增强**：`/budgets/predictions`、`/budgets/:id/usage-details` 与三个推演端点已存在但前端未接。
 - **投资分析**：API 持仓无 `items`，目标比例列无数据可显；需后端补资产分类明细或接受该列为空。
 - **报表下钻**：只写 `categoryIds`，未带 `from/to`，下钻后落到流水默认期间。

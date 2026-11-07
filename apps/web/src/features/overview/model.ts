@@ -57,6 +57,12 @@ export interface LedgerBudget {
   limit: number
   categoryId?: string
   accountId?: string
+  /** 转账预算的转入账户；后端按「转出 + 转入」这一对账户结算。 */
+  toAccountId?: string
+  /** 后端预算是否启用；总览/预算页头部只合计启用的预算。 */
+  isActive?: boolean
+  /** API 适配层带入的当期已用金额（来自 /budgets/statuses）。 */
+  used?: number
 }
 
 export interface LedgerTransaction {
@@ -383,7 +389,10 @@ export function deriveBudgets(ledger: Ledger, today = ledger.snapshot?.today ?? 
   // API 模式：每个预算的已用金额来自 /budgets/statuses（领域口径），不在前端重算。
   if (ledger.snapshot) return ledger.snapshot.budgets
 
-  const expenseBudgets = ledger.budgets.filter((budget) => budget.type === 'expense')
+  // 头部是「本月预算」：只含月度且启用的支出预算；周/年预算在预算页明细里展示各自周期。
+  const expenseBudgets = ledger.budgets.filter(
+    (budget) => budget.type === 'expense' && budget.period === 'monthly' && (budget.isActive ?? true),
+  )
 
   const rows = expenseBudgets.map((budget) => {
     const range = budgetRange(budget.period, today)

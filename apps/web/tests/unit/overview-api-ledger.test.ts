@@ -244,6 +244,33 @@ describe('DTO → Ledger 适配', () => {
     expect(ledger.budgets[0]).toMatchObject({ period: 'monthly', categoryId: 'food' })
   })
 
+  it('本月预算头部只合计月度且启用的支出预算，周/年与停用不并入', () => {
+    const monthly = budget('b-monthly', '月度', 'cat-food', 300_000, 'monthly')
+    const weekly = budget('b-weekly', '周度', 'cat-food', 70_000, 'weekly')
+    const yearly = budget('b-yearly', '年度', 'cat-food', 3_600_000, 'yearly')
+    const inactive = budget('b-off', '停用月度', 'cat-food', 50_000, 'monthly')
+    inactive.isActive = false
+    const ledger = buildLedgerFromApi(
+      payload({
+        budgets: [monthly, weekly, yearly, inactive],
+        statuses: [
+          status(monthly, 300_000),
+          status(weekly, 70_000),
+          status(yearly, 900_000),
+          status(inactive, 10_000),
+        ],
+      }),
+      '2026-11-06',
+    )
+    const budgets = deriveBudgets(ledger)
+
+    // 旧口径会把 300,000 + 70,000 + 3,600,000 + 50,000 全加进「本月预算」。
+    expect(budgets.rows.map((row) => row.id)).toEqual(['b-monthly'])
+    expect(budgets.limit).toBe(300_000)
+    expect(budgets.used).toBe(300_000)
+    expect(budgets.percent).toBe(100)
+  })
+
   it('分类命中种子名称时映射回稳定 key，供图标与筛选使用', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
     const byName = new Map(ledger.categories.map((item) => [item.name, item]))

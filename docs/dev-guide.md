@@ -150,7 +150,7 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 | 收支净额与分类汇总 | `ledger/summary.ts` 的 `summarizeFlows` / `flowByCategory` |
 | 退款可退余额 | 同上的 `remainingRefundable` |
 | 退款计入方向（收支表、活动表、桑基图共用） | `ledger/rules.vN.ts` 的 `refundOffsetKind`——收入退款 = 流出、支出退款 = 流入；`relatedType` 无法识别返回 null 不计入；报表输出侧不得自行判方向（C4） |
-| 预算的账户/分类/冲减口径（用量与下钻明细同源，C2） | `ledger/rules.vN.ts` 的 `scopeQuery` / `matchesBudgetScope` + `budget.service` 的 `budgetContributionSign`（计入符号的唯一判定点：+1 主类型 / −1 冲减退款 / 0 不计入，下钻不得另写过滤条件）；使用率返回真实百分比——超支 >100 不截断，进度条条宽可封顶但文本必须显示真实值（C3） |
+| 预算的账户/分类/冲减口径（用量与下钻明细同源，C2） | `ledger/rules.vN.ts` 的 `scopeQuery` / `matchesBudgetScope` + `budget.service` 的 `budgetContributionSign`（计入符号的唯一判定点：+1 主类型 / −1 冲减退款 / 0 不计入，下钻不得另写过滤条件）；使用率返回真实百分比——超支 >100 不截断，进度条条宽可封顶但文本必须显示真实值（C3）；预算页与总览预算卡只消费 `/budgets/statuses`，不按流水重算（种子演示模式除外） |
 | 日期格式化（Date → `YYYY-MM-DD`） | `ledger` 之外的 `packages/domain/src/date.ts` 的 `fromDate`（`common/date.ts` 的 `formatDateLocal` 委托给它） |
 | 前后端共用的字面量（确认值、备份类型名） | `packages/contracts/constants.ts` |
 
