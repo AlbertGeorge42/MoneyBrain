@@ -3,6 +3,7 @@
  * 可转移目标 = 同类型且不在被删分类子树内的分类，一级分类排在前面。
  */
 import { X } from 'lucide-react'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
@@ -36,9 +37,9 @@ export function CategoryDeleteSheet({
     <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">删除「{row.name}」</h2>
-        <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </button>
+        </HfButton>
       </div>
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
@@ -46,9 +47,8 @@ export function CategoryDeleteSheet({
         </p>
         <div className="mb-set-radio-list" role="radiogroup" aria-label="转移目标分类">
           {options.map((option) => (
-            <button
+            <HfButton
               key={option.id}
-              type="button"
               role="radio"
               aria-checked={false}
               className="mb-set-radio"
@@ -57,7 +57,7 @@ export function CategoryDeleteSheet({
             >
               <span className="mb-set-radio-dot" aria-hidden="true" />
               <span>{option.name}</span>
-            </button>
+            </HfButton>
           ))}
         </div>
         {options.length === 0 && (

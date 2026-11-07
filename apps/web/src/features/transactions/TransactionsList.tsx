@@ -13,6 +13,7 @@ import {
 } from '@/features/overview/model'
 import { TxRow } from '@/features/shared/TxRow'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import { RefundRelationTag, RefundStateTag } from '@/features/shared/RefundTag'
 import type { DeviceMode } from '@/features/shared/types'
 import type { DisplaySettings } from './displaySettings'
@@ -41,8 +42,7 @@ function ExcludedToggle({
   onToggle: () => void
 }) {
   return (
-    <button
-      type="button"
+    <HfButton
       className={includeExcluded ? 'mb-tx-excluded-toggle is-active' : 'mb-tx-excluded-toggle'}
       aria-pressed={includeExcluded}
       title="默认只统计计入收支的流水；切换后把标记为「不计收支」的交易也并入合计"
@@ -50,7 +50,7 @@ function ExcludedToggle({
     >
       {includeExcluded ? '包含不计收支' : '不含不计收支'}
       {excludedCount > 0 && <span className="mb-tx-excluded-count">{excludedCount}</span>}
-    </button>
+    </HfButton>
   )
 }
 
@@ -113,8 +113,7 @@ function DesktopTable({
                     onOpenRelated={onOpenRelated}
                     leading={
                       batchMode ? (
-                        <button
-                          type="button"
+                        <HfButton
                           role="checkbox"
                           aria-checked={isSelected}
                           aria-label={`选择 ${transaction.note}`}
@@ -125,7 +124,7 @@ function DesktopTable({
                           }}
                         >
                           <CheckBox checked={isSelected} />
-                        </button>
+                        </HfButton>
                       ) : undefined
                     }
                   />

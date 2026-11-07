@@ -19,6 +19,7 @@ import {
   type LedgerTransaction,
 } from '@/features/overview/model'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { transactionApi, unwrapApiData } from '@/services/api'
 import type { DeviceMode } from '@/features/shared/types'
@@ -111,9 +112,9 @@ function RefundLinkForm({
 
   if (!expanded) {
     return (
-      <button type="button" className="mb-tx-refund-link-open" onClick={() => setExpanded(true)}>
+      <HfButton className="mb-tx-refund-link-open" onClick={() => setExpanded(true)}>
         关联原交易
-      </button>
+      </HfButton>
     )
   }
 
@@ -148,22 +149,20 @@ function RefundLinkForm({
         </p>
       )}
       <div className="mb-tx-refund-link-actions">
-        <button
-          type="button"
+        <HfButton
           className="mb-tx-btn is-primary"
           onClick={() => void confirm()}
           disabled={!selected || saving}
         >
           {saving ? '关联中…' : '关联'}
-        </button>
-        <button
-          type="button"
+        </HfButton>
+        <HfButton
           className="mb-tx-btn is-ghost"
           onClick={() => setExpanded(false)}
           disabled={saving}
         >
           取消
-        </button>
+        </HfButton>
       </div>
     </div>
   )
@@ -237,13 +236,12 @@ function DetailView({
             <dt>原交易</dt>
             <dd>
               {related ? (
-                <button
-                  type="button"
+                <HfButton
                   className="mb-tx-detail-link"
                   onClick={() => onOpenTransaction(related)}
                 >
                   {`关联 #${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
-                </button>
+                </HfButton>
               ) : (
                 <span className="mb-tx-detail-muted">未关联原交易</span>
               )}
@@ -261,16 +259,15 @@ function DetailView({
               {refunds.length > 0 && (
                 <span className="mb-tx-refund-items">
                   {refunds.map((refund) => (
-                    <button
+                    <HfButton
                       key={refund.id}
-                      type="button"
                       className="mb-tx-refund-item"
                       onClick={() => onOpenTransaction(refund)}
                     >
                       <span>{formatDateLabel(refund.date)}</span>
                       <span className="mb-tx-refund-item-note">{refund.note || '退款'}</span>
                       <span className="mb-tx-refund-item-amount">{amountText(refund.amount)}</span>
-                    </button>
+                    </HfButton>
                   ))}
                 </span>
               )}
@@ -306,17 +303,17 @@ function DetailView({
       )}
 
       <div className="mb-tx-detail-actions">
-        <button type="button" className="mb-tx-btn is-primary" onClick={onEdit}>
+        <HfButton className="mb-tx-btn is-primary" onClick={onEdit}>
           <Pencil size={15} />
           编辑
-        </button>
-        <button type="button" className="mb-tx-btn is-danger" onClick={onDelete}>
+        </HfButton>
+        <HfButton className="mb-tx-btn is-danger" onClick={onDelete}>
           <Trash2 size={15} />
           删除
-        </button>
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onClose}>
+        </HfButton>
+        <HfButton className="mb-tx-btn is-ghost" onClick={onClose}>
           关闭
-        </button>
+        </HfButton>
       </div>
     </div>
   )
@@ -479,12 +476,12 @@ function EditForm({
           {errorText}
           {nextType === 'expense' && (
             <span className="mb-tx-form-error-actions">
-              <button type="button" className="mb-tx-form-error-action" onClick={() => switchType('refund')}>
+              <HfButton className="mb-tx-form-error-action" onClick={() => switchType('refund')}>
                 改为退款
-              </button>
-              <button type="button" className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
+              </HfButton>
+              <HfButton className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
                 改为调整
-              </button>
+              </HfButton>
             </span>
           )}
         </p>
@@ -497,13 +494,13 @@ function EditForm({
       )}
 
       <div className="mb-tx-detail-actions">
-        <button type="button" className="mb-tx-btn is-primary" onClick={() => void submit()} disabled={invalid || saving}>
+        <HfButton className="mb-tx-btn is-primary" onClick={() => void submit()} disabled={invalid || saving}>
           <Check size={15} />
           {saving ? '保存中…' : '保存修改'}
-        </button>
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
+        </HfButton>
+        <HfButton className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
           取消
-        </button>
+        </HfButton>
       </div>
     </div>
   )
@@ -544,13 +541,13 @@ function DeleteConfirm({
         </p>
       )}
       <div className="mb-tx-detail-actions">
-        <button type="button" className="mb-tx-btn is-danger-solid" onClick={() => void confirm()} disabled={saving}>
+        <HfButton className="mb-tx-btn is-danger-solid" onClick={() => void confirm()} disabled={saving}>
           {saving ? '删除中…' : '删除'}
-        </button>
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
+        </HfButton>
+        <HfButton className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
           <X size={15} />
           取消
-        </button>
+        </HfButton>
       </div>
     </div>
   )

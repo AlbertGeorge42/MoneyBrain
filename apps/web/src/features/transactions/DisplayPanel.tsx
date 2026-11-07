@@ -1,3 +1,4 @@
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { SORT_OPTIONS, type DisplaySettings } from './displaySettings'
@@ -35,15 +36,14 @@ function Fields({
         <span className="mb-tx-field-label">排序</span>
         <div className="mb-tx-sort-group" role="group" aria-label="排序方式">
           {SORT_OPTIONS.map((option) => (
-            <button
+            <HfButton
               key={option.value}
-              type="button"
               className={option.value === value.sort ? 'mb-tx-type is-active' : 'mb-tx-type'}
               aria-pressed={option.value === value.sort}
               onClick={() => onChange({ ...value, sort: option.value })}
             >
               {option.label}
-            </button>
+            </HfButton>
           ))}
         </div>
       </div>
@@ -69,12 +69,12 @@ export function DesktopDisplayPanel({
       </div>
       <Fields value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions">
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onReset}>
+        <HfButton className="mb-tx-btn is-ghost" onClick={onReset}>
           恢复默认
-        </button>
-        <button type="button" className="mb-tx-btn" onClick={onClose}>
+        </HfButton>
+        <HfButton className="mb-tx-btn" onClick={onClose}>
           关闭
-        </button>
+        </HfButton>
       </div>
     </div>
   )
@@ -105,12 +105,12 @@ export function MobileDisplayDrawer({
       title="显示"
       actions={
         <>
-          <button type="button" className="mb-tx-btn is-ghost" onClick={onReset}>
+          <HfButton className="mb-tx-btn is-ghost" onClick={onReset}>
             恢复默认
-          </button>
-          <button type="button" className="mb-tx-btn is-primary" onClick={onClose}>
+          </HfButton>
+          <HfButton className="mb-tx-btn is-primary" onClick={onClose}>
             完成
-          </button>
+          </HfButton>
         </>
       }
     >

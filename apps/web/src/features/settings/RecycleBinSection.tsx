@@ -12,6 +12,7 @@ import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
 import { formatDateLabel, getAccount, getCategoryName } from '@/features/overview/model'
+import { HfButton } from '@/features/shared/HfButton'
 import { signedAmountText } from '@/features/overview/format'
 import type {
   Ledger,
@@ -124,9 +125,9 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
       <div className="mb-set-list-empty is-tall">
         <p>回收站读取失败</p>
         <span>检查 API 连接后重试。</span>
-        <button type="button" className="mb-set-btn is-ghost" onClick={refetch}>
+        <HfButton className="mb-set-btn is-ghost" onClick={refetch}>
           重试
-        </button>
+        </HfButton>
       </div>
     )
   }
@@ -172,15 +173,14 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
                 {TYPE_LABEL[item.detail] ? ` · ${TYPE_LABEL[item.detail]}` : ''} ·{' '}
                 {formatDateLabel(item.deletedAt.slice(0, 10))}
               </span>
-              <button
-                type="button"
+              <HfButton
                 className="mb-set-btn is-ghost"
                 title={item.canRestore ? undefined : '删除时级联删除了关联数据，无法自动恢复'}
                 disabled={restoringId !== null || !item.canRestore}
                 onClick={() => void confirmRestore(key, item.deleteEventId)}
               >
                 {restoringId === key ? '恢复中…' : item.canRestore ? '恢复' : '不可恢复'}
-              </button>
+              </HfButton>
             </div>
           )
         })}
@@ -198,14 +198,13 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
               {getAccount(ledger, row.transaction.accountId)?.name ?? '未知账户'} ·{' '}
               {signedAmountText(row.transaction)}
             </span>
-            <button
-              type="button"
+            <HfButton
               className="mb-set-btn is-ghost"
               disabled={restoringId !== null || !row.deleteEventId}
               onClick={() => void confirmRestore(`tx-${row.id}`, row.deleteEventId)}
             >
               {restoringId === `tx-${row.id}` ? '恢复中…' : '恢复'}
-            </button>
+            </HfButton>
           </div>
         ))}
       </div>

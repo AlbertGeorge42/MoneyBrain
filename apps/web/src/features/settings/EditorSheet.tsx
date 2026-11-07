@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Trash2, X } from 'lucide-react'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
@@ -189,9 +190,9 @@ export function EditorSheet({
     <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">{title}</h2>
-        <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </button>
+        </HfButton>
       </div>
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
@@ -235,12 +236,12 @@ export function EditorSheet({
             )}
             {editor.mode === 'edit' && onMove && (
               <div className="mb-set-order-actions">
-                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
+                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
                   上移
-                </button>
-                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
+                </HfButton>
+                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
                   下移
-                </button>
+                </HfButton>
               </div>
             )}
           </>
@@ -269,15 +270,14 @@ export function EditorSheet({
                 <span className="mb-set-label">账户性质</span>
                 <div className="mb-set-kind-grid" role="group" aria-label="账户性质">
                   {(['deposit', 'cash', 'investment', 'credit'] as AccountKind[]).map((value) => (
-                    <button
+                    <HfButton
                       key={value}
-                      type="button"
                       className={kind === value ? 'mb-set-kind is-active' : 'mb-set-kind'}
                       aria-pressed={kind === value}
                       onClick={() => setKind(value)}
                     >
                       {ACCOUNT_KIND_LABEL[value]}
-                    </button>
+                    </HfButton>
                   ))}
                 </div>
               </div>
@@ -344,12 +344,12 @@ export function EditorSheet({
             )}
             {editor.mode === 'edit' && onMove && (
               <div className="mb-set-order-actions">
-                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
+                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
                   组内上移
-                </button>
-                <button type="button" className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
+                </HfButton>
+                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
                   组内下移
-                </button>
+                </HfButton>
               </div>
             )}
           </>
@@ -382,21 +382,19 @@ export function EditorSheet({
 
       <div className="mb-set-sheet-actions">
         {onDelete && (
-          <button
-            type="button"
+          <HfButton
             className="mb-set-btn is-danger"
             disabled={saving}
             onClick={onDelete}
           >
             <Trash2 size={15} />
             {editor.kind === 'accountGroup' ? '删除分组' : '删除账户'}
-          </button>
+          </HfButton>
         )}
-        <button type="button" className="mb-set-btn is-ghost" onClick={onClose}>
+        <HfButton className="mb-set-btn is-ghost" onClick={onClose}>
           取消
-        </button>
-        <button
-          type="button"
+        </HfButton>
+        <HfButton
           className="mb-set-btn is-primary"
           disabled={!valid || saving}
           onClick={() =>
@@ -422,7 +420,7 @@ export function EditorSheet({
           }
         >
           {saving ? '保存中…' : '保存'}
-        </button>
+        </HfButton>
       </div>
     </HfSheet>
   )

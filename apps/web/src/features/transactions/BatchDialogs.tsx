@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { CategoryIcon } from '@/features/overview/category'
 import type { LedgerCategory } from '@/features/overview/model'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReactNode } from 'react'
@@ -88,16 +89,15 @@ export function BatchCategoryDialog({
       )}
       <div className="mb-tx-cat-list">
         {categories.map((category) => (
-          <button
+          <HfButton
             key={category.id}
-            type="button"
             className="mb-tx-cat-option"
             disabled={Boolean(pending)}
             onClick={() => void pick(category.id)}
           >
             <CategoryIcon rootId={category.id} />
             <span>{category.name}</span>
-          </button>
+          </HfButton>
         ))}
       </div>
     </Frame>
@@ -146,12 +146,12 @@ export function BatchDeleteDialog({
         </p>
       )}
       <div className="mb-tx-detail-actions">
-        <button type="button" className="mb-tx-btn is-danger-solid" onClick={() => void confirm()} disabled={pending}>
+        <HfButton className="mb-tx-btn is-danger-solid" onClick={() => void confirm()} disabled={pending}>
           {pending ? '删除中…' : `删除 ${count} 笔`}
-        </button>
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onClose} disabled={pending}>
+        </HfButton>
+        <HfButton className="mb-tx-btn is-ghost" onClick={onClose} disabled={pending}>
           取消
-        </button>
+        </HfButton>
       </div>
     </Frame>
   )

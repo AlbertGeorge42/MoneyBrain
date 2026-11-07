@@ -1,3 +1,4 @@
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { RotateCcw } from 'lucide-react'
 import { getCategoryName, type Ledger } from '@/features/overview/model'
@@ -172,13 +173,13 @@ export function DesktopFilterPanel({
       </div>
       <FilterFields device={device} today={today} ledger={ledger} value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions">
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onReset}>
+        <HfButton className="mb-tx-btn is-ghost" onClick={onReset}>
           <RotateCcw size={15} />
           重置条件
-        </button>
-        <button type="button" className="mb-tx-btn" onClick={onClose}>
+        </HfButton>
+        <HfButton className="mb-tx-btn" onClick={onClose}>
           收起
-        </button>
+        </HfButton>
       </div>
     </div>
   )
@@ -214,8 +215,7 @@ export function MobileFilterDrawer({
       title="高级筛选"
       actions={
         <>
-          <button
-            type="button"
+          <HfButton
             className="mb-tx-btn is-ghost"
             onClick={() => {
               onReset()
@@ -223,10 +223,10 @@ export function MobileFilterDrawer({
             }}
           >
             重置条件
-          </button>
-          <button type="button" className="mb-tx-btn is-primary" onClick={onClose}>
+          </HfButton>
+          <HfButton className="mb-tx-btn is-primary" onClick={onClose}>
             完成
-          </button>
+          </HfButton>
         </>
       }
     >

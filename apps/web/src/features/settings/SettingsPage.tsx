@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { useToast } from '@/features/shared/toastContext'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { HfSwitch } from '@/features/shared/HfSwitch'
 import { HfTabs } from '@/features/shared/HfTabs'
@@ -900,15 +901,14 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       <div key={row.id} className={level > 0 ? 'mb-set-group is-child' : 'mb-set-group'}>
         <div className={level > 0 ? 'mb-set-row is-child' : 'mb-set-row'}>
           {row.childCount > 0 ? (
-            <button
-              type="button"
+            <HfButton
               className="mb-set-fold"
               aria-label={expandedRow ? '收起子分类' : '展开子分类'}
               aria-expanded={expandedRow}
               onClick={() => toggleCollapsed(`cat-${row.id}`)}
             >
               {expandedRow ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
+            </HfButton>
           ) : (
             <span className="mb-set-child-space" aria-hidden="true" />
           )}
@@ -1054,16 +1054,14 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             onChange={setAccountTab}
           />
           <div className="mb-set-toolbar-actions">
-            <button
-              type="button"
+            <HfButton
               className="mb-set-btn is-ghost is-small"
               disabled={emptyCount === 0}
               onClick={() => setShowEmptyGroups((value) => !value)}
             >
               {showEmptyGroups ? '隐藏空分组' : `显示空分组（${emptyCount}）`}
-            </button>
-            <button
-              type="button"
+            </HfButton>
+            <HfButton
               className="mb-set-btn is-ghost is-small"
               disabled={visibleGroups.length === 0}
               onClick={() =>
@@ -1078,9 +1076,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               }
             >
               {allCollapsed ? '全部展开' : '全部收起'}
-            </button>
-            <button
-              type="button"
+            </HfButton>
+            <HfButton
               className="mb-set-btn is-primary is-small"
               onClick={() => {
                 // 新建的分组还没有账户，先切到「显示空分组」，否则保存后会看不见。
@@ -1089,9 +1086,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               }}
             >
               <Plus size={15} /> 新建分组
-            </button>
-            <button
-              type="button"
+            </HfButton>
+            <HfButton
               className="mb-set-btn is-ghost is-small"
               onClick={() =>
                 setEditor({
@@ -1102,7 +1098,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               }
             >
               <Plus size={15} /> 新增账户
-            </button>
+            </HfButton>
           </div>
         </div>
 
@@ -1207,14 +1203,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             items={CATEGORY_TABS.map((tab) => ({ id: tab.type, label: tab.label }))}
             onChange={setCategoryTab}
           />
-          <button
-            type="button"
+          <HfButton
             className="mb-set-add"
             onClick={() => setEditor({ kind: 'category', mode: 'create', type: categoryTab })}
           >
             <Plus size={16} />
             新增一级
-          </button>
+          </HfButton>
         </div>
         <div className="mb-set-list">
           {rows.length > 0 ? (
@@ -1223,13 +1218,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             <div className="mb-set-list-empty">
               <Tag size={22} />
               <p>这个类型下还没有分类</p>
-              <button
-                type="button"
+              <HfButton
                 className="mb-set-btn is-primary"
                 onClick={() => setEditor({ kind: 'category', mode: 'create', type: categoryTab })}
               >
                 新增一级分类
-              </button>
+              </HfButton>
             </div>
           )}
         </div>
@@ -1260,8 +1254,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               return (
                 <div key={group.id} className="mb-set-group">
                   <div className="mb-set-row is-group">
-                    <button
-                      type="button"
+                    <HfButton
                       className="mb-set-fold"
                       aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                       aria-expanded={open}
@@ -1269,7 +1262,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                       onClick={() => toggleCollapsed(groupKey)}
                     >
                       {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    </button>
+                    </HfButton>
                     <span className="mb-set-drag" aria-hidden="true">
                       <GripVertical size={14} />
                     </span>
@@ -1348,8 +1341,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             return (
               <div key={group.id} className="mb-set-group">
                 <div className="mb-set-row is-group">
-                  <button
-                    type="button"
+                  <HfButton
                     className="mb-set-fold"
                     aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                     aria-expanded={open}
@@ -1357,7 +1349,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                     onClick={() => toggleCollapsed(groupKey)}
                   >
                     {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </button>
+                  </HfButton>
                   <span className="mb-set-drag" aria-hidden="true">
                     <GripVertical size={14} />
                   </span>
@@ -1472,9 +1464,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               const active = themeMode === option.value
               const Icon = option.icon
               return (
-                <button
+                <HfButton
                   key={option.value}
-                  type="button"
                   role="radio"
                   aria-checked={active}
                   className={
@@ -1488,7 +1479,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 >
                   <Icon size={16} aria-hidden="true" />
                   <span>{option.label}</span>
-                </button>
+                </HfButton>
               )
             })}
           </div>
@@ -1527,13 +1518,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           {backupError ? (
             <p className="mb-set-error" role="alert">
               {backupError}
-              <button
-                type="button"
+              <HfButton
                 className="mb-set-textbtn"
                 onClick={() => setBackupReloadKey((key) => key + 1)}
               >
                 重试
-              </button>
+              </HfButton>
             </p>
           ) : (
             <p>{backupLoading ? '正在读取自动备份配置…' : '尚未读取到自动备份配置。'}</p>
@@ -1574,14 +1564,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               onChange={(event) => setBackupDirectory(event.target.value)}
             />
           </label>
-          <button
-            type="button"
+          <HfButton
             className="mb-set-btn is-primary"
             disabled={backupSaving}
             onClick={() => void saveAutoBackup()}
           >
             {backupSaving ? '保存中…' : '保存设置'}
-          </button>
+          </HfButton>
           {backupError && (
             <p className="mb-set-error" role="alert">
               {backupError}
@@ -1674,16 +1663,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           <span className="mb-set-label">排序方式</span>
           <div className="mb-set-sort" role="radiogroup" aria-label="排序方式">
             {SORT_OPTIONS.map((option) => (
-              <button
+              <HfButton
                 key={option.value}
-                type="button"
                 role="radio"
                 aria-checked={display.sort === option.value}
                 className={display.sort === option.value ? 'mb-set-kind is-active' : 'mb-set-kind'}
                 onClick={() => setDisplay((current) => ({ ...current, sort: option.value as SortMode }))}
               >
                 {option.label}
-              </button>
+              </HfButton>
             ))}
           </div>
         </div>
@@ -1696,9 +1684,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       return (
         <p className="mb-set-error" role="alert">
           {batchError}
-          <button type="button" className="mb-set-textbtn" onClick={() => void refreshImportBatches()}>
+          <HfButton className="mb-set-textbtn" onClick={() => void refreshImportBatches()}>
             重试
-          </button>
+          </HfButton>
         </p>
       )
     }
@@ -1718,8 +1706,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 {batch.transactionCount} 笔
               </span>
               {batch.status === 'active' ? (
-                <button
-                  type="button"
+                <HfButton
                   className={armedBatch ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn'}
                   disabled={busyBatch}
                   onClick={() => {
@@ -1732,7 +1719,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                   }}
                 >
                   {busyBatch ? '撤销中…' : armedBatch ? '确认撤销' : '撤销这批'}
-                </button>
+                </HfButton>
               ) : (
                 <span className="mb-set-batch-done">
                   已撤销 {batch.rolledBack?.transaction ?? 0} 笔
@@ -1850,15 +1837,14 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         </div>
         {apiMode ? (
           <>
-            <button
-              type="button"
+            <HfButton
               className="mb-set-btn"
               disabled={dataBusy === 'export'}
               onClick={() => void exportApiLedger()}
             >
               <Download size={16} />
               {dataBusy === 'export' ? '导出中…' : '导出账本 (.mbx)'}
-            </button>
+            </HfButton>
             {backupReady && (
               <p>
                 最近备份：{backupReady.filename}（
@@ -1868,21 +1854,20 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             {exportError && (
               <p className="mb-set-error" role="alert">
                 {exportError}
-                <button
-                  type="button"
+                <HfButton
                   className="mb-set-textbtn"
                   onClick={() => void exportApiLedger()}
                 >
                   重试
-                </button>
+                </HfButton>
               </p>
             )}
           </>
         ) : (
-          <button type="button" className="mb-set-btn" onClick={exportLedger}>
+          <HfButton className="mb-set-btn" onClick={exportLedger}>
             <Download size={16} />
             导出账本
-          </button>
+          </HfButton>
         )}
       </section>
       <section className="mb-set-datacard">
@@ -1892,8 +1877,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         </div>
         {apiMode ? (
           <>
-            <button
-              type="button"
+            <HfButton
               className="mb-set-btn"
               onClick={() => {
                 setImportOpen(true)
@@ -1903,7 +1887,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             >
               <FolderInput size={16} />
               打开导入向导
-            </button>
+            </HfButton>
             {lastImport && (
               <>
                 <p>
@@ -1916,10 +1900,10 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             <p>导入前会先解析并展示预览，确认后才写入；失败不会留下半截数据。</p>
           </>
         ) : (
-          <button type="button" className="mb-set-btn" onClick={onImport}>
+          <HfButton className="mb-set-btn" onClick={onImport}>
             <FolderInput size={16} />
             打开导入向导
-          </button>
+          </HfButton>
         )}
       </section>
       <section className="mb-set-datacard">
@@ -1932,8 +1916,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         ) : (
           <>
             <p>还原到最近一次自动存点，回滚前会再存一个还原点。</p>
-            <button
-              type="button"
+            <HfButton
               className={armed === 'rollback' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn'}
               onClick={() => {
                 if (armed === 'rollback') {
@@ -1945,7 +1928,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               }}
             >
               {armed === 'rollback' ? '确认恢复' : '回滚到上一存点'}
-            </button>
+            </HfButton>
           </>
         )}
       </section>
@@ -1960,16 +1943,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               清空前必须导出备份；清空后所有账户、分类、流水、预算与投资快照都会删除，
               回收站与审计记录一并清空。
             </p>
-            <button type="button" className="mb-set-btn is-danger" onClick={openClearSheet}>
+            <HfButton className="mb-set-btn is-danger" onClick={openClearSheet}>
               清空账本
-            </button>
+            </HfButton>
             {!backupReady && <p className="mb-set-warn">尚未导出备份，清空会被拦住。</p>}
           </>
         ) : (
           <>
             <p>清空后所有账户、分类与流水都会删除，仅保留导出文件可恢复。</p>
-            <button
-              type="button"
+            <HfButton
               className={armed === 'clear' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn is-danger'}
               onClick={() => {
                 if (armed === 'clear') {
@@ -1980,7 +1962,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               }}
             >
               {armed === 'clear' ? '确认清空账本' : '清空账本'}
-            </button>
+            </HfButton>
           </>
         )}
       </section>
@@ -1997,13 +1979,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         )}
         {unsetAccounts.length > 0 ? (
           <>
-            <button
-              type="button"
+            <HfButton
               className="mb-set-btn"
               onClick={() => void openOpeningStep(unsetAccounts.map((account) => account.name))}
             >
               补录期初余额（{unsetAccounts.length} 个未设）
-            </button>
+            </HfButton>
             <p className="mb-set-warn">
               未设期初（余额由流水推导，可能不准）：
               {unsetAccounts.map((account) => accountDisplayName(account, ledger.accounts)).join('、')}
@@ -2107,9 +2088,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                                 ? Database
                                 : Trash2
               return (
-                <button
+                <HfButton
                   key={item.id}
-                  type="button"
                   className="mb-set-entry"
                   onClick={() => setOpenSection(item.id)}
                 >
@@ -2119,7 +2099,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                   <span className="mb-set-name">{item.label}</span>
                   <span className="mb-set-meta">{summaries[item.id]}</span>
                   <ChevronRight size={16} className="mb-set-chevron" />
-                </button>
+                </HfButton>
               )
             })}
           </div>
@@ -2144,14 +2124,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       </div>
       <h2>还没有账户</h2>
       <p>账本为空时设置也可以先配好：从第一个账户开始，分类与现金流标记随后补齐。</p>
-      <button
-        type="button"
+      <HfButton
         className="mb-set-btn is-primary"
         onClick={() => setEditor({ kind: 'account', mode: 'create', preset: 'deposit' })}
       >
         <Plus size={16} />
         新增账户
-      </button>
+      </HfButton>
     </section>
   ) : device === 'desktop' ? (
     <>
@@ -2167,9 +2146,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             <div key={group.title} className="mb-set-nav-group">
               <h2 className="mb-set-group-title">{group.title}</h2>
               {group.items.map((item) => (
-                <button
+                <HfButton
                   key={item.id}
-                  type="button"
                   className={active === item.id ? 'mb-set-nav-item is-active' : 'mb-set-nav-item'}
                   aria-current={active === item.id ? 'page' : undefined}
                   onClick={() => setActive(item.id)}
@@ -2178,7 +2156,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                   <span className="mb-set-nav-count">
                     {item.id === 'trash' ? (apiMode ? String(trashCount) : '0') : ''}
                   </span>
-                </button>
+                </HfButton>
               ))}
             </div>
           ))}
@@ -2199,14 +2177,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       {openSection && (
         <div className="mb-set-overlay" role="dialog" aria-label={sectionMeta(openSection).label}>
           <header className="mb-set-overlay-head">
-            <button
-              type="button"
+            <HfButton
               className="mb-set-back"
               onClick={() => setOpenSection(null)}
             >
               <ChevronLeft size={18} />
               返回
-            </button>
+            </HfButton>
             <h2 className="mb-set-overlay-title">{sectionMeta(openSection).label}</h2>
             <span className="mb-set-back-space" aria-hidden="true" />
           </header>
@@ -2288,14 +2265,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">导入备份</h2>
-            <button
-              type="button"
+            <HfButton
               className="mb-set-icon-btn"
               aria-label="关闭"
               onClick={() => setImportOpen(false)}
             >
               <X size={18} />
-            </button>
+            </HfButton>
           </div>
           <div className="mb-set-sheet-body">
             <label className="mb-set-field">
@@ -2327,32 +2303,29 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           </div>
 
           <div className="mb-set-sheet-actions">
-            <button
-              type="button"
+            <HfButton
               className="mb-set-btn"
               disabled={dataBusy === 'import'}
               onClick={() => setImportOpen(false)}
             >
               取消
-            </button>
+            </HfButton>
             {preview ? (
-              <button
-                type="button"
+              <HfButton
                 className="mb-set-btn is-primary"
                 disabled={dataBusy === 'import'}
                 onClick={() => void confirmImport()}
               >
                 {dataBusy === 'import' ? '导入中…' : '确认导入'}
-              </button>
+              </HfButton>
             ) : (
-              <button
-                type="button"
+              <HfButton
                 className="mb-set-btn is-primary"
                 disabled={dataBusy === 'preview'}
                 onClick={() => void runImportPreview()}
               >
                 {dataBusy === 'preview' ? '解析中…' : '解析并预览'}
-              </button>
+              </HfButton>
             )}
           </div>
         </HfSheet>
@@ -2370,15 +2343,14 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">补充期初余额</h2>
-            <button
-              type="button"
+            <HfButton
               className="mb-set-icon-btn"
               aria-label="关闭"
               disabled={openingSaving}
               onClick={skipOpeningStep}
             >
               <X size={18} />
-            </button>
+            </HfButton>
           </div>
           <div className="mb-set-sheet-body">
             <p className="mb-set-hint">
@@ -2470,27 +2442,25 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             )}
           </div>
           <div className="mb-set-sheet-actions">
-            <button
-              type="button"
+            <HfButton
               className="mb-set-btn is-ghost"
               disabled={openingSaving}
               onClick={skipOpeningStep}
             >
               跳过补录
-            </button>
+            </HfButton>
             {openingResult ? (
-              <button type="button" className="mb-set-btn is-primary" onClick={closeOpeningStep}>
+              <HfButton className="mb-set-btn is-primary" onClick={closeOpeningStep}>
                 完成
-              </button>
+              </HfButton>
             ) : (
-              <button
-                type="button"
+              <HfButton
                 className="mb-set-btn is-primary"
                 disabled={openingSaving}
                 onClick={() => void saveOpeningStep()}
               >
                 {openingSaving ? '保存中…' : '保存期初'}
-              </button>
+              </HfButton>
             )}
           </div>
         </HfSheet>
@@ -2508,14 +2478,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">清空账本</h2>
-            <button
-              type="button"
+            <HfButton
               className="mb-set-icon-btn"
               aria-label="关闭"
               onClick={() => setClearOpen(false)}
             >
               <X size={18} />
-            </button>
+            </HfButton>
           </div>
           <div className="mb-set-sheet-body">
             <p className="mb-set-danger-note">
@@ -2528,14 +2497,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                   ? `已备份：${backupReady.filename}（${new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）`
                   : '备份文件 (.mbx)'}
               </span>
-              <button
-                type="button"
+              <HfButton
                 className="mb-set-textbtn is-boxed"
                 disabled={dataBusy === 'export'}
                 onClick={() => void exportApiLedger()}
               >
                 {dataBusy === 'export' ? '导出中…' : backupReady ? '重新导出' : '先导出备份 (.mbx)'}
-              </button>
+              </HfButton>
             </div>
             {exportError && (
               <p className="mb-set-error" role="alert">
@@ -2570,18 +2538,17 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             </p>
           )}
           <div className="mb-set-sheet-actions">
-            <button type="button" className="mb-set-btn" disabled={dataBusy === 'clear'} onClick={() => setClearOpen(false)}>
+            <HfButton className="mb-set-btn" disabled={dataBusy === 'clear'} onClick={() => setClearOpen(false)}>
               取消
-            </button>
-            <button
-              type="button"
+            </HfButton>
+            <HfButton
               className="mb-set-btn is-danger"
               disabled={!backupReady || dataBusy === 'clear'}
               aria-describedby={!backupReady ? 'mb-set-clear-reason' : undefined}
               onClick={() => void confirmClearLedger()}
             >
               {dataBusy === 'clear' ? '清空中…' : '确认清空'}
-            </button>
+            </HfButton>
           </div>
         </HfSheet>
       )}

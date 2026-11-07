@@ -10,6 +10,7 @@ import {
 } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import { ToastViewport } from '@/features/shared/toast'
 import { useToast } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -135,34 +136,31 @@ function Toolbar({
             autoComplete="off"
           />
           {query && (
-            <button
-              type="button"
+            <HfButton
               className="mb-tx-search-clear"
               aria-label="清空搜索"
               onClick={() => onQuery('')}
             >
               <X size={14} />
-            </button>
+            </HfButton>
           )}
         </label>
 
         <div className="mb-tx-type-group" role="group" aria-label="类型筛选">
           {TYPE_OPTIONS.map((option) => (
-            <button
+            <HfButton
               key={option.value}
-              type="button"
               className={option.value === type ? 'mb-tx-type is-active' : 'mb-tx-type'}
               aria-pressed={option.value === type}
               onClick={() => onType(option.value)}
             >
               {option.label}
-            </button>
+            </HfButton>
           ))}
         </div>
 
         <div className="mb-tx-actions">
-          <button
-            type="button"
+          <HfButton
             className={advancedOpen ? 'mb-tx-btn is-toggle is-active' : 'mb-tx-btn is-toggle'}
             aria-expanded={advancedOpen}
             aria-controls="mb-tx-filter-panel"
@@ -170,25 +168,23 @@ function Toolbar({
           >
             <SlidersHorizontal size={15} />
             {advancedOpen ? '收起筛选' : '高级筛选'}
-          </button>
-          <button
-            type="button"
+          </HfButton>
+          <HfButton
             className={batchMode ? 'mb-tx-btn is-toggle is-active' : 'mb-tx-btn is-toggle'}
             aria-pressed={batchMode}
             onClick={onBatchToggle}
           >
             {batchMode ? '退出批量' : '批量'}
-          </button>
+          </HfButton>
           {showDisplay && (
-            <button
-              type="button"
+            <HfButton
               className={displayOpen ? 'mb-tx-btn is-toggle is-active' : 'mb-tx-btn is-toggle'}
               aria-expanded={displayOpen}
               aria-controls="mb-tx-display-panel"
               onClick={onDisplayToggle}
             >
               显示
-            </button>
+            </HfButton>
           )}
         </div>
       </div>
@@ -207,18 +203,17 @@ function FilterChips({
   return (
     <div className="mb-tx-chips" aria-label="当前生效条件">
       {chips.map((chip) => (
-        <button key={chip.key} type="button" className="mb-tx-chip" onClick={() => onClear(chip.key)}>
+        <HfButton key={chip.key} className="mb-tx-chip" onClick={() => onClear(chip.key)}>
           {chip.label}
           <X size={12} />
-        </button>
+        </HfButton>
       ))}
-      <button
-        type="button"
+      <HfButton
         className="mb-tx-chip-clear"
         onClick={() => onClear('all')}
       >
         清除条件
-      </button>
+      </HfButton>
     </div>
   )
 }
@@ -643,8 +638,7 @@ export function TransactionsPage({
           <p className="mb-tx-noresult-desc">
             试试更短的关键词，或清除类型、账户、日期、金额条件。
           </p>
-          <button
-            type="button"
+          <HfButton
             className="mb-tx-btn"
             onClick={() => {
               setQuery('')
@@ -653,7 +647,7 @@ export function TransactionsPage({
             }}
           >
             清空筛选
-          </button>
+          </HfButton>
         </Card>
       ) : (
         <TransactionsList

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { X } from 'lucide-react'
 import { minor } from '@domain/index'
@@ -92,8 +93,7 @@ export function ReconcileButton({
 
   return (
     <>
-      <button
-        type="button"
+      <HfButton
         className="mb-set-textbtn"
         onClick={(event) => {
           event.stopPropagation()
@@ -102,13 +102,13 @@ export function ReconcileButton({
         }}
       >
         对账
-      </button>
+      </HfButton>
       <HfSheet variant="settings" device={device} opened={open} onClose={close}>
         <div className="mb-set-sheet-head">
           <h2 className="mb-set-sheet-title">对账「{account.name}」</h2>
-          <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={close}>
+          <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={close}>
             <X size={18} />
-          </button>
+          </HfButton>
         </div>
         <div className="mb-set-sheet-body">
           <p className="mb-set-hint">
@@ -151,22 +151,20 @@ export function ReconcileButton({
                 请选择覆盖或追加：
               </p>
               <div className="mb-set-order-actions">
-                <button
-                  type="button"
+                <HfButton
                   className="mb-set-btn is-primary is-small"
                   disabled={busy}
                   onClick={() => void submit('overwrite')}
                 >
                   覆盖（推荐）
-                </button>
-                <button
-                  type="button"
+                </HfButton>
+                <HfButton
                   className="mb-set-btn is-ghost is-small"
                   disabled={busy}
                   onClick={() => void submit('append')}
                 >
                   追加
-                </button>
+                </HfButton>
               </div>
             </div>
           )}
@@ -192,17 +190,16 @@ export function ReconcileButton({
 
           {!conflict && !result && (
             <div className="mb-set-sheet-actions">
-              <button type="button" className="mb-set-btn is-ghost" onClick={close}>
+              <HfButton className="mb-set-btn is-ghost" onClick={close}>
                 取消
-              </button>
-              <button
-                type="button"
+              </HfButton>
+              <HfButton
                 className="mb-set-btn is-primary"
                 disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(date)}
                 onClick={() => void submit()}
               >
                 {busy ? '处理中…' : '生成平账记录'}
-              </button>
+              </HfButton>
             </div>
           )}
         </div>

@@ -3,6 +3,7 @@
  * 开关状态（openId / confirming）由页面统一持有，保证同一时间只开一个菜单。
  */
 import { MoreHorizontal } from 'lucide-react'
+import { HfButton } from '@/features/shared/HfButton'
 
 export interface MenuItem {
   label: string
@@ -33,8 +34,7 @@ export function RowMenu({
   const open = openId === id
   return (
     <div className="mb-set-more-wrap">
-      <button
-        type="button"
+      <HfButton
         className="mb-set-more"
         aria-label="更多操作"
         aria-expanded={open}
@@ -42,15 +42,14 @@ export function RowMenu({
         onClick={() => onOpen(open ? null : id)}
       >
         <MoreHorizontal size={18} />
-      </button>
+      </HfButton>
       {open && (
         <div className="mb-set-menu" role="menu">
           {items.map((item) => {
             const armed = item.confirm && confirming === item.key
             return (
-              <button
+              <HfButton
                 key={item.key}
-                type="button"
                 role="menuitem"
                 className={
                   armed || item.danger ? 'mb-set-menu-item is-danger' : 'mb-set-menu-item'
@@ -70,7 +69,7 @@ export function RowMenu({
                 {item.disabled && item.hint && (
                   <span className="mb-set-menu-hint">{item.hint}</span>
                 )}
-              </button>
+              </HfButton>
             )
           })}
         </div>
