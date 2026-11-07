@@ -19,7 +19,7 @@ body {
   margin: 0;
   font-family: var(--mb-font-ui);
   font-variant-numeric: tabular-nums;
-  background: var(--mb-color-bg-app);
+  background: var(--mb-color-surface);
   color: var(--mb-color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

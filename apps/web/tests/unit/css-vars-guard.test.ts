@@ -39,8 +39,6 @@ const DEAD_VAR_ALLOWLIST: Record<string, string> = {
   '--mb-ease-standard': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-ease',
   '--mb-font-num': '保留：数字等宽字体预留位，暂无独立引用',
   '--mb-color-text-inverse': 'design-tokens 全量保留，当前无其他反色文字场景',
-  // 兼容别名：reset.css 的 body 使用，供页面外（portal / 错误兜底）取底色
-  '--mb-color-bg-panel': '兼容别名，当前仅 bg-app 被 body 引用',
 }
 
 function toPosix(path: string): string {

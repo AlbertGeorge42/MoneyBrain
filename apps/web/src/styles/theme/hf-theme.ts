@@ -307,21 +307,12 @@ const DARK_COLOR_VARS: MbColorVars = {
 }
 
 /**
- * 结构层的两个兼容别名：reset.css 的 body 恰好用它们，语义与 surface 一一对应。
- */
-const COMPAT_ALIASES: MbColorVars = {
-  '--mb-color-bg-app': 'var(--mb-color-surface)',
-  '--mb-color-bg-panel': 'var(--mb-color-surface-raised)',
-}
-
-/**
  * `--mb-*` 颜色 / 阴影清单（纯函数）。
  * Mantine 的 `cssVariablesResolver` 与 CSS 变量守卫（tests/unit/css-vars-guard.test.ts）共用，
  * 避免「CSS 里引用了但没人定义」的静默回退。
  */
 export function buildMbColorVars(isDark: boolean): MbColorVars {
-  const scheme = isDark ? DARK_COLOR_VARS : LIGHT_COLOR_VARS
-  return { ...COMPAT_ALIASES, ...scheme }
+  return isDark ? DARK_COLOR_VARS : LIGHT_COLOR_VARS
 }
 
 export function buildMbColorVarNames(isDark = false): string[] {
