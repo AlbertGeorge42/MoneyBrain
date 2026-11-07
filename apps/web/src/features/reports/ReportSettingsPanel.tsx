@@ -6,6 +6,9 @@
  */
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { HfSheet } from '@/features/shared/HfSheet'
+import type { DeviceMode } from '@/features/shared/types'
+import { REPORT_TABS } from './reportsShared'
 import type { ReportTab } from './reportsTime'
 import {
   CASH_GROUP_KEYS,
@@ -263,3 +266,94 @@ export function ReportConfigPanel({
     </div>
   )
 }
+
+/**
+ * 报表设置抽屉：外壳、标题与底部动作区都在这里，页面只负责 draft 状态与提交。
+ * 未进配置时列出四张报表；进入配置后动作区换成重置 / 取消 / 确认。
+ */
+export function ReportSettingsSheet({
+  device,
+  opened,
+  onClose,
+  configTab,
+  draftSettings,
+  cashPresence,
+  onOpenConfig,
+  onBack,
+  onChange,
+  onReset,
+  onCommit,
+}: {
+  device: DeviceMode
+  opened: boolean
+  onClose: () => void
+  configTab: ReportTab | null
+  draftSettings: ReportViewSettings | null
+  cashPresence: Record<CashGroupKey, boolean>
+  onOpenConfig: (tab: ReportTab) => void
+  onBack: () => void
+  onChange: (next: ReportViewSettings) => void
+  onReset: () => void
+  onCommit: () => void
+}) {
+  return (
+    <HfSheet
+      variant="report"
+      device={device}
+      opened={opened}
+      onClose={onClose}
+      title="报表设置"
+      contentClassName={device === 'mobile' ? 'mb-rp-sheet-settings is-mobile' : 'mb-rp-sheet-settings'}
+      bodyClassName="is-settings"
+      actions={
+        configTab && draftSettings ? (
+          <>
+            <button type="button" className="mb-rp-btn is-ghost" onClick={onReset}>
+              重置
+            </button>
+            <button type="button" className="mb-rp-btn is-ghost" onClick={onBack}>
+              取消
+            </button>
+            <button type="button" className="mb-rp-btn is-primary" onClick={onCommit}>
+              确认
+            </button>
+          </>
+        ) : (
+          <button type="button" className="mb-rp-btn is-primary" onClick={onClose}>
+            完成
+          </button>
+        )
+      }
+      actionsClassName={configTab && draftSettings ? 'is-config' : undefined}
+    >
+      <div className="mb-rp-settings">
+        <div className="mb-rp-settings-scroll">
+          {configTab && draftSettings ? (
+            <ReportConfigPanel
+              tab={configTab}
+              draft={draftSettings}
+              onChange={onChange}
+              cashPresence={cashPresence}
+              onBack={onBack}
+            />
+          ) : (
+            <>
+              <p className="mb-rp-settings-note">报表只读 · 不写回账本 · 只改展示口径</p>
+              {REPORT_TABS.map((item) => (
+                <div className="mb-rp-settings-row" key={item.id}>
+                  <div>
+                    <p className="mb-rp-settings-title">{item.label}</p>
+                  </div>
+                  <button type="button" className="mb-rp-btn is-ghost" onClick={() => onOpenConfig(item.id)}>
+                    配置
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    </HfSheet>
+  )
+}
+

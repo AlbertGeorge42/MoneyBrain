@@ -1,0 +1,108 @@
+/**
+ * 报表页共用外壳：视图页签、分段切换与空态。
+ *
+ * 只承载布局与文案，不参与任何数据派生；页面与四张报表都从这里取同一份结构。
+ */
+import { FolderInput, ScanLine } from 'lucide-react'
+import type { DeviceMode } from '@/features/shared/types'
+import type { ReportTab } from './reportsTime'
+import { REPORT_TABS } from './reportsShared'
+
+export function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: readonly { id: T; label: string }[]
+  onChange: (next: T) => void
+}) {
+  return (
+    <div className="mb-rp-seg" role="group" aria-label={label}>
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={option.id === value ? 'mb-rp-seg-btn is-active' : 'mb-rp-seg-btn'}
+          aria-pressed={option.id === value}
+          onClick={() => onChange(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function PageHead({
+  device,
+  tab,
+  onTab,
+}: {
+  device: DeviceMode
+  tab: ReportTab
+  onTab: (next: ReportTab) => void
+}) {
+  if (device === 'mobile') {
+    return (
+      <div className="mb-rp-mobile-head">
+        <div className="mb-rp-tabs is-mobile" role="tablist" aria-label="报表视图">
+          {REPORT_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={item.id === tab}
+              className={item.id === tab ? 'mb-rp-tab is-active' : 'mb-rp-tab'}
+              onClick={() => onTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-rp-page-head">
+      <div className="mb-rp-page-copy">
+        <h1 className="mb-rp-page-title">报表</h1>
+      </div>
+      <div className="mb-rp-tabs" role="tablist" aria-label="报表视图">
+        {REPORT_TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={item.id === tab}
+            className={item.id === tab ? 'mb-rp-tab is-active' : 'mb-rp-tab'}
+            onClick={() => onTab(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function ReportsEmpty({ onImport }: { onImport: () => void }) {
+  return (
+    <section className="mb-rp-card mb-rp-empty">
+      <div className="mb-rp-empty-mark" aria-hidden="true">
+        <ScanLine size={28} strokeWidth={1.8} />
+      </div>
+      <h2 className="mb-rp-empty-title">还没有可分析的流水</h2>
+      <p className="mb-rp-empty-desc">
+        报表从账本里取数：先记一笔收支，或导入银行 / 支付宝账单，四张报表会自动生成。
+      </p>
+      <button type="button" className="mb-rp-btn is-primary" onClick={onImport}>
+        <FolderInput size={16} />
+        导入账单
+      </button>
+    </section>
+  )
+}
