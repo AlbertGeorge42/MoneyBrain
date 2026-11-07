@@ -23,7 +23,7 @@
   min-height: var(--mb-control-h);
   padding: 0 var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-control);
+  border-radius: var(--mb-radius-xs);
   background: var(--mb-color-surface-raised);
 }
 
@@ -98,7 +98,7 @@
   flex: none;
   margin-left: var(--mb-s-1);
   padding: 1px var(--mb-s-1);
-  border-radius: var(--mb-radius-control);
+  border-radius: var(--mb-radius-xs);
   background: var(--mb-color-surface-sunken);
   color: var(--mb-color-text-tertiary);
   font-family: var(--mb-font-ui);
@@ -356,7 +356,7 @@
   justify-content: center;
   min-height: 34px;
   padding: 0 14px;
-  border-radius: var(--mb-radius-control);
+  border-radius: var(--mb-radius-xs);
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-1);
   cursor: pointer;

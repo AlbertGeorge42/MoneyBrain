@@ -32,22 +32,7 @@ const ANT_VAR = /--ant-[A-Za-z0-9_-]+/g
  * 新增豁免必须在此显式登记并写明原因；删除对应 token 时同步删掉条目。
  */
 const DEAD_VAR_ALLOWLIST: Record<string, string> = {
-  // 存量结构 token：当前无 2px 边框用法，保留待原型切换时重规范（U1b 不删 token）
-  '--mb-border-width-thick': '存量结构 token，当前无 2px 边框场景',
-  // 结构 token：字号 / 间距 / 圆角 / 动效由 design-tokens 统一登记，供 Mantine theme 与后续组件引用
-  '--mb-space-xs': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
-  '--mb-space-sm': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
-  '--mb-space-md': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
-  '--mb-space-lg': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
-  '--mb-space-xl': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
-  '--mb-space-2xl': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
-  '--mb-space-3xl': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-s-*',
-  '--mb-font-size-sm': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
-  '--mb-font-size-body': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
-  '--mb-font-size-body-lg': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
-  '--mb-font-size-title': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
-  '--mb-font-size-heading': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-fs-*',
-  '--mb-radius-control': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-radius-*',
+  // 结构 token：圆角 / 动效由 design-tokens 统一登记，供 Mantine theme 与后续组件引用
   '--mb-radius-card': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-radius-*',
   '--mb-motion-fast': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
   '--mb-motion-mid': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
