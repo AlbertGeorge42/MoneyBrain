@@ -47,11 +47,6 @@ export const GENERAL_SECTIONS: readonly SectionMeta[] = [
   { id: 'trash', label: '回收站' },
 ]
 
-export const SECTION_GROUP_TITLES: Record<'config' | 'general', string> = {
-  config: '配置中心',
-  general: '通用',
-}
-
 export function sectionMeta(id: SectionId): SectionMeta {
   return [...CONFIG_SECTIONS, ...GENERAL_SECTIONS].find((item) => item.id === id) ?? CONFIG_SECTIONS[0]
 }
@@ -70,9 +65,6 @@ export const CATEGORY_TABS: readonly { type: CategoryTab; label: string }[] = [
   { type: 'expense', label: '支出' },
   { type: 'transfer', label: '转账' },
 ]
-
-export const ASSET_KINDS: readonly AccountKind[] = ['deposit', 'cash', 'investment']
-export const LIABILITY_KINDS: readonly AccountKind[] = ['credit']
 
 export interface AccountRow {
   id: string
@@ -212,21 +204,6 @@ export function categoryRows(ledger: Ledger, type: TxType): CategoryRow[] {
       })
 
   return build(undefined)
-}
-
-export function categoryTxCount(ledger: Ledger, categoryId: string): number {
-  const ids = new Set<string>([categoryId])
-  let grew = true
-  while (grew) {
-    grew = false
-    for (const category of ledger.categories) {
-      if (category.parentId && ids.has(category.parentId) && !ids.has(category.id)) {
-        ids.add(category.id)
-        grew = true
-      }
-    }
-  }
-  return ledger.transactions.filter((tx) => ids.has(tx.categoryId)).length
 }
 
 export function categoryDescendantIds(ledger: Ledger, categoryId: string): string[] {
@@ -453,12 +430,3 @@ export function reorderCategory(
   return { ...ledger, categories: next }
 }
 
-/* ===== 展示用格式化 ===== */
-
-export function accountCountLabel(rows: AccountRow[]): string {
-  return `${rows.length} 个账户`
-}
-
-export function txCountLabel(count: number): string {
-  return `${count} 笔`
-}

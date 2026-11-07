@@ -299,9 +299,7 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-hf-choice:focus-visible,
-.mb-primary-btn:focus-visible,
-.mb-secondary-btn:focus-visible {
+.mb-hf-choice:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);
 }

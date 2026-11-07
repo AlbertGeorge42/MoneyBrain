@@ -432,24 +432,20 @@
   background: var(--mb-color-cat-3);
 }
 
-.mb-amount,
 .mb-m-tx-amount {
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.mb-amount.is-income,
 .mb-m-tx-amount.is-income {
   color: var(--mb-color-income);
 }
 
-.mb-amount.is-expense,
 .mb-m-tx-amount.is-expense {
   color: var(--mb-color-expense);
 }
 
-.mb-amount.is-transfer,
 .mb-m-tx-amount.is-transfer {
   color: var(--mb-color-transfer);
 }

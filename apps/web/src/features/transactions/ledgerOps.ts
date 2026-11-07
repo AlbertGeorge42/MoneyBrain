@@ -119,28 +119,3 @@ export function setTransactionsCategory(ledger: Ledger, ids: readonly string[], 
     ),
   }
 }
-
-/**
- * 撤销用：只恢复被本次操作影响的记录。
- * 若记录仍在账本中，先反向当前余额影响再应用旧记录；已删除的记录追加回账本。
- */
-export function restoreTransactionsInLedger(
-  ledger: Ledger,
-  records: readonly LedgerTransaction[],
-): Ledger {
-  if (records.length === 0) return ledger
-  const restoring = new Map(records.map((record) => [record.id, record]))
-
-  let next = ledger
-  for (const record of records) {
-    const current = next.transactions.find((transaction) => transaction.id === record.id)
-    if (current) next = adjustAccounts(next, balanceDeltas(current), -1)
-    next = adjustAccounts(next, balanceDeltas(record), 1)
-  }
-
-  const existing = next.transactions.map((transaction) => restoring.get(transaction.id) ?? transaction)
-  const present = new Set(existing.map((transaction) => transaction.id))
-  const missing = records.filter((record) => !present.has(record.id))
-
-  return { ...next, transactions: [...existing, ...missing] }
-}

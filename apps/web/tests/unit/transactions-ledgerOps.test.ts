@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
-import {
-  deleteTransactionsFromLedger,
-  restoreTransactionsInLedger,
-  updateTransactionInLedger,
-} from '@/features/transactions/ledgerOps'
+import { updateTransactionInLedger } from '@/features/transactions/ledgerOps'
 
 function makeLedger(transactions: LedgerTransaction[]): Ledger {
   return {
@@ -73,26 +69,5 @@ describe('updateTransactionInLedger', () => {
 
     expect(next.transactions[0].amount).toBe(45)
     expect(next.accounts[0].balance).toBe(1_000_000 - 15)
-  })
-})
-
-describe('restoreTransactionsInLedger', () => {
-  it('撤销删除只恢复本次记录，不回滚后续编辑', () => {
-    const deleted = deleteTransactionsFromLedger(makeLedger([adjustment, expense]), [adjustment.id])
-    const laterEdit = updateTransactionInLedger(deleted, expense.id, {
-      categoryId: 'c-food',
-      accountId: 'a1',
-      date: expense.date,
-      note: '晚餐加菜',
-      amount: 60,
-    })
-    const restored = restoreTransactionsInLedger(laterEdit, [adjustment])
-
-    expect(restored.transactions.map((item) => item.id).sort()).toEqual(
-      [adjustment.id, expense.id].sort(),
-    )
-    expect(restored.transactions.find((item) => item.id === expense.id)?.amount).toBe(60)
-    // 起始余额已含旧支出 30；改为 60 后净差 -30，调整记录恢复到原 -500
-    expect(restored.accounts[0].balance).toBe(1_000_000 - 30)
   })
 })

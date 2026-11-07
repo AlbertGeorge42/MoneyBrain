@@ -7,7 +7,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   categoryRows,
-  categoryTxCount,
   removeCategory,
   transferCategoryTransactions,
 } from '@/features/settings/settingsModel'
@@ -35,7 +34,6 @@ describe('#12 分类删除与转移', () => {
     const row = categoryRows(ledger, 'expense').find((item) => item.id === 'shop')
     expect(row?.txCount).toBe(3)
     expect(row?.childCount).toBe(2)
-    expect(categoryTxCount(ledger, 'shop')).toBe(row?.txCount)
   })
 
   it('转移到目标分类后自动删除源分类，引用数归零', () => {

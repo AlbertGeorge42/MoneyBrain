@@ -81,13 +81,6 @@
   margin-top: var(--mb-s-2);
 }
 
-.mb-errorpanel-code {
-  margin: 0;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-danger);
-}
-
 .mb-skeleton-page {
   display: flex;
   flex-direction: column;
