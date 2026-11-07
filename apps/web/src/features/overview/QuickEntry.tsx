@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { Button, Modal, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
@@ -123,16 +124,15 @@ function AccountPicker({
               {matched
                 .filter((account) => account.kind === kind)
                 .map((account) => (
-                  <button
+                  <HfButton
                     key={account.id}
-                    type="button"
                     className="mb-entry-picker-item"
                     aria-pressed={account.id === selectedId}
                     onClick={() => onSelect(account.id)}
                   >
                     <span className="mb-entry-picker-name">{accountDisplayName(account, accounts)}</span>
                     <span className="mb-entry-picker-meta">{formatCurrency(minor(account.balance))}</span>
-                  </button>
+                  </HfButton>
                 ))}
             </div>
           ))
@@ -147,15 +147,14 @@ function Keypad({ onKey }: { onKey: (key: string) => void }) {
   return (
     <div className="mb-entry-keypad" role="group" aria-label="数字键盘">
       {keys.map((key) => (
-        <button
+        <HfButton
           key={key}
-          type="button"
           className="mb-entry-key"
           aria-label={key === '⌫' ? '退格' : key}
           onClick={() => onKey(key)}
         >
           {key}
-        </button>
+        </HfButton>
       ))}
     </div>
   )
@@ -332,9 +331,9 @@ function EntryForm({
       {missingAccount && (
         <div className="mb-entry-missing-account" role="status">
           <p>还没有账户，记账前需要先添加一个账户。</p>
-          <button type="button" className="mb-entry-missing-account-action" onClick={onCreateAccount}>
+          <HfButton className="mb-entry-missing-account-action" onClick={onCreateAccount}>
             去设置添加账户
-          </button>
+          </HfButton>
         </div>
       )}
 
@@ -345,13 +344,12 @@ function EntryForm({
             {amount || '0.00'}
           </span>
           {type === 'adjustment' && (
-            <button
-              type="button"
+            <HfButton
               className={adjustSign === -1 ? 'mb-entry-sign is-negative' : 'mb-entry-sign'}
               onClick={() => setAdjustSign((current) => (current === 1 ? -1 : 1))}
             >
               {adjustSign === 1 ? '调增' : '调减'}
-            </button>
+            </HfButton>
           )}
         </div>
       ) : (
@@ -377,13 +375,12 @@ function EntryForm({
             }}
           />
           {type === 'adjustment' && (
-            <button
-              type="button"
+            <HfButton
               className={adjustSign === -1 ? 'mb-entry-sign is-negative' : 'mb-entry-sign'}
               onClick={() => setAdjustSign((current) => (current === 1 ? -1 : 1))}
             >
               {adjustSign === 1 ? '调增' : '调减'}
-            </button>
+            </HfButton>
           )}
           {cents === null && amount.trim() !== '' && (
             <span className="mb-entry-error">金额格式有误</span>
@@ -403,16 +400,15 @@ function EntryForm({
             onKeyDown={handleGridKey}
           >
             {categories.map((category, index) => (
-              <button
+              <HfButton
                 key={category.id}
-                type="button"
                 className={category.id === categoryId ? 'mb-entry-cat is-active' : 'mb-entry-cat'}
                 aria-pressed={category.id === categoryId}
                 onClick={() => setCategoryId(category.id)}
               >
                 <span className="mb-entry-cat-name">{category.name}</span>
                 {!mobile && <span className="mb-entry-cat-hint">{index + 1}</span>}
-              </button>
+              </HfButton>
             ))}
           </div>
         </fieldset>
@@ -425,20 +421,19 @@ function EntryForm({
             <div className="mb-entry-accounts">
               <div className="mb-entry-accounts-scroll">
                 {chips.map((account) => (
-                  <button
+                  <HfButton
                     key={account.id}
-                    type="button"
                     className="mb-entry-account"
                     aria-pressed={account.id === accountId}
                     onClick={() => rememberAccount(account.id, 'from')}
                   >
                     {accountDisplayName(account, ledger.accounts)}
-                  </button>
+                  </HfButton>
                 ))}
               </div>
-              <button type="button" className="mb-entry-all" onClick={() => setPicker('from')}>
+              <HfButton className="mb-entry-all" onClick={() => setPicker('from')}>
                 全部账户 <ChevronRight size={14} />
-              </button>
+              </HfButton>
             </div>
           </fieldset>
           <fieldset className="mb-entry-field">
@@ -446,21 +441,20 @@ function EntryForm({
             <div className="mb-entry-accounts">
               <div className="mb-entry-accounts-scroll">
                 {toChips.map((account) => (
-                  <button
+                  <HfButton
                     key={account.id}
-                    type="button"
                     className={account.id === toAccountId ? 'mb-entry-account is-active' : 'mb-entry-account'}
                     aria-pressed={account.id === toAccountId}
                     disabled={account.id === accountId}
                     onClick={() => rememberAccount(account.id, 'to')}
                   >
                     {accountDisplayName(account, ledger.accounts)}
-                  </button>
+                  </HfButton>
                 ))}
               </div>
-              <button type="button" className="mb-entry-all" onClick={() => setPicker('to')}>
+              <HfButton className="mb-entry-all" onClick={() => setPicker('to')}>
                 全部账户 <ChevronRight size={14} />
-              </button>
+              </HfButton>
             </div>
           </fieldset>
         </>
@@ -470,20 +464,19 @@ function EntryForm({
           <div className="mb-entry-accounts">
             <div className="mb-entry-accounts-scroll">
               {chips.map((account) => (
-                <button
+                <HfButton
                   key={account.id}
-                  type="button"
                   className="mb-entry-account"
                   aria-pressed={account.id === accountId}
                   onClick={() => rememberAccount(account.id, 'from')}
                 >
                   {account.name}
-                </button>
+                </HfButton>
               ))}
             </div>
-            <button type="button" className="mb-entry-all" onClick={() => setPicker('from')}>
+            <HfButton className="mb-entry-all" onClick={() => setPicker('from')}>
               全部账户 <ChevronRight size={14} />
-            </button>
+            </HfButton>
           </div>
         </fieldset>
       )}
@@ -505,15 +498,14 @@ function EntryForm({
         </label>
       )}
 
-      <button
-        type="button"
+      <HfButton
         className="mb-entry-more-toggle"
         aria-expanded={moreOpen}
         onClick={() => setMoreOpen((current) => !current)}
       >
         {moreOpen ? '收起更多' : '日期 / 备注 / 手续费'}
         <ChevronDown size={16} className={moreOpen ? 'is-open' : undefined} />
-      </button>
+      </HfButton>
 
       {moreOpen && (
         <div className="mb-entry-more" ref={moreRef}>

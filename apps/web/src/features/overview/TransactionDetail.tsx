@@ -17,6 +17,7 @@ import {
   type LedgerTransaction,
 } from './model'
 import type { DeviceMode } from '@/features/shared/types'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import './overlays.css'
 
@@ -82,13 +83,12 @@ function DetailBody({
             <dt>原交易</dt>
             <dd>
               {related ? (
-                <button
-                  type="button"
+                <HfButton
                   className="mb-detail-link"
                   onClick={() => onOpenTransaction(related)}
                 >
                   {`关联 #${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
-                </button>
+                </HfButton>
               ) : (
                 <span className="mb-detail-muted">未关联原交易（仍按退款记账）</span>
               )}
@@ -106,16 +106,15 @@ function DetailBody({
               {refunds.length > 0 && (
                 <span className="mb-detail-refund-items">
                   {refunds.map((refund) => (
-                    <button
+                    <HfButton
                       key={refund.id}
-                      type="button"
                       className="mb-detail-refund-item"
                       onClick={() => onOpenTransaction(refund)}
                     >
                       <span>{formatDateLabel(refund.date)}</span>
                       <span className="mb-detail-refund-item-note">{refund.note || '退款'}</span>
                       <span className="mb-detail-refund-item-amount">{amountText(refund.amount)}</span>
-                    </button>
+                    </HfButton>
                   ))}
                 </span>
               )}

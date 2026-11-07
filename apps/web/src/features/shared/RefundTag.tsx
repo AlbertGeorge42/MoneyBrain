@@ -11,6 +11,7 @@ import {
   type LedgerTransaction,
 } from '@/features/overview/model'
 import { amountText } from '@/features/overview/format'
+import { HfButton } from '@/features/shared/HfButton'
 
 export function RefundRelationTag({
   ledger,
@@ -29,8 +30,7 @@ export function RefundRelationTag({
   const text = `关联 #${transactionRefLabel(ledger, related)}`
   if (!onOpenRelated) return <span className="mb-tx-refund-tag">{text}</span>
   return (
-    <button
-      type="button"
+    <HfButton
       className="mb-tx-refund-tag is-link"
       onClick={(event) => {
         event.stopPropagation()
@@ -39,7 +39,7 @@ export function RefundRelationTag({
       onKeyDown={(event) => event.stopPropagation()}
     >
       {text}
-    </button>
+    </HfButton>
   )
 }
 

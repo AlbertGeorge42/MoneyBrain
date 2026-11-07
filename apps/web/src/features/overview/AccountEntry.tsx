@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react'
+import { HfButton } from '@/features/shared/HfButton'
 import { amountText } from './format'
 import type { LedgerAccount, OverviewSummary } from './model'
 
@@ -12,8 +13,7 @@ export function AccountEntry({
   onOpen: () => void
 }) {
   return (
-    <button
-      type="button"
+    <HfButton
       className="mb-account-entry"
       aria-label="账户与余额"
       onClick={onOpen}
@@ -36,6 +36,6 @@ export function AccountEntry({
         ))}
       </span>
       <ChevronRight className="mb-account-chevron" size={18} aria-hidden="true" />
-    </button>
+    </HfButton>
   )
 }

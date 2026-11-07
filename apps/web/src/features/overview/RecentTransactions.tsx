@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import { TxRow } from '@/features/shared/TxRow'
 import { RefundRelationTag, RefundStateTag } from '@/features/shared/RefundTag'
 import { CategoryIcon } from './category'
@@ -111,10 +112,10 @@ export function RecentTransactions({
         </div>
       )}
 
-      <button type="button" className="mb-link-btn mb-card-foot" onClick={onOpenAll}>
+      <HfButton variant="link" className="mb-card-foot" onClick={onOpenAll}>
         查看全部流水
         <ArrowRight size={14} />
-      </button>
+      </HfButton>
     </Card>
   )
 }

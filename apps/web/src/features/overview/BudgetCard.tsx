@@ -1,5 +1,6 @@
 import { ArrowRight, TriangleAlert } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import { amountText, percentText } from './format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import type { BudgetSummary } from './model'
@@ -59,10 +60,10 @@ export function BudgetCard({
         ))}
       </div>
 
-      <button type="button" className="mb-link-btn mb-card-foot" onClick={onOpenAll}>
+      <HfButton variant="link" className="mb-card-foot" onClick={onOpenAll}>
         查看全部预算
         <ArrowRight size={14} />
-      </button>
+      </HfButton>
     </Card>
   )
 }

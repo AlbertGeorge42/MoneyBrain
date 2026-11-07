@@ -7,6 +7,7 @@
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import {
@@ -352,17 +353,16 @@ export function DatePicker({
 
       {isPoint ? (
         <div className="mb-dp-fields is-single">
-          <button type="button" className="mb-dp-field is-active" aria-pressed="true">
+          <HfButton className="mb-dp-field is-active" aria-pressed="true">
             <span className="mb-dp-field-label">时点</span>
             <span className={draft.from ? 'mb-dp-field-value' : 'mb-dp-field-value is-empty'}>
               {formatDateText(draft.from, placeholderText)}
             </span>
-          </button>
+          </HfButton>
         </div>
       ) : (
         <div className="mb-dp-fields">
-          <button
-            type="button"
+          <HfButton
             className={active === 'from' ? 'mb-dp-field is-active' : 'mb-dp-field'}
             aria-pressed={active === 'from'}
             onClick={() => setActive('from')}
@@ -371,9 +371,8 @@ export function DatePicker({
             <span className={draft.from ? 'mb-dp-field-value' : 'mb-dp-field-value is-empty'}>
               {formatDateText(draft.from, placeholderText)}
             </span>
-          </button>
-          <button
-            type="button"
+          </HfButton>
+          <HfButton
             className={active === 'to' ? 'mb-dp-field is-active' : 'mb-dp-field'}
             aria-pressed={active === 'to'}
             onClick={() => setActive('to')}
@@ -382,15 +381,14 @@ export function DatePicker({
             <span className={draft.to ? 'mb-dp-field-value' : 'mb-dp-field-value is-empty'}>
               {formatDateText(draft.to, placeholderText)}
             </span>
-          </button>
+          </HfButton>
         </div>
       )}
 
       <div className="mb-dp-presets" role="group" aria-label="快捷预设">
         {presets.map((preset) => (
-          <button
+          <HfButton
             key={preset.id}
-            type="button"
             className={matchedPreset === preset.id ? 'mb-dp-preset is-active' : 'mb-dp-preset'}
             aria-pressed={matchedPreset === preset.id}
             disabled={Boolean(preset.disabledReason)}
@@ -398,16 +396,15 @@ export function DatePicker({
             onClick={() => pickPreset(preset)}
           >
             {preset.label}
-          </button>
+          </HfButton>
         ))}
-        <button
-          type="button"
+        <HfButton
           className={matchedPreset ? 'mb-dp-preset' : 'mb-dp-preset is-active'}
           aria-pressed={!matchedPreset}
           onClick={pickCustom}
         >
           自选
-        </button>
+        </HfButton>
       </div>
       {disabledPresets.length > 0 && (
         <p className="mb-dp-note" id={noteId}>
@@ -418,13 +415,13 @@ export function DatePicker({
       <div className="mb-dp-divider" aria-hidden="true" />
 
       <div className="mb-dp-cal-head">
-        <button type="button" className="mb-dp-iconbtn" aria-label="上个月" onClick={() => goMonth(-1)}>
+        <HfButton className="mb-dp-iconbtn" aria-label="上个月" onClick={() => goMonth(-1)}>
           <ChevronLeft size={16} />
-        </button>
+        </HfButton>
         <span className="mb-dp-cal-title">{formatMonthTitle(view.year, view.month)}</span>
-        <button type="button" className="mb-dp-iconbtn" aria-label="下个月" onClick={() => goMonth(1)}>
+        <HfButton className="mb-dp-iconbtn" aria-label="下个月" onClick={() => goMonth(1)}>
           <ChevronRight size={16} />
-        </button>
+        </HfButton>
       </div>
 
       <div className="mb-dp-weekdays" aria-hidden="true">
@@ -452,9 +449,8 @@ export function DatePicker({
             .filter(Boolean)
             .join(' ')
           return (
-            <button
+            <HfButton
               key={cell.date}
-              type="button"
               data-date={cell.date}
               tabIndex={cell.date === focusDate ? 0 : -1}
               disabled={dayDisabled(cell.date)}
@@ -464,7 +460,7 @@ export function DatePicker({
               onClick={() => pickDay(cell.date)}
             >
               {cell.day}
-            </button>
+            </HfButton>
           )
         })}
       </div>
@@ -483,16 +479,16 @@ export function DatePicker({
 
       <div className={device === 'mobile' ? 'mb-dp-sheet-actions' : 'mb-dp-actions'}>
         {optional && (
-          <button type="button" className="mb-dp-btn is-clear" onClick={clear}>
+          <HfButton className="mb-dp-btn is-clear" onClick={clear}>
             清空（不限）
-          </button>
+          </HfButton>
         )}
-        <button type="button" className="mb-dp-btn is-ghost" onClick={() => close(true)}>
+        <HfButton className="mb-dp-btn is-ghost" onClick={() => close(true)}>
           取消
-        </button>
-        <button type="button" className="mb-dp-btn is-primary" onClick={apply}>
+        </HfButton>
+        <HfButton className="mb-dp-btn is-primary" onClick={apply}>
           应用
-        </button>
+        </HfButton>
       </div>
     </div>
   )
@@ -511,8 +507,7 @@ export function DatePicker({
     <div className={rootClass} ref={rootRef}>
       <div className="mb-dp-control" role="group" aria-label={isPoint ? '时点' : '日期区间'}>
         {isPoint ? (
-          <button
-            type="button"
+          <HfButton
             className="mb-dp-zone"
             aria-haspopup="dialog"
             aria-expanded={open}
@@ -524,11 +519,10 @@ export function DatePicker({
             <span className={value.from ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
               {formatDateText(value.from, placeholderText)}
             </span>
-          </button>
+          </HfButton>
         ) : (
           <>
-            <button
-              type="button"
+            <HfButton
               className="mb-dp-zone"
               aria-haspopup="dialog"
               aria-expanded={open}
@@ -540,12 +534,11 @@ export function DatePicker({
               <span className={value.from ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
                 {formatDateText(value.from, placeholderText)}
               </span>
-            </button>
+            </HfButton>
             <span className="mb-dp-sep" aria-hidden="true">
               ~
             </span>
-            <button
-              type="button"
+            <HfButton
               className="mb-dp-zone"
               aria-haspopup="dialog"
               aria-expanded={open}
@@ -557,7 +550,7 @@ export function DatePicker({
               <span className={value.to ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
                 {formatDateText(value.to, placeholderText)}
               </span>
-            </button>
+            </HfButton>
           </>
         )}
         {tag && <span className="mb-dp-tag">{tag}</span>}

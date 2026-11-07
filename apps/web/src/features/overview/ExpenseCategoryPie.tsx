@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import type { DeviceMode } from '@/features/shared/types'
 import { amountText } from './format'
 import type { ExpenseCategorySlice } from './model'
@@ -218,22 +219,20 @@ export function ExpenseCategoryPie({
               </svg>
             </div>
             <div className="mb-expense-pie-side">
-              <button
-                type="button"
+              <HfButton
                 className="mb-expense-pie-legend-toggle"
                 aria-expanded={legendOpen}
                 onClick={() => setLegendOpen((open) => !open)}
               >
                 {legendOpen ? '收起图例' : `展开图例 · ${items.length} 类`}
-              </button>
+              </HfButton>
               {legendOpen && (
                 <div className="mb-expense-pie-legend">
                   {arcs.map((item) => {
                     const canDrill = Boolean(item.slice.id && onDrill)
                     return (
-                      <button
+                      <HfButton
                         key={item.slice.id || item.slice.name}
-                        type="button"
                         className="mb-expense-pie-row"
                         aria-label={`查看「${item.slice.name}」的流水`}
                         disabled={!canDrill}
@@ -247,7 +246,7 @@ export function ExpenseCategoryPie({
                         <span className="mb-expense-pie-name">{item.slice.name}</span>
                         <span className="mb-expense-pie-share">{item.share.toFixed(1)}%</span>
                         <span className="mb-expense-pie-amount">{amountText(item.slice.amount)}</span>
-                      </button>
+                      </HfButton>
                     )
                   })}
                 </div>
