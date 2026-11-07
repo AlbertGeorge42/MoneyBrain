@@ -6,9 +6,9 @@
  * - 期间边界：页面合计直接等于后端返回，月初 / 月末两笔都计入
  * - 桑基守恒：真数据适配后逐月差值 0；退款冲减流入时仍守恒
  * - 配置生效：分组 / 隐藏分组 / 排序在 API 数据上仍改变展示
- * - 无写调用：报表页与接入层不引用任何 POST / PUT / DELETE
+ * - 无写调用：reports 目录下全部源码不引用任何 POST / PUT / DELETE
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
@@ -678,13 +678,21 @@ describe('配置只影响展示', () => {
 })
 
 describe('无写调用', () => {
-  it('报表页与接入层只读，不引用任何写接口', () => {
-    const page = source('features/reports/ReportsPage.tsx')
-    const adapter = source('features/reports/apiReports.ts')
-    for (const text of [page, adapter]) {
-      expect(text).not.toMatch(/transactionApi\.(create|update|delete)/)
-      expect(text).not.toMatch(/reportApi\.\w+Post|api\.post|api\.put|api\.delete/)
-      expect(text).not.toContain('fetchAllTransactions')
+  it('报表目录全部源码只读，不引用任何写接口', () => {
+    // 直接枚举目录而不是写死清单：新增 .ts/.tsx 自动纳入扫描，避免拆分后漏扫。
+    const reportsDir = resolve(webSrc, 'features/reports')
+    const entries = readdirSync(reportsDir, { withFileTypes: true })
+    // 只枚举本层文件；一旦新增子目录就失败，避免子目录里的源码被静默漏扫。
+    expect(entries.filter((entry) => entry.isDirectory())).toHaveLength(0)
+    const files = entries
+      .filter((entry) => entry.isFile() && /\.(ts|tsx)$/.test(entry.name))
+      .map((entry) => entry.name)
+    expect(files.length).toBeGreaterThan(0)
+    for (const name of files) {
+      const text = source(`features/reports/${name}`)
+      expect(text, name).not.toMatch(/transactionApi\.(create|update|delete)/)
+      expect(text, name).not.toMatch(/reportApi\.\w+Post|api\.post|api\.put|api\.delete/)
+      expect(text, name).not.toContain('fetchAllTransactions')
     }
   })
 
