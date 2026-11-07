@@ -1,4 +1,4 @@
-import { Drawer } from '@mantine/core'
+import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { SORT_OPTIONS, type DisplaySettings } from './displaySettings'
 
@@ -97,31 +97,24 @@ export function MobileDisplayDrawer({
 }) {
   if (device !== 'mobile') return null
   return (
-    <Drawer
+    <HfSheet
+      variant="transaction"
+      device={device}
       opened={opened}
       onClose={onClose}
-      position="bottom"
-      size="auto"
-      withinPortal={false}
       title="显示"
-      classNames={{
-        content: 'mb-tx-sheet',
-        header: 'mb-tx-sheet-head',
-        title: 'mb-tx-sheet-title',
-        body: 'mb-tx-sheet-body',
-        overlay: 'mb-tx-overlay',
-        close: 'mb-tx-sheet-close',
-      }}
+      actions={
+        <>
+          <button type="button" className="mb-tx-btn is-ghost" onClick={onReset}>
+            恢复默认
+          </button>
+          <button type="button" className="mb-tx-btn is-primary" onClick={onClose}>
+            完成
+          </button>
+        </>
+      }
     >
       <Fields value={value} onChange={onChange} />
-      <div className="mb-tx-filter-actions is-mobile">
-        <button type="button" className="mb-tx-btn is-ghost" onClick={onReset}>
-          恢复默认
-        </button>
-        <button type="button" className="mb-tx-btn is-primary" onClick={onClose}>
-          完成
-        </button>
-      </div>
-    </Drawer>
+    </HfSheet>
   )
 }

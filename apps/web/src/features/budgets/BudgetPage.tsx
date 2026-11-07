@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Drawer } from '@mantine/core'
 import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import type { LedgerBudgetInput } from '@/features/overview/ledgerStore'
@@ -9,6 +8,7 @@ import { budgetApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
+import { HfSheet } from '@/features/shared/HfSheet'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { Budget } from '@contracts/types'
@@ -651,15 +651,14 @@ export function BudgetPage({
       <WatchGroup data={data} onOpen={openDetail} />
       <GroupSection data={data} onOpen={openDetail} />
 
-      <Drawer
+      <HfSheet
+        variant="budget"
+        device={device}
         opened={Boolean(detail)}
         onClose={() => setDetailId(null)}
-        position={device === 'mobile' ? 'bottom' : 'right'}
-        size={device === 'mobile' ? '100%' : 460}
-        withinPortal={false}
         zIndex={300}
-        overlayProps={{ className: 'mb-overlay' }}
-        classNames={{ content: 'mb-sheet mb-bg-detail', header: 'mb-overlay-head', body: 'mb-overlay-body' }}
+        contentClassName="mb-bg-detail"
+        mobileSize="100%"
         title={
           <div className="mb-overlay-title-copy">
             <span className="mb-overlay-title">{detail?.name ?? '预算详情'}</span>
@@ -786,7 +785,7 @@ export function BudgetPage({
             </button>
           </>
         )}
-      </Drawer>
+      </HfSheet>
 
       <BudgetEditor
         opened={editorOpen}
@@ -881,15 +880,14 @@ function BudgetEditor({
   const periodOptions: EditorState['period'][] = ['weekly', 'monthly', 'quarterly', 'yearly']
 
   return (
-    <Drawer
+    <HfSheet
+      variant="budget"
+      device={device}
       opened={opened}
       onClose={onClose}
-      position={device === 'mobile' ? 'bottom' : 'right'}
-      size={device === 'mobile' ? '100%' : 460}
-      withinPortal={false}
       zIndex={320}
-      overlayProps={{ className: 'mb-overlay' }}
-      classNames={{ content: 'mb-sheet mb-bg-editor', header: 'mb-overlay-head', body: 'mb-overlay-body' }}
+      contentClassName="mb-bg-editor"
+      mobileSize="100%"
       title={
         <div className="mb-overlay-title-copy">
           <span className="mb-overlay-title">新增预算条目</span>
@@ -1010,6 +1008,6 @@ function BudgetEditor({
           </button>
         </div>
       </div>
-    </Drawer>
+    </HfSheet>
   )
 }

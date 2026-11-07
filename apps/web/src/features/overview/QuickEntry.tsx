@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Button, Drawer, Modal, TextInput } from '@mantine/core'
+import { Button, Modal, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
+import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { formatCurrency } from '@/utils/format'
@@ -93,29 +94,15 @@ function AccountPicker({
   const kinds = [...new Set(matched.map((account) => account.kind))]
   // 记账弹层自身带 transform，Drawer 若留在原地会以弹层为包含块（桌面变成居中面板）。
   // 预览壳里把二级抽屉重新挂到 root / 手机框，恢复「桌面贴右缘、移动贴手机底部」。
-  const portalTarget =
-    typeof document === 'undefined'
-      ? null
-      : (document.querySelector(device === 'mobile' ? '.mb-hf-phone' : '.mb-hf-root') as HTMLElement | null)
-
   return (
-    <Drawer
+    <HfSheet
+      variant="entryPicker"
+      device={device}
       opened={opened}
       onClose={onClose}
-      position={device === 'mobile' ? 'bottom' : 'right'}
-      size={device === 'mobile' ? 'auto' : 380}
-      withinPortal
-      portalProps={portalTarget ? { target: portalTarget } : undefined}
       zIndex={300}
+      portal
       title={<span className="mb-overlay-title">{title}</span>}
-      classNames={{
-        content: device === 'mobile' ? 'mb-entry-picker-sheet' : 'mb-entry-picker-panel',
-        header: 'mb-overlay-head',
-        title: 'mb-overlay-title-wrap',
-        body: device === 'mobile' ? 'mb-overlay-body' : 'mb-entry-picker-body',
-        overlay: 'mb-overlay',
-        close: 'mb-overlay-close',
-      }}
     >
       <div className="mb-entry-picker">
         <TextInput
@@ -150,7 +137,7 @@ function AccountPicker({
           ))
         )}
       </div>
-    </Drawer>
+    </HfSheet>
   )
 }
 
@@ -665,24 +652,14 @@ export function QuickEntry({
     </span>
   )
 
-  const overlayClass =
-    device === 'mobile'
-      ? {
-          content: 'mb-sheet mb-entry-sheet',
-          header: 'mb-overlay-head',
-          title: 'mb-overlay-title-wrap',
-          body: 'mb-overlay-body',
-          overlay: 'mb-overlay',
-          close: 'mb-overlay-close',
-        }
-      : {
-          content: 'mb-modal',
-          header: 'mb-overlay-head',
-          title: 'mb-overlay-title-wrap',
-          body: 'mb-overlay-body',
-          overlay: 'mb-overlay',
-          close: 'mb-overlay-close',
-        }
+  const modalClass = {
+    content: 'mb-modal',
+    header: 'mb-overlay-head',
+    title: 'mb-overlay-title-wrap',
+    body: 'mb-overlay-body',
+    overlay: 'mb-overlay',
+    close: 'mb-overlay-close',
+  }
 
   const form = (
     <EntryForm
@@ -697,17 +674,9 @@ export function QuickEntry({
   return (
     <div data-device={device}>
       {device === 'mobile' ? (
-        <Drawer
-          opened={opened}
-          onClose={onClose}
-          position="bottom"
-          size="auto"
-          withinPortal={false}
-          title={title}
-          classNames={overlayClass}
-        >
+        <HfSheet variant="entry" device={device} opened={opened} onClose={onClose} title={title}>
           {form}
-        </Drawer>
+        </HfSheet>
       ) : (
         <Modal
           opened={opened}
@@ -716,7 +685,7 @@ export function QuickEntry({
           size="auto"
           withinPortal={false}
           title={title}
-          classNames={overlayClass}
+          classNames={modalClass}
         >
           {form}
         </Modal>

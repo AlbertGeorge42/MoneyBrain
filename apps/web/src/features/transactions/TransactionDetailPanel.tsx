@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Drawer } from '@mantine/core'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { CategoryIcon } from '@/features/overview/category'
 import { normalizeAmountInput } from '@/features/overview/amountInput'
@@ -20,6 +19,7 @@ import {
   type LedgerTransaction,
 } from '@/features/overview/model'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
+import { HfSheet } from '@/features/shared/HfSheet'
 import { transactionApi, unwrapApiData } from '@/services/api'
 import type { DeviceMode } from '@/features/shared/types'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
@@ -635,22 +635,15 @@ export function TransactionDetailPanel({
   )
 
   return (
-    <Drawer
+    <HfSheet
+      variant="transaction"
+      device={device}
       opened
       onClose={close}
-      position={device === 'mobile' ? 'bottom' : 'right'}
-      withinPortal={false}
       title={titleNode}
-      classNames={{
-        content: device === 'mobile' ? 'mb-tx-sheet' : 'mb-tx-side',
-        header: 'mb-tx-sheet-head',
-        title: 'mb-tx-sheet-title-wrap',
-        body: 'mb-tx-sheet-body',
-        overlay: 'mb-tx-overlay',
-        close: 'mb-tx-sheet-close',
-      }}
+      titleClassName="mb-tx-sheet-title-wrap"
     >
       {body}
-    </Drawer>
+    </HfSheet>
   )
 }

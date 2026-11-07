@@ -1,8 +1,9 @@
-import { Drawer, Modal } from '@mantine/core'
+import { Modal } from '@mantine/core'
 import { useEffect, useState } from 'react'
 import { CategoryIcon } from '@/features/overview/category'
 import type { LedgerCategory } from '@/features/overview/model'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
+import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReactNode } from 'react'
 
@@ -19,8 +20,8 @@ function Frame({
   onClose: () => void
   children: ReactNode
 }) {
-  const classNames = {
-    content: device === 'mobile' ? 'mb-tx-sheet' : 'mb-tx-modal',
+  const modalClass = {
+    content: 'mb-tx-modal',
     header: 'mb-tx-sheet-head',
     title: 'mb-tx-sheet-title',
     body: 'mb-tx-sheet-body',
@@ -30,14 +31,14 @@ function Frame({
 
   if (device === 'mobile') {
     return (
-      <Drawer opened={opened} onClose={onClose} position="bottom" size="auto" withinPortal={false} title={title} classNames={classNames}>
+      <HfSheet variant="transaction" device={device} opened={opened} onClose={onClose} title={title}>
         {children}
-      </Drawer>
+      </HfSheet>
     )
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} centered size="auto" withinPortal={false} title={title} classNames={classNames}>
+    <Modal opened={opened} onClose={onClose} centered size="auto" withinPortal={false} title={title} classNames={modalClass}>
       {children}
     </Modal>
   )

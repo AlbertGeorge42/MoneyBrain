@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Drawer } from '@mantine/core'
+import { HfSheet } from '@/features/shared/HfSheet'
 import { X } from 'lucide-react'
 import { minor } from '@domain/index'
 import type { AccountReconcileResult } from '@contracts/types'
@@ -103,15 +103,7 @@ export function ReconcileButton({
       >
         对账
       </button>
-      <Drawer
-        opened={open}
-        onClose={close}
-        position={device === 'mobile' ? 'bottom' : 'right'}
-        size={device === 'mobile' ? 'auto' : 380}
-        withinPortal={false}
-        withCloseButton={false}
-        classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
-      >
+      <HfSheet variant="settings" device={device} opened={open} onClose={close}>
         <div className="mb-set-sheet-head">
           <h2 className="mb-set-sheet-title">对账「{account.name}」</h2>
           <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={close}>
@@ -214,7 +206,7 @@ export function ReconcileButton({
             </div>
           )}
         </div>
-      </Drawer>
+      </HfSheet>
     </>
   )
 }

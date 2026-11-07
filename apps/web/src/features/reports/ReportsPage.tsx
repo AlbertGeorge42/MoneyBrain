@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { FolderInput, ScanLine } from 'lucide-react'
-import { Drawer } from '@mantine/core'
+import { HfSheet } from '@/features/shared/HfSheet'
 import { useLedger } from '@/features/overview/ledgerStore'
 import {
   getCategoryRootId,
@@ -442,24 +442,34 @@ export function ReportsPage({
         }}
       />
 
-      <Drawer
+      <HfSheet
+        variant="report"
+        device={device}
         opened={settingsOpen}
         onClose={closeSettings}
-        position={device === 'mobile' ? 'bottom' : 'right'}
-        size={device === 'mobile' ? 'auto' : 420}
-        withinPortal={false}
         title="报表设置"
-        classNames={{
-          content:
-            device === 'mobile'
-              ? 'mb-rp-sheet mb-rp-sheet-settings is-mobile'
-              : 'mb-rp-sheet mb-rp-sheet-settings',
-          header: 'mb-rp-sheet-head',
-          title: 'mb-rp-sheet-title',
-          body: 'mb-rp-sheet-body is-settings',
-          overlay: 'mb-rp-overlay',
-          close: 'mb-rp-sheet-close',
-        }}
+        contentClassName={device === 'mobile' ? 'mb-rp-sheet-settings is-mobile' : 'mb-rp-sheet-settings'}
+        bodyClassName="is-settings"
+        actions={
+          configTab && draftSettings ? (
+            <>
+              <button type="button" className="mb-rp-btn is-ghost" onClick={resetConfig}>
+                重置
+              </button>
+              <button type="button" className="mb-rp-btn is-ghost" onClick={closeConfig}>
+                取消
+              </button>
+              <button type="button" className="mb-rp-btn is-primary" onClick={commitConfig}>
+                确认
+              </button>
+            </>
+          ) : (
+            <button type="button" className="mb-rp-btn is-primary" onClick={closeSettings}>
+              完成
+            </button>
+          )
+        }
+        actionsClassName={configTab && draftSettings ? 'is-config' : undefined}
       >
         <div className="mb-rp-settings">
           <div className="mb-rp-settings-scroll">
@@ -487,27 +497,8 @@ export function ReportsPage({
               </>
             )}
           </div>
-          {configTab && draftSettings ? (
-            <div className="mb-rp-sheet-actions is-config">
-              <button type="button" className="mb-rp-btn is-ghost" onClick={resetConfig}>
-                重置
-              </button>
-              <button type="button" className="mb-rp-btn is-ghost" onClick={closeConfig}>
-                取消
-              </button>
-              <button type="button" className="mb-rp-btn is-primary" onClick={commitConfig}>
-                确认
-              </button>
-            </div>
-          ) : (
-            <div className="mb-rp-sheet-actions">
-              <button type="button" className="mb-rp-btn is-primary" onClick={closeSettings}>
-                完成
-              </button>
-            </div>
-          )}
         </div>
-      </Drawer>
+      </HfSheet>
 
       {toast && (
         <div
@@ -860,21 +851,12 @@ function BalanceView({
         0 元账户未列出。资产合计 {currency(report.assetTotal)} = 正余额 {currency(report.positiveAssetTotal)} + 负余额{' '}
         {currency(report.negativeAssetTotal)}。负债合计不含权益，净资产单独列示；折叠只改变可见行，不影响任何合计。
       </p>
-      <Drawer
+      <HfSheet
+        variant="report"
+        device={device}
         opened={kindDetail !== null}
         onClose={() => setKindDetail(null)}
-        position={device === 'mobile' ? 'bottom' : 'right'}
-        size={device === 'mobile' ? 'auto' : 420}
-        withinPortal={false}
         title={kindDetail ? `${kindDetail} · 账户明细` : '账户明细'}
-        classNames={{
-          content: 'mb-rp-sheet',
-          header: 'mb-rp-sheet-head',
-          title: 'mb-rp-sheet-title',
-          body: 'mb-rp-sheet-body',
-          overlay: 'mb-rp-overlay',
-          close: 'mb-rp-sheet-close',
-        }}
       >
         {kindDetail && (
           <div className="mb-rp-drill">
@@ -905,7 +887,7 @@ function BalanceView({
             <p className="mb-rp-chart-note">点账户落到流水，按该账户筛选；合计与图例一致。</p>
           </div>
         )}
-      </Drawer>
+      </HfSheet>
     </>
   )
 }
@@ -1275,21 +1257,31 @@ function CashView({
           />
         </>
       )}
-      <Drawer
+      <HfSheet
+        variant="report"
+        device={device}
         opened={sankeyNode !== null}
         onClose={() => setSankeyNode(null)}
-        position={device === 'mobile' ? 'bottom' : 'right'}
-        size={device === 'mobile' ? 'auto' : 420}
-        withinPortal={false}
         title={sankeyNode ? `${sankeyNode.name} · 现金流明细` : '现金流明细'}
-        classNames={{
-          content: 'mb-rp-sheet',
-          header: 'mb-rp-sheet-head',
-          title: 'mb-rp-sheet-title',
-          body: 'mb-rp-sheet-body',
-          overlay: 'mb-rp-overlay',
-          close: 'mb-rp-sheet-close',
-        }}
+        actions={
+          <>
+            <button type="button" className="mb-rp-btn is-ghost" onClick={() => setSankeyNode(null)}>
+              关闭
+            </button>
+            {sankeyCategories.length > 0 && (
+              <button
+                type="button"
+                className="mb-rp-btn is-primary"
+                onClick={() => {
+                  onViewFlow({ categoryIds: sankeyCategories, from, to })
+                  setSankeyNode(null)
+                }}
+              >
+                在流水中查看
+              </button>
+            )}
+          </>
+        }
       >
         {sankeyNode && (
           <div className="mb-rp-drill">
@@ -1320,26 +1312,9 @@ function CashView({
                 已隐藏 {sankey?.hiddenGroups ?? sankeyNode.hiddenCount} 组，并入「其他」以保持守恒；表尾合计按可见分组重算（图与表合计允许不同）。
               </p>
             ) : null}
-            <div className="mb-rp-sheet-actions">
-              <button type="button" className="mb-rp-btn is-ghost" onClick={() => setSankeyNode(null)}>
-                关闭
-              </button>
-              {sankeyCategories.length > 0 && (
-                <button
-                  type="button"
-                  className="mb-rp-btn is-primary"
-                  onClick={() => {
-                    onViewFlow({ categoryIds: sankeyCategories, from, to })
-                    setSankeyNode(null)
-                  }}
-                >
-                  在流水中查看
-                </button>
-              )}
-            </div>
           </div>
         )}
-      </Drawer>
+      </HfSheet>
     </>
   )
 }
@@ -1459,21 +1434,22 @@ function DrillDrawer({
   onViewFlow: () => void
 }) {
   return (
-    <Drawer
+    <HfSheet
+      variant="report"
+      device={device}
       opened={Boolean(data)}
       onClose={onClose}
-      position={device === 'mobile' ? 'bottom' : 'right'}
-      size={device === 'mobile' ? 'auto' : 420}
-      withinPortal={false}
       title={data ? `${data.title} · 下钻` : '下钻'}
-      classNames={{
-        content: 'mb-rp-sheet',
-        header: 'mb-rp-sheet-head',
-        title: 'mb-rp-sheet-title',
-        body: 'mb-rp-sheet-body',
-        overlay: 'mb-rp-overlay',
-        close: 'mb-rp-sheet-close',
-      }}
+      actions={
+        <>
+          <button type="button" className="mb-rp-btn is-ghost" onClick={onClose}>
+            关闭
+          </button>
+          <button type="button" className="mb-rp-btn is-primary" onClick={onViewFlow}>
+            在流水中查看
+          </button>
+        </>
+      }
     >
       {data && (
         <div className="mb-rp-drill">
@@ -1514,16 +1490,8 @@ function DrillDrawer({
               </div>
             ))
           )}
-          <div className="mb-rp-sheet-actions">
-            <button type="button" className="mb-rp-btn is-ghost" onClick={onClose}>
-              关闭
-            </button>
-            <button type="button" className="mb-rp-btn is-primary" onClick={onViewFlow}>
-              在流水中查看
-            </button>
-          </div>
         </div>
       )}
-    </Drawer>
+    </HfSheet>
   )
 }

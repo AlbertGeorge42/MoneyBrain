@@ -7,7 +7,7 @@
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Drawer } from '@mantine/core'
+import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   WEEKDAYS,
@@ -88,15 +88,6 @@ export function DatePicker({
   const panelRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const pendingFocus = useRef<string | null>(null)
-
-  // 每次渲染解析挂载点（与预算抽屉同一做法）：报表时间条在首帧就挂载，
-  // 此时 .mb-hf-phone 还没进 DOM；若在挂载时缓存 null，移动面板会掉到 body，
-  // 既脱离手机框又丢失 .mb-hf-root 上的设计 token（背景/触控高度全部失效）。
-  const portalTarget =
-    device !== 'mobile' || typeof document === 'undefined'
-      ? null
-      : (document.querySelector<HTMLElement>('.mb-hf-phone') ??
-        document.querySelector<HTMLElement>('.mb-hf-root'))
 
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<DateRange>(value)
@@ -574,25 +565,18 @@ export function DatePicker({
 
       {open && device !== 'mobile' && <div className="mb-dp-pop">{panel}</div>}
 
-      <Drawer
+      <HfSheet
+        variant="report"
+        device={device}
         opened={open && device === 'mobile'}
         onClose={() => close(true)}
-        position="bottom"
-        size="auto"
-        withinPortal
-        portalProps={portalTarget ? { target: portalTarget } : undefined}
         title={sheetTitle}
-        classNames={{
-          content: 'mb-rp-sheet mb-dp-sheet',
-          header: 'mb-rp-sheet-head',
-          title: 'mb-rp-sheet-title',
-          body: 'mb-rp-sheet-body mb-dp-sheet-body',
-          overlay: 'mb-rp-overlay',
-          close: 'mb-rp-sheet-close',
-        }}
+        contentClassName="mb-dp-sheet"
+        bodyClassName="mb-dp-sheet-body"
+        portal
       >
         {panel}
-      </Drawer>
+      </HfSheet>
     </div>
   )
 }

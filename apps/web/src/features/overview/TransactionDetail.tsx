@@ -1,4 +1,4 @@
-import { Button, Drawer, Modal } from '@mantine/core'
+import { Button, Modal } from '@mantine/core'
 import { CategoryIcon } from './category'
 import { amountText, signedAmountText } from './format'
 import {
@@ -17,6 +17,7 @@ import {
   type LedgerTransaction,
 } from './model'
 import type { DeviceMode } from '@/features/shared/types'
+import { HfSheet } from '@/features/shared/HfSheet'
 import './overlays.css'
 
 function DetailBody({
@@ -164,29 +165,14 @@ export function TransactionDetail({
 
   if (device === 'mobile') {
     return (
-      <Drawer
-        opened
-        onClose={onClose}
-        position="bottom"
-        size="auto"
-        withinPortal={false}
-        title={title}
-        classNames={{
-          content: 'mb-sheet',
-          header: 'mb-overlay-head',
-          title: 'mb-overlay-title-wrap',
-          body: 'mb-overlay-body',
-          overlay: 'mb-overlay',
-          close: 'mb-overlay-close',
-        }}
-      >
+      <HfSheet variant="overview" device={device} opened onClose={onClose} title={title}>
         <DetailBody
           transaction={transaction}
           ledger={ledger}
           onClose={onClose}
           onOpenTransaction={onOpenTransaction}
         />
-      </Drawer>
+      </HfSheet>
     )
   }
 
