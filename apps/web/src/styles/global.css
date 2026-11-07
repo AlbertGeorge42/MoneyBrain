@@ -2,19 +2,4 @@
 
 @import './reset.css';
 
-@import './appShell.css';
-@import './pageShell.css';
-@import './grids.css';
-
-@import './components/cards.css';
-@import './components/mobileTabBar.css';
-@import './components/pagination.css';
-@import './components/picker.css';
-
-@import './settings.css';
-@import './transactions.css';
-
-@import './dashboard.css';
-
-@import './report-layouts.css';
 @import './antd-overrides.css';
