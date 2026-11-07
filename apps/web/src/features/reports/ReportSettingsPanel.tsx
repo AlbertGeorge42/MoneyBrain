@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { HfSheet } from '@/features/shared/HfSheet'
+import { HfSwitch } from '@/features/shared/HfSwitch'
 import type { DeviceMode } from '@/features/shared/types'
 import { REPORT_TABS } from './reportsShared'
 import type { ReportTab } from './reportsTime'
@@ -84,36 +85,6 @@ function Choice<T extends string | number>({
   )
 }
 
-function Toggle({
-  label,
-  checked,
-  disabled,
-  reason,
-  onChange,
-}: {
-  label: string
-  checked: boolean
-  disabled?: boolean
-  reason?: string
-  onChange: (next: boolean) => void
-}) {
-  return (
-    <div className="mb-rp-config-toggle-wrap">
-      <button
-        type="button"
-        className={checked ? 'mb-rp-config-toggle is-on' : 'mb-rp-config-toggle'}
-        aria-pressed={checked}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-      >
-        <span>{label}</span>
-        <span className="mb-rp-config-toggle-state">{checked ? '显示' : '隐藏'}</span>
-      </button>
-      {disabled && reason && <p className="mb-rp-config-reason">{reason}</p>}
-    </div>
-  )
-}
-
 export function ReportConfigPanel({
   tab,
   draft,
@@ -163,8 +134,9 @@ export function ReportConfigPanel({
             note="表与「资产构成」环同一口径：按性质汇总时环按性质切块，按账户时环按账户切块。"
           />
           <Field label="列显示">
-            <Toggle
-              label="性质列"
+            <HfSwitch
+              variant="toggle"
+              text="性质列"
               checked={draft.balance.showKindColumn && !groupedByKind}
               disabled={groupedByKind}
               reason="已按性质汇总，性质列不再单列"
@@ -187,13 +159,15 @@ export function ReportConfigPanel({
             note="最多 6 类具名，其余小类合并为「其余 N 类」；不影响合计。"
           />
           <Field label="列显示" note="金额列固定保留。">
-            <Toggle
-              label="笔数"
+            <HfSwitch
+              variant="toggle"
+              text="笔数"
               checked={draft.flow.showCountColumn}
               onChange={(next) => patchFlow({ showCountColumn: next })}
             />
-            <Toggle
-              label="占比"
+            <HfSwitch
+              variant="toggle"
+              text="占比"
               checked={draft.flow.showShareColumn}
               onChange={(next) => patchFlow({ showShareColumn: next })}
             />
@@ -207,9 +181,10 @@ export function ReportConfigPanel({
           note="表尾合计按可见分组重算；PC 桑基把隐藏项并入「其他（已隐藏 N 组）」以保持守恒，图与表合计允许不同；账户间转账为账户内部移动，画成账户间连线而非首尾节点。"
         >
           {CASH_GROUP_KEYS.map((key) => (
-            <Toggle
+            <HfSwitch
               key={key}
-              label={key}
+              variant="toggle"
+              text={key}
               checked={draft.cash.groups[key]}
               disabled={!cashPresence[key]}
               reason={CASH_REASON[key]}
@@ -222,8 +197,9 @@ export function ReportConfigPanel({
       {tab === 'invest' && (
         <>
           <Field label="资产分布">
-            <Toggle
-              label="目标比例"
+            <HfSwitch
+              variant="toggle"
+              text="目标比例"
               checked={draft.invest.showTarget}
               onChange={(next) => patchInvest({ showTarget: next })}
             />

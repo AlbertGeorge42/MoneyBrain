@@ -12,6 +12,7 @@ import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { useToast } from '@/features/shared/toastContext'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { HfSheet } from '@/features/shared/HfSheet'
+import { HfSwitch } from '@/features/shared/HfSwitch'
 import { HfTabs } from '@/features/shared/HfTabs'
 import {
   AlertTriangle,
@@ -1557,16 +1558,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 {enabled ? '已开启 · 距上次成功超过 24 小时时执行' : '未开启'}
               </span>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enabled}
-              aria-label="开启自动备份"
-              className={enabled ? 'mb-set-switch is-on' : 'mb-set-switch'}
-              onClick={() => setBackupEnabled(!enabled)}
-            >
-              <span className="mb-set-switch-thumb" aria-hidden="true" />
-            </button>
+            <HfSwitch
+              variant="settings"
+              checked={enabled}
+              onChange={setBackupEnabled}
+              ariaLabel="开启自动备份"
+            />
           </div>
           <label className="mb-set-field">
             <span className="mb-set-label">备份目录（绝对路径）</span>

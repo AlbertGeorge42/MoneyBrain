@@ -7,6 +7,7 @@ import { CompositionBars, ReportBarChart, type DonutKind } from './charts'
 import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportColumn } from './ReportTable'
 import { chartGrid } from './reportsShared'
 import { HfSegmented } from '@/features/shared/HfSegmented'
+import { HfSwitch } from '@/features/shared/HfSwitch'
 import { flattenFlowCards, flattenFlowRows } from './reportRows'
 import { currency, type FlowReport, type FlowTreeNode } from './reportsModel'
 import type { ReportViewSettings } from './reportSettings'
@@ -87,18 +88,12 @@ export function FlowView({
   return (
     <>
       <div className="mb-rp-scope">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={includeExcluded}
-          className={`mb-rp-switch${includeExcluded ? ' is-on' : ''}`}
-          onClick={() => onIncludeExcluded(!includeExcluded)}
-        >
-          <span className="mb-rp-switch-track" aria-hidden="true">
-            <span className="mb-rp-switch-thumb" />
-          </span>
-          <span className="mb-rp-switch-label">计入不计收支</span>
-        </button>
+        <HfSwitch
+          variant="report"
+          checked={includeExcluded}
+          onChange={onIncludeExcluded}
+          text="计入不计收支"
+        />
         <span className="mb-rp-scope-note">
           {includeExcluded
             ? '本期收入 / 支出 / 结余已计入标记为「不计收支」的流水'

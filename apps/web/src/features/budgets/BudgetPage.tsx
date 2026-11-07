@@ -10,6 +10,7 @@ import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import { HfSheet } from '@/features/shared/HfSheet'
+import { HfSwitch } from '@/features/shared/HfSwitch'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { Budget } from '@contracts/types'
@@ -717,20 +718,14 @@ export function BudgetPage({
                       : '当前已停用：不计入预算合计与告警，启用后恢复'}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={detail.isActive}
-                  aria-label={detail.isActive ? '停用预算' : '启用预算'}
-                  className={`mb-bg-switch${detail.isActive ? ' is-on' : ''}`}
-                  onClick={toggleActive}
+                <HfSwitch
+                  variant="budget"
+                  checked={detail.isActive}
+                  onChange={toggleActive}
                   disabled={saving}
-                >
-                  <span className="mb-bg-switch-track" aria-hidden>
-                    <span className="mb-bg-switch-thumb" />
-                  </span>
-                  <span className="mb-bg-switch-state">{detail.isActive ? '已启用' : '已停用'}</span>
-                </button>
+                  ariaLabel={detail.isActive ? '停用预算' : '启用预算'}
+                  text={detail.isActive ? '已启用' : '已停用'}
+                />
               </div>
             )}
 
