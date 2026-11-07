@@ -36,6 +36,8 @@ export function flattenFlowRows(
       cells: cellsOf(node),
       fold: node.children.length > 0 ? { expanded, onToggle: () => onFold(node.id) } : undefined,
       onOpen: () => onOpen(node),
+      // 行内文字标记，避免只用颜色 / 虚线表达「这行含预测」。
+      hint: node.predicted ? '预测' : undefined,
     })
     if (expanded) {
       for (const child of node.children) {
@@ -43,7 +45,7 @@ export function flattenFlowRows(
           id: child.id,
           level: 1,
           cells: cellsOf(child),
-          hint: '†',
+          hint: child.predicted ? '† 预测' : '†',
           onOpen: () => onOpen(child),
         })
       }

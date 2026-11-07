@@ -13,7 +13,13 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { render } from '@testing-library/react'
-import { createSeedLedger, ledgerAnchorDay, type Ledger, type LedgerTransaction } from '@/features/overview/model'
+import {
+  createSeedLedger,
+  ledgerAnchorDay,
+  type Ledger,
+  type LedgerAccountCategory,
+  type LedgerTransaction,
+} from '@/features/overview/model'
 import {
   mapBalanceReport,
   mapCashReport,
@@ -25,7 +31,12 @@ import {
   deriveCashSankey,
 } from '@/features/reports/cashSankeyModel'
 import { CashSankeyChart } from '@/features/reports/CashSankey'
-import { deriveCashReport } from '@/features/reports/reportsModel'
+import {
+  balanceGroupBalanced,
+  balanceGroupExpanded,
+  buildBalanceGroups,
+  deriveCashReport,
+} from '@/features/reports/reportsModel'
 import {
   CASH_GROUP_KEYS,
   DEFAULT_REPORT_SETTINGS,
@@ -171,6 +182,82 @@ const REAL_BALANCE = {
   ],
 } as never
 
+/**
+ * 真实库 3,380 笔（2026-10-31）快照：13 账户，账户分组只有 5 个一级（库里没有二级）。
+ * 资产 1,116,868.88、负债 1,316.40、净资产 1,115,552.48；0 元账户（现金 / 未报账项 /
+ * 京东白条 / 1688）不在明细行里。
+ */
+const REAL_BALANCE_20261031 = {
+  date: '2026-10-31',
+  assets: { actual: 111686888, predicted: 0 },
+  liabilities: { actual: 131640, predicted: 0 },
+  netWorth: { actual: 111555248, predicted: 0 },
+  assetNodes: [
+    {
+      id: 'acg-liquid',
+      name: '流动资产',
+      actual: 10113147,
+      children: [
+        { id: 'acc-alipay', name: '支付宝', categoryId: 'acg-liquid', actual: 968142 },
+        { id: 'acc-wechat', name: '微信', categoryId: 'acg-liquid', actual: 12482 },
+        { id: 'acc-unionpay', name: '云闪付', categoryId: 'acg-liquid', actual: 9132523 },
+        { id: 'acc-cash', name: '现金', categoryId: 'acg-liquid', actual: 0 },
+      ],
+    },
+    {
+      id: 'acg-provident',
+      name: '公积金',
+      actual: 100,
+      children: [{ id: 'acc-provident', name: '公积金', categoryId: 'acg-provident', actual: 100 }],
+    },
+    {
+      id: 'acg-investment',
+      name: '金融资产',
+      actual: 101573641,
+      children: [
+        { id: 'acc-xueqiu', name: '雪球基金', categoryId: 'acg-investment', actual: 91509259 },
+        {
+          id: 'acc-alipay-fund',
+          name: '支付宝基金',
+          categoryId: 'acg-investment',
+          actual: 10064382,
+        },
+      ],
+    },
+    {
+      id: 'acg-receivable',
+      name: '应收账款',
+      actual: 0,
+      children: [
+        { id: 'acc-unreported', name: '未报账项', categoryId: 'acg-receivable', actual: 0 },
+      ],
+    },
+  ],
+  liabilityNodes: [
+    {
+      id: 'acg-credit',
+      name: '信用负债',
+      actual: 131640,
+      children: [
+        { id: 'acc-minsheng', name: '民生银行', categoryId: 'acg-credit', actual: 39786 },
+        { id: 'acc-huabei', name: '花呗', categoryId: 'acg-credit', actual: 47849 },
+        { id: 'acc-jd-baitiao', name: '京东白条', categoryId: 'acg-credit', actual: 0 },
+        { id: 'acc-meituan', name: '美团月付', categoryId: 'acg-credit', actual: 44005 },
+        { id: 'acc-1688', name: '1688', categoryId: 'acg-credit', actual: 0 },
+      ],
+    },
+  ],
+} as never
+
+/** 真实库的账户分组：5 个一级，parentId 全部为空（二级层缺失）。 */
+const REAL_CATEGORIES: LedgerAccountCategory[] = [
+  { id: 'acg-liquid', name: '流动资产', type: 'asset', parentId: null, sort: 1 },
+  { id: 'acg-provident', name: '公积金', type: 'asset', parentId: null, sort: 2 },
+  { id: 'acg-investment', name: '金融资产', type: 'asset', parentId: null, sort: 3 },
+  { id: 'acg-receivable', name: '应收账款', type: 'asset', parentId: null, sort: 4 },
+  { id: 'acg-credit', name: '信用负债', type: 'liability', parentId: null, sort: 5 },
+]
+
 const TREND = [
   { label: '2026-10', netWorth: 13738835 },
   { label: '2026-11', netWorth: 14961075 },
@@ -279,9 +366,8 @@ describe('视图 ↔ 端点映射', () => {
     // 三处净资产同口径：报表 / 资产走势 / 总览都取 资产 − 负债。
     expect(report.netWorth).toBe(73871548)
     expect(report.trend.at(-1)).toEqual({ month: '2026-11', value: 73871548 })
-    // 负债与权益合计 = 总资产，表内三块相加能对上。
-    expect(report.equityTotal).toBe(75474563)
-    expect(report.liabilityTotal + report.netWorth).toBe(report.assetTotal)
+    // 净资产单列且不属于负债：资产 − 负债 = 净资产。
+    expect(report.assetTotal - report.liabilityTotal).toBe(report.netWorth)
   })
 
   it('资产表覆盖全部非零账户：负余额保留、0 元账户折叠（真实库 7 行 + 2 个 0 元）', () => {
@@ -313,6 +399,82 @@ describe('视图 ↔ 端点映射', () => {
     // 差额逐分等于被排除的负余额资产，图注用同一组数字解释。
     expect(report.positiveAssetTotal + report.negativeAssetTotal).toBe(report.assetTotal)
     expect(report.positiveAssetTotal - report.assetTotal).toBe(12785771)
+  })
+
+  it('资产负债层级（真实库 2026-10-31）：三处对账逐项相等', () => {
+    const ledger = { ...createSeedLedger(), accountCategories: REAL_CATEGORIES }
+    const report = mapBalanceReport(REAL_BALANCE_20261031, [], ledger)
+    // 资产表行合计 / 负债表行合计 / 净资产行，三处逐分相等。
+    expect(report.assetTotal).toBe(111686888)
+    expect(report.liabilityTotal).toBe(131640)
+    expect(report.netWorth).toBe(111555248)
+    expect(report.assets.reduce((sum, row) => sum + row.amount, 0)).toBe(report.assetTotal)
+    expect(report.liabilities.reduce((sum, row) => sum + row.amount, 0)).toBe(report.liabilityTotal)
+    expect(report.assetTotal - report.liabilityTotal).toBe(report.netWorth)
+    // 负债区只有负债分类，没有所有者权益行。
+    expect(report.liabilities.every((row) => row.id !== 'equity')).toBe(true)
+  })
+
+  it('层级小计：子项之和 = 父项小计，根级之和 = 资产 / 负债合计', () => {
+    const ledger = { ...createSeedLedger(), accountCategories: REAL_CATEGORIES }
+    const report = mapBalanceReport(REAL_BALANCE_20261031, [], ledger)
+    const assetGroups = buildBalanceGroups(report.assets, REAL_CATEGORIES)!
+    const liabilityGroups = buildBalanceGroups(report.liabilities, REAL_CATEGORIES)!
+    for (const group of [...assetGroups, ...liabilityGroups]) {
+      // 父项小计 = 二级分组之和 + 直属账户之和（金额与账户数同时对齐）。
+      expect(balanceGroupBalanced(group), `${group.name} 小计`).toBe(true)
+    }
+    expect(assetGroups.reduce((sum, group) => sum + group.amount, 0)).toBe(report.assetTotal)
+    expect(liabilityGroups.reduce((sum, group) => sum + group.amount, 0)).toBe(report.liabilityTotal)
+    // 账户数同样从根级对到明细：流动资产 3 个、金融资产 2 个、公积金 1 个；负债 3 个。
+    expect(assetGroups.map((group) => [group.name, group.accountCount])).toEqual([
+      ['金融资产', 2],
+      ['流动资产', 3],
+      ['公积金', 1],
+    ])
+    expect(liabilityGroups.map((group) => [group.name, group.accountCount])).toEqual([
+      ['信用负债', 3],
+    ])
+    // 二级层缺失时，一级行直接挂账户，不伪造空的二级行。
+    expect(assetGroups.every((group) => group.groups.length === 0)).toBe(true)
+
+    // 有二级分类时（测试夹具）上一层同样满足子项之和 = 父项小计。
+    const nested = buildBalanceGroups(
+      [
+        { id: 'n1', name: '账户1', kind: '现金', amount: 100, categoryId: 'sub-cash' },
+        { id: 'n2', name: '账户2', kind: '现金', amount: 50, categoryId: 'sub-cash' },
+      ],
+      [
+        { id: 'root-liquid', name: '流动资产', type: 'asset', parentId: null, sort: 1 },
+        { id: 'sub-cash', name: '现金', type: 'asset', parentId: 'root-liquid', sort: 1 },
+      ],
+    )!
+    expect(nested).toHaveLength(1)
+    expect(nested[0].groups.map((group) => [group.name, group.amount, group.accountCount])).toEqual([
+      ['现金', 150, 2],
+    ])
+    expect(nested[0].amount).toBe(150)
+    expect(balanceGroupBalanced(nested[0])).toBe(true)
+  })
+
+  it('层级默认展开策略：一级展开、二级收起', () => {
+    const nested = buildBalanceGroups(
+      [
+        { id: 'n1', name: '账户1', kind: '现金', amount: 100, categoryId: 'sub-cash' },
+        { id: 'n2', name: '账户2', kind: '现金', amount: 50, categoryId: 'sub-cash' },
+      ],
+      [
+        { id: 'root-liquid', name: '流动资产', type: 'asset', parentId: null, sort: 1 },
+        { id: 'sub-cash', name: '现金', type: 'asset', parentId: 'root-liquid', sort: 1 },
+      ],
+    )!
+    // 默认：一级分类展开（能看到二级行），二级分类收起（账户行先不展开）。
+    expect(balanceGroupExpanded({}, nested[0])).toBe(true)
+    expect(balanceGroupExpanded({}, nested[0].groups[0])).toBe(false)
+    // 用户点过后以折叠状态为准，不影响任何合计。
+    expect(balanceGroupExpanded({ [nested[0].id]: false }, nested[0])).toBe(false)
+    expect(balanceGroupExpanded({ [nested[0].groups[0].id]: true }, nested[0].groups[0])).toBe(true)
+    expect(balanceGroupBalanced(nested[0])).toBe(true)
   })
 
   it('收支明细：合计 / 分类树来自后端，笔数取完整期间流水', () => {

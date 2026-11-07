@@ -39,6 +39,7 @@ import {
   type InvestmentAllocation,
   type InvestmentHoldingGroup,
   type InvestmentReport,
+  type MetricPrediction,
 } from './reportsModel'
 import { listBuckets, type Granularity } from './reportsTime'
 
@@ -98,7 +99,12 @@ function subtreeOf(ledger: Ledger, categoryId: string): string[] {
   return ids
 }
 
-function flowCounts(ledger: Ledger, from: string, to: string): {
+function flowCounts(
+  ledger: Ledger,
+  from: string,
+  to: string,
+  includeExcluded = false,
+): {
   income: Map<string, number>
   expense: Map<string, number>
 } {
@@ -111,10 +117,36 @@ function flowCounts(ledger: Ledger, from: string, to: string): {
   }
   for (const transaction of ledger.transactions) {
     if (!inRange(transaction, from, to)) continue
+    // 笔数必须和金额同一口径：排除「不计收支」时，这类流水也不进分类树的笔数。
+    if (!includeExcluded && transaction.excludeFromIncomeExpense) continue
     if (incomeSide(transaction)) bump(income, transaction.categoryId)
     if (expenseSide(transaction)) bump(expense, transaction.categoryId)
   }
   return { income, expense }
+}
+
+/** 后端 predicted 是「预测部分」；合计 = actual + predicted。 */
+function predictedOf(value: { predicted?: number }): number {
+  return Math.abs(value.predicted ?? 0)
+}
+
+function predictionOf(
+  actual: number,
+  predicted: number,
+  direction: 'income' | 'expense' | 'net',
+): MetricPrediction | undefined {
+  if (predicted === 0) return undefined
+  const textOf = (value: number) => {
+    if (direction === 'income') return `+${currency(Math.abs(value))}`
+    if (direction === 'expense') return `−${currency(Math.abs(value))}`
+    return signedCurrency(value)
+  }
+  return {
+    actual,
+    predicted,
+    direction,
+    split: `实际 ${textOf(actual)} · 预测 ${textOf(predicted)}`,
+  }
 }
 
 function treeOf(
@@ -125,13 +157,15 @@ function treeOf(
 ): FlowTreeNode[] {
   // 构成的金额是「该侧发生了多少」，不继承接口历史符号；负向支出按绝对值参与分类树，
   // 否则 actual < 0 会被 > 0 的过滤条件静默丢掉，出现「合计有金额、构成没有数据」。
-  const amountOf = (detail: ReportCategoryDetail) => Math.abs(detail.actual)
+  // predicted 是预测部分，与 actual 同向相加；行内只对含预测的行标「预测」。
+  const amountOf = (detail: ReportCategoryDetail) => Math.abs(detail.actual) + predictedOf(detail)
   return details
     .filter((detail) => amountOf(detail) > 0)
     .map((detail) => ({
       id: detail.categoryId,
       name: detail.name,
       amount: amountOf(detail),
+      predicted: predictedOf(detail),
       // 接口分类是后端真实 id，账本流水按展示 id 归集；笔数必须同一 id 空间才能对上。
       count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
       share: total === 0 ? 0 : (amountOf(detail) / total) * 100,
@@ -142,6 +176,7 @@ function treeOf(
           id: child.categoryId,
           name: child.name,
           amount: amountOf(child),
+          predicted: predictedOf(child),
           count: counts.get(displayIdOf(child.categoryId)) ?? 0,
           share: total === 0 ? 0 : (amountOf(child) / total) * 100,
           level: 1 as const,
@@ -157,14 +192,22 @@ export function mapFlowReport(
   ledger: Ledger,
   from: string,
   to: string,
+  includeExcluded = false,
 ): FlowReport {
   // 接口的 actual 保留历史符号（真实库存在负向支出）；收入 / 支出是「方向 + 金额」，
   // 方向由本层的前缀承担，金额只取绝对值，避免「−-¥28.00」。
-  const income = Math.abs(data.income.actual)
-  const expense = Math.abs(data.expense.actual)
-  const balance = data.balance.actual
+  // 预测部分与合计同为后端字段，不做插值；合计 = actual + predicted。
+  const incomeActual = Math.abs(data.income.actual)
+  const incomePredicted = predictedOf(data.income)
+  const income = incomeActual + incomePredicted
+  const expenseActual = Math.abs(data.expense.actual)
+  const expensePredicted = predictedOf(data.expense)
+  const expense = expenseActual + expensePredicted
+  const balanceActual = data.balance.actual
+  const balancePredicted = data.balance.predicted ?? 0
+  const balance = balanceActual + balancePredicted
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
-  const counts = flowCounts(ledger, from, to)
+  const counts = flowCounts(ledger, from, to, includeExcluded)
   const displayIdOf = (realId: string) => ledger.ids?.categoryDisplay?.[realId] ?? realId
   const normalizedSeries = series.map((item) => ({
     label: item.label,
@@ -179,14 +222,27 @@ export function mapFlowReport(
     incomeTrees: treeOf(data.incomeCategoryDetails, income, counts.income, displayIdOf),
     expenseTrees: treeOf(data.expenseCategoryDetails, expense, counts.expense, displayIdOf),
     series: normalizedSeries,
+    includeExcluded,
+    predictionNote: data.predictionNote,
     metrics: [
       {
         label: '本期结余',
         value: signedCurrency(balance),
         tone: balance >= 0 ? 'income' : 'expense',
+        prediction: predictionOf(balanceActual, balancePredicted, 'net'),
       },
-      { label: '本期收入', value: `+${currency(income)}`, tone: 'income' },
-      { label: '本期支出', value: `−${currency(expense)}`, tone: 'expense' },
+      {
+        label: '本期收入',
+        value: `+${currency(income)}`,
+        tone: 'income',
+        prediction: predictionOf(incomeActual, incomePredicted, 'income'),
+      },
+      {
+        label: '本期支出',
+        value: `−${currency(expense)}`,
+        tone: 'expense',
+        prediction: predictionOf(expenseActual, expensePredicted, 'expense'),
+      },
       { label: '储蓄率', value: formatPercent(savingsRate, 1, false) },
     ],
   }
@@ -204,26 +260,37 @@ export function mapBalanceReport(
   // 统一账户覆盖规则：资产与负债都只列「余额 ≠ 0」的账户（负余额保留），
   // 0 元账户折叠成计数提示（后端仍返回全部账户，设置页能看到）。
   // 不再对资产侧做 `actual > 0` 过滤——那会吞掉负余额资产，造成报表只显示 3 行。
+  // 未来时点后端同时给 predicted：行金额 = actual + predicted，预测部分单独记账供行内标注。
+  const totalOf = (account: { actual: number; predicted?: number }) =>
+    account.actual + (account.predicted ?? 0)
   const rowsOf = (nodes: BalanceSheetReportData['assetNodes']): BalanceRow[] =>
     nodes.flatMap((node) =>
       node.children
-        .filter((account) => account.actual !== 0)
+        .filter((account) => totalOf(account) !== 0)
         .map((account) => ({
           id: account.id,
           name: account.name,
           kind: node.name,
-          amount: account.actual,
+          amount: totalOf(account),
+          predicted: predictedOf(account),
+          categoryId: account.categoryId,
         })),
     ).sort((left, right) => right.amount - left.amount)
 
   const countZero = (nodes: BalanceSheetReportData['assetNodes']) =>
-    nodes.reduce((sum, node) => sum + node.children.filter((account) => account.actual === 0).length, 0)
+    nodes.reduce((sum, node) => sum + node.children.filter((account) => totalOf(account) === 0).length, 0)
 
   const assets = rowsOf(data.assetNodes)
   const liabilities = rowsOf(data.liabilityNodes)
-  const assetTotal = data.assets.actual
-  const liabilityTotal = data.liabilities.actual
-  const netWorth = data.netWorth.actual
+  const assetActual = data.assets.actual
+  const assetPredicted = data.assets.predicted ?? 0
+  const assetTotal = assetActual + assetPredicted
+  const liabilityActual = data.liabilities.actual
+  const liabilityPredicted = data.liabilities.predicted ?? 0
+  const liabilityTotal = liabilityActual + liabilityPredicted
+  const netWorthActual = data.netWorth.actual
+  const netWorthPredicted = data.netWorth.predicted ?? 0
+  const netWorth = netWorthActual + netWorthPredicted
 
   const zeroAccountCount = countZero(data.assetNodes) + countZero(data.liabilityNodes)
   const positiveAssets = assets.filter((row) => row.amount > 0)
@@ -251,18 +318,30 @@ export function mapBalanceReport(
     assetTotal,
     liabilityTotal,
     netWorth,
-    equity: netWorth,
-    equityTotal: liabilityTotal + netWorth,
     zeroAccountCount,
     positiveAssetTotal,
     negativeAssetTotal,
     negativeAssetCount: negativeAssets.length,
     composition,
     trend: trend.map((item) => ({ month: item.label, value: item.netWorth })),
+    predictionNote: data.predictionNote,
     metrics: [
-      { label: '净资产', value: currency(netWorth) },
-      { label: '总资产', value: currency(assetTotal) },
-      { label: '总负债', value: currency(liabilityTotal), tone: liabilityTotal > 0 ? 'expense' : 'neutral' },
+      {
+        label: '净资产',
+        value: currency(netWorth),
+        prediction: predictionOf(netWorthActual, netWorthPredicted, 'net'),
+      },
+      {
+        label: '总资产',
+        value: currency(assetTotal),
+        prediction: predictionOf(assetActual, assetPredicted, 'net'),
+      },
+      {
+        label: '总负债',
+        value: currency(liabilityTotal),
+        tone: liabilityTotal > 0 ? 'expense' : 'neutral',
+        prediction: predictionOf(liabilityActual, liabilityPredicted, 'net'),
+      },
       {
         label: '流动资产',
         value: currency(
@@ -283,13 +362,14 @@ const ACTIVITY_LABELS: Record<keyof CashFlowReportData['byActivity'], string> = 
 }
 
 /** 活动净值按正负拆成毛流入 / 毛流出：退款冲减流入时仍归入流出，避免出现负数分组。 */
-function grossOf(activity: CashFlowActivity): { inflow: number; outflow: number } {
-  const inflowActual = activity.inflow.actual
-  const outflowActual = activity.outflow.actual
+function grossOf(activity: CashFlowActivity): { inflow: number; outflow: number; predicted: number } {
+  const inflow = activity.inflow.actual + (activity.inflow.predicted ?? 0)
+  const outflow = activity.outflow.actual + (activity.outflow.predicted ?? 0)
   return {
-    // outflowActual 通常为负；若为正，说明该活动整体是净流入。
-    inflow: Math.max(inflowActual, 0) + Math.max(outflowActual, 0),
-    outflow: Math.max(-inflowActual, 0) + Math.max(-outflowActual, 0),
+    // outflow 通常为负；若为正，说明该活动整体是净流入。
+    inflow: Math.max(inflow, 0) + Math.max(outflow, 0),
+    outflow: Math.max(-inflow, 0) + Math.max(-outflow, 0),
+    predicted: predictedOf(activity.inflow) + predictedOf(activity.outflow),
   }
 }
 
@@ -303,10 +383,11 @@ function activityGroup(
   to: string,
 ): CashGroup | null {
   if (total <= 0) return null
-  // actual 已带符号（流入为正、流出为负），与 grossOf 的拆法一致；
+  // actual / predicted 都已带符号（流入为正、流出为负），合计后按方向筛选；
   // 收入退款（direction=inflow、actual<0）因此归入流出，不会制造负数分组。
+  const totalOfItem = (item: CashFlowActivityItem) => item.actual + (item.predicted ?? 0)
   const items = activity.items.filter((item) =>
-    direction === 'in' ? item.actual > 0 : item.actual < 0,
+    direction === 'in' ? totalOfItem(item) > 0 : totalOfItem(item) < 0,
   )
   const fromAccount = new Map(ledger.accounts.map((account) => [account.id, account.name]))
   const counted = new Set<string>()
@@ -327,7 +408,8 @@ function activityGroup(
       id: `${key}-${direction}-${item.categoryId ?? item.categoryName}-${index}`,
       label: item.categoryName,
       account: accounts.size > 0 ? [...accounts].join(' / ') : '—',
-      amount: Math.abs(item.actual),
+      amount: Math.abs(totalOfItem(item)),
+      predicted: predictedOf(item),
       tone:
         item.type.startsWith('transfer')
           ? ('transfer' as const)
@@ -341,6 +423,7 @@ function activityGroup(
     key,
     name: key,
     total,
+    predicted: predictedOf(activity.inflow) + predictedOf(activity.outflow),
     count: counted.size,
     children: children.sort((left, right) => right.amount - left.amount),
   }
@@ -369,17 +452,28 @@ export function mapCashReport(data: CashFlowReportData, ledger: Ledger, from: st
     if (outflow) outflowGroups.push(outflow)
   }
 
-  const operatingNet = data.byActivity.operating.net.actual
-  const investingNet = data.byActivity.investing.net.actual
-  const financingNet = data.byActivity.financing.net.actual
-  const closingCash = data.endCash.actual
+  const operatingActual = data.byActivity.operating.net.actual
+  const operatingPredicted = data.byActivity.operating.net.predicted ?? 0
+  const operatingNet = operatingActual + operatingPredicted
+  const investingActual = data.byActivity.investing.net.actual
+  const investingPredicted = data.byActivity.investing.net.predicted ?? 0
+  const investingNet = investingActual + investingPredicted
+  const financingActual = data.byActivity.financing.net.actual
+  const financingPredicted = data.byActivity.financing.net.predicted ?? 0
+  const financingNet = financingActual + financingPredicted
+  const closingActual = data.endCash.actual
+  const closingPredicted = data.endCash.predicted ?? 0
+  const closingCash = closingActual + closingPredicted
+  const inflowTotal = data.cashInflow.actual + (data.cashInflow.predicted ?? 0)
+  const outflowTotal = Math.abs(data.cashOutflow.actual) + predictedOf(data.cashOutflow)
+  const openingCash = data.startCash.actual + (data.startCash.predicted ?? 0)
 
   return {
     period: { from, to },
     inflowGroups,
     outflowGroups,
-    inflowTotal: data.cashInflow.actual,
-    outflowTotal: Math.abs(data.cashOutflow.actual),
+    inflowTotal,
+    outflowTotal,
     operatingNet,
     investingNet,
     financingNet,
@@ -387,28 +481,44 @@ export function mapCashReport(data: CashFlowReportData, ledger: Ledger, from: st
     /** 后端三层桑基：现金账户之间转账已由后端产出 cash → cash link。 */
     apiSankey: data.sankey,
     /** 后端口径的期初现金；桑基优先用它，避免再按全账户净额重算。 */
-    openingCash: data.startCash.actual,
+    openingCash,
     /** 后端分组已含对账修正与手续费，桑基不再二次补计。 */
     correctionsIncluded: true,
     inflowGross,
     outflowGross,
+    predictionNote: data.predictionNote,
     reconcile: {
-      flowIncome: data.cashInflow.actual,
-      flowExpense: Math.abs(data.cashOutflow.actual),
+      flowIncome: inflowTotal,
+      flowExpense: outflowTotal,
       flowBalance: operatingNet,
       adjustmentExpense: 0,
       transferFee: 0,
       difference: 0,
     },
     metrics: [
-      { label: '期末现金总量', value: currency(closingCash) },
+      {
+        label: '期末现金总量',
+        value: currency(closingCash),
+        prediction: predictionOf(closingActual, closingPredicted, 'net'),
+      },
       {
         label: '经营净额',
         value: signedCurrency(operatingNet),
         tone: operatingNet >= 0 ? 'income' : 'expense',
+        prediction: predictionOf(operatingActual, operatingPredicted, 'net'),
       },
-      { label: '投资净额', value: signedCurrency(investingNet), tone: investingNet >= 0 ? 'income' : 'expense' },
-      { label: '筹资净额', value: signedCurrency(financingNet), tone: financingNet >= 0 ? 'income' : 'expense' },
+      {
+        label: '投资净额',
+        value: signedCurrency(investingNet),
+        tone: investingNet >= 0 ? 'income' : 'expense',
+        prediction: predictionOf(investingActual, investingPredicted, 'net'),
+      },
+      {
+        label: '筹资净额',
+        value: signedCurrency(financingNet),
+        tone: financingNet >= 0 ? 'income' : 'expense',
+        prediction: predictionOf(financingActual, financingPredicted, 'net'),
+      },
     ],
   }
 }
@@ -540,10 +650,11 @@ export function useApiFlowReport(
   to: string,
   gran: Granularity,
   ledger: Ledger,
+  includeExcluded: boolean,
   enabled: boolean,
 ): ApiReportResult<FlowReport> {
   const query = useQuery({
-    queryKey: ['hf', 'report', 'flow', from, to, gran],
+    queryKey: ['hf', 'report', 'flow', from, to, gran, includeExcluded],
     enabled,
     queryFn: async () => {
       const buckets = listBuckets(from, to, gran)
@@ -551,19 +662,21 @@ export function useApiFlowReport(
         startDate: bucket.from < from ? from : bucket.from,
         endDate: bucket.to > to ? to : bucket.to,
       })
+      // includePredictions 常开：未来期间由后端给 predicted；今天以前自然为 0。
+      // includeExcluded 与开关同值，主区间和逐桶序列用同一口径，避免柱状图与合计不一致。
       const [main, series] = await Promise.all([
-        reportApi.getIncomeExpense(from, to).then(unwrapApiData),
+        reportApi.getIncomeExpense(from, to, true, includeExcluded).then(unwrapApiData),
         Promise.all(
           buckets.map((bucket) => {
             const range = rangeOf(bucket)
             return reportApi
-              .getIncomeExpense(range.startDate, range.endDate)
+              .getIncomeExpense(range.startDate, range.endDate, true, includeExcluded)
               .then(unwrapApiData)
               .then((data) => ({ label: bucket.label, income: data.income.actual, expense: data.expense.actual }))
           }),
         ),
       ])
-      return mapFlowReport(main, series, ledger, from, to)
+      return mapFlowReport(main, series, ledger, from, to, includeExcluded)
     },
   })
   return resultOf(query, enabled)
@@ -574,7 +687,8 @@ export function useApiCashReport(from: string, to: string, ledger: Ledger, enabl
     queryKey: ['hf', 'report', 'cash', from, to],
     enabled,
     queryFn: async () => {
-      const data = await reportApi.getCashFlow(from, to).then(unwrapApiData)
+      // 与旧版一致：现金流常带 includePredictions，未来期间的期末现金直接取后端预测。
+      const data = await reportApi.getCashFlow(from, to, true).then(unwrapApiData)
       return mapCashReport(data, ledger, from, to)
     },
   })

@@ -8,7 +8,11 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { FolderInput, ScanLine } from 'lucide-react'
 import { Drawer } from '@mantine/core'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
+import {
+  getCategoryRootId,
+  ledgerAnchorDay,
+  type LedgerAccountCategory,
+} from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { formatPercent } from '@/utils/format'
@@ -38,7 +42,9 @@ import {
   type ReportViewSettings,
 } from './reportSettings'
 import {
+  balanceGroupExpanded,
   buildAssetComposition,
+  buildBalanceGroups,
   buildDrill,
   cashRowsFor,
   currency,
@@ -47,6 +53,7 @@ import {
   deriveFlowReport,
   deriveInvestmentReport,
   signedCurrency,
+  type BalanceGroup,
   type BalanceReport,
   type BalanceRow,
   type CashReport,
@@ -227,6 +234,8 @@ export function ReportsPage({
   const [foldedFlow, setFoldedFlow] = useState<Record<string, boolean>>({})
   const [foldedCash, setFoldedCash] = useState<Record<string, boolean>>({})
   const [flowSide, setFlowSide] = useState<'income' | 'expense'>('expense')
+  // 「计入不计收支」只影响收支明细口径；关闭时按旧版默认排除这类流水。
+  const [includeExcluded, setIncludeExcluded] = useState(false)
   const [cashSide, setCashSide] = useState<'in' | 'out'>('in')
   const [balanceSide, setBalanceSide] = useState<'assets' | 'liabilities'>('assets')
   // 展示偏好只落 localStorage；面板里的切换先改 draft，页面即时按 draft 重算。
@@ -242,8 +251,8 @@ export function ReportsPage({
     [ledger, balancePoint],
   )
   const seedFlow = useMemo(
-    () => deriveFlowReport(ledger, time.from, time.to, time.gran),
-    [ledger, time.from, time.to, time.gran],
+    () => deriveFlowReport(ledger, time.from, time.to, time.gran, includeExcluded),
+    [ledger, time.from, time.to, time.gran, includeExcluded],
   )
   const seedCash = useMemo(() => deriveCashReport(ledger, time.from, time.to), [ledger, time.from, time.to])
   const seedInvest = useMemo(() => deriveInvestmentReport(ledger), [ledger])
@@ -251,7 +260,7 @@ export function ReportsPage({
   // API 模式：合计口径全部来自后端报表端点，查询自身也有加载 / 失败态。
   const apiReady = apiMode && dataState === 'normal'
   const balanceApi = useApiBalanceReport(balancePoint, ledger, apiReady && tab === 'balance')
-  const flowApi = useApiFlowReport(time.from, time.to, time.gran, ledger, apiReady && tab === 'flow')
+  const flowApi = useApiFlowReport(time.from, time.to, time.gran, ledger, includeExcluded, apiReady && tab === 'flow')
   const cashApi = useApiCashReport(time.from, time.to, ledger, apiReady && tab === 'cash')
   const investApi = useApiInvestReport(time.from, time.to, apiReady && tab === 'invest')
 
@@ -358,6 +367,7 @@ export function ReportsPage({
               device={device}
               report={balance}
               settings={effectiveSettings.balance}
+              categories={ledger.accountCategories}
               side={balanceSide}
               onSide={setBalanceSide}
               from={time.from}
@@ -372,6 +382,8 @@ export function ReportsPage({
               settings={effectiveSettings.flow}
               side={flowSide}
               onSide={setFlowSide}
+              includeExcluded={includeExcluded}
+              onIncludeExcluded={setIncludeExcluded}
               folded={foldedFlow}
               onFold={toggleFlowFold}
               onDrill={(node, kind) => {
@@ -513,6 +525,7 @@ function BalanceView({
   device,
   report,
   settings,
+  categories,
   side,
   onSide,
   from,
@@ -522,6 +535,7 @@ function BalanceView({
   device: DeviceMode
   report: BalanceReport
   settings: ReportViewSettings['balance']
+  categories: readonly LedgerAccountCategory[] | undefined
   side: 'assets' | 'liabilities'
   onSide: (next: 'assets' | 'liabilities') => void
   from: string
@@ -530,6 +544,24 @@ function BalanceView({
 }) {
   const shownAssets = groupBalanceRows(report.assets, settings.groupMode)
   const shownLiabilities = groupBalanceRows(report.liabilities, settings.groupMode)
+  // 层级折叠是纯展示状态：默认一级展开、二级收起，不改任何合计。
+  const [foldedBalance, setFoldedBalance] = useState<Record<string, boolean>>({})
+  const assetGroups = useMemo(
+    () =>
+      settings.groupMode === 'account' ? buildBalanceGroups(report.assets, categories) : null,
+    [report.assets, categories, settings.groupMode],
+  )
+  const liabilityGroups = useMemo(
+    () =>
+      settings.groupMode === 'account' ? buildBalanceGroups(report.liabilities, categories) : null,
+    [report.liabilities, categories, settings.groupMode],
+  )
+  const hierarchical = assetGroups !== null && liabilityGroups !== null
+  const toggleGroup = (group: BalanceGroup) =>
+    setFoldedBalance((current) => ({
+      ...current,
+      [group.id]: !balanceGroupExpanded(current, group),
+    }))
   const [kindDetail, setKindDetail] = useState<BalanceRow['kind'] | null>(null)
   const assetNodes = useMemo(
     // 环只含正余额账户：负余额无法画成扇形，图注单独说明（合计 = 正余额资产合计）。
@@ -556,68 +588,170 @@ function BalanceView({
     onViewFlow({ accountId: node.id, from, to })
   }
   // 按性质汇总后性质列不再单列；面板里该开关同步禁用并给出原因。
-  const showKind = settings.showKindColumn && settings.groupMode === 'account'
+  const showKind = settings.showKindColumn && settings.groupMode === 'account' && !hierarchical
   const cellsOf = (row: { name: string; kind: string; amount: number }) =>
     showKind ? [row.name, row.kind, currency(row.amount)] : [row.name, currency(row.amount)]
-  const assetColumns: ReportColumn[] = showKind
-    ? [{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]
-    : [{ label: '账户' }, { label: '金额', align: 'num' }]
-  const assetTotalCells = showKind ? ['合计', '', currency(report.assetTotal)] : ['合计', currency(report.assetTotal)]
-  const equityTotalCells = showKind
-    ? ['合计', '', currency(report.equityTotal)]
-    : ['合计', currency(report.equityTotal)]
-
-  const assetRows: ReportRow[] = shownAssets.map((row) => ({
-    id: row.id,
-    cells: cellsOf(row),
-  }))
-  const liabilityRows: ReportRow[] = [
-    ...shownLiabilities.map((row) => ({
-      id: row.id,
-      cells: cellsOf(row),
-    })),
-    {
-      id: 'equity',
-      cells: showKind
-        ? ['所有者权益', '净资产', currency(report.equity)]
-        : ['所有者权益', currency(report.equity)],
-      tone: 'income' as const,
-    },
+  const assetColumns: ReportColumn[] = hierarchical
+    ? [
+        { label: '分类 / 账户' },
+        { label: '账户数', align: 'num' },
+        { label: '金额', align: 'num' },
+      ]
+    : showKind
+      ? [{ label: '账户' }, { label: '性质' }, { label: '金额', align: 'num' }]
+      : [{ label: '账户' }, { label: '金额', align: 'num' }]
+  const totalCells = (label: string, amount: number) =>
+    hierarchical || showKind ? [label, '', currency(amount)] : [label, currency(amount)]
+  const groupCells = (name: string, count: number | null, amount: number) => [
+    name,
+    count === null ? '' : `${count}`,
+    currency(amount),
   ]
+
+  const hierarchyRowsOf = (groups: BalanceGroup[]): ReportRow[] => {
+    const rows: ReportRow[] = []
+    for (const root of groups) {
+      const expanded = balanceGroupExpanded(foldedBalance, root)
+      const expandable = root.groups.length > 0 || root.accounts.length > 0
+      rows.push({
+        id: root.id,
+        cells: groupCells(root.name, root.accountCount, root.amount),
+        hint: root.predicted ? '预测' : undefined,
+        fold: expandable ? { expanded, onToggle: () => toggleGroup(root) } : undefined,
+      })
+      if (!expanded) continue
+      for (const sub of root.groups) {
+        const subExpanded = balanceGroupExpanded(foldedBalance, sub)
+        rows.push({
+          id: sub.id,
+          level: 1,
+          cells: groupCells(sub.name, sub.accountCount, sub.amount),
+          hint: sub.predicted ? '预测' : undefined,
+          fold: sub.accounts.length
+            ? { expanded: subExpanded, onToggle: () => toggleGroup(sub) }
+            : undefined,
+        })
+        if (!subExpanded) continue
+        for (const account of sub.accounts) {
+          rows.push({
+            id: account.id,
+            level: 2,
+            cells: groupCells(account.name, null, account.amount),
+            hint: account.predicted ? '预测' : undefined,
+          })
+        }
+      }
+      for (const account of root.accounts) {
+        rows.push({
+          id: account.id,
+          level: 1,
+          cells: groupCells(account.name, null, account.amount),
+          hint: account.predicted ? '预测' : undefined,
+        })
+      }
+    }
+    return rows
+  }
+
+  const assetRows: ReportRow[] = assetGroups
+    ? hierarchyRowsOf(assetGroups)
+    : shownAssets.map((row) => ({
+        id: row.id,
+        cells: cellsOf(row),
+        hint: row.predicted ? '预测' : undefined,
+      }))
+  const liabilityRows: ReportRow[] = liabilityGroups
+    ? hierarchyRowsOf(liabilityGroups)
+    : shownLiabilities.map((row) => ({
+        id: row.id,
+        cells: cellsOf(row),
+        hint: row.predicted ? '预测' : undefined,
+      }))
 
   const balanceMinRows = Math.max(assetRows.length, liabilityRows.length)
 
-  const assetCards: CardRow[] = shownAssets.map((row) => ({
-    id: row.id,
-    label: row.name,
-    meta: showKind ? row.kind : undefined,
-    amount: currency(row.amount),
-    barTone: 'accent',
-    share:
-      row.amount > 0 && report.positiveAssetTotal !== 0
-        ? (row.amount / report.positiveAssetTotal) * 100
-        : 0,
-  }))
-  const liabilityCards: CardRow[] = [
-    ...shownLiabilities.map((row) => ({
-      id: row.id,
-      label: row.name,
-      meta: showKind ? row.kind : undefined,
-      amount: currency(row.amount),
-      tone: 'expense' as const,
-      barTone: 'expense' as const,
-      share: report.equityTotal === 0 ? 0 : (row.amount / report.equityTotal) * 100,
-    })),
-    {
-      id: 'equity',
-      label: '所有者权益',
-      meta: '净资产',
-      amount: currency(report.equity),
-      tone: 'income' as const,
-      barTone: 'income' as const,
-      share: report.equityTotal === 0 ? 0 : (report.equity / report.equityTotal) * 100,
-    },
-  ]
+  const shareOf = (amount: number, total: number) =>
+    amount > 0 && total > 0 ? (amount / total) * 100 : 0
+  const hierarchyCardsOf = (
+    groups: BalanceGroup[],
+    tone: 'accent' | 'expense',
+    total: number,
+  ): CardRow[] => {
+    const cards: CardRow[] = []
+    for (const root of groups) {
+      const expanded = balanceGroupExpanded(foldedBalance, root)
+      const expandable = root.groups.length > 0 || root.accounts.length > 0
+      cards.push({
+        id: root.id,
+        label: root.name,
+        meta: `${root.accountCount} 个账户`,
+        amount: currency(root.amount),
+        tone: tone === 'expense' ? ('expense' as const) : undefined,
+        barTone: tone,
+        share: shareOf(root.amount, total),
+        fold: expandable ? { expanded, onToggle: () => toggleGroup(root) } : undefined,
+      })
+      if (!expanded) continue
+      for (const sub of root.groups) {
+        const subExpanded = balanceGroupExpanded(foldedBalance, sub)
+        cards.push({
+          id: sub.id,
+          level: 1,
+          label: sub.name,
+          meta: `${sub.accountCount} 个账户`,
+          amount: currency(sub.amount),
+          tone: tone === 'expense' ? ('expense' as const) : undefined,
+          barTone: tone,
+          share: shareOf(sub.amount, total),
+          fold: sub.accounts.length
+            ? { expanded: subExpanded, onToggle: () => toggleGroup(sub) }
+            : undefined,
+        })
+        if (!subExpanded) continue
+        for (const account of sub.accounts) {
+          cards.push({
+            id: account.id,
+            level: 2,
+            label: account.name,
+            amount: currency(account.amount),
+            tone: tone === 'expense' ? ('expense' as const) : undefined,
+          })
+        }
+      }
+      for (const account of root.accounts) {
+        cards.push({
+          id: account.id,
+          level: 1,
+          label: account.name,
+          amount: currency(account.amount),
+          tone: tone === 'expense' ? ('expense' as const) : undefined,
+        })
+      }
+    }
+    return cards
+  }
+
+  const assetCards: CardRow[] = assetGroups
+    ? hierarchyCardsOf(assetGroups, 'accent', report.positiveAssetTotal)
+    : shownAssets.map((row) => ({
+        id: row.id,
+        label: row.name,
+        meta: showKind ? row.kind : undefined,
+        amount: currency(row.amount),
+        barTone: 'accent',
+        share: shareOf(row.amount, report.positiveAssetTotal),
+      }))
+  const liabilityCards: CardRow[] = liabilityGroups
+    ? hierarchyCardsOf(liabilityGroups, 'expense', report.liabilityTotal)
+    : shownLiabilities.map((row) => ({
+        id: row.id,
+        label: row.name,
+        meta: showKind ? row.kind : undefined,
+        amount: currency(row.amount),
+        tone: 'expense' as const,
+        barTone: 'expense' as const,
+        share: shareOf(row.amount, report.liabilityTotal),
+      }))
 
   const composition = (
     <ChartCard title="资产构成">
@@ -656,6 +790,7 @@ function BalanceView({
   return (
     <>
       <MetricStrip device={device} metrics={report.metrics} />
+      {report.predictionNote && <p className="mb-rp-predict-note">{report.predictionNote}</p>}
       {chartGrid(device, <>{composition}{trend}</>)}
       {device === 'desktop' ? (
         <div className="mb-rp-cols">
@@ -666,16 +801,18 @@ function BalanceView({
             columns={assetColumns}
             rows={assetRows}
             minRows={balanceMinRows}
-            total={assetTotalCells}
+            variant={hierarchical ? 'tree' : 'c3'}
+            total={totalCells('合计', report.assetTotal)}
           />
           <ReportTable
             device={device}
-            title="负债与权益"
-            ariaLabel="负债与权益明细"
+            title="负债"
+            ariaLabel="负债明细"
             columns={assetColumns}
             rows={liabilityRows}
             minRows={balanceMinRows}
-            total={equityTotalCells}
+            variant={hierarchical ? 'tree' : 'c3'}
+            total={totalCells('合计', report.liabilityTotal)}
           />
         </div>
       ) : (
@@ -685,7 +822,7 @@ function BalanceView({
             value={side}
             options={[
               { id: 'assets', label: '资产' },
-              { id: 'liabilities', label: '负债与权益' },
+              { id: 'liabilities', label: '负债' },
             ]}
             onChange={onSide}
           />
@@ -700,18 +837,28 @@ function BalanceView({
           ) : (
             <ReportCardList
               device={device}
-              title="负债与权益"
-              desc={`负债 ${currency(report.liabilityTotal)} · 权益 ${currency(report.equity)}`}
+              title="负债"
+              desc={`负债合计 ${currency(report.liabilityTotal)}`}
               rows={liabilityCards}
-              total={{ label: '合计', value: currency(report.equityTotal) }}
+              total={{ label: '合计', value: currency(report.liabilityTotal) }}
             />
           )}
         </>
       )}
+      <section className="mb-rp-card mb-rp-networth" aria-label="净资产">
+        <div className="mb-rp-networth-copy">
+          <span className="mb-rp-networth-label">净资产</span>
+          <span className="mb-rp-networth-hint">
+            资产合计 {currency(report.assetTotal)} − 负债合计 {currency(report.liabilityTotal)}，
+            不属于负债
+          </span>
+        </div>
+        <span className="mb-rp-networth-value">{currency(report.netWorth)}</span>
+      </section>
       <p className="mb-rp-chart-note">
         账户覆盖：资产与负债都只列余额 ≠ 0 的账户（负余额保留）；另有 {report.zeroAccountCount} 个
         0 元账户未列出。资产合计 {currency(report.assetTotal)} = 正余额 {currency(report.positiveAssetTotal)} + 负余额{' '}
-        {currency(report.negativeAssetTotal)}。
+        {currency(report.negativeAssetTotal)}。负债合计不含权益，净资产单独列示；折叠只改变可见行，不影响任何合计。
       </p>
       <Drawer
         opened={kindDetail !== null}
@@ -769,6 +916,8 @@ function FlowView({
   settings,
   side,
   onSide,
+  includeExcluded,
+  onIncludeExcluded,
   folded,
   onFold,
   onDrill,
@@ -778,6 +927,8 @@ function FlowView({
   settings: ReportViewSettings['flow']
   side: 'income' | 'expense'
   onSide: (next: 'income' | 'expense') => void
+  includeExcluded: boolean
+  onIncludeExcluded: (next: boolean) => void
   folded: Record<string, boolean>
   onFold: (id: string) => void
   onDrill: (node: FlowTreeNode, kind: DonutKind) => void
@@ -829,10 +980,32 @@ function FlowView({
   // 子级行只挂「†」，含义放在已有合计说明位，不新增行。
   const childLegend = (nodes: FlowTreeNode[]) =>
     nodes.some((node) => node.children.length > 0) ? ' · † 子级已计入父级' : ''
+  // 表说明与开关同口径：开关一变，说明里也直接写明是否计入，不让标题与数字脱节。
+  const scopeLegend = report.includeExcluded ? ' · 计入不计收支' : ' · 不含不计收支'
 
   return (
     <>
+      <div className="mb-rp-scope">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={includeExcluded}
+          className={`mb-rp-switch${includeExcluded ? ' is-on' : ''}`}
+          onClick={() => onIncludeExcluded(!includeExcluded)}
+        >
+          <span className="mb-rp-switch-track" aria-hidden="true">
+            <span className="mb-rp-switch-thumb" />
+          </span>
+          <span className="mb-rp-switch-label">计入不计收支</span>
+        </button>
+        <span className="mb-rp-scope-note">
+          {includeExcluded
+            ? '本期收入 / 支出 / 结余已计入标记为「不计收支」的流水'
+            : '本期收入 / 支出 / 结余按默认口径排除「不计收支」流水'}
+        </span>
+      </div>
       <MetricStrip device={device} metrics={report.metrics} />
+      {report.predictionNote && <p className="mb-rp-predict-note">{report.predictionNote}</p>}
       {chartGrid(
         device,
         <>
@@ -858,7 +1031,7 @@ function FlowView({
           <ReportTable
             device={device}
             title="收入构成"
-            desc={`合计 ${currency(report.income)}${childLegend(report.incomeTrees)}`}
+            desc={`合计 ${currency(report.income)}${scopeLegend}${childLegend(report.incomeTrees)}`}
             ariaLabel="收入构成"
             variant={flowVariant}
             columns={flowColumns}
@@ -869,7 +1042,7 @@ function FlowView({
           <ReportTable
             device={device}
             title="支出构成"
-            desc={`合计 ${currency(report.expense)}${childLegend(report.expenseTrees)}`}
+            desc={`合计 ${currency(report.expense)}${scopeLegend}${childLegend(report.expenseTrees)}`}
             ariaLabel="支出构成"
             variant={flowVariant}
             columns={flowColumns}
@@ -892,7 +1065,7 @@ function FlowView({
           <ReportCardList
             device={device}
             title={side === 'expense' ? '支出构成' : '收入构成'}
-            desc={`合计 ${currency(side === 'expense' ? report.expense : report.income)}${childLegend(
+            desc={`合计 ${currency(side === 'expense' ? report.expense : report.income)}${scopeLegend}${childLegend(
               side === 'expense' ? report.expenseTrees : report.incomeTrees,
             )}`}
             rows={side === 'expense' ? expenseCards : incomeCards}
@@ -931,6 +1104,7 @@ function flattenCards(
       id: node.id,
       label: node.name,
       meta: metaOf(node),
+      hint: node.predicted ? '预测' : undefined,
       amount: `${tone === 'income' ? '+' : '−'}${currency(node.amount)}`,
       tone,
       share: node.share,
@@ -945,7 +1119,7 @@ function flattenCards(
           level: 1,
           label: child.name,
           meta: metaOf(child),
-          hint: '†',
+          hint: child.predicted ? '† 预测' : '†',
           amount: `${tone === 'income' ? '+' : '−'}${currency(child.amount)}`,
           tone,
           share: child.share,
@@ -1013,6 +1187,7 @@ function CashView({
       id: key,
       label: group.name,
       meta: `${group.count} 笔`,
+      hint: group.predicted ? '预测' : undefined,
       amount: currency(group.total),
       tone: side === 'in' ? 'income' : 'expense',
       fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
@@ -1024,6 +1199,7 @@ function CashView({
           level: 1,
           label: child.label,
           meta: child.account,
+          hint: child.predicted ? '预测' : undefined,
           amount: currency(child.amount),
           tone: side === 'in' ? 'income' : 'expense',
         })
@@ -1038,6 +1214,7 @@ function CashView({
   return (
     <>
       <MetricStrip device={device} metrics={report.metrics} flat />
+      {report.predictionNote && <p className="mb-rp-predict-note">{report.predictionNote}</p>}
       {device === 'desktop' ? (
         <>
           {sankey && (

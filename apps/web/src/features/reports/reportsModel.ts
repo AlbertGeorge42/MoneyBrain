@@ -16,6 +16,7 @@ import {
   TODAY,
   type Ledger,
   type LedgerAccount,
+  type LedgerAccountCategory,
   type LedgerCategory,
   type LedgerTransaction,
   type TrendPoint,
@@ -25,12 +26,26 @@ import { bucketKey, listBuckets, type Granularity } from './reportsTime'
 import type { ReportRow } from './ReportTable'
 import type { CashFlowReportData } from '@/services/api'
 
+/**
+ * 预测拆解：金额 = 实际 + 预测。只在 predicted ≠ 0 时生成，
+ * 界面用「预测」文字标签 + 「实际 … · 预测 …」拆解行区分两类数字，不只靠颜色。
+ */
+export interface MetricPrediction {
+  actual: number
+  predicted: number
+  direction: 'income' | 'expense' | 'net'
+  /** 直接可展示的拆解文案，例如「实际 +¥1,234 · 预测 +¥567」。 */
+  split: string
+}
+
 export interface ReportMetric {
   label: string
   value: string
   tone?: 'income' | 'expense' | 'neutral'
   /** 紧贴标签的极短口径标记，不新增说明行。 */
   hint?: string
+  /** 非空时：金额含预算预测，标签旁加「预测」文字标记并展示实际 / 预测拆解。 */
+  prediction?: MetricPrediction
 }
 
 export interface FlowTreeNode {
@@ -41,6 +56,8 @@ export interface FlowTreeNode {
   share: number
   level: 0 | 1
   children: FlowTreeNode[]
+  /** 金额中的预测部分；≠ 0 时行内标「预测」。 */
+  predicted?: number
   /** 卡片合并「其他」时记录被并入的根分类，用于同口径下钻。 */
   mergedIds?: string[]
 }
@@ -54,6 +71,10 @@ export interface FlowReport {
   expenseTrees: FlowTreeNode[]
   series: { label: string; income: number; expense: number }[]
   metrics: ReportMetric[]
+  /** 后端口径说明（含预算预测时给出）。 */
+  predictionNote?: string
+  /** 当前口径是否计入「不计收支」流水；表说明与开关保持一致。 */
+  includeExcluded?: boolean
 }
 
 export interface BalanceRow {
@@ -61,6 +82,29 @@ export interface BalanceRow {
   name: string
   kind: string
   amount: number
+  /** 金额中的预测部分；≠ 0 时行内标「预测」。 */
+  predicted?: number
+  /** 所属账户分类的真实 id；null / undefined = 未分组（种子账本没有账户分类）。 */
+  categoryId?: string | null
+}
+
+/**
+ * 资产负债三级层级：一级分类 → 二级分类 → 账户。
+ *
+ * 账户分类在库里只有一级时，`groups` 为空、账户直接挂在 `accounts` 上，
+ * 渲染层据此显示「一级分类 → 账户」；分类数据补出二级后自动变成三级。
+ */
+export interface BalanceGroup {
+  id: string
+  name: string
+  amount: number
+  /** 该分组金额中的预测部分；≠ 0 时行内标「预测」。 */
+  predicted?: number
+  /** 该分组下去重后的账户数（0 元账户按覆盖规则未列入，不计入）。 */
+  accountCount: number
+  level: 0 | 1
+  groups: BalanceGroup[]
+  accounts: BalanceRow[]
 }
 
 export interface BalanceReport {
@@ -70,8 +114,6 @@ export interface BalanceReport {
   assetTotal: number
   liabilityTotal: number
   netWorth: number
-  equity: number
-  equityTotal: number
   /** 余额为 0、未在明细中列出的账户数（覆盖规则：只列余额 ≠ 0 的账户）。 */
   zeroAccountCount: number
   /** 正余额资产合计（资产构成的环内合计与投资占比的分母）。 */
@@ -82,6 +124,103 @@ export interface BalanceReport {
   composition: { id: string; name: string; amount: number; share: number }[]
   trend: TrendPoint[]
   metrics: ReportMetric[]
+  /** 后端口径说明（含预算预测时给出）。 */
+  predictionNote?: string
+}
+
+/**
+ * 资产负债三级分组：按账户分类的 parentId 归到一级，二级分类的账户归到二级。
+ *
+ * 分类数据缺失（种子账本 / 测试夹具没有 accountCategories）时返回 null，
+ * 渲染层回退到原来的平铺账户行，不伪造层级。
+ */
+export function buildBalanceGroups(
+  rows: BalanceRow[],
+  categories: readonly LedgerAccountCategory[] | undefined,
+): BalanceGroup[] | null {
+  if (!categories || categories.length === 0) return null
+  const byId = new Map(categories.map((category) => [category.id, category]))
+  const roots = new Map<string, BalanceGroup>()
+  const subGroups = new Map<string, BalanceGroup>()
+
+  const rootOf = (id: string, name: string): BalanceGroup => {
+    const existing = roots.get(id)
+    if (existing) return existing
+    const created: BalanceGroup = {
+      id,
+      name,
+      amount: 0,
+      predicted: 0,
+      accountCount: 0,
+      level: 0,
+      groups: [],
+      accounts: [],
+    }
+    roots.set(id, created)
+    return created
+  }
+
+  for (const row of rows) {
+    const category = row.categoryId ? byId.get(row.categoryId) : undefined
+    const parent = category?.parentId ? byId.get(category.parentId) : undefined
+    const root = rootOf(
+      parent?.id ?? category?.id ?? 'uncategorized',
+      parent?.name ?? category?.name ?? '未分类',
+    )
+    if (category && parent) {
+      let sub = subGroups.get(category.id)
+      if (!sub) {
+        sub = {
+          id: category.id,
+          name: category.name,
+          amount: 0,
+          predicted: 0,
+          accountCount: 0,
+          level: 1,
+          groups: [],
+          accounts: [],
+        }
+        subGroups.set(category.id, sub)
+        root.groups.push(sub)
+      }
+      sub.accounts.push(row)
+      sub.amount += row.amount
+      sub.predicted = (sub.predicted ?? 0) + (row.predicted ?? 0)
+      sub.accountCount += 1
+    } else {
+      root.accounts.push(row)
+    }
+    root.amount += row.amount
+    root.predicted = (root.predicted ?? 0) + (row.predicted ?? 0)
+    root.accountCount += 1
+  }
+
+  const sortGroup = (group: BalanceGroup) => {
+    group.accounts.sort((left, right) => right.amount - left.amount)
+    group.groups.sort((left, right) => right.amount - left.amount)
+    group.groups.forEach(sortGroup)
+  }
+  const result = [...roots.values()].sort((left, right) => right.amount - left.amount)
+  result.forEach(sortGroup)
+  return result
+}
+
+/** 层级自检：子项（二级分组 + 直属账户）之和 = 父项小计，金额与账户数都对齐。 */
+export function balanceGroupBalanced(group: BalanceGroup): boolean {
+  const childAmount =
+    group.groups.reduce((sum, child) => sum + child.amount, 0) +
+    group.accounts.reduce((sum, row) => sum + row.amount, 0)
+  const childCount =
+    group.groups.reduce((sum, child) => sum + child.accountCount, 0) + group.accounts.length
+  return childAmount === group.amount && childCount === group.accountCount
+}
+
+/** 默认展开策略：一级展开、二级收起；用户点过以后以折叠状态为准。 */
+export function balanceGroupExpanded(
+  folded: Record<string, boolean>,
+  group: BalanceGroup,
+): boolean {
+  return folded[group.id] ?? group.level === 0
 }
 
 /**
@@ -129,6 +268,8 @@ export interface CashChild {
   label: string
   account: string
   amount: number
+  /** 金额中的预测部分；≠ 0 时行内标「预测」。 */
+  predicted?: number
   tone: 'income' | 'expense' | 'transfer'
   /** 下钻到流水时按分类精确复现同一组（合并「其余」时取并集）。 */
   categoryId: string
@@ -138,6 +279,8 @@ export interface CashGroup {
   key: string
   name: string
   total: number
+  /** 分组金额中的预测部分；≠ 0 时行内标「预测」。 */
+  predicted?: number
   count: number
   children: CashChild[]
 }
@@ -173,6 +316,8 @@ export interface CashReport {
   inflowGross?: number
   outflowGross?: number
   metrics: ReportMetric[]
+  /** 后端口径说明（含预算预测时给出）。 */
+  predictionNote?: string
   /** 三处口径对账所需明细；不改业务规则，只把差异显式列出。 */
   reconcile: {
     flowIncome: number
@@ -380,8 +525,18 @@ function flowTrees(
   return rootNodes
 }
 
-export function deriveFlowReport(ledger: Ledger, from: string, to: string, gran: Granularity): FlowReport {
-  const transactions = ledger.transactions.filter((transaction) => inRange(transaction, from, to))
+export function deriveFlowReport(
+  ledger: Ledger,
+  from: string,
+  to: string,
+  gran: Granularity,
+  includeExcluded = false,
+): FlowReport {
+  const transactions = ledger.transactions.filter(
+    (transaction) =>
+      inRange(transaction, from, to) &&
+      (includeExcluded || !transaction.excludeFromIncomeExpense),
+  )
   let income = 0
   let expense = 0
   for (const transaction of transactions) {
@@ -418,6 +573,7 @@ export function deriveFlowReport(ledger: Ledger, from: string, to: string, gran:
     incomeTrees: flowTrees(ledger, transactions, 'income'),
     expenseTrees: flowTrees(ledger, transactions, 'expense'),
     series,
+    includeExcluded,
     metrics: [
       {
         label: '本期结余',
@@ -470,6 +626,7 @@ export function deriveBalanceReport(ledger: Ledger, point: string): BalanceRepor
       name: account.name,
       kind: accountKindLabel(account.kind),
       amount: account.pointBalance,
+      categoryId: account.categoryId ?? null,
     }))
   const liabilities = accounts
     .filter((account) => account.pointBalance < 0)
@@ -478,6 +635,7 @@ export function deriveBalanceReport(ledger: Ledger, point: string): BalanceRepor
       name: account.name,
       kind: accountKindLabel(account.kind),
       amount: -account.pointBalance,
+      categoryId: account.categoryId ?? null,
     }))
   const assetTotal = assets.reduce((sum, row) => sum + row.amount, 0)
   const liabilityTotal = liabilities.reduce((sum, row) => sum + row.amount, 0)
@@ -509,8 +667,6 @@ export function deriveBalanceReport(ledger: Ledger, point: string): BalanceRepor
     assetTotal,
     liabilityTotal,
     netWorth,
-    equity: netWorth,
-    equityTotal: liabilityTotal + netWorth,
     zeroAccountCount,
     positiveAssetTotal,
     negativeAssetTotal,
@@ -583,6 +739,7 @@ export function cashRowsFor(
     rows.push({
       id: key,
       cells: [group.name, `${group.count} 笔`, currency(group.total)],
+      hint: group.predicted ? '预测' : undefined,
       fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
     })
     if (expanded) {
@@ -591,6 +748,7 @@ export function cashRowsFor(
           id: foldKey(child.id),
           level: 1,
           cells: [child.label, child.account, currency(child.amount)],
+          hint: child.predicted ? '预测' : undefined,
           tone: child.tone,
         })
       }

@@ -87,3 +87,58 @@ describe('mapFlowReport 分类构成', () => {
     })
   })
 })
+
+describe('mapFlowReport 计入不计收支', () => {
+  it('口径开关同时改变分类笔数，且树金额改用同一口径的合计做占比', () => {
+    const withExcluded: Ledger = {
+      ...ledger,
+      transactions: [
+        ...ledger.transactions,
+        {
+          id: 'tx-excluded',
+          date: '2026-11-05',
+          type: 'expense',
+          categoryId: 'food',
+          note: '不计收支',
+          accountId: 'wallet',
+          amount: 500,
+          excludeFromIncomeExpense: true,
+        },
+      ],
+    }
+    const excludes = mapFlowReport(reportData, [], withExcluded, '2026-11-01', '2026-11-06')
+    const includes = mapFlowReport(reportData, [], withExcluded, '2026-11-01', '2026-11-06', true)
+
+    expect(excludes.includeExcluded).toBe(false)
+    expect(includes.includeExcluded).toBe(true)
+    expect(excludes.expenseTrees[0].count).toBe(1)
+    expect(includes.expenseTrees[0].count).toBe(2)
+  })
+})
+
+describe('mapFlowReport 预测口径', () => {
+  it('合计 = 实际 + 预测，指标带「预测」拆解，实际为 0 时也能区分两类数字', () => {
+    const predictedData: IncomeExpenseReportData = {
+      ...reportData,
+      income: { actual: 5_000, predicted: 2_000 },
+      expense: { actual: -2_800, predicted: -1_200 },
+      balance: { actual: 2_200, predicted: 800 },
+      predictionNote: '含预算预测数据',
+    }
+    const report = mapFlowReport(predictedData, [], ledger, '2026-11-01', '2026-11-30')
+
+    expect(report.income).toBe(7_000)
+    expect(report.expense).toBe(4_000)
+    expect(report.balance).toBe(3_000)
+    expect(report.predictionNote).toBe('含预算预测数据')
+    expect(report.metrics.map((metric) => Boolean(metric.prediction))).toEqual([true, true, true, false])
+    expect(report.metrics[1].prediction?.split).toContain('实际 +¥50.00')
+    expect(report.metrics[1].prediction?.split).toContain('预测 +¥20.00')
+    expect(report.metrics[2].prediction?.split).toContain('预测 −¥12.00')
+  })
+
+  it('预测为 0 时不加标签、不出现拆解行', () => {
+    const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
+    expect(report.metrics.map((metric) => Boolean(metric.prediction))).toEqual([false, false, false, false])
+  })
+})

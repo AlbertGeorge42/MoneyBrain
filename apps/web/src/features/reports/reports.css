@@ -357,6 +357,40 @@
   align-items: start;
 }
 
+/* 净资产独立一卡：明确「资产 − 负债」，不属于负债区。 */
+.mb-rp-networth {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-4);
+  margin-top: var(--mb-s-4);
+}
+
+.mb-rp-networth-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mb-rp-networth-label {
+  font-size: var(--mb-fs-2);
+  font-weight: 600;
+}
+
+.mb-rp-networth-hint {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-rp-networth-value {
+  flex: none;
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-4);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ===== 表格 ===== */
 
 .mb-rp-table-wrap {
@@ -407,6 +441,12 @@
 .mb-rp-table tr.is-child td:first-child {
   padding-left: calc(var(--mb-s-2) + 22px + 2px + var(--mb-s-4));
   color: var(--mb-color-text-secondary);
+}
+
+/* 账户行 = 一级 / 二级文本起点 + 16px 再缩进一级。 */
+.mb-rp-table tr.is-child-2 td:first-child {
+  padding-left: calc(var(--mb-s-2) + 22px + 2px + var(--mb-s-4) + 16px);
+  color: var(--mb-color-text-tertiary);
 }
 
 /* 可折叠表：表头与合计行跳过折叠槽，和一级行文本同一起点。 */
@@ -520,6 +560,10 @@
 .mb-rp-table.is-c3 col:nth-child(1) { width: 34%; }
 .mb-rp-table.is-c3 col:nth-child(2) { width: 32%; }
 .mb-rp-table.is-c3 col:nth-child(3) { width: 34%; }
+/* 分类层级表：首列留足缩进后的账户名，账户数列窄，金额列保持可读宽度。 */
+.mb-rp-table.is-tree col:nth-child(1) { width: 48%; }
+.mb-rp-table.is-tree col:nth-child(2) { width: 16%; }
+.mb-rp-table.is-tree col:nth-child(3) { width: 36%; }
 .mb-rp-table.is-c4 col:nth-child(1) { width: 32%; }
 .mb-rp-table.is-c4 col:nth-child(2) { width: 13%; }
 .mb-rp-table.is-c4 col:nth-child(3) { width: 33%; }
@@ -587,6 +631,14 @@
 
 .mb-rp-crow.is-child {
   padding-left: 18px;
+}
+
+.mb-rp-crow.is-child-2 {
+  padding-left: 36px;
+}
+
+.mb-rp-crow.is-child-2 .mb-rp-crow-label {
+  color: var(--mb-color-text-tertiary);
 }
 
 .mb-rp-crow-fold {
@@ -1928,4 +1980,118 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 .mb-rp-page[data-device='mobile'] .mb-rp-sheet-head {
   padding: var(--mb-s-3) var(--mb-s-3);
+}
+
+/* ===== 收支口径开关 / 预测标记 ===== */
+
+/* 开关只服务一张表的口径，紧贴在指标上方；说明行与开关同色系，避免被当成独立段落。 */
+.mb-rp-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mb-s-2) var(--mb-s-3);
+  padding-bottom: var(--mb-s-1);
+}
+
+.mb-rp-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-2) 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+}
+
+.mb-rp-switch-track {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-sunken);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.mb-rp-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mb-color-text-tertiary);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.mb-rp-switch.is-on .mb-rp-switch-track {
+  border-color: var(--mb-color-accent);
+  background: var(--mb-color-accent-soft);
+}
+
+.mb-rp-switch.is-on .mb-rp-switch-thumb {
+  transform: translateX(14px);
+  background: var(--mb-color-accent);
+}
+
+.mb-rp-switch-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mb-rp-scope-note {
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.4;
+}
+
+/* 预测：文字标签 + 实际 / 预测拆解行；不只靠颜色区分。 */
+.mb-rp-metric-predict {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--mb-s-1);
+  padding: 0 4px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-xs);
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+  line-height: 1.4;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.mb-rp-metric-split {
+  color: var(--mb-color-text-tertiary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mb-rp-predict-note {
+  margin: 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.45;
+}
+
+.mb-rp-page[data-device='mobile'] .mb-rp-metric-split {
+  white-space: normal;
+  font-size: 10px;
+}
+
+.mb-rp-page[data-device='mobile'] .mb-rp-scope {
+  gap: var(--mb-s-1) var(--mb-s-2);
+}
+
+.mb-rp-page[data-device='mobile'] .mb-rp-switch {
+  min-height: 44px;
 }

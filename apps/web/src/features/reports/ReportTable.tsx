@@ -19,7 +19,8 @@ export interface ReportColumn {
 export interface ReportRow {
   id: string
   cells: ReactNode[]
-  level?: 0 | 1
+  /** 0 = 一级分类 / 1 = 二级分类 / 2 = 分类下的账户。 */
+  level?: 0 | 1 | 2
   fold?: { expanded: boolean; onToggle: () => void }
   onOpen?: () => void
   tone?: 'income' | 'expense' | 'neutral' | 'transfer'
@@ -34,13 +35,43 @@ export interface CardRow {
   hint?: string
   amount: ReactNode
   tone?: 'income' | 'expense' | 'neutral' | 'transfer'
-  level?: 0 | 1
+  /** 0 = 一级分类 / 1 = 二级分类 / 2 = 分类下的账户。 */
+  level?: 0 | 1 | 2
   share?: number
   barTone?: 'income' | 'expense' | 'accent'
   fold?: { expanded: boolean; onToggle: () => void }
   onOpen?: () => void
   /** 行内附加操作（如账户对账）；不影响整行点击。 */
   action?: ReactNode
+}
+
+function MetricLabel({ metric }: { metric: ReportMetric }) {
+  return (
+    <span className="mb-rp-metric-label">
+      {metric.label}
+      {metric.hint && <span className="mb-rp-metric-hint">{metric.hint}</span>}
+      {metric.prediction && (
+        <span
+          className="mb-rp-metric-predict"
+          title={metric.prediction.split}
+          data-direction={metric.prediction.direction}
+        >
+          预测
+        </span>
+      )}
+    </span>
+  )
+}
+
+function MetricValue({ metric }: { metric: ReportMetric }) {
+  return (
+    <>
+      <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
+      {metric.prediction && (
+        <span className="mb-rp-metric-split">{metric.prediction.split}</span>
+      )}
+    </>
+  )
 }
 
 export function MetricStrip({
@@ -58,11 +89,8 @@ export function MetricStrip({
       <section className="mb-rp-metrics is-flat" data-device={device} aria-label="本期指标">
         {metrics.map((metric) => (
           <div className="mb-rp-metric" key={metric.label}>
-            <span className="mb-rp-metric-label">
-              {metric.label}
-              {metric.hint && <span className="mb-rp-metric-hint">{metric.hint}</span>}
-            </span>
-            <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
+            <MetricLabel metric={metric} />
+            <MetricValue metric={metric} />
           </div>
         ))}
       </section>
@@ -73,20 +101,14 @@ export function MetricStrip({
     <section className="mb-rp-metrics" data-device={device} aria-label="本期指标">
       {main && (
         <div className="mb-rp-metric is-main">
-          <span className="mb-rp-metric-label">
-            {main.label}
-            {main.hint && <span className="mb-rp-metric-hint">{main.hint}</span>}
-          </span>
-          <span className={`mb-rp-metric-value is-${main.tone ?? 'neutral'}`}>{main.value}</span>
+          <MetricLabel metric={main} />
+          <MetricValue metric={main} />
         </div>
       )}
       {rest.map((metric) => (
         <div className="mb-rp-metric" key={metric.label}>
-          <span className="mb-rp-metric-label">
-            {metric.label}
-            {metric.hint && <span className="mb-rp-metric-hint">{metric.hint}</span>}
-          </span>
-          <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
+          <MetricLabel metric={metric} />
+          <MetricValue metric={metric} />
         </div>
       ))}
     </section>
@@ -116,7 +138,7 @@ export function ReportTable({
   /** 并排两表的最小数据行数：按两表最大行数补齐，保证 tfoot 同 y。 */
   minRows?: number
   note?: string
-  variant?: 'c2' | 'c3' | 'c4' | 'c5' | 'c6'
+  variant?: 'c2' | 'c3' | 'c4' | 'c5' | 'c6' | 'tree'
   ariaLabel: string
   footInline?: boolean
   /** 移动端横向滚动 + 首列吸顶：用于列数多、无法卡片化的单表。 */
@@ -170,7 +192,7 @@ export function ReportTable({
                 return (
                   <tr
                     key={row.id}
-                    className={`${row.level === 1 ? 'is-child' : ''}${interactive ? ' is-interactive' : ''}`}
+                    className={`${row.level === 1 ? 'is-child' : row.level === 2 ? 'is-child-2' : ''}${interactive ? ' is-interactive' : ''}`}
                     data-tone={row.tone ?? undefined}
                     tabIndex={interactive ? 0 : undefined}
                     onClick={row.onOpen}
@@ -202,7 +224,7 @@ export function ReportTable({
                               >
                                 {row.fold.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                               </button>
-                            ) : row.level === 1 ? null : (
+                            ) : row.level ? null : (
                               // 子级行的 padding-left 已含折叠槽，再放占位会把缩进叠成 40px。
                               <span className="mb-rp-fold-space" aria-hidden="true" />
                             )}
@@ -280,7 +302,7 @@ export function ReportCardList({
           {rows.map((row) => (
             <div
               key={row.id}
-              className={`mb-rp-crow${row.level === 1 ? ' is-child' : ''}${row.onOpen ? ' is-interactive' : ''}`}
+              className={`mb-rp-crow${row.level === 1 ? ' is-child' : row.level === 2 ? ' is-child-2' : ''}${row.onOpen ? ' is-interactive' : ''}`}
             >
               {row.fold && (
                 <button

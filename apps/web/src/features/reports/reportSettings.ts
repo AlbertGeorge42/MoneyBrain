@@ -157,6 +157,7 @@ export function groupBalanceRows(rows: BalanceRow[], mode: BalanceGroupMode): Ba
     const existing = buckets.get(row.kind)
     if (existing) {
       existing.amount += row.amount
+      existing.predicted = (existing.predicted ?? 0) + (row.predicted ?? 0)
     } else {
       buckets.set(row.kind, { ...row, id: `kind:${row.kind}`, name: row.kind })
     }

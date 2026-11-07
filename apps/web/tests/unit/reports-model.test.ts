@@ -96,13 +96,12 @@ describe('deriveFlowReport', () => {
 })
 
 describe('deriveBalanceReport', () => {
-  it('资产 = 负债 + 所有者权益，且时点回放不改变最新时点余额', () => {
+  it('资产 = 负债 + 净资产（净资产单列，不计入负债），且时点回放不改变最新时点余额', () => {
     const report = deriveBalanceReport(fixture([...OCTOBER]), '2026-10-31')
     expect(report.assetTotal).toBe(600)
     expect(report.liabilityTotal).toBe(50)
     expect(report.netWorth).toBe(550)
-    expect(report.equity).toBe(550)
-    expect(report.equityTotal).toBe(600)
+    expect(report.assetTotal - report.liabilityTotal).toBe(report.netWorth)
     expect(report.assets).toHaveLength(3)
     expect(report.liabilities).toHaveLength(1)
   })
