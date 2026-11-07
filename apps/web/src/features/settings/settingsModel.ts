@@ -63,6 +63,14 @@ export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
   credit: '信用',
 }
 
+export type CategoryTab = 'income' | 'expense' | 'transfer'
+
+export const CATEGORY_TABS: readonly { type: CategoryTab; label: string }[] = [
+  { type: 'income', label: '收入' },
+  { type: 'expense', label: '支出' },
+  { type: 'transfer', label: '转账' },
+]
+
 export const ASSET_KINDS: readonly AccountKind[] = ['deposit', 'cash', 'investment']
 export const LIABILITY_KINDS: readonly AccountKind[] = ['credit']
 
