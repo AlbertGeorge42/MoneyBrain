@@ -11,6 +11,7 @@ import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
+import type { Budget } from '@contracts/types'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import {
   BUDGET_KIND_LABEL,
@@ -375,11 +376,6 @@ export function BudgetPage({
     setConfirmDelete(false)
   }
 
-  const portalTarget =
-    typeof document === 'undefined'
-      ? null
-      : (document.querySelector(device === 'mobile' ? '.mb-hf-phone' : '.mb-hf-root') as HTMLElement | null)
-
   const apiMode = dataMode === 'api'
 
   // 真实模式下读一次后端 isActive；种子数据没有该字段，保持 undefined（按启用处理）。
@@ -414,6 +410,18 @@ export function BudgetPage({
     accountId: budget.accountId,
   })
 
+  /** 真实后端 PUT 的原始字段：金额字段名是 amount（整数分），分类 id 要还原成后端真实 id。 */
+  const toBudgetBody = (budget: LedgerBudget, amount: number): Partial<Budget> => ({
+    name: budget.name,
+    type: budget.type as Budget['type'],
+    period: budget.period as Budget['period'],
+    amount: amount as Budget['amount'],
+    categoryId: budget.categoryId
+      ? (ledger.ids?.categoryReal?.[budget.categoryId] ?? budget.categoryId)
+      : undefined,
+    accountId: budget.accountId,
+  })
+
   const toggleActive = async () => {
     if (!detail || saving || !apiMode) return
     const budget = ledger.budgets.find((item) => item.id === detail.id)
@@ -425,7 +433,7 @@ export function BudgetPage({
     setSaving(true)
     try {
       unwrapApiData(
-        await budgetApi.update(detail.id, { ...toBudgetInput(budget, budget.limit), isActive: next }),
+        await budgetApi.update(detail.id, { ...toBudgetBody(budget, budget.limit), isActive: next }),
       )
       // 头部合计 / 需要关注 / 启停标签都依赖同一份后端 isActive：先就地更新，避免等待重读。
       setActiveById((current) => new Map<string, boolean>(current ?? []).set(detail.id, next))
@@ -607,7 +615,6 @@ export function BudgetPage({
           error={editorError}
           saving={saving}
           apiMode={apiMode}
-          portalTarget={portalTarget}
           onChange={setEditor}
           onClose={() => onEditorOpenChange(false)}
           onSave={saveEditor}
@@ -649,8 +656,7 @@ export function BudgetPage({
         onClose={() => setDetailId(null)}
         position={device === 'mobile' ? 'bottom' : 'right'}
         size={device === 'mobile' ? '100%' : 460}
-        withinPortal
-        portalProps={portalTarget ? { target: portalTarget } : undefined}
+        withinPortal={false}
         zIndex={300}
         overlayProps={{ className: 'mb-overlay' }}
         classNames={{ content: 'mb-sheet mb-bg-detail', header: 'mb-overlay-head', body: 'mb-overlay-body' }}
@@ -790,7 +796,6 @@ export function BudgetPage({
         error={editorError}
         saving={saving}
         apiMode={apiMode}
-        portalTarget={portalTarget}
         onChange={setEditor}
         onClose={() => onEditorOpenChange(false)}
         onSave={saveEditor}
@@ -853,7 +858,6 @@ function BudgetEditor({
   error,
   saving,
   apiMode,
-  portalTarget,
   onChange,
   onClose,
   onSave,
@@ -866,7 +870,6 @@ function BudgetEditor({
   saving: boolean
   /** 真实账本要求预算绑定分类与账户，占位文案随之变化。 */
   apiMode: boolean
-  portalTarget: HTMLElement | null
   onChange: (next: EditorState) => void
   onClose: () => void
   onSave: () => void
@@ -883,8 +886,7 @@ function BudgetEditor({
       onClose={onClose}
       position={device === 'mobile' ? 'bottom' : 'right'}
       size={device === 'mobile' ? '100%' : 460}
-      withinPortal
-      portalProps={portalTarget ? { target: portalTarget } : undefined}
+      withinPortal={false}
       zIndex={320}
       overlayProps={{ className: 'mb-overlay' }}
       classNames={{ content: 'mb-sheet mb-bg-editor', header: 'mb-overlay-head', body: 'mb-overlay-body' }}
