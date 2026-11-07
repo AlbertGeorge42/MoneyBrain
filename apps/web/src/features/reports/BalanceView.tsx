@@ -16,7 +16,7 @@ import {
   type ReportRow,
 } from './ReportTable'
 import { chartGrid } from './reportsShared'
-import { Segmented } from './ReportPageChrome'
+import { HfSegmented } from '@/features/shared/HfSegmented'
 import { groupBalanceRows, type ReportViewSettings } from './reportSettings'
 import {
   balanceGroupExpanded,
@@ -325,7 +325,8 @@ export function BalanceView({
         </div>
       ) : (
         <>
-          <Segmented
+          <HfSegmented
+            variant="report"
             label="资产负债分段"
             value={side}
             options={[

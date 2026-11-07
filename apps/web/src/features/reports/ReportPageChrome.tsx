@@ -1,5 +1,5 @@
 /**
- * 报表页共用外壳：视图页签、分段切换与空态。
+ * 报表页共用外壳：视图页签与空态。
  *
  * 只承载布局与文案，不参与任何数据派生；页面与四张报表都从这里取同一份结构。
  */
@@ -8,34 +8,6 @@ import { HfTabs } from '@/features/shared/HfTabs'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReportTab } from './reportsTime'
 import { REPORT_TABS } from './reportsShared'
-
-export function Segmented<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: T
-  options: readonly { id: T; label: string }[]
-  onChange: (next: T) => void
-}) {
-  return (
-    <div className="mb-rp-seg" role="group" aria-label={label}>
-      {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          className={option.id === value ? 'mb-rp-seg-btn is-active' : 'mb-rp-seg-btn'}
-          aria-pressed={option.id === value}
-          onClick={() => onChange(option.id)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 export function PageHead({
   device,

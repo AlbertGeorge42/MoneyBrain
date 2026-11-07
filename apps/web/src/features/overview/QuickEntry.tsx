@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { Button, Modal, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
+import { HfSegmented } from '@/features/shared/HfSegmented'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
@@ -320,19 +321,13 @@ function EntryForm({
 
   return (
     <div className="mb-entry-form">
-      <div className="mb-entry-types" role="group" aria-label="记账类型">
-        {ENTRY_TYPES.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            className={item.value === type ? 'mb-entry-type is-active' : 'mb-entry-type'}
-            aria-pressed={item.value === type}
-            onClick={() => changeType(item.value)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <HfSegmented
+        variant="entry"
+        label="记账类型"
+        value={type}
+        options={ENTRY_TYPES.map((item) => ({ id: item.value, label: item.label }))}
+        onChange={changeType}
+      />
 
       {missingAccount && (
         <div className="mb-entry-missing-account" role="status">

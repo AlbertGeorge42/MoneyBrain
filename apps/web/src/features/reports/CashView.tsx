@@ -13,7 +13,7 @@ import {
   ReportTable,
   type CardRow,
 } from './ReportTable'
-import { Segmented } from './ReportPageChrome'
+import { HfSegmented } from '@/features/shared/HfSegmented'
 import { cashRowsFor, currency, type CashReport } from './reportsModel'
 import { cashTotalOf, visibleCashGroups, type ReportViewSettings } from './reportSettings'
 import type { CashSankey, CashSankeyNode } from './cashSankeyModel'
@@ -142,7 +142,8 @@ export function CashView({
             inflowTotal={inflowTotal}
             outflowTotal={outflowTotal}
           />
-          <Segmented
+          <HfSegmented
+            variant="report"
             label="现金流分段"
             value={side}
             options={[

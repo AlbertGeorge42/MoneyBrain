@@ -8,6 +8,7 @@
 import { ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import type { DatePresetOption } from '@/features/shared/datePicker/datePickerModel'
+import { HfSegmented } from '@/features/shared/HfSegmented'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   GRANULARITIES,
@@ -135,19 +136,13 @@ export function TimeBar({ device, tab, time, today, onChange, onToast, onOpenSet
             <ChevronRight size={18} />
           </button>
         </div>
-        <div className="mb-rp-gran" role="group" aria-label="聚合粒度">
-          {GRANULARITIES.map((gran) => (
-            <button
-              key={gran}
-              type="button"
-              className={gran === time.gran ? 'mb-rp-gran-btn is-active' : 'mb-rp-gran-btn'}
-              aria-pressed={gran === time.gran}
-              onClick={() => changeGran(gran)}
-            >
-              {GRANULARITY_LABELS[gran]}
-            </button>
-          ))}
-        </div>
+        <HfSegmented
+          variant="granularity"
+          label="聚合粒度"
+          value={time.gran}
+          options={GRANULARITIES.map((gran) => ({ id: gran, label: GRANULARITY_LABELS[gran] }))}
+          onChange={changeGran}
+        />
         {device === 'desktop' && (
           <button type="button" className="mb-rp-settings-btn" onClick={onOpenSettings}>
             <Settings size={15} />

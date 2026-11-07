@@ -6,7 +6,7 @@ import type { DeviceMode } from '@/features/shared/types'
 import { CompositionBars, ReportBarChart, type DonutKind } from './charts'
 import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportColumn } from './ReportTable'
 import { chartGrid } from './reportsShared'
-import { Segmented } from './ReportPageChrome'
+import { HfSegmented } from '@/features/shared/HfSegmented'
 import { flattenFlowCards, flattenFlowRows } from './reportRows'
 import { currency, type FlowReport, type FlowTreeNode } from './reportsModel'
 import type { ReportViewSettings } from './reportSettings'
@@ -154,7 +154,8 @@ export function FlowView({
         </div>
       ) : (
         <>
-          <Segmented
+          <HfSegmented
+            variant="report"
             label="收支分段"
             value={side}
             options={[

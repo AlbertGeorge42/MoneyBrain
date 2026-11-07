@@ -8,6 +8,7 @@ import { budgetApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
+import { HfSegmented } from '@/features/shared/HfSegmented'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
@@ -895,18 +896,14 @@ function BudgetEditor({
       }
     >
       <div className="mb-bg-form">
-        <div className="mb-entry-types" role="group" aria-label="预算类型">
-          {kindOptions.map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              className={`mb-entry-type${state.type === kind ? ' is-active' : ''}`}
-              onClick={() => onChange({ ...state, type: kind, categoryId: '', toAccountId: '' })}
-            >
-              {BUDGET_KIND_LABEL[kind]}
-            </button>
-          ))}
-        </div>
+        <HfSegmented
+          variant="entry"
+          label="预算类型"
+          ariaPressed={false}
+          value={state.type}
+          options={kindOptions.map((kind) => ({ id: kind, label: BUDGET_KIND_LABEL[kind] }))}
+          onChange={(type) => onChange({ ...state, type, categoryId: '', toAccountId: '' })}
+        />
 
         <label className="mb-entry-field">
           <span className="mb-field-label">名称</span>
@@ -931,18 +928,14 @@ function BudgetEditor({
 
         <div className="mb-entry-field">
           <span className="mb-field-label">周期</span>
-          <div className="mb-bg-seg" role="group" aria-label="预算周期">
-            {periodOptions.map((period) => (
-              <button
-                key={period}
-                type="button"
-                className={`mb-bg-seg-btn${state.period === period ? ' is-active' : ''}`}
-                onClick={() => onChange({ ...state, period })}
-              >
-                {BUDGET_PERIOD_LABEL[period]}
-              </button>
-            ))}
-          </div>
+          <HfSegmented
+            variant="budget"
+            label="预算周期"
+            ariaPressed={false}
+            value={state.period}
+            options={periodOptions.map((period) => ({ id: period, label: BUDGET_PERIOD_LABEL[period] }))}
+            onChange={(period) => onChange({ ...state, period })}
+          />
         </div>
 
         <label className="mb-entry-field">
