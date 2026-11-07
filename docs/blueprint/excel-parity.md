@@ -3,7 +3,7 @@
 > 目标：让 app 能**替代** `2026财务管理.xlsx`。
 > 这份文档解决：**Excel 的口径怎么映射到 app、重建时每笔差额从哪来**。什么时候看：核对历史平帐、改导入/期初规则、复算锚点时。
 > 本文是只读分析；原「未删除、未写入任何数据库」的阶段已结束，执行结果见下。
-> 数据源：`c:\Users\George\Documents\Life\Money\2026财务管理.xlsx`、同目录相邻文件、`.artifacts/qianji-import-2026-11-06/` 的钱迹 CSV 与 `package/mapping.json`。
+> 数据源：`c:\Users\George\Documents\Life\Money\2026财务管理.xlsx`、同目录相邻文件、`data/qianji/qianji-import-2026-11-06/` 的钱迹 CSV 与 `mapping.json`。
 > 金额单位：元，保留 2 位小数；app 内部为分（BigInt）。负债在 Excel 中以正数表示欠款，在 app 账户余额中以负数表示。
 >
 > **执行状态（2026-11-07）**：已按本文清库重建并导入 3,291 行 CSV + **89 条**历史平帐（`efba1b7`），库内 `transactions=3380`、`type='adjustment'=89`。
@@ -490,7 +490,7 @@ Excel 没有独立的「账户表」：账户 = 资产负债表中的一个行�
 
 ### 7.5 导入哪段流水
 
-- 文件：`.artifacts/qianji-import-2026-11-06/` 的原始 CSV。
+- 文件：`data/qianji/qianji-import-2026-11-06/transactions.csv`（原始 CSV）。
 - 范围：`2025-01-01 00:00:00` ～ `2026-11-06`（CSV 全量 **3,291 行**）。
 - 幂等键：CSV `ID` → `transactions.importKey`。
 - 类型映射：支出→expense、收入→income、转账/还款→transfer、退款/报销记录→refund、调整→adjustment、报销→expense。
@@ -818,7 +818,7 @@ Excel 没有独立的「账户表」：账户 = 资产负债表中的一个行�
 ## 附录 A：数据来源与计算口径
 
 - Excel：`openpyxl` 读取 `2026财务管理.xlsx` 的 `data_only=False`（公式）与 `data_only=True`（缓存值）；账户余额按行标签匹配，避免 2025/2026 行号差异。
-- CSV：`.artifacts/qianji-import-2026-11-06/` 原始文件；按 `时间[:7]` 分月，类型映射见 `package/mapping.json`。
+- CSV：`data/qianji/qianji-import-2026-11-06/transactions.csv` 原始文件；按 `时间[:7]` 分月，类型映射见同目录 `mapping.json`。
 - 账户级差额：`差额 = Excel 下月锚点 − (本月锚点 + CSV 本月流水)`；资产/负债均按 Excel 正数口径计算，展示时负债取反。
 - 净资产：`总资产 − 总负债`；负债在 Excel 中为正数欠款。
 - 所有金额四舍五入到 2 位；CSV 浮点尾差已归一到分。

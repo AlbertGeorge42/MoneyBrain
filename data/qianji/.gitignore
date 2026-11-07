@@ -1,0 +1,4 @@
+# 钱迹原始账目：仅保留本机，不入库（获取方式见 README.md）
+*
+!.gitignore
+!README.md
