@@ -236,7 +236,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
-  min-height: var(--mb-s-6);
+  min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-xs);
@@ -253,7 +253,7 @@
 }
 
 .mb-tx-chip-clear {
-  min-height: var(--mb-s-6);
+  min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-1);
   border: 0;
   background: transparent;
@@ -489,7 +489,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
-  min-height: 24px;
+  min-height: var(--mb-btn-h-xs);
   padding: 0 var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-xs);
@@ -533,8 +533,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: calc(var(--mb-s-5) - var(--mb-s-1));
-  height: calc(var(--mb-s-5) - var(--mb-s-1));
+  width: var(--mb-btn-h-xs);
+  height: var(--mb-btn-h-xs);
   padding: 0;
   border: 0;
   border-radius: var(--mb-radius-xs);

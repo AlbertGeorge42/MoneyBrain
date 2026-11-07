@@ -46,8 +46,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--mb-btn-h-md);
+  height: var(--mb-btn-h-md);
   border: 0;
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-surface-sunken);
@@ -82,7 +82,7 @@
 }
 
 .mb-bg-month-today {
-  min-height: auto;
+  min-height: var(--mb-btn-h-xs);
   padding: 0 var(--mb-s-2);
   font-size: var(--mb-fs-0);
 }
@@ -275,7 +275,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-3);
-  min-height: 40px;
+  min-height: var(--mb-btn-h-md);
   padding: 0 var(--mb-s-3);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
@@ -569,7 +569,7 @@
 }
 
 .mb-bg-seg-btn {
-  min-height: 30px;
+  min-height: var(--mb-btn-h-sm);
   border: 0;
   border-radius: var(--mb-radius-xs);
   background: transparent;
@@ -597,7 +597,7 @@
 }
 
 .mb-bg-form .mb-entry-type {
-  min-height: 36px;
+  min-height: var(--mb-btn-h-md);
 }
 
 .mb-bg-editor .mb-entry-type,

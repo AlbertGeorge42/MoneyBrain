@@ -88,7 +88,7 @@
 }
 
 .mb-hf-choice {
-  min-height: calc(var(--mb-control-h) - var(--mb-s-2));
+  min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-3);
   border: 0;
   border-radius: var(--mb-radius-xs);

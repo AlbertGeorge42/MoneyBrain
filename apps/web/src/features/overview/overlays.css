@@ -141,7 +141,7 @@
 }
 
 .mb-entry-type {
-  min-height: 32px;
+  min-height: var(--mb-btn-h-sm);
   border: 0;
   border-radius: var(--mb-radius-xs);
   background: transparent;
@@ -243,7 +243,7 @@
 .mb-entry-sign {
   flex: none;
   min-width: 56px;
-  min-height: 32px;
+  min-height: var(--mb-btn-h-sm);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-surface-sunken);
@@ -275,7 +275,7 @@
 
 .mb-entry-cat {
   position: relative;
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
   padding: var(--mb-s-1) var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
@@ -337,7 +337,7 @@
 
 .mb-entry-account {
   flex: none;
-  min-height: 30px;
+  min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-3);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-pill);
@@ -366,7 +366,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  min-height: 30px;
+  min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-2);
   border: 0;
   background: transparent;
@@ -382,7 +382,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-2);
-  min-height: 32px;
+  min-height: var(--mb-btn-h-sm);
   padding: 0;
   border: 0;
   background: transparent;
@@ -467,7 +467,7 @@
 }
 
 .mb-entry-key {
-  min-height: 40px;
+  min-height: var(--mb-btn-h-lg);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
@@ -562,7 +562,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-3);
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
   padding: 0 var(--mb-s-2);
   border: 0;
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
@@ -600,23 +600,23 @@
   color: var(--mb-color-text-tertiary);
 }
 
-/* 移动端：触控热区统一 44px（数字键盘保留 40px 高度例外，见 platform-design §7）。 */
+/* 移动端：所有可点元素热区统一 44px（含数字键盘，见 design-tokens §5.1）。 */
 [data-device='mobile'] .mb-entry-type {
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
 }
 
 [data-device='mobile'] .mb-entry-account,
 [data-device='mobile'] .mb-entry-all {
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
 }
 
 [data-device='mobile'] .mb-entry-cat {
-  min-height: 46px;
+  min-height: var(--mb-btn-h-lg);
   font-size: var(--mb-fs-1);
 }
 
 [data-device='mobile'] .mb-entry-more-toggle {
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
 }
 
 /* ===== 交易详情 ===== */

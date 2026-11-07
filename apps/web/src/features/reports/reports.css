@@ -44,7 +44,7 @@
 }
 
 .mb-rp-tab {
-  height: 32px;
+  height: var(--mb-btn-h-sm);
   padding: 0 14px;
   border: 0;
   border-radius: var(--mb-radius-sm);
@@ -111,8 +111,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--mb-btn-h-sm);
+  height: var(--mb-btn-h-sm);
   border: 0;
   border-radius: var(--mb-radius-sm);
   background: transparent;
@@ -136,7 +136,7 @@
 }
 
 .mb-rp-gran-btn {
-  height: 28px;
+  height: var(--mb-btn-h-xs);
   padding: 0 12px;
   border: 0;
   border-radius: var(--mb-radius-xs);
@@ -157,7 +157,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
+  height: var(--mb-btn-h-sm);
   margin-left: auto;
   padding: 0 12px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
@@ -175,8 +175,8 @@
 }
 
 .mb-rp-head-action {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--mb-btn-h-lg);
+  min-height: var(--mb-btn-h-lg);
   padding: 0 4px;
   border: 0;
   background: transparent;
@@ -198,7 +198,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 34px;
+  min-height: var(--mb-btn-h-md);
   padding: 0 14px;
   border-radius: var(--mb-radius-xs);
   font-family: var(--mb-font-ui);
@@ -510,8 +510,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 22px;
-  height: 20px;
+  width: var(--mb-btn-h-xs);
+  height: var(--mb-btn-h-xs);
   border: 0;
   border-radius: var(--mb-radius-xs);
   background: transparent;
@@ -527,15 +527,15 @@
 /* 无折叠按钮的一级行用等宽占位，保证同表内所有一级文本左缘一致。 */
 .mb-rp-fold-space {
   flex: none;
-  width: 22px;
-  height: 20px;
+  width: var(--mb-btn-h-xs);
+  height: var(--mb-btn-h-xs);
 }
 
 .mb-rp-fold::after {
   content: '';
   position: absolute;
-  /* 22 × 20 的可视按钮向右 / 上 / 下外扩成 44 × 44 热区；左侧贴住滚动容器不再外扩 */
-  inset: -12px -22px -12px 0;
+  /* 28 × 28 的可视按钮向右 / 上 / 下外扩成 44 × 44 热区；左侧贴住滚动容器不再外扩 */
+  inset: -8px -16px -8px 0;
 }
 
 .mb-rp-table-note {
@@ -637,8 +637,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: var(--mb-btn-h-lg);
+  height: var(--mb-btn-h-lg);
   border: 0;
   background: transparent;
   color: var(--mb-color-text-tertiary);
@@ -653,7 +653,7 @@
   /* basis 用 auto：进度条 flex-basis 100% 时，0% 基准会让两者挤在同一行把主按钮压成 0 宽 */
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
   padding: 4px 0;
   border: 0;
   background: transparent;
@@ -1076,7 +1076,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  min-height: 24px;
+  min-height: var(--mb-btn-h-xs);
   padding: 0 var(--mb-s-1);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-xs);
@@ -1266,7 +1266,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-2);
-  min-height: 36px;
+  min-height: var(--mb-btn-h-md);
   border-bottom: 1px solid color-mix(in srgb, var(--mb-color-border) 70%, transparent);
   font-size: var(--mb-fs-1);
 }
@@ -1661,7 +1661,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 .mb-rp-seg-btn {
   flex: 1;
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
   padding: 0 10px;
   border: 0;
   border-radius: var(--mb-radius-sm);
@@ -1772,8 +1772,8 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-sheet-close {
-  width: 44px;
-  height: 44px;
+  width: var(--mb-btn-h-lg);
+  height: var(--mb-btn-h-lg);
   color: var(--mb-color-text-secondary);
 }
 
@@ -1804,7 +1804,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-tab {
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
   padding: 0 12px;
 }
 
@@ -1813,8 +1813,8 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-iconbtn {
-  width: 44px;
-  height: 44px;
+  width: var(--mb-btn-h-lg);
+  height: var(--mb-btn-h-lg);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-gran {
@@ -1863,7 +1863,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-btn {
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
   padding: 0 18px;
 }
 
@@ -1943,7 +1943,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-drill-row {
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-sheet-head {
@@ -2061,5 +2061,5 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-switch {
-  min-height: 44px;
+  min-height: var(--mb-btn-h-lg);
 }
