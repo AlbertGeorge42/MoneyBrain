@@ -14,6 +14,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '@prisma/client'
+import { assertPrismaTarget } from './lib/prisma-guard.mjs'
 import { balanceBefore, minor } from '../packages/domain/src/index.js'
 import type { LedgerTransaction, Minor } from '../packages/domain/src/index.js'
 import {
@@ -180,6 +181,7 @@ async function main() {
 
   console.log('▶ 4/4 重新计算两边的余额并对比')
   // DATABASE_URL 可指向备份副本，让演练验证「这份备份」而不是一定验证 dev.db。
+  assertPrismaTarget()
   const live = new PrismaClient(
     process.env.DATABASE_URL
       ? { datasources: { db: { url: process.env.DATABASE_URL } } }

@@ -16,6 +16,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { prepareTempDatabase, removeTempDatabase } from './temp-db.mjs'
+import { assertPrismaTarget } from './lib/prisma-guard.mjs'
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const prismaDir = path.join(root, 'apps', 'api', 'prisma')
@@ -66,6 +67,7 @@ function isPortInUse(port) {
 }
 
 async function countTransactions(databaseUrl) {
+  assertPrismaTarget({ url: databaseUrl })
   const { PrismaClient } = await import('@prisma/client')
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } })
   try {

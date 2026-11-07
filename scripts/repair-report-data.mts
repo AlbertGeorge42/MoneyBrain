@@ -15,6 +15,9 @@
  * 用法：npm run db:repair-report-data
  */
 import { PrismaClient } from '@prisma/client'
+import { assertPrismaTarget } from './lib/prisma-guard.mjs'
+
+assertPrismaTarget()
 
 const prisma = new PrismaClient()
 

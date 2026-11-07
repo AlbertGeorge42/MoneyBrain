@@ -12,6 +12,7 @@
  *   npm run db:verify -- 2026-01 # 检查指定月份（YYYY-MM）
  */
 import { PrismaClient } from '@prisma/client'
+import { assertPrismaTarget } from './lib/prisma-guard.mjs'
 import {
   balanceBefore,
   minor,
@@ -64,6 +65,7 @@ async function main() {
   const endDate = toLocalDate(new Date(endExclusive.getTime() - 1))
 
   // DATABASE_URL 可指向重建库/备份副本；不设时检查默认 dev.db。
+  assertPrismaTarget()
   const prisma = new PrismaClient(
     process.env.DATABASE_URL
       ? { datasources: { db: { url: process.env.DATABASE_URL } } }

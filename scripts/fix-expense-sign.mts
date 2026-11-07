@@ -18,6 +18,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { PrismaClient } from '@prisma/client'
+import { assertPrismaTarget } from './lib/prisma-guard.mjs'
 import { updateSyncVersion } from '../apps/api/src/db/sync-version.js'
 import { exportFullBackup } from '../apps/api/src/services/export/index.js'
 
@@ -45,6 +46,7 @@ async function databaseDirectory(db: PrismaClient): Promise<string> {
 
 async function main(): Promise<void> {
   const configuredUrl = process.env.DATABASE_URL
+  assertPrismaTarget({ url: configuredUrl })
   const db = configuredUrl
     ? new PrismaClient({ datasources: { db: { url: configuredUrl } } })
     : new PrismaClient()
