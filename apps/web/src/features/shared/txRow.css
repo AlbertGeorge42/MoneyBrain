@@ -144,6 +144,19 @@
   cursor: pointer;
 }
 
+/* 移动端行内退款链接：文字保持行内，用伪元素把命中区扩到 44 高，不抬行高。
+   overflow 需放开，否则伪元素会被裁回 14px 的文字盒。 */
+.mb-mobile-scroll .mb-tx-refund-tag.is-link {
+  position: relative;
+  overflow: visible;
+}
+
+.mb-mobile-scroll .mb-tx-refund-tag.is-link::after {
+  content: '';
+  position: absolute;
+  inset: -15px -8px;
+}
+
 .mb-tx-refund-tag.is-link:hover {
   text-decoration: underline;
 }

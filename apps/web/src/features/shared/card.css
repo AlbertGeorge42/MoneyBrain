@@ -38,6 +38,12 @@
   min-width: 0;
 }
 
+/* 移动端卡片内距统一 16（design-tokens §5.2）：桌面 20，报表卡不再单独 12。 */
+.mb-mobile-scroll .mb-card,
+.mb-mobile-scroll .mb-rp-card {
+  padding: var(--mb-s-4);
+}
+
 /* 错误面板的左侧危险语义边。 */
 .mb-errorpanel {
   border-left: calc(var(--mb-border-width) * 3) var(--mb-border-style) var(--mb-color-danger-solid);

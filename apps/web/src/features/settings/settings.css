@@ -12,8 +12,9 @@
 .mb-set-head {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
   gap: var(--mb-s-3);
+  min-height: var(--mb-s-7);
 }
 
 .mb-set-title {

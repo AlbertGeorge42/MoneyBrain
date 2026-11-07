@@ -1,10 +1,12 @@
 /* 总览：主卡、账户入口、两栏、走势、最近流水、预算。全部使用 --mb-* token。 */
 
+/* 页头统一为 48px 高带、垂直居中（design-tokens §5.2）：标题 y 不再受控件高度影响。 */
 .mb-page-head {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
   gap: var(--mb-s-3);
+  min-height: var(--mb-s-7);
 }
 
 .mb-page-title {
@@ -808,6 +810,11 @@
 
 .mb-expense-pie-legend-toggle:hover {
   text-decoration: underline;
+}
+
+/* 移动端图例展开：视觉仍是文字按钮，盒高补到 44px 命中区。 */
+.mb-mobile-scroll .mb-expense-pie-legend-toggle {
+  min-height: var(--mb-touch);
 }
 
 .mb-expense-pie-legend {

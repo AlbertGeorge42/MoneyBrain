@@ -667,20 +667,18 @@
   white-space: nowrap;
 }
 
+/* 副行允许换行：账户名再长也不截断（行高随内容增长，44px 只是下限）。 */
 .mb-tx-m-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  overflow: hidden;
+  gap: var(--mb-s-1);
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .mb-tx-m-meta-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .mb-tx-m-amount {
@@ -1220,8 +1218,14 @@
 .mb-mobile-scroll .mb-tx-chip-clear,
 .mb-mobile-scroll .mb-tx-search,
 .mb-mobile-scroll .mb-tx-input,
-.mb-mobile-scroll .mb-tx-select {
+.mb-mobile-scroll .mb-tx-select,
+.mb-mobile-scroll .mb-tx-excluded-toggle {
   min-height: var(--mb-touch);
+}
+
+/* 搜索框内嵌 input 要占满 44：外层把两侧 1px 边框补回高度。 */
+.mb-mobile-scroll .mb-tx-search {
+  height: calc(var(--mb-touch) + var(--mb-border-width) * 2);
 }
 
 .mb-mobile-scroll .mb-tx-check-btn {
