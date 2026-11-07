@@ -40,16 +40,10 @@ export interface TransactionFilters {
   advanced: AdvancedFilters
 }
 
-/** 账户分组筛选取该一级及其全部二级下的账户，避免层级化后「选现金却查不到钱」。 */
+/** 账户分组筛选取直接挂在该一级分类下的账户。 */
 export function accountIdsInGroup(ledger: Ledger, groupId: string): string[] {
-  const categoryIds = new Set([
-    groupId,
-    ...(ledger.accountCategories ?? [])
-      .filter((category) => category.parentId === groupId)
-      .map((category) => category.id),
-  ])
   return ledger.accounts
-    .filter((account) => account.categoryId && categoryIds.has(account.categoryId))
+    .filter((account) => account.categoryId === groupId)
     .map((account) => account.id)
 }
 
@@ -148,11 +142,7 @@ export function filterTransactions(ledger: Ledger, filters: TransactionFilters):
   const rootCategoryIds = filters.advanced.categoryIds
   // 分组筛选：把分组翻译成账户集合，再按账户收窄；不改变任何金额口径。
   const groupAccountIds = filters.advanced.groupId
-    ? new Set(
-        ledger.accounts
-          .filter((account) => account.categoryId === filters.advanced.groupId)
-          .map((account) => account.id),
-      )
+    ? new Set(accountIdsInGroup(ledger, filters.advanced.groupId))
     : null
 
   return ledger.transactions.filter((transaction) => {
@@ -398,14 +388,12 @@ export function filterChips(ledger: Ledger, filters: TransactionFilters): Filter
   if (filters.advanced.groupId) {
     const groups = ledger.accountCategories ?? []
     const group = groups.find((item) => item.id === filters.advanced.groupId)
-    const parent = group?.parentId ? groups.find((item) => item.id === group.parentId) : undefined
     const duplicated = group
-      ? groups.filter((item) => item.name === group.name && item.parentId === group.parentId)
-          .length > 1
+      ? groups.filter((item) => item.name === group.name).length > 1
       : false
     chips.push({
       key: 'group',
-      label: `分组：${parent ? `${parent.name} · ` : ''}${group?.name ?? '未知分组'}${
+      label: `分组：${group?.name ?? '未知分组'}${
         group && duplicated ? ` · #${group.id.slice(-4)}` : ''
       }`,
     })

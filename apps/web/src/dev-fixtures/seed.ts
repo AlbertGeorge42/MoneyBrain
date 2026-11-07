@@ -17,32 +17,20 @@ import type {
   LedgerTransaction,
 } from '@/features/overview/model'
 
-/** 与真实账本同一套两级分类：资产 现金 / 长期 / 投资，负债 短期负债。 */
+/** 与真实账本同一套一级分类：资产 现金 / 长期 / 投资，负债 短期负债；账户直接挂一级。 */
 const SEED_ACCOUNT_CATEGORIES: LedgerAccountCategory[] = [
   { id: 'seed-cash', name: '现金', type: 'asset', parentId: null, sort: 0, isCashEquivalent: true, seeded: true },
-  { id: 'seed-cash-ewallet', name: '电子钱包', type: 'asset', parentId: 'seed-cash', sort: 0, isCashEquivalent: true, seeded: true },
-  { id: 'seed-cash-bank', name: '银行卡', type: 'asset', parentId: 'seed-cash', sort: 1, isCashEquivalent: true, seeded: true },
-  { id: 'seed-cash-notes', name: '实体现金', type: 'asset', parentId: 'seed-cash', sort: 2, isCashEquivalent: true, seeded: true },
-  { id: 'seed-cash-receivable', name: '应收账款', type: 'asset', parentId: 'seed-cash', sort: 3, seeded: true },
   { id: 'seed-long', name: '长期', type: 'asset', parentId: null, sort: 1, seeded: true },
-  { id: 'seed-long-provident', name: '公积金', type: 'asset', parentId: 'seed-long', sort: 0, seeded: true },
-  { id: 'seed-long-other', name: '其他长期资产', type: 'asset', parentId: 'seed-long', sort: 1, seeded: true },
   { id: 'seed-invest', name: '投资', type: 'asset', parentId: null, sort: 2, isInvestment: true, seeded: true },
-  { id: 'seed-invest-fund', name: '基金', type: 'asset', parentId: 'seed-invest', sort: 0, isInvestment: true, seeded: true },
-  { id: 'seed-invest-securities', name: '证券', type: 'asset', parentId: 'seed-invest', sort: 1, isInvestment: true, seeded: true },
-  { id: 'seed-invest-other', name: '其他投资', type: 'asset', parentId: 'seed-invest', sort: 2, isInvestment: true, seeded: true },
   { id: 'seed-debt', name: '短期负债', type: 'liability', parentId: null, sort: 3, seeded: true },
-  { id: 'seed-debt-card', name: '信用卡', type: 'liability', parentId: 'seed-debt', sort: 0, seeded: true },
-  { id: 'seed-debt-consumer', name: '消费信贷', type: 'liability', parentId: 'seed-debt', sort: 1, seeded: true },
-  { id: 'seed-debt-other', name: '其他短期负债', type: 'liability', parentId: 'seed-debt', sort: 2, seeded: true },
 ]
 
 const SEED_ACCOUNTS: LedgerAccount[] = [
-  { id: 'cmb', name: '招商储蓄卡', kind: 'deposit', balance: 4_823_055, categoryId: 'seed-cash-bank' },
-  { id: 'wx', name: '微信零钱', kind: 'cash', balance: 128_620, categoryId: 'seed-cash-ewallet' },
-  { id: 'zfb', name: '支付宝', kind: 'cash', balance: 354_000, categoryId: 'seed-cash-ewallet' },
-  { id: 'xyk', name: '交行信用卡', kind: 'credit', balance: -211_840, categoryId: 'seed-debt-card' },
-  { id: 'brk', name: '长桥证券', kind: 'investment', balance: 8_645_000, categoryId: 'seed-invest-securities' },
+  { id: 'cmb', name: '招商储蓄卡', kind: 'deposit', balance: 4_823_055, categoryId: 'seed-cash' },
+  { id: 'wx', name: '微信零钱', kind: 'cash', balance: 128_620, categoryId: 'seed-cash' },
+  { id: 'zfb', name: '支付宝', kind: 'cash', balance: 354_000, categoryId: 'seed-cash' },
+  { id: 'xyk', name: '交行信用卡', kind: 'credit', balance: -211_840, categoryId: 'seed-debt' },
+  { id: 'brk', name: '长桥证券', kind: 'investment', balance: 8_645_000, categoryId: 'seed-invest' },
 ]
 
 const SEED_CATEGORIES: LedgerCategory[] = [

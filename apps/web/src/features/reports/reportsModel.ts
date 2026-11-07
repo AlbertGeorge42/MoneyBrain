@@ -89,10 +89,10 @@ export interface BalanceRow {
 }
 
 /**
- * 资产负债三级层级：一级分类 → 二级分类 → 账户。
+ * 资产负债两层：一级分类 → 账户。
  *
- * 账户分类在库里只有一级时，`groups` 为空、账户直接挂在 `accounts` 上，
- * 渲染层据此显示「一级分类 → 账户」；分类数据补出二级后自动变成三级。
+ * 每一行账户按它所属的一级分类归组，组内直接列账户；
+ * 没有分类数据的账本（种子账本 / 测试夹具）返回 null，回退到平铺账户行。
  */
 export interface BalanceGroup {
   id: string
@@ -102,8 +102,6 @@ export interface BalanceGroup {
   predicted?: number
   /** 该分组下去重后的账户数（0 元账户按覆盖规则未列入，不计入）。 */
   accountCount: number
-  level: 0 | 1
-  groups: BalanceGroup[]
   accounts: BalanceRow[]
 }
 
@@ -129,7 +127,7 @@ export interface BalanceReport {
 }
 
 /**
- * 资产负债两级分组：一级分类汇总，二级分类的账户归到二级；账户行在二级下再展开一层。
+ * 资产负债两层分组：一级分类汇总，账户直接归到一级分类，组内按金额降序列账户。
  *
  * 分类数据缺失（种子账本 / 测试夹具没有 accountCategories）时返回 null，
  * 渲染层回退到原来的平铺账户行，不伪造层级。
@@ -141,7 +139,6 @@ export function buildBalanceGroups(
   if (!categories || categories.length === 0) return null
   const byId = new Map(categories.map((category) => [category.id, category]))
   const roots = new Map<string, BalanceGroup>()
-  const subGroups = new Map<string, BalanceGroup>()
 
   const rootOf = (id: string, name: string): BalanceGroup => {
     const existing = roots.get(id)
@@ -152,8 +149,6 @@ export function buildBalanceGroups(
       amount: 0,
       predicted: 0,
       accountCount: 0,
-      level: 0,
-      groups: [],
       accounts: [],
     }
     roots.set(id, created)
@@ -162,65 +157,37 @@ export function buildBalanceGroups(
 
   for (const row of rows) {
     const category = row.categoryId ? byId.get(row.categoryId) : undefined
+    // 历史载荷可能仍指向二级分类：取它的一级父分类作为归属，不再展开二级。
     const parent = category?.parentId ? byId.get(category.parentId) : undefined
     const root = rootOf(
       parent?.id ?? category?.id ?? 'uncategorized',
       parent?.name ?? category?.name ?? '未分类',
     )
-    if (category && parent) {
-      let sub = subGroups.get(category.id)
-      if (!sub) {
-        sub = {
-          id: category.id,
-          name: category.name,
-          amount: 0,
-          predicted: 0,
-          accountCount: 0,
-          level: 1,
-          groups: [],
-          accounts: [],
-        }
-        subGroups.set(category.id, sub)
-        root.groups.push(sub)
-      }
-      sub.accounts.push(row)
-      sub.amount += row.amount
-      sub.predicted = (sub.predicted ?? 0) + (row.predicted ?? 0)
-      sub.accountCount += 1
-    } else {
-      root.accounts.push(row)
-    }
+    root.accounts.push(row)
     root.amount += row.amount
     root.predicted = (root.predicted ?? 0) + (row.predicted ?? 0)
     root.accountCount += 1
   }
 
-  const sortGroup = (group: BalanceGroup) => {
-    group.accounts.sort((left, right) => right.amount - left.amount)
-    group.groups.sort((left, right) => right.amount - left.amount)
-    group.groups.forEach(sortGroup)
-  }
   const result = [...roots.values()].sort((left, right) => right.amount - left.amount)
-  result.forEach(sortGroup)
+  for (const group of result) {
+    group.accounts.sort((left, right) => right.amount - left.amount)
+  }
   return result
 }
 
-/** 层级自检：子项（二级分组 + 直属账户）之和 = 父项小计，金额与账户数都对齐。 */
+/** 层级自检：组内账户之和 = 分组小计，金额与账户数都对齐。 */
 export function balanceGroupBalanced(group: BalanceGroup): boolean {
-  const childAmount =
-    group.groups.reduce((sum, child) => sum + child.amount, 0) +
-    group.accounts.reduce((sum, row) => sum + row.amount, 0)
-  const childCount =
-    group.groups.reduce((sum, child) => sum + child.accountCount, 0) + group.accounts.length
-  return childAmount === group.amount && childCount === group.accountCount
+  const childAmount = group.accounts.reduce((sum, row) => sum + row.amount, 0)
+  return childAmount === group.amount && group.accounts.length === group.accountCount
 }
 
-/** 默认展开策略：一级展开、二级收起；用户点过以后以折叠状态为准。 */
+/** 默认展开策略：全部展开；用户点过以后以折叠状态为准。 */
 export function balanceGroupExpanded(
   folded: Record<string, boolean>,
   group: BalanceGroup,
 ): boolean {
-  return folded[group.id] ?? group.level === 0
+  return folded[group.id] ?? true
 }
 
 /**

@@ -556,7 +556,7 @@ export function LedgerProvider({
       if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
       try {
         const created = await accountCategoryApi
-          .create({ name: input.name, type: input.type, parentId: input.parentId ?? null })
+          .create({ name: input.name, type: input.type, parentId: null })
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true, id: created.id }
@@ -603,10 +603,9 @@ export function LedgerProvider({
         (category) => category.id === id,
       )
       if (!current) return { ok: false, error: '分组不存在' }
-      // 排序只在同一父级、同一归属的兄弟分组之间交换，避免把二级分组挪成一级。
+      // 排序只在同一归属的兄弟分组之间交换。
       const siblings = (ledgerRef.current.accountCategories ?? []).filter(
-        (category) =>
-          category.parentId === current.parentId && category.type === current.type,
+        (category) => category.type === current.type,
       )
       const index = siblings.findIndex((category) => category.id === id)
       const target = index + (direction === 'up' ? -1 : 1)
@@ -621,7 +620,7 @@ export function LedgerProvider({
             swapped.map((category, sort) => ({
               id: category.id,
               sort,
-              parentId: category.parentId ?? null,
+              parentId: null,
             })),
           )
           .then(unwrapApiData)

@@ -186,9 +186,9 @@ describe('四个配置切换后目标结构变化', () => {
 })
 
 describe('面板切换、确认与刷新保持', () => {
-  it('资产负债改按性质汇总：表格 5 行 → 3 行，确认后刷新仍保持，且不发网络写请求', () => {
+  it('资产负债改按性质汇总：表格 6 行 → 3 行，确认后刷新仍保持，且不发网络写请求', () => {
     const first = renderPage()
-    expect(assetRowCount()).toBe(5)
+    expect(assetRowCount()).toBe(6)
 
     fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
     fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
@@ -209,12 +209,12 @@ describe('面板切换、确认与刷新保持', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
     fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
-    expect(assetRowCount()).toBe(5)
+    expect(assetRowCount()).toBe(6)
     expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toBeNull()
 
     first.unmount()
     renderPage(false)
-    expect(assetRowCount()).toBe(5)
+    expect(assetRowCount()).toBe(6)
   })
 
   it('重置回默认：现金流隐藏分组后重置，表格恢复 2 组', () => {

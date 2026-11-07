@@ -54,7 +54,7 @@ export function BalanceView({
 }) {
   const shownAssets = groupBalanceRows(report.assets, settings.groupMode)
   const shownLiabilities = groupBalanceRows(report.liabilities, settings.groupMode)
-  // 层级折叠是纯展示状态：默认一级展开、二级收起，不改任何合计。
+  // 层级折叠是纯展示状态：默认全部展开，不改任何合计。
   const [foldedBalance, setFoldedBalance] = useState<Record<string, boolean>>({})
   const assetGroups = useMemo(
     () =>
@@ -122,35 +122,15 @@ export function BalanceView({
     const rows: ReportRow[] = []
     for (const root of groups) {
       const expanded = balanceGroupExpanded(foldedBalance, root)
-      const expandable = root.groups.length > 0 || root.accounts.length > 0
       rows.push({
         id: root.id,
         cells: groupCells(root.name, root.accountCount, root.amount),
         hint: root.predicted ? '预测' : undefined,
-        fold: expandable ? { expanded, onToggle: () => toggleGroup(root) } : undefined,
+        fold: root.accounts.length
+          ? { expanded, onToggle: () => toggleGroup(root) }
+          : undefined,
       })
       if (!expanded) continue
-      for (const sub of root.groups) {
-        const subExpanded = balanceGroupExpanded(foldedBalance, sub)
-        rows.push({
-          id: sub.id,
-          level: 1,
-          cells: groupCells(sub.name, sub.accountCount, sub.amount),
-          hint: sub.predicted ? '预测' : undefined,
-          fold: sub.accounts.length
-            ? { expanded: subExpanded, onToggle: () => toggleGroup(sub) }
-            : undefined,
-        })
-        if (!subExpanded) continue
-        for (const account of sub.accounts) {
-          rows.push({
-            id: account.id,
-            level: 2,
-            cells: groupCells(account.name, null, account.amount),
-            hint: account.predicted ? '预测' : undefined,
-          })
-        }
-      }
       for (const account of root.accounts) {
         rows.push({
           id: account.id,
@@ -190,7 +170,6 @@ export function BalanceView({
     const cards: CardRow[] = []
     for (const root of groups) {
       const expanded = balanceGroupExpanded(foldedBalance, root)
-      const expandable = root.groups.length > 0 || root.accounts.length > 0
       cards.push({
         id: root.id,
         label: root.name,
@@ -199,35 +178,11 @@ export function BalanceView({
         tone: tone === 'expense' ? ('expense' as const) : undefined,
         barTone: tone,
         share: shareOf(root.amount, total),
-        fold: expandable ? { expanded, onToggle: () => toggleGroup(root) } : undefined,
+        fold: root.accounts.length
+          ? { expanded, onToggle: () => toggleGroup(root) }
+          : undefined,
       })
       if (!expanded) continue
-      for (const sub of root.groups) {
-        const subExpanded = balanceGroupExpanded(foldedBalance, sub)
-        cards.push({
-          id: sub.id,
-          level: 1,
-          label: sub.name,
-          meta: `${sub.accountCount} 个账户`,
-          amount: currency(sub.amount),
-          tone: tone === 'expense' ? ('expense' as const) : undefined,
-          barTone: tone,
-          share: shareOf(sub.amount, total),
-          fold: sub.accounts.length
-            ? { expanded: subExpanded, onToggle: () => toggleGroup(sub) }
-            : undefined,
-        })
-        if (!subExpanded) continue
-        for (const account of sub.accounts) {
-          cards.push({
-            id: account.id,
-            level: 2,
-            label: account.name,
-            amount: currency(account.amount),
-            tone: tone === 'expense' ? ('expense' as const) : undefined,
-          })
-        }
-      }
       for (const account of root.accounts) {
         cards.push({
           id: account.id,

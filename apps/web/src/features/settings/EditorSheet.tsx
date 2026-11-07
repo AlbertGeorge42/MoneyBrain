@@ -31,8 +31,6 @@ export type Editor =
       mode: 'create' | 'edit'
       type: 'asset' | 'liability'
       groupId?: string
-      /** 新建二级分组时的父级（一级分组 id）。 */
-      parentId?: string
     }
   | { kind: 'category'; mode: 'create' | 'edit'; type: TxType; parentId?: string; categoryId?: string }
   | { kind: 'invest'; id: string }
@@ -60,7 +58,6 @@ export function EditorSheet({
   saving,
   onClose,
   onSave,
-  onCreateChild,
   onDelete,
   onMove,
 }: {
@@ -72,8 +69,6 @@ export function EditorSheet({
   saving: boolean
   onClose: () => void
   onSave: (value: EditorSaveValue) => void
-  /** 编辑一级分组时可在此下新建二级分组。 */
-  onCreateChild?: () => void
   onDelete?: () => void
   onMove?: (direction: 'up' | 'down') => void
 }) {
@@ -95,18 +90,13 @@ export function EditorSheet({
   const groupMode = Boolean(ledger.accountCategories)
   const initialKind =
     editor?.kind === 'account' ? (account?.kind ?? editor.preset) : ('deposit' as AccountKind)
-  // 账户性质由所属分组决定，所以分组下拉只列同一归属的分组；账户落在二级。
+  // 账户性质由所属分组决定，所以分组下拉只列同一归属的一级分组。
   const groupType = initialKind === 'credit' ? 'liability' : 'asset'
-  const allGroups = ledger.accountCategories ?? []
-  const groupOptions = allGroups.filter((item) => item.type === groupType)
-  /** 分组重名在真实库里很常见（导入残留），下拉里也用尾号区分；二级带上父级名。 */
+  const groupOptions = (ledger.accountCategories ?? []).filter((item) => item.type === groupType)
+  /** 分组重名在真实库里很常见（导入残留），下拉里也用尾号区分。 */
   const groupOptionLabel = (item: (typeof groupOptions)[number]) => {
-    const parent = item.parentId ? allGroups.find((other) => other.id === item.parentId) : undefined
-    const base = parent ? `${parent.name} · ${item.name}` : item.name
-    const duplicated = groupOptions.filter(
-      (other) => other.name === item.name && other.parentId === item.parentId,
-    ).length > 1
-    return `${base}${duplicated ? ` · #${item.id.slice(-4)}` : ''}`
+    const duplicated = groupOptions.filter((other) => other.name === item.name).length > 1
+    return `${item.name}${duplicated ? ` · #${item.id.slice(-4)}` : ''}`
   }
   const defaultGroupId = editor?.kind === 'account' ? editor.groupId : undefined
   const initialGroupId = account?.categoryId ?? defaultGroupId ?? ''
@@ -168,12 +158,8 @@ export function EditorSheet({
         : '编辑账户'
       : editor.kind === 'accountGroup'
         ? editor.mode === 'create'
-          ? editor.parentId
-            ? '新增二级分组'
-            : `新增${editor.type === 'liability' ? '负债' : '资产'}一级分组`
-          : group?.parentId
-            ? '编辑二级分组'
-            : '编辑一级分组'
+          ? `新增${editor.type === 'liability' ? '负债' : '资产'}分组`
+          : '编辑分组'
         : editor.kind === 'category'
           ? editor.mode === 'create'
             ? editor.parentId
@@ -192,44 +178,19 @@ export function EditorSheet({
         dateValid)) &&
     (editor.kind !== 'invest' || Number.isFinite(Number(target)))
 
-  const siblingParentId =
-    editor.kind === 'accountGroup'
-      ? editor.groupId
-        ? (group?.parentId ?? null)
-        : (editor.parentId ?? null)
-      : null
   const duplicateGroup =
     editor.kind === 'accountGroup'
       ? (ledger.accountCategories ?? []).filter(
           (item) =>
-            item.parentId === siblingParentId &&
             item.type === editor.type &&
             item.id !== editor.groupId &&
             item.name.trim() === name.trim(),
         )
       : []
-  const editedGroupCategories = editor.kind === 'accountGroup' && editor.groupId
-    ? new Set([
-        editor.groupId,
-        ...(ledger.accountCategories ?? [])
-          .filter((item) => item.parentId === editor.groupId)
-          .map((item) => item.id),
-      ])
-    : null
-  const editedGroupAccountCount = editedGroupCategories
-    ? ledger.accounts.filter(
-        (item) => item.categoryId && editedGroupCategories.has(item.categoryId),
-      ).length
-    : 0
-  const parentGroupId =
-    editor.kind === 'accountGroup'
-      ? editor.groupId
-        ? (group?.parentId ?? null)
-        : (editor.parentId ?? null)
-      : null
-  const parentGroup = parentGroupId
-    ? allGroups.find((item) => item.id === parentGroupId)
-    : undefined
+  const editedGroupAccountCount =
+    editor.kind === 'accountGroup' && editor.groupId
+      ? ledger.accounts.filter((item) => item.categoryId === editor.groupId).length
+      : 0
 
   return (
     <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
@@ -262,11 +223,10 @@ export function EditorSheet({
               <span className="mb-set-label">归属</span>
               <div className="mb-set-static">
                 {editor.type === 'liability' ? '负债账户分组' : '资产账户分组'}
-                {parentGroup ? ` · 二级（${parentGroup.name} 下）` : ' · 一级'}
               </div>
             </div>
             <p className="mb-set-hint">
-              分组即后端的账户分类：一级只做汇总，账户挂在二级。新建二级分组默认继承一级的「现金等价 / 投资」标记；一级新建时默认不带标记，账户移入后按该分组的标记参与现金流与投资占比计算。
+              分组即后端的账户分类，只有「一级分类 → 账户」两层。新建分组默认不带「现金等价 / 投资」标记，账户移入后按该分组的标记参与现金流与投资占比计算。
             </p>
             {duplicateGroup.length > 0 && (
               <p className="mb-set-hint is-warning">
@@ -276,15 +236,8 @@ export function EditorSheet({
             )}
             {editor.mode === 'edit' && (
               <p className="mb-set-hint">
-                该分组（含二级）下现有 {editedGroupAccountCount} 个账户。有账户引用时后端会拒绝删除。
+                该分组下现有 {editedGroupAccountCount} 个账户。有账户引用时后端会拒绝删除。
               </p>
-            )}
-            {editor.mode === 'edit' && !parentGroup && onCreateChild && (
-              <div className="mb-set-order-actions">
-                <HfButton className="mb-set-btn is-ghost" onClick={onCreateChild}>
-                  新建二级分组
-                </HfButton>
-              </div>
             )}
             {editor.mode === 'edit' && onMove && (
               <div className="mb-set-order-actions">
