@@ -81,11 +81,29 @@ export interface AccountGroup {
   name: string
   type: 'asset' | 'liability'
   sort: number
+  /** 直接挂在一级下的账户；正常归位后为空，账户落在二级。 */
   rows: AccountRow[]
+  /** 二级分组；报表与设置页都展开到这一级。 */
+  subGroups?: AccountGroup[]
   /** 未分组占位（账户 categoryId 为空或指向不存在的分组）。 */
   ungrouped?: boolean
   /** 种子账本按性质合成的只读分组，不能增删改。 */
   seeded?: boolean
+}
+
+/** 一级 + 全部二级分组的账户数（一级只做汇总）。 */
+export function accountGroupCount(group: AccountGroup): number {
+  return group.rows.length + (group.subGroups ?? []).reduce((sum, sub) => sum + sub.rows.length, 0)
+}
+
+export function accountGroupBalance(group: AccountGroup): number {
+  const own = group.rows.reduce((sum, account) => sum + account.balance, 0)
+  return own + (group.subGroups ?? []).reduce((sum, sub) => sum + accountGroupBalance(sub), 0)
+}
+
+/** 把一级 / 二级分组铺平，用于按 id 查找与跨层操作。 */
+export function flattenAccountGroups(groups: readonly AccountGroup[]): AccountGroup[] {
+  return groups.flatMap((group) => [group, ...(group.subGroups ?? [])])
 }
 
 /**
@@ -122,23 +140,35 @@ export function accountGroupsForType(ledger: Ledger, type: 'asset' | 'liability'
     }))
   }
 
-  const known = new Set(
-    ledger.accountCategories.filter((category) => !category.parentId).map((category) => category.id),
-  )
+  const accountCategories = ledger.accountCategories
+  const known = new Set(accountCategories.map((category) => category.id))
   // 资产 / 负债归属由账户本身决定，分组只决定它排在哪个抽屉里。
   const accountType = (account: Ledger['accounts'][number]): 'asset' | 'liability' =>
     account.kind === 'credit' ? 'liability' : 'asset'
   const ofType = (account: Ledger['accounts'][number]) => accountType(account) === type
-  const groups: AccountGroup[] = ledger.accountCategories
+  const rowsOf = (categoryId: string) =>
+    ledger.accounts
+      .filter((account) => account.categoryId === categoryId && ofType(account))
+      .map(toRow)
+  const groups: AccountGroup[] = accountCategories
     .filter((category) => !category.parentId && category.type === type)
     .map((category) => ({
       id: category.id,
       name: category.name,
       type,
       sort: category.sort,
-      rows: ledger.accounts
-        .filter((account) => account.categoryId === category.id && ofType(account))
-        .map(toRow),
+      seeded: category.seeded,
+      rows: rowsOf(category.id),
+      subGroups: accountCategories
+        .filter((sub) => sub.parentId === category.id)
+        .map((sub) => ({
+          id: sub.id,
+          name: sub.name,
+          type,
+          sort: sub.sort,
+          seeded: sub.seeded,
+          rows: rowsOf(sub.id),
+        })),
     }))
 
   const ungrouped = ledger.accounts.filter(

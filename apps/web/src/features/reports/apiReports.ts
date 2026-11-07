@@ -343,7 +343,7 @@ export function mapBalanceReport(
         prediction: predictionOf(liabilityActual, liabilityPredicted, 'net'),
       },
       {
-        label: '流动资产',
+        label: '现金及等价物',
         value: currency(
           assets
             .filter((row) => cashAccountIds.has(row.id))

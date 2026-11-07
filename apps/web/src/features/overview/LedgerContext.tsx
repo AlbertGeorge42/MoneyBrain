@@ -556,7 +556,7 @@ export function LedgerProvider({
       if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
       try {
         const created = await accountCategoryApi
-          .create({ name: input.name, type: input.type })
+          .create({ name: input.name, type: input.type, parentId: input.parentId ?? null })
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true, id: created.id }
@@ -599,12 +599,15 @@ export function LedgerProvider({
   const reorderAccountGroup = useCallback(
     async (id: string, direction: 'up' | 'down'): Promise<LedgerMutationOutcome> => {
       if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
-      const groups = (ledgerRef.current.accountCategories ?? []).filter(
-        (category) => !category.parentId,
+      const current = (ledgerRef.current.accountCategories ?? []).find(
+        (category) => category.id === id,
       )
-      const current = groups.find((category) => category.id === id)
       if (!current) return { ok: false, error: '分组不存在' }
-      const siblings = groups.filter((category) => category.type === current.type)
+      // 排序只在同一父级、同一归属的兄弟分组之间交换，避免把二级分组挪成一级。
+      const siblings = (ledgerRef.current.accountCategories ?? []).filter(
+        (category) =>
+          category.parentId === current.parentId && category.type === current.type,
+      )
       const index = siblings.findIndex((category) => category.id === id)
       const target = index + (direction === 'up' ? -1 : 1)
       if (target < 0 || target >= siblings.length) {
@@ -614,7 +617,13 @@ export function LedgerProvider({
         const swapped = [...siblings]
         ;[swapped[index], swapped[target]] = [swapped[target], swapped[index]]
         await accountCategoryApi
-          .updateSort(swapped.map((category, sort) => ({ id: category.id, sort, parentId: null })))
+          .updateSort(
+            swapped.map((category, sort) => ({
+              id: category.id,
+              sort,
+              parentId: category.parentId ?? null,
+            })),
+          )
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true }

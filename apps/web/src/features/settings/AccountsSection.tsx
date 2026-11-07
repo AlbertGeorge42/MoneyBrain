@@ -1,5 +1,5 @@
 /**
- * 设置 · 账户分类分区（资产 / 负债一级分组 + 组内账户）。
+ * 设置 · 账户分类分区（资产 / 负债一级 → 二级分组 → 账户）。
  *
  * 只渲染与局部展开状态；新增 / 编辑 / 对账仍由页面的编辑器与账本操作承担。
  * 展开集合由页面统一持有，切换分区后保持原展开状态（与原实现一致）。
@@ -15,6 +15,8 @@ import { minor } from '@domain/index'
 import { ReportCardList, ReportTable, type CardRow, type ReportRow } from '@/features/reports/ReportTable'
 import { ReconcileButton } from './ReconcileSheet'
 import {
+  accountGroupBalance,
+  accountGroupCount,
   accountGroupDisplayName,
   type AccountGroup,
   type AccountRow,
@@ -53,16 +55,32 @@ export function AccountsSection({
   onRetry,
 }: AccountsSectionProps) {
   const groups = tab === 'asset' ? assetGroups : liabilityGroups
-  const emptyCount = groups.filter((group) => group.rows.length === 0).length
-  const visibleGroups = showEmptyGroups ? groups : groups.filter((group) => group.rows.length > 0)
+  const emptyGroupCount = groups.reduce(
+    (sum, group) =>
+      sum +
+      (accountGroupCount(group) === 0
+        ? 1
+        : (group.subGroups ?? []).filter((sub) => sub.rows.length === 0).length),
+    0,
+  )
+  const visibleGroups = showEmptyGroups
+    ? groups
+    : groups.filter((group) => accountGroupCount(group) > 0)
   const allCollapsed =
     visibleGroups.length > 0 && visibleGroups.every((group) => collapsed.has(`grp-${group.id}`))
   const groupLabel = (group: AccountGroup) => accountGroupDisplayName(group, groups)
-  const subtotal = (group: AccountGroup) =>
-    formatCurrency(minor(group.rows.reduce((sum, account) => sum + account.balance, 0)))
+  const subtotal = (group: AccountGroup) => formatCurrency(minor(accountGroupBalance(group)))
   const accountLabel = (account: AccountRow) => accountDisplayName(account, ledger.accounts)
   const expandedOf = (group: AccountGroup) => !collapsed.has(`grp-${group.id}`)
+  const subExpandedOf = (sub: AccountGroup) => !collapsed.has(`sub-${sub.id}`)
   const toggleGroup = (group: AccountGroup) => onToggleCollapsed(`grp-${group.id}`)
+  const toggleSub = (sub: AccountGroup) => onToggleCollapsed(`sub-${sub.id}`)
+  const visibleSubGroups = (group: AccountGroup) =>
+    (group.subGroups ?? []).filter((sub) => showEmptyGroups || sub.rows.length > 0)
+  const foldKeysOf = (group: AccountGroup) => [
+    `grp-${group.id}`,
+    ...(group.subGroups ?? []).map((sub) => `sub-${sub.id}`),
+  ]
   const canManage = (group: AccountGroup) => !group.ungrouped && !group.seeded
   const openGroup = (group: AccountGroup) => {
     if (!canManage(group)) return
@@ -80,16 +98,13 @@ export function AccountsSection({
       groupId: group.ungrouped ? undefined : group.id,
     })
   }
-  const totalBalance = groups.reduce(
-    (sum, group) => sum + group.rows.reduce((inner, account) => inner + account.balance, 0),
-    0,
-  )
-  const totalAccounts = groups.reduce((sum, group) => sum + group.rows.length, 0)
+  const totalBalance = groups.reduce((sum, group) => sum + accountGroupBalance(group), 0)
+  const totalAccounts = groups.reduce((sum, group) => sum + accountGroupCount(group), 0)
   const emptyHint =
     groups.length === 0
       ? '还没有分组'
-      : emptyCount > 0 && !showEmptyGroups
-        ? `已隐藏 ${emptyCount} 个空分组（点「显示空分组」可管理）`
+      : emptyGroupCount > 0 && !showEmptyGroups
+        ? `已隐藏 ${emptyGroupCount} 个空分组（点「显示空分组」可管理）`
         : undefined
 
   return (
@@ -108,17 +123,17 @@ export function AccountsSection({
         <div className="mb-set-toolbar-actions">
           <HfButton
             className="mb-set-btn is-ghost is-small"
-            disabled={emptyCount === 0}
+            disabled={emptyGroupCount === 0}
             onClick={() => onShowEmptyGroupsChange(!showEmptyGroups)}
           >
-            {showEmptyGroups ? '隐藏空分组' : `显示空分组（${emptyCount}）`}
+            {showEmptyGroups ? '隐藏空分组' : `显示空分组（${emptyGroupCount}）`}
           </HfButton>
           <HfButton
             className="mb-set-btn is-ghost is-small"
             disabled={visibleGroups.length === 0}
             onClick={() =>
               onSetGroupsCollapsed(
-                visibleGroups.map((group) => `grp-${group.id}`),
+                visibleGroups.flatMap(foldKeysOf),
                 !allCollapsed,
               )
             }
@@ -133,7 +148,7 @@ export function AccountsSection({
               onOpenEditor({ kind: 'accountGroup', mode: 'create', type: tab })
             }}
           >
-            <Plus size={15} /> 新建分组
+            <Plus size={15} /> 新建一级分组
           </HfButton>
           <HfButton
             className="mb-set-btn is-ghost is-small"
@@ -151,7 +166,7 @@ export function AccountsSection({
       </div>
 
       <p className="mb-set-hint">
-        分组即后端的账户分类（AccountCategory）：用于组织与浏览账户。净资产与资产构成合计不变，但资产构成按分类名分行，分组名会出现在表里。新建分组默认不带「现金等价 / 投资」标识；把带标识的账户移入新分组会改变现金流与投资占比，保存前会提示。默认全部展开，点分组行可改名/排序/删除，点账户行可编辑或移动。
+        分组即后端的账户分类（AccountCategory）：一级只做汇总，账户挂在二级。净资产与资产构成合计不变，但资产构成按分类名分行，分组名会出现在表里。新建分组默认不带「现金等价 / 投资」标识；二级分组默认继承父级标记。把带标识的账户移入无标识的分组会改变现金流与投资占比，保存前会提示。默认全部展开，点一级 / 二级分组行可改名/排序/删除，点账户行可编辑或移动。
       </p>
 
       {device === 'desktop' ? (
@@ -169,33 +184,60 @@ export function AccountsSection({
           rows={visibleGroups.flatMap((group) => {
             const groupRow: ReportRow = {
               id: `grp-${group.id}`,
-              cells: [groupLabel(group), subtotal(group), `${group.rows.length} 个`],
+              cells: [groupLabel(group), subtotal(group), `${accountGroupCount(group)} 个`],
               fold: { expanded: expandedOf(group), onToggle: () => toggleGroup(group) },
               onOpen: canManage(group) ? () => openGroup(group) : undefined,
               hint: group.ungrouped ? '默认归类' : group.seeded ? '演示只读' : undefined,
             }
-            const accountRows: ReportRow[] = expandedOf(group)
-              ? group.rows.map((account) => ({
-                  id: `acc-${account.id}`,
-                  level: 1 as const,
-                  cells: [
-                    accountLabel(account),
-                    formatCurrency(minor(account.balance)),
-                    group.seeded ? '' : (
-                      <ReconcileButton
-                        account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
-                        device="desktop"
-                        onDone={onRetry}
-                      />
-                    ),
-                  ],
-                  onOpen: () => openAccount(account, group),
-                }))
-              : []
-            return [groupRow, ...accountRows]
+            if (!expandedOf(group)) return [groupRow]
+            const subRows: ReportRow[] = visibleSubGroups(group).flatMap((sub) => {
+              const subRow: ReportRow = {
+                id: `sub-${sub.id}`,
+                level: 1 as const,
+                cells: [sub.name, subtotal(sub), `${sub.rows.length} 个`],
+                fold: { expanded: subExpandedOf(sub), onToggle: () => toggleSub(sub) },
+                onOpen: canManage(sub) ? () => openGroup(sub) : undefined,
+                hint: sub.seeded ? '演示只读' : '二级分组',
+              }
+              if (!subExpandedOf(sub)) return [subRow]
+              const accountRows: ReportRow[] = sub.rows.map((account) => ({
+                id: `acc-${account.id}`,
+                level: 2 as const,
+                cells: [
+                  accountLabel(account),
+                  formatCurrency(minor(account.balance)),
+                  sub.seeded ? '' : (
+                    <ReconcileButton
+                      account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
+                      device="desktop"
+                      onDone={onRetry}
+                    />
+                  ),
+                ],
+                onOpen: () => openAccount(account, sub),
+              }))
+              return [subRow, ...accountRows]
+            })
+            const directRows: ReportRow[] = group.rows.map((account) => ({
+              id: `acc-${account.id}`,
+              level: 1 as const,
+              cells: [
+                accountLabel(account),
+                formatCurrency(minor(account.balance)),
+                group.seeded ? '' : (
+                  <ReconcileButton
+                    account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
+                    device="desktop"
+                    onDone={onRetry}
+                  />
+                ),
+              ],
+              onOpen: () => openAccount(account, group),
+            }))
+            return [groupRow, ...subRows, ...directRows]
           })}
           total={['合计', formatCurrency(minor(totalBalance)), `${totalAccounts} 个`]}
-          note={emptyHint ? `${emptyHint}，点右上角「新建分组」开始。` : undefined}
+          note={emptyHint ? `${emptyHint}，点右上角「新建一级分组」开始。` : undefined}
         />
       ) : (
         <ReportCardList
@@ -206,30 +248,58 @@ export function AccountsSection({
             const groupRow: CardRow = {
               id: `grp-${group.id}`,
               label: groupLabel(group),
-              meta: `${group.rows.length} 个账户`,
+              meta: `${accountGroupCount(group)} 个账户`,
               hint: group.ungrouped ? '默认归类' : group.seeded ? '演示只读' : undefined,
               amount: subtotal(group),
               fold: { expanded: expandedOf(group), onToggle: () => toggleGroup(group) },
               onOpen: canManage(group) ? () => openGroup(group) : undefined,
             }
-            const accountRows: CardRow[] = expandedOf(group)
-              ? group.rows.map((account) => ({
-                  id: `acc-${account.id}`,
-                  level: 1 as const,
-                  label: accountLabel(account),
-                  meta: `${account.txCount} 笔`,
-                  amount: formatCurrency(minor(account.balance)),
-                  onOpen: () => openAccount(account, group),
-                  action: group.seeded ? undefined : (
-                    <ReconcileButton
-                      account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
-                      device="mobile"
-                      onDone={onRetry}
-                    />
-                  ),
-                }))
-              : []
-            return [groupRow, ...accountRows]
+            if (!expandedOf(group)) return [groupRow]
+            const subRows: CardRow[] = visibleSubGroups(group).flatMap((sub) => {
+              const subRow: CardRow = {
+                id: `sub-${sub.id}`,
+                level: 1 as const,
+                label: sub.name,
+                meta: `${sub.rows.length} 个账户`,
+                hint: sub.seeded ? '演示只读' : '二级分组',
+                amount: subtotal(sub),
+                fold: { expanded: subExpandedOf(sub), onToggle: () => toggleSub(sub) },
+                onOpen: canManage(sub) ? () => openGroup(sub) : undefined,
+              }
+              if (!subExpandedOf(sub)) return [subRow]
+              const accountRows: CardRow[] = sub.rows.map((account) => ({
+                id: `acc-${account.id}`,
+                level: 2 as const,
+                label: accountLabel(account),
+                meta: `${account.txCount} 笔`,
+                amount: formatCurrency(minor(account.balance)),
+                onOpen: () => openAccount(account, sub),
+                action: sub.seeded ? undefined : (
+                  <ReconcileButton
+                    account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
+                    device="mobile"
+                    onDone={onRetry}
+                  />
+                ),
+              }))
+              return [subRow, ...accountRows]
+            })
+            const directRows: CardRow[] = group.rows.map((account) => ({
+              id: `acc-${account.id}`,
+              level: 1 as const,
+              label: accountLabel(account),
+              meta: `${account.txCount} 笔`,
+              amount: formatCurrency(minor(account.balance)),
+              onOpen: () => openAccount(account, group),
+              action: group.seeded ? undefined : (
+                <ReconcileButton
+                  account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
+                  device="mobile"
+                  onDone={onRetry}
+                />
+              ),
+            }))
+            return [groupRow, ...subRows, ...directRows]
           })}
           total={{ label: '合计', value: formatCurrency(minor(totalBalance)) }}
           emptyText={emptyHint ?? '还没有分组'}

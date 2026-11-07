@@ -40,6 +40,19 @@ export interface TransactionFilters {
   advanced: AdvancedFilters
 }
 
+/** 账户分组筛选取该一级及其全部二级下的账户，避免层级化后「选现金却查不到钱」。 */
+export function accountIdsInGroup(ledger: Ledger, groupId: string): string[] {
+  const categoryIds = new Set([
+    groupId,
+    ...(ledger.accountCategories ?? [])
+      .filter((category) => category.parentId === groupId)
+      .map((category) => category.id),
+  ])
+  return ledger.accounts
+    .filter((account) => account.categoryId && categoryIds.has(account.categoryId))
+    .map((account) => account.id)
+}
+
 export const EMPTY_ADVANCED: AdvancedFilters = {
   accountId: '',
   groupId: '',
@@ -383,14 +396,16 @@ export function filterChips(ledger: Ledger, filters: TransactionFilters): Filter
     chips.push({ key: 'account', label: `账户：${account?.name ?? '未知账户'}` })
   }
   if (filters.advanced.groupId) {
-    const groups = (ledger.accountCategories ?? []).filter((group) => !group.parentId)
+    const groups = ledger.accountCategories ?? []
     const group = groups.find((item) => item.id === filters.advanced.groupId)
+    const parent = group?.parentId ? groups.find((item) => item.id === group.parentId) : undefined
     const duplicated = group
-      ? groups.filter((item) => item.name === group.name).length > 1
+      ? groups.filter((item) => item.name === group.name && item.parentId === group.parentId)
+          .length > 1
       : false
     chips.push({
       key: 'group',
-      label: `分组：${group?.name ?? '未知分组'}${
+      label: `分组：${parent ? `${parent.name} · ` : ''}${group?.name ?? '未知分组'}${
         group && duplicated ? ` · #${group.id.slice(-4)}` : ''
       }`,
     })

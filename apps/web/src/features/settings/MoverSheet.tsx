@@ -49,15 +49,23 @@ export function MoverSheet({
     mover.kind === 'account'
       ? (() => {
           const groups = (ledger.accountCategories ?? []).filter(
-            (category) => !category.parentId && category.type === mover.type,
+            (category) => category.type === mover.type,
           )
           return [
             { id: '', label: '未分组', current: mover.current === null },
             ...groups.map((category) => {
-              const duplicated = groups.filter((other) => other.name === category.name).length > 1
+              const parent = category.parentId
+                ? groups.find((other) => other.id === category.parentId)
+                : undefined
+              const duplicated = groups.filter(
+                (other) =>
+                  other.name === category.name && other.parentId === category.parentId,
+              ).length > 1
               return {
                 id: category.id,
-                label: `${category.name}${duplicated ? ` · #${category.id.slice(-4)}` : ''}`,
+                label: `${parent ? `${parent.name} · ` : ''}${category.name}${
+                  duplicated ? ` · #${category.id.slice(-4)}` : ''
+                }`,
                 current: category.id === mover.current,
               }
             }),

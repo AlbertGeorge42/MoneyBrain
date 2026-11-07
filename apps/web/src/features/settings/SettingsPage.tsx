@@ -38,9 +38,11 @@ import {
 } from '@/features/transactions/displaySettings'
 import {
   INVESTMENT_TYPES,
+  accountGroupCount,
   accountGroupsForType,
   accountTxCount,
   categoryRows,
+  flattenAccountGroups,
   sectionMeta,
   type AccountGroup,
   type AccountRow,
@@ -346,7 +348,11 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       editor.kind === 'accountGroup'
         ? editor.mode === 'edit' && editor.groupId
           ? await updateAccountGroup(editor.groupId, value.name)
-          : await createAccountGroup({ name: value.name, type: editor.type })
+          : await createAccountGroup({
+              name: value.name,
+              type: editor.type,
+              parentId: editor.parentId ?? null,
+            })
         : editor.kind === 'account'
           ? editor.mode === 'edit' && editor.accountId
             ? await updateAccount(editor.accountId, {
@@ -424,15 +430,25 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       notify('演示账本的账户性质分组只读，请在真实账本中管理分组')
       return
     }
-    if (group.rows.length > 0) {
-      const names = group.rows
+    if (accountGroupCount(group) > 0) {
+      const accountsInGroup = [
+        ...group.rows,
+        ...(group.subGroups ?? []).flatMap((sub) => sub.rows),
+      ]
+      const names = accountsInGroup
         .slice(0, 3)
         .map((account) => accountDisplayName(account, ledger.accounts))
         .join('、')
       notify(
-        `「${group.name}」下还有 ${group.rows.length} 个账户（${names}${
-          group.rows.length > 3 ? '…' : ''
+        `「${group.name}」下还有 ${accountGroupCount(group)} 个账户（${names}${
+          accountGroupCount(group) > 3 ? '…' : ''
         }），后端拒绝删除；后端暂无停用字段，请先把账户移到其他分组`,
+      )
+      return
+    }
+    if ((group.subGroups ?? []).length > 0) {
+      notify(
+        `「${group.name}」下还有 ${group.subGroups!.length} 个二级分组，请先删除或移走二级分组`,
       )
       return
     }
@@ -448,7 +464,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const deleteEditorTarget = async () => {
     if (!editor) return
     if (editor.kind === 'accountGroup' && editor.groupId) {
-      const groups = editor.type === 'asset' ? assetGroups : liabilityGroups
+      const groups = flattenAccountGroups(editor.type === 'asset' ? assetGroups : liabilityGroups)
       const target = groups.find((group) => group.id === editor.groupId)
       if (target) await deleteGroup(target)
       return
@@ -479,6 +495,20 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     if (editor.kind === 'account' && editor.accountId) {
       await moveAccountOrder(editor.accountId, direction)
     }
+  }
+
+  /** 在一级分组下新建二级：新二级显示出来前先打开「显示空分组」。 */
+  const createSubGroup = () => {
+    if (!editor || editor.kind !== 'accountGroup' || editor.mode !== 'edit' || !editor.groupId) return
+    const source = (ledger.accountCategories ?? []).find((item) => item.id === editor.groupId)
+    if (!source || source.parentId) return
+    setShowEmptyGroups(true)
+    setEditor({
+      kind: 'accountGroup',
+      mode: 'create',
+      type: editor.type,
+      parentId: editor.groupId,
+    })
   }
 
   const moveCategoryOrder = async (id: string, direction: 'up' | 'down') => {
@@ -947,7 +977,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   /* ===== 导航 ===== */
 
   const summaries: Record<SectionId, string> = {
-    accounts: `资产 ${assetGroups.reduce((sum, group) => sum + group.rows.length, 0)} · 负债 ${liabilityGroups.reduce((sum, group) => sum + group.rows.length, 0)}`,
+    accounts: `资产 ${assetGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)} · 负债 ${liabilityGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)}`,
     categories: `收入 ${countByType(ledger.categories, 'income')} · 支出 ${countByType(ledger.categories, 'expense')}`,
     cashflow: '3 组标记 · 4 类活动',
     invest: `${investRows.length} 类资产`,
@@ -1040,6 +1070,11 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           saving={editorSaving}
           onClose={() => setEditor(null)}
           onSave={saveEditor}
+          onCreateChild={
+            editor.kind === 'accountGroup' && editor.mode === 'edit' && editor.groupId
+              ? createSubGroup
+              : undefined
+          }
           onDelete={
             editor &&
             ((editor.kind === 'account' || editor.kind === 'accountGroup') &&

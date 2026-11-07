@@ -14,7 +14,7 @@ import { transactionApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
-import type { TransactionFilters } from './filters'
+import { accountIdsInGroup, type TransactionFilters } from './filters'
 
 /** 单次请求条数；页面无分页控件，靠自动翻页取全量筛选结果。 */
 export const TRANSACTION_PAGE_SIZE = 100
@@ -46,11 +46,10 @@ export function buildTransactionQueryParams(
 
   if (filters.type !== 'all') params.set('type', filters.type)
 
-  // 分组筛选：把分组翻译成该组账户集合（后端支持重复 accountId），只收窄范围。
+  // 分组筛选：把一级及其二级分组的账户集合翻译成 accountId（后端支持重复 accountId），只收窄范围。
   if (filters.advanced.groupId) {
-    const groupAccounts = ledger.accounts.filter(
-      (account) => account.categoryId === filters.advanced.groupId,
-    )
+    const groupAccountIds = accountIdsInGroup(ledger, filters.advanced.groupId)
+    const groupAccounts = ledger.accounts.filter((account) => groupAccountIds.includes(account.id))
     if (groupAccounts.length === 0) {
       // 空分组没有任何账户：用一个不存在的 id 让后端返回空集，而不是静默忽略筛选。
       params.set('accountId', '__empty-group__')

@@ -129,7 +129,7 @@ export interface BalanceReport {
 }
 
 /**
- * 资产负债三级分组：按账户分类的 parentId 归到一级，二级分类的账户归到二级。
+ * 资产负债两级分组：一级分类汇总，二级分类的账户归到二级；账户行在二级下再展开一层。
  *
  * 分类数据缺失（种子账本 / 测试夹具没有 accountCategories）时返回 null，
  * 渲染层回退到原来的平铺账户行，不伪造层级。
@@ -678,7 +678,7 @@ export function deriveBalanceReport(ledger: Ledger, point: string): BalanceRepor
       { label: '总资产', value: currency(assetTotal) },
       { label: '总负债', value: currency(liabilityTotal), tone: liabilityTotal > 0 ? 'expense' : 'neutral' },
       {
-        label: '流动资产',
+        label: '现金及等价物',
         value: currency(
           accounts
             .filter((account) => account.kind === 'cash' && account.pointBalance > 0)

@@ -25,6 +25,8 @@ export async function createAccountCategory(data: {
   isInvestment?: boolean
   sort?: number
 }) {
+  let parentCashEquivalent = false
+  let parentInvestment = false
   if (data.parentId) {
     const parent = await accountCategoryRepo.findById(data.parentId)
     if (!parent) {
@@ -33,6 +35,8 @@ export async function createAccountCategory(data: {
     if (parent.type !== data.type) {
       throw new ValidationError('父分类类型不匹配')
     }
+    parentCashEquivalent = parent.isCashEquivalent
+    parentInvestment = parent.isInvestment
   }
 
   const finalSort = data.sort ?? await getNextSort('accountCategory', { type: data.type })
@@ -45,8 +49,9 @@ export async function createAccountCategory(data: {
       icon: data.icon,
       color: data.color,
       parentId: data.parentId || null,
-      isCashEquivalent: data.isCashEquivalent ?? false,
-      isInvestment: data.isInvestment ?? false,
+      // 二级继承父级的现金等价 / 投资标记，避免新账户落位后口径静默变化。
+      isCashEquivalent: data.isCashEquivalent ?? parentCashEquivalent,
+      isInvestment: data.isInvestment ?? parentInvestment,
       sort: finalSort,
     },
   })
@@ -109,6 +114,10 @@ export async function deleteAccountCategory(categoryId: string) {
   const accountsCount = await accountRepo.count({ categoryId })
   if (accountsCount > 0) {
     throw new ValidationError('该分类下存在账户，无法删除')
+  }
+  const childrenCount = await accountCategoryRepo.count({ parentId: categoryId })
+  if (childrenCount > 0) {
+    throw new ValidationError('该分类下存在子分类，无法删除')
   }
   const category = await accountCategoryRepo.findById(categoryId)
   if (!category) {

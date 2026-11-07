@@ -39,10 +39,11 @@ export interface LedgerAccountInput {
   initialBalanceDate?: string
 }
 
-/** 设置页账户分组表单：只含名称与资产/负债归属，不碰计算标记。 */
+/** 设置页账户分组表单：只含名称、资产/负债归属与父级（二级分组），不碰计算标记。 */
 export interface LedgerAccountGroupInput {
   name: string
   type: 'asset' | 'liability'
+  parentId?: string | null
 }
 
 /** 设置页分类表单：parentId 为展示 id（种子 key 或真实 id）。 */

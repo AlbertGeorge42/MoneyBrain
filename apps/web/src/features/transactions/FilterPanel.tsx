@@ -6,7 +6,7 @@ import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import { datePresets } from '@/features/shared/datePicker/datePickerModel'
 import type { DeviceMode } from '@/features/shared/types'
-import type { AdvancedFilters } from './filters'
+import { accountIdsInGroup, type AdvancedFilters } from './filters'
 
 function FilterFields({
   device,
@@ -24,15 +24,19 @@ function FilterFields({
   const update = (key: keyof AdvancedFilters, next: string | string[]) =>
     onChange({ ...value, [key]: next })
   const roots = ledger.categories.filter((category) => !category.parentId)
-  const groups = (ledger.accountCategories ?? []).filter((group) => !group.parentId)
+  const groups = ledger.accountCategories ?? []
+  const groupById = new Map(groups.map((group) => [group.id, group]))
   const groupLabel = (group: (typeof groups)[number]) => {
-    const duplicated = groups.filter((item) => item.name === group.name).length > 1
-    return `${group.type === 'liability' ? '负债' : '资产'} · ${group.name}${
-      duplicated ? ` · #${group.id.slice(-4)}` : ''
-    }`
+    const parent = group.parentId ? groupById.get(group.parentId) : undefined
+    const duplicated = groups.filter(
+      (item) => item.name === group.name && item.parentId === group.parentId,
+    ).length > 1
+    return `${group.type === 'liability' ? '负债' : '资产'} · ${parent ? `${parent.name} · ` : ''}${
+      group.name
+    }${duplicated ? ` · #${group.id.slice(-4)}` : ''}`
   }
   const visibleAccounts = value.groupId
-    ? ledger.accounts.filter((account) => account.categoryId === value.groupId)
+    ? ledger.accounts.filter((account) => accountIdsInGroup(ledger, value.groupId).includes(account.id))
     : ledger.accounts
 
   return (
@@ -48,7 +52,7 @@ function FilterFields({
               const groupId = event.target.value
               // 分组与账户是同一维度：换分组时，若原账户不属于新分组就清空，避免组合成空集。
               const nextAccounts = groupId
-                ? ledger.accounts.filter((account) => account.categoryId === groupId)
+                ? ledger.accounts.filter((account) => accountIdsInGroup(ledger, groupId).includes(account.id))
                 : ledger.accounts
               const keepAccount =
                 value.accountId === '' ||

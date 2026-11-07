@@ -40,6 +40,8 @@ export interface LedgerAccountCategory {
    */
   isCashEquivalent?: boolean
   isInvestment?: boolean
+  /** 演示账本的分类只读标记（仅种子数据设置，API 数据不带）。 */
+  seeded?: boolean
 }
 
 export interface LedgerCategory {
