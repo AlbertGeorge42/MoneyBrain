@@ -2,7 +2,8 @@
 
 > 审查对象：`apps/web/src/features/**`、`apps/web/src/app/design/**`、`apps/web/src/features/shell/**` 及相关样式
 > 基线：`4816ad7`（旧 `pages|components|layouts|queries|hooks` 已于 `73c2709` 清退）
-> 收尾审计时间：2026-11-07，HEAD `038c989`（批次 1–8 已提交）
+> 收尾审计时间：2026-11-07，审计基线 HEAD `038c989`（批次 1–8 已提交）
+> 收尾清理：`c923096`（R1–R6）、`4dac935`（B7 / B11），结果已回填本文件。
 > 口径：**以当前代码为准**，不沿用本文旧结论。审计只读，未改代码、未改测试、未连接 `apps/api/prisma/dev.db`。
 > 状态标记：`✅ 已落地` / `⚠️ 部分落地` / `❌ 未做` / `— 已失效`
 
@@ -10,9 +11,9 @@
 
 | 条目 | 状态 | 当前证据（2026-11-07 实测） |
 |---|---|---|
-| A1 删除 0 引用 CSS | ⚠️ 部分落地 | 8 项中 7 项已删；`.mb-amount` 仍在 [overview.css](file:///c:/Users/George/Documents/MoneyBrain/apps/web/src/features/overview/overview.css#L435-L455) |
-| A2 删除无引用导出 | ⚠️ 部分落地 | 13 项中 8 项已删；`settingsModel.ts` 仍有 5 个 0 引用导出 |
-| A3 仅测试使用的导出 | ⚠️ 部分落地 | `categoryTxCount`、`restoreTransactionsInLedger` 仍保留 `export`；`fetchAllTransactions` 已改为模块私有 |
+| A1 删除 0 引用 CSS | ✅ 已落地 | 8 项全部清理（`c923096`）；`.mb-amount` 已从 4 条分组选择器移除 |
+| A2 删除无引用导出 | ✅ 已落地 | 13 项全部删除（`c923096`），含 `settingsModel.ts` 5 个 0 引用导出 |
+| A3 仅测试使用的导出 | ✅ 已落地 | `categoryTxCount`、`restoreTransactionsInLedger` 无生产调用点，连同仅测用例删除（`c923096`）；`fetchAllTransactions` 已模块私有 |
 | A4 第二套 token 清理 | ⚠️ 部分落地 | 空间/字号/粗边框/`radius-control` 已删；`radius-card`、motion、z-index 仍保留 |
 | A5 antd 尾巴 | ✅ 已落地 | `antd` / `@ant-design` / `--ant-` / 历史注释在 `apps/web` 内均 0 处（`css-vars-guard` 的反回潮断言除外） |
 | A6 临时产物 | ⚠️ 部分落地 | `vite.capture.tmp.config.ts`、`scripts/tmp-*.mts` 已删；`NIGHTLY-HANDOFF.md`、`artifacts/` 仍未跟踪 |
@@ -22,11 +23,11 @@
 | B4 token 双轨收敛 | ⚠️ 部分落地 | `--mb-radius-control` 已迁到 `--mb-radius-xs`；`--mb-radius-card`、motion、z-index 未决 |
 | B5 Drawer 封装 | ✅ 已落地 | `HfSheet` 22 处调用；`@mantine/core` 的 `Drawer` 只在 `HfSheet.tsx` 内出现 |
 | B6 三套卡片外壳 | ✅ 已落地 | `card.css` 收口 `.mb-card/.mb-rp-card/.mb-coldstart/.mb-errorpanel`；`Card` 14 个文件在用 |
-| B7 两套 Button | ⚠️ 部分落地 | 业务页面原生 `<button>` 清零；`shell/AppShell.tsx` 仍有 6 处；Mantine `<Button>` 仍有 11 处 |
+| B7 两套 Button | ✅ 已落地 | 业务页与 `AppShell` 原生 `<button>` 清零（`4dac935`）；剩余仅共享原语（`StateViews` / `QuickEntry` / `TransactionDetail`）与错误边界的 11 处 Mantine `<Button>` |
 | B8 自研 DatePicker | ⚠️ 部分落地 | Sheet 已换 `HfSheet`；17 个 props 未收成对象；头注释未写「为何不用 Mantine dates」 |
-| B9 半成品 UI | ✅ 已落地 | `ErrorPanel` 的假诊断按钮/假诊断码已删；仅剩 0 引用 CSS `.mb-errorpanel-code` |
+| B9 半成品 UI | ✅ 已落地 | `ErrorPanel` 的假诊断按钮/假诊断码已删；0 引用 `.mb-errorpanel-code` 与随之失去引用的 `--mb-color-danger` 已清理（`c923096`） |
 | B10 超大文件 | ✅ 已落地 | `SettingsPage.tsx` 1084 行（原 3200+）；`ReportsPage.tsx` 298 行（原 1483） |
-| B11 预览面门控 | ⚠️ 部分落地 | `/design` 路由仍无条件可达；工具条仅在 `preview` 时渲染；种子数据已用 `import.meta.env.DEV` 隔离 |
+| B11 预览面门控 | ✅ 已落地 | `/design` 路由已加 `import.meta.env.DEV` 门控（`4dac935`）；生产构建不注册该路由，预览面不可达 |
 
 ---
 
@@ -41,7 +42,7 @@
 | 3 | `overlays.css` `.mb-chip-row` | 删 | ✅ | 0 处 |
 | 4 | `overlays.css` `.mb-chip` | 两处一起删 | ✅ | 0 处（`shell.css` 的反向引用也已消失） |
 | 5 | `overlays.css` `.mb-entry-hint` | 删 | ✅ | 0 处 |
-| 6 | `features/overview/overview.css:435-455` `.mb-amount` | 只从分组选择器移除 `.mb-amount` | ❌ | 4 条规则仍与活的 `.mb-m-tx-amount` 共组；TSX 中 `.mb-amount` 0 引用 |
+| 6 | `features/overview/overview.css` `.mb-amount` | 只从分组选择器移除 `.mb-amount` | ✅ 已清理（`c923096`） | 已从 4 条分组选择器移除，只保留活的 `.mb-m-tx-amount` |
 | 7 | `features/transactions/transactions.css` `.mb-tx-row-trigger` | 删规则 + 分组移除 | ✅ | 0 处 |
 | 8 | `features/reports/reports.css` `.mb-rp-sankey-label` | 从两处分组移除成员 | ✅ | 0 处 |
 
@@ -49,9 +50,9 @@
 
 | 符号 | 状态 | 当前证据 |
 |---|---|---|
-| `SECTION_GROUP_TITLES` | ❌ | 仍在 `settingsModel.ts:50`，`src + tests` 0 引用 |
-| `ASSET_KINDS` / `LIABILITY_KINDS` | ❌ | 仍在 `settingsModel.ts:74-75`，0 引用（`accountGroupsForType` 内部用的是字面量数组） |
-| `accountCountLabel` / `txCountLabel` | ❌ | 仍在 `settingsModel.ts:458-462`，0 引用 |
+| `SECTION_GROUP_TITLES` | ✅ | 已删（`c923096`）；`src + tests` 0 引用 |
+| `ASSET_KINDS` / `LIABILITY_KINDS` | ✅ | 已删（`c923096`）；0 引用（`accountGroupsForType` 内部用的是字面量数组） |
+| `accountCountLabel` / `txCountLabel` | ✅ | 已删（`c923096`）；0 引用 |
 | `restoreTransactionCategoriesInLedger` | ✅ | 已删 |
 | `transactionNet` | ✅ | 已删 |
 | `resetReportSettings` | ✅ | 已删 |
@@ -67,8 +68,8 @@
 
 | 符号 | 状态 | 当前证据 |
 |---|---|---|
-| `settingsModel.ts categoryTxCount` | ⚠️ | 仍 `export`，仅 `p2-settings.test.ts` 引用 |
-| `ledgerOps.ts restoreTransactionsInLedger` | ⚠️ | 仍 `export`，仅 `transactions-ledgerOps.test.ts` 引用 |
+| `settingsModel.ts categoryTxCount` | ✅ | 复核后无任何生产调用点，已删函数并移除仅测它的 1 行断言（`c923096`） |
+| `ledgerOps.ts restoreTransactionsInLedger` | ✅ | 复核后无任何生产调用点，已删函数并移除仅测它的 1 个用例（`c923096`） |
 | `filters.ts summarizeTransactions` | ✅ | 仍是 `filters.ts` 内部（`buildTransactionListModel`）的现役实现，`export` 有业务意义 |
 | `overview/apiLedger.ts fetchAllTransactions` | ✅ | 已无 `export`，仅模块内调用 |
 | `styles/theme/hf-theme.ts buildMbColorVarNames` | ✅ | 保留 `export`，`css-vars-guard.test.ts` 守卫入口 |
@@ -152,13 +153,12 @@
 
 ### B7 两套 Button
 
-⚠️ 部分落地：`HfButton` 已在 38 个文件使用，`budgets / reports / settings / transactions` 的原生 `<button>` 为 0。
-残留：
-- `features/shell/AppShell.tsx` 仍有 6 处原生 `<button>`（侧栏 / 移动导航 / 图标按钮）；
-- Mantine `<Button>` 仍有 11 处（`QuickEntry` 6、`StateViews` 3、`TransactionDetail` 1、`ErrorBoundary` 1），且部分仍通过 `className="mb-primary-btn"` 复用同一视觉；
-- `.mb-primary-btn` / `.mb-secondary-btn` 的基础声明只写在 `app/design/design.css`（设计预览样式表），生产页面能生效是因为 `DesignApp` 包住全部路由——这是样式归属问题，不是死代码。
+✅ 已落地（`4dac935`）：`HfButton` 已在 43 个文件使用，`budgets / reports / settings / transactions` 与 `shell/AppShell.tsx` 的原生 `<button>` 全部为 0。
+剩余：
+- 11 处 Mantine `<Button>` 位于共享原语与错误边界（`QuickEntry` 6、`StateViews` 3、`TransactionDetail` 1、`ErrorBoundary` 1），部分仍通过 `className="mb-primary-btn"` 复用同一视觉；
+- `.mb-primary-btn` / `.mb-secondary-btn` 的基础声明已迁到 `features/shared/button.css`（随 `HfButton` 引入），不再寄居 `app/design/design.css`；迁移前后 66 组视口×主题×路由比对 0 差异。
 
-**卡在决策：按钮尺寸分档**（当前 `--mb-control-h: 38px` 与 `.mb-sheet` 内 44px 手写覆盖并存），未定档前不迁剩余 11 处 Mantine Button。
+**按钮尺寸分档仍未定**（当前 `--mb-control-h: 38px` 与 `.mb-sheet` 内 44px 手写覆盖并存），影响的是剩余 Mantine Button 是否迁移，不影响本轮 DOM 收口结论。
 
 ### B8 自研 DatePicker
 
@@ -168,7 +168,7 @@
 ### B9 半成品 UI
 
 ✅ 已落地：`ErrorPanel` 无「打开诊断」按钮，也无 `ERR_LOCAL_DB_TIMEOUT` 假文案。
-残留：`states.css:84` 的 `.mb-errorpanel-code` 已 0 引用，属于本次清理尾巴。
+残留已清理（`c923096`）：`states.css` 的 `.mb-errorpanel-code` 及因此失去唯一引用的 `--mb-color-danger`（浅/暗两套调色板）均已删除，`css-vars-guard` 通过。
 
 ### B10 超大文件
 
@@ -178,8 +178,8 @@
 
 ### B11 预览/调试面
 
-⚠️ 部分落地：`/design` 路由在 `App.tsx` 仍无条件注册；`PreviewToolbar` 只在 `preview=true` 时渲染；种子数据已用 `import.meta.env.DEV` 动态隔离。
-**卡在产品决策：生产包是否保留 `/design` 路由（保留调试能力 vs 暴露预览面）。**
+✅ 已落地（`4dac935`）：`/design` 路由在 `App.tsx` 用 `import.meta.env.DEV` 门控，生产构建不注册该路由，`/design` 落回应用入口（`preview=false`）；`PreviewToolbar` 仍只在 `preview=true` 时渲染，种子数据仍用 `import.meta.env.DEV` 隔离。
+验证：`vite build` + `vite preview` 下 `/` 与 `/design` 的 `.mb-hf-toolbar` 均为 0，`/design` 渲染应用壳。
 
 ---
 
@@ -201,12 +201,13 @@
 | 批次 | 内容 | 状态 |
 |---|---|---|
 | 0 复核 | antd 清零、`css-vars-guard`、`tests/setup` | ✅ |
-| 1 死代码 | A1 + A2 + A3 + A5 | ⚠️ 只剩 A1-6 与 `settingsModel` 5 个导出 |
+| 1 死代码 | A1 + A2 + A3 + A5 | ✅（A1/A2/A3 尾巴由 `c923096` 清完） |
 | 2 token 收口 | A4 + `radius-control → radius-xs` | ⚠️ 只剩 B4 三项待决策 |
 | 3 Sheet 封装 | B5 | ✅ |
-| 4 交互收敛 | B1 → B2 → B3 → B9 | ✅ |
-| 5 结构 | B10；B6 卡片；B7 按钮；B11 门控 | ⚠️ B7 / B11 待决策 |
+| 4 交互收敛 | B1 → B2 → B3 → B9 | ✅（B9 尾巴由 `c923096` 清完） |
+| 5 结构 | B10；B6 卡片；B7 按钮；B11 门控 | ✅（B7 / B11 由 `4dac935` 清完） |
 | 6–8 | 卡片外壳 / HfButton / ReportsPage+SettingsPage 拆分 | ✅ |
+| 9 收尾 | R1–R6、AppShell 按钮、`button.css` 归位、`/design` 门控 | ✅ `c923096` / `4dac935`；66 组比对 0 差异 |
 
 原「与并发会话的冲突清单」**已失效**：所列举文件均已由批次 1–8 提交，不再存在并发改动风险。
 
@@ -218,12 +219,12 @@
 
 | # | 残余 | 位置 | 动作 |
 |---|---|---|---|
-| R1 | `.mb-amount` 0 引用 | `overview.css:435,442,447,452` | 从 4 个分组选择器移除该成员，保留 `.mb-m-tx-amount` |
-| R2 | `.mb-errorpanel-code` 0 引用 | `states.css:84-89` | 整块删 |
-| R3 | `SECTION_GROUP_TITLES` / `ASSET_KINDS` / `LIABILITY_KINDS` / `accountCountLabel` / `txCountLabel` 0 引用 | `settingsModel.ts:50,74-75,458-462` | 删除实现 |
-| R4 | `categoryTxCount` / `restoreTransactionsInLedger` 只被测试引用 | `settingsModel.ts:217`、`ledgerOps.ts:127` | 保留函数、去掉 `export`（测试改同文件内导入需单独决策） |
-| R5 | `mb-primary-btn` / `mb-secondary-btn` 的 `:focus-visible` 在 `design.css` 与 `shell.css` 各写一遍 | `design.css:303`、`shell.css:379` | 二选一 |
-| R6 | `tsx` 在根 `package.json` 与 `apps/web/package.json` 重复声明，web 侧无脚本使用 | `apps/web/package.json:43` | 删除 web 侧声明（根已提供，`tsx` 仍被 `db:verify` 等脚本使用） |
+| R1 | ~~`.mb-amount` 0 引用~~ | `overview.css` | ✅ 已清理（`c923096`）：从 4 个分组选择器移除该成员，保留 `.mb-m-tx-amount` |
+| R2 | ~~`.mb-errorpanel-code` 0 引用~~ | `states.css` | ✅ 已清理（`c923096`）：整块删；唯一引用的 `--mb-color-danger` 一并从浅/暗调色板删除 |
+| R3 | ~~`SECTION_GROUP_TITLES` / `ASSET_KINDS` / `LIABILITY_KINDS` / `accountCountLabel` / `txCountLabel` 0 引用~~ | `settingsModel.ts` | ✅ 已清理（`c923096`）：全部删除实现 |
+| R4 | ~~`categoryTxCount` / `restoreTransactionsInLedger` 只被测试引用~~ | `settingsModel.ts`、`ledgerOps.ts` | ✅ 已清理（`c923096`）：复核确认无生产调用点，删除函数及仅测它们的 1 个用例、1 行断言（未保留私有死函数） |
+| R5 | ~~`mb-primary-btn` / `mb-secondary-btn` 的 `:focus-visible` 在 `design.css` 与 `shell.css` 各写一遍~~ | `design.css`、`shell.css` | ✅ 已清理（`c923096`）：保留 `shell.css` 一份，`design.css` 只留 `.mb-hf-choice` |
+| R6 | ~~`tsx` 在根 `package.json` 与 `apps/web/package.json` 重复声明~~ | `apps/web/package.json` | ✅ 已清理（`c923096`）：删 web 侧声明并同步 lock；根仍供 `db:verify` 等脚本使用 |
 | R7 | 空的旧目录 `src/hooks`、`src/layouts`、`src/pages`、`src/queries` | `apps/web/src/` | 本地空目录，Git 不跟踪；无需提交动作 |
 | R8 | 测试目录 `tests/unit/pages/*` 命名仍叫 pages | `apps/web/tests/unit/pages/` | 只是命名，导入的已是 `features/*`；改名可选 |
 
@@ -237,7 +238,7 @@
 | D4 | 剩余 11 处 Mantine `<Button>` 与 `HfButton` 双体系 | **按钮尺寸分档**：是否统一 38/44px 两档并定义 `size` |
 | D5 | 四族 Switch、四族 Segmented、两族 Tabs 的 CSS 仍各写一套尺寸/颜色 | 是否接受“组件统一、视觉分族”，还是收敛为一套视觉参数 |
 | D6 | 设置页「账户分类」资产/负债一级分组 + 组内账户的二级结构 | **账户分类二级结构**：是否允许任意层级，还是固定一级分组+账户 |
-| D7 | `/design` 路由在生产入口可达 | 保留调试面 vs 生产门控 |
+| D7 | ~~`/design` 路由在生产入口可达~~ | ✅ 已清理（`4dac935`）：`import.meta.env.DEV` 门控，生产不注册 |
 | D8 | `DatePicker` 16 个 props 未收成对象 | 是否值得改 2 个调用点 |
 | D9 | B1-1 的 4 项 toast 口径（时长 / 条数 / 层级） | 见 B1-1 表，本轮不动 |
 
@@ -247,27 +248,28 @@
 - `postcss-preset-mantine` / `postcss-simple-vars` 由 `postcss.config.cjs` 使用；`jsdom` 由 `vitest.config.ts` 使用；`@vitest/coverage-v8` 由 `vitest --coverage` 隐式使用。
 - `tests/` 中未发现断言已删实现（`daysBetween` / `formatRangeText` / `createStatisticFormatter` / `investmentApi` / `mb-seg` / `mb-tx-row-trigger` 等均 0 命中）；`npx tsc --noEmit` 通过。
 - 唯一仍读取“实现细节 CSS”的用例是 `p2-reports.test.tsx`，它已改为读取 `src/features/shared/toast.css`，与当前结构一致。
+- 收尾两提交后：`npx tsc --noEmit` 0 错误、ESLint 0 错误、vitest 48 文件 / 313 用例全过；净减 1 个用例（只覆盖已删的 `restoreTransactionsInLedger`）。
 
 ---
 
 ## 6. 前端当前规模（2026-11-07 实测）
 
-统计口径：`apps/web/src` 下 `*.ts/*.tsx/*.css`，按文件物理行数（含空行与注释）。
+统计口径：`apps/web/src` 下 `*.ts/*.tsx/*.css` 的**非空行**（原表同为非空行口径），数据为收尾两提交（`c923096` / `4dac935`）之后。
 
 ### 6.1 `src/features` 各目录
 
 | 目录 | 文件数 | 总行数 |
 |---|---:|---:|
 | budgets | 3 | 1,880 |
-| overview | 20 | 5,715 |
+| overview | 20 | 5,711 |
 | reports | 20 | 8,195 |
-| settings | 23 | 5,813 |
-| shared | 24 | 2,735 |
-| shell | 3 | 581 |
-| transactions | 12 | 3,977 |
-| **合计** | **105** | **28,896** |
+| settings | 23 | 5,786 |
+| shared | 25 | 2,810 |
+| shell | 3 | 577 |
+| transactions | 12 | 3,956 |
+| **合计** | **106** | **28,915** |
 
-`src` 全量（含 `app / components / dev-fixtures / services / styles / utils`）：**121 个文件，30,855 行**。
+`src` 全量（含 `app / components / dev-fixtures / services / styles / utils`）：**122 个文件，30,800 行**。
 
 ### 6.2 最大的 5 个文件
 
@@ -292,7 +294,8 @@
 | `shared/HfSwitch.tsx` | 100 | 轨道开关 + 按压 Toggle |
 | `shared/HfSegmented.tsx` | 56 | 分段选择（4 族） |
 | `shared/HfTabs.tsx` | 53 | 页签（2 族） |
-| `shared/HfButton.tsx` | 41 | 原生按钮 DOM 契约（4 变体） |
+| `shared/HfButton.tsx` | 42 | 原生按钮 DOM 契约（4 变体） |
+| `shared/button.css` | 80 | `primary` / `secondary` 按钮视觉族（HfButton 与 Mantine Button 共用） |
 | `shared/TxRow.tsx` + `txRow.css` | 107 + 181 | 两段式流水行 |
 | `shared/BudgetProgress.tsx` + `budgetProgress.css` | 71 + 31 | 预算进度条 |
 | `shared/RefundTag.tsx` | 59 | 退款角标 |
