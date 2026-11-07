@@ -379,19 +379,48 @@ color-mix(in srgb, 父色 calc(var(--mb-chart-sub-from) + (var(--mb-chart-sub-to
 `--mb-tbl-line-h`（20px），分类图标 20px，不通过缩放字号或图标撑高行。
 流水列表与总览最近交易共用 54px 两段式行（`--mb-tx-row-h`），图标容器 26px，不受 29px 约束。
 
+### 5.1 按钮尺寸（4 档）
+
+按钮高度只允许下表四档；四档之外的字面量一律返工。默认档 `md` 与旧 `--mb-control-h`
+同值，主 / 次按钮与输入框高度零变化。
+
+| Token | 值 | 用途 | 典型选择器 |
+|---|---|---|---|
+| `--mb-btn-h-xs` | 28px | 表格折叠、微型图标按钮 | `.mb-rp-fold`、`.mb-set-fold`、`.mb-tx-excluded-toggle` |
+| `--mb-btn-h-sm` | 32px | tab、图标按钮、分段按钮、日期格 | `.mb-rp-tab`、`.mb-rp-iconbtn`、`.mb-bg-seg-btn`、`.mb-dp-day` |
+| `--mb-btn-h-md` | 38px | **默认**：主 / 次按钮、菜单项、工具栏按钮 | `.mb-primary-btn`、`.mb-rp-btn`、`.mb-set-btn`、`.mb-tx-btn` |
+| `--mb-btn-h-lg` | 44px | 主操作、移动端触控、整行选择项 | `.mb-rp-seg-btn`、`.mb-set-back`、`.mb-tx-cat-option` |
+
+规则：
+
+- **档位只决定视觉高度，不决定命中区**。移动端（`data-device='mobile'` 或视口 < 768px）
+  所有可点元素最小边仍须 ≥ `--mb-touch`（44px），由移动端覆盖规则保住。
+- 20/22/24px 的折叠箭头与勾选按钮归入 `xs`；30/34/36/40px 归入 `sm` / `md`；
+  48/52/56px 是**行高**（设置入口、列表行、弹层头），不是按钮，不参与本阶梯。
+- 数字键盘 `.mb-entry-key` 从 40px 收到 `md` 38px 不再保留旧 40px 例外——
+  移动端仍由 `--mb-btn-h-lg` 覆盖到 44px，触控不会退化。
+- 组件内固定宽度（如 `.mb-rp-iconbtn` 32×32）与高度同步取同一档，不允许方按钮取两档。
+
 ---
 
 ## 6. 圆角
 
-| Token | 值 | Mantine 键 | 用途 |
-|---|---|---|---|
-| `--mb-radius-xs` | 6px | `xs` | 输入框、小图标按钮 |
-| `--mb-radius-sm` | 10px | `sm` | 按钮、chip、行内元素 |
-| `--mb-radius-md` | 14px | `md` | **默认**：卡片、面板 |
-| `--mb-radius-lg` | 20px | `lg` | 主卡、弹层、移动端抽屉顶部 |
+**一条控件轨 + 一条容器轨**：矩形控件统一 `10px`，卡片统一 `14px`；6px 只留给
+小于 24px 的微元素，胶囊只给真正有胶囊语义的元素。旧 `--mb-radius-card`（8px）作废，
+报表卡并入卡片轨。
 
-胶囊形（`999px`）只用于 chip、tag、batch-bar 这类「有明确胶囊语义」的元素。
+| Token | 值 | Mantine 键 | 只用于 |
+|---|---|---|---|
+| `--mb-radius-xs` | 6px | `xs` | **微元素**：勾选框（18px）、键帽、行内小标签、分类图标容器；不用于 28px 及以上的按钮 |
+| `--mb-radius-sm` | 10px | `sm` | **所有矩形控件**：按钮、输入框、tab、分段按钮、菜单项、日期格、可点行 |
+| `--mb-radius-md` | 14px | `md` | **所有卡片 / 面板**（含报表卡、指标条、筛选面板） |
+| `--mb-radius-lg` | 20px | `lg` | 主卡、弹层、移动端抽屉顶部 |
+| `--mb-radius-pill` | 999px | — | **仅胶囊语义**：chip / tag、toast、进度条、开关轨道、圆形月份导航 |
+
 `theme.radius = { xs: '6px', sm: '10px', md: '14px', lg: '20px', defaultRadius: 'md' }`。
+
+为什么微元素保留 6px：10px 圆角落在 18px 勾选框上会变成胶囊，复选框与单选钮的形状识别
+消失；这是可达性问题，不是审美差异。除该尺寸段外，不再出现第二个控件圆角值。
 
 ---
 
@@ -436,18 +465,41 @@ Linux 落 system-ui。若要求跨平台完全一致，需要先引入自托管�
 
 ---
 
-## 9. 动效
+## 9. 动效与层级
+
+### 9.1 动效
 
 | Token | 值 | 用途 |
 |---|---|---|
-| `--mb-dur-1` | 150ms | 悬停、颜色变化 |
+| `--mb-dur-1` | 150ms | 悬停、颜色、边框变化 |
 | `--mb-dur-2` | 280ms | 弹层进出、列表入场 |
 | `--mb-ease` | `cubic-bezier(.22,.8,.32,1)` | 统一缓动 |
+
+**只有这一套**：旧 `--mb-motion-fast`（0.15s）、`--mb-motion-mid`（0.24s）、
+`--mb-ease-standard`（`cubic-bezier(.2,0,0,1)`）作废。业务 CSS 不得再写
+`transition: ... 0.15s ease` 这类字面量，一律引用 `var(--mb-dur-*) var(--mb-ease)`。
 
 **过渡只对颜色、阴影、边框、透明度生效**——不对 `width`/`height`/`top` 做过渡
 （会引发布局抖动）。
 
 尊重 `prefers-reduced-motion: reduce`：命中时全部动画与过渡降到 0.01ms。
+
+### 9.2 层级（z-index）
+
+所有 `z-index` 只允许取下列阶梯；业务 CSS 里不得再出现 40 / 60 / 160 / 500 / 600 等裸数字。
+
+| Token | 值 | 用途 |
+|---|---|---|
+| `--mb-z-local-1` | 1 | 卡片内层叠：sticky 表格单元格、弹层底部动作区、进度条填充 |
+| `--mb-z-local-2` | 2 | 同一层叠上下文里更高一层：sticky 表头、sticky 底部操作区、进度缺口 |
+| `--mb-z-dock` | 50 | 页面底部合计条、批量操作条、侧栏主入口 |
+| `--mb-z-popover` | 60 | 下拉菜单、日期选择面板等锚定浮层 |
+| `--mb-z-fab` | 110 | 浮动按钮、页内轻提示 |
+| `--mb-z-overlay` | 160 | 移动端全屏二级页 |
+| `--mb-z-toast` | 600 | 全站 toast（统一一档，不再分 500 / 600） |
+
+Mantine 的 `HfSheet` / `Modal` 使用组件库 `zIndex=300`，叠层对话框 `320`——
+这是组件库内联层级，不参与 CSS 阶梯；toast 600 永远在其上，遮罩 160 永远在其下。
 
 ---
 
