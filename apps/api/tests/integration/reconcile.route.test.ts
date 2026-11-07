@@ -1,12 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import request from 'supertest'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const testDbPath = path.resolve(__dirname, '../../prisma/test.db')
-
-process.env.DATABASE_URL = `file:${testDbPath}`
 
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')

@@ -1,13 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 
-// 测试数据库客户端（使用独立测试数据库）
-const testPrisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: 'file:./test.db',
-    },
-  },
-})
+// 测试数据库客户端：连接由 setup.ts 指向本次运行独占的库副本（DATABASE_URL）。
+const testPrisma = new PrismaClient()
 
 /**
  * 清理测试数据库中的所有数据

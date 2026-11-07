@@ -2,13 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-// 必须在导入 src/prisma.ts 之前指向测试库
-process.env.DATABASE_URL = `file:${path.resolve(__dirname, '../../prisma/test.db')}`
 
 // 数据库目录用假路径隔离：自动备份配置跟着数据库走，不能真的写进 prisma 目录
 let fakeDbDir: string

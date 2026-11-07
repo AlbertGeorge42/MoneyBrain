@@ -1,13 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const testDbPath = path.resolve(__dirname, '../../prisma/test.db')
-
-// 必须在导入 src/prisma.ts 之前指向测试库——
-// 否则这些写库用例会清空开发库 dev.db 里的真实账目。
-process.env.DATABASE_URL = `file:${testDbPath}`
 
 const { prisma } = await import('../../src/prisma.js')
 const {

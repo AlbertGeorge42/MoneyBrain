@@ -6,18 +6,11 @@
  * ② Budget.isActive 通过 PUT /budgets/:id 持久化，并在 GET /budgets 中回读；
  *    停用后不再出现在只取启用预算的列表里。
  *
- * 说明：集成测试共用 prisma/test.db，本文件只清自己的数据（预算 → 流水 → 账户 → 分类），
- * 不整体清表，避免把后续测试文件的固定分类 / 账户一起删掉。
+ * 说明：每个测试文件有独立的库副本，本文件仍只清自己的数据（预算 → 流水 → 账户 → 分类），
+ * 与同目录其他用例互不影响。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import request from 'supertest'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const testDbPath = path.resolve(__dirname, '../../prisma/test.db')
-
-process.env.DATABASE_URL = `file:${testDbPath}`
 
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')

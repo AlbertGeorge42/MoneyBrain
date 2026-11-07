@@ -143,7 +143,7 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 
 **schema 演进走版本化迁移**（`apps/api/prisma/migrations/`）：改 schema 执行 `npm run db:migrate`，
 生成的 SQL 提交进仓库；`npm run db:status` 查看当前库与迁移的差异。
-测试库由 `tests/global-setup.ts` 用同一套迁移重建。
+测试库在系统临时目录按运行唯一创建：`tests/global-setup.ts` 用同一套迁移重建模板，各测试文件复制独占副本，跑完删除。
 
 备份文件带 `schemaVersion`（导出时最新一条已应用的迁移名）：比当前应用新的备份会被拒绝导入，
 更旧的在兼容模式下导入并记一条警告。

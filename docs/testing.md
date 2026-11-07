@@ -33,7 +33,7 @@ cd apps/api && npx vitest run tests/unit/http.test.ts
 cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 ```
 
-集成测试会先自动创建/同步 `apps/api/prisma/test.db`（`tests/global-setup.ts`，用版本化迁移重建）。
+集成测试在系统临时目录建本次运行独占的库：`tests/global-setup.ts` 用版本化迁移重建模板库，各测试文件复制独立副本，跑完自动删除。
 
 ## 3. 当前规模
 
@@ -41,11 +41,11 @@ cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 |---|---|---|
 | 领域 | 5 | 42 |
 | 同步 | 4 | 21 |
-| 后端 | 55 | 447 |
+| 后端 | 55 | 449 |
 | 前端 | 48 | 313 |
 | E2E | 6 个 spec | prod-loop、prod-w1、hf-overview、hf-reports、settings、responsive |
 
-> 2026-11-07 实测：`npm run test:domain` 42 通过；`npm run test:sync` 21 通过；`npm run test:api` 447 通过（55 文件）；`npm run test:web` 313 通过（48 文件）。E2E 为 spec 文件数。
+> 2026-11-07 实测：`npm run test:domain` 42 通过；`npm run test:sync` 21 通过；`npm run test:api` 449 通过（55 文件）；`npm run test:web` 313 通过（48 文件）。E2E 为 spec 文件数。
 
 ## 3.1 数据自检与恢复演练（不是单元测试）
 
@@ -65,7 +65,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 | 领域 | 纯内存对象，无 mock |
 | 同步 | 纯内存记录 + `test-vectors/merge-vectors.json` 固定向量，无 mock |
 | 后端单元 | `createMockPrisma()`（`apps/api/tests/mocks/prisma.ts`） |
-| 后端集成 | `apps/api/prisma/test.db`（测试前由 `tests/global-setup.ts` 用版本化迁移重建） |
+| 后端集成 | 系统临时目录下按运行唯一的 SQLite 库；`tests/global-setup.ts` 用版本化迁移重建模板，各测试文件复制独占副本，跑完删除 |
 | 前端 | `apps/web/tests/setup.ts` 统一 mock matchMedia / ResizeObserver / IntersectionObserver / scrollTo；图表为纯 SVG 自绘，不涉及图表库 mock；页面测试用 `vi.mock('../../../src/services/api')` 或注入 feature store 状态；无 AntD mock |
 | E2E | 开发数据库；`clearAllTestData()` 清理。**运行前先备份 `apps/api/prisma/dev.db`，E2E 会清空全部数据。** |
 

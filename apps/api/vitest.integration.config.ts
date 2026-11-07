@@ -1,4 +1,8 @@
 import { defineConfig } from 'vitest/config'
+import { ensureTestRunDir } from './tests/test-run-dir.ts'
+
+// 本次运行的独占临时目录；globalSetup 在这里建模板库，worker 从中复制各自的库。
+ensureTestRunDir()
 
 export default defineConfig({
   test: {

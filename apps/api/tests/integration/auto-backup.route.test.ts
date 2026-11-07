@@ -1,14 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import request from 'supertest'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { existsSync, rmSync } from 'node:fs'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const testDbPath = path.resolve(__dirname, '../../prisma/test.db')
-
-// 必须在导入 src/prisma.ts 之前指向测试库
-process.env.DATABASE_URL = `file:${testDbPath}`
 
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')
@@ -16,10 +9,11 @@ const { prisma } = await import('../../src/prisma.js')
 // B3 验收：开关与目录可读写；执行时机由内部策略决定，接口只暴露只读状态
 // （上次成功 / 预计窗口 / 当前份数）。
 // F-C 起导出即加密容器，云同步目录不再需要显式确认，因此接口不再有
-// confirmCloudDirectory 参数。自动备份配置跟着数据库走（test.db 同级），
-// 用例结束后清理，避免污染 prisma 目录。
+// confirmCloudDirectory 参数。自动备份配置跟着数据库走（DATABASE_URL 同目录），
+// 即本次运行独占的临时目录，随运行结束一起清理。
 
-const configPath = path.join(path.dirname(testDbPath), 'auto-backup-config.json')
+const dbPath = (process.env.DATABASE_URL ?? '').replace(/^file:/, '')
+const configPath = path.join(path.dirname(dbPath), 'auto-backup-config.json')
 
 describe('自动备份 API（B3）', () => {
   beforeAll(async () => {

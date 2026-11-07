@@ -405,7 +405,7 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
   禁止只用 `prisma db push`——没有迁移历史就无法复现、无法回滚。
   - 迁移名必须以时间戳开头：`YYYYMMDDHHMMSS_描述`（版本新旧按字典序比较）。
   - `npm run db:status` 查看当前库与迁移的差异；`npm run db:deploy` 只应用已有迁移。
-  - 测试库由 `tests/global-setup.ts` 用同一套迁移重建（不是 `db push`）。
+  - 测试库放系统临时目录、按运行进程唯一命名；`tests/global-setup.ts` 用同一套迁移重建模板库，各测试文件复制独占副本，跑完整目录删除（不是 `db push`）。
 - `npm run db:drill` 跑恢复演练：导出 → 导入临时库 → 用领域层重算两边余额并对比。
   比较口径：**库内按 id 聚合**（同名账户不会互相覆盖），**跨库按稳定键**（账户名、分类
   type+名称路径、交易内容指纹）——导入会重建 id，所以不做 id 字节相等判定；同名重复只在
