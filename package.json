@@ -19,6 +19,7 @@
     "db:status": "prisma migrate status --schema apps/api/prisma/schema.prisma",
     "db:drill": "node --import tsx scripts/restore-drill.mts",
     "db:verify": "node --import tsx scripts/db-verify.mts",
+    "db:integrity": "node scripts/db-integrity.mjs",
     "sync:decrypt": "node --import tsx scripts/decrypt-container.mts",
     "db:fix-expense-sign": "node --import tsx scripts/fix-expense-sign.mts",
     "spike:v5": "node --import tsx scripts/spike-v5-directory-sync.mts",
