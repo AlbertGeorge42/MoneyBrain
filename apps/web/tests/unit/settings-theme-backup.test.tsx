@@ -12,6 +12,7 @@ import { MantineProvider, useComputedColorScheme, useMantineColorScheme } from '
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { mbColorSchemeManager } from '@/styles/theme/hf-theme'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import type { AutoBackupConfig } from '@/services/api'
 import type { Ledger } from '@/features/overview/model'
@@ -73,8 +74,10 @@ function renderPage(dataMode: 'api' | 'seed' = 'api') {
     <QueryClientProvider client={queryClient}>
       <MantineProvider defaultColorScheme="auto" colorSchemeManager={mbColorSchemeManager}>
         <LedgerProvider initialLedger={ledger} dataMode={dataMode}>
-          <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
-          <ThemeProbe />
+          <ToastProvider>
+            <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
+            <ThemeProbe />
+          </ToastProvider>
         </LedgerProvider>
       </MantineProvider>
     </QueryClientProvider>,

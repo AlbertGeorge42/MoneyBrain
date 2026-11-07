@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
+import { ToastProvider } from '@/features/shared/toast'
 import { TODAY } from '@/features/overview/model'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { ReportsPage } from '@/features/reports/ReportsPage'
@@ -61,15 +62,17 @@ function renderPage(settingsOpen = true) {
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
         <LedgerContext.Provider value={contextValue}>
-          <ReportsPage
-          device="desktop"
-          dataState="ready"
-          settingsOpen={settingsOpen}
-          onSettingsToggle={() => {}}
-          onRetry={() => {}}
-          onImport={() => {}}
-            onViewFlow={() => {}}
-          />
+          <ToastProvider>
+            <ReportsPage
+              device="desktop"
+              dataState="ready"
+              settingsOpen={settingsOpen}
+              onSettingsToggle={() => {}}
+              onRetry={() => {}}
+              onImport={() => {}}
+              onViewFlow={() => {}}
+            />
+          </ToastProvider>
         </LedgerContext.Provider>
       </QueryClientProvider>
     </MantineProvider>,

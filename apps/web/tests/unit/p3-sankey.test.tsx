@@ -10,6 +10,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
+import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { CashSankeyChart } from '@/features/reports/CashSankey'
@@ -269,15 +270,17 @@ function renderPage(device: DeviceMode) {
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
         <LedgerContext.Provider value={contextValue}>
-          <ReportsPage
-          device={device}
-          dataState="ready"
-          settingsOpen={false}
-          onSettingsToggle={() => {}}
-          onRetry={() => {}}
-          onImport={() => {}}
-            onViewFlow={() => {}}
-          />
+          <ToastProvider>
+            <ReportsPage
+              device={device}
+              dataState="ready"
+              settingsOpen={false}
+              onSettingsToggle={() => {}}
+              onRetry={() => {}}
+              onImport={() => {}}
+              onViewFlow={() => {}}
+            />
+          </ToastProvider>
         </LedgerContext.Provider>
       </QueryClientProvider>
     </MantineProvider>,

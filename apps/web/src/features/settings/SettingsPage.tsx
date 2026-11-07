@@ -8,9 +8,8 @@
  * - 「每项皆可调」：编辑 / 移动到… / 删除都真的改账本或设置。
  */
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
-import { getPortalHost } from '@/features/shared/portalHost'
+import { useToast } from '@/features/shared/toastContext'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { HfSheet } from '@/features/shared/HfSheet'
 import {
@@ -227,11 +226,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [moverSaving, setMoverSaving] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteSaving, setDeleteSaving] = useState(false)
-  const [toast, setToast] = useState<{
-    message: string
-    duration: number
-    action?: { label: string; run: () => void }
-  } | null>(null)
+  const { notify: pushToast } = useToast()
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [activity, setActivity] = useState<Record<string, ActivityGroupId>>({})
   const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
@@ -333,7 +328,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     }
   }, [apiMode, active, openSection, backupReloadKey])
 
-  const notify = (message: string) => setToast({ message, duration: 2600 })
+  const notify = (message: string) => pushToast(message, { duration: 2600 })
 
   const saveAutoBackup = async () => {
     if (!backupConfig) return
@@ -357,7 +352,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   }
   // 危险操作（转移后删除）与批量删除一致：6 秒内可撤销。
   const notifyUndoable = (message: string, run: () => void) =>
-    setToast({ message, duration: 6000, action: { label: '撤销', run } })
+    pushToast(message, { duration: 6000, action: { label: '撤销', run } })
 
   useEffect(() => {
     setEditorError(null)
@@ -373,12 +368,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     setDeleteError(null)
     setDeleteSaving(false)
   }, [deleteTransfer])
-
-  useEffect(() => {
-    if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), toast.duration)
-    return () => window.clearTimeout(timer)
-  }, [toast])
 
   useEffect(() => {
     if (!confirming) return
@@ -2626,25 +2615,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           </div>
         </HfSheet>
       )}
-      {toast &&
-        createPortal(
-          <div className="mb-hf-toast" role="status">
-            <span>{toast.message}</span>
-            {toast.action && (
-              <button
-                type="button"
-                className="mb-hf-toast-action"
-                onClick={() => {
-                  toast.action?.run()
-                  setToast(null)
-                }}
-              >
-                {toast.action.label}
-              </button>
-            )}
-          </div>,
-          getPortalHost(),
-        )}
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { BatchBar } from '@/features/transactions/BatchBar'
 import { TransactionsList } from '@/features/transactions/TransactionsList'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
@@ -267,17 +268,19 @@ describe('#9 未来记录不计入本月合计', () => {
       <QueryClientProvider client={queryClient}>
         <MantineProvider>
           <LedgerProvider initialLedger={futureLedger} dataMode="seed">
-            <TransactionsPage
-              device="desktop"
-              dataState="normal"
-              batchMode={false}
-              onBatchModeChange={() => {}}
-              displayOpen={false}
-              onDisplayToggle={() => {}}
-              onRetry={() => {}}
-              onCreateAccount={() => {}}
-              onImport={() => {}}
-            />
+            <ToastProvider>
+              <TransactionsPage
+                device="desktop"
+                dataState="normal"
+                batchMode={false}
+                onBatchModeChange={() => {}}
+                displayOpen={false}
+                onDisplayToggle={() => {}}
+                onRetry={() => {}}
+                onCreateAccount={() => {}}
+                onImport={() => {}}
+              />
+            </ToastProvider>
           </LedgerProvider>
         </MantineProvider>
       </QueryClientProvider>,

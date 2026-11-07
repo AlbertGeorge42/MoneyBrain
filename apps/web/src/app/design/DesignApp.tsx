@@ -5,10 +5,9 @@
  * 正常 / 加载 / 空账本 / 错误；预览入口不接入生产路由，也不引用旧页面代码。
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMantineColorScheme } from '@mantine/core'
-import { getPortalHost } from '@/features/shared/portalHost'
+import { useToast } from '@/features/shared/toastContext'
 import { AppShell } from '@/features/shell/AppShell'
 import type { ShellPage } from '@/features/shell/navigation'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
@@ -178,13 +177,9 @@ function PreviewBody({
   framed: boolean
 }) {
   const { ledger, undo } = useLedger()
+  const { notify: pushToast } = useToast()
   const [entryOpen, setEntryOpen] = useState(false)
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
-  const [toast, setToast] = useState<{
-    message: string
-    duration: number
-    action?: { label: string; run: () => void }
-  } | null>(null)
   const [batchMode, setBatchMode] = useState(false)
   const [displayOpen, setDisplayOpen] = useState(false)
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false)
@@ -197,17 +192,10 @@ function PreviewBody({
     setBudgetEditorOpen(false)
   }, [page])
 
-  useEffect(() => {
-    if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), toast.duration)
-    return () => window.clearTimeout(timer)
-  }, [toast])
-
   // 带撤销动作的提示与批量删除一致：6 秒可撤销；普通提示 2.4 秒。
-  const notify = (message: string, action?: () => void) =>
-    setToast({
-      message,
-      duration: action ? 6000 : 2400,
+  const notify = (message: string, action?: () => void, duration?: number) =>
+    pushToast(message, {
+      duration: duration ?? (action ? 6000 : 2400),
       action: action ? { label: '撤销', run: action } : undefined,
     })
 
@@ -358,20 +346,17 @@ function PreviewBody({
           notify('请在「设置 → 账户」中新增账户后再记账')
         }}
         onSaved={(_transactionId, undoToken) => {
-          setToast({
-            message: '已保存 · 账本与总览数字已同步',
-            duration: 6000,
-            action: undoToken
-              ? {
-                  label: '撤销',
-                  run: () => {
-                    void undo(undoToken).then((result) =>
-                      notify(result.ok ? '已撤销保存' : `撤销失败：${result.error ?? '请重试'}`),
-                    )
-                  },
+          notify(
+            '已保存 · 账本与总览数字已同步',
+            undoToken
+              ? () => {
+                  void undo(undoToken).then((result) =>
+                    notify(result.ok ? '已撤销保存' : `撤销失败：${result.error ?? '请重试'}`),
+                  )
                 }
               : undefined,
-          })
+            6000,
+          )
         }}
       />
       <TransactionDetail
@@ -384,38 +369,12 @@ function PreviewBody({
     </>
   )
 
-  const toastNode = toast ? (
-    <div className="mb-hf-toast" role="status">
-      <span>{toast.message}</span>
-      {toast.action && (
-        <button
-          type="button"
-          className="mb-hf-toast-action"
-          onClick={() => {
-            toast.action?.run()
-            setToast(null)
-          }}
-        >
-          {toast.action.label}
-        </button>
-      )}
-    </div>
-  ) : null
-
-  // 预览画布与手机框都带 transform，会成为 fixed 的包含块；toast 挂到带 token 的
-  // body 级宿主，才能在任何祖先滚动后仍固定在视口同一位置。
-  const toastPortal =
-    toastNode && typeof document !== 'undefined'
-      ? createPortal(toastNode, getPortalHost())
-      : toastNode
-
   if (device === 'mobile') {
     if (!framed) {
       return (
         <div className="mb-hf-live-mobile">
           {shell}
           {overlays}
-          {toastPortal}
         </div>
       )
     }
@@ -425,7 +384,6 @@ function PreviewBody({
           {shell}
           {overlays}
         </div>
-        {toastPortal}
       </div>
     )
   }
@@ -434,7 +392,6 @@ function PreviewBody({
     <div className="mb-hf-desktop">
       {shell}
       {overlays}
-      {toastPortal}
     </div>
   )
 }

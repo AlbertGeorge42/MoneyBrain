@@ -9,6 +9,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { hfTheme } from '@/styles/theme/hf-theme'
@@ -21,15 +22,17 @@ function renderReports() {
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={hfTheme}>
         <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
-          <ReportsPage
-            device="desktop"
-            dataState="normal"
-            settingsOpen={false}
-            onSettingsToggle={vi.fn()}
-            onRetry={vi.fn()}
-            onImport={vi.fn()}
-            onViewFlow={vi.fn()}
-          />
+          <ToastProvider>
+            <ReportsPage
+              device="desktop"
+              dataState="normal"
+              settingsOpen={false}
+              onSettingsToggle={vi.fn()}
+              onRetry={vi.fn()}
+              onImport={vi.fn()}
+              onViewFlow={vi.fn()}
+            />
+          </ToastProvider>
         </LedgerProvider>
       </MantineProvider>
     </QueryClientProvider>,

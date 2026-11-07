@@ -11,6 +11,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import type { Ledger } from '@/features/overview/model'
 
@@ -76,7 +77,9 @@ function renderPage() {
     <QueryClientProvider client={queryClient}>
       <MantineProvider defaultColorScheme="auto">
         <LedgerProvider initialLedger={ledger} dataMode="api">
-          <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
+          <ToastProvider>
+            <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
+          </ToastProvider>
         </LedgerProvider>
       </MantineProvider>
     </QueryClientProvider>,

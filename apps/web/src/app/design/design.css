@@ -215,39 +215,6 @@
   inset: 0;
 }
 
-/* ===== 轻提示 ===== */
-
-.mb-hf-toast {
-  position: fixed;
-  left: 50%;
-  /* 与流水页合计条 / 批量条共用底部槽位时抬到其上，避免叠压。 */
-  bottom: calc(var(--mb-dock-h) + var(--mb-dock-batch-h) + var(--mb-s-5));
-  z-index: var(--mb-z-fab);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mb-s-3);
-  padding: var(--mb-s-2) var(--mb-s-4);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-chart-tooltip-bg);
-  color: var(--mb-color-chart-tooltip-ink);
-  font-size: var(--mb-fs-1);
-  box-shadow: var(--mb-sh-2);
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.mb-hf-toast-action {
-  flex: none;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 /* ===== 通用按钮（Mantine Button 与原生 button 共用） ===== */
 
 .mb-primary-btn {

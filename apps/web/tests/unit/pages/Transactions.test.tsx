@@ -9,6 +9,7 @@ import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import type { DataState } from '@/features/shared/types'
@@ -22,17 +23,19 @@ function renderTransactions(state: DataState, onRetry = vi.fn()) {
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={hfTheme}>
         <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
-          <TransactionsPage
-            device="desktop"
-            dataState={state}
-            batchMode={false}
-            onBatchModeChange={vi.fn()}
-            displayOpen={false}
-            onDisplayToggle={vi.fn()}
-            onRetry={onRetry}
-            onCreateAccount={vi.fn()}
-            onImport={vi.fn()}
-          />
+          <ToastProvider>
+            <TransactionsPage
+              device="desktop"
+              dataState={state}
+              batchMode={false}
+              onBatchModeChange={vi.fn()}
+              displayOpen={false}
+              onDisplayToggle={vi.fn()}
+              onRetry={onRetry}
+              onCreateAccount={vi.fn()}
+              onImport={vi.fn()}
+            />
+          </ToastProvider>
         </LedgerProvider>
       </MantineProvider>
     </QueryClientProvider>,

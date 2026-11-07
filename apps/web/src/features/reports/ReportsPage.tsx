@@ -11,6 +11,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
+import { ToastViewport } from '@/features/shared/toast'
+import { useToast } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { useApiBalanceReport, useApiCashReport, useApiFlowReport, useApiInvestReport } from './apiReports'
 import { deriveCashSankey } from './cashSankeyModel'
@@ -40,10 +42,6 @@ import { CashView } from './CashView'
 import { InvestView } from './InvestView'
 import { DrillDrawer } from './DrillDrawer'
 import './reports.css'
-
-interface ToastState {
-  message: string
-}
 
 interface DrillState {
   node: FlowTreeNode
@@ -78,6 +76,7 @@ export function ReportsPage({
   }) => void
 }) {
   const { ledger } = useLedger()
+  const { notify: pushToast } = useToast()
   const [tab, setTab] = useState<ReportTab>('balance')
   // API 模式用真实今天 / 最新流水做锚点；用户改过时间后不再跟随账本刷新。
   const apiMode = Boolean(ledger.snapshot)
@@ -85,7 +84,6 @@ export function ReportsPage({
   const [timeOverride, setTimeOverride] = useState<ReportTime | null>(null)
   const time = timeOverride ?? initialReportTime(anchor)
   const setTime = (next: ReportTime) => setTimeOverride(next)
-  const [toast, setToast] = useState<ToastState | null>(null)
   const [drill, setDrill] = useState<DrillState | null>(null)
   const [foldedFlow, setFoldedFlow] = useState<Record<string, boolean>>({})
   const [foldedCash, setFoldedCash] = useState<Record<string, boolean>>({})
@@ -138,18 +136,12 @@ export function ReportsPage({
   )
 
   useEffect(() => {
-    if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 2400)
-    return () => window.clearTimeout(timer)
-  }, [toast])
-
-  useEffect(() => {
     setDrill(null)
     setFoldedFlow({})
     setFoldedCash({})
   }, [tab, time.from, time.to, time.point])
 
-  const notify = (message: string) => setToast({ message })
+  const notify = (message: string) => pushToast(message, { variant: 'reports', duration: 2400 })
   const toggleFlowFold = (id: string) =>
     setFoldedFlow((current) => ({ ...current, [id]: current[id] === false }))
   const toggleCashFold = (id: string) =>
@@ -312,14 +304,10 @@ export function ReportsPage({
         onCommit={commitConfig}
       />
 
-      {toast && (
-        <div
-          className={settingsOpen && device === 'mobile' ? 'mb-rp-toast is-over-sheet' : 'mb-rp-toast'}
-          role="status"
-        >
-          {toast.message}
-        </div>
-      )}
+      <ToastViewport
+        variant="reports"
+        className={settingsOpen && device === 'mobile' ? 'is-over-sheet' : undefined}
+      />
     </div>
   )
 }

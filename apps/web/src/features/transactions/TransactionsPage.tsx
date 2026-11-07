@@ -9,6 +9,8 @@ import {
   getCategoryName,
 } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
+import { ToastViewport } from '@/features/shared/toast'
+import { useToast } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { BatchBar } from './BatchBar'
 import { BatchCategoryDialog, BatchDeleteDialog } from './BatchDialogs'
@@ -50,12 +52,6 @@ interface TransactionsPageProps {
   onRetry: () => void
   onCreateAccount: () => void
   onImport: () => void
-}
-
-interface ToastState {
-  id: number
-  message: string
-  undo?: () => void
 }
 
 function PageHead({
@@ -254,17 +250,8 @@ export function TransactionsPage({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [detailId, setDetailId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'category' | 'delete' | null>(null)
-  const [toasts, setToasts] = useState<ToastState[]>([])
-  const toastSeq = useRef(0)
-  const toastTimers = useRef<number[]>([])
+  const { notify: pushToast } = useToast()
   const searchRef = useRef<HTMLInputElement>(null)
-
-  useEffect(
-    () => () => {
-      toastTimers.current.forEach((timer) => window.clearTimeout(timer))
-    },
-    [],
-  )
 
   useEffect(() => {
     if (!batchMode) setSelected(new Set())
@@ -405,19 +392,15 @@ export function TransactionsPage({
     )
   }
 
-  const dismissToast = useCallback((id: number) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id))
-  }, [])
-
   const notify = useCallback(
     (message: string, undo?: () => void) => {
-      const id = toastSeq.current + 1
-      toastSeq.current = id
-      setToasts((current) => [...current, { id, message, undo }].slice(-3))
-      const timer = window.setTimeout(() => dismissToast(id), 6000)
-      toastTimers.current.push(timer)
+      pushToast(message, {
+        variant: 'stack',
+        duration: 6000,
+        action: undo ? { label: '撤销', run: undo } : undefined,
+      })
     },
-    [dismissToast],
+    [pushToast],
   )
 
   const clearKey = (key: string) => {
@@ -732,27 +715,7 @@ export function TransactionsPage({
         onClose={() => setDialog(null)}
       />
 
-      {toasts.length > 0 && (
-        <div className="mb-tx-toast-stack">
-          {toasts.map((toast) => (
-            <div key={toast.id} className="mb-tx-toast" role="status">
-              <span>{toast.message}</span>
-              {toast.undo && (
-                <button
-                  type="button"
-                  className="mb-tx-toast-action"
-                  onClick={() => {
-                    toast.undo?.()
-                    dismissToast(toast.id)
-                  }}
-                >
-                  撤销
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <ToastViewport variant="stack" />
 
       <span className="mb-visually-hidden" aria-live="polite">
         当前筛选 {monthTotals.count} 笔

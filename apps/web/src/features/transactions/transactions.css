@@ -1191,47 +1191,6 @@
   background: var(--mb-color-surface-hover);
 }
 
-/* ===== 提示条 ===== */
-
-.mb-tx-toast-stack {
-  position: fixed;
-  left: 50%;
-  /* 抬到合计条 + 批量条之上：四个底部元素同时出现也不叠压。 */
-  bottom: calc(var(--mb-dock-h) + var(--mb-dock-batch-h) + var(--mb-s-5));
-  z-index: var(--mb-z-toast);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--mb-s-2);
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.mb-tx-toast {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-3);
-  max-width: min(90vw, 560px);
-  padding: var(--mb-s-2) var(--mb-s-3);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-text-primary);
-  color: var(--mb-color-text-inverse);
-  font-size: var(--mb-fs-1);
-  box-shadow: var(--mb-sh-2);
-  pointer-events: auto;
-}
-
-.mb-tx-toast-action {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-accent-fill);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  cursor: pointer;
-}
-
 /* ===== 焦点环 ===== */
 
 .mb-tx-btn:focus-visible,
@@ -1241,7 +1200,6 @@
 .mb-tx-check-btn:focus-visible,
 .mb-tx-m-row:focus-visible,
 .mb-tx-cat-option:focus-visible,
-.mb-tx-toast-action:focus-visible,
 .mb-tx-search-clear:focus-visible,
 .mb-tx-input:focus-visible,
 .mb-tx-select:focus-visible {
@@ -1303,12 +1261,6 @@
 
 .mb-mobile-scroll .mb-tx-batchbar .mb-tx-btn {
   flex: 1;
-}
-
-.mb-mobile-scroll .mb-tx-toast-stack {
-  bottom: calc(
-    var(--mb-touch) + var(--mb-s-7) + var(--mb-s-5) + var(--mb-s-2) + env(safe-area-inset-bottom)
-  );
 }
 
 /* ===== 暗色边界：靠阴影而非亮边框 ===== */

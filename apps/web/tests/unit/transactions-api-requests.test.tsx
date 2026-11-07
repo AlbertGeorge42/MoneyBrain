@@ -10,6 +10,7 @@ import { cleanup, render, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import type { Ledger } from '@/features/overview/model'
 
@@ -68,17 +69,19 @@ function renderPage() {
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
         <LedgerProvider initialLedger={ledger} dataMode="api">
-          <TransactionsPage
-            device="desktop"
-            dataState="normal"
-            batchMode={false}
-            onBatchModeChange={() => {}}
-            displayOpen={false}
-            onDisplayToggle={() => {}}
-            onRetry={() => {}}
-            onCreateAccount={() => {}}
-            onImport={() => {}}
-          />
+          <ToastProvider>
+            <TransactionsPage
+              device="desktop"
+              dataState="normal"
+              batchMode={false}
+              onBatchModeChange={() => {}}
+              displayOpen={false}
+              onDisplayToggle={() => {}}
+              onRetry={() => {}}
+              onCreateAccount={() => {}}
+              onImport={() => {}}
+            />
+          </ToastProvider>
         </LedgerProvider>
       </MantineProvider>
     </QueryClientProvider>,

@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { CONFIG_SECTIONS, GENERAL_SECTIONS } from '@/features/settings/settingsModel'
@@ -17,7 +18,9 @@ function renderSettings() {
   return render(
     <MantineProvider theme={hfTheme} defaultColorScheme="auto">
       <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
-        <SettingsPage device="desktop" dataState="normal" onRetry={vi.fn()} onImport={vi.fn()} />
+        <ToastProvider>
+          <SettingsPage device="desktop" dataState="normal" onRetry={vi.fn()} onImport={vi.fn()} />
+        </ToastProvider>
       </LedgerProvider>
     </MantineProvider>,
   )

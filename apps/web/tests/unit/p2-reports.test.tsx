@@ -39,6 +39,7 @@ const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 describe('报表设置抽屉：移动 sheet 四行可见、toast 不压「完成」', () => {
   const reports = readFileSync(resolve(WEB_ROOT, 'src/features/reports/reports.css'), 'utf8')
+  const toast = readFileSync(resolve(WEB_ROOT, 'src/features/shared/toast.css'), 'utf8')
 
   it('380px sheet 内四行压到 44px，打开即可完整落位', () => {
     expect(reports).toMatch(
@@ -50,7 +51,7 @@ describe('报表设置抽屉：移动 sheet 四行可见、toast 不压「完成
   })
 
   it('sheet 打开时 toast 抬到 sheet 上方，不遮住底部「完成」', () => {
-    expect(reports).toMatch(/\.mb-rp-toast\.is-over-sheet\s*\{[^}]*bottom:\s*calc\(380px/)
+    expect(toast).toMatch(/\.mb-rp-toast\.is-over-sheet\s*\{[^}]*bottom:\s*calc\(380px/)
   })
 })
 

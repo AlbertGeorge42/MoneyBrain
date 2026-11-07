@@ -1,0 +1,113 @@
+/*
+ * 轻提示样式：三族位置与视觉集中在这里，由 ToastViewport 的 variant 选择。
+ * 类名与数值沿用原实现，避免改动任何可见结果。
+ */
+
+/* ===== shell：预览壳 / 设置页，挂 body 级宿主 ===== */
+
+.mb-hf-toast {
+  position: fixed;
+  left: 50%;
+  /* 与流水页合计条 / 批量条共用底部槽位时抬到其上，避免叠压。 */
+  bottom: calc(var(--mb-dock-h) + var(--mb-dock-batch-h) + var(--mb-s-5));
+  z-index: var(--mb-z-fab);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  padding: var(--mb-s-2) var(--mb-s-4);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-chart-tooltip-bg);
+  color: var(--mb-color-chart-tooltip-ink);
+  font-size: var(--mb-fs-1);
+  box-shadow: var(--mb-sh-2);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.mb-hf-toast-action {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ===== reports：留在报表页内，跟随手机框 / 抽屉层级 ===== */
+
+.mb-rp-toast {
+  position: fixed;
+  z-index: 600;
+  left: 50%;
+  bottom: var(--mb-s-6);
+  transform: translateX(-50%);
+  max-width: 420px;
+  padding: 10px 16px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  box-shadow: var(--mb-sh-2);
+  font-size: var(--mb-fs-1);
+}
+
+/* 设置 sheet 打开时，toast 抬到 sheet 之上，不遮住常驻底部的「完成」。 */
+.mb-rp-toast.is-over-sheet {
+  bottom: calc(380px + var(--mb-s-2));
+}
+
+/* ===== stack：留在流水页内，最多 3 条 ===== */
+
+.mb-tx-toast-stack {
+  position: fixed;
+  left: 50%;
+  /* 抬到合计条 + 批量条之上：四个底部元素同时出现也不叠压。 */
+  bottom: calc(var(--mb-dock-h) + var(--mb-dock-batch-h) + var(--mb-s-5));
+  z-index: var(--mb-z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mb-s-2);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.mb-tx-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  max-width: min(90vw, 560px);
+  padding: var(--mb-s-2) var(--mb-s-3);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-text-primary);
+  color: var(--mb-color-text-inverse);
+  font-size: var(--mb-fs-1);
+  box-shadow: var(--mb-sh-2);
+  pointer-events: auto;
+}
+
+.mb-tx-toast-action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-accent-fill);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mb-tx-toast-action:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+/* 移动端避让底部触控区与安全区。 */
+.mb-mobile-scroll .mb-tx-toast-stack {
+  bottom: calc(
+    var(--mb-touch) + var(--mb-s-7) + var(--mb-s-5) + var(--mb-s-2) + env(safe-area-inset-bottom)
+  );
+}

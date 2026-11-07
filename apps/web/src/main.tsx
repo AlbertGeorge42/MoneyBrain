@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MantineProvider } from '@mantine/core'
 import '@mantine/core/styles.css'
 import App from './App'
+import { ToastProvider } from './features/shared/toast'
 import './styles/global.css'
 import { hfTheme, mbColorSchemeManager, mbCssVariablesResolver } from './styles/theme/hf-theme'
 import { ApiClientError } from './services/apiError'
@@ -37,7 +38,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         colorSchemeManager={mbColorSchemeManager}
         defaultColorScheme="auto"
       >
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </MantineProvider>
     </QueryClientProvider>
   </React.StrictMode>,

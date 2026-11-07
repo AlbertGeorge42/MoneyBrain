@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import type { Ledger } from '@/features/overview/model'
@@ -38,8 +39,10 @@ describe('#12 转移并删除分类后的 6 秒撤销', () => {
     render(
       <MantineProvider defaultColorScheme="auto">
         <LedgerProvider initialLedger={ledger} dataMode="seed">
-          <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
-          <OwnershipProbe />
+          <ToastProvider>
+            <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
+            <OwnershipProbe />
+          </ToastProvider>
         </LedgerProvider>
       </MantineProvider>,
     )
