@@ -4,16 +4,7 @@ import { HfButton } from '@/features/shared/HfButton'
 import type { DeviceMode } from '@/features/shared/types'
 import { amountText } from './format'
 import type { ExpenseCategorySlice } from './model'
-
-const SERIES_FILL = [
-  'var(--mb-chart-series-1)',
-  'var(--mb-chart-series-2)',
-  'var(--mb-chart-series-3)',
-  'var(--mb-chart-series-4)',
-  'var(--mb-chart-series-5)',
-  'var(--mb-chart-series-6)',
-  'var(--mb-chart-series-7)',
-]
+import { SERIES_COLORS, stableColorMap } from '@/features/shared/seriesColor'
 
 export interface ExpenseCategoryDrill {
   categoryId: string
@@ -51,20 +42,28 @@ export function ExpenseCategoryPie({
   range,
   device,
   onDrill,
+  colorUniverse,
 }: {
   slices: ExpenseCategorySlice[]
   range: { from: string; to: string }
   device: DeviceMode
   onDrill?: (target: ExpenseCategoryDrill) => void
+  /** 全账本分类名；同名字在总览/报表用同一槽位，月份切换不改色。 */
+  colorUniverse?: readonly string[]
 }) {
   const [legendOpen, setLegendOpen] = useState(device !== 'mobile')
 
-  const items = slices
-    .filter((slice) => slice.amount > 0)
-    .map((slice, index) => {
-      const color = SERIES_FILL[index % SERIES_FILL.length]
-      return { slice, color }
-    })
+  // 取色按分类名（跨页面稳定）而不是金额名次：排序变化不改变同一分类的颜色。
+  const visibleSlices = slices.filter((slice) => slice.amount > 0)
+  const visibleNames = visibleSlices.map((slice) => slice.name.trim())
+  const colors = stableColorMap(
+    [...(colorUniverse ?? []), ...visibleNames],
+    SERIES_COLORS,
+  )
+  const items = visibleSlices.map((slice) => ({
+    slice,
+    color: colors.get(slice.name.trim()) ?? SERIES_COLORS[0],
+  }))
   const total = items.reduce((sum, item) => sum + item.slice.amount, 0)
 
   const size = device === 'mobile' ? 216 : 220

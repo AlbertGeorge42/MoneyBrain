@@ -23,6 +23,7 @@ export function FlowView({
   folded,
   onFold,
   onDrill,
+  colorUniverse,
 }: {
   device: DeviceMode
   report: FlowReport
@@ -34,6 +35,7 @@ export function FlowView({
   folded: Record<string, boolean>
   onFold: (id: string) => void
   onDrill: (node: FlowTreeNode, kind: DonutKind) => void
+  colorUniverse?: { income?: readonly string[]; expense?: readonly string[] }
 }) {
   const rowColumns = { showCount: settings.showCountColumn, showShare: settings.showShareColumn }
   const incomeRows = flattenFlowRows(
@@ -119,6 +121,7 @@ export function FlowView({
             device={device}
             onOpen={onDrill}
             namedCount={settings.namedCategories}
+            colorUniverse={colorUniverse}
           />
         </>,
       )}

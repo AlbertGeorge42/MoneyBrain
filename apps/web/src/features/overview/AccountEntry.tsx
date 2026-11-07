@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { amountText } from './format'
 import type { LedgerAccount, OverviewSummary } from './model'
+import { CATEGORY_COLORS, stableSlotMap } from '@/features/shared/seriesColor'
 
 export function AccountEntry({
   summary,
@@ -12,6 +13,12 @@ export function AccountEntry({
   accounts: LedgerAccount[]
   onOpen: () => void
 }) {
+  // 圆点按账户 id 取色：账户顺序变化时，同一账户的颜色不跟着下标走。
+  const visibleAccounts = accounts.slice(0, 3)
+  const slots = stableSlotMap(
+    visibleAccounts.map((account) => account.id),
+    CATEGORY_COLORS.length,
+  )
   return (
     <HfButton
       className="mb-account-entry"
@@ -29,8 +36,11 @@ export function AccountEntry({
         </span>
       </span>
       <span className="mb-account-stack" aria-hidden="true">
-        {accounts.slice(0, 3).map((account, index) => (
-          <span key={account.id} className={`mb-account-dot mb-tone-cat-${index + 1}`}>
+        {visibleAccounts.map((account) => (
+          <span
+            key={account.id}
+            className={`mb-account-dot mb-tone-cat-${(slots.get(account.id) ?? 0) + 1}`}
+          >
             {account.name.slice(0, 1)}
           </span>
         ))}

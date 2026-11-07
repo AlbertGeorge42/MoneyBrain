@@ -164,6 +164,8 @@ export function OverviewPage({
   )
   const trend = deriveNetWorthTrend(summary.netWorth, ledger.snapshot?.trend)
   const expenseCharts = deriveExpenseCharts(ledger)
+  // 近 12 个月支出一级分类全集：总览与报表共用，保证同一分类跨页面、跨月份同色。
+  const categoryUniverse = expenseCharts.categories.map((slice) => slice.name.trim())
   const drillCategory = (target: ExpenseCategoryDrill) => {
     if (!onDrillCategory) return
     rememberOverviewScroll()
@@ -185,6 +187,7 @@ export function OverviewPage({
             range={expenseCharts.range}
             device="mobile"
             onDrill={onDrillCategory ? drillCategory : undefined}
+            colorUniverse={categoryUniverse}
           />
         </div>
         <BudgetCard summary={budget} mobile onOpenAll={onOpenBudgets} />
@@ -222,6 +225,7 @@ export function OverviewPage({
           range={expenseCharts.range}
           device="desktop"
           onDrill={onDrillCategory ? drillCategory : undefined}
+          colorUniverse={categoryUniverse}
         />
       </div>
     </>

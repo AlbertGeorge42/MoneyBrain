@@ -18,6 +18,7 @@ import {
 } from '@/features/shared/chartLayout'
 import { barHeight, currency } from './reportsModel'
 import type { FlowTreeNode } from './reportsModel'
+import { SERIES_COLORS, stableSlotMap } from '@/features/shared/seriesColor'
 
 function useChartWidth(): [RefObject<HTMLDivElement>, number] {
   const ref = useRef<HTMLDivElement>(null)
@@ -299,6 +300,7 @@ export function CompositionBars({
   device = 'desktop',
   onOpen,
   namedCount = 6,
+  colorUniverse,
 }: {
   incomeTrees: FlowTreeNode[]
   expenseTrees: FlowTreeNode[]
@@ -308,6 +310,7 @@ export function CompositionBars({
   /** 每一行都可点：打开与行金额同口径的下钻（含被并入的小类）。 */
   onOpen?: (node: FlowTreeNode, kind: DonutKind) => void
   namedCount?: number
+  colorUniverse?: { income?: readonly string[]; expense?: readonly string[] }
 }) {
   return (
     <ChartCard title="收入 / 支出构成">
@@ -322,6 +325,7 @@ export function CompositionBars({
           onOpen={onOpen}
           namedCount={namedCount}
           emptyText="该期间没有支出"
+          colorUniverse={colorUniverse?.expense}
         />
         <CompositionDonutSide
           title="收入构成"
@@ -332,6 +336,7 @@ export function CompositionBars({
           onOpen={onOpen}
           namedCount={namedCount}
           emptyText="该期间没有收入"
+          colorUniverse={colorUniverse?.income}
         />
       </div>
     </ChartCard>
@@ -362,15 +367,8 @@ function mergeTail(nodes: FlowTreeNode[], keep: number): FlowTreeNode[] {
   ]
 }
 
-const SERIES_FILL = [
-  'var(--mb-chart-series-1)',
-  'var(--mb-chart-series-2)',
-  'var(--mb-chart-series-3)',
-  'var(--mb-chart-series-4)',
-  'var(--mb-chart-series-5)',
-  'var(--mb-chart-series-6)',
-  'var(--mb-chart-series-7)',
-]
+/** 「其余 N 类」优先用第 7 槽的中性色；该槽被具名分类占用时，退到本图未用的槽。 */
+const REST_SLOT = SERIES_COLORS.length - 1
 
 function donutArc(
   cx: number,
@@ -416,6 +414,7 @@ export function DonutChart({
   title,
   emptyText,
   namedCount = 6,
+  colorUniverse,
 }: {
   nodes: FlowTreeNode[]
   total: number
@@ -426,6 +425,8 @@ export function DonutChart({
   emptyText: string
   /** 一级具名类别上限（默认 6，配置可降到 5）；其余并入「其余 N 类」。 */
   namedCount?: number
+  /** 全账本分类名；同一分类在总览/报表共用槽位，月份切换不改色。 */
+  colorUniverse?: readonly string[]
 }) {
   const [bodyRef, measuredWidth] = useChartWidth()
   const [drillId, setDrillId] = useState<string | null>(null)
@@ -443,12 +444,26 @@ export function DonutChart({
   const isDrilled = Boolean(drilled && subChildren.length > 0)
   const levelNodes = isDrilled ? mergeTail(subChildren, 5) : roots
   const rootIndex = drilled ? roots.findIndex((node) => node.id === drilled.id) : -1
-  const parentColor = SERIES_FILL[Math.max(0, rootIndex) % SERIES_FILL.length]
+  // 一级具名分类按分类名取色，金额排序不参与；「其余 N 类」优先占中性槽。
+  const rootSlots = stableSlotMap(
+    [
+      ...(colorUniverse ?? []),
+      ...roots.filter((node) => node.id !== 'rest').map((node) => node.name.trim()),
+    ],
+    SERIES_COLORS.length,
+  )
+  const usedSlots = new Set(rootSlots.values())
+  const restSlot = usedSlots.has(REST_SLOT)
+    ? [...SERIES_COLORS.keys()].find((slot) => !usedSlots.has(slot)) ?? REST_SLOT
+    : REST_SLOT
+  const rootColorOf = (node: FlowTreeNode) =>
+    SERIES_COLORS[node.id === 'rest' ? restSlot : rootSlots.get(node.name.trim()) ?? restSlot]
+  const parentColor = drilled ? rootColorOf(drilled) : SERIES_COLORS[REST_SLOT]
   const amountSum = levelNodes.reduce((sum, node) => sum + node.amount, 0)
   const denom = amountSum > 0 ? amountSum : drilled?.amount ?? total
   const items = levelNodes.map((node, index) => ({
     node,
-    color: isDrilled ? subFill(parentColor, index, levelNodes.length) : SERIES_FILL[index % SERIES_FILL.length],
+    color: isDrilled ? subFill(parentColor, index, levelNodes.length) : rootColorOf(node),
     share: denom > 0 ? (node.amount / denom) * 100 : 0,
     rest: node.id === 'rest',
   }))
@@ -688,6 +703,7 @@ function CompositionDonutSide({
   onOpen,
   emptyText,
   namedCount = 6,
+  colorUniverse,
 }: {
   title: string
   tone: 'income' | 'expense'
@@ -697,6 +713,7 @@ function CompositionDonutSide({
   onOpen?: (node: FlowTreeNode, kind: DonutKind) => void
   emptyText: string
   namedCount?: number
+  colorUniverse?: readonly string[]
 }) {
   return (
     <div className="mb-rp-compare-side">
@@ -720,6 +737,7 @@ function CompositionDonutSide({
         title={title}
         emptyText={emptyText}
         namedCount={namedCount}
+        colorUniverse={colorUniverse}
       />
     </div>
   )

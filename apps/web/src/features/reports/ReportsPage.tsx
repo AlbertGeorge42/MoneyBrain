@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
+import { deriveExpenseCharts, getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { Card } from '@/features/shared/Card'
 import { ToastViewport } from '@/features/shared/toast'
@@ -111,6 +111,16 @@ export function ReportsPage({
   )
   const seedCash = useMemo(() => deriveCashReport(ledger, time.from, time.to), [ledger, time.from, time.to])
   const seedInvest = useMemo(() => deriveInvestmentReport(ledger), [ledger])
+  // 支出用与总览相同的近 12 个月分类全集；收入用收入一级分类全集。
+  const categoryUniverse = useMemo(
+    () => ({
+      income: ledger.categories
+        .filter((category) => !category.parentId && category.type === 'income')
+        .map((category) => category.name.trim()),
+      expense: deriveExpenseCharts(ledger).categories.map((slice) => slice.name.trim()),
+    }),
+    [ledger],
+  )
 
   // API 模式：合计口径全部来自后端报表端点，查询自身也有加载 / 失败态。
   const apiReady = apiMode && dataState === 'normal'
@@ -238,6 +248,7 @@ export function ReportsPage({
               onDrill={(node, kind) => {
                 if (kind !== 'asset') setDrill({ node, kind })
               }}
+              colorUniverse={categoryUniverse}
             />
           )}
           {tab === 'cash' && cash && (

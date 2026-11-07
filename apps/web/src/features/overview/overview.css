@@ -434,6 +434,18 @@
   background: var(--mb-color-cat-3);
 }
 
+.mb-account-dot.mb-tone-cat-4 {
+  background: var(--mb-color-cat-4);
+}
+
+.mb-account-dot.mb-tone-cat-5 {
+  background: var(--mb-color-cat-5);
+}
+
+.mb-account-dot.mb-tone-cat-6 {
+  background: var(--mb-color-cat-6);
+}
+
 .mb-m-tx-amount {
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;
