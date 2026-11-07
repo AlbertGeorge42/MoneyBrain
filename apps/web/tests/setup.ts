@@ -46,10 +46,5 @@ Object.defineProperty(window, 'scrollTo', {
   value: vi.fn(),
 })
 
-// Mock echarts-for-react
-vi.mock('echarts-for-react', () => ({
-  default: vi.fn(() => null),
-}))
-
 // 全局超时设置
 vi.setConfig({ testTimeout: 10000 })
