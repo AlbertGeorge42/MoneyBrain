@@ -538,7 +538,7 @@
 .mb-m-tx:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * -2);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
 }
 
 /* ===== 预算 ===== */
@@ -827,7 +827,7 @@
   min-width: 0;
   padding: var(--mb-s-1);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-primary);
   text-align: left;

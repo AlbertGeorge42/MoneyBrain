@@ -146,7 +146,7 @@
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-3);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-secondary);
   font-family: inherit;
@@ -174,7 +174,7 @@
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-2);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-accent);
   font-family: inherit;
@@ -247,7 +247,7 @@
   height: var(--mb-btn-h-xs);
   margin-left: calc(var(--mb-s-2) * -1);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-tertiary);
   cursor: pointer;
@@ -349,7 +349,7 @@
   width: var(--mb-btn-h-sm);
   height: var(--mb-btn-h-sm);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-tertiary);
   cursor: pointer;
@@ -390,7 +390,7 @@
   min-height: var(--mb-btn-h-md);
   padding: var(--mb-s-1) var(--mb-s-3);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-primary);
   font-family: inherit;
@@ -1175,7 +1175,7 @@
   width: var(--mb-btn-h-sm);
   height: var(--mb-btn-h-sm);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-tertiary);
   cursor: pointer;
@@ -1422,7 +1422,7 @@
   flex: none;
   padding: 2px var(--mb-s-2);
   border: var(--mb-border-style-dashed) var(--mb-border-width) var(--mb-color-border-strong);
-  border-radius: 999px;
+  border-radius: var(--mb-radius-pill);
   color: var(--mb-color-text-tertiary);
   font-size: var(--mb-fs-0);
   white-space: nowrap;
@@ -1435,7 +1435,7 @@
   height: 28px;
   padding: 0;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
-  border-radius: 999px;
+  border-radius: var(--mb-radius-pill);
   background: var(--mb-color-surface-sunken);
   cursor: pointer;
   transition: background var(--mb-dur-1) var(--mb-ease);

@@ -33,9 +33,9 @@
   gap: var(--mb-s-3);
 }
 
-/* report：报表卡的圆角是 8px（--mb-radius-card），与总览的 14px 不同，保留差异。 */
+/* report：块级排版，圆角与其它卡片同走 --mb-radius-md。 */
 .mb-rp-card {
-  border-radius: var(--mb-radius-card);
+  min-width: 0;
 }
 
 /* 错误面板的左侧危险语义边。 */

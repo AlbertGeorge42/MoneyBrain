@@ -23,7 +23,7 @@
   min-height: var(--mb-control-h);
   padding: 0 var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
 }
 
@@ -51,7 +51,7 @@
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-1);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-primary);
   font-family: var(--mb-font-num);
@@ -292,7 +292,7 @@
 .mb-dp-day {
   min-height: var(--mb-btn-h-sm);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-primary);
   font-family: var(--mb-font-num);
@@ -356,7 +356,7 @@
   justify-content: center;
   min-height: var(--mb-btn-h-md);
   padding: 0 14px;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-1);
   cursor: pointer;

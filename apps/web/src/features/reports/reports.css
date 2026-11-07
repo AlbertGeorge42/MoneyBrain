@@ -39,7 +39,7 @@
   gap: var(--mb-s-1);
   padding: 3px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-sunken);
 }
 
@@ -103,7 +103,7 @@
   gap: 2px;
   padding: 3px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
 }
 
@@ -131,7 +131,7 @@
   gap: 2px;
   padding: 3px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-sunken);
 }
 
@@ -139,7 +139,7 @@
   height: var(--mb-btn-h-xs);
   padding: 0 12px;
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-secondary);
   font-family: var(--mb-font-ui);
@@ -161,7 +161,7 @@
   margin-left: auto;
   padding: 0 12px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
   color: var(--mb-color-text-secondary);
   font-family: var(--mb-font-ui);
@@ -200,7 +200,7 @@
   gap: 6px;
   min-height: var(--mb-btn-h-md);
   padding: 0 14px;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-1);
   cursor: pointer;
@@ -234,7 +234,7 @@
   display: grid;
   grid-template-columns: 1.6fr 1fr 1fr 1fr;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-card);
+  border-radius: var(--mb-radius-md);
   background: var(--mb-color-surface-raised);
   box-shadow: var(--mb-sh-1);
   overflow: hidden;
@@ -513,7 +513,7 @@
   width: var(--mb-btn-h-xs);
   height: var(--mb-btn-h-xs);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-tertiary);
   cursor: pointer;
@@ -993,7 +993,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   margin: 0 calc(-1 * var(--mb-s-1));
   padding: 2px var(--mb-s-1);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   font: inherit;
   text-align: left;
@@ -1079,7 +1079,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   min-height: var(--mb-btn-h-xs);
   padding: 0 var(--mb-s-1);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
   color: var(--mb-color-text-secondary);
   font-family: var(--mb-font-ui);
@@ -1488,7 +1488,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   height: var(--mb-touch);
   margin-left: calc(var(--mb-s-2) * -1);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-secondary);
   cursor: pointer;
@@ -1543,7 +1543,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   min-height: var(--mb-touch);
   padding: 0 var(--mb-s-3);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
   color: var(--mb-color-text-secondary);
   font-family: var(--mb-font-ui);
@@ -1577,7 +1577,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   min-height: var(--mb-touch);
   padding: 0 var(--mb-s-3);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
   color: var(--mb-color-text-primary);
   font-family: var(--mb-font-ui);
@@ -1655,7 +1655,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   gap: 2px;
   padding: 3px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-sunken);
 }
 
@@ -1889,7 +1889,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   min-height: 43px;
   padding: var(--mb-s-1) var(--mb-s-3);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-card);
+  border-radius: var(--mb-radius-md);
   background: var(--mb-color-surface-raised);
   box-shadow: var(--mb-sh-1);
 }

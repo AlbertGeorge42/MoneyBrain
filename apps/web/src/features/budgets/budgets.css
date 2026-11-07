@@ -571,7 +571,7 @@
 .mb-bg-seg-btn {
   min-height: var(--mb-btn-h-sm);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-secondary);
   font-family: inherit;

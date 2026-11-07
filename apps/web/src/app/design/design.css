@@ -38,7 +38,7 @@
   justify-content: center;
   width: calc(var(--mb-touch) - var(--mb-s-3));
   height: calc(var(--mb-touch) - var(--mb-s-3));
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
   font-family: var(--mb-font-display);
@@ -91,7 +91,7 @@
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-3);
   border: 0;
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
   background: transparent;
   color: var(--mb-color-text-secondary);
   font-family: var(--mb-font-ui);

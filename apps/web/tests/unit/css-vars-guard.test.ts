@@ -33,7 +33,6 @@ const ANT_VAR = /--ant-[A-Za-z0-9_-]+/g
  */
 const DEAD_VAR_ALLOWLIST: Record<string, string> = {
   // 结构 token：圆角 / 动效由 design-tokens 统一登记，供 Mantine theme 与后续组件引用
-  '--mb-radius-card': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-radius-*',
   '--mb-motion-fast': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
   '--mb-motion-mid': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
   '--mb-ease-standard': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-ease',

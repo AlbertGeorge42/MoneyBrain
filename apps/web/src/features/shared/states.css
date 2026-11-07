@@ -126,7 +126,7 @@
 
 .mb-skeleton-toolbar {
   height: var(--mb-control-h);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
 }
 
 .mb-skeleton-list {
@@ -136,7 +136,7 @@
 
 .mb-skeleton-line {
   height: var(--mb-tbl-row-h);
-  border-radius: var(--mb-radius-xs);
+  border-radius: var(--mb-radius-sm);
 }
 
 .mb-skeleton-chart {

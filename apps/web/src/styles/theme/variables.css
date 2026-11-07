@@ -16,9 +16,6 @@
   --mb-border-style: solid;
   --mb-border-style-dashed: dashed;
 
-  /* ===== 圆角 ===== */
-  --mb-radius-card: 8px;
-
   /* ===== 动效 ===== */
   --mb-motion-fast: 0.15s;
   --mb-motion-mid: 0.24s;
