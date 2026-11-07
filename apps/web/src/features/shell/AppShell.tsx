@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { getPortalHost } from '@/features/shared/portalHost'
+import { HfButton } from '@/features/shared/HfButton'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { deriveOverview, ledgerAnchorDay } from '@/features/overview/model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -75,9 +76,8 @@ function DesktopShell({
             const Icon = item.icon
             const active = item.id === page
             return (
-              <button
+              <HfButton
                 key={item.id}
-                type="button"
                 className={active ? 'mb-side-nav-item is-active' : 'mb-side-nav-item'}
                 aria-current={active ? 'page' : undefined}
                 onClick={() => onNavigate(item.id)}
@@ -85,15 +85,15 @@ function DesktopShell({
                 <Icon size={18} strokeWidth={1.7} />
                 <span>{item.label}</span>
                 <kbd className="mb-kbd">{item.shortcut}</kbd>
-              </button>
+              </HfButton>
             )
           })}
         </nav>
         {createPortal(
-          <button type="button" className="mb-primary-btn mb-side-add" onClick={onOpenEntry}>
+          <HfButton variant="primary" className="mb-side-add" onClick={onOpenEntry}>
             <Plus size={16} />
             记一笔
-          </button>,
+          </HfButton>,
           getPortalHost(),
         )}
         <MonthSummary state={dataState} />
@@ -126,23 +126,21 @@ function MobileShell({
         <h1 className="mb-mobile-title">{shellPageLabel(page)}</h1>
         <div className="mb-mobile-head-actions">
           {headAction}
-          <button
-            type="button"
-            className="mb-icon-btn"
+          <HfButton
+            variant="icon"
             aria-label="搜索流水"
             onClick={() => onNavigate('transactions')}
           >
             <Search size={19} />
-          </button>
+          </HfButton>
           {page !== 'settings' && (
-            <button
-              type="button"
-              className="mb-icon-btn"
+            <HfButton
+              variant="icon"
               aria-label="打开设置"
               onClick={() => onNavigate('settings')}
             >
               <Settings size={19} />
-            </button>
+            </HfButton>
           )}
         </div>
       </header>
@@ -155,28 +153,26 @@ function MobileShell({
           const Icon = item.icon
           const active = item.id === page
           return (
-            <button
+            <HfButton
               key={item.id}
-              type="button"
               className={active ? 'mb-mobile-nav-item is-active' : 'mb-mobile-nav-item'}
               aria-current={active ? 'page' : undefined}
               onClick={() => onNavigate(item.id)}
             >
               <Icon size={20} strokeWidth={1.7} />
               <span>{item.label}</span>
-            </button>
+            </HfButton>
           )
         })}
       </nav>
       {!hideFab && (
-        <button
-          type="button"
+        <HfButton
           className="mb-mobile-fab"
           aria-label="记一笔"
           onClick={onOpenEntry}
         >
           <Plus size={22} />
-        </button>
+        </HfButton>
       )}
     </div>
   )

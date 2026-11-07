@@ -14,6 +14,7 @@
  * 其余一次性样式（报表面板、预算行、键盘格子、日期面板等）留在调用方本地类里。
  */
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
+import './button.css'
 
 type HfButtonVariant = 'primary' | 'secondary' | 'icon' | 'link'
 

@@ -215,99 +215,13 @@
   inset: 0;
 }
 
-/* ===== 通用按钮（Mantine Button 与原生 button 共用） ===== */
-
-.mb-primary-btn {
-  min-height: var(--mb-control-h);
-  padding: 0 var(--mb-s-4);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-primary-btn:hover {
-  background: var(--mb-color-accent-fill-hover);
-}
-
-.mb-primary-btn:active {
-  background: var(--mb-color-accent-fill-pressed);
-}
-
-/* 错误态必须让主按钮看得出不可点（Mantine 默认样式会被上面的背景覆盖）。 */
-.mb-primary-btn:disabled,
-.mb-primary-btn.mantine-Button-root:disabled,
-.mb-primary-btn:disabled:hover,
-.mb-primary-btn.mantine-Button-root:disabled:hover {
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-tertiary);
-  cursor: not-allowed;
-}
-
-.mb-secondary-btn {
-  min-height: var(--mb-control-h);
-  padding: 0 var(--mb-s-4);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease), border-color var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-secondary-btn:hover {
-  border-color: var(--mb-color-border-strong);
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-primary-btn.mantine-Button-root,
-.mb-secondary-btn.mantine-Button-root {
-  padding: 0 var(--mb-s-4);
-  font-size: var(--mb-fs-1);
-}
-
-.mb-primary-btn.mantine-Button-root {
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-}
-
-.mb-primary-btn.mantine-Button-root:hover {
-  background: var(--mb-color-accent-fill-hover);
-}
-
-.mb-primary-btn.mantine-Button-root:active {
-  background: var(--mb-color-accent-fill-pressed);
-}
-
-.mb-secondary-btn.mantine-Button-root {
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-secondary-btn.mantine-Button-root:hover {
-  border-color: var(--mb-color-border-strong);
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
 .mb-hf-choice:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mb-hf-choice,
-  .mb-primary-btn,
-  .mb-secondary-btn {
+  .mb-hf-choice {
     transition: none;
   }
 }

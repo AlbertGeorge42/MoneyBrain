@@ -9,14 +9,17 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route
-            path="/design"
-            element={
-              <Suspense fallback={null}>
-                <DesignApp />
-              </Suspense>
-            }
-          />
+          {/* 设计预览面只在开发构建可用；生产包不注册该路由，/design 落回应用入口。 */}
+          {import.meta.env.DEV && (
+            <Route
+              path="/design"
+              element={
+                <Suspense fallback={null}>
+                  <DesignApp />
+                </Suspense>
+              }
+            />
+          )}
           <Route
             path="*"
             element={
