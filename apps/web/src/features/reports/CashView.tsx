@@ -3,6 +3,7 @@
  * 分组可见性只影响展示合计；点切块/ribbon 落到同一节点抽屉。
  */
 import { useState } from 'react'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { CashSankeyChart } from './CashSankey'
@@ -171,12 +172,11 @@ export function CashView({
         title={sankeyNode ? `${sankeyNode.name} · 现金流明细` : '现金流明细'}
         actions={
           <>
-            <button type="button" className="mb-rp-btn is-ghost" onClick={() => setSankeyNode(null)}>
+            <HfButton className="mb-rp-btn is-ghost" onClick={() => setSankeyNode(null)}>
               关闭
-            </button>
+            </HfButton>
             {sankeyCategories.length > 0 && (
-              <button
-                type="button"
+              <HfButton
                 className="mb-rp-btn is-primary"
                 onClick={() => {
                   onViewFlow({ categoryIds: sankeyCategories, from, to })
@@ -184,7 +184,7 @@ export function CashView({
                 }}
               >
                 在流水中查看
-              </button>
+              </HfButton>
             )}
           </>
         }

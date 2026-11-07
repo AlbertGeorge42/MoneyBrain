@@ -4,6 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { LedgerAccountCategory } from '@/features/overview/model'
 import type { DeviceMode } from '@/features/shared/types'
@@ -390,8 +391,7 @@ export function BalanceView({
             )}
             <h4 className="mb-rp-drill-title">{kindAccounts.length} 个账户</h4>
             {kindAccounts.map((row) => (
-              <button
-                type="button"
+              <HfButton
                 className="mb-rp-drill-row is-action"
                 key={row.id}
                 onClick={() => {
@@ -401,7 +401,7 @@ export function BalanceView({
               >
                 <span>{row.name}</span>
                 <span className="mb-rp-drill-value">{currency(row.amount)}</span>
-              </button>
+              </HfButton>
             ))}
             <p className="mb-rp-chart-note">点账户落到流水，按该账户筛选；合计与图例一致。</p>
           </div>

@@ -5,6 +5,7 @@
  */
 import { FolderInput, ScanLine } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReportTab } from './reportsTime'
@@ -60,10 +61,10 @@ export function ReportsEmpty({ onImport }: { onImport: () => void }) {
       <p className="mb-rp-empty-desc">
         报表从账本里取数：先记一笔收支，或导入银行 / 支付宝账单，四张报表会自动生成。
       </p>
-      <button type="button" className="mb-rp-btn is-primary" onClick={onImport}>
+      <HfButton className="mb-rp-btn is-primary" onClick={onImport}>
         <FolderInput size={16} />
         导入账单
-      </button>
+      </HfButton>
     </Card>
   )
 }

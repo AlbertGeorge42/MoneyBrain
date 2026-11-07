@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReportMetric } from './reportsModel'
 
@@ -213,8 +214,7 @@ export function ReportTable({
                         {index === 0 && foldable ? (
                           <span className="mb-rp-row-first">
                             {row.fold ? (
-                              <button
-                                type="button"
+                              <HfButton
                                 className="mb-rp-fold"
                                 aria-expanded={row.fold.expanded}
                                 aria-label={row.fold.expanded ? '收起子项' : '展开子项'}
@@ -224,7 +224,7 @@ export function ReportTable({
                                 }}
                               >
                                 {row.fold.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                              </button>
+                              </HfButton>
                             ) : row.level ? null : (
                               // 子级行的 padding-left 已含折叠槽，再放占位会把缩进叠成 40px。
                               <span className="mb-rp-fold-space" aria-hidden="true" />
@@ -306,18 +306,16 @@ export function ReportCardList({
               className={`mb-rp-crow${row.level === 1 ? ' is-child' : row.level === 2 ? ' is-child-2' : ''}${row.onOpen ? ' is-interactive' : ''}`}
             >
               {row.fold && (
-                <button
-                  type="button"
+                <HfButton
                   className="mb-rp-crow-fold"
                   aria-expanded={row.fold.expanded}
                   aria-label={row.fold.expanded ? '收起子项' : '展开子项'}
                   onClick={row.fold.onToggle}
                 >
                   {row.fold.expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </button>
+                </HfButton>
               )}
-              <button
-                type="button"
+              <HfButton
                 className="mb-rp-crow-main"
                 disabled={!row.onOpen}
                 onClick={row.onOpen}
@@ -330,7 +328,7 @@ export function ReportCardList({
                   {row.meta && <span className="mb-rp-crow-meta">{row.meta}</span>}
                 </span>
                 <span className={`mb-rp-crow-amount is-${row.tone ?? 'neutral'}`}>{row.amount}</span>
-              </button>
+              </HfButton>
               {row.action}
               {row.share !== undefined && (
                 <progress

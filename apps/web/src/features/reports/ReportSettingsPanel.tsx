@@ -6,6 +6,7 @@
  */
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { HfSwitch } from '@/features/shared/HfSwitch'
 import type { DeviceMode } from '@/features/shared/types'
@@ -68,16 +69,15 @@ function Choice<T extends string | number>({
     <Field label={label} note={note}>
       <div className="mb-rp-config-choices" role="group" aria-label={label}>
         {options.map((option) => (
-          <button
+          <HfButton
             key={String(option.id)}
-            type="button"
             className={option.id === value ? 'mb-rp-config-choice is-active' : 'mb-rp-config-choice'}
             aria-pressed={option.id === value}
             disabled={option.disabled}
             onClick={() => onChange(option.id)}
           >
             {option.label}
-          </button>
+          </HfButton>
         ))}
       </div>
       {disabledReason && <p className="mb-rp-config-reason">{disabledReason}</p>}
@@ -112,9 +112,9 @@ export function ReportConfigPanel({
   return (
     <div className="mb-rp-config">
       <div className="mb-rp-config-head">
-        <button type="button" className="mb-rp-config-back" aria-label="返回报表设置" onClick={onBack}>
+        <HfButton className="mb-rp-config-back" aria-label="返回报表设置" onClick={onBack}>
           <ChevronLeft size={18} />
-        </button>
+        </HfButton>
         <div>
           <h3 className="mb-rp-config-title">{TAB_LABEL[tab]}配置</h3>
           <p className="mb-rp-config-note">只改展示口径 · 不写回账本</p>
@@ -206,25 +206,23 @@ export function ReportConfigPanel({
           </Field>
           <Field label="持仓排序" note="只改行序，不改持仓金额。">
             <div className="mb-rp-config-choices" role="group" aria-label="持仓排序">
-              <button
-                type="button"
+              <HfButton
                 className={draft.invest.sortBy === 'marketValue' ? 'mb-rp-config-choice is-active' : 'mb-rp-config-choice'}
                 aria-pressed={draft.invest.sortBy === 'marketValue'}
                 onClick={() => patchInvest({ sortBy: 'marketValue' })}
               >
                 市值
-              </button>
-              <button
-                type="button"
+              </HfButton>
+              <HfButton
                 className={draft.invest.sortBy === 'rate' ? 'mb-rp-config-choice is-active' : 'mb-rp-config-choice'}
                 aria-pressed={draft.invest.sortBy === 'rate'}
                 onClick={() => patchInvest({ sortBy: 'rate' })}
               >
                 收益率
-              </button>
-              <button type="button" className="mb-rp-config-choice" disabled>
+              </HfButton>
+              <HfButton className="mb-rp-config-choice" disabled>
                 成本
-              </button>
+              </HfButton>
             </div>
             <p className="mb-rp-config-reason">成本为测算值，不作为排序依据</p>
           </Field>
@@ -284,20 +282,20 @@ export function ReportSettingsSheet({
       actions={
         configTab && draftSettings ? (
           <>
-            <button type="button" className="mb-rp-btn is-ghost" onClick={onReset}>
+            <HfButton className="mb-rp-btn is-ghost" onClick={onReset}>
               重置
-            </button>
-            <button type="button" className="mb-rp-btn is-ghost" onClick={onBack}>
+            </HfButton>
+            <HfButton className="mb-rp-btn is-ghost" onClick={onBack}>
               取消
-            </button>
-            <button type="button" className="mb-rp-btn is-primary" onClick={onCommit}>
+            </HfButton>
+            <HfButton className="mb-rp-btn is-primary" onClick={onCommit}>
               确认
-            </button>
+            </HfButton>
           </>
         ) : (
-          <button type="button" className="mb-rp-btn is-primary" onClick={onClose}>
+          <HfButton className="mb-rp-btn is-primary" onClick={onClose}>
             完成
-          </button>
+          </HfButton>
         )
       }
       actionsClassName={configTab && draftSettings ? 'is-config' : undefined}
@@ -320,9 +318,9 @@ export function ReportSettingsSheet({
                   <div>
                     <p className="mb-rp-settings-title">{item.label}</p>
                   </div>
-                  <button type="button" className="mb-rp-btn is-ghost" onClick={() => onOpenConfig(item.id)}>
+                  <HfButton className="mb-rp-btn is-ghost" onClick={() => onOpenConfig(item.id)}>
                     配置
-                  </button>
+                  </HfButton>
                 </div>
               ))}
             </>

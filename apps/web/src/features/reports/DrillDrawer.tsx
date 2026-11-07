@@ -2,6 +2,7 @@
  * 收支下钻抽屉：当期合计、二级类别与相关流水。
  * 数据由页面按当前期间派生，这里只渲染与动作。
  */
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { currency, type DrillData } from './reportsModel'
@@ -26,12 +27,12 @@ export function DrillDrawer({
       title={data ? `${data.title} · 下钻` : '下钻'}
       actions={
         <>
-          <button type="button" className="mb-rp-btn is-ghost" onClick={onClose}>
+          <HfButton className="mb-rp-btn is-ghost" onClick={onClose}>
             关闭
-          </button>
-          <button type="button" className="mb-rp-btn is-primary" onClick={onViewFlow}>
+          </HfButton>
+          <HfButton className="mb-rp-btn is-primary" onClick={onViewFlow}>
             在流水中查看
-          </button>
+          </HfButton>
         </>
       }
     >

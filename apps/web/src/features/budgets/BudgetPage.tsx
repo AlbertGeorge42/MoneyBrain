@@ -9,6 +9,7 @@ import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import { Card } from '@/features/shared/Card'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { HfSwitch } from '@/features/shared/HfSwitch'
@@ -61,17 +62,15 @@ function MonthBar({
   const nextHasData = hasData(nextMonth)
   return (
     <div className={`mb-bg-month${compact ? ' is-compact' : ''}`} role="group" aria-label="预算月份">
-      <button
-        type="button"
+      <HfButton
         className="mb-bg-month-btn"
         aria-label="上一个月"
         onClick={() => onChange(shiftMonth(month, -1))}
       >
         <ChevronLeft size={16} />
-      </button>
+      </HfButton>
       <span className="mb-bg-month-label">{monthLabel(month)}</span>
-      <button
-        type="button"
+      <HfButton
         className="mb-bg-month-btn"
         aria-label="下一个月"
         disabled={!nextHasData}
@@ -80,14 +79,14 @@ function MonthBar({
         onClick={() => onChange(nextMonth)}
       >
         <ChevronRight size={16} />
-      </button>
+      </HfButton>
       {!nextHasData && (
         <span className="mb-bg-month-reason">{monthLabel(nextMonth)}无流水</span>
       )}
       {!isCurrent && (
-        <button type="button" className="mb-link-btn mb-bg-month-today" onClick={() => onChange(currentMonth)}>
+        <HfButton variant="link" className="mb-bg-month-today" onClick={() => onChange(currentMonth)}>
           回到本月
-        </button>
+        </HfButton>
       )}
     </div>
   )
@@ -195,10 +194,10 @@ function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Budg
             <p className="mb-bg-watch-empty">没有超支条目</p>
           ) : (
             data.over.map((row) => (
-              <button key={row.id} type="button" className="mb-bg-watch-row" onClick={() => onOpen(row)}>
+              <HfButton key={row.id} className="mb-bg-watch-row" onClick={() => onOpen(row)}>
                 <span className="mb-bg-watch-name">{row.name}</span>
                 <span className="mb-bg-watch-status">{row.status}</span>
-              </button>
+              </HfButton>
             ))
           )}
         </div>
@@ -208,10 +207,10 @@ function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Budg
             <p className="mb-bg-watch-empty">没有接近上限条目</p>
           ) : (
             data.near.map((row) => (
-              <button key={row.id} type="button" className="mb-bg-watch-row" onClick={() => onOpen(row)}>
+              <HfButton key={row.id} className="mb-bg-watch-row" onClick={() => onOpen(row)}>
                 <span className="mb-bg-watch-name">{row.name}</span>
                 <span className="mb-bg-watch-status">{row.status}</span>
-              </button>
+              </HfButton>
             ))
           )}
         </div>
@@ -242,9 +241,8 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
             </div>
             <div className="mb-bg-rows">
               {group.rows.map((row) => (
-                <button
+                <HfButton
                   key={row.id}
-                  type="button"
                   className="mb-bg-row"
                   data-active={row.isActive ? undefined : 'false'}
                   onClick={() => onOpen(row)}
@@ -279,7 +277,7 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
                       {moneyText(row.used)} / {moneyText(row.limit)}
                     </span>
                   </div>
-                </button>
+                </HfButton>
               ))}
             </div>
           </Card>
@@ -300,9 +298,9 @@ function EmptyPage({ onAdd }: { onAdd: () => void }) {
         为支出设置上限、为收入设置目标、为转账记录计划。第一条预算建好后，这一页会显示「可花多少」、
         接近上限与超支提醒。
       </p>
-      <button type="button" className="mb-primary-btn" onClick={onAdd}>
+      <HfButton variant="primary" onClick={onAdd}>
         新增预算条目
-      </button>
+      </HfButton>
     </Card>
   )
 }
@@ -733,26 +731,24 @@ export function BudgetPage({
             {detail.type === 'expense' && detail.level === 'over' && (
               <div className="mb-bg-over-actions">
                 <div className="mb-bg-over-buttons">
-                  <button type="button" className="mb-secondary-btn" onClick={adjustToActual} disabled={saving}>
+                  <HfButton variant="secondary" onClick={adjustToActual} disabled={saving}>
                     按实际调整
-                  </button>
-                  <button
-                    type="button"
-                    className="mb-secondary-btn"
+                  </HfButton>
+                  <HfButton
+                    variant="secondary"
                     onClick={() => setDetailNote('已维持原限额')}
                   >
                     维持限额
-                  </button>
-                  <button
-                    type="button"
-                    className="mb-secondary-btn"
+                  </HfButton>
+                  <HfButton
+                    variant="secondary"
                     onClick={() => {
                       onViewFlow()
                       setDetailId(null)
                     }}
                   >
                     查看流水
-                  </button>
+                  </HfButton>
                 </div>
               </div>
             )}
@@ -769,17 +765,17 @@ export function BudgetPage({
                   value={detailLimit}
                   onChange={(event) => setDetailLimit(event.target.value)}
                 />
-                <button type="button" className="mb-primary-btn" onClick={saveLimit} disabled={saving}>
+                <HfButton variant="primary" onClick={saveLimit} disabled={saving}>
                   保存
-                </button>
+                </HfButton>
               </div>
             </div>
 
             {detailNote && <p className="mb-bg-detail-note">{detailNote}</p>}
 
-            <button type="button" className="mb-bg-danger-link" onClick={deleteBudget} disabled={saving}>
+            <HfButton className="mb-bg-danger-link" onClick={deleteBudget} disabled={saving}>
               {confirmDelete ? '再次点击确认删除' : '删除预算条目'}
-            </button>
+            </HfButton>
           </>
         )}
       </HfSheet>
@@ -837,9 +833,9 @@ function BudgetPageHead({
           hasData={hasData}
         />
         {!empty && (
-          <button type="button" className="mb-primary-btn mb-bg-add" onClick={onAdd}>
+          <HfButton variant="primary" className="mb-bg-add" onClick={onAdd}>
             <Plus size={16} /> 新增
-          </button>
+          </HfButton>
         )}
       </div>
     </div>
@@ -989,12 +985,12 @@ function BudgetEditor({
         {error && <p className="mb-entry-error">{error}</p>}
 
         <div className="mb-entry-actions">
-          <button type="button" className="mb-secondary-btn" onClick={onClose}>
+          <HfButton variant="secondary" onClick={onClose}>
             取消
-          </button>
-          <button type="button" className="mb-primary-btn" onClick={onSave} disabled={saving}>
+          </HfButton>
+          <HfButton variant="primary" onClick={onSave} disabled={saving}>
             保存
-          </button>
+          </HfButton>
         </div>
       </div>
     </HfSheet>

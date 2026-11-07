@@ -8,6 +8,7 @@
 import { ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import type { DatePresetOption } from '@/features/shared/datePicker/datePickerModel'
+import { HfButton } from '@/features/shared/HfButton'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import type { DeviceMode } from '@/features/shared/types'
 import {
@@ -112,9 +113,9 @@ export function TimeBar({ device, tab, time, today, onChange, onToast, onOpenSet
     <div className="mb-rp-timebar">
       <div className="mb-rp-time-main">
         <div className="mb-rp-time-picker">
-          <button type="button" className="mb-rp-iconbtn" aria-label="上一期" onClick={() => step(-1)}>
+          <HfButton className="mb-rp-iconbtn" aria-label="上一期" onClick={() => step(-1)}>
             <ChevronLeft size={18} />
-          </button>
+          </HfButton>
           <DatePicker
             device={device}
             mode={isPoint ? 'point' : 'range'}
@@ -132,9 +133,9 @@ export function TimeBar({ device, tab, time, today, onChange, onToast, onOpenSet
             tag={isPoint ? '月末估值' : undefined}
             sheetTitle="时间范围"
           />
-          <button type="button" className="mb-rp-iconbtn" aria-label="下一期" onClick={() => step(1)}>
+          <HfButton className="mb-rp-iconbtn" aria-label="下一期" onClick={() => step(1)}>
             <ChevronRight size={18} />
-          </button>
+          </HfButton>
         </div>
         <HfSegmented
           variant="granularity"
@@ -144,10 +145,10 @@ export function TimeBar({ device, tab, time, today, onChange, onToast, onOpenSet
           onChange={changeGran}
         />
         {device === 'desktop' && (
-          <button type="button" className="mb-rp-settings-btn" onClick={onOpenSettings}>
+          <HfButton className="mb-rp-settings-btn" onClick={onOpenSettings}>
             <Settings size={15} />
             设置
-          </button>
+          </HfButton>
         )}
       </div>
     </div>
