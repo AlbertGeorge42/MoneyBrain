@@ -1390,3 +1390,106 @@
 .mb-set-page[data-device='mobile'] .mb-set-theme-grid {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* ===== 自动备份 ===== */
+
+.mb-set-capability-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  width: 100%;
+  min-height: 44px;
+}
+
+.mb-set-capability-row.is-disabled {
+  opacity: 0.7;
+}
+
+.mb-set-capability-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.mb-set-capability-control {
+  flex: none;
+  width: 120px;
+}
+
+.mb-set-gap-tag {
+  flex: none;
+  padding: 2px var(--mb-s-2);
+  border: var(--mb-border-style-dashed) var(--mb-border-width) var(--mb-color-border-strong);
+  border-radius: 999px;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  white-space: nowrap;
+}
+
+.mb-set-switch {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 28px;
+  padding: 0;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: 999px;
+  background: var(--mb-color-surface-sunken);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-set-switch.is-on {
+  border-color: var(--mb-color-accent-fill);
+  background: var(--mb-color-accent-fill);
+}
+
+.mb-set-switch:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+.mb-set-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--mb-color-text-primary);
+  transition: transform var(--mb-dur-1) var(--mb-ease), background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-set-switch.is-on .mb-set-switch-thumb {
+  transform: translateX(20px);
+  background: var(--mb-color-on-accent-fill);
+}
+
+.mb-set-backup-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-set-page[data-device='mobile'] .mb-set-switch {
+  width: 56px;
+  height: 32px;
+}
+
+.mb-set-page[data-device='mobile'] .mb-set-switch-thumb {
+  width: 24px;
+  height: 24px;
+}
+
+.mb-set-page[data-device='mobile'] .mb-set-switch.is-on .mb-set-switch-thumb {
+  transform: translateX(24px);
+}
+
+.mb-set-page[data-device='mobile'] .mb-set-capability-control {
+  width: 104px;
+}

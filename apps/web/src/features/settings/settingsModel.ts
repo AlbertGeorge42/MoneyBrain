@@ -22,6 +22,7 @@ export type SectionId =
   | 'cashflow'
   | 'invest'
   | 'appearance'
+  | 'backup'
   | 'display'
   | 'data'
   | 'trash'
@@ -40,6 +41,7 @@ export const CONFIG_SECTIONS: readonly SectionMeta[] = [
 
 export const GENERAL_SECTIONS: readonly SectionMeta[] = [
   { id: 'appearance', label: '外观主题' },
+  { id: 'backup', label: '自动备份' },
   { id: 'display', label: '列表显示' },
   { id: 'data', label: '数据与备份' },
   { id: 'trash', label: '回收站' },

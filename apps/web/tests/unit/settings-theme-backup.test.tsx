@@ -1,23 +1,39 @@
 /**
- * 设置页：外观主题
+ * 设置页：外观主题 + 自动备份
  *
- * 三档是真实控件：切换立即改写共享 ThemeContext（data-theme + localStorage），
- * 不是只写 localStorage 不改页面。
+ * - 主题三档是真实控件：切换立即改写共享 ThemeContext（data-theme + localStorage），
+ *   不是只写 localStorage 不改页面；
+ * - 自动备份走真实 GET/PUT /data/auto-backup；频率与保留份数后端无字段，
+ *   必须明确显示「后端未提供」且控件禁用，不能假装保存成功。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, useTheme } from '@/styles/ThemeContext'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import type { AutoBackupConfig } from '@/services/api'
 import type { Ledger } from '@/features/overview/model'
 
+const mocks = vi.hoisted(() => ({
+  getAutoBackup: vi.fn(),
+  updateAutoBackup: vi.fn(),
+}))
+
 vi.mock('@/services/api', () => ({
-  dataApi: {},
+  dataApi: {
+    getAutoBackup: mocks.getAutoBackup,
+    updateAutoBackup: mocks.updateAutoBackup,
+  },
   accountApi: {},
   transactionCategoryApi: {},
   auditEventApi: {},
+  transactionApi: {
+    getRecycleBin: vi.fn().mockResolvedValue({
+      data: { success: true, data: { list: [], accounts: [], categories: [] } },
+    }),
+  },
 }))
 
 const ledger: Ledger = {
@@ -27,12 +43,24 @@ const ledger: Ledger = {
   transactions: [],
 }
 
+const config: AutoBackupConfig = {
+  enabled: false,
+  directory: 'C:\\tmp\\auto-backups',
+  defaultDirectory: 'C:\\tmp\\auto-backups',
+  lastRunAt: null,
+  lastRunError: null,
+  nextWindowAt: null,
+  backupCount: 0,
+}
+
+const ok = <T,>(data: T) => ({ data: { success: true, data } })
+
 function ThemeProbe() {
   const { mode, theme } = useTheme()
   return <span data-testid="theme-probe">{`${mode}:${theme}`}</span>
 }
 
-function renderPage() {
+function renderPage(dataMode: 'api' | 'seed' = 'api') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
@@ -40,7 +68,7 @@ function renderPage() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <MantineProvider>
-          <LedgerProvider initialLedger={ledger} dataMode="api">
+          <LedgerProvider initialLedger={ledger} dataMode={dataMode}>
             <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
             <ThemeProbe />
           </LedgerProvider>
@@ -50,7 +78,12 @@ function renderPage() {
   )
 }
 
+async function openSection(name: string) {
+  fireEvent.click(screen.getByRole('button', { name }))
+}
+
 beforeEach(() => {
+  Object.values(mocks).forEach((mock) => mock.mockReset())
   window.localStorage.clear()
   document.documentElement.removeAttribute('data-theme')
 })
@@ -62,7 +95,7 @@ afterEach(() => {
 describe('外观主题', () => {
   it('三档切换立即生效：data-theme、ThemeContext 与 localStorage 同步', async () => {
     renderPage()
-    fireEvent.click(screen.getByRole('button', { name: /外观主题/ }))
+    await openSection('外观主题')
 
     const group = screen.getByRole('radiogroup', { name: '外观主题' })
     const dark = within(group).getByRole('radio', { name: '深色' })
@@ -79,7 +112,7 @@ describe('外观主题', () => {
     expect(screen.getByTestId('theme-probe').textContent).toBe('dark:dark')
     expect(screen.getByRole('status').textContent).toContain('当前生效：深色')
 
-    // 键盘可达：真实 button[role=radio] 可获得焦点，Enter/Space 走原生点击。
+    // 键盘可达：真实 button[role=radio] 可获得焦点并被 Enter 触发的浏览器默认行为覆盖。
     dark.focus()
     expect(dark).toHaveFocus()
 
@@ -88,5 +121,71 @@ describe('外观主题', () => {
     expect(document.documentElement).toHaveAttribute('data-theme', 'light')
     expect(window.localStorage.getItem('moneybrain-theme-mode')).toBe('system')
     expect(screen.getByRole('status').textContent).toContain('跟随系统（当前浅色）')
+  })
+})
+
+describe('自动备份', () => {
+  it('读取真实配置，开关与目录通过 PUT 保存并回读', async () => {
+    mocks.getAutoBackup
+      .mockResolvedValueOnce(ok(config))
+      .mockResolvedValueOnce(ok({ ...config, enabled: true, directory: 'D:\\backups' }))
+    mocks.updateAutoBackup.mockResolvedValue(ok({ ...config, enabled: true, directory: 'D:\\backups' }))
+
+    renderPage()
+    await openSection('自动备份')
+
+    await waitFor(() => expect(mocks.getAutoBackup).toHaveBeenCalledTimes(1))
+    const toggle = await screen.findByRole('switch', { name: '开启自动备份' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+    fireEvent.change(screen.getByLabelText('备份目录（绝对路径）'), {
+      target: { value: 'D:\\backups' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存设置' }))
+
+    await waitFor(() =>
+      expect(mocks.updateAutoBackup).toHaveBeenCalledWith({
+        enabled: true,
+        directory: 'D:\\backups',
+      }),
+    )
+    await waitFor(() => expect(mocks.getAutoBackup).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('自动备份设置已保存')).toBeInTheDocument()
+    expect(screen.getByLabelText('备份目录（绝对路径）')).toHaveValue('D:\\backups')
+  })
+
+  it('频率与保留份数明确标注「后端未提供」，控件禁用且不进入保存请求', async () => {
+    mocks.getAutoBackup.mockResolvedValue(ok(config))
+    mocks.updateAutoBackup.mockResolvedValue(ok(config))
+
+    renderPage()
+    await openSection('自动备份')
+    await screen.findByRole('switch', { name: '开启自动备份' })
+
+    expect(screen.getAllByText('后端未提供')).toHaveLength(2)
+    expect(screen.getByDisplayValue('每天')).toBeDisabled()
+    expect(screen.getByDisplayValue('7')).toBeDisabled()
+
+    expect(screen.getByText(/服务端当前固定：距上次成功 ≥ 24 小时/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '保存设置' }))
+    await waitFor(() => expect(mocks.updateAutoBackup).toHaveBeenCalledTimes(1))
+
+    // PUT 体只包含后端真实支持的字段，没有伪造 frequency / retention。
+    expect(mocks.updateAutoBackup.mock.calls[0]?.[0]).toEqual({
+      enabled: false,
+      directory: 'C:\\tmp\\auto-backups',
+    })
+  })
+
+  it('演示数据源不请求后端，并说明自动备份需要真实后端', async () => {
+    renderPage('seed')
+    await openSection('自动备份')
+
+    expect(screen.getByText(/当前为演示数据源/)).toBeInTheDocument()
+    expect(mocks.getAutoBackup).not.toHaveBeenCalled()
   })
 })

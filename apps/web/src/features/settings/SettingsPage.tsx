@@ -22,6 +22,7 @@ import {
   Download,
   FolderInput,
   GripVertical,
+  HardDriveDownload,
   Landmark,
   Monitor,
   Moon,
@@ -42,7 +43,13 @@ import { fromMajor, minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { downloadBlob, todayFilename } from '@/utils/download'
 import { accountApi, dataApi, transactionCategoryApi } from '@/services/api'
-import type { ImportBackupResult, ImportBatch, ImportFileSummary, ImportPreview } from '@/services/api'
+import type {
+  AutoBackupConfig,
+  ImportBackupResult,
+  ImportBatch,
+  ImportFileSummary,
+  ImportPreview,
+} from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import { useLedger } from '@/features/overview/ledgerStore'
@@ -913,6 +920,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   /* ===== 外观主题：复用共享 ThemeContext（localStorage + data-theme + syncCssVars） ===== */
   const { mode: themeMode, theme: currentTheme, setThemeMode } = useTheme()
 
+  /* ===== 自动备份：真实读写 GET/PUT /data/auto-backup ===== */
+  const [backupConfig, setBackupConfig] = useState<AutoBackupConfig | null>(null)
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [backupError, setBackupError] = useState<string | null>(null)
+  const [backupEnabled, setBackupEnabled] = useState<boolean | null>(null)
+  const [backupDirectory, setBackupDirectory] = useState<string | null>(null)
+  const [backupSaving, setBackupSaving] = useState(false)
+  const [backupReloadKey, setBackupReloadKey] = useState(0)
+
   /* ===== 数据：导入 / 导出 / 回滚 / 清空 ===== */
   type DataBusy = null | 'export' | 'preview' | 'import' | 'clear' | `rollback:${string}`
   const [dataBusy, setDataBusy] = useState<DataBusy>(null)
@@ -973,8 +989,50 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     }
   }, [apiMode, active, openSection, lastImport])
 
+  useEffect(() => {
+    if (!apiMode) return
+    if (active !== 'backup' && openSection !== 'backup') return
+    let cancelled = false
+    setBackupLoading(true)
+    void (async () => {
+      try {
+        const response = await dataApi.getAutoBackup()
+        if (cancelled) return
+        setBackupConfig(unwrapApiData(response))
+        setBackupError(null)
+      } catch (error) {
+        if (!cancelled) setBackupError(getApiErrorMessage(error, '读取自动备份配置失败，请重试'))
+      } finally {
+        if (!cancelled) setBackupLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [apiMode, active, openSection, backupReloadKey])
+
   const notify = (message: string) => setToast({ message, duration: 2600 })
 
+  const saveAutoBackup = async () => {
+    if (!backupConfig) return
+    const enabled = backupEnabled ?? backupConfig.enabled
+    const directory = (backupDirectory ?? backupConfig.directory).trim()
+    setBackupSaving(true)
+    setBackupError(null)
+    try {
+      await dataApi.updateAutoBackup({ enabled, directory })
+      // PUT 只回写配置本体；再读一次拿回 nextWindowAt / backupCount 等派生状态。
+      const response = await dataApi.getAutoBackup()
+      setBackupConfig(unwrapApiData(response))
+      setBackupEnabled(null)
+      setBackupDirectory(null)
+      notify('自动备份设置已保存')
+    } catch (error) {
+      setBackupError(getApiErrorMessage(error, '保存自动备份设置失败'))
+    } finally {
+      setBackupSaving(false)
+    }
+  }
   // 危险操作（转移后删除）与批量删除一致：6 秒内可撤销。
   const notifyUndoable = (message: string, run: () => void) =>
     setToast({ message, duration: 6000, action: { label: '撤销', run } })
@@ -2166,6 +2224,142 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     )
   }
 
+  const renderBackup = () => {
+    const head = (
+      <div className="mb-set-datacard-head">
+        <HardDriveDownload size={18} />
+        <h3>自动备份</h3>
+      </div>
+    )
+
+    if (!apiMode) {
+      return (
+        <section className="mb-set-datacard">
+          {head}
+          <p>自动备份设置需要连接真实后端；当前为演示数据源，无法读取或保存。</p>
+        </section>
+      )
+    }
+
+    if (!backupConfig) {
+      return (
+        <section className="mb-set-datacard">
+          {head}
+          {backupError ? (
+            <p className="mb-set-error" role="alert">
+              {backupError}
+              <button
+                type="button"
+                className="mb-set-textbtn"
+                onClick={() => setBackupReloadKey((key) => key + 1)}
+              >
+                重试
+              </button>
+            </p>
+          ) : (
+            <p>{backupLoading ? '正在读取自动备份配置…' : '尚未读取到自动备份配置。'}</p>
+          )}
+        </section>
+      )
+    }
+
+    const enabled = backupEnabled ?? backupConfig.enabled
+    const directory = backupDirectory ?? backupConfig.directory
+    const formatDateTime = (iso: string) =>
+      new Date(iso).toLocaleString('zh-CN', { hour12: false })
+
+    return (
+      <div className="mb-set-data">
+        <section className="mb-set-datacard">
+          {head}
+          <div className="mb-set-capability-row">
+            <div className="mb-set-capability-copy">
+              <span className="mb-set-name">开启自动备份</span>
+              <span className="mb-set-meta">
+                {enabled ? '已开启 · 距上次成功超过 24 小时时执行' : '未开启'}
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              aria-label="开启自动备份"
+              className={enabled ? 'mb-set-switch is-on' : 'mb-set-switch'}
+              onClick={() => setBackupEnabled(!enabled)}
+            >
+              <span className="mb-set-switch-thumb" aria-hidden="true" />
+            </button>
+          </div>
+          <label className="mb-set-field">
+            <span className="mb-set-label">备份目录（绝对路径）</span>
+            <input
+              className="mb-set-input"
+              value={directory}
+              placeholder={backupConfig.defaultDirectory}
+              onChange={(event) => setBackupDirectory(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="mb-set-btn is-primary"
+            disabled={backupSaving}
+            onClick={() => void saveAutoBackup()}
+          >
+            {backupSaving ? '保存中…' : '保存设置'}
+          </button>
+          {backupError && (
+            <p className="mb-set-error" role="alert">
+              {backupError}
+            </p>
+          )}
+          <div className="mb-set-backup-meta">
+            {backupConfig.lastRunAt ? (
+              <span>上次自动备份：{formatDateTime(backupConfig.lastRunAt)}</span>
+            ) : (
+              <span>还没有自动备份过。</span>
+            )}
+            <span>
+              {backupConfig.nextWindowAt
+                ? `预计下次备份：${formatDateTime(backupConfig.nextWindowAt)} 后的第一个空闲窗口`
+                : '开启后将在系统空闲时执行首次备份'}
+            </span>
+            <span>目录内现有备份 {backupConfig.backupCount} 份。</span>
+          </div>
+          {backupConfig.lastRunError && (
+            <p className="mb-set-error" role="alert">
+              上次自动备份失败：{backupConfig.lastRunError}
+            </p>
+          )}
+        </section>
+
+        <section className="mb-set-datacard">
+          <div className="mb-set-datacard-head">
+            <Database size={18} />
+            <h3>频率与保留份数</h3>
+          </div>
+          <p>以下两项后端接口尚未提供字段，前端只读展示当前固定策略，不会假装保存成功。</p>
+          <div className="mb-set-capability-row is-disabled">
+            <span className="mb-set-name">备份频率</span>
+            <select className="mb-set-input mb-set-capability-control" disabled defaultValue="daily">
+              <option value="daily">每天</option>
+            </select>
+            <span className="mb-set-gap-tag">后端未提供</span>
+          </div>
+          <div className="mb-set-capability-row is-disabled">
+            <span className="mb-set-name">保留份数</span>
+            <input
+              className="mb-set-input mb-set-capability-control"
+              type="number"
+              disabled
+              defaultValue={7}
+            />
+            <span className="mb-set-gap-tag">后端未提供</span>
+          </div>
+          <p>服务端当前固定：距上次成功 ≥ 24 小时的空闲窗口执行，目录内保留最近 7 份。</p>
+        </section>
+      </div>
+    )
+  }
 
   const renderDisplay = () => {
     const columns: { key: 'showNote' | 'showAccount' | 'fixed'; label: string; desc?: string }[] = [
@@ -2582,6 +2776,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         return renderInvest()
       case 'appearance':
         return renderAppearance()
+      case 'backup':
+        return renderBackup()
       case 'display':
         return renderDisplay()
       case 'data':
@@ -2601,6 +2797,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     cashflow: '3 组标记 · 4 类活动',
     invest: `${investRows.length} 类资产`,
     appearance: themeMode === 'system' ? '跟随系统' : themeMode === 'dark' ? '深色' : '浅色',
+    backup: apiMode ? (backupConfig?.enabled ? '已开启' : '未开启') : '需真实后端',
     display: '列显隐 · 排序',
     data: '导入 · 导出 · 回滚',
     trash: apiMode ? `${trashCount} 条可恢复` : '0 条可恢复',
@@ -2627,11 +2824,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                         ? TrendingUp
                         : item.id === 'appearance'
                           ? Sun
-                          : item.id === 'display'
-                            ? Tag
-                            : item.id === 'data'
-                              ? Database
-                              : Trash2
+                          : item.id === 'backup'
+                            ? HardDriveDownload
+                            : item.id === 'display'
+                              ? Tag
+                              : item.id === 'data'
+                                ? Database
+                                : Trash2
               return (
                 <button
                   key={item.id}
