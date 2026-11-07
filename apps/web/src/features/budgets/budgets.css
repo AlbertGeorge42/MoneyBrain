@@ -8,7 +8,7 @@
 
 .mb-bg-page-head {
   flex-direction: row;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-3);
 }
@@ -29,62 +29,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
-}
-
-.mb-bg-month {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mb-s-1);
-  padding: var(--mb-s-1);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-raised);
-}
-
-.mb-bg-month-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--mb-btn-h-md);
-  height: var(--mb-btn-h-md);
-  border: 0;
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-secondary);
-  cursor: pointer;
-}
-
-.mb-bg-month-btn:hover:not(:disabled) {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-bg-month-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.mb-bg-month-label {
-  min-width: 74px;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-0);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  color: var(--mb-color-text-secondary);
-}
-
-/* 下一月禁用时给出可见原因，而不是只把按钮变成灰色。 */
-.mb-bg-month-reason {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-  white-space: nowrap;
-}
-
-.mb-bg-month-today {
-  min-height: var(--mb-btn-h-xs);
-  padding: 0 var(--mb-s-2);
-  font-size: var(--mb-fs-0);
 }
 
 .mb-bg-mobile-month {
@@ -423,26 +367,28 @@
 
 /* ===== 空态 ===== */
 
+/* 空态与报表/设置同构：居中、56 圆形标记、标题 20、描述 480。 */
 .mb-bg-empty {
-  align-items: flex-start;
+  align-items: center;
   gap: var(--mb-s-3);
-  padding: var(--mb-s-6);
+  padding: var(--mb-s-6) var(--mb-s-4);
+  text-align: center;
 }
 
 .mb-bg-empty-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--mb-touch);
-  height: var(--mb-touch);
-  border-radius: var(--mb-radius-sm);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   background: var(--mb-color-accent-soft);
   color: var(--mb-color-accent);
 }
 
 .mb-bg-empty-copy {
   margin: 0;
-  max-width: calc(var(--mb-s-7) * 9);
+  max-width: 480px;
   font-size: var(--mb-fs-1);
   line-height: var(--mb-lh-body);
   color: var(--mb-color-text-secondary);
@@ -630,14 +576,8 @@
   font-size: var(--mb-fs-5);
 }
 
-.mb-bg-page[data-device='mobile'] .mb-bg-watch-row,
-.mb-bg-page[data-device='mobile'] .mb-bg-month-btn {
+.mb-bg-page[data-device='mobile'] .mb-bg-watch-row {
   min-height: var(--mb-touch);
-}
-
-.mb-bg-page[data-device='mobile'] .mb-bg-month-btn {
-  width: var(--mb-touch);
-  height: var(--mb-touch);
 }
 
 .mb-bg-page[data-device='mobile'] .mb-bg-row {

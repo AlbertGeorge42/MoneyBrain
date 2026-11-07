@@ -54,16 +54,16 @@ describe('K6 预算月份锚点', () => {
   it('锚点跟最新流水走；无数据的下一个月禁用且有可见原因', () => {
     const { container } = renderBudget(ledgerWithNovember())
 
-    expect(container.querySelector('.mb-bg-month-label')?.textContent).toBe('2026 年 11 月')
+    expect(container.querySelector('.mb-period-bar-label')?.textContent).toBe('2026 年 11 月')
     const next = screen.getByRole('button', { name: '下一个月' })
     expect(next).toBeDisabled()
     expect(next.getAttribute('title')).toContain('2026 年 12 月没有流水')
-    expect(container.querySelector('.mb-bg-month-reason')?.textContent).toBe('2026 年 12 月无流水')
+    expect(container.querySelector('.mb-period-bar-note')?.textContent).toBe('2026 年 12 月无流水')
   })
 
   it('有数据的月份可切回：上一个月到 10 月后，下一个月可点并真的回到 11 月', () => {
     const { container } = renderBudget(ledgerWithNovember())
-    const label = () => container.querySelector('.mb-bg-month-label')?.textContent
+    const label = () => container.querySelector('.mb-period-bar-label')?.textContent
 
     fireEvent.click(screen.getByRole('button', { name: '上一个月' }))
     expect(label()).toBe('2026 年 10 月')
@@ -71,7 +71,7 @@ describe('K6 预算月份锚点', () => {
     const next = screen.getByRole('button', { name: '下一个月' })
     expect(next).toBeEnabled()
     expect(next.getAttribute('aria-disabled')).toBe('false')
-    expect(container.querySelector('.mb-bg-month-reason')).toBeNull()
+    expect(container.querySelector('.mb-period-bar-note')).toBeNull()
 
     fireEvent.click(next)
     expect(label()).toBe('2026 年 11 月')

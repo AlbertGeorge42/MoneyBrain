@@ -39,7 +39,8 @@ test.describe('用户入门流程', () => {
     await expect(page.getByRole('tablist', { name: '报表视图' })).toBeVisible()
 
     await nav.locator('.mb-side-nav-item', { hasText: '预算' }).click()
-    await expect(page.locator('.mb-bg-month')).toBeVisible()
+    await expect(page.getByRole('group', { name: '预算月份' })).toBeVisible()
+    await expect(page.locator('.mb-period-bar-label')).toHaveText(/^\d{4} 年 \d{1,2} 月$/)
     await expect(page.getByText('还没有预算')).toBeVisible()
   })
 })

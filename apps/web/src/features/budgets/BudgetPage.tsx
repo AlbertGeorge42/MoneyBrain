@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
+import { Plus, TriangleAlert } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import type { LedgerBudgetInput } from '@/features/overview/ledgerStore'
 import { ledgerAnchorDay } from '@/features/overview/model'
@@ -13,6 +13,7 @@ import { HfButton } from '@/features/shared/HfButton'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { HfSwitch } from '@/features/shared/HfSwitch'
+import { PeriodBar } from '@/features/shared/PeriodBar'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { Budget } from '@contracts/types'
@@ -48,13 +49,11 @@ function moneyText(value: number): string {
 function MonthBar({
   month,
   onChange,
-  compact,
   currentMonth,
   hasData,
 }: {
   month: string
   onChange: (next: string) => void
-  compact?: boolean
   currentMonth: string
   hasData: (month: string) => boolean
 }) {
@@ -62,34 +61,19 @@ function MonthBar({
   const nextMonth = shiftMonth(month, 1)
   const nextHasData = hasData(nextMonth)
   return (
-    <div className={`mb-bg-month${compact ? ' is-compact' : ''}`} role="group" aria-label="预算月份">
-      <HfButton
-        className="mb-bg-month-btn"
-        aria-label="上一个月"
-        onClick={() => onChange(shiftMonth(month, -1))}
-      >
-        <ChevronLeft size={16} />
-      </HfButton>
-      <span className="mb-bg-month-label">{monthLabel(month)}</span>
-      <HfButton
-        className="mb-bg-month-btn"
-        aria-label="下一个月"
-        disabled={!nextHasData}
-        aria-disabled={!nextHasData}
-        title={nextHasData ? undefined : `${monthLabel(nextMonth)}没有流水，暂不可切换`}
-        onClick={() => onChange(nextMonth)}
-      >
-        <ChevronRight size={16} />
-      </HfButton>
-      {!nextHasData && (
-        <span className="mb-bg-month-reason">{monthLabel(nextMonth)}无流水</span>
-      )}
-      {!isCurrent && (
-        <HfButton variant="link" className="mb-bg-month-today" onClick={() => onChange(currentMonth)}>
-          回到本月
-        </HfButton>
-      )}
-    </div>
+    <PeriodBar
+      groupLabel="预算月份"
+      label={monthLabel(month)}
+      prevLabel="上一个月"
+      nextLabel="下一个月"
+      onPrev={() => onChange(shiftMonth(month, -1))}
+      onNext={() => onChange(nextMonth)}
+      nextDisabled={!nextHasData}
+      disabledReason={`${monthLabel(nextMonth)}没有流水，暂不可切换`}
+      note={nextHasData ? undefined : `${monthLabel(nextMonth)}无流水`}
+      resetLabel={isCurrent ? undefined : '回到本月'}
+      onReset={isCurrent ? undefined : () => onChange(currentMonth)}
+    />
   )
 }
 
@@ -708,7 +692,6 @@ export function BudgetPage({
           <MonthBar
             month={month}
             onChange={setMonth}
-            compact
             currentMonth={currentMonth}
             hasData={hasMonthData}
           />

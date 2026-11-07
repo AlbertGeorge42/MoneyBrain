@@ -1,6 +1,8 @@
 /* 报表页（HF 批次 3）
    只用 --mb-* token：区块间距 16、表格行高 29、焦点环 2+2、移动触控 ≥ 44。 */
 
+@import '../shared/periodBar.css';
+
 .mb-rp-page {
   display: flex;
   flex-direction: column;
@@ -12,9 +14,10 @@
 
 .mb-rp-page-head {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-4);
+  min-height: var(--mb-s-7);
 }
 
 .mb-rp-page-copy {
@@ -97,15 +100,7 @@
   flex-wrap: wrap;
 }
 
-.mb-rp-time-picker {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-}
+/* 时间条外壳与预算月份条同源，见 shared/periodBar.css（44px 高、10px 圆角）。 */
 
 .mb-rp-iconbtn {
   display: inline-flex;
@@ -785,8 +780,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   gap: var(--mb-s-3);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  margin: 0 calc(var(--mb-card-pad-compact) * -1);
-  padding: 0 var(--mb-card-pad-compact);
+  /* 与其它页共用 26px 页面内距：不再负 margin 出血，首卡落在同一左基线。 */
   scrollbar-width: none;
 }
 
@@ -1922,10 +1916,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-size: var(--mb-fs-2);
 }
 
-/* 卡片外壳共用 shared/card.css；此条只负责报表移动端的紧凑内边距。 */
-.mb-rp-page[data-device='mobile'] .mb-rp-card {
-  padding: var(--mb-card-pad-compact);
-}
+/* 卡片内距由 shared/card.css 的移动端统一规则负责（16px）。 */
 
 .mb-rp-page[data-device='mobile'] .mb-rp-chart-grid,
 .mb-rp-page[data-device='mobile'] .mb-rp-cols,

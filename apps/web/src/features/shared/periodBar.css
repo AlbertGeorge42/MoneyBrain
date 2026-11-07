@@ -1,0 +1,89 @@
+/**
+ * 期间条外壳（design-tokens §5.3）。
+ *
+ * 报表的时间条与预算的月份条共用同一套外壳：44px 高（32px 内件 + 5px 上下
+ * padding + 1px 边框）、10px 圆角、32px 方形图标按钮；移动端内件换 44px 命中区。
+ * 报表时间条沿用既有 `.mb-rp-time-picker` 标记，通过本文件的同源规则取得外形，
+ * 因此无需改 reports 的 TSX 结构。
+ */
+
+.mb-period {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+.mb-period-bar,
+.mb-rp-time-picker {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+}
+
+.mb-period-bar-nav {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--mb-btn-h-sm);
+  height: var(--mb-btn-h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  cursor: pointer;
+}
+
+.mb-period-bar-nav:hover:not(:disabled) {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-period-bar-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mb-period-bar-nav:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+.mb-period-bar-label {
+  min-width: 74px;
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-1);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--mb-color-text-primary);
+}
+
+.mb-period-bar-note {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+  white-space: nowrap;
+}
+
+.mb-period-bar-reset {
+  min-height: var(--mb-btn-h-xs);
+  padding: 0 var(--mb-s-2);
+  font-size: var(--mb-fs-0);
+}
+
+/* 移动端：按钮自身承担 44 命中区，外壳随内件增高到 56。 */
+.mb-mobile-scroll .mb-period-bar,
+.mb-mobile-scroll .mb-rp-time-picker {
+  padding: var(--mb-s-1);
+}
+
+.mb-mobile-scroll .mb-period-bar-nav {
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+}
