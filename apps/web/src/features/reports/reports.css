@@ -770,7 +770,8 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 .mb-rp-chart-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 主栏不足两张卡的最小宽度时落成单列：820 下两卡各 256px，双环标题与合计会被挤出卡片。 */
+  grid-template-columns: repeat(auto-fit, minmax(var(--mb-rp-chart-min), 1fr));
   gap: var(--mb-s-4);
   align-items: stretch;
 }
@@ -789,7 +790,8 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-chart-scroll .mb-rp-chart-card {
-  flex: 0 0 100%;
+  /* 末端留出下一张卡的预览：100% 卡宽 + 卡间距会把第二张卡整个挡在右缘外。 */
+  flex: 0 0 calc(100% - var(--mb-s-7));
   scroll-snap-align: start;
 }
 

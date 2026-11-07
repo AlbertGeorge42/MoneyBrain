@@ -76,6 +76,8 @@
   --mb-section-gap: 16px;
   --mb-page-pad: 28px;
   --mb-page-pad-mobile: 26px;
+  /* 报表图表卡并排所需最小宽度：低于此值双环的标题 / 合计 / 环体会互相挤压。 */
+  --mb-rp-chart-min: 350px;
   --mb-touch: 44px;
   --mb-bar-h: 6px;
   /* 视口底部固定区：合计条高度 / 批量条高度（batch bar 不参与 flex 收缩） */
