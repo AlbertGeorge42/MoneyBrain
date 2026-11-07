@@ -6,6 +6,7 @@
  */
 import type { ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Card } from '@/features/shared/Card'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReportMetric } from './reportsModel'
 
@@ -148,7 +149,7 @@ export function ReportTable({
   // 只要有一行可折叠，就给所有一级行预留同样的折叠槽，避免「有箭头/无箭头」两套缩进。
   const foldable = rows.some((row) => row.fold)
   return (
-    <section className={footInline ? 'mb-rp-card mb-rp-table-card is-inline' : 'mb-rp-card mb-rp-table-card'} data-device={device}>
+    <Card variant="report" className={footInline ? 'mb-rp-table-card is-inline' : 'mb-rp-table-card'} data-device={device}>
       <div className="mb-rp-sec-head">
         <div>
           <h3 className="mb-rp-sec-title">{title}</h3>
@@ -265,7 +266,7 @@ export function ReportTable({
         </table>
       </div>
       {note && <p className="mb-rp-table-note">{note}</p>}
-    </section>
+    </Card>
   )
 }
 
@@ -288,7 +289,7 @@ export function ReportCardList({
 }) {
   if (device === 'desktop') return null
   return (
-    <section className="mb-rp-card mb-rp-cards">
+    <Card variant="report" className="mb-rp-cards">
       <div className="mb-rp-sec-head">
         <div>
           <h3 className="mb-rp-sec-title">{title}</h3>
@@ -350,6 +351,6 @@ export function ReportCardList({
         </div>
       )}
       {note && <p className="mb-rp-table-note">{note}</p>}
-    </section>
+    </Card>
   )
 }

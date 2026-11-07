@@ -1,5 +1,6 @@
 import { Button } from '@mantine/core'
 import { FolderInput, Plus, RotateCcw, Wallet } from 'lucide-react'
+import { Card } from './Card'
 import type { DeviceMode } from './types'
 import './states.css'
 
@@ -17,7 +18,7 @@ export function ColdStartGuide({
 }) {
   const isTransactions = variant === 'transactions'
   return (
-    <section className="mb-coldstart" aria-labelledby="mb-coldstart-title">
+    <Card variant="state" aria-labelledby="mb-coldstart-title">
       <div className="mb-coldstart-mark" aria-hidden="true">
         <Wallet size={30} strokeWidth={1.8} />
       </div>
@@ -51,13 +52,13 @@ export function ColdStartGuide({
           导入账单
         </Button>
       </div>
-    </section>
+    </Card>
   )
 }
 
 export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
   return (
-    <section className="mb-errorpanel" role="alert">
+    <Card variant="state" tone="danger" role="alert">
       <div className="mb-errorpanel-mark" aria-hidden="true">
         !
       </div>
@@ -68,7 +69,7 @@ export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
           重试
         </Button>
       </div>
-    </section>
+    </Card>
   )
 }
 
@@ -110,11 +111,11 @@ export function LoadingSkeleton({
     return (
       <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载流水">
         <div className="mb-skeleton mb-skeleton-toolbar" />
-        <div className="mb-card mb-skeleton-list">
+        <Card as="div" className="mb-skeleton-list">
           {[0, 1, 2, 3, 4, 5].map((row) => (
             <div key={row} className="mb-skeleton mb-skeleton-line" />
           ))}
-        </div>
+        </Card>
         <span className="mb-visually-hidden">正在加载流水数据</span>
       </div>
     )

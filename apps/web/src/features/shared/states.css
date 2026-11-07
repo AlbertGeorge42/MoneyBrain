@@ -1,17 +1,4 @@
-/* 四态：冷启动、错误、加载骨架。全部使用 --mb-* token。 */
-
-.mb-coldstart,
-.mb-errorpanel {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--mb-s-3);
-  padding: var(--mb-card-pad);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-md);
-  background: var(--mb-color-surface-raised);
-  box-shadow: var(--mb-sh-1);
-}
+/* 四态：冷启动、错误、加载骨架。外壳（底色/边框/圆角/阴影）见 shared/card.css。 */
 
 .mb-coldstart-mark,
 .mb-errorpanel-mark {
@@ -26,10 +13,6 @@
 .mb-coldstart-mark {
   background: var(--mb-color-accent-soft);
   color: var(--mb-color-accent);
-}
-
-.mb-errorpanel {
-  border-left: calc(var(--mb-border-width) * 3) var(--mb-border-style) var(--mb-color-danger-solid);
 }
 
 .mb-errorpanel-mark {
@@ -185,16 +168,6 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-/* 暗色卡片按 design-tokens §7 去掉边框；错误态保留左侧危险语义边 */
-[data-mantine-color-scheme='dark'] .mb-coldstart {
-  border-color: transparent;
-}
-
-[data-mantine-color-scheme='dark'] .mb-errorpanel {
-  border-color: transparent;
-  border-left-color: var(--mb-color-danger-solid);
 }
 
 @keyframes mb-pulse {

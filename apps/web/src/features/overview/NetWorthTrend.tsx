@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { currencyAxisFormatter } from '@/utils/format'
+import { Card } from '@/features/shared/Card'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   CHART_TOOLTIP_H,
@@ -77,7 +78,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
         : yOf(points[hover].value) - (CHART_TOOLTIP_H + 12)
 
   return (
-    <section className="mb-card mb-trend-card">
+    <Card className="mb-trend-card">
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">净资产走势</h2>
@@ -177,6 +178,6 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
           近 12 个月净资产从 {amountText(rawMin)} 变化到 {amountText(rawMax)}。
         </p>
       </div>
-    </section>
+    </Card>
   )
 }

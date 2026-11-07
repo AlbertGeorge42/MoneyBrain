@@ -8,6 +8,7 @@ import { budgetApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
+import { Card } from '@/features/shared/Card'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { HfSwitch } from '@/features/shared/HfSwitch'
@@ -120,14 +121,14 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
   const { expense, primaryOver } = data
   if (expense.limit === 0) {
     return (
-      <section className="mb-card mb-bg-hero is-empty">
+      <Card className="mb-bg-hero is-empty">
         <h2 className="mb-sec-title">本月支出预算</h2>
         <p className="mb-bg-hero-empty">
           {data.disabledExpenseCount > 0
             ? `支出预算已全部停用（${data.disabledExpenseCount} 条）；启用后才会显示可花金额与告警。`
             : '还没有设置支出预算，新增第一条后会在这里显示可花金额。'}
         </p>
-      </section>
+      </Card>
     )
   }
   // 单项超支优先于总比例：头部徽标与「需要关注」必须给同一结论。
@@ -143,7 +144,7 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
           }
 
   return (
-    <section className="mb-card mb-bg-hero">
+    <Card className="mb-bg-hero">
       <Ring percent={expense.percent} level={expense.level} size={device === 'mobile' ? 'sm' : 'lg'} />
       <div className="mb-bg-hero-copy">
         <div className="mb-sec-head">
@@ -173,14 +174,14 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
           </p>
         )}
       </div>
-    </section>
+    </Card>
   )
 }
 
 function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: BudgetPageRow) => void }) {
   if (data.over.length === 0 && data.near.length === 0) return null
   return (
-    <section className="mb-card mb-bg-watch">
+    <Card className="mb-bg-watch">
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">需要关注</h2>
@@ -215,7 +216,7 @@ function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Budg
           )}
         </div>
       </div>
-    </section>
+    </Card>
   )
 }
 
@@ -227,7 +228,7 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
         const activeRows = group.rows.filter((row) => row.isActive)
         const disabled = group.rows.length - activeRows.length
         return (
-          <section key={group.type} className="mb-card mb-bg-group" data-type={group.type}>
+          <Card key={group.type} className="mb-bg-group" data-type={group.type}>
             <div className="mb-sec-head">
               <div>
                 <h2 className="mb-sec-title">{group.label}</h2>
@@ -281,7 +282,7 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
                 </button>
               ))}
             </div>
-          </section>
+          </Card>
         )
       })}
     </>
@@ -290,7 +291,7 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
 
 function EmptyPage({ onAdd }: { onAdd: () => void }) {
   return (
-    <section className="mb-card mb-bg-empty">
+    <Card className="mb-bg-empty">
       <div className="mb-bg-empty-mark" aria-hidden>
         <Plus size={22} />
       </div>
@@ -302,7 +303,7 @@ function EmptyPage({ onAdd }: { onAdd: () => void }) {
       <button type="button" className="mb-primary-btn" onClick={onAdd}>
         新增预算条目
       </button>
-    </section>
+    </Card>
   )
 }
 

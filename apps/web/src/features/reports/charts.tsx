@@ -7,6 +7,7 @@
  */
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { currencyAxisFormatter } from '@/utils/format'
+import { Card } from '@/features/shared/Card'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   CHART_TOOLTIP_H,
@@ -46,7 +47,7 @@ export function ChartCard({
   className?: string
 }) {
   return (
-    <section className={className ? `mb-rp-card mb-rp-chart-card ${className}` : 'mb-rp-card mb-rp-chart-card'}>
+    <Card variant="report" className={className ? `mb-rp-chart-card ${className}` : 'mb-rp-chart-card'}>
       <div className="mb-rp-sec-head">
         <div>
           <h3 className="mb-rp-sec-title">{title}</h3>
@@ -54,7 +55,7 @@ export function ChartCard({
         </div>
       </div>
       {children}
-    </section>
+    </Card>
   )
 }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Card } from '@/features/shared/Card'
 import type { DeviceMode } from '@/features/shared/types'
 import { amountText } from './format'
 import type { ExpenseCategorySlice } from './model'
@@ -110,7 +111,7 @@ export function ExpenseCategoryPie({
           .join('，')}`
 
   return (
-    <section className="mb-card mb-expense-pie-card">
+    <Card className="mb-expense-pie-card">
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">支出分类</h2>
@@ -255,6 +256,6 @@ export function ExpenseCategoryPie({
           </>
         )}
       </div>
-    </section>
+    </Card>
   )
 }

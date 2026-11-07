@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { ArrowRight } from 'lucide-react'
+import { Card } from '@/features/shared/Card'
 import { TxRow } from '@/features/shared/TxRow'
 import { RefundRelationTag, RefundStateTag } from '@/features/shared/RefundTag'
 import { CategoryIcon } from './category'
@@ -33,7 +34,7 @@ export function RecentTransactions({
   const mobile = device === 'mobile'
 
   return (
-    <section className="mb-card mb-recent-card">
+    <Card className="mb-recent-card">
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">最近交易</h2>
@@ -114,6 +115,6 @@ export function RecentTransactions({
         查看全部流水
         <ArrowRight size={14} />
       </button>
-    </section>
+    </Card>
   )
 }

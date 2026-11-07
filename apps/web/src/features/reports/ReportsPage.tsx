@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
+import { Card } from '@/features/shared/Card'
 import { ToastViewport } from '@/features/shared/toast'
 import { useToast } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -259,12 +260,12 @@ export function ReportsPage({
             <InvestView device={device} report={invest} settings={effectiveSettings.invest} />
           )}
           {tab === 'invest' && apiMode && investApi.status === 'success' && investApi.data === null && (
-            <section className="mb-rp-card mb-rp-empty">
+            <Card variant="report" className="mb-rp-empty">
               <h2 className="mb-rp-empty-title">暂无投资账户</h2>
               <p className="mb-rp-empty-desc">
                 投资分析只统计标记为「投资资产」的账户；当前账本没有可分析的投资持仓。
               </p>
-            </section>
+            </Card>
           )}
         </>
       )}

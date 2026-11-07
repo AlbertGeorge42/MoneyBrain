@@ -9,6 +9,7 @@ import {
   getCategoryName,
 } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
+import { Card } from '@/features/shared/Card'
 import { ToastViewport } from '@/features/shared/toast'
 import { useToast } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -634,7 +635,7 @@ export function TransactionsPage({
       <FilterChips chips={chips} onClear={clearKey} />
 
       {noResults ? (
-        <section className="mb-card mb-tx-noresult">
+        <Card className="mb-tx-noresult">
           <span className="mb-tx-noresult-mark" aria-hidden="true">
             <Search size={22} />
           </span>
@@ -653,7 +654,7 @@ export function TransactionsPage({
           >
             清空筛选
           </button>
-        </section>
+        </Card>
       ) : (
         <TransactionsList
           device={device}

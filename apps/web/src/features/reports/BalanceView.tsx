@@ -3,6 +3,7 @@
  * 只消费已派生的 BalanceReport 与展示偏好，不发起任何请求。
  */
 import { useMemo, useState } from 'react'
+import { Card } from '@/features/shared/Card'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { LedgerAccountCategory } from '@/features/overview/model'
 import type { DeviceMode } from '@/features/shared/types'
@@ -354,7 +355,7 @@ export function BalanceView({
           )}
         </>
       )}
-      <section className="mb-rp-card mb-rp-networth" aria-label="净资产">
+      <Card variant="report" className="mb-rp-networth" aria-label="净资产">
         <div className="mb-rp-networth-copy">
           <span className="mb-rp-networth-label">净资产</span>
           <span className="mb-rp-networth-hint">
@@ -363,7 +364,7 @@ export function BalanceView({
           </span>
         </div>
         <span className="mb-rp-networth-value">{currency(report.netWorth)}</span>
-      </section>
+      </Card>
       <p className="mb-rp-chart-note">
         账户覆盖：资产与负债都只列余额 ≠ 0 的账户（负余额保留）；另有 {report.zeroAccountCount} 个
         0 元账户未列出。资产合计 {currency(report.assetTotal)} = 正余额 {currency(report.positiveAssetTotal)} + 负余额{' '}

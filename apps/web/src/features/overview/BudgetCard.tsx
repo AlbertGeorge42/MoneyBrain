@@ -1,4 +1,5 @@
 import { ArrowRight, TriangleAlert } from 'lucide-react'
+import { Card } from '@/features/shared/Card'
 import { amountText, percentText } from './format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import type { BudgetSummary } from './model'
@@ -15,7 +16,7 @@ export function BudgetCard({
   const visibleRows = summary.rows.slice(0, mobile ? 3 : 4)
 
   return (
-    <section className="mb-card mb-budget-card">
+    <Card className="mb-budget-card">
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">本月预算</h2>
@@ -62,6 +63,6 @@ export function BudgetCard({
         查看全部预算
         <ArrowRight size={14} />
       </button>
-    </section>
+    </Card>
   )
 }

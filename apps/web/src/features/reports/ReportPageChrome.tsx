@@ -4,6 +4,7 @@
  * 只承载布局与文案，不参与任何数据派生；页面与四张报表都从这里取同一份结构。
  */
 import { FolderInput, ScanLine } from 'lucide-react'
+import { Card } from '@/features/shared/Card'
 import { HfTabs } from '@/features/shared/HfTabs'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReportTab } from './reportsTime'
@@ -51,7 +52,7 @@ export function PageHead({
 
 export function ReportsEmpty({ onImport }: { onImport: () => void }) {
   return (
-    <section className="mb-rp-card mb-rp-empty">
+    <Card variant="report" className="mb-rp-empty">
       <div className="mb-rp-empty-mark" aria-hidden="true">
         <ScanLine size={28} strokeWidth={1.8} />
       </div>
@@ -63,6 +64,6 @@ export function ReportsEmpty({ onImport }: { onImport: () => void }) {
         <FolderInput size={16} />
         导入账单
       </button>
-    </section>
+    </Card>
   )
 }

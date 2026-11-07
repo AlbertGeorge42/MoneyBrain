@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { currencyAxisFormatter } from '@/utils/format'
+import { Card } from '@/features/shared/Card'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   CHART_TOOLTIP_H,
@@ -93,7 +94,7 @@ export function ExpenseTrendChart({
         : yOf(points[hover].value) - (CHART_TOOLTIP_H + 12)
 
   return (
-    <section className="mb-card mb-expense-chart-card">
+    <Card className="mb-expense-chart-card">
       <div className="mb-sec-head">
         <div>
           <h2 className="mb-sec-title">支出趋势</h2>
@@ -198,6 +199,6 @@ export function ExpenseTrendChart({
           </>
         )}
       </div>
-    </section>
+    </Card>
   )
 }

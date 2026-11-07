@@ -1,0 +1,55 @@
+/* 三套卡片外壳的共用底座：只写一次边框、底色、圆角、阴影与内边距。 */
+
+.mb-card,
+.mb-rp-card,
+.mb-coldstart,
+.mb-errorpanel {
+  padding: var(--mb-card-pad);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-md);
+  background: var(--mb-color-surface-raised);
+  box-shadow: var(--mb-sh-1);
+}
+
+/* 卡片宽于内容时由内层省略号负责收缩；冷启动/错误面板原本没有这条。 */
+.mb-card,
+.mb-rp-card {
+  min-width: 0;
+}
+
+/* surface：总览、预算、流水的纵向堆叠卡片。 */
+.mb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+}
+
+/* state：冷启动与错误面板顶部对齐。 */
+.mb-coldstart,
+.mb-errorpanel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mb-s-3);
+}
+
+/* report：报表卡的圆角是 8px（--mb-radius-card），与总览的 14px 不同，保留差异。 */
+.mb-rp-card {
+  border-radius: var(--mb-radius-card);
+}
+
+/* 错误面板的左侧危险语义边。 */
+.mb-errorpanel {
+  border-left: calc(var(--mb-border-width) * 3) var(--mb-border-style) var(--mb-color-danger-solid);
+}
+
+/* 暗色卡片按 design-tokens §7 去掉边框；报表卡与错误面板的左侧语义边保留。 */
+[data-mantine-color-scheme='dark'] .mb-card,
+[data-mantine-color-scheme='dark'] .mb-coldstart {
+  border-color: transparent;
+}
+
+[data-mantine-color-scheme='dark'] .mb-errorpanel {
+  border-color: transparent;
+  border-left-color: var(--mb-color-danger-solid);
+}

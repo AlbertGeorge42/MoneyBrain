@@ -1,5 +1,7 @@
 import React, { Component, type ReactNode } from 'react'
 
+import { Card } from '@/features/shared/Card'
+
 interface Props {
   children: ReactNode
 }
@@ -9,8 +11,8 @@ interface State {
 }
 
 /**
- * 渲染期兜底：复用高保真错误面板的样式类（states.css），只用原生 DOM，
- * 不再依赖任何组件库——组件库本身抛错时这里仍要能画出来。
+ * 渲染期兜底：复用共享卡片外壳的错误面板变体（shared/card.css），不依赖组件库
+ * ——组件库本身抛错时这里仍要能画出来。
  */
 class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false }
@@ -27,7 +29,7 @@ class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="mb-hf-root">
-          <section className="mb-errorpanel" role="alert">
+          <Card variant="state" tone="danger" role="alert">
             <div className="mb-errorpanel-mark" aria-hidden="true">
               !
             </div>
@@ -42,7 +44,7 @@ class ErrorBoundary extends Component<Props, State> {
                 刷新页面
               </button>
             </div>
-          </section>
+          </Card>
         </div>
       )
     }

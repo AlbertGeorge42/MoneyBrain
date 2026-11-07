@@ -12,6 +12,7 @@ import {
   type LedgerTransaction,
 } from '@/features/overview/model'
 import { TxRow } from '@/features/shared/TxRow'
+import { Card } from '@/features/shared/Card'
 import { RefundRelationTag, RefundStateTag } from '@/features/shared/RefundTag'
 import type { DeviceMode } from '@/features/shared/types'
 import type { DisplaySettings } from './displaySettings'
@@ -82,7 +83,7 @@ function DesktopTable({
 }) {
   return (
     <>
-      <section className="mb-card mb-tx-list-card" aria-label="流水列表">
+      <Card className="mb-tx-list-card" aria-label="流水列表">
         <div className="mb-tx-rows">
           {groups.map((group) => (
             <Fragment key={group.date}>
@@ -133,7 +134,7 @@ function DesktopTable({
             </Fragment>
           ))}
         </div>
-      </section>
+      </Card>
       {/* 合计条独立于列表卡片：卡片 overflow:hidden 会让 sticky 失效。 */}
       <div className="mb-tx-foot">
         <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
@@ -191,7 +192,7 @@ function MobileList({
               小计 {signedMinorText(group.net)}
             </span>
           </div>
-          <div className="mb-card mb-tx-m-card">
+          <Card as="div" className="mb-tx-m-card">
             {group.items.map((transaction) => {
               const account = getAccount(ledger, transaction.accountId)
               const rootId = getCategoryRootId(ledger, transaction.categoryId)
@@ -243,7 +244,7 @@ function MobileList({
                 </div>
               )
             })}
-          </div>
+          </Card>
         </div>
       ))}
       <div className="mb-tx-m-foot">

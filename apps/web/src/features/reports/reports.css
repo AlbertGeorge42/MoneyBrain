@@ -319,15 +319,6 @@
 
 /* ===== 卡片 / 标题 ===== */
 
-.mb-rp-card {
-  min-width: 0;
-  padding: var(--mb-card-pad);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-card);
-  background: var(--mb-color-surface-raised);
-  box-shadow: var(--mb-sh-1);
-}
-
 .mb-rp-sec-head {
   display: flex;
   align-items: flex-start;
@@ -1931,6 +1922,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-size: var(--mb-fs-2);
 }
 
+/* 卡片外壳共用 shared/card.css；此条只负责报表移动端的紧凑内边距。 */
 .mb-rp-page[data-device='mobile'] .mb-rp-card {
   padding: var(--mb-card-pad-compact);
 }

@@ -306,18 +306,6 @@
 
 /* ===== 卡片与栏头 ===== */
 
-.mb-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-3);
-  min-width: 0;
-  padding: var(--mb-card-pad);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-md);
-  background: var(--mb-color-surface-raised);
-  box-shadow: var(--mb-sh-1);
-}
-
 .mb-dash-mid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
@@ -890,8 +878,7 @@
   }
 }
 
-/* 暗色卡片按 design-tokens §7 去掉边框，层级由阴影/底色承担 */
-[data-mantine-color-scheme='dark'] .mb-card,
+/* 暗色卡片按 design-tokens §7 去掉边框，层级由阴影/底色承担（卡片外壳见 shared/card.css） */
 [data-mantine-color-scheme='dark'] .mb-account-entry,
 [data-mantine-color-scheme='dark'] .mb-snapshot {
   border-color: transparent;
