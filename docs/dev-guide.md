@@ -8,7 +8,7 @@
 
 | 层 | 技术 |
 |---|---|
-| 前端 | React 18、Vite 5、TypeScript、Mantine 8（锁 `8.3.18`；旧 AntD 6 仅存于未重建页面，R3 后移除）、ECharts、TanStack Query、Axios |
+| 前端 | React 18、Vite 5、TypeScript、Mantine 8（锁 `8.3.18`；AntD 已完全移除）、自绘 SVG 图表、TanStack Query、Axios |
 | 后端 | Express 4、TypeScript、Prisma 5、SQLite、pino / pino-http |
 | 领域内核 | 纯 TypeScript（`packages/domain`，无框架、无数据库依赖） |
 | 契约 | `packages/contracts`（TypeScript 类型 + 错误码 + 树工具） |
@@ -28,18 +28,22 @@ apps/api/src/
 ├── db/repositories/      # 各模型的 Prisma 访问唯一入口（D1：软删除过滤、固定 include 收口在这层）
 └── prisma.ts
 
-apps/web/src/            # 目标结构（R 批次落地；重建完成前旧结构仍存在）
-├── app/                  # 壳、路由、Provider、设备入口
-├── features/<domain>/    # components/ hooks/ index.ts（唯一公开入口）
-├── ui/                   # 共享原语（按实际复用建立）
-├── queries/              # 全局缓存键 + invalidateLedger
+apps/web/src/            # 当前结构（HF/R1–R3 已落地，旧 pages/、queries/ 已删除）
+├── App.tsx               # 唯一入口：始终渲染 DesignApp
+├── app/design/DesignApp  # 页面装配、路由、全局状态、浮层宿主
+├── features/<domain>/    # budgets · overview · reports · settings · shell · shared · transactions
+├── features/shared/      # 跨域组件（HfButton/HfSheet/HfSegmented/HfSwitch/HfTabs/Card/StateViews/toast 等）
+├── components/common/    # ErrorBoundary
 ├── services/             # api.ts（Axios）、apiError.ts、apiResult.ts
-├── hooks/  utils/  styles/
+├── styles/               # global.css · reset.css · theme/{hf-theme.ts,variables.css}
+├── utils/ · dev-fixtures/
+├── main.tsx
+（无 ui/、queries/、hooks/、layouts/、pages/ 目录；不要再新建同类目录）
 
 packages/
-├── domain/src/           # money.ts · date.ts · ledger/{types,postings,summary}.ts
-├── contracts/            # types/index.ts（API 类型与错误码）· utils/tree.ts
-└── sync/src/             # 记录级合并（与端无关，不依赖文件系统 / 网盘 SDK）
+├── domain/src/           # money.ts · date.ts · ledger/{types,postings,summary,rules}.ts
+├── contracts/            # types/index.ts · constants.ts · utils/tree.ts
+└── sync/src/             # records.ts · merge/apply · container.ts（与端无关，不依赖文件系统 / 网盘 SDK）
 ```
 
 ### 2.1 CSS 变量（决策 #32）
@@ -68,23 +72,23 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
 
 （原 U2–U3「16 处媒体查询 token 化 + PostCSS 构建期解析」随双端独立结构取消。）
 
-### 2.3 组件库规则（Mantine 8，重建期 AntD 退场）
+### 2.3 组件库规则（Mantine 8；AntD 已移除）
 
-**目标库是 Mantine 8（锁 `8.3.18`）**——9.x 的 peer 要求 React 19，项目当前 React 18，
+**唯一组件库是 Mantine 8（锁 `8.3.18`）**——9.x 的 peer 要求 React 19，项目当前 React 18，
 升级 React 需另行决策（决策 #41）。
 
-- **新代码不得新增 AntD 引用**：R1–R3 一律用 Mantine；旧页面不迁移，按 R2 重建后删除（决策 #42）。
-- **同页面不混用两库**：一个页面 / 一个 feature 的组件树只用一个库的组件；重建是「整屏换」，
-  不是逐组件换。全局层（Provider / Notifications）可共存，页面主题不并存。
+- **不得引入 AntD**：`antd` / `@ant-design/icons` import 恒为 0；新组件一律用 Mantine 或
+  `features/shared` 的既有组件（决策 #42）。
+- **同页面不混用组件库**：一个页面 / 一个 feature 的组件树只用一个来源的组件。
 - **主题只从 `createTheme` 出**：不得用 CSS 覆盖 `--mantine-*` 内部变量；颜色只走 `colors`
   的 10 级色阶（body 底色取 `dark[7]`），结构只走 `--mb-*`。**不得出现第三个颜色来源。**
 - **自建组件必须进白名单**：确需自建的先登记进白名单并有测试覆盖；U12 落成前，白名单以
-  stage-1 R1 的参考清单与实际消费者为准；U12（R3 后）将产出 `docs/design-system.md` 再承接。
-  能用库组件拼出来的不许自建。
+  `features/shared` 的实际消费者为准（HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、Card、
+  toast、StateViews）；U12 将产出 `docs/design-system.md` 再承接。能用库组件拼出来的不许自建。
 - **新增主题 = 新增 `ThemeSpec` 文件并注册**：组件只读 `--mb-*` 与 `theme.other`，不得读 `themeId`
   做条件渲染。
-- **间距 / 触控 / 可访问性验收并入 R2/R3**：U4（间距字号单一来源）、U6（触控 ≥44×44 + 安全区）、
-  U7（焦点可见 / 可访问名称）在重建后的新实现上验收，不返修旧组件。
+- **间距 / 触控 / 可访问性已随 R2/R3 验收**：间距字号单一来源（U4）、触控 ≥44×44 + 安全区（U6）、
+  焦点可见 / 可访问名称（U7）在重建实现上守住；新组件按同一标准做。
 - **字体单一来源（决策 #44）**：全站只用 `--mb-font-ui` 一条栈，标题用 `--mb-font-display`（同栈），
   数字用 `--mb-font-num`（同栈）并由 `body` 的 `tabular-nums` 保证对齐；字号只取 `--mb-fs-0…6`
   （最小 12px），字重只取 400 / 500 / 600。不再写 `font-family` 字面量或 10/11px 字号。
@@ -92,7 +96,7 @@ CSS 引用未定义变量**不报错**、浏览器静默回退（决策 #33）�
   （提交 `DefaultMantineColor` / `DefaultMantineRadius` 模块增强，或接受并记录），
   不得用 `@ts-ignore` 掩盖。
 
-#### darkfirst 主题落地约定（HF / R1）
+#### darkfirst 主题落地约定（HF/R1 已落地，当前实现）
 
 设计依据见 [design-tokens.md](blueprint/ux/design-tokens.md)；**实现约定只写在这一处**。
 
@@ -345,7 +349,7 @@ grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colo
 - `apps/web/src/services/apiError.ts`：所有请求失败统一归一化为 `ApiClientError`（`code` / `status` / `details` / `requestId`）。
 - `apps/web/src/services/apiResult.ts` 的 `unwrapApiData(res)` 是**唯一**的响应解包入口。
   禁止写 `res.data.data!` 或 `res.data.data ?? []`——那会把接口错误伪装成空数据。
-- **接口失败不得退化成 0 或空列表**：失败时用 `ErrorState`（`components/common/ErrorState.tsx`）展示原因与重试入口；
+- **接口失败不得退化成 0 或空列表**：失败时用 `ErrorPanel`（`features/shared/StateViews.tsx`）展示原因与重试入口；
   金额类数据在失败时显示 `—`，不显示 `0`。
 - 报表类查询如果保留了上次成功的数据，失败时展示「刷新失败，当前显示上次数据」的提示条而不是清空报表。
 - 4xx 不重试；5xx 与网络错误重试一次。切回窗口时刷新已过期数据（`refetchOnWindowFocus: true`）。
@@ -465,8 +469,7 @@ npm run test:web
       会则直接删掉旧路径，不写适配层——「以后再删」的「以后」不会来。
 - [ ] 新增 / 被修改的用户可见文案已进文案目录（key `feature.page.element[.state]`），查表只用 `{}` 插值；
       lint 覆盖 `.tsx` JSX 文本与字符串字面量。
-- [ ] 前端按 R 批次重建，旧页面不修（决策 #42）：能在后端 / 契约层收口的就在后端收口，
-      不为当前界面做过度的适配；但契约（`packages/contracts`）与后端必须做完整，不留临时的半成品逻辑。
+- [ ] 前端按当前 feature 结构写（决策 #42）：页面只在 `features/<domain>`，跨域组件只在 `features/shared`；不新建 `pages/`、`queries/`、`ui/`、`hooks/` 目录，不为旧结构写适配层。能在后端 / 契约层收口的就在后端收口；但契约（`packages/contracts`）与后端必须做完整，不留临时的半成品逻辑。
 - [ ] 提交信息首行含「——」且括号内是条目号 / 哈希 / 重写批次（`commit-msg` 钩子会自动拦，这步是 `--no-verify` 场景的兜底）。
 
 ## 10. Git 与端口
@@ -508,31 +511,17 @@ npm run test:web
 - **并行会话共用工作区时**：只改自己条目对应的文件与行；提交前 `git diff --cached -U1` 逐行核对，
   不得带入他人未提交改动；不得整文件翻转行尾（`.gitattributes` 已统一 LF）。
 
-## 11. 设计与原型（段二的产出规则）
+## 11. 设计文档与实现基线（已完成）
 
-段二（UX 段）的产出物分两级，**规则不同**：
+HF 高保真设计与 R1–R3 重建已完成（2026-11-07），旧「概念稿 → 高保真 → 重建」流程不再重复执行。当前约束：
 
-| 级别 | 产出 | 精度 | 能否改界面 |
-|---|---|---|---|
-| **概念稿（UX5a）** | 线框级 Markdown：模块布局 + 工作流线框 + 双端差异与取舍 | 只讲布局、顺序、承载方式 | **不改产品界面代码**；可按用户明确指示把**原型**落成线框级 |
-| **高保真（HF / UX5b）** | **A 设计即代码（已拍板，决策 #40a）**：直接落在 `apps/web` 生产代码路径的可运行高保真基准（Mantine 渲染；可 import `tokens.ts` 与 `ui/`）；B 设计稿已否决。不另建长期高保真目录 | token 落地、真实视觉 | UX5a 已确认后开工；HF 成品确认后进入 R1–R3，它是 R1–R3 的视觉 / 交互基线 |
-
-**硬规则**：
-
-1. **概念稿未确认前，不开始 HF、不改生产界面代码**。确认关卡由用户把关——
-   未经确认就动产品界面，等于把没拍板的取舍固化成「已设计」。
-   HF 成品经用户确认后才进入 R1；A 形态开工即按 R 批次重建生产界面，**不再维护独立的「高保真原型」目录**。
-   **例外**：用户明确指示「把原型落成线框级演示」时，允许改**原型目录**
-   （`docs/blueprint/ux/prototype/`），但产物必须保持线框精度——
-   灰阶、占位块、不做视觉润色，且每条待确认项在界面里标注「当前按推荐值 X，待确认」。
-   A 形态是生产路径的基准，**不得**退化成 `ux/prototype/` 的视觉扩展。
-2. **概念稿不推翻已确认的结论**。信息架构、交互模型、平台差异、设计 token
-   四份文档已定；概念稿只在它们划定的范围内展开，发现它们有问题就**回到那份文档改**，
-   不在概念稿里另立一套。
-3. **概念稿必须带待确认项清单**，每条写成「问题 + 备选方案 + 各自代价」，
-   让用户能逐条拍板；不给「你觉得怎样」式的开放问题。
-4. **高保真阶段发现概念稿有问题，回到概念稿改**，不在高保真里偷偷改交互。
-5. 概念稿的验收是「文档覆盖度」：每类工作流都有两端线框与差异说明，没有「待定」占位。
+1. **结构**：页面与工作流以 [concept-design.md](blueprint/ux/concept-design.md) 的线框结论为准；
+   信息架构以 [information-architecture.md](blueprint/ux/information-architecture.md) 为准。
+2. **视觉**：所有颜色、字号、间距、圆角只取 [design-tokens.md](blueprint/ux/design-tokens.md)；
+   实现落在 `styles/theme/variables.css` 与 `hf-theme.ts`，不得另建 token 表。
+3. **交互**：报表口径、选择、批量、浮层、键盘等以 [interaction-spec.md](blueprint/ux/interaction-spec.md) 为准。
+4. **双端**：PC 与移动是两套独立结构，差异与浮层宿主以 [platform-design.md](blueprint/ux/platform-design.md) 为准。
+5. `docs/blueprint/ux/prototype/` 只作线框级参照，不参与构建、lint 或测试；不得把生产视觉写回该目录。
 6. **原型验证用几何测量，不用肉眼看图**：`getBoundingClientRect` 取边界与交叠面积，
    截图只作佐证。手机壳圆角会造成「被裁切」的视觉误判——移动端抽屉底部被壳角切掉
    不等于溢出，实测合计条底边比抽屉底边高 18px 就是没溢出。

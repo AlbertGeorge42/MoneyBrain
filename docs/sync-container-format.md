@@ -1,8 +1,10 @@
 # MoneyBrain 加密容器格式（formatVersion 1）
 
-> 状态：**暂定**。`formatVersion = 1` 在 V5（跨端）与 V3（真机初始化开销）验证通过后才冻结；
-> 冻结前允许改字节布局。冻结后任何结构变化都必须升 `formatVersion`，旧版本整批拒绝。
+> 状态：**暂定**。`formatVersion = 1` 在 V5（跨端收敛，2026-11-05 已通过）与 V3（真机初始化开销，
+> 移动端未做）验证通过后才冻结；冻结前允许改字节布局。冻结后任何结构变化都必须升
+> `formatVersion`，旧版本整批拒绝。
 >
+> 什么时候看：改备份/同步容器、写独立解密工具、或排查「容器打不开」时。
 > 唯一实现：`packages/sync/src/container.ts`。备份与同步共用这一份实现，禁止第二份加密代码。
 > 本文是给「项目外」读者用的：按本文参数 + [scripts/decrypt-container.mts](../scripts/decrypt-container.mts)
 > 能独立解开一份容器，不依赖本仓库的加密模块。

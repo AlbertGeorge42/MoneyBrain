@@ -2,7 +2,8 @@
 
 > 这份文档回答：**长期要建成什么样的结构**。
 > 它描述终局形态，因此即使某部分还没实现，也按终局写——
-> 已实现部分的现状见 [architecture.md](../architecture.md)。
+> 已实现部分的现状见 [architecture.md](../architecture.md)（2026-11-07 已覆盖 HF/R1–R3 后的前端结构）。
+> 什么时候看：设计阶段 2–4 的跨模块改动、判断新代码该放哪一层、或核对不变量时。
 
 ### 1 记账内核：生成器模型，不物化分录
 
@@ -117,7 +118,7 @@ domain        →  无外部依赖（禁止 react/express/prisma/node:fs）
 **决策：不拆 `packages/db` / `packages/ui`。**
 
 - 真正要防的债是「service 里直接写 Prisma 查询」和「同一个控件在多处各写一遍」，
-  这两件事用**应用内分层**就能解决：`apps/api/src/db/{repositories}` 与 `apps/web/src/ui/{原语}`。
+  这两件事用**应用内分层**就能解决：`apps/api/src/db/{repositories}` 与 `apps/web/src/features/shared/{原语}`。
 - 拆成独立 workspace 包会带来构建顺序、产物发布、类型解析的额外复杂度，而收益只在「出现第二个后端消费者 / 第二个前端应用」时才兑现。
 - **复审触发条件（已部分触发）**：移动端出现时只新增 `app`（用例）与 `sync`（同步协议）两个包；
   `db` 仍只服务桌面，不把 Prisma 抽成跨端包。只有出现**第二个桌面/服务端消费者**时，才把 `db` 升为独立包。
@@ -140,23 +141,19 @@ domain        →  无外部依赖（禁止 react/express/prisma/node:fs）
 **分页**：保持 offset（`page` / `pageSize`）。个人账本十年内不会超过游标分页的收益区间，游标只会增加「上一页/下一页」的实现成本。
 **复审触发条件**：单账户交易数超过 5 万或列表查询稳定超过 300ms 时，再评估游标或虚拟滚动。
 
-### 7 前端结构
+### 7 前端结构（HF/R1–R3 已落地）
 
-- **feature 切片**：`features/<domain>/{hooks,components,index.ts}`（`api/schema` 按需；R1 建立，R2 删除旧结构）。
-  - feature 之间**可以**互相引用，但只能通过对方的公开入口（`index.ts`），禁止深路径导入；跨 feature 依赖必须是有意的、少的。
-  - `index.ts` 是 feature 的公开入口，属于「包公共入口」，不算违规的桶导出。
-  - 页面（`routes/` / `pages/`）只做布局装配，业务逻辑下沉到 feature。
-- **共享原语层** `apps/web/src/ui/`：只放真正被多处复用的原语（按 R1/R2 实际消费建立；参考 `DataTable`、`EmptyState`、`ErrorState`、`PageHeader`、`MoneyText`、`DateField`、`PeriodPicker`）与设计令牌。
-  - **不做「包装层的包装层」**：只有当某个原语需要统一行为（金额等宽、日期格式、错误呈现）时才包；否则直接用组件库组件（**Mantine 8**；R3 前未重建页面仍为 AntD，R3 后仅 Mantine）。
+- **feature 切片**：`features/<domain>/{Page, api*.ts, model.ts, components/}`（budgets · overview · reports · settings · shell · shared · transactions）。
+  - feature 之间可以互相引用，但仅限需要共享的读模型与展示组件；新的跨域共用组件放 `features/shared`，不再新建 `ui/`。
+  - 页面入口固定为 `app/design/DesignApp.tsx`；没有 `pages/` / `routes/` 目录，也不重建。
+  - 业务逻辑（金额、期间、预算口径）下沉到 `packages/domain` 或 feature 的 `model.ts`，页面组件只做装配。
+- **共享组件层** `apps/web/src/features/shared/`：HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、Card、toast、StateViews（含 `ErrorPanel`）、chartLayout。
+  - **不做「包装层的包装层」**：只有需要统一行为（金额等宽、日期格式、错误呈现）时才包；否则直接用 Mantine 组件。
 - **设计系统层** `apps/web/src/styles/`：三层职责，token 是一切的来源，组件不允许自带第二套。
   1. **组件库主题**（`createTheme`）：颜色语义与组件默认样式——10 级色阶放在 `colors`，body 底色固定取 `dark[7]`。
   2. **`--mb-*` 结构 token**（`variables.css`）：间距/字号/圆角/动效/布局/设备判定。
   3. **业务组件**（`features/*/components`）：只消费上面两层，自带样式视为违规。
-  - **命名空间隔离（过渡期约束）**：重建完成前，未重建页面里的 AntD CSS 变量用 `--ant-*`（由 `cssVar.prefix` 指定），
-    项目自有 token 用 `--mb-*`。两者不得同名——同名后「读到谁的变量」取决于 DOM 位置，
-    且切换主题时两套来源的更新时机不同。R3 后 `--ant-*` 归零，这条约束**自然失效**；
-    U0 的结论本身不需要推翻——它描述的是「多来源必须按前缀隔离」，换成 Mantine 后仍是同一原则
-    （`--mantine-*` 是库内部变量，业务代码不得覆盖，只用公开 API 与主题机制）。
+  - **命名空间**：`--mantine-*` 是库内部变量，业务代码不得覆盖；项目 token 一律 `--mb-*`；AntD 已删除，不存在 `--ant-*`。
   - **token 单一来源**：结构 token（间距/字号/圆角/动效/布局）只写在
     `styles/theme/variables.css`；颜色/阴影只由 `styles/theme/hf-theme.ts` 的
     `cssVariablesResolver` 输出（Mantine `createTheme` 是唯一主题来源）。组件里出现裸值即视为违规。

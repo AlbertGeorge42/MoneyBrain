@@ -70,10 +70,7 @@ adjustment  账户 +amount      权益 −amount
 前端通过 `@contracts/*` 别名引用（`tsconfig.json` 与 `vite.config.ts` 都配了），
 后端用相对路径（与 domain 一样，避免开发期额外构建步骤）。
 
-**已收敛的重复实现**：备份类型与显示名原本后端与前端各写一份，且叫法已经漂移
-（后端「配置/预算」、前端「配置信息/预算配置」），现共用 `constants.ts` 同一份。
-日期格式化原本 `common/date.ts` 与领域层 `date.ts` 各有一份逐字相同的实现，
-现由 `common/date.ts` 委托给领域层的 `fromDate`。
+日期格式化由 `common/date.ts` 委托给领域层的 `fromDate`，全库只有一套实现。
 
 ## 2.6 同步层（packages/sync）
 
@@ -82,9 +79,12 @@ adjustment  账户 +amount      权益 −amount
 | 位置 | 职责 |
 |---|---|
 | `version-vector.ts` | 版本向量编解码与比较（`compareVersionVectors` / `maxVersionVectors`），不用设备时钟判先后 |
-| `merge.ts` | `mergeRecord` / `mergeRecords`：稳定全序选出生效版本，输的一版作为冲突返回；结果与到达顺序无关且可重复应用 |
+| `merge.ts` / `records.ts` | `mergeRecord` / `mergeRecords`：稳定全序选出生效版本，输的一版作为冲突返回；结果与到达顺序无关且可重复应用 |
 | `references.ts` | 合并后的引用校验：悬空引用进入待补全，补齐后转正常；墓碑引用不静默复活 |
 | `canonical.ts` | 内容指纹与稳定序列化（固定向量测试的基准） |
+| `apply.ts` | 合并结果落库：按记录 `entityType` 分发，未知实体跳过 |
+| `local-fields.ts` | 本机字段（`ledgerId` / `deviceId` 等）不随记录同步 |
+| `container.ts` | 加密容器（`.mbx`）：Argon2id 派生密钥 + XChaCha20-Poly1305，备份/同步共用；AAD 绑定 `formatVersion|ledgerId`；格式见 [sync-container-format.md](sync-container-format.md) |
 | `test-vectors/merge-vectors.json` | 跨端共用的合并固定向量 |
 
 `apps/api` 侧：六类可同步实体（账户分类、账户、收支分类、交易、预算、投资快照）各带
@@ -92,7 +92,7 @@ adjustment  账户 +amount      权益 −amount
 `ledgerId` / `deviceId`（容器 AAD 用 `formatVersion|ledgerId`）；`db/sync-version.ts`
 在写入时递增 `rev` 并刷新 `vv`；输的一版落 `sync_conflicts` 表。
 
-尚未落地：加密容器、格式版本与恢复码（F-C），以及传输适配与跨设备搬运（G-A 起）。
+**未落地**：传输适配、同步端点与跨设备搬运（G-A 起）；容器本身已完成（F-C，`3f3de80`）。
 
 ## 3. 后端模块（apps/api/src）
 
@@ -112,31 +112,30 @@ adjustment  账户 +amount      权益 −amount
 
 ## 4. 前端数据流（apps/web/src）
 
-> **现状快照**：以下描述的是重建前的旧实现。前端按「高保真设计重建」R 批次（R1–R3）落地后，
-> 本节需按新结构重写；重建完成前，本节仍是现状唯一来源（计划见
-> [stage-1](blueprint/stage-1-experience.md) 批次 U）。
-
 ```
-Page → queries/useXxx → services/api.ts → Axios → Express
-                                    ← ApiResponse<T>（判别联合）
+features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
+                         → services/api.ts → Axios → Express
+                         ← ApiResponse<T>（判别联合，apiResult.unwrapApiData 解包）
 ```
 
 | 位置 | 职责 |
 |---|---|
-| `pages/` | 5 个页面：Dashboard、Transactions、Budgets、Reports、Settings |
-| `queries/` | React Query hooks；写操作统一调用 `invalidateLedger(queryClient)` |
-| `services/api.ts` | Axios 实例 + API 对象 + 响应拦截器（统一归一化错误） |
-| `services/apiError.ts` | `ApiClientError`：所有失败的标准形态 |
-| `services/apiResult.ts` | `unwrapApiData(res)`：唯一的响应解包入口 |
-| `components/` | 按领域分目录：`common/ transactions/ budgets/ reports/ investment/ settings/ charts/` |
-| `hooks/` | `useNotify`、`useIsMobile`、`usePersistedState`、`useSearchParamsState` 等 |
-| `styles/` | 主题令牌（`styles/theme/`）与页面样式，语义变量 `--mb-*` |
+| `app/design/DesignApp.tsx` | 唯一页面装配：路由（`/design` 与 `*` 均渲染它）、设备判定、全局 Provider |
+| `features/overview/` | 总览、快速记账、`LedgerContext` / `apiLedger.ts`（共享账本状态与写操作） |
+| `features/transactions/` | 流水、详情、批量、回收站；`apiTransactions.ts` |
+| `features/reports/` | 四张报表、图表、下钻；`apiReports.ts` |
+| `features/budgets/` | 预算列表/编辑、状态、推演；`budgetModel.ts` |
+| `features/settings/` | 7 分区设置、导入导出、账户/分类、自动备份、回收站 |
+| `features/shell/` | 桌面侧栏 / 移动底栏与浮层宿主 |
+| `features/shared/` | HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、Card、toast、StateViews、chartLayout |
+| `services/api.ts` | Axios 实例 + 响应拦截器（统一归一化错误） |
+| `services/apiError.ts` / `apiResult.ts` | `ApiClientError`；`unwrapApiData(res)` 是唯一解包入口 |
 
-**缓存失效**：所有派生数据（余额、收支、报表、预算、分析、投资）都来自同一份交易，
-因此写操作统一失效 `ledger` 根键（`queries/ledger.ts`），不允许各 mutation 手写 key 列表。
+**缓存失效**：派生数据来自同一份交易；写操作后由 `DesignApp` 集中失效 `['hf', …]` 领域键，
+不在各页面散写。`queries/` 目录已不存在；不要重新引入。
 
-**错误处理**：拦截器把任何失败归一化为 `ApiClientError`；查询 hook 用 `unwrapApiData` 解包，
-失败一定抛错，不会变成空列表；页面用 `components/common/ErrorState.tsx` 展示原因与重试。
+**错误处理**：拦截器把任何失败归一化为 `ApiClientError`；页面用 `features/shared/StateViews.tsx`
+的 `ErrorPanel` 展示原因与重试，金额失败显示 `—` 而不是 `0`。
 
 ## 5. 数据库模型
 
@@ -194,7 +193,8 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 
 **对账与自检**：
 
-- 收入支出表返回 `reconciliation`（期初 + 净收入 − 净支出 + 其他 = 期末，差额应为 0），前端常驻显示。
+- 收入支出表 API 返回 `reconciliation`（期初 + 净收入 − 净支出 + 其他 = 期末，差额应为 0）；
+  前端不常驻对账条，差异以角标说明（[interaction-spec §5.6](blueprint/ux/interaction-spec.md)）。
 - `npm run db:verify` 用同一套规则离线复核整本账；`npm run db:drill` 验证备份能还原出同样的余额。
 
 ## 8. 端口与运行

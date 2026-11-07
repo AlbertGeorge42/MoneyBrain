@@ -1,6 +1,7 @@
 # MoneyBrain 测试
 
 > 本文回答**测试放在哪、怎么跑、覆盖到什么程度**。编码要求见 [dev-guide.md](dev-guide.md) 第 9 节。
+> 什么时候看：新增测试、判断某条不变量有没有覆盖、或改测试基础设施时。基线命令与当前实测数字见 §1–§3。
 
 ## 1. 层级
 
@@ -29,7 +30,7 @@ npm run test:integration -w @moneybrain/api
 
 # 只跑单个文件
 cd apps/api && npx vitest run tests/unit/http.test.ts
-cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
+cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 ```
 
 集成测试会先自动创建/同步 `apps/api/prisma/test.db`（`tests/global-setup.ts`，用版本化迁移重建）。
@@ -38,13 +39,13 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 
 | 范围 | 文件 | 用例 |
 |---|---|---|
-| 领域 | 3 | 38 |
-| 同步 | 1 | 4 |
-| 后端 | 41 | 350 |
-| 前端 | 25 | 166 |
-| E2E | 10 个 spec | example、onboarding、theme、responsive ×2、settings、hf-overview、hf-reports、prod-loop、prod-w1 |
+| 领域 | 5 | 42 |
+| 同步 | 4 | 21 |
+| 后端 | 55 | 447 |
+| 前端 | 48 | 313 |
+| E2E | 6 个 spec | prod-loop、prod-w1、hf-overview、hf-reports、settings、responsive |
 
-> 前端为 `npm run test:web` 实测（2026-11-05：25 文件 / 166 用例）；E2E 为 spec 文件数。
+> 2026-11-07 实测：`npm run test:domain` 42 通过；`npm run test:sync` 21 通过；`npm run test:api` 447 通过（55 文件）；`npm run test:web` 313 通过（48 文件）。E2E 为 spec 文件数。
 
 ## 3.1 数据自检与恢复演练（不是单元测试）
 
@@ -65,7 +66,7 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 | 同步 | 纯内存记录 + `test-vectors/merge-vectors.json` 固定向量，无 mock |
 | 后端单元 | `createMockPrisma()`（`apps/api/tests/mocks/prisma.ts`） |
 | 后端集成 | `apps/api/prisma/test.db`（测试前由 `tests/global-setup.ts` 用版本化迁移重建） |
-| 前端 | `apps/web/tests/setup.ts` 统一 mock matchMedia / ResizeObserver；图表为纯 SVG 自绘，测试不涉及图表库 mock；重建期按需保留 AntD mock，R1 补 Mantine mock，R3 移除 AntD mock；页面测试用 `vi.mock('../../../src/queries/xxx')` 注入查询状态 |
+| 前端 | `apps/web/tests/setup.ts` 统一 mock matchMedia / ResizeObserver / IntersectionObserver / scrollTo；图表为纯 SVG 自绘，不涉及图表库 mock；页面测试用 `vi.mock('../../../src/services/api')` 或注入 feature store 状态；无 AntD mock |
 | E2E | 开发数据库；`clearAllTestData()` 清理。**运行前先备份 `apps/api/prisma/dev.db`，E2E 会清空全部数据。** |
 
 ## 5. 回归清单
@@ -110,14 +111,14 @@ cd apps/web && npx vitest run tests/unit/components/ErrorState.test.tsx
 |---|---|---|
 | 7 同步可重放 | 🔄 记录层已覆盖（固定向量、任意顺序、墓碑/悬空引用）；整库余额与报表级重放未断言 | `packages/sync/tests/merge.test.ts` |
 | 8 冲突不静默 | ✅ 输的一版落库且不重复；解决后保留、不再待处理 | `apps/api/tests/integration/sync-conflict.test.ts`、`packages/sync/tests/merge.test.ts` |
-| 9 密文出端 | ⬜ 待 F-C / F5 | — |
+| 9 密文出端 | ✅ 容器层覆盖（明文 JSON 不出现在容器中、恢复码/密钥不写文件） | `packages/sync/tests/container.test.ts` |
 | 10 合并与传输解耦 | ✅ 记录层合并结果与到达顺序无关 | `packages/sync/tests/merge.test.ts`（「任意顺序应用两次…」） |
-| 11 加密不降级 | ⬜ 待 F-C / F5（明文 ZIP 备份为过渡态） | — |
+| 11 加密不降级 | ✅ 备份容器与同步容器共用加密格式 | `packages/sync/tests/container.test.ts`、`apps/api/tests/unit/backup.service.test.ts` |
 
 ### 5.4 尚未覆盖（列入计划）
 
-- [ ] 旧数据迁移的 v1 → v2 对账报告。
-- [ ] 同步不变量 9、11 随蓝图批次 F-C 落地时补齐。
+- [ ] 整库级同步重放（不变量 7 的余额/报表断言）。
+- [ ] 同步输出版本经真实传输介质端到端验证（G 批未开始）。
 
 ## 6. 验证顺序
 

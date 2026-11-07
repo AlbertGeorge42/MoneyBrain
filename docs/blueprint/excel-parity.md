@@ -1,9 +1,12 @@
 # Excel → MoneyBrain 数据模型对齐与重建方案
 
 > 目标：让 app 能**替代** `2026财务管理.xlsx`。
-> 本文只读分析，未删除、未写入任何数据库数据，也未修改代码。
+> 这份文档解决：**Excel 的口径怎么映射到 app、重建时每笔差额从哪来**。什么时候看：核对历史平帐、改导入/期初规则、复算锚点时。
+> 本文是只读分析；原「未删除、未写入任何数据库」的阶段已结束，执行结果见下。
 > 数据源：`c:\Users\George\Documents\Life\Money\2026财务管理.xlsx`、同目录相邻文件、`.artifacts/qianji-import-2026-11-06/` 的钱迹 CSV 与 `package/mapping.json`。
 > 金额单位：元，保留 2 位小数；app 内部为分（BigInt）。负债在 Excel 中以正数表示欠款，在 app 账户余额中以负数表示。
+>
+> **执行状态（2026-11-07）**：已按本文清库重建并导入 3,291 行 CSV + 历史平帐（`efba1b7`）。实际写入以 `scripts/data/qianji-rebuild-adjustments.json` 的 **89 条**为准；正文的「90 条」是清库前的分析清单口径，§8.7 表为逐账户推导明细（112 行，含 ± 对冲行）；三者不是同一计数口径，复算时以 JSON 为准。§10 的决策若与 [requirements.md](../requirements.md)、[interaction-spec.md](ux/interaction-spec.md) 冲突，以后者为准。
 
 ---
 

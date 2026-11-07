@@ -5,7 +5,7 @@
 
 **核心约束：同一笔钱只允许有一套算法。** 余额、收支表、现金流量表、预算、投资分析最终都是同一组分录的投影，因此不会出现「首页和报表数字对不上」。
 
-> **现状提示**：账户余额、首页汇总与收支报表已走领域内核（`summarizeFlows` / `flowByCategory`）；预算用量与现金流量表已接入规则层（`scopeQuery` / `rulesFor`）；资产负债表与投资分析仍各有独立汇总实现。收口计划见 [docs/rewrite-blueprint.md](docs/rewrite-blueprint.md) 批次 A0。
+> **现状（2026-11-07）**：前端已按高保真设计重建并完成精简（旧 AntD 页面、`pages/`、`queries/` 全部删除），生产入口只有 `app/design/DesignApp.tsx`。余额、收支、预算、退款与投资本金的金额规则都在 `packages/domain`；报表与投资分析只组装领域结果。剩余工作见 [docs/blueprint/PROGRESS.md](docs/blueprint/PROGRESS.md)「待领」（前端仅 L1–L3、U12、K8）。
 
 > **本文是唯一入口。** 无论你是人还是 AI 协作者，都从这份文档开始：先看「文档索引」确定该读哪一篇，再按「动手前」清单准备。
 
@@ -16,7 +16,7 @@ npm install     # 安装全部 workspace（postinstall 会自动 prisma generate
 npm run dev     # 前后端一起启动：API :3001，前端 :3002
 ```
 
-打开 http://localhost:3002 即可。首次使用请先在「设置 → 账户」创建账户，再在「交易」记第一笔。
+打开 http://localhost:3002 即可。首次使用请先在「设置 → 配置中心 → 账户分类 / 账户」创建账户，再到「流水」记第一笔。
 
 > **数据库连接串必须显式提供**：`schema.prisma` 的 datasource 使用 `env("DATABASE_URL")`，
 > 不再有 `file:./dev.db` 默认值。`npm run dev` 与各 db 脚本会经
@@ -88,10 +88,11 @@ npm start       # 预览构建产物
 MoneyBrain/
 ├── apps/
 │   ├── api/                # Express + Prisma API（routes → services → domain）
-│   └── web/                # React + Vite SPA（pages → queries → services/api）
+│   └── web/                # React + Vite SPA（features/<domain> → services/api）
 ├── packages/
 │   ├── domain/             # 记账内核：金额、日期、分录、汇总（算钱的唯一位置）
-│   └── contracts/          # 前后端共享的 API 类型与错误码
+│   ├── contracts/          # 前后端共享的 API 类型、错误码与文案目录
+│   └── sync/               # 记录级合并与加密容器（未接传输）
 ├── e2e/                    # Playwright 端到端测试
 ├── docs/                   # 详见下方文档索引
 └── scripts/build.mjs       # 跨平台构建封装
@@ -102,16 +103,16 @@ MoneyBrain/
 1. **金额影响只有一个实现**：所有余额、收支、预算、退款计算必须经过
    `packages/domain` 的 `postingsOf` / `summarizeFlows` / `remainingRefundable`。
    组件、route、service 里不得再写 `if (type === 'refund')` 之类的金额分支。
-   （投资分析只统计转账本金，是已知例外，收口见蓝图批次 A0；新代码不得再复制这类分支。）
+   投资分析只通过领域层 `transferInflow` 取转账本金，不自行判断交易类型。
 2. **金额单位**：DB / API / 契约 / 前端全链路都是整数分（`Minor`）；
    只有用户输入框与文件（CSV / 备份）按元读写。
 3. **日期单位**：领域层用 `LocalDate`（YYYY-MM-DD）；期间一律半开
    `[start, endExclusive)`。禁止在业务代码里拼 `23:59:59.999`。
 4. **期初余额**：视为「期初日期当天开始前」的余额，当天交易必须计入。
 5. **转账**：`amount` 是本金，`fee/coupon` 单独存放；手续费只从转出账户扣除。
-6. **退款**：必须关联原交易，金额不得超过剩余可退金额；方向由原交易类型决定。
+6. **退款**：必须关联原交易，方向由原交易类型决定；退款可超过原金额（超退不阻止，仅信息提示）。
 7. **不持久化派生值**：余额、预算百分比、快照前链、收益率一律按需计算。
-8. **失败不得伪装成空数据**：接口失败时用 `ErrorState` 展示原因与重试，
+8. **失败不得伪装成空数据**：接口失败时用 `StateViews` 的 `ErrorPanel` 展示原因与重试，
    金额显示 `—` 而不是 `0`；前端只通过 `unwrapApiData(res)` 解包响应，
    禁止 `res.data.data!` / `res.data.data ?? []`。错误码只能取
    `packages/contracts` 的 `ApiErrorCode`，错误体带 `requestId`。
@@ -145,6 +146,9 @@ npm run test:domain && npm run lint && npm run typecheck && npm test && npm run 
 | [docs/dev-guide.md](docs/dev-guide.md) | 新代码必须怎么写：领域规则、命名、文件与导出、类型、错误协议、数据库、测试要求 | **动手写代码前必读** |
 | [docs/testing.md](docs/testing.md) | 测试放在哪、怎么跑、Mock 策略、不变量的覆盖情况 | 加测试、跑验证 |
 | [docs/rewrite-blueprint.md](docs/rewrite-blueprint.md) | 目标态长什么样、还差什么、按什么顺序改、关键决策与反模式 | 规划下一批工作、判断改动该不该做 |
+| [docs/blueprint/PROGRESS.md](docs/blueprint/PROGRESS.md) | 每个差距条目的完成状态、当前待领顺序、已知未收口项 | **领条目 / 销条目时必读** |
+| [docs/blueprint/architecture.md](docs/blueprint/architecture.md) | 目标架构（分层、同步、数据模型）与不变量 | 设计跨模块改动、做阶段 2+ |
+| [docs/blueprint/ux/](docs/blueprint/ux/) | 信息架构、交互模型、双端差异、design tokens、预算前瞻 | 改界面 / 判断交互口径 |
 
 ### 冲突时以谁为准
 
