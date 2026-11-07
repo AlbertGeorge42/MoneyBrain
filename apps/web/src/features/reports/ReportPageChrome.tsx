@@ -4,6 +4,7 @@
  * 只承载布局与文案，不参与任何数据派生；页面与四张报表都从这里取同一份结构。
  */
 import { FolderInput, ScanLine } from 'lucide-react'
+import { HfTabs } from '@/features/shared/HfTabs'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReportTab } from './reportsTime'
 import { REPORT_TABS } from './reportsShared'
@@ -48,20 +49,14 @@ export function PageHead({
   if (device === 'mobile') {
     return (
       <div className="mb-rp-mobile-head">
-        <div className="mb-rp-tabs is-mobile" role="tablist" aria-label="报表视图">
-          {REPORT_TABS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={item.id === tab}
-              className={item.id === tab ? 'mb-rp-tab is-active' : 'mb-rp-tab'}
-              onClick={() => onTab(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <HfTabs
+          variant="report"
+          label="报表视图"
+          className="is-mobile"
+          value={tab}
+          items={REPORT_TABS}
+          onChange={onTab}
+        />
       </div>
     )
   }
@@ -71,20 +66,13 @@ export function PageHead({
       <div className="mb-rp-page-copy">
         <h1 className="mb-rp-page-title">报表</h1>
       </div>
-      <div className="mb-rp-tabs" role="tablist" aria-label="报表视图">
-        {REPORT_TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={item.id === tab}
-            className={item.id === tab ? 'mb-rp-tab is-active' : 'mb-rp-tab'}
-            onClick={() => onTab(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <HfTabs
+        variant="report"
+        label="报表视图"
+        value={tab}
+        items={REPORT_TABS}
+        onChange={onTab}
+      />
     </div>
   )
 }

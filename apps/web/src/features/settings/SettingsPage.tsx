@@ -12,6 +12,7 @@ import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { useToast } from '@/features/shared/toastContext'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { HfSheet } from '@/features/shared/HfSheet'
+import { HfTabs } from '@/features/shared/HfTabs'
 import {
   AlertTriangle,
   ChevronDown,
@@ -1041,23 +1042,16 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     return (
       <>
         <div className="mb-set-toolbar">
-          <div className="mb-set-tabs" role="tablist" aria-label="账户分组">
-            {[
-              { id: 'asset' as const, label: '资产分组' },
-              { id: 'liability' as const, label: '负债分组' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={accountTab === tab.id}
-                className={accountTab === tab.id ? 'mb-set-tab is-active' : 'mb-set-tab'}
-                onClick={() => setAccountTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <HfTabs
+            variant="settings"
+            label="账户分组"
+            value={accountTab}
+            items={[
+              { id: 'asset', label: '资产分组' },
+              { id: 'liability', label: '负债分组' },
+            ]}
+            onChange={setAccountTab}
+          />
           <div className="mb-set-toolbar-actions">
             <button
               type="button"
@@ -1205,20 +1199,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     return (
       <>
         <div className="mb-set-toolbar">
-          <div className="mb-set-tabs" role="tablist" aria-label="收支分类">
-            {CATEGORY_TABS.map((tab) => (
-              <button
-                key={tab.type}
-                type="button"
-                role="tab"
-                aria-selected={categoryTab === tab.type}
-                className={categoryTab === tab.type ? 'mb-set-tab is-active' : 'mb-set-tab'}
-                onClick={() => setCategoryTab(tab.type)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <HfTabs
+            variant="settings"
+            label="收支分类"
+            value={categoryTab}
+            items={CATEGORY_TABS.map((tab) => ({ id: tab.type, label: tab.label }))}
+            onChange={setCategoryTab}
+          />
           <button
             type="button"
             className="mb-set-add"
@@ -1254,20 +1241,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       return (
         <>
           <div className="mb-set-toolbar">
-            <div className="mb-set-tabs" role="tablist" aria-label="现金流分类">
-              {CASHFLOW_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={cashTab === tab.id}
-                  className={cashTab === tab.id ? 'mb-set-tab is-active' : 'mb-set-tab'}
-                  onClick={() => setCashTab(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <HfTabs
+              variant="settings"
+              label="现金流分类"
+              value={cashTab}
+              items={CASHFLOW_TABS}
+              onChange={setCashTab}
+            />
           </div>
           <div className="mb-set-list">
             {ASSET_MARK_GROUPS.map((group) => {
@@ -1349,20 +1329,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     return (
       <>
         <div className="mb-set-toolbar">
-          <div className="mb-set-tabs" role="tablist" aria-label="现金流分类">
-            {CASHFLOW_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={cashTab === tab.id}
-                className={cashTab === tab.id ? 'mb-set-tab is-active' : 'mb-set-tab'}
-                onClick={() => setCashTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <HfTabs
+            variant="settings"
+            label="现金流分类"
+            value={cashTab}
+            items={CASHFLOW_TABS}
+            onChange={setCashTab}
+          />
         </div>
         <div className="mb-set-list">
           {ACTIVITY_GROUPS.map((group) => {
