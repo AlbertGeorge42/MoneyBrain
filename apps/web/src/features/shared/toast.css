@@ -10,7 +10,7 @@
   left: 50%;
   /* 与流水页合计条 / 批量条共用底部槽位时抬到其上，避免叠压。 */
   bottom: calc(var(--mb-dock-h) + var(--mb-dock-batch-h) + var(--mb-s-5));
-  z-index: var(--mb-z-fab);
+  z-index: var(--mb-z-toast);
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-3);
@@ -40,7 +40,7 @@
 
 .mb-rp-toast {
   position: fixed;
-  z-index: 600;
+  z-index: var(--mb-z-toast);
   left: 50%;
   bottom: var(--mb-s-6);
   transform: translateX(-50%);

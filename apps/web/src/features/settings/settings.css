@@ -369,7 +369,7 @@
   position: absolute;
   top: calc(100% - var(--mb-s-1));
   right: 0;
-  z-index: 60;
+  z-index: var(--mb-z-popover);
   display: flex;
   flex-direction: column;
   min-width: 200px;
@@ -1003,7 +1003,7 @@
 .mb-set-overlay {
   position: fixed;
   inset: 0;
-  z-index: 160;
+  z-index: var(--mb-z-overlay);
   display: flex;
   flex-direction: column;
   background: var(--mb-color-surface);

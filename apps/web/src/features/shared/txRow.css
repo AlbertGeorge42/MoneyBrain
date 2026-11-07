@@ -37,7 +37,7 @@
   background: transparent;
   color: var(--mb-color-text-primary);
   cursor: pointer;
-  transition: background var(--mb-motion-fast) var(--mb-ease-standard);
+  transition: background var(--mb-dur-1) var(--mb-ease);
 }
 
 .mb-tx-row:hover {

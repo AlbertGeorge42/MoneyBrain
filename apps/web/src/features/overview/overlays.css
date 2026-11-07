@@ -484,7 +484,7 @@
 .mb-entry-mobile-foot {
   position: sticky;
   bottom: 0;
-  z-index: 2;
+  z-index: var(--mb-z-local-2);
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-3);

@@ -23,7 +23,7 @@ body {
   color: var(--mb-color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color var(--mb-motion-mid) var(--mb-ease-standard), color var(--mb-motion-mid) var(--mb-ease-standard);
+  transition: background-color var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
   overflow-x: hidden;
 }
 

@@ -752,7 +752,7 @@
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-surface-sunken);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color var(--mb-dur-1) var(--mb-ease), border-color var(--mb-dur-1) var(--mb-ease);
 }
 
 .mb-bg-switch-thumb {
@@ -763,7 +763,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--mb-color-text-tertiary);
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  transition: transform var(--mb-dur-1) var(--mb-ease), background-color var(--mb-dur-1) var(--mb-ease);
 }
 
 .mb-bg-switch.is-on {

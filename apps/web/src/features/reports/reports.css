@@ -587,11 +587,11 @@
 }
 
 .mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll th:first-child {
-  z-index: 2;
+  z-index: var(--mb-z-local-2);
 }
 
 .mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll td:first-child {
-  z-index: 1;
+  z-index: var(--mb-z-local-1);
 }
 
 .mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll tfoot td:first-child {
@@ -1856,7 +1856,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1;
+  z-index: var(--mb-z-local-1);
   margin: 0;
   padding: var(--mb-s-3) var(--mb-s-4) var(--mb-s-4);
   background: var(--mb-color-surface-raised);
@@ -1984,7 +1984,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-surface-sunken);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color var(--mb-dur-1) var(--mb-ease), border-color var(--mb-dur-1) var(--mb-ease);
 }
 
 .mb-rp-switch-thumb {
@@ -1995,7 +1995,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   height: 14px;
   border-radius: 50%;
   background: var(--mb-color-text-tertiary);
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  transition: transform var(--mb-dur-1) var(--mb-ease), background-color var(--mb-dur-1) var(--mb-ease);
 }
 
 .mb-rp-switch.is-on .mb-rp-switch-track {

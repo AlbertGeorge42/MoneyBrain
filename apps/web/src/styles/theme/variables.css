@@ -16,14 +16,14 @@
   --mb-border-style: solid;
   --mb-border-style-dashed: dashed;
 
-  /* ===== 动效 ===== */
-  --mb-motion-fast: 0.15s;
-  --mb-motion-mid: 0.24s;
-  --mb-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-
-  /* ===== Z-index ===== */
-  --mb-z-batchbar: 50;
-  --mb-z-toast: 500;
+  /* ===== Z-index（design-tokens §9.2，业务 CSS 禁止裸数字）===== */
+  --mb-z-local-1: 1;
+  --mb-z-local-2: 2;
+  --mb-z-dock: 50;
+  --mb-z-popover: 60;
+  --mb-z-fab: 110;
+  --mb-z-overlay: 160;
+  --mb-z-toast: 600;
 }
 
 /**
@@ -100,5 +100,4 @@
   --mb-mobile-w: 390px;
   --mb-mobile-h: 844px;
   --mb-modal-w: 600px;
-  --mb-z-fab: 110;
 }

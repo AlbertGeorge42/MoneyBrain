@@ -128,7 +128,7 @@
   position: fixed;
   left: var(--mb-s-4);
   bottom: 0;
-  z-index: var(--mb-z-batchbar);
+  z-index: var(--mb-z-dock);
   width: calc(var(--mb-sidebar-w) - var(--mb-s-4) * 2);
   box-shadow: var(--mb-sh-2);
 }

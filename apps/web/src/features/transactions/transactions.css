@@ -102,8 +102,8 @@
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-1);
   cursor: pointer;
-  transition: background var(--mb-motion-fast) var(--mb-ease-standard),
-    border-color var(--mb-motion-fast) var(--mb-ease-standard);
+  transition: background var(--mb-dur-1) var(--mb-ease),
+    border-color var(--mb-dur-1) var(--mb-ease);
 }
 
 .mb-tx-type:hover {
@@ -147,8 +147,8 @@
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--mb-motion-fast) var(--mb-ease-standard),
-    border-color var(--mb-motion-fast) var(--mb-ease-standard);
+  transition: background var(--mb-dur-1) var(--mb-ease),
+    border-color var(--mb-dur-1) var(--mb-ease);
 }
 
 .mb-tx-btn:hover {
@@ -452,7 +452,7 @@
 .mb-tx-foot {
   position: sticky;
   bottom: 0;
-  z-index: var(--mb-z-batchbar);
+  z-index: var(--mb-z-dock);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -708,7 +708,7 @@
 .mb-tx-batchbar {
   position: sticky;
   bottom: calc(var(--mb-dock-h) + var(--mb-s-2));
-  z-index: var(--mb-z-batchbar);
+  z-index: var(--mb-z-dock);
   display: flex;
   /* 固定区不参与 flex 收缩：否则高度会被内容压成 18px，按钮被裁掉。 */
   flex: none;

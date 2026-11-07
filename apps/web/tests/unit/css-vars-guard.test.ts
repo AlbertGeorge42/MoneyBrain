@@ -32,10 +32,6 @@ const ANT_VAR = /--ant-[A-Za-z0-9_-]+/g
  * 新增豁免必须在此显式登记并写明原因；删除对应 token 时同步删掉条目。
  */
 const DEAD_VAR_ALLOWLIST: Record<string, string> = {
-  // 结构 token：圆角 / 动效由 design-tokens 统一登记，供 Mantine theme 与后续组件引用
-  '--mb-motion-fast': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
-  '--mb-motion-mid': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-dur-*',
-  '--mb-ease-standard': 'design-tokens 登记的结构 token，当前页面直接引用 --mb-ease',
   '--mb-font-num': '保留：数字等宽字体预留位，暂无独立引用',
   '--mb-color-text-inverse': 'design-tokens 全量保留，当前无其他反色文字场景',
 }
