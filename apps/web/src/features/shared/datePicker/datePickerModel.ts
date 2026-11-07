@@ -147,10 +147,6 @@ export function formatDateText(value: string, placeholder = '不限'): string {
   return value || placeholder
 }
 
-export function formatRangeText(range: DateRange, placeholder = '不限'): string {
-  return `${formatDateText(range.from, placeholder)} ~ ${formatDateText(range.to, placeholder)}`
-}
-
 /**
  * 流水筛选的四个快捷预设：本月 / 上月 / 近 3 个月 / 今年。
  * 「本月 / 今年」取整月 / 整年边界，未来流水仍在账本里，不提前截断。

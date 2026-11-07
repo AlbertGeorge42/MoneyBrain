@@ -4,8 +4,8 @@ import { seedAccount } from '../helpers/seed'
 /**
  * 设置页面（高保真）
  *
- * 旧版断言 .kpi-grid / .ant-tabs / .ant-modal；迁到 .mb-set-nav / .mb-set-panel /
- * .mb-set-sheet 一类的 HF 选择器。数据区只验证入口与确认面板，不做真实清空。
+ * 选择器统一用 .mb-set-nav / .mb-set-panel / .mb-set-sheet。
+ * 数据区只验证入口与确认面板，不做真实清空。
  */
 
 async function openSettings(page: import('@playwright/test').Page) {

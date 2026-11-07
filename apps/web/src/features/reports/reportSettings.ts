@@ -138,17 +138,6 @@ export function saveReportSettings(settings: ReportViewSettings): void {
   }
 }
 
-/** 重置只改展示偏好，不动账本。 */
-export function resetReportSettings(): ReportViewSettings {
-  const store = storage()
-  try {
-    store?.removeItem(REPORT_SETTINGS_KEY)
-  } catch {
-    // 同 save：存储不可用时忽略。
-  }
-  return cloneDefaults()
-}
-
 /** 资产负债：按性质汇总时，同一性质的多账户合并成一行。 */
 export function groupBalanceRows(rows: BalanceRow[], mode: BalanceGroupMode): BalanceRow[] {
   if (mode === 'account') return rows

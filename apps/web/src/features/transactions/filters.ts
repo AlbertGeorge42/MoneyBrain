@@ -159,13 +159,6 @@ export function filterTransactions(ledger: Ledger, filters: TransactionFilters):
   })
 }
 
-export function transactionNet(transaction: LedgerTransaction): number {
-  if (transaction.type === 'income' || transaction.type === 'refund') return Math.abs(transaction.amount)
-  if (transaction.type === 'expense') return -Math.abs(transaction.amount)
-  if (transaction.type === 'adjustment') return transaction.amount
-  return 0
-}
-
 export interface SummarizeOptions {
   /** 默认排除标了「不计收支」的交易；true = 全貌口径（含它们）。 */
   includeExcluded?: boolean

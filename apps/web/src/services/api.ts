@@ -10,7 +10,6 @@ import type {
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
   ApiResponse,
-  AssetClassDeleteResult,
   AuditEvent,
   AuditEventHistoryResult,
   AutoBackupConfig,
@@ -289,55 +288,6 @@ export const dataApi = {
       },
     })
   },
-}
-
-export const investmentApi = {
-  getAssetClasses: (accountId: string) =>
-    api.get<ApiResponse<InvestmentAssetClass[]>>(`/investments/${accountId}/asset-classes`),
-
-  createAssetClass: (accountId: string, data: Partial<InvestmentAssetClass>) =>
-    api.post<ApiResponse<InvestmentAssetClass>>(`/investments/${accountId}/asset-classes`, data),
-
-  updateAssetClass: (id: string, data: Partial<InvestmentAssetClass>) =>
-    api.put<ApiResponse<InvestmentAssetClass>>(`/investments/asset-classes/${id}`, data),
-
-  deleteAssetClass: (id: string, forceDelete = false) =>
-    api.delete<ApiResponse<AssetClassDeleteResult>>(`/investments/asset-classes/${id}`, {
-      params: { forceDelete },
-    }),
-
-  reorderAssetClasses: (accountId: string, orderedIds: string[]) =>
-    api.put<ApiResponse<MessageResult>>(`/investments/${accountId}/asset-classes/reorder`, { orderedIds }),
-
-  getSnapshots: (accountId: string, startDate?: string, endDate?: string) =>
-    api.get<ApiResponse<InvestmentAllocationSnapshot[]>>('/investments/allocations', { params: { accountId, startDate, endDate } }),
-
-  getLatestSnapshot: (accountId: string, beforeDate?: string) =>
-    api.get<ApiResponse<InvestmentAllocationSnapshot | null>>('/investments/allocations/latest', { params: { accountId, beforeDate } }),
-
-  saveSnapshot: (data: {
-    accountId: string
-    date: string
-    items: Array<{
-      assetClassId: string
-      marketValue: Minor
-      periodNetFlow?: Minor
-    }>
-    note?: string
-  }) => api.post<ApiResponse<InvestmentAllocationSnapshot>>('/investments/allocations', data),
-
-  updateSnapshot: (id: string, data: {
-    date: string
-    items: Array<{
-      assetClassId: string
-      marketValue: Minor
-      periodNetFlow?: Minor
-    }>
-    note?: string
-  }) => api.put<ApiResponse<InvestmentAllocationSnapshot>>(`/investments/allocations/${id}`, data),
-
-  deleteSnapshot: (id: string) =>
-    api.delete<ApiResponse<MessageResult>>(`/investments/allocations/${id}`),
 }
 
 export default api

@@ -249,7 +249,7 @@ export interface LedgerApiPayload {
 }
 
 /** 完整流水分页拉取：只读端点，失败直接抛给页面进入 error 态。 */
-export async function fetchAllTransactions(): Promise<Transaction[]> {
+async function fetchAllTransactions(): Promise<Transaction[]> {
   const pageSize = 200
   const all: Transaction[] = []
   for (let page = 1; page <= 100; page += 1) {

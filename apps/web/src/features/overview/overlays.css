@@ -72,28 +72,6 @@
   gap: var(--mb-s-4);
 }
 
-.mb-seg {
-  padding: var(--mb-s-1);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-sunken);
-}
-
-.mb-seg label {
-  color: var(--mb-color-text-secondary);
-  font-size: var(--mb-fs-1);
-}
-
-.mb-seg label[data-active] {
-  color: var(--mb-color-accent);
-  font-weight: 600;
-}
-
-.mb-seg .mantine-SegmentedControl-indicator {
-  border-radius: var(--mb-radius-xs);
-  background: var(--mb-color-surface-raised);
-  box-shadow: var(--mb-sh-1);
-}
-
 .mb-entry-field {
   display: flex;
   flex-direction: column;
@@ -122,47 +100,6 @@
 .mb-input:focus-within {
   border-color: var(--mb-color-accent);
   box-shadow: 0 0 0 var(--mb-s-1) var(--mb-color-accent-soft);
-}
-
-.mb-currency {
-  font-family: var(--mb-font-num);
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mb-s-2);
-}
-
-.mb-chip {
-  min-height: calc(var(--mb-control-h) - var(--mb-s-1));
-  padding: 0 var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-secondary);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-chip:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-chip[aria-pressed='true'] {
-  border-color: var(--mb-color-accent-fill);
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-  font-weight: 600;
-}
-
-.mb-entry-hint {
-  margin: 0;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 .mb-entry-actions {

@@ -67,11 +67,7 @@ export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
         <Button className="mb-primary-btn" leftSection={<RotateCcw size={16} />} onClick={onRetry}>
           重试
         </Button>
-        <Button className="mb-secondary-btn" variant="default">
-          打开诊断
-        </Button>
       </div>
-      <p className="mb-errorpanel-code">ERR_LOCAL_DB_TIMEOUT · 2.4s</p>
     </section>
   )
 }

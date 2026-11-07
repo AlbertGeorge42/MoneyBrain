@@ -144,18 +144,3 @@ export function restoreTransactionsInLedger(
 
   return { ...next, transactions: [...existing, ...missing] }
 }
-
-export function restoreTransactionCategoriesInLedger(
-  ledger: Ledger,
-  entries: readonly { id: string; categoryId: string }[],
-): Ledger {
-  if (entries.length === 0) return ledger
-  const restoring = new Map(entries.map((entry) => [entry.id, entry.categoryId]))
-  return {
-    ...ledger,
-    transactions: ledger.transactions.map((transaction) => {
-      const categoryId = restoring.get(transaction.id)
-      return categoryId ? { ...transaction, categoryId } : transaction
-    }),
-  }
-}

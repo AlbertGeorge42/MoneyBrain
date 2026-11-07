@@ -297,8 +297,7 @@
 .mb-mobile-scroll .mb-secondary-btn,
 .mb-sheet .mb-link-btn,
 .mb-sheet .mb-primary-btn,
-.mb-sheet .mb-secondary-btn,
-.mb-sheet .mb-chip {
+.mb-sheet .mb-secondary-btn {
   min-height: var(--mb-touch);
 }
 

@@ -367,19 +367,6 @@
   gap: var(--mb-s-1);
 }
 
-.mb-tx-row-trigger {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
 .mb-tx-head-action {
   display: inline-flex;
   align-items: center;
@@ -1262,7 +1249,6 @@
   outline-offset: calc(var(--mb-border-width) * 2);
 }
 
-.mb-tx-row-trigger:focus-visible,
 .mb-tx-head-action:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);

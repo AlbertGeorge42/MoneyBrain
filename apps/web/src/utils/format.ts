@@ -4,7 +4,7 @@
  * 金额在应用内一律是整数分（Minor）；这里是唯一的「分 → 元」展示边界。
  */
 
-import { minor, type Minor } from '@domain/index'
+import type { Minor } from '@domain/index'
 
 interface FormatCurrencyOptions {
   /** 小数位数，默认 2 */
@@ -68,33 +68,7 @@ export function formatPercent(value: number, decimals = 1, showSign = true): str
   return `${sign}${value.toFixed(decimals)}%`
 }
 
-interface TooltipParams {
-  axisValue?: string
-  marker?: string
-  seriesName?: string
-  value?: number | string
-}
-
-export function currencyTooltipFormatter(params: TooltipParams | TooltipParams[]): string {
-  if (!Array.isArray(params)) return ''
-  const label = params[0]?.axisValue || ''
-  const lines = params.map((p) => {
-    const numValue = typeof p.value === 'number' ? p.value : parseFloat(String(p.value)) || 0
-    return `${p.marker} ${p.seriesName}: ${formatCurrency(minor(numValue))}`
-  })
-  return [label, ...lines].join('<br/>')
-}
-
 /** 坐标轴刻度：输入是分。 */
 export function currencyAxisFormatter(value: number): string {
   return `¥${(value / 100).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`
-}
-
-/**
- * 创建 Ant Design Statistic 组件专用的格式化器
- * @param decimals 小数位数
- * @returns 格式化器函数（输入是分）
- */
-export function createStatisticFormatter(decimals = 2): (value: string | number) => string {
-  return (value: string | number) => formatCurrency(minor(Number(value || 0)), { decimals })
 }

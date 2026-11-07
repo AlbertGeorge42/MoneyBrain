@@ -60,8 +60,3 @@ export function buildChartLayout(
     ...BASE_PADDING[device],
   }
 }
-
-/** Y 轴刻度标签左缘相对 SVG 左缘的余量（用于回归断言）。 */
-export function yAxisLabelLeftEdge(layout: ChartLayout, labelWidth: number): number {
-  return layout.padL - 8 - labelWidth
-}

@@ -118,10 +118,6 @@ export function yearOf(value: string): number {
   return parseDay(value).getUTCFullYear()
 }
 
-export function daysBetween(from: string, to: string): number {
-  return Math.round((parseDay(to).getTime() - parseDay(from).getTime()) / 86_400_000)
-}
-
 /** 时点粒度 = 锚点精度：月取月末、年取 12-31。 */
 export function snapPoint(value: string, gran: Granularity): string {
   if (gran === 'month') return monthEnd(value)
@@ -233,11 +229,6 @@ function bucketIndex(value: string, gran: Granularity): number {
 
 export function spanBuckets(from: string, to: string, gran: Granularity): number {
   return bucketIndex(to, gran) - bucketIndex(from, gran) + 1
-}
-
-export function isValidRange(from: string, to: string, gran: Granularity): boolean {
-  if (from > to) return false
-  return spanBuckets(from, to, gran) >= 1
 }
 
 export interface TimeValidation {

@@ -1378,7 +1378,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   letter-spacing: 0.08em;
 }
 
-.mb-rp-sankey-label,
 .mb-rp-sankey-value,
 .mb-rp-sankey-balance,
 .mb-rp-sankey-name {
@@ -1392,8 +1391,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-sankey-value,
-.mb-rp-sankey-balance,
-.mb-rp-sankey-label {
+.mb-rp-sankey-balance {
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;
 }
