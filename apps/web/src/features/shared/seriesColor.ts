@@ -6,7 +6,7 @@
  * 因此同一实体在排序变化、跨页面时保持同一颜色。
  *
  * 两个色板都来自 hf-theme.ts 的既有 token，不在组件里写死色值：
- * - SERIES_COLORS：图表填充（环形 / 构成条 / 桑基），7 槽；
+ * - SERIES_COLORS：图表填充（环形 / 构成条 / 桑基），10 槽；
  * - CATEGORY_COLORS：分类图标与账户圆点，6 槽。
  */
 
@@ -18,6 +18,9 @@ export const SERIES_COLORS = [
   'var(--mb-chart-series-5)',
   'var(--mb-chart-series-6)',
   'var(--mb-chart-series-7)',
+  'var(--mb-chart-series-8)',
+  'var(--mb-chart-series-9)',
+  'var(--mb-chart-series-10)',
 ] as const
 
 export const CATEGORY_COLORS = [

@@ -183,7 +183,8 @@ const LIGHT_COLOR_VARS: MbColorVars = {
   '--mb-color-cat-5': '#c25383',
   '--mb-color-cat-6': '#b07a0b',
   /* 图表序列色只用于图表填充（环形 / 堆叠条 / 桑基），不用于分类图标；
-     相邻槽按色盲 ΔE 排序，同一张图最多 7 个有色项，第 8 类并入「其余 N 类」。 */
+     前 7 槽按色盲 ΔE 排序后保持不动，8–10 槽补齐红 / 绿 / 棕；
+     构成图仍按 6 具名 +「其余」合并，总览等展示全部分类时同图最多 10 色不重复。 */
   '--mb-chart-series-1': '#1b6fa8',
   '--mb-chart-series-2': '#c25e00',
   '--mb-chart-series-3': '#0c7a80',
@@ -191,6 +192,9 @@ const LIGHT_COLOR_VARS: MbColorVars = {
   '--mb-chart-series-5': '#8a7a0a',
   '--mb-chart-series-6': '#c24a8a',
   '--mb-chart-series-7': '#8c9188',
+  '--mb-chart-series-8': '#b03a3a',
+  '--mb-chart-series-9': '#2e7d32',
+  '--mb-chart-series-10': '#6f4e37',
   /* 二级环（子分类）在父色相上做明度阶梯：浅色只向深调，整段区间不含 100%，
      任何子级都不等于父色（父色只作锚点），相邻子级跨 7 槽实测 ΔE00 ≥ 3.0、对白卡 ≥ 3.8。 */
   '--mb-chart-sub-from': '90%',
@@ -269,7 +273,8 @@ const DARK_COLOR_VARS: MbColorVars = {
   '--mb-color-cat-4': '#d9a21b',
   '--mb-color-cat-5': '#34d399',
   '--mb-color-cat-6': '#ff7ab6',
-  /* 图表序列色：暗色另调一套（沿用浅色档会失去对暗底对比），规则同浅色。 */
+  /* 图表序列色：暗色另调一套（沿用浅色档会失去对暗底对比），规则同浅色；
+     8–10 槽与浅色槽位一一对应：红 / 绿 / 棕，只提亮不改色相语义。 */
   '--mb-chart-series-1': '#6fa8dc',
   '--mb-chart-series-2': '#e08a3c',
   '--mb-chart-series-3': '#45c9c0',
@@ -277,6 +282,9 @@ const DARK_COLOR_VARS: MbColorVars = {
   '--mb-chart-series-5': '#d6c24a',
   '--mb-chart-series-6': '#e86fb2',
   '--mb-chart-series-7': '#8a9196',
+  '--mb-chart-series-8': '#e57373',
+  '--mb-chart-series-9': '#5fbf7f',
+  '--mb-chart-series-10': '#bfa28a',
   /* 二级环：暗色只向浅调，整段区间不含 100%，子级全部比父色浅且互不相同；
      相邻子级跨 7 槽实测 ΔE00 ≥ 2.24（最差为亮青 #45C9C0），对暗卡 ≥ 6.9，对比度只增不减。 */
   '--mb-chart-sub-from': '84%',

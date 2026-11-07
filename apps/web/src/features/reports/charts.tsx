@@ -367,8 +367,8 @@ function mergeTail(nodes: FlowTreeNode[], keep: number): FlowTreeNode[] {
   ]
 }
 
-/** 「其余 N 类」优先用第 7 槽的中性色；该槽被具名分类占用时，退到本图未用的槽。 */
-const REST_SLOT = SERIES_COLORS.length - 1
+/** 「其余 N 类」优先用第 7 槽（索引 6）的中性灰；该槽被具名分类占用时，退到本图未用的槽。 */
+const REST_SLOT = 6
 
 function donutArc(
   cx: number,

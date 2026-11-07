@@ -178,7 +178,12 @@ export function OverviewPage({
         <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
         <MobileHero summary={summary} />
         <MobileSnapshots summary={summary} />
-        <AccountEntry summary={summary} accounts={ledger.accounts} onOpen={onOpenAccounts} />
+        <AccountEntry
+          summary={summary}
+          accounts={ledger.accounts}
+          categories={ledger.accountCategories}
+          onOpen={onOpenAccounts}
+        />
         <NetWorthTrend points={trend} device="mobile" />
         <div className="mb-dash-charts">
           <ExpenseTrendChart points={expenseCharts.trend} device="mobile" />
@@ -206,7 +211,12 @@ export function OverviewPage({
     <>
       <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
       <NetWorthHero summary={summary} />
-      <AccountEntry summary={summary} accounts={ledger.accounts} onOpen={onOpenAccounts} />
+      <AccountEntry
+        summary={summary}
+        accounts={ledger.accounts}
+        categories={ledger.accountCategories}
+        onOpen={onOpenAccounts}
+      />
       <div className="mb-dash-mid">
         <RecentTransactions
           device="desktop"
