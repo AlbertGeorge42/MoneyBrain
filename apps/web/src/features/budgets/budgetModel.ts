@@ -29,6 +29,8 @@ export interface BudgetPageRow {
   status: string
   categoryName: string
   accountName: string
+  /** 后端 Budget.isActive；停用条目仍列出但灰显，不计入头部合计与告警。 */
+  isActive: boolean
 }
 
 export interface BudgetTypeGroup {
@@ -51,6 +53,8 @@ export interface BudgetPageData {
   over: BudgetPageRow[]
   near: BudgetPageRow[]
   primaryOver?: BudgetPageRow
+  /** 已停用的支出预算条数；全部停用时头部需要给出与「未设置」不同的空态文案。 */
+  disabledExpenseCount: number
 }
 
 export const BUDGET_KIND_LABEL: Record<BudgetKind, string> = {
@@ -186,10 +190,11 @@ function rowLevel(type: BudgetKind, percent: number): BudgetRowLevel {
 export function deriveBudgetPage(
   ledger: Ledger,
   month = CURRENT_MONTH,
-  options?: { today?: string; currentMonth?: string },
+  options?: { today?: string; currentMonth?: string; activeById?: Map<string, boolean> },
 ): BudgetPageData {
   const today = options?.today ?? ledgerAnchorDay(ledger)
   const currentMonth = options?.currentMonth ?? today.slice(0, 7)
+  const activeById = options?.activeById
   const anchor = monthAnchor(month, currentMonth, today)
   const rows: BudgetPageRow[] = ledger.budgets
     .filter((budget) => budget.type === 'expense' || budget.type === 'income' || budget.type === 'transfer')
@@ -223,6 +228,8 @@ export function deriveBudgetPage(
         level,
         categoryName: category?.name ?? '全部分类',
         accountName: account?.name ?? '全部账户',
+        // 真实后端字段；没有该映射（种子数据 / 查询未就绪）时按启用处理。
+        isActive: activeById?.get(budget.id) ?? true,
       }
       return { ...base, status: rowStatus(base) }
     })
@@ -244,11 +251,13 @@ export function deriveBudgetPage(
   })
 
   const expenseRows = groups[0].rows
-  const used = expenseRows.reduce((total, row) => total + row.used, 0)
-  const limit = expenseRows.reduce((total, row) => total + row.limit, 0)
+  // 头部合计与告警只看启用条目；停用预算保留在列表里供恢复，不参与「可花多少」。
+  const activeExpenseRows = expenseRows.filter((row) => row.isActive)
+  const used = activeExpenseRows.reduce((total, row) => total + row.used, 0)
+  const limit = activeExpenseRows.reduce((total, row) => total + row.limit, 0)
   const percent = limit === 0 ? 0 : (used / limit) * 100
-  const over = expenseRows.filter((row) => row.level === 'over')
-  const near = expenseRows.filter((row) => row.level === 'warning')
+  const over = activeExpenseRows.filter((row) => row.level === 'over')
+  const near = activeExpenseRows.filter((row) => row.level === 'warning')
 
   return {
     month,
@@ -264,6 +273,7 @@ export function deriveBudgetPage(
     over,
     near,
     primaryOver: over[0],
+    disabledExpenseCount: expenseRows.length - activeExpenseRows.length,
   }
 }
 

@@ -668,3 +668,118 @@
 .mb-bg-detail .mb-bg-over-buttons .mb-secondary-btn {
   flex: 1 1 auto;
 }
+
+/* ===== 启用 / 停用 ===== */
+
+/* 停用条目保留在列表里可恢复；灰显 + 文字标签，避免只用透明度传达状态。 */
+.mb-bg-row[data-active='false'] {
+  opacity: 0.62;
+}
+
+.mb-bg-row[data-active='false']:hover {
+  opacity: 0.8;
+}
+
+.mb-bg-inactive-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--mb-s-1);
+  padding: 0 4px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-xs);
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.mb-bg-active-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+  margin-top: var(--mb-s-3);
+  padding: var(--mb-s-2) 0;
+  border-top: 1px solid var(--mb-color-border);
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
+.mb-bg-active-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mb-bg-active-title {
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+}
+
+.mb-bg-active-desc {
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.4;
+}
+
+.mb-bg-switch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--mb-s-2);
+  min-height: var(--mb-touch);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+}
+
+.mb-bg-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mb-bg-switch-track {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-pill);
+  background: var(--mb-color-surface-sunken);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.mb-bg-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mb-color-text-tertiary);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.mb-bg-switch.is-on {
+  color: var(--mb-color-accent);
+}
+
+.mb-bg-switch.is-on .mb-bg-switch-track {
+  border-color: var(--mb-color-accent);
+  background: var(--mb-color-accent-soft);
+}
+
+.mb-bg-switch.is-on .mb-bg-switch-thumb {
+  transform: translateX(14px);
+  background: var(--mb-color-accent);
+}
+
+.mb-bg-switch-state {
+  white-space: nowrap;
+}

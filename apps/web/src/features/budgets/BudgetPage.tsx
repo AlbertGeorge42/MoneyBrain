@@ -5,6 +5,8 @@ import { useLedger } from '@/features/overview/ledgerStore'
 import type { LedgerBudgetInput } from '@/features/overview/ledgerStore'
 import { ledgerAnchorDay } from '@/features/overview/model'
 import type { LedgerBudget } from '@/features/overview/model'
+import { budgetApi } from '@/services/api'
+import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
@@ -117,7 +119,11 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
     return (
       <section className="mb-card mb-bg-hero is-empty">
         <h2 className="mb-sec-title">本月支出预算</h2>
-        <p className="mb-bg-hero-empty">还没有设置支出预算，新增第一条后会在这里显示可花金额。</p>
+        <p className="mb-bg-hero-empty">
+          {data.disabledExpenseCount > 0
+            ? `支出预算已全部停用（${data.disabledExpenseCount} 条）；启用后才会显示可花金额与告警。`
+            : '还没有设置支出预算，新增第一条后会在这里显示可花金额。'}
+        </p>
       </section>
     )
   }
@@ -213,28 +219,42 @@ function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Budg
 function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: BudgetPageRow) => void }) {
   return (
     <>
-      {data.groups.map((group) =>
-        group.rows.length === 0 ? null : (
+      {data.groups.map((group) => {
+        if (group.rows.length === 0) return null
+        const activeRows = group.rows.filter((row) => row.isActive)
+        const disabled = group.rows.length - activeRows.length
+        return (
           <section key={group.type} className="mb-card mb-bg-group" data-type={group.type}>
             <div className="mb-sec-head">
               <div>
                 <h2 className="mb-sec-title">{group.label}</h2>
-                <p className="mb-sec-desc">{group.rows.length} 个条目</p>
+                <p className="mb-sec-desc">
+                  {group.rows.length} 个条目{disabled > 0 ? ` · 已停用 ${disabled}` : ''}
+                </p>
               </div>
               <span className="mb-bg-group-total">
-                {moneyText(group.rows.reduce((total, row) => total + row.limit, 0))}
+                {moneyText(activeRows.reduce((total, row) => total + row.limit, 0))}
               </span>
             </div>
             <div className="mb-bg-rows">
               {group.rows.map((row) => (
-                <button key={row.id} type="button" className="mb-bg-row" onClick={() => onOpen(row)}>
+                <button
+                  key={row.id}
+                  type="button"
+                  className="mb-bg-row"
+                  data-active={row.isActive ? undefined : 'false'}
+                  onClick={() => onOpen(row)}
+                >
                   <div className="mb-bg-row-top">
-                    <span className="mb-bg-name">{row.name}</span>
+                    <span className="mb-bg-name">
+                      {row.name}
+                      {!row.isActive && <span className="mb-bg-inactive-tag">已停用</span>}
+                    </span>
                     <span className="mb-bg-status" data-level={row.level}>
-                      {(row.level === 'warning' || row.level === 'over') && (
+                      {(row.level === 'warning' || row.level === 'over') && row.isActive && (
                         <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
                       )}
-                      {row.status}
+                      {row.isActive ? row.status : '不计入预算'}
                     </span>
                   </div>
                   <BudgetProgress
@@ -259,8 +279,8 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
               ))}
             </div>
           </section>
-        ),
-      )}
+        )
+      })}
     </>
   )
 }
@@ -332,10 +352,12 @@ export function BudgetPage({
   const [editorError, setEditorError] = useState('')
   // 写请求进行中禁掉再次提交，避免一次点击落两条预算。
   const [saving, setSaving] = useState(false)
+  // 预算启停属于后端 Budget 字段，账本实体不携带 isActive；单独按 id 取真实值。
+  const [activeById, setActiveById] = useState<Map<string, boolean>>()
 
   const data = useMemo(
-    () => deriveBudgetPage(ledger, month, { today: anchorDay, currentMonth }),
-    [ledger, month, anchorDay, currentMonth],
+    () => deriveBudgetPage(ledger, month, { today: anchorDay, currentMonth, activeById }),
+    [ledger, month, anchorDay, currentMonth, activeById],
   )
   const detail = detailId ? data.groups.flatMap((group) => group.rows).find((row) => row.id === detailId) : undefined
 
@@ -360,6 +382,28 @@ export function BudgetPage({
 
   const apiMode = dataMode === 'api'
 
+  // 真实模式下读一次后端 isActive；种子数据没有该字段，保持 undefined（按启用处理）。
+  useEffect(() => {
+    if (!apiMode) {
+      setActiveById(undefined)
+      return
+    }
+    let cancelled = false
+    void Promise.resolve(budgetApi.getAll())
+      .then((response) => (response ? unwrapApiData(response) : []))
+      .then((budgets) => {
+        if (!cancelled) {
+          setActiveById(new Map(budgets.map((budget) => [budget.id, budget.isActive])))
+        }
+      })
+      .catch(() => {
+        // 读取失败不阻断预算页：按启用展示，写操作仍会给出各自错误。
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [apiMode, ledger.budgets])
+
   /** 现有预算 + 新限额 → 写接口入参（真实后端 PUT 要求完整字段）。 */
   const toBudgetInput = (budget: LedgerBudget, limit: number): LedgerBudgetInput => ({
     name: budget.name,
@@ -369,6 +413,30 @@ export function BudgetPage({
     categoryId: budget.categoryId,
     accountId: budget.accountId,
   })
+
+  const toggleActive = async () => {
+    if (!detail || saving || !apiMode) return
+    const budget = ledger.budgets.find((item) => item.id === detail.id)
+    if (!budget) {
+      setDetailNote('预算条目已不存在，请关闭后重试')
+      return
+    }
+    const next = !detail.isActive
+    setSaving(true)
+    try {
+      unwrapApiData(
+        await budgetApi.update(detail.id, { ...toBudgetInput(budget, budget.limit), isActive: next }),
+      )
+      // 头部合计 / 需要关注 / 启停标签都依赖同一份后端 isActive：先就地更新，避免等待重读。
+      setActiveById((current) => new Map<string, boolean>(current ?? []).set(detail.id, next))
+      setDetailNote(next ? '已启用，该预算恢复计入预算与告警' : '已停用，该预算不再计入预算与告警')
+      notify(`已${next ? '启用' : '停用'}预算「${detail.name}」`)
+    } catch (error) {
+      setDetailNote(`保存失败：${error instanceof Error ? error.message : '请重试'}`)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const saveLimit = async () => {
     if (!detail || saving) return
@@ -632,6 +700,33 @@ export function BudgetPage({
                 <dd>{data.monthLabel}</dd>
               </div>
             </dl>
+
+            {apiMode && (
+              <div className="mb-bg-active-row">
+                <div className="mb-bg-active-copy">
+                  <span className="mb-bg-active-title">启用预算</span>
+                  <span className="mb-bg-active-desc">
+                    {detail.isActive
+                      ? '停用后不再计入本月预算合计与超支告警，历史进度仍可查看'
+                      : '当前已停用：不计入预算合计与告警，启用后恢复'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={detail.isActive}
+                  aria-label={detail.isActive ? '停用预算' : '启用预算'}
+                  className={`mb-bg-switch${detail.isActive ? ' is-on' : ''}`}
+                  onClick={toggleActive}
+                  disabled={saving}
+                >
+                  <span className="mb-bg-switch-track" aria-hidden>
+                    <span className="mb-bg-switch-thumb" />
+                  </span>
+                  <span className="mb-bg-switch-state">{detail.isActive ? '已启用' : '已停用'}</span>
+                </button>
+              </div>
+            )}
 
             {detail.type === 'expense' && detail.level === 'over' && (
               <div className="mb-bg-over-actions">

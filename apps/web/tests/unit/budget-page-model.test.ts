@@ -63,6 +63,19 @@ describe('预算页数据', () => {
     expect(shiftMonth('2026-12', 1)).toBe('2027-01')
   })
 
+  it('停用的支出预算不再计入合计与告警，但条目仍保留在列表里', () => {
+    const shop = page.groups[0].rows.find((row) => row.id === 'b_shop')
+    expect(shop).toBeDefined()
+    const inactive = deriveBudgetPage(ledger, '2026-10', {
+      activeById: new Map([['b_shop', false]]),
+    })
+    expect(inactive.expense.limit).toBe(page.expense.limit - (shop?.limit ?? 0))
+    expect(inactive.expense.used).toBe(page.expense.used - (shop?.used ?? 0))
+    expect(inactive.over).toEqual([])
+    expect(inactive.disabledExpenseCount).toBe(1)
+    expect(inactive.groups[0].rows.find((row) => row.id === 'b_shop')?.isActive).toBe(false)
+  })
+
   it('新增预算编号递增', () => {
     expect(createBudgetId(ledger.budgets)).toBe('b_1')
   })
