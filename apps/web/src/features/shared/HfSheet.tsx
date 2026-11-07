@@ -143,6 +143,7 @@ export function HfSheet({
   portal = false,
   zIndex,
   mobileSize = 'auto',
+  desktopSize,
 }: {
   variant: HfSheetVariant
   device: DeviceMode
@@ -162,6 +163,8 @@ export function HfSheet({
   zIndex?: number
   /** 移动端高度：默认按内容收缩；预算等全屏表单传 100%。 */
   mobileSize?: 'auto' | '100%'
+  /** 桌面端宽度覆盖；同族两档（如设置 380/460）用显式数值，不复制变体。 */
+  desktopSize?: number
 }) {
   const config = VARIANTS[variant]
   const isMobile = device === 'mobile'
@@ -173,7 +176,7 @@ export function HfSheet({
       opened={opened}
       onClose={onClose}
       position={isMobile ? 'bottom' : 'right'}
-      {...(isMobile ? { size: mobileSize } : config.desktopSize !== undefined ? { size: config.desktopSize } : {})}
+      {...(isMobile ? { size: mobileSize } : (desktopSize ?? config.desktopSize) !== undefined ? { size: desktopSize ?? config.desktopSize } : {})}
       withinPortal={portal}
       portalProps={portalTarget ? { target: portalTarget } : undefined}
       {...(zIndex !== undefined || config.zIndex !== undefined ? { zIndex: zIndex ?? config.zIndex } : {})}

@@ -9,9 +9,10 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Drawer, useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
+import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { getPortalHost } from '@/features/shared/portalHost'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
+import { HfSheet } from '@/features/shared/HfSheet'
 import {
   AlertTriangle,
   ChevronDown,
@@ -450,15 +451,7 @@ function EditorSheet({
       : []
 
   return (
-    <Drawer
-      opened
-      onClose={onClose}
-      position={device === 'mobile' ? 'bottom' : 'right'}
-      size={device === 'mobile' ? 'auto' : 380}
-      withinPortal={false}
-      withCloseButton={false}
-      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
-    >
+    <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">{title}</h2>
         <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
@@ -696,7 +689,7 @@ function EditorSheet({
           {saving ? '保存中…' : '保存'}
         </button>
       </div>
-    </Drawer>
+    </HfSheet>
   )
 }
 
@@ -757,15 +750,7 @@ function MoverSheet({
           ]
 
   return (
-    <Drawer
-      opened
-      onClose={onClose}
-      position={device === 'mobile' ? 'bottom' : 'right'}
-      size={device === 'mobile' ? 'auto' : 380}
-      withinPortal={false}
-      withCloseButton={false}
-      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
-    >
+    <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">移动「{mover.name}」到…</h2>
         <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
@@ -792,7 +777,7 @@ function MoverSheet({
         </div>
         {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       </div>
-    </Drawer>
+    </HfSheet>
   )
 }
 
@@ -821,15 +806,7 @@ function CategoryDeleteSheet({
     .sort((left, right) => Number(Boolean(left.parentId)) - Number(Boolean(right.parentId)))
 
   return (
-    <Drawer
-      opened
-      onClose={onClose}
-      position={device === 'mobile' ? 'bottom' : 'right'}
-      size={device === 'mobile' ? 'auto' : 380}
-      withinPortal={false}
-      withCloseButton={false}
-      classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
-    >
+    <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">删除「{row.name}」</h2>
         <button type="button" className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
@@ -861,7 +838,7 @@ function CategoryDeleteSheet({
         )}
         {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       </div>
-    </Drawer>
+    </HfSheet>
   )
 }
 
@@ -3004,17 +2981,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         />
       )}
       {apiMode && (
-        <Drawer
+        <HfSheet
+          variant="settings"
+          device={device}
           opened={importOpen}
           onClose={() => {
             if (dataBusy === 'import' || dataBusy === 'preview') return
             setImportOpen(false)
           }}
-          position={device === 'mobile' ? 'bottom' : 'right'}
-          size={device === 'mobile' ? 'auto' : 460}
-          withinPortal={false}
-          withCloseButton={false}
-          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
+          desktopSize={460}
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">导入备份</h2>
@@ -3085,20 +3060,18 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               </button>
             )}
           </div>
-        </Drawer>
+        </HfSheet>
       )}
       {apiMode && openingStep && (
-        <Drawer
+        <HfSheet
+          variant="settings"
+          device={device}
           opened
           onClose={() => {
             if (openingSaving) return
             skipOpeningStep()
           }}
-          position={device === 'mobile' ? 'bottom' : 'right'}
-          size={device === 'mobile' ? 'auto' : 460}
-          withinPortal={false}
-          withCloseButton={false}
-          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
+          desktopSize={460}
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">补充期初余额</h2>
@@ -3225,20 +3198,18 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               </button>
             )}
           </div>
-        </Drawer>
+        </HfSheet>
       )}
       {apiMode && (
-        <Drawer
+        <HfSheet
+          variant="settings"
+          device={device}
           opened={clearOpen}
           onClose={() => {
             if (dataBusy === 'clear') return
             setClearOpen(false)
           }}
-          position={device === 'mobile' ? 'bottom' : 'right'}
-          size={device === 'mobile' ? 'auto' : 460}
-          withinPortal={false}
-          withCloseButton={false}
-          classNames={{ content: 'mb-set-sheet', body: 'mb-set-sheet-frame', inner: 'mb-set-sheet-inner' }}
+          desktopSize={460}
         >
           <div className="mb-set-sheet-head">
             <h2 className="mb-set-sheet-title">清空账本</h2>
@@ -3317,7 +3288,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
               {dataBusy === 'clear' ? '清空中…' : '确认清空'}
             </button>
           </div>
-        </Drawer>
+        </HfSheet>
       )}
       {toast &&
         createPortal(
