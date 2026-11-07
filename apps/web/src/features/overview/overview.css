@@ -729,6 +729,167 @@
   font-weight: 600;
 }
 
+/* ===== 支出图表（趋势 + 分类构成） ===== */
+
+.mb-dash-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--mb-section-gap);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.mb-expense-chart-card,
+.mb-expense-pie-card {
+  min-width: 0;
+}
+
+/* 支出口径统一用支出色，方向不再靠正负号单独表达 */
+.mb-expense-chart-card .mb-chart-line {
+  stroke: var(--mb-color-expense);
+}
+
+.mb-expense-chart-card .mb-chart-area {
+  fill: color-mix(in srgb, var(--mb-color-expense) 14%, transparent);
+}
+
+.mb-expense-chart-card .mb-chart-dot {
+  stroke: var(--mb-color-expense);
+}
+
+.mb-expense-chart-card .mb-chart-dot.is-last {
+  fill: var(--mb-color-expense);
+  stroke: var(--mb-color-surface-raised);
+}
+
+.mb-expense-pie-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mb-s-4);
+  min-width: 0;
+}
+
+.mb-expense-pie-body.is-mobile {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mb-s-3);
+  width: 100%;
+}
+
+.mb-expense-pie-chart {
+  flex: none;
+}
+
+.mb-expense-pie-svg {
+  display: block;
+}
+
+.mb-expense-pie-arc {
+  stroke: var(--mb-color-surface-raised);
+  stroke-width: 1;
+}
+
+.mb-expense-pie-center-label {
+  fill: var(--mb-color-text-tertiary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-expense-pie-center-value {
+  fill: var(--mb-color-text-primary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-2);
+  font-weight: 600;
+}
+
+.mb-expense-pie-side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  min-width: 0;
+  width: 100%;
+}
+
+.mb-expense-pie-legend-toggle {
+  align-self: flex-start;
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-1);
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-accent);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+}
+
+.mb-expense-pie-legend-toggle:hover {
+  text-decoration: underline;
+}
+
+.mb-expense-pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  min-width: 0;
+  width: 100%;
+}
+
+.mb-expense-pie-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--mb-s-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--mb-s-1);
+  border: 0;
+  border-radius: var(--mb-radius-xs);
+  background: transparent;
+  color: var(--mb-color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-expense-pie-row:hover:not(:disabled) {
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-expense-pie-row:disabled {
+  cursor: default;
+}
+
+.mb-expense-pie-swatch {
+  width: var(--mb-s-2);
+  height: var(--mb-s-2);
+  border-radius: 50%;
+}
+
+.mb-expense-pie-name {
+  overflow: hidden;
+  font-size: var(--mb-fs-0);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-expense-pie-share {
+  color: var(--mb-color-text-tertiary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  white-space: nowrap;
+}
+
+.mb-expense-pie-amount {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .mb-dash-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* 暗色卡片按 design-tokens §7 去掉边框，层级由阴影/底色承担 */
 .mb-hf-root[data-hf-scheme='dark'] .mb-card,
 .mb-hf-root[data-hf-scheme='dark'] .mb-account-entry,

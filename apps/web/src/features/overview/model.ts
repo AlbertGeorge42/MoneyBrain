@@ -96,6 +96,8 @@ export interface LedgerSnapshot {
   overview: OverviewSummary
   budgets: BudgetSummary
   trend: TrendPoint[]
+  /** 支出趋势与分类构成（API 模式直接取后端聚合，不在前端按流水重算）。 */
+  expenseCharts: ExpenseCharts
   /** 真实数据对应的「今天」，用于最近交易分组和预算期间。 */
   today: string
   /** 页头期间文案，例如「2026 年 11 月」。 */
@@ -171,6 +173,22 @@ export interface OverviewSummary {
 export interface TrendPoint {
   month: string
   value: number
+}
+
+/** 支出分类构成的一片；id 为展示 id（API 模式已按分类映射翻成种子 key 或真实 id）。 */
+export interface ExpenseCategorySlice {
+  id: string
+  name: string
+  amount: number
+}
+
+export interface ExpenseCharts {
+  /** 近 12 个月净支出（后端按月汇总，退款已冲减）。 */
+  trend: TrendPoint[]
+  /** 近 12 个月按一级分类的净支出（后端聚合，金额为整数分）。 */
+  categories: ExpenseCategorySlice[]
+  /** 图表与下钻共用的期间（本地日历日，含首尾）。 */
+  range: { from: string; to: string }
 }
 
 const TREND_BASE: TrendPoint[] = [
@@ -510,6 +528,64 @@ export function deriveBudgets(ledger: Ledger, today = ledger.snapshot?.today ?? 
 }
 
 const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+/** 图表与下钻共用的「近 12 个月」：11 个月前的 1 日到当月最后一天。 */
+export function recentTwelveMonthsRange(today: string): { from: string; to: string } {
+  const [year, month] = today.split('-').map(Number)
+  return {
+    from: formatDay(new Date(Date.UTC(year, month - 12, 1))),
+    to: formatDay(new Date(Date.UTC(year, month, 0))),
+  }
+}
+
+function twelveMonthLabels(today: string): string[] {
+  const [year, month] = today.split('-').map(Number)
+  return Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(Date.UTC(year, month - 12 + index, 1))
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+  })
+}
+
+/** 单笔流水对「净支出」的贡献：仅支出与退款冲减，调整流水不计入（与后端趋势同口径）。 */
+function netExpenseAmount(transaction: LedgerTransaction): number | null {
+  if (transaction.excludeFromIncomeExpense) return null
+  if (transaction.type === 'expense') return transaction.amount
+  if (refundOffsetSide(transaction) === 'expense') return -transaction.amount
+  return null
+}
+
+/**
+ * 支出趋势与分类构成。
+ *
+ * API 模式直接返回后端 /analytics/trends 与 /analytics/category-breakdown 的聚合值；
+ * 种子模式没有后端，才按同一口径从种子流水派生（仅用于演示，不代表真实库口径）。
+ */
+export function deriveExpenseCharts(ledger: Ledger, today = ledgerAnchorDay(ledger)): ExpenseCharts {
+  if (ledger.snapshot) return ledger.snapshot.expenseCharts
+
+  const range = recentTwelveMonthsRange(today)
+  const months = twelveMonthLabels(today)
+  const monthly = new Map(months.map((month) => [month, 0]))
+  const byCategory = new Map<string, number>()
+
+  for (const transaction of ledger.transactions) {
+    if (transaction.date < range.from || transaction.date > range.to) continue
+    const amount = netExpenseAmount(transaction)
+    if (amount === null) continue
+    const month = transaction.date.slice(0, 7)
+    if (monthly.has(month)) monthly.set(month, (monthly.get(month) ?? 0) + amount)
+    const rootId = getCategoryRootId(ledger, transaction.categoryId)
+    byCategory.set(rootId, (byCategory.get(rootId) ?? 0) + amount)
+  }
+
+  return {
+    trend: months.map((month) => ({ month, value: monthly.get(month) ?? 0 })),
+    categories: [...byCategory.entries()]
+      .map(([id, amount]) => ({ id, name: getCategoryName(ledger, id), amount }))
+      .sort((a, b) => b.amount - a.amount),
+    range,
+  }
+}
 
 function recentDateLabel(date: string, today: string): string {
   const parsed = parseDay(date)

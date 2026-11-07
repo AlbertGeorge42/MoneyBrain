@@ -1,0 +1,203 @@
+import { useEffect, useRef, useState } from 'react'
+import { currencyAxisFormatter } from '@/utils/format'
+import type { DeviceMode } from '@/features/shared/types'
+import {
+  CHART_TOOLTIP_H,
+  CHART_TOOLTIP_RX,
+  CHART_TOOLTIP_W,
+  buildChartLayout,
+} from '@/features/shared/chartLayout'
+import { amountText } from './format'
+import type { TrendPoint } from './model'
+
+function monthLabel(month: string): string {
+  const [year, value] = month.split('-')
+  return `${year.slice(2)}.${value}`
+}
+
+/**
+ * 支出趋势（近 12 个月）。
+ *
+ * 数值来自后端 /analytics/trends 的按月聚合；支出方向用颜色与金额标识，
+ * 负值（退款冲减超过支出）与全 0 月份都保留在坐标系内，不做截断也不除零。
+ */
+export function ExpenseTrendChart({
+  points,
+  device,
+}: {
+  points: TrendPoint[]
+  device: DeviceMode
+}) {
+  const [hover, setHover] = useState<number | null>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const [measuredWidth, setMeasuredWidth] = useState(0)
+
+  useEffect(() => {
+    const node = bodyRef.current
+    if (!node) return
+    const measure = () => setMeasuredWidth(node.clientWidth)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const values = points.map((point) => point.value)
+  const rawMax = values.length > 0 ? Math.max(...values) : 0
+  const rawMin = values.length > 0 ? Math.min(...values) : 0
+  // 支出以 0 为基线；负值月份保留负区间，全 0 时用 1 分兜底，避免 span = 0。
+  const headroom = (rawMax - rawMin || 1) * 0.08
+  const max = rawMax + (rawMax > 0 ? headroom : 0)
+  const min = rawMin - (rawMin < 0 ? headroom : 0)
+  const span = max - min || 1
+  const axisValues = [max, (max + min) / 2, min]
+  const axisLabelText = axisValues.map((value) => currencyAxisFormatter(value))
+
+  const layout = buildChartLayout(device, measuredWidth, axisLabelText)
+  const { width: VIEW_W, height: VIEW_H, padL: PAD_L, padR: PAD_R, padT: PAD_T, padB: PAD_B } = layout
+
+  const plotW = VIEW_W - PAD_L - PAD_R
+  const plotH = VIEW_H - PAD_T - PAD_B
+  const zeroY = yOfValue(0)
+
+  const step = points.length > 1 ? plotW / (points.length - 1) : plotW
+  const xOf = (index: number) =>
+    points.length > 1 ? PAD_L + step * index : PAD_L + plotW / 2
+  const yOf = (value: number) => yOfValue(value)
+
+  function yOfValue(value: number): number {
+    return PAD_T + ((max - value) / span) * plotH
+  }
+
+  const linePoints = points.map((point, index) => `${xOf(index)},${yOf(point.value)}`).join(' ')
+  const areaPath =
+    points.length > 0
+      ? `M ${xOf(0)} ${zeroY} L ${points
+          .map((point, index) => `${xOf(index)} ${yOf(point.value)}`)
+          .join(' L ')} L ${xOf(points.length - 1)} ${zeroY} Z`
+      : ''
+
+  const monthTicks = points.length === 0 ? [] : [0, Math.floor(points.length / 2), points.length - 1]
+
+  const hovered = hover === null ? null : points[hover]
+  const tooltipHalf = CHART_TOOLTIP_W / 2
+  const tooltipX =
+    hover === null
+      ? 0
+      : Math.min(Math.max(xOf(hover), PAD_L + tooltipHalf), VIEW_W - PAD_R - tooltipHalf)
+  const tooltipY =
+    hover === null
+      ? 0
+      : yOf(points[hover].value) - (CHART_TOOLTIP_H + 12) < PAD_T
+        ? yOf(points[hover].value) + 14
+        : yOf(points[hover].value) - (CHART_TOOLTIP_H + 12)
+
+  return (
+    <section className="mb-card mb-expense-chart-card">
+      <div className="mb-sec-head">
+        <div>
+          <h2 className="mb-sec-title">支出趋势</h2>
+          <p className="mb-sec-desc">近 12 个月 · 按月汇总</p>
+        </div>
+      </div>
+      <div
+        ref={bodyRef}
+        className={device === 'mobile' ? 'mb-chart-body is-mobile' : 'mb-chart-body'}
+      >
+        {points.length === 0 ? (
+          <p className="mb-empty-inline">近 12 个月没有支出数据</p>
+        ) : (
+          <>
+            <svg
+              className="mb-chart-svg"
+              viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+              height={VIEW_H}
+              role="img"
+              aria-label="近 12 个月支出趋势，单位元"
+            >
+              <g className="mb-chart-grid" aria-hidden="true">
+                {axisLabelText.map((label, index) => {
+                  const y = PAD_T + (plotH * index) / 2
+                  return (
+                    <g key={label + index}>
+                      <line x1={PAD_L} y1={y} x2={VIEW_W - PAD_R} y2={y} />
+                      <text x={PAD_L - 8} y={y + 4} textAnchor="end">
+                        {label}
+                      </text>
+                    </g>
+                  )
+                })}
+              </g>
+              <path className="mb-chart-area" d={areaPath} aria-hidden="true" />
+              <polyline className="mb-chart-line" points={linePoints} aria-hidden="true" />
+              {points.map((point, index) => (
+                <circle
+                  key={point.month}
+                  className={index === points.length - 1 ? 'mb-chart-dot is-last' : 'mb-chart-dot'}
+                  cx={xOf(index)}
+                  cy={yOf(point.value)}
+                  r={index === points.length - 1 ? 4.5 : 2.5}
+                  aria-hidden="true"
+                />
+              ))}
+              {monthTicks.map((index) => (
+                <text
+                  key={points[index].month}
+                  className="mb-chart-month"
+                  x={xOf(index)}
+                  y={VIEW_H - 6}
+                  textAnchor={
+                    index === 0
+                      ? 'start'
+                      : index === points.length - 1
+                        ? 'end'
+                        : 'middle'
+                  }
+                >
+                  {monthLabel(points[index].month)}
+                </text>
+              ))}
+              {points.map((point, index) => (
+                <rect
+                  key={`hit-${point.month}`}
+                  className="mb-chart-hit"
+                  x={xOf(index) - step / 2}
+                  y={PAD_T}
+                  width={step}
+                  height={plotH}
+                  onMouseEnter={() => setHover(index)}
+                  onMouseLeave={() => setHover(null)}
+                  aria-hidden="true"
+                />
+              ))}
+              {hovered && (
+                <g
+                  className="mb-chart-tooltip"
+                  aria-hidden="true"
+                  transform={`translate(${tooltipX}, ${tooltipY})`}
+                >
+                  <rect
+                    x={-tooltipHalf}
+                    y={0}
+                    width={CHART_TOOLTIP_W}
+                    height={CHART_TOOLTIP_H}
+                    rx={CHART_TOOLTIP_RX}
+                  />
+                  <text className="mb-chart-tooltip-label" x={0} y={16} textAnchor="middle">
+                    {monthLabel(hovered.month)}
+                  </text>
+                  <text className="mb-chart-tooltip-value" x={0} y={32} textAnchor="middle">
+                    {amountText(hovered.value)}
+                  </text>
+                </g>
+              )}
+            </svg>
+            <p className="mb-visually-hidden">
+              近 12 个月支出合计 {amountText(values.reduce((total, value) => total + value, 0))}。
+            </p>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}

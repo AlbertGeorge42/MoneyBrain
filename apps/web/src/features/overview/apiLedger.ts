@@ -7,6 +7,8 @@
  * - GET /budgets + GET /budgets/statuses（预算已用金额用后端领域口径）
  * - GET /analytics/dashboard（本月/上月收支 + 最近交易）
  * - GET /analytics/asset-trend（近 12 个月净资产走势）
+ * - GET /analytics/trends?type=expense（近 12 个月支出趋势）
+ * - GET /analytics/category-breakdown?type=expense（近 12 个月支出分类构成）
  *
  * 适配层不写库、不缓存；请求失败直接抛出，由页面进入 error 态。
  */
@@ -14,6 +16,8 @@ import type {
   Account,
   AccountCategory,
   AnalyticsAssetTrendItem,
+  AnalyticsCategoryBreakdownItem,
+  AnalyticsTrendItem,
   Budget,
   BudgetStatus,
   DashboardSummaryData,
@@ -34,6 +38,7 @@ import type {
   BudgetPeriod,
   BudgetRow,
   BudgetSummary,
+  ExpenseCategorySlice,
   Ledger,
   LedgerAccount,
   LedgerAccountCategory,
@@ -44,6 +49,7 @@ import type {
   TrendPoint,
   TxType,
 } from './model'
+import { recentTwelveMonthsRange } from './model'
 
 /**
  * 真实分类是 UUID，而总览的分类图标按种子 key（food / salary…）取字形。
@@ -229,6 +235,10 @@ export interface LedgerApiPayload {
   statuses: BudgetStatus[]
   dashboard: DashboardSummaryData
   assetTrend: AnalyticsAssetTrendItem[]
+  /** 近 12 个月支出趋势（按月聚合，退款已冲减）。 */
+  expenseTrend: AnalyticsTrendItem[]
+  /** 近 12 个月一级分类支出构成（后端聚合）。 */
+  expenseCategories: AnalyticsCategoryBreakdownItem[]
   /**
    * 完整流水分页拉取的结果（不是 dashboard 的最近 8 笔）。
    * 报表与预算的合计都从这里取，跨月 / 跨年才不会被快照窗口截断。
@@ -346,6 +356,19 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     month: item.label,
     value: item.netWorth,
   }))
+
+  // 支出图表直接使用后端聚合：趋势按月取 /analytics/trends，
+  // 分类构成取 /analytics/category-breakdown，不在前端按流水再算一遍。
+  const expenseCategories: ExpenseCategorySlice[] = payload.expenseCategories.map((item) => ({
+    id: displayId(item.categoryId),
+    name: item.name,
+    amount: item.value,
+  }))
+  const expenseCharts = {
+    trend: payload.expenseTrend.map((item) => ({ month: item.label, value: item.amount })),
+    categories: expenseCategories,
+    range: recentTwelveMonthsRange(today),
+  }
   // 上月净资产取走势的倒数第二个月；不足两个月时退回当前净值（环比为 0）。
   const previousNetWorth =
     trend.length >= 2 ? trend[trend.length - 2].value : netWorth
@@ -380,6 +403,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
       overview,
       budgets: budgetsSummary,
       trend,
+      expenseCharts,
       today,
       periodLabel: periodLabelOf(today),
     },
@@ -403,13 +427,26 @@ export interface ApiLedgerResult {
 /** 只读拉取总览所需数据；任一请求失败都抛出，由上层进入 error 态。 */
 export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
   const today = todayLocal()
-  const [accounts, categories, accountCategories, budgets, dashboard, assetTrend, transactions] = await Promise.all([
+  const expenseRange = recentTwelveMonthsRange(today)
+  const [
+    accounts,
+    categories,
+    accountCategories,
+    budgets,
+    dashboard,
+    assetTrend,
+    expenseTrend,
+    expenseCategories,
+    transactions,
+  ] = await Promise.all([
     accountApi.getAll().then(unwrapApiData),
     transactionCategoryApi.getAll().then(unwrapApiData),
     accountCategoryApi.getAll().then(unwrapApiData),
     budgetApi.getAll().then(unwrapApiData),
     analyticsApi.getDashboardSummary().then(unwrapApiData),
     analyticsApi.getAssetTrend().then(unwrapApiData),
+    analyticsApi.getTrends('expense').then(unwrapApiData),
+    analyticsApi.getCategoryBreakdown('expense', expenseRange.from, expenseRange.to).then(unwrapApiData),
     fetchAllTransactions(),
   ])
 
@@ -440,6 +477,8 @@ export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
         statuses,
         dashboard,
         assetTrend,
+        expenseTrend,
+        expenseCategories,
         transactions,
         balances: new Map(balanceResults),
       },

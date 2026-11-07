@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url'
 import type {
   Account,
   AnalyticsAssetTrendItem,
+  AnalyticsCategoryBreakdownItem,
+  AnalyticsTrendItem,
   Budget,
   BudgetStatus,
   DashboardSummaryData,
@@ -24,7 +26,13 @@ import {
   createCategoryDisplayMapper,
   type LedgerApiPayload,
 } from '@/features/overview/apiLedger'
-import { deriveBudgets, deriveNetWorthTrend, deriveOverview } from '@/features/overview/model'
+import {
+  deriveBudgets,
+  deriveExpenseCharts,
+  deriveNetWorthTrend,
+  deriveOverview,
+  recentTwelveMonthsRange,
+} from '@/features/overview/model'
 
 function account(id: string, name: string, type: string, category: Partial<Account['category']> = {}): Account {
   return {
@@ -133,6 +141,22 @@ const dashboard: DashboardSummaryData = {
   ],
 }
 
+/** 后端 /analytics/trends 的按月聚合（故意与上游流水金额不同，用来证明前端没有重算）。 */
+const expenseTrend: AnalyticsTrendItem[] = Array.from({ length: 12 }, (_, index) => {
+  const date = new Date(Date.UTC(2025, 11 + index, 1))
+  return {
+    label: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`,
+    amount: 1_000_000 + index * 50_000,
+  }
+})
+
+const expenseCategories: AnalyticsCategoryBreakdownItem[] = [
+  { name: '餐饮', value: 300_000, categoryId: 'cat-food', hasChildren: true },
+  { name: '居住', value: 200_000, categoryId: 'cat-home', hasChildren: false },
+  // 真实库存在空分类 / 0 元分类：保留在数据里，由图表过滤，不能打崩。
+  { name: '零元分类', value: 0, categoryId: 'cat-zero', hasChildren: false },
+]
+
 function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
   const food = budget('b-food', '餐饮', 'cat-food', 100_000)
   return {
@@ -145,6 +169,8 @@ function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
     categories: [
       category('cat-food', '餐饮'),
       category('cat-food-lunch', '午餐', 'cat-food'),
+      category('cat-home', '居住'),
+      category('cat-zero', '零元分类'),
       category('cat-salary', '工资', null, 'income'),
     ],
     accountCategories: [],
@@ -152,6 +178,8 @@ function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
     statuses: [status(food, 40_000)],
     dashboard,
     assetTrend,
+    expenseTrend,
+    expenseCategories,
     transactions: dashboard.recentTransactions,
     balances: new Map([
       ['acc-1', 500_000],
@@ -245,6 +273,37 @@ describe('DTO → Ledger 适配', () => {
   it('账户缺少当日余额时抛错，而不是用 0 静默兜底', () => {
     const partial = payload({ balances: new Map([['acc-1', 500_000]]) })
     expect(() => buildLedgerFromApi(partial, '2026-11-06')).toThrow(/缺少当日余额/)
+  })
+
+  it('支出趋势按月直接采用后端聚合，不由流水重算', () => {
+    // 流水里只有一笔 999,999 的支出，与后端趋势值完全不同。
+    const ledger = buildLedgerFromApi(
+      payload({ transactions: [transaction('exp-1', 'expense', 999_999, 'cat-food')] }),
+      '2026-11-06',
+    )
+    const charts = deriveExpenseCharts(ledger, '2026-11-06')
+
+    expect(charts.trend.map((point) => point.month)).toEqual(expenseTrend.map((item) => item.label))
+    expect(charts.trend.map((point) => point.value)).toEqual(expenseTrend.map((item) => item.amount))
+    expect(charts.trend.at(-1)?.month).toBe('2026-11')
+  })
+
+  it('分类构成沿用后端聚合值并按展示 id 映射，0 元分类保留不崩', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    const charts = deriveExpenseCharts(ledger, '2026-11-06')
+
+    expect(charts.categories).toEqual([
+      { id: 'food', name: '餐饮', amount: 300_000 },
+      { id: 'home', name: '居住', amount: 200_000 },
+      { id: 'cat-zero', name: '零元分类', amount: 0 },
+    ])
+    expect(charts.range).toEqual({ from: '2025-12-01', to: '2026-11-30' })
+  })
+
+  it('近 12 个月区间从 11 个月前的 1 日到当月最后一天', () => {
+    expect(recentTwelveMonthsRange('2026-11-06')).toEqual({ from: '2025-12-01', to: '2026-11-30' })
+    expect(recentTwelveMonthsRange('2026-01-15')).toEqual({ from: '2025-02-01', to: '2026-01-31' })
+    expect(recentTwelveMonthsRange('2028-02-29')).toEqual({ from: '2027-03-01', to: '2028-02-29' })
   })
 })
 
