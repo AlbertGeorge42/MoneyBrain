@@ -74,8 +74,6 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
       categoryMap = new Map(allCategories.map(c => [c.id, {
         cashFlowType: c.cashFlowType,
         name: c.name,
-        icon: c.icon,
-        color: c.color,
         parentId: c.parentId,
         level: c.parentId ? 2 : 1,
       }]))

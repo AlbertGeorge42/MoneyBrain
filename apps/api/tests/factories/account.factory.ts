@@ -7,7 +7,6 @@ export function createAccountCategoryFactory(overrides: Partial<{
   id: string
   name: string
   type: string
-  icon: string | null
   parentId: string | null
   sort: number
   isCashEquivalent: boolean
@@ -17,7 +16,6 @@ export function createAccountCategoryFactory(overrides: Partial<{
     id: overrides.id || `cat-${Math.random().toString(36).substring(2, 9)}`,
     name: overrides.name || '测试分类',
     type: overrides.type || 'asset',
-    icon: overrides.icon ?? null,
     parentId: overrides.parentId ?? null,
     sort: overrides.sort ?? 0,
     isCashEquivalent: overrides.isCashEquivalent ?? false,
@@ -37,8 +35,6 @@ export function createAccountFactory(overrides: Partial<{
   balance: number
   initialBalance: number
   initialBalanceDate: Date | null
-  icon: string | null
-  color: string | null
   categoryId: string | null
   sort: number
 }> = {}) {
@@ -50,8 +46,6 @@ export function createAccountFactory(overrides: Partial<{
     balance: new Decimal(overrides.balance ?? 0),
     initialBalance: new Decimal(initialBalance),
     initialBalanceDate: overrides.initialBalanceDate ?? null,
-    icon: overrides.icon ?? null,
-    color: overrides.color ?? null,
     categoryId: overrides.categoryId ?? null,
     sort: overrides.sort ?? 0,
     createdAt: new Date(),

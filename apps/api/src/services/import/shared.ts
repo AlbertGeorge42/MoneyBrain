@@ -12,32 +12,6 @@ import { type TransactionClient } from '../../prisma.js'
 
 export const logger = rootLogger.child({ module: 'import' })
 
-// AntD 13 个官方预设色（与前端 colorPalette.ts 保持一致）
-const ANTD_PRESET_COLORS = new Set([
-  'red',
-  'volcano',
-  'orange',
-  'gold',
-  'yellow',
-  'lime',
-  'green',
-  'cyan',
-  'blue',
-  'geekblue',
-  'purple',
-  'magenta',
-  'pink',
-])
-
-/**
- * 校验颜色字符串是否是 AntD 13 官方预设色之一。
- * 用于导入时拒绝非预设色，避免前端 CategoryIcon 落回中性态。
- */
-export function isAntDPresetColor(value: string | null | undefined): value is string {
-  if (!value) return false
-  return ANTD_PRESET_COLORS.has(value)
-}
-
 // Prisma 事务客户端类型（re-export 自 src/prisma.ts，单一来源）
 export type { TransactionClient } from '../../prisma.js'
 export type { ImportFullResult }
@@ -255,8 +229,6 @@ export interface ParsedRow {
 export interface ImportAccountCategory {
   name: string
   type: string
-  icon?: string
-  color?: string
   sort: number
   isCashEquivalent?: boolean
   isInvestment?: boolean
@@ -268,8 +240,6 @@ export interface ImportAccount {
   type: string
   initialBalance?: string
   initialBalanceDate?: string
-  icon?: string
-  color?: string
   sort?: number
   categoryName?: string
 }
@@ -277,8 +247,6 @@ export interface ImportAccount {
 export interface ImportTransactionCategory {
   name: string
   type: string
-  icon?: string
-  color?: string
   cashFlowType?: string
   sort: number
   children?: ImportTransactionCategory[]
@@ -287,8 +255,6 @@ export interface ImportTransactionCategory {
 export interface ImportInvestmentAssetClass {
   accountName: string
   name: string
-  icon: string | null
-  color: string | null
   targetRatio: number | null
   sort: number
 }

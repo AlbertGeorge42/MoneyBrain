@@ -302,7 +302,7 @@ if (type === 'transfer') toAmount = amount - fee
 grep -rn "symbolName" apps packages scripts --include="*.ts" --include="*.tsx"
 
 # 按路径过滤输出要用行首锚定：-vE "^path:"，不要 -v "path"（那是按内容过滤）
-grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/src/utils/colorPalette.ts:"
+grep -rn "symbolName" apps packages scripts | grep -vE "^apps/web/dist:"
 ```
 
 排查孤儿文件时注意：ESM 风格下源码导入带 `.js` 后缀，实际文件是 `.ts`，

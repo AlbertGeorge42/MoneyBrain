@@ -7,7 +7,7 @@ function upsertActivityItem(
   amount: Minor,
   categoryName: string,
   direction: 'inflow' | 'outflow',
-  meta: { categoryId: string | null; parentId: string | null; level: number; type: string; icon?: string | null; color?: string | null }
+  meta: { categoryId: string | null; parentId: string | null; level: number; type: string }
 ): void {
   const sign = direction === 'inflow' ? 1 : -1
   const existing = items.find(item => item.categoryName === categoryName && item.direction === direction)
@@ -22,8 +22,6 @@ function upsertActivityItem(
       amount: minor(sign * amount),
       type: meta.type,
       direction,
-      icon: meta.icon ?? null,
-      color: meta.color ?? null,
     })
   }
 }
@@ -37,8 +35,6 @@ function addTransaction(
   amount: Minor,
   type: string,
   direction: 'inflow' | 'outflow',
-  icon?: string | null,
-  color?: string | null,
 ) {
   if (direction === 'inflow') {
     activity.inflow = minor(activity.inflow + amount)
@@ -52,8 +48,6 @@ function addTransaction(
     parentId,
     level,
     type,
-    icon,
-    color,
   })
 }
 
@@ -69,8 +63,6 @@ function addTransferFlow(
   coupon: Minor,
   isOutflow: boolean,
   ruleVersion: number,
-  icon?: string | null,
-  color?: string | null,
 ) {
   if (isOutflow) {
     const actualOutflow = minor(Math.abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon)))
@@ -82,8 +74,6 @@ function addTransferFlow(
       parentId,
       level,
       type: 'transfer_out',
-      icon,
-      color,
     })
   } else {
     // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
@@ -95,8 +85,6 @@ function addTransferFlow(
       parentId,
       level,
       type: 'transfer_in',
-      icon,
-      color,
     })
   }
 }
@@ -130,14 +118,14 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
     if (it.type === 'income' && it.isFromCash) {
       addTransaction(
         target, it.categoryName, it.categoryId, it.parentId, it.level,
-        it.amount, 'income', 'inflow', it.icon, it.color,
+        it.amount, 'income', 'inflow',
       )
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       accountFlow.inflow = minor(accountFlow.inflow + it.amount)
     } else if (it.type === 'expense' && it.isFromCash) {
       addTransaction(
         target, it.categoryName, it.categoryId, it.parentId, it.level,
-        it.amount, 'expense', 'outflow', it.icon, it.color,
+        it.amount, 'expense', 'outflow',
       )
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       // 符号约定：outflow 累加为负
@@ -148,7 +136,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         const fromName = it.categoryName || (it.isPredicted ? '转账转出' : '未分类')
         addTransferFlow(
           target, fromName, '', it.categoryId, it.parentId, it.level,
-          it.amount, it.fee, it.coupon, true, it.ruleVersion, it.icon, it.color,
+          it.amount, it.fee, it.coupon, true, it.ruleVersion,
         )
         const accountFlow = getOrCreateAccountFlow(it.accountName)
         const actualOutflow = minor(Math.abs(rules.transferOutflow(it.amount, it.fee, it.coupon)))
@@ -159,7 +147,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         const toName = it.categoryName || (it.isPredicted ? '转账转入' : '未分类')
         addTransferFlow(
           target, '', toName, it.categoryId, it.parentId, it.level,
-          it.amount, it.fee, it.coupon, false, it.ruleVersion, it.icon, it.color,
+          it.amount, it.fee, it.coupon, false, it.ruleVersion,
         )
         const accountFlow = getOrCreateAccountFlow(it.toAccountName)
         // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
@@ -178,7 +166,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
       const direction = offset === 'income' ? 'outflow' : 'inflow'
       addTransaction(
         target, it.categoryName, it.categoryId, it.parentId, it.level,
-        it.amount, 'refund', direction, it.icon, it.color,
+        it.amount, 'refund', direction,
       )
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       if (direction === 'inflow') {

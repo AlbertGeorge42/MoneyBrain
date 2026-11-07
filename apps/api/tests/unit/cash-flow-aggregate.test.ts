@@ -20,8 +20,6 @@ const item = (overrides: Partial<ProcessedTx> = {}): ProcessedTx => ({
   cashFlowType: 'operating',
   accountName: '现金',
   toAccountName: null,
-  icon: null,
-  color: null,
   ...overrides,
 })
 

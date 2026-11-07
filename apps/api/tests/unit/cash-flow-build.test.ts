@@ -14,8 +14,6 @@ const makeAccount = (id: string, name: string): Account => ({
   type: 'asset',
   initialBalance: 0n,
   initialBalanceDate: null,
-  icon: null,
-  color: null,
   categoryId: null,
   sort: 0,
   createdAt: new Date(),

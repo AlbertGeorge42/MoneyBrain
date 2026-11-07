@@ -70,8 +70,6 @@ export interface AccountCategory {
   id: string
   name: string
   type: string
-  icon: string | null
-  color: string | null
   parentId: string | null
   sort: number
   parent: AccountCategory | null
@@ -91,8 +89,6 @@ export interface Account {
   initialBalance: Minor
   /** 本地日历日 `YYYY-MM-DD`（无时分秒，不做 UTC 换算）。 */
   initialBalanceDate: string | null
-  icon: string | null
-  color: string | null
   categoryId: string | null
   sort: number
   category: AccountCategory | null
@@ -143,8 +139,6 @@ export interface TransactionCategory {
   id: string
   name: string
   type: string
-  icon: string | null
-  color: string | null
   parentId: string | null
   sort: number
   parent: TransactionCategory | null
@@ -393,8 +387,6 @@ export interface BalanceSheetCategoryNode {
   name: string
   type: 'asset' | 'liability'
   sort: number
-  icon?: string | null
-  color?: string | null
   actual: Minor
   predicted: Minor
   children: BalanceSheetAccountNode[]
@@ -406,8 +398,6 @@ export interface BalanceSheetAccountNode {
   name: string
   categoryId: string
   type: 'asset' | 'liability'
-  icon?: string | null
-  color?: string | null
   actual: Minor
   predicted: Minor
 }
@@ -432,8 +422,6 @@ export interface ReportCategoryDetail {
   categoryId: string
   hasChildren: boolean
   sort: number
-  icon?: string | null
-  color?: string | null
   children?: ReportCategoryDetail[]
 }
 
@@ -480,8 +468,6 @@ export interface CashFlowActivityItem {
   predicted: Minor
   type: string
   direction: string
-  icon?: string | null
-  color?: string | null
   children?: CashFlowActivityItem[]
 }
 
@@ -536,10 +522,6 @@ export interface InvestmentAccountDetail {
   name: string
   categoryId: string | null
   categoryName: string
-  icon?: string | null
-  color?: string | null
-  categoryIcon?: string | null
-  categoryColor?: string | null
   balance: Minor
   ratio: number
   totalInvested: Minor
@@ -552,8 +534,6 @@ export interface InvestmentAccountDetail {
 export interface InvestmentCategorySummary {
   categoryId: string
   categoryName: string
-  icon?: string | null
-  color?: string | null
   balance: Minor
   ratio: number
   accounts: InvestmentAccountDetail[]
@@ -590,8 +570,6 @@ export interface InvestmentAssetClass {
   id: string
   accountId: string
   name: string
-  icon: string | null
-  color: string | null
   targetRatio: number | null
   sort: number
   createdAt: string
@@ -636,8 +614,6 @@ export interface InvestmentAllocationSnapshot {
 export interface AccountAllocationItem {
   assetClassId: string
   name: string
-  icon: string | null
-  color: string | null
   marketValue: Minor
   ratio: number
   targetRatio: number | null
@@ -665,8 +641,6 @@ export interface SnapshotHistoryItem {
 export interface AccountAllocationDetail {
   accountId: string
   accountName: string
-  accountIcon: string | null
-  accountColor: string | null
   balance: Minor
   hasAssetClasses: boolean
   latestSnapshotDate: string | null

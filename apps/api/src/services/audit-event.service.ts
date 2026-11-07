@@ -217,8 +217,6 @@ async function restoreAccount(event: {
       snapshot.initialBalanceDate === null || snapshot.initialBalanceDate === undefined
         ? null
         : new Date(String(snapshot.initialBalanceDate)),
-    icon: snapshot.icon === null || snapshot.icon === undefined ? null : String(snapshot.icon),
-    color: snapshot.color === null || snapshot.color === undefined ? null : String(snapshot.color),
     categoryId:
       snapshot.categoryId === null || snapshot.categoryId === undefined
         ? null
@@ -268,8 +266,6 @@ async function restoreTransactionCategory(event: {
     id: event.entityId,
     name: String(snapshot.name),
     type: String(snapshot.type),
-    icon: snapshot.icon === null || snapshot.icon === undefined ? null : String(snapshot.icon),
-    color: snapshot.color === null || snapshot.color === undefined ? null : String(snapshot.color),
     cashFlowType:
       snapshot.cashFlowType === null || snapshot.cashFlowType === undefined
         ? null

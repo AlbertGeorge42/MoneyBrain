@@ -126,7 +126,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   }
 
   // 按分类汇总
-  const categoryMap = new Map<string, { category: { id: string; name: string; icon: string | null; color: string | null }; accounts: AccountWithCategory[] }>()
+  const categoryMap = new Map<string, { category: { id: string; name: string }; accounts: AccountWithCategory[] }>()
 
   for (const account of investmentAccounts) {
     if (account.category) {
@@ -171,10 +171,6 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
         name: account.name,
         categoryId: account.categoryId,
         categoryName: account.category?.name || '未分类',
-        icon: account.icon || null,
-        color: account.color || null,
-        categoryIcon: account.category?.icon || null,
-        categoryColor: account.category?.color || null,
         balance,
         ratio: accountRatio,
         totalInvested: accInvested,
@@ -188,8 +184,6 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     byCategory.push({
       categoryId,
       categoryName: data.category.name,
-      icon: data.category.icon,
-      color: data.category.color,
       balance: categoryBalance,
       ratio,
       accounts: accountDetails,
@@ -230,8 +224,6 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const accountDetails = investmentAccounts.map(a => ({
     id: a.id,
     name: a.name,
-    icon: a.icon,
-    color: a.color,
     balance: minor(balanceCache.get(a.id, nextDayOfEnd)),
   }))
 

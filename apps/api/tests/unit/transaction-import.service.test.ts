@@ -193,7 +193,6 @@ describe('import.service', () => {
       expect(mockPrisma.account.update).toHaveBeenCalledTimes(1)
       const updateCall = (mockPrisma.account.update.mock.calls as any[])[0]
       expect(updateCall[0].data.type).toBe('liability')
-      expect(updateCall[0].data.icon).toBe('credit-card')
       expect(updateCall[0].where.id).toBe('acc-1')
     })
 
@@ -336,7 +335,6 @@ describe('import.service', () => {
       expect(mockPrisma.account.update).toHaveBeenCalledTimes(1)
       const updateCall = (mockPrisma.account.update.mock.calls as any[])[0]
       expect(updateCall[0].data.type).toBe('liability')
-      expect(updateCall[0].data.icon).toBe('credit-card')
     })
 
     it('当 category1 为空、category2 为"餐饮"时，不应创建空名父分类', async () => {

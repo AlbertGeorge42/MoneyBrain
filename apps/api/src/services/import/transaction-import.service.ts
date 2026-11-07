@@ -119,8 +119,7 @@ function indexCanonicalCategories<T extends CategoryLike>(
 async function ensureDefaultCategory(
   client: TransactionClient,
   type: 'asset' | 'liability',
-  name: string,
-  icon: string
+  name: string
 ): Promise<{ id: string }> {
   // 必须按 name + type 精确查：旧实现只看 type 取第一个，
   // 请求「资产」时会拿到第一个资产分类「现金」。
@@ -132,7 +131,7 @@ async function ensureDefaultCategory(
     // 明确回退规则：没有名为「资产/负债」的顶层分类时新建同名顶层分类，
     // 绝不借用同类型的其他分类。
     category = await client.accountCategory.create({
-      data: { name, type, icon, sort: 1 },
+      data: { name, type, sort: 1 },
     })
   }
   return category
@@ -195,8 +194,8 @@ async function buildImportContext(
 
   // 默认资产/负债分类保证存在
   const [defaultAssetCategory, defaultLiabilityCategory] = await Promise.all([
-    ensureDefaultCategory(client, 'asset', '资产', 'wallet'),
-    ensureDefaultCategory(client, 'liability', '负债', 'credit-card'),
+    ensureDefaultCategory(client, 'asset', '资产'),
+    ensureDefaultCategory(client, 'liability', '负债'),
   ])
 
   // 内存 sort 计数器：由 shared 统一构建
@@ -232,7 +231,7 @@ async function getOrCreateTransferSubCategory(
   if (!category) {
     const sort = takeNextSort(ctx.sortCounters, 'transactionCategory', 'transfer:root')
     category = await client.transactionCategory.create({
-      data: { name, type: 'transfer', icon: 'arrow-right', sort },
+      data: { name, type: 'transfer', sort },
     })
   }
   ctx.transactionCategoryCache.set(cacheKey, category.id)
@@ -318,7 +317,7 @@ async function getOrCreateCategory(
       if (!parentCategory) {
         const sort = takeNextSort(ctx.sortCounters, 'transactionCategory', `${categoryType}:root`)
         parentCategory = await client.transactionCategory.create({
-          data: { name: effectiveParent, type: categoryType, icon: 'folder', sort },
+          data: { name: effectiveParent, type: categoryType, sort },
         })
         ctx.summary?.unknownCategories.add(effectiveParent)
       }
@@ -337,7 +336,6 @@ async function getOrCreateCategory(
       data: {
         name: effectiveChild,
         type: categoryType,
-        icon: 'circle',
         parentId,
         sort,
       },
@@ -397,7 +395,6 @@ async function ensureAccountType(
     data: {
       type: forceType,
       categoryId,
-      icon: forceType === 'liability' ? 'credit-card' : 'wallet',
     },
   })
   // 类型变了，缓存键也要从 `${旧类型}:${name}` 迁到 `${新类型}:${name}`
@@ -457,7 +454,6 @@ async function createAccount(
       type,
       initialBalance: 0,
       categoryId,
-      icon: type === 'liability' ? 'credit-card' : 'wallet',
       sort,
     },
   })

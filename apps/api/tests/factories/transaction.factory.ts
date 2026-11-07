@@ -7,8 +7,6 @@ export function createTransactionCategoryFactory(overrides: Partial<{
   id: string
   name: string
   type: string
-  icon: string | null
-  color: string | null
   cashFlowType: string | null
   parentId: string | null
   sort: number
@@ -17,8 +15,6 @@ export function createTransactionCategoryFactory(overrides: Partial<{
     id: overrides.id || `tc-${Math.random().toString(36).substring(2, 9)}`,
     name: overrides.name || '测试交易分类',
     type: overrides.type || 'expense',
-    icon: overrides.icon ?? null,
-    color: overrides.color ?? null,
     cashFlowType: overrides.cashFlowType ?? null,
     parentId: overrides.parentId ?? null,
     sort: overrides.sort ?? 0,

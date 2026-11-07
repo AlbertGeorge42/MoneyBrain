@@ -104,7 +104,7 @@ export async function getCashFlowsInRange(
   return cashFlows
 }
 
-export async function batchGetAssetClasses(accountIds: string[]): Promise<Map<string, Array<{ id: string; accountId: string; name: string; icon: string | null; color: string | null; targetRatio: Decimal | null; sort: number }>>> {
+export async function batchGetAssetClasses(accountIds: string[]): Promise<Map<string, Array<{ id: string; accountId: string; name: string; targetRatio: Decimal | null; sort: number }>>> {
   const allClasses = await assetClassRepo.findMany({
     where: { accountId: { in: accountIds } },
     orderBy: { sort: 'asc' },

@@ -19,7 +19,7 @@ type SankeyNode = CashFlowResult['sankey']['nodes'][number]
 
 function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActivityMinor): CashFlowActivity {
   // 合并实际和预测的 items
-  const itemMap = new Map<string, { categoryId: string | null; parentId: string | null; level: number; categoryName: string; actual: Minor; predicted: Minor; type: string; direction: string; icon?: string | null; color?: string | null }>()
+  const itemMap = new Map<string, { categoryId: string | null; parentId: string | null; level: number; categoryName: string; actual: Minor; predicted: Minor; type: string; direction: string }>()
 
   for (const item of actual.items) {
     const key = `${item.categoryName}|${item.type}|${item.direction}`
@@ -32,8 +32,6 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
       predicted: minor(0),
       type: item.type,
       direction: item.direction,
-      icon: item.icon,
-      color: item.color,
     })
   }
 
@@ -42,9 +40,6 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
     const existing = itemMap.get(key)
     if (existing) {
       existing.predicted = item.amount
-      // 实际数据优先；预测数据仅在无实际数据时使用 icon/color
-      if (existing.icon == null) existing.icon = item.icon
-      if (existing.color == null) existing.color = item.color
     } else {
       itemMap.set(key, {
         categoryId: item.categoryId,
@@ -55,8 +50,6 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
         predicted: item.amount,
         type: item.type,
         direction: item.direction,
-        icon: item.icon,
-        color: item.color,
       })
     }
   }
@@ -83,8 +76,6 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
         predicted: child.predicted,
         type: child.type,
         direction: child.direction,
-        icon: child.icon,
-        color: child.color,
       }))
 
     // 累加一级分类的值 = 一级分类本身 + 所有二级子分类
@@ -101,8 +92,6 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
       predicted: totalPredicted,
       type: item.type,
       direction: item.direction,
-      icon: item.icon,
-      color: item.color,
       children: children.length > 0 ? children : undefined,
     }
   })

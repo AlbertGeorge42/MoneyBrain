@@ -24,8 +24,6 @@ function category(
     id,
     name,
     type,
-    icon: null,
-    color: null,
     parentId,
     sort: 0,
     parent: null,

@@ -111,7 +111,7 @@ export function calculateReturnMetrics(
 }
 
 export async function buildAccountAllocationDetail(
-  account: { id: string; name: string; balance: Minor; icon: string | null; color: string | null },
+  account: { id: string; name: string; balance: Minor },
   endDate: Date,
   startDate: Date,
   balanceCache: BalanceCache,
@@ -145,8 +145,6 @@ export async function buildAccountAllocationDetail(
     return {
       accountId: account.id,
       accountName: account.name,
-      accountIcon: account.icon,
-      accountColor: account.color,
       balance: account.balance,
       hasAssetClasses: false,
       latestSnapshotDate: null,
@@ -174,8 +172,6 @@ export async function buildAccountAllocationDetail(
     return {
       accountId: account.id,
       accountName: account.name,
-      accountIcon: account.icon,
-      accountColor: account.color,
       balance: account.balance,
       hasAssetClasses: true,
       latestSnapshotDate: null,
@@ -233,8 +229,6 @@ export async function buildAccountAllocationDetail(
     return {
       assetClassId: item.assetClassId,
       name: item.assetClass.name,
-      icon: item.assetClass.icon,
-      color: item.assetClass.color,
       marketValue: itemMarketValue,
       ratio,
       targetRatio,
@@ -255,8 +249,6 @@ export async function buildAccountAllocationDetail(
     items.push({
       assetClassId: '__unclassified__',
       name: '未分类',
-      icon: null,
-      color: null,
       marketValue: unclassifiedValue,
       ratio: 0, // 未分类不参与比例计算
       targetRatio: null,
@@ -308,8 +300,6 @@ export async function buildAccountAllocationDetail(
   return {
     accountId: account.id,
     accountName: account.name,
-    accountIcon: account.icon,
-    accountColor: account.color,
     balance: account.balance,
     hasAssetClasses: true,
     latestSnapshotDate: formatDateLocal(latestSnapshot.date),

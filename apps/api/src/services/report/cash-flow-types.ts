@@ -36,8 +36,6 @@ export interface CashFlowActivityMinor {
     amount: Minor
     type: string
     direction: string
-    icon?: string | null
-    color?: string | null
   }>
 }
 
@@ -48,8 +46,6 @@ export type { ReportValue }
 export interface CategoryInfo {
   cashFlowType: string | null
   name: string
-  icon?: string | null
-  color?: string | null
   parentId: string | null
   level: number
 }
@@ -78,8 +74,6 @@ export interface ProcessedTx {
   cashFlowType: string | null
   accountName: string
   toAccountName: string | null
-  icon: string | null
-  color: string | null
 }
 
 export interface AggregatedFlows {

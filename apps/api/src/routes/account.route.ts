@@ -121,13 +121,11 @@ router.post('/:id/reconcile', validateRequest(validateReconcile), asyncHandler(a
 }))
 
 router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req, res) => {
-  const { id, name, type, icon, color, categoryId, initialBalance, initialBalanceDate, sort } = req.body
+  const { id, name, type, categoryId, initialBalance, initialBalanceDate, sort } = req.body
   const account = await createAccount({
     id,
     name,
     type,
-    icon,
-    color,
     categoryId,
     initialBalance,
     initialBalanceDate,

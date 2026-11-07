@@ -25,9 +25,7 @@ export interface AccountWithCategory {
   id: string
   name: string
   categoryId: string | null
-  category: { id: string; name: string; icon: string | null; color: string | null } | null
-  icon: string | null
-  color: string | null
+  category: { id: string; name: string } | null
   initialBalance: bigint
   initialBalanceDate: Date | null
   createdAt: Date

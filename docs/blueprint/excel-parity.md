@@ -379,7 +379,7 @@ Excel 没有独立的「账户表」：账户 = 资产负债表中的一个行�
 
 ### 6.1 能直接承载的
 
-- 账户名称/类型/排序/图标/颜色：`Account.name/type/sort/icon/color`。
+- 账户名称/类型/排序：`Account.name/type/sort`。
 - 期初余额/期初日期：`Account.initialBalance/initialBalanceDate`。
 - 账户分组 + 现金等价/投资标识：`AccountCategory.type/isCashEquivalent/isInvestment`。
 - 收支分类两级：`TransactionCategory.parentId`。
@@ -410,7 +410,7 @@ Excel 没有独立的「账户表」：账户 = 资产负债表中的一个行�
 | 期初余额、期初日期 | `Account.initialBalance` / `initialBalanceDate` | 能直接映射（重建时填 2024-12-31） |
 | 币种 | 无字段 | 无法承载（全 CNY，无损） |
 | 是否计入净资产 | 无开关（默认全账户计入） | 无法承载（本场景不需要） |
-| 账户排序/颜色 | `Account.sort/icon/color` | 能直接映射 |
+| 账户排序 | `Account.sort` | 能直接映射 |
 | 收支一级/二级分类 | `TransactionCategory.parentId` | 能直接映射（需按 income/expense 拆开） |
 | 支出 9 大类 | `TransactionCategory(type=expense)` | 能直接映射 |
 | 收入 6 类（工资/红包/转账/公积金/其他/优惠券） | `TransactionCategory(type=income)` | 需扩展（优惠券不计数；转账不是收入） |

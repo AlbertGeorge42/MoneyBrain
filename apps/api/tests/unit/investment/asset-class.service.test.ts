@@ -164,19 +164,18 @@ describe('asset-class.service', () => {
 
   describe('updateAssetClass', () => {
     it('应该更新资产类型', async () => {
-      const existing = { id: 'class1', name: '旧名称', icon: null, targetRatio: null, accountId: 'acc1' }
-      const updated = { id: 'class1', name: '新名称', icon: 'icon', targetRatio: 50 }
+      const existing = { id: 'class1', name: '旧名称', targetRatio: null, accountId: 'acc1' }
+      const updated = { id: 'class1', name: '新名称', targetRatio: 50 }
       mockPrisma.investmentAssetClass.findUnique.mockResolvedValue(existing)
       mockPrisma.investmentAssetClass.findMany.mockResolvedValue([])
       mockPrisma.investmentAssetClass.update.mockResolvedValue(updated)
 
-      const result = await updateAssetClass('class1', { name: '新名称', icon: 'icon', targetRatio: 50 })
+      const result = await updateAssetClass('class1', { name: '新名称', targetRatio: 50 })
 
       expect(mockPrisma.investmentAssetClass.update).toHaveBeenCalledWith({
         where: { id: 'class1' },
         data: expect.objectContaining({
           name: '新名称',
-          icon: 'icon',
           targetRatio: 50,
         }),
       })

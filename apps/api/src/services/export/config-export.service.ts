@@ -23,11 +23,10 @@ interface ConfigBackupData {
   }
 }
 
-function serializeAccountCategory(category: { name: string; type: string; icon?: string; sort: number; isCashEquivalent: boolean; isInvestment: boolean; children: unknown[] }): ImportAccountCategory {
+function serializeAccountCategory(category: { name: string; type: string; sort: number; isCashEquivalent: boolean; isInvestment: boolean; children: unknown[] }): ImportAccountCategory {
   const result: ImportAccountCategory = {
     name: category.name,
     type: category.type,
-    icon: category.icon,
     sort: category.sort,
     isCashEquivalent: category.isCashEquivalent,
     isInvestment: category.isInvestment,
@@ -40,12 +39,10 @@ function serializeAccountCategory(category: { name: string; type: string; icon?:
   return result
 }
 
-function serializeTransactionCategory(category: { name: string; type: string; icon?: string; color?: string; cashFlowType?: string; sort: number; children: unknown[] }): ImportTransactionCategory {
+function serializeTransactionCategory(category: { name: string; type: string; cashFlowType?: string; sort: number; children: unknown[] }): ImportTransactionCategory {
   const result: ImportTransactionCategory = {
     name: category.name,
     type: category.type,
-    icon: category.icon,
-    color: category.color,
     cashFlowType: category.cashFlowType,
     sort: category.sort,
   }
@@ -70,8 +67,6 @@ export async function exportConfig(): Promise<string> {
       name: c.name,
       type: c.type,
       sort: c.sort,
-      icon: c.icon ?? undefined,
-      color: c.color ?? undefined,
       isCashEquivalent: c.isCashEquivalent,
       isInvestment: c.isInvestment,
     }))
@@ -89,8 +84,6 @@ export async function exportConfig(): Promise<string> {
     // 用本地格式导出，保持与导入时的字符串格式一致（round-trip 不回退一天）
     // 原可选链语义：null 时输出 undefined（JSON 序列化时省略该字段）
     initialBalanceDate: a.initialBalanceDate ? formatDateLocal(a.initialBalanceDate) : undefined,
-    icon: a.icon ?? undefined,
-    color: a.color ?? undefined,
     sort: a.sort,
     categoryName: a.category?.name ?? undefined,
   }))
@@ -105,8 +98,6 @@ export async function exportConfig(): Promise<string> {
       name: c.name,
       type: c.type,
       sort: c.sort,
-      icon: c.icon ?? undefined,
-      color: c.color ?? undefined,
       cashFlowType: c.cashFlowType ?? undefined,
     }))
   )
@@ -122,8 +113,6 @@ export async function exportConfig(): Promise<string> {
   data.investmentAssetClasses = investmentAssetClasses.map(ac => ({
     accountName: ac.account.name,
     name: ac.name,
-    icon: ac.icon,
-    color: ac.color,
     // Prisma 返回 Decimal | null；JSON 序列化前转 number（Decimal 会被序列化为字符串，破坏向后兼容）
     targetRatio: ac.targetRatio == null ? null : Number(ac.targetRatio),
     sort: ac.sort

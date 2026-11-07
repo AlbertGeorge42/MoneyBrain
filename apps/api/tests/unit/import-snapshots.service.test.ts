@@ -253,7 +253,6 @@ describe('exportConfig', () => {
         id: 'ac-1',
         accountId: 'acc-1',
         name: '股票',
-        icon: 'stock',
         targetRatio: 60,
         sort: 0,
         account: { name: '投资账户' }
@@ -262,7 +261,6 @@ describe('exportConfig', () => {
         id: 'ac-2',
         accountId: 'acc-1',
         name: '债券',
-        icon: 'bond',
         targetRatio: 40,
         sort: 1,
         account: { name: '投资账户' }
@@ -278,7 +276,6 @@ describe('exportConfig', () => {
     expect(parsed.data.investmentAssetClasses[0]).toEqual({
       accountName: '投资账户',
       name: '股票',
-      icon: 'stock',
       targetRatio: 60,
       sort: 0
     })

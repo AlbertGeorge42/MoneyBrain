@@ -16,7 +16,6 @@ import {
   incImported,
   incUpdated,
   incSkipped,
-  isAntDPresetColor,
 } from './shared.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import { parseDateLocal } from '../../common/index.js'
@@ -51,8 +50,6 @@ async function importAccountCategories(
             {
               where: { id: existing.id },
               data: {
-                icon: item.icon ?? existing.icon,
-                color: isAntDPresetColor(item.color) ? item.color : existing.color,
                 sort: item.sort ?? existing.sort,
                 isCashEquivalent: item.isCashEquivalent ?? existing.isCashEquivalent,
                 isInvestment: item.isInvestment ?? existing.isInvestment,
@@ -71,8 +68,6 @@ async function importAccountCategories(
               name: item.name,
               type: item.type,
               parentId,
-              icon: item.icon,
-              color: isAntDPresetColor(item.color) ? item.color : undefined,
               isCashEquivalent: item.isCashEquivalent ?? false,
               isInvestment: item.isInvestment ?? false,
               sort,
@@ -167,8 +162,6 @@ async function importAccounts(
               initialBalanceDate: account.initialBalanceDate
                 ? parseDateLocal(account.initialBalanceDate)
                 : existing.initialBalanceDate,
-              icon: account.icon ?? existing.icon,
-              color: account.color ?? existing.color,
               sort: account.sort ?? existing.sort,
               categoryId: categoryId ?? existing.categoryId,
             },
@@ -188,8 +181,6 @@ async function importAccounts(
             initialBalanceDate: account.initialBalanceDate
               ? parseDateLocal(account.initialBalanceDate)
               : null,
-            icon: account.icon,
-            color: account.color,
             sort,
             categoryId,
           },
@@ -232,8 +223,6 @@ async function importTransactionCategories(
             {
               where: { id: existing.id },
               data: {
-                icon: item.icon ?? existing.icon,
-                color: item.color ?? existing.color,
                 cashFlowType: item.cashFlowType ?? existing.cashFlowType,
                 sort: item.sort ?? existing.sort,
               },
@@ -252,8 +241,6 @@ async function importTransactionCategories(
               name: item.name,
               type: item.type,
               parentId,
-              icon: item.icon,
-              color: isAntDPresetColor(item.color) ? item.color : undefined,
               cashFlowType: item.cashFlowType,
               sort,
             },
@@ -314,8 +301,6 @@ async function importInvestmentAssetClasses(
             {
               where: { id: existing.id },
               data: {
-                icon: ac.icon ?? existing.icon,
-                color: isAntDPresetColor(ac.color) ? ac.color : existing.color,
                 targetRatio: ac.targetRatio ?? existing.targetRatio,
                 sort: ac.sort ?? existing.sort,
               },
@@ -332,8 +317,6 @@ async function importInvestmentAssetClasses(
             data: {
               accountId: account.id,
               name: ac.name,
-              icon: ac.icon,
-              color: isAntDPresetColor(ac.color) ? ac.color : undefined,
               targetRatio: ac.targetRatio,
               sort: ac.sort,
             },

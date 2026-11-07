@@ -59,8 +59,8 @@ describe('收入支出表口径', () => {
       { id: 'acc', name: '现金', type: 'asset', initialBalance: new Decimal(0), initialBalanceDate: null },
     ])
     mockPrisma.transactionCategory.findMany.mockResolvedValue([
-      { id: 'salary', name: '工资', type: 'income', parentId: null, sort: 0, icon: null, color: null },
-      { id: 'food', name: '餐饮', type: 'expense', parentId: null, sort: 0, icon: null, color: null },
+      { id: 'salary', name: '工资', type: 'income', parentId: null, sort: 0 },
+      { id: 'food', name: '餐饮', type: 'expense', parentId: null, sort: 0 },
     ])
   })
 

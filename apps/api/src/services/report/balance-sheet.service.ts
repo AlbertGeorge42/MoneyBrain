@@ -103,8 +103,6 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
         name: categoryName,
         type: account.type as 'asset' | 'liability',
         sort: categorySort,
-        icon: account.category?.icon || null,
-        color: account.category?.color || null,
         actual: minor(0),
         predicted: minor(0),
         children: [],
@@ -120,8 +118,6 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
       name: account.name,
       categoryId: categoryId,
       type: account.type as 'asset' | 'liability',
-      icon: account.icon || null,
-      color: account.color || null,
       // 负债账户按「欠款金额」正数列示（API 契约统一为正数表示欠款）；
       // 不能取 `-balance`，否则真实库里余额为正的负债账户会被报成负欠款并被展示层过滤掉。
       actual: isLiability ? minor(Math.abs(account.balance)) : account.balance,

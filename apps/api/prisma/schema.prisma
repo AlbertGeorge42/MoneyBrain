@@ -12,8 +12,6 @@ model AccountCategory {
   id               String             @id @default(uuid())
   name             String
   type             String
-  icon             String?
-  color            String?
   parentId         String?
   sort             Int                @default(0)
   parent           AccountCategory?   @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -36,8 +34,6 @@ model Account {
   type                String
   initialBalance      BigInt            @default(0)
   initialBalanceDate  DateTime?
-  icon                String?
-  color               String?
   categoryId          String?
   sort                Int               @default(0)
   category            AccountCategory?  @relation(fields: [categoryId], references: [id])
@@ -62,8 +58,6 @@ model TransactionCategory {
   id           String              @id @default(uuid())
   name         String
   type         String              // 'income' | 'expense' | 'transfer'
-  icon         String?
-  color        String?
   cashFlowType String?
   parentId     String?
   sort         Int                 @default(0)
@@ -170,8 +164,6 @@ model InvestmentAssetClass {
   id          String   @id @default(uuid())
   accountId   String
   name        String
-  icon        String?
-  color       String?
   targetRatio Decimal?
   sort        Int      @default(0)
   createdAt   DateTime @default(now())

@@ -45,8 +45,6 @@ export function collectTransactions(args: {
       cashFlowType: t.category?.cashFlowType || null,
       accountName: t.account?.name || '未知账户',
       toAccountName: t.toAccount?.name || null,
-      icon: t.category?.icon ?? null,
-      color: t.category?.color ?? null,
     })
   }
 
@@ -83,8 +81,6 @@ export function collectTransactions(args: {
       cashFlowType: category?.cashFlowType || null,
       accountName: account?.name || '未知账户',
       toAccountName: toAccount?.name || null,
-      icon: category?.icon ?? null,
-      color: category?.color ?? null,
     })
   }
 

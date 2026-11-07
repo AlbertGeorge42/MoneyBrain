@@ -175,8 +175,6 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
         categoryId: cat.id,
         hasChildren,
         sort: cat.sort,
-        icon: cat.icon,
-        color: cat.color,
         children: childLeaves.length > 0 ? childLeaves : undefined,
       })
     }
@@ -197,8 +195,6 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       categoryId: 'uncategorized',
       hasChildren: false,
       sort: Number.MAX_SAFE_INTEGER,
-      icon: null,
-      color: null,
     }
   }
 

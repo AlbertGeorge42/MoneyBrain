@@ -20,8 +20,6 @@ type AccountSortItem = {
 type AccountUpdateData = {
   name?: string
   type?: string
-  icon?: string | null
-  color?: string | null
   categoryId?: string | null
   initialBalance?: number
   initialBalanceDate?: string
@@ -76,8 +74,6 @@ export async function createAccount(data: {
   id?: string
   name: string
   type: string
-  icon?: string | null
-  color?: string | null
   categoryId?: string | null
   initialBalance?: number
   initialBalanceDate?: string
@@ -93,8 +89,6 @@ export async function createAccount(data: {
     initialBalanceDate: data.initialBalanceDate
       ? new Date(`${data.initialBalanceDate}T00:00:00`)
       : new Date(),
-    icon: data.icon,
-    color: data.color,
     categoryId,
     sort: data.sort,
   })
@@ -111,13 +105,6 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
     initialBalanceDate: data.initialBalanceDate
       ? new Date(`${data.initialBalanceDate}T00:00:00`)
       : undefined,
-  }
-
-  if (data.icon !== undefined) {
-    updateData.icon = data.icon
-  }
-  if (data.color !== undefined) {
-    updateData.color = data.color
   }
 
   if (data.type && data.type !== currentAccount.type) {

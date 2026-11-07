@@ -98,7 +98,7 @@ async function seedMinimalLedger() {
     categoryId: accountCategory.id,
   })
   if (!account?.id) throw new Error('创建账户失败')
-  await apiPost('/transaction-categories', { name: '烟测支出', type: 'expense', icon: 'CoffeeOutlined' })
+  await apiPost('/transaction-categories', { name: '烟测支出', type: 'expense' })
 }
 
 async function waitForTarget(desktop, timeoutMs = 120_000) {
