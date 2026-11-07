@@ -1,151 +1,47 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import Settings from '../../../src/pages/Settings'
+/**
+ * 设置页入口（HF）
+ *
+ * 旧版只断言「配置中心 / 外观主题 / 数据备份等入口存在」，迁到高保真后
+ * 保留同样的冒烟范围：左侧分区导航齐全，外观主题可打开且是真实单选控件。
+ */
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { MantineProvider } from '@mantine/core'
+import { ThemeProvider } from '@/styles/ThemeContext'
+import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { SettingsPage } from '@/features/settings/SettingsPage'
+import { CONFIG_SECTIONS, GENERAL_SECTIONS } from '@/features/settings/settingsModel'
+import { hfTheme } from '@/styles/theme/hf-theme'
 
-vi.mock('../../../src/styles/ThemeContext', () => ({
-  useTheme: vi.fn(() => ({ mode: 'light', theme: 'light', setThemeMode: vi.fn() })),
-}))
-
-vi.mock('../../../src/queries/account', () => {
-  // 工厂只执行一次，data 保持稳定引用，避免组件 useEffect 依赖反复触发造成无限渲染
-  const accounts = [{ id: '1', name: '现金' }]
-  const accountCategories = [{ id: '1', name: '资产' }]
-  return {
-    useAccounts: vi.fn(() => ({ data: accounts, isLoading: false })),
-    useAccountCategories: vi.fn(() => ({ data: accountCategories, isLoading: false })),
-    // 以下 hook 由 AccountConfigModal 等在渲染时调用（即使弹窗不可见也会执行 hooks）
-    useAccountStats: vi.fn(() => ({ data: { transactionCount: 0 }, isLoading: false })),
-    useAccountBalanceAt: vi.fn(() => ({ data: undefined, isLoading: false })),
-    useCreateAccount: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-    useUpdateAccount: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-    useDeleteAccount: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-    useUpdateAccountCategoryAssetType: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  }
-})
-
-vi.mock('../../../src/queries/category', () => {
-  const transactionCategories = [{ id: '1', name: '餐饮' }]
-  return {
-    useTransactionCategories: vi.fn(() => ({ data: transactionCategories, isLoading: false })),
-  }
-})
-
-vi.mock('../../../src/queries/transaction', () => {
-  const transactions = { list: [], total: 150, page: 1, pageSize: 20 }
-  return {
-    useTransactions: vi.fn(() => ({ data: transactions, isLoading: false })),
-    // 回收站区块（RecycleBinSection）渲染时需要的 hooks
-    useRecycleBin: vi.fn(() => ({ data: { list: [] }, isLoading: false, isError: false, refetch: vi.fn() })),
-    useUndoAuditEvent: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
-  }
-})
-
-vi.mock('../../../src/queries/data', () => ({
-  useClearTransactions: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  useClearAll: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  useRollbackPoints: vi.fn(() => ({ data: [], isLoading: false, refetch: vi.fn() })),
-  useRestoreRollbackPoint: vi.fn(() => ({ mutate: vi.fn(), isPending: false, variables: undefined })),
-  useDeleteRollbackPoint: vi.fn(() => ({ mutate: vi.fn(), isPending: false, variables: undefined })),
-  // 自动备份区块（AutoBackupSection）渲染时需要的 hooks
-  useAutoBackupConfig: vi.fn(() => ({
-    data: { enabled: false, directory: '/tmp/auto-backups', lastRunAt: null, lastRunError: null, defaultDirectory: '/tmp/auto-backups', nextWindowAt: null, backupCount: 0 },
-    isLoading: false,
-    isError: false,
-    refetch: vi.fn(),
-  })),
-  useSaveAutoBackupConfig: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-}))
-
-const createTestQueryClient = () => new QueryClient({
-  defaultOptions: { queries: { retry: false, gcTime: 0 } },
-})
-
-const renderWithQueryClient = (ui: React.ReactElement) => {
-  const queryClient = createTestQueryClient()
+function renderSettings() {
   return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    <ThemeProvider>
+      <MantineProvider theme={hfTheme}>
+        <LedgerProvider>
+          <SettingsPage device="desktop" dataState="normal" onRetry={vi.fn()} onImport={vi.fn()} />
+        </LedgerProvider>
+      </MantineProvider>
+    </ThemeProvider>,
   )
 }
 
-describe('Settings Page', () => {
-  afterEach(() => {
-    cleanup()
-  })
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('应该显示配置中心入口', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('配置中心')).toBeInTheDocument()
-    expect(screen.getByText('现金流分类')).toBeInTheDocument()
-    expect(screen.getByText('投资资产类型')).toBeInTheDocument()
+describe('Settings Page 入口', () => {
+  it('配置中心与通用分区入口齐全', () => {
+    renderSettings()
+    const nav = screen.getByRole('navigation', { name: '设置分区' })
+    for (const section of [...CONFIG_SECTIONS, ...GENERAL_SECTIONS]) {
+      expect(
+        within(nav).getByRole('button', { name: new RegExp(section.label) }),
+      ).toBeInTheDocument()
+    }
   })
 
-  it('应该显示账户分类入口', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('账户分类')).toBeInTheDocument()
-  })
-
-  it('应该显示收支分类数量', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('收支分类')).toBeInTheDocument()
-  })
-
-  it('应该显示账户分类数量', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('账户分类')).toBeInTheDocument()
-  })
-
-  it('应该显示主题选择区域', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('外观主题')).toBeInTheDocument()
-  })
-
-  it('应该显示数据备份区域', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('数据备份')).toBeInTheDocument()
-  })
-
-  it('应该显示数据导出与数据导入分区', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('数据导出')).toBeInTheDocument()
-    expect(screen.getByText('数据导入')).toBeInTheDocument()
-  })
-
-  it('应该显示危险操作区域', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('危险操作')).toBeInTheDocument()
-  })
-
-  it('应该显示主题选项', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('浅色')).toBeInTheDocument()
-    expect(screen.getByText('深色')).toBeInTheDocument()
-    expect(screen.getByText('跟随系统')).toBeInTheDocument()
-  })
-
-  it('数据导出区域应展示包含项标签与导出按钮', () => {
-    renderWithQueryClient(<Settings />)
-    // 导出/导入各渲染一组包含项标签
-    expect(screen.getAllByText('交易记录').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('配置信息').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('预算配置').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('投资快照').length).toBeGreaterThan(0)
-    // 导出按钮
-    expect(screen.getAllByRole('button', { name: /导出/ }).length).toBe(1)
-  })
-
-  it('应该显示导入模式选项', () => {
-    renderWithQueryClient(<Settings />)
-    expect(screen.getByText('合并')).toBeInTheDocument()
-    expect(screen.getByText('覆盖')).toBeInTheDocument()
-  })
-
-  it('应该只显示一个导出按钮', () => {
-    renderWithQueryClient(<Settings />)
-    const exportButtons = screen.getAllByRole('button', { name: /导出/ })
-    expect(exportButtons.length).toBe(1)
+  it('外观主题是真实单选控件', () => {
+    renderSettings()
+    fireEvent.click(screen.getByRole('button', { name: '外观主题' }))
+    const group = screen.getByRole('radiogroup', { name: '外观主题' })
+    expect(within(group).getByRole('radio', { name: '浅色' })).toBeInTheDocument()
+    expect(within(group).getByRole('radio', { name: '深色' })).toBeInTheDocument()
+    expect(within(group).getByRole('radio', { name: '跟随系统' })).toBeInTheDocument()
   })
 })

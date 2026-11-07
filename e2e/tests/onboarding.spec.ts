@@ -1,70 +1,45 @@
 import { test, expect } from '@playwright/test'
+import { seedAccount } from '../helpers/seed'
+
+/**
+ * 用户入门流程（高保真）
+ *
+ * e2e 使用空的临时库：根路径应出现冷启动引导，并可从同一入口进入
+ * 设置 / 流水 / 报表 / 预算。旧版各自访问 /settings、/transactions 等路径的写法已移除。
+ */
 
 test.describe('用户入门流程', () => {
-  test('创建账户分类 -> 创建账户 -> 验证显示', async ({ page }) => {
-    // 访问首页
+  test('空账本从总览冷启动引导开始', async ({ page }) => {
+    // 显式空态，避免与其他并行用例写入的临时账户互相干扰。
+    await page.goto('/?state=empty')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.locator('.mb-side-nav')).toBeVisible()
+    await expect(page.getByRole('heading', { name: '总览', level: 1 })).toBeVisible()
+    await expect(page.getByText('从一个账户开始')).toBeVisible()
+  })
+
+  test('从根路径进入设置与各业务页', async ({ page }) => {
+    // 设置页在「零账户」时只显示冷启动引导，先建一个账户让分区导航可用。
+    await seedAccount(page)
+
     await page.goto('/')
-    await page.waitForLoadState('domcontentloaded')
+    await page.waitForLoadState('networkidle')
+    const nav = page.locator('.mb-side-nav')
 
-    // 检查是否是移动端（通过检查侧边栏是否隐藏）
-    const sider = page.locator('.app-shell__sider')
-    const isDesktop = await sider.isVisible().catch(() => false)
+    await nav.locator('.mb-side-nav-item', { hasText: '设置' }).click()
+    await expect(page.getByRole('heading', { name: '设置', level: 1 })).toBeVisible()
+    await expect(page.locator('.mb-set-nav')).toBeVisible()
 
-    if (!isDesktop) {
-      // 移动端验证工具栏标题（侧边栏在移动端隐藏）
-      await expect(page.locator('.app-shell__toolbar-title')).toBeVisible()
-    } else {
-      // 桌面端验证 app-shell__brand-title
-      await expect(page.locator('.app-shell__brand-title')).toBeVisible()
-    }
+    await nav.locator('.mb-side-nav-item', { hasText: '流水' }).click()
+    await expect(page.getByRole('heading', { name: '流水', level: 1 })).toBeVisible()
+    await expect(page.getByText('还没有流水')).toBeVisible()
 
-    // 导航到设置页面
-    if (!isDesktop) {
-      await page.locator('.mobile-tab-bar').locator('text=设置').click()
-    } else {
-      await page.click('text=设置')
-    }
-    await expect(page).toHaveURL(/.*settings/)
-    await page.waitForLoadState('domcontentloaded')
+    await nav.locator('.mb-side-nav-item', { hasText: '报表' }).click()
+    await expect(page.getByRole('tablist', { name: '报表视图' })).toBeVisible()
 
-    // 验证设置页面内容 - 使用 page-header__title 类选择器定位页面标题
-    await expect(page.locator('h1.page-header__title')).toContainText('设置与数据')
-    await expect(page.locator('text=外观主题').first()).toBeVisible()
-    await expect(page.locator('text=导入与导出').first()).toBeVisible()
-  })
-})
-
-test.describe('交易记录流程', () => {
-  test('交易记录页面可以正常访问', async ({ page }) => {
-    await page.goto('/transactions')
-    // 使用 domcontentloaded 代替 networkidle，避免 Firefox 超时
-    await page.waitForLoadState('domcontentloaded')
-
-    // 验证交易记录页面内容 - 使用 page-header__title 定位标题
-    await expect(page.locator('h1.page-header__title')).toContainText('交易记录', { timeout: 10000 })
-    await expect(page.locator('text=记收入').first()).toBeVisible()
-    await expect(page.locator('text=记支出').first()).toBeVisible()
-  })
-
-  test('Dashboard 页面显示 KPI 指标', async ({ page }) => {
-    await page.goto('/dashboard')
-    await page.waitForLoadState('domcontentloaded')
-
-    // 验证 Dashboard 页面内容 - 使用 page-header__title 定位标题
-    await expect(page.locator('h1.page-header__title')).toContainText('财务总览', { timeout: 10000 })
-    // 使用 metric-card__label 选择器定位 KPI 标签，避免 toolbar meta 的 hidden 问题
-    await expect(page.locator('.metric-card__label', { hasText: '总资产' })).toBeVisible()
-    await expect(page.locator('.metric-card__label', { hasText: '总负债' })).toBeVisible()
-    await expect(page.locator('.metric-card__label', { hasText: '净资产' })).toBeVisible()
-  })
-})
-
-test.describe('预算管理流程', () => {
-  test('预算页面可以正常访问', async ({ page }) => {
-    await page.goto('/budgets')
-    await page.waitForLoadState('domcontentloaded')
-
-    // 验证预算页面内容 - 使用 page-header__title 定位标题
-    await expect(page.locator('h1.page-header__title')).toContainText('预算管理', { timeout: 10000 })
+    await nav.locator('.mb-side-nav-item', { hasText: '预算' }).click()
+    await expect(page.locator('.mb-bg-month')).toBeVisible()
+    await expect(page.getByText('还没有预算')).toBeVisible()
   })
 })

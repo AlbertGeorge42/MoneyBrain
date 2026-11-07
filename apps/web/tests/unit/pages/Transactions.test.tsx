@@ -1,101 +1,64 @@
-import { describe, it, expect, vi } from 'vitest'
+/**
+ * 流水页数据状态（HF）
+ *
+ * 旧版分别断言「列表失败 / 统计失败 / 重试」，高保真把读写错误统一成一个
+ * ErrorPanel：错误态不得退化成空列表，且必须给重试入口。
+ */
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import Transactions from '../../../src/pages/Transactions'
+import { MantineProvider } from '@mantine/core'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { TransactionsPage } from '@/features/transactions/TransactionsPage'
+import type { DataState } from '@/features/shared/types'
+import { hfTheme } from '@/styles/theme/hf-theme'
 
-vi.mock('../../../src/styles/ThemeContext', () => ({
-  useTheme: vi.fn(() => ({ mode: 'light', theme: 'light', setThemeMode: vi.fn() })),
-}))
-
-vi.mock('../../../src/queries/transaction', () => ({
-  useTransactions: vi.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    isError: true,
-    error: new Error('数据库不可用'),
-    refetch: vi.fn(),
-  })),
-  useTransactionStats: vi.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    isError: true,
-    error: new Error('数据库不可用'),
-    refetch: vi.fn(),
-  })),
-  useTransactionEarliestDate: vi.fn(() => ({
-    data: undefined,
-    isLoading: false,
-    isError: false,
-    error: null,
-    refetch: vi.fn(),
-  })),
-  useTransactionRefundableList: vi.fn(() => ({
-    data: [],
-    isLoading: false,
-    isError: false,
-    error: null,
-    refetch: vi.fn(),
-  })),
-  useCreateTransaction: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  useUpdateTransaction: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  useDeleteTransaction: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-}))
-
-vi.mock('../../../src/queries/account', () => ({
-  useAccounts: vi.fn(() => ({
-    data: [],
-    isLoading: false,
-    isError: false,
-    error: null,
-    refetch: vi.fn(),
-  })),
-  useAccountCategories: vi.fn(() => ({
-    data: [],
-    isLoading: false,
-    isError: false,
-    error: null,
-    refetch: vi.fn(),
-  })),
-}))
-
-vi.mock('../../../src/queries/category', () => ({
-  useTransactionCategories: vi.fn(() => ({
-    data: [],
-    isLoading: false,
-    isError: false,
-    error: null,
-    refetch: vi.fn(),
-  })),
-}))
-
-const renderTransactions = () =>
-  render(
-    <MemoryRouter>
-      <Transactions />
-    </MemoryRouter>
+function renderTransactions(state: DataState, onRetry = vi.fn()) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  })
+  const view = render(
+    <QueryClientProvider client={queryClient}>
+      <MantineProvider theme={hfTheme}>
+        <LedgerProvider>
+          <TransactionsPage
+            device="desktop"
+            dataState={state}
+            batchMode={false}
+            onBatchModeChange={vi.fn()}
+            displayOpen={false}
+            onDisplayToggle={vi.fn()}
+            onRetry={onRetry}
+            onCreateAccount={vi.fn()}
+            onImport={vi.fn()}
+          />
+        </LedgerProvider>
+      </MantineProvider>
+    </QueryClientProvider>,
   )
+  return { onRetry, view }
+}
 
-describe('Transactions Page 错误态', () => {
-  it('列表加载失败时应该展示错误与原因，而不是空列表', () => {
-    renderTransactions()
-
-    expect(screen.getByText('交易列表加载失败')).toBeInTheDocument()
-    // 列表与统计都失败，因此原因文案出现两次
-    expect(screen.getAllByText('数据库不可用').length).toBeGreaterThan(0)
-    expect(screen.queryByText('暂无交易记录')).not.toBeInTheDocument()
+describe('Transactions Page 数据状态', () => {
+  it('加载失败时展示错误与重试，而不是空列表', () => {
+    const { onRetry } = renderTransactions('error')
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByText('数据没取出来')).toBeInTheDocument()
+    expect(screen.queryByText('还没有流水')).not.toBeInTheDocument()
+    screen.getByRole('button', { name: '重试' }).click()
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
-  it('统计加载失败时不应该把金额显示成 0', () => {
-    renderTransactions()
-
-    expect(screen.getByText('交易统计加载失败')).toBeInTheDocument()
-    expect(screen.queryByText('总收入')).not.toBeInTheDocument()
-    expect(screen.queryByText('总支出')).not.toBeInTheDocument()
+  it('加载态暴露 status 并标记 aria-busy', () => {
+    renderTransactions('loading')
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('status')).toHaveAttribute('aria-label', '正在加载流水')
   })
 
-  it('错误态应该提供重试入口', () => {
-    renderTransactions()
-
-    expect(screen.getAllByRole('button', { name: /重\s*试/ }).length).toBeGreaterThan(0)
+  it('空账本复用冷启动引导', () => {
+    renderTransactions('empty')
+    expect(screen.getByText('还没有流水')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '创建账户' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '导入账单' })).toBeInTheDocument()
   })
 })
