@@ -111,8 +111,8 @@ describe('深链筛选请求数（API 模式）', () => {
     await waitFor(() => expect(mocks.getAll).toHaveBeenCalledTimes(1), { timeout: 2000 })
     const params = mocks.getAll.mock.calls[0][0] as URLSearchParams
     expect(params.get('page')).toBe('1')
-    expect(params.get('startDate')).toBe('2026-10-01')
-    expect(params.get('endDate')).toBe('2026-10-31')
+    expect(params.get('from')).toBe('2026-10-01')
+    expect(params.get('to')).toBe('2026-10-31')
     // 等过防抖窗口，确认没有「空筛选」的第二轮请求。
     await new Promise((resolve) => setTimeout(resolve, 400))
     expect(mocks.getAll).toHaveBeenCalledTimes(1)
