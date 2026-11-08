@@ -272,8 +272,11 @@ export const dataApi = {
   // ─── 自动定时备份（B3）───
   getAutoBackup: () => api.get<ApiResponse<AutoBackupConfig>>('/data/auto-backup'),
   // 云同步目录默认被后端拒绝；confirmCloudDirectory: true 表示用户已确认「将定时产生全量明文账本副本」
-  updateAutoBackup: (data: Partial<Pick<AutoBackupConfig, 'enabled' | 'directory'>> & { confirmCloudDirectory?: boolean }) =>
-    api.put<ApiResponse<AutoBackupConfig>>('/data/auto-backup', data),
+  updateAutoBackup: (
+    data: Partial<Pick<AutoBackupConfig, 'enabled' | 'directory' | 'intervalHours' | 'keepCount'>> & {
+      confirmCloudDirectory?: boolean
+    },
+  ) => api.put<ApiResponse<AutoBackupConfig>>('/data/auto-backup', data),
   // 回滚会用快照覆盖当前数据，不可逆：必须带确认值
   restoreRollbackPoint: (id: string) =>
     api.post<ApiResponse<RollbackResult>>(`/data/rollback-points/${id}/restore`, {

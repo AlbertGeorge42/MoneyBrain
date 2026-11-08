@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 // 数据库目录用假路径隔离：自动备份配置跟着数据库走，不能真的写进 prisma 目录
@@ -34,6 +34,7 @@ const state = (options: {
   now: Date
   lastRunMinutesAgo?: number | null
   lastAttemptMinutesAgo?: number | null
+  intervalHours?: number
   busy?: boolean
 }) => ({
   now: options.now,
@@ -45,16 +46,28 @@ const state = (options: {
     options.lastAttemptMinutesAgo === null || options.lastAttemptMinutesAgo === undefined
       ? null
       : new Date(options.now.getTime() - options.lastAttemptMinutesAgo * MIN).toISOString(),
+  intervalHours: options.intervalHours ?? 24,
   busy: options.busy ?? false,
 })
 
-describe('evaluateBackupPlan（调度策略：24h 间隔 + 长任务锁互斥）', () => {
+describe('evaluateBackupPlan（调度策略：可配置间隔 + 长任务锁互斥）', () => {
   const now = at(2026, 11, 2, 12, 0)
   const dueAgo = 25 * 60 // 到期 1 小时
 
   it('未到期不跑：距上次成功不足 24 小时', () => {
     const decision = evaluateBackupPlan(state({ now, lastRunMinutesAgo: 5 * 60 }))
     expect(decision).toEqual({ action: 'wait', reason: 'not-due' })
+  })
+
+  it('按配置的间隔判定：6 小时间隔下 7 小时前已到期', () => {
+    expect(evaluateBackupPlan(state({ now, lastRunMinutesAgo: 7 * 60, intervalHours: 6 }))).toEqual({
+      action: 'run',
+      reason: 'due',
+    })
+    expect(evaluateBackupPlan(state({ now, lastRunMinutesAgo: 5 * 60, intervalHours: 6 }))).toEqual({
+      action: 'wait',
+      reason: 'not-due',
+    })
   })
 
   it('到期且锁空闲 → 跑', () => {
@@ -107,10 +120,48 @@ describe('自动备份配置（加密容器后不再限制云目录）', () => {
     rmSync(fakeDbDir, { recursive: true, force: true })
   })
 
-  it('默认配置：未开启，目录指向数据库同级 auto-backups/', async () => {
+  it('默认配置：未开启，间隔 24 小时、保留 7 份，目录指向数据库同级 auto-backups/', async () => {
     const config = await getAutoBackupConfig()
     expect(config.enabled).toBe(false)
+    expect(config.intervalHours).toBe(24)
+    expect(config.keepCount).toBe(7)
     expect(config.directory).toBe(join(fakeDbDir, 'auto-backups'))
+  })
+
+  it('旧配置文件缺少 intervalHours / keepCount（或值非法）时按默认值工作', async () => {
+    const configPath = join(fakeDbDir, 'auto-backup-config.json')
+    writeFileSync(
+      configPath,
+      JSON.stringify({ enabled: false, directory: 'D:\\backups', keepCount: 0 }),
+      'utf-8',
+    )
+    const config = await getAutoBackupConfig()
+    expect(config.intervalHours).toBe(24)
+    expect(config.keepCount).toBe(7)
+    expect(config.directory).toBe('D:\\backups')
+  })
+
+  it('间隔与保留份数可保存并回读', async () => {
+    const saved = await saveAutoBackupConfig({ enabled: false, intervalHours: 6, keepCount: 3 })
+    expect(saved.intervalHours).toBe(6)
+    expect(saved.keepCount).toBe(3)
+
+    const config = await getAutoBackupConfig()
+    expect(config.intervalHours).toBe(6)
+    expect(config.keepCount).toBe(3)
+  })
+
+  it('非法值明确报错，不静默夹取', async () => {
+    await expect(saveAutoBackupConfig({ intervalHours: 0 })).rejects.toThrow(/正整数小时/)
+    await expect(saveAutoBackupConfig({ intervalHours: -2 })).rejects.toThrow(/正整数小时/)
+    await expect(saveAutoBackupConfig({ intervalHours: 1.5 })).rejects.toThrow(/正整数小时/)
+    await expect(saveAutoBackupConfig({ keepCount: 0 })).rejects.toThrow(/保留份数必须是正整数/)
+    await expect(saveAutoBackupConfig({ keepCount: 2.5 })).rejects.toThrow(/保留份数必须是正整数/)
+
+    // 失败写入不影响已有配置
+    const config = await getAutoBackupConfig()
+    expect(config.intervalHours).toBe(24)
+    expect(config.keepCount).toBe(7)
   })
 
   it('加密容器落地后，云同步目录可直接保存', async () => {
@@ -160,6 +211,24 @@ describe('自动备份配置（加密容器后不再限制云目录）', () => {
     expect(recorded.lastRunAt).toBeTruthy()
     expect(recorded.lastAttemptAt).toBeTruthy()
     expect(recorded.lastRunError).toBeNull()
+  })
+
+  it('按配置的保留份数清理旧备份（keepCount = 3）', async () => {
+    const backupDir = join(fakeDbDir, 'keep3')
+    mkdirSync(backupDir, { recursive: true })
+    for (let i = 1; i <= 4; i++) {
+      writeFileSync(join(backupDir, `moneybrain-backup-2026-01-0${i}.zip`), Buffer.from('old'))
+    }
+
+    const configPath = join(fakeDbDir, 'auto-backup-config.json')
+    await saveAutoBackupConfig({ enabled: false, keepCount: 3 }, configPath)
+    const result = await runAutoBackupOnce({ directory: backupDir, configPath })
+
+    const backups = readdirSync(backupDir)
+      .filter((name) => name.endsWith('.mbx') || name.endsWith('.zip'))
+      .sort()
+    expect(backups).toHaveLength(3)
+    expect(backups).toContain(basename(result.file))
   })
 
   it('countAutoBackups：目录不存在为 0，只数本服务命名的文件', async () => {

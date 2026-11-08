@@ -1,7 +1,8 @@
 // ─── 自动定时备份（B3） ───
 //
-// 备份时机由软件内部策略决定，用户不设置执行时刻。判定只有两条：
-//   1. 距上次成功备份 ≥ 24 小时（从未成功视为已到期）；
+// 备份时机由内部策略决定，用户只设置开关、目录、间隔与保留份数。
+// 调度判定只有两条：
+//   1. 距上次成功备份 ≥ intervalHours（缺省 24 小时；从未成功视为已到期）；
 //   2. 长任务锁空闲（无导入/导出/回滚进行中）。
 // 两条都满足就执行，否则等下一轮（30 秒评估一次）；
 // 备份与导入/导出/回滚共用同一把长任务锁（runExclusiveLongTask），严格互斥、
@@ -17,16 +18,18 @@ import { exportFullBackup } from './export/index.js'
 
 const logger = rootLogger.child({ module: 'auto-backup' })
 
-// ===== 内部策略常量（不做成用户设置项） =====
+// ===== 默认策略常量 =====
 
-/** 备份间隔：距上次成功备份 ≥ 24 小时才到期。 */
-const BACKUP_INTERVAL_MS = 24 * 60 * 60_000
+/** 默认备份间隔（小时）：旧配置文件没有该字段时回落。 */
+export const DEFAULT_INTERVAL_HOURS = 24
+/** 默认目录内保留份数：旧配置文件没有该字段时回落。 */
+export const DEFAULT_KEEP_COUNT = 7
+
+const MS_PER_HOUR = 60 * 60_000
 /** 尝试失败后的退避间隔：避免连续失败在同一个窗口里反复刷日志。 */
 const ATTEMPT_BACKOFF_MS = 10 * 60_000
 /** 调度循环的评估周期。 */
 const TICK_INTERVAL_MS = 30_000
-/** 目录内保留的备份份数上限（超限删最旧）。 */
-const MAX_AUTO_BACKUPS = 7
 
 // ===== 配置 =====
 
@@ -40,6 +43,10 @@ export interface AutoBackupConfigFile {
   enabled: boolean
   /** 备份目标目录（绝对路径） */
   directory: string
+  /** 备份间隔（正整数小时） */
+  intervalHours: number
+  /** 目录内保留份数（正整数） */
+  keepCount: number
   /** 上次成功执行时间（ISO 字符串；从未执行为 null） */
   lastRunAt: string | null
   /** 上次尝试执行时间（成功或失败都算；用于失败退避） */
@@ -51,9 +58,16 @@ export interface AutoBackupConfigFile {
 const DEFAULT_CONFIG: AutoBackupConfigFile = {
   enabled: false,
   directory: '',
+  intervalHours: DEFAULT_INTERVAL_HOURS,
+  keepCount: DEFAULT_KEEP_COUNT,
   lastRunAt: null,
   lastAttemptAt: null,
   lastRunError: null,
+}
+
+/** 正整数（小时 / 份数）校验。 */
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
 async function resolveConfigPath(): Promise<string> {
@@ -80,6 +94,9 @@ export async function getAutoBackupConfig(): Promise<AutoBackupConfigFile & { de
     return {
       enabled: parsed.enabled === true,
       directory: typeof parsed.directory === 'string' && parsed.directory ? parsed.directory : fallbackDirectory,
+      // 旧配置文件没有这两个字段（或值非法）时按默认值工作，不做迁移
+      intervalHours: isPositiveInteger(parsed.intervalHours) ? parsed.intervalHours : DEFAULT_INTERVAL_HOURS,
+      keepCount: isPositiveInteger(parsed.keepCount) ? parsed.keepCount : DEFAULT_KEEP_COUNT,
       lastRunAt: typeof parsed.lastRunAt === 'string' ? parsed.lastRunAt : null,
       lastAttemptAt: typeof parsed.lastAttemptAt === 'string' ? parsed.lastAttemptAt : null,
       lastRunError: typeof parsed.lastRunError === 'string' ? parsed.lastRunError : null,
@@ -91,11 +108,13 @@ export async function getAutoBackupConfig(): Promise<AutoBackupConfigFile & { de
   }
 }
 
-/** 校验并保存配置；开关或目录变化时重启调度。 */
+/** 校验并保存配置；保存后重启调度（间隔变化也会生效）。 */
 export async function saveAutoBackupConfig(
   input: {
     enabled?: boolean
     directory?: string
+    intervalHours?: number
+    keepCount?: number
   },
   configPath?: string
 ): Promise<AutoBackupConfigFile & { defaultDirectory: string }> {
@@ -103,6 +122,8 @@ export async function saveAutoBackupConfig(
   const next: AutoBackupConfigFile = {
     enabled: input.enabled ?? current.enabled,
     directory: input.directory ?? current.directory,
+    intervalHours: input.intervalHours ?? current.intervalHours,
+    keepCount: input.keepCount ?? current.keepCount,
     lastRunAt: current.lastRunAt,
     lastAttemptAt: current.lastAttemptAt,
     lastRunError: current.lastRunError,
@@ -113,6 +134,13 @@ export async function saveAutoBackupConfig(
   }
   if (next.enabled && !/^([A-Za-z]:[\\/]|\\\\|\/)/.test(next.directory.trim())) {
     throw new ValidationError('备份目录必须是绝对路径，例如 C:\\Users\\me\\backups')
+  }
+  // 非法值明确报错，不静默夹取——用户填 0 就该看到错误，而不是被改成 1。
+  if (!isPositiveInteger(next.intervalHours)) {
+    throw new ValidationError('备份间隔必须是正整数小时')
+  }
+  if (!isPositiveInteger(next.keepCount)) {
+    throw new ValidationError('保留份数必须是正整数')
   }
   const target = configPath ?? (await resolveConfigPath())
   writeFileSync(target, JSON.stringify(next, null, 2), 'utf-8')
@@ -128,6 +156,8 @@ export interface BackupScheduleState {
   lastRunAt: string | null
   /** 上次尝试时间（成功或失败）；用于失败退避 */
   lastAttemptAt: string | null
+  /** 备份间隔（正整数小时） */
+  intervalHours: number
   /** 长任务锁是否被导入/导出/回滚占用 */
   busy: boolean
 }
@@ -137,16 +167,16 @@ export type BackupDecision =
   | { action: 'wait'; reason: 'not-due' | 'busy' | 'backoff' }
 
 /**
- * 备份策略判定（时机由内部策略决定，与用户设置无关）：
- * 1. 未到期（距上次成功 < 24h）→ 等下一轮；
+ * 备份策略判定（执行时刻由内部策略决定，用户只配置间隔）：
+ * 1. 未到期（距上次成功 < intervalHours）→ 等下一轮；
  * 2. 长任务锁被占用 → 等（严格互斥，没有强制越过；锁释放后下一轮自动补跑）；
  * 3. 上次尝试失败后未过退避期 → 等；
  * 4. 其余（到期且锁空闲）→ 执行。
  */
 export function evaluateBackupPlan(state: BackupScheduleState): BackupDecision {
-  const { now, lastRunAt, lastAttemptAt, busy } = state
+  const { now, lastRunAt, lastAttemptAt, intervalHours, busy } = state
   const lastRunMs = lastRunAt ? new Date(lastRunAt).getTime() : 0
-  const dueAtMs = lastRunMs + BACKUP_INTERVAL_MS
+  const dueAtMs = lastRunMs + intervalHours * MS_PER_HOUR
 
   if (lastRunAt && now.getTime() < dueAtMs) {
     return { action: 'wait', reason: 'not-due' }
@@ -228,17 +258,17 @@ export async function runAutoBackupOnce(
     throw error
   }
 
-  pruneOldBackups(directory, filename)
+  pruneOldBackups(directory, filename, config.keepCount)
   await recordRunResult(options.configPath, attemptedAt, attemptedAt, null)
   logger.info({ action: 'run', file: target }, 'auto backup created')
   return { file: target }
 }
 
-/** 只保留最近 MAX_AUTO_BACKUPS 份（含刚写的那份），删除更旧的。 */
-function pruneOldBackups(directory: string, keepFilename: string): void {
+/** 只保留最近 keepCount 份（含刚写的那份），删除更旧的。 */
+function pruneOldBackups(directory: string, keepFilename: string, keepCount: number): void {
   const files = readdirSync(directory).filter(isAutoBackupFile).sort()
   // 刚写的当天文件名排序在最后；多出来的（超过上限的）是最旧的
-  const excess = files.length - MAX_AUTO_BACKUPS
+  const excess = files.length - keepCount
   for (let i = 0; i < excess; i++) {
     if (files[i] === keepFilename) continue
     rmSync(join(directory, files[i]))
@@ -288,6 +318,7 @@ async function tick(): Promise<void> {
     now: new Date(),
     lastRunAt: config.lastRunAt,
     lastAttemptAt: config.lastAttemptAt,
+    intervalHours: config.intervalHours,
     busy: longTaskCount > 0,
   })
 

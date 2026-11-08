@@ -27,13 +27,50 @@ describe('自动备份 API（B3）', () => {
     await prisma.$disconnect()
   })
 
-  it('默认配置：未开启，含只读状态字段', async () => {
+  it('默认配置：未开启，含间隔 / 保留份数与只读状态字段', async () => {
     const response = await request(app).get('/api/data/auto-backup')
     expect(response.status).toBe(200)
     expect(response.body.data.enabled).toBe(false)
+    expect(response.body.data.intervalHours).toBe(24)
+    expect(response.body.data.keepCount).toBe(7)
     expect(response.body.data.defaultDirectory).toBeTruthy()
     expect(response.body.data).toHaveProperty('nextWindowAt')
     expect(response.body.data).toHaveProperty('backupCount')
+  })
+
+  it('保存间隔与保留份数', async () => {
+    const response = await request(app)
+      .put('/api/data/auto-backup')
+      .send({ enabled: false, intervalHours: 6, keepCount: 3 })
+    expect(response.status).toBe(200)
+    expect(response.body.data.intervalHours).toBe(6)
+    expect(response.body.data.keepCount).toBe(3)
+
+    const readBack = await request(app).get('/api/data/auto-backup')
+    expect(readBack.body.data.intervalHours).toBe(6)
+    expect(readBack.body.data.keepCount).toBe(3)
+  })
+
+  it('非法间隔 / 保留份数返回 VALIDATION_ERROR，不静默夹取', async () => {
+    const cases = [
+      { intervalHours: 0 },
+      { intervalHours: -1 },
+      { intervalHours: 1.5 },
+      { keepCount: 0 },
+      { keepCount: -3 },
+      { keepCount: 'many' },
+    ]
+
+    for (const body of cases) {
+      const response = await request(app).put('/api/data/auto-backup').send(body)
+      expect(response.status).toBe(400)
+      expect(response.body.error.code).toBe('VALIDATION_ERROR')
+    }
+
+    // 失败请求没有覆盖已保存的合法值
+    const readBack = await request(app).get('/api/data/auto-backup')
+    expect(readBack.body.data.intervalHours).toBe(6)
+    expect(readBack.body.data.keepCount).toBe(3)
   })
 
   it('开启时云同步目录可直接使用（导出的已是加密容器）', async () => {

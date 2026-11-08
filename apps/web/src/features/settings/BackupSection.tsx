@@ -1,10 +1,10 @@
 /**
  * 设置 · 自动备份分区。
  *
- * 设置读写仍由页面的 backupConfig / backupEnabled / backupDirectory 状态承担；
- * 本组件只渲染表单与只读的固定策略说明（后端未提供的字段不假装可保存）。
+ * 设置读写仍由页面的 backupConfig / backup* 状态承担；
+ * 本组件只渲染表单与执行结果的只读状态（后端派生字段不假装可编辑）。
  */
-import { Database, HardDriveDownload } from 'lucide-react'
+import { HardDriveDownload } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSwitch } from '@/features/shared/HfSwitch'
 import type { AutoBackupConfig } from '@/services/api'
@@ -16,9 +16,13 @@ interface BackupSectionProps {
   error: string | null
   enabled: boolean | null
   directory: string | null
+  intervalHours: string | null
+  keepCount: string | null
   saving: boolean
   onEnabledChange: (enabled: boolean) => void
   onDirectoryChange: (directory: string) => void
+  onIntervalHoursChange: (hours: string) => void
+  onKeepCountChange: (count: string) => void
   onSave: () => void
   onReload: () => void
 }
@@ -30,9 +34,13 @@ export function BackupSection({
   error,
   enabled,
   directory,
+  intervalHours,
+  keepCount,
   saving,
   onEnabledChange,
   onDirectoryChange,
+  onIntervalHoursChange,
+  onKeepCountChange,
   onSave,
   onReload,
 }: BackupSectionProps) {
@@ -72,6 +80,8 @@ export function BackupSection({
 
   const effectiveEnabled = enabled ?? config.enabled
   const effectiveDirectory = directory ?? config.directory
+  const effectiveIntervalHours = intervalHours ?? String(config.intervalHours)
+  const effectiveKeepCount = keepCount ?? String(config.keepCount)
   const formatDateTime = (iso: string) =>
     new Date(iso).toLocaleString('zh-CN', { hour12: false })
 
@@ -83,7 +93,9 @@ export function BackupSection({
           <div className="mb-set-capability-copy">
             <span className="mb-set-name">开启自动备份</span>
             <span className="mb-set-meta">
-              {effectiveEnabled ? '已开启 · 距上次成功超过 24 小时时执行' : '未开启'}
+              {effectiveEnabled
+                ? `已开启 · 距上次成功超过 ${effectiveIntervalHours} 小时时执行`
+                : '未开启'}
             </span>
           </div>
           <HfSwitch
@@ -100,6 +112,28 @@ export function BackupSection({
             value={effectiveDirectory}
             placeholder={config.defaultDirectory}
             onChange={(event) => onDirectoryChange(event.target.value)}
+          />
+        </label>
+        <label className="mb-set-field">
+          <span className="mb-set-label">备份间隔（小时）</span>
+          <input
+            className="mb-set-input"
+            type="number"
+            min={1}
+            step={1}
+            value={effectiveIntervalHours}
+            onChange={(event) => onIntervalHoursChange(event.target.value)}
+          />
+        </label>
+        <label className="mb-set-field">
+          <span className="mb-set-label">保留份数（份）</span>
+          <input
+            className="mb-set-input"
+            type="number"
+            min={1}
+            step={1}
+            value={effectiveKeepCount}
+            onChange={(event) => onKeepCountChange(event.target.value)}
           />
         </label>
         <HfButton className="mb-set-btn is-primary" disabled={saving} onClick={onSave}>
@@ -128,32 +162,6 @@ export function BackupSection({
             上次自动备份失败：{config.lastRunError}
           </p>
         )}
-      </section>
-
-      <section className="mb-set-datacard">
-        <div className="mb-set-datacard-head">
-          <Database size={18} />
-          <h3>频率与保留份数</h3>
-        </div>
-        <p>以下两项后端接口尚未提供字段，前端只读展示当前固定策略，不会假装保存成功。</p>
-        <div className="mb-set-capability-row is-disabled">
-          <span className="mb-set-name">备份频率</span>
-          <select className="mb-set-input mb-set-capability-control" disabled defaultValue="daily">
-            <option value="daily">每天</option>
-          </select>
-          <span className="mb-set-gap-tag">后端未提供</span>
-        </div>
-        <div className="mb-set-capability-row is-disabled">
-          <span className="mb-set-name">保留份数</span>
-          <input
-            className="mb-set-input mb-set-capability-control"
-            type="number"
-            disabled
-            defaultValue={7}
-          />
-          <span className="mb-set-gap-tag">后端未提供</span>
-        </div>
-        <p>服务端当前固定：距上次成功 ≥ 24 小时的空闲窗口执行，目录内保留最近 7 份。</p>
       </section>
     </div>
   )

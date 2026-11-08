@@ -217,20 +217,24 @@ export interface TransactionDeleteResult {
 // ===== 自动定时备份（B3） =====
 
 /**
- * 自动备份状态（时机由内部策略决定：24h 间隔 + 空闲窗口 + 10 分钟强制上限），
- * 用户只设置开关与目录；F5 加密容器落地前导出的是明文 ZIP，目录限本地并带云目录警告。
+ * 自动备份状态（执行时刻由内部策略决定：配置的间隔 + 空闲窗口），
+ * 用户设置开关、目录、备份间隔与保留份数；F5 加密容器落地后目录不再限制。
  */
 export interface AutoBackupConfig {
   enabled: boolean
   /** 备份目标目录（绝对路径） */
   directory: string
+  /** 备份间隔（正整数小时；旧配置缺省 24） */
+  intervalHours: number
+  /** 目录内保留份数（正整数；旧配置缺省 7） */
+  keepCount: number
   /** 上次成功执行时间（ISO 字符串；从未执行为 null） */
   lastRunAt: string | null
   /** 上次执行失败原因 */
   lastRunError: string | null
   /** 服务端默认目录（数据库同级 auto-backups/） */
   defaultDirectory: string
-  /** 预计下次窗口（上次成功 + 24h；从未成功为 null，首次空闲即执行） */
+  /** 预计下次窗口（上次成功 + intervalHours；从未成功为 null，首次空闲即执行） */
   nextWindowAt: string | null
   /** 目录内现有备份份数 */
   backupCount: number

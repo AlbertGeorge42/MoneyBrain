@@ -48,6 +48,8 @@ const config: AutoBackupConfig = {
   enabled: false,
   directory: 'C:\\tmp\\auto-backups',
   defaultDirectory: 'C:\\tmp\\auto-backups',
+  intervalHours: 24,
+  keepCount: 7,
   lastRunAt: null,
   lastRunError: null,
   nextWindowAt: null,
@@ -156,6 +158,8 @@ describe('自动备份', () => {
       expect(mocks.updateAutoBackup).toHaveBeenCalledWith({
         enabled: true,
         directory: 'D:\\backups',
+        intervalHours: 24,
+        keepCount: 7,
       }),
     )
     await waitFor(() => expect(mocks.getAutoBackup).toHaveBeenCalledTimes(2))
@@ -163,28 +167,38 @@ describe('自动备份', () => {
     expect(screen.getByLabelText('备份目录（绝对路径）')).toHaveValue('D:\\backups')
   })
 
-  it('频率与保留份数明确标注「后端未提供」，控件禁用且不进入保存请求', async () => {
-    mocks.getAutoBackup.mockResolvedValue(ok(config))
-    mocks.updateAutoBackup.mockResolvedValue(ok(config))
+  it('备份间隔与保留份数可编辑并随保存提交', async () => {
+    mocks.getAutoBackup
+      .mockResolvedValueOnce(ok(config))
+      .mockResolvedValueOnce(ok({ ...config, intervalHours: 6, keepCount: 3 }))
+    mocks.updateAutoBackup.mockResolvedValue(ok({ ...config, intervalHours: 6, keepCount: 3 }))
 
     renderPage()
     await openSection('自动备份')
     await screen.findByRole('switch', { name: '开启自动备份' })
 
-    expect(screen.getAllByText('后端未提供')).toHaveLength(2)
-    expect(screen.getByDisplayValue('每天')).toBeDisabled()
-    expect(screen.getByDisplayValue('7')).toBeDisabled()
+    const interval = screen.getByLabelText('备份间隔（小时）')
+    const keep = screen.getByLabelText('保留份数（份）')
+    expect(interval).toHaveValue(24)
+    expect(keep).toHaveValue(7)
+    expect(interval).not.toBeDisabled()
+    expect(keep).not.toBeDisabled()
 
-    expect(screen.getByText(/服务端当前固定：距上次成功 ≥ 24 小时/)).toBeInTheDocument()
-
+    fireEvent.change(interval, { target: { value: '6' } })
+    fireEvent.change(keep, { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: '保存设置' }))
-    await waitFor(() => expect(mocks.updateAutoBackup).toHaveBeenCalledTimes(1))
 
-    // PUT 体只包含后端真实支持的字段，没有伪造 frequency / retention。
-    expect(mocks.updateAutoBackup.mock.calls[0]?.[0]).toEqual({
-      enabled: false,
-      directory: 'C:\\tmp\\auto-backups',
-    })
+    await waitFor(() =>
+      expect(mocks.updateAutoBackup).toHaveBeenCalledWith({
+        enabled: false,
+        directory: 'C:\\tmp\\auto-backups',
+        intervalHours: 6,
+        keepCount: 3,
+      }),
+    )
+    await waitFor(() => expect(mocks.getAutoBackup).toHaveBeenCalledTimes(2))
+    expect(interval).toHaveValue(6)
+    expect(keep).toHaveValue(3)
   })
 
   it('演示数据源不请求后端，并说明自动备份需要真实后端', async () => {

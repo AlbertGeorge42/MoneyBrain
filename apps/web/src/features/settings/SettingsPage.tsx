@@ -160,6 +160,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [backupError, setBackupError] = useState<string | null>(null)
   const [backupEnabled, setBackupEnabled] = useState<boolean | null>(null)
   const [backupDirectory, setBackupDirectory] = useState<string | null>(null)
+  const [backupIntervalHours, setBackupIntervalHours] = useState<string | null>(null)
+  const [backupKeepCount, setBackupKeepCount] = useState<string | null>(null)
   const [backupSaving, setBackupSaving] = useState(false)
   const [backupReloadKey, setBackupReloadKey] = useState(0)
 
@@ -242,15 +244,19 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     if (!backupConfig) return
     const enabled = backupEnabled ?? backupConfig.enabled
     const directory = (backupDirectory ?? backupConfig.directory).trim()
+    const intervalHours = Number(backupIntervalHours ?? backupConfig.intervalHours)
+    const keepCount = Number(backupKeepCount ?? backupConfig.keepCount)
     setBackupSaving(true)
     setBackupError(null)
     try {
-      await dataApi.updateAutoBackup({ enabled, directory })
+      await dataApi.updateAutoBackup({ enabled, directory, intervalHours, keepCount })
       // PUT 只回写配置本体；再读一次拿回 nextWindowAt / backupCount 等派生状态。
       const response = await dataApi.getAutoBackup()
       setBackupConfig(unwrapApiData(response))
       setBackupEnabled(null)
       setBackupDirectory(null)
+      setBackupIntervalHours(null)
+      setBackupKeepCount(null)
       notify('自动备份设置已保存')
     } catch (error) {
       setBackupError(getApiErrorMessage(error, '保存自动备份设置失败'))
@@ -891,9 +897,13 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             error={backupError}
             enabled={backupEnabled}
             directory={backupDirectory}
+            intervalHours={backupIntervalHours}
+            keepCount={backupKeepCount}
             saving={backupSaving}
             onEnabledChange={setBackupEnabled}
             onDirectoryChange={setBackupDirectory}
+            onIntervalHoursChange={setBackupIntervalHours}
+            onKeepCountChange={setBackupKeepCount}
             onSave={() => void saveAutoBackup()}
             onReload={() => setBackupReloadKey((key) => key + 1)}
           />

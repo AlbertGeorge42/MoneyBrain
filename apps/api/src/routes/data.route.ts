@@ -231,7 +231,8 @@ router.post('/import-batches/:id/rollback', validateRequest((req: Request) => {
 }))
 
 // ─── 自动定时备份（B3）───
-// 备份时机由内部策略决定（24h 间隔 + 空闲窗口，见 service 头注释），用户只设置开关与目录。
+// 备份执行时刻仍由内部策略决定（间隔 + 空闲窗口，见 service 头注释）；
+// 用户可设置开关、目录、备份间隔（小时）与保留份数。
 // F5 已落地：导出的是加密容器，云同步目录限制已放开。
 router.get('/auto-backup', asyncHandler(async (_req, res) => {
   const config = await getAutoBackupConfig()
@@ -239,27 +240,41 @@ router.get('/auto-backup', asyncHandler(async (_req, res) => {
     enabled: config.enabled,
     directory: config.directory,
     defaultDirectory: config.defaultDirectory,
+    intervalHours: config.intervalHours,
+    keepCount: config.keepCount,
     lastRunAt: config.lastRunAt,
     lastRunError: config.lastRunError,
-    // 预计下次窗口 = 上次成功 + 24h；从未成功过则首次空闲窗口即可
+    // 预计下次窗口 = 上次成功 + 配置的间隔；从未成功过则首次空闲窗口即可
     nextWindowAt: config.lastRunAt
-      ? new Date(new Date(config.lastRunAt).getTime() + 24 * 60 * 60_000).toISOString()
+      ? new Date(new Date(config.lastRunAt).getTime() + config.intervalHours * 60 * 60_000).toISOString()
       : null,
     backupCount: countAutoBackups(config.directory),
   })
 }))
 
 router.put('/auto-backup', validateRequest((req: Request) => {
-  const { enabled, directory } = req.body as Record<string, unknown>
+  const { enabled, directory, intervalHours, keepCount } = req.body as Record<string, unknown>
   if (enabled !== undefined && typeof enabled !== 'boolean') {
     throw new ValidationError('enabled 必须是布尔值')
   }
   if (directory !== undefined && typeof directory !== 'string') {
     throw new ValidationError('directory 必须是字符串')
   }
+  // 范围校验在 service 统一做（直接调用 service 的测试也覆盖）；这里只挡类型错误。
+  if (intervalHours !== undefined && typeof intervalHours !== 'number') {
+    throw new ValidationError('intervalHours 必须是正整数小时')
+  }
+  if (keepCount !== undefined && typeof keepCount !== 'number') {
+    throw new ValidationError('keepCount 必须是正整数')
+  }
 }), asyncHandler(async (req, res) => {
-  const { enabled, directory } = req.body as { enabled?: boolean; directory?: string }
-  const config = await saveAutoBackupConfig({ enabled, directory })
+  const { enabled, directory, intervalHours, keepCount } = req.body as {
+    enabled?: boolean
+    directory?: string
+    intervalHours?: number
+    keepCount?: number
+  }
+  const config = await saveAutoBackupConfig({ enabled, directory, intervalHours, keepCount })
   return success(res, config)
 }))
 
