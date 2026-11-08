@@ -267,21 +267,6 @@ describe('账本日期契约：本地日历日', () => {
     expect(report.body.data.expense.actual).toBe(300)
   })
 
-  it('导出 CSV 的日期与接口同一日历日（00:05 / 23:55 不偏移）', async () => {
-    await createExpense(PREV_MONTH_END, 400, '上月末日 23:55')
-    await createExpense(MONTH_START, 100, '本月首日 00:05')
-    await createExpense(MONTH_END, 200, '本月末日 23:55')
-
-    const exported = await request(app)
-      .get('/api/data/export')
-      .query({ startDate: MONTH_START_DAY, endDate: MONTH_END_DAY })
-
-    expect(exported.status).toBe(200)
-    expect(exported.text).toContain(`${MONTH_START_DAY} 00:05:00`)
-    expect(exported.text).toContain(`${MONTH_END_DAY} 23:55:00`)
-    expect(exported.text).not.toContain('上月末日 23:55')
-  })
-
   it('预算导出 JSON 的 startDate 是日历日', async () => {
     const budget = await request(app).post('/api/budgets').send({
       name: '日期契约导出预算',

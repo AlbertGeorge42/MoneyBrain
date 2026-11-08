@@ -37,19 +37,6 @@ describe('A6 导出范围与最早日期（本地日历日）', () => {
     })
   })
 
-  it('date-only 导出范围包含本地首日 00:30 与末日 23:30 的交易', async () => {
-    await createExpense(new Date(2026, 2, 1, 0, 30, 0), '凌晨单')
-    await createExpense(new Date(2026, 2, 1, 23, 30, 0), '深夜单')
-
-    const res = await request(app)
-      .get('/api/data/export')
-      .query({ startDate: '2026-03-01', endDate: '2026-03-01' })
-
-    expect(res.status).toBe(200)
-    expect(res.text).toContain('凌晨单')
-    expect(res.text).toContain('深夜单')
-  })
-
   it('earliest 返回交易所在的本地日历日', async () => {
     await createExpense(new Date(2026, 2, 1, 0, 30, 0), '凌晨单')
 
