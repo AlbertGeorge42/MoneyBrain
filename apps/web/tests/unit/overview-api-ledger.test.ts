@@ -59,7 +59,13 @@ function account(id: string, name: string, type: string, category: Partial<Accou
   }
 }
 
-function category(id: string, name: string, parentId: string | null = null, type = 'expense'): TransactionCategory {
+function category(
+  id: string,
+  name: string,
+  parentId: string | null = null,
+  type = 'expense',
+  iconKey: string | null = null,
+): TransactionCategory {
   return {
     id,
     name,
@@ -69,6 +75,7 @@ function category(id: string, name: string, parentId: string | null = null, type
     parent: null,
     children: [],
     cashFlowType: null,
+    iconKey,
     createdAt: '',
     updatedAt: '',
   }
@@ -161,7 +168,7 @@ function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
       account('acc-4', '交行信用卡', 'liability'),
     ],
     categories: [
-      category('cat-food', '餐饮'),
+      category('cat-food', '餐饮', null, 'expense', 'gift'),
       category('cat-food-lunch', '午餐', 'cat-food'),
       category('cat-home', '居住'),
       category('cat-zero', '零元分类'),
@@ -186,6 +193,12 @@ function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
 }
 
 describe('DTO → Ledger 适配', () => {
+  it('分类 iconKey 从 DTO 透传到 Ledger', () => {
+    const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    expect(ledger.categories.find((item) => item.name === '餐饮')?.iconKey).toBe('gift')
+    expect(ledger.categories.find((item) => item.name === '居住')?.iconKey).toBeNull()
+  })
+
   it('账户余额求和为净资产，并按现金等价 / 投资 / 负债分类', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
     const summary = deriveOverview(ledger)

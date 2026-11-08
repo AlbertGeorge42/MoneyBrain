@@ -357,22 +357,30 @@ export function reorderAccount(
 
 export function addCategory(
   ledger: Ledger,
-  input: { name: string; type: TxType; parentId?: string },
+  input: { name: string; type: TxType; parentId?: string; iconKey?: string | null },
 ): Ledger {
   const category: LedgerCategory = {
     id: nextId('cat'),
     name: input.name,
     type: input.type,
     parentId: input.parentId,
+    iconKey: input.iconKey,
   }
   return { ...ledger, categories: [...ledger.categories, category] }
 }
 
-export function updateCategory(ledger: Ledger, categoryId: string, name: string): Ledger {
+export function updateCategory(
+  ledger: Ledger,
+  categoryId: string,
+  name: string,
+  iconKey?: string | null,
+): Ledger {
   return {
     ...ledger,
     categories: ledger.categories.map((category) =>
-      category.id === categoryId ? { ...category, name } : category,
+      category.id === categoryId
+        ? { ...category, name, ...(iconKey !== undefined && { iconKey }) }
+        : category,
     ),
   }
 }

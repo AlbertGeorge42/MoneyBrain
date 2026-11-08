@@ -352,8 +352,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     const result =
       editor.kind === 'accountGroup'
         ? editor.mode === 'edit' && editor.groupId
-          ? await updateAccountGroup(editor.groupId, value.name)
-          : await createAccountGroup({ name: value.name, type: editor.type })
+          ? await updateAccountGroup(editor.groupId, {
+              name: value.name,
+              iconKey: value.iconKey,
+            })
+          : await createAccountGroup({
+              name: value.name,
+              type: editor.type,
+              iconKey: value.iconKey,
+            })
         : editor.kind === 'account'
           ? editor.mode === 'edit' && editor.accountId
             ? await updateAccount(editor.accountId, {
@@ -373,11 +380,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
                 initialBalanceDate: value.initialBalanceDate,
               })
           : editor.mode === 'edit' && editor.categoryId
-            ? await updateCategory(editor.categoryId, value.name)
+            ? await updateCategory(editor.categoryId, {
+                name: value.name,
+                iconKey: value.iconKey,
+              })
             : await createCategory({
                 name: value.name,
                 type: editor.type,
                 parentId: editor.parentId ?? null,
+                iconKey: value.iconKey,
               })
     setEditorSaving(false)
     if (!result.ok) {
@@ -386,7 +397,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       return
     }
     if (editor.kind === 'accountGroup') {
-      notify(editor.mode === 'edit' ? '分组已重命名' : '分组已新增')
+      notify(editor.mode === 'edit' ? '分组已更新' : '分组已新增')
       setEditor(null)
       return
     }
@@ -396,7 +407,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           ? '账户已更新'
           : '账户已新增'
         : editor.mode === 'edit'
-          ? '分类已重命名'
+          ? '分类已更新'
           : '分类已新增',
     )
     setEditor(null)

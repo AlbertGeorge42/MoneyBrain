@@ -7,6 +7,7 @@ import {
   accountKindLabel,
   formatDateLabel,
   getAccount,
+  getCategoryIconKey,
   getCategoryName,
   getCategoryRootId,
   getRefundList,
@@ -190,6 +191,7 @@ function DetailView({
   const tone = transactionTone(transaction)
   const category = getCategoryName(ledger, transaction.categoryId)
   const rootId = getCategoryRootId(ledger, transaction.categoryId)
+  const iconKey = getCategoryIconKey(ledger, transaction.categoryId)
   const account = getAccount(ledger, transaction.accountId)
   const toAccount = transaction.toAccountId ? getAccount(ledger, transaction.toAccountId) : undefined
   const related = transaction.type === 'refund' ? getRelatedTransaction(ledger, transaction) : undefined
@@ -214,7 +216,7 @@ function DetailView({
           <dt>分类</dt>
           <dd>
             <span className="mb-tx-detail-category">
-              <CategoryIcon rootId={rootId} />
+              <CategoryIcon rootId={rootId} iconKey={iconKey} />
               {category}
             </span>
           </dd>

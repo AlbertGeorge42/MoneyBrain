@@ -11,6 +11,7 @@ import { signedAmountText } from '@/features/overview/format'
 import { RefundRelationTag, RefundStateTag } from './RefundTag'
 import {
   getAccount,
+  getCategoryIconKey,
   getCategoryName,
   getCategoryRootId,
   transactionDirection,
@@ -44,6 +45,7 @@ export function TxRow({
 }) {
   const account = getAccount(ledger, transaction.accountId)
   const rootId = getCategoryRootId(ledger, transaction.categoryId)
+  const iconKey = getCategoryIconKey(ledger, transaction.categoryId)
   const categoryName = getCategoryName(ledger, transaction.categoryId)
   const toAccount =
     transaction.type === 'transfer' && transaction.toAccountId
@@ -64,7 +66,7 @@ export function TxRow({
       }}
     >
       {leading}
-      <CategoryIcon rootId={rootId} />
+      <CategoryIcon rootId={rootId} iconKey={iconKey} />
       <span className="mb-tx-main">
         <span className="mb-tx-primary">
           <span className="mb-tx-cat-name">{categoryName}</span>

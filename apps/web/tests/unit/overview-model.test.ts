@@ -5,14 +5,44 @@
  * 最近流水日分组，以及记账后账本与总览数字的联动。
  */
 import { describe, expect, it } from 'vitest'
+import { CATEGORY_ICON_KEYS } from '@contracts/constants'
 import {
   addTransaction,
   deriveBudgets,
   deriveNetWorthTrend,
   deriveOverview,
+  getCategoryIconKey,
   groupRecentTransactions,
 } from '@/features/overview/model'
+import { CATEGORY_ICON_REGISTRY } from '@/features/overview/categoryIcons'
 import { createSeedLedger } from '@/dev-fixtures/seed'
+
+describe('分类图标回退', () => {
+  it('注册表与契约枚举一一对应', () => {
+    expect(CATEGORY_ICON_REGISTRY.map((option) => option.key)).toEqual([...CATEGORY_ICON_KEYS])
+  })
+
+  it('自身 iconKey 优先，其次父级 iconKey，最后交给名称映射', () => {
+    const base = createSeedLedger()
+    expect(getCategoryIconKey(base, 'food_lunch')).toBeUndefined()
+
+    const parentIcon = {
+      ...base,
+      categories: base.categories.map((category) =>
+        category.id === 'food' ? { ...category, iconKey: 'gift' } : category,
+      ),
+    }
+    expect(getCategoryIconKey(parentIcon, 'food_lunch')).toBe('gift')
+
+    const childIcon = {
+      ...parentIcon,
+      categories: parentIcon.categories.map((category) =>
+        category.id === 'food_lunch' ? { ...category, iconKey: 'salary' } : category,
+      ),
+    }
+    expect(getCategoryIconKey(childIcon, 'food_lunch')).toBe('salary')
+  })
+})
 
 describe('总览数字', () => {
   const ledger = createSeedLedger()

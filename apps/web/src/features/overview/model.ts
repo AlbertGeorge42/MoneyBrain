@@ -40,6 +40,8 @@ export interface LedgerAccountCategory {
    */
   isCashEquivalent?: boolean
   isInvestment?: boolean
+  /** 用户设置的受控图标 key；null / 缺省 = 前端默认图标。 */
+  iconKey?: string | null
   /** 演示账本的分类只读标记（仅种子数据设置，API 数据不带）。 */
   seeded?: boolean
 }
@@ -49,6 +51,8 @@ export interface LedgerCategory {
   name: string
   type: TxType
   parentId?: string
+  /** 用户设置的受控图标 key；null / 缺省 = 回退到按名称映射。 */
+  iconKey?: string | null
 }
 
 export interface LedgerBudget {
@@ -570,6 +574,21 @@ export function getCategoryRootId(ledger: Ledger, categoryId: string): string {
     current = getCategory(ledger, current.parentId)
   }
   return current?.id ?? categoryId
+}
+
+/**
+ * 分类图标的用户设置值：先看自身，再沿父链向上找最近一个 iconKey。
+ * 都没有时返回 undefined，由 CategoryIcon 回退到名称映射 / 通用 Tag。
+ */
+export function getCategoryIconKey(ledger: Ledger, categoryId: string): string | undefined {
+  let current = getCategory(ledger, categoryId)
+  const seen = new Set<string>()
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id)
+    if (current.iconKey) return current.iconKey
+    current = current.parentId ? getCategory(ledger, current.parentId) : undefined
+  }
+  return undefined
 }
 
 export function accountKindLabel(kind: AccountKind): string {

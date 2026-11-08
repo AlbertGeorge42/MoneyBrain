@@ -548,6 +548,22 @@
   outline-offset: calc(var(--mb-border-width));
 }
 
+/* 图标选择器：沿用 mb-set-kind 的按钮分档，只收窄内边距并保证 44×44 命中区。 */
+.mb-set-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(var(--mb-touch), 1fr));
+  gap: var(--mb-s-2);
+}
+
+.mb-set-icon-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--mb-touch);
+  min-height: var(--mb-touch);
+  padding: 0;
+}
+
 /* ===== 数据与备份 ===== */
 
 .mb-set-data {

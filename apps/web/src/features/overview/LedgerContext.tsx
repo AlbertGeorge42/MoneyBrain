@@ -40,6 +40,7 @@ import {
   type LedgerCreateOutcome,
   type LedgerDataMode,
   type LedgerDeleteOutcome,
+  type LedgerLabelUpdateInput,
   type LedgerMutationOutcome,
 } from './ledgerStore'
 import { createBudgetId } from '@/features/budgets/budgetModel'
@@ -556,7 +557,7 @@ export function LedgerProvider({
       if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
       try {
         const created = await accountCategoryApi
-          .create({ name: input.name, type: input.type, parentId: null })
+          .create({ name: input.name, type: input.type, parentId: null, iconKey: input.iconKey })
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true, id: created.id }
@@ -568,10 +569,10 @@ export function LedgerProvider({
   )
 
   const updateAccountGroup = useCallback(
-    async (id: string, name: string): Promise<LedgerMutationOutcome> => {
+    async (id: string, input: LedgerLabelUpdateInput): Promise<LedgerMutationOutcome> => {
       if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
       try {
-        await accountCategoryApi.update(id, { name }).then(unwrapApiData)
+        await accountCategoryApi.update(id, input).then(unwrapApiData)
         await refreshRemote()
         return { ok: true }
       } catch (error) {
@@ -641,6 +642,7 @@ export function LedgerProvider({
             name: input.name,
             type: input.type,
             parentId: input.parentId ?? undefined,
+            iconKey: input.iconKey,
           }),
         )
         return { ok: true }
@@ -649,7 +651,7 @@ export function LedgerProvider({
         const mapper = mapperFromLedger(ledgerRef.current)
         const parentId = input.parentId ? mapper.realId(input.parentId) : null
         const created = await transactionCategoryApi
-          .create({ name: input.name, type: input.type, parentId })
+          .create({ name: input.name, type: input.type, parentId, iconKey: input.iconKey })
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true, id: created.id }
@@ -661,14 +663,14 @@ export function LedgerProvider({
   )
 
   const updateCategory = useCallback(
-    async (id: string, name: string): Promise<LedgerMutationOutcome> => {
+    async (id: string, input: LedgerLabelUpdateInput): Promise<LedgerMutationOutcome> => {
       if (!apiMode) {
-        setLedger(updateCategoryInLedger(ledgerRef.current, id, name))
+        setLedger(updateCategoryInLedger(ledgerRef.current, id, input.name, input.iconKey))
         return { ok: true }
       }
       try {
         const mapper = mapperFromLedger(ledgerRef.current)
-        await transactionCategoryApi.update(mapper.realId(id), { name }).then(unwrapApiData)
+        await transactionCategoryApi.update(mapper.realId(id), input).then(unwrapApiData)
         await refreshRemote()
         return { ok: true }
       } catch (error) {

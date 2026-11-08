@@ -4,6 +4,7 @@ import { CategoryIcon } from '@/features/overview/category'
 import { signedAmountText } from '@/features/overview/format'
 import {
   getAccount,
+  getCategoryIconKey,
   getCategoryName,
   getCategoryRootId,
   transactionDirection,
@@ -195,6 +196,7 @@ function MobileList({
             {group.items.map((transaction) => {
               const account = getAccount(ledger, transaction.accountId)
               const rootId = getCategoryRootId(ledger, transaction.categoryId)
+              const iconKey = getCategoryIconKey(ledger, transaction.categoryId)
               const isSelected = selected.has(transaction.id)
               const categoryName = getCategoryName(ledger, transaction.categoryId)
               const meta = [
@@ -219,7 +221,7 @@ function MobileList({
                   }}
                 >
                   {batchMode && <CheckBox checked={isSelected} />}
-                  <CategoryIcon rootId={rootId} size="md" />
+                  <CategoryIcon rootId={rootId} iconKey={iconKey} size="md" />
                   <span className="mb-tx-m-main">
                     <span className="mb-tx-m-title">
                       {display.showNote ? transaction.note : categoryName}

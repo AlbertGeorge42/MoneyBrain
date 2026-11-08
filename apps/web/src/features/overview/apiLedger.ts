@@ -270,6 +270,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     name: category.name,
     type: asTxType(category.type),
     parentId: category.parentId ? displayId(category.parentId) : undefined,
+    iconKey: category.iconKey,
   }))
 
   const accountCategories: LedgerAccountCategory[] = payload.accountCategories.map((category) => ({
@@ -280,6 +281,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     sort: category.sort,
     isCashEquivalent: category.isCashEquivalent,
     isInvestment: category.isInvestment,
+    iconKey: category.iconKey,
   }))
 
   const accounts: LedgerAccount[] = payload.accounts.map((account) => {

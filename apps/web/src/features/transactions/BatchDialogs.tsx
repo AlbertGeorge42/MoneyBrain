@@ -95,7 +95,7 @@ export function BatchCategoryDialog({
             disabled={Boolean(pending)}
             onClick={() => void pick(category.id)}
           >
-            <CategoryIcon rootId={category.id} />
+            <CategoryIcon rootId={category.id} iconKey={category.iconKey} />
             <span>{category.name}</span>
           </HfButton>
         ))}

@@ -8,6 +8,7 @@ import { CategoryIcon } from './category'
 import { signedAmountText } from './format'
 import {
   getAccount,
+  getCategoryIconKey,
   getCategoryName,
   getCategoryRootId,
   transactionDirection,
@@ -56,6 +57,7 @@ export function RecentTransactions({
               </div>
               {group.items.map((transaction) => {
                 const rootId = getCategoryRootId(ledger, transaction.categoryId)
+                const iconKey = getCategoryIconKey(ledger, transaction.categoryId)
                 const tone = transactionTone(transaction)
                 const account = getAccount(ledger, transaction.accountId)
                 return (
@@ -71,7 +73,7 @@ export function RecentTransactions({
                       onOpenDetail(transaction)
                     }}
                   >
-                    <CategoryIcon rootId={rootId} size="md" />
+                    <CategoryIcon rootId={rootId} iconKey={iconKey} size="md" />
                     <span className="mb-m-tx-main">
                       <span className="mb-m-tx-note">{transaction.note}</span>
                       <span className="mb-m-tx-meta">

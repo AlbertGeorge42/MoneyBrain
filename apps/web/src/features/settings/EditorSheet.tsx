@@ -5,11 +5,12 @@
  * 抽屉本身只负责输入与校验，不直接改账本。
  */
 import { useEffect, useState } from 'react'
-import { Trash2, X } from 'lucide-react'
+import { Tag, Trash2, X } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
+import { CATEGORY_ICON_REGISTRY } from '@/features/overview/categoryIcons'
 import type { AccountKind, Ledger, TxType } from '@/features/overview/model'
 import {
   ACCOUNT_KIND_LABEL,
@@ -47,6 +48,8 @@ export interface EditorSaveValue {
   /** 期初余额日期（YYYY-MM-DD）。 */
   initialBalanceDate: string
   target: number
+  /** 受控图标 key；仅分类 / 账户分组使用，null = 自动。 */
+  iconKey?: string | null
 }
 
 export function EditorSheet({
@@ -114,6 +117,8 @@ export function EditorSheet({
   const openingBalance = account?.initialBalance !== undefined ? account.initialBalance / 100 : currentBalance
   const openingDate = account?.initialBalanceDate ?? todayLocal()
   const initialTarget = invest?.target ?? 0
+  // 分类与一级账户分组可选图标；空串表示「自动」，保存时转成 null。
+  const initialIconKey = category?.iconKey ?? group?.iconKey ?? ''
 
   const [name, setName] = useState(initialName)
   const [kind, setKind] = useState<AccountKind>(initialKind)
@@ -122,6 +127,7 @@ export function EditorSheet({
   const [initialBalance, setInitialBalance] = useState(String(openingBalance))
   const [initialBalanceDate, setInitialBalanceDate] = useState(openingDate)
   const [target, setTarget] = useState(String(initialTarget))
+  const [iconKey, setIconKey] = useState(initialIconKey)
 
   const currentCategory = account?.categoryId
     ? (ledger.accountCategories ?? []).find((item) => item.id === account.categoryId)
@@ -146,6 +152,7 @@ export function EditorSheet({
     setInitialBalance(String(openingBalance))
     setInitialBalanceDate(openingDate)
     setTarget(String(initialTarget))
+    setIconKey(initialIconKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
@@ -216,6 +223,48 @@ export function EditorSheet({
             }
           />
         </label>
+
+        {(editor.kind === 'category' || editor.kind === 'accountGroup') && (
+          <div className="mb-set-field">
+            <span className="mb-set-label">图标</span>
+            <div className="mb-set-icon-grid" role="group" aria-label="分类图标">
+              <HfButton
+                className={
+                  iconKey === '' ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'
+                }
+                aria-pressed={iconKey === ''}
+                aria-label="自动（按分类名称）"
+                title="自动（按分类名称）"
+                onClick={() => setIconKey('')}
+              >
+                <Tag size={18} strokeWidth={1.8} />
+              </HfButton>
+              {CATEGORY_ICON_REGISTRY.map((option) => {
+                const Icon = option.icon
+                const active = iconKey === option.key
+                return (
+                  <HfButton
+                    key={option.key}
+                    className={
+                      active
+                        ? 'mb-set-kind mb-set-icon-choice is-active'
+                        : 'mb-set-kind mb-set-icon-choice'
+                    }
+                    aria-pressed={active}
+                    aria-label={option.label}
+                    title={option.label}
+                    onClick={() => setIconKey(option.key)}
+                  >
+                    <Icon size={18} strokeWidth={1.8} />
+                  </HfButton>
+                )
+              })}
+            </div>
+            <p className="mb-set-hint">
+              图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。
+            </p>
+          </div>
+        )}
 
         {editor.kind === 'accountGroup' && (
           <>
@@ -421,6 +470,10 @@ export function EditorSheet({
               initialBalance: Math.round(Number(initialBalance) * 100),
               initialBalanceDate,
               target: Number(target),
+              iconKey:
+                editor.kind === 'category' || editor.kind === 'accountGroup'
+                  ? iconKey || null
+                  : undefined,
             })
           }
         >
