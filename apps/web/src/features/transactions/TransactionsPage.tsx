@@ -11,6 +11,8 @@ import {
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { Card } from '@/features/shared/Card'
 import { HfButton } from '@/features/shared/HfButton'
+import { ControlRow } from '@/features/shared/skeleton/ControlRow'
+import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { ToastViewport } from '@/features/shared/toast'
 import { useToast } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -520,52 +522,47 @@ export function TransactionsPage({
 
   if (dataState === 'loading' || (apiMode && serverList.status === 'loading')) {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <LoadingSkeleton device={device} variant="transactions" />
-      </>
+      </PageShell>
     )
   }
 
   if (dataState === 'empty') {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <ColdStartGuide variant="transactions" onPrimary={onCreateAccount} onImport={onImport} />
-      </>
+      </PageShell>
     )
   }
 
   if (dataState === 'error' || (apiMode && serverList.status === 'error')) {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <ErrorPanel
           onRetry={() => {
             serverList.refetch()
             onRetry()
           }}
         />
-      </>
+      </PageShell>
     )
   }
 
   if (ledger.transactions.length === 0) {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <ColdStartGuide variant="transactions" onPrimary={onCreateAccount} onImport={onImport} />
-      </>
+      </PageShell>
     )
   }
 
   const noResults = filtered.length === 0 && ledger.transactions.length > 0
 
   return (
-    <>
-      <PageHead device={device} dataState={dataState} count={monthTotals.count} periodLabel={periodLabel} />
-
-      <Toolbar
+    <PageShell head={<PageHead device={device} dataState={dataState} count={monthTotals.count} periodLabel={periodLabel} />}>
+      <ControlRow>
+        <Toolbar
         query={query}
         type={type}
         advancedOpen={advancedOpen}
@@ -578,7 +575,8 @@ export function TransactionsPage({
         onBatchToggle={() => onBatchModeChange(!batchMode)}
         onDisplayToggle={onDisplayToggle}
         searchRef={searchRef}
-      />
+        />
+      </ControlRow>
 
       {device === 'desktop' && advancedOpen && (
         <DesktopFilterPanel
@@ -716,6 +714,6 @@ export function TransactionsPage({
         {futureTotals.count > 0 ? `，另有 ${futureTotals.count} 笔未来不计入本月` : ''}，共{' '}
         {apiMode ? serverList.total : ledger.transactions.length} 笔
       </span>
-    </>
+    </PageShell>
   )
 }
