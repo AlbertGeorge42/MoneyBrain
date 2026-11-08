@@ -41,7 +41,6 @@ export function DrillDrawer({
           <div className="mb-rp-drill-head">
             <span className="mb-rp-drill-label">当期合计</span>
             <span className={`mb-rp-drill-amount is-${data.tone}`}>
-              {data.tone === 'income' ? '+' : '−'}
               {currency(data.amount)}
             </span>
           </div>
@@ -64,7 +63,10 @@ export function DrillDrawer({
             data.transactions.map((transaction) => (
               <div className="mb-rp-drill-row is-tx" key={transaction.id}>
                 <div>
-                  <span className="mb-rp-drill-tx-label">{transaction.label}</span>
+                  <span className="mb-rp-drill-tx-head">
+                    <span className="mb-rp-drill-tx-label">{transaction.label}</span>
+                    {transaction.refund && <span className="mb-rp-drill-tag">退款</span>}
+                  </span>
                   <span className="mb-rp-drill-meta">
                     {transaction.date.slice(5)} · {transaction.account}
                   </span>

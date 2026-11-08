@@ -423,6 +423,40 @@ describe('DonutChart 二级环', () => {
     expect(drill.transactions.reduce((sum, row) => sum + row.amount, 0)).toBe(500)
   })
 
+  it('退款下钻：逐笔保留负号并标记退款，当期合计仍等于行金额', () => {
+    const ledger: Ledger = {
+      accounts: [{ id: 'a1', name: '现金', kind: 'cash', balance: 0 }],
+      categories: [{ id: 'movie', name: '电影', type: 'expense' }],
+      budgets: [],
+      transactions: [
+        {
+          id: 't-refund',
+          date: '2026-10-12',
+          type: 'refund',
+          categoryId: 'movie',
+          note: '电影退票',
+          accountId: 'a1',
+          amount: 750,
+          relatedType: 'expense',
+        } as Ledger['transactions'][number],
+      ],
+    }
+    const node: FlowTreeNode = {
+      id: 'movie',
+      name: '电影',
+      amount: 750,
+      count: 1,
+      share: 100,
+      level: 0,
+      children: [],
+    }
+    const drill = buildDrill(ledger, node, 'expense', '2026-10-01', '2026-10-31')
+
+    expect(drill.amount).toBe(750)
+    expect(drill.transactions).toHaveLength(1)
+    expect(drill.transactions[0]).toMatchObject({ amount: -750, refund: true })
+  })
+
   it('二级阶梯不回父色：token 区间不含 100%，单子类取中点', () => {
     const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
     const themeVars = readFileSync(join(webRoot, 'src/styles/theme/hf-theme.ts'), 'utf8')

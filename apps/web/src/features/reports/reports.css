@@ -1447,10 +1447,28 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-variant-numeric: tabular-nums;
 }
 
+.mb-rp-drill-tx-head {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  min-width: 0;
+}
+
 .mb-rp-drill-tx-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 退款保留真实负号，用标签说明这是冲减而不是漏算。 */
+.mb-rp-drill-tag {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.6;
 }
 
 .mb-rp-settings {

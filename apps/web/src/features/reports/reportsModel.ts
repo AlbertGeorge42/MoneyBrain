@@ -428,6 +428,8 @@ export interface DrillData {
     account: string
     amount: number
     tone: 'income' | 'expense'
+    /** 退款冲减：金额保留真实负号，展示层据此标注「退款」。 */
+    refund: boolean
   }[]
 }
 
@@ -486,6 +488,7 @@ export function buildDrill(
               ? adjustmentExpense(transaction)
               : Math.abs(transaction.amount),
       tone: kind,
+      refund: transaction.type === 'refund',
     })),
   }
 }
