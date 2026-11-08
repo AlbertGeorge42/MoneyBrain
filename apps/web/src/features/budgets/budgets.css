@@ -13,28 +13,26 @@
   gap: var(--mb-s-3);
 }
 
+/* 副标题与标题同为 48 高页头内的居中项：基线对齐会把 13px 副标题压低 2.5px。 */
 .mb-bg-page-copy {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mb-s-3);
-}
-
-.mb-bg-head-actions {
   display: flex;
   align-items: center;
   gap: var(--mb-s-3);
+}
+
+/* 月份器控件行：页头下方的唯一控件槽位，与报表时间器同一位置。
+   行内间距取规范单值（8），不再用页头内的右对齐排布。 */
+.mb-bg-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mb-control-gap);
 }
 
 .mb-bg-add {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
-}
-
-.mb-bg-mobile-month {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .mb-bg-head-action {
@@ -731,11 +729,10 @@
   white-space: nowrap;
 }
 
-/* 预算页纯文字入口：查看未来报表（P5） */
+/* 预算页纯文字入口：查看未来报表（P5）。间距由内容段统一 16，不再用负 margin 顶贴。 */
 .mb-bg-future-entry {
   display: flex;
   justify-content: flex-end;
-  margin-top: calc(-1 * var(--mb-s-2));
 }
 
 .mb-bg-future-link {

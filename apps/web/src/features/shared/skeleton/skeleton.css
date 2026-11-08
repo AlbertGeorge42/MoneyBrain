@@ -7,6 +7,11 @@
   display: contents;
 }
 
+/* 控件行内间距的唯一值：桌面与移动同为 8。页面不得再各自声明行内 gap。 */
+.mb-control-row {
+  --mb-control-gap: var(--mb-s-2);
+}
+
 /* ===== SettingRow ===== */
 
 .mb-setting-row {

@@ -15,6 +15,7 @@ import { HfSheet } from '@/features/shared/HfSheet'
 import { HfSwitch } from '@/features/shared/HfSwitch'
 import { PeriodBar } from '@/features/shared/PeriodBar'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
+import { ControlRow } from '@/features/shared/skeleton/ControlRow'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { Budget } from '@contracts/types'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -76,6 +77,35 @@ function MonthBar({
       resetLabel={isCurrent ? undefined : '回到本月'}
       onReset={isCurrent ? undefined : () => onChange(currentMonth)}
     />
+  )
+}
+
+/**
+ * 月份器控件行：页头下方的唯一控件槽位，与报表时间器同一垂直位置。
+ * 桌面与移动同构——页头在移动端为空，本行即内容区的首行。
+ */
+function MonthControls({
+  month,
+  onChange,
+  currentMonth,
+  hasData,
+}: {
+  month: string
+  onChange: (next: string) => void
+  currentMonth: string
+  hasData: (month: string) => boolean
+}) {
+  return (
+    <ControlRow>
+      <div className="mb-bg-controls">
+        <MonthBar
+          month={month}
+          onChange={onChange}
+          currentMonth={currentMonth}
+          hasData={hasData}
+        />
+      </div>
+    </ControlRow>
   )
 }
 
@@ -676,9 +706,11 @@ export function BudgetPage({
         <BudgetPageHead
           device={device}
           data={data}
-          month={month}
-          onMonth={setMonth}
           onAdd={() => onEditorOpenChange(true)}
+        />
+        <MonthControls
+          month={month}
+          onChange={setMonth}
           currentMonth={currentMonth}
           hasData={hasMonthData}
         />
@@ -693,9 +725,11 @@ export function BudgetPage({
         <BudgetPageHead
           device={device}
           data={data}
-          month={month}
-          onMonth={setMonth}
           onAdd={() => onEditorOpenChange(true)}
+        />
+        <MonthControls
+          month={month}
+          onChange={setMonth}
           currentMonth={currentMonth}
           hasData={hasMonthData}
         />
@@ -710,12 +744,14 @@ export function BudgetPage({
         <BudgetPageHead
           device={device}
           data={data}
-          month={month}
-          onMonth={setMonth}
           onAdd={() => onEditorOpenChange(true)}
+          empty
+        />
+        <MonthControls
+          month={month}
+          onChange={setMonth}
           currentMonth={currentMonth}
           hasData={hasMonthData}
-          empty
         />
         <EmptyPage onAdd={() => onEditorOpenChange(true)} />
         <BudgetEditor
@@ -739,23 +775,15 @@ export function BudgetPage({
       <BudgetPageHead
         device={device}
         data={data}
-        month={month}
-        onMonth={setMonth}
         onAdd={() => onEditorOpenChange(true)}
+      />
+
+      <MonthControls
+        month={month}
+        onChange={setMonth}
         currentMonth={currentMonth}
         hasData={hasMonthData}
       />
-
-      {device === 'mobile' && (
-        <div className="mb-bg-mobile-month">
-          <MonthBar
-            month={month}
-            onChange={setMonth}
-            currentMonth={currentMonth}
-            hasData={hasMonthData}
-          />
-        </div>
-      )}
 
       <div className="mb-bg-future-entry">
         <button type="button" className="mb-bg-future-link" onClick={onViewFutureReports}>
@@ -918,20 +946,12 @@ export function BudgetPage({
 function BudgetPageHead({
   device,
   data,
-  month,
-  onMonth,
   onAdd,
-  currentMonth,
-  hasData,
   empty,
 }: {
   device: DeviceMode
   data: BudgetPageData
-  month: string
-  onMonth: (next: string) => void
   onAdd: () => void
-  currentMonth: string
-  hasData: (month: string) => boolean
   empty?: boolean
 }) {
   if (device === 'mobile') return null
@@ -944,19 +964,11 @@ function BudgetPageHead({
           {data.monthLabel} · {count} 个条目
         </p>
       </div>
-      <div className="mb-bg-head-actions">
-        <MonthBar
-          month={month}
-          onChange={onMonth}
-          currentMonth={currentMonth}
-          hasData={hasData}
-        />
-        {!empty && (
-          <HfButton variant="primary" className="mb-bg-add" onClick={onAdd}>
-            <Plus size={16} /> 新增
-          </HfButton>
-        )}
-      </div>
+      {!empty && (
+        <HfButton variant="primary" className="mb-bg-add" onClick={onAdd}>
+          <Plus size={16} /> 新增
+        </HfButton>
+      )}
     </div>
   )
 }
