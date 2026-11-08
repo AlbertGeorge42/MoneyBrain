@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query'
 import type {
   AssetProjectionResult,
   BalanceSheetReportData,
+  BudgetPeriodPlanResult,
   CashFlowProjectionResult,
   CashFlowReportData,
   IncomeExpenseReportData,
@@ -25,7 +26,7 @@ import type {
   InvestmentCategorySummary,
   ReportCategoryDetail,
 } from '@contracts/types'
-import { analyticsApi, reportApi, unwrapApiData } from '@/services/api'
+import { analyticsApi, budgetApi, reportApi, unwrapApiData } from '@/services/api'
 import { formatPercent } from '@/utils/format'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import {
@@ -692,6 +693,30 @@ export function useApiCashProjection(
     ],
     enabled,
     queryFn: async () => reportApi.getCashFlowProjection(window).then(unwrapApiData),
+  })
+  return resultOf(query, enabled)
+}
+
+/**
+ * 未来预算计划：与现金流投影同一套 from/to + granularity 窗口。
+ * 收支视图未来区间只展示预算计划，不再叠加 actual / planned / committed 分项。
+ */
+export function useApiPeriodPlan(
+  window: ProjectionWindow,
+  enabled: boolean,
+): ApiReportResult<BudgetPeriodPlanResult> {
+  const query = useQuery({
+    queryKey: [
+      'hf',
+      'report',
+      'period-plan',
+      window.asOf,
+      window.granularity,
+      window.from,
+      window.to,
+    ],
+    enabled,
+    queryFn: async () => budgetApi.getPeriodPlanWindow(window).then(unwrapApiData),
   })
   return resultOf(query, enabled)
 }

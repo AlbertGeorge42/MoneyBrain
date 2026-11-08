@@ -730,3 +730,30 @@
 .mb-bg-switch-state {
   white-space: nowrap;
 }
+
+/* 预算页纯文字入口：查看未来报表（P5） */
+.mb-bg-future-entry {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(-1 * var(--mb-s-2));
+}
+
+.mb-bg-future-link {
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+}
+
+.mb-bg-future-link:hover {
+  color: var(--mb-color-accent);
+  text-decoration: underline;
+}
+
+.mb-bg-future-link:focus-visible {
+  outline: 2px solid var(--mb-color-focus);
+  outline-offset: 2px;
+}

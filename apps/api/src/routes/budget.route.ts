@@ -12,6 +12,8 @@ import {
   parseFromMonthQuery,
   parseOptionalDateQuery,
   parsePeriodPlanMonths,
+  parseAsOfQuery,
+  parseProjectionGranularity,
 } from '../common/index.js'
 import {
   buildBudgetPeriodPlan,
@@ -78,11 +80,33 @@ router.get('/predictions', asyncHandler(async (req, res) => {
   return success(res, predictions)
 }))
 
-// 未来各周期预算额度：无预算的月份返回 hasBudget=false / totals=null
+// 未来各桶预算计划：支持 from/to + granularity；不传时保留旧 fromMonth/months。
 router.get('/period-plan', asyncHandler(async (req, res) => {
-  const fromMonth = parseFromMonthQuery(req.query.fromMonth)
-  const months = parsePeriodPlanMonths(req.query.months)
-  const plan = await buildBudgetPeriodPlan(fromMonth, months)
+  const asOf = parseAsOfQuery(req.query.asOf)
+  const granularity = parseProjectionGranularity(req.query.granularity)
+  const from = parseOptionalDateQuery(req.query.from, 'from')
+  const to = parseOptionalDateQuery(req.query.to, 'to')
+
+  if (from || to) {
+    if (!from || !to) throw new ValidationError('from 与 to 必须同时提供')
+    if (from > to) throw new ValidationError('from 必须早于或等于 to')
+    if (hasValue(req.query.fromMonth) || hasValue(req.query.months)) {
+      throw new ValidationError('from/to 与 fromMonth/months 不能混用')
+    }
+    const plan = await buildBudgetPeriodPlan({ asOf, granularity, from, to })
+    return success(res, plan)
+  }
+
+  if (granularity !== 'month') {
+    throw new ValidationError('day / week / year 粒度必须提供 from 与 to')
+  }
+
+  const plan = await buildBudgetPeriodPlan({
+    asOf,
+    granularity: 'month',
+    fromMonth: parseFromMonthQuery(req.query.fromMonth),
+    months: parsePeriodPlanMonths(req.query.months),
+  })
   return success(res, plan)
 }))
 

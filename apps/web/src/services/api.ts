@@ -69,6 +69,7 @@ export type {
   AutoBackupConfig,
   BalanceSheetReportData,
   Budget,
+  BudgetPeriodPlanResult,
   BudgetPrediction,
   BudgetStatus,
   BudgetUsageDetails,
@@ -191,6 +192,9 @@ export const budgetApi = {
   // 未来各自然月预算额度与缺口（推演面板只读，不参与实际预算口径）
   getPeriodPlan: (fromMonth: string, months: ProjectionMonths) =>
     api.get<ApiResponse<BudgetPeriodPlanResult>>('/budgets/period-plan', { params: { fromMonth, months } }),
+  // 同一套 from/to + granularity 窗口（日 / 周 / 月 / 年）；budgets[] 按 occurrence 日期归组。
+  getPeriodPlanWindow: (window: ProjectionQueryWindow) =>
+    api.get<ApiResponse<BudgetPeriodPlanResult>>('/budgets/period-plan', { params: window }),
   create: (data: Partial<Budget>) => api.post<ApiResponse<Budget>>('/budgets', data),
   update: (id: string, data: Partial<Budget>) => api.put<ApiResponse<Budget>>(`/budgets/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse<MessageResult>>(`/budgets/${id}`),

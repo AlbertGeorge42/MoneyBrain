@@ -982,7 +982,7 @@ export interface CashFlowProjectionResult {
   points: CashFlowProjectionPoint[]
 }
 
-/** 某个预算在某个月的展开点位。 */
+/** 某个预算在一个桶内的展开点位。 */
 export interface BudgetPeriodPlanOccurrence {
   budgetId: string
   budgetName: string
@@ -993,17 +993,37 @@ export interface BudgetPeriodPlanOccurrence {
 }
 
 export interface BudgetPeriodPlanPoint {
-  /** 自然月（YYYY-MM）。 */
+  /** 旧字段：等于 label（月粒度时为 YYYY-MM）。 */
   month: string
-  /** 该月是否存在预算展开点位；false 表示「无预算」。 */
+  granularity: ProjectionGranularity
+  label: string
+  /** 桶起点（含，YYYY-MM-DD）。 */
+  start: string
+  /** 桶终点（含，YYYY-MM-DD）。 */
+  end: string
+  /** 该桶最后一个日历日（YYYY-MM-DD）；保留旧字段名。 */
+  date: string
+  /** 该桶是否存在预算展开点位；false 表示「无预算」。 */
   hasBudget: boolean
+  /** 按 occurrence 日期升序归组。 */
   budgets: BudgetPeriodPlanOccurrence[]
-  /** 该月预算额度合计；hasBudget=false 时为 null（不用 0 冒充无预算）。 */
+  /** 该桶预算额度合计（后端求和）；hasBudget=false 时为 null（不用 0 冒充无预算）。 */
   totals: { income: Minor; expense: Minor; transfer: Minor } | null
 }
 
 export interface BudgetPeriodPlanResult {
-  fromMonth: string
-  months: number
+  /** 参考日（YYYY-MM-DD）与投影端点同一口径。 */
+  asOf: string
+  granularity: ProjectionGranularity
+  /** 首个输出桶起点（含）。 */
+  start: string
+  /** 末个输出桶终点（含）。 */
+  end: string
+  /** 输出桶数量。 */
+  bucketCount: number
+  /** 输出窗口起始月（YYYY-MM）；仅 month 兼容参数回填，按 from/to 请求时省略。 */
+  fromMonth?: string
+  /** 输出点位数量；仅 month 兼容参数回填，按 from/to 请求时省略。 */
+  months?: number
   points: BudgetPeriodPlanPoint[]
 }

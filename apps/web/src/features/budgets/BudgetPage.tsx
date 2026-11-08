@@ -40,6 +40,8 @@ interface BudgetPageProps {
   onEditorOpenChange: (open: boolean) => void
   onRetry: () => void
   onViewFlow: (categoryId?: string) => void
+  /** 纯文字入口：跳到报表页的未来区间（收支预算计划）。 */
+  onViewFutureReports?: () => void
   /** 第二个参数为撤销动作；API 模式删除后 6 秒内可撤销。 */
   notify: (message: string, action?: () => void) => void
 }
@@ -375,6 +377,7 @@ export function BudgetPage({
   onEditorOpenChange,
   onRetry,
   onViewFlow,
+  onViewFutureReports,
   notify,
 }: BudgetPageProps) {
   const { ledger, dataMode, createBudget, updateBudget, deleteBudget: removeBudget, undo } = useLedger()
@@ -763,6 +766,11 @@ export function BudgetPage({
         revision={forecastRevision(ledger)}
         onCreateBudget={() => onEditorOpenChange(true)}
       />
+      <div className="mb-bg-future-entry">
+        <button type="button" className="mb-bg-future-link" onClick={onViewFutureReports}>
+          查看未来报表 →
+        </button>
+      </div>
 
       <Hero data={data} device={device} />
       <WatchGroup data={data} onOpen={openDetail} />

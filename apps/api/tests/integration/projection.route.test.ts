@@ -587,6 +587,142 @@ describe('GET /api/budgets/period-plan：未设预算的月份表达', () => {
   })
 })
 
+describe('GET /api/budgets/period-plan：from/to + 四粒度', () => {
+  beforeAll(async () => {
+    await prisma.$connect()
+  })
+
+  afterAll(async () => {
+    await resetData()
+    await prisma.$disconnect()
+  })
+
+  beforeEach(async () => {
+    await seed()
+  })
+
+  it('day 粒度按 occurrence 日期归组，totals 由后端求和', async () => {
+    const res = await request(app)
+      .get('/api/budgets/period-plan')
+      .query({ asOf: AS_OF, from: '2026-12-30', to: '2027-01-02', granularity: 'day' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as {
+      asOf: string
+      granularity: string
+      start: string
+      end: string
+      bucketCount: number
+      points: Array<{
+        label: string
+        start: string
+        end: string
+        hasBudget: boolean
+        budgets: Array<{ date: string; type: string; amount: number }>
+        totals: { income: number; expense: number; transfer: number } | null
+      }>
+    }
+
+    expect(data).toMatchObject({
+      asOf: AS_OF,
+      granularity: 'day',
+      start: '2026-12-30',
+      end: '2027-01-02',
+      bucketCount: 4,
+    })
+    expect(data.points.map((point) => point.label)).toEqual([
+      '2026-12-30',
+      '2026-12-31',
+      '2027-01-01',
+      '2027-01-02',
+    ])
+
+    const dec31 = data.points[1]
+    expect(dec31.hasBudget).toBe(true)
+    expect(dec31.budgets.map((budget) => budget.date)).toEqual([
+      '2026-12-31',
+      '2026-12-31',
+      '2026-12-31',
+    ])
+    expect(dec31.totals).toEqual({ income: 50000, expense: 10000, transfer: 2000 })
+
+    // 无预算 = null，而不是 0
+    expect(data.points[0].hasBudget).toBe(false)
+    expect(data.points[0].totals).toBeNull()
+    expect(data.points[0].budgets).toEqual([])
+  })
+
+  it('year 粒度向外对齐到自然年，桶内保留全部 occurrence', async () => {
+    const res = await request(app)
+      .get('/api/budgets/period-plan')
+      .query({ asOf: AS_OF, from: '2026-03-01', to: '2026-12-31', granularity: 'year' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as {
+      granularity: string
+      start: string
+      end: string
+      bucketCount: number
+      points: Array<{
+        label: string
+        budgets: Array<{ date: string }>
+        totals: { income: number; expense: number; transfer: number } | null
+      }>
+    }
+
+    expect(data).toMatchObject({
+      granularity: 'year',
+      start: '2026-01-01',
+      end: '2026-12-31',
+      bucketCount: 1,
+    })
+    expect(data.points[0].label).toBe('2026')
+    // 月粒度预算在每月月末出点；年桶向外对齐后包含整年的 12 个月点位。
+    expect(data.points[0].budgets[0].date).toBe('2026-01-31')
+    expect(data.points[0].budgets.slice(-3).map((budget) => budget.date)).toEqual([
+      '2026-12-31',
+      '2026-12-31',
+      '2026-12-31',
+    ])
+    expect(data.points[0].totals).toEqual({ income: 600000, expense: 120000, transfer: 24000 })
+  })
+
+  it('month from/to 与旧 fromMonth/months 的点位一致，但不再回填旧字段', async () => {
+    const [windowed, legacy] = await Promise.all([
+      request(app)
+        .get('/api/budgets/period-plan')
+        .query({ asOf: AS_OF, from: '2026-11-01', to: '2026-11-30', granularity: 'month' }),
+      request(app)
+        .get('/api/budgets/period-plan')
+        .query({ asOf: AS_OF, fromMonth: '2026-11', months: 1 }),
+    ])
+
+    expect(windowed.status).toBe(200)
+    expect(legacy.status).toBe(200)
+    const windowedData = windowed.body.data as { fromMonth?: string; months?: number; points: unknown[] }
+    const legacyData = legacy.body.data as { fromMonth?: string; months?: number; points: unknown[] }
+    expect(windowedData.fromMonth).toBeUndefined()
+    expect(windowedData.months).toBeUndefined()
+    expect(windowedData.points).toEqual(legacyData.points)
+  })
+
+  it('非法粒度窗口返回 400', async () => {
+    const dayWithoutRange = await request(app)
+      .get('/api/budgets/period-plan')
+      .query({ asOf: AS_OF, granularity: 'day' })
+    const missingTo = await request(app)
+      .get('/api/budgets/period-plan')
+      .query({ asOf: AS_OF, from: '2026-11-01', granularity: 'month' })
+    const mixedParams = await request(app)
+      .get('/api/budgets/period-plan')
+      .query({ asOf: AS_OF, from: '2026-11-01', to: '2026-11-30', granularity: 'month', fromMonth: '2026-11' })
+
+    expect(dayWithoutRange.status).toBe(400)
+    expect(missingTo.status).toBe(400)
+    expect(mixedParams.status).toBe(400)
+  })
+})
+
 /**
  * 同一 occurrence 互斥的专用账本（房租）。
  *

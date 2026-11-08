@@ -184,6 +184,12 @@ function PreviewBody({
   const [displayOpen, setDisplayOpen] = useState(false)
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false)
   const [budgetEditorOpen, setBudgetEditorOpen] = useState(false)
+  // 预算页「查看未来报表」的一次性入口；普通导航进报表时清掉，避免残留。
+  const [reportInitialFuture, setReportInitialFuture] = useState(false)
+  const navigate = (next: ShellPage) => {
+    if (next === 'reports') setReportInitialFuture(false)
+    onPage(next)
+  }
 
   useEffect(() => {
     setBatchMode(false)
@@ -275,6 +281,7 @@ function PreviewBody({
         onRetry={retry}
         onImport={importLedger}
         onViewFlow={viewFlow}
+        initialFuture={reportInitialFuture}
       />
     ) : page === 'budgets' ? (
       <BudgetPage
@@ -284,6 +291,10 @@ function PreviewBody({
         onEditorOpenChange={setBudgetEditorOpen}
         onRetry={retry}
         onViewFlow={() => onPage('transactions')}
+        onViewFutureReports={() => {
+          setReportInitialFuture(true)
+          onPage('reports')
+        }}
         notify={notify}
       />
     ) : page === 'settings' ? (
@@ -326,7 +337,7 @@ function PreviewBody({
           </button>
         ) : undefined
       }
-      onNavigate={onPage}
+      onNavigate={navigate}
       onOpenEntry={() => setEntryOpen(true)}
     >
       {content}

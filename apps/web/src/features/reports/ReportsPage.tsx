@@ -22,6 +22,7 @@ import {
   useApiCashReport,
   useApiFlowReport,
   useApiInvestReport,
+  useApiPeriodPlan,
 } from './apiReports'
 import { deriveCashSankey } from './cashSankeyModel'
 import { PageHead, ReportsEmpty } from './ReportPageChrome'
@@ -43,9 +44,11 @@ import {
   type FlowTreeNode,
 } from './reportsModel'
 import {
+  bucketStartOf,
   clampAsOfPoint,
   monthStart,
   pointRangeState,
+  presetRange,
   rangeState,
   type ReportTab,
   type ReportTime,
@@ -53,6 +56,7 @@ import {
 import { periodWindow, pointWindow } from './futureModel'
 import { FutureBalanceView } from './FutureBalanceView'
 import { FutureCashView } from './FutureCashView'
+import { FutureFlowView } from './FutureFlowView'
 import { TimeBar } from './TimeBar'
 import { BalanceView } from './BalanceView'
 import { FlowView } from './FlowView'
@@ -70,6 +74,12 @@ function initialReportTime(anchor: string): ReportTime {
   return { gran: 'month', point: anchor, from: monthStart(anchor), to: anchor, preset: 'thisMonth' }
 }
 
+/** 预算页「查看未来报表」入口：落到未来 3 个月的收支预算计划。 */
+function initialFutureReportTime(anchor: string): ReportTime {
+  const range = presetRange('next3m', 'month', anchor)
+  return { gran: 'month', point: anchor, ...range, preset: 'next3m' }
+}
+
 export function ReportsPage({
   device,
   dataState,
@@ -78,6 +88,7 @@ export function ReportsPage({
   onRetry,
   onImport,
   onViewFlow,
+  initialFuture = false,
 }: {
   device: DeviceMode
   dataState: DataState
@@ -92,14 +103,18 @@ export function ReportsPage({
     from: string
     to: string
   }) => void
+  /** 从预算页跳转：初始落在未来区间的收支视图。 */
+  initialFuture?: boolean
 }) {
   const { ledger } = useLedger()
   const { notify: pushToast } = useToast()
-  const [tab, setTab] = useState<ReportTab>('balance')
+  const [tab, setTab] = useState<ReportTab>(() => (initialFuture ? 'flow' : 'balance'))
   // API 模式用真实今天 / 最新流水做锚点；用户改过时间后不再跟随账本刷新。
   const apiMode = Boolean(ledger.snapshot)
   const anchor = ledgerAnchorDay(ledger)
-  const [timeOverride, setTimeOverride] = useState<ReportTime | null>(null)
+  const [timeOverride, setTimeOverride] = useState<ReportTime | null>(() =>
+    initialFuture ? initialFutureReportTime(anchor) : null,
+  )
   const time = timeOverride ?? initialReportTime(anchor)
   const setTime = (next: ReportTime) => setTimeOverride(next)
   const [drill, setDrill] = useState<DrillState | null>(null)
@@ -121,6 +136,8 @@ export function ReportsPage({
   const balancePoint = balanceState === 'past' ? clampAsOfPoint(time.point, anchor) : time.point
   const assetWindow = pointWindow(balancePoint, anchor, time.gran)
   const cashState = rangeState(time.from, time.to, anchor)
+  const flowState = rangeState(time.from, time.to, anchor)
+  const investState = rangeState(time.from, time.to, anchor)
   const cashWindow = periodWindow(time.from, time.to, anchor, time.gran)
   const seedBalance = useMemo(
     () => deriveBalanceReport(ledger, balancePoint),
@@ -157,7 +174,7 @@ export function ReportsPage({
     ledger,
     apiReady && tab === 'cash' && cashState === 'past',
   )
-  const investApi = useApiInvestReport(time.from, time.to, apiReady && tab === 'invest')
+  const investApi = useApiInvestReport(time.from, time.to, apiReady && tab === 'invest' && investState === 'past')
   const assetProjectionApi = useApiAssetProjection(
     assetWindow,
     apiReady && tab === 'balance' && balanceState !== 'past',
@@ -165,6 +182,11 @@ export function ReportsPage({
   const cashProjectionApi = useApiCashProjection(
     cashWindow,
     apiReady && tab === 'cash' && cashState !== 'past',
+  )
+  // 收支未来区间只取预算计划；与现金流投影共用同一套窗口，不重复请求。
+  const periodPlanApi = useApiPeriodPlan(
+    cashWindow,
+    apiReady && tab === 'flow' && flowState !== 'past',
   )
 
   const balance = apiMode ? balanceApi.data : seedBalance
@@ -220,13 +242,25 @@ export function ReportsPage({
     onSettingsToggle()
   }
 
+  // 投资视图的空状态入口：保留当前粒度，把期间收回到当前桶内、截至今天。
+  const backToActual = () =>
+    setTime({
+      ...time,
+      point: anchor,
+      from: bucketStartOf(anchor, time.gran),
+      to: anchor,
+      preset: null,
+    })
+
   const activeApi =
     tab === 'balance'
       ? balanceState !== 'past'
         ? assetProjectionApi
         : balanceApi
       : tab === 'flow'
-        ? flowApi
+        ? flowState !== 'past'
+          ? periodPlanApi
+          : flowApi
         : tab === 'cash'
           ? cashState !== 'past'
             ? cashProjectionApi
@@ -294,7 +328,7 @@ export function ReportsPage({
               </Card>
             )
           )}
-          {tab === 'flow' && flow && (
+          {tab === 'flow' && flowState === 'past' && flow && (
             <FlowView
               device={device}
               report={flow}
@@ -310,6 +344,18 @@ export function ReportsPage({
               }}
               colorUniverse={categoryUniverse}
             />
+          )}
+          {tab === 'flow' && flowState !== 'past' && (
+            apiMode && periodPlanApi.data ? (
+              <FutureFlowView device={device} plan={periodPlanApi.data} actual={flow} />
+            ) : (
+              <Card variant="report" className="mb-rp-empty">
+                <h2 className="mb-rp-empty-title">未来预算计划需要连接后端账本</h2>
+                <p className="mb-rp-empty-desc">
+                  当前为本地演示数据；连接 API 后可查看按预算计划展开的未来收支点位。
+                </p>
+              </Card>
+            )
           )}
           {tab === 'cash' && cashState === 'past' && cash && (
             <CashView
@@ -339,15 +385,27 @@ export function ReportsPage({
               </Card>
             )
           )}
-          {tab === 'invest' && invest && (
+          {tab === 'invest' && investState === 'past' && invest && (
             <InvestView device={device} report={invest} settings={effectiveSettings.invest} />
           )}
-          {tab === 'invest' && apiMode && investApi.status === 'success' && investApi.data === null && (
+          {tab === 'invest' && investState === 'past' && apiMode && investApi.status === 'success' && investApi.data === null && (
             <Card variant="report" className="mb-rp-empty">
               <h2 className="mb-rp-empty-title">暂无投资账户</h2>
               <p className="mb-rp-empty-desc">
                 投资分析只统计标记为「投资资产」的账户；当前账本没有可分析的投资持仓。
               </p>
+            </Card>
+          )}
+          {tab === 'invest' && investState !== 'past' && (
+            <Card variant="report" className="mb-rp-empty">
+              <h2 className="mb-rp-empty-title">该视图暂无未来数据源</h2>
+              <p className="mb-rp-empty-desc">
+                投资分析只覆盖已发生的持仓与收益；未来区间不提供推演数据。
+                时间条仍可继续切换，改回已发生区间即可查看。
+              </p>
+              <button className="mb-rp-btn is-ghost" onClick={backToActual}>
+                回到已发生
+              </button>
             </Card>
           )}
         </>

@@ -2104,6 +2104,194 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   background-size: 5px 5px;
 }
 
+/* ===== 收支未来区间（P5）：只展示预算计划 ===== */
+
+.mb-rp-flow-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+}
+
+.mb-rp-flow-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  color: var(--mb-color-text-tertiary);
+  font-weight: 400;
+}
+
+.mb-rp-flow-note,
+.mb-rp-flow-footnote {
+  margin: 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  line-height: var(--mb-lh-body);
+}
+
+.mb-rp-flow-buckets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--mb-s-3);
+}
+
+.mb-rp-flow-bucket {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  min-width: 0;
+  padding: var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-rp-flow-bucket-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-flow-bucket-head strong {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-flow-bucket-head > span {
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-flow-segment {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: var(--mb-s-2);
+  border-top: 1px solid var(--mb-color-border);
+}
+
+.mb-rp-flow-segment-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mb-s-2);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+}
+
+.mb-rp-flow-segment-head span {
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  font-weight: 400;
+}
+
+.mb-rp-flow-actual {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px var(--mb-s-3);
+  font-size: var(--mb-fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-flow-actual span:nth-child(odd) {
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-rp-flow-actual span:nth-child(even) {
+  text-align: right;
+}
+
+.mb-rp-flow-actual .is-income {
+  color: var(--mb-color-income);
+}
+
+.mb-rp-flow-actual .is-expense {
+  color: var(--mb-color-expense-display);
+}
+
+.mb-rp-flow-points {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mb-rp-flow-point {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: var(--mb-s-2);
+  align-items: baseline;
+  font-size: var(--mb-fs-1);
+}
+
+.mb-rp-flow-point-date,
+.mb-rp-flow-point-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-rp-flow-point-date {
+  color: var(--mb-color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-flow-point-type {
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-flow-point-type.is-income {
+  color: var(--mb-color-income);
+}
+
+.mb-rp-flow-point-type.is-expense {
+  color: var(--mb-color-expense-display);
+}
+
+.mb-rp-flow-point-type.is-transfer {
+  color: var(--mb-color-transfer);
+}
+
+.mb-rp-flow-point-amount {
+  font-family: var(--mb-font-num);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mb-rp-flow-empty {
+  margin: 0;
+  padding: 4px 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-1);
+}
+
+.mb-rp-flow-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--mb-s-2);
+  padding-top: 6px;
+  border-top: 1px dashed var(--mb-color-border);
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-flow-totals span:first-child {
+  color: var(--mb-color-text-tertiary);
+}
+
+@media (max-width: 767px) {
+  .mb-rp-flow-buckets {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mb-rp-predict-chart {
   display: block;
   width: 100%;

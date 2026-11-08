@@ -2,6 +2,7 @@ import type { Budget } from '@prisma/client'
 import type {
   BudgetPeriodPlanPoint,
   BudgetPeriodPlanResult,
+  ProjectionGranularity,
 } from '../../../../packages/contracts/types/index.js'
 import { NotFoundError, ValidationError, formatDateLocal, parseDateLocal } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
@@ -22,6 +23,7 @@ import {
   type Minor,
   type PeriodKind,
 } from '../../../../packages/domain/src/index.js'
+import { buildProjectionBuckets, bucketStartOf, type ProjectionBucket } from './report/bucket.js'
 
 // 预算类型
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
@@ -693,45 +695,76 @@ function budgetKindOf(value: string): BudgetKind {
 }
 
 /**
- * 未来各周期预算额度（逐月）。
- *
- * 每个点位代表一个自然月：`hasBudget=false` 表示该月没有任何预算展开点位，
- * 此时 `totals=null`——「无预算」不能用一个 0 额度冒充。
+ * 预算计划窗口：新入口 `from/to + granularity`，旧入口 `fromMonth/months` 保持兼容。
  */
-export async function buildBudgetPeriodPlan(fromMonth: string, months: number): Promise<BudgetPeriodPlanResult> {
+export interface BudgetPeriodPlanWindow {
+  asOf: LocalDate
+  granularity: ProjectionGranularity
+  from?: LocalDate
+  to?: LocalDate
+  fromMonth?: string
+  months?: number
+}
+
+/** 旧入口逐月窗口：保留最多 24 个月，不受新入口的未来上限约束。 */
+function legacyMonthlyBuckets(fromMonth: string, months: number): ProjectionBucket[] {
   if (months < 1) {
     throw new ValidationError('months 必须大于 0')
   }
-
   const first = toDateValue(`${fromMonth}-01`)
-  const windows: Array<{ month: string; start: Date; endExclusive: Date }> = []
+  const buckets: ProjectionBucket[] = []
   let cursor = new Date(first.getFullYear(), first.getMonth(), 1)
   for (let i = 0; i < months; i++) {
     const next = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
-    windows.push({
-      month: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
-      start: cursor,
-      endExclusive: next,
+    const end = new Date(next)
+    end.setDate(end.getDate() - 1)
+    buckets.push({
+      granularity: 'month',
+      label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+      start: formatDateLocal(cursor) as LocalDate,
+      end: formatDateLocal(end) as LocalDate,
+      endExclusive: formatDateLocal(next) as LocalDate,
     })
     cursor = next
   }
+  return buckets
+}
 
-  const lastWindow = windows[windows.length - 1]!
-  const lastDay = new Date(lastWindow.endExclusive)
-  lastDay.setDate(lastDay.getDate() - 1)
-  const predictions = await generatePredictions(formatDateLocal(first), formatDateLocal(lastDay))
+/**
+ * 未来各桶预算计划（日 / 周 / 月 / 年）。
+ *
+ * 每个点位代表一个桶：`budgets[]` 按 occurrence 日期升序归组，
+ * `totals` 由后端求和；`hasBudget=false` 表示该桶没有任何预算展开点位，
+ * 此时 `totals=null`——「无预算」不能用一个 0 额度冒充。
+ */
+export async function buildBudgetPeriodPlan(
+  window: BudgetPeriodPlanWindow,
+): Promise<BudgetPeriodPlanResult> {
+  const legacy = !window.from
+  const buckets = legacy
+    ? legacyMonthlyBuckets(window.fromMonth ?? window.asOf.slice(0, 7), window.months ?? 12)
+    : buildProjectionBuckets(window.asOf, window.granularity, window.from!, window.to!)
 
-  const points: BudgetPeriodPlanPoint[] = windows.map((window) => ({
-    month: window.month,
+  const first = buckets[0]!
+  const last = buckets[buckets.length - 1]!
+  const predictions = await generatePredictions(first.start, last.end)
+
+  const points: BudgetPeriodPlanPoint[] = buckets.map((bucket) => ({
+    month: bucket.label,
+    granularity: bucket.granularity,
+    label: bucket.label,
+    start: bucket.start,
+    end: bucket.end,
+    date: bucket.end,
     hasBudget: false,
     budgets: [],
     totals: null,
   }))
-  const pointByMonth = new Map(points.map((point) => [point.month, point]))
+  const pointByStart = new Map(points.map((point) => [point.start, point]))
 
   for (const prediction of predictions) {
-    const month = formatDateLocal(prediction.date).slice(0, 7)
-    const point = pointByMonth.get(month)
+    const date = formatDateLocal(prediction.date)
+    const point = pointByStart.get(bucketStartOf(window.granularity, date as LocalDate))
     if (!point) continue
 
     const type = budgetKindOf(prediction.type)
@@ -739,7 +772,7 @@ export async function buildBudgetPeriodPlan(fromMonth: string, months: number): 
       budgetId: prediction.budgetId,
       budgetName: prediction.budgetName,
       type,
-      date: formatDateLocal(prediction.date),
+      date,
       amount: minor(prediction.amount),
     })
     const totals = point.totals ?? {
@@ -752,7 +785,19 @@ export async function buildBudgetPeriodPlan(fromMonth: string, months: number): 
     point.hasBudget = true
   }
 
-  return { fromMonth, months, points }
+  for (const point of points) {
+    point.budgets.sort((a, b) => (a.date === b.date ? a.budgetId.localeCompare(b.budgetId) : a.date.localeCompare(b.date)))
+  }
+
+  return {
+    asOf: window.asOf,
+    granularity: window.granularity,
+    start: first.start,
+    end: last.end,
+    bucketCount: buckets.length,
+    ...(legacy ? { fromMonth: first.label, months: buckets.length } : {}),
+    points,
+  }
 }
 
 export async function deleteBudget(budgetId: string) {
