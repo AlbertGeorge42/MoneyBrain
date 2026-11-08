@@ -2,7 +2,8 @@
  * 设置 · 现金流分类分区。
  *
  * 资产 Tab 按账户性质标记分组，收入 / 支出 / 转账 Tab 按活动归组；
- * 空组默认折叠且不渲染占位行（与原实现一致）。归组只影响浏览，不改账本合计。
+ * 空组默认折叠且不渲染占位行（与原实现一致）。活动归属写入分类的 cashFlowType，
+ * 现金流报表按同一字段分组。
  */
 import {
   ChevronDown,
@@ -52,7 +53,6 @@ interface CashflowSectionProps {
   rows: CategoryRow[]
   tab: CashflowTab
   onTabChange: (tab: CashflowTab) => void
-  activity: Record<string, ActivityGroupId>
   collapsed: ReadonlySet<string>
   onToggleCollapsed: (key: string) => void
   menuOpen: string | null
@@ -67,7 +67,6 @@ export function CashflowSection({
   rows,
   tab,
   onTabChange,
-  activity,
   collapsed,
   onToggleCollapsed,
   menuOpen,
@@ -77,9 +76,8 @@ export function CashflowSection({
   onOpenMover,
 }: CashflowSectionProps) {
   const activityOf = (categoryId: string): ActivityGroupId => {
-    if (activity[categoryId]) return activity[categoryId]
     const category = ledger.categories.find((item) => item.id === categoryId)
-    return category ? defaultActivity(category) : 'operating'
+    return category ? defaultActivity(category) : 'unassigned'
   }
 
   if (tab === 'asset') {

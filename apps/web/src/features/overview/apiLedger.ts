@@ -264,6 +264,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     name: category.name,
     type: asTxType(category.type),
     parentId: category.parentId ? displayId(category.parentId) : undefined,
+    cashFlowType: category.cashFlowType,
     iconKey: category.iconKey,
   }))
 

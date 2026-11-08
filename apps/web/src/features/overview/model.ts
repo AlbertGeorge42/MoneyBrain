@@ -48,11 +48,16 @@ export interface LedgerAccountCategory {
   seeded?: boolean
 }
 
+/** 现金流活动归属：后端 TransactionCategory.cashFlowType 的可选值。 */
+export type CashFlowActivity = 'operating' | 'investing' | 'financing'
+
 export interface LedgerCategory {
   id: string
   name: string
   type: TxType
   parentId?: string
+  /** 用户设置的现金流活动归属；null / 缺省 = 未分配（报表按未分类统计）。 */
+  cashFlowType?: CashFlowActivity | null
   /** 用户设置的受控图标 key；null / 缺省 = 回退到按名称映射。 */
   iconKey?: string | null
 }

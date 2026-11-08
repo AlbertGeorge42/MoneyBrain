@@ -40,7 +40,6 @@ import { sectionMeta, type SectionId } from './settingsModel'
 import {
   INVESTMENT_TYPES,
   accountGroupCount,
-  type ActivityGroupId,
   type InvestmentTypeRow,
 } from '@/features/ledger-config/model'
 import { LedgerConfigSheets } from '@/features/ledger-config/LedgerConfigSheets'
@@ -94,7 +93,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     pushToast(message, options)
   }
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
-  const [activity, setActivity] = useState<Record<string, ActivityGroupId>>({})
   const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
   const config = useLedgerConfigController({
     notify,
@@ -103,9 +101,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         rows.map((row) => (row.id === id ? { ...row, target: value.target } : row)),
       )
       notify('目标占比已更新')
-    },
-    onMoveActivity: (categoryId, group) => {
-      setActivity((current) => ({ ...current, [categoryId]: group }))
     },
   })
 
@@ -496,7 +491,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             rows={cashTab === 'asset' ? [] : config.rowsByType[cashTab]}
             tab={cashTab}
             onTabChange={setCashTab}
-            activity={activity}
             collapsed={config.collapsed}
             onToggleCollapsed={config.toggleCollapsed}
             menuOpen={config.menuOpen}

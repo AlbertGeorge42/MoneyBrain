@@ -14,6 +14,7 @@ import { unwrapApiData } from '@/services/apiResult'
 import {
   addTransaction as applyTransaction,
   type AccountKind,
+  type CashFlowActivity,
   type Ledger,
   type LedgerAccount,
   type NewTransactionInput,
@@ -22,10 +23,12 @@ import { mapperFromLedger, todayLocal } from './apiLedger'
 import {
   addAccount as addAccountToLedger,
   addCategory as addCategoryToLedger,
+  categoryDescendantIds,
   removeAccount as removeAccountFromLedger,
   removeCategory as removeCategoryFromLedger,
   reorderAccount as reorderAccountInLedger,
   reorderCategory as reorderCategoryInLedger,
+  setCategoryCashFlowInLedger,
   transferCategoryTransactions,
   updateAccount as updateAccountInLedger,
   updateCategory as updateCategoryInLedger,
@@ -680,6 +683,32 @@ export function LedgerProvider({
     [apiMode, refreshRemote],
   )
 
+  const setCategoryCashFlow = useCallback(
+    async (id: string, activity: CashFlowActivity | null): Promise<LedgerMutationOutcome> => {
+      if (!apiMode) {
+        setLedger(setCategoryCashFlowInLedger(ledgerRef.current, id, activity))
+        return { ok: true }
+      }
+      try {
+        const mapper = mapperFromLedger(ledgerRef.current)
+        // 报表按每笔流水所属分类的 cashFlowType 分组；子分类不随父变化就会留下旧口径。
+        const ids = [id, ...categoryDescendantIds(ledgerRef.current, id)]
+        for (const categoryId of ids) {
+          await transactionCategoryApi
+            .update(mapper.realId(categoryId), { cashFlowType: activity })
+            .then(unwrapApiData)
+        }
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        // 级联写到一半失败时先重取，页面展示以库内实际状态为准。
+        await refreshRemote()
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [apiMode, refreshRemote],
+  )
+
   const moveCategory = useCallback(
     async (id: string, parentId: string | null): Promise<LedgerMutationOutcome> => {
       if (!apiMode) {
@@ -953,6 +982,7 @@ export function LedgerProvider({
         reorderAccountGroup,
         createCategory,
         updateCategory,
+        setCategoryCashFlow,
         moveCategory,
         deleteCategory,
         reorderCategory,

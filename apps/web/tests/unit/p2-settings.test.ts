@@ -7,7 +7,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   categoryRows,
+  defaultActivity,
   removeCategory,
+  setCategoryCashFlowInLedger,
   transferCategoryTransactions,
 } from '@/features/ledger-config/model'
 import type { Ledger } from '@/features/overview/model'
@@ -34,6 +36,22 @@ describe('#12 分类删除与转移', () => {
     const row = categoryRows(ledger, 'expense').find((item) => item.id === 'shop')
     expect(row?.txCount).toBe(3)
     expect(row?.childCount).toBe(2)
+  })
+
+  it('现金流活动按字段分组，改父分类时子分类跟随', () => {
+    const before = ledger.categories.find((category) => category.id === 'shop')!
+    expect(defaultActivity(before)).toBe('unassigned')
+
+    const next = setCategoryCashFlowInLedger(ledger, 'shop', 'investing')
+    expect(next.categories.find((category) => category.id === 'shop')?.cashFlowType).toBe('investing')
+    expect(next.categories.find((category) => category.id === 'shop_daily')?.cashFlowType).toBe(
+      'investing',
+    )
+    expect(next.categories.find((category) => category.id === 'shop_cloth')?.cashFlowType).toBe(
+      'investing',
+    )
+    // 其他一级分类不受影响。
+    expect(next.categories.find((category) => category.id === 'food')?.cashFlowType).toBeUndefined()
   })
 
   it('转移到目标分类后自动删除源分类，引用数归零', () => {

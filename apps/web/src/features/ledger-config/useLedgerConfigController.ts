@@ -11,7 +11,7 @@ import type { ToastOptions } from '@/features/shared/toastContext'
 import { transactionCategoryApi } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
-import type { TxType } from '@/features/overview/model'
+import type { CashFlowActivity, TxType } from '@/features/overview/model'
 import type { Editor, EditorSaveValue } from './EditorSheet'
 import type { Mover } from './MoverSheet'
 import {
@@ -21,7 +21,6 @@ import {
   categoryRows,
   type AccountGroup,
   type AccountRow,
-  type ActivityGroupId,
   type CategoryRow,
   type CategoryTab,
 } from './model'
@@ -31,8 +30,6 @@ export interface LedgerConfigControllerOptions {
   notify: (message: string, options?: ToastOptions) => void
   /** 投资目标占比仍属设置页本地状态，由宿主处理。 */
   onSaveInvest: (id: string, value: EditorSaveValue) => void
-  /** 现金流活动归属仍是设置页本地状态，由宿主处理。 */
-  onMoveActivity: (id: string, group: ActivityGroupId) => void
   /** 写库成功后的宿主回调：报表页用它重取当前报表并校正下钻。 */
   onAfterWrite?: () => void
 }
@@ -40,7 +37,6 @@ export interface LedgerConfigControllerOptions {
 export function useLedgerConfigController({
   notify,
   onSaveInvest,
-  onMoveActivity,
   onAfterWrite,
 }: LedgerConfigControllerOptions) {
   const {
@@ -56,6 +52,7 @@ export function useLedgerConfigController({
     reorderAccountGroup,
     createCategory,
     updateCategory,
+    setCategoryCashFlow,
     moveCategory,
     deleteCategory: deleteCategoryRemote,
     reorderCategory,
@@ -399,7 +396,17 @@ export function useLedgerConfigController({
     if (!mover || moverSaving) return
     setMoverError(null)
     if (mover.kind === 'activity') {
-      onMoveActivity(mover.id, target as ActivityGroupId)
+      setMoverSaving(true)
+      const result = await setCategoryCashFlow(
+        mover.id,
+        target === 'unassigned' ? null : (target as CashFlowActivity),
+      )
+      setMoverSaving(false)
+      if (!result.ok) {
+        setMoverError(result.error ?? '保存活动归属失败，请重试')
+        return
+      }
+      onAfterWrite?.()
       notify('活动归属已更新')
       setMover(null)
       return

@@ -199,6 +199,21 @@ describe('DTO → Ledger 适配', () => {
     expect(ledger.categories.find((item) => item.name === '居住')?.iconKey).toBeNull()
   })
 
+  it('分类现金流活动从 DTO 透传到 Ledger', () => {
+    const base = payload()
+    const ledger = buildLedgerFromApi(
+      {
+        ...base,
+        categories: base.categories.map((item) =>
+          item.id === 'cat-food' ? { ...item, cashFlowType: 'operating' } : item,
+        ),
+      },
+      '2026-11-06',
+    )
+    expect(ledger.categories.find((item) => item.name === '餐饮')?.cashFlowType).toBe('operating')
+    expect(ledger.categories.find((item) => item.name === '居住')?.cashFlowType).toBeNull()
+  })
+
   it('账户余额求和为净资产，并按现金等价 / 投资 / 负债分类', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
     const summary = deriveOverview(ledger)

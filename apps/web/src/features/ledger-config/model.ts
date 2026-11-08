@@ -10,6 +10,7 @@
  */
 import type {
   AccountKind,
+  CashFlowActivity,
   Ledger,
   LedgerAccount,
   LedgerCategory,
@@ -212,9 +213,7 @@ export const ACTIVITY_GROUPS: readonly { id: ActivityGroupId; label: string }[] 
 ]
 
 export function defaultActivity(category: LedgerCategory): ActivityGroupId {
-  if (category.type === 'transfer') return 'financing'
-  if (category.type === 'income' && category.id === 'inv') return 'investing'
-  return 'operating'
+  return category.cashFlowType ?? 'unassigned'
 }
 
 export const ASSET_MARK_GROUPS: readonly {
@@ -346,6 +345,21 @@ export function updateCategory(
       category.id === categoryId
         ? { ...category, name, ...(iconKey !== undefined && { iconKey }) }
         : category,
+    ),
+  }
+}
+
+/** 种子模式的活动归属写入：子分类随父分类一起改，与 API 模式的级联写入口径一致。 */
+export function setCategoryCashFlowInLedger(
+  ledger: Ledger,
+  categoryId: string,
+  activity: CashFlowActivity | null,
+): Ledger {
+  const ids = new Set([categoryId, ...categoryDescendantIds(ledger, categoryId)])
+  return {
+    ...ledger,
+    categories: ledger.categories.map((category) =>
+      ids.has(category.id) ? { ...category, cashFlowType: activity } : category,
     ),
   }
 }
