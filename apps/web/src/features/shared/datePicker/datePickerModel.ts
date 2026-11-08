@@ -9,7 +9,7 @@
 
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-export type DateGranularity = 'day' | 'month' | 'year'
+export type DateGranularity = 'day' | 'week' | 'month' | 'year'
 
 export interface DateRange {
   from: string
@@ -105,6 +105,15 @@ export function monthEnd(value: string): string {
   )
 }
 
+export function weekStart(value: string): string {
+  const day = parseDay(value).getUTCDay()
+  return addDays(value, day === 0 ? -6 : 1 - day)
+}
+
+export function weekEnd(value: string): string {
+  return addDays(weekStart(value), 6)
+}
+
 export function yearStart(value: string): string {
   return formatDay(new Date(Date.UTC(parseDay(value).getUTCFullYear(), 0, 1)))
 }
@@ -122,6 +131,7 @@ export function snapDay(
   gran: DateGranularity,
   edge: 'start' | 'end',
 ): string {
+  if (gran === 'week') return edge === 'start' ? weekStart(value) : weekEnd(value)
   if (gran === 'month') return edge === 'start' ? monthStart(value) : monthEnd(value)
   if (gran === 'year') return edge === 'start' ? yearStart(value) : yearEnd(value)
   return value

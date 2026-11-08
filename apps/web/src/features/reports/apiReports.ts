@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query'
 import type {
   AssetProjectionResult,
   BalanceSheetReportData,
+  CashFlowProjectionResult,
   CashFlowReportData,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
@@ -648,7 +649,7 @@ export function useApiBalanceReport(point: string, ledger: Ledger, enabled: bool
 }
 
 /**
- * 资产负债未来推演：窗口参数只决定输出起止月，累计起点仍是后端 asOf。
+ * 资产负债未来推演：窗口参数只决定输出桶范围，累计起点仍是后端 asOf。
  * 只取合计层；账户级明细不在该端点返回，视图不得自行拆账。
  */
 export function useApiAssetProjection(
@@ -656,12 +657,41 @@ export function useApiAssetProjection(
   enabled: boolean,
 ): ApiReportResult<AssetProjectionResult> {
   const query = useQuery({
-    queryKey: ['hf', 'report', 'asset-projection', window.asOf, window.fromMonth, window.months],
+    queryKey: [
+      'hf',
+      'report',
+      'asset-projection',
+      window.asOf,
+      window.granularity,
+      window.from,
+      window.to,
+    ],
     enabled,
-    queryFn: async () =>
-      analyticsApi
-        .getAssetProjection(window.months, window.asOf, window.fromMonth)
-        .then(unwrapApiData),
+    queryFn: async () => analyticsApi.getAssetProjection(window).then(unwrapApiData),
+  })
+  return resultOf(query, enabled)
+}
+
+/**
+ * 现金流未来推演：逐桶 inflow/outflow/net/endCash 由后端合成；
+ * 与历史 `useApiCashReport` 互斥启用，同一区间只发一次请求。
+ */
+export function useApiCashProjection(
+  window: ProjectionWindow,
+  enabled: boolean,
+): ApiReportResult<CashFlowProjectionResult> {
+  const query = useQuery({
+    queryKey: [
+      'hf',
+      'report',
+      'cash-projection',
+      window.asOf,
+      window.granularity,
+      window.from,
+      window.to,
+    ],
+    enabled,
+    queryFn: async () => reportApi.getCashFlowProjection(window).then(unwrapApiData),
   })
   return resultOf(query, enabled)
 }

@@ -18,6 +18,7 @@ import type { DataState, DeviceMode } from '@/features/shared/types'
 import {
   useApiAssetProjection,
   useApiBalanceReport,
+  useApiCashProjection,
   useApiCashReport,
   useApiFlowReport,
   useApiInvestReport,
@@ -41,9 +42,17 @@ import {
   type DrillData,
   type FlowTreeNode,
 } from './reportsModel'
-import { clampAsOfPoint, monthStart, pointRangeState, type ReportTab, type ReportTime } from './reportsTime'
-import { pointWindow } from './futureModel'
+import {
+  clampAsOfPoint,
+  monthStart,
+  pointRangeState,
+  rangeState,
+  type ReportTab,
+  type ReportTime,
+} from './reportsTime'
+import { periodWindow, pointWindow } from './futureModel'
 import { FutureBalanceView } from './FutureBalanceView'
+import { FutureCashView } from './FutureCashView'
 import { TimeBar } from './TimeBar'
 import { BalanceView } from './BalanceView'
 import { FlowView } from './FlowView'
@@ -107,10 +116,12 @@ export function ReportsPage({
   const [draftSettings, setDraftSettings] = useState<ReportViewSettings | null>(null)
   const effectiveSettings = draftSettings ?? viewSettings
 
-  // 已发生区间仍按数据截止日截断；未来时点保留月末锚点，交给推演端点。
+  // 已发生区间仍按数据截止日截断；混合 / 全未来时点交给推演端点，按当前粒度出桶。
   const balanceState = pointRangeState(time.point, anchor, time.gran)
   const balancePoint = balanceState === 'past' ? clampAsOfPoint(time.point, anchor) : time.point
-  const assetWindow = pointWindow(balancePoint, anchor)
+  const assetWindow = pointWindow(balancePoint, anchor, time.gran)
+  const cashState = rangeState(time.from, time.to, anchor)
+  const cashWindow = periodWindow(time.from, time.to, anchor, time.gran)
   const seedBalance = useMemo(
     () => deriveBalanceReport(ledger, balancePoint),
     [ledger, balancePoint],
@@ -134,18 +145,31 @@ export function ReportsPage({
 
   // API 模式：合计口径全部来自后端报表端点，查询自身也有加载 / 失败态。
   const apiReady = apiMode && dataState === 'normal'
-  const balanceApi = useApiBalanceReport(balancePoint, ledger, apiReady && tab === 'balance')
+  const balanceApi = useApiBalanceReport(
+    balancePoint,
+    ledger,
+    apiReady && tab === 'balance' && balanceState === 'past',
+  )
   const flowApi = useApiFlowReport(time.from, time.to, time.gran, ledger, includeExcluded, apiReady && tab === 'flow')
-  const cashApi = useApiCashReport(time.from, time.to, ledger, apiReady && tab === 'cash')
+  const cashApi = useApiCashReport(
+    time.from,
+    time.to,
+    ledger,
+    apiReady && tab === 'cash' && cashState === 'past',
+  )
   const investApi = useApiInvestReport(time.from, time.to, apiReady && tab === 'invest')
   const assetProjectionApi = useApiAssetProjection(
     assetWindow,
     apiReady && tab === 'balance' && balanceState !== 'past',
   )
+  const cashProjectionApi = useApiCashProjection(
+    cashWindow,
+    apiReady && tab === 'cash' && cashState !== 'past',
+  )
 
   const balance = apiMode ? balanceApi.data : seedBalance
   const flow = apiMode ? flowApi.data : seedFlow
-  const cash = apiMode ? cashApi.data : seedCash
+  const cash = apiMode ? (cashState === 'past' ? cashApi.data : null) : seedCash
   const invest = apiMode ? investApi.data : seedInvest
   // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；隐藏分组并入「其他」后仍守恒。
   const sankey = useMemo(
@@ -204,7 +228,9 @@ export function ReportsPage({
       : tab === 'flow'
         ? flowApi
         : tab === 'cash'
-          ? cashApi
+          ? cashState !== 'past'
+            ? cashProjectionApi
+            : cashApi
           : investApi
   const reportPageState =
     apiReady && activeApi.status === 'error' ? (
@@ -239,7 +265,6 @@ export function ReportsPage({
             tab={tab}
             time={time}
             today={anchor}
-            futureEnabled={tab === 'balance'}
             onChange={setTime}
             onToast={notify}
             onOpenSettings={onSettingsToggle}
@@ -286,7 +311,7 @@ export function ReportsPage({
               colorUniverse={categoryUniverse}
             />
           )}
-          {tab === 'cash' && cash && (
+          {tab === 'cash' && cashState === 'past' && cash && (
             <CashView
               device={device}
               report={cash}
@@ -301,6 +326,18 @@ export function ReportsPage({
               onViewFlow={onViewFlow}
               rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
             />
+          )}
+          {tab === 'cash' && cashState !== 'past' && (
+            apiMode && cashProjectionApi.data ? (
+              <FutureCashView device={device} projection={cashProjectionApi.data} />
+            ) : (
+              <Card variant="report" className="mb-rp-empty">
+                <h2 className="mb-rp-empty-title">未来推演需要连接后端账本</h2>
+                <p className="mb-rp-empty-desc">
+                  当前为本地演示数据；连接 API 后可查看未来现金流的逐桶流入、流出与期末现金。
+                </p>
+              </Card>
+            )
           )}
           {tab === 'invest' && invest && (
             <InvestView device={device} report={invest} settings={effectiveSettings.invest} />

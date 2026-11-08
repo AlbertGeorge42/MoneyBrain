@@ -2133,6 +2133,57 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   fill: var(--mb-color-accent);
 }
 
+/* 已发生段：实线 + 实心点；与预测段共用同一条坐标轴，只换线型与点型。 */
+.mb-rp-predict-line.is-actual,
+.mb-rp-predict-cashline.is-actual {
+  stroke-dasharray: none;
+}
+
+.mb-rp-predict-dot.is-actual {
+  fill: var(--mb-color-accent);
+  opacity: 0.65;
+}
+
+/* 现金流逐桶柱：流入 / 流出沿用既有收入支出色；预测桶降透明度并保留描边。 */
+.mb-rp-predict-bar {
+  stroke: none;
+}
+
+.mb-rp-predict-bar.is-inflow {
+  fill: var(--mb-color-income);
+}
+
+.mb-rp-predict-bar.is-outflow {
+  fill: var(--mb-color-expense-display);
+}
+
+.mb-rp-predict-bar.is-predicted {
+  opacity: 0.45;
+}
+
+/* 期末现金线：实线为已发生，虚线为预测；点与线同一编码。 */
+.mb-rp-predict-cashline {
+  fill: none;
+  stroke: var(--mb-color-accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mb-rp-predict-cashline.is-predicted {
+  stroke-dasharray: 6 4;
+}
+
+.mb-rp-predict-cashdot {
+  fill: var(--mb-color-accent);
+}
+
+.mb-rp-predict-cashdot.is-predicted {
+  fill: none;
+  stroke: var(--mb-color-accent);
+  stroke-width: 1.5;
+}
+
 .mb-rp-predict-hit {
   cursor: pointer;
   outline: none;

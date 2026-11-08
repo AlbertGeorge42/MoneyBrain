@@ -38,8 +38,8 @@ import type {
   MessageResult,
   Minor,
   PaginatedResponse,
+  ProjectionGranularity,
   ProjectionMonths,
-  ProjectionWindowMonths,
   RecycleBinItem,
   RecycleBinResult,
   RollbackPoint,
@@ -196,6 +196,14 @@ export const budgetApi = {
   delete: (id: string) => api.delete<ApiResponse<MessageResult>>(`/budgets/${id}`),
 }
 
+/** 两个投影端点共用的窗口参数：from/to 为闭区间，桶由后端向外对齐。 */
+export interface ProjectionQueryWindow {
+  asOf: string
+  granularity: ProjectionGranularity
+  from: string
+  to: string
+}
+
 export const reportApi = {
   getBalanceSheet: (date: string) => api.get<ApiResponse<BalanceSheetReportData>>('/reports/balance-sheet', { params: { date } }),
   getIncomeExpense: (startDate: string, endDate: string, includePredictions?: boolean, includeExcluded?: boolean) =>
@@ -207,15 +215,11 @@ export const reportApi = {
       params: { startDate, endDate, includePredictions: includePredictions ? 'true' : undefined },
     }),
   getInvestmentAnalysis: (startDate: string, endDate: string) => api.get<ApiResponse<InvestmentAnalysisReportData>>('/reports/investment-analysis', { params: { startDate, endDate } }),
-  // 未来现金流推演：逐月 inflow/outflow/net/endCash 由后端合成，前端只渲染。
-  // fromMonth 只决定输出起始月；累计始终由后端从 asOf 起算。
-  getCashFlowProjection: (
-    months: ProjectionWindowMonths,
-    asOf?: string,
-    fromMonth?: string,
-  ) =>
+  // 未来现金流推演：逐桶 inflow/outflow/net/endCash 由后端合成，前端只渲染。
+  // 唯一正向入口是 from/to + granularity；累计始终由后端从 asOf 起算。
+  getCashFlowProjection: (window: ProjectionQueryWindow) =>
     api.get<ApiResponse<CashFlowProjectionResult>>('/reports/cash-flow-projection', {
-      params: { months, asOf, fromMonth, includePlanned: 'true', includeCommitted: 'true' },
+      params: { ...window, includePlanned: 'true', includeCommitted: 'true' },
     }),
 }
 
@@ -228,14 +232,10 @@ export const analyticsApi = {
     }),
   getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
   // 未来资产/负债/净资产推演：total 由后端合成，前端不自行累加。
-  // fromMonth 只决定输出起始月；累计始终由后端从 asOf 起算。
-  getAssetProjection: (
-    months: ProjectionWindowMonths,
-    asOf?: string,
-    fromMonth?: string,
-  ) =>
+  // 唯一正向入口是 from/to + granularity；累计始终由后端从 asOf 起算。
+  getAssetProjection: (window: ProjectionQueryWindow) =>
     api.get<ApiResponse<AssetProjectionResult>>('/analytics/asset-projection', {
-      params: { months, asOf, fromMonth, includePlanned: 'true', includeCommitted: 'true' },
+      params: { ...window, includePlanned: 'true', includeCommitted: 'true' },
     }),
 }
 

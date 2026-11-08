@@ -182,13 +182,14 @@ afterEach(() => {
 })
 
 describe('预算页推演面板', () => {
-  it('三端点按 months=6 取数，fromMonth 取投影首个 label', async () => {
+  it('三端点按 asOf + 6 个自然月窗口取数，计划起点取投影首个 label', async () => {
     renderPage(makeLedger('2026-11-08'))
     expect(await screen.findByText('预算推演')).toBeInTheDocument()
 
     await waitFor(() => expect(mocks.plan).toHaveBeenCalledTimes(1))
-    expect(mocks.asset).toHaveBeenCalledWith(6, '2026-11-08')
-    expect(mocks.cash).toHaveBeenCalledWith(6, '2026-11-08')
+    const window = { asOf: '2026-11-08', granularity: 'month', from: '2026-11-08', to: '2027-04-30' }
+    expect(mocks.asset).toHaveBeenCalledWith(window)
+    expect(mocks.cash).toHaveBeenCalledWith(window)
     expect(mocks.plan).toHaveBeenCalledWith('2026-11', 6)
     expect(screen.getByText(/起点现金 ¥1,000\.00/)).toBeInTheDocument()
     expect(screen.getByRole('img', { name: '未来现金流推演图' })).toBeInTheDocument()

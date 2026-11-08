@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ProjectionMonths } from '@contracts/types'
 import { analyticsApi, budgetApi, reportApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
+import { addMonths, monthEnd } from '@/features/reports/reportsTime'
 import type { ForecastBundle } from './model'
 
 const cache = new Map<string, ForecastBundle>()
@@ -21,9 +22,11 @@ export type ForecastState =
   | { status: 'error'; message: string }
 
 async function loadForecast(asOf: string, months: ProjectionMonths): Promise<ForecastBundle> {
+  // 旧的「推演面板」仍按月窗口取数；从 asOf 所在月起，覆盖 months 个自然月。
+  const window = { asOf, granularity: 'month' as const, from: asOf, to: monthEnd(addMonths(asOf, months - 1)) }
   const [assetResponse, cashResponse] = await Promise.all([
-    analyticsApi.getAssetProjection(months, asOf),
-    reportApi.getCashFlowProjection(months, asOf),
+    analyticsApi.getAssetProjection(window),
+    reportApi.getCashFlowProjection(window),
   ])
   const asset = unwrapApiData(assetResponse)
   const cash = unwrapApiData(cashResponse)

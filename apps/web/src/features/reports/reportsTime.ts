@@ -6,7 +6,7 @@
  * 时间条与面板只做展示与草稿，不再各自复制一套规则。
  */
 
-export type Granularity = 'day' | 'month' | 'year'
+export type Granularity = 'day' | 'week' | 'month' | 'year'
 export type ReportTab = 'balance' | 'flow' | 'cash' | 'invest'
 export type PresetId =
   | 'today'
@@ -36,9 +36,10 @@ export interface ReportTime {
   preset: PresetId | null
 }
 
-export const GRANULARITIES: readonly Granularity[] = ['day', 'month', 'year']
+export const GRANULARITIES: readonly Granularity[] = ['day', 'week', 'month', 'year']
 export const GRANULARITY_LABELS: Record<Granularity, string> = {
   day: '日',
+  week: '周',
   month: '月',
   year: '年',
 }
@@ -60,7 +61,7 @@ export const PRESETS: readonly { id: PresetId; label: string }[] = [
 ]
 
 /** 预设 × 粒度兼容矩阵（PRESET_GRAN_OK）：不兼容者在面板内置灰。 */
-const ANY_GRAN: readonly Granularity[] = ['day', 'month', 'year']
+const ANY_GRAN: readonly Granularity[] = ['day', 'week', 'month', 'year']
 const PRESET_GRAN: Record<PresetId, readonly Granularity[]> = {
   today: ['day'],
   last7: ['day'],
@@ -77,12 +78,7 @@ const PRESET_GRAN: Record<PresetId, readonly Granularity[]> = {
   next12m: ['month'],
 }
 
-/** 未来区间只允许月粒度（后端投影按月输出）。 */
-export function futureAllowed(gran: Granularity): boolean {
-  return gran === 'month'
-}
-
-/** 未来预设集合；日 / 年粒度下禁用。 */
+/** 未来预设集合；预设以自然月表述，日 / 周 / 年粒度下不可用。 */
 export const FUTURE_PRESETS: readonly PresetId[] = ['nextMonth', 'next3m', 'next6m', 'next12m']
 
 export function isFuturePreset(preset: PresetId): boolean {
@@ -138,12 +134,62 @@ export function addMonths(value: string, months: number): string {
   )
 }
 
+/** ISO 周起点（周一）。 */
+export function weekStart(value: string): string {
+  const day = parseDay(value).getUTCDay()
+  return addDays(value, day === 0 ? -6 : 1 - day)
+}
+
+/** ISO 周终点（周日）。 */
+export function weekEnd(value: string): string {
+  return addDays(weekStart(value), 6)
+}
+
 /**
- * 未来窗口上限：asOf 之后 12 个自然月的月末。
- * 例：asOf = 2026-11-06 → 2027-11-30，正好覆盖「下月起 12 个月」。
+ * ISO 周标签 `YYYY-Www`：周编号与周年份取该周周四所在年份（跨年周不拆），
+ * 与后端 `isoWeekLabel` 同一规则。
  */
-export function futureHorizon(today: string): string {
-  return monthEnd(addMonths(today, 12))
+export function isoWeekLabel(value: string): string {
+  const thursday = addDays(weekStart(value), 3)
+  const year = parseDay(thursday).getUTCFullYear()
+  const dayOfYear =
+    Math.round(
+      (parseDay(thursday).getTime() - parseDay(`${year}-01-01`).getTime()) / 86_400_000,
+    ) + 1
+  return `${year}-W${String(Math.floor((dayOfYear - 1) / 7) + 1).padStart(2, '0')}`
+}
+
+/** 日期差（天，b − a）：图表按日期定位桶末与 asOf 竖线。 */
+export function dayDiff(a: string, b: string): number {
+  return Math.round((parseDay(b).getTime() - parseDay(a).getTime()) / 86_400_000)
+}
+
+/** 桶起点：日 = 当日；周 = 周一；月 = 1 日；年 = 1-01。 */
+export function bucketStartOf(value: string, gran: Granularity): string {
+  if (gran === 'week') return weekStart(value)
+  if (gran === 'month') return monthStart(value)
+  if (gran === 'year') return yearStart(value)
+  return value
+}
+
+/** 桶终点：日 = 当日；周 = 周日；月 = 月末；年 = 12-31。 */
+export function bucketEndOf(value: string, gran: Granularity): string {
+  if (gran === 'week') return weekEnd(value)
+  if (gran === 'month') return monthEnd(value)
+  if (gran === 'year') return yearEnd(value)
+  return value
+}
+
+/**
+ * 未来窗口上限（与后端 `futureLimitOf` 同一规则）：
+ * 日 3 个月 / 周 6 个月 / 月 12 个月 / 年 3 年。
+ * 例：asOf = 2026-11-06，月粒度 → 2027-11-30。
+ */
+export function futureHorizon(today: string, gran: Granularity): string {
+  if (gran === 'day') return addMonths(today, 3)
+  if (gran === 'week') return addMonths(today, 6)
+  if (gran === 'year') return `${parseDay(today).getUTCFullYear() + 3}-12-31`
+  return monthEnd(addMonths(monthStart(today), 12))
 }
 
 /** 期间相对今天的状态：止 ≤ 今天为已发生，起 > 今天为全未来，其余为跨今天的混合区间。 */
@@ -184,22 +230,17 @@ export function yearOf(value: string): number {
   return parseDay(value).getUTCFullYear()
 }
 
-/** 时点粒度 = 锚点精度：月取月末、年取 12-31。 */
+/** 时点粒度 = 锚点精度：周取周日、月取月末、年取 12-31。 */
 export function snapPoint(value: string, gran: Granularity): string {
-  if (gran === 'month') return monthEnd(value)
-  if (gran === 'year') return yearEnd(value)
-  return value
+  return bucketEndOf(value, gran)
 }
 
-/** 按粒度步进一个桶；时点步进后仍锚月末 / 年末。 */
+/** 按粒度步进一个桶；时点步进后仍锚桶末。 */
 export function shiftPoint(value: string, gran: Granularity, delta: number): string {
-  const date = parseDay(value)
   if (gran === 'day') return addDays(value, delta)
-  if (gran === 'month') {
-    const anchor = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + delta, 1))
-    return monthEnd(formatDay(anchor))
-  }
-  return yearEnd(formatDay(new Date(Date.UTC(date.getUTCFullYear() + delta, 0, 1))))
+  if (gran === 'week') return weekEnd(addDays(value, delta * 7))
+  if (gran === 'month') return monthEnd(addMonths(monthStart(value), delta))
+  return yearEnd(`${parseDay(value).getUTCFullYear() + delta}-01-01`)
 }
 
 /** 期间按粒度整体平移一个桶（起止同移，保持跨度）。 */
@@ -210,6 +251,12 @@ export function shiftRange(
   delta: number,
 ): { from: string; to: string } {
   if (gran === 'day') return { from: addDays(from, delta), to: addDays(to, delta) }
+  if (gran === 'week') {
+    return {
+      from: weekStart(addDays(from, delta * 7)),
+      to: weekEnd(addDays(to, delta * 7)),
+    }
+  }
   if (gran === 'month') {
     const start = parseDay(from)
     const end = parseDay(to)
@@ -228,13 +275,14 @@ export function shiftRange(
   }
 }
 
-/** 切粒度后重锚定：月 = 首月月初 ~ 末月月末；年 = 首年年初 ~ 末年年底。 */
+/** 切粒度后重锚定：周 = 首周周一 ~ 末周周日；月 / 年同理。 */
 export function reanchorRange(
   from: string,
   to: string,
   gran: Granularity,
 ): { from: string; to: string } {
   if (gran === 'day') return { from, to }
+  if (gran === 'week') return { from: weekStart(from), to: weekEnd(to) }
   if (gran === 'month') return { from: monthStart(from), to: monthEnd(to) }
   return { from: yearStart(from), to: yearEnd(to) }
 }
@@ -302,6 +350,7 @@ export function presetPoint(preset: PresetId, gran: Granularity, today: string):
 
 /** 桶序号：用于「跨度 ≥ 一个聚合桶」校验。 */
 function bucketIndex(value: string, gran: Granularity): number {
+  if (gran === 'week') return Math.round(parseDay(weekStart(value)).getTime() / (7 * 86_400_000))
   const date = parseDay(value)
   if (gran === 'day') return Math.round(date.getTime() / 86_400_000)
   if (gran === 'month') return date.getUTCFullYear() * 12 + date.getUTCMonth()
@@ -328,12 +377,12 @@ export function validateRange(
     return { ok: false, message: `按${GRANULARITY_LABELS[gran]}粒度的期间需不短于一个${GRANULARITY_LABELS[gran]}` }
   }
   if (today && to > today) {
-    if (!futureAllowed(gran)) {
-      return { ok: false, message: `未来区间仅支持月粒度，当前为${GRANULARITY_LABELS[gran]}粒度` }
-    }
-    const horizon = futureHorizon(today)
+    const horizon = futureHorizon(today, gran)
     if (to > horizon || from > horizon) {
-      return { ok: false, message: `未来最多查看 12 个自然月（至 ${horizon}）` }
+      return {
+        ok: false,
+        message: `按${GRANULARITY_LABELS[gran]}粒度，未来最多查看至 ${horizon}`,
+      }
     }
   }
   return { ok: true, message: null }
@@ -353,6 +402,9 @@ export function formatRangeLabel(time: ReportTime): string {
   if (from === to) {
     return `${yearOf(from)} 年 ${monthOf(from)} 月 ${dayOfMonth(from)} 日`
   }
+  if (gran === 'week' && bucketKey(from, 'week') === bucketKey(to, 'week')) {
+    return `${isoWeekLabel(from)} · 截至 ${to.slice(5)}`
+  }
   if (gran === 'month' && bucketKey(from, 'month') === bucketKey(to, 'month')) {
     return `${yearOf(from)} 年 ${monthOf(from)} 月 · 截至 ${to.slice(5)}`
   }
@@ -362,29 +414,31 @@ export function formatRangeLabel(time: ReportTime): string {
   return `${from} ~ ${to}`
 }
 
-/** 时点标签：显示截至日（已被 asOf 截断），由时间条另注「月末估值」。 */
+/** 时点标签：显示截至日（已被 asOf 截断），由时间条另注「桶末估值」。 */
 export function formatPointLabel(point: string, gran: Granularity, today: string): string {
   const asOf = clampAsOfPoint(point, today)
   if (gran === 'year') return `${yearOf(asOf)} 年 · 截至 ${asOf.slice(5)}`
   if (gran === 'month') return `${yearOf(asOf)} 年 ${monthOf(asOf)} 月 · 截至 ${asOf.slice(5)}`
+  if (gran === 'week') return `${isoWeekLabel(asOf)} · 截至 ${asOf.slice(5)}`
   return `${yearOf(asOf)} 年 ${monthOf(asOf)} 月 ${dayOfMonth(asOf)} 日`
 }
 
 function shortDate(value: string, gran: Granularity): string {
   if (gran === 'day') return value.slice(5)
+  if (gran === 'week') return isoWeekLabel(value)
   if (gran === 'month') return value.slice(0, 7)
   return value.slice(0, 4)
 }
 
-/** 期间按粒度分桶：返回桶的起始日与轴标签。 */
+/** 期间按粒度分桶：返回桶起点、终点与轴标签（周 = ISO 周一至周日）。 */
 export function listBuckets(from: string, to: string, gran: Granularity): { key: string; label: string; from: string; to: string }[] {
   if (from > to) return []
   const buckets: { key: string; label: string; from: string; to: string }[] = []
-  let cursor = gran === 'day' ? from : gran === 'month' ? monthStart(from) : yearStart(from)
+  let cursor = bucketStartOf(from, gran)
   const guard = 4000
   let steps = 0
   while (cursor <= to && steps < guard) {
-    const end = gran === 'day' ? cursor : gran === 'month' ? monthEnd(cursor) : yearEnd(cursor)
+    const end = bucketEndOf(cursor, gran)
     buckets.push({ key: cursor, label: shortDate(cursor, gran), from: cursor, to: end })
     cursor = addDays(end, 1)
     steps += 1
@@ -394,6 +448,7 @@ export function listBuckets(from: string, to: string, gran: Granularity): { key:
 
 export function bucketKey(value: string, gran: Granularity): string {
   if (gran === 'day') return value
+  if (gran === 'week') return isoWeekLabel(value)
   if (gran === 'month') return value.slice(0, 7)
   return value.slice(0, 4)
 }

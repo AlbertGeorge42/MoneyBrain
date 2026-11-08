@@ -329,11 +329,13 @@ export function DatePicker({
   }
 
   const granNote =
-    gran === 'month'
-      ? '月粒度：起取月初、止取月末'
-      : gran === 'year'
-        ? '年粒度：起取年初、止取年末'
-        : null
+    gran === 'week'
+      ? '周粒度：起取周一、止取周日'
+      : gran === 'month'
+        ? '月粒度：起取月初、止取月末'
+        : gran === 'year'
+          ? '年粒度：起取年初、止取年末'
+          : null
 
   const cells = calendarCells(view.year, view.month)
 
