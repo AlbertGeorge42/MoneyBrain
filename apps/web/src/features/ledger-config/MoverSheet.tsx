@@ -7,7 +7,7 @@ import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
-import { ACTIVITY_GROUPS, categoryDescendantIds, type ActivityGroupId } from './settingsModel'
+import { ACTIVITY_GROUPS, categoryDescendantIds, type ActivityGroupId } from './model'
 
 export type Mover =
   | {

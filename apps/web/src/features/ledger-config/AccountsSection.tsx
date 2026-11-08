@@ -21,7 +21,7 @@ import {
   accountGroupDisplayName,
   type AccountGroup,
   type AccountRow,
-} from './settingsModel'
+} from './model'
 import type { Editor } from './EditorSheet'
 
 interface AccountsSectionProps {

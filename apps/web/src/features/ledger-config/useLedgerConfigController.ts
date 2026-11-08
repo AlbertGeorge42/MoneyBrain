@@ -12,8 +12,8 @@ import { transactionCategoryApi } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import type { TxType } from '@/features/overview/model'
-import type { Editor, EditorSaveValue } from '@/features/settings/EditorSheet'
-import type { Mover } from '@/features/settings/MoverSheet'
+import type { Editor, EditorSaveValue } from './EditorSheet'
+import type { Mover } from './MoverSheet'
 import {
   accountGroupCount,
   accountGroupsForType,
@@ -24,7 +24,7 @@ import {
   type ActivityGroupId,
   type CategoryRow,
   type CategoryTab,
-} from '@/features/settings/settingsModel'
+} from './model'
 
 export interface LedgerConfigControllerOptions {
   /** 宿主页面的轻提示；报表页可在此绑定 reports 变体。 */

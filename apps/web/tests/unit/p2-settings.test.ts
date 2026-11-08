@@ -9,7 +9,7 @@ import {
   categoryRows,
   removeCategory,
   transferCategoryTransactions,
-} from '@/features/settings/settingsModel'
+} from '@/features/ledger-config/model'
 import type { Ledger } from '@/features/overview/model'
 
 const ledger: Ledger = {

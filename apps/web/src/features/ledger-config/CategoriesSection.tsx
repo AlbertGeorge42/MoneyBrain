@@ -15,7 +15,7 @@ import {
   categorySiblings,
   type CategoryRow,
   type CategoryTab,
-} from './settingsModel'
+} from './model'
 import type { Editor } from './EditorSheet'
 import type { Mover } from './MoverSheet'
 

@@ -36,18 +36,17 @@ import {
   writeDisplaySettings,
   type DisplaySettings,
 } from '@/features/transactions/displaySettings'
+import { sectionMeta, type SectionId } from './settingsModel'
 import {
   INVESTMENT_TYPES,
   accountGroupCount,
-  sectionMeta,
   type ActivityGroupId,
   type InvestmentTypeRow,
-  type SectionId,
-} from './settingsModel'
+} from '@/features/ledger-config/model'
 import { LedgerConfigSheets } from '@/features/ledger-config/LedgerConfigSheets'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
-import { AccountsSection } from './AccountsSection'
-import { CategoriesSection } from './CategoriesSection'
+import { AccountsSection } from '@/features/ledger-config/AccountsSection'
+import { CategoriesSection } from '@/features/ledger-config/CategoriesSection'
 import { CashflowSection, type CashflowTab } from './CashflowSection'
 import { InvestSection } from './InvestSection'
 import { AppearanceSection } from './AppearanceSection'

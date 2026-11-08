@@ -1,9 +1,9 @@
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger } from '@/features/overview/model'
-import type { InvestmentTypeRow } from '@/features/settings/settingsModel'
-import { EditorSheet } from '@/features/settings/EditorSheet'
-import { MoverSheet } from '@/features/settings/MoverSheet'
-import { CategoryDeleteSheet } from '@/features/settings/CategoryDeleteSheet'
+import type { InvestmentTypeRow } from './model'
+import { EditorSheet } from './EditorSheet'
+import { MoverSheet } from './MoverSheet'
+import { CategoryDeleteSheet } from './CategoryDeleteSheet'
 import type { LedgerConfigController } from './useLedgerConfigController'
 
 /**

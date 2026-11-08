@@ -19,7 +19,7 @@ import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { LedgerConfigManager, type LedgerConfigTab } from '@/features/ledger-config/LedgerConfigManager'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
-import { INVESTMENT_TYPES } from '@/features/settings/settingsModel'
+import { INVESTMENT_TYPES } from '@/features/ledger-config/model'
 import {
   useApiAssetProjection,
   useApiBalanceReport,

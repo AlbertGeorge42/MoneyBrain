@@ -4,9 +4,9 @@
  * 目标占比与报表页同一套演示口径；本轮只允许改目标占比，删除在持有资产时禁用。
  */
 import { GripVertical, TrendingUp } from 'lucide-react'
-import { RowMenu } from './RowMenu'
-import type { InvestmentTypeRow } from './settingsModel'
-import type { Editor } from './EditorSheet'
+import { RowMenu } from '@/features/ledger-config/RowMenu'
+import type { InvestmentTypeRow } from '@/features/ledger-config/model'
+import type { Editor } from '@/features/ledger-config/EditorSheet'
 
 interface InvestSectionProps {
   rows: readonly InvestmentTypeRow[]

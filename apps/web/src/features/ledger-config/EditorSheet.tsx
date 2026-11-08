@@ -21,7 +21,7 @@ import {
   ACCOUNT_KIND_LABEL,
   CATEGORY_TABS,
   type InvestmentTypeRow,
-} from './settingsModel'
+} from './model'
 
 export type Editor =
   | {

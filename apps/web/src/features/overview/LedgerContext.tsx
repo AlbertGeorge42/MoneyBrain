@@ -29,7 +29,7 @@ import {
   transferCategoryTransactions,
   updateAccount as updateAccountInLedger,
   updateCategory as updateCategoryInLedger,
-} from '@/features/settings/settingsModel'
+} from '@/features/ledger-config/model'
 import {
   LedgerContext,
   type LedgerAccountGroupInput,

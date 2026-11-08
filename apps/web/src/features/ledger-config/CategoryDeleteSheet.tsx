@@ -7,7 +7,7 @@ import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
-import { categoryDescendantIds, type CategoryRow } from './settingsModel'
+import { categoryDescendantIds, type CategoryRow } from './model'
 
 export function CategoryDeleteSheet({
   row,
