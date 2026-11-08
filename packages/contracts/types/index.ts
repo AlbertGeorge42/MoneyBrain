@@ -850,8 +850,11 @@ export interface RollbackResult {
 
 // ===== 预算推演（资产 / 现金流） =====
 
-/** 推演窗口：3 / 6 / 12 个月。 */
+/** 预算推演面板的固定窗口选项（旧入口使用）。 */
 export type ProjectionMonths = 3 | 6 | 12
+
+/** 报表时间轴推演窗口：1–12 个自然月。 */
+export type ProjectionWindowMonths = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
 
 /**
  * 资产/负债水平（整数分）。
@@ -908,7 +911,10 @@ export interface AssetProjectionPoint {
 export interface AssetProjectionResult {
   /** 推演起点（YYYY-MM-DD）。 */
   asOf: string
-  months: ProjectionMonths
+  /** 输出窗口起始月（YYYY-MM）。累计始终从 asOf 所在月开始。 */
+  fromMonth: string
+  /** 输出点位数量。 */
+  months: ProjectionWindowMonths
   /** 起点真实余额，等于每个点位里的 actual。 */
   base: ProjectionBalance
   points: AssetProjectionPoint[]
@@ -938,10 +944,13 @@ export interface CashFlowProjectionPoint {
 
 export interface CashFlowProjectionResult {
   asOf: string
-  months: ProjectionMonths
-  /** 首个推演月月初现金（真实余额，不含未来日期交易）。 */
+  /** 输出窗口起始月（YYYY-MM）。累计始终从 asOf 所在月开始。 */
+  fromMonth: string
+  /** 输出点位数量。 */
+  months: ProjectionWindowMonths
+  /** 首个输出月月初现金（含 asOf 后至该月前的计划/已排定净额）。 */
   startCash: Minor
-  /** 末个推演月月末现金（= 逐月净额累加）。 */
+  /** 末个输出月月末现金（= 逐月净额累加）。 */
   endCash: Minor
   points: CashFlowProjectionPoint[]
 }

@@ -7,8 +7,9 @@ import type {
   ProjectionBalance,
   ProjectionCoveredOccurrence,
   ProjectionFlowValue,
-  ProjectionMonths,
+  ProjectionWindowMonths,
 } from '../../../../packages/contracts/types/index.js'
+import { ValidationError } from '../common/error.js'
 import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
@@ -42,13 +43,47 @@ interface ProjectionWindow {
   end: LocalDate
 }
 
-/** 从 asOf 所在自然月开始，连续 months 个自然月。 */
-function projectionWindows(asOf: LocalDate, months: ProjectionMonths): ProjectionWindow[] {
-  const windows: ProjectionWindow[] = []
-  let start = startOfMonth(asOf)
-  for (let i = 0; i < months; i++) {
+function monthIndex(value: LocalDate): number {
+  const [year, month] = value.split('-').map(Number) as [number, number]
+  return year * 12 + (month - 1)
+}
+
+interface ProjectionWindowPlan {
+  /** 从 asOf 所在月起的全部累计窗口（用于累计 planned/committed 与现金流）。 */
+  all: ProjectionWindow[]
+  /** 实际输出的窗口（从 fromMonth 起）。 */
+  output: ProjectionWindow[]
+  /** 累计窗口相对输出窗口的前置数量。 */
+  skip: number
+}
+
+/**
+ * 从 asOf 所在自然月起累计；只输出 fromMonth 起的连续 months 个自然月。
+ *
+ * 累计起点始终是 asOf 所在月，不是 fromMonth：否则 fromMonth 之前发生的
+ * planned/committed 会被漏掉，导致净资产与现金期末值偏小。
+ */
+function projectionWindows(
+  asOf: LocalDate,
+  fromMonth: string | undefined,
+  months: ProjectionWindowMonths,
+): ProjectionWindowPlan {
+  const asOfMonthStart = startOfMonth(asOf)
+  const outputStart = fromMonth ? startOfMonth(`${fromMonth}-01` as LocalDate) : asOfMonthStart
+  const skip = monthIndex(outputStart) - monthIndex(asOfMonthStart)
+  if (skip < 0) {
+    throw new ValidationError('fromMonth 不能早于 asOf 所在月')
+  }
+  // 未来窗口上限：输出末月不能超过 asOf 所在月之后的第 12 个自然月。
+  if (skip + months - 1 > 12) {
+    throw new ValidationError('推演窗口最多 12 个未来月')
+  }
+
+  const all: ProjectionWindow[] = []
+  let start = asOfMonthStart
+  for (let i = 0; i < skip + months; i++) {
     const endExclusive = startOfNextMonth(start)
-    windows.push({
+    all.push({
       label: start.slice(0, 7),
       start,
       endExclusive,
@@ -56,7 +91,8 @@ function projectionWindows(asOf: LocalDate, months: ProjectionMonths): Projectio
     })
     start = endExclusive
   }
-  return windows
+
+  return { all, output: all.slice(skip), skip }
 }
 
 function toLocalDateDate(value: LocalDate): Date {
@@ -316,11 +352,12 @@ async function balancesAt(accounts: Account[], dateExclusive: LocalDate): Promis
 
 export async function getAssetProjection(params: {
   asOf: LocalDate
-  months: ProjectionMonths
+  fromMonth?: string
+  months: ProjectionWindowMonths
   includePlanned: boolean
   includeCommitted: boolean
 }): Promise<AssetProjectionResult> {
-  const windows = projectionWindows(params.asOf, params.months)
+  const plan = projectionWindows(params.asOf, params.fromMonth, params.months)
   const accounts = await accountRepo.findMany({})
 
   // 起点只用当期真实余额：date ≤ asOf；未来日期交易留给 committed
@@ -329,7 +366,7 @@ export async function getAssetProjection(params: {
 
   const events = await loadProjectionEvents({
     asOf: params.asOf,
-    windowEndExclusive: windows[windows.length - 1]!.endExclusive,
+    windowEndExclusive: plan.all[plan.all.length - 1]!.endExclusive,
     includePlanned: params.includePlanned,
     includeCommitted: params.includeCommitted,
   })
@@ -339,7 +376,8 @@ export async function getAssetProjection(params: {
   const plannedDelta = new Map<string, number>()
   const committedDelta = new Map<string, number>()
 
-  const points: AssetProjectionPoint[] = windows.map((window) => {
+  // 先累计全部窗口（从 asOf 起），再按 fromMonth 截取输出，保证累计不丢失前置月份。
+  const allPoints: AssetProjectionPoint[] = plan.all.map((window) => {
     for (const event of plannedByMonth.get(window.label) ?? []) {
       applyEventToBalances(plannedDelta, event)
     }
@@ -359,7 +397,14 @@ export async function getAssetProjection(params: {
     }
   })
 
-  return { asOf: params.asOf, months: params.months, base, points }
+  const points = allPoints.slice(plan.skip)
+  return {
+    asOf: params.asOf,
+    fromMonth: plan.output[0]!.label,
+    months: params.months,
+    base,
+    points,
+  }
 }
 
 // ===== 现金流 =====
@@ -433,19 +478,20 @@ function flowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionF
 
 export async function getCashFlowProjection(params: {
   asOf: LocalDate
-  months: ProjectionMonths
+  fromMonth?: string
+  months: ProjectionWindowMonths
   includePlanned: boolean
   includeCommitted: boolean
 }): Promise<CashFlowProjectionResult> {
-  const windows = projectionWindows(params.asOf, params.months)
-  const firstWindow = windows[0]!
+  const plan = projectionWindows(params.asOf, params.fromMonth, params.months)
+  const firstWindow = plan.all[0]!
   const cashAccounts = await loadCashAccounts()
   const cashIds = cashAccounts.map((account) => account.id)
   const cashSet = new Set(cashIds)
 
-  // 首个推演月月初现金：date < 月初，未来日期交易不参与
+  // 首个累计月月初现金：date < 月初，未来日期交易不参与
   const monthStartBalances = await balancesAt(cashAccounts, firstWindow.start)
-  const startCash = minor([...monthStartBalances.values()].reduce((sum, value) => sum + value, 0))
+  let runningCash = minor([...monthStartBalances.values()].reduce((sum, value) => sum + value, 0))
 
   // 本月已发生部分：date ∈ [月初, asOf]（asOf 之后留给 committed）
   let actualInflow = 0
@@ -473,15 +519,15 @@ export async function getCashFlowProjection(params: {
 
   const events = await loadProjectionEvents({
     asOf: params.asOf,
-    windowEndExclusive: windows[windows.length - 1]!.endExclusive,
+    windowEndExclusive: plan.all[plan.all.length - 1]!.endExclusive,
     includePlanned: params.includePlanned,
     includeCommitted: params.includeCommitted,
   })
   const plannedByMonth = eventsByMonth(events.planned)
   const committedByMonth = eventsByMonth(events.committed)
 
-  let runningCash = startCash
-  const points: CashFlowProjectionPoint[] = windows.map((window, index) => {
+  // 先累计全部窗口（从 asOf 起），再按 fromMonth 截取输出；startCash 取首个输出月月初。
+  const allPoints: CashFlowProjectionPoint[] = plan.all.map((window, index) => {
     const planned = sumFlows(plannedByMonth.get(window.label) ?? [], cashSet)
     const committed = sumFlows(committedByMonth.get(window.label) ?? [], cashSet)
 
@@ -513,10 +559,12 @@ export async function getCashFlowProjection(params: {
     }
   })
 
+  const points = allPoints.slice(plan.skip)
   return {
     asOf: params.asOf,
+    fromMonth: plan.output[0]!.label,
     months: params.months,
-    startCash,
+    startCash: points[0]!.startCash,
     endCash: points[points.length - 1]!.endCash,
     points,
   }

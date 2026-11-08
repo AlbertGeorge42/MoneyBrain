@@ -10,6 +10,7 @@ import {
   CATEGORY_ICON_KEYS,
   isCategoryIconKey,
 } from '../../../../packages/contracts/constants.js'
+import type { ProjectionWindowMonths } from '../../../../packages/contracts/types/index.js'
 import { ValidationError } from './error.js'
 import { hasValue } from './utils.js'
 
@@ -114,17 +115,17 @@ export const requireClearConfirm = (req: Request, expected: string): void => {
 
 // ===== 推演参数 =====
 
-/** 推演窗口月份：只允许 3 / 6 / 12（缺省 12）。 */
-export const parseProjectionMonths = (value: unknown): 3 | 6 | 12 => {
+/** 推演窗口月份：1–12 的整数（缺省 12）。旧入口仍只传 3 / 6 / 12。 */
+export const parseProjectionMonths = (value: unknown): ProjectionWindowMonths => {
   if (value === undefined || value === null || value === '') return 12
   if (typeof value !== 'string') {
-    throw new ValidationError('months 只支持 3 / 6 / 12')
+    throw new ValidationError('months 必须是 1–12 的整数')
   }
   const months = Number(value)
-  if (months !== 3 && months !== 6 && months !== 12) {
-    throw new ValidationError('months 只支持 3 / 6 / 12')
+  if (!Number.isInteger(months) || months < 1 || months > 12) {
+    throw new ValidationError('months 必须是 1–12 的整数')
   }
-  return months
+  return months as ProjectionWindowMonths
 }
 
 /** 预算周期额度窗口：1–24 个月（缺省 12）。 */
@@ -174,6 +175,15 @@ export const parseFromMonthQuery = (value: unknown): string => {
   if (value === undefined || value === null || value === '') {
     return today().slice(0, 7)
   }
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}$/.test(value) || !isLocalDate(`${value}-01`)) {
+    throw new ValidationError('fromMonth 必须是 YYYY-MM')
+  }
+  return value
+}
+
+/** 推演输出起始月：YYYY-MM；缺省 undefined（由服务用 asOf 所在月）。 */
+export const parseOptionalFromMonthQuery = (value: unknown): string | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
   if (typeof value !== 'string' || !/^\d{4}-\d{2}$/.test(value) || !isLocalDate(`${value}-01`)) {
     throw new ValidationError('fromMonth 必须是 YYYY-MM')
   }

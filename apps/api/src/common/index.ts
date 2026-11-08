@@ -38,6 +38,7 @@ export {
   parseOptionalDateQuery,
   parseBooleanQuery,
   parseFromMonthQuery,
+  parseOptionalFromMonthQuery,
 } from './validators.js'
 
 // Date utilities

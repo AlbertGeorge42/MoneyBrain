@@ -3,6 +3,7 @@ import {
   asyncHandler,
   parseAsOfQuery,
   parseBooleanQuery,
+  parseOptionalFromMonthQuery,
   parseProjectionMonths,
   success,
   validateRequest,
@@ -40,9 +41,10 @@ router.get('/investment-analysis', validateRequest(validateDateRange), asyncHand
 router.get('/cash-flow-projection', asyncHandler(async (req, res) => {
   const months = parseProjectionMonths(req.query.months)
   const asOf = parseAsOfQuery(req.query.asOf)
+  const fromMonth = parseOptionalFromMonthQuery(req.query.fromMonth)
   const includePlanned = parseBooleanQuery(req.query.includePlanned, 'includePlanned', true)
   const includeCommitted = parseBooleanQuery(req.query.includeCommitted, 'includeCommitted', true)
-  const result = await getCashFlowProjection({ asOf, months, includePlanned, includeCommitted })
+  const result = await getCashFlowProjection({ asOf, fromMonth, months, includePlanned, includeCommitted })
   return success(res, result)
 }))
 

@@ -57,6 +57,7 @@ interface AssetPoint {
 
 interface AssetProjection {
   asOf: string
+  fromMonth: string
   months: number
   base: Balance
   points: AssetPoint[]
@@ -75,6 +76,7 @@ interface CashFlowPoint {
 
 interface CashFlowProjection {
   asOf: string
+  fromMonth: string
   months: number
   startCash: number
   endCash: number
@@ -225,6 +227,7 @@ describe('GET /api/analytics/asset-projection：planned / committed 不重复计
 
     // 起点 = date ≤ asOf 的真实余额：A 200 + B 300 − L 100
     expect(data.asOf).toBe(AS_OF)
+    expect(data.fromMonth).toBe('2026-11')
     expect(data.months).toBe(3)
     expect(data.base).toEqual({ assets: 50000, liabilities: 10000, netWorth: 40000 })
 
@@ -352,6 +355,7 @@ describe('GET /api/reports/cash-flow-projection：期初 + 净额 = 期末', () 
     expect(res.status).toBe(200)
     const data = res.body.data as CashFlowProjection
 
+    expect(data.fromMonth).toBe('2026-11')
     expect(data.startCash).toBe(0)
     expect(data.endCash).toBe(100000)
 
@@ -406,6 +410,102 @@ describe('GET /api/reports/cash-flow-projection：期初 + 净额 = 期末', () 
 
     expect(twelveData.points.slice(0, 6)).toEqual(sixData.points)
     expect(twelveData.startCash).toBe(sixData.startCash)
+  })
+})
+
+describe('fromMonth：只截取输出窗口，累计仍从 asOf 所在月起', () => {
+  beforeAll(async () => {
+    await prisma.$connect()
+  })
+
+  afterAll(async () => {
+    await resetData()
+    await prisma.$disconnect()
+  })
+
+  beforeEach(async () => {
+    await seed()
+  })
+
+  it('资产推演从 2027-01 输出：planned/committed 包含 11、12 月的累计', async () => {
+    const res = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, fromMonth: '2027-01', months: 1 })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as AssetProjection
+
+    expect(data.asOf).toBe(AS_OF)
+    expect(data.fromMonth).toBe('2027-01')
+    expect(data.months).toBe(1)
+    expect(data.base).toEqual({ assets: 50000, liabilities: 10000, netWorth: 40000 })
+    expect(data.points).toHaveLength(1)
+    expect(data.points[0]).toMatchObject({
+      label: '2027-01',
+      date: '2027-01-31',
+      // 与 months=3 的第 3 个点位一致：累计包含 11、12 月，而不是从 1 月重新开始。
+      planned: { assets: 80000, liabilities: 0, netWorth: 80000 },
+      committed: { assets: 5000, liabilities: 0, netWorth: 5000 },
+      total: { assets: 135000, liabilities: 10000, netWorth: 125000 },
+      covered: [],
+    })
+  })
+
+  it('现金流推演从 2027-01 输出：startCash 包含 11、12 月净额', async () => {
+    const res = await request(app)
+      .get('/api/reports/cash-flow-projection')
+      .query({ asOf: AS_OF, fromMonth: '2027-01', months: 1 })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as CashFlowProjection
+
+    expect(data.asOf).toBe(AS_OF)
+    expect(data.fromMonth).toBe('2027-01')
+    expect(data.months).toBe(1)
+    // 11 月期末 650 − 12 月净额 30 = 620；1 月从 620 开始，而不是从 0 开始。
+    expect(data.startCash).toBe(62000)
+    expect(data.endCash).toBe(100000)
+    expect(data.points).toHaveLength(1)
+    expect(data.points[0]).toMatchObject({
+      label: '2027-01',
+      startCash: 62000,
+      endCash: 100000,
+      inflow: { actual: 0, planned: 50000, committed: 0, total: 50000 },
+      outflow: { actual: 0, planned: 12000, committed: 0, total: 12000 },
+      net: { actual: 0, planned: 38000, committed: 0, total: 38000 },
+      covered: [],
+    })
+  })
+
+  it('fromMonth 省略时行为不变；等于 asOf 所在月时与省略一致', async () => {
+    const [omitted, explicit] = await Promise.all([
+      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, months: 3 }),
+      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, fromMonth: '2026-11', months: 3 }),
+    ])
+
+    expect(omitted.status).toBe(200)
+    expect(explicit.status).toBe(200)
+    expect(explicit.body.data).toEqual(omitted.body.data)
+  })
+
+  it('非法 fromMonth / months 与超出 12 个未来月返回 400', async () => {
+    const before = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, fromMonth: '2026-10', months: 1 })
+    const tooFar = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, fromMonth: '2028-01', months: 1 })
+    const badMonth = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, fromMonth: '2027-1', months: 1 })
+    const badMonths = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, months: 13 })
+
+    expect(before.status).toBe(400)
+    expect(tooFar.status).toBe(400)
+    expect(badMonth.status).toBe(400)
+    expect(badMonths.status).toBe(400)
   })
 })
 
