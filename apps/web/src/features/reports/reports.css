@@ -2096,3 +2096,14 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 .mb-rp-page[data-device='mobile'] .mb-rp-switch {
   min-height: var(--mb-btn-h-lg);
 }
+
+/* 账本配置抽屉：内容沿用设置页 mb-set-* 内胆，只调整报表侧尺寸。
+   桌面 640px、移动端全屏；移动端去掉设置页底部抽屉的圆角。 */
+.mb-ledger-sheet.mb-set-sheet {
+  max-height: 100dvh;
+}
+
+.mb-rp-page[data-device='mobile'] .mb-ledger-sheet.mb-set-sheet {
+  height: 100%;
+  border-radius: 0;
+}

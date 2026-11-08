@@ -33,12 +33,15 @@ export interface LedgerConfigControllerOptions {
   onSaveInvest: (id: string, value: EditorSaveValue) => void
   /** 现金流活动归属仍是设置页本地状态，由宿主处理。 */
   onMoveActivity: (id: string, group: ActivityGroupId) => void
+  /** 写库成功后的宿主回调：报表页用它重取当前报表并校正下钻。 */
+  onAfterWrite?: () => void
 }
 
 export function useLedgerConfigController({
   notify,
   onSaveInvest,
   onMoveActivity,
+  onAfterWrite,
 }: LedgerConfigControllerOptions) {
   const {
     ledger,
@@ -214,6 +217,7 @@ export function useLedgerConfigController({
       setEditorError(result.error ?? '保存失败，请重试')
       return
     }
+    onAfterWrite?.()
     if (editor.kind === 'accountGroup') {
       notify(editor.mode === 'edit' ? '分组已更新' : '分组已新增')
       setEditor(null)
@@ -238,6 +242,7 @@ export function useLedgerConfigController({
       notify(result.error ?? '删除失败，请重试')
       return
     }
+    onAfterWrite?.()
     if (result.undoToken) {
       notifyUndoable('账户已删除', () => void runUndo(result.undoToken!))
     } else {
@@ -248,6 +253,7 @@ export function useLedgerConfigController({
   const moveAccountOrder = async (id: string, direction: 'up' | 'down') => {
     const result = await reorderAccount(id, direction)
     if (!result.ok) notify(result.error ?? '排序失败，请重试')
+    else onAfterWrite?.()
   }
 
   /** 删除分组：有账户引用时后端拒绝，前端显式说明原因，绝不静默清空引用。 */
@@ -277,6 +283,7 @@ export function useLedgerConfigController({
       notify(result.error ?? '删除分组失败，请重试')
       return
     }
+    onAfterWrite?.()
     notify(`分组「${group.name}」已删除`)
     setEditor(null)
   }
@@ -308,8 +315,12 @@ export function useLedgerConfigController({
     if (!editor) return
     if (editor.kind === 'accountGroup' && editor.groupId) {
       const result = await reorderAccountGroup(editor.groupId, direction)
-      if (!result.ok) notify(result.error ?? '排序失败，请重试')
-      else notify('分组排序已更新')
+      if (!result.ok) {
+        notify(result.error ?? '排序失败，请重试')
+        return
+      }
+      onAfterWrite?.()
+      notify('分组排序已更新')
       return
     }
     if (editor.kind === 'account' && editor.accountId) {
@@ -320,6 +331,7 @@ export function useLedgerConfigController({
   const moveCategoryOrder = async (id: string, direction: 'up' | 'down') => {
     const result = await reorderCategory(id, direction)
     if (!result.ok) notify(result.error ?? '排序失败，请重试')
+    else onAfterWrite?.()
   }
 
   const openTransfer = async (row: CategoryRow, type: TxType) => {
@@ -345,6 +357,7 @@ export function useLedgerConfigController({
     }
     const result = await deleteCategoryRemote(row.id)
     if (result.ok) {
+      onAfterWrite?.()
       if (result.undoToken) {
         notifyUndoable(`分类「${row.name}」已删除`, () => void runUndo(result.undoToken!))
       } else {
@@ -373,6 +386,7 @@ export function useLedgerConfigController({
       return
     }
     setDeleteTransfer(null)
+    onAfterWrite?.()
     const message = `已转移 ${row.txCount} 笔到「${targetName}」并删除「${row.name}」`
     if (result.undoToken) {
       notifyUndoable(message, () => void runUndo(result.undoToken!))
@@ -411,6 +425,7 @@ export function useLedgerConfigController({
       setMoverError(result.error ?? '移动失败，请重试')
       return
     }
+    onAfterWrite?.()
     notify(mover.kind === 'account' ? '账户已移动到新分组' : '分类已移动')
     setMover(null)
   }

@@ -253,6 +253,7 @@ export function ReportSettingsSheet({
   draftSettings,
   cashPresence,
   onOpenConfig,
+  onOpenLedger,
   onBack,
   onChange,
   onReset,
@@ -265,6 +266,8 @@ export function ReportSettingsSheet({
   draftSettings: ReportViewSettings | null
   cashPresence: Record<CashGroupKey, boolean>
   onOpenConfig: (tab: ReportTab) => void
+  /** 账本数据入口：与设置页同源，保存立即生效。 */
+  onOpenLedger: (tab: 'accounts' | 'categories') => void
   onBack: () => void
   onChange: (next: ReportViewSettings) => void
   onReset: () => void
@@ -312,7 +315,7 @@ export function ReportSettingsSheet({
             />
           ) : (
             <>
-              <p className="mb-rp-settings-note">报表只读 · 不写回账本 · 只改展示口径</p>
+              <p className="mb-rp-settings-note">展示配置只改口径 · 不写回账本</p>
               {REPORT_TABS.map((item) => (
                 <div className="mb-rp-settings-row" key={item.id}>
                   <div>
@@ -323,6 +326,23 @@ export function ReportSettingsSheet({
                   </HfButton>
                 </div>
               ))}
+              <p className="mb-rp-settings-note">账本数据 · 与设置页同源 · 保存立即生效</p>
+              <div className="mb-rp-settings-row">
+                <div>
+                  <p className="mb-rp-settings-title">账户与分组</p>
+                </div>
+                <HfButton className="mb-rp-btn is-ghost" onClick={() => onOpenLedger('accounts')}>
+                  管理
+                </HfButton>
+              </div>
+              <div className="mb-rp-settings-row">
+                <div>
+                  <p className="mb-rp-settings-title">收支分类</p>
+                </div>
+                <HfButton className="mb-rp-btn is-ghost" onClick={() => onOpenLedger('categories')}>
+                  管理
+                </HfButton>
+              </div>
             </>
           )}
         </div>

@@ -13,8 +13,11 @@ import { deriveExpenseCharts, getCategoryRootId, ledgerAnchorDay } from '@/featu
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { Card } from '@/features/shared/Card'
 import { ToastViewport } from '@/features/shared/toast'
-import { useToast } from '@/features/shared/toastContext'
+import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
+import { LedgerConfigManager, type LedgerConfigTab } from '@/features/ledger-config/LedgerConfigManager'
+import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
+import { INVESTMENT_TYPES } from '@/features/settings/settingsModel'
 import {
   useApiAssetProjection,
   useApiBalanceReport,
@@ -126,6 +129,9 @@ export function ReportsPage({
   const [viewSettings, setViewSettings] = useState<ReportViewSettings>(() => loadReportSettings())
   const [configTab, setConfigTab] = useState<ReportTab | null>(null)
   const [draftSettings, setDraftSettings] = useState<ReportViewSettings | null>(null)
+  // 账本数据管理：与设置页同一份 controller / 表单，保存立即生效。
+  const [ledgerConfigOpen, setLedgerConfigOpen] = useState(false)
+  const [ledgerConfigTab, setLedgerConfigTab] = useState<LedgerConfigTab>('accounts')
   const effectiveSettings = draftSettings ?? viewSettings
 
   // 已发生区间仍按数据截止日截断；混合 / 全未来时点交给推演端点，按当前粒度出桶。
@@ -188,6 +194,43 @@ export function ReportsPage({
     includeExcluded,
     apiReady && tab === 'flow' && flowState !== 'past',
   )
+
+  // 当前 tab 对应的报表查询：账本写成功后重取这一份，而不是整页刷新。
+  const activeReportApi =
+    tab === 'balance'
+      ? balanceState === 'past'
+        ? balanceApi
+        : assetProjectionApi
+      : tab === 'flow'
+        ? flowState === 'past'
+          ? flowApi
+          : flowProjectionApi
+        : tab === 'cash'
+          ? cashState === 'past'
+            ? cashApi
+            : cashProjectionApi
+          : investApi
+
+  const ledgerConfig = useLedgerConfigController({
+    notify: (message: string, options?: ToastOptions) => {
+      pushToast(message, { variant: 'reports', ...options })
+    },
+    // 报表页不提供投资目标 / 现金流活动入口，这两个分支不会触发。
+    onSaveInvest: () => {},
+    onMoveActivity: () => {},
+    onAfterWrite: () => {
+      // 账户 / 分类变了，旧下钻与折叠键可能指向已删除或已换组的对象。
+      setDrill(null)
+      setFoldedFlow({})
+      setFoldedCash({})
+      if (apiReady) void activeReportApi.refetch()
+    },
+  })
+
+  const closeLedgerConfig = () => {
+    ledgerConfig.resetTransient()
+    setLedgerConfigOpen(false)
+  }
 
   const balance = apiMode ? balanceApi.data : seedBalance
   const flow = apiMode ? flowApi.data : seedFlow
@@ -482,15 +525,33 @@ export function ReportsPage({
         draftSettings={draftSettings}
         cashPresence={cashGroupPresence(cash ?? seedCash)}
         onOpenConfig={openConfig}
+        onOpenLedger={(next) => {
+          setLedgerConfigTab(next)
+          setLedgerConfigOpen(true)
+        }}
         onBack={closeConfig}
         onChange={setDraftSettings}
         onReset={resetConfig}
         onCommit={commitConfig}
       />
 
+      <LedgerConfigManager
+        opened={ledgerConfigOpen}
+        tab={ledgerConfigTab}
+        onTabChange={setLedgerConfigTab}
+        onClose={closeLedgerConfig}
+        device={device}
+        ledger={ledger}
+        controller={ledgerConfig}
+        investRows={INVESTMENT_TYPES}
+        onRetry={onRetry}
+      />
+
       <ToastViewport
         variant="reports"
-        className={settingsOpen && device === 'mobile' ? 'is-over-sheet' : undefined}
+        className={
+          (settingsOpen || ledgerConfigOpen) && device === 'mobile' ? 'is-over-sheet' : undefined
+        }
       />
     </div>
   )
