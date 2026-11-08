@@ -20,10 +20,10 @@
 | 流水 | 编辑撤销 | `PUT /transactions/:id` | 编辑真实落库 | `PUT` 不返回 `auditEventId`，API 模式编辑没有 6 秒撤销 | B |
 | 流水 | 回收站入口 | `GET /transactions/recycle-bin` | 设置页可恢复 | 流水页无独立入口 | B |
 | 流水 | 批量改分类 | 无批量端点 | 逐条 `PUT` | 非原子；请求数 = 选中笔数 | B |
-| 报表 | 下钻到流水 | `GET /transactions` 支持多 `categoryId` | 只写 URL `categoryIds` | 未带 `from/to`，下钻后落到流水默认期间 | B |
+| 报表 | 下钻到流水 | `GET /transactions` 支持多 `categoryId` + `from/to` | 下钻带当前报表期间 | ✅ 已收口（`from/to` 半开区间，与报表主查询同口径） |
 | 预算 | 预测 / 用量明细 | `/budgets/predictions`、`/budgets/:id/usage-details` | 未用 | 接线后补下钻与预测 | B |
 | 预算 | 推演三端点 | `/analytics/asset-projection`、`/reports/cash-flow-projection`、`/budgets/period-plan` | 未接 | 前端接入资产/现金流/预算前瞻视图 | B |
-| 报表 | 投资分析目标比例 | `GET /reports/investment-analysis` | 持仓无 `items` | 目标比例列无数据可显；需后端补资产分类明细，或接受该列为空 | B |
+| 报表 | 投资分析持仓明细 | `GET /reports/investment-analysis` | 账户/分类明细均带 `items` | ✅ 已收口（按资产类型聚合，无持仓返回空数组） |
 | 设置 | 存点回滚 | `/data/rollback-points` 系列 | 未接 | 目前只做导入批次回滚 | B |
 | 全局 | 同步状态 / 关闭 | **无同步端点** | 无 UI | 未到里程碑，先不实现 | C |
 
