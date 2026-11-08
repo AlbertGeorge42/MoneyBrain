@@ -1,7 +1,7 @@
 /**
  * 设置页分区元数据（仅设置页使用）。
  *
- * 账户 / 分类 / 现金流 / 投资的纯派生与账本修改已拆到
+ * 账户 / 分类 / 现金流的纯派生与账本修改已拆到
  * `features/ledger-config/model`，报表页与设置页共用。
  */
 
@@ -9,7 +9,6 @@ export type SectionId =
   | 'accounts'
   | 'categories'
   | 'cashflow'
-  | 'invest'
   | 'appearance'
   | 'backup'
   | 'display'
@@ -25,7 +24,6 @@ export const CONFIG_SECTIONS: readonly SectionMeta[] = [
   { id: 'accounts', label: '账户分类' },
   { id: 'categories', label: '收支分类' },
   { id: 'cashflow', label: '现金流分类' },
-  { id: 'invest', label: '投资资产类型' },
 ]
 
 export const GENERAL_SECTIONS: readonly SectionMeta[] = [

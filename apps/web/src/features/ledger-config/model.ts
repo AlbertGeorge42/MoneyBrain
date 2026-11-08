@@ -1,11 +1,10 @@
 /**
  * 设置页数据派生与账本修改（纯函数）
  *
- * 五类配置统一口径：
+ * 四类配置统一口径：
  * - 账户分类：按账户性质（储蓄 / 现金 / 投资 / 信用）分组，组行 = 分类，子行 = 账户；
  * - 收支分类：按类型（收入 / 支出 / 转账）分 Tab，两级树；
  * - 现金流分类：资产按现金等价 / 投资 / 其它标记分组，收入 / 支出 / 转账按活动分组；
- * - 投资资产类型：HF 演示数据，目标占比与报表页同一套；
  * - 列表显示：列显隐 + 排序，与流水页共用 displaySettings。
  */
 import type {
@@ -224,22 +223,6 @@ export const ASSET_MARK_GROUPS: readonly {
   { id: 'cash', label: '现金及等价物', kinds: ['cash'] },
   { id: 'investment', label: '投资资产', kinds: ['investment'] },
   { id: 'other', label: '其他资产', kinds: ['deposit'] },
-]
-
-/* ===== 投资资产类型（与报表页同一套目标占比） ===== */
-
-export interface InvestmentTypeRow {
-  id: string
-  name: string
-  current: number
-  target: number
-  rebalance: string
-}
-
-export const INVESTMENT_TYPES: readonly InvestmentTypeRow[] = [
-  { id: 'stock', name: '股票', current: 53, target: 55, rebalance: '低配 2%' },
-  { id: 'fund', name: '基金', current: 30, target: 30, rebalance: '持平' },
-  { id: 'bond', name: '债券', current: 17, target: 15, rebalance: '超配 2%' },
 ]
 
 /* ===== 账本修改 ===== */

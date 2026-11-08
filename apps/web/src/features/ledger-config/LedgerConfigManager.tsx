@@ -10,7 +10,6 @@ import type { Ledger } from '@/features/overview/model'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { HfTabs } from '@/features/shared/HfTabs'
-import type { InvestmentTypeRow } from './model'
 import { AccountsSection } from './AccountsSection'
 import { CategoriesSection } from './CategoriesSection'
 import { LedgerConfigSheets } from './LedgerConfigSheets'
@@ -26,7 +25,6 @@ export function LedgerConfigManager({
   device,
   ledger,
   controller,
-  investRows,
   onRetry,
 }: {
   opened: boolean
@@ -36,7 +34,6 @@ export function LedgerConfigManager({
   device: DeviceMode
   ledger: Ledger
   controller: LedgerConfigController
-  investRows: readonly InvestmentTypeRow[]
   onRetry: () => void
 }) {
   return (
@@ -113,12 +110,7 @@ export function LedgerConfigManager({
         </div>
       </HfSheet>
 
-      <LedgerConfigSheets
-        controller={controller}
-        device={device}
-        ledger={ledger}
-        investRows={investRows}
-      />
+      <LedgerConfigSheets controller={controller} device={device} ledger={ledger} />
     </>
   )
 }

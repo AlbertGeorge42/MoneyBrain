@@ -1,5 +1,5 @@
 /**
- * 设置页编辑抽屉：账户 / 账户分组 / 收支分类 / 投资资产类型共用。
+ * 设置页编辑抽屉：账户 / 账户分组 / 收支分类共用。
  *
  * 表单初值由 editor 与账本派生，保存动作按 editor.kind 由页面分发；
  * 抽屉本身只负责输入与校验，不直接改账本。
@@ -17,11 +17,7 @@ import {
   type CategoryIconOption,
 } from '@/features/overview/categoryIcons'
 import type { AccountKind, Ledger, TxType } from '@/features/overview/model'
-import {
-  ACCOUNT_KIND_LABEL,
-  CATEGORY_TABS,
-  type InvestmentTypeRow,
-} from './model'
+import { ACCOUNT_KIND_LABEL, CATEGORY_TABS } from './model'
 
 export type Editor =
   | {
@@ -39,7 +35,6 @@ export type Editor =
       groupId?: string
     }
   | { kind: 'category'; mode: 'create' | 'edit'; type: TxType; parentId?: string; categoryId?: string }
-  | { kind: 'invest'; id: string }
 
 export interface EditorSaveValue {
   name: string
@@ -52,7 +47,6 @@ export interface EditorSaveValue {
   initialBalance: number
   /** 期初余额日期（YYYY-MM-DD）。 */
   initialBalanceDate: string
-  target: number
   /** 受控图标 key；仅分类 / 账户分组使用，null = 自动。 */
   iconKey?: string | null
 }
@@ -61,7 +55,6 @@ export function EditorSheet({
   editor,
   device,
   ledger,
-  investRows,
   error,
   saving,
   onClose,
@@ -72,7 +65,6 @@ export function EditorSheet({
   editor: Editor | null
   device: DeviceMode
   ledger: Ledger
-  investRows: readonly InvestmentTypeRow[]
   error: string | null
   saving: boolean
   onClose: () => void
@@ -92,8 +84,6 @@ export function EditorSheet({
     editor?.kind === 'accountGroup' && editor.mode === 'edit'
       ? (ledger.accountCategories ?? []).find((item) => item.id === editor.groupId)
       : undefined
-  const invest = editor?.kind === 'invest' ? investRows.find((item) => item.id === editor.id) : undefined
-
   /** 真实账本才有可管理的分组；种子账本退回「账户性质」四选一。 */
   const groupMode = Boolean(ledger.accountCategories)
   const initialKind =
@@ -117,11 +107,10 @@ export function EditorSheet({
     ledger.transactions.some(
       (transaction) => transaction.accountId === account?.id || transaction.toAccountId === account?.id,
     )
-  const initialName = account?.name ?? category?.name ?? group?.name ?? invest?.name ?? ''
+  const initialName = account?.name ?? category?.name ?? group?.name ?? ''
   const currentBalance = account ? account.balance / 100 : 0
   const openingBalance = account?.initialBalance !== undefined ? account.initialBalance / 100 : currentBalance
   const openingDate = account?.initialBalanceDate ?? todayLocal()
-  const initialTarget = invest?.target ?? 0
   // 分类与一级账户分组可选图标；空串表示「自动」，保存时转成 null。
   const initialIconKey = category?.iconKey ?? group?.iconKey ?? ''
 
@@ -131,7 +120,6 @@ export function EditorSheet({
   const [balance, setBalance] = useState(String(currentBalance))
   const [initialBalance, setInitialBalance] = useState(String(openingBalance))
   const [initialBalanceDate, setInitialBalanceDate] = useState(openingDate)
-  const [target, setTarget] = useState(String(initialTarget))
   const [iconKey, setIconKey] = useState(initialIconKey)
   const [iconQuery, setIconQuery] = useState('')
 
@@ -157,7 +145,6 @@ export function EditorSheet({
     setBalance(String(currentBalance))
     setInitialBalance(String(openingBalance))
     setInitialBalanceDate(openingDate)
-    setTarget(String(initialTarget))
     setIconKey(initialIconKey)
     setIconQuery('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,13 +161,11 @@ export function EditorSheet({
         ? editor.mode === 'create'
           ? `新增${editor.type === 'liability' ? '负债' : '资产'}分组`
           : '编辑分组'
-        : editor.kind === 'category'
-          ? editor.mode === 'create'
-            ? editor.parentId
-              ? '新增子分类'
-              : '新增一级分类'
-            : '编辑分类'
-          : '编辑投资资产类型'
+        : editor.mode === 'create'
+          ? editor.parentId
+            ? '新增子分类'
+            : '新增一级分类'
+          : '编辑分类'
 
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(initialBalanceDate)
   const valid =
@@ -189,8 +174,7 @@ export function EditorSheet({
       (!groupMode || editor.mode === 'edit' || groupId !== '') &&
       (Number.isFinite(Number(balance)) &&
         Number.isFinite(Number(initialBalance)) &&
-        dateValid)) &&
-    (editor.kind !== 'invest' || Number.isFinite(Number(target)))
+        dateValid))
 
   const duplicateGroup =
     editor.kind === 'accountGroup'
@@ -464,18 +448,6 @@ export function EditorSheet({
           </div>
         )}
 
-        {editor.kind === 'invest' && (
-          <label className="mb-set-field">
-            <span className="mb-set-label">目标占比（%）</span>
-            <input
-              className="mb-set-input"
-              inputMode="decimal"
-              value={target}
-              onChange={(event) => setTarget(event.target.value)}
-            />
-          </label>
-        )}
-
         {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       </div>
 
@@ -514,7 +486,6 @@ export function EditorSheet({
                   : Math.round(Number(balance) * 100),
               initialBalance: Math.round(Number(initialBalance) * 100),
               initialBalanceDate,
-              target: Number(target),
               iconKey:
                 editor.kind === 'category' || editor.kind === 'accountGroup'
                   ? iconKey || null

@@ -1,6 +1,5 @@
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger } from '@/features/overview/model'
-import type { InvestmentTypeRow } from './model'
 import { EditorSheet } from './EditorSheet'
 import { MoverSheet } from './MoverSheet'
 import { CategoryDeleteSheet } from './CategoryDeleteSheet'
@@ -15,12 +14,10 @@ export function LedgerConfigSheets({
   controller,
   device,
   ledger,
-  investRows,
 }: {
   controller: LedgerConfigController
   device: DeviceMode
   ledger: Ledger
-  investRows: readonly InvestmentTypeRow[]
 }) {
   const { editor, mover, deleteTransfer } = controller
 
@@ -31,7 +28,6 @@ export function LedgerConfigSheets({
           editor={editor}
           device={device}
           ledger={ledger}
-          investRows={investRows}
           error={controller.editorError}
           saving={controller.editorSaving}
           onClose={() => controller.setEditor(null)}

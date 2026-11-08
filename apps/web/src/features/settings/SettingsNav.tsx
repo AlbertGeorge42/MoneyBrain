@@ -33,7 +33,6 @@ function sectionIcon(id: SectionId): LucideIcon {
     case 'categories':
       return Tag
     case 'cashflow':
-    case 'invest':
       return TrendingUp
     case 'appearance':
       return Sun

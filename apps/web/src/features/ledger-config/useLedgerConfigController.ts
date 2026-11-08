@@ -28,15 +28,12 @@ import {
 export interface LedgerConfigControllerOptions {
   /** 宿主页面的轻提示；报表页可在此绑定 reports 变体。 */
   notify: (message: string, options?: ToastOptions) => void
-  /** 投资目标占比仍属设置页本地状态，由宿主处理。 */
-  onSaveInvest: (id: string, value: EditorSaveValue) => void
   /** 写库成功后的宿主回调：报表页用它重取当前报表并校正下钻。 */
   onAfterWrite?: () => void
 }
 
 export function useLedgerConfigController({
   notify,
-  onSaveInvest,
   onAfterWrite,
 }: LedgerConfigControllerOptions) {
   const {
@@ -159,11 +156,6 @@ export function useLedgerConfigController({
 
   const saveEditor = async (value: EditorSaveValue) => {
     if (!editor || editorSaving) return
-    if (editor.kind === 'invest') {
-      onSaveInvest(editor.id, value)
-      setEditor(null)
-      return
-    }
 
     setEditorError(null)
     setEditorSaving(true)

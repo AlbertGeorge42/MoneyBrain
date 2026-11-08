@@ -19,7 +19,6 @@ import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { LedgerConfigManager, type LedgerConfigTab } from '@/features/ledger-config/LedgerConfigManager'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
-import { INVESTMENT_TYPES } from '@/features/ledger-config/model'
 import {
   useApiAssetProjection,
   useApiBalanceReport,
@@ -211,8 +210,6 @@ export function ReportsPage({
     notify: (message: string, options?: ToastOptions) => {
       pushToast(message, { variant: 'reports', ...options })
     },
-    // 报表页不提供投资目标入口，这个分支不会触发。
-    onSaveInvest: () => {},
     onAfterWrite: () => {
       // 账户 / 分类变了，旧下钻与折叠键可能指向已删除或已换组的对象。
       setDrill(null)
@@ -558,7 +555,6 @@ export function ReportsPage({
         device={device}
         ledger={ledger}
         controller={ledgerConfig}
-        investRows={INVESTMENT_TYPES}
         onRetry={onRetry}
       />
 

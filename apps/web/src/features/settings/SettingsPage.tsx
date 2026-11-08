@@ -37,17 +37,12 @@ import {
   type DisplaySettings,
 } from '@/features/transactions/displaySettings'
 import { sectionMeta, type SectionId } from './settingsModel'
-import {
-  INVESTMENT_TYPES,
-  accountGroupCount,
-  type InvestmentTypeRow,
-} from '@/features/ledger-config/model'
+import { accountGroupCount } from '@/features/ledger-config/model'
 import { LedgerConfigSheets } from '@/features/ledger-config/LedgerConfigSheets'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
 import { AccountsSection } from '@/features/ledger-config/AccountsSection'
 import { CategoriesSection } from '@/features/ledger-config/CategoriesSection'
 import { CashflowSection, type CashflowTab } from './CashflowSection'
-import { InvestSection } from './InvestSection'
 import { AppearanceSection } from './AppearanceSection'
 import { BackupSection } from './BackupSection'
 import { DisplaySection } from './DisplaySection'
@@ -93,16 +88,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     pushToast(message, options)
   }
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
-  const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
-  const config = useLedgerConfigController({
-    notify,
-    onSaveInvest: (id, value) => {
-      setInvestRows((rows) =>
-        rows.map((row) => (row.id === id ? { ...row, target: value.target } : row)),
-      )
-      notify('目标占比已更新')
-    },
-  })
+  const config = useLedgerConfigController({ notify })
 
   /* ===== 外观主题：直接读写 Mantine 的 colorScheme（light / dark / auto） ===== */
   const { colorScheme, setColorScheme } = useMantineColorScheme()
@@ -500,17 +486,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             onOpenMover={config.setMover}
           />
         )
-      case 'invest':
-        return (
-          <InvestSection
-            rows={investRows}
-            menuOpen={config.menuOpen}
-            onMenuOpen={config.setMenuOpen}
-            confirming={config.confirming}
-            onConfirm={config.setConfirming}
-            onOpenEditor={config.setEditor}
-          />
-        )
       case 'appearance':
         return (
           <AppearanceSection
@@ -592,7 +567,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     accounts: `资产 ${config.assetGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)} · 负债 ${config.liabilityGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)}`,
     categories: `收入 ${countByType(ledger.categories, 'income')} · 支出 ${countByType(ledger.categories, 'expense')}`,
     cashflow: '3 组标记 · 4 类活动',
-    invest: `${investRows.length} 类资产`,
     appearance: themeMode === 'system' ? '跟随系统' : themeMode === 'dark' ? '深色' : '浅色',
     backup: apiMode ? (backupConfig?.enabled ? '已开启' : '未开启') : '需真实后端',
     display: '列显隐 · 排序',
@@ -686,12 +660,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       >
         {body}
       </PageShell>
-      <LedgerConfigSheets
-        controller={config}
-        device={device}
-        ledger={ledger}
-        investRows={investRows}
-      />
+      <LedgerConfigSheets controller={config} device={device} ledger={ledger} />
       {apiMode && (
         <ImportSheet
           device={device}
