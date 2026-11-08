@@ -4,17 +4,18 @@ import type {
   AssetProjectionResult,
   CashFlowProjectionPoint,
   CashFlowProjectionResult,
+  ProjectionAccountValue,
   ProjectionBalance,
-  ProjectionCoveredOccurrence,
+  ProjectionCategoryValue,
   ProjectionFlowValue,
   ProjectionGranularity,
 } from '../../../../packages/contracts/types/index.js'
-import { AppError } from '../common/error.js'
 import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
+import type { AccountWithCategory } from '../db/repositories/account.repository.js'
+import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
-  CURRENT_RULE_VERSION,
   ZERO_MINOR,
   addDays,
   fromDate,
@@ -26,20 +27,27 @@ import {
   type Minor,
 } from '../../../../packages/domain/src/index.js'
 import { calculateBalancesBatch } from './balance.service.js'
-import { generatePredictedOccurrences } from './budget.service.js'
+import { dayEnd, dayStart } from '../common/date.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
 import { sumAssetsLiabilities } from './report/account-sum.js'
 import {
   buildProjectionBuckets,
   type ProjectionBucket,
 } from './report/bucket.js'
-
-// ===== 窗口 =====
-
-function toLocalDateDate(value: LocalDate): Date {
-  const [year, month, day] = value.split('-').map(Number) as [number, number, number]
-  return new Date(year, month - 1, day)
-}
+import { collectTransactions } from './report/cash-flow-collect.js'
+import { aggregate } from './report/cash-flow-aggregate.js'
+import { buildProjectionActivity, buildSankey } from './report/cash-flow-build.js'
+import { PREDICTION_NOTE_DEFAULT } from './report/prediction.js'
+import type {
+  AccountInfo,
+  CategoryInfo,
+  PredictionTransaction,
+} from './report/cash-flow-types.js'
+import {
+  coveredInRange,
+  loadProjectionEvents,
+  type ProjectionEvent,
+} from './projection-events.js'
 
 // ===== 四粒度桶（日 / ISO 周 / 自然月 / 自然年） =====
 
@@ -51,232 +59,6 @@ interface ProjectionQueryParams {
   to: LocalDate
   includePlanned: boolean
   includeCommitted: boolean
-}
-
-/** 推演事件保护阈值：超过后不再继续计算，并给可操作的下一步。 */
-const MAX_PROJECTION_EVENTS = 20_000
-
-function assertEventBudget(count: number): void {
-  if (count <= MAX_PROJECTION_EVENTS) return
-  throw new AppError(
-    `推演范围过大（已展开 ${count} 个事件，上限 ${MAX_PROJECTION_EVENTS}）：请缩小 from/to 范围，或改用更粗的粒度后重试`,
-    'VALIDATION_ERROR',
-    422,
-    { eventCount: count, limit: MAX_PROJECTION_EVENTS },
-  )
-}
-
-// ===== 来源事件 =====
-
-interface PlannedOccurrenceMeta {
-  budgetId: string
-  budgetName: string
-  type: 'income' | 'expense' | 'transfer'
-  amount: Minor
-  accountId: string
-  toAccountId: string | null
-  /** 点位所属预算周期的第一天（含），用于 occurrence 匹配。 */
-  periodStart: LocalDate
-  /** 点位所属预算周期的最后一天（含），用于 occurrence 匹配。 */
-  periodEnd: LocalDate
-}
-
-interface PlannedEvent {
-  source: 'planned'
-  date: LocalDate
-  ledger: LedgerTransaction
-  occurrence: PlannedOccurrenceMeta
-}
-
-interface CommittedEvent {
-  source: 'committed'
-  date: LocalDate
-  ledger: LedgerTransaction
-  transactionId: string
-}
-
-type ProjectionEvent = PlannedEvent | CommittedEvent
-
-/** 一次覆盖：某个预算点位被哪一笔真实交易替代。 */
-interface CoveredOccurrence {
-  event: PlannedEvent
-  transactionId: string
-  transactionDate: LocalDate
-}
-
-interface LoadedProjectionEvents {
-  /** 已剔除被真实交易覆盖的点位。 */
-  planned: PlannedEvent[]
-  /** date > asOf 的真实交易，按日期升序。 */
-  committed: CommittedEvent[]
-  /** 窗口内被覆盖的点位，按点位日期升序。 */
-  covered: CoveredOccurrence[]
-}
-
-function budgetKindOf(value: string): 'income' | 'expense' | 'transfer' {
-  if (value === 'income' || value === 'expense' || value === 'transfer') return value
-  throw new Error(`未知预算类型: ${value}`)
-}
-
-/**
- * 同一 occurrence 的互斥判定。
- *
- * 预算点位与其周期内的真实交易视为「同一笔计划」需同时满足：
- * - 类型相同（income / expense / transfer）；
- * - 来源账户相同；
- * - 转入账户相同（非转账两侧都为 null，转账必须同源同目标）；
- * - 真实交易日期落在点位所属预算周期 [periodStart, periodEnd] 内。
- *
- * 金额与分类不参与匹配：周期内同类型同账户的交易即视为该计划已兑现，
- * 否则「预算 2000、实际只花 800」会被算成两份。
- */
-function occurrenceMatches(planned: PlannedEvent, transaction: CommittedEvent): boolean {
-  const meta = planned.occurrence
-  if (meta.type !== transaction.ledger.kind) return false
-  if (meta.accountId !== transaction.ledger.accountId) return false
-  if (meta.toAccountId !== transaction.ledger.toAccountId) return false
-  return transaction.date >= meta.periodStart && transaction.date <= meta.periodEnd
-}
-
-/**
- * committed 按日期升序贪心匹配：一笔真实交易最多覆盖一个预算点位。
- */
-function matchOccurrences(planned: PlannedEvent[], committed: CommittedEvent[]): CoveredOccurrence[] {
-  const matched = new Set<PlannedEvent>()
-  const covered: CoveredOccurrence[] = []
-
-  for (const transaction of committed) {
-    const event = planned.find(
-      (candidate) => !matched.has(candidate) && occurrenceMatches(candidate, transaction),
-    )
-    if (!event) continue
-    matched.add(event)
-    covered.push({
-      event,
-      transactionId: transaction.transactionId,
-      transactionDate: transaction.date,
-    })
-  }
-
-  covered.sort((a, b) => a.event.date.localeCompare(b.event.date))
-  return covered
-}
-
-/**
- * 两个未来来源 + occurrence 互斥：
- * - committed：date > asOf 的真实交易（不再被余额当作 actual，改由本来源单独累计）
- * - planned：预算展开点位（合成交易，只走预算口径，不读真实交易）
- *
- * 预算点位在其周期内存在同类型同账户（转账还需同目标账户）的真实交易时，
- * 视为同一 occurrence 已由真实交易兑现：点位从 planned 剔除，金额只留在 committed，
- * 并通过 `covered` 输出。调用方据此保持 total = actual + planned + committed。
- *
- * 只有两者都纳入时才做匹配：单独请求 planned 时返回未兑现的原始预算展开。
- */
-async function loadProjectionEvents(params: {
-  asOf: LocalDate
-  windowEndExclusive: LocalDate
-  includePlanned: boolean
-  includeCommitted: boolean
-}): Promise<LoadedProjectionEvents> {
-  const firstFutureDay = addDays(params.asOf, 1)
-  // 整段区间都在 asOf 之前：没有未来来源，不必查询/展开。
-  if (params.windowEndExclusive <= firstFutureDay) {
-    return { planned: [], committed: [], covered: [] }
-  }
-  const committed: CommittedEvent[] = []
-  const plannedAll: PlannedEvent[] = []
-
-  if (params.includeCommitted) {
-    const rows = await transactionRepo.findActive(
-      {
-        date: {
-          gte: toLocalDateDate(firstFutureDay),
-          lt: toLocalDateDate(params.windowEndExclusive),
-        },
-      },
-      { orderBy: { date: 'asc' } },
-    )
-    for (const row of rows) {
-      const date = fromDate(row.date)
-      committed.push({
-        source: 'committed',
-        date,
-        ledger: toLedgerTransaction(row),
-        transactionId: row.id,
-      })
-    }
-  }
-
-  if (params.includePlanned) {
-    // 只展开 [asOf+1, 窗口末日]：已过去的预算点位不会进来
-    const occurrences = await generatePredictedOccurrences(
-      firstFutureDay,
-      addDays(params.windowEndExclusive, -1),
-    )
-    for (const occurrence of occurrences) {
-      const date = fromDate(occurrence.date)
-      const type = budgetKindOf(occurrence.type)
-      plannedAll.push({
-        source: 'planned',
-        date,
-        ledger: {
-          id: `budget:${occurrence.budgetId}:${date}`,
-          ruleVersion: CURRENT_RULE_VERSION,
-          kind: type,
-          date,
-          amount: minor(occurrence.amount),
-          fee: ZERO_MINOR,
-          coupon: ZERO_MINOR,
-          accountId: occurrence.accountId,
-          toAccountId: occurrence.toAccountId,
-          categoryId: occurrence.categoryId,
-          relatedTransactionId: null,
-          relatedType: null,
-          excludeFromIncomeExpense: false,
-        },
-        occurrence: {
-          budgetId: occurrence.budgetId,
-          budgetName: occurrence.budgetName,
-          type,
-          amount: minor(occurrence.amount),
-          accountId: occurrence.accountId,
-          toAccountId: occurrence.toAccountId,
-          periodStart: fromDate(occurrence.periodStart),
-          periodEnd: fromDate(occurrence.periodEnd),
-        },
-      })
-    }
-  }
-
-  // 先于 O(n²) 的 occurrence 匹配检查总量，避免超范围请求把 CPU 打满。
-  assertEventBudget(plannedAll.length + committed.length)
-  const covered = matchOccurrences(plannedAll, committed)
-  const coveredEvents = new Set(covered.map((item) => item.event))
-  return {
-    planned: plannedAll.filter((event) => !coveredEvents.has(event)),
-    committed,
-    covered,
-  }
-}
-
-/** 区间 [start, end] 内被真实交易覆盖的预算点位。 */
-function coveredInRange(
-  covered: CoveredOccurrence[],
-  start: LocalDate,
-  end: LocalDate,
-): ProjectionCoveredOccurrence[] {
-  return covered
-    .filter((item) => item.event.date >= start && item.event.date <= end)
-    .map((item) => ({
-      budgetId: item.event.occurrence.budgetId,
-      budgetName: item.event.occurrence.budgetName,
-      type: item.event.occurrence.type,
-      date: item.event.date,
-      amount: item.event.occurrence.amount,
-      transactionId: item.transactionId,
-      transactionDate: item.transactionDate,
-    }))
 }
 
 // ===== 资产/负债 =====
@@ -314,9 +96,85 @@ function zeroBalance(): ProjectionBalance {
 
 async function balancesAt(accounts: Account[], dateExclusive: LocalDate): Promise<Map<string, number>> {
   if (accounts.length === 0) return new Map()
-  const target = toLocalDateDate(dateExclusive)
+  const target = dayStart(dateExclusive)
   const cache = await calculateBalancesBatch(accounts.map((account) => account.id), [target], accounts)
   return new Map(accounts.map((account) => [account.id, cache.get(account.id, target)]))
+}
+
+/** 账户对外展示值：资产取原值，负债取正数欠款（与资产负债表同一口径）。 */
+function accountLevelValue(type: string, balance: number): Minor {
+  return type === 'liability' ? minor(Math.abs(balance)) : minor(balance)
+}
+
+/** 账户变化量对外展示值：负债账户余额减少 = 欠款减少，所以要取负号。 */
+function accountLevelDelta(type: string, delta: number): Minor {
+  return type === 'liability' ? minor(-delta) : minor(delta)
+}
+
+/**
+ * 把账户级余额/增量展开成「账户 → 一级分类」明细。
+ * 负债账户的 committed / planned 是欠款变化量，total = actual + committed + planned。
+ */
+function buildAccountDetail(
+  accounts: AccountWithCategory[],
+  balances: Map<string, number>,
+  plannedDelta: Map<string, number>,
+  committedDelta: Map<string, number>,
+  touchedAccounts: ReadonlySet<string>,
+): { accounts: ProjectionAccountValue[]; categories: ProjectionCategoryValue[] } {
+  const accountValues: ProjectionAccountValue[] = []
+  for (const account of accounts) {
+    const type = account.type
+    if (type !== 'asset' && type !== 'liability') continue
+    const actual = accountLevelValue(type, balances.get(account.id) ?? 0)
+    const committed = accountLevelDelta(type, committedDelta.get(account.id) ?? 0)
+    const planned = accountLevelDelta(type, plannedDelta.get(account.id) ?? 0)
+    const isInvestment = account.category?.isInvestment ?? false
+    accountValues.push({
+      accountId: account.id,
+      name: account.name,
+      type,
+      categoryId: account.category?.id ?? 'uncategorized',
+      categoryName: account.category?.name ?? '未分类',
+      isInvestment,
+      actual,
+      committed,
+      planned,
+      total: minor(actual + committed + planned),
+      hasFutureEvents: touchedAccounts.has(account.id),
+      valuationNote: isInvestment ? 'transfer_schedule_only' : null,
+    })
+  }
+
+  const categoryMap = new Map<string, ProjectionCategoryValue>()
+  for (const value of accountValues) {
+    const account = accounts.find((item) => item.id === value.accountId)!
+    const key = `${value.type}:${value.categoryId}`
+    const existing = categoryMap.get(key)
+    if (existing) {
+      existing.actual = minor(existing.actual + value.actual)
+      existing.committed = minor(existing.committed + value.committed)
+      existing.planned = minor(existing.planned + value.planned)
+      existing.total = minor(existing.total + value.total)
+    } else {
+      categoryMap.set(key, {
+        categoryId: value.categoryId,
+        name: value.categoryName,
+        type: value.type,
+        sort: account.category?.sort ?? Number.MAX_SAFE_INTEGER,
+        actual: value.actual,
+        committed: value.committed,
+        planned: value.planned,
+        total: value.total,
+      })
+    }
+  }
+
+  const categories = [...categoryMap.values()].sort((left, right) => {
+    if (left.sort !== right.sort) return left.sort - right.sort
+    return left.name.localeCompare(right.name)
+  })
+  return { accounts: accountValues, categories }
 }
 
 /**
@@ -329,7 +187,7 @@ async function assetProjectionRange(
   params: ProjectionQueryParams,
   buckets: ProjectionBucket[],
 ): Promise<AssetProjectionResult> {
-  const accounts = await accountRepo.findMany({})
+  const accounts = await accountRepo.findMany({ include: { category: true } })
   const baseBalances = await balancesAt(accounts, addDays(params.asOf, 1))
   const base = aggregateBalances(accounts, baseBalances)
 
@@ -346,7 +204,7 @@ async function assetProjectionRange(
     ? null
     : await calculateBalancesBatch(
       accounts.map((account) => account.id),
-      historicalBuckets.map((bucket) => toLocalDateDate(addDays(bucket.end, 1))),
+      historicalBuckets.map((bucket) => dayStart(addDays(bucket.end, 1))),
       accounts,
     )
 
@@ -355,14 +213,16 @@ async function assetProjectionRange(
   let eventIndex = 0
   const plannedDelta = new Map<string, number>()
   const committedDelta = new Map<string, number>()
+  const touchedAccounts = new Set<string>()
 
   const points: AssetProjectionPoint[] = buckets.map((bucket) => {
     if (bucket.end <= params.asOf) {
-      const target = toLocalDateDate(addDays(bucket.end, 1))
+      const target = dayStart(addDays(bucket.end, 1))
       const balances = new Map(
         accounts.map((account) => [account.id, historicalCache?.get(account.id, target) ?? 0]),
       )
       const actual = aggregateBalances(accounts, balances)
+      const detail = buildAccountDetail(accounts, balances, new Map(), new Map(), new Set())
       return {
         granularity: bucket.granularity,
         label: bucket.label,
@@ -374,6 +234,8 @@ async function assetProjectionRange(
         committed: zeroBalance(),
         total: actual,
         covered: [],
+        accounts: detail.accounts,
+        categories: detail.categories,
       }
     }
 
@@ -381,11 +243,15 @@ async function assetProjectionRange(
       const event = futureEvents[eventIndex]!
       if (event.source === 'planned') applyEventToBalances(plannedDelta, event)
       else applyEventToBalances(committedDelta, event)
+      for (const posting of postingsOf(event.ledger)) {
+        if (posting.kind === 'account') touchedAccounts.add(posting.accountId)
+      }
       eventIndex += 1
     }
 
     const planned = aggregateBalances(accounts, plannedDelta)
     const committed = aggregateBalances(accounts, committedDelta)
+    const detail = buildAccountDetail(accounts, baseBalances, plannedDelta, committedDelta, touchedAccounts)
     return {
       granularity: bucket.granularity,
       label: bucket.label,
@@ -397,6 +263,8 @@ async function assetProjectionRange(
       committed,
       total: addBalance(base, addBalance(planned, committed)),
       covered: coveredInRange(events.covered, bucket.start, bucket.end),
+      accounts: detail.accounts,
+      categories: detail.categories,
     }
   })
 
@@ -508,11 +376,14 @@ async function cashFlowProjectionRange(
           { toAccountId: { in: cashIds } },
         ],
         date: {
-          gte: toLocalDateDate(firstBucket.start),
-          lt: toLocalDateDate(actualEndExclusive),
+          gte: dayStart(firstBucket.start),
+          lt: dayStart(actualEndExclusive),
         },
       },
-      { orderBy: { date: 'asc' } },
+      {
+        orderBy: { date: 'asc' },
+        include: { account: true, toAccount: true, category: true },
+      },
     )
     : []
   const actualEvents = actualRows.map((row) => ({
@@ -597,14 +468,103 @@ async function cashFlowProjectionRange(
     }
   })
 
+  const windowStart = buckets[0]!.start
+  const windowEnd = buckets[buckets.length - 1]!.end
+  const windowPlanned = events.planned.filter(
+    (event) => event.date >= windowStart && event.date <= windowEnd,
+  )
+  const windowCommitted = events.committed.filter(
+    (event) => event.date >= windowStart && event.date <= windowEnd,
+  )
+
+  let categoryMap = new Map<string, CategoryInfo>()
+  let accountMap = new Map<string, AccountInfo>()
+  if (windowPlanned.length > 0 || windowCommitted.length > 0) {
+    const categories = await transactionCategoryRepo.findMany({ include: { parent: true } })
+    categoryMap = new Map(categories.map((category) => [category.id, {
+      cashFlowType: category.cashFlowType,
+      name: category.name,
+      parentId: category.parentId,
+      level: category.parentId ? 2 : 1,
+    }]))
+    const allAccounts = await accountRepo.findMany({})
+    accountMap = new Map(allAccounts.map((account) => [account.id, { name: account.name }]))
+  }
+
+  const toPrediction = (event: ProjectionEvent): PredictionTransaction => ({
+    date: dayStart(event.date),
+    type: event.ledger.kind,
+    amount: event.ledger.amount,
+    note: null,
+    accountId: event.ledger.accountId ?? null,
+    toAccountId: event.ledger.toAccountId ?? null,
+    categoryId: event.ledger.categoryId ?? null,
+    budgetId: event.source === 'planned' ? event.occurrence.budgetId : event.transactionId,
+    budgetName: event.source === 'planned' ? event.occurrence.budgetName : '已排定',
+  })
+
+  const collectParams = {
+    cashAccountIds: cashIds,
+    categoryMap,
+    accountMap,
+    start: dayStart(windowStart),
+    end: dayEnd(windowEnd),
+  }
+  const actualItems = collectTransactions({ ...collectParams, transactions: actualRows, predictions: [] }).actualItems
+  const committedItems = collectTransactions({
+    ...collectParams,
+    transactions: [],
+    predictions: windowCommitted.map(toPrediction),
+  }).predictedItems
+  const plannedItems = collectTransactions({
+    ...collectParams,
+    transactions: [],
+    predictions: windowPlanned.map(toPrediction),
+  }).predictedItems
+
+  const byActivity = buildProjectionActivity(
+    aggregate(actualItems),
+    aggregate(committedItems),
+    aggregate(plannedItems),
+  )
+  const sankey = buildSankey({
+    transactions: actualRows,
+    predictions: [...windowCommitted.map(toPrediction), ...windowPlanned.map(toPrediction)],
+    cashAccountIds: cashIds,
+    categoryMap,
+    accountMap,
+    start: dayStart(windowStart),
+    end: dayEnd(windowEnd),
+  })
+
+  const sumFlow = (field: 'inflow' | 'outflow' | 'net'): ProjectionFlowValue =>
+    points.reduce(
+      (acc, point) => ({
+        actual: minor(acc.actual + point[field].actual),
+        planned: minor(acc.planned + point[field].planned),
+        committed: minor(acc.committed + point[field].committed),
+        total: minor(acc.total + point[field].total),
+      }),
+      { actual: ZERO_MINOR, planned: ZERO_MINOR, committed: ZERO_MINOR, total: ZERO_MINOR },
+    )
+
   return {
     asOf: params.asOf,
     granularity: params.granularity,
-    start: buckets[0]!.start,
-    end: buckets[buckets.length - 1]!.end,
+    start: windowStart,
+    end: windowEnd,
     bucketCount: buckets.length,
     startCash: points[0]!.startCash,
     endCash: points[points.length - 1]!.endCash,
+    cashInflow: sumFlow('inflow'),
+    cashOutflow: sumFlow('outflow'),
+    netCashFlow: sumFlow('net'),
+    byActivity,
+    sankey,
+    covered: coveredInRange(events.covered, windowStart, windowEnd),
+    predictionNote: windowPlanned.length > 0 || windowCommitted.length > 0
+      ? PREDICTION_NOTE_DEFAULT
+      : undefined,
     points,
   }
 }

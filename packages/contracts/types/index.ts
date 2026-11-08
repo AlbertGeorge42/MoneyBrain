@@ -523,6 +523,89 @@ export interface CashFlowReportData {
   predictionNote?: string
 }
 
+// ===== 未来收支明细（收支报表的预测区间复用） =====
+
+/** 三来源金额：planned 为 null 表示「该分类没有任何预算来源」，不用 0 冒充。 */
+export interface ProjectionSourceValue {
+  actual: Minor
+  committed: Minor
+  planned: Minor | null
+  total: Minor
+}
+
+export interface ProjectionCategoryDetail {
+  name: string
+  categoryId: string
+  hasChildren: boolean
+  sort: number
+  actual: Minor
+  committed: Minor
+  planned: Minor | null
+  total: Minor
+  /** 该分类（含子树）是否存在预算来源。 */
+  hasBudget: boolean
+  children?: ProjectionCategoryDetail[]
+}
+
+export interface IncomeExpenseProjectionPoint {
+  granularity: ProjectionGranularity
+  label: string
+  start: string
+  end: string
+  date: string
+  income: ProjectionSourceValue
+  expense: ProjectionSourceValue
+  balance: ProjectionSourceValue
+  /** 本桶计划点位被真实交易覆盖的 occurrence（已从 planned 剔除）。 */
+  covered: ProjectionCoveredOccurrence[]
+}
+
+export interface IncomeExpenseProjectionResult {
+  asOf: string
+  granularity: ProjectionGranularity
+  start: string
+  end: string
+  bucketCount: number
+  income: ProjectionSourceValue
+  expense: ProjectionSourceValue
+  balance: ProjectionSourceValue
+  incomeCategoryDetails: ProjectionCategoryDetail[]
+  expenseCategoryDetails: ProjectionCategoryDetail[]
+  points: IncomeExpenseProjectionPoint[]
+  predictionNote?: string
+}
+
+// ===== 未来现金流活动明细（现金流报表的预测区间复用） =====
+
+export interface ProjectionCashActivityItem {
+  categoryName: string
+  categoryId: string | null
+  parentId: string | null
+  level: number
+  direction: string
+  type: string
+  actual: Minor
+  committed: Minor
+  planned: Minor | null
+  total: Minor
+  children?: ProjectionCashActivityItem[]
+}
+
+export interface ProjectionCashActivity {
+  inflow: ProjectionFlowValue
+  outflow: ProjectionFlowValue
+  net: ProjectionFlowValue
+  items: ProjectionCashActivityItem[]
+}
+
+export interface ProjectionCashByActivity {
+  operating: ProjectionCashActivity
+  investing: ProjectionCashActivity
+  financing: ProjectionCashActivity
+  uncategorized: ProjectionCashActivity
+}
+
+
 // ===== 投资分析 =====
 
 export interface InvestmentAccountDetail {
@@ -883,6 +966,43 @@ export interface ProjectionCoveredOccurrence {
 }
 
 /**
+ * 推演桶内的账户级余额明细。
+ *
+ * - actual：桶末真实余额；负债账户为正数欠款。
+ * - committed / planned：相对 actual 的累计变化量；负债账户按「欠款变化」取负号。
+ * - total = actual + committed + planned（后端合成，前端不相加）。
+ * - hasFutureEvents=false 表示该账户在本桶结束前没有任何计划/已排定事件，余额不变。
+ * - valuationNote='transfer_schedule_only' 表示投资类账户只按买卖（转账）排期推演，
+ *   不含市值涨跌。
+ */
+export interface ProjectionAccountValue {
+  accountId: string
+  name: string
+  type: 'asset' | 'liability'
+  categoryId: string
+  categoryName: string
+  isInvestment: boolean
+  actual: Minor
+  committed: Minor
+  planned: Minor
+  total: Minor
+  hasFutureEvents: boolean
+  valuationNote: 'transfer_schedule_only' | null
+}
+
+/** 推演桶内的一级分类小计。 */
+export interface ProjectionCategoryValue {
+  categoryId: string
+  name: string
+  type: 'asset' | 'liability'
+  sort: number
+  actual: Minor
+  committed: Minor
+  planned: Minor
+  total: Minor
+}
+
+/**
  * 一行推演点位。
  *
  * - actual：asOf 当期真实余额（只含 date ≤ asOf 的交易；未来各点保持不变）
@@ -908,6 +1028,10 @@ export interface AssetProjectionPoint {
   total: ProjectionBalance
   /** 本桶计划点位被真实交易覆盖的 occurrence（已从 planned 剔除，金额只在 committed）。 */
   covered: ProjectionCoveredOccurrence[]
+  /** 本桶账户级明细（按账户排序）。 */
+  accounts: ProjectionAccountValue[]
+  /** 本桶一级分类小计（由账户明细聚合）。 */
+  categories: ProjectionCategoryValue[]
 }
 
 export interface AssetProjectionResult {
@@ -965,6 +1089,25 @@ export interface CashFlowProjectionResult {
   startCash: Minor
   /** 末个输出桶期末现金（= 逐桶净额累加）。 */
   endCash: Minor
+  /** 窗口内现金流入（三来源）。 */
+  cashInflow: ProjectionFlowValue
+  /** 窗口内现金流出（三来源，正数）。 */
+  cashOutflow: ProjectionFlowValue
+  /** 窗口净现金流（三来源）。 */
+  netCashFlow: ProjectionFlowValue
+  /** 窗口内经营 / 投资 / 筹资 / 未分类活动明细。 */
+  byActivity: ProjectionCashByActivity
+  /** 窗口级桑基图（实际 + 已排定 + 计划）。 */
+  sankey: {
+    nodes: Array<{
+      name: string
+      category?: 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
+    }>
+    links: SankeyLink[]
+  }
+  /** 窗口内被真实交易覆盖的预算点位。 */
+  covered: ProjectionCoveredOccurrence[]
+  predictionNote?: string
   points: CashFlowProjectionPoint[]
 }
 

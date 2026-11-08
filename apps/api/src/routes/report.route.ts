@@ -9,7 +9,7 @@ import {
   validateDateQuery,
   validateDateRange,
 } from '../common/index.js'
-import { generateBalanceSheet, generateIncomeExpense, generateCashFlow, generateInvestmentAnalysis } from '../services/report/index.js'
+import { generateBalanceSheet, generateIncomeExpense, generateIncomeExpenseProjection, generateCashFlow, generateInvestmentAnalysis } from '../services/report/index.js'
 import { getCashFlowProjection } from '../services/projection.service.js'
 
 const router = Router()
@@ -23,6 +23,14 @@ router.get('/income-expense', validateRequest(validateDateRange), asyncHandler(a
   const includePredictions = req.query.includePredictions === 'true'
   const includeExcluded = req.query.includeExcluded === 'true'
   const result = await generateIncomeExpense(String(req.query.startDate), String(req.query.endDate), includePredictions, includeExcluded)
+  return success(res, result)
+}))
+
+router.get('/income-expense-projection', asyncHandler(async (req, res) => {
+  const asOf = parseAsOfQuery(req.query.asOf)
+  const window = parseProjectionWindowQuery(req.query, asOf)
+  const includeExcluded = parseBooleanQuery(req.query.includeExcluded, 'includeExcluded', false)
+  const result = await generateIncomeExpenseProjection({ asOf, ...window, includeExcluded })
   return success(res, result)
 }))
 

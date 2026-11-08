@@ -15,6 +15,8 @@ export type {
   ReportCategoryDetail,
 } from '../../../../../packages/contracts/types/index.js'
 
+export { generateIncomeExpenseProjection } from './income-expense-projection.service.js'
+
 export { generateCashFlow } from './cash-flow.service.js'
 export type { CashFlowActivity, CashFlowResult } from './cash-flow-types.js'
 

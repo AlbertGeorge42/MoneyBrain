@@ -13,6 +13,148 @@ import {
   ReportValue,
   TransactionWithIncludes,
 } from './cash-flow-types.js'
+import type {
+  ProjectionCashActivity,
+  ProjectionCashActivityItem,
+  ProjectionCashByActivity,
+  ProjectionFlowValue,
+} from '../../../../../packages/contracts/types/index.js'
+
+type ActivityKey = 'operating' | 'investing' | 'financing' | 'uncategorized'
+
+function projectionFlowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionFlowValue {
+  return { actual, planned, committed, total: minor(actual + planned + committed) }
+}
+
+/**
+ * 合并三来源的活动明细。
+ *
+ * - 活动级 inflow / outflow 用正数（与现金流推演点位同口径）；
+ * - item 的 amount / actual / committed 保留既有符号约定（流入为正、流出为负），
+ *   planned 为 null 表示该分类没有任何预算来源。
+ */
+export function buildProjectionActivity(
+  actual: AggregatedFlows,
+  committed: AggregatedFlows,
+  planned: AggregatedFlows,
+): ProjectionCashByActivity {
+  const pick = (flows: AggregatedFlows, key: ActivityKey): CashFlowActivityMinor => flows[key]
+
+  const buildItems = (key: ActivityKey): ProjectionCashActivityItem[] => {
+    interface ItemState {
+      categoryId: string | null
+      parentId: string | null
+      level: number
+      categoryName: string
+      type: string
+      direction: string
+      actual: Minor
+      committed: Minor
+      planned: Minor | null
+    }
+    const itemMap = new Map<string, ItemState>()
+    const addSource = (
+      source: 'actual' | 'committed' | 'planned',
+      items: CashFlowActivityMinor['items'],
+    ) => {
+      for (const item of items) {
+        const itemKey = `${item.categoryName}|${item.type}|${item.direction}`
+        const existing = itemMap.get(itemKey)
+        if (existing) {
+          if (source === 'actual') existing.actual = minor(existing.actual + item.amount)
+          else if (source === 'committed') existing.committed = minor(existing.committed + item.amount)
+          else existing.planned = minor((existing.planned ?? 0) + item.amount)
+        } else {
+          itemMap.set(itemKey, {
+            categoryId: item.categoryId,
+            parentId: item.parentId,
+            level: item.level,
+            categoryName: item.categoryName,
+            type: item.type,
+            direction: item.direction,
+            actual: source === 'actual' ? item.amount : minor(0),
+            committed: source === 'committed' ? item.amount : minor(0),
+            planned: source === 'planned' ? item.amount : null,
+          })
+        }
+      }
+    }
+
+    addSource('actual', pick(actual, key).items)
+    addSource('committed', pick(committed, key).items)
+    addSource('planned', pick(planned, key).items)
+
+    const merged = [...itemMap.values()]
+    const level1 = merged.filter((item) => item.level === 1 || !item.parentId)
+    const childrenMap = buildChildrenMap(
+      merged.filter((item) => item.parentId).map((item) => ({ ...item, id: item.categoryId ?? '' })),
+    )
+
+    return level1.map((item) => {
+      const children = (childrenMap.get(item.categoryId) ?? []).map((child) => ({
+        categoryName: child.categoryName,
+        categoryId: child.categoryId,
+        parentId: child.parentId,
+        level: child.level,
+        direction: child.direction,
+        type: child.type,
+        actual: child.actual,
+        committed: child.committed,
+        planned: child.planned,
+        total: minor(child.actual + child.committed + (child.planned ?? 0)),
+      }))
+
+      const actualTotal = minor(item.actual + children.reduce((sum, child) => sum + child.actual, 0))
+      const committedTotal = minor(item.committed + children.reduce((sum, child) => sum + child.committed, 0))
+      const plannedChildren = children.filter((child) => child.planned !== null)
+      const plannedTotal = item.planned === null && plannedChildren.length === 0
+        ? null
+        : minor((item.planned ?? 0) + plannedChildren.reduce((sum, child) => sum + (child.planned ?? 0), 0))
+
+      return {
+        categoryName: item.categoryName,
+        categoryId: item.categoryId,
+        parentId: item.parentId,
+        level: item.level,
+        direction: item.direction,
+        type: item.type,
+        actual: actualTotal,
+        committed: committedTotal,
+        planned: plannedTotal,
+        total: minor(actualTotal + committedTotal + (plannedTotal ?? 0)),
+        children: children.length > 0 ? children : undefined,
+      }
+    })
+  }
+
+  const buildActivity = (key: ActivityKey): ProjectionCashActivity => {
+    const a = pick(actual, key)
+    const c = pick(committed, key)
+    const p = pick(planned, key)
+    // outflow 在 aggregate 里以负号累计，对外统一成正数。
+    const inflow = projectionFlowValue(a.inflow, p.inflow, c.inflow)
+    const outflow = projectionFlowValue(minor(-a.outflow), minor(-p.outflow), minor(-c.outflow))
+    return {
+      inflow,
+      outflow,
+      net: projectionFlowValue(
+        minor(inflow.actual - outflow.actual),
+        minor(inflow.planned - outflow.planned),
+        minor(inflow.committed - outflow.committed),
+      ),
+      items: buildItems(key),
+    }
+  }
+
+  return {
+    operating: buildActivity('operating'),
+    investing: buildActivity('investing'),
+    financing: buildActivity('financing'),
+    uncategorized: buildActivity('uncategorized'),
+  }
+}
+
+
 
 // 桑基图节点类型（与 shared CashFlowReportData.sankey.nodes 对齐）
 type SankeyNode = CashFlowResult['sankey']['nodes'][number]
