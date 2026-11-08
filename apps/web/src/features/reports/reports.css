@@ -312,6 +312,21 @@
   grid-template-columns: repeat(4, 1fr);
 }
 
+/* 820 主栏 528px：1.6fr 主格内容宽 151px，而 28px 的 +¥11,124.90 实宽 172px，
+   16px 内距吃掉差额后仍有 5.4px 压过 1px 分隔线。窄桌面改为金额独占一行，不截断、不换行、不缩字号。 */
+@media (min-width: 768px) and (max-width: 900px) {
+  .mb-rp-metrics:not(.is-flat) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .mb-rp-metrics:not(.is-flat) .mb-rp-metric.is-main {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--mb-color-border);
+  }
+  .mb-rp-metrics:not(.is-flat) .mb-rp-metric.is-main + .mb-rp-metric {
+    border-left: 0;
+  }
+}
+
 /* ===== 卡片 / 标题 ===== */
 
 .mb-rp-sec-head {
