@@ -36,24 +36,23 @@ vi.mock('../../src/prisma.js', () => {
 })
 
 import { prisma } from '../../src/prisma.js'
+import { csvBuffer } from '../helpers/csv.js'
 const mockPrisma = prisma as any
 
-function makeSnapshotsCsv(rows: string[][]): Buffer {
-  const header = [
-    '账户名称',
-    '快照日期',
-    '账户余额',
-    '上次快照日期',
-    '备注',
-    '资产类别',
-    '市值',
-    '期内净流入',
-    '排序'
-  ]
-  const lines = [header.join(','), ...rows.map(r => r.join(','))]
-  // 添加 UTF-8 BOM
-  return Buffer.from('\ufeff' + lines.join('\n'), 'utf-8')
-}
+const SNAPSHOT_CSV_HEADER = [
+  '账户名称',
+  '快照日期',
+  '账户余额',
+  '上次快照日期',
+  '备注',
+  '资产类别',
+  '市值',
+  '期内净流入',
+  '排序',
+]
+
+const makeSnapshotsCsv = (rows: string[][]): Buffer =>
+  csvBuffer(rows, { header: SNAPSHOT_CSV_HEADER, bom: true })
 
 describe('importSnapshotsFromCsv', () => {
   beforeEach(() => {

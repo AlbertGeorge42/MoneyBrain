@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { ZipArchive } from 'archiver'
+import { csvBuffer, TRANSACTION_CSV_HEADER } from '../helpers/csv.js'
 
 const { prisma } = await import('../../src/prisma.js')
 const { previewImport, importBackup } = await import('../../src/services/import/smart-import.service.js')
@@ -7,20 +8,14 @@ const { listImportBatches, rollbackImportBatch } = await import('../../src/servi
 const { clearAllData } = await import('../../src/services/clear-data.service.js')
 const { exportFullBackup } = await import('../../src/services/export/index.js')
 
-const HEADER = 'ID,时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券,记账者,账单标记,标签,账单图片,关联账单,口径版本'
-
-function buildCsv(rows: string[]): Buffer {
-  return Buffer.from('\uFEFF' + [HEADER, ...rows].join('\n'), 'utf-8')
-}
-
-function row(id: string, date: string, category: string, amount = '100.00', account = '新账户') {
+function row(id: string, date: string, category: string, amount = '100.00', account = '新账户'): string[] {
   return [
     id, date, category, '', '支出', amount, 'CNY', account, '', `导入-${id}`,
     '', '0.00', '0.00', 'MoneyBrain', '', '', '', '', '1',
-  ].join(',')
+  ]
 }
 
-const SAMPLE_ROWS = [
+const SAMPLE_ROWS: string[][] = [
   row('t1', '2026-03-01 10:00:00', '测试分类'),
   row('t2', '2026-03-02 10:00:00', '测试分类'),
   row('t3', '2026-03-03 10:00:00', '测试分类'),
@@ -28,7 +23,7 @@ const SAMPLE_ROWS = [
   row('t5', '2026-03-05 10:00:00', '测试分类'),
 ]
 
-const sampleCsv = () => buildCsv(SAMPLE_ROWS)
+const sampleCsv = () => csvBuffer(SAMPLE_ROWS, { header: TRANSACTION_CSV_HEADER, bom: true })
 
 async function truncateAll(): Promise<void> {
   await prisma.importBatch.deleteMany()

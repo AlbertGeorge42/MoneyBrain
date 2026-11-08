@@ -42,18 +42,14 @@ vi.mock('../../src/prisma.js', () => {
 })
 
 import { prisma } from '../../src/prisma.js'
+import { csvBuffer } from '../helpers/csv.js'
 
 const mockPrisma = prisma as any
 
-function makeCsvRow(fields: string[]): string {
-  return fields.join(',')
-}
+const IMPORT_CSV_HEADER = ['ID', '时间', '分类', '二级分类', '类型', '金额', '币种', '账户1', '账户2', '备注', '已报销', '手续费', '优惠券', '记账者', '账单标记', '标签', '账单图片', '关联账单']
 
-function makeCsvBuffer(rows: string[][]): Buffer {
-  const header = ['ID', '时间', '分类', '二级分类', '类型', '金额', '币种', '账户1', '账户2', '备注', '已报销', '手续费', '优惠券', '记账者', '账单标记', '标签', '账单图片', '关联账单']
-  const lines = [header.join(','), ...rows.map(r => makeCsvRow(r))]
-  return Buffer.from(lines.join('\n'), 'utf-8')
-}
+const makeCsvBuffer = (rows: string[][]): Buffer =>
+  csvBuffer(rows, { header: IMPORT_CSV_HEADER })
 
 describe('import.service', () => {
   beforeEach(() => {

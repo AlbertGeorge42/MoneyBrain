@@ -7,6 +7,8 @@ const {
   resolveOverwriteScope,
 } = await import('../../src/services/import/smart-import.service.js')
 
+import { csvBuffer, TRANSACTION_CSV_HEADER } from '../helpers/csv.js'
+
 /**
  * 预览与正式导入的一致性测试。
  *
@@ -14,16 +16,7 @@ const {
  * 所以这里的断言就是「预览数字必须等于实际结果」这条不变量的守卫。
  */
 
-const TRANSACTION_CSV_HEADER = [
-  'ID', '时间', '分类', '二级分类', '类型', '金额', '币种',
-  '账户1', '账户2', '备注', '已报销', '手续费', '优惠券',
-  '记账者', '账单标记', '标签', '账单图片', '关联账单', '口径版本',
-]
-
-function makeCsv(rows: string[][]): Buffer {
-  const lines = [TRANSACTION_CSV_HEADER.join(','), ...rows.map((r) => r.join(','))]
-  return Buffer.from(lines.join('\n'), 'utf-8')
-}
+const makeCsv = (rows: string[][]) => csvBuffer(rows, { header: TRANSACTION_CSV_HEADER })
 
 async function cleanAll() {
   await prisma.$transaction([
