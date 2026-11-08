@@ -416,8 +416,6 @@ export interface BalanceSheetReportData {
   assets: ReportValue
   liabilities: ReportValue
   netWorth: ReportValue
-  assetsByCategory: Record<string, Minor>
-  liabilitiesByCategory: Record<string, Minor>
   assetNodes: BalanceSheetCategoryNode[]
   liabilityNodes: BalanceSheetCategoryNode[]
   predictionNote?: string
@@ -456,13 +454,6 @@ export interface IncomeExpenseReportData {
   expenseByCategory: Record<string, Minor>
   incomeCategoryDetails: ReportCategoryDetail[]
   expenseCategoryDetails: ReportCategoryDetail[]
-  startAssets: ReportValue
-  startLiabilities: ReportValue
-  startNetWorth: ReportValue
-  endAssets: ReportValue
-  endLiabilities: ReportValue
-  endNetWorth: ReportValue
-  assetChange: ReportValue
   predictionNote?: string
 }
 
@@ -503,7 +494,6 @@ export interface CashFlowReportData {
   /** 平账（对账调整）净额，单列展示，不计入生活/投资/筹资流量。 */
   reconciliation: ReportValue
   flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
-  cashAccounts: string[]
   startCash: ReportValue
   endCash: ReportValue
   cashChange: ReportValue

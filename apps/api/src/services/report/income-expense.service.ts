@@ -14,7 +14,7 @@ import {
   ZERO_MINOR,
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
-import { getPredictionsIfFuture, computePredictedAssetsLiabilities, PREDICTION_NOTE_DEFAULT } from './prediction.js'
+import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT } from './prediction.js'
 import { sumAssetsLiabilities } from './account-sum.js'
 import { resolveReportPeriod } from './period.js'
 import type {
@@ -237,33 +237,8 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     (a) => accountGetValue(a, endDayNext)
   )
 
-  const actualStartAssets = startResult.assets
-  const actualStartLiabilitiesBalance = startResult.liabilities
-  const actualStartLiabilities = minor(Math.abs(actualStartLiabilitiesBalance))
   const actualStartNetWorth = startResult.netWorth
-
-  const actualEndAssets = endResult.assets
-  const actualEndLiabilitiesBalance = endResult.liabilities
-  const actualEndLiabilities = minor(Math.abs(actualEndLiabilitiesBalance))
   const actualEndNetWorth = endResult.netWorth
-
-  // 预测资产/负债变动（统一调用 computePredictedAssetsLiabilities，
-  // 历史/当前/未来场景共用同一份逻辑）
-  // timePoint 减 1ms：filterPredictionsUpTo 用 <=，而 calculateBalancesBatch 用 <，
-  // 减 1ms 使两者语义对齐，避免期初/期末当天的预测被重复计算或遗漏。
-  const accountLookup = new Map(accounts.map(a => [a.id, a]))
-  const startPredicted = computePredictedAssetsLiabilities(predictions, new Date(start.getTime() - 1), accountLookup)
-  const endPredicted = computePredictedAssetsLiabilities(predictions, new Date(endDayNext.getTime() - 1), accountLookup)
-
-  const predictedStartAssets = startPredicted.assets
-  const predictedStartLiabilities = startPredicted.liabilities
-  const predictedStartNetWorth = startPredicted.netWorth
-  const predictedEndAssets = endPredicted.assets
-  const predictedEndLiabilities = endPredicted.liabilities
-  const predictedEndNetWorth = endPredicted.netWorth
-
-  const predictedNetWorthChange = minor(predictedEndNetWorth - predictedStartNetWorth)
-  const actualAssetChange = minor(actualEndNetWorth - actualStartNetWorth)
 
   const incomeByCategoryResult: Record<string, Minor> = { ...incomeByCategory }
   const expenseByCategoryResult: Record<string, Minor> = { ...expenseByCategory }
@@ -352,13 +327,6 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     expenseByCategory: expenseByCategoryResult,
     incomeCategoryDetails,
     expenseCategoryDetails,
-    startAssets: { actual: actualStartAssets, predicted: predictedStartAssets },
-    startLiabilities: { actual: actualStartLiabilities, predicted: predictedStartLiabilities },
-    startNetWorth: { actual: actualStartNetWorth, predicted: predictedStartNetWorth },
-    endAssets: { actual: actualEndAssets, predicted: predictedEndAssets },
-    endLiabilities: { actual: actualEndLiabilities, predicted: predictedEndLiabilities },
-    endNetWorth: { actual: actualEndNetWorth, predicted: predictedEndNetWorth },
-    assetChange: { actual: actualAssetChange, predicted: predictedNetWorthChange },
     predictionNote,
   }
 }

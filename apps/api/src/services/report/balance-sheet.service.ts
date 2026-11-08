@@ -77,18 +77,6 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
 
   const predictedNetWorth = minor(predictedAssets - predictedLiabilities)
 
-  const assetsByCategory: Record<string, Minor> = {}
-  const liabilitiesByCategory: Record<string, Minor> = {}
-
-  accountBalances.forEach(account => {
-    const categoryName = account.category?.name || '未分类'
-    if (account.type === 'asset') {
-      assetsByCategory[categoryName] = minor((assetsByCategory[categoryName] ?? 0) + account.balance)
-    } else {
-      liabilitiesByCategory[categoryName] = minor((liabilitiesByCategory[categoryName] ?? 0) + Math.abs(account.balance))
-    }
-  })
-
   const categoryNodeMap = new Map<string, BalanceSheetCategoryNode>()
 
   accountBalances.forEach(account => {
@@ -151,8 +139,6 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     assets: { actual: assets, predicted: predictedAssets },
     liabilities: { actual: liabilities, predicted: predictedLiabilities },
     netWorth: { actual: netWorth, predicted: predictedNetWorth },
-    assetsByCategory,
-    liabilitiesByCategory,
     assetNodes,
     liabilityNodes,
     predictionNote,

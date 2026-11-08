@@ -46,13 +46,6 @@ const reportData: IncomeExpenseReportData = {
   expenseByCategory: { food: -2_800 },
   incomeCategoryDetails: [],
   expenseCategoryDetails: [],
-  startAssets: value(0),
-  startLiabilities: value(0),
-  startNetWorth: value(0),
-  endAssets: value(2_800),
-  endLiabilities: value(0),
-  endNetWorth: value(2_800),
-  assetChange: value(2_800),
 }
 
 describe('mapFlowReport 负向支出显示', () => {

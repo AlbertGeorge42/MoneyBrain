@@ -58,13 +58,6 @@ const reportData: IncomeExpenseReportData = {
       sort: 0,
     },
   ],
-  startAssets: value(0),
-  startLiabilities: value(0),
-  startNetWorth: value(0),
-  endAssets: value(2_800),
-  endLiabilities: value(0),
-  endNetWorth: value(2_800),
-  assetChange: value(2_800),
 }
 
 describe('mapFlowReport 分类构成', () => {
