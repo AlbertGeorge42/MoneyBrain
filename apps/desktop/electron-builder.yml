@@ -1,0 +1,35 @@
+# MoneyBrain Electron 打包配置（最小可运行版本）
+# 输入目录由 scripts/stage-app.mjs 生成；不要直接把仓库根目录当 app。
+appId: com.moneybrain.desktop
+productName: MoneyBrain
+directories:
+  app: build/app
+  output: release
+files:
+  - "**/*"
+# electron-builder 的生产依赖收集会跳过隐藏目录 node_modules/.prisma（实测打包后缺失，
+# 导致 API 的 ESM 命名导入 @prisma/client 失败），打包后用 afterPack 钩子显式补拷。
+afterPack: scripts/after-pack.cjs
+# 实测：asar + ELECTRON_RUN_AS_NODE 下，API 的 ESM 入口 import '@prisma/client'
+# 报 "does not provide an export named 'PrismaClient'"（Node 24 / Electron 45）。
+# 最小产物先用 asar:false（全部真实文件）；正式版若要减体积/防篡改，
+# 需验证「整个 node_modules 与 api 目录 unpack」或改 CJS 入口后再切回 asar。
+asar: false
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: MoneyBrain-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  # 卸载不删账本：userData 是用户数据，不属于应用安装目录。
+  deleteAppDataOnUninstall: false
+  artifactName: MoneyBrain-Setup-${version}.${ext}
+portable:
+  artifactName: MoneyBrain-Portable-${version}.${ext}

@@ -17,6 +17,8 @@ test-results*/
 # Production
 dist/
 build/
+# Electron 打包产物（安装器 / 免安装目录，体积大且可重新生成）
+apps/desktop/release/
 
 # Misc
 .DS_Store

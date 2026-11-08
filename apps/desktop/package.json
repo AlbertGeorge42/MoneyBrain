@@ -1,0 +1,16 @@
+{
+  "name": "@moneybrain/desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "MoneyBrain Electron 桌面壳（最小可运行产物）",
+  "type": "module",
+  "scripts": {
+    "stage": "node scripts/stage-app.mjs",
+    "pack": "node scripts/stage-app.mjs && electron-builder --config electron-builder.yml --dir",
+    "dist": "node scripts/stage-app.mjs && electron-builder --config electron-builder.yml"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0"
+  }
+}
