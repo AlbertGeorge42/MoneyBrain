@@ -73,26 +73,11 @@ function MetricValue({ metric }: { metric: ReportMetric }) {
 export function MetricStrip({
   device,
   metrics,
-  flat = false,
 }: {
   device: DeviceMode
   metrics: ReportMetric[]
-  flat?: boolean
 }) {
   const [main, ...rest] = metrics
-  if (flat) {
-    return (
-      <section className="mb-rp-metrics is-flat" data-device={device} aria-label="本期指标">
-        {metrics.map((metric) => (
-          <div className="mb-rp-metric" key={metric.label}>
-            <MetricLabel metric={metric} />
-            <MetricValue metric={metric} />
-          </div>
-        ))}
-      </section>
-    )
-  }
-
   return (
     <section className="mb-rp-metrics" data-device={device} aria-label="本期指标">
       {main && (

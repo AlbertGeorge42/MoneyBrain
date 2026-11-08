@@ -101,7 +101,7 @@ export function CashView({
 
   return (
     <>
-      <MetricStrip device={device} metrics={report.metrics} flat />
+      <MetricStrip device={device} metrics={report.metrics} />
       {report.predictionNote && <p className="mb-rp-predict-note">{report.predictionNote}</p>}
       {device === 'desktop' ? (
         <>
