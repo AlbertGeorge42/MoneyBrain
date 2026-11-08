@@ -29,6 +29,7 @@ import { todayLocal } from '@/features/overview/apiLedger'
 import type { TxType } from '@/features/overview/model'
 import { RecycleBinCountProbe } from './RecycleBinSection'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
+import { PageShell } from '@/features/shared/skeleton/PageShell'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import {
   readDisplaySettings,
@@ -607,10 +608,18 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   }
 
   if (dataState === 'loading') {
-    return <LoadingSkeleton device={device} variant="settings" />
+    return (
+      <PageShell>
+        <LoadingSkeleton device={device} variant="settings" />
+      </PageShell>
+    )
   }
   if (dataState === 'error') {
-    return <ErrorPanel onRetry={onRetry} />
+    return (
+      <PageShell>
+        <ErrorPanel onRetry={onRetry} />
+      </PageShell>
+    )
   }
 
   const empty = dataState === 'empty'
@@ -631,27 +640,22 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       </HfButton>
     </section>
   ) : device === 'desktop' ? (
-    <>
-      <header className="mb-set-head">
-        <h1 className="mb-set-title">设置</h1>
-      </header>
-      <div className="mb-set-layout">
-        <SettingsDesktopNav
-          active={active}
-          onSelect={setActive}
-          apiMode={apiMode}
-          trashCount={trashCount}
-        />
-        <section className="mb-set-panel" aria-labelledby="mb-set-panel-title">
-          <div className="mb-set-panel-head">
-            <h2 id="mb-set-panel-title" className="mb-set-panel-title">
-              {sectionMeta(active).label}
-            </h2>
-          </div>
-          {renderSection(active)}
-        </section>
-      </div>
-    </>
+    <div className="mb-set-layout">
+      <SettingsDesktopNav
+        active={active}
+        onSelect={setActive}
+        apiMode={apiMode}
+        trashCount={trashCount}
+      />
+      <section className="mb-set-panel" aria-labelledby="mb-set-panel-title">
+        <div className="mb-set-panel-head">
+          <h2 id="mb-set-panel-title" className="mb-set-panel-title">
+            {sectionMeta(active).label}
+          </h2>
+        </div>
+        {renderSection(active)}
+      </section>
+    </div>
   ) : (
     <>
       <SettingsMobileList onOpen={setOpenSection} summaries={summaries} />
@@ -677,7 +681,18 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   return (
     <div className="mb-set-page" data-device={device}>
       {apiMode && <RecycleBinCountProbe ledger={ledger} onCount={setTrashCount} />}
-      {body}
+      <PageShell
+        head={
+          empty || device !== 'desktop' ? undefined : (
+            <header className="mb-set-head">
+              <h1 className="mb-set-title">设置</h1>
+              <p className="mb-page-sub">数据本地优先 · 自动备份可选</p>
+            </header>
+          )
+        }
+      >
+        {body}
+      </PageShell>
       <LedgerConfigSheets
         controller={config}
         device={device}

@@ -7,6 +7,7 @@
 import { HardDriveDownload } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSwitch } from '@/features/shared/HfSwitch'
+import { SettingRow } from '@/features/shared/skeleton/SettingRow'
 import type { AutoBackupConfig } from '@/services/api'
 
 interface BackupSectionProps {
@@ -89,22 +90,22 @@ export function BackupSection({
     <div className="mb-set-data">
       <section className="mb-set-datacard">
         {head}
-        <div className="mb-set-capability-row">
-          <div className="mb-set-capability-copy">
-            <span className="mb-set-name">开启自动备份</span>
-            <span className="mb-set-meta">
-              {effectiveEnabled
-                ? `已开启 · 距上次成功超过 ${effectiveIntervalHours} 小时时执行`
-                : '未开启'}
-            </span>
-          </div>
-          <HfSwitch
-            variant="settings"
-            checked={effectiveEnabled}
-            onChange={onEnabledChange}
-            ariaLabel="开启自动备份"
-          />
-        </div>
+        <SettingRow
+          label="开启自动备份"
+          description={
+            effectiveEnabled
+              ? `已开启 · 距上次成功超过 ${effectiveIntervalHours} 小时时执行`
+              : '未开启'
+          }
+          control={
+            <HfSwitch
+              variant="settings"
+              checked={effectiveEnabled}
+              onChange={onEnabledChange}
+              ariaLabel="开启自动备份"
+            />
+          }
+        />
         <label className="mb-set-field">
           <span className="mb-set-label">备份目录（绝对路径）</span>
           <input

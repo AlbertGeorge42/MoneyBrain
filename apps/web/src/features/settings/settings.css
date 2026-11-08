@@ -1077,7 +1077,7 @@
   justify-content: space-between;
   gap: var(--mb-s-2);
   flex: none;
-  min-height: 52px;
+  min-height: 56px;
   padding: 0 var(--mb-s-3);
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   background: var(--mb-color-surface-raised);
@@ -1455,29 +1455,10 @@
 
 /* ===== 自动备份 ===== */
 
-.mb-set-capability-row {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-2);
-  width: 100%;
-  min-height: var(--mb-btn-h-lg);
-}
-
-.mb-set-capability-row.is-disabled {
-  opacity: 0.7;
-}
-
-.mb-set-capability-copy {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-width: 0;
-  gap: 2px;
-}
-
-.mb-set-capability-control {
-  flex: none;
-  width: 120px;
+/* 能力行位于卡片内距 16 的容器里：左右内距由卡片提供，行只负责垂直节奏。 */
+.mb-set-datacard > .mb-setting-row {
+  align-self: stretch;
+  padding-inline: 0;
 }
 
 .mb-set-gap-tag {
@@ -1550,8 +1531,4 @@
 
 .mb-set-page[data-device='mobile'] .mb-set-switch.is-on .mb-set-switch-thumb {
   transform: translateX(24px);
-}
-
-.mb-set-page[data-device='mobile'] .mb-set-capability-control {
-  width: 104px;
 }
