@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { LedgerTransaction } from './model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
+import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { AccountEntry } from './AccountEntry'
 import { BudgetCard } from './BudgetCard'
 import { ExpenseCategoryPie, type ExpenseCategoryDrill } from './ExpenseCategoryPie'
@@ -130,28 +131,25 @@ export function OverviewPage({
 
   if (dataState === 'loading') {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
         <LoadingSkeleton device={device} />
-      </>
+      </PageShell>
     )
   }
 
   if (dataState === 'empty') {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
         <ColdStartGuide variant="overview" onPrimary={onCreateAccount} onImport={onImport} />
-      </>
+      </PageShell>
     )
   }
 
   if (dataState === 'error') {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
         <ErrorPanel onRetry={onRetry} />
-      </>
+      </PageShell>
     )
   }
 
@@ -174,8 +172,7 @@ export function OverviewPage({
 
   if (device === 'mobile') {
     return (
-      <>
-        <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
+      <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
         <MobileHero summary={summary} />
         <MobileSnapshots summary={summary} />
         <AccountEntry
@@ -203,13 +200,12 @@ export function OverviewPage({
           onOpenDetail={onOpenDetail}
           onOpenAll={onOpenTransactions}
         />
-      </>
+      </PageShell>
     )
   }
 
   return (
-    <>
-      <PageHead device={device} dataState={dataState} periodLabel={periodLabel} />
+    <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
       <NetWorthHero summary={summary} />
       <AccountEntry
         summary={summary}
@@ -240,6 +236,6 @@ export function OverviewPage({
           colorUniverse={categoryUniverse}
         />
       </div>
-    </>
+    </PageShell>
   )
 }
