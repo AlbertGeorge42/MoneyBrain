@@ -5,23 +5,122 @@
  * 逐账户 + 总账双重守恒；现金账户之间转账画成账户 → 账户 link；
  * 每条 link 与每个节点都有 ≥24px 命中带；390 不渲染桑基，仍用 Top5 横条。
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
-import { ToastProvider } from '@/features/shared/toast'
-import { createSeedLedger } from '@/dev-fixtures/seed'
-import { ReportsPage } from '@/features/reports/ReportsPage'
+import { mapCashReport } from '@/features/reports/apiReports'
+import { CashView } from '@/features/reports/CashView'
 import { CashSankeyChart } from '@/features/reports/CashSankey'
-import { deriveCashReport } from '@/features/reports/reportsModel'
-import { assertAccountConservation, assertCashSankeyConservation, deriveCashSankey } from '@/features/reports/cashSankeyModel'
+import {
+  assertAccountConservation,
+  assertCashSankeyConservation,
+  deriveCashSankey,
+} from '@/features/reports/cashSankeyModel'
+import { DEFAULT_REPORT_SETTINGS } from '@/features/reports/reportSettings'
 import type { DeviceMode } from '@/features/shared/types'
+import { makeLedger } from '../helpers/ledger'
 
-const ledger = createSeedLedger()
-const report = deriveCashReport(ledger, '2026-10-01', '2026-10-31')
+const FROM = '2026-10-01'
+const TO = '2026-10-31'
+
+/** 与后端现金流 DTO 完全对得上的账本：收入 5 万、教育 2 万、转账 1 万（手续费 200）、修正 -240。 */
+const LEDGER = makeLedger({
+  accounts: [
+    { id: 'wx', name: '微信零钱', kind: 'cash', balance: 119_560 },
+    { id: 'zfb', name: '支付宝', kind: 'cash', balance: 60_000 },
+  ],
+  categories: [
+    { id: 'salary', name: '工资', type: 'income' },
+    { id: 'edu', name: '教育', type: 'expense' },
+    { id: 'fee', name: '手续费', type: 'expense' },
+    { id: 'other', name: '其他', type: 'expense' },
+    { id: 'move', name: '账户互转', type: 'transfer' },
+  ],
+  transactions: [
+    {
+      id: 't1',
+      date: '2026-10-05',
+      type: 'income',
+      categoryId: 'salary',
+      note: '',
+      accountId: 'wx',
+      amount: 50_000,
+    },
+    {
+      id: 't2',
+      date: '2026-10-08',
+      type: 'expense',
+      categoryId: 'edu',
+      note: '',
+      accountId: 'wx',
+      amount: 20_000,
+    },
+    {
+      id: 't3',
+      date: '2026-10-12',
+      type: 'transfer',
+      categoryId: 'move',
+      note: '',
+      accountId: 'wx',
+      toAccountId: 'zfb',
+      amount: 10_000,
+      fee: 200,
+    },
+    {
+      id: 't4',
+      date: '2026-10-15',
+      type: 'adjustment',
+      categoryId: 'other',
+      note: '',
+      accountId: 'wx',
+      amount: -240,
+    },
+  ],
+})
+
+const FEE = 200
+const CORRECTION = 240
+
+/** 后端 /reports/cash-flow 的原样 DTO：期初 1500、期末 1795.60，三层桑基含手续费 link。 */
+const CASH_FLOW = {
+  cashInflow: { actual: 50_000 },
+  cashOutflow: { actual: -20_440 },
+  startCash: { actual: 150_000 },
+  endCash: { actual: 179_560 },
+  byActivity: {
+    operating: {
+      inflow: { actual: 50_000 },
+      outflow: { actual: -20_000 },
+      net: { actual: 30_000 },
+      items: [
+        { categoryName: '工资', categoryId: 'salary', actual: 50_000, direction: 'inflow', type: 'income' },
+        { categoryName: '教育', categoryId: 'edu', actual: -20_000, direction: 'outflow', type: 'expense' },
+      ],
+    },
+    investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+    financing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+    uncategorized: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+  },
+  sankey: {
+    nodes: [
+      { name: '工资_income', category: 'income_category' },
+      { name: '教育_expense', category: 'expense_category' },
+      { name: '手续费_expense', category: 'expense_category' },
+      { name: '微信零钱_cash', category: 'cash' },
+      { name: '支付宝_cash', category: 'cash' },
+    ],
+    links: [
+      { source: '工资_income', target: '微信零钱_cash', value: 50_000, actualValue: 50_000 },
+      { source: '微信零钱_cash', target: '教育_expense', value: 20_000, actualValue: 20_000 },
+      { source: '微信零钱_cash', target: '手续费_expense', value: FEE, actualValue: FEE },
+      { source: '微信零钱_cash', target: '支付宝_cash', value: 10_000, actualValue: 10_000 },
+    ],
+  },
+}
+
+const report = mapCashReport(CASH_FLOW as never, LEDGER, FROM, TO)
 const ALL_VISIBLE = { 经营: true, 投资: true, 筹资: true, 未分类: true, 账户间转账: true }
-const sankey = deriveCashSankey(ledger, report, ALL_VISIBLE)
+const sankey = deriveCashSankey(LEDGER, report, ALL_VISIBLE)
 
 describe('CashSankeyChart', () => {
   it('每条 link 与每个节点都有 24px 命中带', () => {
@@ -128,16 +227,18 @@ describe('deriveCashSankey 三层与守恒', () => {
 
   it('手续费与对账修正各为一条独立出流 link', () => {
     const fee = sankey.nodes.find((node) => node.id === 'out:fee')
-    expect(fee?.amount).toBe(report.reconcile.transferFee)
+    // 手续费来自后端桑基 link；对账修正由账本调整流水补出。
+    expect(fee?.amount).toBe(FEE)
     expect(sankey.links.some((link) => link.nodeId === 'out:fee' && link.amount === fee?.amount)).toBe(true)
-    const adjustment = report.reconcile.adjustmentExpense
-    if (adjustment > 0) {
-      expect(sankey.nodes.find((node) => node.id === 'out:correction')?.amount).toBe(adjustment)
-    }
+    expect(sankey.correction).toBe(CORRECTION)
+    expect(sankey.nodes.find((node) => node.id === 'out:correction')?.amount).toBe(CORRECTION)
+    expect(
+      sankey.links.some((link) => link.nodeId === 'out:correction' && link.amount === CORRECTION),
+    ).toBe(true)
   })
 
   it('隐藏分组并入「其他」后仍守恒，合计不因隐藏而改变', () => {
-    const hidden = deriveCashSankey(ledger, report, { ...ALL_VISIBLE, 经营: false })
+    const hidden = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
     expect(hidden.status).toBe('ready')
     expect(hidden.difference).toBe(0)
     expect(hidden.hiddenGroups).toBeGreaterThan(0)
@@ -148,16 +249,16 @@ describe('deriveCashSankey 三层与守恒', () => {
   })
 
   it('隐藏组数按活动分组去重：隐藏 1 组只算 1 组，不把流入 / 流出各计一次', () => {
-    const hidden = deriveCashSankey(ledger, report, { ...ALL_VISIBLE, 经营: false })
+    const hidden = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
     expect(hidden.hiddenGroups).toBe(1)
     const merged = hidden.nodes.filter((node) => node.name.startsWith('其他（已隐藏'))
     expect(merged.map((node) => node.name)).toEqual(['其他（已隐藏 1 组）', '其他（已隐藏 1 组）'])
   })
 
   it('隐藏 2 组 / 全隐藏时图注与抽屉说明位同数同词', () => {
-    const one = deriveCashSankey(ledger, report, { ...ALL_VISIBLE, 经营: false })
-    const two = deriveCashSankey(ledger, report, { ...ALL_VISIBLE, 经营: false, 账户间转账: false })
-    const all = deriveCashSankey(ledger, report, {
+    const one = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
+    const two = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false, 账户间转账: false })
+    const all = deriveCashSankey(LEDGER, report, {
       经营: false,
       投资: false,
       筹资: false,
@@ -181,14 +282,20 @@ describe('deriveCashSankey 三层与守恒', () => {
 
   it('期初净额为负（负债大于资产）时走可见失败态，不静默画图', () => {
     const negativeLedger = {
-      ...ledger,
-      accounts: ledger.accounts.map((account) => ({ ...account, balance: -Math.abs(account.balance) })),
+      ...LEDGER,
+      accounts: LEDGER.accounts.map((account) => ({ ...account, balance: -Math.abs(account.balance) })),
     }
-    const negative = deriveCashSankey(
+    const negativeReport = mapCashReport(
+      {
+        ...CASH_FLOW,
+        startCash: { actual: -209_120 },
+        endCash: { actual: -179_560 },
+      } as never,
       negativeLedger,
-      deriveCashReport(negativeLedger, '2026-10-01', '2026-10-31'),
-      ALL_VISIBLE,
+      FROM,
+      TO,
     )
+    const negative = deriveCashSankey(negativeLedger, negativeReport, ALL_VISIBLE)
     expect(negative.status).toBe('invalid')
     expect(negative.reason).toContain('三层桑基不适用')
   })
@@ -199,7 +306,6 @@ describe('deriveCashSankey 三层与守恒', () => {
   })
 
   it('十几项分类时按行带避让：同一列标签基线间距不小于 14px，图形随之变高', () => {
-    const base = createSeedLedger()
     const categories = Array.from({ length: 16 }, (_, index) => ({
       id: `dense_${index}`,
       name: `密集分类 ${index + 1}`,
@@ -214,14 +320,41 @@ describe('deriveCashSankey 三层与守恒', () => {
       accountId: 'wx',
       amount: 1_000 + index * 300,
     }))
-    const denseLedger = {
-      ...base,
-      categories: [...base.categories, ...categories],
-      transactions: [...base.transactions, ...denseTransactions],
+    const denseLedger = makeLedger({
+      accounts: [{ id: 'wx', name: '微信零钱', kind: 'cash', balance: 448_000 }],
+      categories,
+      transactions: denseTransactions,
+    })
+    const denseFlow = {
+      cashInflow: { actual: 0 },
+      cashOutflow: { actual: -52_000 },
+      startCash: { actual: 500_000 },
+      endCash: { actual: 448_000 },
+      byActivity: {
+        operating: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        financing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        uncategorized: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+      },
+      sankey: {
+        nodes: [
+          ...categories.map((category) => ({
+            name: `${category.name}_expense`,
+            category: 'expense_category',
+          })),
+          { name: '微信零钱_cash', category: 'cash' },
+        ],
+        links: categories.map((category, index) => ({
+          source: '微信零钱_cash',
+          target: `${category.name}_expense`,
+          value: 1_000 + index * 300,
+          actualValue: 1_000 + index * 300,
+        })),
+      },
     }
     const dense = deriveCashSankey(
       denseLedger,
-      deriveCashReport(denseLedger, '2026-10-01', '2026-10-31'),
+      mapCashReport(denseFlow as never, denseLedger, FROM, TO),
       ALL_VISIBLE,
     )
     expect(dense.status).toBe('ready')
@@ -244,86 +377,64 @@ describe('deriveCashSankey 三层与守恒', () => {
   })
 })
 
-const contextValue = {
-  ledger,
-  dataMode: 'seed' as const,
-  addTransaction: vi.fn(),
-  updateTransaction: vi.fn(),
-  deleteTransactions: vi.fn(),
-  setTransactionCategory: vi.fn(),
-  createAccount: vi.fn(),
-  updateAccount: vi.fn(),
-  deleteAccount: vi.fn(),
-  reorderAccount: vi.fn(),
-  createCategory: vi.fn(),
-  updateCategory: vi.fn(),
-  moveCategory: vi.fn(),
-  deleteCategory: vi.fn(),
-  reorderCategory: vi.fn(),
-  undo: vi.fn(),
-  replaceLedger: vi.fn(),
-} as unknown as LedgerContextValue
-
-function renderPage(device: DeviceMode) {
-  const queryClient = new QueryClient()
+function renderCashView(device: DeviceMode, settings = DEFAULT_REPORT_SETTINGS.cash) {
   return render(
     <MantineProvider>
-      <QueryClientProvider client={queryClient}>
-        <LedgerContext.Provider value={contextValue}>
-          <ToastProvider>
-            <ReportsPage
-              device={device}
-              dataState="ready"
-              settingsOpen={false}
-              onSettingsToggle={() => {}}
-              onRetry={() => {}}
-              onImport={() => {}}
-              onViewFlow={() => {}}
-            />
-          </ToastProvider>
-        </LedgerContext.Provider>
-      </QueryClientProvider>
+      <CashView
+        device={device}
+        report={report}
+        sankey={sankey}
+        settings={settings}
+        side="out"
+        onSide={() => {}}
+        folded={{}}
+        onFold={() => {}}
+        from={FROM}
+        to={TO}
+        onViewFlow={() => {}}
+        rootOf={(id) => id}
+      />
     </MantineProvider>,
   )
 }
 
-beforeEach(() => {
-  window.localStorage.clear()
-  vi.stubGlobal('fetch', vi.fn())
-})
-
-afterEach(() => {
-  cleanup()
-  vi.unstubAllGlobals()
-})
-
 describe('现金流 tab 的平台降级', () => {
   it('390 不渲染桑基，仍用 Top5 横条', () => {
-    const { container } = renderPage('mobile')
-    fireEvent.click(screen.getByRole('tab', { name: '现金流' }))
+    const { container } = renderCashView('mobile')
     expect(container.querySelector('.mb-rp-sankey')).toBeNull()
     expect(container.querySelector('.mb-rp-flow-row')).not.toBeNull()
   })
 
   it('PC 渲染桑基并撤掉 Top5 横条', () => {
-    const { container } = renderPage('desktop')
-    fireEvent.click(screen.getByRole('tab', { name: '现金流' }))
+    const { container } = renderCashView('desktop')
     expect(container.querySelector('.mb-rp-sankey')).not.toBeNull()
     expect(container.querySelector('.mb-rp-flow-row')).toBeNull()
   })
 
   it('图注与抽屉说明位的隐藏组数逐字一致', async () => {
-    window.localStorage.setItem(
-      'mb-reports-view-settings-v1',
-      JSON.stringify({
-        balance: { groupMode: 'account', showKindColumn: true },
-        flow: { namedCategories: 6, showCountColumn: true, showShareColumn: true },
-        cash: { groups: { 经营: false, 投资: true, 筹资: true, 未分类: true, 账户间转账: true } },
-        invest: { showTarget: true, sortBy: 'marketValue', snapshotCount: 6 },
-      }),
+    const hiddenSankey = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
+    const settings = {
+      ...DEFAULT_REPORT_SETTINGS.cash,
+      groups: { ...DEFAULT_REPORT_SETTINGS.cash.groups, 经营: false },
+    }
+    const { container } = render(
+      <MantineProvider>
+        <CashView
+          device="desktop"
+          report={report}
+          sankey={hiddenSankey}
+          settings={settings}
+          side="out"
+          onSide={() => {}}
+          folded={{}}
+          onFold={() => {}}
+          from={FROM}
+          to={TO}
+          onViewFlow={() => {}}
+          rootOf={(id) => id}
+        />
+      </MantineProvider>,
     )
-    const { container } = renderPage('desktop')
-    fireEvent.click(screen.getByRole('tab', { name: '现金流' }))
     const chartNote = container.querySelector('.mb-rp-sankey .mb-rp-chart-note')?.textContent ?? ''
     expect(chartNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
     fireEvent.click(container.querySelector('.mb-rp-sankey-node[data-id="in:hidden"] .mb-rp-sankey-node-hit')!)

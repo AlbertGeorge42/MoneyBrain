@@ -35,7 +35,6 @@ import {
   balanceGroupBalanced,
   balanceGroupExpanded,
   buildBalanceGroups,
-  deriveCashReport,
 } from '@/features/reports/reportsModel'
 import {
   CASH_GROUP_KEYS,
@@ -613,12 +612,6 @@ describe('桑基守恒（真数据适配）', () => {
     expect(rows).toEqual(new Array(12).fill(0))
   })
 
-  it('种子模式仍用本地口径，不受 API 字段影响', () => {
-    const seed = createSeedLedger()
-    const report = deriveCashReport(seed, '2026-10-01', '2026-10-31')
-    const sankey = deriveCashSankey(seed, report, DEFAULT_REPORT_SETTINGS.cash.groups)
-    expect(assertCashSankeyConservation(sankey.opening, sankey.inflow, sankey.outflow, sankey.closing)).toBe(0)
-  })
 })
 
 describe('配置只影响展示', () => {

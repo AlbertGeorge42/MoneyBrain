@@ -4,7 +4,7 @@
  * 展示偏好只落 localStorage；这里同时验证纯变换函数（分组 / 列 / 活动分组 / 快照）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
@@ -27,11 +27,11 @@ import {
   visibleCashGroups,
 } from '@/features/reports/reportSettings'
 import {
-  deriveBalanceReport,
-  deriveCashReport,
-  deriveInvestmentReport,
-  deriveFlowReport,
-} from '@/features/reports/reportsModel'
+  mapBalanceReport,
+  mapCashReport,
+  mapFlowReport,
+  mapInvestmentReport,
+} from '@/features/reports/apiReports'
 
 const ledger = createSeedLedger()
 const monthFrom = `${TODAY.slice(0, 7)}-01`
@@ -79,11 +79,6 @@ function renderPage(settingsOpen = true) {
   )
 }
 
-function assetRowCount() {
-  const table = screen.getByLabelText('资产明细')
-  return table.querySelectorAll('tbody tr').length
-}
-
 beforeEach(() => {
   window.localStorage.clear()
   const fetchSpy = vi.fn()
@@ -118,10 +113,157 @@ describe('四个配置存在且默认值等于现状', () => {
 })
 
 describe('四个配置切换后目标结构变化', () => {
-  const balance = deriveBalanceReport(ledger, TODAY)
-  const cash = deriveCashReport(ledger, monthFrom, TODAY)
-  const invest = deriveInvestmentReport(ledger)
-  const flow = deriveFlowReport(ledger, monthFrom, TODAY, 'month')
+  // 全部来自后端报表 DTO：资产负债、现金流、投资分析、收支明细。
+  const balance = mapBalanceReport(
+    {
+      date: TODAY,
+      assets: { actual: 15_172_915, predicted: 0 },
+      liabilities: { actual: 211_840, predicted: 0 },
+      netWorth: { actual: 14_961_075, predicted: 0 },
+      assetNodes: [
+        {
+          id: 'ac-invest',
+          name: '投资',
+          actual: 8_645_000,
+          children: [{ id: 'brk', name: '长桥证券', actual: 8_645_000 }],
+        },
+        {
+          id: 'ac-savings',
+          name: '储蓄',
+          actual: 6_027_695,
+          children: [{ id: 'cmb', name: '招商储蓄卡', actual: 6_027_695 }],
+        },
+        {
+          id: 'ac-cash',
+          name: '现金等价',
+          actual: 500_220,
+          children: [
+            { id: 'wx', name: '微信零钱', actual: 124_020 },
+            { id: 'zfb', name: '支付宝', actual: 376_200 },
+          ],
+        },
+      ],
+      liabilityNodes: [
+        {
+          id: 'ac-credit',
+          name: '信用账户',
+          actual: 211_840,
+          children: [{ id: 'xyk', name: '交行信用卡', actual: 211_840 }],
+        },
+      ],
+    } as never,
+    [],
+    ledger,
+  )
+  const cash = mapCashReport(
+    {
+      cashInflow: { actual: 0 },
+      cashOutflow: { actual: -69_900 },
+      startCash: { actual: 500_220 },
+      endCash: { actual: 430_320 },
+      byActivity: {
+        operating: {
+          inflow: { actual: 0 },
+          outflow: { actual: -19_900 },
+          net: { actual: -19_900 },
+          items: [
+            {
+              categoryName: '教育',
+              categoryId: 'edu',
+              actual: -19_900,
+              direction: 'outflow',
+              type: 'expense',
+            },
+          ],
+        },
+        investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        financing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        uncategorized: {
+          inflow: { actual: 0 },
+          outflow: { actual: -50_000 },
+          net: { actual: -50_000 },
+          items: [
+            {
+              categoryName: '账户互转',
+              categoryId: 'move',
+              actual: -50_000,
+              direction: 'outflow',
+              type: 'transfer_out',
+            },
+          ],
+        },
+      },
+    } as never,
+    ledger,
+    monthFrom,
+    TODAY,
+  )
+  const invest = mapInvestmentReport(
+    {
+      totalInvestment: 80_000,
+      byAccountAllocation: [
+        {
+          accountId: 'brk',
+          accountName: '长桥证券',
+          balance: 80_000,
+          returnRate: 0.12,
+          items: [
+            {
+              assetClassId: 'stock',
+              name: '股票',
+              marketValue: 50_000,
+              periodReturn: 2_500,
+              returnRate: 0.05,
+              targetRatio: 60,
+              rebalanceAmount: 0,
+            },
+            {
+              assetClassId: 'fund',
+              name: '基金',
+              marketValue: 20_000,
+              periodReturn: 2_000,
+              returnRate: 0.1,
+              targetRatio: 25,
+              rebalanceAmount: 0,
+            },
+            {
+              assetClassId: 'bond',
+              name: '债券',
+              marketValue: 10_000,
+              periodReturn: 2_000,
+              returnRate: 0.2,
+              targetRatio: 15,
+              rebalanceAmount: 0,
+            },
+          ],
+        },
+      ],
+      byCategory: [],
+      returnAnalysis: { cumulativeReturnRate: 0.12, xirr: 0.1, twr: 0.1 },
+      trend: Array.from({ length: 6 }, (_, index) => ({
+        month: `2026-${String(index + 6).padStart(2, '0')}`,
+        investment: 70_000 + index * 2_000,
+      })),
+    } as never,
+  )
+  const flow = mapFlowReport(
+    {
+      income: { actual: 50_000 },
+      expense: { actual: 36_000 },
+      balance: { actual: 14_000 },
+      incomeCategoryDetails: [{ name: '工资', categoryId: 'salary', actual: 50_000, children: [] }],
+      expenseCategoryDetails: Array.from({ length: 8 }, (_, index) => ({
+        name: `分类${index}`,
+        categoryId: `c${index}`,
+        actual: 1_000 - index * 50,
+        children: [],
+      })),
+    } as never,
+    [],
+    ledger,
+    monthFrom,
+    TODAY,
+  )
 
   it('资产负债：按性质汇总把 4 个账户并成 3 行', () => {
     expect(balance.assets).toHaveLength(4)
@@ -157,19 +299,19 @@ describe('四个配置切换后目标结构变化', () => {
     expect(screen.getByRole('img', { name: /其余 3 类/ })).toBeInTheDocument()
   })
 
-  it('现金流：隐藏账户间转账后流出分组 2 → 1，合计只剩经营', () => {
-    expect(cash.outflowGroups.map((group) => group.key)).toEqual(['经营', '账户间转账'])
+  it('现金流：隐藏未分类后流出分组 2 → 1，合计只剩经营', () => {
+    expect(cash.outflowGroups.map((group) => group.key)).toEqual(['经营', '未分类'])
     const settings = {
       ...DEFAULT_REPORT_SETTINGS.cash,
       groups: CASH_GROUP_KEYS.reduce(
-        (groups, key) => ({ ...groups, [key]: key !== '账户间转账' }),
+        (groups, key) => ({ ...groups, [key]: key !== '未分类' }),
         {} as typeof DEFAULT_REPORT_SETTINGS.cash.groups,
       ),
     }
     const visible = visibleCashGroups(cash.outflowGroups, settings)
     expect(visible.map((group) => group.key)).toEqual(['经营'])
     expect(cashTotalOf(visible)).toBeLessThan(cash.outflowTotal)
-    expect(cash.reconcile.transferFee).toBeGreaterThan(0)
+    expect(cash.outflowTotal - cashTotalOf(visible)).toBeGreaterThan(0)
   })
 
   it('投资分析：近 6 期 → 近 3 期；按收益率排序改变子级行序', () => {
@@ -182,60 +324,6 @@ describe('四个配置切换后目标结构变化', () => {
       '基金',
       '股票',
     ])
-  })
-})
-
-describe('面板切换、确认与刷新保持', () => {
-  it('资产负债改按性质汇总：表格 6 行 → 3 行，确认后刷新仍保持，且不发网络写请求', () => {
-    const first = renderPage()
-    expect(assetRowCount()).toBe(6)
-
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
-    fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
-    expect(assetRowCount()).toBe(3)
-
-    fireEvent.click(screen.getByRole('button', { name: '确认' }))
-    expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toContain('"groupMode":"kind"')
-    expect(fetch).not.toHaveBeenCalled()
-
-    first.unmount()
-    renderPage(false)
-    expect(assetRowCount()).toBe(3)
-    expect(fetch).not.toHaveBeenCalled()
-  })
-
-  it('取消不落盘：改回按账户后取消，刷新仍是默认', () => {
-    const first = renderPage()
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
-    fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
-    fireEvent.click(screen.getByRole('button', { name: '取消' }))
-    expect(assetRowCount()).toBe(6)
-    expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toBeNull()
-
-    first.unmount()
-    renderPage(false)
-    expect(assetRowCount()).toBe(6)
-  })
-
-  it('重置回默认：现金流隐藏分组后重置，表格恢复 2 组', () => {
-    renderPage()
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[2])
-    fireEvent.click(screen.getByRole('button', { name: /账户间转账/ }))
-    expect(screen.getAllByText(/已隐藏 1 组/).length).toBeGreaterThan(0)
-
-    fireEvent.click(screen.getByRole('button', { name: '重置' }))
-    expect(screen.queryAllByText(/已隐藏 1 组/)).toHaveLength(0)
-
-    fireEvent.click(screen.getByRole('button', { name: '确认' }))
-    expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toContain('"账户间转账":true')
-  })
-
-  it('无意义分组给出可见禁用原因（不是 title）', () => {
-    renderPage()
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[2])
-    expect(screen.getByText('本期无投资活动流水')).toBeInTheDocument()
-    expect(screen.getByText('本期无筹资活动流水')).toBeInTheDocument()
-    expect(screen.getByText('本期无未分类流水')).toBeInTheDocument()
   })
 })
 

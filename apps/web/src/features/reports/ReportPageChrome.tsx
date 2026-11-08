@@ -62,6 +62,20 @@ export function PageHead({
   )
 }
 
+export function ReportsSeedNotice() {
+  return (
+    <Card variant="report" className="mb-rp-empty">
+      <div className="mb-rp-empty-mark" aria-hidden="true">
+        <ScanLine size={28} strokeWidth={1.8} />
+      </div>
+      <h2 className="mb-rp-empty-title">演示数据不提供报表</h2>
+      <p className="mb-rp-empty-desc">
+        报表数字只由后端账本计算。当前是演示模式，切换到真实账本后四张报表才会出数。
+      </p>
+    </Card>
+  )
+}
+
 export function ReportsEmpty({ onImport }: { onImport: () => void }) {
   return (
     <Card variant="report" className="mb-rp-empty">

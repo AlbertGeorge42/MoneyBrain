@@ -12,7 +12,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CompositionBars, DonutChart } from '@/features/reports/charts'
-import { buildDrill, deriveFlowReport } from '@/features/reports/reportsModel'
+import { mapFlowReport } from '@/features/reports/apiReports'
+import { buildDrill } from '@/features/reports/reportsModel'
 import type { FlowTreeNode } from '@/features/reports/reportsModel'
 import type { Ledger } from '@/features/overview/model'
 
@@ -367,7 +368,32 @@ describe('DonutChart 二级环', () => {
     }
     const from = '2026-10-01'
     const to = '2026-10-31'
-    const report = deriveFlowReport(ledger, from, to, 'month')
+    // 后端收支报表：大类 fx 下挂 7 个子类，金额与流水逐类一致。
+    const report = mapFlowReport(
+      {
+        income: { actual: 0 },
+        expense: { actual: 3_500 },
+        balance: { actual: -3_500 },
+        incomeCategoryDetails: [],
+        expenseCategoryDetails: [
+          {
+            name: '验证大类',
+            categoryId: 'fx',
+            actual: 3_500,
+            children: children.map((category, index) => ({
+              name: category.name,
+              categoryId: category.id,
+              actual: 800 - index * 100,
+              children: [],
+            })),
+          },
+        ],
+      } as never,
+      [],
+      ledger,
+      from,
+      to,
+    )
     const onOpen = vi.fn()
     const { container } = render(
       <DonutChart

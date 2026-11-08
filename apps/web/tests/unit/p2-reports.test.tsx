@@ -1,8 +1,7 @@
 /**
- * P2 #10 / #15 / #16（报表）
+ * P2 #10 / #16（报表）
  *
  * #10 三个 tab 共用一套期间措辞，时点不得晚于数据截止日；
- * #15 现金流与收支明细的差异显式列出（调整 2.40 / 转账手续费 2.00）；
  * #16 卡片合并桶「其余 N 类」与下钻同一聚合口径；子级行挂「†」图例角标。
  */
 import { describe, expect, it, vi } from 'vitest'
@@ -12,10 +11,9 @@ import { fileURLToPath } from 'node:url'
 import { fireEvent, render } from '@testing-library/react'
 import { CompositionBars } from '@/features/reports/charts'
 import { flattenFlowRows } from '@/features/reports/reportRows'
+import { mapBalanceReport } from '@/features/reports/apiReports'
 import {
   buildDrill,
-  deriveBalanceReport,
-  deriveCashReport,
   type FlowTreeNode,
 } from '@/features/reports/reportsModel'
 import {
@@ -65,30 +63,20 @@ describe('#10 期间措辞统一', () => {
 
   it('时点不晚于 asOf（10-31 截到 10-28）', () => {
     expect(clampAsOfPoint('2026-10-31', TODAY)).toBe(TODAY)
-    const balance = deriveBalanceReport(createSeedLedger(), clampAsOfPoint('2026-10-31', TODAY))
+    const balance = mapBalanceReport(
+      {
+        date: clampAsOfPoint('2026-10-31', TODAY),
+        assets: { actual: 0, predicted: 0 },
+        liabilities: { actual: 0, predicted: 0 },
+        netWorth: { actual: 0, predicted: 0 },
+        assetNodes: [],
+        liabilityNodes: [],
+      } as never,
+      [],
+      createSeedLedger(),
+    )
     expect(balance.point <= TODAY).toBe(true)
     expect(formatPointLabel(balance.point, 'month', TODAY)).toBe('2026 年 10 月 · 截至 10-28')
-  })
-})
-
-describe('#15 三处口径对账', () => {
-  const cash = deriveCashReport(createSeedLedger(), '2026-10-01', '2026-10-28')
-
-  it('差异等于经营净额减收支结余，并单列调整与手续费', () => {
-    expect(cash.reconcile.difference).toBe(cash.operatingNet - cash.reconcile.flowBalance)
-    // 种子里的对账修正 ¥2.40 与转账手续费 ¥2.00
-    expect(cash.reconcile.adjustmentExpense).toBe(240)
-    expect(cash.reconcile.transferFee).toBe(200)
-  })
-
-  it('现金流不计调整与手续费，收支明细计入调整——差异金额可解释', () => {
-    expect(cash.reconcile.flowExpense).toBeGreaterThan(0)
-    expect(cash.reconcile.difference).toBe(240)
-  })
-
-  it('经营净额带「不含修正」角标，差额不用整段说明', () => {
-    const metric = cash.metrics.find((item) => item.label === '经营净额')
-    expect(metric?.hint).toBe('不含修正 ¥2.40')
   })
 })
 

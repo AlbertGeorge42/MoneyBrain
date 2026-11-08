@@ -30,7 +30,7 @@ import {
   useApiInvestReport,
 } from './apiReports'
 import { deriveCashSankey } from './cashSankeyModel'
-import { PageHead, ReportsEmpty } from './ReportPageChrome'
+import { PageHead, ReportsEmpty, ReportsSeedNotice } from './ReportPageChrome'
 import { ReportSettingsSheet } from './ReportSettingsPanel'
 import {
   cashGroupPresence,
@@ -41,10 +41,6 @@ import {
 } from './reportSettings'
 import {
   buildDrill,
-  deriveBalanceReport,
-  deriveCashReport,
-  deriveFlowReport,
-  deriveInvestmentReport,
   type DrillData,
   type FlowTreeNode,
 } from './reportsModel'
@@ -147,16 +143,6 @@ export function ReportsPage({
   const flowState = rangeState(time.from, time.to, anchor)
   const investState = rangeState(time.from, time.to, anchor)
   const cashWindow = periodWindow(time.from, time.to, anchor, time.gran)
-  const seedBalance = useMemo(
-    () => deriveBalanceReport(ledger, balancePoint),
-    [ledger, balancePoint],
-  )
-  const seedFlow = useMemo(
-    () => deriveFlowReport(ledger, time.from, time.to, time.gran, includeExcluded),
-    [ledger, time.from, time.to, time.gran, includeExcluded],
-  )
-  const seedCash = useMemo(() => deriveCashReport(ledger, time.from, time.to), [ledger, time.from, time.to])
-  const seedInvest = useMemo(() => deriveInvestmentReport(ledger), [ledger])
   // 支出用与总览相同的近 12 个月分类全集；收入用收入一级分类全集。
   const categoryUniverse = useMemo(
     () => ({
@@ -237,14 +223,10 @@ export function ReportsPage({
     setLedgerConfigOpen(false)
   }
 
-  const balance = apiMode ? balanceApi.data : seedBalance
-  const flow = apiMode ? flowApi.data : seedFlow
-  const cash = apiMode
-    ? cashState === 'past'
-      ? cashApi.data
-      : cashProjectionApi.data
-    : seedCash
-  const invest = apiMode ? investApi.data : seedInvest
+  const balance = balanceApi.data
+  const flow = flowApi.data
+  const cash = cashState === 'past' ? cashApi.data : cashProjectionApi.data
+  const invest = investApi.data
   // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；隐藏分组并入「其他」后仍守恒。
   const sankey = useMemo(
     () =>
@@ -331,7 +313,9 @@ export function ReportsPage({
     ) : null
 
   const pageState =
-    dataState === 'loading' ? (
+    !apiMode ? (
+      <ReportsSeedNotice />
+    ) : dataState === 'loading' ? (
       <LoadingSkeleton device={device} variant="reports" />
     ) : dataState === 'error' ? (
       <ErrorPanel onRetry={onRetry} />
@@ -546,7 +530,11 @@ export function ReportsPage({
         onClose={closeSettings}
         configTab={configTab}
         draftSettings={draftSettings}
-        cashPresence={cashGroupPresence(cash ?? seedCash)}
+        cashPresence={
+          cash
+            ? cashGroupPresence(cash)
+            : { 经营: false, 投资: false, 筹资: false, 未分类: false, 账户间转账: false }
+        }
         onOpenConfig={openConfig}
         onOpenLedger={(next) => {
           setLedgerConfigTab(next)
