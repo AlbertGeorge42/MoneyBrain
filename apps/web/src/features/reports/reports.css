@@ -108,7 +108,8 @@
   display: flex;
   align-items: center;
   gap: var(--mb-control-gap);
-  flex-wrap: wrap;
+  /* 桌面固定单行：空间不足时只收缩统计范围标记，不换行、不改变控件行高度。 */
+  flex-wrap: nowrap;
 }
 
 /* 时间条外壳与预算月份条同源，见 shared/periodBar.css（44px 高、10px 圆角）。 */
@@ -1794,6 +1795,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 .mb-rp-page[data-device='mobile'] .mb-rp-time-main {
   gap: var(--mb-control-gap);
+  flex-wrap: wrap;
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-iconbtn {
@@ -1969,9 +1971,9 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 /* 统计范围回显：与区间状态同尺寸的静态标记，只占本行剩余空间，不改变行高。 */
 .mb-rp-scope-tag {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
   padding: 0 6px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent);
   border-radius: var(--mb-radius-xs);
@@ -1979,8 +1981,9 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-size: var(--mb-fs-0);
   line-height: 1.6;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
 
 .mb-rp-metric-split {
   color: var(--mb-color-text-tertiary);

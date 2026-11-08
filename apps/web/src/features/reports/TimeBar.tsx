@@ -207,7 +207,11 @@ export function TimeBar({
           options={GRANULARITIES.map((gran) => ({ id: gran, label: GRANULARITY_LABELS[gran] }))}
           onChange={changeGran}
         />
-        {scopeTag && <span className="mb-rp-scope-tag">{scopeTag}</span>}
+        {scopeTag && (
+          <span className="mb-rp-scope-tag" title={scopeTag}>
+            {scopeTag}
+          </span>
+        )}
       </div>
     </div>
   )
