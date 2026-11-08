@@ -303,6 +303,30 @@
   background: var(--mb-color-surface-raised);
 }
 
+/* 已设置图标时让图标铺满原占位块；未设置仍显示原 24×24 Tag 占位。 */
+.mb-set-icon > .mb-cat-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--mb-radius-xs);
+}
+
+/* 账户分组行 / 报表首列：图标与文字同一行垂直居中，不额外撑高行高。 */
+.mb-set-name-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.mb-set-name-inline-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mb-set-name {
   flex: 1 1 auto;
   min-width: 0;

@@ -9,6 +9,7 @@ import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import type { DeviceMode } from '@/features/shared/types'
+import { CategoryIcon } from '@/features/overview/category'
 import type { Ledger } from '@/features/overview/model'
 import { formatCurrency } from '@/utils/format'
 import { minor } from '@domain/index'
@@ -61,7 +62,15 @@ export function AccountsSection({
     : groups.filter((group) => accountGroupCount(group) > 0)
   const allCollapsed =
     visibleGroups.length > 0 && visibleGroups.every((group) => collapsed.has(`grp-${group.id}`))
-  const groupLabel = (group: AccountGroup) => accountGroupDisplayName(group, groups)
+  const groupLabel = (group: AccountGroup) => (
+    <span className="mb-set-name-inline">
+      <CategoryIcon
+        rootId={group.id}
+        iconKey={ledger.accountCategories?.find((item) => item.id === group.id)?.iconKey}
+      />
+      <span className="mb-set-name-inline-text">{accountGroupDisplayName(group, groups)}</span>
+    </span>
+  )
   const subtotal = (group: AccountGroup) => formatCurrency(minor(accountGroupBalance(group)))
   const accountLabel = (account: AccountRow) => accountDisplayName(account, ledger.accounts)
   const expandedOf = (group: AccountGroup) => !collapsed.has(`grp-${group.id}`)

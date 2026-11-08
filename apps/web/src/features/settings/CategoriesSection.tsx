@@ -7,7 +7,8 @@
 import { ChevronDown, ChevronRight, GripVertical, Plus, Tag } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
-import type { Ledger, TxType } from '@/features/overview/model'
+import { CategoryIcon } from '@/features/overview/category'
+import { getCategoryIconKey, getCategoryRootId, type Ledger, type TxType } from '@/features/overview/model'
 import { RowMenu } from './RowMenu'
 import {
   CATEGORY_TABS,
@@ -55,6 +56,9 @@ export function CategoriesSection({
     const expandedRow = !collapsed.has(`cat-${row.id}`)
     const siblings = categorySiblings(ledger, row.id)
     const index = siblings.findIndex((category) => category.id === row.id)
+    // 与账本回退链一致：自身 iconKey → 父级继承；没有 iconKey 时保留原 Tag 占位。
+    const iconKey = getCategoryIconKey(ledger, row.id)
+    const rootId = getCategoryRootId(ledger, row.id)
     return (
       <div key={row.id} className={level > 0 ? 'mb-set-group is-child' : 'mb-set-group'}>
         <div className={level > 0 ? 'mb-set-row is-child' : 'mb-set-row'}>
@@ -74,7 +78,7 @@ export function CategoriesSection({
             <GripVertical size={14} />
           </span>
           <span className="mb-set-icon">
-            <Tag size={16} />
+            {iconKey ? <CategoryIcon rootId={rootId} iconKey={iconKey} /> : <Tag size={16} />}
           </span>
           <span className="mb-set-name">{row.name}</span>
           <span className="mb-set-meta">
