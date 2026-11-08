@@ -58,6 +58,24 @@ cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 `npm run db:drill` 验证**备份能不能还原出同样的钱**：导出 → 导入临时库 → 用领域层重算两边的账户余额 → 逐项对比。
 两者都只碰只读数据或临时库；改动导出/导入/余额/口径逻辑后必须跑。
 
+### 3.2 真实库备份规范（SQLite WAL）
+
+真实库 `apps/api/prisma/dev.db` 以 WAL 模式运行：提交先写 `dev.db-wal`，主文件不一定是全量最新数据。**只复制 `dev.db` 会漏掉未 checkpoint 的写入**（已踩过：裸拷贝出的备份流水/余额比现库少）。
+
+- 备份一律用 `VACUUM INTO`（对源库是只读快照，输出一个自包含的普通库文件；目标文件必须不存在）：
+
+  ```powershell
+  sqlite3 "file:C:/.../dev.db" "VACUUM INTO 'C:/.../dev.db.vacuum-YYYYMMDD-HHMMSS.db'"
+  # 没有 sqlite3 CLI 时等价写法
+  python -c "import sqlite3; sqlite3.connect(r'C:/.../dev.db').execute(\"VACUUM INTO 'C:/.../backup.db'\")"
+  ```
+
+- 备份后必须校验：`PRAGMA integrity_check`、账户/流水/平帐条数、指定日末净资产，并对比现库与备份的流水行摘要（`id|type|amount|date|accountId|...` 排序后 SHA256）。四项数字全等、行摘要相同才算备份可用。
+- `dev.db-wal` 非空即说明主文件落后。WAL 帧数 = `(文件大小 − 32) / (24 + page_size)`；帧头 `dbsize != 0` 表示该帧有提交。主文件头 `page_count` 小于 WAL 最后提交的 `dbsize` 时，差值就是尚未 checkpoint 的页数。
+- checkpoint（`PRAGMA wal_checkpoint(TRUNCATE)`）必须在停服窗口做：停掉全部持有连接的 API 进程（`src/index.ts` 的 tsx watch 链），确认无连接后执行；返回 `(busy=0, log, checkpointed)` 且 `dev.db-wal` 归零为成功。执行前后核对条数与日末净资产，数字不变再重启服务。
+- 恢复同理：停服 → 移走 `dev.db-wal` / `dev.db-shm` → 用备份替换 `dev.db` → 校验 → 启动。**存在 `-wal` 时直接覆盖主文件，会让 WAL 与主文件错配。**
+- `*db.vacuum-*`、预算/数据清理清单等含真实账目的快照放 `apps/api/prisma/rollback-points/`（已 gitignore，绝不入库）。
+
 ## 4. Mock 策略
 
 | 层级 | 数据来源 |
