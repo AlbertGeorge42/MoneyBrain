@@ -32,7 +32,8 @@ import type { CashFlowReportData } from '@/services/api'
  */
 export interface MetricPrediction {
   actual: number
-  predicted: number
+  /** 后端给出的单一预测部分；推演端点没有该字段时不填，由 split 直出分项。 */
+  predicted?: number
   direction: 'income' | 'expense' | 'net'
   /** 直接可展示的拆解文案，例如「实际 +¥1,234 · 预测 +¥567」。 */
   split: string

@@ -2027,8 +2027,8 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   line-height: 1.4;
 }
 
-/* 预测：文字标签 + 实际 / 预测拆解行；不只靠颜色区分。 */
-.mb-rp-metric-predict {
+/* 预测统一编码：文字标记 / 图例 / asOf / 图表 / 构成明细，四个视图共用。 */
+.mb-rp-predict-badge {
   display: inline-flex;
   align-items: center;
   margin-left: var(--mb-s-1);
@@ -2041,6 +2041,176 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   line-height: 1.4;
   vertical-align: baseline;
   white-space: nowrap;
+}
+
+/* 收款 / 收支视图的未来用「预算计划」，用虚线边框区分概念差异。 */
+.mb-rp-predict-badge.is-budgetPlan {
+  border-style: dashed;
+}
+
+.mb-rp-predict-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mb-s-1) var(--mb-s-3);
+  margin-bottom: var(--mb-s-2);
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-predict-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+}
+
+.mb-rp-predict-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 8px;
+  border-bottom: 2px solid var(--mb-color-accent);
+}
+
+.mb-rp-predict-swatch.is-predicted {
+  border-bottom-style: dashed;
+}
+
+.mb-rp-predict-swatch.is-actual {
+  border-bottom-style: solid;
+}
+
+.mb-rp-predict-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mb-rp-predict-chart text {
+  fill: var(--mb-color-chart-axis);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-predict-grid line {
+  stroke: var(--mb-color-chart-grid);
+  stroke-width: 1;
+}
+
+.mb-rp-predict-asof line {
+  stroke: var(--mb-color-border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.mb-rp-predict-asof text {
+  fill: var(--mb-color-text-tertiary);
+}
+
+.mb-rp-predict-base {
+  stroke: var(--mb-color-accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/* 未来折线：虚线 + 空心点；与「预测」文字标记同一套语言。 */
+.mb-rp-predict-line {
+  fill: none;
+  stroke: var(--mb-color-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mb-rp-predict-dot {
+  fill: none;
+  stroke: var(--mb-color-accent);
+  stroke-width: 1.5;
+}
+
+.mb-rp-predict-dot.is-active {
+  fill: var(--mb-color-accent);
+}
+
+.mb-rp-predict-hit {
+  cursor: pointer;
+  outline: none;
+}
+
+.mb-rp-predict-hit:focus-visible .mb-rp-predict-dot {
+  fill: var(--mb-color-accent);
+}
+
+.mb-rp-predict-xlabel {
+  fill: var(--mb-color-chart-axis);
+}
+
+/* 区间状态：已发生 / 混合 / 全未来；不靠颜色，文字直读。 */
+.mb-rp-range-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-xs);
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.mb-rp-range-state.is-mixed,
+.mb-rp-range-state.is-future {
+  border-style: dashed;
+}
+
+/* 构成明细：桌面悬停与移动点按共用同一份后端字段。 */
+.mb-rp-predict-detail {
+  margin-top: var(--mb-s-2);
+  padding: var(--mb-s-2) var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-rp-predict-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  margin-bottom: var(--mb-s-1);
+  font-size: var(--mb-fs-1);
+}
+
+.mb-rp-predict-detail-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.mb-rp-predict-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-predict-detail-row.is-total {
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 1px solid var(--mb-color-border);
+  color: var(--mb-color-text-primary);
+  font-weight: 600;
+}
+
+.mb-rp-predict-detail-row dt {
+  margin: 0;
+}
+
+.mb-rp-predict-detail-row dd {
+  margin: 0;
+  font-family: var(--mb-font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 .mb-rp-metric-split {

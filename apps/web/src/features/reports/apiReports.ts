@@ -12,6 +12,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import type {
+  AssetProjectionResult,
   BalanceSheetReportData,
   CashFlowReportData,
   IncomeExpenseReportData,
@@ -41,6 +42,7 @@ import {
   type InvestmentReport,
   type MetricPrediction,
 } from './reportsModel'
+import type { ProjectionWindow } from './futureModel'
 import { listBuckets, type Granularity } from './reportsTime'
 
 export interface ApiReportResult<T> {
@@ -641,6 +643,25 @@ export function useApiBalanceReport(point: string, ledger: Ledger, enabled: bool
       ])
       return mapBalanceReport(sheet, trend, ledger)
     },
+  })
+  return resultOf(query, enabled)
+}
+
+/**
+ * 资产负债未来推演：窗口参数只决定输出起止月，累计起点仍是后端 asOf。
+ * 只取合计层；账户级明细不在该端点返回，视图不得自行拆账。
+ */
+export function useApiAssetProjection(
+  window: ProjectionWindow,
+  enabled: boolean,
+): ApiReportResult<AssetProjectionResult> {
+  const query = useQuery({
+    queryKey: ['hf', 'report', 'asset-projection', window.asOf, window.fromMonth, window.months],
+    enabled,
+    queryFn: async () =>
+      analyticsApi
+        .getAssetProjection(window.months, window.asOf, window.fromMonth)
+        .then(unwrapApiData),
   })
   return resultOf(query, enabled)
 }

@@ -15,7 +15,13 @@ import { Card } from '@/features/shared/Card'
 import { ToastViewport } from '@/features/shared/toast'
 import { useToast } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
-import { useApiBalanceReport, useApiCashReport, useApiFlowReport, useApiInvestReport } from './apiReports'
+import {
+  useApiAssetProjection,
+  useApiBalanceReport,
+  useApiCashReport,
+  useApiFlowReport,
+  useApiInvestReport,
+} from './apiReports'
 import { deriveCashSankey } from './cashSankeyModel'
 import { PageHead, ReportsEmpty } from './ReportPageChrome'
 import { ReportSettingsSheet } from './ReportSettingsPanel'
@@ -35,7 +41,9 @@ import {
   type DrillData,
   type FlowTreeNode,
 } from './reportsModel'
-import { clampAsOfPoint, monthStart, type ReportTab, type ReportTime } from './reportsTime'
+import { clampAsOfPoint, monthStart, pointRangeState, type ReportTab, type ReportTime } from './reportsTime'
+import { pointWindow } from './futureModel'
+import { FutureBalanceView } from './FutureBalanceView'
 import { TimeBar } from './TimeBar'
 import { BalanceView } from './BalanceView'
 import { FlowView } from './FlowView'
@@ -99,8 +107,10 @@ export function ReportsPage({
   const [draftSettings, setDraftSettings] = useState<ReportViewSettings | null>(null)
   const effectiveSettings = draftSettings ?? viewSettings
 
-  // 时点不超过数据截止日：月末/年末锚点在本月会被截到 asOf，避免出现 10-31 晚于 10-28。
-  const balancePoint = clampAsOfPoint(time.point, anchor)
+  // 已发生区间仍按数据截止日截断；未来时点保留月末锚点，交给推演端点。
+  const balanceState = pointRangeState(time.point, anchor, time.gran)
+  const balancePoint = balanceState === 'past' ? clampAsOfPoint(time.point, anchor) : time.point
+  const assetWindow = pointWindow(balancePoint, anchor)
   const seedBalance = useMemo(
     () => deriveBalanceReport(ledger, balancePoint),
     [ledger, balancePoint],
@@ -128,6 +138,10 @@ export function ReportsPage({
   const flowApi = useApiFlowReport(time.from, time.to, time.gran, ledger, includeExcluded, apiReady && tab === 'flow')
   const cashApi = useApiCashReport(time.from, time.to, ledger, apiReady && tab === 'cash')
   const investApi = useApiInvestReport(time.from, time.to, apiReady && tab === 'invest')
+  const assetProjectionApi = useApiAssetProjection(
+    assetWindow,
+    apiReady && tab === 'balance' && balanceState !== 'past',
+  )
 
   const balance = apiMode ? balanceApi.data : seedBalance
   const flow = apiMode ? flowApi.data : seedFlow
@@ -183,7 +197,15 @@ export function ReportsPage({
   }
 
   const activeApi =
-    tab === 'balance' ? balanceApi : tab === 'flow' ? flowApi : tab === 'cash' ? cashApi : investApi
+    tab === 'balance'
+      ? balanceState !== 'past'
+        ? assetProjectionApi
+        : balanceApi
+      : tab === 'flow'
+        ? flowApi
+        : tab === 'cash'
+          ? cashApi
+          : investApi
   const reportPageState =
     apiReady && activeApi.status === 'error' ? (
       <ErrorPanel
@@ -217,11 +239,12 @@ export function ReportsPage({
             tab={tab}
             time={time}
             today={anchor}
+            futureEnabled={tab === 'balance'}
             onChange={setTime}
             onToast={notify}
             onOpenSettings={onSettingsToggle}
           />
-          {tab === 'balance' && balance && (
+          {tab === 'balance' && balanceState === 'past' && balance && (
             <BalanceView
               device={device}
               report={balance}
@@ -233,6 +256,18 @@ export function ReportsPage({
               to={time.to}
               onViewFlow={onViewFlow}
             />
+          )}
+          {tab === 'balance' && balanceState !== 'past' && (
+            apiMode && assetProjectionApi.data ? (
+              <FutureBalanceView device={device} projection={assetProjectionApi.data} />
+            ) : (
+              <Card variant="report" className="mb-rp-empty">
+                <h2 className="mb-rp-empty-title">未来推演需要连接后端账本</h2>
+                <p className="mb-rp-empty-desc">
+                  当前为本地演示数据；连接 API 后可按月查看净资产、预算计划与已排定交易构成。
+                </p>
+              </Card>
+            )
           )}
           {tab === 'flow' && flow && (
             <FlowView

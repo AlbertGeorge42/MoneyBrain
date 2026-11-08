@@ -9,6 +9,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
 import { HfButton } from '@/features/shared/HfButton'
 import type { DeviceMode } from '@/features/shared/types'
+import { PredictionBadge, ReportRowHint } from './prediction'
 import type { ReportMetric } from './reportsModel'
 
 export interface ReportColumn {
@@ -32,7 +33,8 @@ export interface ReportRow {
 
 export interface CardRow {
   id: string
-  label: string
+  /** 首列名称；可以是带图标的节点（设置页分类 / 分组行）。 */
+  label: ReactNode
   meta?: string
   hint?: string
   amount: ReactNode
@@ -52,15 +54,7 @@ function MetricLabel({ metric }: { metric: ReportMetric }) {
     <span className="mb-rp-metric-label">
       {metric.label}
       {metric.hint && <span className="mb-rp-metric-hint">{metric.hint}</span>}
-      {metric.prediction && (
-        <span
-          className="mb-rp-metric-predict"
-          title={metric.prediction.split}
-          data-direction={metric.prediction.direction}
-        >
-          预测
-        </span>
-      )}
+      {metric.prediction && <PredictionBadge kind="prediction" title={metric.prediction.split} />}
     </span>
   )
 }
@@ -230,12 +224,12 @@ export function ReportTable({
                               <span className="mb-rp-fold-space" aria-hidden="true" />
                             )}
                             <span className="mb-rp-row-first-label">{cell}</span>
-                            {index === 0 && row.hint && <span className="mb-rp-row-hint">{row.hint}</span>}
+                            {index === 0 && row.hint && <ReportRowHint hint={row.hint} />}
                           </span>
                         ) : (
                           <>
                             {cell}
-                            {index === 0 && row.hint && <span className="mb-rp-row-hint">{row.hint}</span>}
+                            {index === 0 && row.hint && <ReportRowHint hint={row.hint} />}
                           </>
                         )}
                       </td>
@@ -323,7 +317,7 @@ export function ReportCardList({
                 <span className="mb-rp-crow-copy">
                   <span className="mb-rp-crow-label-wrap">
                     <span className="mb-rp-crow-label">{row.label}</span>
-                    {row.hint && <span className="mb-rp-row-hint">{row.hint}</span>}
+                    {row.hint && <ReportRowHint hint={row.hint} />}
                   </span>
                   {row.meta && <span className="mb-rp-crow-meta">{row.meta}</span>}
                 </span>

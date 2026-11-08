@@ -17,6 +17,13 @@ export type PresetId =
   | 'thisQuarter'
   | 'thisYear'
   | 'last12m'
+  | 'nextMonth'
+  | 'next3m'
+  | 'next6m'
+  | 'next12m'
+
+/** 区间相对今天的三种状态：已发生 / 混合（跨今天）/ 全未来。 */
+export type RangeState = 'past' | 'mixed' | 'future'
 
 export interface ReportTime {
   gran: Granularity
@@ -45,6 +52,11 @@ export const PRESETS: readonly { id: PresetId; label: string }[] = [
   { id: 'thisQuarter', label: '本季' },
   { id: 'thisYear', label: '今年' },
   { id: 'last12m', label: '近 12 个月' },
+  // 未来预设只允许月粒度：日 / 年粒度下禁用并给出原因。
+  { id: 'nextMonth', label: '下月' },
+  { id: 'next3m', label: '未来 3 个月' },
+  { id: 'next6m', label: '未来 6 个月' },
+  { id: 'next12m', label: '未来 12 个月' },
 ]
 
 /** 预设 × 粒度兼容矩阵（PRESET_GRAN_OK）：不兼容者在面板内置灰。 */
@@ -59,6 +71,22 @@ const PRESET_GRAN: Record<PresetId, readonly Granularity[]> = {
   thisQuarter: ['month'],
   thisYear: ANY_GRAN,
   last12m: ['year'],
+  nextMonth: ['month'],
+  next3m: ['month'],
+  next6m: ['month'],
+  next12m: ['month'],
+}
+
+/** 未来区间只允许月粒度（后端投影按月输出）。 */
+export function futureAllowed(gran: Granularity): boolean {
+  return gran === 'month'
+}
+
+/** 未来预设集合；日 / 年粒度下禁用。 */
+export const FUTURE_PRESETS: readonly PresetId[] = ['nextMonth', 'next3m', 'next6m', 'next12m']
+
+export function isFuturePreset(preset: PresetId): boolean {
+  return FUTURE_PRESETS.includes(preset)
 }
 
 export function presetSupported(preset: PresetId, gran: Granularity): boolean {
@@ -96,6 +124,44 @@ export function monthStart(value: string): string {
 export function monthEnd(value: string): string {
   const date = parseDay(value)
   return lastDayOfMonth(date.getUTCFullYear(), date.getUTCMonth())
+}
+
+/** 按月平移并保留日号（超出目标月天数时落到月末）。 */
+export function addMonths(value: string, months: number): string {
+  const date = parseDay(value)
+  const year = date.getUTCFullYear()
+  const monthIndex = date.getUTCMonth() + months
+  const target = new Date(Date.UTC(year, monthIndex, 1))
+  const days = Number(lastDayOfMonth(target.getUTCFullYear(), target.getUTCMonth()).slice(8, 10))
+  return formatDay(
+    new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(date.getUTCDate(), days))),
+  )
+}
+
+/**
+ * 未来窗口上限：asOf 之后 12 个自然月的月末。
+ * 例：asOf = 2026-11-06 → 2027-11-30，正好覆盖「下月起 12 个月」。
+ */
+export function futureHorizon(today: string): string {
+  return monthEnd(addMonths(today, 12))
+}
+
+/** 期间相对今天的状态：止 ≤ 今天为已发生，起 > 今天为全未来，其余为跨今天的混合区间。 */
+export function rangeState(from: string, to: string, today: string): RangeState {
+  if (from > to) return 'past'
+  if (to <= today) return 'past'
+  if (from > today) return 'future'
+  return 'mixed'
+}
+
+/**
+ * 时点状态：今天及以前为已发生；正处于今天所在粒度桶（如本月）为混合；
+ * 晚于该桶为全未来。资产负债用月末时点，本月选中即「已发生 + 剩余天数推演」。
+ */
+export function pointRangeState(point: string, today: string, gran: Granularity): RangeState {
+  if (point <= today) return 'past'
+  if (bucketKey(point, gran) === bucketKey(today, gran)) return 'mixed'
+  return 'future'
 }
 
 export function yearStart(value: string): string {
@@ -173,6 +239,13 @@ export function reanchorRange(
   return { from: yearStart(from), to: yearEnd(to) }
 }
 
+/** 未来预设：从「下月月初」起连续 N 个自然月（不含今天所在月）。 */
+export function futureRange(today: string, months: number): { from: string; to: string } {
+  const start = addMonths(monthStart(today), 1)
+  const last = addMonths(start, months - 1)
+  return { from: start, to: monthEnd(last) }
+}
+
 export function presetRange(
   preset: PresetId,
   gran: Granularity,
@@ -209,6 +282,14 @@ export function presetRange(
       const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 11, 1))
       return { from: formatDay(start), to: today }
     }
+    case 'nextMonth':
+      return futureRange(today, 1)
+    case 'next3m':
+      return futureRange(today, 3)
+    case 'next6m':
+      return futureRange(today, 6)
+    case 'next12m':
+      return futureRange(today, 12)
   }
   return reanchorRange(presetRange('thisMonth', gran, today).from, today, gran)
 }
@@ -236,10 +317,24 @@ export interface TimeValidation {
   message: string | null
 }
 
-export function validateRange(from: string, to: string, gran: Granularity): TimeValidation {
+export function validateRange(
+  from: string,
+  to: string,
+  gran: Granularity,
+  today?: string,
+): TimeValidation {
   if (from > to) return { ok: false, message: '起需早于或等于止' }
   if (spanBuckets(from, to, gran) < 1) {
     return { ok: false, message: `按${GRANULARITY_LABELS[gran]}粒度的期间需不短于一个${GRANULARITY_LABELS[gran]}` }
+  }
+  if (today && to > today) {
+    if (!futureAllowed(gran)) {
+      return { ok: false, message: `未来区间仅支持月粒度，当前为${GRANULARITY_LABELS[gran]}粒度` }
+    }
+    const horizon = futureHorizon(today)
+    if (to > horizon || from > horizon) {
+      return { ok: false, message: `未来最多查看 12 个自然月（至 ${horizon}）` }
+    }
   }
   return { ok: true, message: null }
 }

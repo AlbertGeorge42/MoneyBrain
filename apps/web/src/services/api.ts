@@ -39,6 +39,7 @@ import type {
   Minor,
   PaginatedResponse,
   ProjectionMonths,
+  ProjectionWindowMonths,
   RecycleBinItem,
   RecycleBinResult,
   RollbackPoint,
@@ -63,6 +64,7 @@ export type {
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
   ApiResponse,
+  AssetProjectionResult,
   AuditEvent,
   AutoBackupConfig,
   BalanceSheetReportData,
@@ -205,10 +207,15 @@ export const reportApi = {
       params: { startDate, endDate, includePredictions: includePredictions ? 'true' : undefined },
     }),
   getInvestmentAnalysis: (startDate: string, endDate: string) => api.get<ApiResponse<InvestmentAnalysisReportData>>('/reports/investment-analysis', { params: { startDate, endDate } }),
-  // 未来现金流推演：逐月 inflow/outflow/net/endCash 由后端合成，前端只渲染
-  getCashFlowProjection: (months: ProjectionMonths, asOf?: string) =>
+  // 未来现金流推演：逐月 inflow/outflow/net/endCash 由后端合成，前端只渲染。
+  // fromMonth 只决定输出起始月；累计始终由后端从 asOf 起算。
+  getCashFlowProjection: (
+    months: ProjectionWindowMonths,
+    asOf?: string,
+    fromMonth?: string,
+  ) =>
     api.get<ApiResponse<CashFlowProjectionResult>>('/reports/cash-flow-projection', {
-      params: { months, asOf, includePlanned: 'true', includeCommitted: 'true' },
+      params: { months, asOf, fromMonth, includePlanned: 'true', includeCommitted: 'true' },
     }),
 }
 
@@ -220,10 +227,15 @@ export const analyticsApi = {
       params: { type, startDate, endDate, parentCategoryId } 
     }),
   getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
-  // 未来资产/负债/净资产推演：total 由后端合成，前端不自行累加
-  getAssetProjection: (months: ProjectionMonths, asOf?: string) =>
+  // 未来资产/负债/净资产推演：total 由后端合成，前端不自行累加。
+  // fromMonth 只决定输出起始月；累计始终由后端从 asOf 起算。
+  getAssetProjection: (
+    months: ProjectionWindowMonths,
+    asOf?: string,
+    fromMonth?: string,
+  ) =>
     api.get<ApiResponse<AssetProjectionResult>>('/analytics/asset-projection', {
-      params: { months, asOf, includePlanned: 'true', includeCommitted: 'true' },
+      params: { months, asOf, fromMonth, includePlanned: 'true', includeCommitted: 'true' },
     }),
 }
 
