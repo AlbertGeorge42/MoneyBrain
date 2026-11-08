@@ -12,7 +12,7 @@ import {
   toOptionalDate,
   toDate,
   dayStart,
-  dayEnd,
+  nextDay,
   formatDateLocal,
   parseMoney,
   parseOptionalUuid,
@@ -46,15 +46,15 @@ const validateTransactionType = (value: unknown): TransactionType => {
   return type
 }
 
-// 解析筛选范围日期：startDate → 本地当天零点，endDate → 本地当天末刻
-// 修复 date-only 字符串被 new Date(str) 解析为 UTC 零点导致的边界漏单
+// 解析筛选范围日期（半开区间）：起始 → 本地当天零点（含），结束 → 次日本地零点（不含）。
+// 与报表主查询口径一致（date < 目标日次日），不再用 23:59:59.999 表示「当天结束」。
 const parseRangeDate = (v: unknown, isEnd: boolean): Date | undefined => {
   if (!hasValue(v)) return undefined
   const s = String(v)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(new Date(s).getTime())) {
     throw new ValidationError('日期格式无效，请使用 YYYY-MM-DD 格式')
   }
-  return isEnd ? dayEnd(s) : dayStart(s)
+  return isEnd ? nextDay(s) : dayStart(s)
 }
 
 /** 金额筛选参数：整数分，非负。 */
@@ -76,6 +76,11 @@ const validateListQuery = (req: Request) => {
   parsePositiveInteger(req.query.pageSize, 'pageSize', 20)
   parseRangeDate(req.query.startDate, false)
   parseRangeDate(req.query.endDate, true)
+  const from = parseRangeDate(req.query.from, false)
+  const to = parseRangeDate(req.query.to, true)
+  if (from && to && from.getTime() >= to.getTime()) {
+    throw new ValidationError('开始日期不能晚于结束日期')
+  }
   if (hasValue(req.query.keyword)) {
     const keyword = String(req.query.keyword).trim()
     if (keyword.length > 100) {
@@ -168,6 +173,8 @@ router.get('/', validateRequest(validateListQuery), asyncHandler(async (req, res
     type: toStringArray(req.query.type),
     startDate: parseRangeDate(req.query.startDate, false),
     endDate: parseRangeDate(req.query.endDate, true),
+    from: parseRangeDate(req.query.from, false),
+    to: parseRangeDate(req.query.to, true),
     keyword: hasValue(req.query.keyword) ? String(req.query.keyword).trim() : undefined,
     amountMin: toOptionalMinor(req.query.amountMin, '最小金额'),
     amountMax: toOptionalMinor(req.query.amountMax, '最大金额'),

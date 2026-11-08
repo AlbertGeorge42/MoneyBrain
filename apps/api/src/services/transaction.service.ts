@@ -101,6 +101,12 @@ export interface TransactionListParams {
   type?: string | string[]
   startDate?: Date
   endDate?: Date
+  /**
+   * 报表下钻期间（半开区间），与报表主查询同一套日期语义：
+   * from 当天零点（含），to 次日零点（不含）。两端各自可选；给了 from/to 时优先于 startDate/endDate。
+   */
+  from?: Date
+  to?: Date
   /** 关键词：备注 / 账户名 / 分类名 / 交易方向（支出、收入…）。 */
   keyword?: string
   /** 金额区间，整数分；按绝对值比较。 */
@@ -432,16 +438,16 @@ const resolveCategoryIds = async (
 
 const applyDateRange = (
   where: Prisma.TransactionWhereInput,
-  startDate?: Date,
-  endDate?: Date,
+  startInclusive?: Date,
+  endExclusive?: Date,
 ) => {
-  if (!startDate && !endDate) {
+  if (!startInclusive && !endExclusive) {
     return
   }
 
   where.date = {
-    ...(startDate ? { gte: startDate } : {}),
-    ...(endDate ? { lte: endDate } : {}),
+    ...(startInclusive ? { gte: startInclusive } : {}),
+    ...(endExclusive ? { lt: endExclusive } : {}),
   }
 }
 
@@ -505,7 +511,7 @@ export const buildTransactionListWhere = async (
     }
   }
 
-  applyDateRange(where, params.startDate, params.endDate)
+  applyDateRange(where, params.from ?? params.startDate, params.to ?? params.endDate)
 
   return where
 }

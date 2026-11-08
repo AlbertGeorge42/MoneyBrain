@@ -69,8 +69,9 @@ export function buildTransactionQueryParams(
         : []
   roots.forEach((id) => params.append('categoryId', mapper.realId(id)))
 
-  if (filters.advanced.dateFrom) params.set('startDate', filters.advanced.dateFrom)
-  if (filters.advanced.dateTo) params.set('endDate', filters.advanced.dateTo)
+  // 期间：报表下钻带来的日历日闭区间，按 from/to（半开区间）发给后端，与报表主查询口径一致。
+  if (filters.advanced.dateFrom) params.set('from', filters.advanced.dateFrom)
+  if (filters.advanced.dateTo) params.set('to', filters.advanced.dateTo)
 
   const min = toMinor(filters.advanced.amountMin)
   const max = toMinor(filters.advanced.amountMax)
