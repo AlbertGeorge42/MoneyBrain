@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { IncomeExpenseReportData, ReportValue } from '@contracts/types'
 import { mapFlowReport } from '@/features/reports/apiReports'
+import { buildDrill } from '@/features/reports/reportsModel'
 import type { Ledger } from '@/features/overview/model'
 
 function value(actual: number): ReportValue {
@@ -72,12 +73,24 @@ describe('mapFlowReport 分类构成', () => {
 
     expect(report.expenseTrees).toHaveLength(1)
     expect(report.expenseTrees[0]).toMatchObject({
-      id: 'real-food',
+      // 行 id 与笔数、下钻同用展示 id；真实库同名根分类会被改写成种子 key。
+      id: 'food',
       name: '餐饮',
       amount: 2_800,
       count: 1,
       share: 100,
     })
+  })
+
+  it('根分类行 id 与下钻同一 id 空间，逐笔加总等于行金额', () => {
+    const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
+    const row = report.expenseTrees[0]
+    const drill = buildDrill(ledger, row, 'expense', '2026-11-01', '2026-11-06')
+
+    expect(drill.transactions).toHaveLength(1)
+    expect(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)).toBe(
+      row.amount,
+    )
   })
 })
 

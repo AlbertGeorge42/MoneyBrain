@@ -172,18 +172,19 @@ function treeOf(
   return details
     .filter((detail) => amountOf(detail) > 0)
     .map((detail) => ({
-      id: detail.categoryId,
+      // 行 id 与笔数、下钻同用展示 id：根分类可能被改写成种子 key，
+      // 若这里保留后端真实 id，下钻会按真实 id 在账本里找不到分类，根分类恒为 0 笔。
+      id: displayIdOf(detail.categoryId),
       name: detail.name,
       amount: amountOf(detail),
       predicted: predictedOf(detail),
-      // 接口分类是后端真实 id，账本流水按展示 id 归集；笔数必须同一 id 空间才能对上。
       count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
       share: total === 0 ? 0 : (amountOf(detail) / total) * 100,
       level: 0 as const,
       children: (detail.children ?? [])
         .filter((child: ReportCategoryDetail) => amountOf(child) > 0)
         .map((child: ReportCategoryDetail) => ({
-          id: child.categoryId,
+          id: displayIdOf(child.categoryId),
           name: child.name,
           amount: amountOf(child),
           predicted: predictedOf(child),
@@ -568,7 +569,7 @@ function projectionTreeOf(
   const shareOf = (detail: ProjectionCategoryDetail) =>
     total === 0 ? 0 : (amountOf(detail) / total) * 100
   const childOf = (detail: ProjectionCategoryDetail): FlowTreeNode => ({
-    id: detail.categoryId,
+    id: displayIdOf(detail.categoryId),
     name: detail.name,
     amount: amountOf(detail),
     predicted: predictedOf(detail),
@@ -582,7 +583,7 @@ function projectionTreeOf(
   return details
     .filter((detail) => amountOf(detail) > 0)
     .map((detail) => ({
-      id: detail.categoryId,
+      id: displayIdOf(detail.categoryId),
       name: detail.name,
       amount: amountOf(detail),
       predicted: predictedOf(detail),
