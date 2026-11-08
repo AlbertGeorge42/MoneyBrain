@@ -110,21 +110,23 @@
 
 ✅ 已落地：`features/shared/toast.tsx` + `toastContext.ts` + `toast.css`。`ToastProvider` 在 `main.tsx` 挂载；`shell` 由 Provider body-portal，`reports` / `stack` 由页面内 `<ToastViewport variant>` 渲染。四套调用点的 state/timer/渲染已删除。
 
-#### B1-1 已落地（2026-11-07）与待定口径
+#### B1-1 口径已定（2026-11-08）
 
 已实现 `features/shared/toast.tsx` + `toastContext.ts` + `toast.css`：
-`notify(message, { variant, duration, action })` / `dismiss(id)`；`shell` 由 Provider 自动 body-portal，
-`reports` / `stack` 由页面内 `<ToastViewport variant>` 渲染。四套调用点的 state/timer/渲染已删除，
-调用方逐项显式传参以**保持当前可见行为**（零视觉改动、零行为退化，18 组视口×主题 rect/CSS 比对无差异）。
+`notify(message, { variant, action })` / `dismiss(id)`。`shell` 由 Provider 自动 body-portal，
+`reports` / `stack` 由页面内 `<ToastViewport variant>` 渲染。四套调用点的 state/timer/渲染已删除。
 
-以下 4 处口径差异**本轮刻意不统一**，作为后续待定项（决定后再改数值，一次一项）：
+以下规则已统一并落在实现里，不再作为待定项：
 
-| 项 | 现状 | 待定问题 |
-|---|---|---|
-| 普通提示时长 | `shell` 2400ms；设置页 2600ms | 是否统一为 2400ms（设置页持有 2600ms 是历史实现，非设计值） |
-| 带动作提示时长 | `shell` / 设置页 6000ms；`stack` 恒 6000ms（有无动作都一样） | 是否让 `stack` 也区分有无动作（无动作缩短到 2400ms？） |
-| 条数上限 | `shell` / `reports` 新盖旧（1 条）；`stack` 最多 3 条 | 是否统一为 3 条堆叠，或全局限 1 条 |
-| 层级/定位 | `shell` body portal（可盖抽屉）；`reports` 手机态 `is-over-sheet` 抬到 380px；`stack` 留在页面流内 | 是否把三种定位收敛为一套「页面内 + 抽屉之上」规则 |
+| 项 | 已定规则 |
+|---|---|
+| 时长 | 只看是否带动作：**无动作 2400ms，带动作 6000ms**，与 variant、页面无关。原设置页显式 2600ms 与 stack 恒 6000ms 的特例已删除；调用方不再传时长。 |
+| 条数上限 | **三族统一最多 3 条**。超出时新盖旧（移除最旧一条并清其定时器），最新的固定在底部、旧的向上排，间距 `var(--mb-s-2)`。 |
+| 层级/定位 | **保留三族差异**：`shell` body portal（摆脱手机框 transform、可盖抽屉）；`reports` 手机态 `is-over-sheet` 抬到 380px + `var(--mb-s-2)`（不遮 sheet 底部「完成」）；`stack` 留在流水页底部槽位。这是定位需要，不是口径不一致，原因写在 `toast.tsx` / `toast.css` 注释里。 |
+| 动作文案 | 仍由调用方提供（当前均为「撤销」），Provider 不改写。 |
+
+三条定位结构统一为「贴底容器 + 子项自下而上堆叠」：`mb-hf-toast-stack` / `mb-rp-toast-stack` / `mb-tx-toast-stack`，
+视觉数值（padding、圆角、字号、阴影、颜色、底部偏移）沿用原实现。
 
 ### B2 Tabs / Segmented
 

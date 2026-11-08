@@ -238,7 +238,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     }
   }, [apiMode, active, openSection, backupReloadKey])
 
-  const notify = (message: string) => pushToast(message, { duration: 2600 })
+  const notify = (message: string) => pushToast(message)
 
   const saveAutoBackup = async () => {
     if (!backupConfig) return
@@ -264,9 +264,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       setBackupSaving(false)
     }
   }
-  // 危险操作（转移后删除）与批量删除一致：6 秒内可撤销。
+  // 危险操作（转移后删除）与批量删除一致：带撤销动作，6 秒可撤销。
   const notifyUndoable = (message: string, run: () => void) =>
-    pushToast(message, { duration: 6000, action: { label: '撤销', run } })
+    pushToast(message, { action: { label: '撤销', run } })
 
   useEffect(() => {
     setEditorError(null)

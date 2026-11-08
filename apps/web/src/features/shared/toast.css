@@ -1,16 +1,26 @@
 /*
  * 轻提示样式：三族位置与视觉集中在这里，由 ToastViewport 的 variant 选择。
- * 类名与数值沿用原实现，避免改动任何可见结果。
+ * 视觉数值沿用原实现；三族统一为最多 3 条，容器贴底、子项自下而上堆叠（最新一条在最下方）。
+ * 位置/层级仍按族分开，这是定位需要：shell 挂 body 宿主摆脱手机框 transform，
+ * reports 跟随手机框、抽屉打开时抬到抽屉之上，stack 留在流水页底部槽位。
  */
 
 /* ===== shell：预览壳 / 设置页，挂 body 级宿主 ===== */
 
-.mb-hf-toast {
+.mb-hf-toast-stack {
   position: fixed;
   left: 50%;
   /* 与流水页合计条 / 批量条共用底部槽位时抬到其上，避免叠压。 */
   bottom: calc(var(--mb-dock-h) + var(--mb-dock-batch-h) + var(--mb-s-5));
   z-index: var(--mb-z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mb-s-2);
+  transform: translateX(-50%);
+}
+
+.mb-hf-toast {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-3);
@@ -20,7 +30,6 @@
   color: var(--mb-color-chart-tooltip-ink);
   font-size: var(--mb-fs-1);
   box-shadow: var(--mb-sh-2);
-  transform: translateX(-50%);
   white-space: nowrap;
 }
 
@@ -38,12 +47,19 @@
 
 /* ===== reports：留在报表页内，跟随手机框 / 抽屉层级 ===== */
 
-.mb-rp-toast {
+.mb-rp-toast-stack {
   position: fixed;
   z-index: var(--mb-z-toast);
   left: 50%;
   bottom: var(--mb-s-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mb-s-2);
   transform: translateX(-50%);
+}
+
+.mb-rp-toast {
   max-width: 420px;
   padding: 10px 16px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
@@ -55,7 +71,7 @@
 }
 
 /* 设置 sheet 打开时，toast 抬到 sheet 之上，不遮住常驻底部的「完成」。 */
-.mb-rp-toast.is-over-sheet {
+.mb-rp-toast-stack.is-over-sheet {
   bottom: calc(380px + var(--mb-s-2));
 }
 

@@ -15,11 +15,9 @@ export interface ToastAction {
 }
 
 export interface ToastOptions {
-  /** 位置 / 视觉族，默认 shell（预览壳与设置页共用）。 */
+  /** 位置 / 层级族，默认 shell（预览壳与设置页共用）。只决定把提示渲染在哪，不决定时长。 */
   variant?: ToastVariant
-  /** 自动消失时长；不传时按 variant 与是否带动作取默认值。 */
-  duration?: number
-  /** 行内动作，如「撤销」。点击后先执行回调再关闭。 */
+  /** 行内动作，如「撤销」。带动作的提示停留 6 秒，无动作 2.4 秒；点击后先执行回调再关闭。 */
   action?: ToastAction
 }
 

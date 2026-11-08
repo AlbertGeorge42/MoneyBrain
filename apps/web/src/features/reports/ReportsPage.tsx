@@ -152,7 +152,7 @@ export function ReportsPage({
     setFoldedCash({})
   }, [tab, time.from, time.to, time.point])
 
-  const notify = (message: string) => pushToast(message, { variant: 'reports', duration: 2400 })
+  const notify = (message: string) => pushToast(message, { variant: 'reports' })
   const toggleFlowFold = (id: string) =>
     setFoldedFlow((current) => ({ ...current, [id]: current[id] === false }))
   const toggleCashFold = (id: string) =>

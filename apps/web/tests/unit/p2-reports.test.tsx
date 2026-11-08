@@ -51,7 +51,7 @@ describe('报表设置抽屉：移动 sheet 四行可见、toast 不压「完成
   })
 
   it('sheet 打开时 toast 抬到 sheet 上方，不遮住底部「完成」', () => {
-    expect(toast).toMatch(/\.mb-rp-toast\.is-over-sheet\s*\{[^}]*bottom:\s*calc\(380px/)
+    expect(toast).toMatch(/\.mb-rp-toast-stack\.is-over-sheet\s*\{[^}]*bottom:\s*calc\(380px/)
   })
 })
 

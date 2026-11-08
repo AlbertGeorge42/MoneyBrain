@@ -392,7 +392,6 @@ export function TransactionsPage({
     (message: string, undo?: () => void) => {
       pushToast(message, {
         variant: 'stack',
-        duration: 6000,
         action: undo ? { label: '撤销', run: undo } : undefined,
       })
     },

@@ -192,10 +192,9 @@ function PreviewBody({
     setBudgetEditorOpen(false)
   }, [page])
 
-  // 带撤销动作的提示与批量删除一致：6 秒可撤销；普通提示 2.4 秒。
-  const notify = (message: string, action?: () => void, duration?: number) =>
+  // 时长由是否带撤销动作决定：带动作 6 秒可撤销，普通提示 2.4 秒。
+  const notify = (message: string, action?: () => void) =>
     pushToast(message, {
-      duration: duration ?? (action ? 6000 : 2400),
       action: action ? { label: '撤销', run: action } : undefined,
     })
 
@@ -355,7 +354,6 @@ function PreviewBody({
                   )
                 }
               : undefined,
-            6000,
           )
         }}
       />
