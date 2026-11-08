@@ -120,9 +120,14 @@ function flowCounts(
 } {
   const income = new Map<string, number>()
   const expense = new Map<string, number>()
+  // 流水挂在叶子分类上，笔数要沿父链上卷：父级 = 自身 + 全部后代，子级只含自身子树。
+  // 反向按子树下算会让父级恒为 0 笔。
+  const parentOf = new Map(ledger.categories.map((category) => [category.id, category.parentId]))
   const bump = (map: Map<string, number>, categoryId: string) => {
-    for (const id of subtreeOf(ledger, categoryId)) {
-      map.set(id, (map.get(id) ?? 0) + 1)
+    let current: string | undefined = categoryId
+    while (current) {
+      map.set(current, (map.get(current) ?? 0) + 1)
+      current = parentOf.get(current)
     }
   }
   for (const transaction of ledger.transactions) {

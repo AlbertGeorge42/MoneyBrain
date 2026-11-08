@@ -82,6 +82,37 @@ describe('mapFlowReport 分类构成', () => {
     })
   })
 
+  it('笔数沿父链上卷：父级含子级，子级只算自身', () => {
+    const treeLedger: Ledger = {
+      ...ledger,
+      categories: [
+        { id: 'food', name: '餐饮', type: 'expense' },
+        { id: 'meal', name: '三餐', type: 'expense', parentId: 'food' },
+      ],
+      transactions: [{ ...ledger.transactions[0], categoryId: 'meal' }],
+    }
+    const treeData: IncomeExpenseReportData = {
+      ...reportData,
+      expenseCategoryDetails: [
+        {
+          name: '餐饮',
+          actual: -2_800,
+          predicted: 0,
+          categoryId: 'real-food',
+          hasChildren: true,
+          sort: 0,
+          children: [
+            { name: '三餐', actual: -2_800, predicted: 0, categoryId: 'meal', hasChildren: false, sort: 0 },
+          ],
+        },
+      ],
+    }
+    const report = mapFlowReport(treeData, [], treeLedger, '2026-11-01', '2026-11-06')
+
+    expect(report.expenseTrees[0].count).toBe(1)
+    expect(report.expenseTrees[0].children[0].count).toBe(1)
+  })
+
   it('根分类行 id 与下钻同一 id 空间，逐笔加总等于行金额', () => {
     const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
     const row = report.expenseTrees[0]
