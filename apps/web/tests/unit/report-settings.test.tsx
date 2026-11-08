@@ -1,15 +1,17 @@
 /**
  * 报表设置四个配置：存在、切换生效、刷新保持、不调用写接口。
  *
- * 展示偏好只落 localStorage；这里同时验证纯变换函数（分组 / 列 / 活动分组 / 快照）。
+ * 报表数据全部来自 mock 的 API hook（后端 DTO → 真实 mapper），
+ * 展示偏好只落 localStorage；这里同时验证纯变换函数（分组 / 列 / 活动分组 / 快照）
+ * 与「配置草稿 → 确认落盘 → 刷新恢复」这条真实交互路径。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
 import { ToastProvider } from '@/features/shared/toast'
-import { TODAY } from '@/features/overview/model'
+import { TODAY, deriveExpenseCharts } from '@/features/overview/model'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { CompositionBars } from '@/features/reports/charts'
@@ -33,12 +35,137 @@ import {
   mapInvestmentReport,
 } from '@/features/reports/apiReports'
 
+// API 模式：报表 hook 返回下面的后端 DTO 映射结果，页面路径与生产一致。
+const mockReports = vi.hoisted(() => ({
+  balance: null as unknown,
+  flow: null as unknown,
+  cash: null as unknown,
+  invest: null as unknown,
+}))
+
+vi.mock('@/features/reports/apiReports', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/reports/apiReports')>()
+  const ok = (data: unknown) =>
+    ({ data, status: 'success', error: null, refetch: () => {} }) as never
+  return {
+    ...actual,
+    useApiBalanceReport: () => ok(mockReports.balance),
+    useApiFlowReport: () => ok(mockReports.flow),
+    useApiCashReport: () => ok(mockReports.cash),
+    useApiInvestReport: () => ok(mockReports.invest),
+    useApiAssetProjection: () => ok(mockReports.balance),
+    useApiCashProjection: () => ok(mockReports.cash),
+    useApiIncomeExpenseProjection: () => ok(mockReports.flow),
+  }
+})
+
 const ledger = createSeedLedger()
+const apiLedger = {
+  ...ledger,
+  // 本用例只验证展示偏好的持久化：关掉「一级分类 → 账户」层级，
+  // 表格行数就是账户数（6 个账户），切换按性质汇总后为 3 行。
+  accountCategories: undefined,
+  // API 账本带 snapshot：页面据此走 API 路径；快照里保留种子账本的支出分类全集。
+  snapshot: { today: TODAY, expenseCharts: deriveExpenseCharts(ledger) } as never,
+}
 const monthFrom = `${TODAY.slice(0, 7)}-01`
 
+/** 资产负债：6 个账户挂在 3 个性质下（按账户 6 行、按性质 3 行）。 */
+const UI_BALANCE = {
+  date: TODAY,
+  assets: { actual: 16_173_915, predicted: 0 },
+  liabilities: { actual: 211_840, predicted: 0 },
+  netWorth: { actual: 15_962_075, predicted: 0 },
+  assetNodes: [
+    {
+      id: 'ac-invest',
+      name: '投资',
+      actual: 9_645_000,
+      children: [
+        { id: 'brk', name: '长桥证券', actual: 8_645_000 },
+        { id: 'xq', name: '雪球基金', actual: 1_000_000 },
+      ],
+    },
+    {
+      id: 'ac-savings',
+      name: '储蓄',
+      actual: 6_027_695,
+      children: [{ id: 'cmb', name: '招商储蓄卡', actual: 6_027_695 }],
+    },
+    {
+      id: 'ac-cash',
+      name: '现金等价',
+      actual: 501_220,
+      children: [
+        { id: 'wx', name: '微信零钱', actual: 124_020 },
+        { id: 'zfb', name: '支付宝', actual: 376_200 },
+        { id: 'wallet', name: '钱包', actual: 1_000 },
+      ],
+    },
+  ],
+  liabilityNodes: [
+    {
+      id: 'ac-credit',
+      name: '信用账户',
+      actual: 211_840,
+      children: [{ id: 'xyk', name: '交行信用卡', actual: 211_840 }],
+    },
+  ],
+} as never
+
+/** 现金流：uncategorized 决定「未分类」分组是否存在。 */
+function cashDto(hasUncategorized: boolean) {
+  return {
+    cashInflow: { actual: 0 },
+    cashOutflow: { actual: hasUncategorized ? -69_900 : -19_900 },
+    startCash: { actual: 500_220 },
+    endCash: { actual: hasUncategorized ? 430_320 : 480_320 },
+    byActivity: {
+      operating: {
+        inflow: { actual: 0 },
+        outflow: { actual: -19_900 },
+        net: { actual: -19_900 },
+        items: [
+          {
+            categoryName: '教育',
+            categoryId: 'edu',
+            actual: -19_900,
+            direction: 'outflow',
+            type: 'expense',
+          },
+        ],
+      },
+      investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+      financing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+      uncategorized: hasUncategorized
+        ? {
+            inflow: { actual: 0 },
+            outflow: { actual: -50_000 },
+            net: { actual: -50_000 },
+            items: [
+              {
+                categoryName: '账户互转',
+                categoryId: 'move',
+                actual: -50_000,
+                direction: 'outflow',
+                type: 'transfer_out',
+              },
+            ],
+          }
+        : { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+    },
+  } as never
+}
+
+const uiBalance = mapBalanceReport(UI_BALANCE, [], apiLedger)
+const uiCash = mapCashReport(cashDto(true), apiLedger, monthFrom, TODAY)
+const uiCashOperatingOnly = mapCashReport(cashDto(false), apiLedger, monthFrom, TODAY)
+mockReports.balance = uiBalance
+mockReports.cash = uiCash
+
 const contextValue = {
-  ledger,
-  dataMode: 'seed' as const,
+  ledger: apiLedger,
+  dataMode: 'api' as const,
   addTransaction: vi.fn(),
   updateTransaction: vi.fn(),
   deleteTransactions: vi.fn(),
@@ -65,7 +192,7 @@ function renderPage(settingsOpen = true) {
           <ToastProvider>
             <ReportsPage
               device="desktop"
-              dataState="ready"
+              dataState="normal"
               settingsOpen={settingsOpen}
               onSettingsToggle={() => {}}
               onRetry={() => {}}
@@ -79,8 +206,15 @@ function renderPage(settingsOpen = true) {
   )
 }
 
+function assetRowCount() {
+  const table = screen.getByLabelText('资产明细')
+  // 合计行在 tfoot，占位行是 .is-pad（minRows 补齐），都不算数据行。
+  return table.querySelectorAll('tbody tr:not(.is-pad)').length
+}
+
 beforeEach(() => {
   window.localStorage.clear()
+  mockReports.cash = uiCash
   const fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
 })
@@ -324,6 +458,61 @@ describe('四个配置切换后目标结构变化', () => {
       '基金',
       '股票',
     ])
+  })
+})
+
+describe('面板切换、确认与刷新保持（API 模式）', () => {
+  it('资产负债改按性质汇总：表格 6 行 → 3 行，确认后刷新仍保持，且不发网络写请求', () => {
+    const first = renderPage()
+    expect(assetRowCount()).toBe(6)
+
+    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
+    fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
+    expect(assetRowCount()).toBe(3)
+
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toContain('"groupMode":"kind"')
+    expect(fetch).not.toHaveBeenCalled()
+
+    first.unmount()
+    renderPage(false)
+    expect(assetRowCount()).toBe(3)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('取消不落盘：改回按账户后取消，刷新仍是默认', () => {
+    const first = renderPage()
+    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
+    fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(assetRowCount()).toBe(6)
+    expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toBeNull()
+
+    first.unmount()
+    renderPage(false)
+    expect(assetRowCount()).toBe(6)
+  })
+
+  it('重置回默认：现金流隐藏分组后重置，表格恢复 2 组', () => {
+    renderPage()
+    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[2])
+    fireEvent.click(screen.getByRole('button', { name: '未分类显示' }))
+    expect(screen.getAllByText(/已隐藏 1 组/).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: '重置' }))
+    expect(screen.queryAllByText(/已隐藏 1 组/)).toHaveLength(0)
+
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toContain('"未分类":true')
+  })
+
+  it('无意义分组给出可见禁用原因（不是 title）', () => {
+    mockReports.cash = uiCashOperatingOnly
+    renderPage()
+    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[2])
+    expect(screen.getByText('本期无投资活动流水')).toBeInTheDocument()
+    expect(screen.getByText('本期无筹资活动流水')).toBeInTheDocument()
+    expect(screen.getByText('本期无未分类流水')).toBeInTheDocument()
   })
 })
 
