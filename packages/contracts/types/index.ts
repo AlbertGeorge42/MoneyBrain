@@ -856,6 +856,9 @@ export type ProjectionMonths = 3 | 6 | 12
 /** 报表时间轴推演窗口：1–12 个自然月。 */
 export type ProjectionWindowMonths = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
 
+/** 推演桶粒度：日 / ISO 周 / 自然月 / 自然年。 */
+export type ProjectionGranularity = 'day' | 'week' | 'month' | 'year'
+
 /**
  * 资产/负债水平（整数分）。
  * liabilities 为正数欠款（与资产负债报表同一口径）；netWorth = assets − liabilities。
@@ -897,25 +900,37 @@ export interface ProjectionCoveredOccurrence {
  * 预算展开只进 planned，同一笔计划被真实交易覆盖时只保留 committed 一份。
  */
 export interface AssetProjectionPoint {
+  granularity: ProjectionGranularity
   label: string
-  /** 该月最后一个日历日（YYYY-MM-DD）。 */
+  /** 桶起点（含，YYYY-MM-DD）。日 = 当日；周 = 周一；月 = 1 日；年 = 1-01。 */
+  start: string
+  /** 桶终点（含，YYYY-MM-DD），等于 date。历史桶取真实余额，混合/未来桶取累计值。 */
+  end: string
+  /** 该桶最后一个日历日（YYYY-MM-DD）；保留旧字段名。 */
   date: string
   actual: ProjectionBalance
   planned: ProjectionBalance
   committed: ProjectionBalance
   total: ProjectionBalance
-  /** 本月（label）计划点位被真实交易覆盖的 occurrence（已从 planned 剔除，金额只在 committed）。 */
+  /** 本桶计划点位被真实交易覆盖的 occurrence（已从 planned 剔除，金额只在 committed）。 */
   covered: ProjectionCoveredOccurrence[]
 }
 
 export interface AssetProjectionResult {
   /** 推演起点（YYYY-MM-DD）。 */
   asOf: string
-  /** 输出窗口起始月（YYYY-MM）。累计始终从 asOf 所在月开始。 */
-  fromMonth: string
-  /** 输出点位数量。 */
-  months: ProjectionWindowMonths
-  /** 起点真实余额，等于每个点位里的 actual。 */
+  granularity: ProjectionGranularity
+  /** 首个输出桶起点（含）。 */
+  start: string
+  /** 末个输出桶终点（含）。 */
+  end: string
+  /** 输出桶数量。 */
+  bucketCount: number
+  /** 输出窗口起始月（YYYY-MM）；仅 month 兼容参数回填，按 from/to 请求时省略。 */
+  fromMonth?: string
+  /** 输出点位数量；仅 month 兼容参数回填，按 from/to 请求时省略。 */
+  months?: ProjectionWindowMonths
+  /** 起点真实余额，等于混合/未来桶里的 actual。 */
   base: ProjectionBalance
   points: AssetProjectionPoint[]
 }
@@ -930,27 +945,39 @@ export interface ProjectionFlowValue {
 
 /** 现金流推演点位：期初 + 净额 = 期末。 */
 export interface CashFlowProjectionPoint {
+  granularity: ProjectionGranularity
   label: string
-  /** 该月最后一个日历日（YYYY-MM-DD）。 */
+  /** 桶起点（含，YYYY-MM-DD）。 */
+  start: string
+  /** 桶终点（含，YYYY-MM-DD），等于 date。 */
+  end: string
+  /** 该桶最后一个日历日（YYYY-MM-DD）；保留旧字段名。 */
   date: string
   inflow: ProjectionFlowValue
   outflow: ProjectionFlowValue
   net: ProjectionFlowValue
   startCash: Minor
   endCash: Minor
-  /** 本月（label）计划点位被真实交易覆盖的 occurrence（已从 planned 剔除，金额只在 committed）。 */
+  /** 本桶计划点位被真实交易覆盖的 occurrence（已从 planned 剔除，金额只在 committed）。 */
   covered: ProjectionCoveredOccurrence[]
 }
 
 export interface CashFlowProjectionResult {
   asOf: string
-  /** 输出窗口起始月（YYYY-MM）。累计始终从 asOf 所在月开始。 */
-  fromMonth: string
-  /** 输出点位数量。 */
-  months: ProjectionWindowMonths
-  /** 首个输出月月初现金（含 asOf 后至该月前的计划/已排定净额）。 */
+  granularity: ProjectionGranularity
+  /** 首个输出桶起点（含）。 */
+  start: string
+  /** 末个输出桶终点（含）。 */
+  end: string
+  /** 输出桶数量。 */
+  bucketCount: number
+  /** 输出窗口起始月（YYYY-MM）；仅 month 兼容参数回填，按 from/to 请求时省略。 */
+  fromMonth?: string
+  /** 输出点位数量；仅 month 兼容参数回填，按 from/to 请求时省略。 */
+  months?: ProjectionWindowMonths
+  /** 首个输出桶期初现金（含 asOf 后至该桶前的计划/已排定净额）。 */
   startCash: Minor
-  /** 末个输出月月末现金（= 逐月净额累加）。 */
+  /** 末个输出桶期末现金（= 逐桶净额累加）。 */
   endCash: Minor
   points: CashFlowProjectionPoint[]
 }

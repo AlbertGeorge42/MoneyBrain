@@ -10,7 +10,7 @@ import {
   CATEGORY_ICON_KEYS,
   isCategoryIconKey,
 } from '../../../../packages/contracts/constants.js'
-import type { ProjectionWindowMonths } from '../../../../packages/contracts/types/index.js'
+import type { ProjectionGranularity, ProjectionWindowMonths } from '../../../../packages/contracts/types/index.js'
 import { ValidationError } from './error.js'
 import { hasValue } from './utils.js'
 
@@ -188,4 +188,50 @@ export const parseOptionalFromMonthQuery = (value: unknown): string | undefined 
     throw new ValidationError('fromMonth 必须是 YYYY-MM')
   }
   return value
+}
+
+/** 推演桶粒度：day / week / month / year（缺省 month）。 */
+export const parseProjectionGranularity = (value: unknown): ProjectionGranularity => {
+  if (value === undefined || value === null || value === '') return 'month'
+  if (value === 'day' || value === 'week' || value === 'month' || value === 'year') return value
+  throw new ValidationError('granularity 只支持 day / week / month / year')
+}
+
+export interface ProjectionWindowQuery {
+  granularity: ProjectionGranularity
+  from?: LocalDate
+  to?: LocalDate
+  fromMonth?: string
+  months: ProjectionWindowMonths
+}
+
+/**
+ * 推演窗口参数（两个投影端点共用）。
+ *
+ * `from/to + granularity` 是唯一正向入口；不传 from/to 时保留旧入口
+ * `fromMonth/months`（阶段 6 删旧面板时一并移除）。
+ */
+export const parseProjectionWindowQuery = (query: Record<string, unknown>): ProjectionWindowQuery => {
+  const granularity = parseProjectionGranularity(query.granularity)
+  const from = parseOptionalDateQuery(query.from, 'from')
+  const to = parseOptionalDateQuery(query.to, 'to')
+
+  if (from || to) {
+    if (!from || !to) throw new ValidationError('from 与 to 必须同时提供')
+    if (from > to) throw new ValidationError('from 必须早于或等于 to')
+    if (hasValue(query.fromMonth) || hasValue(query.months)) {
+      throw new ValidationError('from/to 与 fromMonth/months 不能混用')
+    }
+    return { granularity, from, to, months: 12 }
+  }
+
+  if (granularity !== 'month') {
+    throw new ValidationError('day / week / year 粒度必须提供 from 与 to')
+  }
+
+  return {
+    granularity,
+    fromMonth: parseOptionalFromMonthQuery(query.fromMonth),
+    months: parseProjectionMonths(query.months),
+  }
 }

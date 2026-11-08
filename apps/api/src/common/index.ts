@@ -39,6 +39,8 @@ export {
   parseBooleanQuery,
   parseFromMonthQuery,
   parseOptionalFromMonthQuery,
+  parseProjectionGranularity,
+  parseProjectionWindowQuery,
 } from './validators.js'
 
 // Date utilities

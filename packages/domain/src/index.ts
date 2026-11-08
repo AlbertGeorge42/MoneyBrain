@@ -18,12 +18,14 @@ export {
 
 export {
   addDays,
+  addMonths,
   compare,
   contains,
   fromDate,
   isAfter,
   isBefore,
   isLocalDate,
+  isoWeekLabel,
   localDate,
   maxDate,
   minDate,

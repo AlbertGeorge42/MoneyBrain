@@ -3,8 +3,7 @@ import {
   asyncHandler,
   parseAsOfQuery,
   parseBooleanQuery,
-  parseOptionalFromMonthQuery,
-  parseProjectionMonths,
+  parseProjectionWindowQuery,
   success,
   validateRequest,
   validateTypeQuery,
@@ -40,12 +39,11 @@ router.get('/asset-trend', asyncHandler(async (_req, res) => {
 }))
 
 router.get('/asset-projection', asyncHandler(async (req, res) => {
-  const months = parseProjectionMonths(req.query.months)
+  const window = parseProjectionWindowQuery(req.query)
   const asOf = parseAsOfQuery(req.query.asOf)
-  const fromMonth = parseOptionalFromMonthQuery(req.query.fromMonth)
   const includePlanned = parseBooleanQuery(req.query.includePlanned, 'includePlanned', true)
   const includeCommitted = parseBooleanQuery(req.query.includeCommitted, 'includeCommitted', true)
-  const result = await getAssetProjection({ asOf, fromMonth, months, includePlanned, includeCommitted })
+  const result = await getAssetProjection({ asOf, ...window, includePlanned, includeCommitted })
   return success(res, result)
 }))
 

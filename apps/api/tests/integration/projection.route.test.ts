@@ -46,7 +46,10 @@ interface CoveredOccurrence {
 }
 
 interface AssetPoint {
+  granularity: string
   label: string
+  start: string
+  end: string
   date: string
   actual: Balance
   planned: Balance
@@ -57,14 +60,21 @@ interface AssetPoint {
 
 interface AssetProjection {
   asOf: string
-  fromMonth: string
-  months: number
+  granularity: string
+  start: string
+  end: string
+  bucketCount: number
+  fromMonth?: string
+  months?: number
   base: Balance
   points: AssetPoint[]
 }
 
 interface CashFlowPoint {
+  granularity: string
   label: string
+  start: string
+  end: string
   date: string
   inflow: FlowValue
   outflow: FlowValue
@@ -76,8 +86,12 @@ interface CashFlowPoint {
 
 interface CashFlowProjection {
   asOf: string
-  fromMonth: string
-  months: number
+  granularity: string
+  start: string
+  end: string
+  bucketCount: number
+  fromMonth?: string
+  months?: number
   startCash: number
   endCash: number
   points: CashFlowPoint[]
@@ -733,5 +747,436 @@ describe('同一 occurrence 的 planned 与 committed 互斥（房租账本）',
       expect(point.endCash).toBe(point.startCash + point.net.total)
       expect(point.net.total).toBe(point.inflow.total - point.outflow.total)
     }
+  })
+})
+
+describe('四粒度窗口：day / week / month / year', () => {
+  beforeAll(async () => {
+    await prisma.$connect()
+  })
+
+  afterAll(async () => {
+    await resetData()
+    await prisma.$disconnect()
+  })
+
+  beforeEach(async () => {
+    await seed()
+  })
+
+  it('日粒度：历史桶取真实余额，混合/未来桶累计，桶内 covered 按日期归属', async () => {
+    const res = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01', to: '2026-11-30' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as AssetProjection
+
+    expect(data.granularity).toBe('day')
+    expect(data.start).toBe('2026-11-01')
+    expect(data.end).toBe('2026-11-30')
+    expect(data.bucketCount).toBe(30)
+    expect(data.fromMonth).toBeUndefined()
+    expect(data.months).toBeUndefined()
+    expect(data.base).toEqual({ assets: 50000, liabilities: 10000, netWorth: 40000 })
+    expect(data.points).toHaveLength(30)
+
+    // 11-01 已是历史桶：真实余额（11-01 收入 200 已入账），预测项为 0。
+    expect(data.points[0]).toMatchObject({
+      granularity: 'day',
+      label: '2026-11-01',
+      start: '2026-11-01',
+      end: '2026-11-01',
+      date: '2026-11-01',
+      actual: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+      planned: zero(),
+      committed: zero(),
+      total: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+      covered: [],
+    })
+    // 11-06 仍是历史桶，余额与 11-01 相同（之后无已发生交易）。
+    expect(data.points[5]).toMatchObject({
+      label: '2026-11-06',
+      actual: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+      total: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+    })
+    // 11-07 起是未来桶：actual = asOf 起点余额，尚无预测事件。
+    expect(data.points[6]).toMatchObject({
+      label: '2026-11-07',
+      actual: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+      planned: zero(),
+      committed: zero(),
+      total: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+    })
+
+    // 11-20 已排定支出 30 落入当日：committed −30000。
+    expect(data.points[19]).toMatchObject({
+      label: '2026-11-20',
+      committed: { assets: -3000, liabilities: 0, netWorth: -3000 },
+      total: { assets: 47000, liabilities: 10000, netWorth: 37000 },
+    })
+
+    // 11-30：收入预算 500 在 planned，11-20 支出仍在 committed；
+    // 支出预算点位被覆盖，只出现在 covered 里。
+    expect(data.points[29]).toMatchObject({
+      label: '2026-11-30',
+      planned: { assets: 50000, liabilities: 0, netWorth: 50000 },
+      committed: { assets: -3000, liabilities: 0, netWorth: -3000 },
+      total: { assets: 97000, liabilities: 10000, netWorth: 87000 },
+    })
+    expect(data.points[29].covered).toHaveLength(1)
+    expect(data.points[29].covered[0]).toMatchObject({
+      budgetId: 'proj-budget-expense',
+      transactionId: 'proj-future-expense',
+      transactionDate: '2026-11-20',
+    })
+
+    for (const point of data.points) {
+      expect(point.total.assets).toBe(point.actual.assets + point.planned.assets + point.committed.assets)
+      expect(point.total.liabilities).toBe(point.actual.liabilities + point.planned.liabilities + point.committed.liabilities)
+      expect(point.total.netWorth).toBe(point.actual.netWorth + point.planned.netWorth + point.committed.netWorth)
+      expect(point.end).toBe(point.date)
+    }
+  })
+
+  it('日粒度现金流：逐日 actual 求和，期初/期末逐桶滚动', async () => {
+    const res = await request(app)
+      .get('/api/reports/cash-flow-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01', to: '2026-11-30' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as CashFlowProjection
+
+    expect(data.granularity).toBe('day')
+    expect(data.bucketCount).toBe(30)
+    expect(data.startCash).toBe(0)
+    expect(data.endCash).toBe(65000)
+
+    // 11-01：期初 0 + 已发生收入 200 = 20000。
+    expect(data.points[0]).toMatchObject({
+      label: '2026-11-01',
+      startCash: 0,
+      endCash: 20000,
+      inflow: { actual: 20000, planned: 0, committed: 0, total: 20000 },
+      outflow: { actual: 0, planned: 0, committed: 0, total: 0 },
+      net: { actual: 20000, planned: 0, committed: 0, total: 20000 },
+    })
+    // 11-06：无新流水，期初=期末 20000。
+    expect(data.points[5]).toMatchObject({ startCash: 20000, endCash: 20000 })
+    // 11-20：已排定支出 30 流出。
+    expect(data.points[19]).toMatchObject({
+      startCash: 20000,
+      endCash: 17000,
+      outflow: { actual: 0, planned: 0, committed: 3000, total: 3000 },
+      net: { actual: 0, planned: 0, committed: -3000, total: -3000 },
+    })
+    // 11-30：收入预算 500 入账、转账预算 20 流出；11-20 支出已在当日桶计入，不重复。
+    expect(data.points[29]).toMatchObject({
+      startCash: 17000,
+      endCash: 65000,
+      inflow: { actual: 0, planned: 50000, committed: 0, total: 50000 },
+      outflow: { actual: 0, planned: 2000, committed: 0, total: 2000 },
+      net: { actual: 0, planned: 48000, committed: 0, total: 48000 },
+    })
+    expect(data.points[29].covered).toHaveLength(1)
+
+    for (const point of data.points) {
+      expect(point.endCash).toBe(point.startCash + point.net.total)
+      expect(point.net.total).toBe(point.inflow.total - point.outflow.total)
+    }
+  })
+
+  it('周粒度：ISO 周一向外对齐，跨桶事件归属正确', async () => {
+    const res = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'week', from: '2026-11-01', to: '2026-11-30' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as AssetProjection
+
+    expect(data.granularity).toBe('week')
+    expect(data.start).toBe('2026-10-26')
+    expect(data.end).toBe('2026-12-06')
+    expect(data.bucketCount).toBe(6)
+    expect(data.points.map((point) => point.label)).toEqual([
+      '2026-W44', '2026-W45', '2026-W46', '2026-W47', '2026-W48', '2026-W49',
+    ])
+    expect(data.points.map((point) => point.start)).toEqual([
+      '2026-10-26', '2026-11-02', '2026-11-09', '2026-11-16', '2026-11-23', '2026-11-30',
+    ])
+    expect(data.points.map((point) => point.end)).toEqual([
+      '2026-11-01', '2026-11-08', '2026-11-15', '2026-11-22', '2026-11-29', '2026-12-06',
+    ])
+
+    // 首桶终点 11-01 ≤ asOf：真实余额；第二桶（11-02~11-08）已跨过 asOf：actual = 起点余额。
+    expect(data.points[0]).toMatchObject({
+      actual: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+      planned: zero(),
+      committed: zero(),
+      total: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+    })
+    expect(data.points[1]).toMatchObject({
+      actual: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+      planned: zero(),
+      committed: zero(),
+      total: { assets: 50000, liabilities: 10000, netWorth: 40000 },
+    })
+
+    // 11-16~11-22 桶包含 11-20 支出。
+    expect(data.points[3]).toMatchObject({
+      committed: { assets: -3000, liabilities: 0, netWorth: -3000 },
+      total: { assets: 47000, liabilities: 10000, netWorth: 37000 },
+    })
+
+    // 11-30~12-06 桶：计划收入 500 + 已排定 −30/+80（内部转账不计资产）。
+    expect(data.points[5]).toMatchObject({
+      planned: { assets: 50000, liabilities: 0, netWorth: 50000 },
+      committed: { assets: 5000, liabilities: 0, netWorth: 5000 },
+      total: { assets: 105000, liabilities: 10000, netWorth: 95000 },
+    })
+    expect(data.points[5].covered).toHaveLength(1)
+  })
+
+  it('周粒度现金流：期初现金 + 桶内净额滚动到 70000', async () => {
+    const res = await request(app)
+      .get('/api/reports/cash-flow-projection')
+      .query({ asOf: AS_OF, granularity: 'week', from: '2026-11-01', to: '2026-11-30' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as CashFlowProjection
+
+    expect(data.startCash).toBe(0)
+    expect(data.endCash).toBe(73000)
+    expect(data.points[0]).toMatchObject({
+      startCash: 0,
+      endCash: 20000,
+      inflow: { actual: 20000, planned: 0, committed: 0, total: 20000 },
+    })
+    expect(data.points[3]).toMatchObject({
+      startCash: 20000,
+      endCash: 17000,
+      outflow: { actual: 0, planned: 0, committed: 3000, total: 3000 },
+      net: { actual: 0, planned: 0, committed: -3000, total: -3000 },
+    })
+    expect(data.points[5]).toMatchObject({
+      startCash: 17000,
+      endCash: 73000,
+      inflow: { actual: 0, planned: 50000, committed: 8000, total: 58000 },
+      outflow: { actual: 0, planned: 2000, committed: 0, total: 2000 },
+      net: { actual: 0, planned: 48000, committed: 8000, total: 56000 },
+    })
+
+    for (const point of data.points) {
+      expect(point.endCash).toBe(point.startCash + point.net.total)
+    }
+  })
+
+  it('月粒度 from/to 与旧 fromMonth/months 等值；不传 granularity 时结果不变', async () => {
+    const [legacy, ranged, explicitMonth] = await Promise.all([
+      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, months: 3 }),
+      request(app)
+        .get('/api/analytics/asset-projection')
+        .query({ asOf: AS_OF, granularity: 'month', from: '2026-11-01', to: '2027-01-31' }),
+      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, granularity: 'month', months: 3 }),
+    ])
+
+    expect(legacy.status).toBe(200)
+    expect(ranged.status).toBe(200)
+    expect(explicitMonth.status).toBe(200)
+
+    const legacyData = legacy.body.data as AssetProjection
+    const rangedData = ranged.body.data as AssetProjection
+    const explicitData = explicitMonth.body.data as AssetProjection
+
+    // 同一窗口：新入口只省略兼容字段，点位与累计完全一致。
+    expect(rangedData.points).toEqual(legacyData.points)
+    expect(rangedData.base).toEqual(legacyData.base)
+    expect(rangedData.granularity).toBe('month')
+    expect(rangedData.start).toBe('2026-11-01')
+    expect(rangedData.end).toBe('2027-01-31')
+    expect(rangedData.bucketCount).toBe(3)
+    expect(rangedData.fromMonth).toBeUndefined()
+    expect(rangedData.months).toBeUndefined()
+
+    // 不传 granularity 与显式 month 完全一致（默认兼容）。
+    expect(explicitData).toEqual(legacyData)
+    expect(legacyData.granularity).toBe('month')
+    expect(legacyData.bucketCount).toBe(3)
+  })
+
+  it('年粒度：3 个自然年桶，桶末累计与桶内 planned/committed 正确', async () => {
+    const res = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'year', from: '2026-01-01', to: '2028-12-31' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as AssetProjection
+
+    expect(data.granularity).toBe('year')
+    expect(data.bucketCount).toBe(3)
+    expect(data.points.map((point) => point.label)).toEqual(['2026', '2027', '2028'])
+    expect(data.points.map((point) => point.start)).toEqual(['2026-01-01', '2027-01-01', '2028-01-01'])
+    expect(data.points.map((point) => point.end)).toEqual(['2026-12-31', '2027-12-31', '2028-12-31'])
+
+    // 2026：收入预算 500 − 12 月未被覆盖的支出预算 100 = 400；已排定净 +50。
+    expect(data.points[0]).toMatchObject({
+      planned: { assets: 40000, liabilities: 0, netWorth: 40000 },
+      committed: { assets: 5000, liabilities: 0, netWorth: 5000 },
+      total: { assets: 95000, liabilities: 10000, netWorth: 85000 },
+    })
+    expect(data.points[0].covered).toHaveLength(3)
+
+    // 2027：在 2026 累计 400 基础上再累计 12 个月 × 净 400 = 4800 → 5200。
+    expect(data.points[1]).toMatchObject({
+      planned: { assets: 520000, liabilities: 0, netWorth: 520000 },
+      committed: { assets: 5000, liabilities: 0, netWorth: 5000 },
+      total: { assets: 575000, liabilities: 10000, netWorth: 565000 },
+      covered: [],
+    })
+
+    // 2028：累计 24 个月 + 2026 的 400 → 10000。
+    expect(data.points[2]).toMatchObject({
+      planned: { assets: 1000000, liabilities: 0, netWorth: 1000000 },
+      committed: { assets: 5000, liabilities: 0, netWorth: 5000 },
+      total: { assets: 1055000, liabilities: 10000, netWorth: 1045000 },
+      covered: [],
+    })
+  })
+
+  it('ISO 周跨年不拆桶：2026-12-28 属于 2026-W53', async () => {
+    const res = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'week', from: '2026-12-28', to: '2027-01-03' })
+
+    expect(res.status).toBe(200)
+    const data = res.body.data as AssetProjection
+
+    expect(data.bucketCount).toBe(1)
+    expect(data.start).toBe('2026-12-28')
+    expect(data.end).toBe('2027-01-03')
+    expect(data.points[0]).toMatchObject({
+      label: '2026-W53',
+      start: '2026-12-28',
+      end: '2027-01-03',
+      // 累计到 2027-01-03：收入预算 500 − 12 月未被覆盖的支出预算 100 = 400；已排定累计 +50。
+      planned: { assets: 40000, liabilities: 0, netWorth: 40000 },
+      committed: { assets: 5000, liabilities: 0, netWorth: 5000 },
+      total: { assets: 95000, liabilities: 10000, netWorth: 85000 },
+    })
+    // 12-31 收入预算与转账预算在这周内被覆盖。
+    expect(data.points[0].covered).toHaveLength(2)
+  })
+
+  it('from/to 参数校验：缺参、混用旧参数、非法粒度均返回 400', async () => {
+    const missingTo = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01' })
+    const mixed = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01', to: '2026-11-30', months: 3 })
+    const noRange = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'week', months: 3 })
+    const badGranularity = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'quarter', from: '2026-11-01', to: '2026-11-30' })
+    const invalidFrom = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-31', to: '2026-12-01' })
+    const reversed = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-12-01', to: '2026-11-01' })
+
+    for (const res of [missingTo, mixed, noRange, badGranularity, invalidFrom, reversed]) {
+      expect(res.status).toBe(400)
+    }
+  })
+
+  it('未来上限：日 3 月 / 周 6 月 / 月 12 月 / 年 3 年；超出返回可操作的报错', async () => {
+    const dayLimit = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01', to: '2027-02-06' })
+    expect(dayLimit.status).toBe(200)
+    expect(dayLimit.body.data.bucketCount).toBe(98)
+    expect(dayLimit.body.data.end).toBe('2027-02-06')
+
+    const dayTooFar = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01', to: '2027-03-01' })
+    const weekTooFar = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'week', from: '2026-11-01', to: '2027-06-01' })
+    const monthTooFar = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'month', from: '2026-11-01', to: '2027-12-01' })
+    const yearTooFar = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, granularity: 'year', from: '2026-01-01', to: '2030-12-31' })
+
+    expect(dayTooFar.status).toBe(400)
+    expect(dayTooFar.body.error.message).toContain('更粗的粒度')
+    expect(weekTooFar.status).toBe(400)
+    expect(monthTooFar.status).toBe(400)
+    expect(yearTooFar.status).toBe(400)
+    expect(yearTooFar.body.error.message).toContain('把结束日期 to 调早')
+  })
+})
+
+/**
+ * 极端数据量：18 个日预算 × 约 1120 天 = 20178 个 occurrence，超过 20000 保护阈值。
+ * 请求本身落在合法范围（年粒度、3 年上限内），仍应给出可操作的 422，而不是静默计算。
+ */
+async function seedEventBurst() {
+  await resetData()
+
+  await prisma.accountCategory.createMany({
+    data: [{ id: 'burst-cat-cash', name: '突发现金', type: 'asset', isCashEquivalent: true }],
+  })
+  await prisma.account.create({
+    data: { id: 'burst-acc-a', name: '突发账户', type: 'asset', initialBalance: 0n, categoryId: 'burst-cat-cash' },
+  })
+  await prisma.transactionCategory.create({
+    data: { id: 'burst-tc-income', name: '突发收入', type: 'income' },
+  })
+
+  await prisma.budget.createMany({
+    data: Array.from({ length: 18 }, (_, index) => ({
+      id: `burst-budget-${index}`,
+      name: `每日预算 ${index}`,
+      type: 'income',
+      amount: 100n,
+      period: 'daily',
+      startDate: localDate(2026, 1, 1),
+      endDate: localDate(2029, 12, 31),
+      transactionTime: null,
+      accountId: 'burst-acc-a',
+      categoryId: 'burst-tc-income',
+    })),
+  })
+}
+
+describe('20,000 事件保护阈值', () => {
+  beforeAll(async () => {
+    await prisma.$connect()
+  })
+
+  afterAll(async () => {
+    await resetData()
+    await prisma.$disconnect()
+  })
+
+  beforeEach(async () => {
+    await seedEventBurst()
+  })
+
+  it('合法窗口但事件量超限：返回 422 并提示缩小范围或换更粗粒度', async () => {
+    const res = await request(app)
+      .get('/api/reports/cash-flow-projection')
+      .query({ asOf: AS_OF, granularity: 'year', from: '2027-01-01', to: '2029-12-31' })
+
+    expect(res.status).toBe(422)
+    expect(res.body.error.message).toContain('缩小 from/to 范围')
+    expect(res.body.error.message).toContain('更粗的粒度')
+    expect(res.body.error.details).toMatchObject({ limit: 20000 })
   })
 })

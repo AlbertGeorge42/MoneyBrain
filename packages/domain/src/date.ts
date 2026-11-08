@@ -103,6 +103,16 @@ export function addDays(value: LocalDate, amount: number): LocalDate {
   return fromUtc(date)
 }
 
+/** 加自然月；目标月没有该日时收敛到月末（1-31 + 1 月 = 2-28）。 */
+export function addMonths(value: LocalDate, amount: number): LocalDate {
+  const { year, month, day } = parts(value)
+  const target = new Date(Date.UTC(year, month - 1 + amount, 1))
+  const targetYear = target.getUTCFullYear()
+  const targetMonth = target.getUTCMonth() + 1
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate()
+  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}` as LocalDate
+}
+
 /** 返回该日期所在周的周一（ISO 周）。 */
 export function startOfWeek(value: LocalDate): LocalDate {
   const date = toUtc(value)
@@ -110,6 +120,20 @@ export function startOfWeek(value: LocalDate): LocalDate {
   const offset = day === 0 ? -6 : 1 - day
   date.setUTCDate(date.getUTCDate() + offset)
   return fromUtc(date)
+}
+
+/**
+ * ISO 周标签 `YYYY-Www`。
+ * 周编号与周年份取该周周四所在的年份（跨年周不会拆开，2026-12-28 属于 2026-W53）。
+ */
+export function isoWeekLabel(value: LocalDate): string {
+  const thursday = addDays(startOfWeek(value), 3)
+  const { year } = parts(thursday)
+  const dayOfYear = Math.round(
+    (toUtc(thursday).getTime() - toUtc(`${year}-01-01` as LocalDate).getTime()) / 86400000,
+  ) + 1
+  const week = Math.floor((dayOfYear - 1) / 7) + 1
+  return `${year}-W${String(week).padStart(2, '0')}`
 }
 
 export function startOfMonth(value: LocalDate): LocalDate {
