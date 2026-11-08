@@ -12,6 +12,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { ToastProvider } from '@/features/shared/toast'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
+import { fetchFilteredTransactions } from '@/features/transactions/apiTransactions'
+import { EMPTY_ADVANCED } from '@/features/transactions/filters'
 import type { Ledger } from '@/features/overview/model'
 
 const mocks = vi.hoisted(() => ({ getAll: vi.fn() }))
@@ -143,5 +145,51 @@ describe('深链筛选请求数（API 模式）', () => {
     expect(params.getAll('categoryId')).toEqual(['real-food'])
     await new Promise((resolve) => setTimeout(resolve, 400))
     expect(mocks.getAll).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('按 total 翻页（流水页笔数与合计的取数全集）', () => {
+  const noFilters = { query: '', type: 'all' as const, advanced: EMPTY_ADVANCED }
+
+  beforeEach(() => {
+    mocks.getAll.mockReset()
+  })
+
+  it('3380 条翻完 34 页，不再截断在 2000 条', async () => {
+    mocks.getAll.mockImplementation(makePage(3380))
+
+    const result = await fetchFilteredTransactions(noFilters, ledger)
+
+    expect(mocks.getAll).toHaveBeenCalledTimes(34)
+    expect(result.requests).toBe(34)
+    expect(result.total).toBe(3380)
+    expect(result.items).toHaveLength(3380)
+    // 第一页之后仍有数据，证明没有在 100 × 20 处提前收尾。
+    expect(result.items.at(-1)?.id).toBe('tx-3379')
+  })
+
+  it('服务端提前返回空页时抛错，不返回偏小的列表与合计', async () => {
+    mocks.getAll.mockImplementation(async (params: URLSearchParams) => {
+      const page = Number(params.get('page'))
+      const list =
+        page > 2
+          ? []
+          : Array.from({ length: 100 }, (_, index) => ({
+              id: `tx-${(page - 1) * 100 + index}`,
+              type: 'expense',
+              ruleVersion: 1,
+              amount: 1_200,
+              date: '2026-10-05T00:00:00.000Z',
+              accountId: 'cmb',
+              categoryId: 'real-food',
+              note: '午餐',
+              fee: 0,
+            }))
+      return { data: { success: true, data: { list, total: 3380, page, pageSize: 100 } } }
+    })
+
+    await expect(fetchFilteredTransactions(noFilters, ledger)).rejects.toThrow(
+      '流水分页未取满：已取 200 笔，共 3380 笔',
+    )
   })
 })

@@ -18,8 +18,6 @@ import { accountIdsInGroup, type TransactionFilters } from './filters'
 
 /** 单次请求条数；页面无分页控件，靠自动翻页取全量筛选结果。 */
 export const TRANSACTION_PAGE_SIZE = 100
-/** 防御性上限：避免异常数据把浏览器拖死（100 × 20 = 2000 条）。 */
-const MAX_PAGES = 20
 
 function toMinor(value: string): number | null {
   if (!value.trim()) return null
@@ -100,7 +98,10 @@ export async function fetchFilteredTransactions(
   let page = 1
   let requests = 0
 
-  while (page <= MAX_PAGES) {
+  // 按服务端 total 翻到最后一页，不设固定页数上限：
+  // 页头/页脚笔数与合计都由完整结果算出，截断会让它们一起偏小；
+  // 固定上限只是把同一个错误推迟到下一次数据增长。
+  while (true) {
     const params = buildTransactionQueryParams(filters, ledger, page, pageSize)
     const result = await transactionApi.getAll(params).then(unwrapApiData)
     requests += 1
@@ -108,6 +109,12 @@ export async function fetchFilteredTransactions(
     items.push(...result.list.map((transaction: Transaction) => toLedgerTransaction(transaction, mapper)))
     if (result.list.length === 0 || items.length >= total) break
     page += 1
+  }
+
+  // 服务端 total 与实际取回条数不一致（分页中断/并发写入）：宁可报错进错误态，
+  // 也不返回不完整列表让页头与合计静默变小。
+  if (items.length < total) {
+    throw new Error(`流水分页未取满：已取 ${items.length} 笔，共 ${total} 笔`)
   }
 
   return { items, total, requests }
