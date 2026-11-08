@@ -10,7 +10,6 @@ import {
   addMonths,
   calendarCells,
   datePresets,
-  isValidISODate,
   normalizeRange,
   snapDay,
 } from '@/features/shared/datePicker/datePickerModel'
@@ -68,11 +67,6 @@ describe('datePickerModel', () => {
     expect(cells).toHaveLength(42)
     expect(cells[0].date).toBe('2026-10-26')
     expect(cells.some((cell) => cell.date === '2026-11-01' && cell.inMonth)).toBe(true)
-  })
-
-  it('拒绝不存在的日期', () => {
-    expect(isValidISODate('2026-02-30')).toBe(false)
-    expect(isValidISODate('2026-10-31')).toBe(true)
   })
 })
 

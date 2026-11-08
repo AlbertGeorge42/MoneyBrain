@@ -7,8 +7,6 @@
  * - 月 / 年粒度按「起取月初 / 止取月末」吸附，避免控件显示与请求参数出现两种边界。
  */
 
-export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-
 export type DateGranularity = 'day' | 'week' | 'month' | 'year'
 
 export interface DateRange {
@@ -33,17 +31,6 @@ export interface CalendarCell {
 }
 
 export const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'] as const
-
-export function isValidISODate(value: string): boolean {
-  if (!ISO_DATE.test(value)) return false
-  const [year, month, day] = value.split('-').map(Number)
-  const probe = new Date(Date.UTC(year, month - 1, day))
-  return (
-    probe.getUTCFullYear() === year &&
-    probe.getUTCMonth() + 1 === month &&
-    probe.getUTCDate() === day
-  )
-}
 
 export function parseDay(value: string): Date {
   const [year, month, day] = value.split('-').map(Number)
