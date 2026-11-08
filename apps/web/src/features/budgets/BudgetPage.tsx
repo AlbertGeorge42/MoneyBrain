@@ -134,7 +134,16 @@ function Ring({ percent, level, size }: { percent: number; level: string; size: 
   )
 }
 
-function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
+function Hero({
+  data,
+  device,
+  usageKnown,
+}: {
+  data: BudgetPageData
+  device: DeviceMode
+  /** 种子模式没有后端用量：只展示额度，不展示已用 / 进度 / 告警。 */
+  usageKnown: boolean
+}) {
   const { expense, primaryOver } = data
   const expenseRows = data.groups[0].rows
   // 头部是「本月可花」：只统计月度且启用的支出预算。
@@ -168,29 +177,40 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
 
   return (
     <Card className="mb-bg-hero">
-      <Ring percent={expense.percent} level={expense.level} size={device === 'mobile' ? 'sm' : 'lg'} />
+      {usageKnown && (
+        <Ring percent={expense.percent} level={expense.level} size={device === 'mobile' ? 'sm' : 'lg'} />
+      )}
       <div className="mb-bg-hero-copy">
         <div className="mb-sec-head">
           <div>
             <h2 className="mb-sec-title">本月支出预算</h2>
             <p className="mb-sec-desc">
-              {monthlyRows.length} 个月度预算 · 已用 {percentText(expense.percent, false)}
+              {monthlyRows.length} 个月度预算
+              {usageKnown ? ` · 已用 ${percentText(expense.percent, false)}` : ' · 演示数据'}
             </p>
           </div>
-          <span className="mb-bg-hero-badge" data-level={badge.level}>
-            {badge.icon && <TriangleAlert size={13} aria-hidden="true" />}
-            {badge.text}
-          </span>
+          {usageKnown && (
+            <span className="mb-bg-hero-badge" data-level={badge.level}>
+              {badge.icon && <TriangleAlert size={13} aria-hidden="true" />}
+              {badge.text}
+            </span>
+          )}
         </div>
         <p className="mb-bg-hero-amount">
-          {moneyText(Math.max(0, expense.remaining))}
-          <span className="mb-bg-hero-unit"> 可花</span>
+          {moneyText(usageKnown ? Math.max(0, expense.remaining) : expense.limit)}
+          <span className="mb-bg-hero-unit">{usageKnown ? ' 可花' : ' 预算额度'}</span>
         </p>
         <div className="mb-bg-hero-meta">
-          <span>已用 {moneyText(expense.used)}</span>
-          <span>总预算 {moneyText(expense.limit)}</span>
+          {usageKnown ? (
+            <>
+              <span>已用 {moneyText(expense.used)}</span>
+              <span>总预算 {moneyText(expense.limit)}</span>
+            </>
+          ) : (
+            <span>演示数据不提供已用与超支</span>
+          )}
         </div>
-        {primaryOver && (
+        {usageKnown && primaryOver && (
           <p className="mb-bg-overrun" data-level="over">
             {primaryOver.name} 已超支 {moneyText(primaryOver.used - primaryOver.limit)}（
             {moneyText(primaryOver.used)} / {moneyText(primaryOver.limit)}）
@@ -201,8 +221,16 @@ function Hero({ data, device }: { data: BudgetPageData; device: DeviceMode }) {
   )
 }
 
-function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: BudgetPageRow) => void }) {
-  if (data.over.length === 0 && data.near.length === 0) return null
+function WatchGroup({
+  data,
+  onOpen,
+  usageKnown,
+}: {
+  data: BudgetPageData
+  onOpen: (row: BudgetPageRow) => void
+  usageKnown: boolean
+}) {
+  if (!usageKnown || (data.over.length === 0 && data.near.length === 0)) return null
   return (
     <Card className="mb-bg-watch">
       <div className="mb-sec-head">
@@ -243,7 +271,16 @@ function WatchGroup({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Budg
   )
 }
 
-function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: BudgetPageRow) => void }) {
+function GroupSection({
+  data,
+  onOpen,
+  usageKnown,
+}: {
+  data: BudgetPageData
+  onOpen: (row: BudgetPageRow) => void
+  /** 种子模式只展示额度：隐藏用量状态与进度条。 */
+  usageKnown: boolean
+}) {
   return (
     <>
       {data.groups.map((group) => {
@@ -277,28 +314,30 @@ function GroupSection({ data, onOpen }: { data: BudgetPageData; onOpen: (row: Bu
                       {!row.isActive && <span className="mb-bg-inactive-tag">已停用</span>}
                     </span>
                     <span className="mb-bg-status" data-level={row.level}>
-                      {(row.level === 'warning' || row.level === 'over') && row.isActive && (
+                      {usageKnown && (row.level === 'warning' || row.level === 'over') && row.isActive && (
                         <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
                       )}
-                      {row.isActive ? row.status : '不计入预算'}
+                      {usageKnown ? (row.isActive ? row.status : '不计入预算') : null}
                     </span>
                   </div>
-                  <BudgetProgress
-                    level={row.level}
-                    percent={row.percent}
-                    neutralFill={row.type === 'income'}
-                    label={
-                      row.type === 'transfer'
-                        ? `${row.name} 不计入预算`
-                        : `${row.name} 预算使用 ${Math.round(row.percent)}%`
-                    }
-                  />
+                  {usageKnown && (
+                    <BudgetProgress
+                      level={row.level}
+                      percent={row.percent}
+                      neutralFill={row.type === 'income'}
+                      label={
+                        row.type === 'transfer'
+                          ? `${row.name} 不计入预算`
+                          : `${row.name} 预算使用 ${Math.round(row.percent)}%`
+                      }
+                    />
+                  )}
                   <div className="mb-bg-row-meta">
                     <span className="mb-bg-row-tags">
                       {row.categoryName} · {BUDGET_PERIOD_LABEL[row.period]} · {row.accountName}
                     </span>
                     <span className="mb-bg-row-money">
-                      {moneyText(row.used)} / {moneyText(row.limit)}
+                      {usageKnown ? `${moneyText(row.used)} / ${moneyText(row.limit)}` : moneyText(row.limit)}
                     </span>
                   </div>
                 </HfButton>
@@ -431,6 +470,8 @@ export function BudgetPage({
   const [activeById, setActiveById] = useState<Map<string, boolean>>()
 
   const apiMode = dataMode === 'api'
+  // 种子模式没有后端用量：预算页只展示额度，不展示已用 / 进度 / 告警。
+  const usageKnown = apiMode
 
   // 预算口径只有一处：API 模式一律消费 /budgets/statuses。
   // 当前期的 statuses 随账本一起加载；浏览历史月份时按该月结算日再查一次。
@@ -505,13 +546,11 @@ export function BudgetPage({
   const data = useMemo(
     () =>
       deriveBudgetPage(ledger, month, {
-        today: anchorDay,
-        currentMonth,
         activeById,
         // API 模式未就绪时传空表，避免在等待后端时用种子规则算出另一种口径。
         statusById: apiMode ? statusById ?? EMPTY_BUDGET_STATUS : undefined,
       }),
-    [ledger, month, anchorDay, currentMonth, activeById, apiMode, statusById],
+    [ledger, month, activeById, apiMode, statusById],
   )
   const detail = detailId ? data.groups.flatMap((group) => group.rows).find((row) => row.id === detailId) : undefined
 
@@ -811,9 +850,9 @@ export function BudgetPage({
           </button>
         </div>
 
-        <Hero data={data} device={device} />
-        <WatchGroup data={data} onOpen={openDetail} />
-        <GroupSection data={data} onOpen={openDetail} />
+        <Hero data={data} device={device} usageKnown={usageKnown} />
+        <WatchGroup data={data} onOpen={openDetail} usageKnown={usageKnown} />
+        <GroupSection data={data} onOpen={openDetail} usageKnown={usageKnown} />
       </PageShell>
 
       <HfSheet
@@ -836,22 +875,30 @@ export function BudgetPage({
         {detail && (
           <>
             <div className="mb-bg-detail-amounts">
-              <span className="mb-bg-detail-used">{moneyText(detail.used)}</span>
-              <span className="mb-bg-detail-divider">/</span>
+              {usageKnown && (
+                <>
+                  <span className="mb-bg-detail-used">{moneyText(detail.used)}</span>
+                  <span className="mb-bg-detail-divider">/</span>
+                </>
+              )}
               <span className="mb-bg-detail-limit">{moneyText(detail.limit)}</span>
-              <span className="mb-bg-status" data-level={detail.level}>
-                {(detail.level === 'warning' || detail.level === 'over') && (
-                  <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
-                )}
-                {detail.status}
-              </span>
+              {usageKnown && (
+                <span className="mb-bg-status" data-level={detail.level}>
+                  {(detail.level === 'warning' || detail.level === 'over') && (
+                    <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+                  )}
+                  {detail.status}
+                </span>
+              )}
             </div>
-            <BudgetProgress
-              level={detail.level}
-              percent={detail.percent}
-              neutralFill={detail.type === 'income'}
-              label={detail.type === 'transfer' ? '不计入预算' : '预算使用进度'}
-            />
+            {usageKnown && (
+              <BudgetProgress
+                level={detail.level}
+                percent={detail.percent}
+                neutralFill={detail.type === 'income'}
+                label={detail.type === 'transfer' ? '不计入预算' : '预算使用进度'}
+              />
+            )}
             <dl className="mb-bg-detail-meta">
               <div>
                 <dt>分类</dt>

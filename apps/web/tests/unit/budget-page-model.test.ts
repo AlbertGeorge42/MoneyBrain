@@ -48,7 +48,18 @@ function tx(
 
 describe('预算页数据', () => {
   const ledger = createSeedLedger()
-  const page = deriveBudgetPage(ledger, '2026-10')
+  // 用量由后端 statuses 提供；前端只做合计、分组、排序与文案。
+  const statusById = new Map([
+    ['b_food', { used: 28_600, isActive: true }],
+    ['b_home', { used: 560_000, isActive: true }],
+    ['b_shop', { used: 125_720, isActive: true }],
+    ['b_fun', { used: 7_900, isActive: true }],
+    ['b_traffic', { used: 600, isActive: true }],
+    ['b_edu', { used: 0, isActive: true }],
+    ['b_salary', { used: 1_850_000, isActive: true }],
+    ['b_move', { used: 500_000, isActive: true }],
+  ])
+  const page = deriveBudgetPage(ledger, '2026-10', { statusById })
 
   it('头部可花只算月度启用支出预算（周/年不并入）', () => {
     // 月度 ¥3,000 已用满 + 周度 ¥700 + 年度 ¥36,000。
@@ -85,17 +96,18 @@ describe('预算页数据', () => {
         budget.id === 'b_salary' ? { ...budget, limit: 3_700_000 } : budget,
       ),
     }
-    const page = deriveBudgetPage(halfGoal, '2026-10')
+    const page = deriveBudgetPage(halfGoal, '2026-10', { statusById })
     const income = page.groups.find((group) => group.type === 'income')?.rows[0]
     expect(income?.percent).toBeCloseTo(50, 1)
     expect(income?.level).toBe('neutral')
     expect(income?.status).toBe('还差 ¥18,500.00')
   })
 
-  it('历史月份按月末结算，没有流水时使用为 0', () => {
-    const previous = deriveBudgetPage(ledger, '2025-09')
+  it('历史月份没有后端用量时按未知处理，只保留月份标签', () => {
+    const previous = deriveBudgetPage(createSeedLedger(), '2025-09')
     expect(previous.expense.used).toBe(0)
     expect(previous.expense.percent).toBe(0)
+    expect(previous.groups[0].rows[0].status).toBe('用量未知')
     expect(previous.monthLabel).toBe('2025 年 9 月')
   })
 
@@ -109,6 +121,7 @@ describe('预算页数据', () => {
     expect(shop).toBeDefined()
     const inactive = deriveBudgetPage(ledger, '2026-10', {
       activeById: new Map([['b_shop', false]]),
+      statusById,
     })
     expect(inactive.expense.limit).toBe(page.expense.limit - (shop?.limit ?? 0))
     expect(inactive.expense.used).toBe(page.expense.used - (shop?.used ?? 0))
@@ -122,9 +135,7 @@ describe('预算页数据', () => {
   })
 })
 
-describe('预算口径修正（statuses 与种子回退）', () => {
-  const base = { today: '2026-10-28', currentMonth: '2026-10' } as const
-
+describe('预算口径修正（statuses 与种子降级）', () => {
   it('月度 ¥3,000 已用满 + 周度 ¥700 + 年度 ¥36,000：头部不得显示可花 ¥27,000', () => {
     const budgets: LedgerBudget[] = [
       { id: 'm', name: '月度', type: 'expense', period: 'monthly', limit: 300_000, categoryId: 'food', accountId: 'a' },
@@ -136,7 +147,7 @@ describe('预算口径修正（statuses 与种子回退）', () => {
       ['w', { used: 70_000, isActive: true }],
       ['y', { used: 900_000, isActive: true }],
     ])
-    const page = deriveBudgetPage(makeLedger(budgets), '2026-10', { ...base, statusById })
+    const page = deriveBudgetPage(makeLedger(budgets), '2026-10', { statusById })
     // 旧口径 3,970,000 - 1,270,000 = 2,700,000（¥27,000）；修正后只算月度。
     expect(page.expense.limit).toBe(300_000)
     expect(page.expense.used).toBe(300_000)
@@ -154,7 +165,6 @@ describe('预算口径修正（statuses 与种子回退）', () => {
     ]
     const transactions = [tx('t1', '2026-10-20', 'expense', 'food', 'a', 10_000)]
     const page = deriveBudgetPage(makeLedger(budgets, transactions), '2026-10', {
-      ...base,
       statusById: new Map([['m', { used: 45_000, isActive: true }]]),
     })
     expect(page.groups[0].rows[0].used).toBe(45_000)
@@ -167,7 +177,6 @@ describe('预算口径修正（statuses 与种子回退）', () => {
       { id: 'off', name: '停用', type: 'expense', period: 'monthly', limit: 50_000, categoryId: 'shop', accountId: 'a' },
     ]
     const page = deriveBudgetPage(makeLedger(budgets), '2026-10', {
-      ...base,
       statusById: new Map([
         ['on', { used: 50_000, isActive: true }],
         ['off', { used: 40_000, isActive: false }],
@@ -179,44 +188,30 @@ describe('预算口径修正（statuses 与种子回退）', () => {
     expect(page.groups[0].rows.find((row) => row.id === 'off')?.isActive).toBe(false)
   })
 
-  it('种子回退：退款按原交易类型冲减预算用量', () => {
+  it('种子模式没有后端用量：只给额度，不编造已用与告警', () => {
     const budgets: LedgerBudget[] = [
       { id: 'shop', name: '购物', type: 'expense', period: 'monthly', limit: 100_000, categoryId: 'shop', accountId: 'a' },
     ]
-    const transactions = [
-      tx('t1', '2026-10-10', 'expense', 'shop', 'a', 50_000),
-      tx('t2', '2026-10-12', 'refund', 'shop', 'a', 20_000, { relatedType: 'expense' }),
-    ]
-    const page = deriveBudgetPage(makeLedger(budgets, transactions), '2026-10', base)
-    expect(page.groups[0].rows[0].used).toBe(30_000)
+    // 流水存在也不在本地重算：用量只认后端。
+    const transactions = [tx('t1', '2026-10-10', 'expense', 'shop', 'a', 50_000)]
+    const page = deriveBudgetPage(makeLedger(budgets, transactions), '2026-10')
+    const row = page.groups[0].rows[0]
+    expect(row.used).toBe(0)
+    expect(row.percent).toBe(0)
+    expect(row.status).toBe('用量未知')
+    expect(page.expense.used).toBe(0)
+    expect(page.expense.remaining).toBe(100_000)
+    expect(page.over).toEqual([])
+    expect(page.near).toEqual([])
   })
 
-  it('种子回退：转账预算只统计绑定的「转出 + 转入」账户对', () => {
+  it('账本已带后端 used 时直接采用，不按流水重算', () => {
     const budgets: LedgerBudget[] = [
-      { id: 'move', name: '互转', type: 'transfer', period: 'monthly', limit: 100_000, categoryId: 'move', accountId: 'a', toAccountId: 'b' },
+      { id: 'shop', name: '购物', type: 'expense', period: 'monthly', limit: 100_000, categoryId: 'shop', accountId: 'a', used: 100_000 },
     ]
-    const transactions = [
-      tx('t1', '2026-10-10', 'transfer', 'move', 'a', 50_000, { toAccountId: 'b' }),
-      tx('t2', '2026-10-12', 'transfer', 'move', 'c', 30_000, { toAccountId: 'b' }),
-      tx('t3', '2026-10-15', 'transfer', 'move', 'a', 20_000, { toAccountId: 'c' }),
-    ]
-    const page = deriveBudgetPage(makeLedger(budgets, transactions), '2026-10', base)
-    const row = page.groups.find((group) => group.type === 'transfer')?.rows[0]
-    expect(row?.used).toBe(50_000)
-  })
-
-  it('种子回退：weekly 按 ISO 自然周（周一至周日），不是锚定日往前 7 天', () => {
-    const budgets: LedgerBudget[] = [
-      { id: 'w', name: '交通', type: 'expense', period: 'weekly', limit: 10_000, categoryId: 'traffic', accountId: 'a' },
-    ]
-    const transactions = [
-      tx('t1', '2026-10-26', 'expense', 'traffic', 'a', 1_000),
-      tx('t2', '2026-10-28', 'expense', 'traffic', 'a', 2_000),
-      tx('t3', '2026-10-25', 'expense', 'traffic', 'a', 3_000),
-      tx('t4', '2026-10-22', 'expense', 'traffic', 'a', 4_000),
-    ]
-    const page = deriveBudgetPage(makeLedger(budgets, transactions), '2026-10', base)
-    // 2026-10-28 是周三，ISO 周 = 10-26 ~ 11-01；10-22/10-25 属于上一周。
-    expect(page.groups[0].rows[0].used).toBe(3_000)
+    const transactions = [tx('t1', '2026-10-10', 'expense', 'shop', 'a', 10_000)]
+    const page = deriveBudgetPage(makeLedger(budgets, transactions), '2026-10')
+    expect(page.groups[0].rows[0].used).toBe(100_000)
+    expect(page.groups[0].rows[0].status).toBe('已达上限')
   })
 })

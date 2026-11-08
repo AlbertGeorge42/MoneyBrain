@@ -1,24 +1,18 @@
 /**
  * 预算页数据模型（HF 预览）
  *
- * 与总览 BudgetCard 共用预算口径：金额为整数分、分类按子树汇总、账户过滤可选。
- * 预算页额外覆盖收入目标与转账计划，并把「超支 / 接近上限」单独分组。
+ * 用量一律来自后端（/budgets/statuses 或账本已带的 used），本模型只负责
+ * 周期与限额展示、分组、排序与文案；不再在本地按流水重算。
  */
 
-import {
-  CURRENT_RULE_VERSION,
-  periodOf,
-  rulesFor,
-  type BudgetScope,
-  type LocalDate,
-} from '@domain/index'
+import { minor } from '@domain/index'
 import type {
   BudgetPeriod,
   Ledger,
   LedgerBudget,
-  LedgerCategory,
 } from '@/features/overview/model'
-import { CURRENT_MONTH, TODAY, ledgerAnchorDay } from '@/features/overview/model'
+import { CURRENT_MONTH, TODAY } from '@/features/overview/model'
+import { formatCurrency } from '@/utils/format'
 
 export type BudgetKind = 'expense' | 'income' | 'transfer'
 export type BudgetRowLevel = 'normal' | 'warning' | 'over' | 'achieved' | 'neutral'
@@ -101,39 +95,20 @@ export function monthAnchor(month: string, currentMonth = CURRENT_MONTH, today =
   return formatDay(new Date(Date.UTC(year, value, 0)))
 }
 
-function categorySubtree(categories: LedgerCategory[], rootId: string): Set<string> {
-  const ids = new Set<string>([rootId])
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const category of categories) {
-      if (category.parentId && ids.has(category.parentId) && !ids.has(category.id)) {
-        ids.add(category.id)
-        changed = true
-      }
-    }
-  }
-  return ids
-}
-
-function yuan(cents: number): string {
-  return `¥${(cents / 100).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
-}
-
 function rowStatus(row: Omit<BudgetPageRow, 'status'>): string {
   const gap = Math.abs(row.limit - row.used)
+  const gapText = formatCurrency(minor(gap))
   if (row.type === 'expense') {
-    if (row.level === 'over') return `超支 ${yuan(gap)}`
+    if (row.level === 'over') return `超支 ${gapText}`
     if (row.level === 'warning' && row.used >= row.limit) return '已达上限'
-    if (row.level === 'warning') return `接近上限 · 还差 ${yuan(gap)}`
-    return `剩余 ${yuan(gap)}`
+    if (row.level === 'warning') return `接近上限 · 还差 ${gapText}`
+    return `剩余 ${gapText}`
   }
   if (row.type === 'income') {
-    if (row.level === 'achieved') return row.used > row.limit ? `已达成 · 超出 ${yuan(gap)}` : '已达成'
-    return `还差 ${yuan(gap)}`
+    if (row.level === 'achieved') {
+      return row.used > row.limit ? `已达成 · 超出 ${gapText}` : '已达成'
+    }
+    return `还差 ${gapText}`
   }
   // 转账是账户互转，不参与预算告警，也不计入任何超支口径
   return '不计入预算'
@@ -157,77 +132,25 @@ export interface BudgetUsageStatus {
   isActive: boolean
 }
 
-/**
- * 种子演示账本的用量回退（仅 DEV 且 VITE_HF_DATA=seed 时走到这里）。
- *
- * 真实数据一律消费 /budgets/statuses，不在前端重算；种子模式没有后端，
- * 只能本地算。这里复用 packages/domain 的期间与类型规则（与后端同源），
- * 并保留种子账本的「全部账户 / 全部分类」通配语义（后端预算始终绑定账户与分类）。
- * 退款冲减与转账账户对必须与后端一致，由 budget-page-model 的种子用例锁住。
- */
-function seedBudgetUsed(ledger: Ledger, budget: LedgerBudget, anchorDay: string): number {
-  const { start, endExclusive } = periodOf(budget.period, anchorDay as LocalDate)
-  const rules = rulesFor(CURRENT_RULE_VERSION)
-  const query = rules.scopeQuery({
-    kind: budget.type as BudgetScope['kind'],
-    accountId: budget.accountId ?? '',
-    toAccountId: budget.toAccountId ?? null,
-    categoryIds: new Set<string>(),
-  })
-  const categoryIds = budget.categoryId
-    ? categorySubtree(ledger.categories, budget.categoryId)
-    : undefined
-  let used = 0
-  for (const transaction of ledger.transactions) {
-    if (transaction.date < start || transaction.date >= endExclusive) continue
-    if (!rules.isCountable(transaction)) continue
-    if (budget.type === 'transfer') {
-      if (transaction.type !== 'transfer') continue
-      if (budget.accountId && transaction.accountId !== budget.accountId) continue
-      if (budget.toAccountId && transaction.toAccountId !== budget.toAccountId) continue
-    } else if (budget.accountId && transaction.accountId !== budget.accountId) {
-      continue
-    }
-    if (categoryIds && (!transaction.categoryId || !categoryIds.has(transaction.categoryId))) {
-      continue
-    }
-    if (transaction.type === query.type) {
-      used += transaction.amount
-    } else if (
-      query.countsRefunds &&
-      transaction.type === 'refund' &&
-      transaction.relatedType === query.refundRelatedType
-    ) {
-      used -= transaction.amount
-    }
-  }
-  return Math.max(0, used)
-}
-
 export function deriveBudgetPage(
   ledger: Ledger,
   month = CURRENT_MONTH,
   options?: {
-    today?: string
-    currentMonth?: string
     activeById?: Map<string, boolean>
-    /** API 模式该月的后端预算用量；种子模式不传，改用 seedBudgetUsed。 */
+    /** 该月后端预算用量（/budgets/statuses）；不传时只有预算自带 used 才显示用量。 */
     statusById?: ReadonlyMap<string, BudgetUsageStatus>
   },
 ): BudgetPageData {
-  const today = options?.today ?? ledgerAnchorDay(ledger)
-  const currentMonth = options?.currentMonth ?? today.slice(0, 7)
   const activeById = options?.activeById
   const statusById = options?.statusById
-  const anchor = monthAnchor(month, currentMonth, today)
   const rows: BudgetPageRow[] = ledger.budgets
     .filter((budget) => budget.type === 'expense' || budget.type === 'income' || budget.type === 'transfer')
     .map((budget) => {
       const type = budget.type as BudgetKind
       const status = statusById?.get(budget.id)
-      const used = statusById
-        ? (status?.used ?? 0)
-        : (budget.used ?? seedBudgetUsed(ledger, budget, anchor))
+      // 用量只有后端一个来源：statuses 优先，其次账本里已带的后端 used；都没有则未知。
+      const usedFromSource = statusById ? status?.used : budget.used
+      const used = usedFromSource ?? 0
       const percent = budget.limit === 0 ? 0 : (used / budget.limit) * 100
       const level = rowLevel(type, percent)
       const category = ledger.categories.find((item) => item.id === budget.categoryId)
@@ -247,7 +170,11 @@ export function deriveBudgetPage(
         // 1) 页面乐观更新覆盖；2) 后端 statuses；3) 种子预算默认启用。
         isActive: activeById?.get(budget.id) ?? status?.isActive ?? budget.isActive ?? true,
       }
-      return { ...base, status: rowStatus(base) }
+      // 没有后端用量时不能编造「剩余」：明确标为未知，页面据此只展示额度。
+      return {
+        ...base,
+        status: usedFromSource === undefined ? '用量未知' : rowStatus(base),
+      }
     })
 
   const levelOrder: Record<BudgetRowLevel, number> = {
