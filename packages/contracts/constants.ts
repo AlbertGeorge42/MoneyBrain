@@ -10,8 +10,6 @@ export const CLEAR_CONFIRM = {
   transactions: 'clear-transactions',
 } as const
 
-export type ClearConfirmTarget = keyof typeof CLEAR_CONFIRM
-
 // ===== 备份数据类型与显示名 =====
 //
 // 备份包含哪几类数据由后端决定，显示名必须前后端一致，
@@ -42,8 +40,6 @@ export const IMPORT_ENTRY_LABELS = {
   investmentItems: '投资持仓',
 } as const
 
-export type ImportEntryKey = keyof typeof IMPORT_ENTRY_LABELS
-
 // ===== 回滚确认值 =====
 //
 // 回滚会用快照覆盖当前数据，同样不可逆——按破坏性接口的规矩，
@@ -55,8 +51,6 @@ export const ROLLBACK_CONFIRM = {
   /** 撤销指定导入批次（只删该批新建的行） */
   import: 'rollback-import',
 } as const
-
-export type RollbackConfirmTarget = keyof typeof ROLLBACK_CONFIRM
 
 // ===== 分类图标（受控枚举） =====
 //

@@ -671,14 +671,6 @@ export interface InvestmentAssetClass {
   updatedAt: string
 }
 
-/** 删除资产类别的结果：被快照引用且未强制时返回 needConfirm 与引用数。 */
-export interface AssetClassDeleteResult {
-  message: string
-  needConfirm?: boolean
-  snapshotsCount?: number
-  deletedSnapshots?: number
-}
-
 // ===== 投资快照 =====
 
 export interface InvestmentAllocationItem {

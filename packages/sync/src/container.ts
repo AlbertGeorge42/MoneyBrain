@@ -19,7 +19,6 @@ export const CONTAINER_FORMAT_VERSION = 1
 /** 文件头魔数；扩展名 .mbx。 */
 export const CONTAINER_MAGIC = 'MBSYNC01'
 export const CONTAINER_MAGIC_BYTES = Buffer.from(CONTAINER_MAGIC, 'utf8')
-export const RECOVERY_CODE_GROUPS = 8
 export const RECOVERY_CODE_GROUP_SIZE = 4
 
 export interface Argon2idParams {
