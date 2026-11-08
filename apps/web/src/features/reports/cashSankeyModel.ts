@@ -380,13 +380,12 @@ function accountLayer(
   included: Set<string>,
   from: string,
   to: string,
-  apiMode: boolean,
 ): Map<string, AccountRuntime> {
   const openingBalances = balancesAt(ledger, addDays(from, -1))
   const closingBalances = balancesAt(ledger, to)
   const layer = new Map<string, AccountRuntime>()
   for (const account of ledger.accounts) {
-    if (apiMode && account.kind !== 'cash' && !included.has(account.id)) continue
+    if (account.kind !== 'cash' && !included.has(account.id)) continue
     const opening = openingBalances.get(account.id) ?? account.balance
     const closing = closingBalances.get(account.id) ?? account.balance
     if (!included.has(account.id) && opening === 0 && closing === 0) continue
@@ -610,8 +609,8 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
 }
 
 /**
- * 现金流桑基（PC）。API 模式消费后端 `sankey` 的逐账户分配；
- * 种子模式按流水等价推导。两条路径共用同一套节点 / 守恒校验。
+ * 现金流桑基（PC）。只消费后端 `sankey` 的逐账户分配；
+ * 节点 / 守恒校验与后端分配共用同一套结构。
  */
 export function deriveCashSankey(
   ledger: Ledger,
@@ -620,14 +619,10 @@ export function deriveCashSankey(
 ): CashSankey {
   if (report.projectionMode) return projectionSankey(ledger, report)
   const { from, to } = report.period
-  const apiMode = report.correctionsIncluded === true
-  const apiLinks = apiMode && report.apiSankey ? report.apiSankey.links : []
-  const hasTransfers =
-    apiMode
-      ? apiLinks.some((link) => link.source.endsWith(ACCOUNT_SUFFIX) && link.target.endsWith(ACCOUNT_SUFFIX))
-      : ledger.transactions.some(
-          (transaction) => transaction.type === 'transfer' && !!transaction.toAccountId && inRange(transaction, from, to),
-        )
+  const apiLinks = report.apiSankey?.links ?? []
+  const hasTransfers = apiLinks.some(
+    (link) => link.source.endsWith(ACCOUNT_SUFFIX) && link.target.endsWith(ACCOUNT_SUFFIX),
+  )
   const groupIndex = buildGroupIndex(ledger, report, visibility, hasTransfers)
   const builder = createBuilder()
 
@@ -706,8 +701,8 @@ export function deriveCashSankey(
   const hiddenNode = (side: 'in' | 'out') =>
     addCategoryNode(side, 'hidden', '其他', true, side === 'in' ? 'income' : 'expense').nodeId
 
-  if (apiMode && report.apiSankey) {
-    // ── API 模式：后端逐账户分配 ───────────────────────────────────────────
+  if (report.apiSankey) {
+    // ── 后端逐账户分配 ───────────────────────────────────────────────────────
     const accountIdsByName = new Map<string, string[]>()
     for (const account of ledger.accounts) {
       const ids = accountIdsByName.get(account.name) ?? []
@@ -856,140 +851,6 @@ export function deriveCashSankey(
         base.correction += -transaction.amount
       }
     }
-  } else {
-    // ── 种子模式：按流水等价推导 ───────────────────────────────────────────
-    for (const transaction of ledger.transactions) {
-      if (!inRange(transaction, from, to)) continue
-      const amount = Math.abs(transaction.amount)
-      if (amount === 0) continue
-      const accountId = transaction.accountId
-      const account = ledger.accounts.find((item) => item.id === accountId)
-      if (!account) continue
-      const root = rootOf(ledger, transaction.categoryId)
-      const inflowHidden = hiddenForRoot('in', root?.id)
-      const outflowHidden = hiddenForRoot('out', root?.id)
-
-      if (transaction.type === 'income') {
-        addAccountNode(account.id, account.name)
-        const source = addCategoryNode('in', root?.id ?? 'uncategorized', root?.name ?? '未分类', inflowHidden, 'income')
-        builder.addLink({
-          sourceId: source.nodeId,
-          targetId: `acct:${account.id}`,
-          nodeId: source.nodeId,
-          amount,
-          tone: 'income',
-          kind: 'flow',
-        })
-      } else if (transaction.type === 'expense') {
-        addAccountNode(account.id, account.name)
-        const target = addCategoryNode('out', root?.id ?? 'uncategorized', root?.name ?? '未分类', outflowHidden, 'expense')
-        builder.addLink({
-          sourceId: `acct:${account.id}`,
-          targetId: target.nodeId,
-          nodeId: target.nodeId,
-          amount,
-          tone: 'expense',
-          kind: 'flow',
-        })
-      } else if (transaction.type === 'refund') {
-        addAccountNode(account.id, account.name)
-        const side: 'in' | 'out' = transaction.relatedType === 'income' ? 'out' : 'in'
-        const hidden = hiddenForRoot(side, root?.id)
-        const node = addCategoryNode(side, root?.id ?? 'unclassified-refund', root?.name ?? '退款', hidden, side === 'in' ? 'income' : 'expense')
-        if (side === 'in') {
-          builder.addLink({
-            sourceId: node.nodeId,
-            targetId: `acct:${account.id}`,
-            nodeId: node.nodeId,
-            amount,
-            tone: 'income',
-            kind: 'flow',
-          })
-        } else {
-          builder.addLink({
-            sourceId: `acct:${account.id}`,
-            targetId: node.nodeId,
-            nodeId: node.nodeId,
-            amount,
-            tone: 'expense',
-            kind: 'flow',
-          })
-        }
-      } else if (transaction.type === 'adjustment') {
-        addAccountNode(account.id, account.name)
-        if (transaction.amount > 0) {
-          const node = addCategoryNode('in', 'correction', '对账修正', inflowHidden, 'income')
-          builder.addLink({
-            sourceId: node.nodeId,
-            targetId: `acct:${account.id}`,
-            nodeId: node.nodeId,
-            amount,
-            tone: 'income',
-            kind: 'flow',
-          })
-          base.correction += amount
-        } else {
-          const node = addCategoryNode('out', 'correction', '对账修正', outflowHidden, 'expense')
-          builder.addLink({
-            sourceId: `acct:${account.id}`,
-            targetId: node.nodeId,
-            nodeId: node.nodeId,
-            amount,
-            tone: 'expense',
-            kind: 'flow',
-          })
-          base.correction += amount
-        }
-      } else if (transaction.type === 'transfer' && transaction.toAccountId) {
-        const toAccount = ledger.accounts.find((item) => item.id === transaction.toAccountId)
-        if (!toAccount) continue
-        addAccountNode(account.id, account.name)
-        addAccountNode(toAccount.id, toAccount.name)
-        base.transferTotal += amount
-        if (groupIndex.hideTransfers) {
-          const hiddenOut = hiddenNode('out')
-          const hiddenIn = hiddenNode('in')
-          builder.addLink({
-            sourceId: `acct:${account.id}`,
-            targetId: hiddenOut,
-            nodeId: hiddenOut,
-            amount,
-            tone: 'neutral',
-            kind: 'flow',
-          })
-          builder.addLink({
-            sourceId: hiddenIn,
-            targetId: `acct:${toAccount.id}`,
-            nodeId: hiddenIn,
-            amount,
-            tone: 'neutral',
-            kind: 'flow',
-          })
-        } else {
-          builder.addLink({
-            sourceId: `acct:${account.id}`,
-            targetId: `acct:${toAccount.id}`,
-            nodeId: `acct:${account.id}`,
-            amount,
-            tone: 'neutral',
-            kind: 'transfer',
-          })
-        }
-        const fee = effectiveFee(transaction)
-        if (fee > 0) {
-          const node = addCategoryNode('out', 'fee', '手续费', groupIndex.hideTransfers, 'expense')
-          builder.addLink({
-            sourceId: `acct:${account.id}`,
-            targetId: node.nodeId,
-            nodeId: node.nodeId,
-            amount: fee,
-            tone: 'expense',
-            kind: 'flow',
-          })
-          base.fee += fee
-        }
-      }
-    }
   }
 
   if (categoryError.length > 0) {
@@ -997,7 +858,7 @@ export function deriveCashSankey(
   }
 
   // ── 账户层与逐账户流量 ─────────────────────────────────────────────────
-  const layer = accountLayer(ledger, includedAccounts, from, to, apiMode)
+  const layer = accountLayer(ledger, includedAccounts, from, to)
   for (const runtime of layer.values()) {
     if (!builder.nodeMap.has(runtime.nodeId)) {
       // 没有流水但有余额的账户也要出现，才能承载期初 / 期末读数。
@@ -1095,8 +956,8 @@ export function deriveCashSankey(
 
   const computedOpening = accounts.reduce((sum, account) => sum + account.opening, 0)
   const computedClosing = accounts.reduce((sum, account) => sum + account.closing, 0)
-  const opening = apiMode && report.openingCash !== undefined ? report.openingCash : computedOpening
-  const closing = apiMode && report.closingCash !== undefined ? report.closingCash : computedClosing
+  const opening = report.openingCash !== undefined ? report.openingCash : computedOpening
+  const closing = report.closingCash !== undefined ? report.closingCash : computedClosing
 
   const partial: CashSankey = {
     ...base,
@@ -1112,7 +973,7 @@ export function deriveCashSankey(
   const totalDifference = opening + inflow - outflow - closing
   partial.difference = totalDifference
 
-  if (apiMode && (Math.abs(computedOpening - opening) > 1 || Math.abs(computedClosing - closing) > 1)) {
+  if (Math.abs(computedOpening - opening) > 1 || Math.abs(computedClosing - closing) > 1) {
     const cause = lateOpeningCause(ledger, from)
     return {
       ...partial,
