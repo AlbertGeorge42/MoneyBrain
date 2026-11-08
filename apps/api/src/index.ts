@@ -1,3 +1,4 @@
+import path from 'node:path'
 import express from 'express'
 import cors from 'cors'
 import { prisma } from './prisma.js'
@@ -56,6 +57,19 @@ app.use('/api/audit-events', auditEventRoutes)
 
 // 未匹配的 API 路径也返回统一错误信封
 app.use('/api', notFoundHandler)
+
+// 桌面端（Electron）由同一个进程托管前端构建产物：页面与 /api 同源，
+// 前端无需注入 API 地址，也避免 file:// 下 history 路由与绝对资源路径的问题。
+const WEB_DIST = process.env.WEB_DIST?.trim()
+if (WEB_DIST) {
+  app.use(express.static(WEB_DIST))
+  // SPA 回退只兜非 /api 路径；未知 API 已在上面返回统一 JSON 信封。
+  app.get('*', (_req, res, next) => {
+    res.sendFile(path.join(WEB_DIST, 'index.html'), (error) => {
+      if (error) next(error)
+    })
+  })
+}
 
 app.use(errorHandler)
 
