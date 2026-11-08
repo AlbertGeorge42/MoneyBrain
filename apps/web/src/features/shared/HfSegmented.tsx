@@ -13,15 +13,13 @@ export interface HfSegmentedOption<T extends string> {
 }
 
 const VARIANT_CLASS: Record<
-  'report' | 'granularity' | 'budget' | 'entry' | 'forecast',
+  'report' | 'granularity' | 'budget' | 'entry',
   { container: string; button: string }
 > = {
   report: { container: 'mb-rp-seg', button: 'mb-rp-seg-btn' },
   granularity: { container: 'mb-rp-gran', button: 'mb-rp-gran-btn' },
   budget: { container: 'mb-bg-seg', button: 'mb-bg-seg-btn' },
   entry: { container: 'mb-entry-types', button: 'mb-entry-type' },
-  // 推演面板 / 总览推演卡的横向紧凑分段（样式随组件样式表加载）
-  forecast: { container: 'mb-fc-seg', button: 'mb-fc-seg-btn' },
 }
 
 export function HfSegmented<T extends string>({
@@ -36,7 +34,7 @@ export function HfSegmented<T extends string>({
   value: T
   options: readonly HfSegmentedOption<T>[]
   onChange: (next: T) => void
-  variant: 'report' | 'granularity' | 'budget' | 'entry' | 'forecast'
+  variant: 'report' | 'granularity' | 'budget' | 'entry'
   ariaPressed?: boolean
 }) {
   const classes = VARIANT_CLASS[variant]

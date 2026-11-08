@@ -10,8 +10,6 @@ import { MobileHero, MobileSnapshots, NetWorthHero } from './Hero'
 import { NetWorthTrend } from './NetWorthTrend'
 import { RecentTransactions } from './RecentTransactions'
 import { useLedger } from './ledgerStore'
-import { ForecastCard } from '@/features/budgets/forecast/ForecastCard'
-import { forecastRevision, localToday } from '@/features/budgets/forecast/model'
 import {
   CURRENT_MONTH_LABEL,
   deriveBudgets,
@@ -124,7 +122,7 @@ export function OverviewPage({
   onImport,
   onDrillCategory,
 }: OverviewPageProps) {
-  const { ledger, dataMode } = useLedger()
+  const { ledger } = useLedger()
   useRestoreOverviewScroll()
   // API 模式用真实数据所在月份；种子模式保持原来的固定期间。
   const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
@@ -198,13 +196,6 @@ export function OverviewPage({
           />
         </div>
         <BudgetCard summary={budget} mobile onOpenAll={onOpenBudgets} />
-        <ForecastCard
-          device="mobile"
-          asOf={today ?? localToday()}
-          enabled={dataMode === 'api' && ledger.snapshot !== undefined}
-          revision={forecastRevision(ledger)}
-          onOpenBudgetPage={onOpenBudgets}
-        />
         <RecentTransactions
           device="mobile"
           groups={groups}
@@ -236,13 +227,6 @@ export function OverviewPage({
         />
         <div className="mb-dash-aside">
           <BudgetCard summary={budget} onOpenAll={onOpenBudgets} />
-          <ForecastCard
-            device="desktop"
-            asOf={today ?? localToday()}
-            enabled={dataMode === 'api' && ledger.snapshot !== undefined}
-            revision={forecastRevision(ledger)}
-            onOpenBudgetPage={onOpenBudgets}
-          />
         </div>
       </div>
       <NetWorthTrend points={trend} device="desktop" />
