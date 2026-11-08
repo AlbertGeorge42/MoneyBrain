@@ -438,6 +438,7 @@ export function buildDrill(
   kind: 'income' | 'expense',
   from: string,
   to: string,
+  includeExcluded = false,
 ): DrillData {
   // 合并「其他」卡片必须与下钻用同一组根分类，点击行的金额才对得上。
   const rootIds = node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id]
@@ -450,6 +451,8 @@ export function buildDrill(
   const transactions = ledger.transactions
     .filter((transaction) => {
       if (!inRange(transaction, from, to)) return false
+      // 与报表合计同一口径：开关关闭时「不计收支」流水不进下钻。
+      if (!includeExcluded && transaction.excludeFromIncomeExpense) return false
       if (!subtree.has(transaction.categoryId)) return false
       if (kind === 'income') return isIncomeSide(transaction) || refundOffsetSide(transaction) === 'income'
       return transaction.type === 'expense' ||

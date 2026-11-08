@@ -211,9 +211,8 @@ export function ReportsPage({
     notify: (message: string, options?: ToastOptions) => {
       pushToast(message, { variant: 'reports', ...options })
     },
-    // 报表页不提供投资目标 / 现金流活动入口，这两个分支不会触发。
+    // 报表页不提供投资目标入口，这个分支不会触发。
     onSaveInvest: () => {},
-    onMoveActivity: () => {},
     onAfterWrite: () => {
       // 账户 / 分类变了，旧下钻与折叠键可能指向已删除或已换组的对象。
       setDrill(null)
@@ -241,8 +240,9 @@ export function ReportsPage({
     [device, ledger, cash, effectiveSettings.cash.groups],
   )
   const drillData = useMemo<DrillData | null>(
-    () => (drill ? buildDrill(ledger, drill.node, drill.kind, time.from, time.to) : null),
-    [drill, ledger, time.from, time.to],
+    () =>
+      drill ? buildDrill(ledger, drill.node, drill.kind, time.from, time.to, includeExcluded) : null,
+    [drill, ledger, time.from, time.to, includeExcluded],
   )
 
   useEffect(() => {
