@@ -9,7 +9,6 @@ import budgetRoutes from './routes/budget.route.js'
 import reportRoutes from './routes/report.route.js'
 import analyticsRoutes from './routes/analytics.route.js'
 import dataRoutes from './routes/data.route.js'
-import investmentRoutes from './routes/investment.route.js'
 import auditEventRoutes from './routes/audit-event.route.js'
 import { errorHandler, notFoundHandler, requestId, rootLogger } from './common/index.js'
 import { httpLogger } from './common/logger/http.js'
@@ -53,7 +52,6 @@ app.use('/api/budgets', budgetRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/data', dataRoutes)
-app.use('/api/investments', investmentRoutes)
 app.use('/api/audit-events', auditEventRoutes)
 
 // 未匹配的 API 路径也返回统一错误信封

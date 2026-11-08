@@ -9,6 +9,8 @@ import request from 'supertest'
 
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')
+const { createAssetClass } = await import('../../src/services/investment/asset-class.service.js')
+const { createSnapshot } = await import('../../src/services/investment/allocation.service.js')
 
 const HOLDING_CATEGORY_ID = 'items-holding-category'
 const EMPTY_CATEGORY_ID = 'items-empty-category'
@@ -17,14 +19,6 @@ const CASH_ACCOUNT_ID = 'items-cash-account'
 const EMPTY_ACCOUNT_ID = 'items-empty-account'
 
 const PERIOD = { startDate: '2026-03-01', endDate: '2026-03-31' }
-
-async function createAssetClass(accountId: string, name: string, targetRatio: number) {
-  const response = await request(app)
-    .post(`/api/investments/${accountId}/asset-classes`)
-    .send({ name, targetRatio, sort: 0 })
-  expect(response.status).toBe(200)
-  return response.body.data.id as string
-}
 
 describe('投资分析：账户 / 分类持仓明细 items', () => {
   beforeAll(async () => {
@@ -83,19 +77,16 @@ describe('投资分析：账户 / 分类持仓明细 items', () => {
       },
     })
 
-    const stockId = await createAssetClass(HOLDING_ACCOUNT_ID, '股票', 60)
-    const bondId = await createAssetClass(HOLDING_ACCOUNT_ID, '债券', 40)
-    const snapshot = await request(app)
-      .post('/api/investments/allocations')
-      .send({
-        accountId: HOLDING_ACCOUNT_ID,
-        date: '2026-03-10',
-        items: [
-          { assetClassId: stockId, marketValue: 60000, periodNetFlow: 0 },
-          { assetClassId: bondId, marketValue: 40000, periodNetFlow: 0 },
-        ],
-      })
-    expect(snapshot.status).toBe(200)
+    const stock = await createAssetClass(HOLDING_ACCOUNT_ID, { name: '股票', targetRatio: 60 })
+    const bond = await createAssetClass(HOLDING_ACCOUNT_ID, { name: '债券', targetRatio: 40 })
+    await createSnapshot({
+      accountId: HOLDING_ACCOUNT_ID,
+      date: '2026-03-10',
+      items: [
+        { assetClassId: stock.id, marketValue: 60000, periodNetFlow: 0 },
+        { assetClassId: bond.id, marketValue: 40000, periodNetFlow: 0 },
+      ],
+    })
   })
 
   async function fetchAnalysis() {
