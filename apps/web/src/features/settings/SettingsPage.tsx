@@ -7,16 +7,15 @@
  * - 分区渲染在 Section 组件内，页面只持有跨分区状态与写操作；
  * - 配置行统一模板：⠿ 占位 + 图标 + 名称（摘要）+ 行尾 ⋯ 菜单。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
-import { useToast } from '@/features/shared/toastContext'
-import { accountDisplayName } from '@/features/shared/accountIdentity'
+import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import { HfButton } from '@/features/shared/HfButton'
 import { ChevronLeft, Plus, Wallet } from 'lucide-react'
 import type { ThemeMode } from '@/features/shared/types'
 import { fromMajor } from '@domain/index'
 import { downloadBlob, todayFilename } from '@/utils/download'
-import { accountApi, dataApi, transactionCategoryApi } from '@/services/api'
+import { accountApi, dataApi } from '@/services/api'
 import type {
   AutoBackupConfig,
   ImportBackupResult,
@@ -39,21 +38,13 @@ import {
 import {
   INVESTMENT_TYPES,
   accountGroupCount,
-  accountGroupsForType,
-  accountTxCount,
-  categoryRows,
   sectionMeta,
-  type AccountGroup,
-  type AccountRow,
   type ActivityGroupId,
-  type CategoryRow,
-  type CategoryTab,
   type InvestmentTypeRow,
   type SectionId,
 } from './settingsModel'
-import { CategoryDeleteSheet } from './CategoryDeleteSheet'
-import { EditorSheet, type Editor, type EditorSaveValue } from './EditorSheet'
-import { MoverSheet, type Mover } from './MoverSheet'
+import { LedgerConfigSheets } from '@/features/ledger-config/LedgerConfigSheets'
+import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
 import { AccountsSection } from './AccountsSection'
 import { CategoriesSection } from './CategoriesSection'
 import { CashflowSection, type CashflowTab } from './CashflowSection'
@@ -90,64 +81,33 @@ function countByType(categories: readonly { type: TxType }[], type: TxType): num
   return categories.filter((category) => category.type === type).length
 }
 
-function useMenuDismiss(openId: string | null, close: () => void) {
-  useEffect(() => {
-    if (!openId) return
-    const handle = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null
-      if (!target?.closest('.mb-set-more-wrap')) close()
-    }
-    document.addEventListener('pointerdown', handle)
-    return () => document.removeEventListener('pointerdown', handle)
-  }, [openId, close])
-}
-
 export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsPageProps) {
-  const {
-    ledger,
-    dataMode,
-    replaceLedger,
-    createAccount,
-    updateAccount,
-    deleteAccount: deleteAccountRemote,
-    reorderAccount,
-    createAccountGroup,
-    updateAccountGroup,
-    deleteAccountGroup: deleteAccountGroupRemote,
-    reorderAccountGroup,
-    createCategory,
-    updateCategory,
-    moveCategory,
-    deleteCategory: deleteCategoryRemote,
-    reorderCategory,
-    undo,
-  } = useLedger()
+  const { ledger, dataMode, replaceLedger } = useLedger()
   const apiMode = dataMode === 'api'
   const [trashCount, setTrashCount] = useState(0)
   const [active, setActive] = useState<SectionId>('accounts')
   const [openSection, setOpenSection] = useState<SectionId | null>(null)
-  const [accountTab, setAccountTab] = useState<'asset' | 'liability'>('asset')
-  /** 真实库里有大量导入残留的空分组；默认只看有账户的分组，可一键显示。 */
-  const [showEmptyGroups, setShowEmptyGroups] = useState(false)
-  const [categoryTab, setCategoryTab] = useState<CategoryTab>('expense')
   const [cashTab, setCashTab] = useState<CashflowTab>('asset')
-  const [menuOpen, setMenuOpen] = useState<string | null>(null)
-  const [confirming, setConfirming] = useState<string | null>(null)
   const [armed, setArmed] = useState<string | null>(null)
-  const [editor, setEditor] = useState<Editor | null>(null)
-  const [mover, setMover] = useState<Mover | null>(null)
-  const [deleteTransfer, setDeleteTransfer] = useState<{ row: CategoryRow; type: TxType } | null>(null)
-  const [editorError, setEditorError] = useState<string | null>(null)
-  const [editorSaving, setEditorSaving] = useState(false)
-  const [moverError, setMoverError] = useState<string | null>(null)
-  const [moverSaving, setMoverSaving] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [deleteSaving, setDeleteSaving] = useState(false)
   const { notify: pushToast } = useToast()
+  const notify = (message: string, options?: ToastOptions) => {
+    pushToast(message, options)
+  }
   const [display, setDisplay] = useState<DisplaySettings>(readDisplaySettings)
   const [activity, setActivity] = useState<Record<string, ActivityGroupId>>({})
   const [investRows, setInvestRows] = useState<readonly InvestmentTypeRow[]>(INVESTMENT_TYPES)
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+  const config = useLedgerConfigController({
+    notify,
+    onSaveInvest: (id, value) => {
+      setInvestRows((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, target: value.target } : row)),
+      )
+      notify('目标占比已更新')
+    },
+    onMoveActivity: (categoryId, group) => {
+      setActivity((current) => ({ ...current, [categoryId]: group }))
+    },
+  })
 
   /* ===== 外观主题：直接读写 Mantine 的 colorScheme（light / dark / auto） ===== */
   const { colorScheme, setColorScheme } = useMantineColorScheme()
@@ -238,8 +198,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     }
   }, [apiMode, active, openSection, backupReloadKey])
 
-  const notify = (message: string) => pushToast(message)
-
   const saveAutoBackup = async () => {
     if (!backupConfig) return
     const enabled = backupEnabled ?? backupConfig.enabled
@@ -264,344 +222,21 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       setBackupSaving(false)
     }
   }
-  // 危险操作（转移后删除）与批量删除一致：带撤销动作，6 秒可撤销。
-  const notifyUndoable = (message: string, run: () => void) =>
-    pushToast(message, { action: { label: '撤销', run } })
-
-  useEffect(() => {
-    setEditorError(null)
-    setEditorSaving(false)
-  }, [editor])
-
-  useEffect(() => {
-    setMoverError(null)
-    setMoverSaving(false)
-  }, [mover])
-
-  useEffect(() => {
-    setDeleteError(null)
-    setDeleteSaving(false)
-  }, [deleteTransfer])
-
-  useEffect(() => {
-    if (!confirming) return
-    const timer = window.setTimeout(() => setConfirming(null), 3000)
-    return () => window.clearTimeout(timer)
-  }, [confirming])
-
   useEffect(() => {
     if (!armed) return
     const timer = window.setTimeout(() => setArmed(null), 3000)
     return () => window.clearTimeout(timer)
   }, [armed])
 
+  const resetTransient = config.resetTransient
   useEffect(() => {
-    setMenuOpen(null)
-    setConfirming(null)
+    resetTransient()
     setArmed(null)
-    setEditor(null)
-    setMover(null)
-    setDeleteTransfer(null)
-  }, [active, openSection])
-
-  useMenuDismiss(menuOpen, () => setMenuOpen(null))
+  }, [active, openSection, resetTransient])
 
   useEffect(() => {
     writeDisplaySettings(display)
   }, [display])
-
-  const assetGroups = useMemo(() => accountGroupsForType(ledger, 'asset'), [ledger])
-  const liabilityGroups = useMemo(() => accountGroupsForType(ledger, 'liability'), [ledger])
-  const rowsByType = useMemo(
-    () => ({
-      income: categoryRows(ledger, 'income'),
-      expense: categoryRows(ledger, 'expense'),
-      transfer: categoryRows(ledger, 'transfer'),
-    }),
-    [ledger],
-  )
-
-  const toggleCollapsed = (id: string) =>
-    setCollapsed((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
-  /* ===== 操作 ===== */
-
-  const runUndo = async (token: string) => {
-    const result = await undo(token)
-    if (!result.ok) notify(result.error ?? '撤销失败')
-  }
-
-  const saveEditor = async (value: EditorSaveValue) => {
-    if (!editor || editorSaving) return
-    if (editor.kind === 'invest') {
-      setInvestRows((rows) =>
-        rows.map((row) => (row.id === editor.id ? { ...row, target: value.target } : row)),
-      )
-      notify('目标占比已更新')
-      setEditor(null)
-      return
-    }
-
-    setEditorError(null)
-    setEditorSaving(true)
-    const result =
-      editor.kind === 'accountGroup'
-        ? editor.mode === 'edit' && editor.groupId
-          ? await updateAccountGroup(editor.groupId, {
-              name: value.name,
-              iconKey: value.iconKey,
-            })
-          : await createAccountGroup({
-              name: value.name,
-              type: editor.type,
-              iconKey: value.iconKey,
-            })
-        : editor.kind === 'account'
-          ? editor.mode === 'edit' && editor.accountId
-            ? await updateAccount(editor.accountId, {
-                name: value.name,
-                kind: value.kind,
-                categoryId: value.categoryId,
-                balance: value.balance,
-                initialBalance: value.initialBalance,
-                initialBalanceDate: value.initialBalanceDate,
-              })
-            : await createAccount({
-                name: value.name,
-                kind: value.kind,
-                categoryId: value.categoryId,
-                balance: value.balance,
-                initialBalance: value.initialBalance,
-                initialBalanceDate: value.initialBalanceDate,
-              })
-          : editor.mode === 'edit' && editor.categoryId
-            ? await updateCategory(editor.categoryId, {
-                name: value.name,
-                iconKey: value.iconKey,
-              })
-            : await createCategory({
-                name: value.name,
-                type: editor.type,
-                parentId: editor.parentId ?? null,
-                iconKey: value.iconKey,
-              })
-    setEditorSaving(false)
-    if (!result.ok) {
-      // 失败保留表单与原输入，错误可见，可直接重试。
-      setEditorError(result.error ?? '保存失败，请重试')
-      return
-    }
-    if (editor.kind === 'accountGroup') {
-      notify(editor.mode === 'edit' ? '分组已更新' : '分组已新增')
-      setEditor(null)
-      return
-    }
-    notify(
-      editor.kind === 'account'
-        ? editor.mode === 'edit'
-          ? '账户已更新'
-          : '账户已新增'
-        : editor.mode === 'edit'
-          ? '分类已更新'
-          : '分类已新增',
-    )
-    setEditor(null)
-  }
-
-  const deleteAccount = async (account: AccountRow) => {
-    if (!apiMode && account.txCount > 0) return
-    const result = await deleteAccountRemote(account.id)
-    if (!result.ok) {
-      notify(result.error ?? '删除失败，请重试')
-      return
-    }
-    if (result.undoToken) {
-      notifyUndoable('账户已删除', () => void runUndo(result.undoToken!))
-    } else {
-      notify('账户已删除')
-    }
-  }
-
-  const moveAccountOrder = async (id: string, direction: 'up' | 'down') => {
-    const result = await reorderAccount(id, direction)
-    if (!result.ok) notify(result.error ?? '排序失败，请重试')
-  }
-
-  /** 删除分组：有账户引用时后端拒绝，前端显式说明原因，绝不静默清空引用。 */
-  const deleteGroup = async (group: AccountGroup) => {
-    if (group.ungrouped) {
-      notify('「未分组」是默认归类占位，不能删除；把账户移入任一正式分组即可')
-      return
-    }
-    if (group.seeded) {
-      notify('演示账本的账户性质分组只读，请在真实账本中管理分组')
-      return
-    }
-    if (accountGroupCount(group) > 0) {
-      const names = group.rows
-        .slice(0, 3)
-        .map((account) => accountDisplayName(account, ledger.accounts))
-        .join('、')
-      notify(
-        `「${group.name}」下还有 ${accountGroupCount(group)} 个账户（${names}${
-          accountGroupCount(group) > 3 ? '…' : ''
-        }），后端拒绝删除；后端暂无停用字段，请先把账户移到其他分组`,
-      )
-      return
-    }
-    const result = await deleteAccountGroupRemote(group.id)
-    if (!result.ok) {
-      notify(result.error ?? '删除分组失败，请重试')
-      return
-    }
-    notify(`分组「${group.name}」已删除`)
-    setEditor(null)
-  }
-
-  const deleteEditorTarget = async () => {
-    if (!editor) return
-    if (editor.kind === 'accountGroup' && editor.groupId) {
-      const groups = editor.type === 'asset' ? assetGroups : liabilityGroups
-      const target = groups.find((group) => group.id === editor.groupId)
-      if (target) await deleteGroup(target)
-      return
-    }
-    if (editor.kind === 'account' && editor.accountId) {
-      const account = ledger.accounts.find((item) => item.id === editor.accountId)
-      if (!account) return
-      await deleteAccount({
-        id: account.id,
-        name: account.name,
-        balance: account.balance,
-        initialBalance: account.initialBalance,
-        initialBalanceDate: account.initialBalanceDate,
-        txCount: accountTxCount(ledger, account.id),
-      })
-      setEditor(null)
-    }
-  }
-
-  const moveEditorTarget = async (direction: 'up' | 'down') => {
-    if (!editor) return
-    if (editor.kind === 'accountGroup' && editor.groupId) {
-      const result = await reorderAccountGroup(editor.groupId, direction)
-      if (!result.ok) notify(result.error ?? '排序失败，请重试')
-      else notify('分组排序已更新')
-      return
-    }
-    if (editor.kind === 'account' && editor.accountId) {
-      await moveAccountOrder(editor.accountId, direction)
-    }
-  }
-
-  const moveCategoryOrder = async (id: string, direction: 'up' | 'down') => {
-    const result = await reorderCategory(id, direction)
-    if (!result.ok) notify(result.error ?? '排序失败，请重试')
-  }
-
-  const openTransfer = async (row: CategoryRow, type: TxType) => {
-    let txCount = row.txCount
-    if (apiMode) {
-      try {
-        const realId = ledger.ids?.categoryReal?.[row.id] ?? row.id
-        const stats = await transactionCategoryApi.getStats(realId).then(unwrapApiData)
-        txCount = stats.transactionCount
-      } catch (error) {
-        notify(getApiErrorMessage(error))
-        return
-      }
-    }
-    setDeleteTransfer({ row: { ...row, txCount }, type })
-  }
-
-  const deleteCategory = async (row: CategoryRow, type: TxType) => {
-    // 有交易引用先转移：种子模式按本地计数，API 模式先尝试删除、被拒后再查真实计数。
-    if (row.txCount > 0) {
-      await openTransfer(row, type)
-      return
-    }
-    const result = await deleteCategoryRemote(row.id)
-    if (result.ok) {
-      if (result.undoToken) {
-        notifyUndoable(`分类「${row.name}」已删除`, () => void runUndo(result.undoToken!))
-      } else {
-        notify('分类已删除')
-      }
-      return
-    }
-    if (apiMode && (result.error ?? '').includes('存在交易记录')) {
-      await openTransfer(row, type)
-      return
-    }
-    notify(result.error ?? '删除失败，请重试')
-  }
-
-  const transferAndDelete = async (targetId: string) => {
-    if (!deleteTransfer || deleteSaving) return
-    const { row } = deleteTransfer
-    const targetName =
-      ledger.categories.find((item) => item.id === targetId)?.name ?? '目标分类'
-    setDeleteError(null)
-    setDeleteSaving(true)
-    const result = await deleteCategoryRemote(row.id, targetId)
-    setDeleteSaving(false)
-    if (!result.ok) {
-      setDeleteError(result.error ?? '转移失败，请重试')
-      return
-    }
-    setDeleteTransfer(null)
-    const message = `已转移 ${row.txCount} 笔到「${targetName}」并删除「${row.name}」`
-    if (result.undoToken) {
-      notifyUndoable(message, () => void runUndo(result.undoToken!))
-    } else {
-      notify(message)
-    }
-  }
-
-  const move = async (target: string) => {
-    if (!mover || moverSaving) return
-    setMoverError(null)
-    if (mover.kind === 'activity') {
-      setActivity((current) => ({ ...current, [mover.id]: target as ActivityGroupId }))
-      notify('活动归属已更新')
-      setMover(null)
-      return
-    }
-
-    setMoverSaving(true)
-    const result =
-      mover.kind === 'account'
-        ? await (async () => {
-            const account = ledger.accounts.find((item) => item.id === mover.id)
-            if (!account) return { ok: false, error: '账户不存在' }
-            return updateAccount(account.id, {
-              name: account.name,
-              kind: account.kind,
-              // 空 id = 未分组；后端允许更新账户的分类为 null。
-              categoryId: target === '' ? null : target,
-              balance: account.balance,
-            })
-          })()
-        : await moveCategory(mover.id, target === 'root' ? null : target)
-    setMoverSaving(false)
-    if (!result.ok) {
-      setMoverError(result.error ?? '移动失败，请重试')
-      return
-    }
-    notify(mover.kind === 'account' ? '账户已移动到新分组' : '分类已移动')
-    setMover(null)
-  }
-
-  const moveActivity = (categoryId: string, group: ActivityGroupId) => {
-    setActivity((current) => ({ ...current, [categoryId]: group }))
-    notify('活动归属已更新')
-    setMover(null)
-  }
 
   const exportLedger = () => {
     const blob = new Blob([JSON.stringify(ledger, null, 2)], { type: 'application/json' })
@@ -822,25 +457,16 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           <AccountsSection
             device={device}
             ledger={ledger}
-            assetGroups={assetGroups}
-            liabilityGroups={liabilityGroups}
-            tab={accountTab}
-            onTabChange={setAccountTab}
-            showEmptyGroups={showEmptyGroups}
-            onShowEmptyGroupsChange={setShowEmptyGroups}
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-            onSetGroupsCollapsed={(keys, collapse) =>
-              setCollapsed((current) => {
-                const next = new Set(current)
-                for (const key of keys) {
-                  if (collapse) next.add(key)
-                  else next.delete(key)
-                }
-                return next
-              })
-            }
-            onOpenEditor={setEditor}
+            assetGroups={config.assetGroups}
+            liabilityGroups={config.liabilityGroups}
+            tab={config.accountTab}
+            onTabChange={config.setAccountTab}
+            showEmptyGroups={config.showEmptyGroups}
+            onShowEmptyGroupsChange={config.setShowEmptyGroups}
+            collapsed={config.collapsed}
+            onToggleCollapsed={config.toggleCollapsed}
+            onSetGroupsCollapsed={config.setGroupsCollapsed}
+            onOpenEditor={config.setEditor}
             onRetry={onRetry}
           />
         )
@@ -848,47 +474,47 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         return (
           <CategoriesSection
             ledger={ledger}
-            rows={rowsByType[categoryTab]}
-            tab={categoryTab}
-            onTabChange={setCategoryTab}
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-            menuOpen={menuOpen}
-            onMenuOpen={setMenuOpen}
-            confirming={confirming}
-            onConfirm={setConfirming}
-            onOpenEditor={setEditor}
-            onOpenMover={setMover}
-            onReorder={(id, direction) => void moveCategoryOrder(id, direction)}
-            onDelete={(row, type) => void deleteCategory(row, type)}
+            rows={config.rowsByType[config.categoryTab]}
+            tab={config.categoryTab}
+            onTabChange={config.setCategoryTab}
+            collapsed={config.collapsed}
+            onToggleCollapsed={config.toggleCollapsed}
+            menuOpen={config.menuOpen}
+            onMenuOpen={config.setMenuOpen}
+            confirming={config.confirming}
+            onConfirm={config.setConfirming}
+            onOpenEditor={config.setEditor}
+            onOpenMover={config.setMover}
+            onReorder={(id, direction) => void config.moveCategoryOrder(id, direction)}
+            onDelete={(row, type) => void config.deleteCategory(row, type)}
           />
         )
       case 'cashflow':
         return (
           <CashflowSection
             ledger={ledger}
-            rows={cashTab === 'asset' ? [] : rowsByType[cashTab]}
+            rows={cashTab === 'asset' ? [] : config.rowsByType[cashTab]}
             tab={cashTab}
             onTabChange={setCashTab}
             activity={activity}
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-            menuOpen={menuOpen}
-            onMenuOpen={setMenuOpen}
-            confirming={confirming}
-            onConfirm={setConfirming}
-            onOpenMover={setMover}
+            collapsed={config.collapsed}
+            onToggleCollapsed={config.toggleCollapsed}
+            menuOpen={config.menuOpen}
+            onMenuOpen={config.setMenuOpen}
+            confirming={config.confirming}
+            onConfirm={config.setConfirming}
+            onOpenMover={config.setMover}
           />
         )
       case 'invest':
         return (
           <InvestSection
             rows={investRows}
-            menuOpen={menuOpen}
-            onMenuOpen={setMenuOpen}
-            confirming={confirming}
-            onConfirm={setConfirming}
-            onOpenEditor={setEditor}
+            menuOpen={config.menuOpen}
+            onMenuOpen={config.setMenuOpen}
+            confirming={config.confirming}
+            onConfirm={config.setConfirming}
+            onOpenEditor={config.setEditor}
           />
         )
       case 'appearance':
@@ -969,7 +595,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   /* ===== 导航 ===== */
 
   const summaries: Record<SectionId, string> = {
-    accounts: `资产 ${assetGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)} · 负债 ${liabilityGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)}`,
+    accounts: `资产 ${config.assetGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)} · 负债 ${config.liabilityGroups.reduce((sum, group) => sum + accountGroupCount(group), 0)}`,
     categories: `收入 ${countByType(ledger.categories, 'income')} · 支出 ${countByType(ledger.categories, 'expense')}`,
     cashflow: '3 组标记 · 4 类活动',
     invest: `${investRows.length} 类资产`,
@@ -998,7 +624,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       <p>账本为空时设置也可以先配好：从第一个账户开始，分类与现金流标记随后补齐。</p>
       <HfButton
         className="mb-set-btn is-primary"
-        onClick={() => setEditor({ kind: 'account', mode: 'create', preset: 'deposit' })}
+        onClick={() => config.setEditor({ kind: 'account', mode: 'create', preset: 'deposit' })}
       >
         <Plus size={16} />
         新增账户
@@ -1052,61 +678,12 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     <div className="mb-set-page" data-device={device}>
       {apiMode && <RecycleBinCountProbe ledger={ledger} onCount={setTrashCount} />}
       {body}
-      {editor && (
-        <EditorSheet
-          editor={editor}
-          device={device}
-          ledger={ledger}
-          investRows={investRows}
-          error={editorError}
-          saving={editorSaving}
-          onClose={() => setEditor(null)}
-          onSave={saveEditor}
-          onDelete={
-            editor &&
-            ((editor.kind === 'account' || editor.kind === 'accountGroup') &&
-              editor.mode === 'edit')
-              ? deleteEditorTarget
-              : undefined
-          }
-          onMove={
-            editor &&
-            ((editor.kind === 'account' || editor.kind === 'accountGroup') &&
-              editor.mode === 'edit')
-              ? moveEditorTarget
-              : undefined
-          }
-        />
-      )}
-      {mover && (
-        <MoverSheet
-          mover={mover}
-          device={device}
-          ledger={ledger}
-          error={moverError}
-          saving={moverSaving}
-          onClose={() => setMover(null)}
-          onMove={(target) => {
-            if (mover.kind === 'activity') {
-              moveActivity(mover.id, target as ActivityGroupId)
-              return
-            }
-            void move(target)
-          }}
-        />
-      )}
-      {deleteTransfer && (
-        <CategoryDeleteSheet
-          row={deleteTransfer.row}
-          type={deleteTransfer.type}
-          device={device}
-          ledger={ledger}
-          error={deleteError}
-          saving={deleteSaving}
-          onClose={() => setDeleteTransfer(null)}
-          onTransfer={(target) => void transferAndDelete(target)}
-        />
-      )}
+      <LedgerConfigSheets
+        controller={config}
+        device={device}
+        ledger={ledger}
+        investRows={investRows}
+      />
       {apiMode && (
         <ImportSheet
           device={device}
