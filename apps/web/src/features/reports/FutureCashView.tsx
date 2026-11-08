@@ -19,10 +19,86 @@ import {
   PredictionAsOfLine,
   PredictionBreakdown,
   PredictionLegend,
+  PredictionTextureDefs,
+  PredictionTextureLegend,
 } from './prediction'
 import { currency, type ReportMetric } from './reportsModel'
 
 const PLOT = { left: 72, right: 676, top: 28, bottom: 246 }
+
+type FlowValue = CashFlowProjectionResult['points'][number]['inflow']
+
+/**
+ * 逐桶柱：整体高度取后端 total，来源只叠纹理不改颜色——
+ * 已发生为语义底色实心，预算计划叠 45° 斜纹，已排定叠点纹。
+ * 段高只用后端分项与 total 的比例做几何换算，前端不做金额相加。
+ */
+function CashBar({
+  flow,
+  kind,
+  x,
+  width,
+  yOf,
+}: {
+  flow: FlowValue
+  kind: 'inflow' | 'outflow'
+  x: number
+  width: number
+  yOf: (value: number) => number
+}) {
+  if (flow.total <= 0) return null
+  const top = yOf(flow.total)
+  const full = PLOT.bottom - top
+  const actualHeight = full * (flow.actual / flow.total)
+  const plannedHeight = Math.min(full - actualHeight, full * (flow.planned / flow.total))
+  const committedHeight = Math.min(
+    full - actualHeight - plannedHeight,
+    full * (flow.committed / flow.total),
+  )
+  const plannedY = PLOT.bottom - actualHeight - plannedHeight
+  const committedY = plannedY - committedHeight
+
+  return (
+    <g>
+      <rect
+        className={`mb-rp-predict-bar is-${kind}`}
+        x={x}
+        y={top}
+        width={width}
+        height={full}
+        rx={1.5}
+      />
+      {plannedHeight > 0 && (
+        <rect
+          className="mb-rp-predict-texture"
+          x={x}
+          y={plannedY}
+          width={width}
+          height={plannedHeight}
+          fill="url(#mb-rp-planned-hatch)"
+        />
+      )}
+      {committedHeight > 0 && (
+        <rect
+          className="mb-rp-predict-texture"
+          x={x}
+          y={committedY}
+          width={width}
+          height={committedHeight}
+          fill="url(#mb-rp-committed-dots)"
+        />
+      )}
+      <rect
+        className="mb-rp-predict-outline"
+        x={x}
+        y={top}
+        width={width}
+        height={full}
+        rx={1.5}
+      />
+    </g>
+  )
+}
 
 export function FutureCashView({
   device,
@@ -128,13 +204,14 @@ export function FutureCashView({
         title="现金流推演"
         desc={`${points[0].label} ~ ${last.label} · 按${GRANULARITY_LABELS[projection.granularity]}桶 · 数据截至 ${projection.asOf}`}
       >
-        <PredictionLegend actualLabel="已发生" />
+        <PredictionLegend actualLabel="已发生" extra={<PredictionTextureLegend />} />
         <svg
           className="mb-rp-predict-chart"
           viewBox="0 0 720 300"
           role="img"
           aria-label="未来现金流推演（预测）"
         >
+          <PredictionTextureDefs />
           {flowTicks.map((tick) => (
             <g key={tick.value} className="mb-rp-predict-grid">
               <line x1={PLOT.left} x2={PLOT.right} y1={tick.y} y2={tick.y} />
@@ -165,28 +242,9 @@ export function FutureCashView({
             const predicted = point.end > projection.asOf
             return (
               <g key={point.date} className="mb-rp-predict-hit">
-                <rect
-                  className={
-                    predicted ? 'mb-rp-predict-bar is-inflow is-predicted' : 'mb-rp-predict-bar is-inflow'
-                  }
-                  x={xOf(index) - barWidth - 1}
-                  y={yFlow(point.inflow.total)}
-                  width={barWidth}
-                  height={PLOT.bottom - yFlow(point.inflow.total)}
-                  rx={1.5}
-                />
-                <rect
-                  className={
-                    predicted
-                      ? 'mb-rp-predict-bar is-outflow is-predicted'
-                      : 'mb-rp-predict-bar is-outflow'
-                  }
-                  x={xOf(index) + 1}
-                  y={yFlow(point.outflow.total)}
-                  width={barWidth}
-                  height={PLOT.bottom - yFlow(point.outflow.total)}
-                  rx={1.5}
-                />
+                {predicted && <title>{`${point.label} · 预测`}</title>}
+                <CashBar flow={point.inflow} kind="inflow" x={xOf(index) - barWidth - 1} width={barWidth} yOf={yFlow} />
+                <CashBar flow={point.outflow} kind="outflow" x={xOf(index) + 1} width={barWidth} yOf={yFlow} />
                 {index % labelEvery === 0 && (
                   <text className="mb-rp-predict-xlabel" x={xOf(index)} y={PLOT.bottom + 20} textAnchor="middle">
                     {point.label}
@@ -260,6 +318,7 @@ export function FutureCashView({
         )}
         <p className="mb-rp-predict-note">
           柱为桶内流入 / 流出（后端合计），线为期末现金（endCash）；实线为已发生段，虚线为预测段。
+          预测柱不靠透明度：45° 斜纹为「按预算计划」，点纹为「已排定」。
         </p>
       </ChartCard>
       <ReportTable

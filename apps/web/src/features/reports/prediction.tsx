@@ -49,6 +49,47 @@ export function ReportRowHint({ hint }: { hint: string }) {
   return <span className="mb-rp-row-hint">{hint}</span>
 }
 
+/**
+ * 柱状预测的来源纹理（现金流视图共用）。
+ *
+ * 预测不靠透明度：底色与描边沿用语义 token，来源只由纹理区分——
+ * 预算计划 = 45° 斜纹，已排定 = 点纹；颜色与 token 值均不改动。
+ */
+export function PredictionTextureDefs() {
+  return (
+    <defs>
+      <pattern
+        id="mb-rp-planned-hatch"
+        width="6"
+        height="6"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <line x1="0" y1="0" x2="0" y2="6" className="mb-rp-texture-planned" />
+      </pattern>
+      <pattern id="mb-rp-committed-dots" width="5" height="5" patternUnits="userSpaceOnUse">
+        <circle cx="2.5" cy="2.5" r="1" className="mb-rp-texture-committed" />
+      </pattern>
+    </defs>
+  )
+}
+
+/** 图例里的纹理样例：与图表 pattern 同一套编码。 */
+export function PredictionTextureLegend() {
+  return (
+    <>
+      <span className="mb-rp-predict-legend-item">
+        <span className="mb-rp-predict-swatch is-planned-texture" aria-hidden="true" />
+        按预算计划
+      </span>
+      <span className="mb-rp-predict-legend-item">
+        <span className="mb-rp-predict-swatch is-committed-texture" aria-hidden="true" />
+        已排定
+      </span>
+    </>
+  )
+}
+
 /** 图例：首项固定为「预测」，其后才是已发生与调用方补充项。 */
 export function PredictionLegend({
   actualLabel = '已发生',

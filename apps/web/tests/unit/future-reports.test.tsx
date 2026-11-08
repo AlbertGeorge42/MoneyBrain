@@ -345,6 +345,16 @@ describe('现金流未来视图：逐桶柱 + 期末现金线', () => {
     expect(screen.getByText('月桶')).toBeTruthy()
   })
 
+  it('预测柱改用纹理编码来源，不再靠透明度', () => {
+    const { container } = renderWrapped(<FutureCashView device="desktop" projection={cashFixture()} />)
+    expect(container.querySelector('.mb-rp-predict-bar.is-predicted')).toBeNull()
+    expect(container.querySelector('#mb-rp-planned-hatch')).toBeTruthy()
+    expect(container.querySelector('#mb-rp-committed-dots')).toBeTruthy()
+    expect(container.querySelectorAll('.mb-rp-predict-texture').length).toBeGreaterThan(0)
+    expect(screen.getByText('按预算计划')).toBeTruthy()
+    expect(screen.getByText('已排定')).toBeTruthy()
+  })
+
   it('明细直接展示 startCash / endCash 与三项流量合计', () => {
     renderWrapped(<FutureCashView device="desktop" projection={cashFixture()} />)
     expect(screen.getAllByText('期初现金').length).toBeGreaterThan(0)

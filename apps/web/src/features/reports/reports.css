@@ -2079,6 +2079,31 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   border-bottom-style: solid;
 }
 
+/* 图例里的纹理样例：与柱上的 SVG pattern 同一编码，不使用透明度。 */
+.mb-rp-predict-swatch.is-planned-texture,
+.mb-rp-predict-swatch.is-committed-texture {
+  height: 10px;
+  border: 1px solid var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-xs);
+  background-color: var(--mb-color-surface-sunken);
+}
+
+.mb-rp-predict-swatch.is-planned-texture {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--mb-color-text-primary) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+.mb-rp-predict-swatch.is-committed-texture {
+  background-image: radial-gradient(
+    var(--mb-color-text-primary) 1px,
+    transparent 1.5px
+  );
+  background-size: 5px 5px;
+}
+
 .mb-rp-predict-chart {
   display: block;
   width: 100%;
@@ -2144,7 +2169,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   opacity: 0.65;
 }
 
-/* 现金流逐桶柱：流入 / 流出沿用既有收入支出色；预测桶降透明度并保留描边。 */
+/* 现金流逐桶柱：流入 / 流出沿用既有收入支出色；预测不降透明度，改由纹理编码来源。 */
 .mb-rp-predict-bar {
   stroke: none;
 }
@@ -2157,8 +2182,25 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   fill: var(--mb-color-expense-display);
 }
 
-.mb-rp-predict-bar.is-predicted {
-  opacity: 0.45;
+/* 纹理只区分来源：预算计划 45° 斜纹、已排定点纹；底色与描边仍是语义 token。 */
+.mb-rp-texture-planned {
+  stroke: var(--mb-color-text-primary);
+  stroke-width: 1;
+}
+
+.mb-rp-texture-committed {
+  fill: var(--mb-color-text-primary);
+}
+
+.mb-rp-predict-texture {
+  pointer-events: none;
+}
+
+.mb-rp-predict-outline {
+  fill: none;
+  stroke: var(--mb-color-border-strong);
+  stroke-width: 1;
+  pointer-events: none;
 }
 
 /* 期末现金线：实线为已发生，虚线为预测；点与线同一编码。 */
