@@ -129,6 +129,12 @@
   left: var(--mb-s-4);
   bottom: 0;
   z-index: var(--mb-z-dock);
+  /* 图标 + 文字用 flex 居中：原生按钮的行内基线对齐会把 16px 图标抬到 13px 文字的
+     基线之上，且行内空白被 JSX 剪掉后图标会贴住首字。 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mb-s-1);
   width: calc(var(--mb-sidebar-w) - var(--mb-s-4) * 2);
   box-shadow: var(--mb-sh-2);
 }
