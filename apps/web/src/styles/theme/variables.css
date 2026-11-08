@@ -73,6 +73,8 @@
   --mb-tx-row-h: 54px;
   --mb-tx-icon: 26px;
   --mb-control-h: var(--mb-btn-h-md);
+  /* 控件行内间距的唯一值（桌面与移动同为 8）：页面不得各自声明行内 gap */
+  --mb-control-gap: var(--mb-s-2);
   --mb-section-gap: 16px;
   --mb-page-pad: 28px;
   --mb-page-pad-mobile: 26px;
