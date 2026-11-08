@@ -16,6 +16,7 @@ import { HfSwitch } from '@/features/shared/HfSwitch'
 import { PeriodBar } from '@/features/shared/PeriodBar'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { ControlRow } from '@/features/shared/skeleton/ControlRow'
+import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import type { Budget } from '@contracts/types'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -702,57 +703,72 @@ export function BudgetPage({
   // 历史月 statuses 查询失败时，页面不能退回前端本地重算（会变成第二套口径）。
   if (dataState === 'error' || statusError) {
     return (
-      <>
-        <BudgetPageHead
-          device={device}
-          data={data}
-          onAdd={() => onEditorOpenChange(true)}
-        />
-        <MonthControls
-          month={month}
-          onChange={setMonth}
-          currentMonth={currentMonth}
-          hasData={hasMonthData}
-        />
+      <PageShell
+        head={
+          <BudgetPageHead
+            device={device}
+            data={data}
+            onAdd={() => onEditorOpenChange(true)}
+          />
+        }
+        controls={
+          <MonthControls
+            month={month}
+            onChange={setMonth}
+            currentMonth={currentMonth}
+            hasData={hasMonthData}
+          />
+        }
+      >
         <ErrorPanel onRetry={dataState === 'error' ? onRetry : retryStatuses} />
-      </>
+      </PageShell>
     )
   }
 
   if (dataState === 'loading' || !statusesReady) {
     return (
-      <>
-        <BudgetPageHead
-          device={device}
-          data={data}
-          onAdd={() => onEditorOpenChange(true)}
-        />
-        <MonthControls
-          month={month}
-          onChange={setMonth}
-          currentMonth={currentMonth}
-          hasData={hasMonthData}
-        />
+      <PageShell
+        head={
+          <BudgetPageHead
+            device={device}
+            data={data}
+            onAdd={() => onEditorOpenChange(true)}
+          />
+        }
+        controls={
+          <MonthControls
+            month={month}
+            onChange={setMonth}
+            currentMonth={currentMonth}
+            hasData={hasMonthData}
+          />
+        }
+      >
         <LoadingSkeleton device={device} />
-      </>
+      </PageShell>
     )
   }
 
   if (ledger.budgets.length === 0 || dataState === 'empty') {
     return (
-      <>
-        <BudgetPageHead
-          device={device}
-          data={data}
-          onAdd={() => onEditorOpenChange(true)}
-          empty
-        />
-        <MonthControls
-          month={month}
-          onChange={setMonth}
-          currentMonth={currentMonth}
-          hasData={hasMonthData}
-        />
+      <PageShell
+        head={
+          <BudgetPageHead
+            device={device}
+            data={data}
+            onAdd={() => onEditorOpenChange(true)}
+            empty
+          />
+        }
+        controls={
+          <MonthControls
+            month={month}
+            onChange={setMonth}
+            currentMonth={currentMonth}
+            hasData={hasMonthData}
+          />
+        }
+      >
         <EmptyPage onAdd={() => onEditorOpenChange(true)} />
         <BudgetEditor
           opened={editorOpen}
@@ -766,34 +782,39 @@ export function BudgetPage({
           onClose={() => onEditorOpenChange(false)}
           onSave={saveEditor}
         />
-      </>
+      </PageShell>
     )
   }
 
   return (
     <div className="mb-bg-page" data-device={device}>
-      <BudgetPageHead
-        device={device}
-        data={data}
-        onAdd={() => onEditorOpenChange(true)}
-      />
+      <PageShell
+        head={
+          <BudgetPageHead
+            device={device}
+            data={data}
+            onAdd={() => onEditorOpenChange(true)}
+          />
+        }
+        controls={
+          <MonthControls
+            month={month}
+            onChange={setMonth}
+            currentMonth={currentMonth}
+            hasData={hasMonthData}
+          />
+        }
+      >
+        <div className="mb-bg-future-entry">
+          <button type="button" className="mb-bg-future-link" onClick={onViewFutureReports}>
+            查看未来报表 →
+          </button>
+        </div>
 
-      <MonthControls
-        month={month}
-        onChange={setMonth}
-        currentMonth={currentMonth}
-        hasData={hasMonthData}
-      />
-
-      <div className="mb-bg-future-entry">
-        <button type="button" className="mb-bg-future-link" onClick={onViewFutureReports}>
-          查看未来报表 →
-        </button>
-      </div>
-
-      <Hero data={data} device={device} />
-      <WatchGroup data={data} onOpen={openDetail} />
-      <GroupSection data={data} onOpen={openDetail} />
+        <Hero data={data} device={device} />
+        <WatchGroup data={data} onOpen={openDetail} />
+        <GroupSection data={data} onOpen={openDetail} />
+      </PageShell>
 
       <HfSheet
         variant="budget"
