@@ -315,6 +315,14 @@
   align-items: stretch;
 }
 
+/* 右栏：预算卡 + 推演卡纵向堆叠；不改全局栅格，推演图高度受限 */
+.mb-dash-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-section-gap);
+  min-width: 0;
+}
+
 /* 最近交易卡贴合自身内容高度，不被右栏预算卡撑出空白 */
 .mb-recent-card {
   align-self: start;

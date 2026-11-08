@@ -1,0 +1,435 @@
+/* 预算推演：面板 / 总览卡 / 图 / 明细。只复用既有 token，不新增颜色与取色逻辑。 */
+
+.mb-fc-panel {
+  padding: var(--mb-s-5);
+  gap: var(--mb-s-4);
+}
+
+.mb-fc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+  flex-wrap: wrap;
+}
+
+.mb-fc-head-copy {
+  min-width: 0;
+}
+
+.mb-fc-title,
+.mb-fc-card-title {
+  margin: 0;
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  color: var(--mb-color-text-primary);
+}
+
+.mb-fc-sub {
+  margin: var(--mb-s-1) 0 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-fc-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  flex-wrap: wrap;
+}
+
+/* 推演分段：比编辑器的周期分段更紧凑，横向排列 */
+.mb-fc-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-fc-seg-btn {
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-size: var(--mb-fs-0);
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: calc(var(--mb-radius-sm) - 2px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mb-fc-seg-btn:hover {
+  color: var(--mb-color-text-primary);
+}
+
+.mb-fc-seg-btn[aria-pressed='true'] {
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  box-shadow: 0 1px 2px rgb(20 22 26 / 8%);
+}
+
+.mb-fc-seg-btn:focus-visible {
+  outline: 2px solid var(--mb-color-accent);
+  outline-offset: 1px;
+}
+
+.mb-fc-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mb-fc-axis {
+  font-size: 10px;
+  fill: var(--mb-color-text-tertiary);
+}
+
+.mb-fc-axis-right {
+  font-size: 9px;
+}
+
+.mb-fc-grid {
+  stroke: var(--mb-color-border);
+  stroke-width: 0.6;
+  opacity: 0.55;
+}
+
+.mb-fc-zero {
+  stroke: var(--mb-color-border-strong);
+  stroke-width: 1;
+}
+
+.mb-fc-total-cap {
+  stroke: var(--mb-color-border-strong);
+  stroke-width: 1.5;
+}
+
+.mb-fc-gap {
+  stroke: var(--mb-color-text-tertiary);
+  stroke-width: 2;
+}
+
+.mb-fc-gap-label {
+  font-size: 9px;
+  fill: var(--mb-color-text-tertiary);
+}
+
+.mb-fc-line {
+  stroke: var(--mb-color-text-primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.mb-fc-line-asset {
+  stroke: var(--mb-color-accent);
+}
+
+.mb-fc-baseline {
+  stroke: var(--mb-color-text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.7;
+}
+
+.mb-fc-dot {
+  fill: var(--mb-color-text-primary);
+}
+
+.mb-fc-dot-cash {
+  fill: var(--mb-color-text-primary);
+}
+
+.mb-fc-hit {
+  cursor: pointer;
+}
+
+.mb-fc-hit:focus-visible {
+  stroke: var(--mb-color-accent);
+  stroke-width: 1;
+}
+
+.mb-fc-selected-bg {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.mb-fc-chart-compact {
+  max-height: 160px;
+}
+
+.mb-fc-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  flex-wrap: wrap;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-fc-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+}
+
+.mb-fc-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.mb-fc-swatch-actual {
+  background: var(--mb-color-income);
+}
+
+.mb-fc-swatch-planned {
+  background: repeating-linear-gradient(45deg, var(--mb-color-expense-display) 0 2px, transparent 2px 5px);
+}
+
+.mb-fc-swatch-committed {
+  background: radial-gradient(var(--mb-color-expense-display) 1px, transparent 1px);
+  background-size: 5px 5px;
+}
+
+.mb-fc-swatch-gap {
+  width: 14px;
+  height: 2px;
+  border-radius: 0;
+  background: var(--mb-color-text-tertiary);
+}
+
+.mb-fc-legend-note {
+  margin-left: auto;
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-fc-footnote {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-fc-detail {
+  border-top: 1px solid var(--mb-color-border);
+  padding-top: var(--mb-s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+.mb-fc-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-fc-detail-badge {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  background: var(--mb-color-surface-sunken);
+  border-radius: var(--mb-radius-sm);
+  padding: 2px 6px;
+}
+
+.mb-fc-detail-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mb-fc-detail-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--mb-s-2);
+  align-items: start;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  padding: 2px 0;
+}
+
+.mb-fc-detail-row dt {
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-fc-detail-row dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-2);
+}
+
+.mb-fc-detail-total {
+  color: var(--mb-color-text-primary);
+  font-weight: 600;
+}
+
+.mb-fc-detail-budget {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-fc-detail-empty {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-fc-covered {
+  background: var(--mb-color-surface-sunken);
+  border-radius: var(--mb-radius-sm);
+  padding: var(--mb-s-2) var(--mb-s-3);
+}
+
+.mb-fc-covered-title {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-primary);
+  font-weight: 600;
+}
+
+.mb-fc-covered-list {
+  margin: var(--mb-s-1) 0 0;
+  padding-left: 16px;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-fc-mobile-detail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-fc-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mb-s-2);
+  padding: var(--mb-s-4) 0;
+}
+
+.mb-fc-state-title {
+  margin: 0;
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-fc-state-desc {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-fc-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+.mb-fc-skeleton-line,
+.mb-fc-skeleton-block {
+  display: block;
+  border-radius: var(--mb-radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--mb-color-surface-sunken) 0%,
+    var(--mb-color-surface-hover) 50%,
+    var(--mb-color-surface-sunken) 100%
+  );
+  background-size: 200% 100%;
+  animation: mb-fc-shimmer 1.4s ease-in-out infinite;
+}
+
+.mb-fc-skeleton-line {
+  height: 12px;
+  width: 40%;
+}
+
+.mb-fc-skeleton-block {
+  height: 220px;
+  width: 100%;
+}
+
+.mb-fc-skeleton-card .mb-fc-skeleton-block {
+  height: 140px;
+}
+
+.mb-fc-sheet {
+  padding: var(--mb-s-4);
+}
+
+@keyframes mb-fc-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* 总览卡：与预算卡同宽，图表高度受限，避免把首屏其它卡挤下去 */
+.mb-fc-card {
+  padding: var(--mb-s-4);
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+.mb-fc-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  flex-wrap: wrap;
+}
+
+.mb-fc-card-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  padding: var(--mb-s-2) 0;
+}
+
+.mb-fc-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  flex-wrap: wrap;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+@media (max-width: 719px) {
+  .mb-fc-panel {
+    padding: var(--mb-s-4);
+  }
+
+  .mb-fc-head {
+    flex-direction: column;
+  }
+
+  .mb-fc-controls {
+    width: 100%;
+  }
+
+  .mb-fc-detail-row {
+    grid-template-columns: 96px 1fr;
+  }
+
+  .mb-fc-legend-note {
+    margin-left: 0;
+    width: 100%;
+  }
+}

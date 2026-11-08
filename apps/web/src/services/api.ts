@@ -9,15 +9,18 @@ import type {
   AnalyticsAssetTrendItem,
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
+  AssetProjectionResult,
   ApiResponse,
   AuditEvent,
   AuditEventHistoryResult,
   AutoBackupConfig,
   BalanceSheetReportData,
   Budget,
+  BudgetPeriodPlanResult,
   BudgetPrediction,
   BudgetStatus,
   BudgetUsageDetails,
+  CashFlowProjectionResult,
   CashFlowReportData,
   DashboardSummaryData,
   DetectFileResult,
@@ -35,6 +38,7 @@ import type {
   MessageResult,
   Minor,
   PaginatedResponse,
+  ProjectionMonths,
   RecycleBinItem,
   RecycleBinResult,
   RollbackPoint,
@@ -66,6 +70,7 @@ export type {
   BudgetPrediction,
   BudgetStatus,
   BudgetUsageDetails,
+  CashFlowProjectionResult,
   CashFlowReportData,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
@@ -181,6 +186,9 @@ export const budgetApi = {
   // 预算下钻明细（C2）：与用量同一口径，条数与合计 == 预算用量
   getUsageDetails: (id: string) => api.get<ApiResponse<BudgetUsageDetails>>(`/budgets/${id}/usage-details`),
   getPredictions: (startDate: string, endDate: string) => api.get<ApiResponse<BudgetPrediction[]>>('/budgets/predictions', { params: { startDate, endDate } }),
+  // 未来各自然月预算额度与缺口（推演面板只读，不参与实际预算口径）
+  getPeriodPlan: (fromMonth: string, months: ProjectionMonths) =>
+    api.get<ApiResponse<BudgetPeriodPlanResult>>('/budgets/period-plan', { params: { fromMonth, months } }),
   create: (data: Partial<Budget>) => api.post<ApiResponse<Budget>>('/budgets', data),
   update: (id: string, data: Partial<Budget>) => api.put<ApiResponse<Budget>>(`/budgets/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse<MessageResult>>(`/budgets/${id}`),
@@ -197,6 +205,11 @@ export const reportApi = {
       params: { startDate, endDate, includePredictions: includePredictions ? 'true' : undefined },
     }),
   getInvestmentAnalysis: (startDate: string, endDate: string) => api.get<ApiResponse<InvestmentAnalysisReportData>>('/reports/investment-analysis', { params: { startDate, endDate } }),
+  // 未来现金流推演：逐月 inflow/outflow/net/endCash 由后端合成，前端只渲染
+  getCashFlowProjection: (months: ProjectionMonths, asOf?: string) =>
+    api.get<ApiResponse<CashFlowProjectionResult>>('/reports/cash-flow-projection', {
+      params: { months, asOf, includePlanned: 'true', includeCommitted: 'true' },
+    }),
 }
 
 export const analyticsApi = {
@@ -207,6 +220,11 @@ export const analyticsApi = {
       params: { type, startDate, endDate, parentCategoryId } 
     }),
   getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
+  // 未来资产/负债/净资产推演：total 由后端合成，前端不自行累加
+  getAssetProjection: (months: ProjectionMonths, asOf?: string) =>
+    api.get<ApiResponse<AssetProjectionResult>>('/analytics/asset-projection', {
+      params: { months, asOf, includePlanned: 'true', includeCommitted: 'true' },
+    }),
 }
 
 export const dataApi = {

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus, TriangleAlert } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import type { LedgerBudgetInput } from '@/features/overview/ledgerStore'
+import { ForecastPanel } from './forecast/ForecastPanel'
+import { forecastRevision, localToday } from './forecast/model'
 import { ledgerAnchorDay } from '@/features/overview/model'
 import type { BudgetPeriod, LedgerBudget } from '@/features/overview/model'
 import { budgetApi } from '@/services/api'
@@ -753,6 +755,14 @@ export function BudgetPage({
           />
         </div>
       )}
+
+      <ForecastPanel
+        device={device}
+        asOf={ledger.snapshot?.today ?? localToday()}
+        enabled={apiMode && ledger.snapshot !== undefined && ledger.budgets.length > 0}
+        revision={forecastRevision(ledger)}
+        onCreateBudget={() => onEditorOpenChange(true)}
+      />
 
       <Hero data={data} device={device} />
       <WatchGroup data={data} onOpen={openDetail} />
