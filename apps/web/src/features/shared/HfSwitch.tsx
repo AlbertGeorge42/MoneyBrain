@@ -1,24 +1,19 @@
 /**
  * 共享开关。
  *
- * 三种轨道开关（报表口径、预算启停、自动备份）与报表配置里的按压式 Toggle
+ * 轨道开关（预算启停、自动备份）与按压式 Toggle（报表设置、流水统计范围）
  * 统一到一处。轨道开关沿用 role="switch" + aria-checked；配置 Toggle 原本是
  * aria-pressed 的按压按钮，不改成 switch，用 toggle 变体原样保留。
  */
 import type { ReactNode } from 'react'
+import './hfSwitch.css'
 
-type HfSwitchVariant = 'report' | 'budget' | 'settings' | 'toggle'
+type HfSwitchVariant = 'budget' | 'settings' | 'toggle'
 
 const TRACK_CLASS: Record<
-  'report' | 'budget',
+  'budget',
   { button: string; track: string; thumb: string; text: string }
 > = {
-  report: {
-    button: 'mb-rp-switch',
-    track: 'mb-rp-switch-track',
-    thumb: 'mb-rp-switch-thumb',
-    text: 'mb-rp-switch-label',
-  },
   budget: {
     button: 'mb-bg-switch',
     track: 'mb-bg-switch-track',
@@ -51,16 +46,16 @@ export function HfSwitch({
 }) {
   if (variant === 'toggle') {
     return (
-      <div className="mb-rp-config-toggle-wrap">
+      <div className="mb-switch-toggle-wrap">
         <button
           type="button"
-          className={checked ? 'mb-rp-config-toggle is-on' : 'mb-rp-config-toggle'}
+          className={checked ? 'mb-switch-toggle is-on' : 'mb-switch-toggle'}
           aria-pressed={checked}
           disabled={disabled}
           onClick={() => onChange(!checked)}
         >
           <span>{text}</span>
-          <span className="mb-rp-config-toggle-state">
+          <span className="mb-switch-toggle-state">
             {stateText ?? (checked ? '显示' : '隐藏')}
           </span>
         </button>

@@ -1,13 +1,13 @@
 /**
- * 收支明细视图：不计收支开关 + 指标条 + 收支走势 / 构成图 + 收入 / 支出双表。
+ * 收支明细视图：指标条 + 收支走势 / 构成图 + 收入 / 支出双表。
  * 折叠与下钻状态由页面持有，这里只按当前口径派生可见行。
+ * 「含不计收支交易」是数据范围，入口在报表设置；本视图只读 report.includeExcluded 写口径说明。
  */
 import type { DeviceMode } from '@/features/shared/types'
 import { CompositionBars, ReportBarChart, type DonutKind } from './charts'
 import { MetricStrip, ReportCardList, ReportTable, type CardRow, type ReportColumn } from './ReportTable'
 import { chartGrid } from './reportsShared'
 import { HfSegmented } from '@/features/shared/HfSegmented'
-import { HfSwitch } from '@/features/shared/HfSwitch'
 import { flattenFlowCards, flattenFlowRows } from './reportRows'
 import { currency, type FlowReport, type FlowTreeNode } from './reportsModel'
 import type { ReportViewSettings } from './reportSettings'
@@ -18,8 +18,6 @@ export function FlowView({
   settings,
   side,
   onSide,
-  includeExcluded,
-  onIncludeExcluded,
   folded,
   onFold,
   onDrill,
@@ -30,8 +28,6 @@ export function FlowView({
   settings: ReportViewSettings['flow']
   side: 'income' | 'expense'
   onSide: (next: 'income' | 'expense') => void
-  includeExcluded: boolean
-  onIncludeExcluded: (next: boolean) => void
   folded: Record<string, boolean>
   onFold: (id: string) => void
   onDrill: (node: FlowTreeNode, kind: DonutKind) => void
@@ -84,24 +80,11 @@ export function FlowView({
   // 子级行只挂「†」，含义放在已有合计说明位，不新增行。
   const childLegend = (nodes: FlowTreeNode[]) =>
     nodes.some((node) => node.children.length > 0) ? ' · † 子级已计入父级' : ''
-  // 表说明与开关同口径：开关一变，说明里也直接写明是否计入，不让标题与数字脱节。
-  const scopeLegend = report.includeExcluded ? ' · 计入不计收支' : ' · 不含不计收支'
+  // 表说明与数据范围同口径：开启后说明里直接写明，避免标题与数字脱节。
+  const scopeLegend = report.includeExcluded ? ' · 已含不计收支' : ' · 不含不计收支'
 
   return (
     <>
-      <div className="mb-rp-scope">
-        <HfSwitch
-          variant="report"
-          checked={includeExcluded}
-          onChange={onIncludeExcluded}
-          text="计入不计收支"
-        />
-        <span className="mb-rp-scope-note">
-          {includeExcluded
-            ? '本期收入 / 支出 / 结余已计入标记为「不计收支」的流水'
-            : '本期收入 / 支出 / 结余按默认口径排除「不计收支」流水'}
-        </span>
-      </div>
       <MetricStrip device={device} metrics={report.metrics} />
       {report.predictionNote && <p className="mb-rp-predict-note">{report.predictionNote}</p>}
       {chartGrid(

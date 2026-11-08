@@ -122,8 +122,7 @@ export function ReportsPage({
   const [foldedFlow, setFoldedFlow] = useState<Record<string, boolean>>({})
   const [foldedCash, setFoldedCash] = useState<Record<string, boolean>>({})
   const [flowSide, setFlowSide] = useState<'income' | 'expense'>('expense')
-  // 「计入不计收支」只影响收支明细口径；关闭时按旧版默认排除这类流水。
-  const [includeExcluded, setIncludeExcluded] = useState(false)
+  // 「含不计收支交易」属于数据范围，随展示配置落 localStorage；即时生效，不走配置草稿。
   const [cashSide, setCashSide] = useState<'in' | 'out'>('in')
   const [balanceSide, setBalanceSide] = useState<'assets' | 'liabilities'>('assets')
   // 展示偏好只落 localStorage；面板里的切换先改 draft，页面即时按 draft 重算。
@@ -134,6 +133,12 @@ export function ReportsPage({
   const [ledgerConfigOpen, setLedgerConfigOpen] = useState(false)
   const [ledgerConfigTab, setLedgerConfigTab] = useState<LedgerConfigTab>('accounts')
   const effectiveSettings = draftSettings ?? viewSettings
+  const includeExcluded = viewSettings.dataScope.includeExcluded
+  const setIncludeExcluded = (next: boolean) => {
+    const value = { ...viewSettings, dataScope: { includeExcluded: next } }
+    saveReportSettings(value)
+    setViewSettings(value)
+  }
 
   // 已发生区间仍按数据截止日截断；混合 / 全未来时点交给推演端点，按当前粒度出桶。
   const balanceState = pointRangeState(time.point, anchor, time.gran)
@@ -326,12 +331,15 @@ export function ReportsPage({
     )
 
   // 页头摘要：区间 + 相对今天的状态，与时间条同一套文案与判定，避免两处口径分叉。
+  // 数据范围开关收进设置后不可见，开启时在收支明细副标题留下口径提示。
   const headSub =
     tab === 'balance'
       ? `${formatPointLabel(time.point, time.gran, anchor)} · ${
           RANGE_STATE_LABEL[pointRangeState(time.point, anchor, time.gran)]
         }`
-      : `${formatRangeLabel(time)} · ${RANGE_STATE_LABEL[rangeState(time.from, time.to, anchor)]}`
+      : `${formatRangeLabel(time)} · ${RANGE_STATE_LABEL[rangeState(time.from, time.to, anchor)]}${
+          tab === 'flow' && includeExcluded ? ' · 含不计收支' : ''
+        }`
 
   const content = (
     <PageShell
@@ -340,6 +348,7 @@ export function ReportsPage({
           device={device}
           tab={tab}
           sub={headSub}
+          scopeNote={tab === 'flow' && includeExcluded ? '含不计收支' : undefined}
           onTab={(next) => setTab(next)}
           onOpenSettings={onSettingsToggle}
         />
@@ -400,8 +409,6 @@ export function ReportsPage({
               settings={effectiveSettings.flow}
               side={flowSide}
               onSide={setFlowSide}
-              includeExcluded={includeExcluded}
-              onIncludeExcluded={setIncludeExcluded}
               folded={foldedFlow}
               onFold={toggleFlowFold}
               onDrill={(node, kind) => {
@@ -418,8 +425,6 @@ export function ReportsPage({
                 settings={effectiveSettings.flow}
                 side={flowSide}
                 onSide={setFlowSide}
-                includeExcluded={includeExcluded}
-                onIncludeExcluded={setIncludeExcluded}
                 folded={foldedFlow}
                 onFold={toggleFlowFold}
                 onDrill={(node, kind) => {
@@ -530,6 +535,8 @@ export function ReportsPage({
         onClose={closeSettings}
         configTab={configTab}
         draftSettings={draftSettings}
+        includeExcluded={includeExcluded}
+        onIncludeExcludedChange={setIncludeExcluded}
         cashPresence={
           cash
             ? cashGroupPresence(cash)

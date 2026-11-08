@@ -517,6 +517,17 @@ describe('面板切换、确认与刷新保持（API 模式）', () => {
 })
 
 describe('保存 / 读取闭环', () => {
+  it('数据范围默认不含，保存「已含」后刷新仍保持', () => {
+    expect(DEFAULT_REPORT_SETTINGS.dataScope.includeExcluded).toBe(false)
+    const settings = normalizeReportSettings({ dataScope: { includeExcluded: true } })
+    expect(settings.dataScope.includeExcluded).toBe(true)
+    saveReportSettings(settings)
+    expect(loadReportSettings().dataScope.includeExcluded).toBe(true)
+    expect(
+      normalizeReportSettings({ dataScope: { includeExcluded: 'yes' } }).dataScope.includeExcluded,
+    ).toBe(false)
+  })
+
   it('保存后 load 读回同一份配置', () => {
     const settings = normalizeReportSettings({
       balance: { groupMode: 'kind', showKindColumn: false },

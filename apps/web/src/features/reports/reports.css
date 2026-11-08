@@ -84,7 +84,6 @@
 .mb-rp-settings-btn:focus-visible,
 .mb-rp-config-back:focus-visible,
 .mb-rp-config-choice:focus-visible,
-.mb-rp-config-toggle:focus-visible,
 .mb-rp-btn:focus-visible,
 .mb-rp-crow-main:focus-visible,
 .mb-rp-crow-fold:focus-visible,
@@ -1487,6 +1486,15 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-weight: 600;
 }
 
+/* 数据范围：与账本数据同层，但开关即时生效，不参与配置 draft。 */
+.mb-rp-settings-scope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  padding: var(--mb-s-2) 0;
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
 /* ===== 报表设置：四个展示配置面板 ===== */
 
 .mb-rp-config {
@@ -1583,48 +1591,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 .mb-rp-config-choice:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-.mb-rp-config-toggle-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.mb-rp-config-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mb-s-2);
-  min-height: var(--mb-touch);
-  padding: 0 var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-}
-
-.mb-rp-config-toggle.is-on {
-  border-color: var(--mb-color-accent);
-  background: var(--mb-color-accent-soft);
-  color: var(--mb-color-accent);
-}
-
-.mb-rp-config-toggle:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.mb-rp-config-toggle-state {
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
-
-.mb-rp-config-toggle.is-on .mb-rp-config-toggle-state {
-  color: var(--mb-color-accent);
 }
 
 .mb-rp-config-reason {
@@ -1815,6 +1781,12 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   gap: var(--mb-s-2);
 }
 
+/* 移动端没有页头副标题：数据范围开启时补一条口径提示。 */
+.mb-rp-page[data-device='mobile'] .mb-rp-mobile-scope {
+  margin: 0;
+  color: var(--mb-color-accent);
+}
+
 .mb-rp-page[data-device='mobile'] .mb-rp-tabs {
   width: 100%;
   overflow-x: auto;
@@ -1969,76 +1941,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   padding: var(--mb-s-3) var(--mb-s-3);
 }
 
-/* ===== 收支口径开关 / 预测标记 ===== */
-
-/* 开关只服务一张表的口径，紧贴在指标上方；说明行与开关同色系，避免被当成独立段落。 */
-.mb-rp-scope {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--mb-s-2) var(--mb-s-3);
-  padding-bottom: var(--mb-s-1);
-}
-
-.mb-rp-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mb-s-2);
-  min-height: var(--mb-touch);
-  padding: 0 var(--mb-s-2) 0 0;
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-text-primary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-}
-
-.mb-rp-switch-track {
-  position: relative;
-  display: inline-block;
-  flex: none;
-  width: 34px;
-  height: 20px;
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
-  transition: background-color var(--mb-dur-1) var(--mb-ease), border-color var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-rp-switch-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--mb-color-text-tertiary);
-  transition: transform var(--mb-dur-1) var(--mb-ease), background-color var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-rp-switch.is-on .mb-rp-switch-track {
-  border-color: var(--mb-color-accent);
-  background: var(--mb-color-accent-soft);
-}
-
-.mb-rp-switch.is-on .mb-rp-switch-thumb {
-  transform: translateX(14px);
-  background: var(--mb-color-accent);
-}
-
-.mb-rp-switch-label {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.mb-rp-scope-note {
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  line-height: 1.4;
-}
-
-/* 预测统一编码：文字标记与区间说明，四个视图共用。 */
+/* ===== 预测标记 ===== */
 .mb-rp-predict-badge {
   display: inline-flex;
   align-items: center;
@@ -2098,14 +2001,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 .mb-rp-page[data-device='mobile'] .mb-rp-metric-split {
   white-space: normal;
   font-size: 10px;
-}
-
-.mb-rp-page[data-device='mobile'] .mb-rp-scope {
-  gap: var(--mb-s-1) var(--mb-s-2);
-}
-
-.mb-rp-page[data-device='mobile'] .mb-rp-switch {
-  min-height: var(--mb-btn-h-lg);
 }
 
 /* 账本配置抽屉：内容沿用设置页 mb-set-* 内胆，只调整报表侧尺寸。

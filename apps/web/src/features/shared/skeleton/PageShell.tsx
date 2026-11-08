@@ -4,7 +4,7 @@ import './skeleton.css'
 interface PageShellProps {
   /** 页头：标题 / 副标题 / 页级动作。移动端可由 PageShell 省略，交给 shell 头代偿。 */
   head?: ReactNode
-  /** 控件行：时间器 / 分段控件 / 筛选器 / 二级开关。没有页面级控件时传空。 */
+  /** 控件行：时间器 / 分段控件 / 筛选器。没有页面级控件时传空。 */
   controls?: ReactNode
   children: ReactNode
 }

@@ -1,5 +1,5 @@
 /**
- * 报表展示偏好（报表设置的四个配置）
+ * 报表展示偏好（数据范围 + 四个视图配置）
  *
  * 只落 localStorage，不写账本、不调接口。默认值与当前报表呈现一致，
  * 因此首次打开四个配置时看到的就是现状。
@@ -7,6 +7,9 @@
  * 线框稿只定义了「资产负债→账户分类 / 收支明细→收支分类 / 现金流→现金流分类 /
  * 投资分析→投资资产类型」的映射，没有写展示字段；这里按既有报表结构收敛为
  * 分组口径、列集合、活动分组、目标比例与快照期间，不新增账本字段。
+ *
+ * 数据范围（是否并入「不计收支」）与其余配置同存一个键，但即时生效，
+ * 不进入视图配置的 draft / 重置 / 取消流程。
  */
 import type { BalanceRow, CashGroup, CashReport } from './reportsModel'
 
@@ -19,6 +22,10 @@ export type InvestSort = 'marketValue' | 'rate'
 export type SnapshotCount = 3 | 6
 
 export interface ReportViewSettings {
+  /** 数据范围：影响收支明细的统计口径，不改变期间与账户筛选。 */
+  dataScope: {
+    includeExcluded: boolean
+  }
   balance: {
     groupMode: BalanceGroupMode
     showKindColumn: boolean
@@ -47,6 +54,7 @@ export const CASH_GROUP_KEYS: readonly CashGroupKey[] = [
 ]
 
 export const DEFAULT_REPORT_SETTINGS: ReportViewSettings = {
+  dataScope: { includeExcluded: false },
   balance: { groupMode: 'account', showKindColumn: true },
   flow: { namedCategories: 6, showCountColumn: true, showShareColumn: true },
   cash: {
@@ -57,6 +65,7 @@ export const DEFAULT_REPORT_SETTINGS: ReportViewSettings = {
 
 function cloneDefaults(): ReportViewSettings {
   return {
+    dataScope: { ...DEFAULT_REPORT_SETTINGS.dataScope },
     balance: { ...DEFAULT_REPORT_SETTINGS.balance },
     flow: { ...DEFAULT_REPORT_SETTINGS.flow },
     cash: { groups: { ...DEFAULT_REPORT_SETTINGS.cash.groups } },
@@ -78,6 +87,14 @@ export function normalizeReportSettings(raw: unknown): ReportViewSettings {
   const next = cloneDefaults()
   if (!raw || typeof raw !== 'object') return next
   const value = raw as Partial<Record<keyof ReportViewSettings, unknown>>
+
+  const dataScope = value.dataScope as Partial<ReportViewSettings['dataScope']> | undefined
+  if (dataScope && typeof dataScope === 'object') {
+    next.dataScope.includeExcluded = booleanOr(
+      dataScope.includeExcluded,
+      next.dataScope.includeExcluded,
+    )
+  }
 
   const balance = value.balance as Partial<ReportViewSettings['balance']> | undefined
   if (balance && typeof balance === 'object') {

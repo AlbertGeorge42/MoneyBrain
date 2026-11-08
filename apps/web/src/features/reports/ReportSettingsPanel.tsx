@@ -1,7 +1,8 @@
 /**
- * 报表设置里的四个「配置」面板
+ * 报表设置：数据范围 + 四个「配置」面板
  *
- * 只做展示偏好：分组口径、列集合、活动分组、目标比例与快照期间。
+ * 数据范围（是否并入「不计收支」）即时生效，与展示配置同存 localStorage；
+ * 四个配置只做展示偏好：分组口径、列集合、活动分组、目标比例与快照期间。
  * 每个切换只改当前这份 draft，页面即时按 draft 重算；确认后才落 localStorage。
  */
 import type { ReactNode } from 'react'
@@ -254,6 +255,8 @@ export function ReportSettingsSheet({
   cashPresence,
   onOpenConfig,
   onOpenLedger,
+  includeExcluded,
+  onIncludeExcludedChange,
   onBack,
   onChange,
   onReset,
@@ -268,6 +271,9 @@ export function ReportSettingsSheet({
   onOpenConfig: (tab: ReportTab) => void
   /** 账本数据入口：与设置页同源，保存立即生效。 */
   onOpenLedger: (tab: 'accounts' | 'categories') => void
+  /** 数据范围：是否把「不计收支」流水并入收支明细口径。 */
+  includeExcluded: boolean
+  onIncludeExcludedChange: (next: boolean) => void
   onBack: () => void
   onChange: (next: ReportViewSettings) => void
   onReset: () => void
@@ -326,6 +332,19 @@ export function ReportSettingsSheet({
                   </HfButton>
                 </div>
               ))}
+              <p className="mb-rp-settings-note">数据范围 · 立即生效 · 与其他展示配置同存本地</p>
+              <div className="mb-rp-settings-scope">
+                <HfSwitch
+                  variant="toggle"
+                  text="含不计收支交易"
+                  stateText={includeExcluded ? '已含' : '不含'}
+                  checked={includeExcluded}
+                  onChange={onIncludeExcludedChange}
+                />
+                <p className="mb-rp-config-reason">
+                  开启后收支明细、指标与分类合计并入标记为「不计收支」的流水；不影响其他三张报表。
+                </p>
+              </div>
               <p className="mb-rp-settings-note">账本数据 · 与设置页同源 · 保存立即生效</p>
               <div className="mb-rp-settings-row">
                 <div>
