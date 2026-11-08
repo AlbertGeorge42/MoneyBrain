@@ -4,12 +4,12 @@
 > 什么时候看：接新页面、改预算/报表/同步相关接口，或需要核对推演口径时。
 > 已完成批次的逐条过程与实测数字在 git 历史；日期契约见 [dev-guide §3.3](../dev-guide.md)，退款口径见 [requirements §3.5](../requirements.md)，报表口径见 [interaction-spec §5.6](ux/interaction-spec.md)。
 
-## 当前状态（2026-11-07）
+## 当前状态（2026-11-08）
 
 - 总览、流水、报表、预算、设置五个页面全部接真实账本（生产构建恒为 API；种子数据仅开发用，见 `features/dev-fixtures`）。
 - 预算 CRUD、启停、`/budgets/statuses` 已接；预算页与总览预算卡直接消费 statuses，头部只合计**月度且启用**的支出预算，周/年预算在明细里按各自周期展示。设置页自动备份开关已接 `GET/PUT /data/auto-backup`。
 - 导入/导出/导入回滚/清空、账户与分类 CRUD、排序、删除撤销、回收站均已接。
-- 三个推演端点（资产推演 / 现金流推演 / 预算周期计划）后端已完成，前端未接。
+- 三个推演端点（资产推演 / 现金流推演 / 预算周期计划）已完成接线，报表未来区间与预算页入口均可用；口径见 [future-reports.md](ux/future-reports.md)。
 - 同步仍只在 `packages/sync`，**没有同步端点**；未到 M3/M5，不阻塞当前页面。
 
 ## 剩余缺口
@@ -31,9 +31,9 @@
 
 | 端点 | 参数 | 返回字段 |
 |---|---|---|
-| `GET /api/analytics/asset-projection` | `from/to + granularity=day\|week\|month\|year`（新入口）、`asOf=YYYY-MM-DD`、`includePlanned` / `includeCommitted`（默认 true）；旧 `months=3/6/12` 保留兼容 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`base{assets,liabilities,netWorth}`、`points[{granularity,label,start,end,date,actual,planned,committed,total,covered[]}]` |
+| `GET /api/analytics/asset-projection` | `from/to + granularity=day\|week\|month\|year`（唯一入口）、`asOf=YYYY-MM-DD`、`includePlanned` / `includeCommitted`（默认 true）；不传窗口参数时默认月粒度 12 个月 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`base{assets,liabilities,netWorth}`、`points[{granularity,label,start,end,date,actual,planned,committed,total,covered[]}]` |
 | `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`startCash`、`endCash`、`points[{granularity,label,start,end,date,inflow,outflow,net,startCash,endCash,covered[]}]` |
-| `GET /api/budgets/period-plan` | `from/to + granularity=day\|week\|month\|year`（新入口）；旧 `fromMonth=YYYY-MM`、`months=1–24` 保留兼容 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`points[{month,granularity,label,start,end,date,hasBudget,budgets[],totals{income,expense,transfer}\|null}]`；`budgets[]` 按 occurrence 日期升序，`totals` 后端求和，无预算为 `null` |
+| `GET /api/budgets/period-plan` | `from/to + granularity=day\|week\|month\|year`（唯一入口）；不传窗口参数时默认月粒度 12 个月 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`points[{month,granularity,label,start,end,date,hasBudget,budgets[],totals{income,expense,transfer}\|null}]`；`budgets[]` 按 occurrence 日期升序，`totals` 后端求和，无预算为 `null` |
 
 **`covered[]`**：本月计划点位被真实交易覆盖时逐条列出，字段 `budgetId`、`budgetName`、`type`（`income`/`expense`/`transfer`）、`date`、`amount`（被剔除的 planned 金额，整数分）、`transactionId`、`transactionDate`。被覆盖金额已从 `planned` 剔除，只留 `committed`。
 

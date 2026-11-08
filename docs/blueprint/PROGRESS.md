@@ -95,13 +95,15 @@ D4 取消（不降级、不保留）、U13.1–U13.5 取消，前端改为「HF 
 | 2026-11-07 | `b727f14`…`038c989` | 前端精简 1–8：HfSheet / toast / Tabs / Segmented / Switch / Card / HfButton / 页面拆分 |
 | 2026-11-07 | `da2444f` | 前端精简收尾审计：逐项状态与规模数字以该文档为准 |
 
-## 预算推演端点（后端已完成，前端未接）
+## 未来报表（阶段 4–6 已完成）
+
+唯一口径见 [future-reports.md](ux/future-reports.md)。旧「预算前瞻 v3」面板 / 推演卡与兼容参数已在阶段 6 删除。
 
 | 端点 | 参数 | 返回字段 |
 |---|---|---|
-| `GET /api/analytics/asset-projection` | `months=3/6/12`（默认 12）、`asOf=YYYY-MM-DD`、`includePlanned` / `includeCommitted`（默认 true） | `asOf`、`months`、`base{assets,liabilities,netWorth}`、`points[{label,date,actual,planned,committed,total,covered[]}]` |
-| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`months`、`startCash`、`endCash`、`points[{label,date,inflow,outflow,net,startCash,endCash,covered[]}]` |
-| `GET /api/budgets/period-plan` | `fromMonth=YYYY-MM`、`months=1–24`（默认 12） | `fromMonth`、`months`、`points[{month,hasBudget,budgets[],totals{income,expense,transfer}\|null}]` |
+| `GET /api/analytics/asset-projection` | `from/to + granularity=day\|week\|month\|year`（唯一入口；不传时默认月粒度 12 个月）、`asOf=YYYY-MM-DD`、`includePlanned` / `includeCommitted`（默认 true） | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`base{assets,liabilities,netWorth}`、`points[{granularity,label,start,end,date,actual,planned,committed,total,covered[]}]` |
+| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`startCash`、`endCash`、`points[{granularity,label,start,end,date,inflow,outflow,net,startCash,endCash,covered[]}]` |
+| `GET /api/budgets/period-plan` | `from/to + granularity=day\|week\|month\|year`（唯一入口；不传时默认月粒度 12 个月） | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`points[{month,granularity,label,start,end,date,hasBudget,budgets[],totals{income,expense,transfer}\|null}]` |
 
 **硬约束**：
 
@@ -113,11 +115,11 @@ D4 取消（不降级、不保留）、U13.1–U13.5 取消，前端改为「HF 
 6. 资产口径只做预算展开 + 已排定交易，不做统计外推、不推定投资收益。
 7. 现金流 `endCash = startCash + net` 恒成立；现金账户互转本金不计流入/流出，手续费计流出。
 8. `hasBudget=false` 时 `totals=null`，不用 0 冒充。
+9. 收支未来视图只展示「预测 · 预算计划」，后端无 `actual/planned/committed` 分项；不显示「真实 + 预测 = 合计」，不做跨桶额度合计。
 
-验证：`apps/api/tests/integration/projection.route.test.ts`（8 条）、`apps/api/tests/unit/budget-time-points.test.ts`（3 条）。推演口径详版（手算对照、覆盖用例）见 [hf-api-gaps.md](hf-api-gaps.md)。
+验证：`apps/api/tests/integration/projection.route.test.ts`（26 条）、`apps/api/tests/unit/budget-time-points.test.ts`（3 条）。推演口径详版见 [hf-api-gaps.md](hf-api-gaps.md)。
 
 ## 已知未收口（不属于任何阶段条目，按来源文档跟踪）
 
-- **预算增强**：`/budgets/predictions`、`/budgets/:id/usage-details` 与三个推演端点已存在但前端未接。
 - **日期存储**：DB `date` 仍是 DateTime（存本地零点瞬时）；读写语义已统一为日历日，彻底消除需改 schema。
 - **同步**：无同步端点；G 批未开始，`packages/sync` 尚未接 UI。
