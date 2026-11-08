@@ -31,6 +31,7 @@ import type {
   ImportFileSummary,
   ImportFullResult,
   ImportPreview,
+  IncomeExpenseProjectionResult,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
@@ -74,6 +75,7 @@ export type {
   BudgetUsageDetails,
   CashFlowProjectionResult,
   CashFlowReportData,
+  IncomeExpenseProjectionResult,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
   InvestmentAssetClass,
@@ -220,6 +222,16 @@ export const reportApi = {
   getCashFlowProjection: (window: ProjectionQueryWindow) =>
     api.get<ApiResponse<CashFlowProjectionResult>>('/reports/cash-flow-projection', {
       params: { ...window, includePlanned: 'true', includeCommitted: 'true' },
+    }),
+  // 未来收支明细：按分类展开，actual / committed / planned 三来源由后端合成。
+  getIncomeExpenseProjection: (window: ProjectionQueryWindow, includeExcluded?: boolean) =>
+    api.get<ApiResponse<IncomeExpenseProjectionResult>>('/reports/income-expense-projection', {
+      params: {
+        ...window,
+        includePlanned: 'true',
+        includeCommitted: 'true',
+        includeExcluded: includeExcluded ? 'true' : undefined,
+      },
     }),
 }
 

@@ -36,8 +36,8 @@ export function flattenFlowRows(
       cells: cellsOf(node),
       fold: node.children.length > 0 ? { expanded, onToggle: () => onFold(node.id) } : undefined,
       onOpen: () => onOpen(node),
-      // 行内文字标记，避免只用颜色 / 虚线表达「这行含预测」。
-      hint: node.predicted ? '预测' : undefined,
+      // 行内文字标记，避免只用颜色 / 虚线表达「这行含预测」；无预算来源优先说明。
+      hint: node.noBudget ? '无预算' : node.predicted ? '预测' : undefined,
     })
     if (expanded) {
       for (const child of node.children) {
@@ -45,7 +45,7 @@ export function flattenFlowRows(
           id: child.id,
           level: 1,
           cells: cellsOf(child),
-          hint: child.predicted ? '† 预测' : '†',
+          hint: child.noBudget ? '† 无预算' : child.predicted ? '† 预测' : '†',
           onOpen: () => onOpen(child),
         })
       }
@@ -81,7 +81,7 @@ export function flattenFlowCards(
       id: node.id,
       label: node.name,
       meta: metaOf(node),
-      hint: node.predicted ? '预测' : undefined,
+      hint: node.noBudget ? '无预算' : node.predicted ? '预测' : undefined,
       amount: `${tone === 'income' ? '+' : '−'}${currency(node.amount)}`,
       tone,
       share: node.share,
@@ -96,7 +96,7 @@ export function flattenFlowCards(
           level: 1,
           label: child.name,
           meta: metaOf(child),
-          hint: child.predicted ? '† 预测' : '†',
+          hint: child.noBudget ? '† 无预算' : child.predicted ? '† 预测' : '†',
           amount: `${tone === 'income' ? '+' : '−'}${currency(child.amount)}`,
           tone,
           share: child.share,

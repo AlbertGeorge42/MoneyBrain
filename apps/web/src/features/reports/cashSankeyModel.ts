@@ -443,6 +443,173 @@ function actualAmountOf(link: { actualValue?: number; predictedValue?: number; v
 }
 
 /**
+ * 预测区间的窗口级桑基：后端已把 actual / committed / planned 合成到 link，
+ * 不再用账本回放校验期初 / 期末（预测事件不在账本流水里）。
+ * 只做「后端字段 → 三层结构」的直译，差额仍按 期初 + 流入 − 流出 − 期末 校验。
+ */
+function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
+  const apiSankey = report.apiSankey
+  const base: CashSankey = {
+    status: 'ready',
+    opening: report.openingCash ?? 0,
+    closing: report.closingCash ?? 0,
+    inflow: 0,
+    outflow: 0,
+    fee: 0,
+    correction: 0,
+    difference: 0,
+    nodes: [],
+    links: [],
+    hiddenGroups: 0,
+    transferTotal: 0,
+    accounts: [],
+  }
+  if (!apiSankey || apiSankey.links.length === 0) {
+    return { ...base, status: 'invalid', reason: '本窗口没有可绘制的现金流事件。' }
+  }
+
+  const declared = new Map<string, 'income' | 'expense' | 'account'>()
+  for (const node of apiSankey.nodes) {
+    const role =
+      node.category === 'cash'
+        ? ('account' as const)
+        : node.category === 'income_category' || node.category === 'non_cash_source'
+          ? ('income' as const)
+          : node.category === 'expense_category' || node.category === 'non_cash_target'
+            ? ('expense' as const)
+            : null
+    if (role) declared.set(node.name, role)
+  }
+
+  const idOf = (name: string): string => {
+    const role = nodeRole(name, declared)
+    if (role.role === 'account') return `acct:${name}`
+    return `${role.role === 'income' ? 'in' : 'out'}:${role.base}`
+  }
+  const nodeMap = new Map<string, CashSankeyNode>()
+  const ensureNode = (name: string): CashSankeyNode => {
+    const role = nodeRole(name, declared)
+    const id = idOf(name)
+    const existing = nodeMap.get(id)
+    if (existing) return existing
+    const node: CashSankeyNode = {
+      id,
+      name: role.base,
+      layer: role.role === 'account' ? 1 : role.role === 'income' ? 0 : 2,
+      tone: role.role === 'account' ? 'neutral' : role.role,
+      amount: 0,
+      children: [],
+    }
+    nodeMap.set(id, node)
+    return node
+  }
+
+  const links: CashSankeyLink[] = []
+  let transferTotal = 0
+  for (const link of apiSankey.links) {
+    if (link.value <= 0) continue
+    const source = nodeRole(link.source, declared)
+    const target = nodeRole(link.target, declared)
+    const sourceId = ensureNode(link.source).id
+    const targetId = ensureNode(link.target).id
+    const kind = source.role === 'account' && target.role === 'account' ? ('transfer' as const) : ('flow' as const)
+    if (kind === 'transfer') transferTotal += link.value
+    links.push({
+      id: `${sourceId}>${targetId}|${kind}`,
+      sourceId,
+      targetId,
+      nodeId: source.role === 'income' ? sourceId : target.role === 'expense' ? targetId : sourceId,
+      amount: link.value,
+      tone: source.role === 'income' ? 'income' : target.role === 'expense' ? 'expense' : 'neutral',
+      kind,
+    })
+  }
+
+  const nodes = [...nodeMap.values()]
+  const inflow = links
+    .filter((link) => link.kind === 'flow' && nodeMap.get(link.sourceId)?.layer === 0 && nodeMap.get(link.targetId)?.layer === 1)
+    .reduce((sum, link) => sum + link.amount, 0)
+  const outflow = links
+    .filter((link) => link.kind === 'flow' && nodeMap.get(link.sourceId)?.layer === 1 && nodeMap.get(link.targetId)?.layer === 2)
+    .reduce((sum, link) => sum + link.amount, 0)
+
+  // 节点吞吐与下钻明细：分类节点按根分类名对齐活动分组，账户节点按 link 端点。
+  const childrenByRoot = (side: 'in' | 'out'): Map<string, CashChild[]> => {
+    const map = new Map<string, CashChild[]>()
+    const groups = side === 'in' ? report.inflowGroups : report.outflowGroups
+    for (const group of groups) {
+      for (const child of group.children) {
+        const root = rootOf(ledger, child.categoryId)
+        const key = root?.name ?? child.categoryId
+        const list = map.get(key) ?? []
+        list.push(child)
+        map.set(key, list)
+      }
+    }
+    return map
+  }
+  const inChildren = childrenByRoot('in')
+  const outChildren = childrenByRoot('out')
+  for (const node of nodes) {
+    if (node.layer === 1) {
+      node.amount = Math.max(
+        links.filter((link) => link.targetId === node.id).reduce((sum, link) => sum + link.amount, 0),
+        links.filter((link) => link.sourceId === node.id).reduce((sum, link) => sum + link.amount, 0),
+      )
+      node.children = accountChildren(node, nodeMap, links)
+    } else if (node.layer === 0) {
+      node.amount = links.filter((link) => link.sourceId === node.id).reduce((sum, link) => sum + link.amount, 0)
+      node.children = inChildren.get(node.name) ?? []
+    } else {
+      node.amount = links.filter((link) => link.targetId === node.id).reduce((sum, link) => sum + link.amount, 0)
+      node.children = outChildren.get(node.name) ?? []
+    }
+  }
+
+  // 账户数组只用于图例计数；逐账户期初 / 期末不在该端点返回，保持 0、不挂到节点上。
+  const accounts: CashSankeyAccount[] = nodes
+    .filter((node) => node.layer === 1)
+    .map((node) => ({
+      id: node.id,
+      name: node.name,
+      opening: 0,
+      closing: 0,
+      inflow: 0,
+      outflow: 0,
+      transferIn: 0,
+      transferOut: 0,
+      difference: 0,
+    }))
+
+  const difference = base.opening + inflow - outflow - base.closing
+  if (Math.abs(difference) > 1) {
+    return {
+      ...base,
+      nodes,
+      links,
+      accounts,
+      inflow,
+      outflow,
+      transferTotal,
+      difference,
+      status: 'invalid',
+      reason: `预测区间现金流不守恒：期初 ${money(base.opening)} + 流入 ${money(inflow)} − 流出 ${money(outflow)} − 期末 ${money(base.closing)} = ${money(Math.abs(difference))}。为避免误读，本图已停画。`,
+    }
+  }
+
+  return {
+    ...base,
+    inflow,
+    outflow,
+    nodes,
+    links,
+    accounts,
+    transferTotal,
+    difference,
+  }
+}
+
+/**
  * 现金流桑基（PC）。API 模式消费后端 `sankey` 的逐账户分配；
  * 种子模式按流水等价推导。两条路径共用同一套节点 / 守恒校验。
  */
@@ -451,6 +618,7 @@ export function deriveCashSankey(
   report: CashReport,
   visibility: Record<string, boolean>,
 ): CashSankey {
+  if (report.projectionMode) return projectionSankey(ledger, report)
   const { from, to } = report.period
   const apiMode = report.correctionsIncluded === true
   const apiLinks = apiMode && report.apiSankey ? report.apiSankey.links : []

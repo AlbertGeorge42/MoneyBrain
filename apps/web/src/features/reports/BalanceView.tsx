@@ -41,6 +41,7 @@ export function BalanceView({
   from,
   to,
   onViewFlow,
+  trendDesc = '近 12 个月',
 }: {
   device: DeviceMode
   report: BalanceReport
@@ -51,6 +52,8 @@ export function BalanceView({
   from: string
   to: string
   onViewFlow: (options: { accountId: string; from: string; to: string }) => void
+  /** 净值走势说明；预测区间传入窗口口径。 */
+  trendDesc?: string
 }) {
   const shownAssets = groupBalanceRows(report.assets, settings.groupMode)
   const shownLiabilities = groupBalanceRows(report.liabilities, settings.groupMode)
@@ -246,7 +249,7 @@ export function BalanceView({
     <ReportLineChart
       device={device}
       title="净值走势"
-      desc="近 12 个月"
+      desc={trendDesc}
       points={report.trend.map((point) => ({ label: point.month, value: point.value }))}
       ariaLabel="净资产月度走势"
     />

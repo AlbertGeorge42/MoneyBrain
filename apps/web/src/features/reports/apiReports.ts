@@ -14,9 +14,9 @@ import { useQuery } from '@tanstack/react-query'
 import type {
   AssetProjectionResult,
   BalanceSheetReportData,
-  BudgetPeriodPlanResult,
   CashFlowProjectionResult,
   CashFlowReportData,
+  IncomeExpenseProjectionResult,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
 } from '@/services/api'
@@ -24,9 +24,14 @@ import type {
   CashFlowActivity,
   CashFlowActivityItem,
   InvestmentCategorySummary,
+  ProjectionBalance,
+  ProjectionCashActivity,
+  ProjectionCategoryDetail,
+  ProjectionSourceValue,
   ReportCategoryDetail,
 } from '@contracts/types'
-import { analyticsApi, budgetApi, reportApi, unwrapApiData } from '@/services/api'
+import { analyticsApi, reportApi, unwrapApiData } from '@/services/api'
+import { accountKindLabel } from '@/features/overview/model'
 import { formatPercent } from '@/utils/format'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import {
@@ -43,6 +48,7 @@ import {
   type InvestmentHoldingGroup,
   type InvestmentReport,
   type MetricPrediction,
+  type ReportMetric,
 } from './reportsModel'
 import type { ProjectionWindow } from './futureModel'
 import { listBuckets, type Granularity } from './reportsTime'
@@ -527,6 +533,362 @@ export function mapCashReport(data: CashFlowReportData, ledger: Ledger, from: st
   }
 }
 
+/**
+ * 预测区间的构成说明：四个数字全部是后端字段，前端只拼文案。
+ * planned 为 null（没有预算来源）时显示「—」，不用 0 冒充。
+ */
+function projectionSplitOf(
+  actual: number,
+  source: { actual: number; planned: number | null; committed: number; total: number },
+  direction: MetricPrediction['direction'],
+): MetricPrediction {
+  const textOf = (value: number) => {
+    if (direction === 'income') return `+${currency(Math.abs(value))}`
+    if (direction === 'expense') return `−${currency(Math.abs(value))}`
+    return signedCurrency(value)
+  }
+  const planned = source.planned === null ? '—' : textOf(source.planned)
+  return {
+    actual,
+    direction,
+    split: `已发生 ${textOf(actual)} · 按预算计划 ${planned} · 已排定 ${textOf(source.committed)} · 合计 ${textOf(source.total)}`,
+  }
+}
+
+/** 预测分类树：金额取 total，预测部分 = total − actual；无预算来源的行显式标注。 */
+function projectionTreeOf(
+  details: ProjectionCategoryDetail[],
+  total: number,
+  counts: Map<string, number>,
+  displayIdOf: (realId: string) => string,
+): FlowTreeNode[] {
+  const amountOf = (detail: ProjectionCategoryDetail) => Math.abs(detail.total)
+  const predictedOf = (detail: ProjectionCategoryDetail) =>
+    Math.max(0, amountOf(detail) - Math.abs(detail.actual))
+  const shareOf = (detail: ProjectionCategoryDetail) =>
+    total === 0 ? 0 : (amountOf(detail) / total) * 100
+  const childOf = (detail: ProjectionCategoryDetail): FlowTreeNode => ({
+    id: detail.categoryId,
+    name: detail.name,
+    amount: amountOf(detail),
+    predicted: predictedOf(detail),
+    // 后端 hasBudget=false：该分类（含子树）没有任何预算来源。
+    noBudget: !detail.hasBudget ? true : undefined,
+    count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
+    share: shareOf(detail),
+    level: 1,
+    children: [],
+  })
+  return details
+    .filter((detail) => amountOf(detail) > 0)
+    .map((detail) => ({
+      id: detail.categoryId,
+      name: detail.name,
+      amount: amountOf(detail),
+      predicted: predictedOf(detail),
+      noBudget: !detail.hasBudget ? true : undefined,
+      count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
+      share: shareOf(detail),
+      level: 0 as const,
+      children: (detail.children ?? [])
+        .filter((child) => amountOf(child) > 0)
+        .map(childOf),
+    }))
+    .sort((left, right) => right.amount - left.amount)
+}
+
+const PROJECTION_BALANCE_NOTE =
+  '预测区间：已发生 + 按预算计划 + 已排定 = 合计；投资账户只按买卖（转账）排期推演，不含市值涨跌。'
+
+/** 资产负债预测：账户明细来自 asset-projection 的账户层，投资账户保留买卖排期说明。 */
+export function mapProjectionBalanceReport(
+  projection: AssetProjectionResult,
+  ledger: Ledger,
+): BalanceReport {
+  const last = projection.points[projection.points.length - 1]
+  const accounts = last?.accounts ?? []
+  const kindOfAccount = new Map(ledger.accounts.map((account) => [account.id, accountKindLabel(account.kind)]))
+  const cashAccountIds = new Set(
+    ledger.accounts.filter((account) => account.kind === 'cash').map((account) => account.id),
+  )
+  const rowsOf = (type: 'asset' | 'liability') =>
+    accounts
+      .filter((account) => account.type === type && account.total !== 0)
+      .map((account) => ({
+        id: account.accountId,
+        name: account.name,
+        kind: kindOfAccount.get(account.accountId) ?? (type === 'asset' ? '资产' : '负债'),
+        amount: account.total,
+        predicted: Math.max(0, Math.abs(account.total) - Math.abs(account.actual)),
+        categoryId: account.categoryId,
+      }))
+      .sort((left, right) => right.amount - left.amount)
+  const assets = rowsOf('asset')
+  const liabilities = rowsOf('liability')
+  const assetTotal = last?.total.assets ?? projection.base.assets
+  const liabilityTotal = last?.total.liabilities ?? projection.base.liabilities
+  const netWorth = last?.total.netWorth ?? projection.base.netWorth
+  const zeroAccountCount = accounts.filter((account) => account.total === 0).length
+  const positiveAssets = assets.filter((row) => row.amount > 0)
+  const negativeAssets = assets.filter((row) => row.amount < 0)
+  const positiveAssetTotal = positiveAssets.reduce((sum, row) => sum + row.amount, 0)
+  const negativeAssetTotal = negativeAssets.reduce((sum, row) => sum + row.amount, 0)
+
+  const kindTotals = new Map<string, number>()
+  for (const row of positiveAssets) {
+    kindTotals.set(row.kind, (kindTotals.get(row.kind) ?? 0) + row.amount)
+  }
+  const composition = [...kindTotals.entries()]
+    .map(([kind, amount]) => ({
+      id: kind,
+      name: kind,
+      amount,
+      share: positiveAssetTotal === 0 ? 0 : (amount / positiveAssetTotal) * 100,
+    }))
+    .sort((left, right) => right.amount - left.amount)
+
+  const metric = (
+    label: string,
+    value: number,
+    actual: number,
+    planned: number,
+    committed: number,
+    total: number,
+    tone: 'income' | 'expense' | 'neutral' = 'neutral',
+  ): ReportMetric => ({
+    label,
+    value: currency(value),
+    tone,
+    prediction:
+      total === actual
+        ? undefined
+        : projectionSplitOf(actual, { actual, planned, committed, total }, 'net'),
+  })
+  const metricOf = (
+    label: string,
+    value: number,
+    pick: (balance: ProjectionBalance) => number,
+    tone: 'income' | 'expense' | 'neutral' = 'neutral',
+  ): ReportMetric =>
+    last
+      ? metric(
+          label,
+          value,
+          pick(last.actual),
+          pick(last.planned),
+          pick(last.committed),
+          pick(last.total),
+          tone,
+        )
+      : { label, value: currency(value) }
+  const cashTotal = accounts
+    .filter((account) => account.type === 'asset' && cashAccountIds.has(account.accountId))
+    .reduce((sum, account) => sum + account.total, 0)
+
+  return {
+    point: last?.date ?? projection.end,
+    assets,
+    liabilities,
+    assetTotal,
+    liabilityTotal,
+    netWorth,
+    zeroAccountCount,
+    positiveAssetTotal,
+    negativeAssetTotal,
+    negativeAssetCount: negativeAssets.length,
+    composition,
+    trend: projection.points.map((point) => ({ month: point.label, value: point.total.netWorth })),
+    predictionNote: last && last.end > projection.asOf ? PROJECTION_BALANCE_NOTE : undefined,
+    metrics: [
+      metricOf('净资产', netWorth, (balance) => balance.netWorth),
+      metricOf('总资产', assetTotal, (balance) => balance.assets),
+      metricOf('总负债', liabilityTotal, (balance) => balance.liabilities, liabilityTotal > 0 ? 'expense' : 'neutral'),
+      { label: '现金及等价物', value: currency(cashTotal) },
+    ],
+  }
+}
+
+/** 收支预测：分类明细、逐桶走势与三来源合计全部来自 income-expense-projection。 */
+export function mapProjectionFlowReport(
+  data: IncomeExpenseProjectionResult,
+  ledger: Ledger,
+  from: string,
+  to: string,
+  includeExcluded = false,
+): FlowReport {
+  const income = Math.abs(data.income.total)
+  const expense = Math.abs(data.expense.total)
+  const balance = data.balance.total
+  const savingsRate = income === 0 ? 0 : (balance / income) * 100
+  const counts = flowCounts(ledger, from, to, includeExcluded)
+  const displayIdOf = (realId: string) => ledger.ids?.categoryDisplay?.[realId] ?? realId
+  const metric = (
+    label: string,
+    value: string,
+    source: ProjectionSourceValue,
+    direction: MetricPrediction['direction'],
+    tone?: ReportMetric['tone'],
+  ): ReportMetric => ({
+    label,
+    value,
+    tone,
+    prediction: source.total === source.actual ? undefined : projectionSplitOf(source.actual, source, direction),
+  })
+
+  return {
+    income,
+    expense,
+    balance,
+    savingsRate,
+    incomeTrees: projectionTreeOf(data.incomeCategoryDetails, income, counts.income, displayIdOf),
+    expenseTrees: projectionTreeOf(data.expenseCategoryDetails, expense, counts.expense, displayIdOf),
+    series: data.points.map((point) => ({
+      label: point.label,
+      income: Math.abs(point.income.total),
+      expense: Math.abs(point.expense.total),
+    })),
+    includeExcluded,
+    predictionNote: data.predictionNote,
+    metrics: [
+      metric('本期结余', signedCurrency(balance), data.balance, 'net', balance >= 0 ? 'income' : 'expense'),
+      metric('本期收入', `+${currency(income)}`, data.income, 'income', 'income'),
+      metric('本期支出', `−${currency(expense)}`, data.expense, 'expense', 'expense'),
+      { label: '储蓄率', value: formatPercent(savingsRate, 1, false) },
+    ],
+  }
+}
+
+function projectionCashGroup(
+  activity: ProjectionCashActivity,
+  key: string,
+  direction: 'in' | 'out',
+): CashGroup | null {
+  const source = direction === 'in' ? activity.inflow : activity.outflow
+  const total = Math.abs(source.total)
+  if (total <= 0) return null
+  // item 金额保留既有符号：流入为正、流出为负；按方向筛选后再统一取正数展示。
+  const items = activity.items.filter((item) => (direction === 'in' ? item.total > 0 : item.total < 0))
+  const children: CashChild[] = items
+    .map((item, index) => {
+      const amount = Math.abs(item.total)
+      const sources = [
+        item.actual !== 0 ? '已发生' : null,
+        item.committed !== 0 ? '已排定' : null,
+        (item.planned ?? 0) !== 0 ? '预算计划' : null,
+      ].filter(Boolean)
+      return {
+        id: `${key}-${direction}-${item.categoryId ?? item.categoryName}-${index}`,
+        label: item.categoryName,
+        account: sources.length > 0 ? sources.join(' · ') : '—',
+        amount,
+        predicted: Math.max(0, amount - Math.abs(item.actual)),
+        tone:
+          item.type.startsWith('transfer')
+            ? ('transfer' as const)
+            : direction === 'in'
+              ? ('income' as const)
+              : ('expense' as const),
+        categoryId: item.categoryId ?? '',
+      }
+    })
+    .sort((left, right) => right.amount - left.amount)
+  return {
+    key,
+    name: key,
+    total,
+    predicted: Math.max(0, total - Math.abs(source.actual)),
+    meta: `${children.length} 个分类`,
+    count: children.length,
+    children,
+  }
+}
+
+/** 现金流预测：活动分组、三来源与窗口级桑基全部来自 cash-flow-projection。 */
+export function mapProjectionCashReport(
+  data: CashFlowProjectionResult,
+  from: string,
+  to: string,
+): CashReport {
+  const activities: [keyof CashFlowProjectionResult['byActivity'], ProjectionCashActivity][] = [
+    ['operating', data.byActivity.operating],
+    ['investing', data.byActivity.investing],
+    ['financing', data.byActivity.financing],
+    ['uncategorized', data.byActivity.uncategorized],
+  ]
+  const inflowGroups: CashGroup[] = []
+  const outflowGroups: CashGroup[] = []
+  for (const [key, activity] of activities) {
+    const label = ACTIVITY_LABELS[key]
+    const inflow = projectionCashGroup(activity, label, 'in')
+    const outflow = projectionCashGroup(activity, label, 'out')
+    if (inflow) inflowGroups.push(inflow)
+    if (outflow) outflowGroups.push(outflow)
+  }
+
+  const metric = (
+    label: string,
+    value: string,
+    source: ProjectionSourceValue,
+    direction: MetricPrediction['direction'],
+    tone?: ReportMetric['tone'],
+  ): ReportMetric => ({
+    label,
+    value,
+    tone,
+    prediction: source.total === source.actual ? undefined : projectionSplitOf(source.actual, source, direction),
+  })
+  return {
+    period: { from, to },
+    inflowGroups,
+    outflowGroups,
+    inflowTotal: Math.abs(data.cashInflow.total),
+    outflowTotal: Math.abs(data.cashOutflow.total),
+    operatingNet: data.byActivity.operating.net.total,
+    investingNet: data.byActivity.investing.net.total,
+    financingNet: data.byActivity.financing.net.total,
+    closingCash: data.endCash,
+    openingCash: data.startCash,
+    apiSankey: data.sankey,
+    projectionMode: true,
+    correctionsIncluded: true,
+    inflowGross: Math.abs(data.cashInflow.total),
+    outflowGross: Math.abs(data.cashOutflow.total),
+    predictionNote: data.predictionNote,
+    reconcile: {
+      flowIncome: Math.abs(data.cashInflow.total),
+      flowExpense: Math.abs(data.cashOutflow.total),
+      flowBalance: data.netCashFlow.total,
+      adjustmentExpense: 0,
+      transferFee: 0,
+      difference: 0,
+    },
+    metrics: [
+      { label: '期末现金总量', value: currency(data.endCash) },
+      metric(
+        '经营净额',
+        signedCurrency(data.byActivity.operating.net.total),
+        data.byActivity.operating.net,
+        'net',
+        data.byActivity.operating.net.total >= 0 ? 'income' : 'expense',
+      ),
+      metric(
+        '投资净额',
+        signedCurrency(data.byActivity.investing.net.total),
+        data.byActivity.investing.net,
+        'net',
+        data.byActivity.investing.net.total >= 0 ? 'income' : 'expense',
+      ),
+      metric(
+        '筹资净额',
+        signedCurrency(data.byActivity.financing.net.total),
+        data.byActivity.financing.net,
+        'net',
+        data.byActivity.financing.net.total >= 0 ? 'income' : 'expense',
+      ),
+    ],
+  }
+}
+
 function allocationFromCategories(byCategory: InvestmentCategorySummary[]): InvestmentAllocation[] {
   return byCategory.map((category) => ({
     id: category.categoryId,
@@ -651,12 +1013,13 @@ export function useApiBalanceReport(point: string, ledger: Ledger, enabled: bool
 
 /**
  * 资产负债未来推演：窗口参数只决定输出桶范围，累计起点仍是后端 asOf。
- * 只取合计层；账户级明细不在该端点返回，视图不得自行拆账。
+ * 取末桶的账户 / 分类明细，映射回同一套 BalanceReport 供既有视图渲染。
  */
 export function useApiAssetProjection(
   window: ProjectionWindow,
+  ledger: Ledger,
   enabled: boolean,
-): ApiReportResult<AssetProjectionResult> {
+): ApiReportResult<BalanceReport> {
   const query = useQuery({
     queryKey: [
       'hf',
@@ -668,19 +1031,20 @@ export function useApiAssetProjection(
       window.to,
     ],
     enabled,
-    queryFn: async () => analyticsApi.getAssetProjection(window).then(unwrapApiData),
+    queryFn: async () =>
+      mapProjectionBalanceReport(await analyticsApi.getAssetProjection(window).then(unwrapApiData), ledger),
   })
   return resultOf(query, enabled)
 }
 
 /**
- * 现金流未来推演：逐桶 inflow/outflow/net/endCash 由后端合成；
+ * 现金流未来推演：活动分组、三来源与窗口级桑基由后端合成；
  * 与历史 `useApiCashReport` 互斥启用，同一区间只发一次请求。
  */
 export function useApiCashProjection(
   window: ProjectionWindow,
   enabled: boolean,
-): ApiReportResult<CashFlowProjectionResult> {
+): ApiReportResult<CashReport> {
   const query = useQuery({
     queryKey: [
       'hf',
@@ -692,31 +1056,42 @@ export function useApiCashProjection(
       window.to,
     ],
     enabled,
-    queryFn: async () => reportApi.getCashFlowProjection(window).then(unwrapApiData),
+    queryFn: async () => {
+      const data = await reportApi.getCashFlowProjection(window).then(unwrapApiData)
+      return mapProjectionCashReport(data, window.from, window.to)
+    },
   })
   return resultOf(query, enabled)
 }
 
 /**
- * 未来预算计划：与现金流投影同一套 from/to + granularity 窗口。
- * 收支视图未来区间只展示预算计划，不再叠加 actual / planned / committed 分项。
+ * 收支未来明细：与现金流投影同一套 from/to + granularity 窗口。
+ * 分类明细与三来源由后端合成，前端只映射回既有 FlowReport。
  */
-export function useApiPeriodPlan(
+export function useApiIncomeExpenseProjection(
   window: ProjectionWindow,
+  ledger: Ledger,
+  includeExcluded: boolean,
   enabled: boolean,
-): ApiReportResult<BudgetPeriodPlanResult> {
+): ApiReportResult<FlowReport> {
   const query = useQuery({
     queryKey: [
       'hf',
       'report',
-      'period-plan',
+      'income-expense-projection',
       window.asOf,
       window.granularity,
       window.from,
       window.to,
+      includeExcluded,
     ],
     enabled,
-    queryFn: async () => budgetApi.getPeriodPlanWindow(window).then(unwrapApiData),
+    queryFn: async () => {
+      const data = await reportApi
+        .getIncomeExpenseProjection(window, includeExcluded)
+        .then(unwrapApiData)
+      return mapProjectionFlowReport(data, ledger, window.from, window.to, includeExcluded)
+    },
   })
   return resultOf(query, enabled)
 }

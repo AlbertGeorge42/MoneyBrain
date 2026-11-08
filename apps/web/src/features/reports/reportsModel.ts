@@ -59,6 +59,8 @@ export interface FlowTreeNode {
   children: FlowTreeNode[]
   /** 金额中的预测部分；≠ 0 时行内标「预测」。 */
   predicted?: number
+  /** 该分类没有任何预算来源；行内标「无预算」，不用 0 冒充。 */
+  noBudget?: boolean
   /** 卡片合并「其他」时记录被并入的根分类，用于同口径下钻。 */
   mergedIds?: string[]
 }
@@ -249,6 +251,8 @@ export interface CashGroup {
   total: number
   /** 分组金额中的预测部分；≠ 0 时行内标「预测」。 */
   predicted?: number
+  /** 第二列说明；预测区间没有流水笔数时用「N 个分类」等口径。 */
+  meta?: string
   count: number
   children: CashChild[]
 }
@@ -276,6 +280,11 @@ export interface CashReport {
    * 后端现金流分组已包含对账修正与手续费；桑基不能再补一次，否则会重复计。
    */
   correctionsIncluded?: boolean
+  /**
+   * 预测区间的窗口级桑基：后端已把三来源合成到 link，
+   * 不再用账本回放校验期初 / 期末（预测事件不在账本流水里）。
+   */
+  projectionMode?: boolean
   /**
    * 毛流入 / 毛流出（按活动净值正负拆分）。退款冲减流入时，
    * 后端 `cashInflow` 是净流入，而桑基中间层按毛额画；两者差一笔冲减，
@@ -706,7 +715,7 @@ export function cashRowsFor(
     const expanded = folded[key] !== false
     rows.push({
       id: key,
-      cells: [group.name, `${group.count} 笔`, currency(group.total)],
+      cells: [group.name, group.meta ?? `${group.count} 笔`, currency(group.total)],
       hint: group.predicted ? '预测' : undefined,
       fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
     })

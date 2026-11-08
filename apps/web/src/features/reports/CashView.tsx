@@ -74,7 +74,7 @@ export function CashView({
     cards.push({
       id: key,
       label: group.name,
-      meta: `${group.count} 笔`,
+      meta: group.meta ?? `${group.count} 笔`,
       hint: group.predicted ? '预测' : undefined,
       amount: currency(group.total),
       tone: side === 'in' ? 'income' : 'expense',

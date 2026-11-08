@@ -21,8 +21,8 @@ import {
   useApiCashProjection,
   useApiCashReport,
   useApiFlowReport,
+  useApiIncomeExpenseProjection,
   useApiInvestReport,
-  useApiPeriodPlan,
 } from './apiReports'
 import { deriveCashSankey } from './cashSankeyModel'
 import { PageHead, ReportsEmpty } from './ReportPageChrome'
@@ -54,9 +54,6 @@ import {
   type ReportTime,
 } from './reportsTime'
 import { periodWindow, pointWindow } from './futureModel'
-import { FutureBalanceView } from './FutureBalanceView'
-import { FutureCashView } from './FutureCashView'
-import { FutureFlowView } from './FutureFlowView'
 import { TimeBar } from './TimeBar'
 import { BalanceView } from './BalanceView'
 import { FlowView } from './FlowView'
@@ -177,21 +174,28 @@ export function ReportsPage({
   const investApi = useApiInvestReport(time.from, time.to, apiReady && tab === 'invest' && investState === 'past')
   const assetProjectionApi = useApiAssetProjection(
     assetWindow,
+    ledger,
     apiReady && tab === 'balance' && balanceState !== 'past',
   )
   const cashProjectionApi = useApiCashProjection(
     cashWindow,
     apiReady && tab === 'cash' && cashState !== 'past',
   )
-  // 收支未来区间只取预算计划；与现金流投影共用同一套窗口，不重复请求。
-  const periodPlanApi = useApiPeriodPlan(
+  // 收支未来明细：与现金流投影共用同一套窗口，三来源由后端合成。
+  const flowProjectionApi = useApiIncomeExpenseProjection(
     cashWindow,
+    ledger,
+    includeExcluded,
     apiReady && tab === 'flow' && flowState !== 'past',
   )
 
   const balance = apiMode ? balanceApi.data : seedBalance
   const flow = apiMode ? flowApi.data : seedFlow
-  const cash = apiMode ? (cashState === 'past' ? cashApi.data : null) : seedCash
+  const cash = apiMode
+    ? cashState === 'past'
+      ? cashApi.data
+      : cashProjectionApi.data
+    : seedCash
   const invest = apiMode ? investApi.data : seedInvest
   // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；隐藏分组并入「其他」后仍守恒。
   const sankey = useMemo(
@@ -259,7 +263,7 @@ export function ReportsPage({
         : balanceApi
       : tab === 'flow'
         ? flowState !== 'past'
-          ? periodPlanApi
+          ? flowProjectionApi
           : flowApi
         : tab === 'cash'
           ? cashState !== 'past'
@@ -318,7 +322,18 @@ export function ReportsPage({
           )}
           {tab === 'balance' && balanceState !== 'past' && (
             apiMode && assetProjectionApi.data ? (
-              <FutureBalanceView device={device} projection={assetProjectionApi.data} />
+              <BalanceView
+                device={device}
+                report={assetProjectionApi.data}
+                settings={effectiveSettings.balance}
+                categories={ledger.accountCategories}
+                side={balanceSide}
+                onSide={setBalanceSide}
+                from={time.from}
+                to={time.to}
+                onViewFlow={onViewFlow}
+                trendDesc="预测窗口逐点"
+              />
             ) : (
               <Card variant="report" className="mb-rp-empty">
                 <h2 className="mb-rp-empty-title">未来推演需要连接后端账本</h2>
@@ -346,13 +361,27 @@ export function ReportsPage({
             />
           )}
           {tab === 'flow' && flowState !== 'past' && (
-            apiMode && periodPlanApi.data ? (
-              <FutureFlowView device={device} plan={periodPlanApi.data} actual={flow} />
+            apiMode && flowProjectionApi.data ? (
+              <FlowView
+                device={device}
+                report={flowProjectionApi.data}
+                settings={effectiveSettings.flow}
+                side={flowSide}
+                onSide={setFlowSide}
+                includeExcluded={includeExcluded}
+                onIncludeExcluded={setIncludeExcluded}
+                folded={foldedFlow}
+                onFold={toggleFlowFold}
+                onDrill={(node, kind) => {
+                  if (kind !== 'asset') setDrill({ node, kind })
+                }}
+                colorUniverse={categoryUniverse}
+              />
             ) : (
               <Card variant="report" className="mb-rp-empty">
-                <h2 className="mb-rp-empty-title">未来预算计划需要连接后端账本</h2>
+                <h2 className="mb-rp-empty-title">未来收支明细需要连接后端账本</h2>
                 <p className="mb-rp-empty-desc">
-                  当前为本地演示数据；连接 API 后可查看按预算计划展开的未来收支点位。
+                  当前为本地演示数据；连接 API 后可查看已发生、按预算计划与已排定的分类明细。
                 </p>
               </Card>
             )
@@ -374,8 +403,21 @@ export function ReportsPage({
             />
           )}
           {tab === 'cash' && cashState !== 'past' && (
-            apiMode && cashProjectionApi.data ? (
-              <FutureCashView device={device} projection={cashProjectionApi.data} />
+            apiMode && cash ? (
+              <CashView
+                device={device}
+                report={cash}
+                sankey={sankey}
+                settings={effectiveSettings.cash}
+                side={cashSide}
+                onSide={setCashSide}
+                folded={foldedCash}
+                onFold={toggleCashFold}
+                from={time.from}
+                to={time.to}
+                onViewFlow={onViewFlow}
+                rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
+              />
             ) : (
               <Card variant="report" className="mb-rp-empty">
                 <h2 className="mb-rp-empty-title">未来推演需要连接后端账本</h2>

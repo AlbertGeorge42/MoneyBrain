@@ -11,10 +11,3 @@ export const PREDICTION_TEXT: Record<PredictionKind, string> = {
   prediction: '预测',
   budgetPlan: '预算计划',
 }
-
-export interface BreakdownItem {
-  label: string
-  value: string
-  /** 接口合计行；强调显示，但仍是后端字段直出。 */
-  total?: boolean
-}
