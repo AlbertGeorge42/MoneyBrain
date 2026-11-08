@@ -35,6 +35,8 @@ export interface BudgetPageRow {
   status: string
   categoryName: string
   accountName: string
+  /** 周期内发生日（后端 transactionTime）；语义随 period 变化，仅用于展示。 */
+  transactionTime?: number | null
   /** 后端 Budget.isActive；停用条目仍列出但灰显，不计入头部合计与告警。 */
   isActive: boolean
 }
@@ -241,6 +243,7 @@ export function deriveBudgetPage(
         level,
         categoryName: category?.name ?? '全部分类',
         accountName: account?.name ?? '全部账户',
+        transactionTime: budget.transactionTime,
         // 1) 页面乐观更新覆盖；2) 后端 statuses；3) 种子预算默认启用。
         isActive: activeById?.get(budget.id) ?? status?.isActive ?? budget.isActive ?? true,
       }

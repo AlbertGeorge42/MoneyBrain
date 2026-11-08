@@ -61,6 +61,12 @@ export interface LedgerBudget {
   accountId?: string
   /** 转账预算的转入账户；后端按「转出 + 转入」这一对账户结算。 */
   toAccountId?: string
+  /**
+   * 周期内发生日（后端 transactionTime）。语义随周期变化：
+   * weekly 0=周一…6=周日；monthly 几号；quarterly/yearly 周期内天偏移；daily 忽略。
+   * null / 缺省：monthly/quarterly/yearly 按周期末；weekly 跟随预算起始日同周几。
+   */
+  transactionTime?: number | null
   /** 后端预算是否启用；总览/预算页头部只合计启用的预算。 */
   isActive?: boolean
   /** API 适配层带入的当期已用金额（来自 /budgets/statuses）。 */

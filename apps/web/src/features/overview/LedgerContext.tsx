@@ -796,6 +796,8 @@ export function LedgerProvider({
     }
     if (input.categoryId) body.categoryId = realCategoryId(ledgerRef.current, input.categoryId)
     if (input.toAccountId) body.toAccountId = input.toAccountId
+    // 0 是合法的天偏移（周一 / 周期首日），只能用 != null 判断；缺省表示按周期末。
+    if (input.transactionTime != null) body.transactionTime = input.transactionTime
     return body
   }, [])
 
@@ -812,6 +814,7 @@ export function LedgerProvider({
           categoryId: input.categoryId || undefined,
           accountId: input.accountId || undefined,
           toAccountId: input.toAccountId || undefined,
+          transactionTime: input.transactionTime ?? null,
         }
         setLedger({ ...current, budgets: [...current.budgets, budget] })
         return { ok: true, id: budget.id }
@@ -847,6 +850,7 @@ export function LedgerProvider({
                   categoryId: input.categoryId || undefined,
                   accountId: input.accountId || undefined,
                   toAccountId: input.toAccountId || undefined,
+                  transactionTime: input.transactionTime ?? null,
                 }
               : budget,
           ),

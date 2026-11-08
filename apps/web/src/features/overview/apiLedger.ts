@@ -308,6 +308,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     categoryId: displayId(budget.categoryId) || undefined,
     accountId: budget.accountId,
     toAccountId: budget.toAccountId ?? undefined,
+    transactionTime: budget.transactionTime ?? null,
     isActive: budget.isActive,
     // 已用金额来自 /budgets/statuses（领域口径），不在前端按流水重算。
     used: statusById.get(budget.id)?.used,

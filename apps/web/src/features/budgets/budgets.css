@@ -487,6 +487,13 @@
   padding-right: var(--mb-s-5);
 }
 
+/* 表单字段说明：不参与任何合计，只解释周期语义（每日 / 几号 / 天偏移）。 */
+.mb-bg-hint {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
 .mb-bg-detail-note {
   margin: 0;
   font-size: var(--mb-fs-0);
@@ -507,7 +514,7 @@
 
 .mb-bg-seg {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--mb-s-1);
   padding: var(--mb-s-1);
   border-radius: var(--mb-radius-sm);

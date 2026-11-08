@@ -3,7 +3,7 @@ import { Plus, TriangleAlert } from 'lucide-react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import type { LedgerBudgetInput } from '@/features/overview/ledgerStore'
 import { ledgerAnchorDay } from '@/features/overview/model'
-import type { LedgerBudget } from '@/features/overview/model'
+import type { BudgetPeriod, LedgerBudget } from '@/features/overview/model'
 import { budgetApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
@@ -299,12 +299,14 @@ function EmptyPage({ onAdd }: { onAdd: () => void }) {
 interface EditorState {
   name: string
   type: BudgetKind
-  period: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+  period: BudgetPeriod
   amount: string
   categoryId: string
   accountId: string
   /** 仅转账预算：转入账户。 */
   toAccountId: string
+  /** 周期内发生日（后端 transactionTime），语义随周期变化，见 transactionTimeLabel。 */
+  transactionTime: string
 }
 
 const EMPTY_EDITOR: EditorState = {
@@ -315,6 +317,50 @@ const EMPTY_EDITOR: EditorState = {
   categoryId: '',
   accountId: '',
   toAccountId: '',
+  transactionTime: '',
+}
+
+const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
+
+/** 各周期 transactionTime 的合法区间：weekly 0=周一…6=周日；monthly 几号；季/年为周期内天偏移。 */
+const TRANSACTION_TIME_RANGE: Record<Exclude<BudgetPeriod, 'daily'>, { min: number; max: number }> = {
+  weekly: { min: 0, max: 6 },
+  monthly: { min: 1, max: 31 },
+  quarterly: { min: 0, max: 92 },
+  yearly: { min: 0, max: 365 },
+}
+
+/** 详情展示：把后端 transactionTime 按周期语义翻译成可读文案（不做日期换算）。 */
+function transactionTimeLabel(period: BudgetPeriod, value?: number | null): string {
+  if (period === 'daily') return '每日'
+  if (value == null) return period === 'weekly' ? '跟随起始日' : '周期末（默认）'
+  if (period === 'weekly') return WEEKDAY_LABELS[value] ?? '跟随起始日'
+  if (period === 'monthly') return `每月 ${value} 号`
+  if (period === 'quarterly') return `季度第 ${value} 天`
+  return `年度第 ${value} 天`
+}
+
+/** 表单输入 → 后端 transactionTime；invalid 表示超出该周期语义的合法区间。 */
+function parseTransactionTime(
+  period: BudgetPeriod,
+  raw: string,
+): { value: number | null } | { invalid: string } {
+  const text = raw.trim()
+  if (period === 'daily' || text === '') return { value: null }
+  const value = Number(text)
+  const range = TRANSACTION_TIME_RANGE[period]
+  if (!Number.isInteger(value) || value < range.min || value > range.max) {
+    const hint =
+      period === 'weekly'
+        ? '发生日需选择周一至周日'
+        : period === 'monthly'
+          ? '发生日需为 1–31 的整数'
+          : period === 'quarterly'
+            ? '季度内天数需为 0–92 的整数'
+            : '年度内天数需为 0–365 的整数'
+    return { invalid: hint }
+  }
+  return { value }
 }
 
 /** API 模式等待 statuses 时传空表：页面在外层显示骨架，不让前端规则临时兜底。 */
@@ -458,6 +504,7 @@ export function BudgetPage({
     categoryId: budget.categoryId,
     accountId: budget.accountId,
     toAccountId: budget.toAccountId,
+    transactionTime: budget.transactionTime ?? null,
   })
 
   /** 真实后端 PUT 的原始字段：金额字段名是 amount（整数分），分类 id 要还原成后端真实 id。 */
@@ -471,6 +518,8 @@ export function BudgetPage({
       : undefined,
     accountId: budget.accountId,
     toAccountId: budget.toAccountId,
+    // 0 是合法天偏移；只有 null 才省略，避免改限额/启停时把已有发生日清零。
+    transactionTime: budget.transactionTime ?? undefined,
   })
 
   const toggleActive = async () => {
@@ -577,6 +626,12 @@ export function BudgetPage({
       setEditorError('请填写大于 0 的金额')
       return
     }
+    // 发生日的合法区间随周期变化；非法值在提交前拦下，避免后端展开出空点位。
+    const transactionTime = parseTransactionTime(editor.period, editor.transactionTime)
+    if ('invalid' in transactionTime) {
+      setEditorError(transactionTime.invalid)
+      return
+    }
     // 真实后端要求预算必须绑定账户与分类；在这里先讲清楚，避免提交后静默失败。
     if (apiMode && !editor.categoryId) {
       setEditorError('真实账本要求预算绑定分类，请选择分类')
@@ -600,6 +655,7 @@ export function BudgetPage({
       categoryId: editor.categoryId || undefined,
       accountId: editor.accountId || undefined,
       toAccountId: editor.type === 'transfer' ? editor.toAccountId || undefined : undefined,
+      transactionTime: transactionTime.value,
     })
     setSaving(false)
     if (!result.ok) {
@@ -752,6 +808,10 @@ export function BudgetPage({
                 <dd>{BUDGET_PERIOD_LABEL[detail.period]}</dd>
               </div>
               <div>
+                <dt>发生日</dt>
+                <dd>{transactionTimeLabel(detail.period, detail.transactionTime)}</dd>
+              </div>
+              <div>
                 <dt>结算月份</dt>
                 <dd>{data.monthLabel}</dd>
               </div>
@@ -892,6 +952,67 @@ function BudgetPageHead({
   )
 }
 
+function TransactionTimeField({
+  state,
+  onChange,
+}: {
+  state: EditorState
+  onChange: (next: EditorState) => void
+}) {
+  if (state.period === 'daily') {
+    return <p className="mb-bg-hint">每日预算按日历日展开，无需设置发生日。</p>
+  }
+  if (state.period === 'weekly' || state.period === 'monthly') {
+    const weekly = state.period === 'weekly'
+    return (
+      <div className="mb-entry-field">
+        <label className="mb-field-label" htmlFor="budget-transaction-time">
+          {weekly ? '发生日（周几）' : '发生日（每月几号）'}
+        </label>
+        <select
+          id="budget-transaction-time"
+          className="mb-input mb-bg-input mb-bg-select"
+          value={state.transactionTime}
+          onChange={(event) => onChange({ ...state, transactionTime: event.target.value })}
+        >
+          <option value="">{weekly ? '不指定（跟随起始日）' : '月末（默认）'}</option>
+          {weekly
+            ? WEEKDAY_LABELS.map((label, value) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))
+            : Array.from({ length: 31 }, (_, index) => (
+                <option key={index + 1} value={index + 1}>
+                  {index + 1} 号
+                </option>
+              ))}
+        </select>
+        {!weekly && <span className="mb-bg-hint">当月没有该日期时，该月不生成预算点位。</span>}
+      </div>
+    )
+  }
+  const quarterly = state.period === 'quarterly'
+  return (
+    <div className="mb-entry-field">
+      <label className="mb-field-label" htmlFor="budget-transaction-time">
+        {quarterly ? '发生日（季度内第几天）' : '发生日（年度内第几天）'}
+      </label>
+      <input
+        id="budget-transaction-time"
+        className="mb-input mb-bg-input"
+        inputMode="numeric"
+        placeholder="留空 = 周期末"
+        value={state.transactionTime}
+        onChange={(event) => onChange({ ...state, transactionTime: event.target.value })}
+      />
+      <span className="mb-bg-hint">
+        0 = 周期首日，取值 0–{quarterly ? 92 : 365}；留空按周期末结算。
+      </span>
+    </div>
+  )
+}
+
 function BudgetEditor({
   opened,
   device,
@@ -920,7 +1041,7 @@ function BudgetEditor({
     (category) => !category.parentId && category.type === state.type,
   )
   const kindOptions: BudgetKind[] = ['expense', 'income', 'transfer']
-  const periodOptions: EditorState['period'][] = ['weekly', 'monthly', 'quarterly', 'yearly']
+  const periodOptions: BudgetPeriod[] = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly']
 
   return (
     <HfSheet
@@ -976,9 +1097,11 @@ function BudgetEditor({
             ariaPressed={false}
             value={state.period}
             options={periodOptions.map((period) => ({ id: period, label: BUDGET_PERIOD_LABEL[period] }))}
-            onChange={(period) => onChange({ ...state, period })}
+            onChange={(period) => onChange({ ...state, period, transactionTime: '' })}
           />
         </div>
+
+        <TransactionTimeField state={state} onChange={onChange} />
 
         <label className="mb-entry-field">
           <span className="mb-field-label">分类</span>

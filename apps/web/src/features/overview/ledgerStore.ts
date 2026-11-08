@@ -62,6 +62,12 @@ export interface LedgerBudgetInput {
   accountId?: string
   /** 仅转账预算使用：转入账户（真实账户 id）。 */
   toAccountId?: string
+  /**
+   * 周期内发生日（后端 transactionTime）。语义随周期变化：
+   * weekly 0=周一…6=周日；monthly 几号；quarterly/yearly 周期内天偏移；daily 忽略。
+   * null / 缺省：monthly/quarterly/yearly 按周期末；weekly 跟随预算起始日同周几。
+   */
+  transactionTime?: number | null
 }
 
 export interface LedgerContextValue {
