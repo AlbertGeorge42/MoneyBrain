@@ -850,12 +850,6 @@ export interface RollbackResult {
 
 // ===== 预算推演（资产 / 现金流） =====
 
-/** 预算推演面板的固定窗口选项（旧入口使用）。 */
-export type ProjectionMonths = 3 | 6 | 12
-
-/** 报表时间轴推演窗口：1–12 个自然月。 */
-export type ProjectionWindowMonths = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
-
 /** 推演桶粒度：日 / ISO 周 / 自然月 / 自然年。 */
 export type ProjectionGranularity = 'day' | 'week' | 'month' | 'year'
 
@@ -926,10 +920,6 @@ export interface AssetProjectionResult {
   end: string
   /** 输出桶数量。 */
   bucketCount: number
-  /** 输出窗口起始月（YYYY-MM）；仅 month 兼容参数回填，按 from/to 请求时省略。 */
-  fromMonth?: string
-  /** 输出点位数量；仅 month 兼容参数回填，按 from/to 请求时省略。 */
-  months?: ProjectionWindowMonths
   /** 起点真实余额，等于混合/未来桶里的 actual。 */
   base: ProjectionBalance
   points: AssetProjectionPoint[]
@@ -971,10 +961,6 @@ export interface CashFlowProjectionResult {
   end: string
   /** 输出桶数量。 */
   bucketCount: number
-  /** 输出窗口起始月（YYYY-MM）；仅 month 兼容参数回填，按 from/to 请求时省略。 */
-  fromMonth?: string
-  /** 输出点位数量；仅 month 兼容参数回填，按 from/to 请求时省略。 */
-  months?: ProjectionWindowMonths
   /** 首个输出桶期初现金（含 asOf 后至该桶前的计划/已排定净额）。 */
   startCash: Minor
   /** 末个输出桶期末现金（= 逐桶净额累加）。 */
@@ -1021,9 +1007,5 @@ export interface BudgetPeriodPlanResult {
   end: string
   /** 输出桶数量。 */
   bucketCount: number
-  /** 输出窗口起始月（YYYY-MM）；仅 month 兼容参数回填，按 from/to 请求时省略。 */
-  fromMonth?: string
-  /** 输出点位数量；仅 month 兼容参数回填，按 from/to 请求时省略。 */
-  months?: number
   points: BudgetPeriodPlanPoint[]
 }

@@ -38,8 +38,8 @@ router.get('/investment-analysis', validateRequest(validateDateRange), asyncHand
 }))
 
 router.get('/cash-flow-projection', asyncHandler(async (req, res) => {
-  const window = parseProjectionWindowQuery(req.query)
   const asOf = parseAsOfQuery(req.query.asOf)
+  const window = parseProjectionWindowQuery(req.query, asOf)
   const includePlanned = parseBooleanQuery(req.query.includePlanned, 'includePlanned', true)
   const includeCommitted = parseBooleanQuery(req.query.includeCommitted, 'includeCommitted', true)
   const result = await getCashFlowProjection({ asOf, ...window, includePlanned, includeCommitted })

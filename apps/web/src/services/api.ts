@@ -39,7 +39,6 @@ import type {
   Minor,
   PaginatedResponse,
   ProjectionGranularity,
-  ProjectionMonths,
   RecycleBinItem,
   RecycleBinResult,
   RollbackPoint,
@@ -189,9 +188,6 @@ export const budgetApi = {
   // 预算下钻明细（C2）：与用量同一口径，条数与合计 == 预算用量
   getUsageDetails: (id: string) => api.get<ApiResponse<BudgetUsageDetails>>(`/budgets/${id}/usage-details`),
   getPredictions: (startDate: string, endDate: string) => api.get<ApiResponse<BudgetPrediction[]>>('/budgets/predictions', { params: { startDate, endDate } }),
-  // 未来各自然月预算额度与缺口（推演面板只读，不参与实际预算口径）
-  getPeriodPlan: (fromMonth: string, months: ProjectionMonths) =>
-    api.get<ApiResponse<BudgetPeriodPlanResult>>('/budgets/period-plan', { params: { fromMonth, months } }),
   // 同一套 from/to + granularity 窗口（日 / 周 / 月 / 年）；budgets[] 按 occurrence 日期归组。
   getPeriodPlanWindow: (window: ProjectionQueryWindow) =>
     api.get<ApiResponse<BudgetPeriodPlanResult>>('/budgets/period-plan', { params: window }),

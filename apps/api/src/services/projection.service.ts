@@ -8,9 +8,8 @@ import type {
   ProjectionCoveredOccurrence,
   ProjectionFlowValue,
   ProjectionGranularity,
-  ProjectionWindowMonths,
 } from '../../../../packages/contracts/types/index.js'
-import { AppError, ValidationError } from '../common/error.js'
+import { AppError } from '../common/error.js'
 import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
@@ -22,8 +21,6 @@ import {
   minor,
   postingsOf,
   rulesFor,
-  startOfMonth,
-  startOfNextMonth,
   type LedgerTransaction,
   type LocalDate,
   type Minor,
@@ -39,67 +36,6 @@ import {
 
 // ===== 窗口 =====
 
-interface ProjectionWindow {
-  label: string
-  start: LocalDate
-  /** 下月 1 日（不含）。 */
-  endExclusive: LocalDate
-  /** 该月最后一个日历日（含）。 */
-  end: LocalDate
-}
-
-function monthIndex(value: LocalDate): number {
-  const [year, month] = value.split('-').map(Number) as [number, number]
-  return year * 12 + (month - 1)
-}
-
-interface ProjectionWindowPlan {
-  /** 从 asOf 所在月起的全部累计窗口（用于累计 planned/committed 与现金流）。 */
-  all: ProjectionWindow[]
-  /** 实际输出的窗口（从 fromMonth 起）。 */
-  output: ProjectionWindow[]
-  /** 累计窗口相对输出窗口的前置数量。 */
-  skip: number
-}
-
-/**
- * 从 asOf 所在自然月起累计；只输出 fromMonth 起的连续 months 个自然月。
- *
- * 累计起点始终是 asOf 所在月，不是 fromMonth：否则 fromMonth 之前发生的
- * planned/committed 会被漏掉，导致净资产与现金期末值偏小。
- */
-function projectionWindows(
-  asOf: LocalDate,
-  fromMonth: string | undefined,
-  months: ProjectionWindowMonths,
-): ProjectionWindowPlan {
-  const asOfMonthStart = startOfMonth(asOf)
-  const outputStart = fromMonth ? startOfMonth(`${fromMonth}-01` as LocalDate) : asOfMonthStart
-  const skip = monthIndex(outputStart) - monthIndex(asOfMonthStart)
-  if (skip < 0) {
-    throw new ValidationError('fromMonth 不能早于 asOf 所在月')
-  }
-  // 未来窗口上限：输出末月不能超过 asOf 所在月之后的第 12 个自然月。
-  if (skip + months - 1 > 12) {
-    throw new ValidationError('推演窗口最多 12 个未来月')
-  }
-
-  const all: ProjectionWindow[] = []
-  let start = asOfMonthStart
-  for (let i = 0; i < skip + months; i++) {
-    const endExclusive = startOfNextMonth(start)
-    all.push({
-      label: start.slice(0, 7),
-      start,
-      endExclusive,
-      end: addDays(endExclusive, -1),
-    })
-    start = endExclusive
-  }
-
-  return { all, output: all.slice(skip), skip }
-}
-
 function toLocalDateDate(value: LocalDate): Date {
   const [year, month, day] = value.split('-').map(Number) as [number, number, number]
   return new Date(year, month - 1, day)
@@ -107,14 +43,12 @@ function toLocalDateDate(value: LocalDate): Date {
 
 // ===== 四粒度桶（日 / ISO 周 / 自然月 / 自然年） =====
 
-/** 请求窗口：from/to + granularity；不传时走旧的 fromMonth/months。 */
+/** 请求窗口：from/to + granularity（唯一入口，默认窗口由路由层补齐）。 */
 interface ProjectionQueryParams {
   asOf: LocalDate
   granularity: ProjectionGranularity
-  from?: LocalDate
-  to?: LocalDate
-  fromMonth?: string
-  months: ProjectionWindowMonths
+  from: LocalDate
+  to: LocalDate
   includePlanned: boolean
   includeCommitted: boolean
 }
@@ -345,17 +279,6 @@ function coveredInRange(
     }))
 }
 
-function eventsByMonth<T extends ProjectionEvent>(events: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>()
-  for (const event of events) {
-    const label = event.date.slice(0, 7)
-    const group = groups.get(label)
-    if (group) group.push(event)
-    else groups.set(label, [event])
-  }
-  return groups
-}
-
 // ===== 资产/负债 =====
 
 function applyEventToBalances(balances: Map<string, number>, event: ProjectionEvent): void {
@@ -394,65 +317,6 @@ async function balancesAt(accounts: Account[], dateExclusive: LocalDate): Promis
   const target = toLocalDateDate(dateExclusive)
   const cache = await calculateBalancesBatch(accounts.map((account) => account.id), [target], accounts)
   return new Map(accounts.map((account) => [account.id, cache.get(account.id, target)]))
-}
-
-/** 旧入口（fromMonth/months）：逐月累计，数值保持与阶段 3 之前完全一致。 */
-async function assetProjectionLegacy(params: ProjectionQueryParams): Promise<AssetProjectionResult> {
-  const plan = projectionWindows(params.asOf, params.fromMonth, params.months)
-  const accounts = await accountRepo.findMany({})
-
-  // 起点只用当期真实余额：date ≤ asOf；未来日期交易留给 committed
-  const baseBalances = await balancesAt(accounts, addDays(params.asOf, 1))
-  const base = aggregateBalances(accounts, baseBalances)
-
-  const events = await loadProjectionEvents({
-    asOf: params.asOf,
-    windowEndExclusive: plan.all[plan.all.length - 1]!.endExclusive,
-    includePlanned: params.includePlanned,
-    includeCommitted: params.includeCommitted,
-  })
-  const plannedByMonth = eventsByMonth(events.planned)
-  const committedByMonth = eventsByMonth(events.committed)
-
-  const plannedDelta = new Map<string, number>()
-  const committedDelta = new Map<string, number>()
-
-  // 先累计全部窗口（从 asOf 起），再按 fromMonth 截取输出，保证累计不丢失前置月份。
-  const allPoints: AssetProjectionPoint[] = plan.all.map((window) => {
-    for (const event of plannedByMonth.get(window.label) ?? []) {
-      applyEventToBalances(plannedDelta, event)
-    }
-    for (const event of committedByMonth.get(window.label) ?? []) {
-      applyEventToBalances(committedDelta, event)
-    }
-    const planned = aggregateBalances(accounts, plannedDelta)
-    const committed = aggregateBalances(accounts, committedDelta)
-    return {
-      granularity: 'month',
-      label: window.label,
-      start: window.start,
-      end: window.end,
-      date: window.end,
-      actual: base,
-      planned,
-      committed,
-      total: addBalance(base, addBalance(planned, committed)),
-      covered: coveredInRange(events.covered, window.start, window.end),
-    }
-  })
-
-  const points = allPoints.slice(plan.skip)
-  return {
-    asOf: params.asOf,
-    granularity: 'month',
-    start: points[0]!.start,
-    end: points[points.length - 1]!.end,
-    bucketCount: points.length,
-    fromMonth: plan.output[0]!.label,
-    months: params.months,
-    base,
-    points,
-  }
 }
 
 /**
@@ -548,11 +412,8 @@ async function assetProjectionRange(
 }
 
 export async function getAssetProjection(params: ProjectionQueryParams): Promise<AssetProjectionResult> {
-  if (params.from && params.to) {
-    const buckets = buildProjectionBuckets(params.asOf, params.granularity, params.from, params.to)
-    return assetProjectionRange(params, buckets)
-  }
-  return assetProjectionLegacy(params)
+  const buckets = buildProjectionBuckets(params.asOf, params.granularity, params.from, params.to)
+  return assetProjectionRange(params, buckets)
 }
 
 // ===== 现金流 =====
@@ -599,22 +460,6 @@ function cashFlowOf(ledger: LedgerTransaction, cashAccountIds: ReadonlySet<strin
   return { inflow: minor(inflow), outflow: minor(outflow) }
 }
 
-interface FlowTotals {
-  inflow: Minor
-  outflow: Minor
-}
-
-function sumFlows(events: ProjectionEvent[], cashAccountIds: ReadonlySet<string>): FlowTotals {
-  let inflow = 0
-  let outflow = 0
-  for (const event of events) {
-    const flow = cashFlowOf(event.ledger, cashAccountIds)
-    inflow += flow.inflow
-    outflow += flow.outflow
-  }
-  return { inflow: minor(inflow), outflow: minor(outflow) }
-}
-
 function flowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionFlowValue {
   return {
     actual,
@@ -626,102 +471,6 @@ function flowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionF
 
 function cashBalanceTotal(balances: Map<string, number>): Minor {
   return minor([...balances.values()].reduce((sum, value) => sum + value, 0))
-}
-
-/** 旧入口（fromMonth/months）：逐月现金流，数值保持与阶段 3 之前完全一致。 */
-async function cashFlowProjectionLegacy(params: ProjectionQueryParams): Promise<CashFlowProjectionResult> {
-  const plan = projectionWindows(params.asOf, params.fromMonth, params.months)
-  const firstWindow = plan.all[0]!
-  const cashAccounts = await loadCashAccounts()
-  const cashIds = cashAccounts.map((account) => account.id)
-  const cashSet = new Set(cashIds)
-
-  // 首个累计月月初现金：date < 月初，未来日期交易不参与
-  const monthStartBalances = await balancesAt(cashAccounts, firstWindow.start)
-  let runningCash = cashBalanceTotal(monthStartBalances)
-
-  // 本月已发生部分：date ∈ [月初, asOf]（asOf 之后留给 committed）
-  let actualInflow = 0
-  let actualOutflow = 0
-  if (cashIds.length > 0) {
-    const actualRows = await transactionRepo.findActive(
-      {
-        OR: [
-          { accountId: { in: cashIds } },
-          { toAccountId: { in: cashIds } },
-        ],
-        date: {
-          gte: toLocalDateDate(firstWindow.start),
-          lt: toLocalDateDate(addDays(params.asOf, 1)),
-        },
-      },
-      { orderBy: { date: 'asc' } },
-    )
-    for (const row of actualRows) {
-      const flow = cashFlowOf(toLedgerTransaction(row), cashSet)
-      actualInflow += flow.inflow
-      actualOutflow += flow.outflow
-    }
-  }
-
-  const events = await loadProjectionEvents({
-    asOf: params.asOf,
-    windowEndExclusive: plan.all[plan.all.length - 1]!.endExclusive,
-    includePlanned: params.includePlanned,
-    includeCommitted: params.includeCommitted,
-  })
-  const plannedByMonth = eventsByMonth(events.planned)
-  const committedByMonth = eventsByMonth(events.committed)
-
-  // 先累计全部窗口（从 asOf 起），再按 fromMonth 截取输出；startCash 取首个输出月月初。
-  const allPoints: CashFlowProjectionPoint[] = plan.all.map((window, index) => {
-    const planned = sumFlows(plannedByMonth.get(window.label) ?? [], cashSet)
-    const committed = sumFlows(committedByMonth.get(window.label) ?? [], cashSet)
-
-    const actual: FlowTotals = index === 0
-      ? { inflow: minor(actualInflow), outflow: minor(actualOutflow) }
-      : { inflow: ZERO_MINOR, outflow: ZERO_MINOR }
-
-    const inflow = flowValue(actual.inflow, planned.inflow, committed.inflow)
-    const outflow = flowValue(actual.outflow, planned.outflow, committed.outflow)
-    const net = flowValue(
-      minor(inflow.actual - outflow.actual),
-      minor(inflow.planned - outflow.planned),
-      minor(inflow.committed - outflow.committed),
-    )
-
-    const start = runningCash
-    const endCash = minor(start + net.total)
-    runningCash = endCash
-
-    return {
-      granularity: 'month',
-      label: window.label,
-      start: window.start,
-      end: window.end,
-      date: window.end,
-      inflow,
-      outflow,
-      net,
-      startCash: start,
-      endCash,
-      covered: coveredInRange(events.covered, window.start, window.end),
-    }
-  })
-
-  const points = allPoints.slice(plan.skip)
-  return {
-    asOf: params.asOf,
-    granularity: 'month',
-    start: points[0]!.start,
-    end: points[points.length - 1]!.end,
-    bucketCount: points.length,
-    fromMonth: plan.output[0]!.label,
-    months: params.months,
-    startCash: points[0]!.startCash,
-    endCash: points[points.length - 1]!.endCash,
-    points,
-  }
 }
 
 /**
@@ -861,9 +610,6 @@ async function cashFlowProjectionRange(
 }
 
 export async function getCashFlowProjection(params: ProjectionQueryParams): Promise<CashFlowProjectionResult> {
-  if (params.from && params.to) {
-    const buckets = buildProjectionBuckets(params.asOf, params.granularity, params.from, params.to)
-    return cashFlowProjectionRange(params, buckets)
-  }
-  return cashFlowProjectionLegacy(params)
+  const buckets = buildProjectionBuckets(params.asOf, params.granularity, params.from, params.to)
+  return cashFlowProjectionRange(params, buckets)
 }

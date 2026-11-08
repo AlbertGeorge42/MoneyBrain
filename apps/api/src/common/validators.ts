@@ -1,7 +1,10 @@
 import type { Request } from 'express'
 import {
+  addDays,
+  addMonths,
   isLocalDate,
   minor,
+  startOfMonth,
   today,
   type LocalDate,
   type Minor,
@@ -10,7 +13,7 @@ import {
   CATEGORY_ICON_KEYS,
   isCategoryIconKey,
 } from '../../../../packages/contracts/constants.js'
-import type { ProjectionGranularity, ProjectionWindowMonths } from '../../../../packages/contracts/types/index.js'
+import type { ProjectionGranularity } from '../../../../packages/contracts/types/index.js'
 import { ValidationError } from './error.js'
 import { hasValue } from './utils.js'
 
@@ -115,32 +118,6 @@ export const requireClearConfirm = (req: Request, expected: string): void => {
 
 // ===== 推演参数 =====
 
-/** 推演窗口月份：1–12 的整数（缺省 12）。旧入口仍只传 3 / 6 / 12。 */
-export const parseProjectionMonths = (value: unknown): ProjectionWindowMonths => {
-  if (value === undefined || value === null || value === '') return 12
-  if (typeof value !== 'string') {
-    throw new ValidationError('months 必须是 1–12 的整数')
-  }
-  const months = Number(value)
-  if (!Number.isInteger(months) || months < 1 || months > 12) {
-    throw new ValidationError('months 必须是 1–12 的整数')
-  }
-  return months as ProjectionWindowMonths
-}
-
-/** 预算周期额度窗口：1–24 个月（缺省 12）。 */
-export const parsePeriodPlanMonths = (value: unknown): number => {
-  if (value === undefined || value === null || value === '') return 12
-  if (typeof value !== 'string') {
-    throw new ValidationError('months 必须是 1–24 的整数')
-  }
-  const months = Number(value)
-  if (!Number.isInteger(months) || months < 1 || months > 24) {
-    throw new ValidationError('months 必须是 1–24 的整数')
-  }
-  return months
-}
-
 /** 推演起点：YYYY-MM-DD 日历日（缺省今天）。 */
 export const parseAsOfQuery = (value: unknown): LocalDate => {
   if (value === undefined || value === null || value === '') return today()
@@ -170,26 +147,6 @@ export const parseBooleanQuery = (value: unknown, fieldName: string, fallback: b
   throw new ValidationError(`${fieldName} 只能是 true 或 false`)
 }
 
-/** 预算周期额度起始月：YYYY-MM（缺省当前月）。 */
-export const parseFromMonthQuery = (value: unknown): string => {
-  if (value === undefined || value === null || value === '') {
-    return today().slice(0, 7)
-  }
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}$/.test(value) || !isLocalDate(`${value}-01`)) {
-    throw new ValidationError('fromMonth 必须是 YYYY-MM')
-  }
-  return value
-}
-
-/** 推演输出起始月：YYYY-MM；缺省 undefined（由服务用 asOf 所在月）。 */
-export const parseOptionalFromMonthQuery = (value: unknown): string | undefined => {
-  if (value === undefined || value === null || value === '') return undefined
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}$/.test(value) || !isLocalDate(`${value}-01`)) {
-    throw new ValidationError('fromMonth 必须是 YYYY-MM')
-  }
-  return value
-}
-
 /** 推演桶粒度：day / week / month / year（缺省 month）。 */
 export const parseProjectionGranularity = (value: unknown): ProjectionGranularity => {
   if (value === undefined || value === null || value === '') return 'month'
@@ -199,19 +156,20 @@ export const parseProjectionGranularity = (value: unknown): ProjectionGranularit
 
 export interface ProjectionWindowQuery {
   granularity: ProjectionGranularity
-  from?: LocalDate
-  to?: LocalDate
-  fromMonth?: string
-  months: ProjectionWindowMonths
+  from: LocalDate
+  to: LocalDate
 }
 
 /**
- * 推演窗口参数（两个投影端点共用）。
+ * 推演窗口参数（两个投影端点与 period-plan 共用）。
  *
- * `from/to + granularity` 是唯一正向入口；不传 from/to 时保留旧入口
- * `fromMonth/months`（阶段 6 删旧面板时一并移除）。
+ * `from/to + granularity` 是唯一入口；不传任何窗口参数时保持旧默认：
+ * 月粒度、从 asOf 所在自然月起连续 12 个月。
  */
-export const parseProjectionWindowQuery = (query: Record<string, unknown>): ProjectionWindowQuery => {
+export const parseProjectionWindowQuery = (
+  query: Record<string, unknown>,
+  asOf: LocalDate,
+): ProjectionWindowQuery => {
   const granularity = parseProjectionGranularity(query.granularity)
   const from = parseOptionalDateQuery(query.from, 'from')
   const to = parseOptionalDateQuery(query.to, 'to')
@@ -219,19 +177,17 @@ export const parseProjectionWindowQuery = (query: Record<string, unknown>): Proj
   if (from || to) {
     if (!from || !to) throw new ValidationError('from 与 to 必须同时提供')
     if (from > to) throw new ValidationError('from 必须早于或等于 to')
-    if (hasValue(query.fromMonth) || hasValue(query.months)) {
-      throw new ValidationError('from/to 与 fromMonth/months 不能混用')
-    }
-    return { granularity, from, to, months: 12 }
+    return { granularity, from, to }
   }
 
   if (granularity !== 'month') {
     throw new ValidationError('day / week / year 粒度必须提供 from 与 to')
   }
 
+  const monthStart = startOfMonth(asOf)
   return {
     granularity,
-    fromMonth: parseOptionalFromMonthQuery(query.fromMonth),
-    months: parseProjectionMonths(query.months),
+    from: monthStart,
+    to: addDays(addMonths(monthStart, 12), -1),
   }
 }

@@ -19,6 +19,11 @@ const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')
 
 const AS_OF = '2026-11-06'
+// asOf 所在月起连续 3 / 6 / 12 个自然月的 from/to。
+const THREE_MONTHS_FROM = '2026-11-01'
+const THREE_MONTHS_TO = '2027-01-31'
+const SIX_MONTHS_TO = '2027-04-30'
+const TWELVE_MONTHS_TO = '2027-10-31'
 
 const localDate = (year: number, month: number, day: number): Date => new Date(year, month - 1, day)
 
@@ -64,8 +69,6 @@ interface AssetProjection {
   start: string
   end: string
   bucketCount: number
-  fromMonth?: string
-  months?: number
   base: Balance
   points: AssetPoint[]
 }
@@ -90,8 +93,6 @@ interface CashFlowProjection {
   start: string
   end: string
   bucketCount: number
-  fromMonth?: string
-  months?: number
   startCash: number
   endCash: number
   points: CashFlowPoint[]
@@ -234,15 +235,13 @@ describe('GET /api/analytics/asset-projection：planned / committed 不重复计
   it('逐月手算对照：同一 occurrence 只计一次，actual 不含未来交易', async () => {
     const res = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, months: 3 })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO, granularity: 'month' })
 
     expect(res.status).toBe(200)
     const data = res.body.data as AssetProjection
 
     // 起点 = date ≤ asOf 的真实余额：A 200 + B 300 − L 100
     expect(data.asOf).toBe(AS_OF)
-    expect(data.fromMonth).toBe('2026-11')
-    expect(data.months).toBe(3)
     expect(data.base).toEqual({ assets: 50000, liabilities: 10000, netWorth: 40000 })
 
     expect(data.points).toHaveLength(3)
@@ -310,8 +309,12 @@ describe('GET /api/analytics/asset-projection：planned / committed 不重复计
 
   it('12 个月的前 6 个点与单独请求 6 个月一致', async () => {
     const [twelve, six] = await Promise.all([
-      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, months: 12 }),
-      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, months: 6 }),
+      request(app)
+        .get('/api/analytics/asset-projection')
+        .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: TWELVE_MONTHS_TO, granularity: 'month' }),
+      request(app)
+        .get('/api/analytics/asset-projection')
+        .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: SIX_MONTHS_TO, granularity: 'month' }),
     ])
 
     expect(twelve.status).toBe(200)
@@ -326,10 +329,10 @@ describe('GET /api/analytics/asset-projection：planned / committed 不重复计
   it('关闭 planned 后只保留 committed，关闭 committed 后只保留 planned', async () => {
     const noPlanned = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, months: 3, includePlanned: 'false' })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO, granularity: 'month', includePlanned: 'false' })
     const noCommitted = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, months: 3, includeCommitted: 'false' })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO, granularity: 'month', includeCommitted: 'false' })
 
     expect(noPlanned.status).toBe(200)
     expect(noCommitted.status).toBe(200)
@@ -364,12 +367,11 @@ describe('GET /api/reports/cash-flow-projection：期初 + 净额 = 期末', () 
   it('逐月 inflow/outflow/net 手算对照（现金流账户仅 A，覆盖点位不进 planned）', async () => {
     const res = await request(app)
       .get('/api/reports/cash-flow-projection')
-      .query({ asOf: AS_OF, months: 3 })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO, granularity: 'month' })
 
     expect(res.status).toBe(200)
     const data = res.body.data as CashFlowProjection
 
-    expect(data.fromMonth).toBe('2026-11')
     expect(data.startCash).toBe(0)
     expect(data.endCash).toBe(100000)
 
@@ -415,8 +417,12 @@ describe('GET /api/reports/cash-flow-projection：期初 + 净额 = 期末', () 
 
   it('12 个月的前 6 个点与单独请求 6 个月一致', async () => {
     const [twelve, six] = await Promise.all([
-      request(app).get('/api/reports/cash-flow-projection').query({ asOf: AS_OF, months: 12 }),
-      request(app).get('/api/reports/cash-flow-projection').query({ asOf: AS_OF, months: 6 }),
+      request(app)
+        .get('/api/reports/cash-flow-projection')
+        .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: TWELVE_MONTHS_TO, granularity: 'month' }),
+      request(app)
+        .get('/api/reports/cash-flow-projection')
+        .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: SIX_MONTHS_TO, granularity: 'month' }),
     ])
 
     const twelveData = twelve.body.data as CashFlowProjection
@@ -427,7 +433,7 @@ describe('GET /api/reports/cash-flow-projection：期初 + 净额 = 期末', () 
   })
 })
 
-describe('fromMonth：只截取输出窗口，累计仍从 asOf 所在月起', () => {
+describe('from/to：只截取输出窗口，累计仍从 asOf 所在月起', () => {
   beforeAll(async () => {
     await prisma.$connect()
   })
@@ -444,20 +450,18 @@ describe('fromMonth：只截取输出窗口，累计仍从 asOf 所在月起', (
   it('资产推演从 2027-01 输出：planned/committed 包含 11、12 月的累计', async () => {
     const res = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, fromMonth: '2027-01', months: 1 })
+      .query({ asOf: AS_OF, from: '2027-01-01', to: '2027-01-31', granularity: 'month' })
 
     expect(res.status).toBe(200)
     const data = res.body.data as AssetProjection
 
     expect(data.asOf).toBe(AS_OF)
-    expect(data.fromMonth).toBe('2027-01')
-    expect(data.months).toBe(1)
     expect(data.base).toEqual({ assets: 50000, liabilities: 10000, netWorth: 40000 })
     expect(data.points).toHaveLength(1)
     expect(data.points[0]).toMatchObject({
       label: '2027-01',
       date: '2027-01-31',
-      // 与 months=3 的第 3 个点位一致：累计包含 11、12 月，而不是从 1 月重新开始。
+      // 与 3 个月窗口的第 3 个点位一致：累计包含 11、12 月，而不是从 1 月重新开始。
       planned: { assets: 80000, liabilities: 0, netWorth: 80000 },
       committed: { assets: 5000, liabilities: 0, netWorth: 5000 },
       total: { assets: 135000, liabilities: 10000, netWorth: 125000 },
@@ -468,14 +472,12 @@ describe('fromMonth：只截取输出窗口，累计仍从 asOf 所在月起', (
   it('现金流推演从 2027-01 输出：startCash 包含 11、12 月净额', async () => {
     const res = await request(app)
       .get('/api/reports/cash-flow-projection')
-      .query({ asOf: AS_OF, fromMonth: '2027-01', months: 1 })
+      .query({ asOf: AS_OF, from: '2027-01-01', to: '2027-01-31', granularity: 'month' })
 
     expect(res.status).toBe(200)
     const data = res.body.data as CashFlowProjection
 
     expect(data.asOf).toBe(AS_OF)
-    expect(data.fromMonth).toBe('2027-01')
-    expect(data.months).toBe(1)
     // 11 月期末 650 − 12 月净额 30 = 620；1 月从 620 开始，而不是从 0 开始。
     expect(data.startCash).toBe(62000)
     expect(data.endCash).toBe(100000)
@@ -491,35 +493,39 @@ describe('fromMonth：只截取输出窗口，累计仍从 asOf 所在月起', (
     })
   })
 
-  it('fromMonth 省略时行为不变；等于 asOf 所在月时与省略一致', async () => {
+  it('不传窗口参数时默认月粒度 12 个月，与显式窗口一致', async () => {
     const [omitted, explicit] = await Promise.all([
-      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, months: 3 }),
-      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, fromMonth: '2026-11', months: 3 }),
+      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF }),
+      request(app)
+        .get('/api/analytics/asset-projection')
+        .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: TWELVE_MONTHS_TO, granularity: 'month' }),
     ])
 
     expect(omitted.status).toBe(200)
     expect(explicit.status).toBe(200)
     expect(explicit.body.data).toEqual(omitted.body.data)
+    expect((omitted.body.data as AssetProjection).bucketCount).toBe(12)
+    expect((omitted.body.data as AssetProjection).granularity).toBe('month')
   })
 
-  it('非法 fromMonth / months 与超出 12 个未来月返回 400', async () => {
-    const before = await request(app)
-      .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, fromMonth: '2026-10', months: 1 })
+  it('超出未来上限、缺少 from/to 或日期非法返回 400', async () => {
     const tooFar = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, fromMonth: '2028-01', months: 1 })
-    const badMonth = await request(app)
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: '2028-01-31', granularity: 'month' })
+    const dayWithoutRange = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, fromMonth: '2027-1', months: 1 })
-    const badMonths = await request(app)
+      .query({ asOf: AS_OF, granularity: 'day' })
+    const missingTo = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, months: 13 })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, granularity: 'month' })
+    const badDate = await request(app)
+      .get('/api/analytics/asset-projection')
+      .query({ asOf: AS_OF, from: '2027-1-01', to: '2027-01-31', granularity: 'month' })
 
-    expect(before.status).toBe(400)
     expect(tooFar.status).toBe(400)
-    expect(badMonth.status).toBe(400)
-    expect(badMonths.status).toBe(400)
+    expect(dayWithoutRange.status).toBe(400)
+    expect(missingTo.status).toBe(400)
+    expect(badDate.status).toBe(400)
   })
 })
 
@@ -556,12 +562,10 @@ describe('GET /api/budgets/period-plan：未设预算的月份表达', () => {
   it('有预算的月份给额度，无预算的月份给 hasBudget=false / totals=null', async () => {
     const res = await request(app)
       .get('/api/budgets/period-plan')
-      .query({ fromMonth: '2026-11', months: 3 })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO, granularity: 'month' })
 
     expect(res.status).toBe(200)
     const data = res.body.data as {
-      fromMonth: string
-      months: number
       points: Array<{
         month: string
         hasBudget: boolean
@@ -687,23 +691,19 @@ describe('GET /api/budgets/period-plan：from/to + 四粒度', () => {
     expect(data.points[0].totals).toEqual({ income: 600000, expense: 120000, transfer: 24000 })
   })
 
-  it('month from/to 与旧 fromMonth/months 的点位一致，但不再回填旧字段', async () => {
-    const [windowed, legacy] = await Promise.all([
-      request(app)
-        .get('/api/budgets/period-plan')
-        .query({ asOf: AS_OF, from: '2026-11-01', to: '2026-11-30', granularity: 'month' }),
-      request(app)
-        .get('/api/budgets/period-plan')
-        .query({ asOf: AS_OF, fromMonth: '2026-11', months: 1 }),
-    ])
+  it('month from/to 单月窗口只返回一个自然月桶', async () => {
+    const res = await request(app)
+      .get('/api/budgets/period-plan')
+      .query({ asOf: AS_OF, from: '2026-11-01', to: '2026-11-30', granularity: 'month' })
 
-    expect(windowed.status).toBe(200)
-    expect(legacy.status).toBe(200)
-    const windowedData = windowed.body.data as { fromMonth?: string; months?: number; points: unknown[] }
-    const legacyData = legacy.body.data as { fromMonth?: string; months?: number; points: unknown[] }
-    expect(windowedData.fromMonth).toBeUndefined()
-    expect(windowedData.months).toBeUndefined()
-    expect(windowedData.points).toEqual(legacyData.points)
+    expect(res.status).toBe(200)
+    const data = res.body.data as { points: Array<{ label: string; start: string; end: string }> }
+    expect(data.points).toHaveLength(1)
+    expect(data.points[0]).toMatchObject({
+      label: '2026-11',
+      start: '2026-11-01',
+      end: '2026-11-30',
+    })
   })
 
   it('非法粒度窗口返回 400', async () => {
@@ -713,13 +713,13 @@ describe('GET /api/budgets/period-plan：from/to + 四粒度', () => {
     const missingTo = await request(app)
       .get('/api/budgets/period-plan')
       .query({ asOf: AS_OF, from: '2026-11-01', granularity: 'month' })
-    const mixedParams = await request(app)
+    const tooFar = await request(app)
       .get('/api/budgets/period-plan')
-      .query({ asOf: AS_OF, from: '2026-11-01', to: '2026-11-30', granularity: 'month', fromMonth: '2026-11' })
+      .query({ asOf: AS_OF, from: '2026-11-01', to: '2028-01-31', granularity: 'month' })
 
     expect(dayWithoutRange.status).toBe(400)
     expect(missingTo.status).toBe(400)
-    expect(mixedParams.status).toBe(400)
+    expect(tooFar.status).toBe(400)
   })
 })
 
@@ -789,7 +789,7 @@ describe('同一 occurrence 的 planned 与 committed 互斥（房租账本）',
   it('12 月房租既在预算又已有真实交易：改前 total −60000，改后 −40000', async () => {
     const res = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, months: 3 })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO, granularity: 'month' })
 
     expect(res.status).toBe(200)
     const data = res.body.data as AssetProjection
@@ -841,7 +841,7 @@ describe('同一 occurrence 的 planned 与 committed 互斥（房租账本）',
   it('现金流同口径：12 月 outflow planned 0，committed 只计一次', async () => {
     const res = await request(app)
       .get('/api/reports/cash-flow-projection')
-      .query({ asOf: AS_OF, months: 3 })
+      .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO, granularity: 'month' })
 
     expect(res.status).toBe(200)
     const data = res.body.data as CashFlowProjection
@@ -912,8 +912,6 @@ describe('四粒度窗口：day / week / month / year', () => {
     expect(data.start).toBe('2026-11-01')
     expect(data.end).toBe('2026-11-30')
     expect(data.bucketCount).toBe(30)
-    expect(data.fromMonth).toBeUndefined()
-    expect(data.months).toBeUndefined()
     expect(data.base).toEqual({ assets: 50000, liabilities: 10000, netWorth: 40000 })
     expect(data.points).toHaveLength(30)
 
@@ -1107,37 +1105,33 @@ describe('四粒度窗口：day / week / month / year', () => {
     }
   })
 
-  it('月粒度 from/to 与旧 fromMonth/months 等值；不传 granularity 时结果不变', async () => {
-    const [legacy, ranged, explicitMonth] = await Promise.all([
-      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, months: 3 }),
+  it('月粒度 from/to 与默认窗口等值；不传 granularity 时按 month 处理', async () => {
+    const [omitted, ranged, explicitMonth] = await Promise.all([
+      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF }),
       request(app)
         .get('/api/analytics/asset-projection')
-        .query({ asOf: AS_OF, granularity: 'month', from: '2026-11-01', to: '2027-01-31' }),
-      request(app).get('/api/analytics/asset-projection').query({ asOf: AS_OF, granularity: 'month', months: 3 }),
+        .query({ asOf: AS_OF, granularity: 'month', from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO }),
+      request(app)
+        .get('/api/analytics/asset-projection')
+        .query({ asOf: AS_OF, from: THREE_MONTHS_FROM, to: THREE_MONTHS_TO }),
     ])
 
-    expect(legacy.status).toBe(200)
+    expect(omitted.status).toBe(200)
     expect(ranged.status).toBe(200)
     expect(explicitMonth.status).toBe(200)
 
-    const legacyData = legacy.body.data as AssetProjection
     const rangedData = ranged.body.data as AssetProjection
     const explicitData = explicitMonth.body.data as AssetProjection
 
-    // 同一窗口：新入口只省略兼容字段，点位与累计完全一致。
-    expect(rangedData.points).toEqual(legacyData.points)
-    expect(rangedData.base).toEqual(legacyData.base)
+    expect(rangedData.points.slice(0, 3)).toEqual((omitted.body.data as AssetProjection).points.slice(0, 3))
+    expect(rangedData.base).toEqual((omitted.body.data as AssetProjection).base)
     expect(rangedData.granularity).toBe('month')
     expect(rangedData.start).toBe('2026-11-01')
     expect(rangedData.end).toBe('2027-01-31')
     expect(rangedData.bucketCount).toBe(3)
-    expect(rangedData.fromMonth).toBeUndefined()
-    expect(rangedData.months).toBeUndefined()
 
-    // 不传 granularity 与显式 month 完全一致（默认兼容）。
-    expect(explicitData).toEqual(legacyData)
-    expect(legacyData.granularity).toBe('month')
-    expect(legacyData.bucketCount).toBe(3)
+    // 不传 granularity 与显式 month 完全一致。
+    expect(explicitData).toEqual(rangedData)
   })
 
   it('年粒度：3 个自然年桶，桶末累计与桶内 planned/committed 正确', async () => {
@@ -1203,16 +1197,13 @@ describe('四粒度窗口：day / week / month / year', () => {
     expect(data.points[0].covered).toHaveLength(2)
   })
 
-  it('from/to 参数校验：缺参、混用旧参数、非法粒度均返回 400', async () => {
+  it('from/to 参数校验：缺参、非法粒度均返回 400', async () => {
     const missingTo = await request(app)
       .get('/api/analytics/asset-projection')
       .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01' })
-    const mixed = await request(app)
-      .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, granularity: 'day', from: '2026-11-01', to: '2026-11-30', months: 3 })
     const noRange = await request(app)
       .get('/api/analytics/asset-projection')
-      .query({ asOf: AS_OF, granularity: 'week', months: 3 })
+      .query({ asOf: AS_OF, granularity: 'week' })
     const badGranularity = await request(app)
       .get('/api/analytics/asset-projection')
       .query({ asOf: AS_OF, granularity: 'quarter', from: '2026-11-01', to: '2026-11-30' })
@@ -1223,7 +1214,7 @@ describe('四粒度窗口：day / week / month / year', () => {
       .get('/api/analytics/asset-projection')
       .query({ asOf: AS_OF, granularity: 'day', from: '2026-12-01', to: '2026-11-01' })
 
-    for (const res of [missingTo, mixed, noRange, badGranularity, invalidFrom, reversed]) {
+    for (const res of [missingTo, noRange, badGranularity, invalidFrom, reversed]) {
       expect(res.status).toBe(400)
     }
   })

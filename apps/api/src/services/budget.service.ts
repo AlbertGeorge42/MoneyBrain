@@ -23,7 +23,7 @@ import {
   type Minor,
   type PeriodKind,
 } from '../../../../packages/domain/src/index.js'
-import { buildProjectionBuckets, bucketStartOf, type ProjectionBucket } from './report/bucket.js'
+import { buildProjectionBuckets, bucketStartOf } from './report/bucket.js'
 
 // 预算类型
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
@@ -695,39 +695,13 @@ function budgetKindOf(value: string): BudgetKind {
 }
 
 /**
- * 预算计划窗口：新入口 `from/to + granularity`，旧入口 `fromMonth/months` 保持兼容。
+ * 预算计划窗口：`from/to + granularity`（唯一入口，默认窗口由路由层补齐）。
  */
 export interface BudgetPeriodPlanWindow {
   asOf: LocalDate
   granularity: ProjectionGranularity
-  from?: LocalDate
-  to?: LocalDate
-  fromMonth?: string
-  months?: number
-}
-
-/** 旧入口逐月窗口：保留最多 24 个月，不受新入口的未来上限约束。 */
-function legacyMonthlyBuckets(fromMonth: string, months: number): ProjectionBucket[] {
-  if (months < 1) {
-    throw new ValidationError('months 必须大于 0')
-  }
-  const first = toDateValue(`${fromMonth}-01`)
-  const buckets: ProjectionBucket[] = []
-  let cursor = new Date(first.getFullYear(), first.getMonth(), 1)
-  for (let i = 0; i < months; i++) {
-    const next = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
-    const end = new Date(next)
-    end.setDate(end.getDate() - 1)
-    buckets.push({
-      granularity: 'month',
-      label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
-      start: formatDateLocal(cursor) as LocalDate,
-      end: formatDateLocal(end) as LocalDate,
-      endExclusive: formatDateLocal(next) as LocalDate,
-    })
-    cursor = next
-  }
-  return buckets
+  from: LocalDate
+  to: LocalDate
 }
 
 /**
@@ -740,10 +714,7 @@ function legacyMonthlyBuckets(fromMonth: string, months: number): ProjectionBuck
 export async function buildBudgetPeriodPlan(
   window: BudgetPeriodPlanWindow,
 ): Promise<BudgetPeriodPlanResult> {
-  const legacy = !window.from
-  const buckets = legacy
-    ? legacyMonthlyBuckets(window.fromMonth ?? window.asOf.slice(0, 7), window.months ?? 12)
-    : buildProjectionBuckets(window.asOf, window.granularity, window.from!, window.to!)
+  const buckets = buildProjectionBuckets(window.asOf, window.granularity, window.from, window.to)
 
   const first = buckets[0]!
   const last = buckets[buckets.length - 1]!
@@ -795,7 +766,6 @@ export async function buildBudgetPeriodPlan(
     start: first.start,
     end: last.end,
     bucketCount: buckets.length,
-    ...(legacy ? { fromMonth: first.label, months: buckets.length } : {}),
     points,
   }
 }
