@@ -533,6 +533,8 @@ export interface InvestmentAccountDetail {
   maxCapitalEmployed: Minor
   simpleReturnRate: number
   cumulativeReturnRate: number
+  /** 该账户下的持仓明细（与 byAccountAllocation.items 同口径）；无资产类别时为空数组。 */
+  items: AccountAllocationItem[]
 }
 
 export interface InvestmentCategorySummary {
@@ -541,6 +543,8 @@ export interface InvestmentCategorySummary {
   balance: Minor
   ratio: number
   accounts: InvestmentAccountDetail[]
+  /** 该分类下各账户持仓按资产类型合并后的明细；无持仓时为空数组。 */
+  items: AccountAllocationItem[]
 }
 
 export interface InvestmentReturnAnalysis {

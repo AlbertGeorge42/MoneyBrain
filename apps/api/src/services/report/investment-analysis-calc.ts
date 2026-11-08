@@ -16,6 +16,9 @@ import type {
 } from './investment-analysis-types.js'
 import xirr from 'xirr'
 
+/** 未分类项使用的伪资产类型 id（不参与比例计算）。 */
+const UNCLASSIFIED_ASSET_CLASS_ID = '__unclassified__'
+
 // ===== 计算 / 分析函数 =====
 
 /**
@@ -247,7 +250,7 @@ export async function buildAccountAllocationDetail(
   const unclassifiedValue = minor(accountBalance - totalMarketValue)
   if (unclassifiedValue !== 0 && items.length > 0) {
     items.push({
-      assetClassId: '__unclassified__',
+      assetClassId: UNCLASSIFIED_ASSET_CLASS_ID,
       name: '未分类',
       marketValue: unclassifiedValue,
       ratio: 0, // 未分类不参与比例计算
@@ -282,7 +285,7 @@ export async function buildAccountAllocationDetail(
     // 添加"未分类"项（如果有差额且已有其他项）
     if (sUnclassifiedValue !== 0 && sItems.length > 0) {
       sItems.push({
-        assetClassId: '__unclassified__',
+        assetClassId: UNCLASSIFIED_ASSET_CLASS_ID,
         name: '未分类',
         marketValue: sUnclassifiedValue,
         ratio: sAccountBalance > 0 ? (sUnclassifiedValue / sAccountBalance) * 100 : 0,
@@ -307,6 +310,72 @@ export async function buildAccountAllocationDetail(
     items,
     snapshots: historySnapshots,
   }
+}
+
+/**
+ * 把同一分类下各账户的持仓合并成分类级持仓列表（按 assetClassId 聚合）。
+ *
+ * 字段口径与账户明细一致：市值 / 期间申赎 / 再平衡金额求和；ratio 以分类已分类市值为分母；
+ * targetRatio 与 returnRate 按市值加权（无有效样本时保留 null）；没有持仓时返回空数组。
+ */
+export function mergeCategoryItems(items: AccountAllocationItem[]): AccountAllocationItem[] {
+  if (items.length === 0) return []
+
+  const groups = new Map<string, AccountAllocationItem[]>()
+  for (const item of items) {
+    const group = groups.get(item.assetClassId)
+    if (group) group.push(item)
+    else groups.set(item.assetClassId, [item])
+  }
+
+  // 分类级 ratio 的分母：所有账户已分类市值之和（与账户明细「不含未分类」口径一致）
+  const classifiedMarketValue = items
+    .filter(item => item.assetClassId !== UNCLASSIFIED_ASSET_CLASS_ID)
+    .reduce((sum, item) => sum + item.marketValue, 0)
+
+  const merged: AccountAllocationItem[] = []
+  for (const [assetClassId, group] of groups) {
+    const marketValue = group.reduce((sum, item) => sum + item.marketValue, 0)
+    const weighted = (pick: (item: AccountAllocationItem) => number | null): number | null => {
+      let total = 0
+      let weight = 0
+      for (const item of group) {
+        const value = pick(item)
+        if (value === null) continue
+        total += value * item.marketValue
+        weight += item.marketValue
+      }
+      return weight > 0 ? total / weight : null
+    }
+
+    const targetRatio = weighted(item => item.targetRatio)
+    const ratio = assetClassId === UNCLASSIFIED_ASSET_CLASS_ID || classifiedMarketValue <= 0
+      ? 0
+      : (marketValue / classifiedMarketValue) * 100
+    const rebalanceAmount = group.some(item => item.rebalanceAmount !== null)
+      ? minor(group.reduce((sum, item) => sum + (item.rebalanceAmount ?? 0), 0))
+      : null
+    const periodReturn = group.some(item => item.periodReturn !== null)
+      ? minor(group.reduce((sum, item) => sum + (item.periodReturn ?? 0), 0))
+      : null
+
+    merged.push({
+      assetClassId,
+      name: group[0].name,
+      marketValue: minor(marketValue),
+      ratio,
+      targetRatio,
+      deviation: targetRatio !== null ? ratio - targetRatio : null,
+      rebalanceAmount,
+      periodInvested: minor(group.reduce((sum, item) => sum + item.periodInvested, 0)),
+      periodWithdrawn: minor(group.reduce((sum, item) => sum + item.periodWithdrawn, 0)),
+      periodReturn,
+      returnRate: weighted(item => item.returnRate),
+      sort: Math.min(...group.map(item => item.sort)),
+    })
+  }
+
+  return merged.sort((a, b) => a.sort - b.sort)
 }
 
 export function calculateTWRWithCache(

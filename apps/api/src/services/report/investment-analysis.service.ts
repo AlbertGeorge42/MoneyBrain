@@ -16,6 +16,7 @@ import {
   calculateXIRR,
   calculateReturnMetrics,
   calculateTWRWithCache,
+  mergeCategoryItems,
 } from './investment-analysis-calc.js'
 import type {
   AccountWithCategory,
@@ -125,6 +126,35 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     cashFlowCount: cashFlows.length,
   }
 
+  // 构建每个投资账户的资产细分数据（先算，供账户/分类明细复用 items）
+  const accountDetails = investmentAccounts.map(a => ({
+    id: a.id,
+    name: a.name,
+    balance: minor(balanceCache.get(a.id, nextDayOfEnd)),
+  }))
+
+  // 批量预取资产分类和快照（消除 N+1 查询）；现金流已在上方获取，直接复用
+  const [prefetchedAssetClasses, prefetchedSnapshots] = await Promise.all([
+    batchGetAssetClasses(investmentAccountIds),
+    batchGetSnapshots(investmentAccountIds, endDate),
+  ])
+
+  const prefetched = {
+    assetClasses: prefetchedAssetClasses,
+    snapshots: prefetchedSnapshots,
+    cashFlows,
+  }
+
+  const [byAccountAllocation, staleAccounts] = await Promise.all([
+    Promise.all(accountDetails.map(account =>
+      buildAccountAllocationDetail(account, endDate, startDate, balanceCache, prefetched)
+    )),
+    buildStaleAccounts(accountDetails, endDate, 30),
+  ])
+
+  // 账户持仓明细索引：账户无资产类别/无快照时 items 为空数组，不用缺字段表达
+  const itemsByAccount = new Map(byAccountAllocation.map(detail => [detail.accountId, detail.items]))
+
   // 按分类汇总
   const categoryMap = new Map<string, { category: { id: string; name: string }; accounts: AccountWithCategory[] }>()
 
@@ -178,6 +208,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
         maxCapitalEmployed: accMaxCapital,
         simpleReturnRate: accReturnRate,
         cumulativeReturnRate: accCumulativeReturnRate,
+        items: itemsByAccount.get(account.id) ?? [],
       }
     })
 
@@ -187,6 +218,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
       balance: categoryBalance,
       ratio,
       accounts: accountDetails,
+      items: mergeCategoryItems(accountDetails.flatMap(detail => detail.items)),
     })
   }
 
@@ -219,32 +251,6 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
       ratio,
     })
   }
-
-  // 构建每个投资账户的资产细分数据
-  const accountDetails = investmentAccounts.map(a => ({
-    id: a.id,
-    name: a.name,
-    balance: minor(balanceCache.get(a.id, nextDayOfEnd)),
-  }))
-
-  // 批量预取资产分类和快照（消除 N+1 查询）；现金流已在上方获取，直接复用
-  const [prefetchedAssetClasses, prefetchedSnapshots] = await Promise.all([
-    batchGetAssetClasses(investmentAccountIds),
-    batchGetSnapshots(investmentAccountIds, endDate),
-  ])
-
-  const prefetched = {
-    assetClasses: prefetchedAssetClasses,
-    snapshots: prefetchedSnapshots,
-    cashFlows,
-  }
-
-  const [byAccountAllocation, staleAccounts] = await Promise.all([
-    Promise.all(accountDetails.map(account =>
-      buildAccountAllocationDetail(account, endDate, startDate, balanceCache, prefetched)
-    )),
-    buildStaleAccounts(accountDetails, endDate, 30),
-  ])
 
   logger.info({ action: 'generate', report: 'investment-analysis', period: `${startDateStr}~${endDateStr}`, durationMs: Date.now() - startTime }, 'report generated')
 
