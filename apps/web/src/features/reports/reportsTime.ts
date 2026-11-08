@@ -6,6 +6,8 @@
  * 时间条与面板只做展示与草稿，不再各自复制一套规则。
  */
 
+import { formatDay, parseDay } from '@/utils/date'
+
 export type Granularity = 'day' | 'week' | 'month' | 'year'
 export type ReportTab = 'balance' | 'flow' | 'cash' | 'invest'
 export type PresetId =
@@ -98,15 +100,6 @@ export function presetSupported(preset: PresetId, gran: Granularity): boolean {
 
 export function presetLabel(preset: PresetId): string {
   return PRESETS.find((item) => item.id === preset)?.label ?? ''
-}
-
-function parseDay(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-function formatDay(date: Date): string {
-  return date.toISOString().slice(0, 10)
 }
 
 export function addDays(value: string, days: number): string {

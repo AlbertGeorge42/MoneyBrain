@@ -7,6 +7,8 @@
  * - 月 / 年粒度按「起取月初 / 止取月末」吸附，避免控件显示与请求参数出现两种边界。
  */
 
+import { formatDay, parseDay } from '@/utils/date'
+
 export type DateGranularity = 'day' | 'week' | 'month' | 'year'
 
 export interface DateRange {
@@ -31,15 +33,6 @@ export interface CalendarCell {
 }
 
 export const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'] as const
-
-export function parseDay(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-export function formatDay(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
 
 export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate()

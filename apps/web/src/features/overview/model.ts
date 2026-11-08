@@ -5,6 +5,8 @@
  * 本模块全部为纯函数，便于单测覆盖数字计算与账本联动。
  */
 
+import { formatDay, parseDay } from '@/utils/date'
+
 export type TxType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
 export type AccountKind = 'cash' | 'deposit' | 'investment' | 'credit'
 export type BudgetPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
@@ -334,15 +336,6 @@ export function deriveOverview(ledger: Ledger): OverviewSummary {
   }
 }
 
-function parseDay(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-function formatDay(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
 function budgetRange(period: BudgetPeriod, today: string): { start: string; end: string } {
   const anchor = parseDay(today)
   const year = anchor.getUTCFullYear()
@@ -391,7 +384,8 @@ function categorySubtree(categories: LedgerCategory[], rootId: string): Set<stri
   return ids
 }
 
-function budgetLevel(percent: number): BudgetRow['level'] {
+/** 支出预算占用率 → 展示等级；总览与 API 适配层共用同一阈值。 */
+export function budgetLevel(percent: number): BudgetRow['level'] {
   if (percent > 100) return 'over'
   if (percent >= 80) return 'warning'
   return 'normal'

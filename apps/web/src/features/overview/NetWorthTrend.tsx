@@ -8,13 +8,8 @@ import {
   CHART_TOOLTIP_W,
   buildChartLayout,
 } from '@/features/shared/chartLayout'
-import { amountText, percentText, trendChangePct } from './format'
+import { amountText, percentText, trendChangePct, trendMonthLabel } from './format'
 import type { TrendPoint } from './model'
-
-function monthLabel(month: string): string {
-  const [year, value] = month.split('-')
-  return `${year.slice(2)}.${value}`
-}
 
 export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device: DeviceMode }) {
   const [hover, setHover] = useState<number | null>(null)
@@ -140,7 +135,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
               y={VIEW_H - 6}
               textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
             >
-              {monthLabel(points[index].month)}
+              {trendMonthLabel(points[index].month)}
             </text>
           ))}
           {points.map((point, index) => (
@@ -166,7 +161,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
                 rx={CHART_TOOLTIP_RX}
               />
               <text className="mb-chart-tooltip-label" x={0} y={16} textAnchor="middle">
-                {monthLabel(hovered.month)}
+                {trendMonthLabel(hovered.month)}
               </text>
               <text className="mb-chart-tooltip-value" x={0} y={32} textAnchor="middle">
                 {amountText(hovered.value)}

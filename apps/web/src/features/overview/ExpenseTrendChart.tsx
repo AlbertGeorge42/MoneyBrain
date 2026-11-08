@@ -8,13 +8,8 @@ import {
   CHART_TOOLTIP_W,
   buildChartLayout,
 } from '@/features/shared/chartLayout'
-import { amountText } from './format'
+import { amountText, trendMonthLabel } from './format'
 import type { TrendPoint } from './model'
-
-function monthLabel(month: string): string {
-  const [year, value] = month.split('-')
-  return `${year.slice(2)}.${value}`
-}
 
 /**
  * 支出趋势（近 12 个月）。
@@ -155,7 +150,7 @@ export function ExpenseTrendChart({
                         : 'middle'
                   }
                 >
-                  {monthLabel(points[index].month)}
+                  {trendMonthLabel(points[index].month)}
                 </text>
               ))}
               {points.map((point, index) => (
@@ -185,7 +180,7 @@ export function ExpenseTrendChart({
                     rx={CHART_TOOLTIP_RX}
                   />
                   <text className="mb-chart-tooltip-label" x={0} y={16} textAnchor="middle">
-                    {monthLabel(hovered.month)}
+                    {trendMonthLabel(hovered.month)}
                   </text>
                   <text className="mb-chart-tooltip-value" x={0} y={32} textAnchor="middle">
                     {amountText(hovered.value)}

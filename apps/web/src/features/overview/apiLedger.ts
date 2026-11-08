@@ -49,7 +49,7 @@ import type {
   TrendPoint,
   TxType,
 } from './model'
-import { recentTwelveMonthsRange } from './model'
+import { budgetLevel, recentTwelveMonthsRange } from './model'
 
 /**
  * 真实分类是 UUID，而总览的分类图标按种子 key（food / salary…）取字形。
@@ -219,12 +219,6 @@ function accountKind(account: Account): AccountKind {
   if (account.type === 'liability') return 'credit'
   if (account.category?.isCashEquivalent) return 'cash'
   return 'deposit'
-}
-
-function budgetLevel(percent: number): BudgetRow['level'] {
-  if (percent > 100) return 'over'
-  if (percent >= 80) return 'warning'
-  return 'normal'
 }
 
 export interface LedgerApiPayload {

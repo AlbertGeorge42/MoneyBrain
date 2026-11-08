@@ -13,6 +13,7 @@ import type {
 } from '@/features/overview/model'
 import { CURRENT_MONTH, TODAY } from '@/features/overview/model'
 import { formatCurrency } from '@/utils/format'
+import { formatDay } from '@/utils/date'
 
 export type BudgetKind = 'expense' | 'income' | 'transfer'
 export type BudgetRowLevel = 'normal' | 'warning' | 'over' | 'achieved' | 'neutral'
@@ -73,10 +74,7 @@ export const BUDGET_PERIOD_LABEL: Record<BudgetPeriod, string> = {
   yearly: '每年',
 }
 
-function formatDay(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
+/** 预算页头部月份：与走势图 `YY.MM` 不同，这里是完整中文年月。 */
 export function monthLabel(month: string): string {
   const [year, value] = month.split('-').map(Number)
   return `${year} 年 ${value} 月`
