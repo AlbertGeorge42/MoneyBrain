@@ -659,7 +659,14 @@ describe('配置只影响展示', () => {
     const byRate = sortHoldingRows(report.holdings, 'rate').map((row) => row.id)
     expect(byRate[0]).toBe('b')
     expect(byValue.length).toBe(2)
-    expect(Object.keys(DEFAULT_REPORT_SETTINGS)).toEqual(['balance', 'flow', 'cash', 'invest'])
+    // dataScope 与四个视图配置同存 mb-reports-view-settings-v1；报表设置顶层「数据范围」分区使用它。
+    expect(Object.keys(DEFAULT_REPORT_SETTINGS)).toEqual([
+      'dataScope',
+      'balance',
+      'flow',
+      'cash',
+      'invest',
+    ])
     expect(CASH_GROUP_KEYS).toHaveLength(5)
   })
 })
