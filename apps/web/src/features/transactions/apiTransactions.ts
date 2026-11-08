@@ -90,6 +90,7 @@ export interface ServerTransactionList {
 export async function fetchFilteredTransactions(
   filters: TransactionFilters,
   ledger: Ledger,
+  signal?: AbortSignal,
   pageSize = TRANSACTION_PAGE_SIZE,
 ): Promise<ServerTransactionList> {
   const mapper = mapperFromLedger(ledger)
@@ -102,8 +103,10 @@ export async function fetchFilteredTransactions(
   // 页头/页脚笔数与合计都由完整结果算出，截断会让它们一起偏小；
   // 固定上限只是把同一个错误推迟到下一次数据增长。
   while (true) {
+    // 批次已被新筛选取代：不再发下一页，交给 TanStack 按取消处理（不是失败）。
+    signal?.throwIfAborted()
     const params = buildTransactionQueryParams(filters, ledger, page, pageSize)
-    const result = await transactionApi.getAll(params).then(unwrapApiData)
+    const result = await transactionApi.getAll(params, signal).then(unwrapApiData)
     requests += 1
     total = result.total
     items.push(...result.list.map((transaction: Transaction) => toLedgerTransaction(transaction, mapper)))
@@ -136,9 +139,22 @@ export interface ServerTransactionQuery {
   refetch: () => void
 }
 
+/** axios 取消（CanceledError）或 AbortSignal 中止：是批次被取代，不是请求失败。 */
+function isRequestCanceled(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { name?: string; code?: string; __CANCEL__?: boolean }
+  return (
+    candidate.name === 'CanceledError' ||
+    candidate.name === 'AbortError' ||
+    candidate.code === 'ERR_CANCELED' ||
+    candidate.__CANCEL__ === true
+  )
+}
+
 /**
  * 页面只读这个 hook：筛选变化 250ms 后发请求（关键词逐字输入不放大请求数）。
  * 上一次结果用 keepPreviousData 保留，避免切换筛选时整页闪空。
+ * 筛选再次变化时旧批次随 signal 中止，不再与新批次并发跑完。
  */
 export function useServerTransactions(
   filters: TransactionFilters,
@@ -154,14 +170,14 @@ export function useServerTransactions(
 
   const query = useQuery({
     queryKey: ['hf', 'transactions', key],
-    queryFn: () => fetchFilteredTransactions(debounced, ledger),
+    queryFn: ({ signal }) => fetchFilteredTransactions(debounced, ledger, signal),
     enabled: active,
     placeholderData: keepPreviousData,
   })
 
   const status: ServerTransactionQuery['status'] = !enabled
     ? 'ready'
-    : query.isError
+    : query.isError && !isRequestCanceled(query.error)
       ? 'error'
       : query.isPending || (debounced !== filters && !query.data)
         ? 'loading'

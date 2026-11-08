@@ -6,14 +6,16 @@
  * ceil(total / 100)，且第一页就带上最终筛选参数。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { cleanup, render, renderHook, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { ToastProvider } from '@/features/shared/toast'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
-import { fetchFilteredTransactions } from '@/features/transactions/apiTransactions'
+import { fetchFilteredTransactions, useServerTransactions } from '@/features/transactions/apiTransactions'
 import { EMPTY_ADVANCED } from '@/features/transactions/filters'
+import type { TransactionFilters } from '@/features/transactions/filters'
 import type { Ledger } from '@/features/overview/model'
 
 const mocks = vi.hoisted(() => ({ getAll: vi.fn() }))
@@ -191,5 +193,92 @@ describe('按 total 翻页（流水页笔数与合计的取数全集）', () => 
     await expect(fetchFilteredTransactions(noFilters, ledger)).rejects.toThrow(
       '流水分页未取满：已取 200 笔，共 3380 笔',
     )
+  })
+
+  it('signal 中止后不再请求下一页，并把 signal 传到请求层', async () => {
+    const controller = new AbortController()
+    mocks.getAll.mockImplementation((params: URLSearchParams, signal?: AbortSignal) => {
+      const page = Number(params.get('page'))
+      if (page > 1) throw new Error('取消后不应继续翻页')
+      expect(signal).toBe(controller.signal)
+      controller.abort()
+      return makePage(3380)(params)
+    })
+
+    await expect(
+      fetchFilteredTransactions(noFilters, ledger, controller.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(mocks.getAll).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('筛选批次被取代时中止（不并发跑完、不进错误态）', () => {
+  const noFilters: TransactionFilters = { query: '', type: 'all', advanced: EMPTY_ADVANCED }
+
+  beforeEach(() => {
+    mocks.getAll.mockReset()
+  })
+
+  afterEach(cleanup)
+
+  it('连续三次筛选：前两批各停在第一页，最后一批 34 页跑完，全程无 error', async () => {
+    const canceled = () =>
+      Object.assign(new Error('canceled'), {
+        name: 'CanceledError',
+        code: 'ERR_CANCELED',
+        __CANCEL__: true,
+      })
+    const calls: Array<{ keyword: string; page: number; signal?: AbortSignal }> = []
+
+    mocks.getAll.mockImplementation((params: URLSearchParams, signal?: AbortSignal) => {
+      const keyword = params.get('keyword') ?? ''
+      const page = Number(params.get('page'))
+      calls.push({ keyword, page, signal })
+      if (keyword !== 'abc') {
+        // 模拟 axios：暂停在第一页，signal 中止时以 CanceledError 结束。
+        return new Promise((_, reject) => {
+          const fail = () => reject(canceled())
+          if (signal?.aborted) fail()
+          else signal?.addEventListener('abort', fail, { once: true })
+        })
+      }
+      return makePage(3380)(params)
+    })
+
+    const statuses: string[] = []
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    const { result, rerender } = renderHook(
+      ({ filters }: { filters: TransactionFilters }) => {
+        const query = useServerTransactions(filters, ledger, true)
+        statuses.push(query.status)
+        return query
+      },
+      { wrapper, initialProps: { filters: { ...noFilters, query: 'a' } } },
+    )
+
+    await waitFor(() => expect(calls).toHaveLength(1), { timeout: 2000 })
+    rerender({ filters: { ...noFilters, query: 'ab' } })
+    await waitFor(() => expect(calls.some((call) => call.keyword === 'ab')).toBe(true), {
+      timeout: 2000,
+    })
+    rerender({ filters: { ...noFilters, query: 'abc' } })
+    await waitFor(() => expect(calls.filter((call) => call.keyword === 'abc')).toHaveLength(34), {
+      timeout: 4000,
+    })
+    await waitFor(() => expect(result.current.status).toBe('ready'), { timeout: 2000 })
+
+    // 前两批在第一次翻页后即停；只有最后一批跑完 34 页。
+    expect(calls.filter((call) => call.keyword === 'a')).toHaveLength(1)
+    expect(calls.filter((call) => call.keyword === 'ab')).toHaveLength(1)
+    expect(calls.filter((call) => call.keyword === 'abc')).toHaveLength(34)
+    expect(calls.find((call) => call.keyword === 'a')?.signal?.aborted).toBe(true)
+    expect(calls.find((call) => call.keyword === 'ab')?.signal?.aborted).toBe(true)
+    expect(result.current.items).toHaveLength(3380)
+    expect(result.current.total).toBe(3380)
+    // 取消不是失败：任何一帧都不应进入错误态（页面据此不弹 ErrorPanel / toast）。
+    expect(statuses).not.toContain('error')
   })
 })
