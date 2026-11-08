@@ -1,0 +1,106 @@
+/* 页面骨架原语：槽位与数值见 docs/blueprint/ux/page-skeleton.md。
+   迁移期两个容器保持 display:contents，让旧控件元素继续参与内容容器的排布，
+   从而与旧 DOM 零视觉差异；数值本身由各页面现有 CSS 承担。 */
+
+.mb-page-shell,
+.mb-control-row {
+  display: contents;
+}
+
+/* ===== SettingRow ===== */
+
+.mb-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-3);
+}
+
+.mb-setting-row.is-indented {
+  padding-left: var(--mb-s-5);
+}
+
+.mb-setting-row-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+}
+
+.mb-setting-row-label {
+  font-size: var(--mb-fs-1);
+}
+
+.mb-setting-row-desc {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-setting-row-control {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.mb-setting-row.is-stack .mb-setting-row-copy {
+  gap: var(--mb-s-1);
+}
+
+.mb-setting-row.is-stack .mb-setting-row-label,
+.mb-setting-row.is-stack .mb-setting-row-desc {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+.mb-setting-row-value {
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-4);
+  line-height: var(--mb-lh-tight);
+}
+
+@media (max-width: 767px) {
+  .mb-setting-row {
+    min-height: calc(var(--mb-touch) + var(--mb-s-3));
+  }
+
+  .mb-setting-row.is-indented {
+    padding-left: calc(var(--mb-touch) + var(--mb-s-5) + 2px);
+  }
+}
+
+/* ===== SectionBlock ===== */
+
+.mb-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+}
+
+.mb-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mb-s-3);
+}
+
+.mb-section-title {
+  margin: 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+}
+
+.mb-section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+}
+
+.mb-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+}
