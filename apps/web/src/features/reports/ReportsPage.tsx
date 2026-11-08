@@ -331,15 +331,12 @@ export function ReportsPage({
     )
 
   // 页头摘要：区间 + 相对今天的状态，与时间条同一套文案与判定，避免两处口径分叉。
-  // 数据范围开关收进设置后不可见，开启时在收支明细副标题留下口径提示。
   const headSub =
     tab === 'balance'
       ? `${formatPointLabel(time.point, time.gran, anchor)} · ${
           RANGE_STATE_LABEL[pointRangeState(time.point, anchor, time.gran)]
         }`
-      : `${formatRangeLabel(time)} · ${RANGE_STATE_LABEL[rangeState(time.from, time.to, anchor)]}${
-          tab === 'flow' && includeExcluded ? ' · 含不计收支' : ''
-        }`
+      : `${formatRangeLabel(time)} · ${RANGE_STATE_LABEL[rangeState(time.from, time.to, anchor)]}`
 
   const content = (
     <PageShell
@@ -348,7 +345,6 @@ export function ReportsPage({
           device={device}
           tab={tab}
           sub={headSub}
-          scopeNote={tab === 'flow' && includeExcluded ? '含不计收支' : undefined}
           onTab={(next) => setTab(next)}
           onOpenSettings={onSettingsToggle}
         />
@@ -362,6 +358,7 @@ export function ReportsPage({
               tab={tab}
               time={time}
               today={anchor}
+              scopeTag={tab === 'flow' && includeExcluded ? '含不计收支' : undefined}
               onChange={setTime}
               onToast={notify}
             />

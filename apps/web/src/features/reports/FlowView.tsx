@@ -1,7 +1,7 @@
 /**
  * 收支明细视图：指标条 + 收支走势 / 构成图 + 收入 / 支出双表。
  * 折叠与下钻状态由页面持有，这里只按当前口径派生可见行。
- * 「含不计收支交易」是数据范围，入口在报表设置；本视图只读 report.includeExcluded 写口径说明。
+ * 「含不计收支交易」是数据范围，入口在报表设置，回显在页面控件行标记，本视图不再重复说明。
  */
 import type { DeviceMode } from '@/features/shared/types'
 import { CompositionBars, ReportBarChart, type DonutKind } from './charts'
@@ -80,8 +80,6 @@ export function FlowView({
   // 子级行只挂「†」，含义放在已有合计说明位，不新增行。
   const childLegend = (nodes: FlowTreeNode[]) =>
     nodes.some((node) => node.children.length > 0) ? ' · † 子级已计入父级' : ''
-  // 表说明与数据范围同口径：开启后说明里直接写明，避免标题与数字脱节。
-  const scopeLegend = report.includeExcluded ? ' · 已含不计收支' : ' · 不含不计收支'
 
   return (
     <>
@@ -113,7 +111,7 @@ export function FlowView({
           <ReportTable
             device={device}
             title="收入构成"
-            desc={`合计 ${currency(report.income)}${scopeLegend}${childLegend(report.incomeTrees)}`}
+            desc={`合计 ${currency(report.income)}${childLegend(report.incomeTrees)}`}
             ariaLabel="收入构成"
             variant={flowVariant}
             columns={flowColumns}
@@ -124,7 +122,7 @@ export function FlowView({
           <ReportTable
             device={device}
             title="支出构成"
-            desc={`合计 ${currency(report.expense)}${scopeLegend}${childLegend(report.expenseTrees)}`}
+            desc={`合计 ${currency(report.expense)}${childLegend(report.expenseTrees)}`}
             ariaLabel="支出构成"
             variant={flowVariant}
             columns={flowColumns}
@@ -148,7 +146,7 @@ export function FlowView({
           <ReportCardList
             device={device}
             title={side === 'expense' ? '支出构成' : '收入构成'}
-            desc={`合计 ${currency(side === 'expense' ? report.expense : report.income)}${scopeLegend}${childLegend(
+            desc={`合计 ${currency(side === 'expense' ? report.expense : report.income)}${childLegend(
               side === 'expense' ? report.expenseTrees : report.incomeTrees,
             )}`}
             rows={side === 'expense' ? expenseCards : incomeCards}

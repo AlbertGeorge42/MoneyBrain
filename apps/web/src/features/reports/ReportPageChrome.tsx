@@ -15,15 +15,12 @@ export function PageHead({
   device,
   tab,
   sub,
-  scopeNote,
   onTab,
   onOpenSettings,
 }: {
   device: DeviceMode
   tab: ReportTab
   sub: string
-  /** 移动端没有页头副标题，数据范围开启时在这里补一条口径提示。 */
-  scopeNote?: string
   onTab: (next: ReportTab) => void
   onOpenSettings: () => void
 }) {
@@ -38,7 +35,6 @@ export function PageHead({
           items={REPORT_TABS}
           onChange={onTab}
         />
-        {scopeNote && <p className="mb-page-sub mb-rp-mobile-scope">{scopeNote}</p>}
       </div>
     )
   }

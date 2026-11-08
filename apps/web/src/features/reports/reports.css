@@ -1777,12 +1777,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   gap: var(--mb-s-2);
 }
 
-/* 移动端没有页头副标题：数据范围开启时补一条口径提示。 */
-.mb-rp-page[data-device='mobile'] .mb-rp-mobile-scope {
-  margin: 0;
-  color: var(--mb-color-accent);
-}
-
 .mb-rp-page[data-device='mobile'] .mb-rp-tabs {
   width: 100%;
   overflow-x: auto;
@@ -1971,6 +1965,20 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 .mb-rp-range-state.is-mixed,
 .mb-rp-range-state.is-future {
   border-style: dashed;
+}
+
+/* 统计范围回显：与区间状态同尺寸的静态标记，只占本行剩余空间，不改变行高。 */
+.mb-rp-scope-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding: 0 6px;
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent);
+  border-radius: var(--mb-radius-xs);
+  color: var(--mb-color-accent);
+  font-size: var(--mb-fs-0);
+  line-height: 1.6;
+  white-space: nowrap;
 }
 
 
