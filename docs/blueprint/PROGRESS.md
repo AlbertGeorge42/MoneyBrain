@@ -94,6 +94,8 @@ D4 取消（不降级、不保留）、U13.1–U13.5 取消，前端改为「HF 
 | 2026-11-07 | `4816ad7` / `73c2709` / `fb29f97` | 旧 AntD 页面、组件、运行时全部删除；主题单一来源 Mantine |
 | 2026-11-07 | `b727f14`…`038c989` | 前端精简 1–8：HfSheet / toast / Tabs / Segmented / Switch / Card / HfButton / 页面拆分 |
 | 2026-11-07 | `da2444f` | 前端精简收尾审计：逐项状态与规模数字以该文档为准 |
+| 2026-11-08 | `e64c7aa` | 未来三视图后端明细：账户/分类展开、收支新端点、现金流活动与三来源桑基；去重收紧到同分类 + 同周期同日优先 |
+| 2026-11-08 | `1249b85` | 未来三视图复用 `BalanceView / FlowView / CashView`，删除 `Future*View` 简化面板 |
 
 ## 未来报表（阶段 4–6 已完成）
 
@@ -101,23 +103,25 @@ D4 取消（不降级、不保留）、U13.1–U13.5 取消，前端改为「HF 
 
 | 端点 | 参数 | 返回字段 |
 |---|---|---|
-| `GET /api/analytics/asset-projection` | `from/to + granularity=day\|week\|month\|year`（唯一入口；不传时默认月粒度 12 个月）、`asOf=YYYY-MM-DD`、`includePlanned` / `includeCommitted`（默认 true） | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`base{assets,liabilities,netWorth}`、`points[{granularity,label,start,end,date,actual,planned,committed,total,covered[]}]` |
-| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`startCash`、`endCash`、`points[{granularity,label,start,end,date,inflow,outflow,net,startCash,endCash,covered[]}]` |
-| `GET /api/budgets/period-plan` | `from/to + granularity=day\|week\|month\|year`（唯一入口；不传时默认月粒度 12 个月） | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`points[{month,granularity,label,start,end,date,hasBudget,budgets[],totals{income,expense,transfer}\|null}]` |
+| `GET /api/analytics/asset-projection` | `from/to + granularity=day\|week\|month\|year`（唯一入口；不传时默认月粒度 12 个月）、`asOf=YYYY-MM-DD`、`includePlanned` / `includeCommitted`（默认 true） | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`base{assets,liabilities,netWorth}`、`points[{granularity,label,start,end,date,actual,planned,committed,total,covered[],accounts[],categories[]}]` |
+| `GET /api/reports/income-expense-projection` | 同上，另支持 `includeExcluded` | `income / expense / balance` 三来源、`incomeCategoryDetails / expenseCategoryDetails`（`actual / committed / planned(null) / total / hasBudget`）、`points[]`、`covered[]`、`predictionNote` |
+| `GET /api/reports/cash-flow-projection` | 同上 | `asOf`、`granularity`、`start`、`end`、`bucketCount`、`startCash`、`endCash`、`cashInflow`、`cashOutflow`、`netCashFlow`、`byActivity`（活动级 + 三来源 item）、`sankey`（窗口级，默认返回）、`points[{granularity,label,start,end,date,inflow,outflow,net,startCash,endCash,covered[]}]` |
+| `GET /api/budgets/period-plan` | `from/to + granularity=day\|week\|month\|year`（唯一入口；不传时默认月粒度 12 个月） | 供预算页使用；报表未来收支不再消费该端点 |
 
 **硬约束**：
 
 1. `actual` = `date ≤ asOf` 的真实交易余额；未来日期真实交易不计入起点。
-2. `committed` = `asOf < date ≤ 月末` 的真实交易累计增量。
-3. `planned` = 同窗口的预算展开累计增量，只来自 `generatePredictedOccurrences`。
+2. `committed` = `asOf < date ≤ 窗口末` 的真实交易累计增量。
+3. `planned` = 同窗口的预算展开累计增量，只来自 `generatePredictedOccurrences`；`planned=null` 表示无预算来源。
 4. `total = actual + planned + committed`；同一 occurrence 只出现一次。
-5. **同一 occurrence 互斥**：类型相同 + 来源账户相同 + 转入账户相同 + 真实交易日期落在预算周期内；命中后从 `planned` 剔除、金额只留 `committed`，并写入 `covered[]`。匹配在 `projection.service.ts`，前端不做抵扣。
+5. **同一 occurrence 互斥**：类型相同 + 来源账户相同 + 转入账户相同 + **分类相同** + 真实交易日期落在同一预算周期 `[periodStart, periodEnd]`；一对一配对，同日优先，金额不参与匹配。未被匹配的两侧都保留；命中后从 `planned` 剔除、金额只留 `committed`，并写入 `covered[]`。匹配在 `projection-events.ts`，前端不做抵扣。
 6. 资产口径只做预算展开 + 已排定交易，不做统计外推、不推定投资收益。
-7. 现金流 `endCash = startCash + net` 恒成立；现金账户互转本金不计流入/流出，手续费计流出。
-8. `hasBudget=false` 时 `totals=null`，不用 0 冒充。
-9. 收支未来视图只展示「预测 · 预算计划」，后端无 `actual/planned/committed` 分项；不显示「真实 + 预测 = 合计」，不做跨桶额度合计。
+7. 投资账户：任何真实或已排定现金流事件都进入余额，只是不推演市值涨跌；**不加「非 transfer 事件」过滤开关**，分红记为收入进余额。
+8. 现金流 `endCash = startCash + net` 恒成立；现金账户互转本金不计流入/流出，手续费计流出；窗口级桑基默认返回。
+9. 收支未来视图复用 `FlowView`：分类明细按三来源展开，`hasBudget=false` 标「无预算」，`planned=null` 不用 0 冒充。
+10. 转账按类型默认不计收支、无开关；普通收入 / 支出 / 退款继续由 `excludeFromIncomeExpense` 逐笔控制。
 
-验证：`apps/api/tests/integration/projection.route.test.ts`（26 条）、`apps/api/tests/unit/budget-time-points.test.ts`（3 条）。推演口径详版见 [hf-api-gaps.md](hf-api-gaps.md)。
+验证：`apps/api/tests/integration/projection.route.test.ts`（26 条）、`apps/api/tests/integration/projection-detail.route.test.ts`（5 条）、`apps/api/tests/unit/budget-time-points.test.ts`（3 条）、`apps/web/tests/unit/future-reports.test.tsx`（15 条）。推演口径详版见 [future-reports.md](ux/future-reports.md) 与 [hf-api-gaps.md](hf-api-gaps.md)。
 
 ## 已知未收口（不属于任何阶段条目，按来源文档跟踪）
 

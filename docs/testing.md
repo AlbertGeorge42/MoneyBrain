@@ -41,11 +41,11 @@ cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 |---|---|---|
 | 领域 | 5 | 42 |
 | 同步 | 4 | 21 |
-| 后端 | 57 | 484 |
-| 前端 | 52 | 359 |
+| 后端 | 58 | 489 |
+| 前端 | 51 | 355 |
 | E2E | 6 个 spec | prod-loop、prod-w1、hf-overview、hf-reports、settings、responsive |
 
-> 2026-11-08 实测：`npm run test:domain` 42 通过；`npm run test:sync` 21 通过；`npm run test:api` 484 通过（57 文件）；`npm run test:web` 359 通过（52 文件）。E2E 为 spec 文件数。
+> 2026-11-08 实测：`npm run test:domain` 42 通过；`npm run test:sync` 21 通过；`npm run test:api` 489 通过（58 文件）；`npm run test:web` 355 通过（51 文件）。E2E 为 spec 文件数。
 
 ## 3.1 数据自检与恢复演练（不是单元测试）
 
