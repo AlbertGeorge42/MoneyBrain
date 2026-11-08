@@ -17,7 +17,7 @@ import { sealBackupArchive } from '../sync/container.service.js'
 
 const logger = rootLogger.child({ module: 'export' })
 
-export interface ExportResult {
+interface ExportResult {
   buffer: Buffer
   filename: string
   contentType: string

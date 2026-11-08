@@ -15,11 +15,6 @@ export const SNAPSHOT_ITEMS_RELATIONS = {
   },
 } satisfies Prisma.InvestmentAllocationSnapshotInclude
 
-/** 带明细（items + assetClass）的快照行类型。 */
-export type SnapshotWithItems = Prisma.InvestmentAllocationSnapshotGetPayload<{
-  include: typeof SNAPSHOT_ITEMS_RELATIONS
-}>
-
 export async function findMany<T extends Prisma.InvestmentAllocationSnapshotFindManyArgs>(
   args: Prisma.SelectSubset<T, Prisma.InvestmentAllocationSnapshotFindManyArgs>,
   tx?: TransactionClient,

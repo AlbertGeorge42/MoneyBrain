@@ -683,11 +683,6 @@ export function generateBudgetOccurrences(
   return points
 }
 
-/** 只要日期序列的旧接口：与 `generateBudgetOccurrences` 同一份实现。 */
-export function generateBudgetTimePoints(start: Date, end: Date, period: string, transactionTime: number | null): Date[] {
-  return generateBudgetOccurrences(start, end, period, transactionTime).map((point) => point.date)
-}
-
 /** 预算类型收窄：生成器只会产出这三种，未知值直接失败而不是悄悄按 0 处理。 */
 function budgetKindOf(value: string): BudgetKind {
   if (value === 'income' || value === 'expense' || value === 'transfer') return value

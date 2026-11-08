@@ -49,17 +49,6 @@ export async function findActive<T extends Omit<Prisma.TransactionFindManyArgs, 
   )
 }
 
-export async function findFirstActive<T extends Omit<Prisma.TransactionFindFirstArgs, 'where'>>(
-  where: Prisma.TransactionWhereInput,
-  args: Prisma.SelectSubset<T, Omit<Prisma.TransactionFindFirstArgs, 'where'>>,
-  tx?: TransactionClient,
-): Promise<Prisma.TransactionGetPayload<T> | null> {
-  const merged = Object.assign({}, args, { where: { ...where, ...NOT_DELETED } })
-  return db(tx).transaction.findFirst(
-    merged as Prisma.SelectSubset<T, Prisma.TransactionFindFirstArgs>,
-  )
-}
-
 export async function countActive(where: Prisma.TransactionWhereInput, tx?: TransactionClient): Promise<number> {
   return db(tx).transaction.count({ where: { ...where, ...NOT_DELETED } })
 }
