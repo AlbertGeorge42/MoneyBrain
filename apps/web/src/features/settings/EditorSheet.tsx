@@ -10,7 +10,12 @@ import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
-import { CATEGORY_ICON_REGISTRY } from '@/features/overview/categoryIcons'
+import {
+  CATEGORY_ICON_GROUPS,
+  searchCategoryIcons,
+  type CategoryIconGroupId,
+  type CategoryIconOption,
+} from '@/features/overview/categoryIcons'
 import type { AccountKind, Ledger, TxType } from '@/features/overview/model'
 import {
   ACCOUNT_KIND_LABEL,
@@ -128,6 +133,7 @@ export function EditorSheet({
   const [initialBalanceDate, setInitialBalanceDate] = useState(openingDate)
   const [target, setTarget] = useState(String(initialTarget))
   const [iconKey, setIconKey] = useState(initialIconKey)
+  const [iconQuery, setIconQuery] = useState('')
 
   const currentCategory = account?.categoryId
     ? (ledger.accountCategories ?? []).find((item) => item.id === account.categoryId)
@@ -153,6 +159,7 @@ export function EditorSheet({
     setInitialBalanceDate(openingDate)
     setTarget(String(initialTarget))
     setIconKey(initialIconKey)
+    setIconQuery('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
@@ -199,6 +206,40 @@ export function EditorSheet({
       ? ledger.accounts.filter((item) => item.categoryId === editor.groupId).length
       : 0
 
+  // 推荐逻辑：账户分组优先展示账户类（钱包 / 银行卡 / 房产 / 股票 / 基金 / 负债），
+  // 收入分类优先展示收入类。只调整分组顺序并标注「推荐」，不预选任何值——默认仍是「自动」。
+  const recommendedGroup: CategoryIconGroupId | null =
+    editor.kind === 'accountGroup'
+      ? 'account'
+      : editor.kind === 'category' && editor.type === 'income'
+        ? 'income'
+        : null
+  const iconMatches = searchCategoryIcons(iconQuery)
+  const iconGroups = CATEGORY_ICON_GROUPS.map((group) => ({
+    ...group,
+    recommended: group.id === recommendedGroup,
+    options: iconMatches.filter((option) => option.group === group.id),
+  }))
+    .filter((group) => group.options.length > 0)
+    .sort((a, b) => Number(b.recommended) - Number(a.recommended))
+
+  const iconChoice = (option: CategoryIconOption) => {
+    const Icon = option.icon
+    const active = iconKey === option.key
+    return (
+      <HfButton
+        key={option.key}
+        className={active ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'}
+        aria-pressed={active}
+        aria-label={option.label}
+        title={option.label}
+        onClick={() => setIconKey(option.key)}
+      >
+        <Icon size={18} strokeWidth={1.8} />
+      </HfButton>
+    )
+  }
+
   return (
     <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
@@ -227,38 +268,42 @@ export function EditorSheet({
         {(editor.kind === 'category' || editor.kind === 'accountGroup') && (
           <div className="mb-set-field">
             <span className="mb-set-label">图标</span>
-            <div className="mb-set-icon-grid" role="group" aria-label="分类图标">
-              <HfButton
-                className={
-                  iconKey === '' ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'
-                }
-                aria-pressed={iconKey === ''}
-                aria-label="自动（按分类名称）"
-                title="自动（按分类名称）"
-                onClick={() => setIconKey('')}
-              >
-                <Tag size={18} strokeWidth={1.8} />
-              </HfButton>
-              {CATEGORY_ICON_REGISTRY.map((option) => {
-                const Icon = option.icon
-                const active = iconKey === option.key
-                return (
-                  <HfButton
-                    key={option.key}
-                    className={
-                      active
-                        ? 'mb-set-kind mb-set-icon-choice is-active'
-                        : 'mb-set-kind mb-set-icon-choice'
-                    }
-                    aria-pressed={active}
-                    aria-label={option.label}
-                    title={option.label}
-                    onClick={() => setIconKey(option.key)}
-                  >
-                    <Icon size={18} strokeWidth={1.8} />
-                  </HfButton>
-                )
-              })}
+            <input
+              className="mb-set-input"
+              type="search"
+              value={iconQuery}
+              onChange={(event) => setIconQuery(event.target.value)}
+              placeholder="搜索图标（中文 / 英文，如 咖啡、coffee）"
+              aria-label="搜索图标"
+            />
+            <div className="mb-set-icon-sections">
+              <div className="mb-set-icon-grid">
+                <HfButton
+                  className={
+                    iconKey === '' ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'
+                  }
+                  aria-pressed={iconKey === ''}
+                  aria-label="自动（按分类名称）"
+                  title="自动（按分类名称）"
+                  onClick={() => setIconKey('')}
+                >
+                  <Tag size={18} strokeWidth={1.8} />
+                </HfButton>
+              </div>
+              {iconGroups.map((group) => (
+                <section className="mb-set-icon-section" key={group.id} aria-label={group.label}>
+                  <h3 className="mb-set-icon-section-title">
+                    {group.label}
+                    {group.recommended ? ' · 推荐' : ''}
+                  </h3>
+                  <div className="mb-set-icon-grid">
+                    {group.options.map((option) => iconChoice(option))}
+                  </div>
+                </section>
+              ))}
+              {iconGroups.length === 0 && (
+                <p className="mb-set-hint">没有匹配的图标，换个关键词试试。</p>
+              )}
             </div>
             <p className="mb-set-hint">
               图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。

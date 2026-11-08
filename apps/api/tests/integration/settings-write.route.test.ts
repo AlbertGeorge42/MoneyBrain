@@ -169,6 +169,13 @@ describe('设置页账户 / 分类真实读写', () => {
     expect(updated.status).toBe(200)
     expect(updated.body.data.iconKey).toBe('salary')
 
+    // 扩容后的新 key 同样可落库。
+    const expanded = await request(app)
+      .put(`/api/transaction-categories/${categoryId}`)
+      .send({ iconKey: 'coffee' })
+    expect(expanded.status).toBe(200)
+    expect(expanded.body.data.iconKey).toBe('coffee')
+
     const cleared = await request(app)
       .put(`/api/transaction-categories/${categoryId}`)
       .send({ iconKey: null })
@@ -179,7 +186,7 @@ describe('设置页账户 / 分类真实读写', () => {
       .put(`/api/transaction-categories/${categoryId}`)
       .send({ iconKey: 'rocket' })
     expect(invalid.status).toBe(400)
-    expect(invalid.body.error.message).toContain('food')
+    expect(invalid.body.error.message).toContain('不在允许集合内')
 
     const persisted = await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
     expect(persisted?.iconKey).toBeNull()
@@ -197,7 +204,7 @@ describe('设置页账户 / 分类真实读写', () => {
       .put(`/api/account-categories/${categoryId}`)
       .send({ iconKey: 'rocket' })
     expect(invalid.status).toBe(400)
-    expect(invalid.body.error.message).toContain('food')
+    expect(invalid.body.error.message).toContain('不在允许集合内')
 
     const persisted = await prisma.accountCategory.findUnique({ where: { id: categoryId } })
     expect(persisted?.iconKey).toBe('inv')

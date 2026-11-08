@@ -62,21 +62,83 @@ export type RollbackConfirmTarget = keyof typeof ROLLBACK_CONFIRM
 //
 // 只有注册表内的 key 才能落库；空 / null 表示回退到按分类名映射的既有图标。
 // 图标组件与名称映射都在前端注册表里维护，这里只收口「允许写哪些值」。
+//
+// 顺序与前端注册表一致，按语义分组排列：餐饮 → 交通 → 购物 → 居住 → 娱乐 →
+// 医疗 → 教育 → 收入 → 转账/金融 → 账户类 → 其他。
+// 前 13 个旧 key（food…move）是历史数据，只增不改：已落库的 iconKey 必须继续有效。
 
 export const CATEGORY_ICON_KEYS = [
+  // 餐饮
   'food',
+  'coffee',
+  'drink',
+  'dessert',
+  'grocery',
+  'snack',
+  'alcohol',
+  // 交通
   'traffic',
-  'home',
+  'car',
+  'bus',
+  'plane',
+  'bike',
+  'fuel',
+  'parking',
+  // 购物
   'shop',
+  'clothes',
+  'beauty',
+  'digital',
+  'sports',
+  'pet',
+  // 居住
+  'home',
+  'rent',
+  'utilities',
+  'repair',
+  'furniture',
+  // 娱乐
   'fun',
+  'game',
+  'music',
+  'ticket',
+  'travel',
+  // 医疗
   'health',
+  'pill',
+  'stethoscope',
+  // 教育
   'edu',
-  'other',
+  'book',
+  'course',
+  // 收入
   'salary',
-  'inv',
   'gift',
-  'refund',
+  'bonus',
+  'coins',
+  'briefcase',
+  // 转账/金融
   'move',
+  'refund',
+  'transfer',
+  'creditCard',
+  'receipt',
+  // 账户类
+  'wallet',
+  'bank',
+  'cash',
+  'property',
+  'stock',
+  'fund',
+  'inv',
+  'vault',
+  'debt',
+  // 其他通用
+  'other',
+  'tag',
+  'star',
+  'heart',
+  'shield',
 ] as const
 
 export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number]

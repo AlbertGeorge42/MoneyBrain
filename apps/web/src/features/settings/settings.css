@@ -588,6 +588,27 @@
   padding: 0;
 }
 
+/* 图标按语义分组：标题只做分节说明，不改变图标格尺寸与行高。 */
+.mb-set-icon-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-3);
+}
+
+.mb-set-icon-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+.mb-set-icon-section-title {
+  margin: 0;
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-tertiary);
+}
+
 /* ===== 数据与备份 ===== */
 
 .mb-set-data {

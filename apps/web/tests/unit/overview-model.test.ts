@@ -14,12 +14,61 @@ import {
   getCategoryIconKey,
   groupRecentTransactions,
 } from '@/features/overview/model'
-import { CATEGORY_ICON_REGISTRY } from '@/features/overview/categoryIcons'
+import {
+  CATEGORY_ICON_GROUPS,
+  CATEGORY_ICON_REGISTRY,
+  searchCategoryIcons,
+} from '@/features/overview/categoryIcons'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 
 describe('分类图标回退', () => {
   it('注册表与契约枚举一一对应', () => {
     expect(CATEGORY_ICON_REGISTRY.map((option) => option.key)).toEqual([...CATEGORY_ICON_KEYS])
+  })
+
+  it('图标库扩容到 60 个，且原有 13 个 key 一个不少', () => {
+    const legacy = [
+      'food',
+      'traffic',
+      'home',
+      'shop',
+      'fun',
+      'health',
+      'edu',
+      'other',
+      'salary',
+      'inv',
+      'gift',
+      'refund',
+      'move',
+    ]
+    expect(CATEGORY_ICON_REGISTRY).toHaveLength(60)
+    expect(CATEGORY_ICON_REGISTRY.length - legacy.length).toBe(47)
+    for (const key of legacy) {
+      expect(CATEGORY_ICON_KEYS).toContain(key)
+      expect(CATEGORY_ICON_REGISTRY.some((option) => option.key === key)).toBe(true)
+    }
+  })
+
+  it('11 个语义分组都有图标，且每个图标都带中英文关键词', () => {
+    expect(CATEGORY_ICON_GROUPS.map((group) => group.id)).toHaveLength(11)
+    for (const group of CATEGORY_ICON_GROUPS) {
+      expect(CATEGORY_ICON_REGISTRY.some((option) => option.group === group.id)).toBe(true)
+    }
+    for (const option of CATEGORY_ICON_REGISTRY) {
+      expect(option.keywords.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('搜索支持中文与英文关键词，大小写与空查询都按预期', () => {
+    const keysFor = (query: string) => searchCategoryIcons(query).map((option) => option.key)
+    expect(keysFor('咖啡')).toContain('coffee')
+    expect(keysFor('coffee')).toContain('coffee')
+    expect(keysFor('COFFEE')).toContain('coffee')
+    expect(keysFor('打车')).toContain('car')
+    expect(keysFor('银行卡')).toContain('bank')
+    expect(keysFor('')).toHaveLength(CATEGORY_ICON_REGISTRY.length)
+    expect(keysFor('不存在的图标')).toHaveLength(0)
   })
 
   it('自身 iconKey 优先，其次父级 iconKey，最后交给名称映射', () => {

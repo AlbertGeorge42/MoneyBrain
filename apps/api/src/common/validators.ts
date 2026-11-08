@@ -9,10 +9,7 @@ import {
   type LocalDate,
   type Minor,
 } from '../../../../packages/domain/src/index.js'
-import {
-  CATEGORY_ICON_KEYS,
-  isCategoryIconKey,
-} from '../../../../packages/contracts/constants.js'
+import { isCategoryIconKey } from '../../../../packages/contracts/constants.js'
 import type { ProjectionGranularity } from '../../../../packages/contracts/types/index.js'
 import { ValidationError } from './error.js'
 import { hasValue } from './utils.js'
@@ -62,7 +59,7 @@ export const parseOptionalIconKey = (value: unknown): string | null | undefined 
   if (value === undefined) return undefined
   if (value === null || value === '') return null
   if (!isCategoryIconKey(value)) {
-    throw new ValidationError(`图标只支持以下取值：${CATEGORY_ICON_KEYS.join('、')}`)
+    throw new ValidationError('图标取值不在允许集合内；可用图标见设置页的图标选择器')
   }
   return value
 }
