@@ -1194,7 +1194,6 @@
 /* 移动端底部抽屉按内容高度收紧：内容短时不出现大片空白，
    内容超高时再由 max-height 收口、body 内滚。 */
 .mb-set-page[data-device='mobile'] .mb-set-sheet {
-  --drawer-size: auto;
   height: auto;
 }
 
@@ -1459,16 +1458,6 @@
 .mb-set-datacard > .mb-setting-row {
   align-self: stretch;
   padding-inline: 0;
-}
-
-.mb-set-gap-tag {
-  flex: none;
-  padding: 2px var(--mb-s-2);
-  border: var(--mb-border-style-dashed) var(--mb-border-width) var(--mb-color-border-strong);
-  border-radius: var(--mb-radius-pill);
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  white-space: nowrap;
 }
 
 .mb-set-switch {
