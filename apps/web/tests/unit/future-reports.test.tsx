@@ -11,6 +11,7 @@ import type { ReactNode } from 'react'
 import { MantineProvider } from '@mantine/core'
 import type { AssetProjectionResult, CashFlowProjectionResult, IncomeExpenseProjectionResult } from '@/services/api'
 import type { Ledger } from '@/features/overview/model'
+import { makeLedger } from '../helpers/ledger'
 import {
   mapProjectionBalanceReport,
   mapProjectionCashReport,
@@ -269,16 +270,13 @@ function cashFixture(): CashFlowProjectionResult {
 }
 
 function ledgerFixture(): Ledger {
-  return {
+  return makeLedger({
     accounts: [
       { id: 'a1', name: '现金', kind: 'cash', balance: 1_000_00, categoryId: 'cat-cash' },
       { id: 'a2', name: '投资', kind: 'investment', balance: 3_000_00, categoryId: 'cat-inv' },
       { id: 'a3', name: '信用卡', kind: 'credit', balance: -100_00, categoryId: 'cat-credit' },
     ],
-    categories: [],
-    budgets: [],
-    transactions: [],
-  }
+  })
 }
 
 describe('未来时间轴：三态与上限', () => {

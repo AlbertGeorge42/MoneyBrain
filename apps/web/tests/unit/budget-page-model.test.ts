@@ -11,12 +11,13 @@ import type {
   LedgerBudget,
   LedgerTransaction,
 } from '@/features/overview/model'
+import { makeLedger as makeTestLedger } from '../helpers/ledger'
 
 function makeLedger(
   budgets: LedgerBudget[],
   transactions: LedgerTransaction[] = [],
 ): Ledger {
-  return {
+  return makeTestLedger({
     accounts: [
       { id: 'a', name: '账户 A', kind: 'cash', balance: 0 },
       { id: 'b', name: '账户 B', kind: 'cash', balance: 0 },
@@ -30,7 +31,7 @@ function makeLedger(
     ],
     budgets,
     transactions,
-  }
+  })
 }
 
 function tx(

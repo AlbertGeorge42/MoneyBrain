@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import { updateTransactionInLedger } from '@/features/transactions/ledgerOps'
+import { makeLedger as makeTestLedger } from '../helpers/ledger'
 
 function makeLedger(transactions: LedgerTransaction[]): Ledger {
-  return {
+  return makeTestLedger({
     accounts: [{ id: 'a1', name: '现金', kind: 'cash', balance: 1_000_000 }],
-    categories: [],
-    budgets: [],
     transactions,
-  }
+  })
 }
 
 const adjustment: LedgerTransaction = {

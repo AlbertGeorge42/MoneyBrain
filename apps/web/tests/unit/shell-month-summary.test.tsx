@@ -9,14 +9,14 @@ import { render, screen } from '@testing-library/react'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { AppShell } from '@/features/shell/AppShell'
 import type { Ledger } from '@/features/overview/model'
+import { makeLedger as makeTestLedger } from '../helpers/ledger'
 
 function makeLedger(transactions: Ledger['transactions']): Ledger {
-  return {
+  return makeTestLedger({
     accounts: [{ id: 'a1', name: '钱包', kind: 'cash', balance: 100_000 }],
     categories: [{ id: 'food', name: '餐饮', type: 'expense' }],
-    budgets: [],
     transactions,
-  }
+  })
 }
 
 function renderShell(ledger: Ledger) {
