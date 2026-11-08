@@ -12,6 +12,8 @@ import { useLedger } from '@/features/overview/ledgerStore'
 import { deriveExpenseCharts, getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { Card } from '@/features/shared/Card'
+import { ControlRow } from '@/features/shared/skeleton/ControlRow'
+import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { ToastViewport } from '@/features/shared/toast'
 import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -47,8 +49,11 @@ import {
   type FlowTreeNode,
 } from './reportsModel'
 import {
+  RANGE_STATE_LABEL,
   bucketStartOf,
   clampAsOfPoint,
+  formatPointLabel,
+  formatRangeLabel,
   monthStart,
   pointRangeState,
   presetRange,
@@ -336,20 +341,38 @@ export function ReportsPage({
       reportPageState
     )
 
+  // 页头摘要：区间 + 相对今天的状态，与时间条同一套文案与判定，避免两处口径分叉。
+  const headSub =
+    tab === 'balance'
+      ? `${formatPointLabel(time.point, time.gran, anchor)} · ${
+          RANGE_STATE_LABEL[pointRangeState(time.point, anchor, time.gran)]
+        }`
+      : `${formatRangeLabel(time)} · ${RANGE_STATE_LABEL[rangeState(time.from, time.to, anchor)]}`
+
   const content = (
-    <>
-      <PageHead device={device} tab={tab} onTab={(next) => setTab(next)} />
+    <PageShell
+      head={
+        <PageHead
+          device={device}
+          tab={tab}
+          sub={headSub}
+          onTab={(next) => setTab(next)}
+          onOpenSettings={onSettingsToggle}
+        />
+      }
+    >
       {pageState ?? (
         <>
-          <TimeBar
-            device={device}
-            tab={tab}
-            time={time}
-            today={anchor}
-            onChange={setTime}
-            onToast={notify}
-            onOpenSettings={onSettingsToggle}
-          />
+          <ControlRow>
+            <TimeBar
+              device={device}
+              tab={tab}
+              time={time}
+              today={anchor}
+              onChange={setTime}
+              onToast={notify}
+            />
+          </ControlRow>
           {tab === 'balance' && balanceState === 'past' && balance && (
             <BalanceView
               device={device}
@@ -495,7 +518,7 @@ export function ReportsPage({
           )}
         </>
       )}
-    </>
+    </PageShell>
   )
 
   return (

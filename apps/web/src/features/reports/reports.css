@@ -17,14 +17,26 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-4);
+  /* 窄桌面（768 起）放不下「标题 + 摘要 + 切换 + 设置」时整体换行，
+     不允许挤压标题；断点策略与 820 栅格不动。 */
+  flex-wrap: wrap;
+  row-gap: var(--mb-s-2);
   min-height: var(--mb-s-7);
 }
 
 .mb-rp-page-copy {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
   gap: var(--mb-s-3);
+}
+
+/* 页级动作（视图切换 + 设置）固定在页头右缘，不再占用控件行。 */
+.mb-rp-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-3);
+  margin-left: auto;
 }
 
 .mb-rp-page-title {
@@ -96,7 +108,7 @@
 .mb-rp-time-main {
   display: flex;
   align-items: center;
-  gap: var(--mb-s-2);
+  gap: var(--mb-control-gap);
   flex-wrap: wrap;
 }
 
@@ -153,7 +165,6 @@
   align-items: center;
   gap: 6px;
   height: var(--mb-btn-h-sm);
-  margin-left: auto;
   padding: 0 12px;
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
@@ -1795,7 +1806,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 /* ===== 移动端 ===== */
 
 .mb-rp-page[data-device='mobile'] {
-  gap: var(--mb-s-3);
+  gap: var(--mb-s-4);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-mobile-head {
@@ -1820,7 +1831,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-time-main {
-  gap: 8px;
+  gap: var(--mb-control-gap);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-iconbtn {

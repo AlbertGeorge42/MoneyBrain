@@ -8,7 +8,7 @@
  * 三态判定（已发生 / 混合 / 全未来）由 reportsTime 统一计算，时间条只负责显示；
  * 所有视图共用同一条时间条，不做视图级未来禁用。
  */
-import { ChevronLeft, ChevronRight, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import type { DatePresetOption } from '@/features/shared/datePicker/datePickerModel'
 import { HfButton } from '@/features/shared/HfButton'
@@ -18,6 +18,7 @@ import {
   GRANULARITIES,
   GRANULARITY_LABELS,
   PRESETS,
+  RANGE_STATE_LABEL,
   futureHorizon,
   isFuturePreset,
   pointRangeState,
@@ -46,13 +47,6 @@ interface TimeBarProps {
   today: string
   onChange: (next: ReportTime) => void
   onToast: (message: string) => void
-  onOpenSettings: () => void
-}
-
-const STATE_LABEL: Record<RangeState, string> = {
-  past: '已发生',
-  mixed: '混合区间 · 含未来',
-  future: '全未来',
 }
 
 /** 时点粒度提示：桶末估值，日粒度不额外标注。 */
@@ -91,7 +85,6 @@ export function TimeBar({
   today,
   onChange,
   onToast,
-  onOpenSettings,
 }: TimeBarProps) {
   const isPoint = tab === 'balance'
   const presets = buildPresets(time.gran, isPoint, today)
@@ -202,7 +195,7 @@ export function TimeBar({
           </HfButton>
         </div>
         <span className={`mb-rp-range-state is-${state}`} aria-live="polite">
-          {STATE_LABEL[state]}
+          {RANGE_STATE_LABEL[state]}
         </span>
         <HfSegmented
           variant="granularity"
@@ -211,12 +204,6 @@ export function TimeBar({
           options={GRANULARITIES.map((gran) => ({ id: gran, label: GRANULARITY_LABELS[gran] }))}
           onChange={changeGran}
         />
-        {device === 'desktop' && (
-          <HfButton className="mb-rp-settings-btn" onClick={onOpenSettings}>
-            <Settings size={15} />
-            设置
-          </HfButton>
-        )}
       </div>
     </div>
   )

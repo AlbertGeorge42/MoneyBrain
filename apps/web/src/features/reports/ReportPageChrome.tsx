@@ -3,7 +3,7 @@
  *
  * 只承载布局与文案，不参与任何数据派生；页面与四张报表都从这里取同一份结构。
  */
-import { FolderInput, ScanLine } from 'lucide-react'
+import { FolderInput, ScanLine, Settings } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
@@ -14,11 +14,15 @@ import { REPORT_TABS } from './reportsShared'
 export function PageHead({
   device,
   tab,
+  sub,
   onTab,
+  onOpenSettings,
 }: {
   device: DeviceMode
   tab: ReportTab
+  sub: string
   onTab: (next: ReportTab) => void
+  onOpenSettings: () => void
 }) {
   if (device === 'mobile') {
     return (
@@ -39,14 +43,21 @@ export function PageHead({
     <div className="mb-rp-page-head">
       <div className="mb-rp-page-copy">
         <h1 className="mb-rp-page-title">报表</h1>
+        <p className="mb-page-sub">{sub}</p>
       </div>
-      <HfTabs
-        variant="report"
-        label="报表视图"
-        value={tab}
-        items={REPORT_TABS}
-        onChange={onTab}
-      />
+      <div className="mb-rp-head-actions">
+        <HfTabs
+          variant="report"
+          label="报表视图"
+          value={tab}
+          items={REPORT_TABS}
+          onChange={onTab}
+        />
+        <HfButton className="mb-rp-settings-btn" onClick={onOpenSettings}>
+          <Settings size={15} />
+          设置
+        </HfButton>
+      </div>
     </div>
   )
 }

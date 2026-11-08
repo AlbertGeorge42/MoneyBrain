@@ -25,6 +25,13 @@ export type PresetId =
 /** 区间相对今天的三种状态：已发生 / 混合（跨今天）/ 全未来。 */
 export type RangeState = 'past' | 'mixed' | 'future'
 
+/** 状态的可见文案：时间条徽标与页头副标题共用同一份表述。 */
+export const RANGE_STATE_LABEL: Record<RangeState, string> = {
+  past: '已发生',
+  mixed: '混合区间 · 含未来',
+  future: '全未来',
+}
+
 export interface ReportTime {
   gran: Granularity
   /** 时点锚定日（资产负债） */
