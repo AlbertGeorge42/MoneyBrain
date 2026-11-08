@@ -18,7 +18,7 @@ import {
   incSkipped,
 } from './shared.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
-import { parseDateLocal } from '../../common/index.js'
+import { parseDateLocal, parseOptionalIconKey } from '../../common/index.js'
 import * as accountCategoryRepo from '../../db/repositories/account-category.repository.js'
 import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
 import * as investmentAssetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
@@ -53,6 +53,7 @@ async function importAccountCategories(
                 sort: item.sort ?? existing.sort,
                 isCashEquivalent: item.isCashEquivalent ?? existing.isCashEquivalent,
                 isInvestment: item.isInvestment ?? existing.isInvestment,
+                ...(item.iconKey !== undefined && { iconKey: parseOptionalIconKey(item.iconKey) }),
               },
             },
             tx,
@@ -70,6 +71,7 @@ async function importAccountCategories(
               parentId,
               isCashEquivalent: item.isCashEquivalent ?? false,
               isInvestment: item.isInvestment ?? false,
+              iconKey: parseOptionalIconKey(item.iconKey),
               sort,
             },
           },
@@ -225,6 +227,7 @@ async function importTransactionCategories(
               data: {
                 cashFlowType: item.cashFlowType ?? existing.cashFlowType,
                 sort: item.sort ?? existing.sort,
+                ...(item.iconKey !== undefined && { iconKey: parseOptionalIconKey(item.iconKey) }),
               },
             },
             tx,
@@ -242,6 +245,7 @@ async function importTransactionCategories(
               type: item.type,
               parentId,
               cashFlowType: item.cashFlowType,
+              iconKey: parseOptionalIconKey(item.iconKey),
               sort,
             },
           },

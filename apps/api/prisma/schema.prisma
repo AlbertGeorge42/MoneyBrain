@@ -18,6 +18,7 @@ model AccountCategory {
   children         AccountCategory[]  @relation("AccountCategoryTree")
   isCashEquivalent Boolean            @default(false)
   isInvestment     Boolean            @default(false)
+  iconKey          String? // 受控图标 key（CATEGORY_ICON_KEYS）；null = 前端默认图标
   accounts         Account[]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -59,6 +60,7 @@ model TransactionCategory {
   name         String
   type         String              // 'income' | 'expense' | 'transfer'
   cashFlowType String?
+  iconKey      String?             // 受控图标 key（CATEGORY_ICON_KEYS）；null = 按名称映射
   parentId     String?
   sort         Int                 @default(0)
   parent       TransactionCategory?  @relation("TransactionCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)

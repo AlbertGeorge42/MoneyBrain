@@ -6,6 +6,10 @@ import {
   type LocalDate,
   type Minor,
 } from '../../../../packages/domain/src/index.js'
+import {
+  CATEGORY_ICON_KEYS,
+  isCategoryIconKey,
+} from '../../../../packages/contracts/constants.js'
 import { ValidationError } from './error.js'
 import { hasValue } from './utils.js'
 
@@ -40,6 +44,21 @@ export const parseOptionalUuid = (value: unknown, fieldName = 'id'): string | un
   if (value === undefined || value === null || value === '') return undefined
   if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
     throw new ValidationError(`${fieldName}必须是 UUID`)
+  }
+  return value
+}
+
+/**
+ * 可选的分类图标 key。
+ * - 缺省：不修改（更新场景）
+ * - null / 空串：清空，回退到按名称映射
+ * - 其他：必须命中受控枚举，否则明确报错，绝不静默落库
+ */
+export const parseOptionalIconKey = (value: unknown): string | null | undefined => {
+  if (value === undefined) return undefined
+  if (value === null || value === '') return null
+  if (!isCategoryIconKey(value)) {
+    throw new ValidationError(`图标只支持以下取值：${CATEGORY_ICON_KEYS.join('、')}`)
   }
   return value
 }

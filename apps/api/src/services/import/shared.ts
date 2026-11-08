@@ -232,6 +232,8 @@ export interface ImportAccountCategory {
   sort: number
   isCashEquivalent?: boolean
   isInvestment?: boolean
+  /** 受控图标 key；旧备份缺省时保持原值 / 默认图标。 */
+  iconKey?: string | null
   children?: ImportAccountCategory[]
 }
 
@@ -248,6 +250,8 @@ export interface ImportTransactionCategory {
   name: string
   type: string
   cashFlowType?: string
+  /** 受控图标 key；旧备份缺省时保持原值 / 按名称映射。 */
+  iconKey?: string | null
   sort: number
   children?: ImportTransactionCategory[]
 }

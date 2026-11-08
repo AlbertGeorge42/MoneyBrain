@@ -23,7 +23,7 @@ interface ConfigBackupData {
   }
 }
 
-function serializeAccountCategory(category: { name: string; type: string; sort: number; isCashEquivalent: boolean; isInvestment: boolean; children: unknown[] }): ImportAccountCategory {
+function serializeAccountCategory(category: { name: string; type: string; sort: number; isCashEquivalent: boolean; isInvestment: boolean; iconKey?: string | null; children: unknown[] }): ImportAccountCategory {
   const result: ImportAccountCategory = {
     name: category.name,
     type: category.type,
@@ -31,6 +31,8 @@ function serializeAccountCategory(category: { name: string; type: string; sort: 
     isCashEquivalent: category.isCashEquivalent,
     isInvestment: category.isInvestment,
   }
+  // 旧账本 iconKey 为 null：不写进备份，保持导出格式向后兼容。
+  if (category.iconKey) result.iconKey = category.iconKey
   if (category.children.length > 0) {
     result.children = category.children.map((child) =>
       serializeAccountCategory(child as Parameters<typeof serializeAccountCategory>[0])
@@ -39,13 +41,14 @@ function serializeAccountCategory(category: { name: string; type: string; sort: 
   return result
 }
 
-function serializeTransactionCategory(category: { name: string; type: string; cashFlowType?: string; sort: number; children: unknown[] }): ImportTransactionCategory {
+function serializeTransactionCategory(category: { name: string; type: string; cashFlowType?: string; iconKey?: string | null; sort: number; children: unknown[] }): ImportTransactionCategory {
   const result: ImportTransactionCategory = {
     name: category.name,
     type: category.type,
     cashFlowType: category.cashFlowType,
     sort: category.sort,
   }
+  if (category.iconKey) result.iconKey = category.iconKey
   if (category.children.length > 0) {
     result.children = category.children.map((child) =>
       serializeTransactionCategory(child as Parameters<typeof serializeTransactionCategory>[0])

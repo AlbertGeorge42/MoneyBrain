@@ -8,6 +8,7 @@ import {
   validateBatchSort,
   hasValue,
   parseOptionalUuid,
+  parseOptionalIconKey,
 } from '../common/index.js'
 import {
   createTransactionCategory,
@@ -30,13 +31,15 @@ const validateCategoryPayload = (req: Request) => {
     throw new ValidationError('父分类不能是自己')
   }
   parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
+  parseOptionalIconKey((req.body as Record<string, unknown>).iconKey)
 }
 
 const validateCategoryUpdatePayload = (req: Request) => {
   validateIdParam(req)
 
-  const { name, type, parentId, cashFlowType, sort } = req.body as Record<string, unknown>
-  const hasUpdatableField = [name, type, parentId, cashFlowType, sort].some(value => value !== undefined)
+  const { name, type, parentId, cashFlowType, iconKey, sort } = req.body as Record<string, unknown>
+  const hasUpdatableField = [name, type, parentId, cashFlowType, iconKey, sort].some(value => value !== undefined)
+  parseOptionalIconKey(iconKey)
 
   if (!hasUpdatableField) {
     throw new ValidationError('至少提供一个需要更新的字段')

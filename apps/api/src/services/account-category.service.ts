@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError } from '../common/index.js'
+import { NotFoundError, ValidationError, parseOptionalIconKey } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
 import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
@@ -21,6 +21,7 @@ export async function createAccountCategory(data: {
   parentId?: string | null
   isCashEquivalent?: boolean
   isInvestment?: boolean
+  iconKey?: string | null
   sort?: number
 }) {
   const finalSort = data.sort ?? await getNextSort('accountCategory', { type: data.type })
@@ -33,6 +34,7 @@ export async function createAccountCategory(data: {
       parentId: data.parentId || null,
       isCashEquivalent: data.isCashEquivalent ?? false,
       isInvestment: data.isInvestment ?? false,
+      iconKey: parseOptionalIconKey(data.iconKey),
       sort: finalSort,
     },
   })
@@ -46,6 +48,7 @@ export async function updateAccountCategory(
     parentId?: string | null
     isCashEquivalent?: boolean
     isInvestment?: boolean
+    iconKey?: string | null
     sort?: number
   }
 ) {
@@ -57,6 +60,7 @@ export async function updateAccountCategory(
       ...(data.parentId !== undefined && { parentId: data.parentId }),
       ...(data.isCashEquivalent !== undefined && { isCashEquivalent: data.isCashEquivalent }),
       ...(data.isInvestment !== undefined && { isInvestment: data.isInvestment }),
+      ...(data.iconKey !== undefined && { iconKey: parseOptionalIconKey(data.iconKey) }),
       ...(data.sort !== undefined && { sort: data.sort }),
     },
   })

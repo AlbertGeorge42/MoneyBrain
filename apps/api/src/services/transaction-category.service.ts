@@ -1,5 +1,5 @@
 import { withTransaction } from '../db/transaction.js'
-import { NotFoundError, ValidationError } from '../common/index.js'
+import { NotFoundError, ValidationError, parseOptionalIconKey } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
 import * as budgetRepo from '../db/repositories/budget.repository.js'
@@ -12,6 +12,7 @@ type TransactionCategoryCreatePayload = {
   type: string
   parentId?: string | null
   cashFlowType?: string | null
+  iconKey?: string | null
   sort?: number | null
 }
 
@@ -20,6 +21,7 @@ type TransactionCategoryUpdatePayload = {
   type?: string
   parentId?: string | null
   cashFlowType?: string | null
+  iconKey?: string | null
   sort?: number | null
 }
 
@@ -74,6 +76,7 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
       type: data.type,
       parentId: data.parentId || null,
       cashFlowType: data.cashFlowType,
+      iconKey: parseOptionalIconKey(data.iconKey),
       sort: finalSort,
     },
   })
@@ -110,6 +113,7 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
     type?: string
     parentId?: string | null
     cashFlowType?: string | null
+    iconKey?: string | null
     sort?: number
   } = {}
 
@@ -124,6 +128,9 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
   }
   if (data.cashFlowType !== undefined) {
     updateData.cashFlowType = data.cashFlowType
+  }
+  if (data.iconKey !== undefined) {
+    updateData.iconKey = parseOptionalIconKey(data.iconKey)
   }
   if (data.sort !== undefined && data.sort !== null) {
     updateData.sort = data.sort

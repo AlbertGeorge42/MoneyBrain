@@ -31,6 +31,8 @@ describe('设置页账户 / 分类真实读写', () => {
       .catch(() => {})
     // 清掉上一轮遗留：接口新建的「临时分类」与移动过的二级分类父级。
     await prisma.transactionCategory.deleteMany({ where: { name: '临时分类' } })
+    await prisma.transactionCategory.deleteMany({ where: { name: '图标分类测试' } })
+    await prisma.accountCategory.deleteMany({ where: { name: '临时账户分类' } })
     await prisma.transactionCategory.updateMany({
       where: { id: moveChildId },
       data: { parentId: null },
@@ -151,6 +153,54 @@ describe('设置页账户 / 分类真实读写', () => {
     expect(undo.status).toBe(200)
     const restored = await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
     expect(restored?.name).toBe('临时分类')
+  })
+
+  it('分类图标 iconKey 受控：合法值落库、空值清空、非法值 400 且不落库', async () => {
+    const created = await request(app)
+      .post('/api/transaction-categories')
+      .send({ name: '图标分类测试', type: 'expense', iconKey: 'food' })
+    expect(created.status).toBe(201)
+    expect(created.body.data.iconKey).toBe('food')
+    const categoryId = created.body.data.id
+
+    const updated = await request(app)
+      .put(`/api/transaction-categories/${categoryId}`)
+      .send({ iconKey: 'salary' })
+    expect(updated.status).toBe(200)
+    expect(updated.body.data.iconKey).toBe('salary')
+
+    const cleared = await request(app)
+      .put(`/api/transaction-categories/${categoryId}`)
+      .send({ iconKey: null })
+    expect(cleared.status).toBe(200)
+    expect(cleared.body.data.iconKey).toBeNull()
+
+    const invalid = await request(app)
+      .put(`/api/transaction-categories/${categoryId}`)
+      .send({ iconKey: 'rocket' })
+    expect(invalid.status).toBe(400)
+    expect(invalid.body.error.message).toContain('food')
+
+    const persisted = await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
+    expect(persisted?.iconKey).toBeNull()
+  })
+
+  it('账户分类图标 iconKey 受控：合法值落库、非法值 400 且不落库', async () => {
+    const created = await request(app)
+      .post('/api/account-categories')
+      .send({ name: '临时账户分类', type: 'asset', iconKey: 'inv' })
+    expect(created.status).toBe(201)
+    expect(created.body.data.iconKey).toBe('inv')
+    const categoryId = created.body.data.id
+
+    const invalid = await request(app)
+      .put(`/api/account-categories/${categoryId}`)
+      .send({ iconKey: 'rocket' })
+    expect(invalid.status).toBe(400)
+    expect(invalid.body.error.message).toContain('food')
+
+    const persisted = await prisma.accountCategory.findUnique({ where: { id: categoryId } })
+    expect(persisted?.iconKey).toBe('inv')
   })
 
   it('分类带交易时转移后删除；撤销恢复分类与原归属', async () => {

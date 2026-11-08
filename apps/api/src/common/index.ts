@@ -26,6 +26,7 @@ export {
   parseMoney,
   validateIdParam,
   parseOptionalUuid,
+  parseOptionalIconKey,
   validateBatchSort,
   validateDateRange,
   validateDateQuery,

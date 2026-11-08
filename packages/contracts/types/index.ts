@@ -76,6 +76,8 @@ export interface AccountCategory {
   children: AccountCategory[]
   isCashEquivalent: boolean
   isInvestment: boolean
+  /** 受控图标 key（见 CATEGORY_ICON_KEYS）；null = 使用前端默认图标。 */
+  iconKey: string | null
   createdAt: string
   updatedAt: string
 }
@@ -144,6 +146,8 @@ export interface TransactionCategory {
   parent: TransactionCategory | null
   children: TransactionCategory[]
   cashFlowType: 'operating' | 'investing' | 'financing' | null
+  /** 受控图标 key（见 CATEGORY_ICON_KEYS）；null = 回退到按名称映射。 */
+  iconKey: string | null
   createdAt: string
   updatedAt: string
 }

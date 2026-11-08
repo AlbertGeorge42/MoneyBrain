@@ -57,3 +57,30 @@ export const ROLLBACK_CONFIRM = {
 } as const
 
 export type RollbackConfirmTarget = keyof typeof ROLLBACK_CONFIRM
+
+// ===== 分类图标（受控枚举） =====
+//
+// 只有注册表内的 key 才能落库；空 / null 表示回退到按分类名映射的既有图标。
+// 图标组件与名称映射都在前端注册表里维护，这里只收口「允许写哪些值」。
+
+export const CATEGORY_ICON_KEYS = [
+  'food',
+  'traffic',
+  'home',
+  'shop',
+  'fun',
+  'health',
+  'edu',
+  'other',
+  'salary',
+  'inv',
+  'gift',
+  'refund',
+  'move',
+] as const
+
+export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number]
+
+export function isCategoryIconKey(value: unknown): value is CategoryIconKey {
+  return typeof value === 'string' && (CATEGORY_ICON_KEYS as readonly string[]).includes(value)
+}
