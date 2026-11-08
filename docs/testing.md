@@ -73,6 +73,9 @@ cd apps/web && npx vitest run tests/unit/components/ErrorBoundary.test.tsx
 - 备份后必须校验：`PRAGMA integrity_check`、账户/流水/平帐条数、指定日末净资产，并对比现库与备份的流水行摘要（`id|type|amount|date|accountId|...` 排序后 SHA256）。四项数字全等、行摘要相同才算备份可用。
 - `dev.db-wal` 非空即说明主文件落后。WAL 帧数 = `(文件大小 − 32) / (24 + page_size)`；帧头 `dbsize != 0` 表示该帧有提交。主文件头 `page_count` 小于 WAL 最后提交的 `dbsize` 时，差值就是尚未 checkpoint 的页数。
 - checkpoint（`PRAGMA wal_checkpoint(TRUNCATE)`）必须在停服窗口做：停掉全部持有连接的 API 进程（`src/index.ts` 的 tsx watch 链），确认无连接后执行；返回 `(busy=0, log, checkpointed)` 且 `dev.db-wal` 归零为成功。执行前后核对条数与日末净资产，数字不变再重启服务。
+- **实证（2026-11-08）：** checkpoint 后主文件头 `page_count` 从 414 → 418，正好等于 checkpoint 前 WAL 最后提交声明的 `dbsize`（418）；`dev.db-wal` 从 626,272 B 归零并删除。`page_count` 是否追上 `dbsize` 才是「确实写回了」的硬指标，不能只看 `integrity_check = ok`。
+- **实证（2026-11-08）：** 端口空着不代表进程停了——3001/3002 无监听时仍有 3 条 `dev:api` 链在运行。必须按 PID 树复核 `with-database-url` / `tsx watch` / `src/index.ts` 并用 `taskkill /PID <顶层PID> /T /F` 清掉，才算真正停服。
+- **实证（2026-11-08）：** VACUUM 备份连接正常关闭会先自动 checkpoint（本次备份完成后 `page_count` 已是 418、WAL 归零）；随后显式 `PRAGMA wal_checkpoint(TRUNCATE)` 返回 `(0, 0, 0)` 属正常，不代表没写回。
 - 恢复同理：停服 → 移走 `dev.db-wal` / `dev.db-shm` → 用备份替换 `dev.db` → 校验 → 启动。**存在 `-wal` 时直接覆盖主文件，会让 WAL 与主文件错配。**
 - `*db.vacuum-*`、预算/数据清理清单等含真实账目的快照放 `apps/api/prisma/rollback-points/`（已 gitignore，绝不入库）。
 
