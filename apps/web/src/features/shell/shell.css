@@ -211,6 +211,71 @@
   padding: var(--mb-page-pad);
 }
 
+/* ===== 窄桌面（768–1023）：侧栏收为 64px 图标轨 =====
+   完整侧栏在 768 会把内容可用宽压到 476；图标轨把它拉回 648，且不改断点。
+   标签仍留在 DOM 里，悬停 / 聚焦时以 tooltip 呈现；不做悬停自动展开。 */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .mb-desktop-shell {
+    grid-template-columns: var(--mb-sidebar-w-rail) minmax(0, 1fr);
+  }
+
+  .mb-sidebar {
+    /* tooltip 要越过内容区绘制：侧栏抬高到 dock 层，并把内距收到图标轨可用的 8。 */
+    z-index: var(--mb-z-dock);
+    padding-inline: var(--mb-s-2);
+  }
+
+  .mb-brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .mb-brand-copy,
+  .mb-kbd,
+  .mb-side-foot {
+    display: none;
+  }
+
+  .mb-side-nav-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  /* 标签本身就是 tooltip：绝对定位到轨道右侧，不额外造一份文案。 */
+  .mb-side-nav-item > span {
+    position: absolute;
+    left: calc(100% + var(--mb-s-2));
+    top: 50%;
+    transform: translateY(-50%);
+    padding: var(--mb-s-1) var(--mb-s-2);
+    border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+    border-radius: var(--mb-radius-xs);
+    background: var(--mb-color-surface-raised);
+    box-shadow: var(--mb-sh-1);
+    color: var(--mb-color-text-primary);
+    font-size: var(--mb-fs-2);
+    font-weight: 500;
+    line-height: var(--mb-lh-tight);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--mb-dur-1) var(--mb-ease);
+  }
+
+  .mb-side-nav-item:hover > span,
+  .mb-side-nav-item:focus-visible > span {
+    opacity: 1;
+  }
+
+  /* 记一笔按钮经 portal 挂到 body，无法用 .mb-sidebar 限定作用域。 */
+  .mb-side-add {
+    left: var(--mb-s-2);
+    width: calc(var(--mb-sidebar-w-rail) - var(--mb-s-2) * 2);
+    gap: 0;
+    font-size: 0;
+  }
+}
+
 /* ===== 移动应用壳 ===== */
 
 .mb-mobile-shell {

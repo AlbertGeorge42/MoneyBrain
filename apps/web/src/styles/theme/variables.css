@@ -100,6 +100,8 @@
 
   /* 布局 */
   --mb-sidebar-w: 236px;
+  /* 768–1023 窄桌面把侧栏收成图标轨：只留图标，标签走 tooltip */
+  --mb-sidebar-w-rail: 64px;
   --mb-content-max: 1120px;
   --mb-mobile-w: 390px;
   --mb-mobile-h: 844px;
