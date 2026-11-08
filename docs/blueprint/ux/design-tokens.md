@@ -395,7 +395,7 @@ color-mix(in srgb, 父色 calc(var(--mb-chart-sub-from) + (var(--mb-chart-sub-to
 
 | Token | 值 | 用途 | 典型选择器 |
 |---|---|---|---|
-| `--mb-btn-h-xs` | 28px | 表格折叠、微型图标按钮 | `.mb-rp-fold`、`.mb-set-fold`、`.mb-tx-excluded-toggle` |
+| `--mb-btn-h-xs` | 28px | 表格折叠、微型图标按钮 | `.mb-rp-fold`、`.mb-set-fold` |
 | `--mb-btn-h-sm` | 32px | tab、图标按钮、分段按钮、日期格 | `.mb-rp-tab`、`.mb-rp-iconbtn`、`.mb-bg-seg-btn`、`.mb-dp-day` |
 | `--mb-btn-h-md` | 38px | **默认**：主 / 次按钮、菜单项、工具栏按钮 | `.mb-primary-btn`、`.mb-rp-btn`、`.mb-set-btn`、`.mb-tx-btn` |
 | `--mb-btn-h-lg` | 44px | 主操作、移动端触控、整行选择项 | `.mb-rp-seg-btn`、`.mb-set-back`、`.mb-tx-cat-option` |

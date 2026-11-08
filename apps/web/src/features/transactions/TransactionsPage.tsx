@@ -585,6 +585,9 @@ export function TransactionsPage({
           ledger={ledger}
           value={advanced}
           onChange={setAdvanced}
+          includeExcluded={includeExcluded}
+          excludedCount={excludedCount}
+          onIncludeExcludedChange={() => setIncludeExcluded((current) => !current)}
           onReset={() => setAdvanced(EMPTY_ADVANCED)}
           onClose={() => setAdvancedOpen(false)}
         />
@@ -606,6 +609,9 @@ export function TransactionsPage({
         ledger={ledger}
         value={advanced}
         onChange={setAdvanced}
+        includeExcluded={includeExcluded}
+        excludedCount={excludedCount}
+        onIncludeExcludedChange={() => setIncludeExcluded((current) => !current)}
         onReset={() => setAdvanced(EMPTY_ADVANCED)}
         onClose={() => setAdvancedOpen(false)}
       />
@@ -656,8 +662,6 @@ export function TransactionsPage({
           display={display}
           selected={selected}
           includeExcluded={includeExcluded}
-          excludedCount={excludedCount}
-          onToggleExcluded={() => setIncludeExcluded((current) => !current)}
           onToggle={toggleSelected}
           onOpenDetail={setDetailId}
           onOpenRelated={handleOpenRelated}
