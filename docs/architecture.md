@@ -1,6 +1,6 @@
 # MoneyBrain 架构（当前实现）
 
-> 本文回答**现在代码是怎么组织的**。目标态与待办见 [rewrite-blueprint.md](rewrite-blueprint.md)，编码约定见 [dev-guide.md](dev-guide.md)。
+> 本文回答**现在代码是怎么组织的**。待办与目标态见 [roadmap.md](roadmap.md)，编码约定见 [dev-guide.md](dev-guide.md)，账务口径见 [requirements.md](requirements.md)。
 > 本文只描述**已落地**的事实；不写计划，不写历史。
 
 ## 1. 分层总览
@@ -53,7 +53,7 @@ refund      支出退款 账户 +amount；收入退款 账户 −amount
 adjustment  账户 +amount      权益 −amount
 ```
 
-记账不变量（6 条）及其测试覆盖情况见 [rewrite-blueprint.md](rewrite-blueprint.md) §4 与 [testing.md](testing.md) §5.1。
+设计不变量（12 条）的定义见 [requirements.md](requirements.md) §3.8，测试覆盖见 [testing.md](testing.md) §5.1 / §5.3。
 
 > 领域层与后端之间的适配在 `apps/api/src/services/ledger.adapter.ts`（Prisma `BigInt` 分 ↔ 领域类型）。
 
@@ -92,7 +92,7 @@ adjustment  账户 +amount      权益 −amount
 `ledgerId` / `deviceId`（容器 AAD 用 `formatVersion|ledgerId`）；`db/sync-version.ts`
 在写入时递增 `rev` 并刷新 `vv`；输的一版落 `sync_conflicts` 表。
 
-**未落地**：传输适配、同步端点与跨设备搬运（G-A 起）；容器本身已完成（F-C，`3f3de80`）。
+**未落地**：传输适配、同步端点与跨设备搬运，见 [roadmap.md](roadmap.md) §3 的 G 批。
 
 ## 3. 后端模块（apps/api/src）
 
@@ -125,7 +125,7 @@ features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
 | `features/transactions/` | 流水、详情、批量、回收站；`apiTransactions.ts` |
 | `features/reports/` | 四张报表、图表、下钻；`apiReports.ts` |
 | `features/budgets/` | 预算列表/编辑、状态、推演；`budgetModel.ts` |
-| `features/settings/` | 7 分区设置、导入导出、账户/分类、自动备份、回收站 |
+| `features/settings/` | 8 分区设置、导入导出、账户/分类、自动备份、回收站 |
 | `features/shell/` | 桌面侧栏 / 移动底栏与浮层宿主 |
 | `features/shared/` | HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、Card、toast、StateViews、chartLayout |
 | `services/api.ts` | Axios 实例 + 响应拦截器（统一归一化错误） |
@@ -187,18 +187,31 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 - 错误码只有 `packages/contracts` 里的 `ApiErrorCode` 几种，前后端共用。
 - 未匹配的 `/api/*` 路径也返回同一信封（`NOT_FOUND`），不返回 HTML。
 
-## 7. 已知技术债
+## 7. 对账与自检
 
-本文不再维护技术债清单：已完成条目见 [blueprint/PROGRESS.md](blueprint/PROGRESS.md)，未完成条目只在所属阶段文档的差距清单里定义。本文只记录**跨模块的现状事实**。
-
-**对账与自检**：
+本文不维护技术债清单，只记录跨模块的现状事实；待办见 [roadmap.md](roadmap.md) §3 与 §7。
 
 - 收入支出表 API 返回 `reconciliation`（期初 + 净收入 − 净支出 + 其他 = 期末，差额应为 0）；
-  前端不常驻对账条，差异以角标说明（[interaction-spec §5.6](blueprint/ux/interaction-spec.md)）。
+  前端不常驻对账条，差异以角标说明（[ui-design.md](ui-design.md) §3.2）。
 - `npm run db:verify` 用同一套规则离线复核整本账；`npm run db:drill` 验证备份能还原出同样的余额。
 
 ## 8. 端口与运行
 
-- 后端 `3001`，前端 `3002`（Vite 代理 `/api` → `127.0.0.1:3001`）。
+- 后端 `3001`，前端 `3002`（Vite 代理 `/api` → `127.0.0.1:3001`）；生产预览 `vite preview` 用 `4173`。
 - API 默认只监听 `127.0.0.1`；需要局域网访问时显式设置 `HOST=0.0.0.0`，并用 `CORS_ORIGINS` 配置允许来源（逗号分隔）。
 - 根目录 `npm run build` 由 `scripts/build.mjs` 串行构建；在 Windows 上把 `TEMP`/`TMP` 指向仓库内临时目录，避开 esbuild 清理系统临时目录的权限问题。
+
+## 9. 桌面端（Electron）
+
+`apps/desktop/` 是唯一的桌面打包链路，与 `apps/api` / `apps/web` 解耦、不参与 `npm run dev`：
+
+| 位置 | 职责 |
+|---|---|
+| `src/main.cjs` | `BrowserWindow` 主进程；空闲随机端口 + `ELECTRON_RUN_AS_NODE` 子进程启动 API；`WEB_DIST` 让 API 同端口托管前端产物；`requestSingleInstanceLock()` 保证单实例；`before-quit` 停 API |
+| `electron-builder.yml` | `nsis` 安装包 + `portable` 免安装目录；配置卸载不删账本 |
+| `scripts/stage-app.mjs` / `after-pack.cjs` | 暂存应用目录 / 打包后补齐运行所需文件 |
+
+- 账本固定在 `app.getPath('userData')/data/moneybrain.db`，启动时执行 `prisma migrate deploy` 幂等迁移；**不读取仓库里的 `apps/api/prisma/dev.db`**。
+- 未知 `/api/*` 路径仍由 `apps/api/src/index.ts` 的 `notFoundHandler` 返回 JSON 信封，不返回 HTML。
+- 旧 `scripts/desktop.mjs`（Edge `--app`、固定 3001/4173、9333 调试端口与临时 profile 锁）只作开发态快捷入口，与 Electron 链路并存但不是一个东西。
+- 代码签名、自动更新、安装包真机分发验收未做，见 [roadmap.md](roadmap.md) §7。

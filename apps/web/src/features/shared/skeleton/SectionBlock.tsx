@@ -10,7 +10,7 @@ interface SectionBlockProps {
 
 /**
  * 分区：分区标题与内容的间距。
- * 标题字号、间距与卡片内距见 docs/blueprint/ux/page-skeleton.md §2.4。
+ * 标题字号、间距与卡片内距见 docs/ui-design.md §2.5。
  */
 export function SectionBlock({ title, actions, children }: SectionBlockProps) {
   return (

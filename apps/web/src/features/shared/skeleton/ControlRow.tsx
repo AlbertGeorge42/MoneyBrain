@@ -10,7 +10,7 @@ interface ControlRowProps {
  *
  * 本次迁移保持零视觉差异：display:contents 让内部的传统控件元素
  * 直接参与内容容器排布；控件白名单与各宽度数值见
- * docs/blueprint/ux/page-skeleton.md。
+ * docs/ui-design.md §2.5。
  */
 export function ControlRow({ children }: ControlRowProps) {
   return (

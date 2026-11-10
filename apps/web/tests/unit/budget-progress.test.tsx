@@ -118,25 +118,19 @@ describe('进度条口径与 token 落地', () => {
   // vitest 的工作目录是 apps/web，仓库根在上两级。
   const repoRoot = path.resolve(process.cwd(), '../..')
   const read = (relative: string) => fs.readFileSync(path.join(repoRoot, relative), 'utf8')
-  const tokensDoc = read('docs/blueprint/ux/design-tokens.md')
-  const specDoc = read('docs/blueprint/ux/interaction-spec.md')
+  const uiDoc = read('docs/ui-design.md')
   const themeVars = read('apps/web/src/styles/theme/hf-theme.ts')
   const progressCss = read('apps/web/src/features/shared/budgetProgress.css')
 
-  it('§2.7 与 §6.2 不再残留「对轨道 ≥3:1」旧口径', () => {
-    const tokenSection = tokensDoc.slice(tokensDoc.indexOf('### 2.7'), tokensDoc.indexOf('### 2.8'))
-    const specSection = specDoc.slice(specDoc.indexOf('## 6. 预算'), specDoc.indexOf('## 7.'))
-    expect(tokenSection.length).toBeGreaterThan(100)
-    expect(specSection.length).toBeGreaterThan(100)
-    expect(tokenSection).not.toContain('≥3:1')
-    expect(specSection).not.toContain('≥3:1')
+  it('进度条口径不再残留「对轨道 ≥3:1」旧说法', () => {
+    expect(uiDoc).toContain('### 2.3 进度条（面 / 字分离）')
+    expect(uiDoc).not.toContain('≥3:1')
   })
 
   it('新口径与 neutral / track token 写进文档', () => {
-    expect(tokensDoc).toContain('≥1.6 明度比且 ΔE00 ≥20')
-    expect(tokensDoc).toContain('--mb-progress-neutral')
-    expect(tokensDoc).toContain('--mb-progress-track')
-    expect(specDoc).toContain('--mb-progress-neutral')
+    expect(uiDoc).toContain('≥1.6 明度比且 ΔE00 ≥20')
+    expect(uiDoc).toContain('--mb-progress-neutral')
+    expect(uiDoc).toContain('--mb-progress-track')
   })
 
   it('轨道不再借用 border-strong，超支用 max() 取 6px 保底', () => {

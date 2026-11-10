@@ -13,7 +13,7 @@ interface PageShellProps {
  * 页面骨架：页头 / 控件行 / 内容三段。
  *
  * 迁移期用 display:contents 让三段直接参与内容容器的 flex 排布，
- * 保证与旧 DOM 零视觉差异；槽位与数值见 docs/blueprint/ux/page-skeleton.md。
+ * 保证与旧 DOM 零视觉差异；槽位与数值见 docs/ui-design.md §2.5。
  */
 export function PageShell({ head, controls, children }: PageShellProps) {
   return (

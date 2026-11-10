@@ -1,4 +1,4 @@
-/* 页面骨架原语：槽位与数值见 docs/blueprint/ux/page-skeleton.md。
+/* 页面骨架原语：槽位与数值见 docs/ui-design.md §2.5。
    迁移期两个容器保持 display:contents，让旧控件元素继续参与内容容器的排布，
    从而与旧 DOM 零视觉差异；数值本身由各页面现有 CSS 承担。 */
 

@@ -20,7 +20,7 @@ import type {
 
 const expenseNames = ['餐饮', '居住', '购物', '交通', '娱乐', '医疗', '教育']
 
-/** 真实账本的 9 个支出一级分类（docs/blueprint/excel-parity.md）。 */
+/** 真实账本的 9 个支出一级分类（见 data/qianji/README.md 的导出批次说明）。 */
 const REAL_EXPENSE_ROOTS = ['餐饮', '服饰', '交通', '生活', '恋爱', '消费', '娱乐', '送礼', '其他']
 
 const EMPTY_SUMMARY: OverviewSummary = {

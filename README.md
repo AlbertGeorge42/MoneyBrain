@@ -1,13 +1,11 @@
 # MoneyBrain
 
-个人记账软件。本地 SQLite、单用户、数据不出本机。
-前端 React + Vite，后端 Express + Prisma，金额计算收敛到一个纯 TypeScript 领域内核。
+个人记账软件。本地 SQLite、单用户、数据不出本机。前端 React + Vite，后端 Express + Prisma，金额计算收敛到纯 TypeScript 领域内核 `packages/domain`。
 
 **核心约束：同一笔钱只允许有一套算法。** 余额、收支表、现金流量表、预算、投资分析最终都是同一组分录的投影，因此不会出现「首页和报表数字对不上」。
 
-> **现状（2026-11-07）**：前端已按高保真设计重建并完成精简（旧 AntD 页面、`pages/`、`queries/` 全部删除），生产入口只有 `app/design/DesignApp.tsx`。余额、收支、预算、退款与投资本金的金额规则都在 `packages/domain`；报表与投资分析只组装领域结果。剩余工作见 [docs/blueprint/PROGRESS.md](docs/blueprint/PROGRESS.md)「待领」（前端仅 L1–L3、U12、K8）。
-
-> **本文是唯一入口。** 无论你是人还是 AI 协作者，都从这份文档开始：先看「文档索引」确定该读哪一篇，再按「动手前」清单准备。
+> **本文是唯一入口。** 人和 AI 协作者都从这里开始：先看「文档索引」确定该读哪一篇，再按「动手前」清单准备。
+> 当前形态（2026-11-10）：PC 端已按高保真设计重建并精简，生产入口只有 `apps/web/src/app/design/DesignApp.tsx`；桌面端有 Electron 壳与 Windows 安装包链路。剩余工作见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 快速开始
 
@@ -16,71 +14,44 @@ npm install     # 安装全部 workspace（postinstall 会自动 prisma generate
 npm run dev     # 前后端一起启动：API :3001，前端 :3002
 ```
 
-打开 http://localhost:3002 即可。首次使用请先在「设置 → 配置中心 → 账户分类 / 账户」创建账户，再到「流水」记第一笔。
+打开 http://localhost:3002。首次使用先在「设置 → 账户分类 / 账户」创建账户，再到「流水」记第一笔。
 
-> **数据库连接串必须显式提供**：`schema.prisma` 的 datasource 使用 `env("DATABASE_URL")`，
-> 不再有 `file:./dev.db` 默认值。`npm run dev` 与各 db 脚本会经
-> `scripts/with-database-url.mjs` 显式注入默认开发库 `apps/api/prisma/dev.db` 的**绝对路径**，
-> 启动日志会打印当前库路径与流水总笔数。
->
-> 绕过 npm 直接启动 API 或脚本时，未设置 `DATABASE_URL` 会直接报错退出，不会静默连接 dev.db。
-> 要指向别的库（备份副本 / 临时库）时显式传入：
->
-> ```powershell
-> $env:DATABASE_URL='file:C:/path/to/ledger.db'; npm run dev
-> ```
->
-> 不要为了「让页面有数据」直接往 `apps/api/prisma/dev.db` 写测试数据；脚本要写真实库必须传
-> `--allow-real`（会先自动整份备份并打印 SHA256）。
+**数据库连接串必须显式提供**：`schema.prisma` 的 datasource 用 `env("DATABASE_URL")`，没有默认值。
+`npm run dev` 与各 db 脚本经 `scripts/with-database-url.mjs` 注入默认开发库 `apps/api/prisma/dev.db` 的绝对路径，启动日志会打印当前库路径与流水总笔数。绕过 npm 直接启动 API / 脚本时，未设置 `DATABASE_URL` 会直接报错退出，不会静默连 dev.db。要指向别的库：
 
-生产构建：
-
-```bash
-npm run build   # 构建 web + api
-npm start       # 预览构建产物
+```powershell
+$env:DATABASE_URL='file:C:/path/to/ledger.db'; npm run dev
 ```
+
+不要为了「让页面有数据」直接往 `dev.db` 写测试数据；脚本要写真实库必须传 `--allow-real`（会先自动整份备份并打印 SHA256）。
 
 ## 命令
 
 | 命令 | 说明 |
 |---|---|
-| `npm run dev` | 前后端一起启动 |
-| `npm run dev:api` / `npm run dev:web` | 单独启动 |
-| `npm run build` | 构建 web + api |
-| `npm run desktop` / `desktop:open` | 启动桌面窗口（缺失产物自动构建、缺失库自动迁移） |
-| `npm run desktop:build` | 强制重新构建后启动桌面窗口 |
-| `npm run lint` | lint api + web |
-| `npm run typecheck` | domain + api + web |
-| `npm test` | domain + api + web 测试 |
-| `npm run test:e2e` | Playwright（每次运行在 `%TEMP%\moneybrain-e2e-<PID>` 建独占临时库，不读写 `dev.db`；3001/3002 不复用已有服务，端口被占时明确报错） |
-| `npm run db:migrate` | 改 schema 后生成并应用版本化迁移（SQL 进仓库） |
-| `npm run db:status` | 查看当前库与迁移的差异 |
-| `npm run db:verify` | 数据自检：重算净资产恒等式、转账与退款，报告不一致项 |
-| `npm run db:drill` | 恢复演练：导出 → 导入临时库 → 对比余额（备份可信度自检） |
+| `npm run dev` / `dev:api` / `dev:web` | 启动前后端（可单独启动） |
+| `npm run build` / `npm start` | 构建 web + api / 启动生产预览（API + vite preview :4173） |
+| `npm run desktop:stage` / `desktop:run` | 暂存 Electron 应用目录 / 用 Electron 启动（开发态） |
+| `npm run desktop:pack` / `desktop:dist` | 产出免安装目录 / NSIS 安装包 |
+| `npm run desktop` / `desktop:open` / `desktop:build` | 旧 Edge 应用模式启动器（开发态保留，见下） |
+| `npm run lint` / `typecheck` / `test` | lint api+web / typecheck domain+sync+api+web / 测试 domain+sync+api+web |
+| `npm run test:e2e` | Playwright（每次在 `%TEMP%\moneybrain-e2e-<PID>` 建独占临时库，不读写 `dev.db`） |
+| `npm run db:migrate` / `db:status` | 生成并应用版本化迁移 / 查看迁移差异 |
+| `npm run db:verify` / `db:drill` | 数据自检（重算净资产恒等式、转账、退款）/ 恢复演练（备份可信度） |
+| `npm run sync:decrypt` | 用恢复码独立解开 `.mbx` 容器 |
 
-单独跑某一层：`npm run test:domain` / `npm run test:api` / `npm run test:web`。
+单独跑某一层：`npm run test:domain` / `test:sync` / `test:api` / `test:web`。
 
-## 桌面端（当前可交付形态）
+改完必须跑：`npm run test:domain && npm run lint && npm run typecheck && npm test && npm run build`；涉及后端 schema 时额外跑 `npm run test:integration -w @moneybrain/api`。完整清单见 [docs/dev-guide.md](docs/dev-guide.md) §9.1。
 
-**如何拿到并启动**：克隆仓库后执行一次 `npm install`，然后双击仓库根目录的
-`MoneyBrain.cmd`，或执行 `npm run desktop`（`desktop:open` 等价）。首次启动会自动构建
-缺失产物、应用数据库迁移，并打开 1280×820 的独立窗口；窗口标题与图标来自应用本身，
-「关于」（点击左上角品牌）里可看到版本号。关闭窗口即停止本地 API / 预览服务并清理临时 profile 锁。
+## 桌面端
 
-**单实例行为**：启动器用锁文件（`%TEMP%\moneybrain-desktop-9333.lock`）互斥。快速双击两次时，
-第二次在约 2 秒内明确退出：已有窗口则聚焦后退出码 0；第一个启动器仍在启动中则退出码 1 并提示
-锁文件位置，不会挂在控制台等 Ctrl+C。窗口若交由已有 Edge 进程托管，关闭窗口后本地服务会自动停止
-（按 Ctrl+C 可立即退出）。
+**当前形态是 Electron**（`apps/desktop/`）：`src/main.cjs` 以 `ELECTRON_RUN_AS_NODE` 子进程在**空闲随机端口**启动 API，用 `WEB_DIST` 让 API 同端口托管前端产物（未知 `/api` 仍返回 JSON 信封），再用 `BrowserWindow` 打开本地页面。账本固定在 `app.getPath('userData')/data/moneybrain.db`，启动时幂等迁移，**绝不读取仓库里的 `dev.db`**；单实例由 `requestSingleInstanceLock()` 保证。`electron-builder.yml` 产出 `nsis` 安装包与 `portable` 免安装目录，配置为**卸载不删账本**。
 
-**前置条件**：Windows + Node.js 20+ + Microsoft Edge（Windows 自带），不需要 Rust 工具链。
-
-**当前形态与限制（如实说明）**：
-
-- 本机没有 `rustc` / `cargo`，**不产出 Tauri 安装包**；所谓「桌面端」= 本机 API（3001）
-  + `vite preview`（4173）+ Edge `--app` 独立窗口（独立 profile、调试端口 9333）。
-- 依赖本机已安装的 Edge；没有代码签名、没有自动更新，也不能分发给未安装 Node/Edge 的机器。
-- 数据库仍是本地 SQLite（`apps/api/prisma/dev.db`），数据不出本机。
-- 分发前若要真正的安装包，需在装有 Rust 工具链的机器上另行构建 Tauri 产物（本仓库未包含）。
+- 打包产物自带 Chromium 与 Node 运行时，可分发给未装 Node / Edge 的机器；**没有代码签名、没有自动更新**，这两项未做真机验收。
+- 前置：Windows + Node.js 20+（仅构建期需要）；不再需要 Rust 工具链，也不依赖本机 Edge。
+- `MoneyBrain.cmd` 与 `npm run desktop*` 仍走旧 `scripts/desktop.mjs`（Edge `--app` + 9333 调试端口 + 临时 profile 锁），只作开发态快捷入口，不是可分发产物。两套链路并存时以 Electron 链路为准。
+- 数据库仍是本地 SQLite；开发态在 `apps/api/prisma/dev.db`，打包版在 `userData/data/moneybrain.db`。
 
 ## 目录
 
@@ -88,52 +59,27 @@ npm start       # 预览构建产物
 MoneyBrain/
 ├── apps/
 │   ├── api/                # Express + Prisma API（routes → services → domain）
-│   └── web/                # React + Vite SPA（features/<domain> → services/api）
+│   ├── web/                # React + Vite SPA（features/<domain> → services/api）
+│   └── desktop/            # Electron 壳与 Windows 打包链路
 ├── packages/
 │   ├── domain/             # 记账内核：金额、日期、分录、汇总（算钱的唯一位置）
-│   ├── contracts/          # 前后端共享的 API 类型、错误码与文案目录
-│   └── sync/               # 记录级合并与加密容器（未接传输）
+│   ├── contracts/          # 前后端共享的 API 类型、错误码、常量与文案目录
+│   └── sync/               # 记录级合并与加密容器（传输未接）
 ├── e2e/                    # Playwright 端到端测试
-├── docs/                   # 详见下方文档索引
-└── scripts/build.mjs       # 跨平台构建封装
+├── scripts/                # 构建、数据自检、恢复演练、迁移封装
+├── data/qianji/            # 本地原始账本导出（不入库）
+└── docs/                   # 见下方文档索引
 ```
-
-## 不可违反的领域规则
-
-1. **金额影响只有一个实现**：所有余额、收支、预算、退款计算必须经过
-   `packages/domain` 的 `postingsOf` / `summarizeFlows` / `remainingRefundable`。
-   组件、route、service 里不得再写 `if (type === 'refund')` 之类的金额分支。
-   投资分析只通过领域层 `transferInflow` 取转账本金，不自行判断交易类型。
-2. **金额单位**：DB / API / 契约 / 前端全链路都是整数分（`Minor`）；
-   只有用户输入框与文件（CSV / 备份）按元读写。
-3. **日期单位**：领域层用 `LocalDate`（YYYY-MM-DD）；期间一律半开
-   `[start, endExclusive)`。禁止在业务代码里拼 `23:59:59.999`。
-4. **期初余额**：视为「期初日期当天开始前」的余额，当天交易必须计入。
-5. **转账**：`amount` 是本金，`fee/coupon` 单独存放；手续费只从转出账户扣除。
-6. **退款**：必须关联原交易，方向由原交易类型决定；退款可超过原金额（超退不阻止，仅信息提示）。
-7. **不持久化派生值**：余额、预算百分比、快照前链、收益率一律按需计算。
-8. **失败不得伪装成空数据**：接口失败时用 `StateViews` 的 `ErrorPanel` 展示原因与重试，
-   金额显示 `—` 而不是 `0`；前端只通过 `unwrapApiData(res)` 解包响应，
-   禁止 `res.data.data!` / `res.data.data ?? []`。错误码只能取
-   `packages/contracts` 的 `ApiErrorCode`，错误体带 `requestId`。
 
 ## 动手前
 
-1. **读规范**：[docs/dev-guide.md](docs/dev-guide.md)（怎么写代码）。
+1. **读规范**：[docs/dev-guide.md](docs/dev-guide.md)（代码必须怎么写，含领域规则、命名、导出、错误协议、数据库、提交格式）。
 2. **找代码**：[docs/architecture.md](docs/architecture.md)（东西在哪、怎么流动）。
 3. **对口径**：[docs/requirements.md](docs/requirements.md)（这个数字应该等于什么）。
-4. **排计划**：[docs/rewrite-blueprint.md](docs/rewrite-blueprint.md)（该做什么、还差什么）。
+4. **看界面**：[docs/ui-design.md](docs/ui-design.md)（视觉、交互、未来报表口径）。
+5. **排计划**：[docs/roadmap.md](docs/roadmap.md)（该做什么、还差什么）。
 
-改代码时：注释中文、标识符英文；新组件用 `function Foo(props: FooProps)`，不用 `React.FC`；
-优先 named export；不新增桶导出；禁止 `as` 断言（`satisfies` 可以）。
-
-改完必须跑：
-
-```bash
-npm run test:domain && npm run lint && npm run typecheck && npm test && npm run build
-```
-
-涉及后端 schema 时额外跑 `npm run test:integration -w @moneybrain/api`。
+金额影响只有一个实现（走 `packages/domain` 的 `postingsOf` / `summarizeFlows` / `remainingRefundable`），金额全链路整数分，元只出现在输入框与文件边界；失败不得伪装成 0 或空列表。展开见 dev-guide §3 与 requirements §3。
 
 **禁止自动 git commit / push**，除非明确要求。
 
@@ -141,26 +87,24 @@ npm run test:domain && npm run lint && npm run typecheck && npm test && npm run 
 
 | 文档 | 回答什么 | 什么时候读 |
 |---|---|---|
-| [docs/requirements.md](docs/requirements.md) | 做什么产品、账务口径（交易语义/期间/预算/报表/导入导出）、设计原则、信息架构 | 讨论需求、判断某个数字对不对 |
-| [docs/architecture.md](docs/architecture.md) | 现在代码怎么组织：分层、领域内核、后端模块、前端数据流、数据库模型 | 找代码在哪、改动会影响谁 |
-| [docs/dev-guide.md](docs/dev-guide.md) | 新代码必须怎么写：领域规则、命名、文件与导出、类型、错误协议、数据库、测试要求 | **动手写代码前必读** |
-| [docs/testing.md](docs/testing.md) | 测试放在哪、怎么跑、Mock 策略、不变量的覆盖情况 | 加测试、跑验证 |
-| [docs/rewrite-blueprint.md](docs/rewrite-blueprint.md) | 目标态长什么样、还差什么、按什么顺序改、关键决策与反模式 | 规划下一批工作、判断改动该不该做 |
-| [docs/blueprint/PROGRESS.md](docs/blueprint/PROGRESS.md) | 每个差距条目的完成状态、当前待领顺序、已知未收口项 | **领条目 / 销条目时必读** |
-| [docs/blueprint/architecture.md](docs/blueprint/architecture.md) | 目标架构（分层、同步、数据模型）与不变量 | 设计跨模块改动、做阶段 2+ |
-| [docs/blueprint/ux/](docs/blueprint/ux/) | 信息架构、交互模型、双端差异、design tokens、预算前瞻 | 改界面 / 判断交互口径 |
+| [docs/requirements.md](docs/requirements.md) | 做什么产品、账务口径、不变量定义、设计原则 | 讨论需求、判断某个数字对不对 |
+| [docs/architecture.md](docs/architecture.md) | 现在代码怎么组织：分层、领域内核、后端模块、前端数据流、数据库模型、桌面端 | 找代码在哪、改动会影响谁 |
+| [docs/dev-guide.md](docs/dev-guide.md) | 新代码必须怎么写：领域规则、命名、导出、类型、错误协议、数据库、测试、提交格式 | **动手写代码前必读** |
+| [docs/testing.md](docs/testing.md) | 测试放在哪、怎么跑、不变量覆盖情况 | 加测试、跑验证 |
+| [docs/ui-design.md](docs/ui-design.md) | 信息架构、视觉 token、交互、双端差异、未来报表唯一口径 | 改界面、判断交互与推演口径 |
+| [docs/sync-container-format.md](docs/sync-container-format.md) | `.mbx` 加密容器字节格式 | 改容器、写跨端解密 |
+| [docs/roadmap.md](docs/roadmap.md) | 目标态、还差什么、按什么顺序改、有效决策与非目标 | 规划下一批工作、判断改动该不该做 |
 
 ### 冲突时以谁为准
 
-1. **当前可执行的规范以 [docs/dev-guide.md](docs/dev-guide.md) 为准。**
-2. [docs/rewrite-blueprint.md](docs/rewrite-blueprint.md) 是**计划**：它与现状不一致时不是 bug，而是待办。
-3. [docs/requirements.md](docs/requirements.md) 是**账务口径的权威**。代码与它不一致时，代码是错的（除非先改需求）。
-4. 每个文档只负责一个视角；同一事实只在一个文档里写，不重复、不交叉。
+1. **当前可执行的规范以 [docs/dev-guide.md](docs/dev-guide.md) 为准**；[docs/roadmap.md](docs/roadmap.md) 是计划，与现状不一致不是 bug，而是待办。
+2. [docs/requirements.md](docs/requirements.md) 是**账务口径的权威**；代码与它不一致时，代码是错的（除非先改需求）。
+3. 每份文档只负责一个视角；同一事实只在一个文档里写，不重复、不交叉。
 
 ### 维护规则
 
-- 文件名 kebab-case；文档必须与代码一致，不一致就改文档或改代码，不留「以后再说」。
-- **过时文档直接删除，不保留历史副本**（历史在 git 里）。
-- 改代码时同步改受影响的文档；新增文档必须登记进上方索引。
-- 目标态内容必须明确标注「目标」，现状内容不得混入计划。
+- 文件名 kebab-case；文档必须与代码一致，不一致就当场改齐，不留「以后再说」。
+- **过时文档直接删除，不保留历史副本**（历史在 git 里）；一次性审计、评估、走查脚本不入库。
+- 计划文档只写待办；新实现的特性更新到对应的现状文档，不在计划里记完成记录。
+- 改代码时同步改受影响的文档与代码注释里的文档路径；新增文档必须登记进上方索引。
 - 文档里的文件路径、命令、测试数量必须与仓库一致；不确定就先查再写。

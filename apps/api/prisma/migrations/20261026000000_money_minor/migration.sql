@@ -6,7 +6,7 @@
 --
 -- A4（amount 由净额改本金）**没有**并进来：收入的手续费符号与支出相反，
 -- 退款的 amount 本身没有本金/手续费拆分，且退款上限依赖原交易金额——语义未定，
--- 贸然迁移会改变「可退金额」。见 docs/rewrite-blueprint.md 批次 A 的 A4 行。
+-- 贸然迁移会改变「可退金额」。见 docs/requirements.md §3.1 的金额语义说明。
 
 -- RedefineTables
 PRAGMA defer_foreign_keys=ON;

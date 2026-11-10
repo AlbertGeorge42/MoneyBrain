@@ -16,7 +16,7 @@ interface SettingRowProps {
 
 /**
  * 设置行：所有「标签/描述 + 控件」行的唯一实现；侧栏信息块走 stack 变体。
- * 行高与对齐数值见 docs/blueprint/ux/page-skeleton.md §2.3。
+ * 行高与对齐数值见 docs/ui-design.md §2.5。
  */
 export function SettingRow({
   label,

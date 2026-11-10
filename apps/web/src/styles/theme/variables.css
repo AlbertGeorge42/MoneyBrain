@@ -28,7 +28,7 @@
 
 /**
  * 高保真结构 token（作用于 HF 根与 portal 宿主）
- * 数值来源：docs/blueprint/ux/design-tokens.md（字号 + 行高 + 间距 + 圆角 + 尺寸）
+ * 数值来源：docs/ui-design.md §2.1（字号 + 行高 + 间距 + 圆角 + 尺寸）
  * 字面量只允许出现在 token 定义文件；业务 CSS 一律引用 --mb-*。
  */
 .mb-hf-root,

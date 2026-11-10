@@ -7,7 +7,7 @@
  *    按 Mantine 的 colorScheme（light / dark / auto）在 `:root` 上切换；
  * 3. 颜色方案持久化（沿用旧键 `moneybrain-theme-mode`，值改用 Mantine 的 light/dark/auto）。
  *
- * 色值来源：docs/blueprint/ux/design-tokens.md。图表序列色、分类色、进度条语义色
+ * 色值来源：docs/ui-design.md §2。图表序列色、分类色、进度条语义色
  * 是对比度实测过的设计资产，保留为本地常量（无法由 10 档色阶无损表达）。
  */
 import {

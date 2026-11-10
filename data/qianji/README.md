@@ -26,7 +26,7 @@
 node --import tsx scripts/rebuild-from-qianji.mts --csv data/qianji/qianji-import-2026-11-06/transactions.csv
 ```
 
-脚本默认写 `apps/api/prisma/dev-rebuild.db`，并拒绝写 `dev.db` / `test.db`；89 条历史平帐取自 `scripts/data/qianji-rebuild-adjustments.json`（已入库）。重建口径见 `docs/blueprint/excel-parity.md`。
+脚本默认写 `apps/api/prisma/dev-rebuild.db`，并拒绝写 `dev.db` / `test.db`。**89 条历史平帐的权威数据源是 `scripts/data/qianji-rebuild-adjustments.json`（已入库）**，重建口径以脚本注释与该 JSON 为准；逐月对账锚点与推导过程见 git 历史（`efba1b7` 附近）。
 
 ## 校验值（SHA256）
 
