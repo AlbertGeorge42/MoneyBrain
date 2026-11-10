@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MantineProvider } from '@mantine/core'
-import type { AssetProjectionResult, CashFlowProjectionResult, IncomeExpenseProjectionResult } from '@/services/api'
+import type { AssetProjectionResult, CashFlowProjectionResult, IncomeExpenseProjectionResult } from '@contracts/types'
 import type { Ledger } from '@/features/overview/model'
 import { makeLedger } from '../helpers/ledger'
 import {
@@ -20,15 +20,27 @@ import {
 import { deriveCashSankey } from '@/features/reports/cashSankeyModel'
 import { TimeBar } from '@/features/reports/TimeBar'
 import {
+  bucketEndOf,
+  bucketStartOf,
   futureHorizon,
   futureRange,
   listBuckets,
   pointRangeState,
   rangeState,
   validateRange,
+  type Granularity,
   type ReportTime,
 } from '@/features/reports/reportsTime'
-import { periodWindow, pointWindow } from '@/features/reports/futureModel'
+
+function pointWindow(point: string, today: string, gran: Granularity) {
+  const from = bucketStartOf(today, gran)
+  const to = bucketEndOf(point, gran)
+  return { asOf: today, granularity: gran, from: from > to ? to : from, to }
+}
+
+function periodWindow(from: string, to: string, today: string, gran: Granularity) {
+  return { asOf: today, granularity: gran, from, to: bucketEndOf(to, gran) }
+}
 
 const TODAY = '2026-11-06'
 

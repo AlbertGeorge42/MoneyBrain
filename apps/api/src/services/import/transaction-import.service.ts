@@ -15,16 +15,11 @@ import {
   recordSkippedRow,
   takeNextSort,
   readCsvRecords,
+  TRANSACTION_CSV_HEADER,
 } from './shared.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 
 // ─── CSV Header 映射 ───
-
-const TRANSACTION_CSV_HEADER = [
-  'ID', '时间', '分类', '二级分类', '类型', '金额', '币种',
-  '账户1', '账户2', '备注', '已报销', '手续费', '优惠券',
-  '记账者', '账单标记', '标签', '账单图片', '关联账单', '口径版本',
-] as const
 
 type TransactionCsvField = typeof TRANSACTION_CSV_HEADER[number]
 

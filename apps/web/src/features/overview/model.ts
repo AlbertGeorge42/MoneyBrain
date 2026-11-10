@@ -117,7 +117,7 @@ export interface LedgerTransaction {
  * 避免前端本地算法与领域规则（退款冲减、预算账户绑定）出现第二套口径。
  * 种子模式下不提供 snapshot，派生函数仍走本地纯函数。
  */
-export interface LedgerSnapshot {
+interface LedgerSnapshot {
   overview: OverviewSummary
   budgets: BudgetSummary
   trend: TrendPoint[]
@@ -141,7 +141,7 @@ export interface Ledger {
   ids?: LedgerIds
 }
 
-export interface LedgerIds {
+interface LedgerIds {
   /** 后端真实分类 id → 展示用 id（根分类被改写成种子 key 时存在）。 */
   categoryDisplay?: Record<string, string>
   /** 展示用分类 id → 后端真实 id（用于把筛选/写入参数翻回真实 id）。 */
@@ -625,7 +625,7 @@ export function transactionDirection(transaction: LedgerTransaction): string {
   }
 }
 
-export interface RefundSummary {
+interface RefundSummary {
   refunded: number
   remaining: number
   state: 'none' | 'partial' | 'full'

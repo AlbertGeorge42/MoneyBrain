@@ -70,6 +70,18 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | J4 | SQLCipher 本地加密 | 设备丢失成为真实威胁 |
 | P1–P10 | 共享账本、银行流水自动导入、多币种、桌面小部件、发票 OCR、复式记账、现金流预测、订阅聚合、用户层面对账、分账 | 各自有真实需求且评估过对现有模型的冲击；共享账本 / 多币种 / 复式记账会推翻大量现有设计，必须重新评估而非直接开工 |
 
+### 代码精简剩余项（需人工拍板，不进主线）
+
+| 条目 | 卡在哪 |
+|---|---|
+| 旧 `scripts/desktop.mjs`（Edge 链路）删除或迁移 `MoneyBrain.cmd` | 用户唯一双击入口，属产品决策；动它要同步 README / architecture / 本文件三处 |
+| `fix-expense-sign.mts`、`rebuild-from-qianji.mts` + 89 条平帐 JSON | 需先确认 dev.db 存量负数已清零，并裁定平帐数据是否继续作为历史证据保留 |
+| `sync-conflict.repository` / `containerAad` / `packages/sync/apply.ts` | 可能是 F-B/F-C 与决策 #34 的预留入口；迁移与 schema 模型不可删 |
+| 日期原语四方统一（`reportsTime` / `datePickerModel` / `domain/date` / `utils/date`） | UTC 与本地日历日语义分叉，统一会改账务日历日；`addMonths` 已分叉 |
+| 前端组件级视觉合并（两个交易详情、两张趋势图、8 处 Sheet 骨架） | CSS 前缀、退款跳转、移动键盘、ARIA 需 e2e 桌面/移动双视口截图验收 |
+| 金额解析三合一、预算 100% 边界统一、`EditForm` 两位小数校验 | 属于修既有缺陷与裁定产品口径，不是等价精简；`adjustment` 负数 / `limit===0` 须保留 |
+| 断点收敛、`Hf*` 换 Mantine 原生、受不变量保护文件里的零引用谓词 | 回归面最大、收益递减；按「出现第 3 个同类需求再抽」暂缓 |
+
 ### 先验证的 spike
 
 | 编号 | 验证什么 | 通过标准 | 失败回退 |

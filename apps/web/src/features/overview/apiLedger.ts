@@ -72,7 +72,7 @@ const CATEGORY_KEY_BY_NAME: Record<string, string> = {
   账户互转: 'move',
 }
 
-export interface CategoryDisplayMapper {
+interface CategoryDisplayMapper {
   /** 真实分类 id → 展示 id（种子 key 或原 id）。 */
   displayId: (id: string | null | undefined) => string
   /** 展示 id → 真实分类 id；未映射的视为本身就是真实 id。 */
@@ -418,7 +418,7 @@ export const EMPTY_LEDGER: Ledger = {
   transactions: [],
 }
 
-export interface ApiLedgerResult {
+interface ApiLedgerResult {
   ledger: Ledger
   /** 无账户即视为空账本，页头走冷启动引导。 */
   isEmpty: boolean

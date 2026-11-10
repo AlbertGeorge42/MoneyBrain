@@ -159,11 +159,6 @@ export function isoWeekLabel(value: string): string {
   return `${year}-W${String(Math.floor((dayOfYear - 1) / 7) + 1).padStart(2, '0')}`
 }
 
-/** 日期差（天，b − a）：图表按日期定位桶末与 asOf 竖线。 */
-export function dayDiff(a: string, b: string): number {
-  return Math.round((parseDay(b).getTime() - parseDay(a).getTime()) / 86_400_000)
-}
-
 /** 桶起点：日 = 当日；周 = 周一；月 = 1 日；年 = 1-01。 */
 export function bucketStartOf(value: string, gran: Granularity): string {
   if (gran === 'week') return weekStart(value)
@@ -228,11 +223,6 @@ export function monthOf(value: string): number {
 
 export function yearOf(value: string): number {
   return parseDay(value).getUTCFullYear()
-}
-
-/** 时点粒度 = 锚点精度：周取周日、月取月末、年取 12-31。 */
-export function snapPoint(value: string, gran: Granularity): string {
-  return bucketEndOf(value, gran)
 }
 
 /** 按粒度步进一个桶；时点步进后仍锚桶末。 */
@@ -345,7 +335,7 @@ export function presetRange(
 /** 时点场景下预设取「该预设期间的结束日」并对齐粒度锚点。 */
 export function presetPoint(preset: PresetId, gran: Granularity, today: string): string {
   const range = presetRange(preset, gran, today)
-  return snapPoint(range.to, gran)
+  return bucketEndOf(range.to, gran)
 }
 
 /** 桶序号：用于「跨度 ≥ 一个聚合桶」校验。 */

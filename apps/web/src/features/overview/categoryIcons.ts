@@ -87,7 +87,7 @@ export interface CategoryIconOption {
   tone: string
 }
 
-export interface CategoryIconGroup {
+interface CategoryIconGroup {
   id: CategoryIconGroupId
   label: string
 }
@@ -200,7 +200,7 @@ const ROOT_TONES: Record<string, string> = Object.fromEntries(
   CATEGORY_ICON_REGISTRY.map((option) => [option.key, option.tone]),
 ) as Record<string, string>
 
-export function categoryIconOption(key: string | null | undefined): CategoryIconOption | undefined {
+function categoryIconOption(key: string | null | undefined): CategoryIconOption | undefined {
   return key ? CATEGORY_ICON_BY_KEY.get(key) : undefined
 }
 
@@ -208,7 +208,7 @@ export function categoryIconOption(key: string | null | undefined): CategoryIcon
  * 搜索匹配：key、中文标签、中英文关键词都参与，大小写与首尾空格不敏感。
  * 例：`咖啡` 与 `coffee` 都命中 coffee；`COFFEE` 同样命中。
  */
-export function matchesCategoryIcon(option: CategoryIconOption, query: string): boolean {
+function matchesCategoryIcon(option: CategoryIconOption, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
   if (option.key.toLowerCase().includes(needle)) return true

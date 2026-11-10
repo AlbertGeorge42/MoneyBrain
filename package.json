@@ -12,7 +12,6 @@
     "dev:web": "node scripts/with-database-url.mjs npm run dev -w @moneybrain/web",
     "dev:api": "node scripts/with-database-url.mjs npm run dev -w @moneybrain/api",
     "dev:seed": "node scripts/with-database-url.mjs concurrently \"npm run dev:api\" \"npm run dev:seed -w @moneybrain/web\"",
-    "install:all": "npm install",
     "postinstall": "prisma generate --schema apps/api/prisma/schema.prisma",
     "db:migrate": "node scripts/with-database-url.mjs prisma migrate dev --schema apps/api/prisma/schema.prisma",
     "db:deploy": "node scripts/with-database-url.mjs prisma migrate deploy --schema apps/api/prisma/schema.prisma",
@@ -22,8 +21,6 @@
     "db:integrity": "node scripts/db-integrity.mjs",
     "sync:decrypt": "node --import tsx scripts/decrypt-container.mts",
     "db:fix-expense-sign": "node scripts/with-database-url.mjs node --import tsx scripts/fix-expense-sign.mts",
-    "spike:v5": "node --import tsx scripts/spike-v5-directory-sync.mts",
-    "db:repair-report-data": "node scripts/with-database-url.mjs node --import tsx scripts/repair-report-data.mts",
     "build": "node scripts/build.mjs",
     "start": "concurrently \"npm run start:api\" \"npm run start:web\"",
     "desktop": "node scripts/desktop.mjs",
@@ -49,8 +46,6 @@
     "test:api": "npm run test -w @moneybrain/api",
     "test:web": "npm run test -w @moneybrain/web",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
     "test:coverage": "npm run test:coverage -w @moneybrain/api && npm run test:coverage -w @moneybrain/web"
   },
   "devDependencies": {

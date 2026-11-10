@@ -8,7 +8,7 @@ import { HardDriveDownload } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSwitch } from '@/features/shared/HfSwitch'
 import { SettingRow } from '@/features/shared/skeleton/SettingRow'
-import type { AutoBackupConfig } from '@/services/api'
+import type { AutoBackupConfig } from '@contracts/types'
 
 interface BackupSectionProps {
   apiMode: boolean

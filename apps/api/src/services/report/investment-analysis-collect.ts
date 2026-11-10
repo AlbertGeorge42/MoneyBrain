@@ -144,9 +144,6 @@ export async function buildStaleAccounts(
   endDate: Date,
   staleDays: number = 30
 ): Promise<StaleAccountInfo[]> {
-  const cutoffDate = new Date(endDate)
-  cutoffDate.setDate(cutoffDate.getDate() - staleDays)
-
   const latestSnapshots = await snapshotRepo.findMany({
     where: {
       accountId: { in: accounts.map(a => a.id) },

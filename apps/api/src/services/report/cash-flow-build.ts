@@ -1,6 +1,5 @@
 import { CURRENT_RULE_VERSION, minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import { buildChildrenMap } from '../../common/tree.js'
-import { getCashFlags } from './cash-flag.js'
 import {
   AccountInfo,
   AggregatedFlows,
@@ -10,7 +9,6 @@ import {
   CashFlowResult,
   CategoryInfo,
   PredictionTransaction,
-  ReportValue,
   TransactionWithIncludes,
 } from './cash-flow-types.js'
 import type {
@@ -18,11 +16,16 @@ import type {
   ProjectionCashActivityItem,
   ProjectionCashByActivity,
   ProjectionFlowValue,
+  ReportValue,
 } from '../../../../../packages/contracts/types/index.js'
 
 type ActivityKey = 'operating' | 'investing' | 'financing' | 'uncategorized'
 
-function projectionFlowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionFlowValue {
+function itemKeyOf(item: CashFlowActivityMinor['items'][number]): string {
+  return `${item.categoryName}|${item.type}|${item.direction}`
+}
+
+export function projectionFlowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionFlowValue {
   return { actual, planned, committed, total: minor(actual + planned + committed) }
 }
 
@@ -58,7 +61,7 @@ export function buildProjectionActivity(
       items: CashFlowActivityMinor['items'],
     ) => {
       for (const item of items) {
-        const itemKey = `${item.categoryName}|${item.type}|${item.direction}`
+        const itemKey = itemKeyOf(item)
         const existing = itemMap.get(itemKey)
         if (existing) {
           if (source === 'actual') existing.actual = minor(existing.actual + item.amount)
@@ -164,7 +167,7 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
   const itemMap = new Map<string, { categoryId: string | null; parentId: string | null; level: number; categoryName: string; actual: Minor; predicted: Minor; type: string; direction: string }>()
 
   for (const item of actual.items) {
-    const key = `${item.categoryName}|${item.type}|${item.direction}`
+    const key = itemKeyOf(item)
     itemMap.set(key, {
       categoryId: item.categoryId,
       parentId: item.parentId,
@@ -178,7 +181,7 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
   }
 
   for (const item of predicted.items) {
-    const key = `${item.categoryName}|${item.type}|${item.direction}`
+    const key = itemKeyOf(item)
     const existing = itemMap.get(key)
     if (existing) {
       existing.predicted = item.amount
@@ -441,7 +444,8 @@ export function buildSankey(args: {
   }
 
   transactions.forEach(t => {
-    const { isFromCash, isToCash } = getCashFlags(t.accountId, t.toAccountId, cashAccountIds)
+    const isFromCash = cashAccountIds.includes(t.accountId)
+    const isToCash = !!t.toAccountId && cashAccountIds.includes(t.toAccountId)
     processTransaction(
       t.type,
       isFromCash,
@@ -462,7 +466,8 @@ export function buildSankey(args: {
     // 同样按 [start, end] 过滤，避免跨月时累计
     const t = p.date.getTime()
     if (t < start.getTime() || t > end.getTime()) return
-    const { isFromCash, isToCash } = getCashFlags(p.accountId, p.toAccountId, cashAccountIds)
+    const isFromCash = cashAccountIds.includes(p.accountId)
+    const isToCash = !!p.toAccountId && cashAccountIds.includes(p.toAccountId)
     if (!isFromCash && !isToCash) return
     const category = p.categoryId ? categoryMap.get(p.categoryId) : null
     const account = accountMap.get(p.accountId)

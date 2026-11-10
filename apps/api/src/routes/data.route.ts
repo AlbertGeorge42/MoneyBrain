@@ -59,6 +59,22 @@ function parseImportIncludes(value: unknown): DataType[] | undefined {
   return parsed
 }
 
+/** 上传校验：三个导入端点共用。 */
+function validateFileUploaded(req: Request): void {
+  if (!req.file) {
+    throw new ValidationError('请上传文件')
+  }
+}
+
+/** 导入模式校验：合法值为 merge / overwrite，缺省按 merge。 */
+function parseImportMode(req: Request): 'merge' | 'overwrite' {
+  const rawMode: unknown = req.body.mode
+  if (rawMode !== undefined && rawMode !== 'merge' && rawMode !== 'overwrite') {
+    throw new ValidationError('导入模式只支持 merge 或 overwrite')
+  }
+  return rawMode === 'overwrite' ? 'overwrite' : 'merge'
+}
+
 /**
  * 清空数据是不可逆操作：调用方必须带正确的确认值。
  * 浏览器弹窗只是第一道防线，服务端这一道才是保证。
@@ -85,11 +101,7 @@ function parseRecoveryCode(raw: unknown): string | undefined {
 }
 
 // 文件内容识别（加密容器会先解密成 ZIP 再识别）
-router.post('/detect-file', upload.single('file'), validateRequest((req: Request) => {
-  if (!req.file) {
-    throw new ValidationError('请上传文件')
-  }
-}), asyncHandler(async (req, res) => {
+router.post('/detect-file', upload.single('file'), validateRequest(validateFileUploaded), asyncHandler(async (req, res) => {
   const input = await normalizeBackupInput(
     req.file!.buffer,
     req.file!.originalname,
@@ -126,16 +138,8 @@ router.post('/export-custom', validateRequest((req: Request) => {
 }))
 
 // 智能导入（支持ZIP、CSV、JSON）
-router.post('/import-backup', upload.single('file'), validateRequest((req: Request) => {
-  if (!req.file) {
-    throw new ValidationError('请上传文件')
-  }
-}), asyncHandler(async (req, res) => {
-  const rawMode: unknown = req.body.mode
-  if (rawMode !== undefined && rawMode !== 'merge' && rawMode !== 'overwrite') {
-    throw new ValidationError('导入模式只支持 merge 或 overwrite')
-  }
-  const mode = rawMode === 'overwrite' ? 'overwrite' : 'merge'
+router.post('/import-backup', upload.single('file'), validateRequest(validateFileUploaded), asyncHandler(async (req, res) => {
+  const mode = parseImportMode(req)
   const includes = parseImportIncludes(req.body.includes)
   const options = { recoveryCode: parseRecoveryCode(req.body.recoveryCode) }
 
@@ -156,16 +160,8 @@ router.post('/import-backup', upload.single('file'), validateRequest((req: Reque
 
 // 导入预览：跑一遍真实导入再回滚，让用户先看到数字。
 // 与正式导入走同一个 runImport，数字必然一致。
-router.post('/import-preview', upload.single('file'), validateRequest((req: Request) => {
-  if (!req.file) {
-    throw new ValidationError('请上传文件')
-  }
-}), asyncHandler(async (req, res) => {
-  const rawMode: unknown = req.body.mode
-  if (rawMode !== undefined && rawMode !== 'merge' && rawMode !== 'overwrite') {
-    throw new ValidationError('导入模式只支持 merge 或 overwrite')
-  }
-  const mode = rawMode === 'overwrite' ? 'overwrite' : 'merge'
+router.post('/import-preview', upload.single('file'), validateRequest(validateFileUploaded), asyncHandler(async (req, res) => {
+  const mode = parseImportMode(req)
   const includes = parseImportIncludes(req.body.includes)
   const options = { recoveryCode: parseRecoveryCode(req.body.recoveryCode) }
 

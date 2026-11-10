@@ -1,4 +1,4 @@
-export type SortMode = 'date' | 'amount'
+type SortMode = 'date' | 'amount'
 
 export interface DisplaySettings {
   showNote: boolean

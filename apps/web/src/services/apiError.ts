@@ -137,8 +137,3 @@ export const getApiErrorMessage = (
   return fallback
 }
 
-/** 取出请求 ID（用于提示用户反馈问题时定位日志） */
-export const getApiErrorRequestId = (error: unknown): string | undefined => {
-  if (error instanceof ApiClientError) return error.requestId
-  return undefined
-}

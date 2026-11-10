@@ -27,15 +27,6 @@ const MB_DEFINITION = /(--mb-[A-Za-z0-9_-]+)\s*:/g
 const MB_LITERAL_KEY = /'(--mb-[^']+)'\s*:/g
 const ANT_VAR = /--ant-[A-Za-z0-9_-]+/g
 
-/**
- * 死变量白名单：定义后暂未被引用、但按约定需要保留的 token。
- * 新增豁免必须在此显式登记并写明原因；删除对应 token 时同步删掉条目。
- */
-const DEAD_VAR_ALLOWLIST: Record<string, string> = {
-  '--mb-font-num': '保留：数字等宽字体预留位，暂无独立引用',
-  '--mb-color-text-inverse': 'design-tokens 全量保留，当前无其他反色文字场景',
-}
-
 function toPosix(path: string): string {
   return path.split('\\').join('/')
 }
@@ -216,12 +207,12 @@ describe('CSS 变量守卫（U1b）', () => {
 
   it('已定义的 --mb-* 必须被引用（新增未使用需登记白名单）', () => {
     const failures = [...definitions.entries()]
-      .filter(([name]) => !referencedNames.has(name) && !(name in DEAD_VAR_ALLOWLIST))
+      .filter(([name]) => !referencedNames.has(name))
       .map(([name, at]) => `${at}  ${name}  ← 定义后无人引用`)
 
     expect(
       failures,
-      `发现 ${failures.length} 个死变量（如属过渡期保留，请在 tests/unit/css-vars-guard.test.ts 的 DEAD_VAR_ALLOWLIST 登记并写明原因）：\n${failures.join('\n')}`,
+      `发现 ${failures.length} 个死变量（定义后无人引用，请删除该 token 或补上引用）：\n${failures.join('\n')}`,
     ).toEqual([])
   })
 })

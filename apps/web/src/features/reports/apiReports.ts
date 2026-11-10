@@ -14,15 +14,13 @@ import { useQuery } from '@tanstack/react-query'
 import type {
   AssetProjectionResult,
   BalanceSheetReportData,
+  CashFlowActivity,
+  CashFlowActivityItem,
   CashFlowProjectionResult,
   CashFlowReportData,
   IncomeExpenseProjectionResult,
   IncomeExpenseReportData,
   InvestmentAnalysisReportData,
-} from '@/services/api'
-import type {
-  CashFlowActivity,
-  CashFlowActivityItem,
   InvestmentCategorySummary,
   ProjectionBalance,
   ProjectionCashActivity,
@@ -30,7 +28,8 @@ import type {
   ProjectionSourceValue,
   ReportCategoryDetail,
 } from '@contracts/types'
-import { analyticsApi, reportApi, unwrapApiData } from '@/services/api'
+import { analyticsApi, reportApi } from '@/services/api'
+import { unwrapApiData } from '@/services/apiResult'
 import { accountKindLabel } from '@/features/overview/model'
 import { formatPercent } from '@/utils/format'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
@@ -50,8 +49,15 @@ import {
   type MetricPrediction,
   type ReportMetric,
 } from './reportsModel'
-import type { ProjectionWindow } from './futureModel'
 import { listBuckets, type Granularity } from './reportsTime'
+
+/** 推演窗口：与后端 `from/to + granularity` 一一对应，同一区间只发一次请求。 */
+interface ProjectionWindow {
+  asOf: string
+  granularity: Granularity
+  from: string
+  to: string
+}
 
 export interface ApiReportResult<T> {
   data: T | null
@@ -145,22 +151,27 @@ function predictedOf(value: { predicted?: number }): number {
   return Math.abs(value.predicted ?? 0)
 }
 
+/** 预测拆解文案里的金额：收入 / 支出带符号，净额沿用自带符号。 */
+function projectionTextOf(
+  direction: 'income' | 'expense' | 'net',
+  value: number,
+): string {
+  if (direction === 'income') return `+${currency(Math.abs(value))}`
+  if (direction === 'expense') return `−${currency(Math.abs(value))}`
+  return signedCurrency(value)
+}
+
 function predictionOf(
   actual: number,
   predicted: number,
   direction: 'income' | 'expense' | 'net',
 ): MetricPrediction | undefined {
   if (predicted === 0) return undefined
-  const textOf = (value: number) => {
-    if (direction === 'income') return `+${currency(Math.abs(value))}`
-    if (direction === 'expense') return `−${currency(Math.abs(value))}`
-    return signedCurrency(value)
-  }
   return {
     actual,
     predicted,
     direction,
-    split: `实际 ${textOf(actual)} · 预测 ${textOf(predicted)}`,
+    split: `实际 ${projectionTextOf(direction, actual)} · 预测 ${projectionTextOf(direction, predicted)}`,
   }
 }
 
@@ -548,16 +559,11 @@ function projectionSplitOf(
   source: { actual: number; planned: number | null; committed: number; total: number },
   direction: MetricPrediction['direction'],
 ): MetricPrediction {
-  const textOf = (value: number) => {
-    if (direction === 'income') return `+${currency(Math.abs(value))}`
-    if (direction === 'expense') return `−${currency(Math.abs(value))}`
-    return signedCurrency(value)
-  }
-  const planned = source.planned === null ? '—' : textOf(source.planned)
+  const planned = source.planned === null ? '—' : projectionTextOf(direction, source.planned)
   return {
     actual,
     direction,
-    split: `已发生 ${textOf(actual)} · 按预算计划 ${planned} · 已排定 ${textOf(source.committed)} · 合计 ${textOf(source.total)}`,
+    split: `已发生 ${projectionTextOf(direction, actual)} · 按预算计划 ${planned} · 已排定 ${projectionTextOf(direction, source.committed)} · 合计 ${projectionTextOf(direction, source.total)}`,
   }
 }
 

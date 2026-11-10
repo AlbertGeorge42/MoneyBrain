@@ -16,7 +16,7 @@ import {
   type TrendPoint,
 } from '@/features/overview/model'
 import type { ReportRow } from './ReportTable'
-import type { CashFlowReportData } from '@/services/api'
+import type { CashFlowReportData } from '@contracts/types'
 
 /**
  * 预测拆解：金额 = 实际 + 预测。只在 predicted ≠ 0 时生成，

@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react'
 import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import { HfButton } from '@/features/shared/HfButton'
-import { ChevronLeft, Plus, Wallet } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Wallet } from 'lucide-react'
 import type { ThemeMode } from '@/features/shared/types'
 import { fromMajor } from '@domain/index'
 import { downloadBlob, todayFilename } from '@/utils/download'
@@ -21,13 +21,13 @@ import type {
   ImportBackupResult,
   ImportBatch,
   ImportPreview,
-} from '@/services/api'
+} from '@contracts/types'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { todayLocal } from '@/features/overview/apiLedger'
 import type { TxType } from '@/features/overview/model'
-import { RecycleBinCountProbe } from './RecycleBinSection'
+import { RecycleBinCountProbe, RecycleBinPanel } from './RecycleBinSection'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { PageShell } from '@/features/shared/skeleton/PageShell'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -47,7 +47,6 @@ import { AppearanceSection } from './AppearanceSection'
 import { BackupSection } from './BackupSection'
 import { DisplaySection } from './DisplaySection'
 import { DataSection } from './DataSection'
-import { TrashSection } from './TrashSection'
 import { SettingsDesktopNav, SettingsMobileList } from './SettingsNav'
 import { ImportSheet } from './ImportSheet'
 import { OpeningSheet } from './OpeningSheet'
@@ -555,7 +554,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           />
         )
       case 'trash':
-        return <TrashSection apiMode={apiMode} ledger={ledger} />
+        return apiMode ? (
+          <RecycleBinPanel ledger={ledger} />
+        ) : (
+          <div className="mb-set-list-empty is-tall">
+            <Trash2 size={24} />
+            <p>回收站是空的</p>
+            <span>删除流水后 6 秒内可在提示中撤销；过期后才会进入这里。</span>
+          </div>
+        )
       default:
         return null
     }

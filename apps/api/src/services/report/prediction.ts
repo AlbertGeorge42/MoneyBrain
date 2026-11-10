@@ -21,6 +21,17 @@ interface AccountTypeLookup {
 }
 
 /**
+ * 单条预测按 income/expense/transfer 映射为转出/转入账户的带符号金额，
+ * 供账户 Map 累加与指定集合总额累加共用同一套符号口径。
+ */
+function signedPredictionAmounts(p: PredictionLike): { from: number; to: number } | null {
+  if (p.type === 'income') return { from: p.amount, to: 0 }
+  if (p.type === 'expense') return { from: -p.amount, to: 0 }
+  if (p.type === 'transfer') return { from: -p.amount, to: p.amount }
+  return null
+}
+
+/**
  * 遍历预测列表，按 income/expense/transfer 分类，
  * 返回每个账户的余额变动 Map<accountId, change>
  */
@@ -30,17 +41,11 @@ export function accumulatePredictionChanges(
   const changes = new Map<string, number>()
 
   for (const p of predictions) {
-    if (p.type === 'income') {
-      changes.set(p.accountId, (changes.get(p.accountId) || 0) + p.amount)
-    }
-    if (p.type === 'expense') {
-      changes.set(p.accountId, (changes.get(p.accountId) || 0) - p.amount)
-    }
-    if (p.type === 'transfer') {
-      changes.set(p.accountId, (changes.get(p.accountId) || 0) - p.amount)
-      if (p.toAccountId) {
-        changes.set(p.toAccountId, (changes.get(p.toAccountId) || 0) + p.amount)
-      }
+    const signed = signedPredictionAmounts(p)
+    if (signed === null) continue
+    changes.set(p.accountId, (changes.get(p.accountId) || 0) + signed.from)
+    if (p.type === 'transfer' && p.toAccountId) {
+      changes.set(p.toAccountId, (changes.get(p.toAccountId) || 0) + signed.to)
     }
   }
 
@@ -134,11 +139,13 @@ export function computePredictedAccountTotal<P extends PredictionWithDate>(
     const isTo = p.toAccountId !== null && accountIds.has(p.toAccountId)
     if (!isFrom && !isTo) continue
 
-    if (p.type === 'income' && isFrom) total += p.amount
-    else if (p.type === 'expense' && isFrom) total -= p.amount
+    const signed = signedPredictionAmounts(p)
+    if (signed === null) continue
+    if (p.type === 'income' && isFrom) total += signed.from
+    else if (p.type === 'expense' && isFrom) total += signed.from
     else if (p.type === 'transfer') {
-      if (isFrom) total -= p.amount
-      if (isTo) total += p.amount
+      if (isFrom) total += signed.from
+      if (isTo) total += signed.to
     }
   }
   return minor(total)

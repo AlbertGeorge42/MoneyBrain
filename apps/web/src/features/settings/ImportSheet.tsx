@@ -8,7 +8,7 @@ import { X } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
-import type { ImportFileSummary, ImportPreview } from '@/services/api'
+import type { ImportFileSummary, ImportPreview } from '@contracts/types'
 import { formatCurrency } from '@/utils/format'
 import { minor } from '@domain/index'
 

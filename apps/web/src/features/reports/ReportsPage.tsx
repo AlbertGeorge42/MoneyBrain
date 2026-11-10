@@ -45,6 +45,7 @@ import {
 } from './reportsModel'
 import {
   RANGE_STATE_LABEL,
+  bucketEndOf,
   bucketStartOf,
   clampAsOfPoint,
   formatPointLabel,
@@ -53,10 +54,10 @@ import {
   pointRangeState,
   presetRange,
   rangeState,
+  type Granularity,
   type ReportTab,
   type ReportTime,
 } from './reportsTime'
-import { periodWindow, pointWindow } from './futureModel'
 import { TimeBar } from './TimeBar'
 import { BalanceView } from './BalanceView'
 import { FlowView } from './FlowView'
@@ -64,6 +65,17 @@ import { CashView } from './CashView'
 import { InvestView } from './InvestView'
 import { DrillDrawer } from './DrillDrawer'
 import './reports.css'
+
+/** 推演窗口：资产负债看时点，收支 / 现金流看期间；桶边界由后端计算。 */
+function pointWindow(point: string, today: string, gran: Granularity) {
+  const from = bucketStartOf(today, gran)
+  const to = bucketEndOf(point, gran)
+  return { asOf: today, granularity: gran, from: from > to ? to : from, to }
+}
+
+function periodWindow(from: string, to: string, today: string, gran: Granularity) {
+  return { asOf: today, granularity: gran, from, to: bucketEndOf(to, gran) }
+}
 
 interface DrillState {
   node: FlowTreeNode

@@ -66,7 +66,7 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 |---|---|
 | 领域 | 纯内存对象，无 mock |
 | 同步 | 纯内存记录 + `test-vectors/merge-vectors.json` 固定向量，无 mock |
-| 后端单元 | `createMockPrisma()`（`apps/api/tests/mocks/prisma.ts`） |
+| 后端单元 | 各用例内 `vi.mock('../../src/prisma.js')` 内联 mock，不依赖共享 mock 文件 |
 | 后端集成 | 系统临时目录下按运行唯一的 SQLite 库（见 §2） |
 | 前端 | `apps/web/tests/setup.ts` 统一 mock matchMedia / ResizeObserver / IntersectionObserver / scrollTo；图表为纯 SVG 自绘，不涉及图表库 mock；页面测试 `vi.mock('../../../src/services/api')` 或注入 feature store 状态；无 AntD mock |
 | E2E | `%TEMP%\moneybrain-e2e-<PID>` 独占临时库，**不读写 `dev.db`**；3001/3002 不复用已有服务，端口被占时明确报错 |

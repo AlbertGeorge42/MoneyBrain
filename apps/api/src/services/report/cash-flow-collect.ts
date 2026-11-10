@@ -1,5 +1,4 @@
 import { CURRENT_RULE_VERSION, minor } from '../../../../../packages/domain/src/index.js'
-import { getCashFlags } from './cash-flag.js'
 import {
   AccountInfo,
   CategoryInfo,
@@ -27,7 +26,8 @@ export function collectTransactions(args: {
 
   const actualItems: ProcessedTx[] = []
   for (const t of transactions) {
-    const { isFromCash, isToCash } = getCashFlags(t.accountId, t.toAccountId, cashAccountIds)
+    const isFromCash = cashAccountIds.includes(t.accountId)
+    const isToCash = !!t.toAccountId && cashAccountIds.includes(t.toAccountId)
     actualItems.push({
       isPredicted: false,
       ruleVersion: t.ruleVersion,
@@ -57,7 +57,8 @@ export function collectTransactions(args: {
     const ts = p.date.getTime()
     if (ts < rangeStart || ts > rangeEnd) continue
 
-    const { isFromCash, isToCash } = getCashFlags(p.accountId, p.toAccountId, cashAccountIds)
+    const isFromCash = cashAccountIds.includes(p.accountId)
+    const isToCash = !!p.toAccountId && cashAccountIds.includes(p.toAccountId)
     if (!isFromCash && !isToCash) continue
 
     const category = p.categoryId ? categoryMap.get(p.categoryId) : null

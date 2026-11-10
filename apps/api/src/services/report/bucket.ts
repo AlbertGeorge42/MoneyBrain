@@ -41,7 +41,7 @@ export function bucketStartOf(granularity: ProjectionGranularity, value: LocalDa
   }
 }
 
-export function nextBucketStart(granularity: ProjectionGranularity, start: LocalDate): LocalDate {
+function nextBucketStart(granularity: ProjectionGranularity, start: LocalDate): LocalDate {
   switch (granularity) {
     case 'day':
       return addDays(start, 1)
@@ -54,7 +54,7 @@ export function nextBucketStart(granularity: ProjectionGranularity, start: Local
   }
 }
 
-export function bucketLabelOf(granularity: ProjectionGranularity, start: LocalDate): string {
+function bucketLabelOf(granularity: ProjectionGranularity, start: LocalDate): string {
   switch (granularity) {
     case 'day':
       return start
@@ -67,7 +67,7 @@ export function bucketLabelOf(granularity: ProjectionGranularity, start: LocalDa
   }
 }
 
-export const GRANULARITY_NAME: Record<ProjectionGranularity, string> = {
+const GRANULARITY_NAME: Record<ProjectionGranularity, string> = {
   day: '日',
   week: '周',
   month: '月',
@@ -79,7 +79,7 @@ export const GRANULARITY_NAME: Record<ProjectionGranularity, string> = {
  * 日 3 个月 / 周 6 个月 / 月 12 个月 / 年 3 年——年粒度不放到 5 年，
  * 避免日预算在极端情况下展开过多 occurrence 后只能报错。
  */
-export function futureLimitOf(granularity: ProjectionGranularity, asOf: LocalDate): LocalDate {
+function futureLimitOf(granularity: ProjectionGranularity, asOf: LocalDate): LocalDate {
   switch (granularity) {
     case 'day':
       return addMonths(asOf, 3)

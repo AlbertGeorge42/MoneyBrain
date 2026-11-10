@@ -72,20 +72,3 @@ export function resolveReportPeriod(
   }
   throw new ValidationError('无效的日期格式，支持格式：YYYY-MM-DD、YYYY-MM、YYYY')
 }
-
-// ===== 月份范围 =====
-
-/**
- * 生成从 start 到 end 的逐月日期范围（每月1号）。
- * 包含 start 所在月份和 end 所在月份。
- */
-export function generateMonthRange(start: Date, end: Date): Date[] {
-  const months: Date[] = []
-  const current = new Date(start.getFullYear(), start.getMonth(), 1)
-  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1)
-  while (current <= endMonth) {
-    months.push(new Date(current))
-    current.setMonth(current.getMonth() + 1)
-  }
-  return months
-}

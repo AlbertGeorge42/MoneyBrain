@@ -386,29 +386,20 @@ export function createEmptyImportFullResult(): ImportFullResult {
 
 // ─── Counter 辅助函数（避免到处 ++） ───
 
-export function incImported(
-  result: { imported: Record<string, number> },
-  key: string,
-  by = 1
-): void {
-  result.imported[key] = (result.imported[key] ?? 0) + by
-}
-
-export function incUpdated(
-  result: { updated: Record<string, number> },
-  key: string,
-  by = 1
-): void {
-  result.updated[key] = (result.updated[key] ?? 0) + by
-}
-
-export function incSkipped(
-  result: { skipped: Record<string, number> | { snapshots: number } },
-  key: string,
-  by = 1
-): void {
-  const bucket = result.skipped as Record<string, number>
+function incBucket(bucket: Record<string, number>, key: string, by: number): void {
   bucket[key] = (bucket[key] ?? 0) + by
+}
+
+export function incImported(result: { imported: Record<string, number> }, key: string, by = 1): void {
+  incBucket(result.imported, key, by)
+}
+
+export function incUpdated(result: { updated: Record<string, number> }, key: string, by = 1): void {
+  incBucket(result.updated, key, by)
+}
+
+export function incSkipped(result: { skipped: Record<string, number> | { snapshots: number } }, key: string, by = 1): void {
+  incBucket(result.skipped as Record<string, number>, key, by)
 }
 
 // ─── 通用 CSV 记录读取（使用 papaparse） ───
@@ -456,5 +447,13 @@ export function readCsvRecords<T extends string>(
 export function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
 }
+
+// ─── 交易 CSV 表头（导出与导入共用的唯一来源）───
+// 列名与顺序逐字固定：导出端按 `join(',')` 输出，导入端按此数组映射字段。
+export const TRANSACTION_CSV_HEADER = [
+  'ID', '时间', '分类', '二级分类', '类型', '金额', '币种',
+  '账户1', '账户2', '备注', '已报销', '手续费', '优惠券',
+  '记账者', '账单标记', '标签', '账单图片', '关联账单', '口径版本',
+] as const
 
 

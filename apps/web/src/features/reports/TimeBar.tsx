@@ -19,6 +19,7 @@ import {
   GRANULARITY_LABELS,
   PRESETS,
   RANGE_STATE_LABEL,
+  bucketEndOf,
   futureHorizon,
   isFuturePreset,
   pointRangeState,
@@ -30,7 +31,6 @@ import {
   reanchorRange,
   shiftPoint,
   shiftRange,
-  snapPoint,
   validateRange,
   type Granularity,
   type PresetId,
@@ -124,7 +124,7 @@ export function TimeBar({
       : rangeState(time.from, time.to, today) !== 'past'
 
     if (isPoint) {
-      const snapped = snapPoint(time.point, next)
+      const snapped = bucketEndOf(time.point, next)
       const point = inFuture && snapped > nextHorizon ? nextHorizon : snapped
       onChange({ ...time, gran: next, point, preset: null })
       onToast(

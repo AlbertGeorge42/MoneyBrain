@@ -17,7 +17,7 @@ import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import { accountIdsInGroup, type TransactionFilters } from './filters'
 
 /** 单次请求条数；页面无分页控件，靠自动翻页取全量筛选结果。 */
-export const TRANSACTION_PAGE_SIZE = 100
+const TRANSACTION_PAGE_SIZE = 100
 
 function toMinor(value: string): number | null {
   if (!value.trim()) return null
@@ -79,7 +79,7 @@ export function buildTransactionQueryParams(
   return params
 }
 
-export interface ServerTransactionList {
+interface ServerTransactionList {
   items: LedgerTransaction[]
   total: number
   /** 本次筛选发出的请求数（分页翻页会 >1）。 */
@@ -132,7 +132,7 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   return debounced
 }
 
-export interface ServerTransactionQuery {
+interface ServerTransactionQuery {
   items: LedgerTransaction[]
   total: number
   status: 'loading' | 'error' | 'ready'

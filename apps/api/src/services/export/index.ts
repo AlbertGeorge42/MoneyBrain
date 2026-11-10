@@ -40,64 +40,17 @@ export async function exportFullBackup(): Promise<Buffer> {
   return container
 }
 
-/** 完整备份的明文 ZIP 字节（只在进程内传给容器，不落盘）。 */
-async function createFullBackupArchive(): Promise<Buffer> {
+/** 单文件导出时每种数据类型的文件名后缀、MIME 与内容生成函数。 */
+const SINGLE_FILE_EXPORTS = {
+  transactions: { ext: 'csv', contentType: 'text/csv; charset=utf-8', exportFn: exportTransactionsCSV },
+  config: { ext: 'json', contentType: 'application/json; charset=utf-8', exportFn: exportConfig },
+  budgets: { ext: 'json', contentType: 'application/json; charset=utf-8', exportFn: exportBudgets },
+  snapshots: { ext: 'csv', contentType: 'text/csv; charset=utf-8', exportFn: exportInvestmentSnapshotsCSV },
+} as const
+
+/** 按 includes 构建 ZIP 内的各数据文件；完整备份与自定义多文件导出共用。 */
+async function buildBackupFiles(includes: DataType[]): Promise<BackupFiles> {
   const files: BackupFiles = {}
-  files.transactions = Buffer.from(await exportTransactionsCSV(), 'utf-8')
-  files.config = await exportConfig()
-  files.budgets = await exportBudgets()
-  files.snapshots = Buffer.from(await exportInvestmentSnapshotsCSV(), 'utf-8')
-  files.manifest = await createManifest(ALL_DATA_TYPES)
-  return createBackupZip(files)
-}
-
-/**
- * 自定义导出
- * - 仅选择一种数据类型时，直接返回该格式的单个文件（不打包为 ZIP）
- * - 选择多种数据类型时，打包为 ZIP
- */
-export async function exportCustomBackup(includes: DataType[]): Promise<ExportResult> {
-  const start = Date.now()
-  // 单文件导出场景
-  if (includes.length === 1) {
-    const type = includes[0]
-    if (type === 'transactions') {
-      const csvContent = await exportTransactionsCSV()
-      return {
-        buffer: Buffer.from(csvContent, 'utf-8'),
-        filename: generateExportFilename('transactions', 'csv'),
-        contentType: 'text/csv; charset=utf-8'
-      }
-    }
-    if (type === 'config') {
-      const jsonContent = await exportConfig()
-      return {
-        buffer: Buffer.from(jsonContent, 'utf-8'),
-        filename: generateExportFilename('config', 'json'),
-        contentType: 'application/json; charset=utf-8'
-      }
-    }
-    if (type === 'budgets') {
-      const jsonContent = await exportBudgets()
-      return {
-        buffer: Buffer.from(jsonContent, 'utf-8'),
-        filename: generateExportFilename('budgets', 'json'),
-        contentType: 'application/json; charset=utf-8'
-      }
-    }
-    if (type === 'snapshots') {
-      const csvContent = await exportInvestmentSnapshotsCSV()
-      return {
-        buffer: Buffer.from(csvContent, 'utf-8'),
-        filename: generateExportFilename('snapshots', 'csv'),
-        contentType: 'text/csv; charset=utf-8'
-      }
-    }
-  }
-
-  // 多文件导出场景：打包为 ZIP
-  const files: BackupFiles = {}
-
   if (includes.includes('transactions')) {
     files.transactions = Buffer.from(await exportTransactionsCSV(), 'utf-8')
   }
@@ -110,9 +63,37 @@ export async function exportCustomBackup(includes: DataType[]): Promise<ExportRe
   if (includes.includes('snapshots')) {
     files.snapshots = Buffer.from(await exportInvestmentSnapshotsCSV(), 'utf-8')
   }
-
   files.manifest = await createManifest(includes)
+  return files
+}
 
+/** 完整备份的明文 ZIP 字节（只在进程内传给容器，不落盘）。 */
+async function createFullBackupArchive(): Promise<Buffer> {
+  return createBackupZip(await buildBackupFiles(ALL_DATA_TYPES))
+}
+
+/**
+ * 自定义导出
+ * - 仅选择一种数据类型时，直接返回该格式的单个文件（不打包为 ZIP）
+ * - 选择多种数据类型时，打包为 ZIP
+ */
+export async function exportCustomBackup(includes: DataType[]): Promise<ExportResult> {
+  const start = Date.now()
+  // 单文件导出场景
+  if (includes.length === 1) {
+    const type = includes[0]
+    const spec = SINGLE_FILE_EXPORTS[type]
+    if (spec) {
+      return {
+        buffer: Buffer.from(await spec.exportFn(), 'utf-8'),
+        filename: generateExportFilename(type, spec.ext),
+        contentType: spec.contentType,
+      }
+    }
+  }
+
+  // 多文件导出场景：打包为 ZIP
+  const files = await buildBackupFiles(includes)
   const zipBuffer = await createBackupZip(files)
   logger.info({ action: 'finish', includes, durationMs: Date.now() - start }, 'custom backup exported')
   return {

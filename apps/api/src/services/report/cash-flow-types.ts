@@ -1,6 +1,5 @@
 import { Prisma } from '@prisma/client'
 import { type Minor } from '../../../../../packages/domain/src/index.js'
-import { type ReportValue } from '../../../../../packages/contracts/types/index.js'
 
 // 报表结果类型统一引用 shared 类型（cash-flow 报表对外契约）
 export type {
@@ -38,9 +37,6 @@ export interface CashFlowActivityMinor {
     direction: string
   }>
 }
-
-// 重导出 ReportValue，保持原有 import 路径可用
-export type { ReportValue }
 
 // 内部使用的轻量类型（collectTransactions / aggregate 之间传递）
 export interface CategoryInfo {

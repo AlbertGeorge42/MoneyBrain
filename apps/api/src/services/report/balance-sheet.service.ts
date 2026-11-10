@@ -17,15 +17,9 @@ const logger = rootLogger.child({ module: 'report' })
 
 export type { DateGranularity }
 
-function parseDateParam(date: string): { targetDate: Date; nextDay: Date; granularity: DateGranularity } {
-  // 统一到 period.ts 的 resolveReportPeriod；保留旧签名以便最小化调用方改动
-  const { endDate, nextDay, granularity } = resolveReportPeriod(date)
-  return { targetDate: endDate, nextDay, granularity }
-}
-
 export async function generateBalanceSheet(date: string): Promise<BalanceSheetReportData> {
   const startTime = Date.now()
-  const { targetDate, nextDay: nextDayDate, granularity } = parseDateParam(date)
+  const { endDate: targetDate, nextDay: nextDayDate, granularity } = resolveReportPeriod(date)
   const now = new Date()
 
   const accounts = await accountRepo.findMany({

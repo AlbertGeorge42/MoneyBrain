@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ApiClientError, getApiErrorMessage, getApiErrorRequestId, normalizeApiError } from '../../../src/services/apiError'
+import { ApiClientError, getApiErrorMessage, normalizeApiError } from '../../../src/services/apiError'
 
 const createAxiosLikeError = (data: unknown, status?: number): Error => {
   const error = new Error('Request failed')
@@ -80,15 +80,4 @@ describe('apiError', () => {
     })
   })
 
-  describe('getApiErrorRequestId', () => {
-    it('应该返回请求 ID', () => {
-      const error = new ApiClientError({ code: 'INTERNAL_ERROR', message: 'x', requestId: 'req-9' })
-      expect(getApiErrorRequestId(error)).toBe('req-9')
-    })
-
-    it('没有请求 ID 时应该返回 undefined', () => {
-      const error = new ApiClientError({ code: 'INTERNAL_ERROR', message: 'x' })
-      expect(getApiErrorRequestId(error)).toBeUndefined()
-    })
-  })
 })

@@ -14,7 +14,7 @@ import { mbColorSchemeManager } from '@/styles/theme/hf-theme'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { ToastProvider } from '@/features/shared/toast'
 import { SettingsPage } from '@/features/settings/SettingsPage'
-import type { AutoBackupConfig } from '@/services/api'
+import type { AutoBackupConfig } from '@contracts/types'
 import type { Ledger } from '@/features/overview/model'
 
 const mocks = vi.hoisted(() => ({

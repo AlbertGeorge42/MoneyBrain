@@ -13,12 +13,12 @@ import {
   type SyncRecord,
 } from '../src/index.js'
 
-// V5 spike（可删除的验证测试，不属于产品路径）。
+// V5 目录同步收敛验证（不属于产品路径，但作为记录级合并的回归守卫保留）。
 //
 // 目标：两个实例（同一账本、不同 deviceId）只通过共享目录里的 `.mbx` 文件交换，
 // 证明「多轮之后记录集一致；乱序/重复读取结果不变；半文件/非容器文件只被拒绝，
-// 不会污染实例状态，也不会阻断后续收敛」。KDF 开销由 scripts/spike-v5-directory-sync.mts
-// 用默认参数实测，本测试用低成本参数以免拖慢 `npm run test:sync`。
+// 不会污染实例状态，也不会阻断后续收敛」。KDF 默认参数实测结论见 docs/roadmap.md §3，
+// 本测试用低成本参数以免拖慢 `npm run test:sync`。
 
 const FAST_KDF = { t: 1, m: 8192, p: 1, dkLen: 32 }
 const LEDGER_ID = 'ledger-v5-spike'

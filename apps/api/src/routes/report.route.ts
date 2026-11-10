@@ -9,7 +9,11 @@ import {
   validateDateQuery,
   validateDateRange,
 } from '../common/index.js'
-import { generateBalanceSheet, generateIncomeExpense, generateIncomeExpenseProjection, generateCashFlow, generateInvestmentAnalysis } from '../services/report/index.js'
+import { generateBalanceSheet } from '../services/report/balance-sheet.service.js'
+import { generateIncomeExpense } from '../services/report/income-expense.service.js'
+import { generateIncomeExpenseProjection } from '../services/report/income-expense-projection.service.js'
+import { generateCashFlow } from '../services/report/cash-flow.service.js'
+import { generateInvestmentAnalysis } from '../services/report/investment-analysis.service.js'
 import { getCashFlowProjection } from '../services/projection.service.js'
 
 const router = Router()

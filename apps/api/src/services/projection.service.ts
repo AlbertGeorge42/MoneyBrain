@@ -36,7 +36,7 @@ import {
 } from './report/bucket.js'
 import { collectTransactions } from './report/cash-flow-collect.js'
 import { aggregate } from './report/cash-flow-aggregate.js'
-import { buildProjectionActivity, buildSankey } from './report/cash-flow-build.js'
+import { buildProjectionActivity, buildSankey, projectionFlowValue } from './report/cash-flow-build.js'
 import { PREDICTION_NOTE_DEFAULT } from './report/prediction.js'
 import type {
   AccountInfo,
@@ -328,15 +328,6 @@ function cashFlowOf(ledger: LedgerTransaction, cashAccountIds: ReadonlySet<strin
   return { inflow: minor(inflow), outflow: minor(outflow) }
 }
 
-function flowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionFlowValue {
-  return {
-    actual,
-    planned,
-    committed,
-    total: minor(actual + planned + committed),
-  }
-}
-
 function cashBalanceTotal(balances: Map<string, number>): Minor {
   return minor([...balances.values()].reduce((sum, value) => sum + value, 0))
 }
@@ -441,9 +432,9 @@ async function cashFlowProjectionRange(
       eventIndex += 1
     }
 
-    const inflow = flowValue(minor(actualInflow), minor(plannedInflow), minor(committedInflow))
-    const outflow = flowValue(minor(actualOutflow), minor(plannedOutflow), minor(committedOutflow))
-    const net = flowValue(
+    const inflow = projectionFlowValue(minor(actualInflow), minor(plannedInflow), minor(committedInflow))
+    const outflow = projectionFlowValue(minor(actualOutflow), minor(plannedOutflow), minor(committedOutflow))
+    const net = projectionFlowValue(
       minor(inflow.actual - outflow.actual),
       minor(inflow.planned - outflow.planned),
       minor(inflow.committed - outflow.committed),

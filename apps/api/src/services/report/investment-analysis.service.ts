@@ -2,7 +2,7 @@ import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
 import { minor } from '../../../../../packages/domain/src/index.js'
 import { sumAssetsLiabilities, sumPositiveAssets } from './account-sum.js'
-import { resolveReportPeriod, generateMonthRange } from './period.js'
+import { resolveReportPeriod } from './period.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import {
   getInvestmentAccounts,
@@ -27,6 +27,17 @@ import type {
   InvestmentAnalysisResult,
 } from './investment-analysis-types.js'
 
+function generateMonthRange(start: Date, end: Date): Date[] {
+  const months: Date[] = []
+  const current = new Date(start.getFullYear(), start.getMonth(), 1)
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1)
+  while (current <= endMonth) {
+    months.push(new Date(current))
+    current.setMonth(current.getMonth() + 1)
+  }
+  return months
+}
+
 const logger = rootLogger.child({ module: 'report' })
 
 export async function generateInvestmentAnalysis(startDateStr: string, endDateStr: string): Promise<InvestmentAnalysisResult | null> {
@@ -44,6 +55,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   // 获取所有账户（用于计算总资产）
   const allAccounts = await accountRepo.findMany({})
   const allAccountIds = allAccounts.map(a => a.id)
+  const accountTypeList = () => allAccounts.map(a => ({ type: a.type, id: a.id }))
 
   // 获取现金流数据
   const cashFlows = await getCashFlowsInRange(investmentAccountIds, startDate, endDate)
@@ -70,11 +82,11 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   // 投资占比的分母改为正余额资产合计：负余额资产不是可配置资产，
   // 计入分母会把占比推过 100%（真实库 105.18% → 89.94%）。
   const { assets: totalAssets } = sumAssetsLiabilities(
-    allAccounts.map(a => ({ type: a.type, id: a.id })),
+    accountTypeList(),
     (a) => minor(balanceCache.get(a.id, nextDayOfEnd))
   )
   const ratioBase = sumPositiveAssets(
-    allAccounts.map(a => ({ type: a.type, id: a.id })),
+    accountTypeList(),
     (a) => minor(balanceCache.get(a.id, nextDayOfEnd))
   )
   const negativeAssetBalances = allAccounts
@@ -149,7 +161,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     Promise.all(accountDetails.map(account =>
       buildAccountAllocationDetail(account, endDate, startDate, balanceCache, prefetched)
     )),
-    buildStaleAccounts(accountDetails, endDate, 30),
+    buildStaleAccounts(accountDetails, endDate),
   ])
 
   // 账户持仓明细索引：账户无资产类别/无快照时 items 为空数组，不用缺字段表达
@@ -233,12 +245,12 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     const investment = minor(balanceCache.getMany(investmentAccountIds, nextMonthStart))
 
     const { netWorth } = sumAssetsLiabilities(
-      allAccounts.map(a => ({ type: a.type, id: a.id })),
+      accountTypeList(),
       (a) => minor(balanceCache.get(a.id, nextMonthStart))
     )
     // 与报表头部的投资占比同口径：分母只取正余额资产。
     const ratioBase = sumPositiveAssets(
-      allAccounts.map(a => ({ type: a.type, id: a.id })),
+      accountTypeList(),
       (a) => minor(balanceCache.get(a.id, nextMonthStart))
     )
 

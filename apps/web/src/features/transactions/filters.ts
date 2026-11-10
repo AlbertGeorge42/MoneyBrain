@@ -94,7 +94,7 @@ export interface TransactionTotals {
   net: number
 }
 
-export interface FilterChip {
+interface FilterChip {
   key: 'type' | 'account' | 'group' | 'category' | 'amount' | 'date'
   label: string
 }
@@ -162,7 +162,7 @@ export function filterTransactions(ledger: Ledger, filters: TransactionFilters):
   })
 }
 
-export interface SummarizeOptions {
+interface SummarizeOptions {
   /** 默认排除标了「不计收支」的交易；true = 全貌口径（含它们）。 */
   includeExcluded?: boolean
 }
@@ -251,7 +251,7 @@ export function signedMinorText(value: number): string {
 }
 
 /** 流水筛选写入 URL 的键名；返回列表或深链跳转都靠这组键还原上下文。 */
-export const FILTER_QUERY_KEYS = [
+const FILTER_QUERY_KEYS = [
   'txQ',
   'txType',
   'txAccount',
@@ -267,7 +267,7 @@ export const FILTER_QUERY_KEYS = [
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const AMOUNT_INPUT = /^\d+(\.\d{0,2})?$/
 
-export interface FilterUrlRestore {
+interface FilterUrlRestore {
   filters: TransactionFilters
   /** 未能还原的条件，用于页面显式提示，而不是静默清空。 */
   dropped: string[]

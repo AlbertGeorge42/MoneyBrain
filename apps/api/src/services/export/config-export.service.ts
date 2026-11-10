@@ -23,38 +23,45 @@ interface ConfigBackupData {
   }
 }
 
-function serializeAccountCategory(category: { name: string; type: string; sort: number; isCashEquivalent: boolean; isInvestment: boolean; iconKey?: string | null; children: unknown[] }): ImportAccountCategory {
-  const result: ImportAccountCategory = {
-    name: category.name,
-    type: category.type,
-    sort: category.sort,
-    isCashEquivalent: category.isCashEquivalent,
-    isInvestment: category.isInvestment,
-  }
-  // 旧账本 iconKey 为 null：不写进备份，保持导出格式向后兼容。
+/** 分类树递归序列化的共享骨架：字段映射交给 makeBase，iconKey 与 children 在这里统一处理。 */
+function serializeCategoryTree<T>(
+  category: { iconKey?: string | null; children: unknown[] },
+  makeBase: (node: unknown) => T,
+): T {
+  const result = makeBase(category) as T & { iconKey?: string | null; children?: T[] }
   if (category.iconKey) result.iconKey = category.iconKey
   if (category.children.length > 0) {
     result.children = category.children.map((child) =>
-      serializeAccountCategory(child as Parameters<typeof serializeAccountCategory>[0])
+      serializeCategoryTree(child as { iconKey?: string | null; children: unknown[] }, makeBase)
     )
   }
   return result
 }
 
+function serializeAccountCategory(category: { name: string; type: string; sort: number; isCashEquivalent: boolean; isInvestment: boolean; iconKey?: string | null; children: unknown[] }): ImportAccountCategory {
+  // 旧账本 iconKey 为 null：不写进备份，保持导出格式向后兼容。
+  return serializeCategoryTree(category, (node) => {
+    const c = node as Parameters<typeof serializeAccountCategory>[0]
+    return {
+      name: c.name,
+      type: c.type,
+      sort: c.sort,
+      isCashEquivalent: c.isCashEquivalent,
+      isInvestment: c.isInvestment,
+    }
+  })
+}
+
 function serializeTransactionCategory(category: { name: string; type: string; cashFlowType?: string; iconKey?: string | null; sort: number; children: unknown[] }): ImportTransactionCategory {
-  const result: ImportTransactionCategory = {
-    name: category.name,
-    type: category.type,
-    cashFlowType: category.cashFlowType,
-    sort: category.sort,
-  }
-  if (category.iconKey) result.iconKey = category.iconKey
-  if (category.children.length > 0) {
-    result.children = category.children.map((child) =>
-      serializeTransactionCategory(child as Parameters<typeof serializeTransactionCategory>[0])
-    )
-  }
-  return result
+  return serializeCategoryTree(category, (node) => {
+    const c = node as Parameters<typeof serializeTransactionCategory>[0]
+    return {
+      name: c.name,
+      type: c.type,
+      cashFlowType: c.cashFlowType,
+      sort: c.sort,
+    }
+  })
 }
 
 export async function exportConfig(): Promise<string> {

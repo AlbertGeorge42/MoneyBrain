@@ -15,7 +15,7 @@ import {
 import { HfButton } from '@/features/shared/HfButton'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import type { Ledger } from '@/features/overview/model'
-import type { ImportBackupResult, ImportBatch } from '@/services/api'
+import type { ImportBackupResult, ImportBatch } from '@contracts/types'
 import { ImportIssues } from './ImportSheet'
 import type { DataBusy } from './settingsData'
 
