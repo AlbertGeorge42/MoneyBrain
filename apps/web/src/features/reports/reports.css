@@ -82,7 +82,6 @@
 .mb-rp-gran-btn:focus-visible,
 .mb-rp-iconbtn:focus-visible,
 .mb-rp-settings-btn:focus-visible,
-.mb-rp-config-choice:focus-visible,
 .mb-rp-btn:focus-visible,
 .mb-rp-crow-main:focus-visible,
 .mb-rp-crow-fold:focus-visible,
@@ -351,47 +350,23 @@
   margin: 2px 0 0;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
+  /* 左右双表的表头必须等高，否则合计行会错开；长说明一律单行截断。 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* 左右双表：两卡等高，行数由 ReportTablePair 统一补齐，tfoot 合计行严格同 y。 */
 .mb-rp-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--mb-s-4);
-  align-items: start;
+  align-items: stretch;
 }
 
-/* 净资产独立一卡：明确「资产 − 负债」，不属于负债区。 */
-.mb-rp-networth {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mb-s-4);
-  margin-top: var(--mb-s-4);
-}
-
-.mb-rp-networth-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mb-rp-networth-label {
-  font-size: var(--mb-fs-2);
-  font-weight: 600;
-}
-
-.mb-rp-networth-hint {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-rp-networth-value {
-  flex: none;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-4);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+/* 表头固定高度：一侧的说明缺席 / 截断时，另一侧的表头不能把它往下推。 */
+.mb-rp-cols > .mb-rp-table-card > .mb-rp-sec-head {
+  min-height: 40px;
 }
 
 /* ===== 表格 ===== */
@@ -424,11 +399,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 所有数据行（含折叠行 / 补齐行 / 空态行）固定同一高度。
+   折叠按钮是 28px，若保留上下 padding 会把该行撑成 37px，
+   与补齐行的 29px 不一致：两表折叠行数不同，合计行就会错开。 */
+.mb-rp-table tbody tr {
+  height: var(--mb-tbl-row-h);
+}
+
 .mb-rp-table td {
   height: var(--mb-tbl-row-h);
-  padding: var(--mb-tbl-py) var(--mb-s-2);
+  padding: 0 var(--mb-s-2);
   border-bottom: 1px solid color-mix(in srgb, var(--mb-color-border) 70%, transparent);
-  line-height: var(--mb-tbl-line-h);
+  line-height: var(--mb-tbl-row-h);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -483,8 +465,8 @@
   height: var(--mb-tbl-row-h);
 }
 
+/* 空态行与普通行同高，左右双表才能按同一行数补齐到合计行。 */
 .mb-rp-table-empty {
-  height: 96px !important;
   text-align: center;
   color: var(--mb-color-text-tertiary);
 }
@@ -563,10 +545,6 @@
 .mb-rp-table.is-c3 col:nth-child(1) { width: 34%; }
 .mb-rp-table.is-c3 col:nth-child(2) { width: 32%; }
 .mb-rp-table.is-c3 col:nth-child(3) { width: 34%; }
-/* 分类层级表：首列留足缩进后的账户名，账户数列窄，金额列保持可读宽度。 */
-.mb-rp-table.is-tree col:nth-child(1) { width: 48%; }
-.mb-rp-table.is-tree col:nth-child(2) { width: 16%; }
-.mb-rp-table.is-tree col:nth-child(3) { width: 36%; }
 .mb-rp-table.is-c4 col:nth-child(1) { width: 32%; }
 .mb-rp-table.is-c4 col:nth-child(2) { width: 13%; }
 .mb-rp-table.is-c4 col:nth-child(3) { width: 33%; }
@@ -985,6 +963,15 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   color: var(--mb-color-expense-display);
 }
 
+/* 资产负债构成与收支共用单框双环：资产沿用主色，负债沿用支出色。 */
+.mb-rp-compare-title.is-asset {
+  color: var(--mb-color-accent);
+}
+
+.mb-rp-compare-title.is-liability {
+  color: var(--mb-color-expense-display);
+}
+
 /* 两侧各自标尺：只标本侧满格金额，不比较两侧柱长。 */
 .mb-rp-compare-scale {
   flex: none;
@@ -1289,22 +1276,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   padding: var(--mb-s-1) 0;
 }
 
-.mb-rp-drill-row.is-action {
-  width: 100%;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--mb-color-border) 70%, transparent);
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.mb-rp-drill-row.is-action:hover {
-  background: var(--mb-color-surface-sunken);
-}
-
 .mb-rp-chart-note {
   margin: var(--mb-s-2) 0 0;
   color: var(--mb-color-text-tertiary);
@@ -1466,107 +1437,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   line-height: 1.6;
 }
 
-.mb-rp-settings {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
-
-/* 抽屉顶部极短说明：只陈述只读与口径，不展开成段落。 */
-.mb-rp-settings-note {
-  margin: 0 0 var(--mb-s-2);
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
-
-/* 数据范围：与账本数据同层，但开关即时生效，不参与配置 draft。 */
-.mb-rp-settings-scope {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-1);
-  padding: var(--mb-s-2) 0;
-  border-bottom: 1px solid var(--mb-color-border);
-}
-
-/* ===== 报表设置：四个展示配置面板 ===== */
-
-.mb-rp-config {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-4);
-}
-
-.mb-rp-config-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--mb-s-2);
-}
-
-.mb-rp-config-title {
-  margin: 0;
-  font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-3);
-  font-weight: 600;
-  line-height: var(--mb-lh-tight);
-}
-
-.mb-rp-config-note {
-  margin: 2px 0 0;
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
-
-.mb-rp-config-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-2);
-}
-
-.mb-rp-config-label {
-  margin: 0;
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-}
-
-.mb-rp-config-field-note {
-  margin: 0;
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  line-height: 1.45;
-}
-
-.mb-rp-config-choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mb-s-2);
-}
-
-.mb-rp-config-choice {
-  min-width: 72px;
-  min-height: var(--mb-touch);
-  padding: 0 var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-}
-
-.mb-rp-config-choice.is-active {
-  border-color: var(--mb-color-accent);
-  background: var(--mb-color-accent-soft);
-  color: var(--mb-color-accent);
-  font-weight: 600;
-}
-
-.mb-rp-config-choice:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
+/* HfSwitch 的禁用原因文案：与配置抽屉共用的轻量说明。 */
 .mb-rp-config-reason {
   margin: 0;
   padding-left: 2px;
@@ -1663,46 +1534,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   overflow-y: auto;
 }
 
-/* 设置抽屉：桌面按内容收缩（锚底、留 24 边距），移动端 380 高 bottom sheet。
-   内容区独立滚动，底部「完成」常驻，不随行数被推走。 */
-.mb-rp-sheet-settings {
-  display: flex;
-  flex-direction: column;
-  top: auto;
-  bottom: var(--mb-s-5);
-  height: auto;
-  max-height: calc(100% - var(--mb-s-5) * 2);
-  overflow: hidden;
-  border-radius: var(--mb-radius-lg);
-}
-
-.mb-rp-sheet-settings.is-mobile {
-  bottom: 0;
-  height: 380px;
-  max-height: calc(100% - var(--mb-s-4));
-  border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
-}
-
-.mb-rp-sheet-settings.is-mobile .mb-rp-settings-scroll {
-  padding: var(--mb-s-2) var(--mb-s-4);
-}
-
-.mb-rp-sheet-body.is-settings {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-}
-
-.mb-rp-settings-scroll {
-  flex: 1;
-  min-height: 0;
-  padding: var(--mb-s-4);
-  overflow-y: auto;
-}
-
 .mb-rp-sheet-actions {
   flex: none;
   padding: var(--mb-s-3) var(--mb-s-4);
@@ -1713,17 +1544,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 .mb-rp-sheet-actions .mb-rp-btn {
   width: 100%;
   min-height: var(--mb-touch);
-}
-
-/* 配置面板：重置 / 取消 / 确认 同一行常驻，380 sheet 不被三个按钮吃掉内容区。 */
-.mb-rp-sheet-actions.is-config {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
-  gap: var(--mb-s-2);
-}
-
-.mb-rp-sheet-actions.is-config .mb-rp-btn {
-  width: auto;
 }
 
 .mb-rp-sheet-close {
@@ -1793,7 +1613,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 /* 移动时间面板：按内容收缩的底部面板，内容可滚。
    动作区固定在面板底部、不参与内容滚动：sheet 底部预留动作区高度，滚动区到此为止，
    滚到顶时最后一行不会落在动作区下方，滚到底也不额外多出空白。 */
-.mb-rp-sheet:not(.mb-rp-sheet-settings) {
+.mb-rp-sheet {
   display: flex;
   flex-direction: column;
   top: auto;
@@ -1805,7 +1625,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   padding-bottom: calc(var(--mb-touch) + var(--mb-s-3) + var(--mb-s-4) + var(--mb-border-width));
 }
 
-.mb-rp-sheet:not(.mb-rp-sheet-settings) .mb-rp-sheet-body {
+.mb-rp-sheet .mb-rp-sheet-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -1814,7 +1634,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   padding-bottom: 10px;
 }
 
-.mb-rp-sheet:not(.mb-rp-sheet-settings) .mb-rp-sheet-actions {
+.mb-rp-sheet .mb-rp-sheet-actions {
   position: absolute;
   left: 0;
   right: 0;

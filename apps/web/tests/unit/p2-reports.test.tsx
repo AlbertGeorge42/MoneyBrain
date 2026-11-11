@@ -10,7 +10,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fireEvent, render } from '@testing-library/react'
 import { CompositionBars } from '@/features/reports/charts'
-import { flattenFlowRows } from '@/features/reports/reportRows'
+import { flattenTreeRows } from '@/features/reports/reportRows'
 import { mapBalanceReport } from '@/features/reports/apiReports'
 import {
   buildDrill,
@@ -35,18 +35,21 @@ const MONTH_TIME: ReportTime = {
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-describe('报表设置抽屉：移动 sheet 内容可见、toast 不压「完成」', () => {
+describe('报表设置直达分类抽屉：移动端全屏、toast 不压「完成」', () => {
   const reports = readFileSync(resolve(WEB_ROOT, 'src/features/reports/reports.css'), 'utf8')
   const toast = readFileSync(resolve(WEB_ROOT, 'src/features/shared/toast.css'), 'utf8')
 
-  it('380px sheet 内容区收紧上下内距，打开即可完整落位', () => {
+  it('中间层 380px 设置弹窗已移除，配置抽屉在移动端占满高度', () => {
+    expect(reports).not.toContain('mb-rp-sheet-settings')
     expect(reports).toMatch(
-      /\.mb-rp-sheet-settings\.is-mobile \.mb-rp-settings-scroll\s*\{[^}]*padding:\s*var\(--mb-s-2\)/,
+      /\.mb-rp-page\[data-device='mobile'\] \.mb-ledger-sheet\.mb-set-sheet\s*\{[^}]*height:\s*100%/,
     )
   })
 
-  it('sheet 打开时 toast 抬到 sheet 上方，不遮住底部「完成」', () => {
-    expect(toast).toMatch(/\.mb-rp-toast-stack\.is-over-sheet\s*\{[^}]*bottom:\s*calc\(380px/)
+  it('抽屉打开时 toast 抬到动作区之上，不遮住底部「完成」', () => {
+    expect(toast).toMatch(
+      /\.mb-rp-toast-stack\.is-over-sheet\s*\{[^}]*bottom:\s*calc\(var\(--mb-touch\)/,
+    )
   })
 })
 
@@ -137,7 +140,12 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
       share: 100,
       children: [{ ...node('lunch', '午餐', 300), level: 1 }],
     }
-    const rows = flattenFlowRows([parent], {}, () => {}, () => {})
+    // 折叠列表默认收起：只有显式展开过的父级才出子级行。
+    const options = { unit: '笔', childLegend: true }
+    expect(flattenTreeRows([parent], {}, () => {}, options).map((row) => row.cells[0])).toEqual([
+      '餐饮',
+    ])
+    const rows = flattenTreeRows([parent], { food: true }, () => {}, options)
     expect(rows.map((row) => row.cells[0])).toEqual(['餐饮', '午餐'])
     // 1024 首列仅 101px，五字标记会挤掉名称，故用「†」由表说明位图例承载。
     expect(rows[1].hint).toBe('†')

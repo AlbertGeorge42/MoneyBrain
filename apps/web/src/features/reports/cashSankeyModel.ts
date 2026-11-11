@@ -615,7 +615,8 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
 export function deriveCashSankey(
   ledger: Ledger,
   report: CashReport,
-  visibility: Record<string, boolean>,
+  /** 隐藏分组的可见性表；默认全显示（报表设置不再提供隐藏分组开关）。 */
+  visibility: Record<string, boolean> = {},
 ): CashSankey {
   if (report.projectionMode) return projectionSankey(ledger, report)
   const { from, to } = report.period

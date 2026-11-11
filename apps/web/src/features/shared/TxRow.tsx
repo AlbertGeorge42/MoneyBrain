@@ -2,7 +2,8 @@
  * 流水行（两段式）：总览「最近交易」与流水页共用，避免同一语义在两个页面分叉。
  *
  * 主行：分类图标 + 分类名 primary/600 · 备注 primary/600
- * 副行：交易类型 · 账户；转账行改为「源账户 → 目的账户」
+ * 副行：交易类型 · 账户；转账行为「交易类型 · 源账户 → 目的账户」
+ * 移动端只改行距与点击区，字重 / 字号 / 颜色与 PC 完全一致。
  * 行高、图标、内边距与 1px dashed 分隔线全部由 `--mb-tx-*` 控制。
  */
 import type { ReactNode } from 'react'
@@ -85,30 +86,28 @@ export function TxRow({
           )}
         </span>
         <span className="mb-tx-secondary">
-          {transaction.type === 'transfer' && toAccount ? (
+          <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
+          {showAccount && (
             <>
-              <span className="mb-tx-account" title={account?.name ?? '未知账户'}>
-                {account?.name ?? '未知账户'}
+              <span className="mb-tx-sep" aria-hidden="true">
+                ·
               </span>
-              <span className="mb-tx-arrow" aria-hidden="true">
-                →
-              </span>
-              <span className="mb-tx-account" title={toAccount.name}>
-                {toAccount.name}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
-              {showAccount && (
+              {transaction.type === 'transfer' && toAccount ? (
                 <>
-                  <span className="mb-tx-sep" aria-hidden="true">
-                    ·
-                  </span>
                   <span className="mb-tx-account" title={account?.name ?? '未知账户'}>
                     {account?.name ?? '未知账户'}
                   </span>
+                  <span className="mb-tx-arrow" aria-hidden="true">
+                    →
+                  </span>
+                  <span className="mb-tx-account" title={toAccount.name}>
+                    {toAccount.name}
+                  </span>
                 </>
+              ) : (
+                <span className="mb-tx-account" title={account?.name ?? '未知账户'}>
+                  {account?.name ?? '未知账户'}
+                </span>
               )}
             </>
           )}

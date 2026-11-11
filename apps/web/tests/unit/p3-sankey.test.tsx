@@ -16,7 +16,6 @@ import {
   assertCashSankeyConservation,
   deriveCashSankey,
 } from '@/features/reports/cashSankeyModel'
-import { DEFAULT_REPORT_SETTINGS } from '@/features/reports/reportSettings'
 import type { DeviceMode } from '@/features/shared/types'
 import { makeLedger } from '../helpers/ledger'
 
@@ -377,17 +376,16 @@ describe('deriveCashSankey 三层与守恒', () => {
   })
 })
 
-function renderCashView(device: DeviceMode, settings = DEFAULT_REPORT_SETTINGS.cash) {
+function renderCashView(device: DeviceMode) {
   return render(
     <MantineProvider>
       <CashView
         device={device}
         report={report}
         sankey={sankey}
-        settings={settings}
         side="out"
         onSide={() => {}}
-        folded={{}}
+        expanded={{}}
         onFold={() => {}}
         from={FROM}
         to={TO}
@@ -411,22 +409,17 @@ describe('现金流 tab 的平台降级', () => {
     expect(container.querySelector('.mb-rp-flow-row')).toBeNull()
   })
 
-  it('图注与抽屉说明位的隐藏组数逐字一致', async () => {
+  it('隐藏分组只在桑基图注说明，抽屉只列节点明细', async () => {
     const hiddenSankey = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
-    const settings = {
-      ...DEFAULT_REPORT_SETTINGS.cash,
-      groups: { ...DEFAULT_REPORT_SETTINGS.cash.groups, 经营: false },
-    }
     const { container } = render(
       <MantineProvider>
         <CashView
           device="desktop"
           report={report}
           sankey={hiddenSankey}
-          settings={settings}
           side="out"
           onSide={() => {}}
-          folded={{}}
+          expanded={{}}
           onFold={() => {}}
           from={FROM}
           to={TO}
@@ -439,8 +432,9 @@ describe('现金流 tab 的平台降级', () => {
     expect(chartNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
     fireEvent.click(container.querySelector('.mb-rp-sankey-node[data-id="in:hidden"] .mb-rp-sankey-node-hit')!)
     await waitFor(() => expect(container.querySelector('.mb-rp-drill')).not.toBeNull())
+    // 前端不再提供隐藏分组开关，抽屉不再重复「已隐藏 N 组 / 图与表合计允许不同」。
     const drawerNote = container.querySelector('.mb-rp-drill .mb-rp-chart-note')?.textContent ?? ''
-    expect(drawerNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
-    expect(drawerNote).toContain('图与表合计允许不同')
+    expect(drawerNote).not.toContain('已隐藏')
+    expect(container.querySelector('.mb-rp-drill .mb-rp-drill-head')).not.toBeNull()
   })
 })

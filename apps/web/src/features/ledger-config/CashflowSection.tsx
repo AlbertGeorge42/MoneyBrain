@@ -2,7 +2,7 @@
  * 设置 · 现金流分类分区。
  *
  * 资产 Tab 按账户性质标记分组，收入 / 支出 / 转账 Tab 按活动归组；
- * 空组默认折叠且不渲染占位行（与原实现一致）。活动归属写入分类的 cashFlowType，
+ * 所有分组默认折叠，空组不渲染占位行。活动归属写入分类的 cashFlowType，
  * 现金流报表按同一字段分组。
  */
 import {
@@ -19,6 +19,7 @@ import {
 import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
+import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import type { AccountKind, Ledger } from '@/features/overview/model'
 import { formatCurrency } from '@/utils/format'
 import { minor } from '@domain/index'
@@ -53,8 +54,8 @@ interface CashflowSectionProps {
   rows: CategoryRow[]
   tab: CashflowTab
   onTabChange: (tab: CashflowTab) => void
-  collapsed: ReadonlySet<string>
-  onToggleCollapsed: (key: string) => void
+  expandedKeys: ExpandedKeys
+  onToggleExpanded: (key: string) => void
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
   confirming: string | null
@@ -67,8 +68,8 @@ export function CashflowSection({
   rows,
   tab,
   onTabChange,
-  collapsed,
-  onToggleCollapsed,
+  expandedKeys,
+  onToggleExpanded,
   menuOpen,
   onMenuOpen,
   confirming,
@@ -97,8 +98,8 @@ export function CashflowSection({
             const groupRows = ledger.accounts.filter((account) => group.kinds.includes(account.kind))
             const groupKey = `cf-asset-${group.id}`
             const empty = groupRows.length === 0
-            // 空组默认折叠，不再渲染「没有账户」占位行，避免像还没加载完。
-            const open = !empty && !collapsed.has(groupKey)
+            // 空组不渲染占位行，避免像还没加载完；其余组默认折叠。
+            const open = !empty && isKeyExpanded(expandedKeys, groupKey)
             return (
               <div key={group.id} className="mb-set-group">
                 <div className="mb-set-row is-group">
@@ -107,7 +108,7 @@ export function CashflowSection({
                     aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                     aria-expanded={open}
                     disabled={empty}
-                    onClick={() => onToggleCollapsed(groupKey)}
+                    onClick={() => onToggleExpanded(groupKey)}
                   >
                     {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </HfButton>
@@ -185,8 +186,8 @@ export function CashflowSection({
           const groupRows = flat.filter((item) => item.group === group.id)
           const groupKey = `cf-${type}-${group.id}`
           const empty = groupRows.length === 0
-          // 空组默认折叠，不再渲染「未分配」占位行，避免像还没加载完。
-          const open = !empty && !collapsed.has(groupKey)
+          // 空组不渲染占位行，避免像还没加载完；其余组默认折叠。
+          const open = !empty && isKeyExpanded(expandedKeys, groupKey)
           return (
             <div key={group.id} className="mb-set-group">
               <div className="mb-set-row is-group">
@@ -195,7 +196,7 @@ export function CashflowSection({
                   aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                   aria-expanded={open}
                   disabled={empty}
-                  onClick={() => onToggleCollapsed(groupKey)}
+                  onClick={() => onToggleExpanded(groupKey)}
                 >
                   {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </HfButton>

@@ -435,9 +435,10 @@ describe('时间条：未来统一、无视图级禁用', () => {
 describe('资产负债预测映射：账户明细与三来源', () => {
   it('账户行来自账户层，负债正数，0 元账户只计入提示', () => {
     const report = mapProjectionBalanceReport(projectionFixture(), ledgerFixture())
+    // 顺序沿用后端账户层（即设置顺序），不再按金额降序重排。
     expect(report.assets.map((row) => [row.name, row.amount])).toEqual([
-      ['投资', 3_600_00],
       ['现金', 1_000_00],
+      ['投资', 3_600_00],
     ])
     expect(report.liabilities.map((row) => [row.name, row.amount])).toEqual([['信用卡', 100_00]])
     expect(report.zeroAccountCount).toBe(1)

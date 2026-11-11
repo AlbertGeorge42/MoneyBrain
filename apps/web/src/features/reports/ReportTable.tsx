@@ -45,8 +45,6 @@ export interface CardRow {
   barTone?: 'income' | 'expense' | 'accent'
   fold?: { expanded: boolean; onToggle: () => void }
   onOpen?: () => void
-  /** 行内附加操作（如账户对账）；不影响整行点击。 */
-  action?: ReactNode
 }
 
 function MetricLabel({ metric }: { metric: ReportMetric }) {
@@ -96,6 +94,22 @@ export function MetricStrip({
   )
 }
 
+export interface ReportTableProps {
+  device: DeviceMode
+  title: string
+  desc?: string
+  columns: ReportColumn[]
+  rows: ReportRow[]
+  total?: ReactNode[]
+  /** 并排两表的最小数据行数：按两表最大行数补齐，保证 tfoot 同 y。 */
+  minRows?: number
+  note?: string
+  variant?: 'c2' | 'c3' | 'c4' | 'c5' | 'c6'
+  ariaLabel: string
+  /** 移动端横向滚动 + 首列吸顶：用于列数多、无法卡片化的单表。 */
+  scrollable?: boolean
+}
+
 export function ReportTable({
   device,
   title,
@@ -107,29 +121,13 @@ export function ReportTable({
   note,
   variant = 'c3',
   ariaLabel,
-  footInline = false,
   scrollable = false,
-}: {
-  device: DeviceMode
-  title: string
-  desc?: string
-  columns: ReportColumn[]
-  rows: ReportRow[]
-  total?: ReactNode[]
-  /** 并排两表的最小数据行数：按两表最大行数补齐，保证 tfoot 同 y。 */
-  minRows?: number
-  note?: string
-  variant?: 'c2' | 'c3' | 'c4' | 'c5' | 'c6' | 'tree'
-  ariaLabel: string
-  footInline?: boolean
-  /** 移动端横向滚动 + 首列吸顶：用于列数多、无法卡片化的单表。 */
-  scrollable?: boolean
-}) {
+}: ReportTableProps) {
   const empty = rows.length === 0
   // 只要有一行可折叠，就给所有一级行预留同样的折叠槽，避免「有箭头/无箭头」两套缩进。
   const foldable = rows.some((row) => row.fold)
   return (
-    <Card variant="report" className={footInline ? 'mb-rp-table-card is-inline' : 'mb-rp-table-card'} data-device={device}>
+    <Card variant="report" className="mb-rp-table-card" data-device={device}>
       <div className="mb-rp-sec-head">
         <div>
           <h3 className="mb-rp-sec-title">{title}</h3>
@@ -223,7 +221,7 @@ export function ReportTable({
                 )
               })
             )}
-            {Array.from({ length: empty ? 0 : Math.max(0, minRows - rows.length) }, (_, index) => (
+            {Array.from({ length: Math.max(0, minRows - (empty ? 1 : rows.length)) }, (_, index) => (
               <tr key={`pad-${index}`} className="is-pad" aria-hidden="true" tabIndex={-1}>
                 {columns.map((column) => (
                   <td key={column.label}>&nbsp;</td>
@@ -246,6 +244,26 @@ export function ReportTable({
       </div>
       {note && <p className="mb-rp-table-note">{note}</p>}
     </Card>
+  )
+}
+
+/**
+ * PC 左右双表：两张表统一补齐到较多者的行数，合计行才会落在同一水平线。
+ * 三张报表（资产负债 / 收支明细 / 现金流）都从这里出，不再各自算 minRows。
+ */
+export function ReportTablePair({
+  left,
+  right,
+}: {
+  left: Omit<ReportTableProps, 'minRows'>
+  right: Omit<ReportTableProps, 'minRows'>
+}) {
+  const minRows = Math.max(left.rows.length, right.rows.length)
+  return (
+    <div className="mb-rp-cols">
+      <ReportTable {...left} minRows={minRows} />
+      <ReportTable {...right} minRows={minRows} />
+    </div>
   )
 }
 
@@ -308,7 +326,6 @@ export function ReportCardList({
                 </span>
                 <span className={`mb-rp-crow-amount is-${row.tone ?? 'neutral'}`}>{row.amount}</span>
               </HfButton>
-              {row.action}
               {row.share !== undefined && (
                 <progress
                   className={`mb-rp-crow-bar is-${row.barTone ?? 'accent'}`}

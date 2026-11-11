@@ -123,14 +123,20 @@ features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
 | `app/design/DesignApp.tsx` | 唯一页面装配：路由（`/design` 与 `*` 均渲染它）、设备判定、全局 Provider |
 | `features/overview/` | 总览、快速记账、`LedgerContext` / `apiLedger.ts`（共享账本状态与写操作） |
 | `features/transactions/` | 流水、详情、批量、回收站；`apiTransactions.ts` |
-| `features/reports/` | 四张报表、图表、下钻；`apiReports.ts` |
+| `features/reports/` | 四张报表、图表、下钻；`apiReports.ts`；`reportRows.ts` 的 `flattenTreeRows` / `flattenTreeCards` 是分类树到表格 / 卡片的唯一展开实现；左右双表统一由 `ReportTable.tsx` 的 `ReportTablePair` 补齐行数并对齐合计行 |
 | `features/budgets/` | 预算列表/编辑、状态、推演；`budgetModel.ts` |
-| `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源） |
+| `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源）；`drag.ts` 提供仅竖直方向的拖拽 modifier 与行样式 |
 | `features/settings/` | 8 分区设置、导入导出、自动备份、回收站 |
 | `features/shell/` | 桌面侧栏 / 移动底栏与浮层宿主 |
-| `features/shared/` | HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、HfHeadAction、Card、toast、StateViews、chartLayout、datePicker |
+| `features/shared/` | HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、HfHeadAction、Card、toast、StateViews、chartLayout、datePicker；`foldState.ts` 是全仓折叠列表的唯一默认口径（默认收起） |
 | `services/api.ts` | Axios 实例 + 响应拦截器（统一归一化错误） |
 | `services/apiError.ts` / `apiResult.ts` | `ApiClientError`；`unwrapApiData(res)` 是唯一解包入口 |
+
+**报表展示口径固定**：`reportSettings.ts` 只持久化「含不计收支交易」数据范围，不再保存分组方式 / 列集合 / 比例 / 排序等展示配置。报表页点「设置」直接打开 `ledger-config/LedgerConfigManager` 的单一分区（由 `ReportsPage` 的 `REPORT_CONFIG` 固定 tab 与标题），没有中间层弹窗，也不带跨分区页签；收支明细的数据范围开关作为 `extra` 与分类管理同处一层。
+
+资产负债表的「账户分类 → 账户」层级由 `reportsModel.ts` 的 `buildBalanceGroups` 派生（缺分类元数据时按后端节点名兜底）：账户按自己的 `categoryId` 成组，**不做子分类向父分类归一**——设置页把每个账户分类平铺成分组，报表同口径，否则父级「资产」下的「现金 / 投资」会并成一组。`buildBalanceTrees` 再转成四张报表共用的 `FlowTreeNode`：表格、移动卡片与资产 / 负债构成环都消费这一份树。构成环与收支构成共用 `charts.tsx` 的 `DonutCompare`（一个 `ChartCard` 内左右两环同尺寸），`BalanceComposition` 与 `CompositionBars` 只是两侧配置不同。四个视图共用 `foldState` 决定展开状态（默认收起）。
+
+**顺序与对齐**：后端按 `sort` 返回分类 / 账户，映射层（`apiReports.ts`）、分组层（`reportsModel.ts`）与投资持仓层都不再按金额重排，设置里的拖拽顺序即报表默认顺序。左右双表用固定数据行高 + 固定表头最小高度 + `ReportTablePair` 补齐行数，保证合计行同 y。
 
 **缓存失效**：派生数据来自同一份交易；写操作后由 `DesignApp` 集中失效 `['hf', …]` 领域键，
 不在各页面散写。`queries/` 目录已不存在；不要重新引入。

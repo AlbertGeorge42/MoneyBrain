@@ -17,12 +17,17 @@ function groups(): CashGroup[] {
 }
 
 describe('现金流左右表折叠', () => {
-  it('折左侧流入分组后，右侧流出行数不变', () => {
-    const folded = { 'in:经营': false }
-    const inflow = cashRowsFor('in', groups(), folded, () => {})
-    const outflow = cashRowsFor('out', groups(), folded, () => {})
+  it('默认全部折叠：两表都只显示分组行', () => {
+    expect(cashRowsFor('in', groups(), {}, () => {})).toHaveLength(1)
+    expect(cashRowsFor('out', groups(), {}, () => {})).toHaveLength(1)
+  })
 
-    expect(inflow).toHaveLength(1)
-    expect(outflow).toHaveLength(3)
+  it('展开左侧流入分组后，右侧流出行数不变', () => {
+    const expanded = { 'in:经营': true }
+    const inflow = cashRowsFor('in', groups(), expanded, () => {})
+    const outflow = cashRowsFor('out', groups(), expanded, () => {})
+
+    expect(inflow).toHaveLength(3)
+    expect(outflow).toHaveLength(1)
   })
 })

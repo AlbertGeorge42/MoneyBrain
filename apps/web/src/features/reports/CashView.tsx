@@ -1,32 +1,33 @@
 /**
  * 现金流视图：指标条 + 桑基（仅 PC）+ 流入 / 流出双表（移动端横条与卡片）。
- * 分组可见性只影响展示合计；点切块/ribbon 落到同一节点抽屉。
+ * 活动分组固定全显示，表尾合计就是各组之和；点切块 / ribbon 落到同一节点抽屉。
  */
 import { useState } from 'react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
+import { isExpanded, type FoldState } from '@/features/shared/foldState'
 import { CashSankeyChart } from './CashSankey'
 import { ChartCard, CashFlowBars } from './charts'
-import {
-  MetricStrip,
-  ReportCardList,
-  ReportTable,
-  type CardRow,
-} from './ReportTable'
+import { MetricStrip, ReportCardList, ReportTablePair, type CardRow, type ReportColumn } from './ReportTable'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import { cashRowsFor, currency, type CashReport } from './reportsModel'
-import { cashTotalOf, visibleCashGroups, type ReportViewSettings } from './reportSettings'
+import { cashTotalOf } from './reportSettings'
 import type { CashSankey, CashSankeyNode } from './cashSankeyModel'
+
+const CASH_COLUMNS: ReportColumn[] = [
+  { label: '分组 / 交易' },
+  { label: '账户 / 笔数' },
+  { label: '金额', align: 'num' },
+]
 
 export function CashView({
   device,
   report,
   sankey,
-  settings,
   side,
   onSide,
-  folded,
+  expanded,
   onFold,
   from,
   to,
@@ -36,10 +37,9 @@ export function CashView({
   device: DeviceMode
   report: CashReport
   sankey: CashSankey | null
-  settings: ReportViewSettings['cash']
   side: 'in' | 'out'
   onSide: (next: 'in' | 'out') => void
-  folded: Record<string, boolean>
+  expanded: FoldState
   onFold: (id: string) => void
   from: string
   to: string
@@ -56,21 +56,15 @@ export function CashView({
   const sankeyCategories = sankeyNode
     ? [...new Set(sankeyNode.children.map((child) => child.categoryId).filter(Boolean).map(rootOf))]
     : []
-  // 只按配置过滤可见分组；合计随可见分组重算，未显示的金额不留在表尾。
-  const inflowGroups = visibleCashGroups(report.inflowGroups, settings)
-  const outflowGroups = visibleCashGroups(report.outflowGroups, settings)
-  const inflowTotal = cashTotalOf(inflowGroups)
-  const outflowTotal = cashTotalOf(outflowGroups)
-  const hiddenIn = report.inflowGroups.length - inflowGroups.length
-  const hiddenOut = report.outflowGroups.length - outflowGroups.length
-  const hiddenNote = (hidden: number) => (hidden > 0 ? ` · 已隐藏 ${hidden} 组` : '')
-  const groups = side === 'in' ? inflowGroups : outflowGroups
-  // 左右两表共用一份 folded：键必须带方向前缀，否则同名分组（经营 / 投资 / 筹资）会串扰
+  const inflowTotal = cashTotalOf(report.inflowGroups)
+  const outflowTotal = cashTotalOf(report.outflowGroups)
+  const groups = side === 'in' ? report.inflowGroups : report.outflowGroups
+  // 左右两表共用一份展开状态：键必须带方向前缀，否则同名分组会串扰。
   const foldKey = (id: string) => `${side}:${id}`
   const cards: CardRow[] = []
   for (const group of groups) {
     const key = foldKey(group.key)
-    const expanded = folded[key] !== false
+    const open = isExpanded(expanded, key)
     cards.push({
       id: key,
       label: group.name,
@@ -78,9 +72,9 @@ export function CashView({
       hint: group.predicted ? '预测' : undefined,
       amount: currency(group.total),
       tone: side === 'in' ? 'income' : 'expense',
-      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
+      fold: group.children.length > 0 ? { expanded: open, onToggle: () => onFold(key) } : undefined,
     })
-    if (expanded) {
+    if (open) {
       for (const child of group.children) {
         cards.push({
           id: foldKey(child.id),
@@ -95,9 +89,11 @@ export function CashView({
     }
   }
 
-  const inflowRows = cashRowsFor('in', inflowGroups, folded, onFold)
-  const outflowRows = cashRowsFor('out', outflowGroups, folded, onFold)
-  const cashMinRows = Math.max(inflowRows.length, outflowRows.length)
+  const inflowRows = cashRowsFor('in', report.inflowGroups, expanded, onFold)
+  const outflowRows = cashRowsFor('out', report.outflowGroups, expanded, onFold)
+  const feeNote = report.reconcile.transferFee > 0
+    ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计`
+    : ''
 
   return (
     <>
@@ -110,36 +106,32 @@ export function CashView({
               <CashSankeyChart data={sankey} onOpen={openSankeyNode} />
             </ChartCard>
           )}
-          <div className="mb-rp-cols">
-          <ReportTable
-            device={device}
-            title="流入"
-            desc={`合计 ${currency(inflowTotal)}${hiddenNote(hiddenIn)}`}
-            ariaLabel="现金流入"
-            columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
-            rows={inflowRows}
-            minRows={cashMinRows}
-            total={['合计', '', currency(inflowTotal)]}
+          <ReportTablePair
+            left={{
+              device,
+              title: '流入',
+              desc: `合计 ${currency(inflowTotal)}`,
+              ariaLabel: '现金流入',
+              columns: CASH_COLUMNS,
+              rows: inflowRows,
+              total: ['合计', '', currency(inflowTotal)],
+            }}
+            right={{
+              device,
+              title: '流出',
+              desc: `合计 ${currency(outflowTotal)}${feeNote}`,
+              ariaLabel: '现金流出',
+              columns: CASH_COLUMNS,
+              rows: outflowRows,
+              total: ['合计', '', currency(outflowTotal)],
+            }}
           />
-          <ReportTable
-            device={device}
-            title="流出"
-            desc={`合计 ${currency(outflowTotal)}${hiddenNote(hiddenOut)}${
-              report.reconcile.transferFee > 0 ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计` : ''
-            }`}
-            ariaLabel="现金流出"
-            columns={[{ label: '分组 / 交易' }, { label: '账户 / 笔数' }, { label: '金额', align: 'num' }]}
-            rows={outflowRows}
-            minRows={cashMinRows}
-            total={['合计', '', currency(outflowTotal)]}
-          />
-          </div>
         </>
       ) : (
         <>
           <CashFlowBars
-            inflowGroups={inflowGroups}
-            outflowGroups={outflowGroups}
+            inflowGroups={report.inflowGroups}
+            outflowGroups={report.outflowGroups}
             inflowTotal={inflowTotal}
             outflowTotal={outflowTotal}
           />
@@ -156,9 +148,11 @@ export function CashView({
           <ReportCardList
             device={device}
             title={side === 'in' ? '流入' : '流出'}
-            desc={side === 'in' ? `合计 ${currency(inflowTotal)}${hiddenNote(hiddenIn)}` : `合计 ${currency(outflowTotal)}${hiddenNote(hiddenOut)}${
-              report.reconcile.transferFee > 0 ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计` : ''
-            }`}
+            desc={
+              side === 'in'
+                ? `合计 ${currency(inflowTotal)}`
+                : `合计 ${currency(outflowTotal)}${feeNote}`
+            }
             rows={cards}
             total={{ label: '合计', value: currency(side === 'in' ? inflowTotal : outflowTotal) }}
           />
@@ -213,11 +207,6 @@ export function CashView({
                 </div>
               ))
             )}
-            {sankeyNode.hiddenCount ? (
-              <p className="mb-rp-chart-note">
-                已隐藏 {sankey?.hiddenGroups ?? sankeyNode.hiddenCount} 组，并入「其他」以保持守恒；表尾合计按可见分组重算（图与表合计允许不同）。
-              </p>
-            ) : null}
           </div>
         )}
       </HfSheet>

@@ -210,7 +210,6 @@ function treeOf(
           children: [],
         })),
     }))
-    .sort((left, right) => right.amount - left.amount)
 }
 
 export function mapFlowReport(
@@ -302,7 +301,7 @@ export function mapBalanceReport(
           predicted: predictedOf(account),
           categoryId: account.categoryId,
         })),
-    ).sort((left, right) => right.amount - left.amount)
+    )
 
   const countZero = (nodes: BalanceSheetReportData['assetNodes']) =>
     nodes.reduce((sum, node) => sum + node.children.filter((account) => totalOf(account) === 0).length, 0)
@@ -325,19 +324,6 @@ export function mapBalanceReport(
   const positiveAssetTotal = positiveAssets.reduce((sum, row) => sum + row.amount, 0)
   const negativeAssetTotal = negativeAssets.reduce((sum, row) => sum + row.amount, 0)
 
-  const kindTotals = new Map<string, number>()
-  for (const row of positiveAssets) {
-    kindTotals.set(row.kind, (kindTotals.get(row.kind) ?? 0) + row.amount)
-  }
-  const composition = [...kindTotals.entries()]
-    .map(([kind, amount]) => ({
-      id: kind,
-      name: kind,
-      amount,
-      share: positiveAssetTotal === 0 ? 0 : (amount / positiveAssetTotal) * 100,
-    }))
-    .sort((left, right) => right.amount - left.amount)
-
   return {
     point: data.date,
     assets,
@@ -349,7 +335,6 @@ export function mapBalanceReport(
     positiveAssetTotal,
     negativeAssetTotal,
     negativeAssetCount: negativeAssets.length,
-    composition,
     trend: trend.map((item) => ({ month: item.label, value: item.netWorth })),
     predictionNote: data.predictionNote,
     metrics: [
@@ -452,7 +437,7 @@ function activityGroup(
     total,
     predicted: predictedOf(activity.inflow) + predictedOf(activity.outflow),
     count: counted.size,
-    children: children.sort((left, right) => right.amount - left.amount),
+    children,
   }
 }
 
@@ -606,7 +591,6 @@ function projectionTreeOf(
         .filter((child) => amountOf(child) > 0)
         .map(childOf),
     }))
-    .sort((left, right) => right.amount - left.amount)
 }
 
 const PROJECTION_BALANCE_NOTE =
@@ -634,7 +618,6 @@ export function mapProjectionBalanceReport(
         predicted: Math.max(0, Math.abs(account.total) - Math.abs(account.actual)),
         categoryId: account.categoryId,
       }))
-      .sort((left, right) => right.amount - left.amount)
   const assets = rowsOf('asset')
   const liabilities = rowsOf('liability')
   const assetTotal = last?.total.assets ?? projection.base.assets
@@ -645,19 +628,6 @@ export function mapProjectionBalanceReport(
   const negativeAssets = assets.filter((row) => row.amount < 0)
   const positiveAssetTotal = positiveAssets.reduce((sum, row) => sum + row.amount, 0)
   const negativeAssetTotal = negativeAssets.reduce((sum, row) => sum + row.amount, 0)
-
-  const kindTotals = new Map<string, number>()
-  for (const row of positiveAssets) {
-    kindTotals.set(row.kind, (kindTotals.get(row.kind) ?? 0) + row.amount)
-  }
-  const composition = [...kindTotals.entries()]
-    .map(([kind, amount]) => ({
-      id: kind,
-      name: kind,
-      amount,
-      share: positiveAssetTotal === 0 ? 0 : (amount / positiveAssetTotal) * 100,
-    }))
-    .sort((left, right) => right.amount - left.amount)
 
   const metric = (
     label: string,
@@ -708,7 +678,6 @@ export function mapProjectionBalanceReport(
     positiveAssetTotal,
     negativeAssetTotal,
     negativeAssetCount: negativeAssets.length,
-    composition,
     trend: projection.points.map((point) => ({ month: point.label, value: point.total.netWorth })),
     predictionNote: last && last.end > projection.asOf ? PROJECTION_BALANCE_NOTE : undefined,
     metrics: [
@@ -803,7 +772,6 @@ function projectionCashGroup(
         categoryId: item.categoryId ?? '',
       }
     })
-    .sort((left, right) => right.amount - left.amount)
   return {
     key,
     name: key,
@@ -986,9 +954,9 @@ export function mapInvestmentReport(
 
   return {
     total,
-    allocation: allocation.sort((left, right) => right.current - left.current),
+    allocation,
     snapshots: [],
-    holdings: holdings.sort((left, right) => right.marketValue - left.marketValue),
+    holdings,
     costTotal,
     gainTotal,
     cumulativeReturn,

@@ -7,6 +7,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
+import {
+  setExpandedKeys,
+  toggleExpandedKey,
+  type ExpandedKeys,
+} from '@/features/shared/foldState'
 import type { ToastOptions } from '@/features/shared/toastContext'
 import { transactionCategoryApi } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
@@ -63,7 +68,8 @@ export function useLedgerConfigController({
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [categoryTab, setCategoryTab] = useState<CategoryTab>('expense')
   const [cashTab, setCashTab] = useState<CashflowTab>('asset')
-  const [collapsedKeys, setCollapsedKeys] = useState<ReadonlySet<string>>(() => new Set())
+  /** 所有折叠列表默认收起：只记用户显式展开过的分组 / 分类。 */
+  const [expandedKeys, setExpanded] = useState<ExpandedKeys>(() => new Set())
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<string | null>(null)
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -120,25 +126,10 @@ export function useLedgerConfigController({
     [ledger],
   )
 
-  const toggleCollapsed = (key: string) => {
-    setCollapsedKeys((current) => {
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
+  const toggleExpanded = (key: string) => setExpanded((current) => toggleExpandedKey(current, key))
 
-  const setGroupsCollapsed = (keys: readonly string[], collapse: boolean) => {
-    setCollapsedKeys((current) => {
-      const next = new Set(current)
-      for (const key of keys) {
-        if (collapse) next.add(key)
-        else next.delete(key)
-      }
-      return next
-    })
-  }
+  const setGroupsExpanded = (keys: readonly string[], expanded: boolean) =>
+    setExpanded((current) => setExpandedKeys(current, keys, expanded))
 
   const resetTransient = useCallback(() => {
     setMenuOpen(null)
@@ -434,9 +425,9 @@ export function useLedgerConfigController({
     setCategoryTab,
     cashTab,
     setCashTab,
-    collapsed: collapsedKeys,
-    toggleCollapsed,
-    setGroupsCollapsed,
+    expandedKeys,
+    toggleExpanded,
+    setGroupsExpanded,
     menuOpen,
     setMenuOpen,
     confirming,

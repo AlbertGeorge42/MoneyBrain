@@ -31,21 +31,18 @@ import {
   deriveCashSankey,
 } from '@/features/reports/cashSankeyModel'
 import { CashSankeyChart } from '@/features/reports/CashSankey'
+import { balanceGroupBalanced, buildBalanceGroups, buildBalanceTrees } from '@/features/reports/reportsModel'
+import { isExpanded } from '@/features/shared/foldState'
 import {
-  balanceGroupBalanced,
-  balanceGroupExpanded,
-  buildBalanceGroups,
-} from '@/features/reports/reportsModel'
-import {
-  CASH_GROUP_KEYS,
   DEFAULT_REPORT_SETTINGS,
-  groupBalanceRows,
-  sortHoldingRows,
-  visibleCashGroups,
-  type ReportViewSettings,
+  normalizeReportSettings,
+  sliceSnapshots,
 } from '@/features/reports/reportSettings'
 
 const webSrc = resolve(__dirname, '../../src')
+
+/** 报表固定显示全部活动分组；桑基的隐藏分组能力仍由底层测试覆盖。 */
+const ALL_VISIBLE = {}
 
 function source(relative: string): string {
   return readFileSync(resolve(webSrc, relative), 'utf8')
@@ -344,7 +341,8 @@ describe('视图 ↔ 端点映射', () => {
     expect(report.assetTotal).toBe(15172915)
     expect(report.liabilityTotal).toBe(211840)
     expect(report.netWorth).toBe(14961075)
-    expect(report.assets.map((row) => row.id)).toEqual(['brk', 'cmb', 'zfb', 'wx'])
+    // 顺序沿用后端分类 / 账户顺序（即设置中的顺序），不再按金额降序。
+    expect(report.assets.map((row) => row.id)).toEqual(['cmb', 'wx', 'zfb', 'brk'])
     expect(report.liabilities.map((row) => row.id)).toEqual(['xyk'])
     expect(rows.some((row) => row.id === 'xyk' && report.assets.includes(row))).toBe(false)
     expect(report.trend.at(-1)).toEqual({ month: '2026-11', value: 14961075 })
@@ -370,15 +368,15 @@ describe('视图 ↔ 端点映射', () => {
 
   it('资产表覆盖全部非零账户：负余额保留、0 元账户折叠（真实库 7 行 + 2 个 0 元）', () => {
     const report = mapBalanceReport(REAL_BALANCE, [], createSeedLedger())
-    // 负余额资产不再被 actual > 0 吞掉：7 个非零账户全部列出（按金额降序）。
+    // 负余额资产不再被 actual > 0 吞掉：7 个非零账户按后端分类 / 账户顺序列出。
     expect(report.assets.map((row) => row.id)).toEqual([
-      'a-xq',
       'a-ysf',
-      'a-wallet',
-      'a-zfb',
       'a-wx',
-      'a-zfbjj',
+      'a-zfb',
+      'a-wallet',
       'a-gjj',
+      'a-xq',
+      'a-zfbjj',
     ])
     // 行合计与后端资产合计逐分相等；差额正是负余额账户。
     expect(report.assets.reduce((sum, row) => sum + row.amount, 0)).toBe(75474563)
@@ -391,12 +389,15 @@ describe('视图 ↔ 端点映射', () => {
 
   it('资产构成为正余额口径：环内合计与资产表差额 = 负余额资产（真实库 882,603.34 / −127,857.71）', () => {
     const report = mapBalanceReport(REAL_BALANCE, [], createSeedLedger())
-    // 构成块只含正余额账户，环内合计 882,603.34；资产表合计 754,745.63。
-    expect(report.composition.reduce((sum, item) => sum + item.amount, 0)).toBe(88260334)
-    expect(report.composition.every((item) => item.amount > 0)).toBe(true)
     // 差额逐分等于被排除的负余额资产，图注用同一组数字解释。
+    expect(report.positiveAssetTotal).toBe(88260334)
     expect(report.positiveAssetTotal + report.negativeAssetTotal).toBe(report.assetTotal)
     expect(report.positiveAssetTotal - report.assetTotal).toBe(12785771)
+    // 构成树一级是账户分类，二级是该分类下的账户；占比只按正余额计算。
+    const trees = buildBalanceTrees(buildBalanceGroups(report.assets))
+    expect(trees.length).toBeGreaterThan(0)
+    expect(trees.every((tree) => tree.level === 0 && tree.children.length > 0)).toBe(true)
+    expect(trees.every((tree) => tree.share >= 0)).toBe(true)
   })
 
   it('资产负债层级（真实库 2026-10-31）：三处对账逐项相等', () => {
@@ -416,19 +417,24 @@ describe('视图 ↔ 端点映射', () => {
   it('层级小计：子项之和 = 父项小计，根级之和 = 资产 / 负债合计', () => {
     const ledger = { ...createSeedLedger(), accountCategories: REAL_CATEGORIES }
     const report = mapBalanceReport(REAL_BALANCE_20261031, [], ledger)
-    const assetGroups = buildBalanceGroups(report.assets, REAL_CATEGORIES)!
-    const liabilityGroups = buildBalanceGroups(report.liabilities, REAL_CATEGORIES)!
+    const assetGroups = buildBalanceGroups(report.assets, REAL_CATEGORIES)
+    const liabilityGroups = buildBalanceGroups(report.liabilities, REAL_CATEGORIES)
     for (const group of [...assetGroups, ...liabilityGroups]) {
       // 组内账户之和 = 分组小计（金额与账户数同时对齐）。
       expect(balanceGroupBalanced(group), `${group.name} 小计`).toBe(true)
     }
     expect(assetGroups.reduce((sum, group) => sum + group.amount, 0)).toBe(report.assetTotal)
     expect(liabilityGroups.reduce((sum, group) => sum + group.amount, 0)).toBe(report.liabilityTotal)
-    // 账户数同样从一级对到明细：投资 2 个、现金 3 个、长期 1 个；负债 3 个。
+    // 账户数同样从一级对到明细；顺序沿用设置中的分类 sort，不再按金额降序。
     expect(assetGroups.map((group) => [group.name, group.accountCount])).toEqual([
-      ['投资', 2],
       ['现金', 3],
       ['长期', 1],
+      ['投资', 2],
+    ])
+    expect(assetGroups[0].accounts.map((account) => account.id)).toEqual([
+      'acc-alipay',
+      'acc-wechat',
+      'acc-unionpay',
     ])
     expect(liabilityGroups.map((group) => [group.name, group.accountCount])).toEqual([
       ['短期负债', 3],
@@ -436,38 +442,44 @@ describe('视图 ↔ 端点映射', () => {
     // 账户直接挂一级，组内就是账户行。
     expect(assetGroups.every((group) => group.accounts.length === group.accountCount)).toBe(true)
 
-    // 历史载荷仍指向二级分类时，取它的一级父分类作为归属，不再展开二级。
-    const legacy = buildBalanceGroups(
+    // 真实库里「现金」「投资」是「资产」的子分类：设置页把它们平铺成三个分组，
+    // 报表必须同口径按每个账户自己的分类成组，不能向父级归并成一组「资产」。
+    const nested = buildBalanceGroups(
       [
         { id: 'n1', name: '账户1', kind: '现金', amount: 100, categoryId: 'sub-cash' },
         { id: 'n2', name: '账户2', kind: '现金', amount: 50, categoryId: 'sub-cash' },
+        { id: 'n3', name: '账户3', kind: '投资', amount: 200, categoryId: 'sub-invest' },
+        { id: 'n4', name: '账户4', kind: '资产', amount: 30, categoryId: 'root-asset' },
       ],
       [
-        { id: 'root-liquid', name: '现金', type: 'asset', parentId: null, sort: 1 },
-        { id: 'sub-cash', name: '电子钱包', type: 'asset', parentId: 'root-liquid', sort: 1 },
+        { id: 'root-asset', name: '资产', type: 'asset', parentId: null, sort: 0 },
+        { id: 'sub-cash', name: '现金', type: 'asset', parentId: 'root-asset', sort: 1 },
+        { id: 'sub-invest', name: '投资', type: 'asset', parentId: 'root-asset', sort: 2 },
       ],
-    )!
-    expect(legacy).toHaveLength(1)
-    expect(legacy[0].name).toBe('现金')
-    expect(legacy[0].amount).toBe(150)
-    expect(legacy[0].accountCount).toBe(2)
-    expect(legacy[0].accounts.map((account) => account.id)).toEqual(['n1', 'n2'])
-    expect(balanceGroupBalanced(legacy[0])).toBe(true)
+    )
+    expect(nested.map((group) => group.name)).toEqual(['现金', '投资', '资产'])
+    expect(nested.map((group) => group.amount)).toEqual([150, 200, 30])
+    expect(nested.map((group) => group.accountCount)).toEqual([2, 1, 1])
+    expect(nested.every(balanceGroupBalanced)).toBe(true)
   })
 
-  it('层级默认展开策略：默认展开一级分类', () => {
-    const groups = buildBalanceGroups(
-      [
-        { id: 'n1', name: '账户1', kind: '现金', amount: 100, categoryId: 'root-liquid' },
-        { id: 'n2', name: '账户2', kind: '现金', amount: 50, categoryId: 'root-liquid' },
-      ],
-      [{ id: 'root-liquid', name: '现金', type: 'asset', parentId: null, sort: 1 }],
-    )!
-    // 默认展开，能看到组内账户行。
-    expect(balanceGroupExpanded({}, groups[0])).toBe(true)
-    // 用户点过后以折叠状态为准，不影响任何合计。
-    expect(balanceGroupExpanded({ [groups[0].id]: false }, groups[0])).toBe(false)
+  it('层级默认折叠：只有显式展开过的分类才出账户行', () => {
+    const rows = [
+      { id: 'n1', name: '账户1', kind: '现金', amount: 100, categoryId: 'root-liquid' },
+      { id: 'n2', name: '账户2', kind: '现金', amount: 50, categoryId: 'root-liquid' },
+    ]
+    const groups = buildBalanceGroups(rows, [
+      { id: 'root-liquid', name: '现金', type: 'asset', parentId: null, sort: 1 },
+    ])
+    expect(isExpanded({}, groups[0].id)).toBe(false)
+    expect(isExpanded({ [groups[0].id]: true }, groups[0].id)).toBe(true)
     expect(balanceGroupBalanced(groups[0])).toBe(true)
+
+    // 账本缺 accountCategories 时按后端 assetNodes 的分类名兜底，表格仍有层级。
+    const fallback = buildBalanceGroups(rows)
+    expect(fallback).toHaveLength(1)
+    expect(fallback[0].name).toBe('现金')
+    expect(fallback[0].accountCount).toBe(2)
   })
 
   it('收支明细：合计 / 分类树来自后端，笔数取完整期间流水', () => {
@@ -503,7 +515,7 @@ describe('视图 ↔ 端点映射', () => {
     // 支出叶子必须真的生成：actual 已带符号，流出项不能因为再取反而被过滤掉。
     expect(report.outflowGroups[0].children.map((child) => child.label)).toEqual(['教育', '退款'])
 
-    const sankey = deriveCashSankey(ledger, report, DEFAULT_REPORT_SETTINGS.cash.groups)
+    const sankey = deriveCashSankey(ledger, report, ALL_VISIBLE)
     expect(sankey.status).toBe('ready')
     expect(sankey.difference).toBe(0)
     expect(sankey.inflow).toBe(50000)
@@ -516,7 +528,7 @@ describe('视图 ↔ 端点映射', () => {
   it('API 模式隐藏分组：隐藏经营后支出侧落成「其他（已隐藏 1 组）」', () => {
     const ledger = cashConsistentLedger()
     const report = mapCashReport(CASH_FLOW, ledger, '2026-11-01', '2026-11-06')
-    const settings = { ...DEFAULT_REPORT_SETTINGS.cash.groups, 经营: false }
+    const settings = { ...ALL_VISIBLE, 经营: false }
     const sankey = deriveCashSankey(ledger, report, settings)
     expect(sankey.status).toBe('ready')
     expect(sankey.hiddenGroups).toBe(1)
@@ -536,7 +548,7 @@ describe('视图 ↔ 端点映射', () => {
       ...mapCashReport(CASH_FLOW, lateLedger, '2026-10-01', '2026-10-31'),
       openingCash: 0,
     }
-    const sankey = deriveCashSankey(lateLedger, report, DEFAULT_REPORT_SETTINGS.cash.groups)
+    const sankey = deriveCashSankey(lateLedger, report, ALL_VISIBLE)
 
     expect(sankey.status).toBe('invalid')
     const { container } = render(createElement(CashSankeyChart, { data: sankey, onOpen: () => {} }))
@@ -606,7 +618,7 @@ describe('桑基守恒（真数据适配）', () => {
       const from = `2026-${String(month).padStart(2, '0')}-01`
       const to = `2026-${String(month).padStart(2, '0')}-28`
       const report = mapCashReport(CASH_FLOW, ledger, from, to)
-      const sankey = deriveCashSankey(ledger, report, DEFAULT_REPORT_SETTINGS.cash.groups)
+      const sankey = deriveCashSankey(ledger, report, ALL_VISIBLE)
       rows.push(assertCashSankeyConservation(sankey.opening, sankey.inflow, sankey.outflow, sankey.closing))
     }
     expect(rows).toEqual(new Array(12).fill(0))
@@ -614,60 +626,43 @@ describe('桑基守恒（真数据适配）', () => {
 
 })
 
-describe('配置只影响展示', () => {
-  const settings: ReportViewSettings = {
-    ...DEFAULT_REPORT_SETTINGS,
-    cash: { groups: { ...DEFAULT_REPORT_SETTINGS.cash.groups, 经营: false } },
-  }
-
-  it('资产负债：按性质汇总后行数变化', () => {
-    const report = mapBalanceReport(BALANCE, TREND, createSeedLedger())
-    expect(groupBalanceRows(report.assets, 'account')).toHaveLength(4)
-    expect(groupBalanceRows(report.assets, 'kind')).toHaveLength(3)
-    const mixed = [
-      ...report.assets,
-      { ...report.assets[1], id: 'cmb2', name: '招商二卡', amount: 100 },
-    ]
-    expect(groupBalanceRows(mixed, 'account')).toHaveLength(5)
-    expect(groupBalanceRows(mixed, 'kind')).toHaveLength(3)
-  })
-
-  it('现金流：隐藏经营组后表格少一行，桑基并入「其他」仍守恒', () => {
+describe('展示口径固定，配置只剩数据范围', () => {
+  it('现金流：桑基隐藏分组仍守恒（底层能力保留，UI 不再暴露开关）', () => {
     const ledger = cashConsistentLedger()
     const report = mapCashReport(CASH_FLOW, ledger, '2026-11-01', '2026-11-06')
-    expect(visibleCashGroups(report.outflowGroups, DEFAULT_REPORT_SETTINGS.cash)).toHaveLength(1)
-    expect(visibleCashGroups(report.outflowGroups, settings.cash)).toHaveLength(0)
-    const sankey = deriveCashSankey(ledger, report, settings.cash.groups)
+    const sankey = deriveCashSankey(ledger, report, { 经营: false })
     expect(sankey.status).toBe('ready')
     expect(sankey.difference).toBe(0)
     expect(sankey.hiddenGroups).toBe(1)
+    expect(sankey.nodes.some((node) => node.id === 'out:hidden')).toBe(true)
   })
 
-  it('投资分析：按收益率排序时持仓顺序变化，配置键仍是四个', () => {
+  it('投资持仓沿用后端顺序（设置顺序），净值走势固定近 6 期', () => {
     const data = {
-      totalInvestment: 100,
+      totalInvestment: 300,
       returnAnalysis: { cumulativeReturnRate: 0, xirr: 0, twr: 0 },
       byCategory: [],
       trend: [],
       byAccountAllocation: [
-        { accountId: 'a', accountName: 'A', balance: 100, returnRate: 1, items: [] },
-        { accountId: 'b', accountName: 'B', balance: 100, returnRate: 20, items: [] },
+        { accountId: 'a', accountName: 'A', balance: 100, returnRate: 20, items: [] },
+        { accountId: 'b', accountName: 'B', balance: 200, returnRate: 1, items: [] },
       ],
     } as never
     const report = mapInvestmentReport(data)!
-    const byValue = sortHoldingRows(report.holdings, 'marketValue').map((row) => row.id)
-    const byRate = sortHoldingRows(report.holdings, 'rate').map((row) => row.id)
-    expect(byRate[0]).toBe('b')
-    expect(byValue.length).toBe(2)
-    // dataScope 与四个视图配置同存 mb-reports-view-settings-v1；报表设置顶层「数据范围」分区使用它。
-    expect(Object.keys(DEFAULT_REPORT_SETTINGS)).toEqual([
-      'dataScope',
-      'balance',
-      'flow',
-      'cash',
-      'invest',
-    ])
-    expect(CASH_GROUP_KEYS).toHaveLength(5)
+    expect(report.holdings.map((row) => row.id)).toEqual(['a', 'b'])
+    expect(sliceSnapshots([1, 2, 3, 4, 5, 6, 7, 8])).toEqual([3, 4, 5, 6, 7, 8])
+  })
+
+  it('本地配置只保存数据范围，旧版本四份视图配置被忽略', () => {
+    expect(Object.keys(DEFAULT_REPORT_SETTINGS)).toEqual(['dataScope'])
+    expect(
+      normalizeReportSettings({
+        balance: { groupMode: 'kind', showKindColumn: false },
+        flow: { namedCategories: 5 },
+        cash: { groups: { 经营: false } },
+        invest: { sortBy: 'rate' },
+      }),
+    ).toEqual(DEFAULT_REPORT_SETTINGS)
   })
 })
 

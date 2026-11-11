@@ -1,52 +1,77 @@
+/**
+ * 分类树 → 表格行 / 移动卡片行：收支树与资产负债树共用同一套折叠、占比与口径。
+ *
+ * 父级金额已含子级，展开后子级只是拆分展示：行内后缀标注「†」，
+ * 含义由表说明位的「† 子级已计入父级」图例承载，避免用户把可见行相加当成合计。
+ * 列集合固定为「名称 / 数量 / 金额 / 占比」，不再由设置切换。
+ */
+import { isExpanded, type FoldState } from '@/features/shared/foldState'
 import { formatPercent } from '@/utils/format'
 import type { CardRow, ReportRow } from './ReportTable'
 import { currency, type FlowTreeNode } from './reportsModel'
 
-/**
- * 收支树 → 表格行。
- * 父级金额已含子级，折叠展开后子级只是拆分展示：行内后缀标注「†」，
- * 含义由表说明位的「† 子级已计入父级」图例承载，避免用户把可见行相加当成合计
- * （1024 下首列仅 101px，放不下五字标记）。
- */
-export interface FlowRowColumns {
-  showCount?: boolean
-  showShare?: boolean
+export interface TreeRenderOptions {
+  /** 第二列计数单位：收支树「笔」，资产负债树「个」。 */
+  unit: string
+  onOpen?: (node: FlowTreeNode) => void
+  /** 子级行是否挂「†」；父级金额已含子级时开启。 */
+  childLegend?: boolean
+  /** 仅移动卡片：金额色调与进度条色调。 */
+  tone?: 'income' | 'expense'
+  barTone?: 'income' | 'expense' | 'accent'
+  /** 仅移动卡片：收支金额带 + / −，资产负债余额不带。 */
+  signed?: boolean
 }
 
-export function flattenFlowRows(
+const cellsOf = (node: FlowTreeNode, unit: string) => [
+  node.name,
+  `${node.count} ${unit}`,
+  currency(node.amount),
+  formatPercent(node.share, 1, false),
+]
+
+const metaOf = (node: FlowTreeNode, unit: string) =>
+  `${node.count} ${unit} · ${formatPercent(node.share, 1, false)}`
+
+const parentHint = (node: FlowTreeNode) =>
+  node.noBudget ? '无预算' : node.predicted ? '预测' : undefined
+
+const childHint = (node: FlowTreeNode, options: TreeRenderOptions) => {
+  if (node.noBudget) return '† 无预算'
+  if (node.predicted) return options.childLegend ? '† 预测' : '预测'
+  return options.childLegend ? '†' : undefined
+}
+
+const amountOf = (node: FlowTreeNode, options: TreeRenderOptions) =>
+  options.signed
+    ? `${options.tone === 'income' ? '+' : '−'}${currency(node.amount)}`
+    : currency(node.amount)
+
+export function flattenTreeRows(
   nodes: FlowTreeNode[],
-  folded: Record<string, boolean>,
+  expanded: FoldState,
   onFold: (id: string) => void,
-  onOpen: (node: FlowTreeNode) => void,
-  columns: FlowRowColumns = {},
+  options: TreeRenderOptions,
 ): ReportRow[] {
-  const showCount = columns.showCount !== false
-  const showShare = columns.showShare !== false
-  const cellsOf = (node: FlowTreeNode) => [
-    node.name,
-    ...(showCount ? [`${node.count} 笔`] : []),
-    currency(node.amount),
-    ...(showShare ? [formatPercent(node.share, 1, false)] : []),
-  ]
   const rows: ReportRow[] = []
   for (const node of nodes) {
-    const expanded = folded[node.id] !== false
+    const open = isExpanded(expanded, node.id)
+    const onOpen = options.onOpen ? () => options.onOpen?.(node) : undefined
     rows.push({
       id: node.id,
-      cells: cellsOf(node),
-      fold: node.children.length > 0 ? { expanded, onToggle: () => onFold(node.id) } : undefined,
-      onOpen: () => onOpen(node),
-      // 行内文字标记，避免只用颜色 / 虚线表达「这行含预测」；无预算来源优先说明。
-      hint: node.noBudget ? '无预算' : node.predicted ? '预测' : undefined,
+      cells: cellsOf(node, options.unit),
+      fold: node.children.length > 0 ? { expanded: open, onToggle: () => onFold(node.id) } : undefined,
+      onOpen,
+      hint: parentHint(node),
     })
-    if (expanded) {
+    if (open) {
       for (const child of node.children) {
         rows.push({
           id: child.id,
           level: 1,
-          cells: cellsOf(child),
-          hint: child.noBudget ? '† 无预算' : child.predicted ? '† 预测' : '†',
-          onOpen: () => onOpen(child),
+          cells: cellsOf(child, options.unit),
+          hint: childHint(child, options),
+          onOpen: options.onOpen ? () => options.onOpen?.(child) : undefined,
         })
       }
     }
@@ -54,53 +79,41 @@ export function flattenFlowRows(
   return rows
 }
 
-/**
- * 收支树 → 移动端卡片行：与表格行同一份折叠状态与口径，只是把单元格换成分行排版。
- */
-export function flattenFlowCards(
+export function flattenTreeCards(
   nodes: FlowTreeNode[],
-  folded: Record<string, boolean>,
+  expanded: FoldState,
   onFold: (id: string) => void,
-  tone: 'income' | 'expense',
-  onOpen: (node: FlowTreeNode) => void,
-  columns: { showCount?: boolean; showShare?: boolean } = {},
+  options: TreeRenderOptions,
 ): CardRow[] {
-  const showCount = columns.showCount !== false
-  const showShare = columns.showShare !== false
-  const metaOf = (node: FlowTreeNode) =>
-    [
-      showCount ? `${node.count} 笔` : null,
-      showShare ? formatPercent(node.share, 1, false) : null,
-    ]
-      .filter(Boolean)
-      .join(' · ') || undefined
   const rows: CardRow[] = []
   for (const node of nodes) {
-    const expanded = folded[node.id] !== false
+    const open = isExpanded(expanded, node.id)
+    const onOpen = options.onOpen ? () => options.onOpen?.(node) : undefined
     rows.push({
       id: node.id,
       label: node.name,
-      meta: metaOf(node),
-      hint: node.noBudget ? '无预算' : node.predicted ? '预测' : undefined,
-      amount: `${tone === 'income' ? '+' : '−'}${currency(node.amount)}`,
-      tone,
+      meta: metaOf(node, options.unit),
+      hint: parentHint(node),
+      amount: amountOf(node, options),
+      tone: options.tone,
       share: node.share,
-      barTone: tone,
-      fold: node.children.length > 0 ? { expanded, onToggle: () => onFold(node.id) } : undefined,
-      onOpen: () => onOpen(node),
+      barTone: options.barTone,
+      fold: node.children.length > 0 ? { expanded: open, onToggle: () => onFold(node.id) } : undefined,
+      onOpen,
     })
-    if (expanded) {
+    if (open) {
       for (const child of node.children) {
         rows.push({
           id: child.id,
           level: 1,
           label: child.name,
-          meta: metaOf(child),
-          hint: child.noBudget ? '† 无预算' : child.predicted ? '† 预测' : '†',
-          amount: `${tone === 'income' ? '+' : '−'}${currency(child.amount)}`,
-          tone,
+          meta: metaOf(child, options.unit),
+          hint: childHint(child, options),
+          amount: amountOf(child, options),
+          tone: options.tone,
           share: child.share,
-          barTone: tone,
+          barTone: options.barTone,
+          onOpen: options.onOpen ? () => options.onOpen?.(child) : undefined,
         })
       }
     }

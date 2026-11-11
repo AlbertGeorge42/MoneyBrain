@@ -331,7 +331,7 @@
   text-overflow: ellipsis;
 }
 
-/* 账户行余额 / 分组行合计：名称占据弹性空间后，金额与对账按钮聚到右端。 */
+/* 账户行余额 / 分组行合计：名称占据弹性空间后，金额聚到右端。 */
 .mb-set-amount {
   flex: none;
   font-family: var(--mb-font-num);
@@ -339,13 +339,6 @@
   color: var(--mb-color-text-primary);
   white-space: nowrap;
   padding-left: var(--mb-s-3);
-}
-
-.mb-set-action {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  padding-left: var(--mb-s-2);
 }
 
 .mb-set-row.is-empty {
@@ -1305,6 +1298,12 @@
   gap: var(--mb-s-4);
   padding: var(--mb-s-4);
   overflow-y: auto;
+}
+
+/* 报表专属补充项（数据范围）与分类管理同处一层，用细线分组，不另开弹窗。 */
+.mb-ledger-sheet-extra {
+  padding-bottom: var(--mb-s-4);
+  border-bottom: 1px solid var(--mb-color-border);
 }
 
 .mb-set-field {

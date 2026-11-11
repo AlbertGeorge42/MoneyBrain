@@ -3,27 +3,22 @@
  *
  * 行内菜单的打开态与二次确认态由页面统一持有，保证同一时间只开一个菜单；
  * 删除 / 转移 / 移动等写操作仍走页面的账本操作与抽屉。
- * 排序改用拖拽（dnd-kit）：GripVertical 为拖拽手柄，同级内（含子分类）可拖。
+ * 排序用 dnd-kit 拖拽（GripVertical 为手柄，同级内可拖），只允许竖直方向；
+ * 列表默认全部收起。
  */
 import { ChevronDown, ChevronRight, GripVertical, Plus, Tag } from 'lucide-react'
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
+import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
 import { getCategoryIconKey, getCategoryRootId, type Ledger, type TxType } from '@/features/overview/model'
+import { restrictToVerticalAxis, useVerticalDragSensors, verticalDragStyle } from './drag'
 import { RowMenu } from './RowMenu'
 import {
   CATEGORY_TABS,
@@ -38,8 +33,8 @@ interface CategoriesSectionProps {
   rows: CategoryRow[]
   tab: CategoryTab
   onTabChange: (tab: CategoryTab) => void
-  collapsed: ReadonlySet<string>
-  onToggleCollapsed: (key: string) => void
+  expandedKeys: ExpandedKeys
+  onToggleExpanded: (key: string) => void
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
   confirming: string | null
@@ -57,8 +52,8 @@ function CategoryRowItem({
   type,
   level,
   ledger,
-  collapsed,
-  onToggleCollapsed,
+  expandedKeys,
+  onToggleExpanded,
   menuOpen,
   onMenuOpen,
   confirming,
@@ -71,8 +66,8 @@ function CategoryRowItem({
   type: TxType
   level: number
   ledger: Ledger
-  collapsed: ReadonlySet<string>
-  onToggleCollapsed: (key: string) => void
+  expandedKeys: ExpandedKeys
+  onToggleExpanded: (key: string) => void
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
   confirming: string | null
@@ -84,26 +79,21 @@ function CategoryRowItem({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
   })
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-  const expandedRow = !collapsed.has(`cat-${row.id}`)
+  const open = isKeyExpanded(expandedKeys, `cat-${row.id}`)
   // 与账本回退链一致：自身 iconKey → 父级继承；没有 iconKey 时保留原 Tag 占位。
   const iconKey = getCategoryIconKey(ledger, row.id)
   const rootId = getCategoryRootId(ledger, row.id)
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
       <div className={level > 0 ? 'mb-set-row is-child' : 'mb-set-row'}>
         {row.childCount > 0 ? (
           <HfButton
             className="mb-set-fold"
-            aria-label={expandedRow ? '收起子分类' : '展开子分类'}
-            aria-expanded={expandedRow}
-            onClick={() => onToggleCollapsed(`cat-${row.id}`)}
+            aria-label={open ? '收起子分类' : '展开子分类'}
+            aria-expanded={open}
+            onClick={() => onToggleExpanded(`cat-${row.id}`)}
           >
-            {expandedRow ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </HfButton>
         ) : (
           <span className="mb-set-child-space" aria-hidden="true" />
@@ -167,7 +157,7 @@ function CategoryRowItem({
           ]}
         />
       </div>
-      {expandedRow && row.children.length > 0 && (
+      {open && row.children.length > 0 && (
         <SortableContext
           items={row.children.map((child) => child.id)}
           strategy={verticalListSortingStrategy}
@@ -179,8 +169,8 @@ function CategoryRowItem({
               type={type}
               level={level + 1}
               ledger={ledger}
-              collapsed={collapsed}
-              onToggleCollapsed={onToggleCollapsed}
+              expandedKeys={expandedKeys}
+              onToggleExpanded={onToggleExpanded}
               menuOpen={menuOpen}
               onMenuOpen={onMenuOpen}
               confirming={confirming}
@@ -201,8 +191,8 @@ export function CategoriesSection({
   rows,
   tab,
   onTabChange,
-  collapsed,
-  onToggleCollapsed,
+  expandedKeys,
+  onToggleExpanded,
   menuOpen,
   onMenuOpen,
   confirming,
@@ -212,9 +202,7 @@ export function CategoriesSection({
   onReorder,
   onDelete,
 }: CategoriesSectionProps) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  )
+  const sensors = useVerticalDragSensors()
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -257,7 +245,12 @@ export function CategoriesSection({
           新增一级分类
         </HfButton>
       </div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
+        onDragEnd={handleDragEnd}
+      >
         <SortableContext items={rows.map((row) => row.id)} strategy={verticalListSortingStrategy}>
           <div className="mb-set-list">
             {rows.length > 0 ? (
@@ -268,8 +261,8 @@ export function CategoriesSection({
                   type={tab}
                   level={0}
                   ledger={ledger}
-                  collapsed={collapsed}
-                  onToggleCollapsed={onToggleCollapsed}
+                  expandedKeys={expandedKeys}
+                  onToggleExpanded={onToggleExpanded}
                   menuOpen={menuOpen}
                   onMenuOpen={onMenuOpen}
                   confirming={confirming}

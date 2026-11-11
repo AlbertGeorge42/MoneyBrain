@@ -26,8 +26,6 @@ function renderReports() {
             <ReportsPage
               device="desktop"
               dataState="normal"
-              settingsOpen={false}
-              onSettingsToggle={vi.fn()}
               onRetry={vi.fn()}
               onImport={vi.fn()}
               onViewFlow={vi.fn()}

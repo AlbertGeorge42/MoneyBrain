@@ -434,7 +434,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       case 'accounts':
         return (
           <AccountsSection
-            device={device}
             ledger={ledger}
             assetGroups={config.assetGroups}
             liabilityGroups={config.liabilityGroups}
@@ -442,9 +441,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             onTabChange={config.setAccountTab}
             showEmptyGroups={config.showEmptyGroups}
             onShowEmptyGroupsChange={config.setShowEmptyGroups}
-            collapsed={config.collapsed}
-            onToggleCollapsed={config.toggleCollapsed}
-            onSetGroupsCollapsed={config.setGroupsCollapsed}
+            expandedKeys={config.expandedKeys}
+            onToggleExpanded={config.toggleExpanded}
+            onSetGroupsExpanded={config.setGroupsExpanded}
             onOpenEditor={config.setEditor}
             onOpenMover={config.setMover}
             menuOpen={config.menuOpen}
@@ -455,7 +454,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             onDeleteGroup={(group) => void config.deleteGroup(group)}
             onReorderGroupTo={(id, targetIndex) => void config.moveAccountGroupTo(id, targetIndex)}
             onReorderAccountTo={(id, targetIndex) => void config.moveAccountTo(id, targetIndex)}
-            onRetry={onRetry}
           />
         )
       case 'categories':
@@ -465,8 +463,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             rows={config.rowsByType[config.categoryTab]}
             tab={config.categoryTab}
             onTabChange={config.setCategoryTab}
-            collapsed={config.collapsed}
-            onToggleCollapsed={config.toggleCollapsed}
+            expandedKeys={config.expandedKeys}
+            onToggleExpanded={config.toggleExpanded}
             menuOpen={config.menuOpen}
             onMenuOpen={config.setMenuOpen}
             confirming={config.confirming}
@@ -484,8 +482,8 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             rows={config.cashTab === 'asset' ? [] : config.rowsByType[config.cashTab]}
             tab={config.cashTab}
             onTabChange={config.setCashTab}
-            collapsed={config.collapsed}
-            onToggleCollapsed={config.toggleCollapsed}
+            expandedKeys={config.expandedKeys}
+            onToggleExpanded={config.toggleExpanded}
             menuOpen={config.menuOpen}
             onMenuOpen={config.setMenuOpen}
             confirming={config.confirming}

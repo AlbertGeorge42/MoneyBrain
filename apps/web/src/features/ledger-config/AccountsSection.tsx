@@ -2,32 +2,24 @@
  * 设置 · 账户分组分区（资产 / 负债一级 → 账户）。
  *
  * 与收支分类一致：用 mb-set-* 列表 + dnd-kit 拖拽排序（分组可拖、账户在组内可拖），
- * 不再提供上移 / 下移按钮。展开集合由页面统一持有，切换分区后保持原展开状态。
+ * 只允许竖直拖动；列表默认全部收起，展开集合由页面统一持有。
  */
 import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
-import type { DeviceMode } from '@/features/shared/types'
+import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
 import type { Ledger } from '@/features/overview/model'
 import { formatCurrency } from '@/utils/format'
 import { minor } from '@domain/index'
-import { ReconcileButton } from './ReconcileSheet'
+import { restrictToVerticalAxis, useVerticalDragSensors, verticalDragStyle } from './drag'
 import { RowMenu } from './RowMenu'
 import {
   accountGroupBalance,
@@ -40,7 +32,6 @@ import type { Editor } from './EditorSheet'
 import type { Mover } from './MoverSheet'
 
 interface AccountsSectionProps {
-  device: DeviceMode
   ledger: Ledger
   assetGroups: AccountGroup[]
   liabilityGroups: AccountGroup[]
@@ -48,9 +39,9 @@ interface AccountsSectionProps {
   onTabChange: (tab: 'asset' | 'liability') => void
   showEmptyGroups: boolean
   onShowEmptyGroupsChange: (next: boolean) => void
-  collapsed: ReadonlySet<string>
-  onToggleCollapsed: (key: string) => void
-  onSetGroupsCollapsed: (keys: readonly string[], collapse: boolean) => void
+  expandedKeys: ExpandedKeys
+  onToggleExpanded: (key: string) => void
+  onSetGroupsExpanded: (keys: readonly string[], expanded: boolean) => void
   onOpenEditor: (editor: Editor) => void
   onOpenMover: (mover: Mover) => void
   menuOpen: string | null
@@ -61,13 +52,11 @@ interface AccountsSectionProps {
   onDeleteGroup: (group: AccountGroup) => void
   onReorderGroupTo: (id: string, targetIndex: number) => void
   onReorderAccountTo: (id: string, targetIndex: number) => void
-  onRetry: () => void
 }
 
 function SortableAccountRow({
   account,
   group,
-  device,
   ledger,
   menuOpen,
   onMenuOpen,
@@ -76,11 +65,9 @@ function SortableAccountRow({
   onOpenAccount,
   onOpenMover,
   onDelete,
-  onRetry,
 }: {
   account: AccountRow
   group: AccountGroup
-  device: DeviceMode
   ledger: Ledger
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
@@ -89,19 +76,13 @@ function SortableAccountRow({
   onOpenAccount: (account: AccountRow, group: AccountGroup) => void
   onOpenMover: (mover: Mover) => void
   onDelete: (account: AccountRow) => void
-  onRetry: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `a:${account.id}`,
   })
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
   const name = accountDisplayName(account, ledger.accounts)
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
       <div className="mb-set-row is-child">
         <span className="mb-set-child-space" aria-hidden="true" />
         <span className="mb-set-drag" {...attributes} {...listeners}>
@@ -110,13 +91,6 @@ function SortableAccountRow({
         <span className="mb-set-name">{name}</span>
         <span className="mb-set-meta">{account.txCount} 笔</span>
         <span className="mb-set-amount">{formatCurrency(minor(account.balance))}</span>
-        <span className="mb-set-action">
-          <ReconcileButton
-            account={{ id: account.id, name, balance: account.balance }}
-            device={device}
-            onDone={onRetry}
-          />
-        </span>
         {/* 行内操作统一走 RowMenu：与收支分类同一套交互与二次确认。 */}
         <RowMenu
           id={`acc-${account.id}`}
@@ -161,9 +135,8 @@ function SortableAccountRow({
 function SortableGroupRow({
   group,
   groups,
-  device,
   ledger,
-  expanded,
+  open,
   onToggle,
   menuOpen,
   onMenuOpen,
@@ -174,13 +147,11 @@ function SortableGroupRow({
   onOpenMover,
   onDeleteGroup,
   onDeleteAccount,
-  onRetry,
 }: {
   group: AccountGroup
   groups: readonly AccountGroup[]
-  device: DeviceMode
   ledger: Ledger
-  expanded: boolean
+  open: boolean
   onToggle: () => void
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
@@ -191,30 +162,24 @@ function SortableGroupRow({
   onOpenMover: (mover: Mover) => void
   onDeleteGroup: (group: AccountGroup) => void
   onDeleteAccount: (account: AccountRow) => void
-  onRetry: () => void
 }) {
   const draggable = !group.ungrouped && !group.seeded
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `g:${group.id}`,
     disabled: !draggable,
   })
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
   const hasAccounts = accountGroupCount(group) > 0
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
       <div className="mb-set-row">
         {hasAccounts ? (
           <HfButton
             className="mb-set-fold"
-            aria-label={expanded ? '收起账户' : '展开账户'}
-            aria-expanded={expanded}
+            aria-label={open ? '收起账户' : '展开账户'}
+            aria-expanded={open}
             onClick={() => onToggle()}
           >
-            {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </HfButton>
         ) : (
           <span className="mb-set-child-space" aria-hidden="true" />
@@ -233,9 +198,7 @@ function SortableGroupRow({
           />
         </span>
         <span className="mb-set-name">{accountGroupDisplayName(group, groups)}</span>
-        <span className="mb-set-meta">
-          {accountGroupCount(group)} 个账户
-        </span>
+        <span className="mb-set-meta">{accountGroupCount(group)} 个账户</span>
         <span className="mb-set-amount">{formatCurrency(minor(accountGroupBalance(group)))}</span>
         {/* 分组操作同样走 RowMenu：与收支分类一致，不再整行点击进编辑器。 */}
         <RowMenu
@@ -264,7 +227,7 @@ function SortableGroupRow({
           ]}
         />
       </div>
-      {expanded && hasAccounts && (
+      {open && hasAccounts && (
         <SortableContext
           items={group.rows.map((account) => `a:${account.id}`)}
           strategy={verticalListSortingStrategy}
@@ -274,7 +237,6 @@ function SortableGroupRow({
               key={account.id}
               account={account}
               group={group}
-              device={device}
               ledger={ledger}
               menuOpen={menuOpen}
               onMenuOpen={onMenuOpen}
@@ -283,7 +245,6 @@ function SortableGroupRow({
               onOpenAccount={onOpenAccount}
               onOpenMover={onOpenMover}
               onDelete={onDeleteAccount}
-              onRetry={onRetry}
             />
           ))}
         </SortableContext>
@@ -293,7 +254,6 @@ function SortableGroupRow({
 }
 
 export function AccountsSection({
-  device,
   ledger,
   assetGroups,
   liabilityGroups,
@@ -301,9 +261,9 @@ export function AccountsSection({
   onTabChange,
   showEmptyGroups,
   onShowEmptyGroupsChange,
-  collapsed,
-  onToggleCollapsed,
-  onSetGroupsCollapsed,
+  expandedKeys,
+  onToggleExpanded,
+  onSetGroupsExpanded,
   onOpenEditor,
   onOpenMover,
   menuOpen,
@@ -314,7 +274,6 @@ export function AccountsSection({
   onDeleteGroup,
   onReorderGroupTo,
   onReorderAccountTo,
-  onRetry,
 }: AccountsSectionProps) {
   const groups = tab === 'asset' ? assetGroups : liabilityGroups
   const visibleGroups = showEmptyGroups
@@ -322,8 +281,9 @@ export function AccountsSection({
     : groups.filter((group) => accountGroupCount(group) > 0)
   const realGroups = visibleGroups.filter((group) => !group.ungrouped && !group.seeded)
   const emptyGroupCount = groups.filter((group) => accountGroupCount(group) === 0).length
-  const allCollapsed =
-    visibleGroups.length > 0 && visibleGroups.every((group) => collapsed.has(`grp-${group.id}`))
+  const allExpanded =
+    visibleGroups.length > 0 &&
+    visibleGroups.every((group) => isKeyExpanded(expandedKeys, `grp-${group.id}`))
 
   const canManage = (group: AccountGroup) => !group.ungrouped && !group.seeded
   const openGroup = (group: AccountGroup) => {
@@ -343,9 +303,7 @@ export function AccountsSection({
     })
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  )
+  const sensors = useVerticalDragSensors()
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -402,13 +360,13 @@ export function AccountsSection({
             className="mb-set-btn is-ghost is-small"
             disabled={visibleGroups.length === 0}
             onClick={() =>
-              onSetGroupsCollapsed(
+              onSetGroupsExpanded(
                 visibleGroups.map((group) => `grp-${group.id}`),
-                !allCollapsed,
+                !allExpanded,
               )
             }
           >
-            {allCollapsed ? '全部展开' : '全部收起'}
+            {allExpanded ? '全部收起' : '全部展开'}
           </HfButton>
           <HfButton
             className="mb-set-btn is-primary is-small"
@@ -436,10 +394,15 @@ export function AccountsSection({
       </div>
 
       <p className="mb-set-hint">
-        分组即后端的账户分类（AccountCategory）：只有「一级分类 → 账户」两层。拖动每行左侧的手柄即可调整顺序；账户直接挂在所属一级下，净资产与资产构成合计不变。新增分组默认不带「现金等价 / 投资」标识；把带标识的账户移入无标识的分组会改变现金流与投资占比，保存前会提示。
+        分组即后端的账户分类（AccountCategory）：只有「一级分类 → 账户」两层。拖动每行左侧的手柄即可上下调整顺序；账户直接挂在所属一级下，净资产与资产构成合计不变。新增分组默认不带「现金等价 / 投资」标识；把带标识的账户移入无标识的分组会改变现金流与投资占比，保存前会提示。
       </p>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
+        onDragEnd={handleDragEnd}
+      >
         <SortableContext
           items={realGroups.map((group) => `g:${group.id}`)}
           strategy={verticalListSortingStrategy}
@@ -464,10 +427,9 @@ export function AccountsSection({
                   key={group.id}
                   group={group}
                   groups={groups}
-                  device={device}
                   ledger={ledger}
-                  expanded={!collapsed.has(`grp-${group.id}`)}
-                  onToggle={() => onToggleCollapsed(`grp-${group.id}`)}
+                  open={isKeyExpanded(expandedKeys, `grp-${group.id}`)}
+                  onToggle={() => onToggleExpanded(`grp-${group.id}`)}
                   menuOpen={menuOpen}
                   onMenuOpen={onMenuOpen}
                   confirming={confirming}
@@ -477,7 +439,6 @@ export function AccountsSection({
                   onOpenMover={onOpenMover}
                   onDeleteGroup={onDeleteGroup}
                   onDeleteAccount={onDeleteAccount}
-                  onRetry={onRetry}
                 />
               ))
             )}

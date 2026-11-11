@@ -292,6 +292,47 @@ export function ReportBarChart({
   )
 }
 
+interface DonutSideConfig {
+  title: string
+  kind: DonutKind
+  nodes: FlowTreeNode[]
+  total: number
+  emptyText: string
+  colorUniverse?: readonly string[]
+}
+
+/**
+ * 构成环唯一版式：一个图表框内左右两环同尺寸。收支构成与资产负债构成
+ * 都走这一份，避免各写一套 ChartCard + mb-rp-compare 骨架。
+ */
+function DonutCompare({
+  title,
+  left,
+  right,
+  device = 'desktop',
+  onOpen,
+  namedCount = 6,
+  note,
+}: {
+  title: string
+  left: DonutSideConfig
+  right: DonutSideConfig
+  device?: DeviceMode
+  onOpen?: (node: FlowTreeNode, kind: DonutKind) => void
+  namedCount?: number
+  note?: ReactNode
+}) {
+  return (
+    <ChartCard title={title}>
+      <div className={device === 'mobile' ? 'mb-rp-compare is-mobile' : 'mb-rp-compare'}>
+        <CompositionDonutSide {...left} device={device} onOpen={onOpen} namedCount={namedCount} />
+        <CompositionDonutSide {...right} device={device} onOpen={onOpen} namedCount={namedCount} />
+      </div>
+      {note}
+    </ChartCard>
+  )
+}
+
 export function CompositionBars({
   incomeTrees,
   expenseTrees,
@@ -313,33 +354,72 @@ export function CompositionBars({
   colorUniverse?: { income?: readonly string[]; expense?: readonly string[] }
 }) {
   return (
-    <ChartCard title="收入 / 支出构成">
-      <div className={device === 'mobile' ? 'mb-rp-compare is-mobile' : 'mb-rp-compare'}>
-        {/* 用户要求两侧对称：支出在左、收入在右，两环同尺寸。 */}
-        <CompositionDonutSide
-          title="支出构成"
-          tone="expense"
-          nodes={expenseTrees}
-          total={expenseTotal}
-          device={device}
-          onOpen={onOpen}
-          namedCount={namedCount}
-          emptyText="该期间没有支出"
-          colorUniverse={colorUniverse?.expense}
-        />
-        <CompositionDonutSide
-          title="收入构成"
-          tone="income"
-          nodes={incomeTrees}
-          total={incomeTotal}
-          device={device}
-          onOpen={onOpen}
-          namedCount={namedCount}
-          emptyText="该期间没有收入"
-          colorUniverse={colorUniverse?.income}
-        />
-      </div>
-    </ChartCard>
+    <DonutCompare
+      title="收入 / 支出构成"
+      device={device}
+      onOpen={onOpen}
+      namedCount={namedCount}
+      // 用户要求两侧对称：支出在左、收入在右，两环同尺寸。
+      left={{
+        title: '支出构成',
+        kind: 'expense',
+        nodes: expenseTrees,
+        total: expenseTotal,
+        emptyText: '该期间没有支出',
+        colorUniverse: colorUniverse?.expense,
+      }}
+      right={{
+        title: '收入构成',
+        kind: 'income',
+        nodes: incomeTrees,
+        total: incomeTotal,
+        emptyText: '该期间没有收入',
+        colorUniverse: colorUniverse?.income,
+      }}
+    />
+  )
+}
+
+/** 资产负债构成：与收支同款单框双环，资产在左、负债在右。 */
+export function BalanceComposition({
+  assetTrees,
+  liabilityTrees,
+  assetTotal,
+  liabilityTotal,
+  device = 'desktop',
+  onOpen,
+  note,
+}: {
+  assetTrees: FlowTreeNode[]
+  liabilityTrees: FlowTreeNode[]
+  /** 资产环口径：仅正余额账户（与图注一致）。 */
+  assetTotal: number
+  liabilityTotal: number
+  device?: DeviceMode
+  onOpen?: (node: FlowTreeNode, kind: DonutKind) => void
+  note?: ReactNode
+}) {
+  return (
+    <DonutCompare
+      title="资产 / 负债构成"
+      device={device}
+      onOpen={onOpen}
+      left={{
+        title: '资产构成',
+        kind: 'asset',
+        nodes: assetTrees,
+        total: assetTotal,
+        emptyText: '暂无正余额资产',
+      }}
+      right={{
+        title: '负债构成',
+        kind: 'liability',
+        nodes: liabilityTrees,
+        total: liabilityTotal,
+        emptyText: '暂无负债账户',
+      }}
+      note={note}
+    />
   )
 }
 
@@ -396,7 +476,7 @@ function subFill(parentColor: string, index: number, count: number): string {
   return `color-mix(in srgb, ${parentColor} calc(var(--mb-chart-sub-from) + (var(--mb-chart-sub-to) - var(--mb-chart-sub-from)) * ${fraction.toFixed(4)}), var(--mb-chart-sub-tint))`
 }
 
-export type DonutKind = 'income' | 'expense' | 'asset'
+export type DonutKind = 'income' | 'expense' | 'asset' | 'liability'
 
 /**
  * 构成环形：纯 SVG，面积按金额占比；一级根分类 Top 6 + 「其余 N 类」，
@@ -423,7 +503,7 @@ export function DonutChart({
   kind?: DonutKind
   title: string
   emptyText: string
-  /** 一级具名类别上限（默认 6，配置可降到 5）；其余并入「其余 N 类」。 */
+  /** 一级具名类别上限（固定 6）；其余并入「其余 N 类」。 */
   namedCount?: number
   /** 全账本分类名；同一分类在总览/报表共用槽位，月份切换不改色。 */
   colorUniverse?: readonly string[]
@@ -524,7 +604,8 @@ export function DonutChart({
     return { ...item, start, sweep }
   })
   const isSingle = items.length === 1
-  const sideLabel = kind === 'income' ? '收入' : kind === 'asset' ? '资产' : '支出'
+  const sideLabel =
+    kind === 'income' ? '收入' : kind === 'asset' ? '资产' : kind === 'liability' ? '负债' : '支出'
   const centerLabel = isDrilled && drilled
     ? drilled.name
     : isSingle
@@ -696,7 +777,7 @@ export function DonutChart({
 /** 一侧构成：标题 + 合计 + 环形。两侧共用同一个 DonutChart，保证同尺寸同交互。 */
 function CompositionDonutSide({
   title,
-  tone,
+  kind,
   nodes,
   total,
   device,
@@ -706,7 +787,7 @@ function CompositionDonutSide({
   colorUniverse,
 }: {
   title: string
-  tone: 'income' | 'expense'
+  kind: DonutKind
   nodes: FlowTreeNode[]
   total: number
   device: DeviceMode
@@ -718,7 +799,7 @@ function CompositionDonutSide({
   return (
     <div className="mb-rp-compare-side">
       <div className="mb-rp-compare-head">
-        <span className={`mb-rp-compare-title is-${tone}`}>{title}</span>
+        <span className={`mb-rp-compare-title is-${kind}`}>{title}</span>
         {total > 0 && (
           <span
             className="mb-rp-compare-scale"
@@ -733,7 +814,7 @@ function CompositionDonutSide({
         total={total}
         device={device}
         onOpen={onOpen}
-        kind={tone}
+        kind={kind}
         title={title}
         emptyText={emptyText}
         namedCount={namedCount}

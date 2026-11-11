@@ -1,16 +1,16 @@
 /**
- * 账本配置抽屉：报表页从「报表设置」进入的账户 / 收支分类 / 现金流分类管理。
+ * 账本配置抽屉：报表页点「设置」后直达的单分区管理界面。
  *
- * 内容直接复用设置页的 AccountsSection / CategoriesSection / CashflowSection
- * 与同一份 controller，不另建表格、表单或校验；视觉沿用设置页的 mb-set-* 内胆，
- * 只按约定调整抽屉尺寸。
+ * 内容复用设置页的 AccountsSection / CategoriesSection / CashflowSection
+ * 与同一份 controller，不另建表格、表单或校验；视觉沿用设置页的 mb-set-* 内胆。
+ * 由调用方按当前报表固定 tab 与标题，这里不提供跨分区切换，避免二级入口。
  */
 import { X } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger } from '@/features/overview/model'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
-import { HfTabs } from '@/features/shared/HfTabs'
 import { AccountsSection } from './AccountsSection'
 import { CategoriesSection } from './CategoriesSection'
 import { CashflowSection } from './CashflowSection'
@@ -22,21 +22,23 @@ export type LedgerConfigTab = 'accounts' | 'categories' | 'cashflow'
 export function LedgerConfigManager({
   opened,
   tab,
-  onTabChange,
+  title,
+  extra,
   onClose,
   device,
   ledger,
   controller,
-  onRetry,
 }: {
   opened: boolean
+  /** 由当前报表决定，抽屉内不提供切换。 */
   tab: LedgerConfigTab
-  onTabChange: (next: LedgerConfigTab) => void
+  title: string
+  /** 报表专有的补充项（如收支明细的数据范围），与分类管理同处一层。 */
+  extra?: ReactNode
   onClose: () => void
   device: DeviceMode
   ledger: Ledger
   controller: LedgerConfigController
-  onRetry: () => void
 }) {
   return (
     <>
@@ -50,29 +52,15 @@ export function LedgerConfigManager({
         contentClassName="mb-ledger-sheet"
       >
         <div className="mb-set-sheet-head">
-          <h2 className="mb-set-sheet-title">账户与分类</h2>
+          <h2 className="mb-set-sheet-title">{title}</h2>
           <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
             <X size={18} />
           </HfButton>
         </div>
         <div className="mb-set-sheet-body">
-          <div className="mb-set-toolbar">
-            <HfTabs
-              variant="settings"
-              label="账本数据"
-              value={tab}
-              items={[
-                { id: 'accounts', label: '账户' },
-                { id: 'categories', label: '收支分类' },
-                { id: 'cashflow', label: '现金流分类' },
-              ]}
-              onChange={onTabChange}
-            />
-          </div>
-
+          {extra && <div className="mb-set-field mb-ledger-sheet-extra">{extra}</div>}
           {tab === 'accounts' ? (
             <AccountsSection
-              device={device}
               ledger={ledger}
               assetGroups={controller.assetGroups}
               liabilityGroups={controller.liabilityGroups}
@@ -80,9 +68,9 @@ export function LedgerConfigManager({
               onTabChange={controller.setAccountTab}
               showEmptyGroups={controller.showEmptyGroups}
               onShowEmptyGroupsChange={controller.setShowEmptyGroups}
-              collapsed={controller.collapsed}
-              onToggleCollapsed={controller.toggleCollapsed}
-              onSetGroupsCollapsed={controller.setGroupsCollapsed}
+              expandedKeys={controller.expandedKeys}
+              onToggleExpanded={controller.toggleExpanded}
+              onSetGroupsExpanded={controller.setGroupsExpanded}
               onOpenEditor={controller.setEditor}
               onOpenMover={controller.setMover}
               menuOpen={controller.menuOpen}
@@ -93,7 +81,6 @@ export function LedgerConfigManager({
               onDeleteGroup={(group) => void controller.deleteGroup(group)}
               onReorderGroupTo={(id, targetIndex) => void controller.moveAccountGroupTo(id, targetIndex)}
               onReorderAccountTo={(id, targetIndex) => void controller.moveAccountTo(id, targetIndex)}
-              onRetry={onRetry}
             />
           ) : tab === 'categories' ? (
             <CategoriesSection
@@ -101,8 +88,8 @@ export function LedgerConfigManager({
               rows={controller.rowsByType[controller.categoryTab]}
               tab={controller.categoryTab}
               onTabChange={controller.setCategoryTab}
-              collapsed={controller.collapsed}
-              onToggleCollapsed={controller.toggleCollapsed}
+              expandedKeys={controller.expandedKeys}
+              onToggleExpanded={controller.toggleExpanded}
               menuOpen={controller.menuOpen}
               onMenuOpen={controller.setMenuOpen}
               confirming={controller.confirming}
@@ -118,8 +105,8 @@ export function LedgerConfigManager({
               rows={controller.cashTab === 'asset' ? [] : controller.rowsByType[controller.cashTab]}
               tab={controller.cashTab}
               onTabChange={controller.setCashTab}
-              collapsed={controller.collapsed}
-              onToggleCollapsed={controller.toggleCollapsed}
+              expandedKeys={controller.expandedKeys}
+              onToggleExpanded={controller.toggleExpanded}
               menuOpen={controller.menuOpen}
               onMenuOpen={controller.setMenuOpen}
               confirming={controller.confirming}

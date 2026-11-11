@@ -60,7 +60,6 @@
   --mb-row-gap: 10px;
   --mb-card-pad: 20px;
   --mb-card-pad-compact: 12px;
-  --mb-tbl-py: 4px;
   /* 按钮尺寸 4 档（design-tokens §5.1）：档位只定视觉高度，移动端命中区另由 --mb-touch 兜底 */
   --mb-btn-h-xs: 28px;
   --mb-btn-h-sm: 32px;
@@ -68,7 +67,6 @@
   --mb-btn-h-lg: 44px;
   /* 29px 固定行高只约束报表数据表；流水与总览最近交易用两段式行 */
   --mb-tbl-row-h: calc(var(--mb-fs-1) + var(--mb-s-4));
-  --mb-tbl-line-h: calc(var(--mb-tbl-row-h) - var(--mb-tbl-py) * 2 - var(--mb-border-width));
   /* 流水列表 / 总览最近交易：两段式行，不受表格 29px 约束 */
   --mb-tx-row-h: 54px;
   --mb-tx-icon: 26px;

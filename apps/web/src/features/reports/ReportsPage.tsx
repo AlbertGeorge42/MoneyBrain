@@ -20,6 +20,7 @@ import { markReportsVisited } from '@/features/shared/onboardingState'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { LedgerConfigManager, type LedgerConfigTab } from '@/features/ledger-config/LedgerConfigManager'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
+import { HfSwitch } from '@/features/shared/HfSwitch'
 import {
   useApiAssetProjection,
   useApiBalanceReport,
@@ -31,10 +32,8 @@ import {
 } from './apiReports'
 import { deriveCashSankey } from './cashSankeyModel'
 import { PageHead, ReportsEmpty, ReportsSeedNotice } from './ReportPageChrome'
-import { ReportSettingsSheet } from './ReportSettingsPanel'
+import { toggleFold } from '@/features/shared/foldState'
 import {
-  cashGroupPresence,
-  defaultReportSettings,
   loadReportSettings,
   saveReportSettings,
   type ReportViewSettings,
@@ -93,6 +92,17 @@ function initialFutureReportTime(anchor: string): ReportTime {
   return { gran: 'month', point: anchor, ...range, preset: 'next3m' }
 }
 
+/**
+ * 报表「设置」直达当前报表依赖的分类管理分区：不弹中间层、不列其他报表的分区。
+ * 标题就是抽屉标题，避免用户以为还有一层设置。
+ */
+const REPORT_CONFIG: Record<ReportTab, { title: string; tab: LedgerConfigTab }> = {
+  balance: { title: '资产负债设置', tab: 'accounts' },
+  flow: { title: '收支明细设置', tab: 'categories' },
+  cash: { title: '现金流设置', tab: 'cashflow' },
+  invest: { title: '投资分析设置', tab: 'accounts' },
+}
+
 export function ReportsPage({
   device,
   dataState,
@@ -127,21 +137,16 @@ export function ReportsPage({
   const time = timeOverride ?? initialReportTime(anchor)
   const setTime = (next: ReportTime) => setTimeOverride(next)
   const [drill, setDrill] = useState<DrillState | null>(null)
-  const [foldedFlow, setFoldedFlow] = useState<Record<string, boolean>>({})
-  const [foldedCash, setFoldedCash] = useState<Record<string, boolean>>({})
+  // 折叠列表默认收起：集合里只记用户显式展开过的节点。
+  const [expandedFlow, setExpandedFlow] = useState<Record<string, boolean>>({})
+  const [expandedCash, setExpandedCash] = useState<Record<string, boolean>>({})
   const [flowSide, setFlowSide] = useState<'income' | 'expense'>('expense')
-  // 「含不计收支交易」属于数据范围，随展示配置落 localStorage；即时生效，不走配置草稿。
   const [cashSide, setCashSide] = useState<'in' | 'out'>('in')
   const [balanceSide, setBalanceSide] = useState<'assets' | 'liabilities'>('assets')
-  // 展示偏好只落 localStorage；面板里的切换先改 draft，页面即时按 draft 重算。
+  // 数据范围随展示配置落 localStorage；即时生效，不走草稿。
   const [viewSettings, setViewSettings] = useState<ReportViewSettings>(() => loadReportSettings())
-  const [draftSettings, setDraftSettings] = useState<ReportViewSettings | null>(null)
-  // 设置抽屉由报表页自己持有：打开即带上当前展示偏好的草稿。
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  // 账本数据管理：与设置页同一份 controller / 表单，保存立即生效。
+  // 点设置直接打开当前报表对应的分类管理，不经过中间弹窗。
   const [ledgerConfigOpen, setLedgerConfigOpen] = useState(false)
-  const [ledgerConfigTab, setLedgerConfigTab] = useState<LedgerConfigTab>('accounts')
-  const effectiveSettings = draftSettings ?? viewSettings
   const includeExcluded = viewSettings.dataScope.includeExcluded
   const setIncludeExcluded = (next: boolean) => {
     const value = { ...viewSettings, dataScope: { includeExcluded: next } }
@@ -221,10 +226,10 @@ export function ReportsPage({
       pushToast(message, { variant: 'reports', ...options })
     },
     onAfterWrite: () => {
-      // 账户 / 分类变了，旧下钻与折叠键可能指向已删除或已换组的对象。
+      // 账户 / 分类变了，旧下钻与展开键可能指向已删除或已换组的对象。
       setDrill(null)
-      setFoldedFlow({})
-      setFoldedCash({})
+      setExpandedFlow({})
+      setExpandedCash({})
       if (apiReady) void activeReportApi.refetch()
     },
   })
@@ -238,13 +243,10 @@ export function ReportsPage({
   const flow = flowApi.data
   const cash = cashState === 'past' ? cashApi.data : cashProjectionApi.data
   const invest = investApi.data
-  // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；隐藏分组并入「其他」后仍守恒。
+  // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；活动分组固定全显示。
   const sankey = useMemo(
-    () =>
-      device === 'desktop' && cash
-        ? deriveCashSankey(ledger, cash, effectiveSettings.cash.groups)
-        : null,
-    [device, ledger, cash, effectiveSettings.cash.groups],
+    () => (device === 'desktop' && cash ? deriveCashSankey(ledger, cash) : null),
+    [device, ledger, cash],
   )
   const drillData = useMemo<DrillData | null>(
     () =>
@@ -254,8 +256,8 @@ export function ReportsPage({
 
   useEffect(() => {
     setDrill(null)
-    setFoldedFlow({})
-    setFoldedCash({})
+    setExpandedFlow({})
+    setExpandedCash({})
   }, [tab, time.from, time.to, time.point])
 
   // 引导第三步「看报表」的完成判定：进过报表页就算看过。
@@ -264,29 +266,8 @@ export function ReportsPage({
   }, [])
 
   const notify = (message: string) => pushToast(message, { variant: 'reports' })
-  const toggleFlowFold = (id: string) =>
-    setFoldedFlow((current) => ({ ...current, [id]: current[id] === false }))
-  const toggleCashFold = (id: string) =>
-    setFoldedCash((current) => ({ ...current, [id]: current[id] === false }))
-
-  const openConfig = () => {
-    // 设置只针对当前这张报表：进入即带上当前展示偏好的草稿。
-    setDraftSettings(viewSettings)
-    setSettingsOpen(true)
-  }
-  const commitConfig = () => {
-    if (!draftSettings) return
-    saveReportSettings(draftSettings)
-    setViewSettings(draftSettings)
-    setDraftSettings(null)
-    notify('已应用展示配置 · 不写回账本')
-  }
-  const resetConfig = () => setDraftSettings(defaultReportSettings())
-  const closeSettings = () => {
-    // 关闭抽屉等同取消未确认的改动，避免「看过就生效」。
-    setDraftSettings(null)
-    setSettingsOpen(false)
-  }
+  const toggleFlowFold = (id: string) => setExpandedFlow((current) => toggleFold(current, id))
+  const toggleCashFold = (id: string) => setExpandedCash((current) => toggleFold(current, id))
 
   // 投资视图的空状态入口：保留当前粒度，把期间收回到当前桶内、截至今天。
   const backToActual = () =>
@@ -352,8 +333,11 @@ export function ReportsPage({
           device={device}
           tab={tab}
           sub={headSub}
-          onTab={(next) => setTab(next)}
-          onOpenSettings={openConfig}
+          onTab={(next) => {
+            setTab(next)
+            setLedgerConfigOpen(false)
+          }}
+          onOpenSettings={() => setLedgerConfigOpen(true)}
         />
       }
     >
@@ -374,7 +358,6 @@ export function ReportsPage({
             <BalanceView
               device={device}
               report={balance}
-              settings={effectiveSettings.balance}
               categories={ledger.accountCategories}
               side={balanceSide}
               onSide={setBalanceSide}
@@ -388,7 +371,6 @@ export function ReportsPage({
               <BalanceView
                 device={device}
                 report={assetProjectionApi.data}
-                settings={effectiveSettings.balance}
                 categories={ledger.accountCategories}
                 side={balanceSide}
                 onSide={setBalanceSide}
@@ -410,13 +392,12 @@ export function ReportsPage({
             <FlowView
               device={device}
               report={flow}
-              settings={effectiveSettings.flow}
               side={flowSide}
               onSide={setFlowSide}
-              folded={foldedFlow}
+              expanded={expandedFlow}
               onFold={toggleFlowFold}
               onDrill={(node, kind) => {
-                if (kind !== 'asset') setDrill({ node, kind })
+                if (kind === 'income' || kind === 'expense') setDrill({ node, kind })
               }}
               colorUniverse={categoryUniverse}
             />
@@ -426,13 +407,12 @@ export function ReportsPage({
               <FlowView
                 device={device}
                 report={flowProjectionApi.data}
-                settings={effectiveSettings.flow}
                 side={flowSide}
                 onSide={setFlowSide}
-                folded={foldedFlow}
+                expanded={expandedFlow}
                 onFold={toggleFlowFold}
                 onDrill={(node, kind) => {
-                  if (kind !== 'asset') setDrill({ node, kind })
+                  if (kind === 'income' || kind === 'expense') setDrill({ node, kind })
                 }}
                 colorUniverse={categoryUniverse}
               />
@@ -450,10 +430,9 @@ export function ReportsPage({
               device={device}
               report={cash}
               sankey={sankey}
-              settings={effectiveSettings.cash}
               side={cashSide}
               onSide={setCashSide}
-              folded={foldedCash}
+              expanded={expandedCash}
               onFold={toggleCashFold}
               from={time.from}
               to={time.to}
@@ -467,10 +446,9 @@ export function ReportsPage({
                 device={device}
                 report={cash}
                 sankey={sankey}
-                settings={effectiveSettings.cash}
                 side={cashSide}
                 onSide={setCashSide}
-                folded={foldedCash}
+                expanded={expandedCash}
                 onFold={toggleCashFold}
                 from={time.from}
                 to={time.to}
@@ -487,7 +465,7 @@ export function ReportsPage({
             )
           )}
           {tab === 'invest' && investState === 'past' && invest && (
-            <InvestView device={device} report={invest} settings={effectiveSettings.invest} />
+            <InvestView device={device} report={invest} />
           )}
           {tab === 'invest' && investState === 'past' && apiMode && investApi.status === 'success' && investApi.data === null && (
             <Card variant="report" className="mb-rp-empty">
@@ -533,44 +511,36 @@ export function ReportsPage({
         }}
       />
 
-      <ReportSettingsSheet
-        device={device}
-        opened={settingsOpen}
-        onClose={closeSettings}
-        tab={tab}
-        draftSettings={draftSettings}
-        includeExcluded={includeExcluded}
-        onIncludeExcludedChange={setIncludeExcluded}
-        cashPresence={
-          cash
-            ? cashGroupPresence(cash)
-            : { 经营: false, 投资: false, 筹资: false, 未分类: false, 账户间转账: false }
-        }
-        onOpenLedger={(next) => {
-          setLedgerConfigTab(next)
-          setLedgerConfigOpen(true)
-        }}
-        onChange={setDraftSettings}
-        onReset={resetConfig}
-        onCommit={commitConfig}
-      />
-
       <LedgerConfigManager
         opened={ledgerConfigOpen}
-        tab={ledgerConfigTab}
-        onTabChange={setLedgerConfigTab}
+        tab={REPORT_CONFIG[tab].tab}
+        title={REPORT_CONFIG[tab].title}
+        extra={
+          tab === 'flow' ? (
+            <>
+              <span className="mb-set-label">数据范围</span>
+              <HfSwitch
+                variant="toggle"
+                text="含不计收支交易"
+                stateText={includeExcluded ? '已含' : '不含'}
+                checked={includeExcluded}
+                onChange={setIncludeExcluded}
+              />
+              <p className="mb-set-hint">
+                开启后收支明细、指标与分类合计并入标记为「不计收支」的流水；不影响其他报表。
+              </p>
+            </>
+          ) : undefined
+        }
         onClose={closeLedgerConfig}
         device={device}
         ledger={ledger}
         controller={ledgerConfig}
-        onRetry={onRetry}
       />
 
       <ToastViewport
         variant="reports"
-        className={
-          (settingsOpen || ledgerConfigOpen) && device === 'mobile' ? 'is-over-sheet' : undefined
-        }
+        className={ledgerConfigOpen && device === 'mobile' ? 'is-over-sheet' : undefined}
       />
     </div>
   )

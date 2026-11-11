@@ -5,6 +5,7 @@
  * 所有金额仍是整数分；展示层再经 formatCurrency。
  * 这里不放任何 UI 文案模板，表格与下钻只消费结构化结果。
  */
+import { isExpanded, type FoldState } from '@/features/shared/foldState'
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import {
@@ -84,10 +85,10 @@ export interface BalanceRow {
 }
 
 /**
- * 资产负债两层：一级分类 → 账户。
+ * 资产负债两层：账户分类 → 账户。
  *
- * 每一行账户按它所属的一级分类归组，组内直接列账户；
- * 没有分类数据的账本（种子账本 / 测试夹具）返回 null，回退到平铺账户行。
+ * 每一行账户按它所属的分类归组，组内直接列账户；账本没有分类元数据
+ * （种子账本 / 测试夹具）时按后端节点的分类名兜底，层级仍然成立。
  */
 export interface BalanceGroup {
   id: string
@@ -114,7 +115,6 @@ export interface BalanceReport {
   /** 负余额资产合计（负数），未计入正余额口径。 */
   negativeAssetTotal: number
   negativeAssetCount: number
-  composition: { id: string; name: string; amount: number; share: number }[]
   trend: TrendPoint[]
   metrics: ReportMetric[]
   /** 后端口径说明（含预算预测时给出）。 */
@@ -122,17 +122,22 @@ export interface BalanceReport {
 }
 
 /**
- * 资产负债两层分组：一级分类汇总，账户直接归到一级分类，组内按金额降序列账户。
+ * 资产负债两层分组：账户按自己的分类归组。
  *
- * 分类数据缺失（种子账本 / 测试夹具没有 accountCategories）时返回 null，
- * 渲染层回退到原来的平铺账户行，不伪造层级。
+ * 设置页把每个账户分类平铺成分组（不按父子层级折叠），报表必须同口径：
+ * 账户归到它 `categoryId` 指向的分类本身，**不做二级归一到父级**——否则
+ * 「资产」父分类下的「现金」「投资」会全被并进「资产」，设置里分的三组
+ * 在表格与环图里只剩一组。
+ *
+ * 后端的 assetNodes 已按设置里的 sort 排好序，账本带 accountCategories 时
+ * 用真实分类名，缺失时用节点分类名兜底。这里**不再按金额重排**：分类与
+ * 账户的默认顺序完全由设置中的拖拽顺序决定。
  */
 export function buildBalanceGroups(
   rows: BalanceRow[],
-  categories: readonly LedgerAccountCategory[] | undefined,
-): BalanceGroup[] | null {
-  if (!categories || categories.length === 0) return null
-  const byId = new Map(categories.map((category) => [category.id, category]))
+  categories?: readonly LedgerAccountCategory[],
+): BalanceGroup[] {
+  const byId = new Map(categories?.map((category) => [category.id, category]) ?? [])
   const roots = new Map<string, BalanceGroup>()
 
   const rootOf = (id: string, name: string): BalanceGroup => {
@@ -152,23 +157,15 @@ export function buildBalanceGroups(
 
   for (const row of rows) {
     const category = row.categoryId ? byId.get(row.categoryId) : undefined
-    // 历史载荷可能仍指向二级分类：取它的一级父分类作为归属，不再展开二级。
-    const parent = category?.parentId ? byId.get(category.parentId) : undefined
-    const root = rootOf(
-      parent?.id ?? category?.id ?? 'uncategorized',
-      parent?.name ?? category?.name ?? '未分类',
-    )
+    // 与设置页同口径：分类本身就是一层分组，子分类不再向父级归并。
+    const root = rootOf(category?.id ?? `kind:${row.kind}`, category?.name ?? row.kind)
     root.accounts.push(row)
     root.amount += row.amount
     root.predicted = (root.predicted ?? 0) + (row.predicted ?? 0)
     root.accountCount += 1
   }
 
-  const result = [...roots.values()].sort((left, right) => right.amount - left.amount)
-  for (const group of result) {
-    group.accounts.sort((left, right) => right.amount - left.amount)
-  }
-  return result
+  return [...roots.values()]
 }
 
 /** 层级自检：组内账户之和 = 分组小计，金额与账户数都对齐。 */
@@ -177,52 +174,35 @@ export function balanceGroupBalanced(group: BalanceGroup): boolean {
   return childAmount === group.amount && group.accounts.length === group.accountCount
 }
 
-/** 默认展开策略：全部展开；用户点过以后以折叠状态为准。 */
-export function balanceGroupExpanded(
-  folded: Record<string, boolean>,
-  group: BalanceGroup,
-): boolean {
-  return folded[group.id] ?? true
-}
-
 /**
- * 资产构成环：与资产负债表同一份 `groupMode` 决定切块口径。
- * - `account`：每个资产账户一块，点击落流水账户筛选；
- * - `kind`：按账户性质合并（储蓄 / 现金等价 / 投资 / 信用），点击打开该性质的账户抽屉。
- * 这里只产出环与图例共用的根节点；性质抽屉的账户明细仍来自 `report.assets`。
+ * 「账户分类 → 账户」树：表格、移动卡片与构成环共用同一份派生结果。
+ *
+ * 一级是分类（先显示该分类占比），二级是该分类下的账户；环图点分类即可下钻到账户。
+ * 占比分母只取正余额，负余额账户仍留在表格里，避免出现负的扇形。
  */
-export function buildAssetComposition(rows: BalanceRow[], mode: 'account' | 'kind'): FlowTreeNode[] {
-  const total = rows.reduce((sum, row) => sum + row.amount, 0)
-  const shareOf = (amount: number) => (total > 0 ? (amount / total) * 100 : 0)
-  if (mode === 'account') {
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      amount: row.amount,
+export function buildBalanceTrees(groups: BalanceGroup[]): FlowTreeNode[] {
+  const total = groups.reduce((sum, group) => sum + Math.max(0, group.amount), 0)
+  const shareOf = (amount: number) =>
+    total > 0 ? (Math.max(0, amount) / total) * 100 : 0
+  return groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+    amount: group.amount,
+    count: group.accountCount,
+    share: shareOf(group.amount),
+    level: 0 as const,
+    predicted: group.predicted,
+    children: group.accounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+      amount: account.amount,
       count: 1,
-      share: shareOf(row.amount),
-      level: 0 as const,
+      share: shareOf(account.amount),
+      level: 1 as const,
+      predicted: account.predicted,
       children: [],
-    }))
-  }
-  const buckets = new Map<string, { amount: number; count: number }>()
-  for (const row of rows) {
-    const group = buckets.get(row.kind) ?? { amount: 0, count: 0 }
-    group.amount += row.amount
-    group.count += 1
-    buckets.set(row.kind, group)
-  }
-  return [...buckets.entries()]
-    .map(([kind, group]) => ({
-      id: `kind:${kind}`,
-      name: kind,
-      amount: group.amount,
-      count: group.count,
-      share: shareOf(group.amount),
-      level: 0 as const,
-      children: [],
-    }))
-    .sort((left, right) => right.amount - left.amount)
+    })),
+  }))
 }
 
 export interface CashChild {
@@ -383,25 +363,25 @@ export function accountBalancesAt(ledger: Ledger, point: string): Map<string, nu
   return balances
 }
 
-/** 现金流左右两表的行：键带方向前缀，两表共用一份 folded 也不串扰。 */
+/** 现金流左右两表的行：键带方向前缀，两表共用一份展开状态也不串扰。 */
 export function cashRowsFor(
   side: 'in' | 'out',
   groups: CashGroup[],
-  folded: Record<string, boolean>,
+  expanded: FoldState,
   onFold: (id: string) => void,
 ): ReportRow[] {
   const foldKey = (id: string) => `${side}:${id}`
   const rows: ReportRow[] = []
   for (const group of groups) {
     const key = foldKey(group.key)
-    const expanded = folded[key] !== false
+    const open = isExpanded(expanded, key)
     rows.push({
       id: key,
       cells: [group.name, group.meta ?? `${group.count} 笔`, currency(group.total)],
       hint: group.predicted ? '预测' : undefined,
-      fold: group.children.length > 0 ? { expanded, onToggle: () => onFold(key) } : undefined,
+      fold: group.children.length > 0 ? { expanded: open, onToggle: () => onFold(key) } : undefined,
     })
-    if (expanded) {
+    if (open) {
       for (const child of group.children) {
         rows.push({
           id: foldKey(child.id),
