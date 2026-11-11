@@ -64,7 +64,7 @@ adjustment  账户 +amount      权益 −amount
 | 位置 | 职责 |
 |---|---|
 | `types/index.ts` | 共享 DTO 类型（报表结构、实体、导入导出结果） |
-| `constants.ts` | 跨端字面量：`CLEAR_CONFIRM`（破坏性操作的确认值）、`BACKUP_DATA_TYPES` / `BACKUP_DATA_TYPE_LABELS` / `IMPORT_ENTRY_LABELS`（备份类型与显示名） |
+| `constants.ts` | 跨端字面量：`CLEAR_CONFIRM`（破坏性操作的确认值）、`BACKUP_DATA_TYPES`（备份类型） |
 | `utils/tree.ts` | 分类树构建（后端 `common/tree.ts` 转出，前端共用） |
 
 前端通过 `@contracts/*` 别名引用（`tsconfig.json` 与 `vite.config.ts` 都配了），
@@ -106,7 +106,6 @@ adjustment  账户 +amount      权益 −amount
 | `services/analytics.service.ts` | 首页汇总、趋势、分类占比（走 `summarizeFlows` / `flowByCategory`） |
 | `services/report/*` | 四张报表；收支表用领域层 `summarizeFlows` / `flowByCategory` |
 | `services/import/*`、`services/export/*` | 备份/CSV 导入导出；幂等键、范围过滤、覆盖保护 |
-| `services/investment/*` | 资产类型、快照链、收益分析 |
 | `services/ledger.adapter.ts` | Prisma `BigInt` 分 ↔ 领域类型适配 |
 | `common/` | 错误、HTTP 信封、请求 ID、日期、校验器、日志、树工具 |
 

@@ -3,14 +3,15 @@
  *
  * - 有持仓：账户明细带该账户的资产类型持仓；分类明细按资产类型合并各账户持仓；
  * - 无持仓（账户未配置资产类型 / 无快照）：返回空数组，而不是缺字段。
+ *
+ * 造数直接走 Prisma：投资写入服务（services/investment）已移除，数据经导入写入、
+ * 经报表读出，这里只复刻它落库的快照行来验证报表接口。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import request from 'supertest'
 
 const { default: app } = await import('../../src/index.js')
 const { prisma } = await import('../../src/prisma.js')
-const { createAssetClass } = await import('../../src/services/investment/asset-class.service.js')
-const { createSnapshot } = await import('../../src/services/investment/allocation.service.js')
 
 const HOLDING_CATEGORY_ID = 'items-holding-category'
 const EMPTY_CATEGORY_ID = 'items-empty-category'
@@ -77,15 +78,26 @@ describe('投资分析：账户 / 分类持仓明细 items', () => {
       },
     })
 
-    const stock = await createAssetClass(HOLDING_ACCOUNT_ID, { name: '股票', targetRatio: 60 })
-    const bond = await createAssetClass(HOLDING_ACCOUNT_ID, { name: '债券', targetRatio: 40 })
-    await createSnapshot({
-      accountId: HOLDING_ACCOUNT_ID,
-      date: '2026-03-10',
-      items: [
-        { assetClassId: stock.id, marketValue: 60000, periodNetFlow: 0 },
-        { assetClassId: bond.id, marketValue: 40000, periodNetFlow: 0 },
-      ],
+    const stock = await prisma.investmentAssetClass.create({
+      data: { id: 'items-stock', accountId: HOLDING_ACCOUNT_ID, name: '股票', targetRatio: 60, sort: 0 },
+    })
+    const bond = await prisma.investmentAssetClass.create({
+      data: { id: 'items-bond', accountId: HOLDING_ACCOUNT_ID, name: '债券', targetRatio: 40, sort: 1 },
+    })
+    await prisma.investmentAllocationSnapshot.create({
+      data: {
+        id: 'items-snapshot',
+        accountId: HOLDING_ACCOUNT_ID,
+        date: new Date('2026-03-10T00:00:00'),
+        accountBalance: 100000n,
+        previousSnapshotId: null,
+        items: {
+          create: [
+            { assetClassId: stock.id, marketValue: 60000n, periodNetFlow: 0n, sort: 0 },
+            { assetClassId: bond.id, marketValue: 40000n, periodNetFlow: 0n, sort: 1 },
+          ],
+        },
+      },
     })
   })
 

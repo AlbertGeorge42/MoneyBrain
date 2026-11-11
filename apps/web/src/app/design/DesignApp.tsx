@@ -453,7 +453,6 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
       queryClient.invalidateQueries({ queryKey: ['hf', 'transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['hf', 'recycle-bin'] }),
       queryClient.invalidateQueries({ queryKey: ['hf', 'report'] }),
-      queryClient.invalidateQueries({ queryKey: ['hf', 'budgets'] }),
     ])
   }, [apiMode, queryClient])
 

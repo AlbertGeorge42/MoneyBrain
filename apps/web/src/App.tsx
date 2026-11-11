@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import ErrorBoundary from './components/common/ErrorBoundary'
+import ErrorBoundary from './app/ErrorBoundary'
 
 const DesignApp = lazy(() => import('./app/design/DesignApp'))
 

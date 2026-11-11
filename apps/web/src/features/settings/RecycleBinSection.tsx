@@ -74,7 +74,6 @@ function useRecycleBin(ledger: Ledger) {
         queryClient.invalidateQueries({ queryKey: ['hf', 'transactions'] }),
         queryClient.invalidateQueries({ queryKey: ['hf', 'recycle-bin'] }),
         queryClient.invalidateQueries({ queryKey: ['hf', 'report'] }),
-        queryClient.invalidateQueries({ queryKey: ['hf', 'budgets'] }),
       ])
       return { ok: true }
     } catch (error) {
