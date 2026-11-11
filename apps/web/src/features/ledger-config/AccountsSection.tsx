@@ -1,10 +1,24 @@
 /**
- * 设置 · 账户分类分区（资产 / 负债一级 → 账户）。
+ * 设置 · 账户分组分区（资产 / 负债一级 → 账户）。
  *
- * 只渲染与局部展开状态；新增 / 编辑 / 对账仍由页面的编辑器与账本操作承担。
- * 展开集合由页面统一持有，切换分区后保持原展开状态（与原实现一致）。
+ * 与收支分类一致：用 mb-set-* 列表 + dnd-kit 拖拽排序（分组可拖、账户在组内可拖），
+ * 不再提供上移 / 下移按钮。展开集合由页面统一持有，切换分区后保持原展开状态。
  */
-import { Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfTabs } from '@/features/shared/HfTabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
@@ -13,8 +27,8 @@ import { CategoryIcon } from '@/features/overview/category'
 import type { Ledger } from '@/features/overview/model'
 import { formatCurrency } from '@/utils/format'
 import { minor } from '@domain/index'
-import { ReportCardList, ReportTable, type CardRow, type ReportRow } from '@/features/reports/ReportTable'
 import { ReconcileButton } from './ReconcileSheet'
+import { RowMenu } from './RowMenu'
 import {
   accountGroupBalance,
   accountGroupCount,
@@ -23,6 +37,7 @@ import {
   type AccountRow,
 } from './model'
 import type { Editor } from './EditorSheet'
+import type { Mover } from './MoverSheet'
 
 interface AccountsSectionProps {
   device: DeviceMode
@@ -37,7 +52,244 @@ interface AccountsSectionProps {
   onToggleCollapsed: (key: string) => void
   onSetGroupsCollapsed: (keys: readonly string[], collapse: boolean) => void
   onOpenEditor: (editor: Editor) => void
+  onOpenMover: (mover: Mover) => void
+  menuOpen: string | null
+  onMenuOpen: (next: string | null) => void
+  confirming: string | null
+  onConfirm: (key: string) => void
+  onDeleteAccount: (account: AccountRow) => void
+  onDeleteGroup: (group: AccountGroup) => void
+  onReorderGroupTo: (id: string, targetIndex: number) => void
+  onReorderAccountTo: (id: string, targetIndex: number) => void
   onRetry: () => void
+}
+
+function SortableAccountRow({
+  account,
+  group,
+  device,
+  ledger,
+  menuOpen,
+  onMenuOpen,
+  confirming,
+  onConfirm,
+  onOpenAccount,
+  onOpenMover,
+  onDelete,
+  onRetry,
+}: {
+  account: AccountRow
+  group: AccountGroup
+  device: DeviceMode
+  ledger: Ledger
+  menuOpen: string | null
+  onMenuOpen: (next: string | null) => void
+  confirming: string | null
+  onConfirm: (key: string) => void
+  onOpenAccount: (account: AccountRow, group: AccountGroup) => void
+  onOpenMover: (mover: Mover) => void
+  onDelete: (account: AccountRow) => void
+  onRetry: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `a:${account.id}`,
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  const name = accountDisplayName(account, ledger.accounts)
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div className="mb-set-row is-child">
+        <span className="mb-set-child-space" aria-hidden="true" />
+        <span className="mb-set-drag" {...attributes} {...listeners}>
+          <GripVertical size={14} />
+        </span>
+        <span className="mb-set-name">{name}</span>
+        <span className="mb-set-meta">{account.txCount} 笔</span>
+        <span className="mb-set-amount">{formatCurrency(minor(account.balance))}</span>
+        <span className="mb-set-action">
+          <ReconcileButton
+            account={{ id: account.id, name, balance: account.balance }}
+            device={device}
+            onDone={onRetry}
+          />
+        </span>
+        {/* 行内操作统一走 RowMenu：与收支分类同一套交互与二次确认。 */}
+        <RowMenu
+          id={`acc-${account.id}`}
+          openId={menuOpen}
+          onOpen={onMenuOpen}
+          confirming={confirming}
+          onConfirm={onConfirm}
+          items={[
+            {
+              key: `acc-edit-${account.id}`,
+              label: '编辑',
+              onSelect: () => onOpenAccount(account, group),
+            },
+            {
+              key: `acc-move-${account.id}`,
+              label: '移动到…',
+              onSelect: () =>
+                onOpenMover({
+                  kind: 'account',
+                  id: account.id,
+                  name,
+                  current: group.ungrouped ? null : group.id,
+                  type: group.type,
+                }),
+            },
+            {
+              key: `acc-del-${account.id}`,
+              label: '删除',
+              danger: true,
+              confirm: account.txCount === 0,
+              disabled: account.txCount > 0,
+              hint: '有流水，先把流水移到别的账户',
+              onSelect: () => onDelete(account),
+            },
+          ]}
+        />
+      </div>
+    </div>
+  )
+}
+
+function SortableGroupRow({
+  group,
+  groups,
+  device,
+  ledger,
+  expanded,
+  onToggle,
+  menuOpen,
+  onMenuOpen,
+  confirming,
+  onConfirm,
+  onOpenGroup,
+  onOpenAccount,
+  onOpenMover,
+  onDeleteGroup,
+  onDeleteAccount,
+  onRetry,
+}: {
+  group: AccountGroup
+  groups: readonly AccountGroup[]
+  device: DeviceMode
+  ledger: Ledger
+  expanded: boolean
+  onToggle: () => void
+  menuOpen: string | null
+  onMenuOpen: (next: string | null) => void
+  confirming: string | null
+  onConfirm: (key: string) => void
+  onOpenGroup: (group: AccountGroup) => void
+  onOpenAccount: (account: AccountRow, group: AccountGroup) => void
+  onOpenMover: (mover: Mover) => void
+  onDeleteGroup: (group: AccountGroup) => void
+  onDeleteAccount: (account: AccountRow) => void
+  onRetry: () => void
+}) {
+  const draggable = !group.ungrouped && !group.seeded
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `g:${group.id}`,
+    disabled: !draggable,
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  const hasAccounts = accountGroupCount(group) > 0
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div className="mb-set-row">
+        {hasAccounts ? (
+          <HfButton
+            className="mb-set-fold"
+            aria-label={expanded ? '收起账户' : '展开账户'}
+            aria-expanded={expanded}
+            onClick={() => onToggle()}
+          >
+            {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </HfButton>
+        ) : (
+          <span className="mb-set-child-space" aria-hidden="true" />
+        )}
+        <span
+          className="mb-set-drag"
+          {...(draggable ? attributes : {})}
+          {...(draggable ? listeners : {})}
+        >
+          <GripVertical size={14} />
+        </span>
+        <span className="mb-set-icon">
+          <CategoryIcon
+            rootId={group.id}
+            iconKey={ledger.accountCategories?.find((item) => item.id === group.id)?.iconKey}
+          />
+        </span>
+        <span className="mb-set-name">{accountGroupDisplayName(group, groups)}</span>
+        <span className="mb-set-meta">
+          {accountGroupCount(group)} 个账户
+        </span>
+        <span className="mb-set-amount">{formatCurrency(minor(accountGroupBalance(group)))}</span>
+        {/* 分组操作同样走 RowMenu：与收支分类一致，不再整行点击进编辑器。 */}
+        <RowMenu
+          id={`grp-${group.id}`}
+          openId={menuOpen}
+          onOpen={onMenuOpen}
+          confirming={confirming}
+          onConfirm={onConfirm}
+          items={[
+            {
+              key: `grp-edit-${group.id}`,
+              label: '编辑',
+              disabled: !draggable,
+              hint: '默认归类与演示分组只读',
+              onSelect: () => onOpenGroup(group),
+            },
+            {
+              key: `grp-del-${group.id}`,
+              label: '删除',
+              danger: true,
+              confirm: !hasAccounts && draggable,
+              disabled: hasAccounts || !draggable,
+              hint: hasAccounts ? '先把账户移到其他分组' : '默认归类与演示分组只读',
+              onSelect: () => onDeleteGroup(group),
+            },
+          ]}
+        />
+      </div>
+      {expanded && hasAccounts && (
+        <SortableContext
+          items={group.rows.map((account) => `a:${account.id}`)}
+          strategy={verticalListSortingStrategy}
+        >
+          {group.rows.map((account) => (
+            <SortableAccountRow
+              key={account.id}
+              account={account}
+              group={group}
+              device={device}
+              ledger={ledger}
+              menuOpen={menuOpen}
+              onMenuOpen={onMenuOpen}
+              confirming={confirming}
+              onConfirm={onConfirm}
+              onOpenAccount={onOpenAccount}
+              onOpenMover={onOpenMover}
+              onDelete={onDeleteAccount}
+              onRetry={onRetry}
+            />
+          ))}
+        </SortableContext>
+      )}
+    </div>
+  )
 }
 
 export function AccountsSection({
@@ -53,29 +305,26 @@ export function AccountsSection({
   onToggleCollapsed,
   onSetGroupsCollapsed,
   onOpenEditor,
+  onOpenMover,
+  menuOpen,
+  onMenuOpen,
+  confirming,
+  onConfirm,
+  onDeleteAccount,
+  onDeleteGroup,
+  onReorderGroupTo,
+  onReorderAccountTo,
   onRetry,
 }: AccountsSectionProps) {
   const groups = tab === 'asset' ? assetGroups : liabilityGroups
-  const emptyGroupCount = groups.filter((group) => accountGroupCount(group) === 0).length
   const visibleGroups = showEmptyGroups
     ? groups
     : groups.filter((group) => accountGroupCount(group) > 0)
+  const realGroups = visibleGroups.filter((group) => !group.ungrouped && !group.seeded)
+  const emptyGroupCount = groups.filter((group) => accountGroupCount(group) === 0).length
   const allCollapsed =
     visibleGroups.length > 0 && visibleGroups.every((group) => collapsed.has(`grp-${group.id}`))
-  const groupLabel = (group: AccountGroup) => (
-    <span className="mb-set-name-inline">
-      <CategoryIcon
-        rootId={group.id}
-        iconKey={ledger.accountCategories?.find((item) => item.id === group.id)?.iconKey}
-      />
-      <span className="mb-set-name-inline-text">{accountGroupDisplayName(group, groups)}</span>
-    </span>
-  )
-  const subtotal = (group: AccountGroup) => formatCurrency(minor(accountGroupBalance(group)))
-  const accountLabel = (account: AccountRow) => accountDisplayName(account, ledger.accounts)
-  const expandedOf = (group: AccountGroup) => !collapsed.has(`grp-${group.id}`)
-  const toggleGroup = (group: AccountGroup) => onToggleCollapsed(`grp-${group.id}`)
-  const foldKeysOf = (group: AccountGroup) => [`grp-${group.id}`]
+
   const canManage = (group: AccountGroup) => !group.ungrouped && !group.seeded
   const openGroup = (group: AccountGroup) => {
     if (!canManage(group)) return
@@ -93,14 +342,40 @@ export function AccountsSection({
       groupId: group.ungrouped ? undefined : group.id,
     })
   }
-  const totalBalance = groups.reduce((sum, group) => sum + accountGroupBalance(group), 0)
-  const totalAccounts = groups.reduce((sum, group) => sum + accountGroupCount(group), 0)
-  const emptyHint =
-    groups.length === 0
-      ? '还没有分组'
-      : emptyGroupCount > 0 && !showEmptyGroups
-        ? `已隐藏 ${emptyGroupCount} 个空分组（点「显示空分组」可管理）`
-        : undefined
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const activeId = String(active.id)
+    const overId = String(over.id)
+    const activeIsGroup = activeId.startsWith('g:')
+    const overIsGroup = overId.startsWith('g:')
+    if (activeIsGroup !== overIsGroup) return
+    if (activeIsGroup) {
+      const aReal = activeId.slice(2)
+      const oReal = overId.slice(2)
+      const oldIndex = realGroups.findIndex((group) => group.id === aReal)
+      const newIndex = realGroups.findIndex((group) => group.id === oReal)
+      if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+        onReorderGroupTo(aReal, newIndex)
+      }
+      return
+    }
+    const aReal = activeId.slice(2)
+    const oReal = overId.slice(2)
+    for (const group of visibleGroups) {
+      const accIds = group.rows.map((account) => account.id)
+      if (accIds.includes(aReal) && accIds.includes(oReal)) {
+        const newIndex = group.rows.findIndex((account) => account.id === oReal)
+        if (newIndex >= 0) onReorderAccountTo(aReal, newIndex)
+        return
+      }
+    }
+  }
 
   return (
     <>
@@ -128,7 +403,7 @@ export function AccountsSection({
             disabled={visibleGroups.length === 0}
             onClick={() =>
               onSetGroupsCollapsed(
-                visibleGroups.flatMap(foldKeysOf),
+                visibleGroups.map((group) => `grp-${group.id}`),
                 !allCollapsed,
               )
             }
@@ -143,7 +418,7 @@ export function AccountsSection({
               onOpenEditor({ kind: 'accountGroup', mode: 'create', type: tab })
             }}
           >
-            <Plus size={15} /> 新建分组
+            <Plus size={15} /> 新增分组
           </HfButton>
           <HfButton
             className="mb-set-btn is-ghost is-small"
@@ -161,88 +436,54 @@ export function AccountsSection({
       </div>
 
       <p className="mb-set-hint">
-        分组即后端的账户分类（AccountCategory）：只有「一级分类 → 账户」两层，账户直接挂在所属一级下。净资产与资产构成合计不变，但资产构成按分类名分行，分组名会出现在表里。新建分组默认不带「现金等价 / 投资」标识；把带标识的账户移入无标识的分组会改变现金流与投资占比，保存前会提示。默认全部展开，点分组行可改名/排序/删除，点账户行可编辑或移动。
+        分组即后端的账户分类（AccountCategory）：只有「一级分类 → 账户」两层。拖动每行左侧的手柄即可调整顺序；账户直接挂在所属一级下，净资产与资产构成合计不变。新增分组默认不带「现金等价 / 投资」标识；把带标识的账户移入无标识的分组会改变现金流与投资占比，保存前会提示。
       </p>
 
-      {device === 'desktop' ? (
-        <ReportTable
-          device={device}
-          title={tab === 'asset' ? '资产账户分组' : '负债账户分组'}
-          desc={`共 ${totalAccounts} 个账户；${allCollapsed ? '当前全部收起' : '默认全部展开'}`}
-          ariaLabel="账户分组表"
-          variant="c3"
-          columns={[
-            { label: '分组 / 账户' },
-            { label: '余额', align: 'num' },
-            { label: '账户数', align: 'num' },
-          ]}
-          rows={visibleGroups.flatMap((group) => {
-            const groupRow: ReportRow = {
-              id: `grp-${group.id}`,
-              cells: [groupLabel(group), subtotal(group), `${accountGroupCount(group)} 个`],
-              fold: { expanded: expandedOf(group), onToggle: () => toggleGroup(group) },
-              onOpen: canManage(group) ? () => openGroup(group) : undefined,
-              hint: group.ungrouped ? '默认归类' : group.seeded ? '演示只读' : undefined,
-            }
-            if (!expandedOf(group)) return [groupRow]
-            const accountRows: ReportRow[] = group.rows.map((account) => ({
-              id: `acc-${account.id}`,
-              level: 1 as const,
-              cells: [
-                accountLabel(account),
-                formatCurrency(minor(account.balance)),
-                group.seeded ? '' : (
-                  <ReconcileButton
-                    account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
-                    device="desktop"
-                    onDone={onRetry}
-                  />
-                ),
-              ],
-              onOpen: () => openAccount(account, group),
-            }))
-            return [groupRow, ...accountRows]
-          })}
-          total={['合计', formatCurrency(minor(totalBalance)), `${totalAccounts} 个`]}
-          note={emptyHint ? `${emptyHint}，点右上角「新建分组」开始。` : undefined}
-        />
-      ) : (
-        <ReportCardList
-          device={device}
-          title={tab === 'asset' ? '资产账户分组' : '负债账户分组'}
-          desc={`共 ${totalAccounts} 个账户；${allCollapsed ? '当前全部收起' : '默认全部展开'}`}
-          rows={visibleGroups.flatMap((group) => {
-            const groupRow: CardRow = {
-              id: `grp-${group.id}`,
-              label: groupLabel(group),
-              meta: `${accountGroupCount(group)} 个账户`,
-              hint: group.ungrouped ? '默认归类' : group.seeded ? '演示只读' : undefined,
-              amount: subtotal(group),
-              fold: { expanded: expandedOf(group), onToggle: () => toggleGroup(group) },
-              onOpen: canManage(group) ? () => openGroup(group) : undefined,
-            }
-            if (!expandedOf(group)) return [groupRow]
-            const accountRows: CardRow[] = group.rows.map((account) => ({
-              id: `acc-${account.id}`,
-              level: 1 as const,
-              label: accountLabel(account),
-              meta: `${account.txCount} 笔`,
-              amount: formatCurrency(minor(account.balance)),
-              onOpen: () => openAccount(account, group),
-              action: group.seeded ? undefined : (
-                <ReconcileButton
-                  account={{ id: account.id, name: accountLabel(account), balance: account.balance }}
-                  device="mobile"
-                  onDone={onRetry}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={realGroups.map((group) => `g:${group.id}`)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="mb-set-list">
+            {visibleGroups.length === 0 ? (
+              <div className="mb-set-list-empty">
+                <p>还没有分组</p>
+                <HfButton
+                  className="mb-set-btn is-primary"
+                  onClick={() => {
+                    onShowEmptyGroupsChange(true)
+                    onOpenEditor({ kind: 'accountGroup', mode: 'create', type: tab })
+                  }}
+                >
+                  <Plus size={16} /> 新增分组
+                </HfButton>
+              </div>
+            ) : (
+              visibleGroups.map((group) => (
+                <SortableGroupRow
+                  key={group.id}
+                  group={group}
+                  groups={groups}
+                  device={device}
+                  ledger={ledger}
+                  expanded={!collapsed.has(`grp-${group.id}`)}
+                  onToggle={() => onToggleCollapsed(`grp-${group.id}`)}
+                  menuOpen={menuOpen}
+                  onMenuOpen={onMenuOpen}
+                  confirming={confirming}
+                  onConfirm={onConfirm}
+                  onOpenGroup={openGroup}
+                  onOpenAccount={openAccount}
+                  onOpenMover={onOpenMover}
+                  onDeleteGroup={onDeleteGroup}
+                  onDeleteAccount={onDeleteAccount}
+                  onRetry={onRetry}
                 />
-              ),
-            }))
-            return [groupRow, ...accountRows]
-          })}
-          total={{ label: '合计', value: formatCurrency(minor(totalBalance)) }}
-          emptyText={emptyHint ?? '还没有分组'}
-        />
-      )}
+              ))
+            )}
+          </div>
+        </SortableContext>
+      </DndContext>
     </>
   )
 }

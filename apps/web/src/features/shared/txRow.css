@@ -44,6 +44,23 @@
   background: var(--mb-color-surface-hover);
 }
 
+/* 移动端行：与 PC 同一套信息结构，只收紧行距、放大图标与点击区。 */
+.mb-tx-row.is-mobile {
+  min-height: var(--mb-touch);
+  padding: var(--mb-s-3) var(--mb-card-pad-compact);
+  border-bottom-style: solid;
+}
+
+.mb-tx-row.is-mobile .mb-tx-cat-name {
+  font-size: var(--mb-fs-2);
+  font-weight: 500;
+}
+
+.mb-tx-row.is-mobile .mb-tx-note {
+  color: var(--mb-color-text-tertiary);
+  font-weight: 400;
+}
+
 .mb-tx-row.is-selected,
 .mb-tx-row.is-selected:hover {
   background: var(--mb-color-accent-soft);
@@ -181,6 +198,12 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* 转账行副行的「源 → 目的」箭头：tertiary 色，不换行。 */
+.mb-tx-arrow {
+  flex: none;
+  color: var(--mb-color-text-tertiary);
+}
+
 /* 「不计收支」逐笔标识：行内轻量文字，与退款标记同一行，不增加行高。 */
 .mb-tx-excluded {
   flex: none;
@@ -215,9 +238,3 @@
 }
 
 /* 转账行金额下方的目标账户子行：12px tertiary，右对齐在金额同一列。 */
-.mb-tx-amount-alt {
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
-  line-height: var(--mb-lh-tight);
-  white-space: nowrap;
-}

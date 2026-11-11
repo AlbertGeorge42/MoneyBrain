@@ -14,7 +14,7 @@
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import type { Ledger, LedgerAccount, LedgerTransaction } from '@/features/overview/model'
-import { addDays } from './reportsTime'
+import { addDays } from '@/utils/date'
 import {
   accountBalancesAt,
   type CashChild,

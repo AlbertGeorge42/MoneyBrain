@@ -2,7 +2,7 @@
  * 流水行（两段式）：总览「最近交易」与流水页共用，避免同一语义在两个页面分叉。
  *
  * 主行：分类图标 + 分类名 primary/600 · 备注 primary/600
- * 副行：账户 · 类型 tertiary/12px
+ * 副行：交易类型 · 账户；转账行改为「源账户 → 目的账户」
  * 行高、图标、内边距与 1px dashed 分隔线全部由 `--mb-tx-*` 控制。
  */
 import type { ReactNode } from 'react'
@@ -27,6 +27,7 @@ export function TxRow({
   showNote = true,
   showAccount = true,
   selected = false,
+  variant = 'default',
   leading,
   ariaLabel,
   onActivate,
@@ -37,6 +38,8 @@ export function TxRow({
   showNote?: boolean
   showAccount?: boolean
   selected?: boolean
+  /** 移动端用更紧凑的行距与更大的图标；信息内容两端一致。 */
+  variant?: 'default' | 'mobile'
   leading?: ReactNode
   ariaLabel?: string
   onActivate: () => void
@@ -56,7 +59,7 @@ export function TxRow({
     <div
       role="button"
       tabIndex={0}
-      className={`mb-tx-row${selected ? ' is-selected' : ''}`}
+      className={`mb-tx-row${selected ? ' is-selected' : ''}${variant === 'mobile' ? ' is-mobile' : ''}`}
       aria-label={ariaLabel}
       onClick={onActivate}
       onKeyDown={(event) => {
@@ -66,7 +69,7 @@ export function TxRow({
       }}
     >
       {leading}
-      <CategoryIcon rootId={rootId} iconKey={iconKey} />
+      <CategoryIcon rootId={rootId} iconKey={iconKey} size={variant === 'mobile' ? 'md' : 'sm'} />
       <span className="mb-tx-main">
         <span className="mb-tx-primary">
           <span className="mb-tx-cat-name">{categoryName}</span>
@@ -82,17 +85,33 @@ export function TxRow({
           )}
         </span>
         <span className="mb-tx-secondary">
-          {showAccount && (
+          {transaction.type === 'transfer' && toAccount ? (
             <>
               <span className="mb-tx-account" title={account?.name ?? '未知账户'}>
                 {account?.name ?? '未知账户'}
               </span>
-              <span className="mb-tx-sep" aria-hidden="true">
-                ·
+              <span className="mb-tx-arrow" aria-hidden="true">
+                →
+              </span>
+              <span className="mb-tx-account" title={toAccount.name}>
+                {toAccount.name}
               </span>
             </>
+          ) : (
+            <>
+              <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
+              {showAccount && (
+                <>
+                  <span className="mb-tx-sep" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className="mb-tx-account" title={account?.name ?? '未知账户'}>
+                    {account?.name ?? '未知账户'}
+                  </span>
+                </>
+              )}
+            </>
           )}
-          <span className="mb-tx-kind">{transactionDirection(transaction)}</span>
           {transaction.excludeFromIncomeExpense && (
             <span className="mb-tx-excluded">不计收支</span>
           )}
@@ -104,7 +123,6 @@ export function TxRow({
         <span className={`mb-tx-amount is-${transactionTone(transaction)}`}>
           {signedAmountText(transaction)}
         </span>
-        {toAccount?.name && <span className="mb-tx-amount-alt">→ {toAccount.name}</span>}
       </span>
     </div>
   )

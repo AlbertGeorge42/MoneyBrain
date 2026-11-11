@@ -168,31 +168,6 @@
   outline-offset: calc(var(--mb-border-width));
 }
 
-.mb-set-add {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mb-s-1);
-  min-height: var(--mb-btn-h-sm);
-  padding: 0 var(--mb-s-2);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-accent);
-  font-family: inherit;
-  font-size: var(--mb-fs-1);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.mb-set-add:hover {
-  background: var(--mb-color-accent-soft);
-}
-
-.mb-set-add:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * 2);
-}
-
 /* ===== 配置行 ===== */
 
 .mb-set-list {
@@ -285,6 +260,12 @@
   width: 14px;
   color: var(--mb-color-text-tertiary);
   opacity: 0.55;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mb-set-drag:active {
+  cursor: grabbing;
 }
 
 .mb-set-icon {
@@ -348,6 +329,23 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 账户行余额 / 分组行合计：名称占据弹性空间后，金额与对账按钮聚到右端。 */
+.mb-set-amount {
+  flex: none;
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-primary);
+  white-space: nowrap;
+  padding-left: var(--mb-s-3);
+}
+
+.mb-set-action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding-left: var(--mb-s-2);
 }
 
 .mb-set-row.is-empty {
@@ -472,7 +470,7 @@
   flex-wrap: wrap;
 }
 
-.mb-set-order-actions {
+.mb-set-conflict-actions {
   display: flex;
   gap: var(--mb-s-2);
 }
@@ -607,6 +605,48 @@
   font-weight: 500;
   line-height: var(--mb-lh-body);
   color: var(--mb-color-text-tertiary);
+}
+
+/* 编辑抽屉里的图标入口：只显示当前图标与状态，点开才是完整网格。 */
+.mb-set-icon-current {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  width: 100%;
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-2);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-set-icon-current:hover {
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-set-icon-current-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-set-icon-current-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ===== 数据与备份 ===== */
@@ -1158,7 +1198,6 @@
 }
 
 .mb-set-page[data-device='mobile'] .mb-set-tab,
-.mb-set-page[data-device='mobile'] .mb-set-add,
 .mb-set-page[data-device='mobile'] .mb-set-btn,
 .mb-set-page[data-device='mobile'] .mb-set-kind {
   min-height: var(--mb-btn-h-lg);

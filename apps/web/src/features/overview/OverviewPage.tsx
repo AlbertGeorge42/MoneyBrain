@@ -77,7 +77,11 @@ interface OverviewPageProps {
   onOpenAccounts: () => void
   onRetry: () => void
   onCreateAccount: () => void
+  /** 记一笔：打开快速记账（引导第二步）。 */
+  onRecord: () => void
   onImport: () => void
+  /** 打开报表页（引导第三步）。 */
+  onOpenReports: () => void
   /** 点击支出分类下钻到带分类 + 期间的流水页；未接线时分类图不可下钻。 */
   onDrillCategory?: (target: ExpenseCategoryDrill) => void
 }
@@ -120,7 +124,9 @@ export function OverviewPage({
   onOpenAccounts,
   onRetry,
   onCreateAccount,
+  onRecord,
   onImport,
+  onOpenReports,
   onDrillCategory,
 }: OverviewPageProps) {
   const { ledger } = useLedger()
@@ -128,6 +134,9 @@ export function OverviewPage({
   // API 模式用真实数据所在月份；种子模式保持原来的固定期间。
   const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
   const today = ledger.snapshot?.today
+  // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
+  const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
+  const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
 
   if (dataState === 'loading') {
     return (
@@ -140,7 +149,15 @@ export function OverviewPage({
   if (dataState === 'empty') {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
-        <ColdStartGuide variant="overview" onPrimary={onCreateAccount} onImport={onImport} />
+        <ColdStartGuide
+          variant="overview"
+          hasAccount={hasAccount}
+          hasEntry={hasEntry}
+          onCreateAccount={onCreateAccount}
+          onRecord={onRecord}
+          onImport={onImport}
+          onOpenReports={onOpenReports}
+        />
       </PageShell>
     )
   }

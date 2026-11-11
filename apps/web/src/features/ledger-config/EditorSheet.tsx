@@ -5,19 +5,15 @@
  * 抽屉本身只负责输入与校验，不直接改账本。
  */
 import { useEffect, useState } from 'react'
-import { Tag, Trash2, X } from 'lucide-react'
+import { ChevronRight, Trash2, X } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
-import {
-  CATEGORY_ICON_GROUPS,
-  searchCategoryIcons,
-  type CategoryIconGroupId,
-  type CategoryIconOption,
-} from '@/features/overview/categoryIcons'
+import { resolveCategoryIcon, type CategoryIconGroupId } from '@/features/overview/categoryIcons'
 import type { AccountKind, Ledger, TxType } from '@/features/overview/model'
 import { ACCOUNT_KIND_LABEL, CATEGORY_TABS } from './model'
+import { IconPickerSheet } from './IconPickerSheet'
 
 export type Editor =
   | {
@@ -60,7 +56,6 @@ export function EditorSheet({
   onClose,
   onSave,
   onDelete,
-  onMove,
 }: {
   editor: Editor | null
   device: DeviceMode
@@ -70,7 +65,6 @@ export function EditorSheet({
   onClose: () => void
   onSave: (value: EditorSaveValue) => void
   onDelete?: () => void
-  onMove?: (direction: 'up' | 'down') => void
 }) {
   const account =
     editor?.kind === 'account' && editor.mode === 'edit'
@@ -121,7 +115,7 @@ export function EditorSheet({
   const [initialBalance, setInitialBalance] = useState(String(openingBalance))
   const [initialBalanceDate, setInitialBalanceDate] = useState(openingDate)
   const [iconKey, setIconKey] = useState(initialIconKey)
-  const [iconQuery, setIconQuery] = useState('')
+  const [iconPickerOpen, setIconPickerOpen] = useState(false)
 
   const currentCategory = account?.categoryId
     ? (ledger.accountCategories ?? []).find((item) => item.id === account.categoryId)
@@ -146,7 +140,7 @@ export function EditorSheet({
     setInitialBalance(String(openingBalance))
     setInitialBalanceDate(openingDate)
     setIconKey(initialIconKey)
-    setIconQuery('')
+    setIconPickerOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
@@ -198,31 +192,9 @@ export function EditorSheet({
       : editor.kind === 'category' && editor.type === 'income'
         ? 'income'
         : null
-  const iconMatches = searchCategoryIcons(iconQuery)
-  const iconGroups = CATEGORY_ICON_GROUPS.map((group) => ({
-    ...group,
-    recommended: group.id === recommendedGroup,
-    options: iconMatches.filter((option) => option.group === group.id),
-  }))
-    .filter((group) => group.options.length > 0)
-    .sort((a, b) => Number(b.recommended) - Number(a.recommended))
-
-  const iconChoice = (option: CategoryIconOption) => {
-    const Icon = option.icon
-    const active = iconKey === option.key
-    return (
-      <HfButton
-        key={option.key}
-        className={active ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'}
-        aria-pressed={active}
-        aria-label={option.label}
-        title={option.label}
-        onClick={() => setIconKey(option.key)}
-      >
-        <Icon size={18} strokeWidth={1.8} />
-      </HfButton>
-    )
-  }
+  // 当前图标：选了具体 key 就用它，否则按名称回退（与账本里的显示同一口径）。
+  const currentIcon = resolveCategoryIcon(iconKey || null, category?.id ?? group?.id ?? '')
+  const CurrentIcon = currentIcon.icon
 
   return (
     <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
@@ -252,43 +224,20 @@ export function EditorSheet({
         {(editor.kind === 'category' || editor.kind === 'accountGroup') && (
           <div className="mb-set-field">
             <span className="mb-set-label">图标</span>
-            <input
-              className="mb-set-input"
-              type="search"
-              value={iconQuery}
-              onChange={(event) => setIconQuery(event.target.value)}
-              placeholder="搜索图标（中文 / 英文，如 咖啡、coffee）"
-              aria-label="搜索图标"
-            />
-            <div className="mb-set-icon-sections">
-              <div className="mb-set-icon-grid">
-                <HfButton
-                  className={
-                    iconKey === '' ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'
-                  }
-                  aria-pressed={iconKey === ''}
-                  aria-label="自动（按分类名称）"
-                  title="自动（按分类名称）"
-                  onClick={() => setIconKey('')}
-                >
-                  <Tag size={18} strokeWidth={1.8} />
-                </HfButton>
-              </div>
-              {iconGroups.map((group) => (
-                <section className="mb-set-icon-section" key={group.id} aria-label={group.label}>
-                  <h3 className="mb-set-icon-section-title">
-                    {group.label}
-                    {group.recommended ? ' · 推荐' : ''}
-                  </h3>
-                  <div className="mb-set-icon-grid">
-                    {group.options.map((option) => iconChoice(option))}
-                  </div>
-                </section>
-              ))}
-              {iconGroups.length === 0 && (
-                <p className="mb-set-hint">没有匹配的图标，换个关键词试试。</p>
-              )}
-            </div>
+            {/* 图标网格收在独立抽屉里：这里只留当前图标与入口。 */}
+            <HfButton
+              className="mb-set-icon-current"
+              aria-label="选择图标"
+              onClick={() => setIconPickerOpen(true)}
+            >
+              <span className="mb-set-icon-current-mark" aria-hidden="true">
+                <CurrentIcon size={18} strokeWidth={1.8} />
+              </span>
+              <span className="mb-set-icon-current-text">
+                {iconKey ? '已选图标' : '自动（按名称匹配）'}
+              </span>
+              <ChevronRight size={16} />
+            </HfButton>
             <p className="mb-set-hint">
               图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。
             </p>
@@ -316,16 +265,6 @@ export function EditorSheet({
               <p className="mb-set-hint">
                 该分组下现有 {editedGroupAccountCount} 个账户。有账户引用时后端会拒绝删除。
               </p>
-            )}
-            {editor.mode === 'edit' && onMove && (
-              <div className="mb-set-order-actions">
-                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
-                  上移
-                </HfButton>
-                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
-                  下移
-                </HfButton>
-              </div>
             )}
           </>
         )}
@@ -425,15 +364,10 @@ export function EditorSheet({
                   : '账户尚无流水，当前余额与期初余额等价。'}
               </p>
             )}
-            {editor.mode === 'edit' && onMove && (
-              <div className="mb-set-order-actions">
-                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('up')}>
-                  组内上移
-                </HfButton>
-                <HfButton className="mb-set-btn is-ghost" onClick={() => onMove('down')}>
-                  组内下移
-                </HfButton>
-              </div>
+            {editor.mode === 'edit' && (
+              <p className="mb-set-hint">
+                账户顺序在账户列表中拖拽调整。
+              </p>
             )}
           </>
         )}
@@ -496,6 +430,15 @@ export function EditorSheet({
           {saving ? '保存中…' : '保存'}
         </HfButton>
       </div>
+
+      <IconPickerSheet
+        opened={iconPickerOpen}
+        device={device}
+        value={iconKey}
+        recommendedGroup={recommendedGroup}
+        onSelect={setIconKey}
+        onClose={() => setIconPickerOpen(false)}
+      />
     </HfSheet>
   )
 }

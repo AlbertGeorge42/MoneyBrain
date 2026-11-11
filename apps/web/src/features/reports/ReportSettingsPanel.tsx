@@ -1,17 +1,17 @@
 /**
- * 报表设置：数据范围 + 四个「配置」面板
+ * 报表设置：当前报表的展示配置 + 对应的分类管理入口
  *
- * 数据范围（是否并入「不计收支」）即时生效，与展示配置同存 localStorage；
- * 四个配置只做展示偏好：分组口径、列集合、活动分组、目标比例与快照期间。
- * 每个切换只改当前这份 draft，页面即时按 draft 重算；确认后才落 localStorage。
+ * 打开设置就是「这张报表怎么显示」：分组口径、列集合、活动分组、目标比例与快照期间。
+ * 每个报表只暴露它真正依赖的分类管理入口（资产负债→账户分类、收支明细→收支分类、
+ * 现金流→现金流分类、投资→投资账户），不堆其他报表的设置。
+ * 展示偏好只改当前 draft，页面即时按 draft 重算；确认后才落 localStorage。
  */
 import type { ReactNode } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import { HfSwitch } from '@/features/shared/HfSwitch'
 import type { DeviceMode } from '@/features/shared/types'
-import { REPORT_TABS } from './reportsShared'
+import type { LedgerConfigTab } from '@/features/ledger-config/LedgerConfigManager'
 import type { ReportTab } from './reportsTime'
 import {
   CASH_GROUP_KEYS,
@@ -24,6 +24,33 @@ const TAB_LABEL: Record<ReportTab, string> = {
   flow: '收支明细',
   cash: '现金流',
   invest: '投资分析',
+}
+
+/** 每张报表真正依赖的分类管理入口：只有这一个，不列其他报表的。 */
+const TAB_LEDGER: Record<
+  ReportTab,
+  { title: string; hint: string; tab: LedgerConfigTab }
+> = {
+  balance: {
+    title: '账户分类',
+    hint: '资产负债按账户分类分行，改分类名会直接改表里的行名。',
+    tab: 'accounts',
+  },
+  flow: {
+    title: '收支分类',
+    hint: '收支明细按收支分类聚合，改分类会改变这里的构成。',
+    tab: 'categories',
+  },
+  cash: {
+    title: '现金流分类',
+    hint: '现金流按分类的活动归属分组，改归属会改变这里的分组。',
+    tab: 'cashflow',
+  },
+  invest: {
+    title: '投资账户',
+    hint: '投资分析只统计标记为「投资资产」的账户，改账户分组会改变口径。',
+    tab: 'accounts',
+  },
 }
 
 const CASH_REASON: Record<CashGroupKey, string> = {
@@ -91,13 +118,14 @@ export function ReportConfigPanel({
   draft,
   onChange,
   cashPresence,
-  onBack,
+  onOpenLedger,
 }: {
   tab: ReportTab
   draft: ReportViewSettings
   onChange: (next: ReportViewSettings) => void
   cashPresence: Record<CashGroupKey, boolean>
-  onBack: () => void
+  /** 打开这张报表对应的分类管理抽屉。 */
+  onOpenLedger: (tab: LedgerConfigTab) => void
 }) {
   const patchBalance = (patch: Partial<ReportViewSettings['balance']>) =>
     onChange({ ...draft, balance: { ...draft.balance, ...patch } })
@@ -109,15 +137,13 @@ export function ReportConfigPanel({
     onChange({ ...draft, invest: { ...draft.invest, ...patch } })
 
   const groupedByKind = draft.balance.groupMode === 'kind'
+  const ledger = TAB_LEDGER[tab]
 
   return (
     <div className="mb-rp-config">
       <div className="mb-rp-config-head">
-        <HfButton className="mb-rp-config-back" aria-label="返回报表设置" onClick={onBack}>
-          <ChevronLeft size={18} />
-        </HfButton>
         <div>
-          <h3 className="mb-rp-config-title">{TAB_LABEL[tab]}配置</h3>
+          <h3 className="mb-rp-config-title">{TAB_LABEL[tab]}设置</h3>
           <p className="mb-rp-config-note">只改展示口径 · 不写回账本</p>
         </div>
       </div>
@@ -238,26 +264,34 @@ export function ReportConfigPanel({
           />
         </>
       )}
+
+      {/* 分类管理：这张报表只依赖这一类分类，给一个直达入口就够。 */}
+      <Field label={ledger.title} note={ledger.hint}>
+        <HfButton
+          className="mb-rp-btn is-ghost"
+          onClick={() => onOpenLedger(ledger.tab)}
+        >
+          管理{ledger.title}
+        </HfButton>
+      </Field>
     </div>
   )
 }
 
 /**
  * 报表设置抽屉：外壳、标题与底部动作区都在这里，页面只负责 draft 状态与提交。
- * 未进配置时列出四张报表；进入配置后动作区换成重置 / 取消 / 确认。
+ * 打开即是当前报表的设置；数据范围开关即时生效，不参与 draft。
  */
 export function ReportSettingsSheet({
   device,
   opened,
   onClose,
-  configTab,
+  tab,
   draftSettings,
   cashPresence,
-  onOpenConfig,
   onOpenLedger,
   includeExcluded,
   onIncludeExcludedChange,
-  onBack,
   onChange,
   onReset,
   onCommit,
@@ -265,16 +299,15 @@ export function ReportSettingsSheet({
   device: DeviceMode
   opened: boolean
   onClose: () => void
-  configTab: ReportTab | null
+  /** 当前报表页签：设置只针对这张报表。 */
+  tab: ReportTab
   draftSettings: ReportViewSettings | null
   cashPresence: Record<CashGroupKey, boolean>
-  onOpenConfig: (tab: ReportTab) => void
-  /** 账本数据入口：与设置页同源，保存立即生效。 */
-  onOpenLedger: (tab: 'accounts' | 'categories') => void
+  /** 打开这张报表对应的分类管理抽屉。 */
+  onOpenLedger: (tab: LedgerConfigTab) => void
   /** 数据范围：是否把「不计收支」流水并入收支明细口径。 */
   includeExcluded: boolean
   onIncludeExcludedChange: (next: boolean) => void
-  onBack: () => void
   onChange: (next: ReportViewSettings) => void
   onReset: () => void
   onCommit: () => void
@@ -289,49 +322,34 @@ export function ReportSettingsSheet({
       contentClassName={device === 'mobile' ? 'mb-rp-sheet-settings is-mobile' : 'mb-rp-sheet-settings'}
       bodyClassName="is-settings"
       actions={
-        configTab && draftSettings ? (
-          <>
-            <HfButton className="mb-rp-btn is-ghost" onClick={onReset}>
-              重置
-            </HfButton>
-            <HfButton className="mb-rp-btn is-ghost" onClick={onBack}>
-              取消
-            </HfButton>
-            <HfButton className="mb-rp-btn is-primary" onClick={onCommit}>
-              确认
-            </HfButton>
-          </>
-        ) : (
-          <HfButton className="mb-rp-btn is-primary" onClick={onClose}>
-            完成
+        <>
+          <HfButton className="mb-rp-btn is-ghost" onClick={onReset}>
+            重置
           </HfButton>
-        )
+          <HfButton className="mb-rp-btn is-ghost" onClick={onClose}>
+            取消
+          </HfButton>
+          <HfButton className="mb-rp-btn is-primary" onClick={onCommit}>
+            确认
+          </HfButton>
+        </>
       }
-      actionsClassName={configTab && draftSettings ? 'is-config' : undefined}
+      actionsClassName="is-config"
     >
       <div className="mb-rp-settings">
         <div className="mb-rp-settings-scroll">
-          {configTab && draftSettings ? (
+          {draftSettings && (
             <ReportConfigPanel
-              tab={configTab}
+              tab={tab}
               draft={draftSettings}
               onChange={onChange}
               cashPresence={cashPresence}
-              onBack={onBack}
+              onOpenLedger={onOpenLedger}
             />
-          ) : (
+          )}
+          {/* 数据范围只影响收支明细：只在收支明细这张报表的设置里出现。 */}
+          {tab === 'flow' && (
             <>
-              <p className="mb-rp-settings-note">展示配置只改口径 · 不写回账本</p>
-              {REPORT_TABS.map((item) => (
-                <div className="mb-rp-settings-row" key={item.id}>
-                  <div>
-                    <p className="mb-rp-settings-title">{item.label}</p>
-                  </div>
-                  <HfButton className="mb-rp-btn is-ghost" onClick={() => onOpenConfig(item.id)}>
-                    配置
-                  </HfButton>
-                </div>
-              ))}
               <p className="mb-rp-settings-note">数据范围 · 立即生效 · 与其他展示配置同存本地</p>
               <div className="mb-rp-settings-scope">
                 <HfSwitch
@@ -344,23 +362,6 @@ export function ReportSettingsSheet({
                 <p className="mb-rp-config-reason">
                   开启后收支明细、指标与分类合计并入标记为「不计收支」的流水；不影响其他三张报表。
                 </p>
-              </div>
-              <p className="mb-rp-settings-note">账本数据 · 与设置页同源 · 保存立即生效</p>
-              <div className="mb-rp-settings-row">
-                <div>
-                  <p className="mb-rp-settings-title">账户与分组</p>
-                </div>
-                <HfButton className="mb-rp-btn is-ghost" onClick={() => onOpenLedger('accounts')}>
-                  管理
-                </HfButton>
-              </div>
-              <div className="mb-rp-settings-row">
-                <div>
-                  <p className="mb-rp-settings-title">收支分类</p>
-                </div>
-                <HfButton className="mb-rp-btn is-ghost" onClick={() => onOpenLedger('categories')}>
-                  管理
-                </HfButton>
               </div>
             </>
           )}

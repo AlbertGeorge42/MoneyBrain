@@ -54,16 +54,57 @@
 
 .mb-coldstart-steps li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--mb-s-2);
   font-size: var(--mb-fs-1);
   color: var(--mb-color-text-secondary);
+}
+
+/* 步骤正文分两行：标题是动作，说明是理由。 */
+.mb-coldstart-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mb-coldstart-step-title {
+  font-weight: 500;
+  color: var(--mb-color-text-primary);
+}
+
+.mb-coldstart-step-desc {
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-tertiary);
+}
+
+/* 当前步：序号用 accent 底色，标题加重——引导的「下一步」一眼可见。 */
+.mb-coldstart-steps li.is-current .mb-coldstart-step {
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+  font-weight: 600;
+}
+
+.mb-coldstart-steps li.is-current .mb-coldstart-step-title {
+  color: var(--mb-color-accent);
+}
+
+/* 已完成：序号换成对勾，标题退成次级——历史不再抢注意力。 */
+.mb-coldstart-steps li.is-done .mb-coldstart-step {
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+}
+
+.mb-coldstart-steps li.is-done .mb-coldstart-step-title {
+  color: var(--mb-color-text-secondary);
+  font-weight: 400;
 }
 
 .mb-coldstart-step {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: var(--mb-s-5);
   height: var(--mb-s-5);
   border-radius: var(--mb-radius-pill);

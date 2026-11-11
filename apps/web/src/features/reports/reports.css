@@ -82,13 +82,11 @@
 .mb-rp-gran-btn:focus-visible,
 .mb-rp-iconbtn:focus-visible,
 .mb-rp-settings-btn:focus-visible,
-.mb-rp-config-back:focus-visible,
 .mb-rp-config-choice:focus-visible,
 .mb-rp-btn:focus-visible,
 .mb-rp-crow-main:focus-visible,
 .mb-rp-crow-fold:focus-visible,
 .mb-rp-fold:focus-visible,
-.mb-rp-head-action:focus-visible,
 .mb-rp-donut-back:focus-visible,
 .mb-rp-table tr.is-interactive:focus-visible {
   outline: 2px solid var(--mb-color-focus);
@@ -180,16 +178,13 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-rp-head-action {
-  min-width: var(--mb-btn-h-lg);
-  min-height: var(--mb-btn-h-lg);
-  padding: 0 4px;
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-accent);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
+/* 移动端页头只放图标：触控目标够大，视觉不与页签抢注意力。 */
+.mb-rp-settings-btn.is-icon {
+  flex: none;
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+  padding: 0;
+  justify-content: center;
 }
 
 .mb-rp-sheet-actions {
@@ -1478,27 +1473,11 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   min-height: 0;
 }
 
-.mb-rp-settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mb-s-3);
-  min-height: 56px;
-  padding: var(--mb-s-2) 0;
-  border-bottom: 1px solid var(--mb-color-border);
-}
-
 /* 抽屉顶部极短说明：只陈述只读与口径，不展开成段落。 */
 .mb-rp-settings-note {
   margin: 0 0 var(--mb-s-2);
   color: var(--mb-color-text-tertiary);
   font-size: var(--mb-fs-0);
-}
-
-.mb-rp-settings-title {
-  margin: 0;
-  font-size: var(--mb-fs-2);
-  font-weight: 600;
 }
 
 /* 数据范围：与账本数据同层，但开关即时生效，不参与配置 draft。 */
@@ -1522,26 +1501,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   display: flex;
   align-items: flex-start;
   gap: var(--mb-s-2);
-}
-
-.mb-rp-config-back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: var(--mb-touch);
-  height: var(--mb-touch);
-  margin-left: calc(var(--mb-s-2) * -1);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  cursor: pointer;
-}
-
-.mb-rp-config-back:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
 }
 
 .mb-rp-config-title {
@@ -1724,13 +1683,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
 }
 
-/* 移动 380px sheet 内四行压到 44px（触控下限）并收紧内容区上下内距：
-   四行在打开瞬间就能完整落在可视区，第 4 个「配置」不再被常驻动作区压住。 */
-.mb-rp-sheet-settings.is-mobile .mb-rp-settings-row {
-  min-height: var(--mb-touch);
-  padding: 0;
-}
-
 .mb-rp-sheet-settings.is-mobile .mb-rp-settings-scroll {
   padding: var(--mb-s-2) var(--mb-s-4);
 }
@@ -1793,6 +1745,13 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 .mb-rp-page[data-device='mobile'] .mb-rp-mobile-head {
   display: flex;
   flex-direction: column;
+  gap: var(--mb-s-2);
+}
+
+/* 页签 + 设置图标同一行：页签可横向滚动，设置固定在右侧。 */
+.mb-rp-mobile-head-row {
+  display: flex;
+  align-items: center;
   gap: var(--mb-s-2);
 }
 

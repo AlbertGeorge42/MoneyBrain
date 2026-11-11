@@ -61,8 +61,11 @@ describe('#12 转移并删除分类后的 6 秒撤销', () => {
     await waitFor(() => expect(ownership.textContent).toBe('t1:food'))
     expect(screen.queryByText('购物')).toBeNull()
 
-    const toast = await screen.findByRole('status')
-    expect(toast.textContent).toContain('已转移 1 笔到「餐饮」并删除「购物」')
+    // dnd-kit 的 DndContext 会注入无障碍 live region（role=status），
+    // 故按文案定位 toast 文本再取容器，避免与拖拽播报区域冲突。
+    const toastText = await screen.findByText(/已转移 1 笔/)
+    expect(toastText.textContent).toContain('已转移 1 笔到「餐饮」并删除「购物」')
+    const toast = toastText.closest('.mb-hf-toast') as HTMLElement
 
     fireEvent.click(within(toast).getByRole('button', { name: '撤销' }))
 

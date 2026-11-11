@@ -173,17 +173,18 @@ const contextValue = {
   createAccount: vi.fn(),
   updateAccount: vi.fn(),
   deleteAccount: vi.fn(),
-  reorderAccount: vi.fn(),
+  reorderAccountTo: vi.fn(),
+  reorderAccountGroupTo: vi.fn(),
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   moveCategory: vi.fn(),
   deleteCategory: vi.fn(),
-  reorderCategory: vi.fn(),
+  reorderCategoryTo: vi.fn(),
   undo: vi.fn(),
   replaceLedger: vi.fn(),
 } as unknown as LedgerContextValue
 
-function renderPage(settingsOpen = true) {
+function renderPage() {
   const queryClient = new QueryClient()
   return render(
     <MantineProvider>
@@ -193,8 +194,6 @@ function renderPage(settingsOpen = true) {
             <ReportsPage
               device="desktop"
               dataState="normal"
-              settingsOpen={settingsOpen}
-              onSettingsToggle={() => {}}
               onRetry={() => {}}
               onImport={() => {}}
               onViewFlow={() => {}}
@@ -204,6 +203,18 @@ function renderPage(settingsOpen = true) {
       </QueryClientProvider>
     </MantineProvider>,
   )
+}
+
+/** 打开报表设置：齿轮在页头，当前页签决定面板内容。 */
+async function openSettings() {
+  fireEvent.click(screen.getByRole('button', { name: '设置' }))
+  await screen.findByRole('dialog')
+}
+
+/** 切到指定报表页签后再打开设置。 */
+async function openSettingsOf(label: string) {
+  fireEvent.click(screen.getByRole('tab', { name: label }))
+  await openSettings()
 }
 
 function assetRowCount() {
@@ -225,9 +236,25 @@ afterEach(() => {
 })
 
 describe('四个配置存在且默认值等于现状', () => {
-  it('设置抽屉列出资产负债 / 收支明细 / 现金流 / 投资分析四个配置', () => {
+  it('设置只呈现当前报表的配置与它对应的分类入口', async () => {
     renderPage()
-    expect(screen.getAllByRole('button', { name: '配置' })).toHaveLength(4)
+    await openSettingsOf('资产负债')
+    expect(screen.getByText('资产负债设置')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '管理账户分类' })).toBeInTheDocument()
+    // 其他报表的设置不出现。
+    expect(screen.queryByText('收支明细设置')).toBeNull()
+    expect(screen.queryByRole('button', { name: '管理收支分类' })).toBeNull()
+  })
+
+  it('收支明细提供收支分类入口，现金流提供现金流分类入口', async () => {
+    const first = renderPage()
+    await openSettingsOf('收支明细')
+    expect(screen.getByRole('button', { name: '管理收支分类' })).toBeInTheDocument()
+    first.unmount()
+
+    renderPage()
+    await openSettingsOf('现金流')
+    expect(screen.getByRole('button', { name: '管理现金流分类' })).toBeInTheDocument()
   })
 
   it('空存储与脏存储都回到与当前报表一致的默认值', () => {
@@ -462,11 +489,11 @@ describe('四个配置切换后目标结构变化', () => {
 })
 
 describe('面板切换、确认与刷新保持（API 模式）', () => {
-  it('资产负债改按性质汇总：表格 6 行 → 3 行，确认后刷新仍保持，且不发网络写请求', () => {
+  it('资产负债改按性质汇总：表格 6 行 → 3 行，确认后刷新仍保持，且不发网络写请求', async () => {
     const first = renderPage()
     expect(assetRowCount()).toBe(6)
 
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
+    await openSettings()
     fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
     expect(assetRowCount()).toBe(3)
 
@@ -475,27 +502,27 @@ describe('面板切换、确认与刷新保持（API 模式）', () => {
     expect(fetch).not.toHaveBeenCalled()
 
     first.unmount()
-    renderPage(false)
+    renderPage()
     expect(assetRowCount()).toBe(3)
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('取消不落盘：改回按账户后取消，刷新仍是默认', () => {
+  it('取消不落盘：改回按账户后取消，刷新仍是默认', async () => {
     const first = renderPage()
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[0])
+    await openSettings()
     fireEvent.click(screen.getByRole('button', { name: '按性质汇总' }))
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(assetRowCount()).toBe(6)
     expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toBeNull()
 
     first.unmount()
-    renderPage(false)
+    renderPage()
     expect(assetRowCount()).toBe(6)
   })
 
-  it('重置回默认：现金流隐藏分组后重置，表格恢复 2 组', () => {
+  it('重置回默认：现金流隐藏分组后重置，表格恢复 2 组', async () => {
     renderPage()
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[2])
+    await openSettingsOf('现金流')
     fireEvent.click(screen.getByRole('button', { name: '未分类显示' }))
     expect(screen.getAllByText(/已隐藏 1 组/).length).toBeGreaterThan(0)
 
@@ -506,10 +533,10 @@ describe('面板切换、确认与刷新保持（API 模式）', () => {
     expect(window.localStorage.getItem(REPORT_SETTINGS_KEY)).toContain('"未分类":true')
   })
 
-  it('无意义分组给出可见禁用原因（不是 title）', () => {
+  it('无意义分组给出可见禁用原因（不是 title）', async () => {
     mockReports.cash = uiCashOperatingOnly
     renderPage()
-    fireEvent.click(screen.getAllByRole('button', { name: '配置' })[2])
+    await openSettingsOf('现金流')
     expect(screen.getByText('本期无投资活动流水')).toBeInTheDocument()
     expect(screen.getByText('本期无筹资活动流水')).toBeInTheDocument()
     expect(screen.getByText('本期无未分类流水')).toBeInTheDocument()

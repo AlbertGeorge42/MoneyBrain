@@ -7,12 +7,14 @@ import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import {
-  addMonths,
   calendarCells,
   datePresets,
+  formatByGran,
+  granCells,
   normalizeRange,
   snapDay,
 } from '@/features/shared/datePicker/datePickerModel'
+import { addMonths } from '@/utils/date'
 
 function renderPicker(props: Partial<React.ComponentProps<typeof DatePicker>> = {}) {
   const onChange = vi.fn()
@@ -65,8 +67,29 @@ describe('datePickerModel', () => {
   it('日历补齐到 6 周且含相邻月日期', () => {
     const cells = calendarCells(2026, 11)
     expect(cells).toHaveLength(42)
-    expect(cells[0].date).toBe('2026-10-26')
-    expect(cells.some((cell) => cell.date === '2026-11-01' && cell.inMonth)).toBe(true)
+    expect(cells[0].start).toBe('2026-10-26')
+    expect(cells.some((cell) => cell.start === '2026-11-01' && cell.inMonth)).toBe(true)
+  })
+
+  it('按粒度给出不同面板：周是周列表、月是 12 个月、年是年份窗口', () => {
+    const weeks = granCells('week', { year: 2026, month: 11 })
+    expect(weeks[0].start).toBe('2026-10-26')
+    expect(weeks[0].end).toBe('2026-11-01')
+
+    const months = granCells('month', { year: 2026, month: 11 })
+    expect(months).toHaveLength(12)
+    expect(months[10]).toEqual({ start: '2026-11-01', end: '2026-11-30', label: '11 月' })
+
+    const years = granCells('year', { year: 2026, month: 11 })
+    expect(years).toHaveLength(10)
+    expect(years[0].label).toBe('2020 年')
+  })
+
+  it('日期显示只到对应粒度：月不显示日、年只显示年', () => {
+    expect(formatByGran('2026-10-15', 'day')).toBe('2026-10-15')
+    expect(formatByGran('2026-10-15', 'week')).toMatch(/^2026-W\d{2}$/)
+    expect(formatByGran('2026-10-15', 'month')).toBe('2026 年 10 月')
+    expect(formatByGran('2026-10-15', 'year')).toBe('2026 年')
   })
 })
 

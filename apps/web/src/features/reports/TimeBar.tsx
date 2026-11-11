@@ -21,7 +21,6 @@ import {
   RANGE_STATE_LABEL,
   bucketEndOf,
   futureHorizon,
-  isFuturePreset,
   pointRangeState,
   presetLabel,
   presetPoint,
@@ -59,24 +58,21 @@ const POINT_TAG: Record<Granularity, string | undefined> = {
   year: '年末估值',
 }
 
-/** 未来预设落到当前粒度 / 时点或期间的具体起止；未来端点按当前粒度上限截断。 */
+/**
+ * 未来预设落到当前粒度 / 时点或期间的具体起止；未来端点按当前粒度上限截断。
+ *
+ * 快速选择只提供当前粒度支持的预设（不支持的直接不出现，而不是置灰）；
+ * 预设区间本身保持「截至今天」的口径，不因对齐桶边界而把未来算进已发生。
+ */
 function buildPresets(gran: Granularity, isPoint: boolean, today: string): DatePresetOption[] {
   const horizon = futureHorizon(today, gran)
-  return PRESETS.map((preset) => {
-    const future = isFuturePreset(preset.id)
-    const supported = presetSupported(preset.id, gran)
+  return PRESETS.filter((preset) => presetSupported(preset.id, gran)).map((preset) => {
     const range = isPoint
       ? { from: presetPoint(preset.id, gran, today), to: presetPoint(preset.id, gran, today) }
       : presetRange(preset.id, gran, today)
     const from = range.from > horizon ? horizon : range.from
     const to = range.to > horizon ? horizon : range.to
-    let disabledReason: string | undefined
-    if (!supported) {
-      disabledReason = future
-        ? '未来预设以自然月表述，当前粒度不可用'
-        : `${GRANULARITY_LABELS[gran]}粒度下不可用`
-    }
-    return { id: preset.id, label: preset.label, from, to, disabledReason }
+    return { id: preset.id, label: preset.label, from, to }
   })
 }
 

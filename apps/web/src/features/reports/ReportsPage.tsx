@@ -16,6 +16,7 @@ import { ControlRow } from '@/features/shared/skeleton/ControlRow'
 import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { ToastViewport } from '@/features/shared/toast'
 import { useToast, type ToastOptions } from '@/features/shared/toastContext'
+import { markReportsVisited } from '@/features/shared/onboardingState'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { LedgerConfigManager, type LedgerConfigTab } from '@/features/ledger-config/LedgerConfigManager'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
@@ -50,7 +51,6 @@ import {
   clampAsOfPoint,
   formatPointLabel,
   formatRangeLabel,
-  monthStart,
   pointRangeState,
   presetRange,
   rangeState,
@@ -58,6 +58,7 @@ import {
   type ReportTab,
   type ReportTime,
 } from './reportsTime'
+import { monthStart } from '@/utils/date'
 import { TimeBar } from './TimeBar'
 import { BalanceView } from './BalanceView'
 import { FlowView } from './FlowView'
@@ -95,8 +96,6 @@ function initialFutureReportTime(anchor: string): ReportTime {
 export function ReportsPage({
   device,
   dataState,
-  settingsOpen,
-  onSettingsToggle,
   onRetry,
   onImport,
   onViewFlow,
@@ -104,8 +103,6 @@ export function ReportsPage({
 }: {
   device: DeviceMode
   dataState: DataState
-  settingsOpen: boolean
-  onSettingsToggle: () => void
   onRetry: () => void
   onImport: () => void
   onViewFlow: (options: {
@@ -138,8 +135,9 @@ export function ReportsPage({
   const [balanceSide, setBalanceSide] = useState<'assets' | 'liabilities'>('assets')
   // 展示偏好只落 localStorage；面板里的切换先改 draft，页面即时按 draft 重算。
   const [viewSettings, setViewSettings] = useState<ReportViewSettings>(() => loadReportSettings())
-  const [configTab, setConfigTab] = useState<ReportTab | null>(null)
   const [draftSettings, setDraftSettings] = useState<ReportViewSettings | null>(null)
+  // 设置抽屉由报表页自己持有：打开即带上当前展示偏好的草稿。
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // 账本数据管理：与设置页同一份 controller / 表单，保存立即生效。
   const [ledgerConfigOpen, setLedgerConfigOpen] = useState(false)
   const [ledgerConfigTab, setLedgerConfigTab] = useState<LedgerConfigTab>('accounts')
@@ -260,34 +258,34 @@ export function ReportsPage({
     setFoldedCash({})
   }, [tab, time.from, time.to, time.point])
 
+  // 引导第三步「看报表」的完成判定：进过报表页就算看过。
+  useEffect(() => {
+    markReportsVisited()
+  }, [])
+
   const notify = (message: string) => pushToast(message, { variant: 'reports' })
   const toggleFlowFold = (id: string) =>
     setFoldedFlow((current) => ({ ...current, [id]: current[id] === false }))
   const toggleCashFold = (id: string) =>
     setFoldedCash((current) => ({ ...current, [id]: current[id] === false }))
 
-  const openConfig = (next: ReportTab) => {
-    // 配置在目标报表上生效：先把视图切过去，抽屉后仍能看到改前/改后结构。
-    setTab(next)
+  const openConfig = () => {
+    // 设置只针对当前这张报表：进入即带上当前展示偏好的草稿。
     setDraftSettings(viewSettings)
-    setConfigTab(next)
-  }
-  const closeConfig = () => {
-    setDraftSettings(null)
-    setConfigTab(null)
+    setSettingsOpen(true)
   }
   const commitConfig = () => {
     if (!draftSettings) return
     saveReportSettings(draftSettings)
     setViewSettings(draftSettings)
-    closeConfig()
+    setDraftSettings(null)
     notify('已应用展示配置 · 不写回账本')
   }
   const resetConfig = () => setDraftSettings(defaultReportSettings())
   const closeSettings = () => {
     // 关闭抽屉等同取消未确认的改动，避免「看过就生效」。
-    closeConfig()
-    onSettingsToggle()
+    setDraftSettings(null)
+    setSettingsOpen(false)
   }
 
   // 投资视图的空状态入口：保留当前粒度，把期间收回到当前桶内、截至今天。
@@ -355,7 +353,7 @@ export function ReportsPage({
           tab={tab}
           sub={headSub}
           onTab={(next) => setTab(next)}
-          onOpenSettings={onSettingsToggle}
+          onOpenSettings={openConfig}
         />
       }
     >
@@ -539,7 +537,7 @@ export function ReportsPage({
         device={device}
         opened={settingsOpen}
         onClose={closeSettings}
-        configTab={configTab}
+        tab={tab}
         draftSettings={draftSettings}
         includeExcluded={includeExcluded}
         onIncludeExcludedChange={setIncludeExcluded}
@@ -548,12 +546,10 @@ export function ReportsPage({
             ? cashGroupPresence(cash)
             : { 经营: false, 投资: false, 筹资: false, 未分类: false, 账户间转账: false }
         }
-        onOpenConfig={openConfig}
         onOpenLedger={(next) => {
           setLedgerConfigTab(next)
           setLedgerConfigOpen(true)
         }}
-        onBack={closeConfig}
         onChange={setDraftSettings}
         onReset={resetConfig}
         onCommit={commitConfig}

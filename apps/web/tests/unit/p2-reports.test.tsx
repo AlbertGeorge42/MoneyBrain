@@ -35,14 +35,11 @@ const MONTH_TIME: ReportTime = {
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
-describe('报表设置抽屉：移动 sheet 四行可见、toast 不压「完成」', () => {
+describe('报表设置抽屉：移动 sheet 内容可见、toast 不压「完成」', () => {
   const reports = readFileSync(resolve(WEB_ROOT, 'src/features/reports/reports.css'), 'utf8')
   const toast = readFileSync(resolve(WEB_ROOT, 'src/features/shared/toast.css'), 'utf8')
 
-  it('380px sheet 内四行压到 44px，打开即可完整落位', () => {
-    expect(reports).toMatch(
-      /\.mb-rp-sheet-settings\.is-mobile \.mb-rp-settings-row\s*\{[^}]*min-height:\s*var\(--mb-touch\)/,
-    )
+  it('380px sheet 内容区收紧上下内距，打开即可完整落位', () => {
     expect(reports).toMatch(
       /\.mb-rp-sheet-settings\.is-mobile \.mb-rp-settings-scroll\s*\{[^}]*padding:\s*var\(--mb-s-2\)/,
     )

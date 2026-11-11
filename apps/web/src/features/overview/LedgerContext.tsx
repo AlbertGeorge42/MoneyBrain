@@ -26,8 +26,9 @@ import {
   categoryDescendantIds,
   removeAccount as removeAccountFromLedger,
   removeCategory as removeCategoryFromLedger,
-  reorderAccount as reorderAccountInLedger,
-  reorderCategory as reorderCategoryInLedger,
+  reorderAccountTo as reorderAccountInLedger,
+  reorderCategoryTo as reorderCategoryInLedger,
+  arrayMove,
   setCategoryCashFlowInLedger,
   transferCategoryTransactions,
   updateAccount as updateAccountInLedger,
@@ -512,32 +513,36 @@ export function LedgerProvider({
     [apiMode, refreshRemote, registerUndo],
   )
 
-  const reorderAccount = useCallback(
-    async (id: string, direction: 'up' | 'down'): Promise<LedgerMutationOutcome> => {
+  /** 同分组账户按绝对位置重排（拖拽排序用）。 */
+  const reorderAccountTo = useCallback(
+    async (id: string, targetIndex: number): Promise<LedgerMutationOutcome> => {
       const current = ledgerRef.current
       const account = current.accounts.find((item) => item.id === id)
       if (!account) return { ok: false, error: '账户不存在' }
       // 账户顺序只在同一分组内调整；未分组按性质归并。
       const groupKey = (item: LedgerAccount) => item.categoryId ?? `kind:${item.kind}`
       const siblings = current.accounts.filter((item) => groupKey(item) === groupKey(account))
-      const index = siblings.findIndex((item) => item.id === id)
-      const target = index + (direction === 'up' ? -1 : 1)
-      if (target < 0 || target >= siblings.length) {
-        return { ok: false, error: direction === 'up' ? '已经在最前面了' : '已经在最后面了' }
+      const oldIndex = siblings.findIndex((item) => item.id === id)
+      if (
+        oldIndex < 0 ||
+        targetIndex < 0 ||
+        targetIndex >= siblings.length ||
+        targetIndex === oldIndex
+      ) {
+        return { ok: false, error: '位置无效' }
       }
 
       if (!apiMode) {
-        setLedger(reorderAccountInLedger(current, id, direction))
+        setLedger(reorderAccountInLedger(current, id, targetIndex))
         return { ok: true }
       }
       try {
-        const swapped = [...siblings]
-        ;[swapped[index], swapped[target]] = [swapped[target], swapped[index]]
+        const newOrder = arrayMove(siblings, oldIndex, targetIndex)
         const accounts = await accountApi.getAll().then(unwrapApiData)
         const categoryById = new Map(accounts.map((item) => [item.id, item.categoryId]))
         await accountApi
           .updateSort(
-            swapped.map((item, sort) => ({
+            newOrder.map((item, sort) => ({
               id: item.id,
               sort,
               categoryId: categoryById.get(item.id) ?? null,
@@ -600,28 +605,32 @@ export function LedgerProvider({
     [apiMode, refreshRemote],
   )
 
-  const reorderAccountGroup = useCallback(
-    async (id: string, direction: 'up' | 'down'): Promise<LedgerMutationOutcome> => {
+  /** 同归属分组按绝对位置重排（拖拽排序用）；未分组 / 种子分组不可拖。 */
+  const reorderAccountGroupTo = useCallback(
+    async (id: string, targetIndex: number): Promise<LedgerMutationOutcome> => {
       if (!apiMode) return { ok: false, error: SEED_GROUP_ERROR }
       const current = (ledgerRef.current.accountCategories ?? []).find(
         (category) => category.id === id,
       )
       if (!current) return { ok: false, error: '分组不存在' }
-      // 排序只在同一归属的兄弟分组之间交换。
+      // 排序只在同一归属的兄弟分组之间调整（未分组 / 种子占位不在后端分组表里）。
       const siblings = (ledgerRef.current.accountCategories ?? []).filter(
         (category) => category.type === current.type,
       )
-      const index = siblings.findIndex((category) => category.id === id)
-      const target = index + (direction === 'up' ? -1 : 1)
-      if (target < 0 || target >= siblings.length) {
-        return { ok: false, error: direction === 'up' ? '已经在最前面了' : '已经在最后面了' }
+      const oldIndex = siblings.findIndex((category) => category.id === id)
+      if (
+        oldIndex < 0 ||
+        targetIndex < 0 ||
+        targetIndex >= siblings.length ||
+        targetIndex === oldIndex
+      ) {
+        return { ok: false, error: '位置无效' }
       }
       try {
-        const swapped = [...siblings]
-        ;[swapped[index], swapped[target]] = [swapped[target], swapped[index]]
+        const newOrder = arrayMove(siblings, oldIndex, targetIndex)
         await accountCategoryApi
           .updateSort(
-            swapped.map((category, sort) => ({
+            newOrder.map((category, sort) => ({
               id: category.id,
               sort,
               parentId: null,
@@ -775,32 +784,36 @@ export function LedgerProvider({
     [apiMode, refreshRemote, registerUndo],
   )
 
-  const reorderCategory = useCallback(
-    async (id: string, direction: 'up' | 'down'): Promise<LedgerMutationOutcome> => {
+  /** 同级分类按绝对位置重排（拖拽排序用）。 */
+  const reorderCategoryTo = useCallback(
+    async (id: string, targetIndex: number): Promise<LedgerMutationOutcome> => {
       const current = ledgerRef.current
       const category = current.categories.find((item) => item.id === id)
       if (!category) return { ok: false, error: '分类不存在' }
       const siblings = current.categories.filter(
         (item) => item.type === category.type && item.parentId === category.parentId,
       )
-      const index = siblings.findIndex((item) => item.id === id)
-      const target = index + (direction === 'up' ? -1 : 1)
-      if (target < 0 || target >= siblings.length) {
-        return { ok: false, error: direction === 'up' ? '已经在最前面了' : '已经在最后面了' }
+      const oldIndex = siblings.findIndex((item) => item.id === id)
+      if (
+        oldIndex < 0 ||
+        targetIndex < 0 ||
+        targetIndex >= siblings.length ||
+        targetIndex === oldIndex
+      ) {
+        return { ok: false, error: '位置无效' }
       }
 
       if (!apiMode) {
-        setLedger(reorderCategoryInLedger(current, id, direction))
+        setLedger(reorderCategoryInLedger(current, id, targetIndex))
         return { ok: true }
       }
       try {
         const mapper = mapperFromLedger(current)
-        const swapped = [...siblings]
-        ;[swapped[index], swapped[target]] = [swapped[target], swapped[index]]
+        const newOrder = arrayMove(siblings, oldIndex, targetIndex)
         const parentId = category.parentId ? mapper.realId(category.parentId) : null
         await transactionCategoryApi
           .updateSort(
-            swapped.map((item, sort) => ({
+            newOrder.map((item, sort) => ({
               id: mapper.realId(item.id),
               sort,
               parentId,
@@ -975,17 +988,17 @@ export function LedgerProvider({
         createAccount,
         updateAccount,
         deleteAccount,
-        reorderAccount,
+        reorderAccountTo,
         createAccountGroup,
         updateAccountGroup,
         deleteAccountGroup,
-        reorderAccountGroup,
+        reorderAccountGroupTo,
         createCategory,
         updateCategory,
         setCategoryCashFlow,
         moveCategory,
         deleteCategory,
-        reorderCategory,
+        reorderCategoryTo,
         createBudget,
         updateBudget,
         deleteBudget,

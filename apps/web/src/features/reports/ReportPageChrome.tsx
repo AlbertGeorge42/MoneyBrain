@@ -27,14 +27,24 @@ export function PageHead({
   if (device === 'mobile') {
     return (
       <div className="mb-rp-mobile-head">
-        <HfTabs
-          variant="report"
-          label="报表视图"
-          className="is-mobile"
-          value={tab}
-          items={REPORT_TABS}
-          onChange={onTab}
-        />
+        <div className="mb-rp-mobile-head-row">
+          <HfTabs
+            variant="report"
+            label="报表视图"
+            className="is-mobile"
+            value={tab}
+            items={REPORT_TABS}
+            onChange={onTab}
+          />
+          {/* 报表页自己带设置入口：应用级设置在底部导航里，不在页头重复。 */}
+          <HfButton
+            className="mb-rp-settings-btn is-icon"
+            aria-label="报表设置"
+            onClick={onOpenSettings}
+          >
+            <Settings size={16} />
+          </HfButton>
+        </div>
       </div>
     )
   }

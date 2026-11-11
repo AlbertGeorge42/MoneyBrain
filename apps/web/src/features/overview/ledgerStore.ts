@@ -101,13 +101,14 @@ export interface LedgerContextValue {
   createAccount: (input: LedgerAccountInput) => Promise<LedgerCreateOutcome>
   updateAccount: (id: string, input: LedgerAccountInput) => Promise<LedgerMutationOutcome>
   deleteAccount: (id: string) => Promise<LedgerMutationOutcome>
-  /** 上下移动同组账户顺序；返回撤销令牌（排序也可撤销）。 */
-  reorderAccount: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
+  /** 按绝对位置重排同组账户顺序（拖拽排序用）。 */
+  reorderAccountTo: (id: string, targetIndex: number) => Promise<LedgerMutationOutcome>
   /* 设置页：账户分组（后端 AccountCategory，只用于组织与浏览）。 */
   createAccountGroup: (input: LedgerAccountGroupInput) => Promise<LedgerCreateOutcome>
   updateAccountGroup: (id: string, input: LedgerLabelUpdateInput) => Promise<LedgerMutationOutcome>
   deleteAccountGroup: (id: string) => Promise<LedgerMutationOutcome>
-  reorderAccountGroup: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
+  /** 按绝对位置重排同归属分组顺序（拖拽排序用）。 */
+  reorderAccountGroupTo: (id: string, targetIndex: number) => Promise<LedgerMutationOutcome>
   createCategory: (input: LedgerCategoryInput) => Promise<LedgerCreateOutcome>
   updateCategory: (id: string, input: LedgerLabelUpdateInput) => Promise<LedgerMutationOutcome>
   /** 改一级分类的现金流活动归属；子分类随父一起写，报表按同一口径分组。 */
@@ -115,7 +116,8 @@ export interface LedgerContextValue {
   moveCategory: (id: string, parentId: string | null) => Promise<LedgerMutationOutcome>
   /** 删除分类；有交易引用时传 transferToId 先转移再删除（撤销会一并回填）。 */
   deleteCategory: (id: string, transferToId?: string) => Promise<LedgerMutationOutcome>
-  reorderCategory: (id: string, direction: 'up' | 'down') => Promise<LedgerMutationOutcome>
+  /** 按绝对位置重排同级分类顺序（拖拽排序用）。 */
+  reorderCategoryTo: (id: string, targetIndex: number) => Promise<LedgerMutationOutcome>
   /* 预算页：新增 / 修改 / 删除（API 模式落 /budgets，种子模式改内存）。 */
   createBudget: (input: LedgerBudgetInput) => Promise<LedgerCreateOutcome>
   updateBudget: (id: string, input: LedgerBudgetInput) => Promise<LedgerMutationOutcome>

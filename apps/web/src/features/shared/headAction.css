@@ -1,0 +1,32 @@
+/**
+ * 移动端页头动作按钮：文字型次级动作（显示 / 新增 / 设置）。
+ *
+ * 触控高度按 --mb-touch，与页头里的图标按钮同高；颜色用 accent 文字色，
+ * 与卡片内的主按钮（填充）区分开：页头动作不承载页面主流程。
+ */
+
+.mb-head-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--mb-touch);
+  min-height: var(--mb-touch);
+  padding: 0 var(--mb-s-2);
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-accent);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mb-head-action:hover {
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-head-action:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}

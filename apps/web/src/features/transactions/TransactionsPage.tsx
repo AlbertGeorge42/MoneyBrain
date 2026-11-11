@@ -55,7 +55,11 @@ interface TransactionsPageProps {
   onDisplayToggle: () => void
   onRetry: () => void
   onCreateAccount: () => void
+  /** 记一笔：打开快速记账（引导第二步）。 */
+  onRecord: () => void
   onImport: () => void
+  /** 打开报表页（引导第三步）。 */
+  onOpenReports: () => void
 }
 
 function PageHead({
@@ -229,9 +233,14 @@ export function TransactionsPage({
   onDisplayToggle,
   onRetry,
   onCreateAccount,
+  onRecord,
   onImport,
+  onOpenReports,
 }: TransactionsPageProps) {
   const { ledger, dataMode, updateTransaction, deleteTransactions, setTransactionCategory, linkRefund, undo } = useLedger()
+  // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
+  const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
+  const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
   const apiMode = dataMode === 'api'
   // 筛选写入 URL：返回列表（含报表下钻）时还原分类/期间，避免静默丢失。
   // API 账本异步到达：分类/账户要等账本就绪才能校验。先冻结进入时的 query，
@@ -531,7 +540,15 @@ export function TransactionsPage({
   if (dataState === 'empty') {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
-        <ColdStartGuide variant="transactions" onPrimary={onCreateAccount} onImport={onImport} />
+        <ColdStartGuide
+          variant="transactions"
+          hasAccount={hasAccount}
+          hasEntry={hasEntry}
+          onCreateAccount={onCreateAccount}
+          onRecord={onRecord}
+          onImport={onImport}
+          onOpenReports={onOpenReports}
+        />
       </PageShell>
     )
   }
@@ -552,7 +569,15 @@ export function TransactionsPage({
   if (ledger.transactions.length === 0) {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
-        <ColdStartGuide variant="transactions" onPrimary={onCreateAccount} onImport={onImport} />
+        <ColdStartGuide
+          variant="transactions"
+          hasAccount={hasAccount}
+          hasEntry={hasEntry}
+          onCreateAccount={onCreateAccount}
+          onRecord={onRecord}
+          onImport={onImport}
+          onOpenReports={onOpenReports}
+        />
       </PageShell>
     )
   }

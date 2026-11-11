@@ -22,15 +22,15 @@ import { accountDisplayName } from '@/features/shared/accountIdentity'
 import type { AccountKind, Ledger } from '@/features/overview/model'
 import { formatCurrency } from '@/utils/format'
 import { minor } from '@domain/index'
-import { RowMenu } from '@/features/ledger-config/RowMenu'
+import { RowMenu } from './RowMenu'
 import {
   ACTIVITY_GROUPS,
   ASSET_MARK_GROUPS,
   defaultActivity,
   type ActivityGroupId,
   type CategoryRow,
-} from '@/features/ledger-config/model'
-import type { Mover } from '@/features/ledger-config/MoverSheet'
+} from './model'
+import type { Mover } from './MoverSheet'
 
 export type CashflowTab = 'asset' | 'income' | 'expense' | 'transfer'
 

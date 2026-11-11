@@ -133,7 +133,7 @@ function MobileShell({
           >
             <Search size={19} />
           </HfButton>
-          {page !== 'settings' && (
+          {page !== 'settings' && page !== 'reports' && (
             <HfButton
               variant="icon"
               aria-label="打开设置"

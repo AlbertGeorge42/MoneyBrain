@@ -282,23 +282,39 @@ export function removeAccount(ledger: Ledger, accountId: string): Ledger {
   return { ...ledger, accounts: ledger.accounts.filter((account) => account.id !== accountId) }
 }
 
-/** 同性质分组内的账户排序：与设置页展示顺序一致。 */
-export function reorderAccount(
+/** 原地移动数组元素到目标下标（不修改原数组）。 */
+export function arrayMove<T>(items: readonly T[], from: number, to: number): T[] {
+  const next = items.slice()
+  const [moved] = next.splice(from, 1)
+  next.splice(to, 0, moved)
+  return next
+}
+
+/** 账户分组的键：未分组按性质归并，与设置页展示顺序一致。 */
+function accountGroupKey(item: LedgerAccount): string {
+  return item.categoryId ?? `kind:${item.kind}`
+}
+
+/** 同分组内账户按绝对位置重排（拖拽排序用）；非兄弟元素位置不变。 */
+export function reorderAccountTo(
   ledger: Ledger,
   accountId: string,
-  direction: 'up' | 'down',
+  targetIndex: number,
 ): Ledger {
   const account = ledger.accounts.find((item) => item.id === accountId)
   if (!account) return ledger
-  const siblings = ledger.accounts.filter((item) => item.kind === account.kind)
-  const index = siblings.findIndex((item) => item.id === accountId)
-  const target = index + (direction === 'up' ? -1 : 1)
-  if (target < 0 || target >= siblings.length) return ledger
-  const swapId = siblings[target].id
+  const key = accountGroupKey(account)
+  const siblings = ledger.accounts.filter((item) => accountGroupKey(item) === key)
+  const oldIndex = siblings.findIndex((item) => item.id === accountId)
+  if (oldIndex < 0 || targetIndex < 0 || targetIndex >= siblings.length || targetIndex === oldIndex) {
+    return ledger
+  }
+  const newOrder = arrayMove(siblings, oldIndex, targetIndex)
   const next = [...ledger.accounts]
-  const a = next.findIndex((item) => item.id === accountId)
-  const b = next.findIndex((item) => item.id === swapId)
-  ;[next[a], next[b]] = [next[b], next[a]]
+  let writePtr = 0
+  for (let i = 0; i < next.length; i++) {
+    if (accountGroupKey(next[i]) === key) next[i] = newOrder[writePtr++]
+  }
   return { ...ledger, accounts: next }
 }
 
@@ -391,23 +407,27 @@ export function categorySiblings(ledger: Ledger, categoryId: string): LedgerCate
   )
 }
 
-/** 同级分类排序（不影响父子层级）。 */
-export function reorderCategory(
+/** 同级分类按绝对位置重排（拖拽排序用）；不影响父子层级与跨组。 */
+export function reorderCategoryTo(
   ledger: Ledger,
   categoryId: string,
-  direction: 'up' | 'down',
+  targetIndex: number,
 ): Ledger {
   const category = ledger.categories.find((item) => item.id === categoryId)
   if (!category) return ledger
   const siblings = categorySiblings(ledger, categoryId)
-  const index = siblings.findIndex((item) => item.id === categoryId)
-  const target = index + (direction === 'up' ? -1 : 1)
-  if (target < 0 || target >= siblings.length) return ledger
-  const swapId = siblings[target].id
-  const next = [...ledger.categories]
-  const a = next.findIndex((item) => item.id === categoryId)
-  const b = next.findIndex((item) => item.id === swapId)
-  ;[next[a], next[b]] = [next[b], next[a]]
+  const oldIndex = siblings.findIndex((item) => item.id === categoryId)
+  if (oldIndex < 0 || targetIndex < 0 || targetIndex >= siblings.length || targetIndex === oldIndex) {
+    return ledger
+  }
+  const newOrder = arrayMove(siblings, oldIndex, targetIndex)
+  let writePtr = 0
+  const next = ledger.categories.map((item) => {
+    if (item.type === category.type && item.parentId === category.parentId) {
+      return newOrder[writePtr++]
+    }
+    return item
+  })
   return { ...ledger, categories: next }
 }
 

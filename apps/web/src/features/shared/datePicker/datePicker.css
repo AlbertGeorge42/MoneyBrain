@@ -277,10 +277,13 @@
 }
 
 .mb-dp-weekdays,
-.mb-dp-day-grid {
+.mb-dp-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
   gap: 2px;
+}
+
+.mb-dp-weekdays {
+  grid-template-columns: repeat(7, 1fr);
 }
 
 .mb-dp-weekdays span {
@@ -299,6 +302,17 @@
   font-size: var(--mb-fs-0);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+}
+
+/* 周 / 月 / 年单元显示的是区间文字，需要更宽的格子与更小的字号。 */
+.mb-dp-day.is-gran {
+  padding: 0 var(--mb-s-1);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  font-variant-numeric: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* :not(:disabled) 会抬高选择器权重，若不排除选中/区间内日期，悬停会把高亮刷掉。 */
@@ -420,6 +434,10 @@
 }
 
 .mb-dp-sheet .mb-dp-field {
+  min-height: var(--mb-touch);
+}
+
+.mb-dp-sheet .mb-dp-day.is-gran {
   min-height: var(--mb-touch);
 }
 

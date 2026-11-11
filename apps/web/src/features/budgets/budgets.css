@@ -35,22 +35,6 @@
   gap: var(--mb-s-1);
 }
 
-.mb-bg-head-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--mb-touch);
-  min-height: var(--mb-touch);
-  padding: 0 var(--mb-s-2);
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-accent);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  cursor: pointer;
-}
-
 /* ===== 总预算 ===== */
 
 .mb-bg-hero {

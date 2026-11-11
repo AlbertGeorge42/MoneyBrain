@@ -42,7 +42,7 @@ import { LedgerConfigSheets } from '@/features/ledger-config/LedgerConfigSheets'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
 import { AccountsSection } from '@/features/ledger-config/AccountsSection'
 import { CategoriesSection } from '@/features/ledger-config/CategoriesSection'
-import { CashflowSection, type CashflowTab } from './CashflowSection'
+import { CashflowSection } from '@/features/ledger-config/CashflowSection'
 import { AppearanceSection } from './AppearanceSection'
 import { BackupSection } from './BackupSection'
 import { DisplaySection } from './DisplaySection'
@@ -80,7 +80,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   const [trashCount, setTrashCount] = useState(0)
   const [active, setActive] = useState<SectionId>('accounts')
   const [openSection, setOpenSection] = useState<SectionId | null>(null)
-  const [cashTab, setCashTab] = useState<CashflowTab>('asset')
   const [armed, setArmed] = useState<string | null>(null)
   const { notify: pushToast } = useToast()
   const notify = (message: string, options?: ToastOptions) => {
@@ -447,6 +446,15 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             onToggleCollapsed={config.toggleCollapsed}
             onSetGroupsCollapsed={config.setGroupsCollapsed}
             onOpenEditor={config.setEditor}
+            onOpenMover={config.setMover}
+            menuOpen={config.menuOpen}
+            onMenuOpen={config.setMenuOpen}
+            confirming={config.confirming}
+            onConfirm={config.setConfirming}
+            onDeleteAccount={(account) => void config.deleteAccount(account)}
+            onDeleteGroup={(group) => void config.deleteGroup(group)}
+            onReorderGroupTo={(id, targetIndex) => void config.moveAccountGroupTo(id, targetIndex)}
+            onReorderAccountTo={(id, targetIndex) => void config.moveAccountTo(id, targetIndex)}
             onRetry={onRetry}
           />
         )
@@ -465,7 +473,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             onConfirm={config.setConfirming}
             onOpenEditor={config.setEditor}
             onOpenMover={config.setMover}
-            onReorder={(id, direction) => void config.moveCategoryOrder(id, direction)}
+            onReorder={(id, targetIndex) => void config.moveCategoryTo(id, targetIndex)}
             onDelete={(row, type) => void config.deleteCategory(row, type)}
           />
         )
@@ -473,9 +481,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         return (
           <CashflowSection
             ledger={ledger}
-            rows={cashTab === 'asset' ? [] : config.rowsByType[cashTab]}
-            tab={cashTab}
-            onTabChange={setCashTab}
+            rows={config.cashTab === 'asset' ? [] : config.rowsByType[config.cashTab]}
+            tab={config.cashTab}
+            onTabChange={config.setCashTab}
             collapsed={config.collapsed}
             onToggleCollapsed={config.toggleCollapsed}
             menuOpen={config.menuOpen}

@@ -4,12 +4,27 @@
  * 两处接入（流水筛选 / 报表时间条）都只读这里的日期语义：
  * - 内部值统一 `YYYY-MM-DD`，与后端校验、领域 LocalDate 一致；
  * - 区间反选在写入前自动交换，日历、预设、展示文字共用同一份结果；
- * - 月 / 年粒度按「起取月初 / 止取月末」吸附，避免控件显示与请求参数出现两种边界。
+ * - 粒度决定「面板长什么样」：日看日历网格、周看周列表、月看 12 个月、年看年份窗口；
+ *   粒度也决定「显示到哪一级」：月粒度只显示年月，不显示日。
  */
 
-import { formatDay, parseDay } from '@/utils/date'
+import {
+  addDays,
+  addMonths,
+  dayOfMonth,
+  isoWeekLabel,
+  monthEnd,
+  monthOf,
+  monthStart,
+  parseDay,
+  weekdayOffset,
+  yearEnd,
+  yearOf,
+  yearStart,
+  type CalendarGranularity,
+} from '@/utils/date'
 
-export type DateGranularity = 'day' | 'week' | 'month' | 'year'
+export type DateGranularity = CalendarGranularity
 
 export interface DateRange {
   from: string
@@ -21,85 +36,39 @@ export interface DatePresetOption {
   label: string
   from: string
   to: string
-  /** 非空即禁用，文案同时作为可见原因展示（不只靠 title）。 */
-  disabledReason?: string
 }
 
-export interface CalendarCell {
-  date: string
-  day: number
-  /** 是否属于当前展示月（跨月补齐的格子为 false）。 */
-  inMonth: boolean
+/**
+ * 粒度面板的一个可选单元：日 / 周 / 月 / 年都用同一形状描述。
+ *
+ * start / end 是该单元覆盖的日期区间；点击后按「起取 start、止取 end」写入。
+ */
+export interface GranCell {
+  /** 单元起点（YYYY-MM-DD）。 */
+  start: string
+  /** 单元终点（YYYY-MM-DD）。 */
+  end: string
+  /** 面板上显示的文字。 */
+  label: string
+  /** 仅日粒度：是否属于当前展示月（跨月补齐的格子为 false）。 */
+  inMonth?: boolean
+}
+
+/** 面板的浏览位置：年月。粒度决定它被怎么使用。 */
+export interface GranView {
+  year: number
+  month: number
 }
 
 export const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'] as const
 
-export function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate()
-}
-
-/** 周一为 0，周日为 6。 */
-export function weekdayOffset(year: number, month: number): number {
-  const day = new Date(Date.UTC(year, month - 1, 1)).getUTCDay()
-  return day === 0 ? 6 : day - 1
-}
-
-export function yearOf(value: string): number {
-  return parseDay(value).getUTCFullYear()
-}
-
-export function monthOf(value: string): number {
-  return parseDay(value).getUTCMonth() + 1
-}
-
-export function dayOfMonth(value: string): number {
-  return parseDay(value).getUTCDate()
-}
-
-export function addDays(value: string, days: number): string {
-  const date = parseDay(value)
-  date.setUTCDate(date.getUTCDate() + days)
-  return formatDay(date)
-}
-
-/** 加月并保持「同日」；目标月没有该日时取月末（10-31 + 1 月 = 11-30）。 */
-export function addMonths(value: string, months: number): string {
-  const date = parseDay(value)
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1))
-  const day = Math.min(
-    date.getUTCDate(),
-    daysInMonth(target.getUTCFullYear(), target.getUTCMonth() + 1),
-  )
-  return formatDay(new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), day)))
-}
-
-export function monthStart(value: string): string {
-  const date = parseDay(value)
-  return formatDay(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)))
-}
-
-export function monthEnd(value: string): string {
-  const date = parseDay(value)
-  return formatDay(
-    new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)),
-  )
-}
-
-export function weekStart(value: string): string {
+export function weekStartOf(value: string): string {
   const day = parseDay(value).getUTCDay()
   return addDays(value, day === 0 ? -6 : 1 - day)
 }
 
-export function weekEnd(value: string): string {
-  return addDays(weekStart(value), 6)
-}
-
-export function yearStart(value: string): string {
-  return formatDay(new Date(Date.UTC(parseDay(value).getUTCFullYear(), 0, 1)))
-}
-
-export function yearEnd(value: string): string {
-  return formatDay(new Date(Date.UTC(parseDay(value).getUTCFullYear(), 11, 31)))
+export function weekEndOf(value: string): string {
+  return addDays(weekStartOf(value), 6)
 }
 
 /**
@@ -111,7 +80,7 @@ export function snapDay(
   gran: DateGranularity,
   edge: 'start' | 'end',
 ): string {
-  if (gran === 'week') return edge === 'start' ? weekStart(value) : weekEnd(value)
+  if (gran === 'week') return edge === 'start' ? weekStartOf(value) : weekEndOf(value)
   if (gran === 'month') return edge === 'start' ? monthStart(value) : monthEnd(value)
   if (gran === 'year') return edge === 'start' ? yearStart(value) : yearEnd(value)
   return value
@@ -133,8 +102,16 @@ export function normalizeRange(from: string, to: string): NormalizedRange {
   return { range: { from, to }, swapped: false }
 }
 
-export function formatDateText(value: string, placeholder = '不限'): string {
-  return value || placeholder
+/**
+ * 按粒度显示日期：只显示到该粒度对应的层级。
+ * 日 → 2026-10-01；周 → 2026-W42；月 → 2026 年 10 月；年 → 2026 年。
+ */
+export function formatByGran(value: string, gran: DateGranularity): string {
+  if (!value) return ''
+  if (gran === 'week') return isoWeekLabel(value)
+  if (gran === 'month') return `${yearOf(value)} 年 ${monthOf(value)} 月`
+  if (gran === 'year') return `${yearOf(value)} 年`
+  return value
 }
 
 /**
@@ -152,23 +129,81 @@ export function datePresets(today: string): DatePresetOption[] {
   ]
 }
 
-/** 固定 6 周 × 7 天网格，含相邻月补齐日；方向键跨月时无需重排 DOM。 */
-export function calendarCells(year: number, month: number): CalendarCell[] {
+/** 日面板：固定 6 周 × 7 天网格，含相邻月补齐日；方向键跨月时无需重排 DOM。 */
+export function calendarCells(year: number, month: number): GranCell[] {
   const start = new Date(Date.UTC(year, month - 1, 1 - weekdayOffset(year, month)))
   return Array.from({ length: 42 }, (_, index) => {
-    const date = addDays(formatDay(start), index)
-    return { date, day: dayOfMonth(date), inMonth: monthOf(date) === month && yearOf(date) === year }
+    const date = addDays(start.toISOString().slice(0, 10), index)
+    return {
+      start: date,
+      end: date,
+      label: String(dayOfMonth(date)),
+      inMonth: monthOf(date) === month && yearOf(date) === year,
+    }
   })
 }
 
-export function moveDay(value: string, key: string): string {
-  if (key === 'ArrowLeft') return addDays(value, -1)
-  if (key === 'ArrowRight') return addDays(value, 1)
-  if (key === 'ArrowUp') return addDays(value, -7)
-  if (key === 'ArrowDown') return addDays(value, 7)
-  return value
+/** 周面板：展示月覆盖到的每一周（周一 ~ 周日）。 */
+export function weekCells(year: number, month: number): GranCell[] {
+  const first = monthStart(`${year}-${String(month).padStart(2, '0')}-01`)
+  const last = monthEnd(first)
+  const cells: GranCell[] = []
+  let cursor = weekStartOf(first)
+  while (cursor <= last) {
+    const end = weekEndOf(cursor)
+    cells.push({ start: cursor, end, label: `${cursor.slice(5)} ~ ${end.slice(5)}` })
+    cursor = addDays(end, 1)
+  }
+  return cells
 }
 
-export function formatMonthTitle(year: number, month: number): string {
-  return `${year} 年 ${month} 月`
+/** 月面板：展示年的 12 个月。 */
+export function monthCells(year: number): GranCell[] {
+  return Array.from({ length: 12 }, (_, index) => {
+    const start = `${year}-${String(index + 1).padStart(2, '0')}-01`
+    return { start, end: monthEnd(start), label: `${index + 1} 月` }
+  })
+}
+
+/** 年面板：以 10 年为窗口，窗口起点对齐到整十年。 */
+export function yearCells(year: number): GranCell[] {
+  const base = year - (year % 10)
+  return Array.from({ length: 10 }, (_, index) => {
+    const target = `${base + index}-01-01`
+    return { start: yearStart(target), end: yearEnd(target), label: `${base + index} 年` }
+  })
+}
+
+/** 按粒度给出当前浏览位置上的可选单元。 */
+export function granCells(gran: DateGranularity, view: GranView): GranCell[] {
+  if (gran === 'week') return weekCells(view.year, view.month)
+  if (gran === 'month') return monthCells(view.year)
+  if (gran === 'year') return yearCells(view.year)
+  return calendarCells(view.year, view.month)
+}
+
+/** 面板的翻页：日 / 周按月翻，月按年翻，年按 10 年窗口翻。 */
+export function shiftView(gran: DateGranularity, view: GranView, delta: number): GranView {
+  if (gran === 'month') return { year: view.year + delta, month: view.month }
+  if (gran === 'year') return { year: view.year + delta * 10, month: view.month }
+  const next = addMonths(`${view.year}-${String(view.month).padStart(2, '0')}-01`, delta)
+  return { year: yearOf(next), month: monthOf(next) }
+}
+
+/** 面板标题：日 / 周看年月，月看年，年看 10 年窗口。 */
+export function viewTitle(gran: DateGranularity, view: GranView): string {
+  if (gran === 'month') return `${view.year} 年`
+  if (gran === 'year') {
+    const base = view.year - (view.year % 10)
+    return `${base} – ${base + 9} 年`
+  }
+  return `${view.year} 年 ${view.month} 月`
+}
+
+/** 面板里的单元用几列排布（方向键按列移动）。 */
+export function granColumns(gran: DateGranularity): number {
+  if (gran === 'day') return 7
+  if (gran === 'month') return 4
+  if (gran === 'year') return 2
+  return 1
 }

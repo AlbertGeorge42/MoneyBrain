@@ -14,6 +14,7 @@ import { unwrapApiData } from '@/services/apiResult'
 import type { CashFlowActivity, TxType } from '@/features/overview/model'
 import type { Editor, EditorSaveValue } from './EditorSheet'
 import type { Mover } from './MoverSheet'
+import type { CashflowTab } from './CashflowSection'
 import {
   accountGroupCount,
   accountGroupsForType,
@@ -42,17 +43,17 @@ export function useLedgerConfigController({
     createAccount,
     updateAccount,
     deleteAccount: deleteAccountRemote,
-    reorderAccount,
+    reorderAccountTo,
     createAccountGroup,
     updateAccountGroup,
     deleteAccountGroup: deleteAccountGroupRemote,
-    reorderAccountGroup,
+    reorderAccountGroupTo,
     createCategory,
     updateCategory,
     setCategoryCashFlow,
     moveCategory,
     deleteCategory: deleteCategoryRemote,
-    reorderCategory,
+    reorderCategoryTo,
     undo,
   } = useLedger()
   const apiMode = dataMode === 'api'
@@ -61,6 +62,7 @@ export function useLedgerConfigController({
   /** 真实库里有大量导入残留的空分组；默认只看有账户的分组，可一键显示。 */
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [categoryTab, setCategoryTab] = useState<CategoryTab>('expense')
+  const [cashTab, setCashTab] = useState<CashflowTab>('asset')
   const [collapsedKeys, setCollapsedKeys] = useState<ReadonlySet<string>>(() => new Set())
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<string | null>(null)
@@ -239,12 +241,6 @@ export function useLedgerConfigController({
     }
   }
 
-  const moveAccountOrder = async (id: string, direction: 'up' | 'down') => {
-    const result = await reorderAccount(id, direction)
-    if (!result.ok) notify(result.error ?? '排序失败，请重试')
-    else onAfterWrite?.()
-  }
-
   /** 删除分组：有账户引用时后端拒绝，前端显式说明原因，绝不静默清空引用。 */
   const deleteGroup = async (group: AccountGroup) => {
     if (group.ungrouped) {
@@ -300,25 +296,23 @@ export function useLedgerConfigController({
     }
   }
 
-  const moveEditorTarget = async (direction: 'up' | 'down') => {
-    if (!editor) return
-    if (editor.kind === 'accountGroup' && editor.groupId) {
-      const result = await reorderAccountGroup(editor.groupId, direction)
-      if (!result.ok) {
-        notify(result.error ?? '排序失败，请重试')
-        return
-      }
-      onAfterWrite?.()
-      notify('分组排序已更新')
-      return
-    }
-    if (editor.kind === 'account' && editor.accountId) {
-      await moveAccountOrder(editor.accountId, direction)
-    }
+  /** 分类拖拽落位：按绝对位置重排同级分类。 */
+  const moveCategoryTo = async (id: string, targetIndex: number) => {
+    const result = await reorderCategoryTo(id, targetIndex)
+    if (!result.ok) notify(result.error ?? '排序失败，请重试')
+    else onAfterWrite?.()
   }
 
-  const moveCategoryOrder = async (id: string, direction: 'up' | 'down') => {
-    const result = await reorderCategory(id, direction)
+  /** 分组拖拽落位：按绝对位置重排同归属分组。 */
+  const moveAccountGroupTo = async (id: string, targetIndex: number) => {
+    const result = await reorderAccountGroupTo(id, targetIndex)
+    if (!result.ok) notify(result.error ?? '排序失败，请重试')
+    else onAfterWrite?.()
+  }
+
+  /** 账户拖拽落位：按绝对位置重排同分组账户。 */
+  const moveAccountTo = async (id: string, targetIndex: number) => {
+    const result = await reorderAccountTo(id, targetIndex)
     if (!result.ok) notify(result.error ?? '排序失败，请重试')
     else onAfterWrite?.()
   }
@@ -438,6 +432,8 @@ export function useLedgerConfigController({
     setShowEmptyGroups,
     categoryTab,
     setCategoryTab,
+    cashTab,
+    setCashTab,
     collapsed: collapsedKeys,
     toggleCollapsed,
     setGroupsCollapsed,
@@ -462,9 +458,12 @@ export function useLedgerConfigController({
     rowsByType,
     saveEditor,
     deleteEditorTarget,
-    moveEditorTarget,
-    moveCategoryOrder,
+    moveCategoryTo,
+    moveAccountGroupTo,
+    moveAccountTo,
     deleteCategory,
+    deleteAccount,
+    deleteGroup,
     transferAndDelete,
     move,
     resetTransient,

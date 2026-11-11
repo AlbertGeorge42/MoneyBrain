@@ -125,9 +125,10 @@ features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
 | `features/transactions/` | 流水、详情、批量、回收站；`apiTransactions.ts` |
 | `features/reports/` | 四张报表、图表、下钻；`apiReports.ts` |
 | `features/budgets/` | 预算列表/编辑、状态、推演；`budgetModel.ts` |
-| `features/settings/` | 8 分区设置、导入导出、账户/分类、自动备份、回收站 |
+| `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源） |
+| `features/settings/` | 8 分区设置、导入导出、自动备份、回收站 |
 | `features/shell/` | 桌面侧栏 / 移动底栏与浮层宿主 |
-| `features/shared/` | HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、Card、toast、StateViews、chartLayout |
+| `features/shared/` | HfButton、HfSheet、HfSegmented、HfSwitch、HfTabs、HfHeadAction、Card、toast、StateViews、chartLayout、datePicker |
 | `services/api.ts` | Axios 实例 + 响应拦截器（统一归一化错误） |
 | `services/apiError.ts` / `apiResult.ts` | `ApiClientError`；`unwrapApiData(res)` 是唯一解包入口 |
 

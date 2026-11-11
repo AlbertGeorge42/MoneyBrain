@@ -6,7 +6,22 @@
  * 时间条与面板只做展示与草稿，不再各自复制一套规则。
  */
 
-import { formatDay, parseDay } from '@/utils/date'
+import {
+  addDays,
+  addMonths,
+  dayOfMonth,
+  formatDay,
+  isoWeekLabel,
+  monthEnd,
+  monthOf,
+  monthStart,
+  parseDay,
+  weekEnd,
+  weekStart,
+  yearEnd,
+  yearOf,
+  yearStart,
+} from '@/utils/date'
 
 export type Granularity = 'day' | 'week' | 'month' | 'year'
 export type ReportTab = 'balance' | 'flow' | 'cash' | 'invest'
@@ -87,76 +102,12 @@ const PRESET_GRAN: Record<PresetId, readonly Granularity[]> = {
   next12m: ['month'],
 }
 
-/** 未来预设集合；预设以自然月表述，日 / 周 / 年粒度下不可用。 */
-export const FUTURE_PRESETS: readonly PresetId[] = ['nextMonth', 'next3m', 'next6m', 'next12m']
-
-export function isFuturePreset(preset: PresetId): boolean {
-  return FUTURE_PRESETS.includes(preset)
-}
-
 export function presetSupported(preset: PresetId, gran: Granularity): boolean {
   return PRESET_GRAN[preset].includes(gran)
 }
 
 export function presetLabel(preset: PresetId): string {
   return PRESETS.find((item) => item.id === preset)?.label ?? ''
-}
-
-export function addDays(value: string, days: number): string {
-  const date = parseDay(value)
-  date.setUTCDate(date.getUTCDate() + days)
-  return formatDay(date)
-}
-
-function lastDayOfMonth(year: number, monthIndex: number): string {
-  return formatDay(new Date(Date.UTC(year, monthIndex + 1, 0)))
-}
-
-export function monthStart(value: string): string {
-  const date = parseDay(value)
-  return formatDay(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)))
-}
-
-export function monthEnd(value: string): string {
-  const date = parseDay(value)
-  return lastDayOfMonth(date.getUTCFullYear(), date.getUTCMonth())
-}
-
-/** 按月平移并保留日号（超出目标月天数时落到月末）。 */
-export function addMonths(value: string, months: number): string {
-  const date = parseDay(value)
-  const year = date.getUTCFullYear()
-  const monthIndex = date.getUTCMonth() + months
-  const target = new Date(Date.UTC(year, monthIndex, 1))
-  const days = Number(lastDayOfMonth(target.getUTCFullYear(), target.getUTCMonth()).slice(8, 10))
-  return formatDay(
-    new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(date.getUTCDate(), days))),
-  )
-}
-
-/** ISO 周起点（周一）。 */
-export function weekStart(value: string): string {
-  const day = parseDay(value).getUTCDay()
-  return addDays(value, day === 0 ? -6 : 1 - day)
-}
-
-/** ISO 周终点（周日）。 */
-export function weekEnd(value: string): string {
-  return addDays(weekStart(value), 6)
-}
-
-/**
- * ISO 周标签 `YYYY-Www`：周编号与周年份取该周周四所在年份（跨年周不拆），
- * 与后端 `isoWeekLabel` 同一规则。
- */
-export function isoWeekLabel(value: string): string {
-  const thursday = addDays(weekStart(value), 3)
-  const year = parseDay(thursday).getUTCFullYear()
-  const dayOfYear =
-    Math.round(
-      (parseDay(thursday).getTime() - parseDay(`${year}-01-01`).getTime()) / 86_400_000,
-    ) + 1
-  return `${year}-W${String(Math.floor((dayOfYear - 1) / 7) + 1).padStart(2, '0')}`
 }
 
 /** 桶起点：日 = 当日；周 = 周一；月 = 1 日；年 = 1-01。 */
@@ -203,26 +154,6 @@ export function pointRangeState(point: string, today: string, gran: Granularity)
   if (point <= today) return 'past'
   if (bucketKey(point, gran) === bucketKey(today, gran)) return 'mixed'
   return 'future'
-}
-
-export function yearStart(value: string): string {
-  return formatDay(new Date(Date.UTC(parseDay(value).getUTCFullYear(), 0, 1)))
-}
-
-export function yearEnd(value: string): string {
-  return formatDay(new Date(Date.UTC(parseDay(value).getUTCFullYear(), 11, 31)))
-}
-
-export function dayOfMonth(value: string): number {
-  return parseDay(value).getUTCDate()
-}
-
-export function monthOf(value: string): number {
-  return parseDay(value).getUTCMonth() + 1
-}
-
-export function yearOf(value: string): number {
-  return parseDay(value).getUTCFullYear()
 }
 
 /** 按粒度步进一个桶；时点步进后仍锚桶末。 */

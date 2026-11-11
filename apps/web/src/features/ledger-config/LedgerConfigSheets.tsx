@@ -38,12 +38,6 @@ export function LedgerConfigSheets({
               ? controller.deleteEditorTarget
               : undefined
           }
-          onMove={
-            (editor.kind === 'account' || editor.kind === 'accountGroup') &&
-            editor.mode === 'edit'
-              ? controller.moveEditorTarget
-              : undefined
-          }
         />
       )}
       {mover && (

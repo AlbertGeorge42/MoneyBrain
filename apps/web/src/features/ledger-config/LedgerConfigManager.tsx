@@ -1,8 +1,9 @@
 /**
- * 账本配置抽屉：报表页从“报表设置”进入的账户 / 收支分类管理。
+ * 账本配置抽屉：报表页从「报表设置」进入的账户 / 收支分类 / 现金流分类管理。
  *
- * 内容直接复用设置页的 AccountsSection / CategoriesSection 与同一份 controller，
- * 不另建表格、表单或校验；视觉沿用设置页的 mb-set-* 内胆，只按约定调整抽屉尺寸。
+ * 内容直接复用设置页的 AccountsSection / CategoriesSection / CashflowSection
+ * 与同一份 controller，不另建表格、表单或校验；视觉沿用设置页的 mb-set-* 内胆，
+ * 只按约定调整抽屉尺寸。
  */
 import { X } from 'lucide-react'
 import type { DeviceMode } from '@/features/shared/types'
@@ -12,10 +13,11 @@ import { HfSheet } from '@/features/shared/HfSheet'
 import { HfTabs } from '@/features/shared/HfTabs'
 import { AccountsSection } from './AccountsSection'
 import { CategoriesSection } from './CategoriesSection'
+import { CashflowSection } from './CashflowSection'
 import { LedgerConfigSheets } from './LedgerConfigSheets'
 import type { LedgerConfigController } from './useLedgerConfigController'
 
-export type LedgerConfigTab = 'accounts' | 'categories'
+export type LedgerConfigTab = 'accounts' | 'categories' | 'cashflow'
 
 export function LedgerConfigManager({
   opened,
@@ -62,6 +64,7 @@ export function LedgerConfigManager({
               items={[
                 { id: 'accounts', label: '账户' },
                 { id: 'categories', label: '收支分类' },
+                { id: 'cashflow', label: '现金流分类' },
               ]}
               onChange={onTabChange}
             />
@@ -81,9 +84,18 @@ export function LedgerConfigManager({
               onToggleCollapsed={controller.toggleCollapsed}
               onSetGroupsCollapsed={controller.setGroupsCollapsed}
               onOpenEditor={controller.setEditor}
+              onOpenMover={controller.setMover}
+              menuOpen={controller.menuOpen}
+              onMenuOpen={controller.setMenuOpen}
+              confirming={controller.confirming}
+              onConfirm={controller.setConfirming}
+              onDeleteAccount={(account) => void controller.deleteAccount(account)}
+              onDeleteGroup={(group) => void controller.deleteGroup(group)}
+              onReorderGroupTo={(id, targetIndex) => void controller.moveAccountGroupTo(id, targetIndex)}
+              onReorderAccountTo={(id, targetIndex) => void controller.moveAccountTo(id, targetIndex)}
               onRetry={onRetry}
             />
-          ) : (
+          ) : tab === 'categories' ? (
             <CategoriesSection
               ledger={ledger}
               rows={controller.rowsByType[controller.categoryTab]}
@@ -97,8 +109,22 @@ export function LedgerConfigManager({
               onConfirm={controller.setConfirming}
               onOpenEditor={controller.setEditor}
               onOpenMover={controller.setMover}
-              onReorder={(id, direction) => void controller.moveCategoryOrder(id, direction)}
+              onReorder={(id, targetIndex) => void controller.moveCategoryTo(id, targetIndex)}
               onDelete={(row, type) => void controller.deleteCategory(row, type)}
+            />
+          ) : (
+            <CashflowSection
+              ledger={ledger}
+              rows={controller.cashTab === 'asset' ? [] : controller.rowsByType[controller.cashTab]}
+              tab={controller.cashTab}
+              onTabChange={controller.setCashTab}
+              collapsed={controller.collapsed}
+              onToggleCollapsed={controller.toggleCollapsed}
+              menuOpen={controller.menuOpen}
+              onMenuOpen={controller.setMenuOpen}
+              confirming={controller.confirming}
+              onConfirm={controller.setConfirming}
+              onOpenMover={controller.setMover}
             />
           )}
         </div>

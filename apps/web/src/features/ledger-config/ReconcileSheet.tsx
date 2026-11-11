@@ -150,7 +150,7 @@ export function ReconcileButton({
                 该账户当日已有一条平账记录（{formatCurrency(minor(conflict.existingAmount), { showSign: true })}）。
                 请选择覆盖或追加：
               </p>
-              <div className="mb-set-order-actions">
+              <div className="mb-set-conflict-actions">
                 <HfButton
                   className="mb-set-btn is-primary is-small"
                   disabled={busy}

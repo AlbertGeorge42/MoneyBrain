@@ -4,27 +4,29 @@
  * 同一份面板内容服务两处：流水筛选（可留空 = 不限）与报表时间条（必须有期间）。
  * PC 为输入框式触发 + 浮层；移动 390 为底部面板（沿用 mb-rp-sheet 的底部升起、
  * 按内容收缩、动作区常驻规范）。内部值一律 YYYY-MM-DD，展示与请求参数同源。
+ *
+ * 粒度决定三件事：面板长什么样、日期显示到哪一级、快速选择提供哪些项。
+ * 日看日历网格、周看周列表、月看 12 个月、年看年份窗口；
+ * 显示只到该粒度（月粒度不显示日），点击单元按「起取桶首、止取桶末」写入。
  */
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   WEEKDAYS,
-  addMonths,
-  calendarCells,
   clampDate,
-  formatDateText,
-  formatMonthTitle,
-  monthOf,
-  moveDay,
+  formatByGran,
+  granCells,
+  granColumns,
   normalizeRange,
-  snapDay,
-  yearOf,
+  shiftView,
+  viewTitle,
   type DateGranularity,
   type DatePresetOption,
   type DateRange,
+  type GranView,
 } from './datePickerModel'
 import './datePicker.css'
 
@@ -43,7 +45,7 @@ interface DatePickerProps {
   /** 晚于该日的日期禁用，并展示 disabledNote。 */
   maxDate?: string
   disabledNote?: string
-  /** 报表月 / 年粒度：边界吸附到月初月末 / 年初年末。 */
+  /** 粒度：决定面板形态、显示层级与吸附边界。 */
   gran?: DateGranularity
   variant?: 'field' | 'inline'
   align?: 'left' | 'right'
@@ -55,12 +57,9 @@ interface DatePickerProps {
 
 type ActiveField = 'from' | 'to'
 
-function viewOf(value: string): { year: number; month: number } {
-  return { year: yearOf(value), month: monthOf(value) }
-}
-
-function padMonth(month: number): string {
-  return String(month).padStart(2, '0')
+function viewOf(value: string): GranView {
+  const [year, month] = value.split('-').map(Number)
+  return { year, month }
 }
 
 export function DatePicker({
@@ -83,7 +82,6 @@ export function DatePicker({
 }: DatePickerProps) {
   const isPoint = mode === 'point'
   const placeholderText = placeholder ?? (optional ? '不限' : '请选择')
-  const noteId = useId()
 
   const rootRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -96,7 +94,7 @@ export function DatePicker({
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState(() => viewOf(value.from || value.to || today))
-  const [focusDate, setFocusDate] = useState(value.from || value.to || today)
+  const [focusIndex, setFocusIndex] = useState(0)
 
   // 关闭态跟随外部值；打开态只动 draft，避免请求结果回写打断选择。
   useEffect(() => {
@@ -107,6 +105,9 @@ export function DatePicker({
         : { from: value.from, to: value.to },
     )
   }, [open, value.from, value.to])
+
+  const cells = useMemo(() => granCells(gran, view), [gran, view])
+  const columns = granColumns(gran)
 
   useEffect(() => {
     if (!open) return
@@ -119,7 +120,7 @@ export function DatePicker({
       pendingFocus.current = null
     }, device === 'mobile' ? 60 : 0)
     return () => window.clearTimeout(timer)
-  }, [open, view, focusDate, device])
+  }, [open, view, focusIndex, device])
 
   // PC 点外部关闭；移动端由 Drawer overlay 关闭。关闭不抢走点外部的焦点。
   useEffect(() => {
@@ -130,11 +131,6 @@ export function DatePicker({
     document.addEventListener('mousedown', onPointerDown)
     return () => document.removeEventListener('mousedown', onPointerDown)
   }, [open, device])
-
-  const focusCell = (date: string) => {
-    const node = panelRef.current?.querySelector<HTMLElement>(`[data-date="${date}"]`)
-    node?.focus()
-  }
 
   const close = (restoreFocus: boolean) => {
     setOpen(false)
@@ -158,9 +154,12 @@ export function DatePicker({
     setDraft(value)
     setFeedback(null)
     setError(null)
-    setView(viewOf(anchor))
-    setFocusDate(anchor)
-    pendingFocus.current = anchor
+    const nextView = viewOf(anchor)
+    setView(nextView)
+    const nextCells = granCells(gran, nextView)
+    const index = nextCells.findIndex((cell) => cell.start === anchor)
+    setFocusIndex(index >= 0 ? index : 0)
+    pendingFocus.current = index >= 0 ? anchor : nextCells[0]?.start ?? anchor
     setOpen(true)
   }
 
@@ -169,9 +168,12 @@ export function DatePicker({
     if (open) {
       const anchor = (isPoint ? value.from : field === 'from' ? value.from : value.to) || today
       setActive(isPoint ? 'from' : field)
-      setView(viewOf(anchor))
-      setFocusDate(anchor)
-      pendingFocus.current = anchor
+      const nextView = viewOf(anchor)
+      setView(nextView)
+      const nextCells = granCells(gran, nextView)
+      const index = nextCells.findIndex((cell) => cell.start === anchor)
+      setFocusIndex(index >= 0 ? index : 0)
+      pendingFocus.current = index >= 0 ? anchor : nextCells[0]?.start ?? anchor
       return
     }
     openPanel(field)
@@ -185,49 +187,54 @@ export function DatePicker({
     close(true)
   }
 
-  const dayDisabled = (date: string) => Boolean(maxDate && date > maxDate)
+  const cellDisabled = (start: string) => Boolean(maxDate && start > maxDate)
 
-  const pickDay = (raw: string) => {
-    const snapped = clampDate(
-      isPoint ? snapDay(raw, gran, 'end') : snapDay(raw, gran, active === 'from' ? 'start' : 'end'),
-      maxDate,
-    )
+  const pickCell = (index: number) => {
+    const cell = cells[index]
+    if (!cell || cellDisabled(cell.start)) return
     setError(null)
-    setFocusDate(raw)
-    if (monthOf(raw) !== view.month || yearOf(raw) !== view.year) setView(viewOf(raw))
+    setFocusIndex(index)
     if (isPoint) {
-      setDraft({ from: snapped, to: snapped })
-      setFeedback(`时点已设为 ${snapped}`)
+      // 时点取桶末：与报表「月末估值 / 年末估值」同一口径。
+      const point = clampDate(cell.end, maxDate)
+      setDraft({ from: point, to: point })
+      setFeedback(`时点已设为 ${formatByGran(point, gran)}`)
       return
     }
     const next =
-      active === 'from' ? { from: snapped, to: draft.to } : { from: draft.from, to: snapped }
+      active === 'from'
+        ? { from: cell.start, to: draft.to }
+        : { from: draft.from, to: cell.end }
     const normalized = normalizeRange(next.from, next.to)
     setDraft(normalized.range)
     if (normalized.swapped) {
-      setFeedback(`起止反选，已自动交换为 ${normalized.range.from} ~ ${normalized.range.to}`)
+      setFeedback(
+        `起止反选，已自动交换为 ${formatByGran(normalized.range.from, gran)} ~ ${formatByGran(normalized.range.to, gran)}`,
+      )
     } else if (active === 'from') {
-      setFeedback(`起始已设为 ${normalized.range.from}，再选结束日`)
+      setFeedback(`起始已设为 ${formatByGran(normalized.range.from, gran)}，再选结束`)
     } else {
-      setFeedback(`结束已设为 ${normalized.range.to}`)
+      setFeedback(`结束已设为 ${formatByGran(normalized.range.to, gran)}`)
     }
     setActive(active === 'from' ? 'to' : 'from')
   }
 
   const pickPreset = (preset: DatePresetOption) => {
-    if (preset.disabledReason) return
     setDraft({ from: preset.from, to: preset.to })
     setError(null)
     setFeedback(
       isPoint
-        ? `预设「${preset.label}」：${preset.from}`
-        : `预设「${preset.label}」：${preset.from} ~ ${preset.to}`,
+        ? `预设「${preset.label}」：${formatByGran(preset.from, gran)}`
+        : `预设「${preset.label}」：${formatByGran(preset.from, gran)} ~ ${formatByGran(preset.to, gran)}`,
     )
     setActive('to')
     const anchor = preset.to || preset.from
     if (anchor) {
-      setView(viewOf(anchor))
-      setFocusDate(anchor)
+      const nextView = viewOf(anchor)
+      setView(nextView)
+      const nextCells = granCells(gran, nextView)
+      const index = nextCells.findIndex((cell) => cell.start === anchor)
+      setFocusIndex(index >= 0 ? index : 0)
     }
   }
 
@@ -235,29 +242,24 @@ export function DatePicker({
     setError(null)
     setFeedback(null)
     const anchor = (draft[active] || draft.from || draft.to || today) as string
-    setView(viewOf(anchor))
-    setFocusDate(anchor)
-    const node = panelRef.current?.querySelector<HTMLElement>(`[data-date="${anchor}"]`)
-    if (node) node.focus()
-    else {
-      pendingFocus.current = anchor
-      setOpen(true)
-    }
+    const nextView = viewOf(anchor)
+    setView(nextView)
+    const nextCells = granCells(gran, nextView)
+    const index = nextCells.findIndex((cell) => cell.start === anchor)
+    setFocusIndex(index >= 0 ? index : 0)
+    pendingFocus.current = nextCells[index >= 0 ? index : 0]?.start ?? anchor
+    setOpen(true)
   }
 
-  const goMonth = (delta: number) => {
-    const anchor = `${view.year}-${padMonth(view.month)}-01`
-    const next = addMonths(anchor, delta)
-    setView(viewOf(next))
-    setFocusDate(next)
+  const goPage = (delta: number) => {
+    const next = shiftView(gran, view, delta)
+    setView(next)
+    setFocusIndex(0)
+    pendingFocus.current = granCells(gran, next)[0]?.start ?? null
   }
 
   const matchedPreset =
-    presets.find(
-      (preset) =>
-        !preset.disabledReason && preset.from === draft.from && preset.to === draft.to,
-    )?.id ?? null
-  const disabledPresets = presets.filter((preset) => preset.disabledReason)
+    presets.find((preset) => preset.from === draft.from && preset.to === draft.to)?.id ?? null
 
   const apply = () => {
     const normalized = normalizeRange(draft.from, draft.to)
@@ -313,19 +315,18 @@ export function DatePicker({
     if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'ArrowUp' && key !== 'ArrowDown') {
       return
     }
-    const currentDate = (event.target as HTMLElement).getAttribute('data-date')
-    if (!currentDate) return
+    const current = (event.target as HTMLElement).getAttribute('data-date')
+    const currentIndex = current ? cells.findIndex((cell) => cell.start === current) : -1
+    if (currentIndex < 0) return
     event.preventDefault()
-    const nextDate = clampDate(moveDay(currentDate, key), maxDate)
-    const nextView = viewOf(nextDate)
-    const withinView = nextView.year === view.year && nextView.month === view.month
-    setFocusDate(nextDate)
-    if (withinView) {
-      focusCell(nextDate)
-      return
-    }
-    setView(nextView)
-    pendingFocus.current = nextDate
+    const delta =
+      key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : key === 'ArrowUp' ? -columns : columns
+    const nextIndex = Math.min(Math.max(currentIndex + delta, 0), cells.length - 1)
+    const nextCell = cells[nextIndex]
+    if (!nextCell) return
+    setFocusIndex(nextIndex)
+    const node = panelRef.current?.querySelector<HTMLElement>(`[data-date="${nextCell.start}"]`)
+    node?.focus()
   }
 
   const granNote =
@@ -336,8 +337,6 @@ export function DatePicker({
         : gran === 'year'
           ? '年粒度：起取年初、止取年末'
           : null
-
-  const cells = calendarCells(view.year, view.month)
 
   const panel = (
     <div
@@ -358,7 +357,7 @@ export function DatePicker({
           <HfButton className="mb-dp-field is-active" aria-pressed="true">
             <span className="mb-dp-field-label">时点</span>
             <span className={draft.from ? 'mb-dp-field-value' : 'mb-dp-field-value is-empty'}>
-              {formatDateText(draft.from, placeholderText)}
+              {draft.from ? formatByGran(draft.from, gran) : placeholderText}
             </span>
           </HfButton>
         </div>
@@ -371,7 +370,7 @@ export function DatePicker({
           >
             <span className="mb-dp-field-label">起</span>
             <span className={draft.from ? 'mb-dp-field-value' : 'mb-dp-field-value is-empty'}>
-              {formatDateText(draft.from, placeholderText)}
+              {draft.from ? formatByGran(draft.from, gran) : placeholderText}
             </span>
           </HfButton>
           <HfButton
@@ -381,87 +380,92 @@ export function DatePicker({
           >
             <span className="mb-dp-field-label">止</span>
             <span className={draft.to ? 'mb-dp-field-value' : 'mb-dp-field-value is-empty'}>
-              {formatDateText(draft.to, placeholderText)}
+              {draft.to ? formatByGran(draft.to, gran) : placeholderText}
             </span>
           </HfButton>
         </div>
       )}
 
-      <div className="mb-dp-presets" role="group" aria-label="快捷预设">
-        {presets.map((preset) => (
+      {presets.length > 0 && (
+        <div className="mb-dp-presets" role="group" aria-label="快捷预设">
+          {presets.map((preset) => (
+            <HfButton
+              key={preset.id}
+              className={matchedPreset === preset.id ? 'mb-dp-preset is-active' : 'mb-dp-preset'}
+              aria-pressed={matchedPreset === preset.id}
+              onClick={() => pickPreset(preset)}
+            >
+              {preset.label}
+            </HfButton>
+          ))}
           <HfButton
-            key={preset.id}
-            className={matchedPreset === preset.id ? 'mb-dp-preset is-active' : 'mb-dp-preset'}
-            aria-pressed={matchedPreset === preset.id}
-            disabled={Boolean(preset.disabledReason)}
-            aria-describedby={preset.disabledReason ? noteId : undefined}
-            onClick={() => pickPreset(preset)}
+            className={matchedPreset ? 'mb-dp-preset' : 'mb-dp-preset is-active'}
+            aria-pressed={!matchedPreset}
+            onClick={pickCustom}
           >
-            {preset.label}
+            自选
           </HfButton>
-        ))}
-        <HfButton
-          className={matchedPreset ? 'mb-dp-preset' : 'mb-dp-preset is-active'}
-          aria-pressed={!matchedPreset}
-          onClick={pickCustom}
-        >
-          自选
-        </HfButton>
-      </div>
-      {disabledPresets.length > 0 && (
-        <p className="mb-dp-note" id={noteId}>
-          当前粒度下不可用：{disabledPresets.map((preset) => preset.label).join(' · ')}
-        </p>
+        </div>
       )}
 
       <div className="mb-dp-divider" aria-hidden="true" />
 
       <div className="mb-dp-cal-head">
-        <HfButton className="mb-dp-iconbtn" aria-label="上个月" onClick={() => goMonth(-1)}>
+        <HfButton className="mb-dp-iconbtn" aria-label="上一页" onClick={() => goPage(-1)}>
           <ChevronLeft size={16} />
         </HfButton>
-        <span className="mb-dp-cal-title">{formatMonthTitle(view.year, view.month)}</span>
-        <HfButton className="mb-dp-iconbtn" aria-label="下个月" onClick={() => goMonth(1)}>
+        <span className="mb-dp-cal-title">{viewTitle(gran, view)}</span>
+        <HfButton className="mb-dp-iconbtn" aria-label="下一页" onClick={() => goPage(1)}>
           <ChevronRight size={16} />
         </HfButton>
       </div>
 
-      <div className="mb-dp-weekdays" aria-hidden="true">
-        {WEEKDAYS.map((weekday) => (
-          <span key={weekday}>{weekday}</span>
-        ))}
-      </div>
-      <div className="mb-dp-day-grid" role="grid" aria-label="日期网格" onKeyDown={onGridKeyDown}>
-        {cells.map((cell) => {
+      {gran === 'day' && (
+        <div className="mb-dp-weekdays" aria-hidden="true">
+          {WEEKDAYS.map((weekday) => (
+            <span key={weekday}>{weekday}</span>
+          ))}
+        </div>
+      )}
+
+      <div
+        className="mb-dp-grid"
+        style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
+        role="grid"
+        aria-label="日期网格"
+        onKeyDown={onGridKeyDown}
+      >
+        {cells.map((cell, index) => {
           const activeDay = isPoint
-            ? cell.date === draft.from
-            : cell.date === draft.from || cell.date === draft.to
+            ? cell.start <= draft.from && draft.from <= cell.end
+            : cell.start === draft.from || cell.end === draft.to
           const inRange =
             !isPoint &&
             Boolean(draft.from && draft.to) &&
-            cell.date > draft.from &&
-            cell.date < draft.to
+            cell.start > draft.from &&
+            cell.end < draft.to
           const classes = [
             'mb-dp-day',
-            cell.inMonth ? '' : 'is-outside',
+            cell.inMonth === false ? 'is-outside' : '',
             inRange ? 'is-in-range' : '',
             activeDay ? 'is-active' : '',
-            !activeDay && cell.date === today ? 'is-today' : '',
+            !activeDay && cell.start === today ? 'is-today' : '',
+            gran !== 'day' ? 'is-gran' : '',
           ]
             .filter(Boolean)
             .join(' ')
           return (
             <HfButton
-              key={cell.date}
-              data-date={cell.date}
-              tabIndex={cell.date === focusDate ? 0 : -1}
-              disabled={dayDisabled(cell.date)}
+              key={cell.start}
+              data-date={cell.start}
+              tabIndex={index === focusIndex ? 0 : -1}
+              disabled={cellDisabled(cell.start)}
               aria-pressed={activeDay}
-              aria-label={cell.date}
+              aria-label={gran === 'day' ? cell.start : cell.label}
               className={classes}
-              onClick={() => pickDay(cell.date)}
+              onClick={() => pickCell(index)}
             >
-              {cell.day}
+              {cell.label}
             </HfButton>
           )
         })}
@@ -505,6 +509,8 @@ export function DatePicker({
     .filter(Boolean)
     .join(' ')
 
+  const zoneText = (raw: string) => (raw ? formatByGran(raw, gran) : placeholderText)
+
   return (
     <div className={rootClass} ref={rootRef}>
       <div className="mb-dp-control" role="group" aria-label={isPoint ? '时点' : '日期区间'}>
@@ -513,13 +519,13 @@ export function DatePicker({
             className="mb-dp-zone"
             aria-haspopup="dialog"
             aria-expanded={open}
-            aria-label={`时点，当前 ${value.from || '未选择'}`}
+            aria-label={`时点，当前 ${zoneText(value.from)}`}
             onClick={(event) => onTrigger(event, 'from')}
             onKeyDown={onZoneKeyDown}
           >
             <span className="mb-dp-zone-label">时点</span>
             <span className={value.from ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
-              {formatDateText(value.from, placeholderText)}
+              {zoneText(value.from)}
             </span>
           </HfButton>
         ) : (
@@ -528,13 +534,13 @@ export function DatePicker({
               className="mb-dp-zone"
               aria-haspopup="dialog"
               aria-expanded={open}
-              aria-label={`起始日期，当前 ${value.from || placeholderText}`}
+              aria-label={`起始日期，当前 ${zoneText(value.from)}`}
               onClick={(event) => onTrigger(event, 'from')}
               onKeyDown={onZoneKeyDown}
             >
               <span className="mb-dp-zone-label">起</span>
               <span className={value.from ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
-                {formatDateText(value.from, placeholderText)}
+                {zoneText(value.from)}
               </span>
             </HfButton>
             <span className="mb-dp-sep" aria-hidden="true">
@@ -544,13 +550,13 @@ export function DatePicker({
               className="mb-dp-zone"
               aria-haspopup="dialog"
               aria-expanded={open}
-              aria-label={`结束日期，当前 ${value.to || placeholderText}`}
-              onClick={(event) => onTrigger(event, 'to')}
+              aria-label={`结束日期，当前 ${zoneText(value.to)}`}
+              onClick={(event) => onTrigger(event, 'from')}
               onKeyDown={onZoneKeyDown}
             >
               <span className="mb-dp-zone-label">止</span>
               <span className={value.to ? 'mb-dp-zone-value' : 'mb-dp-zone-placeholder'}>
-                {formatDateText(value.to, placeholderText)}
+                {zoneText(value.to)}
               </span>
             </HfButton>
           </>

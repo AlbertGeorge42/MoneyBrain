@@ -1,29 +1,25 @@
-import { Fragment } from 'react'
+/**
+ * 流水列表：PC 与移动端共用同一套行组件（TxRow），差异只在外壳与排版。
+ *
+ * 分批渲染：一屏只渲染前若干个日期分组，PC 点「查看更多」继续加载，
+ * 移动端滚动到底自动加载。合计与笔数始终按完整筛选结果计算，
+ * 不随已渲染的分组变化。
+ */
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
-import { CategoryIcon } from '@/features/overview/category'
-import { signedAmountText } from '@/features/overview/format'
-import {
-  getAccount,
-  getCategoryIconKey,
-  getCategoryName,
-  getCategoryRootId,
-  transactionDirection,
-  transactionTone,
-  type Ledger,
-  type LedgerTransaction,
-} from '@/features/overview/model'
 import { TxRow } from '@/features/shared/TxRow'
 import { Card } from '@/features/shared/Card'
 import { HfButton } from '@/features/shared/HfButton'
-import { RefundRelationTag, RefundStateTag } from '@/features/shared/RefundTag'
-import type { DeviceMode } from '@/features/shared/types'
 import type { DisplaySettings } from './displaySettings'
 import {
   signedMinorText,
   splitTotalsByToday,
   type GroupedTransactions,
-  type TransactionTotals,
 } from './filters'
+import type { Ledger, LedgerTransaction } from '@/features/overview/model'
+
+/** 一批渲染多少个日期分组。 */
+const GROUP_PAGE_SIZE = 8
 
 function CheckBox({ checked }: { checked: boolean }) {
   return (
@@ -33,188 +29,43 @@ function CheckBox({ checked }: { checked: boolean }) {
   )
 }
 
-function DesktopTable({
-  groups,
-  totals,
-  ledger,
-  batchMode,
-  display,
-  selected,
-  onToggle,
-  onOpenDetail,
-  onOpenRelated,
+function LoadMore({
+  device,
+  remaining,
+  onLoadMore,
 }: {
-  groups: GroupedTransactions[]
-  totals: TransactionTotals
-  ledger: Ledger
-  batchMode: boolean
-  display: DisplaySettings
-  selected: ReadonlySet<string>
-  onToggle: (id: string) => void
-  onOpenDetail: (id: string) => void
-  onOpenRelated?: (transaction: LedgerTransaction) => void
+  device: 'desktop' | 'mobile'
+  remaining: number
+  onLoadMore: () => void
 }) {
-  return (
-    <>
-      <Card className="mb-tx-list-card" aria-label="流水列表">
-        <div className="mb-tx-rows">
-          {groups.map((group) => (
-            <Fragment key={group.date}>
-              <div className="mb-tx-group-row">
-                <span className="mb-tx-group-label">
-                  {group.label}
-                  {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
-                </span>
-                <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
-                  小计 {signedMinorText(group.net)}
-                </span>
-              </div>
-              {group.items.map((transaction) => {
-                const isSelected = selected.has(transaction.id)
-                const activate = () =>
-                  batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id)
-                return (
-                  <TxRow
-                    key={transaction.id}
-                    ledger={ledger}
-                    transaction={transaction}
-                    showNote={display.showNote}
-                    showAccount={display.showAccount}
-                    selected={isSelected}
-                    ariaLabel={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
-                    onActivate={activate}
-                    onOpenRelated={onOpenRelated}
-                    leading={
-                      batchMode ? (
-                        <HfButton
-                          role="checkbox"
-                          aria-checked={isSelected}
-                          aria-label={`选择 ${transaction.note}`}
-                          className="mb-tx-check-btn"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            onToggle(transaction.id)
-                          }}
-                        >
-                          <CheckBox checked={isSelected} />
-                        </HfButton>
-                      ) : undefined
-                    }
-                  />
-                )
-              })}
-            </Fragment>
-          ))}
-        </div>
-      </Card>
-      {/* 合计条独立于列表卡片：卡片 overflow:hidden 会让 sticky 失效。 */}
-      <div className="mb-tx-foot">
-        <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
-        <span className="mb-tx-foot-flow">
-          支出 <strong className="is-expense">{signedMinorText(-totals.expense)}</strong>
-          收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
-        </span>
-      </div>
-    </>
-  )
-}
+  // 移动端用哨兵元素自动加载：滚动到列表底部即追加下一批。
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (device !== 'mobile' || remaining === 0) return
+    const node = sentinelRef.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) onLoadMore()
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [device, remaining, onLoadMore])
 
-function MobileList({
-  groups,
-  totals,
-  ledger,
-  batchMode,
-  display,
-  selected,
-  onToggle,
-  onOpenDetail,
-  onOpenRelated,
-}: {
-  groups: GroupedTransactions[]
-  totals: TransactionTotals
-  ledger: Ledger
-  batchMode: boolean
-  display: DisplaySettings
-  selected: ReadonlySet<string>
-  onToggle: (id: string) => void
-  onOpenDetail: (id: string) => void
-  onOpenRelated?: (transaction: LedgerTransaction) => void
-}) {
+  if (remaining === 0) return null
+
   return (
-    <section className="mb-tx-m-list" aria-label="流水列表">
-      {groups.map((group) => (
-        <div key={group.date} className="mb-tx-m-group">
-          <div className="mb-tx-m-group-head">
-            <span className="mb-tx-group-label">
-              {group.label}
-              {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
-            </span>
-            <span className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}>
-              小计 {signedMinorText(group.net)}
-            </span>
-          </div>
-          <Card as="div" className="mb-tx-m-card">
-            {group.items.map((transaction) => {
-              const account = getAccount(ledger, transaction.accountId)
-              const rootId = getCategoryRootId(ledger, transaction.categoryId)
-              const iconKey = getCategoryIconKey(ledger, transaction.categoryId)
-              const isSelected = selected.has(transaction.id)
-              const categoryName = getCategoryName(ledger, transaction.categoryId)
-              const meta = [
-                display.showAccount ? (account?.name ?? '未知账户') : null,
-                transactionDirection(transaction),
-              ]
-                .filter(Boolean)
-                .join(' · ')
-              return (
-                <div
-                  key={transaction.id}
-                  role={batchMode ? 'checkbox' : 'button'}
-                  aria-checked={batchMode ? isSelected : undefined}
-                  tabIndex={0}
-                  className={`mb-tx-m-row${isSelected ? ' is-selected' : ''}`}
-                  onClick={() => (batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id))}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return
-                    event.preventDefault()
-                    if (batchMode) onToggle(transaction.id)
-                    else onOpenDetail(transaction.id)
-                  }}
-                >
-                  {batchMode && <CheckBox checked={isSelected} />}
-                  <CategoryIcon rootId={rootId} iconKey={iconKey} size="md" />
-                  <span className="mb-tx-m-main">
-                    <span className="mb-tx-m-title">
-                      {display.showNote ? transaction.note : categoryName}
-                    </span>
-                    <span className="mb-tx-m-meta">
-                      <span className="mb-tx-m-meta-text">{meta}</span>
-                      {transaction.excludeFromIncomeExpense && (
-                        <span className="mb-tx-excluded">不计收支</span>
-                      )}
-                      {!batchMode && (
-                        <>
-                          <RefundRelationTag ledger={ledger} transaction={transaction} onOpenRelated={onOpenRelated} />
-                          <RefundStateTag ledger={ledger} transaction={transaction} />
-                        </>
-                      )}
-                    </span>
-                  </span>
-                  <span className={`mb-tx-m-amount is-${transactionTone(transaction)}`}>
-                    {signedAmountText(transaction)}
-                  </span>
-                </div>
-              )
-            })}
-          </Card>
-        </div>
-      ))}
-      <div className="mb-tx-m-foot">
-        <span>
-          共 {totals.count} 笔 · 支出 {signedMinorText(-totals.expense)} · 收入 {signedMinorText(totals.income)}
-        </span>
-      </div>
-    </section>
+    <div className="mb-tx-load-more">
+      {device === 'mobile' ? (
+        <>
+          <div ref={sentinelRef} className="mb-tx-load-more-sentinel" aria-hidden="true" />
+          <span className="mb-tx-load-more-hint">下拉查看更多（还有 {remaining} 组）</span>
+        </>
+      ) : (
+        <HfButton className="mb-tx-btn" onClick={onLoadMore}>
+          查看更多（还有 {remaining} 组）
+        </HfButton>
+      )}
+    </div>
   )
 }
 
@@ -231,10 +82,9 @@ export function TransactionsList({
   onOpenDetail,
   onOpenRelated,
 }: {
-  device: DeviceMode
+  device: 'desktop' | 'mobile'
   groups: GroupedTransactions[]
   ledger: Ledger
-  /** 「本月」口径的今天；API 模式来自真实账本，种子版是固定 TODAY。 */
   today: string
   batchMode: boolean
   display: DisplaySettings
@@ -244,37 +94,119 @@ export function TransactionsList({
   onOpenDetail: (id: string) => void
   onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
-  const { current: totals } = splitTotalsByToday(groups.flatMap((group) => group.items), today, {
-    includeExcluded,
-  })
+  const [visibleCount, setVisibleCount] = useState(GROUP_PAGE_SIZE)
+  // 筛选结果变化时回到第一屏，避免上一批的滚动位置对应旧数据。
+  useEffect(() => {
+    setVisibleCount(GROUP_PAGE_SIZE)
+  }, [groups])
 
-  if (device === 'mobile') {
+  const visibleGroups = useMemo(() => groups.slice(0, visibleCount), [groups, visibleCount])
+  const remainingGroups = groups.length - visibleGroups.length
+  // 合计按完整筛选结果算，不随已渲染分组变化。
+  const totals = useMemo(
+    () =>
+      splitTotalsByToday(groups.flatMap((group) => group.items), today, { includeExcluded }).current,
+    [groups, today, includeExcluded],
+  )
+
+  const renderRow = (transaction: LedgerTransaction) => {
+    const isSelected = selected.has(transaction.id)
     return (
-      <MobileList
-        groups={groups}
-        totals={totals}
+      <TxRow
+        key={transaction.id}
         ledger={ledger}
-        batchMode={batchMode}
-        display={display}
-        selected={selected}
-        onToggle={onToggle}
-        onOpenDetail={onOpenDetail}
+        transaction={transaction}
+        showNote={display.showNote}
+        showAccount={display.showAccount}
+        variant={device === 'mobile' ? 'mobile' : 'default'}
+        selected={isSelected}
+        ariaLabel={batchMode ? `选择 ${transaction.note}` : `查看 ${transaction.note} 详情`}
+        onActivate={() => (batchMode ? onToggle(transaction.id) : onOpenDetail(transaction.id))}
         onOpenRelated={onOpenRelated}
+        leading={
+          batchMode ? (
+            <HfButton
+              role="checkbox"
+              aria-checked={isSelected}
+              aria-label={`选择 ${transaction.note}`}
+              className="mb-tx-check-btn"
+              onClick={(event) => {
+                event.stopPropagation()
+                onToggle(transaction.id)
+              }}
+            >
+              <CheckBox checked={isSelected} />
+            </HfButton>
+          ) : undefined
+        }
       />
     )
   }
 
+  const loadMore = () => setVisibleCount((count) => count + GROUP_PAGE_SIZE)
+
+  if (device === 'mobile') {
+    return (
+      <section className="mb-tx-m-list" aria-label="流水列表">
+        {visibleGroups.map((group) => (
+          <div key={group.date} className="mb-tx-m-group">
+            <div className="mb-tx-m-group-head">
+              <span className="mb-tx-group-label">
+                {group.label}
+                {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
+              </span>
+              <span
+                className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}
+              >
+                小计 {signedMinorText(group.net)}
+              </span>
+            </div>
+            <Card as="div" className="mb-tx-m-card">
+              {group.items.map(renderRow)}
+            </Card>
+          </div>
+        ))}
+        <LoadMore device={device} remaining={remainingGroups} onLoadMore={loadMore} />
+        <div className="mb-tx-m-foot">
+          <span>
+            共 {totals.count} 笔 · 支出 {signedMinorText(-totals.expense)} · 收入 {signedMinorText(totals.income)}
+          </span>
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <DesktopTable
-      groups={groups}
-      totals={totals}
-      ledger={ledger}
-      batchMode={batchMode}
-      display={display}
-      selected={selected}
-      onToggle={onToggle}
-      onOpenDetail={onOpenDetail}
-      onOpenRelated={onOpenRelated}
-    />
+    <>
+      <Card className="mb-tx-list-card" aria-label="流水列表">
+        <div className="mb-tx-rows">
+          {visibleGroups.map((group) => (
+            <Fragment key={group.date}>
+              <div className="mb-tx-group-row">
+                <span className="mb-tx-group-label">
+                  {group.label}
+                  {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
+                </span>
+                <span
+                  className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}
+                >
+                  小计 {signedMinorText(group.net)}
+                </span>
+              </div>
+              {group.items.map(renderRow)}
+            </Fragment>
+          ))}
+        </div>
+      </Card>
+      <LoadMore device={device} remaining={remainingGroups} onLoadMore={loadMore} />
+      {/* 合计条独立于列表卡片：卡片 overflow:hidden 会让 sticky 失效。 */}
+      <div className="mb-tx-foot">
+        <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
+        <span className="mb-tx-foot-flow">
+          支出 <strong className="is-expense">{signedMinorText(-totals.expense)}</strong>
+          收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
+        </span>
+      </div>
+    </>
   )
 }

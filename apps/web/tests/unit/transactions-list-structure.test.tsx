@@ -2,7 +2,7 @@
  * 流水列表结构守护（HF 第四批）
  *
  * 桌面端为「无表头 + 两段式行」结构：每条记录有 mb-tx-primary / mb-tx-secondary 两个文本块，
- * 转账行金额下方有目标账户子行；正常态无复选框，批量态每行一个 checkbox。
+ * 转账行副行显示源账户 → 目的账户；正常态无复选框，批量态每行一个 checkbox。
  */
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -99,11 +99,13 @@ describe('流水列表桌面结构', () => {
     expect(screen.getAllByRole('checkbox')).toHaveLength(2)
   })
 
-  it('转账行金额下方渲染目标账户子行，非转账行不渲染', () => {
+  it('转账行副行显示源账户 → 目的账户，非转账行不显示箭头', () => {
     const { container } = renderList(false)
 
     const rows = container.querySelectorAll('.mb-tx-row')
-    expect(rows[0].querySelector('.mb-tx-amount-alt')).toBeNull()
-    expect(rows[1].querySelector('.mb-tx-amount-alt')?.textContent).toBe('→ 证券账户')
+    expect(rows[0].querySelector('.mb-tx-secondary')?.textContent).not.toContain('→')
+    expect(rows[1].querySelector('.mb-tx-secondary')?.textContent).toContain('招商储蓄卡')
+    expect(rows[1].querySelector('.mb-tx-secondary')?.textContent).toContain('→')
+    expect(rows[1].querySelector('.mb-tx-secondary')?.textContent).toContain('证券账户')
   })
 })

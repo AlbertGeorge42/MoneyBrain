@@ -20,6 +20,7 @@ import { TransactionDetail } from '@/features/overview/TransactionDetail'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { EMPTY_ADVANCED, writeFiltersToSearch } from '@/features/transactions/filters'
 import { ReportsPage } from '@/features/reports/ReportsPage'
+import { HfHeadAction } from '@/features/shared/HfHeadAction'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
@@ -182,7 +183,6 @@ function PreviewBody({
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
   const [batchMode, setBatchMode] = useState(false)
   const [displayOpen, setDisplayOpen] = useState(false)
-  const [reportSettingsOpen, setReportSettingsOpen] = useState(false)
   const [budgetEditorOpen, setBudgetEditorOpen] = useState(false)
   // 预算页「查看未来报表」的一次性入口；普通导航进报表时清掉，避免残留。
   const [reportInitialFuture, setReportInitialFuture] = useState(false)
@@ -194,7 +194,6 @@ function PreviewBody({
   useEffect(() => {
     setBatchMode(false)
     setDisplayOpen(false)
-    setReportSettingsOpen(false)
     setBudgetEditorOpen(false)
   }, [page])
 
@@ -257,7 +256,9 @@ function PreviewBody({
         onOpenAccounts={() => onPage('settings')}
         onRetry={retry}
         onCreateAccount={createAccount}
+        onRecord={() => setEntryOpen(true)}
         onImport={importLedger}
+        onOpenReports={() => onPage('reports')}
         onDrillCategory={viewFlow}
       />
     ) : page === 'transactions' ? (
@@ -270,14 +271,14 @@ function PreviewBody({
         onDisplayToggle={() => setDisplayOpen((open) => !open)}
         onRetry={retry}
         onCreateAccount={createAccount}
+        onRecord={() => setEntryOpen(true)}
         onImport={importLedger}
+        onOpenReports={() => onPage('reports')}
       />
     ) : page === 'reports' ? (
       <ReportsPage
         device={device}
         dataState={dataState}
-        settingsOpen={reportSettingsOpen}
-        onSettingsToggle={() => setReportSettingsOpen((open) => !open)}
         onRetry={retry}
         onImport={importLedger}
         onViewFlow={viewFlow}
@@ -314,27 +315,14 @@ function PreviewBody({
       hideFab={page === 'transactions' && batchMode}
       headAction={
         page === 'transactions' ? (
-          <button
-            type="button"
-            className="mb-tx-head-action"
-            aria-expanded={displayOpen}
+          <HfHeadAction
+            ariaExpanded={displayOpen}
             onClick={() => setDisplayOpen((open) => !open)}
           >
             显示
-          </button>
+          </HfHeadAction>
         ) : page === 'budgets' ? (
-          <button type="button" className="mb-bg-head-action" onClick={() => setBudgetEditorOpen(true)}>
-            新增
-          </button>
-        ) : page === 'reports' ? (
-          <button
-            type="button"
-            className="mb-rp-head-action"
-            aria-expanded={reportSettingsOpen}
-            onClick={() => setReportSettingsOpen((open) => !open)}
-          >
-            设置
-          </button>
+          <HfHeadAction onClick={() => setBudgetEditorOpen(true)}>新增</HfHeadAction>
         ) : undefined
       }
       onNavigate={navigate}
