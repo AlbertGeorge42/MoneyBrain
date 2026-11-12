@@ -1,7 +1,9 @@
 export {
   ZERO_MINOR,
   add,
+  abs,
   formatAmount,
+  formatCurrency,
   fromMajor,
   isNegative,
   isZero,
@@ -10,6 +12,7 @@ export {
   minor,
   neg,
   parseAmount,
+  round,
   sub,
   sum,
   toMajor,

@@ -1,4 +1,5 @@
-import { CURRENT_RULE_VERSION, minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { CURRENT_RULE_VERSION, add, abs, rulesFor, sum, sub, neg, ZERO_MINOR, type Minor } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
 import { buildChildrenMap } from '../../common/tree.js'
 import {
   AccountInfo,
@@ -26,7 +27,7 @@ function itemKeyOf(item: CashFlowActivityMinor['items'][number]): string {
 }
 
 export function projectionFlowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionFlowValue {
-  return { actual, planned, committed, total: minor(actual + planned + committed) }
+  return { actual, planned, committed, total: sum([actual, planned, committed]) }
 }
 
 /**
@@ -64,9 +65,9 @@ export function buildProjectionActivity(
         const itemKey = itemKeyOf(item)
         const existing = itemMap.get(itemKey)
         if (existing) {
-          if (source === 'actual') existing.actual = minor(existing.actual + item.amount)
-          else if (source === 'committed') existing.committed = minor(existing.committed + item.amount)
-          else existing.planned = minor((existing.planned ?? 0) + item.amount)
+          if (source === 'actual') existing.actual = add(existing.actual, item.amount)
+          else if (source === 'committed') existing.committed = add(existing.committed, item.amount)
+          else existing.planned = add(existing.planned ?? ZERO_MINOR, item.amount)
         } else {
           itemMap.set(itemKey, {
             categoryId: item.categoryId,
@@ -75,8 +76,8 @@ export function buildProjectionActivity(
             categoryName: item.categoryName,
             type: item.type,
             direction: item.direction,
-            actual: source === 'actual' ? item.amount : minor(0),
-            committed: source === 'committed' ? item.amount : minor(0),
+            actual: source === 'actual' ? item.amount : ZERO_MINOR,
+            committed: source === 'committed' ? item.amount : ZERO_MINOR,
             planned: source === 'planned' ? item.amount : null,
           })
         }
@@ -104,15 +105,15 @@ export function buildProjectionActivity(
         actual: child.actual,
         committed: child.committed,
         planned: child.planned,
-        total: minor(child.actual + child.committed + (child.planned ?? 0)),
+        total: sum([child.actual, child.committed, child.planned ?? ZERO_MINOR]),
       }))
 
-      const actualTotal = minor(item.actual + children.reduce((sum, child) => sum + child.actual, 0))
-      const committedTotal = minor(item.committed + children.reduce((sum, child) => sum + child.committed, 0))
+      const actualTotal = sum([item.actual, ...children.map((child) => child.actual)])
+      const committedTotal = sum([item.committed, ...children.map((child) => child.committed)])
       const plannedChildren = children.filter((child) => child.planned !== null)
       const plannedTotal = item.planned === null && plannedChildren.length === 0
         ? null
-        : minor((item.planned ?? 0) + plannedChildren.reduce((sum, child) => sum + (child.planned ?? 0), 0))
+        : sum([item.planned ?? ZERO_MINOR, ...plannedChildren.map((child) => child.planned ?? ZERO_MINOR)])
 
       return {
         categoryName: item.categoryName,
@@ -124,7 +125,7 @@ export function buildProjectionActivity(
         actual: actualTotal,
         committed: committedTotal,
         planned: plannedTotal,
-        total: minor(actualTotal + committedTotal + (plannedTotal ?? 0)),
+        total: sum([actualTotal, committedTotal, plannedTotal ?? ZERO_MINOR]),
         children: children.length > 0 ? children : undefined,
       }
     })
@@ -136,14 +137,14 @@ export function buildProjectionActivity(
     const p = pick(planned, key)
     // outflow 在 aggregate 里以负号累计，对外统一成正数。
     const inflow = projectionFlowValue(a.inflow, p.inflow, c.inflow)
-    const outflow = projectionFlowValue(minor(-a.outflow), minor(-p.outflow), minor(-c.outflow))
+    const outflow = projectionFlowValue(neg(a.outflow), neg(p.outflow), neg(c.outflow))
     return {
       inflow,
       outflow,
       net: projectionFlowValue(
-        minor(inflow.actual - outflow.actual),
-        minor(inflow.planned - outflow.planned),
-        minor(inflow.committed - outflow.committed),
+        sub(inflow.actual, outflow.actual),
+        sub(inflow.planned, outflow.planned),
+        sub(inflow.committed, outflow.committed),
       ),
       items: buildItems(key),
     }
@@ -174,7 +175,7 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
       level: item.level,
       categoryName: item.categoryName,
       actual: item.amount,
-      predicted: minor(0),
+      predicted: ZERO_MINOR,
       type: item.type,
       direction: item.direction,
     })
@@ -191,7 +192,7 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
         parentId: item.parentId,
         level: item.level,
         categoryName: item.categoryName,
-        actual: minor(0),
+        actual: ZERO_MINOR,
         predicted: item.amount,
         type: item.type,
         direction: item.direction,
@@ -216,7 +217,7 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
         categoryId: child.categoryId,
         parentId: child.parentId,
         level: child.level,
-        amount: minor(child.actual + child.predicted),
+        amount: sum([child.actual, child.predicted]),
         actual: child.actual,
         predicted: child.predicted,
         type: child.type,
@@ -224,15 +225,15 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
       }))
 
     // 累加一级分类的值 = 一级分类本身 + 所有二级子分类
-    const totalActual = minor(item.actual + children.reduce((sum, child) => sum + child.actual, 0))
-    const totalPredicted = minor(item.predicted + children.reduce((sum, child) => sum + child.predicted, 0))
+    const totalActual = sum([item.actual, ...children.map((child) => child.actual)])
+    const totalPredicted = sum([item.predicted, ...children.map((child) => child.predicted)])
 
     return {
       categoryName: item.categoryName,
       categoryId: item.categoryId,
       parentId: item.parentId,
       level: item.level,
-      amount: minor(totalActual + totalPredicted),
+      amount: sum([totalActual, totalPredicted]),
       actual: totalActual,
       predicted: totalPredicted,
       type: item.type,
@@ -245,17 +246,17 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
     inflow: { actual: actual.inflow, predicted: predicted.inflow },
     outflow: { actual: actual.outflow, predicted: predicted.outflow },
     // outflow 已是负数，net = inflow + outflow 直接相加
-    net: { actual: minor(actual.inflow + actual.outflow), predicted: minor(predicted.inflow + predicted.outflow) },
+    net: { actual: add(actual.inflow, actual.outflow), predicted: add(predicted.inflow, predicted.outflow) },
     items: treeItems,
   }
 }
 
 function addToMap(map: Map<string, Minor>, key: string, value: Minor) {
-  map.set(key, minor((map.get(key) ?? 0) + value))
+  map.set(key, add(map.get(key) ?? ZERO_MINOR, value))
 }
 
 function mapValue(map: Map<string, Minor>, key: string): Minor {
-  return map.get(key) ?? minor(0)
+  return map.get(key) ?? ZERO_MINOR
 }
 
 /**
@@ -269,23 +270,26 @@ export function buildStatement(actual: AggregatedFlows, predicted: AggregatedFlo
   reconciliation: ReportValue
   flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }>
 } {
-  const sumBucket = (flows: AggregatedFlows, field: 'inflow' | 'outflow') => minor(
-    flows.operating[field] + flows.investing[field] + flows.financing[field] + flows.uncategorized[field],
-  )
+  const sumBucket = (flows: AggregatedFlows, field: 'inflow' | 'outflow') => sum([
+    flows.operating[field],
+    flows.investing[field],
+    flows.financing[field],
+    flows.uncategorized[field],
+  ])
 
   const actualCashInflow = sumBucket(actual, 'inflow')
   const actualCashOutflow = sumBucket(actual, 'outflow')
   // outflow 已是负数，net = inflow + outflow 直接相加
-  const actualNetCashFlow = minor(actualCashInflow + actualCashOutflow)
+  const actualNetCashFlow = add(actualCashInflow, actualCashOutflow)
 
   const predictedCashInflow = sumBucket(predicted, 'inflow')
   const predictedCashOutflow = sumBucket(predicted, 'outflow')
-  const predictedNetCashFlow = minor(predictedCashInflow + predictedCashOutflow)
+  const predictedNetCashFlow = add(predictedCashInflow, predictedCashOutflow)
 
   // 合并按账户的流入流出（actual + predicted 同账户聚合；只有 predicted 的账户 actual 也补 0）
   const flowByAccount: Record<string, { inflow: ReportValue; outflow: ReportValue }> = {}
   for (const [name, flow] of Object.entries(actual.flowByAccount)) {
-    const pred = predicted.flowByAccount[name] ?? { inflow: minor(0), outflow: minor(0) }
+    const pred = predicted.flowByAccount[name] ?? { inflow: ZERO_MINOR, outflow: ZERO_MINOR }
     flowByAccount[name] = {
       inflow: { actual: flow.inflow, predicted: pred.inflow },
       outflow: { actual: flow.outflow, predicted: pred.outflow },
@@ -294,8 +298,8 @@ export function buildStatement(actual: AggregatedFlows, predicted: AggregatedFlo
   for (const [name, flow] of Object.entries(predicted.flowByAccount)) {
     if (!flowByAccount[name]) {
       flowByAccount[name] = {
-        inflow: { actual: minor(0), predicted: flow.inflow },
-        outflow: { actual: minor(0), predicted: flow.outflow },
+        inflow: { actual: ZERO_MINOR, predicted: flow.inflow },
+        outflow: { actual: ZERO_MINOR, predicted: flow.outflow },
       }
     }
   }
@@ -398,7 +402,7 @@ export function buildSankey(args: {
         const accName = toAccountName || '非现金账户'
         const fromCashName = accountName
         const toName = `${catName}-${accName}`
-        const actualOutflow = minor(Math.abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon)))
+        const actualOutflow = abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon))
         addToMap(nonCashTargetNodes_, toName, actualOutflow)
         addToMap(cashAccountFlows_, fromCashName, actualOutflow)
         if (!cashToTargetLinks_.has(fromCashName)) cashToTargetLinks_.set(fromCashName, new Map())
@@ -410,7 +414,7 @@ export function buildSankey(args: {
         const toCashName = toAccountName
         const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
         const effectiveFee = rulesFor(ruleVersion).effectiveTransferFee(fee, coupon)
-        addToMap(cashAccountFlows_, fromCashName, minor(actualInflow + effectiveFee))
+        addToMap(cashAccountFlows_, fromCashName, add(actualInflow, effectiveFee))
         addToMap(cashAccountFlows_, toCashName, actualInflow)
         if (!cashToCashLinks_.has(fromCashName)) cashToCashLinks_.set(fromCashName, new Map())
         addToMap(cashToCashLinks_.get(fromCashName)!, toCashName, actualInflow)
@@ -450,9 +454,9 @@ export function buildSankey(args: {
       t.type,
       isFromCash,
       isToCash,
-      minor(Number(t.amount)),
-      minor(Number(t.fee ?? 0)),
-      minor(Number(t.coupon ?? 0)),
+      toMinor(t.amount),
+      toMinor(t.fee),
+      toMinor(t.coupon),
       t.ruleVersion,
       t.category?.name || '未分类',
       t.account?.name,
@@ -476,9 +480,9 @@ export function buildSankey(args: {
       p.type,
       isFromCash,
       isToCash,
-      minor(p.amount),
-      minor(0),
-      minor(0),
+      toMinor(p.amount),
+      ZERO_MINOR,
+      ZERO_MINOR,
       CURRENT_RULE_VERSION,
       category?.name,
       account?.name,
@@ -557,7 +561,7 @@ export function buildSankey(args: {
       for (const targetName of allTargets) {
         const actualAmount = mapValue(actualTargets, targetName)
         const predictedAmount = mapValue(predictedTargets, targetName)
-        const totalAmount = minor(actualAmount + predictedAmount)
+        const totalAmount = add(actualAmount, predictedAmount)
 
         if (totalAmount > 0) {
           const sourceKey = mode === 'source-to-cash'

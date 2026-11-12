@@ -4,7 +4,7 @@ import * as accountCategoryRepo from '../../db/repositories/account-category.rep
 import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { rootLogger } from '../../common/index.js'
-import { minor } from '../../../../../packages/domain/src/index.js'
+import { sum, sub, type Minor } from '../../../../../packages/domain/src/index.js'
 import { getPredictionsIfFuture, computePredictedAccountTotal, PREDICTION_NOTE_DEFAULT } from './prediction.js'
 import { resolveReportPeriod } from './period.js'
 import {
@@ -95,9 +95,9 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
 
   // 6. 期初 / 期末现金余额
   const balanceCache = await calculateBalancesBatch(cashAccountIds, [start, nextDayOfEnd])
-  const actualStartCash = minor(cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, start), 0))
-  const actualEndCash = minor(cashAccountIds.reduce((sum, id) => sum + balanceCache.get(id, nextDayOfEnd), 0))
-  const actualCashChange = minor(actualEndCash - actualStartCash)
+  const actualStartCash = sum(cashAccountIds.map((id) => (balanceCache.get(id, start) ?? 0) as Minor))
+  const actualEndCash = sum(cashAccountIds.map((id) => (balanceCache.get(id, nextDayOfEnd) ?? 0) as Minor))
+  const actualCashChange = sub(actualEndCash, actualStartCash)
 
   // 期初/期末现金预测：统一调用 computePredictedAccountTotal，
   // 不再依赖隐式排序、也不重复 income/expense/transfer 分支。
@@ -122,7 +122,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     flowByAccount: statement.flowByAccount,
     startCash: { actual: actualStartCash, predicted: predictedStartCash },
     endCash: { actual: actualEndCash, predicted: predictedEndCash },
-    cashChange: { actual: actualCashChange, predicted: minor(predictedEndCash - predictedStartCash) },
+    cashChange: { actual: actualCashChange, predicted: sub(predictedEndCash, predictedStartCash) },
     byActivity: statement.byActivity,
     sankey,
     predictionNote,

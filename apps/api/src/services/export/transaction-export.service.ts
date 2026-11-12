@@ -1,6 +1,7 @@
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { escapeCsvField } from '../../common/utils.js'
-import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
+import { formatAmount } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
 import { TRANSACTION_CSV_HEADER } from '../import/shared.js'
 
 /** 固定本地时间格式，避免不同区域设置导出成无法回读的日期。 */
@@ -68,12 +69,12 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
     else if (t.type === 'adjustment') type = '调整'
     else type = '支出'
 
-    const amount = formatAmount(minor(Number(t.amount)))
+    const amount = formatAmount(toMinor(t.amount))
     const currency = 'CNY'
     const account1 = t.account?.name || ''
     const account2 = t.toAccount?.name || ''
-    const fee = formatAmount(minor(Number(t.fee ?? 0)))
-    const coupon = formatAmount(minor(Number(t.coupon ?? 0)))
+    const fee = formatAmount(toMinor(t.fee))
+    const coupon = formatAmount(toMinor(t.coupon))
     const recorder = 'MoneyBrain'
     const billMark = t.excludeFromIncomeExpense ? '不计收支' : ''
     // 当前数据模型没有标签、账单图片与报销字段，保留空列以兼容旧 CSV 表头。

@@ -1,9 +1,9 @@
 import {
   fromDate,
-  minor,
   type LedgerTransaction,
   type TransactionKind,
 } from '../../../../packages/domain/src/index.js'
+import { toMinor } from '../common/index.js'
 
 /**
  * 旧 Prisma 交易 → 领域交易。
@@ -59,9 +59,9 @@ export function toLedgerTransaction(source: LedgerSource): LedgerTransaction {
     date: fromDate(source.date),
     // 写入边界（transaction.service.ts 的 normalizeExpenseAmount）已保证支出为正的金额大小；
     // 这里只做纯映射，不再按类型翻转符号——否则会把数据问题长期掩盖在读路径里。
-    amount: minor(Number(source.amount)),
-    fee: minor(Number(source.fee ?? 0)),
-    coupon: minor(Number(source.coupon ?? 0)),
+    amount: toMinor(source.amount),
+    fee: toMinor(source.fee),
+    coupon: toMinor(source.coupon),
     accountId: source.accountId,
     toAccountId: source.toAccountId ?? null,
     categoryId: source.categoryId ?? null,

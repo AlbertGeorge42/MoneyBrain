@@ -1,6 +1,7 @@
 import { escapeCsvField } from '../../common/utils.js'
 import { formatDateLocal } from '../../common/index.js'
-import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
+import { formatAmount } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import { SNAPSHOT_ITEMS_RELATIONS } from '../../db/repositories/investment-allocation-snapshot.repository.js'
 
@@ -37,7 +38,7 @@ export async function exportInvestmentSnapshotsCSV(): Promise<string> {
     const commonFields = [
       escapeCsvField(s.account.name),
       escapeCsvField(formatDateLocal(s.date)),
-      escapeCsvField(formatAmount(minor(Number(s.accountBalance)))),
+      escapeCsvField(formatAmount(toMinor(s.accountBalance))),
       escapeCsvField(s.previousSnapshot ? formatDateLocal(s.previousSnapshot.date) : ''),
       escapeCsvField(s.note ?? '')
     ]
@@ -50,8 +51,8 @@ export async function exportInvestmentSnapshotsCSV(): Promise<string> {
         rows.push([
           ...commonFields,
           escapeCsvField(item.assetClass.name),
-          escapeCsvField(formatAmount(minor(Number(item.marketValue)))),
-          escapeCsvField(formatAmount(minor(Number(item.periodNetFlow)))),
+          escapeCsvField(formatAmount(toMinor(item.marketValue))),
+          escapeCsvField(formatAmount(toMinor(item.periodNetFlow))),
           escapeCsvField(item.sort)
         ].join(','))
       }

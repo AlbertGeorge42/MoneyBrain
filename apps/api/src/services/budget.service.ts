@@ -4,7 +4,7 @@ import type {
   BudgetPeriodPlanResult,
   ProjectionGranularity,
 } from '../../../../packages/contracts/types/index.js'
-import { NotFoundError, ValidationError, formatDateLocal, parseDateLocal } from '../common/index.js'
+import { NotFoundError, ValidationError, formatDateLocal, parseDateLocal, toMinor } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
@@ -13,10 +13,14 @@ import * as budgetRepo from '../db/repositories/budget.repository.js'
 import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
+  ZERO_MINOR,
+  add,
   fromDate,
+  max,
   minor,
   periodOf,
   rulesFor,
+  sub,
   type BudgetKind,
   type BudgetScope,
   type LocalDate,
@@ -270,7 +274,7 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
     relatedType: row.relatedType,
     excludeFromIncomeExpense: row.excludeFromIncomeExpense,
     ruleVersion: row.ruleVersion,
-    amount: minor(Number(row._sum.amount ?? 0)),
+    amount: toMinor(row._sum.amount),
   }))
 }
 
@@ -344,12 +348,12 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
   for (const row of rows) {
     const sign = budgetContributionSign(row, scope)
     if (sign === 0) continue
-    used = minor(used + sign * row.amount)
+    used = sign > 0 ? add(used, row.amount) : sub(used, row.amount)
   }
 
   // 跨期退款会让本期已用为负；下限夹到 0，剩余不得超过额度
-  const clamped = minor(Math.max(used, 0))
-  const amount = minor(Number(budget.amount))
+  const clamped = max(used, ZERO_MINOR)
+  const amount = toMinor(budget.amount)
   // 使用率返回真实百分比，超支时 >100 不截断（C3）；
   // 前端进度条条宽自行封顶，文本必须显示真实值
   const percentage = amount === 0
@@ -359,7 +363,7 @@ function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusRe
   return {
     budget,
     used: clamped,
-    remaining: minor(Math.max(amount - clamped, 0)),
+    remaining: max(sub(amount, clamped), ZERO_MINOR),
     percentage,
     isOverBudget: clamped > amount,
   }
@@ -448,9 +452,9 @@ export async function getBudgetUsageDetails(budgetId: string) {
     )
     if (sign === 0) continue
 
-    const signedAmount = minor(sign * Number(transaction.amount))
+    const signedAmount = toMinor(sign * Number(transaction.amount))
     list.push({ transaction, signedAmount })
-    total = minor(total + signedAmount)
+    total = add(total, signedAmount)
   }
 
   // 已用与预算状态同款下限：跨期退款让本期明细合计为负时夹到 0
@@ -458,7 +462,7 @@ export async function getBudgetUsageDetails(budgetId: string) {
     list,
     count: list.length,
     total,
-    used: minor(Math.max(total, 0)),
+    used: max(total, ZERO_MINOR),
   }
 }
 
@@ -746,7 +750,7 @@ export async function buildBudgetPeriodPlan(
       expense: minor(0),
       transfer: minor(0),
     }
-    totals[type] = minor(totals[type] + prediction.amount)
+    totals[type] = add(totals[type], toMinor(prediction.amount))
     point.totals = totals
     point.hasBudget = true
   }

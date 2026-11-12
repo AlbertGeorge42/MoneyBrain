@@ -3,7 +3,7 @@ import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { calculateBalancesBatch } from './balance.service.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
-import { CURRENT_RULE_VERSION, fromDate, minor } from '../../../../packages/domain/src/index.js'
+import { CURRENT_RULE_VERSION, formatCurrency, fromDate, minor } from '../../../../packages/domain/src/index.js'
 import type { AccountReconcileResult } from '../../../../packages/contracts/types/index.js'
 
 /**
@@ -23,8 +23,7 @@ export interface ReconcileInput {
 }
 
 function formatMoney(amount: number): string {
-  const abs = Math.abs(amount)
-  return `${amount < 0 ? '-' : ''}¥${(abs / 100).toFixed(2)}`
+  return formatCurrency(minor(amount))
 }
 
 function buildNote(bookBalance: number, actualBalance: number, extra?: string): string {

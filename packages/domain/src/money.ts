@@ -56,6 +56,19 @@ export function formatAmount(value: Minor): string {
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`
 }
 
+/**
+ * 分 → 「¥1,234.56」展示字符串（带货币符号与千分位），用于错误文案、对账备注等展示场景。
+ * 走 Intl，避免各模块手写 (amount/100).toFixed(2) 造成展示口径漂移。
+ */
+const CNY_FORMATTER = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+})
+
+export function formatCurrency(value: Minor): string {
+  return CNY_FORMATTER.format(value / 100)
+}
+
 export function add(a: Minor, b: Minor): Minor {
   return minor(a + b)
 }
@@ -86,4 +99,14 @@ export function isZero(value: Minor): boolean {
 
 export function isNegative(value: Minor): boolean {
   return value < 0
+}
+
+/** 绝对值。 */
+export function abs(value: Minor): Minor {
+  return (value < 0 ? -value : value) as Minor
+}
+
+/** 四舍五入到最近的整数分（输入可为小数分，用于比例/再平衡等派生金额）。 */
+export function round(value: number): Minor {
+  return Math.round(value) as Minor
 }

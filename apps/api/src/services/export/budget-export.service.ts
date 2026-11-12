@@ -1,5 +1,6 @@
 import { formatDateLocal } from '../../common/index.js'
-import { formatAmount, minor } from '../../../../../packages/domain/src/index.js'
+import { formatAmount } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
 import * as budgetRepo from '../../db/repositories/budget.repository.js'
 
 interface ExportBudget {
@@ -31,7 +32,7 @@ export async function exportBudgets(): Promise<string> {
   const exportBudgets: ExportBudget[] = budgets.map((b) => ({
     name: b.name,
     type: b.type,
-    amount: formatAmount(minor(Number(b.amount))),
+    amount: formatAmount(toMinor(b.amount)),
     period: b.period,
     // 用本地格式导出，避免 toISOString() 在 UTC+8 下把本地零点日期导出成前一天
     startDate: formatDateLocal(b.startDate),

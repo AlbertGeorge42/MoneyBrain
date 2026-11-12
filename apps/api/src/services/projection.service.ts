@@ -10,6 +10,7 @@ import type {
   ProjectionFlowValue,
   ProjectionGranularity,
 } from '../../../../packages/contracts/types/index.js'
+import { toMinor } from '../common/index.js'
 import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
 import type { AccountWithCategory } from '../db/repositories/account.repository.js'
@@ -17,11 +18,14 @@ import * as transactionCategoryRepo from '../db/repositories/transaction-categor
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
   ZERO_MINOR,
+  add,
   addDays,
   fromDate,
-  minor,
+  neg,
   postingsOf,
   rulesFor,
+  sub,
+  sum,
   type LedgerTransaction,
   type LocalDate,
   type Minor,
@@ -78,20 +82,20 @@ function applyEventToBalances(balances: Map<string, number>, event: ProjectionEv
 function aggregateBalances(accounts: Account[], balances: Map<string, number>): ProjectionBalance {
   return sumAssetsLiabilities(
     accounts.map((account) => ({ type: account.type, id: account.id })),
-    (account) => minor(balances.get(account.id) ?? 0),
+    (account) => toMinor(balances.get(account.id) ?? 0),
   )
 }
 
 function addBalance(a: ProjectionBalance, b: ProjectionBalance): ProjectionBalance {
   return {
-    assets: minor(a.assets + b.assets),
-    liabilities: minor(a.liabilities + b.liabilities),
-    netWorth: minor(a.netWorth + b.netWorth),
+    assets: add(a.assets, b.assets),
+    liabilities: add(a.liabilities, b.liabilities),
+    netWorth: add(a.netWorth, b.netWorth),
   }
 }
 
 function zeroBalance(): ProjectionBalance {
-  return { assets: minor(0), liabilities: minor(0), netWorth: minor(0) }
+  return { assets: ZERO_MINOR, liabilities: ZERO_MINOR, netWorth: ZERO_MINOR }
 }
 
 async function balancesAt(accounts: Account[], dateExclusive: LocalDate): Promise<Map<string, number>> {
@@ -103,12 +107,12 @@ async function balancesAt(accounts: Account[], dateExclusive: LocalDate): Promis
 
 /** 账户对外展示值：资产取原值，负债取正数欠款（与资产负债表同一口径）。 */
 function accountLevelValue(type: string, balance: number): Minor {
-  return type === 'liability' ? minor(Math.abs(balance)) : minor(balance)
+  return type === 'liability' ? toMinor(Math.abs(balance)) : toMinor(balance)
 }
 
 /** 账户变化量对外展示值：负债账户余额减少 = 欠款减少，所以要取负号。 */
 function accountLevelDelta(type: string, delta: number): Minor {
-  return type === 'liability' ? minor(-delta) : minor(delta)
+  return type === 'liability' ? toMinor(-delta) : toMinor(delta)
 }
 
 /**
@@ -140,7 +144,7 @@ function buildAccountDetail(
       actual,
       committed,
       planned,
-      total: minor(actual + committed + planned),
+      total: sum([actual, committed, planned]),
       hasFutureEvents: touchedAccounts.has(account.id),
       valuationNote: isInvestment ? 'transfer_schedule_only' : null,
     })
@@ -152,10 +156,10 @@ function buildAccountDetail(
     const key = `${value.type}:${value.categoryId}`
     const existing = categoryMap.get(key)
     if (existing) {
-      existing.actual = minor(existing.actual + value.actual)
-      existing.committed = minor(existing.committed + value.committed)
-      existing.planned = minor(existing.planned + value.planned)
-      existing.total = minor(existing.total + value.total)
+      existing.actual = add(existing.actual, value.actual)
+      existing.committed = add(existing.committed, value.committed)
+      existing.planned = add(existing.planned, value.planned)
+      existing.total = add(existing.total, value.total)
     } else {
       categoryMap.set(key, {
         categoryId: value.categoryId,
@@ -318,18 +322,16 @@ function cashFlowOf(ledger: LedgerTransaction, cashAccountIds: ReadonlySet<strin
     }
   }
 
-  let inflow = 0
-  let outflow = 0
-  for (const posting of postingsOf(ledger)) {
-    if (posting.kind !== 'account' || !cashAccountIds.has(posting.accountId)) continue
-    if (posting.amount > 0) inflow += posting.amount
-    else if (posting.amount < 0) outflow -= posting.amount
-  }
-  return { inflow: minor(inflow), outflow: minor(outflow) }
+  const cashPostings = postingsOf(ledger).filter(
+    (posting) => posting.kind === 'account' && cashAccountIds.has(posting.accountId),
+  )
+  const inflow = sum(cashPostings.filter((posting) => posting.amount > 0).map((posting) => posting.amount))
+  const outflow = neg(sum(cashPostings.filter((posting) => posting.amount < 0).map((posting) => posting.amount)))
+  return { inflow, outflow }
 }
 
 function cashBalanceTotal(balances: Map<string, number>): Minor {
-  return minor([...balances.values()].reduce((sum, value) => sum + value, 0))
+  return sum([...balances.values()].map((value) => value as Minor))
 }
 
 /**
@@ -401,7 +403,7 @@ async function cashFlowProjectionRange(
       preNet += flow.inflow - flow.outflow
       eventIndex += 1
     }
-    startCash = minor(cashBalanceTotal(baseBalances) + preNet)
+    startCash = add(cashBalanceTotal(baseBalances), toMinor(preNet))
   }
 
   let runningCash = startCash
@@ -432,16 +434,16 @@ async function cashFlowProjectionRange(
       eventIndex += 1
     }
 
-    const inflow = projectionFlowValue(minor(actualInflow), minor(plannedInflow), minor(committedInflow))
-    const outflow = projectionFlowValue(minor(actualOutflow), minor(plannedOutflow), minor(committedOutflow))
+    const inflow = projectionFlowValue(toMinor(actualInflow), toMinor(plannedInflow), toMinor(committedInflow))
+    const outflow = projectionFlowValue(toMinor(actualOutflow), toMinor(plannedOutflow), toMinor(committedOutflow))
     const net = projectionFlowValue(
-      minor(inflow.actual - outflow.actual),
-      minor(inflow.planned - outflow.planned),
-      minor(inflow.committed - outflow.committed),
+      sub(inflow.actual, outflow.actual),
+      sub(inflow.planned, outflow.planned),
+      sub(inflow.committed, outflow.committed),
     )
 
     const start = runningCash
-    const endCash = minor(start + net.total)
+    const endCash = add(start, net.total)
     runningCash = endCash
 
     return {
@@ -531,10 +533,10 @@ async function cashFlowProjectionRange(
   const sumFlow = (field: 'inflow' | 'outflow' | 'net'): ProjectionFlowValue =>
     points.reduce(
       (acc, point) => ({
-        actual: minor(acc.actual + point[field].actual),
-        planned: minor(acc.planned + point[field].planned),
-        committed: minor(acc.committed + point[field].committed),
-        total: minor(acc.total + point[field].total),
+        actual: add(acc.actual, point[field].actual),
+        planned: add(acc.planned, point[field].planned),
+        committed: add(acc.committed, point[field].committed),
+        total: add(acc.total, point[field].total),
       }),
       { actual: ZERO_MINOR, planned: ZERO_MINOR, committed: ZERO_MINOR, total: ZERO_MINOR },
     )

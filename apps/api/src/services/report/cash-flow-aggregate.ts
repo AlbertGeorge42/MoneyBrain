@@ -1,4 +1,4 @@
-import { minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { abs, add, neg, sub, ZERO_MINOR, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import { AggregatedFlows, CashFlowActivityMinor, ProcessedTx } from './cash-flow-types.js'
 
 // 查找或新增 activity item：相同 categoryName + direction 累加金额，否则新增
@@ -12,14 +12,14 @@ function upsertActivityItem(
   const sign = direction === 'inflow' ? 1 : -1
   const existing = items.find(item => item.categoryName === categoryName && item.direction === direction)
   if (existing) {
-    existing.amount = minor(existing.amount + sign * amount)
+    existing.amount = sign > 0 ? add(existing.amount, amount) : sub(existing.amount, amount)
   } else {
     items.push({
       categoryName,
       categoryId: meta.categoryId,
       parentId: meta.parentId,
       level: meta.level,
-      amount: minor(sign * amount),
+      amount: sign > 0 ? amount : neg(amount),
       type: meta.type,
       direction,
     })
@@ -37,10 +37,10 @@ function addTransaction(
   direction: 'inflow' | 'outflow',
 ) {
   if (direction === 'inflow') {
-    activity.inflow = minor(activity.inflow + amount)
+    activity.inflow = add(activity.inflow, amount)
   } else {
     // 符号约定：outflow 累加为负，使 net = inflow + outflow 直接成立
-    activity.outflow = minor(activity.outflow - amount)
+    activity.outflow = sub(activity.outflow, amount)
   }
   // 查找是否已存在相同类别名称的 item，如果存在则累加金额
   upsertActivityItem(activity.items, amount, categoryName, direction, {
@@ -65,9 +65,9 @@ function addTransferFlow(
   ruleVersion: number,
 ) {
   if (isOutflow) {
-    const actualOutflow = minor(Math.abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon)))
+    const actualOutflow = abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon))
     // 符号约定：outflow 累加为负
-    activity.outflow = minor(activity.outflow - actualOutflow)
+    activity.outflow = sub(activity.outflow, actualOutflow)
     const categoryName = fromName || '转账转出'
     upsertActivityItem(activity.items, actualOutflow, categoryName, 'outflow', {
       categoryId,
@@ -78,7 +78,7 @@ function addTransferFlow(
   } else {
     // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
     const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
-    activity.inflow = minor(activity.inflow + actualInflow)
+    activity.inflow = add(activity.inflow, actualInflow)
     const categoryName = toName || '转账转入'
     upsertActivityItem(activity.items, actualInflow, categoryName, 'inflow', {
       categoryId,
@@ -94,12 +94,12 @@ function addTransferFlow(
  * 同一函数对 actual 和 predicted 通用：通过传入的 buckets 区分目标。
  */
 export function aggregate(items: ProcessedTx[]): AggregatedFlows {
-  const operating: CashFlowActivityMinor = { inflow: minor(0), outflow: minor(0), items: [] }
-  const investing: CashFlowActivityMinor = { inflow: minor(0), outflow: minor(0), items: [] }
-  const financing: CashFlowActivityMinor = { inflow: minor(0), outflow: minor(0), items: [] }
-  const uncategorized: CashFlowActivityMinor = { inflow: minor(0), outflow: minor(0), items: [] }
+  const operating: CashFlowActivityMinor = { inflow: ZERO_MINOR, outflow: ZERO_MINOR, items: [] }
+  const investing: CashFlowActivityMinor = { inflow: ZERO_MINOR, outflow: ZERO_MINOR, items: [] }
+  const financing: CashFlowActivityMinor = { inflow: ZERO_MINOR, outflow: ZERO_MINOR, items: [] }
+  const uncategorized: CashFlowActivityMinor = { inflow: ZERO_MINOR, outflow: ZERO_MINOR, items: [] }
   const flowByAccount: Record<string, { inflow: Minor; outflow: Minor }> = {}
-  let reconciliation = minor(0)
+  let reconciliation = ZERO_MINOR
 
   const getTargetByType = (cashFlowType: string | null): CashFlowActivityMinor =>
     cashFlowType === 'investing' ? investing :
@@ -107,7 +107,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
     cashFlowType === 'operating' ? operating : uncategorized
 
   const getOrCreateAccountFlow = (name: string) => {
-    if (!flowByAccount[name]) flowByAccount[name] = { inflow: minor(0), outflow: minor(0) }
+    if (!flowByAccount[name]) flowByAccount[name] = { inflow: ZERO_MINOR, outflow: ZERO_MINOR }
     return flowByAccount[name]
   }
 
@@ -121,7 +121,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         it.amount, 'income', 'inflow',
       )
       const accountFlow = getOrCreateAccountFlow(it.accountName)
-      accountFlow.inflow = minor(accountFlow.inflow + it.amount)
+      accountFlow.inflow = add(accountFlow.inflow, it.amount)
     } else if (it.type === 'expense' && it.isFromCash) {
       addTransaction(
         target, it.categoryName, it.categoryId, it.parentId, it.level,
@@ -129,7 +129,7 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
       )
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       // 符号约定：outflow 累加为负
-      accountFlow.outflow = minor(accountFlow.outflow - it.amount)
+      accountFlow.outflow = sub(accountFlow.outflow, it.amount)
     } else if (it.type === 'transfer') {
       if (it.isFromCash && !it.isToCash) {
         // 转出：原行为区分 actual('未分类') / predicted('转账转出') 默认值
@@ -139,9 +139,9 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
           it.amount, it.fee, it.coupon, true, it.ruleVersion,
         )
         const accountFlow = getOrCreateAccountFlow(it.accountName)
-        const actualOutflow = minor(Math.abs(rules.transferOutflow(it.amount, it.fee, it.coupon)))
+        const actualOutflow = abs(rules.transferOutflow(it.amount, it.fee, it.coupon))
         // 符号约定：outflow 累加为负
-        accountFlow.outflow = minor(accountFlow.outflow - actualOutflow)
+        accountFlow.outflow = sub(accountFlow.outflow, actualOutflow)
       } else if (!it.isFromCash && it.isToCash && it.toAccountName) {
         // 转入：原行为区分 actual('未分类') / predicted('转账转入') 默认值
         const toName = it.categoryName || (it.isPredicted ? '转账转入' : '未分类')
@@ -152,11 +152,11 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
         const accountFlow = getOrCreateAccountFlow(it.toAccountName)
         // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
         const actualInflow = rules.transferInflow(it.amount)
-        accountFlow.inflow = minor(accountFlow.inflow + actualInflow)
+        accountFlow.inflow = add(accountFlow.inflow, actualInflow)
       }
     } else if (it.type === 'adjustment' && it.isFromCash) {
       // 平账只改变账户余额，不是一笔资金流入/流出：单列累计，不进任何活动桶。
-      reconciliation = minor(reconciliation + it.amount)
+      reconciliation = add(reconciliation, it.amount)
     } else if (it.type === 'refund' && it.isFromCash) {
       // 退款方向由原交易类型决定（领域层规则）：
       // 收入退款 = 钱流出账户 → 现金流为流出；支出退款 = 钱流回账户 → 流入。
@@ -170,10 +170,10 @@ export function aggregate(items: ProcessedTx[]): AggregatedFlows {
       )
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       if (direction === 'inflow') {
-        accountFlow.inflow = minor(accountFlow.inflow + it.amount)
+        accountFlow.inflow = add(accountFlow.inflow, it.amount)
       } else {
         // 符号约定：outflow 累加为负
-        accountFlow.outflow = minor(accountFlow.outflow - it.amount)
+        accountFlow.outflow = sub(accountFlow.outflow, it.amount)
       }
     }
   }

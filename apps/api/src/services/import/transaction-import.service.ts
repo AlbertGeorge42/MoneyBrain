@@ -1,7 +1,7 @@
 // ─── CSV 事务导入 ───
 
 import crypto from 'crypto'
-import { formatAmount, fromDate, minor, parseAmount, CURRENT_RULE_VERSION, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { abs, formatAmount, fromDate, parseAmount, ZERO_MINOR, CURRENT_RULE_VERSION, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
 import {
   type AccountCache,
   type ImportContext,
@@ -562,16 +562,31 @@ function parseRuleVersion(value: string): number {
  * CSV 金额边界归一：外部账本可能带浮点尾差（如 9.969999999999999），
  * 超过两位小数时四舍五入到分；其余情况仍走 parseAmount 的严格校验。
  * 只做数值归一，不放宽金额合法性（非数字、空值照旧拒绝）。
+ *
+ * 浮点尾差用「整数分 + 字符串截取」算法四舍五入，绝不走 Number(raw) * 100——
+ * 否则 8.115 * 100 会变成 811.4999… 而差 1 分。所有分支最终都收口到 parseAmount。
  */
 function parseCsvMoney(value: string, onAutoFix?: () => void): Minor {
   const raw = value.trim()
   const match = /^(-?\d+)(?:\.(\d+))?$/.exec(raw)
   if (match && (match[2]?.length ?? 0) > 2) {
-    const cents = Math.round(Number(raw) * 100)
     onAutoFix?.()
-    return minor(cents)
+    return parseAmount(roundCentsToTwo(raw))
   }
   return parseAmount(raw)
+}
+
+/** 把「超过两位小数的金额字符串」按分四舍五入到 2 位小数，返回 2 位小数的元字符串；全程字符串运算，不触发浮点误差。 */
+function roundCentsToTwo(raw: string): string {
+  const negative = raw.startsWith('-')
+  const unsigned = negative ? raw.slice(1) : raw
+  const [intPart, fracPart = ''] = unsigned.split('.')
+  const frac3 = (fracPart + '000').slice(0, 3)
+  const centsFromFrac = Math.round(Number(frac3) / 10)
+  const cents = Number(intPart) * 100 + centsFromFrac
+  const yuanInt = Math.floor(cents / 100)
+  const yuanFrac = cents % 100
+  return `${negative ? '-' : ''}${yuanInt}.${String(yuanFrac).padStart(2, '0')}`
 }
 
 function parseRowBasicFields(row: ParsedRow): ParsedRowBasics {
@@ -691,9 +706,9 @@ function parseCsvFile(
         account1: record.账户1,
         account2: record.账户2,
         note: record.备注,
-        fee: feeStr ? parseCsvMoney(feeStr, onAutoFix) : minor(0),
+        fee: feeStr ? parseCsvMoney(feeStr, onAutoFix) : ZERO_MINOR,
         // 优惠券只是「省了多少」的展示信息（元），不参与任何收支/预算/报表合计。
-        coupon: couponStr ? parseCsvMoney(couponStr, onAutoFix) : minor(0),
+        coupon: couponStr ? parseCsvMoney(couponStr, onAutoFix) : ZERO_MINOR,
         relatedCsvId: record.关联账单,
         // 账单标记列值为「不计收支」（容错首尾空格）
         excludeFromIncomeExpense: (record['账单标记'] || '').trim() === '不计收支',
@@ -777,7 +792,7 @@ async function importTransactionsFromRows(
       const amount =
         basics.type === 'adjustment' || preserveAmountSign
           ? basics.amount
-          : minor(Math.abs(basics.amount))
+          : abs(basics.amount)
       const importKey = makeImportKey(row.csvId, [
         fromDate(basics.date),
         basics.type,
@@ -889,7 +904,7 @@ async function importTransactionsFromRows(
 
       const accountData = await getOrCreateAccount(row.account1, ctx, client)
       const id = crypto.randomUUID()
-      const refundAmount = preserveAmountSign ? amount : minor(Math.abs(amount))
+      const refundAmount = preserveAmountSign ? amount : abs(amount)
       const importKey = makeImportKey(row.csvId, [
         fromDate(date),
         'refund',

@@ -1,4 +1,5 @@
 import { calculateBalancesBatch } from '../balance.service.js'
+import { toMinor } from '../../common/index.js'
 import { rootLogger } from '../../common/index.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
@@ -7,11 +8,15 @@ import { toLedgerTransaction } from '../ledger.adapter.js'
 import {
   flowByCategory,
   fromDate,
-  minor,
   postingsOf,
   summarizeFlows,
   UNCATEGORIZED_CATEGORY_ID,
   ZERO_MINOR,
+  add,
+  sub,
+  sum,
+  max,
+  neg,
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
 import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT } from './prediction.js'
@@ -99,19 +104,19 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       // 转账不是收入或支出，不应该计入收入支出报表
       if (p.type === 'transfer') return
       if (p.type === 'income') {
-        pIncome = minor(pIncome + p.amount)
+        pIncome = add(pIncome, toMinor(p.amount))
       } else if (p.type === 'expense') {
-        pExpense = minor(pExpense + p.amount)
+        pExpense = add(pExpense, toMinor(p.amount))
       }
       if (p.categoryId) {
-        predictedById[p.categoryId] = minor((predictedById[p.categoryId] ?? 0) + p.amount)
+        predictedById[p.categoryId] = add(predictedById[p.categoryId] ?? ZERO_MINOR, toMinor(p.amount))
       }
     })
     predictionNote = PREDICTION_NOTE_DEFAULT
   }
 
-  const actualBalance = minor(netIncome - netExpense)
-  const predictedBalance = minor(pIncome - pExpense)
+  const actualBalance = sub(netIncome, netExpense)
+  const predictedBalance = sub(pIncome, pExpense)
 
   const incomeByCategory: Record<string, Minor> = {}
   const expenseByCategory: Record<string, Minor> = {}
@@ -141,7 +146,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     // 转账分类不应该出现在收入支出报表中
     if (cat.type === 'transfer') continue
     const target = cat.type === 'income' ? leafPredictedIncome : leafPredictedExpense
-    target[catId] = minor((target[catId] ?? 0) + pAmount)
+    target[catId] = add(target[catId] ?? ZERO_MINOR, pAmount)
   }
 
   function buildTree(type: 'income' | 'expense', parentId: string | null): ReportCategoryDetail[] {
@@ -165,13 +170,13 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       // 无自身数据且子树无产出 → 完全空节点，跳过
       if (!hasOwnData && childLeaves.length === 0) continue
 
-      const childrenActual = childLeaves.reduce((s, c) => s + c.actual, 0)
-      const childrenPredicted = childLeaves.reduce((s, c) => s + c.predicted, 0)
+      const childrenActual = sum(childLeaves.map((c) => c.actual))
+      const childrenPredicted = sum(childLeaves.map((c) => c.predicted))
 
       result.push({
         name: cat.name,
-        actual: minor(catActual + childrenActual),
-        predicted: minor(catPredicted + childrenPredicted),
+        actual: sum([catActual, childrenActual]),
+        predicted: sum([catPredicted, childrenPredicted]),
         categoryId: cat.id,
         hasChildren,
         sort: cat.sort,
@@ -210,12 +215,12 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
   for (const [catId, amount] of netIncomeByCategory) {
     const cat = categoryMap.get(catId)
     const key = cat?.name ?? '未分类'
-    incomeByCategory[key] = minor((incomeByCategory[key] ?? 0) + amount)
+    incomeByCategory[key] = add(incomeByCategory[key] ?? ZERO_MINOR, amount)
   }
   for (const [catId, amount] of netExpenseByCategory) {
     const cat = categoryMap.get(catId)
     const key = cat?.name ?? '未分类'
-    expenseByCategory[key] = minor((expenseByCategory[key] ?? 0) + amount)
+    expenseByCategory[key] = add(expenseByCategory[key] ?? ZERO_MINOR, amount)
   }
 
   const accounts = await accountRepo.findMany({})
@@ -226,7 +231,7 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
 
   // 期初期末资产/负债/净资产
   const accountGetValue = (account: { id: string; type: string }, date: Date) =>
-    minor(balanceCache.get(account.id, date))
+    toMinor(balanceCache.get(account.id, date))
 
   const startResult = sumAssetsLiabilities(
     accounts.map(a => ({ id: a.id, type: a.type })),
@@ -267,42 +272,51 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
       relatedType: tx.relatedType,
       excludeFromIncomeExpense: tx.excludeFromIncomeExpense,
     })
-    return minor(
+    return sum(
       postingsOf(ledgerTx)
         .filter((posting) => posting.kind === 'account')
-        .reduce((total, posting) => total + posting.amount, 0),
+        .map((posting) => posting.amount),
     )
   }
 
-  const excludedNet = balanceOnlyTransactions
-    .filter((tx) => tx.excludeFromIncomeExpense)
-    .reduce((total, tx) => total + netWorthEffect(tx), 0)
-  const transferFee = balanceOnlyTransactions
-    .filter((tx) => tx.type === 'transfer')
-    .reduce((total, tx) => total + Math.max(Number(tx.fee) - Number(tx.coupon), 0), 0)
-  const adjustmentNet = balanceOnlyTransactions
-    .filter((tx) => tx.type === 'adjustment')
-    .reduce((total, tx) => total + netWorthEffect(tx), 0)
+  const excludedNet = sum(
+    balanceOnlyTransactions
+      .filter((tx) => tx.excludeFromIncomeExpense)
+      .map((tx) => netWorthEffect(tx)),
+  )
+  const transferFee = sum(
+    balanceOnlyTransactions
+      .filter((tx) => tx.type === 'transfer')
+      .map((tx) => max(sub(toMinor(tx.fee), toMinor(tx.coupon)), ZERO_MINOR)),
+  )
+  const adjustmentNet = sum(
+    balanceOnlyTransactions
+      .filter((tx) => tx.type === 'adjustment')
+      .map((tx) => netWorthEffect(tx)),
+  )
 
   // 早于开户日的交易：进收支统计，但不进余额
-  const preOpeningFlow = [...transactions, ...balanceOnlyTransactions]
-    .filter((tx) => {
-      const opening = openingDateOf.get(tx.accountId)
-      return opening !== null && opening !== undefined && fromDate(tx.date) < opening
-    })
-    .filter((tx) => (includeExcluded ? true : !tx.excludeFromIncomeExpense))
-    .reduce((total, tx) => {
-      const amount = minor(Number(tx.amount))
-      if (tx.type === 'income') return total + amount
-      if (tx.type === 'expense') return total - amount
-      if (tx.type === 'refund' && tx.relatedType === 'income') return total - amount
-      if (tx.type === 'refund' && tx.relatedType === 'expense') return total + amount
-      return total
-    }, 0)
+  const preOpeningFlow = sum(
+    [...transactions, ...balanceOnlyTransactions]
+      .filter((tx) => {
+        const opening = openingDateOf.get(tx.accountId)
+        return opening !== null && opening !== undefined && fromDate(tx.date) < opening
+      })
+      .filter((tx) => (includeExcluded ? true : !tx.excludeFromIncomeExpense))
+      .map((tx) => {
+        const a = toMinor(tx.amount)
+        if (tx.type === 'income') return a
+        if (tx.type === 'expense') return neg(a)
+        if (tx.type === 'refund' && tx.relatedType === 'income') return neg(a)
+        if (tx.type === 'refund' && tx.relatedType === 'expense') return a
+        return ZERO_MINOR
+      }),
+  )
 
   // 手续费是净资产的减项：转账分录的账户净效应 = −fee，所以这里要减。
-  const other = minor(
-    (includeExcluded ? 0 : excludedNet) - transferFee + adjustmentNet - preOpeningFlow,
+  const other = sub(
+    add(sub(includeExcluded ? ZERO_MINOR : excludedNet, transferFee), adjustmentNet),
+    preOpeningFlow,
   )
 
   const reconciliation = {
@@ -311,8 +325,9 @@ export async function generateIncomeExpense(startDate: string, endDate: string, 
     netExpense,
     other,
     endNetWorth: actualEndNetWorth,
-    difference: minor(
-      actualEndNetWorth - (actualStartNetWorth + netIncome - netExpense + other),
+    difference: sub(
+      actualEndNetWorth,
+      add(sub(add(actualStartNetWorth, netIncome), netExpense), other),
     ),
   }
 

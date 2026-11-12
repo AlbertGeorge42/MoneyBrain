@@ -7,8 +7,9 @@ import {
   ZERO_MINOR,
   addDays,
   flowByCategory,
-  minor,
   summarizeFlows,
+  sum,
+  sub,
   type LedgerTransaction,
   type LocalDate,
   type Minor,
@@ -40,9 +41,7 @@ type CategoryMaps = {
 }
 
 function sumMap(map: Map<string, Minor>): Minor {
-  let total = 0
-  for (const value of map.values()) total += value
-  return minor(total)
+  return sum([...map.values()])
 }
 
 function sourceValue(
@@ -55,7 +54,7 @@ function sourceValue(
     actual,
     committed,
     planned,
-    total: minor(actual + committed + (planned ?? 0)),
+    total: sum([actual, committed, planned ?? ZERO_MINOR]),
   }
 }
 
@@ -144,14 +143,14 @@ export async function generateIncomeExpenseProjection(
 
       if (ownActual === 0 && ownCommitted === 0 && ownPlanned === null && childLeaves.length === 0) continue
 
-      const childrenActual = childLeaves.reduce((sum, child) => sum + child.actual, 0)
-      const childrenCommitted = childLeaves.reduce((sum, child) => sum + child.committed, 0)
+      const childrenActual = sum(childLeaves.map((child) => child.actual))
+      const childrenCommitted = sum(childLeaves.map((child) => child.committed))
       const childPlanned = childLeaves.filter((child) => child.planned !== null)
       const planned = ownPlanned === null && childPlanned.length === 0
         ? null
-        : minor((ownPlanned ?? 0) + childPlanned.reduce((sum, child) => sum + (child.planned ?? 0), 0))
-      const actual = minor(ownActual + childrenActual)
-      const committed = minor(ownCommitted + childrenCommitted)
+        : sum([ownPlanned ?? ZERO_MINOR, ...childPlanned.map((child) => child.planned ?? ZERO_MINOR)])
+      const actual = sum([ownActual, childrenActual])
+      const committed = sum([ownCommitted, childrenCommitted])
 
       result.push({
         name: category.name,
@@ -161,7 +160,7 @@ export async function generateIncomeExpenseProjection(
         actual,
         committed,
         planned,
-        total: minor(actual + committed + (planned ?? 0)),
+        total: sum([actual, committed, planned ?? ZERO_MINOR]),
         hasBudget: planned !== null,
         children: childLeaves.length > 0 ? childLeaves : undefined,
       })
@@ -181,7 +180,7 @@ export async function generateIncomeExpenseProjection(
       actual,
       committed,
       planned: null,
-      total: minor(actual + committed),
+      total: sum([actual, committed]),
       hasBudget: false,
     }
   }
@@ -221,10 +220,10 @@ export async function generateIncomeExpenseProjection(
       plannedExpenseSlice.length > 0 ? new Map([['expense', plannedExpenseSummary.netExpense]]) : new Map(),
     )
     const balance = sourceValue(
-      minor(actual.netIncome - actual.netExpense),
-      minor(committed.netIncome - committed.netExpense),
+      sub(actual.netIncome, actual.netExpense),
+      sub(committed.netIncome, committed.netExpense),
       plannedSlice.length > 0
-        ? new Map([['balance', minor(plannedIncomeSummary.netIncome - plannedExpenseSummary.netExpense)]])
+        ? new Map([['balance', sub(plannedIncomeSummary.netIncome, plannedExpenseSummary.netExpense)]])
         : new Map(),
     )
 
@@ -252,10 +251,10 @@ export async function generateIncomeExpenseProjection(
     income: sourceValue(actualSummary.netIncome, committedSummary.netIncome, plannedMaps.income),
     expense: sourceValue(actualSummary.netExpense, committedSummary.netExpense, plannedMaps.expense),
     balance: sourceValue(
-      minor(actualSummary.netIncome - actualSummary.netExpense),
-      minor(committedSummary.netIncome - committedSummary.netExpense),
+      sub(actualSummary.netIncome, actualSummary.netExpense),
+      sub(committedSummary.netIncome, committedSummary.netExpense),
       plannedLedger.length > 0
-        ? new Map([['balance', minor(plannedSummary.netIncome - plannedSummary.netExpense)]])
+        ? new Map([['balance', sub(plannedSummary.netIncome, plannedSummary.netExpense)]])
         : new Map(),
     ),
     incomeCategoryDetails,

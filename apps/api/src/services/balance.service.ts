@@ -4,10 +4,12 @@ import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
   balanceBefore,
   fromDate,
-  minor,
+  sum,
   type LedgerTransaction,
+  type Minor,
   type OpeningBalance,
 } from '../../../../packages/domain/src/index.js'
+import { toMinor } from '../common/index.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
 
 /**
@@ -33,11 +35,9 @@ export class BalanceCache {
 
   getMany(accountIds: string[], date: Date): number {
     const dateKey = this.dateToKey(date)
-    return accountIds.reduce((sum, accountId) => {
-      const accountCache = this.cache.get(accountId)
-      if (!accountCache) return sum
-      return sum + (accountCache.get(dateKey) ?? 0)
-    }, 0)
+    return sum(
+      accountIds.map((accountId) => ((this.cache.get(accountId)?.get(dateKey)) ?? 0) as Minor),
+    ) as number
   }
 
   getAccountCache(accountId: string): Map<string, number> | undefined {
@@ -49,7 +49,7 @@ export class BalanceCache {
 type AccountList = Account[]
 
 function openingOf(account: AccountList[number]): OpeningBalance {
-  const amount = minor(Number(account.initialBalance))
+  const amount = toMinor(account.initialBalance)
   // 没有期初日期时，期初余额覆盖全部历史交易。
   if (!account.initialBalanceDate) {
     return { amount }

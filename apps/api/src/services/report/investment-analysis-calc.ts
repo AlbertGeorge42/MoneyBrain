@@ -1,4 +1,5 @@
-import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { minor, sum, sub, add, neg, ZERO_MINOR, round, abs, type Minor } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
 import { formatDateLocal } from '../../common/date.js'
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
@@ -55,7 +56,7 @@ export function calculateMaxCapitalEmployed(cashFlows: CashFlow[], startValue: n
 
   for (const cf of sortedFlows) {
     if (cf.type === 'buy') {
-      currentCapital += Math.abs(cf.amount)
+      currentCapital += abs(toMinor(cf.amount))
     } else {
       currentCapital -= cf.amount
     }
@@ -86,19 +87,19 @@ export function calculateReturnMetrics(
   cumulativeReturn: Minor
   cumulativeReturnRate: number
 } {
-  const periodInvested = minor(cashFlows
+  const periodInvested = sum(cashFlows
     .filter(cf => cf.type === 'buy')
-    .reduce((sum, cf) => sum + Math.abs(cf.amount), 0))
-  const periodWithdrawn = minor(cashFlows
+    .map((cf) => abs(toMinor(cf.amount))))
+  const periodWithdrawn = sum(cashFlows
     .filter(cf => cf.type === 'sell')
-    .reduce((sum, cf) => sum + cf.amount, 0))
-  const netCashFlow = minor(periodInvested - periodWithdrawn)
+    .map((cf) => cf.amount as Minor))
+  const netCashFlow = sub(periodInvested, periodWithdrawn)
 
-  const periodReturn = minor(endValue - startValue - netCashFlow)
+  const periodReturn = sub(sub(endValue, startValue), netCashFlow)
   const simpleReturnRate = startValue !== 0 ? (periodReturn / startValue) * 100 : 0
 
   const maxCapitalEmployed = minor(calculateMaxCapitalEmployed(cashFlows, startValue))
-  const cumulativeReturn = minor(endValue + periodWithdrawn - startValue - periodInvested)
+  const cumulativeReturn = sub(sub(sub(endValue, periodWithdrawn), startValue), periodInvested)
   const cumulativeReturnRate = maxCapitalEmployed !== 0 ? (cumulativeReturn / maxCapitalEmployed) * 100 : 0
 
   return {
@@ -191,14 +192,11 @@ export async function buildAccountAllocationDetail(
     : null
 
   // 先计算已分类市值总和
-  const totalMarketValue = minor(latestSnapshot.items.reduce(
-    (sum, item) => sum + Number(item.marketValue),
-    0,
-  ))
+  const totalMarketValue = sum(latestSnapshot.items.map((item) => toMinor(item.marketValue)))
 
   const items: AccountAllocationItem[] = latestSnapshot.items.map(item => {
     // ratio 基于已分类市值总和，不包含未分类
-    const itemMarketValue = minor(Number(item.marketValue))
+    const itemMarketValue = toMinor(item.marketValue)
     const ratio = totalMarketValue > 0
       ? (itemMarketValue / totalMarketValue) * 100
       : 0
@@ -206,7 +204,7 @@ export async function buildAccountAllocationDetail(
     const deviation = targetRatio !== null ? ratio - targetRatio : null
     // rebalanceAmount 基于已分类市值总和（四舍五入到分）
     const rebalanceAmount = targetRatio !== null
-      ? minor(Math.round((targetRatio / 100) * totalMarketValue - itemMarketValue))
+      ? round((targetRatio / 100) * totalMarketValue - itemMarketValue)
       : null
 
     let periodReturn: Minor | null = null
@@ -215,11 +213,11 @@ export async function buildAccountAllocationDetail(
     if (previousSnapshot) {
       const prevItem = previousSnapshot.items.find(i => i.assetClassId === item.assetClassId)
       if (prevItem) {
-        const prevValue = minor(Number(prevItem.marketValue))
-        const netContribution = minor(Number(item.periodNetFlow))
-        const periodReturnAmount = minor(itemMarketValue - prevValue - netContribution)
-        const positiveNetContribution = netContribution > 0 ? netContribution : minor(0)
-        const denominator = minor(prevValue + positiveNetContribution)
+        const prevValue = toMinor(prevItem.marketValue)
+        const netContribution = toMinor(item.periodNetFlow)
+    const periodReturnAmount = sub(sub(itemMarketValue, prevValue), netContribution)
+    const positiveNetContribution = netContribution > 0 ? netContribution : ZERO_MINOR
+    const denominator = add(prevValue, positiveNetContribution)
         periodReturn = periodReturnAmount
         returnRate = denominator > 0
           ? (periodReturnAmount / denominator) * 100
@@ -227,7 +225,7 @@ export async function buildAccountAllocationDetail(
       }
     }
 
-    const periodNetFlow = minor(Number(item.periodNetFlow))
+    const periodNetFlow = toMinor(item.periodNetFlow)
 
     return {
       assetClassId: item.assetClassId,
@@ -237,8 +235,8 @@ export async function buildAccountAllocationDetail(
       targetRatio,
       deviation,
       rebalanceAmount,
-      periodInvested: periodNetFlow > 0 ? periodNetFlow : minor(0),
-      periodWithdrawn: periodNetFlow < 0 ? minor(Math.abs(periodNetFlow)) : minor(0),
+      periodInvested: periodNetFlow > 0 ? periodNetFlow : ZERO_MINOR,
+      periodWithdrawn: periodNetFlow < 0 ? neg(periodNetFlow) : ZERO_MINOR,
       periodReturn,
       returnRate,
       sort: item.sort,
@@ -247,7 +245,7 @@ export async function buildAccountAllocationDetail(
 
   // 计算差额并添加"未分类"项
   const accountBalance = account.balance
-  const unclassifiedValue = minor(accountBalance - totalMarketValue)
+  const unclassifiedValue = sub(toMinor(accountBalance), totalMarketValue)
   if (unclassifiedValue !== 0 && items.length > 0) {
     items.push({
       assetClassId: UNCLASSIFIED_ASSET_CLASS_ID,
@@ -257,8 +255,8 @@ export async function buildAccountAllocationDetail(
       targetRatio: null,
       deviation: null,
       rebalanceAmount: null,
-      periodInvested: minor(0),
-      periodWithdrawn: minor(0),
+      periodInvested: ZERO_MINOR,
+      periodWithdrawn: ZERO_MINOR,
       periodReturn: null,
       returnRate: null,
       sort: 999,
@@ -266,14 +264,11 @@ export async function buildAccountAllocationDetail(
   }
 
   const historySnapshots: SnapshotHistoryItem[] = snapshots.map(s => {
-    const sAccountBalance = minor(Number(s.accountBalance))
-    const sTotalMarketValue = minor(s.items.reduce(
-      (sum, item) => sum + Number(item.marketValue),
-      0,
-    ))
-    const sUnclassifiedValue = minor(sAccountBalance - sTotalMarketValue)
+    const sAccountBalance = toMinor(s.accountBalance)
+    const sTotalMarketValue = sum(s.items.map((item) => toMinor(item.marketValue)))
+    const sUnclassifiedValue = sub(sAccountBalance, sTotalMarketValue)
     const sItems = s.items.map(item => {
-      const mv = minor(Number(item.marketValue))
+      const mv = toMinor(item.marketValue)
       return {
         assetClassId: item.assetClassId,
         name: item.assetClass.name,
@@ -329,13 +324,15 @@ export function mergeCategoryItems(items: AccountAllocationItem[]): AccountAlloc
   }
 
   // 分类级 ratio 的分母：所有账户已分类市值之和（与账户明细「不含未分类」口径一致）
-  const classifiedMarketValue = items
-    .filter(item => item.assetClassId !== UNCLASSIFIED_ASSET_CLASS_ID)
-    .reduce((sum, item) => sum + item.marketValue, 0)
+  const classifiedMarketValue = sum(
+    items
+      .filter(item => item.assetClassId !== UNCLASSIFIED_ASSET_CLASS_ID)
+      .map((item) => item.marketValue),
+  )
 
   const merged: AccountAllocationItem[] = []
   for (const [assetClassId, group] of groups) {
-    const marketValue = group.reduce((sum, item) => sum + item.marketValue, 0)
+    const marketValue = sum(group.map((item) => item.marketValue))
     const weighted = (pick: (item: AccountAllocationItem) => number | null): number | null => {
       let total = 0
       let weight = 0
@@ -353,22 +350,22 @@ export function mergeCategoryItems(items: AccountAllocationItem[]): AccountAlloc
       ? 0
       : (marketValue / classifiedMarketValue) * 100
     const rebalanceAmount = group.some(item => item.rebalanceAmount !== null)
-      ? minor(group.reduce((sum, item) => sum + (item.rebalanceAmount ?? 0), 0))
+      ? sum(group.map((item) => item.rebalanceAmount ?? ZERO_MINOR))
       : null
     const periodReturn = group.some(item => item.periodReturn !== null)
-      ? minor(group.reduce((sum, item) => sum + (item.periodReturn ?? 0), 0))
+      ? sum(group.map((item) => item.periodReturn ?? ZERO_MINOR))
       : null
 
     merged.push({
       assetClassId,
       name: group[0].name,
-      marketValue: minor(marketValue),
+      marketValue,
       ratio,
       targetRatio,
       deviation: targetRatio !== null ? ratio - targetRatio : null,
       rebalanceAmount,
-      periodInvested: minor(group.reduce((sum, item) => sum + item.periodInvested, 0)),
-      periodWithdrawn: minor(group.reduce((sum, item) => sum + item.periodWithdrawn, 0)),
+      periodInvested: sum(group.map((item) => item.periodInvested)),
+      periodWithdrawn: sum(group.map((item) => item.periodWithdrawn)),
       periodReturn,
       returnRate: weighted(item => item.returnRate),
       sort: Math.min(...group.map(item => item.sort)),

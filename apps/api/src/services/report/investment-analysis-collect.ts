@@ -4,7 +4,8 @@ import * as accountCategoryRepo from '../../db/repositories/account-category.rep
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
-import { minor, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { neg, rulesFor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
 import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investment-analysis-types.js'
 
 // ===== 数据收集 / 查询函数 =====
@@ -78,12 +79,12 @@ export async function getCashFlowsInRange(
 
     // 转账本金只经领域层规则取值（A0：不得在报表里直接解释 transfer.amount）；
     // 手续费属于费用，不计入投资现金流
-    const principal = rulesFor(t.ruleVersion).transferInflow(minor(Number(t.amount)))
+    const principal = rulesFor(t.ruleVersion).transferInflow(toMinor(t.amount))
 
     if (isToInvestment && !isFromInvestment) {
       cashFlows.push({
         date: t.date,
-        amount: minor(-principal),
+        amount: neg(principal),
         type: 'buy',
         accountId: t.toAccountId!,
         accountName: accountMap.get(t.toAccountId!) || '未知账户',

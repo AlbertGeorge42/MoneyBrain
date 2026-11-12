@@ -1,4 +1,5 @@
 import { CURRENT_RULE_VERSION, minor } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
 import {
   AccountInfo,
   CategoryInfo,
@@ -33,9 +34,9 @@ export function collectTransactions(args: {
       ruleVersion: t.ruleVersion,
       type: t.type,
       relatedType: t.relatedType,
-      amount: minor(Number(t.amount)),
-      fee: minor(Number(t.fee ?? 0)),
-      coupon: minor(Number(t.coupon ?? 0)),
+      amount: toMinor(t.amount),
+      fee: toMinor(t.fee),
+      coupon: toMinor(t.coupon),
       isFromCash,
       isToCash,
       categoryName: t.category?.name || '未分类',

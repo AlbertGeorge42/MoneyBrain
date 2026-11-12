@@ -1,4 +1,4 @@
-import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { abs, sum, sub, type Minor } from '../../../../../packages/domain/src/index.js'
 
 // ===== 资产/负债/净资产求和 =====
 
@@ -15,11 +15,7 @@ function sumByType<T extends AccountWithType>(
   type: 'asset' | 'liability',
   getValue: (account: T) => Minor
 ): Minor {
-  return minor(
-    accounts
-      .filter(a => a.type === type)
-      .reduce((sum, a) => sum + getValue(a), 0),
-  )
+  return sum(accounts.filter(a => a.type === type).map(getValue))
 }
 
 /**
@@ -39,8 +35,8 @@ export function sumAssetsLiabilities<T extends AccountWithType>(
   getValue: (account: T) => Minor
 ): { assets: Minor; liabilities: Minor; netWorth: Minor } {
   const assets = sumByType(accounts, 'asset', getValue)
-  const liabilities = minor(Math.abs(sumByType(accounts, 'liability', getValue)))
-  return { assets, liabilities, netWorth: minor(assets - liabilities) }
+  const liabilities = abs(sumByType(accounts, 'liability', getValue))
+  return { assets, liabilities, netWorth: sub(assets, liabilities) }
 }
 
 /**
@@ -54,9 +50,5 @@ export function sumPositiveAssets<T extends AccountWithType>(
   accounts: T[],
   getValue: (account: T) => Minor,
 ): Minor {
-  return minor(
-    accounts
-      .filter(a => a.type === 'asset')
-      .reduce((sum, a) => sum + Math.max(0, getValue(a)), 0),
-  )
+  return sum(accounts.filter(a => a.type === 'asset').map(a => Math.max(0, getValue(a)) as Minor))
 }

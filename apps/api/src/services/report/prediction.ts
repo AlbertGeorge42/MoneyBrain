@@ -1,6 +1,7 @@
 import { generatePredictions } from '../budget.service.js'
 import { dayEnd, formatDateLocal } from '../../common/date.js'
-import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { toMinor } from '../../common/index.js'
+import { add, minor, type Minor } from '../../../../../packages/domain/src/index.js'
 
 // ===== 常量 =====
 
@@ -113,8 +114,8 @@ export function computePredictedAssetsLiabilities<P extends PredictionWithDate>(
   // 注意：使用 +0 避免 Object.is(-0, 0) 判定为不等。
   return {
     assets: minor(assetChange),
-    liabilities: minor(liabilityChange !== 0 ? -liabilityChange : 0),
-    netWorth: minor(assetChange + liabilityChange),
+    liabilities: toMinor(liabilityChange !== 0 ? -liabilityChange : 0),
+    netWorth: add(toMinor(assetChange), toMinor(liabilityChange)),
   }
 }
 

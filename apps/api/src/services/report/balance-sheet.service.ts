@@ -1,7 +1,7 @@
 import { calculateBalancesBatch } from '../balance.service.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
-import { rootLogger } from '../../common/index.js'
-import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { rootLogger, toMinor } from '../../common/index.js'
+import { abs, add, neg, sub, ZERO_MINOR, type Minor } from '../../../../../packages/domain/src/index.js'
 import { accumulatePredictionChanges, sumPredictionByType, PREDICTION_NOTE_BALANCE_SHEET } from './prediction.js'
 import { sumAssetsLiabilities } from './account-sum.js'
 import { resolveReportPeriod, type DateGranularity } from './period.js'
@@ -32,13 +32,13 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
 
   const accountBalances = accounts.map(account => ({
     ...account,
-    balance: minor(balanceCache.get(account.id, nextDayDate)),
+    balance: toMinor(balanceCache.get(account.id, nextDayDate)),
   }))
 
   // 资产/负债/净资产汇总
   const { assets, liabilities, netWorth } = sumAssetsLiabilities(
     accountBalances.map(a => ({ type: a.type, id: a.id })),
-    (a) => accountBalances.find(ab => ab.id === a.id)?.balance ?? minor(0)
+    (a) => accountBalances.find(ab => ab.id === a.id)?.balance ?? ZERO_MINOR
   )
 
   // 预测数据
@@ -48,8 +48,8 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   // sumPredictionByType 返回的 liabilityChange 是"负债账户余额的变化"，
   // 由于负债账户余额在数据库中以负数存储，余额变正意味着负债金额减少，
   // 因此需要取负再写入"负债金额变化"这一语义。
-  let predictedAssets: Minor = minor(0)
-  let predictedLiabilities: Minor = minor(0)
+  let predictedAssets: Minor = ZERO_MINOR
+  let predictedLiabilities: Minor = ZERO_MINOR
   let predictionNote: string | undefined
   let predictedChanges: Map<string, number> = new Map()
 
@@ -63,13 +63,13 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
       const accountLookup = new Map(accounts.map(a => [a.id, a]))
       predictedChanges = accumulatePredictionChanges(predictions)
       const predicted = sumPredictionByType(predictedChanges, accountLookup)
-      predictedAssets = minor(predicted.assetChange)
-      predictedLiabilities = minor(-predicted.liabilityChange)
+      predictedAssets = toMinor(predicted.assetChange)
+      predictedLiabilities = neg(toMinor(predicted.liabilityChange))
       predictionNote = PREDICTION_NOTE_BALANCE_SHEET
     }
   }
 
-  const predictedNetWorth = minor(predictedAssets - predictedLiabilities)
+  const predictedNetWorth = sub(predictedAssets, predictedLiabilities)
 
   const categoryNodeMap = new Map<string, BalanceSheetCategoryNode>()
 
@@ -85,8 +85,8 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
         name: categoryName,
         type: account.type as 'asset' | 'liability',
         sort: categorySort,
-        actual: minor(0),
-        predicted: minor(0),
+        actual: ZERO_MINOR,
+        predicted: ZERO_MINOR,
         children: [],
       })
     }
@@ -102,16 +102,16 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
       type: account.type as 'asset' | 'liability',
       // 负债账户按「欠款金额」正数列示（API 契约统一为正数表示欠款）；
       // 不能取 `-balance`，否则真实库里余额为正的负债账户会被报成负欠款并被展示层过滤掉。
-      actual: isLiability ? minor(Math.abs(account.balance)) : account.balance,
-      predicted: isLiability ? minor(-(predictedChanges.get(account.id) ?? 0)) : minor(predictedChanges.get(account.id) ?? 0),
+      actual: isLiability ? abs(account.balance) : account.balance,
+      predicted: isLiability ? toMinor(-(predictedChanges.get(account.id) ?? 0)) : toMinor(predictedChanges.get(account.id) ?? 0),
     }
 
     // 添加到分类节点的children中
     categoryNode.children.push(accountNode)
 
     // 累加分类节点的值
-    categoryNode.actual = minor(categoryNode.actual + accountNode.actual)
-    categoryNode.predicted = minor(categoryNode.predicted + accountNode.predicted)
+    categoryNode.actual = add(categoryNode.actual, accountNode.actual)
+    categoryNode.predicted = add(categoryNode.predicted, accountNode.predicted)
   })
 
   // 排序并分离资产和负债节点

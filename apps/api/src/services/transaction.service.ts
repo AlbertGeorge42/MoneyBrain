@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { rootLogger } from '../common/index.js'
-import { NotFoundError, ValidationError } from '../common/index.js'
+import { NotFoundError, ValidationError, toMinor } from '../common/index.js'
 import { collectDescendantIds } from '../common/tree.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
@@ -8,7 +8,7 @@ import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { TransactionStats } from '../../../../packages/contracts/types/index.js'
 import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
-import { minor, remainingRefundable, summarizeAggregatedFlows, CURRENT_RULE_VERSION, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
+import { minor, remainingRefundable, summarizeAggregatedFlows, CURRENT_RULE_VERSION, formatCurrency, sum, add, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -208,7 +208,7 @@ async function assertRefundTarget(original: { type: string }, amount: number): P
 
 /** 分 → 「¥1,234.56」；错误文案让用户能直接看出差多少。 */
 function formatRefundMoney(amount: number): string {
-  return `¥${(amount / 100).toFixed(2)}`
+  return formatCurrency(minor(amount))
 }
 
 /**
@@ -225,7 +225,7 @@ async function assertRefundWithinOriginal(
     (await transactionRepo.sumActiveRefundAmount(original.id, excludeRefundId))._sum.amount ?? 0n,
   )
   const remaining = Number(remainingRefundable(
-    { id: original.id, kind: original.type as 'income' | 'expense', amount: minor(originalAmount) },
+    { id: original.id, kind: original.type as 'income' | 'expense', amount: toMinor(original.amount) },
     [{ kind: 'refund', amount: minor(refunded), relatedTransactionId: original.id }],
   ))
 
@@ -565,7 +565,7 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
       relatedType: row.relatedType,
       excludeFromIncomeExpense: row.excludeFromIncomeExpense,
       ruleVersion: row.ruleVersion,
-      amount: minor(Number(row._sum.amount ?? 0)),
+      amount: toMinor(row._sum.amount),
     })),
     { includeExcluded: params.includeExcluded },
   )
@@ -573,7 +573,7 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
   return {
     income: flows.netIncome,
     expense: flows.netExpense,
-    refund: minor(flows.incomeRefunds + flows.expenseRefunds),
+    refund: add(flows.incomeRefunds, flows.expenseRefunds),
     balance: flows.balance,
     transferCount,
   }
@@ -597,9 +597,9 @@ export async function getRefundableTransactions(): Promise<TransactionWithRelati
     },
   )
   return list.filter((transaction) => {
-    const refunded = transaction.refunds.reduce((total, refund) => total + Number(refund.amount), 0)
+    const refunded = sum(transaction.refunds.map((refund) => toMinor(refund.amount)))
     return Number(remainingRefundable(
-      { id: transaction.id, kind: transaction.type as 'income' | 'expense', amount: minor(Number(transaction.amount)) },
+      { id: transaction.id, kind: transaction.type as 'income' | 'expense', amount: toMinor(transaction.amount) },
       [{ kind: 'refund', amount: minor(refunded), relatedTransactionId: transaction.id }],
     )) > 0
   })

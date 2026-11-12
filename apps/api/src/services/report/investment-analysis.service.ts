@@ -1,6 +1,6 @@
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
-import { minor } from '../../../../../packages/domain/src/index.js'
+import { minor, sum, neg, sub, type Minor } from '../../../../../packages/domain/src/index.js'
 import { sumAssetsLiabilities, sumPositiveAssets } from './account-sum.js'
 import { resolveReportPeriod } from './period.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
@@ -94,11 +94,11 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     .map(a => balanceCache.get(a.id, nextDayOfEnd))
     .filter(balance => balance < 0)
   const excludedNegativeAssetCount = negativeAssetBalances.length
-  const excludedNegativeAssets = minor(-negativeAssetBalances.reduce((sum, balance) => sum + balance, 0))
+  const excludedNegativeAssets = neg(sum(negativeAssetBalances.map((balance) => balance as Minor)))
 
   const investmentRatio = ratioBase !== 0 ? (endValue / ratioBase) * 100 : 0
 
-  const valueChange = minor(endValue - startValue)
+  const valueChange = sub(endValue, startValue)
 
   const {
     periodInvested,
@@ -185,9 +185,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   const byCategory: InvestmentCategorySummary[] = []
 
   for (const [categoryId, data] of categoryMap) {
-    const categoryBalance = minor(data.accounts.reduce((sum, a) => {
-      return sum + balanceCache.get(a.id, nextDayOfEnd)
-    }, 0))
+    const categoryBalance = sum(data.accounts.map((a) => (balanceCache.get(a.id, nextDayOfEnd) ?? 0) as Minor))
 
     const ratio = endValue !== 0 ? (categoryBalance / endValue) * 100 : 0
 
