@@ -26,6 +26,7 @@ import {
   rulesFor,
   sub,
   sum,
+  sumAssetsLiabilities,
   type LedgerTransaction,
   type LocalDate,
   type Minor,
@@ -33,7 +34,6 @@ import {
 import { calculateBalancesBatch } from './balance.service.js'
 import { dayEnd, dayStart } from '../common/date.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
-import { sumAssetsLiabilities } from './report/account-sum.js'
 import {
   buildProjectionBuckets,
   type ProjectionBucket,

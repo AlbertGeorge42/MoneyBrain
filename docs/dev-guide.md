@@ -40,7 +40,7 @@ apps/web/src/
 ├── utils/ · dev-fixtures/ · main.tsx
 （无 ui/、queries/、hooks/、layouts/、pages/ 目录；不要再新建同类目录）
 
-packages/domain/src/      # money · date · ledger/{types,postings,summary,rules,rules.v1}
+packages/domain/src/      # money · date · investment · ledger/；D 批模块边界见 §3.5
 packages/contracts/       # types/index.ts · constants.ts · utils/tree.ts · i18n/
 packages/sync/src/        # records · merge/apply · container（与端无关，不依赖文件系统/网盘 SDK）
 apps/desktop/             # src/main.cjs · electron-builder.yml · scripts/{stage-app,after-pack}
@@ -134,6 +134,18 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 - **拒绝规则分两层**：未知 `formatVersion` / 头部非法 → 整批拒绝；未知 `entityType` → 只跳过该条并警告，已识别实体照常合并。
 - **本地字段不进容器**：`investmentSnapshot.previousSnapshotId` 在 `sealContainer` 里统一剔除，应用后按 `packages/domain` 的 `sortSnapshotChain` / `resolvePreviousSnapshotIds` 重算；新增本地字段只改 `LOCAL_ONLY_DATA_FIELDS` 一行。
 - `formatVersion = 1` 在跨端与真机初始化开销验证前不算冻结；改字节布局前先看 [roadmap.md](roadmap.md) §4。
+
+### 3.5 领域算法下沉（D 批）的操作规则
+
+结构约束见 [architecture.md](architecture.md) §2.7，阶段与验收见 [roadmap.md](roadmap.md) §3 的 D 批。写代码时逐条遵守：
+
+- **输入 / 输出类型由 Domain 自己定义**：不得 import `packages/contracts`、`@prisma/client`、Express、SQLite 或 `apps/**`；Prisma Model / `GetPayload` 不得直接作为 Domain 入参。API 负责查询、映射、编排、事务与 DTO 转换，映射只做字段搬运，不变成第二套算法。
+- **模块边界**：`statements/` 不依赖具体 API service 或 Prisma 类型；`projection/` 不依赖具体报表实现；`statements/aggregates.ts` 只放真正跨报表共享的领域计算，不做万能工具文件；`xirr` 只在 `investment/` 内封装，第三方类型不出现在 Domain 导出面。
+- **完整算法下沉**：搬的是整条计算流程，不是把 `add()` / `sub()` 包一层；每阶段按 roadmap 的六步走。
+- **回归基线形态**：用测试内固定输入 + 迁移前输出快照（把旧实现的输出固化成期望值），**不在测试里长期同时调用新旧两份实现做对照**；一次性比对脚本不入仓库（§5.1）。
+- **SQL 预聚合路径保留**：继续用 `groupBy` 聚合行交给 `summarizeAggregatedFlows`（§3.1），新增「聚合行结果 = 明细计算结果」的一致性用例；不得为对齐 Domain 而把整表明细读进内存。
+- **口径与精度不改**：金额整数分、期间半开、派生值不落库、`rules.vN.ts` 版本化四条不动；不重写算法、不改业务口径、不增无关依赖、不建空目录。
+- **不留双实现、不留兼容层**：旧链路不保留作回退，替换后当场删除；死代码（含仅被测试引用、无生产调用者的函数及其用例）在对应阶段统一删除（§5.1）。每阶段结束暂停汇报，等待确认再继续，不自动提交。
 
 ## 4. 命名
 
@@ -234,6 +246,9 @@ grep -rn "symbolName" apps packages scripts --include="*.ts" --include="*.tsx"
 - [ ] `npm run test` 全通过（`test:domain` / `test:sync` / `test:api` / `test:web`）。
 - [ ] 动了前端页面 / 交互 → 额外跑 `npm run test:e2e`。
 - [ ] 动了金额/口径/导入导出/余额逻辑 → 额外跑 `npm run db:verify` 与 `npm run db:drill`。
+- [ ] D 批领域算法改动：迁移前后同输入 DTO 逐字段对照通过；旧实现确认零引用后已删除；Domain 未 import `packages/contracts` / `@prisma/client` / Express / `apps/**`，且 `npm run typecheck:domain` 单独通过。
+- [ ] 动过统计口径：`summarizeAggregatedFlows` 与明细汇总的一致性用例通过，SQL `groupBy` 路径未退化成读整表。
+- [ ] D6：`npm run test:domain` 含真实 `xirr` 运行用例（CJS / ESM 互操作 + 数值结果），`apps/api` 无第三方 XIRR 直接调用。
 - [ ] 改了 schema → 迁移文件已生成，`npm run db:status` 无差异；额外跑 `npm run test:integration -w @moneybrain/api`。
 - [ ] 新特性按最小可用实现（[roadmap.md](roadmap.md) §5）：新增开关 / 配置项 / 机制前先问「能不能等真实需求出现再补」。
 - [ ] 旧实现与新设计冲突时，先判断「保留兼容是否会产生第二套口径 / 第二条路径」——会就不兼容，直接删旧路径。

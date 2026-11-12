@@ -91,3 +91,6 @@ export {
   type FlowSummary,
   type FlowSummaryOptions,
 } from './ledger/summary.js'
+
+export { sumAssetsLiabilities, sumPositiveAssets } from './statements/aggregates.js'
+export type { AccountTypeRef, AssetLiabilityTotals } from './statements/types.js'

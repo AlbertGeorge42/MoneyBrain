@@ -4,7 +4,6 @@ import * as transactionCategoryRepo from '../db/repositories/transaction-categor
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { calculateBalancesBatch } from './balance.service.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
-import { sumAssetsLiabilities } from './report/account-sum.js'
 import { buildCategoryChildrenMap } from '../common/db.js'
 import { dayStart, nextDay } from '../common/date.js'
 import {
@@ -14,6 +13,7 @@ import {
   flowByCategory,
   fromDate,
   minor,
+  sumAssetsLiabilities,
   summarizeFlows,
   type Minor,
   type Period,

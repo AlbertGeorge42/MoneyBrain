@@ -58,6 +58,20 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | I-A | Kotlin `NotificationListenerService` + 权限引导；本地解析金额 / 商户 / 时间 + 候选收件箱；原文只在本地保留 ≤7 天、只同步解析字段；「分享到 MoneyBrain」与手动记账回退 | 目标机型稳定收到允许列表内通知；解析失败也进收件箱并说明原因；同步 / 备份 / 日志中无通知原文；无权限时记账闭环不受影响 |
 | I-B | `importKey` + 近邻匹配 + 人工确认；v1 不自动入账，学习规则默认关闭 | 同一笔通知不重复；与手动记录不重复；未确认候选不影响余额与报表 |
 
+### 领域算法下沉通道（严格按 D1→D7，每阶段暂停验收）
+
+每阶段固定六步：① 审查现有代码与调用关系 → ② 明确输入、输出与算法边界 → ③ 建立或补齐回归测试 → ④ 迁移算法、API 改为调用 Domain → ⑤ 用固定输入 + 基线输出快照对比迁移前后结果 → ⑥ 通过测试后删除旧实现。每阶段完成后暂停，汇报文件变更、测试结果与遗留问题，等待确认再继续；不自动提交。不重写算法、不改变业务口径、不增加无关依赖、不创建空模块、不保留长期双实现；旧链路不留兼容层，回归基线不做双实现对照，死代码统一删除。结构约束见 [architecture.md](architecture.md) §2.7，编码规则见 [dev-guide.md](dev-guide.md) §3.5。
+
+| 条目 | 做什么 | 验收 |
+|---|---|---|
+| D1 | 预算额度、计入口径、使用率 / 达成率、预算周期展开下沉到 `budget/` | 现有预算单测与集成用例数值不变；`budget.service` 只留 CRUD / 查询 / 编排；旧算法零引用后删除 |
+| D2 | 预测期间分桶、actual / committed / planned 合成、资产与现金流推演下沉到 `projection/` | `projection.route` / `projection-detail.route` 全通过；四类粒度桶与未来上限 golden 一致；`projection/` 不 import 任何报表实现 |
+| D3 | 资产负债表历史部分下沉到 `statements/` | 补齐 `generateBalanceSheet` 数值回归；实际值 / 预测值逐字段一致。若历史部分与预测计算完全独立可提前迁移，但不得因此引入第二套预测逻辑 |
+| D4 | 收支表（含三来源投影与净资产对账条）下沉 | `income-expense.service.test`、对账差额、`includeExcluded` 两态数值不变；两份 `buildTree` 合并为一份 |
+| D5 | 现金流量表四活动桶、平账、桑基与投影活动下沉 | 基础端点补齐数值回归；`aggregate` / `buildSankey` / `cashFlowOf` 三条链路一致性断言；`buildSankey` 入参不再是 Prisma payload |
+| D6 | 投资分析（XIRR / TWR / 年化、收益指标、资产配置、再平衡、快照链）下沉到 `investment/`；`xirr` 依赖与类型声明平移进 Domain 并封装 | 影子测试改为 import 生产函数；真实运行用例覆盖 CJS / ESM 互操作与数值结果；`apps/api` 不再直接调用第三方 XIRR；`npm run typecheck:domain` 单独通过 |
+| D7 | 全局清理：旧实现 / 死代码 / 临时脚本清零，文档归位，金额算术收口复核 | 全仓零双实现；`npm run test` / `lint` / `typecheck` 全通过；动过金额与口径后 `npm run db:verify` / `db:drill` 通过 |
+
 ### 按需扩展（触发条件出现才立项，不进主线）
 
 | 条目 | 内容 | 触发条件 |
@@ -77,7 +91,7 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | 旧 `scripts/desktop.mjs`（Edge 链路）删除或迁移 `MoneyBrain.cmd` | 用户唯一双击入口，属产品决策；动它要同步 README / architecture / 本文件三处 |
 | `fix-expense-sign.mts`、`rebuild-from-qianji.mts` + 89 条平帐 JSON | 需先确认 dev.db 存量负数已清零，并裁定平帐数据是否继续作为历史证据保留 |
 | `sync-conflict.repository` / `containerAad` / `packages/sync/apply.ts` | 可能是 F-B/F-C 与决策 #34 的预留入口；迁移与 schema 模型不可删 |
-| 日期原语四方统一（`reportsTime` / `datePickerModel` / `domain/date` / `utils/date`） | UTC 与本地日历日语义分叉，统一会改账务日历日；`addMonths` 已分叉 |
+| 日期原语四方统一（`reportsTime` / `datePickerModel` / `domain/date` / `utils/date`） | UTC 与本地日历日语义分叉，统一会改账务日历日；`addMonths` 已分叉。D 批只把分桶规则并回 `domain/date.ts`，不顺手统一已有口径 |
 | 前端组件级视觉合并（两个交易详情、两张趋势图、8 处 Sheet 骨架） | CSS 前缀、退款跳转、移动键盘、ARIA 需 e2e 桌面/移动双视口截图验收 |
 | 金额解析三合一、预算 100% 边界统一、`EditForm` 两位小数校验 | 属于修既有缺陷与裁定产品口径，不是等价精简；`adjustment` 负数 / `limit===0` 须保留 |
 | 断点收敛、`Hf*` 换 Mantine 原生、受不变量保护文件里的零引用谓词 | 回归面最大、收益递减；按「出现第 3 个同类需求再抽」暂缓 |
@@ -106,7 +120,7 @@ V5（两实例目录同步收敛、KDF <2s）已验证通过、结论可冻结�
 - **用版本向量判定先后，不用时间戳**（设备时钟会骗人），也不用 `baseRev`（快照式同步拿不到它）。同 `id` 两条记录：vv 逐维可比 → 取后继；不可比 → 真并发，两版都进 `sync_conflicts` 且可见；vv 相同内容相同 → 幂等丢弃。解决冲突只写一条新记录，其 vv 逐维取最大，同时支配两个旧版本。
 - **记录自带 `entityType`**：新增可同步实体 = 加一条类型标签 + 一种负载格式，不改容器结构、不改合并算法。未知 `entityType` 只跳过该条并警告，不丢弃整批；未知 `formatVersion` / 头部非法才整批拒绝。
 - 密文出端：同步文件与备份文件中没有明文账务数据，密钥 / 恢复码不进入任何上传文件；明文只存在于设备本地 SQLite。备份与同步共用同一份加密容器实现。
-- 格式细节见 [sync-container-format.md](sync-container-format.md)；落地规则见 [dev-guide.md](dev-guide.md) §3.5–3.6。
+- 格式细节见 [sync-container-format.md](sync-container-format.md)；落地规则见 [dev-guide.md](dev-guide.md) §3.3–3.4。
 
 ## 5. 有效决策（改动前先确认没违反）
 
@@ -124,6 +138,7 @@ V5（两实例目录同步收敛、KDF <2s）已验证通过、结论可冻结�
 | 10 | 新特性先按最小可用实现，真实需求出现再补；不合理的旧代码不写兼容层 | 不可推翻；兼容若会产生第二套口径 / 第二条路径，一律不兼容 |
 | 11 | 前端组件库锁 Mantine 8（`8.3.18`）；token 两层映射，不得出现第三个颜色来源 | React 19 升级后 9.x 收益显著时重议 |
 | 12 | 全站单一字体栈、字号只取七档、只取 400/500/600 三档字重 | 跨平台字形一致性成为验收项时引入自托管字体，仍保持单栈 |
+| 13 | `packages/domain` 唯一允许的第三方 runtime 依赖是 `xirr`（XIRR 求解）：依赖与类型声明归 Domain，封装在 `investment/` 内，不向外暴露第三方类型，API 不直接调用 | 更换收益率求解器时重议；除此之外 Domain 保持零外部依赖 |
 
 **已评估但不采用**（保留结论，避免反复讨论）：物化 `postings` 表、Fastify / tRPC / Drizzle 替换现有栈、TanStack Router / Table / React Hook Form、Biome、Turborepo、FSD / 六边形整体重构、游标分页、CRDT / 协同编辑引擎、自建同步服务器、厂商 API 直连作主同步通道、React Native / 全原生重写移动端。共同理由：收益尚未出现，迁移成本或复杂度大于收益；触发条件见上表与对应决策。
 

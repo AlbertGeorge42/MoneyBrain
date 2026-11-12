@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
+  accumulatePredictionChanges,
   filterPredictionsUpTo,
-  computePredictedAssetsLiabilities,
   computePredictedAccountTotal,
+  sumPredictionByType,
 } from '../../src/services/report/prediction.js'
-import { sumAssetsLiabilities, sumPositiveAssets } from '../../src/services/report/account-sum.js'
 
 interface MockPrediction {
   date: Date
@@ -42,229 +42,46 @@ describe('report-calc - 时点预测快照', () => {
     })
   })
 
-  describe('computePredictedAssetsLiabilities', () => {
-    it('纯未来场景：所有预测都应纳入', () => {
-      const predictions: MockPrediction[] = [
+  // 迁移基线：固定输入 + 输出快照，不与 Domain 实现做长期双实现对照。
+  describe('预测变化量符号口径基线', () => {
+    it('income / expense 按账户累加，转账两侧分别记入', () => {
+      const changes = accumulatePredictionChanges([
         { date: new Date('2025-01-10'), type: 'income', amount: 1000, accountId: 'cash', toAccountId: null },
         { date: new Date('2025-01-20'), type: 'expense', amount: 300, accountId: 'cash', toAccountId: null },
         { date: new Date('2025-01-25'), type: 'expense', amount: 200, accountId: 'credit', toAccountId: null },
-      ]
-      // 查询 1/31 时点
-      const result = computePredictedAssetsLiabilities(
-        predictions,
-        new Date('2025-01-31T00:00:00'),
-        accountLookup
-      )
-      // assets = 1000 - 300 = 700
-      // liabilities = -(-200) = 200（accumulate 把 expense 当作 -amount，负债账户 type=liability）
-      // netWorth = 1000 - 300 + (-200) = 500
-      expect(result.assets).toBe(700)
-      expect(result.liabilities).toBe(200)
-      expect(result.netWorth).toBe(500)
+        { date: new Date('2025-01-26'), type: 'transfer', amount: 500, accountId: 'cash', toAccountId: 'savings' },
+      ])
+      expect([...changes]).toEqual([
+        ['cash', 200],
+        ['credit', -200],
+        ['savings', 500],
+      ])
     })
 
-    it('混合期：仅累计到时点的预测', () => {
-      const now = new Date('2025-01-15T12:00:00')
-      const predictions: MockPrediction[] = [
-        // 已经在过去：不应纳入 1/15 时点
-        { date: new Date('2025-01-10'), type: 'income', amount: 500, accountId: 'cash', toAccountId: null },
-        // 还在未来：应纳入
-        { date: new Date('2025-01-20'), type: 'expense', amount: 100, accountId: 'cash', toAccountId: null },
-      ]
-      const result = computePredictedAssetsLiabilities(predictions, now, accountLookup)
-      // 1/10 早于 now 1/15T12:00，不纳入；1/20 晚于 now 但晚于 now 的费用已被预测为负值
-      // 等等，filterPredictionsUpTo 用的时间点是 now，1/20 > now，所以 relevant = [1/10 income 500]
-      // assets = 500
-      expect(result.assets).toBe(500)
-      expect(result.liabilities).toBe(0)
-      expect(result.netWorth).toBe(500)
+    it('按账户类型汇总变动（asset / liability 分开）', () => {
+      const changes = accumulatePredictionChanges([
+        { date: new Date('2025-01-10'), type: 'income', amount: 1000, accountId: 'cash', toAccountId: null },
+        { date: new Date('2025-01-20'), type: 'expense', amount: 300, accountId: 'cash', toAccountId: null },
+        { date: new Date('2025-01-25'), type: 'expense', amount: 200, accountId: 'credit', toAccountId: null },
+      ])
+      expect(sumPredictionByType(changes, accountLookup)).toEqual({
+        assetChange: 700,
+        liabilityChange: -200,
+      })
     })
 
-    it('历史期（无预测）：返回 0', () => {
-      const result = computePredictedAssetsLiabilities(
-        [],
-        new Date('2025-01-15T00:00:00'),
-        accountLookup
-      )
-      expect(result.assets).toBe(0)
-      expect(result.liabilities).toBe(0)
-      expect(result.netWorth).toBe(0)
-    })
-
-    it('transfer 在不同类型账户间的影响', () => {
-      // cash(资产) -> credit(负债)：从现金账户转出到信用卡（还款）
-      // 资产账户 -amount，负债账户 +amount（accumulate 把 toAccount +amount）
-      // 但 type=liability 的 +amount 计入 liabilityChange（正数），所以 netWorth = -amount + amount = 0
-      // 这符合"还信用卡"：现金减少、负债减少（绝对值），净资产不变
-      const predictions: MockPrediction[] = [
+    it('转账跨资产与负债账户时两侧符号相反', () => {
+      const changes = accumulatePredictionChanges([
         { date: new Date('2025-01-15'), type: 'transfer', amount: 500, accountId: 'cash', toAccountId: 'credit' },
-      ]
-      const result = computePredictedAssetsLiabilities(
-        predictions,
-        new Date('2025-01-31T00:00:00'),
-        accountLookup
-      )
-      // assets = -500, liabilities = -(0) = 0  (accumulate 中 liabilityChange = +500, 但我们取负)
-      // 等等，accumulate 内部 credit 收到 +amount，type=liability 时 liabilityChange = +500
-      // 我们返回 liabilities = -liabilityChange = -500  (?)
-      // 重新审视：负债增加 (即信用卡消费) 应该是 +amount from cash，所以 credit 收到 +amount 后
-      // liabilityChange 累计了 +500，代表"负债变动 = +500"
-      // 但我们返回 liabilities = -liabilityChange = -500
-      // 这表示"负数"...
-      // 看下 income-expense.service.ts 实际怎么用 predictedStartLiabilities
-      // 之前的写法：predictedStartLiabilities = Math.abs(actualStartLiabilitiesBalance + predicted.liabilityChange) - actualStartLiabilities
-      // 在混合期 actualStartLiabilities = 1000, liabilityChange = +500
-      // = |1000 + 500| - 1000 = 1500 - 1000 = 500（负债增加 500）
-      // 在纯预测期 actualStartLiabilities = 0, liabilityChange = +500
-      // = |0 + 500| - 0 = 500
-      // 所以"负债增加"对应 liabilityChange 为正
-      // 我们要返回的正数 = 负债绝对值增加量
-      // 所以应该是 liabilityChange（正数 = 负债增加），而不是 -liabilityChange
-      // 让我修正...
-      // 重新测试：credit +500 (transfer to credit, 视为还款)
-      // 但实际语义：transfer to credit = 现金去还信用卡 = 负债绝对值减少
-      // accumulate 中 credit 收到 +amount，但 credit 是 type=liability
-      // 等等，type=liability 的账户余额是负的（数据库设计）或者正的？
-      // 看起来：accumulate 中 transfer: fromAccount -amount, toAccount +amount
-      // 信用卡还款：cash -500, credit +500 (这与"信用卡欠款减少"语义相反！)
-      // 除非这个 transfer 实际是"借出"，那 from credit +500 才是对的
-      // 这个语义需要看 budget 表里 transfer 的设置...
-      // 不管语义如何，按当前实现：transfer 到 liability 类型账户会让 liabilityChange = +amount
-      // 这代表"从负债账户的角度看，资金流入 +amount"
-      // 我们报表展示"负债绝对值的增加量"，需要 = -liabilityChange
-      // 但这与 income-expense 原本的 Math.abs(actual + liabilityChange) - actual 不一致
-      // 原来在混合期：actual = -1000, liabilityChange = +500
-      //   Math.abs(-1000 + 500) - 1000 = 500 - 1000 = -500
-      // 啊不对，actualStartLiabilities = Math.abs(actualStartLiabilitiesBalance)
-      //                   = Math.abs(-1000) = 1000
-      //   Math.abs(-1000 + 500) - 1000 = 500 - 1000 = -500
-      // 不对！actualStartLiabilitiesBalance 已经是负数了
-      // 让我看 sumByType 的实现
-      // sumByType(accounts, 'liability', getValue):
-      //   accounts.filter(a => a.type === 'liability').reduce((sum, a) => sum + getValue(a), 0)
-      // getValue = balanceCache.get(a, ...) 返回 balance 数值
-      // credit 余额 -1000（负数表示负债）
-      // 所以 sumByType 返回 -1000
-      // result.liabilities = -1000
-      // actualStartLiabilities = Math.abs(-1000) = 1000
-      // 现在 transfer to credit +500
-      //   sumByType 返回 -1000 + 500 = -500（因为 sum 累加时 +amount）
-      //   result.liabilities = -500
-      //   actualStartLiabilities = Math.abs(-500) = 500
-      //   变化量 = 500 - 1000 = -500
-      // 也就是"负债绝对值减少 500"
-      // 用我的新实现：
-      //   accumulate 中 credit +500
-      //   liabilityChange = +500
-      //   返回 liabilities = -liabilityChange = -500
-      // 负数代表负债绝对值减少 500（与原行为一致）
-      expect(result.assets).toBe(-500)
-      expect(result.liabilities).toBe(-500)
-      expect(result.netWorth).toBe(-500 + 500) // 0
-    })
-  })
-
-  describe('sumAssetsLiabilities', () => {
-    // 约定：assets / liabilities 均为正数，netWorth = assets - liabilities
-    // 这是 API 层契约，修复"总负债在 UI 上显示为负数"的关键。
-    it('应将负债账户负余额转换为正数负债金额', () => {
-      const result = sumAssetsLiabilities(
-        [
-          { id: 'a1', type: 'asset' },
-          { id: 'l1', type: 'liability' },
-        ],
-        (a) => (a.id === 'a1' ? 1000 : -300)
-      )
-      expect(result.assets).toBe(1000)
-      expect(result.liabilities).toBe(300) // -300 → 300
-      expect(result.netWorth).toBe(700)    // 1000 - 300
-    })
-
-    it('多个负债账户累加后再取绝对值（总负债金额）', () => {
-      const result = sumAssetsLiabilities(
-        [
-          { id: 'a1', type: 'asset' },
-          { id: 'l1', type: 'liability' },
-          { id: 'l2', type: 'liability' },
-        ],
-        (a) => {
-          if (a.id === 'a1') return 5000
-          if (a.id === 'l1') return -2000
-          if (a.id === 'l2') return -800
-          return 0
-        }
-      )
-      expect(result.assets).toBe(5000)
-      expect(result.liabilities).toBe(2800) // |-2000| + |-800|
-      expect(result.netWorth).toBe(2200)
-    })
-
-    it('净负债场景：负债超过资产时 netWorth 应为负数', () => {
-      const result = sumAssetsLiabilities(
-        [
-          { id: 'a1', type: 'asset' },
-          { id: 'l1', type: 'liability' },
-        ],
-        (a) => (a.id === 'a1' ? 1000 : -5000)
-      )
-      expect(result.assets).toBe(1000)
-      expect(result.liabilities).toBe(5000)
-      expect(result.netWorth).toBe(-4000)
-    })
-
-    it('负债账户余额为正（真实库约定）时仍按资产 − 负债计算净资产', () => {
-      // 真实库：负债账户余额 +832,785 分表示欠款，不能被当成资产加进净值。
-      const result = sumAssetsLiabilities(
-        [
-          { id: 'a1', type: 'asset' },
-          { id: 'l1', type: 'liability' },
-          { id: 'l2', type: 'liability' },
-        ],
-        (a) => {
-          if (a.id === 'a1') return 75474563
-          if (a.id === 'l1') return 1603015
-          return 0
-        }
-      )
-      expect(result.assets).toBe(75474563)
-      expect(result.liabilities).toBe(1603015)
-      expect(result.netWorth).toBe(73871548)
-    })
-
-    it('无负债账户时 liabilities 为 0，netWorth = assets', () => {
-      const result = sumAssetsLiabilities(
-        [{ id: 'a1', type: 'asset' }],
-        () => 123456
-      )
-      expect(result.assets).toBe(123456)
-      expect(result.liabilities).toBe(0)
-      expect(result.netWorth).toBe(123456)
-    })
-  })
-
-  describe('sumPositiveAssets', () => {
-    it('投资占比分母只取正余额资产：排除负余额资产与负债账户（真实库 105.18% → 89.94%）', () => {
-      const result = sumPositiveAssets(
-        [
-          { id: 'a1', type: 'asset' },
-          { id: 'a2', type: 'asset' },
-          { id: 'a3', type: 'asset' },
-          { id: 'a4', type: 'asset' },
-          { id: 'l1', type: 'liability' },
-        ],
-        (a) => {
-          if (a.id === 'a1') return 82211079 // 雪球基金
-          if (a.id === 'a2') return 6046455 // 云闪付
-          if (a.id === 'a3') return -9016838 // 公积金（负余额，不计入）
-          if (a.id === 'a4') return 2800 // 钱包
-          return 1603015 // 负债（不计入）
-        }
-      )
-      expect(result).toBe(88260334)
-    })
-
-    it('没有正余额资产时返回 0，避免除零', () => {
-      expect(sumPositiveAssets([{ id: 'a1', type: 'asset' }], () => -100)).toBe(0)
+      ])
+      expect([...changes]).toEqual([
+        ['cash', -500],
+        ['credit', 500],
+      ])
+      expect(sumPredictionByType(changes, accountLookup)).toEqual({
+        assetChange: -500,
+        liabilityChange: 500,
+      })
     })
   })
 

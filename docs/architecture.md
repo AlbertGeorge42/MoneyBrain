@@ -12,13 +12,15 @@ React SPA (apps/web)
 Express API (apps/api)
    │  参数校验 / 用例编排 / 事务
    ▼
-packages/domain（纯函数，算钱的唯一位置）
-   │  money.ts · date.ts · ledger/{types,postings,summary,rules,rules.v1}.ts
+packages/domain（财务领域计算引擎，算钱的唯一位置）
+   │  现有模块见 §2，边界约定见 §2.7
    ▼
 Prisma → SQLite
 ```
 
-领域层不依赖 React、Express、Prisma、Node API。API 只负责取数、调用领域函数、组装 DTO。
+领域层不依赖 React、Express、Prisma、Node API，也不依赖 `packages/contracts`。
+API 负责数据库查询、数据映射、用例编排、事务与 DTO 转换；Domain 接收明确的领域输入、
+返回结构化财务结果；表格、图表、颜色与格式由 Web 决定。
 
 ### 依赖方向
 
@@ -26,7 +28,8 @@ Prisma → SQLite
 apps/web  →  packages/contracts, packages/domain（仅类型/纯函数）
 apps/api  →  packages/contracts, packages/domain, packages/sync
 packages/sync → 无外部依赖（记录级合并，不依赖文件系统 / 网盘 SDK）
-packages/domain → 无外部依赖
+packages/domain → 不依赖 Express / Prisma / SQLite / apps 代码 / contracts
+                   唯一允许的第三方 runtime 依赖：xirr（XIRR 求解，D6 引入并封装在 investment 内）
 ```
 
 当前后端用相对路径导入领域包（`../../../../packages/domain/src/index.js`），避免开发期额外构建步骤；`tsc` 会把 `packages/domain` 一起编译到 `apps/api/dist/packages/domain`。
@@ -93,6 +96,30 @@ adjustment  账户 +amount      权益 −amount
 在写入时递增 `rev` 并刷新 `vv`；输的一版落 `sync_conflicts` 表。
 
 **未落地**：传输适配、同步端点与跨设备搬运，见 [roadmap.md](roadmap.md) §3 的 G 批。
+
+## 2.7 领域计算引擎的边界约定
+
+> 本节只写**结构约束**，不是落地记录；`budget/` / `projection/` 尚未创建，
+> `statements/` 目前只含领域输入类型与跨报表共享基座，其余按 [roadmap.md](roadmap.md) §3 的 D 批逐阶段落地。
+> 编码时的可执行规则见 [dev-guide.md](dev-guide.md) §3.5。
+
+| 模块 | 应承载的职责 | 归属说明 |
+|---|---|---|
+| `money.ts` | 整数分金额表示、安全加减与舍入、导入 / 展示边界的解析与格式化 | 值对象，不是工具函数集合 |
+| `date.ts` | `LocalDate`、半开区间、财务期间与投影分桶边界 | 不单独建 `calendar`；已存在的日期口径分叉不顺手统一 |
+| `ledger/` | 账务口径唯一来源、交易 → 分录、余额、收支汇总、退款上限 | 不单独建 `transaction`；交易类型与规则都在 `ledger/types.ts` / `rules.vN.ts` |
+| `budget/` | 预算额度、计入口径、使用率、达成率、预算周期展开 | 不含预测值合成 |
+| `projection/` | 预测期间分桶、actual / committed / planned 数据合成、资产与现金流推演 | 不依赖具体报表实现 |
+| `statements/` | 资产负债表、收支表、现金流量表的完整计算 | 不依赖具体 API service 或 Prisma 类型；`aggregates.ts` 只放真正跨报表共享的领域计算，不做万能工具文件 |
+| `investment/` | XIRR / TWR / 年化、收益指标、资产配置、再平衡、快照链 | `xirr` 只在本模块内封装 |
+
+- **依赖方向**：Domain 定义自己的输入输出类型，不 import `packages/contracts`、`@prisma/client`、Express、SQLite 或任何 `apps/**` 代码；Prisma Model / `GetPayload` 不得直接作为 Domain 入参。`index.ts` 仍是唯一出口。
+- **完整算法而非原语**：下沉的是整条计算流程（分类树聚合、四活动桶、三来源合成、桑基链路、收益率求解），不是把 `add()` / `sub()` 包一层。
+- **SQL 预聚合路径必须保留**：统计接口继续用 `groupBy` 聚合行交给 `summarizeAggregatedFlows`（[dev-guide.md](dev-guide.md) §3.1），并验证聚合行与明细计算结果一致；不得为对齐 Domain 而改读整表明细。
+- **第三方库封装**：`xirr` 的依赖与类型声明归 `packages/domain`，API 不再直接调用第三方 XIRR；第三方类型不出现在 Domain 的导出面上，须有真实运行测试覆盖 CJS / ESM 互操作与数值结果。
+- **不可改变的既有约束**：金额全链路整数分、期间半开、派生值不落库、账务口径带版本且已登记版本不可覆盖（[roadmap.md](roadmap.md) §5 决策 2 / 3 / 4）。
+- **不建空模块、不长期双实现**：某个模块只在对应迁移阶段创建；旧实现通过回归测试后当场删除（[dev-guide.md](dev-guide.md) §5.1）。
+- **账户领域输入类型不单独成模块**：按实际使用场景归属到 `statements/` 或 `investment/`，不建 `account/`。
 
 ## 3. 后端模块（apps/api/src）
 

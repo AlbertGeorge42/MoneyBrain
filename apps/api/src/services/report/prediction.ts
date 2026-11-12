@@ -1,7 +1,6 @@
 import { generatePredictions } from '../budget.service.js'
 import { dayEnd, formatDateLocal } from '../../common/date.js'
-import { toMinor } from '../../common/index.js'
-import { add, minor, type Minor } from '../../../../../packages/domain/src/index.js'
+import { minor, type Minor } from '../../../../../packages/domain/src/index.js'
 
 // ===== 常量 =====
 
@@ -72,7 +71,7 @@ export function sumPredictionByType(
   return { assetChange, liabilityChange }
 }
 
-// ===== 时点预测快照（统一 API） =====
+// ===== 时点预测快照 =====
 
 interface PredictionWithDate extends PredictionLike {
   date: Date
@@ -88,35 +87,6 @@ export function filterPredictionsUpTo<P extends PredictionWithDate>(
 ): P[] {
   const cutoff = timePoint.getTime()
   return predictions.filter(p => p.date.getTime() <= cutoff)
-}
-
-/**
- * 计算指定时点的预测资产/负债/净资产变动。
- *
- * 返回的金额是**带正负号的变动量**，调用方应叠加到 actual 之上：
- * - `assets` 始终 >= 0（正数代表资产增加）
- * - `liabilities` 始终 >= 0（正数代表负债绝对值增加）
- * - `netWorth = assets - liabilities`
- *
- * 统一了原先收入支出表 "actual + 变动" 的差值写法，避免混合期与纯预测期的分叉逻辑。
- */
-export function computePredictedAssetsLiabilities<P extends PredictionWithDate>(
-  predictions: P[],
-  timePoint: Date,
-  accountLookup: Map<string, { type: string }>
-): { assets: Minor; liabilities: Minor; netWorth: Minor } {
-  const relevant = filterPredictionsUpTo(predictions, timePoint)
-  const changes = accumulatePredictionChanges(relevant)
-  const { assetChange, liabilityChange } = sumPredictionByType(changes, accountLookup)
-
-  // 资产/负债变动可能为负（accumulate 把 expense 当作 -amount），
-  // 报表口径上我们关心的是"绝对值变化量"，因此取负使正数代表负债增加。
-  // 注意：使用 +0 避免 Object.is(-0, 0) 判定为不等。
-  return {
-    assets: minor(assetChange),
-    liabilities: toMinor(liabilityChange !== 0 ? -liabilityChange : 0),
-    netWorth: add(toMinor(assetChange), toMinor(liabilityChange)),
-  }
 }
 
 /**
@@ -186,7 +156,7 @@ export async function getPredictionsIfFuture(
   // 即使整个期间在未来，也必须从今天开始生成预测，
   // 否则 startDate 之前的预测（如 startDate=2026-07-01 时，6/9 到 6/30 的预算）
   // 会被吞掉，导致纯预测场景下 startPredicted 永远为 0。
-  // 期初/期末的过滤由 computePredictedAssetsLiabilities / computePredictedAccountTotal 内部完成。
+  // 期初/期末的过滤由 computePredictedAccountTotal 内部完成。
   // 使用本地日期而非 UTC，避免东八区凌晨等场景下预测起始日提前一天
   const nowStr = formatDateLocal(now)
   return generatePredictions(nowStr, endDate)
