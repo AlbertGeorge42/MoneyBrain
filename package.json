@@ -11,7 +11,6 @@
     "dev": "node scripts/with-database-url.mjs concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:web": "node scripts/with-database-url.mjs npm run dev -w @moneybrain/web",
     "dev:api": "node scripts/with-database-url.mjs npm run dev -w @moneybrain/api",
-    "dev:seed": "node scripts/with-database-url.mjs concurrently \"npm run dev:api\" \"npm run dev:seed -w @moneybrain/web\"",
     "postinstall": "prisma generate --schema apps/api/prisma/schema.prisma",
     "db:migrate": "node scripts/with-database-url.mjs prisma migrate dev --schema apps/api/prisma/schema.prisma",
     "db:deploy": "node scripts/with-database-url.mjs prisma migrate deploy --schema apps/api/prisma/schema.prisma",

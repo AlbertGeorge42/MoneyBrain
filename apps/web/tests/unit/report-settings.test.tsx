@@ -156,7 +156,6 @@ mockReports.cash = mapCashReport(UI_CASH, apiLedger, monthFrom, TODAY)
 
 const contextValue = {
   ledger: apiLedger,
-  dataMode: 'api' as const,
   addTransaction: vi.fn(),
   updateTransaction: vi.fn(),
   deleteTransactions: vi.fn(),
@@ -172,7 +171,6 @@ const contextValue = {
   deleteCategory: vi.fn(),
   reorderCategoryTo: vi.fn(),
   undo: vi.fn(),
-  replaceLedger: vi.fn(),
 } as unknown as LedgerContextValue
 
 function renderPage() {

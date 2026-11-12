@@ -44,7 +44,6 @@ export function useLedgerConfigController({
 }: LedgerConfigControllerOptions) {
   const {
     ledger,
-    dataMode,
     createAccount,
     updateAccount,
     deleteAccount: deleteAccountRemote,
@@ -61,7 +60,6 @@ export function useLedgerConfigController({
     reorderCategoryTo,
     undo,
   } = useLedger()
-  const apiMode = dataMode === 'api'
 
   const [accountTab, setAccountTab] = useState<'asset' | 'liability'>('asset')
   /** 真实库里有大量导入残留的空分组；默认只看有账户的分组，可一键显示。 */
@@ -218,7 +216,6 @@ export function useLedgerConfigController({
   }
 
   const deleteAccount = async (account: AccountRow) => {
-    if (!apiMode && account.txCount > 0) return
     const result = await deleteAccountRemote(account.id)
     if (!result.ok) {
       notify(result.error ?? '删除失败，请重试')
@@ -310,21 +307,19 @@ export function useLedgerConfigController({
 
   const openTransfer = async (row: CategoryRow, type: TxType) => {
     let txCount = row.txCount
-    if (apiMode) {
-      try {
-        const realId = ledger.ids?.categoryReal?.[row.id] ?? row.id
-        const stats = await transactionCategoryApi.getStats(realId).then(unwrapApiData)
-        txCount = stats.transactionCount
-      } catch (error) {
-        notify(getApiErrorMessage(error))
-        return
-      }
+    try {
+      const realId = ledger.ids?.categoryReal?.[row.id] ?? row.id
+      const stats = await transactionCategoryApi.getStats(realId).then(unwrapApiData)
+      txCount = stats.transactionCount
+    } catch (error) {
+      notify(getApiErrorMessage(error))
+      return
     }
     setDeleteTransfer({ row: { ...row, txCount }, type })
   }
 
   const deleteCategory = async (row: CategoryRow, type: TxType) => {
-    // 有交易引用先转移：种子模式按本地计数，API 模式先尝试删除、被拒后再查真实计数。
+    // 有交易引用先转移：直接删会被后端拒绝，跳到转移流程。
     if (row.txCount > 0) {
       await openTransfer(row, type)
       return
@@ -339,7 +334,7 @@ export function useLedgerConfigController({
       }
       return
     }
-    if (apiMode && (result.error ?? '').includes('存在交易记录')) {
+    if ((result.error ?? '').includes('存在交易记录')) {
       await openTransfer(row, type)
       return
     }
@@ -416,7 +411,6 @@ export function useLedgerConfigController({
 
   return {
     ledger,
-    apiMode,
     accountTab,
     setAccountTab,
     showEmptyGroups,

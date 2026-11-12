@@ -21,7 +21,7 @@ function renderReports() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={hfTheme}>
-        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
+        <LedgerProvider initialLedger={createSeedLedger()}>
           <ToastProvider>
             <ReportsPage
               device="desktop"

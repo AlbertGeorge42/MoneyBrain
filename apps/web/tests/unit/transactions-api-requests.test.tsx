@@ -72,7 +72,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
-        <LedgerProvider initialLedger={ledger} dataMode="api">
+        <LedgerProvider initialLedger={ledger}>
           <ToastProvider>
             <TransactionsPage
               device="desktop"

@@ -35,7 +35,6 @@ import {
   EMPTY_ADVANCED,
   TYPE_OPTIONS,
   filterChips,
-  filterTransactions,
   groupTransactions,
   hasActiveFilters,
   readFiltersFromSearch,
@@ -237,11 +236,10 @@ export function TransactionsPage({
   onImport,
   onOpenReports,
 }: TransactionsPageProps) {
-  const { ledger, dataMode, updateTransaction, deleteTransactions, setTransactionCategory, linkRefund, undo } = useLedger()
+  const { ledger, updateTransaction, deleteTransactions, setTransactionCategory, linkRefund, undo } = useLedger()
   // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
   const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
   const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
-  const apiMode = dataMode === 'api'
   // 筛选写入 URL：返回列表（含报表下钻）时还原分类/期间，避免静默丢失。
   // API 账本异步到达：分类/账户要等账本就绪才能校验。先冻结进入时的 query，
   // 待分类可用后一次性初始化——否则深链里的分类会被误判为无效，随后 URL 回写把它抹掉。
@@ -306,9 +304,7 @@ export function TransactionsPage({
   // API 模式下 dataState 翻到 normal 的那一帧，LedgerProvider 可能还持有上一帧的
   // EMPTY_LEDGER（initialLedger 通过 effect 同步），此时分类为空，深链分类会被误丢。
   // 用真实账本独有的 ids 映射判断就绪，确保 hydration 读到的是同一份分类。
-  const ledgerReady = apiMode
-    ? ledger.ids !== undefined
-    : ledger.categories.length > 0
+  const ledgerReady = ledger.ids !== undefined
 
   useEffect(() => {
     if (hydrated || !ledgerReady) return
@@ -339,19 +335,14 @@ export function TransactionsPage({
   const serverList = useServerTransactions(
     filters,
     ledger,
-    apiMode && dataState === 'normal' && hydrated,
+    dataState === 'normal' && hydrated,
   )
-  const filtered =
-    dataState !== 'normal'
-      ? []
-      : apiMode
-        ? serverList.items
-        : filterTransactions(ledger, filters)
+  const filtered = dataState !== 'normal' ? [] : serverList.items
   const sorted =
     display.sort === 'amount'
       ? [...filtered].sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount))
       : filtered
-  // 「本月/未来」以真实账本的今天为准；种子版仍用固定 TODAY，视觉不变。
+  // 「本月/未来」以真实账本的今天为准；无快照时退回固定 TODAY 兜底。
   const today = ledger.snapshot?.today ?? TODAY
   const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
   const groups = groupTransactions(sorted, today)
@@ -529,7 +520,7 @@ export function TransactionsPage({
     return result
   }
 
-  if (dataState === 'loading' || (apiMode && serverList.status === 'loading')) {
+  if (dataState === 'loading' || serverList.status === 'loading') {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <LoadingSkeleton device={device} variant="transactions" />
@@ -553,7 +544,7 @@ export function TransactionsPage({
     )
   }
 
-  if (dataState === 'error' || (apiMode && serverList.status === 'error')) {
+  if (dataState === 'error' || serverList.status === 'error') {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <ErrorPanel
@@ -714,7 +705,6 @@ export function TransactionsPage({
         onClose={() => setDetailId(null)}
         onSave={handleSave}
         onDelete={handleDelete}
-        apiMode={apiMode}
         onOpenTransaction={handleOpenRelated}
         onLinkRefund={handleLinkRefund}
       />
@@ -741,7 +731,7 @@ export function TransactionsPage({
       <span className="mb-visually-hidden" aria-live="polite">
         当前筛选 {monthTotals.count} 笔
         {futureTotals.count > 0 ? `，另有 ${futureTotals.count} 笔未来不计入本月` : ''}，共{' '}
-        {apiMode ? serverList.total : ledger.transactions.length} 笔
+        {serverList.total} 笔
       </span>
     </PageShell>
   )

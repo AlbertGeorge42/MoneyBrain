@@ -38,7 +38,7 @@ function apiLedger(): Ledger {
 function renderBudget() {
   return render(
     <MantineProvider>
-      <LedgerProvider initialLedger={apiLedger()} dataMode="api">
+      <LedgerProvider initialLedger={apiLedger()}>
         <BudgetPage
           device="desktop"
           dataState="ready"

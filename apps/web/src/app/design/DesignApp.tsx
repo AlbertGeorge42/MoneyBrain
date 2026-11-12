@@ -13,7 +13,7 @@ import type { ShellPage } from '@/features/shell/navigation'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { EMPTY_LEDGER } from '@/features/overview/apiLedger'
-import { readHfDataMode, useApiLedger } from '@/features/overview/useApiLedger'
+import { useApiLedger } from '@/features/overview/useApiLedger'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import { QuickEntry } from '@/features/overview/QuickEntry'
 import { TransactionDetail } from '@/features/overview/TransactionDetail'
@@ -23,7 +23,7 @@ import { ReportsPage } from '@/features/reports/ReportsPage'
 import { HfHeadAction } from '@/features/shared/HfHeadAction'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
-import type { Ledger, LedgerTransaction } from '@/features/overview/model'
+import type { LedgerTransaction } from '@/features/overview/model'
 import type { DataState, DeviceMode, SchemeMode } from '@/features/shared/types'
 import './design.css'
 
@@ -163,7 +163,6 @@ function PreviewBody({
   page,
   onPage,
   onState,
-  apiMode,
   onRetry,
   framed,
 }: {
@@ -172,7 +171,6 @@ function PreviewBody({
   page: ShellPage
   onPage: (next: ShellPage) => void
   onState: (next: DataState) => void
-  apiMode: boolean
   onRetry: () => void
   /** 预览壳用 390×844 手机框；生产入口直接铺满视口。 */
   framed: boolean
@@ -237,12 +235,8 @@ function PreviewBody({
   const importLedger = () => notify('导入账单将在流水批次开放，本次只验证冷启动引导。')
   const retry = () => {
     onState('normal')
-    if (apiMode) {
-      onRetry()
-      notify('正在重新读取真实账本…')
-      return
-    }
-    notify('已重新连接本地数据库，数据已恢复。')
+    onRetry()
+    notify('正在重新读取真实账本…')
   }
 
   const content =
@@ -303,7 +297,6 @@ function PreviewBody({
         device={device}
         dataState={dataState}
         onRetry={retry}
-        onImport={importLedger}
       />
     ) : null
 
@@ -425,40 +418,21 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
     return raw === 'budget' ? 'budgets' : readInitial('page', PAGES, 'overview')
   })
 
-  // 数据源模式：生产构建恒为 api；种子只在开发模式 + 显式 VITE_HF_DATA=seed 时可用。
-  const dataMode = readHfDataMode()
-  const apiMode = dataMode === 'api'
-  const api = useApiLedger(apiMode)
-  const [seedLedger, setSeedLedger] = useState<Ledger | null>(null)
-
-  // 种子模块只通过动态 import 取用：生产入口的静态依赖图里不含它；
-  // 生产分支被 import.meta.env.DEV 静态求值为 false 后整体消除。
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    if (dataMode !== 'seed') return
-    let cancelled = false
-    void import('@/dev-fixtures/seed').then(({ createSeedLedger }) => {
-      if (!cancelled) setSeedLedger(createSeedLedger())
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [dataMode])
+  const api = useApiLedger()
   const queryClient = useQueryClient()
   // 写操作成功后统一刷新真实数据：总览、流水列表、回收站、报表/预算。
   const refreshRemote = useCallback(async () => {
-    if (!apiMode) return
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['hf', 'overview', 'ledger'] }),
       queryClient.invalidateQueries({ queryKey: ['hf', 'transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['hf', 'recycle-bin'] }),
       queryClient.invalidateQueries({ queryKey: ['hf', 'report'] }),
     ])
-  }, [apiMode, queryClient])
+  }, [queryClient])
 
-  // 「正常」档在 API 模式下跟随真实请求状态；其余档仍是预览用的显式状态。
+  // 「正常」档跟随真实请求状态；其余档仍是预览用的显式状态。
   const effectiveState: DataState =
-    apiMode && dataState === 'normal'
+    dataState === 'normal'
       ? api.status === 'loading'
         ? 'loading'
         : api.status === 'error'
@@ -475,16 +449,8 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
     return activeDevice === 'mobile' ? 'mb-hf-canvas is-mobile' : 'mb-hf-canvas'
   }, [preview, activeDevice])
 
-  // 种子模式等演示账本就绪再渲染，避免先闪一帧空账本。
-  if (dataMode === 'seed' && !seedLedger) return null
-
   return (
     <div className="mb-hf-root">
-      {dataMode === 'seed' && (
-        <div className="mb-hf-demo-badge" role="status">
-          演示数据 · 非真实账本
-        </div>
-      )}
       {preview && (
         <PreviewToolbar
           device={device}
@@ -497,8 +463,7 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
       )}
       <div className={canvasClass}>
         <LedgerProvider
-          initialLedger={apiMode ? api.ledger ?? EMPTY_LEDGER : seedLedger ?? EMPTY_LEDGER}
-          dataMode={dataMode}
+          initialLedger={api.ledger ?? EMPTY_LEDGER}
           onRemoteChange={refreshRemote}
         >
           <PreviewBody
@@ -507,7 +472,6 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
             page={page}
             onPage={setPage}
             onState={setDataState}
-            apiMode={apiMode}
             onRetry={api.refetch}
             framed={preview}
           />

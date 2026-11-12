@@ -1,11 +1,10 @@
 /**
- * 演示账本（种子数据）——仅限开发与测试
+ * 演示账本（种子数据）——仅限测试与开发联调
  *
- * 边界：生产入口（main.tsx → App.tsx → DesignApp）不得静态 import 本模块。
- * 生产构建下数据模式恒为 api；只有 `import.meta.env.DEV && VITE_HF_DATA === 'seed'`
- * 时，DesignApp 才会通过动态 import 取用本模块（见 useApiLedger 的 resolveHfDataMode）。
- * tests/unit/seed-isolation.test.ts 会扫描生产入口依赖图，防止回潮。
+ * 边界：生产入口（main.tsx → App.tsx → DesignApp）不得静态或动态 import 本模块；
+ * 应用一律走真实 API 数据源，不再有种子 / 演示双模式。
  *
+ * 本模块是测试夹具（约 17 个单测用它构造账本）与本地联调占位数据，
  * 对外只暴露一个入口函数 createSeedLedger()，数据常量不导出。
  */
 import type {

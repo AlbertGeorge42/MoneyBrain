@@ -9,12 +9,10 @@ import type {
   TxType,
 } from './model'
 
-export type LedgerDataMode = 'seed' | 'api'
-
 export interface LedgerMutationOutcome {
   ok: boolean
   error?: string
-  /** 6 秒撤销令牌；API 模式指向审计事件，种子模式指向本地快照。 */
+  /** 6 秒撤销令牌；指向审计事件，撤销时回放。 */
   undoToken?: string
 }
 
@@ -89,15 +87,13 @@ export interface LedgerBudgetInput {
 
 export interface LedgerContextValue {
   ledger: Ledger
-  /** 数据来源：种子内存账本 / 真实 API。写操作在 API 模式下真写。 */
-  dataMode: LedgerDataMode
   addTransaction: (input: NewTransactionInput) => Promise<LedgerCreateOutcome>
   updateTransaction: (id: string, patch: TransactionPatch) => Promise<LedgerMutationOutcome>
-  /** 退款关联/解除关联原交易；originalId 为 null 时解除。API 模式由后端重算可退上限。 */
+  /** 退款关联/解除关联原交易；originalId 为 null 时解除，由后端重算可退上限。 */
   linkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
   deleteTransactions: (ids: readonly string[]) => Promise<LedgerDeleteOutcome>
   setTransactionCategory: (ids: readonly string[], categoryId: string) => Promise<LedgerBatchCategoryOutcome>
-  /* 设置页：账户与分类的真实读写（API 模式落库，种子模式改内存）。 */
+  /* 设置页：账户与分类的真实读写（落库）。 */
   createAccount: (input: LedgerAccountInput) => Promise<LedgerCreateOutcome>
   updateAccount: (id: string, input: LedgerAccountInput) => Promise<LedgerMutationOutcome>
   deleteAccount: (id: string) => Promise<LedgerMutationOutcome>
@@ -118,13 +114,12 @@ export interface LedgerContextValue {
   deleteCategory: (id: string, transferToId?: string) => Promise<LedgerMutationOutcome>
   /** 按绝对位置重排同级分类顺序（拖拽排序用）。 */
   reorderCategoryTo: (id: string, targetIndex: number) => Promise<LedgerMutationOutcome>
-  /* 预算页：新增 / 修改 / 删除（API 模式落 /budgets，种子模式改内存）。 */
+  /* 预算页：新增 / 修改 / 删除（落 /budgets）。 */
   createBudget: (input: LedgerBudgetInput) => Promise<LedgerCreateOutcome>
   updateBudget: (id: string, input: LedgerBudgetInput) => Promise<LedgerMutationOutcome>
   deleteBudget: (id: string) => Promise<LedgerMutationOutcome>
   /** 撤销删除 / 保存 / 批量改分类；令牌过期时返回失败而不是静默成功。 */
   undo: (token: string) => Promise<LedgerMutationOutcome>
-  replaceLedger: (next: Ledger) => void
 }
 
 export const LedgerContext = createContext<LedgerContextValue | null>(null)

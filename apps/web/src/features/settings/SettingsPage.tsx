@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react'
 import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import { HfButton } from '@/features/shared/HfButton'
-import { ChevronLeft, Plus, Trash2, Wallet } from 'lucide-react'
+import { ChevronLeft, Plus, Wallet } from 'lucide-react'
 import type { ThemeMode } from '@/features/shared/types'
 import { fromMajor } from '@domain/index'
 import { downloadBlob, todayFilename } from '@/utils/download'
@@ -67,16 +67,14 @@ interface SettingsPageProps {
   device: DeviceMode
   dataState: DataState
   onRetry: () => void
-  onImport: () => void
 }
 
 function countByType(categories: readonly { type: TxType }[], type: TxType): number {
   return categories.filter((category) => category.type === type).length
 }
 
-export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsPageProps) {
-  const { ledger, dataMode, replaceLedger } = useLedger()
-  const apiMode = dataMode === 'api'
+export function SettingsPage({ device, dataState, onRetry }: SettingsPageProps) {
+  const { ledger } = useLedger()
   const [trashCount, setTrashCount] = useState(0)
   const [active, setActive] = useState<SectionId>('accounts')
   const [openSection, setOpenSection] = useState<SectionId | null>(null)
@@ -136,7 +134,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
   }
 
   useEffect(() => {
-    if (!apiMode) return
     if (active !== 'data' && openSection !== 'data') return
     let cancelled = false
     void (async () => {
@@ -153,10 +150,9 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     return () => {
       cancelled = true
     }
-  }, [apiMode, active, openSection, lastImport])
+  }, [active, openSection, lastImport])
 
   useEffect(() => {
-    if (!apiMode) return
     if (active !== 'backup' && openSection !== 'backup') return
     let cancelled = false
     setBackupLoading(true)
@@ -175,7 +171,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     return () => {
       cancelled = true
     }
-  }, [apiMode, active, openSection, backupReloadKey])
+  }, [active, openSection, backupReloadKey])
 
   const saveAutoBackup = async () => {
     if (!backupConfig) return
@@ -217,24 +213,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     writeDisplaySettings(display)
   }, [display])
 
-  const exportLedger = () => {
-    const blob = new Blob([JSON.stringify(ledger, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'moneybrain-ledger.json'
-    link.click()
-    URL.revokeObjectURL(url)
-    notify('已导出当前账本 JSON')
-  }
-
-  const clearLedger = () => {
-    replaceLedger({ accounts: [], categories: [], budgets: [], transactions: [] })
-    notify('账本已清空')
-    setArmed(null)
-  }
-
-  /** API 模式：后端导出加密容器 `.mbx`，成功后才允许清空。 */
+  /** 后端导出加密容器 `.mbx`，成功后才允许清空。 */
   const exportApiLedger = async () => {
     if (dataBusy) return
     setDataBusy('export')
@@ -414,7 +393,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     setClearError(null)
     try {
       await dataApi.clearAll()
-      replaceLedger({ accounts: [], categories: [], budgets: [], transactions: [] })
       setClearOpen(false)
       setClearWord('')
       setBackupReady(null)
@@ -502,7 +480,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       case 'backup':
         return (
           <BackupSection
-            apiMode={apiMode}
             config={backupConfig}
             loading={backupLoading}
             error={backupError}
@@ -529,7 +506,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       case 'data':
         return (
           <DataSection
-            apiMode={apiMode}
             ledger={ledger}
             dataBusy={dataBusy}
             backupReady={backupReady}
@@ -539,8 +515,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             batchError={batchError}
             armed={armed}
             onArm={setArmed}
-            onExport={() => void (apiMode ? exportApiLedger() : exportLedger())}
-            onImportSeed={onImport}
+            onExport={() => void exportApiLedger()}
             onOpenImportWizard={() => {
               setImportOpen(true)
               setPreview(null)
@@ -551,24 +526,11 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
             openingError={openingError}
             openingStepOpen={Boolean(openingStep)}
             onOpenOpening={(names) => void openOpeningStep(names)}
-            onSeedRollbackConfirm={() => {
-              setArmed(null)
-              notify('已恢复到上一存点')
-            }}
-            onSeedClear={clearLedger}
             onOpenClearSheet={openClearSheet}
           />
         )
       case 'trash':
-        return apiMode ? (
-          <RecycleBinPanel ledger={ledger} />
-        ) : (
-          <div className="mb-set-list-empty is-tall">
-            <Trash2 size={24} />
-            <p>回收站是空的</p>
-            <span>删除流水后 6 秒内可在提示中撤销；过期后才会进入这里。</span>
-          </div>
-        )
+        return <RecycleBinPanel ledger={ledger} />
       default:
         return null
     }
@@ -581,10 +543,10 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
     categories: `收入 ${countByType(ledger.categories, 'income')} · 支出 ${countByType(ledger.categories, 'expense')}`,
     cashflow: '3 组标记 · 4 类活动',
     appearance: themeMode === 'system' ? '跟随系统' : themeMode === 'dark' ? '深色' : '浅色',
-    backup: apiMode ? (backupConfig?.enabled ? '已开启' : '未开启') : '需真实后端',
+    backup: backupConfig?.enabled ? '已开启' : '未开启',
     display: '列显隐 · 排序',
     data: '导入 · 导出 · 回滚',
-    trash: apiMode ? `${trashCount} 条可恢复` : '0 条可恢复',
+    trash: `${trashCount} 条可恢复`,
   }
 
   if (dataState === 'loading') {
@@ -624,7 +586,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
       <SettingsDesktopNav
         active={active}
         onSelect={setActive}
-        apiMode={apiMode}
         trashCount={trashCount}
       />
       <section className="mb-set-panel" aria-labelledby="mb-set-panel-title">
@@ -660,7 +621,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
 
   return (
     <div className="mb-set-page" data-device={device}>
-      {apiMode && <RecycleBinCountProbe ledger={ledger} onCount={setTrashCount} />}
+      <RecycleBinCountProbe ledger={ledger} onCount={setTrashCount} />
       <PageShell
         head={
           empty || device !== 'desktop' ? undefined : (
@@ -674,8 +635,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
         {body}
       </PageShell>
       <LedgerConfigSheets controller={config} device={device} ledger={ledger} />
-      {apiMode && (
-        <ImportSheet
+      <ImportSheet
           device={device}
           opened={importOpen}
           previewing={dataBusy === 'preview'}
@@ -691,8 +651,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           onPreview={() => void runImportPreview()}
           onConfirm={() => void confirmImport()}
         />
-      )}
-      {apiMode && openingStep && (
+      {openingStep && (
         <OpeningSheet
           device={device}
           ledger={ledger}
@@ -707,8 +666,7 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           onSave={() => void saveOpeningStep()}
         />
       )}
-      {apiMode && (
-        <ClearSheet
+      <ClearSheet
           device={device}
           opened={clearOpen}
           exporting={dataBusy === 'export'}
@@ -725,7 +683,6 @@ export function SettingsPage({ device, dataState, onRetry, onImport }: SettingsP
           }}
           onConfirm={() => void confirmClearLedger()}
         />
-      )}
     </div>
   )
 }

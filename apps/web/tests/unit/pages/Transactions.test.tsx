@@ -22,7 +22,7 @@ function renderTransactions(state: DataState, onRetry = vi.fn()) {
   const view = render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={hfTheme}>
-        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
+        <LedgerProvider initialLedger={createSeedLedger()}>
           <ToastProvider>
             <TransactionsPage
               device="desktop"

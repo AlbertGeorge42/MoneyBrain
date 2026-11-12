@@ -129,25 +129,6 @@
   }
 }
 
-/* ===== 数据源标识 ===== */
-
-/* 种子（演示）数据必须有可见标识，避免被误当成真实账本。
-   固定左下角：不遮工具栏控件，也不与底部居中的轻提示重叠。 */
-.mb-hf-demo-badge {
-  position: fixed;
-  left: var(--mb-s-4);
-  bottom: var(--mb-s-4);
-  z-index: var(--mb-z-toast);
-  padding: var(--mb-s-1) var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-secondary);
-  font-size: var(--mb-fs-0);
-  box-shadow: var(--mb-sh-1);
-  pointer-events: none;
-}
-
 /* ===== 画布 ===== */
 
 .mb-hf-canvas {

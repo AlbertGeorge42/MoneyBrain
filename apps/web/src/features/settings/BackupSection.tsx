@@ -11,7 +11,6 @@ import { SettingRow } from '@/features/shared/skeleton/SettingRow'
 import type { AutoBackupConfig } from '@contracts/types'
 
 interface BackupSectionProps {
-  apiMode: boolean
   config: AutoBackupConfig | null
   loading: boolean
   error: string | null
@@ -29,7 +28,6 @@ interface BackupSectionProps {
 }
 
 export function BackupSection({
-  apiMode,
   config,
   loading,
   error,
@@ -51,15 +49,6 @@ export function BackupSection({
       <h3>自动备份</h3>
     </div>
   )
-
-  if (!apiMode) {
-    return (
-      <section className="mb-set-datacard">
-        {head}
-        <p>自动备份设置需要连接真实后端；当前为演示数据源，无法读取或保存。</p>
-      </section>
-    )
-  }
 
   if (!config) {
     return (

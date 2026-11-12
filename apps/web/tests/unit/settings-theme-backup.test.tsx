@@ -68,14 +68,14 @@ function ThemeProbe() {
   )
 }
 
-function renderPage(dataMode: 'api' | 'seed' = 'api') {
+function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider defaultColorScheme="auto" colorSchemeManager={mbColorSchemeManager}>
-        <LedgerProvider initialLedger={ledger} dataMode={dataMode}>
+        <LedgerProvider initialLedger={ledger}>
           <ToastProvider>
             <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
             <ThemeProbe />
@@ -199,13 +199,5 @@ describe('自动备份', () => {
     await waitFor(() => expect(mocks.getAutoBackup).toHaveBeenCalledTimes(2))
     expect(interval).toHaveValue(6)
     expect(keep).toHaveValue(3)
-  })
-
-  it('演示数据源不请求后端，并说明自动备份需要真实后端', async () => {
-    renderPage('seed')
-    await openSection('自动备份')
-
-    expect(screen.getByText(/当前为演示数据源/)).toBeInTheDocument()
-    expect(mocks.getAutoBackup).not.toHaveBeenCalled()
   })
 })

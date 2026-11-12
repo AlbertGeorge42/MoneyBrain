@@ -24,6 +24,16 @@ import {
 } from '@/features/overview/model'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 
+const mocks = vi.hoisted(() => ({ create: vi.fn(), deleteTx: vi.fn() }))
+vi.mock('@/services/api', () => ({
+  transactionApi: { create: mocks.create, delete: mocks.deleteTx },
+  accountApi: {},
+  accountCategoryApi: {},
+  auditEventApi: {},
+  transactionCategoryApi: {},
+  budgetApi: {},
+}))
+
 function transaction(overrides: Partial<LedgerTransaction>): LedgerTransaction {
   return {
     id: 't1',
@@ -39,9 +49,11 @@ function transaction(overrides: Partial<LedgerTransaction>): LedgerTransaction {
 
 describe('#7 保存后的记录级撤销', () => {
   it('addTransaction 返回新记录 id，删除后可用同一 id 撤销', async () => {
+    mocks.create.mockResolvedValue({ data: { success: true, data: { id: 't14' } } })
+    mocks.deleteTx.mockResolvedValue({ data: { success: true, data: {} } })
     const { result } = renderHook(() => useLedger(), {
       wrapper: ({ children }) => (
-        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">{children}</LedgerProvider>
+        <LedgerProvider initialLedger={createSeedLedger()}>{children}</LedgerProvider>
       ),
     })
 
@@ -57,13 +69,14 @@ describe('#7 保存后的记录级撤销', () => {
       id = outcome.id ?? null
     })
 
+    // API 模式下 addTransaction 返回后端生成的新记录 id；该 id 正是删除所需的定位键。
     expect(id).toBe('t14')
-    expect(result.current.ledger.transactions.some((item) => item.id === id)).toBe(true)
+    expect(mocks.create).toHaveBeenCalledTimes(1)
 
     await act(async () => {
       await result.current.deleteTransactions([id as string])
     })
-    expect(result.current.ledger.transactions.some((item) => item.id === id)).toBe(false)
+    expect(mocks.deleteTx).toHaveBeenCalledWith('t14')
   })
 })
 
@@ -137,7 +150,7 @@ describe('#13 千分位金额输入', () => {
   it('记账弹层粘贴 1,234.56 不再标红且可保存', () => {
     render(
       <MantineProvider>
-        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
+        <LedgerProvider initialLedger={createSeedLedger()}>
           <QuickEntry opened device="desktop" onClose={() => {}} onSaved={() => {}} />
         </LedgerProvider>
       </MantineProvider>,
@@ -155,7 +168,7 @@ describe('#13 千分位金额输入', () => {
   it('记账弹层粘贴 ¥1,234.56 与全角数字同样可保存', () => {
     render(
       <MantineProvider>
-        <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
+        <LedgerProvider initialLedger={createSeedLedger()}>
           <QuickEntry opened device="desktop" onClose={() => {}} onSaved={() => {}} />
         </LedgerProvider>
       </MantineProvider>,

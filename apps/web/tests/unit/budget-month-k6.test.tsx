@@ -15,7 +15,7 @@ import { createSeedLedger } from '@/dev-fixtures/seed'
 function renderBudget(ledger: Ledger) {
   return render(
     <MantineProvider>
-      <LedgerProvider initialLedger={ledger} dataMode="seed">
+      <LedgerProvider initialLedger={ledger}>
         <BudgetPage
           device="desktop"
           dataState="ready"

@@ -98,7 +98,7 @@ function Harness() {
 function renderPage() {
   render(
     <MantineProvider>
-      <LedgerProvider initialLedger={ledger} dataMode="api">
+      <LedgerProvider initialLedger={ledger}>
         <Harness />
       </LedgerProvider>
     </MantineProvider>,

@@ -50,14 +50,12 @@ function sectionIcon(id: SectionId): LucideIcon {
 interface SettingsDesktopNavProps {
   active: SectionId
   onSelect: (id: SectionId) => void
-  apiMode: boolean
   trashCount: number
 }
 
 export function SettingsDesktopNav({
   active,
   onSelect,
-  apiMode,
   trashCount,
 }: SettingsDesktopNavProps) {
   return (
@@ -74,7 +72,7 @@ export function SettingsDesktopNav({
             >
               <span>{item.label}</span>
               <span className="mb-set-nav-count">
-                {item.id === 'trash' ? (apiMode ? String(trashCount) : '0') : ''}
+                {item.id === 'trash' ? String(trashCount) : ''}
               </span>
             </HfButton>
           ))}

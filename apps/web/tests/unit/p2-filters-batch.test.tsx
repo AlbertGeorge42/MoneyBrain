@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
@@ -29,6 +29,16 @@ import {
 } from '@/features/transactions/filters'
 import type { Ledger } from '@/features/overview/model'
 
+const mocks = vi.hoisted(() => ({ getAll: vi.fn() }))
+vi.mock('@/services/api', () => ({
+  transactionApi: { getAll: mocks.getAll },
+  accountApi: {},
+  accountCategoryApi: {},
+  auditEventApi: {},
+  transactionCategoryApi: {},
+  budgetApi: {},
+}))
+
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 const ledger: Ledger = {
@@ -39,6 +49,7 @@ const ledger: Ledger = {
     { id: 'other', name: '其他', type: 'expense' },
   ],
   budgets: [],
+  ids: { categoryReal: {}, categoryDisplay: {} },
   transactions: [
     { id: 't1', date: '2026-10-05', type: 'expense', categoryId: 'food_lunch', note: '午餐', accountId: 'cmb', amount: 2_000 },
     { id: 't2', date: '2026-10-20', type: 'expense', categoryId: 'other', note: '对账', accountId: 'cmb', amount: 240 },
@@ -261,13 +272,35 @@ describe('#9 未来记录不计入本月合计', () => {
     expect(container.querySelector('.mb-tx-foot-future')).toBeNull()
   })
 
-  it('页头与页脚笔数一致，且均按本月口径不含未来记录', () => {
+  it('页头与页脚笔数一致，且均按本月口径不含未来记录', async () => {
     const { current } = splitTotalsByToday(futureLedger.transactions)
+    mocks.getAll.mockImplementation(async () =>
+      Promise.resolve({
+        data: {
+          success: true,
+          data: {
+            list: futureLedger.transactions.map((tx) => ({
+              id: tx.id,
+              type: tx.type,
+              amount: tx.amount,
+              date: tx.date,
+              accountId: tx.accountId,
+              categoryId: tx.categoryId,
+              note: tx.note,
+              ruleVersion: 1,
+            })),
+            total: futureLedger.transactions.length,
+            page: 1,
+            pageSize: 100,
+          },
+        },
+      }),
+    )
     const queryClient = new QueryClient()
     const { container } = render(
       <QueryClientProvider client={queryClient}>
         <MantineProvider>
-          <LedgerProvider initialLedger={futureLedger} dataMode="seed">
+          <LedgerProvider initialLedger={futureLedger}>
             <ToastProvider>
               <TransactionsPage
                 device="desktop"
@@ -288,10 +321,14 @@ describe('#9 未来记录不计入本月合计', () => {
 
     // 原缺陷：页头用筛选总数（4 笔）又叠加「另有 1 笔未来」，读起来像 4+1。
     expect(current.count).toBe(3)
-    const head = container.querySelector('.mb-page-sub')?.textContent ?? ''
-    expect(head).toBe('共 3 笔')
-    const foot = container.querySelector('.mb-tx-foot-count')?.textContent ?? ''
-    expect(foot).toBe('共 3 笔')
+    await waitFor(() => {
+      const head = container.querySelector('.mb-page-sub')?.textContent ?? ''
+      expect(head).toBe('共 3 笔')
+    })
+    await waitFor(() => {
+      const foot = container.querySelector('.mb-tx-foot-count')?.textContent ?? ''
+      expect(foot).toBe('共 3 笔')
+    })
   })
 })
 

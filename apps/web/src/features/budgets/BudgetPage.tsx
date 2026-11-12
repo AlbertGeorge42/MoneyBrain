@@ -137,12 +137,9 @@ function Ring({ percent, level, size }: { percent: number; level: string; size: 
 function Hero({
   data,
   device,
-  usageKnown,
 }: {
   data: BudgetPageData
   device: DeviceMode
-  /** 种子模式没有后端用量：只展示额度，不展示已用 / 进度 / 告警。 */
-  usageKnown: boolean
 }) {
   const { expense, primaryOver } = data
   const expenseRows = data.groups[0].rows
@@ -177,40 +174,32 @@ function Hero({
 
   return (
     <Card className="mb-bg-hero">
-      {usageKnown && (
-        <Ring percent={expense.percent} level={expense.level} size={device === 'mobile' ? 'sm' : 'lg'} />
-      )}
+      <Ring percent={expense.percent} level={expense.level} size={device === 'mobile' ? 'sm' : 'lg'} />
       <div className="mb-bg-hero-copy">
         <div className="mb-sec-head">
           <div>
             <h2 className="mb-sec-title">本月支出预算</h2>
             <p className="mb-sec-desc">
               {monthlyRows.length} 个月度预算
-              {usageKnown ? ` · 已用 ${percentText(expense.percent, false)}` : ' · 演示数据'}
+              {` · 已用 ${percentText(expense.percent, false)}`}
             </p>
           </div>
-          {usageKnown && (
-            <span className="mb-bg-hero-badge" data-level={badge.level}>
-              {badge.icon && <TriangleAlert size={13} aria-hidden="true" />}
-              {badge.text}
-            </span>
-          )}
+          <span className="mb-bg-hero-badge" data-level={badge.level}>
+            {badge.icon && <TriangleAlert size={13} aria-hidden="true" />}
+            {badge.text}
+          </span>
         </div>
         <p className="mb-bg-hero-amount">
-          {moneyText(usageKnown ? Math.max(0, expense.remaining) : expense.limit)}
-          <span className="mb-bg-hero-unit">{usageKnown ? ' 可花' : ' 预算额度'}</span>
+          {moneyText(Math.max(0, expense.remaining))}
+          <span className="mb-bg-hero-unit"> 可花</span>
         </p>
         <div className="mb-bg-hero-meta">
-          {usageKnown ? (
-            <>
-              <span>已用 {moneyText(expense.used)}</span>
-              <span>总预算 {moneyText(expense.limit)}</span>
-            </>
-          ) : (
-            <span>演示数据不提供已用与超支</span>
-          )}
+          <>
+            <span>已用 {moneyText(expense.used)}</span>
+            <span>总预算 {moneyText(expense.limit)}</span>
+          </>
         </div>
-        {usageKnown && primaryOver && (
+        {primaryOver && (
           <p className="mb-bg-overrun" data-level="over">
             {primaryOver.name} 已超支 {moneyText(primaryOver.used - primaryOver.limit)}（
             {moneyText(primaryOver.used)} / {moneyText(primaryOver.limit)}）
@@ -224,13 +213,11 @@ function Hero({
 function WatchGroup({
   data,
   onOpen,
-  usageKnown,
 }: {
   data: BudgetPageData
   onOpen: (row: BudgetPageRow) => void
-  usageKnown: boolean
 }) {
-  if (!usageKnown || (data.over.length === 0 && data.near.length === 0)) return null
+  if (data.over.length === 0 && data.near.length === 0) return null
   return (
     <Card className="mb-bg-watch">
       <div className="mb-sec-head">
@@ -274,12 +261,9 @@ function WatchGroup({
 function GroupSection({
   data,
   onOpen,
-  usageKnown,
 }: {
   data: BudgetPageData
   onOpen: (row: BudgetPageRow) => void
-  /** 种子模式只展示额度：隐藏用量状态与进度条。 */
-  usageKnown: boolean
 }) {
   return (
     <>
@@ -314,30 +298,28 @@ function GroupSection({
                       {!row.isActive && <span className="mb-bg-inactive-tag">已停用</span>}
                     </span>
                     <span className="mb-bg-status" data-level={row.level}>
-                      {usageKnown && (row.level === 'warning' || row.level === 'over') && row.isActive && (
+                      {(row.level === 'warning' || row.level === 'over') && row.isActive && (
                         <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
                       )}
-                      {usageKnown ? (row.isActive ? row.status : '不计入预算') : null}
+                      {row.isActive ? row.status : '不计入预算'}
                     </span>
                   </div>
-                  {usageKnown && (
-                    <BudgetProgress
-                      level={row.level}
-                      percent={row.percent}
-                      neutralFill={row.type === 'income'}
-                      label={
-                        row.type === 'transfer'
-                          ? `${row.name} 不计入预算`
-                          : `${row.name} 预算使用 ${Math.round(row.percent)}%`
-                      }
-                    />
-                  )}
+                  <BudgetProgress
+                    level={row.level}
+                    percent={row.percent}
+                    neutralFill={row.type === 'income'}
+                    label={
+                      row.type === 'transfer'
+                        ? `${row.name} 不计入预算`
+                        : `${row.name} 预算使用 ${Math.round(row.percent)}%`
+                    }
+                  />
                   <div className="mb-bg-row-meta">
                     <span className="mb-bg-row-tags">
                       {row.categoryName} · {BUDGET_PERIOD_LABEL[row.period]} · {row.accountName}
                     </span>
                     <span className="mb-bg-row-money">
-                      {usageKnown ? `${moneyText(row.used)} / ${moneyText(row.limit)}` : moneyText(row.limit)}
+                      `${moneyText(row.used)} / ${moneyText(row.limit)}`
                     </span>
                   </div>
                 </HfButton>
@@ -448,7 +430,7 @@ export function BudgetPage({
   onViewFutureReports,
   notify,
 }: BudgetPageProps) {
-  const { ledger, dataMode, createBudget, updateBudget, deleteBudget: removeBudget, undo } = useLedger()
+  const { ledger, createBudget, updateBudget, deleteBudget: removeBudget, undo } = useLedger()
   // 锚点跟真实数据走：API 模式用真实今天 / 最新流水，不再停在种子的 2026-10。
   const anchorDay = ledgerAnchorDay(ledger)
   const currentMonth = anchorDay.slice(0, 7)
@@ -468,10 +450,6 @@ export function BudgetPage({
   const [saving, setSaving] = useState(false)
   // 启停写接口成功后先覆盖 statuses 的 isActive，避免等待账本重读。
   const [activeById, setActiveById] = useState<Map<string, boolean>>()
-
-  const apiMode = dataMode === 'api'
-  // 种子模式没有后端用量：预算页只展示额度，不展示已用 / 进度 / 告警。
-  const usageKnown = apiMode
 
   // 预算口径只有一处：API 模式一律消费 /budgets/statuses。
   // 当前期的 statuses 随账本一起加载；浏览历史月份时按该月结算日再查一次。
@@ -504,18 +482,17 @@ export function BudgetPage({
     setStatusRetry((count) => count + 1)
   }
 
-  const statusById = apiMode
-    ? statusKey === ledgerStatusKey
+  const statusById =
+    statusKey === ledgerStatusKey
       ? ledgerStatusById
       : monthStatus?.key === statusKey
         ? monthStatus.byId
         : undefined
-    : undefined
   // 没有预算时无需等 statuses，直接走页面的空状态。
-  const statusesReady = !apiMode || ledger.budgets.length === 0 || statusById !== undefined
+  const statusesReady = ledger.budgets.length === 0 || statusById !== undefined
 
   useEffect(() => {
-    if (!apiMode || statusKey === ledgerStatusKey) return
+    if (statusKey === ledgerStatusKey) return
     const ids = ledger.budgets.map((budget) => budget.id)
     if (ids.length === 0) return
     let cancelled = false
@@ -541,16 +518,15 @@ export function BudgetPage({
     return () => {
       cancelled = true
     }
-  }, [apiMode, statusKey, ledgerStatusKey, anchor, ledger.budgets, statusRetry])
+  }, [statusKey, ledgerStatusKey, anchor, ledger.budgets, statusRetry])
 
   const data = useMemo(
     () =>
       deriveBudgetPage(ledger, month, {
         activeById,
-        // API 模式未就绪时传空表，避免在等待后端时用种子规则算出另一种口径。
-        statusById: apiMode ? statusById ?? EMPTY_BUDGET_STATUS : undefined,
+        statusById: statusById ?? EMPTY_BUDGET_STATUS,
       }),
-    [ledger, month, activeById, apiMode, statusById],
+    [ledger, month, activeById, statusById],
   )
   const detail = detailId ? data.groups.flatMap((group) => group.rows).find((row) => row.id === detailId) : undefined
 
@@ -596,7 +572,7 @@ export function BudgetPage({
   })
 
   const toggleActive = async () => {
-    if (!detail || saving || !apiMode) return
+    if (!detail || saving) return
     const budget = ledger.budgets.find((item) => item.id === detail.id)
     if (!budget) {
       setDetailNote('预算条目已不存在，请关闭后重试')
@@ -706,15 +682,15 @@ export function BudgetPage({
       return
     }
     // 真实后端要求预算必须绑定账户与分类；在这里先讲清楚，避免提交后静默失败。
-    if (apiMode && !editor.categoryId) {
+    if (!editor.categoryId) {
       setEditorError('真实账本要求预算绑定分类，请选择分类')
       return
     }
-    if (apiMode && !editor.accountId) {
+    if (!editor.accountId) {
       setEditorError('真实账本要求预算绑定账户，请选择账户')
       return
     }
-    if (apiMode && editor.type === 'transfer' && !editor.toAccountId) {
+    if (editor.type === 'transfer' && !editor.toAccountId) {
       setEditorError('转账预算需要选择转入账户')
       return
     }
@@ -816,7 +792,6 @@ export function BudgetPage({
           ledger={ledger}
           error={editorError}
           saving={saving}
-          apiMode={apiMode}
           onChange={setEditor}
           onClose={() => onEditorOpenChange(false)}
           onSave={saveEditor}
@@ -850,9 +825,9 @@ export function BudgetPage({
           </button>
         </div>
 
-        <Hero data={data} device={device} usageKnown={usageKnown} />
-        <WatchGroup data={data} onOpen={openDetail} usageKnown={usageKnown} />
-        <GroupSection data={data} onOpen={openDetail} usageKnown={usageKnown} />
+        <Hero data={data} device={device} />
+        <WatchGroup data={data} onOpen={openDetail} />
+        <GroupSection data={data} onOpen={openDetail} />
       </PageShell>
 
       <HfSheet
@@ -875,30 +850,24 @@ export function BudgetPage({
         {detail && (
           <>
             <div className="mb-bg-detail-amounts">
-              {usageKnown && (
-                <>
-                  <span className="mb-bg-detail-used">{moneyText(detail.used)}</span>
-                  <span className="mb-bg-detail-divider">/</span>
-                </>
-              )}
+              <>
+                <span className="mb-bg-detail-used">{moneyText(detail.used)}</span>
+                <span className="mb-bg-detail-divider">/</span>
+              </>
               <span className="mb-bg-detail-limit">{moneyText(detail.limit)}</span>
-              {usageKnown && (
-                <span className="mb-bg-status" data-level={detail.level}>
-                  {(detail.level === 'warning' || detail.level === 'over') && (
-                    <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
-                  )}
-                  {detail.status}
-                </span>
-              )}
+              <span className="mb-bg-status" data-level={detail.level}>
+                {(detail.level === 'warning' || detail.level === 'over') && (
+                  <TriangleAlert size={12} strokeWidth={2} aria-hidden="true" />
+                )}
+                {detail.status}
+              </span>
             </div>
-            {usageKnown && (
-              <BudgetProgress
-                level={detail.level}
-                percent={detail.percent}
-                neutralFill={detail.type === 'income'}
-                label={detail.type === 'transfer' ? '不计入预算' : '预算使用进度'}
-              />
-            )}
+            <BudgetProgress
+              level={detail.level}
+              percent={detail.percent}
+              neutralFill={detail.type === 'income'}
+              label={detail.type === 'transfer' ? '不计入预算' : '预算使用进度'}
+            />
             <dl className="mb-bg-detail-meta">
               <div>
                 <dt>分类</dt>
@@ -922,8 +891,7 @@ export function BudgetPage({
               </div>
             </dl>
 
-            {apiMode && (
-              <div className="mb-bg-active-row">
+            <div className="mb-bg-active-row">
                 <div className="mb-bg-active-copy">
                   <span className="mb-bg-active-title">启用预算</span>
                   <span className="mb-bg-active-desc">
@@ -941,7 +909,6 @@ export function BudgetPage({
                   text={detail.isActive ? '已启用' : '已停用'}
                 />
               </div>
-            )}
 
             {detail.type === 'expense' && detail.level === 'over' && (
               <div className="mb-bg-over-actions">
@@ -1002,7 +969,6 @@ export function BudgetPage({
         ledger={ledger}
         error={editorError}
         saving={saving}
-        apiMode={apiMode}
         onChange={setEditor}
         onClose={() => onEditorOpenChange(false)}
         onSave={saveEditor}
@@ -1109,7 +1075,6 @@ function BudgetEditor({
   ledger,
   error,
   saving,
-  apiMode,
   onChange,
   onClose,
   onSave,
@@ -1120,8 +1085,6 @@ function BudgetEditor({
   ledger: ReturnType<typeof useLedger>['ledger']
   error: string
   saving: boolean
-  /** 真实账本要求预算绑定分类与账户，占位文案随之变化。 */
-  apiMode: boolean
   onChange: (next: EditorState) => void
   onClose: () => void
   onSave: () => void
@@ -1199,7 +1162,7 @@ function BudgetEditor({
             value={state.categoryId}
             onChange={(event) => onChange({ ...state, categoryId: event.target.value })}
           >
-            <option value="">{apiMode ? '请选择分类（必选）' : '全部分类'}</option>
+            <option value="">请选择分类（必选）</option>
             {options.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -1215,7 +1178,7 @@ function BudgetEditor({
             value={state.accountId}
             onChange={(event) => onChange({ ...state, accountId: event.target.value })}
           >
-            <option value="">{apiMode ? '请选择账户（必选）' : '全部账户'}</option>
+            <option value="">请选择账户（必选）</option>
             {ledger.accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {accountDisplayName(account, ledger.accounts)}

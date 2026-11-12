@@ -76,7 +76,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider defaultColorScheme="auto">
-        <LedgerProvider initialLedger={ledger} dataMode="api">
+        <LedgerProvider initialLedger={ledger}>
           <ToastProvider>
             <SettingsPage device="desktop" dataState="normal" onRetry={() => {}} onImport={() => {}} />
           </ToastProvider>

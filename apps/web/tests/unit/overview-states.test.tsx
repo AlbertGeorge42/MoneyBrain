@@ -22,7 +22,7 @@ function renderOverview(
   const { device = 'desktop', onRetry = vi.fn() } = options
   const view = render(
     <MantineProvider theme={hfTheme}>
-      <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
+      <LedgerProvider initialLedger={createSeedLedger()}>
         <OverviewPage
           device={device}
           dataState={state}

@@ -1,8 +1,6 @@
 /**
  * 预算写操作真实性（API 模式）
  *
- * 复现缺陷：BudgetPage 走 updateBudgets → replaceLedger，而 LedgerContext 在 API 模式
- * 直接 return —— 点「新增预算条目」弹成功 toast，但一条都没落库。
  * 断言：API 模式下新增 / 改限额 / 删除都必须发出真实 /budgets 请求；
  * 没有发出请求或请求失败时，不得出现成功提示。
  */
@@ -100,7 +98,7 @@ function Harness({ onNotify }: { onNotify: (message: string, action?: () => void
 function renderPage(onNotify = vi.fn()) {
   render(
     <MantineProvider>
-      <LedgerProvider initialLedger={ledger} dataMode="api">
+      <LedgerProvider initialLedger={ledger}>
         <Harness onNotify={onNotify} />
       </LedgerProvider>
     </MantineProvider>,

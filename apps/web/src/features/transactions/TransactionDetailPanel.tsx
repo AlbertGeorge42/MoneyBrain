@@ -32,17 +32,15 @@ type Mode = 'view' | 'edit' | 'confirm-delete'
 
 /**
  * 未关联退款的可选关联入口：默认收起，点开才读取候选原交易。
- * 种子模式直接取账本；API 模式按 /transactions/refundable/list 现查，避免拿旧快照。
+ * 按 /transactions/refundable/list 现查，避免拿旧快照。
  */
 function RefundLinkForm({
   transaction,
   ledger,
-  apiMode,
   onLink,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
-  apiMode: boolean
   onLink: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -61,17 +59,6 @@ function RefundLinkForm({
   useEffect(() => {
     if (!expanded) return
     let cancelled = false
-    const localCandidates = ledger.transactions.filter(
-      (item) =>
-        (item.type === 'expense' || item.type === 'income') &&
-        item.id !== transaction.id &&
-        getRefundSummary(ledger, item).remaining > 0,
-    )
-
-    if (!apiMode) {
-      setCandidates(localCandidates)
-      return
-    }
 
     setLoading(true)
     setError('')
@@ -97,7 +84,7 @@ function RefundLinkForm({
     return () => {
       cancelled = true
     }
-  }, [apiMode, expanded, ledger, transaction.id])
+  }, [expanded, ledger, transaction.id])
 
   const confirm = async () => {
     if (!selected || saving) return
@@ -173,7 +160,6 @@ function RefundLinkForm({
 function DetailView({
   transaction,
   ledger,
-  apiMode,
   onEdit,
   onDelete,
   onClose,
@@ -182,7 +168,6 @@ function DetailView({
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
-  apiMode: boolean
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
@@ -300,7 +285,6 @@ function DetailView({
         <RefundLinkForm
           transaction={transaction}
           ledger={ledger}
-          apiMode={apiMode}
           onLink={onLinkRefund}
         />
       )}
@@ -560,7 +544,6 @@ export function TransactionDetailPanel({
   transaction,
   ledger,
   device,
-  apiMode,
   onClose,
   onSave,
   onDelete,
@@ -570,7 +553,6 @@ export function TransactionDetailPanel({
   transaction: LedgerTransaction | null
   ledger: Ledger
   device: DeviceMode
-  apiMode: boolean
   onClose: () => void
   onSave: (id: string, patch: TransactionPatch) => Promise<LedgerMutationOutcome>
   onDelete: (id: string) => Promise<LedgerMutationOutcome>
@@ -593,7 +575,6 @@ export function TransactionDetailPanel({
           key={transaction.id}
           transaction={transaction}
           ledger={ledger}
-          apiMode={apiMode}
           onEdit={() => setMode('edit')}
           onDelete={() => setMode('confirm-delete')}
           onClose={close}

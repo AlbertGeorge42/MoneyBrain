@@ -21,7 +21,6 @@ vi.mock('@/features/overview/ledgerStore', () => ({
       budgets: [],
       transactions: [],
     },
-    dataMode: 'seed',
     addTransaction: mockAdd,
   }),
 }))

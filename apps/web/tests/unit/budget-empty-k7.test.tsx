@@ -15,7 +15,7 @@ describe('K7 空账本主操作', () => {
   it('页头不再出现「新增」，页面级主按钮只剩空态里的一个', () => {
     const { container } = render(
       <MantineProvider>
-        <LedgerProvider initialLedger={{ ...createSeedLedger(), budgets: [] }} dataMode="seed">
+        <LedgerProvider initialLedger={{ ...createSeedLedger(), budgets: [] }}>
           <BudgetPage
             device="desktop"
             dataState="ready"

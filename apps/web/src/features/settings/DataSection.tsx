@@ -20,7 +20,6 @@ import { ImportIssues } from './ImportSheet'
 import type { DataBusy } from './settingsData'
 
 interface DataSectionProps {
-  apiMode: boolean
   ledger: Ledger
   dataBusy: DataBusy
   backupReady: { filename: string; at: string } | null
@@ -31,20 +30,16 @@ interface DataSectionProps {
   armed: string | null
   onArm: (key: string | null) => void
   onExport: () => void
-  onImportSeed: () => void
   onOpenImportWizard: () => void
   onRefreshBatches: () => void
   onRollbackBatch: (batch: ImportBatch) => void
   openingError: string | null
   openingStepOpen: boolean
   onOpenOpening: (names: readonly string[]) => void
-  onSeedRollbackConfirm: () => void
-  onSeedClear: () => void
   onOpenClearSheet: () => void
 }
 
 export function DataSection({
-  apiMode,
   ledger,
   dataBusy,
   backupReady,
@@ -55,15 +50,12 @@ export function DataSection({
   armed,
   onArm,
   onExport,
-  onImportSeed,
   onOpenImportWizard,
   onRefreshBatches,
   onRollbackBatch,
   openingError,
   openingStepOpen,
   onOpenOpening,
-  onSeedRollbackConfirm,
-  onSeedClear,
   onOpenClearSheet,
 }: DataSectionProps) {
   const unsetAccounts = ledger.accounts.filter((account) => !account.initialBalanceDate)
@@ -136,127 +128,77 @@ export function DataSection({
           <Database size={18} />
           <h3>导出</h3>
         </div>
-        {apiMode ? (
-          <>
-            <HfButton
-              className="mb-set-btn"
-              disabled={dataBusy === 'export'}
-              onClick={onExport}
-            >
-              <Download size={16} />
-              {dataBusy === 'export' ? '导出中…' : '导出账本 (.mbx)'}
-            </HfButton>
-            {backupReady && (
-              <p>
-                最近备份：{backupReady.filename}（
-                {new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）
-              </p>
-            )}
-            {exportError && (
-              <p className="mb-set-error" role="alert">
-                {exportError}
-                <HfButton className="mb-set-textbtn" onClick={onExport}>
-                  重试
-                </HfButton>
-              </p>
-            )}
-          </>
-        ) : (
-          <HfButton className="mb-set-btn" onClick={onExport}>
+        <>
+          <HfButton
+            className="mb-set-btn"
+            disabled={dataBusy === 'export'}
+            onClick={onExport}
+          >
             <Download size={16} />
-            导出账本
+            {dataBusy === 'export' ? '导出中…' : '导出账本 (.mbx)'}
           </HfButton>
-        )}
+          {backupReady && (
+            <p>
+              最近备份：{backupReady.filename}（
+              {new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）
+            </p>
+          )}
+          {exportError && (
+            <p className="mb-set-error" role="alert">
+              {exportError}
+              <HfButton className="mb-set-textbtn" onClick={onExport}>
+                重试
+              </HfButton>
+            </p>
+          )}
+        </>
       </section>
       <section className="mb-set-datacard">
         <div className="mb-set-datacard-head">
           <FolderInput size={18} />
           <h3>导入</h3>
         </div>
-        {apiMode ? (
-          <>
-            <HfButton className="mb-set-btn" onClick={onOpenImportWizard}>
-              <FolderInput size={16} />
-              打开导入向导
-            </HfButton>
-            {lastImport && (
-              <>
-                <p>
-                  这批导入了 {lastImport.imported.transactions} 笔；批次 {lastImport.importId?.slice(0, 8)}
-                  可在「回滚」撤销。
-                </p>
-                <ImportIssues summary={lastImport.summary} />
-              </>
-            )}
-            <p>导入前会先解析并展示预览，确认后才写入；失败不会留下半截数据。</p>
-          </>
-        ) : (
-          <HfButton className="mb-set-btn" onClick={onImportSeed}>
+        <>
+          <HfButton className="mb-set-btn" onClick={onOpenImportWizard}>
             <FolderInput size={16} />
             打开导入向导
           </HfButton>
-        )}
+          {lastImport && (
+            <>
+              <p>
+                这批导入了 {lastImport.imported.transactions} 笔；批次 {lastImport.importId?.slice(0, 8)}
+                可在「回滚」撤销。
+              </p>
+              <ImportIssues summary={lastImport.summary} />
+            </>
+          )}
+          <p>导入前会先解析并展示预览，确认后才写入；失败不会留下半截数据。</p>
+        </>
       </section>
       <section className="mb-set-datacard">
         <div className="mb-set-datacard-head">
           <RotateCcw size={18} />
           <h3>回滚</h3>
         </div>
-        {apiMode ? (
-          renderBatchList()
-        ) : (
-          <>
-            <p>还原到最近一次自动存点，回滚前会再存一个还原点。</p>
-            <HfButton
-              className={armed === 'rollback' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn'}
-              onClick={() => {
-                if (armed === 'rollback') {
-                  onSeedRollbackConfirm()
-                  return
-                }
-                onArm('rollback')
-              }}
-            >
-              {armed === 'rollback' ? '确认恢复' : '回滚到上一存点'}
-            </HfButton>
-          </>
-        )}
+        {renderBatchList()}
       </section>
       <section className="mb-set-datacard is-danger">
         <div className="mb-set-datacard-head">
           <AlertTriangle size={18} />
           <h3>危险区</h3>
         </div>
-        {apiMode ? (
-          <>
-            <p>
-              清空前必须导出备份；清空后所有账户、分类、流水、预算与投资快照都会删除，
-              回收站与审计记录一并清空。
-            </p>
-            <HfButton className="mb-set-btn is-danger" onClick={onOpenClearSheet}>
-              清空账本
-            </HfButton>
-            {!backupReady && <p className="mb-set-warn">尚未导出备份，清空会被拦住。</p>}
-          </>
-        ) : (
-          <>
-            <p>清空后所有账户、分类与流水都会删除，仅保留导出文件可恢复。</p>
-            <HfButton
-              className={armed === 'clear' ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn is-danger'}
-              onClick={() => {
-                if (armed === 'clear') {
-                  onSeedClear()
-                  return
-                }
-                onArm('clear')
-              }}
-            >
-              {armed === 'clear' ? '确认清空账本' : '清空账本'}
-            </HfButton>
-          </>
-        )}
+        <>
+          <p>
+            清空前必须导出备份；清空后所有账户、分类、流水、预算与投资快照都会删除，
+            回收站与审计记录一并清空。
+          </p>
+          <HfButton className="mb-set-btn is-danger" onClick={onOpenClearSheet}>
+            清空账本
+          </HfButton>
+          {!backupReady && <p className="mb-set-warn">尚未导出备份，清空会被拦住。</p>}
+        </>
       </section>
-      {apiMode && <section className="mb-set-datacard">
+      <section className="mb-set-datacard">
         <div className="mb-set-datacard-head">
           <Wallet size={18} />
           <h3>账户期初</h3>
@@ -294,7 +236,7 @@ export function DataSection({
               .join('、')}
           </p>
         )}
-      </section>}
+      </section>
     </div>
   )
 }

@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
@@ -14,15 +15,43 @@ import { SettingsPage } from '@/features/settings/SettingsPage'
 import { CONFIG_SECTIONS, GENERAL_SECTIONS } from '@/features/settings/settingsModel'
 import { hfTheme } from '@/styles/theme/hf-theme'
 
+const mocks = vi.hoisted(() => ({
+  getRecycleBin: vi.fn(),
+  dataApi: {
+    listImportBatches: vi.fn().mockResolvedValue({ data: { success: true, data: { batches: [] } } }),
+    getAutoBackup: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
+    updateAutoBackup: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
+    exportFull: vi.fn().mockResolvedValue({ data: { success: true, data: { filename: 'x' } } }),
+    previewImport: vi.fn().mockResolvedValue({
+      data: { success: true, data: { created: 0, updated: 0, transactions: 0 } },
+    }),
+    importBackup: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
+    rollbackImportBatch: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
+    clearAll: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
+  },
+}))
+vi.mock('@/services/api', () => ({
+  transactionApi: { getRecycleBin: mocks.getRecycleBin, delete: vi.fn() },
+  dataApi: mocks.dataApi,
+  accountApi: {},
+  accountCategoryApi: {},
+  auditEventApi: {},
+  transactionCategoryApi: {},
+  budgetApi: {},
+}))
+
 function renderSettings() {
+  mocks.getRecycleBin.mockResolvedValue({ data: { list: [], accounts: [], categories: [] } })
   return render(
-    <MantineProvider theme={hfTheme} defaultColorScheme="auto">
-      <LedgerProvider initialLedger={createSeedLedger()} dataMode="seed">
-        <ToastProvider>
-          <SettingsPage device="desktop" dataState="normal" onRetry={vi.fn()} onImport={vi.fn()} />
-        </ToastProvider>
-      </LedgerProvider>
-    </MantineProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MantineProvider theme={hfTheme} defaultColorScheme="auto">
+        <LedgerProvider initialLedger={createSeedLedger()}>
+          <ToastProvider>
+            <SettingsPage device="desktop" dataState="normal" onRetry={vi.fn()} />
+          </ToastProvider>
+        </LedgerProvider>
+      </MantineProvider>
+    </QueryClientProvider>,
   )
 }
 
