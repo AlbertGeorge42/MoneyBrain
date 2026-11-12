@@ -1,16 +1,19 @@
 import { calculateBalancesBatch } from '../balance.service.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import { rootLogger, toMinor } from '../../common/index.js'
-import { abs, add, neg, sub, sumAssetsLiabilities, ZERO_MINOR, type Minor } from '../../../../../packages/domain/src/index.js'
+import {
+  buildBalanceSheet,
+  neg,
+  sub,
+  ZERO_MINOR,
+  type BalanceSheetAccountInput,
+  type Minor,
+} from '../../../../../packages/domain/src/index.js'
 import { accumulatePredictionChanges, sumPredictionByType, PREDICTION_NOTE_BALANCE_SHEET } from './prediction.js'
 import { resolveReportPeriod, type DateGranularity } from './period.js'
 import { formatDateLocal } from '../../common/date.js'
 import { generatePredictions } from '../budget.service.js'
-import type {
-  BalanceSheetReportData,
-  BalanceSheetCategoryNode,
-  BalanceSheetAccountNode,
-} from '../../../../../packages/contracts/types/index.js'
+import type { BalanceSheetReportData } from '../../../../../packages/contracts/types/index.js'
 
 const logger = rootLogger.child({ module: 'report' })
 
@@ -33,12 +36,6 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     ...account,
     balance: toMinor(balanceCache.get(account.id, nextDayDate)),
   }))
-
-  // 资产/负债/净资产汇总
-  const { assets, liabilities, netWorth } = sumAssetsLiabilities(
-    accountBalances.map(a => ({ type: a.type, id: a.id })),
-    (a) => accountBalances.find(ab => ab.id === a.id)?.balance ?? ZERO_MINOR
-  )
 
   // 预测数据
   // 数据约定：predictedAssets / predictedLiabilities / predictedNetWorth 均为"变化量"
@@ -70,70 +67,31 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
 
   const predictedNetWorth = sub(predictedAssets, predictedLiabilities)
 
-  const categoryNodeMap = new Map<string, BalanceSheetCategoryNode>()
+  // Prisma 账户 + 批量余额 + 预测变化量 → 领域输入；分类树、逐级小计、
+  // 负债符号口径、排序与实际值汇总全部由 domain/statements 计算。
+  const domainAccounts: BalanceSheetAccountInput[] = accountBalances.map(account => ({
+    id: account.id,
+    name: account.name,
+    type: account.type,
+    categoryId: account.category?.id || 'uncategorized',
+    categoryName: account.category?.name || '未分类',
+    categorySort: account.category?.sort ?? 0,
+    actualBalance: account.balance,
+    predictedChange: toMinor(predictedChanges.get(account.id) ?? 0),
+  }))
 
-  accountBalances.forEach(account => {
-    const categoryId = account.category?.id || 'uncategorized'
-    const categoryName = account.category?.name || '未分类'
-    const categorySort = account.category?.sort ?? 0
-
-    // 创建分类节点（如果不存在）
-    if (!categoryNodeMap.has(categoryId)) {
-      categoryNodeMap.set(categoryId, {
-        id: categoryId,
-        name: categoryName,
-        type: account.type as 'asset' | 'liability',
-        sort: categorySort,
-        actual: ZERO_MINOR,
-        predicted: ZERO_MINOR,
-        children: [],
-      })
-    }
-
-    const categoryNode = categoryNodeMap.get(categoryId)!
-
-    // 创建账户节点
-    const isLiability = account.type === 'liability'
-    const accountNode: BalanceSheetAccountNode = {
-      id: account.id,
-      name: account.name,
-      categoryId: categoryId,
-      type: account.type as 'asset' | 'liability',
-      // 负债账户按「欠款金额」正数列示（API 契约统一为正数表示欠款）；
-      // 不能取 `-balance`，否则真实库里余额为正的负债账户会被报成负欠款并被展示层过滤掉。
-      actual: isLiability ? abs(account.balance) : account.balance,
-      predicted: isLiability ? toMinor(-(predictedChanges.get(account.id) ?? 0)) : toMinor(predictedChanges.get(account.id) ?? 0),
-    }
-
-    // 添加到分类节点的children中
-    categoryNode.children.push(accountNode)
-
-    // 累加分类节点的值
-    categoryNode.actual = add(categoryNode.actual, accountNode.actual)
-    categoryNode.predicted = add(categoryNode.predicted, accountNode.predicted)
-  })
-
-  // 排序并分离资产和负债节点
-  const assetNodes = Array.from(categoryNodeMap.values())
-    .filter(c => c.type === 'asset')
-    .sort((a, b) => a.sort - b.sort)
-
-  const liabilityNodes = Array.from(categoryNodeMap.values())
-    .filter(c => c.type === 'liability')
-    .sort((a, b) => a.sort - b.sort)
-
-  const dateStr = formatDateLocal(targetDate)
+  const report = buildBalanceSheet(domainAccounts)
 
   logger.info({ action: 'generate', report: 'balance-sheet', period: date, durationMs: Date.now() - startTime }, 'report generated')
 
   return {
-    date: dateStr,
+    date: formatDateLocal(targetDate),
     granularity,
-    assets: { actual: assets, predicted: predictedAssets },
-    liabilities: { actual: liabilities, predicted: predictedLiabilities },
-    netWorth: { actual: netWorth, predicted: predictedNetWorth },
-    assetNodes,
-    liabilityNodes,
+    assets: { actual: report.actual.assets, predicted: predictedAssets },
+    liabilities: { actual: report.actual.liabilities, predicted: predictedLiabilities },
+    netWorth: { actual: report.actual.netWorth, predicted: predictedNetWorth },
+    assetNodes: report.assetNodes,
+    liabilityNodes: report.liabilityNodes,
     predictionNote,
   }
 }

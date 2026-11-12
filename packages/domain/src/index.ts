@@ -93,6 +93,13 @@ export {
 } from './ledger/summary.js'
 
 export { sumAssetsLiabilities, sumPositiveAssets } from './statements/aggregates.js'
+export { buildBalanceSheet } from './statements/balance-sheet.js'
+export type {
+  BalanceSheetAccountInput,
+  BalanceSheetAccountNode,
+  BalanceSheetCategoryNode,
+  BalanceSheetResult,
+} from './statements/balance-sheet.js'
 export type { AccountTypeRef, AssetLiabilityTotals } from './statements/types.js'
 
 export { budgetContributionSign } from './budget/scope.js'
