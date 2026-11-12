@@ -13,16 +13,16 @@ import * as budgetRepo from '../db/repositories/budget.repository.js'
 import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
-  ZERO_MINOR,
   add,
+  budgetKindOf,
+  computeBudgetStatus,
   fromDate,
-  max,
+  generateBudgetOccurrences,
   minor,
   periodOf,
-  rulesFor,
-  sub,
-  type BudgetKind,
+  summarizeBudgetUsage,
   type BudgetScope,
+  type BudgetUsageRow,
   type LocalDate,
   type Minor,
   type PeriodKind,
@@ -235,18 +235,6 @@ type BudgetStatusResult = {
   isOverBudget: boolean
 }
 
-type UsageRow = {
-  accountId: string
-  toAccountId: string | null
-  categoryId: string | null
-  type: string
-  relatedType: string | null
-  excludeFromIncomeExpense: boolean
-  /** 写入时的口径版本：每条聚合行按自己的版本解释。 */
-  ruleVersion: number
-  amount: Minor
-}
-
 /**
  * 一次性聚合出该期间内、相关账户与分类下的用量。
  * 按「账户 × 转入账户 × 分类 × 类型 × 退款原类型 × 口径版本 × 不计收支」分组，
@@ -255,7 +243,7 @@ type UsageRow = {
  * 统计哪些类型、账户与分类如何匹配，全部由各交易自己版本的口径规则判定；
  * 这里不在 SQL 里预筛，避免用当前规则误伤旧交易。
  */
-async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
+async function aggregateUsageRows(group: BudgetPlan[]): Promise<BudgetUsageRow[]> {
   const first = group[0]
   const accountIds = [...new Set(group.map((plan) => plan.budget.accountId))]
   const categoryIds = [...new Set(group.flatMap((plan) => plan.categoryIds))]
@@ -278,45 +266,6 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<UsageRow[]> {
   }))
 }
 
-/** 预算口径行的公共字段：聚合行与下钻明细交易都能映射到这。 */
-type ScopedRow = {
-  type: string
-  accountId: string
-  toAccountId: string | null
-  categoryId: string | null
-  excludeFromIncomeExpense: boolean
-  relatedType: string | null
-  ruleVersion: number
-}
-
-/**
- * 预算口径的计入符号：+1 主类型、−1 冲减退款、0 不计入。
- * 用量（computeBudgetStatus）与下钻明细（getBudgetUsageDetails）共用这一处判定（C2），
- * 「下钻列表条数与合计 == 预算用量」因此恒成立，下钻不得另写过滤条件。
- */
-function budgetContributionSign(row: ScopedRow, scope: BudgetScope): 1 | -1 | 0 {
-  const rules = rulesFor(row.ruleVersion)
-
-  // 账户、分类与「不计收支」口径由领域层规则判定（与 SQL 侧同一份规则）
-  const inScope = rules.matchesBudgetScope(
-    {
-      kind: row.type,
-      accountId: row.accountId,
-      toAccountId: row.toAccountId,
-      categoryId: row.categoryId,
-      excludeFromIncomeExpense: row.excludeFromIncomeExpense,
-    },
-    scope,
-  )
-  if (!inScope) return 0
-
-  const query = rules.scopeQuery(scope)
-  if (row.type === query.type) return 1
-  // 退款冲减按退款自身的账户与分类
-  if (query.countsRefunds && row.type === 'refund' && row.relatedType === query.refundRelatedType) return -1
-  return 0
-}
-
 /**
  * 预算统计 plan：期间、分类子树与领域层 scope——用量与下钻共用的唯一构建处（C2）。
  */
@@ -336,36 +285,6 @@ async function buildBudgetPlan(
       toAccountId: budget.toAccountId,
       categoryIds: new Set(categoryIds),
     },
-  }
-}
-
-/** 按预算口径从聚合行里算出已用、剩余与百分比。 */
-function computeBudgetStatus(plan: BudgetPlan, rows: UsageRow[]): BudgetStatusResult {
-  const { budget, scope } = plan
-
-  let used = minor(0)
-
-  for (const row of rows) {
-    const sign = budgetContributionSign(row, scope)
-    if (sign === 0) continue
-    used = sign > 0 ? add(used, row.amount) : sub(used, row.amount)
-  }
-
-  // 跨期退款会让本期已用为负；下限夹到 0，剩余不得超过额度
-  const clamped = max(used, ZERO_MINOR)
-  const amount = toMinor(budget.amount)
-  // 使用率返回真实百分比，超支时 >100 不截断（C3）；
-  // 前端进度条条宽自行封顶，文本必须显示真实值
-  const percentage = amount === 0
-    ? 0
-    : Math.round((clamped / amount) * 100)
-
-  return {
-    budget,
-    used: clamped,
-    remaining: max(sub(amount, clamped), ZERO_MINOR),
-    percentage,
-    isOverBudget: clamped > amount,
   }
 }
 
@@ -402,7 +321,11 @@ export async function getBudgetStatusesByIds(
   for (const group of plansByRange.values()) {
     const rows = await aggregateUsageRows(group)
     for (const plan of group) {
-      statusByBudgetId.set(plan.budget.id, computeBudgetStatus(plan, rows))
+      const status = computeBudgetStatus(
+        { amount: toMinor(plan.budget.amount), scope: plan.scope },
+        rows,
+      )
+      statusByBudgetId.set(plan.budget.id, { budget: plan.budget, ...status })
     }
   }
 
@@ -434,35 +357,29 @@ export async function getBudgetUsageDetails(budgetId: string) {
     { include: transactionRepo.TRANSACTION_RELATIONS, orderBy: { date: 'desc' } },
   )
 
-  const list: Array<{ transaction: transactionRepo.TransactionWithRelations; signedAmount: Minor }> = []
-  let total = minor(0)
+  // 领域层负责计入判定、符号金额与合计；API 只做行映射与 DTO 组装。
+  const rows = transactions.map((transaction) => ({
+    type: transaction.type,
+    accountId: transaction.accountId,
+    toAccountId: transaction.toAccountId,
+    categoryId: transaction.categoryId,
+    excludeFromIncomeExpense: transaction.excludeFromIncomeExpense,
+    relatedType: transaction.relatedType,
+    ruleVersion: transaction.ruleVersion,
+    amount: toMinor(Number(transaction.amount)),
+  }))
+  const summary = summarizeBudgetUsage(rows, plan.scope)
 
-  for (const transaction of transactions) {
-    const sign = budgetContributionSign(
-      {
-        type: transaction.type,
-        accountId: transaction.accountId,
-        toAccountId: transaction.toAccountId,
-        categoryId: transaction.categoryId,
-        excludeFromIncomeExpense: transaction.excludeFromIncomeExpense,
-        relatedType: transaction.relatedType,
-        ruleVersion: transaction.ruleVersion,
-      },
-      plan.scope,
-    )
-    if (sign === 0) continue
+  const list = summary.contributions.map(({ index, signedAmount }) => ({
+    transaction: transactions[index]!,
+    signedAmount,
+  }))
 
-    const signedAmount = toMinor(sign * Number(transaction.amount))
-    list.push({ transaction, signedAmount })
-    total = add(total, signedAmount)
-  }
-
-  // 已用与预算状态同款下限：跨期退款让本期明细合计为负时夹到 0
   return {
     list,
-    count: list.length,
-    total,
-    used: max(total, ZERO_MINOR),
+    count: summary.count,
+    total: summary.total,
+    used: summary.used,
   }
 }
 
@@ -545,152 +462,6 @@ export async function generatePredictedOccurrences(startDate: string, endDate: s
   occurrences.sort((a, b) => a.date.getTime() - b.date.getTime())
 
   return occurrences
-}
-
-/** 预算展开点位（含所属周期范围）。 */
-export interface BudgetOccurrencePoint {
-  date: Date
-  periodStart: Date
-  periodEnd: Date
-}
-
-/**
- * 根据周期和交易时间生成点位序列。
- *
- * 只返回落在 [start, end] 内的点：起点之前的本期点位（如月度预算的 5 号、
- * 季度/年度天偏移落点）不会因为「本周期开始」而被带进窗口——
- * 否则推演会把已经过去的点位算成未来预测。
- *
- * transactionTime 语义：
- * - daily：忽略
- * - weekly：0=周一 … 6=周日（缺省周日）
- * - monthly：几号（缺省月末）
- * - quarterly / yearly：从周期起点起的天偏移（缺省周期末）
- *
- * 每个点位同时给出它所属的预算周期 [periodStart, periodEnd]，供 occurrence 匹配使用。
- */
-export function generateBudgetOccurrences(
-  start: Date,
-  end: Date,
-  period: string,
-  transactionTime: number | null,
-): BudgetOccurrencePoint[] {
-  const points: BudgetOccurrencePoint[] = []
-  const inRange = (date: Date) => date >= start && date <= end
-  const weekRange = (date: Date) => {
-    const weekStart = new Date(date)
-    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekEnd.getDate() + 6)
-    return { periodStart: weekStart, periodEnd: weekEnd }
-  }
-
-  switch (period) {
-    case 'daily': {
-      const current = new Date(start)
-      current.setHours(0, 0, 0, 0)
-      while (current <= end) {
-        const day = new Date(current)
-        points.push({ date: day, periodStart: day, periodEnd: day })
-        current.setDate(current.getDate() + 1)
-      }
-      break
-    }
-    case 'weekly': {
-      const current = new Date(start)
-      current.setHours(0, 0, 0, 0)
-      if (transactionTime !== null && transactionTime >= 0 && transactionTime <= 6) {
-        // 跳到指定的周几（0=Mon, 6=Sun → JS: 1=Mon, 0=Sun）
-        const targetDay = transactionTime === 6 ? 0 : transactionTime + 1
-        while (current.getDay() !== targetDay) {
-          current.setDate(current.getDate() + 1)
-        }
-      }
-      while (current <= end) {
-        const { periodStart, periodEnd } = weekRange(current)
-        points.push({ date: new Date(current), periodStart, periodEnd })
-        current.setDate(current.getDate() + 7)
-      }
-      break
-    }
-    case 'monthly': {
-      const current = new Date(start)
-      current.setDate(1)
-      current.setHours(0, 0, 0, 0)
-
-      while (current <= end) {
-        const periodStart = new Date(current)
-        const periodEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0)
-        if (transactionTime !== null) {
-          const pointDate = new Date(current)
-          pointDate.setDate(transactionTime)
-          if (pointDate.getMonth() === current.getMonth() && inRange(pointDate)) {
-            points.push({ date: pointDate, periodStart, periodEnd })
-          }
-        } else if (inRange(periodEnd)) {
-          points.push({ date: periodEnd, periodStart, periodEnd })
-        }
-        current.setMonth(current.getMonth() + 1)
-      }
-      break
-    }
-    case 'quarterly': {
-      const current = new Date(start)
-      const q = Math.floor(current.getMonth() / 3)
-      current.setMonth(q * 3, 1)
-      current.setHours(0, 0, 0, 0)
-
-      while (current <= end) {
-        const currentQ = Math.floor(current.getMonth() / 3)
-        const periodStart = new Date(current)
-        const periodEnd = new Date(current.getFullYear(), (currentQ + 1) * 3, 0)
-        if (transactionTime !== null) {
-          // 天偏移从**季度起点**算起（不是窗口起点），并裁掉窗口起点之前的落点
-          const pointDate = new Date(current)
-          pointDate.setDate(pointDate.getDate() + transactionTime)
-          if (inRange(pointDate)) {
-            points.push({ date: pointDate, periodStart, periodEnd })
-          }
-        } else if (inRange(periodEnd)) {
-          // 默认：季度最后一天
-          points.push({ date: periodEnd, periodStart, periodEnd })
-        }
-        current.setMonth(current.getMonth() + 3)
-      }
-      break
-    }
-    case 'yearly': {
-      const current = new Date(start)
-      current.setMonth(0, 1)
-      current.setHours(0, 0, 0, 0)
-
-      while (current <= end) {
-        const periodStart = new Date(current)
-        const periodEnd = new Date(current.getFullYear(), 11, 31)
-        if (transactionTime !== null) {
-          // 天偏移从**年度起点**算起（不是窗口起点），并裁掉窗口起点之前的落点
-          const pointDate = new Date(current)
-          pointDate.setDate(pointDate.getDate() + transactionTime)
-          if (inRange(pointDate)) {
-            points.push({ date: pointDate, periodStart, periodEnd })
-          }
-        } else if (inRange(periodEnd)) {
-          // 默认：12月31日
-          points.push({ date: periodEnd, periodStart, periodEnd })
-        }
-        current.setFullYear(current.getFullYear() + 1)
-      }
-      break
-    }
-  }
-
-  return points
-}
-
-/** 预算类型收窄：生成器只会产出这三种，未知值直接失败而不是悄悄按 0 处理。 */
-function budgetKindOf(value: string): BudgetKind {
-  if (value === 'income' || value === 'expense' || value === 'transfer') return value
-  throw new Error(`未知预算类型: ${value}`)
 }
 
 /**

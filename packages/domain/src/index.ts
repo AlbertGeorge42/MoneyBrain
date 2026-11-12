@@ -94,3 +94,16 @@ export {
 
 export { sumAssetsLiabilities, sumPositiveAssets } from './statements/aggregates.js'
 export type { AccountTypeRef, AssetLiabilityTotals } from './statements/types.js'
+
+export { budgetContributionSign } from './budget/scope.js'
+export { computeBudgetStatus, summarizeBudgetUsage } from './budget/status.js'
+export { budgetKindOf, generateBudgetOccurrences } from './budget/occurrences.js'
+export type {
+  BudgetOccurrencePoint,
+  BudgetScopedRow,
+  BudgetStatusInput,
+  BudgetStatusResult,
+  BudgetUsageContribution,
+  BudgetUsageRow,
+  BudgetUsageSummary,
+} from './budget/types.js'

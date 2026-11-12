@@ -99,8 +99,9 @@ adjustment  账户 +amount      权益 −amount
 
 ## 2.7 领域计算引擎的边界约定
 
-> 本节只写**结构约束**，不是落地记录；`budget/` / `projection/` 尚未创建，
-> `statements/` 目前只含领域输入类型与跨报表共享基座，其余按 [roadmap.md](roadmap.md) §3 的 D 批逐阶段落地。
+> 本节只写**结构约束**与模块现状，不是进度记录；`budget/`（额度状态、计入口径、周期展开）
+> 与 `statements/`（领域输入类型 + 跨报表共享基座）已落地，`projection/` / `investment/` 尚未创建，
+> 其余按 [roadmap.md](roadmap.md) §3 的 D 批逐阶段落地。
 > 编码时的可执行规则见 [dev-guide.md](dev-guide.md) §3.5。
 
 | 模块 | 应承载的职责 | 归属说明 |
@@ -129,7 +130,7 @@ adjustment  账户 +amount      权益 −amount
 | `services/account*.service.ts` | 账户与账户分类 CRUD、级联清理 |
 | `services/transaction.service.ts` | 交易创建/更新/删除；退款上限调用领域层 `remainingRefundable` |
 | `services/balance.service.ts` | 批量余额（走 `balanceBefore` / `postingsOf`） |
-| `services/budget.service.ts` | 预算 CRUD、状态、预测；统计类型与冲减口径来自领域层规则（`scopeQuery`） |
+| `services/budget.service.ts` | 预算 CRUD、SQL 预聚合取数、预测编排与 DTO；计入口径 / 状态 / 用量 / 下钻 / 周期展开调用 `domain/budget/` |
 | `services/analytics.service.ts` | 首页汇总、趋势、分类占比（走 `summarizeFlows` / `flowByCategory`） |
 | `services/report/*` | 四张报表；收支表用领域层 `summarizeFlows` / `flowByCategory` |
 | `services/import/*`、`services/export/*` | 备份/CSV 导入导出；幂等键、范围过滤、覆盖保护 |

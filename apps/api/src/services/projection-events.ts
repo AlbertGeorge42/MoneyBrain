@@ -2,6 +2,7 @@ import {
   CURRENT_RULE_VERSION,
   ZERO_MINOR,
   addDays,
+  budgetKindOf,
   fromDate,
   minor,
   type LedgerTransaction,
@@ -71,11 +72,6 @@ export interface LoadedProjectionEvents {
   committed: CommittedEvent[]
   /** 窗口内被覆盖的点位，按点位日期升序。 */
   covered: CoveredOccurrence[]
-}
-
-function budgetKindOf(value: string): 'income' | 'expense' | 'transfer' {
-  if (value === 'income' || value === 'expense' || value === 'transfer') return value
-  throw new Error(`未知预算类型: ${value}`)
 }
 
 /**

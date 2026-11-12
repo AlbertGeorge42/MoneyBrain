@@ -87,10 +87,10 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 | 转账：`Δ转出 + Δ转入 == −fee` | ✅ | 同上 |
 | 期初余额当天交易计入 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts` |
-| 预算：退款冲减、跨期退款下限 0、未分类不计入、转账只算绑定账户对 | ✅ | `packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts`、`apps/web/tests/unit/budget-page-model.test.ts` |
+| 预算：退款冲减、跨期退款下限 0、未分类不计入、转账只算绑定账户对 | ✅ | `packages/domain/tests/budget.test.ts`、`packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts`、`apps/web/tests/unit/budget-page-model.test.ts` |
 | 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
 | 现金流量表：支出退款算流入、收入退款算出流 | ✅ | `apps/api/tests/unit/cash-flow-aggregate.test.ts` |
-| 口径版本：旧交易按写入版本解释、未知版本失败、已登记版本不可覆盖、SQL 与明细路径数字一致 | ✅ | `packages/domain/tests/ledger.test.ts` |
+| 口径版本：旧交易按写入版本解释、未知版本失败、已登记版本不可覆盖、SQL 与明细路径数字一致 | ✅ | `packages/domain/tests/ledger.test.ts`、`packages/domain/tests/budget.test.ts` |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |
 | 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |
