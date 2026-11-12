@@ -3,28 +3,16 @@ import * as transactionRepo from '../../db/repositories/transaction.repository.j
 import { dayStart } from '../../common/date.js'
 import { toLedgerTransaction } from '../ledger.adapter.js'
 import {
-  UNCATEGORIZED_CATEGORY_ID,
-  ZERO_MINOR,
   addDays,
-  coveredInRange,
-  flowByCategory,
-  projectionSourceValue,
-  summarizeFlows,
-  sum,
-  sub,
-  type LedgerTransaction,
+  buildIncomeExpenseProjection,
+  type CategoryRef,
   type LocalDate,
-  type Minor,
+  type ProjectionGranularity,
 } from '../../../../../packages/domain/src/index.js'
 import { loadProjectionEvents } from '../projection-events.js'
 import { buildProjectionBuckets } from './bucket.js'
 import { PREDICTION_NOTE_DEFAULT } from './prediction.js'
-import type {
-  IncomeExpenseProjectionPoint,
-  IncomeExpenseProjectionResult,
-  ProjectionCategoryDetail,
-  ProjectionGranularity,
-} from '../../../../../packages/contracts/types/index.js'
+import type { IncomeExpenseProjectionResult } from '../../../../../packages/contracts/types/index.js'
 
 export interface IncomeExpenseProjectionParams {
   asOf: LocalDate
@@ -35,15 +23,6 @@ export interface IncomeExpenseProjectionParams {
 }
 
 const FLOW_KINDS = new Set(['income', 'expense', 'refund'])
-
-type CategoryMaps = {
-  income: Map<string, Minor>
-  expense: Map<string, Minor>
-}
-
-function ledgerInRange(list: LedgerTransaction[], start: LocalDate, end: LocalDate): LedgerTransaction[] {
-  return list.filter((transaction) => transaction.date >= start && transaction.date <= end)
-}
 
 export async function generateIncomeExpenseProjection(
   params: IncomeExpenseProjectionParams,
@@ -87,143 +66,26 @@ export async function generateIncomeExpenseProjection(
     .filter((event) => FLOW_KINDS.has(event.ledger.kind))
     .map((event) => event.ledger)
 
-  const options = { includeExcluded: params.includeExcluded }
-  const actualSummary = summarizeFlows(actualLedger, undefined, options)
-  const committedSummary = summarizeFlows(committedLedger, undefined, options)
-  const plannedSummary = summarizeFlows(plannedLedger, undefined, options)
+  const allCategories = await transactionCategoryRepo.findMany({ orderBy: { sort: 'asc' } })
+  const categories: CategoryRef[] = allCategories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    parentId: c.parentId,
+    sort: c.sort,
+  }))
 
-  const actualMaps: CategoryMaps = {
-    income: flowByCategory(actualLedger, 'income', undefined, options),
-    expense: flowByCategory(actualLedger, 'expense', undefined, options),
-  }
-  const committedMaps: CategoryMaps = {
-    income: flowByCategory(committedLedger, 'income', undefined, options),
-    expense: flowByCategory(committedLedger, 'expense', undefined, options),
-  }
-  const plannedMaps: CategoryMaps = {
-    income: flowByCategory(plannedLedger, 'income', undefined, options),
-    expense: flowByCategory(plannedLedger, 'expense', undefined, options),
-  }
-
-  const categories = await transactionCategoryRepo.findMany({ orderBy: { sort: 'asc' } })
-  const childrenOf = new Map<string | null, typeof categories>()
-  for (const category of categories) {
-    const key = category.parentId ?? null
-    if (!childrenOf.has(key)) childrenOf.set(key, [])
-    childrenOf.get(key)!.push(category)
-  }
-
-  const buildTree = (type: 'income' | 'expense', parentId: string | null): ProjectionCategoryDetail[] => {
-    const result: ProjectionCategoryDetail[] = []
-    for (const category of childrenOf.get(parentId) ?? []) {
-      if (category.type !== type) continue
-
-      const childLeaves = buildTree(type, category.id)
-      const ownActual = actualMaps[type].get(category.id) ?? ZERO_MINOR
-      const ownCommitted = committedMaps[type].get(category.id) ?? ZERO_MINOR
-      const ownPlanned = plannedMaps[type].has(category.id) ? plannedMaps[type].get(category.id)! : null
-      const hasChildren = (childrenOf.get(category.id) ?? []).length > 0
-
-      if (ownActual === 0 && ownCommitted === 0 && ownPlanned === null && childLeaves.length === 0) continue
-
-      const childrenActual = sum(childLeaves.map((child) => child.actual))
-      const childrenCommitted = sum(childLeaves.map((child) => child.committed))
-      const childPlanned = childLeaves.filter((child) => child.planned !== null)
-      const planned = ownPlanned === null && childPlanned.length === 0
-        ? null
-        : sum([ownPlanned ?? ZERO_MINOR, ...childPlanned.map((child) => child.planned ?? ZERO_MINOR)])
-      const actual = sum([ownActual, childrenActual])
-      const committed = sum([ownCommitted, childrenCommitted])
-
-      result.push({
-        name: category.name,
-        categoryId: category.id,
-        hasChildren,
-        sort: category.sort,
-        actual,
-        committed,
-        planned,
-        total: sum([actual, committed, planned ?? ZERO_MINOR]),
-        hasBudget: planned !== null,
-        children: childLeaves.length > 0 ? childLeaves : undefined,
-      })
-    }
-    return result.sort((left, right) => left.sort - right.sort)
-  }
-
-  const buildUncategorized = (type: 'income' | 'expense'): ProjectionCategoryDetail | null => {
-    const actual = actualMaps[type].get(UNCATEGORIZED_CATEGORY_ID) ?? ZERO_MINOR
-    const committed = committedMaps[type].get(UNCATEGORIZED_CATEGORY_ID) ?? ZERO_MINOR
-    if (actual === 0 && committed === 0) return null
-    return {
-      name: '未分类',
-      categoryId: 'uncategorized',
-      hasChildren: false,
-      sort: Number.MAX_SAFE_INTEGER,
-      actual,
-      committed,
-      planned: null,
-      total: sum([actual, committed]),
-      hasBudget: false,
-    }
-  }
-
-  const incomeCategoryDetails = buildTree('income', null)
-  const expenseCategoryDetails = buildTree('expense', null)
-  const uncategorizedIncome = buildUncategorized('income')
-  const uncategorizedExpense = buildUncategorized('expense')
-  if (uncategorizedIncome) incomeCategoryDetails.push(uncategorizedIncome)
-  if (uncategorizedExpense) expenseCategoryDetails.push(uncategorizedExpense)
-
-  const points: IncomeExpenseProjectionPoint[] = buckets.map((bucket) => {
-    const actualSlice = ledgerInRange(actualLedger, bucket.start, bucket.end)
-    const committedSlice = ledgerInRange(committedLedger, bucket.start, bucket.end)
-    const plannedSlice = ledgerInRange(plannedLedger, bucket.start, bucket.end)
-
-    const actual = summarizeFlows(actualSlice, undefined, options)
-    const committed = summarizeFlows(committedSlice, undefined, options)
-
-    const plannedIncomeSlice = plannedSlice.filter(
-      (transaction) => transaction.kind === 'income' || transaction.kind === 'refund',
-    )
-    const plannedExpenseSlice = plannedSlice.filter(
-      (transaction) => transaction.kind === 'expense' || transaction.kind === 'refund',
-    )
-    const plannedIncomeSummary = summarizeFlows(plannedIncomeSlice, undefined, options)
-    const plannedExpenseSummary = summarizeFlows(plannedExpenseSlice, undefined, options)
-
-    const income = projectionSourceValue(
-      actual.netIncome,
-      committed.netIncome,
-      plannedIncomeSlice.length > 0 ? new Map([['income', plannedIncomeSummary.netIncome]]) : new Map(),
-    )
-    const expense = projectionSourceValue(
-      actual.netExpense,
-      committed.netExpense,
-      plannedExpenseSlice.length > 0 ? new Map([['expense', plannedExpenseSummary.netExpense]]) : new Map(),
-    )
-    const balance = projectionSourceValue(
-      sub(actual.netIncome, actual.netExpense),
-      sub(committed.netIncome, committed.netExpense),
-      plannedSlice.length > 0
-        ? new Map([['balance', sub(plannedIncomeSummary.netIncome, plannedExpenseSummary.netExpense)]])
-        : new Map(),
-    )
-
-    return {
-      granularity: bucket.granularity,
-      label: bucket.label,
-      start: bucket.start,
-      end: bucket.end,
-      date: bucket.end,
-      income,
-      expense,
-      balance,
-      covered: coveredInRange(events.covered, bucket.start, bucket.end),
-    }
+  // 逐桶三来源汇总、分类明细树与顶层合计全部由 domain/statements 计算。
+  const projection = buildIncomeExpenseProjection({
+    buckets,
+    actualLedger,
+    committedLedger,
+    plannedLedger,
+    categories,
+    uncategorizedLabel: '未分类',
+    includeExcluded: params.includeExcluded,
+    covered: events.covered,
   })
-
-  const hasFuture = committedLedger.length > 0 || plannedLedger.length > 0
 
   return {
     asOf: params.asOf,
@@ -231,18 +93,12 @@ export async function generateIncomeExpenseProjection(
     start: windowStart,
     end: windowEnd,
     bucketCount: buckets.length,
-    income: projectionSourceValue(actualSummary.netIncome, committedSummary.netIncome, plannedMaps.income),
-    expense: projectionSourceValue(actualSummary.netExpense, committedSummary.netExpense, plannedMaps.expense),
-    balance: projectionSourceValue(
-      sub(actualSummary.netIncome, actualSummary.netExpense),
-      sub(committedSummary.netIncome, committedSummary.netExpense),
-      plannedLedger.length > 0
-        ? new Map([['balance', sub(plannedSummary.netIncome, plannedSummary.netExpense)]])
-        : new Map(),
-    ),
-    incomeCategoryDetails,
-    expenseCategoryDetails,
-    points,
-    predictionNote: hasFuture ? PREDICTION_NOTE_DEFAULT : undefined,
+    income: projection.income,
+    expense: projection.expense,
+    balance: projection.balance,
+    incomeCategoryDetails: projection.incomeCategoryDetails,
+    expenseCategoryDetails: projection.expenseCategoryDetails,
+    points: projection.points,
+    predictionNote: projection.hasFuture ? PREDICTION_NOTE_DEFAULT : undefined,
   }
 }

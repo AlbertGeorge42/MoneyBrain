@@ -89,7 +89,8 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts` |
 | 预算：退款冲减、跨期退款下限 0、未分类不计入、转账只算绑定账户对 | ✅ | `packages/domain/tests/budget.test.ts`、`packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts`、`apps/web/tests/unit/budget-page-model.test.ts` |
 | 资产负债表：分类树逐级小计、负债按欠款正数列示、顶层负债先求和再 abs、按 sort 稳定排序、预测变化量符号口径 | ✅ | `packages/domain/tests/balance-sheet.test.ts`（6 例固定输入 + 迁移前输出快照）；迁移前后 5 组 `generateBalanceSheet` DTO 逐字段对照差异 0（一次性脚本，不入库） |
-| 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
+| 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额、预测半开窗口过滤 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts`、`packages/domain/tests/income-expense.test.ts`（10 例固定输入 + 迁移前输出快照）；迁移前后 7 组收支表 / 投影 DTO 逐字段对照差异 0（一次性脚本，不入库） |
+| 三来源投影：planned=null 语义、逐桶汇总、分类树子树聚合、hasBudget / hasFuture、两份 buildTree 合并为一份骨架 | ✅ | `packages/domain/tests/income-expense.test.ts`、`apps/api/tests/integration/projection-detail.route.test.ts` |
 | 现金流量表：支出退款算流入、收入退款算出流 | ✅ | `apps/api/tests/unit/cash-flow-aggregate.test.ts` |
 | 口径版本：旧交易按写入版本解释、未知版本失败、已登记版本不可覆盖、SQL 与明细路径数字一致 | ✅ | `packages/domain/tests/ledger.test.ts`、`packages/domain/tests/budget.test.ts` |
 | 投影推演：四粒度桶与未来上限、三来源合成（`planned=null`）、occurrence 互斥、资产 / 现金流推演与期间计划 | ✅ | `packages/domain/tests/projection.test.ts`（19 例固定输入 + 迁移前输出快照）、`apps/api/tests/integration/projection.route.test.ts`、`projection-detail.route.test.ts` |

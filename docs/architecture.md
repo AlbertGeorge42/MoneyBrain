@@ -132,7 +132,7 @@ adjustment  账户 +amount      权益 −amount
 | `services/budget.service.ts` | 预算 CRUD、SQL 预聚合取数、预测编排与 DTO；计入口径 / 状态 / 用量 / 下钻 / 周期展开调用 `domain/budget/`，期间计划点位调用 `domain/projection/` |
 | `services/projection.service.ts`、`services/projection-events.ts` | 推演取数、BalanceCache、Prisma→领域映射、occurrence 装载与 20,000 事件阈值、DTO 序列化；分桶 / 三来源 / 资产与现金流推演全部走 `domain/projection/` |
 | `services/analytics.service.ts` | 首页汇总、趋势、分类占比（走 `summarizeFlows` / `flowByCategory`） |
-| `services/report/*` | 四张报表；收支表用领域层 `summarizeFlows` / `flowByCategory`；`report/bucket.ts` 只留未来上限的 HTTP 校验与文案，分桶算法在 `domain/projection/`；资产负债表的分类树、逐级小计、负债符号口径、排序与实际值汇总走 `domain/statements/balance-sheet.ts`，service 只留取数、Prisma→领域映射、旧预测变化量合成与 DTO |
+| `services/report/*` | 四张报表；`report/bucket.ts` 只留未来上限的 HTTP 校验与文案，分桶算法在 `domain/projection/`；资产负债表的分类树、逐级小计、负债符号口径、排序与实际值汇总走 `domain/statements/balance-sheet.ts`；收支表与三来源投影的完整算法（分类树唯一递归骨架、逐级聚合、净资产对账条、逐桶 actual / committed / planned 合成）走 `domain/statements/{category-tree,income-expense,income-expense-projection}.ts`，service 只留取数、Prisma→领域映射、旧预测点位获取与 DTO |
 | `services/import/*`、`services/export/*` | 备份/CSV 导入导出；幂等键、范围过滤、覆盖保护 |
 | `services/ledger.adapter.ts` | Prisma `BigInt` 分 ↔ 领域类型适配 |
 | `common/` | 错误、HTTP 信封、请求 ID、日期、校验器、日志、树工具 |

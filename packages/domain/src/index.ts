@@ -101,6 +101,23 @@ export type {
   BalanceSheetResult,
 } from './statements/balance-sheet.js'
 export type { AccountTypeRef, AssetLiabilityTotals } from './statements/types.js'
+export { buildCategoryTree } from './statements/category-tree.js'
+export type { CategoryRef, FlowCategoryType } from './statements/category-tree.js'
+export { buildIncomeExpenseStatement } from './statements/income-expense.js'
+export type {
+  IncomeExpenseCategoryDetail,
+  IncomeExpensePrediction,
+  IncomeExpenseReconciliation,
+  IncomeExpenseStatement,
+  IncomeExpenseStatementInput,
+} from './statements/income-expense.js'
+export { buildIncomeExpenseProjection } from './statements/income-expense-projection.js'
+export type {
+  IncomeExpenseProjectionInput,
+  IncomeExpenseProjectionOutput,
+  IncomeExpenseProjectionPoint,
+  ProjectionCategoryDetail,
+} from './statements/income-expense-projection.js'
 
 export { budgetContributionSign } from './budget/scope.js'
 export { computeBudgetStatus, summarizeBudgetUsage } from './budget/status.js'
