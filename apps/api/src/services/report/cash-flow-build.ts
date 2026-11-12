@@ -1,4 +1,15 @@
-import { CURRENT_RULE_VERSION, add, abs, rulesFor, sum, sub, neg, ZERO_MINOR, type Minor } from '../../../../../packages/domain/src/index.js'
+import {
+  CURRENT_RULE_VERSION,
+  ZERO_MINOR,
+  abs,
+  add,
+  neg,
+  projectionFlowValue,
+  rulesFor,
+  sub,
+  sum,
+  type Minor,
+} from '../../../../../packages/domain/src/index.js'
 import { toMinor } from '../../common/index.js'
 import { buildChildrenMap } from '../../common/tree.js'
 import {
@@ -16,7 +27,6 @@ import type {
   ProjectionCashActivity,
   ProjectionCashActivityItem,
   ProjectionCashByActivity,
-  ProjectionFlowValue,
   ReportValue,
 } from '../../../../../packages/contracts/types/index.js'
 
@@ -24,10 +34,6 @@ type ActivityKey = 'operating' | 'investing' | 'financing' | 'uncategorized'
 
 function itemKeyOf(item: CashFlowActivityMinor['items'][number]): string {
   return `${item.categoryName}|${item.type}|${item.direction}`
-}
-
-export function projectionFlowValue(actual: Minor, planned: Minor, committed: Minor): ProjectionFlowValue {
-  return { actual, planned, committed, total: sum([actual, planned, committed]) }
 }
 
 /**

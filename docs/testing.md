@@ -91,6 +91,7 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 | 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts` |
 | 现金流量表：支出退款算流入、收入退款算出流 | ✅ | `apps/api/tests/unit/cash-flow-aggregate.test.ts` |
 | 口径版本：旧交易按写入版本解释、未知版本失败、已登记版本不可覆盖、SQL 与明细路径数字一致 | ✅ | `packages/domain/tests/ledger.test.ts`、`packages/domain/tests/budget.test.ts` |
+| 投影推演：四粒度桶与未来上限、三来源合成（`planned=null`）、occurrence 互斥、资产 / 现金流推演与期间计划 | ✅ | `packages/domain/tests/projection.test.ts`（19 例固定输入 + 迁移前输出快照）、`apps/api/tests/integration/projection.route.test.ts`、`projection-detail.route.test.ts` |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |
 | 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |

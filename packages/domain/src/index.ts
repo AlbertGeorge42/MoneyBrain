@@ -107,3 +107,58 @@ export type {
   BudgetUsageRow,
   BudgetUsageSummary,
 } from './budget/types.js'
+
+// ===== 投影领域：分桶、三来源合成、事件互斥、资产 / 现金流推演 =====
+export { bucketStartOf, buildProjectionBuckets, futureLimitOf } from './projection/buckets.js'
+export {
+  addBalance,
+  projectionFlowValue,
+  projectionSourceValue,
+  sumProjectionFlows,
+  zeroBalance,
+} from './projection/sources.js'
+export {
+  coveredInRange,
+  excludeCovered,
+  matchOccurrences,
+  mergeFutureEvents,
+} from './projection/events.js'
+export {
+  aggregateBalances,
+  applyEventToBalances,
+  balanceAtBucket,
+  buildAccountDetail,
+  cashBalanceTotal,
+  cashFlowOf,
+  type HistoricalBalanceSnapshot,
+} from './projection/balances.js'
+export { buildAssetProjection, type AssetProjectionInput, type AssetProjectionOutput } from './projection/asset.js'
+export {
+  buildCashFlowProjection,
+  type CashActualEntry,
+  type CashFlowProjectionInput,
+  type CashFlowProjectionOutput,
+} from './projection/cash-flow.js'
+export { buildPeriodPlanPoints, type PeriodPlanInput } from './projection/period-plan.js'
+export type {
+  AssetProjectionPoint,
+  BudgetPeriodPlanPoint,
+  BudgetPeriodPlanTotals,
+  BudgetPlanOccurrence,
+  CashFlowProjectionPoint,
+  CommittedEvent,
+  CoveredOccurrence,
+  PlannedEvent,
+  PlannedOccurrenceMeta,
+  ProjectionAccountRef,
+  ProjectionAccountValue,
+  ProjectionBalance,
+  ProjectionBucket,
+  ProjectionCategoryValue,
+  ProjectionCoveredOccurrence,
+  ProjectionEvent,
+  ProjectionEvents,
+  ProjectionFlowValue,
+  ProjectionGranularity,
+  ProjectionSourceValue,
+} from './projection/types.js'

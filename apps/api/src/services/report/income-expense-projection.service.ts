@@ -6,7 +6,9 @@ import {
   UNCATEGORIZED_CATEGORY_ID,
   ZERO_MINOR,
   addDays,
+  coveredInRange,
   flowByCategory,
+  projectionSourceValue,
   summarizeFlows,
   sum,
   sub,
@@ -14,7 +16,7 @@ import {
   type LocalDate,
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
-import { coveredInRange, loadProjectionEvents } from '../projection-events.js'
+import { loadProjectionEvents } from '../projection-events.js'
 import { buildProjectionBuckets } from './bucket.js'
 import { PREDICTION_NOTE_DEFAULT } from './prediction.js'
 import type {
@@ -22,7 +24,6 @@ import type {
   IncomeExpenseProjectionResult,
   ProjectionCategoryDetail,
   ProjectionGranularity,
-  ProjectionSourceValue,
 } from '../../../../../packages/contracts/types/index.js'
 
 export interface IncomeExpenseProjectionParams {
@@ -38,24 +39,6 @@ const FLOW_KINDS = new Set(['income', 'expense', 'refund'])
 type CategoryMaps = {
   income: Map<string, Minor>
   expense: Map<string, Minor>
-}
-
-function sumMap(map: Map<string, Minor>): Minor {
-  return sum([...map.values()])
-}
-
-function sourceValue(
-  actual: Minor,
-  committed: Minor,
-  plannedMap: Map<string, Minor>,
-): ProjectionSourceValue {
-  const planned = plannedMap.size > 0 ? sumMap(plannedMap) : null
-  return {
-    actual,
-    committed,
-    planned,
-    total: sum([actual, committed, planned ?? ZERO_MINOR]),
-  }
 }
 
 function ledgerInRange(list: LedgerTransaction[], start: LocalDate, end: LocalDate): LedgerTransaction[] {
@@ -209,17 +192,17 @@ export async function generateIncomeExpenseProjection(
     const plannedIncomeSummary = summarizeFlows(plannedIncomeSlice, undefined, options)
     const plannedExpenseSummary = summarizeFlows(plannedExpenseSlice, undefined, options)
 
-    const income = sourceValue(
+    const income = projectionSourceValue(
       actual.netIncome,
       committed.netIncome,
       plannedIncomeSlice.length > 0 ? new Map([['income', plannedIncomeSummary.netIncome]]) : new Map(),
     )
-    const expense = sourceValue(
+    const expense = projectionSourceValue(
       actual.netExpense,
       committed.netExpense,
       plannedExpenseSlice.length > 0 ? new Map([['expense', plannedExpenseSummary.netExpense]]) : new Map(),
     )
-    const balance = sourceValue(
+    const balance = projectionSourceValue(
       sub(actual.netIncome, actual.netExpense),
       sub(committed.netIncome, committed.netExpense),
       plannedSlice.length > 0
@@ -248,9 +231,9 @@ export async function generateIncomeExpenseProjection(
     start: windowStart,
     end: windowEnd,
     bucketCount: buckets.length,
-    income: sourceValue(actualSummary.netIncome, committedSummary.netIncome, plannedMaps.income),
-    expense: sourceValue(actualSummary.netExpense, committedSummary.netExpense, plannedMaps.expense),
-    balance: sourceValue(
+    income: projectionSourceValue(actualSummary.netIncome, committedSummary.netIncome, plannedMaps.income),
+    expense: projectionSourceValue(actualSummary.netExpense, committedSummary.netExpense, plannedMaps.expense),
+    balance: projectionSourceValue(
       sub(actualSummary.netIncome, actualSummary.netExpense),
       sub(committedSummary.netIncome, committedSummary.netExpense),
       plannedLedger.length > 0

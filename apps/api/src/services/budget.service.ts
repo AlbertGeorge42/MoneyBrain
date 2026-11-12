@@ -13,21 +13,22 @@ import * as budgetRepo from '../db/repositories/budget.repository.js'
 import * as transactionCategoryRepo from '../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
-  add,
   budgetKindOf,
+  buildPeriodPlanPoints,
   computeBudgetStatus,
   fromDate,
   generateBudgetOccurrences,
   minor,
   periodOf,
   summarizeBudgetUsage,
+  type BudgetPlanOccurrence,
   type BudgetScope,
   type BudgetUsageRow,
   type LocalDate,
   type Minor,
   type PeriodKind,
 } from '../../../../packages/domain/src/index.js'
-import { buildProjectionBuckets, bucketStartOf } from './report/bucket.js'
+import { buildProjectionBuckets } from './report/bucket.js'
 
 // 预算类型
 const BUDGET_TYPES = ['income', 'expense', 'transfer'] as const
@@ -490,45 +491,19 @@ export async function buildBudgetPeriodPlan(
   const last = buckets[buckets.length - 1]!
   const predictions = await generatePredictions(first.start, last.end)
 
-  const points: BudgetPeriodPlanPoint[] = buckets.map((bucket) => ({
-    month: bucket.label,
-    granularity: bucket.granularity,
-    label: bucket.label,
-    start: bucket.start,
-    end: bucket.end,
-    date: bucket.end,
-    hasBudget: false,
-    budgets: [],
-    totals: null,
+  // 领域层负责归桶、三类额度求和、hasBudget 与排序；API 只做边界转换。
+  const occurrences: BudgetPlanOccurrence[] = predictions.map((prediction) => ({
+    budgetId: prediction.budgetId,
+    budgetName: prediction.budgetName,
+    type: budgetKindOf(prediction.type),
+    date: formatDateLocal(prediction.date) as LocalDate,
+    amount: minor(prediction.amount),
   }))
-  const pointByStart = new Map(points.map((point) => [point.start, point]))
-
-  for (const prediction of predictions) {
-    const date = formatDateLocal(prediction.date)
-    const point = pointByStart.get(bucketStartOf(window.granularity, date as LocalDate))
-    if (!point) continue
-
-    const type = budgetKindOf(prediction.type)
-    point.budgets.push({
-      budgetId: prediction.budgetId,
-      budgetName: prediction.budgetName,
-      type,
-      date,
-      amount: minor(prediction.amount),
-    })
-    const totals = point.totals ?? {
-      income: minor(0),
-      expense: minor(0),
-      transfer: minor(0),
-    }
-    totals[type] = add(totals[type], toMinor(prediction.amount))
-    point.totals = totals
-    point.hasBudget = true
-  }
-
-  for (const point of points) {
-    point.budgets.sort((a, b) => (a.date === b.date ? a.budgetId.localeCompare(b.budgetId) : a.date.localeCompare(b.date)))
-  }
+  const points: BudgetPeriodPlanPoint[] = buildPeriodPlanPoints({
+    granularity: window.granularity,
+    buckets,
+    occurrences,
+  })
 
   return {
     asOf: window.asOf,

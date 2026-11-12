@@ -58,13 +58,12 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | I-A | Kotlin `NotificationListenerService` + 权限引导；本地解析金额 / 商户 / 时间 + 候选收件箱；原文只在本地保留 ≤7 天、只同步解析字段；「分享到 MoneyBrain」与手动记账回退 | 目标机型稳定收到允许列表内通知；解析失败也进收件箱并说明原因；同步 / 备份 / 日志中无通知原文；无权限时记账闭环不受影响 |
 | I-B | `importKey` + 近邻匹配 + 人工确认；v1 不自动入账，学习规则默认关闭 | 同一笔通知不重复；与手动记录不重复；未确认候选不影响余额与报表 |
 
-### 领域算法下沉通道（严格按 D2→D7，每阶段暂停验收）
+### 领域算法下沉通道（严格按 D3→D7，每阶段暂停验收）
 
 每阶段固定六步：① 审查现有代码与调用关系 → ② 明确输入、输出与算法边界 → ③ 建立或补齐回归测试 → ④ 迁移算法、API 改为调用 Domain → ⑤ 用固定输入 + 基线输出快照对比迁移前后结果 → ⑥ 通过测试后删除旧实现。每阶段完成后暂停，汇报文件变更、测试结果与遗留问题，等待确认再继续；不自动提交。不重写算法、不改变业务口径、不增加无关依赖、不创建空模块、不保留长期双实现；旧链路不留兼容层，回归基线不做双实现对照，死代码统一删除。结构约束见 [architecture.md](architecture.md) §2.7，编码规则见 [dev-guide.md](dev-guide.md) §3.5。
 
 | 条目 | 做什么 | 验收 |
 |---|---|---|
-| D2 | 预测期间分桶、actual / committed / planned 合成、资产与现金流推演下沉到 `projection/` | `projection.route` / `projection-detail.route` 全通过；四类粒度桶与未来上限 golden 一致；`projection/` 不 import 任何报表实现 |
 | D3 | 资产负债表历史部分下沉到 `statements/` | 补齐 `generateBalanceSheet` 数值回归；实际值 / 预测值逐字段一致。若历史部分与预测计算完全独立可提前迁移，但不得因此引入第二套预测逻辑 |
 | D4 | 收支表（含三来源投影与净资产对账条）下沉 | `income-expense.service.test`、对账差额、`includeExcluded` 两态数值不变；两份 `buildTree` 合并为一份 |
 | D5 | 现金流量表四活动桶、平账、桑基与投影活动下沉 | 基础端点补齐数值回归；`aggregate` / `buildSankey` / `cashFlowOf` 三条链路一致性断言；`buildSankey` 入参不再是 Prisma payload |

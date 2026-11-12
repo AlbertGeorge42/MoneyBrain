@@ -2,7 +2,7 @@ import { abs, max, sub, sum, ZERO_MINOR, type Minor } from '../money.js'
 import type { AccountTypeRef, AssetLiabilityTotals } from './types.js'
 
 function sumByType<T extends AccountTypeRef>(
-  accounts: T[],
+  accounts: readonly T[],
   type: 'asset' | 'liability',
   getValue: (account: T) => Minor,
 ): Minor {
@@ -16,7 +16,7 @@ function sumByType<T extends AccountTypeRef>(
  * 因此多个负债账户之间可以互相抵消；净资产 = 资产 − 负债。
  */
 export function sumAssetsLiabilities<T extends AccountTypeRef>(
-  accounts: T[],
+  accounts: readonly T[],
   getValue: (account: T) => Minor,
 ): AssetLiabilityTotals {
   const assets = sumByType(accounts, 'asset', getValue)

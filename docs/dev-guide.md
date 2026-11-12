@@ -40,7 +40,7 @@ apps/web/src/
 ├── utils/ · dev-fixtures/ · main.tsx
 （无 ui/、queries/、hooks/、layouts/、pages/ 目录；不要再新建同类目录）
 
-packages/domain/src/      # money · date · investment · ledger/ · budget/ · statements/；D 批模块边界见 §3.5
+packages/domain/src/      # money · date · investment · ledger/ · budget/ · statements/ · projection/；D 批模块边界见 §3.5
 packages/contracts/       # types/index.ts · constants.ts · utils/tree.ts · i18n/
 packages/sync/src/        # records · merge/apply · container（与端无关，不依赖文件系统/网盘 SDK）
 apps/desktop/             # src/main.cjs · electron-builder.yml · scripts/{stage-app,after-pack}
