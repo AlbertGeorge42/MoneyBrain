@@ -74,7 +74,7 @@ export function maxDate(a: LocalDate, b: LocalDate): LocalDate {
   return a >= b ? a : b
 }
 
-interface DateParts {
+export interface DateParts {
   year: number
   month: number
   day: number
@@ -214,4 +214,49 @@ export function contains(period: Period, value: LocalDate): boolean {
 
 export function periodLengthInDays(period: Period): number {
   return Math.round((toUtc(period.endExclusive).getTime() - toUtc(period.start).getTime()) / 86400000)
+}
+
+// ─── 日历拆解与 UTC 桥 ───
+//
+// 前端日期选择器需要 Date 对象与日历部件，这里提供唯一实现；
+// 所有运算仍是 UTC 日历日，与上面的 LocalDate 运算同源。
+
+/** 日历日 → UTC 零点 Date，供需要 Date 对象的 UI 边界使用。 */
+export function toUtcDate(value: LocalDate): Date {
+  return toUtc(value)
+}
+
+/** UTC 零点 Date → 日历日。与 fromDate（本地日历日）语义不同，勿混用。 */
+export function fromUtcDate(value: Date): LocalDate {
+  if (Number.isNaN(value.getTime())) throw new RangeError('Invalid time value')
+  return fromUtc(value)
+}
+
+export function dateParts(value: LocalDate): DateParts {
+  return parts(value)
+}
+
+/** 该月天数，month 为 1–12。 */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+}
+
+/** 该月 1 日是周几：周一 = 0 … 周日 = 6。 */
+export function weekdayOffset(year: number, month: number): number {
+  const day = new Date(Date.UTC(year, month - 1, 1)).getUTCDay()
+  return day === 0 ? 6 : day - 1
+}
+
+export function endOfMonth(value: LocalDate): LocalDate {
+  const { year, month } = parts(value)
+  return `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth(year, month)).padStart(2, '0')}` as LocalDate
+}
+
+export function endOfWeek(value: LocalDate): LocalDate {
+  return addDays(startOfWeek(value), 6)
+}
+
+export function endOfYear(value: LocalDate): LocalDate {
+  const { year } = parts(value)
+  return `${year}-12-31` as LocalDate
 }

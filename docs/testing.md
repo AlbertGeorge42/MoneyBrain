@@ -88,14 +88,14 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 | 期初余额是锚点：当天交易计入、锚点前余额可反推 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts` |
 | 预算：退款冲减、跨期退款下限 0、未分类不计入、转账只算绑定账户对 | ✅ | `packages/domain/tests/budget.test.ts`、`packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts`、`apps/web/tests/unit/budget-page-model.test.ts` |
-| 资产负债表：分类树逐级小计、负债按欠款正数列示、顶层负债先求和再 abs、按 sort 稳定排序、预测变化量符号口径 | ✅ | `packages/domain/tests/balance-sheet.test.ts`（6 例固定输入 + 迁移前输出快照）；迁移前后 5 组 `generateBalanceSheet` DTO 逐字段对照差异 0（一次性脚本，不入库） |
-| 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额、预测半开窗口过滤 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts`、`packages/domain/tests/income-expense.test.ts`（10 例固定输入 + 迁移前输出快照）；迁移前后 7 组收支表 / 投影 DTO 逐字段对照差异 0（一次性脚本，不入库） |
+| 资产负债表：分类树逐级小计、负债按欠款正数列示、顶层负债先求和再 abs、按 sort 稳定排序、预测变化量符号口径 | ✅ | `packages/domain/tests/balance-sheet.test.ts`（6 例固定输入 + 输出快照基线） |
+| 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额、预测半开窗口过滤 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts`、`packages/domain/tests/income-expense.test.ts`（10 例固定输入 + 输出快照基线） |
 | 三来源投影：planned=null 语义、逐桶汇总、分类树子树聚合、hasBudget / hasFuture、两份 buildTree 合并为一份骨架 | ✅ | `packages/domain/tests/income-expense.test.ts`、`apps/api/tests/integration/projection-detail.route.test.ts` |
-| 现金流量表：四活动桶、inflow 正 / outflow 负、退款方向、平账单列、转账三分支、报表汇总与三来源投影活动 | ✅ | `packages/domain/tests/cash-flow.test.ts`（8 例固定输入 + 迁移前输出快照）、`apps/api/tests/unit/cash-flow-aggregate.test.ts`、`apps/api/tests/unit/cash-flow-build.test.ts`；迁移前后 12 组报表 DTO 逐字段对照差异 0（一次性脚本，不入库） |
+| 现金流量表：四活动桶、inflow 正 / outflow 负、退款方向、平账单列、转账三分支、报表汇总与三来源投影活动 | ✅ | `packages/domain/tests/cash-flow.test.ts`（8 例固定输入 + 输出快照基线）、`apps/api/tests/unit/cash-flow-aggregate.test.ts`、`apps/api/tests/unit/cash-flow-build.test.ts` |
 | 现金→现金内部划转：本金在活动桶与推演里相消、桑基画账户间链路；净额 c−f 三条链路一致，`netCashFlow + reconciliation === cashChange` | ✅ | `packages/domain/tests/cash-flow.test.ts` |
 | 预算预测点位统一走复式分录：账户变化量、按类型汇总、集合内相消、时点闭区间过滤 | ✅ | `apps/api/tests/unit/report-calc.test.ts`（10 例固定输入 + 输出快照，改测 Domain 的 `projection/predicted-changes.ts`） |
 | 固定内核：转出 X+f / 转入 X+c / 净额 c−f、同一笔交易解释唯一、SQL 与明细路径数字一致 | ✅ | `packages/domain/tests/ledger.test.ts`、`packages/domain/tests/invariants.test.ts` |
-| 投影推演：四粒度桶与未来上限、三来源合成（`planned=null`）、occurrence 互斥、资产 / 现金流推演与期间计划 | ✅ | `packages/domain/tests/projection.test.ts`（19 例固定输入 + 迁移前输出快照）、`apps/api/tests/integration/projection.route.test.ts`、`projection-detail.route.test.ts` |
+| 投影推演：四粒度桶与未来上限、三来源合成（`planned=null`）、occurrence 互斥、资产 / 现金流推演与期间计划 | ✅ | `packages/domain/tests/projection.test.ts`（19 例固定输入 + 输出快照基线）、`apps/api/tests/integration/projection.route.test.ts`、`projection-detail.route.test.ts` |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |
 | 备份格式带 schemaVersion，新版备份不被旧应用导入 | ✅ | `apps/api/tests/unit/backup.service.test.ts` |
@@ -106,6 +106,8 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 ### 5.2 其他回归项
 
 同一 CSV 重复导入不产生重复交易（`importKey`）；报表合计与分类明细一致（含未分类）；投资快照前链在容器 / 文件导入、批次回滚部分删除后都由 Domain 唯一规则重排，无自引用、不推进 `rev` / `vv`，且重复重链零写入；失败时页面显示错误而不是 0。
+
+前端金额输入边界（归一化、两位小数、负数 / 0 裁定、可编辑文本）见 `apps/web/tests/unit/money-input.test.ts`；前端本地账本与 Domain 统一转账语义（新建 / 余额回放 / 编辑删除回滚 / API 映射保留 coupon）见 `apps/web/tests/unit/transfer-semantics.test.ts`；日期转发层的既有回归基线见 `apps/web/tests/unit/date-picker.test.tsx` 等。
 
 投资分析的 XIRR（含 CJS / ESM 真实运行）、收益指标、TWR、资产配置、再平衡与历史快照都有固定输入 + 输出快照基线，见 `packages/domain/tests/investment-analysis.test.ts`；快照前链规则见 `packages/domain/tests/investment.test.ts`，落库重链见 `apps/api/tests/unit/snapshot-chain.repository.test.ts` 与 `apps/api/tests/integration/snapshot-relink.test.ts`，入站本地字段剔除见 `packages/sync/tests/container.test.ts`，占比峰值指标见 `apps/api/tests/unit/investment-analysis.service.test.ts`。
 

@@ -1,99 +1,101 @@
 /**
- * 日期纯函数：内部值统一 `YYYY-MM-DD`，解析/格式化都按 UTC 零点，不受时区影响。
+ * 前端日期原语适配层。
  *
- * 全仓库唯一的日期原语实现：报表时间语义（features/reports/reportsTime）与
- * 统一日期选择器（features/shared/datePicker）都从这里取，
- * 避免「周一为周首」「月末是几号」这类规则出现两份。
+ * 所有日历运算的唯一实现在 `packages/domain/src/date.ts`，本文件只做
+ * 「string / Date ↔ LocalDate」的类型适配与命名映射，不写第二套算法。
+ * 对外签名保持 string / Date，避免 LocalDate 品牌类型扩散到 UI 模型；
+ * 运算全程 UTC 日历日，与 Domain 同源，不受本地时区影响。
  */
 
-/** 粒度：日 / 周 / 月 / 年。 */
+import {
+  addDays as domainAddDays,
+  addMonths as domainAddMonths,
+  dateParts,
+  daysInMonth as domainDaysInMonth,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  fromUtcDate,
+  isoWeekLabel as domainIsoWeekLabel,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  toUtcDate,
+  weekdayOffset as domainWeekdayOffset,
+  type LocalDate,
+} from '@domain/index'
+
+/** 粒度：日 / 周 / 月 / 年。UI 概念，不进领域层。 */
 export type CalendarGranularity = 'day' | 'week' | 'month' | 'year'
 
+/** 零校验地把 UI 的字符串日期当作 LocalDate；保持改造前的非法输入行为。 */
+const asDay = (value: string): LocalDate => value as LocalDate
+
 export function parseDay(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
+  return toUtcDate(asDay(value))
 }
 
 export function formatDay(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  return fromUtcDate(date)
 }
 
 /** 该月的天数（month 为 1–12）。 */
 export function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return domainDaysInMonth(year, month)
 }
 
 /** 周一为 0，周日为 6。 */
 export function weekdayOffset(year: number, month: number): number {
-  const day = new Date(Date.UTC(year, month - 1, 1)).getUTCDay()
-  return day === 0 ? 6 : day - 1
+  return domainWeekdayOffset(year, month)
 }
 
 export function yearOf(value: string): number {
-  return parseDay(value).getUTCFullYear()
+  return dateParts(asDay(value)).year
 }
 
 export function monthOf(value: string): number {
-  return parseDay(value).getUTCMonth() + 1
+  return dateParts(asDay(value)).month
 }
 
 export function dayOfMonth(value: string): number {
-  return parseDay(value).getUTCDate()
+  return dateParts(asDay(value)).day
 }
 
 export function addDays(value: string, days: number): string {
-  const date = parseDay(value)
-  date.setUTCDate(date.getUTCDate() + days)
-  return formatDay(date)
+  return domainAddDays(asDay(value), days)
 }
 
 /** 加月并保持「同日」；目标月没有该日时取月末（10-31 + 1 月 = 11-30）。 */
 export function addMonths(value: string, months: number): string {
-  const date = parseDay(value)
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1))
-  const day = Math.min(
-    date.getUTCDate(),
-    daysInMonth(target.getUTCFullYear(), target.getUTCMonth() + 1),
-  )
-  return formatDay(new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), day)))
+  return domainAddMonths(asDay(value), months)
 }
 
 export function monthStart(value: string): string {
-  const date = parseDay(value)
-  return formatDay(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)))
+  return startOfMonth(asDay(value))
 }
 
 export function monthEnd(value: string): string {
-  const date = parseDay(value)
-  return formatDay(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)))
+  return endOfMonth(asDay(value))
 }
 
 /** ISO 周起点（周一）。 */
 export function weekStart(value: string): string {
-  const day = parseDay(value).getUTCDay()
-  return addDays(value, day === 0 ? -6 : 1 - day)
+  return startOfWeek(asDay(value))
 }
 
 export function weekEnd(value: string): string {
-  return addDays(weekStart(value), 6)
+  return endOfWeek(asDay(value))
 }
 
 export function yearStart(value: string): string {
-  return formatDay(new Date(Date.UTC(parseDay(value).getUTCFullYear(), 0, 1)))
+  return startOfYear(asDay(value))
 }
 
 export function yearEnd(value: string): string {
-  return formatDay(new Date(Date.UTC(parseDay(value).getUTCFullYear(), 11, 31)))
+  return endOfYear(asDay(value))
 }
 
-/**
- * ISO 周标签 `YYYY-Www`：周编号与周年份取该周周四所在年份（跨年周不拆），
- * 与后端 `isoWeekLabel` 同一规则。
- */
+/** ISO 周标签 `YYYY-Www`：跨年周按周四归属年，与后端同一规则。 */
 export function isoWeekLabel(value: string): string {
-  const thursday = addDays(weekStart(value), 3)
-  const year = parseDay(thursday).getUTCFullYear()
-  const dayOfYear =
-    Math.round((parseDay(thursday).getTime() - parseDay(`${year}-01-01`).getTime()) / 86_400_000) + 1
-  return `${year}-W${String(Math.floor((dayOfYear - 1) / 7) + 1).padStart(2, '0')}`
+  return domainIsoWeekLabel(asDay(value))
 }

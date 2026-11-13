@@ -10,6 +10,7 @@ import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
+import { parseMoneyInput } from '@/utils/money'
 import { resolveCategoryIcon, type CategoryIconGroupId } from '@/features/overview/categoryIcons'
 import type { AccountKind, Ledger, TxType } from '@/features/overview/model'
 import { ACCOUNT_KIND_LABEL, CATEGORY_TABS } from './model'
@@ -162,13 +163,40 @@ export function EditorSheet({
           : '编辑分类'
 
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(initialBalanceDate)
+  // 负债 / 期初反推会给出负余额，0 也合法；解析内核统一走 Domain，表单只判 null。
+  const balanceCents = parseMoneyInput(balance, { allowNegative: true, allowZero: true })
+  const initialBalanceCents = parseMoneyInput(initialBalance, { allowNegative: true, allowZero: true })
   const valid =
     name.trim().length > 0 &&
     (editor.kind !== 'account' ||
       (!groupMode || editor.mode === 'edit' || groupId !== '') &&
-      (Number.isFinite(Number(balance)) &&
-        Number.isFinite(Number(initialBalance)) &&
-        dateValid))
+      (balanceCents !== null && initialBalanceCents !== null && dateValid))
+
+  const handleSave = () => {
+    if (balanceCents === null || initialBalanceCents === null) return
+    onSave({
+      name: name.trim(),
+      kind,
+      categoryId:
+        editor.kind === 'account' && groupMode
+          ? groupId === ''
+            ? editor.mode === 'edit'
+              ? null
+              : undefined
+            : groupId
+          : undefined,
+      balance:
+        editor.kind === 'account' && editor.mode === 'create'
+          ? initialBalanceCents
+          : balanceCents,
+      initialBalance: initialBalanceCents,
+      initialBalanceDate,
+      iconKey:
+        editor.kind === 'category' || editor.kind === 'accountGroup'
+          ? iconKey || null
+          : undefined,
+    })
+  }
 
   const duplicateGroup =
     editor.kind === 'accountGroup'
@@ -402,30 +430,7 @@ export function EditorSheet({
         <HfButton
           className="mb-set-btn is-primary"
           disabled={!valid || saving}
-          onClick={() =>
-            onSave({
-              name: name.trim(),
-              kind,
-              categoryId:
-                editor.kind === 'account' && groupMode
-                  ? groupId === ''
-                    ? editor.mode === 'edit'
-                      ? null
-                      : undefined
-                    : groupId
-                  : undefined,
-              balance:
-                editor.kind === 'account' && editor.mode === 'create'
-                  ? Math.round(Number(initialBalance) * 100)
-                  : Math.round(Number(balance) * 100),
-              initialBalance: Math.round(Number(initialBalance) * 100),
-              initialBalanceDate,
-              iconKey:
-                editor.kind === 'category' || editor.kind === 'accountGroup'
-                  ? iconKey || null
-                  : undefined,
-            })
-          }
+          onClick={handleSave}
         >
           {saving ? '保存中…' : '保存'}
         </HfButton>

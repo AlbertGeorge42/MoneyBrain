@@ -12,19 +12,13 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { Transaction } from '@contracts/types'
 import { transactionApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
+import { parseMoneyInput } from '@/utils/money'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import { accountIdsInGroup, type TransactionFilters } from './filters'
 
 /** 单次请求条数；页面无分页控件，靠自动翻页取全量筛选结果。 */
 const TRANSACTION_PAGE_SIZE = 100
-
-function toMinor(value: string): number | null {
-  if (!value.trim()) return null
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed) || parsed < 0) return null
-  return Math.round(parsed * 100)
-}
 
 /** 把 HF 筛选模型翻译成 /transactions 的 query 参数（真实分类 id 在这里回填）。 */
 export function buildTransactionQueryParams(
@@ -71,8 +65,9 @@ export function buildTransactionQueryParams(
   if (filters.advanced.dateFrom) params.set('from', filters.advanced.dateFrom)
   if (filters.advanced.dateTo) params.set('to', filters.advanced.dateTo)
 
-  const min = toMinor(filters.advanced.amountMin)
-  const max = toMinor(filters.advanced.amountMax)
+  // 筛选边界也走同一个解析内核：0 是合法下限，超出两位小数直接不设该条件。
+  const min = parseMoneyInput(filters.advanced.amountMin, { allowZero: true })
+  const max = parseMoneyInput(filters.advanced.amountMax, { allowZero: true })
   if (min !== null) params.set('amountMin', String(min))
   if (max !== null) params.set('amountMax', String(max))
 

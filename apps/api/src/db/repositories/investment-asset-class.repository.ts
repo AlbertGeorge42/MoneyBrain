@@ -5,19 +5,6 @@ import type { InvestmentAssetClass, Prisma } from '@prisma/client'
 
 const db = (tx?: TransactionClient) => tx ?? prisma
 
-/** 带反向关联（明细 → 快照 → 明细）的资产类别行：删除前检查快照引用用。 */
-export type AssetClassWithAllocationItems = Prisma.InvestmentAssetClassGetPayload<{
-  include: {
-    allocationItems: {
-      include: {
-        snapshot: {
-          include: { items: true }
-        }
-      }
-    }
-  }
-}>
-
 export async function findMany<T extends Prisma.InvestmentAssetClassFindManyArgs>(
   args: Prisma.SelectSubset<T, Prisma.InvestmentAssetClassFindManyArgs>,
   tx?: TransactionClient,
@@ -41,24 +28,6 @@ export async function findById(
   tx?: TransactionClient,
 ): Promise<InvestmentAssetClass | null> {
   return db(tx).investmentAssetClass.findUnique({ where: { id } })
-}
-
-export async function findByIdWithAllocationItems(
-  id: string,
-  tx?: TransactionClient,
-): Promise<AssetClassWithAllocationItems | null> {
-  return db(tx).investmentAssetClass.findUnique({
-    where: { id },
-    include: {
-      allocationItems: {
-        include: {
-          snapshot: {
-            include: { items: true },
-          },
-        },
-      },
-    },
-  })
 }
 
 export async function create<T extends Prisma.InvestmentAssetClassCreateArgs>(
@@ -98,16 +67,4 @@ export async function count(
   tx?: TransactionClient,
 ): Promise<number> {
   return db(tx).investmentAssetClass.count({ where })
-}
-
-/** 批量重排序：整个批次一个事务，部分失败全部回滚。 */
-export async function reorder(accountId: string, orderedIds: string[]): Promise<void> {
-  await prisma.$transaction(
-    orderedIds.map((id, index) =>
-      prisma.investmentAssetClass.updateMany({
-        where: { id, accountId },
-        data: { sort: index },
-      })
-    )
-  )
 }

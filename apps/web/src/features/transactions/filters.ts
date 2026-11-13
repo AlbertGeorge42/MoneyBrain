@@ -4,7 +4,8 @@
  * 搜索覆盖备注 / 账户 / 分类 / 方向（与服务端一致，不搜金额文本——金额有独立区间筛选）；
  * 高级筛选按账户、分类根节点、金额区间、日期区间取交集。列表分组沿用总览的日期标签口径，另补每组合计。
  */
-import { minor } from '@domain/index'
+import { minor, type Minor } from '@domain/index'
+import { parseMoneyInput } from '@/utils/money'
 import { formatCurrency } from '@/utils/format'
 import {
   formatDateLabel,
@@ -122,22 +123,18 @@ function matchesQuery(ledger: Ledger, transaction: LedgerTransaction, query: str
   return haystack.includes(needle)
 }
 
-function parseAmount(value: string): number | null {
-  if (!value.trim()) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
-}
-
-function inAmountRange(transaction: LedgerTransaction, min: number | null, max: number | null): boolean {
-  const yuan = Math.abs(transaction.amount) / 100
-  if (min !== null && yuan < min) return false
-  if (max !== null && yuan > max) return false
+// 金额区间全程用整数分比较：筛选输入与交易金额都归一到同一单位，
+// 不再先把分除以 100 变成浮点再比。
+function inAmountRange(transaction: LedgerTransaction, min: Minor | null, max: Minor | null): boolean {
+  const cents = Math.abs(transaction.amount)
+  if (min !== null && cents < min) return false
+  if (max !== null && cents > max) return false
   return true
 }
 
 export function filterTransactions(ledger: Ledger, filters: TransactionFilters): LedgerTransaction[] {
-  const min = parseAmount(filters.advanced.amountMin)
-  const max = parseAmount(filters.advanced.amountMax)
+  const min = parseMoneyInput(filters.advanced.amountMin, { allowZero: true })
+  const max = parseMoneyInput(filters.advanced.amountMax, { allowZero: true })
   const rootCategoryId = filters.advanced.categoryId
   const rootCategoryIds = filters.advanced.categoryIds
   // 分组筛选：把分组翻译成账户集合，再按账户收窄；不改变任何金额口径。

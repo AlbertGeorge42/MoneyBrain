@@ -6,11 +6,12 @@
  * 这里不放任何 UI 文案模板，表格与下钻只消费结构化结果。
  */
 import { isExpanded, type FoldState } from '@/features/shared/foldState'
-import { minor } from '@domain/index'
+import { minor, transferInflow, transferOutflow } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import {
   getCategory,
   refundOffsetSide,
+  transferAmounts,
   type Ledger,
   type LedgerAccountCategory,
   type LedgerTransaction,
@@ -354,9 +355,18 @@ export function accountBalancesAt(ledger: Ledger, point: string): Map<string, nu
     } else if (transaction.type === 'adjustment') {
       balances.set(transaction.accountId, (balances.get(transaction.accountId) ?? 0) - transaction.amount)
     } else if (transaction.type === 'transfer') {
-      balances.set(transaction.accountId, (balances.get(transaction.accountId) ?? 0) + amount)
+      // 回放方向与 Domain 分录相反：转出侧还原完整的 X+f，转入侧冲回 X+c。
+      // 手续费与券都在分录里，不再需要展示层另做补偿。
+      const { principal, fee, coupon } = transferAmounts(transaction)
+      balances.set(
+        transaction.accountId,
+        (balances.get(transaction.accountId) ?? 0) + transferOutflow(principal, fee),
+      )
       if (transaction.toAccountId) {
-        balances.set(transaction.toAccountId, (balances.get(transaction.toAccountId) ?? 0) - amount)
+        balances.set(
+          transaction.toAccountId,
+          (balances.get(transaction.toAccountId) ?? 0) - transferInflow(principal, coupon),
+        )
       }
     }
   }

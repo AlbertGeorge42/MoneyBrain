@@ -14,8 +14,8 @@ import { QuickEntry } from '@/features/overview/QuickEntry'
 import {
   formatAmountInput,
   normalizeAmountInput,
-  toCents,
-} from '@/features/overview/amountInput'
+  parseMoneyInput,
+} from '@/utils/money'
 import {
   TODAY,
   deriveOverview,
@@ -119,28 +119,28 @@ describe('#13 千分位金额输入', () => {
   it('解析前剥离千分位与空格', () => {
     expect(normalizeAmountInput('1,234.56')).toBe('1234.56')
     expect(normalizeAmountInput(' 1 234.56 ')).toBe('1234.56')
-    expect(toCents('1,234.56')).toBe(123_456)
+    expect(parseMoneyInput('1,234.56')).toBe(123_456)
   })
 
   it('全角数字与全角小数点转半角', () => {
     expect(normalizeAmountInput('１２３４')).toBe('1234')
     expect(normalizeAmountInput('１２．５')).toBe('12.5')
-    expect(toCents('１２３４')).toBe(123_400)
+    expect(parseMoneyInput('１２３４')).toBe(123_400)
   })
 
   it('剥离 ¥ / ￥ / $ 前缀与千分位', () => {
-    expect(toCents('¥1,234.56')).toBe(123_456)
-    expect(toCents('￥1,234.56')).toBe(123_456)
-    expect(toCents('$1,234.56')).toBe(123_456)
-    expect(toCents(' ¥ 1,234.56 ')).toBe(123_456)
+    expect(parseMoneyInput('¥1,234.56')).toBe(123_456)
+    expect(parseMoneyInput('￥1,234.56')).toBe(123_456)
+    expect(parseMoneyInput('$1,234.56')).toBe(123_456)
+    expect(parseMoneyInput(' ¥ 1,234.56 ')).toBe(123_456)
   })
 
   it('尾空格、空串、纯符号与负号都返回空', () => {
     expect(normalizeAmountInput('1,234.56   ')).toBe('1234.56')
-    expect(toCents('   ')).toBeNull()
-    expect(toCents('')).toBeNull()
-    expect(toCents('-')).toBeNull()
-    expect(toCents('¥')).toBeNull()
+    expect(parseMoneyInput('   ')).toBeNull()
+    expect(parseMoneyInput('')).toBeNull()
+    expect(parseMoneyInput('-')).toBeNull()
+    expect(parseMoneyInput('¥')).toBeNull()
   })
 
   it('失焦时按千分位格式化显示', () => {

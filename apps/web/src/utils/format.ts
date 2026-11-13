@@ -4,7 +4,7 @@
  * 金额在应用内一律是整数分（Minor）；这里是唯一的「分 → 元」展示边界。
  */
 
-import type { Minor } from '@domain/index'
+import { formatCurrency as domainFormatCurrency, toMajor, type Minor } from '@domain/index'
 
 interface FormatCurrencyOptions {
   /** 小数位数，默认 2 */
@@ -28,8 +28,10 @@ interface FormatCurrencyOptions {
  * formatCurrency(minor(123450), { showSymbol: false }) // "1,234.50"
  */
 export function formatCurrency(value: Minor, options?: FormatCurrencyOptions): string {
-  const num = value / 100
-  const { decimals = 2, showSign = false, showSymbol = true } = options ?? {}
+  // 默认格式直接复用 Domain 的唯一实现；带选项时才在展示层外壳里拼前缀 / 小数位。
+  if (!options) return domainFormatCurrency(value)
+  const num = toMajor(value)
+  const { decimals = 2, showSign = false, showSymbol = true } = options
 
   const formatted = num.toLocaleString('zh-CN', {
     minimumFractionDigits: decimals,

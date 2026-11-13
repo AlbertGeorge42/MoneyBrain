@@ -5,6 +5,7 @@
  * 本模块全部为纯函数，便于单测覆盖数字计算与账本联动。
  */
 
+import { minor, transferInflow, transferOutflow, type Minor } from '@domain/index'
 import { formatDay, parseDay } from '@/utils/date'
 
 export type TxType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
@@ -94,6 +95,8 @@ export interface LedgerTransaction {
   amount: number
   toAccountId?: string
   fee?: number
+  /** 转账优惠券：转入方额外到账金额，与后端 / Domain 的 X / f / c 语义一致。 */
+  coupon?: number
   /** 退款关联的原交易；同时供 API 与种子账本使用（种子以 id 关联）。 */
   relatedTransactionId?: string
   /** 原交易类型；退款冲减哪一侧由它决定（缺省 = 未关联退款，只影响余额）。 */
@@ -272,10 +275,30 @@ export interface NewTransactionInput {
   note: string
   date?: string
   fee?: number
+  /** 转账优惠券（分）；新建入口暂不提供输入，导入的账本会带此字段。 */
+  coupon?: number
   /** 退款可选关联原交易；不填 = 未关联退款（照常记账，只影响余额）。 */
   relatedTransactionId?: string
   /** 不计收支：仍影响余额，但不进收入/支出统计与预算用量。 */
   excludeFromIncomeExpense?: boolean
+}
+
+/**
+ * 前端账本的转账三元组 → Domain 的整数分输入。
+ *
+ * 只做单位/类型归一（前端模型是裸 number，Domain 要 Minor），不写第二套口径；
+ * 转出 / 转入金额一律由 Domain 的 transferOutflow / transferInflow 计算。
+ */
+export function transferAmounts(transaction: {
+  amount: number
+  fee?: number
+  coupon?: number
+}): { principal: Minor; fee: Minor; coupon: Minor } {
+  return {
+    principal: minor(Math.round(Math.abs(transaction.amount))),
+    fee: minor(Math.round(transaction.fee ?? 0)),
+    coupon: minor(Math.round(transaction.coupon ?? 0)),
+  }
 }
 
 function percentChange(current: number, previous: number): number {
@@ -685,6 +708,8 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
 
   const signed = input.type === 'adjustment' ? Math.round(input.amount) : magnitude
   const fee = input.fee && input.fee > 0 ? Math.round(input.fee) : 0
+  // 转账的两侧金额只由 Domain 口径给出：转出 X+f、转入 X+c。
+  const transfer = transferAmounts({ amount: input.amount, fee, coupon: input.coupon })
   const related = input.relatedTransactionId
     ? findTransactionDeep(ledger.transactions, input.relatedTransactionId)
     : undefined
@@ -692,8 +717,10 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
 
   const accounts = ledger.accounts.map((account) => {
     if (input.type === 'transfer') {
-      if (account.id === input.accountId) return { ...account, balance: account.balance - magnitude - fee }
-      if (account.id === input.toAccountId) return { ...account, balance: account.balance + magnitude }
+      if (account.id === input.accountId)
+        return { ...account, balance: account.balance - transferOutflow(transfer.principal, transfer.fee) }
+      if (account.id === input.toAccountId)
+        return { ...account, balance: account.balance + transferInflow(transfer.principal, transfer.coupon) }
       return account
     }
     if (account.id !== input.accountId) return account
@@ -730,6 +757,7 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
             input.toAccountId ||
             ledger.accounts.find((account) => account.id !== input.accountId)?.id,
           fee,
+          coupon: input.coupon || undefined,
         }
       : {}),
     ...(input.type === 'refund'

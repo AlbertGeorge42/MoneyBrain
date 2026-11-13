@@ -10,7 +10,7 @@ import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { formatCurrency } from '@/utils/format'
 import type { Ledger, LedgerAccount, NewTransactionInput, TxType } from './model'
 import { accountKindLabel, TODAY } from './model'
-import { formatAmountInput, normalizeAmountInput, toCents } from './amountInput'
+import { formatAmountInput, normalizeAmountInput, parseMoneyInput } from '@/utils/money'
 import { useLedger, type LedgerMutationOutcome } from './ledgerStore'
 import './overlays.css'
 
@@ -217,8 +217,8 @@ function EntryForm({
     if (!mobile) amountRef.current?.focus()
   }, [mobile])
 
-  const cents = toCents(amount)
-  const feeCents = toCents(fee)
+  const cents = parseMoneyInput(amount)
+  const feeCents = parseMoneyInput(fee)
   const categories = categoryOptions(ledger.categories, type)
   const chips = accountChips(ledger.accounts, recent, accountId)
   const toChips = accountChips(ledger.accounts, recent, toAccountId)

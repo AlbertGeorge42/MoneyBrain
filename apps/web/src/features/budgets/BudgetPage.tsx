@@ -7,6 +7,7 @@ import type { BudgetPeriod, LedgerBudget } from '@/features/overview/model'
 import { budgetApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
+import { editableAmount, parseMoneyInput } from '@/utils/money'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
 import { Card } from '@/features/shared/Card'
 import { HfButton } from '@/features/shared/HfButton'
@@ -539,7 +540,7 @@ export function BudgetPage({
 
   const openDetail = (row: BudgetPageRow) => {
     setDetailId(row.id)
-    setDetailLimit((row.limit / 100).toFixed(2).replace(/\.00$/, ''))
+    setDetailLimit(editableAmount(row.limit))
     setDetailNote('')
     setConfirmDelete(false)
   }
@@ -597,8 +598,8 @@ export function BudgetPage({
 
   const saveLimit = async () => {
     if (!detail || saving) return
-    const value = Math.round(Number(detailLimit) * 100)
-    if (!Number.isFinite(value) || value <= 0) {
+    const value = parseMoneyInput(detailLimit)
+    if (value === null) {
       setDetailNote('限额需大于 0')
       return
     }
@@ -666,12 +667,12 @@ export function BudgetPage({
 
   const saveEditor = async () => {
     if (saving) return
-    const amount = Math.round(Number(editor.amount) * 100)
+    const amount = parseMoneyInput(editor.amount)
     if (!editor.name.trim()) {
       setEditorError('请填写预算名称')
       return
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (amount === null) {
       setEditorError('请填写大于 0 的金额')
       return
     }

@@ -4,7 +4,8 @@
  * 只做「记录 → 账户余额」的可逆调整，保证编辑 / 删除 / 批量操作后
  * 总览净值与账户卡同步。所有函数返回新账本，不修改入参。
  */
-import type { Ledger, LedgerTransaction, TxType } from '@/features/overview/model'
+import { neg, transferInflow, transferOutflow } from '@domain/index'
+import { transferAmounts, type Ledger, type LedgerTransaction, type TxType } from '@/features/overview/model'
 
 export interface TransactionPatch {
   categoryId: string
@@ -34,11 +35,11 @@ function balanceDeltas(transaction: LedgerTransaction): BalanceDelta[] {
       return [{ accountId: transaction.accountId, amount: transaction.amount }]
     case 'transfer': {
       if (!transaction.toAccountId) return []
-      const amount = Math.abs(transaction.amount)
-      const fee = transaction.fee ?? 0
+      // 与 Domain 分录同源：转出 −(X+f)、转入 +(X+c)。
+      const { principal, fee, coupon } = transferAmounts(transaction)
       return [
-        { accountId: transaction.accountId, amount: -amount - fee },
-        { accountId: transaction.toAccountId, amount },
+        { accountId: transaction.accountId, amount: neg(transferOutflow(principal, fee)) },
+        { accountId: transaction.toAccountId, amount: transferInflow(principal, coupon) },
       ]
     }
   }

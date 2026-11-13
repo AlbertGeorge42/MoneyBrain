@@ -132,6 +132,7 @@ function toBaseLedgerTransaction(
     amount: transaction.amount,
     toAccountId: transaction.toAccountId ?? undefined,
     fee: transaction.fee || undefined,
+    coupon: transaction.coupon || undefined,
     relatedTransactionId: transaction.relatedTransactionId ?? undefined,
     relatedType: transaction.relatedType ? asTxType(transaction.relatedType) : null,
     excludeFromIncomeExpense: transaction.excludeFromIncomeExpense || undefined,

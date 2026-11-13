@@ -72,7 +72,7 @@ adjustment  账户 +amount      权益 −amount
 前端通过 `@contracts/*` 别名引用（`tsconfig.json` 与 `vite.config.ts` 都配了），
 后端用相对路径（与 domain 一样，避免开发期额外构建步骤）。
 
-日期格式化由 `common/date.ts` 委托给领域层的 `fromDate`，全库只有一套实现。
+后端日期格式化由 `common/date.ts` 委托给领域层的 `fromDate`；前端 `apps/web/src/utils/date.ts` 是 `packages/domain/src/date.ts` 的薄转发层，只做 `string / Date ↔ LocalDate` 类型适配，全部日历运算（含 UTC 零点、ISO 周、月末溢出）都在 Domain 一份实现里，`reportsTime` / `datePickerModel` 等消费它而不自带算法。
 
 ## 2.6 同步层（packages/sync）
 
@@ -100,20 +100,21 @@ adjustment  账户 +amount      权益 −amount
 ## 2.7 领域计算引擎的边界约定
 
 > 本节只写**结构约束**与模块现状，不是进度记录；`budget/` / `statements/` /
-> `projection/` / `investment/` 已落地，D 批剩余阶段按 [roadmap.md](roadmap.md) §3 逐阶段落地。
+> `projection/` / `investment/` 均已落地。
 > 编码时的可执行规则见 [dev-guide.md](dev-guide.md) §3.5。
 
 | 模块 | 应承载的职责 | 归属说明 |
 |---|---|---|
 | `money.ts` | 整数分金额表示、安全加减与舍入、导入 / 展示边界的解析与格式化 | 值对象，不是工具函数集合 |
-| `date.ts` | `LocalDate`、半开区间、财务期间与投影分桶边界 | 不单独建 `calendar`；已存在的日期口径分叉不顺手统一 |
+| `date.ts` | `LocalDate`、半开区间、财务期间与投影分桶边界、日历拆解与 UTC 桥 | 不单独建 `calendar`；前端 `utils/date.ts` 只做转发，不写第二套算法 |
 | `ledger/` | 账务口径唯一来源、交易 → 分录、余额、收支汇总、退款上限 | 不单独建 `transaction`；交易类型与规则都在 `ledger/types.ts` / `rules.ts` |
 | `budget/` | 预算额度、计入口径、使用率、达成率、预算周期展开 | 不含预测值合成 |
 | `projection/` | 预测期间分桶、actual / committed / planned 数据合成、资产与现金流推演 | 不依赖具体报表实现 |
 | `statements/` | 资产负债表、收支表、现金流量表的完整计算 | 不依赖具体 API service 或 Prisma 类型；`aggregates.ts` 只放真正跨报表共享的领域计算，不做万能工具文件 |
 | `investment/` | XIRR / TWR / 年化、收益指标、资产配置、再平衡、快照链 | `xirr` 只在本模块内封装 |
 
-- **依赖方向**：Domain 定义自己的输入输出类型，不 import `packages/contracts`、`@prisma/client`、Express、SQLite 或任何 `apps/**` 代码；Prisma Model / `GetPayload` 不得直接作为 Domain 入参。`index.ts` 仍是唯一出口。
+- **依赖方向**：Domain 定义自己的输入输出类型，不 import `packages/contracts`、`@prisma/client`、Express、SQLite 或任何 `apps/**` 代码；Prisma Model / `GetPayload` 不得直接作为 Domain 入参。`index.ts` 仍是唯一出口，且只再导出**当前有实际消费方**的符号（实现文件与类型定义保留在各自模块里，需要时补一行导出即可）。
+- **边界适配只有一层**：前端 `utils/date.ts`（日期）与 `utils/money.ts`（金额输入）是 Domain 原语的唯一 UI 适配层；`utils/format.ts` 的默认货币格式直接委托 Domain 的 `formatCurrency`。前端本地账本的转账两侧金额、余额回放、编辑/删除回滚一律消费 `transferOutflow` / `transferInflow`，`coupon` 由 API 映射带进页面模型，不再手写 `-amount-fee` 或另做手续费补偿。
 - **完整算法而非原语**：下沉的是整条计算流程（分类树聚合、四活动桶、三来源合成、桑基链路、收益率求解），不是把 `add()` / `sub()` 包一层。
 - **预测点位解释引擎唯一**：预算点位由 API 映射成 `LedgerTransaction` 后统一走 `postingsOf`；基础报表 `predicted` 字段与 `projection/` 推演端点共用同一套口径，Domain 内不保留手写符号表。取数窗口（起点恒为今天）与展示文案留在 API。
 - **SQL 预聚合路径必须保留**：统计接口继续用 `groupBy` 聚合行交给 `summarizeAggregatedFlows`（[dev-guide.md](dev-guide.md) §3.1），并验证聚合行与明细计算结果一致；不得为对齐 Domain 而改读整表明细。

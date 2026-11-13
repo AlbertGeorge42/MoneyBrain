@@ -13,7 +13,7 @@
  */
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
-import type { Ledger, LedgerTransaction } from '@/features/overview/model'
+import type { Ledger } from '@/features/overview/model'
 import { addDays } from '@/utils/date'
 import {
   accountBalancesAt,
@@ -122,25 +122,6 @@ function money(value: number): string {
 
 function inRange(transaction: { date: string }, from: string, to: string): boolean {
   return transaction.date >= from && transaction.date <= to
-}
-
-function effectiveFee(transaction: LedgerTransaction): number {
-  return Math.max(Number(transaction.fee ?? 0), 0)
-}
-
-/**
- * 时点余额（逐账户）。`accountBalancesAt` 回放转账时只还原本金、不还原手续费，
- * 而当前余额已扣过手续费，所以把锚点之后的手续费补回转出账户。
- */
-function balancesAt(ledger: Ledger, point: string): Map<string, number> {
-  const balances = accountBalancesAt(ledger, point)
-  for (const transaction of ledger.transactions) {
-    if (transaction.type !== 'transfer' || transaction.date <= point) continue
-    const fee = effectiveFee(transaction)
-    if (fee <= 0) continue
-    balances.set(transaction.accountId, (balances.get(transaction.accountId) ?? 0) + fee)
-  }
-  return balances
 }
 
 function rootOf(ledger: Ledger, categoryId: string | undefined): { id: string; name: string } | null {
@@ -354,8 +335,10 @@ function accountLayer(
   from: string,
   to: string,
 ): Map<string, AccountRuntime> {
-  const openingBalances = balancesAt(ledger, addDays(from, -1))
-  const closingBalances = balancesAt(ledger, to)
+  // 时点余额由 reportsModel 统一回放（转账按 Domain 的 X+f / X+c 反推），
+  // 这里不再为手续费做第二套补偿。
+  const openingBalances = accountBalancesAt(ledger, addDays(from, -1))
+  const closingBalances = accountBalancesAt(ledger, to)
   const layer = new Map<string, AccountRuntime>()
   for (const account of ledger.accounts) {
     if (account.kind !== 'cash' && !included.has(account.id)) continue

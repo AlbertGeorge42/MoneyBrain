@@ -58,22 +58,14 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | I-A | Kotlin `NotificationListenerService` + 权限引导；本地解析金额 / 商户 / 时间 + 候选收件箱；原文只在本地保留 ≤7 天、只同步解析字段；「分享到 MoneyBrain」与手动记账回退 | 目标机型稳定收到允许列表内通知；解析失败也进收件箱并说明原因；同步 / 备份 / 日志中无通知原文；无权限时记账闭环不受影响 |
 | I-B | `importKey` + 近邻匹配 + 人工确认；v1 不自动入账，学习规则默认关闭 | 同一笔通知不重复；与手动记录不重复；未确认候选不影响余额与报表 |
 
-### 领域算法下沉通道（剩余 D7，每阶段暂停验收）
-
-每阶段固定六步：① 审查现有代码与调用关系 → ② 明确输入、输出与算法边界 → ③ 建立或补齐回归测试 → ④ 迁移算法、API 改为调用 Domain → ⑤ 用固定输入 + 基线输出快照对比迁移前后结果 → ⑥ 通过测试后删除旧实现。每阶段完成后暂停，汇报文件变更、测试结果与遗留问题，等待确认再继续；不自动提交。不重写算法、不改变业务口径、不增加无关依赖、不创建空模块、不保留长期双实现；旧链路不留兼容层，回归基线不做双实现对照，死代码统一删除。结构约束见 [architecture.md](architecture.md) §2.7，编码规则见 [dev-guide.md](dev-guide.md) §3.5。
-
-| 条目 | 做什么 | 验收 |
-|---|---|---|
-| D7 | 全局清理：旧实现 / 死代码 / 临时脚本清零，文档归位，金额算术收口复核 | 全仓零双实现；`npm run test` / `lint` / `typecheck` 全通过；动过金额与口径后 `npm run db:verify` 通过；`db:drill` 的既有分类差异由 R2 独立收口，不阻塞本阶段 |
-
-### 独立缺陷与口径待办（不进 D 批主线，逐项拍板后单独立项）
+### 独立缺陷与口径待办（不进主线，逐项拍板后单独立项）
 
 | 条目 | 做什么 | 验收 / 前置 |
 |---|---|---|
 | R1 | **转账自动分类**：把 `classifyTransfer` 从导入端提升为 Domain 规则（返回语义键，API 映射中文分类名），创建 / 编辑 / 外部导入共用一份；显式分类优先。初期不维护历史账本，需要时全库一次性重算，不做兼容保留 | 先拍板「账户类型变更时是否重算分类」与「如何区分用户手工改过的分类」（不改 schema 可用「当前分类 == 旧规则结果才重算」启发式）；分类决定 `cashFlowType` 分桶，须补报表回归 |
 | R2 | **恢复原样还原分类**：给 `importTransactionsFromCsv` 加由 `manifest` 驱动的显式 `restore` 模式，禁用 `classifyTransfer` 与新建分类分支，按备份分类路径解析；找不到即报错 | `db:drill` 必须 `identical: true`；补「用户自定义转账分类 round-trip 后不变」用例；指纹保留 `categoryPath`，不得为过测试删分类；核对 `importKey` 含 `categoryId` 的幂等 |
 | R3 | **外部账单显式映射**：CSV 分类列优先，`classifyTransfer` 降级为「分类为空时的兜底」；转换层按账户类型生成内部交易但不覆盖已有用户分类 | 查清并修 `db:drill` 的 `asset\|资产` 多出；同一份外部账单导两遍不产生重复交易 |
-| R5 | **前端对账区**：`apiReports.ts` 的 `reconcile` 三项硬编码 0 改为消费后端 `reconciliation` 与差额，恢复 `CashView` 手续费角标 | `ui-design.md` §3.2「差额必须为 0」；纯展示层，不进 D 批 |
+| R5 | **前端对账区**：`apiReports.ts` 的 `reconcile` 三项硬编码 0 改为消费后端 `reconciliation` 与差额，恢复 `CashView` 手续费角标 | `ui-design.md` §3.2「差额必须为 0」；纯展示层，不进主线 |
 
 > **待拍板方向（非已定方案）**：用户考虑后续在前端提供「导入时是否自动推导分类」开关，由用户决定导入时是否走 `classifyTransfer`。该方向确认前，R1 / R2 / R3 的既定方案不动，也不实现后端开关。
 
@@ -96,9 +88,8 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | 旧 `scripts/desktop.mjs`（Edge 链路）删除或迁移 `MoneyBrain.cmd` | 用户唯一双击入口，属产品决策；动它要同步 README / architecture / 本文件三处 |
 | `fix-expense-sign.mts`、`rebuild-from-qianji.mts` + 89 条平帐 JSON | 需先确认 dev.db 存量负数已清零，并裁定平帐数据是否继续作为历史证据保留 |
 | `sync-conflict.repository` / `containerAad` / `packages/sync/apply.ts` | 可能是 F-B/F-C 与决策 #34 的预留入口；迁移与 schema 模型不可删 |
-| 日期原语四方统一（`reportsTime` / `datePickerModel` / `domain/date` / `utils/date`） | UTC 与本地日历日语义分叉，统一会改账务日历日；`addMonths` 已分叉。D 批只把分桶规则并回 `domain/date.ts`，不顺手统一已有口径 |
 | 前端组件级视觉合并（两个交易详情、两张趋势图、8 处 Sheet 骨架） | CSS 前缀、退款跳转、移动键盘、ARIA 需 e2e 桌面/移动双视口截图验收 |
-| 金额解析三合一、预算 100% 边界统一、`EditForm` 两位小数校验 | 属于修既有缺陷与裁定产品口径，不是等价精简；`adjustment` 负数 / `limit===0` 须保留 |
+| 预算 100% 边界统一、`EditForm` 两位小数校验 | 属于裁定产品口径，不是等价精简；`adjustment` 负数 / `limit===0` 须保留 |
 | 断点收敛、`Hf*` 换 Mantine 原生、受不变量保护文件里的零引用谓词 | 回归面最大、收益递减；按「出现第 3 个同类需求再抽」暂缓 |
 
 ### 先验证的 spike

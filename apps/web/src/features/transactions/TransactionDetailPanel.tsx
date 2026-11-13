@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { CategoryIcon } from '@/features/overview/category'
-import { normalizeAmountInput } from '@/features/overview/amountInput'
+import { parseMoneyInput } from '@/utils/money'
+import { toMajor } from '@domain/index'
 import { amountText, signedAmountText } from '@/features/overview/format'
 import {
   accountKindLabel,
@@ -330,8 +331,10 @@ function EditForm({
   const [saveError, setSaveError] = useState('')
 
   const categories = ledger.categories.filter((category) => category.type === nextType)
-  // 银行 App 复制来的货币符号 / 千分位 / 全角数字不能挡路：解析前统一归一化。
-  const parsed = Number(normalizeAmountInput(amount))
+  // 银行 App 复制来的货币符号 / 千分位 / 全角数字不能挡路；
+  // 解析内核只有 Domain 的 parseAmount，这里只按交易类型裁定正负与 0。
+  const parsedCents = parseMoneyInput(amount, { allowNegative: true, allowZero: true })
+  const parsed = parsedCents === null ? Number.NaN : toMajor(parsedCents)
   const invalid =
     !Number.isFinite(parsed) || (nextType === 'adjustment' ? parsed === 0 : parsed <= 0)
   // 错误态与输入实时联动：有错就标红并禁用保存，不再等点保存才报。
@@ -353,11 +356,11 @@ function EditForm({
   }
 
   const submit = async () => {
-    if (invalid || saving) return
+    if (invalid || parsedCents === null || saving) return
     setSaving(true)
     setSaveError('')
     const result = await onSave({
-      amount: Math.round(parsed * 100),
+      amount: parsedCents,
       categoryId,
       accountId,
       date,
