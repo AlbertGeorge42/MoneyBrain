@@ -20,6 +20,7 @@ vi.mock('../../src/prisma.js', () => {
     },
     investmentAllocationSnapshot: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       deleteMany: vi.fn(),
@@ -191,35 +192,33 @@ describe('importSnapshotsFromCsv', () => {
     expect(mockPrisma.investmentAllocationSnapshot.update).toHaveBeenCalled()
   })
 
-  it('快照链表应按日期升序自动链接 previousSnapshotId', async () => {
+  it('写入阶段不碰前链：乱序输入与显式「上次快照日期」列都交给编排层重算', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({ id: 'acc-1', name: '投资账户' })
     mockPrisma.investmentAssetClass.findFirst.mockResolvedValue({ id: 'ac-1', name: '股票' })
     mockPrisma.investmentAllocationSnapshot.findFirst.mockResolvedValue(null)
 
     let snapshotIdCounter = 0
-    const createdIds: string[] = []
     mockPrisma.investmentAllocationSnapshot.create.mockImplementation(({ data }: any) => {
       snapshotIdCounter++
-      const id = `snap-${snapshotIdCounter}`
-      createdIds.push(id)
-      return Promise.resolve({ id, ...data })
+      return Promise.resolve({ id: `snap-${snapshotIdCounter}`, ...data })
     })
 
     const csv = makeSnapshotsCsv([
-      // 故意乱序输入
+      // 故意乱序；2 月的「上次快照日期」写成错误的 3 月，验证该列不再决定前链
       ['投资账户', '2024-03-01T00:00:00.000Z', '30000', '', '', '股票', '18000', '0', '0'],
       ['投资账户', '2024-01-01T00:00:00.000Z', '10000', '', '', '股票', '6000', '0', '0'],
-      ['投资账户', '2024-02-01T00:00:00.000Z', '20000', '', '', '股票', '12000', '0', '0']
+      ['投资账户', '2024-02-01T00:00:00.000Z', '20000', '2024-03-01', '', '股票', '12000', '0', '0']
     ])
 
-    await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
+    const result = await importSnapshotsFromCsv(csv, 'merge', mockPrisma)
 
-    // 第一个（1月）没有 previous
-    expect(mockPrisma.investmentAllocationSnapshot.create.mock.calls[0][0].data.previousSnapshotId).toBeNull()
-    // 第二个（2月）应链接 1月
-    expect(mockPrisma.investmentAllocationSnapshot.create.mock.calls[1][0].data.previousSnapshotId).toBe('snap-1')
-    // 第三个（3月）应链接 2月
-    expect(mockPrisma.investmentAllocationSnapshot.create.mock.calls[2][0].data.previousSnapshotId).toBe('snap-2')
+    expect(result.imported.snapshots).toBe(3)
+    for (const call of mockPrisma.investmentAllocationSnapshot.create.mock.calls as any[]) {
+      expect(call[0].data.previousSnapshotId).toBeUndefined()
+    }
+    // 前链由 runImport 调用 relinkSnapshots 统一重算，导入子服务不再自己查库推导。
+    expect(mockPrisma.investmentAllocationSnapshot.findMany).not.toHaveBeenCalled()
+    expect(mockPrisma.investmentAllocationSnapshot.update).not.toHaveBeenCalled()
   })
 
   it('快照无分配项时也应创建快照记录', async () => {

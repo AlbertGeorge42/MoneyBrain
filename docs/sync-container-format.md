@@ -101,7 +101,9 @@ ciphertext+tag = ChaCha20-Poly1305-IETF(subkey, ietfNonce, aad, plaintext)
 - `data` 递归只允许 JSON 值（字符串、有限数字、布尔、null、数组、对象）。
 
 **本地字段不进容器**：`investmentSnapshot` 的 `previousSnapshotId` 属于本地快照链，
-封容器前统一剔除；应用后按「账户 → 日期 → createdAt → id」重算。
+`sealContainer` 封容器前剔除，`openContainer` 经 `normalizeInboundRecords` 入站再剔除一次。
+应用后按「账户 → 日期 → createdAt → id」由 `apps/api` 的 `relinkSnapshots` 统一重算；
+该写入只改派生字段，不推进 `rev` / `vv`。
 
 **未知 `entityType`**：只跳过该条并警告，已识别实体照常合并——这与未知
 `formatVersion` 的「整批拒绝」是两个层级。新增实体类型不需要改合并算法。

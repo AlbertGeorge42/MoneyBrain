@@ -82,7 +82,38 @@ export {
   resolvePreviousSnapshotIds,
   sortSnapshotChain,
   type SnapshotChainNode,
-} from './investment.js'
+} from './investment/snapshot-chain.js'
+
+export {
+  calculateXIRR,
+} from './investment/xirr.js'
+
+export {
+  calculateMaxCapitalEmployed,
+  calculateReturnMetrics,
+} from './investment/returns.js'
+
+export {
+  calculateTWR,
+} from './investment/twr.js'
+
+export {
+  UNCLASSIFIED_ASSET_CLASS_ID,
+  buildAllocationItems,
+  buildSnapshotHistory,
+  mergeCategoryItems,
+} from './investment/allocation.js'
+
+export {
+  type AllocationItem,
+  type AllocationSnapshot,
+  type AllocationSnapshotItem,
+  type InvestmentCashFlow,
+  type ReturnMetrics,
+  type SnapshotHistoryEntry,
+  type TwrInput,
+  type TwrResult,
+} from './investment/types.js'
 
 export {
   UNCATEGORIZED_CATEGORY_ID,

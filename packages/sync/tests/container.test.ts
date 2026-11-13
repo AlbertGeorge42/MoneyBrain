@@ -12,6 +12,7 @@ import {
   generateRecoveryCode,
   hchacha20,
   isContainerFile,
+  normalizeInboundRecords,
   openContainer,
   sealContainer,
   type SyncRecord,
@@ -138,6 +139,24 @@ test('前链字段在封容器前被剔除（导出路径无法绕过）', async
   const sealed = await sealContainer(records, CODE, { ledgerId: 'ledger-1', kdf: FAST_KDF })
   const opened = await openContainer(sealed, CODE)
   assert.equal('previousSnapshotId' in opened.records[0]!.data, false)
+})
+
+test('入站记录归一：剔除别台设备的重排结果，其余字段原样保留', () => {
+  const records = normalizeInboundRecords([
+    snapshotRecord({
+      data: { accountId: 'acc-1', date: '2026-11-01', balance: 1000, previousSnapshotId: 'snap-0' },
+    }),
+    snapshotRecord({
+      entityId: 'snap-2',
+      rev: 3,
+      data: { accountId: 'acc-1', date: '2026-12-01', balance: 1200 },
+    }),
+  ])
+
+  assert.deepEqual(records[0]!.data, { accountId: 'acc-1', date: '2026-11-01', balance: 1000 })
+  assert.equal('previousSnapshotId' in records[0]!.data, false)
+  assert.deepEqual(records[1]!.data, { accountId: 'acc-1', date: '2026-12-01', balance: 1200 })
+  assert.equal(records[1]!.rev, 3)
 })
 
 test('坏记录整批拒绝，不返回已通过的前缀', async () => {

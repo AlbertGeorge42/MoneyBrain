@@ -1,207 +1,110 @@
 import { describe, it, expect } from 'vitest'
+import {
+  calculateMaxCapitalEmployed,
+  calculateReturnMetrics,
+  minor,
+  type InvestmentCashFlow,
+  type LocalDate,
+} from '../../../../packages/domain/src/index.js'
 
-interface CashFlow {
-  date: Date
-  amount: number
-  type: 'buy' | 'sell'
-  accountId: string
-  accountName: string
+// 迁移基线：固定输入 + 生产实现的输出快照。算法只在 Domain 有一份实现，
+// 这里不再复制 calculateMaxCapitalEmployed / cumulativeReturn 的本地版本。
+
+const stamp = (date: string): number => {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(year!, month! - 1, day!).getTime()
 }
 
-function calculateMaxCapitalEmployed(cashFlows: CashFlow[]): number {
-  let maxCapital = 0
-  let currentCapital = 0
+const cf = (date: string, amount: number, kind: 'buy' | 'sell'): InvestmentCashFlow => ({
+  day: date as LocalDate,
+  timestamp: stamp(date),
+  amount: minor(amount),
+  kind,
+  accountId: '1',
+})
 
-  const sortedFlows = [...cashFlows].sort((a, b) => a.date.getTime() - b.date.getTime())
-
-  for (const cf of sortedFlows) {
-    if (cf.type === 'buy') {
-      currentCapital += Math.abs(cf.amount)
-    } else {
-      currentCapital -= cf.amount
-    }
-    if (currentCapital < 0) {
-      currentCapital = 0
-    }
-    maxCapital = Math.max(maxCapital, currentCapital)
-  }
-
-  return maxCapital
-}
-
-function calculateCumulativeReturn(
-  endValue: number,
-  periodWithdrawn: number,
-  periodInvested: number
-): number {
-  return endValue + periodWithdrawn - periodInvested
-}
-
-function calculateCumulativeReturnRate(
-  cumulativeReturn: number,
-  maxCapitalEmployed: number
-): number {
-  return maxCapitalEmployed !== 0 ? (cumulativeReturn / maxCapitalEmployed) * 100 : 0
-}
-
-describe('雪球累计收益率算法', () => {
-  describe('calculateMaxCapitalEmployed', () => {
-    it('应该正确计算只有一次买入的最高本金', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-      ]
-
-      const result = calculateMaxCapitalEmployed(cashFlows)
-      expect(result).toBe(10000)
-    })
-
-    it('应该正确计算先买后卖的最高本金', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-02-01'), amount: 10000, type: 'sell', accountId: '1', accountName: '账户1' },
-      ]
-
-      const result = calculateMaxCapitalEmployed(cashFlows)
-      expect(result).toBe(10000)
-    })
-
-    it('应该正确计算雪球官方案例：1月买10000，2月卖10000，3月再买10000', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-02-01'), amount: 10000, type: 'sell', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-03-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-      ]
-
-      const result = calculateMaxCapitalEmployed(cashFlows)
-      expect(result).toBe(10000)
-    })
-
-    it('应该正确计算多次买入逐步增加的最高本金', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: -5000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-02-01'), amount: -5000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-03-01'), amount: -5000, type: 'buy', accountId: '1', accountName: '账户1' },
-      ]
-
-      const result = calculateMaxCapitalEmployed(cashFlows)
-      expect(result).toBe(15000)
-    })
-
-    it('应该正确计算卖出后再次买入的最高本金', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-02-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-03-01'), amount: 15000, type: 'sell', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-04-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-      ]
-
-      const result = calculateMaxCapitalEmployed(cashFlows)
-      expect(result).toBe(20000)
-    })
-
-    it('应该在没有现金流时返回0', () => {
-      const cashFlows: CashFlow[] = []
-
-      const result = calculateMaxCapitalEmployed(cashFlows)
-      expect(result).toBe(0)
-    })
-
-    it('应该在只有卖出时返回0', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: 10000, type: 'sell', accountId: '1', accountName: '账户1' },
-      ]
-
-      const result = calculateMaxCapitalEmployed(cashFlows)
-      expect(result).toBe(0)
-    })
+describe('期间占用资金峰值', () => {
+  it('单次买入', () => {
+    expect(calculateMaxCapitalEmployed([cf('2024-01-01', -10000, 'buy')])).toBe(10000)
   })
 
-  describe('calculateCumulativeReturn', () => {
-    it('应该正确计算期末市值为12000，投入20000，取出10000的累计收益', () => {
-      const result = calculateCumulativeReturn(12000, 10000, 20000)
-      expect(result).toBe(2000)
-    })
-
-    it('应该正确计算亏损情况', () => {
-      const result = calculateCumulativeReturn(8000, 5000, 20000)
-      expect(result).toBe(-7000)
-    })
+  it('先买后卖', () => {
+    const flows = [
+      cf('2024-01-01', -10000, 'buy'),
+      cf('2024-02-01', 10000, 'sell'),
+    ]
+    expect(calculateMaxCapitalEmployed(flows)).toBe(10000)
   })
 
-  describe('calculateCumulativeReturnRate', () => {
-    it('应该正确计算雪球官方案例的累计收益率', () => {
-      const cumulativeReturn = 2000
-      const maxCapital = 10000
-
-      const result = calculateCumulativeReturnRate(cumulativeReturn, maxCapital)
-      expect(result).toBe(20)
-    })
-
-    it('应该在最高本金为0时返回0', () => {
-      const result = calculateCumulativeReturnRate(1000, 0)
-      expect(result).toBe(0)
-    })
+  it('雪球官方案例：1月买、2月卖、3月再买', () => {
+    const flows = [
+      cf('2024-01-01', -10000, 'buy'),
+      cf('2024-02-01', 10000, 'sell'),
+      cf('2024-03-01', -10000, 'buy'),
+    ]
+    expect(calculateMaxCapitalEmployed(flows)).toBe(10000)
   })
 
-  describe('完整场景：雪球累计收益率计算', () => {
-    it('应该正确计算期初为0，期间买入5000，期末6000的累计收益率', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: -5000, type: 'buy', accountId: '1', accountName: '账户1' },
-      ]
+  it('多次买入逐步增加', () => {
+    const flows = [
+      cf('2024-01-01', -5000, 'buy'),
+      cf('2024-02-01', -5000, 'buy'),
+      cf('2024-03-01', -5000, 'buy'),
+    ]
+    expect(calculateMaxCapitalEmployed(flows)).toBe(15000)
+  })
 
-      const endValue = 6000
-      const periodInvested = 5000
-      const periodWithdrawn = 0
+  it('卖出后再次买入取全局峰值', () => {
+    const flows = [
+      cf('2024-01-01', -10000, 'buy'),
+      cf('2024-02-01', -10000, 'buy'),
+      cf('2024-03-01', 15000, 'sell'),
+      cf('2024-04-01', -10000, 'buy'),
+    ]
+    expect(calculateMaxCapitalEmployed(flows)).toBe(20000)
+  })
 
-      const maxCapitalEmployed = calculateMaxCapitalEmployed(cashFlows)
-      const cumulativeReturn = calculateCumulativeReturn(endValue, periodWithdrawn, periodInvested)
-      const cumulativeReturnRate = calculateCumulativeReturnRate(cumulativeReturn, maxCapitalEmployed)
+  it('无现金流返回 0', () => {
+    expect(calculateMaxCapitalEmployed([])).toBe(0)
+  })
 
-      expect(maxCapitalEmployed).toBe(5000)
-      expect(cumulativeReturn).toBe(1000)
-      expect(cumulativeReturnRate).toBe(20)
-    })
-
-    it('应该正确计算复杂场景：多次买入卖出后的累计收益率', () => {
-      const cashFlows: CashFlow[] = [
-        { date: new Date('2024-01-01'), amount: -10000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-02-01'), amount: -5000, type: 'buy', accountId: '1', accountName: '账户1' },
-        { date: new Date('2024-03-01'), amount: 3000, type: 'sell', accountId: '1', accountName: '账户1' },
-      ]
-
-      const endValue = 13000
-      const periodInvested = 15000
-      const periodWithdrawn = 3000
-
-      const maxCapitalEmployed = calculateMaxCapitalEmployed(cashFlows)
-      const cumulativeReturn = calculateCumulativeReturn(endValue, periodWithdrawn, periodInvested)
-      const cumulativeReturnRate = calculateCumulativeReturnRate(cumulativeReturn, maxCapitalEmployed)
-
-      expect(maxCapitalEmployed).toBe(15000)
-      expect(cumulativeReturn).toBe(1000)
-      expect(cumulativeReturnRate).toBeCloseTo(6.67, 1)
-    })
+  it('只有卖出时本金不为负', () => {
+    expect(calculateMaxCapitalEmployed([cf('2024-01-01', 10000, 'sell')])).toBe(0)
   })
 })
 
-describe('日期参数校验', () => {
-  it('应该正确识别有效日期格式', () => {
-    const validDateStr = '2024-01-15'
-    const date = new Date(validDateStr)
-    expect(isNaN(date.getTime())).toBe(false)
+describe('收益指标（生产口径基线）', () => {
+  it('期初 0、买入 5000、期末 6000 → 累计收益率 20%', () => {
+    const metrics = calculateReturnMetrics(
+      [cf('2024-01-01', -5000, 'buy')], minor(0), minor(6000),
+    )
+    expect(metrics.periodInvested).toBe(5000)
+    expect(metrics.periodWithdrawn).toBe(0)
+    expect(metrics.netCashFlow).toBe(5000)
+    expect(metrics.periodReturn).toBe(1000)
+    expect(metrics.simpleReturnRate).toBe(0)
+    expect(metrics.maxCapitalEmployed).toBe(5000)
+    expect(metrics.cumulativeReturn).toBe(1000)
+    expect(metrics.cumulativeReturnRate).toBe(20)
   })
 
-  it('应该正确识别无效日期格式', () => {
-    const invalidDateStr = 'not-a-date'
-    const date = new Date(invalidDateStr)
-    expect(isNaN(date.getTime())).toBe(true)
+  it('多次买入卖出：累计收益 = 期末 − 已取出 − 期初 − 已投入', () => {
+    const flows = [
+      cf('2024-01-01', -10000, 'buy'),
+      cf('2024-02-01', -5000, 'buy'),
+      cf('2024-03-01', 3000, 'sell'),
+    ]
+    const metrics = calculateReturnMetrics(flows, minor(0), minor(13000))
+    expect(metrics.periodInvested).toBe(15000)
+    expect(metrics.periodWithdrawn).toBe(3000)
+    expect(metrics.maxCapitalEmployed).toBe(15000)
+    expect(metrics.cumulativeReturn).toBe(-5000)
+    expect(metrics.cumulativeReturnRate).toBeCloseTo(-33.33, 1)
   })
 
-  it('应该正确判断日期顺序', () => {
-    const startDate = new Date('2024-01-01')
-    const endDate = new Date('2024-12-31')
-
-    expect(startDate <= endDate).toBe(true)
-    expect(endDate >= startDate).toBe(true)
+  it('占用资金峰值为 0 时收益率取 0，不除零', () => {
+    const metrics = calculateReturnMetrics([], minor(0), minor(0))
+    expect(metrics.maxCapitalEmployed).toBe(0)
+    expect(metrics.cumulativeReturnRate).toBe(0)
   })
 })

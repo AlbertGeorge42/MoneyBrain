@@ -4,9 +4,27 @@ import * as accountCategoryRepo from '../../db/repositories/account-category.rep
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
-import { neg, transferInflow, type Minor } from '../../../../../packages/domain/src/index.js'
+import {
+  buildAllocationItems,
+  buildSnapshotHistory,
+  calculateReturnMetrics,
+  fromDate,
+  minor,
+  neg,
+  transferInflow,
+  type AllocationSnapshot,
+  type AllocationSnapshotItem,
+  type InvestmentCashFlow,
+  type Minor,
+} from '../../../../../packages/domain/src/index.js'
+import type { BalanceCache } from '../balance.service.js'
 import { toMinor } from '../../common/index.js'
-import type { CashFlow, AccountWithCategory, StaleAccountInfo } from './investment-analysis-types.js'
+import type {
+  AccountAllocationDetail,
+  CashFlow,
+  AccountWithCategory,
+  StaleAccountInfo,
+} from './investment-analysis-types.js'
 
 // ===== 数据收集 / 查询函数 =====
 
@@ -180,4 +198,122 @@ export async function buildStaleAccounts(
   }
 
   return Array.from(staleAccountMap.values())
+}
+
+/** 取数边界的字段搬运：DB 的 Date / 裸整数分 → 领域输入类型。 */
+export function toDomainCashFlows(flows: readonly CashFlow[]): InvestmentCashFlow[] {
+  return flows.map(cf => ({
+    day: fromDate(cf.date),
+    timestamp: cf.date.getTime(),
+    amount: cf.amount as Minor,
+    kind: cf.type,
+    accountId: cf.accountId,
+  }))
+}
+
+function toSnapshotItem(item: {
+  assetClassId: string
+  marketValue: bigint
+  periodNetFlow: bigint
+  sort: number
+  assetClass: { name: string; targetRatio: { toString(): string } | number | null }
+}, previousMarketValue: Minor | null): AllocationSnapshotItem {
+  return {
+    assetClassId: item.assetClassId,
+    name: item.assetClass.name,
+    marketValue: toMinor(item.marketValue),
+    periodNetFlow: toMinor(item.periodNetFlow),
+    targetRatio: item.assetClass.targetRatio == null ? null : Number(item.assetClass.targetRatio),
+    sort: item.sort,
+    previousMarketValue,
+  }
+}
+
+/**
+ * 账户资产配置明细：这里只做取数、Prisma → 领域输入映射与 DTO 组装，
+ * 占比 / 再平衡 / 期间收益 / 历史快照全部由 Domain 计算。
+ */
+export async function buildAccountAllocationDetail(
+  account: { id: string; name: string; balance: Minor },
+  endDate: Date,
+  startDate: Date,
+  balanceCache: BalanceCache,
+  prefetched: {
+    assetClasses: Awaited<ReturnType<typeof batchGetAssetClasses>>
+    snapshots: Awaited<ReturnType<typeof batchGetSnapshots>>
+    cashFlows: CashFlow[]
+  },
+): Promise<AccountAllocationDetail> {
+  const assetClasses = prefetched.assetClasses.get(account.id) ?? await assetClassRepo.findMany({
+    where: { accountId: account.id },
+    orderBy: { sort: 'asc' },
+  })
+  const hasAssetClasses = assetClasses.length > 0
+
+  const accountCashFlows = prefetched.cashFlows.filter(cf => cf.accountId === account.id)
+  const nextDayOfEnd = new Date(endDate)
+  nextDayOfEnd.setDate(nextDayOfEnd.getDate() + 1)
+
+  const startValue = minor(balanceCache.getMany([account.id], startDate))
+  const endValue = minor(balanceCache.getMany([account.id], nextDayOfEnd))
+  const { cumulativeReturnRate } = calculateReturnMetrics(
+    toDomainCashFlows(accountCashFlows), startValue, endValue,
+  )
+
+  const emptyDetail = (withAssetClasses: boolean): AccountAllocationDetail => ({
+    accountId: account.id,
+    accountName: account.name,
+    balance: account.balance,
+    hasAssetClasses: withAssetClasses,
+    latestSnapshotDate: null,
+    returnRate: cumulativeReturnRate,
+    items: [],
+    snapshots: [],
+  })
+
+  if (!hasAssetClasses) return emptyDetail(false)
+
+  const snapshots = prefetched.snapshots.get(account.id) ?? await snapshotRepo.findMany({
+    where: {
+      accountId: account.id,
+      date: { lte: endDate },
+    },
+    include: {
+      items: {
+        include: { assetClass: true },
+        orderBy: { sort: 'asc' },
+      },
+    },
+    orderBy: { date: 'asc' },
+  })
+
+  if (snapshots.length === 0) return emptyDetail(true)
+
+  const latestSnapshot = snapshots[snapshots.length - 1]!
+  const previousSnapshot = latestSnapshot.previousSnapshotId
+    ? snapshots.find(s => s.id === latestSnapshot.previousSnapshotId) ?? null
+    : null
+
+  const latestItems: AllocationSnapshotItem[] = latestSnapshot.items.map(item => {
+    const prevItem = previousSnapshot?.items.find(i => i.assetClassId === item.assetClassId)
+    return toSnapshotItem(item, prevItem ? toMinor(prevItem.marketValue) : null)
+  })
+
+  const history: AllocationSnapshot[] = snapshots.map(s => ({
+    id: s.id,
+    date: fromDate(s.date),
+    accountBalance: toMinor(s.accountBalance),
+    items: s.items.map(item => toSnapshotItem(item, null)),
+  }))
+
+  return {
+    accountId: account.id,
+    accountName: account.name,
+    balance: account.balance,
+    hasAssetClasses: true,
+    latestSnapshotDate: fromDate(latestSnapshot.date),
+    returnRate: cumulativeReturnRate,
+    items: buildAllocationItems(latestItems, account.balance),
+    snapshots: buildSnapshotHistory(history),
+  }
 }

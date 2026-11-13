@@ -1,7 +1,9 @@
 // 投资快照前链的**唯一**排序规则。
 //
 // previousSnapshotId 是派生值落库的唯一例外（原则 #2），写入后必须按日期重排。
-// 本地 relinkSnapshots 与同步应用后的重算都调用这里，避免两处各写一份规则
+// 唯一重算入口是 apps/api/src/db/repositories/snapshot-chain.repository.ts 的
+// relinkSnapshots：由导入编排 runImport 与导入批次回滚在同一事务内调用；
+// 逐记录同步落库（G 批）上线后同样调用它，避免两处各写一份规则
 // （同步只传快照本身，前链在每台设备上按同一规则重算，见 F-C）。
 
 export interface SnapshotChainNode {

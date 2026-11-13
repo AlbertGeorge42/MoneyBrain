@@ -59,6 +59,7 @@ export {
   hchacha20,
   isContainerFile,
   isValidDisplayRecoveryCode,
+  normalizeInboundRecords,
   normalizeRecoveryCode,
   openContainer,
   sealContainer,

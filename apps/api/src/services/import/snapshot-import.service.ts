@@ -1,4 +1,7 @@
 // ─── 投资快照导入（CSV 格式） ───
+//
+// 本函数只写快照行与持仓明细；前链 previousSnapshotId 是派生值，
+// 由 runImport 在事务收口统一调用 relinkSnapshots 重算。
 
 import { parseAmount } from '../../../../../packages/domain/src/index.js'
 import { parseDateLocal } from '../../common/index.js'
@@ -55,7 +58,6 @@ export async function importSnapshotsFromCsv(
     accountName: record['账户名称'],
     date: record['快照日期'],
     accountBalance: record['账户余额'],
-    previousSnapshotDate: record['上次快照日期'],
     note: record['备注'],
     assetClassName: record['资产类别'],
     marketValue: record['市值'],
@@ -80,9 +82,6 @@ export async function importSnapshotsFromCsv(
     const dateB = snapshotMap.get(b)![0].date
     return new Date(dateA).getTime() - new Date(dateB).getTime()
   })
-
-  // 记录每个账户的快照链表
-  const snapshotChainMap = new Map<string, Map<string, string>>()
 
   for (const key of sortedKeys) {
     const snapshotRows = snapshotMap.get(key)!
@@ -136,25 +135,6 @@ export async function importSnapshotsFromCsv(
         continue
       }
 
-      // 确定 previousSnapshotId
-      let previousSnapshotId: string | null = null
-      const accountChain = snapshotChainMap.get(account.id)
-      if (firstRow.previousSnapshotDate && accountChain?.has(firstRow.previousSnapshotDate)) {
-        previousSnapshotId = accountChain.get(firstRow.previousSnapshotDate)!
-      } else {
-        if (accountChain) {
-          const sortedDates = Array.from(accountChain.keys()).sort(
-            (a, b) => new Date(b).getTime() - new Date(a).getTime()
-          )
-          for (const d of sortedDates) {
-            if (new Date(d) < snapshotDate) {
-              previousSnapshotId = accountChain.get(d)!
-              break
-            }
-          }
-        }
-      }
-
       const existing = await client.investmentAllocationSnapshot.findFirst({
         where: { accountId: account.id, date: snapshotDate },
       })
@@ -168,7 +148,6 @@ export async function importSnapshotsFromCsv(
             where: { id: existing.id },
             data: {
               accountBalance,
-              previousSnapshotId,
               note,
             },
           })
@@ -184,9 +163,6 @@ export async function importSnapshotsFromCsv(
             incImported(result, 'items')
           }
 
-          if (!accountChain) snapshotChainMap.set(account.id, new Map())
-          snapshotChainMap.get(account.id)!.set(firstRow.date, existing.id)
-
           incUpdated(result, 'snapshots')
         } else {
           incSkipped(result, 'snapshots')
@@ -197,7 +173,6 @@ export async function importSnapshotsFromCsv(
             accountId: account.id,
             date: snapshotDate,
             accountBalance,
-            previousSnapshotId,
             note,
           },
         })
@@ -209,9 +184,6 @@ export async function importSnapshotsFromCsv(
           incImported(result, 'items')
         }
 
-        if (!accountChain) snapshotChainMap.set(account.id, new Map())
-        snapshotChainMap.get(account.id)!.set(firstRow.date, newSnapshot.id)
-
         incImported(result, 'snapshots')
       }
     } catch (error) {
@@ -219,5 +191,6 @@ export async function importSnapshotsFromCsv(
     }
   }
 
+  // CSV 的「上次快照日期」列仅为兼容旧文件保留，不决定前链。
   return result
 }

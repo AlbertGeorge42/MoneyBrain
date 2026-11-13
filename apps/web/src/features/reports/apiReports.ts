@@ -28,6 +28,7 @@ import type {
   ProjectionSourceValue,
   ReportCategoryDetail,
 } from '@contracts/types'
+import { mergeCategoryItems } from '@domain/index'
 import { analyticsApi, reportApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { accountKindLabel } from '@/features/overview/model'
@@ -908,42 +909,21 @@ export function mapInvestmentReport(
     }
   })
 
-  // 资产类型分布按账户内的资产分类加权：市值之和 / 目标比例取市值加权。
-  const buckets = new Map<string, { name: string; current: number; weightedTarget: number; weight: number; rebalance: number }>()
-  for (const account of data.byAccountAllocation) {
-    for (const item of account.items) {
-      const bucket = buckets.get(item.assetClassId) ?? {
-        name: item.name,
-        current: 0,
-        weightedTarget: 0,
-        weight: 0,
-        rebalance: 0,
-      }
-      bucket.current += item.marketValue
-      if (item.targetRatio !== null) {
-        bucket.weightedTarget += item.targetRatio * item.marketValue
-        bucket.weight += item.marketValue
-      }
-      bucket.rebalance += item.rebalanceAmount ?? 0
-      buckets.set(item.assetClassId, bucket)
-    }
-  }
+  // 资产类型分布直接复用 Domain 的唯一合并口径：占比分母、目标比例加权、
+  // 再平衡求和都不在展示层重算；展示模型只把 null 映射成可渲染的默认值。
+  const merged = mergeCategoryItems(data.byAccountAllocation.flatMap((account) => account.items))
   const total = data.totalInvestment
   const allocation: InvestmentAllocation[] =
-    buckets.size > 0
-      ? [...buckets.entries()].map(([id, bucket]) => {
-          const target = bucket.weight > 0 ? bucket.weightedTarget / bucket.weight : bucket.current / (total || 1) * 100
-          const ratio = total === 0 ? 0 : (bucket.current / total) * 100
-          return {
-            id,
-            name: bucket.name,
-            current: bucket.current,
-            ratio,
-            target,
-            deviation: ratio - target,
-            rebalance: bucket.rebalance,
-          }
-        })
+    merged.length > 0
+      ? merged.map((item) => ({
+          id: item.assetClassId,
+          name: item.name,
+          current: item.marketValue,
+          ratio: item.ratio,
+          target: item.targetRatio ?? item.ratio,
+          deviation: item.deviation ?? 0,
+          rebalance: item.rebalanceAmount ?? 0,
+        }))
       : allocationFromCategories(data.byCategory)
 
   const costTotal = holdings.reduce((sum, holding) => sum + holding.cost, 0)

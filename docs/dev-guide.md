@@ -132,7 +132,8 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 - **容器只有一份实现**：`packages/sync/src/container.ts`；备份与同步共用同一 `sealContainer` / `openContainer`，禁止在 service / 脚本 / 前端另写加解密。字节格式见 [sync-container-format.md](sync-container-format.md)。
 - **加密库已锁定**：Argon2id 用 `@noble/hashes`，AEAD 用 Node 内置 `crypto` 的 `chacha20-poly1305` + 自实现 HChaCha20。移动端换实现必须保持同一字节格式（`formatVersion = 1`）。
 - **拒绝规则分两层**：未知 `formatVersion` / 头部非法 → 整批拒绝；未知 `entityType` → 只跳过该条并警告，已识别实体照常合并。
-- **本地字段不进容器**：`investmentSnapshot.previousSnapshotId` 在 `sealContainer` 里统一剔除，应用后按 `packages/domain` 的 `sortSnapshotChain` / `resolvePreviousSnapshotIds` 重算；新增本地字段只改 `LOCAL_ONLY_DATA_FIELDS` 一行。
+- **本地字段不进容器**：`investmentSnapshot.previousSnapshotId` 由 `sealContainer` 出站剔除、`openContainer` 经 `normalizeInboundRecords` 入站再剔除一次（防旧容器 / 第三方实现带回别台设备的重排结果）；新增本地字段只改 `LOCAL_ONLY_DATA_FIELDS` 一行。
+- **派生字段重链只有一处**：`relinkSnapshots`（`apps/api/src/db/repositories/snapshot-chain.repository.ts`）调 Domain 的 `resolvePreviousSnapshotIds`，由 `runImport` 在导入事务收口、`rollbackImportBatch` 在部分删除后调用；逐记录同步落库（G 批）上线后必须复用它，不得另写推导。该写入只改 `previousSnapshotId`、只写有差异的行，**不推进 `rev` / `vv`**。
 - `formatVersion = 1` 在跨端与真机初始化开销验证前不算冻结；改字节布局前先看 [roadmap.md](roadmap.md) §4。
 
 ### 3.5 领域算法下沉（D 批）的操作规则
@@ -231,7 +232,7 @@ grep -rn "symbolName" apps packages scripts --include="*.ts" --include="*.tsx"
 - **改 schema 一律走版本化迁移**：`npm run db:migrate`（SQL 提交进仓库），禁止只用 `prisma db push`。迁移名以时间戳开头 `YYYYMMDDHHMMSS_描述`；`db:status` 看差异、`db:deploy` 只应用已有迁移。测试库在系统临时目录按运行唯一创建，`tests/global-setup.ts` 用迁移重建模板、各文件复制独占副本。
 - **`db:drill` 恢复演练**：导出 → 导入临时库 → 用领域层重算两边余额并对比。库内按 id 聚合、跨库按稳定键（账户名、分类路径、交易内容指纹）；导入会重建 id，不做 id 字节相等判定。改动导出/导入/余额逻辑后必须跑。
 - **自动定时备份**：配置存数据库同级 `auto-backup-config.json`；输出加密容器 `moneybrain-backup-YYYY-MM-DD.mbx`。用户可配开关、目录、间隔（`intervalHours`，缺省 24）与保留份数（`keepCount`，缺省 7）；非法值返回 `VALIDATION_ERROR`。执行判定只有两条——距上次成功备份 ≥ 间隔、长任务锁空闲；两条都满足才跑（30 秒评估一次），失败后 10 分钟退避。与导入/导出/回滚共用同一把长任务锁。
-- **不持久化余额、预算百分比、收益率**；投资快照 `previous_snapshot_id` 是写入顺序产物、继续持久化，但不进同步记录，应用后按本地规则重算（§3.4）。禁止读取时绕开快照链另算一套推导。
+- **不持久化余额、预算百分比、收益率**；投资快照 `previous_snapshot_id` 是写入顺序产物、继续持久化，但不进同步记录，应用后按本地规则重算（§3.4）。重链统一走 `snapshot-chain.repository.ts` 的 `relinkSnapshots`，禁止读取时绕开快照链另算一套推导。
 - **软删除**：`deletedAt` 过滤只允许出现在 `transaction.repository.ts`；撤销与回收站恢复依据 `audit_events` 反向写入，不另建撤销表。存在退款的原交易禁止删除；导出与备份必须排除已删除交易。
 - **超退与跨账户退款合法**：可退余额 = max(原额 − Σ退款, 0) 只是录入参考；`db:verify` 对超退只做信息性提示。
 - CSV 导入用 `Transaction.importKey` 去重，支持 `includes` 范围过滤；覆盖模式只清空所选范围，必须二次确认且在单事务内先清空再写入。
@@ -249,7 +250,6 @@ grep -rn "symbolName" apps packages scripts --include="*.ts" --include="*.tsx"
 - [ ] 动了金额/口径/导入导出/余额逻辑 → 额外跑 `npm run db:verify` 与 `npm run db:drill`。
 - [ ] D 批领域算法改动：迁移前后同输入 DTO 逐字段对照通过；旧实现确认零引用后已删除；Domain 未 import `packages/contracts` / `@prisma/client` / Express / `apps/**`，且 `npm run typecheck:domain` 单独通过。
 - [ ] 动过统计口径：`summarizeAggregatedFlows` 与明细汇总的一致性用例通过，SQL `groupBy` 路径未退化成读整表。
-- [ ] D6：`npm run test:domain` 含真实 `xirr` 运行用例（CJS / ESM 互操作 + 数值结果），`apps/api` 无第三方 XIRR 直接调用。
 - [ ] 改内核口径：`rules.ts` 仍为唯一规则集、全仓无第二套实现、X/f/c 组合 golden（含 `c>f` / `f>c` / `c=f` / 全 0）、三条链路净额 `c−f` 一致、`Σ postings = 0`，且 `db:verify` 通过。
 - [ ] 改了 schema → 迁移文件已生成，`npm run db:status` 无差异；额外跑 `npm run test:integration -w @moneybrain/api`。
 - [ ] 新特性按最小可用实现（[roadmap.md](roadmap.md) §5）：新增开关 / 配置项 / 机制前先问「能不能等真实需求出现再补」。

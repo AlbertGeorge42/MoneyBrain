@@ -1,22 +1,29 @@
 import { calculateBalancesBatch } from '../balance.service.js'
 import { rootLogger } from '../../common/index.js'
-import { minor, sum, neg, sub, sumAssetsLiabilities, sumPositiveAssets, type Minor } from '../../../../../packages/domain/src/index.js'
+import {
+  calculateReturnMetrics,
+  calculateTWR,
+  calculateXIRR,
+  mergeCategoryItems,
+  minor,
+  neg,
+  sub,
+  sum,
+  sumAssetsLiabilities,
+  sumPositiveAssets,
+  type Minor,
+} from '../../../../../packages/domain/src/index.js'
 import { resolveReportPeriod } from './period.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import {
-  getInvestmentAccounts,
-  getCashFlowsInRange,
   batchGetAssetClasses,
   batchGetSnapshots,
-  buildStaleAccounts,
-} from './investment-analysis-collect.js'
-import {
   buildAccountAllocationDetail,
-  calculateXIRR,
-  calculateReturnMetrics,
-  calculateTWRWithCache,
-  mergeCategoryItems,
-} from './investment-analysis-calc.js'
+  buildStaleAccounts,
+  getCashFlowsInRange,
+  getInvestmentAccounts,
+  toDomainCashFlows,
+} from './investment-analysis-collect.js'
 import type {
   AccountWithCategory,
   InvestmentAccountDetail,
@@ -58,6 +65,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
 
   // 获取现金流数据
   const cashFlows = await getCashFlowsInRange(investmentAccountIds, startDate, endDate)
+  const domainFlows = toDomainCashFlows(cashFlows)
 
   // 计算趋势数据需要的月份日期
   const monthDates = generateMonthRange(startDate, endDate)
@@ -107,7 +115,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
     simpleReturnRate,
     maxCapitalEmployed,
     cumulativeReturnRate,
-  } = calculateReturnMetrics(cashFlows, startValue, endValue)
+  } = calculateReturnMetrics(domainFlows, startValue, endValue)
 
   const investmentDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
@@ -115,8 +123,15 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
   let twrResult: { twr: number | null; annualizedTwr: number | null } = { twr: null, annualizedTwr: null }
 
   if (investmentDays >= 1) {
-    xirr = calculateXIRR(startValue, cashFlows, endValue, startDate, endDate)
-    twrResult = calculateTWRWithCache(investmentAccountIds, startValue, cashFlows, startDate, nextDayOfEnd, balanceCache)
+    xirr = calculateXIRR(startValue, domainFlows, endValue, startDate.getTime(), endDate.getTime())
+    twrResult = calculateTWR({
+      startMillis: startDate.getTime(),
+      endMillis: nextDayOfEnd.getTime(),
+      startValue,
+      cashFlows: domainFlows,
+      // 查表留在 API：Domain 只接收按毫秒时点取余额的回调。
+      balanceAt: (millis) => balanceCache.getMany(investmentAccountIds, new Date(millis)),
+    })
   }
 
   const returnAnalysis: InvestmentReturnAnalysis = {
@@ -203,7 +218,7 @@ export async function generateInvestmentAnalysis(startDateStr: string, endDateSt
         maxCapitalEmployed: accMaxCapital,
         simpleReturnRate: accReturnRate,
         cumulativeReturnRate: accCumulativeReturnRate,
-      } = calculateReturnMetrics(accountCashFlows, accStartBalance, accEndBalance)
+      } = calculateReturnMetrics(toDomainCashFlows(accountCashFlows), accStartBalance, accEndBalance)
 
       return {
         id: account.id,

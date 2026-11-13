@@ -564,8 +564,8 @@ describe('视图 ↔ 端点映射', () => {
           balance: 8645000,
           returnRate: 12.5,
           items: [
-            { assetClassId: 'stock', name: '股票', marketValue: 6000000, targetRatio: 60, periodReturn: 600000, returnRate: 10, rebalanceAmount: 0 },
-            { assetClassId: 'fund', name: '基金', marketValue: 2645000, targetRatio: 40, periodReturn: 264500, returnRate: 10, rebalanceAmount: 0 },
+            { assetClassId: 'stock', name: '股票', marketValue: 6000000, ratio: 0, targetRatio: 60, deviation: 0, rebalanceAmount: 0, periodInvested: 0, periodWithdrawn: 0, periodReturn: 600000, returnRate: 10, sort: 0 },
+            { assetClassId: 'fund', name: '基金', marketValue: 2645000, ratio: 0, targetRatio: 40, deviation: 0, rebalanceAmount: 0, periodInvested: 0, periodWithdrawn: 0, periodReturn: 264500, returnRate: 10, sort: 1 },
           ],
         },
       ],
@@ -577,7 +577,30 @@ describe('视图 ↔ 端点映射', () => {
     expect(report!.costTotal).toBe(8645000 - 864500)
     expect(report!.holdings[0].marketValue).toBe(8645000)
     expect(report!.allocation.map((row) => row.name).sort()).toEqual(['基金', '股票'])
+    // 占比分母按 Domain 口径取已分类市值之和，不再用 totalInvestment。
+    expect(report!.allocation.find((row) => row.name === '股票')!.ratio).toBeCloseTo(69.4, 1)
     expect(mapInvestmentReport(null)).toBeNull()
+  })
+
+  it('投资分布含未分类项时，占比分母按 Domain 排除未分类', () => {
+    const data = {
+      totalInvestment: 1000000,
+      returnAnalysis: { cumulativeReturnRate: 0, xirr: null, twr: null },
+      byCategory: [],
+      trend: [],
+      byAccountAllocation: [
+        {
+          accountId: 'a', accountName: 'A', balance: 1000000, returnRate: 0,
+          items: [
+            { assetClassId: 'stock', name: '股票', marketValue: 600000, ratio: 60, targetRatio: 60, deviation: 0, rebalanceAmount: 0, periodInvested: 0, periodWithdrawn: 0, periodReturn: null, returnRate: null, sort: 0 },
+            { assetClassId: '__unclassified__', name: '未分类', marketValue: 400000, ratio: 0, targetRatio: null, deviation: null, rebalanceAmount: null, periodInvested: 0, periodWithdrawn: 0, periodReturn: null, returnRate: null, sort: 999 },
+          ],
+        },
+      ],
+    } as never
+    const report = mapInvestmentReport(data)!
+    expect(report.allocation.find((row) => row.name === '股票')!.ratio).toBe(100)
+    expect(report.allocation.find((row) => row.name === '未分类')!.ratio).toBe(0)
   })
 })
 

@@ -105,7 +105,9 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 
 ### 5.2 其他回归项
 
-同一 CSV 重复导入不产生重复交易（`importKey`）；报表合计与分类明细一致（含未分类）；投资快照前链在增删改后重排且无自引用；失败时页面显示错误而不是 0。
+同一 CSV 重复导入不产生重复交易（`importKey`）；报表合计与分类明细一致（含未分类）；投资快照前链在容器 / 文件导入、批次回滚部分删除后都由 Domain 唯一规则重排，无自引用、不推进 `rev` / `vv`，且重复重链零写入；失败时页面显示错误而不是 0。
+
+投资分析的 XIRR（含 CJS / ESM 真实运行）、收益指标、TWR、资产配置、再平衡与历史快照都有固定输入 + 输出快照基线，见 `packages/domain/tests/investment-analysis.test.ts`；快照前链规则见 `packages/domain/tests/investment.test.ts`，落库重链见 `apps/api/tests/unit/snapshot-chain.repository.test.ts` 与 `apps/api/tests/integration/snapshot-relink.test.ts`，入站本地字段剔除见 `packages/sync/tests/container.test.ts`，占比峰值指标见 `apps/api/tests/unit/investment-analysis.service.test.ts`。
 
 ### 5.3 同步不变量（7–11）
 

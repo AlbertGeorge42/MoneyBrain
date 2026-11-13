@@ -10,6 +10,7 @@
 // 各自清空、各自开事务的老写法会让预览无法整体回滚。
 
 import { withTransaction } from '../../db/transaction.js'
+import { relinkSnapshots } from '../../db/repositories/snapshot-chain.repository.js'
 import {
   parseBackupZip,
   detectFileType,
@@ -213,14 +214,22 @@ export async function runImport(
 
   switch (fileType) {
     case 'zip':
-      return importZipBackup(file, mode, result, includes, tx, summary)
+      await importZipBackup(file, mode, result, includes, tx, summary)
+      break
     case 'csv':
-      return importCsvBackup(file, mode, result, includes, tx, summary)
+      await importCsvBackup(file, mode, result, includes, tx, summary)
+      break
     case 'json':
-      return importJsonBackup(file, mode, result, includes, tx, summary)
+      await importJsonBackup(file, mode, result, includes, tx, summary)
+      break
     default:
       return result
   }
+
+  // 前链是派生值：任何文件 / 容器写入后，在同一事务里按 Domain 唯一规则重算一次。
+  // 加密容器（.mbx）与逐记录同步都走这条「应用」链路的收口，不另写一套推导。
+  await relinkSnapshots(tx)
+  return result
 }
 
 /**

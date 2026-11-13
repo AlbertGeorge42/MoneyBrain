@@ -10,6 +10,7 @@
 import type { ImportBatch, ImportCounts, ImportBatchRollbackResult } from '../../../../packages/contracts/types/index.js'
 import type { DataType } from './backup.service.js'
 import { withTransaction } from '../db/transaction.js'
+import { relinkSnapshots } from '../db/repositories/snapshot-chain.repository.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { prisma, type TransactionClient } from '../prisma.js'
 
@@ -182,6 +183,15 @@ export async function rollbackImportBatch(importId: string): Promise<ImportBatch
 
     const removed: Record<string, number> = {}
 
+    // 先记下本批快照所属账户：按 id 部分删除会把后继快照的外键置空（ON DELETE SET NULL），
+    // 删完必须按这些账户重链，否则报表环比找不到上一期市值。
+    const affectedAccountIds = created.investmentAllocationSnapshot.length > 0
+      ? (await tx.investmentAllocationSnapshot.findMany({
+          where: { id: { in: created.investmentAllocationSnapshot } },
+          select: { accountId: true },
+        })).map(row => row.accountId)
+      : []
+
     removed.transaction = (
       await tx.transaction.deleteMany({ where: { id: { in: created.transaction } } })
     ).count
@@ -210,6 +220,10 @@ export async function rollbackImportBatch(importId: string): Promise<ImportBatch
     // 分类有自关联：先删子再删父；被其他数据引用的分类无法删除时整个回滚失败
     removed.transactionCategory = await deleteCategoryRows(tx, 'transactionCategory', created.transactionCategory)
     removed.accountCategory = await deleteCategoryRows(tx, 'accountCategory', created.accountCategory)
+
+    if (affectedAccountIds.length > 0) {
+      await relinkSnapshots(tx, affectedAccountIds)
+    }
 
     const total = Object.values(removed).reduce((sum, count) => sum + count, 0)
     await tx.importBatch.update({

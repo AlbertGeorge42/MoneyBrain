@@ -29,7 +29,7 @@ apps/web  →  packages/contracts, packages/domain（仅类型/纯函数）
 apps/api  →  packages/contracts, packages/domain, packages/sync
 packages/sync → 无外部依赖（记录级合并，不依赖文件系统 / 网盘 SDK）
 packages/domain → 不依赖 Express / Prisma / SQLite / apps 代码 / contracts
-                   唯一允许的第三方 runtime 依赖：xirr（XIRR 求解，D6 引入并封装在 investment 内）
+                   唯一允许的第三方 runtime 依赖：xirr（XIRR 求解，封装在 investment/ 内）
 ```
 
 当前后端用相对路径导入领域包（`../../../../packages/domain/src/index.js`），避免开发期额外构建步骤；`tsc` 会把 `packages/domain` 一起编译到 `apps/api/dist/packages/domain`。
@@ -84,7 +84,7 @@ adjustment  账户 +amount      权益 −amount
 | `merge.ts` / `records.ts` | `mergeRecord` / `mergeRecords`：稳定全序选出生效版本，输的一版作为冲突返回；结果与到达顺序无关且可重复应用 |
 | `references.ts` | 合并后的引用校验：悬空引用进入待补全，补齐后转正常；墓碑引用不静默复活 |
 | `canonical.ts` | 内容指纹与稳定序列化（固定向量测试的基准） |
-| `apply.ts` | 合并结果落库：按记录 `entityType` 分发，未知实体跳过 |
+| `apply.ts` | 纯函数分拣 + `mergeRecords`：已知实体进入合并、未知实体跳过；**不碰数据库**，逐记录落库属 G 批未落地部分 |
 | `local-fields.ts` | 本机字段（`ledgerId` / `deviceId` 等）不随记录同步 |
 | `container.ts` | 加密容器（`.mbx`）：Argon2id 派生密钥 + XChaCha20-Poly1305，备份/同步共用；AAD 绑定 `formatVersion\|ledgerId`；格式见 [sync-container-format.md](sync-container-format.md) |
 | `test-vectors/merge-vectors.json` | 跨端共用的合并固定向量 |
@@ -95,11 +95,12 @@ adjustment  账户 +amount      权益 −amount
 在写入时递增 `rev` 并刷新 `vv`；输的一版落 `sync_conflicts` 表。
 
 **未落地**：传输适配、同步端点与跨设备搬运，见 [roadmap.md](roadmap.md) §3 的 G 批。
+现有「应用」链路是容器 / 文件导入：`apps/api/src/services/import/smart-import.service.ts` 的 `runImport` 在事务收口调 `relinkSnapshots` 重算快照前链；G 批逐记录落库上线后须复用同一入口。
 
 ## 2.7 领域计算引擎的边界约定
 
-> 本节只写**结构约束**与模块现状，不是进度记录；`budget/` / `statements/` / `projection/`
-> 已落地，`investment/` 尚未创建，其余按 [roadmap.md](roadmap.md) §3 的 D 批逐阶段落地。
+> 本节只写**结构约束**与模块现状，不是进度记录；`budget/` / `statements/` /
+> `projection/` / `investment/` 已落地，D 批剩余阶段按 [roadmap.md](roadmap.md) §3 逐阶段落地。
 > 编码时的可执行规则见 [dev-guide.md](dev-guide.md) §3.5。
 
 | 模块 | 应承载的职责 | 归属说明 |
@@ -117,6 +118,7 @@ adjustment  账户 +amount      权益 −amount
 - **预测点位解释引擎唯一**：预算点位由 API 映射成 `LedgerTransaction` 后统一走 `postingsOf`；基础报表 `predicted` 字段与 `projection/` 推演端点共用同一套口径，Domain 内不保留手写符号表。取数窗口（起点恒为今天）与展示文案留在 API。
 - **SQL 预聚合路径必须保留**：统计接口继续用 `groupBy` 聚合行交给 `summarizeAggregatedFlows`（[dev-guide.md](dev-guide.md) §3.1），并验证聚合行与明细计算结果一致；不得为对齐 Domain 而改读整表明细。
 - **第三方库封装**：`xirr` 的依赖与类型声明归 `packages/domain`，API 不再直接调用第三方 XIRR；第三方类型不出现在 Domain 的导出面上，须有真实运行测试覆盖 CJS / ESM 互操作与数值结果。
+- **投资分析落点**：`investment/` 内 `xirr.ts` 封装求解器，`returns.ts` / `twr.ts` / `allocation.ts` 承载纯计算，`snapshot-chain.ts` 是快照前链唯一规则；API 只做取数、Prisma → 领域输入映射与 DTO 组装，TWR 的余额查表以回调注入。前端 `apiReports.ts` 直接消费 `mergeCategoryItems`；快照前链的落库重算统一由 `apps/api/src/db/repositories/snapshot-chain.repository.ts` 的 `relinkSnapshots` 调用 `resolvePreviousSnapshotIds`，导入事务与批次回滚都接它，两处都不再自带口径。
 - **不可改变的既有约束**：金额全链路整数分、期间半开、派生值不落库、账务口径只有 `ledger/rules.ts` 一份（[roadmap.md](roadmap.md) §5 决策 2 / 3 / 4）。
 - **不建空模块、不长期双实现**：某个模块只在对应迁移阶段创建；旧实现通过回归测试后当场删除（[dev-guide.md](dev-guide.md) §5.1）。
 - **账户领域输入类型不单独成模块**：按实际使用场景归属到 `statements/` 或 `investment/`，不建 `account/`。

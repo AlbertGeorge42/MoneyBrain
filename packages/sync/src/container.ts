@@ -359,6 +359,17 @@ function parseHeader(raw: unknown): ContainerHeader {
   return header as ContainerHeader
 }
 
+/**
+ * 入站记录归一：先校验，再剔除本地字段。
+ *
+ * `sealContainer` 在出站已经剔除过一次，这里做入站对称防御——旧容器或第三方实现
+ * 仍可能带 `previousSnapshotId`，应用端必须忽略别台设备的重排结果（F-C）。
+ * 未来逐记录同步的合并入口也复用它，保证所有入站路径同一套边界。
+ */
+export function normalizeInboundRecords(raw: unknown): SyncRecord[] {
+  return stripLocalOnlyRecordFields(validateSyncRecords(raw))
+}
+
 /** 打开容器：未知版本整批拒绝，坏记录整批拒绝，绝不返回半份记录。 */
 export async function openContainer(
   bytes: Uint8Array,
@@ -419,6 +430,6 @@ export async function openContainer(
 
   return {
     header,
-    records: validateSyncRecords((payload as { records?: unknown }).records),
+    records: normalizeInboundRecords((payload as { records?: unknown }).records),
   }
 }

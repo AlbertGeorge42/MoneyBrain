@@ -332,7 +332,6 @@ export interface ImportSnapshotCsvRow {
   accountName: string
   date: string
   accountBalance: string
-  previousSnapshotDate: string
   note: string
   assetClassName: string
   marketValue: string
