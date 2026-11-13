@@ -12,7 +12,7 @@ import {
   type IncomeExpensePrediction,
   type LocalDate,
 } from '../../../../../packages/domain/src/index.js'
-import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT } from './prediction.js'
+import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT } from './prediction-source.js'
 import { resolveReportPeriod } from './period.js'
 import type { IncomeExpenseReportData } from '../../../../../packages/contracts/types/index.js'
 
@@ -88,7 +88,7 @@ export async function generateIncomeExpense(
   }))
 
   // 合并获取预测数据（一次查询替代原来的两次）
-  const predictions = await getPredictionsIfFuture(startDate, endDate, !!includePredictions)
+  const predictions = await getPredictionsIfFuture(endDate, !!includePredictions)
   const domainPredictions: IncomeExpensePrediction[] = predictions.map((p) => ({
     date: p.date.getTime(),
     type: p.type,

@@ -2,14 +2,16 @@ import { calculateBalancesBatch } from '../balance.service.js'
 import * as accountRepo from '../../db/repositories/account.repository.js'
 import { rootLogger, toMinor } from '../../common/index.js'
 import {
+  accumulatePredictedChanges,
   buildBalanceSheet,
   neg,
   sub,
+  sumPredictedByType,
   ZERO_MINOR,
   type BalanceSheetAccountInput,
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
-import { accumulatePredictionChanges, sumPredictionByType, PREDICTION_NOTE_BALANCE_SHEET } from './prediction.js'
+import { PREDICTION_NOTE_BALANCE_SHEET, toPredictedEvents } from './prediction-source.js'
 import { resolveReportPeriod, type DateGranularity } from './period.js'
 import { formatDateLocal } from '../../common/date.js'
 import { generatePredictions } from '../budget.service.js'
@@ -47,7 +49,7 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
   let predictedAssets: Minor = ZERO_MINOR
   let predictedLiabilities: Minor = ZERO_MINOR
   let predictionNote: string | undefined
-  let predictedChanges: Map<string, number> = new Map()
+  let predictedChanges: Map<string, Minor> = new Map()
 
   if (targetDate > now) {
     const predictions = await generatePredictions(
@@ -57,10 +59,10 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
 
     if (predictions.length > 0) {
       const accountLookup = new Map(accounts.map(a => [a.id, a]))
-      predictedChanges = accumulatePredictionChanges(predictions)
-      const predicted = sumPredictionByType(predictedChanges, accountLookup)
-      predictedAssets = toMinor(predicted.assetChange)
-      predictedLiabilities = neg(toMinor(predicted.liabilityChange))
+      predictedChanges = accumulatePredictedChanges(toPredictedEvents(predictions))
+      const predicted = sumPredictedByType(predictedChanges, accountLookup)
+      predictedAssets = predicted.assetChange
+      predictedLiabilities = neg(predicted.liabilityChange)
       predictionNote = PREDICTION_NOTE_BALANCE_SHEET
     }
   }
@@ -77,7 +79,7 @@ export async function generateBalanceSheet(date: string): Promise<BalanceSheetRe
     categoryName: account.category?.name || '未分类',
     categorySort: account.category?.sort ?? 0,
     actualBalance: account.balance,
-    predictedChange: toMinor(predictedChanges.get(account.id) ?? 0),
+    predictedChange: predictedChanges.get(account.id) ?? ZERO_MINOR,
   }))
 
   const report = buildBalanceSheet(domainAccounts)

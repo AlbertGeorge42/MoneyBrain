@@ -11,7 +11,7 @@ import {
 } from '../../../../../packages/domain/src/index.js'
 import { loadProjectionEvents } from '../projection-events.js'
 import { buildProjectionBuckets } from './bucket.js'
-import { PREDICTION_NOTE_DEFAULT } from './prediction.js'
+import { PREDICTION_NOTE_DEFAULT } from './prediction-source.js'
 import type { IncomeExpenseProjectionResult } from '../../../../../packages/contracts/types/index.js'
 
 export interface IncomeExpenseProjectionParams {

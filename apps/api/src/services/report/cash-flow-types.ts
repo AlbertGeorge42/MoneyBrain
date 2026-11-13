@@ -1,5 +1,4 @@
 import { Prisma } from '@prisma/client'
-import { type Minor } from '../../../../../packages/domain/src/index.js'
 
 // 报表结果类型统一引用 shared 类型（cash-flow 报表对外契约）
 export type {
@@ -8,6 +7,7 @@ export type {
   CashFlowReportData as CashFlowResult,
 } from '../../../../../packages/contracts/types/index.js'
 
+/** 仅 API 适配层使用：Prisma 的原始交易行，不得进入 packages/domain。 */
 export type TransactionWithIncludes = Prisma.TransactionGetPayload<{
   include: { account: true; toAccount: true; category: true }
 }>
@@ -24,21 +24,7 @@ export interface PredictionTransaction {
   budgetName: string
 }
 
-export interface CashFlowActivityMinor {
-  inflow: Minor
-  outflow: Minor
-  items: Array<{
-    categoryName: string
-    categoryId: string | null
-    parentId: string | null
-    level: number
-    amount: Minor
-    type: string
-    direction: string
-  }>
-}
-
-// 内部使用的轻量类型（collectTransactions / aggregate 之间传递）
+// collect / 桑基入参映射用的 ID → 名称字典
 export interface CategoryInfo {
   cashFlowType: string | null
   name: string
@@ -48,36 +34,4 @@ export interface CategoryInfo {
 
 export interface AccountInfo {
   name: string
-}
-
-// 统一后的交易项：actual + predicted 共用同一处理路径
-export interface ProcessedTx {
-  isPredicted: boolean
-  /** 写入时的账务口径版本；聚合时按它解释转账手续费与退款方向。 */
-  ruleVersion: number
-  type: string
-  /** 退款指向的原交易类型（'income' / 'expense'），决定退款的资金方向 */
-  relatedType: string | null
-  amount: Minor
-  fee: Minor
-  coupon: Minor
-  isFromCash: boolean
-  isToCash: boolean
-  categoryName: string
-  categoryId: string | null
-  parentId: string | null
-  level: number
-  cashFlowType: string | null
-  accountName: string
-  toAccountName: string | null
-}
-
-export interface AggregatedFlows {
-  operating: CashFlowActivityMinor
-  investing: CashFlowActivityMinor
-  financing: CashFlowActivityMinor
-  uncategorized: CashFlowActivityMinor
-  /** 平账（adjustment）净额：只影响余额，不进任何活动桶。 */
-  reconciliation: Minor
-  flowByAccount: Record<string, { inflow: Minor; outflow: Minor }>
 }

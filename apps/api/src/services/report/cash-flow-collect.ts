@@ -1,18 +1,35 @@
-import { CURRENT_RULE_VERSION, minor } from '../../../../../packages/domain/src/index.js'
+import {
+  CURRENT_RULE_VERSION,
+  ZERO_MINOR,
+  minor,
+  type ProcessedTx,
+  type SankeySourceTransaction,
+} from '../../../../../packages/domain/src/index.js'
 import { toMinor } from '../../common/index.js'
 import {
   AccountInfo,
   CategoryInfo,
   PredictionTransaction,
-  ProcessedTx,
   TransactionWithIncludes,
 } from './cash-flow-types.js'
 
+/** 现金集合判定：活动桶聚合与桑基图共用同一处，避免两条链路各自判断。 */
+function cashFlags(accountId: string, toAccountId: string | null | undefined, cashAccountIds: string[]) {
+  return {
+    isFromCash: cashAccountIds.includes(accountId),
+    isToCash: !!toAccountId && cashAccountIds.includes(toAccountId),
+  }
+}
+
 /**
- * 将 actual + predicted 原始数据统一规整为 ProcessedTx 列表。
- * 这样后续 aggregate 不再需要区分 isActual / isPredicted 分支。
+ * 预测点位覆盖范围是 [now, endDate] 而非 [startDate, endDate]，
+ * 两条链路都必须按 [start, end] 再过滤一次，否则跨月查询会累加窗口外的点位。
  */
-export function collectTransactions(args: {
+function inWindow(timestamp: number, rangeStart: number, rangeEnd: number): boolean {
+  return timestamp >= rangeStart && timestamp <= rangeEnd
+}
+
+interface CollectArgs {
   transactions: TransactionWithIncludes[]
   predictions: PredictionTransaction[]
   start: Date
@@ -20,15 +37,17 @@ export function collectTransactions(args: {
   cashAccountIds: string[]
   categoryMap: Map<string, CategoryInfo>
   accountMap: Map<string, AccountInfo>
-}): { actualItems: ProcessedTx[]; predictedItems: ProcessedTx[] } {
+}
+
+/** 将 actual + predicted 原始数据统一规整为 ProcessedTx 列表。 */
+export function collectTransactions(args: CollectArgs): { actualItems: ProcessedTx[]; predictedItems: ProcessedTx[] } {
   const { transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap } = args
   const rangeStart = start.getTime()
   const rangeEnd = end.getTime()
 
   const actualItems: ProcessedTx[] = []
   for (const t of transactions) {
-    const isFromCash = cashAccountIds.includes(t.accountId)
-    const isToCash = !!t.toAccountId && cashAccountIds.includes(t.toAccountId)
+    const { isFromCash, isToCash } = cashFlags(t.accountId, t.toAccountId, cashAccountIds)
     actualItems.push({
       isPredicted: false,
       ruleVersion: t.ruleVersion,
@@ -51,15 +70,9 @@ export function collectTransactions(args: {
 
   const predictedItems: ProcessedTx[] = []
   for (const p of predictions) {
-    // predictions 来自 getPredictionsIfFuture，覆盖范围是 [now, endDate]，
-    // 并不是 [startDate, endDate]。这里必须按 [start, end] 过滤，
-    // 否则跨月查询会把前面月份的预测再次累加，
-    // 导致 cashInflow/Outflow/netCashFlow 表现为"累加值"而非"期内值"。
-    const ts = p.date.getTime()
-    if (ts < rangeStart || ts > rangeEnd) continue
+    if (!inWindow(p.date.getTime(), rangeStart, rangeEnd)) continue
 
-    const isFromCash = cashAccountIds.includes(p.accountId)
-    const isToCash = !!p.toAccountId && cashAccountIds.includes(p.toAccountId)
+    const { isFromCash, isToCash } = cashFlags(p.accountId, p.toAccountId, cashAccountIds)
     if (!isFromCash && !isToCash) continue
 
     const category = p.categoryId ? categoryMap.get(p.categoryId) : null
@@ -87,4 +100,61 @@ export function collectTransactions(args: {
   }
 
   return { actualItems, predictedItems }
+}
+
+/**
+ * Prisma 行 / 预算 DTO → 桑基图的领域输入。
+ * 名称兜底与 collectTransactions 有意不同（桑基有「其他收入」「现金账户」等展示节点名），
+ * 这是既有口径，不要顺手统一。
+ */
+export function collectSankeySources(args: CollectArgs): SankeySourceTransaction[] {
+  const { transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap } = args
+  const rangeStart = start.getTime()
+  const rangeEnd = end.getTime()
+  const sources: SankeySourceTransaction[] = []
+
+  for (const t of transactions) {
+    const { isFromCash, isToCash } = cashFlags(t.accountId, t.toAccountId, cashAccountIds)
+    sources.push({
+      isActual: true,
+      type: t.type,
+      relatedType: t.relatedType,
+      amount: toMinor(t.amount),
+      fee: toMinor(t.fee),
+      coupon: toMinor(t.coupon),
+      ruleVersion: t.ruleVersion,
+      isFromCash,
+      isToCash,
+      categoryName: t.category?.name || '未分类',
+      accountName: t.account?.name,
+      toAccountName: t.toAccount?.name,
+    })
+  }
+
+  for (const p of predictions) {
+    if (!inWindow(p.date.getTime(), rangeStart, rangeEnd)) continue
+    const { isFromCash, isToCash } = cashFlags(p.accountId, p.toAccountId, cashAccountIds)
+    if (!isFromCash && !isToCash) continue
+
+    const category = p.categoryId ? categoryMap.get(p.categoryId) : null
+    const account = accountMap.get(p.accountId)
+    const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
+
+    sources.push({
+      isActual: false,
+      type: p.type,
+      relatedType: null,
+      amount: toMinor(p.amount),
+      fee: ZERO_MINOR,
+      coupon: ZERO_MINOR,
+      ruleVersion: CURRENT_RULE_VERSION,
+      isFromCash,
+      isToCash,
+      categoryName: category?.name,
+      accountName: account?.name,
+      toAccountName: toAccount?.name,
+    })
+  }
+
+  return sources
 }

@@ -58,15 +58,36 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | I-A | Kotlin `NotificationListenerService` + 权限引导；本地解析金额 / 商户 / 时间 + 候选收件箱；原文只在本地保留 ≤7 天、只同步解析字段；「分享到 MoneyBrain」与手动记账回退 | 目标机型稳定收到允许列表内通知；解析失败也进收件箱并说明原因；同步 / 备份 / 日志中无通知原文；无权限时记账闭环不受影响 |
 | I-B | `importKey` + 近邻匹配 + 人工确认；v1 不自动入账，学习规则默认关闭 | 同一笔通知不重复；与手动记录不重复；未确认候选不影响余额与报表 |
 
-### 领域算法下沉通道（严格按 D5→D7，每阶段暂停验收）
+### 领域算法下沉通道（严格按 D6→D7，每阶段暂停验收）
 
 每阶段固定六步：① 审查现有代码与调用关系 → ② 明确输入、输出与算法边界 → ③ 建立或补齐回归测试 → ④ 迁移算法、API 改为调用 Domain → ⑤ 用固定输入 + 基线输出快照对比迁移前后结果 → ⑥ 通过测试后删除旧实现。每阶段完成后暂停，汇报文件变更、测试结果与遗留问题，等待确认再继续；不自动提交。不重写算法、不改变业务口径、不增加无关依赖、不创建空模块、不保留长期双实现；旧链路不留兼容层，回归基线不做双实现对照，死代码统一删除。结构约束见 [architecture.md](architecture.md) §2.7，编码规则见 [dev-guide.md](dev-guide.md) §3.5。
 
 | 条目 | 做什么 | 验收 |
 |---|---|---|
-| D5 | 现金流量表四活动桶、平账、桑基与投影活动下沉；`report/prediction.ts` 旧预测链路随最后一个消费方整体删除（基础报表的预测变化量暂留 API，避免提前引入第二套预测逻辑） | 基础端点补齐数值回归；`aggregate` / `buildSankey` / `cashFlowOf` 三条链路一致性断言；`buildSankey` 入参不再是 Prisma payload |
 | D6 | 投资分析（XIRR / TWR / 年化、收益指标、资产配置、再平衡、快照链）下沉到 `investment/`；`xirr` 依赖与类型声明平移进 Domain 并封装 | 影子测试改为 import 生产函数；真实运行用例覆盖 CJS / ESM 互操作与数值结果；`apps/api` 不再直接调用第三方 XIRR；`npm run typecheck:domain` 单独通过 |
-| D7 | 全局清理：旧实现 / 死代码 / 临时脚本清零，文档归位，金额算术收口复核 | 全仓零双实现；`npm run test` / `lint` / `typecheck` 全通过；动过金额与口径后 `npm run db:verify` / `db:drill` 通过 |
+| D7 | 全局清理：旧实现 / 死代码 / 临时脚本清零，文档归位，金额算术收口复核 | 全仓零双实现；`npm run test` / `lint` / `typecheck` 全通过；动过金额与口径后 `npm run db:verify` 通过；`db:drill` 的既有分类差异由 R2 独立收口，不阻塞本阶段 |
+
+### 转账统一金额语义通道（T 批，独立于 D 批，逐批暂停验收）
+
+决策见 §5 #14、操作规则见 [dev-guide.md](dev-guide.md) §3.1。每批按 D 批同样的六步走，完成后暂停汇报、不自动提交。**初期开发阶段不维护历史账本**：口径切换后全库一次性迁到 v2，历史 49 笔券（合计 18506 分 / 185.06 元）随规则切换自动生效，不为旧数字保留解释路径，切完不保留任何 `ruleVersion = 1` 的交易。**顺序上排在 D6 / D7 之后**：迁移基线未收口前换写入口径会让「迁移前后 DTO 一致」失去可比性。
+
+| 条目 | 做什么 | 验收 |
+|---|---|---|
+| T1 | 新增 `ledger/rules.v2.ts`：`postingsOf` 转出 `−(X+f)` / 转入 `+(X+c)` / 平衡分录 `+(f−c)`；`transferOutflow(X,f,c) = X+f`、`transferInflow(X,c) = X+c`，`effectiveTransferFee` 重定义为「转出侧额外扣款」= f；`CURRENT_RULE_VERSION = 2` + `registerRuleSet(V2_RULES)`。`rules.v1.ts` 一字不改。同批做一次性全库迁移：`transactions.ruleVersion` 1 → 2，只改版本号，不动 amount / fee / coupon / 分类 | `Σ postings = 0`；v1 定向用例全保留（规则集仍登记）；v2 补 X/f/c 组合 golden（含 `c>f`、`f>c`、`c=f`、全 0）；`rulesFor(1)` / `rulesFor(2)` 分别可解释；迁移后全库零 `ruleVersion = 1`、49 笔券合计 18506 分进入余额、净资产 +185.06 元；`typecheck:domain` 单独通过 |
+| T2 | 消费者按版本消费：现金流 `aggregate` / `sankey`、`cashFlowOf`、投资分析 `transferInflow` 调用补 `coupon`；现金↔现金互转净额 `c−f` 在活动桶 / 桑基 / 推演三条链路一致 | 三链路净额一致性用例；历史 DTO 按 v2 重算后与旧值逐字段对照，唯一差异来自 `c−f`（49 笔券 +18506 分、1 笔手续费的 −273 分不变）；v2 新交易 golden DTO |
+| T3 | 导入适配层：钱迹手续费行 `amount=X, fee=f, coupon=0`、券行 `amount=X, fee=0, coupon=c` 直接映射；外部格式只给转出 / 到账金额时结合本金字段或导入规则推断，无法确定保留原始值并提示用户；**不得用差额反推 fee / coupon**。历史 49 笔券的字段值已经符合统一语义，无需改金额列，随 T1 全库迁移自动生效。**导入 / 恢复不采信外部文件的 `ruleVersion` 列**（`TRANSACTION_CSV_HEADER` 含该列，迁移前的备份带 1），适配层归一金额语义后一律写 `CURRENT_RULE_VERSION` | 49 笔历史券与新导入回归；从迁移前导出的旧备份恢复后 `ruleVersion` 仍为 2 且券生效；同一笔交易从钱迹 CSV 与旧备份导入得到同一语义；无法确定场景有明确提示且不静默落库；不覆盖已有用户分类（与 R2/R3 合流） |
+| T4 | 前端录入补优惠券字段与「转入 = 本金 + 优惠券」说明；导出维持逐字段直出（现状已符合统一语义） | 表单数值用例；导出 round-trip 金额列语义单一，不与外部软件语义混存 |
+| T5 | 文档与不变量归位：`requirements.md` §3.1 / 不变量 5、`testing.md` §5 / 覆盖表、`architecture.md` 分录表按 v1 / v2 分列；`db:verify` 按 `ruleVersion` 分别校验 `Δ转出+Δ转入 == −f`（v1）/ `== c−f`（v2） | `npm run test` / `lint` / `typecheck` / `db:verify` 全通过；净资产基线按 +185.06 元更新（1165048.37 → 1165233.43），不再要求「历史数字不变」 |
+
+### 独立缺陷与口径待办（不进 D 批主线，逐项拍板后单独立项）
+
+| 条目 | 做什么 | 验收 / 前置 |
+|---|---|---|
+| R1 | **转账自动分类**：把 `classifyTransfer` 从导入端提升为 Domain 规则（返回语义键，API 映射中文分类名），创建 / 编辑 / 外部导入共用一份；显式分类优先。初期不维护历史账本，需要时全库一次性重算，不做兼容保留 | 先拍板「账户类型变更时是否重算分类」与「如何区分用户手工改过的分类」（不改 schema 可用「当前分类 == 旧规则结果才重算」启发式）；分类决定 `cashFlowType` 分桶，须补报表回归；`ruleVersion` 不参与（分类是落库显式值） |
+| R2 | **恢复原样还原分类**：给 `importTransactionsFromCsv` 加由 `manifest` 驱动的显式 `restore` 模式，禁用 `classifyTransfer` 与新建分类分支，按备份分类路径解析；找不到即报错 | `db:drill` 必须 `identical: true`；补「用户自定义转账分类 round-trip 后不变」用例；指纹保留 `categoryPath`，不得为过测试删分类；核对 `importKey` 含 `categoryId` 的幂等 |
+| R3 | **外部账单显式映射**：CSV 分类列优先，`classifyTransfer` 降级为「分类为空时的兜底」；转换层按账户类型生成内部交易但不覆盖已有用户分类 | 查清并修 `db:drill` 的 `asset\|资产` 多出；同一份外部账单导两遍不产生重复交易 |
+| R5 | **前端对账区**：`apiReports.ts` 的 `reconcile` 三项硬编码 0 改为消费后端 `reconciliation` 与差额，恢复 `CashView` 手续费角标 | `ui-design.md` §3.2「差额必须为 0」；纯展示层，不进 D 批 |
+| R6 | **跨期初余额日现金流对账等式：数据归位（已定方案）**。根因已用真实库逐分复现，**不是记录误差**：`balanceBefore`（`ledger/postings.ts:50-56`）丢弃 `initialBalanceDate` 之前的交易；3 个现金账户期初日在 2025-12-29/30、期初合计 9002395 分，使 2025 全年 `startCash = 0`、`endCash = 8823116`，而 `netCashFlow + reconciliation = 5691639`，差 `9002395 − 5870918 = 3131477` 分。修法：对 11 个有期初日的账户，令 `新 initialBalance = 旧 initialBalance − Σ(期初日前交易对该账户的分录净额)`，`initialBalanceDate` 置 `NULL`（期初覆盖全部历史）。这是等价变换：2025-12-31 及之后所有时点余额与净资产 1165048.37 逐分不变；2025-01-01 起的历史时点余额从 0 变为按流水推导的真实值，`startCash` 变 3131477 分，2025 `cashChange` 变 5691639 分，差额归零。执行前用 `sqlite3` 一致性备份（`dev.db` 被 gitignore，不能用 git 回滚）；前端 `cashSankeyModel.ts:136` 的 late-opening 失败态随之不再触发 | `db:verify` 通过且净资产 1165048.37 不变；2025 / 2026 全年与 11 月 `diff = 0`；`db:drill` `identical: true`；各账户新期初值与逐时点余额有只读复算对照。属既有口径缺口，与 D 批及手续费修复无关（真实库 37 笔现金互转 0 笔带有效手续费，新分支从未执行） |
 
 ### 按需扩展（触发条件出现才立项，不进主线）
 
@@ -135,6 +156,7 @@ V5（两实例目录同步收敛、KDF <2s）已验证通过、结论可冻结�
 | 11 | 前端组件库锁 Mantine 8（`8.3.18`）；token 两层映射，不得出现第三个颜色来源 | React 19 升级后 9.x 收益显著时重议 |
 | 12 | 全站单一字体栈、字号只取七档、只取 400/500/600 三档字重 | 跨平台字形一致性成为验收项时引入自托管字体，仍保持单栈 |
 | 13 | `packages/domain` 唯一允许的第三方 runtime 依赖是 `xirr`（XIRR 求解）：依赖与类型声明归 Domain，封装在 `investment/` 内，不向外暴露第三方类型，API 不直接调用 | 更换收益率求解器时重议；除此之外 Domain 保持零外部依赖 |
+| 14 | **转账金额语义统一**：`amount` = 本金 X、`fee` = f、`coupon` = c，`转出 = X + f`、`转入 = X + c`、`账户总余额变化 = c − f`；唯一依据在 `ledger/rules.vN.ts` 的 `postingsOf`，余额 / 现金流 / 桑基按各自展示粒度消费。**导出坚持此语义，不随外部软件改字段含义**；外部导入在适配层归一：明确提供 fee / coupon 就直接映射，只给转出与到账金额时结合本金字段或导入规则推断，无法确定则保留原始值并提示用户，**禁止用差额反推 fee 或 coupon**（差额也可能来自账单缺失、汇率、平台补贴）。`ruleVersion` 是内部口径版本，导入边界一律写当前版本、不采信外部文件的该列。实施必须新增 `rules.v2.ts` + `registerRuleSet`，`rules.v1.ts` 代码不覆盖（版本仍登记、旧备份仍可解析）；但**初期开发阶段不维护历史账本**：全库 `ruleVersion` 一次性迁到 2，历史数字按新语义重算（含 49 笔券 +185.06 元），不为旧数字保留解释路径 | 不可推翻「内部模型统一表达经济事实、不随外部软件变」；复审触发：出现无法用 X/f/c 表达的经济事实（汇率、平台补贴需新字段）。阶段与验收见 §3 的 T 批 |
 
 **已评估但不采用**（保留结论，避免反复讨论）：物化 `postings` 表、Fastify / tRPC / Drizzle 替换现有栈、TanStack Router / Table / React Hook Form、Biome、Turborepo、FSD / 六边形整体重构、游标分页、CRDT / 协同编辑引擎、自建同步服务器、厂商 API 直连作主同步通道、React Native / 全原生重写移动端。共同理由：收益尚未出现，迁移成本或复杂度大于收益；触发条件见上表与对应决策。
 

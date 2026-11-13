@@ -1,93 +1,44 @@
 import { describe, it, expect } from 'vitest'
-import type { Account } from '@prisma/client'
-import { buildSankey } from '../../src/services/report/cash-flow-build.js'
-import type { TransactionWithIncludes } from '../../src/services/report/cash-flow-types.js'
-import { minor } from '../../../../packages/domain/src/index.js'
+import { buildSankey, minor, type SankeySourceTransaction } from '../../../../packages/domain/src/index.js'
 
 // C4 验收：桑基图退款方向由领域层 refundOffsetKind 唯一判定——
 // 支出退款计入流入侧（分类 → 现金），收入退款计入流出侧（现金 → 分类），
 // 与 aggregate() 的 outflow/inflow 同一判定；relatedType 无法识别时不计入。
+// 夹具是领域输入而非 Prisma payload：buildSankey 的入参已在 D5 领域化。
 
-const makeAccount = (id: string, name: string): Account => ({
-  id,
-  name,
-  type: 'asset',
-  initialBalance: 0n,
-  initialBalanceDate: null,
-  categoryId: null,
-  sort: 0,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  fromTransactions: [],
-  toTransactions: [],
-  fromBudgets: [],
-  toBudgets: [],
-  investmentAssetClasses: [],
-  investmentAllocationSnapshots: [],
-})
-
-const makeRefund = (relatedType: 'income' | 'expense' | null): TransactionWithIncludes => ({
-  id: `refund-${relatedType ?? 'none'}`,
-  importKey: null,
+const makeRefund = (relatedType: 'income' | 'expense' | null): SankeySourceTransaction => ({
+  isActual: true,
   type: 'refund',
-  ruleVersion: 1,
-  amount: 100n,
-  fee: 0n,
-  coupon: 0n,
-  date: new Date('2026-01-15'),
-  note: null,
-  accountId: 'cash',
-  toAccountId: null,
-  categoryId: null,
-  relatedTransactionId: 'original',
   relatedType,
-  excludeFromIncomeExpense: false,
-  deletedAt: null,
-  createdAt: new Date(),
-  account: makeAccount('cash', '现金账户'),
-  toAccount: null,
-  category: null,
-})
-
-const makeCashTransfer = (fee = 0n): TransactionWithIncludes => ({
-  id: 'transfer-cash-to-cash',
-  importKey: null,
-  type: 'transfer',
+  amount: minor(100),
+  fee: minor(0),
+  coupon: minor(0),
   ruleVersion: 1,
-  amount: 100n,
-  fee,
-  coupon: 0n,
-  date: new Date('2026-01-15'),
-  note: null,
-  accountId: 'cash-a',
-  toAccountId: 'cash-b',
-  categoryId: null,
-  relatedTransactionId: null,
-  relatedType: null,
-  excludeFromIncomeExpense: false,
-  deletedAt: null,
-  createdAt: new Date(),
-  account: makeAccount('cash-a', '微信零钱'),
-  toAccount: makeAccount('cash-b', '支付宝'),
-  category: null,
+  isFromCash: true,
+  isToCash: false,
+  categoryName: '未分类',
+  accountName: '现金账户',
+  toAccountName: null,
 })
 
-const buildWith = (transactions: TransactionWithIncludes[]) =>
-  buildSankey({
-    transactions,
-    predictions: [],
-    cashAccountIds: ['cash', 'cash-a', 'cash-b'],
-    categoryMap: new Map(),
-    accountMap: new Map([
-      ['cash', { name: '现金账户' }],
-      ['cash-a', { name: '微信零钱' }],
-      ['cash-b', { name: '支付宝' }],
-    ]),
-    start: new Date('2026-01-01'),
-    end: new Date('2026-02-01'),
-  })
+const makeCashTransfer = (fee = 0): SankeySourceTransaction => ({
+  isActual: true,
+  type: 'transfer',
+  relatedType: null,
+  amount: minor(100),
+  fee: minor(fee),
+  coupon: minor(0),
+  ruleVersion: 1,
+  isFromCash: true,
+  isToCash: true,
+  categoryName: '未分类',
+  accountName: '微信零钱',
+  toAccountName: '支付宝',
+})
 
-const hasLink = (sankey: Awaited<ReturnType<typeof buildWith>>, source: string, target: string) =>
+const buildWith = (sources: SankeySourceTransaction[]) => buildSankey(sources)
+
+const hasLink = (sankey: ReturnType<typeof buildWith>, source: string, target: string) =>
   sankey.links.some((link) => link.source === source && link.target === target)
 
 describe('buildSankey 退款方向与活动表同源（C4）', () => {
@@ -132,7 +83,7 @@ describe('buildSankey 现金账户内部转账（三层桑基）', () => {
   })
 
   it('转账手续费不随本金转移：单独成为「手续费」出流节点', () => {
-    const sankey = buildWith([makeCashTransfer(10n)])
+    const sankey = buildWith([makeCashTransfer(10)])
 
     expect(hasLink(sankey, '微信零钱_cash', '支付宝_cash')).toBe(true)
     expect(sankey.links.find((link) => link.source === '微信零钱_cash' && link.target === '支付宝_cash')?.value).toBe(

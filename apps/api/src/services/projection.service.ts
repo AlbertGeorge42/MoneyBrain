@@ -11,8 +11,11 @@ import * as transactionCategoryRepo from '../db/repositories/transaction-categor
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import {
   addDays,
+  aggregate,
   buildAssetProjection,
   buildCashFlowProjection,
+  buildProjectionActivity,
+  buildSankey,
   fromDate,
   type HistoricalBalanceSnapshot,
   type LocalDate,
@@ -24,10 +27,8 @@ import { calculateBalancesBatch, type BalanceCache } from './balance.service.js'
 import { dayEnd, dayStart } from '../common/date.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
 import { buildProjectionBuckets } from './report/bucket.js'
-import { collectTransactions } from './report/cash-flow-collect.js'
-import { aggregate } from './report/cash-flow-aggregate.js'
-import { buildProjectionActivity, buildSankey } from './report/cash-flow-build.js'
-import { PREDICTION_NOTE_DEFAULT } from './report/prediction.js'
+import { collectSankeySources, collectTransactions } from './report/cash-flow-collect.js'
+import { PREDICTION_NOTE_DEFAULT } from './report/prediction-source.js'
 import type {
   AccountInfo,
   CategoryInfo,
@@ -255,7 +256,7 @@ async function cashFlowProjectionRange(params: ProjectionQueryParams): Promise<C
     aggregate(committedItems),
     aggregate(plannedItems),
   )
-  const sankey = buildSankey({
+  const sankey = buildSankey(collectSankeySources({
     transactions: actualRows,
     predictions: [...windowCommitted.map(toPrediction), ...windowPlanned.map(toPrediction)],
     cashAccountIds: cashIds,
@@ -263,7 +264,7 @@ async function cashFlowProjectionRange(params: ProjectionQueryParams): Promise<C
     accountMap,
     start: dayStart(windowStart),
     end: dayEnd(windowEnd),
-  })
+  }))
 
   return {
     asOf: params.asOf,

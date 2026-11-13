@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { CURRENT_RULE_VERSION, minor } from '../../../../packages/domain/src/index.js'
-import { aggregate } from '../../src/services/report/cash-flow-aggregate.js'
-import type { ProcessedTx } from '../../src/services/report/cash-flow-types.js'
+import {
+  CURRENT_RULE_VERSION,
+  aggregate,
+  minor,
+  type ProcessedTx,
+} from '../../../../packages/domain/src/index.js'
 
 const item = (overrides: Partial<ProcessedTx> = {}): ProcessedTx => ({
   isPredicted: false,

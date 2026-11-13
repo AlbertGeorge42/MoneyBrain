@@ -118,6 +118,25 @@ export type {
   IncomeExpenseProjectionPoint,
   ProjectionCategoryDetail,
 } from './statements/income-expense-projection.js'
+export { aggregate } from './statements/cash-flow/aggregate.js'
+export { buildStatement, buildProjectionActivity } from './statements/cash-flow/statement.js'
+export { buildSankey } from './statements/cash-flow/sankey.js'
+export type {
+  AggregatedFlows,
+  CashFlowActivity,
+  CashFlowActivityItem,
+  CashFlowActivityMinor,
+  CashFlowStatement,
+  ProcessedTx,
+  ProjectionCashActivity,
+  ProjectionCashActivityItem,
+  ProjectionCashByActivity,
+  ReportValue,
+  SankeyLink,
+  SankeyNode,
+  SankeyResult,
+  SankeySourceTransaction,
+} from './statements/cash-flow/types.js'
 
 export { budgetContributionSign } from './budget/scope.js'
 export { computeBudgetStatus, summarizeBudgetUsage } from './budget/status.js'
@@ -164,6 +183,12 @@ export {
   type CashFlowProjectionOutput,
 } from './projection/cash-flow.js'
 export { buildPeriodPlanPoints, type PeriodPlanInput } from './projection/period-plan.js'
+export {
+  accumulatePredictedChanges,
+  predictedAccountTotal,
+  sumPredictedByType,
+  type PredictedEvent,
+} from './projection/predicted-changes.js'
 export type {
   AssetProjectionPoint,
   BudgetPeriodPlanPoint,

@@ -115,6 +115,7 @@ adjustment  账户 +amount      权益 −amount
 
 - **依赖方向**：Domain 定义自己的输入输出类型，不 import `packages/contracts`、`@prisma/client`、Express、SQLite 或任何 `apps/**` 代码；Prisma Model / `GetPayload` 不得直接作为 Domain 入参。`index.ts` 仍是唯一出口。
 - **完整算法而非原语**：下沉的是整条计算流程（分类树聚合、四活动桶、三来源合成、桑基链路、收益率求解），不是把 `add()` / `sub()` 包一层。
+- **预测点位解释引擎唯一**：预算点位由 API 映射成 `LedgerTransaction` 后统一走 `postingsOf`；基础报表 `predicted` 字段与 `projection/` 推演端点共用同一套口径，Domain 内不保留手写符号表。取数窗口（起点恒为今天）与展示文案留在 API。
 - **SQL 预聚合路径必须保留**：统计接口继续用 `groupBy` 聚合行交给 `summarizeAggregatedFlows`（[dev-guide.md](dev-guide.md) §3.1），并验证聚合行与明细计算结果一致；不得为对齐 Domain 而改读整表明细。
 - **第三方库封装**：`xirr` 的依赖与类型声明归 `packages/domain`，API 不再直接调用第三方 XIRR；第三方类型不出现在 Domain 的导出面上，须有真实运行测试覆盖 CJS / ESM 互操作与数值结果。
 - **不可改变的既有约束**：金额全链路整数分、期间半开、派生值不落库、账务口径带版本且已登记版本不可覆盖（[roadmap.md](roadmap.md) §5 决策 2 / 3 / 4）。
@@ -132,7 +133,7 @@ adjustment  账户 +amount      权益 −amount
 | `services/budget.service.ts` | 预算 CRUD、SQL 预聚合取数、预测编排与 DTO；计入口径 / 状态 / 用量 / 下钻 / 周期展开调用 `domain/budget/`，期间计划点位调用 `domain/projection/` |
 | `services/projection.service.ts`、`services/projection-events.ts` | 推演取数、BalanceCache、Prisma→领域映射、occurrence 装载与 20,000 事件阈值、DTO 序列化；分桶 / 三来源 / 资产与现金流推演全部走 `domain/projection/` |
 | `services/analytics.service.ts` | 首页汇总、趋势、分类占比（走 `summarizeFlows` / `flowByCategory`） |
-| `services/report/*` | 四张报表；`report/bucket.ts` 只留未来上限的 HTTP 校验与文案，分桶算法在 `domain/projection/`；资产负债表的分类树、逐级小计、负债符号口径、排序与实际值汇总走 `domain/statements/balance-sheet.ts`；收支表与三来源投影的完整算法（分类树唯一递归骨架、逐级聚合、净资产对账条、逐桶 actual / committed / planned 合成）走 `domain/statements/{category-tree,income-expense,income-expense-projection}.ts`，service 只留取数、Prisma→领域映射、旧预测点位获取与 DTO |
+| `services/report/*` | 四张报表；`report/bucket.ts` 只留未来上限的 HTTP 校验与文案，分桶算法在 `domain/projection/`；资产负债表走 `domain/statements/balance-sheet.ts`，收支表与三来源投影走 `domain/statements/{category-tree,income-expense,income-expense-projection}.ts`，现金流量表四活动桶 / 平账 / 报表主体 / 桑基走 `domain/statements/cash-flow/`。`report/prediction-source.ts` 只承载预测取数窗口、提示文案与 DTO→领域事件映射，无金额算法；service 只留查库、Prisma→领域映射、余额快照与 DTO |
 | `services/import/*`、`services/export/*` | 备份/CSV 导入导出；幂等键、范围过滤、覆盖保护 |
 | `services/ledger.adapter.ts` | Prisma `BigInt` 分 ↔ 领域类型适配 |
 | `common/` | 错误、HTTP 信封、请求 ID、日期、校验器、日志、树工具 |

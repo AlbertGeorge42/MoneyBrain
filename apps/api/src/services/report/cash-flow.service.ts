@@ -4,8 +4,16 @@ import * as accountCategoryRepo from '../../db/repositories/account-category.rep
 import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
 import { rootLogger } from '../../common/index.js'
-import { sum, sub, type Minor } from '../../../../../packages/domain/src/index.js'
-import { getPredictionsIfFuture, computePredictedAccountTotal, PREDICTION_NOTE_DEFAULT } from './prediction.js'
+import {
+  aggregate,
+  buildSankey,
+  buildStatement,
+  predictedAccountTotal,
+  sum,
+  sub,
+  type Minor,
+} from '../../../../../packages/domain/src/index.js'
+import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT, toPredictedEvents } from './prediction-source.js'
 import { resolveReportPeriod } from './period.js'
 import {
   AccountInfo,
@@ -13,9 +21,7 @@ import {
   CashFlowResult,
   PredictionTransaction,
 } from './cash-flow-types.js'
-import { collectTransactions } from './cash-flow-collect.js'
-import { aggregate } from './cash-flow-aggregate.js'
-import { buildStatement, buildSankey } from './cash-flow-build.js'
+import { collectSankeySources, collectTransactions } from './cash-flow-collect.js'
 
 const logger = rootLogger.child({ module: 'report' })
 
@@ -56,7 +62,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   let accountMap: Map<string, AccountInfo> = new Map()
 
   if (includePredictions) {
-    const allPredictions = await getPredictionsIfFuture(startDate, endDate, true)
+    const allPredictions = await getPredictionsIfFuture(endDate, true)
     predictions = allPredictions.map(p => ({
       date: p.date,
       type: p.type,
@@ -99,18 +105,18 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   const actualEndCash = sum(cashAccountIds.map((id) => (balanceCache.get(id, nextDayOfEnd) ?? 0) as Minor))
   const actualCashChange = sub(actualEndCash, actualStartCash)
 
-  // 期初/期末现金预测：统一调用 computePredictedAccountTotal，
-  // 不再依赖隐式排序、也不重复 income/expense/transfer 分支。
-  // timePoint 减 1ms：filterPredictionsUpTo 用 <=，而 calculateBalancesBatch 用 <，
+  // 期初/期末现金预测：统一走领域层的复式分录归约，不再依赖隐式排序或手写符号分支。
+  // timePoint 减 1ms：预测点位过滤用闭区间 <=，而 calculateBalancesBatch 用 <，
   // 减 1ms 使两者语义对齐，避免期初/期末当天的预测被重复计算或遗漏。
   const cashAccountIdSet = new Set(cashAccountIds)
-  const predictedStartCash = computePredictedAccountTotal(predictions, new Date(start.getTime() - 1), cashAccountIdSet)
-  const predictedEndCash = computePredictedAccountTotal(predictions, new Date(nextDayOfEnd.getTime() - 1), cashAccountIdSet)
+  const predictedEvents = toPredictedEvents(predictions)
+  const predictedStartCash = predictedAccountTotal(predictedEvents, start.getTime() - 1, cashAccountIdSet)
+  const predictedEndCash = predictedAccountTotal(predictedEvents, nextDayOfEnd.getTime() - 1, cashAccountIdSet)
 
   // 7. 桑基图
-  const sankey = buildSankey({
+  const sankey = buildSankey(collectSankeySources({
     transactions, predictions, cashAccountIds, categoryMap, accountMap, start, end,
-  })
+  }))
 
   const result: CashFlowResult = {
     startDate,
