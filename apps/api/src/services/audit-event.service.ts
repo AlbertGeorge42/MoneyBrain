@@ -12,7 +12,7 @@ import type { TransactionWithRelations } from '../db/repositories/transaction.re
 //
 // - 撤销 = 依据审计事件里的 before 快照反向写入，不另建撤销表；
 // - 回收站的「恢复」= 撤销最近一条 deleted 事件，与提示条上的「撤销」走同一条反向写入路径。
-// - 反向写只回滚快照里出现的业务字段（id / createdAt / ruleVersion 不在 snapshotToUpdate 里，永不回滚）。
+// - 反向写只回滚快照里出现的业务字段（id / createdAt 不在 snapshotToUpdate 里，永不回滚）。
 
 function parseSnapshot(json: string): Record<string, unknown> {
   try {

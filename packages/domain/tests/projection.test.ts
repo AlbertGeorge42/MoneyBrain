@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  CURRENT_RULE_VERSION,
   ZERO_MINOR,
   buildAssetProjection,
   buildCashFlowProjection,
@@ -40,7 +39,6 @@ type LedgerSpec = Partial<LedgerTransaction> & {
 
 const ledger = (o: LedgerSpec): LedgerTransaction => ({
   id: o.id,
-  ruleVersion: CURRENT_RULE_VERSION,
   kind: o.kind,
   date: o.date,
   amount: m(o.amount),

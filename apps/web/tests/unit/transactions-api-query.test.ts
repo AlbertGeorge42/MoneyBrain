@@ -118,7 +118,6 @@ describe('分类展示映射', () => {
     const dto = {
       id: 'tx-1',
       type: 'expense',
-      ruleVersion: 1,
       amount: 1234,
       date: '2026-10-20T00:00:00.000Z',
       accountId: 'acc-1',

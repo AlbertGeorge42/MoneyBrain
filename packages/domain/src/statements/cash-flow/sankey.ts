@@ -1,4 +1,4 @@
-import { rulesFor } from '../../ledger/rules.js'
+import { refundOffsetKind, transferInflow, transferNet, transferOutflow } from '../../ledger/rules.js'
 import { ZERO_MINOR, abs, add, type Minor } from '../../money.js'
 import type { SankeyLink, SankeyNode, SankeyResult, SankeySourceTransaction } from './types.js'
 
@@ -40,7 +40,7 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
     const cashToTargetLinks_ = tx.isActual ? cashToTargetLinks.actual : cashToTargetLinks.predicted
     const cashToCashLinks_ = tx.isActual ? cashToCashLinks.actual : cashToCashLinks.predicted
 
-    const { type, isFromCash, isToCash, amount, fee, coupon, ruleVersion, categoryName, accountName, toAccountName, relatedType } = tx
+    const { type, isFromCash, isToCash, amount, fee, coupon, categoryName, accountName, toAccountName, relatedType } = tx
 
     if (type === 'income' && isFromCash) {
       const catName = categoryName || '其他收入'
@@ -62,7 +62,7 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
         const accName = accountName || '非现金账户'
         const fromName = `${catName}-${accName}`
         const toCashName = toAccountName
-        const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
+        const actualInflow = transferInflow(amount, coupon)
         addToMap(nonCashSourceNodes_, fromName, actualInflow)
         addToMap(cashAccountFlows_, toCashName, actualInflow)
         if (!sourceToCashLinks_.has(fromName)) sourceToCashLinks_.set(fromName, new Map())
@@ -72,7 +72,7 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
         const accName = toAccountName || '非现金账户'
         const fromCashName = accountName
         const toName = `${catName}-${accName}`
-        const actualOutflow = abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon))
+        const actualOutflow = abs(transferOutflow(amount, fee))
         addToMap(nonCashTargetNodes_, toName, actualOutflow)
         addToMap(cashAccountFlows_, fromCashName, actualOutflow)
         if (!cashToTargetLinks_.has(fromCashName)) cashToTargetLinks_.set(fromCashName, new Map())
@@ -80,20 +80,26 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
       } else if (isFromCash && isToCash && accountName && toAccountName) {
         const fromCashName = accountName
         const toCashName = toAccountName
-        const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
-        const effectiveFee = rulesFor(ruleVersion).effectiveTransferFee(fee, coupon)
-        addToMap(cashAccountFlows_, fromCashName, add(actualInflow, effectiveFee))
+        const actualOutflow = transferOutflow(amount, fee)
+        const actualInflow = transferInflow(amount, coupon)
+        const net = transferNet(fee, coupon)
+        addToMap(cashAccountFlows_, fromCashName, actualOutflow)
         addToMap(cashAccountFlows_, toCashName, actualInflow)
         if (!cashToCashLinks_.has(fromCashName)) cashToCashLinks_.set(fromCashName, new Map())
-        addToMap(cashToCashLinks_.get(fromCashName)!, toCashName, actualInflow)
-        if (effectiveFee > 0) {
-          addToMap(expenseCategoryNodes_, '手续费', effectiveFee)
+        addToMap(cashToCashLinks_.get(fromCashName)!, toCashName, amount)
+        if (net < 0) {
+          const feeValue = abs(net)
+          addToMap(expenseCategoryNodes_, '手续费', feeValue)
           if (!cashToTargetLinks_.has(fromCashName)) cashToTargetLinks_.set(fromCashName, new Map())
-          addToMap(cashToTargetLinks_.get(fromCashName)!, '手续费', effectiveFee)
+          addToMap(cashToTargetLinks_.get(fromCashName)!, '手续费', feeValue)
+        } else if (net > 0) {
+          addToMap(incomeCategoryNodes_, '优惠券', net)
+          if (!sourceToCashLinks_.has('优惠券')) sourceToCashLinks_.set('优惠券', new Map())
+          addToMap(sourceToCashLinks_.get('优惠券')!, toCashName, net)
         }
       }
     } else if (type === 'refund' && isFromCash) {
-      const offset = rulesFor(ruleVersion).refundOffsetKind(relatedType)
+      const offset = refundOffsetKind(relatedType)
       const catName = categoryName || '退款'
       const cashName = accountName || '现金账户'
       if (offset === 'expense') {

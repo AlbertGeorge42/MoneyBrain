@@ -8,7 +8,7 @@ import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { TransactionStats } from '../../../../packages/contracts/types/index.js'
 import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
-import { minor, remainingRefundable, summarizeAggregatedFlows, CURRENT_RULE_VERSION, formatCurrency, sum, add, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
+import { minor, remainingRefundable, summarizeAggregatedFlows, formatCurrency, sum, add, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -128,7 +128,7 @@ export interface TransactionListResult {
 /**
  * 支出金额统一按正数（分）落库。
  *
- * 领域层把支出当作「金额大小」再做减法（packages/domain/src/ledger/rules.v1.ts），
+ * 领域层把支出当作「金额大小」再做减法（packages/domain/src/ledger/v1.ts），
  * 导入也按 `Math.abs` 保存；因此写入边界必须产出同一种符号，否则列表、导出、
  * 同步记录与预算会各拿一套口径（历史 bug：dev.db 里存在 -2800 的支出）。
  *
@@ -149,7 +149,6 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
   const transaction = await transactionRepo.createWithRelations({
     id,
     type,
-    ruleVersion: CURRENT_RULE_VERSION,
     amount: BigInt(normalizeExpenseAmount(type, amount)),
     fee: BigInt(fee),
     coupon: BigInt(coupon),
@@ -176,7 +175,6 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
   const transaction = await transactionRepo.createWithRelations({
     id,
     type: 'transfer',
-    ruleVersion: CURRENT_RULE_VERSION,
     amount: BigInt(amount),
     fee: BigInt(fee),
     coupon: BigInt(coupon),
@@ -265,7 +263,6 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
   const transaction = await transactionRepo.createWithRelations({
     id,
     type: 'refund',
-    ruleVersion: CURRENT_RULE_VERSION,
     amount: BigInt(amount),
     fee: BigInt(fee),
     coupon: BigInt(coupon),
@@ -286,8 +283,7 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
 
 // 共享的字段合并逻辑，三个 update 函数复用。
 //
-// 注意：这里刻意**不**包含 `ruleVersion`——修改一笔交易不会改写它的口径版本，
-// 否则「历史数字按写入时的版本解释」就失效了。
+// 注意：这里刻意只包含可编辑字段；id / createdAt 等不可变字段永不随更新改写。
 function mergeTransactionData(
   old: { amount: bigint; fee: bigint; coupon: bigint; date: Date; note: string | null; accountId: string; categoryId: string | null; excludeFromIncomeExpense: boolean },
   data: { amount?: number; fee?: number; coupon?: number; date?: Date; note?: string; accountId?: string; categoryId?: string | null; excludeFromIncomeExpense?: boolean }
@@ -545,9 +541,8 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
   const where = await buildTransactionListWhere(params)
 
   // 收支口径统一走领域层：退款按原交易类型冲减、不计收支的交易不参与统计，
-  // 且每条交易按自己写入时的口径版本解释。
   //
-  // 聚合在 SQL 跑（按类型 × 退款原类型 × 不计收支 × 口径版本分组），
+  // 聚合在 SQL 跑（按类型 × 退款原类型 × 不计收支分组），
   // 口径仍由领域层按各自版本解释——既避免整表读进内存，
   // 也不会让「当前规则」误伤旧交易。
   const [grouped, transferCount] = await Promise.all([
@@ -564,7 +559,6 @@ export async function getTransactionStats(params: TransactionListParams = {}): P
       kind: row.type as LedgerTransaction['kind'],
       relatedType: row.relatedType,
       excludeFromIncomeExpense: row.excludeFromIncomeExpense,
-      ruleVersion: row.ruleVersion,
       amount: toMinor(row._sum.amount),
     })),
     { includeExcluded: params.includeExcluded },

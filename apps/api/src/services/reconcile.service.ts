@@ -3,7 +3,7 @@ import * as accountRepo from '../db/repositories/account.repository.js'
 import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import { calculateBalancesBatch } from './balance.service.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
-import { CURRENT_RULE_VERSION, formatCurrency, fromDate, minor } from '../../../../packages/domain/src/index.js'
+import { formatCurrency, fromDate, minor } from '../../../../packages/domain/src/index.js'
 import type { AccountReconcileResult } from '../../../../packages/contracts/types/index.js'
 
 /**
@@ -119,7 +119,6 @@ export async function reconcileAccount(
 
   const created = await transactionRepo.createWithRelations({
     type: 'adjustment',
-    ruleVersion: CURRENT_RULE_VERSION,
     amount: BigInt(difference),
     date,
     note: buildNote(bookBalance, input.actualBalance, input.note),

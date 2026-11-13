@@ -1,5 +1,4 @@
 import {
-  CURRENT_RULE_VERSION,
   ZERO_MINOR,
   addDays,
   budgetKindOf,
@@ -89,7 +88,6 @@ export async function loadProjectionEvents(params: {
         date,
         ledger: {
           id: `budget:${occurrence.budgetId}:${date}`,
-          ruleVersion: CURRENT_RULE_VERSION,
           kind: type,
           date,
           amount: minor(occurrence.amount),

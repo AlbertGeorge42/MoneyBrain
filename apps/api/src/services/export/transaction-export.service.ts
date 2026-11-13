@@ -102,7 +102,6 @@ export async function exportTransactionsCSV(startDate?: Date, endDate?: Date): P
         escapeCsvField(tags),
         escapeCsvField(images),
         escapeCsvField(relatedBill),
-        escapeCsvField(String(t.ruleVersion)),
       ].join(',')
     )
   }

@@ -18,8 +18,6 @@ import { toMinor } from '../common/index.js'
 export interface LedgerSource {
   id: string
   type: string
-  /** 写入时的账务口径版本；解释历史数字时按它取规则。 */
-  ruleVersion: number
   amount: bigint
   fee?: bigint | null
   coupon?: bigint | null
@@ -54,7 +52,6 @@ function relatedTypeOf(value?: string | null): 'income' | 'expense' | null {
 export function toLedgerTransaction(source: LedgerSource): LedgerTransaction {
   return {
     id: source.id,
-    ruleVersion: source.ruleVersion,
     kind: kindOf(source.type),
     date: fromDate(source.date),
     // 写入边界（transaction.service.ts 的 normalizeExpenseAmount）已保证支出为正的金额大小；

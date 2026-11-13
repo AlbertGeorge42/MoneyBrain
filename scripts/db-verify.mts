@@ -4,7 +4,7 @@
  * 检查项（都是「不该错」的等式）：
  * 1. Σ 所有账户余额 == 净资产（资产 − 负债）
  * 2. 期初净资产 + 净收入 − 净支出 == 期末净资产（本月）
- * 3. 每一笔转账满足 Δ转出 + Δ转入 == −手续费
+ * 3. 每一笔转账满足 Δ转出 + Δ转入 == c − f，且 Σ postings = 0
  * 4. 退款金额可高于原额、退款账户可与原账户不同（均属合法业务），只统计提示、不判为错误；退款指向的原交易必须存在
  *
  * 用法：
@@ -17,8 +17,8 @@ import {
   balanceBefore,
   minor,
   postingsOf,
-  rulesFor,
   summarizeFlows,
+  transferNet,
   type LedgerTransaction,
   type Minor,
 } from '../packages/domain/src/index.js'
@@ -36,8 +36,6 @@ const toMinor = (value: bigint | number | null | undefined): Minor => minor(Numb
 const toLedger = (t: Record<string, unknown>): LedgerTransaction => ({
   id: t.id as string,
   kind: t.type as LedgerTransaction['kind'],
-  // 写入时的账务口径版本：历史数字按当时的规则解释
-  ruleVersion: (t.ruleVersion ?? 1) as number,
   date: toLocalDate(t.date as Date),
   amount: toMinor(t.amount as { toNumber(): number }),
   fee: toMinor((t.fee ?? 0) as { toNumber(): number }),
@@ -131,64 +129,45 @@ async function main() {
     const excludedNet = inPeriod
       .filter((t) => t.excludeFromIncomeExpense)
       .reduce((total, t) => total + balanceEffect(t), 0)
-    const transferFee = inPeriod
+    const transferNetAmount = inPeriod
       .filter((t) => t.kind === 'transfer')
-      .reduce((total, t) => total + rulesFor(t.ruleVersion).effectiveTransferFee(t.fee, t.coupon), 0)
+      .reduce((total, t) => total + transferNet(t.fee, t.coupon), 0)
     const adjustmentNet = inPeriod
       .filter((t) => t.kind === 'adjustment')
       .reduce((total, t) => total + balanceEffect(t), 0)
 
-    // 开户日之前的交易：进收支统计，但不进余额
-    const openingDateOf = new Map(
-      accounts.map((a) => [a.id, a.initialBalanceDate ? toLocalDate(a.initialBalanceDate) : null]),
-    )
-    const isPreOpening = (t: LedgerTransaction) => {
-      const opening = openingDateOf.get(t.accountId)
-      return opening !== null && opening !== undefined && t.date < opening
-    }
-    const preOpeningFlow = inPeriod
-      .filter((t) => isPreOpening(t))
-      .reduce((total, t) => {
-        if (t.kind === 'income') return total + t.amount
-        if (t.kind === 'expense') return total - t.amount
-        // 退款冲减哪一侧同样走规则版本
-        const offset = rulesFor(t.ruleVersion).refundOffsetKind(t.relatedType)
-        if (offset === 'income') return total - t.amount
-        if (offset === 'expense') return total + t.amount
-        return total
-      }, 0)
-
-    // 完整的恒等式：期初 + 净流量 + 不进收支但影响余额的部分 − 转账手续费 − 开户前交易 = 期末；
-    // 手续费是净资产的减项（转账分录净效应 = −fee），不是加项（B4）
+    // 完整的恒等式：期初 + 净流量 + 不进收支但影响余额的部分 + 转账净额 c−f = 期末。
+    // 期初余额日只是锚点，锚点之前也能算余额，不再有「开户前交易」补偿项。
     const expectedEnd =
-      startNetWorth + flow + excludedNet - transferFee + adjustmentNet - preOpeningFlow
+      startNetWorth + flow + excludedNet + transferNetAmount + adjustmentNet
     const difference = endNetWorth - expectedEnd
 
     if (Math.abs(difference) >= 1) {
       problems.push(
         `净资产对不上：期末 ${yuan(endNetWorth)} ≠ 期望 ${yuan(expectedEnd)}` +
           `（期初 ${yuan(startNetWorth)} + 净流量 ${yuan(flow)} + 不计收支 ${yuan(excludedNet)}` +
-          ` − 手续费 ${yuan(transferFee)} + 平账 ${yuan(adjustmentNet)} − 开户前 ${yuan(preOpeningFlow)}，差 ${yuan(difference)}）`,
+          ` + 转账净额 ${yuan(transferNetAmount)} + 平账 ${yuan(adjustmentNet)}，差 ${yuan(difference)}）`,
       )
     } else {
       const extras: string[] = []
       if (Math.abs(excludedNet) >= 1) extras.push(`不计收支 ${yuan(excludedNet)}`)
-      if (Math.abs(transferFee) >= 1) extras.push(`转账手续费 ${yuan(transferFee)}`)
+      if (Math.abs(transferNetAmount) >= 1) extras.push(`转账净额 ${yuan(transferNetAmount)}`)
       if (Math.abs(adjustmentNet) >= 1) extras.push(`平账 ${yuan(adjustmentNet)}`)
-      if (Math.abs(preOpeningFlow) >= 1) extras.push(`开户前交易 ${yuan(preOpeningFlow)}`)
       if (extras.length > 0) {
         console.log(`ℹ 不进收支统计但影响余额：${extras.join('、')}（已计入对账，非错误）`)
       }
     }
 
-    // 3. 转账：Δ转出 + Δ转入 == −手续费
+    // 3. 转账：转出 −(X+f)、转入 +(X+c)，两侧之和 == c − f
     for (const t of ledger) {
       if (t.kind !== 'transfer' || !t.toAccountId) continue
-      const fee = rulesFor(t.ruleVersion).effectiveTransferFee(t.fee, t.coupon)
+      const fee = t.fee ?? 0
+      const coupon = t.coupon ?? 0
+      const net = transferNet(fee, coupon)
       const outflow = -t.amount - fee
-      const inflow = t.amount
-      if (outflow + inflow !== -fee) {
-        problems.push(`转账 ${t.id} 不平衡：Δ转出 ${yuan(outflow)} + Δ转入 ${yuan(inflow)} ≠ −手续费 ${yuan(fee)}`)
+      const inflow = t.amount + coupon
+      if (outflow + inflow !== net) {
+        problems.push(`转账 ${t.id} 不平衡：Δ转出 ${yuan(outflow)} + Δ转入 ${yuan(inflow)} ≠ c−f ${yuan(net)}`)
       }
     }
 

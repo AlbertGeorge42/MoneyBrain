@@ -48,7 +48,6 @@ function makePage(total: number) {
     const list = Array.from({ length: count }, (_, index) => ({
       id: `tx-${start + index}`,
       type: 'expense',
-      ruleVersion: 1,
       amount: 1_200,
       date: '2026-10-05T00:00:00.000Z',
       accountId: 'cmb',
@@ -179,7 +178,6 @@ describe('按 total 翻页（流水页笔数与合计的取数全集）', () => 
           : Array.from({ length: 100 }, (_, index) => ({
               id: `tx-${(page - 1) * 100 + index}`,
               type: 'expense',
-              ruleVersion: 1,
               amount: 1_200,
               date: '2026-10-05T00:00:00.000Z',
               accountId: 'cmb',

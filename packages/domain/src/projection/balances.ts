@@ -1,6 +1,6 @@
 import { ZERO_MINOR, abs, add, neg, sum, type Minor } from '../money.js'
 import { postingsOf } from '../ledger/postings.js'
-import { rulesFor } from '../ledger/rules.js'
+import { transferNet } from '../ledger/rules.js'
 import type { LedgerTransaction } from '../ledger/types.js'
 import type { LocalDate } from '../date.js'
 import { sumAssetsLiabilities } from '../statements/aggregates.js'
@@ -107,7 +107,7 @@ export function buildAccountDetail(
  * 一笔交易对现金集合的流入/流出。
  * 与余额共用同一份复式分录：账户分录正数计流入、负数计流出，
  * 因此「流入 − 流出」恒等于该交易对现金余额的净影响。
- * 现金账户之间的互转本金不构成流入/流出，只把手续费计作流出。
+ * 现金账户之间的互转本金不构成流入/流出，只有手续费与券的净额 c−f 构成现金变动。
  */
 export function cashFlowOf(
   ledger: LedgerTransaction,
@@ -119,10 +119,10 @@ export function cashFlowOf(
     && cashAccountIds.has(ledger.accountId)
     && cashAccountIds.has(ledger.toAccountId)
   ) {
-    return {
-      inflow: ZERO_MINOR,
-      outflow: rulesFor(ledger.ruleVersion).effectiveTransferFee(ledger.fee, ledger.coupon),
-    }
+    const net = transferNet(ledger.fee, ledger.coupon)
+    return net >= 0
+      ? { inflow: net, outflow: ZERO_MINOR }
+      : { inflow: ZERO_MINOR, outflow: neg(net) }
   }
 
   const cashPostings = postingsOf(ledger).filter(

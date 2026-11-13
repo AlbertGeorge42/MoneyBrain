@@ -12,8 +12,6 @@ export interface BudgetScopedRow {
   categoryId: string | null
   excludeFromIncomeExpense: boolean
   relatedType: string | null
-  /** 写入时的口径版本：每行按自己的版本解释。 */
-  ruleVersion: number
 }
 
 /** 带金额的预算口径行，金额一律整数分。 */

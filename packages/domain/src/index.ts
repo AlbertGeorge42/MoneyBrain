@@ -63,15 +63,18 @@ export {
 export { accountDelta, balanceAt, balanceBefore, postingsOf } from './ledger/postings.js'
 
 export {
-  CURRENT_RULE_VERSION,
-  registerRuleSet,
-  rulesFor,
+  isCountable,
+  matchesBudgetScope,
+  refundOffsetKind,
+  scopeQuery,
+  transferInflow,
+  transferNet,
+  transferOutflow,
   type BudgetKind,
   type BudgetScope,
   type BudgetTransaction,
   type CountableTransaction,
   type FlowKind,
-  type RuleSet,
   type ScopeQuery,
 } from './ledger/rules.js'
 

@@ -93,7 +93,7 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 
 | 口径 | 落在哪里 |
 |---|---|
-| 交易 → 分录的方向与金额 | `ledger/rules.vN.ts` 的 `postingsOf`（按交易版本取） |
+| 交易 → 分录的方向与金额 | `ledger/rules.ts` 的 `postingsOf` |
 | 余额（含期初当天计入） | `ledger/postings.ts` 的 `balanceBefore` / `balanceAt` |
 | 收支净额与分类汇总 | `ledger/summary.ts` 的 `summarizeFlows` / `flowByCategory` |
 | 退款可退余额 / 冲减方向 | `remainingRefundable`；`refundOffsetKind`（收入退款 = 流出、支出退款 = 流入，`relatedType` 不明返回 null 不计入） |
@@ -101,19 +101,18 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 | 日期格式化 | `packages/domain/src/date.ts` 的 `fromDate` |
 | 前后端共用字面量 | `packages/contracts/constants.ts` |
 
-- **统计类接口**：用 `groupBy` 在 SQL 里按「类型 × 退款原类型 × 不计收支 × 口径版本」聚合，再把聚合行交给 `summarizeAggregatedFlows` 按各自版本解释。不要读整表明细进内存——扫描量必须随期间增长，不随总历史增长。
-- **`ledger/rules.ts` 是口径唯一来源**：同时被领域层纯函数与后端 SQL 条件消费，所以「统计哪些类型」「退款冲减哪一侧」不会各写一份；实际规则按版本冻结在 `rules.vN.ts`。
-- **口径带版本**：交易写入时记录 `ruleVersion`，解释历史数字按交易自己的版本取规则。新增版本 = 复制 `rules.v1.ts` 为 `rules.v2.ts` 改行为 + `registerRuleSet(V2_RULES)` 登记；**已登记版本不允许覆盖**，未知版本直接失败不回退；新交易写入用 `CURRENT_RULE_VERSION`。`ruleVersion` 是内部版本，导入 / 恢复边界不采信外部文件的该列，金额语义在适配层归一后一律写当前版本。
+- **统计类接口**：用 `groupBy` 在 SQL 里按「类型 × 退款原类型 × 不计收支」聚合，再把聚合行交给 `summarizeAggregatedFlows` 按固定内核解释。不要读整表明细进内存——扫描量必须随期间增长，不随总历史增长。
+- **`ledger/rules.ts` 是口径唯一来源**：固定内核，同时被领域层纯函数与后端 SQL 条件消费，所以「统计哪些类型」「退款冲减哪一侧」「分录怎么生成」不会各写一份。不设版本系统、不保留第二套规则；口径变更直接改这一份并对全库生效。
 - **转账现金流两侧都必须经领域层规则取值**：转出 `transferOutflow(amount, fee, coupon)`、转入 `transferInflow(amount)`；报表不得直接把 `transfer.amount` 当现金流解释。
-- **转账统一金额语义（[roadmap.md](roadmap.md) §5 决策 14，T 批实施前 v1 仍生效）**：`amount` = 本金 X、`fee` = f、`coupon` = c，`转出 = X + f`、`转入 = X + c`、`账户总余额变化 = c − f`；由 `postingsOf` 提供唯一依据，余额 / 现金流 / 桑基按展示粒度消费。导出坚持此语义不随外部软件改变；外部导入在适配层归一，明确给 fee / coupon 就直接映射，只给转出与到账金额且无法推断时保留原始值并提示用户，**禁止用差额反推**。实施必须新增 `rules.v2.ts` + `registerRuleSet(V2_RULES)` 并补一条 `f − c` 的平衡分录维持 `Σ postings = 0`；**不得改 `rules.v1.ts`**。初期开发阶段不维护历史账本：T1 同批把全库 `ruleVersion` 一次性迁到 2（只改版本号），历史数字按新语义重算，49 笔券合计 18506 分自动进入余额，不保留旧数字的解释路径。
+- **转账统一金额语义（[roadmap.md](roadmap.md) §5 决策 14，已落地）**：`amount` = 本金 X、`fee` = f、`coupon` = c，`转出 = X + f`、`转入 = X + c`、`账户总余额变化 = c − f`；由 `postingsOf` 提供唯一依据，余额 / 现金流 / 桑基按展示粒度消费。导出坚持此语义不随外部软件改变；外部导入在适配层归一，明确给 fee / coupon 就直接映射，只给转出与到账金额且无法推断时保留原始值并提示用户，**禁止用差额反推**。`postingsOf` 生成 `转出 −(X+f)` / `转入 +(X+c)` / `平衡 +(f−c)` 三条分录维持 `Σ postings = 0`；`transferNet(f,c) = c−f` 是现金互转与对账条的唯一净额口径。余额 / 现金流 / 桑基 / 投资分析按各自展示粒度消费同一份规则。
 
 **禁止**在组件、route、service 中写 `if (type === 'refund') amount = +amount` 之类的金额分支，也禁止在领域层与 service 各留一份口径定义。
 
 ### 3.2 金额与日期
 
 - 金额全链路整数分：DB `BigInt`、契约/API/前端 `Minor`（branded number）；**元只出现在用户输入框与文件（CSV / 备份）两个边界**。
-- 输入按字符串解析（`parseAmount('8.11')` → `811`），最多 2 位小数超出报错；禁止 `Number(x) * 100`、`parseFloat`、`toFixed`、`Decimal`、前端浮点加减。
-- 字段名不加单位后缀；人类读的地方必须写单位（CSV 表头「金额（元）」、UI 标签、错误信息）。服务端是信任边界：外部金额先校验「安全整数 + 范围」，不合法 400，不静默取整。
+- 输入按字符串解析（`parseAmount('8.11')` → `811`），最多 2 位小数超出报错；CSV 文件边界例外：超过 2 位小数按分四舍五入并计入导入摘要的自动修正行数。禁止 `Number(x) * 100`、`parseFloat`、`toFixed`、`Decimal`、前端浮点加减。
+- 字段名不加单位后缀；UI 标签与错误信息必须写单位（如「金额（元）」）。CSV 表头是与外部账单共用的固定机器契约，列名不带单位，金额单位由本节说明。服务端是信任边界：外部金额先校验「安全整数 + 范围」，不合法 400，不静默取整。
 - 支出金额写入统一为正（`transaction.service.ts` 的 `normalizeExpenseAmount`）；历史负数用 `npm run db:fix-expense-sign` 修复（默认 dry-run，`--apply` 先导出 `.mbx` 备份再逐条推进 `rev`/`vv`），**不要手改库**。
 - 展示格式化只有四个入口：`formatMoney` / `LocalDate` / `formatTime` / `formatPercent`，一律走 `Intl` 封装；页面不得自拼货币符号或日期格式（禁 `toFixed`、`¥` 字面量、`dayjs().format`）。
 - 领域层只认 `LocalDate`（`YYYY-MM-DD`），期间一律半开 `start <= date < endExclusive`；禁止 `new Date('YYYY-MM-DD')`、`23:59:59.999`、`slice(0, 10)` 截断。
@@ -145,7 +144,7 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 - **完整算法下沉**：搬的是整条计算流程，不是把 `add()` / `sub()` 包一层；每阶段按 roadmap 的六步走。
 - **回归基线形态**：用测试内固定输入 + 迁移前输出快照（把旧实现的输出固化成期望值），**不在测试里长期同时调用新旧两份实现做对照**；一次性比对脚本不入仓库（§5.1）。
 - **SQL 预聚合路径保留**：继续用 `groupBy` 聚合行交给 `summarizeAggregatedFlows`（§3.1），新增「聚合行结果 = 明细计算结果」的一致性用例；不得为对齐 Domain 而把整表明细读进内存。
-- **口径与精度不改**：金额整数分、期间半开、派生值不落库、`rules.vN.ts` 版本化四条不动；不重写算法、不改业务口径、不增无关依赖、不建空目录。
+- **口径与精度不改**：金额整数分、期间半开、派生值不落库、内核口径只有一份四条不动；不重写算法、不改业务口径、不增无关依赖、不建空目录。
 - **预测点位解释引擎唯一**：预算预测点位由 API 转成 `LedgerTransaction` 后统一走 `postingsOf`，Domain 不得再手写 income / expense / transfer 符号表；基础报表 `predicted` 字段与推演端点共用这一套解释引擎，避免同一业务目的出现两套结果不等价的算法。
 - **不留双实现、不留兼容层**：旧链路不保留作回退，替换后当场删除；死代码（含仅被测试引用、无生产调用者的函数及其用例）在对应阶段统一删除（§5.1）。每阶段结束暂停汇报，等待确认再继续，不自动提交。
 
@@ -251,7 +250,7 @@ grep -rn "symbolName" apps packages scripts --include="*.ts" --include="*.tsx"
 - [ ] D 批领域算法改动：迁移前后同输入 DTO 逐字段对照通过；旧实现确认零引用后已删除；Domain 未 import `packages/contracts` / `@prisma/client` / Express / `apps/**`，且 `npm run typecheck:domain` 单独通过。
 - [ ] 动过统计口径：`summarizeAggregatedFlows` 与明细汇总的一致性用例通过，SQL `groupBy` 路径未退化成读整表。
 - [ ] D6：`npm run test:domain` 含真实 `xirr` 运行用例（CJS / ESM 互操作 + 数值结果），`apps/api` 无第三方 XIRR 直接调用。
-- [ ] T 批改写入口径：`rules.v1.ts` 未改、v1 定向用例全保留（规则集仍登记）、全库 `ruleVersion` 已一次性迁到 2 且零残留、历史 DTO 按 v2 重算后与旧值逐字段对照（唯一差异来自 `c−f`）、`Σ postings = 0`，且 `db:verify` 净资产基线已按 +185.06 元更新。
+- [ ] 改内核口径：`rules.ts` 仍为唯一规则集、全仓无第二套实现、X/f/c 组合 golden（含 `c>f` / `f>c` / `c=f` / 全 0）、三条链路净额 `c−f` 一致、`Σ postings = 0`，且 `db:verify` 通过。
 - [ ] 改了 schema → 迁移文件已生成，`npm run db:status` 无差异；额外跑 `npm run test:integration -w @moneybrain/api`。
 - [ ] 新特性按最小可用实现（[roadmap.md](roadmap.md) §5）：新增开关 / 配置项 / 机制前先问「能不能等真实需求出现再补」。
 - [ ] 旧实现与新设计冲突时，先判断「保留兼容是否会产生第二套口径 / 第二条路径」——会就不兼容，直接删旧路径。

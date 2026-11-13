@@ -1,5 +1,4 @@
 import {
-  CURRENT_RULE_VERSION,
   ZERO_MINOR,
   minor,
   type ProcessedTx,
@@ -50,7 +49,6 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
     const { isFromCash, isToCash } = cashFlags(t.accountId, t.toAccountId, cashAccountIds)
     actualItems.push({
       isPredicted: false,
-      ruleVersion: t.ruleVersion,
       type: t.type,
       relatedType: t.relatedType,
       amount: toMinor(t.amount),
@@ -81,7 +79,6 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
 
     predictedItems.push({
       isPredicted: true,
-      ruleVersion: CURRENT_RULE_VERSION,
       type: p.type,
       relatedType: null,
       amount: minor(p.amount),
@@ -122,7 +119,6 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
       amount: toMinor(t.amount),
       fee: toMinor(t.fee),
       coupon: toMinor(t.coupon),
-      ruleVersion: t.ruleVersion,
       isFromCash,
       isToCash,
       categoryName: t.category?.name || '未分类',
@@ -147,7 +143,6 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
       amount: toMinor(p.amount),
       fee: ZERO_MINOR,
       coupon: ZERO_MINOR,
-      ruleVersion: CURRENT_RULE_VERSION,
       isFromCash,
       isToCash,
       categoryName: category?.name,

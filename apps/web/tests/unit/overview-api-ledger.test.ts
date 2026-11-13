@@ -108,7 +108,6 @@ function transaction(id: string, type: Transaction['type'], amount: number, cate
   return {
     id,
     type,
-    ruleVersion: 1,
     amount,
     fee: 0,
     coupon: 0,

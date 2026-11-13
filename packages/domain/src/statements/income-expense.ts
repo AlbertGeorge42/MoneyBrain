@@ -1,16 +1,7 @@
-import type { LocalDate } from '../date.js'
 import { UNCATEGORIZED_CATEGORY_ID, flowByCategory, summarizeFlows } from '../ledger/summary.js'
 import { postingsOf } from '../ledger/postings.js'
 import type { LedgerTransaction } from '../ledger/types.js'
-import {
-  ZERO_MINOR,
-  add,
-  max,
-  neg,
-  sub,
-  sum,
-  type Minor,
-} from '../money.js'
+import { ZERO_MINOR, add, sub, sum, type Minor } from '../money.js'
 import { buildCategoryTree, type CategoryRef, type FlowCategoryType } from './category-tree.js'
 
 /** 预算预测点位：date 为 `Date.getTime()`，amount 已由 API 在边界转成整数分。 */
@@ -37,8 +28,6 @@ export interface IncomeExpenseStatementInput {
   startNetWorth: Minor
   endNetWorth: Minor
   includeExcluded: boolean
-  /** 账户 id → 开户日；null / 缺失表示无开户日限制。 */
-  openingDateOf: ReadonlyMap<string, LocalDate | null>
 }
 
 export interface IncomeExpenseCategoryDetail {
@@ -80,19 +69,6 @@ function netWorthEffect(transaction: LedgerTransaction): Minor {
       .filter((posting) => posting.kind === 'account')
       .map((posting) => posting.amount),
   )
-}
-
-/**
- * 早于开户日的交易进收支统计但不进余额，对账条里要把它从 other 中扣掉。
- * 符号映射是迁移前 API 的既有口径，不走 postingsOf —— 不改业务口径。
- */
-function preOpeningAmount(transaction: LedgerTransaction): Minor {
-  const amount = transaction.amount
-  if (transaction.kind === 'income') return amount
-  if (transaction.kind === 'expense') return neg(amount)
-  if (transaction.kind === 'refund' && transaction.relatedType === 'income') return neg(amount)
-  if (transaction.kind === 'refund' && transaction.relatedType === 'expense') return amount
-  return ZERO_MINOR
 }
 
 /** 构造收支表：收支汇总、预测、分类明细树、按名称汇总与净资产对账条。 */
@@ -199,30 +175,12 @@ export function buildIncomeExpenseStatement(
   }
 
   // 对账条：期初净资产 + 净收入 − 净支出 + other = 期末净资产。
-  // other = 不计收支、转账手续费、平账，减去早于开户日的收支流量。
-  const excludedNet = sum(
-    balanceOnlyLedger.filter((transaction) => transaction.excludeFromIncomeExpense).map(netWorthEffect),
-  )
-  const transferFee = sum(
+  // other = 不进收支统计的交易（转账、平账、不计收支）对账户余额的净效应，
+  // 统一走 postingsOf；期初余额日只是锚点，不再有「开户前交易」的补偿项。
+  const other = sum(
     balanceOnlyLedger
-      .filter((transaction) => transaction.kind === 'transfer')
-      .map((transaction) => max(sub(transaction.fee ?? ZERO_MINOR, transaction.coupon ?? ZERO_MINOR), ZERO_MINOR)),
-  )
-  const adjustmentNet = sum(
-    balanceOnlyLedger.filter((transaction) => transaction.kind === 'adjustment').map(netWorthEffect),
-  )
-  const preOpeningFlow = sum(
-    [...ledger, ...balanceOnlyLedger]
-      .filter((transaction) => {
-        const opening = input.openingDateOf.get(transaction.accountId)
-        return opening !== null && opening !== undefined && transaction.date < opening
-      })
-      .filter((transaction) => (includeExcluded ? true : !transaction.excludeFromIncomeExpense))
-      .map(preOpeningAmount),
-  )
-  const other = sub(
-    add(sub(includeExcluded ? ZERO_MINOR : excludedNet, transferFee), adjustmentNet),
-    preOpeningFlow,
+      .filter((transaction) => (includeExcluded ? !transaction.excludeFromIncomeExpense : true))
+      .map(netWorthEffect),
   )
   const reconciliation: IncomeExpenseReconciliation = {
     startNetWorth: input.startNetWorth,

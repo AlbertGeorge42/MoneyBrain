@@ -18,7 +18,6 @@ vi.mock('../../src/prisma.js', () => {
 
 import { prisma } from '../../src/prisma.js'
 import { calculateBalancesBatch } from '../../src/services/balance.service.js'
-import { CURRENT_RULE_VERSION } from '../../../../packages/domain/src/index.js'
 
 type MockPrisma = {
   account: { findMany: ReturnType<typeof vi.fn> }
@@ -41,7 +40,6 @@ function transaction(overrides: Record<string, unknown>) {
   return {
     id: 't',
     type: 'expense',
-    ruleVersion: CURRENT_RULE_VERSION,
     amount: new Decimal(0),
     fee: new Decimal(0),
     coupon: new Decimal(0),
@@ -107,17 +105,20 @@ describe('balance.service - calculateBalancesBatch', () => {
     expect(cache.get('A', new Date('2025-01-01T00:00:00'))).toBe(500)
   })
 
-  it('查询日期早于期初日期时，账户尚未存在，余额为 0', async () => {
+  it('期初余额日只是锚点：锚点之前的余额由锚点反推', async () => {
     mockPrisma.account.findMany.mockResolvedValue([
       account({
         initialBalance: new Decimal(500),
         initialBalanceDate: new Date('2025-04-01T00:00:00'),
       }),
     ])
-    mockPrisma.transaction.findMany.mockResolvedValue([])
+    // 锚点前有一笔支出 50，则 2 月 1 日余额 = 500 − (−50) = 550
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      transaction({ id: 't1', amount: new Decimal(50), date: new Date('2025-03-01T10:00:00') }),
+    ])
 
     const cache = await calculateBalancesBatch(['A'], [new Date('2025-02-01T00:00:00')])
-    expect(cache.get('A', new Date('2025-02-01T00:00:00'))).toBe(0)
+    expect(cache.get('A', new Date('2025-02-01T00:00:00'))).toBe(550)
   })
 
   it('月初 0 点语义：上月末平账计入月初余额，1 号当天交易不进月初余额也不被漏掉', async () => {
@@ -181,7 +182,7 @@ describe('balance.service - calculateBalancesBatch', () => {
     expect(cache.get('A', new Date('2025-02-01T00:00:00'))).toBe(650)
   })
 
-  it('转账本金进入目标账户，手续费只从转出账户扣除', async () => {
+  it('统一转账语义：转出扣本金 + 手续费，转入收本金 + 优惠券', async () => {
     mockPrisma.account.findMany.mockResolvedValue([
       account({ id: 'A', initialBalance: new Decimal(1000) }),
       account({ id: 'B', initialBalance: new Decimal(0) }),
@@ -201,8 +202,8 @@ describe('balance.service - calculateBalancesBatch', () => {
 
     const date = new Date('2025-01-03T00:00:00')
     const cache = await calculateBalancesBatch(['A', 'B'], [date])
-    expect(cache.get('A', date)).toBe(897) // 1000 - 100 - (5 - 2)
-    expect(cache.get('B', date)).toBe(100) // 手续费不会贷记到转入账户
+    expect(cache.get('A', date)).toBe(895) // 1000 − (100 + 5)
+    expect(cache.get('B', date)).toBe(102) // 100 + 2 优惠券
   })
 
   it('不计收支的交易仍然影响账户余额', async () => {

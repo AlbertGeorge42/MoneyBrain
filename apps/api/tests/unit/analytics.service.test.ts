@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { CURRENT_RULE_VERSION } from '../../../../packages/domain/src/index.js'
 import {
   getCategoryBreakdown,
   getDashboardSummary,
@@ -20,7 +19,6 @@ function transaction(overrides: Record<string, unknown>) {
   return {
     id: 'tx',
     type: 'expense',
-    ruleVersion: CURRENT_RULE_VERSION,
     amount: new Decimal(0),
     fee: null,
     coupon: null,

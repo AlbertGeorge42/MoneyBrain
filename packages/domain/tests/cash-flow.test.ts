@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  CURRENT_RULE_VERSION,
   aggregate,
   buildProjectionActivity,
   buildSankey,
@@ -21,7 +20,6 @@ const snap = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 const tx = (overrides: Partial<ProcessedTx> = {}): ProcessedTx => ({
   isPredicted: false,
-  ruleVersion: CURRENT_RULE_VERSION,
   type: 'expense',
   relatedType: null,
   amount: m(100),
@@ -46,7 +44,6 @@ const source = (overrides: Partial<SankeySourceTransaction> = {}): SankeySourceT
   amount: m(100),
   fee: m(0),
   coupon: m(0),
-  ruleVersion: CURRENT_RULE_VERSION,
   isFromCash: true,
   isToCash: false,
   categoryName: '餐饮',
@@ -57,7 +54,6 @@ const source = (overrides: Partial<SankeySourceTransaction> = {}): SankeySourceT
 
 const ledgerTx = (overrides: Partial<LedgerTransaction> & { kind: LedgerTransaction['kind'] }): LedgerTransaction => ({
   id: overrides.id ?? 't1',
-  ruleVersion: CURRENT_RULE_VERSION,
   kind: overrides.kind,
   date: D('2026-01-15'),
   amount: overrides.amount ?? m(100),

@@ -287,7 +287,6 @@ describe('#9 未来记录不计入本月合计', () => {
               accountId: tx.accountId,
               categoryId: tx.categoryId,
               note: tx.note,
-              ruleVersion: 1,
             })),
             total: futureLedger.transactions.length,
             page: 1,

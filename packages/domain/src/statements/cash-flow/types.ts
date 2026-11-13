@@ -4,7 +4,6 @@ import type { ProjectionFlowValue } from '../../projection/types.js'
 /** API 把 Prisma 交易与预算点位映射成的最小领域视图，实际/预测共用同一处理路径。 */
 export interface ProcessedTx {
   isPredicted: boolean
-  ruleVersion: number
   type: string
   relatedType: string | null
   amount: Minor
@@ -56,7 +55,6 @@ export interface SankeySourceTransaction {
   amount: Minor
   fee: Minor
   coupon: Minor
-  ruleVersion: number
   isFromCash: boolean
   isToCash: boolean
   categoryName: string | null | undefined

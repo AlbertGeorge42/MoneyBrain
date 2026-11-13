@@ -10,7 +10,7 @@
  *   可退余额 = max(原额 − Σ退款, 0) 恒非负、超退后归零，只是录入参考，不是上限校验。
  *   「全额退款恢复余额」只覆盖同账户情形——跨账户退款时原账户余额不恢复，属合法，不在断言范围。
  * - excludeFromIncomeExpense 只出现在收支类交易上；转账与平账本就不进收支统计。
- * - 期初余额不带日期（覆盖全部历史）——pre-opening 语义由 ledger.test.ts 专项单测覆盖。
+ * - 期初余额不带日期（覆盖全部历史）；带日期时它只是锚点，锚点前后都能算余额。
  */
 import assert from 'node:assert/strict'
 import test from 'node:test'
@@ -24,7 +24,9 @@ import {
   minor,
   postingsOf,
   remainingRefundable,
-  rulesFor,
+  isCountable,
+  refundOffsetKind,
+  transferNet,
   summarizeFlows,
   type LedgerTransaction,
   type OpeningBalance,
@@ -57,7 +59,6 @@ const txArb: fc.Arbitrary<LedgerTransaction> = kindArb.chain(kind => {
     .tuple(accountArb, accountArb, dayArb, amountArb, feeArb, feeArb, categoryIdArb, relatedTypeArb, fc.boolean())
     .map(([accountId, otherAccount, date, amount, fee, coupon, categoryId, relatedType, excluded]) => ({
       id: `${kind}-${date}-${amount}-${accountId}`,
-      ruleVersion: 1,
       kind,
       date,
       amount: minor(amount),
@@ -106,24 +107,24 @@ function netAt(ledger: Ledger, date: string): number {
   )
 }
 
-test('不变量 1：对账恒等式——期末净资产 − 期初净资产 == 净收入 − 净支出 + 不计收支净额 − 转账手续费 + 平账净额', () => {
+test('不变量 1：对账恒等式——期末净资产 − 期初净资产 == 净收入 − 净支出 + 不计收支净额 + 转账净额 c−f + 平账净额', () => {
   fc.assert(
     fc.property(ledgerArb, ledger => {
       const flow = summarizeFlows(ledger.txs).balance
       const excludedNet = ledger.txs
         .filter(t => t.excludeFromIncomeExpense)
         .reduce((total, t) => total + accountEffect(t), 0)
-      // 手续费是净资产的减项：转账分录净效应 = −(本金 + 手续费) + 本金 = −手续费
-      const transferFee = ledger.txs
+      // 转账分录净效应 = −(X+f) + (X+c) = c − f
+      const transferNetAmount = ledger.txs
         .filter(t => t.kind === 'transfer')
-        .reduce((total, t) => total + rulesFor(t.ruleVersion).effectiveTransferFee(t.fee, t.coupon), 0)
+        .reduce((total, t) => total + transferNet(t.fee, t.coupon), 0)
       const adjustmentNet = ledger.txs
         .filter(t => t.kind === 'adjustment')
         .reduce((total, t) => total + accountEffect(t), 0)
 
       assert.equal(
         netAt(ledger, END) - netAt(ledger, START),
-        flow + excludedNet - transferFee + adjustmentNet,
+        flow + excludedNet + transferNetAmount + adjustmentNet,
       )
     }),
     { numRuns: 1000 },
@@ -161,7 +162,6 @@ test('不变量 4（全额退款）：退款后余额 == 原交易前余额', ()
       const originalKind = relatedType === 'income' ? 'income' : 'expense'
       const original: LedgerTransaction = {
         id: 'original',
-        ruleVersion: 1,
         kind: originalKind,
         date,
         amount: minor(amount),
@@ -170,7 +170,6 @@ test('不变量 4（全额退款）：退款后余额 == 原交易前余额', ()
       }
       const refund: LedgerTransaction = {
         id: 'refund',
-        ruleVersion: 1,
         kind: 'refund',
         date: addDays(date, 1),
         amount: minor(amount),
@@ -238,12 +237,11 @@ test('不变量 4（可退余额）：可退余额 == max(原额 − Σ退款, 0
   )
 })
 
-test('不变量 5：转账满足 Δ转出 + Δ转入 == −有效手续费', () => {
+test('不变量 5：转账满足 Δ转出 + Δ转入 == c − f，且 Σ postings = 0', () => {
   const transferArb = fc
     .tuple(accountArb, accountArb, dayArb, centsArb, feeArb, feeArb, categoryIdArb)
     .map(([accountId, otherAccount, date, amount, fee, coupon, categoryId]) => ({
       id: 'transfer',
-      ruleVersion: 1,
       kind: 'transfer' as const,
       date,
       amount: minor(amount),
@@ -256,13 +254,13 @@ test('不变量 5：转账满足 Δ转出 + Δ转入 == −有效手续费', () 
 
   fc.assert(
     fc.property(transferArb, transfer => {
-      const effectiveFee = rulesFor(transfer.ruleVersion).effectiveTransferFee(transfer.fee, transfer.coupon)
+      const net = transferNet(transfer.fee, transfer.coupon)
       const delta =
         accountDelta(transfer, transfer.accountId) +
         accountDelta(transfer, transfer.toAccountId ?? transfer.accountId)
 
-      // 写成加和 == 0，避免 -0 与 0 被 strictEqual 判为不等
-      assert.equal(delta + effectiveFee, 0)
+      assert.equal(delta - net, 0)
+      assert.equal(postingsOf(transfer).reduce((total, posting) => total + posting.amount, 0), 0)
     }),
     { numRuns: 1000 },
   )
@@ -277,9 +275,8 @@ test('不变量 6：收支表与分类聚合可逐分录追溯到同一组 posti
       let incomeSide = 0
       let expenseSide = 0
       for (const transaction of ledger.txs) {
-        const rules = rulesFor(transaction.ruleVersion)
-        if (!rules.isCountable(transaction)) continue
-        const offset = transaction.kind === 'refund' ? rules.refundOffsetKind(transaction.relatedType) : null
+        if (!isCountable(transaction)) continue
+        const offset = transaction.kind === 'refund' ? refundOffsetKind(transaction.relatedType) : null
         if (transaction.kind === 'income' || offset === 'income') incomeSide += categoryEffect(transaction)
         if (transaction.kind === 'expense' || offset === 'expense') expenseSide += categoryEffect(transaction)
       }

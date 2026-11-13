@@ -1,5 +1,4 @@
 import {
-  CURRENT_RULE_VERSION,
   ZERO_MINOR,
   fromDate,
   type LedgerTransaction,
@@ -41,7 +40,6 @@ export function toPredictedEvents(predictions: readonly PredictionTransaction[])
     if (p.type !== 'income' && p.type !== 'expense' && p.type !== 'transfer') continue
     const ledger: LedgerTransaction = {
       id: `${p.budgetId}-${p.date.getTime()}-${p.accountId}`,
-      ruleVersion: CURRENT_RULE_VERSION,
       kind: p.type as TransactionKind,
       date: fromDate(p.date),
       amount: toMinor(p.amount),

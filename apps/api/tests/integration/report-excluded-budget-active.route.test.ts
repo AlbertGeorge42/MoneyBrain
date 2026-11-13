@@ -60,7 +60,6 @@ describe('报表「计入不计收支」与预算启停', () => {
     await prisma.transaction.create({
       data: {
         type: 'expense',
-        ruleVersion: 1,
         amount: BigInt(10_000),
         date: new Date('2026-11-02T00:00:00'),
         accountId,
@@ -70,7 +69,6 @@ describe('报表「计入不计收支」与预算启停', () => {
     await prisma.transaction.create({
       data: {
         type: 'expense',
-        ruleVersion: 1,
         amount: BigInt(20_000),
         date: new Date('2026-11-03T00:00:00'),
         accountId,

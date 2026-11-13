@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  CURRENT_RULE_VERSION,
   add,
   budgetContributionSign,
   budgetKindOf,
@@ -31,7 +30,6 @@ const row = (overrides: Partial<BudgetUsageRow> = {}): BudgetUsageRow => ({
   categoryId: 'food',
   excludeFromIncomeExpense: false,
   relatedType: null,
-  ruleVersion: CURRENT_RULE_VERSION,
   amount: minor(50),
   ...overrides,
 })
@@ -59,10 +57,6 @@ test('计入口径基线：转账预算只认绑定的账户对', () => {
   assert.equal(budgetContributionSign(transfer('C', 'B'), scope), 0)
   assert.equal(budgetContributionSign(transfer('A', 'D'), scope), 0)
   assert.equal(budgetContributionSign(row({ type: 'refund', relatedType: 'transfer' }), scope), 0)
-})
-
-test('计入口径基线：未知口径版本直接失败，不回退到当前规则', () => {
-  assert.throws(() => budgetContributionSign(row({ ruleVersion: 999 }), expenseScope), /未知账务口径版本/)
 })
 
 test('预算状态基线：支出减退款算出已用 30 / 使用率 30 / 剩余 70', () => {
@@ -185,7 +179,6 @@ test('SQL 预聚合一致性：按 groupBy 键折叠明细后，聚合行与逐�
       item.type,
       item.relatedType ?? '',
       String(item.excludeFromIncomeExpense),
-      item.ruleVersion,
     ].join('|')
     const existing = buckets.get(key)
     if (existing) {

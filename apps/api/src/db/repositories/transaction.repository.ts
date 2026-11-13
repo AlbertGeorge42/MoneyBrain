@@ -78,19 +78,19 @@ export async function sumActiveRefundAmount(
   })
 }
 
-/** 交易统计的口径聚合：类型 × 退款原类型 × 不计收支 × 口径版本。 */
+/** 交易统计的口径聚合：类型 × 退款原类型 × 不计收支。 */
 export function sumActiveAmountByFlowKind(where: Prisma.TransactionWhereInput, tx?: TransactionClient) {
   return db(tx).transaction.groupBy({
-    by: ['type', 'relatedType', 'excludeFromIncomeExpense', 'ruleVersion'],
+    by: ['type', 'relatedType', 'excludeFromIncomeExpense'],
     where: { ...where, ...NOT_DELETED },
     _sum: { amount: true },
   })
 }
 
-/** 预算用量的口径聚合：账户 × 转入账户 × 分类 × 类型 × 退款原类型 × 不计收支 × 口径版本。 */
+/** 预算用量的口径聚合：账户 × 转入账户 × 分类 × 类型 × 退款原类型 × 不计收支。 */
 export function sumActiveAmountByBudgetScope(where: Prisma.TransactionWhereInput, tx?: TransactionClient) {
   return db(tx).transaction.groupBy({
-    by: ['accountId', 'toAccountId', 'categoryId', 'type', 'relatedType', 'excludeFromIncomeExpense', 'ruleVersion'],
+    by: ['accountId', 'toAccountId', 'categoryId', 'type', 'relatedType', 'excludeFromIncomeExpense'],
     where: { ...where, ...NOT_DELETED },
     _sum: { amount: true },
   })

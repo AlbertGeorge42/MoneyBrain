@@ -182,7 +182,7 @@ PC 与移动是**两套独立结构**，不是同一棵树的响应式缩放：�
 | `GET /api/budgets/period-plan` | 同上 | 只供预算页使用；报表未来收支**不再**消费 |
 
 - 投资账户：任何真实或已排定现金流事件都进入余额，只是不推演市值涨跌（`valuationNote='transfer_schedule_only'`）；**不为「非 transfer 事件打到投资账户」加过滤开关**，分红记为收入进余额是正确行为。
-- 转账按类型默认不计收支、无开关；普通收入/支出/退款继续由 `excludeFromIncomeExpense` 逐笔控制。不新增 `incomeExpenseSide` 三态字段、不做规则 v2、不改 CSV 列或 DB schema。
+- 转账按类型默认不计收支、无开关；普通收入/支出/退款继续由 `excludeFromIncomeExpense` 逐笔控制。不新增 `incomeExpenseSide` 三态字段、不引入第二套口径规则。
 - 预测编码统一由 `features/reports/prediction.tsx` 产出：含预测的行常驻「预测」文字标记、指标构成文案「已发生 … · 按预算计划 … · 已排定 … · 合计 …」四个数字全来自后端；不新增颜色、不靠透明度编码。
 - 验证：`apps/api/tests/integration/projection.route.test.ts`（26 条）、`projection-detail.route.test.ts`（5 条）、`apps/web/tests/unit/future-reports.test.tsx`（15 条）。
 

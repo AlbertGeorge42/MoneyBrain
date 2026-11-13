@@ -6,11 +6,9 @@ import * as transactionRepo from '../../db/repositories/transaction.repository.j
 import { toLedgerTransaction } from '../ledger.adapter.js'
 import {
   buildIncomeExpenseStatement,
-  fromDate,
   sumAssetsLiabilities,
   type CategoryRef,
   type IncomeExpensePrediction,
-  type LocalDate,
 } from '../../../../../packages/domain/src/index.js'
 import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT } from './prediction-source.js'
 import { resolveReportPeriod } from './period.js'
@@ -54,7 +52,6 @@ export async function generateIncomeExpense(
       select: {
         id: true,
         type: true,
-        ruleVersion: true,
         amount: true,
         fee: true,
         coupon: true,
@@ -74,7 +71,6 @@ export async function generateIncomeExpense(
   const balanceOnlyLedger = balanceOnlyTransactions.map((tx) => toLedgerTransaction({
     id: tx.id,
     type: tx.type,
-    ruleVersion: tx.ruleVersion,
     amount: tx.amount,
     fee: tx.fee,
     coupon: tx.coupon,
@@ -119,10 +115,6 @@ export async function generateIncomeExpense(
     (a) => accountGetValue(a, endDayNext),
   )
 
-  const openingDateOf = new Map<string, LocalDate | null>(
-    accounts.map((a) => [a.id, a.initialBalanceDate ? fromDate(a.initialBalanceDate) : null]),
-  )
-
   const statement = buildIncomeExpenseStatement({
     ledger,
     balanceOnlyLedger,
@@ -135,7 +127,6 @@ export async function generateIncomeExpense(
     startNetWorth: startResult.netWorth,
     endNetWorth: endResult.netWorth,
     includeExcluded,
-    openingDateOf,
   })
 
   logger.info({ action: 'generate', report: 'income-expense', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')

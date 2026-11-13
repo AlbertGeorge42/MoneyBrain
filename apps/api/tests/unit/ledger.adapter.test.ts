@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { CURRENT_RULE_VERSION } from '../../../../packages/domain/src/index.js'
 import { toLedgerTransaction } from '../../src/services/ledger.adapter.js'
 
 function source(overrides: Record<string, unknown>) {
   return {
     id: 'tx-1',
     type: 'expense',
-    ruleVersion: CURRENT_RULE_VERSION,
     // 写入边界（transaction.service.ts）已保证支出为正的金额大小
     amount: 2800n,
     fee: 0n,

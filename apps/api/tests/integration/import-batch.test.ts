@@ -50,7 +50,6 @@ async function seedExisting() {
     data: {
       id: 'ib-existing-tx',
       type: 'expense',
-      ruleVersion: 1,
       amount: BigInt(1234),
       fee: BigInt(0),
       coupon: BigInt(0),
@@ -184,7 +183,6 @@ describe('导入预览摘要 / 批次回滚 / 全成或全不成', () => {
       data: {
         id: 'ib-negative-tx',
         type: 'expense',
-        ruleVersion: 1,
         amount: BigInt(-2800),
         fee: BigInt(0),
         coupon: BigInt(0),

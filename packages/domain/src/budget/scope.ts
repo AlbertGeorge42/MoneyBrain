@@ -1,4 +1,4 @@
-import { rulesFor, type BudgetScope } from '../ledger/rules.js'
+import { matchesBudgetScope, scopeQuery, type BudgetScope } from '../ledger/rules.js'
 import type { BudgetScopedRow } from './types.js'
 
 /**
@@ -8,9 +8,8 @@ import type { BudgetScopedRow } from './types.js'
  * 用量与下钻明细共用这一处判定，因此「下钻条数与合计 == 预算用量」恒成立。
  */
 export function budgetContributionSign(row: BudgetScopedRow, scope: BudgetScope): 1 | -1 | 0 {
-  const rules = rulesFor(row.ruleVersion)
 
-  const inScope = rules.matchesBudgetScope(
+  const inScope = matchesBudgetScope(
     {
       kind: row.type,
       accountId: row.accountId,
@@ -22,7 +21,7 @@ export function budgetContributionSign(row: BudgetScopedRow, scope: BudgetScope)
   )
   if (!inScope) return 0
 
-  const query = rules.scopeQuery(scope)
+  const query = scopeQuery(scope)
   if (row.type === query.type) return 1
   // 退款冲减按退款自身的账户与分类
   if (query.countsRefunds && row.type === 'refund' && row.relatedType === query.refundRelatedType) return -1

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Decimal } from '@prisma/client/runtime/library.js'
-import { CURRENT_RULE_VERSION } from '../../../../packages/domain/src/index.js'
 
 const { mockPrisma: mockPrismaRef, balanceRef, rowsRef } = vi.hoisted(() => ({
   mockPrisma: {
@@ -28,7 +27,6 @@ const mockPrisma = mockPrismaRef as any
 const transaction = (overrides: Record<string, unknown>) => ({
   id: 'tx',
   type: 'expense',
-  ruleVersion: CURRENT_RULE_VERSION,
   amount: new Decimal(0),
   fee: new Decimal(0),
   coupon: new Decimal(0),

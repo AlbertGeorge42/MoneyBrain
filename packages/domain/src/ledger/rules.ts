@@ -1,18 +1,19 @@
 /**
- * 账务口径规则（唯一来源）。
+ * 账务口径规则（唯一来源，固定内核）。
  *
  * 「口径」= 哪些交易参与统计、退款冲减哪一侧、账户与分类如何匹配，
  * 以及一笔交易如何翻译成分录。
  *
- * 交易在写入时记录 `ruleVersion`；解释历史数字时按交易自己的版本取规则，
- * 所以新增口径版本不会改写旧交易的报表数字。
- *
- * 新增版本的做法：复制 `rules.v1.ts` 为 `rules.v2.ts` 并修改行为，
- * 然后在 `RULE_SETS` 登记。**已经发布的版本文件不再修改。**
+ * 内核口径已固定，不带版本号：所有交易一律按本文件解释，不再有第二套规则。
+ * 转账金额语义：amount = 本金 X、fee = 手续费 f、coupon = 优惠券 c，
+ * 转出 = X + f、转入 = X + c、账户总余额变化 = c − f。
  */
-import type { Minor } from '../money.js'
-import { V1_RULES } from './rules.v1.js'
-import type { LedgerTransaction, Posting } from './types.js'
+import { ZERO_MINOR, add, neg, sub, type Minor } from '../money.js'
+import {
+  EQUITY_ACCOUNT_ID,
+  type LedgerTransaction,
+  type Posting,
+} from './types.js'
 
 /** 收支两侧。 */
 export type FlowKind = 'income' | 'expense'
@@ -59,50 +60,123 @@ export interface ScopeQuery {
 }
 
 /**
- * 一套口径的全部解释规则。
- * 同一笔交易只能用它自己 `ruleVersion` 对应的那一套。
- */
-export interface RuleSet {
-  readonly version: number
-  postingsOf(transaction: LedgerTransaction): Posting[]
-  effectiveTransferFee(fee?: Minor, coupon?: Minor): Minor
-  transferOutflow(principal: Minor, fee?: Minor, coupon?: Minor): Minor
-  /** 转账中转入方收到的现金（= 本金，手续费不进转入账户）。投资分析等只追踪本金进出的场景用它。 */
-  transferInflow(principal: Minor): Minor
-  refundOffsetKind(relatedType: string | null | undefined): FlowKind | null
-  isCountable(transaction: CountableTransaction, includeExcluded?: boolean): boolean
-  scopeQuery(scope: BudgetScope): ScopeQuery
-  matchesBudgetScope(transaction: BudgetTransaction, scope: BudgetScope): boolean
-}
-
-/** 新交易写入时使用的口径版本。 */
-export const CURRENT_RULE_VERSION = 1
-
-const RULE_SETS = new Map<number, RuleSet>()
-
-/**
- * 登记一套口径规则。
+ * 把一笔交易翻译成复式分录。
  *
- * 新增版本：复制 `rules.v1.ts` 为 `rules.v2.ts` 并修改行为，然后调用本函数登记。
- * **已经登记的版本不允许覆盖**——改已发布的口径等于悄悄改写历史数字。
+ * - 收入：账户 +amount，收入分类 −amount
+ * - 支出：账户 −amount，支出分类 +amount
+ * - 转账：转出 −(X+f)、转入 +(X+c)、平衡分录 +(f−c)，Σ postings 恒为 0
+ * - 退款：支出退款 = 账户 +amount；收入退款 = 账户 −amount
+ * - 平账：账户 +amount，权益 −amount
  */
-export function registerRuleSet(rules: RuleSet): void {
-  if (RULE_SETS.has(rules.version)) {
-    throw new Error(`账务口径版本 ${rules.version} 已登记，不能覆盖`)
+export function postingsOf(transaction: LedgerTransaction): Posting[] {
+  const { amount, accountId, categoryId } = transaction
+  const postingCategoryId = categoryId ?? null
+
+  switch (transaction.kind) {
+    case 'income':
+      return [
+        { accountId, amount, kind: 'account' },
+        { accountId: EQUITY_ACCOUNT_ID, amount: neg(amount), categoryId: postingCategoryId, kind: 'category' },
+      ]
+
+    case 'expense':
+      return [
+        { accountId, amount: neg(amount), kind: 'account' },
+        { accountId: EQUITY_ACCOUNT_ID, amount, categoryId: postingCategoryId, kind: 'category' },
+      ]
+
+    case 'transfer': {
+      if (!transaction.toAccountId) {
+        throw new Error(`转账 ${transaction.id} 缺少转入账户`)
+      }
+      const fee = transaction.fee ?? ZERO_MINOR
+      const coupon = transaction.coupon ?? ZERO_MINOR
+      return [
+        { accountId, amount: neg(add(amount, fee)), kind: 'account' },
+        { accountId: transaction.toAccountId, amount: add(amount, coupon), kind: 'account' },
+        // 平衡分录：−(X+f) + (X+c) + (f−c) = 0；可为负，表示券带来的额外权益
+        { accountId: EQUITY_ACCOUNT_ID, amount: sub(fee, coupon), categoryId: postingCategoryId, kind: 'category' },
+      ]
+    }
+
+    case 'refund': {
+      const direction: 1 | -1 = transaction.relatedType === 'income' ? -1 : 1
+      const cash = direction === 1 ? amount : neg(amount)
+      const contra = direction === 1 ? neg(amount) : amount
+      return [
+        { accountId, amount: cash, kind: 'account' },
+        { accountId: EQUITY_ACCOUNT_ID, amount: contra, categoryId: postingCategoryId, kind: 'category' },
+      ]
+    }
+
+    case 'adjustment':
+      return [
+        { accountId, amount, kind: 'account' },
+        { accountId: EQUITY_ACCOUNT_ID, amount: neg(amount), kind: 'equity' },
+      ]
   }
-  RULE_SETS.set(rules.version, rules)
 }
 
-registerRuleSet(V1_RULES)
+/** 转账中手续费与券对账户总余额的净影响：c − f。 */
+export function transferNet(fee?: Minor, coupon?: Minor): Minor {
+  return sub(coupon ?? ZERO_MINOR, fee ?? ZERO_MINOR)
+}
+
+/** 转账从转出账户流出的现金：本金 + 手续费。 */
+export function transferOutflow(principal: Minor, fee?: Minor): Minor {
+  return add(principal, fee ?? ZERO_MINOR)
+}
+
+/** 转账转入方收到的现金：本金 + 优惠券。 */
+export function transferInflow(principal: Minor, coupon?: Minor): Minor {
+  return add(principal, coupon ?? ZERO_MINOR)
+}
 
 /**
- * 取某一版规则。
- * 未知版本直接失败——用当前规则解释旧交易等于悄悄改写历史。
+ * 退款冲减哪一侧：由原交易类型决定。
+ * 收入退款 = 钱流出去，冲减收入；支出退款 = 钱流回来，冲减支出。
+ * 传入无法识别的原类型时返回 null（不参与任何一侧的冲减）。
  */
-export function rulesFor(version: number): RuleSet {
-  const rules = RULE_SETS.get(version)
-  if (!rules) {
-    throw new Error(`未知账务口径版本: ${version}（当前 ${CURRENT_RULE_VERSION}）`)
+export function refundOffsetKind(relatedType: string | null | undefined): FlowKind | null {
+  if (relatedType === 'income') return 'income'
+  if (relatedType === 'expense') return 'expense'
+  return null
+}
+
+/** 「不计收支」的交易不参与任何收支统计，但仍影响余额。 */
+export function isCountable(
+  transaction: CountableTransaction,
+  includeExcluded = false,
+): boolean {
+  if (includeExcluded) return true
+  return !transaction.excludeFromIncomeExpense
+}
+
+/** 范围对应的 SQL 口径参数。 */
+export function scopeQuery(scope: BudgetScope): ScopeQuery {
+  return {
+    type: scope.kind,
+    countsRefunds: scope.kind !== 'transfer',
+    refundRelatedType: scope.kind,
   }
-  return rules
+}
+
+/** 账户 + 分类口径是否覆盖这笔交易（JS 侧判断）。 */
+export function matchesBudgetScope(
+  transaction: BudgetTransaction,
+  scope: BudgetScope,
+): boolean {
+  if (!isCountable(transaction)) return false
+  // 未分类的交易不计入任何分类预算
+  if (!transaction.categoryId || !scope.categoryIds.has(transaction.categoryId)) return false
+
+  if (scope.kind === 'transfer') {
+    // 转账预算只认绑定的那一对账户
+    return (
+      transaction.kind === 'transfer' &&
+      transaction.accountId === scope.accountId &&
+      (scope.toAccountId == null || transaction.toAccountId === scope.toAccountId)
+    )
+  }
+  return transaction.accountId === scope.accountId
 }

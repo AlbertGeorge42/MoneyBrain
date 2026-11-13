@@ -18,7 +18,6 @@ async function createExpense(accountId: string) {
   return prisma.transaction.create({
     data: {
       type: 'expense',
-      ruleVersion: 1,
       amount: BigInt(EXPENSE),
       date: new Date('2026-11-01T00:00:00'),
       accountId,

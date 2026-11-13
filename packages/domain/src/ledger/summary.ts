@@ -1,6 +1,6 @@
 import { contains, type Period } from '../date.js'
 import { ZERO_MINOR, add, max, sub, sum, type Minor } from '../money.js'
-import { rulesFor, type FlowKind } from './rules.js'
+import { isCountable, refundOffsetKind, type FlowKind } from './rules.js'
 import type { LedgerTransaction, TransactionKind } from './types.js'
 
 export const UNCATEGORIZED_CATEGORY_ID = '__uncategorized__'
@@ -27,8 +27,8 @@ export interface FlowSummaryOptions {
 /**
  * 一组已按口径聚合好的行。
  *
- * service 侧先用 SQL 把交易按「类型 × 退款原类型 × 不计收支 × 口径版本」聚合，
- * 再交给领域层按各自版本解释——这样聚合在 SQL 跑，口径仍只有一份，
+ * service 侧先用 SQL 把交易按「类型 × 退款原类型 × 不计收支」聚合，
+ * 再交给领域层按固定内核解释——这样聚合在 SQL 跑，口径仍只有一份，
  * 且扫描量随期间增长而不是随总历史增长。
  */
 export interface AggregatedFlowRow {
@@ -38,8 +38,6 @@ export interface AggregatedFlowRow {
   relatedType?: string | null
   /** 「不计收支」标记 */
   excludeFromIncomeExpense?: boolean | null
-  /** 写入时的口径版本 */
-  ruleVersion: number
   /** 该组的金额合计 */
   amount: Minor
 }
@@ -59,8 +57,7 @@ export function summarizeAggregatedFlows(
   let expenseRefunds = ZERO_MINOR
 
   for (const row of rows) {
-    const rules = rulesFor(row.ruleVersion)
-    if (!rules.isCountable(row, options.includeExcluded)) continue
+    if (!isCountable(row, options.includeExcluded)) continue
 
     switch (row.kind) {
       case 'income':
@@ -70,7 +67,7 @@ export function summarizeAggregatedFlows(
         expense = add(expense, row.amount)
         break
       case 'refund': {
-        const offset = rules.refundOffsetKind(row.relatedType)
+        const offset = refundOffsetKind(row.relatedType)
         if (offset === 'income') {
           incomeRefunds = add(incomeRefunds, row.amount)
         } else if (offset === 'expense') {
@@ -109,8 +106,7 @@ export function summarizeFlows(
   let expenseRefunds = ZERO_MINOR
 
   for (const transaction of transactions) {
-    const rules = rulesFor(transaction.ruleVersion)
-    if (!rules.isCountable(transaction, options.includeExcluded)) continue
+    if (!isCountable(transaction, options.includeExcluded)) continue
     if (!inPeriod(transaction, period)) continue
 
     switch (transaction.kind) {
@@ -121,7 +117,7 @@ export function summarizeFlows(
         expense = add(expense, transaction.amount)
         break
       case 'refund': {
-        const offset = rules.refundOffsetKind(transaction.relatedType)
+        const offset = refundOffsetKind(transaction.relatedType)
         if (offset === 'income') {
           incomeRefunds = add(incomeRefunds, transaction.amount)
         } else if (offset === 'expense') {
@@ -163,13 +159,12 @@ export function flowByCategory(
   }
 
   for (const transaction of transactions) {
-    const rules = rulesFor(transaction.ruleVersion)
-    if (!rules.isCountable(transaction, options.includeExcluded)) continue
+    if (!isCountable(transaction, options.includeExcluded)) continue
     if (!inPeriod(transaction, period)) continue
 
     if (transaction.kind === kind) {
       append(transaction.categoryId, transaction.amount)
-    } else if (transaction.kind === 'refund' && rules.refundOffsetKind(transaction.relatedType) === kind) {
+    } else if (transaction.kind === 'refund' && refundOffsetKind(transaction.relatedType) === kind) {
       append(transaction.categoryId, sub(ZERO_MINOR, transaction.amount))
     }
   }

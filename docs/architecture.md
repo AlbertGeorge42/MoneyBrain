@@ -41,17 +41,16 @@ packages/domain → 不依赖 Express / Prisma / SQLite / apps 代码 / contract
 | `money.ts` | 整数分金额 `Minor`；`add/sub/neg/sum/min/max`、`fromMajor/toMajor`、`parseAmount` |
 | `date.ts` | `LocalDate`（`YYYY-MM-DD`）；`localDate/today/compare/isBefore`、期间 `periodOf`、半开区间工具 |
 | `ledger/types.ts` | `LedgerTransaction`、`TransactionKind`、`Posting`、`OpeningBalance` |
-| `ledger/postings.ts` | **交易 → 分录**：`postingsOf`（按交易的 `ruleVersion` 取规则）、`accountDelta`、`balanceAt`、`balanceBefore` |
+| `ledger/postings.ts` | **交易 → 分录**：`postingsOf`（re-export 自 `rules.ts`）、`accountDelta`、`balanceAt`、`balanceBefore` |
 | `ledger/summary.ts` | **分录 → 报表**：`summarizeFlows`、`flowByCategory`、`remainingRefundable` |
-| `ledger/rules.ts` | **口径规则唯一来源**：版本注册表（`rulesFor` / `registerRuleSet`）、`CURRENT_RULE_VERSION` |
-| `ledger/rules.v1.ts` | **口径 v1 的冻结实现**：计入哪些类型、退款冲减哪侧、账户与分类如何匹配、分录怎么生成 |
+| `ledger/rules.ts` | **固定内核唯一来源**：`postingsOf` / `transferOutflow` / `transferInflow` / `transferNet`、退款冲减、预算范围判定 |
 
-分录规则（口径定义见 [requirements.md](requirements.md) §3.1，实现见 `ledger/rules.v1.ts` 的 `postingsOf`）：
+分录规则（口径定义见 [requirements.md](requirements.md) §3.1，实现见 `ledger/rules.ts` 的 `postingsOf`）：
 
 ```text
 income      账户 +amount      分类 −amount
 expense     账户 −amount      分类 +amount
-transfer    转出 −(本金+fee)   转入 +本金    手续费 +fee
+transfer    转出 −(X+f)       转入 +(X+c)   平衡 +(f−c)
 refund      支出退款 账户 +amount；收入退款 账户 −amount
 adjustment  账户 +amount      权益 −amount
 ```
@@ -87,7 +86,7 @@ adjustment  账户 +amount      权益 −amount
 | `canonical.ts` | 内容指纹与稳定序列化（固定向量测试的基准） |
 | `apply.ts` | 合并结果落库：按记录 `entityType` 分发，未知实体跳过 |
 | `local-fields.ts` | 本机字段（`ledgerId` / `deviceId` 等）不随记录同步 |
-| `container.ts` | 加密容器（`.mbx`）：Argon2id 派生密钥 + XChaCha20-Poly1305，备份/同步共用；AAD 绑定 `formatVersion|ledgerId`；格式见 [sync-container-format.md](sync-container-format.md) |
+| `container.ts` | 加密容器（`.mbx`）：Argon2id 派生密钥 + XChaCha20-Poly1305，备份/同步共用；AAD 绑定 `formatVersion\|ledgerId`；格式见 [sync-container-format.md](sync-container-format.md) |
 | `test-vectors/merge-vectors.json` | 跨端共用的合并固定向量 |
 
 `apps/api` 侧：六类可同步实体（账户分类、账户、收支分类、交易、预算、投资快照）各带
@@ -107,7 +106,7 @@ adjustment  账户 +amount      权益 −amount
 |---|---|---|
 | `money.ts` | 整数分金额表示、安全加减与舍入、导入 / 展示边界的解析与格式化 | 值对象，不是工具函数集合 |
 | `date.ts` | `LocalDate`、半开区间、财务期间与投影分桶边界 | 不单独建 `calendar`；已存在的日期口径分叉不顺手统一 |
-| `ledger/` | 账务口径唯一来源、交易 → 分录、余额、收支汇总、退款上限 | 不单独建 `transaction`；交易类型与规则都在 `ledger/types.ts` / `rules.vN.ts` |
+| `ledger/` | 账务口径唯一来源、交易 → 分录、余额、收支汇总、退款上限 | 不单独建 `transaction`；交易类型与规则都在 `ledger/types.ts` / `rules.ts` |
 | `budget/` | 预算额度、计入口径、使用率、达成率、预算周期展开 | 不含预测值合成 |
 | `projection/` | 预测期间分桶、actual / committed / planned 数据合成、资产与现金流推演 | 不依赖具体报表实现 |
 | `statements/` | 资产负债表、收支表、现金流量表的完整计算 | 不依赖具体 API service 或 Prisma 类型；`aggregates.ts` 只放真正跨报表共享的领域计算，不做万能工具文件 |
@@ -118,7 +117,7 @@ adjustment  账户 +amount      权益 −amount
 - **预测点位解释引擎唯一**：预算点位由 API 映射成 `LedgerTransaction` 后统一走 `postingsOf`；基础报表 `predicted` 字段与 `projection/` 推演端点共用同一套口径，Domain 内不保留手写符号表。取数窗口（起点恒为今天）与展示文案留在 API。
 - **SQL 预聚合路径必须保留**：统计接口继续用 `groupBy` 聚合行交给 `summarizeAggregatedFlows`（[dev-guide.md](dev-guide.md) §3.1），并验证聚合行与明细计算结果一致；不得为对齐 Domain 而改读整表明细。
 - **第三方库封装**：`xirr` 的依赖与类型声明归 `packages/domain`，API 不再直接调用第三方 XIRR；第三方类型不出现在 Domain 的导出面上，须有真实运行测试覆盖 CJS / ESM 互操作与数值结果。
-- **不可改变的既有约束**：金额全链路整数分、期间半开、派生值不落库、账务口径带版本且已登记版本不可覆盖（[roadmap.md](roadmap.md) §5 决策 2 / 3 / 4）。
+- **不可改变的既有约束**：金额全链路整数分、期间半开、派生值不落库、账务口径只有 `ledger/rules.ts` 一份（[roadmap.md](roadmap.md) §5 决策 2 / 3 / 4）。
 - **不建空模块、不长期双实现**：某个模块只在对应迁移阶段创建；旧实现通过回归测试后当场删除（[dev-guide.md](dev-guide.md) §5.1）。
 - **账户领域输入类型不单独成模块**：按实际使用场景归属到 `statements/` 或 `investment/`，不建 `account/`。
 
@@ -188,7 +187,7 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 | `AccountCategory` | 账户分类（资产/负债），树形；`isCashEquivalent`、`isInvestment` |
 | `Account` | 账户；`initialBalance` + `initialBalanceDate` 即期初余额 |
 | `TransactionCategory` | 收支分类（收入/支出），树形；`cashFlowType` 决定现金流量表归类 |
-| `Transaction` | 交易；`type` 五选一；`fee`/`coupon` 独立；`importKey` 唯一用于导入幂等；`relatedTransactionId` 关联退款；`excludeFromIncomeExpense` 表示不计收支；`ruleVersion` 记录写入时的口径版本 |
+| `Transaction` | 交易；`type` 五选一；`fee`/`coupon` 独立；`importKey` 唯一用于导入幂等；`relatedTransactionId` 关联退款；`excludeFromIncomeExpense` 表示不计收支 |
 | `Budget` | 预算；账户 + 分类 + 周期 + 额度 |
 | `InvestmentAssetClass` | 投资资产类型与目标比例 |
 | `InvestmentAllocationSnapshot` | 投资快照；`previousSnapshotId` 为派生链，写入后重排 |
@@ -199,15 +198,13 @@ Prisma + SQLite，`apps/api/prisma/schema.prisma`。金额字段为 `BigInt`（�
 
 数据库不存派生值：余额、预算百分比、收益率按需计算。快照链是显式例外——`previousSnapshotId` 入库并在写入后重排，供「按期间取前链」用。
 
-**口径版本**：`Transaction.ruleVersion` 是写入这笔交易时的账务口径版本。
-解释历史数字时按交易自己的版本取规则（`rulesFor(version)`），
-因此新增口径版本只影响新写入的交易，旧交易的余额与报表数字不变。
-未知版本直接失败，不回退到当前规则——回退等于悄悄改写历史。
+**固定内核**：账务口径只在 `packages/domain/src/ledger/rules.ts` 定义一份，全库交易按同一套规则解释，
+不设 `ruleVersion`、不留版本注册表。口径变更直接改这一份并对全库生效，初期开发阶段不维护历史数字的第二套解释。
 
 **金额表示**：金额列是 `BigInt`（整数分），契约与前端用 `Minor`（branded number），
 `ledger.adapter.ts` 负责 `BigInt ↔ Minor`。元只出现在用户输入框与文件（CSV / 备份）两个边界。
 
-**CSV 往返**：导出带「口径版本」列；导入读该列，旧 CSV 缺省为当前版本。
+**CSV 往返**：金额 / 手续费 / 优惠券逐字段直出，导出不含口径版本列；外部账单在适配层归一到 X / f / c。
 
 ## 6. 错误与请求链路
 

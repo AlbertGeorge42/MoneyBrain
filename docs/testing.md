@@ -38,8 +38,8 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 
 `npm run db:verify` 用领域层重算整本账，核对：
 
-1. 期末净资产 = 期初净资产 + 净收入 − 净支出 + 其他（不计收支、手续费、平账、开户前交易）；
-2. 每笔转账满足 `Δ转出 + Δ转入 == −手续费`；
+1. 期末净资产 = 期初净资产 + 净收入 − 净支出 + 其他（不计收支、转账净额 c−f、平账）；
+2. 每笔转账满足 `转出 −(X+f)`、`转入 +(X+c)`、`Δ转出 + Δ转入 == c − f`，且 `Σ postings = 0`；
 3. 可退余额 = `max(原额 − Σ退款, 0)` 仅为录入参考；超退与跨账户退款合法，只做信息性提示。
 
 `npm run db:drill` 验证**备份能不能还原出同样的钱**：导出 → 导入临时库 → 用领域层重算两边账户余额 → 逐项对比。两者都只碰只读数据或临时库；改动导出/导入/余额/口径逻辑后必须跑。
@@ -84,17 +84,17 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 | 任意交易 `Σ postings.amount == 0` | ✅ | `packages/domain/tests/ledger.test.ts` |
 | 退款：全额退款后余额回到原交易前 | ✅ | 同上 |
 | 可退余额按 max(原额 − Σ退款, 0) 计算（超退合法，不判错） | ✅ | 同上 |
-| 转账：`Δ转出 + Δ转入 == −fee` | ✅ | 同上 |
-| 期初余额当天交易计入 | ✅ | 同上 |
+| 转账：`转出 −(X+f)` / `转入 +(X+c)`，`Δ转出 + Δ转入 == c−f`，`Σ postings = 0` | ✅ | 同上 |
+| 期初余额是锚点：当天交易计入、锚点前余额可反推 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts` |
 | 预算：退款冲减、跨期退款下限 0、未分类不计入、转账只算绑定账户对 | ✅ | `packages/domain/tests/budget.test.ts`、`packages/domain/tests/ledger.test.ts`、`apps/api/tests/unit/budget.service.test.ts`、`apps/web/tests/unit/budget-page-model.test.ts` |
 | 资产负债表：分类树逐级小计、负债按欠款正数列示、顶层负债先求和再 abs、按 sort 稳定排序、预测变化量符号口径 | ✅ | `packages/domain/tests/balance-sheet.test.ts`（6 例固定输入 + 迁移前输出快照）；迁移前后 5 组 `generateBalanceSheet` DTO 逐字段对照差异 0（一次性脚本，不入库） |
 | 收入支出表：退款冲减、分类净额、未分类节点、不计收支口径、对账条差额、预测半开窗口过滤 | ✅ | `apps/api/tests/unit/income-expense.service.test.ts`、`packages/domain/tests/income-expense.test.ts`（10 例固定输入 + 迁移前输出快照）；迁移前后 7 组收支表 / 投影 DTO 逐字段对照差异 0（一次性脚本，不入库） |
 | 三来源投影：planned=null 语义、逐桶汇总、分类树子树聚合、hasBudget / hasFuture、两份 buildTree 合并为一份骨架 | ✅ | `packages/domain/tests/income-expense.test.ts`、`apps/api/tests/integration/projection-detail.route.test.ts` |
 | 现金流量表：四活动桶、inflow 正 / outflow 负、退款方向、平账单列、转账三分支、报表汇总与三来源投影活动 | ✅ | `packages/domain/tests/cash-flow.test.ts`（8 例固定输入 + 迁移前输出快照）、`apps/api/tests/unit/cash-flow-aggregate.test.ts`、`apps/api/tests/unit/cash-flow-build.test.ts`；迁移前后 12 组报表 DTO 逐字段对照差异 0（一次性脚本，不入库） |
-| 现金→现金内部划转：本金在活动桶与推演里相消、桑基画账户间链路；有效手续费三条链路都记为流出，`netCashFlow + reconciliation === cashChange` | ✅ | `packages/domain/tests/cash-flow.test.ts` |
+| 现金→现金内部划转：本金在活动桶与推演里相消、桑基画账户间链路；净额 c−f 三条链路一致，`netCashFlow + reconciliation === cashChange` | ✅ | `packages/domain/tests/cash-flow.test.ts` |
 | 预算预测点位统一走复式分录：账户变化量、按类型汇总、集合内相消、时点闭区间过滤 | ✅ | `apps/api/tests/unit/report-calc.test.ts`（10 例固定输入 + 输出快照，改测 Domain 的 `projection/predicted-changes.ts`） |
-| 口径版本：旧交易按写入版本解释、未知版本失败、已登记版本不可覆盖、SQL 与明细路径数字一致 | ✅ | `packages/domain/tests/ledger.test.ts`、`packages/domain/tests/budget.test.ts` |
+| 固定内核：转出 X+f / 转入 X+c / 净额 c−f、同一笔交易解释唯一、SQL 与明细路径数字一致 | ✅ | `packages/domain/tests/ledger.test.ts`、`packages/domain/tests/invariants.test.ts` |
 | 投影推演：四粒度桶与未来上限、三来源合成（`planned=null`）、occurrence 互斥、资产 / 现金流推演与期间计划 | ✅ | `packages/domain/tests/projection.test.ts`（19 例固定输入 + 迁移前输出快照）、`apps/api/tests/integration/projection.route.test.ts`、`projection-detail.route.test.ts` |
 | 已有退款的交易不能改类型 | ✅ | `apps/api/tests/unit/transaction.service.test.ts` |
 | 破坏性操作必须带确认值 | ✅ | `apps/api/tests/unit/validators.test.ts` |

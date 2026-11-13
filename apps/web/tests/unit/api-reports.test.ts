@@ -537,25 +537,18 @@ describe('视图 ↔ 端点映射', () => {
     expect(hidden?.name).toBe('其他（已隐藏 1 组）')
   })
 
-  it('桑基失败态：现金账户期初余额日期晚于本期时说明原因，仍不画图', () => {
+  it('桑基失败态：逐账户期初与后端不一致时说明差额并停画', () => {
     const ledger = ledgerWith([])
-    // 与 2026-10 真实后端一致：现金账户期初在 10-31 才生效，期间起点 10-01 记 0。
-    const accounts = ledger.accounts.map((account) =>
-      account.kind === 'cash' ? { ...account, initialBalanceDate: '2026-10-31' } : account,
-    )
-    const lateLedger = { ...ledger, accounts }
     const report = {
-      ...mapCashReport(CASH_FLOW, lateLedger, '2026-10-01', '2026-10-31'),
+      ...mapCashReport(CASH_FLOW, ledger, '2026-10-01', '2026-10-31'),
       openingCash: 0,
     }
-    const sankey = deriveCashSankey(lateLedger, report, ALL_VISIBLE)
+    const sankey = deriveCashSankey(ledger, report, ALL_VISIBLE)
 
     expect(sankey.status).toBe('invalid')
     const { container } = render(createElement(CashSankeyChart, { data: sankey, onOpen: () => {} }))
     expect(container.querySelector('.mb-rp-sankey-svg')).toBeNull()
-    expect(sankey.reason).toContain('期初余额日期（2026 年 10 月 31 日）晚于本期起始日 2026 年 10 月 1 日')
-    expect(sankey.reason).toContain('期初前的流水未计入期初余额')
-    expect(sankey.reason).toContain('逐账户期初合计')
+    expect(sankey.reason).toContain('逐账户期初 / 期末合计与报表现金不一致')
   })
 
   it('投资分析：汇总 / 收益 / 分布 / 持仓取自后端；无投资账户时返回 null', () => {

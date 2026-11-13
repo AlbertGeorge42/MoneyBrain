@@ -220,8 +220,6 @@ export interface ParsedRow {
   coupon: Minor
   relatedCsvId: string
   excludeFromIncomeExpense?: boolean // 账单标记为「不计收支」时导出为 true
-  /** 写入时的账务口径版本；旧 CSV 没有该列时按当前版本。 */
-  ruleVersion: number
 }
 
 // ─── Config 导入类型 ───
@@ -453,7 +451,7 @@ export function stripBom(text: string): string {
 export const TRANSACTION_CSV_HEADER = [
   'ID', '时间', '分类', '二级分类', '类型', '金额', '币种',
   '账户1', '账户2', '备注', '已报销', '手续费', '优惠券',
-  '记账者', '账单标记', '标签', '账单图片', '关联账单', '口径版本',
+  '记账者', '账单标记', '标签', '账单图片', '关联账单',
 ] as const
 
 

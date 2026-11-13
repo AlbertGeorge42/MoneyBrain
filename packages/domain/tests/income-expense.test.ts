@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  CURRENT_RULE_VERSION,
   buildCategoryTree,
   buildIncomeExpenseProjection,
   buildIncomeExpenseStatement,
@@ -23,7 +22,6 @@ const tx = (
   input: Partial<LedgerTransaction> & { id: string; kind: LedgerTransaction['kind']; amount: Minor },
 ): LedgerTransaction => ({
   id: input.id,
-  ruleVersion: CURRENT_RULE_VERSION,
   kind: input.kind,
   date: input.date ?? D('2026-01-15'),
   amount: input.amount,
@@ -61,7 +59,6 @@ const statementInput = (overrides: Partial<IncomeExpenseStatementInput> = {}): I
   startNetWorth: m(0),
   endNetWorth: m(0),
   includeExcluded: false,
-  openingDateOf: new Map(),
   ...overrides,
 })
 
@@ -164,11 +161,6 @@ test('收支表对账条：不计收支净效应、平账与早于开户日的�
   // 不计收支在 includeExcluded=false 时才进 other，两态差值即该笔的账户净效应
   assert.equal(included - excluded, 200)
 
-  const preOpening = buildIncomeExpenseStatement(statementInput({
-    ledger: [tx({ id: 'p1', kind: 'income', amount: m(500), date: D('2026-01-02') })],
-    openingDateOf: new Map([['acc', D('2026-01-10')]]),
-  }))
-  assert.equal(preOpening.reconciliation.other, -500)
 })
 
 // ===== 分类树（两份 buildTree 合并后的唯一骨架） =====

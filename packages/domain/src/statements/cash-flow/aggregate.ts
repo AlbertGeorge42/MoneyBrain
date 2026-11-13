@@ -1,4 +1,4 @@
-import { rulesFor } from '../../ledger/rules.js'
+import { refundOffsetKind, transferInflow, transferNet, transferOutflow } from '../../ledger/rules.js'
 import { ZERO_MINOR, abs, add, neg, sub, type Minor } from '../../money.js'
 import type { AggregatedFlows, CashFlowActivityMinor, ProcessedTx } from './types.js'
 
@@ -62,10 +62,9 @@ function addTransferFlow(
   fee: Minor,
   coupon: Minor,
   isOutflow: boolean,
-  ruleVersion: number,
 ) {
   if (isOutflow) {
-    const actualOutflow = abs(rulesFor(ruleVersion).transferOutflow(amount, fee, coupon))
+    const actualOutflow = abs(transferOutflow(amount, fee))
     activity.outflow = sub(activity.outflow, actualOutflow)
     const categoryName = fromName || '转账转出'
     upsertActivityItem(activity.items, actualOutflow, categoryName, 'outflow', {
@@ -76,7 +75,7 @@ function addTransferFlow(
     })
   } else {
     // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
-    const actualInflow = rulesFor(ruleVersion).transferInflow(amount)
+    const actualInflow = transferInflow(amount, coupon)
     activity.inflow = add(activity.inflow, actualInflow)
     const categoryName = toName || '转账转入'
     upsertActivityItem(activity.items, actualInflow, categoryName, 'inflow', {
@@ -112,7 +111,6 @@ export function aggregate(items: readonly ProcessedTx[]): AggregatedFlows {
 
   for (const it of items) {
     const target = getTargetByType(it.cashFlowType)
-    const rules = rulesFor(it.ruleVersion)
 
     if (it.type === 'income' && it.isFromCash) {
       addTransaction(target, it.categoryName, it.categoryId, it.parentId, it.level, it.amount, 'income', 'inflow')
@@ -126,32 +124,37 @@ export function aggregate(items: readonly ProcessedTx[]): AggregatedFlows {
       if (it.isFromCash && !it.isToCash) {
         // 转出：区分 actual('未分类') / predicted('转账转出') 默认值
         const fromName = it.categoryName || (it.isPredicted ? '转账转出' : '未分类')
-        addTransferFlow(target, fromName, '', it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, true, it.ruleVersion)
+        addTransferFlow(target, fromName, '', it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, true)
         const accountFlow = getOrCreateAccountFlow(it.accountName)
-        const actualOutflow = abs(rules.transferOutflow(it.amount, it.fee, it.coupon))
+        const actualOutflow = abs(transferOutflow(it.amount, it.fee))
         accountFlow.outflow = sub(accountFlow.outflow, actualOutflow)
       } else if (!it.isFromCash && it.isToCash && it.toAccountName) {
         // 转入：区分 actual('未分类') / predicted('转账转入') 默认值
         const toName = it.categoryName || (it.isPredicted ? '转账转入' : '未分类')
-        addTransferFlow(target, '', toName, it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, false, it.ruleVersion)
+        addTransferFlow(target, '', toName, it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, false)
         const accountFlow = getOrCreateAccountFlow(it.toAccountName)
-        const actualInflow = rules.transferInflow(it.amount)
+        const actualInflow = transferInflow(it.amount, it.coupon)
         accountFlow.inflow = add(accountFlow.inflow, actualInflow)
       } else if (it.isFromCash && it.isToCash) {
-        // 本金在现金集合内相消，活动桶不记；有效手续费是真实现金流出，必须记入，
+        // 本金在现金集合内相消；手续费与券的净额 c−f 才是真实现金变动，必须记入，
         // 否则 netCashFlow + reconciliation !== cashChange（见 requirements.md §3.1）。
-        // 桑基的「手续费」节点与 cashFlowOf 的流出走同一口径。
-        const effectiveFee = rules.effectiveTransferFee(it.fee, it.coupon)
-        if (effectiveFee > 0) {
-          addTransaction(target, '手续费', null, null, 0, effectiveFee, 'transfer_fee', 'outflow')
+        // 桑基的「手续费 / 优惠券」节点与 cashFlowOf 走同一口径。
+        const net = transferNet(it.fee, it.coupon)
+        if (net < 0) {
+          const feeAmount = abs(net)
+          addTransaction(target, '手续费', null, null, 0, feeAmount, 'transfer_fee', 'outflow')
           const accountFlow = getOrCreateAccountFlow(it.accountName)
-          accountFlow.outflow = sub(accountFlow.outflow, effectiveFee)
+          accountFlow.outflow = sub(accountFlow.outflow, feeAmount)
+        } else if (net > 0) {
+          addTransaction(target, '优惠券', null, null, 0, net, 'transfer_coupon', 'inflow')
+          const accountFlow = getOrCreateAccountFlow(it.toAccountName ?? it.accountName)
+          accountFlow.inflow = add(accountFlow.inflow, net)
         }
       }
     } else if (it.type === 'adjustment' && it.isFromCash) {
       reconciliation = add(reconciliation, it.amount)
     } else if (it.type === 'refund' && it.isFromCash) {
-      const offset = rules.refundOffsetKind(it.relatedType)
+      const offset = refundOffsetKind(it.relatedType)
       if (offset === null) continue
 
       const direction = offset === 'income' ? 'outflow' : 'inflow'

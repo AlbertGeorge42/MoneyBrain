@@ -39,7 +39,6 @@ async function seedFullDataset(): Promise<void> {
       {
         id: 'a0-tx-income',
         type: 'income',
-        ruleVersion: 1,
         amount: BigInt(50000),
         fee: BigInt(0),
         coupon: BigInt(0),
@@ -51,7 +50,6 @@ async function seedFullDataset(): Promise<void> {
       {
         id: 'a0-tx-transfer',
         type: 'transfer',
-        ruleVersion: 1,
         amount: BigInt(20000),
         fee: BigInt(100),
         coupon: BigInt(0),

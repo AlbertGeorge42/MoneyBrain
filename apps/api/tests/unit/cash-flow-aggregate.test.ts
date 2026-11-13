@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  CURRENT_RULE_VERSION,
   aggregate,
   minor,
   type ProcessedTx,
@@ -8,7 +7,6 @@ import {
 
 const item = (overrides: Partial<ProcessedTx> = {}): ProcessedTx => ({
   isPredicted: false,
-  ruleVersion: CURRENT_RULE_VERSION,
   type: 'expense',
   relatedType: null,
   amount: minor(100),

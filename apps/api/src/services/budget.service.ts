@@ -238,7 +238,7 @@ type BudgetStatusResult = {
 
 /**
  * 一次性聚合出该期间内、相关账户与分类下的用量。
- * 按「账户 × 转入账户 × 分类 × 类型 × 退款原类型 × 口径版本 × 不计收支」分组，
+ * 按「账户 × 转入账户 × 分类 × 类型 × 退款原类型 × 不计收支」分组，
  * 返回行数与分类数量相关，与交易笔数无关。
  *
  * 统计哪些类型、账户与分类如何匹配，全部由各交易自己版本的口径规则判定；
@@ -262,7 +262,6 @@ async function aggregateUsageRows(group: BudgetPlan[]): Promise<BudgetUsageRow[]
     type: row.type,
     relatedType: row.relatedType,
     excludeFromIncomeExpense: row.excludeFromIncomeExpense,
-    ruleVersion: row.ruleVersion,
     amount: toMinor(row._sum.amount),
   }))
 }
@@ -348,7 +347,7 @@ export async function getBudgetUsageDetails(budgetId: string) {
   const plan = await buildBudgetPlan(budget, childrenMap, new Date())
 
   // 与用量同一结构性预筛（期间 × 账户 × 分类子树）；
-  // 类型、冲减与「不计收支」逐笔按交易自己的口径版本判定，不在 SQL 里预筛
+  // 类型、冲减与「不计收支」逐笔由 Domain 判定，不在 SQL 里预筛
   const transactions = await transactionRepo.findActive(
     {
       date: { gte: plan.dateRange.startDate, lt: plan.dateRange.endDate },
@@ -366,7 +365,6 @@ export async function getBudgetUsageDetails(budgetId: string) {
     categoryId: transaction.categoryId,
     excludeFromIncomeExpense: transaction.excludeFromIncomeExpense,
     relatedType: transaction.relatedType,
-    ruleVersion: transaction.ruleVersion,
     amount: toMinor(Number(transaction.amount)),
   }))
   const summary = summarizeBudgetUsage(rows, plan.scope)

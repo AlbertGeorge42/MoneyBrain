@@ -13,7 +13,7 @@
  */
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
-import type { Ledger, LedgerAccount, LedgerTransaction } from '@/features/overview/model'
+import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import { addDays } from '@/utils/date'
 import {
   accountBalancesAt,
@@ -124,35 +124,8 @@ function inRange(transaction: { date: string }, from: string, to: string): boole
   return transaction.date >= from && transaction.date <= to
 }
 
-function dayLabel(point: string): string {
-  const [year, month, day] = point.split('-')
-  return `${Number(year)} 年 ${Number(month)} 月 ${Number(day)} 日`
-}
-
 function effectiveFee(transaction: LedgerTransaction): number {
   return Math.max(Number(transaction.fee ?? 0), 0)
-}
-
-/** 期初余额日期晚于期间起点的现金账户（2026-10 失败态的已知原因）。 */
-function lateOpeningCashAccounts(ledger: Ledger, from: string): LedgerAccount[] {
-  return ledger.accounts.filter((account) => {
-    if (account.kind !== 'cash' || typeof account.initialBalanceDate !== 'string') return false
-    // API 返回 ISO 时间串（2026-10-31T00:00:00.000Z），只取本地日历日部分比较。
-    return account.initialBalanceDate.slice(0, 10) > from
-  })
-}
-
-function lateOpeningCause(ledger: Ledger, from: string): string | null {
-  const accounts = lateOpeningCashAccounts(ledger, from)
-  if (accounts.length === 0) return null
-  const names = accounts.slice(0, 2).map((account) => `「${account.name}」`).join('、')
-  const suffix = accounts.length > 2 ? ` 等 ${accounts.length} 个账户` : ''
-  const openingDates = new Set<string>()
-  for (const account of accounts) {
-    openingDates.add(dayLabel(String(account.initialBalanceDate).slice(0, 10)))
-  }
-  const dates = [...openingDates].join('、')
-  return `账户${names}${suffix}的期初余额日期（${dates}）晚于本期起始日 ${dayLabel(from)}，期初余额在期中才生效，期初前的流水未计入期初余额`
 }
 
 /**
@@ -975,13 +948,10 @@ export function deriveCashSankey(
   partial.difference = totalDifference
 
   if (Math.abs(computedOpening - opening) > 1 || Math.abs(computedClosing - closing) > 1) {
-    const cause = lateOpeningCause(ledger, from)
     return {
       ...partial,
       status: 'invalid',
-      reason: cause
-        ? `现金流不守恒：${cause}（逐账户期初合计 ${money(computedOpening)}，后端期初 ${money(opening)}；期初 + 流入 − 流出 − 期末 = ${money(Math.abs(totalDifference))}）。为避免误读，本图已停画；请先调整账户期初余额日期。`
-        : `现金流不守恒：逐账户期初 / 期末合计与报表现金不一致（期初差 ${money(computedOpening - opening)}，期末差 ${money(computedClosing - closing)}）。为避免误读，本图已停画。`,
+      reason: `现金流不守恒：逐账户期初 / 期末合计与报表现金不一致（期初差 ${money(computedOpening - opening)}，期末差 ${money(computedClosing - closing)}）。为避免误读，本图已停画。`,
     }
   }
 
@@ -1005,14 +975,10 @@ export function deriveCashSankey(
   try {
     partial.difference = assertCashSankeyConservation(opening, inflow, outflow, closing)
   } catch {
-    const cause = lateOpeningCause(ledger, from)
-    const amount = money(Math.abs(totalDifference))
     return {
       ...partial,
       status: 'invalid',
-      reason: cause
-        ? `现金流不守恒：${cause}（期初 + 流入 − 流出 − 期末 = ${amount}）。为避免误读，本图已停画；请先调整账户期初余额日期。`
-        : `现金流不守恒：期初 + 流入 − 流出 − 期末 = ${amount}。为避免误读，本图已停画。`,
+      reason: `现金流不守恒：期初 + 流入 − 流出 − 期末 = ${money(Math.abs(totalDifference))}。为避免误读，本图已停画。`,
     }
   }
 
