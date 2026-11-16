@@ -4,7 +4,13 @@
  */
 import type { FoldState } from '@/features/shared/foldState'
 import type { DeviceMode } from '@/features/shared/types'
-import { CompositionBars, ReportBarChart, type DonutKind } from './charts'
+import {
+  ChartCard,
+  CompositionBars,
+  CompositionDonutSide,
+  ReportBarChart,
+  type DonutKind,
+} from './charts'
 import {
   MetricStrip,
   ReportTable,
@@ -66,15 +72,17 @@ export function FlowView({
             series={report.series}
             ariaLabel="本期收支走势"
           />
-          <CompositionBars
-            incomeTrees={report.incomeTrees}
-            expenseTrees={report.expenseTrees}
-            incomeTotal={report.income}
-            expenseTotal={report.expense}
-            device={device}
-            onOpen={onDrill}
-            colorUniverse={colorUniverse}
-          />
+          {device === 'desktop' && (
+            <CompositionBars
+              incomeTrees={report.incomeTrees}
+              expenseTrees={report.expenseTrees}
+              incomeTotal={report.income}
+              expenseTotal={report.expense}
+              device={device}
+              onOpen={onDrill}
+              colorUniverse={colorUniverse}
+            />
+          )}
         </>,
       )}
       {device === 'desktop' ? (
@@ -111,6 +119,18 @@ export function FlowView({
             ]}
             onChange={onSide}
           />
+          <ChartCard title="支出 / 收入构成">
+            <CompositionDonutSide
+              title={side === 'expense' ? '支出构成' : '收入构成'}
+              kind={side === 'expense' ? 'expense' : 'income'}
+              nodes={side === 'expense' ? report.expenseTrees : report.incomeTrees}
+              total={side === 'expense' ? report.expense : report.income}
+              emptyText={side === 'expense' ? '该期间没有支出' : '该期间没有收入'}
+              device={device}
+              onOpen={onDrill}
+              colorUniverse={side === 'expense' ? colorUniverse?.expense : colorUniverse?.income}
+            />
+          </ChartCard>
           <ReportTable
             device={device}
             title={side === 'expense' ? '支出构成' : '收入构成'}

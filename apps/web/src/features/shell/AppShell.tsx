@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { getPortalHost } from '@/features/shared/portalHost'
+import { useOverlayOpen } from '@/features/shared/overlayPresence'
 import { HfButton } from '@/features/shared/HfButton'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { deriveOverview, ledgerAnchorDay } from '@/features/overview/model'
@@ -61,6 +62,7 @@ function DesktopShell({
   onOpenEntry,
   children,
 }: Omit<AppShellProps, 'device'>) {
+  const overlayOpen = useOverlayOpen()
   return (
     <div className="mb-desktop-shell">
       <aside className="mb-sidebar" aria-label="主导航">
@@ -90,7 +92,13 @@ function DesktopShell({
           })}
         </nav>
         {createPortal(
-          <HfButton variant="primary" className="mb-side-add" onClick={onOpenEntry}>
+          <HfButton
+            variant="primary"
+            className="mb-side-add"
+            onClick={onOpenEntry}
+            disabled={overlayOpen}
+            title={overlayOpen ? '关闭当前弹窗后再记一笔' : undefined}
+          >
             <Plus size={16} />
             记一笔
           </HfButton>,
@@ -113,6 +121,7 @@ function MobileShell({
   onOpenEntry,
   children,
 }: Omit<AppShellProps, 'device' | 'dataState'>) {
+  const overlayOpen = useOverlayOpen()
   return (
     <div className="mb-mobile-shell" data-page={page}>
       <div className="mb-mobile-status" aria-hidden="true">
@@ -170,6 +179,7 @@ function MobileShell({
           className="mb-mobile-fab"
           aria-label="记一笔"
           onClick={onOpenEntry}
+          disabled={overlayOpen}
         >
           <Plus size={22} />
         </HfButton>

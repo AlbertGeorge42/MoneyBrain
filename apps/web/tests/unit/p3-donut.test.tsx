@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CompositionBars, DonutChart } from '@/features/reports/charts'
 import { mapFlowReport } from '@/features/reports/apiReports'
-import { buildDrill } from '@/features/reports/reportsModel'
+import { buildDrillFor, flowDrillTarget } from '@/features/reports/reportsModel'
 import type { FlowTreeNode } from '@/features/reports/reportsModel'
 import type { Ledger } from '@/features/overview/model'
 
@@ -52,6 +52,40 @@ describe('DonutChart 一级环', () => {
     expect(rest).not.toBeNull()
     expect(container.querySelector('.mb-rp-donut-swatch.is-rest')).not.toBeNull()
     expect(screen.getAllByRole('button')).toHaveLength(7)
+  })
+
+  it('Top 6 按金额降序取，乱序输入不会把大分类挤进「其余」', () => {
+    // 故意把最小的两类放在数组最前（模拟后端拖拽顺序），金额最大的 6 类排在后面。
+    const trees = [
+      node('tiny1', '极小1', 10),
+      node('tiny2', '极小2', 20),
+      node('big1', '大1', 900),
+      node('big3', '大3', 700),
+      node('big2', '大2', 800),
+      node('big5', '大5', 500),
+      node('big4', '大4', 600),
+      node('big6', '大6', 400),
+    ]
+    const onOpen = vi.fn()
+    const { container } = render(
+      <DonutChart
+        nodes={trees}
+        total={trees.reduce((sum, item) => sum + item.amount, 0)}
+        title="支出构成"
+        emptyText="无支出"
+        onOpen={onOpen}
+      />,
+    )
+
+    const ids = Array.from(container.querySelectorAll<SVGGElement>('.mb-rp-donut-slice')).map(
+      (slice) => slice.dataset.id,
+    )
+    // 具名 6 类按金额降序，「其余」只收两类极小值。
+    expect(ids).toEqual(['big1', 'big2', 'big3', 'big4', 'big5', 'big6', 'rest'])
+    const rest = container.querySelector<SVGGElement>('.mb-rp-donut-slice[data-id="rest"]')
+    expect(rest?.dataset.amount).toBe(String(10 + 20))
+    fireEvent.click(screen.getByRole('button', { name: /其余 2 类/ }))
+    expect((onOpen.mock.calls[0][0] as FlowTreeNode).mergedIds).toEqual(['tiny2', 'tiny1'])
   })
 
   it('切块与图例共用同一合并集合，下钻 mergedIds 与金额一致', () => {
@@ -412,7 +446,7 @@ describe('DonutChart 二级环', () => {
     expect(opened.amount).toBe(300 + 200)
     expect(opened.count).toBe(2)
 
-    const drill = buildDrill(ledger, opened, 'expense', from, to)
+    const drill = buildDrillFor(ledger, flowDrillTarget(opened, 'expense'), from, to)
     expect(drill.amount).toBe(500)
     expect(drill.children.map((row) => [row.name, row.amount, row.count])).toEqual([
       ['子类5', 300, 1],
@@ -450,7 +484,7 @@ describe('DonutChart 二级环', () => {
       level: 0,
       children: [],
     }
-    const drill = buildDrill(ledger, node, 'expense', '2026-10-01', '2026-10-31')
+    const drill = buildDrillFor(ledger, flowDrillTarget(node, 'expense'), '2026-10-01', '2026-10-31')
 
     expect(drill.amount).toBe(750)
     expect(drill.transactions).toHaveLength(1)

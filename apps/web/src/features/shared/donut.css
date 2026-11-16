@@ -1,0 +1,266 @@
+/* 构成环（唯一实现）：总览支出分类环、报表双环与移动端分段单环共用。 */
+
+/* 双环并排容器：PC 的 DonutCompare 用；移动端单环由外层 ChartCard 承载，不走 grid。 */
+.mb-rp-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mb-s-4);
+}
+
+.mb-rp-compare.is-mobile {
+  grid-template-columns: 1fr;
+}
+
+.mb-rp-compare-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.mb-rp-compare-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+  padding-bottom: var(--mb-s-1);
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
+.mb-rp-compare-title {
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  flex: none;
+  white-space: nowrap;
+}
+
+.mb-rp-compare-title.is-income {
+  color: var(--mb-color-income);
+}
+
+.mb-rp-compare-title.is-expense {
+  color: var(--mb-color-expense-display);
+}
+
+/* 资产沿用主色，负债沿用支出色。 */
+.mb-rp-compare-title.is-asset {
+  color: var(--mb-color-accent);
+}
+
+.mb-rp-compare-title.is-liability {
+  color: var(--mb-color-expense-display);
+}
+
+/* 两侧各自标尺：只标本侧满格金额，不比较两侧柱长。 */
+.mb-rp-compare-scale {
+  flex: none;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-compare-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 构成卡片每行都可点：整行打开与行金额同口径的下钻。 */
+.mb-rp-compare-row.is-interactive {
+  width: 100%;
+  margin: 0 calc(-1 * var(--mb-s-1));
+  padding: 2px var(--mb-s-1);
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mb-rp-compare-row.is-interactive:hover,
+.mb-rp-compare-row.is-interactive:focus-visible {
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-rp-compare-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-compare-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--mb-s-1);
+  min-width: 0;
+  font-size: var(--mb-fs-1);
+  color: var(--mb-color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-rp-compare-amount {
+  flex: none;
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 桌面窄栏（1024 每侧约 150px）时图例换成两行：金额与百分比下移，名称不再被省略号截断。 */
+@container (max-width: 200px) {
+  .mb-rp-donut-legend-row .mb-rp-compare-row-head {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .mb-rp-donut-legend-row .mb-rp-compare-name {
+    flex: 1 1 100%;
+  }
+
+  .mb-rp-donut-legend-row .mb-rp-donut-meta {
+    margin-left: calc(9px + var(--mb-s-1));
+  }
+}
+
+.mb-rp-donut {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-2);
+  min-width: 0;
+}
+
+/* 空态：环无数据时只留一行说明，两页同源（不沿用报表页的 mb-rp-empty-line，避免共享组件反向依赖报表样式）。 */
+.mb-rp-donut-empty {
+  margin: 0;
+  padding: var(--mb-s-3) 0;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-1);
+}
+
+/* 二级环：面包屑是明确的返回路径，Esc 亦可返回。 */
+.mb-rp-donut-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--mb-s-2);
+  min-height: 24px;
+}
+
+.mb-rp-donut-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--mb-btn-h-xs);
+  padding: 0 var(--mb-s-1);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+  cursor: pointer;
+}
+
+.mb-rp-donut-back:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-rp-donut-crumb-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-donut.is-mobile .mb-rp-donut-back {
+  min-height: var(--mb-touch);
+  padding-inline: var(--mb-s-2);
+}
+
+.mb-rp-donut-chart {
+  display: flex;
+  justify-content: center;
+}
+
+.mb-rp-donut-svg {
+  flex: none;
+  shape-rendering: geometricPrecision;
+}
+
+.mb-rp-donut-slice {
+  cursor: pointer;
+}
+
+.mb-rp-donut-arc,
+.mb-rp-donut-rest {
+  pointer-events: none;
+}
+
+.mb-rp-donut-slice:hover .mb-rp-donut-arc {
+  opacity: 0.86;
+}
+
+.mb-rp-donut-hit {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.mb-rp-donut-center-label {
+  fill: var(--mb-color-text-tertiary);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-donut-center-value {
+  fill: var(--mb-color-text-primary);
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rp-donut-legend {
+  display: flex;
+  flex-direction: column;
+}
+
+.mb-rp-donut-legend-row {
+  min-height: 24px;
+  padding-block: 2px;
+}
+
+.mb-rp-donut.is-mobile .mb-rp-donut-legend-row {
+  min-height: var(--mb-touch);
+  padding-block: 0;
+  justify-content: center;
+}
+
+.mb-rp-donut-swatch {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.mb-rp-donut-meta {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: var(--mb-s-2);
+}
+
+.mb-rp-donut-pct {
+  min-width: 38px;
+  text-align: right;
+  font-family: var(--mb-font-num);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}

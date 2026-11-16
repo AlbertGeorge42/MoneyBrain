@@ -1,11 +1,18 @@
-import { useEffect } from 'react'
-import type { LedgerTransaction } from './model'
+import { useEffect, useMemo, useState } from 'react'
+import type { ExpenseCategorySlice, LedgerTransaction } from './model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
+import { Card } from '@/features/shared/Card'
+import { DonutChart, type DonutNode } from '@/features/shared/DonutChart'
+import { DrillDrawer } from '@/features/reports/DrillDrawer'
+import {
+  buildDrillFor,
+  type DrillData,
+  type DrillTarget,
+} from '@/features/reports/reportsModel'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { AccountEntry } from './AccountEntry'
 import { BudgetCard } from './BudgetCard'
-import { ExpenseCategoryPie, type ExpenseCategoryDrill } from './ExpenseCategoryPie'
 import { ExpenseTrendChart } from './ExpenseTrendChart'
 import { MobileHero, MobileSnapshots, NetWorthHero } from './Hero'
 import { NetWorthTrend } from './NetWorthTrend'
@@ -20,6 +27,59 @@ import {
   groupRecentTransactions,
 } from './model'
 import './overview.css'
+import '@/features/reports/reports.css'
+
+interface ExpenseCategoryDrill {
+  categoryId?: string
+  categoryIds?: string[]
+  from: string
+  to: string
+}
+
+/** 总览支出分类环：把 category-breakdown 的扁平切片适配成共享环的节点，不算第二份环实现。 */
+function ExpenseDonut({
+  slices,
+  device,
+  onOpen,
+  colorUniverse,
+}: {
+  slices: ExpenseCategorySlice[]
+  device: DeviceMode
+  onOpen?: (node: DonutNode) => void
+  colorUniverse?: readonly string[]
+}) {
+  const visible = slices.filter((slice) => slice.amount > 0)
+  const total = visible.reduce((sum, slice) => sum + slice.amount, 0)
+  const nodes: DonutNode[] = visible.map((slice) => ({
+    id: slice.id,
+    name: slice.name,
+    amount: slice.amount,
+    count: 0,
+    share: total > 0 ? (slice.amount / total) * 100 : 0,
+    level: 0,
+    children: [],
+  }))
+  return (
+    <Card className="mb-expense-pie-card">
+      <div className="mb-sec-head">
+        <div>
+          <h2 className="mb-sec-title">支出分类</h2>
+          <p className="mb-sec-desc">近 12 个月 · 点击分类查看流水</p>
+        </div>
+      </div>
+      <DonutChart
+        nodes={nodes}
+        total={total}
+        device={device}
+        kind="expense"
+        title="支出分类"
+        emptyText="近 12 个月没有支出数据"
+        colorUniverse={colorUniverse}
+        onOpen={onOpen}
+      />
+    </Card>
+  )
+}
 
 /** 下钻前记录总览滚动位置；从流水返回时一次性恢复，保证图表停在原位。 */
 const OVERVIEW_SCROLL_KEY = 'mb-hf-overview-drill-scroll'
@@ -137,6 +197,17 @@ export function OverviewPage({
   // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
   const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
   const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
+  // 支出分类环统一走「环 → 抽屉 → 流水」：与报表三张环同一份 DrillDrawer。
+  // hook 必须在下面的早退分支之前声明，保证调用顺序稳定。
+  const [drill, setDrill] = useState<DrillTarget | null>(null)
+  const expenseRange = useMemo(
+    () => deriveExpenseCharts(ledger).range,
+    [ledger],
+  )
+  const drillData = useMemo<DrillData | null>(
+    () => (drill ? buildDrillFor(ledger, drill, expenseRange.from, expenseRange.to) : null),
+    [drill, ledger, expenseRange.from, expenseRange.to],
+  )
 
   if (dataState === 'loading') {
     return (
@@ -181,14 +252,34 @@ export function OverviewPage({
   const expenseCharts = deriveExpenseCharts(ledger)
   // 近 12 个月支出一级分类全集：总览与报表共用，保证同一分类跨页面、跨月份同色。
   const categoryUniverse = expenseCharts.categories.map((slice) => slice.name.trim())
-  const drillCategory = (target: ExpenseCategoryDrill) => {
+  const openCategory = (node: DonutNode) => {
     if (!onDrillCategory) return
+    const ids = node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id]
+    setDrill({
+      type: 'category',
+      title: node.name,
+      amount: node.amount,
+      childTitle: '',
+      children: [],
+      ids,
+      side: 'expense',
+      canViewFlow: true,
+    })
+  }
+  const viewDrillFlow = () => {
+    if (!drill) return
     rememberOverviewScroll()
-    onDrillCategory(target)
+    onDrillCategory?.(
+      drill.ids.length > 1
+        ? { categoryIds: drill.ids, from: expenseCharts.range.from, to: expenseCharts.range.to }
+        : { categoryId: drill.ids[0], from: expenseCharts.range.from, to: expenseCharts.range.to },
+    )
+    setDrill(null)
   }
 
   if (device === 'mobile') {
     return (
+      <>
       <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
         <MobileHero summary={summary} />
         <MobileSnapshots summary={summary} />
@@ -201,11 +292,10 @@ export function OverviewPage({
         <NetWorthTrend points={trend} device="mobile" />
         <div className="mb-dash-charts">
           <ExpenseTrendChart points={expenseCharts.trend} device="mobile" />
-          <ExpenseCategoryPie
+          <ExpenseDonut
             slices={expenseCharts.categories}
-            range={expenseCharts.range}
             device="mobile"
-            onDrill={onDrillCategory ? drillCategory : undefined}
+            onOpen={onDrillCategory ? openCategory : undefined}
             colorUniverse={categoryUniverse}
           />
         </div>
@@ -218,10 +308,18 @@ export function OverviewPage({
           onOpenAll={onOpenTransactions}
         />
       </PageShell>
+      <DrillDrawer
+        device={device}
+        data={drillData}
+        onClose={() => setDrill(null)}
+        onViewFlow={viewDrillFlow}
+      />
+      </>
     )
   }
 
   return (
+    <>
     <PageShell head={<PageHead device={device} dataState={dataState} periodLabel={periodLabel} />}>
       <NetWorthHero summary={summary} />
       <AccountEntry
@@ -245,14 +343,20 @@ export function OverviewPage({
       <NetWorthTrend points={trend} device="desktop" />
       <div className="mb-dash-charts">
         <ExpenseTrendChart points={expenseCharts.trend} device="desktop" />
-        <ExpenseCategoryPie
+        <ExpenseDonut
           slices={expenseCharts.categories}
-          range={expenseCharts.range}
           device="desktop"
-          onDrill={onDrillCategory ? drillCategory : undefined}
+          onOpen={onDrillCategory ? openCategory : undefined}
           colorUniverse={categoryUniverse}
         />
       </div>
     </PageShell>
+    <DrillDrawer
+      device={device}
+      data={drillData}
+      onClose={() => setDrill(null)}
+      onViewFlow={viewDrillFlow}
+    />
+    </>
   )
 }

@@ -409,9 +409,7 @@ describe('账户分类按设置平铺（真实库父子结构）', () => {
           categories={categories}
           side="assets"
           onSide={() => {}}
-          from={monthFrom}
-          to={TODAY}
-          onViewFlow={() => {}}
+          onDrill={() => {}}
         />
       </MantineProvider>,
     )
@@ -424,6 +422,51 @@ describe('账户分类按设置平铺（真实库父子结构）', () => {
     // 资产环也按三个分类切块，而不是只画一个「资产」扇区。
     const assetSide = document.querySelectorAll('.mb-rp-compare-side')[0]
     expect(assetSide.querySelectorAll('.mb-rp-donut-slice[data-view="root"]')).toHaveLength(3)
+  })
+})
+
+describe('移动端构成环跟随分段切换', () => {
+  it('资产负债移动端只渲染当前一侧的单环，不在图表区渲染双环', () => {
+    const balance = {
+      date: TODAY,
+      assets: { actual: 1_100_000, predicted: 0 },
+      liabilities: { actual: 0, predicted: 0 },
+      netWorth: { actual: 1_100_000, predicted: 0 },
+      assetNodes: [
+        {
+          id: 'sub-cash', name: '现金', actual: 600_000,
+          children: [{ id: 'a2', name: '微信', actual: 600_000, categoryId: 'sub-cash' }],
+        },
+        {
+          id: 'sub-invest', name: '投资', actual: 400_000,
+          children: [{ id: 'a3', name: '雪球', actual: 400_000, categoryId: 'sub-invest' }],
+        },
+      ],
+      liabilityNodes: [],
+    } as never
+    const report = mapBalanceReport(
+      balance,
+      [{ label: '本期', netWorth: 1_100_000 }],
+      createSeedLedger(),
+    )
+    const { container } = render(
+      <MantineProvider>
+        <BalanceView
+          device="mobile"
+          report={report}
+          categories={[]}
+          side="assets"
+          onSide={() => {}}
+          onDrill={() => {}}
+        />
+      </MantineProvider>,
+    )
+    // 图表区只剩走势图；构成环以单环形式挂在分段与表格之间。
+    expect(container.querySelectorAll('.mb-rp-compare')).toHaveLength(0)
+    const donuts = container.querySelectorAll('.mb-rp-donut')
+    expect(donuts).toHaveLength(1)
+    expect(donuts[0].querySelectorAll('.mb-rp-donut-slice')).toHaveLength(2)
+    expect(screen.getByText('资产构成')).toBeInTheDocument()
   })
 })
 

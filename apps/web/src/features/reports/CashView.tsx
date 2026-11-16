@@ -8,12 +8,51 @@ import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { FoldState } from '@/features/shared/foldState'
 import { CashSankeyChart } from './CashSankey'
-import { ChartCard, CashFlowBars } from './charts'
+import { ChartCard, CashFlowBars, CompositionDonutSide } from './charts'
 import { MetricStrip, ReportTable, ReportTablePair, type ReportColumn } from './ReportTable'
 import { HfSegmented } from '@/features/shared/HfSegmented'
-import { cashRowsFor, currency, type CashReport } from './reportsModel'
+import type { DonutNode } from '@/features/shared/DonutChart'
+import {
+  cashRowsFor,
+  currency,
+  type CashGroup,
+  type CashReport,
+  type DrillTarget,
+} from './reportsModel'
 import { cashTotalOf } from './reportSettings'
 import type { CashSankey, CashSankeyNode } from './cashSankeyModel'
+
+/** 现金流活动分组 → 环节点：一级是活动分组，二级是分类；node id 用 categoryId，便于下钻。 */
+function cashDonutNodes(groups: CashGroup[], side: 'in' | 'out'): DonutNode[] {
+  const total = cashTotalOf(groups)
+  return groups
+    .filter((group) => group.total > 0)
+    .map((group) => ({
+      id: `${side}:${group.key}`,
+      name: group.name,
+      amount: group.total,
+      count: group.count,
+      share: total > 0 ? (group.total / total) * 100 : 0,
+      level: 0,
+      children: group.children
+        .filter((child) => child.amount > 0)
+        .map((child) => ({
+          id: child.categoryId || child.id,
+          name: child.label,
+          amount: child.amount,
+          count: 0,
+          share: group.total > 0 ? (child.amount / group.total) * 100 : 0,
+          level: 1,
+          children: [],
+        })),
+    }))
+}
+
+/** 环节点 → 下钻分类集合：分组用其全部分类，「其余」用被并入节点的分类并集。 */
+function categoryIdsOfNode(node: DonutNode, idToCategoryIds: Map<string, string[]>): string[] {
+  const ids = node.mergedIds?.length ? node.mergedIds : [node.id]
+  return [...new Set(ids.flatMap((id) => idToCategoryIds.get(id) ?? []))]
+}
 
 const CASH_COLUMNS: ReportColumn[] = [
   { label: '分组 / 交易' },
@@ -33,6 +72,7 @@ export function CashView({
   to,
   onViewFlow,
   rootOf,
+  onDrill,
 }: {
   device: DeviceMode
   report: CashReport
@@ -46,6 +86,7 @@ export function CashView({
   onViewFlow: (options: { categoryIds: string[]; from: string; to: string }) => void
   /** 流水页 txRoots 只认根分类：抽屉里的叶分类先展开到根。 */
   rootOf: (categoryId: string) => string
+  onDrill: (target: DrillTarget) => void
 }) {
   const [sankeyNode, setSankeyNode] = useState<CashSankeyNode | null>(null)
   // 点切块 / 每条 ribbon 都落到同一个节点抽屉：合计与该节点、图例字段一一对应。
@@ -62,6 +103,22 @@ export function CashView({
   const outflowRows = cashRowsFor('out', report.outflowGroups, expanded, onFold)
   // 移动端分段单表：两段补齐到相同行数，切换标签时 tbody 行数与合计行位置不变、高度不跳变。
   const mobileMinRows = Math.max(inflowRows.length, outflowRows.length)
+  const inflowNodes = cashDonutNodes(report.inflowGroups, 'in')
+  const outflowNodes = cashDonutNodes(report.outflowGroups, 'out')
+  // 环节点 id 与下钻分类的对应：活动分组键 → 其全部分类；分类键 → 自身。
+  const categoryIdsByNode = new Map<string, string[]>()
+  for (const [side, groups] of [
+    ['in', report.inflowGroups],
+    ['out', report.outflowGroups],
+  ] as const) {
+    for (const group of groups) {
+      const ids = group.children.map((child) => child.categoryId).filter(Boolean)
+      categoryIdsByNode.set(`${side}:${group.key}`, ids)
+      for (const child of group.children) {
+        if (child.categoryId) categoryIdsByNode.set(child.categoryId, [child.categoryId])
+      }
+    }
+  }
 
   return (
     <>
@@ -111,6 +168,30 @@ export function CashView({
             ]}
             onChange={onSide}
           />
+          <ChartCard title="现金流入 / 流出构成">
+            <CompositionDonutSide
+              title={side === 'in' ? '流入构成' : '流出构成'}
+              kind={side === 'in' ? 'income' : 'expense'}
+              nodes={side === 'in' ? inflowNodes : outflowNodes}
+              total={side === 'in' ? inflowTotal : outflowTotal}
+              emptyText={side === 'in' ? '该期间没有流入' : '该期间没有流出'}
+              device={device}
+              onOpen={(node) => {
+                const categoryIds = categoryIdsOfNode(node, categoryIdsByNode)
+                if (categoryIds.length === 0) return
+                onDrill({
+                  type: 'category',
+                  title: node.name,
+                  amount: node.amount,
+                  childTitle: '分类',
+                  children: node.children,
+                  ids: categoryIds,
+                  side: side === 'in' ? 'income' : 'expense',
+                  canViewFlow: true,
+                })
+              }}
+            />
+          </ChartCard>
           <ReportTable
             device={device}
             title={side === 'in' ? '流入' : '流出'}

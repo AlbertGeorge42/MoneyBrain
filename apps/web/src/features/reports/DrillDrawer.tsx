@@ -30,7 +30,12 @@ export function DrillDrawer({
           <HfButton className="mb-rp-btn is-ghost" onClick={onClose}>
             关闭
           </HfButton>
-          <HfButton className="mb-rp-btn is-primary" onClick={onViewFlow}>
+          <HfButton
+            className="mb-rp-btn is-primary"
+            onClick={onViewFlow}
+            disabled={data ? !data.canViewFlow : false}
+            title={data && !data.canViewFlow ? '账户筛选暂不支持多选，待支持后可查看' : undefined}
+          >
             在流水中查看
           </HfButton>
         </>
@@ -38,23 +43,32 @@ export function DrillDrawer({
     >
       {data && (
         <div className="mb-rp-drill">
+          {!data.canViewFlow && (
+            <p className="mb-rp-chart-note">
+              该合并项含多个账户，流水筛选暂不支持多选，待支持后可在此查看。
+            </p>
+          )}
           <div className="mb-rp-drill-head">
             <span className="mb-rp-drill-label">当期合计</span>
             <span className={`mb-rp-drill-amount is-${data.tone}`}>
               {currency(data.amount)}
             </span>
           </div>
-          <h4 className="mb-rp-drill-title">二级类别</h4>
-          {data.children.length === 0 ? (
-            <p className="mb-rp-empty-line">该分类没有二级类别</p>
-          ) : (
-            data.children.map((child) => (
-              <div className="mb-rp-drill-row" key={child.id}>
-                <span>{child.name}</span>
-                <span className="mb-rp-drill-meta">{child.count} 笔</span>
-                <span className="mb-rp-drill-value">{currency(child.amount)}</span>
-              </div>
-            ))
+          {data.childTitle && (
+            <>
+              <h4 className="mb-rp-drill-title">{data.childTitle}</h4>
+              {data.children.length === 0 ? (
+                <p className="mb-rp-empty-line">没有下一级{data.childTitle}</p>
+              ) : (
+                data.children.map((child) => (
+                  <div className="mb-rp-drill-row" key={child.id}>
+                    <span>{child.name}</span>
+                    <span className="mb-rp-drill-meta">{child.count} 笔</span>
+                    <span className="mb-rp-drill-value">{currency(child.amount)}</span>
+                  </div>
+                ))
+              )}
+            </>
           )}
           <h4 className="mb-rp-drill-title">相关流水</h4>
           {data.transactions.length === 0 ? (

@@ -11,7 +11,12 @@ import { HfSegmented } from '@/features/shared/HfSegmented'
 import { formatPercent } from '@/utils/format'
 import type { LedgerAccountCategory } from '@/features/overview/model'
 import type { DeviceMode } from '@/features/shared/types'
-import { BalanceComposition, ReportLineChart } from './charts'
+import {
+  BalanceComposition,
+  ChartCard,
+  CompositionDonutSide,
+  ReportLineChart,
+} from './charts'
 import { MetricStrip, ReportTable, ReportTablePair, type ReportColumn } from './ReportTable'
 import { chartGrid } from './reportsShared'
 import { flattenTreeRows, type TreeRenderOptions } from './reportRows'
@@ -20,6 +25,7 @@ import {
   buildBalanceTrees,
   currency,
   type BalanceReport,
+  type DrillTarget,
   type FlowTreeNode,
 } from './reportsModel'
 
@@ -46,9 +52,7 @@ export function BalanceView({
   categories,
   side,
   onSide,
-  from,
-  to,
-  onViewFlow,
+  onDrill,
   trendDesc = '近 12 个月',
 }: {
   device: DeviceMode
@@ -56,9 +60,7 @@ export function BalanceView({
   categories: readonly LedgerAccountCategory[] | undefined
   side: 'assets' | 'liabilities'
   onSide: (next: 'assets' | 'liabilities') => void
-  from: string
-  to: string
-  onViewFlow: (options: { accountId: string; from: string; to: string }) => void
+  onDrill: (target: DrillTarget) => void
   /** 净值走势说明；预测区间传入窗口口径。 */
   trendDesc?: string
 }) {
@@ -73,11 +75,21 @@ export function BalanceView({
     [report.liabilities, categories],
   )
 
-  // 环的一级是账户分类（环图内部下钻到账户）；只有二级账户行才落到流水筛选。
+  // 环的一级是账户分类（环图内部下钻到账户）。点账户 / 其余账户都开抽屉；
+  // 其余账户含多个 id，流水筛选暂不支持多账户，禁跳流水但仍可看金额与明细。
   const openAccount = (node: FlowTreeNode) => {
-    if (node.level === 1 && node.id !== 'rest') {
-      onViewFlow({ accountId: node.id, from, to })
-    }
+    if (node.level !== 1 && node.id !== 'rest') return
+    const isRest = node.id === 'rest'
+    const ids = isRest && node.mergedIds ? node.mergedIds : [node.id]
+    onDrill({
+      type: 'account',
+      title: node.name,
+      amount: node.amount,
+      childTitle: '账户',
+      children: node.children,
+      ids,
+      canViewFlow: !isRest,
+    })
   }
   const options: TreeRenderOptions = {
     unit: '个',
@@ -124,7 +136,8 @@ export function BalanceView({
     <>
       <MetricStrip device={device} metrics={report.metrics} />
       {report.predictionNote && <p className="mb-rp-predict-note">{report.predictionNote}</p>}
-      {chartGrid(device, <>{trend}{composition}</>)}
+      {/* PC 双环留在图表区（走势在上、构成在下）；移动端构成环移到分段下、表格上。 */}
+      {chartGrid(device, <>{trend}{device === 'desktop' && composition}</>)}
       {device === 'desktop' ? (
         <ReportTablePair
           left={{
@@ -158,6 +171,17 @@ export function BalanceView({
             ]}
             onChange={onSide}
           />
+          <ChartCard title="资产 / 负债构成">
+            <CompositionDonutSide
+              title={side === 'assets' ? '资产构成' : '负债构成'}
+              kind={side === 'assets' ? 'asset' : 'liability'}
+              nodes={side === 'assets' ? assetTrees : liabilityTrees}
+              total={side === 'assets' ? report.positiveAssetTotal : report.liabilityTotal}
+              emptyText={side === 'assets' ? '暂无正余额资产' : '暂无负债账户'}
+              device={device}
+              onOpen={openAccount}
+            />
+          </ChartCard>
           {side === 'assets' ? (
             <ReportTable
               device={device}

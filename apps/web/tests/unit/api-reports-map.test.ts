@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { IncomeExpenseReportData, ReportValue } from '@contracts/types'
 import { mapFlowReport } from '@/features/reports/apiReports'
-import { buildDrill, type FlowTreeNode } from '@/features/reports/reportsModel'
+import { buildDrillFor, flowDrillTarget, type FlowTreeNode } from '@/features/reports/reportsModel'
 import type { Ledger } from '@/features/overview/model'
 
 function value(actual: number): ReportValue {
@@ -116,7 +116,7 @@ describe('mapFlowReport 分类构成', () => {
   it('根分类行 id 与下钻同一 id 空间，逐笔加总等于行金额', () => {
     const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
     const row = report.expenseTrees[0]
-    const drill = buildDrill(ledger, row, 'expense', '2026-11-01', '2026-11-06')
+    const drill = buildDrillFor(ledger, flowDrillTarget(row, 'expense'), '2026-11-01', '2026-11-06')
 
     expect(drill.transactions).toHaveLength(1)
     expect(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)).toBe(
@@ -155,7 +155,7 @@ describe('buildDrill 与「不计收支」开关同口径', () => {
   }
 
   it('开关关闭：不计收支流水不进下钻，逐笔合计等于行金额', () => {
-    const drill = buildDrill(withExcluded, node, 'expense', from, to)
+    const drill = buildDrillFor(withExcluded, flowDrillTarget(node, 'expense'), from, to)
     expect(drill.transactions).toHaveLength(1)
     expect(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)).toBe(
       2_800,
@@ -163,7 +163,7 @@ describe('buildDrill 与「不计收支」开关同口径', () => {
   })
 
   it('开关打开：不计收支流水计入下钻，逐笔合计等于行金额', () => {
-    const drill = buildDrill(withExcluded, node, 'expense', from, to, true)
+    const drill = buildDrillFor(withExcluded, flowDrillTarget(node, 'expense'), from, to, true)
     expect(drill.transactions).toHaveLength(2)
     expect(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)).toBe(
       3_300,

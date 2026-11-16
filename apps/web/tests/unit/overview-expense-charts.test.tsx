@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { ExpenseCategoryPie } from '@/features/overview/ExpenseCategoryPie'
+import { DonutChart, type DonutNode } from '@/features/shared/DonutChart'
 import { ExpenseTrendChart } from '@/features/overview/ExpenseTrendChart'
 import type { ExpenseCategorySlice, TrendPoint } from '@/features/overview/model'
-
-const range = { from: '2025-12-01', to: '2026-11-30' }
 
 const slices: ExpenseCategorySlice[] = [
   { id: 'food', name: '餐饮', amount: 300_000 },
@@ -13,64 +11,89 @@ const slices: ExpenseCategorySlice[] = [
   { id: 'negative', name: '负值分类', amount: -10_000 },
 ]
 
-describe('支出分类环形图', () => {
-  it('点击一级分类把分类与近 12 个月期间一起带给下钻目标', () => {
-    const onDrill = vi.fn()
+/** 总览页内联的扁平切片 → 环节点适配，测试在此复刻以驱动同一份共享环。 */
+function toNodes(items: ExpenseCategorySlice[]): DonutNode[] {
+  const visible = items.filter((slice) => slice.amount > 0)
+  const total = visible.reduce((sum, slice) => sum + slice.amount, 0)
+  return visible.map((slice) => ({
+    id: slice.id,
+    name: slice.name,
+    amount: slice.amount,
+    count: 0,
+    share: total > 0 ? (slice.amount / total) * 100 : 0,
+    level: 0,
+    children: [],
+  }))
+}
+
+describe('支出分类环形图（共享构成环）', () => {
+  it('点击一级分类把节点与下钻口径交给 onOpen', () => {
+    const onOpen = vi.fn()
     render(
-      <ExpenseCategoryPie slices={slices} range={range} device="desktop" onDrill={onDrill} />,
+      <DonutChart
+        nodes={toNodes(slices)}
+        total={500_000}
+        device="desktop"
+        kind="expense"
+        title="支出分类"
+        emptyText="近 12 个月没有支出数据"
+        onOpen={onOpen}
+      />,
     )
 
-    // 弧块与图例各有一个同名可点元素；点弧块证明「点饼图分类」本身可以下钻。
-    const targets = screen.getAllByRole('button', { name: '查看「餐饮」的流水' })
-    fireEvent.click(targets[0])
+    // 与报表构成环同款：图例行是唯一的可点入口，整行带分类金额。
+    fireEvent.click(screen.getByRole('button', { name: /查看 餐饮 .*的下钻/ }))
 
-    expect(onDrill).toHaveBeenCalledTimes(1)
-    expect(onDrill).toHaveBeenCalledWith({
-      categoryId: 'food',
-      from: '2025-12-01',
-      to: '2026-11-30',
-    })
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(onOpen.mock.calls[0][0]).toMatchObject({ id: 'food', name: '餐饮', amount: 300_000 })
+    expect(onOpen.mock.calls[0][1]).toBe('expense')
   })
 
   it('0 元与负值分类不画弧、不参与总额；全部为空时走空态而非除零', () => {
     render(
-      <ExpenseCategoryPie
-        slices={slices}
-        range={range}
+      <DonutChart
+        nodes={toNodes(slices)}
+        total={500_000}
         device="desktop"
-        onDrill={vi.fn()}
+        title="支出分类"
+        emptyText="近 12 个月没有支出数据"
       />,
     )
 
-    const arcs = document.querySelectorAll('.mb-expense-pie-arc')
+    const arcs = document.querySelectorAll('.mb-rp-donut-arc')
     expect(arcs).toHaveLength(2)
     expect(screen.getByText('¥5,000.00')).toBeInTheDocument()
 
     render(
-      <ExpenseCategoryPie
-        slices={[
-          { id: 'empty', name: '零元分类', amount: 0 },
-          { id: 'negative', name: '负值分类', amount: -10_000 },
-        ]}
-        range={range}
+      <DonutChart
+        nodes={toNodes(slices.slice(2))}
+        total={0}
         device="mobile"
+        title="支出分类"
+        emptyText="近 12 个月没有支出数据"
       />,
     )
     expect(screen.getAllByText('近 12 个月没有支出数据').length).toBeGreaterThan(0)
   })
 
-  it('移动端图例默认折叠且不横向溢出，可展开', () => {
-    render(
-      <ExpenseCategoryPie slices={slices} range={range} device="mobile" onDrill={vi.fn()} />,
+  it('移动端图例常驻环下方，与报表环同款 44px 命中区', () => {
+    const { container } = render(
+      <DonutChart
+        nodes={toNodes(slices)}
+        total={500_000}
+        device="mobile"
+        title="支出分类"
+        emptyText="近 12 个月没有支出数据"
+      />,
     )
 
-    const toggle = screen.getByRole('button', { name: /展开图例 · 2 类/ })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(document.querySelector('.mb-expense-pie-legend')).toBeNull()
-
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(document.querySelector('.mb-expense-pie-legend')).not.toBeNull()
+    // 完全统一后不再有折叠开关：图例恒在下方，移动端加大命中区。
+    expect(screen.queryByRole('button', { name: /展开图例/ })).toBeNull()
+    const donut = container.querySelector('.mb-rp-donut.is-mobile')
+    expect(donut).not.toBeNull()
+    const legend = donut!.querySelector('.mb-rp-donut-legend')
+    expect(legend).not.toBeNull()
+    expect(legend!.querySelectorAll('.mb-rp-donut-legend-row')).toHaveLength(2)
   })
 })
 

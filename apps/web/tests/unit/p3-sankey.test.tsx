@@ -391,6 +391,7 @@ function renderCashView(device: DeviceMode) {
         to={TO}
         onViewFlow={() => {}}
         rootOf={(id) => id}
+        onDrill={() => {}}
       />
     </MantineProvider>,
   )
@@ -425,16 +426,18 @@ describe('现金流 tab 的平台降级', () => {
           to={TO}
           onViewFlow={() => {}}
           rootOf={(id) => id}
+          onDrill={() => {}}
         />
       </MantineProvider>,
     )
     const chartNote = container.querySelector('.mb-rp-sankey .mb-rp-chart-note')?.textContent ?? ''
     expect(chartNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
     fireEvent.click(container.querySelector('.mb-rp-sankey-node[data-id="in:hidden"] .mb-rp-sankey-node-hit')!)
-    await waitFor(() => expect(container.querySelector('.mb-rp-drill')).not.toBeNull())
+    // 桌面抽屉 portal 到根容器，DOM 不在 render 的 container 内，按浮层从 document 查。
+    await waitFor(() => expect(document.querySelector('.mb-rp-drill')).not.toBeNull())
     // 前端不再提供隐藏分组开关，抽屉不再重复「已隐藏 N 组 / 图与表合计允许不同」。
-    const drawerNote = container.querySelector('.mb-rp-drill .mb-rp-chart-note')?.textContent ?? ''
+    const drawerNote = document.querySelector('.mb-rp-drill .mb-rp-chart-note')?.textContent ?? ''
     expect(drawerNote).not.toContain('已隐藏')
-    expect(container.querySelector('.mb-rp-drill .mb-rp-drill-head')).not.toBeNull()
+    expect(document.querySelector('.mb-rp-drill .mb-rp-drill-head')).not.toBeNull()
   })
 })

@@ -13,8 +13,9 @@
  * - settings：设置族编辑抽屉（mb-set-sheet，自定义头部、无默认关闭按钮）
  */
 import { Drawer } from '@mantine/core'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import type { DeviceMode } from '@/features/shared/types'
+import { registerOverlay } from './overlayPresence'
 
 export type HfSheetVariant =
   | 'report'
@@ -44,6 +45,7 @@ interface SheetVariantConfig {
 const VARIANTS: Record<HfSheetVariant, SheetVariantConfig> = {
   report: {
     contentMobile: 'mb-rp-sheet',
+    contentDesktop: 'mb-rp-sheet is-desktop',
     header: 'mb-rp-sheet-head',
     title: 'mb-rp-sheet-title',
     bodyMobile: 'mb-rp-sheet-body',
@@ -105,6 +107,7 @@ const VARIANTS: Record<HfSheetVariant, SheetVariantConfig> = {
   },
   settings: {
     contentMobile: 'mb-set-sheet',
+    contentDesktop: 'mb-set-sheet is-desktop',
     bodyMobile: 'mb-set-sheet-frame',
     inner: 'mb-set-sheet-inner',
     desktopSize: 380,
@@ -168,8 +171,19 @@ export function HfSheet({
 }) {
   const config = VARIANTS[variant]
   const isMobile = device === 'mobile'
-  const portalTarget = portal ? resolvePortalTarget(device) : undefined
+  // 桌面画布 .mb-hf-canvas 带 transform，会成为 position:fixed 的包含块；抽屉若留在
+  // 画布内，fixed 相对画布而非视口——长页面滚动时抽屉跟着错位、底部被 overflow 裁切。
+  // 桌面统一 portal 到无 transform 的 .mb-hf-root，让 fixed 真相对视口铺满；移动端仍
+  // 留在手机框内（手机框自带 transform，由它约束 fixed 范围，符合底部抽屉设计）。
+  const shouldPortal = portal || !isMobile
+  const portalTarget = shouldPortal ? resolvePortalTarget(device) : undefined
   const actionClass = join(config.actionsClassName, actionsClassName)
+
+  // 任意抽屉打开时登记，供 AppShell 的记一笔按钮订阅禁用（遮罩盖不住 portal 按钮）。
+  useEffect(() => {
+    if (!opened) return
+    return registerOverlay()
+  }, [opened])
 
   return (
     <Drawer
@@ -177,7 +191,7 @@ export function HfSheet({
       onClose={onClose}
       position={isMobile ? 'bottom' : 'right'}
       {...(isMobile ? { size: mobileSize } : (desktopSize ?? config.desktopSize) !== undefined ? { size: desktopSize ?? config.desktopSize } : {})}
-      withinPortal={portal}
+      withinPortal={shouldPortal}
       portalProps={portalTarget ? { target: portalTarget } : undefined}
       {...(zIndex !== undefined || config.zIndex !== undefined ? { zIndex: zIndex ?? config.zIndex } : {})}
       withCloseButton={config.withCloseButton}

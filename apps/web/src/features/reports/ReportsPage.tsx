@@ -39,9 +39,10 @@ import {
   type ReportViewSettings,
 } from './reportSettings'
 import {
-  buildDrill,
+  buildDrillFor,
+  flowDrillTarget,
   type DrillData,
-  type FlowTreeNode,
+  type DrillTarget,
 } from './reportsModel'
 import {
   RANGE_STATE_LABEL,
@@ -77,10 +78,7 @@ function periodWindow(from: string, to: string, today: string, gran: Granularity
   return { asOf: today, granularity: gran, from, to: bucketEndOf(to, gran) }
 }
 
-interface DrillState {
-  node: FlowTreeNode
-  kind: 'income' | 'expense'
-}
+type DrillState = DrillTarget
 
 function initialReportTime(anchor: string): ReportTime {
   return { gran: 'month', point: anchor, from: monthStart(anchor), to: anchor, preset: 'thisMonth' }
@@ -249,8 +247,7 @@ export function ReportsPage({
     [device, ledger, cash],
   )
   const drillData = useMemo<DrillData | null>(
-    () =>
-      drill ? buildDrill(ledger, drill.node, drill.kind, time.from, time.to, includeExcluded) : null,
+    () => (drill ? buildDrillFor(ledger, drill, time.from, time.to, includeExcluded) : null),
     [drill, ledger, time.from, time.to, includeExcluded],
   )
 
@@ -361,9 +358,7 @@ export function ReportsPage({
               categories={ledger.accountCategories}
               side={balanceSide}
               onSide={setBalanceSide}
-              from={time.from}
-              to={time.to}
-              onViewFlow={onViewFlow}
+              onDrill={setDrill}
             />
           )}
           {tab === 'balance' && balanceState !== 'past' && (
@@ -374,9 +369,7 @@ export function ReportsPage({
                 categories={ledger.accountCategories}
                 side={balanceSide}
                 onSide={setBalanceSide}
-                from={time.from}
-                to={time.to}
-                onViewFlow={onViewFlow}
+                onDrill={setDrill}
                 trendDesc="预测窗口逐点"
               />
             ) : (
@@ -397,7 +390,7 @@ export function ReportsPage({
               expanded={expandedFlow}
               onFold={toggleFlowFold}
               onDrill={(node, kind) => {
-                if (kind === 'income' || kind === 'expense') setDrill({ node, kind })
+                if (kind === 'income' || kind === 'expense') setDrill(flowDrillTarget(node, kind))
               }}
               colorUniverse={categoryUniverse}
             />
@@ -412,7 +405,7 @@ export function ReportsPage({
                 expanded={expandedFlow}
                 onFold={toggleFlowFold}
                 onDrill={(node, kind) => {
-                  if (kind === 'income' || kind === 'expense') setDrill({ node, kind })
+                  if (kind === 'income' || kind === 'expense') setDrill(flowDrillTarget(node, kind))
                 }}
                 colorUniverse={categoryUniverse}
               />
@@ -438,6 +431,7 @@ export function ReportsPage({
               to={time.to}
               onViewFlow={onViewFlow}
               rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
+              onDrill={setDrill}
             />
           )}
           {tab === 'cash' && cashState !== 'past' && (
@@ -454,6 +448,7 @@ export function ReportsPage({
                 to={time.to}
                 onViewFlow={onViewFlow}
                 rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
+                onDrill={setDrill}
               />
             ) : (
               <Card variant="report" className="mb-rp-empty">
@@ -501,12 +496,16 @@ export function ReportsPage({
         data={drillData}
         onClose={() => setDrill(null)}
         onViewFlow={() => {
-          if (!drill) return
-          onViewFlow(
-            drill.node.id === 'rest'
-              ? { categoryIds: drill.node.mergedIds, from: time.from, to: time.to }
-              : { categoryId: drill.node.id, from: time.from, to: time.to },
-          )
+          if (!drill || !drill.canViewFlow) return
+          onViewFlow({
+            ...(drill.type === 'account'
+              ? { accountId: drill.ids[0] }
+              : drill.ids.length > 1
+                ? { categoryIds: drill.ids }
+                : { categoryId: drill.ids[0] }),
+            from: time.from,
+            to: time.to,
+          })
           setDrill(null)
         }}
       />

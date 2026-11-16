@@ -401,6 +401,8 @@ export interface DrillData {
   title: string
   amount: number
   tone: 'income' | 'expense'
+  /** 子项栏标题按环的一级语义：二级类别 / 账户 / 分类。 */
+  childTitle: string
   children: { id: string; name: string; amount: number; count: number }[]
   transactions: {
     id: string
@@ -412,32 +414,68 @@ export interface DrillData {
     /** 退款冲减：金额保留真实负号，展示层据此标注「退款」。 */
     refund: boolean
   }[]
+  /** 能否从抽屉跳流水：账户合并「其余」因筛选暂不支持多账户而禁用。 */
+  canViewFlow: boolean
 }
 
-/** 下钻只展开当期口径：二级类别 + 相关流水，不重复完整流水页。 */
-export function buildDrill(
+/**
+ * 统一的环下钻目标。四条链路（收支 / 资产负债 / 现金流 / 总览）都构造它，
+ * 再交给同一个 buildDrillFor + DrillDrawer，保证「环 → 抽屉 → 流水」行为一致。
+ */
+export type DrillTarget =
+  /** 收支 / 现金流 / 总览：按分类子树 + 收支方向筛选。ids 为多个根分类时是「其余」合并桶。 */
+  | {
+      type: 'category'
+      title: string
+      amount: number
+      childTitle: string
+      children: FlowTreeNode[]
+      ids: string[]
+      side: 'income' | 'expense'
+      canViewFlow: boolean
+    }
+  /** 资产负债：按账户筛选；账户合并「其余」的 canViewFlow 为 false。 */
+  | {
+      type: 'account'
+      title: string
+      amount: number
+      childTitle: string
+      children: FlowTreeNode[]
+      ids: string[]
+      canViewFlow: boolean
+    }
+
+/** 下钻只展开当期口径：二级项 + 相关流水，不重复完整流水页。 */
+export function buildDrillFor(
   ledger: Ledger,
-  node: FlowTreeNode,
-  kind: 'income' | 'expense',
+  target: DrillTarget,
   from: string,
   to: string,
   includeExcluded = false,
 ): DrillData {
-  // 合并「其他」卡片必须与下钻用同一组根分类，点击行的金额才对得上。
-  const rootIds = node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id]
-  const subtree = new Set<string>()
-  const collect = (id: string) => {
-    subtree.add(id)
-    ledger.categories.filter((category) => category.parentId === id).forEach((child) => collect(child.id))
+  const tone = target.type === 'account' ? 'neutral' : target.side
+  const colorTone: 'income' | 'expense' = tone === 'income' ? 'income' : 'expense'
+  const ids = new Set(target.ids)
+  // 分类目标要把根分类展开成整棵子树（「其余」合并桶含多个根）；账户目标直接按 id 命中。
+  const categories = new Set<string>()
+  if (target.type === 'category') {
+    const collect = (id: string) => {
+      categories.add(id)
+      ledger.categories.filter((category) => category.parentId === id).forEach((child) => collect(child.id))
+    }
+    target.ids.forEach(collect)
   }
-  rootIds.forEach(collect)
   const transactions = ledger.transactions
     .filter((transaction) => {
       if (!inRange(transaction, from, to)) return false
       // 与报表合计同一口径：开关关闭时「不计收支」流水不进下钻。
       if (!includeExcluded && transaction.excludeFromIncomeExpense) return false
-      if (!subtree.has(transaction.categoryId)) return false
-      if (kind === 'income') return isIncomeSide(transaction) || refundOffsetSide(transaction) === 'income'
+      if (target.type === 'account') {
+        if (!ids.has(transaction.accountId)) return false
+        return true
+      }
+      if (!categories.has(transaction.categoryId)) return false
+      if (target.side === 'income') return isIncomeSide(transaction) || refundOffsetSide(transaction) === 'income'
       return transaction.type === 'expense' ||
         refundOffsetSide(transaction) === 'expense' ||
         adjustmentExpense(transaction) > 0
@@ -446,10 +484,11 @@ export function buildDrill(
     .slice(0, 4)
 
   return {
-    title: node.name,
-    amount: node.amount,
-    tone: kind === 'income' ? 'income' : 'expense',
-    children: node.children.map((child) => ({
+    title: target.title,
+    amount: target.amount,
+    tone: colorTone,
+    childTitle: target.childTitle,
+    children: target.children.map((child) => ({
       id: child.id,
       name: child.name,
       amount: child.amount,
@@ -461,16 +500,31 @@ export function buildDrill(
       label: `${getCategory(ledger, transaction.categoryId)?.name ?? '未分类'}${transaction.note ? ` · ${transaction.note}` : ''}`,
       account: ledger.accounts.find((account) => account.id === transaction.accountId)?.name ?? '—',
       amount:
-        refundOffsetSide(transaction) === kind
+        target.type === 'category' && refundOffsetSide(transaction) === target.side
           ? -Math.abs(transaction.amount)
           : transaction.type === 'expense'
             ? Math.abs(transaction.amount)
             : adjustmentExpense(transaction) > 0
               ? adjustmentExpense(transaction)
               : Math.abs(transaction.amount),
-      tone: kind,
+      tone: colorTone,
       refund: transaction.type === 'refund',
     })),
+    canViewFlow: target.canViewFlow,
+  }
+}
+
+/** 收支方向分类节点 → 统一下钻目标（含「其余」合并桶）。 */
+export function flowDrillTarget(node: FlowTreeNode, side: 'income' | 'expense'): DrillTarget {
+  return {
+    type: 'category',
+    title: node.name,
+    amount: node.amount,
+    childTitle: '二级类别',
+    children: node.children,
+    ids: node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id],
+    side,
+    canViewFlow: true,
   }
 }
 

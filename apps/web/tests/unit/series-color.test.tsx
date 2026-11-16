@@ -7,7 +7,6 @@
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { CATEGORY_COLORS, SERIES_COLORS, stableColorMap, stableSlotMap } from '@/features/shared/seriesColor'
-import { ExpenseCategoryPie } from '@/features/overview/ExpenseCategoryPie'
 import { AccountEntry } from '@/features/overview/AccountEntry'
 import { DonutChart } from '@/features/reports/charts'
 import type { FlowTreeNode } from '@/features/reports/reportsModel'
@@ -42,13 +41,42 @@ function node(id: string, name: string, amount: number): FlowTreeNode {
   return { id, name, amount, count: 1, share: 0, level: 0, children: [] }
 }
 
+/** 总览页内联适配：扁平切片 → 共享环节点。 */
+function slicesToNodes(slices: ExpenseCategorySlice[]): FlowTreeNode[] {
+  const visible = slices.filter((slice) => slice.amount > 0)
+  const total = visible.reduce((sum, slice) => sum + slice.amount, 0)
+  return visible.map((slice) => ({
+    id: slice.id,
+    name: slice.name,
+    amount: slice.amount,
+    count: 0,
+    share: total > 0 ? (slice.amount / total) * 100 : 0,
+    level: 0,
+    children: [],
+  }))
+}
+
+function overviewDonut(
+  slices: ExpenseCategorySlice[],
+  colorUniverse?: readonly string[],
+) {
+  const visible = slices.filter((slice) => slice.amount > 0)
+  return (
+    <DonutChart
+      nodes={slicesToNodes(slices)}
+      total={visible.reduce((sum, slice) => sum + slice.amount, 0)}
+      device="desktop"
+      kind="expense"
+      title="支出分类"
+      emptyText="近 12 个月没有支出数据"
+      colorUniverse={colorUniverse}
+    />
+  )
+}
+
+/** 总览环与报表环共用一份实现，取色断言也走同一套选择器。 */
 function expenseColors(container: HTMLElement): Map<string, string> {
-  const colors = new Map<string, string>()
-  container.querySelectorAll<SVGGElement>('.mb-expense-pie-slice').forEach((slice) => {
-    const arc = slice.querySelector('path')
-    colors.set(slice.dataset.id ?? '', arc?.getAttribute('style') ?? '')
-  })
-  return colors
+  return donutColors(container)
 }
 
 function donutColors(container: HTMLElement): Map<string, string> {
@@ -119,47 +147,47 @@ describe('组件取色跟随身份', () => {
       { id: 'home', name: '居住', amount: 200_000 },
       { id: 'shop', name: '购物', amount: 100_000 },
     ]
-    const range = { from: '2025-12-01', to: '2026-11-30' }
     const { container, rerender } = render(
-      <ExpenseCategoryPie slices={slices} range={range} device="desktop" />,
+      overviewDonut(slices),
     )
     const before = expenseColors(container)
 
     rerender(
-      <ExpenseCategoryPie slices={[...slices].reverse()} range={range} device="desktop" />,
+      overviewDonut([...slices].reverse()),
     )
     expect(expenseColors(container)).toEqual(before)
-    // 图例色块与弧使用同一个 item.color：同行的 style 属性里是同一 token。
+    // 图例色块与弧使用同一个 item.color：按分类名反查，不依赖图例的行序
+    // （Top6 改为金额降序后，行序随金额变，但同分类的 token 必须不变）。
     const tokenOf = (id: string) => before.get(id)?.match(/var\(--[^)]+\)/)?.[0] ?? ''
-    const rows = [...container.querySelectorAll<HTMLElement>('.mb-expense-pie-row')]
-    rows.forEach((row, index) => {
-      const swatch = row.querySelector<HTMLElement>('.mb-expense-pie-swatch')
-      const id = slices[slices.length - 1 - index].id
-      expect(swatch?.getAttribute('style')).toContain(tokenOf(id))
-    })
+    const idOfName = new Map(slices.map((slice) => [slice.name, slice.id]))
+    const rows = [...container.querySelectorAll<HTMLElement>('.mb-rp-donut-legend-row')]
+    for (const row of rows) {
+      const name = row.querySelector('.mb-rp-compare-name')?.textContent?.trim() ?? ''
+      const id = idOfName.get(name)
+      expect(id, name).toBeTruthy()
+      const swatch = row.querySelector<HTMLElement>('.mb-rp-donut-swatch')
+      expect(swatch?.getAttribute('style'), name).toContain(tokenOf(id!))
+    }
   })
 
-  it('总览支出环形：真实库 9 类同图弧色互不重复', () => {
+  it('总览支出环形：9 类按 Top6 + 其余聚合，7 块弧色互不重复', () => {
     const slices: ExpenseCategorySlice[] = REAL_EXPENSE_ROOTS.map((name, index) => ({
       id: `root-${index}`,
       name,
       amount: (REAL_EXPENSE_ROOTS.length - index) * 10_000,
     }))
     const { container } = render(
-      <ExpenseCategoryPie
-        slices={slices}
-        range={{ from: '2025-12-01', to: '2026-11-30' }}
-        device="desktop"
-      />,
+      overviewDonut(slices),
     )
+    // 与报表环同款聚合：6 个具名 + 1 个「其余 3 类」。
     const colors = expenseColors(container)
-    expect(colors.size).toBe(REAL_EXPENSE_ROOTS.length)
-    expect(new Set(colors.values()).size).toBe(REAL_EXPENSE_ROOTS.length)
+    expect(colors.size).toBe(7)
+    expect(new Set(colors.values()).size).toBe(7)
+    expect([...colors.keys()]).toContain('rest')
   })
 
   it('同一 colorUniverse 下，不同月份集合的共同分类同色', () => {
     const universe = ['餐饮', '居住', '购物', '交通', '娱乐']
-    const range = { from: '2025-12-01', to: '2026-11-30' }
     const first: ExpenseCategorySlice[] = [
       { id: 'food', name: '餐饮', amount: 300_000 },
       { id: 'home', name: '居住', amount: 200_000 },
@@ -169,11 +197,11 @@ describe('组件取色跟随身份', () => {
       { id: 'shop', name: '购物', amount: 100_000 },
     ]
     const { container, rerender } = render(
-      <ExpenseCategoryPie slices={first} range={range} device="desktop" colorUniverse={universe} />,
+      overviewDonut(first, universe),
     )
     const homeColor = expenseColors(container).get('home')
     rerender(
-      <ExpenseCategoryPie slices={second} range={range} device="desktop" colorUniverse={universe} />,
+      overviewDonut(second, universe),
     )
     expect(expenseColors(container).get('home')).toBe(homeColor)
   })

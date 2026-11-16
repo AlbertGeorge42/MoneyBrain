@@ -654,8 +654,8 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 .mb-rp-chart-grid {
   display: grid;
-  /* 主栏不足两张卡的最小宽度时落成单列：820 下两卡各 256px，双环标题与合计会被挤出卡片。 */
-  grid-template-columns: repeat(auto-fit, minmax(var(--mb-rp-chart-min), 1fr));
+  /* 图表区固定上下堆叠：走势图在上、构成图在下；双环获得整行宽度，标题与合计不再被挤。 */
+  grid-template-columns: 1fr;
   gap: var(--mb-s-4);
   align-items: stretch;
 }
@@ -811,268 +811,6 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   padding: var(--mb-s-3) 0;
   color: var(--mb-color-text-tertiary);
   font-size: var(--mb-fs-1);
-}
-
-/* 构成对比 */
-
-.mb-rp-compare {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--mb-s-4);
-}
-
-.mb-rp-compare-side {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-2);
-  min-width: 0;
-}
-
-.mb-rp-compare-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--mb-s-2);
-  padding-bottom: var(--mb-s-1);
-  border-bottom: 1px solid var(--mb-color-border);
-}
-
-.mb-rp-compare-title {
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
-  flex: none;
-  white-space: nowrap;
-}
-
-.mb-rp-compare-title.is-income {
-  color: var(--mb-color-income);
-}
-
-.mb-rp-compare-title.is-expense {
-  color: var(--mb-color-expense-display);
-}
-
-/* 资产负债构成与收支共用单框双环：资产沿用主色，负债沿用支出色。 */
-.mb-rp-compare-title.is-asset {
-  color: var(--mb-color-accent);
-}
-
-.mb-rp-compare-title.is-liability {
-  color: var(--mb-color-expense-display);
-}
-
-/* 两侧各自标尺：只标本侧满格金额，不比较两侧柱长。 */
-.mb-rp-compare-scale {
-  flex: none;
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.mb-rp-compare-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* 构成卡片每行都可点：整行打开与行金额同口径的下钻。 */
-.mb-rp-compare-row.is-interactive {
-  width: 100%;
-  margin: 0 calc(-1 * var(--mb-s-1));
-  padding: 2px var(--mb-s-1);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.mb-rp-compare-row.is-interactive:hover,
-.mb-rp-compare-row.is-interactive:focus-visible {
-  background: var(--mb-color-surface-hover);
-}
-
-.mb-rp-compare-row-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--mb-s-2);
-}
-
-.mb-rp-compare-name {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--mb-s-1);
-  min-width: 0;
-  font-size: var(--mb-fs-1);
-  color: var(--mb-color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb-rp-compare-amount {
-  flex: none;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-/* 构成环形（收入 / 支出两侧）：面积按金额占比，图例三件套；移动端图例行 44px 命中。 */
-.mb-rp-compare.is-mobile {
-  grid-template-columns: 1fr;
-}
-
-/* 桌面窄栏（1024 每侧约 150px）时图例换成两行：金额与百分比下移，名称不再被省略号截断。 */
-.mb-rp-compare-side {
-  container-type: inline-size;
-}
-
-@container (max-width: 200px) {
-  .mb-rp-donut-legend-row .mb-rp-compare-row-head {
-    flex-wrap: wrap;
-    row-gap: 2px;
-  }
-
-  .mb-rp-donut-legend-row .mb-rp-compare-name {
-    flex: 1 1 100%;
-  }
-
-  .mb-rp-donut-legend-row .mb-rp-donut-meta {
-    margin-left: calc(9px + var(--mb-s-1));
-  }
-}
-
-.mb-rp-donut {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-2);
-  min-width: 0;
-}
-
-/* 二级环：面包屑是明确的返回路径，Esc 亦可返回。 */
-.mb-rp-donut-crumb {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-2);
-  min-height: 24px;
-}
-
-.mb-rp-donut-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: var(--mb-btn-h-xs);
-  padding: 0 var(--mb-s-1);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-0);
-  cursor: pointer;
-}
-
-.mb-rp-donut-back:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-rp-donut-crumb-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
-
-.mb-rp-donut.is-mobile .mb-rp-donut-back {
-  min-height: var(--mb-touch);
-  padding-inline: var(--mb-s-2);
-}
-
-.mb-rp-donut-chart {
-  display: flex;
-  justify-content: center;
-}
-
-.mb-rp-donut-svg {
-  flex: none;
-  shape-rendering: geometricPrecision;
-}
-
-.mb-rp-donut-slice {
-  cursor: pointer;
-}
-
-.mb-rp-donut-arc,
-.mb-rp-donut-rest {
-  pointer-events: none;
-}
-
-.mb-rp-donut-slice:hover .mb-rp-donut-arc {
-  opacity: 0.86;
-}
-
-.mb-rp-donut-hit {
-  pointer-events: all;
-  cursor: pointer;
-}
-
-.mb-rp-donut-center-label {
-  fill: var(--mb-color-text-tertiary);
-  font-size: var(--mb-fs-0);
-}
-
-.mb-rp-donut-center-value {
-  fill: var(--mb-color-text-primary);
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-3);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.mb-rp-donut-legend {
-  display: flex;
-  flex-direction: column;
-}
-
-.mb-rp-donut-legend-row {
-  min-height: 24px;
-  padding-block: 2px;
-}
-
-.mb-rp-donut.is-mobile .mb-rp-donut-legend-row {
-  min-height: var(--mb-touch);
-  padding-block: 0;
-  justify-content: center;
-}
-
-.mb-rp-donut-swatch {
-  flex: none;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-}
-
-.mb-rp-donut-meta {
-  display: flex;
-  flex: none;
-  align-items: baseline;
-  gap: var(--mb-s-2);
-}
-
-.mb-rp-donut-pct {
-  min-width: 38px;
-  text-align: right;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
-  font-variant-numeric: tabular-nums;
 }
 
 /* 资金流向 */
@@ -1502,7 +1240,30 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 /* 移动时间面板：按内容收缩的底部面板，内容可滚。
    动作区固定在面板底部、不参与内容滚动：sheet 底部预留动作区高度，滚动区到此为止，
    滚到顶时最后一行不会落在动作区下方，滚到底也不额外多出空白。 */
-.mb-rp-sheet {
+/* 桌面右侧抽屉：铺满视口高度，内容区滚动，动作区常驻底部。
+   移动端底部面板另行收窄（不带 .is-desktop），长页面下不再被 82% 高度截断。 */
+.mb-rp-sheet.is-desktop {
+  display: flex;
+  flex-direction: column;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+
+.mb-rp-sheet.is-desktop .mb-rp-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mb-rp-sheet.is-desktop .mb-rp-sheet-actions {
+  flex: none;
+}
+
+.mb-rp-sheet:not(.is-desktop) {
   display: flex;
   flex-direction: column;
   top: auto;

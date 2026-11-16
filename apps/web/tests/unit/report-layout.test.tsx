@@ -259,4 +259,78 @@ describe('账户分类与构成环口径', () => {
     expect(balance).toContain('BalanceComposition')
     expect(balance).not.toContain('ChartCard title="资产构成"')
   })
+
+  it('PC 图表区上下堆叠：走势在上、构成在下，不再左右并排', () => {
+    const css = source('features/reports/reports.css')
+    const grid = /\.mb-rp-chart-grid\s*\{([^}]+)\}/.exec(css)
+    expect(grid).not.toBeNull()
+    expect(grid![1]).toMatch(/grid-template-columns:\s*1fr/)
+    expect(grid![1]).not.toContain('auto-fit')
+    // 三张有双环的报表在 PC 都仍渲染构成图；移动端分支不再把它塞进 chartGrid。
+    for (const file of ['BalanceView.tsx', 'FlowView.tsx']) {
+      const text = source(`features/reports/${file}`)
+      expect(text, file).toContain("device === 'desktop' &&")
+      expect(text, file).toContain('<CompositionDonutSide')
+    }
+  })
+
+  it('移动端构成环在分段下、表格上，且随 side 切换一侧', () => {
+    for (const file of ['BalanceView.tsx', 'FlowView.tsx', 'CashView.tsx']) {
+      const text = source(`features/reports/${file}`)
+      const segmented = text.indexOf('<HfSegmented')
+      const donut = text.indexOf('<CompositionDonutSide')
+      // 取最后一个 <ReportTable：PC 分支里的 <ReportTablePair 也算前缀匹配。
+      const table = text.lastIndexOf('<ReportTable')
+      expect(segmented, `${file} 分段`).toBeGreaterThan(-1)
+      expect(donut, `${file} 构成环`).toBeGreaterThan(segmented)
+      expect(table, `${file} 表格`).toBeGreaterThan(donut)
+      // 环的节点按 side 取一侧，而不是双环同时显示。
+      const donutBlock = text.slice(donut, table)
+      expect(donutBlock, file).toMatch(/nodes=\{side === '[^']+' \? .+ : .+\}/)
+    }
+  })
+
+  it('全项目只有一份构成环绘制实现，总览与报表都委托给它', () => {
+    const donut = source('features/shared/DonutChart.tsx')
+    expect(donut).toContain('function donutArc')
+    expect(donut).toContain('function mergeTail')
+    // 报表侧只 re-export，不再自己画弧。
+    const charts = source('features/reports/charts.tsx')
+    expect(charts).not.toContain('function donutArc')
+    expect(charts).toContain("export { DonutChart")
+    // 总览侧只剩 OverviewPage 内联的数据适配，独立适配文件已删除。
+    expect(existsSync(resolve(WEB_ROOT, 'src/features/overview/ExpenseCategoryPie.tsx'))).toBe(false)
+    const overview = source('features/overview/OverviewPage.tsx')
+    expect(overview).toContain('<DonutChart')
+    expect(overview).not.toContain('donutArc')
+    // 样式同源：环与图例只由 shared/donut.css 定义。
+    const css = source('features/reports/reports.css')
+    expect(css).not.toContain('.mb-rp-donut-arc')
+    expect(source('features/overview/overview.css')).not.toContain('.mb-expense-pie-arc')
+  })
+
+  it('四条环下钻链路统一：都构造 DrillTarget 走同一份抽屉，而非环点击直接跳流水', () => {
+    const page = source('features/reports/ReportsPage.tsx')
+    // 报表页只有一个 DrillDrawer 实例，三条链路都 setDrill 到它。
+    expect(page.match(/<DrillDrawer/g)).toHaveLength(1)
+    expect(page).toContain('buildDrillFor')
+    expect(page).not.toContain('buildDrill(')
+    // 收支 / 资产负债 / 现金流三张报表都通过 target 下钻，不再直接 onViewFlow。
+    for (const file of ['BalanceView.tsx', 'CashView.tsx']) {
+      const text = source(`features/reports/${file}`)
+      expect(text, file).toContain('onDrill: (target: DrillTarget) => void')
+      if (file === 'BalanceView.tsx') expect(text, file).toContain("type: 'account'")
+      else expect(text, file).toContain("type: 'category'")
+      expect(text, file).toContain('canViewFlow')
+    }
+    // 总览支出环也走同一份抽屉，不再由 onDrill 回调直接跳流水。
+    const overview = source('features/overview/OverviewPage.tsx')
+    expect(overview).toContain('<DrillDrawer')
+    expect(overview).toContain('buildDrillFor')
+    expect(overview).toContain('openCategory')
+    // 唯一的数据构建实现在 reportsModel。
+    const model = source('features/reports/reportsModel.ts')
+    expect(model).toContain('function buildDrillFor')
+    expect(model).toContain("childTitle: string")
+  })
 })

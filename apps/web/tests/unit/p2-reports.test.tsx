@@ -13,7 +13,8 @@ import { CompositionBars } from '@/features/reports/charts'
 import { flattenTreeRows } from '@/features/reports/reportRows'
 import { mapBalanceReport } from '@/features/reports/apiReports'
 import {
-  buildDrill,
+  buildDrillFor,
+  flowDrillTarget,
   type FlowTreeNode,
 } from '@/features/reports/reportsModel'
 import {
@@ -128,7 +129,7 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
   })
 
   it('点进「其余」的下钻金额与被点行一致', () => {
-    const drill = buildDrill(createSeedLedger(), restNode, 'expense', '2026-10-01', '2026-10-28')
+    const drill = buildDrillFor(createSeedLedger(), flowDrillTarget(restNode, 'expense'), '2026-10-01', '2026-10-28')
     expect(drill.title).toBe('其余 2 类')
     expect(drill.amount).toBe(2_490)
     expect(drill.children.reduce((sum, child) => sum + child.amount, 0)).toBe(2_490)
