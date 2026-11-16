@@ -1,15 +1,15 @@
 /**
- * 现金流视图：指标条 + 桑基（仅 PC）+ 流入 / 流出双表（移动端横条与卡片）。
+ * 现金流视图：指标条 + 桑基（仅 PC）+ 流入 / 流出双表（PC 并排 / 移动横条 + 分段单表）。
  * 活动分组固定全显示，表尾合计就是各组之和；点切块 / ribbon 落到同一节点抽屉。
  */
 import { useState } from 'react'
 import { HfButton } from '@/features/shared/HfButton'
 import { HfSheet } from '@/features/shared/HfSheet'
 import type { DeviceMode } from '@/features/shared/types'
-import { isExpanded, type FoldState } from '@/features/shared/foldState'
+import type { FoldState } from '@/features/shared/foldState'
 import { CashSankeyChart } from './CashSankey'
 import { ChartCard, CashFlowBars } from './charts'
-import { MetricStrip, ReportCardList, ReportTablePair, type CardRow, type ReportColumn } from './ReportTable'
+import { MetricStrip, ReportTable, ReportTablePair, type ReportColumn } from './ReportTable'
 import { HfSegmented } from '@/features/shared/HfSegmented'
 import { cashRowsFor, currency, type CashReport } from './reportsModel'
 import { cashTotalOf } from './reportSettings'
@@ -58,42 +58,10 @@ export function CashView({
     : []
   const inflowTotal = cashTotalOf(report.inflowGroups)
   const outflowTotal = cashTotalOf(report.outflowGroups)
-  const groups = side === 'in' ? report.inflowGroups : report.outflowGroups
-  // 左右两表共用一份展开状态：键必须带方向前缀，否则同名分组会串扰。
-  const foldKey = (id: string) => `${side}:${id}`
-  const cards: CardRow[] = []
-  for (const group of groups) {
-    const key = foldKey(group.key)
-    const open = isExpanded(expanded, key)
-    cards.push({
-      id: key,
-      label: group.name,
-      meta: group.meta ?? `${group.count} 笔`,
-      hint: group.predicted ? '预测' : undefined,
-      amount: currency(group.total),
-      tone: side === 'in' ? 'income' : 'expense',
-      fold: group.children.length > 0 ? { expanded: open, onToggle: () => onFold(key) } : undefined,
-    })
-    if (open) {
-      for (const child of group.children) {
-        cards.push({
-          id: foldKey(child.id),
-          level: 1,
-          label: child.label,
-          meta: child.account,
-          hint: child.predicted ? '预测' : undefined,
-          amount: currency(child.amount),
-          tone: side === 'in' ? 'income' : 'expense',
-        })
-      }
-    }
-  }
-
   const inflowRows = cashRowsFor('in', report.inflowGroups, expanded, onFold)
   const outflowRows = cashRowsFor('out', report.outflowGroups, expanded, onFold)
-  const feeNote = report.reconcile.transferFee > 0
-    ? ` · 手续费 ${currency(report.reconcile.transferFee)} 不计`
-    : ''
+  // 移动端分段单表：两段补齐到相同行数，切换标签时 tbody 行数与合计行位置不变、高度不跳变。
+  const mobileMinRows = Math.max(inflowRows.length, outflowRows.length)
 
   return (
     <>
@@ -110,7 +78,6 @@ export function CashView({
             left={{
               device,
               title: '流入',
-              desc: `合计 ${currency(inflowTotal)}`,
               ariaLabel: '现金流入',
               columns: CASH_COLUMNS,
               rows: inflowRows,
@@ -119,7 +86,6 @@ export function CashView({
             right={{
               device,
               title: '流出',
-              desc: `合计 ${currency(outflowTotal)}${feeNote}`,
               ariaLabel: '现金流出',
               columns: CASH_COLUMNS,
               rows: outflowRows,
@@ -145,16 +111,14 @@ export function CashView({
             ]}
             onChange={onSide}
           />
-          <ReportCardList
+          <ReportTable
             device={device}
             title={side === 'in' ? '流入' : '流出'}
-            desc={
-              side === 'in'
-                ? `合计 ${currency(inflowTotal)}`
-                : `合计 ${currency(outflowTotal)}${feeNote}`
-            }
-            rows={cards}
-            total={{ label: '合计', value: currency(side === 'in' ? inflowTotal : outflowTotal) }}
+            ariaLabel={side === 'in' ? '现金流入' : '现金流出'}
+            columns={CASH_COLUMNS}
+            rows={side === 'in' ? inflowRows : outflowRows}
+            minRows={mobileMinRows}
+            total={['合计', '', currency(side === 'in' ? inflowTotal : outflowTotal)]}
           />
         </>
       )}

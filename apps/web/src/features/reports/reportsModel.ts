@@ -268,15 +268,6 @@ export interface CashReport {
   metrics: ReportMetric[]
   /** 后端口径说明（含预算预测时给出）。 */
   predictionNote?: string
-  /** 三处口径对账所需明细；不改业务规则，只把差异显式列出。 */
-  reconcile: {
-    flowIncome: number
-    flowExpense: number
-    flowBalance: number
-    adjustmentExpense: number
-    transferFee: number
-    difference: number
-  }
 }
 
 export interface InvestmentAllocation {

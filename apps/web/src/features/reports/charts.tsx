@@ -355,7 +355,7 @@ export function CompositionBars({
 }) {
   return (
     <DonutCompare
-      title="收入 / 支出构成"
+      title="支出 / 收入构成"
       device={device}
       onOpen={onOpen}
       namedCount={namedCount}

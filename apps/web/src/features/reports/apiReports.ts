@@ -500,14 +500,6 @@ export function mapCashReport(data: CashFlowReportData, ledger: Ledger, from: st
     inflowGross,
     outflowGross,
     predictionNote: data.predictionNote,
-    reconcile: {
-      flowIncome: inflowTotal,
-      flowExpense: outflowTotal,
-      flowBalance: operatingNet,
-      adjustmentExpense: 0,
-      transferFee: 0,
-      difference: 0,
-    },
     metrics: [
       {
         label: '期末现金总量',
@@ -835,14 +827,6 @@ export function mapProjectionCashReport(
     inflowGross: Math.abs(data.cashInflow.total),
     outflowGross: Math.abs(data.cashOutflow.total),
     predictionNote: data.predictionNote,
-    reconcile: {
-      flowIncome: Math.abs(data.cashInflow.total),
-      flowExpense: Math.abs(data.cashOutflow.total),
-      flowBalance: data.netCashFlow.total,
-      adjustmentExpense: 0,
-      transferFee: 0,
-      difference: 0,
-    },
     metrics: [
       { label: '期末现金总量', value: currency(data.endCash) },
       metric(

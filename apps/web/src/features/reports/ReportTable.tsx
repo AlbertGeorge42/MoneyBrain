@@ -1,8 +1,9 @@
 /**
- * 报表表格与移动卡片行（HF 批次 3）
+ * 报表明细表格（双端同一套行）
  *
- * PC 表格：固定 29px 行高、数字右对齐、合计行内嵌在表尾（末页不重复）；
- * 移动端按 platform-design 降级为卡片行，折叠热区仍 ≥ 44px。
+ * 固定 29px 行高、数字右对齐、合计行内嵌在表尾（末页不重复）。
+ * PC 用 ReportTablePair 左右并排；移动端分段单表、所有列一屏内显示不横滑，
+ * 折叠按钮的 44px 热区在两端一致。
  */
 import type { ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
@@ -29,22 +30,6 @@ export interface ReportRow {
   tone?: 'income' | 'expense' | 'neutral' | 'transfer'
   /** 行内后缀：紧贴首列名称的极短标记，不新增行。 */
   hint?: string
-}
-
-export interface CardRow {
-  id: string
-  /** 首列名称；可以是带图标的节点（设置页分类 / 分组行）。 */
-  label: ReactNode
-  meta?: string
-  hint?: string
-  amount: ReactNode
-  tone?: 'income' | 'expense' | 'neutral' | 'transfer'
-  /** 0 = 一级分类 / 1 = 二级分类 / 2 = 分类下的账户。 */
-  level?: 0 | 1 | 2
-  share?: number
-  barTone?: 'income' | 'expense' | 'accent'
-  fold?: { expanded: boolean; onToggle: () => void }
-  onOpen?: () => void
 }
 
 function MetricLabel({ metric }: { metric: ReportMetric }) {
@@ -97,23 +82,19 @@ export function MetricStrip({
 export interface ReportTableProps {
   device: DeviceMode
   title: string
-  desc?: string
   columns: ReportColumn[]
   rows: ReportRow[]
   total?: ReactNode[]
-  /** 并排两表的最小数据行数：按两表最大行数补齐，保证 tfoot 同 y。 */
+  /** 最小数据行数：按待切换/并排的两表最大行数补齐，保证 tfoot 位置固定、切换或并排时高度不跳变。 */
   minRows?: number
   note?: string
   variant?: 'c2' | 'c3' | 'c4' | 'c5' | 'c6'
   ariaLabel: string
-  /** 移动端横向滚动 + 首列吸顶：用于列数多、无法卡片化的单表。 */
-  scrollable?: boolean
 }
 
 export function ReportTable({
   device,
   title,
-  desc,
   columns,
   rows,
   total,
@@ -121,7 +102,6 @@ export function ReportTable({
   note,
   variant = 'c3',
   ariaLabel,
-  scrollable = false,
 }: ReportTableProps) {
   const empty = rows.length === 0
   // 只要有一行可折叠，就给所有一级行预留同样的折叠槽，避免「有箭头/无箭头」两套缩进。
@@ -131,12 +111,11 @@ export function ReportTable({
       <div className="mb-rp-sec-head">
         <div>
           <h3 className="mb-rp-sec-title">{title}</h3>
-          {desc && <p className="mb-rp-sec-desc">{desc}</p>}
         </div>
       </div>
       <div className="mb-rp-table-wrap">
         <table
-          className={`mb-rp-table is-${variant}${scrollable ? ' is-scroll' : ''}${foldable ? ' is-foldable' : ''}`}
+          className={`mb-rp-table is-${variant}${foldable ? ' is-foldable' : ''}`}
           aria-label={ariaLabel}
         >
           <colgroup>
@@ -264,87 +243,5 @@ export function ReportTablePair({
       <ReportTable {...left} minRows={minRows} />
       <ReportTable {...right} minRows={minRows} />
     </div>
-  )
-}
-
-export function ReportCardList({
-  device,
-  title,
-  desc,
-  rows,
-  total,
-  note,
-  emptyText = '该期间没有数据',
-}: {
-  device: DeviceMode
-  title: string
-  desc?: string
-  rows: CardRow[]
-  total?: { label: string; value: ReactNode }
-  note?: string
-  emptyText?: string
-}) {
-  if (device === 'desktop') return null
-  return (
-    <Card variant="report" className="mb-rp-cards">
-      <div className="mb-rp-sec-head">
-        <div>
-          <h3 className="mb-rp-sec-title">{title}</h3>
-          {desc && <p className="mb-rp-sec-desc">{desc}</p>}
-        </div>
-      </div>
-      {rows.length === 0 ? (
-        <p className="mb-rp-empty-line">{emptyText}</p>
-      ) : (
-        <div className="mb-rp-crow-list">
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className={`mb-rp-crow${row.level === 1 ? ' is-child' : row.level === 2 ? ' is-child-2' : ''}${row.onOpen ? ' is-interactive' : ''}`}
-            >
-              {row.fold && (
-                <HfButton
-                  className="mb-rp-crow-fold"
-                  aria-expanded={row.fold.expanded}
-                  aria-label={row.fold.expanded ? '收起子项' : '展开子项'}
-                  onClick={row.fold.onToggle}
-                >
-                  {row.fold.expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </HfButton>
-              )}
-              <HfButton
-                className="mb-rp-crow-main"
-                disabled={!row.onOpen}
-                onClick={row.onOpen}
-              >
-                <span className="mb-rp-crow-copy">
-                  <span className="mb-rp-crow-label-wrap">
-                    <span className="mb-rp-crow-label">{row.label}</span>
-                    {row.hint && <ReportRowHint hint={row.hint} />}
-                  </span>
-                  {row.meta && <span className="mb-rp-crow-meta">{row.meta}</span>}
-                </span>
-                <span className={`mb-rp-crow-amount is-${row.tone ?? 'neutral'}`}>{row.amount}</span>
-              </HfButton>
-              {row.share !== undefined && (
-                <progress
-                  className={`mb-rp-crow-bar is-${row.barTone ?? 'accent'}`}
-                  value={Math.min(100, row.share)}
-                  max={100}
-                  aria-label={`占比 ${row.share.toFixed(1)}%`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      {total && rows.length > 0 && (
-        <div className="mb-rp-crow-total">
-          <span>{total.label}</span>
-          <span className="mb-rp-crow-amount">{total.value}</span>
-        </div>
-      )}
-      {note && <p className="mb-rp-table-note">{note}</p>}
-    </Card>
   )
 }

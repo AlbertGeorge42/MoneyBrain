@@ -436,6 +436,22 @@ describe('收支明细 / 现金流：合计行强制对齐', () => {
     expect(bodyRows('收入构成')).toBe(bodyRows('支出构成'))
   })
 
+  it('收支双表左支出右收入，与移动端分段和构成环同序', async () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('tab', { name: '收支明细' }))
+    const labels = [...document.querySelectorAll('table[aria-label]')].map((table) =>
+      table.getAttribute('aria-label'),
+    )
+    const expense = labels.indexOf('支出构成')
+    const income = labels.indexOf('收入构成')
+    expect(expense).toBeGreaterThanOrEqual(0)
+    expect(income).toBeGreaterThan(expense)
+    // 构成环同样是支出在左、收入在右。
+    const sides = document.querySelectorAll('.mb-rp-compare-side')
+    expect(sides[0].textContent).toContain('支出构成')
+    expect(sides[1].textContent).toContain('收入构成')
+  })
+
   it('现金流空流入表也补齐到与流出表同高', async () => {
     renderPage()
     fireEvent.click(screen.getByRole('tab', { name: '现金流' }))

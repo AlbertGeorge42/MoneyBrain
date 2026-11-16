@@ -1,13 +1,13 @@
 /**
  * 报表与账本配置的共享原语回归：默认折叠、竖向拖拽、双表强制对齐、
- * 以及「设置不再提供显示口径配置 / 不再有对账入口」的结构守护。
+ * 移动端分段表补齐对齐，以及「设置不再提供显示口径配置 / 不再有对账入口」的结构守护。
  */
 import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { render } from '@testing-library/react'
-import { ReportTablePair, type ReportTableProps } from '@/features/reports/ReportTable'
+import { ReportTable, ReportTablePair, type ReportTableProps } from '@/features/reports/ReportTable'
 import {
   isExpanded,
   setExpandedKeys,
@@ -117,6 +117,89 @@ describe('左右双表合计行强制对齐', () => {
     // 折叠行 / 补齐行 / 空态行统一固定行高，表头也固定高度。
     expect(css).toMatch(/\.mb-rp-table tbody tr\s*\{[^}]*height:\s*var\(--mb-tbl-row-h\)/)
     expect(css).toMatch(/\.mb-rp-cols > \.mb-rp-table-card > \.mb-rp-sec-head\s*\{[^}]*min-height:/)
+  })
+})
+
+describe('报表明细行双端同风格', () => {
+  it('四张报表的移动端都用 ReportTable 表格行，卡片行与横滑实现已删除', () => {
+    for (const file of ['BalanceView.tsx', 'FlowView.tsx', 'CashView.tsx', 'InvestView.tsx']) {
+      const text = source(`features/reports/${file}`)
+      expect(text, file).not.toContain('ReportCardList')
+      expect(text, file).not.toContain('flattenTreeCards')
+      // 移动端所有列一屏内显示，不允许横滑或首列吸顶。
+      expect(text, file).not.toContain('scrollable')
+      expect(text, file).toContain('<ReportTable')
+    }
+    const tableSource = source('features/reports/ReportTable.tsx')
+    expect(tableSource).not.toContain('CardRow')
+    expect(tableSource).not.toContain('is-scroll')
+    expect(source('features/reports/reportRows.ts')).not.toContain('flattenTreeCards')
+    const css = source('features/reports/reports.css')
+    expect(css).not.toContain('mb-rp-crow')
+    expect(css).not.toContain('is-scroll')
+  })
+
+  it('明细表副标题不再重复表尾合计，手续费说明随后端计入一并删除', () => {
+    for (const file of ['BalanceView.tsx', 'FlowView.tsx', 'CashView.tsx', 'InvestView.tsx']) {
+      expect(source(`features/reports/${file}`), file).not.toMatch(/<ReportTable[\s\S]{0,400}?\bdesc[=:]/)
+      expect(source(`features/reports/${file}`), file).not.toContain('desc:')
+    }
+    const tableSource = source('features/reports/ReportTable.tsx')
+    expect(tableSource).not.toContain('desc?: string')
+    expect(tableSource).not.toContain('mb-rp-sec-desc')
+    // 手续费已由后端计入现金流，前端不再有恒为 0 的口径提示字段。
+    expect(source('features/reports/CashView.tsx')).not.toContain('feeNote')
+    expect(source('features/reports/apiReports.ts')).not.toContain('transferFee')
+    expect(source('features/reports/reportsModel.ts')).not.toContain('transferFee')
+  })
+
+  it('单个 ReportTable 传 minRows 也会补 pad 行，合计行位置固定', () => {
+    const { container } = render(
+      <ReportTable {...base} title="移动表" ariaLabel="移动表" rows={[row('1', '一')]} minRows={3} />,
+    )
+    const table = container.querySelector('table')!
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(3)
+    expect(table.querySelectorAll('tbody tr.is-pad')).toHaveLength(2)
+    expect(table.querySelector('tfoot tr.is-total')).not.toBeNull()
+  })
+
+  it('三张移动端分段表都按两段最大行数补齐，切换标签时高度不跳变', () => {
+    for (const file of ['BalanceView.tsx', 'FlowView.tsx', 'CashView.tsx']) {
+      const text = source(`features/reports/${file}`)
+      // 两段行数取最大值，且移动端那张表确实消费了它。
+      expect(text, file).toMatch(/mobileMinRows = Math\.max\([^;]+\)/)
+      expect(text, file).toContain('minRows={mobileMinRows}')
+    }
+    // 投资页不是分段切换结构，不需要补齐。
+    expect(source('features/reports/InvestView.tsx')).not.toContain('mobileMinRows')
+  })
+
+  it('收支表双端同序：PC 左支出右收入，移动端分段支出在前', () => {
+    const flow = source('features/reports/FlowView.tsx')
+    // PC 双表：left 是支出、right 是收入。
+    const left = /left=\{\{[\s\S]*?title:\s*'([^']+)'/.exec(flow)
+    const right = /right=\{\{[\s\S]*?title:\s*'([^']+)'/.exec(flow)
+    expect(left?.[1]).toBe('支出构成')
+    expect(right?.[1]).toBe('收入构成')
+    // 移动端分段：expense 选项排在 income 前面。
+    const segment = /<HfSegmented[\s\S]*?options=\{\[([\s\S]*?)\]\}/.exec(flow)?.[1] ?? ''
+    const expense = segment.indexOf("id: 'expense'")
+    const income = segment.indexOf("id: 'income'")
+    expect(expense).toBeGreaterThanOrEqual(0)
+    expect(income).toBeGreaterThan(expense)
+  })
+
+  it('移动端子行缩进比表头多一级，账户行再多一级', () => {
+    const css = source('features/reports/reports.css')
+    // 表头/合计、is-child、is-child-2 三档递增，不能合并成同一缩进。
+    const head = /is-foldable th:first-child[\s\S]*?padding-left:\s*calc\(([^;]+)\)/.exec(css)
+    const child = /tr\.is-child td:first-child[\s\S]*?padding-left:\s*calc\(([^;]+)\)/.exec(css)
+    const child2 = /tr\.is-child-2 td:first-child[\s\S]*?padding-left:\s*calc\(([^;]+)\)/.exec(css)
+    expect(head, '表头缩进').not.toBeNull()
+    expect(child, '子级缩进').not.toBeNull()
+    expect(child2, '账户级缩进').not.toBeNull()
+    expect(child![1].split('+').length).toBeGreaterThan(head![1].split('+').length)
+    expect(child2![1].split('+').length).toBeGreaterThan(child![1].split('+').length)
   })
 })
 

@@ -81,10 +81,8 @@ export function InvestView({
       <ReportTable
         device={device}
         title="持仓明细"
-        desc={`总市值 ${currency(report.total)} · 成本 ${currency(report.costTotal)}`}
         ariaLabel="投资持仓明细"
         variant="c5"
-        scrollable
         columns={[
           { label: '持仓' },
           { label: '市值', align: 'num' },

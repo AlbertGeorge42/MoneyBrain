@@ -1,5 +1,5 @@
 /**
- * 资产负债视图：指标条 + 净值走势 + 资产 / 负债单框双环 + 资产 / 负债双表（移动端卡片）。
+ * 资产负债视图：指标条 + 净值走势 + 资产 / 负债单框双环 + 资产 / 负债双表（PC 并排 / 移动分段单表）。
  *
  * 表格与两张环图共用同一份「账户分类 → 账户」树：一级先给分类占比，
  * 点分类进入该分类下的账户，顺序沿用设置里的拖拽顺序，默认全部折叠。
@@ -12,9 +12,9 @@ import { formatPercent } from '@/utils/format'
 import type { LedgerAccountCategory } from '@/features/overview/model'
 import type { DeviceMode } from '@/features/shared/types'
 import { BalanceComposition, ReportLineChart } from './charts'
-import { MetricStrip, ReportCardList, ReportTablePair, type ReportColumn } from './ReportTable'
+import { MetricStrip, ReportTable, ReportTablePair, type ReportColumn } from './ReportTable'
 import { chartGrid } from './reportsShared'
-import { flattenTreeCards, flattenTreeRows, type TreeRenderOptions } from './reportRows'
+import { flattenTreeRows, type TreeRenderOptions } from './reportRows'
 import {
   buildBalanceGroups,
   buildBalanceTrees,
@@ -29,9 +29,6 @@ const COLUMNS: ReportColumn[] = [
   { label: '金额', align: 'num' },
   { label: '占比', align: 'num' },
 ]
-
-const childLegend = (trees: FlowTreeNode[]) =>
-  trees.some((tree) => tree.children.length > 0) ? ' · † 子级已计入父级' : ''
 
 const shareTotal = (trees: FlowTreeNode[]) =>
   trees.reduce((sum, tree) => sum + tree.share, 0)
@@ -82,20 +79,15 @@ export function BalanceView({
       onViewFlow({ accountId: node.id, from, to })
     }
   }
-  const options = (barTone: 'accent' | 'expense'): TreeRenderOptions => ({
+  const options: TreeRenderOptions = {
     unit: '个',
-    childLegend: true,
-    barTone,
-    tone: barTone === 'expense' ? 'expense' : undefined,
     onOpen: openAccount,
-  })
-  const assetOptions = options('accent')
-  const liabilityOptions = options('expense')
+  }
 
-  const assetRows = flattenTreeRows(assetTrees, expanded, toggleGroup, assetOptions)
-  const liabilityRows = flattenTreeRows(liabilityTrees, expanded, toggleGroup, liabilityOptions)
-  const assetCards = flattenTreeCards(assetTrees, expanded, toggleGroup, assetOptions)
-  const liabilityCards = flattenTreeCards(liabilityTrees, expanded, toggleGroup, liabilityOptions)
+  const assetRows = flattenTreeRows(assetTrees, expanded, toggleGroup, options)
+  const liabilityRows = flattenTreeRows(liabilityTrees, expanded, toggleGroup, options)
+  // 移动端分段单表：两段补齐到相同行数，切换标签时 tbody 行数与合计行位置不变、高度不跳变。
+  const mobileMinRows = Math.max(assetRows.length, liabilityRows.length)
 
   const trend = (
     <ReportLineChart
@@ -138,7 +130,6 @@ export function BalanceView({
           left={{
             device,
             title: '资产',
-            desc: `合计 ${currency(report.assetTotal)}${childLegend(assetTrees)}`,
             ariaLabel: '资产明细',
             columns: COLUMNS,
             rows: assetRows,
@@ -148,7 +139,6 @@ export function BalanceView({
           right={{
             device,
             title: '负债',
-            desc: `合计 ${currency(report.liabilityTotal)}${childLegend(liabilityTrees)}`,
             ariaLabel: '负债明细',
             columns: COLUMNS,
             rows: liabilityRows,
@@ -169,20 +159,26 @@ export function BalanceView({
             onChange={onSide}
           />
           {side === 'assets' ? (
-            <ReportCardList
+            <ReportTable
               device={device}
               title="资产"
-              desc={`总资产 ${currency(report.assetTotal)}`}
-              rows={assetCards}
-              total={{ label: '合计', value: currency(report.assetTotal) }}
+              ariaLabel="资产明细"
+              columns={COLUMNS}
+              rows={assetRows}
+              minRows={mobileMinRows}
+              variant="c4"
+              total={totalCells(report.assetTotal, assetTrees)}
             />
           ) : (
-            <ReportCardList
+            <ReportTable
               device={device}
               title="负债"
-              desc={`负债合计 ${currency(report.liabilityTotal)}`}
-              rows={liabilityCards}
-              total={{ label: '合计', value: currency(report.liabilityTotal) }}
+              ariaLabel="负债明细"
+              columns={COLUMNS}
+              rows={liabilityRows}
+              minRows={mobileMinRows}
+              variant="c4"
+              total={totalCells(report.liabilityTotal, liabilityTrees)}
             />
           )}
         </>

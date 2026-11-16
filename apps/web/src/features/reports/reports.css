@@ -83,8 +83,6 @@
 .mb-rp-iconbtn:focus-visible,
 .mb-rp-settings-btn:focus-visible,
 .mb-rp-btn:focus-visible,
-.mb-rp-crow-main:focus-visible,
-.mb-rp-crow-fold:focus-visible,
 .mb-rp-fold:focus-visible,
 .mb-rp-donut-back:focus-visible,
 .mb-rp-table tr.is-interactive:focus-visible {
@@ -296,19 +294,16 @@
 
 .mb-rp-metric-value.is-income,
 .mb-rp-drill-amount.is-income,
-.mb-rp-drill-value.is-income,
-.mb-rp-crow-amount.is-income {
+.mb-rp-drill-value.is-income {
   color: var(--mb-color-income);
 }
 
 .mb-rp-metric-value.is-expense,
 .mb-rp-drill-amount.is-expense,
-.mb-rp-drill-value.is-expense,
-.mb-rp-crow-amount.is-expense {
+.mb-rp-drill-value.is-expense {
   color: var(--mb-color-expense-display);
 }
 
-.mb-rp-crow-amount.is-transfer,
 .mb-rp-drill-value.is-transfer {
   color: var(--mb-color-transfer);
 }
@@ -557,159 +552,57 @@
 .mb-rp-table.is-c6 col:nth-child(5) { width: 14%; }
 .mb-rp-table.is-c6 col:nth-child(6) { width: 16%; }
 
-/* 单表横向滚动：移动端首列吸顶（投资持仓明细） */
+/* 投资持仓列宽（双端共用的基准分档） */
 .mb-rp-table.is-c5 col:nth-child(1) { width: 28%; }
 .mb-rp-table.is-c5 col:nth-child(2),
 .mb-rp-table.is-c5 col:nth-child(3),
 .mb-rp-table.is-c5 col:nth-child(4),
 .mb-rp-table.is-c5 col:nth-child(5) { width: 18%; }
 
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll {
-  min-width: 640px;
-}
-
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll th:first-child,
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll td:first-child {
-  position: sticky;
-  left: 0;
-  background: var(--mb-color-surface-raised);
-  box-shadow: 1px 0 0 var(--mb-color-border);
-}
-
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll th:first-child {
-  z-index: var(--mb-z-local-2);
-}
-
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll td:first-child {
-  z-index: var(--mb-z-local-1);
-}
-
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-scroll tfoot td:first-child {
-  background: var(--mb-color-surface-sunken);
-}
-
-/* ===== 移动卡片行 ===== */
-
-.mb-rp-cards {
-  padding-bottom: var(--mb-s-2);
-}
-
-.mb-rp-crow-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.mb-rp-crow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  border-bottom: 1px solid color-mix(in srgb, var(--mb-color-border) 70%, transparent);
-}
-
-.mb-rp-crow:last-child {
-  border-bottom: 0;
-}
-
-.mb-rp-crow.is-child {
-  padding-left: 18px;
-}
-
-.mb-rp-crow.is-child-2 {
-  padding-left: 36px;
-}
-
-.mb-rp-crow.is-child-2 .mb-rp-crow-label {
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-rp-crow-fold {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: var(--mb-btn-h-lg);
-  height: var(--mb-btn-h-lg);
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-text-tertiary);
-  cursor: pointer;
-}
-
-.mb-rp-crow-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mb-s-2);
-  /* basis 用 auto：进度条 flex-basis 100% 时，0% 基准会让两者挤在同一行把主按钮压成 0 宽 */
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: var(--mb-btn-h-lg);
-  padding: 4px 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.mb-rp-crow-main:disabled {
-  cursor: default;
-}
-
-.mb-rp-crow-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mb-rp-crow-label-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mb-s-2);
-  min-width: 0;
-}
-
-.mb-rp-crow-label {
-  font-size: var(--mb-fs-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb-rp-crow-meta {
+/* 移动端表格：所有列一屏内显示，不横滑、不吸顶。 */
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table {
   font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
-.mb-rp-crow-amount {
-  flex: none;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-2);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table th,
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table td {
+  padding-left: var(--mb-s-1);
+  padding-right: var(--mb-s-1);
 }
 
-.mb-rp-crow-bar {
-  flex-basis: 100%;
-  margin: 0 0 8px;
+/* 缩进层级沿用 PC：表头/合计与一级行同起点，子级与账户级各再进 16px；只把 8px 内距收到 4px。 */
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-foldable th:first-child,
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-foldable tfoot td:first-child {
+  padding-left: calc(var(--mb-s-1) + 22px + 2px);
 }
 
-.mb-rp-crow-total {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: var(--mb-s-2);
-  padding-top: var(--mb-s-2);
-  border-top: 1px solid var(--mb-color-border-strong);
-  font-size: var(--mb-fs-1);
-  font-weight: 600;
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table tr.is-child td:first-child {
+  padding-left: calc(var(--mb-s-1) + 22px + 2px + 16px);
 }
+
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table tr.is-child-2 td:first-child {
+  padding-left: calc(var(--mb-s-1) + 22px + 2px + 16px + 16px);
+}
+
+/* 移动端列宽重排：金额 / 占比给足，长名称由单元格自己省略。 */
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c3 col:nth-child(1) { width: 33%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c3 col:nth-child(2) { width: 31%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c3 col:nth-child(3) { width: 36%; }
+
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(1) { width: 34%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(2) { width: 13%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(3) { width: 33%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(4) { width: 20%; }
+
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(1) { width: 22%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(2) { width: 22%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(3) { width: 20%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(4) { width: 20%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(5) { width: 16%; }
 
 /* ===== 进度条 ===== */
 
 progress.mb-rp-progress,
-progress.mb-rp-crow-bar,
 progress.mb-rp-flow-progress {
   appearance: none;
   -webkit-appearance: none;
@@ -738,25 +631,21 @@ progress::-moz-progress-bar {
 }
 
 progress.mb-rp-progress.is-income::-webkit-progress-value,
-progress.mb-rp-crow-bar.is-income::-webkit-progress-value,
 progress.mb-rp-flow-progress.is-in::-webkit-progress-value {
   background: var(--mb-color-income);
 }
 
 progress.mb-rp-progress.is-expense::-webkit-progress-value,
-progress.mb-rp-crow-bar.is-expense::-webkit-progress-value,
 progress.mb-rp-flow-progress.is-out::-webkit-progress-value {
   background: var(--mb-color-expense-display);
 }
 
 progress.mb-rp-progress.is-income::-moz-progress-bar,
-progress.mb-rp-crow-bar.is-income::-moz-progress-bar,
 progress.mb-rp-flow-progress.is-in::-moz-progress-bar {
   background: var(--mb-color-income);
 }
 
 progress.mb-rp-progress.is-expense::-moz-progress-bar,
-progress.mb-rp-crow-bar.is-expense::-moz-progress-bar,
 progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   background: var(--mb-color-expense-display);
 }

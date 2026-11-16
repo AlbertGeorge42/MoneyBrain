@@ -2,7 +2,7 @@
  * P2 #10 / #16（报表）
  *
  * #10 三个 tab 共用一套期间措辞，时点不得晚于数据截止日；
- * #16 卡片合并桶「其余 N 类」与下钻同一聚合口径；子级行挂「†」图例角标。
+ * #16 卡片合并桶「其余 N 类」与下钻同一聚合口径；子级行只做拆分展示。
  */
 import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -134,21 +134,20 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
     expect(drill.children.reduce((sum, child) => sum + child.amount, 0)).toBe(2_490)
   })
 
-  it('子级行挂「†」角标，可见行相加不再被当作合计', () => {
+  it('子级行只做拆分展示，不挂冗余角标', () => {
     const parent: FlowTreeNode = {
       ...node('food', '餐饮', 1_300, 2),
       share: 100,
       children: [{ ...node('lunch', '午餐', 300), level: 1 }],
     }
     // 折叠列表默认收起：只有显式展开过的父级才出子级行。
-    const options = { unit: '笔', childLegend: true }
+    const options = { unit: '笔' }
     expect(flattenTreeRows([parent], {}, () => {}, options).map((row) => row.cells[0])).toEqual([
       '餐饮',
     ])
     const rows = flattenTreeRows([parent], { food: true }, () => {}, options)
     expect(rows.map((row) => row.cells[0])).toEqual(['餐饮', '午餐'])
-    // 1024 首列仅 101px，五字标记会挤掉名称，故用「†」由表说明位图例承载。
-    expect(rows[1].hint).toBe('†')
+    expect(rows[1].hint).toBeUndefined()
     expect(rows[0].hint).toBeUndefined()
     // 父级金额已含子级：子级只是拆分展示，不是额外一笔。
     expect(rows[0].cells[2]).toBe('¥13.00')
