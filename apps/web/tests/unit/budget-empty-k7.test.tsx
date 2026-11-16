@@ -29,7 +29,7 @@ describe('K7 空账本主操作', () => {
       </MantineProvider>,
     )
 
-    const primaries = Array.from(container.querySelectorAll('.mb-primary-btn')).map(
+    const primaries = Array.from(container.querySelectorAll('.mb-shared-btn--primary')).map(
       (node) => node.textContent?.trim(),
     )
     expect(primaries).toEqual(['新增预算条目'])

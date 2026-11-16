@@ -7,7 +7,7 @@ import App from './App'
 import { ToastProvider } from './features/shared/toast'
 import './styles/theme/variables.css'
 import './styles/reset.css'
-import { hfTheme, mbColorSchemeManager, mbCssVariablesResolver } from './styles/theme/hf-theme'
+import { appTheme, mbColorSchemeManager, mbCssVariablesResolver } from './styles/theme/theme-tokens'
 import { ApiClientError } from './services/apiError'
 
 const queryClient = new QueryClient({
@@ -34,7 +34,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <MantineProvider
-        theme={hfTheme}
+        theme={appTheme}
         cssVariablesResolver={mbCssVariablesResolver}
         colorSchemeManager={mbColorSchemeManager}
         defaultColorScheme="auto"

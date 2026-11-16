@@ -61,7 +61,7 @@
   outline-offset: calc(var(--mb-border-width) * -2);
 }
 
-.mb-tx-row .mb-cat-icon {
+.mb-tx-row .mb-shared-icon {
   width: var(--mb-tx-icon);
   height: var(--mb-tx-icon);
 }
@@ -146,29 +146,29 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-tx-refund-tag.is-link {
+.mb-tx-refund-tag--link {
   color: var(--mb-color-accent);
   cursor: pointer;
 }
 
 /* 移动端行内退款链接：文字保持行内，用伪元素把命中区扩到 44 高，不抬行高。
    overflow 需放开，否则伪元素会被裁回 14px 的文字盒。 */
-.mb-mobile-scroll .mb-tx-refund-tag.is-link {
+.mb-shell-scroll .mb-tx-refund-tag--link {
   position: relative;
   overflow: visible;
 }
 
-.mb-mobile-scroll .mb-tx-refund-tag.is-link::after {
+.mb-shell-scroll .mb-tx-refund-tag--link::after {
   content: '';
   position: absolute;
   inset: -15px -8px;
 }
 
-.mb-tx-refund-tag.is-link:hover {
+.mb-tx-refund-tag--link:hover {
   text-decoration: underline;
 }
 
-.mb-tx-refund-tag.is-link:focus-visible {
+.mb-tx-refund-tag--link:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * -1);
 }
@@ -177,7 +177,7 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-tx-refund-tag.is-full {
+.mb-tx-refund-tag--full {
   color: var(--mb-color-warning);
 }
 

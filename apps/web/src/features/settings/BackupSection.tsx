@@ -5,8 +5,8 @@
  * 本组件只渲染表单与执行结果的只读状态（后端派生字段不假装可编辑）。
  */
 import { HardDriveDownload } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSwitch } from '@/features/shared/HfSwitch'
+import { Button } from '@/features/shared/Button'
+import { Switch } from '@/features/shared/Switch'
 import { SettingRow } from '@/features/shared/skeleton/SettingRow'
 import type { AutoBackupConfig } from '@contracts/types'
 
@@ -57,9 +57,9 @@ export function BackupSection({
         {error ? (
           <p className="mb-set-error" role="alert">
             {error}
-            <HfButton className="mb-set-textbtn" onClick={onReload}>
+            <Button className="mb-set-textbtn" onClick={onReload}>
               重试
-            </HfButton>
+            </Button>
           </p>
         ) : (
           <p>{loading ? '正在读取自动备份配置…' : '尚未读取到自动备份配置。'}</p>
@@ -87,7 +87,7 @@ export function BackupSection({
               : '未开启'
           }
           control={
-            <HfSwitch
+            <Switch
               variant="settings"
               checked={effectiveEnabled}
               onChange={onEnabledChange}
@@ -126,9 +126,9 @@ export function BackupSection({
             onChange={(event) => onKeepCountChange(event.target.value)}
           />
         </label>
-        <HfButton className="mb-set-btn is-primary" disabled={saving} onClick={onSave}>
+        <Button className="mb-set-btn mb-set-btn--primary" disabled={saving} onClick={onSave}>
           {saving ? '保存中…' : '保存设置'}
-        </HfButton>
+        </Button>
         {error && (
           <p className="mb-set-error" role="alert">
             {error}

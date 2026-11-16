@@ -13,8 +13,8 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfTabs } from '@/features/shared/HfTabs'
+import { Button } from '@/features/shared/Button'
+import { Tabs } from '@/features/shared/Tabs'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
 import { getCategoryIconKey, getCategoryRootId, type Ledger, type TxType } from '@/features/overview/model'
@@ -87,14 +87,14 @@ function CategoryRowItem({
     <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
       <div className={level > 0 ? 'mb-set-row is-child' : 'mb-set-row'}>
         {row.childCount > 0 ? (
-          <HfButton
+          <Button
             className="mb-set-fold"
             aria-label={open ? '收起子分类' : '展开子分类'}
             aria-expanded={open}
             onClick={() => onToggleExpanded(`cat-${row.id}`)}
           >
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </HfButton>
+          </Button>
         ) : (
           <span className="mb-set-child-space" aria-hidden="true" />
         )}
@@ -230,20 +230,20 @@ export function CategoriesSection({
   return (
     <>
       <div className="mb-set-toolbar">
-        <HfTabs
+        <Tabs
           variant="settings"
           label="收支分类"
           value={tab}
           items={CATEGORY_TABS.map((item) => ({ id: item.type, label: item.label }))}
           onChange={onTabChange}
         />
-        <HfButton
-          className="mb-set-btn is-primary is-small"
+        <Button
+          className="mb-set-btn mb-set-btn--primary mb-set-btn--small"
           onClick={() => onOpenEditor({ kind: 'category', mode: 'create', type: tab })}
         >
           <Plus size={15} />
           新增一级分类
-        </HfButton>
+        </Button>
       </div>
       <DndContext
         sensors={sensors}
@@ -276,12 +276,12 @@ export function CategoriesSection({
               <div className="mb-set-list-empty">
                 <Tag size={22} />
                 <p>这个类型下还没有分类</p>
-                <HfButton
-                  className="mb-set-btn is-primary"
+                <Button
+                  className="mb-set-btn mb-set-btn--primary"
                   onClick={() => onOpenEditor({ kind: 'category', mode: 'create', type: tab })}
                 >
                   <Plus size={16} /> 新增一级分类
-                </HfButton>
+                </Button>
               </div>
             )}
           </div>

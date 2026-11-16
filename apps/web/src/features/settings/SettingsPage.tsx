@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react'
 import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { useToast, type ToastOptions } from '@/features/shared/toastContext'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import { ChevronLeft, Plus, Wallet } from 'lucide-react'
 import type { ThemeMode } from '@/features/shared/types'
 import { fromMajor } from '@domain/index'
@@ -573,13 +573,13 @@ export function SettingsPage({ device, dataState, onRetry }: SettingsPageProps) 
       </div>
       <h2>还没有账户</h2>
       <p>账本为空时设置也可以先配好：从第一个账户开始，分类与现金流标记随后补齐。</p>
-      <HfButton
-        className="mb-set-btn is-primary"
+      <Button
+        className="mb-set-btn mb-set-btn--primary"
         onClick={() => config.setEditor({ kind: 'account', mode: 'create', preset: 'deposit' })}
       >
         <Plus size={16} />
         新增账户
-      </HfButton>
+      </Button>
     </section>
   ) : device === 'desktop' ? (
     <div className="mb-set-layout">
@@ -603,13 +603,13 @@ export function SettingsPage({ device, dataState, onRetry }: SettingsPageProps) 
       {openSection && (
         <div className="mb-set-overlay" role="dialog" aria-label={sectionMeta(openSection).label}>
           <header className="mb-set-overlay-head">
-            <HfButton
+            <Button
               className="mb-set-back"
               onClick={() => setOpenSection(null)}
             >
               <ChevronLeft size={18} />
               返回
-            </HfButton>
+            </Button>
             <h2 className="mb-set-overlay-title">{sectionMeta(openSection).label}</h2>
             <span className="mb-set-back-space" aria-hidden="true" />
           </header>
@@ -627,7 +627,7 @@ export function SettingsPage({ device, dataState, onRetry }: SettingsPageProps) 
           empty || device !== 'desktop' ? undefined : (
             <header className="mb-set-head">
               <h1 className="mb-set-title">设置</h1>
-              <p className="mb-page-sub">数据本地优先 · 自动备份可选</p>
+              <p className="mb-shell-sub">数据本地优先 · 自动备份可选</p>
             </header>
           )
         }

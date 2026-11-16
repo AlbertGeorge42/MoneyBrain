@@ -27,24 +27,24 @@ export function SettingRow({
   variant = 'inline',
 }: SettingRowProps) {
   const className = [
-    'mb-setting-row',
-    variant === 'stack' ? 'is-stack' : '',
-    indent ? 'is-indented' : '',
+    'mb-shared-setting-row',
+    variant === 'stack' ? 'mb-shared-setting-row--stack' : '',
+    indent ? 'mb-shared-setting-row--indented' : '',
   ]
     .filter(Boolean)
     .join(' ')
 
   return (
     <div className={className} data-skeleton="setting-row">
-      <div className="mb-setting-row-copy">
-        <span className="mb-setting-row-label">{label}</span>
+      <div className="mb-set-row-copy">
+        <span className="mb-set-row-label">{label}</span>
         {variant === 'stack' && value ? (
-          <span className="mb-setting-row-value">{value}</span>
+          <span className="mb-set-row-value">{value}</span>
         ) : null}
-        {description ? <span className="mb-setting-row-desc">{description}</span> : null}
+        {description ? <span className="mb-set-row-desc">{description}</span> : null}
       </div>
       {variant === 'inline' && control ? (
-        <div className="mb-setting-row-control">{control}</div>
+        <div className="mb-set-row-control">{control}</div>
       ) : null}
     </div>
   )

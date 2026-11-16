@@ -69,7 +69,7 @@ const danger: MantineColorsTuple = [
   '#4E0F0F',
 ]
 
-export const hfTheme = createTheme({
+export const appTheme = createTheme({
   colors: { brand, gray, dark, danger },
   primaryColor: 'brand',
   primaryShade: { light: 5, dark: 5 },
@@ -310,6 +310,10 @@ const DARK_COLOR_VARS: MbColorVars = {
   '--mb-sh-1': '0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 28px rgba(0, 0, 0, 0.45)',
   '--mb-sh-2': '0 2px 0 rgba(255, 255, 255, 0.04), 0 20px 46px rgba(0, 0, 0, 0.55)',
   '--mb-sh-3': '0 8px 20px rgba(0, 0, 0, 0.55), 0 40px 80px rgba(0, 0, 0, 0.6)',
+
+  /* 与 light 同键：超支宽度运行时由 BudgetProgress 内联覆盖，这里只给守卫与兜底。 */
+  '--mb-fill-width': '0%',
+  '--mb-over-min': 'calc(76.9231% + 8px)',
 }
 
 /**

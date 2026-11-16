@@ -17,7 +17,7 @@ interface PageShellProps {
  */
 export function PageShell({ head, controls, children }: PageShellProps) {
   return (
-    <div className="mb-page-shell" data-skeleton="page-shell">
+    <div className="mb-shell-page-shell" data-skeleton="page-shell">
       {head}
       {controls}
       {children}

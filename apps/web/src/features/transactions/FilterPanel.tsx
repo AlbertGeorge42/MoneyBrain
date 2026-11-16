@@ -1,6 +1,6 @@
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
-import { HfSwitch } from '@/features/shared/HfSwitch'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
+import { Switch } from '@/features/shared/Switch'
 import { RotateCcw } from 'lucide-react'
 import { getCategoryName, type Ledger } from '@/features/overview/model'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
@@ -161,7 +161,7 @@ function FilterFields({
       {/* 统计范围只改合计口径，不参与筛选条件、URL 与「重置条件」。 */}
       <div className="mb-tx-filter-scope">
         <span className="mb-tx-filter-group-title">统计范围</span>
-        <HfSwitch
+        <Switch
           variant="toggle"
           text="含不计收支交易"
           stateText={includeExcluded ? '已含' : '不含'}
@@ -219,13 +219,13 @@ export function DesktopFilterPanel({
         onIncludeExcludedChange={onIncludeExcludedChange}
       />
       <div className="mb-tx-filter-actions">
-        <HfButton className="mb-tx-btn is-ghost" onClick={onReset}>
+        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onReset}>
           <RotateCcw size={15} />
           重置条件
-        </HfButton>
-        <HfButton className="mb-tx-btn" onClick={onClose}>
+        </Button>
+        <Button className="mb-tx-btn" onClick={onClose}>
           收起
-        </HfButton>
+        </Button>
       </div>
     </div>
   )
@@ -259,7 +259,7 @@ export function MobileFilterDrawer({
   if (device !== 'mobile') return null
 
   return (
-    <HfSheet
+    <Sheet
       variant="transaction"
       device={device}
       opened={opened}
@@ -267,18 +267,18 @@ export function MobileFilterDrawer({
       title="高级筛选"
       actions={
         <>
-          <HfButton
-            className="mb-tx-btn is-ghost"
+          <Button
+            className="mb-tx-btn mb-tx-btn--ghost"
             onClick={() => {
               onReset()
               onClose()
             }}
           >
             重置条件
-          </HfButton>
-          <HfButton className="mb-tx-btn is-primary" onClick={onClose}>
+          </Button>
+          <Button className="mb-tx-btn mb-tx-btn--primary" onClick={onClose}>
             完成
-          </HfButton>
+          </Button>
         </>
       }
     >
@@ -292,6 +292,6 @@ export function MobileFilterDrawer({
         excludedCount={excludedCount}
         onIncludeExcludedChange={onIncludeExcludedChange}
       />
-    </HfSheet>
+    </Sheet>
   )
 }

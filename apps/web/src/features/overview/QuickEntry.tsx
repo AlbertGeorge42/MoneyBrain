@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Button, Modal, TextInput } from '@mantine/core'
+import { Button as MantineButton, Modal, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSegmented } from '@/features/shared/HfSegmented'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Segmented } from '@/features/shared/Segmented'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { formatCurrency } from '@/utils/format'
@@ -97,64 +97,64 @@ function AccountPicker({
   // 记账弹层自身带 transform，Drawer 若留在原地会以弹层为包含块（桌面变成居中面板）。
   // 预览壳里把二级抽屉重新挂到 root / 手机框，恢复「桌面贴右缘、移动贴手机底部」。
   return (
-    <HfSheet
+    <Sheet
       variant="entryPicker"
       device={device}
       opened={opened}
       onClose={onClose}
       zIndex={300}
       portal
-      title={<span className="mb-overlay-title">{title}</span>}
+      title={<span className="mb-ov-overlay-title">{title}</span>}
     >
-      <div className="mb-entry-picker">
+      <div className="mb-ov-picker">
         <TextInput
           aria-label="搜索账户"
           placeholder="搜索账户"
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           leftSection={<Search size={16} />}
-          classNames={{ input: 'mb-input' }}
+          classNames={{ input: 'mb-shared-input' }}
         />
         {matched.length === 0 ? (
-          <p className="mb-entry-picker-empty">没有匹配的账户</p>
+          <p className="mb-ov-picker-empty">没有匹配的账户</p>
         ) : (
           kinds.map((kind) => (
-            <div key={kind} className="mb-entry-picker-group">
-              <div className="mb-entry-picker-label">{accountKindLabel(kind)}</div>
+            <div key={kind} className="mb-ov-picker-group">
+              <div className="mb-ov-picker-label">{accountKindLabel(kind)}</div>
               {matched
                 .filter((account) => account.kind === kind)
                 .map((account) => (
-                  <HfButton
+                  <Button
                     key={account.id}
-                    className="mb-entry-picker-item"
+                    className="mb-ov-picker-item"
                     aria-pressed={account.id === selectedId}
                     onClick={() => onSelect(account.id)}
                   >
-                    <span className="mb-entry-picker-name">{accountDisplayName(account, accounts)}</span>
-                    <span className="mb-entry-picker-meta">{formatCurrency(minor(account.balance))}</span>
-                  </HfButton>
+                    <span className="mb-ov-picker-name">{accountDisplayName(account, accounts)}</span>
+                    <span className="mb-ov-picker-meta">{formatCurrency(minor(account.balance))}</span>
+                  </Button>
                 ))}
             </div>
           ))
         )}
       </div>
-    </HfSheet>
+    </Sheet>
   )
 }
 
 function Keypad({ onKey }: { onKey: (key: string) => void }) {
   const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', '⌫']
   return (
-    <div className="mb-entry-keypad" role="group" aria-label="数字键盘">
+    <div className="mb-ov-keypad" role="group" aria-label="数字键盘">
       {keys.map((key) => (
-        <HfButton
+        <Button
           key={key}
-          className="mb-entry-key"
+          className="mb-ov-key"
           aria-label={key === '⌫' ? '退格' : key}
           onClick={() => onKey(key)}
         >
           {key}
-        </HfButton>
+        </Button>
       ))}
     </div>
   )
@@ -203,9 +203,9 @@ function EntryForm({
     if (!mobile || !moreOpen) return
     const frame = requestAnimationFrame(() => {
       const more = moreRef.current
-      const body = more?.closest('.mb-overlay-body') as HTMLElement | null
+      const body = more?.closest('.mb-ov-body') as HTMLElement | null
       if (!more || !body) return
-      const foot = body.querySelector('.mb-entry-mobile-foot') as HTMLElement | null
+      const foot = body.querySelector('.mb-ov-mobile-foot') as HTMLElement | null
       const limit = (foot?.getBoundingClientRect().top ?? body.getBoundingClientRect().bottom) - 8
       const overflow = more.getBoundingClientRect().bottom - limit
       if (overflow > 0) body.scrollTop += overflow
@@ -319,8 +319,8 @@ function EntryForm({
   }
 
   return (
-    <div className="mb-entry-form">
-      <HfSegmented
+    <div className="mb-ov-form">
+      <Segmented
         variant="entry"
         label="记账类型"
         value={type}
@@ -329,35 +329,35 @@ function EntryForm({
       />
 
       {missingAccount && (
-        <div className="mb-entry-missing-account" role="status">
+        <div className="mb-ov-missing-account" role="status">
           <p>还没有账户，记账前需要先添加一个账户。</p>
-          <HfButton className="mb-entry-missing-account-action" onClick={onCreateAccount}>
+          <Button className="mb-ov-missing-account-action" onClick={onCreateAccount}>
             去设置添加账户
-          </HfButton>
+          </Button>
         </div>
       )}
 
       {mobile ? (
-        <div className="mb-entry-amount-display" role="textbox" aria-label="金额" aria-readonly="true">
-          <span className="mb-entry-currency">¥</span>
-          <span className={cents === null && amount ? 'mb-entry-amount is-invalid' : 'mb-entry-amount'}>
+        <div className="mb-ov-amount-display" role="textbox" aria-label="金额" aria-readonly="true">
+          <span className="mb-ov-currency">¥</span>
+          <span className={cents === null && amount ? 'mb-ov-entry-amount is-invalid' : 'mb-ov-entry-amount'}>
             {amount || '0.00'}
           </span>
           {type === 'adjustment' && (
-            <HfButton
-              className={adjustSign === -1 ? 'mb-entry-sign is-negative' : 'mb-entry-sign'}
+            <Button
+              className={adjustSign === -1 ? 'mb-ov-sign mb-ov-sign--negative' : 'mb-ov-sign'}
               onClick={() => setAdjustSign((current) => (current === 1 ? -1 : 1))}
             >
               {adjustSign === 1 ? '调增' : '调减'}
-            </HfButton>
+            </Button>
           )}
         </div>
       ) : (
-        <div className={cents === null && amount.trim() !== '' ? 'mb-entry-amount-row is-invalid' : 'mb-entry-amount-row'}>
-          <span className="mb-entry-currency" aria-hidden="true">¥</span>
+        <div className={cents === null && amount.trim() !== '' ? 'mb-ov-amount-row is-invalid' : 'mb-ov-amount-row'}>
+          <span className="mb-ov-currency" aria-hidden="true">¥</span>
           <input
             ref={amountRef}
-            className="mb-entry-amount-input"
+            className="mb-ov-amount-input"
             aria-label="金额"
             aria-invalid={cents === null && amount.trim() !== ''}
             inputMode="decimal"
@@ -370,45 +370,45 @@ function EntryForm({
               if (event.key === 'Enter') {
                 event.preventDefault()
                 setStage('category')
-                gridRef.current?.querySelector<HTMLButtonElement>('.mb-entry-cat')?.focus()
+                gridRef.current?.querySelector<HTMLButtonElement>('.mb-ov-cat')?.focus()
               }
             }}
           />
           {type === 'adjustment' && (
-            <HfButton
-              className={adjustSign === -1 ? 'mb-entry-sign is-negative' : 'mb-entry-sign'}
+            <Button
+              className={adjustSign === -1 ? 'mb-ov-sign mb-ov-sign--negative' : 'mb-ov-sign'}
               onClick={() => setAdjustSign((current) => (current === 1 ? -1 : 1))}
             >
               {adjustSign === 1 ? '调增' : '调减'}
-            </HfButton>
+            </Button>
           )}
           {cents === null && amount.trim() !== '' && (
-            <span className="mb-entry-error">金额格式有误</span>
+            <span className="mb-ov-error">金额格式有误</span>
           )}
         </div>
       )}
 
       {type === 'transfer' || missingAccount ? null : (
-        <fieldset className="mb-entry-field">
-          <legend className="mb-field-label">分类</legend>
+        <fieldset className="mb-ov-field">
+          <legend className="mb-shared-label">分类</legend>
           <div
             ref={gridRef}
-            className="mb-entry-grid"
+            className="mb-ov-entry-grid"
             role="group"
             aria-label="分类"
             tabIndex={stage === 'category' ? 0 : -1}
             onKeyDown={handleGridKey}
           >
             {categories.map((category, index) => (
-              <HfButton
+              <Button
                 key={category.id}
-                className={category.id === categoryId ? 'mb-entry-cat is-active' : 'mb-entry-cat'}
+                className={category.id === categoryId ? 'mb-ov-cat is-active' : 'mb-ov-cat'}
                 aria-pressed={category.id === categoryId}
                 onClick={() => setCategoryId(category.id)}
               >
                 <span className="mb-entry-cat-name">{category.name}</span>
-                {!mobile && <span className="mb-entry-cat-hint">{index + 1}</span>}
-              </HfButton>
+                {!mobile && <span className="mb-ov-cat-hint">{index + 1}</span>}
+              </Button>
             ))}
           </div>
         </fieldset>
@@ -416,127 +416,127 @@ function EntryForm({
 
       {missingAccount ? null : type === 'transfer' ? (
         <>
-          <fieldset className="mb-entry-field">
-            <legend className="mb-field-label">转出账户</legend>
-            <div className="mb-entry-accounts">
-              <div className="mb-entry-accounts-scroll">
+          <fieldset className="mb-ov-field">
+            <legend className="mb-shared-label">转出账户</legend>
+            <div className="mb-ov-accounts">
+              <div className="mb-ov-accounts-scroll">
                 {chips.map((account) => (
-                  <HfButton
+                  <Button
                     key={account.id}
-                    className="mb-entry-account"
+                    className="mb-ov-account"
                     aria-pressed={account.id === accountId}
                     onClick={() => rememberAccount(account.id, 'from')}
                   >
                     {accountDisplayName(account, ledger.accounts)}
-                  </HfButton>
+                  </Button>
                 ))}
               </div>
-              <HfButton className="mb-entry-all" onClick={() => setPicker('from')}>
+              <Button className="mb-ov-all" onClick={() => setPicker('from')}>
                 全部账户 <ChevronRight size={14} />
-              </HfButton>
+              </Button>
             </div>
           </fieldset>
-          <fieldset className="mb-entry-field">
-            <legend className="mb-field-label">转入账户</legend>
-            <div className="mb-entry-accounts">
-              <div className="mb-entry-accounts-scroll">
+          <fieldset className="mb-ov-field">
+            <legend className="mb-shared-label">转入账户</legend>
+            <div className="mb-ov-accounts">
+              <div className="mb-ov-accounts-scroll">
                 {toChips.map((account) => (
-                  <HfButton
+                  <Button
                     key={account.id}
-                    className={account.id === toAccountId ? 'mb-entry-account is-active' : 'mb-entry-account'}
+                    className={account.id === toAccountId ? 'mb-ov-account is-active' : 'mb-ov-account'}
                     aria-pressed={account.id === toAccountId}
                     disabled={account.id === accountId}
                     onClick={() => rememberAccount(account.id, 'to')}
                   >
                     {accountDisplayName(account, ledger.accounts)}
-                  </HfButton>
+                  </Button>
                 ))}
               </div>
-              <HfButton className="mb-entry-all" onClick={() => setPicker('to')}>
+              <Button className="mb-ov-all" onClick={() => setPicker('to')}>
                 全部账户 <ChevronRight size={14} />
-              </HfButton>
+              </Button>
             </div>
           </fieldset>
         </>
       ) : (
-        <fieldset className="mb-entry-field">
-          <legend className="mb-field-label">账户</legend>
-          <div className="mb-entry-accounts">
-            <div className="mb-entry-accounts-scroll">
+        <fieldset className="mb-ov-field">
+          <legend className="mb-shared-label">账户</legend>
+          <div className="mb-ov-accounts">
+            <div className="mb-ov-accounts-scroll">
               {chips.map((account) => (
-                <HfButton
+                <Button
                   key={account.id}
-                  className="mb-entry-account"
+                  className="mb-ov-account"
                   aria-pressed={account.id === accountId}
                   onClick={() => rememberAccount(account.id, 'from')}
                 >
                   {account.name}
-                </HfButton>
+                </Button>
               ))}
             </div>
-            <HfButton className="mb-entry-all" onClick={() => setPicker('from')}>
+            <Button className="mb-ov-all" onClick={() => setPicker('from')}>
               全部账户 <ChevronRight size={14} />
-            </HfButton>
+            </Button>
           </div>
         </fieldset>
       )}
 
       {!missingAccount && type !== 'transfer' && type !== 'adjustment' && (
-        <label className="mb-entry-excluded">
+        <label className="mb-ov-excluded">
           <input
             type="checkbox"
-            className="mb-entry-excluded-input"
+            className="mb-ov-excluded-input"
             checked={excluded}
             onChange={(event) => setExcluded(event.currentTarget.checked)}
           />
-          <span className="mb-entry-excluded-copy">
-            <span className="mb-entry-excluded-title">不计收支</span>
-            <span className="mb-entry-excluded-hint">
+          <span className="mb-ov-excluded-copy">
+            <span className="mb-ov-excluded-title">不计收支</span>
+            <span className="mb-ov-excluded-hint">
               仍影响账户余额，但不进收入/支出统计与预算用量
             </span>
           </span>
         </label>
       )}
 
-      <HfButton
-        className="mb-entry-more-toggle"
+      <Button
+        className="mb-ov-more-toggle"
         aria-expanded={moreOpen}
         onClick={() => setMoreOpen((current) => !current)}
       >
         {moreOpen ? '收起更多' : '日期 / 备注 / 手续费'}
         <ChevronDown size={16} className={moreOpen ? 'is-open' : undefined} />
-      </HfButton>
+      </Button>
 
       {moreOpen && (
-        <div className="mb-entry-more" ref={moreRef}>
-          <label className="mb-entry-more-field">
-            <span className="mb-field-label">日期</span>
+        <div className="mb-ov-more" ref={moreRef}>
+          <label className="mb-ov-more-field">
+            <span className="mb-shared-label">日期</span>
             <input
               type="date"
-              className="mb-input mb-entry-date"
+              className="mb-shared-input mb-ov-date"
               value={date}
               onChange={(event) => setDate(event.currentTarget.value)}
             />
           </label>
-          <label className="mb-entry-more-field">
-            <span className="mb-field-label">备注</span>
+          <label className="mb-ov-more-field">
+            <span className="mb-shared-label">备注</span>
             <TextInput
               placeholder="例如：公司楼下午餐"
               value={note}
               onChange={(event) => setNote(event.currentTarget.value)}
-              classNames={{ input: 'mb-input' }}
+              classNames={{ input: 'mb-shared-input' }}
             />
           </label>
           {type === 'transfer' && (
-            <label className="mb-entry-more-field">
-              <span className="mb-field-label">手续费</span>
+            <label className="mb-ov-more-field">
+              <span className="mb-shared-label">手续费</span>
               <TextInput
                 placeholder="0.00"
                 inputMode="decimal"
                 value={fee}
                 onChange={(event) => setFee(event.currentTarget.value)}
-                leftSection={<span className="mb-entry-currency">¥</span>}
-                classNames={{ input: 'mb-input' }}
+                leftSection={<span className="mb-ov-currency">¥</span>}
+                classNames={{ input: 'mb-shared-input' }}
               />
             </label>
           )}
@@ -550,36 +550,36 @@ function EntryForm({
       )}
 
       {mobile ? (
-        <div className="mb-entry-mobile-foot">
+        <div className="mb-ov-mobile-foot">
           <Keypad onKey={appendKey} />
-          <div className="mb-entry-mobile-actions">
-            <Button variant="default" className="mb-secondary-btn" onClick={onRequestClose} disabled={saving}>
+          <div className="mb-ov-mobile-actions">
+            <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={onRequestClose} disabled={saving}>
               取消
-            </Button>
-            <Button
+            </MantineButton>
+            <MantineButton
               variant="default"
-              className="mb-secondary-btn"
+              className="mb-shared-btn--secondary"
               disabled={!canSave || saving}
               onClick={() => void commit(false)}
             >
               {savingMode === 'save' ? '保存中…' : '保存'}
-            </Button>
-            <Button className="mb-primary-btn mb-entry-continue" disabled={!canSave || saving} onClick={() => void commit(true)}>
+            </MantineButton>
+            <MantineButton className="mb-shared-btn--primary mb-ov-continue" disabled={!canSave || saving} onClick={() => void commit(true)}>
               {savingMode === 'continue' ? '保存中…' : '保存并再记'}
-            </Button>
+            </MantineButton>
           </div>
         </div>
       ) : (
-        <div className="mb-entry-actions">
-          <Button variant="default" className="mb-secondary-btn" onClick={onRequestClose} disabled={saving}>
+        <div className="mb-ov-actions">
+          <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={onRequestClose} disabled={saving}>
             取消
-          </Button>
-          <Button className="mb-primary-btn" disabled={!canSave || saving} onClick={() => void commit(true)}>
-            {savingMode === 'continue' ? '保存中…' : '保存并再记'} <kbd className="mb-kbd">⏎</kbd>
-          </Button>
-          <Button className="mb-primary-btn" disabled={!canSave || saving} onClick={() => void commit(false)}>
+          </MantineButton>
+          <MantineButton className="mb-shared-btn--primary" disabled={!canSave || saving} onClick={() => void commit(true)}>
+            {savingMode === 'continue' ? '保存中…' : '保存并再记'} <kbd className="mb-shell-kbd">⏎</kbd>
+          </MantineButton>
+          <MantineButton className="mb-shared-btn--primary" disabled={!canSave || saving} onClick={() => void commit(false)}>
             {savingMode === 'save' ? '保存中…' : '保存'}
-          </Button>
+          </MantineButton>
         </div>
       )}
 
@@ -626,12 +626,12 @@ export function QuickEntry({
   }
 
   const title = (
-    <span className="mb-entry-head">
-      <span className="mb-overlay-title-copy">
-        <span className="mb-overlay-title">记一笔</span>
+    <span className="mb-ov-entry-head">
+      <span className="mb-ov-title-copy">
+        <span className="mb-ov-overlay-title">记一笔</span>
       </span>
       {device === 'mobile' && (
-        <span className="mb-entry-count">
+        <span className="mb-ov-count">
           <span>已连记 {savedCount} 笔</span>
           <span>第 {savedCount + 1} 笔</span>
         </span>
@@ -640,12 +640,12 @@ export function QuickEntry({
   )
 
   const modalClass = {
-    content: 'mb-modal',
-    header: 'mb-overlay-head',
-    title: 'mb-overlay-title-wrap',
-    body: 'mb-overlay-body',
-    overlay: 'mb-overlay',
-    close: 'mb-overlay-close',
+    content: 'mb-shared-modal',
+    header: 'mb-ov-overlay-head',
+    title: 'mb-ov-title-wrap',
+    body: 'mb-ov-body',
+    overlay: 'mb-ov-overlay',
+    close: 'mb-ov-close',
   }
 
   const form = (
@@ -661,9 +661,9 @@ export function QuickEntry({
   return (
     <div data-device={device}>
       {device === 'mobile' ? (
-        <HfSheet variant="entry" device={device} opened={opened} onClose={onClose} title={title}>
+        <Sheet variant="entry" device={device} opened={opened} onClose={onClose} title={title}>
           {form}
-        </HfSheet>
+        </Sheet>
       ) : (
         <Modal
           opened={opened}

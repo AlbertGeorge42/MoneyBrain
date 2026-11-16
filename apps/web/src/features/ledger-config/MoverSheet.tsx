@@ -3,8 +3,8 @@
  * 选项全部由账本与当前目标派生，选择后由页面执行移动。
  */
 import { X } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
 import { ACTIVITY_GROUPS, categoryDescendantIds, type ActivityGroupId } from './model'
@@ -83,17 +83,17 @@ export function MoverSheet({
           ]
 
   return (
-    <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
+    <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">移动「{mover.name}」到…</h2>
-        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </HfButton>
+        </Button>
       </div>
       <div className="mb-set-sheet-body">
         <div className="mb-set-radio-list" role="radiogroup" aria-label="目标位置">
           {options.map((option) => (
-            <HfButton
+            <Button
               key={option.id}
               role="radio"
               aria-checked={option.current}
@@ -104,11 +104,11 @@ export function MoverSheet({
               <span className="mb-set-radio-dot" aria-hidden="true" />
               <span>{option.label}</span>
               {option.current && <span className="mb-set-radio-now">当前</span>}
-            </HfButton>
+            </Button>
           ))}
         </div>
         {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       </div>
-    </HfSheet>
+    </Sheet>
   )
 }

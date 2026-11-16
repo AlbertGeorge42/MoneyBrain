@@ -89,29 +89,29 @@ export function ExpenseTrendChart({
         : yOf(points[hover].value) - (CHART_TOOLTIP_H + 12)
 
   return (
-    <Card className="mb-expense-chart-card">
-      <div className="mb-sec-head">
+    <Card className="mb-ov-chart-card">
+      <div className="mb-shared-head">
         <div>
-          <h2 className="mb-sec-title">支出趋势</h2>
-          <p className="mb-sec-desc">近 12 个月 · 按月汇总</p>
+          <h2 className="mb-shared-sec-title">支出趋势</h2>
+          <p className="mb-shared-sec-desc">近 12 个月 · 按月汇总</p>
         </div>
       </div>
       <div
         ref={bodyRef}
-        className={device === 'mobile' ? 'mb-chart-body is-mobile' : 'mb-chart-body'}
+        className={device === 'mobile' ? 'mb-shared-body is-mobile' : 'mb-shared-body'}
       >
         {points.length === 0 ? (
-          <p className="mb-empty-inline">近 12 个月没有支出数据</p>
+          <p className="mb-shared-inline">近 12 个月没有支出数据</p>
         ) : (
           <>
             <svg
-              className="mb-chart-svg"
+              className="mb-shared-svg"
               viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
               height={VIEW_H}
               role="img"
               aria-label="近 12 个月支出趋势，单位元"
             >
-              <g className="mb-chart-grid" aria-hidden="true">
+              <g className="mb-shared-grid" aria-hidden="true">
                 {axisLabelText.map((label, index) => {
                   const y = PAD_T + (plotH * index) / 2
                   return (
@@ -124,12 +124,12 @@ export function ExpenseTrendChart({
                   )
                 })}
               </g>
-              <path className="mb-chart-area" d={areaPath} aria-hidden="true" />
-              <polyline className="mb-chart-line" points={linePoints} aria-hidden="true" />
+              <path className="mb-shared-area" d={areaPath} aria-hidden="true" />
+              <polyline className="mb-shared-chart-line" points={linePoints} aria-hidden="true" />
               {points.map((point, index) => (
                 <circle
                   key={point.month}
-                  className={index === points.length - 1 ? 'mb-chart-dot is-last' : 'mb-chart-dot'}
+                  className={index === points.length - 1 ? 'mb-shared-dot is-last' : 'mb-shared-dot'}
                   cx={xOf(index)}
                   cy={yOf(point.value)}
                   r={index === points.length - 1 ? 4.5 : 2.5}
@@ -139,7 +139,7 @@ export function ExpenseTrendChart({
               {monthTicks.map((index) => (
                 <text
                   key={points[index].month}
-                  className="mb-chart-month"
+                  className="mb-shared-month"
                   x={xOf(index)}
                   y={VIEW_H - 6}
                   textAnchor={
@@ -156,7 +156,7 @@ export function ExpenseTrendChart({
               {points.map((point, index) => (
                 <rect
                   key={`hit-${point.month}`}
-                  className="mb-chart-hit"
+                  className="mb-shared-hit"
                   x={xOf(index) - step / 2}
                   y={PAD_T}
                   width={step}
@@ -168,7 +168,7 @@ export function ExpenseTrendChart({
               ))}
               {hovered && (
                 <g
-                  className="mb-chart-tooltip"
+                  className="mb-shared-tooltip"
                   aria-hidden="true"
                   transform={`translate(${tooltipX}, ${tooltipY})`}
                 >
@@ -179,16 +179,16 @@ export function ExpenseTrendChart({
                     height={CHART_TOOLTIP_H}
                     rx={CHART_TOOLTIP_RX}
                   />
-                  <text className="mb-chart-tooltip-label" x={0} y={16} textAnchor="middle">
+                  <text className="mb-shared-tooltip-label" x={0} y={16} textAnchor="middle">
                     {trendMonthLabel(hovered.month)}
                   </text>
-                  <text className="mb-chart-tooltip-value" x={0} y={32} textAnchor="middle">
+                  <text className="mb-shared-tooltip-value" x={0} y={32} textAnchor="middle">
                     {amountText(hovered.value)}
                   </text>
                 </g>
               )}
             </svg>
-            <p className="mb-visually-hidden">
+            <p className="mb-shell-hidden">
               近 12 个月支出合计 {amountText(values.reduce((total, value) => total + value, 0))}。
             </p>
           </>

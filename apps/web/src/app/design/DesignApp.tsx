@@ -20,7 +20,7 @@ import { TransactionDetail } from '@/features/overview/TransactionDetail'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { EMPTY_ADVANCED, writeFiltersToSearch } from '@/features/transactions/filters'
 import { ReportsPage } from '@/features/reports/ReportsPage'
-import { HfHeadAction } from '@/features/shared/HfHeadAction'
+import { HeadAction } from '@/features/shared/HeadAction'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import type { LedgerTransaction } from '@/features/overview/model'
@@ -83,16 +83,16 @@ function ChoiceGroup<T extends string>({
   onChange: (next: T) => void
 }) {
   return (
-    <div className="mb-hf-toolbar-group">
-      <span className="mb-hf-toolbar-label">{label}</span>
-      <div className="mb-hf-switch" role="group" aria-label={label}>
+    <div className="mb-shell-toolbar-group">
+      <span className="mb-shell-toolbar-label">{label}</span>
+      <div className="mb-shell-switch" role="group" aria-label={label}>
         {options.map((option) => {
           const active = option === value
           return (
             <button
               key={option}
               type="button"
-              className={active ? 'mb-hf-choice is-active' : 'mb-hf-choice'}
+              className={active ? 'mb-shell-choice is-active' : 'mb-shell-choice'}
               aria-pressed={active}
               onClick={() => onChange(option)}
             >
@@ -121,16 +121,16 @@ function PreviewToolbar({
   onState: (next: DataState) => void
 }) {
   return (
-    <header className="mb-hf-toolbar">
-      <div className="mb-hf-toolbar-brand">
-        <span className="mb-hf-toolbar-mark" aria-hidden="true">
+    <header className="mb-shell-toolbar">
+      <div className="mb-shell-toolbar-brand">
+        <span className="mb-shell-toolbar-mark" aria-hidden="true">
           MB
         </span>
-        <span className="mb-hf-toolbar-copy">
-          <span className="mb-hf-toolbar-name">MoneyBrain</span>
+        <span className="mb-shell-toolbar-copy">
+          <span className="mb-shell-toolbar-name">MoneyBrain</span>
         </span>
       </div>
-      <div className="mb-hf-toolbar-controls">
+      <div className="mb-shell-toolbar-controls">
         <ChoiceGroup
           label="设备"
           value={device}
@@ -308,14 +308,14 @@ function PreviewBody({
       hideFab={page === 'transactions' && batchMode}
       headAction={
         page === 'transactions' ? (
-          <HfHeadAction
+          <HeadAction
             ariaExpanded={displayOpen}
             onClick={() => setDisplayOpen((open) => !open)}
           >
             显示
-          </HfHeadAction>
+          </HeadAction>
         ) : page === 'budgets' ? (
-          <HfHeadAction onClick={() => setBudgetEditorOpen(true)}>新增</HfHeadAction>
+          <HeadAction onClick={() => setBudgetEditorOpen(true)}>新增</HeadAction>
         ) : undefined
       }
       onNavigate={navigate}
@@ -362,15 +362,15 @@ function PreviewBody({
   if (device === 'mobile') {
     if (!framed) {
       return (
-        <div className="mb-hf-live-mobile">
+        <div className="mb-shell-live-mobile">
           {shell}
           {overlays}
         </div>
       )
     }
     return (
-      <div className="mb-hf-phone">
-        <div className="mb-hf-phone-screen">
+      <div className="mb-shell-phone">
+        <div className="mb-shell-phone-screen">
           {shell}
           {overlays}
         </div>
@@ -379,7 +379,7 @@ function PreviewBody({
   }
 
   return (
-    <div className="mb-hf-desktop">
+    <div className="mb-shell-desktop">
       {shell}
       {overlays}
     </div>
@@ -444,13 +444,13 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
 
   const canvasClass = useMemo(() => {
     if (!preview) {
-      return activeDevice === 'mobile' ? 'mb-hf-canvas is-live-mobile' : 'mb-hf-canvas'
+      return activeDevice === 'mobile' ? 'mb-shell-canvas is-live-mobile' : 'mb-shell-canvas'
     }
-    return activeDevice === 'mobile' ? 'mb-hf-canvas is-mobile' : 'mb-hf-canvas'
+    return activeDevice === 'mobile' ? 'mb-shell-canvas is-mobile' : 'mb-shell-canvas'
   }, [preview, activeDevice])
 
   return (
-    <div className="mb-hf-root">
+    <div className="mb-shell-root">
       {preview && (
         <PreviewToolbar
           device={device}

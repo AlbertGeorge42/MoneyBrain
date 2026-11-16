@@ -28,17 +28,17 @@ class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="mb-hf-root">
+        <div className="mb-shell-root">
           <Card variant="state" tone="danger" role="alert">
-            <div className="mb-errorpanel-mark" aria-hidden="true">
+            <div className="mb-shared-errorpanel-mark" aria-hidden="true">
               !
             </div>
-            <h2 className="mb-errorpanel-title">页面出错了</h2>
-            <p className="mb-errorpanel-desc">请刷新页面重试</p>
-            <div className="mb-errorpanel-actions">
+            <h2 className="mb-shared-errorpanel-title">页面出错了</h2>
+            <p className="mb-shared-errorpanel-desc">请刷新页面重试</p>
+            <div className="mb-shared-errorpanel-actions">
               <button
                 type="button"
-                className="mb-primary-btn"
+                className="mb-shared-btn--primary"
                 onClick={() => window.location.reload()}
               >
                 刷新页面

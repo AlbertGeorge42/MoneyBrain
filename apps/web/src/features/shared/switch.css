@@ -1,11 +1,11 @@
 /* 按压式开关：报表设置与流水高级筛选共用同一形态与状态文案位。 */
-.mb-switch-toggle-wrap {
+.mb-shared-toggle-wrap {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.mb-switch-toggle {
+.mb-shared-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -21,27 +21,27 @@
   cursor: pointer;
 }
 
-.mb-switch-toggle.is-on {
+.mb-shared-toggle.is-on {
   border-color: var(--mb-color-accent);
   background: var(--mb-color-accent-soft);
   color: var(--mb-color-accent);
 }
 
-.mb-switch-toggle:disabled {
+.mb-shared-toggle:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.mb-switch-toggle:focus-visible {
+.mb-shared-toggle:focus-visible {
   outline: 2px solid var(--mb-color-focus);
   outline-offset: 2px;
 }
 
-.mb-switch-toggle-state {
+.mb-shared-toggle-state {
   color: var(--mb-color-text-tertiary);
   font-size: var(--mb-fs-0);
 }
 
-.mb-switch-toggle.is-on .mb-switch-toggle-state {
+.mb-shared-toggle.is-on .mb-shared-toggle-state {
   color: var(--mb-color-accent);
 }

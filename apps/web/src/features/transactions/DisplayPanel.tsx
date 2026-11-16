@@ -1,5 +1,5 @@
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { SORT_OPTIONS, type DisplaySettings } from './displaySettings'
 
@@ -36,14 +36,14 @@ function Fields({
         <span className="mb-tx-field-label">排序</span>
         <div className="mb-tx-sort-group" role="group" aria-label="排序方式">
           {SORT_OPTIONS.map((option) => (
-            <HfButton
+            <Button
               key={option.value}
               className={option.value === value.sort ? 'mb-tx-type is-active' : 'mb-tx-type'}
               aria-pressed={option.value === value.sort}
               onClick={() => onChange({ ...value, sort: option.value })}
             >
               {option.label}
-            </HfButton>
+            </Button>
           ))}
         </div>
       </div>
@@ -69,12 +69,12 @@ export function DesktopDisplayPanel({
       </div>
       <Fields value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions">
-        <HfButton className="mb-tx-btn is-ghost" onClick={onReset}>
+        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onReset}>
           恢复默认
-        </HfButton>
-        <HfButton className="mb-tx-btn" onClick={onClose}>
+        </Button>
+        <Button className="mb-tx-btn" onClick={onClose}>
           关闭
-        </HfButton>
+        </Button>
       </div>
     </div>
   )
@@ -97,7 +97,7 @@ export function MobileDisplayDrawer({
 }) {
   if (device !== 'mobile') return null
   return (
-    <HfSheet
+    <Sheet
       variant="transaction"
       device={device}
       opened={opened}
@@ -105,16 +105,16 @@ export function MobileDisplayDrawer({
       title="显示"
       actions={
         <>
-          <HfButton className="mb-tx-btn is-ghost" onClick={onReset}>
+          <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onReset}>
             恢复默认
-          </HfButton>
-          <HfButton className="mb-tx-btn is-primary" onClick={onClose}>
+          </Button>
+          <Button className="mb-tx-btn mb-tx-btn--primary" onClick={onClose}>
             完成
-          </HfButton>
+          </Button>
         </>
       }
     >
       <Fields value={value} onChange={onChange} />
-    </HfSheet>
+    </Sheet>
   )
 }

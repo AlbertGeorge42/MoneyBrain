@@ -18,7 +18,7 @@ import {
   type ReportColumn,
 } from './ReportTable'
 import { chartGrid } from './reportsShared'
-import { HfSegmented } from '@/features/shared/HfSegmented'
+import { Segmented } from '@/features/shared/Segmented'
 import { flattenTreeRows } from './reportRows'
 import { currency, type FlowReport, type FlowTreeNode } from './reportsModel'
 
@@ -109,7 +109,7 @@ export function FlowView({
         />
       ) : (
         <>
-          <HfSegmented
+          <Segmented
             variant="report"
             label="收支分段"
             value={side}

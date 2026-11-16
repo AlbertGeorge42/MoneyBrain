@@ -33,10 +33,10 @@ apps/web/src/
 ├── App.tsx               # 唯一入口：始终渲染 DesignApp
 ├── app/design/DesignApp  # 页面装配、路由、全局状态、浮层宿主
 ├── features/<domain>/    # budgets · overview · reports · settings · shell · shared · transactions
-├── features/shared/      # 跨域组件（HfButton/HfSheet/HfSegmented/HfSwitch/HfTabs/Card/StateViews/toast）
+├── features/shared/      # 跨域组件（Button/Sheet/Segmented/Switch/Tabs/Card/StateViews/toast）
 ├── components/common/    # ErrorBoundary
 ├── services/             # api.ts（Axios）、apiError.ts、apiResult.ts
-├── styles/               # global.css · reset.css · theme/{hf-theme.ts,variables.css}
+├── styles/               # global.css · reset.css · theme/{theme-tokens.ts,variables.css}
 ├── utils/ · dev-fixtures/ · main.tsx
 （无 ui/、queries/、hooks/、layouts/、pages/ 目录；不要再新建同类目录）
 
@@ -52,7 +52,7 @@ apps/desktop/             # src/main.cjs · electron-builder.yml · scripts/{sta
 
 | 命名空间 | 定义处 | 使用规则 |
 |---|---|---|
-| `--mb-*`（项目） | 结构（间距/字体/边框/圆角/动效/布局/z-index）只在 `styles/theme/variables.css`；颜色/阴影只由 `hf-theme.ts` 的 `cssVariablesResolver` 输出 | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源 |
+| `--mb-*`（项目） | 结构（间距/字体/边框/圆角/动效/布局/z-index）只在 `styles/theme/variables.css`；颜色/阴影只由 `theme-tokens.ts` 的 `cssVariablesResolver` 输出 | 项目 CSS/TSX 的唯一变量来源；不得出现第二定义源 |
 | `--ant-*`（AntD） | 已随 AntD 一起移除 | 业务代码不得再出现 `--ant-*`；`--mantine-*` 属库内部变量，不得覆盖 |
 
 CSS 引用未定义变量**不报错**、浏览器静默回退：写 `var(--mb-*)` 必须「引用即定义」，有 lint 守卫。详见 [ui-design.md](ui-design.md) §2.1。
@@ -74,7 +74,7 @@ CSS 引用未定义变量**不报错**、浏览器静默回退：写 `var(--mb-*
 
 #### darkfirst 主题落地约定（实现约定只写在这一处）
 
-1. **静态 CSS 是唯一生产路径**：结构 token 由 `variables.css` 提供；颜色/阴影由 `hf-theme.ts` 的 `cssVariablesResolver` 输出 `--mb-*`，随 Mantine colorScheme 在 `:root` 切换；`index.html` 首帧内联脚本先写 `data-mantine-color-scheme` 防闪烁。业务 CSS/TSX 手写色值即返工。
+1. **静态 CSS 是唯一生产路径**：结构 token 由 `variables.css` 提供；颜色/阴影由 `theme-tokens.ts` 的 `cssVariablesResolver` 输出 `--mb-*`，随 Mantine colorScheme 在 `:root` 切换；`index.html` 首帧内联脚本先写 `data-mantine-color-scheme` 防闪烁。业务 CSS/TSX 手写色值即返工。
 2. **主题唯一来源是 Mantine**：`defaultColorScheme='auto'`，三档 light / dark / auto，存储键 `moneybrain-theme-mode`。不自建 Context、`data-theme` 或并行 token 表。
 3. **accent 双档**：`accent` 只用于文字 / 图标 / 链接 / focus 环；`accent-fill` 只用于填充面。亮色下所有 `accent-fill` 面统一 1px solid `#356B0C`，暗色 `transparent`——阴影不能替代描边。填充上文字一律 `on-accent-fill` `#0D1005`，禁止 Mantine 默认白字。
 4. **支出色是硬要求**：`expense` / `expense-display` 必须与 `+` / `−` 符号、右对齐金额列同时出现；支出禁用橙色或正红；≥24px 或 ≥18.66px 粗才允许切 `expense-display`。
@@ -162,6 +162,22 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 
 - 类型不加 `Data/Info/DTO` 后缀；布尔用 `is/has/can`；缩写只允许 `id`、`db`、`api`、`ui`（禁 `tx/amt/cat`）。
 - 中文只出现在文案与注释，标识符全英文；**一个概念只能有一个定义**，共享类型只在 `packages/contracts` 定义。
+
+### 4.1 前端命名规范（组件 / class / token）
+
+由 `tests/unit/naming-guard.test.ts` 与 `css-vars-guard.test.ts` 自动守护，违规即测试失败。
+
+**组件**：PascalCase，名称只描述当前职责，不得含开发阶段 / 重写批次 / 版本 / 历史身份前缀（`Button` / `NewSheet` / `V2Button` 均禁止）。跨两个及以上 feature 复用的 UI 原语放 `features/shared/`，直接用职责名（`Button` / `Sheet` / `Tabs`），不加 `Shared` / `Common` 前缀；禁止各 feature 自建同款原语。
+
+**CSS class**：结构 `mb-<domain>-<element>[-<child>]`（如 `mb-rp-sheet` / `mb-rp-sheet-body`），全小写 + 连字符，禁止 camelCase / snake_case。`<domain>` 是封闭注册集合：`tx`（流水）、`rp`（报表）、`set`（设置）、`bg`（预算）、`dp`（日期/仪表）、`ov`（总览与跨 feature 浮层）、`shared`（通用）、`shell`（应用壳 / 预览壳 / portal 宿主）。禁止新增未注册 domain，`mb-hf-*` 已废弃（归 `mb-shell-*` / `mb-shared-*`）。class 必须有明确职责（结构 / 布局 / 组件样式 / 状态变体之一），禁止承载一次性视觉值。
+
+**modifier 与 state**：外观 / 布局变体用 `--`（`mb-rp-btn--primary`、`mb-tx-btn--danger`）；运行时状态用独立 `is-*` 类（`is-active` / `is-open` / `is-desktop` / `is-child` / `is-mobile`）。不得把状态编进 class 主名（`mb-rp-sheet-open` 禁止）。语义色变体（income / expense / transfer / neg / pos 等）属变体，用 `--`。
+
+**token**：`--mb-<category>-<semantic>[-<scale>]`，类别限 `color` / `s`（间距）/ `fs`（字号）/ `radius` / `z` / `sh`（阴影）/ `chart` / `progress`，描述语义而非视觉值（禁 `--mb-red` / `--mb-16px`）。业务颜色一律走语义 token（`--mb-color-income` / `--mb-color-expense`），组件 CSS 禁写裸色值。z-index 全部走 `--mb-z-*`（含 TSX，`zIndex` prop 传 `var(--mb-z-*)`），禁裸数字。light / dark 两套色板 key 集合必须完全一致。
+
+**文件**：组件 `PascalCase.tsx`，普通 TS `kebab-case.ts`（沿用 §5），类型 / 接口 PascalCase，变量 / 函数 camelCase。
+
+判断优先级：语义 → 职责 → 所在 feature → 复用范围决定是否进 shared；不为凑规则造新抽象。
 
 ## 5. 文件与导出
 
@@ -294,4 +310,4 @@ grep -rn "symbolName" apps packages scripts --include="*.ts" --include="*.tsx"
 
 ## 11. 设计文档
 
-界面视觉、交互、双端差异与「未来报表」口径的唯一来源是 [ui-design.md](ui-design.md)；token 实现落在 `styles/theme/{variables.css,hf-theme.ts}`，不得另建第二套。一次性走查脚本放系统临时目录、不入仓库（见 §5.1）；原型验证用几何测量（`getBoundingClientRect`）而非肉眼看图。
+界面视觉、交互、双端差异与「未来报表」口径的唯一来源是 [ui-design.md](ui-design.md)；token 实现落在 `styles/theme/{variables.css,theme-tokens.ts}`，不得另建第二套。一次性走查脚本放系统临时目录、不入仓库（见 §5.1）；原型验证用几何测量（`getBoundingClientRect`）而非肉眼看图。

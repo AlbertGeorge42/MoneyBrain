@@ -20,7 +20,7 @@ import { markReportsVisited } from '@/features/shared/onboardingState'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { LedgerConfigManager, type LedgerConfigTab } from '@/features/ledger-config/LedgerConfigManager'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
-import { HfSwitch } from '@/features/shared/HfSwitch'
+import { Switch } from '@/features/shared/Switch'
 import {
   useApiAssetProjection,
   useApiBalanceReport,
@@ -477,7 +477,7 @@ export function ReportsPage({
                 投资分析只覆盖已发生的持仓与收益；未来区间不提供推演数据。
                 时间条仍可继续切换，改回已发生区间即可查看。
               </p>
-              <button className="mb-rp-btn is-ghost" onClick={backToActual}>
+              <button className="mb-rp-btn mb-rp-btn--ghost" onClick={backToActual}>
                 回到已发生
               </button>
             </Card>
@@ -518,7 +518,7 @@ export function ReportsPage({
           tab === 'flow' ? (
             <>
               <span className="mb-set-label">数据范围</span>
-              <HfSwitch
+              <Switch
                 variant="toggle"
                 text="含不计收支交易"
                 stateText={includeExcluded ? '已含' : '不含'}

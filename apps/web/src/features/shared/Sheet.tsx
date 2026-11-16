@@ -6,8 +6,8 @@
  * 变体只描述「属于哪一族抽屉」，不承载业务逻辑：
  * - report：报表下钻 / 设置（mb-rp-sheet）
  * - transaction：流水详情 / 筛选 / 显示 / 批量（mb-tx-*）
- * - overview：总览交易详情（mb-sheet + mb-overlay-*）
- * - entry：快速记账移动端底部表单（mb-entry-sheet）
+ * - overview：总览交易详情（mb-shared-sheet + mb-overlay-*）
+ * - entry：快速记账移动端底部表单（mb-ov-sheet）
  * - entryPicker：快速记账账户选择（桌面贴右，需挂到预览宿主）
  * - budget：预算详情 / 新增（mb-bg-detail / mb-bg-editor）
  * - settings：设置族编辑抽屉（mb-set-sheet，自定义头部、无默认关闭按钮）
@@ -17,7 +17,7 @@ import { useEffect, type ReactNode } from 'react'
 import type { DeviceMode } from '@/features/shared/types'
 import { registerOverlay } from './overlayPresence'
 
-export type HfSheetVariant =
+export type SheetVariant =
   | 'report'
   | 'transaction'
   | 'overview'
@@ -37,12 +37,12 @@ interface SheetVariantConfig {
   overlay?: string
   close?: string
   desktopSize?: number
-  zIndex?: number
+  zIndex?: string | number
   withCloseButton: boolean
   actionsClassName?: string
 }
 
-const VARIANTS: Record<HfSheetVariant, SheetVariantConfig> = {
+const VARIANTS: Record<SheetVariant, SheetVariantConfig> = {
   report: {
     contentMobile: 'mb-rp-sheet',
     contentDesktop: 'mb-rp-sheet is-desktop',
@@ -67,41 +67,41 @@ const VARIANTS: Record<HfSheetVariant, SheetVariantConfig> = {
     actionsClassName: 'mb-tx-filter-actions is-mobile',
   },
   overview: {
-    contentMobile: 'mb-sheet',
-    header: 'mb-overlay-head',
-    title: 'mb-overlay-title-wrap',
-    bodyMobile: 'mb-overlay-body',
-    overlay: 'mb-overlay',
-    close: 'mb-overlay-close',
+    contentMobile: 'mb-shared-sheet',
+    header: 'mb-ov-overlay-head',
+    title: 'mb-ov-title-wrap',
+    bodyMobile: 'mb-ov-body',
+    overlay: 'mb-ov-overlay',
+    close: 'mb-ov-close',
     withCloseButton: true,
   },
   entry: {
-    contentMobile: 'mb-sheet mb-entry-sheet',
-    header: 'mb-overlay-head',
-    title: 'mb-overlay-title-wrap',
-    bodyMobile: 'mb-overlay-body',
-    overlay: 'mb-overlay',
-    close: 'mb-overlay-close',
+    contentMobile: 'mb-shared-sheet mb-ov-sheet',
+    header: 'mb-ov-overlay-head',
+    title: 'mb-ov-title-wrap',
+    bodyMobile: 'mb-ov-body',
+    overlay: 'mb-ov-overlay',
+    close: 'mb-ov-close',
     withCloseButton: true,
   },
   entryPicker: {
-    contentMobile: 'mb-entry-picker-sheet',
-    contentDesktop: 'mb-entry-picker-panel',
-    header: 'mb-overlay-head',
-    title: 'mb-overlay-title-wrap',
-    bodyMobile: 'mb-overlay-body',
-    bodyDesktop: 'mb-entry-picker-body',
-    overlay: 'mb-overlay',
-    close: 'mb-overlay-close',
+    contentMobile: 'mb-ov-picker-sheet',
+    contentDesktop: 'mb-ov-picker-panel',
+    header: 'mb-ov-overlay-head',
+    title: 'mb-ov-title-wrap',
+    bodyMobile: 'mb-ov-body',
+    bodyDesktop: 'mb-ov-picker-body',
+    overlay: 'mb-ov-overlay',
+    close: 'mb-ov-close',
     desktopSize: 380,
-    zIndex: 300,
+    zIndex: 'var(--mb-z-sheet)',
     withCloseButton: true,
   },
   budget: {
-    contentMobile: 'mb-sheet',
-    header: 'mb-overlay-head',
-    bodyMobile: 'mb-overlay-body',
-    overlay: 'mb-overlay',
+    contentMobile: 'mb-shared-sheet',
+    header: 'mb-ov-overlay-head',
+    bodyMobile: 'mb-ov-body',
+    overlay: 'mb-ov-overlay',
     desktopSize: 460,
     withCloseButton: true,
   },
@@ -122,8 +122,8 @@ const VARIANTS: Record<HfSheetVariant, SheetVariantConfig> = {
 function resolvePortalTarget(device: DeviceMode): HTMLElement | undefined {
   if (typeof document === 'undefined') return undefined
   const scope =
-    device === 'mobile' ? document.querySelector<HTMLElement>('.mb-hf-phone') : null
-  return scope ?? document.querySelector<HTMLElement>('.mb-hf-root') ?? undefined
+    device === 'mobile' ? document.querySelector<HTMLElement>('.mb-shell-phone') : null
+  return scope ?? document.querySelector<HTMLElement>('.mb-shell-root') ?? undefined
 }
 
 function join(...parts: Array<string | undefined>): string | undefined {
@@ -131,7 +131,7 @@ function join(...parts: Array<string | undefined>): string | undefined {
   return merged || undefined
 }
 
-export function HfSheet({
+export function Sheet({
   variant,
   device,
   opened,
@@ -148,7 +148,7 @@ export function HfSheet({
   mobileSize = 'auto',
   desktopSize,
 }: {
-  variant: HfSheetVariant
+  variant: SheetVariant
   device: DeviceMode
   opened: boolean
   onClose: () => void
@@ -163,7 +163,7 @@ export function HfSheet({
   bodyClassName?: string
   /** 需要挂到预览壳 / 手机框时置 true（如记账账户选择、日期选择）。 */
   portal?: boolean
-  zIndex?: number
+  zIndex?: string | number
   /** 移动端高度：默认按内容收缩；预算等全屏表单传 100%。 */
   mobileSize?: 'auto' | '100%'
   /** 桌面端宽度覆盖；同族两档（如设置 380/460）用显式数值，不复制变体。 */
@@ -171,9 +171,9 @@ export function HfSheet({
 }) {
   const config = VARIANTS[variant]
   const isMobile = device === 'mobile'
-  // 桌面画布 .mb-hf-canvas 带 transform，会成为 position:fixed 的包含块；抽屉若留在
+  // 桌面画布 .mb-shell-canvas 带 transform，会成为 position:fixed 的包含块；抽屉若留在
   // 画布内，fixed 相对画布而非视口——长页面滚动时抽屉跟着错位、底部被 overflow 裁切。
-  // 桌面统一 portal 到无 transform 的 .mb-hf-root，让 fixed 真相对视口铺满；移动端仍
+  // 桌面统一 portal 到无 transform 的 .mb-shell-root，让 fixed 真相对视口铺满；移动端仍
   // 留在手机框内（手机框自带 transform，由它约束 fixed 范围，符合底部抽屉设计）。
   const shouldPortal = portal || !isMobile
   const portalTarget = shouldPortal ? resolvePortalTarget(device) : undefined

@@ -1,9 +1,9 @@
 /* 三套卡片外壳的共用底座：只写一次边框、底色、圆角、阴影与内边距。 */
 
-.mb-card,
+.mb-shared-card,
 .mb-rp-card,
-.mb-coldstart,
-.mb-errorpanel {
+.mb-shared-coldstart,
+.mb-shared-errorpanel {
   padding: var(--mb-card-pad);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-md);
@@ -12,21 +12,21 @@
 }
 
 /* 卡片宽于内容时由内层省略号负责收缩；冷启动/错误面板原本没有这条。 */
-.mb-card,
+.mb-shared-card,
 .mb-rp-card {
   min-width: 0;
 }
 
 /* surface：总览、预算、流水的纵向堆叠卡片。 */
-.mb-card {
+.mb-shared-card {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-3);
 }
 
 /* state：冷启动与错误面板顶部对齐。 */
-.mb-coldstart,
-.mb-errorpanel {
+.mb-shared-coldstart,
+.mb-shared-errorpanel {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -39,23 +39,23 @@
 }
 
 /* 移动端卡片内距统一 16（design-tokens §5.2）：桌面 20，报表卡不再单独 12。 */
-.mb-mobile-scroll .mb-card,
-.mb-mobile-scroll .mb-rp-card {
+.mb-shell-scroll .mb-shared-card,
+.mb-shell-scroll .mb-rp-card {
   padding: var(--mb-s-4);
 }
 
 /* 错误面板的左侧危险语义边。 */
-.mb-errorpanel {
+.mb-shared-errorpanel {
   border-left: calc(var(--mb-border-width) * 3) var(--mb-border-style) var(--mb-color-danger-solid);
 }
 
 /* 暗色卡片按 design-tokens §7 去掉边框；报表卡与错误面板的左侧语义边保留。 */
-[data-mantine-color-scheme='dark'] .mb-card,
-[data-mantine-color-scheme='dark'] .mb-coldstart {
+[data-mantine-color-scheme='dark'] .mb-shared-card,
+[data-mantine-color-scheme='dark'] .mb-shared-coldstart {
   border-color: transparent;
 }
 
-[data-mantine-color-scheme='dark'] .mb-errorpanel {
+[data-mantine-color-scheme='dark'] .mb-shared-errorpanel {
   border-color: transparent;
   border-left-color: var(--mb-color-danger-solid);
 }

@@ -11,8 +11,8 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfTabs } from '@/features/shared/HfTabs'
+import { Button } from '@/features/shared/Button'
+import { Tabs } from '@/features/shared/Tabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
@@ -173,14 +173,14 @@ function SortableGroupRow({
     <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
       <div className="mb-set-row">
         {hasAccounts ? (
-          <HfButton
+          <Button
             className="mb-set-fold"
             aria-label={open ? '收起账户' : '展开账户'}
             aria-expanded={open}
             onClick={() => onToggle()}
           >
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </HfButton>
+          </Button>
         ) : (
           <span className="mb-set-child-space" aria-hidden="true" />
         )}
@@ -338,7 +338,7 @@ export function AccountsSection({
   return (
     <>
       <div className="mb-set-toolbar">
-        <HfTabs
+        <Tabs
           variant="settings"
           label="账户分组"
           value={tab}
@@ -349,15 +349,15 @@ export function AccountsSection({
           onChange={onTabChange}
         />
         <div className="mb-set-toolbar-actions">
-          <HfButton
-            className="mb-set-btn is-ghost is-small"
+          <Button
+            className="mb-set-btn mb-set-btn--ghost mb-set-btn--small"
             disabled={emptyGroupCount === 0}
             onClick={() => onShowEmptyGroupsChange(!showEmptyGroups)}
           >
             {showEmptyGroups ? '隐藏空分组' : `显示空分组（${emptyGroupCount}）`}
-          </HfButton>
-          <HfButton
-            className="mb-set-btn is-ghost is-small"
+          </Button>
+          <Button
+            className="mb-set-btn mb-set-btn--ghost mb-set-btn--small"
             disabled={visibleGroups.length === 0}
             onClick={() =>
               onSetGroupsExpanded(
@@ -367,9 +367,9 @@ export function AccountsSection({
             }
           >
             {allExpanded ? '全部收起' : '全部展开'}
-          </HfButton>
-          <HfButton
-            className="mb-set-btn is-primary is-small"
+          </Button>
+          <Button
+            className="mb-set-btn mb-set-btn--primary mb-set-btn--small"
             onClick={() => {
               // 新建的分组还没有账户，先切到「显示空分组」，否则保存后会看不见。
               onShowEmptyGroupsChange(true)
@@ -377,9 +377,9 @@ export function AccountsSection({
             }}
           >
             <Plus size={15} /> 新增分组
-          </HfButton>
-          <HfButton
-            className="mb-set-btn is-ghost is-small"
+          </Button>
+          <Button
+            className="mb-set-btn mb-set-btn--ghost mb-set-btn--small"
             onClick={() =>
               onOpenEditor({
                 kind: 'account',
@@ -389,7 +389,7 @@ export function AccountsSection({
             }
           >
             <Plus size={15} /> 新增账户
-          </HfButton>
+          </Button>
         </div>
       </div>
 
@@ -411,15 +411,15 @@ export function AccountsSection({
             {visibleGroups.length === 0 ? (
               <div className="mb-set-list-empty">
                 <p>还没有分组</p>
-                <HfButton
-                  className="mb-set-btn is-primary"
+                <Button
+                  className="mb-set-btn mb-set-btn--primary"
                   onClick={() => {
                     onShowEmptyGroupsChange(true)
                     onOpenEditor({ kind: 'accountGroup', mode: 'create', type: tab })
                   }}
                 >
                   <Plus size={16} /> 新增分组
-                </HfButton>
+                </Button>
               </div>
             ) : (
               visibleGroups.map((group) => (

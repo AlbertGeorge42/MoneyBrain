@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import { amountText } from './format'
 import type { LedgerAccount, LedgerAccountCategory, OverviewSummary } from './model'
 import { CATEGORY_COLORS, stableSlotMap } from '@/features/shared/seriesColor'
@@ -33,32 +33,32 @@ export function AccountEntry({
         : 'group:__ungrouped'
       : `kind:${account.kind}`
   return (
-    <HfButton
-      className="mb-account-entry"
+    <Button
+      className="mb-ov-entry"
       aria-label="账户与余额"
       onClick={onOpen}
     >
-      <span className="mb-account-ledger" aria-hidden="true">
+      <span className="mb-ov-ledger" aria-hidden="true">
         账
       </span>
-      <span className="mb-account-copy">
-        <span className="mb-account-title">账户与余额</span>
-        <span className="mb-account-meta">
+      <span className="mb-ov-copy">
+        <span className="mb-ov-account-title">账户与余额</span>
+        <span className="mb-ov-account-meta">
           {accounts.length} 个账户 · 现金等价 {amountText(summary.liquidAssets)} · 投资{' '}
           {amountText(summary.investmentAssets)}
         </span>
       </span>
-      <span className="mb-account-stack" aria-hidden="true">
+      <span className="mb-ov-stack" aria-hidden="true">
         {visibleAccounts.map((account) => (
           <span
             key={account.id}
-            className={`mb-account-dot mb-tone-cat-${(slots.get(keyOf(account)) ?? 0) + 1}`}
+            className={`mb-ov-dot mb-tone-cat-${(slots.get(keyOf(account)) ?? 0) + 1}`}
           >
             {account.name.slice(0, 1)}
           </span>
         ))}
       </span>
-      <ChevronRight className="mb-account-chevron" size={18} aria-hidden="true" />
-    </HfButton>
+      <ChevronRight className="mb-ov-chevron" size={18} aria-hidden="true" />
+    </Button>
   )
 }

@@ -9,7 +9,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import { TxRow } from '@/features/shared/TxRow'
 import { Card } from '@/features/shared/Card'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import type { DisplaySettings } from './displaySettings'
 import {
   signedMinorText,
@@ -61,9 +61,9 @@ function LoadMore({
           <span className="mb-tx-load-more-hint">下拉查看更多（还有 {remaining} 组）</span>
         </>
       ) : (
-        <HfButton className="mb-tx-btn" onClick={onLoadMore}>
+        <Button className="mb-tx-btn" onClick={onLoadMore}>
           查看更多（还有 {remaining} 组）
-        </HfButton>
+        </Button>
       )}
     </div>
   )
@@ -125,7 +125,7 @@ export function TransactionsList({
         onOpenRelated={onOpenRelated}
         leading={
           batchMode ? (
-            <HfButton
+            <Button
               role="checkbox"
               aria-checked={isSelected}
               aria-label={`选择 ${transaction.note}`}
@@ -136,7 +136,7 @@ export function TransactionsList({
               }}
             >
               <CheckBox checked={isSelected} />
-            </HfButton>
+            </Button>
           ) : undefined
         }
       />
@@ -156,7 +156,7 @@ export function TransactionsList({
                 {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
               </span>
               <span
-                className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}
+                className={group.net >= 0 ? 'mb-tx-group-net --income' : 'mb-tx-group-net --expense'}
               >
                 小计 {signedMinorText(group.net)}
               </span>
@@ -188,7 +188,7 @@ export function TransactionsList({
                   {group.future && <span className="mb-tx-group-count">{group.items.length} 笔</span>}
                 </span>
                 <span
-                  className={group.net >= 0 ? 'mb-tx-group-net is-income' : 'mb-tx-group-net is-expense'}
+                  className={group.net >= 0 ? 'mb-tx-group-net --income' : 'mb-tx-group-net --expense'}
                 >
                   小计 {signedMinorText(group.net)}
                 </span>
@@ -203,8 +203,8 @@ export function TransactionsList({
       <div className="mb-tx-foot">
         <span className="mb-tx-foot-count">共 {totals.count} 笔</span>
         <span className="mb-tx-foot-flow">
-          支出 <strong className="is-expense">{signedMinorText(-totals.expense)}</strong>
-          收入 <strong className="is-income">{signedMinorText(totals.income)}</strong>
+          支出 <strong className="--expense">{signedMinorText(-totals.expense)}</strong>
+          收入 <strong className="--income">{signedMinorText(totals.income)}</strong>
         </span>
       </div>
     </>

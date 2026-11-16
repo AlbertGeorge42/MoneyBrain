@@ -17,7 +17,7 @@ export const SORT_OPTIONS: readonly { value: SortMode; label: string }[] = [
   { value: 'amount', label: '金额（大到小）' },
 ]
 
-const STORAGE_KEY = 'mb-hf-display'
+const STORAGE_KEY = 'mb-shell-display'
 
 /** 流水页与设置页共用同一份列表显示偏好（本地存储，跨页面即时生效）。 */
 export function readDisplaySettings(): DisplaySettings {

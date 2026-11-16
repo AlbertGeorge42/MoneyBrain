@@ -11,8 +11,8 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import type { DatePresetOption } from '@/features/shared/datePicker/datePickerModel'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSegmented } from '@/features/shared/HfSegmented'
+import { Button } from '@/features/shared/Button'
+import { Segmented } from '@/features/shared/Segmented'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   GRANULARITIES,
@@ -169,9 +169,9 @@ export function TimeBar({
     <div className="mb-rp-timebar">
       <div className="mb-rp-time-main">
         <div className="mb-rp-time-picker">
-          <HfButton className="mb-rp-iconbtn" aria-label="上一期" onClick={() => step(-1)}>
+          <Button className="mb-rp-iconbtn" aria-label="上一期" onClick={() => step(-1)}>
             <ChevronLeft size={18} />
-          </HfButton>
+          </Button>
           <DatePicker
             device={device}
             mode={isPoint ? 'point' : 'range'}
@@ -189,14 +189,14 @@ export function TimeBar({
             tag={isPoint ? POINT_TAG[time.gran] : undefined}
             sheetTitle="时间范围"
           />
-          <HfButton className="mb-rp-iconbtn" aria-label="下一期" onClick={() => step(1)}>
+          <Button className="mb-rp-iconbtn" aria-label="下一期" onClick={() => step(1)}>
             <ChevronRight size={18} />
-          </HfButton>
+          </Button>
         </div>
-        <span className={`mb-rp-range-state is-${state}`} aria-live="polite">
+        <span className={`mb-rp-range-state --${state}`} aria-live="polite">
           {RANGE_STATE_LABEL[state]}
         </span>
-        <HfSegmented
+        <Segmented
           variant="granularity"
           label="聚合粒度"
           value={time.gran}

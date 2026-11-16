@@ -1,6 +1,6 @@
 import { Tag, Trash2, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import type { DeviceMode } from '@/features/shared/types'
 
 /** 类别名与类型名重复时只留一次：退款（退款）→ 退款，账户互转（转账）→ 账户互转。 */
@@ -60,11 +60,11 @@ export function BatchBar({
       </div>
       <div className="mb-tx-batch-actions">
         {excluded.length > 0 && (
-          <HfButton className="mb-tx-btn is-ghost mb-tx-batch-select-expense" onClick={onSelectExpenseOnly}>
+          <Button className="mb-tx-btn mb-tx-btn--ghost mb-tx-batch-select-expense" onClick={onSelectExpenseOnly}>
             仅选支出
-          </HfButton>
+          </Button>
         )}
-        <HfButton
+        <Button
           className="mb-tx-btn"
           disabled={count === 0 || categoryDisabled}
           title={categoryDisabled ? categoryHint : undefined}
@@ -72,15 +72,15 @@ export function BatchBar({
         >
           <Tag size={15} />
           改分类
-        </HfButton>
-        <HfButton className="mb-tx-btn is-danger" disabled={count === 0} onClick={onDelete}>
+        </Button>
+        <Button className="mb-tx-btn mb-tx-btn--danger" disabled={count === 0} onClick={onDelete}>
           <Trash2 size={15} />
           删除
-        </HfButton>
-        <HfButton className="mb-tx-btn is-ghost" onClick={onExit}>
+        </Button>
+        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onExit}>
           <X size={15} />
           退出
-        </HfButton>
+        </Button>
       </div>
     </div>
   )

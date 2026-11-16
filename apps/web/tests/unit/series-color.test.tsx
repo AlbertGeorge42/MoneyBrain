@@ -90,7 +90,7 @@ function donutColors(container: HTMLElement): Map<string, string> {
 
 function toneOf(container: HTMLElement): Map<string, string> {
   return new Map(
-    [...container.querySelectorAll<HTMLElement>('.mb-account-dot')].map((dot) => [
+    [...container.querySelectorAll<HTMLElement>('.mb-ov-dot')].map((dot) => [
       dot.textContent ?? '',
       [...dot.classList].find((name) => name.startsWith('mb-tone-cat-')) ?? '',
     ]),

@@ -16,8 +16,8 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfTabs } from '@/features/shared/HfTabs'
+import { Button } from '@/features/shared/Button'
+import { Tabs } from '@/features/shared/Tabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import type { AccountKind, Ledger } from '@/features/overview/model'
@@ -85,7 +85,7 @@ export function CashflowSection({
     return (
       <>
         <div className="mb-set-toolbar">
-          <HfTabs
+          <Tabs
             variant="settings"
             label="现金流分类"
             value={tab}
@@ -103,7 +103,7 @@ export function CashflowSection({
             return (
               <div key={group.id} className="mb-set-group">
                 <div className="mb-set-row is-group">
-                  <HfButton
+                  <Button
                     className="mb-set-fold"
                     aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                     aria-expanded={open}
@@ -111,7 +111,7 @@ export function CashflowSection({
                     onClick={() => onToggleExpanded(groupKey)}
                   >
                     {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </HfButton>
+                  </Button>
                   <span className="mb-set-drag" aria-hidden="true">
                     <GripVertical size={14} />
                   </span>
@@ -173,7 +173,7 @@ export function CashflowSection({
   return (
     <>
       <div className="mb-set-toolbar">
-        <HfTabs
+        <Tabs
           variant="settings"
           label="现金流分类"
           value={tab}
@@ -191,7 +191,7 @@ export function CashflowSection({
           return (
             <div key={group.id} className="mb-set-group">
               <div className="mb-set-row is-group">
-                <HfButton
+                <Button
                   className="mb-set-fold"
                   aria-label={empty ? '本组无分类' : open ? '收起分类' : '展开分类'}
                   aria-expanded={open}
@@ -199,7 +199,7 @@ export function CashflowSection({
                   onClick={() => onToggleExpanded(groupKey)}
                 >
                   {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </HfButton>
+                </Button>
                 <span className="mb-set-drag" aria-hidden="true">
                   <GripVertical size={14} />
                 </span>

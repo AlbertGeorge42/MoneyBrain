@@ -8,7 +8,7 @@
  */
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { HfButton } from './HfButton'
+import { Button } from './Button'
 import './periodBar.css'
 
 interface PeriodBarProps {
@@ -43,14 +43,14 @@ export function PeriodBar({
   onReset,
 }: PeriodBarProps) {
   return (
-    <div className="mb-period" role="group" aria-label={groupLabel}>
-      <div className="mb-period-bar">
-        <HfButton className="mb-period-bar-nav" aria-label={prevLabel} onClick={onPrev}>
+    <div className="mb-shared-period" role="group" aria-label={groupLabel}>
+      <div className="mb-shared-bar">
+        <Button className="mb-shared-bar-nav" aria-label={prevLabel} onClick={onPrev}>
           <ChevronLeft size={16} />
-        </HfButton>
-        <span className="mb-period-bar-label">{label}</span>
-        <HfButton
-          className="mb-period-bar-nav"
+        </Button>
+        <span className="mb-shared-bar-label">{label}</span>
+        <Button
+          className="mb-shared-bar-nav"
           aria-label={nextLabel}
           disabled={nextDisabled}
           aria-disabled={nextDisabled}
@@ -58,13 +58,13 @@ export function PeriodBar({
           onClick={onNext}
         >
           <ChevronRight size={16} />
-        </HfButton>
+        </Button>
       </div>
-      {note && <span className="mb-period-bar-note">{note}</span>}
+      {note && <span className="mb-shared-bar-note">{note}</span>}
       {onReset && resetLabel && (
-        <HfButton variant="link" className="mb-period-bar-reset" onClick={onReset}>
+        <Button variant="link" className="mb-shared-bar-reset" onClick={onReset}>
           {resetLabel}
-        </HfButton>
+        </Button>
       )}
     </div>
   )

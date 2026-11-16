@@ -3,14 +3,14 @@
  * 活动分组固定全显示，表尾合计就是各组之和；点切块 / ribbon 落到同一节点抽屉。
  */
 import { useState } from 'react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { FoldState } from '@/features/shared/foldState'
 import { CashSankeyChart } from './CashSankey'
 import { ChartCard, CashFlowBars, CompositionDonutSide } from './charts'
 import { MetricStrip, ReportTable, ReportTablePair, type ReportColumn } from './ReportTable'
-import { HfSegmented } from '@/features/shared/HfSegmented'
+import { Segmented } from '@/features/shared/Segmented'
 import type { DonutNode } from '@/features/shared/DonutChart'
 import {
   cashRowsFor,
@@ -158,7 +158,7 @@ export function CashView({
             inflowTotal={inflowTotal}
             outflowTotal={outflowTotal}
           />
-          <HfSegmented
+          <Segmented
             variant="report"
             label="现金流分段"
             value={side}
@@ -203,7 +203,7 @@ export function CashView({
           />
         </>
       )}
-      <HfSheet
+      <Sheet
         variant="report"
         device={device}
         opened={sankeyNode !== null}
@@ -211,19 +211,19 @@ export function CashView({
         title={sankeyNode ? `${sankeyNode.name} · 现金流明细` : '现金流明细'}
         actions={
           <>
-            <HfButton className="mb-rp-btn is-ghost" onClick={() => setSankeyNode(null)}>
+            <Button className="mb-rp-btn mb-rp-btn--ghost" onClick={() => setSankeyNode(null)}>
               关闭
-            </HfButton>
+            </Button>
             {sankeyCategories.length > 0 && (
-              <HfButton
-                className="mb-rp-btn is-primary"
+              <Button
+                className="mb-rp-btn mb-rp-btn--primary"
                 onClick={() => {
                   onViewFlow({ categoryIds: sankeyCategories, from, to })
                   setSankeyNode(null)
                 }}
               >
                 在流水中查看
-              </HfButton>
+              </Button>
             )}
           </>
         }
@@ -248,13 +248,13 @@ export function CashView({
                     <span className="mb-rp-drill-tx-label">{child.label}</span>
                     <span className="mb-rp-drill-meta">{child.account}</span>
                   </div>
-                  <span className={`mb-rp-drill-value is-${child.tone}`}>{currency(child.amount)}</span>
+                  <span className={`mb-rp-drill-value --${child.tone}`}>{currency(child.amount)}</span>
                 </div>
               ))
             )}
           </div>
         )}
-      </HfSheet>
+      </Sheet>
     </>
   )
 }

@@ -15,7 +15,7 @@ import { TransactionsList } from '@/features/transactions/TransactionsList'
 import { DEFAULT_DISPLAY } from '@/features/transactions/displaySettings'
 import type { GroupedTransactions } from '@/features/transactions/filters'
 import type { Ledger, LedgerTransaction, RecentGroup } from '@/features/overview/model'
-import { hfTheme } from '@/styles/theme/hf-theme'
+import { appTheme } from '@/styles/theme/theme-tokens'
 
 const ledger: Ledger = {
   accounts: [{ id: 'cmb', name: '招商储蓄卡', kind: 'deposit', balance: 100_000 }],
@@ -42,7 +42,7 @@ const recent: RecentGroup[] = [{ date: '2026-10-28', label: '今天', items: [tr
 
 function renderTransactions() {
   return render(
-    <MantineProvider theme={hfTheme}>
+    <MantineProvider theme={appTheme}>
       <TransactionsList
         device="desktop"
         groups={grouped}
@@ -59,7 +59,7 @@ function renderTransactions() {
 
 function renderRecent() {
   return render(
-    <MantineProvider theme={hfTheme}>
+    <MantineProvider theme={appTheme}>
       <RecentTransactions
         device="desktop"
         groups={recent}
@@ -81,7 +81,7 @@ function rowShape(container: HTMLElement) {
     primary: row?.querySelector('.mb-tx-primary > .mb-tx-cat-name')?.textContent,
     note: row?.querySelector('.mb-tx-primary > .mb-tx-note')?.textContent,
     secondary: row?.querySelector('.mb-tx-secondary')?.textContent,
-    hasIcon: Boolean(row?.querySelector('.mb-cat-icon')),
+    hasIcon: Boolean(row?.querySelector('.mb-shared-icon')),
     amount: row?.querySelector('.mb-tx-amount')?.textContent,
   }
 }
@@ -134,7 +134,7 @@ describe('总览最近交易与流水共用行组件', () => {
       categoryId: 'food',
     }
     const { container } = render(
-      <MantineProvider theme={hfTheme}>
+      <MantineProvider theme={appTheme}>
         <TxRow ledger={twoAccounts} transaction={transfer} onActivate={vi.fn()} />
       </MantineProvider>,
     )

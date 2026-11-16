@@ -10,7 +10,7 @@ import {
 } from '@/features/overview/model'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { Card } from '@/features/shared/Card'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import { ControlRow } from '@/features/shared/skeleton/ControlRow'
 import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { ToastViewport } from '@/features/shared/toast'
@@ -91,9 +91,9 @@ function PageHead({
   }
 
   return (
-    <div className="mb-page-head">
-      <h1 className="mb-page-title">流水</h1>
-      <p className="mb-page-sub">{note}</p>
+    <div className="mb-shell-page-head">
+      <h1 className="mb-shell-page-title">流水</h1>
+      <p className="mb-shell-sub">{note}</p>
     </div>
   )
 }
@@ -141,55 +141,55 @@ function Toolbar({
             autoComplete="off"
           />
           {query && (
-            <HfButton
+            <Button
               className="mb-tx-search-clear"
               aria-label="清空搜索"
               onClick={() => onQuery('')}
             >
               <X size={14} />
-            </HfButton>
+            </Button>
           )}
         </label>
 
         <div className="mb-tx-type-group" role="group" aria-label="类型筛选">
           {TYPE_OPTIONS.map((option) => (
-            <HfButton
+            <Button
               key={option.value}
               className={option.value === type ? 'mb-tx-type is-active' : 'mb-tx-type'}
               aria-pressed={option.value === type}
               onClick={() => onType(option.value)}
             >
               {option.label}
-            </HfButton>
+            </Button>
           ))}
         </div>
 
         <div className="mb-tx-actions">
-          <HfButton
-            className={advancedOpen ? 'mb-tx-btn is-toggle is-active' : 'mb-tx-btn is-toggle'}
+          <Button
+            className={advancedOpen ? 'mb-tx-btn mb-tx-btn--toggle is-active' : 'mb-tx-btn mb-tx-btn--toggle'}
             aria-expanded={advancedOpen}
             aria-controls="mb-tx-filter-panel"
             onClick={onAdvancedToggle}
           >
             <SlidersHorizontal size={15} />
             {advancedOpen ? '收起筛选' : '高级筛选'}
-          </HfButton>
-          <HfButton
-            className={batchMode ? 'mb-tx-btn is-toggle is-active' : 'mb-tx-btn is-toggle'}
+          </Button>
+          <Button
+            className={batchMode ? 'mb-tx-btn mb-tx-btn--toggle is-active' : 'mb-tx-btn mb-tx-btn--toggle'}
             aria-pressed={batchMode}
             onClick={onBatchToggle}
           >
             {batchMode ? '退出批量' : '批量'}
-          </HfButton>
+          </Button>
           {showDisplay && (
-            <HfButton
-              className={displayOpen ? 'mb-tx-btn is-toggle is-active' : 'mb-tx-btn is-toggle'}
+            <Button
+              className={displayOpen ? 'mb-tx-btn mb-tx-btn--toggle is-active' : 'mb-tx-btn mb-tx-btn--toggle'}
               aria-expanded={displayOpen}
               aria-controls="mb-tx-display-panel"
               onClick={onDisplayToggle}
             >
               显示
-            </HfButton>
+            </Button>
           )}
         </div>
       </div>
@@ -208,17 +208,17 @@ function FilterChips({
   return (
     <div className="mb-tx-chips" aria-label="当前生效条件">
       {chips.map((chip) => (
-        <HfButton key={chip.key} className="mb-tx-chip" onClick={() => onClear(chip.key)}>
+        <Button key={chip.key} className="mb-tx-chip" onClick={() => onClear(chip.key)}>
           {chip.label}
           <X size={12} />
-        </HfButton>
+        </Button>
       ))}
-      <HfButton
+      <Button
         className="mb-tx-chip-clear"
         onClick={() => onClear('all')}
       >
         清除条件
-      </HfButton>
+      </Button>
     </div>
   )
 }
@@ -316,7 +316,7 @@ export function TransactionsPage({
     setHydrated(true)
     if (hasActiveFilters(restored.filters)) {
       window.scrollTo(0, 0)
-      const mobileScroll = document.querySelector('.mb-mobile-scroll')
+      const mobileScroll = document.querySelector('.mb-shell-scroll')
       if (mobileScroll instanceof HTMLElement) mobileScroll.scrollTop = 0
     }
   }, [hydrated, ledgerReady, ledger])
@@ -657,7 +657,7 @@ export function TransactionsPage({
           <p className="mb-tx-noresult-desc">
             试试更短的关键词，或清除类型、账户、日期、金额条件。
           </p>
-          <HfButton
+          <Button
             className="mb-tx-btn"
             onClick={() => {
               setQuery('')
@@ -666,7 +666,7 @@ export function TransactionsPage({
             }}
           >
             清空筛选
-          </HfButton>
+          </Button>
         </Card>
       ) : (
         <TransactionsList
@@ -728,7 +728,7 @@ export function TransactionsPage({
 
       <ToastViewport variant="stack" />
 
-      <span className="mb-visually-hidden" aria-live="polite">
+      <span className="mb-shell-hidden" aria-live="polite">
         当前筛选 {monthTotals.count} 笔
         {futureTotals.count > 0 ? `，另有 ${futureTotals.count} 笔未来不计入本月` : ''}，共{' '}
         {serverList.total} 笔

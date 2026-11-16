@@ -7,7 +7,7 @@
  */
 import { useMemo, useState } from 'react'
 import { toggleFold, type FoldState } from '@/features/shared/foldState'
-import { HfSegmented } from '@/features/shared/HfSegmented'
+import { Segmented } from '@/features/shared/Segmented'
 import { formatPercent } from '@/utils/format'
 import type { LedgerAccountCategory } from '@/features/overview/model'
 import type { DeviceMode } from '@/features/shared/types'
@@ -161,7 +161,7 @@ export function BalanceView({
         />
       ) : (
         <>
-          <HfSegmented
+          <Segmented
             variant="report"
             label="资产负债分段"
             value={side}

@@ -14,7 +14,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import {
   CONFIG_SECTIONS,
   GENERAL_SECTIONS,
@@ -64,7 +64,7 @@ export function SettingsDesktopNav({
         <div key={group.title} className="mb-set-nav-group">
           <h2 className="mb-set-group-title">{group.title}</h2>
           {group.items.map((item) => (
-            <HfButton
+            <Button
               key={item.id}
               className={active === item.id ? 'mb-set-nav-item is-active' : 'mb-set-nav-item'}
               aria-current={active === item.id ? 'page' : undefined}
@@ -74,7 +74,7 @@ export function SettingsDesktopNav({
               <span className="mb-set-nav-count">
                 {item.id === 'trash' ? String(trashCount) : ''}
               </span>
-            </HfButton>
+            </Button>
           ))}
         </div>
       ))}
@@ -97,14 +97,14 @@ export function SettingsMobileList({ onOpen, summaries }: SettingsMobileListProp
             {group.items.map((item) => {
               const Icon = sectionIcon(item.id)
               return (
-                <HfButton key={item.id} className="mb-set-entry" onClick={() => onOpen(item.id)}>
+                <Button key={item.id} className="mb-set-entry" onClick={() => onOpen(item.id)}>
                   <span className="mb-set-icon">
                     <Icon size={17} />
                   </span>
                   <span className="mb-set-name">{item.label}</span>
                   <span className="mb-set-meta">{summaries[item.id]}</span>
                   <ChevronRight size={16} className="mb-set-chevron" />
-                </HfButton>
+                </Button>
               )
             })}
           </div>

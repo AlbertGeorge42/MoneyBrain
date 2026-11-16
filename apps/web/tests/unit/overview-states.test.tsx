@@ -13,7 +13,7 @@ import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import type { DataState, DeviceMode } from '@/features/shared/types'
-import { hfTheme } from '@/styles/theme/hf-theme'
+import { appTheme } from '@/styles/theme/theme-tokens'
 
 function renderOverview(
   state: DataState,
@@ -21,7 +21,7 @@ function renderOverview(
 ) {
   const { device = 'desktop', onRetry = vi.fn() } = options
   const view = render(
-    <MantineProvider theme={hfTheme}>
+    <MantineProvider theme={appTheme}>
       <LedgerProvider initialLedger={createSeedLedger()}>
         <OverviewPage
           device={device}

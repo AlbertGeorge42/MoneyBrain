@@ -2,14 +2,14 @@
    迁移期两个容器保持 display:contents，让旧控件元素继续参与内容容器的排布，
    从而与旧 DOM 零视觉差异；数值本身由各页面现有 CSS 承担。 */
 
-.mb-page-shell,
-.mb-control-row {
+.mb-shell-page-shell,
+.mb-shell-row {
   display: contents;
 }
 
 /* ===== SettingRow ===== */
 
-.mb-setting-row {
+.mb-shared-setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -18,54 +18,54 @@
   padding: 0 var(--mb-s-3);
 }
 
-.mb-setting-row.is-indented {
+.mb-shared-setting-row--indented {
   padding-left: var(--mb-s-5);
 }
 
-.mb-setting-row-copy {
+.mb-set-row-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: var(--mb-s-1);
 }
 
-.mb-setting-row-label {
+.mb-set-row-label {
   font-size: var(--mb-fs-1);
 }
 
-.mb-setting-row-desc {
+.mb-set-row-desc {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-setting-row-control {
+.mb-set-row-control {
   display: inline-flex;
   flex: none;
   align-items: center;
 }
 
-.mb-setting-row.is-stack .mb-setting-row-copy {
+.mb-shared-setting-row--stack .mb-set-row-copy {
   gap: var(--mb-s-1);
 }
 
-.mb-setting-row.is-stack .mb-setting-row-label,
-.mb-setting-row.is-stack .mb-setting-row-desc {
+.mb-shared-setting-row--stack .mb-set-row-label,
+.mb-shared-setting-row--stack .mb-set-row-desc {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-setting-row-value {
+.mb-set-row-value {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-4);
   line-height: var(--mb-lh-tight);
 }
 
 @media (max-width: 767px) {
-  .mb-setting-row {
+  .mb-shared-setting-row {
     min-height: calc(var(--mb-touch) + var(--mb-s-3));
   }
 
-  .mb-setting-row.is-indented {
+  .mb-shared-setting-row--indented {
     padding-left: calc(var(--mb-touch) + var(--mb-s-5) + 2px);
   }
 }

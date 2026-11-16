@@ -3,8 +3,8 @@
  * 可转移目标 = 同类型且不在被删分类子树内的分类，一级分类排在前面。
  */
 import { X } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
 import { categoryDescendantIds, type CategoryRow } from './model'
@@ -34,12 +34,12 @@ export function CategoryDeleteSheet({
     .sort((left, right) => Number(Boolean(left.parentId)) - Number(Boolean(right.parentId)))
 
   return (
-    <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
+    <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">删除「{row.name}」</h2>
-        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </HfButton>
+        </Button>
       </div>
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
@@ -47,7 +47,7 @@ export function CategoryDeleteSheet({
         </p>
         <div className="mb-set-radio-list" role="radiogroup" aria-label="转移目标分类">
           {options.map((option) => (
-            <HfButton
+            <Button
               key={option.id}
               role="radio"
               aria-checked={false}
@@ -57,7 +57,7 @@ export function CategoryDeleteSheet({
             >
               <span className="mb-set-radio-dot" aria-hidden="true" />
               <span>{option.name}</span>
-            </HfButton>
+            </Button>
           ))}
         </div>
         {options.length === 0 && (
@@ -65,6 +65,6 @@ export function CategoryDeleteSheet({
         )}
         {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       </div>
-    </HfSheet>
+    </Sheet>
   )
 }

@@ -182,7 +182,7 @@ describe('报表明细行双端同风格', () => {
     expect(left?.[1]).toBe('支出构成')
     expect(right?.[1]).toBe('收入构成')
     // 移动端分段：expense 选项排在 income 前面。
-    const segment = /<HfSegmented[\s\S]*?options=\{\[([\s\S]*?)\]\}/.exec(flow)?.[1] ?? ''
+    const segment = /<Segmented[\s\S]*?options=\{\[([\s\S]*?)\]\}/.exec(flow)?.[1] ?? ''
     const expense = segment.indexOf("id: 'expense'")
     const income = segment.indexOf("id: 'income'")
     expect(expense).toBeGreaterThanOrEqual(0)
@@ -226,7 +226,7 @@ describe('设置精简后的结构守护', () => {
   it('报表设置直达分类管理：中间层弹窗与跨分区页签都已删除', () => {
     expect(existsSync(resolve(WEB_ROOT, 'src/features/reports/ReportSettingsPanel.tsx'))).toBe(false)
     const manager = source('features/ledger-config/LedgerConfigManager.tsx')
-    expect(manager).not.toContain('HfTabs')
+    expect(manager).not.toContain('Tabs')
     expect(manager).not.toContain('label="账本数据"')
     const page = source('features/reports/ReportsPage.tsx')
     expect(page).not.toContain('分组口径')
@@ -277,7 +277,7 @@ describe('账户分类与构成环口径', () => {
   it('移动端构成环在分段下、表格上，且随 side 切换一侧', () => {
     for (const file of ['BalanceView.tsx', 'FlowView.tsx', 'CashView.tsx']) {
       const text = source(`features/reports/${file}`)
-      const segmented = text.indexOf('<HfSegmented')
+      const segmented = text.indexOf('<Segmented')
       const donut = text.indexOf('<CompositionDonutSide')
       // 取最后一个 <ReportTable：PC 分支里的 <ReportTablePair 也算前缀匹配。
       const table = text.lastIndexOf('<ReportTable')

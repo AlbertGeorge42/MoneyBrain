@@ -35,9 +35,9 @@ describe('BudgetProgress', () => {
       const { container, unmount } = render(
         <BudgetProgress level={level} percent={80} label="测试预算" />,
       )
-      const fill = container.querySelector<HTMLElement>('.mb-progress-fill')
+      const fill = container.querySelector<HTMLElement>('.mb-shared-fill')
       expect(fill?.style.background).toBe(token)
-      expect(container.querySelector('.mb-progress')?.getAttribute('data-level')).toBe(level)
+      expect(container.querySelector('.mb-shared-progress')?.getAttribute('data-level')).toBe(level)
       unmount()
     }
   })
@@ -45,8 +45,8 @@ describe('BudgetProgress', () => {
   it('normal 与 achieved 是同一个绿，不再留第二套绿', () => {
     const normal = render(<BudgetProgress level="normal" percent={40} label="餐饮" />)
     const achieved = render(<BudgetProgress level="achieved" percent={100} label="工资" />)
-    const normalFill = normal.container.querySelector<HTMLElement>('.mb-progress-fill')
-    const achievedFill = achieved.container.querySelector<HTMLElement>('.mb-progress-fill')
+    const normalFill = normal.container.querySelector<HTMLElement>('.mb-shared-fill')
+    const achievedFill = achieved.container.querySelector<HTMLElement>('.mb-shared-fill')
     expect(normalFill?.style.background).toBe('var(--mb-progress-normal)')
     expect(achievedFill?.style.background).toBe('var(--mb-progress-normal)')
   })
@@ -56,26 +56,26 @@ describe('BudgetProgress', () => {
       <BudgetProgress level="neutral" percent={62} label="工资还差 ¥7,030.00" neutralFill />,
     )
 
-    const fill = container.querySelector<HTMLElement>('.mb-progress-fill')
+    const fill = container.querySelector<HTMLElement>('.mb-shared-fill')
     expect(fill?.style.background).toBe('var(--mb-progress-neutral)')
     expect(parseFloat(fill?.style.width ?? '0')).toBeCloseTo((62 / 130) * 100, 3)
-    expect(container.querySelector('.mb-progress-tick')).not.toBeNull()
+    expect(container.querySelector('.mb-shared-tick')).not.toBeNull()
   })
 
   it('转账 neutral 不渲染填充段，也不渲染 100% 刻度缺口（整条保持单一轨道色）', () => {
     const { container } = render(<BudgetProgress level="neutral" percent={0} label="账户互转" />)
 
-    expect(container.querySelector('.mb-progress-fill')).toBeNull()
-    expect(container.querySelector('.mb-progress-tick')).toBeNull()
+    expect(container.querySelector('.mb-shared-fill')).toBeNull()
+    expect(container.querySelector('.mb-shared-tick')).toBeNull()
   })
 
   it('over 是单段条面，连续跨过 100% 缺口（不再拼接第二段）', () => {
     const { container } = render(<BudgetProgress level="over" percent={118} label="购物" />)
 
-    const fills = container.querySelectorAll<HTMLElement>('.mb-progress-fill')
-    const tick = container.querySelector<HTMLElement>('.mb-progress-tick')
+    const fills = container.querySelectorAll<HTMLElement>('.mb-shared-fill')
+    const tick = container.querySelector<HTMLElement>('.mb-shared-tick')
     expect(fills).toHaveLength(1)
-    expect(fills[0].classList.contains('is-over')).toBe(true)
+    expect(fills[0].classList.contains('mb-shared-fill--over')).toBe(true)
     expect(fills[0].style.getPropertyValue('--mb-fill-width')).toBe(`${(118 / 130) * 100}%`)
     expect(fills[0].style.getPropertyValue('--mb-over-min')).toBe(OVER_MIN)
     expect(fills[0].style.background).toBe('var(--mb-progress-over)')
@@ -85,8 +85,8 @@ describe('BudgetProgress', () => {
   it('101% 也留出缺口与 6px 红段（超支宽度有保底）', () => {
     const { container } = render(<BudgetProgress level="over" percent={101} label="购物" />)
 
-    const fill = container.querySelector<HTMLElement>('.mb-progress-fill')
-    expect(fill?.classList.contains('is-over')).toBe(true)
+    const fill = container.querySelector<HTMLElement>('.mb-shared-fill')
+    expect(fill?.classList.contains('mb-shared-fill--over')).toBe(true)
     expect(fill?.style.getPropertyValue('--mb-fill-width')).toBe(`${(101 / 130) * 100}%`)
     expect(fill?.style.getPropertyValue('--mb-over-min')).toBe(OVER_MIN)
   })
@@ -96,18 +96,18 @@ describe('BudgetProgress', () => {
       const { container, unmount } = render(
         <BudgetProgress level={level} percent={100} label="测试预算" />,
       )
-      const fill = container.querySelector<HTMLElement>('.mb-progress-fill')
+      const fill = container.querySelector<HTMLElement>('.mb-shared-fill')
       expect(parseFloat(fill?.style.width ?? '0')).toBeCloseTo(TICK_LEFT, 5)
-      expect(fill?.classList.contains('is-over')).toBe(false)
-      expect(container.querySelector('.mb-progress-tick')).not.toBeNull()
-      expect(container.querySelectorAll('.mb-progress-fill')).toHaveLength(1)
+      expect(fill?.classList.contains('mb-shared-fill--over')).toBe(false)
+      expect(container.querySelector('.mb-shared-tick')).not.toBeNull()
+      expect(container.querySelectorAll('.mb-shared-fill')).toHaveLength(1)
       unmount()
     }
   })
 
   it('超支超过 130% 时钳在轨道右端', () => {
     const { container } = render(<BudgetProgress level="over" percent={150} label="购物" />)
-    const fill = container.querySelector<HTMLElement>('.mb-progress-fill')
+    const fill = container.querySelector<HTMLElement>('.mb-shared-fill')
     // 超过 130% 时真实宽度已大于保底，max() 取 100%。
     expect(fill?.style.getPropertyValue('--mb-fill-width')).toBe('100%')
     expect(fill?.style.getPropertyValue('--mb-over-min')).toBe(OVER_MIN)
@@ -119,7 +119,7 @@ describe('进度条口径与 token 落地', () => {
   const repoRoot = path.resolve(process.cwd(), '../..')
   const read = (relative: string) => fs.readFileSync(path.join(repoRoot, relative), 'utf8')
   const uiDoc = read('docs/ui-design.md')
-  const themeVars = read('apps/web/src/styles/theme/hf-theme.ts')
+  const themeVars = read('apps/web/src/styles/theme/theme-tokens.ts')
   const progressCss = read('apps/web/src/features/shared/budgetProgress.css')
 
   it('进度条口径不再残留「对轨道 ≥3:1」旧说法', () => {

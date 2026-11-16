@@ -6,8 +6,8 @@
  */
 import type { Dispatch, SetStateAction } from 'react'
 import { X } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger } from '@/features/overview/model'
@@ -48,7 +48,7 @@ export function OpeningSheet({
   onSave,
 }: OpeningSheetProps) {
   return (
-    <HfSheet
+    <Sheet
       variant="settings"
       device={device}
       opened
@@ -60,14 +60,14 @@ export function OpeningSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">补充期初余额</h2>
-        <HfButton
+        <Button
           className="mb-set-icon-btn"
           aria-label="关闭"
           disabled={saving}
           onClick={onSkip}
         >
           <X size={18} />
-        </HfButton>
+        </Button>
       </div>
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
@@ -159,19 +159,19 @@ export function OpeningSheet({
         )}
       </div>
       <div className="mb-set-sheet-actions">
-        <HfButton className="mb-set-btn is-ghost" disabled={saving} onClick={onSkip}>
+        <Button className="mb-set-btn mb-set-btn--ghost" disabled={saving} onClick={onSkip}>
           跳过补录
-        </HfButton>
+        </Button>
         {result ? (
-          <HfButton className="mb-set-btn is-primary" onClick={onDone}>
+          <Button className="mb-set-btn mb-set-btn--primary" onClick={onDone}>
             完成
-          </HfButton>
+          </Button>
         ) : (
-          <HfButton className="mb-set-btn is-primary" disabled={saving} onClick={onSave}>
+          <Button className="mb-set-btn mb-set-btn--primary" disabled={saving} onClick={onSave}>
             {saving ? '保存中…' : '保存期初'}
-          </HfButton>
+          </Button>
         )}
       </div>
-    </HfSheet>
+    </Sheet>
   )
 }

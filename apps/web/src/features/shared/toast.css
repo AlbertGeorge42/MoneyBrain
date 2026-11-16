@@ -7,7 +7,7 @@
 
 /* ===== shell：预览壳 / 设置页，挂 body 级宿主 ===== */
 
-.mb-hf-toast-stack {
+.mb-shell-toast-stack {
   position: fixed;
   left: 50%;
   /* 与流水页合计条 / 批量条共用底部槽位时抬到其上，避免叠压。 */
@@ -20,7 +20,7 @@
   transform: translateX(-50%);
 }
 
-.mb-hf-toast {
+.mb-shell-toast {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-3);
@@ -33,7 +33,7 @@
   white-space: nowrap;
 }
 
-.mb-hf-toast-action {
+.mb-shell-toast-action {
   flex: none;
   padding: 0;
   border: 0;
@@ -122,7 +122,7 @@
 }
 
 /* 移动端避让底部触控区与安全区。 */
-.mb-mobile-scroll .mb-tx-toast-stack {
+.mb-shell-scroll .mb-tx-toast-stack {
   bottom: calc(
     var(--mb-touch) + var(--mb-s-7) + var(--mb-s-5) + var(--mb-s-2) + env(safe-area-inset-bottom)
   );

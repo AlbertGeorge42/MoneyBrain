@@ -150,10 +150,10 @@ describe('DatePicker 交互', () => {
     expect(onChange).toHaveBeenCalledWith({ from: '', to: '' }, null)
   })
 
-  it('移动端面板挂在手机框内（不落到 body，否则丢失 .mb-hf-root 上的 token）', async () => {
+  it('移动端面板挂在手机框内（不落到 body，否则丢失 .mb-shell-root 上的 token）', async () => {
     const user = userEvent.setup()
     const phone = document.createElement('div')
-    phone.className = 'mb-hf-phone'
+    phone.className = 'mb-shell-phone'
     document.body.appendChild(phone)
 
     render(

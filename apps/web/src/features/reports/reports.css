@@ -176,7 +176,7 @@
 }
 
 /* 移动端页头只放图标：触控目标够大，视觉不与页签抢注意力。 */
-.mb-rp-settings-btn.is-icon {
+.mb-rp-settings-btn--icon {
   flex: none;
   width: var(--mb-touch);
   height: var(--mb-touch);
@@ -204,24 +204,24 @@
   cursor: pointer;
 }
 
-.mb-rp-btn.is-primary {
+.mb-rp-btn--primary {
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent-fill);
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
   font-weight: 600;
 }
 
-.mb-rp-btn.is-primary:hover {
+.mb-rp-btn--primary:hover {
   background: var(--mb-color-accent-fill-hover);
 }
 
-.mb-rp-btn.is-ghost {
+.mb-rp-btn--ghost {
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
   background: transparent;
   color: var(--mb-color-text-secondary);
 }
 
-.mb-rp-btn.is-ghost:hover {
+.mb-rp-btn--ghost:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
 }
@@ -292,19 +292,19 @@
   letter-spacing: -0.01em;
 }
 
-.mb-rp-metric-value.is-income,
-.mb-rp-drill-amount.is-income,
-.mb-rp-drill-value.is-income {
+.mb-rp-metric-value--income,
+.mb-rp-drill-amount--income,
+.mb-rp-drill-value--income {
   color: var(--mb-color-income);
 }
 
-.mb-rp-metric-value.is-expense,
-.mb-rp-drill-amount.is-expense,
-.mb-rp-drill-value.is-expense {
+.mb-rp-metric-value--expense,
+.mb-rp-drill-amount--expense,
+.mb-rp-drill-value--expense {
   color: var(--mb-color-expense-display);
 }
 
-.mb-rp-drill-value.is-transfer {
+.mb-rp-drill-value--transfer {
   color: var(--mb-color-transfer);
 }
 
@@ -534,30 +534,30 @@
 }
 
 /* 固定列宽：按列数分档，不写硬编码 px */
-.mb-rp-table.is-c2 col:nth-child(1) { width: 66%; }
-.mb-rp-table.is-c2 col:nth-child(2) { width: 34%; }
+.mb-rp-table--c2 col:nth-child(1) { width: 66%; }
+.mb-rp-table--c2 col:nth-child(2) { width: 34%; }
 /* 金额列按 1024 卡片宽度也 ≥100px 分配，保证 ¥139,506.75 不被省略号截断。 */
-.mb-rp-table.is-c3 col:nth-child(1) { width: 34%; }
-.mb-rp-table.is-c3 col:nth-child(2) { width: 32%; }
-.mb-rp-table.is-c3 col:nth-child(3) { width: 34%; }
-.mb-rp-table.is-c4 col:nth-child(1) { width: 32%; }
-.mb-rp-table.is-c4 col:nth-child(2) { width: 13%; }
-.mb-rp-table.is-c4 col:nth-child(3) { width: 33%; }
-.mb-rp-table.is-c4 col:nth-child(4) { width: 22%; }
-.mb-rp-table.is-c6 { font-size: var(--mb-fs-0); }
-.mb-rp-table.is-c6 col:nth-child(1) { width: 28%; }
-.mb-rp-table.is-c6 col:nth-child(2) { width: 14%; }
-.mb-rp-table.is-c6 col:nth-child(3) { width: 14%; }
-.mb-rp-table.is-c6 col:nth-child(4) { width: 14%; }
-.mb-rp-table.is-c6 col:nth-child(5) { width: 14%; }
-.mb-rp-table.is-c6 col:nth-child(6) { width: 16%; }
+.mb-rp-table--c3 col:nth-child(1) { width: 34%; }
+.mb-rp-table--c3 col:nth-child(2) { width: 32%; }
+.mb-rp-table--c3 col:nth-child(3) { width: 34%; }
+.mb-rp-table--c4 col:nth-child(1) { width: 32%; }
+.mb-rp-table--c4 col:nth-child(2) { width: 13%; }
+.mb-rp-table--c4 col:nth-child(3) { width: 33%; }
+.mb-rp-table--c4 col:nth-child(4) { width: 22%; }
+.mb-rp-table--c6 { font-size: var(--mb-fs-0); }
+.mb-rp-table--c6 col:nth-child(1) { width: 28%; }
+.mb-rp-table--c6 col:nth-child(2) { width: 14%; }
+.mb-rp-table--c6 col:nth-child(3) { width: 14%; }
+.mb-rp-table--c6 col:nth-child(4) { width: 14%; }
+.mb-rp-table--c6 col:nth-child(5) { width: 14%; }
+.mb-rp-table--c6 col:nth-child(6) { width: 16%; }
 
 /* 投资持仓列宽（双端共用的基准分档） */
-.mb-rp-table.is-c5 col:nth-child(1) { width: 28%; }
-.mb-rp-table.is-c5 col:nth-child(2),
-.mb-rp-table.is-c5 col:nth-child(3),
-.mb-rp-table.is-c5 col:nth-child(4),
-.mb-rp-table.is-c5 col:nth-child(5) { width: 18%; }
+.mb-rp-table--c5 col:nth-child(1) { width: 28%; }
+.mb-rp-table--c5 col:nth-child(2),
+.mb-rp-table--c5 col:nth-child(3),
+.mb-rp-table--c5 col:nth-child(4),
+.mb-rp-table--c5 col:nth-child(5) { width: 18%; }
 
 /* 移动端表格：所有列一屏内显示，不横滑、不吸顶。 */
 .mb-rp-table-card[data-device='mobile'] .mb-rp-table {
@@ -585,20 +585,20 @@
 }
 
 /* 移动端列宽重排：金额 / 占比给足，长名称由单元格自己省略。 */
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c3 col:nth-child(1) { width: 33%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c3 col:nth-child(2) { width: 31%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c3 col:nth-child(3) { width: 36%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c3 col:nth-child(1) { width: 33%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c3 col:nth-child(2) { width: 31%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c3 col:nth-child(3) { width: 36%; }
 
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(1) { width: 34%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(2) { width: 13%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(3) { width: 33%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c4 col:nth-child(4) { width: 20%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c4 col:nth-child(1) { width: 34%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c4 col:nth-child(2) { width: 13%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c4 col:nth-child(3) { width: 33%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c4 col:nth-child(4) { width: 20%; }
 
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(1) { width: 22%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(2) { width: 22%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(3) { width: 20%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(4) { width: 20%; }
-.mb-rp-table-card[data-device='mobile'] .mb-rp-table.is-c5 col:nth-child(5) { width: 16%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c5 col:nth-child(1) { width: 22%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c5 col:nth-child(2) { width: 22%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c5 col:nth-child(3) { width: 20%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c5 col:nth-child(4) { width: 20%; }
+.mb-rp-table-card[data-device='mobile'] .mb-rp-table--c5 col:nth-child(5) { width: 16%; }
 
 /* ===== 进度条 ===== */
 
@@ -630,23 +630,23 @@ progress::-moz-progress-bar {
   background: var(--mb-color-accent);
 }
 
-progress.mb-rp-progress.is-income::-webkit-progress-value,
-progress.mb-rp-flow-progress.is-in::-webkit-progress-value {
+progress.mb-rp-progress--income::-webkit-progress-value,
+progress.mb-rp-flow-progress--in::-webkit-progress-value {
   background: var(--mb-color-income);
 }
 
-progress.mb-rp-progress.is-expense::-webkit-progress-value,
-progress.mb-rp-flow-progress.is-out::-webkit-progress-value {
+progress.mb-rp-progress--expense::-webkit-progress-value,
+progress.mb-rp-flow-progress--out::-webkit-progress-value {
   background: var(--mb-color-expense-display);
 }
 
-progress.mb-rp-progress.is-income::-moz-progress-bar,
-progress.mb-rp-flow-progress.is-in::-moz-progress-bar {
+progress.mb-rp-progress--income::-moz-progress-bar,
+progress.mb-rp-flow-progress--in::-moz-progress-bar {
   background: var(--mb-color-income);
 }
 
-progress.mb-rp-progress.is-expense::-moz-progress-bar,
-progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
+progress.mb-rp-progress--expense::-moz-progress-bar,
+progress.mb-rp-flow-progress--out::-moz-progress-bar {
   background: var(--mb-color-expense-display);
 }
 
@@ -748,11 +748,11 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-weight: 600;
 }
 
-.mb-rp-bar.is-income {
+.mb-rp-bar--income {
   fill: var(--mb-color-income);
 }
 
-.mb-rp-bar.is-expense {
+.mb-rp-bar--expense {
   fill: var(--mb-color-expense-display);
 }
 
@@ -781,11 +781,11 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   border-radius: 50%;
 }
 
-.mb-rp-legend-dot.is-income {
+.mb-rp-legend-dot--income {
   background: var(--mb-color-income);
 }
 
-.mb-rp-legend-dot.is-expense {
+.mb-rp-legend-dot--expense {
   background: var(--mb-color-expense-display);
 }
 
@@ -898,7 +898,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   font-size: var(--mb-fs-1);
 }
 
-.mb-rp-drill-row.is-tx {
+.mb-rp-drill-row--tx {
   align-items: flex-start;
   padding: var(--mb-s-1) 0;
 }
@@ -930,15 +930,15 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   pointer-events: none;
 }
 
-.mb-rp-sankey-link.is-inflow .mb-rp-sankey-ribbon {
+.mb-rp-sankey-link--inflow .mb-rp-sankey-ribbon {
   fill: var(--mb-chart-series-1);
 }
 
-.mb-rp-sankey-link.is-outflow .mb-rp-sankey-ribbon {
+.mb-rp-sankey-link--outflow .mb-rp-sankey-ribbon {
   fill: var(--mb-chart-series-2);
 }
 
-.mb-rp-sankey-link.is-neutral .mb-rp-sankey-ribbon {
+.mb-rp-sankey-link--neutral .mb-rp-sankey-ribbon {
   fill: var(--mb-chart-series-7);
 }
 
@@ -959,11 +959,11 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   pointer-events: none;
 }
 
-.mb-rp-sankey-node.is-inflow .mb-rp-sankey-node-body {
+.mb-rp-sankey-node--inflow .mb-rp-sankey-node-body {
   fill: var(--mb-chart-series-1);
 }
 
-.mb-rp-sankey-node.is-outflow .mb-rp-sankey-node-body {
+.mb-rp-sankey-node--outflow .mb-rp-sankey-node-body {
   fill: var(--mb-chart-series-2);
 }
 
@@ -1064,7 +1064,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
   line-height: 1.6;
 }
 
-/* HfSwitch 的禁用原因文案：与配置抽屉共用的轻量说明。 */
+/* Switch 的禁用原因文案：与配置抽屉共用的轻量说明。 */
 .mb-rp-config-reason {
   margin: 0;
   padding-left: 2px;
@@ -1393,7 +1393,7 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 }
 
 /* 收款 / 收支视图的未来用「预算计划」，用虚线边框区分概念差异。 */
-.mb-rp-predict-badge.is-budgetPlan {
+.mb-rp-predict-badge--budget-plan {
   border-style: dashed;
 }
 
@@ -1455,11 +1455,11 @@ progress.mb-rp-flow-progress.is-out::-moz-progress-bar {
 
 /* 账本配置抽屉：内容沿用设置页 mb-set-* 内胆，只调整报表侧尺寸。
    桌面 640px、移动端全屏；移动端去掉设置页底部抽屉的圆角。 */
-.mb-ledger-sheet.mb-set-sheet {
+.mb-set-ledger-sheet.mb-set-sheet {
   max-height: 100dvh;
 }
 
-.mb-rp-page[data-device='mobile'] .mb-ledger-sheet.mb-set-sheet {
+.mb-rp-page[data-device='mobile'] .mb-set-ledger-sheet.mb-set-sheet {
   height: 100%;
   border-radius: 0;
 }

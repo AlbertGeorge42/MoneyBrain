@@ -1,7 +1,7 @@
 /**
  * MoneyBrain 静态 CSS 变量
  * 仅包含主题无关的结构 token（间距、字体、边框、圆角、动效、布局、Z-index）。
- * 颜色与阴影由 Mantine 的 cssVariablesResolver 输出（styles/theme/hf-theme.ts），
+ * 颜色与阴影由 Mantine 的 cssVariablesResolver 输出（styles/theme/theme-tokens.ts），
  * 随 Mantine colorScheme 在 :root 上切换。
  */
 
@@ -23,6 +23,7 @@
   --mb-z-popover: 60;
   --mb-z-fab: 110;
   --mb-z-overlay: 160;
+  --mb-z-sheet: 300;
   --mb-z-toast: 600;
 }
 
@@ -31,8 +32,8 @@
  * 数值来源：docs/ui-design.md §2.1（字号 + 行高 + 间距 + 圆角 + 尺寸）
  * 字面量只允许出现在 token 定义文件；业务 CSS 一律引用 --mb-*。
  */
-.mb-hf-root,
-.mb-hf-portal {
+.mb-shell-root,
+.mb-shell-portal {
   /* 字号 */
   --mb-fs-0: 12px;
   --mb-fs-1: 13px;

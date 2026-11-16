@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import type { DeviceMode } from '@/features/shared/types'
 import { PredictionBadge, ReportRowHint } from './prediction'
 import type { ReportMetric } from './reportsModel'
@@ -45,7 +45,7 @@ function MetricLabel({ metric }: { metric: ReportMetric }) {
 function MetricValue({ metric }: { metric: ReportMetric }) {
   return (
     <>
-      <span className={`mb-rp-metric-value is-${metric.tone ?? 'neutral'}`}>{metric.value}</span>
+      <span className={`mb-rp-metric-value --${metric.tone ?? 'neutral'}`}>{metric.value}</span>
       {metric.prediction && (
         <span className="mb-rp-metric-split">{metric.prediction.split}</span>
       )}
@@ -115,7 +115,7 @@ export function ReportTable({
       </div>
       <div className="mb-rp-table-wrap">
         <table
-          className={`mb-rp-table is-${variant}${foldable ? ' is-foldable' : ''}`}
+          className={`mb-rp-table --${variant}${foldable ? ' is-foldable' : ''}`}
           aria-label={ariaLabel}
         >
           <colgroup>
@@ -170,7 +170,7 @@ export function ReportTable({
                         {index === 0 && foldable ? (
                           <span className="mb-rp-row-first">
                             {row.fold ? (
-                              <HfButton
+                              <Button
                                 className="mb-rp-fold"
                                 aria-expanded={row.fold.expanded}
                                 aria-label={row.fold.expanded ? '收起子项' : '展开子项'}
@@ -180,7 +180,7 @@ export function ReportTable({
                                 }}
                               >
                                 {row.fold.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                              </HfButton>
+                              </Button>
                             ) : row.level ? null : (
                               // 子级行的 padding-left 已含折叠槽，再放占位会把缩进叠成 40px。
                               <span className="mb-rp-fold-space" aria-hidden="true" />

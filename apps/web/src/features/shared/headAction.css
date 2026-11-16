@@ -5,7 +5,7 @@
  * 与卡片内的主按钮（填充）区分开：页头动作不承载页面主流程。
  */
 
-.mb-head-action {
+.mb-shared-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -22,11 +22,11 @@
   cursor: pointer;
 }
 
-.mb-head-action:hover {
+.mb-shared-action:hover {
   background: var(--mb-color-surface-hover);
 }
 
-.mb-head-action:focus-visible {
+.mb-shared-action:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);
 }

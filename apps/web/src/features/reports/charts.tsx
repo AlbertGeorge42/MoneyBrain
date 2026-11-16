@@ -226,8 +226,8 @@ export function ReportBarChart({
   return (
     <ChartCard title={title} desc={desc}>
       <div className="mb-rp-chart-legend">
-        <span className="mb-rp-legend-dot is-income" /> 收入
-        <span className="mb-rp-legend-dot is-expense" /> 支出
+        <span className="mb-rp-legend-dot mb-rp-legend-dot--income" /> 收入
+        <span className="mb-rp-legend-dot mb-rp-legend-dot--expense" /> 支出
       </div>
       <div ref={bodyRef} className={device === 'mobile' ? 'mb-rp-chart-body is-mobile' : 'mb-rp-chart-body'}>
         {series.length === 0 ? (
@@ -260,14 +260,14 @@ export function ReportBarChart({
               return (
                 <g key={item.label + index} aria-hidden="true">
                   <rect
-                    className="mb-rp-bar is-income"
+                    className="mb-rp-bar--income"
                     x={centerX - barW - 2}
                     y={baseline - incomeH}
                     width={barW}
                     height={incomeH}
                   />
                   <rect
-                    className="mb-rp-bar is-expense"
+                    className="mb-rp-bar--expense"
                     x={centerX + 2}
                     y={baseline - expenseH}
                     width={barW}
@@ -450,7 +450,7 @@ export function CompositionDonutSide({
   return (
     <div className="mb-rp-compare-side">
       <div className="mb-rp-compare-head">
-        <span className={`mb-rp-compare-title is-${kind}`}>{title}</span>
+        <span className={`mb-rp-compare-title --${kind}`}>{title}</span>
         {total > 0 && (
           <span
             className="mb-rp-compare-scale"
@@ -512,7 +512,7 @@ export function CashFlowBars({
             <div className="mb-rp-flow-row" key={name}>
               <div className="mb-rp-flow-left">
                 <progress
-                  className="mb-rp-flow-progress is-out"
+                  className="mb-rp-flow-progress mb-rp-flow-progress--out"
                   value={(out / max) * 100}
                   max={100}
                   aria-label={`${name}流出 ${currency(out)}`}
@@ -521,7 +521,7 @@ export function CashFlowBars({
               <span className="mb-rp-flow-name">{name}</span>
               <div className="mb-rp-flow-right">
                 <progress
-                  className="mb-rp-flow-progress is-in"
+                  className="mb-rp-flow-progress mb-rp-flow-progress--in"
                   value={(incoming / max) * 100}
                   max={100}
                   aria-label={`${name}流入 ${currency(incoming)}`}

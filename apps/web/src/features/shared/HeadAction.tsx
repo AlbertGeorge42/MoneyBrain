@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react'
 import './headAction.css'
 
-export function HfHeadAction({
+export function HeadAction({
   children,
   onClick,
   ariaExpanded,
@@ -23,7 +23,7 @@ export function HfHeadAction({
   return (
     <button
       type="button"
-      className="mb-head-action"
+      className="mb-shared-action"
       aria-expanded={ariaExpanded}
       aria-label={ariaLabel}
       onClick={onClick}

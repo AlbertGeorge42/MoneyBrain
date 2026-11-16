@@ -37,9 +37,9 @@ export function Card({
       ? 'mb-rp-card'
       : variant === 'state'
         ? tone === 'danger'
-          ? 'mb-errorpanel'
-          : 'mb-coldstart'
-        : 'mb-card'
+          ? 'mb-shared-errorpanel'
+          : 'mb-shared-coldstart'
+        : 'mb-shared-card'
   return (
     <Tag className={className ? `${shell} ${className}` : shell} {...rest}>
       {children}

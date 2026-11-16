@@ -194,7 +194,7 @@ describe('#17 批量混选列出异类', () => {
       /\.mb-tx-batchbar\.is-mobile \.mb-tx-batch-summary\s*\{[^}]*display:\s*none/,
     )
     // 侧栏页脚为贴底按钮预留 38px 按钮高 + 16px 间距，滚动到底不再被压住。
-    expect(shell).toMatch(/\.mb-sidebar\s*\{[^}]*padding:[^;]*var\(--mb-control-h\)/)
+    expect(shell).toMatch(/\.mb-shell-sidebar\s*\{[^}]*padding:[^;]*var\(--mb-control-h\)/)
   })
 
   it('摘要固定一行：重复类型名只留一次，超出两项折叠成 +N', () => {
@@ -321,7 +321,7 @@ describe('#9 未来记录不计入本月合计', () => {
     // 原缺陷：页头用筛选总数（4 笔）又叠加「另有 1 笔未来」，读起来像 4+1。
     expect(current.count).toBe(3)
     await waitFor(() => {
-      const head = container.querySelector('.mb-page-sub')?.textContent ?? ''
+      const head = container.querySelector('.mb-shell-sub')?.textContent ?? ''
       expect(head).toBe('共 3 笔')
     })
     await waitFor(() => {

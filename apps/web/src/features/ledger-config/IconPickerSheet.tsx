@@ -7,8 +7,8 @@
  */
 import { useState } from 'react'
 import { Search, Tag, X } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import {
   CATEGORY_ICON_GROUPS,
@@ -49,7 +49,7 @@ export function IconPickerSheet({
     const Icon = option.icon
     const active = value === option.key
     return (
-      <HfButton
+      <Button
         key={option.key}
         className={active ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'}
         aria-pressed={active}
@@ -61,12 +61,12 @@ export function IconPickerSheet({
         }}
       >
         <Icon size={18} strokeWidth={1.8} />
-      </HfButton>
+      </Button>
     )
   }
 
   return (
-    <HfSheet
+    <Sheet
       variant="settings"
       device={device}
       opened={opened}
@@ -76,9 +76,9 @@ export function IconPickerSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">选择图标</h2>
-        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </HfButton>
+        </Button>
       </div>
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
@@ -95,7 +95,7 @@ export function IconPickerSheet({
 
         <div className="mb-set-icon-sections">
           <div className="mb-set-icon-grid">
-            <HfButton
+            <Button
               className={
                 value === '' ? 'mb-set-kind mb-set-icon-choice is-active' : 'mb-set-kind mb-set-icon-choice'
               }
@@ -108,7 +108,7 @@ export function IconPickerSheet({
               }}
             >
               <Tag size={18} strokeWidth={1.8} />
-            </HfButton>
+            </Button>
           </div>
           {groups.map((group) => (
             <section className="mb-set-icon-section" key={group.id} aria-label={group.label}>
@@ -132,6 +132,6 @@ export function IconPickerSheet({
           图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。
         </p>
       </div>
-    </HfSheet>
+    </Sheet>
   )
 }

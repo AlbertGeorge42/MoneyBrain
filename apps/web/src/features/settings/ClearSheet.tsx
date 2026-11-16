@@ -4,8 +4,8 @@
  * 必须先成功导出备份才允许确认；确认文字逐字校验，禁用原因紧贴确认按钮上方。
  */
 import { X } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { CLEAR_WORD } from './settingsData'
 
@@ -39,7 +39,7 @@ export function ClearSheet({
   onConfirm,
 }: ClearSheetProps) {
   return (
-    <HfSheet
+    <Sheet
       variant="settings"
       device={device}
       opened={opened}
@@ -51,9 +51,9 @@ export function ClearSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">清空账本</h2>
-        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </HfButton>
+        </Button>
       </div>
       <div className="mb-set-sheet-body">
         <p className="mb-set-danger-note">
@@ -66,13 +66,13 @@ export function ClearSheet({
               ? `已备份：${backupReady.filename}（${new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）`
               : '备份文件 (.mbx)'}
           </span>
-          <HfButton
-            className="mb-set-textbtn is-boxed"
+          <Button
+            className="mb-set-textbtn mb-set-textbtn--boxed"
             disabled={exporting}
             onClick={onExport}
           >
             {exporting ? '导出中…' : backupReady ? '重新导出' : '先导出备份 (.mbx)'}
-          </HfButton>
+          </Button>
         </div>
         {exportError && (
           <p className="mb-set-error" role="alert">
@@ -104,18 +104,18 @@ export function ClearSheet({
         </p>
       )}
       <div className="mb-set-sheet-actions">
-        <HfButton className="mb-set-btn" disabled={clearing} onClick={onClose}>
+        <Button className="mb-set-btn" disabled={clearing} onClick={onClose}>
           取消
-        </HfButton>
-        <HfButton
-          className="mb-set-btn is-danger"
+        </Button>
+        <Button
+          className="mb-set-btn mb-set-btn--danger"
           disabled={!backupReady || clearing}
           aria-describedby={!backupReady ? 'mb-set-clear-reason' : undefined}
           onClick={onConfirm}
         >
           {clearing ? '清空中…' : '确认清空'}
-        </HfButton>
+        </Button>
       </div>
-    </HfSheet>
+    </Sheet>
   )
 }

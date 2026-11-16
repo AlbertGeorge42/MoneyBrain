@@ -28,12 +28,12 @@
 }
 
 /* 报表时间条内嵌：外框由 mb-rp-time-picker 提供，不再叠一层边框。 */
-.mb-dp.is-inline {
+.mb-dp--inline {
   flex: 1 1 auto;
   width: auto;
 }
 
-.mb-dp.is-inline .mb-dp-control {
+.mb-dp--inline .mb-dp-control {
   width: 100%;
   min-height: var(--mb-btn-h-sm);
   padding: 0;
@@ -61,7 +61,7 @@
   cursor: pointer;
 }
 
-.mb-dp.is-inline .mb-dp-zone {
+.mb-dp--inline .mb-dp-zone {
   flex: none;
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-2);
@@ -123,7 +123,7 @@
   box-shadow: var(--mb-sh-2);
 }
 
-.mb-dp.is-align-right .mb-dp-pop {
+.mb-dp--align-right .mb-dp-pop {
   left: auto;
   right: 0;
 }
@@ -305,7 +305,7 @@
 }
 
 /* 周 / 月 / 年单元显示的是区间文字，需要更宽的格子与更小的字号。 */
-.mb-dp-day.is-gran {
+.mb-dp-day--gran {
   padding: 0 var(--mb-s-1);
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-0);
@@ -376,36 +376,36 @@
   cursor: pointer;
 }
 
-.mb-dp-btn.is-primary {
+.mb-dp-btn--primary {
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent-fill);
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
   font-weight: 600;
 }
 
-.mb-dp-btn.is-primary:hover {
+.mb-dp-btn--primary:hover {
   background: var(--mb-color-accent-fill-hover);
 }
 
-.mb-dp-btn.is-ghost {
+.mb-dp-btn--ghost {
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
   background: transparent;
   color: var(--mb-color-text-secondary);
 }
 
-.mb-dp-btn.is-ghost:hover {
+.mb-dp-btn--ghost:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
 }
 
-.mb-dp-btn.is-clear {
+.mb-dp-btn--clear {
   margin-right: auto;
   border: 0;
   background: transparent;
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-dp-btn.is-clear:hover {
+.mb-dp-btn--clear:hover {
   color: var(--mb-color-text-primary);
 }
 
@@ -437,7 +437,7 @@
   min-height: var(--mb-touch);
 }
 
-.mb-dp-sheet .mb-dp-day.is-gran {
+.mb-dp-sheet .mb-dp-day--gran {
   min-height: var(--mb-touch);
 }
 

@@ -43,7 +43,7 @@ describe('报表设置直达分类抽屉：移动端全屏、toast 不压「完�
   it('中间层 380px 设置弹窗已移除，配置抽屉在移动端占满高度', () => {
     expect(reports).not.toContain('mb-rp-sheet-settings')
     expect(reports).toMatch(
-      /\.mb-rp-page\[data-device='mobile'\] \.mb-ledger-sheet\.mb-set-sheet\s*\{[^}]*height:\s*100%/,
+      /\.mb-rp-page\[data-device='mobile'\] \.mb-set-ledger-sheet\.mb-set-sheet\s*\{[^}]*height:\s*100%/,
     )
   })
 

@@ -1,10 +1,10 @@
 /* 浮层：记账、交易详情。Modal / Drawer 的结构类名来自 Mantine，视觉值全部走 --mb-*。 */
 
-.mb-overlay {
+.mb-ov-overlay {
   background: var(--mb-color-surface-overlay);
 }
 
-.mb-modal {
+.mb-shared-modal {
   width: var(--mb-modal-w);
   max-width: calc(100vw - var(--mb-s-6));
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
@@ -13,30 +13,30 @@
   box-shadow: var(--mb-sh-3);
 }
 
-.mb-sheet {
+.mb-shared-sheet {
   max-height: calc(var(--mb-mobile-h) - var(--mb-s-7));
   border-top-left-radius: var(--mb-radius-lg);
   border-top-right-radius: var(--mb-radius-lg);
   background: var(--mb-color-surface-raised);
 }
 
-.mb-overlay-head {
+.mb-ov-overlay-head {
   padding: var(--mb-s-4) var(--mb-s-5) 0;
   border-bottom: 0;
   background: transparent;
 }
 
-.mb-overlay-title-wrap {
+.mb-ov-title-wrap {
   display: block;
 }
 
-.mb-overlay-title-copy {
+.mb-ov-title-copy {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
 }
 
-.mb-overlay-title {
+.mb-ov-overlay-title {
   font-family: var(--mb-font-display);
   font-size: var(--mb-fs-4);
   font-weight: 600;
@@ -44,35 +44,35 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-overlay-sub {
+.mb-ov-sub {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-overlay-body {
+.mb-ov-body {
   padding: var(--mb-s-4) var(--mb-s-5) var(--mb-s-5);
 }
 
-.mb-sheet .mb-overlay-head {
+.mb-shared-sheet .mb-ov-overlay-head {
   padding: var(--mb-s-3) var(--mb-page-pad-mobile) 0;
 }
 
-.mb-sheet .mb-overlay-body {
+.mb-shared-sheet .mb-ov-body {
   padding: var(--mb-s-3) var(--mb-page-pad-mobile)
     calc(var(--mb-s-5) + env(safe-area-inset-bottom));
 }
 
-.mb-overlay-close {
+.mb-ov-close {
   color: var(--mb-color-text-secondary);
 }
 
-.mb-entry-form {
+.mb-ov-form {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-4);
 }
 
-.mb-entry-field {
+.mb-ov-field {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-2);
@@ -81,13 +81,13 @@
   border: 0;
 }
 
-.mb-field-label {
+.mb-shared-label {
   color: var(--mb-color-text-secondary);
   font-size: var(--mb-fs-0);
   font-weight: 500;
 }
 
-.mb-input {
+.mb-shared-input {
   min-height: var(--mb-control-h);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
@@ -96,13 +96,13 @@
   font-size: var(--mb-fs-2);
 }
 
-.mb-input:focus,
-.mb-input:focus-within {
+.mb-shared-input:focus,
+.mb-shared-input:focus-within {
   border-color: var(--mb-color-accent);
   box-shadow: 0 0 0 var(--mb-s-1) var(--mb-color-accent-soft);
 }
 
-.mb-entry-actions {
+.mb-ov-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--mb-s-2);
@@ -110,7 +110,7 @@
 
 /* ===== 记账浮层（W1） ===== */
 
-.mb-entry-head {
+.mb-ov-entry-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -118,7 +118,7 @@
   width: 100%;
 }
 
-.mb-entry-count {
+.mb-ov-count {
   display: flex;
   align-items: center;
   gap: var(--mb-s-2);
@@ -126,12 +126,12 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-entry-count span:first-child {
+.mb-ov-count span:first-child {
   color: var(--mb-color-accent);
   font-weight: 600;
 }
 
-.mb-entry-types {
+.mb-ov-types {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: var(--mb-s-1);
@@ -140,7 +140,7 @@
   background: var(--mb-color-surface-sunken);
 }
 
-.mb-entry-type {
+.mb-ov-type {
   min-height: var(--mb-btn-h-sm);
   border: 0;
   border-radius: var(--mb-radius-sm);
@@ -151,28 +151,28 @@
   cursor: pointer;
 }
 
-.mb-entry-type:hover {
+.mb-ov-type:hover {
   color: var(--mb-color-text-primary);
 }
 
-.mb-entry-type.is-active {
+.mb-ov-type.is-active {
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
   font-weight: 600;
 }
 
-.mb-entry-type:focus-visible,
-.mb-entry-account:focus-visible,
-.mb-entry-all:focus-visible,
-.mb-entry-cat:focus-visible,
-.mb-entry-key:focus-visible,
-.mb-entry-sign:focus-visible,
-.mb-entry-more-toggle:focus-visible {
+.mb-ov-type:focus-visible,
+.mb-ov-account:focus-visible,
+.mb-ov-all:focus-visible,
+.mb-ov-cat:focus-visible,
+.mb-ov-key:focus-visible,
+.mb-ov-sign:focus-visible,
+.mb-ov-more-toggle:focus-visible {
   outline: var(--mb-border-width) solid var(--mb-color-accent);
   outline-offset: 2px;
 }
 
-.mb-entry-amount-row {
+.mb-ov-amount-row {
   display: flex;
   align-items: baseline;
   gap: var(--mb-s-2);
@@ -180,13 +180,13 @@
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-entry-currency {
+.mb-ov-currency {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-3);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-entry-amount-input {
+.mb-ov-amount-input {
   flex: 1 1 auto;
   min-width: 0;
   border: 0;
@@ -199,23 +199,23 @@
   line-height: var(--mb-lh-tight);
 }
 
-.mb-entry-amount-row.is-invalid {
+.mb-ov-amount-row.is-invalid {
   border-bottom-color: var(--mb-color-expense);
 }
 
-.mb-entry-amount-row.is-invalid .mb-entry-amount-input {
+.mb-ov-amount-row.is-invalid .mb-ov-amount-input {
   color: var(--mb-color-expense);
 }
 
-.mb-entry-amount-input:focus {
+.mb-ov-amount-input:focus {
   outline: none;
 }
 
-.mb-entry-amount-input::placeholder {
+.mb-ov-amount-input::placeholder {
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-entry-amount-display {
+.mb-ov-amount-display {
   display: flex;
   align-items: center;
   gap: var(--mb-s-2);
@@ -224,7 +224,7 @@
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-entry-amount {
+.mb-ov-entry-amount {
   flex: 1 1 auto;
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-5);
@@ -236,11 +236,11 @@
   white-space: nowrap;
 }
 
-.mb-entry-amount.is-invalid {
+.mb-ov-entry-amount.is-invalid {
   color: var(--mb-color-expense);
 }
 
-.mb-entry-sign {
+.mb-ov-sign {
   flex: none;
   min-width: 56px;
   min-height: var(--mb-btn-h-sm);
@@ -253,27 +253,27 @@
   cursor: pointer;
 }
 
-.mb-entry-sign.is-negative {
+.mb-ov-sign--negative {
   border-color: var(--mb-color-expense);
   color: var(--mb-color-expense);
 }
 
-.mb-entry-error {
+.mb-ov-error {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-expense);
 }
 
-.mb-entry-grid {
+.mb-ov-entry-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--mb-s-2);
 }
 
-.mb-entry-grid:focus {
+.mb-ov-entry-grid:focus {
   outline: none;
 }
 
-.mb-entry-cat {
+.mb-ov-cat {
   position: relative;
   min-height: var(--mb-btn-h-lg);
   padding: var(--mb-s-1) var(--mb-s-2);
@@ -287,19 +287,19 @@
   transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-entry-cat:hover {
+.mb-ov-cat:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
 }
 
-.mb-entry-cat.is-active {
+.mb-ov-cat.is-active {
   border-color: var(--mb-color-accent-fill);
   background: var(--mb-color-accent-soft);
   color: var(--mb-color-accent);
   font-weight: 600;
 }
 
-.mb-entry-cat-hint {
+.mb-ov-cat-hint {
   position: absolute;
   top: 1px;
   right: 6px;
@@ -308,7 +308,7 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-entry-accounts {
+.mb-ov-accounts {
   display: flex;
   align-items: center;
   gap: var(--mb-s-1);
@@ -317,7 +317,7 @@
   overflow: hidden;
 }
 
-.mb-entry-accounts-scroll {
+.mb-ov-accounts-scroll {
   display: flex;
   flex: 1 1 0;
   gap: var(--mb-s-2);
@@ -327,15 +327,15 @@
   scrollbar-width: none;
 }
 
-.mb-entry-accounts-scroll::-webkit-scrollbar {
+.mb-ov-accounts-scroll::-webkit-scrollbar {
   display: none;
 }
 
-.mb-entry-field {
+.mb-ov-field {
   min-width: 0;
 }
 
-.mb-entry-account {
+.mb-ov-account {
   flex: none;
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-3);
@@ -349,19 +349,19 @@
   cursor: pointer;
 }
 
-.mb-entry-account[aria-pressed='true'] {
+.mb-ov-account[aria-pressed='true'] {
   border-color: var(--mb-color-accent-fill);
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
   font-weight: 600;
 }
 
-.mb-entry-account:disabled {
+.mb-ov-account:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.mb-entry-all {
+.mb-ov-all {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -377,7 +377,7 @@
   cursor: pointer;
 }
 
-.mb-entry-more-toggle {
+.mb-ov-more-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -392,16 +392,16 @@
   cursor: pointer;
 }
 
-.mb-entry-more-toggle svg {
+.mb-ov-more-toggle svg {
   transition: transform var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-entry-more-toggle svg.is-open {
+.mb-ov-more-toggle svg.is-open {
   transform: rotate(180deg);
 }
 
 /* 记账表单的逐笔「不计收支」：默认可见，不藏进「更多」。 */
-.mb-entry-excluded {
+.mb-ov-excluded {
   display: flex;
   align-items: flex-start;
   gap: var(--mb-s-2);
@@ -411,29 +411,29 @@
   cursor: pointer;
 }
 
-.mb-entry-excluded-input {
+.mb-ov-excluded-input {
   margin: 2px 0 0;
   accent-color: var(--mb-color-accent);
 }
 
-.mb-entry-excluded-copy {
+.mb-ov-excluded-copy {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.mb-entry-excluded-title {
+.mb-ov-excluded-title {
   font-size: var(--mb-fs-1);
   color: var(--mb-color-text-primary);
 }
 
-.mb-entry-excluded-hint {
+.mb-ov-excluded-hint {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-entry-more {
+.mb-ov-more {
   display: grid;
   gap: var(--mb-s-3);
   padding: var(--mb-s-3);
@@ -441,18 +441,18 @@
   background: var(--mb-color-surface-sunken);
 }
 
-.mb-entry-more-field {
+.mb-ov-more-field {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
 }
 
-.mb-entry-date {
+.mb-ov-date {
   padding: 0 var(--mb-s-2);
   color-scheme: inherit;
 }
 
-.mb-entry-actions {
+.mb-ov-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--mb-s-2);
@@ -460,13 +460,13 @@
   border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-entry-keypad {
+.mb-ov-keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--mb-s-2);
 }
 
-.mb-entry-key {
+.mb-ov-key {
   min-height: var(--mb-btn-h-lg);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
@@ -477,11 +477,11 @@
   cursor: pointer;
 }
 
-.mb-entry-key:active {
+.mb-ov-key:active {
   background: var(--mb-color-surface-hover);
 }
 
-.mb-entry-mobile-foot {
+.mb-ov-mobile-foot {
   position: sticky;
   bottom: 0;
   z-index: var(--mb-z-local-2);
@@ -494,17 +494,17 @@
   background: var(--mb-color-surface-raised);
 }
 
-.mb-entry-mobile-actions {
+.mb-ov-mobile-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--mb-s-2);
 }
 
-.mb-entry-mobile-actions .mb-entry-continue {
+.mb-ov-mobile-actions .mb-ov-continue {
   grid-column: 1 / -1;
 }
 
-.mb-entry-sheet {
+.mb-ov-sheet {
   display: flex;
   flex-direction: column;
   top: auto;
@@ -515,30 +515,30 @@
 }
 
 /* 内容区独立滚动：展开「更多」后日期 / 备注不会被吸底键盘压住。 */
-.mb-entry-sheet .mb-overlay-body {
+.mb-ov-sheet .mb-ov-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-.mb-entry-picker-sheet {
+.mb-ov-picker-sheet {
   max-height: 56vh;
   border-top-left-radius: var(--mb-radius-lg);
   border-top-right-radius: var(--mb-radius-lg);
   background: var(--mb-color-surface-raised);
 }
 
-.mb-entry-picker-panel {
+.mb-ov-picker-panel {
   background: var(--mb-color-surface-raised);
   border-left: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
 }
 
-.mb-entry-picker-body {
+.mb-ov-picker-body {
   padding: var(--mb-s-4) var(--mb-s-5) var(--mb-s-5);
 }
 
-.mb-entry-picker {
+.mb-ov-picker {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-3);
@@ -546,18 +546,18 @@
   overflow-y: auto;
 }
 
-.mb-entry-picker-group {
+.mb-ov-picker-group {
   display: flex;
   flex-direction: column;
 }
 
-.mb-entry-picker-label {
+.mb-ov-picker-label {
   padding: var(--mb-s-2) 0 var(--mb-s-1);
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-entry-picker-item {
+.mb-ov-picker-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -574,25 +574,25 @@
   cursor: pointer;
 }
 
-.mb-entry-picker-item[aria-pressed='true'] {
+.mb-ov-picker-item[aria-pressed='true'] {
   color: var(--mb-color-accent);
   font-weight: 600;
 }
 
-.mb-entry-picker-name {
+.mb-ov-picker-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mb-entry-picker-meta {
+.mb-ov-picker-meta {
   flex: none;
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-entry-picker-empty {
+.mb-ov-picker-empty {
   margin: 0;
   padding: var(--mb-s-5) 0;
   text-align: center;
@@ -601,34 +601,34 @@
 }
 
 /* 移动端：所有可点元素热区统一 44px（含数字键盘，见 design-tokens §5.1）。 */
-[data-device='mobile'] .mb-entry-type {
+[data-device='mobile'] .mb-ov-type {
   min-height: var(--mb-btn-h-lg);
 }
 
-[data-device='mobile'] .mb-entry-account,
-[data-device='mobile'] .mb-entry-all {
+[data-device='mobile'] .mb-ov-account,
+[data-device='mobile'] .mb-ov-all {
   min-height: var(--mb-btn-h-lg);
 }
 
-[data-device='mobile'] .mb-entry-cat {
+[data-device='mobile'] .mb-ov-cat {
   min-height: var(--mb-btn-h-lg);
   font-size: var(--mb-fs-1);
 }
 
-[data-device='mobile'] .mb-entry-more-toggle {
+[data-device='mobile'] .mb-ov-more-toggle {
   min-height: var(--mb-btn-h-lg);
 }
 
 /* ===== 交易详情 ===== */
 
 
-.mb-detail {
+.mb-ov-detail {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-4);
 }
 
-.mb-detail-hero {
+.mb-ov-detail-hero {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-2);
@@ -636,7 +636,7 @@
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-detail-amount {
+.mb-ov-detail-amount {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-5);
   font-weight: 600;
@@ -644,19 +644,19 @@
   font-variant-numeric: tabular-nums;
 }
 
-.mb-detail-amount.is-income {
+.mb-ov-detail-amount--income {
   color: var(--mb-color-income);
 }
 
-.mb-detail-amount.is-expense {
+.mb-ov-detail-amount--expense {
   color: var(--mb-color-expense);
 }
 
-.mb-detail-amount.is-transfer {
+.mb-ov-detail-amount--transfer {
   color: var(--mb-color-transfer);
 }
 
-.mb-detail-meta {
+.mb-ov-detail-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -665,36 +665,36 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-detail-badge {
+.mb-ov-badge {
   padding: var(--mb-s-1) var(--mb-s-2);
   border-radius: var(--mb-radius-pill);
   font-size: var(--mb-fs-0);
   font-weight: 600;
 }
 
-.mb-detail-badge.is-income {
+.mb-ov-badge--income {
   background: var(--mb-color-income-bg);
   color: var(--mb-color-income);
 }
 
-.mb-detail-badge.is-expense {
+.mb-ov-badge--expense {
   background: var(--mb-color-expense-bg);
   color: var(--mb-color-expense);
 }
 
-.mb-detail-badge.is-transfer {
+.mb-ov-badge--transfer {
   background: var(--mb-color-transfer-bg);
   color: var(--mb-color-transfer);
 }
 
-.mb-detail-list {
+.mb-ov-list {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-3);
   margin: 0;
 }
 
-.mb-detail-list > div {
+.mb-ov-list > div {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -703,13 +703,13 @@
   border-bottom: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-detail-list dt {
+.mb-ov-list dt {
   flex: none;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-detail-list dd {
+.mb-ov-list dd {
   margin: 0;
   text-align: right;
   font-size: var(--mb-fs-2);
@@ -717,20 +717,20 @@
   overflow-wrap: anywhere;
 }
 
-.mb-detail-category {
+.mb-ov-category {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-2);
 }
 
-.mb-detail-list .mb-detail-code {
+.mb-ov-list .mb-ov-code {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-1);
   color: var(--mb-color-text-tertiary);
 }
 
 /* 退款关联：总览详情同样可点开对方；金额与行标记口径一致。 */
-.mb-detail-link {
+.mb-ov-link {
   max-width: 100%;
   padding: 0;
   border: 0;
@@ -741,21 +741,21 @@
   cursor: pointer;
 }
 
-.mb-detail-link:hover {
+.mb-ov-link:hover {
   text-decoration: underline;
 }
 
-.mb-detail-link:focus-visible,
-.mb-detail-refund-item:focus-visible {
+.mb-ov-link:focus-visible,
+.mb-ov-refund-item:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * -1);
 }
 
-.mb-detail-muted {
+.mb-ov-muted {
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-detail-refund-summary {
+.mb-ov-refund-summary {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -763,7 +763,7 @@
   gap: var(--mb-s-2);
 }
 
-.mb-detail-refund-badge {
+.mb-ov-refund-badge {
   padding: 1px 6px;
   border-radius: var(--mb-radius-sm);
   background: var(--mb-color-surface-raised);
@@ -771,14 +771,14 @@
   color: var(--mb-color-warning);
 }
 
-.mb-detail-refund-items {
+.mb-ov-refund-items {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
   margin-top: var(--mb-s-2);
 }
 
-.mb-detail-refund-item {
+.mb-ov-refund-item {
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
@@ -793,18 +793,18 @@
   cursor: pointer;
 }
 
-.mb-detail-refund-item:hover {
+.mb-ov-refund-item:hover {
   color: var(--mb-color-accent);
 }
 
-.mb-detail-refund-item-note {
+.mb-ov-refund-item-note {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mb-detail-refund-item-amount {
+.mb-ov-refund-item-amount {
   flex: none;
   font-family: var(--mb-font-num);
   color: var(--mb-color-text-primary);
@@ -814,7 +814,7 @@
 
 /* ===== 空账本记一笔：说明 + 去添加账户 ===== */
 
-.mb-entry-missing-account {
+.mb-ov-missing-account {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -826,7 +826,7 @@
   background: var(--mb-color-surface-sunken);
 }
 
-.mb-entry-missing-account p {
+.mb-ov-missing-account p {
   flex: 1 1 160px;
   margin: 0;
   font-size: var(--mb-fs-1);
@@ -834,7 +834,7 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-entry-missing-account-action {
+.mb-ov-missing-account-action {
   min-height: var(--mb-touch);
   padding: 0 var(--mb-s-3);
   border: 0;

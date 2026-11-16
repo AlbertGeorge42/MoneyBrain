@@ -84,16 +84,16 @@ export function ColdStartGuide({
       : '先建一个账户，或导入现有账单。所有数据只留在本机，不上传任何服务器。'
 
   return (
-    <Card variant="state" aria-labelledby="mb-coldstart-title">
-      <div className="mb-coldstart-mark" aria-hidden="true">
+    <Card variant="state" aria-labelledby="mb-shared-coldstart-title">
+      <div className="mb-shared-coldstart-mark" aria-hidden="true">
         <Wallet size={30} strokeWidth={1.8} />
       </div>
-      <h2 id="mb-coldstart-title" className="mb-coldstart-title">
+      <h2 id="mb-shared-coldstart-title" className="mb-shared-coldstart-title">
         {title}
       </h2>
-      <p className="mb-coldstart-desc">{desc}</p>
+      <p className="mb-shared-coldstart-desc">{desc}</p>
 
-      <ol className="mb-coldstart-steps">
+      <ol className="mb-shared-steps">
         {steps.map((step, index) => {
           const state = step.done ? 'is-done' : index === currentIndex ? 'is-current' : ''
           return (
@@ -102,33 +102,33 @@ export function ColdStartGuide({
               className={state}
               aria-current={state === 'is-current' ? 'step' : undefined}
             >
-              <span className="mb-coldstart-step" aria-hidden="true">
+              <span className="mb-shared-step" aria-hidden="true">
                 {step.done ? <Check size={13} strokeWidth={3} /> : index + 1}
               </span>
-              <span className="mb-coldstart-step-body">
-                <span className="mb-coldstart-step-title">{step.title}</span>
-                <span className="mb-coldstart-step-desc">{step.desc}</span>
+              <span className="mb-shared-step-body">
+                <span className="mb-shared-step-title">{step.title}</span>
+                <span className="mb-shared-step-desc">{step.desc}</span>
               </span>
             </li>
           )
         })}
       </ol>
 
-      <div className="mb-coldstart-actions">
+      <div className="mb-shared-coldstart-actions">
         {/* 只给当前步一个主动作：下一步该做什么，这里就是什么。 */}
         {current?.id === 'account' && (
-          <Button className="mb-primary-btn" leftSection={<Plus size={16} />} onClick={onCreateAccount}>
+          <Button className="mb-shared-btn--primary" leftSection={<Plus size={16} />} onClick={onCreateAccount}>
             创建账户
           </Button>
         )}
         {current?.id === 'entry' && (
-          <Button className="mb-primary-btn" leftSection={<Plus size={16} />} onClick={onRecord}>
+          <Button className="mb-shared-btn--primary" leftSection={<Plus size={16} />} onClick={onRecord}>
             记一笔
           </Button>
         )}
         {current?.id === 'report' && (
           <Button
-            className="mb-primary-btn"
+            className="mb-shared-btn--primary"
             leftSection={<FolderInput size={16} />}
             onClick={onOpenReports}
           >
@@ -138,7 +138,7 @@ export function ColdStartGuide({
         {/* 导入是并行的第二条路：任何一步都能用它代替手动操作。 */}
         {current?.id !== 'entry' && (
           <Button
-            className="mb-secondary-btn"
+            className="mb-shared-btn--secondary"
             variant="default"
             leftSection={<FolderInput size={16} />}
             onClick={onImport}
@@ -154,13 +154,13 @@ export function ColdStartGuide({
 export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
   return (
     <Card variant="state" tone="danger" role="alert">
-      <div className="mb-errorpanel-mark" aria-hidden="true">
+      <div className="mb-shared-errorpanel-mark" aria-hidden="true">
         !
       </div>
-      <h2 className="mb-errorpanel-title">数据没取出来</h2>
-      <p className="mb-errorpanel-desc">本地数据库响应超时。你的数据没有丢失——这是展示层的问题。</p>
-      <div className="mb-errorpanel-actions">
-        <Button className="mb-primary-btn" leftSection={<RotateCcw size={16} />} onClick={onRetry}>
+      <h2 className="mb-shared-errorpanel-title">数据没取出来</h2>
+      <p className="mb-shared-errorpanel-desc">本地数据库响应超时。你的数据没有丢失——这是展示层的问题。</p>
+      <div className="mb-shared-errorpanel-actions">
+        <Button className="mb-shared-btn--primary" leftSection={<RotateCcw size={16} />} onClick={onRetry}>
           重试
         </Button>
       </div>
@@ -178,68 +178,68 @@ export function LoadingSkeleton({
   const mobile = device === 'mobile'
   if (variant === 'reports') {
     return (
-      <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载报表">
-        <div className="mb-skeleton mb-skeleton-toolbar" />
-        <div className={mobile ? 'mb-skeleton mb-skeleton-hero is-mobile' : 'mb-skeleton mb-skeleton-metrics'} />
-        <div className={mobile ? 'mb-skeleton mb-skeleton-chart' : 'mb-skeleton mb-skeleton-chart is-wide'} />
-        <div className="mb-skeleton-row">
-          <div className="mb-skeleton mb-skeleton-card" />
-          <div className="mb-skeleton mb-skeleton-card" />
+      <div className="mb-shared-page" role="status" aria-busy="true" aria-label="正在加载报表">
+        <div className="mb-shared-skeleton mb-shared-toolbar" />
+        <div className={mobile ? 'mb-shared-skeleton mb-shared-hero is-mobile' : 'mb-shared-skeleton mb-shared-metrics'} />
+        <div className={mobile ? 'mb-shared-skeleton mb-shared-chart' : 'mb-shared-skeleton mb-shared-chart mb-shared-chart--wide'} />
+        <div className="mb-shared-row">
+          <div className="mb-shared-skeleton mb-shared-skeleton-card" />
+          <div className="mb-shared-skeleton mb-shared-skeleton-card" />
         </div>
-        <span className="mb-visually-hidden">正在加载报表数据</span>
+        <span className="mb-shell-hidden">正在加载报表数据</span>
       </div>
     )
   }
   if (variant === 'settings') {
     return (
-      <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载设置">
-        <div className="mb-skeleton mb-skeleton-toolbar" />
+      <div className="mb-shared-page" role="status" aria-busy="true" aria-label="正在加载设置">
+        <div className="mb-shared-skeleton mb-shared-toolbar" />
         <div className={mobile ? '' : 'mb-set-skeleton'}>
-          {!mobile && <div className="mb-skeleton mb-skeleton-nav" />}
-          <div className="mb-skeleton mb-skeleton-settings-list" />
+          {!mobile && <div className="mb-shared-skeleton mb-shared-nav" />}
+          <div className="mb-shared-skeleton mb-shared-settings-list" />
         </div>
-        <span className="mb-visually-hidden">正在加载设置</span>
+        <span className="mb-shell-hidden">正在加载设置</span>
       </div>
     )
   }
   if (variant === 'transactions') {
     return (
-      <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载流水">
-        <div className="mb-skeleton mb-skeleton-toolbar" />
-        <Card as="div" className="mb-skeleton-list">
+      <div className="mb-shared-page" role="status" aria-busy="true" aria-label="正在加载流水">
+        <div className="mb-shared-skeleton mb-shared-toolbar" />
+        <Card as="div" className="mb-shared-list">
           {[0, 1, 2, 3, 4, 5].map((row) => (
-            <div key={row} className="mb-skeleton mb-skeleton-line" />
+            <div key={row} className="mb-shared-skeleton mb-shared-skeleton-line" />
           ))}
         </Card>
-        <span className="mb-visually-hidden">正在加载流水数据</span>
+        <span className="mb-shell-hidden">正在加载流水数据</span>
       </div>
     )
   }
 
   return (
-    <div className="mb-skeleton-page" role="status" aria-busy="true" aria-label="正在加载总览">
-      <div className={mobile ? 'mb-skeleton mb-skeleton-hero is-mobile' : 'mb-skeleton mb-skeleton-hero'} />
+    <div className="mb-shared-page" role="status" aria-busy="true" aria-label="正在加载总览">
+      <div className={mobile ? 'mb-shared-skeleton mb-shared-hero is-mobile' : 'mb-shared-skeleton mb-shared-hero'} />
       {mobile ? (
         <>
-          <div className="mb-skeleton-row">
-            <div className="mb-skeleton mb-skeleton-snap" />
-            <div className="mb-skeleton mb-skeleton-snap" />
+          <div className="mb-shared-row">
+            <div className="mb-shared-skeleton mb-shared-snap" />
+            <div className="mb-shared-skeleton mb-shared-snap" />
           </div>
-          <div className="mb-skeleton mb-skeleton-entry" />
-          <div className="mb-skeleton mb-skeleton-chart" />
-          <div className="mb-skeleton mb-skeleton-card" />
+          <div className="mb-shared-skeleton mb-shared-entry" />
+          <div className="mb-shared-skeleton mb-shared-chart" />
+          <div className="mb-shared-skeleton mb-shared-skeleton-card" />
         </>
       ) : (
         <>
-          <div className="mb-skeleton mb-skeleton-entry" />
-          <div className="mb-skeleton-mid">
-            <div className="mb-skeleton mb-skeleton-card is-tall" />
-            <div className="mb-skeleton mb-skeleton-card is-tall" />
+          <div className="mb-shared-skeleton mb-shared-entry" />
+          <div className="mb-shared-mid">
+            <div className="mb-shared-skeleton mb-shared-skeleton-card mb-shared-skeleton-card--tall" />
+            <div className="mb-shared-skeleton mb-shared-skeleton-card mb-shared-skeleton-card--tall" />
           </div>
-          <div className="mb-skeleton mb-skeleton-chart" />
+          <div className="mb-shared-skeleton mb-shared-chart" />
         </>
       )}
-      <span className="mb-visually-hidden">正在加载总览数据</span>
+      <span className="mb-shell-hidden">正在加载总览数据</span>
     </div>
   )
 }

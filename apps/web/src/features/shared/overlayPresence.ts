@@ -1,12 +1,12 @@
 /**
- * 浮层打开状态：任意 HfSheet（抽屉/弹窗）打开时登记，全部关闭后清除。
+ * 浮层打开状态：任意 Sheet（抽屉/弹窗）打开时登记，全部关闭后清除。
  *
  * 为什么需要它：桌面侧栏「记一笔」与移动端 FAB 都 portal 到 body 级宿主，
  * 而抽屉渲染在带 transform 的画布层叠上下文内——两者 z-index 不在同一上下文，
  * 无法靠层级让遮罩盖住按钮。改为让按钮在任意浮层打开时真正禁用，
  * 不依赖 Drawer 的内部 DOM 或 Mantine 的 z-index。
  *
- * 用 useSyncExternalStore + 计数（抽屉可能嵌套）：HfSheet 挂载打开时 +1、
+ * 用 useSyncExternalStore + 计数（抽屉可能嵌套）：Sheet 挂载打开时 +1、
  * 关闭/卸载时 −1；AppShell 的记一笔按钮订阅 `open > 0` 自动禁用。
  * 无 provider，所有入口共用同一份状态。
  */
@@ -19,7 +19,7 @@ function emit() {
   listeners.forEach((listener) => listener())
 }
 
-/** HfSheet 打开时调用，返回关闭时执行的注销函数。 */
+/** Sheet 打开时调用，返回关闭时执行的注销函数。 */
 export function registerOverlay(): () => void {
   openCount += 1
   emit()

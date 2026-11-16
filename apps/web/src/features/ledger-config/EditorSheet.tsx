@@ -6,8 +6,8 @@
  */
 import { useEffect, useState } from 'react'
 import { ChevronRight, Trash2, X } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
 import { parseMoneyInput } from '@/utils/money'
@@ -225,12 +225,12 @@ export function EditorSheet({
   const CurrentIcon = currentIcon.icon
 
   return (
-    <HfSheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
+    <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">{title}</h2>
-        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </HfButton>
+        </Button>
       </div>
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
@@ -253,7 +253,7 @@ export function EditorSheet({
           <div className="mb-set-field">
             <span className="mb-set-label">图标</span>
             {/* 图标网格收在独立抽屉里：这里只留当前图标与入口。 */}
-            <HfButton
+            <Button
               className="mb-set-icon-current"
               aria-label="选择图标"
               onClick={() => setIconPickerOpen(true)}
@@ -265,7 +265,7 @@ export function EditorSheet({
                 {iconKey ? '已选图标' : '自动（按名称匹配）'}
               </span>
               <ChevronRight size={16} />
-            </HfButton>
+            </Button>
             <p className="mb-set-hint">
               图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。
             </p>
@@ -284,7 +284,7 @@ export function EditorSheet({
               分组即后端的账户分类，只有「一级分类 → 账户」两层。新建分组默认不带「现金等价 / 投资」标记，账户移入后按该分组的标记参与现金流与投资占比计算。
             </p>
             {duplicateGroup.length > 0 && (
-              <p className="mb-set-hint is-warning">
+              <p className="mb-set-hint mb-set-hint--warning">
                 已存在同名分组「{duplicateGroup[0].name}」（#
                 {duplicateGroup[0].id.slice(-4)}），保存后将并存并按尾号区分。
               </p>
@@ -320,14 +320,14 @@ export function EditorSheet({
                 <span className="mb-set-label">账户性质</span>
                 <div className="mb-set-kind-grid" role="group" aria-label="账户性质">
                   {(['deposit', 'cash', 'investment', 'credit'] as AccountKind[]).map((value) => (
-                    <HfButton
+                    <Button
                       key={value}
                       className={kind === value ? 'mb-set-kind is-active' : 'mb-set-kind'}
                       aria-pressed={kind === value}
                       onClick={() => setKind(value)}
                     >
                       {ACCOUNT_KIND_LABEL[value]}
-                    </HfButton>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -343,7 +343,7 @@ export function EditorSheet({
               </p>
             )}
             {flagChanged && (
-              <p className="mb-set-hint is-warning">
+              <p className="mb-set-hint mb-set-hint--warning">
                 该分组与账户原分类的「现金等价 / 投资」标识不同；保存后现金流与投资占比会按新标识重算，净资产与资产构成不受影响。
               </p>
             )}
@@ -415,25 +415,25 @@ export function EditorSheet({
 
       <div className="mb-set-sheet-actions">
         {onDelete && (
-          <HfButton
-            className="mb-set-btn is-danger"
+          <Button
+            className="mb-set-btn mb-set-btn--danger"
             disabled={saving}
             onClick={onDelete}
           >
             <Trash2 size={15} />
             {editor.kind === 'accountGroup' ? '删除分组' : '删除账户'}
-          </HfButton>
+          </Button>
         )}
-        <HfButton className="mb-set-btn is-ghost" onClick={onClose}>
+        <Button className="mb-set-btn mb-set-btn--ghost" onClick={onClose}>
           取消
-        </HfButton>
-        <HfButton
-          className="mb-set-btn is-primary"
+        </Button>
+        <Button
+          className="mb-set-btn mb-set-btn--primary"
           disabled={!valid || saving}
           onClick={handleSave}
         >
           {saving ? '保存中…' : '保存'}
-        </HfButton>
+        </Button>
       </div>
 
       <IconPickerSheet
@@ -444,6 +444,6 @@ export function EditorSheet({
         onSelect={setIconKey}
         onClose={() => setIconPickerOpen(false)}
       />
-    </HfSheet>
+    </Sheet>
   )
 }

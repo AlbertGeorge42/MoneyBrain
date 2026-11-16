@@ -13,7 +13,7 @@ import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { CONFIG_SECTIONS, GENERAL_SECTIONS } from '@/features/settings/settingsModel'
-import { hfTheme } from '@/styles/theme/hf-theme'
+import { appTheme } from '@/styles/theme/theme-tokens'
 
 const mocks = vi.hoisted(() => ({
   getRecycleBin: vi.fn(),
@@ -44,7 +44,7 @@ function renderSettings() {
   mocks.getRecycleBin.mockResolvedValue({ data: { list: [], accounts: [], categories: [] } })
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <MantineProvider theme={hfTheme} defaultColorScheme="auto">
+      <MantineProvider theme={appTheme} defaultColorScheme="auto">
         <LedgerProvider initialLedger={createSeedLedger()}>
           <ToastProvider>
             <SettingsPage device="desktop" dataState="normal" onRetry={vi.fn()} />

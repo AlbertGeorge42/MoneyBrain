@@ -7,7 +7,7 @@
  */
 import type { ReactNode } from 'react'
 
-export interface HfSegmentedOption<T extends string> {
+export interface SegmentedOption<T extends string> {
   id: T
   label: ReactNode
 }
@@ -19,10 +19,10 @@ const VARIANT_CLASS: Record<
   report: { container: 'mb-rp-seg', button: 'mb-rp-seg-btn' },
   granularity: { container: 'mb-rp-gran', button: 'mb-rp-gran-btn' },
   budget: { container: 'mb-bg-seg', button: 'mb-bg-seg-btn' },
-  entry: { container: 'mb-entry-types', button: 'mb-entry-type' },
+  entry: { container: 'mb-ov-types', button: 'mb-ov-type' },
 }
 
-export function HfSegmented<T extends string>({
+export function Segmented<T extends string>({
   label,
   value,
   options,
@@ -32,7 +32,7 @@ export function HfSegmented<T extends string>({
 }: {
   label: string
   value: T
-  options: readonly HfSegmentedOption<T>[]
+  options: readonly SegmentedOption<T>[]
   onChange: (next: T) => void
   variant: 'report' | 'granularity' | 'budget' | 'entry'
   ariaPressed?: boolean

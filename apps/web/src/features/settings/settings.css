@@ -285,7 +285,7 @@
 }
 
 /* 已设置图标时让图标铺满原占位块；未设置仍显示原 24×24 Tag 占位。 */
-.mb-set-icon > .mb-cat-icon {
+.mb-set-icon > .mb-shared-icon {
   width: 100%;
   height: 100%;
   border-radius: var(--mb-radius-xs);
@@ -425,11 +425,11 @@
   background: var(--mb-color-surface-hover);
 }
 
-.mb-set-menu-item.is-danger {
+.mb-set-menu-item--danger {
   color: var(--mb-color-expense);
 }
 
-.mb-set-menu-item.is-danger:hover:not(:disabled) {
+.mb-set-menu-item--danger:hover:not(:disabled) {
   background: var(--mb-color-expense-bg);
 }
 
@@ -452,7 +452,7 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-set-hint.is-warning {
+.mb-set-hint--warning {
   color: var(--mb-color-expense);
 }
 
@@ -485,7 +485,7 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-set-list-empty.is-tall {
+.mb-set-list-empty--tall {
   min-height: 220px;
   border: 0;
 }
@@ -661,7 +661,7 @@
   background: var(--mb-color-surface-raised);
 }
 
-.mb-set-datacard.is-danger {
+.mb-set-datacard--danger {
   border-color: var(--mb-color-expense);
   background: var(--mb-color-expense-bg);
 }
@@ -673,7 +673,7 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-set-datacard.is-danger .mb-set-datacard-head {
+.mb-set-datacard--danger .mb-set-datacard-head {
   color: var(--mb-color-expense);
 }
 
@@ -718,7 +718,7 @@
 }
 
 /* 备份入口是清空的前置动作，不能只有一个 19px 高的文字命中区。 */
-.mb-set-textbtn.is-boxed {
+.mb-set-textbtn--boxed {
   display: inline-flex;
   align-items: center;
   min-height: var(--mb-btn-h-md);
@@ -933,30 +933,30 @@
   outline-offset: calc(var(--mb-border-width) * 2);
 }
 
-.mb-set-btn.is-primary {
+.mb-set-btn--primary {
   border-color: transparent;
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
   font-weight: 600;
 }
 
-.mb-set-btn.is-primary:hover {
+.mb-set-btn--primary:hover {
   background: var(--mb-color-accent-fill-hover);
 }
 
-.mb-set-btn.is-primary:disabled {
+.mb-set-btn--primary:disabled {
   background: var(--mb-color-surface-sunken);
   color: var(--mb-color-text-tertiary);
   cursor: not-allowed;
 }
 
-.mb-set-btn.is-ghost {
+.mb-set-btn--ghost {
   border-color: transparent;
   background: transparent;
   color: var(--mb-color-text-secondary);
 }
 
-.mb-set-btn.is-ghost:hover {
+.mb-set-btn--ghost:hover {
   background: var(--mb-color-surface-hover);
 }
 
@@ -965,22 +965,22 @@
   cursor: not-allowed;
 }
 
-.mb-set-btn.is-danger {
+.mb-set-btn--danger {
   border-color: var(--mb-color-expense);
   color: var(--mb-color-expense);
   background: transparent;
 }
 
-.mb-set-btn.is-danger:hover {
+.mb-set-btn--danger:hover {
   background: var(--mb-color-expense-bg);
 }
 
-.mb-set-btn.is-danger.is-armed {
+.mb-set-btn--danger.is-armed {
   background: var(--mb-color-expense-bg);
   font-weight: 600;
 }
 
-.mb-set-btn.is-small {
+.mb-set-btn--small {
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-2);
   font-size: var(--mb-fs-0);
@@ -1301,7 +1301,7 @@
 }
 
 /* 报表专属补充项（数据范围）与分类管理同处一层，用细线分组，不另开弹窗。 */
-.mb-ledger-sheet-extra {
+.mb-set-ledger-sheet-extra {
   padding-bottom: var(--mb-s-4);
   border-bottom: 1px solid var(--mb-color-border);
 }
@@ -1421,7 +1421,7 @@
   padding: var(--mb-s-3) var(--mb-s-4);
 }
 
-/* 桌面抽屉 portal 到 .mb-hf-root（脱离 .mb-set-page），故用变体自带的 is-desktop
+/* 桌面抽屉 portal 到 .mb-shell-root（脱离 .mb-set-page），故用变体自带的 is-desktop
    标记而非页面祖先选择器；max-height 取视口高，内容超高时由 sheet-body 内滚。 */
 .mb-set-sheet.is-desktop {
   max-height: 100vh;
@@ -1430,7 +1430,7 @@
 
 /* 设计预览的工具栏固定在顶部，移动端底部抽屉会盖住抽屉头部；
    预览内把抽屉高度收口到工具栏下方，保证标题与关闭可见。 */
-.mb-hf-root .mb-set-page[data-device='mobile'] .mb-set-sheet {
+.mb-shell-root .mb-set-page[data-device='mobile'] .mb-set-sheet {
   max-height: calc(100vh - 160px);
 }
 
@@ -1442,15 +1442,15 @@
   gap: var(--mb-s-5);
 }
 
-.mb-skeleton-nav {
+.mb-shared-nav {
   height: 320px;
 }
 
-.mb-skeleton-settings-list {
+.mb-shared-settings-list {
   height: 460px;
 }
 
-.mb-set-page[data-device='mobile'] .mb-skeleton-settings-list {
+.mb-set-page[data-device='mobile'] .mb-shared-settings-list {
   height: 420px;
 }
 
@@ -1495,7 +1495,7 @@
 /* ===== 自动备份 ===== */
 
 /* 能力行位于卡片内距 16 的容器里：左右内距由卡片提供，行只负责垂直节奏。 */
-.mb-set-datacard > .mb-setting-row {
+.mb-set-datacard > .mb-shared-setting-row {
   align-self: stretch;
   padding-inline: 0;
 }

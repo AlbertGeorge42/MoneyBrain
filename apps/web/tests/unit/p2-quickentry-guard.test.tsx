@@ -71,7 +71,7 @@ describe('记账提交的并发闸门', () => {
     const amount = screen.getByLabelText('金额')
     fireEvent.change(amount, { target: { value: '12' } })
     fireEvent.keyDown(amount, { key: 'Enter' })
-    const grid = container.querySelector('.mb-entry-grid')!
+    const grid = container.querySelector('.mb-ov-entry-grid')!
     for (let index = 0; index < 10; index += 1) fireEvent.keyDown(grid, { key: 'Enter' })
 
     expect(mockAdd).toHaveBeenCalledTimes(1)

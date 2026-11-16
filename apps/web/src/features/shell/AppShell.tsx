@@ -5,7 +5,7 @@ import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import { getPortalHost } from '@/features/shared/portalHost'
 import { useOverlayOpen } from '@/features/shared/overlayPresence'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { deriveOverview, ledgerAnchorDay } from '@/features/overview/model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -33,22 +33,22 @@ function MonthSummary({ state, compact = false }: { state: DataState; compact?: 
   const monthCount = ledger.transactions.filter((transaction) => transaction.date.slice(0, 7) === month).length
 
   return (
-    <div className={compact ? 'mb-side-foot is-compact' : 'mb-side-foot'}>
-      <div className="mb-side-foot-label">本月收支</div>
+    <div className={compact ? 'mb-shell-foot is-compact' : 'mb-shell-foot'}>
+      <div className="mb-shell-foot-label">本月收支</div>
       {state === 'normal' ? (
         <>
-          <div className={positive ? 'mb-side-foot-value is-positive' : 'mb-side-foot-value is-negative'}>
+          <div className={positive ? 'mb-shell-foot-value mb-shell-foot-value--positive' : 'mb-shell-foot-value mb-shell-foot-value--negative'}>
             {formatCurrency(minor(summary.balance), { showSign: true })}
           </div>
-          <div className="mb-side-foot-meta">
-            <span className={positive ? 'mb-dot is-positive' : 'mb-dot is-negative'} />
+          <div className="mb-shell-foot-meta">
+            <span className={positive ? 'mb-shell-dot mb-shell-dot--positive' : 'mb-shell-dot mb-shell-dot--negative'} />
             {monthCount > 0 ? `本月 ${monthCount} 笔流水` : '本月还没有流水'}
           </div>
         </>
       ) : (
         <>
-          <div className="mb-side-foot-value is-muted">—</div>
-          <div className="mb-side-foot-meta">{stateText}</div>
+          <div className="mb-shell-foot-value mb-shell-foot-value--muted">—</div>
+          <div className="mb-shell-foot-meta">{stateText}</div>
         </>
       )}
     </div>
@@ -64,50 +64,50 @@ function DesktopShell({
 }: Omit<AppShellProps, 'device'>) {
   const overlayOpen = useOverlayOpen()
   return (
-    <div className="mb-desktop-shell">
-      <aside className="mb-sidebar" aria-label="主导航">
-        <div className="mb-brand">
-          <span className="mb-brand-mark" aria-hidden="true">MB</span>
-          <span className="mb-brand-copy">
-            <span className="mb-brand-name">MoneyBrain</span>
-            <span className="mb-brand-tag">账本 · 本地优先</span>
+    <div className="mb-shell-desktop-shell">
+      <aside className="mb-shell-sidebar" aria-label="主导航">
+        <div className="mb-shell-brand">
+          <span className="mb-shell-mark" aria-hidden="true">MB</span>
+          <span className="mb-shell-copy">
+            <span className="mb-shell-name">MoneyBrain</span>
+            <span className="mb-shell-tag">账本 · 本地优先</span>
           </span>
         </div>
-        <nav className="mb-side-nav">
+        <nav className="mb-shell-side-nav">
           {SHELL_NAV.map((item) => {
             const Icon = item.icon
             const active = item.id === page
             return (
-              <HfButton
+              <Button
                 key={item.id}
-                className={active ? 'mb-side-nav-item is-active' : 'mb-side-nav-item'}
+                className={active ? 'mb-shell-side-nav-item is-active' : 'mb-shell-side-nav-item'}
                 aria-current={active ? 'page' : undefined}
                 onClick={() => onNavigate(item.id)}
               >
                 <Icon size={18} strokeWidth={1.7} />
                 <span>{item.label}</span>
-                <kbd className="mb-kbd">{item.shortcut}</kbd>
-              </HfButton>
+                <kbd className="mb-shell-kbd">{item.shortcut}</kbd>
+              </Button>
             )
           })}
         </nav>
         {createPortal(
-          <HfButton
+          <Button
             variant="primary"
-            className="mb-side-add"
+            className="mb-shell-add"
             onClick={onOpenEntry}
             disabled={overlayOpen}
             title={overlayOpen ? '关闭当前弹窗后再记一笔' : undefined}
           >
             <Plus size={16} />
             记一笔
-          </HfButton>,
+          </Button>,
           getPortalHost(),
         )}
         <MonthSummary state={dataState} />
       </aside>
-      <main className="mb-main">
-        <div className="mb-content">{children}</div>
+      <main className="mb-shell-main">
+        <div className="mb-shell-content">{children}</div>
       </main>
     </div>
   )
@@ -123,66 +123,66 @@ function MobileShell({
 }: Omit<AppShellProps, 'device' | 'dataState'>) {
   const overlayOpen = useOverlayOpen()
   return (
-    <div className="mb-mobile-shell" data-page={page}>
-      <div className="mb-mobile-status" aria-hidden="true">
+    <div className="mb-shell-mobile-shell" data-page={page}>
+      <div className="mb-shell-status" aria-hidden="true">
         <span>9:41</span>
-        <span className="mb-mobile-status-icons">
+        <span className="mb-shell-status-icons">
           <Wifi size={14} />
           <BatteryMedium size={16} />
         </span>
       </div>
-      <header className="mb-mobile-head">
-        <h1 className="mb-mobile-title">{shellPageLabel(page)}</h1>
-        <div className="mb-mobile-head-actions">
+      <header className="mb-shell-mobile-head">
+        <h1 className="mb-shell-mobile-title">{shellPageLabel(page)}</h1>
+        <div className="mb-shell-head-actions">
           {headAction}
-          <HfButton
+          <Button
             variant="icon"
             aria-label="搜索流水"
             onClick={() => onNavigate('transactions')}
           >
             <Search size={19} />
-          </HfButton>
+          </Button>
           {page !== 'settings' && page !== 'reports' && (
-            <HfButton
+            <Button
               variant="icon"
               aria-label="打开设置"
               onClick={() => onNavigate('settings')}
             >
               <Settings size={19} />
-            </HfButton>
+            </Button>
           )}
         </div>
       </header>
-      <div className="mb-mobile-scroll">{children}</div>
+      <div className="mb-shell-scroll">{children}</div>
       {/* 移动端底部操作条的 portal 宿主：在滚动容器外、手机框内，
           让批量条相对手机屏幕固定而不是随内容滚动。 */}
       <div className="mb-mobile-dock" />
-      <nav className="mb-mobile-nav" aria-label="底部导航">
+      <nav className="mb-shell-mobile-nav" aria-label="底部导航">
         {SHELL_NAV.map((item) => {
           const Icon = item.icon
           const active = item.id === page
           return (
-            <HfButton
+            <Button
               key={item.id}
-              className={active ? 'mb-mobile-nav-item is-active' : 'mb-mobile-nav-item'}
+              className={active ? 'mb-shell-mobile-nav-item is-active' : 'mb-shell-mobile-nav-item'}
               aria-current={active ? 'page' : undefined}
               onClick={() => onNavigate(item.id)}
             >
               <Icon size={20} strokeWidth={1.7} />
               <span>{item.label}</span>
-            </HfButton>
+            </Button>
           )
         })}
       </nav>
       {!hideFab && (
-        <HfButton
-          className="mb-mobile-fab"
+        <Button
+          className="mb-shell-fab"
           aria-label="记一笔"
           onClick={onOpenEntry}
           disabled={overlayOpen}
         >
           <Plus size={22} />
-        </HfButton>
+        </Button>
       )}
     </div>
   )

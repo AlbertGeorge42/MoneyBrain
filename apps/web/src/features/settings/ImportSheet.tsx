@@ -5,8 +5,8 @@
  * `ImportIssues` 同时供数据区「最近一次导入」复用。
  */
 import { X } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ImportFileSummary, ImportPreview } from '@contracts/types'
 import { formatCurrency } from '@/utils/format'
@@ -124,7 +124,7 @@ export function ImportSheet({
   onConfirm,
 }: ImportSheetProps) {
   return (
-    <HfSheet
+    <Sheet
       variant="settings"
       device={device}
       opened={opened}
@@ -136,9 +136,9 @@ export function ImportSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">导入备份</h2>
-        <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </HfButton>
+        </Button>
       </div>
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
@@ -166,19 +166,19 @@ export function ImportSheet({
       </div>
 
       <div className="mb-set-sheet-actions">
-        <HfButton className="mb-set-btn" disabled={importing} onClick={onClose}>
+        <Button className="mb-set-btn" disabled={importing} onClick={onClose}>
           取消
-        </HfButton>
+        </Button>
         {preview ? (
-          <HfButton className="mb-set-btn is-primary" disabled={importing} onClick={onConfirm}>
+          <Button className="mb-set-btn mb-set-btn--primary" disabled={importing} onClick={onConfirm}>
             {importing ? '导入中…' : '确认导入'}
-          </HfButton>
+          </Button>
         ) : (
-          <HfButton className="mb-set-btn is-primary" disabled={previewing} onClick={onPreview}>
+          <Button className="mb-set-btn mb-set-btn--primary" disabled={previewing} onClick={onPreview}>
             {previewing ? '解析中…' : '解析并预览'}
-          </HfButton>
+          </Button>
         )}
       </div>
-    </HfSheet>
+    </Sheet>
   )
 }

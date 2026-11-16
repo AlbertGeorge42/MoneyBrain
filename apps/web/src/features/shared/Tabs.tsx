@@ -6,12 +6,12 @@
  */
 import type { ReactNode } from 'react'
 
-export interface HfTabItem<T extends string> {
+export interface TabItem<T extends string> {
   id: T
   label: ReactNode
 }
 
-export function HfTabs<T extends string>({
+export function Tabs<T extends string>({
   label,
   value,
   items,
@@ -21,7 +21,7 @@ export function HfTabs<T extends string>({
 }: {
   label: string
   value: T
-  items: readonly HfTabItem<T>[]
+  items: readonly TabItem<T>[]
   onChange: (next: T) => void
   variant: 'report' | 'settings'
   /** 追加到容器上的类名（报表移动端用 `is-mobile`）。 */

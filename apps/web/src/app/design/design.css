@@ -1,6 +1,6 @@
 /* HF 预览壳：工具栏、画布、手机框、提示与按钮。颜色 / 字号 / 圆角 / 阴影全部走 --mb-* token。 */
 
-.mb-hf-root {
+.mb-shell-root {
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -14,7 +14,7 @@
 
 /* ===== 预览工具栏 ===== */
 
-.mb-hf-toolbar {
+.mb-shell-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -26,13 +26,13 @@
   background: var(--mb-color-surface-raised);
 }
 
-.mb-hf-toolbar-brand {
+.mb-shell-toolbar-brand {
   display: flex;
   align-items: center;
   gap: var(--mb-s-2);
 }
 
-.mb-hf-toolbar-mark {
+.mb-shell-toolbar-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -46,38 +46,38 @@
   font-weight: 600;
 }
 
-.mb-hf-toolbar-copy {
+.mb-shell-toolbar-copy {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
 }
 
-.mb-hf-toolbar-name {
+.mb-shell-toolbar-name {
   font-family: var(--mb-font-display);
   font-size: var(--mb-fs-2);
   font-weight: 600;
   line-height: var(--mb-lh-tight);
 }
 
-.mb-hf-toolbar-controls {
+.mb-shell-toolbar-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--mb-s-2) var(--mb-s-4);
 }
 
-.mb-hf-toolbar-group {
+.mb-shell-toolbar-group {
   display: flex;
   align-items: center;
   gap: var(--mb-s-2);
 }
 
-.mb-hf-toolbar-label {
+.mb-shell-toolbar-label {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-hf-switch {
+.mb-shell-switch {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
@@ -87,7 +87,7 @@
   background: var(--mb-color-surface-sunken);
 }
 
-.mb-hf-choice {
+.mb-shell-choice {
   min-height: var(--mb-btn-h-sm);
   padding: 0 var(--mb-s-3);
   border: 0;
@@ -100,12 +100,12 @@
   transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-hf-choice:hover {
+.mb-shell-choice:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
 }
 
-.mb-hf-choice.is-active {
+.mb-shell-choice.is-active {
   background: var(--mb-color-surface-raised);
   color: var(--mb-color-accent);
   font-weight: 600;
@@ -115,23 +115,23 @@
 /* 窄视口下工具栏折叠成两行：保留控件标签，隐藏品牌文案，
    给手机框腾出高度（否则记账抽屉的固定键盘会压住分类网格）。 */
 @media (max-width: 720px) {
-  .mb-hf-toolbar {
+  .mb-shell-toolbar {
     gap: var(--mb-s-2) var(--mb-s-3);
     padding: var(--mb-s-2) var(--mb-s-3);
   }
 
-  .mb-hf-toolbar-copy {
+  .mb-shell-toolbar-copy {
     display: none;
   }
 
-  .mb-hf-toolbar-controls {
+  .mb-shell-toolbar-controls {
     gap: var(--mb-s-2) var(--mb-s-3);
   }
 }
 
 /* ===== 画布 ===== */
 
-.mb-hf-canvas {
+.mb-shell-canvas {
   position: relative;
   flex: 1;
   min-height: 0;
@@ -141,7 +141,7 @@
 
 /* 手机框固定 390×844 1:1 渲染，不再按画布高度压扁；
    窗口放不下时由画布滚动，框内字号保持设计值（截图与规范同尺寸）。 */
-.mb-hf-canvas.is-mobile {
+.mb-shell-canvas.is-mobile {
   display: grid;
   place-items: start center;
   padding: var(--mb-s-5);
@@ -150,29 +150,29 @@
 
 /* 窄窗口下先保证左缘可见，剩余部分交给画布横向滚动。 */
 @media (max-width: 440px) {
-  .mb-hf-canvas.is-mobile {
+  .mb-shell-canvas.is-mobile {
     place-items: start start;
     padding: var(--mb-s-2);
   }
 }
 
-.mb-hf-desktop {
+.mb-shell-desktop {
   position: relative;
   min-height: 100%;
 }
 
 /* 生产入口（非预览）：移动端直接铺满视口，不再套 390×844 手机框。 */
-.mb-hf-canvas.is-live-mobile {
+.mb-shell-canvas.is-live-mobile {
   overflow: hidden;
   padding: 0;
 }
 
-.mb-hf-live-mobile {
+.mb-shell-live-mobile {
   position: relative;
   height: 100%;
 }
 
-.mb-hf-phone {
+.mb-shell-phone {
   position: relative;
   flex: none;
   width: var(--mb-mobile-w);
@@ -185,24 +185,24 @@
   transform: translateZ(0);
 }
 
-.mb-hf-phone-screen {
+.mb-shell-phone-screen {
   position: relative;
   height: 100%;
 }
 
 /* 预览壳内的 Drawer 用 withinPortal=false；默认 inset 会带上页面内边距偏移，
    显式归零后：桌面贴视口右缘，移动贴手机屏幕。 */
-.mb-hf-root .mantine-Drawer-inner {
+.mb-shell-root .mantine-Drawer-inner {
   inset: 0;
 }
 
-.mb-hf-choice:focus-visible {
+.mb-shell-choice:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mb-hf-choice {
+  .mb-shell-choice {
     transition: none;
   }
 }

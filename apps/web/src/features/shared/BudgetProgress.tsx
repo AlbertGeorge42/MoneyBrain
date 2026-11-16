@@ -52,7 +52,7 @@ export function BudgetProgress({
 
   return (
     <div
-      className="mb-progress"
+      className="mb-shared-progress"
       data-level={level}
       role="progressbar"
       aria-valuemin={0}
@@ -62,14 +62,14 @@ export function BudgetProgress({
     >
       {fillToken && (
         <span
-          className={`mb-progress-fill${level === 'over' ? ' is-over' : ''}`}
+          className={`mb-shared-fill${level === 'over' ?  ' mb-shared-fill--over' : ''}`}
           style={level === 'over' ? overStyle : { width, background: fillToken }}
         />
       )}
       {/* 100% 刻度缺口：与轨道同色，未满时不可见，超支时在条面中间切出一刀。
           转账没有预算刻度，不渲染；收入进行中有目标位，照常渲染。 */}
       {(level !== 'neutral' || neutralFill) && (
-        <span className="mb-progress-tick" aria-hidden="true" />
+        <span className="mb-shared-tick" aria-hidden="true" />
       )}
     </div>
   )

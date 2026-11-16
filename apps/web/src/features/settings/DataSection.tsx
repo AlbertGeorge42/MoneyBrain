@@ -12,7 +12,7 @@ import {
   RotateCcw,
   Wallet,
 } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import type { Ledger } from '@/features/overview/model'
 import type { ImportBackupResult, ImportBatch } from '@contracts/types'
@@ -73,9 +73,9 @@ export function DataSection({
       return (
         <p className="mb-set-error" role="alert">
           {batchError}
-          <HfButton className="mb-set-textbtn" onClick={onRefreshBatches}>
+          <Button className="mb-set-textbtn" onClick={onRefreshBatches}>
             重试
-          </HfButton>
+          </Button>
         </p>
       )
     }
@@ -95,8 +95,8 @@ export function DataSection({
                 {batch.transactionCount} 笔
               </span>
               {batch.status === 'active' ? (
-                <HfButton
-                  className={armedBatch ? 'mb-set-btn is-danger is-armed' : 'mb-set-btn'}
+                <Button
+                  className={armedBatch ? 'mb-set-btn mb-set-btn--danger is-armed' : 'mb-set-btn'}
                   disabled={busyBatch}
                   onClick={() => {
                     if (busyBatch) return
@@ -108,7 +108,7 @@ export function DataSection({
                   }}
                 >
                   {busyBatch ? '撤销中…' : armedBatch ? '确认撤销' : '撤销这批'}
-                </HfButton>
+                </Button>
               ) : (
                 <span className="mb-set-batch-done">
                   已撤销 {batch.rolledBack?.transaction ?? 0} 笔
@@ -129,14 +129,14 @@ export function DataSection({
           <h3>导出</h3>
         </div>
         <>
-          <HfButton
+          <Button
             className="mb-set-btn"
             disabled={dataBusy === 'export'}
             onClick={onExport}
           >
             <Download size={16} />
             {dataBusy === 'export' ? '导出中…' : '导出账本 (.mbx)'}
-          </HfButton>
+          </Button>
           {backupReady && (
             <p>
               最近备份：{backupReady.filename}（
@@ -146,9 +146,9 @@ export function DataSection({
           {exportError && (
             <p className="mb-set-error" role="alert">
               {exportError}
-              <HfButton className="mb-set-textbtn" onClick={onExport}>
+              <Button className="mb-set-textbtn" onClick={onExport}>
                 重试
-              </HfButton>
+              </Button>
             </p>
           )}
         </>
@@ -159,10 +159,10 @@ export function DataSection({
           <h3>导入</h3>
         </div>
         <>
-          <HfButton className="mb-set-btn" onClick={onOpenImportWizard}>
+          <Button className="mb-set-btn" onClick={onOpenImportWizard}>
             <FolderInput size={16} />
             打开导入向导
-          </HfButton>
+          </Button>
           {lastImport && (
             <>
               <p>
@@ -182,7 +182,7 @@ export function DataSection({
         </div>
         {renderBatchList()}
       </section>
-      <section className="mb-set-datacard is-danger">
+      <section className="mb-set-datacard mb-set-datacard--danger">
         <div className="mb-set-datacard-head">
           <AlertTriangle size={18} />
           <h3>危险区</h3>
@@ -192,9 +192,9 @@ export function DataSection({
             清空前必须导出备份；清空后所有账户、分类、流水、预算与投资快照都会删除，
             回收站与审计记录一并清空。
           </p>
-          <HfButton className="mb-set-btn is-danger" onClick={onOpenClearSheet}>
+          <Button className="mb-set-btn mb-set-btn--danger" onClick={onOpenClearSheet}>
             清空账本
-          </HfButton>
+          </Button>
           {!backupReady && <p className="mb-set-warn">尚未导出备份，清空会被拦住。</p>}
         </>
       </section>
@@ -211,12 +211,12 @@ export function DataSection({
         )}
         {unsetAccounts.length > 0 ? (
           <>
-            <HfButton
+            <Button
               className="mb-set-btn"
               onClick={() => onOpenOpening(unsetAccounts.map((account) => account.name))}
             >
               补录期初余额（{unsetAccounts.length} 个未设）
-            </HfButton>
+            </Button>
             <p className="mb-set-warn">
               未设期初（余额由流水推导，可能不准）：
               {unsetAccounts.map((account) => accountDisplayName(account, ledger.accounts)).join('、')}

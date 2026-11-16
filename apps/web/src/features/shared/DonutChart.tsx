@@ -13,7 +13,7 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { minor } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
-import { HfButton } from './HfButton'
+import { Button } from './Button'
 import { SERIES_COLORS, stableSlotMap } from './seriesColor'
 import type { DeviceMode } from './types'
 import './donut.css'
@@ -250,13 +250,13 @@ export function DonutChart({
           <div className="mb-rp-donut-crumb">
             {isDrilled && drilled && (
               <>
-                <HfButton
+                <Button
                   className="mb-rp-donut-back"
                   onClick={() => setDrillId(null)}
                   aria-label={`返回${title}一级`}
                 >
                   <span aria-hidden="true">‹</span> 返回一级
-                </HfButton>
+                </Button>
                 <span className="mb-rp-donut-crumb-name">{drilled.name}</span>
               </>
             )}
@@ -362,7 +362,7 @@ export function DonutChart({
           </div>
           <div className="mb-rp-donut-legend">
             {slices.map((slice) => (
-              <HfButton
+              <Button
                 key={slice.node.id}
                 className="mb-rp-compare-row is-interactive mb-rp-donut-legend-row"
                 aria-label={`查看 ${slice.node.name} ${currency(slice.node.amount)} 的下钻`}
@@ -387,7 +387,7 @@ export function DonutChart({
                     <span className="mb-rp-donut-pct">{slice.share.toFixed(1)}%</span>
                   </span>
                 </span>
-              </HfButton>
+              </Button>
             ))}
           </div>
         </>

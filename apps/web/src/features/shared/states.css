@@ -1,7 +1,7 @@
 /* 四态：冷启动、错误、加载骨架。外壳（底色/边框/圆角/阴影）见 shared/card.css。 */
 
-.mb-coldstart-mark,
-.mb-errorpanel-mark {
+.mb-shared-coldstart-mark,
+.mb-shared-errorpanel-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -10,12 +10,12 @@
   border-radius: var(--mb-radius-pill);
 }
 
-.mb-coldstart-mark {
+.mb-shared-coldstart-mark {
   background: var(--mb-color-accent-soft);
   color: var(--mb-color-accent);
 }
 
-.mb-errorpanel-mark {
+.mb-shared-errorpanel-mark {
   background: var(--mb-color-danger-solid);
   color: var(--mb-color-on-danger);
   box-shadow: 0 0 0 var(--mb-s-1) var(--mb-color-danger-bg);
@@ -24,8 +24,8 @@
   font-weight: 600;
 }
 
-.mb-coldstart-title,
-.mb-errorpanel-title {
+.mb-shared-coldstart-title,
+.mb-shared-errorpanel-title {
   margin: 0;
   font-family: var(--mb-font-display);
   font-size: var(--mb-fs-4);
@@ -34,8 +34,8 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-coldstart-desc,
-.mb-errorpanel-desc {
+.mb-shared-coldstart-desc,
+.mb-shared-errorpanel-desc {
   margin: 0;
   max-width: calc(var(--mb-s-7) * 9);
   font-size: var(--mb-fs-2);
@@ -43,7 +43,7 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-coldstart-steps {
+.mb-shared-steps {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-2);
@@ -52,7 +52,7 @@
   list-style: none;
 }
 
-.mb-coldstart-steps li {
+.mb-shared-steps li {
   display: flex;
   align-items: flex-start;
   gap: var(--mb-s-2);
@@ -61,46 +61,46 @@
 }
 
 /* 步骤正文分两行：标题是动作，说明是理由。 */
-.mb-coldstart-step-body {
+.mb-shared-step-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.mb-coldstart-step-title {
+.mb-shared-step-title {
   font-weight: 500;
   color: var(--mb-color-text-primary);
 }
 
-.mb-coldstart-step-desc {
+.mb-shared-step-desc {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
 /* 当前步：序号用 accent 底色，标题加重——引导的「下一步」一眼可见。 */
-.mb-coldstart-steps li.is-current .mb-coldstart-step {
+.mb-shared-steps li.is-current .mb-shared-step {
   background: var(--mb-color-accent-soft);
   color: var(--mb-color-accent);
   font-weight: 600;
 }
 
-.mb-coldstart-steps li.is-current .mb-coldstart-step-title {
+.mb-shared-steps li.is-current .mb-shared-step-title {
   color: var(--mb-color-accent);
 }
 
 /* 已完成：序号换成对勾，标题退成次级——历史不再抢注意力。 */
-.mb-coldstart-steps li.is-done .mb-coldstart-step {
+.mb-shared-steps li.is-done .mb-shared-step {
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
 }
 
-.mb-coldstart-steps li.is-done .mb-coldstart-step-title {
+.mb-shared-steps li.is-done .mb-shared-step-title {
   color: var(--mb-color-text-secondary);
   font-weight: 400;
 }
 
-.mb-coldstart-step {
+.mb-shared-step {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -114,85 +114,85 @@
   font-size: var(--mb-fs-0);
 }
 
-.mb-coldstart-actions,
-.mb-errorpanel-actions {
+.mb-shared-coldstart-actions,
+.mb-shared-errorpanel-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mb-s-2);
   margin-top: var(--mb-s-2);
 }
 
-.mb-skeleton-page {
+.mb-shared-page {
   display: flex;
   flex-direction: column;
   gap: var(--mb-section-gap);
 }
 
-.mb-skeleton {
+.mb-shared-skeleton {
   border-radius: var(--mb-radius-md);
   background: var(--mb-color-skeleton);
   animation: mb-pulse calc(var(--mb-dur-2) * 5) var(--mb-ease) infinite alternate;
 }
 
-.mb-skeleton-hero {
+.mb-shared-hero {
   height: calc(var(--mb-s-7) * 4 + var(--mb-s-5));
 }
 
-.mb-skeleton-hero.is-mobile {
+.mb-shared-hero.is-mobile {
   height: calc(var(--mb-s-7) * 2 + var(--mb-s-5));
 }
 
-.mb-skeleton-row,
-.mb-skeleton-mid {
+.mb-shared-row,
+.mb-shared-mid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--mb-section-gap);
 }
 
-.mb-skeleton-snap {
+.mb-shared-snap {
   height: calc(var(--mb-s-7) + var(--mb-s-5));
 }
 
-.mb-skeleton-entry {
+.mb-shared-entry {
   height: calc(var(--mb-s-7) + var(--mb-s-3));
 }
 
-.mb-skeleton-card {
+.mb-shared-skeleton-card {
   height: calc(var(--mb-s-7) * 3);
 }
 
-.mb-skeleton-card.is-tall {
+.mb-shared-skeleton-card--tall {
   height: calc(var(--mb-s-6) * 6);
 }
 
-.mb-skeleton-toolbar {
+.mb-shared-toolbar {
   height: var(--mb-control-h);
   border-radius: var(--mb-radius-sm);
 }
 
-.mb-skeleton-list {
+.mb-shared-list {
   padding: var(--mb-card-pad);
   gap: var(--mb-s-3);
 }
 
-.mb-skeleton-line {
+.mb-shared-skeleton-line {
   height: var(--mb-tbl-row-h);
   border-radius: var(--mb-radius-sm);
 }
 
-.mb-skeleton-chart {
+.mb-shared-chart {
   height: calc(var(--mb-s-6) * 6 + var(--mb-s-5));
 }
 
-.mb-skeleton-chart.is-wide {
+.mb-shared-chart--wide {
   height: calc(var(--mb-s-6) * 8);
 }
 
-.mb-skeleton-metrics {
+.mb-shared-metrics {
   height: calc(var(--mb-s-6) * 3 + var(--mb-s-2));
 }
 
-.mb-visually-hidden {
+.mb-shell-hidden {
   position: absolute;
   width: var(--mb-border-width);
   height: var(--mb-border-width);
@@ -214,7 +214,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mb-skeleton {
+  .mb-shared-skeleton {
     animation: none;
   }
 }

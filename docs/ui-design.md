@@ -23,7 +23,7 @@
 | 类别 | 定义处 | 规则 |
 |---|---|---|
 | 结构（间距 / 字号 / 行高 / 圆角 / 尺寸 / z-index） | `styles/theme/variables.css` | 只用 `--mb-*`；引用即定义，CSS 引用未定义变量不报错、会静默回退 |
-| 颜色 / 阴影 | `styles/theme/hf-theme.ts` 的 `cssVariablesResolver` | 随 Mantine colorScheme 注入 `:root`；业务 CSS/TSX 不得手写色值 |
+| 颜色 / 阴影 | `styles/theme/theme-tokens.ts` 的 `cssVariablesResolver` | 随 Mantine colorScheme 注入 `:root`；业务 CSS/TSX 不得手写色值 |
 | 主题状态 | Mantine `createTheme` + `localStorageColorSchemeManager` | `light / dark / auto` 三档，存储键 `moneybrain-theme-mode`；不自建 Context 或第二套 token 表 |
 
 - `--mantine-*` 是库内部变量，业务代码不得覆盖；只用 Mantine 公开 API。`--ant-*` 已随 AntD 移除，引用数必须为 0。
@@ -108,7 +108,7 @@ PC 与移动是**两套独立结构**，不是同一棵树的响应式缩放：�
 - 三个分区的行结构一致：手柄 + 图标 + 名称 + 计数 + 行尾 `⋯` 菜单。**排序一律拖拽**，只允许竖直方向（水平位移归零），不提供上移 / 下移按钮；手柄即拖拽入口。
 - 行内操作统一走 `RowMenu`（编辑 / 移动到… / 删除），删除带二次确认；账户分组、账户、收支分类、现金流分类共用同一个菜单组件。
 - **所有折叠列表默认收起**：账户分组、收支分类、现金流分类与四张报表的分类 / 分组树都从 `shared/foldState` 取同一口径，只有显式展开过的节点才显示子行。
-- 相同语义的按钮视觉一致：分区工具栏里的「新增 X」是 primary + 加号图标，空态里的「新增 X」是 primary + 加号图标，页面级页头动作（显示 / 新增）走共享的 `HfHeadAction`。
+- 相同语义的按钮视觉一致：分区工具栏里的「新增 X」是 primary + 加号图标，空态里的「新增 X」是 primary + 加号图标，页面级页头动作（显示 / 新增）走共享的 `HeadAction`。
 - **图标选择器独立成抽屉**：编辑抽屉只留当前图标与「选择图标」入口，完整网格（分组 + 搜索）在独立抽屉里展开，避免图标变多后编辑表单被挤出屏幕。
 
 ### 3.2 报表

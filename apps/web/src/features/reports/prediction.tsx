@@ -19,7 +19,7 @@ export function PredictionBadge({
 }) {
   return (
     <span
-      className={`mb-rp-predict-badge is-${kind}`}
+      className={`mb-rp-predict-badge --${kind.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`}
       title={title}
       data-kind={kind}
     >

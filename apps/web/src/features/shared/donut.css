@@ -35,20 +35,20 @@
   white-space: nowrap;
 }
 
-.mb-rp-compare-title.is-income {
+.mb-rp-compare-title--income {
   color: var(--mb-color-income);
 }
 
-.mb-rp-compare-title.is-expense {
+.mb-rp-compare-title--expense {
   color: var(--mb-color-expense-display);
 }
 
 /* 资产沿用主色，负债沿用支出色。 */
-.mb-rp-compare-title.is-asset {
+.mb-rp-compare-title--asset {
   color: var(--mb-color-accent);
 }
 
-.mb-rp-compare-title.is-liability {
+.mb-rp-compare-title--liability {
   color: var(--mb-color-expense-display);
 }
 

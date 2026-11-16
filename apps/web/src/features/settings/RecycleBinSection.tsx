@@ -12,7 +12,7 @@ import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
 import { formatDateLabel, getAccount, getCategoryName } from '@/features/overview/model'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import { signedAmountText } from '@/features/overview/format'
 import type {
   Ledger,
@@ -113,7 +113,7 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
 
   if (status === 'loading') {
     return (
-      <div className="mb-set-list-empty is-tall">
+      <div className="mb-set-list-empty mb-set-list-empty--tall">
         <p>正在读取回收站…</p>
       </div>
     )
@@ -121,19 +121,19 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
 
   if (status === 'error') {
     return (
-      <div className="mb-set-list-empty is-tall">
+      <div className="mb-set-list-empty mb-set-list-empty--tall">
         <p>回收站读取失败</p>
         <span>检查 API 连接后重试。</span>
-        <HfButton className="mb-set-btn is-ghost" onClick={refetch}>
+        <Button className="mb-set-btn mb-set-btn--ghost" onClick={refetch}>
           重试
-        </HfButton>
+        </Button>
       </div>
     )
   }
 
   if (rows.length === 0 && entities.length === 0) {
     return (
-      <div className="mb-set-list-empty is-tall">
+      <div className="mb-set-list-empty mb-set-list-empty--tall">
         <Trash2 size={24} />
         <p>回收站是空的</p>
         <span>删除流水 / 账户 / 分类后 6 秒内可在提示中撤销；过期后才会进入这里。</span>
@@ -172,14 +172,14 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
                 {TYPE_LABEL[item.detail] ? ` · ${TYPE_LABEL[item.detail]}` : ''} ·{' '}
                 {formatDateLabel(item.deletedAt.slice(0, 10))}
               </span>
-              <HfButton
-                className="mb-set-btn is-ghost"
+              <Button
+                className="mb-set-btn mb-set-btn--ghost"
                 title={item.canRestore ? undefined : '删除时级联删除了关联数据，无法自动恢复'}
                 disabled={restoringId !== null || !item.canRestore}
                 onClick={() => void confirmRestore(key, item.deleteEventId)}
               >
                 {restoringId === key ? '恢复中…' : item.canRestore ? '恢复' : '不可恢复'}
-              </HfButton>
+              </Button>
             </div>
           )
         })}
@@ -197,13 +197,13 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
               {getAccount(ledger, row.transaction.accountId)?.name ?? '未知账户'} ·{' '}
               {signedAmountText(row.transaction)}
             </span>
-            <HfButton
-              className="mb-set-btn is-ghost"
+            <Button
+              className="mb-set-btn mb-set-btn--ghost"
               disabled={restoringId !== null || !row.deleteEventId}
               onClick={() => void confirmRestore(`tx-${row.id}`, row.deleteEventId)}
             >
               {restoringId === `tx-${row.id}` ? '恢复中…' : '恢复'}
-            </HfButton>
+            </Button>
           </div>
         ))}
       </div>

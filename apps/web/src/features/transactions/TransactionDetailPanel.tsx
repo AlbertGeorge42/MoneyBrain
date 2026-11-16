@@ -21,8 +21,8 @@ import {
   type LedgerTransaction,
 } from '@/features/overview/model'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import { transactionApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import type { DeviceMode } from '@/features/shared/types'
@@ -102,9 +102,9 @@ function RefundLinkForm({
 
   if (!expanded) {
     return (
-      <HfButton className="mb-tx-refund-link-open" onClick={() => setExpanded(true)}>
+      <Button className="mb-tx-refund-link-open" onClick={() => setExpanded(true)}>
         关联原交易
-      </HfButton>
+      </Button>
     )
   }
 
@@ -139,20 +139,20 @@ function RefundLinkForm({
         </p>
       )}
       <div className="mb-tx-refund-link-actions">
-        <HfButton
-          className="mb-tx-btn is-primary"
+        <Button
+          className="mb-tx-btn mb-tx-btn--primary"
           onClick={() => void confirm()}
           disabled={!selected || saving}
         >
           {saving ? '关联中…' : '关联'}
-        </HfButton>
-        <HfButton
-          className="mb-tx-btn is-ghost"
+        </Button>
+        <Button
+          className="mb-tx-btn mb-tx-btn--ghost"
           onClick={() => setExpanded(false)}
           disabled={saving}
         >
           取消
-        </HfButton>
+        </Button>
       </div>
     </div>
   )
@@ -191,9 +191,9 @@ function DetailView({
   return (
     <div className="mb-tx-detail">
       <div className="mb-tx-detail-hero">
-        <span className={`mb-tx-detail-amount is-${tone}`}>{signedAmountText(transaction)}</span>
+        <span className={`mb-tx-detail-amount --${tone}`}>{signedAmountText(transaction)}</span>
         <span className="mb-tx-detail-meta">
-          <span className={`mb-tx-badge is-${tone}`}>{transactionDirection(transaction)}</span>
+          <span className={`mb-tx-badge --${tone}`}>{transactionDirection(transaction)}</span>
           <span>{formatDateLabel(transaction.date)}</span>
         </span>
       </div>
@@ -225,12 +225,12 @@ function DetailView({
             <dt>原交易</dt>
             <dd>
               {related ? (
-                <HfButton
+                <Button
                   className="mb-tx-detail-link"
                   onClick={() => onOpenTransaction(related)}
                 >
                   {`关联 #${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
-                </HfButton>
+                </Button>
               ) : (
                 <span className="mb-tx-detail-muted">未关联原交易</span>
               )}
@@ -243,12 +243,12 @@ function DetailView({
             <dd>
               <span className="mb-tx-refund-summary">
                 已退款 {amountText(refundSummary.refunded)} / 剩余 {amountText(refundSummary.remaining)}
-                {refundSummary.state === 'full' && <span className="mb-tx-refund-badge is-full">已全额退款</span>}
+                {refundSummary.state === 'full' && <span className="mb-tx-refund-badge mb-tx-refund-badge--full">已全额退款</span>}
               </span>
               {refunds.length > 0 && (
                 <span className="mb-tx-refund-items">
                   {refunds.map((refund) => (
-                    <HfButton
+                    <Button
                       key={refund.id}
                       className="mb-tx-refund-item"
                       onClick={() => onOpenTransaction(refund)}
@@ -256,7 +256,7 @@ function DetailView({
                       <span>{formatDateLabel(refund.date)}</span>
                       <span className="mb-tx-refund-item-note">{refund.note || '退款'}</span>
                       <span className="mb-tx-refund-item-amount">{amountText(refund.amount)}</span>
-                    </HfButton>
+                    </Button>
                   ))}
                 </span>
               )}
@@ -271,7 +271,7 @@ function DetailView({
           <div>
             <dt>统计</dt>
             <dd>
-              <span className="mb-tx-badge is-excluded">不计收支</span>
+              <span className="mb-tx-badge mb-tx-badge--excluded">不计收支</span>
               <span className="mb-tx-detail-muted"> 仅影响余额，不进收支统计与预算</span>
             </dd>
           </div>
@@ -291,17 +291,17 @@ function DetailView({
       )}
 
       <div className="mb-tx-detail-actions">
-        <HfButton className="mb-tx-btn is-primary" onClick={onEdit}>
+        <Button className="mb-tx-btn mb-tx-btn--primary" onClick={onEdit}>
           <Pencil size={15} />
           编辑
-        </HfButton>
-        <HfButton className="mb-tx-btn is-danger" onClick={onDelete}>
+        </Button>
+        <Button className="mb-tx-btn mb-tx-btn--danger" onClick={onDelete}>
           <Trash2 size={15} />
           删除
-        </HfButton>
-        <HfButton className="mb-tx-btn is-ghost" onClick={onClose}>
+        </Button>
+        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onClose}>
           关闭
-        </HfButton>
+        </Button>
       </div>
     </div>
   )
@@ -466,12 +466,12 @@ function EditForm({
           {errorText}
           {nextType === 'expense' && (
             <span className="mb-tx-form-error-actions">
-              <HfButton className="mb-tx-form-error-action" onClick={() => switchType('refund')}>
+              <Button className="mb-tx-form-error-action" onClick={() => switchType('refund')}>
                 改为退款
-              </HfButton>
-              <HfButton className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
+              </Button>
+              <Button className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
                 改为调整
-              </HfButton>
+              </Button>
             </span>
           )}
         </p>
@@ -484,13 +484,13 @@ function EditForm({
       )}
 
       <div className="mb-tx-detail-actions">
-        <HfButton className="mb-tx-btn is-primary" onClick={() => void submit()} disabled={invalid || saving}>
+        <Button className="mb-tx-btn mb-tx-btn--primary" onClick={() => void submit()} disabled={invalid || saving}>
           <Check size={15} />
           {saving ? '保存中…' : '保存修改'}
-        </HfButton>
-        <HfButton className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
+        </Button>
+        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onCancel} disabled={saving}>
           取消
-        </HfButton>
+        </Button>
       </div>
     </div>
   )
@@ -531,13 +531,13 @@ function DeleteConfirm({
         </p>
       )}
       <div className="mb-tx-detail-actions">
-        <HfButton className="mb-tx-btn is-danger-solid" onClick={() => void confirm()} disabled={saving}>
+        <Button className="mb-tx-btn mb-tx-btn--danger-solid" onClick={() => void confirm()} disabled={saving}>
           {saving ? '删除中…' : '删除'}
-        </HfButton>
-        <HfButton className="mb-tx-btn is-ghost" onClick={onCancel} disabled={saving}>
+        </Button>
+        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onCancel} disabled={saving}>
           <X size={15} />
           取消
-        </HfButton>
+        </Button>
       </div>
     </div>
   )
@@ -619,7 +619,7 @@ export function TransactionDetailPanel({
   )
 
   return (
-    <HfSheet
+    <Sheet
       variant="transaction"
       device={device}
       opened
@@ -628,6 +628,6 @@ export function TransactionDetailPanel({
       titleClassName="mb-tx-sheet-title-wrap"
     >
       {body}
-    </HfSheet>
+    </Sheet>
   )
 }

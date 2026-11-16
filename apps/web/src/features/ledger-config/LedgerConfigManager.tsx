@@ -9,8 +9,8 @@ import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger } from '@/features/overview/model'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import { AccountsSection } from './AccountsSection'
 import { CategoriesSection } from './CategoriesSection'
 import { CashflowSection } from './CashflowSection'
@@ -42,23 +42,23 @@ export function LedgerConfigManager({
 }) {
   return (
     <>
-      <HfSheet
+      <Sheet
         variant="settings"
         device={device}
         opened={opened}
         onClose={onClose}
         desktopSize={640}
         mobileSize="100%"
-        contentClassName="mb-ledger-sheet"
+        contentClassName="mb-set-ledger-sheet"
       >
         <div className="mb-set-sheet-head">
           <h2 className="mb-set-sheet-title">{title}</h2>
-          <HfButton className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+          <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
             <X size={18} />
-          </HfButton>
+          </Button>
         </div>
         <div className="mb-set-sheet-body">
-          {extra && <div className="mb-set-field mb-ledger-sheet-extra">{extra}</div>}
+          {extra && <div className="mb-set-field mb-set-ledger-sheet-extra">{extra}</div>}
           {tab === 'accounts' ? (
             <AccountsSection
               ledger={ledger}
@@ -117,11 +117,11 @@ export function LedgerConfigManager({
         </div>
 
         <div className="mb-set-sheet-actions">
-          <HfButton className="mb-set-btn is-primary" onClick={onClose}>
+          <Button className="mb-set-btn mb-set-btn--primary" onClick={onClose}>
             完成
-          </HfButton>
+          </Button>
         </div>
-      </HfSheet>
+      </Sheet>
 
       <LedgerConfigSheets controller={controller} device={device} ledger={ledger} />
     </>

@@ -2,7 +2,7 @@
  * CSS 变量守卫（U1b）
  *
  * CSS 引用未定义变量不会报错，浏览器会静默回退。本守卫把这类问题变成测试失败：
- * 1. 引用完整性：src 内每个 var(--mb-*) 都必须在「variables.css ∪ hf-theme 颜色清单」中定义；
+ * 1. 引用完整性：src 内每个 var(--mb-*) 都必须在「variables.css ∪ theme-tokens 颜色清单」中定义；
  * 2. 命名空间隔离：项目代码不得引用 AntD 的 --ant-* 变量（防回潮）；
  * 3. 死变量：已定义的 --mb-* 必须至少被引用一次；过渡期保留的需在下方白名单显式登记。
  *
@@ -13,13 +13,13 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildMbColorVarNames } from '../../src/styles/theme/hf-theme'
+import { buildMbColorVarNames } from '../../src/styles/theme/theme-tokens'
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const SRC_ROOT = join(WEB_ROOT, 'src')
 const THEME_DIR = join(SRC_ROOT, 'styles', 'theme')
 const VARIABLES_CSS = join(THEME_DIR, 'variables.css')
-const HF_THEME_TS = join(THEME_DIR, 'hf-theme.ts')
+const HF_THEME_TS = join(THEME_DIR, 'theme-tokens.ts')
 
 const SCAN_EXTENSIONS = new Set(['.css', '.ts', '.tsx'])
 const MB_REF = /var\(\s*(--mb-[A-Za-z0-9_-]+)/g
@@ -143,7 +143,7 @@ function collectReferences(): Array<{ name: string; at: string }> {
   })
 }
 
-/** 收集定义清单：variables.css 结构 token ∪ hf-theme 颜色清单 */
+/** 收集定义清单：variables.css 结构 token ∪ theme-tokens 颜色清单 */
 function collectDefinitions(): Map<string, string> {
   const definitions = new Map<string, string>()
 
@@ -190,7 +190,7 @@ describe('CSS 变量守卫（U1b）', () => {
 
     expect(
       failures,
-      `发现 ${failures.length} 处未定义引用（定义源：variables.css ∪ hf-theme 颜色清单）：\n${failures.join('\n')}`,
+      `发现 ${failures.length} 处未定义引用（定义源：variables.css ∪ theme-tokens 颜色清单）：\n${failures.join('\n')}`,
     ).toEqual([])
   })
 

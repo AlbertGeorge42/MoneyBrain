@@ -1,7 +1,7 @@
 /* 总览：主卡、账户入口、两栏、走势、最近流水、预算。全部使用 --mb-* token。 */
 
 /* 页头统一为 48px 高带、垂直居中（design-tokens §5.2）：标题 y 不再受控件高度影响。 */
-.mb-page-head {
+.mb-shell-page-head {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -9,7 +9,7 @@
   min-height: var(--mb-s-7);
 }
 
-.mb-page-title {
+.mb-shell-page-title {
   margin: 0;
   font-family: var(--mb-font-display);
   font-size: var(--mb-fs-4);
@@ -18,20 +18,20 @@
   letter-spacing: -0.01em;
 }
 
-.mb-page-sub,
-.mb-m-page-meta {
+.mb-shell-sub,
+.mb-ov-page-meta {
   margin: 0;
   font-size: var(--mb-fs-1);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-m-page-meta {
+.mb-ov-page-meta {
   font-size: var(--mb-fs-0);
 }
 
 /* ===== 净资产主卡 ===== */
 
-.mb-hero {
+.mb-ov-hero {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-3);
@@ -43,19 +43,19 @@
   box-shadow: var(--mb-sh-1);
 }
 
-.mb-hero-head {
+.mb-ov-hero-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--mb-s-3);
 }
 
-.mb-hero-label {
+.mb-ov-hero-label {
   font-size: var(--mb-fs-1);
   color: var(--mb-color-hero-muted);
 }
 
-.mb-hero-change {
+.mb-ov-change {
   padding: var(--mb-s-1) var(--mb-s-2);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
   border-radius: var(--mb-radius-pill);
@@ -64,16 +64,16 @@
   font-size: var(--mb-fs-0);
 }
 
-.mb-hero-change.is-neg {
+.mb-ov-change--neg {
   color: var(--mb-color-hero-neg);
   background: var(--mb-color-expense-bg);
 }
 
-.mb-hero-change.is-pos {
+.mb-ov-change--pos {
   color: var(--mb-color-hero-pos);
 }
 
-.mb-hero-worth {
+.mb-ov-worth {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-6);
   font-weight: 600;
@@ -82,12 +82,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-.mb-hero-meta {
+.mb-ov-hero-meta {
   font-size: var(--mb-fs-1);
   color: var(--mb-color-hero-muted);
 }
 
-.mb-hero-grid {
+.mb-ov-hero-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--mb-s-4);
@@ -96,24 +96,24 @@
   border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
 }
 
-.mb-hero-cell {
+.mb-ov-cell {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
   min-width: 0;
 }
 
-.mb-hero-cell + .mb-hero-cell {
+.mb-ov-cell + .mb-ov-cell {
   padding-left: var(--mb-s-4);
   border-left: var(--mb-border-width) var(--mb-border-style) var(--mb-color-hero-line);
 }
 
-.mb-hero-cell-label {
+.mb-ov-cell-label {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-hero-muted);
 }
 
-.mb-hero-cell-value {
+.mb-ov-cell-value {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-4);
   font-weight: 600;
@@ -121,19 +121,19 @@
   font-variant-numeric: tabular-nums;
 }
 
-.mb-hero-cell-value.is-pos,
-.mb-hero-delta.is-pos,
-.mb-hero-inline strong.is-pos {
+.mb-ov-cell-value--pos,
+.mb-ov-hero-delta--pos,
+.mb-ov-inline strong.is-pos {
   color: var(--mb-color-hero-pos);
 }
 
-.mb-hero-cell-value.is-neg,
-.mb-hero-delta.is-neg,
-.mb-hero-inline strong.is-neg {
+.mb-ov-cell-value--neg,
+.mb-ov-hero-delta--neg,
+.mb-ov-inline strong.is-neg {
   color: var(--mb-color-hero-neg);
 }
 
-.mb-hero-delta {
+.mb-ov-hero-delta {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
@@ -141,16 +141,16 @@
   color: var(--mb-color-hero-muted);
 }
 
-.mb-hero.is-mobile {
+.mb-ov-hero.is-mobile {
   gap: var(--mb-s-2);
   padding: var(--mb-card-pad);
 }
 
-.mb-hero.is-mobile .mb-hero-worth {
+.mb-ov-hero.is-mobile .mb-ov-worth {
   font-size: var(--mb-fs-5);
 }
 
-.mb-hero-inline {
+.mb-ov-inline {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mb-s-2) var(--mb-s-4);
@@ -161,20 +161,20 @@
   color: var(--mb-color-hero-muted);
 }
 
-.mb-hero-inline strong {
+.mb-ov-inline strong {
   font-family: var(--mb-font-num);
   font-weight: 600;
 }
 
 /* ===== 移动快照卡 ===== */
 
-.mb-m-snapshots {
+.mb-ov-snapshots {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--mb-s-2);
 }
 
-.mb-snapshot {
+.mb-ov-snapshot {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
@@ -186,12 +186,12 @@
   min-width: 0;
 }
 
-.mb-snapshot-label {
+.mb-ov-snapshot-label {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-snapshot-value {
+.mb-ov-value {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-4);
   font-weight: 600;
@@ -199,29 +199,29 @@
   font-variant-numeric: tabular-nums;
 }
 
-.mb-snapshot-value.is-income {
+.mb-ov-value--income {
   color: var(--mb-color-income);
 }
 
-.mb-snapshot-value.is-expense {
+.mb-ov-value--expense {
   color: var(--mb-color-expense);
 }
 
-.mb-snapshot .mb-hero-delta {
+.mb-ov-snapshot .mb-ov-hero-delta {
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-snapshot .mb-hero-delta.is-pos {
+.mb-ov-snapshot .mb-ov-hero-delta--pos {
   color: var(--mb-color-income);
 }
 
-.mb-snapshot .mb-hero-delta.is-neg {
+.mb-ov-snapshot .mb-ov-hero-delta--neg {
   color: var(--mb-color-expense);
 }
 
 /* ===== 账户入口 ===== */
 
-.mb-account-entry {
+.mb-ov-entry {
   display: flex;
   align-items: center;
   gap: var(--mb-s-3);
@@ -238,16 +238,16 @@
   transition: background var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-account-entry:hover {
+.mb-ov-entry:hover {
   background: var(--mb-color-surface-hover);
 }
 
-.mb-account-entry:focus-visible {
+.mb-ov-entry:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);
 }
 
-.mb-account-ledger {
+.mb-ov-ledger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -262,7 +262,7 @@
   font-weight: 600;
 }
 
-.mb-account-copy {
+.mb-ov-copy {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -270,25 +270,25 @@
   min-width: 0;
 }
 
-.mb-account-title {
+.mb-ov-account-title {
   font-size: var(--mb-fs-2);
   font-weight: 600;
 }
 
-.mb-account-meta {
+.mb-ov-account-meta {
   font-size: var(--mb-fs-0);
   line-height: var(--mb-lh-tight);
   color: var(--mb-color-text-tertiary);
   overflow-wrap: anywhere;
 }
 
-.mb-account-stack {
+.mb-ov-stack {
   display: inline-flex;
   margin-left: auto;
   padding-left: var(--mb-s-2);
 }
 
-.mb-account-dot {
+.mb-ov-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -301,14 +301,14 @@
   font-size: var(--mb-fs-0);
 }
 
-.mb-account-chevron {
+.mb-ov-chevron {
   flex: none;
   color: var(--mb-color-text-tertiary);
 }
 
 /* ===== 卡片与栏头 ===== */
 
-.mb-dash-mid {
+.mb-dp-mid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   gap: var(--mb-section-gap);
@@ -316,7 +316,7 @@
 }
 
 /* 右栏：预算卡 + 推演卡纵向堆叠；不改全局栅格，推演图高度受限 */
-.mb-dash-aside {
+.mb-dp-aside {
   display: flex;
   flex-direction: column;
   gap: var(--mb-section-gap);
@@ -324,18 +324,18 @@
 }
 
 /* 最近交易卡贴合自身内容高度，不被右栏预算卡撑出空白 */
-.mb-recent-card {
+.mb-ov-recent-card {
   align-self: start;
 }
 
-.mb-sec-head {
+.mb-shared-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--mb-s-3);
 }
 
-.mb-sec-title {
+.mb-shared-sec-title {
   margin: 0;
   font-family: var(--mb-font-display);
   font-size: var(--mb-fs-3);
@@ -343,13 +343,13 @@
   line-height: var(--mb-lh-tight);
 }
 
-.mb-sec-desc {
+.mb-shared-sec-desc {
   margin: var(--mb-s-1) 0 0;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-link-btn {
+.mb-shared-link-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
@@ -363,11 +363,11 @@
   white-space: nowrap;
 }
 
-.mb-link-btn:hover {
+.mb-shared-link-btn:hover {
   text-decoration: underline;
 }
 
-.mb-card-foot {
+.mb-shared-foot {
   align-self: flex-start;
   margin-top: auto;
   padding-top: var(--mb-s-2);
@@ -376,7 +376,7 @@
   justify-content: space-between;
 }
 
-.mb-empty-inline {
+.mb-shared-inline {
   margin: 0;
   font-size: var(--mb-fs-1);
   color: var(--mb-color-text-tertiary);
@@ -384,7 +384,7 @@
 
 /* ===== 分类图标 ===== */
 
-.mb-cat-icon {
+.mb-shared-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -394,98 +394,98 @@
   border-radius: var(--mb-radius-xs);
 }
 
-.mb-cat-icon.is-md {
+.mb-shared-icon--md {
   width: var(--mb-touch);
   height: var(--mb-touch);
   border-radius: var(--mb-radius-sm);
 }
 
-.mb-cat-icon.mb-tone-cat-1 {
+.mb-shared-icon.mb-tone-cat-1 {
   background: color-mix(in srgb, var(--mb-color-cat-1) 14%, var(--mb-color-surface-raised));
   color: var(--mb-color-cat-1);
 }
 
-.mb-cat-icon.mb-tone-cat-2 {
+.mb-shared-icon.mb-tone-cat-2 {
   background: color-mix(in srgb, var(--mb-color-cat-2) 14%, var(--mb-color-surface-raised));
   color: var(--mb-color-cat-2);
 }
 
-.mb-cat-icon.mb-tone-cat-3 {
+.mb-shared-icon.mb-tone-cat-3 {
   background: color-mix(in srgb, var(--mb-color-cat-3) 14%, var(--mb-color-surface-raised));
   color: var(--mb-color-cat-3);
 }
 
-.mb-cat-icon.mb-tone-cat-4 {
+.mb-shared-icon.mb-tone-cat-4 {
   background: color-mix(in srgb, var(--mb-color-cat-4) 14%, var(--mb-color-surface-raised));
   color: var(--mb-color-cat-4);
 }
 
-.mb-cat-icon.mb-tone-cat-5 {
+.mb-shared-icon.mb-tone-cat-5 {
   background: color-mix(in srgb, var(--mb-color-cat-5) 14%, var(--mb-color-surface-raised));
   color: var(--mb-color-cat-5);
 }
 
-.mb-cat-icon.mb-tone-cat-6 {
+.mb-shared-icon.mb-tone-cat-6 {
   background: color-mix(in srgb, var(--mb-color-cat-6) 14%, var(--mb-color-surface-raised));
   color: var(--mb-color-cat-6);
 }
 
-.mb-account-dot.mb-tone-cat-1 {
+.mb-ov-dot.mb-tone-cat-1 {
   background: var(--mb-color-cat-1);
 }
 
-.mb-account-dot.mb-tone-cat-2 {
+.mb-ov-dot.mb-tone-cat-2 {
   background: var(--mb-color-cat-2);
 }
 
-.mb-account-dot.mb-tone-cat-3 {
+.mb-ov-dot.mb-tone-cat-3 {
   background: var(--mb-color-cat-3);
 }
 
-.mb-account-dot.mb-tone-cat-4 {
+.mb-ov-dot.mb-tone-cat-4 {
   background: var(--mb-color-cat-4);
 }
 
-.mb-account-dot.mb-tone-cat-5 {
+.mb-ov-dot.mb-tone-cat-5 {
   background: var(--mb-color-cat-5);
 }
 
-.mb-account-dot.mb-tone-cat-6 {
+.mb-ov-dot.mb-tone-cat-6 {
   background: var(--mb-color-cat-6);
 }
 
-.mb-m-tx-amount {
+.mb-ov-tx-amount {
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.mb-m-tx-amount.is-income {
+.mb-ov-tx-amount--income {
   color: var(--mb-color-income);
 }
 
-.mb-m-tx-amount.is-expense {
+.mb-ov-tx-amount--expense {
   color: var(--mb-color-expense);
 }
 
-.mb-m-tx-amount.is-transfer {
+.mb-ov-tx-amount--transfer {
   color: var(--mb-color-transfer);
 }
 
 /* ===== 移动流水卡行 ===== */
 
-.mb-m-tx-list {
+.mb-ov-tx-list {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-3);
 }
 
-.mb-m-day {
+.mb-ov-day {
   display: flex;
   flex-direction: column;
 }
 
-.mb-m-day-label {
+.mb-ov-day-label {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-2);
@@ -495,7 +495,7 @@
   font-weight: 500;
 }
 
-.mb-m-tx {
+.mb-ov-tx {
   display: flex;
   align-items: center;
   gap: var(--mb-s-3);
@@ -511,11 +511,11 @@
   cursor: pointer;
 }
 
-.mb-m-day .mb-m-tx:last-child {
+.mb-ov-day .mb-ov-tx:last-child {
   border-bottom: 0;
 }
 
-.mb-m-tx-main {
+.mb-ov-tx-main {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -523,41 +523,41 @@
   min-width: 0;
 }
 
-.mb-m-tx-note,
-.mb-m-tx-meta {
+.mb-ov-tx-note,
+.mb-ov-tx-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mb-m-tx-meta {
+.mb-ov-tx-meta {
   display: flex;
   align-items: baseline;
 }
 
-.mb-m-tx-meta-text {
+.mb-ov-tx-meta-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.mb-m-tx-note {
+.mb-ov-tx-note {
   font-size: var(--mb-fs-2);
   color: var(--mb-color-text-primary);
 }
 
-.mb-m-tx-meta {
+.mb-ov-tx-meta {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-m-tx-amount {
+.mb-ov-tx-amount {
   flex: none;
   font-size: var(--mb-fs-2);
   font-weight: 600;
 }
 
-.mb-m-tx:focus-visible {
+.mb-ov-tx:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * -2);
   border-radius: var(--mb-radius-sm);
@@ -565,7 +565,7 @@
 
 /* ===== 预算 ===== */
 
-.mb-budget-badge {
+.mb-bg-badge {
   flex: none;
   padding: var(--mb-s-1) var(--mb-s-2);
   border-radius: var(--mb-radius-pill);
@@ -576,33 +576,33 @@
   white-space: nowrap;
 }
 
-.mb-budget-list {
+.mb-bg-list {
   display: flex;
   flex-direction: column;
   gap: var(--mb-row-gap);
 }
 
-.mb-budget-row {
+.mb-ov-budget-row {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
 }
 
-.mb-budget-row-head,
-.mb-budget-meta {
+.mb-bg-row-head,
+.mb-bg-meta {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--mb-s-2);
 }
 
-.mb-budget-name {
+.mb-ov-budget-name {
   font-size: var(--mb-fs-1);
   font-weight: 500;
   color: var(--mb-color-text-primary);
 }
 
-.mb-budget-percent {
+.mb-bg-percent {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
@@ -611,37 +611,37 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-budget-row[data-level='warning'] .mb-budget-percent {
+.mb-ov-budget-row[data-level='warning'] .mb-bg-percent {
   color: var(--mb-color-warning);
 }
 
-.mb-budget-row[data-level='over'] .mb-budget-percent {
+.mb-ov-budget-row[data-level='over'] .mb-bg-percent {
   color: var(--mb-color-expense);
 }
 
-.mb-budget-meta {
+.mb-bg-meta {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-secondary);
 }
 
-.mb-budget-over,
-.mb-budget-limit {
+.mb-bg-over,
+.mb-bg-limit {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
 }
 
-.mb-budget-over {
+.mb-bg-over {
   color: var(--mb-color-expense);
 }
 
-.mb-budget-limit {
+.mb-bg-limit {
   color: var(--mb-color-warning);
 }
 
 /* ===== 走势图 ===== */
 
-.mb-trend-card .mb-trend-delta {
+.mb-ov-trend-card .mb-ov-trend-delta {
   flex: none;
   padding: var(--mb-s-1) var(--mb-s-2);
   border-radius: var(--mb-radius-pill);
@@ -649,51 +649,51 @@
   font-size: var(--mb-fs-0);
 }
 
-.mb-trend-card .mb-trend-delta.is-positive {
+.mb-ov-trend-card .mb-ov-trend-delta--positive {
   background: var(--mb-color-income-bg);
   color: var(--mb-color-chart-annot-pos);
 }
 
-.mb-trend-card .mb-trend-delta.is-negative {
+.mb-ov-trend-card .mb-ov-trend-delta--negative {
   background: var(--mb-color-expense-bg);
   color: var(--mb-color-chart-annot-neg);
 }
 
 /* 1:1 单位 viewBox：高度由 SVG height 属性（CHART_HEIGHT 单一来源）决定，
    宽度由 JS 按容器实测写入 viewBox，字号不被缩放 */
-.mb-chart-body {
+.mb-shared-body {
   width: 100%;
 }
 
-.mb-chart-svg {
+.mb-shared-svg {
   display: block;
   width: 100%;
   overflow: visible;
 }
 
-.mb-chart-grid line {
+.mb-shared-grid line {
   stroke: var(--mb-color-chart-grid);
   stroke-width: var(--mb-border-width);
 }
 
-.mb-chart-grid text,
-.mb-chart-month {
+.mb-shared-grid text,
+.mb-shared-month {
   fill: var(--mb-color-chart-axis);
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-0);
 }
 
 /* 1:1 单位下渲染字号 = CSS 字号；移动端取 13px，桌面默认 12px */
-.mb-chart-body.is-mobile .mb-chart-grid text,
-.mb-chart-body.is-mobile .mb-chart-month {
+.mb-shared-body.is-mobile .mb-shared-grid text,
+.mb-shared-body.is-mobile .mb-shared-month {
   font-size: var(--mb-fs-1);
 }
 
-.mb-chart-area {
+.mb-shared-area {
   fill: color-mix(in srgb, var(--mb-color-accent-fill) 16%, transparent);
 }
 
-.mb-chart-line {
+.mb-shared-chart-line {
   fill: none;
   stroke: var(--mb-color-accent);
   stroke-width: calc(var(--mb-border-width) * 2.5);
@@ -701,34 +701,34 @@
   stroke-linecap: round;
 }
 
-.mb-chart-dot {
+.mb-shared-dot {
   fill: var(--mb-color-surface-raised);
   stroke: var(--mb-color-accent);
   stroke-width: calc(var(--mb-border-width) * 2);
 }
 
-.mb-chart-dot.is-last {
+.mb-shared-dot.is-last {
   fill: var(--mb-color-accent-fill);
   stroke: var(--mb-color-surface-raised);
 }
 
-.mb-chart-hit {
+.mb-shared-hit {
   fill: transparent;
   cursor: crosshair;
 }
 
-.mb-chart-tooltip rect {
+.mb-shared-tooltip rect {
   fill: var(--mb-color-chart-tooltip-bg);
 }
 
-.mb-chart-tooltip-label {
+.mb-shared-tooltip-label {
   fill: var(--mb-color-chart-tooltip-ink);
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-0);
   opacity: 0.68;
 }
 
-.mb-chart-tooltip-value {
+.mb-shared-tooltip-value {
   fill: var(--mb-color-chart-tooltip-ink);
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-1);
@@ -737,7 +737,7 @@
 
 /* ===== 支出图表（趋势 + 分类构成） ===== */
 
-.mb-dash-charts {
+.mb-dp-charts {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--mb-section-gap);
@@ -745,37 +745,37 @@
   min-width: 0;
 }
 
-.mb-expense-chart-card,
-.mb-expense-pie-card {
+.mb-ov-chart-card,
+.mb-ov-pie-card {
   min-width: 0;
 }
 
 /* 支出口径统一用支出色，方向不再靠正负号单独表达 */
-.mb-expense-chart-card .mb-chart-line {
+.mb-ov-chart-card .mb-shared-chart-line {
   stroke: var(--mb-color-expense);
 }
 
-.mb-expense-chart-card .mb-chart-area {
+.mb-ov-chart-card .mb-shared-area {
   fill: color-mix(in srgb, var(--mb-color-expense) 14%, transparent);
 }
 
-.mb-expense-chart-card .mb-chart-dot {
+.mb-ov-chart-card .mb-shared-dot {
   stroke: var(--mb-color-expense);
 }
 
-.mb-expense-chart-card .mb-chart-dot.is-last {
+.mb-ov-chart-card .mb-shared-dot.is-last {
   fill: var(--mb-color-expense);
   stroke: var(--mb-color-surface-raised);
 }
 
 @media (max-width: 1180px) {
-  .mb-dash-charts {
+  .mb-dp-charts {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 /* 暗色卡片按 design-tokens §7 去掉边框，层级由阴影/底色承担（卡片外壳见 shared/card.css） */
-[data-mantine-color-scheme='dark'] .mb-account-entry,
-[data-mantine-color-scheme='dark'] .mb-snapshot {
+[data-mantine-color-scheme='dark'] .mb-ov-entry,
+[data-mantine-color-scheme='dark'] .mb-ov-snapshot {
   border-color: transparent;
 }

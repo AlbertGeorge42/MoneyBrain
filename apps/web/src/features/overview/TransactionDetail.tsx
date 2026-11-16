@@ -1,4 +1,4 @@
-import { Button, Modal } from '@mantine/core'
+import { Button as MantineButton, Modal } from '@mantine/core'
 import { CategoryIcon } from './category'
 import { amountText, signedAmountText } from './format'
 import {
@@ -18,8 +18,8 @@ import {
   type LedgerTransaction,
 } from './model'
 import type { DeviceMode } from '@/features/shared/types'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import './overlays.css'
 
 function DetailBody({
@@ -47,20 +47,20 @@ function DetailBody({
   const refunds = refundSummary ? getRefundList(ledger, transaction) : []
 
   return (
-    <div className="mb-detail">
-      <div className="mb-detail-hero">
-        <span className={`mb-detail-amount is-${tone}`}>{signedAmountText(transaction)}</span>
-        <span className="mb-detail-meta">
-          <span className={`mb-detail-badge is-${tone}`}>{transactionDirection(transaction)}</span>
+    <div className="mb-ov-detail">
+      <div className="mb-ov-detail-hero">
+        <span className={`mb-ov-detail-amount --${tone}`}>{signedAmountText(transaction)}</span>
+        <span className="mb-ov-detail-meta">
+          <span className={`mb-ov-badge --${tone}`}>{transactionDirection(transaction)}</span>
           <span>{formatDateLabel(transaction.date)}</span>
         </span>
       </div>
 
-      <dl className="mb-detail-list">
+      <dl className="mb-ov-list">
         <div>
           <dt>分类</dt>
           <dd>
-            <span className="mb-detail-category">
+            <span className="mb-ov-category">
               <CategoryIcon rootId={rootId} iconKey={iconKey} />
               {category}
             </span>
@@ -85,14 +85,14 @@ function DetailBody({
             <dt>原交易</dt>
             <dd>
               {related ? (
-                <HfButton
-                  className="mb-detail-link"
+                <Button
+                  className="mb-ov-link"
                   onClick={() => onOpenTransaction(related)}
                 >
                   {`关联 #${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
-                </HfButton>
+                </Button>
               ) : (
-                <span className="mb-detail-muted">未关联原交易（仍按退款记账）</span>
+                <span className="mb-ov-muted">未关联原交易（仍按退款记账）</span>
               )}
             </dd>
           </div>
@@ -101,22 +101,22 @@ function DetailBody({
           <div>
             <dt>退款</dt>
             <dd>
-              <span className="mb-detail-refund-summary">
+              <span className="mb-ov-refund-summary">
                 已退款 {amountText(refundSummary.refunded)} / 剩余 {amountText(refundSummary.remaining)}
-                {refundSummary.state === 'full' && <span className="mb-detail-refund-badge">已全额退款</span>}
+                {refundSummary.state === 'full' && <span className="mb-ov-refund-badge">已全额退款</span>}
               </span>
               {refunds.length > 0 && (
-                <span className="mb-detail-refund-items">
+                <span className="mb-ov-refund-items">
                   {refunds.map((refund) => (
-                    <HfButton
+                    <Button
                       key={refund.id}
-                      className="mb-detail-refund-item"
+                      className="mb-ov-refund-item"
                       onClick={() => onOpenTransaction(refund)}
                     >
                       <span>{formatDateLabel(refund.date)}</span>
-                      <span className="mb-detail-refund-item-note">{refund.note || '退款'}</span>
-                      <span className="mb-detail-refund-item-amount">{amountText(refund.amount)}</span>
-                    </HfButton>
+                      <span className="mb-ov-refund-item-note">{refund.note || '退款'}</span>
+                      <span className="mb-ov-refund-item-amount">{amountText(refund.amount)}</span>
+                    </Button>
                   ))}
                 </span>
               )}
@@ -129,14 +129,14 @@ function DetailBody({
         </div>
         <div>
           <dt>交易编号</dt>
-          <dd className="mb-detail-code">{transaction.id}</dd>
+          <dd className="mb-ov-code">{transaction.id}</dd>
         </div>
       </dl>
 
-      <div className="mb-entry-actions">
-        <Button variant="default" className="mb-secondary-btn" onClick={onClose}>
+      <div className="mb-ov-actions">
+        <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={onClose}>
           关闭
-        </Button>
+        </MantineButton>
       </div>
     </div>
   )
@@ -158,22 +158,22 @@ export function TransactionDetail({
   if (!transaction) return null
 
   const title = (
-    <span className="mb-overlay-title-copy">
-      <span className="mb-overlay-title">交易详情</span>
-      <span className="mb-overlay-sub">{formatDateLabel(transaction.date)}</span>
+    <span className="mb-ov-title-copy">
+      <span className="mb-ov-overlay-title">交易详情</span>
+      <span className="mb-ov-sub">{formatDateLabel(transaction.date)}</span>
     </span>
   )
 
   if (device === 'mobile') {
     return (
-      <HfSheet variant="overview" device={device} opened onClose={onClose} title={title}>
+      <Sheet variant="overview" device={device} opened onClose={onClose} title={title}>
         <DetailBody
           transaction={transaction}
           ledger={ledger}
           onClose={onClose}
           onOpenTransaction={onOpenTransaction}
         />
-      </HfSheet>
+      </Sheet>
     )
   }
 
@@ -186,12 +186,12 @@ export function TransactionDetail({
       withinPortal={false}
       title={title}
       classNames={{
-        content: 'mb-modal',
-        header: 'mb-overlay-head',
-        title: 'mb-overlay-title-wrap',
-        body: 'mb-overlay-body',
-        overlay: 'mb-overlay',
-        close: 'mb-overlay-close',
+        content: 'mb-shared-modal',
+        header: 'mb-ov-overlay-head',
+        title: 'mb-ov-title-wrap',
+        body: 'mb-ov-body',
+        overlay: 'mb-ov-overlay',
+        close: 'mb-ov-close',
       }}
     >
       <DetailBody

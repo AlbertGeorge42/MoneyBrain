@@ -73,19 +73,19 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
         : yOf(points[hover].value) - (CHART_TOOLTIP_H + 12)
 
   return (
-    <Card className="mb-trend-card">
-      <div className="mb-sec-head">
+    <Card className="mb-ov-trend-card">
+      <div className="mb-shared-head">
         <div>
-          <h2 className="mb-sec-title">净资产走势</h2>
-          <p className="mb-sec-desc">近 12 个月</p>
+          <h2 className="mb-shared-sec-title">净资产走势</h2>
+          <p className="mb-shared-sec-desc">近 12 个月</p>
         </div>
         <span
           className={
             change === null
-              ? 'mb-trend-delta'
+              ? 'mb-ov-trend-delta'
               : change >= 0
-                ? 'mb-trend-delta is-positive'
-                : 'mb-trend-delta is-negative'
+                ? 'mb-ov-trend-delta mb-ov-trend-delta--positive'
+                : 'mb-ov-trend-delta mb-ov-trend-delta--negative'
           }
         >
           {change === null ? '基期无数据，无法计算涨幅' : percentText(change)}
@@ -93,16 +93,16 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
       </div>
       <div
         ref={bodyRef}
-        className={device === 'mobile' ? 'mb-chart-body is-mobile' : 'mb-chart-body'}
+        className={device === 'mobile' ? 'mb-shared-body is-mobile' : 'mb-shared-body'}
       >
         <svg
-          className="mb-chart-svg"
+          className="mb-shared-svg"
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           height={VIEW_H}
           role="img"
           aria-label="近 12 个月净资产走势，单位元"
         >
-          <g className="mb-chart-grid" aria-hidden="true">
+          <g className="mb-shared-grid" aria-hidden="true">
             {axisLabelText.map((label, index) => {
               const y = PAD_T + (plotH * index) / 2
               return (
@@ -115,12 +115,12 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
               )
             })}
           </g>
-          <path className="mb-chart-area" d={areaPath} aria-hidden="true" />
-          <polyline className="mb-chart-line" points={linePoints} aria-hidden="true" />
+          <path className="mb-shared-area" d={areaPath} aria-hidden="true" />
+          <polyline className="mb-shared-chart-line" points={linePoints} aria-hidden="true" />
           {points.map((point, index) => (
             <circle
               key={point.month}
-              className={index === points.length - 1 ? 'mb-chart-dot is-last' : 'mb-chart-dot'}
+              className={index === points.length - 1 ? 'mb-shared-dot is-last' : 'mb-shared-dot'}
               cx={xOf(index)}
               cy={yOf(point.value)}
               r={index === points.length - 1 ? 4.5 : 2.5}
@@ -130,7 +130,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
           {monthTicks.map((index) => (
             <text
               key={points[index].month}
-              className="mb-chart-month"
+              className="mb-shared-month"
               x={xOf(index)}
               y={VIEW_H - 6}
               textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
@@ -141,7 +141,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
           {points.map((point, index) => (
             <rect
               key={`hit-${point.month}`}
-              className="mb-chart-hit"
+              className="mb-shared-hit"
               x={xOf(index) - plotW / (points.length - 1) / 2}
               y={PAD_T}
               width={plotW / (points.length - 1)}
@@ -152,7 +152,7 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
             />
           ))}
           {hovered && (
-            <g className="mb-chart-tooltip" aria-hidden="true" transform={`translate(${tooltipX}, ${tooltipY})`}>
+            <g className="mb-shared-tooltip" aria-hidden="true" transform={`translate(${tooltipX}, ${tooltipY})`}>
               <rect
                 x={-tooltipHalf}
                 y={0}
@@ -160,16 +160,16 @@ export function NetWorthTrend({ points, device }: { points: TrendPoint[]; device
                 height={CHART_TOOLTIP_H}
                 rx={CHART_TOOLTIP_RX}
               />
-              <text className="mb-chart-tooltip-label" x={0} y={16} textAnchor="middle">
+              <text className="mb-shared-tooltip-label" x={0} y={16} textAnchor="middle">
                 {trendMonthLabel(hovered.month)}
               </text>
-              <text className="mb-chart-tooltip-value" x={0} y={32} textAnchor="middle">
+              <text className="mb-shared-tooltip-value" x={0} y={32} textAnchor="middle">
                 {amountText(hovered.value)}
               </text>
             </g>
           )}
         </svg>
-        <p className="mb-visually-hidden">
+        <p className="mb-shell-hidden">
           近 12 个月净资产从 {amountText(rawMin)} 变化到 {amountText(rawMax)}。
         </p>
       </div>

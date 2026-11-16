@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 import { CategoryIcon } from '@/features/overview/category'
 import type { LedgerCategory } from '@/features/overview/model'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReactNode } from 'react'
 
@@ -32,9 +32,9 @@ function Frame({
 
   if (device === 'mobile') {
     return (
-      <HfSheet variant="transaction" device={device} opened={opened} onClose={onClose} title={title}>
+      <Sheet variant="transaction" device={device} opened={opened} onClose={onClose} title={title}>
         {children}
-      </HfSheet>
+      </Sheet>
     )
   }
 
@@ -89,7 +89,7 @@ export function BatchCategoryDialog({
       )}
       <div className="mb-tx-cat-list">
         {categories.map((category) => (
-          <HfButton
+          <Button
             key={category.id}
             className="mb-tx-cat-option"
             disabled={Boolean(pending)}
@@ -97,7 +97,7 @@ export function BatchCategoryDialog({
           >
             <CategoryIcon rootId={category.id} iconKey={category.iconKey} />
             <span>{category.name}</span>
-          </HfButton>
+          </Button>
         ))}
       </div>
     </Frame>
@@ -146,12 +146,12 @@ export function BatchDeleteDialog({
         </p>
       )}
       <div className="mb-tx-detail-actions">
-        <HfButton className="mb-tx-btn is-danger-solid" onClick={() => void confirm()} disabled={pending}>
+        <Button className="mb-tx-btn mb-tx-btn--danger-solid" onClick={() => void confirm()} disabled={pending}>
           {pending ? '删除中…' : `删除 ${count} 笔`}
-        </HfButton>
-        <HfButton className="mb-tx-btn is-ghost" onClick={onClose} disabled={pending}>
+        </Button>
+        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onClose} disabled={pending}>
           取消
-        </HfButton>
+        </Button>
       </div>
     </Frame>
   )

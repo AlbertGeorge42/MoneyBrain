@@ -4,7 +4,7 @@
  * 列显隐与排序写回与流水页共用的 displaySettings；金额与分类列固定显示。
  */
 import { GripVertical } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import {
   SORT_OPTIONS,
   type DisplaySettings,
@@ -53,7 +53,7 @@ export function DisplaySection({ display, onChange }: DisplaySectionProps) {
         <span className="mb-set-label">排序方式</span>
         <div className="mb-set-sort" role="radiogroup" aria-label="排序方式">
           {SORT_OPTIONS.map((option) => (
-            <HfButton
+            <Button
               key={option.value}
               role="radio"
               aria-checked={display.sort === option.value}
@@ -61,7 +61,7 @@ export function DisplaySection({ display, onChange }: DisplaySectionProps) {
               onClick={() => onChange({ sort: option.value })}
             >
               {option.label}
-            </HfButton>
+            </Button>
           ))}
         </div>
       </div>

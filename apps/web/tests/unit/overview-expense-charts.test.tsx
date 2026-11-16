@@ -105,14 +105,14 @@ describe('支出趋势折线图', () => {
     }))
     render(<ExpenseTrendChart points={points} device="desktop" />)
 
-    const line = document.querySelector('.mb-chart-line')
+    const line = document.querySelector('.mb-shared-chart-line')
     expect(line?.getAttribute('points')).not.toContain('NaN')
-    expect(document.querySelector('.mb-chart-area')?.getAttribute('d')).not.toContain('NaN')
+    expect(document.querySelector('.mb-shared-area')?.getAttribute('d')).not.toContain('NaN')
   })
 
   it('没有任何月份时走空态，不渲染空坐标系', () => {
     render(<ExpenseTrendChart points={[]} device="mobile" />)
     expect(screen.getByText('近 12 个月没有支出数据')).toBeInTheDocument()
-    expect(document.querySelector('.mb-chart-svg')).toBeNull()
+    expect(document.querySelector('.mb-shared-svg')).toBeNull()
   })
 })

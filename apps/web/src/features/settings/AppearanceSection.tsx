@@ -4,7 +4,7 @@
  * 主题唯一来源仍是 Mantine 的 colorScheme；本组件只负责三档单选与「当前生效」文案。
  */
 import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
-import { HfButton } from '@/features/shared/HfButton'
+import { Button } from '@/features/shared/Button'
 import type { ThemeMode } from '@/features/shared/types'
 
 const THEME_OPTIONS: readonly { value: ThemeMode; label: string; icon: LucideIcon }[] = [
@@ -45,7 +45,7 @@ export function AppearanceSection({
             const active = themeMode === option.value
             const Icon = option.icon
             return (
-              <HfButton
+              <Button
                 key={option.value}
                 role="radio"
                 aria-checked={active}
@@ -58,7 +58,7 @@ export function AppearanceSection({
               >
                 <Icon size={16} aria-hidden="true" />
                 <span>{option.label}</span>
-              </HfButton>
+              </Button>
             )
           })}
         </div>

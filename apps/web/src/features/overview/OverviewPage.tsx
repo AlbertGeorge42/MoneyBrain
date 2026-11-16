@@ -60,11 +60,11 @@ function ExpenseDonut({
     children: [],
   }))
   return (
-    <Card className="mb-expense-pie-card">
-      <div className="mb-sec-head">
+    <Card className="mb-ov-pie-card">
+      <div className="mb-shared-head">
         <div>
-          <h2 className="mb-sec-title">支出分类</h2>
-          <p className="mb-sec-desc">近 12 个月 · 点击分类查看流水</p>
+          <h2 className="mb-shared-sec-title">支出分类</h2>
+          <p className="mb-shared-sec-desc">近 12 个月 · 点击分类查看流水</p>
         </div>
       </div>
       <DonutChart
@@ -82,11 +82,11 @@ function ExpenseDonut({
 }
 
 /** 下钻前记录总览滚动位置；从流水返回时一次性恢复，保证图表停在原位。 */
-const OVERVIEW_SCROLL_KEY = 'mb-hf-overview-drill-scroll'
+const OVERVIEW_SCROLL_KEY = 'mb-shell-overview-drill-scroll'
 
 /** 总览的滚动宿主：移动端是 shell 内滚动区，桌面/预览是设计画布。 */
 function overviewScrollHost(): HTMLElement | null {
-  const node = document.querySelector('.mb-mobile-scroll') ?? document.querySelector('.mb-hf-canvas')
+  const node = document.querySelector('.mb-shell-scroll') ?? document.querySelector('.mb-shell-canvas')
   return node instanceof HTMLElement ? node : null
 }
 
@@ -165,12 +165,12 @@ function PageHead({
           : null
   const sub = note ? `${periodLabel} · ${note}` : periodLabel
   if (device === 'mobile') {
-    return <p className="mb-m-page-meta">{sub}</p>
+    return <p className="mb-ov-page-meta">{sub}</p>
   }
   return (
-    <div className="mb-page-head">
-      <h1 className="mb-page-title">总览</h1>
-      <p className="mb-page-sub">{sub}</p>
+    <div className="mb-shell-page-head">
+      <h1 className="mb-shell-page-title">总览</h1>
+      <p className="mb-shell-sub">{sub}</p>
     </div>
   )
 }
@@ -290,7 +290,7 @@ export function OverviewPage({
           onOpen={onOpenAccounts}
         />
         <NetWorthTrend points={trend} device="mobile" />
-        <div className="mb-dash-charts">
+        <div className="mb-dp-charts">
           <ExpenseTrendChart points={expenseCharts.trend} device="mobile" />
           <ExpenseDonut
             slices={expenseCharts.categories}
@@ -328,7 +328,7 @@ export function OverviewPage({
         categories={ledger.accountCategories}
         onOpen={onOpenAccounts}
       />
-      <div className="mb-dash-mid">
+      <div className="mb-dp-mid">
         <RecentTransactions
           device="desktop"
           groups={groups}
@@ -336,12 +336,12 @@ export function OverviewPage({
           onOpenDetail={onOpenDetail}
           onOpenAll={onOpenTransactions}
         />
-        <div className="mb-dash-aside">
+        <div className="mb-dp-aside">
           <BudgetCard summary={budget} onOpenAll={onOpenBudgets} />
         </div>
       </div>
       <NetWorthTrend points={trend} device="desktop" />
-      <div className="mb-dash-charts">
+      <div className="mb-dp-charts">
         <ExpenseTrendChart points={expenseCharts.trend} device="desktop" />
         <ExpenseDonut
           slices={expenseCharts.categories}

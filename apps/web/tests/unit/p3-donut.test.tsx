@@ -493,7 +493,7 @@ describe('DonutChart 二级环', () => {
 
   it('二级阶梯不回父色：token 区间不含 100%，单子类取中点', () => {
     const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-    const themeVars = readFileSync(join(webRoot, 'src/styles/theme/hf-theme.ts'), 'utf8')
+    const themeVars = readFileSync(join(webRoot, 'src/styles/theme/theme-tokens.ts'), 'utf8')
     expect(themeVars).not.toMatch(/--mb-chart-sub-(from|to):\s*100%/)
     expect(themeVars).toContain("'--mb-chart-sub-from': '90%'")
     expect(themeVars).toContain("'--mb-chart-sub-to': '40%'")

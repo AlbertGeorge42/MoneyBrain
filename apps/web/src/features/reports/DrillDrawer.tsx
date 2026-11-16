@@ -2,8 +2,8 @@
  * 收支下钻抽屉：当期合计、二级类别与相关流水。
  * 数据由页面按当前期间派生，这里只渲染与动作。
  */
-import { HfButton } from '@/features/shared/HfButton'
-import { HfSheet } from '@/features/shared/HfSheet'
+import { Button } from '@/features/shared/Button'
+import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { currency, type DrillData } from './reportsModel'
 
@@ -19,7 +19,7 @@ export function DrillDrawer({
   onViewFlow: () => void
 }) {
   return (
-    <HfSheet
+    <Sheet
       variant="report"
       device={device}
       opened={Boolean(data)}
@@ -27,17 +27,17 @@ export function DrillDrawer({
       title={data ? `${data.title} · 下钻` : '下钻'}
       actions={
         <>
-          <HfButton className="mb-rp-btn is-ghost" onClick={onClose}>
+          <Button className="mb-rp-btn mb-rp-btn--ghost" onClick={onClose}>
             关闭
-          </HfButton>
-          <HfButton
-            className="mb-rp-btn is-primary"
+          </Button>
+          <Button
+            className="mb-rp-btn mb-rp-btn--primary"
             onClick={onViewFlow}
             disabled={data ? !data.canViewFlow : false}
             title={data && !data.canViewFlow ? '账户筛选暂不支持多选，待支持后可查看' : undefined}
           >
             在流水中查看
-          </HfButton>
+          </Button>
         </>
       }
     >
@@ -50,7 +50,7 @@ export function DrillDrawer({
           )}
           <div className="mb-rp-drill-head">
             <span className="mb-rp-drill-label">当期合计</span>
-            <span className={`mb-rp-drill-amount is-${data.tone}`}>
+            <span className={`mb-rp-drill-amount --${data.tone}`}>
               {currency(data.amount)}
             </span>
           </div>
@@ -75,7 +75,7 @@ export function DrillDrawer({
             <p className="mb-rp-empty-line">该期间没有相关流水</p>
           ) : (
             data.transactions.map((transaction) => (
-              <div className="mb-rp-drill-row is-tx" key={transaction.id}>
+              <div className="mb-rp-drill-row mb-rp-drill-row--tx" key={transaction.id}>
                 <div>
                   <span className="mb-rp-drill-tx-head">
                     <span className="mb-rp-drill-tx-label">{transaction.label}</span>
@@ -85,7 +85,7 @@ export function DrillDrawer({
                     {transaction.date.slice(5)} · {transaction.account}
                   </span>
                 </div>
-                <span className={`mb-rp-drill-value is-${transaction.tone}`}>
+                <span className={`mb-rp-drill-value --${transaction.tone}`}>
                   {currency(transaction.amount)}
                 </span>
               </div>
@@ -93,6 +93,6 @@ export function DrillDrawer({
           )}
         </div>
       )}
-    </HfSheet>
+    </Sheet>
   )
 }

@@ -7,8 +7,8 @@
  * - 动作文案与回调由调用方提供，这里不改写。
  *
  * variant 只决定渲染位置与层级，这是定位需要而非口径差异：
- * - shell：预览壳与设置页，挂 body 级宿主（`.mb-hf-portal`），避免被 `.mb-hf-canvas` /
- *   `.mb-hf-phone` 的 transform 变成 fixed 包含块，从而始终保持贴视口底部、位于 dock 之上；
+ * - shell：预览壳与设置页，挂 body 级宿主（`.mb-shell-portal`），避免被 `.mb-shell-canvas` /
+ *   `.mb-shell-phone` 的 transform 变成 fixed 包含块，从而始终保持贴视口底部、位于 dock 之上；
  * - reports：报表页，留在页面 DOM 内跟随手机框定位；设置抽屉打开时加 `is-over-sheet`
  *   抬到抽屉之上，避免遮住常驻底部的「完成」；
  * - stack：流水页，留在页面 DOM 内，与合计条 / 批量条保持同一底部槽位。
@@ -127,12 +127,12 @@ export function ToastViewport({ variant, className }: { variant: ToastVariant; c
 
   if (variant === 'shell') {
     const node = (
-      <div className="mb-hf-toast-stack">
+      <div className="mb-shell-toast-stack">
         {items.map((item) => (
-          <div key={item.id} className="mb-hf-toast" role="status">
+          <div key={item.id} className="mb-shell-toast" role="status">
             <span>{item.message}</span>
             {item.action && (
-              <button type="button" className="mb-hf-toast-action" onClick={() => runAction(item)}>
+              <button type="button" className="mb-shell-toast-action" onClick={() => runAction(item)}>
                 {item.action.label}
               </button>
             )}

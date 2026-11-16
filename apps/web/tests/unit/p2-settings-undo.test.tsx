@@ -128,7 +128,7 @@ describe('#12 转移并删除分类后的 6 秒撤销', () => {
     // 故按文案定位 toast 文本再取容器，避免与拖拽播报区域冲突。
     const toastText = await screen.findByText(/已转移 1 笔/)
     expect(toastText.textContent).toContain('已转移 1 笔到「餐饮」并删除「购物」')
-    const toast = toastText.closest('.mb-hf-toast') as HTMLElement
+    const toast = toastText.closest('.mb-shell-toast') as HTMLElement
 
     fireEvent.click(within(toast).getByRole('button', { name: '撤销' }))
 

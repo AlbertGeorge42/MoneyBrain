@@ -1,6 +1,6 @@
 /* 应用壳：PC 侧栏 + 移动底部导航 / FAB。所有值走 --mb-* token。 */
 
-.mb-desktop-shell {
+.mb-shell-desktop-shell {
   display: grid;
   grid-template-columns: var(--mb-sidebar-w) minmax(0, 1fr);
   min-height: 100%;
@@ -8,7 +8,7 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-sidebar {
+.mb-shell-sidebar {
   position: sticky;
   top: 0;
   align-self: start;
@@ -26,14 +26,14 @@
   border-right: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-brand {
+.mb-shell-brand {
   display: flex;
   align-items: center;
   gap: var(--mb-s-3);
   padding: 0 var(--mb-s-1);
 }
 
-.mb-brand-mark {
+.mb-shell-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -48,31 +48,31 @@
   letter-spacing: 0.02em;
 }
 
-.mb-brand-copy {
+.mb-shell-copy {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
 }
 
-.mb-brand-name {
+.mb-shell-name {
   font-family: var(--mb-font-display);
   font-size: var(--mb-fs-3);
   font-weight: 600;
   line-height: var(--mb-lh-tight);
 }
 
-.mb-brand-tag {
+.mb-shell-tag {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-side-nav {
+.mb-shell-side-nav {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
 }
 
-.mb-side-nav-item {
+.mb-shell-side-nav-item {
   position: relative;
   display: flex;
   align-items: center;
@@ -89,18 +89,18 @@
   transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-side-nav-item:hover {
+.mb-shell-side-nav-item:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
 }
 
-.mb-side-nav-item.is-active {
+.mb-shell-side-nav-item.is-active {
   background: var(--mb-color-accent-soft);
   color: var(--mb-color-accent);
   font-weight: 600;
 }
 
-.mb-side-nav-item.is-active::before {
+.mb-shell-side-nav-item.is-active::before {
   content: '';
   position: absolute;
   left: 0;
@@ -111,7 +111,7 @@
   background: var(--mb-color-accent);
 }
 
-.mb-kbd {
+.mb-shell-kbd {
   margin-left: auto;
   padding: 0 var(--mb-s-1);
   border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
@@ -126,7 +126,7 @@
 /* 主入口固定在视口底部左侧（PC 三档均为 805–843 区）：
    侧栏 height = 内容总高，sticky 会跟着整页滚走；按钮经 portal 挂到 body，
    脱离画布 transform 的包含块，才真正相对视口固定。 */
-.mb-side-add {
+.mb-shell-add {
   position: fixed;
   left: var(--mb-s-4);
   bottom: 0;
@@ -141,7 +141,7 @@
   box-shadow: var(--mb-sh-2);
 }
 
-.mb-side-foot {
+.mb-shell-foot {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-1);
@@ -150,30 +150,30 @@
   border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-side-foot-label {
+.mb-shell-foot-label {
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-side-foot-value {
+.mb-shell-foot-value {
   font-family: var(--mb-font-num);
   font-size: var(--mb-fs-4);
   line-height: var(--mb-lh-tight);
 }
 
-.mb-side-foot-value.is-positive {
+.mb-shell-foot-value--positive {
   color: var(--mb-color-income);
 }
 
-.mb-side-foot-value.is-negative {
+.mb-shell-foot-value--negative {
   color: var(--mb-color-expense);
 }
 
-.mb-side-foot-value.is-muted {
+.mb-shell-foot-value--muted {
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-side-foot-meta {
+.mb-shell-foot-meta {
   display: flex;
   align-items: center;
   gap: var(--mb-s-2);
@@ -181,27 +181,27 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-dot {
+.mb-shell-dot {
   width: var(--mb-s-2);
   height: var(--mb-s-2);
   border-radius: var(--mb-radius-pill);
   background: var(--mb-color-text-tertiary);
 }
 
-.mb-dot.is-positive {
+.mb-shell-dot--positive {
   background: var(--mb-color-income);
 }
 
-.mb-dot.is-negative {
+.mb-shell-dot--negative {
   background: var(--mb-color-expense);
 }
 
-.mb-main {
+.mb-shell-main {
   min-width: 0;
   background: var(--mb-color-surface);
 }
 
-.mb-content {
+.mb-shell-content {
   display: flex;
   flex-direction: column;
   gap: var(--mb-section-gap);
@@ -215,34 +215,34 @@
    完整侧栏在 768 会把内容可用宽压到 476；图标轨把它拉回 648，且不改断点。
    标签仍留在 DOM 里，悬停 / 聚焦时以 tooltip 呈现；不做悬停自动展开。 */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .mb-desktop-shell {
+  .mb-shell-desktop-shell {
     grid-template-columns: var(--mb-sidebar-w-rail) minmax(0, 1fr);
   }
 
-  .mb-sidebar {
+  .mb-shell-sidebar {
     /* tooltip 要越过内容区绘制：侧栏抬高到 dock 层，并把内距收到图标轨可用的 8。 */
     z-index: var(--mb-z-dock);
     padding-inline: var(--mb-s-2);
   }
 
-  .mb-brand {
+  .mb-shell-brand {
     justify-content: center;
     padding: 0;
   }
 
-  .mb-brand-copy,
-  .mb-kbd,
-  .mb-side-foot {
+  .mb-shell-copy,
+  .mb-shell-kbd,
+  .mb-shell-foot {
     display: none;
   }
 
-  .mb-side-nav-item {
+  .mb-shell-side-nav-item {
     justify-content: center;
     padding-inline: 0;
   }
 
   /* 标签本身就是 tooltip：绝对定位到轨道右侧，不额外造一份文案。 */
-  .mb-side-nav-item > span {
+  .mb-shell-side-nav-item > span {
     position: absolute;
     left: calc(100% + var(--mb-s-2));
     top: 50%;
@@ -262,13 +262,13 @@
     transition: opacity var(--mb-dur-1) var(--mb-ease);
   }
 
-  .mb-side-nav-item:hover > span,
-  .mb-side-nav-item:focus-visible > span {
+  .mb-shell-side-nav-item:hover > span,
+  .mb-shell-side-nav-item:focus-visible > span {
     opacity: 1;
   }
 
-  /* 记一笔按钮经 portal 挂到 body，无法用 .mb-sidebar 限定作用域。 */
-  .mb-side-add {
+  /* 记一笔按钮经 portal 挂到 body，无法用 .mb-shell-sidebar 限定作用域。 */
+  .mb-shell-add {
     left: var(--mb-s-2);
     width: calc(var(--mb-sidebar-w-rail) - var(--mb-s-2) * 2);
     gap: 0;
@@ -278,7 +278,7 @@
 
 /* ===== 移动应用壳 ===== */
 
-.mb-mobile-shell {
+.mb-shell-mobile-shell {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -287,7 +287,7 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-mobile-status {
+.mb-shell-status {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -298,20 +298,20 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-mobile-status-icons {
+.mb-shell-status-icons {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
 }
 
-.mb-mobile-head {
+.mb-shell-mobile-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--mb-s-2) var(--mb-page-pad-mobile);
 }
 
-.mb-mobile-title {
+.mb-shell-mobile-title {
   margin: 0;
   font-family: var(--mb-font-display);
   font-size: var(--mb-fs-5);
@@ -319,13 +319,13 @@
   line-height: var(--mb-lh-tight);
 }
 
-.mb-mobile-head-actions {
+.mb-shell-head-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--mb-s-1);
 }
 
-.mb-icon-btn {
+.mb-shared-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -339,12 +339,12 @@
   transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-icon-btn:hover {
+.mb-shared-icon-btn:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
 }
 
-.mb-mobile-scroll {
+.mb-shell-scroll {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -359,22 +359,22 @@
    浮层占据「底距 44+24、高 56」的带；滚动区底缘 = 导航高 60 + 外面距 68 = 128，
    恰在浮层顶缘（124）之上，环 / 图例 / 中心读数在任何滚动位置都不会滚到浮层下方。
    通道高度 = 浮层底距，原滚动区的 44+32+24 触控留白在报表页由通道取代。 */
-.mb-mobile-shell[data-page='reports'] .mb-mobile-scroll {
+.mb-shell-mobile-shell[data-page='reports'] .mb-shell-scroll {
   margin-bottom: calc(var(--mb-touch) + var(--mb-s-5) + env(safe-area-inset-bottom));
   padding-bottom: var(--mb-s-5);
 }
 
 /* 移动端可点击控件统一满足 44px 触控目标 */
-.mb-mobile-scroll .mb-link-btn,
-.mb-mobile-scroll .mb-primary-btn,
-.mb-mobile-scroll .mb-secondary-btn,
-.mb-sheet .mb-link-btn,
-.mb-sheet .mb-primary-btn,
-.mb-sheet .mb-secondary-btn {
+.mb-shell-scroll .mb-shared-link-btn,
+.mb-shell-scroll .mb-shared-btn--primary,
+.mb-shell-scroll .mb-shared-btn--secondary,
+.mb-shared-sheet .mb-shared-link-btn,
+.mb-shared-sheet .mb-shared-btn--primary,
+.mb-shared-sheet .mb-shared-btn--secondary {
   min-height: var(--mb-touch);
 }
 
-.mb-mobile-nav {
+.mb-shell-mobile-nav {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   min-height: calc(var(--mb-touch) + var(--mb-s-4));
@@ -383,7 +383,7 @@
   border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
 }
 
-.mb-mobile-nav-item {
+.mb-shell-mobile-nav-item {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -398,12 +398,12 @@
   cursor: pointer;
 }
 
-.mb-mobile-nav-item.is-active {
+.mb-shell-mobile-nav-item.is-active {
   color: var(--mb-color-accent);
   font-weight: 600;
 }
 
-.mb-mobile-nav-item.is-active::before {
+.mb-shell-mobile-nav-item.is-active::before {
   content: '';
   position: absolute;
   top: 0;
@@ -415,7 +415,7 @@
   transform: translateX(-50%);
 }
 
-.mb-mobile-fab {
+.mb-shell-fab {
   position: absolute;
   left: 50%;
   bottom: calc(var(--mb-touch) + var(--mb-s-5) + env(safe-area-inset-bottom));
@@ -435,30 +435,30 @@
   transition: background var(--mb-dur-1) var(--mb-ease), transform var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-mobile-fab:hover {
+.mb-shell-fab:hover {
   background: var(--mb-color-accent-fill-hover);
 }
 
-.mb-mobile-fab:active {
+.mb-shell-fab:active {
   background: var(--mb-color-accent-fill-pressed);
   transform: translateX(-50%) scale(0.96);
 }
 
-.mb-side-nav-item:focus-visible,
-.mb-mobile-nav-item:focus-visible,
-.mb-icon-btn:focus-visible,
-.mb-mobile-fab:focus-visible,
-.mb-link-btn:focus-visible,
-.mb-primary-btn:focus-visible,
-.mb-secondary-btn:focus-visible {
+.mb-shell-side-nav-item:focus-visible,
+.mb-shell-mobile-nav-item:focus-visible,
+.mb-shared-icon-btn:focus-visible,
+.mb-shell-fab:focus-visible,
+.mb-shared-link-btn:focus-visible,
+.mb-shared-btn--primary:focus-visible,
+.mb-shared-btn--secondary:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * 2);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mb-side-nav-item,
-  .mb-icon-btn,
-  .mb-mobile-fab {
+  .mb-shell-side-nav-item,
+  .mb-shared-icon-btn,
+  .mb-shell-fab {
     transition: none;
   }
 }

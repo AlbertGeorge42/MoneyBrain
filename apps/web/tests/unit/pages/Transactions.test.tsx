@@ -13,7 +13,7 @@ import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import type { DataState } from '@/features/shared/types'
-import { hfTheme } from '@/styles/theme/hf-theme'
+import { appTheme } from '@/styles/theme/theme-tokens'
 
 function renderTransactions(state: DataState, onRetry = vi.fn()) {
   const queryClient = new QueryClient({
@@ -21,7 +21,7 @@ function renderTransactions(state: DataState, onRetry = vi.fn()) {
   })
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={hfTheme}>
+      <MantineProvider theme={appTheme}>
         <LedgerProvider initialLedger={createSeedLedger()}>
           <ToastProvider>
             <TransactionsPage

@@ -119,7 +119,7 @@ export function TxRow({
         </span>
       </span>
       <span className="mb-tx-amount-col">
-        <span className={`mb-tx-amount is-${transactionTone(transaction)}`}>
+        <span className={`mb-tx-amount --${transactionTone(transaction)}`}>
           {signedAmountText(transaction)}
         </span>
       </span>

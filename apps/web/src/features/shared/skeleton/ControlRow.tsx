@@ -14,7 +14,7 @@ interface ControlRowProps {
  */
 export function ControlRow({ children }: ControlRowProps) {
   return (
-    <div className="mb-control-row" data-skeleton="control-row">
+    <div className="mb-shell-row" data-skeleton="control-row">
       {children}
     </div>
   )

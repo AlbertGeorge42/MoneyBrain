@@ -12,7 +12,7 @@ export function CategoryIcon({
 }) {
   const { icon: Icon, tone } = resolveCategoryIcon(iconKey, rootId)
   return (
-    <span className={`mb-cat-icon mb-tone-${tone} is-${size}`} aria-hidden="true">
+    <span className={`mb-shared-icon mb-tone-${tone} --${size}`} aria-hidden="true">
       <Icon size={size === 'sm' ? 15 : 18} strokeWidth={1.8} />
     </span>
   )

@@ -5,8 +5,8 @@
  */
 import { FolderInput, ScanLine, Settings } from 'lucide-react'
 import { Card } from '@/features/shared/Card'
-import { HfButton } from '@/features/shared/HfButton'
-import { HfTabs } from '@/features/shared/HfTabs'
+import { Button } from '@/features/shared/Button'
+import { Tabs } from '@/features/shared/Tabs'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ReportTab } from './reportsTime'
 import { REPORT_TABS } from './reportsShared'
@@ -28,7 +28,7 @@ export function PageHead({
     return (
       <div className="mb-rp-mobile-head">
         <div className="mb-rp-mobile-head-row">
-          <HfTabs
+          <Tabs
             variant="report"
             label="报表视图"
             className="is-mobile"
@@ -37,13 +37,13 @@ export function PageHead({
             onChange={onTab}
           />
           {/* 报表页自己带设置入口：应用级设置在底部导航里，不在页头重复。 */}
-          <HfButton
-            className="mb-rp-settings-btn is-icon"
+          <Button
+            className="mb-rp-settings-btn mb-rp-settings-btn--icon"
             aria-label="报表设置"
             onClick={onOpenSettings}
           >
             <Settings size={16} />
-          </HfButton>
+          </Button>
         </div>
       </div>
     )
@@ -53,20 +53,20 @@ export function PageHead({
     <div className="mb-rp-page-head">
       <div className="mb-rp-page-copy">
         <h1 className="mb-rp-page-title">报表</h1>
-        <p className="mb-page-sub">{sub}</p>
+        <p className="mb-shell-sub">{sub}</p>
       </div>
       <div className="mb-rp-head-actions">
-        <HfTabs
+        <Tabs
           variant="report"
           label="报表视图"
           value={tab}
           items={REPORT_TABS}
           onChange={onTab}
         />
-        <HfButton className="mb-rp-settings-btn" onClick={onOpenSettings}>
+        <Button className="mb-rp-settings-btn" onClick={onOpenSettings}>
           <Settings size={15} />
           设置
-        </HfButton>
+        </Button>
       </div>
     </div>
   )
@@ -96,10 +96,10 @@ export function ReportsEmpty({ onImport }: { onImport: () => void }) {
       <p className="mb-rp-empty-desc">
         报表从账本里取数：先记一笔收支，或导入银行 / 支付宝账单，四张报表会自动生成。
       </p>
-      <HfButton className="mb-rp-btn is-primary" onClick={onImport}>
+      <Button className="mb-rp-btn mb-rp-btn--primary" onClick={onImport}>
         <FolderInput size={16} />
         导入账单
-      </HfButton>
+      </Button>
     </Card>
   )
 }

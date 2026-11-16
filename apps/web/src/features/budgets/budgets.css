@@ -125,7 +125,7 @@
   background: var(--mb-color-surface-sunken);
 }
 
-.mb-bg-ring.is-sm {
+.mb-bg-ring--sm {
   width: 108px;
   height: 108px;
 }
@@ -161,7 +161,7 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-bg-ring.is-sm .mb-bg-ring-value {
+.mb-bg-ring--sm .mb-bg-ring-value {
   font-size: var(--mb-fs-2);
 }
 
@@ -378,8 +378,8 @@
 
 /* ===== 详情 / 新增 ===== */
 
-.mb-bg-detail .mb-overlay-body,
-.mb-bg-editor .mb-overlay-body {
+.mb-bg-detail .mb-ov-body,
+.mb-bg-editor .mb-ov-body {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-4);
@@ -527,16 +527,16 @@
   gap: var(--mb-s-4);
 }
 
-.mb-bg-form .mb-entry-types {
+.mb-bg-form .mb-ov-types {
   grid-template-columns: repeat(3, 1fr);
 }
 
-.mb-bg-form .mb-entry-type {
+.mb-bg-form .mb-ov-type {
   min-height: var(--mb-btn-h-md);
 }
 
-.mb-bg-editor .mb-entry-type,
-.mb-bg-detail .mb-secondary-btn {
+.mb-bg-editor .mb-ov-type,
+.mb-bg-detail .mb-shared-btn--secondary {
   min-height: var(--mb-control-h);
 }
 
@@ -589,12 +589,12 @@
   max-height: calc(var(--mb-mobile-h) - var(--mb-s-7));
 }
 
-.mb-bg-detail .mb-overlay-body,
-.mb-bg-editor .mb-overlay-body {
+.mb-bg-detail .mb-ov-body,
+.mb-bg-editor .mb-ov-body {
   overflow-y: auto;
 }
 
-.mb-bg-detail .mb-bg-over-buttons .mb-secondary-btn {
+.mb-bg-detail .mb-bg-over-buttons .mb-shared-btn--secondary {
   flex: 1 1 auto;
 }
 

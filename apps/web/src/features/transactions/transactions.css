@@ -156,54 +156,54 @@
   background: var(--mb-color-surface-hover);
 }
 
-.mb-tx-btn.is-toggle.is-active {
+.mb-tx-btn--toggle.is-active {
   border-color: var(--mb-color-accent);
   box-shadow: inset 0 0 0 var(--mb-border-width) var(--mb-color-accent);
   background: var(--mb-color-surface-sunken);
   font-weight: 600;
 }
 
-.mb-tx-btn.is-ghost {
+.mb-tx-btn--ghost {
   border-color: transparent;
   background: transparent;
   color: var(--mb-color-text-secondary);
 }
 
-.mb-tx-btn.is-ghost:hover {
+.mb-tx-btn--ghost:hover {
   background: var(--mb-color-surface-hover);
   color: var(--mb-color-text-primary);
 }
 
-.mb-tx-btn.is-primary {
+.mb-tx-btn--primary {
   border-color: var(--mb-color-accent-fill);
   background: var(--mb-color-accent-fill);
   color: var(--mb-color-on-accent-fill);
   font-weight: 600;
 }
 
-.mb-tx-btn.is-primary:hover {
+.mb-tx-btn--primary:hover {
   border-color: var(--mb-color-accent-fill-hover);
   background: var(--mb-color-accent-fill-hover);
 }
 
-.mb-tx-btn.is-danger {
+.mb-tx-btn--danger {
   border-color: var(--mb-color-expense);
   color: var(--mb-color-expense);
   background: transparent;
 }
 
-.mb-tx-btn.is-danger:hover {
+.mb-tx-btn--danger:hover {
   background: var(--mb-color-expense-bg);
 }
 
-.mb-tx-btn.is-danger-solid {
+.mb-tx-btn--danger-solid {
   border-color: var(--mb-color-expense);
   background: var(--mb-color-expense);
   color: var(--mb-color-surface-raised);
   font-weight: 600;
 }
 
-.mb-tx-btn.is-danger-solid:hover {
+.mb-tx-btn--danger-solid:hover {
   filter: brightness(0.94);
 }
 
@@ -496,15 +496,15 @@
   line-height: 1.45;
 }
 
-.is-income {
+.--income {
   color: var(--mb-color-income);
 }
 
-.is-expense {
+.--expense {
   color: var(--mb-color-expense);
 }
 
-.is-transfer {
+.--transfer {
   color: var(--mb-color-transfer);
 }
 
@@ -690,7 +690,7 @@
   width: 100%;
 }
 
-/* 三颗主按钮 44px：portal 后已脱离 .mb-mobile-scroll，触控规则不能挂在滚动容器上。
+/* 三颗主按钮 44px：portal 后已脱离 .mb-shell-scroll，触控规则不能挂在滚动容器上。
    混选时动作行多一颗「仅选支出」，四颗等分。 */
 .mb-tx-batchbar.is-mobile .mb-tx-btn {
   flex: 1;
@@ -701,12 +701,12 @@
 }
 
 /* 删除是破坏性操作：两侧各留 24px 组间距（20 + 动作行 gap 4），并用细分隔线分组。 */
-.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn.is-danger {
+.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn--danger {
   position: relative;
   margin-inline: calc(var(--mb-s-4) + var(--mb-s-1));
 }
 
-.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn.is-danger::before {
+.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn--danger::before {
   content: '';
   position: absolute;
   left: calc(var(--mb-s-3) * -1);
@@ -843,21 +843,21 @@
   font-size: var(--mb-fs-0);
 }
 
-.mb-tx-badge.is-income {
+.mb-tx-badge--income {
   border-color: var(--mb-color-income);
   background: var(--mb-color-income-bg);
 }
 
-.mb-tx-badge.is-expense {
+.mb-tx-badge--expense {
   border-color: var(--mb-color-expense);
   background: var(--mb-color-expense-bg);
 }
 
-.mb-tx-badge.is-neutral {
+.mb-tx-badge--neutral {
   color: var(--mb-color-text-secondary);
 }
 
-.mb-tx-badge.is-excluded {
+.mb-tx-badge--excluded {
   border-color: var(--mb-color-warning);
   color: var(--mb-color-warning);
 }
@@ -945,7 +945,7 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-tx-refund-badge.is-full {
+.mb-tx-refund-badge--full {
   color: var(--mb-color-warning);
 }
 
@@ -1144,57 +1144,57 @@
 
 /* ===== 移动端触控 ===== */
 
-.mb-mobile-scroll .mb-tx-btn,
-.mb-mobile-scroll .mb-tx-type,
-.mb-mobile-scroll .mb-tx-chip,
-.mb-mobile-scroll .mb-tx-chip-clear,
-.mb-mobile-scroll .mb-tx-search,
-.mb-mobile-scroll .mb-tx-input,
-.mb-mobile-scroll .mb-tx-select {
+.mb-shell-scroll .mb-tx-btn,
+.mb-shell-scroll .mb-tx-type,
+.mb-shell-scroll .mb-tx-chip,
+.mb-shell-scroll .mb-tx-chip-clear,
+.mb-shell-scroll .mb-tx-search,
+.mb-shell-scroll .mb-tx-input,
+.mb-shell-scroll .mb-tx-select {
   min-height: var(--mb-touch);
 }
 
 /* 搜索框内嵌 input 要占满 44：外层把两侧 1px 边框补回高度。 */
-.mb-mobile-scroll .mb-tx-search {
+.mb-shell-scroll .mb-tx-search {
   height: calc(var(--mb-touch) + var(--mb-border-width) * 2);
 }
 
-.mb-mobile-scroll .mb-tx-check-btn {
+.mb-shell-scroll .mb-tx-check-btn {
   width: var(--mb-touch);
   height: var(--mb-touch);
 }
 
-.mb-mobile-scroll .mb-tx-search {
+.mb-shell-scroll .mb-tx-search {
   flex-basis: 100%;
 }
 
-.mb-mobile-scroll .mb-tx-type-group {
+.mb-shell-scroll .mb-tx-type-group {
   flex-wrap: nowrap;
   overflow-x: auto;
   padding-bottom: var(--mb-s-1);
 }
 
-.mb-mobile-scroll .mb-tx-type {
+.mb-shell-scroll .mb-tx-type {
   flex: none;
 }
 
-.mb-mobile-scroll .mb-tx-actions {
+.mb-shell-scroll .mb-tx-actions {
   margin-left: 0;
 }
 
-.mb-mobile-scroll .mb-tx-actions .mb-tx-btn {
+.mb-shell-scroll .mb-tx-actions .mb-tx-btn {
   flex: 1;
 }
 
-.mb-mobile-scroll .mb-tx-filter-fields {
+.mb-shell-scroll .mb-tx-filter-fields {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.mb-mobile-scroll .mb-tx-display {
+.mb-shell-scroll .mb-tx-display {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.mb-mobile-scroll .mb-tx-batchbar .mb-tx-btn {
+.mb-shell-scroll .mb-tx-batchbar .mb-tx-btn {
   flex: 1;
 }
 
