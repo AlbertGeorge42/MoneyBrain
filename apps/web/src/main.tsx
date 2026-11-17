@@ -7,6 +7,8 @@ import App from './App'
 import { ToastProvider } from './features/shared/toast'
 import './styles/theme/variables.css'
 import './styles/reset.css'
+import './features/shared/typography.css'
+import './features/shared/input.css'
 import { appTheme, mbColorSchemeManager, mbCssVariablesResolver } from './styles/theme/theme-tokens'
 import { ApiClientError } from './services/apiError'
 

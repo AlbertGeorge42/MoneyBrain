@@ -231,14 +231,13 @@ export function CategoriesSection({
     <>
       <div className="mb-set-toolbar">
         <Tabs
-          variant="settings"
           label="收支分类"
           value={tab}
           items={CATEGORY_TABS.map((item) => ({ id: item.type, label: item.label }))}
           onChange={onTabChange}
         />
         <Button
-          className="mb-set-btn mb-set-btn--primary mb-set-btn--small"
+          variant="primary" size="sm"
           onClick={() => onOpenEditor({ kind: 'category', mode: 'create', type: tab })}
         >
           <Plus size={15} />
@@ -277,7 +276,7 @@ export function CategoriesSection({
                 <Tag size={22} />
                 <p>这个类型下还没有分类</p>
                 <Button
-                  className="mb-set-btn mb-set-btn--primary"
+                  variant="primary"
                   onClick={() => onOpenEditor({ kind: 'category', mode: 'create', type: tab })}
                 >
                   <Plus size={16} /> 新增一级分类

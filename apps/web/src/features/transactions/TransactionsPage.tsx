@@ -166,7 +166,7 @@ function Toolbar({
 
         <div className="mb-tx-actions">
           <Button
-            className={advancedOpen ? 'mb-tx-btn mb-tx-btn--toggle is-active' : 'mb-tx-btn mb-tx-btn--toggle'}
+            variant="toggle" pressed={advancedOpen}
             aria-expanded={advancedOpen}
             aria-controls="mb-tx-filter-panel"
             onClick={onAdvancedToggle}
@@ -175,7 +175,7 @@ function Toolbar({
             {advancedOpen ? '收起筛选' : '高级筛选'}
           </Button>
           <Button
-            className={batchMode ? 'mb-tx-btn mb-tx-btn--toggle is-active' : 'mb-tx-btn mb-tx-btn--toggle'}
+            variant="toggle" pressed={batchMode}
             aria-pressed={batchMode}
             onClick={onBatchToggle}
           >
@@ -183,7 +183,7 @@ function Toolbar({
           </Button>
           {showDisplay && (
             <Button
-              className={displayOpen ? 'mb-tx-btn mb-tx-btn--toggle is-active' : 'mb-tx-btn mb-tx-btn--toggle'}
+              variant="toggle" pressed={displayOpen}
               aria-expanded={displayOpen}
               aria-controls="mb-tx-display-panel"
               onClick={onDisplayToggle}
@@ -658,7 +658,7 @@ export function TransactionsPage({
             试试更短的关键词，或清除类型、账户、日期、金额条件。
           </p>
           <Button
-            className="mb-tx-btn"
+            variant="secondary"
             onClick={() => {
               setQuery('')
               setType('all')

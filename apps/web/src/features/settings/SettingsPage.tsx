@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { useComputedColorScheme, useMantineColorScheme } from '@mantine/core'
 import { useToast, type ToastOptions } from '@/features/shared/toastContext'
 import { Button } from '@/features/shared/Button'
+import { EmptyState } from '@/features/shared/EmptyState'
 import { ChevronLeft, Plus, Wallet } from 'lucide-react'
 import type { ThemeMode } from '@/features/shared/types'
 import { fromMajor } from '@domain/index'
@@ -567,20 +568,20 @@ export function SettingsPage({ device, dataState, onRetry }: SettingsPageProps) 
   const empty = dataState === 'empty'
 
   const body = empty ? (
-    <section className="mb-set-empty">
-      <div className="mb-set-empty-mark" aria-hidden="true">
-        <Wallet size={28} />
-      </div>
-      <h2>还没有账户</h2>
-      <p>账本为空时设置也可以先配好：从第一个账户开始，分类与现金流标记随后补齐。</p>
-      <Button
-        className="mb-set-btn mb-set-btn--primary"
-        onClick={() => config.setEditor({ kind: 'account', mode: 'create', preset: 'deposit' })}
-      >
-        <Plus size={16} />
-        新增账户
-      </Button>
-    </section>
+    <EmptyState
+      icon={<Wallet size={28} />}
+      title="还没有账户"
+      description="账本为空时设置也可以先配好：从第一个账户开始，分类与现金流标记随后补齐。"
+      action={
+        <Button
+          variant="primary"
+          onClick={() => config.setEditor({ kind: 'account', mode: 'create', preset: 'deposit' })}
+        >
+          <Plus size={16} />
+          新增账户
+        </Button>
+      }
+    />
   ) : device === 'desktop' ? (
     <div className="mb-set-layout">
       <SettingsDesktopNav
@@ -590,7 +591,7 @@ export function SettingsPage({ device, dataState, onRetry }: SettingsPageProps) 
       />
       <section className="mb-set-panel" aria-labelledby="mb-set-panel-title">
         <div className="mb-set-panel-head">
-          <h2 id="mb-set-panel-title" className="mb-set-panel-title">
+          <h2 id="mb-set-panel-title" className="mb-shared-sec-title">
             {sectionMeta(active).label}
           </h2>
         </div>

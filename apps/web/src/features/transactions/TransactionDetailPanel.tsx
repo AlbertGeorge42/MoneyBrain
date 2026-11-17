@@ -11,7 +11,6 @@ import {
   getCategoryIconKey,
   getCategoryName,
   getCategoryRootId,
-  getRefundList,
   getRefundSummary,
   getRelatedTransaction,
   transactionDirection,
@@ -22,6 +21,9 @@ import {
 } from '@/features/overview/model'
 import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
 import { Button } from '@/features/shared/Button'
+import { FieldLabel } from '@/features/shared/FieldLabel'
+import { RefundSummarySection } from '@/features/shared/RefundSummarySection'
+import { Badge } from '@/features/shared/Badge'
 import { Sheet } from '@/features/shared/Sheet'
 import { transactionApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
@@ -116,7 +118,7 @@ function RefundLinkForm({
         <p className="mb-tx-refund-link-hint">当前没有仍有可退余额的收入/支出。</p>
       ) : (
         <select
-          className="mb-tx-select"
+          className="mb-shared-input mb-shared-input--select"
           aria-label="选择原交易"
           value={selected}
           onChange={(event) => setSelected(event.target.value)}
@@ -140,14 +142,14 @@ function RefundLinkForm({
       )}
       <div className="mb-tx-refund-link-actions">
         <Button
-          className="mb-tx-btn mb-tx-btn--primary"
+          variant="primary"
           onClick={() => void confirm()}
           disabled={!selected || saving}
         >
           {saving ? '关联中…' : '关联'}
         </Button>
         <Button
-          className="mb-tx-btn mb-tx-btn--ghost"
+          variant="ghost"
           onClick={() => setExpanded(false)}
           disabled={saving}
         >
@@ -182,18 +184,13 @@ function DetailView({
   const account = getAccount(ledger, transaction.accountId)
   const toAccount = transaction.toAccountId ? getAccount(ledger, transaction.toAccountId) : undefined
   const related = transaction.type === 'refund' ? getRelatedTransaction(ledger, transaction) : undefined
-  const refundSummary =
-    transaction.type === 'expense' || transaction.type === 'income'
-      ? getRefundSummary(ledger, transaction)
-      : null
-  const refunds = refundSummary ? getRefundList(ledger, transaction) : []
 
   return (
     <div className="mb-tx-detail">
       <div className="mb-tx-detail-hero">
         <span className={`mb-tx-detail-amount --${tone}`}>{signedAmountText(transaction)}</span>
         <span className="mb-tx-detail-meta">
-          <span className={`mb-tx-badge --${tone}`}>{transactionDirection(transaction)}</span>
+          <Badge tone={tone}>{transactionDirection(transaction)}</Badge>
           <span>{formatDateLabel(transaction.date)}</span>
         </span>
       </div>
@@ -237,32 +234,7 @@ function DetailView({
             </dd>
           </div>
         )}
-        {refundSummary && refundSummary.state !== 'none' && (
-          <div>
-            <dt>退款</dt>
-            <dd>
-              <span className="mb-tx-refund-summary">
-                已退款 {amountText(refundSummary.refunded)} / 剩余 {amountText(refundSummary.remaining)}
-                {refundSummary.state === 'full' && <span className="mb-tx-refund-badge mb-tx-refund-badge--full">已全额退款</span>}
-              </span>
-              {refunds.length > 0 && (
-                <span className="mb-tx-refund-items">
-                  {refunds.map((refund) => (
-                    <Button
-                      key={refund.id}
-                      className="mb-tx-refund-item"
-                      onClick={() => onOpenTransaction(refund)}
-                    >
-                      <span>{formatDateLabel(refund.date)}</span>
-                      <span className="mb-tx-refund-item-note">{refund.note || '退款'}</span>
-                      <span className="mb-tx-refund-item-amount">{amountText(refund.amount)}</span>
-                    </Button>
-                  ))}
-                </span>
-              )}
-            </dd>
-          </div>
-        )}
+        <RefundSummarySection ledger={ledger} transaction={transaction} onOpenTransaction={onOpenTransaction} />
         <div>
           <dt>备注</dt>
           <dd>{transaction.note}</dd>
@@ -271,7 +243,7 @@ function DetailView({
           <div>
             <dt>统计</dt>
             <dd>
-              <span className="mb-tx-badge mb-tx-badge--excluded">不计收支</span>
+              <Badge tone="excluded">不计收支</Badge>
               <span className="mb-tx-detail-muted"> 仅影响余额，不进收支统计与预算</span>
             </dd>
           </div>
@@ -291,15 +263,15 @@ function DetailView({
       )}
 
       <div className="mb-tx-detail-actions">
-        <Button className="mb-tx-btn mb-tx-btn--primary" onClick={onEdit}>
+        <Button variant="primary" onClick={onEdit}>
           <Pencil size={15} />
           编辑
         </Button>
-        <Button className="mb-tx-btn mb-tx-btn--danger" onClick={onDelete}>
+        <Button variant="danger" onClick={onDelete}>
           <Trash2 size={15} />
           删除
         </Button>
-        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onClose}>
+        <Button variant="ghost" onClick={onClose}>
           关闭
         </Button>
       </div>
@@ -381,10 +353,10 @@ function EditForm({
   return (
     <div className="mb-tx-edit">
       <label className="mb-tx-field" htmlFor="mb-tx-edit-amount">
-        <span className="mb-tx-field-label">金额（元）</span>
+        <FieldLabel>金额（元）</FieldLabel>
         <input
           id="mb-tx-edit-amount"
-          className="mb-tx-input"
+          className="mb-shared-input"
           type="number"
           step="0.01"
           inputMode="decimal"
@@ -394,10 +366,10 @@ function EditForm({
       </label>
 
       <label className="mb-tx-field" htmlFor="mb-tx-edit-category">
-        <span className="mb-tx-field-label">分类</span>
+        <FieldLabel>分类</FieldLabel>
         <select
           id="mb-tx-edit-category"
-          className="mb-tx-select"
+          className="mb-shared-input mb-shared-input--select"
           value={categoryId}
           onChange={(event) => setCategoryId(event.target.value)}
         >
@@ -410,10 +382,10 @@ function EditForm({
       </label>
 
       <label className="mb-tx-field" htmlFor="mb-tx-edit-account">
-        <span className="mb-tx-field-label">账户</span>
+        <FieldLabel>账户</FieldLabel>
         <select
           id="mb-tx-edit-account"
-          className="mb-tx-select"
+          className="mb-shared-input mb-shared-input--select"
           value={accountId}
           onChange={(event) => setAccountId(event.target.value)}
         >
@@ -426,10 +398,10 @@ function EditForm({
       </label>
 
       <label className="mb-tx-field" htmlFor="mb-tx-edit-date">
-        <span className="mb-tx-field-label">日期</span>
+        <FieldLabel>日期</FieldLabel>
         <input
           id="mb-tx-edit-date"
-          className="mb-tx-input"
+          className="mb-shared-input"
           type="date"
           value={date}
           onChange={(event) => setDate(event.target.value)}
@@ -437,10 +409,10 @@ function EditForm({
       </label>
 
       <label className="mb-tx-field" htmlFor="mb-tx-edit-note">
-        <span className="mb-tx-field-label">备注</span>
+        <FieldLabel>备注</FieldLabel>
         <input
           id="mb-tx-edit-note"
-          className="mb-tx-input"
+          className="mb-shared-input"
           type="text"
           value={note}
           onChange={(event) => setNote(event.target.value)}
@@ -484,11 +456,11 @@ function EditForm({
       )}
 
       <div className="mb-tx-detail-actions">
-        <Button className="mb-tx-btn mb-tx-btn--primary" onClick={() => void submit()} disabled={invalid || saving}>
+        <Button variant="primary" onClick={() => void submit()} disabled={invalid || saving}>
           <Check size={15} />
           {saving ? '保存中…' : '保存修改'}
         </Button>
-        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onCancel} disabled={saving}>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
           取消
         </Button>
       </div>
@@ -531,10 +503,10 @@ function DeleteConfirm({
         </p>
       )}
       <div className="mb-tx-detail-actions">
-        <Button className="mb-tx-btn mb-tx-btn--danger-solid" onClick={() => void confirm()} disabled={saving}>
+        <Button variant="danger-solid" onClick={() => void confirm()} disabled={saving}>
           {saving ? '删除中…' : '删除'}
         </Button>
-        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onCancel} disabled={saving}>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
           <X size={15} />
           取消
         </Button>

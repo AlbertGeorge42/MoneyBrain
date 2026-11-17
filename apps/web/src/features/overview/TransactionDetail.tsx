@@ -1,6 +1,6 @@
 import { Button as MantineButton, Modal } from '@mantine/core'
 import { CategoryIcon } from './category'
-import { amountText, signedAmountText } from './format'
+import { signedAmountText } from './format'
 import {
   accountKindLabel,
   formatDateLabel,
@@ -8,8 +8,6 @@ import {
   getCategoryIconKey,
   getCategoryName,
   getCategoryRootId,
-  getRefundList,
-  getRefundSummary,
   getRelatedTransaction,
   transactionDirection,
   transactionRefLabel,
@@ -20,6 +18,8 @@ import {
 import type { DeviceMode } from '@/features/shared/types'
 import { Button } from '@/features/shared/Button'
 import { Sheet } from '@/features/shared/Sheet'
+import { RefundSummarySection } from '@/features/shared/RefundSummarySection'
+import { Badge } from '@/features/shared/Badge'
 import './overlays.css'
 
 function DetailBody({
@@ -40,18 +40,13 @@ function DetailBody({
   const account = getAccount(ledger, transaction.accountId)
   const toAccount = transaction.toAccountId ? getAccount(ledger, transaction.toAccountId) : undefined
   const related = transaction.type === 'refund' ? getRelatedTransaction(ledger, transaction) : undefined
-  const refundSummary =
-    transaction.type === 'expense' || transaction.type === 'income'
-      ? getRefundSummary(ledger, transaction)
-      : null
-  const refunds = refundSummary ? getRefundList(ledger, transaction) : []
 
   return (
     <div className="mb-ov-detail">
       <div className="mb-ov-detail-hero">
         <span className={`mb-ov-detail-amount --${tone}`}>{signedAmountText(transaction)}</span>
         <span className="mb-ov-detail-meta">
-          <span className={`mb-ov-badge --${tone}`}>{transactionDirection(transaction)}</span>
+          <Badge tone={tone}>{transactionDirection(transaction)}</Badge>
           <span>{formatDateLabel(transaction.date)}</span>
         </span>
       </div>
@@ -97,32 +92,7 @@ function DetailBody({
             </dd>
           </div>
         )}
-        {refundSummary && refundSummary.state !== 'none' && (
-          <div>
-            <dt>退款</dt>
-            <dd>
-              <span className="mb-ov-refund-summary">
-                已退款 {amountText(refundSummary.refunded)} / 剩余 {amountText(refundSummary.remaining)}
-                {refundSummary.state === 'full' && <span className="mb-ov-refund-badge">已全额退款</span>}
-              </span>
-              {refunds.length > 0 && (
-                <span className="mb-ov-refund-items">
-                  {refunds.map((refund) => (
-                    <Button
-                      key={refund.id}
-                      className="mb-ov-refund-item"
-                      onClick={() => onOpenTransaction(refund)}
-                    >
-                      <span>{formatDateLabel(refund.date)}</span>
-                      <span className="mb-ov-refund-item-note">{refund.note || '退款'}</span>
-                      <span className="mb-ov-refund-item-amount">{amountText(refund.amount)}</span>
-                    </Button>
-                  ))}
-                </span>
-              )}
-            </dd>
-          </div>
-        )}
+        <RefundSummarySection ledger={ledger} transaction={transaction} onOpenTransaction={onOpenTransaction} />
         <div>
           <dt>备注</dt>
           <dd>{transaction.note}</dd>

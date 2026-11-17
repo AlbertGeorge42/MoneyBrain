@@ -60,12 +60,12 @@ export function BatchBar({
       </div>
       <div className="mb-tx-batch-actions">
         {excluded.length > 0 && (
-          <Button className="mb-tx-btn mb-tx-btn--ghost mb-tx-batch-select-expense" onClick={onSelectExpenseOnly}>
+          <Button variant="ghost" onClick={onSelectExpenseOnly}>
             仅选支出
           </Button>
         )}
         <Button
-          className="mb-tx-btn"
+          variant="secondary"
           disabled={count === 0 || categoryDisabled}
           title={categoryDisabled ? categoryHint : undefined}
           onClick={onCategory}
@@ -73,11 +73,11 @@ export function BatchBar({
           <Tag size={15} />
           改分类
         </Button>
-        <Button className="mb-tx-btn mb-tx-btn--danger" disabled={count === 0} onClick={onDelete}>
+        <Button variant="danger" disabled={count === 0} onClick={onDelete}>
           <Trash2 size={15} />
           删除
         </Button>
-        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onExit}>
+        <Button variant="ghost" onClick={onExit}>
           <X size={15} />
           退出
         </Button>
@@ -86,7 +86,7 @@ export function BatchBar({
   )
 
   if (device === 'mobile' && typeof document !== 'undefined') {
-    const dock = document.querySelector('.mb-mobile-dock')
+    const dock = document.querySelector('[data-mobile-dock]')
     if (dock) return createPortal(bar, dock)
   }
   return bar

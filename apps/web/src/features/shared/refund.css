@@ -1,0 +1,67 @@
+/* 退款摘要跨 feature 共用：overview 只读详情与 transactions 编辑面板同一实现。 */
+
+.mb-shared-refund-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+}
+
+.mb-shared-refund-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-shared-refund-badge--full {
+  color: var(--mb-color-warning);
+}
+
+.mb-shared-refund-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-1);
+  margin-top: var(--mb-s-2);
+}
+
+.mb-shared-refund-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+  width: 100%;
+  padding: var(--mb-s-1) 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--mb-fs-0);
+  color: var(--mb-color-text-secondary);
+  text-align: right;
+  cursor: pointer;
+}
+
+.mb-shared-refund-item:hover {
+  color: var(--mb-color-accent);
+}
+
+.mb-shared-refund-item:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * -1);
+}
+
+.mb-shared-refund-item-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-shared-refund-item-amount {
+  flex: none;
+  font-family: var(--mb-font-num);
+  color: var(--mb-color-text-primary);
+}

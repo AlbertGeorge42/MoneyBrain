@@ -159,7 +159,9 @@ export function CashView({
             outflowTotal={outflowTotal}
           />
           <Segmented
-            variant="report"
+            size="lg"
+            fill
+            bordered
             label="现金流分段"
             value={side}
             options={[
@@ -211,12 +213,12 @@ export function CashView({
         title={sankeyNode ? `${sankeyNode.name} · 现金流明细` : '现金流明细'}
         actions={
           <>
-            <Button className="mb-rp-btn mb-rp-btn--ghost" onClick={() => setSankeyNode(null)}>
+            <Button variant="ghost" onClick={() => setSankeyNode(null)}>
               关闭
             </Button>
             {sankeyCategories.length > 0 && (
               <Button
-                className="mb-rp-btn mb-rp-btn--primary"
+                variant="primary"
                 onClick={() => {
                   onViewFlow({ categoryIds: sankeyCategories, from, to })
                   setSankeyNode(null)

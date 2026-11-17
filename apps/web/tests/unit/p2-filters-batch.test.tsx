@@ -185,10 +185,7 @@ describe('#17 批量混选列出异类', () => {
     )
     expect(transactions).toMatch(/\.mb-tx-batchbar\.is-mobile\s*\{[^}]*flex-direction:\s*column/)
     expect(transactions).toMatch(
-      /\.mb-tx-batchbar\.is-mobile \.mb-tx-btn\s*\{[^}]*min-height:\s*var\(--mb-touch\)/,
-    )
-    expect(transactions).not.toMatch(
-      /\.mb-tx-batchbar\.is-mobile \.mb-tx-batch-select-expense\s*\{[^}]*display:\s*none/,
+      /\.mb-tx-batchbar\.is-mobile \.mb-shared-btn\s*\{[^}]*min-height:\s*var\(--mb-touch\)/,
     )
     expect(transactions).not.toMatch(
       /\.mb-tx-batchbar\.is-mobile \.mb-tx-batch-summary\s*\{[^}]*display:\s*none/,

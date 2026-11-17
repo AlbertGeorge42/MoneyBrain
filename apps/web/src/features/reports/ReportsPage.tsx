@@ -11,7 +11,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { deriveExpenseCharts, getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
-import { Card } from '@/features/shared/Card'
+import { FieldLabel } from '@/features/shared/FieldLabel'
+import { EmptyState } from '@/features/shared/EmptyState'
+import { Button } from '@/features/shared/Button'
 import { ControlRow } from '@/features/shared/skeleton/ControlRow'
 import { PageShell } from '@/features/shared/skeleton/PageShell'
 import { ToastViewport } from '@/features/shared/toast'
@@ -373,12 +375,11 @@ export function ReportsPage({
                 trendDesc="预测窗口逐点"
               />
             ) : (
-              <Card variant="report" className="mb-rp-empty">
-                <h2 className="mb-rp-empty-title">未来推演需要连接后端账本</h2>
-                <p className="mb-rp-empty-desc">
-                  当前为本地演示数据；连接 API 后可按月查看净资产、预算计划与已排定交易构成。
-                </p>
-              </Card>
+              <EmptyState
+                variant="report"
+                title="未来推演需要连接后端账本"
+                description="当前为本地演示数据；连接 API 后可按月查看净资产、预算计划与已排定交易构成。"
+              />
             )
           )}
           {tab === 'flow' && flowState === 'past' && flow && (
@@ -410,12 +411,11 @@ export function ReportsPage({
                 colorUniverse={categoryUniverse}
               />
             ) : (
-              <Card variant="report" className="mb-rp-empty">
-                <h2 className="mb-rp-empty-title">未来收支明细需要连接后端账本</h2>
-                <p className="mb-rp-empty-desc">
-                  当前为本地演示数据；连接 API 后可查看已发生、按预算计划与已排定的分类明细。
-                </p>
-              </Card>
+              <EmptyState
+                variant="report"
+                title="未来收支明细需要连接后端账本"
+                description="当前为本地演示数据；连接 API 后可查看已发生、按预算计划与已排定的分类明细。"
+              />
             )
           )}
           {tab === 'cash' && cashState === 'past' && cash && (
@@ -451,36 +451,34 @@ export function ReportsPage({
                 onDrill={setDrill}
               />
             ) : (
-              <Card variant="report" className="mb-rp-empty">
-                <h2 className="mb-rp-empty-title">未来推演需要连接后端账本</h2>
-                <p className="mb-rp-empty-desc">
-                  当前为本地演示数据；连接 API 后可查看未来现金流的逐桶流入、流出与期末现金。
-                </p>
-              </Card>
+              <EmptyState
+                variant="report"
+                title="未来推演需要连接后端账本"
+                description="当前为本地演示数据；连接 API 后可查看未来现金流的逐桶流入、流出与期末现金。"
+              />
             )
           )}
           {tab === 'invest' && investState === 'past' && invest && (
             <InvestView device={device} report={invest} />
           )}
           {tab === 'invest' && investState === 'past' && apiMode && investApi.status === 'success' && investApi.data === null && (
-            <Card variant="report" className="mb-rp-empty">
-              <h2 className="mb-rp-empty-title">暂无投资账户</h2>
-              <p className="mb-rp-empty-desc">
-                投资分析只统计标记为「投资资产」的账户；当前账本没有可分析的投资持仓。
-              </p>
-            </Card>
+              <EmptyState
+                variant="report"
+                title="暂无投资账户"
+                description="投资分析只统计标记为「投资资产」的账户；当前账本没有可分析的投资持仓。"
+              />
           )}
           {tab === 'invest' && investState !== 'past' && (
-            <Card variant="report" className="mb-rp-empty">
-              <h2 className="mb-rp-empty-title">该视图暂无未来数据源</h2>
-              <p className="mb-rp-empty-desc">
-                投资分析只覆盖已发生的持仓与收益；未来区间不提供推演数据。
-                时间条仍可继续切换，改回已发生区间即可查看。
-              </p>
-              <button className="mb-rp-btn mb-rp-btn--ghost" onClick={backToActual}>
-                回到已发生
-              </button>
-            </Card>
+              <EmptyState
+                variant="report"
+                title="该视图暂无未来数据源"
+                description="投资分析只覆盖已发生的持仓与收益；未来区间不提供推演数据。 时间条仍可继续切换，改回已发生区间即可查看。"
+                action={
+                  <Button variant="ghost" onClick={backToActual}>
+                    回到已发生
+                  </Button>
+                }
+              />
           )}
         </>
       )}
@@ -517,7 +515,7 @@ export function ReportsPage({
         extra={
           tab === 'flow' ? (
             <>
-              <span className="mb-set-label">数据范围</span>
+              <FieldLabel>数据范围</FieldLabel>
               <Switch
                 variant="toggle"
                 text="含不计收支交易"

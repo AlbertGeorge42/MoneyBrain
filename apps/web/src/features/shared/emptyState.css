@@ -1,0 +1,34 @@
+/* 空状态：跨 feature 统一实现（原 rp/bg/set 三套结构同构、数值漂移）。 */
+
+.mb-shared-empty {
+  align-items: center;
+  gap: var(--mb-s-3);
+  padding: var(--mb-s-6) var(--mb-s-4);
+  text-align: center;
+}
+
+.mb-shared-empty-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--mb-color-accent-soft);
+  color: var(--mb-color-accent);
+}
+
+.mb-shared-empty-title {
+  margin: var(--mb-s-1) 0 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-4);
+  font-weight: 600;
+}
+
+.mb-shared-empty-desc {
+  max-width: 480px;
+  margin: 0;
+  font-size: var(--mb-fs-1);
+  line-height: var(--mb-lh-body);
+  color: var(--mb-color-text-secondary);
+}

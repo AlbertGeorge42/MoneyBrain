@@ -1,0 +1,35 @@
+/* 语义徽标：跨 feature 统一实现（原 mb-ov-badge / mb-tx-badge 两套）。 */
+
+.mb-shared-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--mb-s-1) var(--mb-s-2);
+  border-radius: var(--mb-radius-pill);
+  font-size: var(--mb-fs-0);
+  font-weight: 600;
+}
+
+.mb-shared-badge--income {
+  background: var(--mb-color-income-bg);
+  color: var(--mb-color-income);
+}
+
+.mb-shared-badge--expense {
+  background: var(--mb-color-expense-bg);
+  color: var(--mb-color-expense);
+}
+
+.mb-shared-badge--transfer {
+  background: var(--mb-color-transfer-bg);
+  color: var(--mb-color-transfer);
+}
+
+.mb-shared-badge--neutral {
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-shared-badge--excluded {
+  background: transparent;
+  color: var(--mb-color-warning);
+}

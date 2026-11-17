@@ -6,6 +6,7 @@
  */
 import { HardDriveDownload } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Switch } from '@/features/shared/Switch'
 import { SettingRow } from '@/features/shared/skeleton/SettingRow'
 import type { AutoBackupConfig } from '@contracts/types'
@@ -57,7 +58,7 @@ export function BackupSection({
         {error ? (
           <p className="mb-set-error" role="alert">
             {error}
-            <Button className="mb-set-textbtn" onClick={onReload}>
+            <Button variant="link" inline onClick={onReload}>
               重试
             </Button>
           </p>
@@ -96,18 +97,18 @@ export function BackupSection({
           }
         />
         <label className="mb-set-field">
-          <span className="mb-set-label">备份目录（绝对路径）</span>
+          <FieldLabel>备份目录（绝对路径）</FieldLabel>
           <input
-            className="mb-set-input"
+            className="mb-shared-input mb-shared-input--lg"
             value={effectiveDirectory}
             placeholder={config.defaultDirectory}
             onChange={(event) => onDirectoryChange(event.target.value)}
           />
         </label>
         <label className="mb-set-field">
-          <span className="mb-set-label">备份间隔（小时）</span>
+          <FieldLabel>备份间隔（小时）</FieldLabel>
           <input
-            className="mb-set-input"
+            className="mb-shared-input mb-shared-input--lg"
             type="number"
             min={1}
             step={1}
@@ -116,9 +117,9 @@ export function BackupSection({
           />
         </label>
         <label className="mb-set-field">
-          <span className="mb-set-label">保留份数（份）</span>
+          <FieldLabel>保留份数（份）</FieldLabel>
           <input
-            className="mb-set-input"
+            className="mb-shared-input mb-shared-input--lg"
             type="number"
             min={1}
             step={1}
@@ -126,7 +127,7 @@ export function BackupSection({
             onChange={(event) => onKeepCountChange(event.target.value)}
           />
         </label>
-        <Button className="mb-set-btn mb-set-btn--primary" disabled={saving} onClick={onSave}>
+        <Button variant="primary" disabled={saving} onClick={onSave}>
           {saving ? '保存中…' : '保存设置'}
         </Button>
         {error && (

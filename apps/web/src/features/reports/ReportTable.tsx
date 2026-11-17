@@ -110,7 +110,7 @@ export function ReportTable({
     <Card variant="report" className="mb-rp-table-card" data-device={device}>
       <div className="mb-rp-sec-head">
         <div>
-          <h3 className="mb-rp-sec-title">{title}</h3>
+          <h3 className="mb-shared-sec-title">{title}</h3>
         </div>
       </div>
       <div className="mb-rp-table-wrap">

@@ -127,89 +127,8 @@
 }
 
 /* 三个工具栏按钮宽度统一，避免长短文案造成参差 */
-.mb-tx-actions .mb-tx-btn {
+.mb-tx-actions .mb-shared-btn {
   min-width: calc(var(--mb-touch) * 2 + var(--mb-s-2));
-}
-
-.mb-tx-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--mb-s-1);
-  height: var(--mb-control-h);
-  padding: 0 var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease),
-    border-color var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-tx-btn:hover {
-  border-color: var(--mb-color-border-strong);
-  background: var(--mb-color-surface-hover);
-}
-
-.mb-tx-btn--toggle.is-active {
-  border-color: var(--mb-color-accent);
-  box-shadow: inset 0 0 0 var(--mb-border-width) var(--mb-color-accent);
-  background: var(--mb-color-surface-sunken);
-  font-weight: 600;
-}
-
-.mb-tx-btn--ghost {
-  border-color: transparent;
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-btn--ghost:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-tx-btn--primary {
-  border-color: var(--mb-color-accent-fill);
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-  font-weight: 600;
-}
-
-.mb-tx-btn--primary:hover {
-  border-color: var(--mb-color-accent-fill-hover);
-  background: var(--mb-color-accent-fill-hover);
-}
-
-.mb-tx-btn--danger {
-  border-color: var(--mb-color-expense);
-  color: var(--mb-color-expense);
-  background: transparent;
-}
-
-.mb-tx-btn--danger:hover {
-  background: var(--mb-color-expense-bg);
-}
-
-.mb-tx-btn--danger-solid {
-  border-color: var(--mb-color-expense);
-  background: var(--mb-color-expense);
-  color: var(--mb-color-surface-raised);
-  font-weight: 600;
-}
-
-.mb-tx-btn--danger-solid:hover {
-  filter: brightness(0.94);
-}
-
-.mb-tx-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 /* ===== 生效条件 ===== */
@@ -307,12 +226,6 @@
   min-width: 0;
 }
 
-.mb-tx-field-label {
-  font-size: var(--mb-fs-0);
-  font-weight: 500;
-  color: var(--mb-color-text-secondary);
-}
-
 /* 编辑表单里的逐笔「不计收支」开关。 */
 .mb-tx-exclude-toggle {
   display: flex;
@@ -375,24 +288,6 @@
   color: var(--mb-color-text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.mb-tx-input,
-.mb-tx-select {
-  width: 100%;
-  height: var(--mb-control-h);
-  padding: 0 var(--mb-s-2);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-}
-
-.mb-tx-input:focus-visible,
-.mb-tx-select:focus-visible {
-  border-color: var(--mb-color-accent);
 }
 
 .mb-tx-range {
@@ -692,7 +587,7 @@
 
 /* 三颗主按钮 44px：portal 后已脱离 .mb-shell-scroll，触控规则不能挂在滚动容器上。
    混选时动作行多一颗「仅选支出」，四颗等分。 */
-.mb-tx-batchbar.is-mobile .mb-tx-btn {
+.mb-tx-batchbar.is-mobile .mb-shared-btn {
   flex: 1;
   min-width: 0;
   height: var(--mb-touch);
@@ -701,12 +596,12 @@
 }
 
 /* 删除是破坏性操作：两侧各留 24px 组间距（20 + 动作行 gap 4），并用细分隔线分组。 */
-.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn--danger {
+.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-shared-btn--danger {
   position: relative;
   margin-inline: calc(var(--mb-s-4) + var(--mb-s-1));
 }
 
-.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-tx-btn--danger::before {
+.mb-tx-batchbar.is-mobile .mb-tx-batch-actions .mb-shared-btn--danger::before {
   content: '';
   position: absolute;
   left: calc(var(--mb-s-3) * -1);
@@ -836,32 +731,6 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-tx-badge {
-  padding: 0 var(--mb-s-1);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-xs);
-  font-size: var(--mb-fs-0);
-}
-
-.mb-tx-badge--income {
-  border-color: var(--mb-color-income);
-  background: var(--mb-color-income-bg);
-}
-
-.mb-tx-badge--expense {
-  border-color: var(--mb-color-expense);
-  background: var(--mb-color-expense-bg);
-}
-
-.mb-tx-badge--neutral {
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-badge--excluded {
-  border-color: var(--mb-color-warning);
-  color: var(--mb-color-warning);
-}
-
 .mb-tx-detail-list {
   display: flex;
   flex-direction: column;
@@ -917,8 +786,7 @@
 }
 
 .mb-tx-detail-link:focus-visible,
-.mb-tx-refund-link-open:focus-visible,
-.mb-tx-refund-item:focus-visible {
+.mb-tx-refund-link-open:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * -1);
 }
@@ -927,66 +795,7 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-tx-refund-summary {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-}
 
-.mb-tx-refund-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-refund-badge--full {
-  color: var(--mb-color-warning);
-}
-
-.mb-tx-refund-items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-1);
-  margin-top: var(--mb-s-2);
-}
-
-.mb-tx-refund-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-  width: 100%;
-  padding: var(--mb-s-1) 0;
-  border: 0;
-  background: transparent;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
-  text-align: right;
-  cursor: pointer;
-}
-
-.mb-tx-refund-item:hover {
-  color: var(--mb-color-accent);
-}
-
-.mb-tx-refund-item-note {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb-tx-refund-item-amount {
-  flex: none;
-  font-family: var(--mb-font-num);
-  color: var(--mb-color-text-primary);
-}
 
 .mb-tx-refund-link-open {
   align-self: flex-start;
@@ -1129,28 +938,15 @@
 
 /* ===== 焦点环 ===== */
 
-.mb-tx-btn:focus-visible,
-.mb-tx-type:focus-visible,
-.mb-tx-chip:focus-visible,
-.mb-tx-chip-clear:focus-visible,
-.mb-tx-check-btn:focus-visible,
-.mb-tx-cat-option:focus-visible,
-.mb-tx-search-clear:focus-visible,
-.mb-tx-input:focus-visible,
-.mb-tx-select:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * 2);
-}
-
 /* ===== 移动端触控 ===== */
 
-.mb-shell-scroll .mb-tx-btn,
+.mb-shell-scroll .mb-shared-btn,
 .mb-shell-scroll .mb-tx-type,
 .mb-shell-scroll .mb-tx-chip,
 .mb-shell-scroll .mb-tx-chip-clear,
 .mb-shell-scroll .mb-tx-search,
-.mb-shell-scroll .mb-tx-input,
-.mb-shell-scroll .mb-tx-select {
+.mb-shell-scroll .mb-shared-input,
+.mb-shell-scroll .mb-shared-input--select {
   min-height: var(--mb-touch);
 }
 
@@ -1182,7 +978,7 @@
   margin-left: 0;
 }
 
-.mb-shell-scroll .mb-tx-actions .mb-tx-btn {
+.mb-shell-scroll .mb-tx-actions .mb-shared-btn {
   flex: 1;
 }
 
@@ -1194,7 +990,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.mb-shell-scroll .mb-tx-batchbar .mb-tx-btn {
+.mb-shell-scroll .mb-tx-batchbar .mb-shared-btn {
   flex: 1;
 }
 

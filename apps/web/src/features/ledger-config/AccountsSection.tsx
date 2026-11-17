@@ -339,7 +339,6 @@ export function AccountsSection({
     <>
       <div className="mb-set-toolbar">
         <Tabs
-          variant="settings"
           label="账户分组"
           value={tab}
           items={[
@@ -350,14 +349,14 @@ export function AccountsSection({
         />
         <div className="mb-set-toolbar-actions">
           <Button
-            className="mb-set-btn mb-set-btn--ghost mb-set-btn--small"
+            variant="ghost" size="sm"
             disabled={emptyGroupCount === 0}
             onClick={() => onShowEmptyGroupsChange(!showEmptyGroups)}
           >
             {showEmptyGroups ? '隐藏空分组' : `显示空分组（${emptyGroupCount}）`}
           </Button>
           <Button
-            className="mb-set-btn mb-set-btn--ghost mb-set-btn--small"
+            variant="ghost" size="sm"
             disabled={visibleGroups.length === 0}
             onClick={() =>
               onSetGroupsExpanded(
@@ -369,7 +368,7 @@ export function AccountsSection({
             {allExpanded ? '全部收起' : '全部展开'}
           </Button>
           <Button
-            className="mb-set-btn mb-set-btn--primary mb-set-btn--small"
+            variant="primary" size="sm"
             onClick={() => {
               // 新建的分组还没有账户，先切到「显示空分组」，否则保存后会看不见。
               onShowEmptyGroupsChange(true)
@@ -379,7 +378,7 @@ export function AccountsSection({
             <Plus size={15} /> 新增分组
           </Button>
           <Button
-            className="mb-set-btn mb-set-btn--ghost mb-set-btn--small"
+            variant="ghost" size="sm"
             onClick={() =>
               onOpenEditor({
                 kind: 'account',
@@ -412,7 +411,7 @@ export function AccountsSection({
               <div className="mb-set-list-empty">
                 <p>还没有分组</p>
                 <Button
-                  className="mb-set-btn mb-set-btn--primary"
+                  variant="primary"
                   onClick={() => {
                     onShowEmptyGroupsChange(true)
                     onOpenEditor({ kind: 'accountGroup', mode: 'create', type: tab })

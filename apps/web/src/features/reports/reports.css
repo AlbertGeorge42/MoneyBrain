@@ -48,46 +48,14 @@
   letter-spacing: -0.01em;
 }
 
-.mb-rp-tabs {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-1);
-  padding: 3px;
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-sunken);
-}
+/* 页签 / 分段的基础视觉与焦点态见 shared/segmented.css（单一实现）。 */
 
-.mb-rp-tab {
-  height: var(--mb-btn-h-sm);
-  padding: 0 14px;
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.mb-rp-tab.is-active {
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  box-shadow: var(--mb-sh-1);
-}
-
-.mb-rp-tab:focus-visible,
-.mb-rp-seg-btn:focus-visible,
-.mb-rp-gran-btn:focus-visible,
-.mb-rp-iconbtn:focus-visible,
 .mb-rp-settings-btn:focus-visible,
-.mb-rp-btn:focus-visible,
 .mb-rp-fold:focus-visible,
 .mb-rp-donut-back:focus-visible,
 .mb-rp-table tr.is-interactive:focus-visible {
-  outline: 2px solid var(--mb-color-focus);
-  outline-offset: 2px;
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: var(--mb-border-width);
 }
 
 /* ===== 时间条 ===== */
@@ -108,52 +76,6 @@
 }
 
 /* 时间条外壳与预算月份条同源，见 shared/periodBar.css（44px 高、10px 圆角）。 */
-
-.mb-rp-iconbtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--mb-btn-h-sm);
-  height: var(--mb-btn-h-sm);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  cursor: pointer;
-}
-
-.mb-rp-iconbtn:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-rp-gran {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-sunken);
-}
-
-.mb-rp-gran-btn {
-  height: var(--mb-btn-h-xs);
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-}
-
-.mb-rp-gran-btn.is-active {
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  box-shadow: var(--mb-sh-1);
-}
 
 .mb-rp-settings-btn {
   display: inline-flex;
@@ -189,41 +111,6 @@
   justify-content: flex-end;
   gap: var(--mb-s-2);
   margin-top: var(--mb-s-3);
-}
-
-.mb-rp-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: var(--mb-btn-h-md);
-  padding: 0 14px;
-  border-radius: var(--mb-radius-sm);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-}
-
-.mb-rp-btn--primary {
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent-fill);
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-  font-weight: 600;
-}
-
-.mb-rp-btn--primary:hover {
-  background: var(--mb-color-accent-fill-hover);
-}
-
-.mb-rp-btn--ghost {
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-rp-btn--ghost:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
 }
 
 /* ===== 指标条 ===== */
@@ -331,14 +218,6 @@
   justify-content: space-between;
   gap: var(--mb-s-2);
   margin-bottom: var(--mb-s-3);
-}
-
-.mb-rp-sec-title {
-  margin: 0;
-  font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-3);
-  font-weight: 600;
-  line-height: var(--mb-lh-tight);
 }
 
 .mb-rp-sec-desc {
@@ -1073,71 +952,6 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   line-height: 1.45;
 }
 
-.mb-rp-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--mb-s-2);
-  padding: var(--mb-s-6) var(--mb-s-4);
-  text-align: center;
-}
-
-.mb-rp-empty-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--mb-color-accent-soft);
-  color: var(--mb-color-accent);
-}
-
-.mb-rp-empty-title {
-  margin: var(--mb-s-1) 0 0;
-  font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-4);
-  font-weight: 600;
-}
-
-.mb-rp-empty-desc {
-  max-width: 480px;
-  margin: 0;
-  font-size: var(--mb-fs-1);
-  line-height: var(--mb-lh-body);
-  color: var(--mb-color-text-secondary);
-}
-
-/* 移动分段 */
-
-.mb-rp-seg {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-sunken);
-}
-
-.mb-rp-seg-btn {
-  flex: 1;
-  min-height: var(--mb-btn-h-lg);
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-}
-
-.mb-rp-seg-btn.is-active {
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  box-shadow: var(--mb-sh-1);
-}
-
 /* ===== 抽屉（Mantine） ===== */
 
 .mb-rp-sheet {
@@ -1168,7 +982,7 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   background: var(--mb-color-surface-raised);
 }
 
-.mb-rp-sheet-actions .mb-rp-btn {
+.mb-rp-sheet-actions .mb-shared-btn {
   width: 100%;
   min-height: var(--mb-touch);
 }
@@ -1202,19 +1016,15 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   gap: var(--mb-s-2);
 }
 
-.mb-rp-page[data-device='mobile'] .mb-rp-tabs {
+/* 报表移动页头页签占满一行；基础视觉与触控高度由 shared/segmented.css 统一提供。 */
+.mb-rp-page[data-device='mobile'] .mb-shared-seg.is-mobile {
   width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.mb-rp-page[data-device='mobile'] .mb-rp-tabs::-webkit-scrollbar {
+.mb-rp-page[data-device='mobile'] .mb-shared-seg.is-mobile::-webkit-scrollbar {
   display: none;
-}
-
-.mb-rp-page[data-device='mobile'] .mb-rp-tab {
-  min-height: var(--mb-btn-h-lg);
-  padding: 0 12px;
 }
 
 .mb-rp-page[data-device='mobile'] .mb-rp-time-main {
@@ -1222,19 +1032,10 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   flex-wrap: wrap;
 }
 
-.mb-rp-page[data-device='mobile'] .mb-rp-iconbtn {
-  width: var(--mb-btn-h-lg);
-  height: var(--mb-btn-h-lg);
-}
-
+/* 时间粒度独占一行（原双重选择器笔误已修正）；等宽与触控高度走 Segmented 的 fillMobile。 */
 .mb-rp-page[data-device='mobile'] .mb-rp-gran {
   order: 3;
   width: 100%;
-}
-
-.mb-rp-page[data-device='mobile'] .mb-rp-gran-btn {
-  flex: 1;
-  min-height: var(--mb-touch);
 }
 
 /* 移动时间面板：按内容收缩的底部面板，内容可滚。
@@ -1295,7 +1096,7 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   background: var(--mb-color-surface-raised);
 }
 
-.mb-rp-page[data-device='mobile'] .mb-rp-btn {
+.mb-rp-page[data-device='mobile'] .mb-shared-btn {
   min-height: var(--mb-btn-h-lg);
   padding: 0 18px;
 }

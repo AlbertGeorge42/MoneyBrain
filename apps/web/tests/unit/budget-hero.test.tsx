@@ -66,7 +66,7 @@ describe('预算头部徽标', () => {
 
   it('超支行排在支出组第一行', () => {
     const { container } = renderBudget()
-    const expense = container.querySelector('.mb-bg-group[data-type="expense"]')
+    const expense = container.querySelector('[data-type="expense"]')
     const names = Array.from(expense?.querySelectorAll('.mb-bg-name') ?? []).map(
       (node) => node.textContent,
     )

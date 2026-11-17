@@ -61,7 +61,7 @@ function LoadMore({
           <span className="mb-tx-load-more-hint">下拉查看更多（还有 {remaining} 组）</span>
         </>
       ) : (
-        <Button className="mb-tx-btn" onClick={onLoadMore}>
+        <Button variant="secondary" onClick={onLoadMore}>
           查看更多（还有 {remaining} 组）
         </Button>
       )}

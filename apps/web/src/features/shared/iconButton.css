@@ -1,0 +1,48 @@
+/* 图标按钮：跨 feature 单一实现（原 rp/dp/set/shared-icon-btn 四套同构）。 */
+
+.mb-shared-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-shared-iconbtn:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+/* sm=32px 常规；md=44px 触控（shell/移动端）。 */
+.mb-shared-iconbtn--sm {
+  width: var(--mb-btn-h-sm);
+  height: var(--mb-btn-h-sm);
+}
+
+.mb-shared-iconbtn--md {
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+}
+
+/* 移动端触控下限：页内 sm 图标按钮在移动设备态放大到 44px
+   （原 set/rp 各自写死，这里收成一条）。 */
+[data-device='mobile'] .mb-shared-iconbtn--sm {
+  width: var(--mb-touch);
+  height: var(--mb-touch);
+}
+
+.mb-shared-iconbtn:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-shared-iconbtn {
+    transition: none;
+  }
+}

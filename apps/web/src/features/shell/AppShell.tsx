@@ -6,6 +6,7 @@ import { formatCurrency } from '@/utils/format'
 import { getPortalHost } from '@/features/shared/portalHost'
 import { useOverlayOpen } from '@/features/shared/overlayPresence'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { deriveOverview, ledgerAnchorDay } from '@/features/overview/model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -135,28 +136,28 @@ function MobileShell({
         <h1 className="mb-shell-mobile-title">{shellPageLabel(page)}</h1>
         <div className="mb-shell-head-actions">
           {headAction}
-          <Button
-            variant="icon"
+          <IconButton
+              size="md"
             aria-label="搜索流水"
             onClick={() => onNavigate('transactions')}
           >
             <Search size={19} />
-          </Button>
+          </IconButton>
           {page !== 'settings' && page !== 'reports' && (
-            <Button
-              variant="icon"
+            <IconButton
+              size="md"
               aria-label="打开设置"
               onClick={() => onNavigate('settings')}
             >
               <Settings size={19} />
-            </Button>
+            </IconButton>
           )}
         </div>
       </header>
       <div className="mb-shell-scroll">{children}</div>
       {/* 移动端底部操作条的 portal 宿主：在滚动容器外、手机框内，
           让批量条相对手机屏幕固定而不是随内容滚动。 */}
-      <div className="mb-mobile-dock" />
+      <div data-mobile-dock />
       <nav className="mb-shell-mobile-nav" aria-label="底部导航">
         {SHELL_NAV.map((item) => {
           const Icon = item.icon

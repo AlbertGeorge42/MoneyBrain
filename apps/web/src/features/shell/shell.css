@@ -325,25 +325,6 @@
   gap: var(--mb-s-1);
 }
 
-.mb-shared-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--mb-touch);
-  height: var(--mb-touch);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-shared-icon-btn:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
 .mb-shell-scroll {
   flex: 1;
   min-height: 0;
@@ -446,7 +427,6 @@
 
 .mb-shell-side-nav-item:focus-visible,
 .mb-shell-mobile-nav-item:focus-visible,
-.mb-shared-icon-btn:focus-visible,
 .mb-shell-fab:focus-visible,
 .mb-shared-link-btn:focus-visible,
 .mb-shared-btn--primary:focus-visible,
@@ -457,7 +437,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .mb-shell-side-nav-item,
-  .mb-shared-icon-btn,
   .mb-shell-fab {
     transition: none;
   }

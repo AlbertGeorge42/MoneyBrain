@@ -335,37 +335,13 @@
   gap: var(--mb-s-3);
 }
 
-.mb-shared-sec-title {
-  margin: 0;
-  font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-3);
-  font-weight: 600;
-  line-height: var(--mb-lh-tight);
-}
-
 .mb-shared-sec-desc {
   margin: var(--mb-s-1) 0 0;
   font-size: var(--mb-fs-0);
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-shared-link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mb-s-1);
-  min-height: var(--mb-control-h);
-  padding: 0 var(--mb-s-1);
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-accent);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.mb-shared-link-btn:hover {
-  text-decoration: underline;
-}
+/* 文字链按钮已归位到 shared/button.css（variant=link / link-boxed）。 */
 
 .mb-shared-foot {
   align-self: flex-start;

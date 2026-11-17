@@ -10,6 +10,7 @@ import type { ReactNode } from 'react'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger } from '@/features/overview/model'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
 import { Sheet } from '@/features/shared/Sheet'
 import { AccountsSection } from './AccountsSection'
 import { CategoriesSection } from './CategoriesSection'
@@ -53,9 +54,9 @@ export function LedgerConfigManager({
       >
         <div className="mb-set-sheet-head">
           <h2 className="mb-set-sheet-title">{title}</h2>
-          <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+          <IconButton size="sm" aria-label="关闭" onClick={onClose}>
             <X size={18} />
-          </Button>
+          </IconButton>
         </div>
         <div className="mb-set-sheet-body">
           {extra && <div className="mb-set-field mb-set-ledger-sheet-extra">{extra}</div>}
@@ -117,7 +118,7 @@ export function LedgerConfigManager({
         </div>
 
         <div className="mb-set-sheet-actions">
-          <Button className="mb-set-btn mb-set-btn--primary" onClick={onClose}>
+          <Button variant="primary" onClick={onClose}>
             完成
           </Button>
         </div>

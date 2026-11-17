@@ -1,10 +1,11 @@
 /**
- * 共享页签。
+ * 共享页签：Segmented 的 tablist 语义外观层。
  *
- * 三处页签只有视觉类名不同：报表页（桌面 / 移动各一份实现）与设置页。
- * 结构、ARIA 与键盘可达性完全沿用原生按钮：Enter / Space 触发，Tab 依次聚焦。
+ * 基础视觉、结构与交互全部复用 Segmented（segmented.css 单一实现）；
+ * 这里只固定 role=tablist / role=tab + aria-selected，保留原生按钮键盘可达性。
  */
 import type { ReactNode } from 'react'
+import { Segmented } from './Segmented'
 
 export interface TabItem<T extends string> {
   id: T
@@ -16,40 +17,26 @@ export function Tabs<T extends string>({
   value,
   items,
   onChange,
-  variant,
+  bordered,
   className,
 }: {
   label: string
   value: T
   items: readonly TabItem<T>[]
   onChange: (next: T) => void
-  variant: 'report' | 'settings'
-  /** 追加到容器上的类名（报表移动端用 `is-mobile`）。 */
+  bordered?: boolean
   className?: string
 }) {
-  const containerClass = variant === 'report' ? 'mb-rp-tabs' : 'mb-set-tabs'
-  const tabClass = variant === 'report' ? 'mb-rp-tab' : 'mb-set-tab'
   return (
-    <div
-      className={className ? `${containerClass} ${className}` : containerClass}
+    <Segmented
+      label={label}
+      value={value}
+      options={items}
+      onChange={onChange}
       role="tablist"
-      aria-label={label}
-    >
-      {items.map((item) => {
-        const active = item.id === value
-        return (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            className={active ? `${tabClass} is-active` : tabClass}
-            onClick={() => onChange(item.id)}
-          >
-            {item.label}
-          </button>
-        )
-      })}
-    </div>
+      itemRole="tab"
+      bordered={bordered}
+      className={className}
+    />
   )
 }

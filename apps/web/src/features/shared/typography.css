@@ -1,0 +1,16 @@
+/* 表单字段标签：跨 feature 统一实现。
+   <label>/<span>/<legend> 只在元素语义上不同，视觉共用这一份。 */
+.mb-shared-label {
+  font-size: var(--mb-fs-0);
+  font-weight: 500;
+  color: var(--mb-color-text-secondary);
+}
+
+/* 区块标题：跨 feature 统一实现（原 rp/set/shared 三套逐字相同）。 */
+.mb-shared-sec-title {
+  margin: 0;
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+  line-height: var(--mb-lh-tight);
+}

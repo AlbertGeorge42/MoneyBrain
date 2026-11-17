@@ -117,14 +117,6 @@
   gap: var(--mb-s-1);
 }
 
-.mb-set-panel-title {
-  margin: 0;
-  font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-3);
-  font-weight: 600;
-  line-height: var(--mb-lh-tight);
-}
-
 /* ===== 工具栏：Tabs + 新增 ===== */
 
 .mb-set-toolbar {
@@ -135,38 +127,7 @@
   flex-wrap: wrap;
 }
 
-.mb-set-tabs {
-  display: inline-flex;
-  gap: var(--mb-s-1);
-  padding: var(--mb-s-1);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-sunken);
-}
-
-.mb-set-tab {
-  min-height: var(--mb-btn-h-sm);
-  padding: 0 var(--mb-s-3);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  font-family: inherit;
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-set-tab.is-active {
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  font-weight: 600;
-  box-shadow: var(--mb-sh-1);
-}
-
-.mb-set-tab:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width));
-}
+/* 设置页页签已统一到 shared/segmented.css（Tabs）；此处只保留布局外壳。 */
 
 /* ===== 配置行 ===== */
 
@@ -706,34 +667,7 @@
   line-height: var(--mb-lh-body);
 }
 
-.mb-set-textbtn {
-  margin-left: var(--mb-s-2);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--mb-color-accent);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-/* 备份入口是清空的前置动作，不能只有一个 19px 高的文字命中区。 */
-.mb-set-textbtn--boxed {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--mb-btn-h-md);
-  margin-left: 0;
-  padding: 0 var(--mb-s-2);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  text-decoration: none;
-}
-
-.mb-set-textbtn:disabled {
-  color: var(--mb-color-text-tertiary);
-  cursor: default;
-}
+/* 文字链（重试 / 备份导出）已并入 shared Button：variant=link + inline / boxed。 */
 
 .mb-set-hint {
   margin: 0;
@@ -779,7 +713,7 @@
   font-size: var(--mb-fs-0);
 }
 
-.mb-set-batch .mb-set-btn {
+.mb-set-batch .mb-shared-btn {
   grid-column: 2;
   grid-row: 1 / span 2;
 }
@@ -906,128 +840,7 @@
 
 /* ===== 按钮 ===== */
 
-.mb-set-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--mb-s-1);
-  min-height: var(--mb-btn-h-md);
-  padding: 0 var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  font-family: inherit;
-  font-size: var(--mb-fs-1);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease);
-}
-
-.mb-set-btn:hover {
-  background: var(--mb-color-surface-hover);
-}
-
-.mb-set-btn:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * 2);
-}
-
-.mb-set-btn--primary {
-  border-color: transparent;
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-  font-weight: 600;
-}
-
-.mb-set-btn--primary:hover {
-  background: var(--mb-color-accent-fill-hover);
-}
-
-.mb-set-btn--primary:disabled {
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-tertiary);
-  cursor: not-allowed;
-}
-
-.mb-set-btn--ghost {
-  border-color: transparent;
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-set-btn--ghost:hover {
-  background: var(--mb-color-surface-hover);
-}
-
-.mb-set-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.mb-set-btn--danger {
-  border-color: var(--mb-color-expense);
-  color: var(--mb-color-expense);
-  background: transparent;
-}
-
-.mb-set-btn--danger:hover {
-  background: var(--mb-color-expense-bg);
-}
-
-.mb-set-btn--danger.is-armed {
-  background: var(--mb-color-expense-bg);
-  font-weight: 600;
-}
-
-.mb-set-btn--small {
-  min-height: var(--mb-btn-h-sm);
-  padding: 0 var(--mb-s-2);
-  font-size: var(--mb-fs-0);
-}
-
 /* ===== 空状态 ===== */
-
-.mb-set-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--mb-s-2);
-  padding: var(--mb-s-7) var(--mb-s-5);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-md);
-  background: var(--mb-color-surface-raised);
-  box-shadow: var(--mb-sh-1);
-  text-align: center;
-}
-
-.mb-set-empty-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin-bottom: var(--mb-s-1);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-accent-soft);
-  color: var(--mb-color-accent);
-}
-
-.mb-set-empty h2 {
-  margin: 0;
-  font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-3);
-  font-weight: 600;
-}
-
-.mb-set-empty p {
-  max-width: 420px;
-  margin: 0;
-  font-size: var(--mb-fs-1);
-  line-height: var(--mb-lh-body);
-  color: var(--mb-color-text-secondary);
-}
 
 /* ===== 移动端入口列表 ===== */
 
@@ -1190,8 +1003,7 @@
   min-height: var(--mb-btn-h-lg);
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-tab,
-.mb-set-page[data-device='mobile'] .mb-set-btn,
+.mb-set-page[data-device='mobile'] .mb-shared-btn,
 .mb-set-page[data-device='mobile'] .mb-set-kind {
   min-height: var(--mb-btn-h-lg);
 }
@@ -1206,10 +1018,6 @@
 
 .mb-set-page[data-device='mobile'] .mb-set-data {
   grid-template-columns: minmax(0, 1fr);
-}
-
-.mb-set-page[data-device='mobile'] .mb-set-empty {
-  padding: var(--mb-s-6) var(--mb-s-4);
 }
 
 /* ===== 编辑 / 移动弹层 ===== */
@@ -1260,36 +1068,7 @@
   font-weight: 600;
 }
 
-.mb-set-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: var(--mb-btn-h-sm);
-  height: var(--mb-btn-h-sm);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-tertiary);
-  cursor: pointer;
-}
-
-.mb-set-icon-btn:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-set-icon-btn:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width));
-}
-
 /* 移动端抽屉的关闭入口按 44×44 触控下限。 */
-.mb-set-page[data-device='mobile'] .mb-set-icon-btn {
-  width: var(--mb-touch);
-  height: var(--mb-touch);
-}
-
 .mb-set-sheet-body {
   display: flex;
   flex: 0 1 auto;
@@ -1310,29 +1089,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-2);
-}
-
-.mb-set-label {
-  font-size: var(--mb-fs-0);
-  font-weight: 500;
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-set-input {
-  min-height: var(--mb-btn-h-lg);
-  padding: 0 var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  font-family: inherit;
-  font-size: var(--mb-fs-2);
-}
-
-.mb-set-input:focus {
-  border-color: var(--mb-color-accent);
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: 0;
 }
 
 .mb-set-static {

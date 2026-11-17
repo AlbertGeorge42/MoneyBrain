@@ -162,7 +162,9 @@ export function BalanceView({
       ) : (
         <>
           <Segmented
-            variant="report"
+            size="lg"
+            fill
+            bordered
             label="资产负债分段"
             value={side}
             options={[

@@ -110,7 +110,9 @@ export function FlowView({
       ) : (
         <>
           <Segmented
-            variant="report"
+            size="lg"
+            fill
+            bordered
             label="收支分段"
             value={side}
             options={[

@@ -11,7 +11,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { DatePicker } from '@/features/shared/datePicker/DatePicker'
 import type { DatePresetOption } from '@/features/shared/datePicker/datePickerModel'
-import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
 import { Segmented } from '@/features/shared/Segmented'
 import type { DeviceMode } from '@/features/shared/types'
 import {
@@ -169,9 +169,9 @@ export function TimeBar({
     <div className="mb-rp-timebar">
       <div className="mb-rp-time-main">
         <div className="mb-rp-time-picker">
-          <Button className="mb-rp-iconbtn" aria-label="上一期" onClick={() => step(-1)}>
+          <IconButton size="sm" aria-label="上一期" onClick={() => step(-1)}>
             <ChevronLeft size={18} />
-          </Button>
+          </IconButton>
           <DatePicker
             device={device}
             mode={isPoint ? 'point' : 'range'}
@@ -189,15 +189,18 @@ export function TimeBar({
             tag={isPoint ? POINT_TAG[time.gran] : undefined}
             sheetTitle="时间范围"
           />
-          <Button className="mb-rp-iconbtn" aria-label="下一期" onClick={() => step(1)}>
+          <IconButton size="sm" aria-label="下一期" onClick={() => step(1)}>
             <ChevronRight size={18} />
-          </Button>
+          </IconButton>
         </div>
         <span className={`mb-rp-range-state --${state}`} aria-live="polite">
           {RANGE_STATE_LABEL[state]}
         </span>
         <Segmented
-          variant="granularity"
+          size="xs"
+          bordered
+          fillMobile
+          className="mb-rp-gran"
           label="聚合粒度"
           value={time.gran}
           options={GRANULARITIES.map((gran) => ({ id: gran, label: GRANULARITY_LABELS[gran] }))}

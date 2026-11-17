@@ -146,10 +146,10 @@ export function BatchDeleteDialog({
         </p>
       )}
       <div className="mb-tx-detail-actions">
-        <Button className="mb-tx-btn mb-tx-btn--danger-solid" onClick={() => void confirm()} disabled={pending}>
+        <Button variant="danger-solid" onClick={() => void confirm()} disabled={pending}>
           {pending ? '删除中…' : `删除 ${count} 笔`}
         </Button>
-        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onClose} disabled={pending}>
+        <Button variant="ghost" onClick={onClose} disabled={pending}>
           取消
         </Button>
       </div>

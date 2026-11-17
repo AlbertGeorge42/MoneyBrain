@@ -1,0 +1,91 @@
+/* 分段控件 / 页签：跨 feature 单一基础实现。
+   Segmented 与 Tabs 共用本文件，差异只走显式 props：
+   - size：xs(28) / sm(32，默认) / lg(44)；移动端统一抬到 44 触控目标。
+   - tone：raised（默认，白底主文字+阴影）/ accent（白底强调文字+阴影）/ solid（强调实心）。
+   - fill：选项等宽铺满（记账/预算类型、报表移动端分段）。
+   - bordered：容器描边（报表凹槽分段）。
+   圆角 / 边框 / 阴影 / 交互态只此一份，feature CSS 不再各自写 is-active 基础实现。 */
+
+.mb-shared-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  padding: var(--mb-s-1);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-sunken);
+}
+
+.mb-shared-seg--bordered {
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+}
+
+.mb-shared-seg--fill .mb-shared-seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+[data-device='mobile'] .mb-shared-seg--fill-mobile .mb-shared-seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mb-shared-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--mb-btn-h-sm);
+  padding: 0 var(--mb-s-3);
+  border: 0;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-shared-seg-btn--xs {
+  min-height: var(--mb-btn-h-xs);
+}
+
+.mb-shared-seg-btn--lg {
+  min-height: var(--mb-btn-h-lg);
+}
+
+.mb-shared-seg-btn:hover {
+  color: var(--mb-color-text-primary);
+}
+
+.mb-shared-seg-btn.is-active {
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  font-weight: 600;
+  box-shadow: var(--mb-sh-1);
+}
+
+.mb-shared-seg-btn--accent.is-active {
+  color: var(--mb-color-accent);
+}
+
+.mb-shared-seg-btn--solid.is-active {
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  box-shadow: none;
+}
+
+.mb-shared-seg-btn:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: var(--mb-border-width);
+}
+
+[data-device='mobile'] .mb-shared-seg-btn {
+  min-height: var(--mb-touch);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-shared-seg-btn {
+    transition: none;
+  }
+}

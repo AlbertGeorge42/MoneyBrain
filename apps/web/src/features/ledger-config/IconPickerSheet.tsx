@@ -8,6 +8,8 @@
 import { useState } from 'react'
 import { Search, Tag, X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import {
@@ -76,15 +78,15 @@ export function IconPickerSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">选择图标</h2>
-        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </Button>
+        </IconButton>
       </div>
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
-          <span className="mb-set-label">搜索</span>
+          <FieldLabel>搜索</FieldLabel>
           <input
-            className="mb-set-input"
+            className="mb-shared-input mb-shared-input--lg"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}

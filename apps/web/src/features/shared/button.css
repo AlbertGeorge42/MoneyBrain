@@ -1,40 +1,44 @@
-/* 共享按钮视觉族：主 / 次操作。
-   Button（原生 button）与 Mantine Button 共用同一套类名，
-   原本寄居在 app/design/design.css，随 /design 预览门控迁到共享层，
-   避免生产按钮样式依赖设计预览样式表。 */
+/* 按钮：跨 feature 单一实现。
+   shared Button 与 Mantine Button（Modal 内）共用同一套类名。
+   统一标准：height 38px（触控 sm 覆盖见下）、padding s-3、border color-border、
+   font-ui/500；差异全部用 size / variant 表达，不再由各 feature 复制基础样式。 */
 
-.mb-shared-btn--primary {
+.mb-shared-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mb-s-1);
   min-height: var(--mb-control-h);
-  padding: 0 var(--mb-s-4);
-  border: 0;
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
   border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
   font-family: var(--mb-font-ui);
   font-size: var(--mb-fs-1);
-  font-weight: 600;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background var(--mb-dur-1) var(--mb-ease);
+  transition: background var(--mb-dur-1) var(--mb-ease),
+    border-color var(--mb-dur-1) var(--mb-ease);
 }
 
-.mb-shared-btn--primary:hover {
-  background: var(--mb-color-accent-fill-hover);
+.mb-shared-btn:hover {
+  border-color: var(--mb-color-border-strong);
+  background: var(--mb-color-surface-hover);
 }
 
-.mb-shared-btn--primary:active {
-  background: var(--mb-color-accent-fill-pressed);
-}
-
-/* 错误态必须让主按钮看得出不可点（Mantine 默认样式会被上面的背景覆盖）。 */
-.mb-shared-btn--primary:disabled,
-.mb-shared-btn--primary.mantine-Button-root:disabled,
-.mb-shared-btn--primary:disabled:hover,
-.mb-shared-btn--primary.mantine-Button-root:disabled:hover {
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-tertiary);
+.mb-shared-btn:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
+.mb-shared-btn:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * 2);
+}
+
+/* ---- variant: secondary（仅供 Mantine Button 等无基类的消费者）---- */
 .mb-shared-btn--secondary {
   min-height: var(--mb-control-h);
   padding: 0 var(--mb-s-4);
@@ -54,6 +58,203 @@
   color: var(--mb-color-text-primary);
 }
 
+/* ---- variant: primary ---- */
+.mb-shared-btn--primary {
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-4);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent-fill);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-accent-fill);
+  color: var(--mb-color-on-accent-fill);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-shared-btn--primary:hover {
+  border-color: var(--mb-color-accent-fill-hover);
+  background: var(--mb-color-accent-fill-hover);
+}
+
+.mb-shared-btn--primary:active {
+  background: var(--mb-color-accent-fill-pressed);
+}
+
+/* 错误态必须让主按钮看得出不可点（Mantine 默认样式会被上面的背景覆盖）。 */
+.mb-shared-btn--primary:disabled,
+.mb-shared-btn--primary.mantine-Button-root:disabled,
+.mb-shared-btn--primary:disabled:hover,
+.mb-shared-btn--primary.mantine-Button-root:disabled:hover {
+  border-color: transparent;
+  background: var(--mb-color-surface-sunken);
+  color: var(--mb-color-text-tertiary);
+  cursor: not-allowed;
+}
+
+/* ---- variant: ghost ---- */
+.mb-shared-btn--ghost {
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) transparent;
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-shared-btn--ghost:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
+}
+
+/* ---- variant: danger / danger-solid ---- */
+.mb-shared-btn--danger {
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-expense);
+  border-radius: var(--mb-radius-sm);
+  background: transparent;
+  color: var(--mb-color-expense);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-shared-btn--danger:hover,
+.mb-shared-btn--danger.is-armed {
+  background: var(--mb-color-expense-bg);
+}
+
+.mb-shared-btn--danger.is-armed {
+  font-weight: 600;
+}
+
+.mb-shared-btn--danger-solid {
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-expense);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-expense);
+  color: var(--mb-color-surface-raised);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mb-shared-btn--danger-solid:hover {
+  filter: brightness(0.94);
+}
+
+/* ---- variant: clear（日期面板的轻量清除） ---- */
+.mb-shared-btn--clear {
+  margin-right: auto;
+  padding: 0 var(--mb-s-1);
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-text-tertiary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  cursor: pointer;
+}
+
+.mb-shared-btn--clear:hover {
+  color: var(--mb-color-text-primary);
+}
+
+/* ---- variant: toggle（带 pressed 状态） ---- */
+.mb-shared-btn--toggle {
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--mb-dur-1) var(--mb-ease), border-color var(--mb-dur-1) var(--mb-ease);
+}
+
+.mb-shared-btn--toggle:hover {
+  border-color: var(--mb-color-border-strong);
+  background: var(--mb-color-surface-hover);
+}
+
+.mb-shared-btn--toggle[aria-pressed='true'] {
+  border-color: var(--mb-color-accent);
+  box-shadow: inset 0 0 0 var(--mb-border-width) var(--mb-color-accent);
+  background: var(--mb-color-surface-sunken);
+  font-weight: 600;
+}
+
+/* ---- variant: link / link-boxed（文字链：原 overview 链接与 set-textbtn 单一实现）---- */
+.mb-shared-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-1);
+  border: 0;
+  background: transparent;
+  color: var(--mb-color-accent);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mb-shared-link-btn:hover {
+  color: var(--mb-color-text-primary);
+}
+
+.mb-shared-link-btn:disabled {
+  color: var(--mb-color-text-tertiary);
+  cursor: default;
+}
+
+/* 嵌在说明文字后的链接（重试等）：仅补行内间距，不改变按钮设计。 */
+.mb-shared-link-btn--inline {
+  margin-left: var(--mb-s-2);
+}
+
+/* boxed：需要明确命中区的文字链（备份导出入口）。 */
+.mb-shared-link-btn--boxed {
+  min-height: var(--mb-btn-h-md);
+  padding: 0 var(--mb-s-2);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  text-decoration: none;
+}
+
+.mb-shared-link-btn--boxed:hover {
+  background: var(--mb-color-surface-hover);
+  text-decoration: none;
+}
+
+/* ---- size: sm（各 variant 通用覆盖）---- */
+.mb-shared-btn--sm {
+  min-height: var(--mb-btn-h-sm);
+  padding: 0 var(--mb-s-2);
+  font-size: var(--mb-fs-0);
+}
+
+/* Mantine Button 兼容：对齐 Mantine 默认内距与字号到统一标准。 */
 .mb-shared-btn--primary.mantine-Button-root,
 .mb-shared-btn--secondary.mantine-Button-root {
   padding: 0 var(--mb-s-4);
@@ -86,8 +287,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mb-shared-btn--primary,
-  .mb-shared-btn--secondary {
+  .mb-shared-btn {
     transition: none;
   }
 }

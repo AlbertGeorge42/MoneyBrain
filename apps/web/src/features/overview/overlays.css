@@ -81,27 +81,6 @@
   border: 0;
 }
 
-.mb-shared-label {
-  color: var(--mb-color-text-secondary);
-  font-size: var(--mb-fs-0);
-  font-weight: 500;
-}
-
-.mb-shared-input {
-  min-height: var(--mb-control-h);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-  font-size: var(--mb-fs-2);
-}
-
-.mb-shared-input:focus,
-.mb-shared-input:focus-within {
-  border-color: var(--mb-color-accent);
-  box-shadow: 0 0 0 var(--mb-s-1) var(--mb-color-accent-soft);
-}
-
 .mb-ov-actions {
   display: flex;
   justify-content: flex-end;
@@ -131,37 +110,8 @@
   font-weight: 600;
 }
 
-.mb-ov-types {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--mb-s-1);
-  padding: var(--mb-s-1);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-sunken);
-}
+/* 记账 / 预算类型分段已统一到 shared/segmented.css（Segmented tone="solid" fill）。 */
 
-.mb-ov-type {
-  min-height: var(--mb-btn-h-sm);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  font-size: var(--mb-fs-1);
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.mb-ov-type:hover {
-  color: var(--mb-color-text-primary);
-}
-
-.mb-ov-type.is-active {
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-  font-weight: 600;
-}
-
-.mb-ov-type:focus-visible,
 .mb-ov-account:focus-visible,
 .mb-ov-all:focus-visible,
 .mb-ov-cat:focus-visible,
@@ -600,11 +550,8 @@
   color: var(--mb-color-text-tertiary);
 }
 
-/* 移动端：所有可点元素热区统一 44px（含数字键盘，见 design-tokens §5.1）。 */
-[data-device='mobile'] .mb-ov-type {
-  min-height: var(--mb-btn-h-lg);
-}
-
+/* 移动端：所有可点元素热区统一 44px（含数字键盘，见 design-tokens §5.1）；
+   类型分段热区由 shared/segmented.css 统一提供。 */
 [data-device='mobile'] .mb-ov-account,
 [data-device='mobile'] .mb-ov-all {
   min-height: var(--mb-btn-h-lg);
@@ -665,28 +612,6 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-ov-badge {
-  padding: var(--mb-s-1) var(--mb-s-2);
-  border-radius: var(--mb-radius-pill);
-  font-size: var(--mb-fs-0);
-  font-weight: 600;
-}
-
-.mb-ov-badge--income {
-  background: var(--mb-color-income-bg);
-  color: var(--mb-color-income);
-}
-
-.mb-ov-badge--expense {
-  background: var(--mb-color-expense-bg);
-  color: var(--mb-color-expense);
-}
-
-.mb-ov-badge--transfer {
-  background: var(--mb-color-transfer-bg);
-  color: var(--mb-color-transfer);
-}
-
 .mb-ov-list {
   display: flex;
   flex-direction: column;
@@ -745,8 +670,7 @@
   text-decoration: underline;
 }
 
-.mb-ov-link:focus-visible,
-.mb-ov-refund-item:focus-visible {
+.mb-ov-link:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * -1);
 }
@@ -755,60 +679,7 @@
   color: var(--mb-color-text-tertiary);
 }
 
-.mb-ov-refund-summary {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-}
 
-.mb-ov-refund-badge {
-  padding: 1px 6px;
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-raised);
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-warning);
-}
-
-.mb-ov-refund-items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mb-s-1);
-  margin-top: var(--mb-s-2);
-}
-
-.mb-ov-refund-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-  width: 100%;
-  padding: var(--mb-s-1) 0;
-  border: 0;
-  background: transparent;
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
-  text-align: right;
-  cursor: pointer;
-}
-
-.mb-ov-refund-item:hover {
-  color: var(--mb-color-accent);
-}
-
-.mb-ov-refund-item-note {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb-ov-refund-item-amount {
-  flex: none;
-  font-family: var(--mb-font-num);
-  color: var(--mb-color-text-primary);
-}
 
 
 

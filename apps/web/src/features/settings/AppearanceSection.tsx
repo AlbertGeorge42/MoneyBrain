@@ -5,6 +5,7 @@
  */
 import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import type { ThemeMode } from '@/features/shared/types'
 
 const THEME_OPTIONS: readonly { value: ThemeMode; label: string; icon: LucideIcon }[] = [
@@ -33,9 +34,9 @@ export function AppearanceSection({
   return (
     <div className="mb-set-appearance">
       <div className="mb-set-subblock">
-        <span className="mb-set-label" id="mb-set-theme-label">
+        <FieldLabel id="mb-set-theme-label">
           外观主题
-        </span>
+        </FieldLabel>
         <div
           className="mb-set-sort mb-set-theme-grid"
           role="radiogroup"

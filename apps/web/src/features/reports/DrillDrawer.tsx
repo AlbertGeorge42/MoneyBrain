@@ -27,11 +27,11 @@ export function DrillDrawer({
       title={data ? `${data.title} · 下钻` : '下钻'}
       actions={
         <>
-          <Button className="mb-rp-btn mb-rp-btn--ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             关闭
           </Button>
           <Button
-            className="mb-rp-btn mb-rp-btn--primary"
+            variant="primary"
             onClick={onViewFlow}
             disabled={data ? !data.canViewFlow : false}
             title={data && !data.canViewFlow ? '账户筛选暂不支持多选，待支持后可查看' : undefined}

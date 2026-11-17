@@ -4,6 +4,7 @@
  */
 import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
@@ -86,9 +87,9 @@ export function MoverSheet({
     <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">移动「{mover.name}」到…</h2>
-        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </Button>
+        </IconButton>
       </div>
       <div className="mb-set-sheet-body">
         <div className="mb-set-radio-list" role="radiogroup" aria-label="目标位置">

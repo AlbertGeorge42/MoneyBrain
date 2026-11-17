@@ -7,6 +7,8 @@
 import { useEffect, useState } from 'react'
 import { ChevronRight, Trash2, X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
@@ -228,15 +230,15 @@ export function EditorSheet({
     <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">{title}</h2>
-        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </Button>
+        </IconButton>
       </div>
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
-          <span className="mb-set-label">名称</span>
+          <FieldLabel>名称</FieldLabel>
           <input
-            className="mb-set-input"
+            className="mb-shared-input mb-shared-input--lg"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={
@@ -251,7 +253,7 @@ export function EditorSheet({
 
         {(editor.kind === 'category' || editor.kind === 'accountGroup') && (
           <div className="mb-set-field">
-            <span className="mb-set-label">图标</span>
+            <FieldLabel>图标</FieldLabel>
             {/* 图标网格收在独立抽屉里：这里只留当前图标与入口。 */}
             <Button
               className="mb-set-icon-current"
@@ -275,7 +277,7 @@ export function EditorSheet({
         {editor.kind === 'accountGroup' && (
           <>
             <div className="mb-set-field">
-              <span className="mb-set-label">归属</span>
+              <FieldLabel>归属</FieldLabel>
               <div className="mb-set-static">
                 {editor.type === 'liability' ? '负债账户分组' : '资产账户分组'}
               </div>
@@ -301,9 +303,9 @@ export function EditorSheet({
           <>
             {groupMode ? (
               <label className="mb-set-field">
-                <span className="mb-set-label">账户分组</span>
+                <FieldLabel>账户分组</FieldLabel>
                 <select
-                  className="mb-set-input"
+                  className="mb-shared-input mb-shared-input--lg"
                   value={groupId}
                   onChange={(event) => setGroupId(event.target.value)}
                 >
@@ -317,7 +319,7 @@ export function EditorSheet({
               </label>
             ) : (
               <div className="mb-set-field">
-                <span className="mb-set-label">账户性质</span>
+                <FieldLabel>账户性质</FieldLabel>
                 <div className="mb-set-kind-grid" role="group" aria-label="账户性质">
                   {(['deposit', 'cash', 'investment', 'credit'] as AccountKind[]).map((value) => (
                     <Button
@@ -348,9 +350,9 @@ export function EditorSheet({
               </p>
             )}
             <label className="mb-set-field">
-              <span className="mb-set-label">期初余额（元）</span>
+              <FieldLabel>期初余额（元）</FieldLabel>
               <input
-                className="mb-set-input"
+                className="mb-shared-input mb-shared-input--lg"
                 inputMode="decimal"
                 value={initialBalance}
                 onChange={(event) => setInitialBalance(event.target.value)}
@@ -359,9 +361,9 @@ export function EditorSheet({
               />
             </label>
             <label className="mb-set-field">
-              <span className="mb-set-label">期初余额日期</span>
+              <FieldLabel>期初余额日期</FieldLabel>
               <input
-                className="mb-set-input"
+                className="mb-shared-input mb-shared-input--lg"
                 type="date"
                 value={initialBalanceDate}
                 onChange={(event) => setInitialBalanceDate(event.target.value)}
@@ -375,9 +377,9 @@ export function EditorSheet({
             </p>
             {editor.mode === 'edit' && (
               <label className="mb-set-field">
-                <span className="mb-set-label">当前余额（元）</span>
+                <FieldLabel>当前余额（元）</FieldLabel>
                 <input
-                  className="mb-set-input"
+                  className="mb-shared-input mb-shared-input--lg"
                   inputMode="decimal"
                   value={balance}
                   onChange={(event) => setBalance(event.target.value)}
@@ -402,7 +404,7 @@ export function EditorSheet({
 
         {editor.kind === 'category' && (
           <div className="mb-set-field">
-            <span className="mb-set-label">类型</span>
+            <FieldLabel>类型</FieldLabel>
             <div className="mb-set-static">
               {CATEGORY_TABS.find((tab) => tab.type === editor.type)?.label}
               {editor.parentId ? ' · 二级分类' : ' · 一级分类'}
@@ -416,7 +418,7 @@ export function EditorSheet({
       <div className="mb-set-sheet-actions">
         {onDelete && (
           <Button
-            className="mb-set-btn mb-set-btn--danger"
+            variant="danger"
             disabled={saving}
             onClick={onDelete}
           >
@@ -424,11 +426,11 @@ export function EditorSheet({
             {editor.kind === 'accountGroup' ? '删除分组' : '删除账户'}
           </Button>
         )}
-        <Button className="mb-set-btn mb-set-btn--ghost" onClick={onClose}>
+        <Button variant="ghost" onClick={onClose}>
           取消
         </Button>
         <Button
-          className="mb-set-btn mb-set-btn--primary"
+          variant="primary"
           disabled={!valid || saving}
           onClick={handleSave}
         >

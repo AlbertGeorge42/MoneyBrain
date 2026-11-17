@@ -258,24 +258,6 @@
   color: var(--mb-color-text-primary);
 }
 
-.mb-dp-iconbtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--mb-btn-h-sm);
-  height: var(--mb-btn-h-sm);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  cursor: pointer;
-}
-
-.mb-dp-iconbtn:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
 .mb-dp-weekdays,
 .mb-dp-grid {
   display: grid;
@@ -364,61 +346,10 @@
   margin-top: var(--mb-s-1);
 }
 
-.mb-dp-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--mb-btn-h-md);
-  padding: 0 14px;
-  border-radius: var(--mb-radius-sm);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-1);
-  cursor: pointer;
-}
-
-.mb-dp-btn--primary {
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-accent-fill);
-  background: var(--mb-color-accent-fill);
-  color: var(--mb-color-on-accent-fill);
-  font-weight: 600;
-}
-
-.mb-dp-btn--primary:hover {
-  background: var(--mb-color-accent-fill-hover);
-}
-
-.mb-dp-btn--ghost {
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border-strong);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-dp-btn--ghost:hover {
-  background: var(--mb-color-surface-hover);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-dp-btn--clear {
-  margin-right: auto;
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-dp-btn--clear:hover {
-  color: var(--mb-color-text-primary);
-}
-
 .mb-dp-zone:focus-visible,
 .mb-dp-field:focus-visible,
 .mb-dp-preset:focus-visible,
-.mb-dp-iconbtn:focus-visible,
 .mb-dp-day:focus-visible,
-.mb-dp-btn:focus-visible {
-  outline: 2px solid var(--mb-color-focus);
-  outline-offset: 2px;
-}
-
 /* ===== 移动 390：底部面板（mb-rp-sheet 等面板样式在 reports.css，两页共用同一份规范） ===== */
 
 .mb-dp.is-mobile .mb-dp-control {
@@ -446,12 +377,7 @@
   padding: 0 var(--mb-s-3);
 }
 
-.mb-dp-sheet .mb-dp-iconbtn {
-  width: var(--mb-touch);
-  height: var(--mb-touch);
-}
-
-/* 动作区常驻：与 mb-rp-sheet-actions 同一套底部固定规则，按钮吃满触控高度。 */
+.mb-dp-sheet /* 动作区常驻：与 mb-rp-sheet-actions 同一套底部固定规则，按钮吃满触控高度。 */
 .mb-dp-sheet-actions {
   position: absolute;
   left: 0;
@@ -465,7 +391,7 @@
   background: var(--mb-color-surface-raised);
 }
 
-.mb-dp-sheet-actions .mb-dp-btn {
+.mb-dp-sheet-actions .mb-shared-btn {
   flex: 1;
   min-height: var(--mb-touch);
 }

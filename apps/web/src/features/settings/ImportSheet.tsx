@@ -6,6 +6,8 @@
  */
 import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ImportFileSummary, ImportPreview } from '@contracts/types'
@@ -136,15 +138,15 @@ export function ImportSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">导入备份</h2>
-        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </Button>
+        </IconButton>
       </div>
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
-          <span className="mb-set-label">备份文件（.mbx / .zip / .csv / .json）</span>
+          <FieldLabel>备份文件（.mbx / .zip / .csv / .json）</FieldLabel>
           <input
-            className="mb-set-input mb-set-file"
+            className="mb-shared-input mb-shared-input--lg mb-set-file"
             type="file"
             accept=".mbx,.zip,.csv,.json"
             disabled={previewing || importing}
@@ -166,15 +168,15 @@ export function ImportSheet({
       </div>
 
       <div className="mb-set-sheet-actions">
-        <Button className="mb-set-btn" disabled={importing} onClick={onClose}>
+        <Button variant="secondary" disabled={importing} onClick={onClose}>
           取消
         </Button>
         {preview ? (
-          <Button className="mb-set-btn mb-set-btn--primary" disabled={importing} onClick={onConfirm}>
+          <Button variant="primary" disabled={importing} onClick={onConfirm}>
             {importing ? '导入中…' : '确认导入'}
           </Button>
         ) : (
-          <Button className="mb-set-btn mb-set-btn--primary" disabled={previewing} onClick={onPreview}>
+          <Button variant="primary" disabled={previewing} onClick={onPreview}>
             {previewing ? '解析中…' : '解析并预览'}
           </Button>
         )}

@@ -86,7 +86,6 @@ export function CashflowSection({
       <>
         <div className="mb-set-toolbar">
           <Tabs
-            variant="settings"
             label="现金流分类"
             value={tab}
             items={CASHFLOW_TABS}
@@ -174,7 +173,6 @@ export function CashflowSection({
     <>
       <div className="mb-set-toolbar">
         <Tabs
-          variant="settings"
           label="现金流分类"
           value={tab}
           items={CASHFLOW_TABS}

@@ -350,7 +350,7 @@ describe('资产负债表：走势在前、单框双环按分类占比', () => {
   it('净值走势之后只有一个构成框，资产 / 负债两环并排在同一框内', () => {
     renderPage()
     const cards = Array.from(document.querySelectorAll('.mb-rp-chart-card'))
-    expect(cards.map((card) => card.querySelector('.mb-rp-sec-title')?.textContent)).toEqual([
+    expect(cards.map((card) => card.querySelector('.mb-shared-sec-title')?.textContent)).toEqual([
       '净值走势',
       '资产 / 负债构成',
     ])

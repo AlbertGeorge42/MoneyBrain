@@ -3,6 +3,7 @@ import { Button as MantineButton, Modal, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
 import { Button } from '@/features/shared/Button'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Segmented } from '@/features/shared/Segmented'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
@@ -321,7 +322,8 @@ function EntryForm({
   return (
     <div className="mb-ov-form">
       <Segmented
-        variant="entry"
+        tone="solid"
+        fill
         label="记账类型"
         value={type}
         options={ENTRY_TYPES.map((item) => ({ id: item.value, label: item.label }))}
@@ -390,7 +392,7 @@ function EntryForm({
 
       {type === 'transfer' || missingAccount ? null : (
         <fieldset className="mb-ov-field">
-          <legend className="mb-shared-label">分类</legend>
+          <FieldLabel as="legend">分类</FieldLabel>
           <div
             ref={gridRef}
             className="mb-ov-entry-grid"
@@ -406,7 +408,7 @@ function EntryForm({
                 aria-pressed={category.id === categoryId}
                 onClick={() => setCategoryId(category.id)}
               >
-                <span className="mb-entry-cat-name">{category.name}</span>
+                <span>{category.name}</span>
                 {!mobile && <span className="mb-ov-cat-hint">{index + 1}</span>}
               </Button>
             ))}
@@ -417,7 +419,7 @@ function EntryForm({
       {missingAccount ? null : type === 'transfer' ? (
         <>
           <fieldset className="mb-ov-field">
-            <legend className="mb-shared-label">转出账户</legend>
+            <FieldLabel as="legend">转出账户</FieldLabel>
             <div className="mb-ov-accounts">
               <div className="mb-ov-accounts-scroll">
                 {chips.map((account) => (
@@ -437,7 +439,7 @@ function EntryForm({
             </div>
           </fieldset>
           <fieldset className="mb-ov-field">
-            <legend className="mb-shared-label">转入账户</legend>
+            <FieldLabel as="legend">转入账户</FieldLabel>
             <div className="mb-ov-accounts">
               <div className="mb-ov-accounts-scroll">
                 {toChips.map((account) => (
@@ -460,7 +462,7 @@ function EntryForm({
         </>
       ) : (
         <fieldset className="mb-ov-field">
-          <legend className="mb-shared-label">账户</legend>
+          <FieldLabel as="legend">账户</FieldLabel>
           <div className="mb-ov-accounts">
             <div className="mb-ov-accounts-scroll">
               {chips.map((account) => (
@@ -510,7 +512,7 @@ function EntryForm({
       {moreOpen && (
         <div className="mb-ov-more" ref={moreRef}>
           <label className="mb-ov-more-field">
-            <span className="mb-shared-label">日期</span>
+            <FieldLabel>日期</FieldLabel>
             <input
               type="date"
               className="mb-shared-input mb-ov-date"
@@ -519,7 +521,7 @@ function EntryForm({
             />
           </label>
           <label className="mb-ov-more-field">
-            <span className="mb-shared-label">备注</span>
+            <FieldLabel>备注</FieldLabel>
             <TextInput
               placeholder="例如：公司楼下午餐"
               value={note}
@@ -529,7 +531,7 @@ function EntryForm({
           </label>
           {type === 'transfer' && (
             <label className="mb-ov-more-field">
-              <span className="mb-shared-label">手续费</span>
+              <FieldLabel>手续费</FieldLabel>
               <TextInput
                 placeholder="0.00"
                 inputMode="decimal"

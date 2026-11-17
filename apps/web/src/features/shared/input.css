@@ -1,0 +1,35 @@
+/* 表单输入外壳：跨 feature 统一实现（原 mb-shared/mb-set/mb-bg/mb-tx-input 四套）。 */
+
+.mb-shared-input {
+  width: 100%;
+  min-height: var(--mb-control-h);
+  padding: 0 var(--mb-s-3);
+  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  border-radius: var(--mb-radius-sm);
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-1);
+}
+
+.mb-shared-input:focus,
+.mb-shared-input:focus-within {
+  border-color: var(--mb-color-accent);
+  box-shadow: 0 0 0 var(--mb-s-1) var(--mb-color-accent-soft);
+}
+
+/* lg：设置页等需要 44px 字段高度的场景。 */
+.mb-shared-input--lg {
+  min-height: var(--mb-btn-h-lg);
+}
+
+/* select：隐藏原生箭头，由布局容器提供图标。 */
+.mb-shared-input--select {
+  appearance: none;
+  padding-right: var(--mb-s-5);
+}
+
+.mb-shared-input:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: 0;
+}

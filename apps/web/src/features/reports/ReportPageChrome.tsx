@@ -4,7 +4,7 @@
  * 只承载布局与文案，不参与任何数据派生；页面与四张报表都从这里取同一份结构。
  */
 import { FolderInput, ScanLine, Settings } from 'lucide-react'
-import { Card } from '@/features/shared/Card'
+import { EmptyState } from '@/features/shared/EmptyState'
 import { Button } from '@/features/shared/Button'
 import { Tabs } from '@/features/shared/Tabs'
 import type { DeviceMode } from '@/features/shared/types'
@@ -29,7 +29,7 @@ export function PageHead({
       <div className="mb-rp-mobile-head">
         <div className="mb-rp-mobile-head-row">
           <Tabs
-            variant="report"
+            bordered
             label="报表视图"
             className="is-mobile"
             value={tab}
@@ -57,7 +57,7 @@ export function PageHead({
       </div>
       <div className="mb-rp-head-actions">
         <Tabs
-          variant="report"
+          bordered
           label="报表视图"
           value={tab}
           items={REPORT_TABS}
@@ -74,32 +74,28 @@ export function PageHead({
 
 export function ReportsSeedNotice() {
   return (
-    <Card variant="report" className="mb-rp-empty">
-      <div className="mb-rp-empty-mark" aria-hidden="true">
-        <ScanLine size={28} strokeWidth={1.8} />
-      </div>
-      <h2 className="mb-rp-empty-title">演示数据不提供报表</h2>
-      <p className="mb-rp-empty-desc">
-        报表数字只由后端账本计算。当前是演示模式，切换到真实账本后四张报表才会出数。
-      </p>
-    </Card>
+    <EmptyState
+      variant="report"
+      icon={<ScanLine size={28} strokeWidth={1.8} />}
+      title="演示数据不提供报表"
+      description="报表数字只由后端账本计算。当前是演示模式，切换到真实账本后四张报表才会出数。"
+    />
   )
 }
 
 export function ReportsEmpty({ onImport }: { onImport: () => void }) {
   return (
-    <Card variant="report" className="mb-rp-empty">
-      <div className="mb-rp-empty-mark" aria-hidden="true">
-        <ScanLine size={28} strokeWidth={1.8} />
-      </div>
-      <h2 className="mb-rp-empty-title">还没有可分析的流水</h2>
-      <p className="mb-rp-empty-desc">
-        报表从账本里取数：先记一笔收支，或导入银行 / 支付宝账单，四张报表会自动生成。
-      </p>
-      <Button className="mb-rp-btn mb-rp-btn--primary" onClick={onImport}>
-        <FolderInput size={16} />
-        导入账单
-      </Button>
-    </Card>
+    <EmptyState
+      variant="report"
+      icon={<ScanLine size={28} strokeWidth={1.8} />}
+      title="还没有可分析的流水"
+      description="报表从账本里取数：先记一笔收支，或导入银行 / 支付宝账单，四张报表会自动生成。"
+      action={
+        <Button variant="primary" onClick={onImport}>
+          <FolderInput size={16} />
+          导入账单
+        </Button>
+      }
+    />
   )
 }

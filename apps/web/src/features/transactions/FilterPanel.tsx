@@ -1,4 +1,5 @@
 import { Button } from '@/features/shared/Button'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Sheet } from '@/features/shared/Sheet'
 import { Switch } from '@/features/shared/Switch'
 import { RotateCcw } from 'lucide-react'
@@ -49,10 +50,10 @@ function FilterFields({
         <div className="mb-tx-filter-fields">
           {groups.length > 0 && (
             <label className="mb-tx-field" htmlFor="mb-tx-filter-group">
-              <span className="mb-tx-field-label">账户分组</span>
+              <FieldLabel>账户分组</FieldLabel>
               <select
                 id="mb-tx-filter-group"
-                className="mb-tx-select"
+                className="mb-shared-input mb-shared-input--select"
                 value={value.groupId}
                 onChange={(event) => {
                   const groupId = event.target.value
@@ -81,10 +82,10 @@ function FilterFields({
           )}
 
           <label className="mb-tx-field" htmlFor="mb-tx-filter-account">
-            <span className="mb-tx-field-label">账户</span>
+            <FieldLabel>账户</FieldLabel>
             <select
               id="mb-tx-filter-account"
-              className="mb-tx-select"
+              className="mb-shared-input mb-shared-input--select"
               value={value.accountId}
               onChange={(event) => update('accountId', event.target.value)}
             >
@@ -98,10 +99,10 @@ function FilterFields({
           </label>
 
           <label className="mb-tx-field" htmlFor="mb-tx-filter-category">
-            <span className="mb-tx-field-label">分类</span>
+            <FieldLabel>分类</FieldLabel>
             <select
               id="mb-tx-filter-category"
-              className="mb-tx-select"
+              className="mb-shared-input mb-shared-input--select"
               value={value.categoryId}
               onChange={(event) => update('categoryId', event.target.value)}
             >
@@ -115,11 +116,11 @@ function FilterFields({
           </label>
 
           <label className="mb-tx-field" htmlFor="mb-tx-filter-amount-min">
-            <span className="mb-tx-field-label">金额（元）</span>
+            <FieldLabel>金额（元）</FieldLabel>
             <span className="mb-tx-range">
               <input
                 id="mb-tx-filter-amount-min"
-                className="mb-tx-input"
+                className="mb-shared-input"
                 type="number"
                 min={0}
                 inputMode="decimal"
@@ -130,7 +131,7 @@ function FilterFields({
               <span className="mb-tx-range-sep" aria-hidden="true">–</span>
               <input
                 aria-label="金额上限"
-                className="mb-tx-input"
+                className="mb-shared-input"
                 type="number"
                 min={0}
                 inputMode="decimal"
@@ -142,7 +143,7 @@ function FilterFields({
           </label>
 
           <div className="mb-tx-field">
-            <span className="mb-tx-field-label">日期（留空不限）</span>
+            <FieldLabel>日期（留空不限）</FieldLabel>
             <DatePicker
               device={device}
               value={{ from: value.dateFrom, to: value.dateTo }}
@@ -219,11 +220,11 @@ export function DesktopFilterPanel({
         onIncludeExcludedChange={onIncludeExcludedChange}
       />
       <div className="mb-tx-filter-actions">
-        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onReset}>
+        <Button variant="ghost" onClick={onReset}>
           <RotateCcw size={15} />
           重置条件
         </Button>
-        <Button className="mb-tx-btn" onClick={onClose}>
+        <Button variant="secondary" onClick={onClose}>
           收起
         </Button>
       </div>
@@ -268,7 +269,7 @@ export function MobileFilterDrawer({
       actions={
         <>
           <Button
-            className="mb-tx-btn mb-tx-btn--ghost"
+            variant="ghost"
             onClick={() => {
               onReset()
               onClose()
@@ -276,7 +277,7 @@ export function MobileFilterDrawer({
           >
             重置条件
           </Button>
-          <Button className="mb-tx-btn mb-tx-btn--primary" onClick={onClose}>
+          <Button variant="primary" onClick={onClose}>
             完成
           </Button>
         </>

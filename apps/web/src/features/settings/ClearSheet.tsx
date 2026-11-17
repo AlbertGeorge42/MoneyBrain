@@ -5,6 +5,8 @@
  */
 import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { CLEAR_WORD } from './settingsData'
@@ -51,9 +53,9 @@ export function ClearSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">清空账本</h2>
-        <Button className="mb-set-icon-btn" aria-label="关闭" onClick={onClose}>
+        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
           <X size={18} />
-        </Button>
+        </IconButton>
       </div>
       <div className="mb-set-sheet-body">
         <p className="mb-set-danger-note">
@@ -61,13 +63,14 @@ export function ClearSheet({
         </p>
 
         <div className={backupReady ? 'mb-set-backup-state is-ready' : 'mb-set-backup-state is-blocked'}>
-          <span className="mb-set-backup-reason">
+          <span>
             {backupReady
               ? `已备份：${backupReady.filename}（${new Date(backupReady.at).toLocaleTimeString('zh-CN', { hour12: false })}）`
               : '备份文件 (.mbx)'}
           </span>
           <Button
-            className="mb-set-textbtn mb-set-textbtn--boxed"
+            variant="link"
+            boxed
             disabled={exporting}
             onClick={onExport}
           >
@@ -81,9 +84,9 @@ export function ClearSheet({
         )}
 
         <label className="mb-set-field">
-          <span className="mb-set-label">输入「{CLEAR_WORD}」确认</span>
+          <FieldLabel>输入「{CLEAR_WORD}」确认</FieldLabel>
           <input
-            className="mb-set-input"
+            className="mb-shared-input mb-shared-input--lg"
             value={clearWord}
             placeholder={CLEAR_WORD}
             onChange={(event) => onWordChange(event.target.value)}
@@ -104,11 +107,11 @@ export function ClearSheet({
         </p>
       )}
       <div className="mb-set-sheet-actions">
-        <Button className="mb-set-btn" disabled={clearing} onClick={onClose}>
+        <Button variant="secondary" disabled={clearing} onClick={onClose}>
           取消
         </Button>
         <Button
-          className="mb-set-btn mb-set-btn--danger"
+          variant="danger"
           disabled={!backupReady || clearing}
           aria-describedby={!backupReady ? 'mb-set-clear-reason' : undefined}
           onClick={onConfirm}

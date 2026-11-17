@@ -5,6 +5,7 @@
  */
 import { GripVertical } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import {
   SORT_OPTIONS,
   type DisplaySettings,
@@ -50,7 +51,7 @@ export function DisplaySection({ display, onChange }: DisplaySectionProps) {
         })}
       </div>
       <div className="mb-set-subblock">
-        <span className="mb-set-label">排序方式</span>
+        <FieldLabel>排序方式</FieldLabel>
         <div className="mb-set-sort" role="radiogroup" aria-label="排序方式">
           {SORT_OPTIONS.map((option) => (
             <Button

@@ -73,7 +73,7 @@ export function DataSection({
       return (
         <p className="mb-set-error" role="alert">
           {batchError}
-          <Button className="mb-set-textbtn" onClick={onRefreshBatches}>
+          <Button variant="link" inline onClick={onRefreshBatches}>
             重试
           </Button>
         </p>
@@ -96,7 +96,7 @@ export function DataSection({
               </span>
               {batch.status === 'active' ? (
                 <Button
-                  className={armedBatch ? 'mb-set-btn mb-set-btn--danger is-armed' : 'mb-set-btn'}
+                  variant="danger" armed={armedBatch}
                   disabled={busyBatch}
                   onClick={() => {
                     if (busyBatch) return
@@ -130,7 +130,7 @@ export function DataSection({
         </div>
         <>
           <Button
-            className="mb-set-btn"
+            variant="secondary"
             disabled={dataBusy === 'export'}
             onClick={onExport}
           >
@@ -146,7 +146,7 @@ export function DataSection({
           {exportError && (
             <p className="mb-set-error" role="alert">
               {exportError}
-              <Button className="mb-set-textbtn" onClick={onExport}>
+              <Button variant="link" inline onClick={onExport}>
                 重试
               </Button>
             </p>
@@ -159,7 +159,7 @@ export function DataSection({
           <h3>导入</h3>
         </div>
         <>
-          <Button className="mb-set-btn" onClick={onOpenImportWizard}>
+          <Button variant="secondary" onClick={onOpenImportWizard}>
             <FolderInput size={16} />
             打开导入向导
           </Button>
@@ -192,7 +192,7 @@ export function DataSection({
             清空前必须导出备份；清空后所有账户、分类、流水、预算与投资快照都会删除，
             回收站与审计记录一并清空。
           </p>
-          <Button className="mb-set-btn mb-set-btn--danger" onClick={onOpenClearSheet}>
+          <Button variant="danger" onClick={onOpenClearSheet}>
             清空账本
           </Button>
           {!backupReady && <p className="mb-set-warn">尚未导出备份，清空会被拦住。</p>}
@@ -212,7 +212,7 @@ export function DataSection({
         {unsetAccounts.length > 0 ? (
           <>
             <Button
-              className="mb-set-btn"
+              variant="secondary"
               onClick={() => onOpenOpening(unsetAccounts.map((account) => account.name))}
             >
               补录期初余额（{unsetAccounts.length} 个未设）

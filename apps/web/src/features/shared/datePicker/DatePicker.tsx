@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import {
@@ -411,13 +412,13 @@ export function DatePicker({
       <div className="mb-dp-divider" aria-hidden="true" />
 
       <div className="mb-dp-cal-head">
-        <Button className="mb-dp-iconbtn" aria-label="上一页" onClick={() => goPage(-1)}>
+        <IconButton size="sm" aria-label="上一页" onClick={() => goPage(-1)}>
           <ChevronLeft size={16} />
-        </Button>
+        </IconButton>
         <span className="mb-dp-cal-title">{viewTitle(gran, view)}</span>
-        <Button className="mb-dp-iconbtn" aria-label="下一页" onClick={() => goPage(1)}>
+        <IconButton size="sm" aria-label="下一页" onClick={() => goPage(1)}>
           <ChevronRight size={16} />
-        </Button>
+        </IconButton>
       </div>
 
       {gran === 'day' && (
@@ -485,14 +486,14 @@ export function DatePicker({
 
       <div className={device === 'mobile' ? 'mb-dp-sheet-actions' : 'mb-dp-actions'}>
         {optional && (
-          <Button className="mb-dp-btn mb-dp-btn--clear" onClick={clear}>
+          <Button variant="clear" onClick={clear}>
             清空（不限）
           </Button>
         )}
-        <Button className="mb-dp-btn mb-dp-btn--ghost" onClick={() => close(true)}>
+        <Button variant="ghost" onClick={() => close(true)}>
           取消
         </Button>
-        <Button className="mb-dp-btn mb-dp-btn--primary" onClick={apply}>
+        <Button variant="primary" onClick={apply}>
           应用
         </Button>
       </div>

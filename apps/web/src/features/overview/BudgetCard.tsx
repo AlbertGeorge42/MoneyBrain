@@ -17,7 +17,7 @@ export function BudgetCard({
   const visibleRows = summary.rows.slice(0, mobile ? 3 : 4)
 
   return (
-    <Card className="mb-budget-card">
+    <Card>
       <div className="mb-shared-head">
         <div>
           <h2 className="mb-shared-sec-title">本月预算</h2>

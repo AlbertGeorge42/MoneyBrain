@@ -1,4 +1,5 @@
 import { Button } from '@/features/shared/Button'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { SORT_OPTIONS, type DisplaySettings } from './displaySettings'
@@ -13,7 +14,7 @@ function Fields({
   return (
     <div className="mb-tx-display">
       <div className="mb-tx-display-block">
-        <span className="mb-tx-field-label">显示列</span>
+        <FieldLabel>显示列</FieldLabel>
         <label className="mb-tx-switch">
           <input
             type="checkbox"
@@ -33,7 +34,7 @@ function Fields({
       </div>
 
       <div className="mb-tx-display-block">
-        <span className="mb-tx-field-label">排序</span>
+        <FieldLabel>排序</FieldLabel>
         <div className="mb-tx-sort-group" role="group" aria-label="排序方式">
           {SORT_OPTIONS.map((option) => (
             <Button
@@ -69,10 +70,10 @@ export function DesktopDisplayPanel({
       </div>
       <Fields value={value} onChange={onChange} />
       <div className="mb-tx-filter-actions">
-        <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onReset}>
+        <Button variant="ghost" onClick={onReset}>
           恢复默认
         </Button>
-        <Button className="mb-tx-btn" onClick={onClose}>
+        <Button variant="secondary" onClick={onClose}>
           关闭
         </Button>
       </div>
@@ -105,10 +106,10 @@ export function MobileDisplayDrawer({
       title="显示"
       actions={
         <>
-          <Button className="mb-tx-btn mb-tx-btn--ghost" onClick={onReset}>
+          <Button variant="ghost" onClick={onReset}>
             恢复默认
           </Button>
-          <Button className="mb-tx-btn mb-tx-btn--primary" onClick={onClose}>
+          <Button variant="primary" onClick={onClose}>
             完成
           </Button>
         </>

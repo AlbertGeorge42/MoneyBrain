@@ -1,46 +1,75 @@
 /**
- * 共享按钮。
+ * 共享按钮：跨 feature 单一实现。
  *
- * 只收口原生 `<button>` 的 DOM 契约：默认 `type="button"`、原样透传 ref / disabled /
- * aria-* / data-* 与事件，视觉类名仍由现有 CSS 决定，避免一次性重写 207 处按钮。
- *
- * 变体只登记跨功能复用的视觉族（对应既有 `.mb-*-btn` 类），数值不改：
- * - primary：主操作（`.mb-shared-btn--primary`）
- * - secondary：次操作（`.mb-shared-btn--secondary`）
- * - icon：纯图标（`.mb-shared-icon-btn`）
- * - link：无边框文字按钮（`.mb-shared-link-btn`）
- * 各页面既有的上下文覆盖（如 `.mb-shared-sheet` 下 44px 触控高度、`.mb-shared-bar-reset`
- * 的紧凑内距）继续由原 CSS 与调用方 className 承担，不在组件内统一数值。
- * 其余一次性样式（报表面板、预算行、键盘格子、日期面板等）留在调用方本地类里。
+ * DOM 契约：默认 type="button"，原样透传 ref / disabled / aria-* / data-* 与事件。
+ * 视觉统一在 button.css，差异用明确 props 表达，不再由各 feature 复制基础样式：
+ * - variant：primary / secondary / ghost / danger / danger-solid / clear / toggle / link
+ * - size：md（默认）/ sm
+ * - pressed：toggle 激活态（输出 aria-pressed 驱动激活样式）
+ * - armed：danger 待确认态
+ * - boxed：link 的带边框命中区变体（原 settings 的 textbtn--boxed）
+ * Mantine Button（Modal 内）用 mb-shared-btn--* 类名对齐视觉，不重复实现设计。
  */
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import './button.css'
 
-type ButtonVariant = 'primary' | 'secondary' | 'icon' | 'link'
+type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'danger'
+  | 'danger-solid'
+  | 'clear'
+  | 'toggle'
+  | 'link'
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary: 'mb-shared-btn--primary',
   secondary: 'mb-shared-btn--secondary',
-  icon: 'mb-shared-icon-btn',
+  ghost: 'mb-shared-btn--ghost',
+  danger: 'mb-shared-btn--danger',
+  'danger-solid': 'mb-shared-btn--danger-solid',
+  clear: 'mb-shared-btn--clear',
+  toggle: 'mb-shared-btn--toggle',
   link: 'mb-shared-link-btn',
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** 跨功能复用的视觉族；一次性样式留用 className。 */
+  /** 视觉族；省略则用调用方 className 决定（兼容历史一次性样式）。 */
   variant?: ButtonVariant
+  size?: 'md' | 'sm'
+  /** toggle 激活态，输出 aria-pressed。 */
+  pressed?: boolean
+  /** danger 待确认态。 */
+  armed?: boolean
+  /** link 的带边框命中区变体。 */
+  boxed?: boolean
+  /** link 嵌在说明文字后时补行内间距。 */
+  inline?: boolean
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant, className, type = 'button', ...rest },
+  { variant, size, pressed, armed, boxed, inline, className, type = 'button', ...rest },
   ref,
 ) {
-  const base = variant ? VARIANT_CLASS[variant] : ''
+  const classes = [
+    variant ? VARIANT_CLASS[variant] : '',
+    boxed && variant === 'link' ? 'mb-shared-link-btn--boxed' : '',
+    inline && variant === 'link' ? 'mb-shared-link-btn--inline' : '',
+    size === 'sm' ? 'mb-shared-btn--sm' : '',
+    armed ? 'is-armed' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const ariaPressed = variant === 'toggle' ? pressed ?? false : rest['aria-pressed']
   return (
     <button
       {...rest}
       ref={ref}
       type={type}
-      className={[base, className].filter(Boolean).join(' ') || undefined}
+      aria-pressed={ariaPressed}
+      className={classes || undefined}
     />
   )
 })

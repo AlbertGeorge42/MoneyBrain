@@ -124,7 +124,7 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
       <div className="mb-set-list-empty mb-set-list-empty--tall">
         <p>回收站读取失败</p>
         <span>检查 API 连接后重试。</span>
-        <Button className="mb-set-btn mb-set-btn--ghost" onClick={refetch}>
+        <Button variant="ghost" onClick={refetch}>
           重试
         </Button>
       </div>
@@ -173,7 +173,7 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
                 {formatDateLabel(item.deletedAt.slice(0, 10))}
               </span>
               <Button
-                className="mb-set-btn mb-set-btn--ghost"
+                variant="ghost"
                 title={item.canRestore ? undefined : '删除时级联删除了关联数据，无法自动恢复'}
                 disabled={restoringId !== null || !item.canRestore}
                 onClick={() => void confirmRestore(key, item.deleteEventId)}
@@ -198,7 +198,7 @@ export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
               {signedAmountText(row.transaction)}
             </span>
             <Button
-              className="mb-set-btn mb-set-btn--ghost"
+              variant="ghost"
               disabled={restoringId !== null || !row.deleteEventId}
               onClick={() => void confirmRestore(`tx-${row.id}`, row.deleteEventId)}
             >

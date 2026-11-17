@@ -9,7 +9,9 @@ import { unwrapApiData } from '@/services/apiResult'
 import { amountText, percentText } from '@/features/overview/format'
 import { editableAmount, parseMoneyInput } from '@/utils/money'
 import { BudgetProgress } from '@/features/shared/BudgetProgress'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Card } from '@/features/shared/Card'
+import { EmptyState } from '@/features/shared/EmptyState'
 import { Button } from '@/features/shared/Button'
 import { Segmented } from '@/features/shared/Segmented'
 import { Sheet } from '@/features/shared/Sheet'
@@ -220,7 +222,7 @@ function WatchGroup({
 }) {
   if (data.over.length === 0 && data.near.length === 0) return null
   return (
-    <Card className="mb-bg-watch">
+    <Card>
       <div className="mb-shared-head">
         <div>
           <h2 className="mb-shared-sec-title">需要关注</h2>
@@ -273,7 +275,7 @@ function GroupSection({
         const activeRows = group.rows.filter((row) => row.isActive)
         const disabled = group.rows.length - activeRows.length
         return (
-          <Card key={group.type} className="mb-bg-group" data-type={group.type}>
+          <Card key={group.type} data-type={group.type}>
             <div className="mb-shared-head">
               <div>
                 <h2 className="mb-shared-sec-title">{group.label}</h2>
@@ -335,19 +337,16 @@ function GroupSection({
 
 function EmptyPage({ onAdd }: { onAdd: () => void }) {
   return (
-    <Card className="mb-bg-empty">
-      <div className="mb-bg-empty-mark" aria-hidden>
-        <Plus size={22} />
-      </div>
-      <h2 className="mb-shared-sec-title">还没有预算</h2>
-      <p className="mb-bg-empty-copy">
-        为支出设置上限、为收入设置目标、为转账记录计划。第一条预算建好后，这一页会显示「可花多少」、
-        接近上限与超支提醒。
-      </p>
-      <Button variant="primary" onClick={onAdd}>
-        新增预算条目
-      </Button>
-    </Card>
+    <EmptyState
+      icon={<Plus size={22} />}
+      title="还没有预算"
+      description="为支出设置上限、为收入设置目标、为转账记录计划。第一条预算建好后，这一页会显示「可花多少」、接近上限与超支提醒。"
+      action={
+        <Button variant="primary" onClick={onAdd}>
+          新增预算条目
+        </Button>
+      }
+    />
   )
 }
 
@@ -937,13 +936,13 @@ export function BudgetPage({
             )}
 
             <div className="mb-bg-detail-edit">
-              <label className="mb-shared-label" htmlFor="mb-bg-limit">
+              <FieldLabel as="label" htmlFor="mb-bg-limit">
                 调整限额（元）
-              </label>
+              </FieldLabel>
               <div className="mb-bg-detail-edit-row">
                 <input
                   id="mb-bg-limit"
-                  className="mb-shared-input mb-bg-input"
+                  className="mb-shared-input"
                   inputMode="decimal"
                   value={detailLimit}
                   onChange={(event) => setDetailLimit(event.target.value)}
@@ -1022,12 +1021,12 @@ function TransactionTimeField({
     const weekly = state.period === 'weekly'
     return (
       <div className="mb-ov-field">
-        <label className="mb-shared-label" htmlFor="budget-transaction-time">
+        <FieldLabel as="label" htmlFor="budget-transaction-time">
           {weekly ? '发生日（周几）' : '发生日（每月几号）'}
-        </label>
+        </FieldLabel>
         <select
           id="budget-transaction-time"
-          className="mb-shared-input mb-bg-input mb-bg-select"
+          className="mb-shared-input mb-shared-input--select"
           value={state.transactionTime}
           onChange={(event) => onChange({ ...state, transactionTime: event.target.value })}
         >
@@ -1051,12 +1050,12 @@ function TransactionTimeField({
   const quarterly = state.period === 'quarterly'
   return (
     <div className="mb-ov-field">
-      <label className="mb-shared-label" htmlFor="budget-transaction-time">
+      <FieldLabel as="label" htmlFor="budget-transaction-time">
         {quarterly ? '发生日（季度内第几天）' : '发生日（年度内第几天）'}
-      </label>
+      </FieldLabel>
       <input
         id="budget-transaction-time"
-        className="mb-shared-input mb-bg-input"
+        className="mb-shared-input"
         inputMode="numeric"
         placeholder="留空 = 周期末"
         value={state.transactionTime}
@@ -1113,7 +1112,8 @@ function BudgetEditor({
     >
       <div className="mb-bg-form">
         <Segmented
-          variant="entry"
+          tone="solid"
+          fill
           label="预算类型"
           ariaPressed={false}
           value={state.type}
@@ -1122,9 +1122,9 @@ function BudgetEditor({
         />
 
         <label className="mb-ov-field">
-          <span className="mb-shared-label">名称</span>
+          <FieldLabel>名称</FieldLabel>
           <input
-            className="mb-shared-input mb-bg-input"
+            className="mb-shared-input"
             value={state.name}
             placeholder="例如 餐饮、工资入账、账户互转"
             onChange={(event) => onChange({ ...state, name: event.target.value })}
@@ -1132,9 +1132,9 @@ function BudgetEditor({
         </label>
 
         <label className="mb-ov-field">
-          <span className="mb-shared-label">金额（元）</span>
+          <FieldLabel>金额（元）</FieldLabel>
           <input
-            className="mb-shared-input mb-bg-input"
+            className="mb-shared-input"
             inputMode="decimal"
             placeholder="0.00"
             value={state.amount}
@@ -1143,9 +1143,10 @@ function BudgetEditor({
         </label>
 
         <div className="mb-ov-field">
-          <span className="mb-shared-label">周期</span>
+          <FieldLabel>周期</FieldLabel>
           <Segmented
-            variant="budget"
+            tone="accent"
+            fill
             label="预算周期"
             ariaPressed={false}
             value={state.period}
@@ -1157,9 +1158,9 @@ function BudgetEditor({
         <TransactionTimeField state={state} onChange={onChange} />
 
         <label className="mb-ov-field">
-          <span className="mb-shared-label">分类</span>
+          <FieldLabel>分类</FieldLabel>
           <select
-            className="mb-shared-input mb-bg-input mb-bg-select"
+            className="mb-shared-input mb-shared-input--select"
             value={state.categoryId}
             onChange={(event) => onChange({ ...state, categoryId: event.target.value })}
           >
@@ -1173,9 +1174,9 @@ function BudgetEditor({
         </label>
 
         <label className="mb-ov-field">
-          <span className="mb-shared-label">账户</span>
+          <FieldLabel>账户</FieldLabel>
           <select
-            className="mb-shared-input mb-bg-input mb-bg-select"
+            className="mb-shared-input mb-shared-input--select"
             value={state.accountId}
             onChange={(event) => onChange({ ...state, accountId: event.target.value })}
           >
@@ -1190,9 +1191,9 @@ function BudgetEditor({
 
         {state.type === 'transfer' && (
           <label className="mb-ov-field">
-            <span className="mb-shared-label">转入账户</span>
+            <FieldLabel>转入账户</FieldLabel>
             <select
-              className="mb-shared-input mb-bg-input mb-bg-select"
+              className="mb-shared-input mb-shared-input--select"
               value={state.toAccountId}
               onChange={(event) => onChange({ ...state, toAccountId: event.target.value })}
             >

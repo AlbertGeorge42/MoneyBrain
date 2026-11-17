@@ -7,6 +7,8 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
+import { IconButton } from '@/features/shared/IconButton'
+import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Sheet } from '@/features/shared/Sheet'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import type { DeviceMode } from '@/features/shared/types'
@@ -60,14 +62,13 @@ export function OpeningSheet({
     >
       <div className="mb-set-sheet-head">
         <h2 className="mb-set-sheet-title">补充期初余额</h2>
-        <Button
-          className="mb-set-icon-btn"
+        <IconButton size="sm"
           aria-label="关闭"
           disabled={saving}
           onClick={onSkip}
         >
           <X size={18} />
-        </Button>
+        </IconButton>
       </div>
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
@@ -89,9 +90,9 @@ export function OpeningSheet({
                 </b>
               </div>
               <label className="mb-set-field">
-                <span className="mb-set-label">期初余额（元）</span>
+                <FieldLabel>期初余额（元）</FieldLabel>
                 <input
-                  className="mb-set-input"
+                  className="mb-shared-input mb-shared-input--lg"
                   inputMode="decimal"
                   value={value.amount}
                   disabled={saving}
@@ -104,9 +105,9 @@ export function OpeningSheet({
                 />
               </label>
               <label className="mb-set-field">
-                <span className="mb-set-label">期初余额日期</span>
+                <FieldLabel>期初余额日期</FieldLabel>
                 <input
-                  className="mb-set-input"
+                  className="mb-shared-input mb-shared-input--lg"
                   type="date"
                   value={value.date}
                   disabled={saving}
@@ -159,15 +160,15 @@ export function OpeningSheet({
         )}
       </div>
       <div className="mb-set-sheet-actions">
-        <Button className="mb-set-btn mb-set-btn--ghost" disabled={saving} onClick={onSkip}>
+        <Button variant="ghost" disabled={saving} onClick={onSkip}>
           跳过补录
         </Button>
         {result ? (
-          <Button className="mb-set-btn mb-set-btn--primary" onClick={onDone}>
+          <Button variant="primary" onClick={onDone}>
             完成
           </Button>
         ) : (
-          <Button className="mb-set-btn mb-set-btn--primary" disabled={saving} onClick={onSave}>
+          <Button variant="primary" disabled={saving} onClick={onSave}>
             {saving ? '保存中…' : '保存期初'}
           </Button>
         )}

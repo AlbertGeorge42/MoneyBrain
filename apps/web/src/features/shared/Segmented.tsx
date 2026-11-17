@@ -1,25 +1,38 @@
 /**
- * 共享分段切换。
+ * 共享分段切换：跨 feature 单一实现。
  *
- * 四处分段只有视觉类名不同：报表页移动分段、时间粒度、预算周期、记账 / 预算类型。
- * 结构、role="group"、aria-pressed、原生按钮键盘可达性沿用各使用点现状；
- * 预算编辑器的类型按钮原本没有 aria-pressed，通过 ariaPressed={false} 保持原样。
+ * Segmented（role=group）与 Tabs（role=tablist）共用本组件，只靠 props 表达差异：
+ * - size：xs(28) / sm(32，默认) / lg(44)
+ * - tone：raised（默认）/ accent（选中用强调文字）/ solid（选中用实心强调）
+ * - fill：选项等宽铺满；bordered：容器描边
+ * - ariaPressed：是否输出 aria-pressed（预算编辑器原本无此属性）
+ * 基础视觉只在 segmented.css 定义一次，feature 不再维护自己的 is-active 实现。
  */
 import type { ReactNode } from 'react'
+import './segmented.css'
 
 export interface SegmentedOption<T extends string> {
   id: T
   label: ReactNode
 }
 
-const VARIANT_CLASS: Record<
-  'report' | 'granularity' | 'budget' | 'entry',
-  { container: string; button: string }
-> = {
-  report: { container: 'mb-rp-seg', button: 'mb-rp-seg-btn' },
-  granularity: { container: 'mb-rp-gran', button: 'mb-rp-gran-btn' },
-  budget: { container: 'mb-bg-seg', button: 'mb-bg-seg-btn' },
-  entry: { container: 'mb-ov-types', button: 'mb-ov-type' },
+export type SegmentedTone = 'raised' | 'accent' | 'solid'
+
+export interface SegmentedProps<T extends string> {
+  label: string
+  value: T
+  options: readonly SegmentedOption<T>[]
+  onChange: (next: T) => void
+  size?: 'xs' | 'sm' | 'lg'
+  tone?: SegmentedTone
+  fill?: boolean
+  /** 仅移动端等宽铺满（时间粒度：桌面按内容、移动端均分整行）。 */
+  fillMobile?: boolean
+  bordered?: boolean
+  ariaPressed?: boolean
+  role?: 'group' | 'tablist'
+  itemRole?: 'tab'
+  className?: string
 }
 
 export function Segmented<T extends string>({
@@ -27,27 +40,48 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
-  variant,
+  size = 'sm',
+  tone = 'raised',
+  fill = false,
+  fillMobile = false,
+  bordered = false,
   ariaPressed = true,
-}: {
-  label: string
-  value: T
-  options: readonly SegmentedOption<T>[]
-  onChange: (next: T) => void
-  variant: 'report' | 'granularity' | 'budget' | 'entry'
-  ariaPressed?: boolean
-}) {
-  const classes = VARIANT_CLASS[variant]
+  role = 'group',
+  itemRole,
+  className,
+}: SegmentedProps<T>) {
+  const containerClass = [
+    'mb-shared-seg',
+    bordered ? 'mb-shared-seg--bordered' : '',
+    fill ? 'mb-shared-seg--fill' : '',
+    fillMobile ? 'mb-shared-seg--fill-mobile' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className={classes.container} role="group" aria-label={label}>
+    <div className={containerClass} role={role} aria-label={label}>
       {options.map((option) => {
         const active = option.id === value
+        const itemClass = [
+          'mb-shared-seg-btn',
+          size === 'xs' ? 'mb-shared-seg-btn--xs' : '',
+          size === 'lg' ? 'mb-shared-seg-btn--lg' : '',
+          tone === 'accent' ? 'mb-shared-seg-btn--accent' : '',
+          tone === 'solid' ? 'mb-shared-seg-btn--solid' : '',
+          active ? 'is-active' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
         return (
           <button
             key={option.id}
             type="button"
-            className={active ? `${classes.button} is-active` : classes.button}
-            aria-pressed={ariaPressed ? active : undefined}
+            className={itemClass}
+            role={itemRole}
+            aria-pressed={itemRole === 'tab' ? undefined : ariaPressed ? active : undefined}
+            aria-selected={itemRole === 'tab' ? active : undefined}
             onClick={() => onChange(option.id)}
           >
             {option.label}

@@ -54,7 +54,7 @@ export function ChartCard({
     <Card variant="report" className={className ? `mb-rp-chart-card ${className}` : 'mb-rp-chart-card'}>
       <div className="mb-rp-sec-head">
         <div>
-          <h3 className="mb-rp-sec-title">{title}</h3>
+          <h3 className="mb-shared-sec-title">{title}</h3>
           {desc && <p className="mb-rp-sec-desc">{desc}</p>}
         </div>
       </div>
@@ -519,7 +519,7 @@ export function CashFlowBars({
                 />
               </div>
               <span className="mb-rp-flow-name">{name}</span>
-              <div className="mb-rp-flow-right">
+              <div>
                 <progress
                   className="mb-rp-flow-progress mb-rp-flow-progress--in"
                   value={(incoming / max) * 100}

@@ -350,32 +350,6 @@
 /* ===== 空态 ===== */
 
 /* 空态与报表/设置同构：居中、56 圆形标记、标题 20、描述 480。 */
-.mb-bg-empty {
-  align-items: center;
-  gap: var(--mb-s-3);
-  padding: var(--mb-s-6) var(--mb-s-4);
-  text-align: center;
-}
-
-.mb-bg-empty-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--mb-color-accent-soft);
-  color: var(--mb-color-accent);
-}
-
-.mb-bg-empty-copy {
-  margin: 0;
-  max-width: 480px;
-  font-size: var(--mb-fs-1);
-  line-height: var(--mb-lh-body);
-  color: var(--mb-color-text-secondary);
-}
-
 /* ===== 详情 / 新增 ===== */
 
 .mb-bg-detail .mb-ov-body,
@@ -456,19 +430,6 @@
   gap: var(--mb-s-2);
 }
 
-.mb-bg-input {
-  width: 100%;
-  min-height: var(--mb-control-h);
-  padding: 0 var(--mb-s-3);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-2);
-}
-
-.mb-bg-select {
-  appearance: none;
-  padding-right: var(--mb-s-5);
-}
-
 /* 表单字段说明：不参与任何合计，只解释周期语义（每日 / 几号 / 天偏移）。 */
 .mb-bg-hint {
   margin: 0;
@@ -494,48 +455,15 @@
   cursor: pointer;
 }
 
-.mb-bg-seg {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--mb-s-1);
-  padding: var(--mb-s-1);
-  border-radius: var(--mb-radius-sm);
-  background: var(--mb-color-surface-sunken);
-}
-
-.mb-bg-seg-btn {
-  min-height: var(--mb-btn-h-sm);
-  border: 0;
-  border-radius: var(--mb-radius-sm);
-  background: transparent;
-  color: var(--mb-color-text-secondary);
-  font-family: inherit;
-  font-size: var(--mb-fs-0);
-  cursor: pointer;
-}
-
-.mb-bg-seg-btn.is-active {
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-accent);
-  font-weight: 600;
-  box-shadow: var(--mb-sh-1);
-}
-
 .mb-bg-form {
   display: flex;
   flex-direction: column;
   gap: var(--mb-s-4);
 }
 
-.mb-bg-form .mb-ov-types {
-  grid-template-columns: repeat(3, 1fr);
-}
+/* 类型 / 周期分段已统一到 shared/segmented.css；等宽由 Segmented fill 承担，
+   不同选项数自动均分，不再需要按 feature 写 grid-template-columns 与最小高度覆盖。 */
 
-.mb-bg-form .mb-ov-type {
-  min-height: var(--mb-btn-h-md);
-}
-
-.mb-bg-editor .mb-ov-type,
 .mb-bg-detail .mb-shared-btn--secondary {
   min-height: var(--mb-control-h);
 }
@@ -578,8 +506,7 @@
   grid-template-columns: 1fr;
 }
 
-.mb-bg-page[data-device='mobile'] .mb-bg-seg-btn,
-.mb-bg-page[data-device='mobile'] .mb-bg-input,
+.mb-bg-page[data-device='mobile'] .mb-shared-input,
 .mb-bg-page[data-device='mobile'] .mb-bg-danger-link {
   min-height: var(--mb-touch);
 }
