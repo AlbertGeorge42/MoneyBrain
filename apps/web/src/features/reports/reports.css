@@ -106,13 +106,6 @@
   justify-content: center;
 }
 
-.mb-rp-sheet-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-  margin-top: var(--mb-s-3);
-}
-
 /* ===== 指标条 ===== */
 
 .mb-rp-metrics {
@@ -193,6 +186,11 @@
 
 .mb-rp-drill-value--transfer {
   color: var(--mb-color-transfer);
+}
+
+/* 资产负债下钻的时点余额不构成收入 / 支出，用正文色而不是支出红。 */
+.mb-rp-drill-amount--neutral {
+  color: var(--mb-color-text-primary);
 }
 
 /* 820 主栏 528px：1.6fr 主格内容宽 151px，而 28px 的 +¥11,124.90 实宽 172px，
@@ -930,51 +928,6 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   line-height: 1.45;
 }
 
-/* ===== 抽屉（Mantine） ===== */
-
-.mb-rp-sheet {
-  background: var(--mb-color-surface-raised);
-  color: var(--mb-color-text-primary);
-}
-
-.mb-rp-sheet-head {
-  padding: var(--mb-s-3) var(--mb-s-4);
-  border-bottom: 1px solid var(--mb-color-border);
-}
-
-.mb-rp-sheet-title {
-  font-family: var(--mb-font-display);
-  font-size: var(--mb-fs-3);
-  font-weight: 600;
-}
-
-.mb-rp-sheet-body {
-  padding: var(--mb-s-4);
-  overflow-y: auto;
-}
-
-.mb-rp-sheet-actions {
-  flex: none;
-  padding: var(--mb-s-3) var(--mb-s-4);
-  border-top: 1px solid var(--mb-color-border);
-  background: var(--mb-color-surface-raised);
-}
-
-.mb-rp-sheet-actions .mb-shared-btn {
-  width: 100%;
-  min-height: var(--mb-touch);
-}
-
-.mb-rp-sheet-close {
-  width: var(--mb-btn-h-lg);
-  height: var(--mb-btn-h-lg);
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-rp-overlay {
-  background: var(--mb-color-surface-overlay);
-}
-
 /* ===== 移动端 ===== */
 
 .mb-rp-page[data-device='mobile'] {
@@ -1014,64 +967,6 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
 .mb-rp-page[data-device='mobile'] .mb-rp-gran {
   order: 3;
   width: 100%;
-}
-
-/* 移动时间面板：按内容收缩的底部面板，内容可滚。
-   动作区固定在面板底部、不参与内容滚动：sheet 底部预留动作区高度，滚动区到此为止，
-   滚到顶时最后一行不会落在动作区下方，滚到底也不额外多出空白。 */
-/* 桌面右侧抽屉：铺满视口高度，内容区滚动，动作区常驻底部。
-   移动端底部面板另行收窄（不带 .is-desktop），长页面下不再被 82% 高度截断。 */
-.mb-rp-sheet.is-desktop {
-  display: flex;
-  flex-direction: column;
-  top: 0;
-  bottom: 0;
-  height: 100%;
-  max-height: none;
-  overflow: hidden;
-}
-
-.mb-rp-sheet.is-desktop .mb-rp-sheet-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.mb-rp-sheet.is-desktop .mb-rp-sheet-actions {
-  flex: none;
-}
-
-.mb-rp-sheet:not(.is-desktop) {
-  display: flex;
-  flex-direction: column;
-  top: auto;
-  bottom: 0;
-  height: auto;
-  max-height: 82%;
-  overflow: hidden;
-  border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
-  padding-bottom: calc(var(--mb-touch) + var(--mb-s-3) + var(--mb-s-4) + var(--mb-border-width));
-}
-
-.mb-rp-sheet .mb-rp-sheet-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* 与首屏末行到动作区的实测间距一致：滚到底时同距，不会多出一段空白。 */
-  padding-bottom: 10px;
-}
-
-.mb-rp-sheet .mb-rp-sheet-actions {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: var(--mb-z-local-1);
-  margin: 0;
-  padding: var(--mb-s-3) var(--mb-s-4) var(--mb-s-4);
-  background: var(--mb-color-surface-raised);
 }
 
 .mb-rp-page[data-device='mobile'] .mb-shared-btn {

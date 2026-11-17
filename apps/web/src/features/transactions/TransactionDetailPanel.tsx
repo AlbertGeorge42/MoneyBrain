@@ -165,7 +165,6 @@ function DetailView({
   ledger,
   onEdit,
   onDelete,
-  onClose,
   onOpenTransaction,
   onLinkRefund,
 }: {
@@ -173,7 +172,6 @@ function DetailView({
   ledger: Ledger
   onEdit: () => void
   onDelete: () => void
-  onClose: () => void
   onOpenTransaction: (transaction: LedgerTransaction) => void
   onLinkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
 }) {
@@ -270,9 +268,6 @@ function DetailView({
         <Button variant="danger" onClick={onDelete}>
           <Trash2 size={15} />
           删除
-        </Button>
-        <Button variant="ghost" onClick={onClose}>
-          关闭
         </Button>
       </div>
     </div>
@@ -535,7 +530,9 @@ export function TransactionDetailPanel({
   onLinkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
 }) {
   const [mode, setMode] = useState<Mode>('view')
-  if (!transaction) return null
+  // 抽屉常驻渲染、由 opened 受控，Mantine 才能走进入 / 退出动画；
+  // 切换交易时回到查看态，避免上一笔的编辑态带到下一笔。
+  useEffect(() => setMode('view'), [transaction?.id])
 
   const title = mode === 'edit' ? '编辑流水' : mode === 'confirm-delete' ? '删除流水' : '交易详情'
   const close = () => {
@@ -543,7 +540,7 @@ export function TransactionDetailPanel({
     onClose()
   }
 
-  const body = (
+  const body = !transaction ? null : (
     <>
       {mode === 'view' && (
         <DetailView
@@ -552,7 +549,6 @@ export function TransactionDetailPanel({
           ledger={ledger}
           onEdit={() => setMode('edit')}
           onDelete={() => setMode('confirm-delete')}
-          onClose={close}
           onOpenTransaction={onOpenTransaction}
           onLinkRefund={onLinkRefund}
         />
@@ -583,21 +579,13 @@ export function TransactionDetailPanel({
     </>
   )
 
-  const titleNode = (
-    <span className="mb-tx-sheet-title-wrap">
-      <span className="mb-tx-sheet-title">{title}</span>
-      <span className="mb-tx-sheet-sub">{formatDateLabel(transaction.date)}</span>
-    </span>
-  )
-
   return (
     <Sheet
-      variant="transaction"
+      variant="report"
       device={device}
-      opened
+      opened={Boolean(transaction)}
       onClose={close}
-      title={titleNode}
-      titleClassName="mb-tx-sheet-title-wrap"
+      title={title}
     >
       {body}
     </Sheet>

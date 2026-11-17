@@ -8,7 +8,7 @@
  * - 抽屉用流水页的 TxRow，点行打开可编辑详情；不再跳流水页，也不再截断到 4 笔。
  */
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DrillDrawer } from '@/features/reports/DrillDrawer'
@@ -51,6 +51,7 @@ const to = '2026-10-31'
 const categoryTarget = (over: Partial<Extract<DrillTarget, { type: 'category' }>> = {}): DrillTarget => ({
   type: 'category',
   title: '餐饮',
+  amountLabel: '所选期间支出',
   amount: 5000,
   childTitle: '二级类别',
   children: [],
@@ -61,6 +62,7 @@ const categoryTarget = (over: Partial<Extract<DrillTarget, { type: 'category' }>
 const accountTarget = (over: Partial<Extract<DrillTarget, { type: 'account' }>> = {}): DrillTarget => ({
   type: 'account',
   title: '现金',
+  amountLabel: '时点余额',
   amount: 3000,
   childTitle: '账户',
   children: [],
@@ -93,6 +95,31 @@ describe('buildDrillFor 统一下钻数据', () => {
     const drill = buildDrillFor(ledger, accountTarget(), from, to)
     expect(drill.transactions.map((row) => row.id)).toContain('t4')
     expect(drill.transactions.map((row) => row.id)).toContain('t3')
+    expect(drill.tone).toBe('neutral')
+    expect(drill.emptyText).toBe('该时段没有相关流水')
+    expect(drill.showChildCount).toBe(false)
+  })
+
+  it('收支二级类别子项有笔数，预测值和标记原样透传', () => {
+    const drill = buildDrillFor(
+      ledger,
+      categoryTarget({
+        predicted: 300,
+        showChildCount: true,
+        children: [
+          {
+            id: 'lunch', name: '午餐', amount: 5000, count: 2, predicted: 300,
+            share: 100, level: 1, children: [],
+          },
+        ],
+      }),
+      from,
+      to,
+    )
+    expect(drill.showChildCount).toBe(true)
+    expect(drill.predicted).toBe(300)
+    expect(drill.children[0]).toMatchObject({ count: 2, predicted: 300 })
+    expect(drill.emptyText).toBe('该期间没有相关流水')
   })
 
   it('账户合并「其余」保留全部账户的明细', () => {
@@ -123,15 +150,58 @@ describe('DrillDrawer 语义化渲染', () => {
     )
   }
 
-  it('按 childTitle 渲染子项栏：账户 / 分类 / 二级类别', () => {
-    renderDrawer(buildDrillFor(ledger, accountTarget({ childTitle: '账户' }), from, to))
+  it('指标按语义命名，标题不带「下钻」后缀', () => {
+    renderDrawer(buildDrillFor(ledger, accountTarget(), from, to))
+    expect(screen.getByText('时点余额')).toBeTruthy()
+    expect(screen.queryByText('当期合计')).toBeNull()
+    expect(screen.queryByText('现金 · 下钻')).toBeNull()
+    expect(screen.getByRole('heading', { name: '现金' })).toBeTruthy()
+    expect(document.querySelector('.mb-rp-drill-amount--neutral')).not.toBeNull()
+  })
+
+  it('时点口径的空态写明「该时段」', () => {
+    renderDrawer(buildDrillFor(ledger, accountTarget({ ids: ['missing'] }), from, to))
+    expect(screen.getByText('该时段没有相关流水')).toBeTruthy()
+  })
+
+  it('有下一级时才渲染子项栏：账户 / 分类 / 二级类别', () => {
+    renderDrawer(
+      buildDrillFor(ledger, accountTarget({
+        childTitle: '账户',
+        children: [{ id: 'a1', name: '钱包', amount: 100, count: 1, share: 100, level: 1, children: [] }],
+      }), from, to),
+    )
     expect(screen.getByText('账户')).toBeTruthy()
+    expect(screen.getByText('钱包')).toBeTruthy()
+    // 账户子项的 count=1 不代表「1 笔」，不渲染。
+    expect(screen.queryByText('1 笔')).toBeNull()
+  })
+
+  it('预测金额与子项都标注「预测」', () => {
+    renderDrawer(buildDrillFor(
+      ledger,
+      categoryTarget({
+        predicted: 300,
+        children: [{
+          id: 'lunch', name: '午餐', amount: 5000, count: 2, predicted: 300,
+          share: 100, level: 1, children: [],
+        }],
+      }),
+      from,
+      to,
+    ))
+    expect(screen.getAllByText('预测')).toHaveLength(2)
+  })
+
+  it('账户下钻已是末级，不再显示「账户 / 没有下一级账户」', () => {
+    renderDrawer(buildDrillFor(ledger, accountTarget({ childTitle: '账户' }), from, to))
+    expect(screen.queryByText('账户')).toBeNull()
+    expect(screen.queryByText(/没有下一级/)).toBeNull()
   })
 
   it('总览无子项时不渲染子项栏', () => {
     renderDrawer(buildDrillFor(ledger, categoryTarget({ childTitle: '' }), from, to))
     expect(screen.queryByText('二级类别')).toBeNull()
-    expect(screen.queryByText('分类')).toBeNull()
   })
 
   it('相关流水用流水页 TxRow 渲染全部条目，无「在流水中查看」', () => {
@@ -141,10 +211,11 @@ describe('DrillDrawer 语义化渲染', () => {
     expect(screen.getAllByRole('button', { name: /午餐/ })).toHaveLength(6)
   })
 
-  it('点流水行打开可编辑详情抽屉', () => {
+  it('点流水行打开可编辑详情抽屉', async () => {
     renderDrawer(buildDrillFor(ledger, categoryTarget({ ids: ['food'] }), from, to))
     fireEvent.click(screen.getAllByRole('button', { name: /午餐/ })[0])
-    expect(screen.getByText('交易详情')).toBeTruthy()
+    // 详情 Sheet 常驻、由 opened 受控，进入态要走 Mantine 过渡，故异步等待。
+    await waitFor(() => expect(screen.getByText('交易详情')).toBeTruthy())
     expect(screen.getByRole('button', { name: '编辑' })).toBeTruthy()
   })
 })

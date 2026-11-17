@@ -1,0 +1,118 @@
+/**
+ * 抽屉外壳样式（Sheet variant="report" 的单一实现）。
+ *
+ * 所有「右侧 / 底部侧滑面板」共用这一套：下钻、流水详情、日期选择、桑基节点等。
+ *  原定义在 reports.css，导致非报表页面复用 report variant 时样式缺失；
+ * 这里由 main.tsx 全局加载，feature CSS 不再复制抽屉基础样式。
+ */
+
+.mb-rp-sheet {
+  background: var(--mb-color-surface-raised);
+  color: var(--mb-color-text-primary);
+}
+
+.mb-rp-sheet-head {
+  padding: var(--mb-s-3) var(--mb-s-4);
+  border-bottom: 1px solid var(--mb-color-border);
+}
+
+.mb-rp-sheet-title {
+  font-family: var(--mb-font-display);
+  font-size: var(--mb-fs-3);
+  font-weight: 600;
+}
+
+.mb-rp-sheet-body {
+  padding: var(--mb-s-4);
+  overflow-y: auto;
+}
+
+.mb-rp-sheet-actions {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+  margin-top: var(--mb-s-3);
+  padding: var(--mb-s-3) var(--mb-s-4);
+  border-top: 1px solid var(--mb-color-border);
+  background: var(--mb-color-surface-raised);
+}
+
+.mb-rp-sheet-actions .mb-shared-btn {
+  width: 100%;
+  min-height: var(--mb-touch);
+}
+
+.mb-rp-sheet-close {
+  width: var(--mb-btn-h-lg);
+  height: var(--mb-btn-h-lg);
+  color: var(--mb-color-text-secondary);
+}
+
+.mb-rp-overlay {
+  background: var(--mb-color-surface-overlay);
+}
+
+/* 桌面右侧抽屉：铺满视口高度，内容区滚动，动作区常驻底部。
+   移动端底部面板另行收窄（不带 .is-desktop），长页面下不再被 82% 高度截断。 */
+.mb-rp-sheet.is-desktop {
+  display: flex;
+  flex-direction: column;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+
+.mb-rp-sheet.is-desktop .mb-rp-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mb-rp-sheet.is-desktop .mb-rp-sheet-actions {
+  flex: none;
+}
+
+.mb-rp-sheet:not(.is-desktop) {
+  display: flex;
+  flex-direction: column;
+  top: auto;
+  bottom: 0;
+  height: auto;
+  max-height: 82%;
+  overflow: hidden;
+  border-radius: var(--mb-radius-lg) var(--mb-radius-lg) 0 0;
+  padding-bottom: calc(var(--mb-touch) + var(--mb-s-3) + var(--mb-s-4) + var(--mb-border-width));
+}
+
+.mb-rp-sheet .mb-rp-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 与首屏末行到动作区的实测间距一致：滚到底时同距，滚到顶时最后一行不被动作区遮挡。 */
+  padding-bottom: 10px;
+}
+
+.mb-rp-sheet .mb-rp-sheet-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--mb-z-local-1);
+  margin: 0;
+  padding: var(--mb-s-3) var(--mb-s-4) var(--mb-s-4);
+  background: var(--mb-color-surface-raised);
+}
+
+/* 没有动作区时（关闭只用右上角 X），底部不再预留关闭条的空间。 */
+.mb-rp-sheet.is-bare:not(.is-desktop) {
+  padding-bottom: var(--mb-s-4);
+}
+
+.mb-rp-sheet.is-bare .mb-rp-sheet-body {
+  padding-bottom: var(--mb-s-4);
+}

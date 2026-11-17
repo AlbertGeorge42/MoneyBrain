@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
+import { ToastProvider } from '@/features/shared/toast'
 import { createSeedLedger } from '@/dev-fixtures/seed'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import type { DataState, DeviceMode } from '@/features/shared/types'
@@ -23,6 +24,7 @@ function renderOverview(
   const view = render(
     <MantineProvider theme={appTheme}>
       <LedgerProvider initialLedger={createSeedLedger()}>
+        <ToastProvider>
         <OverviewPage
           device={device}
           dataState={state}
@@ -34,6 +36,7 @@ function renderOverview(
           onCreateAccount={vi.fn()}
           onImport={vi.fn()}
         />
+        </ToastProvider>
       </LedgerProvider>
     </MantineProvider>,
   )

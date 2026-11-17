@@ -53,6 +53,7 @@ import {
   clampAsOfPoint,
   formatPointLabel,
   formatRangeLabel,
+  pointDrillRange,
   pointRangeState,
   presetRange,
   rangeState,
@@ -242,20 +243,21 @@ export function ReportsPage({
   )
   const drillData = useMemo<DrillData | null>(() => {
     if (!drill) return null
-    // 资产负债是时点余额：相关流水取时点以前的全部发生额，
-    // 且转入该账户的转账也算余额来源；收支 / 现金流按当前期间。
+    // 资产负债是时点余额：下钻明细按当前粒度回溯一个桶（月→当月 / 年→当年），
+    // 不铺全历史以免笔数过多；转入该账户的转账仍算余额来源。
+    // 收支 / 现金流是期间发生额，仍按当前所选期间。
     const range =
       drill.type === 'account'
-        ? { from: '', to: balancePoint }
+        ? pointDrillRange(balancePoint, time.gran)
         : { from: time.from, to: time.to }
     return buildDrillFor(ledger, drill, range.from, range.to, includeExcluded)
-  }, [drill, ledger, balancePoint, time.from, time.to, includeExcluded])
+  }, [drill, ledger, balancePoint, time.gran, time.from, time.to, includeExcluded])
 
   useEffect(() => {
     setDrill(null)
     setExpandedFlow({})
     setExpandedCash({})
-  }, [tab, time.from, time.to, time.point])
+  }, [tab, time.from, time.to, time.point, time.gran])
 
   // 引导第三步「看报表」的完成判定：进过报表页就算看过。
   useEffect(() => {

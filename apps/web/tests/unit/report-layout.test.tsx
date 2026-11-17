@@ -331,5 +331,46 @@ describe('账户分类与构成环口径', () => {
     const model = source('features/reports/reportsModel.ts')
     expect(model).toContain('function buildDrillFor')
     expect(model).toContain("childTitle: string")
+    expect(model).toContain('amountLabel: string')
+    const drawer = source('features/reports/DrillDrawer.tsx')
+    expect(drawer).toContain('data.amountLabel')
+    expect(drawer).not.toContain('· 下钻')
+    expect(drawer).not.toContain('没有下一级')
+    expect(drawer).not.toContain('>关闭<')
+  })
+
+  it('浮层单一外壳：详情抽屉与下钻共用 report variant，且 opened 受控而非条件挂载', () => {
+    const detail = source('features/transactions/TransactionDetailPanel.tsx')
+    expect(detail).toContain('variant="report"')
+    expect(detail).toContain('opened={Boolean(transaction)}')
+    expect(detail).not.toContain('if (!transaction) return null')
+    expect(source('features/shared/sheet.css')).toContain('.mb-rp-sheet-body')
+    const shell = source('features/shared/Sheet.tsx')
+    expect(shell.match(/const VARIANTS/g)).toHaveLength(1)
+  })
+
+  it('详情与居中对话框各只有一份实现：首页流水复用详情抽屉，Modal 配置收在 shared', () => {
+    expect(existsSync(resolve(WEB_ROOT, 'src/features/overview/TransactionDetail.tsx'))).toBe(false)
+    const app = source('app/design/DesignApp.tsx')
+    expect(app).toContain('<TransactionDetailPanel')
+    expect(app).toContain('useDetailActions')
+    expect(app).not.toContain("from '@/features/overview/TransactionDetail'")
+    expect(app).not.toContain('<TransactionDetail\n')
+    const modal = source('features/shared/Modal.tsx')
+    expect(modal).toContain('mb-shared-modal')
+    expect(modal).toContain('withinPortal={false}')
+    for (const file of ['features/overview/QuickEntry.tsx', 'features/transactions/BatchDialogs.tsx']) {
+      const text = source(file)
+      expect(text, file).not.toMatch(/import\s*\{[^}]*\bModal\b[^}]*\}\s*from\s*'@mantine\/core'/)
+      expect(text, file).toContain("import { Modal } from '@/features/shared/Modal'")
+    }
+  })
+
+  it('总览最近交易双端共用 TxRow，不再保留移动端专属行实现', () => {
+    const recent = source('features/overview/RecentTransactions.tsx')
+    expect(recent).toContain('<TxRow')
+    expect(recent).toContain("variant={device === 'mobile' ? 'mobile' : 'default'}")
+    expect(recent).not.toContain('mb-ov-tx')
+    expect(source('features/overview/overview.css')).not.toContain('.mb-ov-tx')
   })
 })

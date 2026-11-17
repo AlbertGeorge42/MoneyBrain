@@ -199,6 +199,7 @@ export function OverviewPage({
     setDrill({
       type: 'category',
       title: node.name,
+      amountLabel: '近 12 个月支出',
       amount: node.amount,
       childTitle: '',
       children: [],

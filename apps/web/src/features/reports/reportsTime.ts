@@ -118,6 +118,15 @@ export function bucketStartOf(value: string, gran: Granularity): string {
   return value
 }
 
+/**
+ * 时点下钻的流水回溯区间：取时点所在的粒度桶（月→当月、年→当年、周→当周、日→当日）。
+ * 资产负债余额是累计量，但下钻明细不铺全历史——按当前时间粒度只显示一个桶，
+ * 月粒度看最近一个月、年粒度看最近一年。非时点报表（收支 / 现金流）仍用所选期间。
+ */
+export function pointDrillRange(point: string, gran: Granularity): { from: string; to: string } {
+  return { from: bucketStartOf(point, gran), to: point }
+}
+
 /** 桶终点：日 = 当日；周 = 周日；月 = 月末；年 = 12-31。 */
 export function bucketEndOf(value: string, gran: Granularity): string {
   if (gran === 'week') return weekEnd(value)

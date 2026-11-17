@@ -83,7 +83,9 @@ export function BalanceView({
     onDrill({
       type: 'account',
       title: node.name,
+      amountLabel: '时点余额',
       amount: node.amount,
+      predicted: node.predicted,
       childTitle: '账户',
       children: node.children,
       ids,

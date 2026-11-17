@@ -3,7 +3,6 @@
  * 活动分组固定全显示，表尾合计就是各组之和；点切块 / ribbon 落到同一节点抽屉。
  */
 import { useState } from 'react'
-import { Button } from '@/features/shared/Button'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { FoldState } from '@/features/shared/foldState'
@@ -34,6 +33,7 @@ function cashDonutNodes(groups: CashGroup[], side: 'in' | 'out'): DonutNode[] {
       count: group.count,
       share: total > 0 ? (group.total / total) * 100 : 0,
       level: 0,
+      predicted: group.predicted,
       children: group.children
         .filter((child) => child.amount > 0)
         .map((child) => ({
@@ -43,6 +43,7 @@ function cashDonutNodes(groups: CashGroup[], side: 'in' | 'out'): DonutNode[] {
           count: 0,
           share: group.total > 0 ? (child.amount / group.total) * 100 : 0,
           level: 1,
+          predicted: child.predicted,
           children: [],
         })),
     }))
@@ -172,7 +173,9 @@ export function CashView({
                 onDrill({
                   type: 'category',
                   title: node.name,
+                  amountLabel: side === 'in' ? '所选期间流入' : '所选期间流出',
                   amount: node.amount,
+                  predicted: node.predicted,
                   childTitle: '分类',
                   children: node.children,
                   ids: categoryIds,
@@ -197,12 +200,7 @@ export function CashView({
         device={device}
         opened={sankeyNode !== null}
         onClose={() => setSankeyNode(null)}
-        title={sankeyNode ? `${sankeyNode.name} · 现金流明细` : '现金流明细'}
-        actions={
-          <Button variant="ghost" onClick={() => setSankeyNode(null)}>
-            关闭
-          </Button>
-        }
+        title={sankeyNode ? sankeyNode.name : '现金流明细'}
       >
         {sankeyNode && (
           <div className="mb-rp-drill">

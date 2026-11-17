@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Button as MantineButton, Modal, TextInput } from '@mantine/core'
+import { Button as MantineButton, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
 import { Button } from '@/features/shared/Button'
 import { FieldLabel } from '@/features/shared/FieldLabel'
 import { Segmented } from '@/features/shared/Segmented'
 import { Sheet } from '@/features/shared/Sheet'
+import { Modal } from '@/features/shared/Modal'
 import type { DeviceMode } from '@/features/shared/types'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { formatCurrency } from '@/utils/format'
@@ -641,15 +642,6 @@ export function QuickEntry({
     </span>
   )
 
-  const modalClass = {
-    content: 'mb-shared-modal',
-    header: 'mb-ov-overlay-head',
-    title: 'mb-ov-title-wrap',
-    body: 'mb-ov-body',
-    overlay: 'mb-ov-overlay',
-    close: 'mb-ov-close',
-  }
-
   const form = (
     <EntryForm
       ledger={ledger}
@@ -667,15 +659,7 @@ export function QuickEntry({
           {form}
         </Sheet>
       ) : (
-        <Modal
-          opened={opened}
-          onClose={onClose}
-          centered
-          size="auto"
-          withinPortal={false}
-          title={title}
-          classNames={modalClass}
-        >
+        <Modal opened={opened} onClose={onClose} title={title}>
           {form}
         </Modal>
       )}

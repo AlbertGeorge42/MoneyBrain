@@ -398,11 +398,26 @@ export function cashRowsFor(
 
 export interface DrillData {
   title: string
+  /** 该金额的指标名，按报表语义给出（时点余额 / 所选期间收入 / 流入 …）。 */
+  amountLabel: string
   amount: number
-  tone: 'income' | 'expense'
-  /** 子项栏标题按环的一级语义：二级类别 / 账户 / 分类。 */
+  tone: 'income' | 'expense' | 'neutral'
+  /** 金额中的预测部分；≠ 0 时主指标标「预测」。 */
+  predicted?: number
+  /** 子项栏标题按环的一级语义：二级类别 / 账户 / 分类；末级下钻不传。 */
   childTitle: string
-  children: { id: string; name: string; amount: number; count: number }[]
+  children: {
+    id: string
+    name: string
+    amount: number
+    count: number
+    /** 金额中的预测部分；≠ 0 时该行标「预测」。 */
+    predicted?: number
+  }[]
+  /** 是否有可展示的子项笔数：仅收支「二级类别」有，账户 / 分类子项没有笔数语义。 */
+  showChildCount: boolean
+  /** 空态文案按时点 / 期间口径区分。 */
+  emptyText: string
   /** 原始流水交给 TxRow 渲染，与流水页同一套行与编辑入口。 */
   transactions: LedgerTransaction[]
 }
@@ -416,7 +431,12 @@ export type DrillTarget =
   | {
       type: 'category'
       title: string
+      amountLabel: string
       amount: number
+      /** 金额中的预测部分；由环节点带来，非预测报表不传。 */
+      predicted?: number
+      /** 只有「二级类别」子项有笔数语义；账户 / 现金流分类子项不传。 */
+      showChildCount?: boolean
       childTitle: string
       children: FlowTreeNode[]
       ids: string[]
@@ -426,7 +446,9 @@ export type DrillTarget =
   | {
       type: 'account'
       title: string
+      amountLabel: string
       amount: number
+      predicted?: number
       childTitle: string
       children: FlowTreeNode[]
       ids: string[]
@@ -440,8 +462,7 @@ export function buildDrillFor(
   to: string,
   includeExcluded = false,
 ): DrillData {
-  const tone = target.type === 'account' ? 'neutral' : target.side
-  const colorTone: 'income' | 'expense' = tone === 'income' ? 'income' : 'expense'
+  const tone: DrillData['tone'] = target.type === 'account' ? 'neutral' : target.side
   const ids = new Set(target.ids)
   // 分类目标要把根分类展开成整棵子树（「其余」合并桶含多个根）；账户目标直接按 id 命中。
   const categories = new Set<string>()
@@ -472,15 +493,21 @@ export function buildDrillFor(
 
   return {
     title: target.title,
+    amountLabel: target.amountLabel,
     amount: target.amount,
-    tone: colorTone,
+    predicted: target.predicted,
+    tone,
     childTitle: target.childTitle,
     children: target.children.map((child) => ({
       id: child.id,
       name: child.name,
       amount: child.amount,
       count: child.count,
+      predicted: child.predicted,
     })),
+    showChildCount: target.type === 'category' && Boolean(target.showChildCount),
+    emptyText:
+      target.type === 'account' ? '该时段没有相关流水' : '该期间没有相关流水',
     transactions,
   }
 }
@@ -490,7 +517,10 @@ export function flowDrillTarget(node: FlowTreeNode, side: 'income' | 'expense'):
   return {
     type: 'category',
     title: node.name,
+    amountLabel: side === 'income' ? '所选期间收入' : '所选期间支出',
     amount: node.amount,
+    predicted: node.predicted,
+    showChildCount: true,
     childTitle: '二级类别',
     children: node.children,
     ids: node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id],

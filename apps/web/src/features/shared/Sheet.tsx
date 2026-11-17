@@ -197,7 +197,12 @@ export function Sheet({
       withCloseButton={config.withCloseButton}
       title={title}
       classNames={{
-        content: join(isMobile ? config.contentMobile : config.contentDesktop ?? config.contentMobile, contentClassName),
+        content: join(
+          isMobile ? config.contentMobile : config.contentDesktop ?? config.contentMobile,
+          // 无动作区时不要为绝对定位的关闭条预留底部空间。
+          actions ? undefined : 'is-bare',
+          contentClassName,
+        ),
         header: config.header,
         title: titleClassName ?? config.title,
         body: join(isMobile ? config.bodyMobile : config.bodyDesktop ?? config.bodyMobile, bodyClassName),

@@ -28,6 +28,8 @@ export interface DonutNode {
   level: 0 | 1
   children: DonutNode[]
   mergedIds?: string[]
+  /** 金额中的预测部分；下钻据此标「预测」。 */
+  predicted?: number
 }
 
 export type DonutKind = 'income' | 'expense' | 'asset' | 'liability'

@@ -21,6 +21,7 @@ import {
   clampAsOfPoint,
   formatPointLabel,
   formatRangeLabel,
+  pointDrillRange,
   type ReportTime,
 } from '@/features/reports/reportsTime'
 import { TODAY } from '@/features/overview/model'
@@ -181,5 +182,45 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
     expect(openedNode.id).toBe('rest')
     expect(openedNode.amount).toBe(2_490)
     expect(openedNode.mergedIds).toEqual(rest.map((item) => item.id))
+  })
+})
+
+
+describe('时点下钻按粒度回溯一个桶', () => {
+  const point = '2026-10-31'
+
+  it('月粒度取当月、年粒度取当年、日粒度取当日、周粒度取当周', () => {
+    expect(pointDrillRange(point, 'month')).toEqual({ from: '2026-10-01', to: point })
+    expect(pointDrillRange(point, 'year')).toEqual({ from: '2026-01-01', to: point })
+    expect(pointDrillRange(point, 'day')).toEqual({ from: point, to: point })
+    expect(pointDrillRange('2026-10-28', 'week')).toEqual({ from: '2026-10-26', to: '2026-10-28' })
+  })
+
+  it('回溯区间只收桶内流水，桶外更早流水不进下钻', () => {
+    const seed = createSeedLedger()
+    const ledgerWithHistory = {
+      ...seed,
+      transactions: [
+        ...seed.transactions,
+        { id: 'ancient', date: '2024-01-05', type: 'expense' as const, categoryId: seed.categories[0].id, accountId: seed.accounts[0].id, note: '', amount: 100 },
+      ],
+    }
+    const range = pointDrillRange('2026-10-31', 'month')
+    const drill = buildDrillFor(
+      ledgerWithHistory,
+      {
+        type: 'account',
+        title: '现金',
+        amountLabel: '时点余额',
+        amount: 0,
+        childTitle: '',
+        children: [],
+        ids: [ledgerWithHistory.accounts[0].id],
+      },
+      range.from,
+      range.to,
+    )
+    expect(drill.transactions.map((item) => item.id)).not.toContain('ancient')
+    expect(drill.transactions.every((item) => item.date >= range.from && item.date <= range.to)).toBe(true)
   })
 })

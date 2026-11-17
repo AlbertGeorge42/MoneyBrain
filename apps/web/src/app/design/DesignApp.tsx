@@ -16,7 +16,8 @@ import { EMPTY_LEDGER } from '@/features/overview/apiLedger'
 import { useApiLedger } from '@/features/overview/useApiLedger'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import { QuickEntry } from '@/features/overview/QuickEntry'
-import { TransactionDetail } from '@/features/overview/TransactionDetail'
+import { TransactionDetailPanel } from '@/features/transactions/TransactionDetailPanel'
+import { useDetailActions } from '@/features/transactions/useDetailActions'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { HeadAction } from '@/features/shared/HeadAction'
@@ -176,6 +177,7 @@ function PreviewBody({
 }) {
   const { ledger, undo } = useLedger()
   const { notify: pushToast } = useToast()
+  const { handleSave, handleDelete, handleLinkRefund } = useDetailActions()
   const [entryOpen, setEntryOpen] = useState(false)
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
   const [batchMode, setBatchMode] = useState(false)
@@ -316,12 +318,15 @@ function PreviewBody({
           )
         }}
       />
-      <TransactionDetail
+      <TransactionDetailPanel
         transaction={detail}
         ledger={ledger}
         device={device}
         onClose={() => setDetail(null)}
+        onSave={handleSave}
+        onDelete={handleDelete}
         onOpenTransaction={setDetail}
+        onLinkRefund={handleLinkRefund}
       />
     </>
   )
