@@ -75,12 +75,11 @@ export function BalanceView({
     [report.liabilities, categories],
   )
 
-  // 环的一级是账户分类（环图内部下钻到账户）。点账户 / 其余账户都开抽屉；
-  // 其余账户含多个 id，流水筛选暂不支持多账户，禁跳流水但仍可看金额与明细。
+  // 环的一级是账户分类（环图内部下钻到账户）。点账户 / 其余账户都开抽屉，
+  // 抽屉内直接展示相关流水并可继续编辑，不再跳流水页。
   const openAccount = (node: FlowTreeNode) => {
     if (node.level !== 1 && node.id !== 'rest') return
-    const isRest = node.id === 'rest'
-    const ids = isRest && node.mergedIds ? node.mergedIds : [node.id]
+    const ids = node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id]
     onDrill({
       type: 'account',
       title: node.name,
@@ -88,7 +87,6 @@ export function BalanceView({
       childTitle: '账户',
       children: node.children,
       ids,
-      canViewFlow: !isRest,
     })
   }
   const options: TreeRenderOptions = {

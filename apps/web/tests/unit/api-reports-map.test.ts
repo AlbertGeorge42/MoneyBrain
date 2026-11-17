@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { IncomeExpenseReportData, ReportValue } from '@contracts/types'
-import { mapFlowReport } from '@/features/reports/apiReports'
+import { mapCashReport, mapFlowReport } from '@/features/reports/apiReports'
 import { buildDrillFor, flowDrillTarget, type FlowTreeNode } from '@/features/reports/reportsModel'
 import type { Ledger } from '@/features/overview/model'
 
@@ -119,9 +119,9 @@ describe('mapFlowReport 分类构成', () => {
     const drill = buildDrillFor(ledger, flowDrillTarget(row, 'expense'), '2026-11-01', '2026-11-06')
 
     expect(drill.transactions).toHaveLength(1)
-    expect(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)).toBe(
-      row.amount,
-    )
+    expect(
+      Math.abs(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)),
+    ).toBe(row.amount)
   })
 })
 
@@ -139,7 +139,7 @@ describe('buildDrill 与「不计收支」开关同口径', () => {
         categoryId: 'food',
         note: '不计收支',
         accountId: 'wallet',
-        amount: 500,
+        amount: -500,
         excludeFromIncomeExpense: true,
       },
     ],
@@ -157,7 +157,7 @@ describe('buildDrill 与「不计收支」开关同口径', () => {
   it('开关关闭：不计收支流水不进下钻，逐笔合计等于行金额', () => {
     const drill = buildDrillFor(withExcluded, flowDrillTarget(node, 'expense'), from, to)
     expect(drill.transactions).toHaveLength(1)
-    expect(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)).toBe(
+    expect(Math.abs(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0))).toBe(
       2_800,
     )
   })
@@ -165,7 +165,7 @@ describe('buildDrill 与「不计收支」开关同口径', () => {
   it('开关打开：不计收支流水计入下钻，逐笔合计等于行金额', () => {
     const drill = buildDrillFor(withExcluded, flowDrillTarget(node, 'expense'), from, to, true)
     expect(drill.transactions).toHaveLength(2)
-    expect(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0)).toBe(
+    expect(Math.abs(drill.transactions.reduce((sum, transaction) => sum + transaction.amount, 0))).toBe(
       3_300,
     )
   })
@@ -223,5 +223,67 @@ describe('mapFlowReport 预测口径', () => {
   it('预测为 0 时不加标签、不出现拆解行', () => {
     const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
     expect(report.metrics.map((metric) => Boolean(metric.prediction))).toEqual([false, false, false, false])
+  })
+})
+
+describe('mapCashReport 现金流下钻 id 空间', () => {
+  const emptyActivity = () => ({ inflow: value(0), outflow: value(0), net: value(0), items: [] })
+  const cashData = {
+    startDate: '2026-11-01',
+    endDate: '2026-11-06',
+    cashInflow: value(0),
+    cashOutflow: value(-2_800),
+    netCashFlow: value(-2_800),
+    reconciliation: value(0),
+    flowByAccount: {},
+    startCash: value(2_800),
+    endCash: value(0),
+    cashChange: value(-2_800),
+    byActivity: {
+      operating: {
+        ...emptyActivity(),
+        outflow: value(-2_800),
+        net: value(-2_800),
+        items: [
+          {
+            categoryName: '餐饮',
+            categoryId: 'real-food',
+            parentId: null,
+            level: 0,
+            amount: -2_800,
+            actual: -2_800,
+            predicted: 0,
+            type: 'expense',
+            direction: 'outflow',
+          },
+        ],
+      },
+      investing: emptyActivity(),
+      financing: emptyActivity(),
+      uncategorized: emptyActivity(),
+    },
+    sankey: { nodes: [], links: [] },
+  }
+
+  it('接口真实分类 id 翻成展示 id 后，账户列与下钻都能命中流水', () => {
+    const report = mapCashReport(cashData, ledger, '2026-11-01', '2026-11-06')
+    const child = report.outflowGroups.flatMap((group) => group.children).find((row) => row.label === '餐饮')
+    expect(child?.categoryId).toBe('food')
+    expect(child?.account).toBe('钱包')
+    const drill = buildDrillFor(
+      ledger,
+      {
+        type: 'category',
+        title: '餐饮',
+        amount: child?.amount ?? 0,
+        childTitle: '分类',
+        children: [],
+        ids: [child?.categoryId ?? ''],
+        side: 'expense',
+      },
+      '2026-11-01',
+      '2026-11-06',
+    )
+    expect(drill.transactions.map((transaction) => transaction.id)).toEqual(['tx-food'])
   })
 })

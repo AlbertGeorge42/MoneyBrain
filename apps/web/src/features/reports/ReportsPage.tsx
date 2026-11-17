@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { deriveExpenseCharts, getCategoryRootId, ledgerAnchorDay } from '@/features/overview/model'
+import { deriveExpenseCharts, ledgerAnchorDay } from '@/features/overview/model'
 import { ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { FieldLabel } from '@/features/shared/FieldLabel'
 import { EmptyState } from '@/features/shared/EmptyState'
@@ -108,20 +108,12 @@ export function ReportsPage({
   dataState,
   onRetry,
   onImport,
-  onViewFlow,
   initialFuture = false,
 }: {
   device: DeviceMode
   dataState: DataState
   onRetry: () => void
   onImport: () => void
-  onViewFlow: (options: {
-    categoryId?: string
-    categoryIds?: string[]
-    accountId?: string
-    from: string
-    to: string
-  }) => void
   /** 从预算页跳转：初始落在未来区间的收支视图。 */
   initialFuture?: boolean
 }) {
@@ -248,10 +240,16 @@ export function ReportsPage({
     () => (device === 'desktop' && cash ? deriveCashSankey(ledger, cash) : null),
     [device, ledger, cash],
   )
-  const drillData = useMemo<DrillData | null>(
-    () => (drill ? buildDrillFor(ledger, drill, time.from, time.to, includeExcluded) : null),
-    [drill, ledger, time.from, time.to, includeExcluded],
-  )
+  const drillData = useMemo<DrillData | null>(() => {
+    if (!drill) return null
+    // 资产负债是时点余额：相关流水取时点以前的全部发生额，
+    // 且转入该账户的转账也算余额来源；收支 / 现金流按当前期间。
+    const range =
+      drill.type === 'account'
+        ? { from: '', to: balancePoint }
+        : { from: time.from, to: time.to }
+    return buildDrillFor(ledger, drill, range.from, range.to, includeExcluded)
+  }, [drill, ledger, balancePoint, time.from, time.to, includeExcluded])
 
   useEffect(() => {
     setDrill(null)
@@ -427,10 +425,6 @@ export function ReportsPage({
               onSide={setCashSide}
               expanded={expandedCash}
               onFold={toggleCashFold}
-              from={time.from}
-              to={time.to}
-              onViewFlow={onViewFlow}
-              rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
               onDrill={setDrill}
             />
           )}
@@ -444,10 +438,6 @@ export function ReportsPage({
                 onSide={setCashSide}
                 expanded={expandedCash}
                 onFold={toggleCashFold}
-                from={time.from}
-                to={time.to}
-                onViewFlow={onViewFlow}
-                rootOf={(categoryId) => getCategoryRootId(ledger, categoryId)}
                 onDrill={setDrill}
               />
             ) : (
@@ -489,24 +479,7 @@ export function ReportsPage({
     <div className="mb-rp-page" data-device={device}>
       {content}
 
-      <DrillDrawer
-        device={device}
-        data={drillData}
-        onClose={() => setDrill(null)}
-        onViewFlow={() => {
-          if (!drill || !drill.canViewFlow) return
-          onViewFlow({
-            ...(drill.type === 'account'
-              ? { accountId: drill.ids[0] }
-              : drill.ids.length > 1
-                ? { categoryIds: drill.ids }
-                : { categoryId: drill.ids[0] }),
-            from: time.from,
-            to: time.to,
-          })
-          setDrill(null)
-        }}
-      />
+      <DrillDrawer device={device} data={drillData} onClose={() => setDrill(null)} />
 
       <LedgerConfigManager
         opened={ledgerConfigOpen}

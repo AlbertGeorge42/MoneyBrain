@@ -28,7 +28,6 @@ function renderReports() {
               dataState="normal"
               onRetry={vi.fn()}
               onImport={vi.fn()}
-              onViewFlow={vi.fn()}
             />
           </ToastProvider>
         </LedgerProvider>

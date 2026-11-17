@@ -68,10 +68,6 @@ export function CashView({
   onSide,
   expanded,
   onFold,
-  from,
-  to,
-  onViewFlow,
-  rootOf,
   onDrill,
 }: {
   device: DeviceMode
@@ -81,11 +77,6 @@ export function CashView({
   onSide: (next: 'in' | 'out') => void
   expanded: FoldState
   onFold: (id: string) => void
-  from: string
-  to: string
-  onViewFlow: (options: { categoryIds: string[]; from: string; to: string }) => void
-  /** 流水页 txRoots 只认根分类：抽屉里的叶分类先展开到根。 */
-  rootOf: (categoryId: string) => string
   onDrill: (target: DrillTarget) => void
 }) {
   const [sankeyNode, setSankeyNode] = useState<CashSankeyNode | null>(null)
@@ -94,9 +85,6 @@ export function CashView({
     const node = sankey?.nodes.find((item) => item.id === nodeId)
     if (node) setSankeyNode(node)
   }
-  const sankeyCategories = sankeyNode
-    ? [...new Set(sankeyNode.children.map((child) => child.categoryId).filter(Boolean).map(rootOf))]
-    : []
   const inflowTotal = cashTotalOf(report.inflowGroups)
   const outflowTotal = cashTotalOf(report.outflowGroups)
   const inflowRows = cashRowsFor('in', report.inflowGroups, expanded, onFold)
@@ -189,7 +177,6 @@ export function CashView({
                   children: node.children,
                   ids: categoryIds,
                   side: side === 'in' ? 'income' : 'expense',
-                  canViewFlow: true,
                 })
               }}
             />
@@ -212,22 +199,9 @@ export function CashView({
         onClose={() => setSankeyNode(null)}
         title={sankeyNode ? `${sankeyNode.name} · 现金流明细` : '现金流明细'}
         actions={
-          <>
-            <Button variant="ghost" onClick={() => setSankeyNode(null)}>
-              关闭
-            </Button>
-            {sankeyCategories.length > 0 && (
-              <Button
-                variant="primary"
-                onClick={() => {
-                  onViewFlow({ categoryIds: sankeyCategories, from, to })
-                  setSankeyNode(null)
-                }}
-              >
-                在流水中查看
-              </Button>
-            )}
-          </>
+          <Button variant="ghost" onClick={() => setSankeyNode(null)}>
+            关闭
+          </Button>
         }
       >
         {sankeyNode && (

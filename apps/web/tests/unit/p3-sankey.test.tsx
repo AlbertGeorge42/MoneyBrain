@@ -387,10 +387,6 @@ function renderCashView(device: DeviceMode) {
         onSide={() => {}}
         expanded={{}}
         onFold={() => {}}
-        from={FROM}
-        to={TO}
-        onViewFlow={() => {}}
-        rootOf={(id) => id}
         onDrill={() => {}}
       />
     </MantineProvider>,
@@ -422,10 +418,6 @@ describe('现金流 tab 的平台降级', () => {
           onSide={() => {}}
           expanded={{}}
           onFold={() => {}}
-          from={FROM}
-          to={TO}
-          onViewFlow={() => {}}
-          rootOf={(id) => id}
           onDrill={() => {}}
         />
       </MantineProvider>,

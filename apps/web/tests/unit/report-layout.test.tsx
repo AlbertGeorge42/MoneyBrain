@@ -321,7 +321,6 @@ describe('账户分类与构成环口径', () => {
       expect(text, file).toContain('onDrill: (target: DrillTarget) => void')
       if (file === 'BalanceView.tsx') expect(text, file).toContain("type: 'account'")
       else expect(text, file).toContain("type: 'category'")
-      expect(text, file).toContain('canViewFlow')
     }
     // 总览支出环也走同一份抽屉，不再由 onDrill 回调直接跳流水。
     const overview = source('features/overview/OverviewPage.tsx')

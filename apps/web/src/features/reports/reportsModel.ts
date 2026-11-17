@@ -9,7 +9,6 @@ import { isExpanded, type FoldState } from '@/features/shared/foldState'
 import { minor, transferInflow, transferOutflow } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import {
-  getCategory,
   refundOffsetSide,
   transferAmounts,
   type Ledger,
@@ -404,18 +403,8 @@ export interface DrillData {
   /** 子项栏标题按环的一级语义：二级类别 / 账户 / 分类。 */
   childTitle: string
   children: { id: string; name: string; amount: number; count: number }[]
-  transactions: {
-    id: string
-    date: string
-    label: string
-    account: string
-    amount: number
-    tone: 'income' | 'expense'
-    /** 退款冲减：金额保留真实负号，展示层据此标注「退款」。 */
-    refund: boolean
-  }[]
-  /** 能否从抽屉跳流水：账户合并「其余」因筛选暂不支持多账户而禁用。 */
-  canViewFlow: boolean
+  /** 原始流水交给 TxRow 渲染，与流水页同一套行与编辑入口。 */
+  transactions: LedgerTransaction[]
 }
 
 /**
@@ -432,9 +421,8 @@ export type DrillTarget =
       children: FlowTreeNode[]
       ids: string[]
       side: 'income' | 'expense'
-      canViewFlow: boolean
     }
-  /** 资产负债：按账户筛选；账户合并「其余」的 canViewFlow 为 false。 */
+  /** 资产负债：按账户筛选，含转入该账户的转账。 */
   | {
       type: 'account'
       title: string
@@ -442,7 +430,6 @@ export type DrillTarget =
       childTitle: string
       children: FlowTreeNode[]
       ids: string[]
-      canViewFlow: boolean
     }
 
 /** 下钻只展开当期口径：二级项 + 相关流水，不重复完整流水页。 */
@@ -468,12 +455,13 @@ export function buildDrillFor(
   const transactions = ledger.transactions
     .filter((transaction) => {
       if (!inRange(transaction, from, to)) return false
-      // 与报表合计同一口径：开关关闭时「不计收支」流水不进下钻。
-      if (!includeExcluded && transaction.excludeFromIncomeExpense) return false
       if (target.type === 'account') {
-        if (!ids.has(transaction.accountId)) return false
-        return true
+        // 账户余额同时受转出与转入影响，两边都要命中；「不计收支」只影响收支报表，
+        // 不影响账户余额，因此账户下钻不受该开关裁剪。
+        return ids.has(transaction.accountId) || ids.has(transaction.toAccountId ?? '')
       }
+      // 与收支 / 现金流合计同一口径：开关关闭时「不计收支」流水不进下钻。
+      if (!includeExcluded && transaction.excludeFromIncomeExpense) return false
       if (!categories.has(transaction.categoryId)) return false
       if (target.side === 'income') return isIncomeSide(transaction) || refundOffsetSide(transaction) === 'income'
       return transaction.type === 'expense' ||
@@ -481,7 +469,6 @@ export function buildDrillFor(
         adjustmentExpense(transaction) > 0
     })
     .sort((left, right) => right.date.localeCompare(left.date))
-    .slice(0, 4)
 
   return {
     title: target.title,
@@ -494,23 +481,7 @@ export function buildDrillFor(
       amount: child.amount,
       count: child.count,
     })),
-    transactions: transactions.map((transaction) => ({
-      id: transaction.id,
-      date: transaction.date,
-      label: `${getCategory(ledger, transaction.categoryId)?.name ?? '未分类'}${transaction.note ? ` · ${transaction.note}` : ''}`,
-      account: ledger.accounts.find((account) => account.id === transaction.accountId)?.name ?? '—',
-      amount:
-        target.type === 'category' && refundOffsetSide(transaction) === target.side
-          ? -Math.abs(transaction.amount)
-          : transaction.type === 'expense'
-            ? Math.abs(transaction.amount)
-            : adjustmentExpense(transaction) > 0
-              ? adjustmentExpense(transaction)
-              : Math.abs(transaction.amount),
-      tone: colorTone,
-      refund: transaction.type === 'refund',
-    })),
-    canViewFlow: target.canViewFlow,
+    transactions,
   }
 }
 
@@ -524,7 +495,6 @@ export function flowDrillTarget(node: FlowTreeNode, side: 'income' | 'expense'):
     children: node.children,
     ids: node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id],
     side,
-    canViewFlow: true,
   }
 }
 

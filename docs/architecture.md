@@ -153,7 +153,7 @@ features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
 | `app/design/DesignApp.tsx` | 唯一页面装配：路由（`/design` 与 `*` 均渲染它）、设备判定、全局 Provider |
 | `features/overview/` | 总览、快速记账、`LedgerContext` / `apiLedger.ts`（共享账本状态与写操作） |
 | `features/transactions/` | 流水、详情、批量、回收站；`apiTransactions.ts` |
-| `features/reports/` | 四张报表、图表、下钻；`apiReports.ts`；`reportRows.ts` 的 `flattenTreeRows` 是分类树到表格行的唯一展开实现；左右双表统一由 `ReportTable.tsx` 的 `ReportTablePair` 补齐行数并对齐合计行；`reportsModel.ts` 的 `buildDrillFor` + `DrillDrawer.tsx` 是四条环下钻链路（收支 / 资产负债 / 现金流 / 总览）的唯一数据与抽屉实现，统一为「环 → 抽屉 → 流水」 |
+| `features/reports/` | 四张报表、图表、下钻；`apiReports.ts`；`reportRows.ts` 的 `flattenTreeRows` 是分类树到表格行的唯一展开实现；左右双表统一由 `ReportTable.tsx` 的 `ReportTablePair` 补齐行数并对齐合计行；`reportsModel.ts` 的 `buildDrillFor` + `DrillDrawer.tsx` 是四条环下钻链路（收支 / 资产负债 / 现金流 / 总览）的唯一数据与抽屉实现，统一为「环 → 抽屉 → 可编辑详情」：抽屉用 `shared/TxRow` 渲染相关流水、点行复用 `transactions/TransactionDetailPanel`，写动作统一走 `transactions/useDetailActions.ts` |
 | `features/budgets/` | 预算列表/编辑、状态、推演；`budgetModel.ts` |
 | `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源）；`drag.ts` 提供仅竖直方向的拖拽 modifier 与行样式 |
 | `features/settings/` | 8 分区设置、导入导出、自动备份、回收站 |

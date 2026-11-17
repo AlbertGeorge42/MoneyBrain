@@ -457,7 +457,7 @@ describe('DonutChart 二级环', () => {
     expect(drill.transactions.reduce((sum, row) => sum + row.amount, 0)).toBe(500)
   })
 
-  it('退款下钻：逐笔保留负号并标记退款，当期合计仍等于行金额', () => {
+  it('退款下钻：保留原始流水，展示口径交给流水页 TxRow', () => {
     const ledger: Ledger = {
       accounts: [{ id: 'a1', name: '现金', kind: 'cash', balance: 0 }],
       categories: [{ id: 'movie', name: '电影', type: 'expense' }],
@@ -488,7 +488,7 @@ describe('DonutChart 二级环', () => {
 
     expect(drill.amount).toBe(750)
     expect(drill.transactions).toHaveLength(1)
-    expect(drill.transactions[0]).toMatchObject({ amount: -750, refund: true })
+    expect(drill.transactions[0]).toMatchObject({ id: 't-refund', type: 'refund', amount: 750 })
   })
 
   it('二级阶梯不回父色：token 区间不含 100%，单子类取中点', () => {

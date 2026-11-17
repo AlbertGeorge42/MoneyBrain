@@ -777,11 +777,6 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   font-size: var(--mb-fs-1);
 }
 
-.mb-rp-drill-row--tx {
-  align-items: flex-start;
-  padding: var(--mb-s-1) 0;
-}
-
 .mb-rp-chart-note {
   margin: var(--mb-s-2) 0 0;
   color: var(--mb-color-text-tertiary);
@@ -919,28 +914,11 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   font-variant-numeric: tabular-nums;
 }
 
-.mb-rp-drill-tx-head {
-  display: flex;
-  align-items: center;
-  gap: var(--mb-s-1);
-  min-width: 0;
-}
-
+/* 下钻子项与桑基子节点共用的长标签截断。 */
 .mb-rp-drill-tx-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* 退款保留真实负号，用标签说明这是冲减而不是漏算。 */
-.mb-rp-drill-tag {
-  flex: none;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-secondary);
-  font-size: var(--mb-fs-0);
-  line-height: 1.6;
 }
 
 /* Switch 的禁用原因文案：与配置抽屉共用的轻量说明。 */

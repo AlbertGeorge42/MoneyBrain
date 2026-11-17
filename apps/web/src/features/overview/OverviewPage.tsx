@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ExpenseCategorySlice, LedgerTransaction } from './model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { Card } from '@/features/shared/Card'
@@ -28,13 +28,6 @@ import {
 } from './model'
 import './overview.css'
 import '@/features/reports/reports.css'
-
-interface ExpenseCategoryDrill {
-  categoryId?: string
-  categoryIds?: string[]
-  from: string
-  to: string
-}
 
 /** 总览支出分类环：把 category-breakdown 的扁平切片适配成共享环的节点，不算第二份环实现。 */
 function ExpenseDonut({
@@ -81,53 +74,6 @@ function ExpenseDonut({
   )
 }
 
-/** 下钻前记录总览滚动位置；从流水返回时一次性恢复，保证图表停在原位。 */
-const OVERVIEW_SCROLL_KEY = 'mb-shell-overview-drill-scroll'
-
-/** 总览的滚动宿主：移动端是 shell 内滚动区，桌面/预览是设计画布。 */
-function overviewScrollHost(): HTMLElement | null {
-  const node = document.querySelector('.mb-shell-scroll') ?? document.querySelector('.mb-shell-canvas')
-  return node instanceof HTMLElement ? node : null
-}
-
-function rememberOverviewScroll() {
-  if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return
-  sessionStorage.setItem(
-    OVERVIEW_SCROLL_KEY,
-    JSON.stringify({
-      windowY: window.scrollY || document.documentElement.scrollTop || 0,
-      hostY: overviewScrollHost()?.scrollTop ?? 0,
-    }),
-  )
-}
-
-function useRestoreOverviewScroll() {
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return
-    const raw = sessionStorage.getItem(OVERVIEW_SCROLL_KEY)
-    if (!raw) return
-    let saved: { windowY?: number; hostY?: number }
-    try {
-      saved = JSON.parse(raw) as { windowY?: number; hostY?: number }
-    } catch {
-      sessionStorage.removeItem(OVERVIEW_SCROLL_KEY)
-      return
-    }
-    const frame = requestAnimationFrame(() => {
-      if (typeof saved.windowY === 'number' && saved.windowY > 0) {
-        window.scrollTo(0, saved.windowY)
-      }
-      if (typeof saved.hostY === 'number' && saved.hostY > 0) {
-        const host = overviewScrollHost()
-        if (host) host.scrollTop = saved.hostY
-      }
-      // StrictMode 下 effect 会执行两次，key 必须等真正恢复后再清，否则第二次读不到。
-      sessionStorage.removeItem(OVERVIEW_SCROLL_KEY)
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [])
-}
-
 interface OverviewPageProps {
   device: DeviceMode
   dataState: DataState
@@ -142,8 +88,6 @@ interface OverviewPageProps {
   onImport: () => void
   /** 打开报表页（引导第三步）。 */
   onOpenReports: () => void
-  /** 点击支出分类下钻到带分类 + 期间的流水页；未接线时分类图不可下钻。 */
-  onDrillCategory?: (target: ExpenseCategoryDrill) => void
 }
 
 function PageHead({
@@ -187,10 +131,8 @@ export function OverviewPage({
   onRecord,
   onImport,
   onOpenReports,
-  onDrillCategory,
 }: OverviewPageProps) {
   const { ledger } = useLedger()
-  useRestoreOverviewScroll()
   // API 模式用真实数据所在月份；种子模式保持原来的固定期间。
   const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
   const today = ledger.snapshot?.today
@@ -253,7 +195,6 @@ export function OverviewPage({
   // 近 12 个月支出一级分类全集：总览与报表共用，保证同一分类跨页面、跨月份同色。
   const categoryUniverse = expenseCharts.categories.map((slice) => slice.name.trim())
   const openCategory = (node: DonutNode) => {
-    if (!onDrillCategory) return
     const ids = node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id]
     setDrill({
       type: 'category',
@@ -263,18 +204,7 @@ export function OverviewPage({
       children: [],
       ids,
       side: 'expense',
-      canViewFlow: true,
     })
-  }
-  const viewDrillFlow = () => {
-    if (!drill) return
-    rememberOverviewScroll()
-    onDrillCategory?.(
-      drill.ids.length > 1
-        ? { categoryIds: drill.ids, from: expenseCharts.range.from, to: expenseCharts.range.to }
-        : { categoryId: drill.ids[0], from: expenseCharts.range.from, to: expenseCharts.range.to },
-    )
-    setDrill(null)
   }
 
   if (device === 'mobile') {
@@ -295,7 +225,7 @@ export function OverviewPage({
           <ExpenseDonut
             slices={expenseCharts.categories}
             device="mobile"
-            onOpen={onDrillCategory ? openCategory : undefined}
+            onOpen={openCategory}
             colorUniverse={categoryUniverse}
           />
         </div>
@@ -308,12 +238,7 @@ export function OverviewPage({
           onOpenAll={onOpenTransactions}
         />
       </PageShell>
-      <DrillDrawer
-        device={device}
-        data={drillData}
-        onClose={() => setDrill(null)}
-        onViewFlow={viewDrillFlow}
-      />
+      <DrillDrawer device={device} data={drillData} onClose={() => setDrill(null)} />
       </>
     )
   }
@@ -346,17 +271,12 @@ export function OverviewPage({
         <ExpenseDonut
           slices={expenseCharts.categories}
           device="desktop"
-          onOpen={onDrillCategory ? openCategory : undefined}
+          onOpen={openCategory}
           colorUniverse={categoryUniverse}
         />
       </div>
     </PageShell>
-    <DrillDrawer
-      device={device}
-      data={drillData}
-      onClose={() => setDrill(null)}
-      onViewFlow={viewDrillFlow}
-    />
+    <DrillDrawer device={device} data={drillData} onClose={() => setDrill(null)} />
     </>
   )
 }

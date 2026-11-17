@@ -404,9 +404,13 @@ function activityGroup(
   )
   const fromAccount = new Map(ledger.accounts.map((account) => [account.id, account.name]))
   const counted = new Set<string>()
+  // 接口的 categoryId 是后端真实 id，账本流水 / 分类树用展示 id（种子 key）。
+  // 与 treeOf 同一 id 空间后再查子树与下钻，否则账户列恒为「—」、下钻零命中。
+  const displayIdOf = (id: string) => ledger.ids?.categoryDisplay?.[id] ?? id
 
   const children: CashChild[] = items.map((item: CashFlowActivityItem, index: number) => {
-    const ids = new Set(item.categoryId ? subtreeOf(ledger, item.categoryId) : [])
+    const displayCategoryId = item.categoryId ? displayIdOf(item.categoryId) : ''
+    const ids = new Set(displayCategoryId ? subtreeOf(ledger, displayCategoryId) : [])
     const accounts = new Set<string>()
     for (const transaction of ledger.transactions) {
       if (!inRange(transaction, from, to)) continue
@@ -418,7 +422,7 @@ function activityGroup(
       if (name) accounts.add(name)
     }
     return {
-      id: `${key}-${direction}-${item.categoryId ?? item.categoryName}-${index}`,
+      id: `${key}-${direction}-${displayCategoryId || item.categoryName}-${index}`,
       label: item.categoryName,
       account: accounts.size > 0 ? [...accounts].join(' / ') : '—',
       amount: Math.abs(totalOfItem(item)),
@@ -429,7 +433,7 @@ function activityGroup(
           : direction === 'in'
             ? ('income' as const)
             : ('expense' as const),
-      categoryId: item.categoryId ?? '',
+      categoryId: displayCategoryId,
     }
   })
   return {

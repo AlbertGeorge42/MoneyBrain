@@ -185,7 +185,6 @@ function renderPage() {
               dataState="normal"
               onRetry={() => {}}
               onImport={() => {}}
-              onViewFlow={() => {}}
             />
           </ToastProvider>
         </LedgerContext.Provider>

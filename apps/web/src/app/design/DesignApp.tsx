@@ -18,7 +18,6 @@ import { OverviewPage } from '@/features/overview/OverviewPage'
 import { QuickEntry } from '@/features/overview/QuickEntry'
 import { TransactionDetail } from '@/features/overview/TransactionDetail'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
-import { EMPTY_ADVANCED, writeFiltersToSearch } from '@/features/transactions/filters'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { HeadAction } from '@/features/shared/HeadAction'
 import { SettingsPage } from '@/features/settings/SettingsPage'
@@ -201,36 +200,6 @@ function PreviewBody({
       action: action ? { label: '撤销', run: action } : undefined,
     })
 
-  // 报表下钻 → 流水：把分类与期间写进 URL，流水页挂载时还原并回到列表顶部。
-  const viewFlow = (options: {
-    categoryId?: string
-    categoryIds?: string[]
-    accountId?: string
-    from: string
-    to: string
-  }) => {
-    const search = writeFiltersToSearch(window.location.search, {
-      query: '',
-      type: 'all',
-      advanced: {
-        ...EMPTY_ADVANCED,
-        categoryId: options.categoryId ?? '',
-        categoryIds: options.categoryIds ?? [],
-        accountId: options.accountId ?? '',
-        dateFrom: options.from,
-        dateTo: options.to,
-      },
-    })
-    const params = new URLSearchParams(search)
-    // 预览壳的 page 也写进 URL：刷新 / 回退时仍落在带条件的流水页，而不是报表。
-    params.set('page', 'transactions')
-    window.history.replaceState(
-      window.history.state,
-      '',
-      `${window.location.pathname}?${params.toString()}`,
-    )
-    onPage('transactions')
-  }
   const createAccount = () => notify('创建账户将在设置批次开放，本次只验证冷启动引导。')
   const importLedger = () => notify('导入账单将在流水批次开放，本次只验证冷启动引导。')
   const retry = () => {
@@ -253,7 +222,6 @@ function PreviewBody({
         onRecord={() => setEntryOpen(true)}
         onImport={importLedger}
         onOpenReports={() => onPage('reports')}
-        onDrillCategory={viewFlow}
       />
     ) : page === 'transactions' ? (
       <TransactionsPage
@@ -275,7 +243,6 @@ function PreviewBody({
         dataState={dataState}
         onRetry={retry}
         onImport={importLedger}
-        onViewFlow={viewFlow}
         initialFuture={reportInitialFuture}
       />
     ) : page === 'budgets' ? (

@@ -28,6 +28,7 @@ import {
   MobileFilterDrawer,
 } from './FilterPanel'
 import { TransactionDetailPanel } from './TransactionDetailPanel'
+import { useDetailActions } from './useDetailActions'
 import { TransactionsList } from './TransactionsList'
 import { useServerTransactions } from './apiTransactions'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
@@ -236,7 +237,8 @@ export function TransactionsPage({
   onImport,
   onOpenReports,
 }: TransactionsPageProps) {
-  const { ledger, updateTransaction, deleteTransactions, setTransactionCategory, linkRefund, undo } = useLedger()
+  const { ledger, deleteTransactions, setTransactionCategory, undo } = useLedger()
+  const { handleSave, handleDelete: deleteDetail, handleLinkRefund } = useDetailActions()
   // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
   const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
   const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
@@ -443,46 +445,9 @@ export function TransactionsPage({
     )
   }
 
-  const handleSave = async (
-    id: string,
-    patch: Parameters<typeof updateTransaction>[1],
-  ): Promise<LedgerMutationOutcome> => {
-    const result = await updateTransaction(id, patch)
-    if (!result.ok) {
-      notify(`保存失败：${result.error ?? '请重试'}`)
-      return result
-    }
-    notify(
-      '已保存修改 · 账户余额与总览已同步',
-      result.undoToken ? () => runUndo(result.undoToken!, '已撤销修改') : undefined,
-    )
-    return result
-  }
-
   const handleDelete = async (id: string): Promise<LedgerMutationOutcome> => {
-    const result = await deleteTransactions([id])
-    if (!result.ok) {
-      notify(`删除失败：${result.error ?? '请重试'}`)
-      return result
-    }
-    setDetailId(null)
-    notify(
-      `已删除 ${result.succeeded} 笔流水`,
-      result.undoToken ? () => runUndo(result.undoToken!, '已撤销删除') : undefined,
-    )
-    return result
-  }
-
-  const handleLinkRefund = async (
-    id: string,
-    originalId: string | null,
-  ): Promise<LedgerMutationOutcome> => {
-    const result = await linkRefund(id, originalId)
-    if (!result.ok) {
-      notify(`关联失败：${result.error ?? '请重试'}`)
-      return result
-    }
-    notify(originalId ? '已关联原交易' : '已解除原交易关联')
+    const result = await deleteDetail(id)
+    if (result.ok) setDetailId(null)
     return result
   }
 
