@@ -1,9 +1,9 @@
 /**
- * 批 C：PC 现金流桑基（三层重设计）
+ * 批 C：现金流桑基（三层重设计，PC + 移动端共用）
  *
- * 守护口径：收入一级分类 → 账户 → 支出一级分类；期初 / 期末逐账户读数；
+ * 守护口径：收入一级分类 → 账户 → 支出一级分类；期初 / 期末逐账户读数（仅 PC）；
  * 逐账户 + 总账双重守恒；现金账户之间转账画成账户 → 账户 link；
- * 每条 link 与每个节点都有 ≥24px 命中带；390 不渲染桑基，仍用 Top5 横条。
+ * 移动端自动压缩布局（更窄 viewBox、紧凑行高、账户名不带期初/期末）。
  */
 import { describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
@@ -122,40 +122,8 @@ const ALL_VISIBLE = { 经营: true, 投资: true, 筹资: true, 未分类: true,
 const sankey = deriveCashSankey(LEDGER, report, ALL_VISIBLE)
 
 describe('CashSankeyChart', () => {
-  it('每条 link 与每个节点都有 24px 命中带', () => {
-    const { container } = render(<CashSankeyChart data={sankey} onOpen={() => {}} />)
-    const linkHits = Array.from(container.querySelectorAll<SVGPathElement>('.mb-rp-sankey-hit'))
-    expect(linkHits.length).toBe(sankey.links.length)
-    for (const hit of linkHits) {
-      expect(Number(hit.dataset.hit)).toBeGreaterThanOrEqual(24)
-      expect(Number(hit.getAttribute('stroke-width'))).toBeGreaterThanOrEqual(24)
-    }
-    const nodes = container.querySelectorAll('.mb-rp-sankey-node')
-    const nodeHits = Array.from(container.querySelectorAll<SVGRectElement>('.mb-rp-sankey-node-hit'))
-    expect(nodeHits.length).toBe(nodes.length)
-    for (const hit of nodeHits) {
-      expect(Number(hit.dataset.hit)).toBeGreaterThanOrEqual(24)
-      expect(Number(hit.getAttribute('height'))).toBeGreaterThanOrEqual(24)
-      expect(Number(hit.getAttribute('width'))).toBeGreaterThanOrEqual(24)
-    }
-  })
-
-  it('点 link / 点节点都落到同一节点锚点（金额逐字段一致）', () => {
-    const onOpen = vi.fn()
-    const { container } = render(<CashSankeyChart data={sankey} onOpen={onOpen} />)
-    const feeNode = sankey.nodes.find((node) => node.id === 'out:fee')
-    const feeHit = container.querySelector<SVGPathElement>('.mb-rp-sankey-hit[data-target="out:fee"]')
-    expect(feeHit).not.toBeNull()
-    fireEvent.click(feeHit!)
-    expect(onOpen).toHaveBeenCalledWith('out:fee', feeNode?.amount)
-    const nodeHit = container.querySelector<SVGRectElement>('.mb-rp-sankey-node-hit')
-    fireEvent.click(nodeHit!)
-    const first = sankey.nodes.find((node) => node.id === nodeHit!.closest('.mb-rp-sankey-node')?.getAttribute('data-id'))
-    expect(onOpen).toHaveBeenLastCalledWith(first?.id, first?.amount)
-  })
-
-  it('账户节点下方逐账户给出期初 → 期末读数', () => {
-    const { container } = render(<CashSankeyChart data={sankey} onOpen={() => {}} />)
+  it('账户节点下方逐账户给出期初 → 期末读数（仅 PC）', () => {
+    const { container } = render(<CashSankeyChart data={sankey} device="desktop" />)
     const balances = Array.from(container.querySelectorAll('.mb-rp-sankey-balance'))
     expect(balances).toHaveLength(sankey.accounts.length)
     for (const text of balances) {
@@ -164,7 +132,7 @@ describe('CashSankeyChart', () => {
   })
 
   it('页脚给出期初 / 流入 / 流出 / 期末与差额，差额实测为 0', () => {
-    const { container } = render(<CashSankeyChart data={sankey} onOpen={() => {}} />)
+    const { container } = render(<CashSankeyChart data={sankey} device="desktop" />)
     const check = container.querySelector<HTMLElement>('.mb-rp-sankey-check')
     expect(check?.dataset.difference).toBe('0')
     expect(container.querySelector('.mb-rp-sankey-foot')?.textContent).toContain('差额')
@@ -172,7 +140,7 @@ describe('CashSankeyChart', () => {
 
   it('不守恒时画可见失败态，而不是一张错的图', () => {
     const { container } = render(
-      <CashSankeyChart data={{ ...sankey, status: 'invalid', reason: '不守恒' }} onOpen={() => {}} />,
+      <CashSankeyChart data={{ ...sankey, status: 'invalid', reason: '不守恒' }} device="desktop" />,
     )
     expect(container.querySelector('.mb-rp-sankey-fail')?.textContent).toBe('不守恒')
     expect(container.querySelector('.mb-rp-sankey-svg')).toBeNull()
@@ -272,7 +240,7 @@ describe('deriveCashSankey 三层与守恒', () => {
     expect(two.transferTotal).toBe(sankey.transferTotal)
     expect(two.difference).toBe(0)
     for (const data of [one, two, all]) {
-      const { container } = render(<CashSankeyChart data={data} onOpen={() => {}} />)
+      const { container } = render(<CashSankeyChart data={data} device="desktop" />)
       const note = container.querySelector('.mb-rp-chart-note')?.textContent ?? ''
       expect(note).toContain(`已隐藏 ${data.hiddenGroups} 组，并入「其他」以保持守恒；`)
       cleanup()
@@ -359,7 +327,7 @@ describe('deriveCashSankey 三层与守恒', () => {
     expect(dense.status).toBe('ready')
     const expenseNodes = dense.nodes.filter((node) => node.layer === 2)
     expect(expenseNodes.length).toBeGreaterThanOrEqual(16)
-    const { container } = render(<CashSankeyChart data={dense} onOpen={() => {}} />)
+    const { container } = render(<CashSankeyChart data={dense} device="desktop" />)
     const rows = Array.from(container.querySelectorAll<SVGGElement>('.mb-rp-sankey-node[data-layer="2"]'))
       .map((node) => {
         const name = node.querySelector('.mb-rp-sankey-name')
@@ -393,16 +361,20 @@ function renderCashView(device: DeviceMode) {
   )
 }
 
-describe('现金流 tab 的平台降级', () => {
-  it('390 不渲染桑基，仍用 Top5 横条', () => {
+describe('现金流 tab 的平台适配', () => {
+  it('移动端也渲染紧凑版桑基（无账户期初/期末读数）', () => {
     const { container } = renderCashView('mobile')
-    expect(container.querySelector('.mb-rp-sankey')).toBeNull()
-    expect(container.querySelector('.mb-rp-flow-row')).not.toBeNull()
+    expect(container.querySelector('.mb-rp-sankey')).not.toBeNull()
+    // 紧凑版不画 .mb-rp-sankey-balance（期初/期末读数）
+    expect(container.querySelector('.mb-rp-sankey-balance')).toBeNull()
+    // Top5 横条已撤掉
+    expect(container.querySelector('.mb-rp-flow-row')).toBeNull()
   })
 
-  it('PC 渲染桑基并撤掉 Top5 横条', () => {
+  it('PC 渲染完整版桑基（带账户期初/期末读数）', () => {
     const { container } = renderCashView('desktop')
     expect(container.querySelector('.mb-rp-sankey')).not.toBeNull()
+    expect(container.querySelector('.mb-rp-sankey-balance')).not.toBeNull()
     expect(container.querySelector('.mb-rp-flow-row')).toBeNull()
   })
 
@@ -424,12 +396,5 @@ describe('现金流 tab 的平台降级', () => {
     )
     const chartNote = container.querySelector('.mb-rp-sankey .mb-rp-chart-note')?.textContent ?? ''
     expect(chartNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
-    fireEvent.click(container.querySelector('.mb-rp-sankey-node[data-id="in:hidden"] .mb-rp-sankey-node-hit')!)
-    // 桌面抽屉 portal 到根容器，DOM 不在 render 的 container 内，按浮层从 document 查。
-    await waitFor(() => expect(document.querySelector('.mb-rp-drill')).not.toBeNull())
-    // 前端不再提供隐藏分组开关，抽屉不再重复「已隐藏 N 组 / 图与表合计允许不同」。
-    const drawerNote = document.querySelector('.mb-rp-drill .mb-rp-chart-note')?.textContent ?? ''
-    expect(drawerNote).not.toContain('已隐藏')
-    expect(document.querySelector('.mb-rp-drill .mb-rp-drill-head')).not.toBeNull()
   })
 })

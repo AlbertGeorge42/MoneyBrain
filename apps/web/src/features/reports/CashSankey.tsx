@@ -1,30 +1,82 @@
 import { useMemo } from 'react'
+import type { DeviceMode } from '@/features/shared/types'
 import { currency } from './reportsModel'
 import type { CashSankey, CashSankeyLink, CashSankeyNode } from './cashSankeyModel'
 
 /**
- * PC 现金流桑基（三层）：收入一级分类 → 账户 → 支出一级分类。
+ * 现金流桑基（三层）：收入一级分类 → 账户 → 支出一级分类。
  *
  * 期初 / 期末不画成首尾节点，而是逐账户读数列在账户节点下方。
  * 高度由「每行节点 + 标签预留」算出：分类名 / 金额两行、账户名 + 期初期末两行
  * 都占在自己的行带里，节点再密也不会压字。
+ *
+ * 移动端保持三层但压缩常量、去掉账户期初期末读数，保证窄屏可读。
  */
-const WIDTH = 1080
-const PAD_TOP = 34
-const PAD_BOTTOM = 26
-const NODE_W = 14
-const ROW_GAP = 12
-const HIT = 24
-const LABEL_TOP = 24
-const LABEL_BOTTOM = 2
-const ACCOUNT_TOP = 10
-const ACCOUNT_BOTTOM = 40
-const MIN_NODE_H = 6
-const TARGET_CONTENT = 420
+interface Layout {
+  width: number
+  padTop: number
+  padBottom: number
+  nodeW: number
+  rowGap: number
+  labelTop: number
+  labelBottom: number
+  accountTop: number
+  accountBottom: number
+  minNodeH: number
+  targetContent: number
+  leftX: number
+  midX: number
+  rightX: number
+  /** 移动端为 true 时不画账户的期初 / 期末读数。 */
+  compactAccount: boolean
+}
 
-const LEFT_X = 176
-const MID_X = WIDTH / 2 - NODE_W / 2
-const RIGHT_X = WIDTH - 176 - NODE_W
+function layoutOf(device: DeviceMode): Layout {
+  if (device === 'mobile') {
+    const width = 360
+    const nodeW = 10
+    const leftX = 64
+    const rightX = width - 64 - nodeW
+    return {
+      width,
+      padTop: 22,
+      padBottom: 16,
+      nodeW,
+      rowGap: 4,
+      labelTop: 14,
+      labelBottom: 2,
+      accountTop: 4,
+      accountBottom: 4,
+      minNodeH: 4,
+      targetContent: 220,
+      leftX,
+      midX: width / 2 - nodeW / 2,
+      rightX,
+      compactAccount: true,
+    }
+  }
+  const width = 1080
+  const nodeW = 14
+  const leftX = 176
+  const rightX = width - 176 - nodeW
+  return {
+    width,
+    padTop: 26,
+    padBottom: 20,
+    nodeW,
+    rowGap: 6,
+    labelTop: 18,
+    labelBottom: 2,
+    accountTop: 6,
+    accountBottom: 30,
+    minNodeH: 5,
+    targetContent: 260,
+    leftX,
+    midX: width / 2 - nodeW / 2,
+    rightX,
+    compactAccount: false,
+  }
+}
 
 interface PlacedNode extends CashSankeyNode {
   x: number
@@ -59,16 +111,66 @@ function linkCountOf(node: CashSankeyNode, links: CashSankeyLink[], direction: '
 
 export function CashSankeyChart({
   data,
-  onOpen,
+  device,
 }: {
   data: CashSankey
-  onOpen: (nodeId: string, amount: number) => void
+  device: DeviceMode
 }) {
+  const L = layoutOf(device)
+  // 移动端每层分类节点聚合：收入层 / 支出层各保留前 keepTop 个，其余合并为「其他」。
+  // PC 不传 keepTop，全量渲染。
+  const keepTop = device === 'mobile' ? 4 : 0
   const layout = useMemo(() => {
     if (data.status !== 'ready') return null
-    const income = data.nodes.filter((node) => node.layer === 0).sort((left, right) => right.amount - left.amount)
-    const accounts = data.nodes.filter((node) => node.layer === 1).sort((left, right) => right.amount - left.amount)
-    const expense = data.nodes.filter((node) => node.layer === 2).sort((left, right) => right.amount - left.amount)
+
+    // ── 每层节点聚合（仅 mobile；keepTop > 0 时生效） ──
+    let nodes = data.nodes
+    let links = data.links
+    if (keepTop > 0) {
+      const merged: CashSankeyNode[] = []
+      for (const layer of [0, 2] as const) {
+        const sorted = nodes
+          .filter((n) => n.layer === layer)
+          .sort((a, b) => b.amount - a.amount)
+        if (sorted.length <= keepTop) {
+          merged.push(...sorted)
+          continue
+        }
+        const keep = sorted.slice(0, keepTop)
+        const hide = sorted.slice(keepTop)
+        merged.push(...keep)
+        merged.push({
+          ...hide[0], // 用第一个被合并节点的 tone 等属性，覆盖 id/name/amount
+          id: `${layer === 0 ? 'in' : 'out'}:merged`,
+          name: `其他 (${hide.length})`,
+          layer,
+          amount: hide.reduce((sum, n) => sum + n.amount, 0),
+          children: [],
+        })
+      }
+      merged.push(...nodes.filter((n) => n.layer === 1)) // 账户层全留
+      // 重定向 links
+      const redirect = new Map<string, string>()
+      for (const layer of [0, 2] as const) {
+        const sorted = nodes
+          .filter((n) => n.layer === layer)
+          .sort((a, b) => b.amount - a.amount)
+        if (sorted.length > keepTop) {
+          const mergedId = `${layer === 0 ? 'in' : 'out'}:merged`
+          sorted.slice(keepTop).forEach((n) => redirect.set(n.id, mergedId))
+        }
+      }
+      links = data.links.map((link) => ({
+        ...link,
+        sourceId: redirect.get(link.sourceId) ?? link.sourceId,
+        targetId: redirect.get(link.targetId) ?? link.targetId,
+      }))
+      nodes = merged
+    }
+
+    const income = nodes.filter((node) => node.layer === 0).sort((left, right) => right.amount - left.amount)
+    const accounts = nodes.filter((node) => node.layer === 1).sort((left, right) => right.amount - left.amount)
+    const expense = nodes.filter((node) => node.layer === 2).sort((left, right) => right.amount - left.amount)
     if (income.length === 0 && accounts.length === 0 && expense.length === 0) return null
 
     const maxColumnAmount = Math.max(
@@ -78,7 +180,7 @@ export function CashSankeyChart({
       1,
     )
     // 同一比例尺贯穿三列，ribbon 粗细与节点高度可比；列内容超出目标高度时图变高而不是压缩标签。
-    const scale = TARGET_CONTENT / maxColumnAmount
+    const scale = L.targetContent / maxColumnAmount
 
     const heightOf = (node: CashSankeyNode): { h: number; row: number; top: number } => {
       const stacked =
@@ -87,10 +189,10 @@ export function CashSankeyChart({
           : node.layer === 0
             ? linkCountOf(node, data.links, 'out')
             : linkCountOf(node, data.links, 'in')
-      const h = Math.max(MIN_NODE_H, node.amount * scale + 1.5 * stacked)
+      const h = Math.max(L.minNodeH, node.amount * scale + 1.5 * stacked)
       return node.layer === 1
-        ? { h, row: Math.max(h + ACCOUNT_TOP + ACCOUNT_BOTTOM, 44), top: ACCOUNT_TOP }
-        : { h, row: Math.max(h + LABEL_TOP + LABEL_BOTTOM, 34), top: LABEL_TOP }
+        ? { h, row: Math.max(h + L.accountTop + L.accountBottom, 44), top: L.accountTop }
+        : { h, row: Math.max(h + L.labelTop + L.labelBottom, 34), top: L.labelTop }
     }
 
     const metrics = new Map<string, { h: number; row: number; top: number }>(
@@ -105,12 +207,12 @@ export function CashSankeyChart({
       columnHeight: number,
     ): PlacedNode[] => {
       const rows = nodes.reduce((sum, node) => sum + (metrics.get(node.id)?.row ?? 34), 0)
-      const gaps = Math.max(0, nodes.length - 1) * ROW_GAP
+      const gaps = Math.max(0, nodes.length - 1) * L.rowGap
       const total = rows + gaps
-      let cursor = PAD_TOP + Math.max(0, (columnHeight - total) / 2)
+      let cursor = L.padTop + Math.max(0, (columnHeight - total) / 2)
       const placed: PlacedNode[] = []
       for (const node of nodes) {
-        const metric = metrics.get(node.id) ?? { h: MIN_NODE_H, row: 34, top: LABEL_TOP }
+        const metric = metrics.get(node.id) ?? { h: L.minNodeH, row: 34, top: L.labelTop }
         placed.push({
           ...node,
           x,
@@ -119,18 +221,18 @@ export function CashSankeyChart({
           labelX,
           anchor,
         })
-        cursor += metric.row + ROW_GAP
+        cursor += metric.row + L.rowGap
       }
       return placed
     }
 
     const columnTotals = [
       income.reduce((sum, node) => sum + (metrics.get(node.id)?.row ?? 34), 0) +
-        Math.max(0, income.length - 1) * ROW_GAP,
+        Math.max(0, income.length - 1) * L.rowGap,
       accounts.reduce((sum, node) => sum + (metrics.get(node.id)?.row ?? 44), 0) +
-        Math.max(0, accounts.length - 1) * ROW_GAP,
+        Math.max(0, accounts.length - 1) * L.rowGap,
       expense.reduce((sum, node) => sum + (metrics.get(node.id)?.row ?? 34), 0) +
-        Math.max(0, expense.length - 1) * ROW_GAP,
+        Math.max(0, expense.length - 1) * L.rowGap,
     ]
     const columnHeight = Math.max(...columnTotals, 1)
 
@@ -138,9 +240,9 @@ export function CashSankeyChart({
     const put = (list: PlacedNode[]) => {
       for (const node of list) placed.set(node.id, node)
     }
-    put(placeColumn(income, LEFT_X, LEFT_X - 10, 'end', columnHeight))
-    put(placeColumn(accounts, MID_X, MID_X - 10, 'end', columnHeight))
-    put(placeColumn(expense, RIGHT_X, RIGHT_X + NODE_W + 10, 'start', columnHeight))
+    put(placeColumn(income, L.leftX, L.leftX - 10, 'end', columnHeight))
+    put(placeColumn(accounts, L.midX, L.midX - 10, 'end', columnHeight))
+    put(placeColumn(expense, L.rightX, L.rightX + L.nodeW + 10, 'start', columnHeight))
 
     const outCursors = new Map<string, number>()
     const inCursors = new Map<string, number>()
@@ -149,7 +251,7 @@ export function CashSankeyChart({
       inCursors.set(node.id, node.y)
     }
 
-    const links = data.links
+    const laidLinks = links
       .slice()
       .sort((left, right) => right.amount - left.amount)
       .map((link) => {
@@ -164,19 +266,19 @@ export function CashSankeyChart({
         if (link.kind === 'transfer') {
           return {
             link,
-            d: transferPath(source.x + NODE_W, y1, target.x + NODE_W, y2, height),
+            d: transferPath(source.x + L.nodeW, y1, target.x + L.nodeW, y2, height),
             height,
           }
         }
-        const x1 = source.x + NODE_W
+        const x1 = source.x + L.nodeW
         const x2 = target.x
         return { link, d: ribbonPath(x1, y1, x2, y2, height), height }
       })
       .filter((item): item is { link: CashSankeyLink; d: string; height: number } => item !== null)
 
-    const height = PAD_TOP + columnHeight + PAD_BOTTOM
-    return { placed: [...placed.values()], links, height }
-  }, [data])
+    const height = L.padTop + columnHeight + L.padBottom
+    return { placed: [...placed.values()], links: laidLinks, height }
+  }, [data, L, keepTop])
 
   if (data.status !== 'ready' || !layout) {
     return (
@@ -201,20 +303,20 @@ export function CashSankeyChart({
     <div className="mb-rp-sankey">
       <svg
         className="mb-rp-sankey-svg"
-        viewBox={`0 0 ${WIDTH} ${layout.height}`}
+        viewBox={`0 0 ${L.width} ${layout.height}`}
         role="img"
         aria-label={`现金流三层桑基图：收入分类 → ${data.accounts.length} 个账户 → 支出分类；流入 ${currency(data.inflow)}，流出 ${currency(data.outflow)}`}
       >
-        <text className="mb-rp-sankey-axis" x={LEFT_X - 10} y={18} textAnchor="end">
+        <text className="mb-rp-sankey-axis" x={L.leftX - 10} y={18} textAnchor="end">
           收入分类
         </text>
-        <text className="mb-rp-sankey-axis" x={MID_X + NODE_W / 2} y={18} textAnchor="middle">
+        <text className="mb-rp-sankey-axis" x={L.midX + L.nodeW / 2} y={18} textAnchor="middle">
           账户
         </text>
-        <text className="mb-rp-sankey-axis" x={RIGHT_X + NODE_W + 10} y={18} textAnchor="start">
+        <text className="mb-rp-sankey-axis" x={L.rightX + L.nodeW + 10} y={18} textAnchor="start">
           支出分类
         </text>
-        {/* 小流量（手续费 / 修正）后画：命中带叠在粗 ribbon 之上才点得到。 */}
+        {/* 小流量（手续费 / 修正）后画：叠在粗 ribbon 之上。 */}
         {layout.links.map((item) => (
           <g
             key={item.link.id}
@@ -222,15 +324,6 @@ export function CashSankeyChart({
             data-kind={item.link.kind}
           >
             <path className="mb-rp-sankey-ribbon" d={item.d} />
-            <path
-              className="mb-rp-sankey-hit"
-              d={item.d}
-              strokeWidth={HIT}
-              data-hit={HIT}
-              data-amount={item.link.amount}
-              data-target={item.link.nodeId}
-              onClick={() => onOpen(item.link.nodeId, item.link.amount)}
-            />
           </g>
         ))}
         {layout.placed.map((node) => (
@@ -241,27 +334,18 @@ export function CashSankeyChart({
             data-layer={node.layer}
             data-amount={node.amount}
           >
-            <rect className="mb-rp-sankey-node-body" x={node.x} y={node.y} width={NODE_W} height={Math.max(0, node.h)} rx={3} />
-            <rect
-              className="mb-rp-sankey-node-hit"
-              x={node.x - (HIT - NODE_W) / 2}
-              y={node.y + node.h / 2 - HIT / 2}
-              width={HIT}
-              height={Math.max(HIT, node.h)}
-              data-hit={HIT}
-              onClick={() => onOpen(node.id, node.amount)}
-            />
+            <rect className="mb-rp-sankey-node-body" x={node.x} y={node.y} width={L.nodeW} height={Math.max(0, node.h)} rx={3} />
             {node.layer === 1 ? (
               <>
                 <text
                   className="mb-rp-sankey-name"
                   x={node.labelX}
-                  y={node.y - 9}
+                  y={node.y - (L.compactAccount ? 6 : 9)}
                   textAnchor={node.anchor}
                 >
                   {node.name}
                 </text>
-                {node.account && (
+                {!L.compactAccount && node.account && (
                   <text
                     className="mb-rp-sankey-balance"
                     x={node.labelX}
@@ -277,7 +361,7 @@ export function CashSankeyChart({
                 <text
                   className="mb-rp-sankey-name"
                   x={node.labelX}
-                  y={node.y - 20}
+                  y={node.y - (L.compactAccount ? 14 : 20)}
                   textAnchor={node.anchor}
                 >
                   {node.name}

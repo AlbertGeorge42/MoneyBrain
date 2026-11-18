@@ -236,10 +236,10 @@ export function ReportsPage({
   const flow = flowApi.data
   const cash = cashState === 'past' ? cashApi.data : cashProjectionApi.data
   const invest = investApi.data
-  // 桑基只在 PC 渲染（移动端沿用 Top5 横条）；活动分组固定全显示。
+  // 桑基三层布局在 PC / 移动端都渲染；移动端在组件内做每层节点聚合。
   const sankey = useMemo(
-    () => (device === 'desktop' && cash ? deriveCashSankey(ledger, cash) : null),
-    [device, ledger, cash],
+    () => (cash ? deriveCashSankey(ledger, cash) : null),
+    [ledger, cash],
   )
   const drillData = useMemo<DrillData | null>(() => {
     if (!drill) return null

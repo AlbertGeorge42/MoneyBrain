@@ -1,13 +1,11 @@
 /**
- * 现金流视图：指标条 + 桑基（仅 PC）+ 流入 / 流出双表（PC 并排 / 移动横条 + 分段单表）。
- * 活动分组固定全显示，表尾合计就是各组之和；点切块 / ribbon 落到同一节点抽屉。
+ * 现金流视图：指标条 + 桑基（三层）+ 流入 / 流出双表（PC 并排 / 移动分段单表）。
+ * 活动分组固定全显示，表尾合计就是各组之和；点切块 / 环节点 / 表格行都落到同一个分类抽屉。
  */
-import { useState } from 'react'
-import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { FoldState } from '@/features/shared/foldState'
 import { CashSankeyChart } from './CashSankey'
-import { ChartCard, CashFlowBars, CompositionDonutSide } from './charts'
+import { ChartCard, CompositionDonutSide } from './charts'
 import { MetricStrip, ReportTable, ReportTablePair, type ReportColumn } from './ReportTable'
 import { Segmented } from '@/features/shared/Segmented'
 import type { DonutNode } from '@/features/shared/DonutChart'
@@ -20,7 +18,7 @@ import {
   type DrillTarget,
 } from './reportsModel'
 import { cashTotalOf } from './reportSettings'
-import type { CashSankey, CashSankeyNode } from './cashSankeyModel'
+import type { CashSankey } from './cashSankeyModel'
 
 /** 现金流活动分组 → 环节点：一级是活动分组，二级是分类；node id 用 categoryId，便于下钻。 */
 function cashDonutNodes(groups: CashGroup[], side: 'in' | 'out'): DonutNode[] {
@@ -81,12 +79,6 @@ export function CashView({
   onFold: (id: string) => void
   onDrill: (target: DrillTarget) => void
 }) {
-  const [sankeyNode, setSankeyNode] = useState<CashSankeyNode | null>(null)
-  // 点切块 / 每条 ribbon 都落到同一个节点抽屉：合计与该节点、图例字段一一对应。
-  const openSankeyNode = (nodeId: string) => {
-    const node = sankey?.nodes.find((item) => item.id === nodeId)
-    if (node) setSankeyNode(node)
-  }
   const inflowTotal = cashTotalOf(report.inflowGroups)
   const outflowTotal = cashTotalOf(report.outflowGroups)
   const inflowRows = cashRowsFor('in', report.inflowGroups, expanded, onFold, onDrill)
@@ -118,7 +110,7 @@ export function CashView({
         <>
           {sankey && (
             <ChartCard title="现金流流向" desc="收入分类 → 账户 → 支出分类 · 期初 / 期末逐账户读数">
-              <CashSankeyChart data={sankey} onOpen={openSankeyNode} />
+              <CashSankeyChart data={sankey} device={device} />
             </ChartCard>
           )}
           <ReportTablePair
@@ -142,12 +134,11 @@ export function CashView({
         </>
       ) : (
         <>
-          <CashFlowBars
-            inflowGroups={report.inflowGroups}
-            outflowGroups={report.outflowGroups}
-            inflowTotal={inflowTotal}
-            outflowTotal={outflowTotal}
-          />
+          {sankey && (
+            <ChartCard title="现金流流向">
+              <CashSankeyChart data={sankey} device={device} />
+            </ChartCard>
+          )}
           <Segmented
             size="lg"
             fill
@@ -201,40 +192,6 @@ export function CashView({
           />
         </>
       )}
-      <Sheet
-        variant="report"
-        device={device}
-        opened={sankeyNode !== null}
-        onClose={() => setSankeyNode(null)}
-        title={sankeyNode ? sankeyNode.name : '现金流明细'}
-      >
-        {sankeyNode && (
-          <div className="mb-rp-drill">
-            <div className="mb-rp-drill-head">
-              <span className="mb-rp-drill-label">
-                {sankeyNode.layer === 1 ? '账户本期流动' : '本期分类合计'}
-              </span>
-              <span className="mb-rp-drill-amount is-neutral">{currency(sankeyNode.amount)}</span>
-            </div>
-            <h4 className="mb-rp-drill-title">
-              {sankeyNode.children.length > 0 ? `${sankeyNode.children.length} 笔` : '无分组明细'}
-            </h4>
-            {sankeyNode.children.length === 0 ? (
-              <p className="mb-rp-empty-line">该节点没有可下钻的分组流水</p>
-            ) : (
-              sankeyNode.children.map((child) => (
-                <div className="mb-rp-drill-row" key={child.id}>
-                  <div>
-                    <span className="mb-rp-drill-tx-label">{child.label}</span>
-                    <span className="mb-rp-drill-meta">{child.account}</span>
-                  </div>
-                  <span className={`mb-rp-drill-value --${child.tone}`}>{currency(child.amount)}</span>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </Sheet>
     </>
   )
 }

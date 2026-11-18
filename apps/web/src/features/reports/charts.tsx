@@ -475,66 +475,6 @@ export function CompositionDonutSide({
   )
 }
 
-export function CashFlowBars({
-  inflowGroups,
-  outflowGroups,
-  inflowTotal,
-  outflowTotal,
-}: {
-  inflowGroups: { name: string; total: number }[]
-  outflowGroups: { name: string; total: number }[]
-  inflowTotal: number
-  outflowTotal: number
-}) {
-  const names = ['经营', '投资', '筹资', '未分类', '账户间转账'].filter(
-    (name) =>
-      inflowGroups.some((group) => group.name === name) ||
-      outflowGroups.some((group) => group.name === name),
-  )
-  const max = Math.max(
-    ...inflowGroups.map((group) => group.total),
-    ...outflowGroups.map((group) => group.total),
-    1,
-  )
-  return (
-    <ChartCard title="资金流向">
-      <div className="mb-rp-flow-legend">
-        <span>流出 {currency(outflowTotal)}</span>
-        <span>流入 {currency(inflowTotal)}</span>
-      </div>
-      {names.length === 0 ? (
-        <p className="mb-rp-empty-line">该期间没有现金流</p>
-      ) : (
-        names.map((name) => {
-          const out = outflowGroups.find((group) => group.name === name)?.total ?? 0
-          const incoming = inflowGroups.find((group) => group.name === name)?.total ?? 0
-          return (
-            <div className="mb-rp-flow-row" key={name}>
-              <div className="mb-rp-flow-left">
-                <progress
-                  className="mb-rp-flow-progress mb-rp-flow-progress--out"
-                  value={(out / max) * 100}
-                  max={100}
-                  aria-label={`${name}流出 ${currency(out)}`}
-                />
-              </div>
-              <span className="mb-rp-flow-name">{name}</span>
-              <div>
-                <progress
-                  className="mb-rp-flow-progress mb-rp-flow-progress--in"
-                  value={(incoming / max) * 100}
-                  max={100}
-                  aria-label={`${name}流入 ${currency(incoming)}`}
-                />
-              </div>
-            </div>
-          )
-        })
-      )}
-    </ChartCard>
-  )
-}
-
 export function AllocationBars({
   rows,
   showTarget = true,
