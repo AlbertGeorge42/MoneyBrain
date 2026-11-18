@@ -1,14 +1,13 @@
 /**
  * 设置 · 现金流分类分区。
  *
- * 资产 Tab 按账户性质标记分组，收入 / 支出 / 转账 Tab 按活动归组；
- * 所有分组默认折叠，空组不渲染占位行。活动归属写入分类的 cashFlowType，
- * 现金流报表按同一字段分组。
+ * 资产 Tab 按一级资产分类的现金等价 / 投资标记分组（子分类继承，不单独列出），
+ * 收入 / 支出 / 转账 Tab 按活动归组；所有分组默认折叠，空组不渲染占位行。
+ * 活动归属写入分类的 cashFlowType，现金流报表按同一字段分组。
  */
 import {
   ChevronDown,
   ChevronRight,
-  CreditCard,
   GripVertical,
   Landmark,
   Tag,
@@ -18,28 +17,26 @@ import {
 } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
 import { Tabs } from '@/features/shared/Tabs'
-import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
-import type { AccountKind, Ledger } from '@/features/overview/model'
-import { formatCurrency } from '@/utils/format'
-import { minor } from '@domain/index'
+import type { Ledger } from '@/features/overview/model'
 import { RowMenu } from './RowMenu'
 import {
   ACTIVITY_GROUPS,
   ASSET_MARK_GROUPS,
+  assetMarkOf,
   defaultActivity,
   type ActivityGroupId,
+  type AssetMarkId,
   type CategoryRow,
 } from './model'
 import type { Mover } from './MoverSheet'
 
 export type CashflowTab = 'asset' | 'income' | 'expense' | 'transfer'
 
-const ACCOUNT_ICONS: Record<AccountKind, LucideIcon> = {
-  deposit: Landmark,
+const ASSET_MARK_ICONS: Record<AssetMarkId, LucideIcon> = {
   cash: Wallet,
   investment: TrendingUp,
-  credit: CreditCard,
+  other: Landmark,
 }
 
 const CASHFLOW_TABS: readonly { id: CashflowTab; label: string }[] = [
@@ -81,6 +78,11 @@ export function CashflowSection({
     return category ? defaultActivity(category) : 'unassigned'
   }
 
+  // 现金等价 / 投资标志只存在一级资产分类；子分类继承，不单独列出。
+  const rootAssetCategories = (ledger.accountCategories ?? []).filter(
+    (category) => category.type === 'asset' && !category.parentId,
+  )
+
   if (tab === 'asset') {
     return (
       <>
@@ -94,7 +96,7 @@ export function CashflowSection({
         </div>
         <div className="mb-set-list">
           {ASSET_MARK_GROUPS.map((group) => {
-            const groupRows = ledger.accounts.filter((account) => group.kinds.includes(account.kind))
+            const groupRows = rootAssetCategories.filter((category) => assetMarkOf(category) === group.id)
             const groupKey = `cf-asset-${group.id}`
             const empty = groupRows.length === 0
             // 空组不渲染占位行，避免像还没加载完；其余组默认折叠。
@@ -118,10 +120,11 @@ export function CashflowSection({
                   <span className="mb-set-meta">({groupRows.length} 个分类)</span>
                 </div>
                 {open &&
-                  groupRows.map((account) => {
-                    const Icon = ACCOUNT_ICONS[account.kind]
+                  groupRows.map((category) => {
+                    const Icon = ASSET_MARK_ICONS[group.id]
+                    const accountCount = ledger.accounts.filter((account) => account.categoryId === category.id).length
                     return (
-                      <div key={account.id} className="mb-set-row is-child">
+                      <div key={category.id} className="mb-set-row is-child">
                         <span className="mb-set-child-space" aria-hidden="true" />
                         <span className="mb-set-drag" aria-hidden="true">
                           <GripVertical size={14} />
@@ -129,29 +132,24 @@ export function CashflowSection({
                         <span className="mb-set-icon">
                           <Icon size={16} />
                         </span>
-                        <span className="mb-set-name">
-                          {accountDisplayName(account, ledger.accounts)}
-                        </span>
-                        <span className="mb-set-meta">
-                          {formatCurrency(minor(account.balance))}
-                        </span>
+                        <span className="mb-set-name">{category.name}</span>
+                        <span className="mb-set-meta">{accountCount} 个账户</span>
                         <RowMenu
-                          id={`cf-${account.id}`}
+                          id={`cf-mark-${category.id}`}
                           openId={menuOpen}
                           onOpen={onMenuOpen}
                           confirming={confirming}
                           onConfirm={onConfirm}
                           items={[
                             {
-                              key: `cf-move-${account.id}`,
+                              key: `cf-mark-move-${category.id}`,
                               label: '移动到…',
                               onSelect: () =>
                                 onOpenMover({
-                                  kind: 'account',
-                                  id: account.id,
-                                  name: account.name,
-                                  current: account.categoryId ?? null,
-                                  type: account.kind === 'credit' ? 'liability' : 'asset',
+                                  kind: 'asset-mark',
+                                  id: category.id,
+                                  name: category.name,
+                                  current: group.id,
                                 }),
                             },
                           ]}

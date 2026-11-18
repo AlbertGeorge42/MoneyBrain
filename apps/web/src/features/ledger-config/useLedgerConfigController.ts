@@ -27,6 +27,7 @@ import {
   categoryRows,
   type AccountGroup,
   type AccountRow,
+  type AssetMarkId,
   type CategoryRow,
   type CategoryTab,
 } from './model'
@@ -52,6 +53,7 @@ export function useLedgerConfigController({
     updateAccountGroup,
     deleteAccountGroup: deleteAccountGroupRemote,
     reorderAccountGroupTo,
+    setAccountCategoryMark,
     createCategory,
     updateCategory,
     setCategoryCashFlow,
@@ -380,6 +382,19 @@ export function useLedgerConfigController({
       }
       onAfterWrite?.()
       notify('活动归属已更新')
+      setMover(null)
+      return
+    }
+    if (mover.kind === 'asset-mark') {
+      setMoverSaving(true)
+      const result = await setAccountCategoryMark(mover.id, target as AssetMarkId)
+      setMoverSaving(false)
+      if (!result.ok) {
+        setMoverError(result.error ?? '保存资产标记失败，请重试')
+        return
+      }
+      onAfterWrite?.()
+      notify('资产标记已更新')
       setMover(null)
       return
     }

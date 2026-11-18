@@ -473,6 +473,24 @@ export function LedgerProvider({
     [refreshRemote],
   )
 
+  const setAccountCategoryMark = useCallback(
+    async (id: string, mark: 'cash' | 'investment' | 'other'): Promise<LedgerMutationOutcome> => {
+      try {
+        await accountCategoryApi
+          .update(id, {
+            isCashEquivalent: mark === 'cash',
+            isInvestment: mark === 'investment',
+          })
+          .then(unwrapApiData)
+        await refreshRemote()
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, error: getApiErrorMessage(error) }
+      }
+    },
+    [refreshRemote],
+  )
+
   const deleteAccountGroup = useCallback(
     async (id: string): Promise<LedgerMutationOutcome> => {
       try {
@@ -772,6 +790,7 @@ export function LedgerProvider({
         updateAccountGroup,
         deleteAccountGroup,
         reorderAccountGroupTo,
+        setAccountCategoryMark,
         createCategory,
         updateCategory,
         setCategoryCashFlow,

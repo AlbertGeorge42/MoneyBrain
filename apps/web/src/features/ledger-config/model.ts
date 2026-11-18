@@ -12,6 +12,7 @@ import type {
   CashFlowActivity,
   Ledger,
   LedgerAccount,
+  LedgerAccountCategory,
   LedgerCategory,
   TxType,
 } from '@/features/overview/model'
@@ -215,15 +216,24 @@ export function defaultActivity(category: LedgerCategory): ActivityGroupId {
   return category.effectiveCashFlowType ?? category.cashFlowType ?? 'unassigned'
 }
 
+/** 一级资产分类的现金等价 / 投资标记；标志只存在根分类，子分类继承。 */
+export type AssetMarkId = 'cash' | 'investment' | 'other'
+
 export const ASSET_MARK_GROUPS: readonly {
-  id: 'cash' | 'investment' | 'other'
+  id: AssetMarkId
   label: string
-  kinds: readonly AccountKind[]
 }[] = [
-  { id: 'cash', label: '现金及等价物', kinds: ['cash'] },
-  { id: 'investment', label: '投资资产', kinds: ['investment'] },
-  { id: 'other', label: '其他资产', kinds: ['deposit'] },
+  { id: 'cash', label: '现金及等价物' },
+  { id: 'investment', label: '投资资产' },
+  { id: 'other', label: '其他资产' },
 ]
+
+/** 从有效标记派生一级资产分类所属的资产组。 */
+export function assetMarkOf(category: LedgerAccountCategory): AssetMarkId {
+  if (category.effectiveIsInvestment) return 'investment'
+  if (category.effectiveIsCashEquivalent) return 'cash'
+  return 'other'
+}
 
 /* ===== 账本修改 ===== */
 

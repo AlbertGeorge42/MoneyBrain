@@ -8,7 +8,7 @@ import { IconButton } from '@/features/shared/IconButton'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
-import { ACTIVITY_GROUPS, categoryDescendantIds, type ActivityGroupId } from './model'
+import { ACTIVITY_GROUPS, ASSET_MARK_GROUPS, categoryDescendantIds, type ActivityGroupId, type AssetMarkId } from './model'
 
 export type Mover =
   | {
@@ -26,6 +26,7 @@ export type Mover =
       currentParentId: string | null
     }
   | { kind: 'activity'; id: string; name: string; current: ActivityGroupId }
+  | { kind: 'asset-mark'; id: string; name: string; current: AssetMarkId }
 
 export function MoverSheet({
   mover,
@@ -70,7 +71,13 @@ export function MoverSheet({
             label: group.label,
             current: group.id === mover.current,
           }))
-        : [
+        : mover.kind === 'asset-mark'
+          ? ASSET_MARK_GROUPS.map((group) => ({
+              id: group.id,
+              label: group.label,
+              current: group.id === mover.current,
+            }))
+          : [
             { id: 'root', label: '顶层（无父级）', current: mover.currentParentId === null },
             ...ledger.categories
               .filter(

@@ -105,6 +105,8 @@ export interface LedgerContextValue {
   deleteAccountGroup: (id: string) => Promise<LedgerMutationOutcome>
   /** 按绝对位置重排同归属分组顺序（拖拽排序用）。 */
   reorderAccountGroupTo: (id: string, targetIndex: number) => Promise<LedgerMutationOutcome>
+  /** 改一级资产分类的现金等价 / 投资标记；子分类继承，不单独设置。 */
+  setAccountCategoryMark: (id: string, mark: 'cash' | 'investment' | 'other') => Promise<LedgerMutationOutcome>
   createCategory: (input: LedgerCategoryInput) => Promise<LedgerCreateOutcome>
   updateCategory: (id: string, input: LedgerLabelUpdateInput) => Promise<LedgerMutationOutcome>
   /** 改一级分类的现金流活动归属；子分类随父一起写，报表按同一口径分组。 */
