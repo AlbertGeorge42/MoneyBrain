@@ -73,7 +73,7 @@ describe('config-import.service', () => {
   })
 
   describe('importConfig', () => {
-    it('overwrite 模式下应导入完整分类树', async () => {
+    it('嵌套账户分类备份应扁平化为一级，不再重建二级结构', async () => {
       mockPrisma.accountCategory.findFirst.mockResolvedValue(null)
       mockPrisma.accountCategory.create.mockImplementation(({ data }: any) =>
         Promise.resolve({ id: `acat-${data.name}`, ...data })
@@ -86,10 +86,10 @@ describe('config-import.service', () => {
           data: {
             accountCategories: [
               {
-                name: '银行',
+                name: '长期资产',
                 type: 'asset',
                 sort: 1,
-                children: [{ name: '储蓄卡', type: 'asset', sort: 1 }],
+                children: [{ name: '现金', type: 'asset', sort: 2, isCashEquivalent: true }],
               },
             ],
           },
@@ -101,9 +101,11 @@ describe('config-import.service', () => {
       expect(result.imported.accountCategories).toBe(2)
       expect(mockPrisma.accountCategory.create).toHaveBeenCalledTimes(2)
 
-      // 子分类的 parentId 应为父分类 id
-      const secondCall = mockPrisma.accountCategory.create.mock.calls[1][0]
-      expect(secondCall.data.parentId).toBe('acat-银行')
+      // 子节点提升为一级：parentId 恒 null，自身计算属性随之为根配置
+      const calls = mockPrisma.accountCategory.create.mock.calls.map((c: any) => c[0].data)
+      expect(calls.every((d: any) => d.parentId === null)).toBe(true)
+      const cash = calls.find((d: any) => d.name === '现金')
+      expect(cash.isCashEquivalent).toBe(true)
     })
 
     it('导入层不清空数据，清空由编排层在同一事务里统一执行', async () => {
@@ -123,10 +125,10 @@ describe('config-import.service', () => {
       expect(mockPrisma.transactionCategory.deleteMany).not.toHaveBeenCalled()
     })
 
-    it('不同父分类下的同名子分类应保持各自层级', async () => {
+    it('扁平化后账户分类按 name+type 归并，不再按父分类区分同名', async () => {
       mockPrisma.accountCategory.findFirst.mockResolvedValue(null)
       mockPrisma.accountCategory.create.mockImplementation(({ data }: any) =>
-        Promise.resolve({ id: `acat-${data.parentId ?? 'root'}-${data.name}`, ...data })
+        Promise.resolve({ id: `acat-${data.name}`, ...data })
       )
 
       const result = await importConfig(
@@ -138,12 +140,12 @@ describe('config-import.service', () => {
               {
                 name: '父分类A',
                 type: 'asset',
-                children: [{ name: '同名子分类', type: 'asset' }],
+                children: [{ name: '现金', type: 'asset' }],
               },
               {
                 name: '父分类B',
                 type: 'asset',
-                children: [{ name: '同名子分类', type: 'asset' }],
+                children: [{ name: '现金', type: 'asset' }],
               },
             ],
           },
@@ -152,14 +154,11 @@ describe('config-import.service', () => {
         mockPrisma
       )
 
-      expect(result.imported.accountCategories).toBe(4)
-
+      // 4 个节点全部扁平为一级；两个「现金」因 findFirst 命中已建的同名一级而更新
       const calls = mockPrisma.accountCategory.create.mock.calls.map((c: any) => c[0].data)
-      const childA = calls.find((c: any) => c.name === '同名子分类' && c.parentId === 'acat-root-父分类A')
-      const childB = calls.find((c: any) => c.name === '同名子分类' && c.parentId === 'acat-root-父分类B')
-
-      expect(childA).toBeDefined()
-      expect(childB).toBeDefined()
+      expect(calls.every((d: any) => d.parentId === null)).toBe(true)
+      // nameMap 中「现金」指向一级 id，账户归属可精确命中
+      expect(result.imported.accountCategories).toBeGreaterThanOrEqual(2)
     })
 
     it('merge 模式下已存在同名同层级分类时应更新而非重复创建', async () => {

@@ -44,18 +44,19 @@ export async function createAccountCategory(data: {
   iconKey?: string | null
   sort?: number
 }) {
+  // 账户分类只有「一级分类 → 账户」两层（requirements §3.3），不设子分类。
+  if (data.parentId) throw new ValidationError('账户分类不支持子分类')
+
   const finalSort = data.sort ?? await getNextSort('accountCategory', { type: data.type })
 
-  // 写入端约束：计算属性只属于根分类；子分类恒为 NULL，忽略请求值。
-  const isRoot = !data.parentId
   return accountCategoryRepo.create({
     data: {
       id: data.id,
       name: data.name,
       type: data.type,
-      parentId: data.parentId || null,
-      isCashEquivalent: isRoot ? (data.isCashEquivalent ?? false) : null,
-      isInvestment: isRoot ? (data.isInvestment ?? false) : null,
+      parentId: null,
+      isCashEquivalent: data.isCashEquivalent ?? false,
+      isInvestment: data.isInvestment ?? false,
       iconKey: parseOptionalIconKey(data.iconKey),
       sort: finalSort,
     },
@@ -76,24 +77,16 @@ export async function updateAccountCategory(
     sort?: number
   }
 ) {
-  const current = await accountCategoryRepo.findById(categoryId)
-  // 更新后的根/子身份：parentId 显式给出时以请求为准，否则沿用现值。
-  const willBeRoot = (data.parentId !== undefined ? data.parentId : current?.parentId ?? null) === null
+  // 账户分类只有一级：不允许建立或迁入子分类。历史二级结构已由数据迁移扁平化。
+  if (data.parentId) throw new ValidationError('账户分类不支持子分类')
 
   const updateData: Record<string, unknown> = {}
   if (data.name !== undefined) updateData.name = data.name
   if (data.type !== undefined) updateData.type = data.type
-  if (data.parentId !== undefined) updateData.parentId = data.parentId
   if (data.iconKey !== undefined) updateData.iconKey = parseOptionalIconKey(data.iconKey)
   if (data.sort !== undefined) updateData.sort = data.sort
-  if (willBeRoot) {
-    if (data.isCashEquivalent !== undefined) updateData.isCashEquivalent = data.isCashEquivalent
-    if (data.isInvestment !== undefined) updateData.isInvestment = data.isInvestment
-  } else {
-    // 变为子分类（含原本就是子分类）：计算属性恒为 NULL。
-    updateData.isCashEquivalent = null
-    updateData.isInvestment = null
-  }
+  if (data.isCashEquivalent !== undefined) updateData.isCashEquivalent = data.isCashEquivalent
+  if (data.isInvestment !== undefined) updateData.isInvestment = data.isInvestment
 
   return accountCategoryRepo.update({
     where: { id: categoryId },

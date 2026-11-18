@@ -25,6 +25,23 @@ import * as investmentAssetClassRepo from '../../db/repositories/investment-asse
 
 // ─── importAccountCategories ───
 
+/**
+ * 账户分类只有「一级分类 → 账户」两层（requirements §3.3），不设子分类。
+ * 历史备份可能带 children 嵌套（旧配置导入递归建出的二级结构），导入时一律
+ * 扁平化为一级分类：子节点的计算属性随自身提升为根配置，与数据迁移行为一致。
+ */
+function flattenAccountCategories(categories: ImportAccountCategory[]): ImportAccountCategory[] {
+  const flat: ImportAccountCategory[] = []
+  const visit = (items: ImportAccountCategory[]) => {
+    for (const item of items) {
+      flat.push(item)
+      if (item.children?.length) visit(item.children)
+    }
+  }
+  visit(categories)
+  return flat
+}
+
 async function importAccountCategories(
   categories: ImportAccountCategory[],
   tx: TransactionClient,
@@ -32,13 +49,12 @@ async function importAccountCategories(
   nameMap: Map<string, string>,
   counters: SortCounters,
   mode: 'merge' | 'overwrite',
-  parentId: string | null = null,
   summary?: ImportSummaryCollector
 ): Promise<void> {
-  for (const item of categories) {
+  for (const item of flattenAccountCategories(categories)) {
     try {
       const existing = await accountCategoryRepo.findFirst(
-        { where: { name: item.name, type: item.type, parentId } },
+        { where: { name: item.name, type: item.type, parentId: null } },
         tx,
       )
 
@@ -46,19 +62,13 @@ async function importAccountCategories(
 
       if (existing) {
         if (mode === 'merge') {
-          // 写入端约束：子分类的计算属性忽略（从根节点继承），只在根节点导入时值才生效。
-          const isRoot = parentId === null
           await accountCategoryRepo.update(
             {
               where: { id: existing.id },
               data: {
                 sort: item.sort ?? existing.sort,
-                ...(isRoot
-                  ? {
-                      ...(item.isCashEquivalent !== undefined && { isCashEquivalent: item.isCashEquivalent }),
-                      ...(item.isInvestment !== undefined && { isInvestment: item.isInvestment }),
-                    }
-                  : { isCashEquivalent: null, isInvestment: null }),
+                ...(item.isCashEquivalent !== undefined && { isCashEquivalent: item.isCashEquivalent }),
+                ...(item.isInvestment !== undefined && { isInvestment: item.isInvestment }),
                 ...(item.iconKey !== undefined && { iconKey: parseOptionalIconKey(item.iconKey) }),
               },
             },
@@ -69,16 +79,14 @@ async function importAccountCategories(
         incUpdated(result, 'accountCategories')
       } else {
         const sort = item.sort ?? takeNextSort(counters, 'accountCategory', item.type)
-        // 写入端约束：子分类的计算属性忽略，只在根节点导入时值才生效。
-        const isRoot = parentId === null
         const created = await accountCategoryRepo.create(
           {
             data: {
               name: item.name,
               type: item.type,
-              parentId,
-              isCashEquivalent: isRoot ? (item.isCashEquivalent ?? false) : null,
-              isInvestment: isRoot ? (item.isInvestment ?? false) : null,
+              parentId: null,
+              isCashEquivalent: item.isCashEquivalent ?? false,
+              isInvestment: item.isInvestment ?? false,
               iconKey: parseOptionalIconKey(item.iconKey),
               sort,
             },
@@ -90,21 +98,8 @@ async function importAccountCategories(
         summary?.unknownCategories.add(item.name)
       }
 
-      // key 包含 parentId，避免不同父分类下的同名子分类互相覆盖
-      nameMap.set(buildCategoryKey(item.type, item.name, parentId), currentId)
-
-      if (item.children?.length) {
-        await importAccountCategories(
-          item.children,
-          tx,
-          result,
-          nameMap,
-          counters,
-          mode,
-          currentId,
-          summary
-        )
-      }
+      // 全部是一级分类，key 恒用 parentId=null，与 importAccounts 的查找一致。
+      nameMap.set(buildCategoryKey(item.type, item.name, null), currentId)
     } catch (error) {
       result.errors.push(`${item.name} 导入失败: ${(error as Error).message}`)
       incSkipped(result, 'accountCategories')
@@ -373,7 +368,6 @@ export async function importConfig(
         accountCategoryNameMap,
         counters,
         mode,
-        null,
         summary
       )
     }
