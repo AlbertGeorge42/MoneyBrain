@@ -13,6 +13,8 @@ import {
   sub,
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
+import { resolveAccountCategoryFlags } from '../account-category-flags.js'
+import { resolveTransactionCategoryFlags } from '../transaction-category-flags.js'
 import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT, toPredictedEvents } from './prediction-source.js'
 import { resolveReportPeriod } from './period.js'
 import {
@@ -29,15 +31,14 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   const startTime = Date.now()
   const { startDate: start, endDate: end, nextDay: nextDayOfEnd } = resolveReportPeriod(startDate, endDate)
 
-  // 1. 准备：现金等价账户
-  const cashCategories = await accountCategoryRepo.findMany({
-    where: { isCashEquivalent: true },
-    select: { id: true },
+  // 1. 准备：现金等价账户（解析器统一做根节点继承，cashCategoryIds 含所有后代）
+  const allAccountCategories = await accountCategoryRepo.findMany({
+    select: { id: true, parentId: true, isCashEquivalent: true, isInvestment: true },
   })
-  const cashCategoryIds = cashCategories.map(c => c.id)
+  const { cashCategoryIds } = resolveAccountCategoryFlags(allAccountCategories)
 
   const cashAccounts = await accountRepo.findMany({
-    where: { categoryId: { in: cashCategoryIds } },
+    where: { categoryId: { in: [...cashCategoryIds] } },
     select: { id: true, name: true },
   })
   const cashAccountIds = cashAccounts.map(a => a.id)
@@ -56,6 +57,10 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   )
 
   // 3. 拉取 predicted 交易（含分类 / 账户字典以便名称解析）
+  // 统一拉全量 TransactionCategory 并解析有效 cashFlowType，actual / predicted 共用同一份
+  const allTxCategories = await transactionCategoryRepo.findMany({})
+  const { effectiveCashFlowTypes } = resolveTransactionCategoryFlags(allTxCategories)
+
   let predictionNote: string | undefined
   let predictions: PredictionTransaction[] = []
   let categoryMap: Map<string, CategoryInfo> = new Map()
@@ -76,9 +81,8 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     }))
 
     if (predictions.length > 0) {
-      const allCategories = await transactionCategoryRepo.findMany({ include: { parent: true } })
-      categoryMap = new Map(allCategories.map(c => [c.id, {
-        cashFlowType: c.cashFlowType,
+      categoryMap = new Map(allTxCategories.map(c => [c.id, {
+        cashFlowType: (effectiveCashFlowTypes.get(c.id) ?? c.cashFlowType) as string | null,
         name: c.name,
         parentId: c.parentId,
         level: c.parentId ? 2 : 1,
@@ -89,9 +93,10 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     }
   }
 
-  // 4. 收集 + 聚合 actual / predicted
+  // 4. collectTransactions 用 TransactionCategory 有效属性解析 actual / predicted 的 cashFlowType
   const { actualItems, predictedItems } = collectTransactions({
     transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap,
+    effectiveCashFlowTypes,
   })
   const actual = aggregate(actualItems)
   const predicted = aggregate(predictedItems)

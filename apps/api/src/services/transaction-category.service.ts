@@ -69,13 +69,15 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
 
   const finalSort = data.sort ?? await getNextSort('transactionCategory', { type: data.type, parentId: data.parentId || null })
 
+  // 写入端约束：子分类的 cashFlowType 必须从根节点继承，忽略请求值。
+  const isRoot = !data.parentId
   return transactionCategoryRepo.create({
     data: {
       id: data.id,
       name: data.name,
       type: data.type,
       parentId: data.parentId || null,
-      cashFlowType: data.cashFlowType,
+      cashFlowType: isRoot ? data.cashFlowType : null,
       iconKey: parseOptionalIconKey(data.iconKey),
       sort: finalSort,
     },
@@ -87,6 +89,11 @@ export async function updateTransactionCategorySorts(items: TransactionCategoryS
 }
 
 export async function updateTransactionCategory(categoryId: string, data: TransactionCategoryUpdatePayload) {
+  const currentCategory = await transactionCategoryRepo.findById(categoryId)
+  if (!currentCategory) {
+    throw new NotFoundError('分类')
+  }
+
   if (data.parentId !== undefined && data.parentId !== null) {
     if (data.parentId === categoryId) {
       throw new ValidationError('父分类不能是自己')
@@ -95,11 +102,6 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
     const parent = await transactionCategoryRepo.findById(data.parentId)
     if (!parent) {
       throw new NotFoundError('父分类')
-    }
-
-    const currentCategory = await transactionCategoryRepo.findById(categoryId)
-    if (!currentCategory) {
-      throw new NotFoundError('分类')
     }
 
     const targetType = data.type ?? currentCategory.type
@@ -117,6 +119,10 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
     sort?: number
   } = {}
 
+  // 写入端约束：子分类的 cashFlowType 不能被修改，必须从根节点继承。
+  // 先计算更新后的 parentId 判断是否为根。
+  const willBeRoot = (data.parentId !== undefined ? data.parentId : currentCategory.parentId) === null
+
   if (data.name !== undefined) {
     updateData.name = data.name
   }
@@ -126,7 +132,7 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
   if (data.parentId !== undefined) {
     updateData.parentId = data.parentId
   }
-  if (data.cashFlowType !== undefined) {
+  if (data.cashFlowType !== undefined && willBeRoot) {
     updateData.cashFlowType = data.cashFlowType
   }
   if (data.iconKey !== undefined) {

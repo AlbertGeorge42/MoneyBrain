@@ -18,6 +18,7 @@ import {
   TRANSACTION_CSV_HEADER,
 } from './shared.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
+import { resolveAccountCategoryFlags } from '../account-category-flags.js'
 
 // ─── CSV Header 映射 ───
 
@@ -141,9 +142,9 @@ async function buildImportContext(
   const [accounts, accountCategories, transactionCategories, investmentAssetClasses] =
     await Promise.all([
       client.account.findMany({
-        include: { category: { select: { isInvestment: true } } },
         // 同名账户（如 16 个「钱包」）需要可复现的规范顺序；
         // 跨类型同名则通过 type 键分开，不再按名字合并。
+        // isInvestment 已从 AccountCategory 有效属性解析获取，不再 include category。
         orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
       }),
       client.accountCategory.findMany(),
@@ -151,10 +152,17 @@ async function buildImportContext(
       client.investmentAssetClass.findMany(),
     ])
 
+  // AccountCategory 有效属性解析（根节点继承），统一用于 accountCategoryCache 和 accountCache
+  const { effectiveFlags, investmentCategoryIds } = resolveAccountCategoryFlags(accountCategories)
+
   // 账户分类缓存：同名多节点按规范规则取一条，避免后者覆盖前者。
+  // isInvestment 从 effectiveFlags 取（根节点继承后的值），忽略子分类历史脏值。
   const accountCategoryCache = new Map<string, { id: string; isInvestment: boolean }>()
   for (const [key, canonical] of indexCanonicalCategories(accountCategories)) {
-    accountCategoryCache.set(key, { id: canonical.id, isInvestment: canonical.isInvestment })
+    accountCategoryCache.set(key, {
+      id: canonical.id,
+      isInvestment: investmentCategoryIds.has(canonical.id),
+    })
   }
 
   // 账户缓存：键为 `${type}:${name}`；同名资产/负债是两个账户。
@@ -166,7 +174,8 @@ async function buildImportContext(
       name: a.name,
       type: a.type,
       categoryId: a.categoryId,
-      isInvestment: a.category?.isInvestment ?? false,
+      // 从 effectiveFlags 取继承后的值：账户挂的分类如果是子分组，自动继承根分组的 isInvestment
+      isInvestment: a.categoryId ? investmentCategoryIds.has(a.categoryId) : false,
     }
     const typedKey = `${a.type}:${a.name}`
     if (!accountCache.has(typedKey)) accountCache.set(typedKey, entry)

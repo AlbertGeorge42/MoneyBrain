@@ -4,6 +4,7 @@ import * as accountCategoryRepo from '../../db/repositories/account-category.rep
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
+import { resolveAccountCategoryFlags } from '../account-category-flags.js'
 import {
   buildAllocationItems,
   buildSnapshotHistory,
@@ -28,34 +29,16 @@ import type {
 
 // ===== 数据收集 / 查询函数 =====
 
-async function getDescendantCategoryIds(parentIds: string[]): Promise<string[]> {
-  const children = await accountCategoryRepo.findMany({
-    where: { parentId: { in: parentIds } },
-    select: { id: true },
-  })
-
-  if (children.length === 0) return parentIds
-
-  const childIds = children.map(c => c.id)
-  const grandChildIds = await getDescendantCategoryIds(childIds)
-  return [...parentIds, ...childIds, ...grandChildIds]
-}
-
 export async function getInvestmentAccounts(): Promise<AccountWithCategory[]> {
-  const investmentCategories = await accountCategoryRepo.findMany({
-    where: { isInvestment: true },
+  // 投资账户识别：根节点继承解析，investmentCategoryIds 含所有后代
+  const allCategories = await accountCategoryRepo.findMany({
+    select: { id: true, parentId: true, isCashEquivalent: true, isInvestment: true },
   })
-
-  if (investmentCategories.length === 0) {
-    return []
-  }
-
-  const allCategoryIds = await getDescendantCategoryIds(
-    investmentCategories.map(c => c.id)
-  )
+  const { investmentCategoryIds } = resolveAccountCategoryFlags(allCategories)
+  if (investmentCategoryIds.size === 0) return []
 
   const accounts = await accountRepo.findMany({
-    where: { categoryId: { in: allCategoryIds } },
+    where: { categoryId: { in: [...investmentCategoryIds] } },
     include: { category: true },
     orderBy: [{ sort: 'asc' }, { createdAt: 'asc' }],
   })

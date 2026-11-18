@@ -5,6 +5,7 @@ import {
   type SankeySourceTransaction,
 } from '../../../../../packages/domain/src/index.js'
 import { toMinor } from '../../common/index.js'
+import type { EffectiveCashFlowType } from '../transaction-category-flags.js'
 import {
   AccountInfo,
   CategoryInfo,
@@ -36,11 +37,29 @@ interface CollectArgs {
   cashAccountIds: string[]
   categoryMap: Map<string, CategoryInfo>
   accountMap: Map<string, AccountInfo>
+  /** TransactionCategory 有效 cashFlowType（根节点继承后）。 */
+  effectiveCashFlowTypes?: Map<string, EffectiveCashFlowType>
+}
+
+/** 从叶子分类向上沿 parentId 链找 cashFlowType（actual 交易的 category 行可能没被 effectiveFlags 覆盖到）。 */
+function effectiveCashFlowTypeOf(
+  categoryId: string | null | undefined,
+  categoryMap: Map<string, CategoryInfo>,
+  effectiveCashFlowTypes?: Map<string, EffectiveCashFlowType>,
+): EffectiveCashFlowType {
+  if (categoryId && effectiveCashFlowTypes && effectiveCashFlowTypes.has(categoryId)) {
+    return effectiveCashFlowTypes.get(categoryId) ?? null
+  }
+  // fallback: 如果 categoryMap 里有已继承好的值（predicted 路径）也能拿到
+  if (categoryId && categoryMap.has(categoryId)) {
+    return (categoryMap.get(categoryId)?.cashFlowType ?? null) as EffectiveCashFlowType
+  }
+  return null
 }
 
 /** 将 actual + predicted 原始数据统一规整为 ProcessedTx 列表。 */
 export function collectTransactions(args: CollectArgs): { actualItems: ProcessedTx[]; predictedItems: ProcessedTx[] } {
-  const { transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap } = args
+  const { transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap, effectiveCashFlowTypes } = args
   const rangeStart = start.getTime()
   const rangeEnd = end.getTime()
 
@@ -60,7 +79,7 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
       categoryId: t.category?.id || null,
       parentId: t.category?.parentId || null,
       level: t.category?.parentId ? 2 : 1,
-      cashFlowType: t.category?.cashFlowType || null,
+      cashFlowType: effectiveCashFlowTypeOf(t.category?.id, categoryMap, effectiveCashFlowTypes),
       accountName: t.account?.name || '未知账户',
       toAccountName: t.toAccount?.name || null,
     })
@@ -90,7 +109,7 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
       categoryId: p.categoryId || null,
       parentId: category?.parentId || null,
       level: category?.level || 1,
-      cashFlowType: category?.cashFlowType || null,
+      cashFlowType: effectiveCashFlowTypeOf(p.categoryId, categoryMap, effectiveCashFlowTypes),
       accountName: account?.name || '未知账户',
       toAccountName: toAccount?.name || null,
     })

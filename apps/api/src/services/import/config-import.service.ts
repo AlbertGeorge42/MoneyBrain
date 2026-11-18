@@ -46,13 +46,15 @@ async function importAccountCategories(
 
       if (existing) {
         if (mode === 'merge') {
+          // 写入端约束：子分类的计算属性忽略（从根节点继承），只在根节点导入时值才生效。
+          const isRoot = parentId === null
           await accountCategoryRepo.update(
             {
               where: { id: existing.id },
               data: {
                 sort: item.sort ?? existing.sort,
-                isCashEquivalent: item.isCashEquivalent ?? existing.isCashEquivalent,
-                isInvestment: item.isInvestment ?? existing.isInvestment,
+                ...(isRoot && item.isCashEquivalent !== undefined && { isCashEquivalent: item.isCashEquivalent }),
+                ...(isRoot && item.isInvestment !== undefined && { isInvestment: item.isInvestment }),
                 ...(item.iconKey !== undefined && { iconKey: parseOptionalIconKey(item.iconKey) }),
               },
             },
@@ -63,14 +65,16 @@ async function importAccountCategories(
         incUpdated(result, 'accountCategories')
       } else {
         const sort = item.sort ?? takeNextSort(counters, 'accountCategory', item.type)
+        // 写入端约束：子分类的计算属性忽略，只在根节点导入时值才生效。
+        const isRoot = parentId === null
         const created = await accountCategoryRepo.create(
           {
             data: {
               name: item.name,
               type: item.type,
               parentId,
-              isCashEquivalent: item.isCashEquivalent ?? false,
-              isInvestment: item.isInvestment ?? false,
+              isCashEquivalent: isRoot ? (item.isCashEquivalent ?? false) : false,
+              isInvestment: isRoot ? (item.isInvestment ?? false) : false,
               iconKey: parseOptionalIconKey(item.iconKey),
               sort,
             },

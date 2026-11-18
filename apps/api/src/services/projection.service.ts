@@ -29,6 +29,7 @@ import { toLedgerTransaction } from './ledger.adapter.js'
 import { buildProjectionBuckets } from './report/bucket.js'
 import { collectSankeySources, collectTransactions } from './report/cash-flow-collect.js'
 import { PREDICTION_NOTE_DEFAULT } from './report/prediction-source.js'
+import { resolveAccountCategoryFlags } from './account-category-flags.js'
 import type {
   AccountInfo,
   CategoryInfo,
@@ -124,15 +125,15 @@ export async function getAssetProjection(params: ProjectionQueryParams): Promise
   return assetProjectionRange(params)
 }
 
-/** 现金等价账户（与现金流报表同一份账户分类口径）。 */
+/** 现金等价账户（与现金流报表同一份账户分类口径：根节点继承解析）。 */
 async function loadCashAccounts(): Promise<Account[]> {
-  const categories = await accountCategoryRepo.findMany({
-    where: { isCashEquivalent: true },
-    select: { id: true },
+  const allCategories = await accountCategoryRepo.findMany({
+    select: { id: true, parentId: true, isCashEquivalent: true, isInvestment: true },
   })
-  if (categories.length === 0) return []
+  const { cashCategoryIds } = resolveAccountCategoryFlags(allCategories)
+  if (cashCategoryIds.size === 0) return []
   return accountRepo.findMany({
-    where: { categoryId: { in: categories.map((category) => category.id) } },
+    where: { categoryId: { in: [...cashCategoryIds] } },
   })
 }
 
