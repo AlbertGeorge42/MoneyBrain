@@ -320,7 +320,8 @@ describe('账户分类与构成环口径', () => {
       const text = source(`features/reports/${file}`)
       expect(text, file).toContain('onDrill: (target: DrillTarget) => void')
       if (file === 'BalanceView.tsx') expect(text, file).toContain("type: 'account'")
-      else expect(text, file).toContain("type: 'category'")
+      // 现金流的 DrillTarget 骨架抽到 reportsModel.cashDrillTarget，环与表格共用，不在视图里重复。
+      else expect(text, file).toContain('cashDrillTarget({')
     }
     // 总览支出环也走同一份抽屉，不再由 onDrill 回调直接跳流水。
     const overview = source('features/overview/OverviewPage.tsx')
@@ -372,5 +373,23 @@ describe('账户分类与构成环口径', () => {
     expect(recent).toContain("variant={device === 'mobile' ? 'mobile' : 'default'}")
     expect(recent).not.toContain('mb-ov-tx')
     expect(source('features/overview/overview.css')).not.toContain('.mb-ov-tx')
+  })
+
+  it('三张报表的表格行都开下钻抽屉，环图与表格共用一份下钻构造', () => {
+    const balance = source('features/reports/BalanceView.tsx')
+    // 一级账户分类不再被守卫拦掉，且 ids 展开到账户 id（account 分支按 accountId 匹配）。
+    expect(balance).not.toContain("node.level !== 1")
+    expect(balance).toContain('node.children.map((child) => child.id)')
+
+    const cashView = source('features/reports/CashView.tsx')
+    expect(cashView).toContain("cashRowsFor('in', report.inflowGroups, expanded, onFold, onDrill)")
+    expect(cashView).toContain("cashRowsFor('out', report.outflowGroups, expanded, onFold, onDrill)")
+    // 环节点的分组键需映射成分类 id（表格行直接持 categoryId，不走映射）。
+    expect(cashView).toContain('categoryIdsOfNode')
+    // 环图与表格都构造 cashDrillTarget，不再各写一份 DrillTarget 字面量。
+    expect(cashView).toContain('cashDrillTarget({')
+    const model = source('features/reports/reportsModel.ts')
+    expect(model).toContain('export function cashDrillTarget')
+    expect(model).toContain('ids: args.ids')
   })
 })

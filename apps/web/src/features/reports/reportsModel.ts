@@ -364,22 +364,81 @@ export function accountBalancesAt(ledger: Ledger, point: string): Map<string, nu
 }
 
 /** 现金流左右两表的行：键带方向前缀，两表共用一份展开状态也不串扰。 */
+/**
+ * 现金流下钻目标：环节点与表格行共用这一份构造，避免两处的 amountLabel / side / 子项口径漂移。
+ * children 只展示金额为正的分类；ids 由调用方按分组全量传入（金额 0 的分类仍可能有流水）。
+ */
+export function cashDrillTarget(args: {
+  title: string
+  amount: number
+  predicted?: number
+  side: 'in' | 'out'
+  ids: string[]
+  children: { id: string; name: string; amount: number; count: number; predicted?: number }[]
+}): DrillTarget {
+  return {
+    type: 'category',
+    title: args.title,
+    amountLabel: args.side === 'in' ? '所选期间流入' : '所选期间流出',
+    amount: args.amount,
+    predicted: args.predicted,
+    childTitle: '分类',
+    source: 'cash',
+    children: args.children
+      .filter((child) => child.amount > 0)
+      .map((child) => ({
+        id: child.id,
+        name: child.name,
+        amount: child.amount,
+        count: child.count,
+        share: 0,
+        level: 1 as const,
+        predicted: child.predicted,
+        children: [],
+      })),
+    ids: args.ids,
+    side: args.side === 'in' ? 'income' : 'expense',
+  }
+}
+
 export function cashRowsFor(
   side: 'in' | 'out',
   groups: CashGroup[],
   expanded: FoldState,
   onFold: (id: string) => void,
+  onDrill?: (target: DrillTarget) => void,
 ): ReportRow[] {
   const foldKey = (id: string) => `${side}:${id}`
   const rows: ReportRow[] = []
   for (const group of groups) {
     const key = foldKey(group.key)
     const open = isExpanded(expanded, key)
+    const groupIds = [...new Set(group.children.map((child) => child.categoryId).filter(Boolean))]
     rows.push({
       id: key,
       cells: [group.name, group.meta ?? `${group.count} 笔`, currency(group.total)],
       hint: group.predicted ? '预测' : undefined,
       fold: group.children.length > 0 ? { expanded: open, onToggle: () => onFold(key) } : undefined,
+      onOpen:
+        onDrill && groupIds.length > 0
+          ? () =>
+              onDrill(
+                cashDrillTarget({
+                  title: group.name,
+                  amount: group.total,
+                  predicted: group.predicted,
+                  side,
+                  ids: groupIds,
+                  children: group.children.map((child) => ({
+                    id: child.categoryId || child.id,
+                    name: child.label,
+                    amount: child.amount,
+                    count: 0,
+                    predicted: child.predicted,
+                  })),
+                }),
+              )
+          : undefined,
     })
     if (open) {
       for (const child of group.children) {
@@ -389,6 +448,20 @@ export function cashRowsFor(
           cells: [child.label, child.account, currency(child.amount)],
           hint: child.predicted ? '预测' : undefined,
           tone: child.tone,
+          onOpen:
+            onDrill && child.categoryId
+              ? () =>
+                  onDrill(
+                    cashDrillTarget({
+                      title: child.label,
+                      amount: child.amount,
+                      predicted: child.predicted,
+                      side,
+                      ids: [child.categoryId],
+                      children: [],
+                    }),
+                  )
+              : undefined,
         })
       }
     }
@@ -437,6 +510,10 @@ export type DrillTarget =
       predicted?: number
       /** 只有「二级类别」子项有笔数语义；账户 / 现金流分类子项不传。 */
       showChildCount?: boolean
+      /** 来源：现金流下钻按分类 id 命中全部相关流水（含转账），不走收支的方向过滤。 */
+      source?: 'cash'
+      /** 主金额语义色；现金流转账行用 neutral，不传则按 side。 */
+      tone?: 'income' | 'expense' | 'neutral'
       childTitle: string
       children: FlowTreeNode[]
       ids: string[]
@@ -463,8 +540,9 @@ export function buildDrillFor(
   includeExcluded = false,
 ): DrillData {
   const tone: DrillData['tone'] = target.type === 'account' ? 'neutral' : target.side
+
+  // ── 准备：分类目标展开根分类到整棵子树（「其余」合并桶含多个根） ──
   const ids = new Set(target.ids)
-  // 分类目标要把根分类展开成整棵子树（「其余」合并桶含多个根）；账户目标直接按 id 命中。
   const categories = new Set<string>()
   if (target.type === 'category') {
     const collect = (id: string) => {
@@ -473,22 +551,37 @@ export function buildDrillFor(
     }
     target.ids.forEach(collect)
   }
+
+  // ── 决策 ①：匹配方式 ──
+  // 只回答「这条流水属不属于这个节点」，不涉及任何口径裁剪。
+  const match = (t: LedgerTransaction) =>
+    target.type === 'account'
+      ? ids.has(t.accountId) || ids.has(t.toAccountId ?? '')
+      : categories.has(t.categoryId)
+
+  // ── 决策 ②：口径策略 ──
+  // account 和 现金流 都是 permissive（收匹配到的所有流水，不剪 exclude / 方向）；
+  // 收支类 category 默认走 income-expense 口径。
+  const policy: 'permissive' | 'income-expense' =
+    target.type === 'account' || target.source === 'cash' ? 'permissive' : 'income-expense'
+  const side = target.type === 'category' ? target.side : 'income'
+
+  // ── 决策 ③：口径 predicate ──
+  // permissive 直接收；income-expense 口径下，开关关闭时剪「不计收支」流水，
+  // 再按 side 过滤方向。
+  const matchesPolicy = (t: LedgerTransaction) => {
+    if (policy === 'permissive') return true
+    if (!includeExcluded && t.excludeFromIncomeExpense) return false
+    if (side === 'income') return isIncomeSide(t) || refundOffsetSide(t) === 'income'
+    return t.type === 'expense' ||
+      refundOffsetSide(t) === 'expense' ||
+      adjustmentExpense(t) > 0
+  }
+
   const transactions = ledger.transactions
-    .filter((transaction) => {
-      if (!inRange(transaction, from, to)) return false
-      if (target.type === 'account') {
-        // 账户余额同时受转出与转入影响，两边都要命中；「不计收支」只影响收支报表，
-        // 不影响账户余额，因此账户下钻不受该开关裁剪。
-        return ids.has(transaction.accountId) || ids.has(transaction.toAccountId ?? '')
-      }
-      // 与收支 / 现金流合计同一口径：开关关闭时「不计收支」流水不进下钻。
-      if (!includeExcluded && transaction.excludeFromIncomeExpense) return false
-      if (!categories.has(transaction.categoryId)) return false
-      if (target.side === 'income') return isIncomeSide(transaction) || refundOffsetSide(transaction) === 'income'
-      return transaction.type === 'expense' ||
-        refundOffsetSide(transaction) === 'expense' ||
-        adjustmentExpense(transaction) > 0
-    })
+    .filter((t) => inRange(t, from, to))
+    .filter(match)
+    .filter(matchesPolicy)
     .sort((left, right) => right.date.localeCompare(left.date))
 
   return {

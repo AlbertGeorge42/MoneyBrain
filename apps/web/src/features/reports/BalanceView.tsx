@@ -75,11 +75,16 @@ export function BalanceView({
     [report.liabilities, categories],
   )
 
-  // 环的一级是账户分类（环图内部下钻到账户）。点账户 / 其余账户都开抽屉，
-  // 抽屉内直接展示相关流水并可继续编辑，不再跳流水页。
+  // 表格行与环图共用：一级账户分类、末级账户、「其余」合并桶都开同一份抽屉。
+  // 一级分类的 children 是账户节点，下钻 ids 要展开到账户 id（account 分支按 accountId 匹配）；
+  // 「其余」桶的 mergedIds 本身就是账户 id。
   const openAccount = (node: FlowTreeNode) => {
-    if (node.level !== 1 && node.id !== 'rest') return
-    const ids = node.id === 'rest' && node.mergedIds ? node.mergedIds : [node.id]
+    const ids =
+      node.id === 'rest' && node.mergedIds
+        ? node.mergedIds
+        : node.level === 0
+          ? node.children.map((child) => child.id)
+          : [node.id]
     onDrill({
       type: 'account',
       title: node.name,

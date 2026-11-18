@@ -12,6 +12,7 @@ import { MetricStrip, ReportTable, ReportTablePair, type ReportColumn } from './
 import { Segmented } from '@/features/shared/Segmented'
 import type { DonutNode } from '@/features/shared/DonutChart'
 import {
+  cashDrillTarget,
   cashRowsFor,
   currency,
   type CashGroup,
@@ -88,13 +89,14 @@ export function CashView({
   }
   const inflowTotal = cashTotalOf(report.inflowGroups)
   const outflowTotal = cashTotalOf(report.outflowGroups)
-  const inflowRows = cashRowsFor('in', report.inflowGroups, expanded, onFold)
-  const outflowRows = cashRowsFor('out', report.outflowGroups, expanded, onFold)
+  const inflowRows = cashRowsFor('in', report.inflowGroups, expanded, onFold, onDrill)
+  const outflowRows = cashRowsFor('out', report.outflowGroups, expanded, onFold, onDrill)
   // 移动端分段单表：两段补齐到相同行数，切换标签时 tbody 行数与合计行位置不变、高度不跳变。
   const mobileMinRows = Math.max(inflowRows.length, outflowRows.length)
   const inflowNodes = cashDonutNodes(report.inflowGroups, 'in')
   const outflowNodes = cashDonutNodes(report.outflowGroups, 'out')
   // 环节点 id 与下钻分类的对应：活动分组键 → 其全部分类；分类键 → 自身。
+  // 表格行直接持 CashChild.categoryId，不走这张表；两者都喂同一个 cashDrillTarget。
   const categoryIdsByNode = new Map<string, string[]>()
   for (const [side, groups] of [
     ['in', report.inflowGroups],
@@ -108,7 +110,6 @@ export function CashView({
       }
     }
   }
-
   return (
     <>
       <MetricStrip device={device} metrics={report.metrics} />
@@ -170,17 +171,22 @@ export function CashView({
               onOpen={(node) => {
                 const categoryIds = categoryIdsOfNode(node, categoryIdsByNode)
                 if (categoryIds.length === 0) return
-                onDrill({
-                  type: 'category',
-                  title: node.name,
-                  amountLabel: side === 'in' ? '所选期间流入' : '所选期间流出',
-                  amount: node.amount,
-                  predicted: node.predicted,
-                  childTitle: '分类',
-                  children: node.children,
-                  ids: categoryIds,
-                  side: side === 'in' ? 'income' : 'expense',
-                })
+                onDrill(
+                  cashDrillTarget({
+                    title: node.name,
+                    amount: node.amount,
+                    predicted: node.predicted,
+                    side,
+                    ids: categoryIds,
+                    children: node.children.map((child) => ({
+                      id: child.id,
+                      name: child.name,
+                      amount: child.amount,
+                      count: child.count,
+                      predicted: child.predicted,
+                    })),
+                  }),
+                )
               }}
             />
           </ChartCard>
