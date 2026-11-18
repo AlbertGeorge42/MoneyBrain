@@ -43,6 +43,9 @@ function account(id: string, name: string, type: string, category: Partial<Accou
     initialBalanceDate: null,
     categoryId: null,
     sort: 0,
+    // DTO 契约：effective 字段由后端根继承解析后下发，这里按根分类配置等价填充。
+    effectiveIsCashEquivalent: Boolean(category.isCashEquivalent),
+    effectiveIsInvestment: Boolean(category.isInvestment),
     category: {
       id: `${id}-cat`,
       name: '分类',
@@ -75,6 +78,7 @@ function category(
     parent: null,
     children: [],
     cashFlowType: null,
+    effectiveCashFlowType: null,
     iconKey,
     createdAt: '',
     updatedAt: '',
@@ -211,6 +215,24 @@ describe('DTO → Ledger 适配', () => {
     )
     expect(ledger.categories.find((item) => item.name === '餐饮')?.cashFlowType).toBe('operating')
     expect(ledger.categories.find((item) => item.name === '居住')?.cashFlowType).toBeNull()
+  })
+
+  it('账户性质只认 effective，忽略 raw（子分类 raw=1 不得把账户变成 cash）', () => {
+    const base = payload()
+    const ledger = buildLedgerFromApi(
+      {
+        ...base,
+        accounts: [
+          // raw isCashEquivalent=1 但 effective=false：应判为 deposit，不能读 raw。
+          { ...account('acc-x', '历史脏值账户', 'asset', { isCashEquivalent: true }), effectiveIsCashEquivalent: false },
+          // raw=false 但 effective=true：应判为 cash。
+          { ...account('acc-y', '继承现金账户', 'asset'), effectiveIsCashEquivalent: true },
+        ],
+        balances: new Map([['acc-x', 100], ['acc-y', 100]]),
+      },
+      '2026-11-06',
+    )
+    expect(ledger.accounts.map((item) => item.kind)).toEqual(['deposit', 'cash'])
   })
 
   it('账户余额求和为净资产，并按现金等价 / 投资 / 负债分类', () => {

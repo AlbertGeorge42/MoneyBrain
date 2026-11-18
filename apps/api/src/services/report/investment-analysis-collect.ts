@@ -4,13 +4,13 @@ import * as accountCategoryRepo from '../../db/repositories/account-category.rep
 import * as assetClassRepo from '../../db/repositories/investment-asset-class.repository.js'
 import * as snapshotRepo from '../../db/repositories/investment-allocation-snapshot.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
-import { resolveAccountCategoryFlags } from '../account-category-flags.js'
 import {
   buildAllocationItems,
   buildSnapshotHistory,
   calculateReturnMetrics,
   fromDate,
   minor,
+  resolveAccountCategoryFlags,
   neg,
   transferInflow,
   type AllocationSnapshot,

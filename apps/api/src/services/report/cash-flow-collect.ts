@@ -1,11 +1,11 @@
 import {
   ZERO_MINOR,
   minor,
+  type EffectiveCashFlowType,
   type ProcessedTx,
   type SankeySourceTransaction,
 } from '../../../../../packages/domain/src/index.js'
 import { toMinor } from '../../common/index.js'
-import type { EffectiveCashFlowType } from '../transaction-category-flags.js'
 import {
   AccountInfo,
   CategoryInfo,

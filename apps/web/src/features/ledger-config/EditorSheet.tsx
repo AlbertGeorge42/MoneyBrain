@@ -132,8 +132,8 @@ export function EditorSheet({
     editor?.kind === 'account' &&
     editor.mode === 'edit' &&
     Boolean(selectedGroup) &&
-    (Boolean(currentCategory?.isCashEquivalent) !== Boolean(selectedGroup?.isCashEquivalent) ||
-      Boolean(currentCategory?.isInvestment) !== Boolean(selectedGroup?.isInvestment))
+    (Boolean(currentCategory?.effectiveIsCashEquivalent) !== Boolean(selectedGroup?.effectiveIsCashEquivalent) ||
+      Boolean(currentCategory?.effectiveIsInvestment) !== Boolean(selectedGroup?.effectiveIsInvestment))
 
   useEffect(() => {
     setName(initialName)

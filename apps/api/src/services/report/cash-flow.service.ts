@@ -9,12 +9,12 @@ import {
   buildSankey,
   buildStatement,
   predictedAccountTotal,
+  resolveAccountCategoryFlags,
+  resolveTransactionCategoryFlags,
   sum,
   sub,
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
-import { resolveAccountCategoryFlags } from '../account-category-flags.js'
-import { resolveTransactionCategoryFlags } from '../transaction-category-flags.js'
 import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT, toPredictedEvents } from './prediction-source.js'
 import { resolveReportPeriod } from './period.js'
 import {

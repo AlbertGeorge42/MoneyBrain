@@ -125,6 +125,7 @@ describe('account.service', () => {
         { id: '2', name: '账户B', sort: 1, createdAt: new Date() },
       ]
       mockPrisma.account.findMany.mockResolvedValue(mockAccounts)
+      mockPrisma.accountCategory.findMany.mockResolvedValue([])
 
       const result = await getAccounts()
 
@@ -133,7 +134,11 @@ describe('account.service', () => {
         include: { category: true },
         orderBy: [{ sort: 'asc' }, { createdAt: 'desc' }],
       })
-      expect(result).toEqual(mockAccounts)
+      expect(result).toEqual(mockAccounts.map((account) => ({
+        ...account,
+        effectiveIsCashEquivalent: false,
+        effectiveIsInvestment: false,
+      })))
     })
   })
 
@@ -146,6 +151,7 @@ describe('account.service', () => {
       }
       const recentTransactions = [{ id: 'tx1', categoryId: 'cat1' }]
       mockPrisma.account.findUnique.mockResolvedValue(mockAccount)
+      mockPrisma.accountCategory.findMany.mockResolvedValue([])
       mockPrisma.transaction.findMany.mockResolvedValue(recentTransactions)
 
       const result = await getAccountDetail('1')
@@ -160,7 +166,12 @@ describe('account.service', () => {
           where: expect.objectContaining({ accountId: '1', deletedAt: null }),
         }),
       )
-      expect(result).toEqual({ ...mockAccount, fromTransactions: recentTransactions })
+      expect(result).toEqual({
+        ...mockAccount,
+        effectiveIsCashEquivalent: false,
+        effectiveIsInvestment: false,
+        fromTransactions: recentTransactions,
+      })
     })
   })
 

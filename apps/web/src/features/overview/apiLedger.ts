@@ -215,10 +215,11 @@ function percentChange(current: number, previous: number): number {
   return ((current - previous) / previous) * 100
 }
 
+/** 账户性质派生：只消费后端根继承解析后的有效属性，不读分类 raw 字段。 */
 function accountKind(account: Account): AccountKind {
-  if (account.category?.isInvestment) return 'investment'
+  if (account.effectiveIsInvestment) return 'investment'
   if (account.type === 'liability') return 'credit'
-  if (account.category?.isCashEquivalent) return 'cash'
+  if (account.effectiveIsCashEquivalent) return 'cash'
   return 'deposit'
 }
 
@@ -266,6 +267,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     type: asTxType(category.type),
     parentId: category.parentId ? displayId(category.parentId) : undefined,
     cashFlowType: category.cashFlowType,
+    effectiveCashFlowType: category.effectiveCashFlowType,
     iconKey: category.iconKey,
   }))
 
@@ -277,6 +279,8 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     sort: category.sort,
     isCashEquivalent: category.isCashEquivalent,
     isInvestment: category.isInvestment,
+    effectiveIsCashEquivalent: category.effectiveIsCashEquivalent,
+    effectiveIsInvestment: category.effectiveIsInvestment,
     iconKey: category.iconKey,
   }))
 

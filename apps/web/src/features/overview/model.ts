@@ -37,12 +37,12 @@ export interface LedgerAccountCategory {
   type: 'asset' | 'liability'
   parentId?: string | null
   sort: number
-  /**
-   * 后端分类自带的计算标识。分组界面不展示、不可编辑，只在把账户移入
-   * 标识不同的分组时给出可见提示（否则现金流 / 投资占比会静默变口径）。
-   */
-  isCashEquivalent?: boolean
-  isInvestment?: boolean
+  /** 仅根分类有值的原始配置（子分类为 null）；只供配置展示与迁移提示。 */
+  isCashEquivalent?: boolean | null
+  isInvestment?: boolean | null
+  /** 根继承解析后的有效计算属性；财务计算与账户性质展示一律用这两个字段。 */
+  effectiveIsCashEquivalent?: boolean
+  effectiveIsInvestment?: boolean
   /** 用户设置的受控图标 key；null / 缺省 = 前端默认图标。 */
   iconKey?: string | null
   /** 演示账本的分类只读标记（仅种子数据设置，API 数据不带）。 */
@@ -57,8 +57,10 @@ export interface LedgerCategory {
   name: string
   type: TxType
   parentId?: string
-  /** 用户设置的现金流活动归属；null / 缺省 = 未分配（报表按未分类统计）。 */
+  /** 仅根分类有值的原始配置（子分类为 null）；只供配置展示。 */
   cashFlowType?: CashFlowActivity | null
+  /** 根继承解析后的有效活动归属；财务计算一律用这个字段。 */
+  effectiveCashFlowType?: CashFlowActivity | null
   /** 用户设置的受控图标 key；null / 缺省 = 回退到按名称映射。 */
   iconKey?: string | null
 }

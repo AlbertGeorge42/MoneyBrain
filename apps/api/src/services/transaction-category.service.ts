@@ -1,3 +1,4 @@
+import { resolveTransactionCategoryFlags } from '../../../../packages/domain/src/index.js'
 import { withTransaction } from '../db/transaction.js'
 import { NotFoundError, ValidationError, parseOptionalIconKey } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
@@ -40,10 +41,24 @@ export async function getTransactionCategories(params?: { type?: string }) {
   const where: Record<string, unknown> = {}
   if (params?.type) where.type = params.type
 
-  return transactionCategoryRepo.findMany({
-    where,
-    orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
-  })
+  const [categories, allCategories] = await Promise.all([
+    transactionCategoryRepo.findMany({
+      where,
+      orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
+    }),
+    transactionCategoryRepo.findMany({
+      select: { id: true, parentId: true, cashFlowType: true },
+    }),
+  ])
+  const { effectiveCashFlowTypes } = resolveTransactionCategoryFlags(allCategories)
+  return categories.map((category) => ({
+    ...category,
+    effectiveCashFlowType: (effectiveCashFlowTypes.get(category.id) ?? category.cashFlowType ?? null) as
+      | 'operating'
+      | 'investing'
+      | 'financing'
+      | null,
+  }))
 }
 
 export async function getTransactionCategoryStats(categoryId: string) {
@@ -132,8 +147,11 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
   if (data.parentId !== undefined) {
     updateData.parentId = data.parentId
   }
-  if (data.cashFlowType !== undefined && willBeRoot) {
-    updateData.cashFlowType = data.cashFlowType
+  if (willBeRoot) {
+    if (data.cashFlowType !== undefined) updateData.cashFlowType = data.cashFlowType
+  } else {
+    // 变为子分类（含原本就是子分类）：计算属性恒为 NULL。
+    updateData.cashFlowType = null
   }
   if (data.iconKey !== undefined) {
     updateData.iconKey = parseOptionalIconKey(data.iconKey)

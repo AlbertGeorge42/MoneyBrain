@@ -1,3 +1,12 @@
+// ===== 分类计算属性：根节点继承的唯一解析实现 =====
+export {
+  resolveAccountCategoryFlags,
+  resolveTransactionCategoryFlags,
+  type EffectiveCashFlowType,
+  type ResolvedAccountCategoryFlags,
+  type ResolvedTransactionCategoryFlags,
+} from './categories/flags.js'
+
 export {
   ZERO_MINOR,
   add,

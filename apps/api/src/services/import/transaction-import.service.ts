@@ -1,7 +1,7 @@
 // ─── CSV 事务导入 ───
 
 import crypto from 'crypto'
-import { abs, formatAmount, fromDate, parseAmount, ZERO_MINOR, type Minor } from '../../../../../packages/domain/src/index.js'
+import { abs, formatAmount, fromDate, parseAmount, resolveAccountCategoryFlags, ZERO_MINOR, type Minor } from '../../../../../packages/domain/src/index.js'
 import {
   type AccountCache,
   type ImportContext,
@@ -18,7 +18,6 @@ import {
   TRANSACTION_CSV_HEADER,
 } from './shared.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
-import { resolveAccountCategoryFlags } from '../account-category-flags.js'
 
 // ─── CSV Header 映射 ───
 

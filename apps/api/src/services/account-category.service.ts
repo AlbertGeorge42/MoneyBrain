@@ -1,3 +1,4 @@
+import { resolveAccountCategoryFlags } from '../../../../packages/domain/src/index.js'
 import { NotFoundError, ValidationError, parseOptionalIconKey } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
@@ -8,9 +9,26 @@ export async function getAccountCategories(params?: { type?: string }) {
   const where: Record<string, unknown> = {}
   if (params?.type) where.type = params.type
 
-  return accountCategoryRepo.findMany({
-    where,
-    orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
+  const [categories, allCategories] = await Promise.all([
+    accountCategoryRepo.findMany({
+      where,
+      orderBy: [{ type: 'asc' }, { sort: 'asc' }, { createdAt: 'asc' }],
+    }),
+    accountCategoryRepo.findMany({
+      select: { id: true, parentId: true, isCashEquivalent: true, isInvestment: true },
+    }),
+  ])
+  const { effectiveFlags } = resolveAccountCategoryFlags(allCategories)
+  return categories.map((category) => {
+    const flags = effectiveFlags.get(category.id) ?? {
+      isCashEquivalent: category.isCashEquivalent ?? false,
+      isInvestment: category.isInvestment ?? false,
+    }
+    return {
+      ...category,
+      effectiveIsCashEquivalent: flags.isCashEquivalent,
+      effectiveIsInvestment: flags.isInvestment,
+    }
   })
 }
 
@@ -28,7 +46,7 @@ export async function createAccountCategory(data: {
 }) {
   const finalSort = data.sort ?? await getNextSort('accountCategory', { type: data.type })
 
-  // 写入端约束：子分类的计算属性必须从根节点继承，忽略请求值。
+  // 写入端约束：计算属性只属于根分类；子分类恒为 NULL，忽略请求值。
   const isRoot = !data.parentId
   return accountCategoryRepo.create({
     data: {
@@ -36,8 +54,8 @@ export async function createAccountCategory(data: {
       name: data.name,
       type: data.type,
       parentId: data.parentId || null,
-      isCashEquivalent: isRoot ? (data.isCashEquivalent ?? false) : false,
-      isInvestment: isRoot ? (data.isInvestment ?? false) : false,
+      isCashEquivalent: isRoot ? (data.isCashEquivalent ?? false) : null,
+      isInvestment: isRoot ? (data.isInvestment ?? false) : null,
       iconKey: parseOptionalIconKey(data.iconKey),
       sort: finalSort,
     },
@@ -59,18 +77,22 @@ export async function updateAccountCategory(
   }
 ) {
   const current = await accountCategoryRepo.findById(categoryId)
-  const isRoot = !current?.parentId
+  // 更新后的根/子身份：parentId 显式给出时以请求为准，否则沿用现值。
+  const willBeRoot = (data.parentId !== undefined ? data.parentId : current?.parentId ?? null) === null
 
-  // 子分类：计算属性不从请求体更新，保持原值（运行时解析会覆盖）。
   const updateData: Record<string, unknown> = {}
   if (data.name !== undefined) updateData.name = data.name
   if (data.type !== undefined) updateData.type = data.type
   if (data.parentId !== undefined) updateData.parentId = data.parentId
   if (data.iconKey !== undefined) updateData.iconKey = parseOptionalIconKey(data.iconKey)
   if (data.sort !== undefined) updateData.sort = data.sort
-  if (isRoot) {
+  if (willBeRoot) {
     if (data.isCashEquivalent !== undefined) updateData.isCashEquivalent = data.isCashEquivalent
     if (data.isInvestment !== undefined) updateData.isInvestment = data.isInvestment
+  } else {
+    // 变为子分类（含原本就是子分类）：计算属性恒为 NULL。
+    updateData.isCashEquivalent = null
+    updateData.isInvestment = null
   }
 
   return accountCategoryRepo.update({

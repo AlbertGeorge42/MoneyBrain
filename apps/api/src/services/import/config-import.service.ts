@@ -53,8 +53,12 @@ async function importAccountCategories(
               where: { id: existing.id },
               data: {
                 sort: item.sort ?? existing.sort,
-                ...(isRoot && item.isCashEquivalent !== undefined && { isCashEquivalent: item.isCashEquivalent }),
-                ...(isRoot && item.isInvestment !== undefined && { isInvestment: item.isInvestment }),
+                ...(isRoot
+                  ? {
+                      ...(item.isCashEquivalent !== undefined && { isCashEquivalent: item.isCashEquivalent }),
+                      ...(item.isInvestment !== undefined && { isInvestment: item.isInvestment }),
+                    }
+                  : { isCashEquivalent: null, isInvestment: null }),
                 ...(item.iconKey !== undefined && { iconKey: parseOptionalIconKey(item.iconKey) }),
               },
             },
@@ -73,8 +77,8 @@ async function importAccountCategories(
               name: item.name,
               type: item.type,
               parentId,
-              isCashEquivalent: isRoot ? (item.isCashEquivalent ?? false) : false,
-              isInvestment: isRoot ? (item.isInvestment ?? false) : false,
+              isCashEquivalent: isRoot ? (item.isCashEquivalent ?? false) : null,
+              isInvestment: isRoot ? (item.isInvestment ?? false) : null,
               iconKey: parseOptionalIconKey(item.iconKey),
               sort,
             },
@@ -229,7 +233,8 @@ async function importTransactionCategories(
             {
               where: { id: existing.id },
               data: {
-                cashFlowType: item.cashFlowType ?? existing.cashFlowType,
+                // 计算属性只属于根分类；子分类恒为 NULL，忽略导入文件中的值。
+                cashFlowType: parentId === null ? (item.cashFlowType ?? existing.cashFlowType) : null,
                 sort: item.sort ?? existing.sort,
                 ...(item.iconKey !== undefined && { iconKey: parseOptionalIconKey(item.iconKey) }),
               },
@@ -248,7 +253,7 @@ async function importTransactionCategories(
               name: item.name,
               type: item.type,
               parentId,
-              cashFlowType: item.cashFlowType,
+              cashFlowType: parentId === null ? item.cashFlowType : null,
               iconKey: parseOptionalIconKey(item.iconKey),
               sort,
             },

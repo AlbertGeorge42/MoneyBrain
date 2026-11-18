@@ -8,7 +8,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --import tsx --test tests/ledger.test.ts tests/date.test.ts tests/money.test.ts tests/invariants.test.ts tests/investment.test.ts tests/investment-analysis.test.ts tests/statements.test.ts tests/balance-sheet.test.ts tests/income-expense.test.ts tests/cash-flow.test.ts tests/budget.test.ts tests/projection.test.ts",
+    "test": "node --import tsx --test tests/ledger.test.ts tests/date.test.ts tests/money.test.ts tests/invariants.test.ts tests/investment.test.ts tests/investment-analysis.test.ts tests/statements.test.ts tests/balance-sheet.test.ts tests/income-expense.test.ts tests/cash-flow.test.ts tests/budget.test.ts tests/projection.test.ts tests/category-flags.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

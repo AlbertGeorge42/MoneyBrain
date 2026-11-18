@@ -212,7 +212,7 @@ export const ACTIVITY_GROUPS: readonly { id: ActivityGroupId; label: string }[] 
 ]
 
 export function defaultActivity(category: LedgerCategory): ActivityGroupId {
-  return category.cashFlowType ?? 'unassigned'
+  return category.effectiveCashFlowType ?? category.cashFlowType ?? 'unassigned'
 }
 
 export const ASSET_MARK_GROUPS: readonly {

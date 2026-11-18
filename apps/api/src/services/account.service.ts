@@ -1,3 +1,4 @@
+import { resolveAccountCategoryFlags } from '../../../../packages/domain/src/index.js'
 import { withTransaction } from '../db/transaction.js'
 import { NotFoundError, ValidationError } from '../common/index.js'
 import { toMinor } from '../common/index.js'
@@ -25,16 +26,40 @@ type AccountUpdateData = {
   initialBalanceDate?: string
 }
 
+/** 账户有效计算属性：从根继承解析结果取，不读分类 raw 字段。 */
+async function effectiveFlagsByCategoryId(): Promise<Map<string, { isCashEquivalent: boolean; isInvestment: boolean }>> {
+  const allCategories = await accountCategoryRepo.findMany({
+    select: { id: true, parentId: true, isCashEquivalent: true, isInvestment: true },
+  })
+  return resolveAccountCategoryFlags(allCategories).effectiveFlags
+}
+
+function withEffectiveFlags<T extends { categoryId: string | null }>(
+  account: T,
+  flags: Map<string, { isCashEquivalent: boolean; isInvestment: boolean }>,
+) {
+  const effective = account.categoryId ? flags.get(account.categoryId) : undefined
+  return {
+    ...account,
+    effectiveIsCashEquivalent: effective?.isCashEquivalent ?? false,
+    effectiveIsInvestment: effective?.isInvestment ?? false,
+  }
+}
+
 export async function getAccounts(params?: { type?: string; categoryId?: string }) {
   const where: Record<string, unknown> = {}
   if (params?.type) where.type = params.type
   if (params?.categoryId) where.categoryId = params.categoryId
 
-  return accountRepo.findMany({
-    where,
-    include: { category: true },
-    orderBy: [{ sort: 'asc' }, { createdAt: 'desc' }],
-  })
+  const [accounts, flags] = await Promise.all([
+    accountRepo.findMany({
+      where,
+      include: { category: true },
+      orderBy: [{ sort: 'asc' }, { createdAt: 'desc' }],
+    }),
+    effectiveFlagsByCategoryId(),
+  ])
+  return accounts.map((account) => withEffectiveFlags(account, flags))
 }
 
 export async function updateAccountSorts(items: AccountSortItem[]): Promise<void> {
@@ -44,6 +69,7 @@ export async function updateAccountSorts(items: AccountSortItem[]): Promise<void
 export async function getAccountDetail(accountId: string) {
   const account = await accountRepo.findByIdWithCategory(accountId)
   if (!account) return null
+  const flags = await effectiveFlagsByCategoryId()
 
   // 最近交易走交易 repository：软删除过滤只在那层做
   const fromTransactions = await transactionRepo.findActive(
@@ -55,7 +81,7 @@ export async function getAccountDetail(accountId: string) {
     },
   )
 
-  return { ...account, fromTransactions }
+  return { ...withEffectiveFlags(account, flags), fromTransactions }
 }
 
 /**

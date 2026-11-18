@@ -17,6 +17,8 @@ import {
   buildProjectionActivity,
   buildSankey,
   fromDate,
+  resolveAccountCategoryFlags,
+  resolveTransactionCategoryFlags,
   type HistoricalBalanceSnapshot,
   type LocalDate,
   type Minor,
@@ -29,7 +31,6 @@ import { toLedgerTransaction } from './ledger.adapter.js'
 import { buildProjectionBuckets } from './report/bucket.js'
 import { collectSankeySources, collectTransactions } from './report/cash-flow-collect.js'
 import { PREDICTION_NOTE_DEFAULT } from './report/prediction-source.js'
-import { resolveAccountCategoryFlags } from './account-category-flags.js'
 import type {
   AccountInfo,
   CategoryInfo,
@@ -47,15 +48,18 @@ interface ProjectionQueryParams {
   includeCommitted: boolean
 }
 
-/** Prisma 账户 → 领域引用（展示兜底留在 API 边界）。 */
-function toAccountRefs(accounts: { id: string; name: string; type: string; category?: { id: string; name: string; isInvestment: boolean; sort: number } | null }[]): ProjectionAccountRef[] {
+/** Prisma 账户 → 领域引用（展示兜底留在 API 边界；isInvestment 取根继承有效值）。 */
+function toAccountRefs(
+  accounts: { id: string; name: string; type: string; category?: { id: string; name: string; sort: number } | null }[],
+  investmentCategoryIds: ReadonlySet<string>,
+): ProjectionAccountRef[] {
   return accounts.map((account) => ({
     id: account.id,
     name: account.name,
     type: account.type,
     categoryId: account.category?.id ?? 'uncategorized',
     categoryName: account.category?.name ?? '未分类',
-    isInvestment: account.category?.isInvestment ?? false,
+    isInvestment: account.category ? investmentCategoryIds.has(account.category.id) : false,
     sort: account.category?.sort ?? Number.MAX_SAFE_INTEGER,
   }))
 }
@@ -71,7 +75,11 @@ function toMinorBalances(accounts: Account[], cache: BalanceCache, target: Date)
 async function assetProjectionRange(params: ProjectionQueryParams): Promise<AssetProjectionResult> {
   const buckets = buildProjectionBuckets(params.asOf, params.granularity, params.from, params.to)
   const accountRows = await accountRepo.findMany({ include: { category: true } })
-  const accounts = toAccountRefs(accountRows)
+  const allCategories = await accountCategoryRepo.findMany({
+    select: { id: true, parentId: true, isCashEquivalent: true, isInvestment: true },
+  })
+  const { investmentCategoryIds } = resolveAccountCategoryFlags(allCategories)
+  const accounts = toAccountRefs(accountRows, investmentCategoryIds)
 
   const baseCache = await calculateBalancesBatch(
     accountRows.map((account) => account.id),
@@ -211,8 +219,11 @@ async function cashFlowProjectionRange(params: ProjectionQueryParams): Promise<C
   let accountMap = new Map<string, AccountInfo>()
   if (windowPlanned.length > 0 || windowCommitted.length > 0) {
     const categories = await transactionCategoryRepo.findMany({ include: { parent: true } })
+    const { effectiveCashFlowTypes } = resolveTransactionCategoryFlags(
+      categories.map((category) => ({ id: category.id, parentId: category.parentId, cashFlowType: category.cashFlowType })),
+    )
     categoryMap = new Map(categories.map((category) => [category.id, {
-      cashFlowType: category.cashFlowType,
+      cashFlowType: (effectiveCashFlowTypes.get(category.id) ?? category.cashFlowType ?? null) as string | null,
       name: category.name,
       parentId: category.parentId,
       level: category.parentId ? 2 : 1,

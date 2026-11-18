@@ -16,8 +16,10 @@ model AccountCategory {
   sort             Int                @default(0)
   parent           AccountCategory?   @relation("AccountCategoryTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children         AccountCategory[]  @relation("AccountCategoryTree")
-  isCashEquivalent Boolean            @default(false)
-  isInvestment     Boolean            @default(false)
+  /// 仅根分类（parentId = null）有值；子分类恒为 null，计算属性由根继承解析。
+  isCashEquivalent Boolean?
+  /// 仅根分类（parentId = null）有值；子分类恒为 null，计算属性由根继承解析。
+  isInvestment     Boolean?
   iconKey          String? // 受控图标 key（CATEGORY_ICON_KEYS）；null = 前端默认图标
   accounts         Account[]
   createdAt        DateTime           @default(now())

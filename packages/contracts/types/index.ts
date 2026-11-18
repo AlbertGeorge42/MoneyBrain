@@ -74,8 +74,12 @@ export interface AccountCategory {
   sort: number
   parent: AccountCategory | null
   children: AccountCategory[]
-  isCashEquivalent: boolean
-  isInvestment: boolean
+  /** 仅根分类有值的原始配置；子分类恒为 null，配置展示用。 */
+  isCashEquivalent: boolean | null
+  isInvestment: boolean | null
+  /** 根继承解析后的有效计算属性；财务计算一律用这两个字段。 */
+  effectiveIsCashEquivalent: boolean
+  effectiveIsInvestment: boolean
   /** 受控图标 key（见 CATEGORY_ICON_KEYS）；null = 使用前端默认图标。 */
   iconKey: string | null
   createdAt: string
@@ -94,6 +98,9 @@ export interface Account {
   categoryId: string | null
   sort: number
   category: AccountCategory | null
+  /** 根继承解析后的有效计算属性；财务计算与账户性质展示都用这两个字段。 */
+  effectiveIsCashEquivalent: boolean
+  effectiveIsInvestment: boolean
   createdAt: string
   updatedAt: string
 }
@@ -145,7 +152,10 @@ export interface TransactionCategory {
   sort: number
   parent: TransactionCategory | null
   children: TransactionCategory[]
+  /** 仅根分类有值的原始配置；子分类恒为 null。 */
   cashFlowType: 'operating' | 'investing' | 'financing' | null
+  /** 根继承解析后的有效活动归属；财务计算一律用这个字段。 */
+  effectiveCashFlowType: 'operating' | 'investing' | 'financing' | null
   /** 受控图标 key（见 CATEGORY_ICON_KEYS）；null = 回退到按名称映射。 */
   iconKey: string | null
   createdAt: string

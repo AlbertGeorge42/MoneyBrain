@@ -18,10 +18,10 @@ import type {
 
 /** 与真实账本同一套一级分类：资产 现金 / 长期 / 投资，负债 短期负债；账户直接挂一级。 */
 const SEED_ACCOUNT_CATEGORIES: LedgerAccountCategory[] = [
-  { id: 'seed-cash', name: '现金', type: 'asset', parentId: null, sort: 0, isCashEquivalent: true, seeded: true },
-  { id: 'seed-long', name: '长期', type: 'asset', parentId: null, sort: 1, seeded: true },
-  { id: 'seed-invest', name: '投资', type: 'asset', parentId: null, sort: 2, isInvestment: true, seeded: true },
-  { id: 'seed-debt', name: '短期负债', type: 'liability', parentId: null, sort: 3, seeded: true },
+  { id: 'seed-cash', name: '现金', type: 'asset', parentId: null, sort: 0, isCashEquivalent: true, effectiveIsCashEquivalent: true, effectiveIsInvestment: false, seeded: true },
+  { id: 'seed-long', name: '长期', type: 'asset', parentId: null, sort: 1, effectiveIsCashEquivalent: false, effectiveIsInvestment: false, seeded: true },
+  { id: 'seed-invest', name: '投资', type: 'asset', parentId: null, sort: 2, isInvestment: true, effectiveIsCashEquivalent: false, effectiveIsInvestment: true, seeded: true },
+  { id: 'seed-debt', name: '短期负债', type: 'liability', parentId: null, sort: 3, effectiveIsCashEquivalent: false, effectiveIsInvestment: false, seeded: true },
 ]
 
 const SEED_ACCOUNTS: LedgerAccount[] = [

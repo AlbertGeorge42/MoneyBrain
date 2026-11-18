@@ -63,14 +63,14 @@ async function resolveAccountCategory(
     return roots[0] ? { categoryId: roots[0].id } : { error: '缺少负债账户分类' }
   }
   if (kind === 'cash') {
-    const matched = roots.find((category) => category.isCashEquivalent)
+    const matched = roots.find((category) => category.effectiveIsCashEquivalent)
     return matched ? { categoryId: matched.id } : { error: '缺少「现金及等价物」账户分类' }
   }
   if (kind === 'investment') {
-    const matched = roots.find((category) => category.isInvestment)
+    const matched = roots.find((category) => category.effectiveIsInvestment)
     return matched ? { categoryId: matched.id } : { error: '缺少「投资资产」账户分类' }
   }
-  const other = roots.find((category) => !category.isCashEquivalent && !category.isInvestment)
+  const other = roots.find((category) => !category.effectiveIsCashEquivalent && !category.effectiveIsInvestment)
   return { categoryId: (other ?? roots[0])?.id }
 }
 
