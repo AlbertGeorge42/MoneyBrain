@@ -11,7 +11,7 @@
  *   Σ期初 + 流入 − 流出 − Σ期末 = 0（内部转账在总账里抵消）
  * 任一账户或总账超容差都落失败态，绝不为了出图放宽。
  */
-import { minor } from '@domain/index'
+import { minor, type SankeyEndpoint } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import type { Ledger } from '@/features/overview/model'
 import { addDays } from '@/utils/date'
@@ -47,6 +47,20 @@ export interface CashSankeyNode {
   children: CashChild[]
   hiddenCount?: number
   account?: CashSankeyAccount
+  /** 所属折叠组身份（一级分类 / 账户分类）；渐进式投影据此聚合或展开。 */
+  groupId?: string
+  /** 折叠组展示名。 */
+  groupName?: string
+  /** 该节点在细图中是否为可展开组的成员（组内成员数 > 1）。 */
+  expandable?: boolean
+  /** 分区：账户类节点排前，分类节点排后。 */
+  origin?: 'account' | 'category'
+  /** 稳定排序位次：折叠态分配，展开只在原组内展开，不改变其他节点相对顺序。 */
+  rank?: number
+  /** 组内次序（按金额降序），展开后成员按此排列。 */
+  memberIndex?: number
+  /** 投影后是否为折叠组节点（点击展开）。 */
+  isGroup?: boolean
 }
 
 export interface CashSankeyLink {
@@ -109,12 +123,6 @@ export function assertAccountConservation(accounts: CashSankeyAccount[]): string
   const tail = broken.length > 1 ? `（另有 ${broken.length - 1} 个账户对不上）` : ''
   return `账户「${account.name}」逐账户等式对不上：期初 ${money(account.opening)} + 流入 ${money(account.inflow)} − 流出 ${money(account.outflow)} + 转入 ${money(account.transferIn)} − 转出 ${money(account.transferOut)} = 期末 ${money(account.closing)}，差 ${money(account.difference)}${tail}`
 }
-
-const ACCOUNT_SUFFIX = '_cash'
-const INCOME_SUFFIX = '_income'
-const EXPENSE_SUFFIX = '_expense'
-const NON_CASH_SOURCE_SUFFIX = '_ncs'
-const NON_CASH_TARGET_SUFFIX = '_nct'
 
 function money(value: number): string {
   return formatCurrency(minor(Math.round(value)))
@@ -252,76 +260,94 @@ function createBuilder(): Builder {
   return { nodeMap, linkMap, addNode, addLink }
 }
 
-/** 后端桑基只给分类名；按根分类名 / 叶子分类名都解析回账本里的根分类 id。 */
-function categoryNodeId(
-  ledger: Ledger,
-  report: CashReport,
-  side: 'in' | 'out',
-  name: string,
-): { id: string; name: string; error?: string } {
-  const type = side === 'in' ? 'income' : 'expense'
-  const roots = ledger.categories.filter((category) => !category.parentId && category.type === type)
-  const exact = roots.filter((category) => category.name === name)
-  if (exact.length === 1) return { id: exact[0].id, name: exact[0].name }
-  if (exact.length > 1) {
-    return { id: `cat:${side}:${name}`, name, error: `分类「${name}」同名且无法唯一定位` }
+type EndpointRole = 'income' | 'expense' | 'account'
+
+/**
+ * 从后端 endpoint 的结构化字段解析角色与实体身份，完全不读展示名。
+ * `base` 是稳定实体 id（分类 id / 账户 id）；合成节点才退化为固定语义位。
+ */
+function endpointRole(endpoint: SankeyEndpoint): {
+  role: EndpointRole
+  base: string
+  synthetic: boolean
+  id: string
+  name: string
+} {
+  const { id, name, nodeType } = endpoint
+  const synthetic =
+    nodeType === 'non_cash_source' ||
+    nodeType === 'non_cash_target' ||
+    id.includes(':synthetic:')
+
+  if (nodeType === 'cash') return { role: 'account', base: accountBaseOf(id), synthetic, id, name }
+  if (nodeType === 'income_category' || nodeType === 'non_cash_source') {
+    return { role: 'income', base: categoryBaseOf(id, 'in'), synthetic, id, name }
   }
-  const groups = side === 'in' ? report.inflowGroups : report.outflowGroups
-  const ids = new Set<string>()
-  for (const group of groups) {
-    for (const child of group.children) {
-      if (child.label !== name) continue
-      const root = rootOf(ledger, child.categoryId)
-      if (root) ids.add(root.id)
-    }
-  }
-  if (ids.size === 1) {
-    const id = [...ids][0]
-    const root = rootOf(ledger, id)
-    return { id, name: root?.name ?? name }
-  }
-  if (ids.size > 1) {
-    return { id: `cat:${side}:${name}`, name, error: `分类「${name}」同名且无法唯一定位` }
-  }
-  return { id: `cat:${side}:${name}`, name }
+  return { role: 'expense', base: categoryBaseOf(id, 'out'), synthetic, id, name }
 }
 
-function nodeRole(
-  name: string,
-  declared: Map<string, 'income' | 'expense' | 'account'>,
-): { role: 'income' | 'expense' | 'account'; base: string; synthetic: boolean } {
-  const role = declared.get(name)
-  if (role === 'account') return { role, base: stripSuffix(name), synthetic: false }
-  if (role === 'income') {
-    return { role, base: stripSuffix(name), synthetic: name.endsWith(NON_CASH_SOURCE_SUFFIX) }
-  }
-  if (role === 'expense') {
-    return { role, base: stripSuffix(name), synthetic: name.endsWith(NON_CASH_TARGET_SUFFIX) }
-  }
-  if (name.endsWith(EXPENSE_SUFFIX)) {
-    return { role: 'expense', base: name.slice(0, -EXPENSE_SUFFIX.length), synthetic: false }
-  }
-  if (name.endsWith(INCOME_SUFFIX)) {
-    return { role: 'income', base: name.slice(0, -INCOME_SUFFIX.length), synthetic: false }
-  }
-  if (name.endsWith(ACCOUNT_SUFFIX)) {
-    return { role: 'account', base: name.slice(0, -ACCOUNT_SUFFIX.length), synthetic: false }
-  }
-  if (name.endsWith(NON_CASH_SOURCE_SUFFIX)) {
-    return { role: 'income', base: name.slice(0, -NON_CASH_SOURCE_SUFFIX.length), synthetic: true }
-  }
-  if (name.endsWith(NON_CASH_TARGET_SUFFIX)) {
-    return { role: 'expense', base: name.slice(0, -NON_CASH_TARGET_SUFFIX.length), synthetic: true }
-  }
-  // 兜底：按来源理解，避免未识别节点被丢弃导致图不完整。
-  return { role: 'income', base: name, synthetic: true }
+/** 从 `acct:<id>` / `acct:synthetic:<name>` 提取账户身份。 */
+function accountBaseOf(id: string): string {
+  const rest = id.startsWith('acct:') ? id.slice('acct:'.length) : id
+  return rest.startsWith('synthetic:') ? rest.slice('synthetic:'.length) : rest
 }
 
-function stripSuffix(name: string): string {
-  for (const suffix of [EXPENSE_SUFFIX, INCOME_SUFFIX, ACCOUNT_SUFFIX, NON_CASH_SOURCE_SUFFIX, NON_CASH_TARGET_SUFFIX]) {
-    if (name.endsWith(suffix)) return name.slice(0, -suffix.length)
+/** 从 `in:<id>` / `out:<id>` 提取分类身份；合成节点返回其固定语义位。 */
+function categoryBaseOf(id: string, side: 'in' | 'out'): string {
+  const prefix = `${side}:`
+  const rest = id.startsWith(prefix) ? id.slice(prefix.length) : id
+  return rest.startsWith('synthetic:') ? rest.slice('synthetic:'.length) : rest
+}
+
+/** 从细图节点 id 解析其分类根 id，用于下钻明细按一级分类对齐。 */
+function nodeCategoryRootId(ledger: Ledger, node: CashSankeyNode): string {
+  const side = node.layer === 0 ? 'in' : 'out'
+  const prefix = `${side}:`
+  const base = node.id.startsWith(prefix) ? node.id.slice(prefix.length) : node.id
+  return rootOf(ledger, base)?.id ?? base
+}
+
+/**
+ * 给细图节点回填渐进式分组与稳定排序字段。
+ *
+ * 分组身份、展示名、可展开性全部来自后端 endpoint 自带的 `group`，前端不读
+ * ledger 的分类层级 / 账户分类归属。前端只负责视图排序：组间顺序在完全折叠态
+ * 确定（账户组在前、按金额降序），成员按金额定 memberIndex；展开只在原组内展开，
+ * 因此任意展开组合下其他节点的相对顺序都不变。
+ */
+function finalizeGroups(nodes: CashSankeyNode[], endpointMap: Map<string, SankeyEndpoint>): CashSankeyNode[] {
+  const grouped = new Map<string, CashSankeyNode[]>()
+  for (const node of nodes) {
+    const group = endpointMap.get(node.id)?.group ?? null
+    node.groupId = group?.id ?? `self:${node.id}`
+    node.groupName = group?.name ?? node.name
+    node.expandable = group?.expandable ?? false
+    node.origin = node.layer === 1 ? 'account' : 'category'
+    const list = grouped.get(node.groupId) ?? []
+    list.push(node)
+    grouped.set(node.groupId, list)
   }
-  return name
+
+  const groupOrder = [...grouped.entries()].sort((left, right) => {
+    const originLeft = left[1][0].origin === 'account' ? 0 : 1
+    const originRight = right[1][0].origin === 'account' ? 0 : 1
+    if (originLeft !== originRight) return originLeft - originRight
+    const sumLeft = left[1].reduce((sum, node) => sum + node.amount, 0)
+    const sumRight = right[1].reduce((sum, node) => sum + node.amount, 0)
+    if (sumLeft !== sumRight) return sumRight - sumLeft
+    return left[0].localeCompare(right[0])
+  })
+
+  groupOrder.forEach(([, members], rank) => {
+    const byAmount = members.slice().sort((left, right) =>
+      right.amount !== left.amount ? right.amount - left.amount : left.id.localeCompare(right.id))
+    byAmount.forEach((node, index) => {
+      // expandable 由后端 endpoint.group 权威给出，前端只排视图序位。
+      node.rank = rank
+      node.memberIndex = index
+    })
+  })
+  return nodes
 }
 
 interface AccountRuntime {
@@ -423,39 +449,29 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
     return { ...base, status: 'invalid', reason: '本窗口没有可绘制的现金流事件。' }
   }
 
-  const declared = new Map<string, 'income' | 'expense' | 'account'>()
-  for (const node of apiSankey.nodes) {
-    const role =
-      node.category === 'cash'
-        ? ('account' as const)
-        : node.category === 'income_category' || node.category === 'non_cash_source'
-          ? ('income' as const)
-          : node.category === 'expense_category' || node.category === 'non_cash_target'
-            ? ('expense' as const)
-            : null
-    if (role) declared.set(node.name, role)
-  }
-
-  const idOf = (name: string): string => {
-    const role = nodeRole(name, declared)
-    if (role.role === 'account') return `acct:${name}`
-    return `${role.role === 'income' ? 'in' : 'out'}:${role.base}`
-  }
+  // 后端 endpoint 自带结构化身份：id 即节点身份，nodeType / side 表达类型与方向。
+  const endpointMap = new Map<string, SankeyEndpoint>(apiSankey.nodes.map((node) => [node.id, node]))
   const nodeMap = new Map<string, CashSankeyNode>()
-  const ensureNode = (name: string): CashSankeyNode => {
-    const role = nodeRole(name, declared)
-    const id = idOf(name)
-    const existing = nodeMap.get(id)
+  const ensureNode = (endpointId: string): CashSankeyNode => {
+    const existing = nodeMap.get(endpointId)
     if (existing) return existing
+    const endpoint = endpointMap.get(endpointId)
+    const role = endpointRole(endpoint ?? {
+      id: endpointId,
+      name: endpointId,
+      nodeType: 'income_category',
+      side: 'in',
+      group: null,
+    })
     const node: CashSankeyNode = {
-      id,
-      name: role.base,
+      id: endpointId,
+      name: endpoint?.name ?? role.base,
       layer: role.role === 'account' ? 1 : role.role === 'income' ? 0 : 2,
       tone: role.role === 'account' ? 'neutral' : role.role,
       amount: 0,
       children: [],
     }
-    nodeMap.set(id, node)
+    nodeMap.set(endpointId, node)
     return node
   }
 
@@ -463,24 +479,29 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
   let transferTotal = 0
   for (const link of apiSankey.links) {
     if (link.value <= 0) continue
-    const source = nodeRole(link.source, declared)
-    const target = nodeRole(link.target, declared)
     const sourceId = ensureNode(link.source).id
     const targetId = ensureNode(link.target).id
-    const kind = source.role === 'account' && target.role === 'account' ? ('transfer' as const) : ('flow' as const)
+    const sourceRole = endpointRole(endpointMap.get(link.source) ?? {
+      id: link.source, name: link.source, nodeType: 'income_category', side: 'in', group: null,
+    })
+    const targetRole = endpointRole(endpointMap.get(link.target) ?? {
+      id: link.target, name: link.target, nodeType: 'expense_category', side: 'out', group: null,
+    })
+    const kind = sourceRole.role === 'account' && targetRole.role === 'account' ? ('transfer' as const) : ('flow' as const)
     if (kind === 'transfer') transferTotal += link.value
     links.push({
       id: `${sourceId}>${targetId}|${kind}`,
       sourceId,
       targetId,
-      nodeId: source.role === 'income' ? sourceId : target.role === 'expense' ? targetId : sourceId,
+      nodeId: sourceRole.role === 'income' ? sourceId : targetRole.role === 'expense' ? targetId : sourceId,
       amount: link.value,
-      tone: source.role === 'income' ? 'income' : target.role === 'expense' ? 'expense' : 'neutral',
+      tone: sourceRole.role === 'income' ? 'income' : targetRole.role === 'expense' ? 'expense' : 'neutral',
       kind,
     })
   }
 
   const nodes = [...nodeMap.values()]
+  finalizeGroups(nodes, endpointMap)
   const inflow = links
     .filter((link) => link.kind === 'flow' && nodeMap.get(link.sourceId)?.layer === 0 && nodeMap.get(link.targetId)?.layer === 1)
     .reduce((sum, link) => sum + link.amount, 0)
@@ -495,7 +516,7 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
     for (const group of groups) {
       for (const child of group.children) {
         const root = rootOf(ledger, child.categoryId)
-        const key = root?.name ?? child.categoryId
+        const key = root?.id ?? child.categoryId
         const list = map.get(key) ?? []
         list.push(child)
         map.set(key, list)
@@ -514,10 +535,10 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
       node.children = accountChildren(node, nodeMap, links)
     } else if (node.layer === 0) {
       node.amount = links.filter((link) => link.sourceId === node.id).reduce((sum, link) => sum + link.amount, 0)
-      node.children = inChildren.get(node.name) ?? []
+      node.children = inChildren.get(nodeCategoryRootId(ledger, node)) ?? []
     } else {
       node.amount = links.filter((link) => link.targetId === node.id).reduce((sum, link) => sum + link.amount, 0)
-      node.children = outChildren.get(node.name) ?? []
+      node.children = outChildren.get(nodeCategoryRootId(ledger, node)) ?? []
     }
   }
 
@@ -576,9 +597,13 @@ export function deriveCashSankey(
 ): CashSankey {
   if (report.projectionMode) return projectionSankey(ledger, report)
   const { from, to } = report.period
+  const apiEndpoints = report.apiSankey?.nodes ?? []
   const apiLinks = report.apiSankey?.links ?? []
+  const endpointMap = new Map<string, SankeyEndpoint>(apiEndpoints.map((node) => [node.id, node]))
+  const endpointFor = (id: string): SankeyEndpoint =>
+    endpointMap.get(id) ?? { id, name: id, nodeType: 'income_category', side: 'in', group: null }
   const hasTransfers = apiLinks.some(
-    (link) => link.source.endsWith(ACCOUNT_SUFFIX) && link.target.endsWith(ACCOUNT_SUFFIX),
+    (link) => endpointFor(link.source).nodeType === 'cash' && endpointFor(link.target).nodeType === 'cash',
   )
   const groupIndex = buildGroupIndex(ledger, report, visibility, hasTransfers)
   const builder = createBuilder()
@@ -641,18 +666,31 @@ export function deriveCashSankey(
     return (side === 'in' ? groupIndex.hiddenInIds : groupIndex.hiddenOutIds).has(rootId)
   }
 
-  const resolveApiCategory = (
-    side: 'in' | 'out',
-    name: string,
-    synthetic: boolean,
-  ): { nodeId: string } => {
-    if (synthetic) {
-      const prefix = side === 'in' ? 'in:ncs' : 'out:nct'
-      return addCategoryNode(side, `${prefix}:${name}`, name, false, 'neutral')
+  /**
+   * 分类 endpoint → 细图节点。直接用 endpoint 的真实分类 id（可能是叶子分类）建节点，
+   * 保留二级分类信息供渐进式展开；分组元数据来自 endpoint.group（后端权威）。
+   * 隐藏判断仍按根分类（与分组无关的下钻可见性逻辑），展示名取 endpoint.name。
+   */
+  const resolveApiCategory = (endpoint: SankeyEndpoint): { nodeId: string } => {
+    const role = endpointRole(endpoint)
+    const side = role.role === 'income' ? 'in' : 'out'
+    if (role.synthetic) {
+      // 合成位 / 非现金端点的 id 已是完整身份（in:ncs:… / out:nct:… / …:synthetic:…），
+      // 不能再套 categoryKey，否则 finalizeGroups 按 endpoint.id 查不到 group，
+      // 非现金账户就会退化成单成员节点，直接显示账户而非账户分类。
+      const node = builder.addNode({
+        id: endpoint.id,
+        name: endpoint.name,
+        layer: role.role === 'income' ? 0 : 2,
+        tone: 'neutral',
+        amount: 0,
+        children: [],
+      })
+      return { nodeId: node.id }
     }
-    const resolved = categoryNodeId(ledger, report, side, name)
-    if (resolved.error) categoryError.push(resolved.error)
-    return addCategoryNode(side, resolved.id, resolved.name, hiddenForRoot(side, resolved.id))
+    const categoryId = role.base
+    const root = rootOf(ledger, categoryId)
+    return addCategoryNode(side, categoryId, endpoint.name, hiddenForRoot(side, root?.id ?? categoryId))
   }
 
   const hiddenNode = (side: 'in' | 'out') =>
@@ -660,50 +698,47 @@ export function deriveCashSankey(
 
   if (report.apiSankey) {
     // ── 后端逐账户分配 ───────────────────────────────────────────────────────
+    // 账户身份直接来自 endpoint.id（acct:<accountId>）；仅合成节点（无真实 id）
+    // 才按展示名在账本里定位，且同名仍拒绝猜测。
     const accountIdsByName = new Map<string, string[]>()
     for (const account of ledger.accounts) {
       const ids = accountIdsByName.get(account.name) ?? []
       ids.push(account.id)
       accountIdsByName.set(account.name, ids)
     }
-    const resolveAccountId = (name: string): string | null => {
-      const ids = accountIdsByName.get(name)
-      if (!ids || ids.length === 0) return null
-      if (ids.length > 1) {
-        categoryError.push(`账户「${name}」同名且无法唯一定位`)
-        return null
+    const accountIds = new Set(ledger.accounts.map((account) => account.id))
+    const resolveAccountId = (endpoint: SankeyEndpoint): string | null => {
+      const role = endpointRole(endpoint)
+      if (!role.synthetic && accountIds.has(role.base)) return role.base
+      if (role.synthetic) {
+        const ids = accountIdsByName.get(endpoint.name)
+        if (!ids || ids.length === 0) return null
+        if (ids.length > 1) {
+          categoryError.push(`账户「${endpoint.name}」同名且无法唯一定位`)
+          return null
+        }
+        return ids[0]
       }
-      return ids[0]
-    }
-
-    const declared = new Map<string, 'income' | 'expense' | 'account'>()
-    for (const node of report.apiSankey.nodes) {
-      const role =
-        node.category === 'cash'
-          ? ('account' as const)
-          : node.category === 'income_category' || node.category === 'non_cash_source'
-            ? ('income' as const)
-            : node.category === 'expense_category' || node.category === 'non_cash_target'
-              ? ('expense' as const)
-              : null
-      if (role) declared.set(node.name, role)
+      return null
     }
 
     for (const link of apiLinks) {
       const amount = actualAmountOf(link)
       if (amount <= 0) continue
-      const source = nodeRole(link.source, declared)
-      const target = nodeRole(link.target, declared)
+      const sourceEndpoint = endpointFor(link.source)
+      const targetEndpoint = endpointFor(link.target)
+      const source = endpointRole(sourceEndpoint)
+      const target = endpointRole(targetEndpoint)
 
       if (source.role === 'account' && target.role === 'account') {
-        const fromId = resolveAccountId(source.base)
-        const toId = resolveAccountId(target.base)
+        const fromId = resolveAccountId(sourceEndpoint)
+        const toId = resolveAccountId(targetEndpoint)
         if (!fromId || !toId) {
-          categoryError.push(`账户「${!fromId ? source.base : target.base}」无法在账本中定位`)
+          categoryError.push(`账户「${!fromId ? sourceEndpoint.name : targetEndpoint.name}」无法在账本中定位`)
           continue
         }
-        addAccountNode(fromId, source.base)
-        addAccountNode(toId, target.base)
+        addAccountNode(fromId, sourceEndpoint.name)
+        addAccountNode(toId, targetEndpoint.name)
         base.transferTotal += amount
         if (groupIndex.hideTransfers) {
           const hiddenOut = hiddenNode('out')
@@ -738,13 +773,13 @@ export function deriveCashSankey(
       }
 
       if (source.role === 'income' && target.role === 'account') {
-        const accountId = resolveAccountId(target.base)
+        const accountId = resolveAccountId(targetEndpoint)
         if (!accountId) {
-          categoryError.push(`账户「${target.base}」无法在账本中定位`)
+          categoryError.push(`账户「${targetEndpoint.name}」无法在账本中定位`)
           continue
         }
-        addAccountNode(accountId, target.base)
-        const node = resolveApiCategory('in', source.base, source.synthetic)
+        addAccountNode(accountId, targetEndpoint.name)
+        const node = resolveApiCategory(sourceEndpoint)
         builder.addLink({
           sourceId: node.nodeId,
           targetId: `acct:${accountId}`,
@@ -757,13 +792,13 @@ export function deriveCashSankey(
       }
 
       if (source.role === 'account' && target.role === 'expense') {
-        const accountId = resolveAccountId(source.base)
+        const accountId = resolveAccountId(sourceEndpoint)
         if (!accountId) {
-          categoryError.push(`账户「${source.base}」无法在账本中定位`)
+          categoryError.push(`账户「${sourceEndpoint.name}」无法在账本中定位`)
           continue
         }
-        addAccountNode(accountId, source.base)
-        const node = resolveApiCategory('out', target.base, target.synthetic)
+        addAccountNode(accountId, sourceEndpoint.name)
+        const node = resolveApiCategory(targetEndpoint)
         builder.addLink({
           sourceId: `acct:${accountId}`,
           targetId: node.nodeId,
@@ -892,17 +927,19 @@ export function deriveCashSankey(
       if (node.children.length === 0) {
         node.children = node.hiddenCount
           ? groupIndex.hiddenInChildren
-          : groupIndex.inChildrenByRoot.get(node.id.slice(3)) ?? []
+          : groupIndex.inChildrenByRoot.get(nodeCategoryRootId(ledger, node)) ?? []
       }
     } else {
       node.amount = links.filter((link) => link.targetId === node.id).reduce((sum, link) => sum + link.amount, 0)
       if (node.children.length === 0) {
         node.children = node.hiddenCount
           ? groupIndex.hiddenOutChildren
-          : groupIndex.outChildrenByRoot.get(node.id.slice(4)) ?? []
+          : groupIndex.outChildrenByRoot.get(nodeCategoryRootId(ledger, node)) ?? []
       }
     }
   }
+
+  finalizeGroups(nodes, endpointMap)
 
   const inflow = links
     .filter((link) => link.kind === 'flow' && nodes.find((node) => node.id === link.sourceId)?.layer === 0 && nodes.find((node) => node.id === link.targetId)?.layer === 1)
@@ -966,4 +1003,86 @@ export function deriveCashSankey(
   }
 
   return partial
+}
+
+/**
+ * 渐进式投影（纯函数）。把细图节点按展开集合折叠成组或保留成员，并重连 link。
+ *
+ * - 不修改任何合计字段（opening / closing / inflow / outflow / difference / accounts），
+ *   守恒仍由细图 deriveCashSankey 保证；投影只改变「看到几个节点、怎么连线」。
+ * - 组内互转（同一折叠组内的账户转账）折叠后成为自环，丢弃该连线；金额不丢，
+ *   transferTotal 与逐账户等式都在细图统计，脚注照常显示转账总额。
+ * - 展开只在原组内展开：组与成员共享 rank，成员按 memberIndex 排列，
+ *   因此任意展开组合下其他节点的相对顺序都不变。
+ */
+export function projectCashSankey(
+  data: CashSankey,
+  expanded: ReadonlySet<string>,
+): CashSankey {
+  if (data.status !== 'ready') return data
+
+  const groups = new Map<string, CashSankeyNode[]>()
+  for (const node of data.nodes) {
+    const key = node.groupId ?? `self:${node.id}`
+    const list = groups.get(key) ?? []
+    list.push(node)
+    groups.set(key, list)
+  }
+
+  const redirect = new Map<string, string>()
+  const displayNodes: CashSankeyNode[] = []
+  for (const [groupId, members] of groups) {
+    const canExpand = members.length > 1
+    const isExpanded = canExpand && expanded.has(groupId)
+    if (isExpanded) {
+      for (const member of members) {
+        redirect.set(member.id, member.id)
+        // 保留 expandable=true：成员仍可点击收起所在组。
+        displayNodes.push({ ...member, isGroup: false, expandable: true })
+      }
+      continue
+    }
+    // 单成员组（未分组账户 / 合成节点）：原样保留，保留账户读数等节点语义。
+    if (members.length === 1) {
+      redirect.set(members[0]!.id, members[0]!.id)
+      displayNodes.push({ ...members[0]!, isGroup: false, expandable: false })
+      continue
+    }
+    // 多成员组且未展开：聚合成一个组节点。
+    const ordered = members.slice().sort((left, right) => (left.memberIndex ?? 0) - (right.memberIndex ?? 0))
+    const head = ordered[0]!
+    const amount = members.reduce((sum, node) => sum + node.amount, 0)
+    const children = members.flatMap((node) => node.children)
+    const groupNode: CashSankeyNode = {
+      ...head,
+      id: groupId,
+      name: head.groupName ?? head.name,
+      amount,
+      children,
+      isGroup: canExpand,
+      expandable: canExpand,
+      account: undefined,
+      hiddenCount: undefined,
+    }
+    for (const member of members) redirect.set(member.id, groupId)
+    displayNodes.push(groupNode)
+  }
+
+  const linkMap = new Map<string, CashSankeyLink>()
+  for (const link of data.links) {
+    const sourceId = redirect.get(link.sourceId) ?? link.sourceId
+    const targetId = redirect.get(link.targetId) ?? link.targetId
+    // 折叠后两端落入同一节点：组内互转自环，不画（金额已在细图统计）。
+    if (sourceId === targetId) continue
+    const key = `${sourceId}>${targetId}|${link.kind}`
+    const existing = linkMap.get(key)
+    if (existing) {
+      existing.amount += link.amount
+      continue
+    }
+    const nodeId = redirect.get(link.nodeId) ?? link.nodeId
+    linkMap.set(key, { ...link, id: key, sourceId, targetId, nodeId })
+  }
+
+  return { ...data, nodes: displayNodes, links: [...linkMap.values()] }
 }

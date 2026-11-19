@@ -215,22 +215,23 @@ async function cashFlowProjectionRange(params: ProjectionQueryParams): Promise<C
     (event) => event.date >= windowStart && event.date <= windowEnd,
   )
 
-  let categoryMap = new Map<string, CategoryInfo>()
-  let accountMap = new Map<string, AccountInfo>()
-  if (windowPlanned.length > 0 || windowCommitted.length > 0) {
-    const categories = await transactionCategoryRepo.findMany({ include: { parent: true } })
-    const { effectiveCashFlowTypes } = resolveTransactionCategoryFlags(
-      categories.map((category) => ({ id: category.id, parentId: category.parentId, cashFlowType: category.cashFlowType })),
-    )
-    categoryMap = new Map(categories.map((category) => [category.id, {
-      cashFlowType: (effectiveCashFlowTypes.get(category.id) ?? category.cashFlowType ?? null) as string | null,
-      name: category.name,
-      parentId: category.parentId,
-      level: category.parentId ? 2 : 1,
-    }]))
-    const allAccounts = await accountRepo.findMany({})
-    accountMap = new Map(allAccounts.map((account) => [account.id, { name: account.name }]))
-  }
+  // 桑基分组身份（分类一级归属 / 账户分类归属）actual 与预算点位都要用，字典始终构建。
+  const categoriesForSankey = await transactionCategoryRepo.findMany({})
+  const { effectiveCashFlowTypes } = resolveTransactionCategoryFlags(
+    categoriesForSankey.map((category) => ({ id: category.id, parentId: category.parentId, cashFlowType: category.cashFlowType })),
+  )
+  const categoryMap: Map<string, CategoryInfo> = new Map(categoriesForSankey.map((category) => [category.id, {
+    cashFlowType: (effectiveCashFlowTypes.get(category.id) ?? category.cashFlowType ?? null) as string | null,
+    name: category.name,
+    parentId: category.parentId,
+    level: category.parentId ? 2 : 1,
+  }]))
+  const allAccountsForSankey = await accountRepo.findMany({ include: { category: true } })
+  const accountMap: Map<string, AccountInfo> = new Map(allAccountsForSankey.map((account) => [account.id, {
+    name: account.name,
+    categoryId: account.categoryId ?? null,
+    categoryName: account.category?.name ?? null,
+  }]))
 
   const toPrediction = (event: ProjectionEvent): PredictionTransaction => ({
     date: dayStart(event.date),

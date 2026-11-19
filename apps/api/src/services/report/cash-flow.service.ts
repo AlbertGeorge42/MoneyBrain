@@ -63,12 +63,25 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
 
   let predictionNote: string | undefined
   let predictions: PredictionTransaction[] = []
-  let categoryMap: Map<string, CategoryInfo> = new Map()
-  let accountMap: Map<string, AccountInfo> = new Map()
+
+  // 桑基分组身份：分类一级归属、账户分类归属都要用，actual / predicted 都必须有字典，
+  // 不能只在有预测时构建（否则 actual 单独查询时分组元数据缺失）。
+  const categoryMap: Map<string, CategoryInfo> = new Map(allTxCategories.map((c) => [c.id, {
+    cashFlowType: (effectiveCashFlowTypes.get(c.id) ?? c.cashFlowType) as string | null,
+    name: c.name,
+    parentId: c.parentId,
+    level: c.parentId ? 2 : 1,
+  }]))
+  const allAccountsForSankey = await accountRepo.findMany({ include: { category: true } })
+  const accountMap: Map<string, AccountInfo> = new Map(allAccountsForSankey.map((a) => [a.id, {
+    name: a.name,
+    categoryId: a.categoryId ?? null,
+    categoryName: a.category?.name ?? null,
+  }]))
 
   if (includePredictions) {
     const allPredictions = await getPredictionsIfFuture(endDate, true)
-    predictions = allPredictions.map(p => ({
+    predictions = allPredictions.map((p) => ({
       date: p.date,
       type: p.type,
       amount: p.amount,
@@ -81,14 +94,6 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     }))
 
     if (predictions.length > 0) {
-      categoryMap = new Map(allTxCategories.map(c => [c.id, {
-        cashFlowType: (effectiveCashFlowTypes.get(c.id) ?? c.cashFlowType) as string | null,
-        name: c.name,
-        parentId: c.parentId,
-        level: c.parentId ? 2 : 1,
-      }]))
-      const allAccounts = await accountRepo.findMany({})
-      accountMap = new Map(allAccounts.map(a => [a.id, { name: a.name }]))
       predictionNote = PREDICTION_NOTE_DEFAULT
     }
   }

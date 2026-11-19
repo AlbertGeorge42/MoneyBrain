@@ -845,6 +845,27 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   cursor: pointer;
 }
 
+/* 渐进式：可展开的组节点 / 已展开成员，竖条与文字有 hover / focus 反馈。 */
+.mb-rp-sankey-node--expandable .mb-rp-sankey-node-body {
+  transition: filter 120ms ease;
+}
+
+/* 可展开节点：focus 反馈用竖条高亮，不用 outline（SVG <g tabindex> 的 UA 默认 focus ring 是黄框）。 */
+.mb-rp-sankey-node--expandable {
+  outline: none;
+}
+
+.mb-rp-sankey-node--expandable:hover .mb-rp-sankey-node-body,
+.mb-rp-sankey-node--expandable:focus-visible .mb-rp-sankey-node-body {
+  filter: brightness(1.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-rp-sankey-node--expandable .mb-rp-sankey-node-body {
+    transition: none;
+  }
+}
+
 .mb-rp-sankey-axis {
   fill: var(--mb-color-text-tertiary);
   font-family: var(--mb-font-ui);

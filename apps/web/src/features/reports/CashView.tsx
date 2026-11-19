@@ -109,7 +109,7 @@ export function CashView({
       {device === 'desktop' ? (
         <>
           {sankey && (
-            <ChartCard title="现金流流向" desc="收入分类 → 账户 → 支出分类 · 期初 / 期末逐账户读数">
+            <ChartCard title="现金流流向" desc="收入分类 → 账户分类 → 支出分类 · 点击分类 / 账户展开明细">
               <CashSankeyChart data={sankey} device={device} />
             </ChartCard>
           )}

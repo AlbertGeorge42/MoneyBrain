@@ -118,6 +118,35 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
   return { actualItems, predictedItems }
 }
 
+/** 沿 parentId 找一级分类，返回其稳定 id 与展示名（桑基分类分组身份）。 */
+function categoryGroupOf(
+  categoryId: string | null | undefined,
+  categoryMap: Map<string, CategoryInfo>,
+): { id: string; name: string } | null {
+  if (!categoryId) return null
+  let current = categoryMap.get(categoryId)
+  if (!current) return null
+  const visited = new Set<string>()
+  let rootId = categoryId
+  while (current.parentId && !visited.has(rootId)) {
+    visited.add(rootId)
+    rootId = current.parentId
+    const parent = categoryMap.get(rootId)
+    if (!parent) break
+    current = parent
+  }
+  return { id: rootId, name: current.name }
+}
+
+/** 账户的账户分类分组身份。 */
+function accountGroupOf(accountId: string | null | undefined, accountMap: Map<string, AccountInfo>) {
+  if (!accountId) return null
+  const account = accountMap.get(accountId)
+  if (!account?.categoryId) return null
+  return { id: account.categoryId, name: account.categoryName ?? account.name }
+}
+
+
 /**
  * Prisma 行 / 预算 DTO → 桑基图的领域输入。
  * 名称兜底与 collectTransactions 有意不同（桑基有「其他收入」「现金账户」等展示节点名），
@@ -131,6 +160,9 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
 
   for (const t of transactions) {
     const { isFromCash, isToCash } = cashFlags(t.accountId, t.toAccountId, cashAccountIds)
+    const catGroup = categoryGroupOf(t.category?.id, categoryMap)
+    const accGroup = accountGroupOf(t.accountId, accountMap)
+    const toGroup = accountGroupOf(t.toAccountId, accountMap)
     sources.push({
       isActual: true,
       type: t.type,
@@ -141,8 +173,17 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
       isFromCash,
       isToCash,
       categoryName: t.category?.name || '未分类',
+      categoryId: t.category?.id ?? null,
       accountName: t.account?.name,
+      accountId: t.accountId,
       toAccountName: t.toAccount?.name,
+      toAccountId: t.toAccountId ?? null,
+      categoryGroupId: catGroup?.id ?? null,
+      categoryGroupName: catGroup?.name ?? null,
+      accountGroupId: accGroup?.id ?? null,
+      accountGroupName: accGroup?.name ?? null,
+      toAccountGroupId: toGroup?.id ?? null,
+      toAccountGroupName: toGroup?.name ?? null,
     })
   }
 
@@ -154,6 +195,9 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
     const category = p.categoryId ? categoryMap.get(p.categoryId) : null
     const account = accountMap.get(p.accountId)
     const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
+    const catGroup = categoryGroupOf(p.categoryId, categoryMap)
+    const accGroup = accountGroupOf(p.accountId, accountMap)
+    const toGroup = accountGroupOf(p.toAccountId, accountMap)
 
     sources.push({
       isActual: false,
@@ -165,8 +209,17 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
       isFromCash,
       isToCash,
       categoryName: category?.name,
+      categoryId: p.categoryId ?? null,
       accountName: account?.name,
+      accountId: p.accountId,
       toAccountName: toAccount?.name,
+      toAccountId: p.toAccountId ?? null,
+      categoryGroupId: catGroup?.id ?? null,
+      categoryGroupName: catGroup?.name ?? null,
+      accountGroupId: accGroup?.id ?? null,
+      accountGroupName: accGroup?.name ?? null,
+      toAccountGroupId: toGroup?.id ?? null,
+      toAccountGroupName: toGroup?.name ?? null,
     })
   }
 

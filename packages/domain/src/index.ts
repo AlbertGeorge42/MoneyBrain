@@ -126,6 +126,11 @@ export { buildStatement, buildProjectionActivity } from './statements/cash-flow/
 export { buildSankey } from './statements/cash-flow/sankey.js'
 export type {
   ProcessedTx,
+  SankeyEndpoint,
+  SankeyLink,
+  SankeyNodeType,
+  SankeyResult,
+  SankeySide,
   SankeySourceTransaction,
 } from './statements/cash-flow/types.js'
 

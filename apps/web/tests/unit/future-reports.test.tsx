@@ -250,15 +250,15 @@ function cashFixture(): CashFlowProjectionResult {
     byActivity: cashActivityFixture(),
     sankey: {
       nodes: [
-        { name: '工资', category: 'income_category' as const },
-        { name: '现金', category: 'cash' as const },
-        { name: '房租', category: 'expense_category' as const },
-        { name: '证券买入', category: 'non_cash_target' as const },
+        { id: 'in:salary', name: '工资', nodeType: 'income_category' as const, side: 'in' as const },
+        { id: 'acct:a1', name: '现金', nodeType: 'cash' as const, side: 'account' as const },
+        { id: 'out:rent', name: '房租', nodeType: 'expense_category' as const, side: 'out' as const },
+        { id: 'out:nct:sec', name: '证券买入', nodeType: 'non_cash_target' as const, side: 'out' as const },
       ],
       links: [
-        { source: '工资', target: '现金', value: 380_00 },
-        { source: '现金', target: '房租', value: 120_00 },
-        { source: '现金', target: '证券买入', value: 80_00 },
+        { source: 'in:salary', target: 'acct:a1', value: 380_00 },
+        { source: 'acct:a1', target: 'out:rent', value: 120_00 },
+        { source: 'acct:a1', target: 'out:nct:sec', value: 80_00 },
       ],
     },
     covered: [],
@@ -528,9 +528,9 @@ describe('现金流预测映射：活动分组、三来源与桑基直译', () =
     expect(sankey.transferTotal).toBe(0)
     expect(sankey.nodes).toHaveLength(4)
     expect(sankey.links.map((link) => [link.sourceId, link.targetId])).toEqual([
-      ['in:工资', 'acct:现金'],
-      ['acct:现金', 'out:房租'],
-      ['acct:现金', 'out:证券买入'],
+      ['in:salary', 'acct:a1'],
+      ['acct:a1', 'out:rent'],
+      ['acct:a1', 'out:nct:sec'],
     ])
     expect(sankey.links[2].kind).toBe('flow')
   })

@@ -302,17 +302,17 @@ const CASH_FLOW = {
   },
   sankey: {
     nodes: [
-      { name: '账户互转_ncs', category: 'non_cash_source' },
-      { name: '退款_expense', category: 'expense_category' },
-      { name: '教育_expense', category: 'expense_category' },
-      { name: '其他_expense', category: 'expense_category' },
-      { name: '微信零钱_cash', category: 'cash' },
+      { id: 'in:ncs:move:cmb', name: '账户互转', nodeType: 'non_cash_source', side: 'in' },
+      { id: 'out:refund', name: '退款', nodeType: 'expense_category', side: 'out' },
+      { id: 'out:edu', name: '教育', nodeType: 'expense_category', side: 'out' },
+      { id: 'out:other', name: '其他', nodeType: 'expense_category', side: 'out' },
+      { id: 'acct:wx', name: '微信零钱', nodeType: 'cash', side: 'account' },
     ],
     links: [
-      { source: '账户互转_ncs', target: '微信零钱_cash', value: 50000, actualValue: 50000 },
-      { source: '微信零钱_cash', target: '退款_expense', value: 1200, actualValue: 1200 },
-      { source: '微信零钱_cash', target: '教育_expense', value: 19900, actualValue: 19900 },
-      { source: '微信零钱_cash', target: '其他_expense', value: 11300, actualValue: 11300 },
+      { source: 'in:ncs:move:cmb', target: 'acct:wx', value: 50000, actualValue: 50000 },
+      { source: 'acct:wx', target: 'out:refund', value: 1200, actualValue: 1200 },
+      { source: 'acct:wx', target: 'out:edu', value: 19900, actualValue: 19900 },
+      { source: 'acct:wx', target: 'out:other', value: 11300, actualValue: 11300 },
     ],
   },
 } as never

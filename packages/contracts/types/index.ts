@@ -1,10 +1,11 @@
 // ===== 金额单位 =====
 
-import type { Minor } from '../../domain/src/index.js'
+import type { Minor, SankeyEndpoint, SankeyLink } from '../../domain/src/index.js'
 import type { BackupDataType } from '../constants.js'
 
 export type { Minor }
 export type { BackupDataType }
+export type { SankeyEndpoint, SankeyLink }
 
 /**
  * 本项目所有金额字段的单位都是**分**（整数），从 DB 到前端一致。
@@ -486,14 +487,6 @@ export interface CashFlowActivity {
   items: CashFlowActivityItem[]
 }
 
-export interface SankeyLink {
-  source: string
-  target: string
-  value: Minor
-  actualValue?: Minor
-  predictedValue?: Minor
-}
-
 export interface CashFlowReportData {
   startDate: string
   endDate: string
@@ -513,10 +506,7 @@ export interface CashFlowReportData {
     uncategorized: CashFlowActivity
   }
   sankey: {
-    nodes: Array<{
-      name: string
-      category?: 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
-    }>
+    nodes: SankeyEndpoint[]
     links: SankeyLink[]
   }
   predictionNote?: string
@@ -1090,10 +1080,7 @@ export interface CashFlowProjectionResult {
   byActivity: ProjectionCashByActivity
   /** 窗口级桑基图（实际 + 已排定 + 计划）。 */
   sankey: {
-    nodes: Array<{
-      name: string
-      category?: 'income_category' | 'non_cash_source' | 'cash' | 'expense_category' | 'non_cash_target'
-    }>
+    nodes: SankeyEndpoint[]
     links: SankeyLink[]
   }
   /** 窗口内被真实交易覆盖的预算点位。 */

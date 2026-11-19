@@ -102,17 +102,17 @@ const CASH_FLOW = {
   },
   sankey: {
     nodes: [
-      { name: '工资_income', category: 'income_category' },
-      { name: '教育_expense', category: 'expense_category' },
-      { name: '手续费_expense', category: 'expense_category' },
-      { name: '微信零钱_cash', category: 'cash' },
-      { name: '支付宝_cash', category: 'cash' },
+      { id: 'in:salary', name: '工资', nodeType: 'income_category', side: 'in' },
+      { id: 'out:edu', name: '教育', nodeType: 'expense_category', side: 'out' },
+      { id: 'out:fee', name: '手续费', nodeType: 'expense_category', side: 'out' },
+      { id: 'acct:wx', name: '微信零钱', nodeType: 'cash', side: 'account' },
+      { id: 'acct:zfb', name: '支付宝', nodeType: 'cash', side: 'account' },
     ],
     links: [
-      { source: '工资_income', target: '微信零钱_cash', value: 50_000, actualValue: 50_000 },
-      { source: '微信零钱_cash', target: '教育_expense', value: 20_000, actualValue: 20_000 },
-      { source: '微信零钱_cash', target: '手续费_expense', value: FEE, actualValue: FEE },
-      { source: '微信零钱_cash', target: '支付宝_cash', value: 10_000, actualValue: 10_000 },
+      { source: 'in:salary', target: 'acct:wx', value: 50_000, actualValue: 50_000 },
+      { source: 'acct:wx', target: 'out:edu', value: 20_000, actualValue: 20_000 },
+      { source: 'acct:wx', target: 'out:fee', value: FEE, actualValue: FEE },
+      { source: 'acct:wx', target: 'acct:zfb', value: 10_000, actualValue: 10_000 },
     ],
   },
 }
@@ -306,14 +306,16 @@ describe('deriveCashSankey 三层与守恒', () => {
       sankey: {
         nodes: [
           ...categories.map((category) => ({
-            name: `${category.name}_expense`,
-            category: 'expense_category',
+            id: `out:${category.id}`,
+            name: category.name,
+            nodeType: 'expense_category' as const,
+            side: 'out' as const,
           })),
-          { name: '微信零钱_cash', category: 'cash' },
+          { id: 'acct:wx', name: '微信零钱', nodeType: 'cash' as const, side: 'account' as const },
         ],
         links: categories.map((category, index) => ({
-          source: '微信零钱_cash',
-          target: `${category.name}_expense`,
+          source: 'acct:wx',
+          target: `out:${category.id}`,
           value: 1_000 + index * 300,
           actualValue: 1_000 + index * 300,
         })),
@@ -360,6 +362,44 @@ function renderCashView(device: DeviceMode) {
     </MantineProvider>,
   )
 }
+
+describe('桑基 endpoint 契约：身份与展示名解耦（D）', () => {
+  /** 基于主 fixture 复制 report，只替换 apiSankey，其余口径不变。 */
+  const reportWithSankey = (nodes: typeof CASH_FLOW.sankey.nodes, links: typeof CASH_FLOW.sankey.links) =>
+    ({
+      ...report,
+      apiSankey: { nodes, links },
+    }) as typeof report
+
+  it('endpoint 改名不改变节点身份 / 数量 / 连线端点', () => {
+    const renamed = reportWithSankey(
+      CASH_FLOW.sankey.nodes.map((node) =>
+        node.id === 'acct:wx' ? { ...node, name: '微信（已改名）' } : node,
+      ) as typeof CASH_FLOW.sankey.nodes,
+      CASH_FLOW.sankey.links,
+    )
+    const result = deriveCashSankey(LEDGER, renamed, ALL_VISIBLE)
+    expect(result.status).toBe('ready')
+    const before = sankey.nodes.map((node) => node.id).sort()
+    expect(result.nodes.map((node) => node.id).sort()).toEqual(before)
+    const beforeLinks = sankey.links.map((link) => [link.sourceId, link.targetId, link.kind]).sort()
+    expect(result.links.map((link) => [link.sourceId, link.targetId, link.kind]).sort()).toEqual(beforeLinks)
+  })
+
+  it('账本账户改名成同名后仍按 id 定位，身份 / 连线不变', () => {
+    // wx 与 zfb 改成同名「现金」。旧实现按名字反查会撞「同名无法唯一定位」停画；
+    // 新实现按 endpoint.id 取账户，改名不影响身份与金额守恒。
+    const renamedLedger = {
+      ...LEDGER,
+      accounts: LEDGER.accounts.map((account) => ({ ...account, name: '现金' })),
+    }
+    const result = deriveCashSankey(renamedLedger, report, ALL_VISIBLE)
+    expect(result.status).toBe('ready')
+    expect(result.reason ?? '').not.toContain('同名')
+    expect(result.nodes.filter((node) => node.layer === 1).map((node) => node.id).sort()).toEqual(['acct:wx', 'acct:zfb'])
+    expect(result.links.some((link) => link.kind === 'transfer' && link.sourceId === 'acct:wx' && link.targetId === 'acct:zfb')).toBe(true)
+  })
+})
 
 describe('现金流 tab 的平台适配', () => {
   it('移动端也渲染紧凑版桑基（无账户期初/期末读数）', () => {

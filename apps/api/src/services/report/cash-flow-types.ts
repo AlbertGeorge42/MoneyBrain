@@ -34,4 +34,8 @@ export interface CategoryInfo {
 
 export interface AccountInfo {
   name: string
+  /** 账户所属账户分类 id（桑基分组用）；未分组为 null。 */
+  categoryId: string | null
+  /** 账户所属账户分类展示名。 */
+  categoryName: string | null
 }
