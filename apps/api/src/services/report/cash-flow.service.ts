@@ -6,7 +6,6 @@ import * as transactionRepo from '../../db/repositories/transaction.repository.j
 import { rootLogger } from '../../common/index.js'
 import {
   aggregate,
-  buildSankey,
   buildStatement,
   predictedAccountTotal,
   resolveAccountCategoryFlags,
@@ -16,6 +15,7 @@ import {
   type Minor,
 } from '../../../../../packages/domain/src/index.js'
 import { getPredictionsIfFuture, PREDICTION_NOTE_DEFAULT, toPredictedEvents } from './prediction-source.js'
+import { buildSankey } from './sankey.js'
 import { resolveReportPeriod } from './period.js'
 import {
   AccountInfo,

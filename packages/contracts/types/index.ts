@@ -1,11 +1,61 @@
 // ===== 金额单位 =====
 
-import type { Minor, SankeyEndpoint, SankeyLink } from '../../domain/src/index.js'
+import type { CashFlowActivityKey, Minor } from '../../domain/src/index.js'
 import type { BackupDataType } from '../constants.js'
 
 export type { Minor }
 export type { BackupDataType }
-export type { SankeyEndpoint, SankeyLink }
+
+// ===== 现金流桑基 DTO（API 编排层产出，前端只做投影） =====
+
+/** 桑基 endpoint 的显式类型：身份由结构化 id 表达，不从展示名推导。 */
+export type SankeyNodeType =
+  | 'income_category'
+  | 'non_cash_source'
+  | 'cash'
+  | 'expense_category'
+  | 'non_cash_target'
+
+/** 桑基 endpoint 所在列：左（流入）/ 中（账户）/ 右（流出）。 */
+export type SankeySide = 'in' | 'account' | 'out'
+
+/** 桑基 endpoint 的折叠组元数据，由 API 按组内 endpoint 数量确定。 */
+export interface SankeyGroupMeta {
+  id: string
+  name: string
+  /** 组内是否含多个 endpoint（可展开）。 */
+  expandable: boolean
+}
+
+/**
+ * 桑基 endpoint：身份、展示名、类型、方向分别表达。
+ * `id` 是结构化身份（实体 id + 桑基语义前缀），不从 `name` 推导。
+ */
+export interface SankeyEndpoint {
+  id: string
+  name: string
+  nodeType: SankeyNodeType
+  side: SankeySide
+  /** 所属折叠组元数据；合成 / 无法归组节点为 null。 */
+  group: SankeyGroupMeta | null
+}
+
+export interface SankeyLink {
+  /** endpoint.id */
+  source: string
+  /** endpoint.id */
+  target: string
+  value: Minor
+  actualValue?: Minor
+  predictedValue?: Minor
+  /** 该链路所属现金流活动；null = 无收支活动（内部转账 / 手续费 / 优惠券）。 */
+  activity: CashFlowActivityKey | null
+}
+
+export interface SankeyResult {
+  nodes: SankeyEndpoint[]
+  links: SankeyLink[]
+}
 
 /**
  * 本项目所有金额字段的单位都是**分**（整数），从 DB 到前端一致。
@@ -154,9 +204,9 @@ export interface TransactionCategory {
   parent: TransactionCategory | null
   children: TransactionCategory[]
   /** 仅根分类有值的原始配置；子分类恒为 null。 */
-  cashFlowType: 'operating' | 'investing' | 'financing' | null
+  cashFlowType: CashFlowActivityKey | null
   /** 根继承解析后的有效活动归属；财务计算一律用这个字段。 */
-  effectiveCashFlowType: 'operating' | 'investing' | 'financing' | null
+  effectiveCashFlowType: CashFlowActivityKey | null
   /** 受控图标 key（见 CATEGORY_ICON_KEYS）；null = 回退到按名称映射。 */
   iconKey: string | null
   createdAt: string

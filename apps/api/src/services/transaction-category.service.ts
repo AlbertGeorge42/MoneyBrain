@@ -1,6 +1,6 @@
 import { resolveTransactionCategoryFlags } from '../../../../packages/domain/src/index.js'
 import { withTransaction } from '../db/transaction.js'
-import { NotFoundError, ValidationError, parseOptionalIconKey } from '../common/index.js'
+import { NotFoundError, ValidationError, parseOptionalCashFlowType, parseOptionalIconKey } from '../common/index.js'
 import { getNextSort } from '../common/db.js'
 import * as auditEventRepo from '../db/repositories/audit-event.repository.js'
 import * as budgetRepo from '../db/repositories/budget.repository.js'
@@ -84,15 +84,17 @@ export async function createTransactionCategory(data: TransactionCategoryCreateP
 
   const finalSort = data.sort ?? await getNextSort('transactionCategory', { type: data.type, parentId: data.parentId || null })
 
-  // 写入端约束：子分类的 cashFlowType 必须从根节点继承，忽略请求值。
+  // 写入端约束：子分类的 cashFlowType 必须从根节点继承，忽略请求值；
+  // 值域由 domain 的 parseOptionalCashFlowType 收口，空串归一为 null。
   const isRoot = !data.parentId
+  const cashFlowType = parseOptionalCashFlowType(data.cashFlowType) ?? null
   return transactionCategoryRepo.create({
     data: {
       id: data.id,
       name: data.name,
       type: data.type,
       parentId: data.parentId || null,
-      cashFlowType: isRoot ? data.cashFlowType : null,
+      cashFlowType: isRoot ? cashFlowType : null,
       iconKey: parseOptionalIconKey(data.iconKey),
       sort: finalSort,
     },
@@ -148,7 +150,9 @@ export async function updateTransactionCategory(categoryId: string, data: Transa
     updateData.parentId = data.parentId
   }
   if (willBeRoot) {
-    if (data.cashFlowType !== undefined) updateData.cashFlowType = data.cashFlowType
+    if (data.cashFlowType !== undefined) {
+      updateData.cashFlowType = parseOptionalCashFlowType(data.cashFlowType) ?? null
+    }
   } else {
     // 变为子分类（含原本就是子分类）：计算属性恒为 NULL。
     updateData.cashFlowType = null

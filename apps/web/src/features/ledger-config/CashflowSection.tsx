@@ -74,7 +74,7 @@ export function CashflowSection({
 }: CashflowSectionProps) {
   const activityOf = (categoryId: string): ActivityGroupId => {
     const category = ledger.categories.find((item) => item.id === categoryId)
-    return category ? defaultActivity(category) : 'unassigned'
+    return category ? defaultActivity(category, ledger) : 'unassigned'
   }
 
   // 现金等价 / 投资标志只存在一级资产分类；子分类继承，不单独列出。

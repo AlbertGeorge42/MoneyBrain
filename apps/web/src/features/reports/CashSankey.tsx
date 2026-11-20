@@ -20,11 +20,10 @@ interface Layout {
   padBottom: number
   nodeW: number
   rowGap: number
-  labelTop: number
-  labelBottom: number
   accountTop: number
   accountBottom: number
-  minNodeH: number
+  /** 节点竖条与 ribbon 共用的最小可视高度，避免小流量细到看不见。 */
+  minBandH: number
   targetContent: number
   leftX: number
   midX: number
@@ -45,11 +44,9 @@ function layoutOf(device: DeviceMode): Layout {
       padBottom: 16,
       nodeW,
       rowGap: 4,
-      labelTop: 14,
-      labelBottom: 2,
       accountTop: 4,
       accountBottom: 4,
-      minNodeH: 4,
+      minBandH: 4,
       targetContent: 220,
       leftX,
       midX: width / 2 - nodeW / 2,
@@ -67,11 +64,9 @@ function layoutOf(device: DeviceMode): Layout {
     padBottom: 20,
     nodeW,
     rowGap: 6,
-    labelTop: 18,
-    labelBottom: 2,
     accountTop: 6,
     accountBottom: 30,
-    minNodeH: 5,
+    minBandH: 5,
     targetContent: 260,
     leftX,
     midX: width / 2 - nodeW / 2,
@@ -111,14 +106,6 @@ function ribbonPath(x1: number, y1: number, x2: number, y2: number, height: numb
 function transferPath(x1: number, y1: number, x2: number, y2: number, height: number): string {
   const bend = 180
   return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 + bend} ${y2}, ${x2} ${y2} L ${x2} ${y2 + height} C ${x2 + bend} ${y2 + height}, ${x1 + bend} ${y1 + height}, ${x1} ${y1 + height} Z`
-}
-
-function linkCountOf(node: CashSankeyNode, links: CashSankeyLink[], direction: 'in' | 'out'): number {
-  const list =
-    direction === 'in'
-      ? links.filter((link) => link.targetId === node.id)
-      : links.filter((link) => link.sourceId === node.id)
-  return list.length
 }
 
 export function CashSankeyChart({
@@ -196,12 +183,10 @@ export function CashSankeyChart({
       nodes = merged
     }
 
-    // 稳定排序：先按 origin（账户在前）、rank，再按组内 memberIndex。
-    // 展开只在原组内展开，因此其他节点的相对顺序不受影响。
+    // 顺序完全由折叠态确定的 rank / memberIndex 决定：活动类型 → 账户/分类 → 金额
+    // 已在 finalizeGroups 编码进 rank，展开只在原组内展开，因此视图层不再重排，
+    // 保证任意展开组合下节点整体顺序不变，同色 ribbon 始终相邻。
     const byStableOrder = (left: CashSankeyNode, right: CashSankeyNode) => {
-      const originLeft = left.origin === 'account' ? 0 : 1
-      const originRight = right.origin === 'account' ? 0 : 1
-      if (originLeft !== originRight) return originLeft - originRight
       if ((left.rank ?? 0) !== (right.rank ?? 0)) return (left.rank ?? 0) - (right.rank ?? 0)
       if ((left.memberIndex ?? 0) !== (right.memberIndex ?? 0)) return (left.memberIndex ?? 0) - (right.memberIndex ?? 0)
       return right.amount - left.amount
@@ -220,17 +205,32 @@ export function CashSankeyChart({
     // 同一比例尺贯穿三列，ribbon 粗细与节点高度可比；列内容超出目标高度时图变高而不是压缩标签。
     const scale = L.targetContent / maxColumnAmount
 
+    // ribbon 与节点竖条共用同一最小高度；节点高度由实际挂着的 ribbon 堆叠算出，
+    // 保证小流量被抬到最小值后，整叠 ribbon 仍落在竖条内而不溢出。
+    const bandGap = 1.5
+    const bandHeightOf = (link: CashSankeyLink): number => Math.max(L.minBandH, link.amount * scale)
+    const stackHeightOf = (node: CashSankeyNode, direction: 'in' | 'out'): number => {
+      const attached = links.filter((link) =>
+        direction === 'in' ? link.targetId === node.id : link.sourceId === node.id)
+      if (attached.length === 0) return 0
+      return attached.reduce((sum, link) => sum + bandHeightOf(link), 0) + (attached.length - 1) * bandGap
+    }
     const heightOf = (node: CashSankeyNode): { h: number; row: number; top: number } => {
-      const stacked =
-        node.layer === 1
-          ? Math.max(linkCountOf(node, links, 'in'), linkCountOf(node, links, 'out'))
-          : node.layer === 0
-            ? linkCountOf(node, links, 'out')
-            : linkCountOf(node, links, 'in')
-      const h = Math.max(L.minNodeH, node.amount * scale + 1.5 * stacked)
-      return node.layer === 1
-        ? { h, row: Math.max(h + L.accountTop + L.accountBottom, 44), top: L.accountTop }
-        : { h, row: Math.max(h + L.labelTop + L.labelBottom, 34), top: L.labelTop }
+      // 节点条高度严格等于挂着的 ribbon 堆叠高度，与 ribbon 共用同一最小高度，
+      // 因此小流量节点条与它自己的条带一样细，不会被文字撑粗。
+      const bandStack = node.layer === 1
+        ? Math.max(stackHeightOf(node, 'in'), stackHeightOf(node, 'out'))
+        : stackHeightOf(node, node.layer === 0 ? 'out' : 'in')
+      const h = Math.max(L.minBandH, bandStack)
+      if (node.layer === 1) {
+        // 账户列另有下方余额行，沿用账户上下留白。
+        return { h, row: Math.max(h + L.accountTop + L.accountBottom, 44), top: L.accountTop }
+      }
+      // 分类列两行文字（名称 + 金额）所需空间由**行高**单独承担，节点条在行内
+      // 垂直居中；这样文字彼此不重叠，又不反过来把节点条撑大。
+      const labelRow = L.compactAccount ? 24 : 32
+      const row = Math.max(h, labelRow)
+      return { h, row, top: (row - h) / 2 }
     }
 
     const metrics = new Map<string, { h: number; row: number; top: number }>(
@@ -250,7 +250,7 @@ export function CashSankeyChart({
       let cursor = L.padTop + Math.max(0, (columnHeight - total) / 2)
       const placed: PlacedNode[] = []
       for (const node of nodes) {
-        const metric = metrics.get(node.id) ?? { h: L.minNodeH, row: 34, top: L.labelTop }
+        const metric = metrics.get(node.id) ?? { h: L.minBandH, row: 34, top: 0 }
         placed.push({
           ...node,
           x,
@@ -289,14 +289,29 @@ export function CashSankeyChart({
       inCursors.set(node.id, node.y)
     }
 
+    // ribbon 在节点上的堆叠顺序必须跟随「外列」端点的纵向位置，否则节点虽已按活动
+    // 排好序，条带仍会交叉：左→中按左列源节点顺序，中→右按右列目标节点顺序，
+    // 转账两端都在中列时按目标顺序。金额只作为同外列端点下的次级键。
+    const outerYOf = (link: CashSankeyLink): number => {
+      const source = placed.get(link.sourceId)
+      const target = placed.get(link.targetId)
+      const outer = source?.layer === 1 ? target : source
+      return outer?.y ?? 0
+    }
     const laidLinks = links
       .slice()
-      .sort((left, right) => right.amount - left.amount)
+      .sort((left, right) => {
+        const a = outerYOf(left)
+        const b = outerYOf(right)
+        if (a !== b) return a - b
+        if (left.amount !== right.amount) return right.amount - left.amount
+        return left.id.localeCompare(right.id)
+      })
       .map((link) => {
         const source = placed.get(link.sourceId)
         const target = placed.get(link.targetId)
         if (!source || !target) return null
-        const height = Math.max(1.5, link.amount * scale)
+        const height = bandHeightOf(link)
         const y1 = outCursors.get(link.sourceId) ?? source.y
         outCursors.set(link.sourceId, y1 + height)
         const y2 = inCursors.get(link.targetId) ?? target.y
@@ -500,8 +515,9 @@ export function CashSankeyChart({
                 <text
                   className="mb-rp-sankey-name"
                   x={node.labelX}
-                  y={gy - (L.compactAccount ? 6 : 9)}
+                  y={gy + gh / 2 + (L.compactAccount ? 3 : 4)}
                   textAnchor={node.anchor}
+                  dominantBaseline="middle"
                 >
                   {node.name}
                 </text>
@@ -521,16 +537,18 @@ export function CashSankeyChart({
                 <text
                   className="mb-rp-sankey-name"
                   x={node.labelX}
-                  y={gy - (L.compactAccount ? 14 : 20)}
+                  y={gy + gh / 2 - 7}
                   textAnchor={node.anchor}
+                  dominantBaseline="middle"
                 >
                   {node.name}
                 </text>
                 <text
                   className="mb-rp-sankey-value"
                   x={node.labelX}
-                  y={gy - 6}
+                  y={gy + gh / 2 + 8}
                   textAnchor={node.anchor}
+                  dominantBaseline="middle"
                 >
                   {currency(node.amount)}
                 </text>

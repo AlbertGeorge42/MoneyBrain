@@ -38,18 +38,18 @@ describe('#12 分类删除与转移', () => {
     expect(row?.childCount).toBe(2)
   })
 
-  it('现金流活动按字段分组，改父分类时子分类跟随', () => {
+  it('现金流活动只写根分类；子分类不落 cashFlowType，靠继承显示父活动', () => {
     const before = ledger.categories.find((category) => category.id === 'shop')!
-    expect(defaultActivity(before)).toBe('unassigned')
+    expect(defaultActivity(before, ledger)).toBe('unassigned')
 
     const next = setCategoryCashFlowInLedger(ledger, 'shop', 'investing')
     expect(next.categories.find((category) => category.id === 'shop')?.cashFlowType).toBe('investing')
-    expect(next.categories.find((category) => category.id === 'shop_daily')?.cashFlowType).toBe(
-      'investing',
-    )
-    expect(next.categories.find((category) => category.id === 'shop_cloth')?.cashFlowType).toBe(
-      'investing',
-    )
+    // 与后端一致：子分类不写独立 cashFlowType。
+    expect(next.categories.find((category) => category.id === 'shop_daily')?.cashFlowType).toBeUndefined()
+    expect(next.categories.find((category) => category.id === 'shop_cloth')?.cashFlowType).toBeUndefined()
+    // 但展示的有效活动仍从一级根继承，子分类跟着父分类显示 investing。
+    expect(defaultActivity(next.categories.find((c) => c.id === 'shop_daily')!, next)).toBe('investing')
+    expect(defaultActivity(next.categories.find((c) => c.id === 'shop_cloth')!, next)).toBe('investing')
     // 其他一级分类不受影响。
     expect(next.categories.find((category) => category.id === 'food')?.cashFlowType).toBeUndefined()
   })

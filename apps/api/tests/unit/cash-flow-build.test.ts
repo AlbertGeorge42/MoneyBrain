@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildSankey, minor, type SankeySourceTransaction } from '../../../../packages/domain/src/index.js'
+import { minor } from '../../../../packages/domain/src/index.js'
+import { buildSankey, type SankeySourceTransaction } from '../../src/services/report/sankey.js'
 
 // C4 验收：桑基图退款方向由领域层 refundOffsetKind 唯一判定——
 // 支出退款计入流入侧（分类 → 现金），收入退款计入流出侧（现金 → 分类），

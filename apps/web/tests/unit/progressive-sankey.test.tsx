@@ -9,7 +9,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { CashSankeyChart } from '@/features/reports/CashSankey'
 import { frameProgress, interpolateSankeyFrame, type SankeyFrame } from '@/features/reports/useAnimatedSankeyFrame'
 import { mapCashReport } from '@/features/reports/apiReports'
-import { deriveCashSankey, projectCashSankey, type CashSankey, type CashSankeyNode } from '@/features/reports/cashSankeyModel'
+import { assignNodeActivities, deriveCashSankey, projectCashSankey, sankeyOrder, type CashSankey, type CashSankeyLink, type CashSankeyNode } from '@/features/reports/cashSankeyModel'
 import { makeLedger } from '../helpers/ledger'
 
 /** 账户分类「现金」组：a1 / a2；一级收入分类「餐饮」组：午餐 / 外食；独立支出「房租」。 */
@@ -582,5 +582,261 @@ describe('CashSankeyChart：连续动画不闪现（回归）', () => {
 
     cleanup()
     vi.unstubAllGlobals()
+  })
+})
+
+// ===== 回归：单成员账户分类组 / 活动色排序 / 标签垂直居中 =====
+describe('桑基分组与排序口径修复', () => {
+  const mkNode = (
+    id: string, name: string, layer: 0 | 1 | 2, amount: number,
+    groupId: string | undefined, groupName: string | undefined,
+    activity: CashSankeyNode['activity'],
+  ): CashSankeyNode => ({
+    id, name, layer, tone: 'neutral', amount, children: [],
+    groupId, groupName, expandable: false,
+    origin: layer === 1 ? 'account' : 'category',
+    rank: 0, memberIndex: 0, activity,
+  })
+  const mkLink = (sourceId: string, targetId: string, amount: number, activity: CashSankeyNode['activity']) => ({
+    id: `${sourceId}>${targetId}|flow|${activity ?? 'none'}`,
+    sourceId, targetId, nodeId: targetId, amount, tone: 'neutral' as const,
+    kind: 'flow' as const, activity,
+  })
+  const baseData = (nodes: CashSankeyNode[], links: ReturnType<typeof mkLink>[]): CashSankey => ({
+    status: 'ready', opening: 100_000, closing: 100_000, inflow: 0, outflow: 0,
+    fee: 0, correction: 0, difference: 0, hiddenGroups: 0, transferTotal: 0,
+    accounts: [], nodes, links,
+  })
+
+  it('单成员账户分类组默认折叠显示一级分类名，点击可展开账户名再收起', () => {
+    // 复现真实数据形态：右侧「投资」账户分类下只有一个非现金端点（买入）。
+    const data = baseData(
+      [
+        mkNode('acct:wx', '微信', 1, 10_000, 'grp-cash', '现金', null),
+        mkNode('out:nct:buy:xq', '雪球基金', 2, 10_000, 'out:grp-inv', '投资', 'investing'),
+      ],
+      [mkLink('acct:wx', 'out:nct:buy:xq', 10_000, 'investing')],
+    )
+    const collapsed = projectCashSankey(data, new Set())
+    const right = collapsed.nodes.filter((n) => n.layer === 2)
+    expect(right).toHaveLength(1)
+    expect(right[0]!.id).toBe('out:grp-inv')
+    expect(right[0]!.name).toBe('投资')
+    expect(right[0]!.isGroup).toBe(true)
+    expect(right[0]!.expandable).toBe(true)
+    const expanded = projectCashSankey(data, new Set(['out:grp-inv']))
+    expect(expanded.nodes.find((n) => n.id === 'out:nct:buy:xq')?.name).toBe('雪球基金')
+    // 无分组归属的 self: 节点仍原样显示自身名，且不可点击。
+    const lone = baseData([mkNode('out:rent', '房租', 2, 5_000, 'self:out:rent', '房租', null)], [])
+    const loneView = projectCashSankey(lone, new Set())
+    expect(loneView.nodes[0]!.name).toBe('房租')
+    expect(loneView.nodes[0]!.expandable).toBe(false)
+
+    const { container } = render(<CashSankeyChart data={data} device="desktop" animate={false} />)
+    const group = () => container.querySelector<SVGGElement>('.mb-rp-sankey-node[data-id="out:grp-inv"]')!
+    expect(group().getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(group())
+    const member = container.querySelector<SVGGElement>('.mb-rp-sankey-node[data-id="out:nct:buy:xq"]')!
+    expect(member).not.toBeNull()
+    expect(member.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(member)
+    expect(container.querySelector('[data-id="out:grp-inv"]')).not.toBeNull()
+    cleanup()
+  })
+
+  it('节点按活动类型→账户/分类→金额排序，同色相邻', () => {
+    // 四组：经营/投资/筹资/中性，金额故意交错，验证活动类型优先于金额。
+    const nodes = [
+      mkNode('a:neutral', '其他', 0, 90_000, 'in:grp-neutral', '其他', null),
+      mkNode('a:oper', '工资', 0, 10_000, 'in:grp-op', '工资', 'operating'),
+      mkNode('a:inv', '分红', 0, 50_000, 'in:grp-inv', '分红', 'investing'),
+      mkNode('a:fin', '借款', 0, 30_000, 'in:grp-fin', '借款', 'financing'),
+      mkNode('acct:cash', '现金', 1, 90_000, 'grp-cash', '现金', null),
+    ]
+    // 账户类节点在同活动内排前；这里账户与「其他」同为中性，账户应更靠前。
+    expect(nodes.slice().sort(sankeyOrder).map((n) => n.id)).toEqual([
+      'a:oper', 'a:inv', 'a:fin', 'acct:cash', 'a:neutral',
+    ])
+  })
+
+  it('标签相对节点垂直居中：分类节点名称/金额围绕节点中心', () => {
+    const data = baseData(
+      [
+        mkNode('acct:wx', '微信', 1, 10_000, 'grp-cash', '现金', null),
+        mkNode('out:rent', '房租', 2, 10_000, 'self:out:rent', '房租', 'operating'),
+      ],
+      [mkLink('acct:wx', 'out:rent', 10_000, 'operating')],
+    )
+    const { container } = render(<CashSankeyChart data={data} device="desktop" animate={false} />)
+    const rent = container.querySelector<SVGGElement>('[data-id="out:rent"]')!
+    const body = rent.querySelector('.mb-rp-sankey-node-body')!
+    const name = rent.querySelector('.mb-rp-sankey-name')!
+    const value = rent.querySelector('.mb-rp-sankey-value')!
+    const y = (el: Element) => Number(el.getAttribute('y'))
+    const gy = y(body)
+    const gh = Number(body.getAttribute('height'))
+    const cy = gy + gh / 2
+    // 名称在中心上方、金额在中心下方，且都落在节点纵向范围内（相对居中而非顶部）。
+    expect(y(name)).toBeLessThan(cy)
+    expect(y(value)).toBeGreaterThan(cy)
+    expect(y(name)).toBeGreaterThanOrEqual(gy)
+    expect(y(value)).toBeLessThanOrEqual(gy + gh)
+    cleanup()
+  })
+
+  it('现金账户列按相连流主导活动排序，与两侧活动顺序一致', () => {
+    const accounts = [
+      mkNode('acct:a', 'A', 1, 30_000, 'self:acct:a', 'A', null),
+      mkNode('acct:b', 'B', 1, 90_000, 'self:acct:b', 'B', null),
+      mkNode('acct:c', 'C', 1, 60_000, 'self:acct:c', 'C', null),
+    ]
+    const links: CashSankeyLink[] = [
+      mkLink('in:op', 'acct:a', 30_000, 'operating'),
+      mkLink('in:inv', 'acct:b', 90_000, 'investing'),
+      mkLink('in:fin', 'acct:c', 60_000, 'financing'),
+    ]
+    assignNodeActivities(accounts, links)
+    expect(accounts.map((node) => node.activity)).toEqual(['operating', 'investing', 'financing'])
+    // 金额最大的账户 B 因活动排在投资，仍位于经营账户之后。
+    expect(accounts.slice().sort(sankeyOrder).map((node) => node.id)).toEqual(['acct:a', 'acct:b', 'acct:c'])
+  })
+
+  it('最小 ribbon 与节点竖条共用最小高度，且 ribbon 不超出节点', () => {
+    const data = baseData(
+      [
+        mkNode('acct:wx', '微信', 1, 100_000, 'self:acct:wx', '微信', null),
+        mkNode('out:small', '手续费', 2, 1, 'self:out:small', '手续费', 'operating'),
+      ],
+      [mkLink('acct:wx', 'out:small', 1, 'operating')],
+    )
+    const { container } = render(<CashSankeyChart data={data} device="desktop" animate={false} />)
+    // ribbonPath: M x y1 ... L x (y2+h) ...，第 8 / 10 个数即 y2 与 y2+h。
+    const nums = container.querySelector('.mb-rp-sankey-ribbon')!.getAttribute('d')!
+      .match(/-?\d+(?:\.\d+)?/g)!.map(Number)
+    const ribbonH = nums[9] - nums[7]
+    expect(ribbonH).toBe(5) // PC 的 minBandH
+    const nodeH = Number(container.querySelector('[data-id="out:small"] .mb-rp-sankey-node-body')!
+      .getAttribute('height'))
+    // 节点条高度严格等于 ribbon 高度：只有一条带时二者重合，不再被两行文字撑到 32px。
+    expect(nodeH).toBe(ribbonH)
+    cleanup()
+  })
+
+  it('叶子一级分类（组名与成员名相同）无子类别，不可点击展开', () => {
+    // 后端对叶子一级分类也下发 group，但组名就是自身名，展开只会显示同一节点。
+    const leaf = baseData(
+      [
+        mkNode('acct:wx', '微信', 1, 10_000, 'self:acct:wx', '微信', null),
+        // groupId='in:grp-cat'、groupName='工资' 与成员 name='工资' 相同 → 单成员叶子分类。
+        { ...mkNode('in:salary', '工资', 0, 10_000, 'in:grp-cat', '工资', 'operating'), rank: 0 },
+      ],
+      [mkLink('acct:wx', 'in:salary', 10_000, 'operating')],
+    )
+    const view = projectCashSankey(leaf, new Set())
+    const group = view.nodes.find((n) => n.id === 'in:grp-cat')!
+    expect(group.expandable).toBe(false)
+    expect(group.isGroup).toBe(false)
+
+    const { container } = render(<CashSankeyChart data={leaf} device="desktop" animate={false} />)
+    const el = container.querySelector<SVGGElement>('.mb-rp-sankey-node[data-id="in:grp-cat"]')!
+    expect(el).not.toBeNull()
+    expect(el.getAttribute('role')).toBeNull()
+    expect(el.getAttribute('aria-expanded')).toBeNull()
+    cleanup()
+  })
+
+  it('fee 与 coupon 同时存在：端到端守恒（逐账户 + 全局）都通过，图不被判 invalid', () => {
+    // 后端 buildSankey 已把手续费 f=200、优惠券 c=300 独立画成两条 ribbon
+    // （本金 X=10000）。这里模拟其 DTO 输出，验证前端账本回放 + 守恒断言能闭环。
+    // 账本期初：wx=100000、zfb=50000；期末：wx=100000-(10000+200)=89800，
+    // zfb=50000+(10000+300)=60300。账户 balance 是期末快照，回放按 X+f / X+c 反推。
+    const FROM2 = '2026-11-01'
+    const TO2 = '2026-11-30'
+    const LEDGER2 = makeLedger({
+      accounts: [
+        { id: 'wx', name: '微信', kind: 'cash', balance: 89_800 },
+        { id: 'zfb', name: '支付宝', kind: 'cash', balance: 60_300 },
+      ],
+      categories: [{ id: 'move', name: '账户互转', type: 'transfer' }],
+      transactions: [
+        { id: 't1', date: '2026-11-15', type: 'transfer', categoryId: 'move', note: '',
+          accountId: 'wx', toAccountId: 'zfb', amount: 10_000, fee: 200, coupon: 300 },
+      ],
+    } as never)
+    const FLOW2 = {
+      cashInflow: { actual: 300 },
+      cashOutflow: { actual: -200 },
+      startCash: { actual: 150_000 },
+      endCash: { actual: 150_100 },
+      byActivity: {
+        operating: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        financing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+        uncategorized: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
+      },
+      sankey: {
+        nodes: [
+          { id: 'acct:wx', name: '微信', nodeType: 'cash', side: 'account', group: null },
+          { id: 'acct:zfb', name: '支付宝', nodeType: 'cash', side: 'account', group: null },
+          { id: 'out:synthetic:fee', name: '手续费', nodeType: 'expense_category', side: 'out', group: null },
+          { id: 'in:synthetic:coupon', name: '优惠券', nodeType: 'income_category', side: 'in', group: null },
+        ],
+        links: [
+          { source: 'acct:wx', target: 'acct:zfb', value: 10_000, actualValue: 10_000 },
+          { source: 'acct:wx', target: 'out:synthetic:fee', value: 200, actualValue: 200 },
+          { source: 'in:synthetic:coupon', target: 'acct:zfb', value: 300, actualValue: 300 },
+        ],
+      },
+    }
+    const result = deriveCashSankey(LEDGER2, mapCashReport(FLOW2 as never, LEDGER2, FROM2, TO2), {})
+    expect(result.status).toBe('ready')
+    expect(result.status === 'invalid' ? result.reason : '').toBe('')
+    // 逐账户：每条等式残差为 0。
+    for (const account of result.accounts) {
+      expect(account.difference).toBe(0)
+    }
+    // 全局：期初 150000 + 流入 300 − 流出 200 − 期末 150100 = 0。
+    expect(result.inflow).toBe(300)
+    expect(result.outflow).toBe(200)
+    expect(result.difference).toBe(0)
+  })
+
+  it('中列出边按右列节点顺序堆叠，金额最大的投资带不横穿其他活动', () => {
+    // 右列自上而下：经营 → 投资 → 筹资；金额故意倒挂（投资最大）来验证
+    // ribbon 顺序跟随目标节点而不是金额，否则大带会从上端横穿所有绿色带。
+    const data = baseData(
+      [
+        { ...mkNode('acct:wx', '微信', 1, 40_000, 'self:acct:wx', '微信', null), rank: 0 },
+        { ...mkNode('out:op', '餐饮', 2, 3_000, 'self:out:op', '餐饮', 'operating'), rank: 1 },
+        { ...mkNode('out:inv', '投资', 2, 31_000, 'self:out:inv', '投资', 'investing'), rank: 2 },
+        { ...mkNode('out:fin', '负债', 2, 6_000, 'self:out:fin', '负债', 'financing'), rank: 3 },
+      ],
+      [
+        mkLink('acct:wx', 'out:op', 3_000, 'operating'),
+        mkLink('acct:wx', 'out:inv', 31_000, 'investing'),
+        mkLink('acct:wx', 'out:fin', 6_000, 'financing'),
+      ],
+    )
+    const { container } = render(<CashSankeyChart data={data} device="desktop" animate={false} />)
+    const y2Of = (g: Element) => Number(g.querySelector('.mb-rp-sankey-ribbon')!.getAttribute('d')!
+      .match(/-?\d+(?:\.\d+)?/g)![7])
+    const targetY = (id: string) => Number(container.querySelector(`[data-id="${id}"] .mb-rp-sankey-node-body`)!
+      .getAttribute('y'))
+    const ribbons = [...container.querySelectorAll('.mb-rp-sankey-link')]
+    const inv = ribbons.find((g) => g.classList.contains('mb-rp-sankey-tone--investing'))!
+    const op = ribbons.find((g) => g.classList.contains('mb-rp-sankey-tone--operating'))!
+    const fin = ribbons.find((g) => g.classList.contains('mb-rp-sankey-tone--financing'))!
+    // 目标节点确实按活动顺序排列。
+    expect(targetY('out:op')).toBeLessThan(targetY('out:inv'))
+    expect(targetY('out:inv')).toBeLessThan(targetY('out:fin'))
+    // 出边在账户节点上的起点 y1 也按目标顺序递增：无交叉。
+    const startY = (g: Element) => Number(g.querySelector('.mb-rp-sankey-ribbon')!.getAttribute('d')!
+      .match(/-?\d+(?:\.\d+)?/g)![1])
+    expect(startY(op)).toBeLessThan(startY(inv))
+    expect(startY(inv)).toBeLessThan(startY(fin))
+    // y2 落在各自目标的入口，顺序同样递增。
+    expect(y2Of(op)).toBeLessThan(y2Of(inv))
+    expect(y2Of(inv)).toBeLessThan(y2Of(fin))
+    cleanup()
   })
 })

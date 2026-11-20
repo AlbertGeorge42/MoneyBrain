@@ -5,7 +5,10 @@
  * 本模块全部为纯函数，便于单测覆盖数字计算与账本联动。
  */
 
-import { minor, transferInflow, transferOutflow, type Minor } from '@domain/index'
+import {
+  minor, refundOffsetKind, transferInflow, transferOutflow,
+  type CashFlowActivityKey, type Minor,
+} from '@domain/index'
 import { formatDay, parseDay } from '@/utils/date'
 
 export type TxType = 'expense' | 'income' | 'transfer' | 'refund' | 'adjustment'
@@ -49,18 +52,15 @@ export interface LedgerAccountCategory {
   seeded?: boolean
 }
 
-/** 现金流活动归属：后端 TransactionCategory.cashFlowType 的可选值。 */
-export type CashFlowActivity = 'operating' | 'investing' | 'financing'
-
 export interface LedgerCategory {
   id: string
   name: string
   type: TxType
   parentId?: string
   /** 仅根分类有值的原始配置（子分类为 null）；只供配置展示。 */
-  cashFlowType?: CashFlowActivity | null
+  cashFlowType?: CashFlowActivityKey | null
   /** 根继承解析后的有效活动归属；财务计算一律用这个字段。 */
-  effectiveCashFlowType?: CashFlowActivity | null
+  effectiveCashFlowType?: CashFlowActivityKey | null
   /** 用户设置的受控图标 key；null / 缺省 = 回退到按名称映射。 */
   iconKey?: string | null
 }
@@ -312,13 +312,11 @@ function percentChange(current: number, previous: number): number {
 
 /**
  * 退款冲减哪一侧：只认原交易类型。未关联退款（relatedType 为空）不进入收支合计，
- * 只影响账户余额——与后端 summarizeAggregatedFlows 的 refundOffsetKind 同口径。
+ * 只影响账户余额。方向判定复用 Domain 的 refundOffsetKind，这里只加 type 守卫。
  */
 export function refundOffsetSide(transaction: LedgerTransaction): 'income' | 'expense' | null {
   if (transaction.type !== 'refund') return null
-  if (transaction.relatedType === 'income') return 'income'
-  if (transaction.relatedType === 'expense') return 'expense'
-  return null
+  return refundOffsetKind(transaction.relatedType)
 }
 
 function sumMonthFlow(transactions: LedgerTransaction[]) {
@@ -729,7 +727,8 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
     }
     if (account.id !== input.accountId) return account
     // 关联的收入退款是钱退回去（余额减少）；支出退款与未关联退款是余额增加。
-    const refundDelta = relatedType === 'income' ? -magnitude : magnitude
+    // 方向由 Domain 的 refundOffsetKind 给出，与收支冲减侧同源，避免非法 relatedType 漂移。
+    const refundDelta = refundOffsetKind(relatedType) === 'income' ? -magnitude : magnitude
     const delta =
       input.type === 'expense'
         ? -magnitude

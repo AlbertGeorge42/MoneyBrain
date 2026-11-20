@@ -2,7 +2,6 @@
 export {
   resolveAccountCategoryFlags,
   resolveTransactionCategoryFlags,
-  type EffectiveCashFlowType,
   type ResolvedAccountCategoryFlags,
   type ResolvedTransactionCategoryFlags,
 } from './categories/flags.js'
@@ -13,7 +12,6 @@ export {
   TRANSFER_ACTIVITY,
   TRANSFER_CATEGORY_LEGACY_NAMES,
   type TransferAccountMark,
-  type TransferActivity,
   type TransferCategoryName,
 } from './categories/transfer-classify.js'
 
@@ -133,16 +131,10 @@ export type {
 export { buildIncomeExpenseProjection } from './statements/income-expense-projection.js'
 export { aggregate } from './statements/cash-flow/aggregate.js'
 export { buildStatement, buildProjectionActivity } from './statements/cash-flow/statement.js'
-export { buildSankey } from './statements/cash-flow/sankey.js'
+export { CASH_FLOW_ACTIVITIES } from './statements/cash-flow/types.js'
 export type {
   CashFlowActivityKey,
   ProcessedTx,
-  SankeyEndpoint,
-  SankeyLink,
-  SankeyNodeType,
-  SankeyResult,
-  SankeySide,
-  SankeySourceTransaction,
 } from './statements/cash-flow/types.js'
 
 export { budgetContributionSign } from './budget/scope.js'

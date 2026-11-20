@@ -3,8 +3,9 @@
 import crypto from 'crypto'
 import {
   abs, classifyTransferCategory, formatAmount, fromDate, parseAmount,
-  resolveAccountCategoryFlags, TRANSFER_ACTIVITY, TRANSFER_CATEGORY_LEGACY_NAMES, ZERO_MINOR, type Minor,
+  resolveAccountCategoryFlags, ZERO_MINOR, type Minor, type TransferCategoryName,
 } from '../../../../../packages/domain/src/index.js'
+import { ensureTransferCategory } from '../transfer-category.service.js'
 import {
   type AccountCache,
   type ImportContext,
@@ -223,7 +224,7 @@ async function buildImportContext(
 // ─── 转账子分类（缓存版，不再查 SQL） ───
 
 async function getOrCreateTransferSubCategory(
-  name: string,
+  name: TransferCategoryName,
   ctx: ImportContext,
   client: TransactionClient
 ): Promise<string> {
@@ -231,27 +232,12 @@ async function getOrCreateTransferSubCategory(
   const cached = ctx.transactionCategoryCache.get(cacheKey)
   if (cached) return cached
 
-  const cashFlowType = TRANSFER_ACTIVITY[name as keyof typeof TRANSFER_ACTIVITY] ?? null
-  let category = await client.transactionCategory.findFirst({
-    where: { name, type: 'transfer', parentId: null },
-  })
-  if (!category) {
-    // 历史「借款」分类等同「借贷」：复用其 id，不重复建行。
-    const legacy = TRANSFER_CATEGORY_LEGACY_NAMES[name as keyof typeof TRANSFER_CATEGORY_LEGACY_NAMES]
-    if (legacy) {
-      category = await client.transactionCategory.findFirst({
-        where: { name: legacy, type: 'transfer', parentId: null },
-      })
-    }
-  }
-  if (!category) {
-    const sort = takeNextSort(ctx.sortCounters, 'transactionCategory', 'transfer:root')
-    category = await client.transactionCategory.create({
-      data: { name, type: 'transfer', sort, cashFlowType },
-    })
-  }
-  ctx.transactionCategoryCache.set(cacheKey, category.id)
-  return category.id
+  // 与普通新建 / 编辑共用同一收口：同名或历史别名找到即复用 id，
+  // 但 cashFlowType 不匹配、别名「借款」未归一到「借贷」时一并纠正。
+  // 传入 client 复用导入事务；缓存只挡重复查询，不改变落库口径。
+  const id = await ensureTransferCategory(name, client)
+  ctx.transactionCategoryCache.set(cacheKey, id)
+  return id
 }
 
 // ─── classifyTransfer（完全去掉 SQL） ───

@@ -1,9 +1,9 @@
 import { createContext, useContext } from 'react'
 import type { TransactionPatch } from '@/features/transactions/ledgerOps'
+import type { CashFlowActivityKey } from '@domain/index'
 import type {
   AccountKind,
   BudgetPeriod,
-  CashFlowActivity,
   Ledger,
   NewTransactionInput,
   TxType,
@@ -110,7 +110,7 @@ export interface LedgerContextValue {
   createCategory: (input: LedgerCategoryInput) => Promise<LedgerCreateOutcome>
   updateCategory: (id: string, input: LedgerLabelUpdateInput) => Promise<LedgerMutationOutcome>
   /** 改一级分类的现金流活动归属；子分类随父一起写，报表按同一口径分组。 */
-  setCategoryCashFlow: (id: string, activity: CashFlowActivity | null) => Promise<LedgerMutationOutcome>
+  setCategoryCashFlow: (id: string, activity: CashFlowActivityKey | null) => Promise<LedgerMutationOutcome>
   moveCategory: (id: string, parentId: string | null) => Promise<LedgerMutationOutcome>
   /** 删除分类；有交易引用时传 transferToId 先转移再删除（撤销会一并回填）。 */
   deleteCategory: (id: string, transferToId?: string) => Promise<LedgerMutationOutcome>

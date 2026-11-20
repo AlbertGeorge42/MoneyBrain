@@ -44,43 +44,19 @@ export interface AggregatedFlows {
   flowByAccount: Record<string, { inflow: Minor; outflow: Minor }>
 }
 
-/** 现金流活动分类：桑基链路的活动语义，null 表示非收支活动（手续费、内部转账等）。 */
+/**
+ * 现金流活动分类：财务业务语义，前后端唯一枚举。
+ *
+ * 只表达「经营 / 投资 / 筹资」三类业务活动；中文名、排序权重、颜色等展示属性
+ * 不属于领域，留在各自展示层。未分配 / 无收支活动用 null 表达，不扩展枚举。
+ * 与下方报表桶类型 `CashFlowActivity` 区分：本类型是活动身份，后者是活动汇总。
+ */
 export type CashFlowActivityKey = 'operating' | 'investing' | 'financing'
 
-/**
- * 桑基图的领域输入。API 负责 Prisma 行 / 预算 DTO → 本结构的映射（含名称兜底差异、
- * 日期范围过滤与现金集合判定），Domain 只做节点与链路计算。
- */
-export interface SankeySourceTransaction {
-  isActual: boolean
-  type: string
-  relatedType: string | null
-  /** 交易分类的有效现金流活动（沿一级分类继承）；合成交易为 null。 */
-  cashFlowType: CashFlowActivityKey | null
-  amount: Minor
-  fee: Minor
-  coupon: Minor
-  isFromCash: boolean
-  isToCash: boolean
-  categoryName: string | null | undefined
-  /** 一级分类稳定身份；聚合按它进行，展示名不参与身份判定。 */
-  categoryId: string | null | undefined
-  accountName: string | null | undefined
-  /** 现金 / 非现金账户稳定身份。 */
-  accountId: string | null | undefined
-  toAccountName: string | null | undefined
-  /** 转入账户稳定身份。 */
-  toAccountId: string | null | undefined
-  /** 分类所属一级分类组；真实分类由 API 解析，合成分类不填。 */
-  categoryGroupId: string | null | undefined
-  categoryGroupName: string | null | undefined
-  /** 账户所属账户分类组；有账户分类的账户由 API 解析，未分组不填。 */
-  accountGroupId: string | null | undefined
-  accountGroupName: string | null | undefined
-  /** 转入账户所属账户分类组（非现金转入节点归组用）。 */
-  toAccountGroupId: string | null | undefined
-  toAccountGroupName: string | null | undefined
-}
+/** 活动身份的值集合：输入校验与值域判断的唯一来源，与上面的类型同源。 */
+export const CASH_FLOW_ACTIVITIES: readonly CashFlowActivityKey[] = [
+  'operating', 'investing', 'financing',
+]
 
 export interface ReportValue {
   actual: Minor
@@ -147,54 +123,4 @@ export interface ProjectionCashByActivity {
   investing: ProjectionCashActivity
   financing: ProjectionCashActivity
   uncategorized: ProjectionCashActivity
-}
-
-/** 桑基 endpoint 的显式类型，取代原来编码在展示名后缀里的身份信息。 */
-export type SankeyNodeType =
-  | 'income_category'
-  | 'non_cash_source'
-  | 'cash'
-  | 'expense_category'
-  | 'non_cash_target'
-
-/** 桑基 endpoint 所在侧：左（流入）/ 中（账户）/ 右（流出）。 */
-export type SankeySide = 'in' | 'account' | 'out'
-
-/** 桑基 endpoint 所属的折叠组元数据，由后端确定；无法归组的合成节点为 null。 */
-export interface SankeyGroupMeta {
-  id: string
-  name: string
-  /** 组内是否含多个 endpoint（可展开）。由后端按组内 endpoint 数量确定。 */
-  expandable: boolean
-}
-
-/**
- * 桑基 endpoint：身份、展示名、类型、方向分别表达。
- * `id` 是结构化身份（实体 id + 桑基语义前缀），不从 `name` 推导；
- * `name` 仅用于展示，改名不影响身份。
- */
-export interface SankeyEndpoint {
-  id: string
-  name: string
-  nodeType: SankeyNodeType
-  side: SankeySide
-  /** 所属折叠组元数据；合成 / 无法归组节点为 null，前端原样展示。 */
-  group: SankeyGroupMeta | null
-}
-
-export interface SankeyLink {
-  /** endpoint.id */
-  source: string
-  /** endpoint.id */
-  target: string
-  value: Minor
-  actualValue?: Minor
-  predictedValue?: Minor
-  /** 该链路所属现金流活动；null = 无收支活动（内部转账 / 手续费 / 优惠券）。 */
-  activity: CashFlowActivityKey | null
-}
-
-export interface SankeyResult {
-  nodes: SankeyEndpoint[]
-  links: SankeyLink[]
 }

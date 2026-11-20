@@ -7,9 +7,9 @@
  * - 现金流分类：资产按现金等价 / 投资 / 其它标记分组，收入 / 支出 / 转账按活动分组；
  * - 列表显示：列显隐 + 排序，与流水页共用 displaySettings。
  */
+import { type CashFlowActivityKey, resolveTransactionCategoryFlags } from '@domain/index'
 import type {
   AccountKind,
-  CashFlowActivity,
   Ledger,
   LedgerAccount,
   LedgerAccountCategory,
@@ -211,8 +211,24 @@ export const ACTIVITY_GROUPS: readonly { id: ActivityGroupId; label: string }[] 
   { id: 'unassigned', label: '未分配' },
 ]
 
-export function defaultActivity(category: LedgerCategory): ActivityGroupId {
-  return category.effectiveCashFlowType ?? category.cashFlowType ?? 'unassigned'
+/**
+ * 分类的有效活动：与后端 getTransactionCategories 同源，走 domain 的根继承解析。
+ * 子分类自身 cashFlowType 恒 null，活动从一级根继承；演示账本没有 effective 字段时
+ * 也必须按这条规则解析，不能靠写入子分类的非 null 值来伪装。
+ */
+export function defaultActivity(category: LedgerCategory, ledger?: Ledger): ActivityGroupId {
+  if (category.effectiveCashFlowType) return category.effectiveCashFlowType
+  if (ledger) {
+    const { effectiveCashFlowTypes } = resolveTransactionCategoryFlags(
+      ledger.categories.map((row) => ({
+        id: row.id,
+        parentId: row.parentId ?? null,
+        cashFlowType: row.cashFlowType ?? null,
+      })),
+    )
+    return effectiveCashFlowTypes.get(category.id) ?? 'unassigned'
+  }
+  return category.cashFlowType ?? 'unassigned'
 }
 
 /** 一级资产分类的现金等价 / 投资标记；标志只存在根分类，子分类继承。 */
@@ -357,17 +373,19 @@ export function updateCategory(
   }
 }
 
-/** 种子模式的活动归属写入：子分类随父分类一起改，与 API 模式的级联写入口径一致。 */
+/**
+ * 种子模式的活动归属写入：只写当前分类自身，子分类不接受独立 cashFlowType，
+ * 展示时由 defaultActivity 按根继承解析——与 API 模式「子分类恒 null」同一口径。
+ */
 export function setCategoryCashFlowInLedger(
   ledger: Ledger,
   categoryId: string,
-  activity: CashFlowActivity | null,
+  activity: CashFlowActivityKey | null,
 ): Ledger {
-  const ids = new Set([categoryId, ...categoryDescendantIds(ledger, categoryId)])
   return {
     ...ledger,
     categories: ledger.categories.map((category) =>
-      ids.has(category.id) ? { ...category, cashFlowType: activity } : category,
+      category.id === categoryId ? { ...category, cashFlowType: activity } : category,
     ),
   }
 }

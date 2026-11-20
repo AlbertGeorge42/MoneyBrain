@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateIdParam,
+  parseOptionalCashFlowType,
   validateBatchSort,
   validateDateRange,
   validateDateQuery,
@@ -155,6 +156,29 @@ describe('validators', () => {
       expect(() =>
         requireClearConfirm({ body: { confirm: CLEAR_CONFIRM.transactions } } as any, CLEAR_CONFIRM.transactions),
       ).not.toThrow()
+    })
+  })
+
+  describe('parseOptionalCashFlowType', () => {
+    it('缺省保持 undefined（更新时不修改）', () => {
+      expect(parseOptionalCashFlowType(undefined)).toBeUndefined()
+    })
+
+    it('null 与空串归一为 null（未分配）', () => {
+      expect(parseOptionalCashFlowType(null)).toBeNull()
+      expect(parseOptionalCashFlowType('')).toBeNull()
+    })
+
+    it('三个合法活动值原样保留', () => {
+      expect(parseOptionalCashFlowType('operating')).toBe('operating')
+      expect(parseOptionalCashFlowType('investing')).toBe('investing')
+      expect(parseOptionalCashFlowType('financing')).toBe('financing')
+    })
+
+    it('非法值明确报错，不静默落库', () => {
+      for (const bad of ['OPERATING', 'unknown', 'uncategorized', 'unassigned', 0, {}, true]) {
+        expect(() => parseOptionalCashFlowType(bad)).toThrow(ValidationError)
+      }
     })
   })
 })

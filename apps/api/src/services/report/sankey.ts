@@ -1,19 +1,61 @@
-import { refundOffsetKind, transferInflow, transferNet, transferOutflow } from '../../ledger/rules.js'
-import { ZERO_MINOR, abs, add, type Minor } from '../../money.js'
+/**
+ * 现金流桑基图的 DTO 构造（报表编排层，非领域逻辑）。
+ *
+ * 本文件只做可视化数据结构组装：endpoint 身份前缀、按活动拆 ribbon、分组元数据、
+ * 按列排序与 actual/predicted 合并。财务金额规则（X+f / X+c / c−f、退款冲减方向）
+ * 一律调用 Domain 的 ledger/rules，不在此复写。
+ *
+ * 微服务职责边界：
+ *   - Domain：财务语义与金额规则（唯一实现）
+ *   - 本层：把财务结果编排成桑基 nodes / links DTO
+ *   - Frontend：折叠 / 展开 / 排序 / 着色的展示投影
+ */
+import {
+  abs, add, type CashFlowActivityKey, type Minor, ZERO_MINOR,
+} from '../../../../../packages/domain/src/index.js'
+import { refundOffsetKind, transferInflow, transferOutflow } from '../../../../../packages/domain/src/ledger/rules.js'
 import type {
-  CashFlowActivityKey,
-  SankeyEndpoint,
-  SankeyGroupMeta,
-  SankeyLink,
-  SankeyNodeType,
-  SankeyResult,
-  SankeySide,
-  SankeySourceTransaction,
-} from './types.js'
+  SankeyEndpoint, SankeyGroupMeta, SankeyLink, SankeyResult, SankeyNodeType, SankeySide,
+} from '../../../../../packages/contracts/types/index.js'
+
+/**
+ * 桑基图的编排输入。API 负责 Prisma 行 / 预算 DTO → 本结构的映射（含名称兜底差异、
+ * 日期范围过滤与现金集合判定）；本层只做节点与链路 DTO 构造。
+ */
+export interface SankeySourceTransaction {
+  isActual: boolean
+  type: string
+  relatedType: string | null
+  /** 交易分类的有效现金流活动（沿一级分类继承）；合成交易为 null。 */
+  cashFlowType: CashFlowActivityKey | null
+  amount: Minor
+  fee: Minor
+  coupon: Minor
+  isFromCash: boolean
+  isToCash: boolean
+  categoryName: string | null | undefined
+  /** 一级分类稳定身份；聚合按它进行，展示名不参与身份判定。 */
+  categoryId: string | null | undefined
+  accountName: string | null | undefined
+  /** 现金 / 非现金账户稳定身份。 */
+  accountId: string | null | undefined
+  toAccountName: string | null | undefined
+  /** 转入账户稳定身份。 */
+  toAccountId: string | null | undefined
+  /** 分类所属一级分类组；真实分类由 API 解析，合成分类不填。 */
+  categoryGroupId: string | null | undefined
+  categoryGroupName: string | null | undefined
+  /** 账户所属账户分类组；有账户分类的账户由 API 解析，未分组不填。 */
+  accountGroupId: string | null | undefined
+  accountGroupName: string | null | undefined
+  /** 转入账户所属账户分类组（非现金转入节点归组用）。 */
+  toAccountGroupId: string | null | undefined
+  toAccountGroupName: string | null | undefined
+}
 
 /**
  * 链路 key 把活动身份编进 target 位：同一对端点上的经营 / 投资 / 筹资流水
- * 各成一条 ribbon，活动色不会串；无活动的内部转账 / 手续费落 null。
+ * 各成一条 ribbon，活动色不会串；无活动的内部转账 / 手续费 / 优惠券落 null。
  */
 const linkKey = (targetId: string, activity: CashFlowActivityKey | null) =>
   `${targetId}|${activity ?? ''}`
@@ -76,12 +118,12 @@ const FEE_ID = 'out:synthetic:fee'
 const COUPON_ID = 'in:synthetic:coupon'
 
 /**
- * 构造现金流量表的桑基图节点与链路。
+ * 构造现金流量表的桑基 DTO。
  *
  * endpoint 的身份全部由结构化 `id` 表达（`id` 来自实体 id + 桑基语义前缀），
  * 展示名 `name` 不参与身份判定，同名实体不会被合并。聚合 / 金额口径与改造前一致：
  * 三条链路对「现金→现金内部划转」的分叉保持原样——本金画成账户间链路、
- * 有效手续费单列到「手续费」支出节点。
+ * 手续费与优惠券各自单列成节点，与完整账务金额 X+f / X+c 对齐。
  */
 export function buildSankey(sources: readonly SankeySourceTransaction[]): SankeyResult {
   const meta = new Map<string, EndpointMeta>()
@@ -180,22 +222,24 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
       } else if (isFromCash && isToCash && accountName && toAccountName) {
         const fromCashEndpoint = accountIdOf(accountId, accountName)
         const toCashEndpoint = accountIdOf(toAccountId, toAccountName)
+        // 完整账务金额：转出 X+f、转入 X+c；手续费与优惠券各自独立成节点，
+        // 不再用净额 c−f 相互抵消，才能与逐账户余额回放口径一致。
         const actualOutflow = transferOutflow(amount, fee)
         const actualInflow = transferInflow(amount, coupon)
-        const net = transferNet(fee, coupon)
         addEndpoint(cashAccountFlows_, fromCashEndpoint, 'cash', 'account', accountName, accountGroup, actualOutflow)
         addEndpoint(cashAccountFlows_, toCashEndpoint, 'cash', 'account', toAccountName, toAccountGroup, actualInflow)
         if (!cashToCashLinks_.has(fromCashEndpoint)) cashToCashLinks_.set(fromCashEndpoint, new Map())
+        // 本金按原语义画账户间链路，金额仍是 X（不含 f / c）。
         addToMap(cashToCashLinks_.get(fromCashEndpoint)!, linkKey(toCashEndpoint, null), amount)
-        if (net < 0) {
-          const feeValue = abs(net)
-          addEndpoint(expenseCategoryNodes_, FEE_ID, 'expense_category', 'out', '手续费', null, feeValue)
+        if (fee > ZERO_MINOR) {
+          addEndpoint(expenseCategoryNodes_, FEE_ID, 'expense_category', 'out', '手续费', null, fee)
           if (!cashToTargetLinks_.has(fromCashEndpoint)) cashToTargetLinks_.set(fromCashEndpoint, new Map())
-          addToMap(cashToTargetLinks_.get(fromCashEndpoint)!, linkKey(FEE_ID, null), feeValue)
-        } else if (net > 0) {
-          addEndpoint(incomeCategoryNodes_, COUPON_ID, 'income_category', 'in', '优惠券', null, net)
+          addToMap(cashToTargetLinks_.get(fromCashEndpoint)!, linkKey(FEE_ID, null), fee)
+        }
+        if (coupon > ZERO_MINOR) {
+          addEndpoint(incomeCategoryNodes_, COUPON_ID, 'income_category', 'in', '优惠券', null, coupon)
           if (!sourceToCashLinks_.has(COUPON_ID)) sourceToCashLinks_.set(COUPON_ID, new Map())
-          addToMap(sourceToCashLinks_.get(COUPON_ID)!, linkKey(toCashEndpoint, null), net)
+          addToMap(sourceToCashLinks_.get(COUPON_ID)!, linkKey(toCashEndpoint, null), coupon)
         }
       }
     } else if (type === 'refund' && isFromCash) {

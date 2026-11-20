@@ -15,7 +15,6 @@ import {
   buildAssetProjection,
   buildCashFlowProjection,
   buildProjectionActivity,
-  buildSankey,
   fromDate,
   resolveAccountCategoryFlags,
   resolveTransactionCategoryFlags,
@@ -30,6 +29,7 @@ import { dayEnd, dayStart } from '../common/date.js'
 import { toLedgerTransaction } from './ledger.adapter.js'
 import { buildProjectionBuckets } from './report/bucket.js'
 import { collectSankeySources, collectTransactions } from './report/cash-flow-collect.js'
+import { buildSankey } from './report/sankey.js'
 import { PREDICTION_NOTE_DEFAULT } from './report/prediction-source.js'
 import type {
   AccountInfo,

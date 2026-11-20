@@ -113,6 +113,31 @@ describe('mapFlowReport 分类构成', () => {
     expect(report.expenseTrees[0].children[0].count).toBe(1)
   })
 
+  it('退款笔数与 Domain 冲减方向同源：未关联退款不进收支任何一侧', () => {
+    // 三笔同分类流水：收入退款、支出退款、未关联退款。
+    // 口径统一到 refundOffsetKind：前者进收入笔数，中者进支出笔数，未关联者不进任何侧。
+    const refundLedger: Ledger = {
+      ...ledger,
+      categories: [{ id: 'food', name: '餐饮', type: 'expense' }],
+      transactions: [
+        { id: 'r1', date: '2026-11-02', type: 'refund', relatedType: 'income', categoryId: 'food', note: '', accountId: 'wallet', amount: 100 },
+        { id: 'r2', date: '2026-11-03', type: 'refund', relatedType: 'expense', categoryId: 'food', note: '', accountId: 'wallet', amount: 200 },
+        { id: 'r3', date: '2026-11-04', type: 'refund', relatedType: null, categoryId: 'food', note: '', accountId: 'wallet', amount: 300 },
+      ],
+    }
+    // 补一棵收入分类树承载收入侧笔数（笔数独立从 ledger 算，但树结构来自接口）。
+    const refundData: IncomeExpenseReportData = {
+      ...reportData,
+      incomeCategoryDetails: [
+        { name: '退款', actual: 100, predicted: 0, categoryId: 'real-food', hasChildren: false, sort: 0 },
+      ],
+    }
+    const report = mapFlowReport(refundData, [], refundLedger, '2026-11-01', '2026-11-06')
+    // 收入侧仅 r1 一笔；支出侧仅 r2 一笔；r3（未关联）两侧都不计。
+    expect(report.incomeTrees[0]?.count ?? 0).toBe(1)
+    expect(report.expenseTrees[0]?.count ?? 0).toBe(1)
+  })
+
   it('根分类行 id 与下钻同一 id 空间，逐笔加总等于行金额', () => {
     const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
     const row = report.expenseTrees[0]

@@ -11,18 +11,15 @@ import {
 } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
+import type { CashFlowActivityKey } from '@domain/index'
 import {
   type AccountKind,
-  type CashFlowActivity,
   type Ledger,
   type LedgerAccount,
   type NewTransactionInput,
 } from './model'
 import { mapperFromLedger, todayLocal } from './apiLedger'
-import {
-  arrayMove,
-  categoryDescendantIds,
-} from '@/features/ledger-config/model'
+import { arrayMove } from '@/features/ledger-config/model'
 import {
   LedgerContext,
   type LedgerAccountGroupInput,
@@ -607,20 +604,17 @@ export function LedgerProvider({
   )
 
   const setCategoryCashFlow = useCallback(
-    async (id: string, activity: CashFlowActivity | null): Promise<LedgerMutationOutcome> => {
+    async (id: string, activity: CashFlowActivityKey | null): Promise<LedgerMutationOutcome> => {
       try {
         const mapper = mapperFromLedger(ledgerRef.current)
-        // 报表按每笔流水所属分类的 cashFlowType 分组；子分类不随父变化就会留下旧口径。
-        const ids = [id, ...categoryDescendantIds(ledgerRef.current, id)]
-        for (const categoryId of ids) {
-          await transactionCategoryApi
-            .update(mapper.realId(categoryId), { cashFlowType: activity })
-            .then(unwrapApiData)
-        }
+        // 只写当前分类：后端对子分类强制 cashFlowType=null，子分类活动从根继承解析，
+        // 级联写既无效又多余。活动编辑入口本身也只在根分类上。
+        await transactionCategoryApi
+          .update(mapper.realId(id), { cashFlowType: activity })
+          .then(unwrapApiData)
         await refreshRemote()
         return { ok: true }
       } catch (error) {
-        // 级联写到一半失败时先重取，页面展示以库内实际状态为准。
         await refreshRemote()
         return { ok: false, error: getApiErrorMessage(error) }
       }

@@ -2,11 +2,10 @@ import {
   ZERO_MINOR,
   minor,
   type CashFlowActivityKey,
-  type EffectiveCashFlowType,
   type ProcessedTx,
-  type SankeySourceTransaction,
 } from '../../../../../packages/domain/src/index.js'
 import { toMinor } from '../../common/index.js'
+import { type SankeySourceTransaction } from './sankey.js'
 import {
   AccountInfo,
   CategoryInfo,
@@ -39,21 +38,21 @@ interface CollectArgs {
   categoryMap: Map<string, CategoryInfo>
   accountMap: Map<string, AccountInfo>
   /** TransactionCategory 有效 cashFlowType（根节点继承后）。 */
-  effectiveCashFlowTypes?: Map<string, EffectiveCashFlowType>
+  effectiveCashFlowTypes?: Map<string, CashFlowActivityKey | null>
 }
 
 /** 从叶子分类向上沿 parentId 链找 cashFlowType（actual 交易的 category 行可能没被 effectiveFlags 覆盖到）。 */
 function effectiveCashFlowTypeOf(
   categoryId: string | null | undefined,
   categoryMap: Map<string, CategoryInfo>,
-  effectiveCashFlowTypes?: Map<string, EffectiveCashFlowType>,
-): EffectiveCashFlowType {
+  effectiveCashFlowTypes?: Map<string, CashFlowActivityKey | null>,
+): CashFlowActivityKey | null {
   if (categoryId && effectiveCashFlowTypes && effectiveCashFlowTypes.has(categoryId)) {
     return effectiveCashFlowTypes.get(categoryId) ?? null
   }
   // fallback: 如果 categoryMap 里有已继承好的值（predicted 路径）也能拿到
   if (categoryId && categoryMap.has(categoryId)) {
-    return (categoryMap.get(categoryId)?.cashFlowType ?? null) as EffectiveCashFlowType
+    return (categoryMap.get(categoryId)?.cashFlowType ?? null) as CashFlowActivityKey | null
   }
   return null
 }
@@ -149,7 +148,7 @@ function accountGroupOf(accountId: string | null | undefined, accountMap: Map<st
 
 
 /** 有效 cashFlowType → 桑基活动身份；非三类值（未分配）落 null。 */
-function activityOf(value: EffectiveCashFlowType | string | null): CashFlowActivityKey | null {
+function activityOf(value: CashFlowActivityKey | string | null): CashFlowActivityKey | null {
   return value === 'operating' || value === 'investing' || value === 'financing' ? value : null
 }
 

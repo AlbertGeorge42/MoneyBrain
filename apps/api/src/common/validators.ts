@@ -2,10 +2,12 @@ import type { Request } from 'express'
 import {
   addDays,
   addMonths,
+  CASH_FLOW_ACTIVITIES,
   isLocalDate,
   minor,
   startOfMonth,
   today,
+  type CashFlowActivityKey,
   type LocalDate,
   type Minor,
 } from '../../../../packages/domain/src/index.js'
@@ -62,6 +64,24 @@ export const parseOptionalIconKey = (value: unknown): string | null | undefined 
     throw new ValidationError('图标取值不在允许集合内；可用图标见设置页的图标选择器')
   }
   return value
+}
+
+/**
+ * 现金流活动归属（分类的 cashFlowType）。
+ * - 缺省 undefined：不修改（更新场景）
+ * - null / 空串：清空为未分配，落库 null
+ * - 三个合法活动值：保留
+ * - 其它：明确报错，绝不静默落库后被报表归到 uncategorized
+ */
+export const parseOptionalCashFlowType = (
+  value: unknown,
+): CashFlowActivityKey | null | undefined => {
+  if (value === undefined) return undefined
+  if (value === null || value === '') return null
+  if (typeof value === 'string' && (CASH_FLOW_ACTIVITIES as readonly string[]).includes(value)) {
+    return value as CashFlowActivityKey
+  }
+  throw new ValidationError('现金流活动取值不在允许集合内：operating / investing / financing，或留空表示未分配')
 }
 
 export const validateBatchSort = (req: Request): void => {

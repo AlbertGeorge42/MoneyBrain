@@ -19,8 +19,10 @@ vi.mock('../../src/prisma.js', () => {
     },
     transactionCategory: {
       findFirst: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
+      update: vi.fn(),
     },
     investmentAssetClass: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -54,6 +56,10 @@ const makeCsvBuffer = (rows: string[][]): Buffer =>
 describe('import.service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // ensureTransferCategory 修复脏 cashFlowType / 别名时走 repo.update；
+    // 默认回显传入字段，让修复路径返回可用的分类行。
+    mockPrisma.transactionCategory.update.mockImplementation(({ where, data }: any) =>
+      Promise.resolve({ id: where.id, ...data }))
   })
 
   describe('importTransactionsFromCsv', () => {
@@ -440,6 +446,39 @@ describe('import.service', () => {
       const transferCreates = createdCategories.filter(c => c.type === 'transfer')
       const names = transferCreates.map(c => c.name)
       expect(names).toContain('还款')
+    })
+
+    it('转账分类落库修复：DB 中 cashFlowType 错误的转账分类在导入时纠正', async () => {
+      // 导入器与普通新建 / 编辑共用 ensureTransferCategory：
+      // 找到同名转账分类但活动归属错误时，应 update 修正为 domain 固定值。
+      mockPrisma.account.findFirst.mockResolvedValue(null)
+      mockPrisma.account.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: `acc-${data.name}`, name: data.name, type: data.type, categoryId: data.categoryId }))
+      mockPrisma.accountCategory.findFirst.mockResolvedValue({
+        id: 'acat-1', name: '资产', type: 'asset', parentId: null,
+      })
+      // DB 里已有「转账」分类，但 cashFlowType 被写成 investing（脏数据）。
+      mockPrisma.transactionCategory.findFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.name === '转账' && where.type === 'transfer'
+          ? { id: 'tcat-dirty', name: '转账', type: 'transfer', parentId: null, cashFlowType: 'investing' }
+          : null))
+      mockPrisma.transactionCategory.findUnique.mockResolvedValue({ rev: 1, vv: null })
+      mockPrisma.transaction.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: `tx-${Math.random()}`, ...data }))
+
+      const csv = makeCsvBuffer([
+        ['csv1', '2025/1/15 10:00:00', '账户互转', '', '转账', '500', 'CNY', '储蓄卡', '微信', '', '', '0', '0', '', '', '', '', ''],
+      ])
+      const result = await importTransactionsFromCsv(csv, mockPrisma)
+
+      expect(result.imported).toBe(1)
+      // 普通转账活动归属由 domain 固定为 operating，脏值 investing 应被纠正。
+      expect(mockPrisma.transactionCategory.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'tcat-dirty' },
+          data: expect.objectContaining({ name: '转账', cashFlowType: 'operating' }),
+        }),
+      )
     })
 
     it('新分类的 sort 应该是递增的且不重复（内存 sort 计数器）', async () => {

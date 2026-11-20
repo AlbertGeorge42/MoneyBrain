@@ -11,7 +11,8 @@
  *   Σ期初 + 流入 − 流出 − Σ期末 = 0（内部转账在总账里抵消）
  * 任一账户或总账超容差都落失败态，绝不为了出图放宽。
  */
-import { minor, type CashFlowActivityKey, type SankeyEndpoint } from '@domain/index'
+import { minor, type CashFlowActivityKey } from '@domain/index'
+import type { SankeyEndpoint } from '@contracts/types'
 import { formatCurrency } from '@/utils/format'
 import type { Ledger } from '@/features/overview/model'
 import { addDays } from '@/utils/date'
@@ -61,7 +62,11 @@ export interface CashSankeyNode {
   memberIndex?: number
   /** 投影后是否为折叠组节点（点击展开）。 */
   isGroup?: boolean
-  /** 现金流活动分类；账户列恒为 null，分类节点取相连流中金额最大的活动。由投影层回填。 */
+  /**
+   * 现金流活动分类；账户列取相连流里金额最大的活动，**只用于排序**（让现金账户
+   * 与两侧分类按同一活动顺序排列，减少 ribbon 交叉），渲染层仍固定为中性色。
+   * 由投影层回填。
+   */
   activity?: CashFlowActivityKey | null
 }
 
@@ -317,11 +322,12 @@ function nodeCategoryRootId(ledger: Ledger, node: CashSankeyNode): string {
 }
 
 /**
- * 给节点回填活动身份：账户列恒为 null（账户不属于任何活动），
- * 分类 / 非现金节点取相连流里金额最大的活动，混合时退到占优者。
- * 与 finalGroups 分开，保证两处 derive 共用同一份口径。
+ * 给节点回填活动身份：取相连流里金额最大的活动，混合时退到占优者。
+ *
+ * 账户列也参与计算——只为排序服务：现金账户按主导活动与两侧分类对齐，避免
+ * ribbon 在列内交叉；账户竖条与读数在渲染层固定为中性色，不跟着活动着色。
  */
-function assignNodeActivities(nodes: CashSankeyNode[], links: CashSankeyLink[]): void {
+export function assignNodeActivities(nodes: CashSankeyNode[], links: CashSankeyLink[]): void {
   const weights = new Map<string, Map<CashFlowActivityKey, number>>()
   const add = (id: string, link: CashSankeyLink) => {
     if (!link.activity) return
@@ -334,10 +340,6 @@ function assignNodeActivities(nodes: CashSankeyNode[], links: CashSankeyLink[]):
     add(link.targetId, link)
   }
   for (const node of nodes) {
-    if (node.layer === 1) {
-      node.activity = null
-      continue
-    }
     const byActivity = weights.get(node.id)
     node.activity = byActivity
       ? [...byActivity.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
@@ -346,12 +348,37 @@ function assignNodeActivities(nodes: CashSankeyNode[], links: CashSankeyLink[]):
 }
 
 /**
+ * 桑基节点的稳定视图排序：活动类型 → 账户/分类 → 金额降序 → id 兜底。
+ *
+ * 活动类型优先，使同色 ribbon 在列内相邻；账户类节点先于分类节点（沿用既有约定）；
+ * 金额降序让大额在上。折叠态由本函数给每个组定 rank，展开时成员继承该 rank 并按
+ * 同一函数定 memberIndex，因此任意展开组合下其它节点的相对顺序都不变。
+ */
+export function sankeyOrder(left: CashSankeyNode, right: CashSankeyNode): number {
+  const activityRank = (node: CashSankeyNode) => {
+    switch (node.activity) {
+      case 'operating': return 0
+      case 'investing': return 1
+      case 'financing': return 2
+      default: return 3 // neutral / 无活动
+    }
+  }
+  const a = activityRank(left) - activityRank(right)
+  if (a !== 0) return a
+  const originLeft = left.origin === 'account' ? 0 : 1
+  const originRight = right.origin === 'account' ? 0 : 1
+  if (originLeft !== originRight) return originLeft - originRight
+  if (left.amount !== right.amount) return right.amount - left.amount
+  return left.id.localeCompare(right.id)
+}
+
+/**
  * 给细图节点回填渐进式分组与稳定排序字段。
  *
  * 分组身份、展示名、可展开性全部来自后端 endpoint 自带的 `group`，前端不读
  * ledger 的分类层级 / 账户分类归属。前端只负责视图排序：组间顺序在完全折叠态
- * 确定（账户组在前、按金额降序），成员按金额定 memberIndex；展开只在原组内展开，
- * 因此任意展开组合下其他节点的相对顺序都不变。
+ * 按「活动类型 → 账户/分类 → 金额」确定，成员按同一规则定 memberIndex；
+ * 展开只在原组内展开，因此任意展开组合下其他节点的相对顺序都不变。
  */
 function finalizeGroups(nodes: CashSankeyNode[], endpointMap: Map<string, SankeyEndpoint>): CashSankeyNode[] {
   const grouped = new Map<string, CashSankeyNode[]>()
@@ -366,20 +393,16 @@ function finalizeGroups(nodes: CashSankeyNode[], endpointMap: Map<string, Sankey
     grouped.set(node.groupId, list)
   }
 
-  const groupOrder = [...grouped.entries()].sort((left, right) => {
-    const originLeft = left[1][0].origin === 'account' ? 0 : 1
-    const originRight = right[1][0].origin === 'account' ? 0 : 1
-    if (originLeft !== originRight) return originLeft - originRight
-    const sumLeft = left[1].reduce((sum, node) => sum + node.amount, 0)
-    const sumRight = right[1].reduce((sum, node) => sum + node.amount, 0)
-    if (sumLeft !== sumRight) return sumRight - sumLeft
-    return left[0].localeCompare(right[0])
-  })
+  // 组的排序代表：取组内活动优先级最高、金额最大的成员作为代理节点参与比较，
+  // 使混合活动的组按其主导活动归位，且与展开后组内首个成员的位次一致。
+  const representative = (members: CashSankeyNode[]): CashSankeyNode =>
+    members.slice().sort(sankeyOrder)[0]!
+  const groupOrder = [...grouped.entries()].sort((left, right) =>
+    sankeyOrder(representative(left[1]), representative(right[1])))
 
   groupOrder.forEach(([, members], rank) => {
-    const byAmount = members.slice().sort((left, right) =>
-      right.amount !== left.amount ? right.amount - left.amount : left.id.localeCompare(right.id))
-    byAmount.forEach((node, index) => {
+    const ordered = members.slice().sort(sankeyOrder)
+    ordered.forEach((node, index) => {
       // expandable 由后端 endpoint.group 权威给出，前端只排视图序位。
       node.rank = rank
       node.memberIndex = index
@@ -542,8 +565,9 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
   }
 
   const nodes = [...nodeMap.values()]
-  finalizeGroups(nodes, endpointMap)
+  // 先回填活动再分组：排序键含活动类型，必须让同一组的成员继承组的行为一致。
   assignNodeActivities(nodes, links)
+  finalizeGroups(nodes, endpointMap)
   const inflow = links
     .filter((link) => link.kind === 'flow' && nodeMap.get(link.sourceId)?.layer === 0 && nodeMap.get(link.targetId)?.layer === 1)
     .reduce((sum, link) => sum + link.amount, 0)
@@ -988,8 +1012,9 @@ export function deriveCashSankey(
     }
   }
 
-  finalizeGroups(nodes, endpointMap)
+  // 先回填活动再分组：排序键含活动类型，必须让同一组的成员继承组的行为一致。
   assignNodeActivities(nodes, links)
+  finalizeGroups(nodes, endpointMap)
 
   const inflow = links
     .filter((link) => link.kind === 'flow' && nodes.find((node) => node.id === link.sourceId)?.layer === 0 && nodes.find((node) => node.id === link.targetId)?.layer === 1)
@@ -1082,7 +1107,18 @@ export function projectCashSankey(
   const redirect = new Map<string, string>()
   const displayNodes: CashSankeyNode[] = []
   for (const [groupId, members] of groups) {
-    const canExpand = members.length > 1
+    // 后端下发了 group 归属（groupId 非 self: 前缀）的**左右分类列**节点，无论成员
+    // 多少都显示为一级组名：账户分类（投资 / 负债…）即使只有一个非现金账户，默认
+    // 也应显示分类名，展开才看到账户名。中间账户列（layer 1）保留账户节点与读数；
+    // self: 组是无分组归属的合成节点，保持原样。
+    const hasGroup = !groupId.startsWith('self:')
+    const foldSingle =
+      hasGroup && members.length === 1 && members[0]!.layer !== 1
+    // 可展开 = 真正有「一级 → 子级」层级可揭示：多成员组，或单成员但组名与成员名
+    // 不同（账户分类 → 账户）。叶子一级分类后端也下发 group，但组名就是自身名，
+    // 展开只会显示同一个节点，不算子类别，因此不可点击。
+    const canExpand = hasGroup &&
+      (members.length > 1 || members.some((member) => (member.groupName ?? member.name) !== member.name))
     const isExpanded = canExpand && expanded.has(groupId)
     if (isExpanded) {
       for (const member of members) {
@@ -1092,13 +1128,13 @@ export function projectCashSankey(
       }
       continue
     }
-    // 单成员组（未分组账户 / 合成节点）：原样保留，保留账户读数等节点语义。
-    if (members.length === 1) {
+    // 单成员且不折叠（合成节点 / 未分组账户 / 中间账户列）：原样保留账户读数等语义。
+    if (members.length === 1 && !foldSingle) {
       redirect.set(members[0]!.id, members[0]!.id)
       displayNodes.push({ ...members[0]!, isGroup: false, expandable: false })
       continue
     }
-    // 多成员组且未展开：聚合成一个组节点。
+    // 其余（多成员未展开，或分类列单成员带分组归属）：聚合成一级组节点。
     const ordered = members.slice().sort((left, right) => (left.memberIndex ?? 0) - (right.memberIndex ?? 0))
     const head = ordered[0]!
     const amount = members.reduce((sum, node) => sum + node.amount, 0)

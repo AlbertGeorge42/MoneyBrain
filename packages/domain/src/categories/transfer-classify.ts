@@ -1,3 +1,5 @@
+import type { CashFlowActivityKey } from '../statements/cash-flow/types.js'
+
 /**
  * 转账五类：系统内部按账户性质自动判定的分类，不开放用户配置。
  *
@@ -6,7 +8,6 @@
  * 不写进分类表让用户在设置页改。
  */
 export type TransferCategoryName = '转账' | '买入' | '卖出' | '还款' | '借贷'
-export type TransferActivity = 'operating' | 'investing' | 'financing'
 
 export interface TransferAccountMark {
   /** 账户类型：负债账户参与还款 / 借款判定。 */
@@ -16,7 +17,7 @@ export interface TransferAccountMark {
 }
 
 /** 五类固定活动归属：转账经营、买卖投资、还款借款筹资。 */
-export const TRANSFER_ACTIVITY: Record<TransferCategoryName, TransferActivity> = {
+export const TRANSFER_ACTIVITY: Record<TransferCategoryName, CashFlowActivityKey> = {
   转账: 'operating',
   买入: 'investing',
   卖出: 'investing',

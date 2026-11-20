@@ -16,7 +16,8 @@ import type { ToastOptions } from '@/features/shared/toastContext'
 import { transactionCategoryApi } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
-import type { CashFlowActivity, TxType } from '@/features/overview/model'
+import type { CashFlowActivityKey } from '@domain/index'
+import type { TxType } from '@/features/overview/model'
 import type { Editor, EditorSaveValue } from './EditorSheet'
 import type { Mover } from './MoverSheet'
 import type { CashflowTab } from './CashflowSection'
@@ -372,7 +373,7 @@ export function useLedgerConfigController({
       setMoverSaving(true)
       const result = await setCategoryCashFlow(
         mover.id,
-        target === 'unassigned' ? null : (target as CashFlowActivity),
+        target === 'unassigned' ? null : (target as CashFlowActivityKey),
       )
       setMoverSaving(false)
       if (!result.ok) {

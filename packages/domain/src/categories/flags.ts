@@ -1,3 +1,5 @@
+import type { CashFlowActivityKey } from '../statements/cash-flow/types.js'
+
 /**
  * 分类计算属性解析（严格根节点继承）。
  *
@@ -24,8 +26,6 @@ export interface ResolvedAccountCategoryFlags {
   effectiveFlags: Map<string, { isCashEquivalent: boolean; isInvestment: boolean }>
 }
 
-export type EffectiveCashFlowType = 'operating' | 'investing' | 'financing' | null
-
 export type TransactionCategoryFlagRow = {
   id: string
   parentId: string | null
@@ -33,7 +33,8 @@ export type TransactionCategoryFlagRow = {
 }
 
 export interface ResolvedTransactionCategoryFlags {
-  effectiveCashFlowTypes: Map<string, EffectiveCashFlowType>
+  /** 每个分类的有效活动身份；null = 无收支活动 / 未分类。 */
+  effectiveCashFlowTypes: Map<string, CashFlowActivityKey | null>
 }
 
 function childrenMapOf(items: readonly { id: string; parentId: string | null }[]): Map<string | null, string[]> {
@@ -93,10 +94,10 @@ export function resolveTransactionCategoryFlags(
 ): ResolvedTransactionCategoryFlags {
   const childrenMap = childrenMapOf(categories)
 
-  const effectiveCashFlowTypes = new Map<string, EffectiveCashFlowType>()
+  const effectiveCashFlowTypes = new Map<string, CashFlowActivityKey | null>()
 
   for (const root of rootsOf(categories)) {
-    const rootType = (root.cashFlowType ?? null) as EffectiveCashFlowType
+    const rootType = (root.cashFlowType ?? null) as CashFlowActivityKey | null
     const queue: string[] = [root.id]
     while (queue.length > 0) {
       const current = queue.shift()!

@@ -9,6 +9,7 @@ import {
   hasValue,
   parseOptionalUuid,
   parseOptionalIconKey,
+  parseOptionalCashFlowType,
 } from '../common/index.js'
 import {
   createTransactionCategory,
@@ -23,7 +24,7 @@ import {
 const router = Router()
 
 const validateCategoryPayload = (req: Request) => {
-  const { name, type, parentId } = req.body as Record<string, unknown>
+  const { name, type, parentId, cashFlowType } = req.body as Record<string, unknown>
   if (!hasValue(name) || !hasValue(type)) {
     throw new ValidationError('名称和类型不能为空')
   }
@@ -32,6 +33,7 @@ const validateCategoryPayload = (req: Request) => {
   }
   parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
   parseOptionalIconKey((req.body as Record<string, unknown>).iconKey)
+  parseOptionalCashFlowType(cashFlowType)
 }
 
 const validateCategoryUpdatePayload = (req: Request) => {
@@ -40,6 +42,7 @@ const validateCategoryUpdatePayload = (req: Request) => {
   const { name, type, parentId, cashFlowType, iconKey, sort } = req.body as Record<string, unknown>
   const hasUpdatableField = [name, type, parentId, cashFlowType, iconKey, sort].some(value => value !== undefined)
   parseOptionalIconKey(iconKey)
+  parseOptionalCashFlowType(cashFlowType)
 
   if (!hasUpdatableField) {
     throw new ValidationError('至少提供一个需要更新的字段')

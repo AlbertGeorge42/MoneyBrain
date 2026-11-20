@@ -28,7 +28,7 @@ import type {
   ProjectionSourceValue,
   ReportCategoryDetail,
 } from '@contracts/types'
-import { mergeCategoryItems } from '@domain/index'
+import { mergeCategoryItems, refundOffsetKind } from '@domain/index'
 import { analyticsApi, reportApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { accountKindLabel } from '@/features/overview/model'
@@ -92,15 +92,16 @@ function inRange(transaction: { date: string }, from: string, to: string): boole
   return transaction.date >= from && transaction.date <= to
 }
 
+// 退款方向统一走 Domain 的 refundOffsetKind：未关联退款不进收支任何一侧，只影响余额。
 function expenseSide(transaction: LedgerTransaction): boolean {
   if (transaction.type === 'expense') return true
-  if (transaction.type === 'refund') return transaction.relatedType !== 'income'
+  if (transaction.type === 'refund') return refundOffsetKind(transaction.relatedType) === 'expense'
   return transaction.type === 'adjustment' && transaction.amount < 0
 }
 
 function incomeSide(transaction: LedgerTransaction): boolean {
   if (transaction.type === 'income') return true
-  if (transaction.type === 'refund') return transaction.relatedType === 'income'
+  if (transaction.type === 'refund') return refundOffsetKind(transaction.relatedType) === 'income'
   return false
 }
 
