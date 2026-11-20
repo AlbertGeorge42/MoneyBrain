@@ -177,7 +177,7 @@ function PreviewBody({
 }) {
   const { ledger, undo } = useLedger()
   const { notify: pushToast } = useToast()
-  const { handleSave, handleDelete, handleLinkRefund } = useDetailActions()
+  const { handleSave, handleDelete, handleLinkRefund, handleCreateRefund } = useDetailActions()
   const [entryOpen, setEntryOpen] = useState(false)
   const [detail, setDetail] = useState<LedgerTransaction | null>(null)
   const [batchMode, setBatchMode] = useState(false)
@@ -327,6 +327,7 @@ function PreviewBody({
         onDelete={handleDelete}
         onOpenTransaction={setDetail}
         onLinkRefund={handleLinkRefund}
+        onCreateRefund={handleCreateRefund}
       />
     </>
   )

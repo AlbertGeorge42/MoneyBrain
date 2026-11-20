@@ -5,10 +5,12 @@
 import { useCallback } from 'react'
 import { useLedger, type LedgerMutationOutcome } from '@/features/overview/ledgerStore'
 import { useToast, type ToastVariant } from '@/features/shared/toastContext'
+import { todayLocal } from '@/features/overview/apiLedger'
+import type { NewTransactionInput } from '@/features/overview/model'
 import type { TransactionPatch } from './ledgerOps'
 
 export function useDetailActions(variant: ToastVariant = 'stack') {
-  const { updateTransaction, deleteTransactions, linkRefund, undo } = useLedger()
+  const { addTransaction, updateTransaction, deleteTransactions, linkRefund, undo } = useLedger()
   const { notify: pushToast } = useToast()
   const notify = useCallback(
     (message: string, undoRun?: () => void) =>
@@ -72,5 +74,34 @@ export function useDetailActions(variant: ToastVariant = 'stack') {
     [linkRefund, notify],
   )
 
-  return { handleSave, handleDelete, handleLinkRefund }
+  /**
+   * 从原交易创建一笔关联退款。记一笔表单已去掉退款 tab，这是退款的可写入口：
+   * 退款是独立交易（冲减原交易），不是把原交易改成 refund 类型。
+   */
+  const handleCreateRefund = useCallback(
+    async (originalId: string, categoryId: string, accountId: string, amount: number, note: string): Promise<LedgerMutationOutcome> => {
+      const input: NewTransactionInput = {
+        type: 'refund',
+        categoryId,
+        accountId,
+        amount,
+        note,
+        date: todayLocal(),
+        relatedTransactionId: originalId,
+      }
+      const result = await addTransaction(input)
+      if (!result.ok) {
+        notify(`退款创建失败：${result.error ?? '请重试'}`)
+        return result
+      }
+      notify(
+        '已创建关联退款 · 原交易可退金额已更新',
+        result.undoToken ? () => runUndo(result.undoToken!, '已撤销退款') : undefined,
+      )
+      return result
+    },
+    [addTransaction, notify, runUndo],
+  )
+
+  return { handleSave, handleDelete, handleLinkRefund, handleCreateRefund }
 }

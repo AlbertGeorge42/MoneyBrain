@@ -1,5 +1,8 @@
 /**
- * P2 #14 支出改负数：提示退款 / 调整出口并禁用保存。
+ * 交易详情：负数金额的平账引导 + 从原交易创建关联退款的可见入口。
+ *
+ * 退款不再是「把原交易改成 refund 类型」（后端也禁止普通交易改退款），
+ * 而是一笔独立交易冲减原交易；所以详情面板提供「记一笔退款」，不提供类型切换。
  */
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -31,73 +34,70 @@ function expenseTransaction(): LedgerTransaction {
   }
 }
 
-describe('#14 支出改负数的引导', () => {
-  it('负数时提示退款 / 调整入口、禁用保存，并可切换到调整类型', () => {
-    const onSave = vi.fn(async () => ({ ok: true }))
-    render(
-      <MantineProvider>
-        <TransactionDetailPanel
-          transaction={expenseTransaction()}
-          ledger={ledger}
-          device="desktop"
-          onClose={() => {}}
-          onSave={onSave}
-          onDelete={async () => ({ ok: true })}
-        />
-      </MantineProvider>,
-    )
+function renderPanel(onCreateRefund = vi.fn(async () => ({ ok: true }))) {
+  const onSave = vi.fn(async () => ({ ok: true }))
+  render(
+    <MantineProvider>
+      <TransactionDetailPanel
+        transaction={expenseTransaction()}
+        ledger={ledger}
+        device="desktop"
+        onClose={() => {}}
+        onSave={onSave}
+        onDelete={async () => ({ ok: true })}
+        onLinkRefund={async () => ({ ok: true })}
+        onCreateRefund={onCreateRefund}
+      />
+    </MantineProvider>,
+  )
+  return { onSave, onCreateRefund }
+}
+
+describe('交易详情编辑', () => {
+  it('负数时提示平账入口、禁用保存，并可切换到平账类型', () => {
+    const { onSave } = renderPanel()
 
     fireEvent.click(screen.getByRole('button', { name: '编辑' }))
     fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '-5' } })
 
-    expect(screen.getByRole('alert').textContent).toContain('退款请改用退款类型，冲正请用调整')
+    expect(screen.getByRole('alert').textContent).toContain('金额需大于 0')
     expect(screen.getByRole('button', { name: /保存修改/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '改为退款' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '改为调整' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '改为退款' })).toBeNull()
+    expect(screen.getByRole('button', { name: '改为平账' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '改为调整' }))
+    fireEvent.click(screen.getByRole('button', { name: '改为平账' }))
     expect((screen.getByLabelText('分类') as HTMLSelectElement).value).toBe('adjust')
     expect(screen.queryByRole('alert')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /保存修改/ }))
     expect(onSave).toHaveBeenCalledWith(
       't1',
-      expect.objectContaining({ type: 'adjustment', amount: -500 }),
+      expect.objectContaining({ type: 'adjustment', amount: 500 }),
     )
   })
+})
 
-  it('改为退款时负数金额同时转正，错误消失且保存可达', () => {
-    const onSave = vi.fn(async () => ({ ok: true }))
-    render(
-      <MantineProvider>
-        <TransactionDetailPanel
-          transaction={expenseTransaction()}
-          ledger={ledger}
-          device="desktop"
-          onClose={() => {}}
-          onSave={onSave}
-          onDelete={async () => ({ ok: true })}
-        />
-      </MantineProvider>,
-    )
+describe('退款入口', () => {
+  it('原交易详情有可见的「记一笔退款」，默认金额为剩余可退额', () => {
+    renderPanel()
+    const button = screen.getByRole('button', { name: '记一笔退款' })
+    expect(button).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
-    fireEvent.change(screen.getByLabelText('金额（元）'), { target: { value: '-28' } })
+    fireEvent.click(button)
+    expect(screen.getByRole('heading', { name: '记一笔退款' })).toBeInTheDocument()
+    expect((screen.getByLabelText('退款金额（元）') as HTMLInputElement).value).toBe('20')
+    expect((screen.getByLabelText('退款账户') as HTMLSelectElement).value).toBe('cmb')
+  })
 
-    expect(screen.getByRole('button', { name: /保存修改/ })).toBeDisabled()
+  it('提交退款走关联原交易创建，不改原交易类型', () => {
+    const onCreateRefund = vi.fn(async () => ({ ok: true, id: 'refund-1' }))
+    renderPanel(onCreateRefund)
 
-    fireEvent.click(screen.getByRole('button', { name: '改为退款' }))
+    fireEvent.click(screen.getByRole('button', { name: '记一笔退款' }))
+    fireEvent.change(screen.getByLabelText('退款金额（元）'), { target: { value: '8.5' } })
+    fireEvent.change(screen.getByLabelText('备注'), { target: { value: '退货' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建退款' }))
 
-    expect((screen.getByLabelText('金额（元）') as HTMLInputElement).value).toBe('28')
-    expect((screen.getByLabelText('分类') as HTMLSelectElement).value).toBe('refund')
-    expect(screen.queryByRole('alert')).toBeNull()
-
-    const save = screen.getByRole('button', { name: /保存修改/ })
-    expect(save).toBeEnabled()
-    fireEvent.click(save)
-    expect(onSave).toHaveBeenCalledWith(
-      't1',
-      expect.objectContaining({ type: 'refund', amount: 2_800, categoryId: 'refund' }),
-    )
+    expect(onCreateRefund).toHaveBeenCalledWith('t1', 'food', 'cmb', 850, '退货')
   })
 })

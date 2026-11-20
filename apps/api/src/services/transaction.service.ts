@@ -8,7 +8,10 @@ import * as transactionRepo from '../db/repositories/transaction.repository.js'
 import type { TransactionStats } from '../../../../packages/contracts/types/index.js'
 import type { TransactionWithRelations } from '../db/repositories/transaction.repository.js'
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
-import { minor, remainingRefundable, summarizeAggregatedFlows, formatCurrency, sum, add, type LedgerTransaction } from '../../../../packages/domain/src/index.js'
+import { resolveTransferCategoryId } from './transfer-category.service.js'
+import {
+  minor, remainingRefundable, summarizeAggregatedFlows, formatCurrency, sum, add, type LedgerTransaction,
+} from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
 
@@ -164,13 +167,10 @@ export async function createIncomeExpense(data: CreateIncomeExpenseData): Promis
 }
 
 export async function createTransfer(data: CreateTransferData): Promise<TransactionWithRelations> {
-  const { id, amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, categoryId, excludeFromIncomeExpense } = data
+  const { id, amount, fee = 0, coupon = 0, date, note, accountId, toAccountId, excludeFromIncomeExpense } = data
 
-  const fromAccount = await accountRepo.findById(accountId)
-  if (!fromAccount) throw new NotFoundError('转出账户')
-
-  const toAccount = await accountRepo.findById(toAccountId)
-  if (!toAccount) throw new NotFoundError('转入账户')
+  // 转账五类由账户性质自动判定，分类行按需创建；调用方传入的 categoryId 一律不采信。
+  const internalCategoryId = await resolveTransferCategoryId(accountId, toAccountId)
 
   const transaction = await transactionRepo.createWithRelations({
     id,
@@ -182,7 +182,7 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
     note,
     accountId,
     toAccountId,
-    categoryId,
+    categoryId: internalCategoryId,
     excludeFromIncomeExpense: excludeFromIncomeExpense ?? false,
   })
 
@@ -327,8 +327,12 @@ export async function updateTransfer(id: string, data: UpdateTransferData): Prom
   if (!oldTransaction) throw new NotFoundError('交易记录')
 
   const merged = mergeTransactionData(oldTransaction, data)
+  const toAccountId = data.toAccountId || oldTransaction.toAccountId!
+  // 编辑也必须重判：改了账户要跟着换分类；没改账户则顺手纠正历史不匹配数据。
+  // 前端传来的 categoryId 不采信，转账分类没有用户选择入口。
+  const categoryId = await resolveTransferCategoryId(merged.accountId, toAccountId)
 
-  return updateWithEvent(id, oldTransaction, { ...merged, toAccountId: data.toAccountId || oldTransaction.toAccountId! })
+  return updateWithEvent(id, oldTransaction, { ...merged, categoryId, toAccountId })
 }
 
 export async function updateRefund(id: string, data: UpdateRefundData): Promise<TransactionWithRelations> {

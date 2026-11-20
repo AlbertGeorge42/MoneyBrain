@@ -796,26 +796,36 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   shape-rendering: geometricPrecision;
 }
 
+/* 节点竖条与 ribbon 共用一套活动色调：一条流从源到汇颜色连贯。
+   neutral = 账户列 / 非收支流，transfer = 账户间内部转账。 */
 .mb-rp-sankey-ribbon {
-  fill: var(--mb-chart-series-7);
-  opacity: 0.45;
+  fill: var(--mb-color-text-tertiary);
+  opacity: 0.6;
   pointer-events: none;
 }
 
-.mb-rp-sankey-link--inflow .mb-rp-sankey-ribbon {
-  fill: var(--mb-chart-series-1);
+.mb-rp-sankey-tone--neutral .mb-rp-sankey-ribbon {
+  fill: var(--mb-color-text-tertiary);
 }
 
-.mb-rp-sankey-link--outflow .mb-rp-sankey-ribbon {
-  fill: var(--mb-chart-series-2);
+.mb-rp-sankey-tone--transfer .mb-rp-sankey-ribbon {
+  fill: var(--mb-color-transfer);
 }
 
-.mb-rp-sankey-link--neutral .mb-rp-sankey-ribbon {
-  fill: var(--mb-chart-series-7);
+.mb-rp-sankey-tone--operating .mb-rp-sankey-ribbon {
+  fill: var(--mb-color-activity-operating);
+}
+
+.mb-rp-sankey-tone--investing .mb-rp-sankey-ribbon {
+  fill: var(--mb-color-activity-investing);
+}
+
+.mb-rp-sankey-tone--financing .mb-rp-sankey-ribbon {
+  fill: var(--mb-color-activity-financing);
 }
 
 .mb-rp-sankey-link:hover .mb-rp-sankey-ribbon {
-  opacity: 0.68;
+  opacity: 0.78;
 }
 
 .mb-rp-sankey-hit {
@@ -827,16 +837,28 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
 }
 
 .mb-rp-sankey-node-body {
-  fill: var(--mb-chart-series-7);
+  fill: var(--mb-color-text-tertiary);
   pointer-events: none;
 }
 
-.mb-rp-sankey-node--inflow .mb-rp-sankey-node-body {
-  fill: var(--mb-chart-series-1);
+.mb-rp-sankey-tone--neutral .mb-rp-sankey-node-body {
+  fill: var(--mb-color-text-tertiary);
 }
 
-.mb-rp-sankey-node--outflow .mb-rp-sankey-node-body {
-  fill: var(--mb-chart-series-2);
+.mb-rp-sankey-tone--transfer .mb-rp-sankey-node-body {
+  fill: var(--mb-color-transfer);
+}
+
+.mb-rp-sankey-tone--operating .mb-rp-sankey-node-body {
+  fill: var(--mb-color-activity-operating);
+}
+
+.mb-rp-sankey-tone--investing .mb-rp-sankey-node-body {
+  fill: var(--mb-color-activity-investing);
+}
+
+.mb-rp-sankey-tone--financing .mb-rp-sankey-node-body {
+  fill: var(--mb-color-activity-financing);
 }
 
 .mb-rp-sankey-node-hit {
@@ -889,6 +911,43 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
 .mb-rp-sankey-balance {
   font-family: var(--mb-font-num);
   font-variant-numeric: tabular-nums;
+}
+
+/* 活动图例：色块只标分类，文字承载语义；颜色不是唯一信息载体。 */
+.mb-rp-sankey-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mb-s-1) var(--mb-s-4);
+}
+
+.mb-rp-sankey-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  color: var(--mb-color-text-secondary);
+  font-family: var(--mb-font-ui);
+  font-size: var(--mb-fs-0);
+}
+
+.mb-rp-sankey-legend-item::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--mb-color-text-tertiary);
+}
+
+.mb-rp-sankey-legend-item[data-activity='operating']::before {
+  background: var(--mb-color-activity-operating);
+}
+
+.mb-rp-sankey-legend-item[data-activity='investing']::before {
+  background: var(--mb-color-activity-investing);
+}
+
+.mb-rp-sankey-legend-item[data-activity='financing']::before {
+  background: var(--mb-color-activity-financing);
 }
 
 .mb-rp-sankey-foot {

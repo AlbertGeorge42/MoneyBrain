@@ -1,6 +1,7 @@
 import { refundOffsetKind, transferInflow, transferNet, transferOutflow } from '../../ledger/rules.js'
 import { ZERO_MINOR, abs, add, type Minor } from '../../money.js'
 import type {
+  CashFlowActivityKey,
   SankeyEndpoint,
   SankeyGroupMeta,
   SankeyLink,
@@ -9,6 +10,22 @@ import type {
   SankeySide,
   SankeySourceTransaction,
 } from './types.js'
+
+/**
+ * 链路 key 把活动身份编进 target 位：同一对端点上的经营 / 投资 / 筹资流水
+ * 各成一条 ribbon，活动色不会串；无活动的内部转账 / 手续费落 null。
+ */
+const linkKey = (targetId: string, activity: CashFlowActivityKey | null) =>
+  `${targetId}|${activity ?? ''}`
+
+const splitLinkKey = (key: string): { targetId: string; activity: CashFlowActivityKey | null } => {
+  const at = key.lastIndexOf('|')
+  if (at < 0) return { targetId: key, activity: null }
+  const raw = key.slice(at + 1)
+  const activity =
+    raw === 'operating' || raw === 'investing' || raw === 'financing' ? raw : null
+  return { targetId: key.slice(0, at), activity }
+}
 
 function addToMap(map: Map<string, Minor>, key: string, value: Minor) {
   map.set(key, add(map.get(key) ?? ZERO_MINOR, value))
@@ -129,7 +146,7 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
       addEndpoint(incomeCategoryNodes_, catEndpoint, 'income_category', 'in', name, categoryGroup, amount)
       addEndpoint(cashAccountFlows_, cashEndpoint, 'cash', 'account', cashName, accountGroup, amount)
       if (!sourceToCashLinks_.has(catEndpoint)) sourceToCashLinks_.set(catEndpoint, new Map())
-      addToMap(sourceToCashLinks_.get(catEndpoint)!, cashEndpoint, amount)
+      addToMap(sourceToCashLinks_.get(catEndpoint)!, linkKey(cashEndpoint, tx.cashFlowType), amount)
     } else if (type === 'expense' && isFromCash) {
       const name = categoryName || '其他支出'
       const cashName = accountName || '现金账户'
@@ -138,7 +155,7 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
       addEndpoint(expenseCategoryNodes_, catEndpoint, 'expense_category', 'out', name, categoryGroup, amount)
       addEndpoint(cashAccountFlows_, cashEndpoint, 'cash', 'account', cashName, accountGroup, amount)
       if (!cashToTargetLinks_.has(cashEndpoint)) cashToTargetLinks_.set(cashEndpoint, new Map())
-      addToMap(cashToTargetLinks_.get(cashEndpoint)!, catEndpoint, amount)
+      addToMap(cashToTargetLinks_.get(cashEndpoint)!, linkKey(catEndpoint, tx.cashFlowType), amount)
     } else if (type === 'transfer') {
       if (!isFromCash && isToCash && toAccountName) {
         // 非现金来源节点：展示名只用账户名，不拼交易分类名；身份仍由 (分类,账户) 组合表达。
@@ -149,7 +166,7 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
         addEndpoint(nonCashSourceNodes_, fromEndpoint, 'non_cash_source', 'in', accName, accountGroup, actualInflow)
         addEndpoint(cashAccountFlows_, toCashEndpoint, 'cash', 'account', toAccountName, toAccountGroup, actualInflow)
         if (!sourceToCashLinks_.has(fromEndpoint)) sourceToCashLinks_.set(fromEndpoint, new Map())
-        addToMap(sourceToCashLinks_.get(fromEndpoint)!, toCashEndpoint, actualInflow)
+        addToMap(sourceToCashLinks_.get(fromEndpoint)!, linkKey(toCashEndpoint, tx.cashFlowType), actualInflow)
       } else if (isFromCash && !isToCash && accountName) {
         // 非现金去向节点：同上，展示名只用账户名。
         const accName = toAccountName || '非现金账户'
@@ -159,7 +176,7 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
         addEndpoint(nonCashTargetNodes_, toEndpoint, 'non_cash_target', 'out', accName, toAccountGroup, actualOutflow)
         addEndpoint(cashAccountFlows_, fromCashEndpoint, 'cash', 'account', accountName, accountGroup, actualOutflow)
         if (!cashToTargetLinks_.has(fromCashEndpoint)) cashToTargetLinks_.set(fromCashEndpoint, new Map())
-        addToMap(cashToTargetLinks_.get(fromCashEndpoint)!, toEndpoint, actualOutflow)
+        addToMap(cashToTargetLinks_.get(fromCashEndpoint)!, linkKey(toEndpoint, tx.cashFlowType), actualOutflow)
       } else if (isFromCash && isToCash && accountName && toAccountName) {
         const fromCashEndpoint = accountIdOf(accountId, accountName)
         const toCashEndpoint = accountIdOf(toAccountId, toAccountName)
@@ -169,16 +186,16 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
         addEndpoint(cashAccountFlows_, fromCashEndpoint, 'cash', 'account', accountName, accountGroup, actualOutflow)
         addEndpoint(cashAccountFlows_, toCashEndpoint, 'cash', 'account', toAccountName, toAccountGroup, actualInflow)
         if (!cashToCashLinks_.has(fromCashEndpoint)) cashToCashLinks_.set(fromCashEndpoint, new Map())
-        addToMap(cashToCashLinks_.get(fromCashEndpoint)!, toCashEndpoint, amount)
+        addToMap(cashToCashLinks_.get(fromCashEndpoint)!, linkKey(toCashEndpoint, null), amount)
         if (net < 0) {
           const feeValue = abs(net)
           addEndpoint(expenseCategoryNodes_, FEE_ID, 'expense_category', 'out', '手续费', null, feeValue)
           if (!cashToTargetLinks_.has(fromCashEndpoint)) cashToTargetLinks_.set(fromCashEndpoint, new Map())
-          addToMap(cashToTargetLinks_.get(fromCashEndpoint)!, FEE_ID, feeValue)
+          addToMap(cashToTargetLinks_.get(fromCashEndpoint)!, linkKey(FEE_ID, null), feeValue)
         } else if (net > 0) {
           addEndpoint(incomeCategoryNodes_, COUPON_ID, 'income_category', 'in', '优惠券', null, net)
           if (!sourceToCashLinks_.has(COUPON_ID)) sourceToCashLinks_.set(COUPON_ID, new Map())
-          addToMap(sourceToCashLinks_.get(COUPON_ID)!, toCashEndpoint, net)
+          addToMap(sourceToCashLinks_.get(COUPON_ID)!, linkKey(toCashEndpoint, null), net)
         }
       }
     } else if (type === 'refund' && isFromCash) {
@@ -191,13 +208,13 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
         addEndpoint(incomeCategoryNodes_, catEndpoint, 'income_category', 'in', name, categoryGroup, amount)
         addEndpoint(cashAccountFlows_, cashEndpoint, 'cash', 'account', cashName, accountGroup, amount)
         if (!sourceToCashLinks_.has(catEndpoint)) sourceToCashLinks_.set(catEndpoint, new Map())
-        addToMap(sourceToCashLinks_.get(catEndpoint)!, cashEndpoint, amount)
+        addToMap(sourceToCashLinks_.get(catEndpoint)!, linkKey(cashEndpoint, tx.cashFlowType), amount)
       } else if (offset === 'income') {
         const catEndpoint = categoryIdOf('out', categoryId, name)
         addEndpoint(expenseCategoryNodes_, catEndpoint, 'expense_category', 'out', name, categoryGroup, amount)
         addEndpoint(cashAccountFlows_, cashEndpoint, 'cash', 'account', cashName, accountGroup, amount)
         if (!cashToTargetLinks_.has(cashEndpoint)) cashToTargetLinks_.set(cashEndpoint, new Map())
-        addToMap(cashToTargetLinks_.get(cashEndpoint)!, catEndpoint, amount)
+        addToMap(cashToTargetLinks_.get(cashEndpoint)!, linkKey(catEndpoint, tx.cashFlowType), amount)
       }
     }
   }
@@ -272,13 +289,14 @@ export function buildSankey(sources: readonly SankeySourceTransaction[]): Sankey
       actualTargets.forEach((_, target) => allTargets.add(target))
       predictedTargets.forEach((_, target) => allTargets.add(target))
 
-      for (const targetId of allTargets) {
-        const actualAmount = mapValue(actualTargets, targetId)
-        const predictedAmount = mapValue(predictedTargets, targetId)
+      for (const targetKey of allTargets) {
+        const { targetId, activity } = splitLinkKey(targetKey)
+        const actualAmount = mapValue(actualTargets, targetKey)
+        const predictedAmount = mapValue(predictedTargets, targetKey)
         const totalAmount = add(actualAmount, predictedAmount)
 
         if (totalAmount > 0) {
-          const link: SankeyLink = { source: sourceId, target: targetId, value: totalAmount }
+          const link: SankeyLink = { source: sourceId, target: targetId, value: totalAmount, activity }
           if (actualAmount > 0) link.actualValue = actualAmount
           if (predictedAmount > 0) link.predictedValue = predictedAmount
           sankeyLinks.push(link)

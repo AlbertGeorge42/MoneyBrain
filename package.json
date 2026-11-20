@@ -20,6 +20,7 @@
     "db:integrity": "node scripts/db-integrity.mjs",
     "sync:decrypt": "node --import tsx scripts/decrypt-container.mts",
     "db:fix-expense-sign": "node scripts/with-database-url.mjs node --import tsx scripts/fix-expense-sign.mts",
+    "db:reclassify-transfers": "node scripts/with-database-url.mjs node --import tsx scripts/reclassify-transfers.mts",
     "build": "node scripts/build.mjs",
     "start": "concurrently \"npm run start:api\" \"npm run start:web\"",
     "desktop": "node scripts/desktop.mjs",

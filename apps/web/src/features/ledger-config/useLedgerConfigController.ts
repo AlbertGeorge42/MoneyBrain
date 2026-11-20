@@ -121,7 +121,6 @@ export function useLedgerConfigController({
     () => ({
       income: categoryRows(ledger, 'income'),
       expense: categoryRows(ledger, 'expense'),
-      transfer: categoryRows(ledger, 'transfer'),
     }),
     [ledger],
   )

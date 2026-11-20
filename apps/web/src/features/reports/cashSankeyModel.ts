@@ -11,7 +11,7 @@
  *   Σ期初 + 流入 − 流出 − Σ期末 = 0（内部转账在总账里抵消）
  * 任一账户或总账超容差都落失败态，绝不为了出图放宽。
  */
-import { minor, type SankeyEndpoint } from '@domain/index'
+import { minor, type CashFlowActivityKey, type SankeyEndpoint } from '@domain/index'
 import { formatCurrency } from '@/utils/format'
 import type { Ledger } from '@/features/overview/model'
 import { addDays } from '@/utils/date'
@@ -61,6 +61,8 @@ export interface CashSankeyNode {
   memberIndex?: number
   /** 投影后是否为折叠组节点（点击展开）。 */
   isGroup?: boolean
+  /** 现金流活动分类；账户列恒为 null，分类节点取相连流中金额最大的活动。由投影层回填。 */
+  activity?: CashFlowActivityKey | null
 }
 
 export interface CashSankeyLink {
@@ -73,6 +75,13 @@ export interface CashSankeyLink {
   tone: Tone
   /** `transfer` 为账户之间的内部转账；其余为真实的流入 / 流出。 */
   kind: 'flow' | 'transfer'
+  /** 现金流活动分类；null = 内部转账 / 手续费 / 优惠券等非收支活动。 */
+  activity: CashFlowActivityKey | null
+}
+
+/** ribbon 的着色键：活动不同就分成多条，避免折叠 / 动画时 key 碰撞。 */
+export function linkIdentity(link: Pick<CashSankeyLink, 'sourceId' | 'targetId' | 'kind' | 'activity'>): string {
+  return `${link.sourceId}>${link.targetId}|${link.kind}|${link.activity ?? 'none'}`
 }
 
 export interface CashSankey {
@@ -249,7 +258,7 @@ function createBuilder(): Builder {
   }
   const addLink = (link: Omit<CashSankeyLink, 'id'>) => {
     if (link.amount <= 0) return
-    const key = `${link.sourceId}>${link.targetId}|${link.kind}`
+    const key = linkIdentity(link)
     const existing = linkMap.get(key)
     if (existing) {
       existing.amount += link.amount
@@ -305,6 +314,35 @@ function nodeCategoryRootId(ledger: Ledger, node: CashSankeyNode): string {
   const prefix = `${side}:`
   const base = node.id.startsWith(prefix) ? node.id.slice(prefix.length) : node.id
   return rootOf(ledger, base)?.id ?? base
+}
+
+/**
+ * 给节点回填活动身份：账户列恒为 null（账户不属于任何活动），
+ * 分类 / 非现金节点取相连流里金额最大的活动，混合时退到占优者。
+ * 与 finalGroups 分开，保证两处 derive 共用同一份口径。
+ */
+function assignNodeActivities(nodes: CashSankeyNode[], links: CashSankeyLink[]): void {
+  const weights = new Map<string, Map<CashFlowActivityKey, number>>()
+  const add = (id: string, link: CashSankeyLink) => {
+    if (!link.activity) return
+    const byActivity = weights.get(id) ?? new Map<CashFlowActivityKey, number>()
+    byActivity.set(link.activity, (byActivity.get(link.activity) ?? 0) + link.amount)
+    weights.set(id, byActivity)
+  }
+  for (const link of links) {
+    add(link.sourceId, link)
+    add(link.targetId, link)
+  }
+  for (const node of nodes) {
+    if (node.layer === 1) {
+      node.activity = null
+      continue
+    }
+    const byActivity = weights.get(node.id)
+    node.activity = byActivity
+      ? [...byActivity.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+      : null
+  }
 }
 
 /**
@@ -489,19 +527,23 @@ function projectionSankey(ledger: Ledger, report: CashReport): CashSankey {
     })
     const kind = sourceRole.role === 'account' && targetRole.role === 'account' ? ('transfer' as const) : ('flow' as const)
     if (kind === 'transfer') transferTotal += link.value
-    links.push({
-      id: `${sourceId}>${targetId}|${kind}`,
+    const next: CashSankeyLink = {
+      id: '',
       sourceId,
       targetId,
       nodeId: sourceRole.role === 'income' ? sourceId : targetRole.role === 'expense' ? targetId : sourceId,
       amount: link.value,
       tone: sourceRole.role === 'income' ? 'income' : targetRole.role === 'expense' ? 'expense' : 'neutral',
       kind,
-    })
+      activity: kind === 'transfer' ? null : link.activity,
+    }
+    next.id = linkIdentity(next)
+    links.push(next)
   }
 
   const nodes = [...nodeMap.values()]
   finalizeGroups(nodes, endpointMap)
+  assignNodeActivities(nodes, links)
   const inflow = links
     .filter((link) => link.kind === 'flow' && nodeMap.get(link.sourceId)?.layer === 0 && nodeMap.get(link.targetId)?.layer === 1)
     .reduce((sum, link) => sum + link.amount, 0)
@@ -750,6 +792,7 @@ export function deriveCashSankey(
             amount,
             tone: 'neutral',
             kind: 'flow',
+            activity: null,
           })
           builder.addLink({
             sourceId: hiddenIn,
@@ -758,6 +801,7 @@ export function deriveCashSankey(
             amount,
             tone: 'neutral',
             kind: 'flow',
+            activity: null,
           })
         } else {
           builder.addLink({
@@ -767,6 +811,7 @@ export function deriveCashSankey(
             amount,
             tone: 'neutral',
             kind: 'transfer',
+            activity: null,
           })
         }
         continue
@@ -787,6 +832,7 @@ export function deriveCashSankey(
           amount,
           tone: 'income',
           kind: 'flow',
+          activity: link.activity,
         })
         continue
       }
@@ -806,6 +852,7 @@ export function deriveCashSankey(
           amount,
           tone: 'expense',
           kind: 'flow',
+          activity: link.activity,
         })
       }
     }
@@ -827,6 +874,7 @@ export function deriveCashSankey(
           amount: transaction.amount,
           tone: 'income',
           kind: 'flow',
+          activity: null,
         })
         base.correction += transaction.amount
       } else {
@@ -839,6 +887,7 @@ export function deriveCashSankey(
           amount: -transaction.amount,
           tone: 'expense',
           kind: 'flow',
+          activity: null,
         })
         base.correction += -transaction.amount
       }
@@ -940,6 +989,7 @@ export function deriveCashSankey(
   }
 
   finalizeGroups(nodes, endpointMap)
+  assignNodeActivities(nodes, links)
 
   const inflow = links
     .filter((link) => link.kind === 'flow' && nodes.find((node) => node.id === link.sourceId)?.layer === 0 && nodes.find((node) => node.id === link.targetId)?.layer === 1)
@@ -1053,6 +1103,9 @@ export function projectCashSankey(
     const head = ordered[0]!
     const amount = members.reduce((sum, node) => sum + node.amount, 0)
     const children = members.flatMap((node) => node.children)
+    // 组内活动统一才继承该色，混入多种活动退中性，避免组色误导为单一活动。
+    const memberActivities = new Set(members.map((node) => node.activity ?? null))
+    const groupActivity = memberActivities.size === 1 ? members[0]!.activity ?? null : null
     const groupNode: CashSankeyNode = {
       ...head,
       id: groupId,
@@ -1063,6 +1116,7 @@ export function projectCashSankey(
       expandable: canExpand,
       account: undefined,
       hiddenCount: undefined,
+      activity: groupActivity,
     }
     for (const member of members) redirect.set(member.id, groupId)
     displayNodes.push(groupNode)
@@ -1074,7 +1128,7 @@ export function projectCashSankey(
     const targetId = redirect.get(link.targetId) ?? link.targetId
     // 折叠后两端落入同一节点：组内互转自环，不画（金额已在细图统计）。
     if (sourceId === targetId) continue
-    const key = `${sourceId}>${targetId}|${link.kind}`
+    const key = linkIdentity({ ...link, sourceId, targetId })
     const existing = linkMap.get(key)
     if (existing) {
       existing.amount += link.amount

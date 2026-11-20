@@ -163,6 +163,12 @@ const LIGHT_COLOR_VARS: MbColorVars = {
   '--mb-color-on-danger': '#ffe9e7',
   '--mb-color-warning': '#8a5a00',
 
+  /* 交易类型语义色：只标识「这是什么类型」，不改变金额方向（金额仍用 income / expense）。 */
+  '--mb-color-refund': '#0f766e',
+  '--mb-color-refund-bg': '#dff1ee',
+  '--mb-color-reconciliation': '#5f6366',
+  '--mb-color-reconciliation-bg': '#eceeef',
+
   /* 进度条填充专属：只用于条面，不参与文字色；对卡片底 ≥4.0、
      对轨道 ≥1.6 明度比且 ΔE00 ≥20（实测见 design-tokens §2.7）。
      绿只表示「良好」：支出仍在计划内、收入已达成；收入进行中用中性钢色。 */
@@ -206,6 +212,16 @@ const LIGHT_COLOR_VARS: MbColorVars = {
   '--mb-color-chart-tooltip-ink': '#f3f4f0',
   '--mb-color-chart-annot-pos': '#1b7a48',
   '--mb-color-chart-annot-neg': '#a64d56',
+
+  /* 现金流活动分类色：分类语义，不表达收入 / 支出、盈利 / 亏损或正负方向，不给金额着色。
+     提明度 + 提彩度，与高明度的品牌黄绿同一调性；operating 走黄绿邻色（与主题深浅呼应、
+     与 income 绿拉开），investing 宝蓝（区别于 transfer 青蓝），financing 品红紫。 */
+  '--mb-color-activity-operating': '#7a9014',
+  '--mb-color-activity-operating-bg': '#f1f7e2',
+  '--mb-color-activity-investing': '#5888e2',
+  '--mb-color-activity-investing-bg': '#eef4ff',
+  '--mb-color-activity-financing': '#ab7acd',
+  '--mb-color-activity-financing-bg': '#f8f0ff',
 
   /* 主卡随主题切换层级：浅色 = surface-raised 卡片（不常驻深底），靠尺寸与排版做焦点。
      涨跌色直接取文字档语义色，保证 12px chip 在白底 ≥ 4.5:1。 */
@@ -259,6 +275,12 @@ const DARK_COLOR_VARS: MbColorVars = {
   '--mb-color-on-danger': '#ffe9e7',
   '--mb-color-warning': '#e5b54a',
 
+  /* 交易类型语义色：只标识「这是什么类型」，不改变金额方向（金额仍用 income / expense）。 */
+  '--mb-color-refund': '#4fd1c5',
+  '--mb-color-refund-bg': '#12302e',
+  '--mb-color-reconciliation': '#a6acb2',
+  '--mb-color-reconciliation-bg': '#252a2e',
+
   /* 暗色提亮但保留彩度（不是浅色反相），口径同浅色 */
   '--mb-progress-normal': '#3fa572',
   '--mb-progress-neutral': '#8ea8bf',
@@ -296,6 +318,14 @@ const DARK_COLOR_VARS: MbColorVars = {
   '--mb-color-chart-tooltip-ink': '#eceeef',
   '--mb-color-chart-annot-pos': '#4ade80',
   '--mb-color-chart-annot-neg': '#f0a4ab',
+
+  /* 现金流活动分类色：暗色独立调，非浅色反相；提明度保彩度，避免荧光感。 */
+  '--mb-color-activity-operating': '#a4bc4d',
+  '--mb-color-activity-operating-bg': '#262c11',
+  '--mb-color-activity-investing': '#82adfe',
+  '--mb-color-activity-investing-bg': '#1d293f',
+  '--mb-color-activity-financing': '#d29df2',
+  '--mb-color-activity-financing-bg': '#302239',
 
   /* 暗色主卡比普通卡片高一档（raised #16191B → #1D2226），靠底色与 1px 高光边分层 */
   '--mb-color-hero-bg': '#1d2226',

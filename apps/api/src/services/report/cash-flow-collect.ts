@@ -1,6 +1,7 @@
 import {
   ZERO_MINOR,
   minor,
+  type CashFlowActivityKey,
   type EffectiveCashFlowType,
   type ProcessedTx,
   type SankeySourceTransaction,
@@ -147,13 +148,18 @@ function accountGroupOf(accountId: string | null | undefined, accountMap: Map<st
 }
 
 
+/** 有效 cashFlowType → 桑基活动身份；非三类值（未分配）落 null。 */
+function activityOf(value: EffectiveCashFlowType | string | null): CashFlowActivityKey | null {
+  return value === 'operating' || value === 'investing' || value === 'financing' ? value : null
+}
+
 /**
  * Prisma 行 / 预算 DTO → 桑基图的领域输入。
  * 名称兜底与 collectTransactions 有意不同（桑基有「其他收入」「现金账户」等展示节点名），
  * 这是既有口径，不要顺手统一。
  */
 export function collectSankeySources(args: CollectArgs): SankeySourceTransaction[] {
-  const { transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap } = args
+  const { transactions, predictions, start, end, cashAccountIds, categoryMap, accountMap, effectiveCashFlowTypes } = args
   const rangeStart = start.getTime()
   const rangeEnd = end.getTime()
   const sources: SankeySourceTransaction[] = []
@@ -170,6 +176,7 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
       amount: toMinor(t.amount),
       fee: toMinor(t.fee),
       coupon: toMinor(t.coupon),
+      cashFlowType: activityOf(effectiveCashFlowTypeOf(t.category?.id, categoryMap, effectiveCashFlowTypes)),
       isFromCash,
       isToCash,
       categoryName: t.category?.name || '未分类',
@@ -206,6 +213,7 @@ export function collectSankeySources(args: CollectArgs): SankeySourceTransaction
       amount: toMinor(p.amount),
       fee: ZERO_MINOR,
       coupon: ZERO_MINOR,
+      cashFlowType: activityOf(effectiveCashFlowTypeOf(p.categoryId, categoryMap, effectiveCashFlowTypes)),
       isFromCash,
       isToCash,
       categoryName: category?.name,

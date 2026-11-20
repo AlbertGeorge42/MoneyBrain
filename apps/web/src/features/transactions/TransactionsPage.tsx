@@ -238,7 +238,7 @@ export function TransactionsPage({
   onOpenReports,
 }: TransactionsPageProps) {
   const { ledger, deleteTransactions, setTransactionCategory, undo } = useLedger()
-  const { handleSave, handleDelete: deleteDetail, handleLinkRefund } = useDetailActions()
+  const { handleSave, handleDelete: deleteDetail, handleLinkRefund, handleCreateRefund } = useDetailActions()
   // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
   const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
   const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
@@ -672,6 +672,7 @@ export function TransactionsPage({
         onDelete={handleDelete}
         onOpenTransaction={handleOpenRelated}
         onLinkRefund={handleLinkRefund}
+        onCreateRefund={handleCreateRefund}
       />
 
       <BatchCategoryDialog

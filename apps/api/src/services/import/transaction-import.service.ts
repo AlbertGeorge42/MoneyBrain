@@ -1,7 +1,10 @@
 // ─── CSV 事务导入 ───
 
 import crypto from 'crypto'
-import { abs, formatAmount, fromDate, parseAmount, resolveAccountCategoryFlags, ZERO_MINOR, type Minor } from '../../../../../packages/domain/src/index.js'
+import {
+  abs, classifyTransferCategory, formatAmount, fromDate, parseAmount,
+  resolveAccountCategoryFlags, TRANSFER_ACTIVITY, TRANSFER_CATEGORY_LEGACY_NAMES, ZERO_MINOR, type Minor,
+} from '../../../../../packages/domain/src/index.js'
 import {
   type AccountCache,
   type ImportContext,
@@ -228,13 +231,23 @@ async function getOrCreateTransferSubCategory(
   const cached = ctx.transactionCategoryCache.get(cacheKey)
   if (cached) return cached
 
+  const cashFlowType = TRANSFER_ACTIVITY[name as keyof typeof TRANSFER_ACTIVITY] ?? null
   let category = await client.transactionCategory.findFirst({
     where: { name, type: 'transfer', parentId: null },
   })
   if (!category) {
+    // 历史「借款」分类等同「借贷」：复用其 id，不重复建行。
+    const legacy = TRANSFER_CATEGORY_LEGACY_NAMES[name as keyof typeof TRANSFER_CATEGORY_LEGACY_NAMES]
+    if (legacy) {
+      category = await client.transactionCategory.findFirst({
+        where: { name: legacy, type: 'transfer', parentId: null },
+      })
+    }
+  }
+  if (!category) {
     const sort = takeNextSort(ctx.sortCounters, 'transactionCategory', 'transfer:root')
     category = await client.transactionCategory.create({
-      data: { name, type: 'transfer', sort },
+      data: { name, type: 'transfer', sort, cashFlowType },
     })
   }
   ctx.transactionCategoryCache.set(cacheKey, category.id)
@@ -249,19 +262,8 @@ async function classifyTransfer(
   ctx: ImportContext,
   client: TransactionClient
 ): Promise<string> {
-  if (toAccount?.type === 'liability') {
-    return getOrCreateTransferSubCategory('还款', ctx, client)
-  }
-  if (fromAccount?.type === 'liability') {
-    return getOrCreateTransferSubCategory('借款', ctx, client)
-  }
-  if (toAccount?.isInvestment) {
-    return getOrCreateTransferSubCategory('买入', ctx, client)
-  }
-  if (fromAccount?.isInvestment) {
-    return getOrCreateTransferSubCategory('卖出', ctx, client)
-  }
-  return getOrCreateTransferSubCategory('转账', ctx, client)
+  const name = classifyTransferCategory(fromAccount, toAccount)
+  return getOrCreateTransferSubCategory(name, ctx, client)
 }
 
 // ─── 普通交易分类（缓存版） ───

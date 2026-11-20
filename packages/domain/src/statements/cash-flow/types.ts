@@ -44,6 +44,9 @@ export interface AggregatedFlows {
   flowByAccount: Record<string, { inflow: Minor; outflow: Minor }>
 }
 
+/** 现金流活动分类：桑基链路的活动语义，null 表示非收支活动（手续费、内部转账等）。 */
+export type CashFlowActivityKey = 'operating' | 'investing' | 'financing'
+
 /**
  * 桑基图的领域输入。API 负责 Prisma 行 / 预算 DTO → 本结构的映射（含名称兜底差异、
  * 日期范围过滤与现金集合判定），Domain 只做节点与链路计算。
@@ -52,6 +55,8 @@ export interface SankeySourceTransaction {
   isActual: boolean
   type: string
   relatedType: string | null
+  /** 交易分类的有效现金流活动（沿一级分类继承）；合成交易为 null。 */
+  cashFlowType: CashFlowActivityKey | null
   amount: Minor
   fee: Minor
   coupon: Minor
@@ -185,6 +190,8 @@ export interface SankeyLink {
   value: Minor
   actualValue?: Minor
   predictedValue?: Minor
+  /** 该链路所属现金流活动；null = 无收支活动（内部转账 / 手续费 / 优惠券）。 */
+  activity: CashFlowActivityKey | null
 }
 
 export interface SankeyResult {

@@ -354,6 +354,54 @@ describe('deriveCashSankey：左右非现金节点按账户分类归组', () => 
   })
 })
 
+describe('CashSankeyChart：现金流活动着色与图例', () => {
+  it('ribbon 按活动着色，内部转账用 transfer，图例给出文字冗余编码', () => {
+    const base = fixture()
+    const data: CashSankey = {
+      ...base,
+      nodes: base.nodes.map((node) => ({
+        ...node,
+        activity: node.id === 'in:food_lunch' ? 'operating'
+          : node.id === 'in:food_takeout' ? 'investing'
+            : node.id === 'out:rent' ? 'financing'
+              : null,
+      })),
+      links: [
+        { ...base.links[0], id: 'a1', activity: 'operating' },
+        { ...base.links[1], id: 'a2', activity: 'investing' },
+        { ...base.links[2], id: 'a3', activity: null },
+        { ...base.links[3], id: 'a4', activity: 'financing' },
+      ],
+    }
+    const { container } = render(<CashSankeyChart data={data} device="desktop" animate={false} />)
+    fireEvent.click(container.querySelector('[data-id="grp:acctcat:cash"]')!)
+    fireEvent.click(container.querySelector('[data-id="grp:cat:in:food"]')!)
+    for (const activity of ['operating', 'investing', 'financing']) {
+      expect(container.querySelector(`.mb-rp-sankey-tone--${activity} .mb-rp-sankey-ribbon`)).not.toBeNull()
+      expect(container.querySelector(`.mb-rp-sankey-tone--${activity} .mb-rp-sankey-node-body`)).not.toBeNull()
+    }
+    expect(container.querySelector('.mb-rp-sankey-tone--transfer .mb-rp-sankey-ribbon')).not.toBeNull()
+    const legend = container.querySelectorAll('.mb-rp-sankey-legend-item')
+    expect(Array.from(legend).map((item) => item.textContent)).toEqual(['经营', '投资', '筹资', '其他'])
+    cleanup()
+  })
+
+  it('活动不同的同端点流水不合并，同活动仍聚合成一条', () => {
+    const base = fixture()
+    const first = { ...base.links[0], id: 'a1', activity: 'operating' as const }
+    const second = { ...first, id: 'a2', activity: 'investing' as const }
+    const third = { ...first, id: 'a3' }
+    const data: CashSankey = { ...base, links: [first, second, third] }
+    const view = projectCashSankey(data, new Set())
+    // 经营与投资拆两条；两条经营聚合到同一 id，金额相加。
+    expect(view.links).toHaveLength(2)
+    expect(new Set(view.links.map((link) => link.id)).size).toBe(2)
+    expect(view.links.some((link) => link.activity === 'investing')).toBe(true)
+    const operating = view.links.find((link) => link.activity === 'operating')!
+    expect(operating.amount).toBe(first.amount + third.amount)
+  })
+})
+
 describe('桑基展开折叠动画：几何插值', () => {
   const mkNode = (id: string, y: number, h: number, groupId?: string, isGroup = false) => ({
     id, groupId, isGroup, x: 0, y, h, opacity: 1, render: { id },

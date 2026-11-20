@@ -33,3 +33,31 @@
   background: transparent;
   color: var(--mb-color-warning);
 }
+
+/* 交易类型标记：只标识「是什么类型」，金额仍按方向用 income / expense。 */
+.mb-shared-badge--refund {
+  background: var(--mb-color-refund-bg);
+  color: var(--mb-color-refund);
+}
+
+/* 平账 / 调整：独立于通用 neutral，不代表普通中性。 */
+.mb-shared-badge--reconciliation {
+  background: var(--mb-color-reconciliation-bg);
+  color: var(--mb-color-reconciliation);
+}
+
+/* 现金流活动分类：不表达收入 / 支出、盈利 / 亏损或正负方向。 */
+.mb-shared-badge--activity-operating {
+  background: var(--mb-color-activity-operating-bg);
+  color: var(--mb-color-activity-operating);
+}
+
+.mb-shared-badge--activity-investing {
+  background: var(--mb-color-activity-investing-bg);
+  color: var(--mb-color-activity-investing);
+}
+
+.mb-shared-badge--activity-financing {
+  background: var(--mb-color-activity-financing-bg);
+  color: var(--mb-color-activity-financing);
+}

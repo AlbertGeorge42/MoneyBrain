@@ -40,6 +40,27 @@
 5. **主卡随主题切换层级**：浅色 = `surface-raised` + `border` + `sh-1`，暗色 = 高一档底色 + 1px `hero-line` 高光边；不做浅色深底反白卡。
 6. **图表只走 1:1 viewBox**：宽度按容器实测写入，高度只由 `features/shared/chartLayout.ts` 的 `CHART_HEIGHT` 提供；禁 `preserveAspectRatio="none"`，`padL` 按最长刻度文字宽度推算。
 
+### 2.2.1 金融语义色分层
+
+颜色 token 按语义分层，**层与层之间不互相借用**；色值只在 `styles/theme/theme-tokens.ts` 定义，明暗各一份。
+
+```text
+金融方向   income / expense / transfer          → 金额与资金方向
+交易类型   refund / reconciliation              → 只标识「这是什么类型」
+现金流活动 activity-operating / -investing / -financing → 分类语义
+状态       warning / danger                     → 警示与破坏性操作
+图表视觉   chart-series-1…10 / axis / grid / tooltip → 无业务语义的可视化槽位
+```
+
+边界规则：
+
+1. `refund` 只标记退款类型（badge / 图标 / 辅助文字），**不改变金额方向色**；退款金额仍按冲减方向用 `income` 或 `expense`。
+2. `reconciliation` 只标记真正的平账 / 调整分录，**不等于通用中性**。普通中性连接、折叠后的中间节点、不属于收支的技术性流用通用中性色（`text-tertiary`），不得借用 `reconciliation`。
+3. `activity-*` 是现金流活动分类色，**不表达收入 / 支出、盈利 / 亏损或正负方向**。特别注意 `activity-operating` 是橄榄绿，与 `income` 的绿色不是同一语义——不要把它读成「绿色正向」。
+4. `activity-*` 不给金额着色。经营活动下 `+¥10,000` 仍用 `income`、`−¥6,000` 仍用 `expense`；投资、筹资同理。节点 / 分类颜色表达「是什么活动」，金额颜色表达「资金方向」。
+5. `chart-series-*` 是无业务语义的图表槽位，**不承担金融语义**；现金流桑基的节点竖条与 ribbon **共用一套活动色调**（经营 / 投资 / 筹资），一条流从源到汇颜色连贯；账户列与无活动的流用普通中性 `text-tertiary`，内部转账用 `transfer`。方向由左右列位置、`+/−` 与右对齐表达，不靠颜色。
+6. 颜色永远不是唯一信息载体：金额必须有 `+ / −` 与右对齐；交易类型与活动分类必须有文字标签；图例、图标、固定列位置提供冗余编码，满足色盲场景可读性。
+
 ### 2.3 进度条（面 / 字分离）
 
 条面颜色独立于文字色，**提高彩度而不是压暗**；这些 token **只用于条面，不用于任何文字**。轨道独立为 `--mb-progress-track`（浅 `#A4A8A2` / 暗 `#4A5257`），条高 6px、圆角、无描边。

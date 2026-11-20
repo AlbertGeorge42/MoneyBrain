@@ -20,8 +20,7 @@ const ENTRY_TYPES: readonly { value: TxType; label: string }[] = [
   { value: 'expense', label: '支出' },
   { value: 'income', label: '收入' },
   { value: 'transfer', label: '转账' },
-  { value: 'refund', label: '退款' },
-  { value: 'adjustment', label: '调整' },
+  { value: 'adjustment', label: '平账' },
 ]
 
 const CATEGORY_TYPE: Record<TxType, TxType> = {
@@ -144,7 +143,7 @@ function AccountPicker({
   )
 }
 
-function Keypad({ onKey }: { onKey: (key: string) => void }) {
+function Keypad({ onKey, allowNegative }: { onKey: (key: string) => void; allowNegative?: boolean }) {
   const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', '⌫']
   return (
     <div className="mb-ov-keypad" role="group" aria-label="数字键盘">
@@ -152,12 +151,17 @@ function Keypad({ onKey }: { onKey: (key: string) => void }) {
         <Button
           key={key}
           className="mb-ov-key"
-          aria-label={key === '⌫' ? '退格' : key}
+          aria-label={key === '⌫' ? '退格' : key === '-' ? '负号' : key}
           onClick={() => onKey(key)}
         >
           {key}
         </Button>
       ))}
+      {allowNegative && (
+        <Button className="mb-ov-key" aria-label="负号" onClick={() => onKey('-')}>
+          −
+        </Button>
+      )}
     </div>
   )
 }
@@ -187,7 +191,6 @@ function EntryForm({
   const [date, setDate] = useState(ledger.snapshot?.today ?? TODAY)
   const [fee, setFee] = useState('')
   const [excluded, setExcluded] = useState(false)
-  const [adjustSign, setAdjustSign] = useState<1 | -1>(1)
   const [moreOpen, setMoreOpen] = useState(false)
   const [picker, setPicker] = useState<'from' | 'to' | null>(null)
   const [recent, setRecent] = useState<string[]>(ledger.accounts.slice(0, 5).map((item) => item.id))
@@ -219,7 +222,9 @@ function EntryForm({
     if (!mobile) amountRef.current?.focus()
   }, [mobile])
 
-  const cents = parseMoneyInput(amount)
+  // 平账输入的是「当前账户余额」，可为负（负债）或 0（已平）；其余类型只收正数。
+  const isReconcile = type === 'adjustment'
+  const cents = parseMoneyInput(amount, { allowNegative: isReconcile, allowZero: isReconcile })
   const feeCents = parseMoneyInput(fee)
   const categories = categoryOptions(ledger.categories, type)
   const chips = accountChips(ledger.accounts, recent, accountId)
@@ -241,8 +246,7 @@ function EntryForm({
       setPicker(null)
       setFee('')
     }
-    if (next !== 'adjustment') setAdjustSign(1)
-    // 转账 / 调整本就不进收支统计，标记无意义，切换类型时清掉。
+    // 转账 / 平账本就不进收支统计，标记无意义，切换类型时清掉。
     if (next === 'transfer' || next === 'adjustment') setExcluded(false)
   }
 
@@ -251,10 +255,15 @@ function EntryForm({
       setAmount((current) => current.slice(0, -1))
       return
     }
+    if (key === '-') {
+      // 负号只在开头有效，再点一次可切换回正数。
+      setAmount((current) => (current.startsWith('-') ? current.slice(1) : `-${current}`))
+      return
+    }
     setAmount((current) => {
       if (key === '.' && current.includes('.')) return current
       if (current.includes('.') && current.split('.')[1]?.length >= 2) return current
-      const digits = current.replace('.', '').length
+      const digits = current.replace(/[-.]/g, '').length
       if (digits >= MAX_AMOUNT_DIGITS) return current
       return current + key
     })
@@ -270,18 +279,19 @@ function EntryForm({
     if (!canSave || cents === null || busyRef.current) return
     busyRef.current = true
     const mode = keepOpen ? 'continue' : 'save'
-    const signed = type === 'adjustment' ? cents * adjustSign : cents
     const input: NewTransactionInput = {
       type,
       categoryId: type === 'transfer' ? 'move' : categoryId,
       accountId,
       toAccountId: type === 'transfer' ? toAccountId : undefined,
-      amount: signed,
+      // 平账：amount 仅作占位（走对账接口时忽略），真实意图是 actualBalance。
+      amount: isReconcile ? 0 : cents,
       note,
       date,
       fee: type === 'transfer' ? feeCents ?? 0 : 0,
       excludeFromIncomeExpense:
         type !== 'transfer' && type !== 'adjustment' ? excluded : undefined,
+      ...(isReconcile ? { actualBalance: cents } : {}),
     }
     setSaving(true)
     setSavingMode(mode)
@@ -341,19 +351,11 @@ function EntryForm({
       )}
 
       {mobile ? (
-        <div className="mb-ov-amount-display" role="textbox" aria-label="金额" aria-readonly="true">
+        <div className="mb-ov-amount-display" role="textbox" aria-label={isReconcile ? '当前账户余额' : '金额'} aria-readonly="true">
           <span className="mb-ov-currency">¥</span>
           <span className={cents === null && amount ? 'mb-ov-entry-amount is-invalid' : 'mb-ov-entry-amount'}>
             {amount || '0.00'}
           </span>
-          {type === 'adjustment' && (
-            <Button
-              className={adjustSign === -1 ? 'mb-ov-sign mb-ov-sign--negative' : 'mb-ov-sign'}
-              onClick={() => setAdjustSign((current) => (current === 1 ? -1 : 1))}
-            >
-              {adjustSign === 1 ? '调增' : '调减'}
-            </Button>
-          )}
         </div>
       ) : (
         <div className={cents === null && amount.trim() !== '' ? 'mb-ov-amount-row is-invalid' : 'mb-ov-amount-row'}>
@@ -361,10 +363,10 @@ function EntryForm({
           <input
             ref={amountRef}
             className="mb-ov-amount-input"
-            aria-label="金额"
+            aria-label={isReconcile ? '当前账户余额' : '金额'}
             aria-invalid={cents === null && amount.trim() !== ''}
             inputMode="decimal"
-            placeholder="0.00"
+            placeholder={isReconcile ? '输入当前余额' : '0.00'}
             value={amount}
             onChange={(event) => setAmount(normalizeAmountInput(event.currentTarget.value))}
             onFocus={(event) => setAmount(normalizeAmountInput(event.currentTarget.value))}
@@ -377,21 +379,16 @@ function EntryForm({
               }
             }}
           />
-          {type === 'adjustment' && (
-            <Button
-              className={adjustSign === -1 ? 'mb-ov-sign mb-ov-sign--negative' : 'mb-ov-sign'}
-              onClick={() => setAdjustSign((current) => (current === 1 ? -1 : 1))}
-            >
-              {adjustSign === 1 ? '调增' : '调减'}
-            </Button>
-          )}
           {cents === null && amount.trim() !== '' && (
-            <span className="mb-ov-error">金额格式有误</span>
+            <span className="mb-ov-error">{isReconcile ? '余额格式有误' : '金额格式有误'}</span>
           )}
         </div>
       )}
+      {isReconcile && (
+        <p className="mb-ov-reconcile-hint">输入账户当前余额，系统自动计算差额并生成平账记录</p>
+      )}
 
-      {type === 'transfer' || missingAccount ? null : (
+      {type === 'transfer' || isReconcile || missingAccount ? null : (
         <fieldset className="mb-ov-field">
           <FieldLabel as="legend">分类</FieldLabel>
           <div
@@ -554,7 +551,7 @@ function EntryForm({
 
       {mobile ? (
         <div className="mb-ov-mobile-foot">
-          <Keypad onKey={appendKey} />
+          <Keypad onKey={appendKey} allowNegative={isReconcile} />
           <div className="mb-ov-mobile-actions">
             <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={onRequestClose} disabled={saving}>
               取消

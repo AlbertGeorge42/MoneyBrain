@@ -44,6 +44,7 @@ const source = (overrides: Partial<SankeySourceTransaction> = {}): SankeySourceT
   amount: m(100),
   fee: m(0),
   coupon: m(0),
+  cashFlowType: 'operating',
   isFromCash: true,
   isToCash: false,
   categoryName: '餐饮',
@@ -335,6 +336,35 @@ test('桑基 endpoint 分组元数据：真实实体带 group、合成节点为 
   const feeNode = withFee.nodes.find((node) => node.id === 'out:synthetic:fee')
   assert.ok(feeNode)
   assert.equal(feeNode!.group, null)
+})
+
+test('桑基链路保留现金流活动身份，同一对端点按活动拆成多条', () => {
+  const result = buildSankey([
+    source({ type: 'income', categoryId: 'sale', categoryName: '销售收入', cashFlowType: 'operating',
+      categoryGroupId: 'grp-op', categoryGroupName: '经营', amount: m(100) }),
+    source({ type: 'income', categoryId: 'dividend', categoryName: '分红', cashFlowType: 'investing',
+      categoryGroupId: 'grp-inv', categoryGroupName: '投资', amount: m(200) }),
+    source({ type: 'expense', categoryId: 'interest', categoryName: '利息', cashFlowType: 'financing',
+      categoryGroupId: 'grp-fin', categoryGroupName: '筹资', amount: m(30) }),
+  ])
+  const byActivity = new Map(result.links.map((link) => [`${link.source}>${link.target}`, link.activity]))
+  assert.equal(byActivity.get('in:sale>acct:cash-a'), 'operating')
+  assert.equal(byActivity.get('in:dividend>acct:cash-a'), 'investing')
+  assert.equal(byActivity.get('acct:cash-a>out:interest'), 'financing')
+
+  // 同一对端点来自不同活动时不合并，各自带身份；同活动仍合并。
+  const merged = buildSankey([
+    source({ type: 'income', categoryId: 'sale', categoryName: '销售', cashFlowType: 'operating', amount: m(100) }),
+    source({ type: 'income', categoryId: 'service', categoryName: '服务', cashFlowType: 'operating', amount: m(50) }),
+  ])
+  const cashLinks = merged.links.filter((link) => link.target === 'acct:cash-a')
+  assert.equal(cashLinks.length, 2)
+  assert.deepEqual([...new Set(cashLinks.map((link) => link.activity))], ['operating'])
+
+  // 内部转账 / 手续费为非收支活动，activity 为 null。
+  const internal = buildSankey([source({ type: 'transfer', isFromCash: true, isToCash: true, fee: m(10),
+    accountId: 'wx', accountName: '微信', toAccountId: 'zfb', toAccountName: '支付宝' })])
+  assert.ok(internal.links.every((link) => link.activity === null))
 })
 
 // ===== 验收：现金→现金划转三条链路对「现金净变化」的答案一致 =====

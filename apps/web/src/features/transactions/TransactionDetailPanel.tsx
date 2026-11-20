@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
 import { CategoryIcon } from '@/features/overview/category'
 import { parseMoneyInput } from '@/utils/money'
 import { toMajor } from '@domain/index'
@@ -31,7 +31,104 @@ import type { DeviceMode } from '@/features/shared/types'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
 import type { TransactionPatch } from './ledgerOps'
 
-type Mode = 'view' | 'edit' | 'confirm-delete'
+type Mode = 'view' | 'edit' | 'refund' | 'confirm-delete'
+
+/**
+ * 从一笔收入 / 支出创建关联退款。记一笔表单已移除退款 tab，这里是退款的可写入口。
+ * 金额默认取剩余可退额，账户默认原账户；关联由后端校验上限并继承原交易分类。
+ */
+function RefundCreateForm({
+  transaction,
+  ledger,
+  onSave,
+  onSaved,
+  onCancel,
+}: {
+  transaction: LedgerTransaction
+  ledger: Ledger
+  onSave: (originalId: string, categoryId: string, accountId: string, amount: number, note: string) => Promise<LedgerMutationOutcome>
+  onSaved: () => void
+  onCancel: () => void
+}) {
+  const remaining = getRefundSummary(ledger, transaction).remaining
+  const [amount, setAmount] = useState(String(remaining / 100))
+  const [accountId, setAccountId] = useState(transaction.accountId)
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const cents = parseMoneyInput(amount)
+  const invalid = cents === null || cents <= 0 || cents > remaining
+
+  const submit = async () => {
+    if (invalid || saving) return
+    setSaving(true)
+    setError('')
+    const result = await onSave(transaction.id, transaction.categoryId, accountId, cents, note)
+    setSaving(false)
+    if (!result.ok) {
+      setError(result.error ?? '退款创建失败，请重试')
+      return
+    }
+    onSaved()
+  }
+
+  return (
+    <div className="mb-tx-refund-create">
+      <p className="mb-tx-refund-create-hint">
+        可退余额 {amountText(remaining)}。退款会作为一笔独立交易冲减原记录，不会修改原交易本身。
+      </p>
+      <label className="mb-tx-field" htmlFor="mb-tx-refund-amount">
+        <FieldLabel>退款金额（元）</FieldLabel>
+        <input
+          id="mb-tx-refund-amount"
+          className="mb-shared-input"
+          type="number"
+          step="0.01"
+          inputMode="decimal"
+          value={amount}
+          onChange={(event) => setAmount(event.currentTarget.value)}
+        />
+      </label>
+      <label className="mb-tx-field" htmlFor="mb-tx-refund-account">
+        <FieldLabel>退款账户</FieldLabel>
+        <select
+          id="mb-tx-refund-account"
+          className="mb-shared-input mb-shared-input--select"
+          value={accountId}
+          onChange={(event) => setAccountId(event.currentTarget.value)}
+        >
+          {ledger.accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="mb-tx-field" htmlFor="mb-tx-refund-note">
+        <FieldLabel>备注</FieldLabel>
+        <input
+          id="mb-tx-refund-note"
+          className="mb-shared-input"
+          type="text"
+          value={note}
+          onChange={(event) => setNote(event.currentTarget.value)}
+        />
+      </label>
+      {invalid && cents !== null && cents > remaining && (
+        <p className="mb-tx-form-error" role="alert">退款金额不能超过可退余额。</p>
+      )}
+      {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
+      <div className="mb-tx-detail-actions">
+        <Button variant="primary" onClick={() => void submit()} disabled={invalid || saving}>
+          <Check size={15} />
+          {saving ? '创建中…' : '创建退款'}
+        </Button>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>取消</Button>
+      </div>
+    </div>
+  )
+}
 
 /**
  * 未关联退款的可选关联入口：默认收起，点开才读取候选原交易。
@@ -167,6 +264,7 @@ function DetailView({
   onDelete,
   onOpenTransaction,
   onLinkRefund,
+  onCreateRefund,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
@@ -174,6 +272,7 @@ function DetailView({
   onDelete: () => void
   onOpenTransaction: (transaction: LedgerTransaction) => void
   onLinkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
+  onCreateRefund: () => void
 }) {
   const tone = transactionTone(transaction)
   const category = getCategoryName(ledger, transaction.categoryId)
@@ -261,6 +360,13 @@ function DetailView({
       )}
 
       <div className="mb-tx-detail-actions">
+        {(transaction.type === 'income' || transaction.type === 'expense') &&
+          getRefundSummary(ledger, transaction).remaining > 0 && (
+            <Button onClick={onCreateRefund}>
+              <RotateCcw size={15} />
+              记一笔退款
+            </Button>
+          )}
         <Button variant="primary" onClick={onEdit}>
           <Pencil size={15} />
           编辑
@@ -308,16 +414,15 @@ function EditForm({
   const errorText = invalid
     ? nextType === 'adjustment'
       ? '调整金额不能为 0。'
-      : '金额需大于 0。退款请改用退款类型，冲正请用调整。'
+      : '金额需大于 0。'
     : ''
 
-  // 切到退款时把负数金额转正：支出语义下的 −28 就是退款 +28，
-  // 否则用户点了出口仍被「金额需大于 0」挡住，保存不可达。
-  const switchType = (type: 'refund' | 'adjustment') => {
+  // 切到平账时把负数金额转正，避免被「金额需大于 0」挡住。
+  const switchType = (type: 'adjustment') => {
     setNextType(type)
     setCategoryId(ledger.categories.find((category) => category.type === type)?.id ?? categoryId)
-    if (type === 'adjustment') setExcluded(false)
-    if (type === 'refund' && Number.isFinite(parsed) && parsed < 0) {
+    setExcluded(false)
+    if (Number.isFinite(parsed) && parsed < 0) {
       setAmount(String(Math.abs(parsed)))
     }
   }
@@ -360,21 +465,26 @@ function EditForm({
         />
       </label>
 
-      <label className="mb-tx-field" htmlFor="mb-tx-edit-category">
-        <FieldLabel>分类</FieldLabel>
-        <select
-          id="mb-tx-edit-category"
-          className="mb-shared-input mb-shared-input--select"
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-        >
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.parentId ? `· ${category.name}` : category.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {nextType !== 'transfer' && (
+        <label className="mb-tx-field" htmlFor="mb-tx-edit-category">
+          <FieldLabel>分类</FieldLabel>
+          <select
+            id="mb-tx-edit-category"
+            className="mb-shared-input mb-shared-input--select"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+          >
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.parentId ? `· ${category.name}` : category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {nextType === 'transfer' && (
+        <p className="mb-tx-edit-hint">转账分类按账户性质自动判定，无需选择。</p>
+      )}
 
       <label className="mb-tx-field" htmlFor="mb-tx-edit-account">
         <FieldLabel>账户</FieldLabel>
@@ -433,11 +543,8 @@ function EditForm({
           {errorText}
           {nextType === 'expense' && (
             <span className="mb-tx-form-error-actions">
-              <Button className="mb-tx-form-error-action" onClick={() => switchType('refund')}>
-                改为退款
-              </Button>
               <Button className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
-                改为调整
+                改为平账
               </Button>
             </span>
           )}
@@ -519,6 +626,7 @@ export function TransactionDetailPanel({
   onDelete,
   onOpenTransaction,
   onLinkRefund,
+  onCreateRefund,
 }: {
   transaction: LedgerTransaction | null
   ledger: Ledger
@@ -528,13 +636,14 @@ export function TransactionDetailPanel({
   onDelete: (id: string) => Promise<LedgerMutationOutcome>
   onOpenTransaction: (transaction: LedgerTransaction) => void
   onLinkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
+  onCreateRefund: (originalId: string, categoryId: string, accountId: string, amount: number, note: string) => Promise<LedgerMutationOutcome>
 }) {
   const [mode, setMode] = useState<Mode>('view')
   // 抽屉常驻渲染、由 opened 受控，Mantine 才能走进入 / 退出动画；
   // 切换交易时回到查看态，避免上一笔的编辑态带到下一笔。
   useEffect(() => setMode('view'), [transaction?.id])
 
-  const title = mode === 'edit' ? '编辑流水' : mode === 'confirm-delete' ? '删除流水' : '交易详情'
+  const title = mode === 'edit' ? '编辑流水' : mode === 'refund' ? '记一笔退款' : mode === 'confirm-delete' ? '删除流水' : '交易详情'
   const close = () => {
     setMode('view')
     onClose()
@@ -551,6 +660,16 @@ export function TransactionDetailPanel({
           onDelete={() => setMode('confirm-delete')}
           onOpenTransaction={onOpenTransaction}
           onLinkRefund={onLinkRefund}
+          onCreateRefund={() => setMode('refund')}
+        />
+      )}
+      {mode === 'refund' && transaction && (
+        <RefundCreateForm
+          transaction={transaction}
+          ledger={ledger}
+          onSave={onCreateRefund}
+          onSaved={() => setMode('view')}
+          onCancel={() => setMode('view')}
         />
       )}
       {mode === 'edit' && (

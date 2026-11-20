@@ -1,7 +1,19 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import './badge.css'
 
-export type BadgeTone = 'income' | 'expense' | 'transfer' | 'neutral' | 'excluded'
+export type BadgeTone =
+  | 'income'
+  | 'expense'
+  | 'transfer'
+  | 'neutral'
+  | 'excluded'
+  /** 交易类型标记：只标识类型，不改变金额方向色。 */
+  | 'refund'
+  | 'reconciliation'
+  /** 现金流活动分类：分类语义，不表达正负，不给金额着色。 */
+  | 'activity-operating'
+  | 'activity-investing'
+  | 'activity-financing'
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   /** 业务语义色。 */

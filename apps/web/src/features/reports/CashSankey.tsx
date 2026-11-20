@@ -88,8 +88,18 @@ interface PlacedNode extends CashSankeyNode {
   anchor: 'start' | 'end' | 'middle'
 }
 
-function toneClass(tone: CashSankeyNode['tone']) {
-  return tone === 'income' ? 'mb-rp-sankey-link--inflow' : tone === 'expense' ? 'mb-rp-sankey-link--outflow' : 'mb-rp-sankey-link--neutral'
+/**
+ * 活动色后缀：节点竖条与 ribbon 共用同一套语义，一条流从头到尾颜色连贯。
+ * 账户列与无活动的流落 neutral；内部转账落 transfer。
+ */
+function toneOf(activity: CashSankeyLink['activity'], kind?: CashSankeyLink['kind']): string {
+  if (kind === 'transfer') return 'transfer'
+  switch (activity) {
+    case 'operating': return 'operating'
+    case 'investing': return 'investing'
+    case 'financing': return 'financing'
+    default: return 'neutral'
+  }
 }
 
 function ribbonPath(x1: number, y1: number, x2: number, y2: number, height: number): string {
@@ -430,7 +440,7 @@ export function CashSankeyChart({
           return (
             <g
               key={item.link.id}
-              className={`mb-rp-sankey-link ${toneClass(item.link.tone)}`}
+              className={`mb-rp-sankey-link mb-rp-sankey-tone--${toneOf(item.link.activity, item.link.kind)}`}
               data-kind={item.link.kind}
               opacity={opacity}
             >
@@ -453,7 +463,7 @@ export function CashSankeyChart({
           return (
           <g
             key={node.id}
-            className={`mb-rp-sankey-node ${toneClass(node.tone)}${canToggle ? ' mb-rp-sankey-node--expandable' : ''}${isOpen ? ' mb-rp-sankey-node--open' : ''}`}
+            className={`mb-rp-sankey-node mb-rp-sankey-tone--${node.layer === 1 ? 'neutral' : toneOf(node.activity ?? null)}${canToggle ? ' mb-rp-sankey-node--expandable' : ''}${isOpen ? ' mb-rp-sankey-node--open' : ''}`}
             data-id={node.id}
             data-layer={node.layer}
             data-amount={node.amount}
@@ -530,6 +540,12 @@ export function CashSankeyChart({
           )
         })}
       </svg>
+      <div className="mb-rp-sankey-legend" aria-label="现金流活动图例">
+        <span className="mb-rp-sankey-legend-item" data-activity="operating">经营</span>
+        <span className="mb-rp-sankey-legend-item" data-activity="investing">投资</span>
+        <span className="mb-rp-sankey-legend-item" data-activity="financing">筹资</span>
+        <span className="mb-rp-sankey-legend-item" data-activity="neutral">其他</span>
+      </div>
       <div className="mb-rp-sankey-foot">
         <span>期初 {currency(data.opening)}</span>
         <span>+ 流入 {currency(data.inflow)}</span>

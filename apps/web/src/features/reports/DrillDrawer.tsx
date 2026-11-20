@@ -21,7 +21,7 @@ export function DrillDrawer({
   onClose: () => void
 }) {
   const { ledger } = useLedger()
-  const { handleSave, handleDelete, handleLinkRefund } = useDetailActions('reports')
+  const { handleSave, handleDelete, handleLinkRefund, handleCreateRefund } = useDetailActions('reports')
   const [detailId, setDetailId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -92,6 +92,7 @@ export function DrillDrawer({
         onDelete={handleDelete}
         onOpenTransaction={(transaction) => setDetailId(transaction.id)}
         onLinkRefund={handleLinkRefund}
+        onCreateRefund={handleCreateRefund}
       />
     </>
   )

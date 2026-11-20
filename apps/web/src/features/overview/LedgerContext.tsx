@@ -129,6 +129,36 @@ export function LedgerProvider({
 
   const addTransaction = useCallback(
     async (input: NewTransactionInput): Promise<LedgerCreateOutcome> => {
+      // 平账：输入的是「当前账户余额」，走对账接口自动算差额，生成 adjustment 分录。
+      // append 语义保证每次都新增一条、账面补到实际值，不会与同日已有平账冲突。
+      if (input.actualBalance !== undefined) {
+        try {
+          const result = await accountApi
+            .reconcile(input.accountId, {
+              date: input.date ?? todayLocal(),
+              actualBalance: minor(input.actualBalance),
+              note: input.note,
+              mode: 'append',
+            })
+            .then(unwrapApiData)
+          await refreshRemote()
+          // 差额为 0 时不生成分录，无可撤销对象。
+          if (!result.transactionId) return { ok: true, id: undefined }
+          const undoToken = registerUndo(async () => {
+            try {
+              await transactionApi.delete(result.transactionId!).then(unwrapApiData)
+              await refreshRemote()
+              return { ok: true }
+            } catch (error) {
+              return { ok: false, error: getApiErrorMessage(error) }
+            }
+          })
+          return { ok: true, id: result.transactionId, undoToken }
+        } catch (error) {
+          return { ok: false, error: getApiErrorMessage(error) }
+        }
+      }
+
       const magnitude = Math.round(Math.abs(input.amount))
       if (magnitude <= 0) return { ok: false, error: '金额需大于 0' }
 

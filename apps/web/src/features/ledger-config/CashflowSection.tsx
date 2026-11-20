@@ -2,8 +2,8 @@
  * 设置 · 现金流分类分区。
  *
  * 资产 Tab 按一级资产分类的现金等价 / 投资标记分组（子分类继承，不单独列出），
- * 收入 / 支出 / 转账 Tab 按活动归组；所有分组默认折叠，空组不渲染占位行。
- * 活动归属写入分类的 cashFlowType，现金流报表按同一字段分组。
+ * 收入 / 支出 Tab 按活动归组；转账五类已内化为系统分类（按账户自动归类），不再提供配置入口。
+ * 所有分组默认折叠，空组不渲染占位行。活动归属写入分类的 cashFlowType，现金流报表按同一字段分组。
  */
 import {
   ChevronDown,
@@ -31,7 +31,7 @@ import {
 } from './model'
 import type { Mover } from './MoverSheet'
 
-export type CashflowTab = 'asset' | 'income' | 'expense' | 'transfer'
+export type CashflowTab = 'asset' | 'income' | 'expense'
 
 const ASSET_MARK_ICONS: Record<AssetMarkId, LucideIcon> = {
   cash: Wallet,
@@ -43,7 +43,6 @@ const CASHFLOW_TABS: readonly { id: CashflowTab; label: string }[] = [
   { id: 'asset', label: '资产分类' },
   { id: 'income', label: '收入分类' },
   { id: 'expense', label: '支出分类' },
-  { id: 'transfer', label: '转账分类' },
 ]
 
 interface CashflowSectionProps {

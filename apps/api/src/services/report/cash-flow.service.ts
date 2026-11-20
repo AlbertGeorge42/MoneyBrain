@@ -126,6 +126,7 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
   // 7. 桑基图
   const sankey = buildSankey(collectSankeySources({
     transactions, predictions, cashAccountIds, categoryMap, accountMap, start, end,
+    effectiveCashFlowTypes,
   }))
 
   const result: CashFlowResult = {

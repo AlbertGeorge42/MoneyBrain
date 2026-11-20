@@ -7,6 +7,16 @@ export {
   type ResolvedTransactionCategoryFlags,
 } from './categories/flags.js'
 
+// ===== 转账五类：按账户性质自动判定，活动归属固定 =====
+export {
+  classifyTransferCategory,
+  TRANSFER_ACTIVITY,
+  TRANSFER_CATEGORY_LEGACY_NAMES,
+  type TransferAccountMark,
+  type TransferActivity,
+  type TransferCategoryName,
+} from './categories/transfer-classify.js'
+
 export {
   ZERO_MINOR,
   add,
@@ -125,6 +135,7 @@ export { aggregate } from './statements/cash-flow/aggregate.js'
 export { buildStatement, buildProjectionActivity } from './statements/cash-flow/statement.js'
 export { buildSankey } from './statements/cash-flow/sankey.js'
 export type {
+  CashFlowActivityKey,
   ProcessedTx,
   SankeyEndpoint,
   SankeyLink,

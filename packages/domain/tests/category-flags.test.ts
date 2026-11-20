@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { resolveAccountCategoryFlags, resolveTransactionCategoryFlags } from '../src/index.js'
+import {
+  classifyTransferCategory, resolveAccountCategoryFlags, resolveTransactionCategoryFlags, TRANSFER_ACTIVITY,
+} from '../src/index.js'
 
 test('account flags：根节点开启现金等价，子节点继承', () => {
   const flags = resolveAccountCategoryFlags([
@@ -76,4 +78,30 @@ test('tx flags：根 null 时整棵子树为 null，多根互不干扰，孤立�
   assert.equal(multi.effectiveCashFlowTypes.get('nested'), 'operating')
   assert.equal(multi.effectiveCashFlowTypes.get('orphan'), 'financing')
   assert.equal(resolveTransactionCategoryFlags([]).effectiveCashFlowTypes.size, 0)
+})
+
+// ===== 转账五类：按账户性质自动判定，活动归属固定 =====
+test('转账判定：负债 > 投资 > 普通转账，优先级与导入口径一致', () => {
+  const normal = { type: 'asset', isInvestment: false }
+  const invest = { type: 'asset', isInvestment: true }
+  const liability = { type: 'liability', isInvestment: false }
+  assert.equal(classifyTransferCategory(normal, normal), '转账')
+  assert.equal(classifyTransferCategory(normal, invest), '买入')
+  assert.equal(classifyTransferCategory(invest, normal), '卖出')
+  assert.equal(classifyTransferCategory(normal, liability), '还款')
+  assert.equal(classifyTransferCategory(liability, normal), '借贷')
+  // 负债优先于投资：转入负债投资账户仍算还款。
+  assert.equal(classifyTransferCategory(normal, { type: 'liability', isInvestment: true }), '还款')
+  // 空账户（历史脏数据）退到普通转账，不抛错。
+  assert.equal(classifyTransferCategory(null, null), '转账')
+})
+
+test('转账五类活动归属固定：转账经营、买卖投资、还款借款筹资', () => {
+  assert.deepEqual(TRANSFER_ACTIVITY, {
+    转账: 'operating',
+    买入: 'investing',
+    卖出: 'investing',
+    还款: 'financing',
+    借贷: 'financing',
+  })
 })

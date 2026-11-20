@@ -275,6 +275,7 @@ async function cashFlowProjectionRange(params: ProjectionQueryParams): Promise<C
     cashAccountIds: cashIds,
     categoryMap,
     accountMap,
+    effectiveCashFlowTypes,
     start: dayStart(windowStart),
     end: dayEnd(windowEnd),
   }))

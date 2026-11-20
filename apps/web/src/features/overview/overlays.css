@@ -116,7 +116,6 @@
 .mb-ov-all:focus-visible,
 .mb-ov-cat:focus-visible,
 .mb-ov-key:focus-visible,
-.mb-ov-sign:focus-visible,
 .mb-ov-more-toggle:focus-visible {
   outline: var(--mb-border-width) solid var(--mb-color-accent);
   outline-offset: 2px;
@@ -190,22 +189,10 @@
   color: var(--mb-color-expense);
 }
 
-.mb-ov-sign {
-  flex: none;
-  min-width: 56px;
-  min-height: var(--mb-btn-h-sm);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-pill);
-  background: var(--mb-color-surface-sunken);
-  color: var(--mb-color-text-secondary);
+.mb-ov-reconcile-hint {
+  margin: 0;
   font-size: var(--mb-fs-0);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.mb-ov-sign--negative {
-  border-color: var(--mb-color-expense);
-  color: var(--mb-color-expense);
+  color: var(--mb-color-text-secondary);
 }
 
 .mb-ov-error {

@@ -283,6 +283,8 @@ export interface NewTransactionInput {
   relatedTransactionId?: string
   /** 不计收支：仍影响余额，但不进收入/支出统计与预算用量。 */
   excludeFromIncomeExpense?: boolean
+  /** 平账专属：用户输入的「当前账户余额」（分，可为负 / 0）。填了即走对账接口自动算差额。 */
+  actualBalance?: number
 }
 
 /**
@@ -646,7 +648,7 @@ export function transactionDirection(transaction: LedgerTransaction): string {
     case 'transfer':
       return '转账'
     case 'adjustment':
-      return transaction.amount < 0 ? '调减' : '调增'
+      return '平账'
   }
 }
 
