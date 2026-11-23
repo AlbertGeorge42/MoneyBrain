@@ -131,11 +131,11 @@ describe('CashSankeyChart', () => {
     }
   })
 
-  it('页脚给出期初 / 流入 / 流出 / 期末与差额，差额实测为 0', () => {
+  it('页脚已移除：DOM 不再渲染期末计算条，但数据层守恒仍为 0', () => {
     const { container } = render(<CashSankeyChart data={sankey} device="desktop" />)
-    const check = container.querySelector<HTMLElement>('.mb-rp-sankey-check')
-    expect(check?.dataset.difference).toBe('0')
-    expect(container.querySelector('.mb-rp-sankey-foot')?.textContent).toContain('差额')
+    expect(container.querySelector('.mb-rp-sankey-foot')).toBeNull()
+    expect(container.querySelector('.mb-rp-sankey-check')).toBeNull()
+    expect(sankey.difference).toBe(0)
   })
 
   it('不守恒时画可见失败态，而不是一张错的图', () => {
@@ -222,7 +222,7 @@ describe('deriveCashSankey 三层与守恒', () => {
     expect(merged.map((node) => node.name)).toEqual(['其他（已隐藏 1 组）', '其他（已隐藏 1 组）'])
   })
 
-  it('隐藏 2 组 / 全隐藏时图注与抽屉说明位同数同词', () => {
+  it('隐藏组数在数据层正确，图注文字已移除但守恒仍成立', () => {
     const one = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
     const two = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false, 账户间转账: false })
     const all = deriveCashSankey(LEDGER, report, {
@@ -232,6 +232,7 @@ describe('deriveCashSankey 三层与守恒', () => {
       未分类: false,
       账户间转账: false,
     })
+    expect(one.hiddenGroups).toBe(1)
     expect(two.hiddenGroups).toBe(2)
     // 本期只有经营 / 账户间转账有流水，全隐藏与隐藏 2 组同数。
     expect(all.hiddenGroups).toBe(2)
@@ -241,8 +242,8 @@ describe('deriveCashSankey 三层与守恒', () => {
     expect(two.difference).toBe(0)
     for (const data of [one, two, all]) {
       const { container } = render(<CashSankeyChart data={data} device="desktop" />)
-      const note = container.querySelector('.mb-rp-chart-note')?.textContent ?? ''
-      expect(note).toContain(`已隐藏 ${data.hiddenGroups} 组，并入「其他」以保持守恒；`)
+      // 说明文字已移除：桑基图注不再渲染。
+      expect(container.querySelector('.mb-rp-sankey .mb-rp-chart-note')).toBeNull()
       cleanup()
     }
   })
@@ -418,7 +419,7 @@ describe('现金流 tab 的平台适配', () => {
     expect(container.querySelector('.mb-rp-flow-row')).toBeNull()
   })
 
-  it('隐藏分组只在桑基图注说明，抽屉只列节点明细', async () => {
+  it('隐藏分组的说明文字已移除，桑基图不再渲染图注', async () => {
     const hiddenSankey = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
     const { container } = render(
       <MantineProvider>
@@ -434,7 +435,8 @@ describe('现金流 tab 的平台适配', () => {
         />
       </MantineProvider>,
     )
-    const chartNote = container.querySelector('.mb-rp-sankey .mb-rp-chart-note')?.textContent ?? ''
-    expect(chartNote).toContain('已隐藏 1 组，并入「其他」以保持守恒；')
+    // 说明文字已移除：桑基图注不再渲染，但隐藏组数仍在数据层正确。
+    expect(container.querySelector('.mb-rp-sankey .mb-rp-chart-note')).toBeNull()
+    expect(hiddenSankey.hiddenGroups).toBe(1)
   })
 })

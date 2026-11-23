@@ -137,17 +137,16 @@ describe('CashSankeyChart：点击展开 / 收起', () => {
     cleanup()
   })
 
-  it('键盘 Enter / 空格可展开，收起后守恒脚注仍为 0', () => {
+  it('键盘 Enter / 空格可展开，数据层守恒仍为 0', () => {
     const { container } = render(<CashSankeyChart data={fixture()} device="desktop" animate={false} />)
     const foodGroup = container.querySelector<SVGGElement>('.mb-rp-sankey-node[data-id="grp:cat:in:food"]')!
     fireEvent.keyDown(foodGroup, { key: 'Enter' })
     expect(container.querySelector('[data-id="in:food_lunch"]')).not.toBeNull()
-    const check = container.querySelector<HTMLElement>('.mb-rp-sankey-check')
-    expect(check?.dataset.difference).toBe('0')
+    expect(container.querySelector('.mb-rp-sankey-check')).toBeNull()
     cleanup()
   })
 
-  it('移动端 Top N 聚合与渐进式投影叠加：组可展开，聚合后守恒脚注仍为 0', () => {
+  it('移动端 Top N 聚合与渐进式投影叠加：组可展开，无守恒脚注 DOM', () => {
     const { container } = render(<CashSankeyChart data={fixture()} device="mobile" animate={false} />)
     // 移动端仍渲染桑基，组节点可见且可点击展开
     expect(container.querySelector('.mb-rp-sankey-svg')).not.toBeNull()
@@ -155,7 +154,48 @@ describe('CashSankeyChart：点击展开 / 收起', () => {
     expect(cashGroup).not.toBeNull()
     fireEvent.click(cashGroup)
     expect(container.querySelector('[data-id="acct:a1"]')).not.toBeNull()
-    expect(container.querySelector<HTMLElement>('.mb-rp-sankey-check')?.dataset.difference).toBe('0')
+    expect(container.querySelector('.mb-rp-sankey-check')).toBeNull()
+    cleanup()
+  })
+
+  it('移动端 SVG 标记 data-device；无测量时 viewBox 回落 360，桌面端固定 1080', () => {
+    const mobile = render(<CashSankeyChart data={fixture()} device="mobile" animate={false} />)
+    const svg = mobile.container.querySelector('.mb-rp-sankey-svg')!
+    expect(svg.getAttribute('data-device')).toBe('mobile')
+    expect(svg.getAttribute('viewBox')?.split(' ')[2]).toBe('360')
+    cleanup()
+    const desktop = render(<CashSankeyChart data={fixture()} device="desktop" animate={false} />)
+    const dsvg = desktop.container.querySelector('.mb-rp-sankey-svg')!
+    expect(dsvg.getAttribute('data-device')).toBe('desktop')
+    expect(dsvg.getAttribute('viewBox')?.split(' ')[2]).toBe('1080')
+    cleanup()
+  })
+
+  it('移动端 viewBox 宽度跟随容器实测宽度，保证 SVG 内文字按真实 px 渲染不缩放', () => {
+    // 模拟 ResizeObserver 测到容器 338px：viewBox 宽度应等于 338，1 单位 = 1 CSS px。
+    const originalRO = globalThis.ResizeObserver
+    const originalWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    let roCallback: ResizeObserverCallback = () => {}
+    class MockRO {
+      constructor(cb: ResizeObserverCallback) { roCallback = cb }
+      observe() { roCallback([], this as unknown as ResizeObserver) }
+      disconnect() {}
+      unobserve() {}
+    }
+    globalThis.ResizeObserver = MockRO as unknown as typeof ResizeObserver
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 338 })
+    try {
+      let container!: HTMLElement
+      act(() => {
+        container = render(<CashSankeyChart data={fixture()} device="mobile" animate={false} />).container
+      })
+      const svg = container.querySelector('.mb-rp-sankey-svg')!
+      expect(svg.getAttribute('viewBox')?.split(' ')[2]).toBe('338')
+    } finally {
+      globalThis.ResizeObserver = originalRO
+      if (originalWidth) Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalWidth)
+      else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth
+    }
     cleanup()
   })
 })
@@ -837,6 +877,144 @@ describe('桑基分组与排序口径修复', () => {
     // y2 落在各自目标的入口，顺序同样递增。
     expect(y2Of(op)).toBeLessThan(y2Of(inv))
     expect(y2Of(inv)).toBeLessThan(y2Of(fin))
+    cleanup()
+  })
+})
+
+describe('移动端「其他 (N)」按活动独立聚合：稳定分组、带活动色、展开不重排', () => {
+  // 收入侧按活动分桶，每桶 perActivityTop=3：
+  //   operating 4 组（100/90/g4=80/70）→ top3 保留 100/90/g4，其他(1)=70
+  //   investing 2 组（60/50）→ 全保留，无其他
+  //   financing 1 组（40）→ 全保留，无其他
+  // grp:g4(operating, 80) 是双成员组（50+30），可展开且稳定在 top3 内。
+  const n = (
+    partial: Partial<CashSankeyNode> & Pick<CashSankeyNode, 'id' | 'name' | 'layer' | 'tone' | 'amount'>,
+  ): CashSankeyNode => ({
+    children: [],
+    groupId: `self:${partial.id}`,
+    groupName: partial.name,
+    expandable: false,
+    origin: partial.layer === 1 ? 'account' : 'category',
+    rank: 0,
+    memberIndex: 0,
+    activity: null,
+    ...partial,
+  })
+  const act = (a: 'operating' | 'investing' | 'financing' | null) => a
+  const mergedFixture = (): CashSankey => ({
+    status: 'ready',
+    opening: 420, closing: 420, inflow: 420, outflow: 100,
+    fee: 0, correction: 0, difference: 0, hiddenGroups: 0, transferTotal: 0,
+    nodes: [
+      n({ id: 'in:g1', name: 'g1', layer: 0, tone: 'income', amount: 100, groupId: 'grp:g1', groupName: 'g1', rank: 0, activity: act('operating') }),
+      n({ id: 'in:g2', name: 'g2', layer: 0, tone: 'income', amount: 90, groupId: 'grp:g2', groupName: 'g2', rank: 1, activity: act('operating') }),
+      n({ id: 'in:g3', name: 'g3', layer: 0, tone: 'income', amount: 70, groupId: 'grp:g3', groupName: 'g3', rank: 2, activity: act('operating') }),
+      n({ id: 'in:g4a', name: 'g4a', layer: 0, tone: 'income', amount: 50, groupId: 'grp:g4', groupName: 'g4', expandable: true, rank: 3, memberIndex: 0, activity: act('operating') }),
+      n({ id: 'in:g4b', name: 'g4b', layer: 0, tone: 'income', amount: 30, groupId: 'grp:g4', groupName: 'g4', expandable: true, rank: 3, memberIndex: 1, activity: act('operating') }),
+      n({ id: 'in:g6', name: 'g6', layer: 0, tone: 'income', amount: 60, groupId: 'grp:g6', groupName: 'g6', rank: 5, activity: act('investing') }),
+      n({ id: 'in:g7', name: 'g7', layer: 0, tone: 'income', amount: 50, groupId: 'grp:g7', groupName: 'g7', rank: 6, activity: act('investing') }),
+      n({ id: 'in:g8', name: 'g8', layer: 0, tone: 'income', amount: 40, groupId: 'grp:g8', groupName: 'g8', rank: 7, activity: act('financing') }),
+      n({ id: 'acct:a1', name: '账户', layer: 1, tone: 'neutral', amount: 420, groupId: 'self:acct:a1' }),
+      n({ id: 'out:rent', name: '房租', layer: 2, tone: 'expense', amount: 100, groupId: 'self:out:rent' }),
+    ],
+    links: [
+      { id: 'l1', sourceId: 'in:g1', targetId: 'acct:a1', nodeId: 'in:g1', amount: 100, tone: 'income', kind: 'flow', activity: act('operating') },
+      { id: 'l2', sourceId: 'in:g2', targetId: 'acct:a1', nodeId: 'in:g2', amount: 90, tone: 'income', kind: 'flow', activity: act('operating') },
+      { id: 'l3', sourceId: 'in:g3', targetId: 'acct:a1', nodeId: 'in:g3', amount: 70, tone: 'income', kind: 'flow', activity: act('operating') },
+      { id: 'l4a', sourceId: 'in:g4a', targetId: 'acct:a1', nodeId: 'in:g4a', amount: 50, tone: 'income', kind: 'flow', activity: act('operating') },
+      { id: 'l4b', sourceId: 'in:g4b', targetId: 'acct:a1', nodeId: 'in:g4b', amount: 30, tone: 'income', kind: 'flow', activity: act('operating') },
+      { id: 'l6', sourceId: 'in:g6', targetId: 'acct:a1', nodeId: 'in:g6', amount: 60, tone: 'income', kind: 'flow', activity: act('investing') },
+      { id: 'l7', sourceId: 'in:g7', targetId: 'acct:a1', nodeId: 'in:g7', amount: 50, tone: 'income', kind: 'flow', activity: act('investing') },
+      { id: 'l8', sourceId: 'in:g8', targetId: 'acct:a1', nodeId: 'in:g8', amount: 40, tone: 'income', kind: 'flow', activity: act('financing') },
+      { id: 'lr', sourceId: 'acct:a1', targetId: 'out:rent', nodeId: 'acct:a1', amount: 100, tone: 'expense', kind: 'flow', activity: act('operating') },
+    ],
+    accounts: [],
+  })
+
+  const mergedNode = (container: HTMLElement, activity = 'operating') =>
+    container.querySelector<SVGGElement>(`.mb-rp-sankey-node[data-id="in:merged:${activity}"]`)
+  const info = (el: SVGGElement | null) => {
+    if (!el) return null
+    return {
+      name: el.querySelector('.mb-rp-sankey-name')?.textContent,
+      amount: el.getAttribute('data-amount'),
+      role: el.getAttribute('role'),
+      expanded: el.getAttribute('aria-expanded'),
+      tone: [...el.classList].find((c) => c.startsWith('mb-rp-sankey-tone--')),
+    }
+  }
+
+  it('每个活动独立聚合：只有超额的 operating 生成「其他 (1)」，且带 operating 色', () => {
+    const { container } = render(<CashSankeyChart data={mergedFixture()} device="mobile" animate={false} />)
+    const op = info(mergedNode(container, 'operating'))!
+    expect(op.name).toBe('其他 (1)')
+    expect(op.amount).toBe('70') // operating 组 g1=100/g2=90/g4=80/g3=70 → top3 保留，g3(70) 出局
+    expect(op.tone).toBe('mb-rp-sankey-tone--operating')
+    // investing 只有 2 组、financing 只有 1 组，均未超额 → 没有各自的「其他」
+    expect(mergedNode(container, 'investing')).toBeNull()
+    expect(mergedNode(container, 'financing')).toBeNull()
+    // 被合并的 g3 不显示，investing/financing 的组全部保留（投影后单成员组 id 为 grp:xxx）
+    expect(container.querySelector('[data-id="grp:g3"]')).toBeNull()
+    expect(container.querySelector('[data-id="grp:g6"]')).not.toBeNull()
+    expect(container.querySelector('[data-id="grp:g7"]')).not.toBeNull()
+    expect(container.querySelector('[data-id="grp:g8"]')).not.toBeNull()
+    cleanup()
+  })
+
+  it('展开 keep 内的双成员组后「其他」不变，其余可见节点不变', () => {
+    const { container } = render(<CashSankeyChart data={mergedFixture()} device="mobile" animate={false} />)
+    const before = info(mergedNode(container, 'operating'))!
+    // 展开 g4（operating top3 内的可展开组）。
+    fireEvent.click(container.querySelector<SVGGElement>('.mb-rp-sankey-node[data-id="grp:g4"]')!)
+    expect(container.querySelector('[data-id="in:g4a"]')).not.toBeNull()
+    expect(container.querySelector('[data-id="in:g4b"]')).not.toBeNull()
+    // 「其他」成员数、金额、名称、色完全不变。
+    expect(info(mergedNode(container, 'operating'))).toEqual(before)
+    // g3 仍被合并，没有冒出来。
+    expect(container.querySelector('[data-id="grp:g3"]')).toBeNull()
+    // 全部层0可见 id 不变（除 g4 展开为两成员）。
+    const ids = [...container.querySelectorAll('.mb-rp-sankey-node[data-layer="0"]')]
+      .map((el) => el.getAttribute('data-id'))
+    expect(ids).toContain('grp:g1')
+    expect(ids).toContain('grp:g2')
+    expect(ids).toContain('in:g4a')
+    expect(ids).toContain('in:merged:operating')
+    cleanup()
+  })
+
+  it('「其他」节点不可点击：无 role / aria-expanded，点击不触发展开', () => {
+    const { container } = render(<CashSankeyChart data={mergedFixture()} device="mobile" animate={false} />)
+    const el = mergedNode(container, 'operating')!
+    const before = info(el)!
+    expect(before.role).toBeNull()
+    expect(before.expanded).toBeNull()
+    fireEvent.click(el)
+    expect(container.querySelector('[data-id="in:g4a"]')).toBeNull()
+    expect(info(mergedNode(container, 'operating'))).toEqual(before)
+    cleanup()
+  })
+
+  it('多活动同时超额时，各自生成一个带本活动色的「其他」', () => {
+    const data = mergedFixture()
+    // 再给 investing 补 3 组（合计超额）、financing 补 3 组。
+    const extra = [
+      n({ id: 'in:g9', name: 'g9', layer: 0, tone: 'income', amount: 45, groupId: 'grp:g9', groupName: 'g9', rank: 8, activity: act('investing') }),
+      n({ id: 'in:g10', name: 'g10', layer: 0, tone: 'income', amount: 35, groupId: 'grp:g10', groupName: 'g10', rank: 9, activity: act('investing') }),
+      n({ id: 'in:g11', name: 'g11', layer: 0, tone: 'income', amount: 30, groupId: 'grp:g11', groupName: 'g11', rank: 10, activity: act('financing') }),
+      n({ id: 'in:g12', name: 'g12', layer: 0, tone: 'income', amount: 20, groupId: 'grp:g12', groupName: 'g12', rank: 11, activity: act('financing') }),
+    ]
+    data.nodes.push(...extra)
+    for (const node of extra) {
+      data.links.push({ id: `l${node.id}`, sourceId: node.id, targetId: 'acct:a1', nodeId: node.id, amount: node.amount, tone: 'income', kind: 'flow', activity: node.activity ?? null })
+    }
+    const { container } = render(<CashSankeyChart data={data} device="mobile" animate={false} />)
+    // investing: 60/50/45/35 → top3 保留，35 出局
+    const inv = info(mergedNode(container, 'investing'))!
+    expect(inv.name).toBe('其他 (1)')
+    expect(inv.amount).toBe('35')
+    expect(inv.tone).toBe('mb-rp-sankey-tone--investing')
+    // financing: 40/30/20 → top3 保留，无其他（恰好 3 组）
+    expect(mergedNode(container, 'financing')).toBeNull()
     cleanup()
   })
 })

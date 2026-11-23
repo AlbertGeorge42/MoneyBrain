@@ -888,13 +888,6 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   }
 }
 
-.mb-rp-sankey-axis {
-  fill: var(--mb-color-text-tertiary);
-  font-family: var(--mb-font-ui);
-  font-size: var(--mb-fs-0);
-  letter-spacing: 0.08em;
-}
-
 .mb-rp-sankey-value,
 .mb-rp-sankey-balance,
 .mb-rp-sankey-name {
@@ -948,20 +941,6 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
 
 .mb-rp-sankey-legend-item[data-activity='financing']::before {
   background: var(--mb-color-activity-financing);
-}
-
-.mb-rp-sankey-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mb-s-2) var(--mb-s-4);
-  color: var(--mb-color-text-secondary);
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-0);
-  font-variant-numeric: tabular-nums;
-}
-
-.mb-rp-sankey-check {
-  color: var(--mb-color-text-tertiary);
 }
 
 .mb-rp-sankey-fail {

@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { DeviceMode } from '@/features/shared/types'
 import { currency } from './reportsModel'
 import { projectCashSankey, type CashSankey, type CashSankeyLink, type CashSankeyNode } from './cashSankeyModel'
@@ -24,6 +24,10 @@ interface Layout {
   accountBottom: number
   /** 节点竖条与 ribbon 共用的最小可视高度，避免小流量细到看不见。 */
   minBandH: number
+  /** 分类列两行文字（名称 + 金额）所需的最小行高。 */
+  labelRow: number
+  /** 账户列最小行高；移动端不画期初 / 期末读数，可比桌面端矮。 */
+  accountRowMin: number
   targetContent: number
   leftX: number
   midX: number
@@ -32,21 +36,26 @@ interface Layout {
   compactAccount: boolean
 }
 
-function layoutOf(device: DeviceMode): Layout {
+function layoutOf(device: DeviceMode, measuredWidth?: number): Layout {
   if (device === 'mobile') {
-    const width = 360
+    // viewBox 宽度取容器实测宽度，使 1 用户单位 = 1 CSS px：SVG 内 12px 文字
+    // 渲染后仍是真正的 12px，与页面其它字号一致，不随容器宽度被放大 / 缩小。
+    // 未测量到（SSR / 测试环境）时回落 360。
+    const width = measuredWidth && measuredWidth > 0 ? measuredWidth : 360
     const nodeW = 10
     const leftX = 64
     const rightX = width - 64 - nodeW
     return {
       width,
-      padTop: 22,
-      padBottom: 16,
+      padTop: 16,
+      padBottom: 12,
       nodeW,
-      rowGap: 4,
+      rowGap: 3,
       accountTop: 4,
       accountBottom: 4,
       minBandH: 4,
+      labelRow: 24,
+      accountRowMin: 28,
       targetContent: 220,
       leftX,
       midX: width / 2 - nodeW / 2,
@@ -67,6 +76,8 @@ function layoutOf(device: DeviceMode): Layout {
     accountTop: 6,
     accountBottom: 30,
     minBandH: 5,
+    labelRow: 32,
+    accountRowMin: 44,
     targetContent: 260,
     leftX,
     midX: width / 2 - nodeW / 2,
@@ -118,8 +129,23 @@ export function CashSankeyChart({
   /** 测试或 reduced-motion 场景可关闭；关闭时几何直接跳到终态。 */
   animate?: boolean
 }) {
+  // 移动端实测容器宽度：让 viewBox 宽度 = CSS 宽度，SVG 内文字按真实 px 渲染，
+  // 不随容器缩放。ResizeObserver 缺失（SSR / 测试）时 layoutOf 回落 360。
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [measuredWidth, setMeasuredWidth] = useState(0)
+  useEffect(() => {
+    if (device !== 'mobile' || typeof ResizeObserver === 'undefined') return
+    const el = wrapRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      const width = el.clientWidth
+      if (width > 0) setMeasuredWidth(width)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [device])
   // 稳定 layout 常量对象，否则下游 layout / 动画帧每次渲染都是新引用。
-  const L = useMemo(() => layoutOf(device), [device])
+  const L = useMemo(() => layoutOf(device, measuredWidth), [device, measuredWidth])
   // 渐进式：按展开集合把细节点投影成组节点或成员节点。展开状态是纯视图状态，
   // 不改后端数据与守恒合计；切换设备 / 区间时数据变化不影响展开集合本身。
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set<string>())
@@ -132,49 +158,94 @@ export function CashSankeyChart({
     })
   }
   const projected = useMemo(() => projectCashSankey(data, expanded), [data, expanded])
-  // 移动端每层分类节点聚合：收入层 / 支出层各保留前 keepTop 个，其余合并为「其他」。
-  // PC 不传 keepTop，全量渲染。
-  const keepTop = device === 'mobile' ? 4 : 0
+  // 移动端按活动分类独立聚合：每个活动保留前 perActivityTop 个组，该活动超出的
+  // 组聚合成带活动色的「其他」。不再全层限 4 个，三类活动各有自己的容量与聚合位。
+  // PC 不聚合，全量渲染。
+  const perActivityTop = device === 'mobile' ? 3 : 0
   const layout = useMemo(() => {
     if (projected.status !== 'ready') return null
 
-    // ── 每层节点聚合（仅 mobile；keepTop > 0 时生效） ──
+    type Activity = CashSankeyLink['activity']
+    type Unit = { key: string; amount: number; activity: Activity; rank: number }
+    const activityRank = (a: Activity): number =>
+      a === 'operating' ? 0 : a === 'investing' ? 1 : a === 'financing' ? 2 : 3
+
+    // ── 每层按活动聚合（仅 mobile；perActivityTop > 0 时生效） ──
+    // 聚合基准是稳定的「分组 + 活动」，从细图 data 汇总，与 expanded 无关：组的金额
+    // 与活动在展开前后都不变，keep / 其他归属恒定，展开只在 keep 组内原位展开，
+    // 不会让其他节点重排，也不会重算「其他」的成员、金额与名称。
     let nodes = projected.nodes
     let links = projected.links
-    if (keepTop > 0) {
+    if (perActivityTop > 0) {
       const merged: CashSankeyNode[] = []
-      for (const layer of [0, 2] as const) {
-        const sorted = nodes
-          .filter((n) => n.layer === layer)
-          .sort((a, b) => b.amount - a.amount)
-        if (sorted.length <= keepTop) {
-          merged.push(...sorted)
-          continue
-        }
-        const keep = sorted.slice(0, keepTop)
-        const hide = sorted.slice(keepTop)
-        merged.push(...keep)
-        merged.push({
-          ...hide[0], // 用第一个被合并节点的 tone 等属性，覆盖 id/name/amount
-          id: `${layer === 0 ? 'in' : 'out'}:merged`,
-          name: `其他 (${hide.length})`,
-          layer,
-          amount: hide.reduce((sum, n) => sum + n.amount, 0),
-          children: [],
-        })
-      }
-      merged.push(...nodes.filter((n) => n.layer === 1)) // 账户层全留
-      // 重定向 links
       const redirect = new Map<string, string>()
       for (const layer of [0, 2] as const) {
-        const sorted = nodes
-          .filter((n) => n.layer === layer)
-          .sort((a, b) => b.amount - a.amount)
-        if (sorted.length > keepTop) {
-          const mergedId = `${layer === 0 ? 'in' : 'out'}:merged`
-          sorted.slice(keepTop).forEach((n) => redirect.set(n.id, mergedId))
+        const prefix = layer === 0 ? 'in' : 'out'
+        // unit = 一个分组（groupId）；组内活动不统一则退 null（同 finalizeGroups 口径）。
+        // self: 独立节点各自成一个 unit。从细图 data 汇总，与 expanded 无关。
+        const units = new Map<string, Unit>()
+        for (const node of data.nodes) {
+          if (node.layer !== layer) continue
+          const key = node.groupId ?? `self:${node.id}`
+          const current = units.get(key)
+          if (current) {
+            current.amount += node.amount
+            if (current.activity !== (node.activity ?? null)) current.activity = null
+          } else {
+            units.set(key, { key, amount: node.amount, activity: node.activity ?? null, rank: node.rank ?? 0 })
+          }
+        }
+        // 按活动分桶，桶内按金额排序；每桶保留 top N，超出的合并为该活动的「其他」。
+        const buckets = new Map<Activity, Unit[]>()
+        for (const unit of units.values()) {
+          const list = buckets.get(unit.activity) ?? []
+          list.push(unit)
+          buckets.set(unit.activity, list)
+        }
+        const keepKeys = new Set<string>()
+        const hidden: Array<{ activity: Activity; keys: string[]; amount: number; count: number }> = []
+        for (const [activity, list] of buckets) {
+          list.sort((a, b) => b.amount - a.amount || a.rank - b.rank || a.key.localeCompare(b.key))
+          list.slice(0, perActivityTop).forEach((unit) => keepKeys.add(unit.key))
+          const tail = list.slice(perActivityTop)
+          if (tail.length > 0) {
+            hidden.push({
+              activity,
+              keys: tail.map((unit) => unit.key),
+              amount: tail.reduce((sum, unit) => sum + unit.amount, 0),
+              count: tail.length,
+            })
+          }
+        }
+        // keep 节点原样保留；hide 节点按所属活动重定向到对应的「其他」。
+        for (const node of projected.nodes) {
+          if (node.layer !== layer) continue
+          const key = node.groupId ?? `self:${node.id}`
+          if (keepKeys.has(key)) {
+            merged.push(node)
+            continue
+          }
+          const bucket = hidden.find((item) => item.keys.includes(key))
+          if (bucket) redirect.set(node.id, `${prefix}:merged:${bucket.activity ?? 'neutral'}`)
+        }
+        // 每个活动一个「其他」：带该活动色，与汇入 ribbon 同色；不可点击、沉底。
+        for (const item of hidden) {
+          merged.push({
+            id: `${prefix}:merged:${item.activity ?? 'neutral'}`,
+            name: `其他 (${item.count})`,
+            layer,
+            tone: layer === 0 ? 'income' : 'expense',
+            amount: item.amount,
+            children: [],
+            isGroup: false,
+            expandable: false,
+            rank: Number.MAX_SAFE_INTEGER - 10 + activityRank(item.activity),
+            memberIndex: 0,
+            activity: item.activity,
+          })
         }
       }
+      merged.push(...projected.nodes.filter((node) => node.layer === 1)) // 账户层全留
       links = projected.links.map((link) => ({
         ...link,
         sourceId: redirect.get(link.sourceId) ?? link.sourceId,
@@ -223,13 +294,12 @@ export function CashSankeyChart({
         : stackHeightOf(node, node.layer === 0 ? 'out' : 'in')
       const h = Math.max(L.minBandH, bandStack)
       if (node.layer === 1) {
-        // 账户列另有下方余额行，沿用账户上下留白。
-        return { h, row: Math.max(h + L.accountTop + L.accountBottom, 44), top: L.accountTop }
+        // 账户行：桌面端另有下方余额读数，移动端不画读数故下限更矮。
+        return { h, row: Math.max(h + L.accountTop + L.accountBottom, L.accountRowMin), top: L.accountTop }
       }
       // 分类列两行文字（名称 + 金额）所需空间由**行高**单独承担，节点条在行内
       // 垂直居中；这样文字彼此不重叠，又不反过来把节点条撑大。
-      const labelRow = L.compactAccount ? 24 : 32
-      const row = Math.max(h, labelRow)
+      const row = Math.max(h, L.labelRow)
       return { h, row, top: (row - h) / 2 }
     }
 
@@ -337,7 +407,7 @@ export function CashSankeyChart({
 
     const height = L.padTop + columnHeight + L.padBottom
     return { placed: [...placed.values()], links: laidLinks, height }
-  }, [projected, L, keepTop])
+  }, [projected, data, L, perActivityTop])
 
   // 目标几何快照：每帧自带展示数据，退出元素在动画期间仍可渲染。
   // 节点带 groupId / isGroup 供 hook 做组↔成员桥接（散开 / 聚拢）。
@@ -419,34 +489,15 @@ export function CashSankeyChart({
       }))
     : layout.links.map((item) => ({ item, y1: item.y1, y2: item.y2, height: item.height, opacity: 1 }))
 
-  const transferHidden = data.transferTotal > 0 && !data.links.some((link) => link.kind === 'transfer')
-  const mergedHidden = data.nodes.some((node) => node.id === 'in:hidden' || node.id === 'out:hidden')
-  const hiddenNote =
-    mergedHidden && data.hiddenGroups > 0 ? `已隐藏 ${data.hiddenGroups} 组，并入「其他」以保持守恒；` : ''
-  const transferNote =
-    data.transferTotal > 0
-      ? transferHidden
-        ? `账户间转账 ${currency(data.transferTotal)} 已并入「其他」。`
-        : `账户间转账 ${currency(data.transferTotal)} 为内部转移，已画为账户间连线。`
-      : ''
-
   return (
-    <div className="mb-rp-sankey">
+    <div className="mb-rp-sankey" ref={wrapRef}>
       <svg
         className="mb-rp-sankey-svg"
+        data-device={device}
         viewBox={`0 0 ${L.width} ${viewHeight}`}
         role="img"
         aria-label={`现金流三层桑基图：收入分类 → ${data.accounts.length} 个账户 → 支出分类；流入 ${currency(data.inflow)}，流出 ${currency(data.outflow)}`}
       >
-        <text className="mb-rp-sankey-axis" x={L.leftX - 10} y={18} textAnchor="end">
-          收入分类
-        </text>
-        <text className="mb-rp-sankey-axis" x={L.midX + L.nodeW / 2} y={18} textAnchor="middle">
-          账户
-        </text>
-        <text className="mb-rp-sankey-axis" x={L.rightX + L.nodeW + 10} y={18} textAnchor="start">
-          支出分类
-        </text>
         {/* 小流量（手续费 / 修正）后画：叠在粗 ribbon 之上。 */}
         {renderLinks.map(({ item, y1, y2, height, opacity }) => {
           const d = item.transfer
@@ -564,21 +615,6 @@ export function CashSankeyChart({
         <span className="mb-rp-sankey-legend-item" data-activity="financing">筹资</span>
         <span className="mb-rp-sankey-legend-item" data-activity="neutral">其他</span>
       </div>
-      <div className="mb-rp-sankey-foot">
-        <span>期初 {currency(data.opening)}</span>
-        <span>+ 流入 {currency(data.inflow)}</span>
-        <span>− 流出 {currency(data.outflow)}</span>
-        <span>= 期末 {currency(data.closing)}</span>
-        <span className="mb-rp-sankey-check" data-difference={data.difference}>
-          差额 {currency(Math.abs(data.difference))}
-        </span>
-      </div>
-      {(hiddenNote || transferNote) && (
-        <p className="mb-rp-chart-note">
-          {hiddenNote}
-          {transferNote}
-        </p>
-      )}
     </div>
   )
 }
