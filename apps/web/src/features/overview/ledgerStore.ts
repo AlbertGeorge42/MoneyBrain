@@ -89,7 +89,7 @@ export interface LedgerContextValue {
   ledger: Ledger
   addTransaction: (input: NewTransactionInput) => Promise<LedgerCreateOutcome>
   updateTransaction: (id: string, patch: TransactionPatch) => Promise<LedgerMutationOutcome>
-  /** 退款关联/解除关联原交易；originalId 为 null 时解除，由后端重算可退上限。 */
+  /** 退款关联/解除关联原交易；originalId 为 null 时解除关联。 */
   linkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
   deleteTransactions: (ids: readonly string[]) => Promise<LedgerDeleteOutcome>
   setTransactionCategory: (ids: readonly string[], categoryId: string) => Promise<LedgerBatchCategoryOutcome>

@@ -10,7 +10,7 @@ import type { TransactionWithRelations } from '../db/repositories/transaction.re
 import { softDeleteWithEvent, updateWithEvent } from './audit-event.service.js'
 import { resolveTransferCategoryId } from './transfer-category.service.js'
 import {
-  minor, remainingRefundable, summarizeAggregatedFlows, formatCurrency, sum, add, type LedgerTransaction,
+  summarizeAggregatedFlows, add, type LedgerTransaction,
 } from '../../../../packages/domain/src/index.js'
 
 const logger = rootLogger.child({ module: 'transaction' })
@@ -192,8 +192,7 @@ export async function createTransfer(data: CreateTransferData): Promise<Transact
 
 /**
  * 校验退款目标合法：只有收入/支出可退，金额必须为正。
- * 退款账户可与原账户不同（B4）；但累计退款不得超过原交易金额——
- * 可退余额统一由领域层 remainingRefundable 计算，避免报表/预算第二套口径。
+ * 退款账户可与原账户不同（B4）；累计退款允许超过原交易金额。
  */
 async function assertRefundTarget(original: { type: string }, amount: number): Promise<void> {
   if (original.type !== 'income' && original.type !== 'expense') {
@@ -201,37 +200,6 @@ async function assertRefundTarget(original: { type: string }, amount: number): P
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new ValidationError('退款金额必须大于 0')
-  }
-}
-
-/** 分 → 「¥1,234.56」；错误文案让用户能直接看出差多少。 */
-function formatRefundMoney(amount: number): string {
-  return formatCurrency(minor(amount))
-}
-
-/**
- * 累计退款上限：本次金额不得超过原额 − 其它有效退款合计。
- * 软删除退款不计入（删除后原交易的「已退款」会回退），撤销恢复后重新计入。
- */
-async function assertRefundWithinOriginal(
-  original: { id: string; type: string; amount: bigint },
-  amount: number,
-  excludeRefundId?: string,
-): Promise<void> {
-  const originalAmount = Number(original.amount)
-  const refunded = Number(
-    (await transactionRepo.sumActiveRefundAmount(original.id, excludeRefundId))._sum.amount ?? 0n,
-  )
-  const remaining = Number(remainingRefundable(
-    { id: original.id, kind: original.type as 'income' | 'expense', amount: toMinor(original.amount) },
-    [{ kind: 'refund', amount: minor(refunded), relatedTransactionId: original.id }],
-  ))
-
-  if (amount > remaining) {
-    throw new ValidationError(
-      `退款金额超出可退余额：原交易 ${formatRefundMoney(originalAmount)}，已退款 ${formatRefundMoney(refunded)}，` +
-      `本次可退 ${formatRefundMoney(remaining)}，本次退款 ${formatRefundMoney(amount)}`,
-    )
   }
 }
 
@@ -246,7 +214,6 @@ export async function createRefund(data: CreateRefundData): Promise<TransactionW
     const relatedTransaction = await transactionRepo.findById(relatedTransactionId)
     if (!relatedTransaction) throw new NotFoundError('原交易记录')
     await assertRefundTarget(relatedTransaction, amount)
-    await assertRefundWithinOriginal(relatedTransaction, amount)
     relatedType = relatedTransaction.type
     // 关联退款必须落在原交易的分类下：报表按退款自身分类冲减、预算按分类子树统计，
     // 两者都靠这一列；若让退款挂在「退款」分类，预算就不会跟着回退。
@@ -350,7 +317,6 @@ export async function updateRefund(id: string, data: UpdateRefundData): Promise<
   }
 
   // 退款冲减方向由 relatedType 决定：换原交易时必须同步，否则报表按旧类型算方向。
-  // 累计上限排除本笔（编辑金额/换原交易后仍要重新校验，避免编辑绕过上限）。
   let relatedType: string | null = null
   let relatedCategoryId: string | null = null
   if (relatedId) {
@@ -358,7 +324,6 @@ export async function updateRefund(id: string, data: UpdateRefundData): Promise<
     if (!original) throw new NotFoundError('原交易记录')
     const nextAmount = data.amount ?? Number(oldTransaction.amount)
     await assertRefundTarget(original, nextAmount)
-    await assertRefundWithinOriginal(original, nextAmount, id)
     relatedType = original.type
     relatedCategoryId = original.categoryId
   }
@@ -582,11 +547,11 @@ export async function getTransactionById(id: string): Promise<TransactionWithRel
 }
 
 /**
- * 可关联原交易：收入/支出中仍有可退余额的记录。
- * `refunds` 只含未删除退款，因此删除退款后原交易会自动回到可关联列表。
+ * 可关联原交易：全部收入/支出。
+ * 退款允许超过原金额，已全额退款的记录仍可再次关联退款，不再按剩余额度筛选。
  */
 export async function getRefundableTransactions(): Promise<TransactionWithRelations[]> {
-  const list = await transactionRepo.findActive(
+  return transactionRepo.findActive(
     { type: { in: ['income', 'expense'] } },
     {
       include: transactionRepo.TRANSACTION_RELATIONS,
@@ -594,13 +559,6 @@ export async function getRefundableTransactions(): Promise<TransactionWithRelati
       take: 200,
     },
   )
-  return list.filter((transaction) => {
-    const refunded = sum(transaction.refunds.map((refund) => toMinor(refund.amount)))
-    return Number(remainingRefundable(
-      { id: transaction.id, kind: transaction.type as 'income' | 'expense', amount: toMinor(transaction.amount) },
-      [{ kind: 'refund', amount: minor(refunded), relatedTransactionId: transaction.id }],
-    )) > 0
-  })
 }
 
 /**

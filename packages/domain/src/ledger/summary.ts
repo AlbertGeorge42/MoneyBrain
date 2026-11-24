@@ -1,5 +1,5 @@
 import { contains, type Period } from '../date.js'
-import { ZERO_MINOR, add, max, sub, sum, type Minor } from '../money.js'
+import { ZERO_MINOR, add, sub, type Minor } from '../money.js'
 import { isCountable, refundOffsetKind, type FlowKind } from './rules.js'
 import type { LedgerTransaction, TransactionKind } from './types.js'
 
@@ -198,36 +198,3 @@ export function flowCountByCategory(
   return result
 }
 
-/** 可退金额计算需要的最小结构（原交易 + 它的退款）。 */
-export interface RefundableOriginal {
-  id: string
-  kind: string
-  amount: Minor
-}
-
-export interface RefundableRefund {
-  kind: string
-  amount: Minor
-  relatedTransactionId?: string | null
-}
-
-/**
- * 原交易还可退多少。
- *
- * 退款上限的口径只有这一处；后端创建/编辑退款时也调用它，
- * 避免自己再写一遍「原额 − 已退额」。
- */
-export function remainingRefundable(
-  original: RefundableOriginal,
-  refunds: readonly RefundableRefund[],
-): Minor {
-  if (original.kind !== 'income' && original.kind !== 'expense') return ZERO_MINOR
-
-  const refunded = sum(
-    refunds
-      .filter((refund) => refund.kind === 'refund' && refund.relatedTransactionId === original.id)
-      .map((refund) => refund.amount),
-  )
-
-  return max(sub(original.amount, refunded), ZERO_MINOR)
-}

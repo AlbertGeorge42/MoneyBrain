@@ -6,8 +6,7 @@
  *
  * 生成域与真实写入路径对齐（超出写入路径的输入不生成）：
  * - 退款必带 relatedType（income / expense）；服务端写入时必然关联原交易。
- * - 退款金额可高于原额、退款账户可与原账户不同（均属合法业务）：
- *   可退余额 = max(原额 − Σ退款, 0) 恒非负、超退后归零，只是录入参考，不是上限校验。
+ * - 退款金额可高于原额、退款账户可与原账户不同（均属合法业务），没有累计上限。
  *   「全额退款恢复余额」只覆盖同账户情形——跨账户退款时原账户余额不恢复，属合法，不在断言范围。
  * - excludeFromIncomeExpense 只出现在收支类交易上；转账与平账本就不进收支统计。
  * - 期初余额不带日期（覆盖全部历史）；带日期时它只是锚点，锚点前后都能算余额。
@@ -23,7 +22,6 @@ import {
   localDate,
   minor,
   postingsOf,
-  remainingRefundable,
   isCountable,
   refundOffsetKind,
   transferNet,
@@ -188,50 +186,6 @@ test('不变量 4（全额退款）：退款后余额 == 原交易前余额', ()
       const after = balanceBefore(accountId, opening, [original, refund], addDays(refund.date, 1))
 
       assert.equal(after, before)
-    }),
-    { numRuns: 1000 },
-  )
-})
-
-test('不变量 4（可退余额）：可退余额 == max(原额 − Σ退款, 0)，恒非负；超退（合法业务）后归零', () => {
-  const refundSplitArb = fc
-    .tuple(relatedTypeArb, fc.integer({ min: 1, max: MAX_CENTS }), fc.array(centsArb, { minLength: 0, maxLength: 5 }))
-    .map(([relatedType, originalAmount, shares]) => {
-      // 退款额不做上限缩放：Σ 退款可以超过原额（合法业务）
-      const refunds = shares.map((share, index) => ({
-        kind: 'refund' as const,
-        amount: minor(share),
-        relatedTransactionId: 'original',
-        id: `refund-${index}`,
-        relatedType,
-      }))
-      // 混入一笔指向其它原交易的退款：可退余额必须只统计本原交易的退款
-      const noise = {
-        kind: 'refund' as const,
-        amount: minor(originalAmount),
-        relatedTransactionId: 'other-original',
-        id: 'noise',
-        relatedType,
-      }
-      const original = { id: 'original', kind: relatedType === 'income' ? ('income' as const) : ('expense' as const), amount: minor(originalAmount) }
-      return { original, refunds: [...refunds, noise] }
-    })
-
-  fc.assert(
-    fc.property(refundSplitArb, ({ original, refunds }) => {
-      const own = refunds.filter(r => r.relatedTransactionId === 'original')
-      // 逐前缀断言：每一步的可退余额 == max(原额 − 已退合计, 0)，恒非负（超退后为 0）
-      let refunded = 0
-      let processed = 0
-      for (const refund of own) {
-        refunded += refund.amount
-        processed++
-        const remaining = remainingRefundable(original, own.slice(0, processed))
-        assert.ok(remaining >= 0)
-        assert.equal(remaining, Math.max(original.amount - refunded, 0))
-      }
-      // 干扰退款（指向其它原交易）不影响本原交易的可退余额
-      assert.equal(remainingRefundable(original, refunds), Math.max(original.amount - refunded, 0))
     }),
     { numRuns: 1000 },
   )

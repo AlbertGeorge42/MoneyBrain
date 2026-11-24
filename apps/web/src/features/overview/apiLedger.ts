@@ -85,7 +85,6 @@ export function toLedgerTransaction(transaction: Transaction): LedgerTransaction
   if (base.type === 'expense' || base.type === 'income') {
     const refundedAmount = refunds.reduce((total, refund) => total + refund.amount, 0)
     base.refundedAmount = refundedAmount
-    base.remainingAmount = Math.max(base.amount - refundedAmount, 0)
   }
 
   return {

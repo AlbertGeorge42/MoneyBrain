@@ -10,7 +10,7 @@ import { Button } from './Button'
 import './refund.css'
 
 /**
- * 原交易的退款摘要（已退款/剩余 + 退款明细列表）。
+ * 原交易的退款摘要（已退款 + 退款明细列表）。
  * overview 只读详情与 transactions 编辑面板共用同一实现，避免两处逐字重复。
  */
 export function RefundSummarySection({
@@ -31,7 +31,7 @@ export function RefundSummarySection({
       <dt>退款</dt>
       <dd>
         <span className="mb-shared-refund-summary">
-          已退款 {amountText(summary.refunded)} / 剩余 {amountText(summary.remaining)}
+          已退款 {amountText(summary.refunded)}
           {summary.state === 'full' && <span className="mb-shared-refund-badge mb-shared-refund-badge--full">已全额退款</span>}
         </span>
         {refunds.length > 0 && (

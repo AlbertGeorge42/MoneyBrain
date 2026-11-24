@@ -107,8 +107,6 @@ export interface LedgerTransaction {
   refunds?: LedgerTransaction[]
   /** 原交易已退款合计（API 适配层预计算）。 */
   refundedAmount?: number
-  /** 原交易剩余可退金额。 */
-  remainingAmount?: number
   /** 不计收支：仍影响账户余额，但不进收入/支出统计、预算用量。 */
   excludeFromIncomeExpense?: boolean
 }
@@ -666,7 +664,6 @@ export function transactionDirection(transaction: LedgerTransaction): string {
 
 interface RefundSummary {
   refunded: number
-  remaining: number
   state: 'none' | 'partial' | 'full'
 }
 
@@ -680,13 +677,13 @@ export function getRefundList(ledger: LedgerForPureFns, transaction: LedgerTrans
 
 export function getRefundSummary(ledger: Ledger, transaction: LedgerTransaction): RefundSummary {
   if (transaction.type !== 'expense' && transaction.type !== 'income') {
-    return { refunded: 0, remaining: transaction.amount, state: 'none' }
+    return { refunded: 0, state: 'none' }
   }
   const refunds = getRefundList(ledger, transaction)
   const refunded = transaction.refundedAmount ?? refunds.reduce((total, item) => total + item.amount, 0)
-  const remaining = transaction.remainingAmount ?? Math.max(transaction.amount - refunded, 0)
-  const state = refunded <= 0 ? 'none' : remaining <= 0 ? 'full' : 'partial'
-  return { refunded, remaining, state }
+  // 退款可超过原额；累计已退达到或超过原额即视为全额退款。
+  const state = refunded <= 0 ? 'none' : refunded >= transaction.amount ? 'full' : 'partial'
+  return { refunded, state }
 }
 
 /** 在列表里递归查找关联原交易/退款，便于从任意一侧打开对方详情。 */

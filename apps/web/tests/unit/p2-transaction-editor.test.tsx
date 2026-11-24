@@ -78,7 +78,7 @@ describe('交易详情编辑', () => {
 })
 
 describe('退款入口', () => {
-  it('原交易详情有可见的「记一笔退款」，默认金额为剩余可退额', () => {
+  it('原交易详情有可见的「记一笔退款」，默认金额为原交易金额', () => {
     renderPanel()
     const button = screen.getByRole('button', { name: '记一笔退款' })
     expect(button).toBeInTheDocument()
@@ -99,5 +99,17 @@ describe('退款入口', () => {
     fireEvent.click(screen.getByRole('button', { name: '创建退款' }))
 
     expect(onCreateRefund).toHaveBeenCalledWith('t1', 'food', 'cmb', 850, '退货')
+  })
+
+  it('退款金额允许高于原交易金额，金额框不拦截也不显示可退余额', () => {
+    const onCreateRefund = vi.fn(async () => ({ ok: true, id: 'refund-1' }))
+    renderPanel(onCreateRefund)
+
+    fireEvent.click(screen.getByRole('button', { name: '记一笔退款' }))
+    expect(screen.queryByText(/可退余额/)).toBeNull()
+    fireEvent.change(screen.getByLabelText('退款金额（元）'), { target: { value: '30' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建退款' }))
+
+    expect(onCreateRefund).toHaveBeenCalledWith('t1', 'food', 'cmb', 3000, '')
   })
 })

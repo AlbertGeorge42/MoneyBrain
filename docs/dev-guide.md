@@ -88,7 +88,7 @@ CSS 引用未定义变量**不报错**、浏览器静默回退：写 `var(--mb-*
 ### 3.1 算钱只能有一个实现
 
 ```ts
-import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../packages/domain/src/index.js'
+import { postingsOf, summarizeFlows } from '../../../../packages/domain/src/index.js'
 ```
 
 | 口径 | 落在哪里 |
@@ -96,7 +96,7 @@ import { postingsOf, summarizeFlows, remainingRefundable } from '../../../../pac
 | 交易 → 分录的方向与金额 | `ledger/rules.ts` 的 `postingsOf` |
 | 余额（含期初当天计入） | `ledger/postings.ts` 的 `balanceBefore` / `balanceAt` |
 | 收支净额与分类汇总 | `ledger/summary.ts` 的 `summarizeFlows` / `flowByCategory` |
-| 退款可退余额 / 冲减方向 | `remainingRefundable`；`refundOffsetKind`（收入退款 = 流出、支出退款 = 流入，`relatedType` 不明返回 null 不计入） |
+| 退款冲减方向 | `refundOffsetKind`（收入退款 = 流出、支出退款 = 流入，`relatedType` 不明返回 null 不计入）；退款无累计上限 |
 | 预算账户/分类/冲减口径 | `scopeQuery` / `matchesBudgetScope` + `budget.service` 的 `budgetContributionSign`（唯一计入符号判定点）；使用率返回真实百分比，>100 不截断 |
 | 日期格式化 / 日历运算 | `packages/domain/src/date.ts` 的 `fromDate` 与日历原语；前端 `utils/date.ts` 只转发 |
 | 前后端共用字面量 | `packages/contracts/constants.ts` |
@@ -253,7 +253,7 @@ grep -rn "symbolName" apps packages scripts --include="*.ts" --include="*.tsx"
 - **自动定时备份**：配置存数据库同级 `auto-backup-config.json`；输出加密容器 `moneybrain-backup-YYYY-MM-DD.mbx`。用户可配开关、目录、间隔（`intervalHours`，缺省 24）与保留份数（`keepCount`，缺省 7）；非法值返回 `VALIDATION_ERROR`。执行判定只有两条——距上次成功备份 ≥ 间隔、长任务锁空闲；两条都满足才跑（30 秒评估一次），失败后 10 分钟退避。与导入/导出/回滚共用同一把长任务锁。
 - **不持久化余额、预算百分比、收益率**；投资快照 `previous_snapshot_id` 是写入顺序产物、继续持久化，但不进同步记录，应用后按本地规则重算（§3.4）。重链统一走 `snapshot-chain.repository.ts` 的 `relinkSnapshots`，禁止读取时绕开快照链另算一套推导。
 - **软删除**：`deletedAt` 过滤只允许出现在 `transaction.repository.ts`；撤销与回收站恢复依据 `audit_events` 反向写入，不另建撤销表。存在退款的原交易禁止删除；导出与备份必须排除已删除交易。
-- **超退与跨账户退款合法**：可退余额 = max(原额 − Σ退款, 0) 只是录入参考；`db:verify` 对超退只做信息性提示。
+- **超退与跨账户退款合法**：退款无累计上限，不展示可退余额；`db:verify` 对超退只做信息性提示。
 - CSV 导入用 `Transaction.importKey` 去重，支持 `includes` 范围过滤；覆盖模式只清空所选范围，必须二次确认且在单事务内先清空再写入。
 
 ## 9. 测试要求

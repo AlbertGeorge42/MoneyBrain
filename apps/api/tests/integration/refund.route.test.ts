@@ -118,38 +118,30 @@ describe('退款对统计数据的影响', () => {
     expect(response.body.data.refund).toBe(300)
   })
 
-  it('累计退款不得超过原交易金额：500 退 200 + 50 后再退 300 被拒，并给出精确原因', async () => {
+  it('累计退款允许超过原交易金额：500 退 200 + 50 后再退 300 成功', async () => {
     const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 50_000, accountId: testAccountId, date: new Date() },
     })
 
-    for (const amount of [20_000, 5_000]) {
+    for (const amount of [20_000, 5_000, 30_000]) {
       const created = await request(app)
         .post('/api/transactions')
         .send({ type: 'refund', amount, date: today, accountId: testAccountId, relatedTransactionId: expense.id })
       expect(created.status).toBe(201)
+      expect(created.body.data.relatedType).toBe('expense')
     }
 
-    const rejected = await request(app)
-      .post('/api/transactions')
-      .send({ type: 'refund', amount: 30_000, date: today, accountId: testAccountId, relatedTransactionId: expense.id })
-
-    expect(rejected.status).toBe(400)
-    expect(rejected.body.error.message).toContain('退款金额超出可退余额')
-    expect(rejected.body.error.message).toContain('原交易 ¥500.00')
-    expect(rejected.body.error.message).toContain('已退款 ¥250.00')
-    expect(rejected.body.error.message).toContain('本次可退 ¥250.00')
-    expect(rejected.body.error.message).toContain('本次退款 ¥300.00')
-
-    // 读取侧：原交易带两条退款，前端据此显示 已退款 ¥250.00 / 剩余 ¥250.00
     const list = await request(app).get('/api/transactions').query({ type: 'expense' })
     const original = list.body.data.list.find((item: { id: string }) => item.id === expense.id)
     expect(original.refunds.map((item: { amount: number }) => item.amount).sort((a: number, b: number) => a - b))
-      .toEqual([5_000, 20_000])
+      .toEqual([5_000, 20_000, 30_000])
+    // 已退款合计超过原额：只做展示，不再有可退余额字段
+    expect(original.refunds.reduce((total: number, item: { amount: number }) => total + item.amount, 0)).toBe(55_000)
+    expect(original).not.toHaveProperty('remainingAmount')
   })
 
-  it('全额退款后不可再退，原交易从可关联列表移除', async () => {
+  it('全额退款后仍可关联再退，原交易保留在可关联列表', async () => {
     const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 10_000, accountId: testAccountId, date: new Date() },
@@ -161,13 +153,12 @@ describe('退款对统计数据的影响', () => {
     expect(full.status).toBe(201)
 
     const refundable = await request(app).get('/api/transactions/refundable/list')
-    expect(refundable.body.data.some((item: { id: string }) => item.id === expense.id)).toBe(false)
+    expect(refundable.body.data.some((item: { id: string }) => item.id === expense.id)).toBe(true)
 
-    const rejected = await request(app)
+    const extra = await request(app)
       .post('/api/transactions')
       .send({ type: 'refund', amount: 1, date: today, accountId: testAccountId, relatedTransactionId: expense.id })
-    expect(rejected.status).toBe(400)
-    expect(rejected.body.error.message).toContain('本次可退 ¥0.00')
+    expect(extra.status).toBe(201)
   })
 
   it('未关联退款可正常记账，但不进入收入/支出合计（只影响余额）', async () => {
@@ -226,7 +217,7 @@ describe('退款对统计数据的影响', () => {
     expect(statsAfterUndo.body.data.expense).toBe(30_000)
   })
 
-  it('编辑退款金额同样受累计上限约束，不能借编辑绕过', async () => {
+  it('编辑退款金额允许超过原交易金额', async () => {
     const today = localToday()
     const expense = await prisma.transaction.create({
       data: { type: 'expense', amount: 10_000, accountId: testAccountId, date: new Date() },
@@ -240,12 +231,12 @@ describe('退款对统计数据的影响', () => {
     expect(first.status).toBe(201)
     expect(second.status).toBe(201)
 
-    const rejected = await request(app)
+    const edited = await request(app)
       .put(`/api/transactions/${first.body.data.id}`)
-      .send({ amount: 6_100 })
-    expect(rejected.status).toBe(400)
-    expect(rejected.body.error.message).toContain('本次可退 ¥60.00')
-    expect(rejected.body.error.message).toContain('本次退款 ¥61.00')
+      .send({ amount: 15_000 })
+    expect(edited.status).toBe(200)
+    expect(edited.body.data.amount).toBe(15_000)
+    expect(edited.body.data.relatedType).toBe('expense')
   })
 
   it('退款口径：统计、总览、报表都按原侧冲减，不把退款再计成收入', async () => {

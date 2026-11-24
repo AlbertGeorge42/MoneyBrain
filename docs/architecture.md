@@ -42,7 +42,7 @@ packages/domain → 不依赖 Express / Prisma / SQLite / apps 代码 / contract
 | `date.ts` | `LocalDate`（`YYYY-MM-DD`）；`localDate/today/compare/isBefore`、期间 `periodOf`、半开区间工具 |
 | `ledger/types.ts` | `LedgerTransaction`、`TransactionKind`、`Posting`、`OpeningBalance` |
 | `ledger/postings.ts` | **交易 → 分录**：`postingsOf`（re-export 自 `rules.ts`）、`accountDelta`、`balanceAt`、`balanceBefore` |
-| `ledger/summary.ts` | **分录 → 报表**：`summarizeFlows`、`flowByCategory`、`remainingRefundable` |
+| `ledger/summary.ts` | **分录 → 报表**：`summarizeFlows`、`flowByCategory` |
 | `ledger/rules.ts` | **固定内核唯一来源**：`postingsOf` / `transferOutflow` / `transferInflow` / `transferNet`、退款冲减、预算范围判定 |
 
 分录规则（口径定义见 [requirements.md](requirements.md) §3.1，实现见 `ledger/rules.ts` 的 `postingsOf`）：
@@ -107,7 +107,7 @@ adjustment  账户 +amount      权益 −amount
 |---|---|---|
 | `money.ts` | 整数分金额表示、安全加减与舍入、导入 / 展示边界的解析与格式化 | 值对象，不是工具函数集合 |
 | `date.ts` | `LocalDate`、半开区间、财务期间与投影分桶边界、日历拆解与 UTC 桥 | 不单独建 `calendar`；前端 `utils/date.ts` 只做转发，不写第二套算法 |
-| `ledger/` | 账务口径唯一来源、交易 → 分录、余额、收支汇总、退款上限 | 不单独建 `transaction`；交易类型与规则都在 `ledger/types.ts` / `rules.ts` |
+| `ledger/` | 账务口径唯一来源、交易 → 分录、余额、收支汇总、退款冲减方向 | 不单独建 `transaction`；交易类型与规则都在 `ledger/types.ts` / `rules.ts` |
 | `budget/` | 预算额度、计入口径、使用率、达成率、预算周期展开 | 不含预测值合成 |
 | `projection/` | 预测期间分桶、actual / committed / planned 数据合成、资产与现金流推演 | 不依赖具体报表实现 |
 | `statements/` | 资产负债表、收支表、现金流量表的完整计算 | 不依赖具体 API service 或 Prisma 类型；`aggregates.ts` 只放真正跨报表共享的领域计算，不做万能工具文件 |
@@ -130,7 +130,7 @@ adjustment  账户 +amount      权益 −amount
 |---|---|
 | `routes/*.route.ts` | 参数解析、校验、委托 service；不写业务判断、不算钱 |
 | `services/account*.service.ts` | 账户与账户分类 CRUD、级联清理 |
-| `services/transaction.service.ts` | 交易创建/更新/删除；退款上限调用领域层 `remainingRefundable` |
+| `services/transaction.service.ts` | 交易创建/更新/删除；退款无累计上限，只校验目标类型为收入/支出且金额为正 |
 | `services/balance.service.ts` | 批量余额（走 `balanceBefore` / `postingsOf`） |
 | `services/budget.service.ts` | 预算 CRUD、SQL 预聚合取数、预测编排与 DTO；计入口径 / 状态 / 用量 / 下钻 / 周期展开调用 `domain/budget/`，期间计划点位调用 `domain/projection/` |
 | `services/projection.service.ts`、`services/projection-events.ts` | 推演取数、BalanceCache、Prisma→领域映射、occurrence 装载与 20,000 事件阈值、DTO 序列化；分桶 / 三来源 / 资产与现金流推演全部走 `domain/projection/` |

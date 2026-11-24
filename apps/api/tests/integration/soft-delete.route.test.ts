@@ -123,7 +123,7 @@ describe('B2 软删除 / 审计事件 / 撤销 / 回收站', () => {
     const blockedAgain = await request(app).delete(`/api/transactions/${originalId}`)
     expect(blockedAgain.status).toBe(400)
 
-    // 退款可软删除，删除后可退余额回到全额
+    // 退款可软删除，删除后原交易的退款明细归零
     const refundable = await request(app).get('/api/transactions/refundable/list')
     const original = refundable.body.data.find(
       (tx: { id: string }) => tx.id === originalId,

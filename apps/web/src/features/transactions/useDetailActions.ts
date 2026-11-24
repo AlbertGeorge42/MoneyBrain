@@ -95,7 +95,7 @@ export function useDetailActions(variant: ToastVariant = 'stack') {
         return result
       }
       notify(
-        '已创建关联退款 · 原交易可退金额已更新',
+        '已创建关联退款 · 原交易退款记录已更新',
         result.undoToken ? () => runUndo(result.undoToken!, '已撤销退款') : undefined,
       )
       return result

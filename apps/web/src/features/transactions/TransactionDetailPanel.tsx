@@ -10,7 +10,6 @@ import {
   getAccount,
   getCategoryIconKey,
   getCategoryName,
-  getRefundSummary,
   getRelatedTransaction,
   transactionDirection,
   transactionRefLabel,
@@ -34,7 +33,7 @@ type Mode = 'view' | 'edit' | 'refund' | 'confirm-delete'
 
 /**
  * 从一笔收入 / 支出创建关联退款。记一笔表单已移除退款 tab，这里是退款的可写入口。
- * 金额默认取剩余可退额，账户默认原账户；关联由后端校验上限并继承原交易分类。
+ * 金额默认取原交易金额（允许高于原额），账户默认原账户；关联继承原交易分类。
  */
 function RefundCreateForm({
   transaction,
@@ -49,15 +48,15 @@ function RefundCreateForm({
   onSaved: () => void
   onCancel: () => void
 }) {
-  const remaining = getRefundSummary(ledger, transaction).remaining
-  const [amount, setAmount] = useState(String(remaining / 100))
+  const [amount, setAmount] = useState(String(transaction.amount / 100))
   const [accountId, setAccountId] = useState(transaction.accountId)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const cents = parseMoneyInput(amount)
-  const invalid = cents === null || cents <= 0 || cents > remaining
+  // 退款金额允许高于原交易金额，只需是正数。
+  const invalid = cents === null || cents <= 0
 
   const submit = async () => {
     if (invalid || saving) return
@@ -75,7 +74,7 @@ function RefundCreateForm({
   return (
     <div className="mb-tx-refund-create">
       <p className="mb-tx-refund-create-hint">
-        可退余额 {amountText(remaining)}。退款会作为一笔独立交易冲减原记录，不会修改原交易本身。
+        原交易金额 {amountText(transaction.amount)}。退款会作为一笔独立交易冲减原记录，不会修改原交易本身；金额允许高于原金额。
       </p>
       <label className="mb-tx-field" htmlFor="mb-tx-refund-amount">
         <FieldLabel>退款金额（元）</FieldLabel>
@@ -114,9 +113,6 @@ function RefundCreateForm({
           onChange={(event) => setNote(event.currentTarget.value)}
         />
       </label>
-      {invalid && cents !== null && cents > remaining && (
-        <p className="mb-tx-form-error" role="alert">退款金额不能超过可退余额。</p>
-      )}
       {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
       <div className="mb-tx-detail-actions">
         <Button variant="primary" onClick={() => void submit()} disabled={invalid || saving}>
@@ -166,11 +162,7 @@ function RefundLinkForm({
       .then(unwrapApiData)
       .then((items) => {
         if (cancelled) return
-        setCandidates(
-          items
-            .map((item) => toLedgerTransaction(item))
-            .filter((item) => getRefundSummary(ledger, item).remaining > 0),
-        )
+        setCandidates(items.map((item) => toLedgerTransaction(item)))
       })
       .catch((reason: unknown) => {
         if (!cancelled) setError(reason instanceof Error ? reason.message : '读取可关联原交易失败')
@@ -210,7 +202,7 @@ function RefundLinkForm({
       {loading ? (
         <p className="mb-tx-refund-link-hint">正在读取可关联原交易…</p>
       ) : candidates.length === 0 && !error ? (
-        <p className="mb-tx-refund-link-hint">当前没有仍有可退余额的收入/支出。</p>
+        <p className="mb-tx-refund-link-hint">当前没有可关联的收入/支出。</p>
       ) : (
         <select
           className="mb-shared-input mb-shared-input--select"
@@ -219,15 +211,12 @@ function RefundLinkForm({
           onChange={(event) => setSelected(event.target.value)}
         >
           <option value="">选择原交易…</option>
-          {candidates.map((candidate) => {
-            const summary = getRefundSummary(ledger, candidate)
-            return (
-              <option key={candidate.id} value={candidate.id}>
-                {transactionRefLabel(ledger, candidate)} · {formatDateLabel(candidate.date)} · 可退{' '}
-                {amountText(summary.remaining)}
-              </option>
-            )
-          })}
+          {candidates.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {transactionRefLabel(ledger, candidate)} · {formatDateLabel(candidate.date)} ·{' '}
+              {amountText(candidate.amount)}
+            </option>
+          ))}
         </select>
       )}
       {error && (
@@ -357,13 +346,12 @@ function DetailView({
       )}
 
       <div className="mb-tx-detail-actions">
-        {(transaction.type === 'income' || transaction.type === 'expense') &&
-          getRefundSummary(ledger, transaction).remaining > 0 && (
-            <Button onClick={onCreateRefund}>
-              <RotateCcw size={15} />
-              记一笔退款
-            </Button>
-          )}
+        {(transaction.type === 'income' || transaction.type === 'expense') && (
+          <Button onClick={onCreateRefund}>
+            <RotateCcw size={15} />
+            记一笔退款
+          </Button>
+        )}
         <Button variant="primary" onClick={onEdit}>
           <Pencil size={15} />
           编辑

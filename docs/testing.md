@@ -40,7 +40,7 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 
 1. 期末净资产 = 期初净资产 + 净收入 − 净支出 + 其他（不计收支、转账净额 c−f、平账）；
 2. 每笔转账满足 `转出 −(X+f)`、`转入 +(X+c)`、`Δ转出 + Δ转入 == c − f`，且 `Σ postings = 0`；
-3. 可退余额 = `max(原额 − Σ退款, 0)` 仅为录入参考；超退与跨账户退款合法，只做信息性提示。
+3. 退款无累计上限、不展示可退余额；超退与跨账户退款合法，只做信息性提示。
 
 `npm run db:drill` 验证**备份能不能还原出同样的钱**：导出 → 导入临时库 → 用领域层重算两边账户余额 → 逐项对比。两者都只碰只读数据或临时库；改动导出/导入/余额/口径逻辑后必须跑。
 
@@ -83,7 +83,7 @@ cd apps/web && npx vitest run tests/unit/ErrorBoundary.test.tsx
 |---|---|---|
 | 任意交易 `Σ postings.amount == 0` | ✅ | `packages/domain/tests/ledger.test.ts` |
 | 退款：全额退款后余额回到原交易前 | ✅ | 同上 |
-| 可退余额按 max(原额 − Σ退款, 0) 计算（超退合法，不判错） | ✅ | 同上 |
+| 退款无累计上限（超退合法，不判错） | ✅ | 同上 |
 | 转账：`转出 −(X+f)` / `转入 +(X+c)`，`Δ转出 + Δ转入 == c−f`，`Σ postings = 0` | ✅ | 同上 |
 | 期初余额是锚点：当天交易计入、锚点前余额可反推 | ✅ | 同上 |
 | 期间半开 `[start, endExclusive)` | ✅ | `packages/domain/tests/date.test.ts` |

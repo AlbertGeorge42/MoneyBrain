@@ -112,7 +112,6 @@ export {
 export {
   UNCATEGORIZED_CATEGORY_ID,
   flowByCategory,
-  remainingRefundable,
   summarizeAggregatedFlows,
   summarizeFlows,
   type AggregatedFlowRow,
