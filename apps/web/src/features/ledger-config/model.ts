@@ -17,13 +17,6 @@ import type {
   TxType,
 } from '@/features/overview/model'
 
-export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
-  deposit: '储蓄',
-  cash: '现金',
-  investment: '投资',
-  credit: '信用',
-}
-
 export type CategoryTab = 'income' | 'expense'
 
 export const CATEGORY_TABS: readonly { type: CategoryTab; label: string }[] = [
@@ -234,33 +227,6 @@ export function assetMarkOf(category: LedgerAccountCategory): AssetMarkId {
 
 /* ===== 账本修改 ===== */
 
-let idSeed = 0
-function nextId(prefix: string): string {
-  idSeed += 1
-  return `${prefix}-${Date.now().toString(36)}-${idSeed}`
-}
-
-export function addAccount(
-  ledger: Ledger,
-  input: {
-    name: string
-    kind: AccountKind
-    balance: number
-    initialBalance?: number
-    initialBalanceDate?: string
-  },
-): Ledger {
-  const account: LedgerAccount = {
-    id: nextId('acc'),
-    name: input.name,
-    kind: input.kind,
-    balance: input.balance,
-    initialBalance: input.initialBalance,
-    initialBalanceDate: input.initialBalanceDate ?? null,
-  }
-  return { ...ledger, accounts: [...ledger.accounts, account] }
-}
-
 export function updateAccount(
   ledger: Ledger,
   accountId: string,
@@ -283,10 +249,6 @@ export function updateAccount(
       return next
     }),
   }
-}
-
-export function removeAccount(ledger: Ledger, accountId: string): Ledger {
-  return { ...ledger, accounts: ledger.accounts.filter((account) => account.id !== accountId) }
 }
 
 /** 原地移动数组元素到目标下标（不修改原数组）。 */
@@ -323,20 +285,6 @@ export function reorderAccountTo(
     if (accountGroupKey(next[i]) === key) next[i] = newOrder[writePtr++]
   }
   return { ...ledger, accounts: next }
-}
-
-export function addCategory(
-  ledger: Ledger,
-  input: { name: string; type: TxType; parentId?: string; iconKey?: string | null },
-): Ledger {
-  const category: LedgerCategory = {
-    id: nextId('cat'),
-    name: input.name,
-    type: input.type,
-    parentId: input.parentId,
-    iconKey: input.iconKey,
-  }
-  return { ...ledger, categories: [...ledger.categories, category] }
 }
 
 export function updateCategory(

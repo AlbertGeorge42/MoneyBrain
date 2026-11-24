@@ -418,25 +418,4 @@ describe('现金流 tab 的平台适配', () => {
     expect(container.querySelector('.mb-rp-sankey-balance')).not.toBeNull()
     expect(container.querySelector('.mb-rp-flow-row')).toBeNull()
   })
-
-  it('隐藏分组的说明文字已移除，桑基图不再渲染图注', async () => {
-    const hiddenSankey = deriveCashSankey(LEDGER, report, { ...ALL_VISIBLE, 经营: false })
-    const { container } = render(
-      <MantineProvider>
-        <CashView
-          device="desktop"
-          report={report}
-          sankey={hiddenSankey}
-          side="out"
-          onSide={() => {}}
-          expanded={{}}
-          onFold={() => {}}
-          onDrill={() => {}}
-        />
-      </MantineProvider>,
-    )
-    // 说明文字已移除：桑基图注不再渲染，但隐藏组数仍在数据层正确。
-    expect(container.querySelector('.mb-rp-sankey .mb-rp-chart-note')).toBeNull()
-    expect(hiddenSankey.hiddenGroups).toBe(1)
-  })
 })

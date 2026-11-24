@@ -6,10 +6,10 @@
  * 也让「加一个图标」变成改多处布局的事。
  */
 import { useState } from 'react'
-import { Search, Tag, X } from 'lucide-react'
+import { Search, Tag } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
-import { IconButton } from '@/features/shared/IconButton'
 import { FieldLabel } from '@/features/shared/FieldLabel'
+import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import {
@@ -76,12 +76,7 @@ export function IconPickerSheet({
       desktopSize={380}
       contentClassName="mb-set-sheet"
     >
-      <div className="mb-set-sheet-head">
-        <h2 className="mb-set-sheet-title">选择图标</h2>
-        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
-          <X size={18} />
-        </IconButton>
-      </div>
+      <SettingsSheetHead title="选择图标" onClose={onClose} />
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
           <FieldLabel>搜索</FieldLabel>

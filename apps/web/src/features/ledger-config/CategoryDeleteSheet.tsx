@@ -2,9 +2,8 @@
  * 删除分类抽屉：有流水引用时，必须先选一个同类型分类承接这些流水。
  * 可转移目标 = 同类型且不在被删分类子树内的分类，一级分类排在前面。
  */
-import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
-import { IconButton } from '@/features/shared/IconButton'
+import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
@@ -36,12 +35,7 @@ export function CategoryDeleteSheet({
 
   return (
     <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
-      <div className="mb-set-sheet-head">
-        <h2 className="mb-set-sheet-title">删除「{row.name}」</h2>
-        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
-          <X size={18} />
-        </IconButton>
-      </div>
+      <SettingsSheetHead title={`删除「${row.name}」`} onClose={onClose} />
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
           共 {row.txCount} 笔交易引用这个分类（含子分类）。选择目标分类后，这些流水会整体转移，然后删除「{row.name}」。

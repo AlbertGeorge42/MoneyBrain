@@ -5,12 +5,11 @@
  * 与同一份 controller，不另建表格、表单或校验；视觉沿用设置页的 mb-set-* 内胆。
  * 由调用方按当前报表固定 tab 与标题，这里不提供跨分区切换，避免二级入口。
  */
-import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger } from '@/features/overview/model'
 import { Button } from '@/features/shared/Button'
-import { IconButton } from '@/features/shared/IconButton'
+import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
 import { AccountsSection } from './AccountsSection'
 import { CategoriesSection } from './CategoriesSection'
@@ -52,12 +51,7 @@ export function LedgerConfigManager({
         mobileSize="100%"
         contentClassName="mb-set-ledger-sheet"
       >
-        <div className="mb-set-sheet-head">
-          <h2 className="mb-set-sheet-title">{title}</h2>
-          <IconButton size="sm" aria-label="关闭" onClick={onClose}>
-            <X size={18} />
-          </IconButton>
-        </div>
+        <SettingsSheetHead title={title} onClose={onClose} />
         <div className="mb-set-sheet-body">
           {extra && <div className="mb-set-field mb-set-ledger-sheet-extra">{extra}</div>}
           {tab === 'accounts' ? (

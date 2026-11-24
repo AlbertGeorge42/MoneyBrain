@@ -8,7 +8,10 @@ import { editableAmount, formatAmountInput, normalizeAmountInput, parseMoneyInpu
 describe('parseMoneyInput', () => {
   it('归一化后进同一个解析内核', () => {
     expect(normalizeAmountInput(' ¥ 1,234.56 ')).toBe('1234.56')
+    expect(normalizeAmountInput(' 1 234.56 ')).toBe('1234.56')
     expect(parseMoneyInput('¥1,234.56')).toBe(123_456)
+    expect(parseMoneyInput('￥1,234.56')).toBe(123_456)
+    expect(parseMoneyInput('$1,234.56')).toBe(123_456)
     expect(parseMoneyInput('１２３４')).toBe(123_400)
     expect(parseMoneyInput('１２．５')).toBe(1250)
   })

@@ -109,14 +109,3 @@ export function deleteTransactionsFromLedger(ledger: Ledger, ids: readonly strin
     transactions: next.transactions.filter((transaction) => !removing.has(transaction.id)),
   }
 }
-
-export function setTransactionsCategory(ledger: Ledger, ids: readonly string[], categoryId: string): Ledger {
-  const changing = new Set(ids)
-  if (changing.size === 0) return ledger
-  return {
-    ...ledger,
-    transactions: ledger.transactions.map((transaction) =>
-      changing.has(transaction.id) ? { ...transaction, categoryId } : transaction,
-    ),
-  }
-}

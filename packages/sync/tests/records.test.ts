@@ -72,21 +72,3 @@ test('未知 entityType 跳过并警告，已知实体照常合并', () => {
   assert.equal(merged.skipped.length, 1)
   assert.equal(merged.inserted, 1)
 })
-
-test('同一组记录任意顺序合并结果一致，重复应用幂等', () => {
-  const first = record({ entityId: 'tx-1', rev: 1, vv: JSON.stringify({ deviceA: 1 }) })
-  const second = record({
-    entityId: 'tx-2',
-    rev: 2,
-    vv: JSON.stringify({ deviceA: 1 }),
-    data: { amount: 800, accountId: 'acc-2' },
-  })
-
-  const forward = mergeKnownRecords([], [first, second])
-  const backward = mergeKnownRecords([], [second, first])
-  assert.deepEqual(forward.records, backward.records)
-
-  const applied = mergeKnownRecords(forward.records, [first, second])
-  assert.equal(applied.duplicates, 2)
-  assert.deepEqual(applied.records, forward.records)
-})

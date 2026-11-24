@@ -5,10 +5,9 @@
  * 输入值与保存状态由页面的期初流程持有。
  */
 import type { Dispatch, SetStateAction } from 'react'
-import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
-import { IconButton } from '@/features/shared/IconButton'
 import { FieldLabel } from '@/features/shared/FieldLabel'
+import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import type { DeviceMode } from '@/features/shared/types'
@@ -60,16 +59,7 @@ export function OpeningSheet({
       }}
       desktopSize={460}
     >
-      <div className="mb-set-sheet-head">
-        <h2 className="mb-set-sheet-title">补充期初余额</h2>
-        <IconButton size="sm"
-          aria-label="关闭"
-          disabled={saving}
-          onClick={onSkip}
-        >
-          <X size={18} />
-        </IconButton>
-      </div>
+      <SettingsSheetHead title="补充期初余额" onClose={onSkip} disabled={saving} />
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
           当前有 {step.accounts.length} 个账户未设期初。期初余额 = 期初日期当天开始前的余额，当天交易照常计入；

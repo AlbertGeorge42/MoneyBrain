@@ -88,7 +88,7 @@ G-A →（等 L1–L3）→ H-A → H-B → H-C → G-B → G-C → I-A → I-B
 | 旧 `scripts/desktop.mjs`（Edge 链路）删除或迁移 `MoneyBrain.cmd` | 用户唯一双击入口，属产品决策；动它要同步 README / architecture / 本文件三处 |
 | `fix-expense-sign.mts`、`rebuild-from-qianji.mts` + 89 条平帐 JSON | 需先确认 dev.db 存量负数已清零，并裁定平帐数据是否继续作为历史证据保留 |
 | `sync-conflict.repository` / `containerAad` / `packages/sync/apply.ts` | 可能是 F-B/F-C 与决策 #34 的预留入口；迁移与 schema 模型不可删 |
-| 前端组件级视觉合并（两个交易详情、两张趋势图、8 处 Sheet 骨架） | CSS 前缀、退款跳转、移动键盘、ARIA 需 e2e 桌面/移动双视口截图验收 |
+| 两张趋势图合并（`ExpenseTrendChart` / `NetWorthTrend`） | 零基线 / 涨幅徽标 / 空态文案有差异，需 e2e 桌面/移动双视口截图验收 |
 | 预算 100% 边界统一、`EditForm` 两位小数校验 | 属于裁定产品口径，不是等价精简；`adjustment` 负数 / `limit===0` 须保留 |
 | 断点收敛、`Hf*` 换 Mantine 原生、受不变量保护文件里的零引用谓词 | 回归面最大、收益递减；按「出现第 3 个同类需求再抽」暂缓 |
 

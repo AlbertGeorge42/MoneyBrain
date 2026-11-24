@@ -4,10 +4,9 @@
  * 预览 / 导入的忙碌态与错误仍由页面持有；本文件只做展示与回调，
  * `ImportIssues` 同时供数据区「最近一次导入」复用。
  */
-import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
-import { IconButton } from '@/features/shared/IconButton'
 import { FieldLabel } from '@/features/shared/FieldLabel'
+import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { ImportFileSummary, ImportPreview } from '@contracts/types'
@@ -136,12 +135,7 @@ export function ImportSheet({
       }}
       desktopSize={460}
     >
-      <div className="mb-set-sheet-head">
-        <h2 className="mb-set-sheet-title">导入备份</h2>
-        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
-          <X size={18} />
-        </IconButton>
-      </div>
+      <SettingsSheetHead title="导入备份" onClose={onClose} />
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
           <FieldLabel>备份文件（.mbx / .zip / .csv / .json）</FieldLabel>

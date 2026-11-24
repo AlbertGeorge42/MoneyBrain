@@ -2,9 +2,8 @@
  * 「移动到…」抽屉：账户换分组、分类换父级、现金流分类换活动组。
  * 选项全部由账本与当前目标派生，选择后由页面执行移动。
  */
-import { X } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
-import { IconButton } from '@/features/shared/IconButton'
+import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import type { Ledger, TxType } from '@/features/overview/model'
@@ -92,12 +91,7 @@ export function MoverSheet({
 
   return (
     <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
-      <div className="mb-set-sheet-head">
-        <h2 className="mb-set-sheet-title">移动「{mover.name}」到…</h2>
-        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
-          <X size={18} />
-        </IconButton>
-      </div>
+      <SettingsSheetHead title={`移动「${mover.name}」到…`} onClose={onClose} />
       <div className="mb-set-sheet-body">
         <div className="mb-set-radio-list" role="radiogroup" aria-label="目标位置">
           {options.map((option) => (

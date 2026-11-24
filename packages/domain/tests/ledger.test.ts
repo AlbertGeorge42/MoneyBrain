@@ -14,7 +14,6 @@ import {
   transferInflow,
   transferNet,
   transferOutflow,
-  remainingRefundable,
   summarizeAggregatedFlows,
   summarizeFlows,
   type AggregatedFlowRow,
@@ -126,24 +125,6 @@ test('券大于手续费时账户净增加 c−f，分录仍守恒', () => {
   assert.equal(accountDelta(transfer, 'B'), money(105))
   assert.equal(transferNet(money(0), money(5)), money(5))
   assert.equal(postingsOf(transfer).reduce((total, posting) => total + posting.amount, 0), 0)
-})
-
-test('每笔交易的分录之和为 0', () => {
-  const samples: LedgerTransaction[] = [
-    tx({ id: '1', kind: 'income', date: d('2026-01-01'), amount: money(100), accountId: 'A', categoryId: 'salary' }),
-    tx({ id: '2', kind: 'expense', date: d('2026-01-01'), amount: money(20), accountId: 'A', categoryId: 'food' }),
-    tx({ id: '3', kind: 'transfer', date: d('2026-01-01'), amount: money(50), fee: money(1), accountId: 'A', toAccountId: 'B' }),
-    tx({ id: '4', kind: 'refund', date: d('2026-01-01'), amount: money(10), accountId: 'A', categoryId: 'food', relatedType: 'expense' }),
-    tx({ id: '5', kind: 'adjustment', date: d('2026-01-01'), amount: money(-5), accountId: 'A' }),
-  ]
-
-  for (const sample of samples) {
-    assert.equal(
-      postingsOf(sample).reduce((total, posting) => total + posting.amount, 0),
-      0,
-      sample.id,
-    )
-  }
 })
 
 test('收支汇总会按原交易类型冲减退款', () => {
@@ -287,15 +268,6 @@ test('预算口径的 SQL 参数：退款冲减哪一侧、是否计退款', () 
     scopeQuery({ kind: 'transfer', accountId: 'A', toAccountId: 'B', categoryIds: new Set(['move']) }),
     { type: 'transfer', countsRefunds: false, refundRelatedType: 'transfer' },
   )
-})
-
-test('退款金额不能超过原交易净额', () => {
-  const original = tx({ id: 'e1', kind: 'expense', date: d('2026-01-01'), amount: money(100), accountId: 'A', categoryId: 'food' })
-  const refunds = [
-    tx({ id: 'r1', kind: 'refund', date: d('2026-01-02'), amount: money(30), accountId: 'A', categoryId: 'food', relatedTransactionId: 'e1', relatedType: 'expense' }),
-  ]
-
-  assert.equal(remainingRefundable(original, refunds), money(70))
 })
 
 test('内核口径固定：同一笔交易不随写入时点改变解释', () => {

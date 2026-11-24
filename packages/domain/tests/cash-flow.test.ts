@@ -94,6 +94,16 @@ test('聚合基线：退款方向由原交易类型决定、不明类型跳过�
   assert.equal(adjustment.operating.inflow, 0)
   assert.equal(adjustment.investing.inflow, 0)
   assert.equal(adjustment.financing.inflow, 0)
+
+  // 收支与退款混合：支出退款进流入侧、收入退款进流出侧，净额自洽。
+  const mixed = aggregate([
+    tx({ type: 'income', amount: m(1000) }),
+    tx({ type: 'expense', amount: m(300) }),
+    tx({ type: 'refund', relatedType: 'expense', amount: m(50) }),
+    tx({ type: 'refund', relatedType: 'income', amount: m(200) }),
+  ])
+  assert.equal(mixed.operating.inflow, 1050)
+  assert.equal(mixed.operating.outflow, -500)
 })
 
 test('聚合基线：转账单边分派用规则取额，现金→现金本金相消、只记手续费', () => {

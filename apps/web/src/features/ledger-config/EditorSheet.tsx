@@ -5,10 +5,10 @@
  * 抽屉本身只负责输入与校验，不直接改账本。
  */
 import { useEffect, useState } from 'react'
-import { ChevronRight, Trash2, X } from 'lucide-react'
+import { ChevronRight, Trash2 } from 'lucide-react'
 import { Button } from '@/features/shared/Button'
-import { IconButton } from '@/features/shared/IconButton'
 import { FieldLabel } from '@/features/shared/FieldLabel'
+import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
@@ -226,12 +226,7 @@ export function EditorSheet({
 
   return (
     <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
-      <div className="mb-set-sheet-head">
-        <h2 className="mb-set-sheet-title">{title}</h2>
-        <IconButton size="sm" aria-label="关闭" onClick={onClose}>
-          <X size={18} />
-        </IconButton>
-      </div>
+      <SettingsSheetHead title={title} onClose={onClose} />
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
           <FieldLabel>名称</FieldLabel>
