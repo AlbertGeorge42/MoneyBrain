@@ -10,7 +10,7 @@ import { Trash2 } from 'lucide-react'
 import { auditEventApi, transactionApi } from '@/services/api'
 import { getApiErrorMessage } from '@/services/apiError'
 import { unwrapApiData } from '@/services/apiResult'
-import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
+import { toLedgerTransaction } from '@/features/overview/apiLedger'
 import { formatDateLabel, getAccount, getCategoryName } from '@/features/overview/model'
 import { Button } from '@/features/shared/Button'
 import { signedAmountText } from '@/features/overview/format'
@@ -40,21 +40,22 @@ const TYPE_LABEL: Record<string, string> = {
   transfer: '转账',
 }
 
-function useRecycleBin(ledger: Ledger) {
+function useRecycleBin() {
   const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: ['hf', 'recycle-bin'],
     queryFn: () => transactionApi.getRecycleBin().then(unwrapApiData),
   })
 
-  const rows: RecycleRow[] = useMemo(() => {
-    const mapper = mapperFromLedger(ledger)
-    return (query.data?.list ?? []).map((item) => ({
-      id: item.transaction.id,
-      deleteEventId: item.deleteEventId,
-      transaction: toLedgerTransaction(item.transaction, mapper),
-    }))
-  }, [ledger, query.data])
+  const rows: RecycleRow[] = useMemo(
+    () =>
+      (query.data?.list ?? []).map((item) => ({
+        id: item.transaction.id,
+        deleteEventId: item.deleteEventId,
+        transaction: toLedgerTransaction(item.transaction),
+      })),
+    [query.data],
+  )
 
   const entities: RecycleBinEntityItem[] = useMemo(
     () => [...(query.data?.accounts ?? []), ...(query.data?.categories ?? [])],
@@ -92,13 +93,12 @@ function useRecycleBin(ledger: Ledger) {
 
 /** 只负责把真实回收站数量同步到设置页导航与摘要（无可见输出）。 */
 export function RecycleBinCountProbe({
-  ledger,
   onCount,
 }: {
   ledger: Ledger
   onCount: (count: number) => void
 }) {
-  const { rows, entities } = useRecycleBin(ledger)
+  const { rows, entities } = useRecycleBin()
   const count = rows.length + entities.length
   useEffect(() => {
     onCount(count)
@@ -107,7 +107,7 @@ export function RecycleBinCountProbe({
 }
 
 export function RecycleBinPanel({ ledger }: { ledger: Ledger }) {
-  const { rows, entities, status, refetch, restore } = useRecycleBin(ledger)
+  const { rows, entities, status, refetch, restore } = useRecycleBin()
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [error, setError] = useState('')
 

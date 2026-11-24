@@ -80,15 +80,14 @@ export interface BalanceRow {
   amount: number
   /** 金额中的预测部分；≠ 0 时行内标「预测」。 */
   predicted?: number
-  /** 所属账户分类的真实 id；null / undefined = 未分组（种子账本没有账户分类）。 */
+  /** 所属账户分类的真实 id；null / undefined = 未分组。 */
   categoryId?: string | null
 }
 
 /**
  * 资产负债两层：账户分类 → 账户。
  *
- * 每一行账户按它所属的分类归组，组内直接列账户；账本没有分类元数据
- * （种子账本 / 测试夹具）时按后端节点的分类名兜底，层级仍然成立。
+ * 每一行账户按它所属的分类归组，组内直接列账户；账户没有分类元数据时按账户性质兜底，层级仍然成立。
  */
 export interface BalanceGroup {
   id: string
@@ -239,14 +238,9 @@ export interface CashReport {
   investingNet: number
   financingNet: number
   closingCash: number
-  /**
-   * API 模式：后端三层桑基的节点 / link；种子模式为空，由桑基模型按流水推导。
-   */
+  /** 后端三层桑基的节点 / link；缺省时由桑基模型按流水推导。 */
   apiSankey?: CashFlowReportData['sankey']
-  /**
-   * API 模式：后端口径的期初现金（现金等价账户）。
-   * 种子模式没有该字段，桑基仍用全账户净额回放。
-   */
+  /** 后端口径的期初现金（现金等价账户）；缺省时桑基用全账户净额回放。 */
   openingCash?: number
   /**
    * 后端现金流分组已包含对账修正与手续费；桑基不能再补一次，否则会重复计。

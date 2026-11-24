@@ -51,82 +51,12 @@ import type {
 } from './model'
 import { budgetLevel, recentTwelveMonthsRange } from './model'
 
-/**
- * 真实分类是 UUID，而总览的分类图标按种子 key（food / salary…）取字形。
- * 名称命中种子分类时把根分类 id 映射成同一个 key，保证接线后视觉与种子一致。
- * 未命中的分类保留真实 id，图标回退为通用 Tag。
- */
-const CATEGORY_KEY_BY_NAME: Record<string, string> = {
-  餐饮: 'food',
-  交通: 'traffic',
-  居住: 'home',
-  购物: 'shop',
-  娱乐: 'fun',
-  医疗: 'health',
-  教育: 'edu',
-  其他: 'other',
-  工资: 'salary',
-  理财收益: 'inv',
-  红包: 'gift',
-  退款: 'refund',
-  账户互转: 'move',
-}
-
-interface CategoryDisplayMapper {
-  /** 真实分类 id → 展示 id（种子 key 或原 id）。 */
-  displayId: (id: string | null | undefined) => string
-  /** 展示 id → 真实分类 id；未映射的视为本身就是真实 id。 */
-  realId: (displayId: string) => string
-  /** 真实 → 展示 的全量映射，挂在 Ledger.ids 上供跨页面复用。 */
-  display: Record<string, string>
-  /** 展示 → 真实 的全量映射。 */
-  real: Record<string, string>
-}
-
-export function createCategoryDisplayMapper(
-  categories: readonly TransactionCategory[],
-): CategoryDisplayMapper {
-  const display = new Map<string, string>()
-  const real: Record<string, string> = {}
-  const used = new Set<string>()
-  for (const category of categories) {
-    const key = CATEGORY_KEY_BY_NAME[category.name.trim()]
-    // 同名根分类（如收入/支出都叫「其他」）只映射第一个，避免展示 id 撞车。
-    if (!category.parentId && key && !used.has(key)) {
-      display.set(category.id, key)
-      real[key] = category.id
-      used.add(key)
-    }
-  }
-  return {
-    displayId: (id) => (id ? display.get(id) ?? id : ''),
-    realId: (displayId) => real[displayId] ?? displayId,
-    display: Object.fromEntries(display),
-    real,
-  }
-}
-
-/** 复用账本里的映射（API 模式下 Ledger.ids 由 buildLedgerFromApi 写入）。 */
-export function mapperFromLedger(ledger: Ledger): CategoryDisplayMapper {
-  const display = ledger.ids?.categoryDisplay ?? {}
-  const real = ledger.ids?.categoryReal ?? {}
-  return {
-    displayId: (id) => (id ? display[id] ?? id : ''),
-    realId: (displayId) => real[displayId] ?? displayId,
-    display,
-    real,
-  }
-}
-
-function toBaseLedgerTransaction(
-  transaction: Transaction,
-  mapper: CategoryDisplayMapper,
-): LedgerTransaction {
+function toBaseLedgerTransaction(transaction: Transaction): LedgerTransaction {
   return {
     id: transaction.id,
     date: calendarDay(transaction.date),
     type: transaction.type,
-    categoryId: mapper.displayId(transaction.categoryId),
+    categoryId: transaction.categoryId ?? '',
     note: transaction.note ?? '',
     accountId: transaction.accountId,
     amount: transaction.amount,
@@ -143,17 +73,14 @@ function toBaseLedgerTransaction(
  * 交易 DTO → 页面模型：连同退款双向关系一起带上。
  * 列表/详情抽屉据此显示「退款 · 关联 #原交易」并可跳到对方详情，无需额外查库。
  */
-export function toLedgerTransaction(
-  transaction: Transaction,
-  mapper: CategoryDisplayMapper,
-): LedgerTransaction {
-  const base = toBaseLedgerTransaction(transaction, mapper)
+export function toLedgerTransaction(transaction: Transaction): LedgerTransaction {
+  const base = toBaseLedgerTransaction(transaction)
   const relatedTransaction = transaction.relatedTransaction
-    ? toBaseLedgerTransaction(transaction.relatedTransaction, mapper)
+    ? toBaseLedgerTransaction(transaction.relatedTransaction)
     : undefined
   const refunds = (transaction.refunds ?? [])
     .filter((refund) => refund.type === 'refund')
-    .map((refund) => toBaseLedgerTransaction(refund, mapper))
+    .map((refund) => toBaseLedgerTransaction(refund))
 
   if (base.type === 'expense' || base.type === 'income') {
     const refundedAmount = refunds.reduce((total, refund) => total + refund.amount, 0)
@@ -258,14 +185,11 @@ async function fetchAllTransactions(): Promise<Transaction[]> {
 }
 
 export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal()): Ledger {
-  const mapper = createCategoryDisplayMapper(payload.categories)
-  const displayId = mapper.displayId
-
   const categories: LedgerCategory[] = payload.categories.map((category) => ({
-    id: displayId(category.id),
+    id: category.id,
     name: category.name,
     type: asTxType(category.type),
-    parentId: category.parentId ? displayId(category.parentId) : undefined,
+    parentId: category.parentId ?? undefined,
     cashFlowType: category.cashFlowType,
     effectiveCashFlowType: category.effectiveCashFlowType,
     iconKey: category.iconKey,
@@ -307,7 +231,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     type: asTxType(budget.type),
     period: asBudgetPeriod(budget.period),
     limit: Number(budget.amount),
-    categoryId: displayId(budget.categoryId) || undefined,
+    categoryId: budget.categoryId || undefined,
     accountId: budget.accountId,
     toAccountId: budget.toAccountId ?? undefined,
     transactionTime: budget.transactionTime ?? null,
@@ -340,7 +264,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     budgetsSummary.limit === 0 ? 0 : (budgetsSummary.used / budgetsSummary.limit) * 100
 
   const transactions: LedgerTransaction[] = payload.transactions.map((transaction: Transaction) =>
-    toLedgerTransaction(transaction, mapper),
+    toLedgerTransaction(transaction),
   )
 
   // 负债账户余额在 API 里以正数表示欠款；净资产 = 资产 − 负债。
@@ -365,7 +289,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
   // 支出图表直接使用后端聚合：趋势按月取 /analytics/trends，
   // 分类构成取 /analytics/category-breakdown，不在前端按流水再算一遍。
   const expenseCategories: ExpenseCategorySlice[] = payload.expenseCategories.map((item) => ({
-    id: displayId(item.categoryId),
+    id: item.categoryId ?? '',
     name: item.name,
     amount: item.value,
   }))
@@ -403,7 +327,6 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     accountCategories,
     budgets,
     transactions,
-    ids: { categoryDisplay: mapper.display, categoryReal: mapper.real },
     snapshot: {
       overview,
       budgets: budgetsSummary,
@@ -415,7 +338,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
   }
 }
 
-/** API 模式加载中/失败时的占位账本：不是种子数据，页面此时只渲染骨架或错误态。 */
+/** 加载中/失败时的空账本占位：页面此时只渲染骨架或错误态。 */
 export const EMPTY_LEDGER: Ledger = {
   accounts: [],
   categories: [],

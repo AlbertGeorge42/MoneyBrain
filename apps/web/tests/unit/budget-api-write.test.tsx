@@ -48,7 +48,7 @@ const apiBudget = {
   isActive: true,
   accountId: 'acc1',
   toAccountId: null,
-  categoryId: 'real-food',
+  categoryId: 'food',
 }
 
 const ledger: Ledger = {
@@ -72,10 +72,6 @@ const ledger: Ledger = {
     },
   ],
   transactions: [],
-  ids: {
-    categoryReal: { food: 'real-food', salary: 'real-salary' },
-    categoryDisplay: { 'real-food': 'food', 'real-salary': 'salary' },
-  },
 }
 
 const success = (data: unknown) => ({ data: { success: true, data } })
@@ -133,7 +129,7 @@ describe('预算写操作（API 模式）', () => {
     expect(mocks.update.mock.calls[0][0]).toBe('b1')
     expect(mocks.update.mock.calls[0][1]).toMatchObject({
       amount: 150_000,
-      categoryId: 'real-food',
+      categoryId: 'food',
       accountId: 'acc1',
       type: 'expense',
       period: 'monthly',
@@ -159,7 +155,7 @@ describe('预算写操作（API 模式）', () => {
       amount: 120_000,
       type: 'expense',
       period: 'monthly',
-      categoryId: 'real-food',
+      categoryId: 'food',
       accountId: 'acc1',
     })
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('已新增预算「通勤」'))

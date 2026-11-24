@@ -20,11 +20,11 @@ export interface LedgerAccount {
   name: string
   kind: AccountKind
   balance: number
-  /** 期初余额（分，API 适配层带入）；种子账本没有独立期初，视为未设。 */
+  /** 期初余额（分）。 */
   initialBalance?: number
-  /** 期初余额的生效日期（API 适配层带入）；晚于报表期间起点时，该账户期初在期中才生效。 */
+  /** 期初余额的生效日期；晚于报表期间起点时，该账户期初在期中才生效。 */
   initialBalanceDate?: string | null
-  /** 所属账户分组（后端 AccountCategory 的真实 id）；null = 未分组。种子账本无分组。 */
+  /** 所属账户分组（后端 AccountCategory 的真实 id）；null = 未分组。 */
   categoryId?: string | null
 }
 
@@ -48,8 +48,6 @@ export interface LedgerAccountCategory {
   effectiveIsInvestment?: boolean
   /** 用户设置的受控图标 key；null / 缺省 = 前端默认图标。 */
   iconKey?: string | null
-  /** 演示账本的分类只读标记（仅种子数据设置，API 数据不带）。 */
-  seeded?: boolean
 }
 
 export interface LedgerCategory {
@@ -99,7 +97,7 @@ export interface LedgerTransaction {
   fee?: number
   /** 转账优惠券：转入方额外到账金额，与后端 / Domain 的 X / f / c 语义一致。 */
   coupon?: number
-  /** 退款关联的原交易；同时供 API 与种子账本使用（种子以 id 关联）。 */
+  /** 退款关联的原交易 id。 */
   relatedTransactionId?: string
   /** 原交易类型；退款冲减哪一侧由它决定（缺省 = 未关联退款，只影响余额）。 */
   relatedType?: TxType | null
@@ -107,7 +105,7 @@ export interface LedgerTransaction {
   relatedTransaction?: LedgerTransaction
   /** API 适配层带入的有效退款（软删除的不在其中）。 */
   refunds?: LedgerTransaction[]
-  /** 原交易已退款合计（API 适配层预计算；种子模式由 getRefundSummary 现算）。 */
+  /** 原交易已退款合计（API 适配层预计算）。 */
   refundedAmount?: number
   /** 原交易剩余可退金额。 */
   remainingAmount?: number
@@ -120,7 +118,6 @@ export interface LedgerTransaction {
  *
  * 总览的收支、预算、走势在 API 模式下直接采用后端口径，
  * 避免前端本地算法与领域规则（退款冲减、预算账户绑定）出现第二套口径。
- * 种子模式下不提供 snapshot，派生函数仍走本地纯函数。
  */
 interface LedgerSnapshot {
   overview: OverviewSummary
@@ -139,18 +136,9 @@ export interface Ledger {
   categories: LedgerCategory[]
   budgets: LedgerBudget[]
   transactions: LedgerTransaction[]
-  /** 账户分组（API 模式由 /account-categories 带入；种子账本为 undefined）。 */
+  /** 账户分组（由 /account-categories 带入）。 */
   accountCategories?: LedgerAccountCategory[]
   snapshot?: LedgerSnapshot
-  /** API 模式下展示 id 与后端真实 id 的映射（种子账本为 undefined）。 */
-  ids?: LedgerIds
-}
-
-interface LedgerIds {
-  /** 后端真实分类 id → 展示用 id（根分类被改写成种子 key 时存在）。 */
-  categoryDisplay?: Record<string, string>
-  /** 展示用分类 id → 后端真实 id（用于把筛选/写入参数翻回真实 id）。 */
-  categoryReal?: Record<string, string>
 }
 
 export const TODAY = '2026-10-28'
@@ -168,10 +156,9 @@ export function latestTransactionDate(
 }
 
 /**
- * 报表 / 预算的期间锚点：真实今天与最新流水取较晚者。
+ * 报表 / 预算的期间锚点：今天与最新流水取较晚者。
  *
- * API 模式不再用种子的 2026-10-28，否则用户到不了真实的 11 月；
- * 有未来日期的数据时也不会把用户挡在数据之外。种子模式没有 snapshot，仍用 TODAY。
+ * 有未来日期的数据时也不会把用户挡在数据之外。
  */
 export function ledgerAnchorDay(ledger: Ledger): string {
   const today = ledger.snapshot?.today ?? TODAY
@@ -205,7 +192,7 @@ export interface TrendPoint {
   value: number
 }
 
-/** 支出分类构成的一片；id 为展示 id（API 模式已按分类映射翻成种子 key 或真实 id）。 */
+/** 支出分类构成的一片；id 为后端真实分类 id。 */
 export interface ExpenseCategorySlice {
   id: string
   name: string
@@ -498,8 +485,8 @@ function netExpenseAmount(transaction: LedgerTransaction): number | null {
 /**
  * 支出趋势与分类构成。
  *
- * API 模式直接返回后端 /analytics/trends 与 /analytics/category-breakdown 的聚合值；
- * 种子模式没有后端，才按同一口径从种子流水派生（仅用于演示，不代表真实库口径）。
+ * 有后端快照时直接返回 /analytics/trends 与 /analytics/category-breakdown 的聚合值；
+ * 否则按同一口径从流水本地派生。
  */
 export function deriveExpenseCharts(ledger: Ledger, today = ledgerAnchorDay(ledger)): ExpenseCharts {
   if (ledger.snapshot) return ledger.snapshot.expenseCharts
@@ -656,7 +643,7 @@ interface RefundSummary {
   state: 'none' | 'partial' | 'full'
 }
 
-/** 原交易的退款列表：API 用适配层带入的 refunds；种子按 relatedTransactionId 现算。 */
+/** 原交易的退款列表：适配层带入 refunds 时直接用，否则按 relatedTransactionId 现算。 */
 export function getRefundList(ledger: Ledger, transaction: LedgerTransaction): LedgerTransaction[] {
   if (transaction.refunds) return transaction.refunds
   return ledger.transactions.filter(

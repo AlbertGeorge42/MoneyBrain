@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerContext, type LedgerContextValue } from '@/features/overview/ledgerStore'
 import { ToastProvider } from '@/features/shared/toast'
 import { TODAY, deriveExpenseCharts } from '@/features/overview/model'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { BalanceView } from '@/features/reports/BalanceView'
 import {
@@ -51,7 +51,7 @@ vi.mock('@/features/reports/apiReports', async (importOriginal) => {
   }
 })
 
-const ledger = createSeedLedger()
+const ledger = createTestLedger()
 // 账本不带 accountCategories：表格仍应按后端 assetNodes 的分类名呈现层级。
 const apiLedger = {
   ...ledger,
@@ -398,7 +398,7 @@ describe('账户分类按设置平铺（真实库父子结构）', () => {
     const report = mapBalanceReport(
       balance,
       [{ label: '本期', netWorth: 1_100_000 }],
-      createSeedLedger(),
+      createTestLedger(),
     )
     render(
       <MantineProvider>
@@ -446,7 +446,7 @@ describe('移动端构成环跟随分段切换', () => {
     const report = mapBalanceReport(
       balance,
       [{ label: '本期', netWorth: 1_100_000 }],
-      createSeedLedger(),
+      createTestLedger(),
     )
     const { container } = render(
       <MantineProvider>

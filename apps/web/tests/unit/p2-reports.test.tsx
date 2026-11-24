@@ -25,7 +25,7 @@ import {
   type ReportTime,
 } from '@/features/reports/reportsTime'
 import { TODAY } from '@/features/overview/model'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 
 const MONTH_TIME: ReportTime = {
   gran: 'month',
@@ -75,7 +75,7 @@ describe('#10 期间措辞统一', () => {
         liabilityNodes: [],
       } as never,
       [],
-      createSeedLedger(),
+      createTestLedger(),
     )
     expect(balance.point <= TODAY).toBe(true)
     expect(formatPointLabel(balance.point, 'month', TODAY)).toBe('2026 年 10 月 · 截至 10-28')
@@ -130,7 +130,7 @@ describe('#16 卡片「其余」合并桶与下钻同口径', () => {
   })
 
   it('点进「其余」的下钻金额与被点行一致', () => {
-    const drill = buildDrillFor(createSeedLedger(), flowDrillTarget(restNode, 'expense'), '2026-10-01', '2026-10-28')
+    const drill = buildDrillFor(createTestLedger(), flowDrillTarget(restNode, 'expense'), '2026-10-01', '2026-10-28')
     expect(drill.title).toBe('其余 2 类')
     expect(drill.amount).toBe(2_490)
     expect(drill.children.reduce((sum, child) => sum + child.amount, 0)).toBe(2_490)
@@ -197,7 +197,7 @@ describe('时点下钻按粒度回溯一个桶', () => {
   })
 
   it('回溯区间只收桶内流水，桶外更早流水不进下钻', () => {
-    const seed = createSeedLedger()
+    const seed = createTestLedger()
     const ledgerWithHistory = {
       ...seed,
       transactions: [

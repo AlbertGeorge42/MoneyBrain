@@ -52,7 +52,7 @@ export interface LedgerAccountGroupInput {
   iconKey?: string | null
 }
 
-/** 设置页分类表单：parentId 为展示 id（种子 key 或真实 id）。 */
+/** 设置页分类表单：parentId 为父分类的真实 id。 */
 export interface LedgerCategoryInput {
   name: string
   type: TxType

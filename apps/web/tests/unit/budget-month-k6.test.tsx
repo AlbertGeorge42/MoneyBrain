@@ -10,7 +10,7 @@ import { MantineProvider } from '@mantine/core'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import type { Ledger } from '@/features/overview/model'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 
 function renderBudget(ledger: Ledger) {
   return render(
@@ -32,7 +32,7 @@ function renderBudget(ledger: Ledger) {
 
 /** 种子账本 + 一笔 11-05 流水：锚点应离开种子的 2026-10-28。 */
 function ledgerWithNovember(): Ledger {
-  const seed = createSeedLedger()
+  const seed = createTestLedger()
   return {
     ...seed,
     transactions: [

@@ -19,7 +19,7 @@ import {
   type LedgerAccountCategory,
   type LedgerTransaction,
 } from '@/features/overview/model'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 import {
   mapBalanceReport,
   mapCashReport,
@@ -50,9 +50,9 @@ function source(relative: string): string {
 
 function ledgerWith(transactions: LedgerTransaction[], today?: string): Ledger {
   return {
-    ...createSeedLedger(),
+    ...createTestLedger(),
     transactions,
-    ...(today ? { snapshot: { ...(createSeedLedger().snapshot ?? {}), today } as never } : {}),
+    ...(today ? { snapshot: { ...(createTestLedger().snapshot ?? {}), today } as never } : {}),
   }
 }
 
@@ -335,7 +335,7 @@ describe('视图 ↔ 端点映射', () => {
   })
 
   it('资产负债：账户行 / 合计 / 趋势都取自后端字段，信用卡不进资产环', () => {
-    const ledger = createSeedLedger()
+    const ledger = createTestLedger()
     const report = mapBalanceReport(BALANCE, TREND, ledger)
     const rows = [...report.assets, ...report.liabilities]
     expect(report.assetTotal).toBe(15172915)
@@ -354,7 +354,7 @@ describe('视图 ↔ 端点映射', () => {
   })
 
   it('负债表列出全部非零负债账户，负债 + 权益 = 资产（真实库 754,745.63 / 16,030.15）', () => {
-    const report = mapBalanceReport(REAL_BALANCE, [{ label: '2026-11', netWorth: 73871548 }], createSeedLedger())
+    const report = mapBalanceReport(REAL_BALANCE, [{ label: '2026-11', netWorth: 73871548 }], createTestLedger())
     // 5 个负债账户一个不少，合计等于后端总负债；不再被资产侧的 actual > 0 过滤成 0 行。
     expect(report.liabilities.map((row) => row.id)).toEqual(['l1', 'l2', 'l3', 'l4', 'l5'])
     expect(report.liabilities.reduce((sum, row) => sum + row.amount, 0)).toBe(1603015)
@@ -367,7 +367,7 @@ describe('视图 ↔ 端点映射', () => {
   })
 
   it('资产表覆盖全部非零账户：负余额保留、0 元账户折叠（真实库 7 行 + 2 个 0 元）', () => {
-    const report = mapBalanceReport(REAL_BALANCE, [], createSeedLedger())
+    const report = mapBalanceReport(REAL_BALANCE, [], createTestLedger())
     // 负余额资产不再被 actual > 0 吞掉：7 个非零账户按后端分类 / 账户顺序列出。
     expect(report.assets.map((row) => row.id)).toEqual([
       'a-ysf',
@@ -388,7 +388,7 @@ describe('视图 ↔ 端点映射', () => {
   })
 
   it('资产构成为正余额口径：环内合计与资产表差额 = 负余额资产（真实库 882,603.34 / −127,857.71）', () => {
-    const report = mapBalanceReport(REAL_BALANCE, [], createSeedLedger())
+    const report = mapBalanceReport(REAL_BALANCE, [], createTestLedger())
     // 差额逐分等于被排除的负余额资产，图注用同一组数字解释。
     expect(report.positiveAssetTotal).toBe(88260334)
     expect(report.positiveAssetTotal + report.negativeAssetTotal).toBe(report.assetTotal)
@@ -401,7 +401,7 @@ describe('视图 ↔ 端点映射', () => {
   })
 
   it('资产负债层级（真实库 2026-10-31）：三处对账逐项相等', () => {
-    const ledger = { ...createSeedLedger(), accountCategories: REAL_CATEGORIES }
+    const ledger = { ...createTestLedger(), accountCategories: REAL_CATEGORIES }
     const report = mapBalanceReport(REAL_BALANCE_20261031, [], ledger)
     // 资产表行合计 / 负债表行合计 / 净资产行，三处逐分相等。
     expect(report.assetTotal).toBe(111686888)
@@ -415,7 +415,7 @@ describe('视图 ↔ 端点映射', () => {
   })
 
   it('层级小计：子项之和 = 父项小计，根级之和 = 资产 / 负债合计', () => {
-    const ledger = { ...createSeedLedger(), accountCategories: REAL_CATEGORIES }
+    const ledger = { ...createTestLedger(), accountCategories: REAL_CATEGORIES }
     const report = mapBalanceReport(REAL_BALANCE_20261031, [], ledger)
     const assetGroups = buildBalanceGroups(report.assets, REAL_CATEGORIES)
     const liabilityGroups = buildBalanceGroups(report.liabilities, REAL_CATEGORIES)
@@ -620,7 +620,7 @@ describe('期间边界与锚点', () => {
     expect(
       ledgerAnchorDay(ledgerWith([tx({ id: 'f1', date: '2027-01-02' })], '2026-11-06')),
     ).toBe('2027-01-02')
-    expect(ledgerAnchorDay(createSeedLedger())).toBe('2026-10-28')
+    expect(ledgerAnchorDay(createTestLedger())).toBe('2026-10-28')
   })
 })
 

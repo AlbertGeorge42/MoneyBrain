@@ -49,7 +49,6 @@ const ledger: Ledger = {
     { id: 'other', name: '其他', type: 'expense' },
   ],
   budgets: [],
-  ids: { categoryReal: {}, categoryDisplay: {} },
   transactions: [
     { id: 't1', date: '2026-10-05', type: 'expense', categoryId: 'food_lunch', note: '午餐', accountId: 'cmb', amount: 2_000 },
     { id: 't2', date: '2026-10-20', type: 'expense', categoryId: 'other', note: '对账', accountId: 'cmb', amount: 240 },

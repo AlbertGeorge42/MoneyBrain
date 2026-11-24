@@ -431,7 +431,7 @@ export function BudgetPage({
   notify,
 }: BudgetPageProps) {
   const { ledger, createBudget, updateBudget, deleteBudget: removeBudget, undo } = useLedger()
-  // 锚点跟真实数据走：API 模式用真实今天 / 最新流水，不再停在种子的 2026-10。
+  // 锚点跟真实数据走：用真实今天 / 最新流水。
   const anchorDay = ledgerAnchorDay(ledger)
   const currentMonth = anchorDay.slice(0, 7)
   const [monthOverride, setMonthOverride] = useState<string | null>(null)
@@ -556,15 +556,13 @@ export function BudgetPage({
     transactionTime: budget.transactionTime ?? null,
   })
 
-  /** 真实后端 PUT 的原始字段：金额字段名是 amount（整数分），分类 id 要还原成后端真实 id。 */
+  /** 后端 PUT 的原始字段：金额字段名是 amount（整数分）。 */
   const toBudgetBody = (budget: LedgerBudget, amount: number): Partial<Budget> => ({
     name: budget.name,
     type: budget.type as Budget['type'],
     period: budget.period as Budget['period'],
     amount: amount as Budget['amount'],
-    categoryId: budget.categoryId
-      ? (ledger.ids?.categoryReal?.[budget.categoryId] ?? budget.categoryId)
-      : undefined,
+    categoryId: budget.categoryId ?? undefined,
     accountId: budget.accountId,
     toAccountId: budget.toAccountId,
     // 0 是合法天偏移；只有 null 才省略，避免改限额/启停时把已有发生日清零。

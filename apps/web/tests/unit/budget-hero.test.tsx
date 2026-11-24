@@ -11,7 +11,7 @@ import { MantineProvider } from '@mantine/core'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import type { Ledger } from '@/features/overview/model'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 
 /** 后端 statuses 的用量：购物 125,720 / 80,000（超支），娱乐 7,900 / 9,000（接近上限）。 */
 const USED: Record<string, number> = {
@@ -27,7 +27,7 @@ const USED: Record<string, number> = {
 
 /** API 账本：snapshot 提供 today，预算用量随账本带入（BudgetPage 直接消费）。 */
 function apiLedger(): Ledger {
-  const seed = createSeedLedger()
+  const seed = createTestLedger()
   return {
     ...seed,
     snapshot: { today: '2026-10-28' } as never,

@@ -133,7 +133,7 @@ export function OverviewPage({
   onOpenReports,
 }: OverviewPageProps) {
   const { ledger } = useLedger()
-  // API 模式用真实数据所在月份；种子模式保持原来的固定期间。
+  // 有快照时用真实数据所在月份，否则回退到当月标签。
   const periodLabel = ledger.snapshot?.periodLabel ?? CURRENT_MONTH_LABEL
   const today = ledger.snapshot?.today
   // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。

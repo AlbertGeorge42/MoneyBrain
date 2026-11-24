@@ -181,7 +181,6 @@ function treeOf(
   details: ReportCategoryDetail[],
   total: number,
   counts: Map<string, number>,
-  displayIdOf: (realId: string) => string,
 ): FlowTreeNode[] {
   // 构成的金额是「该侧发生了多少」，不继承接口历史符号；负向支出按绝对值参与分类树，
   // 否则 actual < 0 会被 > 0 的过滤条件静默丢掉，出现「合计有金额、构成没有数据」。
@@ -190,23 +189,21 @@ function treeOf(
   return details
     .filter((detail) => amountOf(detail) > 0)
     .map((detail) => ({
-      // 行 id 与笔数、下钻同用展示 id：根分类可能被改写成种子 key，
-      // 若这里保留后端真实 id，下钻会按真实 id 在账本里找不到分类，根分类恒为 0 笔。
-      id: displayIdOf(detail.categoryId),
+      id: detail.categoryId,
       name: detail.name,
       amount: amountOf(detail),
       predicted: predictedOf(detail),
-      count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
+      count: counts.get(detail.categoryId) ?? 0,
       share: total === 0 ? 0 : (amountOf(detail) / total) * 100,
       level: 0 as const,
       children: (detail.children ?? [])
         .filter((child: ReportCategoryDetail) => amountOf(child) > 0)
         .map((child: ReportCategoryDetail) => ({
-          id: displayIdOf(child.categoryId),
+          id: child.categoryId,
           name: child.name,
           amount: amountOf(child),
           predicted: predictedOf(child),
-          count: counts.get(displayIdOf(child.categoryId)) ?? 0,
+          count: counts.get(child.categoryId) ?? 0,
           share: total === 0 ? 0 : (amountOf(child) / total) * 100,
           level: 1 as const,
           children: [],
@@ -236,7 +233,6 @@ export function mapFlowReport(
   const balance = balanceActual + balancePredicted
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
   const counts = flowCounts(ledger, from, to, includeExcluded)
-  const displayIdOf = (realId: string) => ledger.ids?.categoryDisplay?.[realId] ?? realId
   const normalizedSeries = series.map((item) => ({
     label: item.label,
     income: Math.abs(item.income),
@@ -247,8 +243,8 @@ export function mapFlowReport(
     expense,
     balance,
     savingsRate,
-    incomeTrees: treeOf(data.incomeCategoryDetails, income, counts.income, displayIdOf),
-    expenseTrees: treeOf(data.expenseCategoryDetails, expense, counts.expense, displayIdOf),
+    incomeTrees: treeOf(data.incomeCategoryDetails, income, counts.income),
+    expenseTrees: treeOf(data.expenseCategoryDetails, expense, counts.expense),
     series: normalizedSeries,
     includeExcluded,
     predictionNote: data.predictionNote,
@@ -405,13 +401,10 @@ function activityGroup(
   )
   const fromAccount = new Map(ledger.accounts.map((account) => [account.id, account.name]))
   const counted = new Set<string>()
-  // 接口的 categoryId 是后端真实 id，账本流水 / 分类树用展示 id（种子 key）。
-  // 与 treeOf 同一 id 空间后再查子树与下钻，否则账户列恒为「—」、下钻零命中。
-  const displayIdOf = (id: string) => ledger.ids?.categoryDisplay?.[id] ?? id
 
   const children: CashChild[] = items.map((item: CashFlowActivityItem, index: number) => {
-    const displayCategoryId = item.categoryId ? displayIdOf(item.categoryId) : ''
-    const ids = new Set(displayCategoryId ? subtreeOf(ledger, displayCategoryId) : [])
+    const categoryId = item.categoryId ?? ''
+    const ids = new Set(categoryId ? subtreeOf(ledger, categoryId) : [])
     const accounts = new Set<string>()
     for (const transaction of ledger.transactions) {
       if (!inRange(transaction, from, to)) continue
@@ -423,7 +416,7 @@ function activityGroup(
       if (name) accounts.add(name)
     }
     return {
-      id: `${key}-${direction}-${displayCategoryId || item.categoryName}-${index}`,
+      id: `${key}-${direction}-${categoryId || item.categoryName}-${index}`,
       label: item.categoryName,
       account: accounts.size > 0 ? [...accounts].join(' / ') : '—',
       amount: Math.abs(totalOfItem(item)),
@@ -434,7 +427,7 @@ function activityGroup(
           : direction === 'in'
             ? ('income' as const)
             : ('expense' as const),
-      categoryId: displayCategoryId,
+      categoryId: categoryId,
     }
   })
   return {
@@ -555,7 +548,6 @@ function projectionTreeOf(
   details: ProjectionCategoryDetail[],
   total: number,
   counts: Map<string, number>,
-  displayIdOf: (realId: string) => string,
 ): FlowTreeNode[] {
   const amountOf = (detail: ProjectionCategoryDetail) => Math.abs(detail.total)
   const predictedOf = (detail: ProjectionCategoryDetail) =>
@@ -563,13 +555,13 @@ function projectionTreeOf(
   const shareOf = (detail: ProjectionCategoryDetail) =>
     total === 0 ? 0 : (amountOf(detail) / total) * 100
   const childOf = (detail: ProjectionCategoryDetail): FlowTreeNode => ({
-    id: displayIdOf(detail.categoryId),
+    id: detail.categoryId,
     name: detail.name,
     amount: amountOf(detail),
     predicted: predictedOf(detail),
     // 后端 hasBudget=false：该分类（含子树）没有任何预算来源。
     noBudget: !detail.hasBudget ? true : undefined,
-    count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
+    count: counts.get(detail.categoryId) ?? 0,
     share: shareOf(detail),
     level: 1,
     children: [],
@@ -577,12 +569,12 @@ function projectionTreeOf(
   return details
     .filter((detail) => amountOf(detail) > 0)
     .map((detail) => ({
-      id: displayIdOf(detail.categoryId),
+      id: detail.categoryId,
       name: detail.name,
       amount: amountOf(detail),
       predicted: predictedOf(detail),
       noBudget: !detail.hasBudget ? true : undefined,
-      count: counts.get(displayIdOf(detail.categoryId)) ?? 0,
+      count: counts.get(detail.categoryId) ?? 0,
       share: shareOf(detail),
       level: 0 as const,
       children: (detail.children ?? [])
@@ -700,7 +692,6 @@ export function mapProjectionFlowReport(
   const balance = data.balance.total
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
   const counts = flowCounts(ledger, from, to, includeExcluded)
-  const displayIdOf = (realId: string) => ledger.ids?.categoryDisplay?.[realId] ?? realId
   const metric = (
     label: string,
     value: string,
@@ -719,8 +710,8 @@ export function mapProjectionFlowReport(
     expense,
     balance,
     savingsRate,
-    incomeTrees: projectionTreeOf(data.incomeCategoryDetails, income, counts.income, displayIdOf),
-    expenseTrees: projectionTreeOf(data.expenseCategoryDetails, expense, counts.expense, displayIdOf),
+    incomeTrees: projectionTreeOf(data.incomeCategoryDetails, income, counts.income),
+    expenseTrees: projectionTreeOf(data.expenseCategoryDetails, expense, counts.expense),
     series: data.points.map((point) => ({
       label: point.label,
       income: Math.abs(point.income.total),

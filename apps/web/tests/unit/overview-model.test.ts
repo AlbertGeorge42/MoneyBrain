@@ -19,7 +19,7 @@ import {
   CATEGORY_ICON_REGISTRY,
   searchCategoryIcons,
 } from '@/features/overview/categoryIcons'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 
 describe('分类图标回退', () => {
   it('注册表与契约枚举一一对应', () => {
@@ -72,7 +72,7 @@ describe('分类图标回退', () => {
   })
 
   it('自身 iconKey 优先，其次父级 iconKey，最后交给名称映射', () => {
-    const base = createSeedLedger()
+    const base = createTestLedger()
     expect(getCategoryIconKey(base, 'food_lunch')).toBeUndefined()
 
     const parentIcon = {
@@ -94,7 +94,7 @@ describe('分类图标回退', () => {
 })
 
 describe('总览数字', () => {
-  const ledger = createSeedLedger()
+  const ledger = createTestLedger()
   const summary = deriveOverview(ledger)
 
   it('净资产 = 所有账户余额之和', () => {
@@ -122,7 +122,7 @@ describe('总览数字', () => {
 })
 
 describe('未来记录', () => {
-  const ledger = createSeedLedger()
+  const ledger = createTestLedger()
   const planned = addTransaction(ledger, {
     type: 'expense',
     categoryId: 'food',
@@ -149,7 +149,7 @@ describe('未来记录', () => {
 })
 
 describe('预算', () => {
-  const ledger = createSeedLedger()
+  const ledger = createTestLedger()
   const budgets = deriveBudgets(ledger)
 
   it('本月预算总量与占比只含月度启用预算（90.4%）', () => {
@@ -183,7 +183,7 @@ describe('走势与最近流水', () => {
   })
 
   it('最近流水按日期倒序并按日分组', () => {
-    const groups = groupRecentTransactions(createSeedLedger().transactions, 3)
+    const groups = groupRecentTransactions(createTestLedger().transactions, 3)
     expect(groups).toHaveLength(2)
     expect(groups[0].date).toBe('2026-10-28')
     expect(groups[0].label).toBe('今天 · 2026年10月28日 周三')
@@ -193,7 +193,7 @@ describe('走势与最近流水', () => {
 })
 
 describe('记账浮层：五种类型', () => {
-  const ledger = createSeedLedger()
+  const ledger = createTestLedger()
   const balanceOf = (target: typeof ledger, id: string) =>
     target.accounts.find((account) => account.id === id)?.balance ?? 0
 
@@ -240,7 +240,7 @@ describe('记账浮层：五种类型', () => {
 })
 
 describe('记账联动', () => {
-  const ledger = createSeedLedger()
+  const ledger = createTestLedger()
   const next = addTransaction(ledger, {
     type: 'expense',
     categoryId: 'food',

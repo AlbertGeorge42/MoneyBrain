@@ -18,7 +18,7 @@ import {
   type LedgerAccount,
   type NewTransactionInput,
 } from './model'
-import { mapperFromLedger, todayLocal } from './apiLedger'
+import { todayLocal } from './apiLedger'
 import { arrayMove } from '@/features/ledger-config/model'
 import {
   LedgerContext,
@@ -35,11 +35,6 @@ import {
 import {
   type TransactionPatch,
 } from '@/features/transactions/ledgerOps'
-
-/** 展示用分类 id → 后端真实 id。 */
-function realCategoryId(ledger: Ledger, id: string): string {
-  return ledger.ids?.categoryReal?.[id] ?? id
-}
 
 /** 设置页的账户性质 → 后端账户类型。 */
 function accountTypeForKind(kind: AccountKind): 'asset' | 'liability' {
@@ -86,7 +81,7 @@ export function LedgerProvider({
   onRemoteChange,
 }: {
   children: ReactNode
-  /** 初始账本必须由调用方提供：生产来自 API，测试用 dev-fixtures 构造。 */
+  /** 初始账本必须由调用方提供：生产来自 API，测试用测试夹具构造。 */
   initialLedger: Ledger
   /** 写成功后刷新真实数据（总览 / 流水 / 回收站）。 */
   onRemoteChange?: () => Promise<void>
@@ -94,7 +89,7 @@ export function LedgerProvider({
   const [ledger, setLedger] = useState<Ledger>(initialLedger)
   const ledgerRef = useRef(ledger)
   const undoSeq = useRef(0)
-  // 6 秒撤销在两种模式下都真实可执行：种子模式恢复快照，API 模式回放审计事件。
+  // 6 秒撤销通过回放审计事件真实执行。
   const undoRegistry = useRef(new Map<string, () => Promise<LedgerMutationOutcome>>())
 
   useEffect(() => {
@@ -170,7 +165,7 @@ export function LedgerProvider({
         body.toAccountId = input.toAccountId
         body.fee = minor(input.fee ?? 0)
       } else if (input.type !== 'adjustment') {
-        body.categoryId = realCategoryId(ledgerRef.current, input.categoryId)
+        body.categoryId = input.categoryId
       }
       // 退款可选关联原交易；未关联退款由后端按「只影响余额」记账。
       if (input.type === 'refund' && input.relatedTransactionId) {
@@ -213,9 +208,9 @@ export function LedgerProvider({
       if (patch.excludeFromIncomeExpense !== undefined) {
         body.excludeFromIncomeExpense = patch.excludeFromIncomeExpense
       }
-      // adjustment 不需要分类；其余类型把展示 id 翻回真实 id。
+      // adjustment 不需要分类。
       if (patch.categoryId && patch.type !== 'adjustment') {
-        body.categoryId = realCategoryId(ledgerRef.current, patch.categoryId)
+        body.categoryId = patch.categoryId
       }
       try {
         await transactionApi.update(id, body).then(unwrapApiData)
@@ -299,13 +294,12 @@ export function LedgerProvider({
     async (ids: readonly string[], categoryId: string): Promise<LedgerBatchCategoryOutcome> => {
       if (ids.length === 0) return { ok: false, error: '没有选中流水', succeeded: 0 }
 
-      const realId = realCategoryId(ledgerRef.current, categoryId)
       let succeeded = 0
       const errors: string[] = []
       // 逐条 PUT：没有批量改分类端点，请求数 = 选中的笔数。
       for (const id of ids) {
         try {
-          await transactionApi.update(id, { categoryId: realId }).then(unwrapApiData)
+          await transactionApi.update(id, { categoryId }).then(unwrapApiData)
           succeeded += 1
         } catch (error) {
           errors.push(getApiErrorMessage(error))
@@ -532,7 +526,7 @@ export function LedgerProvider({
     [refreshRemote],
   )
 
-  /** 同归属分组按绝对位置重排（拖拽排序用）；未分组 / 种子分组不可拖。 */
+  /** 同归属分组按绝对位置重排（拖拽排序用）。 */
   const reorderAccountGroupTo = useCallback(
     async (id: string, targetIndex: number): Promise<LedgerMutationOutcome> => {
       const current = (ledgerRef.current.accountCategories ?? []).find(
@@ -575,8 +569,7 @@ export function LedgerProvider({
   const createCategory = useCallback(
     async (input: LedgerCategoryInput): Promise<LedgerCreateOutcome> => {
       try {
-        const mapper = mapperFromLedger(ledgerRef.current)
-        const parentId = input.parentId ? mapper.realId(input.parentId) : null
+        const parentId = input.parentId ?? null
         const created = await transactionCategoryApi
           .create({ name: input.name, type: input.type, parentId, iconKey: input.iconKey })
           .then(unwrapApiData)
@@ -592,8 +585,7 @@ export function LedgerProvider({
   const updateCategory = useCallback(
     async (id: string, input: LedgerLabelUpdateInput): Promise<LedgerMutationOutcome> => {
       try {
-        const mapper = mapperFromLedger(ledgerRef.current)
-        await transactionCategoryApi.update(mapper.realId(id), input).then(unwrapApiData)
+        await transactionCategoryApi.update(id, input).then(unwrapApiData)
         await refreshRemote()
         return { ok: true }
       } catch (error) {
@@ -606,11 +598,10 @@ export function LedgerProvider({
   const setCategoryCashFlow = useCallback(
     async (id: string, activity: CashFlowActivityKey | null): Promise<LedgerMutationOutcome> => {
       try {
-        const mapper = mapperFromLedger(ledgerRef.current)
         // 只写当前分类：后端对子分类强制 cashFlowType=null，子分类活动从根继承解析，
         // 级联写既无效又多余。活动编辑入口本身也只在根分类上。
         await transactionCategoryApi
-          .update(mapper.realId(id), { cashFlowType: activity })
+          .update(id, { cashFlowType: activity })
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true }
@@ -625,9 +616,8 @@ export function LedgerProvider({
   const moveCategory = useCallback(
     async (id: string, parentId: string | null): Promise<LedgerMutationOutcome> => {
       try {
-        const mapper = mapperFromLedger(ledgerRef.current)
         await transactionCategoryApi
-          .move(mapper.realId(id), { newParentId: parentId ? mapper.realId(parentId) : null })
+          .move(id, { newParentId: parentId })
           .then(unwrapApiData)
         await refreshRemote()
         return { ok: true }
@@ -641,12 +631,9 @@ export function LedgerProvider({
   const deleteCategory = useCallback(
     async (id: string, transferToId?: string): Promise<LedgerMutationOutcome> => {
       try {
-        const mapper = mapperFromLedger(ledgerRef.current)
-        const params = transferToId
-          ? { transferToCategoryId: mapper.realId(transferToId) }
-          : undefined
+        const params = transferToId ? { transferToCategoryId: transferToId } : undefined
         const result = await transactionCategoryApi
-          .delete(mapper.realId(id), params)
+          .delete(id, params)
           .then(unwrapApiData)
         await refreshRemote()
         const undoToken = registerUndo(async () => {
@@ -686,13 +673,12 @@ export function LedgerProvider({
       }
 
       try {
-        const mapper = mapperFromLedger(current)
         const newOrder = arrayMove(siblings, oldIndex, targetIndex)
-        const parentId = category.parentId ? mapper.realId(category.parentId) : null
+        const parentId = category.parentId ?? null
         await transactionCategoryApi
           .updateSort(
             newOrder.map((item, sort) => ({
-              id: mapper.realId(item.id),
+              id: item.id,
               sort,
               parentId,
             })),
@@ -707,7 +693,7 @@ export function LedgerProvider({
     [refreshRemote],
   )
 
-  /** 预算表单 → /budgets 请求体：分类展示 id 翻成真实 id，金额转分。 */
+  /** 预算表单 → /budgets 请求体：金额转分。 */
   const budgetBody = useCallback((input: LedgerBudgetInput): Partial<Budget> => {
     const body: Partial<Budget> = {
       name: input.name,
@@ -716,7 +702,7 @@ export function LedgerProvider({
       period: input.period,
       accountId: input.accountId,
     }
-    if (input.categoryId) body.categoryId = realCategoryId(ledgerRef.current, input.categoryId)
+    if (input.categoryId) body.categoryId = input.categoryId
     if (input.toAccountId) body.toAccountId = input.toAccountId
     // 0 是合法的天偏移（周一 / 周期首日），只能用 != null 判断；缺省表示按周期末。
     if (input.transactionTime != null) body.transactionTime = input.transactionTime

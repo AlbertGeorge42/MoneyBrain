@@ -59,7 +59,7 @@ export function DataSection({
   onOpenClearSheet,
 }: DataSectionProps) {
   const unsetAccounts = ledger.accounts.filter((account) => !account.initialBalanceDate)
-  // 同名的历史账户（如批量种子钱包）按「名称 + 期初日期」去重，避免同一状态重复刷屏。
+  // 同名的历史账户按「名称 + 期初日期」去重，避免同一状态重复刷屏。
   const setAccounts = [
     ...new Map(
       ledger.accounts

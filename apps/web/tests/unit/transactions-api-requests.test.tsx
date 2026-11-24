@@ -33,10 +33,6 @@ const ledger: Ledger = {
   categories: [{ id: 'food', name: '餐饮', type: 'expense' }],
   budgets: [],
   transactions: [],
-  ids: {
-    categoryReal: { food: 'real-food' },
-    categoryDisplay: { 'real-food': 'food' },
-  },
 }
 
 function makePage(total: number) {
@@ -51,7 +47,7 @@ function makePage(total: number) {
       amount: 1_200,
       date: '2026-10-05T00:00:00.000Z',
       accountId: 'cmb',
-      categoryId: 'real-food',
+      categoryId: 'food',
       note: '午餐',
       fee: 0,
     }))
@@ -143,7 +139,7 @@ describe('深链筛选请求数（API 模式）', () => {
 
     await waitFor(() => expect(mocks.getAll).toHaveBeenCalledTimes(1), { timeout: 2000 })
     const params = mocks.getAll.mock.calls[0][0] as URLSearchParams
-    expect(params.getAll('categoryId')).toEqual(['real-food'])
+    expect(params.getAll('categoryId')).toEqual(['food'])
     await new Promise((resolve) => setTimeout(resolve, 400))
     expect(mocks.getAll).toHaveBeenCalledTimes(1)
   })
@@ -181,7 +177,7 @@ describe('按 total 翻页（流水页笔数与合计的取数全集）', () => 
               amount: 1_200,
               date: '2026-10-05T00:00:00.000Z',
               accountId: 'cmb',
-              categoryId: 'real-food',
+              categoryId: 'food',
               note: '午餐',
               fee: 0,
             }))

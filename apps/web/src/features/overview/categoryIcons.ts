@@ -110,7 +110,7 @@ export const CATEGORY_ICON_GROUPS = [
 /**
  * 分类图标注册表：键值与契约里的 CATEGORY_ICON_KEYS 一一对应（顺序也一致）。
  *
- * 图标组件、名称回退映射、设置页选择器都从这一份注册表取，避免多处 switch 分叉。
+ * 图标组件与设置页选择器都从这一份注册表取，避免多处 switch 分叉。
  * tone 只用既有的 cat-1..cat-6，不新增颜色 token；旧 13 个 key 的 tone 保持原值。
  */
 export const CATEGORY_ICON_REGISTRY = [
@@ -191,15 +191,6 @@ const CATEGORY_ICON_BY_KEY = new Map<string, CategoryIconOption>(
   CATEGORY_ICON_REGISTRY.map((option) => [option.key, option]),
 )
 
-/** 既有名称映射：分类名 → 注册表 key，旧账本没有 iconKey 时兜底。 */
-const ROOT_ICONS: Record<string, LucideIcon> = Object.fromEntries(
-  CATEGORY_ICON_REGISTRY.map((option) => [option.key, option.icon]),
-) as Record<string, LucideIcon>
-
-const ROOT_TONES: Record<string, string> = Object.fromEntries(
-  CATEGORY_ICON_REGISTRY.map((option) => [option.key, option.tone]),
-) as Record<string, string>
-
 function categoryIconOption(key: string | null | undefined): CategoryIconOption | undefined {
   return key ? CATEGORY_ICON_BY_KEY.get(key) : undefined
 }
@@ -223,14 +214,13 @@ export function searchCategoryIcons(query: string): readonly CategoryIconOption[
   return CATEGORY_ICON_REGISTRY.filter((option) => matchesCategoryIcon(option, needle))
 }
 
-/** 回退顺序：用户 iconKey → 既有名称映射 → 通用 Tag。 */
+/** 用户设置的 iconKey → 对应图标；未设置时回退到通用 Tag。 */
 export function resolveCategoryIcon(
   iconKey: string | null | undefined,
-  rootId: string,
 ): { icon: LucideIcon; tone: string } {
   const configured = categoryIconOption(iconKey)
   return {
-    icon: configured?.icon ?? ROOT_ICONS[rootId] ?? Tag,
-    tone: configured?.tone ?? ROOT_TONES[rootId] ?? 'cat-6',
+    icon: configured?.icon ?? Tag,
+    tone: configured?.tone ?? 'cat-6',
   }
 }

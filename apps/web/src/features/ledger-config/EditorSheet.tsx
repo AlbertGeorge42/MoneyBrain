@@ -15,7 +15,7 @@ import { todayLocal } from '@/features/overview/apiLedger'
 import { parseMoneyInput } from '@/utils/money'
 import { resolveCategoryIcon, type CategoryIconGroupId } from '@/features/overview/categoryIcons'
 import type { AccountKind, Ledger, TxType } from '@/features/overview/model'
-import { ACCOUNT_KIND_LABEL, CATEGORY_TABS } from './model'
+import { CATEGORY_TABS } from './model'
 import { IconPickerSheet } from './IconPickerSheet'
 
 export type Editor =
@@ -38,7 +38,7 @@ export type Editor =
 export interface EditorSaveValue {
   name: string
   kind: AccountKind
-  /** 选中分组 id；null = 未分组；undefined = 种子账本按性质回退。 */
+  /** 选中分组 id；null = 未分组；undefined = 保留原值。 */
   categoryId?: string | null
   /** 当前余额 / 新建时的初始余额（分）。 */
   balance: number
@@ -81,8 +81,6 @@ export function EditorSheet({
     editor?.kind === 'accountGroup' && editor.mode === 'edit'
       ? (ledger.accountCategories ?? []).find((item) => item.id === editor.groupId)
       : undefined
-  /** 真实账本才有可管理的分组；种子账本退回「账户性质」四选一。 */
-  const groupMode = Boolean(ledger.accountCategories)
   const initialKind =
     editor?.kind === 'account' ? (account?.kind ?? editor.preset) : ('deposit' as AccountKind)
   // 账户性质由所属分组决定，所以分组下拉只列同一归属的一级分组。
@@ -171,7 +169,7 @@ export function EditorSheet({
   const valid =
     name.trim().length > 0 &&
     (editor.kind !== 'account' ||
-      (!groupMode || editor.mode === 'edit' || groupId !== '') &&
+      (editor.mode === 'edit' || groupId !== '') &&
       (balanceCents !== null && initialBalanceCents !== null && dateValid))
 
   const handleSave = () => {
@@ -180,7 +178,7 @@ export function EditorSheet({
       name: name.trim(),
       kind,
       categoryId:
-        editor.kind === 'account' && groupMode
+        editor.kind === 'account'
           ? groupId === ''
             ? editor.mode === 'edit'
               ? null
@@ -222,8 +220,8 @@ export function EditorSheet({
       : editor.kind === 'category' && editor.type === 'income'
         ? 'income'
         : null
-  // 当前图标：选了具体 key 就用它，否则按名称回退（与账本里的显示同一口径）。
-  const currentIcon = resolveCategoryIcon(iconKey || null, category?.id ?? group?.id ?? '')
+  // 当前图标：选了具体 key 就用它，否则回退到通用图标。
+  const currentIcon = resolveCategoryIcon(iconKey || null)
   const CurrentIcon = currentIcon.icon
 
   return (
@@ -301,40 +299,22 @@ export function EditorSheet({
 
         {editor.kind === 'account' && (
           <>
-            {groupMode ? (
-              <label className="mb-set-field">
-                <FieldLabel>账户分组</FieldLabel>
-                <select
-                  className="mb-shared-input mb-shared-input--lg"
-                  value={groupId}
-                  onChange={(event) => setGroupId(event.target.value)}
-                >
-                  <option value="">{editor.mode === 'create' ? '请选择分组' : '未分组'}</option>
-                  {groupOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.type === 'liability' ? '负债' : '资产'} · {groupOptionLabel(item)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <div className="mb-set-field">
-                <FieldLabel>账户性质</FieldLabel>
-                <div className="mb-set-kind-grid" role="group" aria-label="账户性质">
-                  {(['deposit', 'cash', 'investment', 'credit'] as AccountKind[]).map((value) => (
-                    <Button
-                      key={value}
-                      className={kind === value ? 'mb-set-kind is-active' : 'mb-set-kind'}
-                      aria-pressed={kind === value}
-                      onClick={() => setKind(value)}
-                    >
-                      {ACCOUNT_KIND_LABEL[value]}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {groupMode && groupId && (
+            <label className="mb-set-field">
+              <FieldLabel>账户分组</FieldLabel>
+              <select
+                className="mb-shared-input mb-shared-input--lg"
+                value={groupId}
+                onChange={(event) => setGroupId(event.target.value)}
+              >
+                <option value="">{editor.mode === 'create' ? '请选择分组' : '未分组'}</option>
+                {groupOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.type === 'liability' ? '负债' : '资产'} · {groupOptionLabel(item)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {groupId && (
               <p className="mb-set-hint">
                 {(() => {
                   const selected = groupOptions.find((item) => item.id === groupId)

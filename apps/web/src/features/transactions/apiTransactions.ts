@@ -5,7 +5,7 @@
  * - categoryIds（报表「其他」下钻）→ 重复 categoryId
  * - 根分类筛选由后端自动展开子分类
  * - 关键词 / 类型 / 账户 / 期间 / 金额区间都是后端参数
- * 分页在后台自动翻页（页面本身没有分页控件），一次筛选的首屏视觉与种子一致。
+ * 分页在后台自动翻页（页面本身没有分页控件），一次筛选取回完整结果。
  */
 import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
@@ -13,14 +13,14 @@ import type { Transaction } from '@contracts/types'
 import { transactionApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { parseMoneyInput } from '@/utils/money'
-import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
+import { toLedgerTransaction } from '@/features/overview/apiLedger'
 import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import { accountIdsInGroup, type TransactionFilters } from './filters'
 
 /** 单次请求条数；页面无分页控件，靠自动翻页取全量筛选结果。 */
 const TRANSACTION_PAGE_SIZE = 100
 
-/** 把 HF 筛选模型翻译成 /transactions 的 query 参数（真实分类 id 在这里回填）。 */
+/** 把筛选模型翻译成 /transactions 的 query 参数（分类 id 直接用真实 id）。 */
 export function buildTransactionQueryParams(
   filters: TransactionFilters,
   ledger: Ledger,
@@ -28,7 +28,6 @@ export function buildTransactionQueryParams(
   pageSize = TRANSACTION_PAGE_SIZE,
 ): URLSearchParams {
   const params = new URLSearchParams()
-  const mapper = mapperFromLedger(ledger)
 
   params.set('page', String(page))
   params.set('pageSize', String(pageSize))
@@ -59,7 +58,7 @@ export function buildTransactionQueryParams(
       : filters.advanced.categoryId
         ? [filters.advanced.categoryId]
         : []
-  roots.forEach((id) => params.append('categoryId', mapper.realId(id)))
+  roots.forEach((id) => params.append('categoryId', id))
 
   // 期间：报表下钻带来的日历日闭区间，按 from/to（半开区间）发给后端，与报表主查询口径一致。
   if (filters.advanced.dateFrom) params.set('from', filters.advanced.dateFrom)
@@ -81,14 +80,13 @@ interface ServerTransactionList {
   requests: number
 }
 
-/** 按页取完整个筛选结果；首屏等待完整列表，保持与种子版相同的渲染结果。 */
+/** 按页取完整个筛选结果；首屏等待完整列表。 */
 export async function fetchFilteredTransactions(
   filters: TransactionFilters,
   ledger: Ledger,
   signal?: AbortSignal,
   pageSize = TRANSACTION_PAGE_SIZE,
 ): Promise<ServerTransactionList> {
-  const mapper = mapperFromLedger(ledger)
   const items: LedgerTransaction[] = []
   let total = 0
   let page = 1
@@ -104,7 +102,7 @@ export async function fetchFilteredTransactions(
     const result = await transactionApi.getAll(params, signal).then(unwrapApiData)
     requests += 1
     total = result.total
-    items.push(...result.list.map((transaction: Transaction) => toLedgerTransaction(transaction, mapper)))
+    items.push(...result.list.map((transaction: Transaction) => toLedgerTransaction(transaction)))
     if (result.list.length === 0 || items.length >= total) break
     page += 1
   }

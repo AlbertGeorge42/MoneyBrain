@@ -165,7 +165,7 @@ export function deriveBudgetPage(
         categoryName: category?.name ?? '全部分类',
         accountName: account?.name ?? '全部账户',
         transactionTime: budget.transactionTime,
-        // 1) 页面乐观更新覆盖；2) 后端 statuses；3) 种子预算默认启用。
+        // 1) 页面乐观更新覆盖；2) 后端 statuses；3) DTO 未带 isActive 时默认启用。
         isActive: activeById?.get(budget.id) ?? status?.isActive ?? budget.isActive ?? true,
       }
       // 没有后端用量时不能编造「剩余」：明确标为未知，页面据此只展示额度。

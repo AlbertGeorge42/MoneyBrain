@@ -10,7 +10,6 @@ import {
   getAccount,
   getCategoryIconKey,
   getCategoryName,
-  getCategoryRootId,
   getRefundSummary,
   getRelatedTransaction,
   transactionDirection,
@@ -19,7 +18,7 @@ import {
   type Ledger,
   type LedgerTransaction,
 } from '@/features/overview/model'
-import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
+import { toLedgerTransaction } from '@/features/overview/apiLedger'
 import { Button } from '@/features/shared/Button'
 import { FieldLabel } from '@/features/shared/FieldLabel'
 import { RefundSummarySection } from '@/features/shared/RefundSummarySection'
@@ -167,10 +166,9 @@ function RefundLinkForm({
       .then(unwrapApiData)
       .then((items) => {
         if (cancelled) return
-        const mapper = mapperFromLedger(ledger)
         setCandidates(
           items
-            .map((item) => toLedgerTransaction(item, mapper))
+            .map((item) => toLedgerTransaction(item))
             .filter((item) => getRefundSummary(ledger, item).remaining > 0),
         )
       })
@@ -276,7 +274,6 @@ function DetailView({
 }) {
   const tone = transactionTone(transaction)
   const category = getCategoryName(ledger, transaction.categoryId)
-  const rootId = getCategoryRootId(ledger, transaction.categoryId)
   const iconKey = getCategoryIconKey(ledger, transaction.categoryId)
   const account = getAccount(ledger, transaction.accountId)
   const toAccount = transaction.toAccountId ? getAccount(ledger, transaction.toAccountId) : undefined
@@ -297,7 +294,7 @@ function DetailView({
           <dt>分类</dt>
           <dd>
             <span className="mb-tx-detail-category">
-              <CategoryIcon rootId={rootId} iconKey={iconKey} />
+              <CategoryIcon iconKey={iconKey} />
               {category}
             </span>
           </dd>

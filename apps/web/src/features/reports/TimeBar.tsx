@@ -42,7 +42,7 @@ interface TimeBarProps {
   device: DeviceMode
   tab: ReportTab
   time: ReportTime
-  /** 期间锚点：API 模式是真实今天 / 最新流水，种子模式是冻结的 2026-10-28。 */
+  /** 期间锚点：真实今天 / 最新流水。 */
   today: string
   /** 统计范围回显：只展示，不参与控件行排版，不改变行高。 */
   scopeTag?: string

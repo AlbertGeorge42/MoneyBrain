@@ -11,7 +11,7 @@ import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { ToastProvider } from '@/features/shared/toast'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { appTheme } from '@/styles/theme/theme-tokens'
@@ -23,7 +23,7 @@ function renderOverview(
   const { device = 'desktop', onRetry = vi.fn() } = options
   const view = render(
     <MantineProvider theme={appTheme}>
-      <LedgerProvider initialLedger={createSeedLedger()}>
+      <LedgerProvider initialLedger={createTestLedger()}>
         <ToastProvider>
         <OverviewPage
           device={device}

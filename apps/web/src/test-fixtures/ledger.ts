@@ -1,11 +1,8 @@
 /**
- * 演示账本（种子数据）——仅限测试与开发联调
+ * 测试账本夹具——仅供单元测试构造内存账本，生产入口不得引用。
  *
- * 边界：生产入口（main.tsx → App.tsx → DesignApp）不得静态或动态 import 本模块；
- * 应用一律走真实 API 数据源，不再有种子 / 演示双模式。
- *
- * 本模块是测试夹具（约 17 个单测用它构造账本）与本地联调占位数据，
- * 对外只暴露一个入口函数 createSeedLedger()，数据常量不导出。
+ * 夹具里的 id 就是该内存账本内实体的唯一 id（单一身份空间），
+ * 不存在展示 id / 真实 id 的双层映射。数据常量不导出。
  */
 import type {
   Ledger,
@@ -17,22 +14,22 @@ import type {
 } from '@/features/overview/model'
 
 /** 与真实账本同一套一级分类：资产 现金 / 长期 / 投资，负债 短期负债；账户直接挂一级。 */
-const SEED_ACCOUNT_CATEGORIES: LedgerAccountCategory[] = [
-  { id: 'seed-cash', name: '现金', type: 'asset', parentId: null, sort: 0, isCashEquivalent: true, effectiveIsCashEquivalent: true, effectiveIsInvestment: false, seeded: true },
-  { id: 'seed-long', name: '长期', type: 'asset', parentId: null, sort: 1, effectiveIsCashEquivalent: false, effectiveIsInvestment: false, seeded: true },
-  { id: 'seed-invest', name: '投资', type: 'asset', parentId: null, sort: 2, isInvestment: true, effectiveIsCashEquivalent: false, effectiveIsInvestment: true, seeded: true },
-  { id: 'seed-debt', name: '短期负债', type: 'liability', parentId: null, sort: 3, effectiveIsCashEquivalent: false, effectiveIsInvestment: false, seeded: true },
+const TEST_ACCOUNT_CATEGORIES: LedgerAccountCategory[] = [
+  { id: 'grp-cash', name: '现金', type: 'asset', parentId: null, sort: 0, isCashEquivalent: true, effectiveIsCashEquivalent: true, effectiveIsInvestment: false },
+  { id: 'grp-long', name: '长期', type: 'asset', parentId: null, sort: 1, effectiveIsCashEquivalent: false, effectiveIsInvestment: false },
+  { id: 'grp-invest', name: '投资', type: 'asset', parentId: null, sort: 2, isInvestment: true, effectiveIsCashEquivalent: false, effectiveIsInvestment: true },
+  { id: 'grp-debt', name: '短期负债', type: 'liability', parentId: null, sort: 3, effectiveIsCashEquivalent: false, effectiveIsInvestment: false },
 ]
 
-const SEED_ACCOUNTS: LedgerAccount[] = [
-  { id: 'cmb', name: '招商储蓄卡', kind: 'deposit', balance: 4_823_055, categoryId: 'seed-cash' },
-  { id: 'wx', name: '微信零钱', kind: 'cash', balance: 128_620, categoryId: 'seed-cash' },
-  { id: 'zfb', name: '支付宝', kind: 'cash', balance: 354_000, categoryId: 'seed-cash' },
-  { id: 'xyk', name: '交行信用卡', kind: 'credit', balance: -211_840, categoryId: 'seed-debt' },
-  { id: 'brk', name: '长桥证券', kind: 'investment', balance: 8_645_000, categoryId: 'seed-invest' },
+const TEST_ACCOUNTS: LedgerAccount[] = [
+  { id: 'cmb', name: '招商储蓄卡', kind: 'deposit', balance: 4_823_055, categoryId: 'grp-cash' },
+  { id: 'wx', name: '微信零钱', kind: 'cash', balance: 128_620, categoryId: 'grp-cash' },
+  { id: 'zfb', name: '支付宝', kind: 'cash', balance: 354_000, categoryId: 'grp-cash' },
+  { id: 'xyk', name: '交行信用卡', kind: 'credit', balance: -211_840, categoryId: 'grp-debt' },
+  { id: 'brk', name: '长桥证券', kind: 'investment', balance: 8_645_000, categoryId: 'grp-invest' },
 ]
 
-const SEED_CATEGORIES: LedgerCategory[] = [
+const TEST_CATEGORIES: LedgerCategory[] = [
   { id: 'food', name: '餐饮', type: 'expense' },
   { id: 'food_lunch', name: '午餐', type: 'expense', parentId: 'food' },
   { id: 'food_takeout', name: '外食', type: 'expense', parentId: 'food' },
@@ -52,7 +49,7 @@ const SEED_CATEGORIES: LedgerCategory[] = [
   { id: 'move', name: '账户互转', type: 'transfer' },
 ]
 
-const SEED_BUDGETS: LedgerBudget[] = [
+const TEST_BUDGETS: LedgerBudget[] = [
   { id: 'b_food', name: '餐饮', type: 'expense', period: 'monthly', limit: 150_000, categoryId: 'food', accountId: 'cmb' },
   { id: 'b_home', name: '居住', type: 'expense', period: 'monthly', limit: 560_000, categoryId: 'home', accountId: 'cmb' },
   { id: 'b_shop', name: '购物', type: 'expense', period: 'monthly', limit: 80_000, categoryId: 'shop', accountId: 'cmb' },
@@ -63,7 +60,7 @@ const SEED_BUDGETS: LedgerBudget[] = [
   { id: 'b_move', name: '账户互转', type: 'transfer', period: 'monthly', limit: 500_000, categoryId: 'move', accountId: 'cmb', toAccountId: 'brk' },
 ]
 
-const SEED_TRANSACTIONS: LedgerTransaction[] = [
+const TEST_TRANSACTIONS: LedgerTransaction[] = [
   {
     id: 't1', date: '2026-10-28', type: 'expense', categoryId: 'food_lunch',
     note: '公司食堂', accountId: 'wx', amount: 2_800,
@@ -119,12 +116,12 @@ const SEED_TRANSACTIONS: LedgerTransaction[] = [
   },
 ]
 
-export function createSeedLedger(): Ledger {
+export function createTestLedger(): Ledger {
   return {
-    accounts: SEED_ACCOUNTS.map((account) => ({ ...account })),
-    accountCategories: SEED_ACCOUNT_CATEGORIES.map((category) => ({ ...category })),
-    categories: SEED_CATEGORIES.map((category) => ({ ...category })),
-    budgets: SEED_BUDGETS.map((budget) => ({ ...budget })),
-    transactions: SEED_TRANSACTIONS.map((transaction) => ({ ...transaction })),
+    accounts: TEST_ACCOUNTS.map((account) => ({ ...account })),
+    accountCategories: TEST_ACCOUNT_CATEGORIES.map((category) => ({ ...category })),
+    categories: TEST_CATEGORIES.map((category) => ({ ...category })),
+    budgets: TEST_BUDGETS.map((budget) => ({ ...budget })),
+    transactions: TEST_TRANSACTIONS.map((transaction) => ({ ...transaction })),
   }
 }

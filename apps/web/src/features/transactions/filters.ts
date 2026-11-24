@@ -111,7 +111,7 @@ function matchesQuery(ledger: Ledger, transaction: LedgerTransaction, query: str
   const category = getCategoryName(ledger, transaction.categoryId)
   // 与服务端口径一致：关键词只搜文本（备注 / 账户 / 分类 / 方向），不搜金额。
   // 金额有独立区间筛选（amountMin/amountMax），若在这里额外匹配金额文本，
-  // 同一关键词在种子版与 API 版会返回不同结果。
+  // 会让关键词筛选与金额筛选口径混在一起。
   const haystack = normalize(
     [
       transaction.note,

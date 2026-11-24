@@ -237,10 +237,6 @@ export function useLedgerConfigController({
       notify('「未分组」是默认归类占位，不能删除；把账户移入任一正式分组即可')
       return
     }
-    if (group.seeded) {
-      notify('演示账本的账户性质分组只读，请在真实账本中管理分组')
-      return
-    }
     if (accountGroupCount(group) > 0) {
       const names = group.rows
         .slice(0, 3)
@@ -310,8 +306,7 @@ export function useLedgerConfigController({
   const openTransfer = async (row: CategoryRow, type: TxType) => {
     let txCount = row.txCount
     try {
-      const realId = ledger.ids?.categoryReal?.[row.id] ?? row.id
-      const stats = await transactionCategoryApi.getStats(realId).then(unwrapApiData)
+      const stats = await transactionCategoryApi.getStats(row.id).then(unwrapApiData)
       txCount = stats.transactionCount
     } catch (error) {
       notify(getApiErrorMessage(error))

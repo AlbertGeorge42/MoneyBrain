@@ -10,7 +10,7 @@ import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { ToastProvider } from '@/features/shared/toast'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 import { TransactionsPage } from '@/features/transactions/TransactionsPage'
 import type { DataState } from '@/features/shared/types'
 import { appTheme } from '@/styles/theme/theme-tokens'
@@ -22,7 +22,7 @@ function renderTransactions(state: DataState, onRetry = vi.fn()) {
   const view = render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={appTheme}>
-        <LedgerProvider initialLedger={createSeedLedger()}>
+        <LedgerProvider initialLedger={createTestLedger()}>
           <ToastProvider>
             <TransactionsPage
               device="desktop"

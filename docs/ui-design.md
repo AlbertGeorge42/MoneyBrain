@@ -182,7 +182,7 @@ PC 与移动是**两套独立结构**，不是同一棵树的响应式缩放：�
 | 混合 `mixed` | 起点在 `asOf` 前、终点在 `asOf` 后 | 桶内分段展示 |
 | 全未来 `future` | `from > asOf` | 只展示预测数据源 |
 
-`asOf` 在真实账本里是今天，种子模式用冻结锚点。四粒度同一套参数 `asOf / from / to / granularity`：day 上限 3 个月、week 6 个月、month 12 个月、year 3 年；不传窗口参数时默认「月粒度、从 `asOf` 所在自然月起连续 12 个月」；超限返回 400 与可操作文案。`fromMonth / months` 已删除，不恢复。
+`asOf` 是今天（有账本快照时取快照里的今天）。四粒度同一套参数 `asOf / from / to / granularity`：day 上限 3 个月、week 6 个月、month 12 个月、year 3 年；不传窗口参数时默认「月粒度、从 `asOf` 所在自然月起连续 12 个月」；超限返回 400 与可操作文案。`fromMonth / months` 已删除，不恢复。
 
 ### 4.2 三来源与互斥
 

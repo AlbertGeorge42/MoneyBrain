@@ -8,6 +8,7 @@ import {
   getCategory,
   getCategoryName,
 } from '@/features/overview/model'
+import { EMPTY_LEDGER } from '@/features/overview/apiLedger'
 import { ColdStartGuide, ErrorPanel, LoadingSkeleton } from '@/features/shared/StateViews'
 import { Card } from '@/features/shared/Card'
 import { Button } from '@/features/shared/Button'
@@ -303,10 +304,10 @@ export function TransactionsPage({
   }, [filters])
 
   // 深链还原：账本就绪后一次性初始化筛选，并回到列表顶部（不沿用上一页滚动位置）。
-  // API 模式下 dataState 翻到 normal 的那一帧，LedgerProvider 可能还持有上一帧的
+  // dataState 翻到 normal 的那一帧，LedgerProvider 可能还持有上一帧的
   // EMPTY_LEDGER（initialLedger 通过 effect 同步），此时分类为空，深链分类会被误丢。
-  // 用真实账本独有的 ids 映射判断就绪，确保 hydration 读到的是同一份分类。
-  const ledgerReady = ledger.ids !== undefined
+  // 用「已脱离空占位账本」判断就绪，确保 hydration 读到的是同一份分类。
+  const ledgerReady = ledger !== EMPTY_LEDGER
 
   useEffect(() => {
     if (hydrated || !ledgerReady) return

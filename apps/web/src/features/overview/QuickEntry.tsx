@@ -31,14 +31,6 @@ const CATEGORY_TYPE: Record<TxType, TxType> = {
   adjustment: 'expense',
 }
 
-const DEFAULT_CATEGORY: Record<TxType, string> = {
-  expense: 'food',
-  income: 'salary',
-  transfer: 'move',
-  refund: 'refund',
-  adjustment: 'other',
-}
-
 const MAX_AMOUNT_DIGITS = 9
 
 function categoryOptions(categories: Ledger['categories'], type: TxType) {
@@ -52,6 +44,11 @@ function categoryOptions(categories: Ledger['categories'], type: TxType) {
   }
   const target = CATEGORY_TYPE[type]
   return roots.filter((category) => category.type === target)
+}
+
+/** 默认分类取该类型下第一个根分类的真实 id；没有分类时留空。 */
+function defaultCategoryId(categories: Ledger['categories'], type: TxType): string {
+  return categoryOptions(categories, type)[0]?.id ?? ''
 }
 
 /** 常用账户 chips：最近使用 + 当前选中，最多 5 个，选中项恒可见。 */
@@ -184,7 +181,7 @@ function EntryForm({
   const missingAccount = ledger.accounts.length === 0
   const [type, setType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
-  const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY.expense)
+  const [categoryId, setCategoryId] = useState(() => defaultCategoryId(ledger.categories, 'expense'))
   const [accountId, setAccountId] = useState(ledger.accounts[0]?.id || '')
   const [toAccountId, setToAccountId] = useState(ledger.accounts[1]?.id || '')
   const [note, setNote] = useState('')
@@ -239,7 +236,7 @@ function EntryForm({
 
   const changeType = (next: TxType) => {
     setType(next)
-    setCategoryId(DEFAULT_CATEGORY[next])
+    setCategoryId(defaultCategoryId(ledger.categories, next))
     setStage('amount')
     if (!mobile) amountRef.current?.focus()
     if (next !== 'transfer') {
@@ -281,7 +278,7 @@ function EntryForm({
     const mode = keepOpen ? 'continue' : 'save'
     const input: NewTransactionInput = {
       type,
-      categoryId: type === 'transfer' ? 'move' : categoryId,
+      categoryId,
       accountId,
       toAccountId: type === 'transfer' ? toAccountId : undefined,
       // 平账：amount 仅作占位（走对账接口时忽略），真实意图是 actualBalance。

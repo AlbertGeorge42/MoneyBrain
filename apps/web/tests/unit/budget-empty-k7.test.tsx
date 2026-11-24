@@ -9,13 +9,13 @@ import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { BudgetPage } from '@/features/budgets/BudgetPage'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 
 describe('K7 空账本主操作', () => {
   it('页头不再出现「新增」，页面级主按钮只剩空态里的一个', () => {
     const { container } = render(
       <MantineProvider>
-        <LedgerProvider initialLedger={{ ...createSeedLedger(), budgets: [] }}>
+        <LedgerProvider initialLedger={{ ...createTestLedger(), budgets: [] }}>
           <BudgetPage
             device="desktop"
             dataState="ready"

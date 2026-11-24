@@ -23,7 +23,6 @@ import {
   buildLedgerFromApi,
   calendarDay,
   toLedgerTransaction,
-  createCategoryDisplayMapper,
   type LedgerApiPayload,
 } from '@/features/overview/apiLedger'
 import {
@@ -284,7 +283,7 @@ describe('DTO → Ledger 适配', () => {
 
     expect(budgets.rows).toHaveLength(1)
     expect(budgets.rows[0]).toMatchObject({ name: '餐饮', used: 40_000, limit: 100_000, level: 'normal' })
-    expect(ledger.budgets[0]).toMatchObject({ period: 'monthly', categoryId: 'food' })
+    expect(ledger.budgets[0]).toMatchObject({ period: 'monthly', categoryId: 'cat-food' })
   })
 
   it('本月预算头部只合计月度且启用的支出预算，周/年与停用不并入', () => {
@@ -314,21 +313,21 @@ describe('DTO → Ledger 适配', () => {
     expect(budgets.percent).toBe(100)
   })
 
-  it('分类命中种子名称时映射回稳定 key，供图标与筛选使用', () => {
+  it('分类 id 直接用后端真实 id，父子关系原样保留', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
     const byName = new Map(ledger.categories.map((item) => [item.name, item]))
 
-    expect(byName.get('餐饮')?.id).toBe('food')
-    expect(byName.get('午餐')?.parentId).toBe('food')
-    expect(byName.get('工资')?.id).toBe('salary')
+    expect(byName.get('餐饮')?.id).toBe('cat-food')
+    expect(byName.get('午餐')?.parentId).toBe('cat-food')
+    expect(byName.get('工资')?.id).toBe('cat-salary')
   })
 
   it('最近交易保留本地日历日并保留转账 / 费用字段', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
 
     expect(ledger.transactions).toHaveLength(2)
-    expect(ledger.transactions[0]).toMatchObject({ id: 't1', date: '2026-11-05', categoryId: 'food', note: '' })
-    expect(ledger.transactions[1]).toMatchObject({ type: 'income', categoryId: 'salary' })
+    expect(ledger.transactions[0]).toMatchObject({ id: 't1', date: '2026-11-05', categoryId: 'cat-food', note: '' })
+    expect(ledger.transactions[1]).toMatchObject({ type: 'income', categoryId: 'cat-salary' })
   })
 
   it('走势末点随当前净资产联动，前缀沿用真实月份', () => {
@@ -358,13 +357,13 @@ describe('DTO → Ledger 适配', () => {
     expect(charts.trend.at(-1)?.month).toBe('2026-11')
   })
 
-  it('分类构成沿用后端聚合值并按展示 id 映射，0 元分类保留不崩', () => {
+  it('分类构成沿用后端聚合值并按真实 id 归集，0 元分类保留不崩', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
     const charts = deriveExpenseCharts(ledger, '2026-11-06')
 
     expect(charts.categories).toEqual([
-      { id: 'food', name: '餐饮', amount: 300_000 },
-      { id: 'home', name: '居住', amount: 200_000 },
+      { id: 'cat-food', name: '餐饮', amount: 300_000 },
+      { id: 'cat-home', name: '居住', amount: 200_000 },
       { id: 'cat-zero', name: '零元分类', amount: 0 },
     ])
     expect(charts.range).toEqual({ from: '2025-12-01', to: '2026-11-30' })
@@ -378,8 +377,6 @@ describe('DTO → Ledger 适配', () => {
 })
 
 describe('账本日期解析：本地日历日', () => {
-  const mapper = createCategoryDisplayMapper([category('food', '餐饮')])
-
   it('date-only 原样保留，不随时区变化（UTC+8 / UTC-5 / UTC 结果相同）', () => {
     // 这些断言不读取本地时区，三种时区跑同一份用例结果必须一致。
     expect(calendarDay('2026-12-31')).toBe('2026-12-31')
@@ -396,7 +393,7 @@ describe('账本日期解析：本地日历日', () => {
 
   it('交易 DTO 的 date-only 日期进入账本模型后仍是同一天', () => {
     const dto = { ...transaction('t-boundary', 'expense', 10_000, 'food'), date: '2026-12-31' }
-    expect(toLedgerTransaction(dto, mapper).date).toBe('2026-12-31')
+    expect(toLedgerTransaction(dto).date).toBe('2026-12-31')
   })
 
   it('非法值返回空串，不再产生 Invalid Date', () => {

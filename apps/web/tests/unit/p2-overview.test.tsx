@@ -22,7 +22,7 @@ import {
   groupRecentTransactions,
   type LedgerTransaction,
 } from '@/features/overview/model'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), deleteTx: vi.fn() }))
 vi.mock('@/services/api', () => ({
@@ -53,7 +53,7 @@ describe('#7 保存后的记录级撤销', () => {
     mocks.deleteTx.mockResolvedValue({ data: { success: true, data: {} } })
     const { result } = renderHook(() => useLedger(), {
       wrapper: ({ children }) => (
-        <LedgerProvider initialLedger={createSeedLedger()}>{children}</LedgerProvider>
+        <LedgerProvider initialLedger={createTestLedger()}>{children}</LedgerProvider>
       ),
     })
 
@@ -110,7 +110,7 @@ describe('#9 未来日期分组', () => {
   })
 
   it('总览本月支出不含未来日期（有意行为）', () => {
-    const ledger = { ...createSeedLedger(), transactions: [transaction({ id: 'future', date: '2027-01-05', amount: 5_000 })] }
+    const ledger = { ...createTestLedger(), transactions: [transaction({ id: 'future', date: '2027-01-05', amount: 5_000 })] }
     expect(deriveOverview(ledger).expense).toBe(0)
   })
 })
@@ -150,7 +150,7 @@ describe('#13 千分位金额输入', () => {
   it('记账弹层粘贴 1,234.56 不再标红且可保存', () => {
     render(
       <MantineProvider>
-        <LedgerProvider initialLedger={createSeedLedger()}>
+        <LedgerProvider initialLedger={createTestLedger()}>
           <QuickEntry opened device="desktop" onClose={() => {}} onSaved={() => {}} />
         </LedgerProvider>
       </MantineProvider>,
@@ -168,7 +168,7 @@ describe('#13 千分位金额输入', () => {
   it('记账弹层粘贴 ¥1,234.56 与全角数字同样可保存', () => {
     render(
       <MantineProvider>
-        <LedgerProvider initialLedger={createSeedLedger()}>
+        <LedgerProvider initialLedger={createTestLedger()}>
           <QuickEntry opened device="desktop" onClose={() => {}} onSaved={() => {}} />
         </LedgerProvider>
       </MantineProvider>,

@@ -50,8 +50,6 @@ export interface AccountGroup {
   rows: AccountRow[]
   /** 未分组占位（账户 categoryId 为空或指向不存在的分组）。 */
   ungrouped?: boolean
-  /** 种子账本按性质合成的只读分组，不能增删改。 */
-  seeded?: boolean
 }
 
 export function accountGroupCount(group: AccountGroup): number {
@@ -65,8 +63,7 @@ export function accountGroupBalance(group: AccountGroup): number {
 /**
  * 账户分组列表（只用于展示与组织，不参与任何合计）。
  *
- * API 模式直接投影后端的 AccountCategory（一级）；种子账本没有分组表，
- * 按性质合成只读分组，保证预览不空。
+ * 直接投影后端的 AccountCategory（一级）；账户 categoryId 为空或指向不存在分组时归入「未分组」。
  */
 export function accountGroupsForType(ledger: Ledger, type: 'asset' | 'liability'): AccountGroup[] {
   const counts = new Map<string, number>()
@@ -83,20 +80,7 @@ export function accountGroupsForType(ledger: Ledger, type: 'asset' | 'liability'
     txCount: counts.get(account.id) ?? 0,
   })
 
-  if (!ledger.accountCategories) {
-    const kinds: readonly AccountKind[] =
-      type === 'asset' ? ['cash', 'deposit', 'investment'] : ['credit']
-    return kinds.map((kind, index) => ({
-      id: `seed-${kind}`,
-      name: ACCOUNT_KIND_LABEL[kind],
-      type,
-      sort: index,
-      seeded: true,
-      rows: ledger.accounts.filter((account) => account.kind === kind).map(toRow),
-    }))
-  }
-
-  const accountCategories = ledger.accountCategories
+  const accountCategories = ledger.accountCategories ?? []
   const known = new Set(accountCategories.map((category) => category.id))
   // 资产 / 负债归属由账户本身决定，分组只决定它排在哪个抽屉里。
   const accountType = (account: Ledger['accounts'][number]): 'asset' | 'liability' =>
@@ -113,7 +97,6 @@ export function accountGroupsForType(ledger: Ledger, type: 'asset' | 'liability'
       name: category.name,
       type,
       sort: category.sort,
-      seeded: category.seeded,
       rows: rowsOf(category.id),
     }))
 
@@ -213,8 +196,7 @@ export const ACTIVITY_GROUPS: readonly { id: ActivityGroupId; label: string }[] 
 
 /**
  * 分类的有效活动：与后端 getTransactionCategories 同源，走 domain 的根继承解析。
- * 子分类自身 cashFlowType 恒 null，活动从一级根继承；演示账本没有 effective 字段时
- * 也必须按这条规则解析，不能靠写入子分类的非 null 值来伪装。
+ * 子分类自身 cashFlowType 恒 null，活动从一级根继承，不能靠写入子分类的非 null 值来伪装。
  */
 export function defaultActivity(category: LedgerCategory, ledger?: Ledger): ActivityGroupId {
   if (category.effectiveCashFlowType) return category.effectiveCashFlowType
@@ -374,8 +356,8 @@ export function updateCategory(
 }
 
 /**
- * 种子模式的活动归属写入：只写当前分类自身，子分类不接受独立 cashFlowType，
- * 展示时由 defaultActivity 按根继承解析——与 API 模式「子分类恒 null」同一口径。
+ * 活动归属写入：只写当前分类自身，子分类不接受独立 cashFlowType，
+ * 展示时由 defaultActivity 按根继承解析。
  */
 export function setCategoryCashFlowInLedger(
   ledger: Ledger,

@@ -4,7 +4,7 @@
  * 覆盖三类预算、80–100% warning、超支金额、收入达成、转账不计入预算与历史月份结算。
  */
 import { describe, expect, it } from 'vitest'
-import { createSeedLedger } from '@/dev-fixtures/seed'
+import { createTestLedger } from '@/test-fixtures/ledger'
 import { createBudgetId, deriveBudgetPage, shiftMonth } from '@/features/budgets/budgetModel'
 import type {
   Ledger,
@@ -47,7 +47,7 @@ function tx(
 }
 
 describe('预算页数据', () => {
-  const ledger = createSeedLedger()
+  const ledger = createTestLedger()
   // 用量由后端 statuses 提供；前端只做合计、分组、排序与文案。
   const statusById = new Map([
     ['b_food', { used: 28_600, isActive: true }],
@@ -104,7 +104,7 @@ describe('预算页数据', () => {
   })
 
   it('历史月份没有后端用量时按未知处理，只保留月份标签', () => {
-    const previous = deriveBudgetPage(createSeedLedger(), '2025-09')
+    const previous = deriveBudgetPage(createTestLedger(), '2025-09')
     expect(previous.expense.used).toBe(0)
     expect(previous.expense.percent).toBe(0)
     expect(previous.groups[0].rows[0].status).toBe('用量未知')

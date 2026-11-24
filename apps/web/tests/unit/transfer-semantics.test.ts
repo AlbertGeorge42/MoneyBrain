@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, Minor, Transaction } from '@contracts/types'
 import { addTransaction, transferAmounts, type Ledger, type LedgerTransaction } from '@/features/overview/model'
-import { mapperFromLedger, toLedgerTransaction } from '@/features/overview/apiLedger'
+import { toLedgerTransaction } from '@/features/overview/apiLedger'
 import { accountBalancesAt } from '@/features/reports/reportsModel'
 import { deleteTransactionsFromLedger, updateTransactionInLedger } from '@/features/transactions/ledgerOps'
 import { makeLedger } from '../helpers/ledger'
@@ -146,10 +146,7 @@ describe('API → 本地账本映射保留 coupon', () => {
     }) as Transaction
 
   it('X / f / c 三列全部带入页面模型', () => {
-    const mapped = toLedgerTransaction(
-      apiTransaction({ coupon: C as Minor }),
-      mapperFromLedger(makeLedger()),
-    )
+    const mapped = toLedgerTransaction(apiTransaction({ coupon: C as Minor }))
     expect(mapped.amount).toBe(X)
     expect(mapped.fee).toBe(F)
     expect(mapped.coupon).toBe(C)

@@ -51,7 +51,7 @@ const apiBudget = {
   isActive: true,
   accountId: 'acc1',
   toAccountId: null,
-  categoryId: 'real-food',
+  categoryId: 'food',
 }
 
 const ledger: Ledger = {
@@ -72,10 +72,6 @@ const ledger: Ledger = {
     },
   ],
   transactions: [],
-  ids: {
-    categoryReal: { food: 'real-food' },
-    categoryDisplay: { 'real-food': 'food' },
-  },
 }
 
 const success = (data: unknown) => ({ data: { success: true, data } })

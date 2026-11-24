@@ -4,7 +4,7 @@ import { amountText } from './format'
 import type { LedgerAccount, LedgerAccountCategory, OverviewSummary } from './model'
 import { CATEGORY_COLORS, stableSlotMap } from '@/features/shared/seriesColor'
 
-/** 种子账本没有分组表时，按账户性质取色；四个性质即四个稳定身份。 */
+/** 没有分组表时按账户性质取色；四个性质即四个稳定身份。 */
 const KIND_KEYS = ['cash', 'deposit', 'investment', 'credit'] as const
 
 export function AccountEntry({

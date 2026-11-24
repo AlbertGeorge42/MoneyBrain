@@ -37,7 +37,7 @@ apps/web/src/
 ├── components/common/    # ErrorBoundary
 ├── services/             # api.ts（Axios）、apiError.ts、apiResult.ts
 ├── styles/               # global.css · reset.css · theme/{theme-tokens.ts,variables.css}
-├── utils/ · dev-fixtures/ · main.tsx
+├── utils/ · test-fixtures/ · main.tsx
 （无 ui/、queries/、hooks/、layouts/、pages/ 目录；不要再新建同类目录）
 
 packages/domain/src/      # money · date · investment · ledger/ · budget/ · statements/ · projection/；模块边界见 §3.5

@@ -14,7 +14,6 @@ import {
   getAccount,
   getCategoryIconKey,
   getCategoryName,
-  getCategoryRootId,
   transactionDirection,
   transactionTone,
   type Ledger,
@@ -48,7 +47,6 @@ export function TxRow({
   onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
   const account = getAccount(ledger, transaction.accountId)
-  const rootId = getCategoryRootId(ledger, transaction.categoryId)
   const iconKey = getCategoryIconKey(ledger, transaction.categoryId)
   const categoryName = getCategoryName(ledger, transaction.categoryId)
   const toAccount =
@@ -70,7 +68,7 @@ export function TxRow({
       }}
     >
       {leading}
-      <CategoryIcon rootId={rootId} iconKey={iconKey} size={variant === 'mobile' ? 'md' : 'sm'} />
+      <CategoryIcon iconKey={iconKey} size={variant === 'mobile' ? 'md' : 'sm'} />
       <span className="mb-tx-main">
         <span className="mb-tx-primary">
           <span className="mb-tx-cat-name">{categoryName}</span>

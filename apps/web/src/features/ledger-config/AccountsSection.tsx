@@ -163,7 +163,7 @@ function SortableGroupRow({
   onDeleteGroup: (group: AccountGroup) => void
   onDeleteAccount: (account: AccountRow) => void
 }) {
-  const draggable = !group.ungrouped && !group.seeded
+  const draggable = !group.ungrouped
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `g:${group.id}`,
     disabled: !draggable,
@@ -193,7 +193,6 @@ function SortableGroupRow({
         </span>
         <span className="mb-set-icon">
           <CategoryIcon
-            rootId={group.id}
             iconKey={ledger.accountCategories?.find((item) => item.id === group.id)?.iconKey}
           />
         </span>
@@ -212,7 +211,7 @@ function SortableGroupRow({
               key: `grp-edit-${group.id}`,
               label: '编辑',
               disabled: !draggable,
-              hint: '默认归类与演示分组只读',
+              hint: '默认归类只读',
               onSelect: () => onOpenGroup(group),
             },
             {
@@ -221,7 +220,7 @@ function SortableGroupRow({
               danger: true,
               confirm: !hasAccounts && draggable,
               disabled: hasAccounts || !draggable,
-              hint: hasAccounts ? '先把账户移到其他分组' : '默认归类与演示分组只读',
+              hint: hasAccounts ? '先把账户移到其他分组' : '默认归类只读',
               onSelect: () => onDeleteGroup(group),
             },
           ]}
@@ -279,13 +278,13 @@ export function AccountsSection({
   const visibleGroups = showEmptyGroups
     ? groups
     : groups.filter((group) => accountGroupCount(group) > 0)
-  const realGroups = visibleGroups.filter((group) => !group.ungrouped && !group.seeded)
+  const realGroups = visibleGroups.filter((group) => !group.ungrouped)
   const emptyGroupCount = groups.filter((group) => accountGroupCount(group) === 0).length
   const allExpanded =
     visibleGroups.length > 0 &&
     visibleGroups.every((group) => isKeyExpanded(expandedKeys, `grp-${group.id}`))
 
-  const canManage = (group: AccountGroup) => !group.ungrouped && !group.seeded
+  const canManage = (group: AccountGroup) => !group.ungrouped
   const openGroup = (group: AccountGroup) => {
     if (!canManage(group)) return
     const source = (ledger.accountCategories ?? []).find((item) => item.id === group.id)

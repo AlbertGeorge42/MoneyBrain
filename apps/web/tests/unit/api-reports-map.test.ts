@@ -1,7 +1,7 @@
 /**
  * 收支分类构成回归：真实库存在单笔历史负向支出（钱包 / 餐饮 ¥28.00），
  * 接口 detail.actual = -2800。分类构成必须按绝对值入树，并且笔数与后端真实分类 id
- * 映射回账本展示 id 后能对上，不能出现「合计有金额、构成没有数据」或 0 笔。
+ * 能对上，不能出现「合计有金额、构成没有数据」或 0 笔。
  */
 import { describe, expect, it } from 'vitest'
 import type { IncomeExpenseReportData, ReportValue } from '@contracts/types'
@@ -29,7 +29,6 @@ const ledger: Ledger = {
     },
   ],
   // 接口分类返回后端真实 id，账本流水按展示 id 归集（真实库同名分类会被改写成种子 key）。
-  ids: { categoryDisplay: { 'real-food': 'food' }, categoryReal: { food: 'real-food' } },
 }
 
 const reportData: IncomeExpenseReportData = {
@@ -47,14 +46,14 @@ const reportData: IncomeExpenseReportData = {
     difference: 0,
   },
   incomeByCategory: {},
-  expenseByCategory: { 'real-food': -2_800 },
+  expenseByCategory: { 'food': -2_800 },
   incomeCategoryDetails: [],
   expenseCategoryDetails: [
     {
       name: '餐饮',
       actual: -2_800,
       predicted: 0,
-      categoryId: 'real-food',
+      categoryId: 'food',
       hasChildren: false,
       sort: 0,
     },
@@ -98,7 +97,7 @@ describe('mapFlowReport 分类构成', () => {
           name: '餐饮',
           actual: -2_800,
           predicted: 0,
-          categoryId: 'real-food',
+          categoryId: 'food',
           hasChildren: true,
           sort: 0,
           children: [
@@ -129,7 +128,7 @@ describe('mapFlowReport 分类构成', () => {
     const refundData: IncomeExpenseReportData = {
       ...reportData,
       incomeCategoryDetails: [
-        { name: '退款', actual: 100, predicted: 0, categoryId: 'real-food', hasChildren: false, sort: 0 },
+        { name: '退款', actual: 100, predicted: 0, categoryId: 'food', hasChildren: false, sort: 0 },
       ],
     }
     const report = mapFlowReport(refundData, [], refundLedger, '2026-11-01', '2026-11-06')
@@ -272,7 +271,7 @@ describe('mapCashReport 现金流下钻 id 空间', () => {
         items: [
           {
             categoryName: '餐饮',
-            categoryId: 'real-food',
+            categoryId: 'food',
             parentId: null,
             level: 0,
             amount: -2_800,

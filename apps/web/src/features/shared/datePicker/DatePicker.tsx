@@ -41,7 +41,7 @@ interface DatePickerProps {
   optional?: boolean
   placeholder?: string
   presets?: readonly DatePresetOption[]
-  /** 日历基准日 / 预设锚点，由调用方给（真实库用账本 today，种子库用冻结日）。 */
+  /** 日历基准日 / 预设锚点，由调用方给账本 today。 */
   today: string
   /** 晚于该日的日期禁用，并展示 disabledNote。 */
   maxDate?: string
