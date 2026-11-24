@@ -53,10 +53,7 @@ describe('mapFlowReport 负向支出显示', () => {
     const report = mapFlowReport(
       reportData,
       [{ label: '2026-11', income: 0, expense: -2_800 }],
-      ledger,
-      '2026-11-01',
-      '2026-11-06',
-    )
+)
     const expenseMetric = report.metrics.find((item) => item.label === '本期支出')?.value
 
     expect(report.expense).toBe(2_800)

@@ -134,7 +134,7 @@ const UI_CASH = {
       outflow: { actual: -19_900 },
       net: { actual: -19_900 },
       items: [
-        { categoryName: '教育', categoryId: 'edu', actual: -19_900, direction: 'outflow', type: 'expense' },
+        { categoryName: '教育', categoryId: 'edu', actual: -19_900, direction: 'outflow', type: 'expense', count: 1, accountIds: [] },
       ],
     },
     investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
@@ -144,14 +144,14 @@ const UI_CASH = {
       outflow: { actual: -50_000 },
       net: { actual: -50_000 },
       items: [
-        { categoryName: '账户互转', categoryId: 'move', actual: -50_000, direction: 'outflow', type: 'transfer_out' },
+        { categoryName: '账户互转', categoryId: 'move', actual: -50_000, direction: 'outflow', type: 'transfer_out', count: 1, accountIds: [] },
       ],
     },
   },
 } as never
 
 mockReports.balance = mapBalanceReport(UI_BALANCE, [], apiLedger)
-mockReports.flow = mapFlowReport(UI_FLOW, [], apiLedger, monthFrom, TODAY)
+mockReports.flow = mapFlowReport(UI_FLOW, [])
 mockReports.cash = mapCashReport(UI_CASH, apiLedger, monthFrom, TODAY)
 
 const contextValue = {

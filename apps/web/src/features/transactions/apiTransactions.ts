@@ -7,7 +7,7 @@
  * - 关键词 / 类型 / 账户 / 期间 / 金额区间都是后端参数
  * 分页在后台自动翻页（页面本身没有分页控件），一次筛选取回完整结果。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { Transaction } from '@contracts/types'
 import { transactionApi } from '@/services/api'
@@ -116,12 +116,27 @@ export async function fetchFilteredTransactions(
   return { items, total, requests }
 }
 
-function useDebouncedValue<T>(value: T, delay: number): T {
+/**
+ * 按「内容」防抖：引用变化但序列化内容一致时不重置计时器。
+ * 深链还原每次都会新建 advanced 对象，若按引用防抖会白等一个 delay。
+ */
+export function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
+  const key = JSON.stringify(value)
+  const lastKey = useRef(key)
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delay)
+    if (key === lastKey.current) {
+      // 内容未变、仅引用变化（深链还原每次新建 advanced 对象）：立即同步引用，
+      // 否则下游 `debounced === filters` 的引用判断会误以为仍在防抖中，永不发请求。
+      setDebounced(value)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      lastKey.current = key
+      setDebounced(value)
+    }, delay)
     return () => window.clearTimeout(timer)
-  }, [value, delay])
+  }, [key, value, delay])
   return debounced
 }
 
@@ -133,7 +148,7 @@ interface ServerTransactionQuery {
 }
 
 /** axios 取消（CanceledError）或 AbortSignal 中止：是批次被取代，不是请求失败。 */
-function isRequestCanceled(error: unknown): boolean {
+export function isRequestCanceled(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const candidate = error as { name?: string; code?: string; __CANCEL__?: boolean }
   return (

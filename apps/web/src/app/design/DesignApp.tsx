@@ -160,6 +160,7 @@ function PreviewToolbar({
 function PreviewBody({
   device,
   dataState,
+  transactionsDataState,
   page,
   onPage,
   onState,
@@ -168,6 +169,8 @@ function PreviewBody({
 }: {
   device: DeviceMode
   dataState: DataState
+  /** 流水页专用：只等 metadata 的快状态，先于完整账本就绪。 */
+  transactionsDataState: DataState
   page: ShellPage
   onPage: (next: ShellPage) => void
   onState: (next: DataState) => void
@@ -228,7 +231,7 @@ function PreviewBody({
     ) : page === 'transactions' ? (
       <TransactionsPage
         device={device}
-        dataState={dataState}
+        dataState={transactionsDataState}
         batchMode={batchMode}
         onBatchModeChange={setBatchMode}
         displayOpen={displayOpen}
@@ -404,16 +407,11 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
   }, [queryClient])
 
   // 「正常」档跟随真实请求状态；其余档仍是预览用的显式状态。
-  const effectiveState: DataState =
-    dataState === 'normal'
-      ? api.status === 'loading'
-        ? 'loading'
-        : api.status === 'error'
-          ? 'error'
-          : api.isEmpty
-            ? 'empty'
-            : 'normal'
-      : dataState
+  // full 等两批 ledger 都就绪；core 只等 metadata——流水页只依赖 metadata，先渲染。
+  const stateFrom = (status: 'loading' | 'error' | 'ready'): DataState =>
+    status === 'loading' ? 'loading' : status === 'error' ? 'error' : api.isEmpty ? 'empty' : 'normal'
+  const fullState: DataState = dataState === 'normal' ? stateFrom(api.status) : dataState
+  const coreState: DataState = dataState === 'normal' ? stateFrom(api.coreStatus) : dataState
 
   const canvasClass = useMemo(() => {
     if (!preview) {
@@ -441,7 +439,8 @@ export default function DesignApp({ preview = true }: { preview?: boolean }) {
         >
           <PreviewBody
             device={activeDevice}
-            dataState={effectiveState}
+            dataState={fullState}
+            transactionsDataState={coreState}
             page={page}
             onPage={setPage}
             onState={setDataState}

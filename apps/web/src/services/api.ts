@@ -9,6 +9,7 @@ import type {
   AnalyticsAssetTrendItem,
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
+  BootstrapData,
   AssetProjectionResult,
   ApiResponse,
   AuditEventHistoryResult,
@@ -117,6 +118,7 @@ export const transactionApi = {
   getAll: (params?: Record<string, unknown> | URLSearchParams, signal?: AbortSignal) =>
     api.get<ApiResponse<PaginatedResponse<Transaction>>>('/transactions', { params, signal }),
   getStats: (params?: Record<string, unknown> | URLSearchParams) => api.get<ApiResponse<TransactionStats>>('/transactions/stats', { params }),
+  getById: (id: string) => api.get<ApiResponse<Transaction>>(`/transactions/${id}`),
   getEarliestDate: () => api.get<ApiResponse<EarliestTransactionDateResult>>('/transactions/earliest'),
   getRefundableList: () => api.get<ApiResponse<Transaction[]>>('/transactions/refundable/list'),
   create: (data: Partial<Transaction>) => api.post<ApiResponse<Transaction>>('/transactions', data),
@@ -187,12 +189,22 @@ export const reportApi = {
 
 export const analyticsApi = {
   getDashboardSummary: () => api.get<ApiResponse<DashboardSummaryData>>('/analytics/dashboard'),
+  /** 交易摘要（账户含转入侧 / 分类 / 月份 / 最新日期 / 总笔数）：Ledger metadata 用，不拉明细。 */
+  getTransactionSummary: () => api.get<ApiResponse<{
+    byAccount: Record<string, number>
+    byCategory: Record<string, number>
+    byMonth: Record<string, number>
+    total: number
+    latestDate: string | null
+  }>>('/analytics/transaction-summary'),
   getTrends: (type: 'income' | 'expense', period?: string) => api.get<ApiResponse<AnalyticsTrendItem[]>>('/analytics/trends', { params: { type, period } }),
   getCategoryBreakdown: (type: 'income' | 'expense', startDate?: string, endDate?: string, parentCategoryId?: string) => 
     api.get<ApiResponse<AnalyticsCategoryBreakdownItem[]>>('/analytics/category-breakdown', { 
       params: { type, startDate, endDate, parentCategoryId } 
     }),
   getAssetTrend: () => api.get<ApiResponse<AnalyticsAssetTrendItem[]>>('/analytics/asset-trend'),
+  /** Ledger 启动引导：净资产走势 + 当前余额一次回放，替代 asset-trend 与逐账户余额两次扫描。 */
+  getBootstrap: () => api.get<ApiResponse<BootstrapData>>('/analytics/bootstrap'),
   // 未来资产/负债/净资产推演：total 由后端合成，前端不自行累加。
   // 唯一正向入口是 from/to + granularity；累计始终由后端从 asOf 起算。
   getAssetProjection: (window: ProjectionQueryWindow) =>

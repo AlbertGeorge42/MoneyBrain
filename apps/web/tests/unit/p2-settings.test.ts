@@ -29,7 +29,12 @@ const ledger: Ledger = {
     { id: 't3', date: '2026-10-03', type: 'expense', categoryId: 'shop_cloth', note: '外套', accountId: 'a1', amount: 3_000 },
     { id: 't4', date: '2026-10-04', type: 'expense', categoryId: 'food', note: '午餐', accountId: 'a1', amount: 1_500 },
   ],
-}
+  // 生产账本由后端摘要带出分类笔数；此处补等价单值供 categoryRows 读取。
+  snapshot: {
+    categoryTxCounts: { shop: 1, shop_daily: 1, shop_cloth: 1, food: 1 },
+    accountTxCounts: {},
+  },
+} as never
 
 describe('#12 分类删除与转移', () => {
   it('行计数与删除口径一致：都含子分类交易', () => {

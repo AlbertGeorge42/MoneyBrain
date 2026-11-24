@@ -1,5 +1,5 @@
 import type { LocalDate } from '../date.js'
-import { UNCATEGORIZED_CATEGORY_ID, flowByCategory, summarizeFlows } from '../ledger/summary.js'
+import { UNCATEGORIZED_CATEGORY_ID, flowByCategory, flowCountByCategory, summarizeFlows } from '../ledger/summary.js'
 import type { LedgerTransaction } from '../ledger/types.js'
 import { ZERO_MINOR, sub, sum, type Minor } from '../money.js'
 import { coveredInRange } from '../projection/events.js'
@@ -35,6 +35,8 @@ export interface ProjectionCategoryDetail {
   planned: Minor | null
   total: Minor
   hasBudget: boolean
+  /** 该分类（含子树）在窗口内的真实交易笔数（actual + committed，预算不计）。 */
+  count: number
   children?: ProjectionCategoryDetail[]
 }
 
@@ -63,6 +65,11 @@ export interface IncomeExpenseProjectionOutput {
 type CategoryMaps = {
   income: Map<string, Minor>
   expense: Map<string, Minor>
+}
+
+type CategoryCounts = {
+  income: Map<string, number>
+  expense: Map<string, number>
 }
 
 /** 闭区间 [start, end] 内的分录交易（桶边界按日历日比较）。 */
@@ -96,6 +103,13 @@ export function buildIncomeExpenseProjection(
   const committedMaps = categoryMaps(committedLedger)
   const plannedMaps = categoryMaps(plannedLedger)
 
+  const countMaps = (ledger: readonly LedgerTransaction[]): CategoryCounts => ({
+    income: flowCountByCategory(ledger, 'income', undefined, options),
+    expense: flowCountByCategory(ledger, 'expense', undefined, options),
+  })
+  const actualCounts = countMaps(actualLedger)
+  const committedCounts = countMaps(committedLedger)
+
   const categoryTree = (type: FlowCategoryType): ProjectionCategoryDetail[] =>
     buildCategoryTree<ProjectionCategoryDetail>(categories, type, (category, childLeaves, hasChildren) => {
       const ownActual = actualMaps[type].get(category.id) ?? ZERO_MINOR
@@ -111,6 +125,8 @@ export function buildIncomeExpenseProjection(
         : sum([ownPlanned ?? ZERO_MINOR, ...childPlanned.map((child) => child.planned ?? ZERO_MINOR)])
       const actual = sum([ownActual, childrenActual])
       const committed = sum([ownCommitted, childrenCommitted])
+      const ownCount = (actualCounts[type].get(category.id) ?? 0) + (committedCounts[type].get(category.id) ?? 0)
+      const childrenCount = childLeaves.reduce((total, child) => total + child.count, 0)
 
       const node: ProjectionCategoryDetail = {
         name: category.name,
@@ -122,6 +138,7 @@ export function buildIncomeExpenseProjection(
         planned,
         total: sum([actual, committed, planned ?? ZERO_MINOR]),
         hasBudget: planned !== null,
+        count: ownCount + childrenCount,
       }
       if (childLeaves.length > 0) node.children = childLeaves
       return node
@@ -141,6 +158,8 @@ export function buildIncomeExpenseProjection(
       planned: null,
       total: sum([actual, committed]),
       hasBudget: false,
+      count: (actualCounts[type].get(UNCATEGORIZED_CATEGORY_ID) ?? 0)
+        + (committedCounts[type].get(UNCATEGORIZED_CATEGORY_ID) ?? 0),
     }
   }
 

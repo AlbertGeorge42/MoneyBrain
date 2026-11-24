@@ -92,8 +92,8 @@ const CASH_FLOW = {
       outflow: { actual: -20_000 },
       net: { actual: 30_000 },
       items: [
-        { categoryName: '工资', categoryId: 'salary', actual: 50_000, direction: 'inflow', type: 'income' },
-        { categoryName: '教育', categoryId: 'edu', actual: -20_000, direction: 'outflow', type: 'expense' },
+        { categoryName: '工资', categoryId: 'salary', actual: 50_000, direction: 'inflow', type: 'income', count: 0, accountIds: [] },
+        { categoryName: '教育', categoryId: 'edu', actual: -20_000, direction: 'outflow', type: 'expense', count: 0, accountIds: [] },
       ],
     },
     investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
@@ -115,6 +115,7 @@ const CASH_FLOW = {
       { source: 'acct:wx', target: 'acct:zfb', value: 10_000, actualValue: 10_000 },
     ],
   },
+  adjustments: [{ accountId: 'wx', amount: -CORRECTION }],
 }
 
 const report = mapCashReport(CASH_FLOW as never, LEDGER, FROM, TO)
@@ -194,7 +195,7 @@ describe('deriveCashSankey 三层与守恒', () => {
 
   it('手续费与对账修正各为一条独立出流 link', () => {
     const fee = sankey.nodes.find((node) => node.id === 'out:fee')
-    // 手续费来自后端桑基 link；对账修正由账本调整流水补出。
+    // 手续费来自后端桑基 link；对账修正来自后端随报表带出的平账流水。
     expect(fee?.amount).toBe(FEE)
     expect(sankey.links.some((link) => link.nodeId === 'out:fee' && link.amount === fee?.amount)).toBe(true)
     expect(sankey.correction).toBe(CORRECTION)

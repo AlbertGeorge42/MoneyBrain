@@ -172,6 +172,32 @@ export function flowByCategory(
   return result
 }
 
+/**
+ * 与 flowByCategory 同口径的交易笔数（按 categoryId 计，父链上卷由报表树构造完成）。
+ * 供报表 detail 直接携带笔数，前端不必再扫全量流水。
+ */
+export function flowCountByCategory(
+  transactions: readonly LedgerTransaction[],
+  kind: FlowKind,
+  period?: Period,
+  options: FlowSummaryOptions = {},
+): Map<string, number> {
+  const result = new Map<string, number>()
+  const bump = (categoryId: string | null | undefined) => {
+    const key = categoryId ?? UNCATEGORIZED_CATEGORY_ID
+    result.set(key, (result.get(key) ?? 0) + 1)
+  }
+  for (const transaction of transactions) {
+    if (!isCountable(transaction, options.includeExcluded)) continue
+    if (!inPeriod(transaction, period)) continue
+    if (transaction.kind === kind) bump(transaction.categoryId)
+    else if (transaction.kind === 'refund' && refundOffsetKind(transaction.relatedType) === kind) {
+      bump(transaction.categoryId)
+    }
+  }
+  return result
+}
+
 /** 可退金额计算需要的最小结构（原交易 + 它的退款）。 */
 export interface RefundableOriginal {
   id: string

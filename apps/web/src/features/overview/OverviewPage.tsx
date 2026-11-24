@@ -4,6 +4,7 @@ import type { DataState, DeviceMode } from '@/features/shared/types'
 import { Card } from '@/features/shared/Card'
 import { DonutChart, type DonutNode } from '@/features/shared/DonutChart'
 import { DrillDrawer } from '@/features/reports/DrillDrawer'
+import { useDrillTransactions } from '@/features/reports/useDrillTransactions'
 import {
   buildDrillFor,
   type DrillData,
@@ -138,7 +139,7 @@ export function OverviewPage({
   const today = ledger.snapshot?.today
   // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
   const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
-  const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
+  const hasEntry = dataState !== 'empty' && (ledger.snapshot?.hasTransactions ?? false)
   // 支出分类环统一走「环 → 抽屉 → 流水」：与报表三张环同一份 DrillDrawer。
   // hook 必须在下面的早退分支之前声明，保证调用顺序稳定。
   const [drill, setDrill] = useState<DrillTarget | null>(null)
@@ -146,9 +147,26 @@ export function OverviewPage({
     () => deriveExpenseCharts(ledger).range,
     [ledger],
   )
+  // 生产账本（带 snapshot）的下钻流水走服务端查询；测试账本保留全量 fallback（Phase 4 删）。
+  const drillTransactions = useDrillTransactions(
+    drill,
+    expenseRange.from,
+    expenseRange.to,
+    dataState === 'normal' && Boolean(ledger.snapshot),
+  )
   const drillData = useMemo<DrillData | null>(
-    () => (drill ? buildDrillFor(ledger, drill, expenseRange.from, expenseRange.to) : null),
-    [drill, ledger, expenseRange.from, expenseRange.to],
+    () =>
+      drill
+        ? buildDrillFor(
+            ledger,
+            drill,
+            expenseRange.from,
+            expenseRange.to,
+            false,
+            drillTransactions.transactions,
+          )
+        : null,
+    [drill, ledger, expenseRange.from, expenseRange.to, drillTransactions.transactions],
   )
 
   if (dataState === 'loading') {
@@ -186,7 +204,7 @@ export function OverviewPage({
   const summary = deriveOverview(ledger)
   const budget = deriveBudgets(ledger)
   const groups = groupRecentTransactions(
-    ledger.transactions,
+    ledger.snapshot?.recentTransactions ?? [],
     device === 'mobile' ? 4 : 3,
     today,
   )

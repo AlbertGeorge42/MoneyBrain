@@ -437,9 +437,9 @@ export function BudgetPage({
   const [monthOverride, setMonthOverride] = useState<string | null>(null)
   const month = monthOverride ?? currentMonth
   const hasMonthData = useMemo(() => {
-    const present = new Set(ledger.transactions.map((transaction) => transaction.date.slice(0, 7)))
+    const present = new Set(ledger.snapshot?.activeMonths ?? [])
     return (target: string) => present.has(target)
-  }, [ledger.transactions])
+  }, [ledger.snapshot?.activeMonths])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [detailLimit, setDetailLimit] = useState('')
   const [detailNote, setDetailNote] = useState('')

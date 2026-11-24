@@ -17,6 +17,7 @@ const D = (value: string): LocalDate => value as LocalDate
 const snap = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 const tx = (overrides: Partial<ProcessedTx> = {}): ProcessedTx => ({
+  id: 'tx-1',
   isPredicted: false,
   type: 'expense',
   relatedType: null,
@@ -32,6 +33,8 @@ const tx = (overrides: Partial<ProcessedTx> = {}): ProcessedTx => ({
   cashFlowType: 'operating',
   accountName: '现金',
   toAccountName: null,
+  accountId: 'acc-cash',
+  toAccountId: null,
   ...overrides,
 })
 
@@ -155,6 +158,36 @@ test('报表基线：四桶汇总、net = inflow + outflow、平账单列、按�
     outflow: { actual: -300, predicted: -200 },
   })
   assert.equal(statement.byActivity.operating.items.length, 3)
+})
+
+test('现金流活动明细：账户去重、父子链上卷、预测不计笔数', () => {
+  const actual = aggregate([
+    tx({ id: 'e0', type: 'expense', categoryName: '餐饮', categoryId: 'food', accountId: 'acc-a' }),
+    tx({ id: 'e1', type: 'expense', categoryName: '午餐', categoryId: 'lunch', parentId: 'food', level: 2, accountId: 'acc-a' }),
+    tx({ id: 'e2', type: 'expense', categoryName: '午餐', categoryId: 'lunch', parentId: 'food', level: 2, accountId: 'acc-b' }),
+    // 同一账户重复：账户集合去重，但仍是独立的一笔交易。
+    tx({ id: 'e3', type: 'expense', categoryName: '晚餐', categoryId: 'dinner', parentId: 'food', level: 2, accountId: 'acc-b' }),
+    // 转账到非现金账户：展示账户取 toAccountId（acc-invest）。
+    tx({ id: 't1', type: 'transfer', categoryName: '转出', categoryId: 'move', accountId: 'acc-a', toAccountId: 'acc-invest', isToCash: false }),
+  ])
+  const predicted = aggregate([
+    // 预测并入午餐 item，但不增加笔数与账户。
+    tx({ id: 'p1', type: 'expense', isPredicted: true, categoryName: '午餐', categoryId: 'lunch', parentId: 'food', level: 2, accountId: 'acc-z' }),
+  ])
+  const statement = buildStatement(actual, predicted)
+  const items = statement.byActivity.operating.items
+
+  // 单账户 / 多账户：午餐两笔、两个账户；父节点上卷 = 子树并集去重。
+  const tree = items.find((item) => item.children?.length)
+  assert.ok(tree)
+  assert.equal(tree.count, 4)
+  assert.deepEqual(snap(tree.accountIds), ['acc-a', 'acc-b'])
+  const lunch = tree.children?.find((child) => child.categoryId === 'lunch')
+  assert.equal(lunch?.count, 2)
+  assert.deepEqual(snap(lunch?.accountIds ?? []), ['acc-a', 'acc-b'])
+  // 转账展示账户 = toAccountId ?? accountId。
+  const move = items.find((item) => item.categoryId === 'move')
+  assert.deepEqual(snap(move?.accountIds ?? []), ['acc-invest'])
 })
 
 test('投影活动基线：三来源合并、planned=null 语义、outflow 翻正', () => {

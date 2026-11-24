@@ -11,6 +11,7 @@ import { type CashFlowActivityKey, resolveTransactionCategoryFlags } from '@doma
 import type {
   AccountKind,
   Ledger,
+  TestLedger,
   LedgerAccount,
   LedgerAccountCategory,
   LedgerCategory,
@@ -59,11 +60,8 @@ export function accountGroupBalance(group: AccountGroup): number {
  * 直接投影后端的 AccountCategory（一级）；账户 categoryId 为空或指向不存在分组时归入「未分组」。
  */
 export function accountGroupsForType(ledger: Ledger, type: 'asset' | 'liability'): AccountGroup[] {
-  const counts = new Map<string, number>()
-  for (const tx of ledger.transactions) {
-    counts.set(tx.accountId, (counts.get(tx.accountId) ?? 0) + 1)
-    if (tx.toAccountId) counts.set(tx.toAccountId, (counts.get(tx.toAccountId) ?? 0) + 1)
-  }
+  // 分组笔数直接取 snapshot 摘要（后端一次聚合下发），不再扫交易集合。
+  const counts = new Map<string, number>(Object.entries(ledger.snapshot?.accountTxCounts ?? {}))
   const toRow = (account: Ledger['accounts'][number]): AccountRow => ({
     id: account.id,
     name: account.name,
@@ -120,9 +118,7 @@ export function accountGroupDisplayName(
 }
 
 export function accountTxCount(ledger: Ledger, accountId: string): number {
-  return ledger.transactions.filter(
-    (tx) => tx.accountId === accountId || tx.toAccountId === accountId,
-  ).length
+  return ledger.snapshot?.accountTxCounts?.[accountId] ?? 0
 }
 
 export interface CategoryRow {
@@ -134,10 +130,7 @@ export interface CategoryRow {
 }
 
 export function categoryRows(ledger: Ledger, type: TxType): CategoryRow[] {
-  const countByCategory = new Map<string, number>()
-  for (const tx of ledger.transactions) {
-    countByCategory.set(tx.categoryId, (countByCategory.get(tx.categoryId) ?? 0) + 1)
-  }
+  const countByCategory = new Map<string, number>(Object.entries(ledger.snapshot?.categoryTxCounts ?? {}))
 
   const build = (parentId?: string): CategoryRow[] =>
     ledger.categories
@@ -335,10 +328,10 @@ export function moveCategory(
 
 /** 删除前把该分类（含子分类）的引用交易转到目标分类，数字与删除弹窗同源。 */
 export function transferCategoryTransactions(
-  ledger: Ledger,
+  ledger: TestLedger,
   sourceId: string,
   targetId: string,
-): Ledger {
+): TestLedger {
   const ids = new Set<string>([sourceId, ...categoryDescendantIds(ledger, sourceId)])
   return {
     ...ledger,

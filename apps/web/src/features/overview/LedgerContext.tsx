@@ -368,9 +368,10 @@ export function LedgerProvider({
         const accounts = await accountApi.getAll().then(unwrapApiData)
         const apiAccount = accounts.find((account) => account.id === id)
         if (!apiAccount) return { ok: false, error: '账户不存在' }
-        const hasTransactions = ledgerRef.current.transactions.some(
-          (transaction) => transaction.accountId === id || transaction.toAccountId === id,
-        )
+        // 按账户查 total（含转入），不再扫 Ledger 全量交易。
+        const accountProbe = new URLSearchParams({ page: '1', pageSize: '1', accountId: id })
+        const hasTransactions =
+          (await transactionApi.getAll(accountProbe).then(unwrapApiData)).total > 0
         const explicitInitial =
           input.initialBalance !== undefined ? input.initialBalance : Number(apiAccount.initialBalance)
         if (hasTransactions) {

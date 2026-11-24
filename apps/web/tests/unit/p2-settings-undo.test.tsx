@@ -57,7 +57,11 @@ const baseLedger: Ledger = {
   transactions: [
     { id: 't1', date: '2026-10-01', type: 'expense', categoryId: 'shop', note: '超市', accountId: 'a1', amount: 1_000 },
   ],
-}
+  snapshot: {
+    categoryTxCounts: { shop: 1, food: 0 },
+    accountTxCounts: {},
+  },
+} as never
 
 // 转移并删除「购物」后的账本：t1 落到「餐饮」，源分类消失。
 const transferredLedger: Ledger = {

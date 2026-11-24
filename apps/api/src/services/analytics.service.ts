@@ -267,3 +267,42 @@ export async function getAssetTrend(): Promise<Array<{
     return { label, assets, liabilities, netWorth }
   })
 }
+
+/**
+ * Ledger 启动引导：净资产 12 月走势 + 各账户当前余额一次回放返回。
+ * 原本 asset-trend 与逐账户 balance-at 各自扫一遍全历史；此处把它们合并成
+ * 一次 calculateBalancesBatch（多日期点），省掉整段串行 N+1。
+ */
+export async function getBootstrapData(): Promise<{
+  assetTrend: Array<{ label: string; assets: Minor; liabilities: Minor; netWorth: Minor }>
+  balances: Record<string, Minor>
+}> {
+  const accounts = await accountRepo.findMany({})
+  const now = new Date()
+  const months: { label: string; targetDate: Date }[] = []
+  for (let i = 11; i >= 0; i -= 1) {
+    const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    months.push({
+      label: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
+      targetDate: new Date(now.getFullYear(), now.getMonth() - i + 1, 1),
+    })
+  }
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const accountIds = accounts.map((a) => a.id)
+  const cache = await calculateBalancesBatch(accountIds, [...months.map((m) => m.targetDate), today])
+  const assetTrend = months.map(({ label, targetDate }) => {
+    const { assets, liabilities, netWorth } = sumAssetsLiabilities(
+      accounts.map((account) => ({ type: account.type, id: account.id })),
+      (account) => minor(cache.get(account.id, targetDate)),
+    )
+    return { label, assets, liabilities, netWorth }
+  })
+  const balances: Record<string, Minor> = {}
+  for (const account of accounts) balances[account.id] = minor(cache.get(account.id, today))
+  return { assetTrend, balances }
+}
+
+/** 交易摘要（按账户含转入侧 / 分类 / 月份分组 + 最新日期 + 总笔数）：Ledger metadata 用。 */
+export async function getTransactionSummary() {
+  return transactionRepo.summarizeActiveTransactions()
+}

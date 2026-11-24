@@ -3,6 +3,8 @@ import type { ProjectionFlowValue } from '../../projection/types.js'
 
 /** API 把 Prisma 交易与预算点位映射成的最小领域视图，实际/预测共用同一处理路径。 */
 export interface ProcessedTx {
+  /** 交易 id：真实交易为库 id，预测事件为稳定键；用于活动项笔数去重。 */
+  id: string
   isPredicted: boolean
   type: string
   relatedType: string | null
@@ -18,6 +20,9 @@ export interface ProcessedTx {
   cashFlowType: string | null
   accountName: string
   toAccountName: string | null
+  /** 账户 id：展示「账户」列时按 toAccountId ?? accountId 取。 */
+  accountId: string
+  toAccountId: string | null
 }
 
 export interface CashFlowActivityMinor {
@@ -31,6 +36,10 @@ export interface CashFlowActivityMinor {
     amount: Minor
     type: string
     direction: string
+    /** 直接命中该 item 的真实交易 id（去重；父节点上卷 children 后即为子树笔数）。 */
+    transactionIds: string[]
+    /** 直接命中该 item 的账户 id（toAccountId ?? accountId，去重）。 */
+    accountIds: string[]
   }>
 }
 
@@ -73,6 +82,10 @@ export interface CashFlowActivityItem {
   predicted: Minor
   type: string
   direction: string
+  /** 子树内真实交易 id 去重集合的笔数（前端展示「N 笔」/drill）。 */
+  count: number
+  /** 子树内关联账户 id（toAccountId ?? accountId，去重）。 */
+  accountIds: string[]
   children?: CashFlowActivityItem[]
 }
 

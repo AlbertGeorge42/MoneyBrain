@@ -10,6 +10,7 @@ import { Button } from '@/features/shared/Button'
 import { FieldLabel } from '@/features/shared/FieldLabel'
 import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
+import { useAccountHasTransactions } from '@/features/transactions/transactionQuery'
 import type { DeviceMode } from '@/features/shared/types'
 import { todayLocal } from '@/features/overview/apiLedger'
 import { parseMoneyInput } from '@/utils/money'
@@ -94,14 +95,10 @@ export function EditorSheet({
   const defaultGroupId = editor?.kind === 'account' ? editor.groupId : undefined
   const initialGroupId = account?.categoryId ?? defaultGroupId ?? ''
 
-  // 有流水后，期初余额冻结：改当前余额会自动落平账分录，不再折算期初。
-  const hasTransactions =
-    editor?.kind === 'account' &&
-    editor.mode === 'edit' &&
-    Boolean(account?.id) &&
-    ledger.transactions.some(
-      (transaction) => transaction.accountId === account?.id || transaction.toAccountId === account?.id,
-    )
+  // 有流水后期初余额冻结：按账户查 total，不再扫 Ledger 全量交易。
+  const accountHasTransactions = useAccountHasTransactions(
+    editor?.kind === 'account' && editor.mode === 'edit' ? account?.id : null,
+  )
   const initialName = account?.name ?? category?.name ?? group?.name ?? ''
   const currentBalance = account ? account.balance / 100 : 0
   const openingBalance = account?.initialBalance !== undefined ? account.initialBalance / 100 : currentBalance
@@ -332,7 +329,7 @@ export function EditorSheet({
                 value={initialBalance}
                 onChange={(event) => setInitialBalance(event.target.value)}
                 placeholder="0.00"
-                disabled={hasTransactions}
+                disabled={accountHasTransactions}
               />
             </label>
             <label className="mb-set-field">
@@ -342,11 +339,11 @@ export function EditorSheet({
                 type="date"
                 value={initialBalanceDate}
                 onChange={(event) => setInitialBalanceDate(event.target.value)}
-                disabled={hasTransactions}
+                disabled={accountHasTransactions}
               />
             </label>
             <p className="mb-set-hint">
-              {hasTransactions
+              {accountHasTransactions
                 ? '该账户已有流水，期初余额已冻结。要修正余额请改「当前余额」，系统会生成一条可见的平账记录。'
                 : '期初余额 = 期初日期当天开始前的余额，当天交易照常计入。负债账户填负值（如信用卡欠款 ¥5,000 填 -5000）。'}
             </p>
@@ -364,7 +361,7 @@ export function EditorSheet({
             )}
             {editor.mode === 'edit' && (
               <p className="mb-set-hint">
-                {hasTransactions
+                {accountHasTransactions
                   ? '改「当前余额」不会改动期初，而是按差额自动生成一条平账记录（不计入收支与预算）。'
                   : '账户尚无流水，当前余额与期初余额等价。'}
               </p>

@@ -67,6 +67,7 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
   for (const t of transactions) {
     const { isFromCash, isToCash } = cashFlags(t.accountId, t.toAccountId, cashAccountIds)
     actualItems.push({
+      id: t.id,
       isPredicted: false,
       type: t.type,
       relatedType: t.relatedType,
@@ -82,6 +83,8 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
       cashFlowType: effectiveCashFlowTypeOf(t.category?.id, categoryMap, effectiveCashFlowTypes),
       accountName: t.account?.name || '未知账户',
       toAccountName: t.toAccount?.name || null,
+      accountId: t.accountId,
+      toAccountId: t.toAccountId ?? null,
     })
   }
 
@@ -97,6 +100,7 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
     const toAccount = p.toAccountId ? accountMap.get(p.toAccountId) : null
 
     predictedItems.push({
+      id: `predicted:${p.budgetId}:${p.date.getTime()}:${p.categoryId ?? ''}:${p.accountId}`,
       isPredicted: true,
       type: p.type,
       relatedType: null,
@@ -112,6 +116,8 @@ export function collectTransactions(args: CollectArgs): { actualItems: Processed
       cashFlowType: effectiveCashFlowTypeOf(p.categoryId, categoryMap, effectiveCashFlowTypes),
       accountName: account?.name || '未知账户',
       toAccountName: toAccount?.name || null,
+      accountId: p.accountId,
+      toAccountId: p.toAccountId ?? null,
     })
   }
 

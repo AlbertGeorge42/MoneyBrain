@@ -21,7 +21,6 @@ import {
   filterTransactions,
   groupTransactions,
   readFiltersFromSearch,
-  signedMinorText,
   splitTotalsByToday,
   summarizeTransactions,
   writeFiltersToSearch,
@@ -246,8 +245,7 @@ describe('#9 未来记录不计入本月合计', () => {
     expect(all.expense - current.expense).toBe(1_200)
   })
 
-  it('页脚合计与笔数都不含未来记录，且不附说明句', () => {
-    const { current } = splitTotalsByToday(futureLedger.transactions)
+  it('底部合计行已移除，列表不再渲染页脚笔数与收支', () => {
     const { container } = render(
       <TransactionsList
         device="desktop"
@@ -261,14 +259,12 @@ describe('#9 未来记录不计入本月合计', () => {
       />,
     )
 
-    const flow = container.querySelector('.mb-tx-foot-flow')?.textContent ?? ''
-    expect(flow).toContain(signedMinorText(-current.expense))
-    expect(flow).not.toContain('¥64.40')
-
-    expect(container.querySelector('.mb-tx-foot-future')).toBeNull()
+    expect(container.querySelector('.mb-tx-foot-flow')).toBeNull()
+    expect(container.querySelector('.mb-tx-foot-count')).toBeNull()
+    expect(container.querySelector('.mb-tx-m-foot')).toBeNull()
   })
 
-  it('页头与页脚笔数一致，且均按本月口径不含未来记录', async () => {
+  it('页头笔数按本月口径，不含未来记录', async () => {
     const { current } = splitTotalsByToday(futureLedger.transactions)
     mocks.getAll.mockImplementation(async () =>
       Promise.resolve({
@@ -319,10 +315,6 @@ describe('#9 未来记录不计入本月合计', () => {
     await waitFor(() => {
       const head = container.querySelector('.mb-shell-sub')?.textContent ?? ''
       expect(head).toBe('共 3 笔')
-    })
-    await waitFor(() => {
-      const foot = container.querySelector('.mb-tx-foot-count')?.textContent ?? ''
-      expect(foot).toBe('共 3 笔')
     })
   })
 })

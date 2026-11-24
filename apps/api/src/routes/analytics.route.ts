@@ -8,7 +8,7 @@ import {
   validateRequest,
   validateTypeQuery,
 } from '../common/index.js'
-import { getTrends, getCategoryBreakdown, getAssetTrend, getDashboardSummary } from '../services/analytics.service.js'
+import { getTrends, getCategoryBreakdown, getAssetTrend, getDashboardSummary, getTransactionSummary, getBootstrapData } from '../services/analytics.service.js'
 import { getAssetProjection } from '../services/projection.service.js'
 
 const router = Router()
@@ -16,6 +16,15 @@ const router = Router()
 router.get('/dashboard', asyncHandler(async (_req, res) => {
   const summary = await getDashboardSummary()
   return success(res, summary)
+}))
+
+router.get('/transaction-summary', asyncHandler(async (_req, res) => {
+  return success(res, await getTransactionSummary())
+}))
+
+/** Ledger 启动引导：12 月净资产走势 + 当前各账户余额，一次余额回放。 */
+router.get('/bootstrap', asyncHandler(async (_req, res) => {
+  return success(res, await getBootstrapData())
 }))
 
 router.get('/trends', validateRequest(validateTypeQuery), asyncHandler(async (req, res) => {

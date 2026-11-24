@@ -3,7 +3,7 @@ import * as accountRepo from '../../db/repositories/account.repository.js'
 import * as accountCategoryRepo from '../../db/repositories/account-category.repository.js'
 import * as transactionCategoryRepo from '../../db/repositories/transaction-category.repository.js'
 import * as transactionRepo from '../../db/repositories/transaction.repository.js'
-import { rootLogger } from '../../common/index.js'
+import { rootLogger, toMinor } from '../../common/index.js'
 import {
   aggregate,
   buildStatement,
@@ -142,6 +142,10 @@ export async function generateCashFlow(startDate: string, endDate: string, inclu
     cashChange: { actual: actualCashChange, predicted: sub(predictedEndCash, predictedStartCash) },
     byActivity: statement.byActivity,
     sankey,
+    // 平账调整单独带出，供前端桑基补「对账修正」流（后端 sankey 本体不含平账）。
+    adjustments: transactions
+      .filter((tx) => tx.type === 'adjustment' && tx.amount !== 0n)
+      .map((tx) => ({ accountId: tx.accountId, amount: toMinor(tx.amount) })),
     predictionNote,
   }
   logger.info({ action: 'generate', report: 'cash-flow', period: `${startDate}~${endDate}`, durationMs: Date.now() - startTime }, 'report generated')

@@ -140,6 +140,7 @@ function incomeExpenseFixture(): IncomeExpenseProjectionResult {
         planned: 100_00,
         total: 380_00,
         hasBudget: true,
+        count: 0,
       },
     ],
     expenseCategoryDetails: [
@@ -153,6 +154,7 @@ function incomeExpenseFixture(): IncomeExpenseProjectionResult {
         planned: null,
         total: 80_00,
         hasBudget: false,
+        count: 0,
       },
       {
         categoryId: 'cat-rent',
@@ -164,6 +166,7 @@ function incomeExpenseFixture(): IncomeExpenseProjectionResult {
         planned: 40_00,
         total: 40_00,
         hasBudget: true,
+        count: 0,
       },
     ],
     points: [
@@ -460,12 +463,7 @@ describe('资产负债预测映射：账户明细与三来源', () => {
 
 describe('收支预测映射：分类明细与无预算标注', () => {
   it('分类金额取 total，预测部分 = total − actual', () => {
-    const report = mapProjectionFlowReport(
-      incomeExpenseFixture(),
-      ledgerFixture(),
-      '2026-12-01',
-      '2027-01-31',
-    )
+    const report = mapProjectionFlowReport(incomeExpenseFixture())
     expect(report.income).toBe(380_00)
     expect(report.expense).toBe(120_00)
     expect(report.balance).toBe(260_00)
@@ -474,13 +472,8 @@ describe('收支预测映射：分类明细与无预算标注', () => {
     expect(report.incomeTrees[0].noBudget).toBeUndefined()
   })
 
-  it('planned=null 的分类标「无预算」，笔数沿用真实流水口径', () => {
-    const report = mapProjectionFlowReport(
-      incomeExpenseFixture(),
-      ledgerFixture(),
-      '2026-12-01',
-      '2027-01-31',
-    )
+  it('planned=null 的分类标「无预算」，笔数取后端 detail', () => {
+    const report = mapProjectionFlowReport(incomeExpenseFixture())
     const food = report.expenseTrees.find((node) => node.name === '餐饮')
     expect(food?.noBudget).toBe(true)
     expect(food?.predicted).toBe(80_00)
@@ -489,12 +482,7 @@ describe('收支预测映射：分类明细与无预算标注', () => {
   })
 
   it('逐桶走势按桶内发生额输出，不累计', () => {
-    const report = mapProjectionFlowReport(
-      incomeExpenseFixture(),
-      ledgerFixture(),
-      '2026-12-01',
-      '2027-01-31',
-    )
+    const report = mapProjectionFlowReport(incomeExpenseFixture())
     expect(report.series).toEqual([{ label: '2026-12', income: 380_00, expense: 120_00 }])
   })
 })

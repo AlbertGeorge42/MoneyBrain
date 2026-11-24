@@ -213,6 +213,14 @@ router.get('/recycle-bin', asyncHandler(async (_req, res) => {
   return success(res, { list, ...entities })
 }))
 
+// 单笔详情（Transaction Query 的按 id 入口）：带 account/category/原交易/退款关联，
+// 供关联跳转等「只需要一笔」的场景使用，不再依赖 Ledger 全量交易集合。
+router.get('/:id', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
+  const transaction = await getTransactionById(req.params.id)
+  if (!transaction) throw new NotFoundError('交易记录')
+  return success(res, transaction)
+}))
+
 // 详情页修改历史（B2-4）
 router.get('/:id/history', validateRequest(validateIdParam), asyncHandler(async (req, res) => {
   const history = await getTransactionHistory(req.params.id)

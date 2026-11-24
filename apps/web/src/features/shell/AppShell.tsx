@@ -8,7 +8,7 @@ import { useOverlayOpen } from '@/features/shared/overlayPresence'
 import { Button } from '@/features/shared/Button'
 import { IconButton } from '@/features/shared/IconButton'
 import { useLedger } from '@/features/overview/ledgerStore'
-import { deriveOverview, ledgerAnchorDay } from '@/features/overview/model'
+import { deriveOverview } from '@/features/overview/model'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { SHELL_NAV, shellPageLabel, type ShellPage } from './navigation'
 import './shell.css'
@@ -29,9 +29,8 @@ function MonthSummary({ state, compact = false }: { state: DataState; compact?: 
   const summary = deriveOverview(ledger)
   const positive = summary.balance >= 0
   const stateText = state === 'empty' ? '从第一笔开始' : state === 'loading' ? '正在读取' : '暂不可用'
-  // 脚注只报账本里真实发生的事：本月流水笔数，不写与账本无关的固定文案。
-  const month = ledgerAnchorDay(ledger).slice(0, 7)
-  const monthCount = ledger.transactions.filter((transaction) => transaction.date.slice(0, 7) === month).length
+  // 脚注只报账本里真实发生的事：本月流水笔数，直接取 Ledger 的单值摘要。
+  const monthCount = ledger.snapshot?.anchorMonthCount ?? 0
 
   return (
     <div className={compact ? 'mb-shell-foot is-compact' : 'mb-shell-foot'}>

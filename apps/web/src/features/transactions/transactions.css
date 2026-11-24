@@ -326,43 +326,6 @@
   font-family: var(--mb-font-num);
 }
 
-/* 桌面合计条：独立于列表卡片吸底，始终反映当前筛选结果。
-   sticky 的 bottom 为 0，与视口底边贴齐；批量条出现时上移到合计条之上。 */
-.mb-tx-foot {
-  position: sticky;
-  bottom: 0;
-  z-index: var(--mb-z-dock);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mb-s-2);
-  box-sizing: border-box;
-  min-height: var(--mb-dock-h);
-  padding: var(--mb-s-2) var(--mb-s-3);
-  border: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  border-radius: var(--mb-radius-md);
-  background: var(--mb-color-surface-raised);
-  box-shadow: var(--mb-sh-2);
-}
-
-.mb-tx-foot-count {
-  font-size: var(--mb-fs-1);
-  color: var(--mb-color-text-secondary);
-}
-
-.mb-tx-foot-flow {
-  display: flex;
-  gap: var(--mb-s-3);
-  font-size: var(--mb-fs-1);
-  color: var(--mb-color-text-tertiary);
-}
-
-.mb-tx-foot-flow strong {
-  font-family: var(--mb-font-num);
-  font-weight: 500;
-}
-
 /* 高级筛选分「筛选条件」与「统计范围」两组：后者只改合计口径，不参与重置。 */
 .mb-tx-filter-group {
   display: flex;
@@ -500,18 +463,6 @@
 /* 行本身由共享 TxRow 渲染（is-mobile 变体），此处只补卡片内的最后一行去线。 */
 .mb-tx-m-card .mb-tx-row:last-child {
   border-bottom: 0;
-}
-
-.mb-tx-m-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mb-s-2);
-  margin: 0;
-  padding: 0 var(--mb-s-1);
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-tertiary);
 }
 
 /* ===== 分批加载 ===== */

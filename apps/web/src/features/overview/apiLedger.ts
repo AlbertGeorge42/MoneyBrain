@@ -18,6 +18,7 @@ import type {
   AnalyticsAssetTrendItem,
   AnalyticsCategoryBreakdownItem,
   AnalyticsTrendItem,
+  BootstrapData,
   Budget,
   BudgetStatus,
   DashboardSummaryData,
@@ -29,7 +30,6 @@ import {
   accountCategoryApi,
   analyticsApi,
   budgetApi,
-  transactionApi,
   transactionCategoryApi,
 } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
@@ -163,25 +163,40 @@ export interface LedgerApiPayload {
   /** 近 12 个月一级分类支出构成（后端聚合）。 */
   expenseCategories: AnalyticsCategoryBreakdownItem[]
   /**
-   * 完整流水分页拉取的结果（不是 dashboard 的最近 8 笔）。
-   * 报表与预算的合计都从这里取，跨月 / 跨年才不会被快照窗口截断。
+   * 交易摘要（按账户 / 分类 / 月份分组 + 最新日期 + 总笔数）。
+   * 后端一次聚合下发，Ledger 不再拉取也不再持有全量流水。
    */
-  transactions: Transaction[]
+  transactionSummary: {
+    byAccount: Record<string, number>
+    byCategory: Record<string, number>
+    byMonth: Record<string, number>
+    total: number
+    latestDate: string | null
+  }
   /** accountId → 当日余额（分）。缺任一项都应视为请求失败，不做 0 兜底。 */
   balances: ReadonlyMap<string, number>
 }
 
-/** 完整流水分页拉取：只读端点，失败直接抛给页面进入 error 态。 */
-async function fetchAllTransactions(): Promise<Transaction[]> {
-  const pageSize = 200
-  const all: Transaction[] = []
-  for (let page = 1; page <= 100; page += 1) {
-    const result = await transactionApi.getAll({ page, pageSize }).then(unwrapApiData)
-    all.push(...result.list)
-    if (result.list.length === 0 || all.length >= result.total) return all
-  }
-  // 超过 2 万笔时宁可报错，也不静默截断后算出偏小的合计。
-  throw new Error('流水超过 2 万笔，分页加载未完成')
+/**
+ * 启动快查询的产出：metadata + 单值摘要 + dashboard + 预算用量。
+ * 不含余额回放与 12 月趋势——流水页只依赖这一批即可渲染。
+ */
+export interface LedgerCorePayload {
+  accounts: Account[]
+  categories: TransactionCategory[]
+  accountCategories: AccountCategory[]
+  budgets: Budget[]
+  statuses: BudgetStatus[]
+  dashboard: DashboardSummaryData
+  transactionSummary: LedgerApiPayload['transactionSummary']
+  today: string
+}
+
+/** 慢查询的产出：净资产/余额一次回放 + 支出趋势与分类构成。 */
+export interface LedgerAnalyticsPayload {
+  bootstrap: BootstrapData
+  expenseTrend: AnalyticsTrendItem[]
+  expenseCategories: AnalyticsCategoryBreakdownItem[]
 }
 
 export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal()): Ledger {
@@ -263,9 +278,11 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
   budgetsSummary.percent =
     budgetsSummary.limit === 0 ? 0 : (budgetsSummary.used / budgetsSummary.limit) * 100
 
-  const transactions: LedgerTransaction[] = payload.transactions.map((transaction: Transaction) =>
-    toLedgerTransaction(transaction),
-  )
+  // 交易事实的单值摘要由后端一次聚合下发；Ledger 不再持有也不再扫描全量流水。
+  const { latestDate, byMonth, byAccount, byCategory, total } = payload.transactionSummary
+  const anchorMonth = (latestDate && latestDate > today ? latestDate : today).slice(0, 7)
+  const anchorMonthCount = byMonth[anchorMonth] ?? 0
+  const activeMonths = Object.keys(byMonth)
 
   // 负债账户余额在 API 里以正数表示欠款；净资产 = 资产 − 负债。
   // 不能把全部余额直接相加，否则欠款会被加进净值（真实库 770,775.78 vs 738,715.48）。
@@ -326,7 +343,6 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
     categories,
     accountCategories,
     budgets,
-    transactions,
     snapshot: {
       overview,
       budgets: budgetsSummary,
@@ -334,7 +350,69 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
       expenseCharts,
       today,
       periodLabel: periodLabelOf(today),
+      hasTransactions: total > 0,
+      latestDate,
+      anchorMonthCount,
+      activeMonths,
+      accountTxCounts: byAccount,
+      categoryTxCounts: byCategory,
+      recentTransactions: payload.dashboard.recentTransactions.map((transaction: Transaction) =>
+        toLedgerTransaction(transaction),
+      ),
     },
+  }
+}
+
+/**
+ * 启动快阶段的账本：只有 metadata，没有 snapshot。
+ * 流水页只依赖 accounts / categories / accountCategories 做深链还原与筛选，
+ * 页面自身有 `?? TODAY` / `?? CURRENT_MONTH_LABEL` 兜底，不依赖 snapshot。
+ * 总览 / 报表 / 预算 / 设置页由 fullState=loading 挡在骨架态，读不到这份半成品。
+ */
+export function buildMetadataLedger(core: LedgerCorePayload): Ledger {
+  return {
+    accounts: core.accounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+      kind: accountKind(account),
+      balance: 0,
+      categoryId: account.categoryId ?? null,
+      initialBalance: Number(account.initialBalance),
+      initialBalanceDate: account.initialBalanceDate,
+    })),
+    categories: core.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      type: asTxType(category.type),
+      parentId: category.parentId ?? undefined,
+      cashFlowType: category.cashFlowType,
+      effectiveCashFlowType: category.effectiveCashFlowType,
+      iconKey: category.iconKey,
+    })),
+    accountCategories: core.accountCategories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      type: category.type === 'liability' ? 'liability' : 'asset',
+      parentId: category.parentId ?? null,
+      sort: category.sort,
+      isCashEquivalent: category.isCashEquivalent,
+      isInvestment: category.isInvestment,
+      effectiveIsCashEquivalent: category.effectiveIsCashEquivalent,
+      effectiveIsInvestment: category.effectiveIsInvestment,
+      iconKey: category.iconKey,
+    })),
+    budgets: core.budgets.map((budget) => ({
+      id: budget.id,
+      name: budget.name,
+      type: asTxType(budget.type),
+      period: asBudgetPeriod(budget.period),
+      limit: Number(budget.amount),
+      categoryId: budget.categoryId || undefined,
+      accountId: budget.accountId,
+      toAccountId: budget.toAccountId ?? undefined,
+      transactionTime: budget.transactionTime ?? null,
+      isActive: budget.isActive,
+    })),
   }
 }
 
@@ -343,74 +421,66 @@ export const EMPTY_LEDGER: Ledger = {
   accounts: [],
   categories: [],
   budgets: [],
-  transactions: [],
 }
 
-interface ApiLedgerResult {
-  ledger: Ledger
-  /** 无账户即视为空账本，页头走冷启动引导。 */
-  isEmpty: boolean
-}
-
-/** 只读拉取总览所需数据；任一请求失败都抛出，由上层进入 error 态。 */
-export async function fetchLedgerFromApi(): Promise<ApiLedgerResult> {
+/**
+ * 启动快查询：metadata + dashboard + 交易摘要 + 预算用量，全部是轻查询。
+ * 两个 query 并行发起，本批不等待 analytics 的余额回放，流水页据此先渲染。
+ */
+export async function fetchLedgerCore(): Promise<LedgerCorePayload> {
   const today = todayLocal()
-  const expenseRange = recentTwelveMonthsRange(today)
   const [
     accounts,
     categories,
     accountCategories,
     budgets,
     dashboard,
-    assetTrend,
-    expenseTrend,
-    expenseCategories,
-    transactions,
+    transactionSummary,
   ] = await Promise.all([
     accountApi.getAll().then(unwrapApiData),
     transactionCategoryApi.getAll().then(unwrapApiData),
     accountCategoryApi.getAll().then(unwrapApiData),
     budgetApi.getAll().then(unwrapApiData),
     analyticsApi.getDashboardSummary().then(unwrapApiData),
-    analyticsApi.getAssetTrend().then(unwrapApiData),
-    analyticsApi.getTrends('expense').then(unwrapApiData),
-    analyticsApi.getCategoryBreakdown('expense', expenseRange.from, expenseRange.to).then(unwrapApiData),
-    fetchAllTransactions(),
+    analyticsApi.getTransactionSummary().then(unwrapApiData),
   ])
-
-  const balanceResults = await Promise.all(
-    accounts.map((account) =>
-      accountApi
-        .getBalanceAt(account.id, today)
-        .then(unwrapApiData)
-        .then((result) => [account.id, result.balance] as const),
-    ),
-  )
-
-  // 预算页需要收支/转账预算的用量，统一一次拉取全部 statuses（总览只用其中的支出行）。
   const budgetIds = budgets.map((budget) => budget.id)
   const statuses =
     budgetIds.length > 0
       ? await budgetApi.getStatuses(budgetIds).then(unwrapApiData)
       : []
-
-  return {
-    ledger: buildLedgerFromApi(
-      {
-        accounts,
-        categories,
-        accountCategories,
-        budgets,
-        statuses,
-        dashboard,
-        assetTrend,
-        expenseTrend,
-        expenseCategories,
-        transactions,
-        balances: new Map(balanceResults),
-      },
-      today,
-    ),
-    isEmpty: accounts.length === 0,
-  }
+  return { accounts, categories, accountCategories, budgets, statuses, dashboard, transactionSummary, today }
 }
+
+/** 启动慢查询：净资产/余额一次回放 + 支出趋势与分类构成。与 fetchLedgerCore 并行发起。 */
+export async function fetchLedgerAnalytics(): Promise<LedgerAnalyticsPayload> {
+  const today = todayLocal()
+  const expenseRange = recentTwelveMonthsRange(today)
+  const [bootstrap, expenseTrend, expenseCategories] = await Promise.all([
+    analyticsApi.getBootstrap().then(unwrapApiData),
+    analyticsApi.getTrends('expense').then(unwrapApiData),
+    analyticsApi.getCategoryBreakdown('expense', expenseRange.from, expenseRange.to).then(unwrapApiData),
+  ])
+  return { bootstrap, expenseTrend, expenseCategories }
+}
+
+/** 把快/慢两批装配成完整账本；两批都就绪后调用。 */
+export function assembleLedger(core: LedgerCorePayload, analytics: LedgerAnalyticsPayload): Ledger {
+  return buildLedgerFromApi(
+    {
+      accounts: core.accounts,
+      categories: core.categories,
+      accountCategories: core.accountCategories,
+      budgets: core.budgets,
+      statuses: core.statuses,
+      dashboard: core.dashboard,
+      assetTrend: analytics.bootstrap.assetTrend,
+      expenseTrend: analytics.expenseTrend,
+      expenseCategories: analytics.expenseCategories,
+      transactionSummary: core.transactionSummary,
+      balances: new Map(Object.entries(analytics.bootstrap.balances)),
+    },
+    core.today,
+  )
+}
+

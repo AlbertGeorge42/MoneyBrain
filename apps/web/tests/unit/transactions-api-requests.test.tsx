@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import { cleanup, render, renderHook, waitFor } from '@testing-library/react'
+import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
@@ -117,19 +117,35 @@ describe('深链筛选请求数（API 模式）', () => {
     expect(mocks.getAll).toHaveBeenCalledTimes(1)
   })
 
-  it('223 条 + type=expense 发 3 次，且每次都带筛选', async () => {
+  it('223 条 + type=expense 首屏只发 1 次 page 1，且带上筛选', async () => {
     open('?page=transactions&txType=expense')
     mocks.getAll.mockImplementation(makePage(223))
     renderPage()
 
-    await waitFor(() => expect(mocks.getAll).toHaveBeenCalledTimes(3), { timeout: 3000 })
-    for (const [params] of mocks.getAll.mock.calls) {
-      expect((params as URLSearchParams).get('type')).toBe('expense')
-    }
-    const pages = mocks.getAll.mock.calls.map(([params]) =>
-      (params as URLSearchParams).get('page'),
-    )
-    expect(pages).toEqual(['1', '2', '3'])
+    await waitFor(() => expect(mocks.getAll).toHaveBeenCalledTimes(1), { timeout: 3000 })
+    const params = mocks.getAll.mock.calls[0][0] as URLSearchParams
+    expect(params.get('page')).toBe('1')
+    expect(params.get('type')).toBe('expense')
+    // 不再自动翻页：等过防抖窗口，请求数仍为 1。
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(mocks.getAll).toHaveBeenCalledTimes(1)
+  })
+
+  it('点「加载更多流水」只请求下一页，不自动预取', async () => {
+    open('?page=transactions')
+    mocks.getAll.mockImplementation(makePage(223))
+    renderPage()
+
+    await waitFor(() => expect(mocks.getAll).toHaveBeenCalledTimes(1), { timeout: 2000 })
+    expect((mocks.getAll.mock.calls[0][0] as URLSearchParams).get('page')).toBe('1')
+
+    const more = await screen.findByRole('button', { name: '加载更多流水' })
+    more.click()
+
+    await waitFor(() => expect(mocks.getAll).toHaveBeenCalledTimes(2), { timeout: 2000 })
+    expect((mocks.getAll.mock.calls[1][0] as URLSearchParams).get('page')).toBe('2')
+    // 第 3 页未被预取。
+    expect(mocks.getAll).toHaveBeenCalledTimes(2)
   })
 
   it('带分类深链只发 1 次，并映射为真实 categoryId', async () => {

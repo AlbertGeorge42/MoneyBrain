@@ -142,10 +142,6 @@ function money(value: number): string {
   return formatCurrency(minor(Math.round(value)))
 }
 
-function inRange(transaction: { date: string }, from: string, to: string): boolean {
-  return transaction.date >= from && transaction.date <= to
-}
-
 function rootOf(ledger: Ledger, categoryId: string | undefined): { id: string; name: string } | null {
   if (!categoryId) return null
   let current = ledger.categories.find((category) => category.id === categoryId)
@@ -881,39 +877,39 @@ export function deriveCashSankey(
       }
     }
 
-    // API 桑基不含对账修正；用账本补一条独立修正流，保持与余额等式同口径。
-    for (const transaction of ledger.transactions) {
-      if (transaction.type !== 'adjustment' || !inRange(transaction, from, to) || transaction.amount === 0) continue
-      const account = ledger.accounts.find((item) => item.id === transaction.accountId)
+    // API 桑基不含对账修正；后端随报表带出平账流水，补一条独立修正流保持余额等式同口径。
+    // 账户名来自 Ledger metadata；不再扫全量流水。
+    for (const adjustment of report.adjustments ?? []) {
+      if (adjustment.amount === 0) continue
+      const account = ledger.accounts.find((item) => item.id === adjustment.accountId)
       if (!account || account.kind !== 'cash') continue
       addAccountNode(account.id, account.name)
-      const root = rootOf(ledger, transaction.categoryId)
-      if (transaction.amount > 0) {
+      if (adjustment.amount > 0) {
         const side = 'in'
-        const node = addCategoryNode(side, 'correction', '对账修正', hiddenForRoot(side, root?.id), 'income')
+        const node = addCategoryNode(side, 'correction', '对账修正', hiddenForRoot(side, undefined), 'income')
         builder.addLink({
           sourceId: node.nodeId,
           targetId: `acct:${account.id}`,
           nodeId: node.nodeId,
-          amount: transaction.amount,
+          amount: adjustment.amount,
           tone: 'income',
           kind: 'flow',
           activity: null,
         })
-        base.correction += transaction.amount
+        base.correction += adjustment.amount
       } else {
         const side = 'out'
-        const node = addCategoryNode(side, 'correction', '对账修正', hiddenForRoot(side, root?.id), 'expense')
+        const node = addCategoryNode(side, 'correction', '对账修正', hiddenForRoot(side, undefined), 'expense')
         builder.addLink({
           sourceId: `acct:${account.id}`,
           targetId: node.nodeId,
           nodeId: node.nodeId,
-          amount: -transaction.amount,
+          amount: -adjustment.amount,
           tone: 'expense',
           kind: 'flow',
           activity: null,
         })
-        base.correction += -transaction.amount
+        base.correction += -adjustment.amount
       }
     }
   }

@@ -11,7 +11,7 @@ import { formatCurrency } from '@/utils/format'
 import {
   refundOffsetSide,
   transferAmounts,
-  type Ledger,
+  type LedgerForPureFns,
   type LedgerAccountCategory,
   type LedgerTransaction,
   type TrendPoint,
@@ -240,6 +240,8 @@ export interface CashReport {
   closingCash: number
   /** 后端三层桑基的节点 / link；缺省时由桑基模型按流水推导。 */
   apiSankey?: CashFlowReportData['sankey']
+  /** 后端带出的平账调整（现金账户），供桑基补「对账修正」流。 */
+  adjustments?: CashFlowReportData['adjustments']
   /** 后端口径的期初现金（现金等价账户）；缺省时桑基用全账户净额回放。 */
   openingCash?: number
   /**
@@ -322,10 +324,10 @@ function adjustmentExpense(transaction: LedgerTransaction): number {
   return transaction.type === 'adjustment' && transaction.amount < 0 ? -transaction.amount : 0
 }
 
-export function accountBalancesAt(ledger: Ledger, point: string): Map<string, number> {
+export function accountBalancesAt(ledger: LedgerForPureFns, point: string): Map<string, number> {
   const balances = new Map(ledger.accounts.map((account) => [account.id, account.balance]))
   // 当前余额是「全部交易之后」的快照；回放锚点之后的交易得到历史时点余额。
-  for (const transaction of ledger.transactions) {
+  for (const transaction of ledger.transactions ?? []) {
     if (transaction.date <= point) continue
     const amount = Math.abs(transaction.amount)
     if (transaction.type === 'expense') {
@@ -527,11 +529,13 @@ export type DrillTarget =
 
 /** 下钻只展开当期口径：二级项 + 相关流水，不重复完整流水页。 */
 export function buildDrillFor(
-  ledger: Ledger,
+  ledger: LedgerForPureFns,
   target: DrillTarget,
   from: string,
   to: string,
   includeExcluded = false,
+  /** 服务端查得的当期候选流水；生产必传，测试账本可省略（Phase 4 删 fallback）。 */
+  serverTransactions?: readonly LedgerTransaction[],
 ): DrillData {
   const tone: DrillData['tone'] = target.type === 'account' ? 'neutral' : target.side
 
@@ -572,7 +576,10 @@ export function buildDrillFor(
       adjustmentExpense(t) > 0
   }
 
-  const transactions = ledger.transactions
+  // 生产账本（带 snapshot）只认服务端流水（加载中为空数组即空态）；
+  // 无 snapshot 的测试账本继续用全量 fallback，Phase 4 一并删除。
+  const source = ledger.snapshot ? (serverTransactions ?? []) : (ledger.transactions ?? [])
+  const transactions = source
     .filter((t) => inRange(t, from, to))
     .filter(match)
     .filter(matchesPolicy)

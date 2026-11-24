@@ -129,17 +129,44 @@ interface LedgerSnapshot {
   today: string
   /** 页头期间文案，例如「2026 年 11 月」。 */
   periodLabel: string
+  /** 账本是否已有交易（单值事实，不再靠全量集合推导）。 */
+  hasTransactions: boolean
+  /** 最新交易日期（单值）。 */
+  latestDate: string | null
+  /** 锚点月份的流水笔数（单值）。 */
+  anchorMonthCount: number
+  /** 已有交易的自然月集合（单值摘要），供预算周期条标记可用性。 */
+  activeMonths: string[]
+  /** 按账户（含转入侧）的交易笔数摘要，供设置页展示；后端分组查询下发。 */
+  accountTxCounts: Record<string, number>
+  /** 按分类的交易笔数摘要，供设置页展示；后端分组查询下发。 */
+  categoryTxCounts: Record<string, number>
+  /** 最近若干笔（后端 dashboard 已带，含关联关系）；只供总览最近流水展示。 */
+  recentTransactions: LedgerTransaction[]
 }
 
 export interface Ledger {
   accounts: LedgerAccount[]
   categories: LedgerCategory[]
   budgets: LedgerBudget[]
-  transactions: LedgerTransaction[]
   /** 账户分组（由 /account-categories 带入）。 */
   accountCategories?: LedgerAccountCategory[]
   snapshot?: LedgerSnapshot
 }
+
+/**
+ * 测试账本：在无后端 API 的单测里携带流水数组。
+ * 生产 Ledger 绝不含 transactions；此类型仅供测试夹具与纯函数（addTransaction 等）使用。
+ */
+export interface TestLedger extends Ledger {
+  transactions: LedgerTransaction[]
+}
+
+/**
+ * 纯函数兼容视图：允许测试账本携带 transactions；生产 Ledger 不带该字段，
+ * 因此这些函数的生产路径必须走 snapshot 短路，绝不读取 transactions。
+ */
+export type LedgerForPureFns = Ledger & { transactions?: LedgerTransaction[] }
 
 export const TODAY = '2026-10-28'
 export const CURRENT_MONTH = '2026-10'
@@ -160,9 +187,9 @@ export function latestTransactionDate(
  *
  * 有未来日期的数据时也不会把用户挡在数据之外。
  */
-export function ledgerAnchorDay(ledger: Ledger): string {
+export function ledgerAnchorDay(ledger: LedgerForPureFns): string {
   const today = ledger.snapshot?.today ?? TODAY
-  const latest = latestTransactionDate(ledger.transactions)
+  const latest = ledger.snapshot?.latestDate ?? latestTransactionDate(ledger.transactions ?? [])
   return latest && latest > today ? latest : today
 }
 export const CURRENT_MONTH_LABEL = '2026 年 10 月'
@@ -323,7 +350,7 @@ function sumMonthFlow(transactions: LedgerTransaction[]) {
   return { income, expense }
 }
 
-export function deriveOverview(ledger: Ledger): OverviewSummary {
+export function deriveOverview(ledger: LedgerForPureFns): OverviewSummary {
   // API 模式：收支与环比采用后端 dashboard 口径，不在此重复实现退款/排除规则。
   if (ledger.snapshot) return ledger.snapshot.overview
 
@@ -334,7 +361,7 @@ export function deriveOverview(ledger: Ledger): OverviewSummary {
   const investmentAssets = ledger.accounts
     .filter((account) => account.kind === 'investment')
     .reduce((total, account) => total + account.balance, 0)
-  const { income, expense } = sumMonthFlow(ledger.transactions)
+  const { income, expense } = sumMonthFlow(ledger.transactions ?? [])
   const balance = income - expense
 
   return {
@@ -408,7 +435,7 @@ export function budgetLevel(percent: number): BudgetRow['level'] {
   return 'normal'
 }
 
-export function deriveBudgets(ledger: Ledger, today = ledger.snapshot?.today ?? TODAY): BudgetSummary {
+export function deriveBudgets(ledger: LedgerForPureFns, today = ledger.snapshot?.today ?? TODAY): BudgetSummary {
   // API 模式：每个预算的已用金额来自 /budgets/statuses（领域口径），不在前端重算。
   if (ledger.snapshot) return ledger.snapshot.budgets
 
@@ -422,7 +449,7 @@ export function deriveBudgets(ledger: Ledger, today = ledger.snapshot?.today ?? 
     const categoryIds = budget.categoryId
       ? categorySubtree(ledger.categories, budget.categoryId)
       : undefined
-    const rawUsed = ledger.transactions
+    const rawUsed = (ledger.transactions ?? [])
       .filter((transaction) => {
         if (transaction.type !== 'expense' && refundOffsetSide(transaction) !== 'expense') return false
         if (transaction.date < range.start || transaction.date > range.end) return false
@@ -488,7 +515,7 @@ function netExpenseAmount(transaction: LedgerTransaction): number | null {
  * 有后端快照时直接返回 /analytics/trends 与 /analytics/category-breakdown 的聚合值；
  * 否则按同一口径从流水本地派生。
  */
-export function deriveExpenseCharts(ledger: Ledger, today = ledgerAnchorDay(ledger)): ExpenseCharts {
+export function deriveExpenseCharts(ledger: LedgerForPureFns, today = ledgerAnchorDay(ledger)): ExpenseCharts {
   if (ledger.snapshot) return ledger.snapshot.expenseCharts
 
   const range = recentTwelveMonthsRange(today)
@@ -496,7 +523,7 @@ export function deriveExpenseCharts(ledger: Ledger, today = ledgerAnchorDay(ledg
   const monthly = new Map(months.map((month) => [month, 0]))
   const byCategory = new Map<string, number>()
 
-  for (const transaction of ledger.transactions) {
+  for (const transaction of ledger.transactions ?? []) {
     if (transaction.date < range.from || transaction.date > range.to) continue
     const amount = netExpenseAmount(transaction)
     if (amount === null) continue
@@ -644,9 +671,9 @@ interface RefundSummary {
 }
 
 /** 原交易的退款列表：适配层带入 refunds 时直接用，否则按 relatedTransactionId 现算。 */
-export function getRefundList(ledger: Ledger, transaction: LedgerTransaction): LedgerTransaction[] {
+export function getRefundList(ledger: LedgerForPureFns, transaction: LedgerTransaction): LedgerTransaction[] {
   if (transaction.refunds) return transaction.refunds
-  return ledger.transactions.filter(
+  return (ledger.transactions ?? []).filter(
     (item) => item.type === 'refund' && item.relatedTransactionId === transaction.id,
   )
 }
@@ -677,10 +704,10 @@ export function findTransactionDeep(list: LedgerTransaction[], id: string): Ledg
   return undefined
 }
 
-export function getRelatedTransaction(ledger: Ledger, transaction: LedgerTransaction): LedgerTransaction | undefined {
+export function getRelatedTransaction(ledger: LedgerForPureFns, transaction: LedgerTransaction): LedgerTransaction | undefined {
   if (transaction.relatedTransaction) return transaction.relatedTransaction
   if (!transaction.relatedTransactionId) return undefined
-  return findTransactionDeep(ledger.transactions, transaction.relatedTransactionId)
+  return findTransactionDeep(ledger.transactions ?? [], transaction.relatedTransactionId)
 }
 
 /** 关联标记的展示名：优先备注，其次分类名，最后短 id。 */
@@ -691,7 +718,7 @@ export function transactionRefLabel(ledger: Ledger, transaction: LedgerTransacti
   return category !== '未分类' ? category : `#${transaction.id.slice(0, 8)}`
 }
 
-export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledger {
+export function addTransaction(ledger: TestLedger, input: NewTransactionInput): TestLedger {
   const magnitude = Math.round(Math.abs(input.amount))
   if (magnitude <= 0) return ledger
 
@@ -700,7 +727,7 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
   // 转账的两侧金额只由 Domain 口径给出：转出 X+f、转入 X+c。
   const transfer = transferAmounts({ amount: input.amount, fee, coupon: input.coupon })
   const related = input.relatedTransactionId
-    ? findTransactionDeep(ledger.transactions, input.relatedTransactionId)
+    ? findTransactionDeep(ledger.transactions ?? [], input.relatedTransactionId)
     : undefined
   const relatedType = input.type === 'refund' ? related?.type ?? null : undefined
 
@@ -727,7 +754,7 @@ export function addTransaction(ledger: Ledger, input: NewTransactionInput): Ledg
     return { ...account, balance: account.balance + delta }
   })
 
-  const nextNumber = ledger.transactions.reduce((max, transaction) => {
+  const nextNumber = (ledger.transactions ?? []).reduce((max, transaction) => {
     const numeric = Number(transaction.id.replace(/\D/g, ''))
     return Number.isFinite(numeric) ? Math.max(max, numeric) : max
   }, 0)

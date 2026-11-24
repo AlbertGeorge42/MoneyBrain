@@ -4,7 +4,6 @@ import { useLedger } from '@/features/overview/ledgerStore'
 import {
   CURRENT_MONTH_LABEL,
   TODAY,
-  findTransactionDeep,
   getCategory,
   getCategoryName,
 } from '@/features/overview/model'
@@ -31,7 +30,7 @@ import {
 import { TransactionDetailPanel } from './TransactionDetailPanel'
 import { useDetailActions } from './useDetailActions'
 import { TransactionsList } from './TransactionsList'
-import { useServerTransactions } from './apiTransactions'
+import { useTransactionDetail, useTransactionQuery } from './transactionQuery'
 import type { LedgerMutationOutcome } from '@/features/overview/ledgerStore'
 import {
   EMPTY_ADVANCED,
@@ -242,7 +241,6 @@ export function TransactionsPage({
   const { handleSave, handleDelete: deleteDetail, handleLinkRefund, handleCreateRefund } = useDetailActions()
   // 引导进度：empty 态按定义没有账户与流水；否则按账本实际内容派生。
   const hasAccount = dataState !== 'empty' && ledger.accounts.length > 0
-  const hasEntry = dataState !== 'empty' && ledger.transactions.length > 0
   // 筛选写入 URL：返回列表（含报表下钻）时还原分类/期间，避免静默丢失。
   // API 账本异步到达：分类/账户要等账本就绪才能校验。先冻结进入时的 query，
   // 待分类可用后一次性初始化——否则深链里的分类会被误判为无效，随后 URL 回写把它抹掉。
@@ -333,14 +331,12 @@ export function TransactionsPage({
     window.history.replaceState(window.history.state, '', next)
   }, [filters, hydrated])
 
-  // API 模式：筛选与分页都交给 /transactions，页面不再本地过滤一遍。
-  // 必须等 hydration 完成后再请求：否则先按空筛选取一轮，再按深链筛选取一轮（双取）。
-  const serverList = useServerTransactions(
-    filters,
-    ledger,
-    dataState === 'normal' && hydrated,
-  )
-  const filtered = dataState !== 'normal' ? [] : serverList.items
+  // Transaction Query 是流水页唯一交易数据源：首屏只取 page 1，后续按需加载。
+  // 只等 hydration（深链筛选还原）与 metadata，不再等 Ledger 全量就绪。
+  const transactions = useTransactionQuery(filters, ledger, hydrated)
+  const filtered = transactions.items
+  // 是否存在交易以当前查询 total 为准，不再依赖 Ledger 全量集合。
+  const hasEntry = dataState !== 'empty' && transactions.total > 0
   const sorted =
     display.sort === 'amount'
       ? [...filtered].sort((left, right) => Math.abs(right.amount) - Math.abs(left.amount))
@@ -354,11 +350,9 @@ export function TransactionsPage({
   })
   const excludedCount = filtered.filter((transaction) => transaction.excludeFromIncomeExpense).length
   const chips = filterChips(ledger, filters)
-  // 关联对方可能不在当前筛选结果里，但一定作为 relatedTransaction/refunds 嵌在行上；
-  // 递归查找让「退款 → 原交易」「原交易 → 退款」都能直接打开详情。
-  const detail = detailId
-    ? findTransactionDeep([...filtered, ...ledger.transactions], detailId) ?? null
-    : null
+  // 详情优先命中已加载行（含内嵌关联）；关联方不在本页时才按 id 取单笔。
+  // 不再拼接 Ledger 全量交易，也不再递归全量查找。
+  const { detail } = useTransactionDetail(detailId, filtered)
   const categoryRoots = ledger.categories.filter(
     (category) =>
       !category.parentId && (category.type === 'expense' || category.type === 'income'),
@@ -486,14 +480,7 @@ export function TransactionsPage({
     return result
   }
 
-  if (dataState === 'loading' || serverList.status === 'loading') {
-    return (
-      <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
-        <LoadingSkeleton device={device} variant="transactions" />
-      </PageShell>
-    )
-  }
-
+  // Ledger 层的显式错误 / 空态优先于 query 加载态，避免被 hydration 阻塞。
   if (dataState === 'empty') {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
@@ -510,12 +497,12 @@ export function TransactionsPage({
     )
   }
 
-  if (dataState === 'error' || serverList.status === 'error') {
+  if (dataState === 'error' || transactions.status === 'error') {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <ErrorPanel
           onRetry={() => {
-            serverList.refetch()
+            transactions.refetch()
             onRetry()
           }}
         />
@@ -523,7 +510,15 @@ export function TransactionsPage({
     )
   }
 
-  if (ledger.transactions.length === 0) {
+  if (dataState === 'loading' || !hydrated || transactions.status === 'initialLoading') {
+    return (
+      <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
+        <LoadingSkeleton device={device} variant="transactions" />
+      </PageShell>
+    )
+  }
+
+  if (transactions.total === 0) {
     return (
       <PageShell head={<PageHead device={device} dataState={dataState} count={0} periodLabel={periodLabel} />}>
         <ColdStartGuide
@@ -539,7 +534,7 @@ export function TransactionsPage({
     )
   }
 
-  const noResults = filtered.length === 0 && ledger.transactions.length > 0
+  const noResults = filtered.length === 0 && transactions.total > 0
 
   return (
     <PageShell head={<PageHead device={device} dataState={dataState} count={monthTotals.count} periodLabel={periodLabel} />}>
@@ -639,14 +634,15 @@ export function TransactionsPage({
           device={device}
           groups={groups}
           ledger={ledger}
-          today={today}
           batchMode={batchMode}
           display={display}
           selected={selected}
-          includeExcluded={includeExcluded}
           onToggle={toggleSelected}
           onOpenDetail={setDetailId}
           onOpenRelated={handleOpenRelated}
+          hasMoreRemote={transactions.hasMore}
+          loadingMore={transactions.status === 'pageLoading'}
+          onLoadMoreRemote={transactions.loadMore}
         />
       )}
 
@@ -698,7 +694,7 @@ export function TransactionsPage({
       <span className="mb-shell-hidden" aria-live="polite">
         当前筛选 {monthTotals.count} 笔
         {futureTotals.count > 0 ? `，另有 ${futureTotals.count} 笔未来不计入本月` : ''}，共{' '}
-        {serverList.total} 笔
+        {transactions.total} 笔
       </span>
     </PageShell>
   )

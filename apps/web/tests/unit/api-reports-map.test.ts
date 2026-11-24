@@ -56,6 +56,7 @@ const reportData: IncomeExpenseReportData = {
       categoryId: 'food',
       hasChildren: false,
       sort: 0,
+      count: 1,
     },
   ],
 }
@@ -65,10 +66,7 @@ describe('mapFlowReport 分类构成', () => {
     const report = mapFlowReport(
       reportData,
       [{ label: '2026-11', income: 0, expense: -2_800 }],
-      ledger,
-      '2026-11-01',
-      '2026-11-06',
-    )
+)
 
     expect(report.expenseTrees).toHaveLength(1)
     expect(report.expenseTrees[0]).toMatchObject({
@@ -81,7 +79,7 @@ describe('mapFlowReport 分类构成', () => {
     })
   })
 
-  it('笔数沿父链上卷：父级含子级，子级只算自身', () => {
+  it('笔数直接透传后端 detail：父级含子级口径由 Domain 上卷', () => {
     const treeLedger: Ledger = {
       ...ledger,
       categories: [
@@ -100,45 +98,35 @@ describe('mapFlowReport 分类构成', () => {
           categoryId: 'food',
           hasChildren: true,
           sort: 0,
+          count: 1,
           children: [
-            { name: '三餐', actual: -2_800, predicted: 0, categoryId: 'meal', hasChildren: false, sort: 0 },
+            { name: '三餐', actual: -2_800, predicted: 0, categoryId: 'meal', hasChildren: false, sort: 0, count: 1 },
           ],
         },
       ],
     }
-    const report = mapFlowReport(treeData, [], treeLedger, '2026-11-01', '2026-11-06')
+    const report = mapFlowReport(treeData, [])
 
     expect(report.expenseTrees[0].count).toBe(1)
     expect(report.expenseTrees[0].children[0].count).toBe(1)
   })
 
-  it('退款笔数与 Domain 冲减方向同源：未关联退款不进收支任何一侧', () => {
-    // 三笔同分类流水：收入退款、支出退款、未关联退款。
-    // 口径统一到 refundOffsetKind：前者进收入笔数，中者进支出笔数，未关联者不进任何侧。
-    const refundLedger: Ledger = {
-      ...ledger,
-      categories: [{ id: 'food', name: '餐饮', type: 'expense' }],
-      transactions: [
-        { id: 'r1', date: '2026-11-02', type: 'refund', relatedType: 'income', categoryId: 'food', note: '', accountId: 'wallet', amount: 100 },
-        { id: 'r2', date: '2026-11-03', type: 'refund', relatedType: 'expense', categoryId: 'food', note: '', accountId: 'wallet', amount: 200 },
-        { id: 'r3', date: '2026-11-04', type: 'refund', relatedType: null, categoryId: 'food', note: '', accountId: 'wallet', amount: 300 },
-      ],
-    }
-    // 补一棵收入分类树承载收入侧笔数（笔数独立从 ledger 算，但树结构来自接口）。
+  it('收入侧与支出侧笔数各取后端 detail，互不串台', () => {
+    // 笔数口径（含退款方向、未关联退款不计数）由 Domain 构造 detail 时决定，
+    // 前端只把两侧的 count 分别透传到对应分类树。
     const refundData: IncomeExpenseReportData = {
       ...reportData,
       incomeCategoryDetails: [
-        { name: '退款', actual: 100, predicted: 0, categoryId: 'food', hasChildren: false, sort: 0 },
+        { name: '退款', actual: 100, predicted: 0, categoryId: 'food', hasChildren: false, sort: 0, count: 1 },
       ],
     }
-    const report = mapFlowReport(refundData, [], refundLedger, '2026-11-01', '2026-11-06')
-    // 收入侧仅 r1 一笔；支出侧仅 r2 一笔；r3（未关联）两侧都不计。
+    const report = mapFlowReport(refundData, [])
     expect(report.incomeTrees[0]?.count ?? 0).toBe(1)
     expect(report.expenseTrees[0]?.count ?? 0).toBe(1)
   })
 
   it('根分类行 id 与下钻同一 id 空间，逐笔加总等于行金额', () => {
-    const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
+    const report = mapFlowReport(reportData, [])
     const row = report.expenseTrees[0]
     const drill = buildDrillFor(ledger, flowDrillTarget(row, 'expense'), '2026-11-01', '2026-11-06')
 
@@ -196,25 +184,15 @@ describe('buildDrill 与「不计收支」开关同口径', () => {
 })
 
 describe('mapFlowReport 计入不计收支', () => {
-  it('口径开关同时改变分类笔数，且树金额改用同一口径的合计做占比', () => {
-    const withExcluded: Ledger = {
-      ...ledger,
-      transactions: [
-        ...ledger.transactions,
-        {
-          id: 'tx-excluded',
-          date: '2026-11-05',
-          type: 'expense',
-          categoryId: 'food',
-          note: '不计收支',
-          accountId: 'wallet',
-          amount: 500,
-          excludeFromIncomeExpense: true,
-        },
-      ],
+  it('两种口径的笔数各取对应 detail，并透传 includeExcluded 标记', () => {
+    // 笔数口径（是否含不计收支）由 Domain 按 includeExcluded 构造 detail 时决定，
+    // 前端把两份 detail 的 count 与口径标记分别透传。
+    const excludedData: IncomeExpenseReportData = {
+      ...reportData,
+      expenseCategoryDetails: [{ ...reportData.expenseCategoryDetails[0], count: 2 }],
     }
-    const excludes = mapFlowReport(reportData, [], withExcluded, '2026-11-01', '2026-11-06')
-    const includes = mapFlowReport(reportData, [], withExcluded, '2026-11-01', '2026-11-06', true)
+    const excludes = mapFlowReport(reportData, [])
+    const includes = mapFlowReport(excludedData, [], true)
 
     expect(excludes.includeExcluded).toBe(false)
     expect(includes.includeExcluded).toBe(true)
@@ -232,7 +210,7 @@ describe('mapFlowReport 预测口径', () => {
       balance: { actual: 2_200, predicted: 800 },
       predictionNote: '含预算预测数据',
     }
-    const report = mapFlowReport(predictedData, [], ledger, '2026-11-01', '2026-11-30')
+    const report = mapFlowReport(predictedData, [])
 
     expect(report.income).toBe(7_000)
     expect(report.expense).toBe(4_000)
@@ -245,7 +223,7 @@ describe('mapFlowReport 预测口径', () => {
   })
 
   it('预测为 0 时不加标签、不出现拆解行', () => {
-    const report = mapFlowReport(reportData, [], ledger, '2026-11-01', '2026-11-06')
+    const report = mapFlowReport(reportData, [])
     expect(report.metrics.map((metric) => Boolean(metric.prediction))).toEqual([false, false, false, false])
   })
 })
@@ -279,6 +257,8 @@ describe('mapCashReport 现金流下钻 id 空间', () => {
             predicted: 0,
             type: 'expense',
             direction: 'outflow',
+            count: 1,
+            accountIds: ['wallet'],
           },
         ],
       },

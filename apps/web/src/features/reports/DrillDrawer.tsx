@@ -8,6 +8,7 @@ import { TxRow } from '@/features/shared/TxRow'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { TransactionDetailPanel } from '@/features/transactions/TransactionDetailPanel'
 import { useDetailActions } from '@/features/transactions/useDetailActions'
+import { useTransactionDetail } from '@/features/transactions/transactionQuery'
 import type { DeviceMode } from '@/features/shared/types'
 import { currency, type DrillData } from './reportsModel'
 
@@ -28,7 +29,8 @@ export function DrillDrawer({
     if (!data) setDetailId(null)
   }, [data])
 
-  const detail = ledger.transactions.find((transaction) => transaction.id === detailId) ?? null
+  // 详情优先取当前下钻行；关联方不在本次结果时按 id 服务端补查（不扫 Ledger 全量）。
+  const { detail } = useTransactionDetail(detailId, data?.transactions ?? [])
 
   return (
     <>

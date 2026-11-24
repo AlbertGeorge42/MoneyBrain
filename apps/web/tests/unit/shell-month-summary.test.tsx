@@ -8,15 +8,18 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { AppShell } from '@/features/shell/AppShell'
-import type { Ledger } from '@/features/overview/model'
+import type { Ledger, LedgerTransaction } from '@/features/overview/model'
 import { makeLedger as makeTestLedger } from '../helpers/ledger'
+import { withTestSnapshot } from '@/test-fixtures/ledger'
 
-function makeLedger(transactions: Ledger['transactions']): Ledger {
-  return makeTestLedger({
-    accounts: [{ id: 'a1', name: '钱包', kind: 'cash', balance: 100_000 }],
-    categories: [{ id: 'food', name: '餐饮', type: 'expense' }],
-    transactions,
-  })
+function makeLedger(transactions: LedgerTransaction[]): Ledger {
+  return withTestSnapshot(
+    makeTestLedger({
+      accounts: [{ id: 'a1', name: '钱包', kind: 'cash', balance: 100_000 }],
+      categories: [{ id: 'food', name: '餐饮', type: 'expense' }],
+      transactions,
+    }) as never,
+  )
 }
 
 function renderShell(ledger: Ledger) {

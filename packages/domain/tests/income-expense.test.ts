@@ -94,6 +94,53 @@ test('收支表基线：退款冲减、分类净额、结余与对账条差额',
   })
 })
 
+test('收支表笔数：沿父链上卷，父级含子级、子级只算自身', () => {
+  const categories: CategoryRef[] = [
+    cat('food', '餐饮', 'expense', 0),
+    cat('lunch', '午餐', 'expense', 0, 'food'),
+    cat('dinner', '晚餐', 'expense', 1, 'food'),
+  ]
+  const report = buildIncomeExpenseStatement(statementInput({
+    categories,
+    categoryNames: new Map(categories.map((c) => [c.id, c.name])),
+    ledger: [
+      tx({ id: 't1', kind: 'expense', amount: m(300), categoryId: 'lunch' }),
+      tx({ id: 't2', kind: 'expense', amount: m(200), categoryId: 'dinner' }),
+    ],
+  }))
+  const food = report.expenseCategoryDetails.find((n) => n.categoryId === 'food')
+  assert.equal(food?.count, 2)
+  assert.equal(food?.children?.find((n) => n.categoryId === 'lunch')?.count, 1)
+  assert.equal(food?.children?.find((n) => n.categoryId === 'dinner')?.count, 1)
+})
+
+test('收支表笔数：退款按冲减方向归侧，未关联退款不进任何一侧', () => {
+  const categories: CategoryRef[] = [cat('salary', '工资', 'income', 0), cat('food', '餐饮', 'expense', 0)]
+  const report = buildIncomeExpenseStatement(statementInput({
+    categories,
+    categoryNames: new Map(categories.map((c) => [c.id, c.name])),
+    ledger: [
+      tx({ id: 'r1', kind: 'refund', amount: m(100), categoryId: 'salary', relatedType: 'income' }),
+      tx({ id: 'r2', kind: 'refund', amount: m(200), categoryId: 'food', relatedType: 'expense' }),
+      tx({ id: 'r3', kind: 'refund', amount: m(300), categoryId: 'food', relatedType: null }),
+    ],
+  }))
+  assert.equal(report.incomeCategoryDetails.find((n) => n.categoryId === 'salary')?.count, 1)
+  assert.equal(report.expenseCategoryDetails.find((n) => n.categoryId === 'food')?.count, 1)
+})
+
+test('收支表笔数：includeExcluded 与金额同口径，不计收支只在开启时计入', () => {
+  const ledger = [
+    tx({ id: 't1', kind: 'expense', amount: m(300), categoryId: 'food' }),
+    tx({ id: 't2', kind: 'expense', amount: m(200), categoryId: 'food', excludeFromIncomeExpense: true }),
+  ]
+  const countOf = (includeExcluded: boolean) =>
+    buildIncomeExpenseStatement(statementInput({ ledger, includeExcluded }))
+      .expenseCategoryDetails.find((n) => n.categoryId === 'food')?.count
+  assert.equal(countOf(false), 1)
+  assert.equal(countOf(true), 2)
+})
+
 test('收支表基线：未分类金额进明细树与按名称汇总，合计与展开项对得上', () => {
   const report = buildIncomeExpenseStatement(statementInput({
     ledger: [tx({ id: 't1', kind: 'expense', amount: m(70), categoryId: null })],

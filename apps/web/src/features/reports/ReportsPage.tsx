@@ -68,6 +68,7 @@ import { FlowView } from './FlowView'
 import { CashView } from './CashView'
 import { InvestView } from './InvestView'
 import { DrillDrawer } from './DrillDrawer'
+import { useDrillTransactions } from './useDrillTransactions'
 import './reports.css'
 
 /** 推演窗口：资产负债看时点，收支 / 现金流看期间；桶边界由后端计算。 */
@@ -173,7 +174,7 @@ export function ReportsPage({
     ledger,
     apiReady && tab === 'balance' && balanceState === 'past',
   )
-  const flowApi = useApiFlowReport(time.from, time.to, time.gran, ledger, includeExcluded, apiReady && tab === 'flow')
+  const flowApi = useApiFlowReport(time.from, time.to, time.gran, includeExcluded, apiReady && tab === 'flow')
   const cashApi = useApiCashReport(
     time.from,
     time.to,
@@ -193,7 +194,6 @@ export function ReportsPage({
   // 收支未来明细：与现金流投影共用同一套窗口，三来源由后端合成。
   const flowProjectionApi = useApiIncomeExpenseProjection(
     cashWindow,
-    ledger,
     includeExcluded,
     apiReady && tab === 'flow' && flowState !== 'past',
   )
@@ -241,17 +241,28 @@ export function ReportsPage({
     () => (cash ? deriveCashSankey(ledger, cash) : null),
     [ledger, cash],
   )
+  // 资产负债是时点余额：下钻明细按当前粒度回溯一个桶（月→当月 / 年→当年），
+  // 不铺全历史以免笔数过多；转入该账户的转账仍算余额来源。
+  // 收支 / 现金流是期间发生额，仍按当前所选期间。
+  const drillRange = useMemo(
+    () =>
+      drill?.type === 'account'
+        ? pointDrillRange(balancePoint, time.gran)
+        : { from: time.from, to: time.to },
+    [drill?.type, balancePoint, time.gran, time.from, time.to],
+  )
+  const drillTransactions = useDrillTransactions(drill, drillRange.from, drillRange.to, apiReady)
   const drillData = useMemo<DrillData | null>(() => {
     if (!drill) return null
-    // 资产负债是时点余额：下钻明细按当前粒度回溯一个桶（月→当月 / 年→当年），
-    // 不铺全历史以免笔数过多；转入该账户的转账仍算余额来源。
-    // 收支 / 现金流是期间发生额，仍按当前所选期间。
-    const range =
-      drill.type === 'account'
-        ? pointDrillRange(balancePoint, time.gran)
-        : { from: time.from, to: time.to }
-    return buildDrillFor(ledger, drill, range.from, range.to, includeExcluded)
-  }, [drill, ledger, balancePoint, time.gran, time.from, time.to, includeExcluded])
+    return buildDrillFor(
+      ledger,
+      drill,
+      drillRange.from,
+      drillRange.to,
+      includeExcluded,
+      drillTransactions.transactions,
+    )
+  }, [drill, ledger, drillRange.from, drillRange.to, includeExcluded, drillTransactions.transactions])
 
   useEffect(() => {
     setDrill(null)

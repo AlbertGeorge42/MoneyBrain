@@ -1,4 +1,4 @@
-import { UNCATEGORIZED_CATEGORY_ID, flowByCategory, summarizeFlows } from '../ledger/summary.js'
+import { UNCATEGORIZED_CATEGORY_ID, flowByCategory, flowCountByCategory, summarizeFlows } from '../ledger/summary.js'
 import { postingsOf } from '../ledger/postings.js'
 import type { LedgerTransaction } from '../ledger/types.js'
 import { ZERO_MINOR, add, sub, sum, type Minor } from '../money.js'
@@ -37,6 +37,8 @@ export interface IncomeExpenseCategoryDetail {
   categoryId: string
   hasChildren: boolean
   sort: number
+  /** 该分类（含子树）在报表期间内的交易笔数，与金额同口径。 */
+  count: number
   children?: IncomeExpenseCategoryDetail[]
 }
 
@@ -107,6 +109,8 @@ export function buildIncomeExpenseStatement(
   const categoryMap = new Map(categories.map((category) => [category.id, category]))
   const netIncomeByCategory = flowByCategory(ledger, 'income', undefined, options)
   const netExpenseByCategory = flowByCategory(ledger, 'expense', undefined, options)
+  const incomeCountByCategory = flowCountByCategory(ledger, 'income', undefined, options)
+  const expenseCountByCategory = flowCountByCategory(ledger, 'expense', undefined, options)
 
   const leafPredictedIncome: Record<string, Minor> = {}
   const leafPredictedExpense: Record<string, Minor> = {}
@@ -128,6 +132,9 @@ export function buildIncomeExpenseStatement(
 
       const childrenActual = sum(childLeaves.map((child) => child.actual))
       const childrenPredicted = sum(childLeaves.map((child) => child.predicted))
+      const countByCategory = type === 'income' ? incomeCountByCategory : expenseCountByCategory
+      const ownCount = countByCategory.get(category.id) ?? 0
+      const childrenCount = childLeaves.reduce((total, child) => total + child.count, 0)
       const node: IncomeExpenseCategoryDetail = {
         name: category.name,
         actual: sum([catActual, childrenActual]),
@@ -135,6 +142,7 @@ export function buildIncomeExpenseStatement(
         categoryId: category.id,
         hasChildren,
         sort: category.sort,
+        count: ownCount + childrenCount,
       }
       if (childLeaves.length > 0) node.children = childLeaves
       return node
@@ -152,6 +160,7 @@ export function buildIncomeExpenseStatement(
       categoryId: 'uncategorized',
       hasChildren: false,
       sort: Number.MAX_SAFE_INTEGER,
+      count: (type === 'income' ? incomeCountByCategory : expenseCountByCategory).get(UNCATEGORIZED_CATEGORY_ID) ?? 0,
     }
   }
 

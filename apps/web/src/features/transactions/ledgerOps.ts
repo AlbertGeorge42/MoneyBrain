@@ -5,7 +5,7 @@
  * 总览净值与账户卡同步。所有函数返回新账本，不修改入参。
  */
 import { neg, transferInflow, transferOutflow } from '@domain/index'
-import { transferAmounts, type Ledger, type LedgerTransaction, type TxType } from '@/features/overview/model'
+import { transferAmounts, type TestLedger, type LedgerTransaction, type TxType } from '@/features/overview/model'
 
 export interface TransactionPatch {
   categoryId: string
@@ -46,10 +46,10 @@ function balanceDeltas(transaction: LedgerTransaction): BalanceDelta[] {
 }
 
 function adjustAccounts(
-  ledger: Ledger,
+  ledger: TestLedger,
   deltas: readonly BalanceDelta[],
   direction: 1 | -1,
-): Ledger {
+): TestLedger {
   if (deltas.length === 0) return ledger
   return {
     ...ledger,
@@ -61,10 +61,10 @@ function adjustAccounts(
 }
 
 export function updateTransactionInLedger(
-  ledger: Ledger,
+  ledger: TestLedger,
   id: string,
   patch: TransactionPatch,
-): Ledger {
+): TestLedger {
   const current = ledger.transactions.find((transaction) => transaction.id === id)
   if (!current) return ledger
 
@@ -94,7 +94,7 @@ export function updateTransactionInLedger(
   }
 }
 
-export function deleteTransactionsFromLedger(ledger: Ledger, ids: readonly string[]): Ledger {
+export function deleteTransactionsFromLedger(ledger: TestLedger, ids: readonly string[]): TestLedger {
   const removing = new Set(ids)
   if (removing.size === 0) return ledger
 

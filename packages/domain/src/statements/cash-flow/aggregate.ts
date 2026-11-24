@@ -2,20 +2,31 @@ import { refundOffsetKind, transferInflow, transferNet, transferOutflow } from '
 import { ZERO_MINOR, abs, add, neg, sub, type Minor } from '../../money.js'
 import type { AggregatedFlows, CashFlowActivityMinor, ProcessedTx } from './types.js'
 
+/** 命中 item 的交易元数据：用于笔数与账户集合，预测交易不计入。 */
+type TxMeta = { id: string; accountId: string; toAccountId: string | null; isPredicted: boolean }
+
+function collectTxInfo(item: CashFlowActivityMinor['items'][number], meta: TxMeta): void {
+  if (meta.isPredicted) return
+  if (!item.transactionIds.includes(meta.id)) item.transactionIds.push(meta.id)
+  const accountId = meta.toAccountId ?? meta.accountId
+  if (accountId && !item.accountIds.includes(accountId)) item.accountIds.push(accountId)
+}
+
 // 查找或新增 activity item：相同 categoryName + direction 累加金额，否则新增
 function upsertActivityItem(
   items: CashFlowActivityMinor['items'],
   amount: Minor,
   categoryName: string,
   direction: 'inflow' | 'outflow',
-  meta: { categoryId: string | null; parentId: string | null; level: number; type: string },
+  meta: { categoryId: string | null; parentId: string | null; level: number; type: string; tx: TxMeta },
 ): void {
   const sign = direction === 'inflow' ? 1 : -1
   const existing = items.find(item => item.categoryName === categoryName && item.direction === direction)
   if (existing) {
     existing.amount = sign > 0 ? add(existing.amount, amount) : sub(existing.amount, amount)
+    collectTxInfo(existing, meta.tx)
   } else {
-    items.push({
+    const item = {
       categoryName,
       categoryId: meta.categoryId,
       parentId: meta.parentId,
@@ -23,7 +34,11 @@ function upsertActivityItem(
       amount: sign > 0 ? amount : neg(amount),
       type: meta.type,
       direction,
-    })
+      transactionIds: [] as string[],
+      accountIds: [] as string[],
+    }
+    collectTxInfo(item, meta.tx)
+    items.push(item)
   }
 }
 
@@ -36,6 +51,7 @@ function addTransaction(
   amount: Minor,
   type: string,
   direction: 'inflow' | 'outflow',
+  tx: TxMeta,
 ) {
   if (direction === 'inflow') {
     activity.inflow = add(activity.inflow, amount)
@@ -48,6 +64,7 @@ function addTransaction(
     parentId,
     level,
     type,
+    tx,
   })
 }
 
@@ -62,6 +79,7 @@ function addTransferFlow(
   fee: Minor,
   coupon: Minor,
   isOutflow: boolean,
+  tx: TxMeta,
 ) {
   if (isOutflow) {
     const actualOutflow = abs(transferOutflow(amount, fee))
@@ -72,6 +90,7 @@ function addTransferFlow(
       parentId,
       level,
       type: 'transfer_out',
+      tx,
     })
   } else {
     // 转账转入的现金只经领域层规则取值（与转出侧 transferOutflow 对称，A0）
@@ -83,6 +102,7 @@ function addTransferFlow(
       parentId,
       level,
       type: 'transfer_in',
+      tx,
     })
   }
 }
@@ -111,27 +131,28 @@ export function aggregate(items: readonly ProcessedTx[]): AggregatedFlows {
 
   for (const it of items) {
     const target = getTargetByType(it.cashFlowType)
+    const tx: TxMeta = { id: it.id, accountId: it.accountId, toAccountId: it.toAccountId, isPredicted: it.isPredicted }
 
     if (it.type === 'income' && it.isFromCash) {
-      addTransaction(target, it.categoryName, it.categoryId, it.parentId, it.level, it.amount, 'income', 'inflow')
+      addTransaction(target, it.categoryName, it.categoryId, it.parentId, it.level, it.amount, 'income', 'inflow', tx)
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       accountFlow.inflow = add(accountFlow.inflow, it.amount)
     } else if (it.type === 'expense' && it.isFromCash) {
-      addTransaction(target, it.categoryName, it.categoryId, it.parentId, it.level, it.amount, 'expense', 'outflow')
+      addTransaction(target, it.categoryName, it.categoryId, it.parentId, it.level, it.amount, 'expense', 'outflow', tx)
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       accountFlow.outflow = sub(accountFlow.outflow, it.amount)
     } else if (it.type === 'transfer') {
       if (it.isFromCash && !it.isToCash) {
         // 转出：区分 actual('未分类') / predicted('转账转出') 默认值
         const fromName = it.categoryName || (it.isPredicted ? '转账转出' : '未分类')
-        addTransferFlow(target, fromName, '', it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, true)
+        addTransferFlow(target, fromName, '', it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, true, tx)
         const accountFlow = getOrCreateAccountFlow(it.accountName)
         const actualOutflow = abs(transferOutflow(it.amount, it.fee))
         accountFlow.outflow = sub(accountFlow.outflow, actualOutflow)
       } else if (!it.isFromCash && it.isToCash && it.toAccountName) {
         // 转入：区分 actual('未分类') / predicted('转账转入') 默认值
         const toName = it.categoryName || (it.isPredicted ? '转账转入' : '未分类')
-        addTransferFlow(target, '', toName, it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, false)
+        addTransferFlow(target, '', toName, it.categoryId, it.parentId, it.level, it.amount, it.fee, it.coupon, false, tx)
         const accountFlow = getOrCreateAccountFlow(it.toAccountName)
         const actualInflow = transferInflow(it.amount, it.coupon)
         accountFlow.inflow = add(accountFlow.inflow, actualInflow)
@@ -142,11 +163,11 @@ export function aggregate(items: readonly ProcessedTx[]): AggregatedFlows {
         const net = transferNet(it.fee, it.coupon)
         if (net < 0) {
           const feeAmount = abs(net)
-          addTransaction(target, '手续费', null, null, 0, feeAmount, 'transfer_fee', 'outflow')
+          addTransaction(target, '手续费', null, null, 0, feeAmount, 'transfer_fee', 'outflow', tx)
           const accountFlow = getOrCreateAccountFlow(it.accountName)
           accountFlow.outflow = sub(accountFlow.outflow, feeAmount)
         } else if (net > 0) {
-          addTransaction(target, '优惠券', null, null, 0, net, 'transfer_coupon', 'inflow')
+          addTransaction(target, '优惠券', null, null, 0, net, 'transfer_coupon', 'inflow', tx)
           const accountFlow = getOrCreateAccountFlow(it.toAccountName ?? it.accountName)
           accountFlow.inflow = add(accountFlow.inflow, net)
         }
@@ -158,7 +179,7 @@ export function aggregate(items: readonly ProcessedTx[]): AggregatedFlows {
       if (offset === null) continue
 
       const direction = offset === 'income' ? 'outflow' : 'inflow'
-      addTransaction(target, it.categoryName, it.categoryId, it.parentId, it.level, it.amount, 'refund', direction)
+      addTransaction(target, it.categoryName, it.categoryId, it.parentId, it.level, it.amount, 'refund', direction, tx)
       const accountFlow = getOrCreateAccountFlow(it.accountName)
       if (direction === 'inflow') accountFlow.inflow = add(accountFlow.inflow, it.amount)
       else accountFlow.outflow = sub(accountFlow.outflow, it.amount)

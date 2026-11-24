@@ -262,15 +262,16 @@ const INCOME_EXPENSE = {
   income: { actual: 1850000 },
   expense: { actual: 627760 },
   balance: { actual: 1222240 },
-  incomeCategoryDetails: [{ name: '工资', categoryId: 'salary', actual: 1850000, children: [] }],
+  incomeCategoryDetails: [{ name: '工资', categoryId: 'salary', actual: 1850000, count: 1, children: [] }],
   expenseCategoryDetails: [
     {
       name: '餐饮',
       categoryId: 'food',
       actual: 5300,
-      children: [{ name: '午餐', categoryId: 'food_lunch', actual: 2800, children: [] }],
+      count: 1,
+      children: [{ name: '午餐', categoryId: 'food_lunch', actual: 2800, count: 1, children: [] }],
     },
-    { name: '居住', categoryId: 'home', actual: 560000, children: [] },
+    { name: '居住', categoryId: 'home', actual: 560000, count: 0, children: [] },
   ],
 } as never
 
@@ -285,8 +286,8 @@ const CASH_FLOW = {
       outflow: { actual: -31200 },
       net: { actual: -32400 },
       items: [
-        { categoryName: '教育', categoryId: 'edu', actual: -19900, direction: 'outflow', type: 'expense' },
-        { categoryName: '退款', categoryId: 'refund', actual: -1200, direction: 'inflow', type: 'refund' },
+        { categoryName: '教育', categoryId: 'edu', actual: -19900, direction: 'outflow', type: 'expense', count: 1, accountIds: ['wx'] },
+        { categoryName: '退款', categoryId: 'refund', actual: -1200, direction: 'inflow', type: 'refund', count: 1, accountIds: ['wx'] },
       ],
     },
     investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
@@ -296,7 +297,7 @@ const CASH_FLOW = {
       outflow: { actual: 0 },
       net: { actual: 50000 },
       items: [
-        { categoryName: '账户互转', categoryId: 'move', actual: 50000, direction: 'inflow', type: 'transfer_in' },
+        { categoryName: '账户互转', categoryId: 'move', actual: 50000, direction: 'inflow', type: 'transfer_in', count: 1, accountIds: ['wx'] },
       ],
     },
   },
@@ -490,7 +491,7 @@ describe('视图 ↔ 端点映射', () => {
       tx({ id: 't4', date: '2026-10-31', amount: 999, categoryId: 'food' }),
     ]
     const ledger = ledgerWith(transactions)
-    const report = mapFlowReport(INCOME_EXPENSE, [{ label: '11月', income: 1850000, expense: 627760 }], ledger, '2026-11-01', '2026-11-06')
+    const report = mapFlowReport(INCOME_EXPENSE, [{ label: '11月', income: 1850000, expense: 627760 }])
     expect(report.income).toBe(1850000)
     expect(report.expense).toBe(627760)
     expect(report.balance).toBe(1222240)
@@ -610,7 +611,7 @@ describe('期间边界与锚点', () => {
       tx({ id: 'b1', date: '2026-11-01', amount: 100 }),
       tx({ id: 'b2', date: '2026-11-30', amount: 200 }),
     ])
-    const report = mapFlowReport(INCOME_EXPENSE, [], ledger, '2026-11-01', '2026-11-30')
+    const report = mapFlowReport(INCOME_EXPENSE, [])
     expect(report.income).toBe(1850000)
     expect(report.expense).toBe(627760)
   })
@@ -701,11 +702,12 @@ describe('无写调用', () => {
     }
   })
 
-  it('账本拉取改为完整期间分页，不再用 dashboard 的最近 8 笔', () => {
+  it('Ledger 不再拉取全量交易；最近交易与交易摘要走后端轻量端点', () => {
     const apiLedger = source('features/overview/apiLedger.ts')
-    expect(apiLedger).toContain('fetchAllTransactions')
-    expect(apiLedger).toContain('transactionApi.getAll')
-    expect(apiLedger).toContain('payload.transactions.map')
-    expect(apiLedger).not.toContain('payload.dashboard.recentTransactions.map')
+    expect(apiLedger).not.toContain('fetchAllTransactions')
+    expect(apiLedger).not.toContain('transactionApi.getAll')
+    expect(apiLedger).not.toContain('payload.transactions.map')
+    expect(apiLedger).toContain('payload.dashboard.recentTransactions.map')
+    expect(apiLedger).toContain('analyticsApi.getTransactionSummary')
   })
 })

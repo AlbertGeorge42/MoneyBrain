@@ -414,19 +414,18 @@ describe('DonutChart 二级环', () => {
             name: '验证大类',
             categoryId: 'fx',
             actual: 3_500,
+            count: 7,
             children: children.map((category, index) => ({
               name: category.name,
               categoryId: category.id,
               actual: 800 - index * 100,
+              count: 1,
               children: [],
             })),
           },
         ],
       } as never,
       [],
-      ledger,
-      from,
-      to,
     )
     const onOpen = vi.fn()
     const { container } = render(

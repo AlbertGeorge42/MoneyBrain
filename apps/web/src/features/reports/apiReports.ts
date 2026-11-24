@@ -28,12 +28,12 @@ import type {
   ProjectionSourceValue,
   ReportCategoryDetail,
 } from '@contracts/types'
-import { mergeCategoryItems, refundOffsetKind } from '@domain/index'
+import { mergeCategoryItems } from '@domain/index'
 import { analyticsApi, reportApi } from '@/services/api'
 import { unwrapApiData } from '@/services/apiResult'
 import { accountKindLabel } from '@/features/overview/model'
 import { formatPercent } from '@/utils/format'
-import type { Ledger, LedgerTransaction } from '@/features/overview/model'
+import type { Ledger } from '@/features/overview/model'
 import {
   currency,
   signedCurrency,
@@ -88,66 +88,6 @@ function resultOf<T>(query: {
   }
 }
 
-function inRange(transaction: { date: string }, from: string, to: string): boolean {
-  return transaction.date >= from && transaction.date <= to
-}
-
-// 退款方向统一走 Domain 的 refundOffsetKind：未关联退款不进收支任何一侧，只影响余额。
-function expenseSide(transaction: LedgerTransaction): boolean {
-  if (transaction.type === 'expense') return true
-  if (transaction.type === 'refund') return refundOffsetKind(transaction.relatedType) === 'expense'
-  return transaction.type === 'adjustment' && transaction.amount < 0
-}
-
-function incomeSide(transaction: LedgerTransaction): boolean {
-  if (transaction.type === 'income') return true
-  if (transaction.type === 'refund') return refundOffsetKind(transaction.relatedType) === 'income'
-  return false
-}
-
-/** 分类及其所有后代：后端只给到一级 / 二级，笔数按子树累计。 */
-function subtreeOf(ledger: Ledger, categoryId: string): string[] {
-  const ids = [categoryId]
-  for (let index = 0; index < ids.length; index += 1) {
-    const current = ids[index]
-    for (const category of ledger.categories) {
-      if (category.parentId === current) ids.push(category.id)
-    }
-  }
-  return ids
-}
-
-function flowCounts(
-  ledger: Ledger,
-  from: string,
-  to: string,
-  includeExcluded = false,
-): {
-  income: Map<string, number>
-  expense: Map<string, number>
-} {
-  const income = new Map<string, number>()
-  const expense = new Map<string, number>()
-  // 流水挂在叶子分类上，笔数要沿父链上卷：父级 = 自身 + 全部后代，子级只含自身子树。
-  // 反向按子树下算会让父级恒为 0 笔。
-  const parentOf = new Map(ledger.categories.map((category) => [category.id, category.parentId]))
-  const bump = (map: Map<string, number>, categoryId: string) => {
-    let current: string | undefined = categoryId
-    while (current) {
-      map.set(current, (map.get(current) ?? 0) + 1)
-      current = parentOf.get(current)
-    }
-  }
-  for (const transaction of ledger.transactions) {
-    if (!inRange(transaction, from, to)) continue
-    // 笔数必须和金额同一口径：排除「不计收支」时，这类流水也不进分类树的笔数。
-    if (!includeExcluded && transaction.excludeFromIncomeExpense) continue
-    if (incomeSide(transaction)) bump(income, transaction.categoryId)
-    if (expenseSide(transaction)) bump(expense, transaction.categoryId)
-  }
-  return { income, expense }
-}
-
 /** 后端 predicted 是「预测部分」；合计 = actual + predicted。 */
 function predictedOf(value: { predicted?: number }): number {
   return Math.abs(value.predicted ?? 0)
@@ -180,7 +120,6 @@ function predictionOf(
 function treeOf(
   details: ReportCategoryDetail[],
   total: number,
-  counts: Map<string, number>,
 ): FlowTreeNode[] {
   // 构成的金额是「该侧发生了多少」，不继承接口历史符号；负向支出按绝对值参与分类树，
   // 否则 actual < 0 会被 > 0 的过滤条件静默丢掉，出现「合计有金额、构成没有数据」。
@@ -193,7 +132,7 @@ function treeOf(
       name: detail.name,
       amount: amountOf(detail),
       predicted: predictedOf(detail),
-      count: counts.get(detail.categoryId) ?? 0,
+      count: detail.count,
       share: total === 0 ? 0 : (amountOf(detail) / total) * 100,
       level: 0 as const,
       children: (detail.children ?? [])
@@ -203,7 +142,7 @@ function treeOf(
           name: child.name,
           amount: amountOf(child),
           predicted: predictedOf(child),
-          count: counts.get(child.categoryId) ?? 0,
+          count: child.count,
           share: total === 0 ? 0 : (amountOf(child) / total) * 100,
           level: 1 as const,
           children: [],
@@ -214,9 +153,6 @@ function treeOf(
 export function mapFlowReport(
   data: IncomeExpenseReportData,
   series: { label: string; income: number; expense: number }[],
-  ledger: Ledger,
-  from: string,
-  to: string,
   includeExcluded = false,
 ): FlowReport {
   // 接口的 actual 保留历史符号（真实库存在负向支出）；收入 / 支出是「方向 + 金额」，
@@ -232,7 +168,6 @@ export function mapFlowReport(
   const balancePredicted = data.balance.predicted ?? 0
   const balance = balanceActual + balancePredicted
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
-  const counts = flowCounts(ledger, from, to, includeExcluded)
   const normalizedSeries = series.map((item) => ({
     label: item.label,
     income: Math.abs(item.income),
@@ -243,8 +178,8 @@ export function mapFlowReport(
     expense,
     balance,
     savingsRate,
-    incomeTrees: treeOf(data.incomeCategoryDetails, income, counts.income),
-    expenseTrees: treeOf(data.expenseCategoryDetails, expense, counts.expense),
+    incomeTrees: treeOf(data.incomeCategoryDetails, income),
+    expenseTrees: treeOf(data.expenseCategoryDetails, expense),
     series: normalizedSeries,
     includeExcluded,
     predictionNote: data.predictionNote,
@@ -389,8 +324,6 @@ function activityGroup(
   direction: 'in' | 'out',
   total: number,
   ledger: Ledger,
-  from: string,
-  to: string,
 ): CashGroup | null {
   if (total <= 0) return null
   // actual / predicted 都已带符号（流入为正、流出为负），合计后按方向筛选；
@@ -399,26 +332,18 @@ function activityGroup(
   const items = activity.items.filter((item) =>
     direction === 'in' ? totalOfItem(item) > 0 : totalOfItem(item) < 0,
   )
-  const fromAccount = new Map(ledger.accounts.map((account) => [account.id, account.name]))
-  const counted = new Set<string>()
+  // 账户名映射来自 Ledger metadata；账户集合与笔数均由后端 detail 提供，不再扫全量流水。
+  const accountNameOf = new Map(ledger.accounts.map((account) => [account.id, account.name]))
 
   const children: CashChild[] = items.map((item: CashFlowActivityItem, index: number) => {
     const categoryId = item.categoryId ?? ''
-    const ids = new Set(categoryId ? subtreeOf(ledger, categoryId) : [])
-    const accounts = new Set<string>()
-    for (const transaction of ledger.transactions) {
-      if (!inRange(transaction, from, to)) continue
-      if (!ids.has(transaction.categoryId)) continue
-      counted.add(transaction.id)
-      const name =
-        fromAccount.get(transaction.toAccountId ?? transaction.accountId) ??
-        fromAccount.get(transaction.accountId)
-      if (name) accounts.add(name)
-    }
+    const names = item.accountIds
+      .map((id) => accountNameOf.get(id))
+      .filter((name): name is string => Boolean(name))
     return {
       id: `${key}-${direction}-${categoryId || item.categoryName}-${index}`,
       label: item.categoryName,
-      account: accounts.size > 0 ? [...accounts].join(' / ') : '—',
+      account: names.length > 0 ? [...new Set(names)].join(' / ') : '—',
       amount: Math.abs(totalOfItem(item)),
       predicted: predictedOf(item),
       tone:
@@ -435,7 +360,8 @@ function activityGroup(
     name: key,
     total,
     predicted: predictedOf(activity.inflow) + predictedOf(activity.outflow),
-    count: counted.size,
+    // 顶层 items 子树互不相交，笔数直接求和即为该分组去重交易数。
+    count: items.reduce((sum, item) => sum + item.count, 0),
     children,
   }
 }
@@ -457,8 +383,8 @@ export function mapCashReport(data: CashFlowReportData, ledger: Ledger, from: st
     const gross = grossOf(activity)
     inflowGross += gross.inflow
     outflowGross += gross.outflow
-    const inflow = activityGroup(activity, label, 'in', gross.inflow, ledger, from, to)
-    const outflow = activityGroup(activity, label, 'out', gross.outflow, ledger, from, to)
+    const inflow = activityGroup(activity, label, 'in', gross.inflow, ledger)
+    const outflow = activityGroup(activity, label, 'out', gross.outflow, ledger)
     if (inflow) inflowGroups.push(inflow)
     if (outflow) outflowGroups.push(outflow)
   }
@@ -491,6 +417,8 @@ export function mapCashReport(data: CashFlowReportData, ledger: Ledger, from: st
     closingCash,
     /** 后端三层桑基：现金账户之间转账已由后端产出 cash → cash link。 */
     apiSankey: data.sankey,
+    /** 平账调整由后端带出，桑基据此补「对账修正」流，不再扫账本流水。 */
+    adjustments: data.adjustments,
     /** 后端口径的期初现金；桑基优先用它，避免再按全账户净额重算。 */
     openingCash,
     /** 后端分组已含对账修正与手续费，桑基不再二次补计。 */
@@ -547,7 +475,6 @@ function projectionSplitOf(
 function projectionTreeOf(
   details: ProjectionCategoryDetail[],
   total: number,
-  counts: Map<string, number>,
 ): FlowTreeNode[] {
   const amountOf = (detail: ProjectionCategoryDetail) => Math.abs(detail.total)
   const predictedOf = (detail: ProjectionCategoryDetail) =>
@@ -561,7 +488,7 @@ function projectionTreeOf(
     predicted: predictedOf(detail),
     // 后端 hasBudget=false：该分类（含子树）没有任何预算来源。
     noBudget: !detail.hasBudget ? true : undefined,
-    count: counts.get(detail.categoryId) ?? 0,
+    count: detail.count,
     share: shareOf(detail),
     level: 1,
     children: [],
@@ -574,7 +501,7 @@ function projectionTreeOf(
       amount: amountOf(detail),
       predicted: predictedOf(detail),
       noBudget: !detail.hasBudget ? true : undefined,
-      count: counts.get(detail.categoryId) ?? 0,
+      count: detail.count,
       share: shareOf(detail),
       level: 0 as const,
       children: (detail.children ?? [])
@@ -682,16 +609,12 @@ export function mapProjectionBalanceReport(
 /** 收支预测：分类明细、逐桶走势与三来源合计全部来自 income-expense-projection。 */
 export function mapProjectionFlowReport(
   data: IncomeExpenseProjectionResult,
-  ledger: Ledger,
-  from: string,
-  to: string,
   includeExcluded = false,
 ): FlowReport {
   const income = Math.abs(data.income.total)
   const expense = Math.abs(data.expense.total)
   const balance = data.balance.total
   const savingsRate = income === 0 ? 0 : (balance / income) * 100
-  const counts = flowCounts(ledger, from, to, includeExcluded)
   const metric = (
     label: string,
     value: string,
@@ -710,8 +633,8 @@ export function mapProjectionFlowReport(
     expense,
     balance,
     savingsRate,
-    incomeTrees: projectionTreeOf(data.incomeCategoryDetails, income, counts.income),
-    expenseTrees: projectionTreeOf(data.expenseCategoryDetails, expense, counts.expense),
+    incomeTrees: projectionTreeOf(data.incomeCategoryDetails, income),
+    expenseTrees: projectionTreeOf(data.expenseCategoryDetails, expense),
     series: data.points.map((point) => ({
       label: point.label,
       income: Math.abs(point.income.total),
@@ -1010,7 +933,6 @@ export function useApiCashProjection(
  */
 export function useApiIncomeExpenseProjection(
   window: ProjectionWindow,
-  ledger: Ledger,
   includeExcluded: boolean,
   enabled: boolean,
 ): ApiReportResult<FlowReport> {
@@ -1030,7 +952,7 @@ export function useApiIncomeExpenseProjection(
       const data = await reportApi
         .getIncomeExpenseProjection(window, includeExcluded)
         .then(unwrapApiData)
-      return mapProjectionFlowReport(data, ledger, window.from, window.to, includeExcluded)
+      return mapProjectionFlowReport(data, includeExcluded)
     },
   })
   return resultOf(query, enabled)
@@ -1040,7 +962,6 @@ export function useApiFlowReport(
   from: string,
   to: string,
   gran: Granularity,
-  ledger: Ledger,
   includeExcluded: boolean,
   enabled: boolean,
 ): ApiReportResult<FlowReport> {
@@ -1067,7 +988,7 @@ export function useApiFlowReport(
           }),
         ),
       ])
-      return mapFlowReport(main, series, ledger, from, to, includeExcluded)
+      return mapFlowReport(main, series, includeExcluded)
     },
   })
   return resultOf(query, enabled)

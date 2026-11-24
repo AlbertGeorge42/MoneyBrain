@@ -20,10 +20,14 @@ import type {
   TransactionCategory,
 } from '@contracts/types'
 import {
+  assembleLedger,
   buildLedgerFromApi,
+  buildMetadataLedger,
   calendarDay,
   toLedgerTransaction,
   type LedgerApiPayload,
+  type LedgerCorePayload,
+  type LedgerAnalyticsPayload,
 } from '@/features/overview/apiLedger'
 import {
   deriveBudgets,
@@ -184,6 +188,13 @@ function payload(overrides: Partial<LedgerApiPayload> = {}): LedgerApiPayload {
     expenseTrend,
     expenseCategories,
     transactions: dashboard.recentTransactions,
+    transactionSummary: {
+      byAccount: {},
+      byCategory: {},
+      byMonth: {},
+      total: dashboard.recentTransactions.length,
+      latestDate: dashboard.recentTransactions[0]?.date ?? null,
+    },
     balances: new Map([
       ['acc-1', 500_000],
       ['acc-2', 50_000],
@@ -322,12 +333,13 @@ describe('DTO → Ledger 适配', () => {
     expect(byName.get('工资')?.id).toBe('cat-salary')
   })
 
-  it('最近交易保留本地日历日并保留转账 / 费用字段', () => {
+  it('最近交易进 snapshot 且保留本地日历日与转账 / 费用字段', () => {
     const ledger = buildLedgerFromApi(payload(), '2026-11-06')
+    const recent = ledger.snapshot?.recentTransactions ?? []
 
-    expect(ledger.transactions).toHaveLength(2)
-    expect(ledger.transactions[0]).toMatchObject({ id: 't1', date: '2026-11-05', categoryId: 'cat-food', note: '' })
-    expect(ledger.transactions[1]).toMatchObject({ type: 'income', categoryId: 'cat-salary' })
+    expect(recent).toHaveLength(2)
+    expect(recent[0]).toMatchObject({ id: 't1', date: '2026-11-05', categoryId: 'cat-food', note: '' })
+    expect(recent[1]).toMatchObject({ type: 'income', categoryId: 'cat-salary' })
   })
 
   it('走势末点随当前净资产联动，前缀沿用真实月份', () => {
@@ -407,5 +419,61 @@ describe('账本日期解析：本地日历日', () => {
     )
     expect(source).not.toMatch(/transaction\.date\.slice\s*\(\s*0\s*,\s*10\s*\)/)
     expect(source).toContain('export function calendarDay')
+  })
+})
+
+describe('Ledger 启动分批：metadata 与 analytics 解耦', () => {
+  const full = payload()
+  const core: LedgerCorePayload = {
+    accounts: full.accounts,
+    categories: full.categories,
+    accountCategories: full.accountCategories,
+    budgets: full.budgets,
+    statuses: full.statuses,
+    dashboard: full.dashboard,
+    transactionSummary: full.transactionSummary,
+    today: '2026-11-24',
+  }
+  const analytics: LedgerAnalyticsPayload = {
+    bootstrap: { assetTrend: full.assetTrend, balances: Object.fromEntries(full.balances) },
+    expenseTrend: full.expenseTrend,
+    expenseCategories: full.expenseCategories,
+  }
+
+  it('metadata 账本带元数据但不带 snapshot，流水页可直接渲染', () => {
+    const metadataLedger = buildMetadataLedger(core)
+    expect(metadataLedger.accounts).toHaveLength(4)
+    expect(metadataLedger.categories.length).toBeGreaterThan(0)
+    expect(metadataLedger.accountCategories).toEqual([])
+    expect(metadataLedger.budgets).toHaveLength(1)
+    expect(metadataLedger.snapshot).toBeUndefined()
+    // 余额在 metadata 阶段不计算，不伪造净资产。
+    expect(metadataLedger.accounts.every((account) => account.balance === 0)).toBe(true)
+  })
+
+  it('两批装配后与一次性构造完全等价', () => {
+    const assembled = assembleLedger(core, analytics)
+    const direct = buildLedgerFromApi(full, '2026-11-24')
+    expect(assembled).toEqual(direct)
+    expect(assembled.snapshot?.overview.netWorth).toBe(1_450_000)
+  })
+
+  it('装配后的 snapshot 有摘要与趋势，总览页口径不变', () => {
+    const assembled = assembleLedger(core, analytics)
+    expect(assembled.snapshot?.hasTransactions).toBe(true)
+    expect(assembled.snapshot?.accountTxCounts).toEqual({})
+    expect(assembled.snapshot?.trend).toHaveLength(full.assetTrend.length)
+    expect(assembled.snapshot?.recentTransactions).toHaveLength(full.dashboard.recentTransactions.length)
+  })
+
+  it('源码守卫：两批 query 共用 ledger 前缀，写后 invalidate 同时刷新', () => {
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../src/features/overview/useApiLedger.ts'),
+      'utf8',
+    )
+    expect(source).toContain("['hf', 'overview', 'ledger', 'core']")
+    expect(source).toContain("['hf', 'overview', 'ledger', 'analytics']")
+    expect(source).toContain('fetchLedgerCore')
+    expect(source).toContain('fetchLedgerAnalytics')
   })
 })

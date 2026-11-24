@@ -9,9 +9,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LedgerProvider } from '@/features/overview/LedgerContext'
 import { ToastProvider } from '@/features/shared/toast'
-import { createTestLedger } from '@/test-fixtures/ledger'
+import { createTestLedger, withTestSnapshot } from '@/test-fixtures/ledger'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import type { DataState, DeviceMode } from '@/features/shared/types'
 import { appTheme } from '@/styles/theme/theme-tokens'
@@ -21,24 +22,27 @@ function renderOverview(
   options: { device?: DeviceMode; onRetry?: () => void } = {},
 ) {
   const { device = 'desktop', onRetry = vi.fn() } = options
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
   const view = render(
-    <MantineProvider theme={appTheme}>
-      <LedgerProvider initialLedger={createTestLedger()}>
-        <ToastProvider>
-        <OverviewPage
-          device={device}
-          dataState={state}
-          onOpenDetail={vi.fn()}
-          onOpenTransactions={vi.fn()}
-          onOpenBudgets={vi.fn()}
-          onOpenAccounts={vi.fn()}
-          onRetry={onRetry}
-          onCreateAccount={vi.fn()}
-          onImport={vi.fn()}
-        />
-        </ToastProvider>
-      </LedgerProvider>
-    </MantineProvider>,
+    <QueryClientProvider client={queryClient}>
+      <MantineProvider theme={appTheme}>
+        <LedgerProvider initialLedger={withTestSnapshot(createTestLedger())}>
+          <ToastProvider>
+            <OverviewPage
+              device={device}
+              dataState={state}
+              onOpenDetail={vi.fn()}
+              onOpenTransactions={vi.fn()}
+              onOpenBudgets={vi.fn()}
+              onOpenAccounts={vi.fn()}
+              onRetry={onRetry}
+              onCreateAccount={vi.fn()}
+              onImport={vi.fn()}
+            />
+          </ToastProvider>
+        </LedgerProvider>
+      </MantineProvider>
+    </QueryClientProvider>,
   )
   return { onRetry, container: view.container }
 }

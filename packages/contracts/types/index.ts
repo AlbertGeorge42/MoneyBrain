@@ -425,6 +425,12 @@ export interface DashboardSummaryData {
   recentTransactions: Transaction[]
 }
 
+/** Ledger 启动引导：净资产 12 月走势 + 当前各账户余额（一次回放）。 */
+export interface BootstrapData {
+  assetTrend: AnalyticsAssetTrendItem[]
+  balances: Record<string, Minor>
+}
+
 export interface ReportValue {
   actual: Minor
   predicted: Minor
@@ -488,6 +494,8 @@ export interface ReportCategoryDetail {
   categoryId: string
   hasChildren: boolean
   sort: number
+  /** 该分类（含子树）在报表期间内的交易笔数，与金额同口径。 */
+  count: number
   children?: ReportCategoryDetail[]
 }
 
@@ -527,6 +535,10 @@ export interface CashFlowActivityItem {
   predicted: Minor
   type: string
   direction: string
+  /** 该活动项子树内实际交易关联的账户 id（去重，已上卷子节点）；前端映射成账户名展示。 */
+  accountIds: string[]
+  /** 该活动项子树内实际交易的去重笔数（预测不计）。 */
+  count: number
   children?: CashFlowActivityItem[]
 }
 
@@ -559,6 +571,8 @@ export interface CashFlowReportData {
     nodes: SankeyEndpoint[]
     links: SankeyLink[]
   }
+  /** 期间内的平账调整流水（现金账户），供前端桑基补「对账修正」流，不重复查账本。 */
+  adjustments: Array<{ accountId: string; amount: Minor }>
   predictionNote?: string
 }
 
@@ -583,6 +597,8 @@ export interface ProjectionCategoryDetail {
   total: Minor
   /** 该分类（含子树）是否存在预算来源。 */
   hasBudget: boolean
+  /** 该分类（含子树）在报表期间内的已发生交易笔数。 */
+  count: number
   children?: ProjectionCategoryDetail[]
 }
 

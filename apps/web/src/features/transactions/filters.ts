@@ -16,6 +16,7 @@ import {
   TODAY,
   transactionDirection,
   type Ledger,
+  type TestLedger,
   type LedgerTransaction,
   type TxType,
 } from '@/features/overview/model'
@@ -132,7 +133,7 @@ function inAmountRange(transaction: LedgerTransaction, min: Minor | null, max: M
   return true
 }
 
-export function filterTransactions(ledger: Ledger, filters: TransactionFilters): LedgerTransaction[] {
+export function filterTransactions(ledger: TestLedger, filters: TransactionFilters): LedgerTransaction[] {
   const min = parseMoneyInput(filters.advanced.amountMin, { allowZero: true })
   const max = parseMoneyInput(filters.advanced.amountMax, { allowZero: true })
   const rootCategoryId = filters.advanced.categoryId

@@ -237,8 +237,8 @@ describe('deriveCashSankey：真实账本下的分组身份', () => {
       operating: {
         inflow: { actual: 50_000 }, outflow: { actual: -20_000 }, net: { actual: 30_000 },
         items: [
-          { categoryName: '工资', categoryId: 'salary', actual: 50_000, direction: 'inflow', type: 'income' },
-          { categoryName: '午餐', categoryId: 'food_lunch', actual: -20_000, direction: 'outflow', type: 'expense' },
+          { categoryName: '工资', categoryId: 'salary', actual: 50_000, direction: 'inflow', type: 'income', count: 0, accountIds: [] },
+          { categoryName: '午餐', categoryId: 'food_lunch', actual: -20_000, direction: 'outflow', type: 'expense', count: 0, accountIds: [] },
         ],
       },
       investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },
@@ -266,6 +266,7 @@ describe('deriveCashSankey：真实账本下的分组身份', () => {
         { source: 'acct:wx', target: 'acct:zfb', value: 10_000, actualValue: 10_000 },
       ],
     },
+    adjustments: [{ accountId: 'wx', amount: -240 }],
   }
   const fine = deriveCashSankey(LEDGER, mapCashReport(FLOW as never, LEDGER, FROM, TO), {})
 
@@ -334,8 +335,8 @@ describe('deriveCashSankey：左右非现金节点按账户分类归组', () => 
       operating: {
         inflow: { actual: 15_000 }, outflow: { actual: -12_000 }, net: { actual: 3_000 },
         items: [
-          { categoryName: '账户互转', categoryId: 'move', actual: 15_000, direction: 'inflow', type: 'transfer_in' },
-          { categoryName: '账户互转', categoryId: 'move', actual: -12_000, direction: 'outflow', type: 'transfer_out' },
+          { categoryName: '账户互转', categoryId: 'move', actual: 15_000, direction: 'inflow', type: 'transfer_in', count: 0, accountIds: [] },
+          { categoryName: '账户互转', categoryId: 'move', actual: -12_000, direction: 'outflow', type: 'transfer_out', count: 0, accountIds: [] },
         ],
       },
       investing: { inflow: { actual: 0 }, outflow: { actual: 0 }, net: { actual: 0 }, items: [] },

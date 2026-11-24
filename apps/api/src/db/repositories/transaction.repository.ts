@@ -1,6 +1,7 @@
 import { prisma, type TransactionClient } from '../../prisma.js'
 import type { Prisma, Transaction } from '@prisma/client'
 import { createSyncVersion, updateSyncVersion } from '../sync-version.js'
+import { fromDate } from '../../../../../packages/domain/src/index.js'
 
 // 交易表数据访问的唯一入口（B2-2 与 D1 的 repository 部分一并落地）。
 //
@@ -94,6 +95,64 @@ export function sumActiveAmountByBudgetScope(where: Prisma.TransactionWhereInput
     where: { ...where, ...NOT_DELETED },
     _sum: { amount: true },
   })
+}
+
+/**
+ * 交易摘要：按账户（含转入侧）、分类、月份分组 + 最新日期 + 总笔数。
+ * 一次并发的轻量聚合查询，供 Ledger metadata 下发；不返回任何交易明细，
+ * 前端不再为了拿这些单值而拉全量流水。
+ */
+export async function summarizeActiveTransactions(): Promise<{
+  byAccount: Record<string, number>
+  byCategory: Record<string, number>
+  byMonth: Record<string, number>
+  total: number
+  latestDate: string | null
+}> {
+  const [byAccount, byCategory, byDate] = await Promise.all([
+    db().transaction.groupBy({
+      by: ['accountId', 'toAccountId'],
+      where: NOT_DELETED,
+      _count: { _all: true },
+    }),
+    db().transaction.groupBy({
+      by: ['categoryId'],
+      where: NOT_DELETED,
+      _count: { _all: true },
+    }),
+    db().transaction.groupBy({
+      by: ['date'],
+      where: NOT_DELETED,
+      _count: { _all: true },
+    }),
+  ])
+  const accounts: Record<string, number> = {}
+  for (const row of byAccount) {
+    const count = row._count._all
+    accounts[row.accountId] = (accounts[row.accountId] ?? 0) + count
+    if (row.toAccountId) accounts[row.toAccountId] = (accounts[row.toAccountId] ?? 0) + count
+  }
+  const categories: Record<string, number> = {}
+  for (const row of byCategory) {
+    if (row.categoryId) categories[row.categoryId] = (categories[row.categoryId] ?? 0) + row._count._all
+  }
+  const months: Record<string, number> = {}
+  let latest: Date | null = null
+  let total = 0
+  for (const row of byDate) {
+    total += row._count._all
+    const day = fromDate(row.date)
+    const month = day.slice(0, 7)
+    months[month] = (months[month] ?? 0) + row._count._all
+    if (!latest || row.date > latest) latest = row.date
+  }
+  return {
+    byAccount: accounts,
+    byCategory: categories,
+    byMonth: months,
+    total,
+    latestDate: latest ? fromDate(latest) : null,
+  }
 }
 
 /** 按 id 查未删除交易（业务默认视角：已删除的交易视同不存在）。 */

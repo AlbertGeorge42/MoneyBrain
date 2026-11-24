@@ -4,9 +4,13 @@
  * 夹具里的 id 就是该内存账本内实体的唯一 id（单一身份空间），
  * 不存在展示 id / 真实 id 的双层映射。数据常量不导出。
  */
-import type {
-  Ledger,
-  LedgerAccount,
+import {
+  deriveOverview,
+  deriveBudgets,
+  deriveExpenseCharts,
+  TODAY,
+  type TestLedger,
+  type LedgerAccount,
   LedgerAccountCategory,
   LedgerBudget,
   LedgerCategory,
@@ -116,12 +120,51 @@ const TEST_TRANSACTIONS: LedgerTransaction[] = [
   },
 ]
 
-export function createTestLedger(): Ledger {
+export function createTestLedger(): TestLedger {
   return {
     accounts: TEST_ACCOUNTS.map((account) => ({ ...account })),
     accountCategories: TEST_ACCOUNT_CATEGORIES.map((category) => ({ ...category })),
     categories: TEST_CATEGORIES.map((category) => ({ ...category })),
     budgets: TEST_BUDGETS.map((budget) => ({ ...budget })),
     transactions: TEST_TRANSACTIONS.map((transaction) => ({ ...transaction })),
+  }
+}
+
+/**
+ * 给测试账本补一层与生产等价的 snapshot，供「UI 展示」类测试使用。
+ * 派生类测试（会修改账本再断言 derive 联动）不要调用——它们需要走本地 derive 分支。
+ */
+export function withTestSnapshot(ledger: TestLedger): TestLedger {
+  const transactions = ledger.transactions
+  const dates = transactions.map((tx) => tx.date).sort()
+  const latestDate = dates.length > 0 ? dates[dates.length - 1] : null
+  const accountTxCounts: Record<string, number> = {}
+  const categoryTxCounts: Record<string, number> = {}
+  const byMonth: Record<string, number> = {}
+  for (const tx of transactions) {
+    accountTxCounts[tx.accountId] = (accountTxCounts[tx.accountId] ?? 0) + 1
+    if (tx.toAccountId) accountTxCounts[tx.toAccountId] = (accountTxCounts[tx.toAccountId] ?? 0) + 1
+    if (tx.categoryId) categoryTxCounts[tx.categoryId] = (categoryTxCounts[tx.categoryId] ?? 0) + 1
+    const month = tx.date.slice(0, 7)
+    byMonth[month] = (byMonth[month] ?? 0) + 1
+  }
+  const anchorMonth = (latestDate && latestDate > TODAY ? latestDate : TODAY).slice(0, 7)
+  return {
+    ...ledger,
+    snapshot: {
+      overview: deriveOverview(ledger),
+      budgets: deriveBudgets(ledger),
+      trend: [],
+      expenseCharts: deriveExpenseCharts(ledger),
+      today: TODAY,
+      periodLabel: TODAY.slice(0, 7),
+      hasTransactions: transactions.length > 0,
+      latestDate,
+      anchorMonthCount: byMonth[anchorMonth] ?? 0,
+      activeMonths: Object.keys(byMonth),
+      accountTxCounts,
+      categoryTxCounts,
+      recentTransactions: transactions.slice(0, 8),
+    },
   }
 }

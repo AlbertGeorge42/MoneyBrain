@@ -162,6 +162,8 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
     predicted: Minor
     type: string
     direction: string
+    transactionIds: string[]
+    accountIds: string[]
   }>()
 
   for (const item of actual.items) {
@@ -174,6 +176,8 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
       predicted: ZERO_MINOR,
       type: item.type,
       direction: item.direction,
+      transactionIds: item.transactionIds,
+      accountIds: item.accountIds,
     })
   }
 
@@ -193,6 +197,8 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
         predicted: item.amount,
         type: item.type,
         direction: item.direction,
+        transactionIds: [],
+        accountIds: [],
       })
     }
   }
@@ -202,7 +208,8 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
   const childrenMap = childrenMapOf(mergedItems.filter((item) => item.parentId))
 
   const treeItems: CashFlowActivityItem[] = level1Items.map((item) => {
-    const children: CashFlowActivityItem[] = (childrenMap.get(item.categoryId) ?? []).map((child) => ({
+    const childAggs = childrenMap.get(item.categoryId) ?? []
+    const children: CashFlowActivityItem[] = childAggs.map((child) => ({
       categoryName: child.categoryName,
       categoryId: child.categoryId,
       parentId: child.parentId,
@@ -212,10 +219,19 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
       predicted: child.predicted,
       type: child.type,
       direction: child.direction,
+      count: child.transactionIds.length,
+      accountIds: child.accountIds,
     }))
 
     const totalActual = sum([item.actual, ...children.map((child) => child.actual)])
     const totalPredicted = sum([item.predicted, ...children.map((child) => child.predicted)])
+    // 父节点笔数/账户 = 自身 ∪ 各 child 的去重集合（等价前端 subtreeOf 的子树匹配）。
+    const txIds = new Set(item.transactionIds)
+    const accounts = new Set(item.accountIds)
+    for (const child of childAggs) {
+      for (const id of child.transactionIds) txIds.add(id)
+      for (const id of child.accountIds) accounts.add(id)
+    }
 
     const node: CashFlowActivityItem = {
       categoryName: item.categoryName,
@@ -227,6 +243,8 @@ function toActivityResult(actual: CashFlowActivityMinor, predicted: CashFlowActi
       predicted: totalPredicted,
       type: item.type,
       direction: item.direction,
+      count: txIds.size,
+      accountIds: [...accounts],
     }
     if (children.length > 0) node.children = children
     return node
