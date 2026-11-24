@@ -696,13 +696,7 @@
   gap: var(--mb-s-2);
 }
 
-.mb-tx-detail-code {
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
-}
-
-/* 退款详情：关联原交易可点开；原交易显示已退款/剩余并列出退款记录。 */
+/* 退款详情：关联原交易可点开；原交易显示已退款合计并列出退款记录。 */
 .mb-tx-detail-link {
   max-width: 100%;
   padding: 0;

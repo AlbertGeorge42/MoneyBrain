@@ -331,10 +331,6 @@ function DetailView({
             </dd>
           </div>
         )}
-        <div>
-          <dt>交易编号</dt>
-          <dd className="mb-tx-detail-code">{transaction.id}</dd>
-        </div>
       </dl>
 
       {transaction.type === 'refund' && !related && (
