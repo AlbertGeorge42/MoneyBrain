@@ -53,6 +53,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const classes = [
+    // 基类提供 flex 居中与统一排版；variant 在 CSS 中位于其后，仅覆盖视觉。
+    // 缺了基类时带图标的按钮会退化为 inline-block 的基线对齐，图标与文字错位。
+    'mb-shared-btn',
     variant ? VARIANT_CLASS[variant] : '',
     boxed && variant === 'link' ? 'mb-shared-link-btn--boxed' : '',
     inline && variant === 'link' ? 'mb-shared-link-btn--inline' : '',

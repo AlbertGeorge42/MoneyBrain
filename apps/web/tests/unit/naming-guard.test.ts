@@ -120,4 +120,19 @@ describe('前端命名规范守卫（§4 / §10 / §11 / §13）', () => {
       `色板 key 不一致：light 独有 ${JSON.stringify(lightOnly)}；dark 独有 ${JSON.stringify(darkOnly)}`,
     ).toEqual({ lightOnly: [], darkOnly: [] })
   })
+
+  it('共享 Button 必须输出基类 mb-shared-btn——否则 variant 缺 flex，图标与文字基线错位', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const button = files.find((entry) => rel(entry.file).endsWith('features/shared/Button.tsx'))
+    expect(button, '未找到 features/shared/Button.tsx').toBeDefined()
+    const source = button!.source
+    const classesBlock = source.slice(source.indexOf('const classes = ['), source.indexOf('.filter(Boolean)'))
+    expect(classesBlock).toContain("'mb-shared-btn'")
+
+    const css = files.find((entry) => rel(entry.file).endsWith('features/shared/button.css'))
+    expect(css, '未找到 features/shared/button.css').toBeDefined()
+    const base = css!.source.slice(css!.source.indexOf('.mb-shared-btn {'), css!.source.indexOf('.mb-shared-btn:hover'))
+    expect(base).toMatch(/display:\s*inline-flex/)
+    expect(base).toMatch(/align-items:\s*center/)
+  })
 })
