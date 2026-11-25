@@ -5,6 +5,7 @@
  * 设置页和报表页各调用一次，互不影响抽屉状态。数据源仍是 LedgerProvider。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { arrayMove } from '@dnd-kit/sortable'
 import { useLedger } from '@/features/overview/ledgerStore'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import {
@@ -38,6 +39,30 @@ export interface LedgerConfigControllerOptions {
   notify: (message: string, options?: ToastOptions) => void
   /** 写库成功后的宿主回调：报表页用它重取当前报表并校正下钻。 */
   onAfterWrite?: () => void
+}
+
+/** 拖拽落点所属的同级列表：本地快照与写库都按这个 scope 定位。 */
+export type ConfigOrderScope =
+  | { kind: 'category'; type: CategoryTab; parentId?: string }
+  | { kind: 'group'; type: 'asset' | 'liability' }
+  | { kind: 'account'; groupId: string }
+
+function orderScopeKey(scope: ConfigOrderScope): string {
+  if (scope.kind === 'category') return `cat:${scope.type}:${scope.parentId ?? 'root'}`
+  if (scope.kind === 'group') return `grp:${scope.type}`
+  return `acc:${scope.groupId}`
+}
+
+/** 用本地 id 顺序覆盖派生列表；新出现而未记录的行追加到末尾，避免脏数据吞行。 */
+function withOrder<T extends { id: string }>(
+  items: readonly T[],
+  ids: readonly string[] | undefined,
+): T[] {
+  if (!ids) return [...items]
+  const byId = new Map(items.map((item) => [item.id, item]))
+  const ordered = ids.map((id) => byId.get(id)).filter((item): item is T => Boolean(item))
+  const known = new Set(ids)
+  return ordered.concat(items.filter((item) => !known.has(item.id)))
 }
 
 export function useLedgerConfigController({
@@ -116,15 +141,80 @@ export function useLedgerConfigController({
     return () => document.removeEventListener('pointerdown', handle)
   }, [menuOpen])
 
-  const assetGroups = useMemo(() => accountGroupsForType(ledger, 'asset'), [ledger])
-  const liabilityGroups = useMemo(() => accountGroupsForType(ledger, 'liability'), [ledger])
-  const rowsByType = useMemo(
-    () => ({
-      income: categoryRows(ledger, 'income'),
-      expense: categoryRows(ledger, 'expense'),
-    }),
-    [ledger],
-  )
+  /**
+   * dnd-kit 官方 sortable 的本地 items：onDragEnd 里先 arrayMove 重排，DOM 立即更新，
+   * 再异步写库。快照按 scope 保存 id 顺序，服务端 refreshRemote 换掉 ledger 后清空。
+   */
+  const [orderOverrides, setOrderOverrides] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    setOrderOverrides({})
+  }, [ledger])
+
+  const buildGroups = (type: 'asset' | 'liability'): AccountGroup[] =>
+    withOrder(accountGroupsForType(ledger, type), orderOverrides[orderScopeKey({ kind: 'group', type })]).map(
+      (group) => ({
+        ...group,
+        rows: withOrder(group.rows, orderOverrides[orderScopeKey({ kind: 'account', groupId: group.id })]),
+      }),
+    )
+  const assetGroups = useMemo(() => buildGroups('asset'), [ledger, orderOverrides])
+  const liabilityGroups = useMemo(() => buildGroups('liability'), [ledger, orderOverrides])
+  const rowsByType = useMemo(() => {
+    const build = (type: CategoryTab): CategoryRow[] => {
+      const sortTree = (rows: CategoryRow[]): CategoryRow[] =>
+        rows.map((row) => ({
+          ...row,
+          children: sortTree(
+            withOrder(row.children, orderOverrides[orderScopeKey({ kind: 'category', type, parentId: row.id })]),
+          ),
+        }))
+      return sortTree(
+        withOrder(categoryRows(ledger, type), orderOverrides[orderScopeKey({ kind: 'category', type })]),
+      )
+    }
+    return { income: build('income'), expense: build('expense') }
+  }, [ledger, orderOverrides])
+
+  /** 当前展示的某个同级列表 id 顺序，作为该 scope 的排序基准。 */
+  const idsForScope = (scope: ConfigOrderScope): string[] => {
+    if (scope.kind === 'category') {
+      const rows = rowsByType[scope.type]
+      const siblings = scope.parentId
+        ? (rows.find((row) => row.id === scope.parentId)?.children ?? [])
+        : rows
+      return siblings.map((row) => row.id)
+    }
+    if (scope.kind === 'group') {
+      return (scope.type === 'asset' ? assetGroups : liabilityGroups).map((group) => group.id)
+    }
+    return (
+      [...assetGroups, ...liabilityGroups].find((group) => group.id === scope.groupId)?.rows.map(
+        (account) => account.id,
+      ) ?? []
+    )
+  }
+
+  /** 官方 handleDragEnd 的 setItems(arrayMove(...)) 对应物：立即更新本地排序。 */
+  const reorderLocally = (scope: ConfigOrderScope, activeId: string, overId: string) => {
+    const key = orderScopeKey(scope)
+    setOrderOverrides((current) => {
+      const ids = current[key] ?? idsForScope(scope)
+      const from = ids.indexOf(activeId)
+      const to = ids.indexOf(overId)
+      if (from < 0 || to < 0 || from === to) return current
+      return { ...current, [key]: arrayMove(ids, from, to) }
+    })
+  }
+
+  const clearOrder = (scope: ConfigOrderScope) =>
+    setOrderOverrides((current) => {
+      const key = orderScopeKey(scope)
+      if (!(key in current)) return current
+      const next = { ...current }
+      delete next[key]
+      return next
+    })
 
   const toggleExpanded = (key: string) => setExpanded((current) => toggleExpandedKey(current, key))
 
@@ -282,25 +372,62 @@ export function useLedgerConfigController({
     }
   }
 
-  /** 分类拖拽落位：按绝对位置重排同级分类。 */
-  const moveCategoryTo = async (id: string, targetIndex: number) => {
-    const result = await reorderCategoryTo(id, targetIndex)
-    if (!result.ok) notify(result.error ?? '排序失败，请重试')
-    else onAfterWrite?.()
+  /**
+   * 拖拽落位：与 dnd-kit 官方示例一致，先本地 arrayMove 更新顺序，
+   * 再按绝对位置写库；写库失败撤掉本地快照，ledger 未变即回到原顺序。
+   */
+  const moveCategoryTo = (
+    scope: ConfigOrderScope,
+    id: string,
+    overId: string,
+    targetIndex: number,
+  ) => {
+    reorderLocally(scope, id, overId)
+    void (async () => {
+      const result = await reorderCategoryTo(id, targetIndex)
+      if (!result.ok) {
+        clearOrder(scope)
+        notify(result.error ?? '排序失败，请重试')
+        return
+      }
+      onAfterWrite?.()
+    })()
   }
 
-  /** 分组拖拽落位：按绝对位置重排同归属分组。 */
-  const moveAccountGroupTo = async (id: string, targetIndex: number) => {
-    const result = await reorderAccountGroupTo(id, targetIndex)
-    if (!result.ok) notify(result.error ?? '排序失败，请重试')
-    else onAfterWrite?.()
+  const moveAccountGroupTo = (
+    scope: ConfigOrderScope,
+    id: string,
+    overId: string,
+    targetIndex: number,
+  ) => {
+    reorderLocally(scope, id, overId)
+    void (async () => {
+      const result = await reorderAccountGroupTo(id, targetIndex)
+      if (!result.ok) {
+        clearOrder(scope)
+        notify(result.error ?? '排序失败，请重试')
+        return
+      }
+      onAfterWrite?.()
+    })()
   }
 
-  /** 账户拖拽落位：按绝对位置重排同分组账户。 */
-  const moveAccountTo = async (id: string, targetIndex: number) => {
-    const result = await reorderAccountTo(id, targetIndex)
-    if (!result.ok) notify(result.error ?? '排序失败，请重试')
-    else onAfterWrite?.()
+  const moveAccountTo = (
+    scope: ConfigOrderScope,
+    id: string,
+    overId: string,
+    targetIndex: number,
+  ) => {
+    reorderLocally(scope, id, overId)
+    void (async () => {
+      const result = await reorderAccountTo(id, targetIndex)
+      if (!result.ok) {
+        clearOrder(scope)
+        notify(result.error ?? '排序失败，请重试')
+        return
+      }
+      onAfterWrite?.()
+    })()
   }
 
   const openTransfer = async (row: CategoryRow, type: TxType) => {

@@ -1028,7 +1028,9 @@ progress.mb-rp-flow-progress--out::-moz-progress-bar {
   width: 100%;
 }
 
-.mb-rp-page[data-device='mobile'] .mb-shared-btn {
+/* 只放大报表页自身的按钮；浮层（设置抽屉等）虽挂在页面 DOM 内，但走共享 Overlay 的触控口径，
+   不能被这里的 padding 覆盖——否则 28px 折叠按钮的 SVG 会被挤成 0 宽。 */
+.mb-rp-page[data-device='mobile'] .mb-shared-btn:not(.mb-overlay-frame .mb-shared-btn) {
   min-height: var(--mb-btn-h-lg);
   padding: 0 18px;
 }

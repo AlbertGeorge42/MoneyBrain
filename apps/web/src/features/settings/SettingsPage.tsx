@@ -41,9 +41,7 @@ import { sectionMeta, type SectionId } from './settingsModel'
 import { accountGroupCount } from '@/features/ledger-config/model'
 import { LedgerConfigSheets } from '@/features/ledger-config/LedgerConfigSheets'
 import { useLedgerConfigController } from '@/features/ledger-config/useLedgerConfigController'
-import { AccountsSection } from '@/features/ledger-config/AccountsSection'
-import { CategoriesSection } from '@/features/ledger-config/CategoriesSection'
-import { CashflowSection } from '@/features/ledger-config/CashflowSection'
+import { LedgerConfigSection } from '@/features/ledger-config/LedgerConfigSection'
 import { AppearanceSection } from './AppearanceSection'
 import { BackupSection } from './BackupSection'
 import { DisplaySection } from './DisplaySection'
@@ -411,65 +409,9 @@ export function SettingsPage({ device, dataState, onRetry }: SettingsPageProps) 
   const renderSection = (id: SectionId) => {
     switch (id) {
       case 'accounts':
-        return (
-          <AccountsSection
-            ledger={ledger}
-            assetGroups={config.assetGroups}
-            liabilityGroups={config.liabilityGroups}
-            tab={config.accountTab}
-            onTabChange={config.setAccountTab}
-            showEmptyGroups={config.showEmptyGroups}
-            onShowEmptyGroupsChange={config.setShowEmptyGroups}
-            expandedKeys={config.expandedKeys}
-            onToggleExpanded={config.toggleExpanded}
-            onSetGroupsExpanded={config.setGroupsExpanded}
-            onOpenEditor={config.setEditor}
-            onOpenMover={config.setMover}
-            menuOpen={config.menuOpen}
-            onMenuOpen={config.setMenuOpen}
-            confirming={config.confirming}
-            onConfirm={config.setConfirming}
-            onDeleteAccount={(account) => void config.deleteAccount(account)}
-            onDeleteGroup={(group) => void config.deleteGroup(group)}
-            onReorderGroupTo={(id, targetIndex) => void config.moveAccountGroupTo(id, targetIndex)}
-            onReorderAccountTo={(id, targetIndex) => void config.moveAccountTo(id, targetIndex)}
-          />
-        )
       case 'categories':
-        return (
-          <CategoriesSection
-            ledger={ledger}
-            rows={config.rowsByType[config.categoryTab]}
-            tab={config.categoryTab}
-            onTabChange={config.setCategoryTab}
-            expandedKeys={config.expandedKeys}
-            onToggleExpanded={config.toggleExpanded}
-            menuOpen={config.menuOpen}
-            onMenuOpen={config.setMenuOpen}
-            confirming={config.confirming}
-            onConfirm={config.setConfirming}
-            onOpenEditor={config.setEditor}
-            onOpenMover={config.setMover}
-            onReorder={(id, targetIndex) => void config.moveCategoryTo(id, targetIndex)}
-            onDelete={(row, type) => void config.deleteCategory(row, type)}
-          />
-        )
       case 'cashflow':
-        return (
-          <CashflowSection
-            ledger={ledger}
-            rows={config.cashTab === 'asset' ? [] : config.rowsByType[config.cashTab]}
-            tab={config.cashTab}
-            onTabChange={config.setCashTab}
-            expandedKeys={config.expandedKeys}
-            onToggleExpanded={config.toggleExpanded}
-            menuOpen={config.menuOpen}
-            onMenuOpen={config.setMenuOpen}
-            confirming={config.confirming}
-            onConfirm={config.setConfirming}
-            onOpenMover={config.setMover}
-          />
-        )
+        return <LedgerConfigSection ledger={ledger} controller={config} tab={id} device={device} />
       case 'appearance':
         return (
           <AppearanceSection

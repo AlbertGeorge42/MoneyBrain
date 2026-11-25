@@ -155,14 +155,14 @@ features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
 | `features/transactions/` | 流水、详情、批量、回收站；`apiTransactions.ts`；`TransactionDetailPanel.tsx` 是全项目唯一的交易详情（`useDetailActions.ts` 收口写动作），`shared/Modal.tsx` 是居中对话框唯一配置 |
 | `features/reports/` | 四张报表、图表、下钻；`apiReports.ts`；`reportRows.ts` 的 `flattenTreeRows` 是分类树到表格行的唯一展开实现；左右双表统一由 `ReportTable.tsx` 的 `ReportTablePair` 补齐行数并对齐合计行；`reportsModel.ts` 的 `buildDrillFor` + `DrillDrawer.tsx` 是四条环下钻链路（收支 / 资产负债 / 现金流 / 总览）的唯一数据与抽屉实现，统一为「环 → 抽屉 → 可编辑详情」：抽屉用 `shared/TxRow` 渲染相关流水、点行复用 `transactions/TransactionDetailPanel`，写动作统一走 `transactions/useDetailActions.ts` |
 | `features/budgets/` | 预算列表/编辑、状态、推演；`budgetModel.ts` |
-| `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源）；`drag.ts` 提供仅竖直方向的拖拽 modifier 与行样式 |
+| `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源）；`LedgerConfigSection.tsx` 是两处共用的唯一内容组件，宿主只换外壳；`drag.ts` 提供竖直拖拽传感器与官方 sortable 行样式 |
 | `features/settings/` | 8 分区设置、导入导出、自动备份、回收站 |
 | `features/shell/` | 桌面侧栏 / 移动底栏与浮层宿主 |
 | `features/shared/` | Button、Sheet、Segmented、Switch、Tabs、HeadAction、Card、toast、StateViews、chartLayout、datePicker；`foldState.ts` 是全仓折叠列表的唯一默认口径（默认收起） |
 | `services/api.ts` | Axios 实例 + 响应拦截器（统一归一化错误） |
 | `services/apiError.ts` / `apiResult.ts` | `ApiClientError`；`unwrapApiData(res)` 是唯一解包入口 |
 
-**报表展示口径固定**：`reportSettings.ts` 只持久化「含不计收支交易」数据范围，不再保存分组方式 / 列集合 / 比例 / 排序等展示配置。报表页点「设置」直接打开 `ledger-config/LedgerConfigManager` 的单一分区（由 `ReportsPage` 的 `REPORT_CONFIG` 固定 tab 与标题），没有中间层弹窗，也不带跨分区页签；收支明细的数据范围开关作为 `extra` 与分类管理同处一层。
+**报表展示口径固定**：`reportSettings.ts` 只持久化「含不计收支交易」数据范围，不再保存分组方式 / 列集合 / 比例 / 排序等展示配置。报表页点「设置」直接打开 `ledger-config/LedgerConfigManager` 的单一分区（由 `ReportsPage` 的 `REPORT_CONFIG` 固定 tab 与标题），没有中间层弹窗，也不带跨分区页签；收支明细的数据范围开关作为 `extra` 与分类管理同处一层。设置页的二级页与报表设置抽屉都渲染 `LedgerConfigSection`，移动端触控口径由 `.mb-set-config[data-device='mobile']` 统一，宿主页面不得再按自身前缀覆盖这组控件。
 
 资产负债表的「账户分类 → 账户」层级由 `reportsModel.ts` 的 `buildBalanceGroups` 派生（缺分类元数据时按后端节点名兜底）：账户按自己的 `categoryId` 成组，**不做子分类向父分类归一**——设置页把每个账户分类平铺成分组，报表同口径，否则父级「资产」下的「现金 / 投资」会并成一组。`buildBalanceTrees` 再转成四张报表共用的 `FlowTreeNode`：PC 双表、移动分段表与资产 / 负债构成环都消费这一份树。构成环与收支构成共用 `charts.tsx` 的 `DonutCompare`（一个 `ChartCard` 内左右两环同尺寸），`BalanceComposition` 与 `CompositionBars` 只是两侧配置不同。环的绘制唯一实现在 `features/shared/DonutChart.tsx` + `donut.css`：`charts.tsx` 只 re-export，总览的扁平切片 → 环节点适配内联在 `OverviewPage.tsx`（无独立适配文件），两处都不再自己画弧。`CompositionDonutSide` 是唯一的单侧环包装：PC 双环的两侧与移动端分段单环都复用它；PC 图表区单列上下堆叠，移动端构成环移到分段下、表格上并按 side 只渲染一侧（现金流由 `CashGroup` 适配成环节点、下钻回 `categoryIds`）。四个视图共用 `foldState` 决定展开状态（默认收起）。
 

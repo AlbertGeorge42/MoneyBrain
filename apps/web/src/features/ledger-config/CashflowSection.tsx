@@ -116,12 +116,10 @@ export function CashflowSection({
                     <GripVertical size={14} />
                   </span>
                   <span className="mb-set-name">{group.label}</span>
-                  <span className="mb-set-meta">({groupRows.length} 个分类)</span>
                 </div>
                 {open &&
                   groupRows.map((category) => {
                     const Icon = ASSET_MARK_ICONS[group.id]
-                    const accountCount = ledger.accounts.filter((account) => account.categoryId === category.id).length
                     return (
                       <div key={category.id} className="mb-set-row is-child">
                         <span className="mb-set-child-space" aria-hidden="true" />
@@ -132,7 +130,6 @@ export function CashflowSection({
                           <Icon size={16} />
                         </span>
                         <span className="mb-set-name">{category.name}</span>
-                        <span className="mb-set-meta">{accountCount} 个账户</span>
                         <RowMenu
                           id={`cf-mark-${category.id}`}
                           openId={menuOpen}
@@ -199,7 +196,6 @@ export function CashflowSection({
                   <GripVertical size={14} />
                 </span>
                 <span className="mb-set-name">{group.label}</span>
-                <span className="mb-set-meta">({groupRows.length} 个分类)</span>
               </div>
               {open &&
                 groupRows.map(({ row }) => (
@@ -212,7 +208,6 @@ export function CashflowSection({
                       <Tag size={16} />
                     </span>
                     <span className="mb-set-name">{row.name}</span>
-                    <span className="mb-set-meta">{row.txCount} 笔</span>
                     <RowMenu
                       id={`cf-cat-${row.id}`}
                       openId={menuOpen}

@@ -222,4 +222,79 @@ describe('前端命名规范守卫（§4 / §10 / §11 / §13）', () => {
     expect(quick).toContain('onActions')
     expect(quick).toContain('actions={actions}')
   })
+
+  it('设置行折叠按钮必须清掉 shared Button 的 padding/min-height，且占位与按钮同宽', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const css = files.find((entry) => rel(entry.file).endsWith('features/settings/settings.css'))?.source ?? ''
+    const fold = css.match(/\.mb-set-fold\s*\{[^}]*\}/)?.[0] ?? ''
+    // shared Button 基类 padding s-3 + min-height 38 会把 28px 方块里的 SVG 挤成一条线。
+    expect(fold).toMatch(/padding:\s*0/)
+    expect(fold).toMatch(/min-height:\s*0/)
+    const space = css.match(/\.mb-set-child-space\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(space).toContain('var(--mb-btn-h-xs)')
+  })
+
+  it('拖拽排序走 dnd-kit 官方模式：本地 arrayMove + transition 原样透传', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const drag = files.find((entry) => rel(entry.file).endsWith('ledger-config/drag.ts'))?.source ?? ''
+    // 手动按 isDragging 关掉 transition 会让松手时的行先弹回原位再交换。
+    expect(drag).toMatch(/^\s+transition,$/m)
+    expect(drag).not.toMatch(/transition:\s*isDragging/)
+
+    const controller = files.find((entry) => rel(entry.file).endsWith('useLedgerConfigController.ts'))?.source ?? ''
+    expect(controller).toContain('arrayMove')
+    expect(controller).toContain('reorderLocally')
+    expect(controller).toContain('setOrderOverrides')
+    for (const name of ['moveCategoryTo', 'moveAccountGroupTo', 'moveAccountTo']) {
+      const start = controller.indexOf(`const ${name} = (`)
+      expect(start, `${name} 必须先本地重排`).toBeGreaterThan(-1)
+      expect(controller.slice(start, start + 300)).toContain('reorderLocally')
+      expect(controller.slice(start, start + 600)).toContain('clearOrder')
+    }
+  })
+
+  it('设置页与报表设置必须共用账本配置内容组件，不各自重复接线', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const src = (name: string) => files.find((entry) => rel(entry.file).endsWith(name))?.source ?? ''
+    const shared = src('features/ledger-config/LedgerConfigSection.tsx')
+    for (const section of ['AccountsSection', 'CategoriesSection', 'CashflowSection']) {
+      expect(shared, `共享内容组件必须渲染 ${section}`).toContain(section)
+    }
+    for (const name of ['features/settings/SettingsPage.tsx', 'features/ledger-config/LedgerConfigManager.tsx']) {
+      const page = src(name)
+      expect(page, `${name} 必须走 LedgerConfigSection`).toContain('LedgerConfigSection')
+      for (const section of ['AccountsSection', 'CategoriesSection', 'CashflowSection']) {
+        expect(page, `${name} 不应自己接 ${section}`).not.toContain(`${section}\n`)
+        expect(page, `${name} 不应自己接 ${section}`).not.toContain(`<${section}`)
+      }
+    }
+    const css = src('features/settings/settings.css')
+    expect(css).toContain(":is(.mb-set-page, .mb-set-config)[data-device='mobile']")
+  })
+
+  it('报表页移动端按钮规则不得穿透到浮层，否则折叠箭头被挤成 0 宽', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const reports = files.find((entry) => rel(entry.file).endsWith('features/reports/reports.css'))?.source ?? ''
+    expect(reports).toMatch(
+      /\.mb-rp-page\[data-device='mobile'\] \.mb-shared-btn:not\(\.mb-overlay-frame \.mb-shared-btn\)/,
+    )
+    expect(reports).not.toMatch(/\.mb-rp-page\[data-device='mobile'\] \.mb-shared-btn\s*\{/)
+  })
+
+  it('配置行拖拽手柄必须清晰可见，二级账户行必须有图标', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const css = files.find((entry) => rel(entry.file).endsWith('features/settings/settings.css'))?.source ?? ''
+    const drag = css.match(/\.mb-set-drag\s*\{[^}]*\}/)?.[0] ?? ''
+    // 曾是 14px + opacity .55，二级行没有图标锚点时几乎看不见。
+    expect(drag).not.toContain('opacity:')
+    expect(drag).toMatch(/width:\s*24px/)
+    // 移动端曾为省 18px 名称宽度把二级手柄 display:none，导致二级行完全不能拖。
+    expect(css).not.toMatch(/is-child[^\n]*\.mb-set-(drag|child-space)[^{]*\{[^}]*display:\s*none/)
+    const childPad = css.match(/:is\(\.mb-set-page, \.mb-set-config\)\[data-device='mobile'\] \.mb-set-row\.is-child\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(childPad).toContain('var(--mb-s-3)')
+
+    const accounts = files.find((entry) => rel(entry.file).endsWith('ledger-config/AccountsSection.tsx'))?.source ?? ''
+    const childRow = accounts.slice(accounts.indexOf('mb-set-row is-child'))
+    expect(childRow.slice(0, 600)).toContain('mb-set-icon')
+  })
 })

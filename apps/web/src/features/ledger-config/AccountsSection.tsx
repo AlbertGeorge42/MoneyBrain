@@ -4,7 +4,7 @@
  * 与收支分类一致：用 mb-set-* 列表 + dnd-kit 拖拽排序（分组可拖、账户在组内可拖），
  * 只允许竖直拖动；列表默认全部收起，展开集合由页面统一持有。
  */
-import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, GripVertical, Plus, Wallet } from 'lucide-react'
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -17,12 +17,9 @@ import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
 import type { Ledger } from '@/features/overview/model'
-import { formatCurrency } from '@/utils/format'
-import { minor } from '@domain/index'
 import { restrictToVerticalAxis, useVerticalDragSensors, verticalDragStyle } from './drag'
 import { RowMenu } from './RowMenu'
 import {
-  accountGroupBalance,
   accountGroupCount,
   accountGroupDisplayName,
   type AccountGroup,
@@ -30,6 +27,7 @@ import {
 } from './model'
 import type { Editor } from './EditorSheet'
 import type { Mover } from './MoverSheet'
+import type { ConfigOrderScope } from './useLedgerConfigController'
 
 interface AccountsSectionProps {
   ledger: Ledger
@@ -50,8 +48,18 @@ interface AccountsSectionProps {
   onConfirm: (key: string) => void
   onDeleteAccount: (account: AccountRow) => void
   onDeleteGroup: (group: AccountGroup) => void
-  onReorderGroupTo: (id: string, targetIndex: number) => void
-  onReorderAccountTo: (id: string, targetIndex: number) => void
+  onReorderGroupTo: (
+    scope: ConfigOrderScope,
+    id: string,
+    overId: string,
+    targetIndex: number,
+  ) => void
+  onReorderAccountTo: (
+    scope: ConfigOrderScope,
+    id: string,
+    overId: string,
+    targetIndex: number,
+  ) => void
 }
 
 function SortableAccountRow({
@@ -88,9 +96,10 @@ function SortableAccountRow({
         <span className="mb-set-drag" {...attributes} {...listeners}>
           <GripVertical size={14} />
         </span>
+        <span className="mb-set-icon">
+          <Wallet size={16} />
+        </span>
         <span className="mb-set-name">{name}</span>
-        <span className="mb-set-meta">{account.txCount} 笔</span>
-        <span className="mb-set-amount">{formatCurrency(minor(account.balance))}</span>
         {/* 行内操作统一走 RowMenu：与收支分类同一套交互与二次确认。 */}
         <RowMenu
           id={`acc-${account.id}`}
@@ -197,8 +206,6 @@ function SortableGroupRow({
           />
         </span>
         <span className="mb-set-name">{accountGroupDisplayName(group, groups)}</span>
-        <span className="mb-set-meta">{accountGroupCount(group)} 个账户</span>
-        <span className="mb-set-amount">{formatCurrency(minor(accountGroupBalance(group)))}</span>
         {/* 分组操作同样走 RowMenu：与收支分类一致，不再整行点击进编辑器。 */}
         <RowMenu
           id={`grp-${group.id}`}
@@ -318,7 +325,8 @@ export function AccountsSection({
       const oldIndex = realGroups.findIndex((group) => group.id === aReal)
       const newIndex = realGroups.findIndex((group) => group.id === oReal)
       if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-        onReorderGroupTo(aReal, newIndex)
+        const scope: ConfigOrderScope = { kind: 'group', type: tab }
+        onReorderGroupTo(scope, aReal, oReal, newIndex)
       }
       return
     }
@@ -328,7 +336,10 @@ export function AccountsSection({
       const accIds = group.rows.map((account) => account.id)
       if (accIds.includes(aReal) && accIds.includes(oReal)) {
         const newIndex = group.rows.findIndex((account) => account.id === oReal)
-        if (newIndex >= 0) onReorderAccountTo(aReal, newIndex)
+        if (newIndex >= 0) {
+          const scope: ConfigOrderScope = { kind: 'account', groupId: group.id }
+          onReorderAccountTo(scope, aReal, oReal, newIndex)
+        }
         return
       }
     }

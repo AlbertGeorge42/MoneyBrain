@@ -131,6 +131,14 @@
 
 /* ===== 配置行 ===== */
 
+/* 设置页与报表设置抽屉共用的内容外壳：宿主只换壳，不换行与触控口径。 */
+.mb-set-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mb-s-4);
+  min-width: 0;
+}
+
 .mb-set-list {
   display: flex;
   flex-direction: column;
@@ -180,8 +188,11 @@
   align-items: center;
   justify-content: center;
   flex: none;
+  /* padding 必须清零：shared Button 基类带左右内距，固定宽度下会把 SVG 挤成一条线（显示为点）。 */
+  padding: 0;
   width: var(--mb-btn-h-xs);
   height: var(--mb-btn-h-xs);
+  min-height: 0;
   margin-left: calc(var(--mb-s-2) * -1);
   border: 0;
   border-radius: var(--mb-radius-sm);
@@ -199,30 +210,38 @@
   outline-offset: calc(var(--mb-border-width));
 }
 
+/* 占位与折叠按钮同宽，保证有 / 无子类别的行图标严格对齐。 */
 .mb-set-child-space {
   flex: none;
-  width: 24px;
+  width: var(--mb-btn-h-xs);
   margin-left: calc(var(--mb-s-2) * -1);
 }
 
-/* 二级行整体右移：桌面 +12px，移动端对齐桌面同一 nameX（图标落在父级图标右侧 12px）。 */
+/* 二级行缩进由「折叠占位 + 拖拽手柄」自然撑出，不靠额外 padding；两端都保留可拖的手柄。 */
 .mb-set-page[data-device='desktop'] .mb-set-row.is-child {
   padding-left: calc(var(--mb-s-3) + var(--mb-s-3));
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-row.is-child {
-  padding-left: calc(var(--mb-s-3) + var(--mb-s-2) + 50px);
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-row.is-child {
+  padding-left: var(--mb-s-3);
 }
 
 .mb-set-drag {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex: none;
-  width: 14px;
-  color: var(--mb-color-text-tertiary);
-  opacity: 0.55;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--mb-radius-sm);
+  color: var(--mb-color-text-secondary);
   cursor: grab;
   touch-action: none;
+}
+
+.mb-set-drag:hover {
+  background: var(--mb-color-surface-hover);
+  color: var(--mb-color-text-primary);
 }
 
 .mb-set-drag:active {
@@ -292,31 +311,13 @@
   text-overflow: ellipsis;
 }
 
-/* 账户行余额 / 分组行合计：名称占据弹性空间后，金额聚到右端。 */
-.mb-set-amount {
-  flex: none;
-  font-family: var(--mb-font-num);
-  font-size: var(--mb-fs-1);
-  color: var(--mb-color-text-primary);
-  white-space: nowrap;
-  padding-left: var(--mb-s-3);
-}
-
-.mb-set-row.is-empty {
-  color: var(--mb-color-text-tertiary);
-  font-style: normal;
-}
-
-.mb-set-row.is-empty .mb-set-meta {
-  margin-left: 0;
-}
-
 /* ===== 行尾 ⋯ 菜单 ===== */
 
 .mb-set-more-wrap {
   position: relative;
   flex: none;
-  margin-left: calc(var(--mb-s-1) * -1);
+  /* 行尾信息移除后，菜单自己负责靠右，不再依赖 meta 的 margin-left:auto。 */
+  margin-left: auto;
 }
 
 .mb-set-more {
@@ -972,51 +973,45 @@
 }
 
 /* 移动端分区内的行与控件统一放大到 44px 热区 */
-.mb-set-page[data-device='mobile'] .mb-set-row {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-row {
   min-height: 56px;
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-fold {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-fold {
   width: var(--mb-btn-h-lg);
   height: var(--mb-btn-h-lg);
   margin-left: calc(var(--mb-s-3) * -1);
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-child-space {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-child-space {
   width: 28px;
   margin-left: calc(var(--mb-s-3) * -1);
 }
 
-/* 移动端行宽只有 302px：缩进与拖拽占位让给名称，否则「招商储蓄卡」被截成「招…」。 */
-.mb-set-page[data-device='mobile'] .mb-set-row.is-child .mb-set-child-space,
-.mb-set-page[data-device='mobile'] .mb-set-row.is-child .mb-set-drag {
-  display: none;
-}
-
-.mb-set-page[data-device='mobile'] .mb-set-more {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-more {
   width: var(--mb-btn-h-lg);
   height: var(--mb-btn-h-lg);
   margin-right: calc(var(--mb-s-2) * -1);
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-menu-item {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-menu-item {
   min-height: var(--mb-btn-h-lg);
 }
 
-.mb-set-page[data-device='mobile'] .mb-shared-btn,
-.mb-set-page[data-device='mobile'] .mb-set-kind {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-shared-btn,
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-kind {
   min-height: var(--mb-btn-h-lg);
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-check {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-check {
   min-height: var(--mb-btn-h-lg);
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-sort {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-sort {
   max-width: none;
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-data {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-data {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -1033,7 +1028,7 @@
 
 /* 移动端底部抽屉按内容高度收紧：内容短时不出现大片空白，
    内容超高时再由 max-height 收口、body 内滚。 */
-.mb-set-page[data-device='mobile'] .mb-set-sheet {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-sheet {
   height: auto;
 }
 
@@ -1162,13 +1157,13 @@
 }
 
 /* 移动端 Drawer 从底部弹出，圆角改到顶部之外保持一致 */
-.mb-set-page[data-device='mobile'] .mb-set-sheet-head {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-sheet-head {
   padding: var(--mb-s-3) var(--mb-s-4);
 }
 
 /* 设计预览的工具栏固定在顶部，移动端底部抽屉会盖住抽屉头部；
    预览内把抽屉高度收口到工具栏下方，保证标题与关闭可见。 */
-.mb-shell-root .mb-set-page[data-device='mobile'] .mb-set-sheet {
+.mb-shell-root :is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-sheet {
   max-height: calc(100vh - 160px);
 }
 
@@ -1188,7 +1183,7 @@
   height: 460px;
 }
 
-.mb-set-page[data-device='mobile'] .mb-shared-settings-list {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-shared-settings-list {
   height: 420px;
 }
 
@@ -1226,7 +1221,7 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-theme-grid {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-theme-grid {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -1286,16 +1281,16 @@
   color: var(--mb-color-text-secondary);
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-switch {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-switch {
   width: 56px;
   height: 32px;
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-switch-thumb {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-switch-thumb {
   width: 24px;
   height: 24px;
 }
 
-.mb-set-page[data-device='mobile'] .mb-set-switch.is-on .mb-set-switch-thumb {
+:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-switch.is-on .mb-set-switch-thumb {
   transform: translateX(24px);
 }

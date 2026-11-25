@@ -27,6 +27,7 @@ import {
 } from './model'
 import type { Editor } from './EditorSheet'
 import type { Mover } from './MoverSheet'
+import type { ConfigOrderScope } from './useLedgerConfigController'
 
 interface CategoriesSectionProps {
   ledger: Ledger
@@ -41,8 +42,13 @@ interface CategoriesSectionProps {
   onConfirm: (key: string) => void
   onOpenEditor: (editor: Editor) => void
   onOpenMover: (mover: Mover) => void
-  /** 拖拽落位：把 id 移到同级兄弟的第 targetIndex 位。 */
-  onReorder: (id: string, targetIndex: number) => void
+  /** 拖拽落位：scope 定位同级列表，overId 用于本地 arrayMove，targetIndex 用于写库。 */
+  onReorder: (
+    scope: ConfigOrderScope,
+    id: string,
+    overId: string,
+    targetIndex: number,
+  ) => void
   onDelete: (row: CategoryRow, type: TxType) => void
 }
 
@@ -104,9 +110,6 @@ function CategoryRowItem({
           {iconKey ? <CategoryIcon iconKey={iconKey} /> : <Tag size={16} />}
         </span>
         <span className="mb-set-name">{row.name}</span>
-        <span className="mb-set-meta">
-          {row.txCount} 笔{row.childCount > 0 ? ` · ${row.childCount} 个子分类` : ''}
-        </span>
         <RowMenu
           id={`cat-${row.id}`}
           openId={menuOpen}
@@ -212,7 +215,10 @@ export function CategoriesSection({
     const topIndex = rows.findIndex((row) => row.id === activeId)
     if (topIndex >= 0) {
       const newIndex = rows.findIndex((row) => row.id === overId)
-      if (newIndex >= 0) onReorder(activeId, newIndex)
+      if (newIndex >= 0) {
+        const scope: ConfigOrderScope = { kind: 'category', type: tab }
+        onReorder(scope, activeId, overId, newIndex)
+      }
       return
     }
     // 子分类：找到共同父级，在父级 children 内重排。
@@ -220,7 +226,10 @@ export function CategoriesSection({
       const childIds = parent.children.map((child) => child.id)
       if (childIds.includes(activeId) && childIds.includes(overId)) {
         const newIndex = parent.children.findIndex((child) => child.id === overId)
-        if (newIndex >= 0) onReorder(activeId, newIndex)
+        if (newIndex >= 0) {
+          const scope: ConfigOrderScope = { kind: 'category', type: tab, parentId: parent.id }
+          onReorder(scope, activeId, overId, newIndex)
+        }
         return
       }
     }

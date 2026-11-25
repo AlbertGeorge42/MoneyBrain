@@ -1,8 +1,8 @@
 /**
  * 账本配置抽屉：报表页点「设置」后直达的单分区管理界面。
  *
- * 内容复用设置页的 AccountsSection / CategoriesSection / CashflowSection
- * 与同一份 controller，不另建表格、表单或校验；视觉沿用设置页的 mb-set-* 内胆。
+ * 内容走共享的 LedgerConfigSection，与设置页同一份分区渲染、controller 与触控口径；
+ * 这里只提供 Sheet 外壳、标题与「完成」，不另建表格、表单或校验。
  * 由调用方按当前报表固定 tab 与标题，这里不提供跨分区切换，避免二级入口。
  */
 import type { ReactNode } from 'react'
@@ -11,13 +11,11 @@ import type { Ledger } from '@/features/overview/model'
 import { Button } from '@/features/shared/Button'
 import { SettingsSheetHead } from '@/features/shared/SettingsSheetHead'
 import { Sheet } from '@/features/shared/Sheet'
-import { AccountsSection } from './AccountsSection'
-import { CategoriesSection } from './CategoriesSection'
-import { CashflowSection } from './CashflowSection'
+import { LedgerConfigSection, type LedgerConfigTab } from './LedgerConfigSection'
 import { LedgerConfigSheets } from './LedgerConfigSheets'
 import type { LedgerConfigController } from './useLedgerConfigController'
 
-export type LedgerConfigTab = 'accounts' | 'categories' | 'cashflow'
+export type { LedgerConfigTab } from './LedgerConfigSection'
 
 export function LedgerConfigManager({
   opened,
@@ -58,62 +56,13 @@ export function LedgerConfigManager({
         }
       >
         <div className="mb-set-sheet-body">
-          {extra && <div className="mb-set-field mb-set-ledger-sheet-extra">{extra}</div>}
-          {tab === 'accounts' ? (
-            <AccountsSection
-              ledger={ledger}
-              assetGroups={controller.assetGroups}
-              liabilityGroups={controller.liabilityGroups}
-              tab={controller.accountTab}
-              onTabChange={controller.setAccountTab}
-              showEmptyGroups={controller.showEmptyGroups}
-              onShowEmptyGroupsChange={controller.setShowEmptyGroups}
-              expandedKeys={controller.expandedKeys}
-              onToggleExpanded={controller.toggleExpanded}
-              onSetGroupsExpanded={controller.setGroupsExpanded}
-              onOpenEditor={controller.setEditor}
-              onOpenMover={controller.setMover}
-              menuOpen={controller.menuOpen}
-              onMenuOpen={controller.setMenuOpen}
-              confirming={controller.confirming}
-              onConfirm={controller.setConfirming}
-              onDeleteAccount={(account) => void controller.deleteAccount(account)}
-              onDeleteGroup={(group) => void controller.deleteGroup(group)}
-              onReorderGroupTo={(id, targetIndex) => void controller.moveAccountGroupTo(id, targetIndex)}
-              onReorderAccountTo={(id, targetIndex) => void controller.moveAccountTo(id, targetIndex)}
-            />
-          ) : tab === 'categories' ? (
-            <CategoriesSection
-              ledger={ledger}
-              rows={controller.rowsByType[controller.categoryTab]}
-              tab={controller.categoryTab}
-              onTabChange={controller.setCategoryTab}
-              expandedKeys={controller.expandedKeys}
-              onToggleExpanded={controller.toggleExpanded}
-              menuOpen={controller.menuOpen}
-              onMenuOpen={controller.setMenuOpen}
-              confirming={controller.confirming}
-              onConfirm={controller.setConfirming}
-              onOpenEditor={controller.setEditor}
-              onOpenMover={controller.setMover}
-              onReorder={(id, targetIndex) => void controller.moveCategoryTo(id, targetIndex)}
-              onDelete={(row, type) => void controller.deleteCategory(row, type)}
-            />
-          ) : (
-            <CashflowSection
-              ledger={ledger}
-              rows={controller.cashTab === 'asset' ? [] : controller.rowsByType[controller.cashTab]}
-              tab={controller.cashTab}
-              onTabChange={controller.setCashTab}
-              expandedKeys={controller.expandedKeys}
-              onToggleExpanded={controller.toggleExpanded}
-              menuOpen={controller.menuOpen}
-              onMenuOpen={controller.setMenuOpen}
-              confirming={controller.confirming}
-              onConfirm={controller.setConfirming}
-              onOpenMover={controller.setMover}
-            />
-          )}
+          <LedgerConfigSection
+            ledger={ledger}
+            controller={controller}
+            tab={tab}
+            device={device}
+            extra={extra && <div className="mb-set-field mb-set-ledger-sheet-extra">{extra}</div>}
+          />
         </div>
       </Sheet>
 
