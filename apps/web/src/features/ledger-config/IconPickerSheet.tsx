@@ -73,10 +73,10 @@ export function IconPickerSheet({
       device={device}
       opened={opened}
       onClose={onClose}
-      desktopSize={380}
+      size="sm"
       contentClassName="mb-set-sheet"
+      header={<SettingsSheetHead title="选择图标" onClose={onClose} />}
     >
-      <SettingsSheetHead title="选择图标" onClose={onClose} />
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
           <FieldLabel>搜索</FieldLabel>

@@ -57,9 +57,25 @@ export function OpeningSheet({
         if (saving) return
         onSkip()
       }}
-      desktopSize={460}
+      size="md"
+      header={<SettingsSheetHead title="补充期初余额" onClose={onSkip} disabled={saving} />}
+      actions={
+        <>
+          <Button variant="ghost" disabled={saving} onClick={onSkip}>
+            跳过补录
+          </Button>
+          {result ? (
+            <Button variant="primary" onClick={onDone}>
+              完成
+            </Button>
+          ) : (
+            <Button variant="primary" disabled={saving} onClick={onSave}>
+              {saving ? '保存中…' : '保存期初'}
+            </Button>
+          )}
+        </>
+      }
     >
-      <SettingsSheetHead title="补充期初余额" onClose={onSkip} disabled={saving} />
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
           当前有 {step.accounts.length} 个账户未设期初。期初余额 = 期初日期当天开始前的余额，当天交易照常计入；
@@ -147,20 +163,6 @@ export function OpeningSheet({
           <p className="mb-set-error" role="alert">
             {error}
           </p>
-        )}
-      </div>
-      <div className="mb-set-sheet-actions">
-        <Button variant="ghost" disabled={saving} onClick={onSkip}>
-          跳过补录
-        </Button>
-        {result ? (
-          <Button variant="primary" onClick={onDone}>
-            完成
-          </Button>
-        ) : (
-          <Button variant="primary" disabled={saving} onClick={onSave}>
-            {saving ? '保存中…' : '保存期初'}
-          </Button>
         )}
       </div>
     </Sheet>

@@ -10,6 +10,7 @@ import './styles/reset.css'
 import './features/shared/typography.css'
 import './features/shared/input.css'
 import './features/shared/sheet.css'
+import './features/shared/overlay.css'
 import { appTheme, mbColorSchemeManager, mbCssVariablesResolver } from './styles/theme/theme-tokens'
 import { ApiClientError } from './services/apiError'
 

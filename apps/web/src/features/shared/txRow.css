@@ -119,7 +119,7 @@
   flex: none;
 }
 
-/* 退款关联/已退款标记：行内轻量文字，不增加第二行或改变行高。
+/* 退款关联/已退款标记：行内轻量文字，height/padding/border 由 shared text 变体统一收敛。
    `::before` 承接分隔点，省掉额外 flex 子元素。 */
 .mb-tx-refund-tag {
   display: inline-block;
@@ -127,17 +127,10 @@
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  padding: 0;
-  border: 0;
-  background: transparent;
   color: var(--mb-color-text-tertiary);
-  font-family: inherit;
   font-size: var(--mb-fs-0);
-  font-weight: inherit;
-  line-height: var(--mb-lh-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
-  vertical-align: baseline;
 }
 
 .mb-tx-refund-tag::before {
@@ -146,9 +139,9 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* 可点样式（中性文字 + 箭头 + 下划线）由 shared TxLink 提供，此处只保留行内命中区。 */
 .mb-tx-refund-tag--link {
-  color: var(--mb-color-accent);
-  cursor: pointer;
+  text-decoration-thickness: 1px;
 }
 
 /* 移动端行内退款链接：文字保持行内，用伪元素把命中区扩到 44 高，不抬行高。

@@ -148,4 +148,60 @@ describe('总览最近交易与流水共用行组件', () => {
     expect(mobileBlock).toContain('min-height')
     expect(css).not.toMatch(/\.mb-tx-row\.is-mobile\s+\.mb-tx-(cat-name|note|primary|kind)/)
   })
+
+  it('退款行关联标签只显示「原交易」入口，不重复主行分类/备注，也不占控件高度', async () => {
+    const original: LedgerTransaction = { ...transaction, id: 't-orig' }
+    const refund: LedgerTransaction = {
+      ...transaction,
+      id: 't-refund',
+      type: 'refund',
+      amount: 500,
+      relatedTransaction: original,
+    }
+    const { container } = render(
+      <MantineProvider theme={appTheme}>
+        <TxRow
+          ledger={{ ...ledger, transactions: [original, refund] }}
+          transaction={refund}
+          onActivate={vi.fn()}
+          onOpenRelated={vi.fn()}
+        />
+      </MantineProvider>,
+    )
+
+    // 主行已是「餐饮 · 午餐·公司食堂」，副行关联标签不再重复原交易名称。
+    const secondary = container.querySelector('.mb-tx-secondary')?.textContent ?? ''
+    expect(secondary).toBe('退款·招商储蓄卡原交易')
+    expect(secondary).not.toContain('午餐·公司食堂')
+    const link = container.querySelector('.mb-tx-refund-tag--link')
+    expect(link?.textContent).toBe('原交易')
+    expect(link?.className).toContain('mb-shared-text-btn')
+
+    const css = await readFile(resolve(__dirname, '../../src/features/shared/button.css'), 'utf8')
+    const textBlock = css.match(/\.mb-shared-text-btn\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(textBlock).toContain('min-height: 0')
+    expect(textBlock).toContain('padding: 0')
+  })
+
+  it('已全额退款的原交易行带 --full 高亮类', () => {
+    const original: LedgerTransaction = { ...transaction, id: 't-orig' }
+    const refund: LedgerTransaction = {
+      ...transaction,
+      id: 't-refund',
+      type: 'refund',
+      amount: 2_000,
+      relatedTransactionId: 't-orig',
+    }
+    const { container } = render(
+      <MantineProvider theme={appTheme}>
+        <TxRow
+          ledger={{ ...ledger, transactions: [original, refund] }}
+          transaction={original}
+          onActivate={vi.fn()}
+        />
+      </MantineProvider>,
+    )
+
+    expect(container.querySelector('.mb-tx-refund-tag--full')?.textContent).toBe('已全额退款')
+  })
 })

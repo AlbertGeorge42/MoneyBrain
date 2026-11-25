@@ -222,8 +222,30 @@ export function EditorSheet({
   const CurrentIcon = currentIcon.icon
 
   return (
-    <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
-      <SettingsSheetHead title={title} onClose={onClose} />
+    <Sheet
+      variant="settings"
+      device={device}
+      opened
+      onClose={onClose}
+      size="sm"
+      header={<SettingsSheetHead title={title} onClose={onClose} />}
+      actions={
+        <>
+          {onDelete && (
+            <Button variant="danger" disabled={saving} onClick={onDelete}>
+              <Trash2 size={15} />
+              {editor.kind === 'accountGroup' ? '删除分组' : '删除账户'}
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose}>
+            取消
+          </Button>
+          <Button variant="primary" disabled={!valid || saving} onClick={handleSave}>
+            {saving ? '保存中…' : '保存'}
+          </Button>
+        </>
+      }
+    >
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
           <FieldLabel>名称</FieldLabel>
@@ -385,29 +407,6 @@ export function EditorSheet({
         )}
 
         {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
-      </div>
-
-      <div className="mb-set-sheet-actions">
-        {onDelete && (
-          <Button
-            variant="danger"
-            disabled={saving}
-            onClick={onDelete}
-          >
-            <Trash2 size={15} />
-            {editor.kind === 'accountGroup' ? '删除分组' : '删除账户'}
-          </Button>
-        )}
-        <Button variant="ghost" onClick={onClose}>
-          取消
-        </Button>
-        <Button
-          variant="primary"
-          disabled={!valid || saving}
-          onClick={handleSave}
-        >
-          {saving ? '保存中…' : '保存'}
-        </Button>
       </div>
 
       <IconPickerSheet

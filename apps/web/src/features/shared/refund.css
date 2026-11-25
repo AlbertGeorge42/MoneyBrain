@@ -36,21 +36,8 @@
   gap: var(--mb-s-2);
   width: 100%;
   padding: var(--mb-s-1) 0;
-  border: 0;
-  background: transparent;
   font-size: var(--mb-fs-0);
-  color: var(--mb-color-text-secondary);
   text-align: right;
-  cursor: pointer;
-}
-
-.mb-shared-refund-item:hover {
-  color: var(--mb-color-accent);
-}
-
-.mb-shared-refund-item:focus-visible {
-  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
-  outline-offset: calc(var(--mb-border-width) * -1);
 }
 
 .mb-shared-refund-item-note {

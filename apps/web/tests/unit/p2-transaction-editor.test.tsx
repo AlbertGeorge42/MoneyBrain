@@ -54,6 +54,14 @@ function renderPanel(onCreateRefund = vi.fn(async () => ({ ok: true }))) {
 }
 
 describe('交易详情编辑', () => {
+  it('操作按钮渲染在 Overlay 统一 Footer 内，不在内容滚动区', () => {
+    renderPanel()
+    const footer = document.querySelector('.mb-overlay-footer')
+    expect(footer).not.toBeNull()
+    expect(footer?.textContent).toContain('编辑')
+    expect(document.querySelector('.mb-overlay-scroll .mb-tx-detail-actions')).toBeNull()
+  })
+
   it('负数时提示平账入口、禁用保存，并可切换到平账类型', () => {
     const { onSave } = renderPanel()
 

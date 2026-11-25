@@ -6,7 +6,7 @@ import {
   type Ledger,
   type LedgerTransaction,
 } from '@/features/overview/model'
-import { Button } from './Button'
+import { TxLink } from './TxLink'
 import './refund.css'
 
 /**
@@ -37,7 +37,7 @@ export function RefundSummarySection({
         {refunds.length > 0 && (
           <span className="mb-shared-refund-items">
             {refunds.map((refund) => (
-              <Button
+              <TxLink
                 key={refund.id}
                 className="mb-shared-refund-item"
                 onClick={() => onOpenTransaction(refund)}
@@ -45,7 +45,7 @@ export function RefundSummarySection({
                 <span>{formatDateLabel(refund.date)}</span>
                 <span className="mb-shared-refund-item-note">{refund.note || '退款'}</span>
                 <span className="mb-shared-refund-item-amount">{amountText(refund.amount)}</span>
-              </Button>
+              </TxLink>
             ))}
           </span>
         )}

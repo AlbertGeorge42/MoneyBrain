@@ -34,8 +34,14 @@ export function CategoryDeleteSheet({
     .sort((left, right) => Number(Boolean(left.parentId)) - Number(Boolean(right.parentId)))
 
   return (
-    <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
-      <SettingsSheetHead title={`删除「${row.name}」`} onClose={onClose} />
+    <Sheet
+      variant="settings"
+      device={device}
+      opened
+      onClose={onClose}
+      size="sm"
+      header={<SettingsSheetHead title={`删除「${row.name}」`} onClose={onClose} />}
+    >
       <div className="mb-set-sheet-body">
         <p className="mb-set-hint">
           共 {row.txCount} 笔交易引用这个分类（含子分类）。选择目标分类后，这些流水会整体转移，然后删除「{row.name}」。

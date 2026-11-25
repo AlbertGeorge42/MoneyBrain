@@ -45,7 +45,7 @@ interface SheetVariantConfig {
 const VARIANTS: Record<SheetVariant, SheetVariantConfig> = {
   report: {
     contentMobile: 'mb-rp-sheet',
-    contentDesktop: 'mb-rp-sheet is-desktop',
+    contentDesktop: 'mb-rp-sheet',
     header: 'mb-rp-sheet-head',
     title: 'mb-rp-sheet-title',
     bodyMobile: 'mb-rp-sheet-body',
@@ -107,7 +107,7 @@ const VARIANTS: Record<SheetVariant, SheetVariantConfig> = {
   },
   settings: {
     contentMobile: 'mb-set-sheet',
-    contentDesktop: 'mb-set-sheet is-desktop',
+    contentDesktop: 'mb-set-sheet',
     bodyMobile: 'mb-set-sheet-frame',
     inner: 'mb-set-sheet-inner',
     desktopSize: 380,
@@ -138,6 +138,7 @@ export function Sheet({
   onClose,
   title,
   titleClassName,
+  header,
   children,
   actions,
   actionsClassName,
@@ -147,6 +148,7 @@ export function Sheet({
   zIndex,
   mobileSize = 'auto',
   desktopSize,
+  size,
 }: {
   variant: SheetVariant
   device: DeviceMode
@@ -155,8 +157,10 @@ export function Sheet({
   title?: ReactNode
   /** 覆盖变体默认标题类（如同一 transaction 族里带副标题的用法）。 */
   titleClassName?: string
+  /** 自定义头部（settings 族无默认关闭按钮时）；渲染在滚动区外，不随内容滚动。 */
+  header?: ReactNode
   children: ReactNode
-  /** 常驻动作区；由变体决定容器类名，页面只传按钮。 */
+  /** 唯一 Footer API；由变体决定容器类名，页面只传按钮。 */
   actions?: ReactNode
   actionsClassName?: string
   contentClassName?: string
@@ -166,10 +170,18 @@ export function Sheet({
   zIndex?: string | number
   /** 移动端高度：默认按内容收缩；预算等全屏表单传 100%。 */
   mobileSize?: 'auto' | '100%'
-  /** 桌面端宽度覆盖；同族两档（如设置 380/460）用显式数值，不复制变体。 */
+  /** 桌面端宽度覆盖；优先用语义档位 size。 */
   desktopSize?: number
+  /** 语义尺寸档位：small 380 / medium 440 / large 640。 */
+  size?: 'sm' | 'md' | 'lg'
 }) {
   const config = VARIANTS[variant]
+  const SIZE_VAR = {
+    sm: 'var(--mb-overlay-sm)',
+    md: 'var(--mb-overlay-md)',
+    lg: 'var(--mb-overlay-lg)',
+  } as const
+  const resolvedDesktopSize = size ? SIZE_VAR[size] : desktopSize ?? config.desktopSize
   const isMobile = device === 'mobile'
   // 桌面画布 .mb-shell-canvas 带 transform，会成为 position:fixed 的包含块；抽屉若留在
   // 画布内，fixed 相对画布而非视口——长页面滚动时抽屉跟着错位、底部被 overflow 裁切。
@@ -190,7 +202,7 @@ export function Sheet({
       opened={opened}
       onClose={onClose}
       position={isMobile ? 'bottom' : 'right'}
-      {...(isMobile ? { size: mobileSize } : (desktopSize ?? config.desktopSize) !== undefined ? { size: desktopSize ?? config.desktopSize } : {})}
+      {...(isMobile ? { size: mobileSize } : resolvedDesktopSize !== undefined ? { size: resolvedDesktopSize } : {})}
       withinPortal={shouldPortal}
       portalProps={portalTarget ? { target: portalTarget } : undefined}
       {...(zIndex !== undefined || config.zIndex !== undefined ? { zIndex: zIndex ?? config.zIndex } : {})}
@@ -199,8 +211,8 @@ export function Sheet({
       classNames={{
         content: join(
           isMobile ? config.contentMobile : config.contentDesktop ?? config.contentMobile,
-          // 无动作区时不要为绝对定位的关闭条预留底部空间。
-          actions ? undefined : 'is-bare',
+          // 桌面抽屉统一外观钩子（满高 / 直角 / 无截断），移动端不加。
+          isMobile ? undefined : 'is-desktop mb-overlay-shell',
           contentClassName,
         ),
         header: config.header,
@@ -211,8 +223,11 @@ export function Sheet({
         close: config.close,
       }}
     >
-      {children}
-      {actions ? <div className={actionClass}>{actions}</div> : null}
+      <div className="mb-overlay-frame">
+        {header ? <div className="mb-overlay-custom-head">{header}</div> : null}
+        <div className="mb-overlay-scroll">{children}</div>
+        {actions ? <div className={join('mb-overlay-footer', actionClass)}>{actions}</div> : null}
+      </div>
     </Drawer>
   )
 }

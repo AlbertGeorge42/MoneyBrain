@@ -81,12 +81,6 @@
   border: 0;
 }
 
-.mb-ov-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-}
-
 /* ===== 记账浮层（W1） ===== */
 
 .mb-ov-entry-head {
@@ -393,8 +387,7 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--mb-s-2);
-  padding-top: var(--mb-s-2);
-  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  width: 100%;
 }
 
 .mb-ov-keypad {
@@ -418,17 +411,13 @@
   background: var(--mb-color-surface-hover);
 }
 
+/* 记账键盘 Footer：定位 / 内距 / 分隔线 / safe-area 全由 .mb-overlay-footer 负责，
+   这里只保留键盘 + 按钮的纵向堆叠与占满宽度。 */
 .mb-ov-mobile-foot {
-  position: sticky;
-  bottom: 0;
-  z-index: var(--mb-z-local-2);
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: var(--mb-s-3);
-  margin: 0 calc(var(--mb-page-pad-mobile) * -1);
-  padding: var(--mb-s-3) var(--mb-page-pad-mobile) calc(var(--mb-s-3) + env(safe-area-inset-bottom));
-  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  background: var(--mb-color-surface-raised);
 }
 
 .mb-ov-mobile-actions {
@@ -449,14 +438,6 @@
   height: auto;
   max-height: calc(var(--mb-mobile-h) - var(--mb-s-7));
   overflow: hidden;
-}
-
-/* 内容区独立滚动：展开「更多」后日期 / 备注不会被吸底键盘压住。 */
-.mb-ov-sheet .mb-ov-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .mb-ov-picker-sheet {

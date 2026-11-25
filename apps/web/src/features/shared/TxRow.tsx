@@ -43,7 +43,7 @@ export function TxRow({
   leading?: ReactNode
   ariaLabel?: string
   onActivate: () => void
-  /** 点行内「关联 #原交易」时打开对方详情（不触发本行详情）。 */
+  /** 点行内「原交易」链接时打开对方详情（不触发本行详情）。 */
   onOpenRelated?: (transaction: LedgerTransaction) => void
 }) {
   const account = getAccount(ledger, transaction.accountId)

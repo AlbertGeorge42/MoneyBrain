@@ -102,4 +102,8 @@
   --mb-mobile-w: 390px;
   --mb-mobile-h: 844px;
   --mb-modal-w: 600px;
+  /* Overlay 尺寸档位：Small / Medium / Large，仅容器宽度，不含内容内距。 */
+  --mb-overlay-sm: 380px;
+  --mb-overlay-md: 440px;
+  --mb-overlay-lg: 640px;
 }

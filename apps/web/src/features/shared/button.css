@@ -247,6 +247,19 @@
   text-decoration: none;
 }
 
+/* ---- variant: text（行内文字按钮：详情/流水里的可点链接）----
+   不占 38px 控件高度、无边框背景；继承周围字体，业务色由调用方 class 补。
+   避免各 feature 用无 variant 的 Button 再逐条覆盖基类导致行高参差。 */
+.mb-shared-text-btn {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+}
+
 /* ---- size: sm（各 variant 通用覆盖）---- */
 .mb-shared-btn--sm {
   min-height: var(--mb-btn-h-sm);

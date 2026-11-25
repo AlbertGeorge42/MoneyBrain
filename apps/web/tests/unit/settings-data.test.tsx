@@ -118,10 +118,13 @@ describe('设置页数据区（API 模式）', () => {
     expect(reason).toHaveAttribute('id', 'mb-set-clear-reason')
     expect(confirm).toBeDisabled()
     expect(confirm).toHaveAttribute('aria-describedby', 'mb-set-clear-reason')
-    // 原因必须紧邻动作区：中间不能隔着输入框、导出按钮等其他可交互控件。
-    const actions = reason.nextElementSibling as HTMLElement
-    expect(actions).toHaveClass('mb-set-sheet-actions')
-    expect(within(actions).getByRole('button', { name: '确认清空' })).toBe(confirm)
+    // 原因必须紧邻动作区：在滚动内容末尾、Footer 之前，中间不隔其他可交互控件。
+    const scroll = reason.parentElement as HTMLElement
+    expect(scroll).toHaveClass('mb-overlay-scroll')
+    expect(scroll.lastElementChild).toBe(reason)
+    const footer = scroll.nextElementSibling as HTMLElement
+    expect(footer).toHaveClass('mb-overlay-footer')
+    expect(within(footer).getByRole('button', { name: '确认清空' })).toBe(confirm)
     expect(mocks.clearAll).not.toHaveBeenCalled()
   })
 

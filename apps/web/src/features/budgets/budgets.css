@@ -511,16 +511,6 @@
   min-height: var(--mb-touch);
 }
 
-.mb-bg-detail,
-.mb-bg-editor {
-  max-height: calc(var(--mb-mobile-h) - var(--mb-s-7));
-}
-
-.mb-bg-detail .mb-ov-body,
-.mb-bg-editor .mb-ov-body {
-  overflow-y: auto;
-}
-
 .mb-bg-detail .mb-bg-over-buttons .mb-shared-btn--secondary {
   flex: 1 1 auto;
 }

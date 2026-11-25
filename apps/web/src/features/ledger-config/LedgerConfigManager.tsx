@@ -47,11 +47,16 @@ export function LedgerConfigManager({
         device={device}
         opened={opened}
         onClose={onClose}
-        desktopSize={640}
+        size="lg"
         mobileSize="100%"
         contentClassName="mb-set-ledger-sheet"
+        header={<SettingsSheetHead title={title} onClose={onClose} />}
+        actions={
+          <Button variant="primary" onClick={onClose}>
+            完成
+          </Button>
+        }
       >
-        <SettingsSheetHead title={title} onClose={onClose} />
         <div className="mb-set-sheet-body">
           {extra && <div className="mb-set-field mb-set-ledger-sheet-extra">{extra}</div>}
           {tab === 'accounts' ? (
@@ -109,12 +114,6 @@ export function LedgerConfigManager({
               onOpenMover={controller.setMover}
             />
           )}
-        </div>
-
-        <div className="mb-set-sheet-actions">
-          <Button variant="primary" onClick={onClose}>
-            完成
-          </Button>
         </div>
       </Sheet>
 

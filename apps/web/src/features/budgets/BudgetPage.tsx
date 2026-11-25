@@ -1102,10 +1102,21 @@ function BudgetEditor({
       zIndex={320}
       contentClassName="mb-bg-editor"
       mobileSize="100%"
+      size="md"
       title={
         <div className="mb-ov-title-copy">
           <span className="mb-ov-overlay-title">新增预算条目</span>
         </div>
+      }
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            取消
+          </Button>
+          <Button variant="primary" onClick={onSave} disabled={saving}>
+            保存
+          </Button>
+        </>
       }
     >
       <div className="mb-bg-form">
@@ -1208,15 +1219,6 @@ function BudgetEditor({
         )}
 
         {error && <p className="mb-ov-error">{error}</p>}
-
-        <div className="mb-ov-actions">
-          <Button variant="secondary" onClick={onClose}>
-            取消
-          </Button>
-          <Button variant="primary" onClick={onSave} disabled={saving}>
-            保存
-          </Button>
-        </div>
       </div>
     </Sheet>
   )

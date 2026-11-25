@@ -339,13 +339,6 @@
   color: var(--mb-color-expense);
 }
 
-.mb-dp-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-  margin-top: var(--mb-s-1);
-}
-
 .mb-dp-zone:focus-visible,
 .mb-dp-field:focus-visible,
 .mb-dp-preset:focus-visible,
@@ -377,26 +370,8 @@
   padding: 0 var(--mb-s-3);
 }
 
-.mb-dp-sheet /* 动作区常驻：与 mb-rp-sheet-actions 同一套底部固定规则，按钮吃满触控高度。 */
-.mb-dp-sheet-actions {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: var(--mb-z-local-1);
-  display: flex;
-  gap: var(--mb-s-2);
-  padding: var(--mb-s-3) var(--mb-s-4) var(--mb-s-4);
-  border-top: 1px solid var(--mb-color-border);
-  background: var(--mb-color-surface-raised);
-}
-
-.mb-dp-sheet-actions .mb-shared-btn {
+/* Footer 布局由 overlay.css 统一；日期选择只要求按钮吃满触控高度。 */
+.mb-dp-actions .mb-shared-btn {
   flex: 1;
   min-height: var(--mb-touch);
-}
-
-/* 动作区绝对定位在底部，内容区留出让位，避免最后一行反馈被压住。 */
-.mb-dp-sheet .mb-dp-panel {
-  padding-bottom: calc(var(--mb-touch) * 2);
 }

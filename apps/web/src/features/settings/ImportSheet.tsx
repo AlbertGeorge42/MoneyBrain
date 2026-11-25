@@ -133,9 +133,25 @@ export function ImportSheet({
         if (importing || previewing) return
         onClose()
       }}
-      desktopSize={460}
+      size="md"
+      header={<SettingsSheetHead title="导入备份" onClose={onClose} />}
+      actions={
+        <>
+          <Button variant="secondary" disabled={importing} onClick={onClose}>
+            取消
+          </Button>
+          {preview ? (
+            <Button variant="primary" disabled={importing} onClick={onConfirm}>
+              {importing ? '导入中…' : '确认导入'}
+            </Button>
+          ) : (
+            <Button variant="primary" disabled={previewing} onClick={onPreview}>
+              {previewing ? '解析中…' : '解析并预览'}
+            </Button>
+          )}
+        </>
+      }
     >
-      <SettingsSheetHead title="导入备份" onClose={onClose} />
       <div className="mb-set-sheet-body">
         <label className="mb-set-field">
           <FieldLabel>备份文件（.mbx / .zip / .csv / .json）</FieldLabel>
@@ -158,21 +174,6 @@ export function ImportSheet({
           <p className="mb-set-hint">
             先解析预览：期间跨度、笔数、金额合计、无法识别的账户/分类与疑似重复都会在确认前显示。
           </p>
-        )}
-      </div>
-
-      <div className="mb-set-sheet-actions">
-        <Button variant="secondary" disabled={importing} onClick={onClose}>
-          取消
-        </Button>
-        {preview ? (
-          <Button variant="primary" disabled={importing} onClick={onConfirm}>
-            {importing ? '导入中…' : '确认导入'}
-          </Button>
-        ) : (
-          <Button variant="primary" disabled={previewing} onClick={onPreview}>
-            {previewing ? '解析中…' : '解析并预览'}
-          </Button>
         )}
       </div>
     </Sheet>

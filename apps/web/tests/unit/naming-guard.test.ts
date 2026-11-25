@@ -15,7 +15,7 @@ const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const SRC_ROOT = join(WEB_ROOT, 'src')
 
 /** 规范 §4.2：CSS class 的 domain 注册表（封闭集合） */
-const DOMAINS = new Set(['tx', 'rp', 'set', 'bg', 'dp', 'ov', 'shared', 'shell'])
+const DOMAINS = new Set(['tx', 'rp', 'set', 'bg', 'dp', 'ov', 'shared', 'shell', 'overlay'])
 const SCAN_EXTENSIONS = new Set(['.css', '.ts', '.tsx'])
 
 function listSourceFiles(dir: string): string[] {
@@ -134,5 +134,92 @@ describe('前端命名规范守卫（§4 / §10 / §11 / §13）', () => {
     const base = css!.source.slice(css!.source.indexOf('.mb-shared-btn {'), css!.source.indexOf('.mb-shared-btn:hover'))
     expect(base).toMatch(/display:\s*inline-flex/)
     expect(base).toMatch(/align-items:\s*center/)
+  })
+
+  it('交易 ⇄ 退款跳转必须共用 TxLink，且不用 accent 色表示可点', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const src = (name: string) => files.find((entry) => rel(entry.file).endsWith(name))?.source ?? ''
+    const tag = src('features/shared/RefundTag.tsx')
+    const summary = src('features/shared/RefundSummarySection.tsx')
+    const detail = src('features/transactions/TransactionDetailPanel.tsx')
+    expect(tag).toContain('TxLink')
+    expect(summary).toContain('TxLink')
+    expect(detail).toContain('TxLink')
+
+    const css = src('features/shared/txLink.css')
+    expect(css).not.toContain('--mb-color-accent')
+    expect(css).toContain('--mb-color-text-secondary')
+    expect(css).toContain('text-decoration: underline dashed')
+    const rowCss = src('features/shared/txRow.css')
+    const linkBlock = rowCss.slice(rowCss.indexOf('.mb-tx-refund-tag--link'), rowCss.indexOf('.mb-tx-refund-tag.is-unlinked'))
+    expect(linkBlock).not.toContain('--mb-color-accent')
+  })
+
+  it('Overlay 契约：Sheet/Modal 统一 frame>scroll+footer，尺寸走语义档位', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const src = (name: string) => files.find((entry) => rel(entry.file).endsWith(name))?.source ?? ''
+    const sheet = src('features/shared/Sheet.tsx')
+    const modal = src('features/shared/Modal.tsx')
+    const overlayCss = src('features/shared/overlay.css')
+
+    // 唯一 Footer API：两者都必须把 actions 渲染进 mb-overlay-footer。
+    expect(sheet).toContain('mb-overlay-footer')
+    expect(modal).toContain('mb-overlay-footer')
+    expect(sheet).toMatch(/actions\s*\?/)
+    expect(modal).toMatch(/actions\s*\?/)
+    // 统一 overlay registry：Modal 曾缺失，导致浮层打开时「记一笔」入口未禁用。
+    expect(sheet).toContain('registerOverlay')
+    expect(modal).toContain('registerOverlay')
+    // 尺寸语义档位走 CSS token，不在调用点散落裸数字。
+    expect(sheet).toContain('--mb-overlay-sm')
+    expect(sheet).toContain('--mb-overlay-md')
+    expect(sheet).toContain('--mb-overlay-lg')
+    expect(overlayCss).toContain('.mb-overlay-frame')
+    expect(overlayCss).toContain('.mb-overlay-scroll')
+    expect(overlayCss).toMatch(/\.mb-overlay-footer[\s\S]*justify-content:\s*flex-end/)
+  })
+
+  it('桌面抽屉统一外观：满高直角、无 feature 自定的 max-height / 圆角', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const src = (name: string) => files.find((entry) => rel(entry.file).endsWith(name))?.source ?? ''
+    const sheet = src('features/shared/Sheet.tsx')
+    const overlayCss = src('features/shared/overlay.css')
+
+    // 组件在桌面统一加外观钩子；feature 不再各自写桌面圆角 / 高度截断。
+    expect(sheet).toContain('mb-overlay-shell')
+    expect(overlayCss).toMatch(/\.mb-overlay-shell\.is-desktop\s*\{[^}]*height:\s*100%[^}]*border-radius:\s*0/)
+    expect(overlayCss).toMatch(/\.mb-overlay-shell\.is-desktop\s*\{[^}]*max-height:\s*100vh/)
+
+    const budgetsCss = src('features/budgets/budgets.css')
+    expect(budgetsCss).not.toContain('.mb-bg-detail,\n.mb-bg-editor')
+    expect(budgetsCss).not.toMatch(/\.mb-bg-(detail|editor)\s+\.mb-ov-body\s*\{[^}]*overflow-y/)
+    const settingsCss = src('features/settings/settings.css')
+    expect(settingsCss).not.toMatch(/\.mb-set-sheet\.is-desktop\s*\{[^}]*border-radius/)
+  })
+
+  it('业务侧不得自建 Footer class（Overlay actions 是唯一 Footer API）', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const banned = ['mb-set-sheet-actions', 'mb-dp-sheet-actions', 'mb-tx-detail-actions']
+    for (const cls of banned) {
+      for (const entry of files) {
+        if (!entry.file.endsWith('.tsx') && !entry.file.endsWith('.ts')) continue
+        expect(entry.source, `${cls} 仍被 ${rel(entry.file)} 使用`).not.toContain(cls)
+      }
+      for (const entry of files) {
+        if (!entry.file.endsWith('.css')) continue
+        expect(entry.source, `${cls} 的 CSS 未清理`).not.toContain(cls)
+      }
+    }
+  })
+
+  it('交易详情与记账浮层的 Footer 都走 Overlay actions 插槽', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const detail = files.find((entry) => rel(entry.file).endsWith('transactions/TransactionDetailPanel.tsx'))?.source ?? ''
+    expect(detail).toContain('onActions')
+    expect(detail).toContain('actions={footer}')
+
+    const quick = files.find((entry) => rel(entry.file).endsWith('overview/QuickEntry.tsx'))?.source ?? ''
+    expect(quick).toContain('onActions')
+    expect(quick).toContain('actions={actions}')
   })
 })

@@ -1,0 +1,31 @@
+/* 交易跳转链：中性文字 + 虚线下划线 + 外链箭头表意，不用 accent 绿。
+   原交易 → 退款、退款 → 原交易两个方向共用同一实现，避免样式分叉。 */
+
+.mb-shared-tx-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mb-s-1);
+  color: var(--mb-color-text-secondary);
+  font-size: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  text-decoration: underline dashed var(--mb-color-border-strong);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  cursor: pointer;
+}
+
+.mb-shared-tx-link > svg {
+  flex: none;
+}
+
+.mb-shared-tx-link:hover {
+  color: var(--mb-color-text-primary);
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
+}
+
+.mb-shared-tx-link:focus-visible {
+  outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
+  outline-offset: calc(var(--mb-border-width) * -1);
+}

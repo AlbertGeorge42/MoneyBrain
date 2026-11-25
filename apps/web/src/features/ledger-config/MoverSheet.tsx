@@ -90,8 +90,14 @@ export function MoverSheet({
           ]
 
   return (
-    <Sheet variant="settings" device={device} opened onClose={onClose} desktopSize={380}>
-      <SettingsSheetHead title={`移动「${mover.name}」到…`} onClose={onClose} />
+    <Sheet
+      variant="settings"
+      device={device}
+      opened
+      onClose={onClose}
+      size="sm"
+      header={<SettingsSheetHead title={`移动「${mover.name}」到…`} onClose={onClose} />}
+    >
       <div className="mb-set-sheet-body">
         <div className="mb-set-radio-list" role="radiogroup" aria-label="目标位置">
           {options.map((option) => (

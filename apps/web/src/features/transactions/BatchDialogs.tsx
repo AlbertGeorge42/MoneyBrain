@@ -14,23 +14,32 @@ function Frame({
   title,
   onClose,
   children,
+  actions,
 }: {
   device: DeviceMode
   opened: boolean
   title: string
   onClose: () => void
   children: ReactNode
+  actions?: ReactNode
 }) {
   if (device === 'mobile') {
     return (
-      <Sheet variant="transaction" device={device} opened={opened} onClose={onClose} title={title}>
+      <Sheet
+        variant="transaction"
+        device={device}
+        opened={opened}
+        onClose={onClose}
+        title={title}
+        actions={actions}
+      >
         {children}
       </Sheet>
     )
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title={title}>
+    <Modal opened={opened} onClose={onClose} title={title} actions={actions}>
       {children}
     </Modal>
   )
@@ -128,7 +137,22 @@ export function BatchDeleteDialog({
   }
 
   return (
-    <Frame device={device} opened={opened} title="批量删除" onClose={onClose}>
+    <Frame
+      device={device}
+      opened={opened}
+      title="批量删除"
+      onClose={onClose}
+      actions={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={pending}>
+            取消
+          </Button>
+          <Button variant="danger-solid" onClick={() => void confirm()} disabled={pending}>
+            {pending ? '删除中…' : `删除 ${count} 笔`}
+          </Button>
+        </>
+      }
+    >
       <p className="mb-tx-dialog-title">删除已选的 {count} 笔流水？</p>
       <p className="mb-tx-dialog-note">账户余额会一并回滚；删除后可用提示条撤销。</p>
       {error && (
@@ -136,14 +160,6 @@ export function BatchDeleteDialog({
           {error}
         </p>
       )}
-      <div className="mb-tx-detail-actions">
-        <Button variant="danger-solid" onClick={() => void confirm()} disabled={pending}>
-          {pending ? '删除中…' : `删除 ${count} 笔`}
-        </Button>
-        <Button variant="ghost" onClick={onClose} disabled={pending}>
-          取消
-        </Button>
-      </div>
     </Frame>
   )
 }

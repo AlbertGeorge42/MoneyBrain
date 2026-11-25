@@ -300,15 +300,13 @@
   color: var(--mb-color-text-tertiary);
 }
 
+/* Footer 布局统一由 overlay.css 的 .mb-overlay-footer 负责（右对齐、主操作最右）。
+   桌面面板不是 Sheet，这里只保留 flex 与间距，同样右对齐。 */
 .mb-tx-filter-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--mb-s-2);
-}
-
-.mb-tx-filter-actions.is-mobile {
-  margin-top: var(--mb-s-3);
 }
 
 /* ===== 桌面列表 ===== */
@@ -696,23 +694,8 @@
   gap: var(--mb-s-2);
 }
 
-/* 退款详情：关联原交易可点开；原交易显示已退款合计并列出退款记录。 */
-.mb-tx-detail-link {
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--mb-color-accent);
-  font: inherit;
-  text-align: right;
-  cursor: pointer;
-}
-
-.mb-tx-detail-link:hover {
-  text-decoration: underline;
-}
-
-.mb-tx-detail-link:focus-visible,
+/* 退款详情：关联原交易入口用中性文字 + 下划线，与交易跳转链接同一视觉语言；
+   原交易的退款明细与跳转由 shared TxLink 统一提供。 */
 .mb-tx-refund-link-open:focus-visible {
   outline: calc(var(--mb-border-width) * 2) var(--mb-border-style) var(--mb-color-focus);
   outline-offset: calc(var(--mb-border-width) * -1);
@@ -726,16 +709,15 @@
 
 .mb-tx-refund-link-open {
   align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: var(--mb-fs-1);
-  color: var(--mb-color-accent);
-  cursor: pointer;
+  color: var(--mb-color-text-secondary);
+  text-decoration: underline dashed var(--mb-color-border-strong);
+  text-underline-offset: 3px;
 }
 
 .mb-tx-refund-link-open:hover {
-  text-decoration: underline;
+  color: var(--mb-color-text-primary);
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
 }
 
 .mb-tx-refund-link-form {
@@ -754,13 +736,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--mb-s-2);
-}
-
-.mb-tx-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mb-s-2);
-  padding-top: var(--mb-s-2);
 }
 
 .mb-tx-edit {
@@ -799,14 +774,9 @@
 }
 
 .mb-tx-form-error-action {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font: inherit;
   color: var(--mb-color-text-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
-  cursor: pointer;
 }
 
 .mb-tx-confirm {

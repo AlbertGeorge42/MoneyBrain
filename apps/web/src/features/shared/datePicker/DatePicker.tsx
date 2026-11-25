@@ -294,8 +294,10 @@ export function DatePicker({
       return
     }
     if (event.key !== 'Tab') return
+    // Footer 已由 Overlay 容器渲染在 panel 外，Tab 循环范围需覆盖 panel + Footer。
+    const scope = panelRef.current?.parentElement ?? panelRef.current
     const nodes = Array.from(
-      panelRef.current?.querySelectorAll<HTMLElement>(
+      scope?.querySelectorAll<HTMLElement>(
         'button:not(:disabled), [href], input:not(:disabled), [tabindex]:not([tabindex="-1"])',
       ) ?? [],
     ).filter((node) => node.tabIndex >= 0)
@@ -484,20 +486,24 @@ export function DatePicker({
         </p>
       )}
 
-      <div className={device === 'mobile' ? 'mb-dp-sheet-actions' : 'mb-dp-actions'}>
-        {optional && (
-          <Button variant="clear" onClick={clear}>
-            清空（不限）
-          </Button>
-        )}
-        <Button variant="ghost" onClick={() => close(true)}>
-          取消
-        </Button>
-        <Button variant="primary" onClick={apply}>
-          应用
-        </Button>
-      </div>
     </div>
+  )
+
+  // PC Popover 与 Mobile Sheet 共用同一 actions 契约：唯一 Footer 内容，主操作最右。
+  const actions = (
+    <>
+      {optional && (
+        <Button variant="clear" onClick={clear}>
+          清空（不限）
+        </Button>
+      )}
+      <Button variant="ghost" onClick={() => close(true)}>
+        取消
+      </Button>
+      <Button variant="primary" onClick={apply}>
+        应用
+      </Button>
+    </>
   )
 
   const rootClass = [
@@ -565,7 +571,12 @@ export function DatePicker({
         {tag && <span className="mb-dp-tag">{tag}</span>}
       </div>
 
-      {open && device !== 'mobile' && <div className="mb-dp-pop">{panel}</div>}
+      {open && device !== 'mobile' && (
+        <div className="mb-dp-pop">
+          {panel}
+          <div className="mb-overlay-footer mb-dp-actions">{actions}</div>
+        </div>
+      )}
 
       <Sheet
         variant="report"
@@ -576,6 +587,7 @@ export function DatePicker({
         contentClassName="mb-dp-sheet"
         bodyClassName="mb-dp-sheet-body"
         portal
+        actions={actions}
       >
         {panel}
       </Sheet>

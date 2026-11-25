@@ -71,7 +71,7 @@ function toBaseLedgerTransaction(transaction: Transaction): LedgerTransaction {
 
 /**
  * 交易 DTO → 页面模型：连同退款双向关系一起带上。
- * 列表/详情抽屉据此显示「退款 · 关联 #原交易」并可跳到对方详情，无需额外查库。
+ * 列表/详情抽屉据此显示「退款 · 原交易」并可跳到对方详情，无需额外查库。
  */
 export function toLedgerTransaction(transaction: Transaction): LedgerTransaction {
   const base = toBaseLedgerTransaction(transaction)

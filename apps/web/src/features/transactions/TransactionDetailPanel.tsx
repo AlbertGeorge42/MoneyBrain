@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
 import { CategoryIcon } from '@/features/overview/category'
 import { parseMoneyInput } from '@/utils/money'
@@ -19,6 +19,7 @@ import {
 } from '@/features/overview/model'
 import { toLedgerTransaction } from '@/features/overview/apiLedger'
 import { Button } from '@/features/shared/Button'
+import { TxLink } from '@/features/shared/TxLink'
 import { FieldLabel } from '@/features/shared/FieldLabel'
 import { RefundSummarySection } from '@/features/shared/RefundSummarySection'
 import { Badge } from '@/features/shared/Badge'
@@ -41,12 +42,14 @@ function RefundCreateForm({
   onSave,
   onSaved,
   onCancel,
+  onActions,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
   onSave: (originalId: string, categoryId: string, accountId: string, amount: number, note: string) => Promise<LedgerMutationOutcome>
   onSaved: () => void
   onCancel: () => void
+  onActions: (actions: ReactNode) => void
 }) {
   const [amount, setAmount] = useState(String(transaction.amount / 100))
   const [accountId, setAccountId] = useState(transaction.accountId)
@@ -70,6 +73,20 @@ function RefundCreateForm({
     }
     onSaved()
   }
+
+  useEffect(() => {
+    onActions(
+      <>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          取消
+        </Button>
+        <Button variant="primary" onClick={() => void submit()} disabled={invalid || saving}>
+          <Check size={15} />
+          {saving ? '创建中…' : '创建退款'}
+        </Button>
+      </>,
+    )
+  }, [onActions, onCancel, invalid, saving, amount, accountId, note])
 
   return (
     <div className="mb-tx-refund-create">
@@ -114,13 +131,6 @@ function RefundCreateForm({
         />
       </label>
       {error && <p className="mb-tx-form-error" role="alert">{error}</p>}
-      <div className="mb-tx-detail-actions">
-        <Button variant="primary" onClick={() => void submit()} disabled={invalid || saving}>
-          <Check size={15} />
-          {saving ? '创建中…' : '创建退款'}
-        </Button>
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>取消</Button>
-      </div>
     </div>
   )
 }
@@ -191,7 +201,7 @@ function RefundLinkForm({
 
   if (!expanded) {
     return (
-      <Button className="mb-tx-refund-link-open" onClick={() => setExpanded(true)}>
+      <Button variant="text" className="mb-tx-refund-link-open" onClick={() => setExpanded(true)}>
         关联原交易
       </Button>
     )
@@ -252,6 +262,7 @@ function DetailView({
   onOpenTransaction,
   onLinkRefund,
   onCreateRefund,
+  onActions,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
@@ -260,6 +271,8 @@ function DetailView({
   onOpenTransaction: (transaction: LedgerTransaction) => void
   onLinkRefund: (id: string, originalId: string | null) => Promise<LedgerMutationOutcome>
   onCreateRefund: () => void
+  /** 把 Footer 按钮上抛给 Sheet 的 actions 插槽（Overlay 唯一 Footer API）。 */
+  onActions: (actions: ReactNode) => void
 }) {
   const tone = transactionTone(transaction)
   const category = getCategoryName(ledger, transaction.categoryId)
@@ -267,6 +280,28 @@ function DetailView({
   const account = getAccount(ledger, transaction.accountId)
   const toAccount = transaction.toAccountId ? getAccount(ledger, transaction.toAccountId) : undefined
   const related = transaction.type === 'refund' ? getRelatedTransaction(ledger, transaction) : undefined
+
+  // Detail 模式的操作上抛到 Overlay Footer；删除为主操作放最右。
+  useEffect(() => {
+    onActions(
+      <>
+        {(transaction.type === 'income' || transaction.type === 'expense') && (
+          <Button variant="ghost" onClick={onCreateRefund}>
+            <RotateCcw size={15} />
+            记一笔退款
+          </Button>
+        )}
+        <Button variant="danger" onClick={onDelete}>
+          <Trash2 size={15} />
+          删除
+        </Button>
+        <Button variant="primary" onClick={onEdit}>
+          <Pencil size={15} />
+          编辑
+        </Button>
+      </>,
+    )
+  }, [onActions, transaction.type, onCreateRefund, onDelete, onEdit])
 
   return (
     <div className="mb-tx-detail">
@@ -305,12 +340,9 @@ function DetailView({
             <dt>原交易</dt>
             <dd>
               {related ? (
-                <Button
-                  className="mb-tx-detail-link"
-                  onClick={() => onOpenTransaction(related)}
-                >
-                  {`关联 #${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
-                </Button>
+                <TxLink onClick={() => onOpenTransaction(related)}>
+                  {`${transactionRefLabel(ledger, related)} · ${formatDateLabel(related.date)} · ${signedAmountText(related)}`}
+                </TxLink>
               ) : (
                 <span className="mb-tx-detail-muted">未关联原交易</span>
               )}
@@ -341,22 +373,6 @@ function DetailView({
         />
       )}
 
-      <div className="mb-tx-detail-actions">
-        {(transaction.type === 'income' || transaction.type === 'expense') && (
-          <Button onClick={onCreateRefund}>
-            <RotateCcw size={15} />
-            记一笔退款
-          </Button>
-        )}
-        <Button variant="primary" onClick={onEdit}>
-          <Pencil size={15} />
-          编辑
-        </Button>
-        <Button variant="danger" onClick={onDelete}>
-          <Trash2 size={15} />
-          删除
-        </Button>
-      </div>
     </div>
   )
 }
@@ -367,12 +383,14 @@ function EditForm({
   onSave,
   onSaved,
   onCancel,
+  onActions,
 }: {
   transaction: LedgerTransaction
   ledger: Ledger
   onSave: (patch: TransactionPatch) => Promise<LedgerMutationOutcome>
   onSaved: () => void
   onCancel: () => void
+  onActions: (actions: ReactNode) => void
 }) {
   const [amount, setAmount] = useState(String(transaction.amount / 100))
   const [nextType, setNextType] = useState(transaction.type)
@@ -430,6 +448,21 @@ function EditForm({
     }
     onSaved()
   }
+
+  useEffect(() => {
+    onActions(
+      <>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          取消
+        </Button>
+        <Button variant="primary" onClick={() => void submit()} disabled={invalid || saving}>
+          <Check size={15} />
+          {saving ? '保存中…' : '保存修改'}
+        </Button>
+      </>,
+    )
+    // submit 捕获当次渲染的表单 state；依赖覆盖其全部输入即可。
+  }, [onActions, onCancel, invalid, saving, amount, nextType, categoryId, accountId, date, note, excluded])
 
   return (
     <div className="mb-tx-edit">
@@ -524,7 +557,7 @@ function EditForm({
           {errorText}
           {nextType === 'expense' && (
             <span className="mb-tx-form-error-actions">
-              <Button className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
+              <Button variant="text" className="mb-tx-form-error-action" onClick={() => switchType('adjustment')}>
                 改为平账
               </Button>
             </span>
@@ -538,15 +571,6 @@ function EditForm({
         </p>
       )}
 
-      <div className="mb-tx-detail-actions">
-        <Button variant="primary" onClick={() => void submit()} disabled={invalid || saving}>
-          <Check size={15} />
-          {saving ? '保存中…' : '保存修改'}
-        </Button>
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>
-          取消
-        </Button>
-      </div>
     </div>
   )
 }
@@ -555,10 +579,12 @@ function DeleteConfirm({
   transaction,
   onConfirm,
   onCancel,
+  onActions,
 }: {
   transaction: LedgerTransaction
   onConfirm: () => Promise<LedgerMutationOutcome>
   onCancel: () => void
+  onActions: (actions: ReactNode) => void
 }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -571,6 +597,20 @@ function DeleteConfirm({
     setSaving(false)
     if (!result.ok) setError(result.error ?? '删除失败，请重试')
   }
+
+  useEffect(() => {
+    onActions(
+      <>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          <X size={15} />
+          取消
+        </Button>
+        <Button variant="danger-solid" onClick={() => void confirm()} disabled={saving}>
+          {saving ? '删除中…' : '删除'}
+        </Button>
+      </>,
+    )
+  }, [onActions, onCancel, saving])
 
   return (
     <div className="mb-tx-confirm">
@@ -585,15 +625,6 @@ function DeleteConfirm({
           {error}
         </p>
       )}
-      <div className="mb-tx-detail-actions">
-        <Button variant="danger-solid" onClick={() => void confirm()} disabled={saving}>
-          {saving ? '删除中…' : '删除'}
-        </Button>
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>
-          <X size={15} />
-          取消
-        </Button>
-      </div>
     </div>
   )
 }
@@ -620,9 +651,19 @@ export function TransactionDetailPanel({
   onCreateRefund: (originalId: string, categoryId: string, accountId: string, amount: number, note: string) => Promise<LedgerMutationOutcome>
 }) {
   const [mode, setMode] = useState<Mode>('view')
+  // Footer 由当前模式的子组件上抛，统一走 Sheet 的 actions 插槽。
+  const [footer, setFooter] = useState<ReactNode>(null)
+  const onActions = useCallback((next: ReactNode) => setFooter(next), [])
+  const openEdit = useCallback(() => setMode('edit'), [])
+  const openDelete = useCallback(() => setMode('confirm-delete'), [])
+  const openRefund = useCallback(() => setMode('refund'), [])
+  const backToView = useCallback(() => setMode('view'), [])
   // 抽屉常驻渲染、由 opened 受控，Mantine 才能走进入 / 退出动画；
   // 切换交易时回到查看态，避免上一笔的编辑态带到下一笔。
-  useEffect(() => setMode('view'), [transaction?.id])
+  useEffect(() => {
+    setMode('view')
+    setFooter(null)
+  }, [transaction?.id])
 
   const title = mode === 'edit' ? '编辑流水' : mode === 'refund' ? '记一笔退款' : mode === 'confirm-delete' ? '删除流水' : '交易详情'
   const close = () => {
@@ -637,11 +678,12 @@ export function TransactionDetailPanel({
           key={transaction.id}
           transaction={transaction}
           ledger={ledger}
-          onEdit={() => setMode('edit')}
-          onDelete={() => setMode('confirm-delete')}
+          onEdit={openEdit}
+          onDelete={openDelete}
           onOpenTransaction={onOpenTransaction}
           onLinkRefund={onLinkRefund}
-          onCreateRefund={() => setMode('refund')}
+          onCreateRefund={openRefund}
+          onActions={onActions}
         />
       )}
       {mode === 'refund' && transaction && (
@@ -649,8 +691,9 @@ export function TransactionDetailPanel({
           transaction={transaction}
           ledger={ledger}
           onSave={onCreateRefund}
-          onSaved={() => setMode('view')}
-          onCancel={() => setMode('view')}
+          onSaved={backToView}
+          onCancel={backToView}
+          onActions={onActions}
         />
       )}
       {mode === 'edit' && (
@@ -658,8 +701,9 @@ export function TransactionDetailPanel({
           transaction={transaction}
           ledger={ledger}
           onSave={(patch) => onSave(transaction.id, patch)}
-          onSaved={() => setMode('view')}
-          onCancel={() => setMode('view')}
+          onSaved={backToView}
+          onCancel={backToView}
+          onActions={onActions}
         />
       )}
       {mode === 'confirm-delete' && (
@@ -673,7 +717,8 @@ export function TransactionDetailPanel({
             }
             return result
           }}
-          onCancel={() => setMode('view')}
+          onCancel={backToView}
+          onActions={onActions}
         />
       )}
     </>
@@ -686,6 +731,7 @@ export function TransactionDetailPanel({
       opened={Boolean(transaction)}
       onClose={close}
       title={title}
+      actions={footer}
     >
       {body}
     </Sheet>

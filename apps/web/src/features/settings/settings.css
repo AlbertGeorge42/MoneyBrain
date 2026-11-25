@@ -1110,17 +1110,6 @@
   line-height: var(--mb-lh-body);
 }
 
-/* 动作区常驻抽屉底部：内容在 body 内滚，按钮不随内容被推走。 */
-.mb-set-sheet-actions {
-  display: flex;
-  flex: none;
-  justify-content: flex-end;
-  gap: var(--mb-s-2);
-  padding: var(--mb-s-3) var(--mb-s-4);
-  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
-  background: var(--mb-color-surface-raised);
-}
-
 .mb-set-radio-list {
   display: flex;
   flex-direction: column;
@@ -1175,13 +1164,6 @@
 /* 移动端 Drawer 从底部弹出，圆角改到顶部之外保持一致 */
 .mb-set-page[data-device='mobile'] .mb-set-sheet-head {
   padding: var(--mb-s-3) var(--mb-s-4);
-}
-
-/* 桌面抽屉 portal 到 .mb-shell-root（脱离 .mb-set-page），故用变体自带的 is-desktop
-   标记而非页面祖先选择器；max-height 取视口高，内容超高时由 sheet-body 内滚。 */
-.mb-set-sheet.is-desktop {
-  max-height: 100vh;
-  border-radius: var(--mb-radius-lg) 0 0 var(--mb-radius-lg);
 }
 
 /* 设计预览的工具栏固定在顶部，移动端底部抽屉会盖住抽屉头部；

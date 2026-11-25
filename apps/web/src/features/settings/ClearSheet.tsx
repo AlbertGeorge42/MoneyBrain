@@ -48,9 +48,24 @@ export function ClearSheet({
         if (clearing) return
         onClose()
       }}
-      desktopSize={460}
+      size="md"
+      header={<SettingsSheetHead title="清空账本" onClose={onClose} />}
+      actions={
+        <>
+          <Button variant="secondary" disabled={clearing} onClick={onClose}>
+            取消
+          </Button>
+          <Button
+            variant="danger"
+            disabled={!backupReady || clearing}
+            aria-describedby={!backupReady ? 'mb-set-clear-reason' : undefined}
+            onClick={onConfirm}
+          >
+            {clearing ? '清空中…' : '确认清空'}
+          </Button>
+        </>
+      }
     >
-      <SettingsSheetHead title="清空账本" onClose={onClose} />
       <div className="mb-set-sheet-body">
         <p className="mb-set-danger-note">
           清空会删除所有账户、分类、流水、预算与投资快照，且不可恢复。回收站与审计记录会一并清空。
@@ -100,19 +115,6 @@ export function ClearSheet({
           尚未导出备份：必须先导出备份才能继续
         </p>
       )}
-      <div className="mb-set-sheet-actions">
-        <Button variant="secondary" disabled={clearing} onClick={onClose}>
-          取消
-        </Button>
-        <Button
-          variant="danger"
-          disabled={!backupReady || clearing}
-          aria-describedby={!backupReady ? 'mb-set-clear-reason' : undefined}
-          onClick={onConfirm}
-        >
-          {clearing ? '清空中…' : '确认清空'}
-        </Button>
-      </div>
     </Sheet>
   )
 }

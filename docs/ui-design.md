@@ -98,6 +98,9 @@ PC 与移动是**两套独立结构**，不是同一棵树的响应式缩放：�
 - 设备判定只有一个常量 + 一个 hook；CSS 媒体查询阈值不得各写各的裸数字（CSS 自定义属性在 `@media` 条件中不生效，需构建期解析或由单一选择器切换）。
 - **浮层宿主：一份内容，两处外壳**——按操作语义选外壳：查看详情 / 编辑详情 / 图表下钻一律用侧滑抽屉（`shared/Sheet.tsx` 的 `variant="report"`，`shared/sheet.css` 全局加载一次），PC 贴右、移动自底部升起；居中对话框只用于就地确认与短表单（批量操作、快速记账），由 `shared/Modal.tsx` 单一配置收口，feature 不再内联 classNames。全项目只有一份交易详情实现：总览最近交易、流水页与图表下钻点行都打开 `TransactionDetailPanel`；总览不再有只读详情弹窗。抽屉与对话框都必须常驻渲染、`opened` 由父级布尔受控——条件挂载 + `opened` 恒 true 会让 Mantine 跳过进入 / 退出动画。`variant="transaction"` 只供筛选 / 显示 / 批量条使用。
 - 移动端：表单一律底部 Sheet，保存按钮吸底并避让安全区；触控目标 ≥44×44、列表行高 ≥56；每屏只保留 1 个主图，其余折叠为数字；时间选择全站同一交互（底部抽屉 + 预设 chip）。
+- **Overlay 唯一结构契约**：Sheet 与 Modal 共用 `shared/overlay.css` 的 `frame > scroll + footer`，Header 固定 / Body 独立滚动 / Footer 固定右对齐。**`actions` prop 是唯一 Footer API**，业务组件不得在 children 内自建 footer / actions / sticky / absolute bottom bar。尺寸走语义档位 `--mb-overlay-sm/md/lg`（380 / 440 / 640），调用方用 `size="sm|md|lg"`，不散落裸数字。**桌面抽屉外观由容器统一**：Sheet 在桌面给 content 加 `is-desktop mb-overlay-shell`，`overlay.css` 一处定义满高（`height:100%; max-height:100vh`）与直角（`border-radius:0`），feature 不再自定桌面圆角 / max-height（预算抽屉曾因此底部被截断、设置抽屉曾留左圆角）。移动端保留底部升起的上圆角。Modal 与 Sheet 同样登记 overlay registry（浮层打开时禁用全局「记一笔」入口）。
+- 特殊交互允许 variant 但不得形成第二套结构：记账 PC Modal / Mobile Sheet 共用同一表单与 footer 语义；日期 PC Popover / Mobile Sheet 共用同一 `actions` 节点（Tab 循环范围随之覆盖 Footer）。表单内联的上下文操作（如预算详情的"按实际调整 / 保存限额"）属于表单内容，不是弹窗级 Footer，保留在内联位置。按钮顺序为次要操作（ghost）在前、主操作（primary / danger-solid）在后。
+- **交易 ⇄ 退款跳转只有一份视觉**：`shared/TxLink.tsx` + `txLink.css` 是「点此打开另一笔交易」的唯一实现，两个方向（退款→原交易、原交易→退款）必须共用。**不用 accent 黄绿表达可跳转**（与收入绿混淆且过于抢眼），改用中性文字（`--mb-color-text-secondary`）+ 虚线下划线 + 外链箭头，hover 转 primary、下划线转实线；箭头形状而非颜色表达"可跳转"。流水行的行内入口用同一组件，只保留 44px 命中区扩展。
 
 ### 2.5 骨架原语
 

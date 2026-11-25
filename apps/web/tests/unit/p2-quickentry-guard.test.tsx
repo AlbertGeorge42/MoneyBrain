@@ -46,6 +46,17 @@ describe('记账提交的并发闸门', () => {
     mockAdd.mockReset()
   })
 
+  it('PC 与移动的保存按钮都在 Overlay 统一 Footer 内', () => {
+    for (const device of ['desktop', 'mobile'] as const) {
+      const { unmount } = renderEntry(device)
+      const footer = document.querySelector('.mb-overlay-footer')
+      expect(footer).not.toBeNull()
+      expect(footer?.textContent).toContain('取消')
+      expect(document.querySelector('.mb-overlay-scroll .mb-ov-mobile-foot')).toBeNull()
+      unmount()
+    }
+  })
+
   it('连续点击保存 10 次只发出 1 次写请求，提交期间按钮禁用并显示进行中', async () => {
     const gate = deferred()
     mockAdd.mockReturnValueOnce(gate.promise)

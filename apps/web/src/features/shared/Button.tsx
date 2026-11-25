@@ -3,7 +3,7 @@
  *
  * DOM 契约：默认 type="button"，原样透传 ref / disabled / aria-* / data-* 与事件。
  * 视觉统一在 button.css，差异用明确 props 表达，不再由各 feature 复制基础样式：
- * - variant：primary / secondary / ghost / danger / danger-solid / clear / toggle / link
+ * - variant：primary / secondary / ghost / danger / danger-solid / clear / toggle / link / text
  * - size：md（默认）/ sm
  * - pressed：toggle 激活态（输出 aria-pressed 驱动激活样式）
  * - armed：danger 待确认态
@@ -22,6 +22,7 @@ type ButtonVariant =
   | 'clear'
   | 'toggle'
   | 'link'
+  | 'text'
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary: 'mb-shared-btn--primary',
@@ -32,6 +33,8 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   clear: 'mb-shared-btn--clear',
   toggle: 'mb-shared-btn--toggle',
   link: 'mb-shared-link-btn',
+  // 行内文字按钮：详情/流水里的可点链接，不占控件高度，各 feature 只补业务色。
+  text: 'mb-shared-text-btn',
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

@@ -1,0 +1,93 @@
+/**
+ * Overlay 统一结构（Sheet / Modal 共用，全局只加载一次）。
+ *
+ * 契约：Header（Mantine 自带）固定 / Body 独立滚动 / Footer 固定且右对齐。
+ * 业务组件只通过 Sheet/Modal 的 `actions` prop 传 Footer 按钮，
+ * 不得在 children 内自建 sticky / absolute bottom bar / actions 容器。
+ *
+ * 实现要点：Mantine 把 children 全放进 Drawer/Modal 的 body。我们在 body 上建
+ * flex column（frame），children 包进 flex:1 的滚动层（scroll），actions 放进
+ * flex:none 的 footer——于是 Header/Body/Footer 三段各自独立，短内容时 Footer 仍贴底。
+ */
+
+/* 桌面右侧抽屉的统一外观契约：铺满视口高度、直角、无 max-height 截断。
+   class 由 Sheet 组件在桌面端统一附加（is-desktop），feature 不再各写圆角 / 高度。 */
+.mb-overlay-shell.is-desktop {
+  height: 100%;
+  max-height: 100vh;
+  border-radius: 0;
+}
+
+.mb-overlay-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 自定义头部（settings 族无 Mantine 默认关闭按钮时）：固定、不随内容滚动。 */
+.mb-overlay-custom-head {
+  flex: none;
+}
+
+.mb-overlay-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mb-overlay-footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--mb-s-2);
+  padding: var(--mb-s-3) var(--mb-s-4);
+  border-top: var(--mb-border-width) var(--mb-border-style) var(--mb-color-border);
+  background: var(--mb-color-surface-raised);
+}
+
+/* Body 自身不再负责滚动与内距，统一交给 frame/scroll（复合选择器压过旧规则）。
+   feature CSS 不再自己定义浮层的 padding / overflow。 */
+.mb-rp-sheet .mb-rp-sheet-body,
+.mb-tx-sheet .mb-tx-sheet-body,
+.mb-shared-sheet .mb-ov-body,
+.mb-set-sheet .mb-set-sheet-frame,
+.mb-shared-modal .mb-ov-body {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* frame 必须严格填满 body，不能被内容撑开把 Footer 顶出视口
+   （移动端记账键盘 + 表单场景下曾溢出 174px）。 */
+.mb-overlay-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+}
+
+/* 滚动区内距按 variant 声明一次。 */
+.mb-overlay-scroll {
+  padding: var(--mb-s-4);
+}
+
+.mb-tx-sheet .mb-tx-sheet-body > .mb-overlay-scroll {
+  padding: 0 var(--mb-card-pad) var(--mb-card-pad);
+}
+
+.mb-shared-sheet .mb-ov-body > .mb-overlay-scroll {
+  padding: var(--mb-s-4) var(--mb-s-5) var(--mb-s-5);
+}
+
+/* 移动端底部抽屉：Footer 需避让安全区。 */
+.mb-rp-sheet:not(.is-desktop) .mb-overlay-footer,
+.mb-shared-sheet .mb-overlay-footer,
+.mb-set-sheet .mb-overlay-footer {
+  padding-bottom: calc(var(--mb-s-4) + env(safe-area-inset-bottom, 0px));
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { Button as MantineButton, TextInput } from '@mantine/core'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { minor } from '@domain/index'
@@ -169,12 +169,15 @@ function EntryForm({
   onRequestClose,
   onCreateAccount,
   onSave,
+  onActions,
 }: {
   ledger: Ledger
   device: DeviceMode
   onRequestClose: () => void
   onCreateAccount: () => void
   onSave: (input: NewTransactionInput, keepOpen: boolean) => Promise<LedgerMutationOutcome>
+  /** 把 Footer 上抛给 Sheet/Modal 的 actions 插槽（Overlay 唯一 Footer API）。 */
+  onActions: (actions: ReactNode) => void
 }) {
   const mobile = device === 'mobile'
   // 空账本没有账户/分类：保存按钮禁用时必须说明原因，并给出可执行的下一步。
@@ -201,16 +204,17 @@ function EntryForm({
   const moreRef = useRef<HTMLDivElement>(null)
 
   // 展开「更多」后把日期 / 备注滚到吸底键盘上方，否则字段正好被键盘盖住。
+  // 滚动区是 Overlay 的 .mb-overlay-scroll（body 自身已不滚动）。
   useEffect(() => {
     if (!mobile || !moreOpen) return
     const frame = requestAnimationFrame(() => {
       const more = moreRef.current
-      const body = more?.closest('.mb-ov-body') as HTMLElement | null
-      if (!more || !body) return
-      const foot = body.querySelector('.mb-ov-mobile-foot') as HTMLElement | null
-      const limit = (foot?.getBoundingClientRect().top ?? body.getBoundingClientRect().bottom) - 8
+      const scroll = more?.closest('.mb-overlay-scroll') as HTMLElement | null
+      if (!more || !scroll) return
+      const foot = scroll.parentElement?.querySelector('.mb-overlay-footer') as HTMLElement | null
+      const limit = (foot?.getBoundingClientRect().top ?? scroll.getBoundingClientRect().bottom) - 8
       const overflow = more.getBoundingClientRect().bottom - limit
-      if (overflow > 0) body.scrollTop += overflow
+      if (overflow > 0) scroll.scrollTop += overflow
     })
     return () => cancelAnimationFrame(frame)
   }, [moreOpen, mobile])
@@ -326,6 +330,50 @@ function EntryForm({
       setCategoryId(categories[index - 1].id)
     }
   }
+
+  // Footer 交给 Overlay 容器的 actions 插槽。handler 用 ref 持有最新闭包，
+  // 让 footer 节点只随真实 state 重建：既避免过期闭包，也避免 effect 循环。
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  const appendKeyRef = useRef(appendKey)
+  appendKeyRef.current = appendKey
+  const closeRef = useRef(onRequestClose)
+  closeRef.current = onRequestClose
+
+  const footer = useMemo<ReactNode>(
+    () =>
+      mobile ? (
+        <div className="mb-ov-mobile-foot">
+          <Keypad onKey={(key) => appendKeyRef.current(key)} allowNegative={isReconcile} />
+          <div className="mb-ov-mobile-actions">
+            <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={() => closeRef.current()} disabled={saving}>
+              取消
+            </MantineButton>
+            <MantineButton variant="default" className="mb-shared-btn--secondary" disabled={!canSave || saving} onClick={() => void commitRef.current(false)}>
+              {savingMode === 'save' ? '保存中…' : '保存'}
+            </MantineButton>
+            <MantineButton className="mb-shared-btn--primary mb-ov-continue" disabled={!canSave || saving} onClick={() => void commitRef.current(true)}>
+              {savingMode === 'continue' ? '保存中…' : '保存并再记'}
+            </MantineButton>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-ov-actions">
+          <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={onRequestClose} disabled={saving}>
+            取消
+          </MantineButton>
+          <MantineButton className="mb-shared-btn--primary" disabled={!canSave || saving} onClick={() => void commitRef.current(true)}>
+            {savingMode === 'continue' ? '保存中…' : '保存并再记'} <kbd className="mb-shell-kbd">⏎</kbd>
+          </MantineButton>
+          <MantineButton className="mb-shared-btn--primary" disabled={!canSave || saving} onClick={() => void commitRef.current(false)}>
+            {savingMode === 'save' ? '保存中…' : '保存'}
+          </MantineButton>
+        </div>
+      ),
+    [mobile, isReconcile, canSave, saving, savingMode],
+  )
+
+  useEffect(() => onActions(footer), [footer, onActions])
 
   return (
     <div className="mb-ov-form">
@@ -546,39 +594,6 @@ function EntryForm({
         </p>
       )}
 
-      {mobile ? (
-        <div className="mb-ov-mobile-foot">
-          <Keypad onKey={appendKey} allowNegative={isReconcile} />
-          <div className="mb-ov-mobile-actions">
-            <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={onRequestClose} disabled={saving}>
-              取消
-            </MantineButton>
-            <MantineButton
-              variant="default"
-              className="mb-shared-btn--secondary"
-              disabled={!canSave || saving}
-              onClick={() => void commit(false)}
-            >
-              {savingMode === 'save' ? '保存中…' : '保存'}
-            </MantineButton>
-            <MantineButton className="mb-shared-btn--primary mb-ov-continue" disabled={!canSave || saving} onClick={() => void commit(true)}>
-              {savingMode === 'continue' ? '保存中…' : '保存并再记'}
-            </MantineButton>
-          </div>
-        </div>
-      ) : (
-        <div className="mb-ov-actions">
-          <MantineButton variant="default" className="mb-shared-btn--secondary" onClick={onRequestClose} disabled={saving}>
-            取消
-          </MantineButton>
-          <MantineButton className="mb-shared-btn--primary" disabled={!canSave || saving} onClick={() => void commit(true)}>
-            {savingMode === 'continue' ? '保存中…' : '保存并再记'} <kbd className="mb-shell-kbd">⏎</kbd>
-          </MantineButton>
-          <MantineButton className="mb-shared-btn--primary" disabled={!canSave || saving} onClick={() => void commit(false)}>
-            {savingMode === 'save' ? '保存中…' : '保存'}
-          </MantineButton>
-        </div>
-      )}
 
       <AccountPicker
         opened={picker !== null}
@@ -609,6 +624,7 @@ export function QuickEntry({
 }) {
   const { ledger, addTransaction } = useLedger()
   const [savedCount, setSavedCount] = useState(0)
+  const [actions, setActions] = useState<ReactNode>(null)
 
   const handleSave = async (
     input: NewTransactionInput,
@@ -643,17 +659,18 @@ export function QuickEntry({
       onRequestClose={onClose}
       onCreateAccount={onCreateAccount ?? onClose}
       onSave={handleSave}
+      onActions={setActions}
     />
   )
 
   return (
     <div data-device={device}>
       {device === 'mobile' ? (
-        <Sheet variant="entry" device={device} opened={opened} onClose={onClose} title={title}>
+        <Sheet variant="entry" device={device} opened={opened} onClose={onClose} title={title} actions={actions}>
           {form}
         </Sheet>
       ) : (
-        <Modal opened={opened} onClose={onClose} title={title}>
+        <Modal opened={opened} onClose={onClose} title={title} actions={actions}>
           {form}
         </Modal>
       )}
