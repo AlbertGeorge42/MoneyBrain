@@ -1,6 +1,6 @@
 import { resolveAccountCategoryFlags } from '../../../../packages/domain/src/index.js'
 import { withTransaction } from '../db/transaction.js'
-import { NotFoundError, ValidationError } from '../common/index.js'
+import { NotFoundError, parseOptionalIconKey, ValidationError } from '../common/index.js'
 import { toMinor } from '../common/index.js'
 import * as accountRepo from '../db/repositories/account.repository.js'
 import * as accountCategoryRepo from '../db/repositories/account-category.repository.js'
@@ -24,6 +24,7 @@ type AccountUpdateData = {
   categoryId?: string | null
   initialBalance?: number
   initialBalanceDate?: string
+  iconKey?: string | null
 }
 
 /** 账户有效计算属性：从根继承解析结果取，不读分类 raw 字段。 */
@@ -104,6 +105,7 @@ export async function createAccount(data: {
   initialBalance?: number
   initialBalanceDate?: string
   sort?: number
+  iconKey?: string | null
 }) {
   const categoryId = data.categoryId ?? (await resolveDefaultCategoryId(data.type))
 
@@ -117,6 +119,7 @@ export async function createAccount(data: {
       : new Date(),
     categoryId,
     sort: data.sort,
+    iconKey: parseOptionalIconKey(data.iconKey),
   })
 }
 
@@ -153,6 +156,9 @@ export async function updateAccountProfile(accountId: string, data: AccountUpdat
 
   if (data.initialBalance !== undefined) {
     updateData.initialBalance = BigInt(data.initialBalance)
+  }
+  if (data.iconKey !== undefined) {
+    updateData.iconKey = parseOptionalIconKey(data.iconKey)
   }
 
   return accountRepo.updateWithCategory(accountId, updateData)

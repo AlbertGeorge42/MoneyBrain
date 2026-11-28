@@ -242,6 +242,8 @@ export interface ImportAccount {
   initialBalanceDate?: string
   sort?: number
   categoryName?: string
+  /** 受控图标 key；旧备份缺省时保持原值 / 回退到分组图标。 */
+  iconKey?: string | null
 }
 
 export interface ImportTransactionCategory {

@@ -210,6 +210,36 @@ describe('设置页账户 / 分类真实读写', () => {
     expect(persisted?.iconKey).toBe('inv')
   })
 
+  it('账户图标 iconKey 受控：合法值落库、空值清空、非法值 400 且不落库', async () => {
+    const created = await request(app)
+      .post('/api/accounts')
+      .send({ name: '图标账户测试', type: 'asset', categoryId: accountCategoryId, initialBalance: 0, iconKey: 'wallet' })
+    expect(created.status).toBe(201)
+    expect(created.body.data.iconKey).toBe('wallet')
+    const accountId = created.body.data.id
+
+    const updated = await request(app)
+      .put(`/api/accounts/${accountId}`)
+      .send({ iconKey: 'bank' })
+    expect(updated.status).toBe(200)
+    expect(updated.body.data.iconKey).toBe('bank')
+
+    const cleared = await request(app)
+      .put(`/api/accounts/${accountId}`)
+      .send({ iconKey: null })
+    expect(cleared.status).toBe(200)
+    expect(cleared.body.data.iconKey).toBeNull()
+
+    const invalid = await request(app)
+      .put(`/api/accounts/${accountId}`)
+      .send({ iconKey: 'rocket' })
+    expect(invalid.status).toBe(400)
+    expect(invalid.body.error.message).toContain('不在允许集合内')
+
+    const persisted = await prisma.account.findUnique({ where: { id: accountId } })
+    expect(persisted?.iconKey).toBeNull()
+  })
+
   it('分类带交易时转移后删除；撤销恢复分类与原归属', async () => {
     const account = await prisma.account.create({
       data: { name: '转移账户', type: 'asset', initialBalance: 0, categoryId: accountCategoryId },

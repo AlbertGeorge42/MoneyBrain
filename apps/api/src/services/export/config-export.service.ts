@@ -97,6 +97,7 @@ export async function exportConfig(): Promise<string> {
     initialBalanceDate: a.initialBalanceDate ? formatDateLocal(a.initialBalanceDate) : undefined,
     sort: a.sort,
     categoryName: a.category?.name ?? undefined,
+    iconKey: a.iconKey ?? undefined,
   }))
 
   const transactionCategories = await transactionCategoryRepo.findMany({

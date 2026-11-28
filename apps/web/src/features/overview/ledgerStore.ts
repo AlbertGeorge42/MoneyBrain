@@ -42,6 +42,8 @@ export interface LedgerAccountInput {
   initialBalance?: number
   /** 期初余额日期（YYYY-MM-DD）；新建必填，编辑时省略表示保持原值。 */
   initialBalanceDate?: string
+  /** 受控图标 key；null = 回退到所属分组图标。 */
+  iconKey?: string | null
 }
 
 /** 设置页账户分组表单：只含名称、归属与可选图标，不碰计算标记。 */

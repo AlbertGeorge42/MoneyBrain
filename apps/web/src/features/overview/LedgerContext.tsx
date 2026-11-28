@@ -338,6 +338,7 @@ export function LedgerProvider({
             initialBalance: minor(input.initialBalance ?? input.balance),
             initialBalanceDate: input.initialBalanceDate ?? todayLocal(),
             sort,
+            iconKey: input.iconKey ?? null,
           })
           .then(unwrapApiData)
         await refreshRemote()
@@ -363,6 +364,7 @@ export function LedgerProvider({
           name: input.name,
           type: accountTypeForInput(input, ledgerRef.current),
           categoryId,
+          ...(input.iconKey !== undefined && { iconKey: input.iconKey }),
         }
         const currentBalance = ledgerRef.current.accounts.find((account) => account.id === id)?.balance ?? 0
         const accounts = await accountApi.getAll().then(unwrapApiData)

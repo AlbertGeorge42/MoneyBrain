@@ -169,6 +169,7 @@ async function importAccounts(
                 : existing.initialBalanceDate,
               sort: account.sort ?? existing.sort,
               categoryId: categoryId ?? existing.categoryId,
+              ...(account.iconKey !== undefined && { iconKey: parseOptionalIconKey(account.iconKey) }),
             },
             tx,
           )
@@ -188,6 +189,7 @@ async function importAccounts(
               : null,
             sort,
             categoryId,
+            iconKey: parseOptionalIconKey(account.iconKey),
           },
           tx,
         )

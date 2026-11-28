@@ -39,6 +39,8 @@ model Account {
   initialBalanceDate  DateTime?
   categoryId          String?
   sort                Int               @default(0)
+  /// 受控图标 key（CATEGORY_ICON_KEYS）；null = 回退到所属分组图标。
+  iconKey             String?
   category            AccountCategory?  @relation(fields: [categoryId], references: [id])
   fromTransactions    Transaction[]     @relation("TransactionFrom")
   toTransactions      Transaction[]     @relation("TransactionTo")

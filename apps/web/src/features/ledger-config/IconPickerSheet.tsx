@@ -24,6 +24,7 @@ export function IconPickerSheet({
   device,
   value,
   recommendedGroup,
+  hint,
   onSelect,
   onClose,
 }: {
@@ -33,6 +34,8 @@ export function IconPickerSheet({
   value: string
   /** 推荐分组：排在最前并标注「推荐」，不预选任何值。 */
   recommendedGroup?: CategoryIconGroupId | null
+  /** 底部说明；缺省为分类口径。 */
+  hint?: string
   onSelect: (iconKey: string) => void
   onClose: () => void
 }) {
@@ -126,7 +129,7 @@ export function IconPickerSheet({
           )}
         </div>
         <p className="mb-set-hint">
-          图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。
+          {hint ?? '图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。'}
         </p>
       </div>
     </Sheet>

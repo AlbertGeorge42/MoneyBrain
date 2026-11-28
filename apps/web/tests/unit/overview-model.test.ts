@@ -11,6 +11,7 @@ import {
   deriveBudgets,
   deriveNetWorthTrend,
   deriveOverview,
+  getAccountIconKey,
   getCategoryIconKey,
   groupRecentTransactions,
 } from '@/features/overview/model'
@@ -90,6 +91,29 @@ describe('分类图标回退', () => {
       ),
     }
     expect(getCategoryIconKey(childIcon, 'food_lunch')).toBe('salary')
+  })
+
+  it('账户图标自身优先，未设时回退所属分组图标，都没有则 undefined', () => {
+    const base = createTestLedger()
+    expect(getAccountIconKey(base, 'cmb')).toBeUndefined()
+
+    const groupIcon = {
+      ...base,
+      accountCategories: base.accountCategories.map((category) =>
+        category.id === 'grp-cash' ? { ...category, iconKey: 'bank' } : category,
+      ),
+    }
+    expect(getAccountIconKey(groupIcon, 'cmb')).toBe('bank')
+
+    const accountIcon = {
+      ...groupIcon,
+      accounts: groupIcon.accounts.map((account) =>
+        account.id === 'cmb' ? { ...account, iconKey: 'wallet' } : account,
+      ),
+    }
+    expect(getAccountIconKey(accountIcon, 'cmb')).toBe('wallet')
+
+    expect(getAccountIconKey(accountIcon, '不存在的账户')).toBeUndefined()
   })
 })
 

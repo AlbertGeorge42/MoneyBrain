@@ -5,7 +5,7 @@
  * 只允许竖直拖动；列表默认全部收起，展开集合由页面统一持有。
  */
 import { useCallback, useMemo, useRef } from 'react'
-import { ChevronDown, ChevronRight, GripVertical, Plus, Wallet } from 'lucide-react'
+import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
 import {
   DndContext,
   MeasuringStrategy,
@@ -23,7 +23,7 @@ import { Tabs } from '@/features/shared/Tabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
-import type { Ledger } from '@/features/overview/model'
+import { getAccountIconKey, type Ledger } from '@/features/overview/model'
 import {
   restrictToVerticalAxis,
   sameScopeClosestCenter,
@@ -124,6 +124,7 @@ function SortableAccountRow({
     data: { sortScope: scope },
   })
   const name = accountDisplayName(account, ledger.accounts)
+  const iconKey = getAccountIconKey(ledger, account.id)
   return (
     <div className="mb-set-node">
       <div
@@ -133,7 +134,7 @@ function SortableAccountRow({
       >
         <span className="mb-set-child-space" aria-hidden="true" />
         <span className="mb-set-icon">
-          <Wallet size={16} />
+          <CategoryIcon iconKey={iconKey} />
         </span>
         <span className="mb-set-name">{name}</span>
         {/* 行内操作统一走 RowMenu：与收支分类同一套交互与二次确认。 */}

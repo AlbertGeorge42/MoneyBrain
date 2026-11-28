@@ -26,6 +26,8 @@ export interface LedgerAccount {
   initialBalanceDate?: string | null
   /** 所属账户分组（后端 AccountCategory 的真实 id）；null = 未分组。 */
   categoryId?: string | null
+  /** 用户设置的受控图标 key；null / 缺省 = 回退到所属分组图标。 */
+  iconKey?: string | null
 }
 
 /**
@@ -625,6 +627,19 @@ export function getCategoryIconKey(ledger: Ledger, categoryId: string): string |
     current = current.parentId ? getCategory(ledger, current.parentId) : undefined
   }
   return undefined
+}
+
+/**
+ * 账户图标的用户设置值：先看账户自身，再回退到所属账户分组的 iconKey。
+ * 都没有时返回 undefined，由 CategoryIcon 回退到通用 Tag。
+ */
+export function getAccountIconKey(ledger: Ledger, accountId: string): string | undefined {
+  const account = ledger.accounts.find((item) => item.id === accountId)
+  if (!account) return undefined
+  if (account.iconKey) return account.iconKey
+  if (!account.categoryId) return undefined
+  const group = (ledger.accountCategories ?? []).find((item) => item.id === account.categoryId)
+  return group?.iconKey ?? undefined
 }
 
 export function accountKindLabel(kind: AccountKind): string {

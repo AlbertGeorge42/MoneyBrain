@@ -149,6 +149,8 @@ export interface Account {
   categoryId: string | null
   sort: number
   category: AccountCategory | null
+  /** 受控图标 key（见 CATEGORY_ICON_KEYS）；null = 回退到所属分组图标。 */
+  iconKey: string | null
   /** 根继承解析后的有效计算属性；财务计算与账户性质展示都用这两个字段。 */
   effectiveIsCashEquivalent: boolean
   effectiveIsInvestment: boolean

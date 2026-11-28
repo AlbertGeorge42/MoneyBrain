@@ -10,6 +10,7 @@ import {
   hasValue,
   nextDay,
   parseMoney,
+  parseOptionalIconKey,
   parseOptionalUuid,
   toDate,
 } from '../common/index.js'
@@ -35,6 +36,7 @@ const validateCreateAccount = (req: Request) => {
   if (hasValue(initialBalance)) {
     parseMoney(initialBalance, '期初余额')
   }
+  parseOptionalIconKey((req.body as Record<string, unknown>).iconKey)
   parseOptionalUuid((req.body as Record<string, unknown>).id, 'id')
 }
 
@@ -44,6 +46,7 @@ const validateUpdateAccount = (req: Request) => {
   if (hasValue(initialBalance)) {
     parseMoney(initialBalance, '期初余额')
   }
+  parseOptionalIconKey((req.body as Record<string, unknown>).iconKey)
 }
 
 router.get('/', asyncHandler(async (req, res) => {
@@ -121,7 +124,7 @@ router.post('/:id/reconcile', validateRequest(validateReconcile), asyncHandler(a
 }))
 
 router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req, res) => {
-  const { id, name, type, categoryId, initialBalance, initialBalanceDate, sort } = req.body
+  const { id, name, type, categoryId, initialBalance, initialBalanceDate, sort, iconKey } = req.body
   const account = await createAccount({
     id,
     name,
@@ -130,6 +133,7 @@ router.post('/', validateRequest(validateCreateAccount), asyncHandler(async (req
     initialBalance,
     initialBalanceDate,
     sort,
+    iconKey,
   })
   return success(res, account, 201)
 }))

@@ -47,7 +47,7 @@ export interface EditorSaveValue {
   initialBalance: number
   /** 期初余额日期（YYYY-MM-DD）。 */
   initialBalanceDate: string
-  /** 受控图标 key；仅分类 / 账户分组使用，null = 自动。 */
+  /** 受控图标 key；账户 / 分类 / 账户分组通用，null = 自动。 */
   iconKey?: string | null
 }
 
@@ -103,8 +103,8 @@ export function EditorSheet({
   const currentBalance = account ? account.balance / 100 : 0
   const openingBalance = account?.initialBalance !== undefined ? account.initialBalance / 100 : currentBalance
   const openingDate = account?.initialBalanceDate ?? todayLocal()
-  // 分类与一级账户分组可选图标；空串表示「自动」，保存时转成 null。
-  const initialIconKey = category?.iconKey ?? group?.iconKey ?? ''
+  // 账户、分类与一级账户分组都可配图标；空串表示「自动」（回退所属分组），保存时转成 null。
+  const initialIconKey = account?.iconKey ?? category?.iconKey ?? group?.iconKey ?? ''
 
   const [name, setName] = useState(initialName)
   const [kind, setKind] = useState<AccountKind>(initialKind)
@@ -188,10 +188,7 @@ export function EditorSheet({
           : balanceCents,
       initialBalance: initialBalanceCents,
       initialBalanceDate,
-      iconKey:
-        editor.kind === 'category' || editor.kind === 'accountGroup'
-          ? iconKey || null
-          : undefined,
+      iconKey: iconKey || null,
     })
   }
 
@@ -209,10 +206,10 @@ export function EditorSheet({
       ? ledger.accounts.filter((item) => item.categoryId === editor.groupId).length
       : 0
 
-  // 推荐逻辑：账户分组优先展示账户类（钱包 / 银行卡 / 房产 / 股票 / 基金 / 负债），
+  // 推荐逻辑：账户与其分组优先展示账户类（钱包 / 银行卡 / 房产 / 股票 / 基金 / 负债），
   // 收入分类优先展示收入类。只调整分组顺序并标注「推荐」，不预选任何值——默认仍是「自动」。
   const recommendedGroup: CategoryIconGroupId | null =
-    editor.kind === 'accountGroup'
+    editor.kind === 'account' || editor.kind === 'accountGroup'
       ? 'account'
       : editor.kind === 'category' && editor.type === 'income'
         ? 'income'
@@ -263,7 +260,7 @@ export function EditorSheet({
           />
         </label>
 
-        {(editor.kind === 'category' || editor.kind === 'accountGroup') && (
+        {(editor.kind === 'account' || editor.kind === 'category' || editor.kind === 'accountGroup') && (
           <div className="mb-set-field">
             <FieldLabel>图标</FieldLabel>
             {/* 图标网格收在独立抽屉里：这里只留当前图标与入口。 */}
@@ -276,12 +273,18 @@ export function EditorSheet({
                 <CurrentIcon size={18} strokeWidth={1.8} />
               </span>
               <span className="mb-set-icon-current-text">
-                {iconKey ? '已选图标' : '自动（按名称匹配）'}
+                {iconKey
+                  ? '已选图标'
+                  : editor.kind === 'account'
+                    ? '自动（跟随分组）'
+                    : '自动（按名称匹配）'}
               </span>
               <ChevronRight size={16} />
             </Button>
             <p className="mb-set-hint">
-              图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。
+              {editor.kind === 'account'
+                ? '图标会显示在账户列表中；选「自动」时跟随所属账户分组的图标。'
+                : '图标会显示在流水与分类详情中；选「自动」时按分类名称匹配，匹配不到则使用通用标签。'}
             </p>
           </div>
         )}
@@ -414,6 +417,11 @@ export function EditorSheet({
         device={device}
         value={iconKey}
         recommendedGroup={recommendedGroup}
+        hint={
+          editor.kind === 'account'
+            ? '图标会显示在账户列表中；选「自动」时跟随所属账户分组的图标。'
+            : undefined
+        }
         onSelect={setIconKey}
         onClose={() => setIconPickerOpen(false)}
       />

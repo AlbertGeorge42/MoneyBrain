@@ -263,6 +263,7 @@ export function useLedgerConfigController({
                 balance: value.balance,
                 initialBalance: value.initialBalance,
                 initialBalanceDate: value.initialBalanceDate,
+                iconKey: value.iconKey,
               })
             : await createAccount({
                 name: value.name,
@@ -271,6 +272,7 @@ export function useLedgerConfigController({
                 balance: value.balance,
                 initialBalance: value.initialBalance,
                 initialBalanceDate: value.initialBalanceDate,
+                iconKey: value.iconKey,
               })
           : editor.mode === 'edit' && editor.categoryId
             ? await updateCategory(editor.categoryId, {

@@ -233,6 +233,7 @@ export function buildLedgerFromApi(payload: LedgerApiPayload, today = todayLocal
       kind: accountKind(account),
       balance,
       categoryId: account.categoryId ?? null,
+      iconKey: account.iconKey,
       initialBalance: Number(account.initialBalance),
       initialBalanceDate: account.initialBalanceDate,
     }
@@ -376,6 +377,7 @@ export function buildMetadataLedger(core: LedgerCorePayload): Ledger {
       kind: accountKind(account),
       balance: 0,
       categoryId: account.categoryId ?? null,
+      iconKey: account.iconKey,
       initialBalance: Number(account.initialBalance),
       initialBalanceDate: account.initialBalanceDate,
     })),
