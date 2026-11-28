@@ -154,6 +154,12 @@
   flex-direction: column;
 }
 
+/* 拖拽期间禁止同时改展开状态或打开行菜单；拖拽手柄本身仍可交互。 */
+.mb-set-list.is-dragging .mb-set-fold,
+.mb-set-list.is-dragging .mb-set-more {
+  pointer-events: none;
+}
+
 .mb-set-row {
   position: relative;
   display: flex;
@@ -168,18 +174,12 @@
   border-bottom: 0;
 }
 
-.mb-set-row.is-group {
-  background: var(--mb-color-surface-sunken);
-}
-
-/* 层级只看「是不是子级」：一级名称 primary/600，二级与流水里的分类同层级感，
-   降为 secondary/400；行高与分隔线全层级同一套。 */
+/* 层级只靠字重区分：一级 600、二级 400，颜色与行高全层级同一套。 */
 .mb-set-row:not(.is-child) .mb-set-name {
   font-weight: 600;
 }
 
 .mb-set-row.is-child .mb-set-name {
-  color: var(--mb-color-text-secondary);
   font-weight: 400;
 }
 
@@ -217,12 +217,8 @@
   margin-left: calc(var(--mb-s-2) * -1);
 }
 
-/* 二级行缩进由「折叠占位 + 拖拽手柄」自然撑出，不靠额外 padding；两端都保留可拖的手柄。 */
-.mb-set-page[data-device='desktop'] .mb-set-row.is-child {
-  padding-left: calc(var(--mb-s-3) + var(--mb-s-3));
-}
-
-:is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-row.is-child {
+/* 一 / 二级图标对齐：占位与折叠位同宽，子级不额外缩进；层级只靠字重。 */
+:is(.mb-set-page, .mb-set-config) .mb-set-row.is-child {
   padding-left: var(--mb-s-3);
 }
 
@@ -258,10 +254,6 @@
   border-radius: var(--mb-radius-xs);
   background: var(--mb-color-surface-sunken);
   color: var(--mb-color-text-secondary);
-}
-
-.mb-set-row.is-group .mb-set-icon {
-  background: var(--mb-color-surface-raised);
 }
 
 /* 已设置图标时让图标铺满原占位块；未设置仍显示原 24×24 Tag 占位。 */
@@ -324,8 +316,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: var(--mb-btn-h-sm);
   height: var(--mb-btn-h-sm);
+  /* shared Button 基类自带左右内距与 min-height，会把 32px 方块里的 SVG 挤成竖线。 */
+  padding: 0;
+  min-height: 0;
   border: 0;
   border-radius: var(--mb-radius-sm);
   background: transparent;
@@ -375,12 +371,6 @@
   font-size: var(--mb-fs-1);
   text-align: left;
   cursor: pointer;
-}
-
-.mb-set-menu-hint {
-  font-size: var(--mb-fs-0);
-  line-height: var(--mb-lh-body);
-  color: var(--mb-color-text-tertiary);
 }
 
 .mb-set-menu-item:hover:not(:disabled) {
@@ -983,15 +973,15 @@
   margin-left: calc(var(--mb-s-3) * -1);
 }
 
+/* 与上面的移动端折叠位同宽，保证一级 / 二级图标起点一致。 */
 :is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-child-space {
-  width: 28px;
+  width: var(--mb-btn-h-lg);
   margin-left: calc(var(--mb-s-3) * -1);
 }
 
 :is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-more {
   width: var(--mb-btn-h-lg);
   height: var(--mb-btn-h-lg);
-  margin-right: calc(var(--mb-s-2) * -1);
 }
 
 :is(.mb-set-page, .mb-set-config)[data-device='mobile'] .mb-set-menu-item {

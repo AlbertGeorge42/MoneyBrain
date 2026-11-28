@@ -4,20 +4,34 @@
  * 与收支分类一致：用 mb-set-* 列表 + dnd-kit 拖拽排序（分组可拖、账户在组内可拖），
  * 只允许竖直拖动；列表默认全部收起，展开集合由页面统一持有。
  */
+import { useCallback, useMemo, useRef } from 'react'
 import { ChevronDown, ChevronRight, GripVertical, Plus, Wallet } from 'lucide-react'
-import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
+import {
+  DndContext,
+  MeasuringStrategy,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
 import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { Button } from '@/features/shared/Button'
+import { Collapse, type CollapseTiming } from '@/features/shared/Collapse'
 import { Tabs } from '@/features/shared/Tabs'
 import { accountDisplayName } from '@/features/shared/accountIdentity'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
 import type { Ledger } from '@/features/overview/model'
-import { restrictToVerticalAxis, useVerticalDragSensors, verticalDragStyle } from './drag'
+import {
+  restrictToVerticalAxis,
+  sameScopeClosestCenter,
+  useTemporaryDragCollapse,
+  useVerticalDragSensors,
+  verticalDragStyle,
+} from './drag'
+import { CollapseRemeasure } from './CollapseRemeasure'
 import { RowMenu } from './RowMenu'
 import {
   accountGroupCount,
@@ -62,9 +76,28 @@ interface AccountsSectionProps {
   ) => void
 }
 
+/** 分组与账户共用一个 SortableContext，靠 scope 区分一级 / 二级的兄弟集合。 */
+type FlatAccountRow =
+  | {
+      kind: 'group'
+      id: string
+      group: AccountGroup
+      scope: string
+      siblings: readonly string[]
+    }
+  | {
+      kind: 'account'
+      id: string
+      account: AccountRow
+      group: AccountGroup
+      scope: string
+      siblings: readonly string[]
+    }
+
 function SortableAccountRow({
   account,
   group,
+  scope,
   ledger,
   menuOpen,
   onMenuOpen,
@@ -76,6 +109,7 @@ function SortableAccountRow({
 }: {
   account: AccountRow
   group: AccountGroup
+  scope: string
   ledger: Ledger
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
@@ -87,15 +121,17 @@ function SortableAccountRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `a:${account.id}`,
+    data: { sortScope: scope },
   })
   const name = accountDisplayName(account, ledger.accounts)
   return (
-    <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
-      <div className="mb-set-row is-child">
+    <div className="mb-set-node">
+      <div
+        ref={setNodeRef}
+        style={verticalDragStyle(transform, transition, isDragging)}
+        className="mb-set-row is-child"
+      >
         <span className="mb-set-child-space" aria-hidden="true" />
-        <span className="mb-set-drag" {...attributes} {...listeners}>
-          <GripVertical size={14} />
-        </span>
         <span className="mb-set-icon">
           <Wallet size={16} />
         </span>
@@ -131,11 +167,13 @@ function SortableAccountRow({
               danger: true,
               confirm: account.txCount === 0,
               disabled: account.txCount > 0,
-              hint: '有流水，先把流水移到别的账户',
               onSelect: () => onDelete(account),
             },
           ]}
         />
+        <span className="mb-set-drag" {...attributes} {...listeners}>
+          <GripVertical size={14} />
+        </span>
       </div>
     </div>
   )
@@ -144,8 +182,12 @@ function SortableAccountRow({
 function SortableGroupRow({
   group,
   groups,
+  scope,
   ledger,
   open,
+  dragging,
+  timing,
+  onCollapseSettled,
   onToggle,
   menuOpen,
   onMenuOpen,
@@ -159,8 +201,13 @@ function SortableGroupRow({
 }: {
   group: AccountGroup
   groups: readonly AccountGroup[]
+  scope: string
   ledger: Ledger
   open: boolean
+  /** 列表正在拖拽：临时禁用折叠按钮，避免并发改写展开状态。 */
+  dragging: boolean
+  timing: CollapseTiming
+  onCollapseSettled: () => void
   onToggle: () => void
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
@@ -175,17 +222,23 @@ function SortableGroupRow({
   const draggable = !group.ungrouped
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `g:${group.id}`,
+    data: { sortScope: scope },
     disabled: !draggable,
   })
   const hasAccounts = accountGroupCount(group) > 0
   return (
-    <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
-      <div className="mb-set-row">
+    <div className="mb-set-node">
+      <div
+        ref={setNodeRef}
+        style={verticalDragStyle(transform, transition, isDragging)}
+        className="mb-set-row"
+      >
         {hasAccounts ? (
           <Button
             className="mb-set-fold"
             aria-label={open ? '收起账户' : '展开账户'}
             aria-expanded={open}
+            disabled={dragging}
             onClick={() => onToggle()}
           >
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -193,13 +246,6 @@ function SortableGroupRow({
         ) : (
           <span className="mb-set-child-space" aria-hidden="true" />
         )}
-        <span
-          className="mb-set-drag"
-          {...(draggable ? attributes : {})}
-          {...(draggable ? listeners : {})}
-        >
-          <GripVertical size={14} />
-        </span>
         <span className="mb-set-icon">
           <CategoryIcon
             iconKey={ledger.accountCategories?.find((item) => item.id === group.id)?.iconKey}
@@ -218,7 +264,6 @@ function SortableGroupRow({
               key: `grp-edit-${group.id}`,
               label: '编辑',
               disabled: !draggable,
-              hint: '默认归类只读',
               onSelect: () => onOpenGroup(group),
             },
             {
@@ -227,22 +272,27 @@ function SortableGroupRow({
               danger: true,
               confirm: !hasAccounts && draggable,
               disabled: hasAccounts || !draggable,
-              hint: hasAccounts ? '先把账户移到其他分组' : '默认归类只读',
               onSelect: () => onDeleteGroup(group),
             },
           ]}
         />
-      </div>
-      {open && hasAccounts && (
-        <SortableContext
-          items={group.rows.map((account) => `a:${account.id}`)}
-          strategy={verticalListSortingStrategy}
+        <span
+          className="mb-set-drag"
+          {...(draggable ? attributes : {})}
+          {...(draggable ? listeners : {})}
         >
-          {group.rows.map((account) => (
+          <GripVertical size={14} />
+        </span>
+      </div>
+      {hasAccounts && (
+        <Collapse open={open} timing={timing} onSettled={onCollapseSettled}>
+          <div className="mb-set-children">
+            {group.rows.map((account) => (
             <SortableAccountRow
               key={account.id}
               account={account}
               group={group}
+              scope={`acc:${group.id}`}
               ledger={ledger}
               menuOpen={menuOpen}
               onMenuOpen={onMenuOpen}
@@ -252,8 +302,9 @@ function SortableGroupRow({
               onOpenMover={onOpenMover}
               onDelete={onDeleteAccount}
             />
-          ))}
-        </SortableContext>
+            ))}
+          </div>
+        </Collapse>
       )}
     </div>
   )
@@ -285,7 +336,6 @@ export function AccountsSection({
   const visibleGroups = showEmptyGroups
     ? groups
     : groups.filter((group) => accountGroupCount(group) > 0)
-  const realGroups = visibleGroups.filter((group) => !group.ungrouped)
   const emptyGroupCount = groups.filter((group) => accountGroupCount(group) === 0).length
   const allExpanded =
     visibleGroups.length > 0 &&
@@ -310,38 +360,81 @@ export function AccountsSection({
   }
 
   const sensors = useVerticalDragSensors()
+  const { begin, finish, draggingKey, restoringKey } = useTemporaryDragCollapse(onSetGroupsExpanded)
+  const remeasureRef = useRef<() => void>(() => {})
+  const registerRemeasure = useCallback((remeasure: () => void) => {
+    remeasureRef.current = remeasure
+  }, [])
+  const remeasure = useCallback(() => remeasureRef.current(), [])
+  const collapseTiming = (id: string): CollapseTiming =>
+    draggingKey === `grp-${id}` ? 'quick' : restoringKey === `grp-${id}` ? 'restore' : 'normal'
+
+  // 分组与账户共用一份扁平 items：两者都是单行，一级 / 二级位移与碰撞口径完全一致。
+  const flatRows = useMemo(() => {
+    const result: FlatAccountRow[] = []
+    const groupScope = `grp:${tab}`
+    const groupIds = visibleGroups
+      .filter((group) => !group.ungrouped)
+      .map((group) => `g:${group.id}`)
+    visibleGroups.forEach((group) => {
+      result.push({
+        kind: 'group',
+        id: `g:${group.id}`,
+        group,
+        scope: groupScope,
+        siblings: groupIds,
+      })
+      if (isKeyExpanded(expandedKeys, `grp-${group.id}`) && accountGroupCount(group) > 0) {
+        const accountIds = group.rows.map((account) => `a:${account.id}`)
+        group.rows.forEach((account) =>
+          result.push({
+            kind: 'account',
+            id: `a:${account.id}`,
+            account,
+            group,
+            scope: `acc:${group.id}`,
+            siblings: accountIds,
+          }),
+        )
+      }
+    })
+    return result
+  }, [visibleGroups, tab, expandedKeys])
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const activeMeta = flatRows.find((meta) => meta.id === String(event.active.id))
+    // 只有一级分组从专用手柄拖起时才临时折叠；账户拖拽不碰展开状态。
+    if (activeMeta?.kind !== 'group') return
+    const key = `grp-${activeMeta.group.id}`
+    begin(key, isKeyExpanded(expandedKeys, key))
+  }
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const activeId = String(active.id)
-    const overId = String(over.id)
-    const activeIsGroup = activeId.startsWith('g:')
-    const overIsGroup = overId.startsWith('g:')
-    if (activeIsGroup !== overIsGroup) return
-    if (activeIsGroup) {
-      const aReal = activeId.slice(2)
-      const oReal = overId.slice(2)
-      const oldIndex = realGroups.findIndex((group) => group.id === aReal)
-      const newIndex = realGroups.findIndex((group) => group.id === oReal)
-      if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-        const scope: ConfigOrderScope = { kind: 'group', type: tab }
-        onReorderGroupTo(scope, aReal, oReal, newIndex)
-      }
-      return
-    }
-    const aReal = activeId.slice(2)
-    const oReal = overId.slice(2)
-    for (const group of visibleGroups) {
-      const accIds = group.rows.map((account) => account.id)
-      if (accIds.includes(aReal) && accIds.includes(oReal)) {
-        const newIndex = group.rows.findIndex((account) => account.id === oReal)
-        if (newIndex >= 0) {
-          const scope: ConfigOrderScope = { kind: 'account', groupId: group.id }
-          onReorderAccountTo(scope, aReal, oReal, newIndex)
-        }
+    try {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+      const byId = new Map(flatRows.map((meta) => [meta.id, meta]))
+      const activeMeta = byId.get(String(active.id))
+      const overMeta = byId.get(String(over.id))
+      if (!activeMeta || !overMeta || activeMeta.scope !== overMeta.scope) return
+      if (
+        activeMeta.kind === 'group' &&
+        overMeta.kind === 'group' &&
+        (activeMeta.group.ungrouped || overMeta.group.ungrouped)
+      ) {
         return
       }
+      const newIndex = activeMeta.siblings.indexOf(overMeta.id)
+      if (newIndex < 0) return
+      if (activeMeta.kind === 'group' && overMeta.kind === 'group') {
+        const scope: ConfigOrderScope = { kind: 'group', type: tab }
+        onReorderGroupTo(scope, activeMeta.id.slice(2), overMeta.id.slice(2), newIndex)
+      } else if (activeMeta.kind === 'account' && overMeta.kind === 'account') {
+        const scope: ConfigOrderScope = { kind: 'account', groupId: activeMeta.group.id }
+        onReorderAccountTo(scope, activeMeta.id.slice(2), overMeta.id.slice(2), newIndex)
+      }
+    } finally {
+      finish()
     }
   }
 
@@ -408,15 +501,20 @@ export function AccountsSection({
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={sameScopeClosestCenter}
         modifiers={[restrictToVerticalAxis]}
+        // 折叠后行位变化，强制重新测量 droppable，避免沿用折叠前的缓存。
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={finish}
       >
+        <CollapseRemeasure register={registerRemeasure} />
         <SortableContext
-          items={realGroups.map((group) => `g:${group.id}`)}
+          items={flatRows.map((meta) => meta.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="mb-set-list">
+          <div className={draggingKey ? 'mb-set-list is-dragging' : 'mb-set-list'}>
             {visibleGroups.length === 0 ? (
               <div className="mb-set-list-empty">
                 <p>还没有分组</p>
@@ -436,8 +534,12 @@ export function AccountsSection({
                   key={group.id}
                   group={group}
                   groups={groups}
+                  scope={`grp:${tab}`}
                   ledger={ledger}
                   open={isKeyExpanded(expandedKeys, `grp-${group.id}`)}
+                  dragging={draggingKey !== null}
+                  timing={collapseTiming(group.id)}
+                  onCollapseSettled={remeasure}
                   onToggle={() => onToggleExpanded(`grp-${group.id}`)}
                   menuOpen={menuOpen}
                   onMenuOpen={onMenuOpen}

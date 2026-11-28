@@ -10,7 +10,6 @@ export interface MenuItem {
   key: string
   danger?: boolean
   disabled?: boolean
-  hint?: string
   /** 需要二次确认的操作：第一次点击变成「确认删除」，3 秒未确认自动复位。 */
   confirm?: boolean
   onSelect: () => void
@@ -66,9 +65,6 @@ export function RowMenu({
                 }}
               >
                 <span>{armed ? '确认删除' : item.label}</span>
-                {item.disabled && item.hint && (
-                  <span className="mb-set-menu-hint">{item.hint}</span>
-                )}
               </Button>
             )
           })}

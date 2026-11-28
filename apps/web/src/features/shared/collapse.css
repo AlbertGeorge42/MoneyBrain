@@ -1,0 +1,35 @@
+/**
+ * 折叠动画的唯一实现：高度 + 透明度组合过渡，缓动沿用 --mb-ease（无弹簧回弹）。
+ * 时长由 data-timing 选择，具体数值来自主题变量，便于减少动效时统一归零。
+ */
+.mb-shared-collapse {
+  --mb-collapse-dur: var(--mb-collapse-dur-normal);
+  display: block;
+  overflow: hidden;
+  height: 0;
+  opacity: 0;
+  transition:
+    height var(--mb-collapse-dur) var(--mb-ease),
+    opacity var(--mb-collapse-dur) var(--mb-ease);
+}
+
+.mb-shared-collapse[data-timing='quick'] {
+  --mb-collapse-dur: var(--mb-collapse-dur-quick);
+}
+
+.mb-shared-collapse[data-timing='restore'] {
+  --mb-collapse-dur: var(--mb-collapse-dur-restore);
+}
+
+/* 展开稳定后解除裁剪：行尾 ⋯ 菜单是浮层，不能被祖先 overflow 截掉。 */
+.mb-shared-collapse[data-state='open'] {
+  overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-shared-collapse,
+  .mb-shared-collapse[data-timing='quick'],
+  .mb-shared-collapse[data-timing='restore'] {
+    --mb-collapse-dur: 0ms;
+  }
+}

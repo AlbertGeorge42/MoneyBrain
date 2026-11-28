@@ -93,6 +93,11 @@
   --mb-dur-1: 150ms;
   --mb-dur-2: 280ms;
   --mb-ease: cubic-bezier(0.22, 0.8, 0.32, 1);
+  /* 折叠动画三档：用户手动折叠 / 拖拽临时折叠 / 拖拽结束恢复，均为高度 + 透明度，无回弹。 */
+  --mb-collapse-dur-normal: 180ms;
+  --mb-collapse-dur-quick: 120ms;
+  --mb-collapse-dur-restore: 170ms;
+  --mb-collapse-dur: var(--mb-collapse-dur-normal);
 
   /* 布局 */
   --mb-sidebar-w: 236px;

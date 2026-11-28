@@ -6,19 +6,33 @@
  * 排序用 dnd-kit 拖拽（GripVertical 为手柄，同级内可拖），只允许竖直方向；
  * 列表默认全部收起。
  */
+import { useCallback, useMemo, useRef } from 'react'
 import { ChevronDown, ChevronRight, GripVertical, Plus, Tag } from 'lucide-react'
-import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
+import {
+  DndContext,
+  MeasuringStrategy,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
 import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { Button } from '@/features/shared/Button'
+import { Collapse, type CollapseTiming } from '@/features/shared/Collapse'
 import { Tabs } from '@/features/shared/Tabs'
 import { isKeyExpanded, type ExpandedKeys } from '@/features/shared/foldState'
 import { CategoryIcon } from '@/features/overview/category'
 import { getCategoryIconKey, type Ledger, type TxType } from '@/features/overview/model'
-import { restrictToVerticalAxis, useVerticalDragSensors, verticalDragStyle } from './drag'
+import {
+  restrictToVerticalAxis,
+  sameScopeClosestCenter,
+  useTemporaryDragCollapse,
+  useVerticalDragSensors,
+  verticalDragStyle,
+} from './drag'
+import { CollapseRemeasure } from './CollapseRemeasure'
 import { RowMenu } from './RowMenu'
 import {
   CATEGORY_TABS,
@@ -36,6 +50,7 @@ interface CategoriesSectionProps {
   onTabChange: (tab: CategoryTab) => void
   expandedKeys: ExpandedKeys
   onToggleExpanded: (key: string) => void
+  onSetGroupsExpanded: (keys: readonly string[], expanded: boolean) => void
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
   confirming: string | null
@@ -52,13 +67,25 @@ interface CategoriesSectionProps {
   onDelete: (row: CategoryRow, type: TxType) => void
 }
 
-/** 单行（含递归子行）：自身是 sortable 项，展开的子行包进嵌套 SortableContext。 */
+/** 可见行的扁平元信息：一级与二级都进同一个 SortableContext，按 scope 区分兄弟组。 */
+interface FlatCategoryRow {
+  row: CategoryRow
+  parentId?: string
+  level: number
+  scope: string
+  siblings: readonly string[]
+}
+
+/** 单行（含递归子行）：sortable 节点只包这一行，展开的子行是平级兄弟而不是父行的一部分。 */
 function CategoryRowItem({
   row,
+  meta,
   type,
-  level,
   ledger,
   expandedKeys,
+  dragging,
+  timing,
+  onCollapseSettled,
   onToggleExpanded,
   menuOpen,
   onMenuOpen,
@@ -69,10 +96,14 @@ function CategoryRowItem({
   onDelete,
 }: {
   row: CategoryRow
+  meta: FlatCategoryRow
   type: TxType
-  level: number
   ledger: Ledger
   expandedKeys: ExpandedKeys
+  /** 列表正在拖拽：临时禁用折叠按钮，避免并发改写展开状态。 */
+  dragging: boolean
+  timing: CollapseTiming
+  onCollapseSettled: () => void
   onToggleExpanded: (key: string) => void
   menuOpen: string | null
   onMenuOpen: (next: string | null) => void
@@ -84,18 +115,24 @@ function CategoryRowItem({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
+    data: { sortScope: meta.scope },
   })
   const open = isKeyExpanded(expandedKeys, `cat-${row.id}`)
   // 与账本回退链一致：自身 iconKey → 父级继承；没有 iconKey 时保留原 Tag 占位。
   const iconKey = getCategoryIconKey(ledger, row.id)
   return (
-    <div ref={setNodeRef} style={verticalDragStyle(transform, transition, isDragging)}>
-      <div className={level > 0 ? 'mb-set-row is-child' : 'mb-set-row'}>
+    <div className="mb-set-node">
+      <div
+        ref={setNodeRef}
+        style={verticalDragStyle(transform, transition, isDragging)}
+        className={meta.level > 0 ? 'mb-set-row is-child' : 'mb-set-row'}
+      >
         {row.childCount > 0 ? (
           <Button
             className="mb-set-fold"
             aria-label={open ? '收起子分类' : '展开子分类'}
             aria-expanded={open}
+            disabled={dragging}
             onClick={() => onToggleExpanded(`cat-${row.id}`)}
           >
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -103,9 +140,6 @@ function CategoryRowItem({
         ) : (
           <span className="mb-set-child-space" aria-hidden="true" />
         )}
-        <span className="mb-set-drag" {...attributes} {...listeners}>
-          <GripVertical size={14} />
-        </span>
         <span className="mb-set-icon">
           {iconKey ? <CategoryIcon iconKey={iconKey} /> : <Tag size={16} />}
         </span>
@@ -117,7 +151,7 @@ function CategoryRowItem({
           confirming={confirming}
           onConfirm={onConfirm}
           items={[
-            ...(level === 0
+            ...(meta.level === 0
               ? [
                   {
                     key: `child-${row.id}`,
@@ -153,25 +187,34 @@ function CategoryRowItem({
               // 有子分类时先处理层级；仅被交易引用时打开转移弹窗，完成转移即删除。
               confirm: row.childCount === 0 && row.txCount === 0,
               disabled: row.childCount > 0,
-              hint: row.childCount > 0 ? '有子分类，先处理子分类' : undefined,
               onSelect: () => onDelete(row, type),
             },
           ]}
         />
+        <span className="mb-set-drag" {...attributes} {...listeners}>
+          <GripVertical size={14} />
+        </span>
       </div>
-      {open && row.children.length > 0 && (
-        <SortableContext
-          items={row.children.map((child) => child.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {row.children.map((child) => (
+      {row.children.length > 0 && (
+        <Collapse open={open} timing={timing} onSettled={onCollapseSettled}>
+          <div className="mb-set-children">
+            {row.children.map((child) => (
             <CategoryRowItem
               key={child.id}
               row={child}
+              meta={{
+                row: child,
+                parentId: row.id,
+                level: meta.level + 1,
+                scope: `cat:${type}:${row.id}`,
+                siblings: row.children.map((item) => item.id),
+              }}
               type={type}
-              level={level + 1}
               ledger={ledger}
               expandedKeys={expandedKeys}
+              dragging={dragging}
+              timing={timing}
+              onCollapseSettled={onCollapseSettled}
               onToggleExpanded={onToggleExpanded}
               menuOpen={menuOpen}
               onMenuOpen={onMenuOpen}
@@ -181,8 +224,9 @@ function CategoryRowItem({
               onOpenMover={onOpenMover}
               onDelete={onDelete}
             />
-          ))}
-        </SortableContext>
+            ))}
+          </div>
+        </Collapse>
       )}
     </div>
   )
@@ -195,6 +239,7 @@ export function CategoriesSection({
   onTabChange,
   expandedKeys,
   onToggleExpanded,
+  onSetGroupsExpanded,
   menuOpen,
   onMenuOpen,
   confirming,
@@ -205,33 +250,64 @@ export function CategoriesSection({
   onDelete,
 }: CategoriesSectionProps) {
   const sensors = useVerticalDragSensors()
+  const { begin, finish, draggingKey, restoringKey } = useTemporaryDragCollapse(onSetGroupsExpanded)
+  const remeasureRef = useRef<() => void>(() => {})
+  const registerRemeasure = useCallback((remeasure: () => void) => {
+    remeasureRef.current = remeasure
+  }, [])
+  const remeasure = useCallback(() => remeasureRef.current(), [])
+  const collapseTiming = (id: string): CollapseTiming =>
+    draggingKey === `cat-${id}` ? 'quick' : restoringKey === `cat-${id}` ? 'restore' : 'normal'
+
+  // 一级与二级共用一份扁平 items：两者都是 44px 的单行，位移与碰撞口径完全一致。
+  const flatRows = useMemo(() => {
+    const result: FlatCategoryRow[] = []
+    const walk = (
+      items: readonly CategoryRow[],
+      parentId: string | undefined,
+      level: number,
+      scope: string,
+    ) => {
+      const siblings = items.map((item) => item.id)
+      items.forEach((row) => {
+        result.push({ row, parentId, level, scope, siblings })
+        if (isKeyExpanded(expandedKeys, `cat-${row.id}`) && row.children.length > 0) {
+          walk(row.children, row.id, level + 1, `cat:${tab}:${row.id}`)
+        }
+      })
+    }
+    walk(rows, undefined, 0, `cat:${tab}:root`)
+    return result
+  }, [rows, expandedKeys, tab])
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const activeMeta = flatRows.find((meta) => meta.row.id === String(event.active.id))
+    // 只有一级节点从专用手柄拖起时才临时折叠；二级拖拽不碰展开状态。
+    if (!activeMeta || activeMeta.parentId) return
+    const key = `cat-${activeMeta.row.id}`
+    begin(key, isKeyExpanded(expandedKeys, key))
+  }
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const activeId = String(active.id)
-    const overId = String(over.id)
-    // 顶层行：直接在 rows 内重排。
-    const topIndex = rows.findIndex((row) => row.id === activeId)
-    if (topIndex >= 0) {
-      const newIndex = rows.findIndex((row) => row.id === overId)
-      if (newIndex >= 0) {
-        const scope: ConfigOrderScope = { kind: 'category', type: tab }
-        onReorder(scope, activeId, overId, newIndex)
-      }
-      return
-    }
-    // 子分类：找到共同父级，在父级 children 内重排。
-    for (const parent of rows) {
-      const childIds = parent.children.map((child) => child.id)
-      if (childIds.includes(activeId) && childIds.includes(overId)) {
-        const newIndex = parent.children.findIndex((child) => child.id === overId)
-        if (newIndex >= 0) {
-          const scope: ConfigOrderScope = { kind: 'category', type: tab, parentId: parent.id }
-          onReorder(scope, activeId, overId, newIndex)
-        }
-        return
-      }
+    try {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+      const activeId = String(active.id)
+      const overId = String(over.id)
+      const byId = new Map(flatRows.map((meta) => [meta.row.id, meta]))
+      const activeMeta = byId.get(activeId)
+      const overMeta = byId.get(overId)
+      // 跨层级 / 跨父级的落点直接忽略，一级与二级走同一套兄弟判定。
+      if (!activeMeta || !overMeta || activeMeta.scope !== overMeta.scope) return
+      const newIndex = activeMeta.siblings.indexOf(overId)
+      if (newIndex < 0) return
+      const scope: ConfigOrderScope = activeMeta.parentId
+        ? { kind: 'category', type: tab, parentId: activeMeta.parentId }
+        : { kind: 'category', type: tab }
+      onReorder(scope, activeId, overId, newIndex)
+    } finally {
+      // 先完成排序，再恢复原始展开状态；无有效落位 / 异常也一定恢复。
+      finish()
     }
   }
 
@@ -254,31 +330,45 @@ export function CategoriesSection({
       </div>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={sameScopeClosestCenter}
         modifiers={[restrictToVerticalAxis]}
+        // 折叠后行位变化，强制重新测量 droppable，避免沿用折叠前的缓存。
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={finish}
       >
-        <SortableContext items={rows.map((row) => row.id)} strategy={verticalListSortingStrategy}>
-          <div className="mb-set-list">
+        <CollapseRemeasure register={registerRemeasure} />
+        <SortableContext
+          items={flatRows.map((meta) => meta.row.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className={draggingKey ? 'mb-set-list is-dragging' : 'mb-set-list'}>
             {rows.length > 0 ? (
-              rows.map((row) => (
-                <CategoryRowItem
-                  key={row.id}
-                  row={row}
-                  type={tab}
-                  level={0}
-                  ledger={ledger}
-                  expandedKeys={expandedKeys}
-                  onToggleExpanded={onToggleExpanded}
-                  menuOpen={menuOpen}
-                  onMenuOpen={onMenuOpen}
-                  confirming={confirming}
-                  onConfirm={onConfirm}
-                  onOpenEditor={onOpenEditor}
-                  onOpenMover={onOpenMover}
-                  onDelete={onDelete}
-                />
-              ))
+              rows.map((row) => {
+                const meta = flatRows.find((item) => item.row.id === row.id)!
+                return (
+                  <CategoryRowItem
+                    key={row.id}
+                    row={row}
+                    meta={meta}
+                    type={tab}
+                    ledger={ledger}
+                    expandedKeys={expandedKeys}
+                    dragging={draggingKey !== null}
+                    timing={collapseTiming(row.id)}
+                    onCollapseSettled={remeasure}
+                    onToggleExpanded={onToggleExpanded}
+                    menuOpen={menuOpen}
+                    onMenuOpen={onMenuOpen}
+                    confirming={confirming}
+                    onConfirm={onConfirm}
+                    onOpenEditor={onOpenEditor}
+                    onOpenMover={onOpenMover}
+                    onDelete={onDelete}
+                  />
+                )
+              })
             ) : (
               <div className="mb-set-list-empty">
                 <Tag size={22} />

@@ -155,7 +155,7 @@ features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
 | `features/transactions/` | 流水、详情、批量、回收站；`apiTransactions.ts`；`TransactionDetailPanel.tsx` 是全项目唯一的交易详情（`useDetailActions.ts` 收口写动作），`shared/Modal.tsx` 是居中对话框唯一配置 |
 | `features/reports/` | 四张报表、图表、下钻；`apiReports.ts`；`reportRows.ts` 的 `flattenTreeRows` 是分类树到表格行的唯一展开实现；左右双表统一由 `ReportTable.tsx` 的 `ReportTablePair` 补齐行数并对齐合计行；`reportsModel.ts` 的 `buildDrillFor` + `DrillDrawer.tsx` 是四条环下钻链路（收支 / 资产负债 / 现金流 / 总览）的唯一数据与抽屉实现，统一为「环 → 抽屉 → 可编辑详情」：抽屉用 `shared/TxRow` 渲染相关流水、点行复用 `transactions/TransactionDetailPanel`，写动作统一走 `transactions/useDetailActions.ts` |
 | `features/budgets/` | 预算列表/编辑、状态、推演；`budgetModel.ts` |
-| `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源）；`LedgerConfigSection.tsx` 是两处共用的唯一内容组件，宿主只换外壳；`drag.ts` 提供竖直拖拽传感器与官方 sortable 行样式 |
+| `features/ledger-config/` | 账户分组 / 收支分类 / 现金流分类的共享配置抽屉与 controller（设置页与报表页同源）；`LedgerConfigSection.tsx` 是两处共用的唯一内容组件，宿主只换外壳；`drag.ts` 提供竖直拖拽传感器、官方 sortable 行样式与同级碰撞检测 |
 | `features/settings/` | 8 分区设置、导入导出、自动备份、回收站 |
 | `features/shell/` | 桌面侧栏 / 移动底栏与浮层宿主 |
 | `features/shared/` | Button、Sheet、Segmented、Switch、Tabs、HeadAction、Card、toast、StateViews、chartLayout、datePicker；`foldState.ts` 是全仓折叠列表的唯一默认口径（默认收起） |
@@ -166,7 +166,7 @@ features/<domain>/Page → api<Domain>.ts（或 LedgerContext）
 
 资产负债表的「账户分类 → 账户」层级由 `reportsModel.ts` 的 `buildBalanceGroups` 派生（缺分类元数据时按后端节点名兜底）：账户按自己的 `categoryId` 成组，**不做子分类向父分类归一**——设置页把每个账户分类平铺成分组，报表同口径，否则父级「资产」下的「现金 / 投资」会并成一组。`buildBalanceTrees` 再转成四张报表共用的 `FlowTreeNode`：PC 双表、移动分段表与资产 / 负债构成环都消费这一份树。构成环与收支构成共用 `charts.tsx` 的 `DonutCompare`（一个 `ChartCard` 内左右两环同尺寸），`BalanceComposition` 与 `CompositionBars` 只是两侧配置不同。环的绘制唯一实现在 `features/shared/DonutChart.tsx` + `donut.css`：`charts.tsx` 只 re-export，总览的扁平切片 → 环节点适配内联在 `OverviewPage.tsx`（无独立适配文件），两处都不再自己画弧。`CompositionDonutSide` 是唯一的单侧环包装：PC 双环的两侧与移动端分段单环都复用它；PC 图表区单列上下堆叠，移动端构成环移到分段下、表格上并按 side 只渲染一侧（现金流由 `CashGroup` 适配成环节点、下钻回 `categoryIds`）。四个视图共用 `foldState` 决定展开状态（默认收起）。
 
-**顺序与对齐**：后端按 `sort` 返回分类 / 账户，映射层（`apiReports.ts`）、分组层（`reportsModel.ts`）与投资持仓层都不再按金额重排，设置里的拖拽顺序即报表默认顺序。左右双表用固定数据行高 + 固定表头最小高度 + `ReportTablePair` 补齐行数，保证合计行同 y。
+**顺序与对齐**：后端按 `sort` 返回分类 / 账户，映射层（`apiReports.ts`）、分组层（`reportsModel.ts`）与投资持仓层都不再按金额重排，设置里的拖拽顺序即报表默认顺序。一级与二级共用同一个扁平 `SortableContext`，按 `sortScope` 只与同级兄弟碰撞；被拖的只是 44px 行本身；拖到已展开的一级节点时，通过 `useTemporaryDragCollapse` 复用现有展开集合 setter 真正折叠子级（`flushSync` 保证 DOM 在碰撞检测前更新），排序完成 / 取消 / 异常后恢复原展开状态。不另建折叠状态、不写持久化、不用 CSS 模拟折叠；`MeasuringStrategy.Always` 让 dnd-kit 按折叠后的新布局重新测量，碰撞只取同 scope 的一级兄弟。折叠动画统一走 `features/shared/Collapse.tsx`：高度 + 透明度过渡，缓动用 `--mb-ease`，无弹簧；正常折叠 180ms、拖拽临时折叠 120ms、拖拽结束恢复 170ms（三档写在主题变量里），`prefers-reduced-motion` 下归零。组件只负责挂载 / 卸载子行与过渡，展开状态仍只有调用方那一份；中途反向切换从当前高度续接，`transitionend` 不触发时由定时兜底收尾。动画期间若指针停留不动 dnd-kit 不会自行重算碰撞，因此每段动画 `onSettled` 都经 `CollapseRemeasure` 调用 `measureDroppableContainers` 刷新最终布局，避免松手沿用动画中途的 rect。左右双表用固定数据行高 + 固定表头最小高度 + `ReportTablePair` 补齐行数，保证合计行同 y。
 
 **缓存失效**：派生数据来自同一份交易；写操作后由 `DesignApp` 集中失效 `['hf', …]` 领域键，
 不在各页面散写。`queries/` 目录已不存在；不要重新引入。

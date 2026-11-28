@@ -242,6 +242,27 @@ describe('前端命名规范守卫（§4 / §10 / §11 / §13）', () => {
     expect(drag).not.toMatch(/transition:\s*isDragging/)
 
     const controller = files.find((entry) => rel(entry.file).endsWith('useLedgerConfigController.ts'))?.source ?? ''
+    expect(drag).toContain('sameScopeClosestCenter')
+    expect(drag).toContain('sortScope')
+    // 临时折叠复用现有 setter，并用 flushSync 让 DOM 在碰撞检测前更新。
+    expect(drag).toContain('useTemporaryDragCollapse')
+    expect(drag).toContain('flushSync')
+    expect(drag).not.toContain('sameScopeClosestCenterFor')
+
+    // 一级与二级进同一个 SortableContext，靠 scope 过滤碰撞，不再嵌套 Context。
+    for (const name of ['CategoriesSection.tsx', 'AccountsSection.tsx']) {
+      const section = files.find((entry) => rel(entry.file).endsWith(`ledger-config/${name}`))?.source ?? ''
+      expect(section, `${name} 必须用同级碰撞检测`).toContain('sameScopeClosestCenter')
+      expect(section, `${name} 必须给 sortable 行打 sortScope`).toContain('sortScope')
+      expect(section, `${name} 不得再嵌套 SortableContext`).not.toMatch(/\{open[\s\S]{0,200}<SortableContext/)
+      expect(section, `${name} 必须复用展开 setter 做临时折叠`).toContain('useTemporaryDragCollapse')
+      expect(section, `${name} 必须传入折叠 key`).toContain('onSetGroupsExpanded')
+      expect(section, `${name} 必须记录拖拽前展开状态`).toContain('isKeyExpanded(expandedKeys, key)')
+      expect(section, `${name} 必须在结束与取消时恢复`).toContain('onDragCancel={finish}')
+      expect(section, `${name} 必须重新测量折叠后的 droppable`).toContain('MeasuringStrategy.Always')
+      expect(section, `${name} 不得用 CSS 模拟折叠`).not.toMatch(/(display|visibility):\s*(none|hidden)/)
+    }
+
     expect(controller).toContain('arrayMove')
     expect(controller).toContain('reorderLocally')
     expect(controller).toContain('setOrderOverrides')
@@ -251,6 +272,52 @@ describe('前端命名规范守卫（§4 / §10 / §11 / §13）', () => {
       expect(controller.slice(start, start + 300)).toContain('reorderLocally')
       expect(controller.slice(start, start + 600)).toContain('clearOrder')
     }
+  })
+
+  it('折叠动画只有一份实现：三档时长、高度+透明度、拖拽后重测量', () => {
+    const rel = (file: string) => relative(WEB_ROOT, file).split('\\').join('/')
+    const src = (name: string) => files.find((entry) => rel(entry.file).endsWith(name))?.source ?? ''
+    const vars = src('styles/theme/variables.css')
+    const css = src('features/shared/collapse.css')
+    const component = src('features/shared/Collapse.tsx')
+    const drag = src('ledger-config/drag.ts')
+
+    const duration = (name: string) => {
+      const match = vars.match(new RegExp(`--mb-collapse-dur-${name}:\\s*(\\d+)ms`))
+      expect(match, `缺少 --mb-collapse-dur-${name}`).not.toBeNull()
+      return Number(match![1])
+    }
+    expect(duration('normal')).toBeGreaterThanOrEqual(160)
+    expect(duration('normal')).toBeLessThanOrEqual(220)
+    expect(duration('quick')).toBeGreaterThanOrEqual(100)
+    expect(duration('quick')).toBeLessThanOrEqual(140)
+    expect(duration('restore')).toBeGreaterThanOrEqual(160)
+    expect(duration('restore')).toBeLessThanOrEqual(200)
+
+    // 高度 + 透明度组合，缓动沿用 --mb-ease；不允许弹簧 / 额外动画库。
+    expect(css).toMatch(/height var\(--mb-collapse-dur\)/)
+    expect(css).toMatch(/opacity var\(--mb-collapse-dur\)/)
+    expect(css).not.toMatch(/spring|linear\(/)
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(css).toContain('--mb-collapse-dur: 0ms')
+    // 展开稳定后解除裁剪，否则行尾菜单会被 overflow 截掉。
+    expect(css).toMatch(/\.mb-shared-collapse\[data-state='open'\][\s\S]{0,80}overflow:\s*visible/)
+
+    // 中途反向切换从当前高度续接；transitionend 不触发时定时兜底。
+    expect(component).toContain('currentHeight')
+    expect(component).toContain('currentOpacity')
+    expect(component).toContain('setTimeout')
+    expect(component).toContain('onSettled')
+    expect(drag).toContain('restoringKey')
+
+    for (const name of ['CategoriesSection.tsx', 'AccountsSection.tsx']) {
+      const section = src(`ledger-config/${name}`)
+      expect(section, `${name} 必须用唯一折叠动画组件`).toContain('<Collapse')
+      expect(section, `${name} 必须区分拖拽临时折叠与恢复时长`).toContain('collapseTiming')
+      expect(section, `${name} 必须在动画结束后重测量`).toContain('CollapseRemeasure')
+      expect(section, `${name} 必须把重测量接到 onSettled`).toContain('onCollapseSettled={remeasure}')
+    }
+    expect(src('ledger-config/CollapseRemeasure.tsx')).toContain('measureDroppableContainers')
   })
 
   it('设置页与报表设置必须共用账本配置内容组件，不各自重复接线', () => {
@@ -290,11 +357,47 @@ describe('前端命名规范守卫（§4 / §10 / §11 / §13）', () => {
     expect(drag).toMatch(/width:\s*24px/)
     // 移动端曾为省 18px 名称宽度把二级手柄 display:none，导致二级行完全不能拖。
     expect(css).not.toMatch(/is-child[^\n]*\.mb-set-(drag|child-space)[^{]*\{[^}]*display:\s*none/)
-    const childPad = css.match(/:is\(\.mb-set-page, \.mb-set-config\)\[data-device='mobile'\] \.mb-set-row\.is-child\s*\{[^}]*\}/)?.[0] ?? ''
+    const childPad = css.match(/:is\(\.mb-set-page, \.mb-set-config\) \.mb-set-row\.is-child\s*\{[^}]*\}/)?.[0] ?? ''
     expect(childPad).toContain('var(--mb-s-3)')
+    // 一级 / 二级图标对齐：折叠位与占位在两端都必须同宽，子级不靠额外缩进。
+    expect(css).not.toMatch(/\.mb-set-row\.is-child[^{]*\{[^}]*padding-left:\s*calc/)
+    const mobileSpace = css.match(/:is\(\.mb-set-page, \.mb-set-config\)\[data-device='mobile'\] \.mb-set-child-space\s*\{[^}]*\}/)?.[0] ?? ''
+    const mobileFold = css.match(/:is\(\.mb-set-page, \.mb-set-config\)\[data-device='mobile'\] \.mb-set-fold\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(mobileSpace).toContain('var(--mb-btn-h-lg)')
+    expect(mobileFold).toContain('var(--mb-btn-h-lg)')
+    const childName = css.match(/\.mb-set-row\.is-child \.mb-set-name\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(childName).toContain('font-weight: 400')
+    expect(childName).not.toContain('color:')
 
     const accounts = files.find((entry) => rel(entry.file).endsWith('ledger-config/AccountsSection.tsx'))?.source ?? ''
     const childRow = accounts.slice(accounts.indexOf('mb-set-row is-child'))
     expect(childRow.slice(0, 600)).toContain('mb-set-icon')
+
+    // ⋯ 按钮必须清掉 shared Button 的内距 / min-height，否则 18px 图标被挤成竖线。
+    const more = css.match(/(?:^|\n)\.mb-set-more\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(more).toMatch(/padding:\s*0/)
+    expect(more).toMatch(/min-height:\s*0/)
+    expect(css).not.toContain('mb-set-menu-hint')
+
+    for (const name of ['CategoriesSection.tsx', 'AccountsSection.tsx', 'CashflowSection.tsx']) {
+      const section = files.find((entry) => rel(entry.file).endsWith(`ledger-config/${name}`))?.source ?? ''
+      // 手柄统一放在行尾：RowMenu 之后才是 mb-set-drag。
+      expect(section, `${name} 拖拽手柄必须在行尾`).toMatch(/<RowMenu[\s\S]*?\/>\s*<span className="mb-set-drag"/)
+      expect(section, `${name} 菜单不得带补充说明`).not.toContain('hint:')
+    }
+    const menu = files.find((entry) => rel(entry.file).endsWith('ledger-config/RowMenu.tsx'))?.source ?? ''
+    expect(menu).not.toContain('hint')
+
+    // 现金流固定一级分组共用同一行组件：有图标、无 ⋯ 菜单，不再用 is-group 单独皮肤。
+    const cashflow = files.find((entry) => rel(entry.file).endsWith('ledger-config/CashflowSection.tsx'))?.source ?? ''
+    expect(cashflow).toContain('function FixedGroupRow')
+    expect(cashflow).toContain('ACTIVITY_ICONS')
+    expect(cashflow).toContain('ASSET_MARK_ICONS')
+    const groupBody = cashflow.slice(cashflow.indexOf('function FixedGroupRow'), cashflow.indexOf('interface CashflowSectionProps'))
+    expect(groupBody).toContain('mb-set-icon')
+    expect(groupBody).toContain('mb-set-drag')
+    expect(groupBody).not.toContain('RowMenu')
+    expect(cashflow).not.toContain('is-group')
+    expect(css).not.toContain('.mb-set-row.is-group')
   })
 })

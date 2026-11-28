@@ -67,6 +67,7 @@ export function LedgerConfigSection({
           onTabChange={controller.setCategoryTab}
           expandedKeys={controller.expandedKeys}
           onToggleExpanded={controller.toggleExpanded}
+          onSetGroupsExpanded={controller.setGroupsExpanded}
           menuOpen={controller.menuOpen}
           onMenuOpen={controller.setMenuOpen}
           confirming={controller.confirming}
